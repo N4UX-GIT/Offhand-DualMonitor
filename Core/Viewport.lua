@@ -59,23 +59,49 @@ function Viewport:ApplyGlobalScale()
     local db=Offhand.db
     if not db then return end
     if not db.enabled then
-        if self.originalScale then
-            local original=self.originalScale
-            self.originalScale=nil
+        if self.originalScale or db.originalUiScale then
             self.scaling=true
-            local ok,err=pcall(function() UIParent:SetScale(original) end)
+            pcall(function() 
+                if db.originalUiScale then
+                    if SetCVar then SetCVar("uiScale", db.originalUiScale) end
+                    UIParent:SetScale(tonumber(db.originalUiScale) or 1)
+                elseif self.originalScale then
+                    UIParent:SetScale(self.originalScale)
+                end
+                
+                if db.originalUseUiScale then
+                    if SetCVar then SetCVar("useUiScale", db.originalUseUiScale) end
+                end
+            end)
+            self.originalScale = nil
+            db.originalUiScale = nil
+            db.originalUseUiScale = nil
             self.scaling=false
-            if not ok then error(err) end
         end
         return
     end
     local m=self:GetMetrics()
     local desired=math.min(m.gamePixelHeight/m.physicalHeight,
         m.gamePixelWidth*768/(1100*m.physicalHeight)) * Number(db.hudScale,0.70,0.25,1.25)
-    if not self.originalScale then self.originalScale=UIParent:GetScale() end
-    if math.abs(UIParent:GetScale()-desired)<0.00001 then return end
+    
+    if not self.originalScale and not db.originalUiScale then 
+        self.originalScale = UIParent:GetScale() 
+        if GetCVar then
+            db.originalUiScale = GetCVar("uiScale")
+            db.originalUseUiScale = GetCVar("useUiScale")
+        end
+    end
+    
+    local cvarScale = GetCVar and tonumber(GetCVar("uiScale")) or 1
+    if math.abs(UIParent:GetScale()-desired)<0.00001 and math.abs(cvarScale - desired) < 0.00001 then return end
     self.scaling=true
-    local ok,err=pcall(function() UIParent:SetScale(desired) end)
+    local ok,err=pcall(function() 
+        if GetCVar and GetCVar("useUiScale") ~= "1" then
+            if SetCVar then SetCVar("useUiScale", "1") end
+        end
+        if SetCVar then SetCVar("uiScale", desired) end
+        UIParent:SetScale(desired) 
+    end)
     self.scaling=false
     if not ok then error(err) end
 end

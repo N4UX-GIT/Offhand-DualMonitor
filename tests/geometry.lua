@@ -8,6 +8,15 @@ UIParent = {GetWidth=function() return pw/ph*768/uiScale end,
     GetEffectiveScale=function() return uiScale end}
 GetPhysicalScreenSize=function() return pw,ph end
 InCombatLockdown=function() return false end
+local cvars = { useUiScale = "1" }
+GetCVar = function(name) 
+    if name == "uiScale" then return tostring(uiScale) end
+    return cvars[name] 
+end
+SetCVar = function(name, value) 
+    if name == "uiScale" then uiScale = tonumber(value) or uiScale end
+    cvars[name] = tostring(value) 
+end
 local function frame(parent, w, h)
     local f={parent=parent, scale=1, width=w or 100, height=h or 50, points={}}
     function f:GetFrameLevel() return self.level or 1 end
@@ -195,5 +204,6 @@ for i=1,100 do addon.Viewport:ApplyGlobalScale() end
 assert(writes==1,"unchanged global scale was rewritten")
 combat=true;addon.db.hudScale=0.65;addon.Viewport:ApplyGlobalScale();assert(writes==1)
 combat=false;addon.Viewport:ApplyGlobalScale();assert(writes==2)
-addon.db.enabled=false;addon.Viewport:ApplyGlobalScale();near(uiScale,original)
+addon.db.enabled=false;addon.Viewport:ApplyGlobalScale();
+near(uiScale,original)
 print("PASS: inherited global baseline, addon relative scales, no repeated writes, recursion/combat guards, restore")
