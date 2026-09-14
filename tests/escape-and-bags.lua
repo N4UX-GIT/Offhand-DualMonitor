@@ -308,9 +308,8 @@ local bp = ContainerFrame1.points[#ContainerFrame1.points]
 assert(bp[1] == "BOTTOMRIGHT", "ContainerFrame1 must be anchored BOTTOMRIGHT")
 assert(bp[4] == metrics.gameRight - 16, "ContainerFrame1 x must be anchored to gaming monitor right edge")
 
--- TEST 8: UIPanel LEFT_OFFSET must be set to the workspace left edge so panels open on the workspace
-local deckLeft = addon.db.primaryPosition == "LEFT" and (metrics.gameRight + 12) or 0
-assert(UIParent:GetAttribute("LEFT_OFFSET") == deckLeft, "UIParent LEFT_OFFSET must match deck left edge")
+-- TEST 8: UIPanel LEFT_OFFSET must be set to m.gameLeft + 16 so panels open on the gaming monitor with padding
+assert(UIParent:GetAttribute("LEFT_OFFSET") == metrics.gameLeft + 16, "UIParent LEFT_OFFSET must match gameLeft + 16")
 
 -- TEST 9: WorldMapFrame auto-fit to workspace width & persistence on Escape
 WorldMapFrame:Show()

@@ -364,13 +364,13 @@ function HUD:HookFrames()
         if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
         local m = Offhand.Viewport:GetMetrics()
         if m and m.isSpanned and UIParent.SetAttribute then
-            -- Anchor standard UIPanels (Gossip, Character, Spellbook) to the Workspace monitor
-            local left = Offhand.db.primaryPosition == "LEFT" and (m.gameRight + 12) or 0
+            -- Default blizzard panels to the Game World monitor, but add standard 16px left padding
+            -- and preserve Blizzard's native -104px top padding (so they don't jam into the absolute corner)
+            local left = (m.gameLeft or 0) + 16
             UIParent:SetAttribute("LEFT_OFFSET", left)
+            
             local topDelta = (UIParent:GetHeight() or 0) - (m.gameTop or 0)
-            if topDelta > 0 then
-                UIParent:SetAttribute("TOP_OFFSET", -topDelta)
-            end
+            UIParent:SetAttribute("TOP_OFFSET", -104 - (topDelta > 0 and topDelta or 0))
         end
     end
 

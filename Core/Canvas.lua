@@ -513,8 +513,12 @@ OnPanelDragStop = function(frame)
                 Offhand.HUD:AlignHUDFrames()
             end
         else
+            pcall(function() frame:SetUserPlaced(false) end)
             RemodalizePanel(frame)
             RegisterSpecialFrame(name)
+            if UpdateUIPanelPositions then
+                pcall(UpdateUIPanelPositions, frame)
+            end
         end
     end
 
