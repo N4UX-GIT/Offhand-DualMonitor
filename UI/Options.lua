@@ -716,7 +716,7 @@ function Options:CreateFloatingPanel()
     end
 
     Offhand.Themes:ApplyBackdrop(configFrame, (Offhand.db and Offhand.db.theme) or "CLASSIC", 0.98)
-    configFrame.header = Offhand.Themes:CreateBayHeader(configFrame, "Offhand DUAL MONITOR WORKSTATION")
+    configFrame.header = Offhand.Themes:CreateBayHeader(configFrame, "Offhand  |cff888888—|r  Dual Monitor Workspace")
 
     local closeBtn = CreateFrame("Button", nil, configFrame.header, "UIPanelCloseButton")
     closeBtn:SetSize(28, 28)
@@ -988,7 +988,7 @@ function Options:CreateFloatingPanel()
     )
     rFill:SetPoint("TOPLEFT", 380, -26)
 
-    local seamSlider = CreateNativeSlider(card1_2, "Bezel Seam Width (% of Window)", 0.15, 0.80, 0.005,
+    local seamSlider = CreateNativeSlider(card1_2, "Bezel Seam Width (%)", 0.15, 0.80, 0.005,
         function() return (Offhand.db and Offhand.db.deckWidthRatio) or 0.36 end,
         function(val)
             Offhand.db.deckWidthRatio = val
@@ -1083,7 +1083,7 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     local card2_1 = CreateCard(tab2, "World Map Scaling & Navigation", 0, 150)
 
-    local mapScaleSlider = CreateNativeSlider(card2_1, "Workspace Map Scale (% of Native)", 0.50, 2.50, 0.05,
+    local mapScaleSlider = CreateNativeSlider(card2_1, "Map Scale (% of Native)", 0.50, 2.50, 0.05,
         function()
             local s = Offhand.db and Offhand.db.workspaceMapScale
             if s == "AUTO" then
@@ -1422,7 +1422,7 @@ function Options:CreateFloatingPanel()
     Options:UpdateTrimHighlights()
 
 
-    local card3_3 = CreateCard(tab3, "Workspace Canvas Background (Secondary Monitor)", -224, 174)
+    local card3_3 = CreateCard(tab3, "Workspace Canvas Background (Secondary Monitor)", -224, 210)
 
     local canvasButtons = {
         { "CLASSIC_STONE", "Classic Stone" },
@@ -1488,8 +1488,8 @@ function Options:CreateFloatingPanel()
 
     -- Live Workspace Canvas Swatch Preview (Interactive click-to-pick)
     local swatchCard = CreateFrame("Frame", nil, card3_3, "BackdropTemplate")
-    swatchCard:SetSize(310, 40)
-    swatchCard:SetPoint("TOPLEFT", 350, -88)
+    swatchCard:SetSize(300, 36)
+    swatchCard:SetPoint("TOPLEFT", 12, -84)
     if swatchCard.EnableMouse then swatchCard:EnableMouse(true) end
     swatchCard:SetScript("OnMouseDown", OpenCustomCanvasPicker)
     if Offhand.SetTooltip then
@@ -1547,7 +1547,7 @@ function Options:CreateFloatingPanel()
         end
     end
 
-    alphaSlider = CreateNativeSlider(card3_3, "Workspace Background Opacity", 0.10, 1.0, 0.05,
+    alphaSlider = CreateNativeSlider(card3_3, "Background Opacity", 0.10, 1.0, 0.05,
         function() return (Offhand.db and Offhand.db.canvasAlpha) or 0.95 end,
         function(val)
             Offhand.db.canvasAlpha = val
@@ -1559,11 +1559,11 @@ function Options:CreateFloatingPanel()
         "%.0f%%",
         L["SLIDER_CANVAS_OPACITY_TIP_TITLE"], L["SLIDER_CANVAS_OPACITY_TIP_DESC"]
     )
-    alphaSlider:SetPoint("TOPLEFT", 12, -92)
+    alphaSlider:SetPoint("TOPLEFT", 12, -134)
     alphaSlider:SetWidth(320)
 
     local themeNote = card3_3:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    themeNote:SetPoint("TOPLEFT", 12, -144)
+    themeNote:SetPoint("TOPLEFT", 12, -168)
     themeNote:SetText("|cff888888Colors & opacity apply live to your secondary screen canvas backdrop. Click preview swatch or Custom for color wheel.|r")
 
     -- ========================================================================
@@ -1737,8 +1737,8 @@ function Options:CreateFloatingPanel()
     function Options:RefreshPanel()
         if not configFrame then return end
         local info = Options:DetectTopology()
-        banner:SetText(string.format("|cffffd100Display:|r %s  |cffffd100Window:|r %dx%d (AR %.2f:1)",
-            info.description, info.physWidth, info.physHeight, info.aspectRatio))
+        banner:SetText(string.format("|cffffd100Display:|r %s  |cff888888(%dx%d)|r",
+            info.description, info.physWidth, info.physHeight))
 
         local curSeam = (Offhand.db and Offhand.db.deckWidthRatio) or 0.36
         seamSlider:SetValue(curSeam)

@@ -281,7 +281,7 @@ function Themes:CreateBayHeader(parent, titleText, customHeight)
     if icon and icon.SetTexture and icon.SetSize and icon.SetPoint then
         icon:SetSize(24, 24)
         icon:SetPoint("LEFT", header, "LEFT", 10, 0)
-        icon:SetTexture("Interface\\AddOns\\Offhand\\Media\\Offhand-logo")
+        icon:SetTexture("Interface\\AddOns\\Offhand\\Media\\offhand-icon")
         header.icon = icon
         iconOffset = 40
     end

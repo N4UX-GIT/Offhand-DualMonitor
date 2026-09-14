@@ -126,7 +126,7 @@ function Wizard:CreateFrame()
     if logoIcon and logoIcon.SetSize and logoIcon.SetPoint and logoIcon.SetTexture then
         logoIcon:SetSize(38, 38)
         logoIcon:SetPoint("TOPLEFT", 14, -28)
-        logoIcon:SetTexture("Interface\\AddOns\\Offhand\\Media\\Offhand-logo")
+        logoIcon:SetTexture("Interface\\AddOns\\Offhand\\Media\\offhand-icon")
         card1.logoIcon = logoIcon
         textLeft = 60
     end
@@ -293,9 +293,12 @@ function Wizard:CreateFrame()
         Offhand:SetTooltip(seamEditBox, L["WIZARD_SEAM_EDIT_TIP_TITLE"], L["WIZARD_SEAM_EDIT_TIP_DESC"])
     end
 
-    local seamValText = card3:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    seamValText:SetPoint("LEFT", seamEditBox, "RIGHT", 8, 0)
-    seamValText:SetText(string.format(L["WIZARD_SEAM_VAL_FMT"], ((Offhand.db and Offhand.db.deckWidthRatio) or 0.36) * 100))
+    -- seamValText: lightweight stub without visual output — the editBox already shows the value.
+    -- Kept as a real object so tests and UpdateState calls remain compatible.
+    local seamValTextStub = { _text = "" }
+    seamValTextStub.SetText = function(self, t) self._text = t or "" end
+    seamValTextStub.GetText = function(self) return self._text end
+    local seamValText = seamValTextStub
     f.seamValText = seamValText
 
     -- Seam Slider
@@ -513,9 +516,12 @@ function Wizard:CreateFrame()
         Offhand:SetTooltip(scaleEditBox, L["WIZARD_SCALE_EDIT_TIP_TITLE"], L["WIZARD_SCALE_EDIT_TIP_DESC"])
     end
 
-    local scaleValText = card4:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    scaleValText:SetPoint("LEFT", scaleEditBox, "RIGHT", 8, 0)
-    scaleValText:SetText(string.format(L["WIZARD_SCALE_VAL_FMT"], ((Offhand.db and Offhand.db.hudScale) or 0.70) * 100))
+    -- scaleValText: lightweight stub without visual output — the editBox already shows the value.
+    -- Kept as a real object so tests and UpdateState calls remain compatible.
+    local scaleValTextStub = { _text = "" }
+    scaleValTextStub.SetText = function(self, t) self._text = t or "" end
+    scaleValTextStub.GetText = function(self) return self._text end
+    local scaleValText = scaleValTextStub
     f.scaleValText = scaleValText
 
     -- Continuous UI Scale Slider
@@ -814,8 +820,8 @@ function Wizard:Open()
 
     local info = self:DetectTopology()
 
-    f.topoText:SetText(string.format("|cffffd100%s|r %s (%dx%d, AR %.2f:1)",
-        L["WIZARD_DETECTED_PREFIX"], info.description, info.physWidth, info.physHeight, info.aspectRatio))
+    f.topoText:SetText(string.format("|cffffd100%s|r %s  |cff888888%dx%d|r",
+        L["WIZARD_DETECTED_PREFIX"], info.description, info.physWidth, info.physHeight))
 
     f.recomText:SetText(string.format("|cffffd100%s|r %s | Seam: %.1f%% | Viewport: %s",
         L["WIZARD_RECOM_PREFIX"],
