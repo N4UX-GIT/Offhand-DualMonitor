@@ -72,6 +72,9 @@ function Viewport:ApplyGlobalScale()
                 if db.originalUseUiScale then
                     if SetCVar then SetCVar("useUiScale", db.originalUseUiScale) end
                 end
+                if WorldFrame and WorldFrame.SetScale then
+                    WorldFrame:SetScale(1)
+                end
             end)
             self.originalScale = nil
             db.originalUiScale = nil
@@ -101,6 +104,9 @@ function Viewport:ApplyGlobalScale()
         end
         if SetCVar then SetCVar("uiScale", desired) end
         UIParent:SetScale(desired) 
+        if WorldFrame and WorldFrame.SetScale then
+            WorldFrame:SetScale(desired)
+        end
     end)
     self.scaling=false
     if not ok then error(err) end

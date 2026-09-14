@@ -363,7 +363,8 @@ function HUD:HookFrames()
         if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
         local m = Offhand.Viewport:GetMetrics()
         if m and m.isSpanned and UIParent.SetAttribute then
-            local left = m.gameLeft or 0
+            -- Anchor standard UIPanels (Gossip, Character, Spellbook) to the Workspace monitor
+            local left = Offhand.db.primaryPosition == "LEFT" and (m.gameRight + 12) or 0
             UIParent:SetAttribute("LEFT_OFFSET", left)
             local topDelta = (UIParent:GetHeight() or 0) - (m.gameTop or 0)
             if topDelta > 0 then
