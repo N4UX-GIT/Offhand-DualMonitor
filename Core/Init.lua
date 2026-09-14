@@ -627,10 +627,8 @@ SlashCmdList["OFFHAND"] = function(msg)
             Offhand.Options:Open()
         end
     elseif msg == "span" or msg == "guide" then
-        if Offhand.Options and Offhand.Options.ShowSetupGuide then
-            Offhand.Options:ShowSetupGuide()
-        else
-            Offhand:Print(L["MSG_SPAN_GUIDE"])
+        if Offhand.Wizard and Offhand.Wizard.Open then
+            Offhand.Wizard:Open()
         end
     else
         if Offhand.Options and Offhand.Options.Open then

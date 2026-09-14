@@ -1108,7 +1108,7 @@ function Options:CreateFloatingPanel()
         L["SLIDER_MINIMAP_SCALE_TIP_TITLE"], "Adjusts the scale of the World Map on your secondary workstation canvas."
     )
     mapScaleSlider:SetPoint("TOPLEFT", 12, -54)
-    mapScaleSlider:SetWidth(380)
+    mapScaleSlider:SetWidth(290)
 
     local autoFitBtn = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
     autoFitBtn:SetSize(72, 22)
@@ -1241,12 +1241,6 @@ function Options:CreateFloatingPanel()
     bezelSlider:SetPoint("TOPLEFT", 12, -54)
     bezelSlider:SetWidth(290)
 
-    local guideLinkBtn = CreateFrame("Button", nil, card2_3, "UIPanelButtonTemplate")
-    guideLinkBtn:SetSize(240, 24)
-    guideLinkBtn:SetPoint("TOPLEFT", 350, -44)
-    guideLinkBtn:SetText(L["BTN_GUIDE_LINK"])
-    guideLinkBtn:SetScript("OnClick", function() Options:ShowSetupGuide() end)
-    if Offhand.SetTooltip then Offhand:SetTooltip(guideLinkBtn, L["BTN_GUIDE_LINK_TIP_TITLE"], L["BTN_GUIDE_LINK_TIP_DESC"]) end
 
     local bezelNote = card2_3:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     bezelNote:SetPoint("TOPLEFT", 12, -76)
@@ -1630,7 +1624,11 @@ function Options:CreateFloatingPanel()
     local createBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
     createBtn:SetSize(80, 26)
     createBtn:SetPoint("LEFT", createEditBox, "RIGHT", 4, 0)
-    createBtn:SetText(L["PROFILES_BTN_CREATE"] or "Create")
+    createBtn:SetText(L["PROFILES_BTN_CREATE"] or "Save As")
+
+    local autoSaveNote = card4_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    autoSaveNote:SetPoint("TOPLEFT", profileScroll, "BOTTOMLEFT", 0, -56)
+    autoSaveNote:SetText("|cff888888Note: Settings are automatically saved to your Active Profile as you change them.|r")
 
     function Options:UpdateProfileList()
         local profiles = Offhand.GetProfiles and Offhand:GetProfiles() or {"Default"}
@@ -1847,86 +1845,7 @@ function Options:Close()
     end
 end
 
--- ============================================================================
--- Setup & Spanning Guide Window
--- ============================================================================
-function Options:ShowSetupGuide()
-    if not setupFrame then
-        setupFrame = CreateFrame("Frame", "OffhandSetupGuideFrame", UIParent, "BackdropTemplate")
-        setupFrame:SetSize(620, 500)
-        setupFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-        setupFrame:SetFrameStrata("DIALOG")
-        setupFrame:EnableMouse(true)
-        setupFrame:SetMovable(true)
-        setupFrame:RegisterForDrag("LeftButton")
-        setupFrame:SetScript("OnDragStart", setupFrame.StartMoving)
-        setupFrame:SetScript("OnDragStop", setupFrame.StopMovingOrSizing)
-
-        if tinsert and UISpecialFrames then
-            tinsert(UISpecialFrames, "OffhandSetupGuideFrame")
-        end
-
-        Offhand.Themes:ApplyBackdrop(setupFrame, "OBSIDIAN", 0.98)
-        Offhand.Themes:CreateBayHeader(setupFrame, "Offhand WINDOW SPANNING GUIDE")
-
-        local closeBtn = CreateFrame("Button", nil, setupFrame, "UIPanelCloseButton")
-        closeBtn:SetPoint("TOPRIGHT", setupFrame, "TOPRIGHT", -4, -4)
-
-        local scrollFrame = CreateFrame("ScrollFrame", nil, setupFrame, "UIPanelScrollFrameTemplate")
-        scrollFrame:SetPoint("TOPLEFT", 16, -36)
-        scrollFrame:SetPoint("BOTTOMRIGHT", -32, 16)
-
-        local content = CreateFrame("Frame", nil, scrollFrame)
-        content:SetSize(560, 680)
-        scrollFrame:SetScrollChild(content)
-
-        local guideText = content:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        guideText:SetPoint("TOPLEFT", 0, 0)
-        guideText:SetWidth(560)
-        guideText:SetJustifyH("LEFT")
-        guideText:SetText([[
-|cff00ccffHow to Span WoW Across Mixed Vertical + Horizontal Displays|r
-
-|cff00ff00Borderless Window Spanning|r
-The companion sizes WoW to the Windows virtual desktop. Set display orientation
-and placement in Windows first; the addon cannot measure individual monitors.
-
-|cffffcc00Step 1: Set WoW to Windowed Mode|r
-In WoW, open Graphics settings and select Windowed display mode.
-
-|cffffcc00Step 2: Span the Window|r
-While WoW is open, run the Offhand Companion (Offhand.exe) or borderless window tool.
-The resulting canvas size depends on your Windows display arrangement.
-
-|cffffcc00Step 3: Calibrate the Game View|r
-Type /Offhand to open the settings dashboard.
-A 1440-pixel left display within a 4000-pixel span uses 36% deck width.
-Choose 16:9 for a 2560x1440 game view when the remaining width is 2560 pixels.
-Use the Red Seam Guide laser to align the seam exactly with your physical bezel.
-
-|cffffcc00Step 4: Adjust HUD and Vertical Alignment|r
-Global UI size is based on the game view; 70% is the standard default.
-Use the Game bottom offset control, or /Offhand bottom <pixels>, for vertical alignment.
-Use 0 for aligned bottom edges; the measured test setup uses 6.
-
-Type /Offhand to return to settings anytime.
-Type /Offhand diag to report the actual game rectangle in physical pixels.
-]])
-    end
-
-    local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
-    if m and m.gameWidth and m.gameWidth > 0 then
-        local cx = (m.gameLeft + m.gameRight) / 2
-        local cy = (m.gameBottom + m.gameTop) / 2
-        setupFrame:ClearAllPoints()
-        setupFrame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx, cy)
-    else
-        setupFrame:ClearAllPoints()
-        setupFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-    end
-
-    setupFrame:Show()
-end
+--
 
 function Offhand:InitializeOptions()
     -- Options ready
