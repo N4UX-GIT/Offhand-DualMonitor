@@ -402,6 +402,7 @@ local eventFrame = CreateFrame("Frame", "OffhandEventFrame")
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+eventFrame:RegisterEvent("PLAYER_LEAVING_WORLD")
 eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 eventFrame:RegisterEvent("UI_SCALE_CHANGED")
@@ -448,7 +449,16 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 Offhand:Print(L["MSG_FIRST_RUN"])
             end)
         end
-
+    elseif event == "PLAYER_LEAVING_WORLD" then
+        if Offhand.db and Offhand.db.enabled and Offhand.db.savedWorkspacePositions then
+            Offhand.db.openWorkspacePanels = {}
+            for name, _ in pairs(Offhand.db.savedWorkspacePositions) do
+                local frame = _G[name]
+                if frame and frame:IsVisible() then
+                    Offhand.db.openWorkspacePanels[name] = true
+                end
+            end
+        end
     elseif event == "PLAYER_ENTERING_WORLD" then
         -- Refresh viewport and layout after zone transition or loading screen
         C_Timer.After(0.5, function()

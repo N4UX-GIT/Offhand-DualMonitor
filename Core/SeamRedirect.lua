@@ -129,7 +129,7 @@ function HUD:AlignChatFrame(m)
         end
     end
     Prepare(chat, m)
-    if chat.IsUserPlaced and chat:IsUserPlaced() then return end
+    if chat.IsUserPlaced and chat:IsUserPlaced() and Offhand.db.chatPosition ~= "DECK" then return end
     if chat ~= ChatFrame1 and not hooks[chat] then
         hooks[chat] = true
         hooksecurefunc(chat, "SetPoint", function()
@@ -139,6 +139,7 @@ function HUD:AlignChatFrame(m)
         end)
     end
     if Offhand.db.chatPosition == "DECK" and Offhand.canvas then
+        pcall(function() chat:SetUserPlaced(false) end)
         local x = Offhand.db.primaryPosition == "LEFT" and m.gameRight + m.bezel or 0
         ScreenPoint(chat, "BOTTOMLEFT",
             x + 24 * m.hudScale, 45 * m.hudScale)

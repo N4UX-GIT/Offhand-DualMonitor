@@ -167,33 +167,36 @@ function Canvas:RestorePersistentFrames()
     if not Offhand.db or not Offhand.db.enabled or Offhand.db.persistentWorkspacePanels == false then return end
     if not Offhand.db.savedWorkspacePositions then return end
     
+    local hasBag = false
+    local openPanels = Offhand.db.openWorkspacePanels or {}
+    
     for name, _ in pairs(Offhand.db.savedWorkspacePositions) do
         local frame = _G[name]
-        -- Handle World Map
-        if name == "WorldMapFrame" and frame and not frame:IsShown() then
-            if ToggleWorldMap then
-                ToggleWorldMap()
-            elseif frame.Show then
+        if frame and not frame:IsShown() and openPanels[name] then
+            if name == "WorldMapFrame" then
+                if ToggleWorldMap then
+                    ToggleWorldMap()
+                else
+                    frame:Show()
+                end
+            elseif name:match("^ContainerFrame") then
+                hasBag = true
+            elseif name == "ChatFrame1" then
+                -- Chat frames usually handle themselves, but just in case
                 frame:Show()
+            else
+                -- Generic UIPanels (Character, Quest, Guild, etc.)
+                if ShowUIPanel and (UIPanelWindows and UIPanelWindows[name]) then
+                    ShowUIPanel(frame)
+                elseif frame.Show then
+                    frame:Show()
+                end
             end
-        end
-        -- Handle Bags
-        if name:match("^ContainerFrame") and frame and not frame:IsShown() then
-            -- Determine bag ID from frame name if possible (usually ContainerFrame1 is Backpack, etc)
-            -- A simpler approach is just to open all bags if any bag was in the workspace, or just try to show the frame directly.
-            -- However, bags are dynamically populated. We should use OpenAllBags() if there were bags open.
-            -- Wait, if they only had one bag open, we shouldn't open all. But to be safe, we can just call OpenAllBags.
-            -- Actually, if we just call frame:Show(), it won't populate the items correctly in WoW Classic.
         end
     end
     
-    -- Robust Bag Restoration: If any ContainerFrame was in the workspace, open all bags
-    local hasBag = false
-    for name, _ in pairs(Offhand.db.savedWorkspacePositions) do
-        if name:match("^ContainerFrame") then hasBag = true break end
-    end
-    if hasBag then
-        if OpenAllBags then OpenAllBags() end
+    if hasBag and OpenAllBags then 
+        OpenAllBags() 
     end
 end
 
