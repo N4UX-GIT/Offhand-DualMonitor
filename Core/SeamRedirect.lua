@@ -309,7 +309,8 @@ function HUD:HookFrames()
     -- Center Game Menu (Escape menu), AddonList, and settings panels onto the primary game monitor
     local menuFrameNames = {
         "GameMenuFrame", "SettingsPanel", "InterfaceOptionsFrame", "VideoOptionsFrame",
-        "AddonList", "KeyBindingFrame", "HelpFrame"
+        "AddonList", "KeyBindingFrame", "HelpFrame",
+        "BugSackFrame", "RedIsFriendFrame"
     }
 
     local function CenterGameMenu()
@@ -383,12 +384,28 @@ function HUD:HookFrames()
         end
         if ShowUIPanel then
             hooksecurefunc("ShowUIPanel", function(frame)
-                if frame then
-                    for _, name in ipairs(menuFrameNames) do
-                        if frame == _G[name] then
-                            CenterGameMenu()
-                            C_Timer.After(0, CenterGameMenu)
-                            break
+                if frame and not InCombatLockdown() and Offhand.db and Offhand.db.enabled then
+                    local name = frame.GetName and frame:GetName()
+                    if name then
+                        local isMenu = false
+                        for _, n in ipairs(menuFrameNames) do
+                            if n == name then isMenu = true; break end
+                        end
+                        
+                        local info = UIPanelWindows and UIPanelWindows[name]
+                        if isMenu or (info and info.area == "center") then
+                            local function DoCenter()
+                                if frame:IsShown() and not InCombatLockdown() then
+                                    local m = Offhand.Viewport:GetMetrics()
+                                    frame:ClearAllPoints()
+                                    local cx = (m.gameLeft + m.gameRight) / 2
+                                    local cy = (m.gameBottom + m.gameTop) / 2
+                                    local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
+                                    frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
+                                end
+                            end
+                            DoCenter()
+                            C_Timer.After(0, DoCenter)
                         end
                     end
                 end
