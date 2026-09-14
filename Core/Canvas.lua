@@ -139,6 +139,64 @@ function Canvas:UpdatePersistenceBehavior()
     end
 end
 
+-- Global Bag Closure Hook for Escape Persistence
+if CloseAllBags and not _G.Offhand_OriginalCloseAllBags then
+    _G.Offhand_OriginalCloseAllBags = CloseAllBags
+    CloseAllBags = function(...)
+        if Offhand.db and Offhand.db.enabled and Offhand.db.persistentWorkspacePanels ~= false then
+            local closedAny = false
+            for i = 1, NUM_CONTAINER_FRAMES or 13 do
+                local f = _G["ContainerFrame"..i]
+                if f and f:IsShown() then
+                    local name = f:GetName()
+                    -- If the bag is NOT in the workspace, close it
+                    if not (Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]) and not IsFrameOnWorkspace(f) then
+                        if f.Hide then f:Hide() end
+                        closedAny = true
+                    end
+                end
+            end
+            if closedAny then return true else return false end
+        else
+            return _G.Offhand_OriginalCloseAllBags(...)
+        end
+    end
+end
+
+function Canvas:RestorePersistentFrames()
+    if not Offhand.db or not Offhand.db.enabled or Offhand.db.persistentWorkspacePanels == false then return end
+    if not Offhand.db.savedWorkspacePositions then return end
+    
+    for name, _ in pairs(Offhand.db.savedWorkspacePositions) do
+        local frame = _G[name]
+        -- Handle World Map
+        if name == "WorldMapFrame" and frame and not frame:IsShown() then
+            if ToggleWorldMap then
+                ToggleWorldMap()
+            elseif frame.Show then
+                frame:Show()
+            end
+        end
+        -- Handle Bags
+        if name:match("^ContainerFrame") and frame and not frame:IsShown() then
+            -- Determine bag ID from frame name if possible (usually ContainerFrame1 is Backpack, etc)
+            -- A simpler approach is just to open all bags if any bag was in the workspace, or just try to show the frame directly.
+            -- However, bags are dynamically populated. We should use OpenAllBags() if there were bags open.
+            -- Wait, if they only had one bag open, we shouldn't open all. But to be safe, we can just call OpenAllBags.
+            -- Actually, if we just call frame:Show(), it won't populate the items correctly in WoW Classic.
+        end
+    end
+    
+    -- Robust Bag Restoration: If any ContainerFrame was in the workspace, open all bags
+    local hasBag = false
+    for name, _ in pairs(Offhand.db.savedWorkspacePositions) do
+        if name:match("^ContainerFrame") then hasBag = true break end
+    end
+    if hasBag then
+        if OpenAllBags then OpenAllBags() end
+    end
+end
+
 function Canvas:ConfigureWorldMap()
     local map = WorldMapFrame
     if not map or HasLeatrixMaps() or not Offhand.db or not Offhand.db.enabled then return end

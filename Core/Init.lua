@@ -453,6 +453,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         -- Refresh viewport and layout after zone transition or loading screen
         C_Timer.After(0.5, function()
             Offhand:ApplyFullLayout()
+            if Offhand.Canvas and Offhand.Canvas.RestorePersistentFrames then
+                Offhand.Canvas:RestorePersistentFrames()
+            end
         end)
 
     elseif event == "PLAYER_REGEN_ENABLED" then

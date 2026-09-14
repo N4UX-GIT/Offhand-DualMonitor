@@ -1157,7 +1157,7 @@ function Options:CreateFloatingPanel()
     if Offhand.SetTooltip then Offhand:SetTooltip(p250Btn, L["BTN_MAP_250_TIP_TITLE"], L["BTN_MAP_250_TIP_DESC"]) end
 
     local mapTip = card2_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    mapTip:SetPoint("TOPLEFT", 12, -76)
+    mapTip:SetPoint("TOPLEFT", 12, -88)
     mapTip:SetText("|cffffd100Map Zoom Tip:|r Hold |cffffffffCtrl + Mousewheel|r over the World Map to scale it in real-time!")
 
     local mapMoveCheck = CreateNativeCheckbox(card2_1, "Keep World Map open while running / walking",
@@ -1170,10 +1170,10 @@ function Options:CreateFloatingPanel()
         end,
         "Persistent Map Movement", "Prevents the World Map from closing automatically when your character moves."
     )
-    mapMoveCheck:SetPoint("TOPLEFT", 10, -98)
+    mapMoveCheck:SetPoint("TOPLEFT", 10, -112)
 
     local mapDesc = card2_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    mapDesc:SetPoint("TOPLEFT", 32, -124)
+    mapDesc:SetPoint("TOPLEFT", 32, -134)
     local hasLMap = C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("Leatrix_Maps") or (IsAddOnLoaded and IsAddOnLoaded("Leatrix_Maps"))
     if hasLMap then
         mapDesc:SetText("|cff00ff00Leatrix Maps detected:|r Compatible with Leatrix.")
@@ -1627,7 +1627,7 @@ function Options:CreateFloatingPanel()
     createBtn:SetText(L["PROFILES_BTN_CREATE"] or "Save As")
 
     local autoSaveNote = card4_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    autoSaveNote:SetPoint("TOPLEFT", profileScroll, "BOTTOMLEFT", 0, -56)
+    autoSaveNote:SetPoint("TOPLEFT", profileScroll, "BOTTOMLEFT", 0, -42)
     autoSaveNote:SetText("|cff888888Note: Settings are automatically saved to your Active Profile as you change them.|r")
 
     function Options:UpdateProfileList()
