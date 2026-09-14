@@ -457,10 +457,19 @@ OnPanelDragStop = function(frame)
         if Offhand.db.independentWorkspacePanels or frame == WorldMapFrame then
             -- Evict from Blizzard UIPanel slot if currently occupying one
             if GetUIPanel and (GetUIPanel("left") == frame or GetUIPanel("center") == frame or GetUIPanel("right") == frame or GetUIPanel("doublewide") == frame) then
+                local oldHide = frame:GetScript("OnHide")
+                local oldShow = frame:GetScript("OnShow")
+                if oldHide then frame:SetScript("OnHide", nil) end
+                if oldShow then frame:SetScript("OnShow", nil) end
+                
                 pcall(function() HideUIPanel(frame, 1) end)
+                
                 frame:ClearAllPoints()
                 frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
                 frame:Show()
+                
+                if oldHide then frame:SetScript("OnHide", oldHide) end
+                if oldShow then frame:SetScript("OnShow", oldShow) end
             end
             DemodalizePanel(frame)
         end
