@@ -524,6 +524,7 @@ local function CreateNativeSlider(parent, text, minVal, maxVal, step, getVal, se
     end)
 
     btnMinus:SetScript("OnClick", function()
+        if editBox.ClearFocus then editBox:ClearFocus() end
         local cur = slider:GetValue() or getVal()
         local stepAmount = step
         if IsShiftKeyDown and IsShiftKeyDown() then stepAmount = step * 5 end
@@ -534,6 +535,7 @@ local function CreateNativeSlider(parent, text, minVal, maxVal, step, getVal, se
     end)
 
     btnPlus:SetScript("OnClick", function()
+        if editBox.ClearFocus then editBox:ClearFocus() end
         local cur = slider:GetValue() or getVal()
         local stepAmount = step
         if IsShiftKeyDown and IsShiftKeyDown() then stepAmount = step * 5 end
@@ -576,6 +578,7 @@ local function CreateNativeSlider(parent, text, minVal, maxVal, step, getVal, se
     end
 
     slider:SetScript("OnMouseDown", function(self, button)
+        if editBox and editBox.ClearFocus then editBox:ClearFocus() end
         if button == "LeftButton" then
             StartCustomDrag(self)
         end
@@ -1105,7 +1108,7 @@ function Options:CreateFloatingPanel()
         L["SLIDER_MINIMAP_SCALE_TIP_TITLE"], "Adjusts the scale of the World Map on your secondary workstation canvas."
     )
     mapScaleSlider:SetPoint("TOPLEFT", 12, -54)
-    mapScaleSlider:SetWidth(270)
+    mapScaleSlider:SetWidth(380)
 
     local autoFitBtn = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
     autoFitBtn:SetSize(72, 22)
@@ -1559,11 +1562,11 @@ function Options:CreateFloatingPanel()
         "%.0f%%",
         L["SLIDER_CANVAS_OPACITY_TIP_TITLE"], L["SLIDER_CANVAS_OPACITY_TIP_DESC"]
     )
-    alphaSlider:SetPoint("TOPLEFT", 12, -134)
+    alphaSlider:SetPoint("TOPLEFT", 12, -154)
     alphaSlider:SetWidth(320)
 
     local themeNote = card3_3:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    themeNote:SetPoint("TOPLEFT", 12, -168)
+    themeNote:SetPoint("TOPLEFT", 12, -188)
     themeNote:SetText("|cff888888Colors & opacity apply live to your secondary screen canvas backdrop. Click preview swatch or Custom for color wheel.|r")
 
     -- ========================================================================
