@@ -119,7 +119,7 @@ function Wizard:CreateFrame()
     -- ========================================================================
     -- CARD 1: DISPLAY TOPOLOGY & 1-CLICK AUTO-SETUP
     -- ========================================================================
-    local card1 = CreateWizardCard(f, L["WIZARD_CARD1_TITLE"], -56, 132)
+    local card1 = CreateWizardCard(f, L["WIZARD_CARD1_TITLE"], -56, 144)
 
     local logoIcon = card1:CreateTexture(nil, "ARTWORK")
     local textLeft = 14
@@ -138,14 +138,14 @@ function Wizard:CreateFrame()
     f.topoText = topoText
 
     local recomText = card1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    recomText:SetPoint("TOPLEFT", textLeft, -48)
-    recomText:SetPoint("TOPRIGHT", -14, -48)
+    recomText:SetPoint("TOPLEFT", textLeft, -56)
+    recomText:SetPoint("TOPRIGHT", -14, -56)
     recomText:SetJustifyH("LEFT")
     f.recomText = recomText
 
     local autoBtn = CreateFrame("Button", nil, card1, "UIPanelButtonTemplate")
     autoBtn:SetSize(608, 28)
-    autoBtn:SetPoint("TOPLEFT", 14, -72)
+    autoBtn:SetPoint("TOPLEFT", 14, -84)
     autoBtn:SetText("|cff00ff00" .. L["WIZARD_BTN_AUTOCONFIG"] .. "|r")
     if Offhand.SetTooltip then
         Offhand:SetTooltip(autoBtn, L["WIZARD_BTN_AUTOCONFIG_TIP_TITLE"], L["WIZARD_BTN_AUTOCONFIG_TIP_DESC"])
@@ -153,8 +153,8 @@ function Wizard:CreateFrame()
     f.autoBtn = autoBtn
 
     local statusText = card1:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-    statusText:SetPoint("TOPLEFT", 14, -106)
-    statusText:SetPoint("TOPRIGHT", -14, -106)
+    statusText:SetPoint("TOPLEFT", 14, -118)
+    statusText:SetPoint("TOPRIGHT", -14, -118)
     statusText:SetJustifyH("CENTER")
     statusText:SetText(L["WIZARD_STATUS_READY"])
     f.statusText = statusText

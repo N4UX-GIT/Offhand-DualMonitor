@@ -124,7 +124,7 @@ function Offhand:CreateProfile(name)
     name = strtrim(name)
     if OffhandDB.profiles[name] then return false, L["PROFILES_WARN_EXISTS"] end
     
-    OffhandDB.profiles[name] = CopyDefaults(defaultSettings, {})
+    OffhandDB.profiles[name] = CopyDefaults(Offhand.db, {})
     self:SetProfile(name)
     Offhand:Print(L["MSG_PROFILE_CREATED"]:format(name))
     return true

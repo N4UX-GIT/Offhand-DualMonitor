@@ -998,7 +998,7 @@ function Options:CreateFloatingPanel()
         "%.1f%%",
         L["SLIDER_SEAM_WIDTH_TIP_TITLE"], L["SLIDER_SEAM_WIDTH_TIP_DESC"]
     )
-    seamSlider:SetPoint("TOPLEFT", 12, -64)
+    seamSlider:SetPoint("TOPLEFT", 12, -74)
     seamSlider:SetWidth(350)
 
     local p36Btn = CreateFrame("Button", nil, card1_2, "UIPanelButtonTemplate")
@@ -1035,7 +1035,7 @@ function Options:CreateFloatingPanel()
         L["SLIDER_HUD_SCALE_TIP_TITLE"], L["SLIDER_HUD_SCALE_TIP_DESC"]
     )
     hudSlider:SetPoint("TOPLEFT", 360, -46)
-    hudSlider:SetWidth(360)
+    hudSlider:SetWidth(200)
 
     local p56Btn = CreateFrame("Button", nil, card1_3, "UIPanelButtonTemplate")
     p56Btn:SetSize(56, 22)
@@ -1104,7 +1104,7 @@ function Options:CreateFloatingPanel()
         "%.0f%%",
         L["SLIDER_MINIMAP_SCALE_TIP_TITLE"], "Adjusts the scale of the World Map on your secondary workstation canvas."
     )
-    mapScaleSlider:SetPoint("TOPLEFT", 12, -44)
+    mapScaleSlider:SetPoint("TOPLEFT", 12, -54)
     mapScaleSlider:SetWidth(270)
 
     local autoFitBtn = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
@@ -1235,12 +1235,12 @@ function Options:CreateFloatingPanel()
         "%d px",
         L["SLIDER_BEZEL_GAP_TIP_TITLE"], L["SLIDER_BEZEL_GAP_TIP_DESC"]
     )
-    bezelSlider:SetPoint("TOPLEFT", 12, -44)
+    bezelSlider:SetPoint("TOPLEFT", 12, -54)
     bezelSlider:SetWidth(290)
 
     local guideLinkBtn = CreateFrame("Button", nil, card2_3, "UIPanelButtonTemplate")
     guideLinkBtn:SetSize(240, 24)
-    guideLinkBtn:SetPoint("TOPLEFT", 350, -38)
+    guideLinkBtn:SetPoint("TOPLEFT", 350, -44)
     guideLinkBtn:SetText(L["BTN_GUIDE_LINK"])
     guideLinkBtn:SetScript("OnClick", function() Options:ShowSetupGuide() end)
     if Offhand.SetTooltip then Offhand:SetTooltip(guideLinkBtn, L["BTN_GUIDE_LINK_TIP_TITLE"], L["BTN_GUIDE_LINK_TIP_DESC"]) end
@@ -1569,7 +1569,7 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 4: PROFILES
     -- ========================================================================
-    local card4_1 = CreateCard(tab4, L["PROFILES_LIST_TITLE"] or "Profiles", 0, 560)
+    local card4_1 = CreateCard(tab4, L["PROFILES_LIST_TITLE"] or "Profiles", 0, 480)
     
     local activeProfileLabel = card4_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightLarge")
     activeProfileLabel:SetPoint("TOPLEFT", 16, -24)
@@ -1577,7 +1577,7 @@ function Options:CreateFloatingPanel()
 
     local profileScroll = CreateFrame("ScrollFrame", "OffhandProfileScrollFrame", card4_1, "UIPanelScrollFrameTemplate")
     profileScroll:SetPoint("TOPLEFT", 16, -56)
-    profileScroll:SetSize(280, 420)
+    profileScroll:SetSize(280, 360)
     
     local profileScrollBG = CreateFrame("Frame", nil, profileScroll, "BackdropTemplate")
     profileScrollBG:SetPoint("TOPLEFT", -4, 4)
@@ -1651,12 +1651,13 @@ function Options:CreateFloatingPanel()
                 tex:Hide()
                 btn.highlight = tex
                 
-                btn:SetScript("OnClick", function()
-                    selectedProfileName = pName
+                btn:SetScript("OnClick", function(self)
+                    selectedProfileName = self.profileName
                     Options:UpdateProfileList()
                 end)
                 profileButtons[i] = btn
             end
+            btn.profileName = pName
             btn:SetPoint("TOPLEFT", profileScrollContent, "TOPLEFT", 4, yOffset)
             btn.text:SetText(pName)
             if pName == selectedProfileName then
