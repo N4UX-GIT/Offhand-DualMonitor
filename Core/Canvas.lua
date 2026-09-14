@@ -165,6 +165,7 @@ end
 
 function Canvas:RestorePersistentFrames()
     if not Offhand.db or not Offhand.db.enabled or Offhand.db.persistentWorkspacePanels == false then return end
+    if Offhand.db.restoreWorkspaceOnReload == false then return end
     if not Offhand.db.savedWorkspacePositions then return end
     
     local hasBag = false

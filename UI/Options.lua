@@ -1182,7 +1182,7 @@ function Options:CreateFloatingPanel()
     end
 
 
-    local card2_2 = CreateCard(tab2, "Workspace Window Management & Persistence", -164, 190)
+    local card2_2 = CreateCard(tab2, "Workspace Window Management & Persistence", -164, 220)
 
     local panelCheck = CreateNativeCheckbox(card2_2, "Keep panels placed on workspace open independently",
         function() return Offhand.db and Offhand.db.independentWorkspacePanels end,
@@ -1211,26 +1211,33 @@ function Options:CreateFloatingPanel()
     escapeDesc:SetPoint("TOPLEFT", 32, -92)
     escapeDesc:SetText("|cff888888Escape clears targets or opens Game Menu without closing workspace elements.|r")
 
+    local reloadCheck = CreateNativeCheckbox(card2_2, "Persist open panels across reloads & zone transitions",
+        function() return Offhand.db and Offhand.db.restoreWorkspaceOnReload ~= false end,
+        function(val) Offhand.db.restoreWorkspaceOnReload = val end,
+        "Reload Persistence", "Automatically re-opens any panels you had open on the workspace after a /reload or loading screen completes."
+    )
+    reloadCheck:SetPoint("TOPLEFT", 10, -114)
+
     local seamCheck = CreateNativeCheckbox(card2_2, "Reroute popups & dialogs away from center bezel",
         function() return Offhand.db and Offhand.db.seamRedirect end,
         function(val) Offhand.db.seamRedirect = val end,
         L["CHECK_SEAM_REDIRECT_TIP_TITLE"], L["CHECK_SEAM_REDIRECT_TIP_DESC"]
     )
-    seamCheck:SetPoint("TOPLEFT", 10, -114)
+    seamCheck:SetPoint("TOPLEFT", 10, -138)
 
     local forceCheck = CreateNativeCheckbox(card2_2, "Force Dual Mode (Preview on single display)",
         function() return (Offhand.db and Offhand.db.forceDualOnSingle) or false end,
         function(val) Offhand.db.forceDualOnSingle = val end,
         "Force Dual Mode", "Forces multi-monitor canvas logic on single-screen setups for testing and preview."
     )
-    forceCheck:SetPoint("TOPLEFT", 10, -138)
+    forceCheck:SetPoint("TOPLEFT", 10, -162)
 
     local compatDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    compatDesc:SetPoint("TOPLEFT", 12, -164)
+    compatDesc:SetPoint("TOPLEFT", 12, -188)
     card2_2.compatDesc = compatDesc
 
 
-    local card2_3 = CreateCard(tab2, "Bezel Compensation & Window Spanning", -366, 104)
+    local card2_3 = CreateCard(tab2, "Bezel Compensation & Window Spanning", -396, 104)
 
     local bezelSlider = CreateNativeSlider(card2_3, "Bezel Compensation Gap", 0, 100, 2,
         function() return (Offhand.db and Offhand.db.bezelGap) or 0 end,
@@ -1761,6 +1768,7 @@ function Options:CreateFloatingPanel()
         mapMoveCheck:SetChecked((Offhand.db and Offhand.db.preventMapCloseOnMove) or false)
         panelCheck:SetChecked((Offhand.db and Offhand.db.independentWorkspacePanels) or false)
         escapeCheck:SetChecked((Offhand.db and Offhand.db.persistentWorkspacePanels ~= false) or false)
+        reloadCheck:SetChecked((Offhand.db and Offhand.db.restoreWorkspaceOnReload ~= false) or false)
         forceCheck:SetChecked((Offhand.db and Offhand.db.forceDualOnSingle) or false)
 
         local curTheme = (Offhand.db and Offhand.db.theme) or "CLASSIC"

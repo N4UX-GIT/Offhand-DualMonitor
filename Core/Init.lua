@@ -450,7 +450,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             end)
         end
     elseif event == "PLAYER_LEAVING_WORLD" then
-        if Offhand.db and Offhand.db.enabled and Offhand.db.savedWorkspacePositions then
+        if Offhand.db and Offhand.db.enabled and Offhand.db.savedWorkspacePositions and Offhand.db.restoreWorkspaceOnReload ~= false then
             Offhand.db.openWorkspacePanels = {}
             for name, _ in pairs(Offhand.db.savedWorkspacePositions) do
                 local frame = _G[name]
@@ -458,6 +458,8 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                     Offhand.db.openWorkspacePanels[name] = true
                 end
             end
+        else
+            if Offhand.db then Offhand.db.openWorkspacePanels = {} end
         end
     elseif event == "PLAYER_ENTERING_WORLD" then
         -- Refresh viewport and layout after zone transition or loading screen
