@@ -196,7 +196,7 @@ assert(pt.x == 14 and pt.y == -14, "BayHeader TOPLEFT must be indented (14, -14)
 -- 3. Test Options Panel and Themed Slider Thumbs
 local configFrame = addon.Options:CreateFloatingPanel()
 assert(configFrame ~= nil, "Options floating panel must be created")
-assert(configFrame:GetHeight() == 680, "Options floating panel height must be 680px")
+assert(configFrame:GetHeight() == 732, "Options floating panel height must be 732px")
 
 -- Change trim color to CYAN_GLOW and check slider thumb tint
 addon.db.trimColor = "CYAN_GLOW"

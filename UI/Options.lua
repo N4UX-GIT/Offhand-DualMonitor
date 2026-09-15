@@ -713,7 +713,7 @@ function Options:CreateFloatingPanel()
     if configFrame then return configFrame end
 
     configFrame = CreateFrame("Frame", "OffhandFloatingConfigFrame", UIParent, "BackdropTemplate")
-    configFrame:SetSize(720, 680)
+    configFrame:SetSize(720, 732)
     configFrame:SetFrameStrata("DIALOG")
     configFrame:EnableMouse(true)
     configFrame:SetMovable(true)
