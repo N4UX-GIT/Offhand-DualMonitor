@@ -25,15 +25,34 @@ function CreateFrame(kind, name, parent, template)
         enabled = true,
         checked = false,
         val = 0.36,
+        children = {},
+        regions = {},
     }
+    if parent and type(parent) == "table" and parent.children then
+        table.insert(parent.children, f)
+    end
+    function f:GetChildren() return unpack(self.children) end
+    function f:GetRegions() return unpack(self.regions) end
+    function f:GetObjectType() return self.kind end
+    function f:GetLeft() return self.points["TOPLEFT"] and self.points["TOPLEFT"].x or 0 end
+    function f:GetRight() return (self:GetLeft() or 0) + (self.width or 0) end
+    function f:GetStringWidth() return string.len(self.text or "") * 6 end
+    function f:GetFontString() return { GetStringWidth = function() return string.len(self.text or "") * 6 end, SetTextColor = function() end } end
     function f:SetSize(w, h) self.width, self.height = w, h end
     function f:GetSize() return self.width, self.height end
     function f:GetWidth() return self.width or 0 end
     function f:GetHeight() return self.height or 0 end
     function f:SetWidth(w) self.width = w end
     function f:SetHeight(h) self.height = h end
+    function f:GetParent() return self.parent end
     function f:SetPoint(point, rel, relPoint, x, y)
-        self.points[point] = { rel = rel, relPoint = relPoint, x = x, y = y }
+        self.points[point] = { point = point, rel = rel, relPoint = relPoint, x = x, y = y }
+        self.firstPoint = self.points[point]
+    end
+    function f:GetPoint(index)
+        if self.firstPoint then
+            return self.firstPoint.point, self.firstPoint.rel, self.firstPoint.relPoint, self.firstPoint.x, self.firstPoint.y
+        end
     end
     function f:ClearAllPoints() self.points = {} end
     function f:SetAutoFocus() end

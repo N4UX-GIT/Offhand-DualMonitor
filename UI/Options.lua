@@ -869,6 +869,96 @@ function Options:CreateFloatingPanel()
         end
     end
 
+    function Options:ReflowLayout()
+        -- Group cards by tab
+        local tabCards = {}
+        for _, card in ipairs(registeredCards) do
+            local parent = card:GetParent()
+            if not tabCards[parent] then tabCards[parent] = {} end
+            table.insert(tabCards[parent], card)
+        end
+
+        for tab, cards in pairs(tabCards) do
+            -- Sort cards by their original absolute Y offset
+            table.sort(cards, function(a, b)
+                local _, _, _, _, yA = a:GetPoint(1)
+                local _, _, _, _, yB = b:GetPoint(1)
+                return (yA or 0) > (yB or 0)
+            end)
+
+            local currentCardY = 0
+            for _, card in ipairs(cards) do
+                card:SetPoint("TOPLEFT", tab, "TOPLEFT", 0, currentCardY)
+
+                local rows = {}
+                local children = {card:GetChildren()}
+                local regions = {card:GetRegions()}
+
+                -- Horizontally resize any buttons globally
+                for _, child in ipairs(children) do
+                    if child:GetObjectType() == "Button" and child.GetText and child:GetText() then
+                        local fs = child:GetFontString()
+                        if fs then
+                            local fw = fs:GetStringWidth()
+                            if fw > child:GetWidth() - 20 then
+                                child:SetWidth(fw + 20)
+                            end
+                        end
+                    end
+                end
+
+                local function addElement(el)
+                    local point, relativeTo, relativePoint, x, y = el:GetPoint(1)
+                    if point == "TOPLEFT" and (relativeTo == card or relativeTo == nil) then
+                        if not rows[y] then rows[y] = {} end
+                        table.insert(rows[y], {frame = el, x = x, point = point})
+                    end
+                end
+
+                for _, child in ipairs(children) do addElement(child) end
+                for _, region in ipairs(regions) do
+                    if region:GetObjectType() == "FontString" and region ~= card.title then
+                        addElement(region)
+                    end
+                end
+
+                local sortedY = {}
+                for y, _ in pairs(rows) do table.insert(sortedY, y) end
+                table.sort(sortedY, function(a, b) return a > b end)
+
+                local currentY = -28
+                for _, originalY in ipairs(sortedY) do
+                    local rowHeight = 22
+                    local rowElements = rows[originalY]
+
+                    for _, el in ipairs(rowElements) do
+                        local frame = el.frame
+                        if frame:GetObjectType() == "CheckButton" and frame.Text then
+                            frame.Text:SetWordWrap(true)
+                            frame.Text:SetWidth(card:GetWidth() - el.x - 40)
+                            local textHeight = frame.Text:GetStringHeight()
+                            if textHeight and textHeight > rowHeight then rowHeight = textHeight end
+                        elseif frame:GetObjectType() == "FontString" then
+                            frame:SetWordWrap(true)
+                            frame:SetWidth(card:GetWidth() - el.x - 20)
+                            local textHeight = frame:GetStringHeight()
+                            if textHeight and textHeight > rowHeight then rowHeight = textHeight end
+                        end
+                        
+                        frame:SetPoint("TOPLEFT", card, "TOPLEFT", el.x, currentY)
+                    end
+                    currentY = currentY - rowHeight - 6
+                end
+
+                if currentY < -28 then
+                    card:SetHeight(math.abs(currentY) + 12)
+                end
+                
+                currentCardY = currentCardY - card:GetHeight() - 16
+            end
+        end
+    end
+
     local function SwitchTab(tabIndex)
         currentTab = tabIndex
         tab1:SetShown(tabIndex == 1)
@@ -1801,6 +1891,7 @@ function Options:CreateFloatingPanel()
             end
         end
 
+        Options:ReflowLayout()
         Options:UpdateCardThemes()
         Offhand:ApplyFullLayout()
     end
