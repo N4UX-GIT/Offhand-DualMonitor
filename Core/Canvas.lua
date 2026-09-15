@@ -509,13 +509,43 @@ OnPanelDragStop = function(frame)
         if frame == WorldMapFrame then
             frame:SetScale(1.0)
             DemodalizePanel(frame)
-            local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
-            local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
-            local scaleFactor = frameScale / parentScale
-            local xInParent = (frame:GetLeft() or 0) * scaleFactor
-            local yInParent = (frame:GetBottom() or 0) * scaleFactor
-            Offhand.db.savedMainPositions[name] = { x = xInParent, y = yInParent }
+        end
+
+        local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
+        local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
+        local scaleFactor = frameScale / parentScale
+        local xInParent = (frame:GetLeft() or 0) * scaleFactor
+        local yInParent = (frame:GetBottom() or 0) * scaleFactor
+        local frameWidth = (frame:GetWidth() or 0) * (frame.GetScale and frame:GetScale() or 1)
+        local frameHeight = (frame:GetHeight() or 0) * (frame.GetScale and frame:GetScale() or 1)
+        if frameWidth <= 0 then frameWidth = 192 end
+        if frameHeight <= 0 then frameHeight = 192 end
+
+        -- Clamp strictly inside the Game Viewport so panels never enter the black space above m.gameTop
+        local minX = m.gameLeft + 12
+        local maxX = math.max(minX, m.gameRight - frameWidth - 12)
+        local clampedX = math.max(minX, math.min(xInParent, maxX))
+
+        local minY = m.gameBottom + 12
+        local maxY = math.max(minY, m.gameTop - frameHeight - 12)
+        local clampedY = math.max(minY, math.min(yInParent, maxY))
+        local factor = parentScale / frameScale
+
+        if frame == WorldMapFrame then
+            Offhand.db.savedMainPositions[name] = { x = clampedX, y = clampedY }
             RegisterSpecialFrame(name)
+            frame:ClearAllPoints()
+            frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+        elseif string.match(name, "^PartyMemberFrame") or string.match(name, "^CompactPartyFrame") then
+            Offhand.db.savedMainPositions[name] = { x = clampedX, y = clampedY }
+            pcall(function() frame:SetUserPlaced(true) end)
+            frame:ClearAllPoints()
+            frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+        elseif name == "FocusedRosterFrame" then
+            Offhand.db.savedMainPositions[name] = { x = clampedX, y = clampedY }
+            pcall(function() frame:SetUserPlaced(true) end)
+            frame:ClearAllPoints()
+            frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         elseif string.match(name, "^ContainerFrame") then
             pcall(function() frame:SetUserPlaced(false) end)
             if not (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()) then
@@ -656,7 +686,10 @@ local function MakePanelDraggable(frame)
 
     -- Create an elevated drag handle across the title bar area so clicks aren't swallowed by child elements
     -- MinimapCluster uses MinimapZoneTextButton as its natural drag handle and must not have an overlaid handle
-    if frame ~= MinimapCluster then
+    -- Unit frames (PartyMemberFrame, CompactPartyFrame) and FocusedRosterFrame must NOT have an overlaid handle
+    -- to prevent blocking unit targeting, healing, right-click context menus, and roster row selection
+    local isUnitFrame = name and (string.match(name, "^PartyMemberFrame") or string.match(name, "^CompactPartyFrame") or name == "PlayerFrame" or name == "TargetFrame")
+    if frame ~= MinimapCluster and not isUnitFrame and name ~= "FocusedRosterFrame" then
         local handle = frame._OffhandHandle
         if not handle and CreateFrame then
             handle = CreateFrame("Frame", nil, frame)
@@ -805,6 +838,10 @@ function Canvas:EnableFreeDragging()
         "ClassTrainerFrame",
         "TradeSkillFrame",
         "CraftFrame",
+        "PartyMemberFrame1",
+        "CompactPartyFrame",
+        "CompactRaidFrameContainer",
+        "FocusedRosterFrame",
     }
 
     if not hasCustomMinimap then
@@ -841,6 +878,12 @@ function Canvas:EnableFreeDragging()
 
     if not hasCustomMinimap and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["MinimapCluster"] and MinimapCluster then
         RestoreWorkspacePosition(MinimapCluster)
+    end
+    if Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["PartyMemberFrame1"] and _G.PartyMemberFrame1 then
+        RestoreWorkspacePosition(_G.PartyMemberFrame1)
+    end
+    if Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["FocusedRosterFrame"] and _G.FocusedRosterFrame then
+        RestoreWorkspacePosition(_G.FocusedRosterFrame)
     end
 
     -- Hook Chat Frames and Tabs for workspace dragging and persistence

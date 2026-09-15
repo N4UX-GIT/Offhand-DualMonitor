@@ -217,6 +217,8 @@ function HUD:AlignHUDFrames(m)
             {"MinimapCluster", "TOPRIGHT", 0, 0},
             {"PlayerFrame", "TOPLEFT", 16, -16},
             {"TargetFrame", "TOPLEFT", 260, -16},
+            {"PartyMemberFrame1", "TOPLEFT", 16, -160},
+            {"CompactPartyFrame", "TOPLEFT", 16, -160},
             {"BuffFrame", "TOPRIGHT", -210, -16},
             {"BuffCluster", "TOPRIGHT", -210, -16},
             {"CastingBarFrame", "BOTTOM", 0, 165},
@@ -243,6 +245,15 @@ function HUD:AlignHUDFrames(m)
                                 frame:Show()
                             end
                             if frame.SetAlpha then frame:SetAlpha(1) end
+                        elseif item[1] == "PartyMemberFrame1" or item[1] == "CompactPartyFrame" then
+                            local mainPos = Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[item[1]]
+                            if mainPos and mainPos.x and mainPos.y then
+                                local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
+                                frame:ClearAllPoints()
+                                frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", mainPos.x * factor, mainPos.y * factor)
+                            elseif not (frame.IsUserPlaced and frame:IsUserPlaced()) then
+                                Anchor(frame, item[2], m, item[3], item[4], false)
+                            end
                         elseif not (frame.IsUserPlaced and frame:IsUserPlaced()) then
                             Anchor(frame, item[2], m, item[3], item[4], false)
                         end
@@ -307,7 +318,7 @@ function HUD:HookFrames()
             end
         end
     end
-    for _, name in ipairs({"PlayerFrame", "TargetFrame", "ChatFrame1",
+    for _, name in ipairs({"PlayerFrame", "TargetFrame", "PartyMemberFrame1", "CompactPartyFrame", "ChatFrame1",
         "BuffFrame", "UIErrorsFrame", "RaidWarningFrame"}) do
         local frame = _G[name]
         if frame and not hooks[frame] then
@@ -321,14 +332,45 @@ function HUD:HookFrames()
         end
     end
 
-    -- Center Game Menu (Escape menu), AddonList, and settings panels onto the primary game monitor
+    -- Center Game Menu (Escape menu), AddonList, Edit Mode dialogs, and settings panels onto the primary game monitor
     local menuFrameNames = {
         "GameMenuFrame", "SettingsPanel", "InterfaceOptionsFrame", "VideoOptionsFrame",
         "AddonList", "KeyBindingFrame", "HelpFrame",
-        "BugSackFrame", "RedIsFriendFrame"
+        "BugSackFrame", "RedIsFriendFrame",
+        "EditModeSystemSettingsDialog", "EditModeUnsavedChangesDialog", "EditModeDialog"
     }
 
+    local function PositionEditMode()
+        if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+        local m = Offhand.Viewport:GetMetrics()
+        if not m or not m.isSpanned then return end
+        local cx = (m.gameLeft + m.gameRight) / 2
+        local factor = UIParent:GetEffectiveScale()
+
+        -- Dock EditModeManagerFrame toolbar cleanly at the top-center of the 3D Game View
+        local mgr = _G["EditModeManagerFrame"]
+        if mgr and mgr:IsShown() then
+            mgr:ClearAllPoints()
+            local mScale = mgr:GetEffectiveScale() or factor
+            local scaleFactor = factor / mScale
+            mgr:SetPoint("TOP", UIParent, "BOTTOMLEFT", cx * scaleFactor, (m.gameTop - 20) * scaleFactor)
+        end
+
+        -- Center dialogs inside the 3D Game View
+        for _, name in ipairs({"EditModeSystemSettingsDialog", "EditModeUnsavedChangesDialog", "EditModeDialog"}) do
+            local dlg = _G[name]
+            if dlg and dlg:IsShown() then
+                dlg:ClearAllPoints()
+                local dScale = dlg:GetEffectiveScale() or factor
+                local scaleFactor = factor / dScale
+                local cy = (m.gameBottom + m.gameTop) / 2
+                dlg:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * scaleFactor, cy * scaleFactor)
+            end
+        end
+    end
+
     local function CenterGameMenu()
+        PositionEditMode()
         for _, name in ipairs(menuFrameNames) do
             local frame = _G[name]
             if frame and frame:IsShown() and not InCombatLockdown() and Offhand.db and Offhand.db.enabled then
@@ -338,6 +380,27 @@ function HUD:HookFrames()
                 local cy = (m.gameBottom + m.gameTop) / 2
                 local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
                 frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
+            end
+        end
+    end
+
+    local function HookMenuFrame(name)
+        local frame = _G[name]
+        if frame and not hooks[frame] then
+            hooks[frame] = true
+            if SetUIPanelAttribute then
+                pcall(function() SetUIPanelAttribute(frame, "area", nil) end)
+            end
+            frame:HookScript("OnShow", function(self)
+                CenterGameMenu()
+                C_Timer.After(0, CenterGameMenu)
+            end)
+            if name == "AddonList" and UISpecialFrames then
+                local found = false
+                for _, sName in ipairs(UISpecialFrames) do
+                    if sName == "AddonList" then found = true; break end
+                end
+                if not found then table.insert(UISpecialFrames, "AddonList") end
             end
         end
     end
@@ -352,37 +415,38 @@ function HUD:HookFrames()
     end
 
     for _, name in ipairs(menuFrameNames) do
-        local frame = _G[name]
-        if frame then
-            if SetUIPanelAttribute then
-                pcall(function() SetUIPanelAttribute(frame, "area", nil) end)
-            end
-            if not hooks[frame] then
-                hooks[frame] = true
-                frame:HookScript("OnShow", function(self)
-                    CenterGameMenu()
-                    C_Timer.After(0, CenterGameMenu)
-                end)
-            end
-            if name == "AddonList" and UISpecialFrames then
-                local found = false
-                for _, sName in ipairs(UISpecialFrames) do
-                    if sName == "AddonList" then found = true; break end
-                end
-                if not found then table.insert(UISpecialFrames, "AddonList") end
-            end
-        end
+        HookMenuFrame(name)
     end
 
-    -- Global List-less Center Redirection Engine
-    -- Redefines the "Center" of the UI for all external addons by scanning for frames that
-    -- naïvely anchor to the physical center (the bezel seam) and nudging them into the Game Viewport.
+    local function CheckEditModeHooks()
+        local mgr = _G["EditModeManagerFrame"]
+        if mgr and not hooks[mgr] then
+            hooks[mgr] = true
+            mgr:HookScript("OnShow", function()
+                PositionEditMode()
+                C_Timer.After(0, PositionEditMode)
+            end)
+        end
+        for _, name in ipairs({"EditModeSystemSettingsDialog", "EditModeUnsavedChangesDialog", "EditModeDialog"}) do
+            HookMenuFrame(name)
+        end
+    end
+    CheckEditModeHooks()
+
+    -- Universal Void Rescue & Popup Redirection Engine
+    -- Rescues frames anchoring into the unrendered black space above the 3D Game Viewport,
+    -- and redirects popups that anchor to the bezel seam center.
     local function RedirectExternalPopups()
         if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
         
         local m = Offhand.Viewport:GetMetrics()
+        if not m or not m.isSpanned then return end
         local cx = (m.gameLeft + m.gameRight) / 2
         local cy = (m.gameBottom + m.gameTop) / 2
+        local parentScale = UIParent:GetEffectiveScale() or 1
+        local isPortraitDeck = Offhand.db.primaryPosition ~= "LEFT"
+        local gameLeftThreshold = isPortraitDeck and (m.deckWidth - 20) or 0
+        local gameRightThreshold = isPortraitDeck and m.screenWidth or m.gameRight
 
         -- 1. Check UISpecialFrames (standard config panels)
         if UISpecialFrames then
@@ -403,39 +467,79 @@ function HUD:HookFrames()
             end
         end
 
-        -- 2. Scan active children of UIParent for rogue centered popup frames
-        -- This universally catches standalone addons (like Focused NewsFrame) without a hardcoded list.
+        -- 2. Void Rescue: Detect any frame on the game monitor side whose top extends into the black void above m.gameTop
+        local voidTargets = {
+            _G.FocusedRosterFrame,
+            _G.EditModeManagerFrame,
+            _G.EditModeSystemSettingsDialog,
+            _G.EditModeUnsavedChangesDialog,
+        }
+        for _, frame in ipairs(voidTargets) do
+            if frame and frame:IsShown() and not (frame.IsForbidden and frame:IsForbidden()) and not (frame.IsProtected and frame:IsProtected()) then
+                local fScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or parentScale
+                local scaleFactor = fScale / parentScale
+                local top = (frame:GetTop() or 0) * scaleFactor
+                local left = (frame:GetLeft() or 0) * scaleFactor
+                local onGameSide = isPortraitDeck and (left >= gameLeftThreshold) or (left < gameRightThreshold)
+                if onGameSide and top > (m.gameTop + 2) then
+                    local overflow = top - m.gameTop
+                    local pt, rel, relPt, x, y = frame:GetPoint(1)
+                    frame:ClearAllPoints()
+                    local invFactor = parentScale / fScale
+                    if pt and (rel == UIParent or rel == nil) and y then
+                        frame:SetPoint(pt, UIParent, relPt or pt, x or 0, (y - overflow - 8) * invFactor)
+                    else
+                        local h = (frame:GetHeight() or 100) * scaleFactor
+                        local targetY = math.max(m.gameBottom + 12, m.gameTop - h - 12)
+                        frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left * invFactor, targetY * invFactor)
+                    end
+                end
+            end
+        end
+
+        -- 3. Scan active children of UIParent for rogue centered popup frames or frames in the void
         for _, child in ipairs({UIParent:GetChildren()}) do
-            if type(child) == "table" and not child._offhand_centered then
-                local success, shouldNudge = pcall(function()
-                    if child.IsForbidden and child:IsForbidden() then return false end
-                    if not child.IsShown or not child:IsShown() then return false end
-                    if not child.IsProtected or child:IsProtected() then return false end
-                    if not child.GetNumPoints or child:GetNumPoints() ~= 1 then return false end
-                    
-                    local pt, rel, relPt, x, y = child:GetPoint(1)
-                    if (rel == UIParent or rel == nil) and pt == "CENTER" and relPt == "CENTER" then
-                        if (x or 0) == 0 and (y or 0) == 0 then
-                            return true
+            if type(child) == "table" and child ~= WorldFrame and child ~= Offhand.canvas then
+                local cName = child.GetName and child:GetName()
+                if cName ~= "OffhandCanvasFrame" and not (child.IsForbidden and child:IsForbidden()) and not (child.IsProtected and child:IsProtected()) and child.IsShown and child:IsShown() then
+                    -- Void Rescue check for general children on the game side
+                    local fScale = (child.GetEffectiveScale and child:GetEffectiveScale()) or parentScale
+                    local scaleFactor = fScale / parentScale
+                    local top = (child:GetTop() or 0) * scaleFactor
+                    local left = (child:GetLeft() or 0) * scaleFactor
+                    local onGameSide = isPortraitDeck and (left >= gameLeftThreshold) or (left < gameRightThreshold)
+                    if onGameSide and top > (m.gameTop + 2) then
+                        local overflow = top - m.gameTop
+                        local pt, rel, relPt, x, y = child:GetPoint(1)
+                        if pt and (rel == UIParent or rel == nil) and y then
+                            child:ClearAllPoints()
+                            local invFactor = parentScale / fScale
+                            child:SetPoint(pt, UIParent, relPt or pt, x or 0, (y - overflow - 8) * invFactor)
                         end
                     end
-                    return false
-                end)
 
-                if success and shouldNudge then
-                    child._offhand_centered = true
-                    pcall(function()
-                        child:ClearAllPoints()
-                        local factor = UIParent:GetEffectiveScale() / child:GetEffectiveScale()
-                        child:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
-                    end)
+                    -- Seam centering check
+                    if not child._offhand_centered and child.GetNumPoints and child:GetNumPoints() == 1 then
+                        local pt, rel, relPt, x, y = child:GetPoint(1)
+                        if (rel == UIParent or rel == nil) and pt == "CENTER" and relPt == "CENTER" then
+                            if (x or 0) == 0 and (y or 0) == 0 then
+                                child._offhand_centered = true
+                                child:ClearAllPoints()
+                                local factor = UIParent:GetEffectiveScale() / child:GetEffectiveScale()
+                                child:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
+                            end
+                        end
+                    end
                 end
             end
         end
     end
 
     if C_Timer and C_Timer.NewTicker then
-        C_Timer.NewTicker(2, RedirectExternalPopups)
+        C_Timer.NewTicker(2, function()
+            RedirectExternalPopups()
+            CheckEditModeHooks()
+        end)
     end
 
     local function UpdateUIPanelOffsets()
@@ -460,7 +564,20 @@ function HUD:HookFrames()
             hooksecurefunc("ToggleGameMenu", function()
                 CenterGameMenu()
                 C_Timer.After(0, CenterGameMenu)
+                C_Timer.After(0.05, CenterGameMenu)
             end)
+        end
+        if CreateFrame then
+            local editModeLoader = CreateFrame("Frame")
+            if editModeLoader and editModeLoader.RegisterEvent and editModeLoader.SetScript then
+                editModeLoader:RegisterEvent("ADDON_LOADED")
+                editModeLoader:SetScript("OnEvent", function(_, _, addonName)
+                    if addonName == "Blizzard_EditMode" or addonName == "Blizzard_Settings" then
+                        CheckEditModeHooks()
+                        for _, name in ipairs(menuFrameNames) do HookMenuFrame(name) end
+                    end
+                end)
+            end
         end
         if ShowUIPanel then
             hooksecurefunc("ShowUIPanel", function(frame)
