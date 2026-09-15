@@ -358,4 +358,19 @@ assert(ok, "EditModeUtil:GetBottomActionBarHeight must not throw error when bar 
 assert(type(height) == "number", "GetBottomActionBarHeight must return a valid number")
 print("PASS: EditModeUtil nil offset combat entry crash prevented by Offhand safety patch")
 
+-- ============================================================================
+-- TEST 10: Bad-self intrinsic widgets in UIParent:GetChildren()
+-- ============================================================================
+local badSelfWidget = {
+    GetName = function(self) error("calling '?' on bad self (Usage: local name = self:GetName())") end,
+    IsShown = function(self) return true end,
+    IsForbidden = function(self) return false end,
+    IsProtected = function(self) return false end,
+}
+table.insert(UIParent.children, badSelfWidget)
+
+-- Flush timers which invokes RedirectExternalPopups() over UIParent.children
+flushTimers()
+print("PASS: Bad self intrinsic widgets in UIParent:GetChildren() safely handled without error")
+
 print("\nALL PARTY FRAMES, EDIT MODE, AND VOID RESCUE TESTS PASSED!")

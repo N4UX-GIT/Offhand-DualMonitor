@@ -520,46 +520,63 @@ function HUD:HookFrames()
             _G.EditModeUnsavedChangesDialog,
         }
         for _, frame in ipairs(voidTargets) do
-            if frame and frame:IsShown() and not (frame.IsForbidden and frame:IsForbidden()) and not (frame.IsProtected and frame:IsProtected()) then
-                local fScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or parentScale
-                local scaleFactor = fScale / parentScale
-                local top = (frame:GetTop() or 0) * scaleFactor
-                local left = (frame:GetLeft() or 0) * scaleFactor
-                local onGameSide = isPortraitDeck and (left >= gameLeftThreshold) or (left < gameRightThreshold)
-                if onGameSide and top > (m.gameTop + 2) then
-                    local overflow = top - m.gameTop
-                    local pt, rel, relPt, x, y = frame:GetPoint(1)
-                    frame:ClearAllPoints()
-                    local invFactor = parentScale / fScale
-                    if pt and (rel == UIParent or rel == nil) and y then
-                        frame:SetPoint(pt, UIParent, relPt or pt, x or 0, (y - overflow - 8) * invFactor)
-                    else
-                        local h = (frame:GetHeight() or 100) * scaleFactor
-                        local targetY = math.max(m.gameBottom + 12, m.gameTop - h - 12)
-                        frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left * invFactor, targetY * invFactor)
+            if frame and type(frame) == "table" then
+                pcall(function()
+                    if frame.IsForbidden and frame:IsForbidden() then return end
+                    if frame.IsProtected and frame:IsProtected() then return end
+                    if not frame.IsShown or not frame:IsShown() then return end
+                    local fScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or parentScale
+                    local scaleFactor = fScale / parentScale
+                    local top = (frame:GetTop() or 0) * scaleFactor
+                    local left = (frame:GetLeft() or 0) * scaleFactor
+                    local onGameSide = isPortraitDeck and (left >= gameLeftThreshold) or (left < gameRightThreshold)
+                    if onGameSide and top > (m.gameTop + 2) then
+                        local overflow = top - m.gameTop
+                        local pt, rel, relPt, x, y = frame:GetPoint(1)
+                        frame:ClearAllPoints()
+                        local invFactor = parentScale / fScale
+                        if pt and (rel == UIParent or rel == nil) and y then
+                            frame:SetPoint(pt, UIParent, relPt or pt, x or 0, (y - overflow - 8) * invFactor)
+                        else
+                            local h = (frame:GetHeight() or 100) * scaleFactor
+                            local targetY = math.max(m.gameBottom + 12, m.gameTop - h - 12)
+                            frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left * invFactor, targetY * invFactor)
+                        end
                     end
-                end
+                end)
             end
         end
 
         -- 3. Scan active children of UIParent for rogue centered popup frames or frames in the void
         for _, child in ipairs({UIParent:GetChildren()}) do
             if type(child) == "table" and child ~= WorldFrame and child ~= Offhand.canvas then
-                local cName = child.GetName and child:GetName()
-                if cName ~= "OffhandCanvasFrame" and not (child.IsForbidden and child:IsForbidden()) and not (child.IsProtected and child:IsProtected()) and child.IsShown and child:IsShown() then
+                pcall(function()
+                    if child.IsForbidden and child:IsForbidden() then return end
+                    if not child.IsShown or not child:IsShown() then return end
+                    if child.IsProtected and child:IsProtected() then return end
+
+                    local cName
+                    if child.GetName then
+                        local okName, name = pcall(child.GetName, child)
+                        if okName then cName = name end
+                    end
+                    if cName == "OffhandCanvasFrame" then return end
+
                     -- Void Rescue check for general children on the game side
                     local fScale = (child.GetEffectiveScale and child:GetEffectiveScale()) or parentScale
                     local scaleFactor = fScale / parentScale
-                    local top = (child:GetTop() or 0) * scaleFactor
-                    local left = (child:GetLeft() or 0) * scaleFactor
+                    local top = (child.GetTop and child:GetTop() or 0) * scaleFactor
+                    local left = (child.GetLeft and child:GetLeft() or 0) * scaleFactor
                     local onGameSide = isPortraitDeck and (left >= gameLeftThreshold) or (left < gameRightThreshold)
                     if onGameSide and top > (m.gameTop + 2) then
                         local overflow = top - m.gameTop
-                        local pt, rel, relPt, x, y = child:GetPoint(1)
-                        if pt and (rel == UIParent or rel == nil) and y then
-                            child:ClearAllPoints()
-                            local invFactor = parentScale / fScale
-                            child:SetPoint(pt, UIParent, relPt or pt, x or 0, (y - overflow - 8) * invFactor)
+                        if child.GetPoint and child.ClearAllPoints and child.SetPoint then
+                            local pt, rel, relPt, x, y = child:GetPoint(1)
+                            if pt and (rel == UIParent or rel == nil) and y then
+                                child:ClearAllPoints()
+                                local invFactor = parentScale / fScale
+                                child:SetPoint(pt, UIParent, relPt or pt, x or 0, (y - overflow - 8) * invFactor)
+                            end
                         end
                     end
 
@@ -569,13 +586,15 @@ function HUD:HookFrames()
                         if (rel == UIParent or rel == nil) and pt == "CENTER" and relPt == "CENTER" then
                             if (x or 0) == 0 and (y or 0) == 0 then
                                 child._offhand_centered = true
-                                child:ClearAllPoints()
-                                local factor = UIParent:GetEffectiveScale() / child:GetEffectiveScale()
-                                child:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
+                                if child.ClearAllPoints and child.SetPoint then
+                                    child:ClearAllPoints()
+                                    local factor = UIParent:GetEffectiveScale() / child:GetEffectiveScale()
+                                    child:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
+                                end
                             end
                         end
                     end
-                end
+                end)
             end
         end
     end
