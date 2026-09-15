@@ -1073,12 +1073,12 @@ function Options:CreateFloatingPanel()
         "%.0f%%",
         L["SLIDER_HUD_SCALE_TIP_TITLE"], L["SLIDER_HUD_SCALE_TIP_DESC"]
     )
-    hudSlider:SetPoint("TOPLEFT", 360, -46)
+    hudSlider:SetPoint("TOPLEFT", 336, -46)
     hudSlider:SetWidth(200)
 
     local p56Btn = CreateFrame("Button", nil, card1_3, "UIPanelButtonTemplate")
     p56Btn:SetSize(56, 22)
-    p56Btn:SetPoint("TOPLEFT", 360, -82)
+    p56Btn:SetPoint("TOPLEFT", 336, -82)
     p56Btn:SetText("56%")
     p56Btn:SetScript("OnClick", function() hudSlider:SetValueDirect(0.56) end)
     if Offhand.SetTooltip then Offhand:SetTooltip(p56Btn, L["WIZARD_PRESET_SCALE_56_TIP_TITLE"], L["WIZARD_PRESET_SCALE_56_TIP_DESC"]) end
@@ -1112,7 +1112,7 @@ function Options:CreateFloatingPanel()
     if Offhand.SetTooltip then Offhand:SetTooltip(p100Btn, L["WIZARD_PRESET_SCALE_100_TIP_TITLE"], L["WIZARD_PRESET_SCALE_100_TIP_DESC"]) end
 
     local hudNote = card1_3:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    hudNote:SetPoint("TOPLEFT", 360, -112)
+    hudNote:SetPoint("TOPLEFT", 336, -112)
     hudNote:SetPoint("TOPRIGHT", -12, -112)
     hudNote:SetJustifyH("LEFT")
     hudNote:SetText("|cff888888Scales Blizzard action bars, unit frames, and dialogs relative to primary display resolution.|r")
