@@ -125,11 +125,29 @@ function HUD:AlignChatFrame(m)
         end
     end
     Prepare(chat, m)
+    local chatName = (chat.GetName and chat:GetName()) or "ChatFrame1"
+    local isWs = (Offhand.db and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[chatName])
+        or (Offhand.Canvas and Offhand.Canvas.IsFrameOnWorkspace and Offhand.Canvas.IsFrameOnWorkspace(chat))
+    if isWs then
+        if Offhand.Canvas and Offhand.Canvas.RestoreWorkspacePosition then
+            Offhand.Canvas:RestoreWorkspacePosition(chat)
+        elseif Offhand.Canvas and Offhand.Canvas.OnPanelDragStop and not (Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[chatName]) then
+            Offhand.Canvas.OnPanelDragStop(chat)
+        end
+        if ChatFrame1EditBox then
+            Points(ChatFrame1EditBox,
+                {"TOPLEFT", chat, "BOTTOMLEFT", 0, 0},
+                {"TOPRIGHT", chat, "BOTTOMRIGHT", 0, 0})
+        end
+        return
+    end
     if chat.IsUserPlaced and chat:IsUserPlaced() and Offhand.db.chatPosition ~= "DECK" then return end
     if chat ~= ChatFrame1 and not hooks[chat] then
         hooks[chat] = true
         hooksecurefunc(chat, "SetPoint", function()
-            if not (chat.IsUserPlaced and chat:IsUserPlaced()) then
+            local isWorkspace = (Offhand.db and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[chatName])
+                or (Offhand.Canvas and Offhand.Canvas.IsFrameOnWorkspace and Offhand.Canvas.IsFrameOnWorkspace(chat))
+            if not isWorkspace and not (chat.IsUserPlaced and chat:IsUserPlaced()) then
                 HUD:RequestLayout()
             end
         end)

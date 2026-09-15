@@ -173,24 +173,28 @@ function Canvas:RestorePersistentFrames()
     
     for name, _ in pairs(Offhand.db.savedWorkspacePositions) do
         local frame = _G[name]
-        if frame and not frame:IsShown() and openPanels[name] then
-            if name == "WorldMapFrame" then
-                if ToggleWorldMap then
-                    ToggleWorldMap()
+        if frame then
+            if frame:IsShown() then
+                RestoreWorkspacePosition(frame)
+            elseif openPanels[name] then
+                if name == "WorldMapFrame" then
+                    if ToggleWorldMap then
+                        ToggleWorldMap()
+                    else
+                        frame:Show()
+                    end
+                elseif name:match("^ContainerFrame") then
+                    hasBag = true
+                elseif name:match("^ChatFrame") then
+                    frame:Show()
+                    RestoreWorkspacePosition(frame)
                 else
-                    frame:Show()
-                end
-            elseif name:match("^ContainerFrame") then
-                hasBag = true
-            elseif name == "ChatFrame1" then
-                -- Chat frames usually handle themselves, but just in case
-                frame:Show()
-            else
-                -- Generic UIPanels (Character, Quest, Guild, etc.)
-                if ShowUIPanel and (UIPanelWindows and UIPanelWindows[name]) then
-                    ShowUIPanel(frame)
-                elseif frame.Show then
-                    frame:Show()
+                    -- Generic UIPanels (Character, Quest, Guild, etc.)
+                    if ShowUIPanel and (UIPanelWindows and UIPanelWindows[name]) then
+                        ShowUIPanel(frame)
+                    elseif frame.Show then
+                        frame:Show()
+                    end
                 end
             end
         end
@@ -484,6 +488,17 @@ OnPanelDragStop = function(frame)
                     Offhand.HUD:LayoutBags()
                 end
             end
+        elseif string.match(name, "^ChatFrame") then
+            if ChatFrame1EditBox and frame == ChatFrame1 then
+                if ChatFrame1EditBox.ClearAllPoints and ChatFrame1EditBox.SetPoint then
+                    ChatFrame1EditBox:ClearAllPoints()
+                    ChatFrame1EditBox:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, 0)
+                    ChatFrame1EditBox:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", 0, 0)
+                end
+            end
+            if FCF_SavePositionAndDimensions then
+                pcall(function() FCF_SavePositionAndDimensions(frame) end)
+            end
         end
 
         if Offhand.db.persistentWorkspacePanels ~= false then
@@ -512,6 +527,11 @@ OnPanelDragStop = function(frame)
             pcall(function() frame:SetUserPlaced(false) end)
             if Offhand.HUD and Offhand.HUD.AlignHUDFrames then
                 Offhand.HUD:AlignHUDFrames()
+            end
+        elseif string.match(name, "^ChatFrame") then
+            pcall(function() frame:SetUserPlaced(true) end)
+            if FCF_SavePositionAndDimensions then
+                pcall(function() FCF_SavePositionAndDimensions(frame) end)
             end
         else
             pcall(function() frame:SetUserPlaced(false) end)
@@ -571,9 +591,19 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         wPos.x, wPos.y = clampedX, clampedY
 
         local factor = parentScale / frameScale
+        if frame.SetClampedToScreen then
+            pcall(function() frame:SetClampedToScreen(false) end)
+        end
         frame:ClearAllPoints()
         frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         pcall(function() frame:SetUserPlaced(true) end)
+        if string.match(name, "^ChatFrame") and ChatFrame1EditBox and frame == ChatFrame1 then
+            if ChatFrame1EditBox.ClearAllPoints and ChatFrame1EditBox.SetPoint then
+                ChatFrame1EditBox:ClearAllPoints()
+                ChatFrame1EditBox:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, 0)
+                ChatFrame1EditBox:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", 0, 0)
+            end
+        end
         if Offhand.db.persistentWorkspacePanels ~= false then
             UnregisterSpecialFrame(name)
         end
@@ -716,6 +746,8 @@ end
 
 Canvas.RestoreWorkspacePosition = RestoreWorkspacePosition
 Canvas.MakePanelDraggable = MakePanelDraggable
+Canvas.IsFrameOnWorkspace = IsFrameOnWorkspace
+Canvas.OnPanelDragStop = OnPanelDragStop
 
 function Canvas:TryMakeFrameDraggable(frame)
     if not frame or frame._OffhandMovable or not frame.GetName then return end
@@ -809,6 +841,68 @@ function Canvas:EnableFreeDragging()
 
     if not hasCustomMinimap and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["MinimapCluster"] and MinimapCluster then
         RestoreWorkspacePosition(MinimapCluster)
+    end
+
+    -- Hook Chat Frames and Tabs for workspace dragging and persistence
+    local function RegisterChatFrame(chatFrame)
+        if not chatFrame or chatFrame._OffhandChatHooked then return end
+        chatFrame._OffhandChatHooked = true
+        if chatFrame.SetClampedToScreen then
+            pcall(function() chatFrame:SetClampedToScreen(false) end)
+        end
+
+        if chatFrame.HookScript then
+            chatFrame:HookScript("OnDragStop", function(self)
+                if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+                OnPanelDragStop(self)
+            end)
+        end
+
+        local chatName = chatFrame.GetName and chatFrame:GetName()
+        local chatTab = chatName and _G[chatName .. "Tab"]
+        if chatTab and not chatTab._OffhandTabHooked and chatTab.HookScript then
+            chatTab._OffhandTabHooked = true
+            chatTab:HookScript("OnDragStop", function(self)
+                if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+                local parent = (self.GetParent and self:GetParent()) or chatFrame
+                OnPanelDragStop(parent)
+            end)
+        end
+    end
+
+    if FCF_StopDragging and not Canvas._fcfHooked then
+        Canvas._fcfHooked = true
+        hooksecurefunc("FCF_StopDragging", function(chatFrame)
+            if chatFrame and Offhand.db and Offhand.db.enabled then
+                if chatFrame.SetClampedToScreen then
+                    pcall(function() chatFrame:SetClampedToScreen(false) end)
+                end
+                OnPanelDragStop(chatFrame)
+                if FCF_SavePositionAndDimensions then
+                    pcall(function() FCF_SavePositionAndDimensions(chatFrame) end)
+                end
+            end
+        end)
+    end
+
+    if FCF_OpenNewWindow and not Canvas._fcfNewHooked then
+        Canvas._fcfNewHooked = true
+        hooksecurefunc("FCF_OpenNewWindow", function(...)
+            for i = 1, (NUM_CHAT_WINDOWS or 10) do
+                local cf = _G["ChatFrame" .. i]
+                if cf then RegisterChatFrame(cf) end
+            end
+        end)
+    end
+
+    for i = 1, (NUM_CHAT_WINDOWS or 10) do
+        local cf = _G["ChatFrame" .. i]
+        if cf then
+            RegisterChatFrame(cf)
+            if Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["ChatFrame" .. i] then
+                RestoreWorkspacePosition(cf)
+            end
+        end
     end
 
     self:ConfigureWorldMap()
