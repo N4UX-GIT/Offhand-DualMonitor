@@ -203,7 +203,7 @@ function HUD:AlignHUDFrames(m)
                 "PetActionBar", "PetActionBarFrame"}) do
                 local frame = _G[name]
                 Prepare(frame, m)
-                if frame and barTop then
+                if frame and barTop and (not frame.IsInDefaultPosition or frame:IsInDefaultPosition()) then
                     Points(frame, {"BOTTOMLEFT", barTop, "TOPLEFT", 30, 5})
                 end
             end
@@ -303,6 +303,7 @@ function HUD:HookFrames()
         if not self.managerHooked and UIParent_ManageFramePositions then
             self.managerHooked = true
             hooksecurefunc("UIParent_ManageFramePositions", function()
+                if InCombatLockdown() then return end
                 for _, name in ipairs(actionNames) do
                     local frame = _G[name]
                     if frame then HUD:RepairFrame(frame) end
@@ -418,7 +419,51 @@ function HUD:HookFrames()
         HookMenuFrame(name)
     end
 
+    local function PatchEditModeUtil()
+        if not _G.EditModeUtil then return end
+        if _G.EditModeUtil._offhand_patched then return end
+        _G.EditModeUtil._offhand_patched = true
+
+        local function SafeGetBarsLayoutSize(barHierarchy, getWidth)
+            if not barHierarchy then return 0 end
+            for _, bar in ipairs(barHierarchy) do
+                if bar and bar.IsVisible and bar:IsVisible()
+                    and (not bar.IsInitialized or bar:IsInitialized())
+                    and (not bar.IsInDefaultPosition or bar:IsInDefaultPosition())
+                    then
+                    local offset, size
+                    if getWidth then
+                        offset = select(4, bar:GetPoint(1)) or 0
+                        size = (bar.GetWidth and bar:GetWidth()) or 0
+                    else
+                        offset = select(5, bar:GetPoint(1)) or 0
+                        size = (bar.GetHeight and bar:GetHeight()) or 0
+                    end
+                    offset = tonumber(offset) or 0
+                    size = tonumber(size) or 0
+                    return math.abs(offset) + size
+                end
+            end
+            return 0
+        end
+
+        _G.EditModeUtil.GetBottomActionBarHeight = function(self)
+            local barHierarchy = {
+                _G.MainMenuBarVehicleLeaveButton, _G.PossessActionBar, _G.PetActionBar,
+                _G.StanceBar, _G.OverrideActionBar, _G.MultiBarBottomRight,
+                _G.MultiBarBottomLeft, _G.MainActionBar
+            }
+            return SafeGetBarsLayoutSize(barHierarchy, false)
+        end
+
+        _G.EditModeUtil.GetRightActionBarWidth = function(self)
+            local barHierarchy = { _G.MultiBarLeft, _G.MultiBarRight }
+            return SafeGetBarsLayoutSize(barHierarchy, true)
+        end
+    end
+
     local function CheckEditModeHooks()
+        PatchEditModeUtil()
         local mgr = _G["EditModeManagerFrame"]
         if mgr and not hooks[mgr] then
             hooks[mgr] = true

@@ -342,4 +342,20 @@ local clampedTop = FocusedRosterFrame:GetTop()
 assert(clampedTop <= metrics.gameTop, string.format("Clamped frame top (%s) must never exceed gameTop (%s)", tostring(clampedTop), tostring(metrics.gameTop)))
 print(string.format("PASS: Game View drag clamping enforces top <= gameTop (%s <= %s)", tostring(clampedTop), tostring(metrics.gameTop)))
 
+-- ============================================================================
+-- TEST 9: EditModeUtil nil offset crash prevention during combat entry
+-- ============================================================================
+StanceBar = makeMockFrame("StanceBar", 120, 30)
+StanceBar.IsInDefaultPosition = function() return true end
+StanceBar.IsInitialized = function() return true end
+StanceBar:ClearAllPoints() -- GetPoint(1) returns nil (as occurs during stance transitions)
+
+EditModeUtil = {}
+addon.HUD:HookFrames()
+
+local ok, height = pcall(function() return EditModeUtil:GetBottomActionBarHeight() end)
+assert(ok, "EditModeUtil:GetBottomActionBarHeight must not throw error when bar offset is nil")
+assert(type(height) == "number", "GetBottomActionBarHeight must return a valid number")
+print("PASS: EditModeUtil nil offset combat entry crash prevented by Offhand safety patch")
+
 print("\nALL PARTY FRAMES, EDIT MODE, AND VOID RESCUE TESTS PASSED!")
