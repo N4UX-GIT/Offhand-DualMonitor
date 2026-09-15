@@ -307,7 +307,7 @@ function HUD:HookFrames()
     local menuFrameNames = {
         "GameMenuFrame", "SettingsPanel", "InterfaceOptionsFrame", "VideoOptionsFrame",
         "AddonList", "KeyBindingFrame", "HelpFrame",
-        "BugSackFrame", "RedIsFriendFrame", "FocusedNewsFrame"
+        "BugSackFrame", "RedIsFriendFrame"
     }
 
     local function CenterGameMenu()
@@ -356,33 +356,57 @@ function HUD:HookFrames()
         end
     end
 
-    -- Automatically center standard external addon config panels registered to UISpecialFrames
-    local function RedirectSpecialFrames()
+    -- Global List-less Center Redirection Engine
+    -- Redefines the "Center" of the UI for all external addons by scanning for frames that
+    -- naïvely anchor to the physical center (the bezel seam) and nudging them into the Game Viewport.
+    local function RedirectExternalPopups()
         if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
-        if not UISpecialFrames then return end
         
         local m = Offhand.Viewport:GetMetrics()
         local cx = (m.gameLeft + m.gameRight) / 2
         local cy = (m.gameBottom + m.gameTop) / 2
 
-        for _, name in ipairs(UISpecialFrames) do
-            local frame = _G[name]
-            if frame and type(frame) == "table" and frame.GetPoint and not hooks[frame] and not frame:IsProtected() then
-                hooks[frame] = true
-                frame:HookScript("OnShow", function(self)
-                    if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
-                    local pt, rel = self:GetPoint(1)
-                    if (rel == UIParent or rel == nil) and (pt == "CENTER") then
-                        self:ClearAllPoints()
-                        local factor = UIParent:GetEffectiveScale() / self:GetEffectiveScale()
-                        self:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
+        -- 1. Check UISpecialFrames (standard config panels)
+        if UISpecialFrames then
+            for _, name in ipairs(UISpecialFrames) do
+                local frame = _G[name]
+                if frame and type(frame) == "table" and frame.GetPoint and not hooks[frame] and not frame:IsProtected() then
+                    hooks[frame] = true
+                    frame:HookScript("OnShow", function(self)
+                        if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+                        local pt, rel = self:GetPoint(1)
+                        if (rel == UIParent or rel == nil) and (pt == "CENTER") then
+                            self:ClearAllPoints()
+                            local factor = UIParent:GetEffectiveScale() / self:GetEffectiveScale()
+                            self:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
+                        end
+                    end)
+                end
+            end
+        end
+
+        -- 2. Scan active children of UIParent for rogue centered popup frames
+        -- This universally catches standalone addons (like Focused NewsFrame) without a hardcoded list.
+        for _, child in ipairs({UIParent:GetChildren()}) do
+            if child:IsShown() and not child:IsProtected() and not child._offhand_centered then
+                if child:GetNumPoints() == 1 then
+                    local pt, rel, relPt, x, y = child:GetPoint(1)
+                    if (rel == UIParent or rel == nil) and pt == "CENTER" and relPt == "CENTER" then
+                        -- If it is anchored exactly to the dead-center (the physical bezel)
+                        if (x or 0) == 0 and (y or 0) == 0 then
+                            child._offhand_centered = true
+                            child:ClearAllPoints()
+                            local factor = UIParent:GetEffectiveScale() / child:GetEffectiveScale()
+                            child:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
+                        end
                     end
-                end)
+                end
             end
         end
     end
+
     if C_Timer and C_Timer.NewTicker then
-        C_Timer.NewTicker(2, RedirectSpecialFrames)
+        C_Timer.NewTicker(2, RedirectExternalPopups)
     end
 
     local function UpdateUIPanelOffsets()
