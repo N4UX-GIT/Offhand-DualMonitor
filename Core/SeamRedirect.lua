@@ -388,18 +388,29 @@ function HUD:HookFrames()
         -- 2. Scan active children of UIParent for rogue centered popup frames
         -- This universally catches standalone addons (like Focused NewsFrame) without a hardcoded list.
         for _, child in ipairs({UIParent:GetChildren()}) do
-            if child:IsShown() and not child:IsProtected() and not child._offhand_centered then
-                if child:GetNumPoints() == 1 then
+            if type(child) == "table" and not child._offhand_centered then
+                local success, shouldNudge = pcall(function()
+                    if child.IsForbidden and child:IsForbidden() then return false end
+                    if not child.IsShown or not child:IsShown() then return false end
+                    if not child.IsProtected or child:IsProtected() then return false end
+                    if not child.GetNumPoints or child:GetNumPoints() ~= 1 then return false end
+                    
                     local pt, rel, relPt, x, y = child:GetPoint(1)
                     if (rel == UIParent or rel == nil) and pt == "CENTER" and relPt == "CENTER" then
-                        -- If it is anchored exactly to the dead-center (the physical bezel)
                         if (x or 0) == 0 and (y or 0) == 0 then
-                            child._offhand_centered = true
-                            child:ClearAllPoints()
-                            local factor = UIParent:GetEffectiveScale() / child:GetEffectiveScale()
-                            child:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
+                            return true
                         end
                     end
+                    return false
+                end)
+
+                if success and shouldNudge then
+                    child._offhand_centered = true
+                    pcall(function()
+                        child:ClearAllPoints()
+                        local factor = UIParent:GetEffectiveScale() / child:GetEffectiveScale()
+                        child:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
+                    end)
                 end
             end
         end
