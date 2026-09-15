@@ -727,8 +727,31 @@ function Options:CreateFloatingPanel()
     end
 
     Offhand.Themes:ApplyBackdrop(configFrame, (Offhand.db and Offhand.db.theme) or "CLASSIC", 0.98)
-    configFrame.header = Offhand.Themes:CreateBayHeader(configFrame, "Offhand  |cff888888—|r  Dual Monitor Workspace")
-
+    
+    -- Focused! Style Header
+    local header = Offhand.Themes:CreateBayHeader(configFrame, "", 68)
+    configFrame.header = header
+    
+    if header.icon then
+        header.icon:SetSize(42, 42)
+        header.icon:SetPoint("LEFT", header, "LEFT", 12, 0)
+    end
+    
+    if header.title then
+        if header.title.Hide then header.title:Hide() else header.title:SetText("") end
+    end
+    local title = header:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
+    title:SetPoint("TOPLEFT", header.icon or header, "TOPRIGHT", 15, -14)
+    title:SetText("|cffffcc00Offhand|r")
+    
+    local version = header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    version:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 8, 2)
+    local verNum = (GetAddOnMetadata and GetAddOnMetadata("Offhand", "Version")) or "1.0.0"
+    version:SetText("|cffaaaaaaVersion " .. verNum .. "|r")
+    
+    local desc = header:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
+    desc:SetText("Dual Monitor Workspace and Seamless Display Topology Manager")
     local closeBtn = CreateFrame("Button", nil, configFrame.header, "UIPanelCloseButton")
     closeBtn:SetSize(28, 28)
     closeBtn:SetPoint("RIGHT", configFrame.header, "RIGHT", -4, 0)
@@ -743,7 +766,7 @@ function Options:CreateFloatingPanel()
     -- Auto-Setup Wizard Button
     local autoWizardBtn = CreateFrame("Button", nil, configFrame, "UIPanelButtonTemplate")
     autoWizardBtn:SetSize(155, 22)
-    autoWizardBtn:SetPoint("TOPRIGHT", -18, -56)
+    autoWizardBtn:SetPoint("TOPRIGHT", -18, -116)
     autoWizardBtn:SetText(L["BTN_AUTO_WIZARD"])
     autoWizardBtn:SetScript("OnClick", function()
         if Offhand.Wizard and Offhand.Wizard.Open then
@@ -759,7 +782,7 @@ function Options:CreateFloatingPanel()
 
     -- Status & Topology Detection Banner
     local banner = configFrame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    banner:SetPoint("TOPLEFT", 18, -60)
+    banner:SetPoint("TOPLEFT", 18, -120)
     banner:SetPoint("TOPRIGHT", autoWizardBtn, "TOPLEFT", -8, 0)
     banner:SetJustifyH("LEFT")
     configFrame.banner = banner
@@ -768,7 +791,7 @@ function Options:CreateFloatingPanel()
 
     -- Master ScrollFrame for all Tab Content
     local optionsScrollFrame = CreateFrame("ScrollFrame", "OffhandOptionsScrollFrame", configFrame, "UIPanelScrollFrameTemplate")
-    optionsScrollFrame:SetPoint("TOPLEFT", 16, -118)
+    optionsScrollFrame:SetPoint("TOPLEFT", 16, -146)
     optionsScrollFrame:SetPoint("BOTTOMRIGHT", -42, 52)
     configFrame.scrollFrame = optionsScrollFrame
 
