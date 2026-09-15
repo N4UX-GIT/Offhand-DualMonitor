@@ -1,0 +1,56 @@
+name: Release Offhand
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. 1.0.1)'
+        required: true
+        default: '1.0.1'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract Version
+        id: get_version
+        shell: pwsh
+        run: |
+          $ver = "${{ github.event.inputs.version }}"
+          if (-not $ver) {
+              $ver = "${{ github.ref_name }}" -replace '^v', ''
+          }
+          if (-not $ver) { $ver = "1.0.1" }
+          echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
+          Write-Host "Releasing version: $ver"
+
+      - name: Build Companion & Package Release
+        shell: pwsh
+        run: |
+          .\package.ps1 -Version "${{ steps.get_version.outputs.VERSION }}"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name || format('v{0}', steps.get_version.outputs.VERSION) }}
+          name: Offhand v${{ steps.get_version.outputs.VERSION }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          files: |
+            dist/Offhand.exe
+            dist/Offhand-Companion-*.zip
+            dist/Offhand-*.zip
+            dist/checksums-sha256.txt

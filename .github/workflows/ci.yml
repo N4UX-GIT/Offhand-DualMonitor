@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Lua
+        uses: leafo/gh-actions-lua@v10
+        with:
+          luaVersion: "5.1.5"
+
+      - name: Run Unit Tests
+        shell: pwsh
+        run: |
+          $failed = 0
+          Get-ChildItem tests\ -Filter "*.lua" | ForEach-Object {
+              Write-Host "`nRunning $($_.Name)..." -ForegroundColor Cyan
+              lua.exe "tests\$($_.Name)"
+              if ($LASTEXITCODE -ne 0) {
+                  $failed++
+                  Write-Host "FAILED: $($_.Name)" -ForegroundColor Red
+              }
+          }
+          if ($failed -gt 0) {
+              throw "$failed test suites failed."
+          }

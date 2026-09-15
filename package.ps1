@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Packages the Offhand Addon for CurseForge and the Offhand Companion for GitHub Releases.
 #>
@@ -17,9 +17,14 @@ Write-Host "===================================================" -ForegroundColo
 
 # 1. Ensure Companion executable is compiled
 Write-Host "`n[1/5] Compiling Companion executable..." -ForegroundColor Yellow
-& (Join-Path $rootDir "Companion\build.bat")
-if ($LASTEXITCODE -ne 0) {
-    throw "Companion build failed with exit code $LASTEXITCODE"
+$proc = Get-Process Offhand -ErrorAction SilentlyContinue
+if ($proc -and (Test-Path (Join-Path $rootDir "Companion\Offhand.exe"))) {
+    Write-Host "  Note: Offhand is currently running. Using existing Companion\Offhand.exe" -ForegroundColor Yellow
+} else {
+    & (Join-Path $rootDir "Companion\build.bat")
+    if ($LASTEXITCODE -ne 0) {
+        throw "Companion build failed with exit code $LASTEXITCODE"
+    }
 }
 
 # 2. Reset dist directory
@@ -93,6 +98,18 @@ Write-Host "`nRelease Artifacts Ready in dist/:" -ForegroundColor Cyan
 foreach ($line in $checksumLines) {
     Write-Host "  $line" -ForegroundColor White
 }
+
+# 6. Copy standalone executable and zip to Website/downloads for direct web serving
+Write-Host "`n[6/6] Updating Website/downloads artifacts..." -ForegroundColor Yellow
+$webDownloads = Join-Path $rootDir "Website\downloads"
+if (-not (Test-Path $webDownloads)) {
+    New-Item -ItemType Directory -Path $webDownloads -Force | Out-Null
+}
+Copy-Item $standaloneExe -Destination (Join-Path $webDownloads "Offhand.exe") -Force
+Copy-Item $compZip -Destination (Join-Path $webDownloads "Offhand-Companion.zip") -Force
+Copy-Item $checksumFile -Destination (Join-Path $webDownloads "checksums-sha256.txt") -Force
+Write-Host "  -> Synced: Website/downloads/Offhand.exe & Offhand-Companion.zip" -ForegroundColor Green
+
 Write-Host "`n===================================================" -ForegroundColor Green
 Write-Host "  Packaging complete successfully!" -ForegroundColor Green
 Write-Host "===================================================" -ForegroundColor Green
