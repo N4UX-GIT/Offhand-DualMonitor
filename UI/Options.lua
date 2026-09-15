@@ -1150,6 +1150,50 @@ function Options:CreateFloatingPanel()
     hudNote:SetJustifyH("LEFT")
     hudNote:SetText("|cff888888Scales Blizzard action bars, unit frames, and dialogs relative to primary display resolution.|r")
 
+    local card1_4 = CreateCard(tab1, "OBS Streamer Capture Setup", -474, 110)
+    
+    local obsDesc = card1_4:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    obsDesc:SetPoint("TOPLEFT", 16, -26)
+    obsDesc:SetPoint("TOPRIGHT", -16, -26)
+    obsDesc:SetJustifyH("LEFT")
+    obsDesc:SetText("|cffaaaaaaTo hide the bezel gap on stream, create two Game Capture sources in OBS. Add a 'Crop/Pad' filter to both and enter these exact pixel values, then snap them together.|r")
+    
+    local obsSource1 = card1_4:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    obsSource1:SetPoint("TOPLEFT", 16, -60)
+    obsSource1:SetJustifyH("LEFT")
+    
+    local obsSource2 = card1_4:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    obsSource2:SetPoint("TOPLEFT", 16, -80)
+    obsSource2:SetJustifyH("LEFT")
+    
+    function Options:UpdateOBSCard()
+        local m = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+        if not m then return end
+        
+        local pw = m.physicalWidth or 0
+        local gameCropL = math.floor(m.gamePixelLeft + 0.5)
+        local gameCropR = math.floor(pw - (m.gamePixelLeft + m.gamePixelWidth) + 0.5)
+        
+        local db = Offhand.db
+        local deckRatio = tonumber(db.deckWidthRatio) or (m.preset == "LANDSCAPE_DUAL" and 0.5 or 0.36)
+        local deck = math.floor(pw * deckRatio + 0.5)
+        local bezel = math.floor((tonumber(db.bezelGap) or 0) + 0.5)
+        
+        local deckCropL, deckCropR = 0, 0
+        if m.gamePixelLeft > 0 then
+            -- Game is on Right, Deck is on Left
+            deckCropL = 0
+            deckCropR = math.floor(pw - deck + 0.5)
+        else
+            -- Game is on Left, Deck is on Right
+            deckCropL = math.floor(m.gamePixelWidth + bezel + 0.5)
+            deckCropR = 0
+        end
+        
+        obsSource1:SetText(string.format("Source 1 (Main Game) Crop:  Left: |cffffffff%d|r   Right: |cffffffff%d|r", gameCropL, gameCropR))
+        obsSource2:SetText(string.format("Source 2 (Offhand Canvas) Crop:  Left: |cffffffff%d|r   Right: |cffffffff%d|r", deckCropL, deckCropR))
+    end
+
     -- ========================================================================
     -- TAB 2: WORKSPACE & WORLD MAP
     -- ========================================================================
@@ -1874,6 +1918,9 @@ function Options:CreateFloatingPanel()
             else
                 card2_2.compatDesc:SetText("|cff888888Auto-detects Bagnon, SexyMap, AdiBags, ElvUI, etc. to prevent conflicts.|r")
             end
+        end
+        if Options.UpdateOBSCard then
+            Options:UpdateOBSCard()
         end
         Options:UpdateCardThemes()
         Offhand:ApplyFullLayout()
