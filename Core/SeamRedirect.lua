@@ -307,7 +307,7 @@ function HUD:HookFrames()
     local menuFrameNames = {
         "GameMenuFrame", "SettingsPanel", "InterfaceOptionsFrame", "VideoOptionsFrame",
         "AddonList", "KeyBindingFrame", "HelpFrame",
-        "BugSackFrame", "RedIsFriendFrame"
+        "BugSackFrame", "RedIsFriendFrame", "FocusedNewsFrame"
     }
 
     local function CenterGameMenu()
@@ -354,6 +354,35 @@ function HUD:HookFrames()
                 if not found then table.insert(UISpecialFrames, "AddonList") end
             end
         end
+    end
+
+    -- Automatically center standard external addon config panels registered to UISpecialFrames
+    local function RedirectSpecialFrames()
+        if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+        if not UISpecialFrames then return end
+        
+        local m = Offhand.Viewport:GetMetrics()
+        local cx = (m.gameLeft + m.gameRight) / 2
+        local cy = (m.gameBottom + m.gameTop) / 2
+
+        for _, name in ipairs(UISpecialFrames) do
+            local frame = _G[name]
+            if frame and type(frame) == "table" and frame.GetPoint and not hooks[frame] and not frame:IsProtected() then
+                hooks[frame] = true
+                frame:HookScript("OnShow", function(self)
+                    if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+                    local pt, rel = self:GetPoint(1)
+                    if (rel == UIParent or rel == nil) and (pt == "CENTER") then
+                        self:ClearAllPoints()
+                        local factor = UIParent:GetEffectiveScale() / self:GetEffectiveScale()
+                        self:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
+                    end
+                end)
+            end
+        end
+    end
+    if C_Timer and C_Timer.NewTicker then
+        C_Timer.NewTicker(2, RedirectSpecialFrames)
     end
 
     local function UpdateUIPanelOffsets()
