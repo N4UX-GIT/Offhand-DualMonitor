@@ -446,7 +446,11 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         Offhand:Print(L["MSG_LOADED"], Offhand.version)
         if not Offhand.db.firstRunComplete then
             C_Timer.After(1.5, function()
-                Offhand:Print(L["MSG_FIRST_RUN"])
+                if Offhand.Wizard and Offhand.Wizard.Open then
+                    Offhand.Wizard:Open()
+                else
+                    Offhand:Print(L["MSG_FIRST_RUN"])
+                end
             end)
         end
     elseif event == "PLAYER_LEAVING_WORLD" then

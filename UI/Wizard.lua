@@ -70,7 +70,7 @@ function Wizard:CreateFrame()
     if not CreateFrame then return nil end
 
     local f = CreateFrame("Frame", "OffhandSetupWizardFrame", UIParent, "BackdropTemplate")
-    f:SetSize(668, 672)
+    f:SetSize(668, 732)
     f:SetFrameStrata("FULLSCREEN_DIALOG")
     f:EnableMouse(true)
     f:SetMovable(true)
@@ -117,9 +117,18 @@ function Wizard:CreateFrame()
     end)
 
     -- ========================================================================
+    -- WELCOME / INTRO TEXT
+    -- ========================================================================
+    local welcomeText = f:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    welcomeText:SetPoint("TOPLEFT", 16, -42)
+    welcomeText:SetPoint("TOPRIGHT", -16, -42)
+    welcomeText:SetJustifyH("LEFT")
+    welcomeText:SetText("|cffffd100Welcome to Offhand!|r This addon splits your UI across two monitors, placing the 3D game on your primary monitor and a clean 'Canvas' on your secondary monitor for maps, bags, and reading. Click |cff00ff00Auto-Configure|r below to calibrate instantly.")
+
+    -- ========================================================================
     -- CARD 1: DISPLAY TOPOLOGY & 1-CLICK AUTO-SETUP
     -- ========================================================================
-    local card1 = CreateWizardCard(f, L["WIZARD_CARD1_TITLE"], -56, 144)
+    local card1 = CreateWizardCard(f, L["WIZARD_CARD1_TITLE"], -116, 144)
 
     local logoIcon = card1:CreateTexture(nil, "ARTWORK")
     local textLeft = 14
@@ -170,7 +179,7 @@ function Wizard:CreateFrame()
     -- ========================================================================
     -- CARD 2: MONITOR ORIENTATION & 3D VIEWPORT
     -- ========================================================================
-    local card2 = CreateWizardCard(f, L["WIZARD_CARD2_TITLE"], -196, 138)
+    local card2 = CreateWizardCard(f, L["WIZARD_CARD2_TITLE"], -256, 138)
 
     local orientLabel = card2:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     orientLabel:SetPoint("TOPLEFT", 14, -28)
@@ -259,7 +268,7 @@ function Wizard:CreateFrame()
     -- ========================================================================
     -- CARD 3: BEZEL SEAM ALIGNMENT & LASER GUIDE
     -- ========================================================================
-    local card3 = CreateWizardCard(f, L["WIZARD_CARD3_TITLE"], -342, 136)
+    local card3 = CreateWizardCard(f, L["WIZARD_CARD3_TITLE"], -402, 136)
 
     local seamHelp = card3:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     seamHelp:SetPoint("TOPLEFT", 14, -28)
@@ -482,7 +491,7 @@ function Wizard:CreateFrame()
     -- ========================================================================
     -- CARD 4: GLOBAL UI SCALE & CALIBRATION (CONTINUOUS SLIDER)
     -- ========================================================================
-    local card4 = CreateWizardCard(f, L["WIZARD_CARD4_TITLE"], -486, 136)
+    local card4 = CreateWizardCard(f, L["WIZARD_CARD4_TITLE"], -546, 136)
 
     local scaleHelp = card4:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     scaleHelp:SetPoint("TOPLEFT", 14, -28)
@@ -847,7 +856,7 @@ function Wizard:Open()
     -- Allow layout engine to settle, then resize window if anything bleeds out
     C_Timer.After(0.01, function()
         if not f:IsShown() then return end
-        local maxWidth = 560
+        local maxWidth = 668
         for _, child in ipairs({f:GetChildren()}) do
             if child.GetRight and child:GetRight() and f:GetLeft() then
                 local rightEdge = child:GetRight() - f:GetLeft() + 24
@@ -856,7 +865,7 @@ function Wizard:Open()
                 end
             end
         end
-        if maxWidth > 560 then
+        if maxWidth > 668 then
             f:SetWidth(maxWidth)
             if f.header then f.header:SetWidth(maxWidth) end
         end
