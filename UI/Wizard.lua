@@ -120,8 +120,8 @@ function Wizard:CreateFrame()
     -- WELCOME / INTRO TEXT
     -- ========================================================================
     local welcomeText = f:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    welcomeText:SetPoint("TOPLEFT", 16, -42)
-    welcomeText:SetPoint("TOPRIGHT", -16, -42)
+    welcomeText:SetPoint("TOPLEFT", 16, -54)
+    welcomeText:SetPoint("TOPRIGHT", -16, -54)
     welcomeText:SetJustifyH("LEFT")
     welcomeText:SetText("|cffffd100Welcome to Offhand!|r This addon splits your UI across two monitors, placing the 3D game on your primary monitor and a clean 'Canvas' on your secondary monitor for maps, bags, and reading. Click |cff00ff00Auto-Configure|r below to calibrate instantly.")
 
@@ -852,37 +852,6 @@ function Wizard:Open()
     if f.finishBtn and f.finishBtn.UnlockHighlight then
         f.finishBtn:UnlockHighlight()
     end
-
-    -- Reflow buttons for localization
-    for _, child in ipairs({f:GetChildren()}) do
-        if child:GetObjectType() == "Button" and child.GetText and child:GetText() then
-            local fs = child:GetFontString()
-            if fs then
-                local fw = fs:GetStringWidth()
-                if fw > child:GetWidth() - 20 then
-                    child:SetWidth(fw + 20)
-                end
-            end
-        end
-    end
-
-    -- Allow layout engine to settle, then resize window if anything bleeds out
-    C_Timer.After(0.01, function()
-        if not f:IsShown() then return end
-        local maxWidth = 668
-        for _, child in ipairs({f:GetChildren()}) do
-            if child.GetRight and child:GetRight() and f:GetLeft() then
-                local rightEdge = child:GetRight() - f:GetLeft() + 24
-                if rightEdge > maxWidth then
-                    maxWidth = rightEdge
-                end
-            end
-        end
-        if maxWidth > 668 then
-            f:SetWidth(maxWidth)
-            if f.header then f.header:SetWidth(maxWidth) end
-        end
-    end)
 
     f:UpdateState()
 
