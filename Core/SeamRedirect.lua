@@ -17,7 +17,11 @@ local function IsAddonPresent(name)
 end
 
 local function HasCustomActionBarAddon()
-    return IsAddonPresent("Bartender4") or IsAddonPresent("Dominos") or IsAddonPresent("ElvUI") or IsAddonPresent("Tukui")
+    -- Action bar addons generally hide or unregister the native MainMenuBar.
+    if _G.Bartender4 or _G.Dominos or _G.ElvUI or _G.Tukui or _G.ConsolePort then return true end
+    local main = _G.MainMenuBar or _G.MainActionBar
+    if not main then return true end
+    return false
 end
 
 local function HasCustomBagAddon()
