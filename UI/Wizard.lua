@@ -174,7 +174,7 @@ function Wizard:CreateFrame()
             f:UpdateState()
             
             -- Success State UI Feedback
-            autoBtn:SetText("|cff00ff00✔ Calibration Complete!|r")
+            autoBtn:SetText("|cff00ff00Calibration Complete!|r")
             if f.finishBtn and f.finishBtn.LockHighlight then
                 f.finishBtn:LockHighlight()
             end

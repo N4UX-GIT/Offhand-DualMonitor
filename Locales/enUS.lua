@@ -366,7 +366,7 @@ L["BTN_TRIM_CUSTOM_TIP_DESC"] = "Open the color picker wheel to select any custo
 L["BTN_GUIDE_LINK"] = "View Window Spanning Guide"
 L["BTN_GUIDE_LINK_TIP_TITLE"] = "Window Spanning Guide"
 L["BTN_GUIDE_LINK_TIP_DESC"] = "View instructions and batch files for spanning World of Warcraft across multiple physical monitors."
-L["MSG_AUTOCONFIG_APPLIED"] = "|cff00ff00[Offhand] 1-Click Auto-Configuration applied:|r %s"
+L["MSG_AUTOCONFIG_APPLIED"] = "|cff00ff001-Click Auto-Configuration applied:|r %s"
 L["MSG_AUTOCONFIG_DETAILS"] = "Preset: |cffffd100%s|r | Seam: |cffffd100%.1f%%|r | Viewport: |cffffd100%s|r"
 L["MSG_LAYOUT_APPLIED"] = "Layout applied successfully."
 

@@ -243,8 +243,16 @@ function Options:AutoConfigure(silent)
         end
         if Offhand.Print then
             Offhand:Print(L["MSG_AUTOCONFIG_APPLIED"], info.description)
-            Offhand:Print(L["MSG_AUTOCONFIG_DETAILS"],
-                info.recommendedPreset, info.recommendedDeckRatio * 100, info.recommendedAR or "16_9")
+            local presetLabel = L["PRESET_DUAL_LANDSCAPE"]
+            if info.recommendedPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" then
+                if info.recommendedPosition == "RIGHT" then
+                    presetLabel = L["PRESET_PL_LR"]
+                else
+                    presetLabel = L["PRESET_GL_PR"]
+                end
+            end
+            local arLabel = L["AR_" .. (info.recommendedAR or "16_9")] or (info.recommendedAR or "16:9")
+            Offhand:Print(L["MSG_AUTOCONFIG_DETAILS"], presetLabel, info.recommendedDeckRatio * 100, arLabel)
         end
         if configFrame and configFrame.IsShown and configFrame:IsShown() then
             Options:RefreshPanel()
@@ -1188,7 +1196,7 @@ function Options:CreateFloatingPanel()
     proTipDesc:SetPoint("TOPLEFT", 10, -26)
     proTipDesc:SetPoint("TOPRIGHT", -10, -26)
     proTipDesc:SetJustifyH("LEFT")
-    proTipDesc:SetText("|cffffd100💡 Pro Tip:|r You can click and drag the header of standard Blizzard windows (Character, Spellbook, Quest Log, Bags) to freely move them across your monitors!")
+    proTipDesc:SetText("|cffffd100Pro Tip:|r You can click and drag the header of standard Blizzard windows (Character, Spellbook, Quest Log, Bags) to freely move them across your monitors!")
 
     local panelCheck = CreateNativeCheckbox(card2_2, "Keep panels placed on workspace open independently",
         function() return Offhand.db and Offhand.db.independentWorkspacePanels end,
