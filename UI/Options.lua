@@ -1182,7 +1182,7 @@ function Options:CreateFloatingPanel()
     end
 
 
-    local card2_2 = CreateCard(tab2, "Workspace Window Management & Persistence", -164, 220)
+    local card2_2 = CreateCard(tab2, "Workspace Window Management & Persistence", -164, 260)
 
     local proTipDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     proTipDesc:SetPoint("TOPLEFT", 10, -26)
@@ -1243,7 +1243,7 @@ function Options:CreateFloatingPanel()
     card2_2.compatDesc = compatDesc
 
 
-    local card2_3 = CreateCard(tab2, "Bezel Compensation & Window Spanning", -396, 104)
+    local card2_3 = CreateCard(tab2, "Bezel Compensation & Window Spanning", -436, 104)
 
     local bezelSlider = CreateNativeSlider(card2_3, "Bezel Compensation Gap", 0, 100, 2,
         function() return (Offhand.db and Offhand.db.bezelGap) or 0 end,
