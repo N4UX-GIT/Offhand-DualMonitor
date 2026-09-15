@@ -1274,15 +1274,21 @@ function Options:CreateFloatingPanel()
 
     local card2_2 = CreateCard(tab2, "Workspace Window Management & Persistence", -164, 220)
 
+    local proTipDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    proTipDesc:SetPoint("TOPLEFT", 10, -26)
+    proTipDesc:SetPoint("TOPRIGHT", -10, -26)
+    proTipDesc:SetJustifyH("LEFT")
+    proTipDesc:SetText("|cffffd100💡 Pro Tip:|r You can click and drag the header of standard Blizzard windows (Character, Spellbook, Quest Log, Bags) to freely move them across your monitors!")
+
     local panelCheck = CreateNativeCheckbox(card2_2, "Keep panels placed on workspace open independently",
         function() return Offhand.db and Offhand.db.independentWorkspacePanels end,
         function(val) Offhand.db.independentWorkspacePanels = val end,
         L["CHECK_ESC_PERSIST_TIP_TITLE"], L["CHECK_ESC_PERSIST_TIP_DESC"]
     )
-    panelCheck:SetPoint("TOPLEFT", 10, -26)
+    panelCheck:SetPoint("TOPLEFT", 10, -66)
 
     local panelDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    panelDesc:SetPoint("TOPLEFT", 32, -48)
+    panelDesc:SetPoint("TOPLEFT", 32, -88)
     panelDesc:SetText("|cff888888Allows opening bags, character pane, spellbook & map simultaneously.|r")
 
     local escapeCheck = CreateNativeCheckbox(card2_2, "Keep workspace panels open when pressing Escape",
@@ -1295,10 +1301,10 @@ function Options:CreateFloatingPanel()
         end,
         L["CHECK_ESC_PERSIST_TIP_TITLE"], L["CHECK_ESC_PERSIST_TIP_DESC"]
     )
-    escapeCheck:SetPoint("TOPLEFT", 10, -70)
+    escapeCheck:SetPoint("TOPLEFT", 10, -110)
 
     local escapeDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    escapeDesc:SetPoint("TOPLEFT", 32, -92)
+    escapeDesc:SetPoint("TOPLEFT", 32, -132)
     escapeDesc:SetText("|cff888888Escape clears targets or opens Game Menu without closing workspace elements.|r")
 
     local reloadCheck = CreateNativeCheckbox(card2_2, "Persist open panels across reloads & zone transitions",
@@ -1306,24 +1312,24 @@ function Options:CreateFloatingPanel()
         function(val) Offhand.db.restoreWorkspaceOnReload = val end,
         "Reload Persistence", "Automatically re-opens any panels you had open on the workspace after a /reload or loading screen completes."
     )
-    reloadCheck:SetPoint("TOPLEFT", 10, -114)
+    reloadCheck:SetPoint("TOPLEFT", 10, -154)
 
     local seamCheck = CreateNativeCheckbox(card2_2, "Reroute popups & dialogs away from center bezel",
         function() return Offhand.db and Offhand.db.seamRedirect end,
         function(val) Offhand.db.seamRedirect = val end,
         L["CHECK_SEAM_REDIRECT_TIP_TITLE"], L["CHECK_SEAM_REDIRECT_TIP_DESC"]
     )
-    seamCheck:SetPoint("TOPLEFT", 10, -138)
+    seamCheck:SetPoint("TOPLEFT", 10, -178)
 
     local forceCheck = CreateNativeCheckbox(card2_2, "Force Dual Mode (Preview on single display)",
         function() return (Offhand.db and Offhand.db.forceDualOnSingle) or false end,
         function(val) Offhand.db.forceDualOnSingle = val end,
         "Force Dual Mode", "Forces multi-monitor canvas logic on single-screen setups for testing and preview."
     )
-    forceCheck:SetPoint("TOPLEFT", 10, -162)
+    forceCheck:SetPoint("TOPLEFT", 10, -202)
 
     local compatDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    compatDesc:SetPoint("TOPLEFT", 12, -188)
+    compatDesc:SetPoint("TOPLEFT", 12, -228)
     card2_2.compatDesc = compatDesc
 
 

@@ -172,7 +172,13 @@ function Wizard:CreateFrame()
         if Offhand.Options and Offhand.Options.AutoConfigure then
             local info = Offhand.Options:AutoConfigure(false)
             f:UpdateState()
-            statusText:SetText(string.format(L["WIZARD_STATUS_APPLIED"], info.description))
+            
+            -- Success State UI Feedback
+            autoBtn:SetText("|cff00ff00✔ Calibration Complete!|r")
+            if f.finishBtn and f.finishBtn.LockHighlight then
+                f.finishBtn:LockHighlight()
+            end
+            statusText:SetText("|cffffd100Your dual-monitor setup is fully calibrated. You may now click Finish.|r")
         end
     end)
 
@@ -727,6 +733,7 @@ function Wizard:CreateFrame()
     if Offhand.SetTooltip then Offhand:SetTooltip(advBtn, L["WIZARD_BTN_ADVANCED_TIP_TITLE"], L["WIZARD_BTN_ADVANCED_TIP_DESC"]) end
 
     local finishBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    f.finishBtn = finishBtn
     finishBtn:SetSize(280, 28)
     finishBtn:SetPoint("BOTTOMRIGHT", -18, 14)
     finishBtn:SetText("|cffffd100" .. L["WIZARD_BTN_FINISH"] .. "|r")
@@ -839,6 +846,12 @@ function Wizard:Open()
         info.recommendedAR or "16:9"))
 
     f.statusText:SetText(L["WIZARD_STATUS_READY"])
+    if f.autoBtn then
+        f.autoBtn:SetText("|cff00ff00" .. L["WIZARD_BTN_AUTOCONFIG"] .. "|r")
+    end
+    if f.finishBtn and f.finishBtn.UnlockHighlight then
+        f.finishBtn:UnlockHighlight()
+    end
 
     -- Reflow buttons for localization
     for _, child in ipairs({f:GetChildren()}) do

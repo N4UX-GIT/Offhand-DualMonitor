@@ -303,7 +303,7 @@ assert(wizardFrame.recomText:GetText():find("36.0%%"), "Wizard recomText must sh
 addon.db.deckWidthRatio = 0.55
 wizardFrame.autoBtn.scripts["OnClick"]()
 assert(math.abs(addon.db.deckWidthRatio - 0.36) < 0.001, "AutoConfigure button in Wizard must set 36% seam")
-assert(wizardFrame.statusText:GetText():find("%[Applied%]"), "Wizard status text must confirm applied setup")
+assert(wizardFrame.statusText:GetText():find("fully calibrated"), "Wizard status text must confirm applied setup")
 
 -- Test Continuous Global UI Scale Slider in Wizard
 assert(wizardFrame.scaleSlider ~= nil, "Wizard must have scaleSlider")
