@@ -34,6 +34,8 @@ local function frame(name,w,h,x,y)
     function f:SetClampedToScreen() end
     function f:IsUserPlaced() return self.user end
     function f:ClearAllPoints() end
+    function f:SetScrollChild(c) self.scrollChild = c end
+    function f:SetVerticalScroll(v) self.verticalScroll = v end
     function f:SetPoint(p,r,rp,x,y)
         self.x=x*self.scale; self.y=y*self.scale-self.h*self.scale
         if p=="BOTTOMRIGHT" then self.x=self.x-self.w*self.scale; self.y=y*self.scale end

@@ -785,32 +785,47 @@ function Options:CreateFloatingPanel()
     tab4Btn:SetPoint("LEFT", tab3Btn, "RIGHT", 12, 0)
     tab4Btn:SetText(L["TAB_PROFILES"])
 
-    -- Tab Content Containers (Anchored below tab headers)
-    local tab1 = CreateFrame("Frame", nil, configFrame)
-    tab1:SetPoint("TOPLEFT", 16, -118)
-    tab1:SetPoint("BOTTOMRIGHT", -16, 52)
+    -- Master ScrollFrame for all Tab Content
+    local optionsScrollFrame = CreateFrame("ScrollFrame", "OffhandOptionsScrollFrame", configFrame, "UIPanelScrollFrameTemplate")
+    optionsScrollFrame:SetPoint("TOPLEFT", 16, -118)
+    optionsScrollFrame:SetPoint("BOTTOMRIGHT", -42, 52)
+    configFrame.scrollFrame = optionsScrollFrame
+
+    local optionsScrollChild = CreateFrame("Frame", nil, optionsScrollFrame)
+    optionsScrollChild:SetSize(662, 10)
+    optionsScrollFrame:SetScrollChild(optionsScrollChild)
+    configFrame.scrollChild = optionsScrollChild
+
+    -- Tab Content Containers (Anchored to ScrollChild)
+    local tab1 = CreateFrame("Frame", nil, optionsScrollChild)
+    tab1:SetPoint("TOPLEFT", 0, 0)
+    tab1:SetPoint("TOPRIGHT", 0, 0)
+    tab1:SetHeight(760)
     configFrame.tab1 = tab1
 
-    local tab2 = CreateFrame("Frame", nil, configFrame)
-    tab2:SetPoint("TOPLEFT", 16, -118)
-    tab2:SetPoint("BOTTOMRIGHT", -16, 52)
+    local tab2 = CreateFrame("Frame", nil, optionsScrollChild)
+    tab2:SetPoint("TOPLEFT", 0, 0)
+    tab2:SetPoint("TOPRIGHT", 0, 0)
+    tab2:SetHeight(560)
     configFrame.tab2 = tab2
 
-    local tab3 = CreateFrame("Frame", nil, configFrame)
-    tab3:SetPoint("TOPLEFT", 16, -118)
-    tab3:SetPoint("BOTTOMRIGHT", -16, 52)
+    local tab3 = CreateFrame("Frame", nil, optionsScrollChild)
+    tab3:SetPoint("TOPLEFT", 0, 0)
+    tab3:SetPoint("TOPRIGHT", 0, 0)
+    tab3:SetHeight(700)
     configFrame.tab3 = tab3
     
-    local tab4 = CreateFrame("Frame", nil, configFrame)
-    tab4:SetPoint("TOPLEFT", 16, -118)
-    tab4:SetPoint("BOTTOMRIGHT", -16, 52)
+    local tab4 = CreateFrame("Frame", nil, optionsScrollChild)
+    tab4:SetPoint("TOPLEFT", 0, 0)
+    tab4:SetPoint("TOPRIGHT", 0, 0)
+    tab4:SetHeight(400)
     configFrame.tab4 = tab4
 
     local registeredCards = {}
 
     local function CreateCard(parent, titleText, yOffset, height)
         local card = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-        card:SetSize(686, height)
+        card:SetSize(662, height)
         card:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, yOffset)
 
         card:SetBackdrop({
@@ -883,6 +898,19 @@ function Options:CreateFloatingPanel()
         tab2:SetShown(tabIndex == 2)
         tab3:SetShown(tabIndex == 3)
         tab4:SetShown(tabIndex == 4)
+        
+        -- Update the ScrollFrame content height dynamically
+        if tabIndex == 1 then
+            optionsScrollChild:SetHeight(tab1:GetHeight())
+        elseif tabIndex == 2 then
+            optionsScrollChild:SetHeight(tab2:GetHeight())
+        elseif tabIndex == 3 then
+            optionsScrollChild:SetHeight(tab3:GetHeight())
+        elseif tabIndex == 4 then
+            optionsScrollChild:SetHeight(tab4:GetHeight())
+        end
+        optionsScrollFrame:SetVerticalScroll(0)
+
         local normalColor = {0.8, 0.8, 0.8}
         local activeColor = {1.0, 0.82, 0.0}
         local t1c = (tabIndex == 1) and activeColor or normalColor

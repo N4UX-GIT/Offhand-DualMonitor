@@ -74,6 +74,8 @@ local function makeMockFrame(name, w, h)
     function f:GetScale() return self.scale end
     function f:SetScale(s) self.scale = s end
     function f:ClearAllPoints() self.points = {} end
+    function f:SetScrollChild(c) self.scrollChild = c end
+    function f:SetVerticalScroll(v) self.verticalScroll = v end
     function f:SetPoint(pt, relTo, relPt, x, y)
         table.insert(self.points, { point = pt, relTo = relTo, relPt = relPt, x = x or 0, y = y or 0 })
     end

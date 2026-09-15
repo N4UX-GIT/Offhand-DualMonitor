@@ -24,6 +24,8 @@ local function object()
     function f:Minimize() self.maximized=false end
     function f:IsMaximized() return self.maximized end
     function f:SetResizable() end
+    function f:SetScrollChild(c) self.scrollChild = c end
+    function f:SetVerticalScroll(v) self.verticalScroll = v end
     function f:SetPoint() end
     function f:SetHeight(h) self.height=h end
     function f:GetFrameLevel() return 1 end

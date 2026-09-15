@@ -45,6 +45,8 @@ function CreateFrame(kind, name, parent, template)
     function f:SetWidth(w) self.width = w end
     function f:SetHeight(h) self.height = h end
     function f:GetParent() return self.parent end
+    function f:SetScrollChild(c) self.scrollChild = c end
+    function f:SetVerticalScroll(v) self.verticalScroll = v end
     function f:SetPoint(point, rel, relPoint, x, y)
         self.points[point] = { point = point, rel = rel, relPoint = relPoint, x = x, y = y }
         self.firstPoint = self.points[point]

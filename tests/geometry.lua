@@ -25,6 +25,8 @@ local function frame(parent, w, h)
     function f:GetScale() return self.scale end
     function f:SetScale(v) self.scale=v end
     function f:GetEffectiveScale() return self.scale*(self.parent and self.parent:GetEffectiveScale() or 1) end
+    function f:SetScrollChild(c) self.scrollChild = c end
+    function f:SetVerticalScroll(v) self.verticalScroll = v end
     function f:SetPoint(point, relative, relativePoint, x, y)
         self.points[point]={relative,relativePoint,x,y}
     end

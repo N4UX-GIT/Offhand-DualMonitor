@@ -3,6 +3,8 @@ local frames = {}
 function CreateFrame(kind)
     local f = {kind=kind, scripts={}}
     function f:SetSize() end
+    function f:SetScrollChild(c) self.scrollChild = c end
+    function f:SetVerticalScroll(v) self.verticalScroll = v end
     function f:SetPoint() end
     function f:SetAutoFocus() end
     function f:SetNumeric() end
