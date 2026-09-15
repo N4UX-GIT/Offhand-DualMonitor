@@ -732,16 +732,16 @@ function Options:CreateFloatingPanel()
     local header = Offhand.Themes:CreateBayHeader(configFrame, "", 68)
     configFrame.header = header
     
-    if header.icon then
-        header.icon:SetSize(42, 42)
-        header.icon:SetPoint("LEFT", header, "LEFT", 12, 0)
+    -- Hide the default icon since it's a PNG and fails to load in WoW, causing a gap
+    if header.icon and header.icon.Hide then
+        header.icon:Hide()
     end
     
     if header.title then
         if header.title.Hide then header.title:Hide() else header.title:SetText("") end
     end
     local title = header:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
-    title:SetPoint("TOPLEFT", header.icon or header, "TOPRIGHT", 15, -14)
+    title:SetPoint("TOPLEFT", header, "TOPLEFT", 20, -18)
     title:SetText("|cffffcc00Offhand|r")
     
     local version = header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -752,9 +752,10 @@ function Options:CreateFloatingPanel()
     local desc = header:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
     desc:SetText("Dual Monitor Workspace and Seamless Display Topology Manager")
+    
     local closeBtn = CreateFrame("Button", nil, configFrame.header, "UIPanelCloseButton")
     closeBtn:SetSize(28, 28)
-    closeBtn:SetPoint("RIGHT", configFrame.header, "RIGHT", -4, 0)
+    closeBtn:SetPoint("RIGHT", configFrame.header, "RIGHT", -10, 0)
     closeBtn:SetScript("OnClick", function()
         Options:Close()
     end)
@@ -763,10 +764,20 @@ function Options:CreateFloatingPanel()
         Options:HideSeamGuide()
     end)
 
+    -- Divider Line Below Tabs
+    local divider = configFrame:CreateTexture(nil, "ARTWORK")
+    if divider.SetHeight then divider:SetHeight(1) end
+    if divider.SetPoint then
+        divider:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 4, -36)
+        divider:SetPoint("TOPRIGHT", header, "BOTTOMRIGHT", -4, -36)
+    end
+    if divider.SetColorTexture then divider:SetColorTexture(1, 1, 1, 0.15) end
+    configFrame.divider = divider
+
     -- Auto-Setup Wizard Button
     local autoWizardBtn = CreateFrame("Button", nil, configFrame, "UIPanelButtonTemplate")
     autoWizardBtn:SetSize(155, 22)
-    autoWizardBtn:SetPoint("TOPRIGHT", -18, -116)
+    autoWizardBtn:SetPoint("TOPRIGHT", -18, -126)
     autoWizardBtn:SetText(L["BTN_AUTO_WIZARD"])
     autoWizardBtn:SetScript("OnClick", function()
         if Offhand.Wizard and Offhand.Wizard.Open then
@@ -782,7 +793,7 @@ function Options:CreateFloatingPanel()
 
     -- Status & Topology Detection Banner
     local banner = configFrame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    banner:SetPoint("TOPLEFT", 18, -120)
+    banner:SetPoint("TOPLEFT", 18, -130)
     banner:SetPoint("TOPRIGHT", autoWizardBtn, "TOPLEFT", -8, 0)
     banner:SetJustifyH("LEFT")
     configFrame.banner = banner
@@ -791,7 +802,7 @@ function Options:CreateFloatingPanel()
 
     -- Master ScrollFrame for all Tab Content
     local optionsScrollFrame = CreateFrame("ScrollFrame", "OffhandOptionsScrollFrame", configFrame, "UIPanelScrollFrameTemplate")
-    optionsScrollFrame:SetPoint("TOPLEFT", 16, -146)
+    optionsScrollFrame:SetPoint("TOPLEFT", 16, -156)
     optionsScrollFrame:SetPoint("BOTTOMRIGHT", -42, 52)
     configFrame.scrollFrame = optionsScrollFrame
 
