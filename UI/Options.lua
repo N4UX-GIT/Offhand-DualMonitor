@@ -764,26 +764,7 @@ function Options:CreateFloatingPanel()
     banner:SetJustifyH("LEFT")
     configFrame.banner = banner
 
-    -- Four Distinct Tab Switchers (162 width each + 12px gaps)
-    local tab1Btn = CreateFrame("Button", nil, configFrame, "UIPanelButtonTemplate")
-    tab1Btn:SetSize(162, 26)
-    tab1Btn:SetPoint("TOPLEFT", 18, -84)
-    tab1Btn:SetText(L["TAB_DISPLAY"])
-
-    local tab2Btn = CreateFrame("Button", nil, configFrame, "UIPanelButtonTemplate")
-    tab2Btn:SetSize(162, 26)
-    tab2Btn:SetPoint("LEFT", tab1Btn, "RIGHT", 12, 0)
-    tab2Btn:SetText(L["TAB_WORKSPACE"])
-
-    local tab3Btn = CreateFrame("Button", nil, configFrame, "UIPanelButtonTemplate")
-    tab3Btn:SetSize(162, 26)
-    tab3Btn:SetPoint("LEFT", tab2Btn, "RIGHT", 12, 0)
-    tab3Btn:SetText(L["TAB_THEMES"])
-
-    local tab4Btn = CreateFrame("Button", nil, configFrame, "UIPanelButtonTemplate")
-    tab4Btn:SetSize(162, 26)
-    tab4Btn:SetPoint("LEFT", tab3Btn, "RIGHT", 12, 0)
-    tab4Btn:SetText(L["TAB_PROFILES"])
+    -- Data-Driven Tab Buttons will be created after Tab Content Containers
 
     -- Master ScrollFrame for all Tab Content
     local optionsScrollFrame = CreateFrame("ScrollFrame", "OffhandOptionsScrollFrame", configFrame, "UIPanelScrollFrameTemplate")
@@ -892,46 +873,64 @@ function Options:CreateFloatingPanel()
         end
     end
 
+    local tabConfig = {
+        { id = 1, frame = tab1, label = L["TAB_DISPLAY"] },
+        { id = 2, frame = tab2, label = L["TAB_WORKSPACE"] },
+        { id = 3, frame = tab3, label = L["TAB_THEMES"] },
+        { id = 4, frame = tab4, label = L["TAB_PROFILES"] }
+    }
+    
+    local tabButtons = {}
+
     local function SwitchTab(tabIndex)
         currentTab = tabIndex
-        tab1:SetShown(tabIndex == 1)
-        tab2:SetShown(tabIndex == 2)
-        tab3:SetShown(tabIndex == 3)
-        tab4:SetShown(tabIndex == 4)
-        
-        -- Update the ScrollFrame content height dynamically
-        if tabIndex == 1 then
-            optionsScrollChild:SetHeight(tab1:GetHeight())
-        elseif tabIndex == 2 then
-            optionsScrollChild:SetHeight(tab2:GetHeight())
-        elseif tabIndex == 3 then
-            optionsScrollChild:SetHeight(tab3:GetHeight())
-        elseif tabIndex == 4 then
-            optionsScrollChild:SetHeight(tab4:GetHeight())
-        end
-        optionsScrollFrame:SetVerticalScroll(0)
-
         local normalColor = {0.8, 0.8, 0.8}
         local activeColor = {1.0, 0.82, 0.0}
-        local t1c = (tabIndex == 1) and activeColor or normalColor
-        local t2c = (tabIndex == 2) and activeColor or normalColor
-        local t3c = (tabIndex == 3) and activeColor or normalColor
-        local t4c = (tabIndex == 4) and activeColor or normalColor
 
-        local fs1 = tab1Btn.GetFontString and tab1Btn:GetFontString()
-        local fs2 = tab2Btn.GetFontString and tab2Btn:GetFontString()
-        local fs3 = tab3Btn.GetFontString and tab3Btn:GetFontString()
-        local fs4 = tab4Btn.GetFontString and tab4Btn:GetFontString()
-        if fs1 then fs1:SetTextColor(t1c[1], t1c[2], t1c[3]) end
-        if fs2 then fs2:SetTextColor(t2c[1], t2c[2], t2c[3]) end
-        if fs3 then fs3:SetTextColor(t3c[1], t3c[2], t3c[3]) end
-        if fs4 then fs4:SetTextColor(t4c[1], t4c[2], t4c[3]) end
+        for i, t in ipairs(tabConfig) do
+            local isActive = (tabIndex == t.id)
+            t.frame:SetShown(isActive)
+            
+            local c = isActive and activeColor or normalColor
+            local btn = tabButtons[i]
+            if btn then
+                local fs = btn.GetFontString and btn:GetFontString()
+                if fs then fs:SetTextColor(c[1], c[2], c[3]) end
+            end
+            
+            if isActive then
+                optionsScrollChild:SetHeight(t.frame:GetHeight())
+            end
+        end
+
+        optionsScrollFrame:SetVerticalScroll(0)
+
+        if Options.UpdateTrimHighlights then
+            Options:UpdateTrimHighlights()
+        end
+        if Options.UpdateCanvasHighlights then
+            Options:UpdateCanvasHighlights()
+        end
     end
 
-    tab1Btn:SetScript("OnClick", function() SwitchTab(1) end)
-    tab2Btn:SetScript("OnClick", function() SwitchTab(2) end)
-    tab3Btn:SetScript("OnClick", function() SwitchTab(3) end)
-    tab4Btn:SetScript("OnClick", function() SwitchTab(4) end)
+    -- Dynamically generate the tab buttons
+    local btnGap = 12
+    local totalAvailableWidth = 684
+    local btnWidth = (totalAvailableWidth - (btnGap * (#tabConfig - 1))) / #tabConfig
+    local startX = (configFrame:GetWidth() - totalAvailableWidth) / 2
+
+    for i, t in ipairs(tabConfig) do
+        local btn = CreateFrame("Button", nil, configFrame, "UIPanelButtonTemplate")
+        btn:SetSize(btnWidth, 26)
+        if i == 1 then
+            btn:SetPoint("TOPLEFT", startX, -84)
+        else
+            btn:SetPoint("LEFT", tabButtons[i - 1], "RIGHT", btnGap, 0)
+        end
+        btn:SetText(t.label)
+        btn:SetScript("OnClick", function() SwitchTab(t.id) end)
+        table.insert(tabButtons, btn)
+    end
 
     -- ========================================================================
     -- TAB 1: DISPLAY & VIEWPORT CALIBRATION
