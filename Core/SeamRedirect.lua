@@ -21,32 +21,24 @@ local function HasCustomActionBarAddon()
 end
 
 local function HasCustomBagAddon()
-    local bagAddons = {
-        "Bagnon", "BagBrother", "AdiBags", "ArkInventory", "BetterBags",
-        "Inventorian", "LiteBag", "BaudBag", "Combuctor", "OneBag3", "OneBag",
-        "cargBags_Nivaya", "cargBags", "ElvUI", "Tukui"
-    }
-    for _, name in ipairs(bagAddons) do
-        if IsAddonPresent(name) then return true end
-    end
-    if _G and (_G.Bagnon or _G.AdiBags or _G.ArkInventory or _G.BetterBags or _G.Inventorian or _G.LiteBag or _G.BaudBag or _G.Combuctor or _G.OneBagFrame) then
-        return true
-    end
+    if _G.Bagnon or _G.AdiBags or _G.ArkInventory or _G.BetterBags or _G.Inventorian or _G.ElvUI or _G.Tukui then return true end
+    
+    local c1 = _G.ContainerFrame1
+    if not c1 then return true end
+    
     return false
 end
 
 local function HasCustomMinimapAddon()
-    local minimapAddons = {
-        "SexyMap", "BasicMinimap", "Chinchilla", "Carbonite",
-        "Carbonite.Info", "Mappy", "SimpleMinimap", "PocketMinimap",
-        "ElvUI", "Tukui"
-    }
-    for _, name in ipairs(minimapAddons) do
-        if IsAddonPresent(name) then return true end
-    end
-    if _G and (_G.SexyMap or _G.BasicMinimap or _G.Chinchilla or _G.Carbonite) then
-        return true
-    end
+    -- Heuristic check for minimap overrides.
+    if _G.SexyMap or _G.Carbonite or _G.ElvUI then return true end
+    
+    local mm = _G.MinimapCluster
+    if not mm then return true end
+    
+    -- If another addon has forcibly moved or unanchored the Minimap natively without Offhand's permission
+    if mm.IsUserPlaced and mm:IsUserPlaced() then return true end
+    
     return false
 end
 
