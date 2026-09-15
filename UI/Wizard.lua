@@ -135,7 +135,7 @@ function Wizard:CreateFrame()
     if logoIcon and logoIcon.SetSize and logoIcon.SetPoint and logoIcon.SetTexture then
         logoIcon:SetSize(38, 38)
         logoIcon:SetPoint("TOPLEFT", 14, -28)
-        logoIcon:SetTexture("Interface\\AddOns\\Offhand\\Media\\offhand-icon")
+        logoIcon:SetTexture("Interface\\AddOns\\Offhand\\Media\\OffhandLogo64x64.blp")
         card1.logoIcon = logoIcon
         textLeft = 60
     end

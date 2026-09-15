@@ -1,4 +1,4 @@
-﻿## Interface: 11509
+## Interface: 11509
 ## Interface-Vanilla: 11509
 ## Interface-Classic: 11509
 ## Interface-Cata: 40402
@@ -7,6 +7,7 @@
 ## Notes: Equip your Offhand. Dual wield your monitors. Multi-monitor workspace for World of Warcraft.
 ## Author: N4UX (Noggaholic)
 ## Version: 1.0.1
+## IconTexture: Interface\AddOns\Offhand\Media\OffhandLogo64x64.blp
 ## SavedVariables: OffhandDB
 ## SavedVariablesPerCharacter: OffhandCharDB
 

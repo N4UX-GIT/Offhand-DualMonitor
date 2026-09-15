@@ -732,7 +732,6 @@ function Options:CreateFloatingPanel()
     local header = Offhand.Themes:CreateBayHeader(configFrame, "", 68)
     configFrame.header = header
     
-    -- Hide the default icon since it's a PNG and fails to load in WoW, causing a gap
     if header.icon and header.icon.Hide then
         header.icon:Hide()
     end
@@ -740,17 +739,30 @@ function Options:CreateFloatingPanel()
     if header.title then
         if header.title.Hide then header.title:Hide() else header.title:SetText("") end
     end
+
+    local logo = header.CreateTexture and header:CreateTexture(nil, "ARTWORK")
+    if logo and logo.SetSize and logo.SetPoint and logo.SetTexture then
+        logo:SetSize(48, 48)
+        logo:SetPoint("LEFT", header, "LEFT", 16, 0)
+        logo:SetTexture("Interface\\AddOns\\Offhand\\Media\\OffhandLogo64x64.blp")
+        header.logo = logo
+    end
+
     local title = header:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
-    title:SetPoint("TOPLEFT", header, "TOPLEFT", 20, -18)
+    if header.logo and header.logo.SetPoint then
+        title:SetPoint("TOPLEFT", header.logo, "TOPRIGHT", 14, -4)
+    else
+        title:SetPoint("TOPLEFT", header, "TOPLEFT", 76, -18)
+    end
     title:SetText("|cffffcc00Offhand|r")
     
     local version = header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     version:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 8, 2)
-    local verNum = (GetAddOnMetadata and GetAddOnMetadata("Offhand", "Version")) or "1.0.0"
+    local verNum = (GetAddOnMetadata and GetAddOnMetadata("Offhand", "Version")) or "1.0.1"
     version:SetText("|cffaaaaaaVersion " .. verNum .. "|r")
     
     local desc = header:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
+    desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
     desc:SetText("Dual Monitor Workspace and Seamless Display Topology Manager")
     
     local closeBtn = CreateFrame("Button", nil, configFrame.header, "UIPanelCloseButton")
