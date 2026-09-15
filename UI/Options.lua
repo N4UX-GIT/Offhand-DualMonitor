@@ -815,7 +815,7 @@ function Options:CreateFloatingPanel()
     local tab1 = CreateFrame("Frame", nil, optionsScrollChild)
     tab1:SetPoint("TOPLEFT", 0, 0)
     tab1:SetPoint("TOPRIGHT", 0, 0)
-    tab1:SetHeight(760)
+    tab1:SetHeight(545)
     configFrame.tab1 = tab1
 
     local tab2 = CreateFrame("Frame", nil, optionsScrollChild)
@@ -1095,7 +1095,7 @@ function Options:CreateFloatingPanel()
     if Offhand.SetTooltip then Offhand:SetTooltip(p55Btn, L["WIZARD_PRESET_SEAM_55_TIP_TITLE"], L["WIZARD_PRESET_SEAM_55_TIP_DESC"]) end
 
 
-    local card1_3 = CreateCard(tab1, "Screen Bottom Offset & Global UI Scale", -252, 210)
+    local card1_3 = CreateCard(tab1, "Screen Bottom Offset & Global UI Scale", -252, 150)
 
     local bottomControl = Options:CreateBottomControl(card1_3)
     bottomControl:SetPoint("TOPLEFT", 12, -26)
@@ -1150,7 +1150,7 @@ function Options:CreateFloatingPanel()
     hudNote:SetJustifyH("LEFT")
     hudNote:SetText("|cff888888Scales Blizzard action bars, unit frames, and dialogs relative to primary display resolution.|r")
 
-    local card1_4 = CreateCard(tab1, "OBS Streamer Capture Setup", -474, 110)
+    local card1_4 = CreateCard(tab1, "OBS Streamer Capture Setup", -416, 110)
     
     local obsDesc = card1_4:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     obsDesc:SetPoint("TOPLEFT", 16, -26)
