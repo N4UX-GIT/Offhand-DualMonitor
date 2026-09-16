@@ -9,7 +9,7 @@ param(
 $ErrorActionPreference = "Stop"
 $rootDir = $PSScriptRoot
 $distDir = Join-Path $rootDir "dist"
-$tempDir = Join-Path $distDir "temp"
+$tempDir = Join-Path ([IO.Path]::GetTempPath()) ("Offhand-package-" + [guid]::NewGuid().ToString())
 
 Write-Host "===================================================" -ForegroundColor Cyan
 Write-Host "  Offhand Release Packager v$Version" -ForegroundColor Cyan
@@ -17,21 +17,13 @@ Write-Host "===================================================" -ForegroundColo
 
 # 1. Ensure Companion executable is compiled
 Write-Host "`n[1/5] Compiling Companion executable..." -ForegroundColor Yellow
-$proc = Get-Process Offhand -ErrorAction SilentlyContinue
-if ($proc -and (Test-Path (Join-Path $rootDir "Companion\Offhand.exe"))) {
-    Write-Host "  Note: Offhand is currently running. Using existing Companion\Offhand.exe" -ForegroundColor Yellow
-} else {
-    & (Join-Path $rootDir "Companion\build.bat")
-    if ($LASTEXITCODE -ne 0) {
-        throw "Companion build failed with exit code $LASTEXITCODE"
-    }
+& (Join-Path $rootDir "Companion\build.bat")
+if ($LASTEXITCODE -ne 0) {
+    throw "Companion build failed. Close a running companion if it locks the executable, then retry."
 }
 
 # 2. Reset dist directory
 Write-Host "`n[2/5] Initializing output directory: $distDir" -ForegroundColor Yellow
-if (Test-Path $distDir) {
-    Remove-Item -Path $distDir -Recurse -Force
-}
 New-Item -ItemType Directory -Path $distDir -Force | Out-Null
 New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 
@@ -49,12 +41,11 @@ Copy-Item (Join-Path $rootDir "README.md") -Destination $addonStaging
 # Copy addon directories
 Copy-Item (Join-Path $rootDir "Core") -Destination $addonStaging -Recurse
 Copy-Item (Join-Path $rootDir "Locales") -Destination $addonStaging -Recurse
-Copy-Item (Join-Path $rootDir "Modules") -Destination $addonStaging -Recurse
 Copy-Item (Join-Path $rootDir "UI") -Destination $addonStaging -Recurse
 Copy-Item (Join-Path $rootDir "Media") -Destination $addonStaging -Recurse
 
 $addonZip = Join-Path $distDir "Offhand-v$Version.zip"
-Compress-Archive -Path $addonStaging -DestinationPath $addonZip -CompressionLevel Optimal
+Compress-Archive -Path $addonStaging -DestinationPath $addonZip -CompressionLevel Optimal -Force
 Write-Host "  -> Created: $addonZip" -ForegroundColor Green
 
 # 4. Package Desktop Companion for GitHub Releases
@@ -73,7 +64,7 @@ Copy-Item (Join-Path $rootDir "Companion\LICENSE") -Destination $compStaging
 Copy-Item (Join-Path $rootDir "Companion\README.md") -Destination $compStaging
 
 $compZip = Join-Path $distDir "Offhand-Companion-v$Version.zip"
-Compress-Archive -Path (Join-Path $compStaging "*") -DestinationPath $compZip -CompressionLevel Optimal
+Compress-Archive -Path (Join-Path $compStaging "*") -DestinationPath $compZip -CompressionLevel Optimal -Force
 Write-Host "  -> Created: $compZip" -ForegroundColor Green
 
 # Copy standalone Offhand.exe directly to dist
@@ -83,10 +74,10 @@ Write-Host "  -> Created standalone executable: $standaloneExe" -ForegroundColor
 
 # 5. Clean staging and generate SHA-256 Checksums
 Write-Host "`n[5/5] Generating release checksums..." -ForegroundColor Yellow
-Remove-Item -Path $tempDir -Recurse -Force
+Write-Host "Build staging retained for inspection: $tempDir"
 
 $checksumFile = Join-Path $distDir "checksums-sha256.txt"
-$distFiles = Get-ChildItem -Path $distDir -File | Where-Object { $_.Name -ne "checksums-sha256.txt" }
+$distFiles = Get-Item -LiteralPath $addonZip, $compZip, $standaloneExe
 
 $checksumLines = foreach ($file in $distFiles) {
     $hash = (Get-FileHash -Path $file.FullName -Algorithm SHA256).Hash
@@ -107,7 +98,12 @@ if (-not (Test-Path $webDownloads)) {
 }
 Copy-Item $standaloneExe -Destination (Join-Path $webDownloads "Offhand.exe") -Force
 Copy-Item $compZip -Destination (Join-Path $webDownloads "Offhand-Companion.zip") -Force
-Copy-Item $checksumFile -Destination (Join-Path $webDownloads "checksums-sha256.txt") -Force
+# Website assets use different filenames from release archives.
+$webChecksums = foreach ($name in @('Offhand.exe', 'Offhand-Companion.zip')) {
+    $hash = (Get-FileHash -LiteralPath (Join-Path $webDownloads $name) -Algorithm SHA256).Hash
+    "$hash  $name"
+}
+$webChecksums | Set-Content -LiteralPath (Join-Path $webDownloads 'checksums-sha256.txt') -Encoding UTF8
 Write-Host "  -> Synced: Website/downloads/Offhand.exe & Offhand-Companion.zip" -ForegroundColor Green
 
 Write-Host "`n===================================================" -ForegroundColor Green

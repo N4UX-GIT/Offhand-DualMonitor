@@ -1,5 +1,21 @@
 # Current stabilization baseline — 2026-09-16
 
+## Build and deployment follow-up
+
+- Rebuilt the native companion, addon ZIP and companion ZIP. Artifact checks
+  verify source/TOC parity, matching executable copies and both checksum manifests.
+- Packaging now always compiles current source, excludes unloaded legacy modules,
+  retains existing build directories and uses unique temporary staging. Website
+  checksums use the filenames actually served by the site. Release CI verifies
+  artifacts before publication.
+- Runtime addon version is read from TOC metadata (fallback 1.0.1), correcting the
+  previous hardcoded 1.1.0 message. Companion assembly version remains 1.2.0.0.
+- The Classic Era AddOns/Offhand folder is a junction to this repository. Source
+  edits are therefore already available on next login/reload, without copying.
+  Earlier wording that fixes were not installed was incorrect.
+- WoW was not running during this follow-up. No live login, combat or UI acceptance
+  was performed. No new public release tag was created.
+
 Historical entries below do not establish acceptance of the present Canvas
 implementation. Rollback: checkpoint/2026-09-16-before-stabilization (85f62ac).
 

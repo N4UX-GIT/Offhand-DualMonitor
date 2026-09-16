@@ -41,6 +41,10 @@ jobs:
         run: |
           .\package.ps1 -Version "${{ steps.get_version.outputs.VERSION }}"
 
+      - name: Verify packaged sources and download checksums
+        shell: pwsh
+        run: ./tests/package-artifacts.ps1 -Version "${{ steps.get_version.outputs.VERSION }}"
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
