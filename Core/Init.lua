@@ -426,10 +426,11 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
 
     elseif event == "PLAYER_LOGIN" then
         pcall(function()
-            if ContainerFrame1 and not (Offhand.db and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["ContainerFrame1"]) then
-                ContainerFrame1:SetUserPlaced(false)
+            for i=1, 13 do
+                local f = _G["ContainerFrame"..i]
+                if f then f:SetUserPlaced(false) end
             end
-            if ContainerFrameCombinedBags and not (Offhand.db and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["ContainerFrameCombinedBags"]) then
+            if ContainerFrameCombinedBags then
                 ContainerFrameCombinedBags:SetUserPlaced(false)
             end
             if PlayerFrame then PlayerFrame:SetUserPlaced(false) end
@@ -641,6 +642,10 @@ SlashCmdList["OFFHAND"] = function(msg)
         elseif Offhand.Options and Offhand.Options.Open then
             Offhand.Options:Open(true)
         end
+    elseif cmd == "gather" then
+        if Offhand.SeamRedirect and Offhand.SeamRedirect.GatherLostFrames then
+            Offhand.SeamRedirect:GatherLostFrames()
+        end
     elseif msg == "settings" or msg == "options" or msg == "config" then
         if Offhand.Options and Offhand.Options.Open then
             Offhand.Options:Open()
@@ -660,3 +665,59 @@ SlashCmdList["OFFHAND"] = function(msg)
 end
 
 SlashCmdList["Offhand"] = SlashCmdList["OFFHAND"]
+
+
+
+-- Emergency bag layout rescue on logout
+local logoutFix = CreateFrame('Frame')
+logoutFix:RegisterEvent('PLAYER_LOGOUT')
+logoutFix:SetScript('OnEvent', function()
+    for i = 1, 13 do
+        local bag = _G['ContainerFrame'..i]
+        if bag then
+            bag:ClearAllPoints()
+            if i == 1 then
+                bag:SetPoint('BOTTOMRIGHT', UIParent, 'BOTTOMRIGHT', -34, 70)
+                bag:SetUserPlaced(true)
+            else
+                bag:SetUserPlaced(false)
+            end
+        end
+    end
+end)
+
+
+
+
+
+function Offhand:GatherOffScreenUI()
+    local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+    if not m then return end
+    local cx = (m.gameLeft + m.gameRight) / 2
+    local cy = (m.gameBottom + m.gameTop) / 2
+    local parentScale = UIParent:GetEffectiveScale() or 1
+    local offsetX = cx - (UIParent:GetWidth() / 2)
+    local offsetY = cy - (UIParent:GetHeight() / 2)
+    
+    local moved = 0
+    if UIPanelWindows then
+        for name, _ in pairs(UIPanelWindows) do
+            local frame = _G[name]
+            if frame and frame:IsShown() and not frame:IsProtected() then
+                pcall(function()
+                    frame:ClearAllPoints()
+                    local fScale = frame:GetEffectiveScale() or parentScale
+                    local invFactor = parentScale / fScale
+                    frame:SetPoint("CENTER", UIParent, "CENTER", offsetX * invFactor, offsetY * invFactor)
+                end)
+                moved = moved + 1
+            end
+        end
+    end
+    
+    if moved > 0 then
+        Offhand:Print("Gathered " .. moved .. " frames to the Game View center.")
+    else
+        Offhand:Print("No open UI panels found to gather.")
+    end
+end

@@ -5,6 +5,15 @@
 # ==============================================================================
 
 Add-Type -AssemblyName System.Windows.Forms
+if (-not ('Win32Key' -as [type])) {
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public static class Win32Key {
+    [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vKey);
+}
+"@
+}
 Add-Type -AssemblyName System.Drawing
 
 . (Join-Path $PSScriptRoot 'Offhand-Window.ps1')
@@ -349,6 +358,27 @@ function Invoke-SpanWindow {
 $isMonitoring = $true
 $spannedPids  = @{}
 $retryAfter   = @{}
+$processSeenTime = @{}
+
+$hotkeyTimer = New-Object System.Windows.Forms.Timer
+$hotkeyTimer.Interval = 50
+$hotkeyTimer.add_Tick({
+    if ($chkHotkey.Checked) {
+        $ctrl = [Win32Key]::GetAsyncKeyState(0x11)
+        $alt = [Win32Key]::GetAsyncKeyState(0x12)
+        $s = [Win32Key]::GetAsyncKeyState(0x53)
+        if ($ctrl -lt 0 -and $alt -lt 0 -and $s -lt 0) {
+            if (-not $script:hotkeyTriggered) {
+                $script:hotkeyTriggered = $true
+                Add-Log "Global Hotkey (Ctrl+Alt+S) pressed. Triggering span manually."
+                Invoke-SpanWindow -manual $true
+            }
+        } else {
+            $script:hotkeyTriggered = $false
+        }
+    }
+})
+
 
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 2000
@@ -378,11 +408,18 @@ $timer.add_Tick({
         }
 
         if ($isMonitoring -and $chkAutoSpan.Checked -and $status.Installed) {
+            if (-not $processSeenTime.ContainsKey($proc.Id)) {
+                $processSeenTime[$proc.Id] = Get-Date
+                Add-Log "New WoW process detected. Waiting $($numDelay.Value) seconds before spanning..."
+            }
             if (-not $spannedPids.ContainsKey($proc.Id) -and
                 (-not $retryAfter.ContainsKey($proc.Id) -or (Get-Date) -ge $retryAfter[$proc.Id])) {
-                Add-Log "New WoW launch detected (PID: $($proc.Id)). Preparing auto-span..."
-                $retryAfter[$proc.Id] = (Get-Date).AddSeconds(10)
-                if (Invoke-SpanWindow -manual $false) { $spannedPids[$proc.Id] = $true }
+                $timeWaited = ((Get-Date) - $processSeenTime[$proc.Id]).TotalSeconds
+                if ($timeWaited -ge [double]$numDelay.Value) {
+                    Add-Log "Delay complete. Spanning window now..."
+                    $retryAfter[$proc.Id] = (Get-Date).AddSeconds(10)
+                    if (Invoke-SpanWindow -manual $false) { $spannedPids[$proc.Id] = $true }
+                }
             }
         }
     } else {
@@ -459,6 +496,13 @@ $form.add_FormClosing({
 Add-Log "Offhand Companion v1.2 initialized."
 Add-Log "Monitoring active. Enable OFFHAND in WoW; calibrate with /OFFHAND wizard."
 $timer.Start()
+$hotkeyTimer.Start()
 
 [System.Windows.Forms.Application]::Run($form)
+
+
+
+
+
+
 

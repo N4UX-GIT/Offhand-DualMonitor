@@ -24,6 +24,7 @@ local defaultSettings = {
     canvasAlpha = 0.95,             -- Alpha of the secondary monitor background
     workspaceMapScale = "AUTO",     -- "AUTO" (fits deck width) or number (0.50 to 1.50)
     mainMapScale = 1.0,             -- Map scale when placed on the main gaming monitor
+    showMinimapIcon = true,
     debugMode = false,
     forceDualOnSingle = false,      -- For testing
     hudScale = 0.70,                -- Global UI size multiplier relative to the game viewport (default 70%)
@@ -65,6 +66,16 @@ function Offhand:InitializeConfig()
                 OffhandDB.profiles["Default"][k] = v
                 OffhandDB[k] = nil
             end
+        end
+    end
+
+        -- Scrub any rogue hijacked Focused frames so native placement takes back control
+    for profileName, profileData in pairs(OffhandDB.profiles) do
+        if type(profileData.savedWorkspacePositions) == "table" then
+            profileData.savedWorkspacePositions["FocusedRosterFrame"] = nil
+        end
+        if type(profileData.savedMainPositions) == "table" then
+            profileData.savedMainPositions["FocusedRosterFrame"] = nil
         end
     end
 
@@ -173,3 +184,5 @@ function Offhand:ResetConfig()
     if self.Options and self.Options.RefreshPanel then self.Options:RefreshPanel() end
     Offhand:Print(L["MSG_PROFILE_RESET"])
 end
+
+

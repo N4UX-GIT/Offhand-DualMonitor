@@ -52,7 +52,7 @@ Offhand.HasCustomMinimapAddon = HasCustomMinimapAddon
 
 local actionNames = {"MainMenuBar", "MainActionBar", "StatusTrackingBarManager", "MainMenuExpBar",
     "MultiBarBottomLeft", "MultiBarBottomRight", "MultiBarLeft", "MultiBarRight",
-    "StanceBar", "ShapeshiftBarFrame", "StanceBarFrame", "PetActionBar", "PetActionBarFrame"}
+    }
 local function Remember(frame)
     desiredFrames[frame] = desiredFrames[frame] or {}
     return desiredFrames[frame]
@@ -86,6 +86,7 @@ end
 local function Anchor(frame, point, m, x, y, force)
     if not frame then return end
     if not force and frame.IsUserPlaced and frame:IsUserPlaced() then return end
+    if not force and frame.IsInDefaultPosition and not frame:IsInDefaultPosition() then return end
     local px = point:find("LEFT") and m.gameLeft or point:find("RIGHT") and m.gameRight
         or (m.gameLeft + m.gameRight) / 2
     local py = point:find("TOP") and m.gameTop or point:find("BOTTOM") and m.gameBottom
@@ -178,35 +179,29 @@ function HUD:AlignHUDFrames(m)
             local main = MainMenuBar or MainActionBar
             Prepare(main, m)
             if main then Anchor(main, "BOTTOM", m, 0, 0) end
-            if MainActionBar and MainActionBar ~= main then
+            if MainActionBar and MainActionBar ~= main and (not MainActionBar.IsInDefaultPosition or MainActionBar:IsInDefaultPosition()) then
                 Prepare(MainActionBar, m)
                 Points(MainActionBar, {"BOTTOMLEFT", main, "BOTTOMLEFT", 8, 4})
             end
 
             local xp = StatusTrackingBarManager or MainMenuExpBar
             Prepare(xp, m)
-            if xp and main then
+            if xp and main and (not xp.IsInDefaultPosition or xp:IsInDefaultPosition()) then
                 Points(xp, {"BOTTOM", main, "TOP", 0, -2})
             end
             -- Preserve Blizzard's visibility rules (XP at max level, pet, stance, etc.).
             local bottomLeft, bottomRight = MultiBarBottomLeft, MultiBarBottomRight
             Prepare(bottomLeft, m)
             Prepare(bottomRight, m)
-            if bottomLeft and main then
+            if bottomLeft and main and (not bottomLeft.IsInDefaultPosition or bottomLeft:IsInDefaultPosition()) then
                 Points(bottomLeft, {"BOTTOMLEFT", main, "TOPLEFT", 0, 8})
             end
-            if bottomRight and main then
+            if bottomRight and main and (not bottomRight.IsInDefaultPosition or bottomRight:IsInDefaultPosition()) then
                 Points(bottomRight, {"BOTTOMLEFT", main, "TOPLEFT", 515, 8})
             end
-            local barTop = bottomLeft and bottomLeft:IsShown() and bottomLeft or main
-            for _, name in ipairs({"StanceBar", "ShapeshiftBarFrame", "StanceBarFrame",
-                "PetActionBar", "PetActionBarFrame"}) do
-                local frame = _G[name]
-                Prepare(frame, m)
-                if frame and barTop and (not frame.IsInDefaultPosition or frame:IsInDefaultPosition()) then
-                    Points(frame, {"BOTTOMLEFT", barTop, "TOPLEFT", 30, 5})
-                end
-            end
+                        -- StanceBar and PetActionBar are inherently tied to EditMode and deeply protected.
+            -- Offhand no longer manually points these frames, avoiding the ADDON_ACTION_BLOCKED taint.
+            -- EditMode will natively drag them alongside the MainMenuBar.
             Prepare(MultiBarRight, m)
             if MultiBarRight then Anchor(MultiBarRight, "RIGHT", m, -4, 0) end
             Prepare(MultiBarLeft, m)
@@ -247,7 +242,10 @@ function HUD:AlignHUDFrames(m)
                             if frame.SetAlpha then frame:SetAlpha(1) end
                         elseif item[1] == "PartyMemberFrame1" or item[1] == "CompactPartyFrame" then
                             local mainPos = Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[item[1]]
-                            if mainPos and mainPos.x and mainPos.y then
+                            local isEditModeCustomized = frame.IsInDefaultPosition and not frame:IsInDefaultPosition()
+                            if isEditModeCustomized then
+                                -- Yield to Edit Mode
+                            elseif mainPos and mainPos.x and mainPos.y then
                                 local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
                                 frame:ClearAllPoints()
                                 frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", mainPos.x * factor, mainPos.y * factor)
@@ -282,6 +280,7 @@ end
 function HUD:RepairFrame(frame)
     if aligning or not Offhand.db or not Offhand.db.enabled then return end
     if frame.IsUserPlaced and frame:IsUserPlaced() then return end
+    if frame.IsInDefaultPosition and not frame:IsInDefaultPosition() then return end
     if HasCustomActionBarAddon() then return end
     local desired = desiredFrames[frame]
     if not desired then return end
@@ -354,7 +353,9 @@ function HUD:HookFrames()
             mgr:ClearAllPoints()
             local mScale = mgr:GetEffectiveScale() or factor
             local scaleFactor = factor / mScale
-            mgr:SetPoint("TOP", UIParent, "BOTTOMLEFT", cx * scaleFactor, (m.gameTop - 20) * scaleFactor)
+            local offsetX = cx - (UIParent:GetWidth() / 2)
+            local offsetY = (m.gameTop - 20) - (UIParent:GetHeight() / 2)
+            mgr:SetPoint("TOP", UIParent, "CENTER", offsetX * scaleFactor, offsetY * scaleFactor)
         end
 
         -- Center dialogs inside the 3D Game View
@@ -365,7 +366,9 @@ function HUD:HookFrames()
                 local dScale = dlg:GetEffectiveScale() or factor
                 local scaleFactor = factor / dScale
                 local cy = (m.gameBottom + m.gameTop) / 2
-                dlg:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * scaleFactor, cy * scaleFactor)
+                local offsetX = cx - (UIParent:GetWidth() / 2)
+                local offsetY = cy - (UIParent:GetHeight() / 2)
+                dlg:SetPoint("CENTER", UIParent, "CENTER", offsetX * scaleFactor, offsetY * scaleFactor)
             end
         end
     end
@@ -380,7 +383,9 @@ function HUD:HookFrames()
                 local cx = (m.gameLeft + m.gameRight) / 2
                 local cy = (m.gameBottom + m.gameTop) / 2
                 local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
-                frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
+                local offsetX = cx - (UIParent:GetWidth() / 2)
+                local offsetY = cy - (UIParent:GetHeight() / 2)
+                frame:SetPoint("CENTER", UIParent, "CENTER", offsetX * factor, offsetY * factor)
             end
         end
     end
@@ -497,7 +502,7 @@ function HUD:HookFrames()
         if UISpecialFrames then
             for _, name in ipairs(UISpecialFrames) do
                 local frame = _G[name]
-                if frame and type(frame) == "table" and frame.GetPoint and not hooks[frame] and not frame:IsProtected() then
+                if frame and type(frame) == "table" and frame.GetPoint and not hooks[frame] and frame.IsProtected and not frame:IsProtected() then
                     hooks[frame] = true
                     frame:HookScript("OnShow", function(self)
                         if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
@@ -505,7 +510,9 @@ function HUD:HookFrames()
                         if (rel == UIParent or rel == nil) and (pt == "CENTER") then
                             self:ClearAllPoints()
                             local factor = UIParent:GetEffectiveScale() / self:GetEffectiveScale()
-                            self:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
+                            local offsetX = cx - (UIParent:GetWidth() / 2)
+                            local offsetY = cy - (UIParent:GetHeight() / 2)
+                            self:SetPoint("CENTER", UIParent, "CENTER", offsetX * factor, offsetY * factor)
                         end
                     end)
                 end
@@ -514,7 +521,6 @@ function HUD:HookFrames()
 
         -- 2. Void Rescue: Detect any frame on the game monitor side whose top extends into the black void above m.gameTop
         local voidTargets = {
-            _G.FocusedRosterFrame,
             _G.EditModeManagerFrame,
             _G.EditModeSystemSettingsDialog,
             _G.EditModeUnsavedChangesDialog,
@@ -526,22 +532,17 @@ function HUD:HookFrames()
                     if frame.IsProtected and frame:IsProtected() then return end
                     if not frame.IsShown or not frame:IsShown() then return end
                     local fScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or parentScale
+                    if fScale <= 0 then fScale = parentScale end
                     local scaleFactor = fScale / parentScale
                     local top = (frame:GetTop() or 0) * scaleFactor
                     local left = (frame:GetLeft() or 0) * scaleFactor
                     local onGameSide = isPortraitDeck and (left >= gameLeftThreshold) or (left < gameRightThreshold)
                     if onGameSide and top > (m.gameTop + 2) then
-                        local overflow = top - m.gameTop
-                        local pt, rel, relPt, x, y = frame:GetPoint(1)
                         frame:ClearAllPoints()
                         local invFactor = parentScale / fScale
-                        if pt and (rel == UIParent or rel == nil) and y then
-                            frame:SetPoint(pt, UIParent, relPt or pt, x or 0, (y - overflow - 8) * invFactor)
-                        else
-                            local h = (frame:GetHeight() or 100) * scaleFactor
-                            local targetY = math.max(m.gameBottom + 12, m.gameTop - h - 12)
-                            frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left * invFactor, targetY * invFactor)
-                        end
+                        local offsetX = cx - (UIParent:GetWidth() / 2)
+                        local offsetY = cy - (UIParent:GetHeight() / 2)
+                        frame:SetPoint("CENTER", UIParent, "CENTER", offsetX * invFactor, offsetY * invFactor)
                     end
                 end)
             end
@@ -564,19 +565,18 @@ function HUD:HookFrames()
 
                     -- Void Rescue check for general children on the game side
                     local fScale = (child.GetEffectiveScale and child:GetEffectiveScale()) or parentScale
+                    if fScale <= 0 then fScale = parentScale end
                     local scaleFactor = fScale / parentScale
                     local top = (child.GetTop and child:GetTop() or 0) * scaleFactor
                     local left = (child.GetLeft and child:GetLeft() or 0) * scaleFactor
                     local onGameSide = isPortraitDeck and (left >= gameLeftThreshold) or (left < gameRightThreshold)
                     if onGameSide and top > (m.gameTop + 2) then
-                        local overflow = top - m.gameTop
                         if child.GetPoint and child.ClearAllPoints and child.SetPoint then
-                            local pt, rel, relPt, x, y = child:GetPoint(1)
-                            if pt and (rel == UIParent or rel == nil) and y then
-                                child:ClearAllPoints()
-                                local invFactor = parentScale / fScale
-                                child:SetPoint(pt, UIParent, relPt or pt, x or 0, (y - overflow - 8) * invFactor)
-                            end
+                            child:ClearAllPoints()
+                            local invFactor = parentScale / fScale
+                            local offsetX = cx - (UIParent:GetWidth() / 2)
+                            local offsetY = cy - (UIParent:GetHeight() / 2)
+                            child:SetPoint("CENTER", UIParent, "CENTER", offsetX * invFactor, offsetY * invFactor)
                         end
                     end
 
@@ -589,7 +589,9 @@ function HUD:HookFrames()
                                 if child.ClearAllPoints and child.SetPoint then
                                     child:ClearAllPoints()
                                     local factor = UIParent:GetEffectiveScale() / child:GetEffectiveScale()
-                                    child:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
+                                    local offsetX = cx - (UIParent:GetWidth() / 2)
+                                    local offsetY = cy - (UIParent:GetHeight() / 2)
+                                    child:SetPoint("CENTER", UIParent, "CENTER", offsetX * factor, offsetY * factor)
                                 end
                             end
                         end
@@ -604,6 +606,30 @@ function HUD:HookFrames()
             RedirectExternalPopups()
             CheckEditModeHooks()
         end)
+    end
+
+        local function AutoLoadEditModeLayout()
+        if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+        if not C_EditMode or not C_EditMode.GetLayouts then return end
+        
+        local layoutData = C_EditMode.GetLayouts()
+        if not layoutData or not layoutData.layouts then return end
+        
+        local targetName = "Offhand"
+        for index, layout in ipairs(layoutData.layouts) do
+            if layout.layoutName and string.match(string.lower(layout.layoutName), string.lower(targetName)) then
+                local id = layout.layoutType or index
+                if layoutData.activeLayout ~= id then
+                    if EditModeManagerFrame and EditModeManagerFrame.SelectLayout then
+                        EditModeManagerFrame:SelectLayout(index)
+                    elseif C_EditMode.SetActiveLayout then
+                        C_EditMode.SetActiveLayout(id)
+                    end
+                    Offhand:Print("Auto-loaded Edit Mode layout: " .. layout.layoutName)
+                end
+                break
+            end
+        end
     end
 
     local function UpdateUIPanelOffsets()
@@ -621,6 +647,7 @@ function HUD:HookFrames()
     end
 
     UpdateUIPanelOffsets()
+    C_Timer.After(3, AutoLoadEditModeLayout)
 
     if not self.menuHooksInstalled then
         self.menuHooksInstalled = true
@@ -662,7 +689,9 @@ function HUD:HookFrames()
                                     local cx = (m.gameLeft + m.gameRight) / 2
                                     local cy = (m.gameBottom + m.gameTop) / 2
                                     local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
-                                    frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
+                                    local offsetX = cx - (UIParent:GetWidth() / 2)
+                                    local offsetY = cy - (UIParent:GetHeight() / 2)
+                                    frame:SetPoint("CENTER", UIParent, "CENTER", offsetX * factor, offsetY * factor)
                                 end
                             end
                             DoCenter()
@@ -766,7 +795,10 @@ function HUD:HookFrames()
                         targetX = math.max(deckMinX, math.min(targetX, deckMaxX - w))
                         targetY = math.max(deckMinY, math.min(targetY, deckMaxY - h))
 
-                        frame:SetUserPlaced(true)
+                        local name = frame:GetName()
+                        if name and not string.match(name, "^ContainerFrame") then
+                            frame:SetUserPlaced(true)
+                        end
                         frame:ClearAllPoints()
                         local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
                         frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", targetX * factor, targetY * factor)
@@ -921,6 +953,52 @@ function HUD:HookFrames()
     end
 end
 
+function HUD:GatherLostFrames()
+    if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then
+        Offhand:Print("Cannot gather frames while in combat or disabled.")
+        return
+    end
+    local m = Offhand.Viewport:GetMetrics()
+    if not m or not m.isSpanned then return end
+    
+    local parentScale = UIParent:GetEffectiveScale() or 1
+    local isPortraitDeck = Offhand.db.primaryPosition ~= "LEFT"
+    local gameLeftThreshold = isPortraitDeck and (m.deckWidth - 20) or 0
+    local gameRightThreshold = isPortraitDeck and m.screenWidth or m.gameRight
+    local cx = (m.gameLeft + m.gameRight) / 2
+    local cy = (m.gameBottom + m.gameTop) / 2
+    local count = 0
+
+    for _, child in ipairs({UIParent:GetChildren()}) do
+        if type(child) == "table" and child ~= WorldFrame and child ~= Offhand.canvas then
+            pcall(function()
+                if child.IsForbidden and child:IsForbidden() then return end
+                -- Do NOT check IsProtected or IsShown here; this is an aggressive manual sweep.
+                local fScale = (child.GetEffectiveScale and child:GetEffectiveScale()) or parentScale
+                if fScale <= 0 then fScale = parentScale end
+                local scaleFactor = fScale / parentScale
+                local top = (child.GetTop and child:GetTop() or 0) * scaleFactor
+                local left = (child.GetLeft and child:GetLeft() or 0) * scaleFactor
+                local onGameSide = isPortraitDeck and (left >= gameLeftThreshold) or (left < gameRightThreshold)
+                if onGameSide and top > (m.gameTop + 2) then
+                    if child.GetPoint and child.ClearAllPoints and child.SetPoint then
+                        child:ClearAllPoints()
+                        local invFactor = parentScale / fScale
+                        local offsetX = cx - (UIParent:GetWidth() / 2)
+                        local offsetY = cy - (UIParent:GetHeight() / 2)
+                        -- Stagger offsets slightly so they don't perfectly stack
+                        offsetX = offsetX + (math.random(-50, 50))
+                        offsetY = offsetY + (math.random(-50, 50))
+                        child:SetPoint("CENTER", UIParent, "CENTER", offsetX * invFactor, offsetY * invFactor)
+                        count = count + 1
+                    end
+                end
+            end)
+        end
+    end
+    Offhand:Print("Gathered " .. count .. " lost frames from the void. Please /reload after positioning them to clear any taint.")
+end
+
 function Offhand:InitializeSeamRedirect()
     HUD:HookFrames()
 end
@@ -928,3 +1006,8 @@ function Offhand:UpdateSeamRedirect()
     HUD:HookFrames()
     HUD:AlignHUDFrames()
 end
+
+
+
+
+

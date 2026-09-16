@@ -63,6 +63,10 @@ namespace Offhand.Companion
         public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
         [DllImport("user32.dll")]
+        public static extern bool RegisterHotKey(IntPtr hWnd, int id, int fsModifiers, int vk);
+        [DllImport("user32.dll")]
+        public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+        [DllImport("user32.dll")]
         public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
         [DllImport("user32.dll")]
@@ -137,6 +141,33 @@ namespace Offhand.Companion
         private Label lblDisplayInfo;
         private Label lblAddonReason;
         private CheckBox chkAutoSpan;
+                private NumericUpDown numDelaySpan;
+        private Label lblDelay;
+        private ComboBox cmbHotkey;
+        private Label lblHotkey;
+
+        private static Dictionary<string, string> appSettings = new Dictionary<string, string>();
+        private static string configPath = "OffhandConfig.ini";
+
+        private void LoadConfig()
+        {
+            if (File.Exists(configPath))
+            {
+                foreach (var line in File.ReadAllLines(configPath))
+                {
+                    var parts = line.Split('=');
+                    if (parts.Length == 2) appSettings[parts[0].Trim()] = parts[1].Trim();
+                }
+            }
+        }
+
+        private void SaveConfig()
+        {
+            var lines = new System.Collections.Generic.List<string>();
+            foreach(var kv in appSettings) lines.Add(kv.Key + "=" + kv.Value);
+            File.WriteAllLines(configPath, lines);
+        }
+
         private Button btnSpanNow;
         private Button btnToggleWatch;
         private ListBox logBox;
@@ -149,12 +180,42 @@ namespace Offhand.Companion
         private bool isExplicitExit = false;
         private readonly HashSet<int> spannedPids = new HashSet<int>();
         private readonly Dictionary<int, DateTime> retryAfter = new Dictionary<int, DateTime>();
+        private readonly Dictionary<int, DateTime> launchTimes = new Dictionary<int, DateTime>();
+
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == 0x0312 && m.WParam.ToInt32() == 1)
+            {
+                InvokeSpanWindow(true);
+            }
+            base.WndProc(ref m);
+        }
+
+                private void UpdateHotkey()
+        {
+            NativeMethods.UnregisterHotKey(this.Handle, 1);
+            int modifier = 0;
+            int key = 0;
+            string sel = cmbHotkey.SelectedItem.ToString();
+            
+            if (sel == "Ctrl+Alt+S") { modifier = 0x0002 | 0x0001; key = (int)Keys.S; } // Alt is 1, Ctrl is 2
+            else if (sel == "Ctrl+Shift+S") { modifier = 0x0002 | 0x0004; key = (int)Keys.S; } // Ctrl is 2, Shift is 4
+            else if (sel == "Alt+S") { modifier = 0x0001; key = (int)Keys.S; }
+            else if (sel == "F10") { modifier = 0; key = (int)Keys.F10; }
+            else if (sel == "F11") { modifier = 0; key = (int)Keys.F11; }
+            else if (sel == "F12") { modifier = 0; key = (int)Keys.F12; }
+            
+            NativeMethods.RegisterHotKey(this.Handle, 1, modifier, key);
+            AddLog("Global Hotkey Registered: " + sel + " to Span Now.");
+        }
 
         public CompanionForm()
         {
+            LoadConfig();
             InitializeUI();
             InitializeTray();
             InitializeTimer();
+            UpdateHotkey();
 
             AddLog("Offhand Companion v1.2 initialized.");
             AddLog("Monitoring active. Enable Offhand in WoW; calibrate with /offhand wizard.");
@@ -163,7 +224,7 @@ namespace Offhand.Companion
         private void InitializeUI()
         {
             this.Text = "Offhand Companion";
-            this.Size = new Size(524, 628);
+            this.Size = new Size(524, 700);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -308,7 +369,7 @@ namespace Offhand.Companion
             statusPanel.Controls.Add(lblAddonReason);
 
             // Configuration Card
-            Panel configPanel = CreateCardPanel(16, 230, 490, 54, "Configuration");
+            Panel configPanel = CreateCardPanel(16, 230, 490, 126, "Configuration");
             this.Controls.Add(configPanel);
 
             chkAutoSpan = new CheckBox
@@ -328,12 +389,39 @@ namespace Offhand.Companion
             };
             configPanel.Controls.Add(chkAutoSpan);
 
+            lblDelay = new Label { Text = "Delay Span (Seconds):", Location = new Point(10, 56), Size = new Size(130, 22), ForeColor = cText, BackColor = Color.Transparent };
+            configPanel.Controls.Add(lblDelay);
+            numDelaySpan = new NumericUpDown { Location = new Point(140, 54), Size = new Size(60, 22), Minimum = 0, Maximum = 60, Value = 15, BackColor = cCard, ForeColor = cText };
+                        configPanel.Controls.Add(numDelaySpan);
+
+            lblHotkey = new Label { Text = "Global Hotkey:", Location = new Point(10, 84), Size = new Size(130, 22), ForeColor = cText, BackColor = Color.Transparent };
+            configPanel.Controls.Add(lblHotkey);
+            cmbHotkey = new ComboBox { Location = new Point(140, 82), Size = new Size(160, 22), DropDownStyle = ComboBoxStyle.DropDownList, BackColor = cCard, ForeColor = cText };
+            cmbHotkey.Items.AddRange(new object[] { "Ctrl+Alt+S", "Ctrl+Shift+S", "Alt+S", "F10", "F11", "F12" });
+            cmbHotkey.SelectedIndex = 0;
+            if (appSettings.ContainsKey("Hotkey") && cmbHotkey.Items.Contains(appSettings["Hotkey"])) cmbHotkey.SelectedItem = appSettings["Hotkey"];
+            
+            cmbHotkey.SelectedIndexChanged += (s, e) => { 
+                appSettings["Hotkey"] = cmbHotkey.SelectedItem.ToString(); 
+                SaveConfig(); 
+                UpdateHotkey();
+            };
+            configPanel.Controls.Add(cmbHotkey);
+
+            if (appSettings.ContainsKey("AutoSpan")) chkAutoSpan.Checked = appSettings["AutoSpan"] == "True";
+            if (appSettings.ContainsKey("DelaySpan")) { decimal d; if (decimal.TryParse(appSettings["DelaySpan"], out d)) numDelaySpan.Value = d; }
+
+            chkAutoSpan.CheckedChanged += (s, e) => { appSettings["AutoSpan"] = chkAutoSpan.Checked.ToString(); SaveConfig(); };
+            numDelaySpan.ValueChanged += (s, e) => { appSettings["DelaySpan"] = numDelaySpan.Value.ToString(); SaveConfig(); };
+            numDelaySpan.KeyUp += (s, e) => { appSettings["DelaySpan"] = numDelaySpan.Value.ToString(); SaveConfig(); if (e.KeyCode == Keys.Enter) { e.Handled = true; this.ActiveControl = null; } };
+
+
             // Action Buttons
-            btnSpanNow = CreateButton("Span WoW Window Now", 16, 296, 238, 36, cBtnPrimaryBg, cGoldBright, cGold);
+            btnSpanNow = CreateButton("Span WoW Window Now", 16, 368, 238, 36, cBtnPrimaryBg, cGoldBright, cGold);
             btnSpanNow.Click += (s, e) => { InvokeSpanWindow(true); };
             this.Controls.Add(btnSpanNow);
 
-            btnToggleWatch = CreateButton("Pause Monitoring", 262, 296, 244, 36, cBtnBg, cText, cBorder);
+            btnToggleWatch = CreateButton("Pause Monitoring", 262, 368, 244, 36, cBtnBg, cText, cBorder);
             btnToggleWatch.Click += (s, e) =>
             {
                 isMonitoring = !isMonitoring;
@@ -353,7 +441,7 @@ namespace Offhand.Companion
             this.Controls.Add(btnToggleWatch);
 
             // Activity Log Card
-            Panel logPanel = CreateCardPanel(16, 344, 490, 200, "Activity Log");
+            Panel logPanel = CreateCardPanel(16, 416, 490, 200, "Activity Log");
             this.Controls.Add(logPanel);
 
             logBox = new ListBox
@@ -368,7 +456,7 @@ namespace Offhand.Companion
             logPanel.Controls.Add(logBox);
 
             // Footer Buttons
-            Button btnMinimize = CreateButton("Minimize to Tray", 16, 556, 152, 30, cBtnBg, cMuted, cBorderDim);
+            Button btnMinimize = CreateButton("Minimize to Tray", 16, 628, 152, 30, cBtnBg, cMuted, cBorderDim);
             btnMinimize.Click += (s, e) =>
             {
                 this.Hide();
@@ -376,7 +464,7 @@ namespace Offhand.Companion
             };
             this.Controls.Add(btnMinimize);
 
-            Button btnExit = CreateButton("Exit Companion", 356, 556, 152, 30, cBtnDanger, Color.FromArgb(235, 130, 130), Color.FromArgb(140, 45, 45));
+            Button btnExit = CreateButton("Exit Companion", 356, 628, 152, 30, cBtnDanger, Color.FromArgb(235, 130, 130), Color.FromArgb(140, 45, 45));
             btnExit.Click += (s, e) => { ExitApplication(); };
             this.Controls.Add(btnExit);
 
@@ -580,6 +668,8 @@ namespace Offhand.Companion
                     if (!spannedPids.Contains(proc.Id) &&
                         (!retryAfter.ContainsKey(proc.Id) || DateTime.Now >= retryAfter[proc.Id]))
                     {
+                        if (!launchTimes.ContainsKey(proc.Id)) launchTimes[proc.Id] = DateTime.Now;
+                        if ((DateTime.Now - launchTimes[proc.Id]).TotalSeconds < (double)numDelaySpan.Value) { retryAfter[proc.Id] = DateTime.Now.AddSeconds(1); return; }
                         AddLog(string.Format("New WoW launch detected (PID: {0}). Preparing auto-span...", proc.Id));
                         retryAfter[proc.Id] = DateTime.Now.AddSeconds(10);
                         if (InvokeSpanWindow(false))
@@ -795,3 +885,13 @@ namespace Offhand.Companion
         }
     }
 }
+
+
+
+
+
+
+
+
+
+

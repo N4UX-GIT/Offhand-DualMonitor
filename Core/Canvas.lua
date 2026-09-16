@@ -399,7 +399,12 @@ OnPanelDragStop = function(frame)
     if frame.StopMovingOrSizing then
         pcall(function() frame:StopMovingOrSizing() end)
     end
-    pcall(function() frame:SetUserPlaced(true) end)
+    local name = frame.GetName and frame:GetName()
+    if name and string.match(name, "^ContainerFrame") then
+        pcall(function() frame:SetUserPlaced(false) end)
+    else
+        pcall(function() frame:SetUserPlaced(true) end)
+    end
 
     if not Offhand.db or not Offhand.db.enabled then
         frame._OffhandDragging = false
@@ -541,11 +546,7 @@ OnPanelDragStop = function(frame)
             pcall(function() frame:SetUserPlaced(true) end)
             frame:ClearAllPoints()
             frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
-        elseif name == "FocusedRosterFrame" then
-            Offhand.db.savedMainPositions[name] = { x = clampedX, y = clampedY }
-            pcall(function() frame:SetUserPlaced(true) end)
-            frame:ClearAllPoints()
-            frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+        
         elseif string.match(name, "^ContainerFrame") then
             pcall(function() frame:SetUserPlaced(false) end)
             if not (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()) then
@@ -689,7 +690,7 @@ local function MakePanelDraggable(frame)
     -- Unit frames (PartyMemberFrame, CompactPartyFrame) and FocusedRosterFrame must NOT have an overlaid handle
     -- to prevent blocking unit targeting, healing, right-click context menus, and roster row selection
     local isUnitFrame = name and (string.match(name, "^PartyMemberFrame") or string.match(name, "^CompactPartyFrame") or name == "PlayerFrame" or name == "TargetFrame")
-    if frame ~= MinimapCluster and not isUnitFrame and name ~= "FocusedRosterFrame" then
+    if frame ~= MinimapCluster and not isUnitFrame  then
         local handle = frame._OffhandHandle
         if not handle and CreateFrame then
             handle = CreateFrame("Frame", nil, frame)
@@ -740,6 +741,7 @@ local function MakePanelDraggable(frame)
                 handleFrame:RegisterForDrag("LeftButton")
                 handleFrame:HookScript("OnDragStart", function(self)
                     if InCombatLockdown() or not Offhand.db.enabled then return end
+                    frame:SetMovable(true)
                     frame._OffhandDragging = true
                     frame:StartMoving()
                 end)
@@ -841,8 +843,7 @@ function Canvas:EnableFreeDragging()
         "PartyMemberFrame1",
         "CompactPartyFrame",
         "CompactRaidFrameContainer",
-        "FocusedRosterFrame",
-    }
+            }
 
     if not hasCustomMinimap then
         table.insert(frameNames, "MinimapCluster")
@@ -882,9 +883,7 @@ function Canvas:EnableFreeDragging()
     if Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["PartyMemberFrame1"] and _G.PartyMemberFrame1 then
         RestoreWorkspacePosition(_G.PartyMemberFrame1)
     end
-    if Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["FocusedRosterFrame"] and _G.FocusedRosterFrame then
-        RestoreWorkspacePosition(_G.FocusedRosterFrame)
-    end
+    
 
     -- Hook Chat Frames and Tabs for workspace dragging and persistence
     local function RegisterChatFrame(chatFrame)
@@ -979,3 +978,7 @@ end
 function Offhand:UpdateCanvas()
     Canvas:UpdateLayout()
 end
+
+
+
+

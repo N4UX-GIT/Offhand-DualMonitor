@@ -105,7 +105,7 @@ function Viewport:ApplyGlobalScale()
         if SetCVar then SetCVar("uiScale", desired) end
         UIParent:SetScale(desired) 
         if WorldFrame and WorldFrame.SetScale then
-            WorldFrame:SetScale(desired)
+            WorldFrame:SetScale(1)
         end
     end)
     self.scaling=false

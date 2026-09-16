@@ -4,7 +4,7 @@
 ## Interface-Cata: 40402
 ## Interface-Retail: 110100
 ## Title: |cffffbd0aOffhand|r |cffffffff[Multi-Monitor Workspace]|r
-## Notes: Equip your Offhand. Dual wield your monitors. Multi-monitor workspace for World of Warcraft.
+## Notes: Equip your Offhand. Dual wield your monitors. Multi-monitor workspace UI.
 ## Author: N4UX (Noggaholic)
 ## Version: 1.0.1
 ## IconTexture: Interface\AddOns\Offhand\Media\OffhandLogo64x64.blp
@@ -24,4 +24,6 @@ Locales\enUS.lua
 # UI & Themes
 UI\Themes.lua
 UI\Options.lua
+UI\Minimap.lua
 UI\Wizard.lua
+

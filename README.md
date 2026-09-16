@@ -122,3 +122,23 @@ PLAYER_STARTED_MOVING registration when that event is used by the client.
 
 Global-scale inheritance and map behavior have automated regression coverage.
 Current live-client acceptance results and limitations are in tests/QA-notes.md.
+
+## Edit Mode Layouts & Combat Taint
+When you first enable **Offhand**, your UI will seamlessly expand across both monitors. However, because Blizzard hardcodes their default Edit Mode presets (like "Classic" or "Modern") to the absolute edges of your screen, some native combat frames like the **Stance Bar**, **Pet Action Bar**, and **Raid Frames** will automatically snap to the far left of your Workspace monitor.
+
+### Why doesn't Offhand move them automatically?
+World of Warcraft's security engine strictly protects these specific combat frames. If an addon attempts to programmatically intercept and reposition them while Edit Mode is managing them, it triggers the internal **Taint System**. The moment you enter combat and cast a spell, change stances, or command your pet, the game will throw an ADDON_ACTION_BLOCKED error and lock up your interface.
+
+To guarantee flawless, error-free combat, **Offhand** strictly yields control of these specific frames to Edit Mode.
+
+### How to setup your layout (The Secure Way):
+1. With **Offhand** enabled, open Edit Mode in-game.
+2. Manually drag your Stance Bar, Pet Bar, and Raid Frames back to your preferred positions on your 3D Game View monitor.
+3. Save your arrangement as a **New Layout** and name it exactly: **"Offhand"** (case insensitive).
+
+By manually dragging and saving them, Edit Mode securely locks their coordinates into the Blizzard server cache, completely bypassing the taint system and keeping your combat 100% safe!
+
+### Automatic Layout Switching
+When you disable Offhand to play on a single monitor, your frames will dynamically shift. To fix this, simply select the standard **"Classic"** or **"Modern"** layout from the Edit Mode dropdown, and everything will snap back to normal.
+
+When you re-enable Offhand, the addon will automatically detect your saved **"Offhand"** layout and securely load it for you in the background!

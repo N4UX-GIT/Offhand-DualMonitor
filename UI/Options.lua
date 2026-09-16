@@ -848,6 +848,12 @@ function Options:CreateFloatingPanel()
     tab4:SetHeight(400)
     configFrame.tab4 = tab4
 
+    local tab5 = CreateFrame("Frame", nil, optionsScrollChild)
+    tab5:SetPoint("TOPLEFT", 0, 0)
+    tab5:SetPoint("TOPRIGHT", 0, 0)
+    tab5:SetHeight(800)
+    configFrame.tab5 = tab5
+
     local registeredCards = {}
 
     local function CreateCard(parent, titleText, yOffset, height)
@@ -923,7 +929,8 @@ function Options:CreateFloatingPanel()
         { id = 1, frame = tab1, label = L["TAB_DISPLAY"] },
         { id = 2, frame = tab2, label = L["TAB_WORKSPACE"] },
         { id = 3, frame = tab3, label = L["TAB_THEMES"] },
-        { id = 4, frame = tab4, label = L["TAB_PROFILES"] }
+        { id = 4, frame = tab4, label = L["TAB_PROFILES"] },
+        { id = 5, frame = tab5, label = L["TAB_FAQ"] or "FAQ" }
     }
     
     local tabButtons = {}
@@ -990,6 +997,16 @@ function Options:CreateFloatingPanel()
     )
     enableCheck:SetPoint("TOPLEFT", 12, -26)
     configFrame.enableCheck = enableCheck
+    local minimapCheck = CreateNativeCheckbox(card1_1, "Show Minimap Icon",
+        function() return Offhand.db and Offhand.db.showMinimapIcon end,
+        function(val) 
+            Offhand.db.showMinimapIcon = val 
+            if Offhand.UpdateMinimapIcon then Offhand:UpdateMinimapIcon() end
+        end,
+        "Minimap Icon", "Toggle the Offhand icon on the minimap ring."
+    )
+    minimapCheck:SetPoint("TOPLEFT", 300, -26)
+
 
     local laserCheck = CreateNativeCheckbox(card1_1, "Show Red Seam Guide Laser",
         function() return (seamGuideLine and seamGuideLine:IsShown()) or false end,
@@ -1107,7 +1124,7 @@ function Options:CreateFloatingPanel()
     if Offhand.SetTooltip then Offhand:SetTooltip(p55Btn, L["WIZARD_PRESET_SEAM_55_TIP_TITLE"], L["WIZARD_PRESET_SEAM_55_TIP_DESC"]) end
 
 
-    local card1_3 = CreateCard(tab1, "Screen Bottom Offset & Global UI Scale", -252, 150)
+    local card1_3 = CreateCard(tab1, "Screen Bottom Offset & Global UI Scale", -252, 120)
 
     local bottomControl = Options:CreateBottomControl(card1_3)
     bottomControl:SetPoint("TOPLEFT", 12, -26)
@@ -1162,7 +1179,7 @@ function Options:CreateFloatingPanel()
     hudNote:SetJustifyH("LEFT")
     hudNote:SetText("|cff888888Scales Blizzard action bars, unit frames, and dialogs relative to primary display resolution.|r")
 
-    local card1_4 = CreateCard(tab1, "OBS Streamer Capture Setup", -416, 110)
+    local card1_4 = CreateCard(tab1, "OBS Streamer Capture Setup", -386, 110)
     
     local obsDesc = card1_4:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     obsDesc:SetPoint("TOPLEFT", 16, -26)
@@ -1849,6 +1866,34 @@ function Options:CreateFloatingPanel()
     end)
 
     -- ========================================================================
+    -- TAB 5: FAQ & HELP
+    -- ========================================================================
+    local card5_1 = CreateCard(tab5, "Edit Mode Layouts & Combat Taint", 0, 360)
+    
+    local faqDesc = card5_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    faqDesc:SetPoint("TOPLEFT", 16, -26)
+    faqDesc:SetPoint("TOPRIGHT", -16, -26)
+    faqDesc:SetJustifyH("LEFT")
+    faqDesc:SetText([[When you first enable Offhand, your UI will seamlessly expand across both monitors. However, because Blizzard hardcodes their default Edit Mode presets (like "Classic" or "Modern") to the absolute edges of your screen, some native combat frames like the Stance Bar, Pet Action Bar, and Raid Frames will automatically snap to the far left of your Workspace monitor.
+
+|cffffd100Why doesn't Offhand move them automatically?|r
+World of Warcraft's security engine strictly protects these specific combat frames. If an addon attempts to programmatically intercept and reposition them while Edit Mode is managing them, it triggers the internal Taint System. The moment you enter combat and cast a spell, change stances, or command your pet, the game will throw an ADDON_ACTION_BLOCKED error and lock up your interface.
+
+To guarantee flawless, error-free combat, Offhand strictly yields control of these specific frames to Edit Mode.
+
+|cffffd100How to setup your layout (The Secure Way):|r
+1. With Offhand enabled, open Edit Mode in-game.
+2. Manually drag your Stance Bar, Pet Bar, and Raid Frames back to your preferred positions on your 3D Game View monitor.
+3. Save your arrangement as a New Layout and name it exactly: "Offhand" (case insensitive).
+
+By manually dragging and saving them, Edit Mode securely locks their coordinates into the Blizzard server cache, completely bypassing the taint system and keeping your combat 100% safe!
+
+|cffffd100Automatic Layout Switching:|r
+When you disable Offhand to play on a single monitor, your frames will dynamically shift. To fix this, simply select the standard "Classic" or "Modern" layout from the Edit Mode dropdown, and everything will snap back to normal.
+
+When you re-enable Offhand, the addon will automatically detect your saved "Offhand" layout and securely load it for you in the background!]])
+
+    -- ========================================================================
     -- BOTTOM ACTION BAR (Shared across tabs)
     -- ========================================================================
     local applyBtn = CreateFrame("Button", nil, configFrame, "UIPanelButtonTemplate")
@@ -1991,3 +2036,4 @@ end
 function Offhand:InitializeOptions()
     -- Options ready
 end
+
