@@ -22,15 +22,15 @@ Offhand transforms dual displays into an expansive, calibrated gaming workstatio
 * Dedicated Streamer Setup card in Options calculates exact physical pixel crop values (`Left`, `Right`) for OBS Studio in real time based on your display resolution and bezel seam.
 * Easily broadcast dual displays without the black bezel gap appearing on stream.
 
-#### ??? External Addon Compatibility & Taint-Free Safety
+#### ??? External Addon Compatibility & Combat Guards
 * Generic popup recentering aligns third-party addon alerts and dialogs to the center of your 3D gaming monitor without maintaining hardcoded addon lists.
-* Fully combat-safe: all protected layout operations and frame changes are queued and deferred during combat lockdown.
+* Layout operations use combat guards; protected-frame and taint behavior still require live-client verification.
 
 #### ??? Native Windows Companion (`Offhand.exe`)
 * Standalone Win32 executable compiled with C# and DPI-awareness.
 * Borderless-spans your World of Warcraft window across your virtual desktop in a single click.
 * Minimizes silently to the Windows notification tray with quick actions and auto-launch detection.
-* Fully open-source and audit-friendly with zero external runtime dependencies.
+* Fully open-source and audit-friendly using the Windows .NET Framework.
 
 ---
 

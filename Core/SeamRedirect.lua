@@ -601,8 +601,8 @@ function HUD:HookFrames()
         end
     end
 
-    if C_Timer and C_Timer.NewTicker then
-        C_Timer.NewTicker(2, function()
+    if C_Timer and C_Timer.NewTicker and not self.popupTicker then
+        self.popupTicker = C_Timer.NewTicker(2, function()
             RedirectExternalPopups()
             CheckEditModeHooks()
         end)
@@ -647,7 +647,12 @@ function HUD:HookFrames()
     end
 
     UpdateUIPanelOffsets()
-    C_Timer.After(3, AutoLoadEditModeLayout)
+    if not Offhand.db or not Offhand.db.enabled then
+        self.editModeLoadScheduled = nil
+    elseif not self.editModeLoadScheduled then
+        self.editModeLoadScheduled = true
+        C_Timer.After(3, AutoLoadEditModeLayout)
+    end
 
     if not self.menuHooksInstalled then
         self.menuHooksInstalled = true

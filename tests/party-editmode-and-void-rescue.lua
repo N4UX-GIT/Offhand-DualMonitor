@@ -24,7 +24,7 @@ UIParent = {
     GetAttribute = function(self, key) return self[key] or 0 end,
     SetAttribute = function(self, key, val) self[key] = val end,
     children = {},
-    GetChildren = function(self) return self.children end,
+    GetChildren = function(self) return unpack(self.children) end,
 }
 
 local metrics = {
@@ -84,6 +84,7 @@ local function makeMockFrame(name, w, h)
     function f:GetLeft()
         local p = self.points[#self.points]
         if not p then return 0 end
+        if p[3] == "CENTER" then return UIParent:GetWidth()/2 + (p[4] or 0) - self.w/2 end
         if p[1] == "BOTTOMLEFT" or p[1] == "TOPLEFT" or p[1] == "LEFT" then return p[4] or 0 end
         if p[1] == "CENTER" or p[1] == "TOP" or p[1] == "BOTTOM" then return (p[4] or 0) - (self.w / 2) end
         if p[1] == "RIGHT" or p[1] == "TOPRIGHT" or p[1] == "BOTTOMRIGHT" then return (p[4] or 0) - self.w end
@@ -95,6 +96,7 @@ local function makeMockFrame(name, w, h)
         if not p then return self.h end
         local relTop = (p[2] and p[2].GetTop and p[2]:GetTop()) or 2560
         if p[1] == "TOP" or p[1] == "TOPLEFT" or p[1] == "TOPRIGHT" then
+            if p[3] == "CENTER" then return relTop/2 + (p[5] or 0) end
             if p[3] == "BOTTOMLEFT" or p[3] == "BOTTOM" or p[3] == "BOTTOMRIGHT" then
                 return (p[5] or 0)
             end
@@ -183,7 +185,8 @@ PartyMemberFrame1 = makeMockFrame("PartyMemberFrame1", 180, 80)
 PartyMemberFrame2 = makeMockFrame("PartyMemberFrame2", 180, 80)
 GameMenuFrame = makeMockFrame("GameMenuFrame", 200, 400)
 GameMenuFrame:Hide()
-FocusedRosterFrame = makeMockFrame("FocusedRosterFrame", 220, 300)
+ExampleAddonWindow = makeMockFrame("ExampleAddonWindow", 220, 300)
+table.insert(UIParent.children, ExampleAddonWindow)
 
 ToggleGameMenu = function()
     if GameMenuFrame:IsShown() then
@@ -276,8 +279,8 @@ assert(editPt, "EditModeManagerFrame must be anchored")
 assert(editPt[1] == "TOP", "EditModeManagerFrame point must be TOP")
 -- cx = (1440 + 4000) / 2 = 2720
 -- top = m.gameTop - 20 = 1446 - 20 = 1426
-assert(math.abs(editPt[4] - 2720) < 1, string.format("EditModeManagerFrame X must be centered at 2720, got %s", tostring(editPt[4])))
-assert(math.abs(editPt[5] - 1426) < 1, string.format("EditModeManagerFrame Y must dock to gameTop - 20 (1426), got %s", tostring(editPt[5])))
+assert(math.abs(editPt[4] + 2000 - 2720) < 1, string.format("EditModeManagerFrame X must be centered at 2720, got %s", tostring(editPt[4])))
+assert(math.abs(editPt[5] + 1280 - 1426) < 1, string.format("EditModeManagerFrame Y must dock to gameTop - 20 (1426), got %s", tostring(editPt[5])))
 print("PASS: EditModeManagerFrame docks to the top-center of the 3D Game Viewport (x=2720, y=1426)")
 
 -- Dialog centering
@@ -287,8 +290,8 @@ local dialogPt = EditModeUnsavedChangesDialog.points[#EditModeUnsavedChangesDial
 assert(dialogPt, "EditModeUnsavedChangesDialog must be anchored")
 assert(dialogPt[1] == "CENTER", "EditModeUnsavedChangesDialog point must be CENTER")
 -- cy = (6 + 1446) / 2 = 726
-assert(math.abs(dialogPt[4] - 2720) < 1, string.format("Dialog X must be centered at 2720, got %s", tostring(dialogPt[4])))
-assert(math.abs(dialogPt[5] - 726) < 1, string.format("Dialog Y must be centered at 726, got %s", tostring(dialogPt[5])))
+assert(math.abs(dialogPt[4] + 2000 - 2720) < 1, string.format("Dialog X must be centered at 2720, got %s", tostring(dialogPt[4])))
+assert(math.abs(dialogPt[5] + 1280 - 726) < 1, string.format("Dialog Y must be centered at 726, got %s", tostring(dialogPt[5])))
 print("PASS: EditMode dialogs center on 3D Game Viewport (x=2720, y=726)")
 
 -- ============================================================================
@@ -299,8 +302,8 @@ flushTimers()
 local menuPt = GameMenuFrame.points[#GameMenuFrame.points]
 assert(menuPt, "GameMenuFrame must be anchored")
 assert(menuPt[1] == "CENTER", "GameMenuFrame point must be CENTER")
-assert(math.abs(menuPt[4] - 2720) < 1, "GameMenuFrame X must be centered at 2720")
-assert(math.abs(menuPt[5] - 726) < 1, "GameMenuFrame Y must be centered at 726")
+assert(math.abs(menuPt[4] + 2000 - 2720) < 1, "GameMenuFrame X must be centered at 2720")
+assert(math.abs(menuPt[5] + 1280 - 726) < 1, "GameMenuFrame Y must be centered at 726")
 ToggleGameMenu() -- Dismiss cleanly
 assert(not GameMenuFrame:IsShown(), "GameMenuFrame must dismiss cleanly on toggle")
 print("PASS: GameMenuFrame centers on Game Viewport and dismisses cleanly")
@@ -308,37 +311,37 @@ print("PASS: GameMenuFrame centers on Game Viewport and dismisses cleanly")
 -- ============================================================================
 -- TEST 7: Universal Void Rescue Engine (Focused Roster Frame & Rogue Frames)
 -- ============================================================================
--- Place FocusedRosterFrame high up in the black void (e.g. x = 2000, top = 2500, where gameTop is 1446)
-FocusedRosterFrame:ClearAllPoints()
-FocusedRosterFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 2000, -50) -- y = 2510 in the void!
-assert(FocusedRosterFrame:GetTop() > metrics.gameTop, "FocusedRosterFrame must initially be in the void")
+-- Place ExampleAddonWindow high up in the black void (e.g. x = 2000, top = 2500, where gameTop is 1446)
+ExampleAddonWindow:ClearAllPoints()
+ExampleAddonWindow:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 2000, -50) -- y = 2510 in the void!
+assert(ExampleAddonWindow:GetTop() > metrics.gameTop, "ExampleAddonWindow must initially be in the void")
 
 -- Trigger HUD popup/void scanner
 addon.HUD:HookFrames()
 -- Manually invoke OnShow hook or ticker that runs RedirectExternalPopups
 for _, child in ipairs(UIParent.children) do
-    if child == FocusedRosterFrame then
+    if child == ExampleAddonWindow then
         child:Show()
     end
 end
 flushTimers()
 
 -- The Void Rescue Engine must detect GetTop() > m.gameTop and clamp it down
-local rescuedPt = FocusedRosterFrame.points[#FocusedRosterFrame.points]
-assert(rescuedPt, "FocusedRosterFrame must be repositioned by Void Rescue Engine")
-local rescuedTop = FocusedRosterFrame:GetTop()
+local rescuedPt = ExampleAddonWindow.points[#ExampleAddonWindow.points]
+assert(rescuedPt, "ExampleAddonWindow must be repositioned by Void Rescue Engine")
+local rescuedTop = ExampleAddonWindow:GetTop()
 assert(rescuedTop <= metrics.gameTop, string.format("Rescued frame top (%s) must be <= gameTop (%s)", tostring(rescuedTop), tostring(metrics.gameTop)))
-print(string.format("PASS: Void Rescue Engine successfully rescued FocusedRosterFrame from void (top=%s <= gameTop=%s)", tostring(rescuedTop), tostring(metrics.gameTop)))
+print(string.format("PASS: Void Rescue Engine successfully rescued ExampleAddonWindow from void (top=%s <= gameTop=%s)", tostring(rescuedTop), tostring(metrics.gameTop)))
 
 -- ============================================================================
 -- TEST 8: Game View Monitor Drag Clamping
 -- ============================================================================
--- If user drags FocusedRosterFrame on the main game monitor, it must never exceed gameTop - height
-FocusedRosterFrame:ClearAllPoints()
-FocusedRosterFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 2000, 2000) -- Attempt to place in void
-addon.Canvas.OnPanelDragStop(FocusedRosterFrame)
+-- If user drags ExampleAddonWindow on the main game monitor, it must never exceed gameTop - height
+ExampleAddonWindow:ClearAllPoints()
+ExampleAddonWindow:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 2000, 2000) -- Attempt to place in void
+addon.Canvas.OnPanelDragStop(ExampleAddonWindow)
 
-local clampedTop = FocusedRosterFrame:GetTop()
+local clampedTop = ExampleAddonWindow:GetTop()
 assert(clampedTop <= metrics.gameTop, string.format("Clamped frame top (%s) must never exceed gameTop (%s)", tostring(clampedTop), tostring(metrics.gameTop)))
 print(string.format("PASS: Game View drag clamping enforces top <= gameTop (%s <= %s)", tostring(clampedTop), tostring(metrics.gameTop)))
 
@@ -374,3 +377,5 @@ flushTimers()
 print("PASS: Bad self intrinsic widgets in UIParent:GetChildren() safely handled without error")
 
 print("\nALL PARTY FRAMES, EDIT MODE, AND VOID RESCUE TESTS PASSED!")
+
+assert(#tickers == 1, "Repeated HUD setup installed duplicate scanners")

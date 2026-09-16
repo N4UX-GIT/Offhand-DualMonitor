@@ -3,9 +3,11 @@ local addon = {}
 local events = {}
 local combat = false
 GetBuildInfo = function() return "", "", "", 11509 end
-CreateFrame = function()
+CreateFrame = function(_, frameName)
     return { RegisterEvent = function() end,
-        SetScript = function(_, name, fn) events[name] = fn end }
+        SetScript = function(_, name, fn)
+            if frameName == "OffhandEventFrame" then events[name] = fn end
+        end }
 end
 InCombatLockdown = function() return combat end
 SlashCmdList = {}
@@ -81,6 +83,7 @@ end
 CreateFrame = function() return makeMockFrame() end
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 assert(loadfile("Core/SeamRedirect.lua"))("Offhand", addon)
+C_Timer = {After=function() end}
 local initOk, initErr = pcall(function()
     events.OnEvent(nil, "ADDON_LOADED", "Offhand")
 end)

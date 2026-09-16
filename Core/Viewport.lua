@@ -87,22 +87,15 @@ function Viewport:ApplyGlobalScale()
     local desired=math.min(m.gamePixelHeight/m.physicalHeight,
         m.gamePixelWidth*768/(1100*m.physicalHeight)) * Number(db.hudScale,0.70,0.25,1.25)
     
-    if not self.originalScale and not db.originalUiScale then 
-        self.originalScale = UIParent:GetScale() 
-        if GetCVar then
-            db.originalUiScale = GetCVar("uiScale")
-            db.originalUseUiScale = GetCVar("useUiScale")
-        end
+    if not self.originalScale then
+        self.originalScale = UIParent:GetScale()
     end
     
-    local cvarScale = GetCVar and tonumber(GetCVar("uiScale")) or 1
-    if math.abs(UIParent:GetScale()-desired)<0.00001 and math.abs(cvarScale - desired) < 0.00001 then return end
+    if math.abs(UIParent:GetScale()-desired)<0.00001 then return end
     self.scaling=true
     local ok,err=pcall(function() 
-        if GetCVar and GetCVar("useUiScale") ~= "1" then
-            if SetCVar then SetCVar("useUiScale", "1") end
-        end
-        if SetCVar then SetCVar("uiScale", desired) end
+        -- Keep the native CVar separate: client clamping can otherwise cause
+        -- every display notification to write it again. Children inherit UIParent.
         UIParent:SetScale(desired) 
         if WorldFrame and WorldFrame.SetScale then
             WorldFrame:SetScale(1)

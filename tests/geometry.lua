@@ -127,6 +127,8 @@ StanceBar=frame(UIParent)
 ShapeshiftBarFrame=frame(UIParent)
 PetActionBar=frame(UIParent)
 addon.SeamRedirect:HookFrames()
+-- Complete the independent delayed Edit Mode discovery before measuring HUD timers.
+while #timers > 0 do table.remove(timers,1)() end
 addon.SeamRedirect:AlignHUDFrames()
 local expected=StatusTrackingBarManager:GetScale()
 local clears=MainMenuBar.clears
@@ -156,7 +158,11 @@ print('PASS: native scale retained, no HUD feedback, idempotent anchors, combat 
 -- Idle Blizzard updates to action bars 2/3 and modern/legacy form bars must
 -- restore before SetPoint/SetScale returns, without a visible deferred pass.
 combatQueue={}
-local bars={MultiBarBottomLeft,MultiBarBottomRight,StanceBar,ShapeshiftBarFrame,PetActionBar}
+local bars={MultiBarBottomLeft,MultiBarBottomRight}
+-- Form and pet bars belong to native Edit Mode, not the HUD repair loop.
+for _,bar in ipairs({StanceBar,ShapeshiftBarFrame,PetActionBar}) do
+    assert(not addon.SeamRedirect:IsManagedFrame(bar))
+end
 for _,bar in ipairs(bars) do
     local wantedScale=bar:GetScale()
     local wanted=bar.points.BOTTOMLEFT
@@ -196,6 +202,10 @@ function UIParent:SetScale(value)
     addon.Viewport:ApplyGlobalScale()
 end
 local original=uiScale
+-- The client CVar can be clamped independently of the actual root scale.
+local cvarWrites=0
+GetCVar=function(name) return name=="uiScale" and "0.64" or "1" end
+SetCVar=function() cvarWrites=cvarWrites+1 end
 local unknownAddon=frame(UIParent);unknownAddon.scale=1.2
 addon.Viewport:ApplyGlobalScale()
 near(uiScale,1440/2560*0.7)
@@ -204,6 +214,7 @@ addon.SeamRedirect:AlignHUDFrames()
 near(MainMenuBar:GetEffectiveScale(),uiScale)
 for i=1,100 do addon.Viewport:ApplyGlobalScale() end
 assert(writes==1,"unchanged global scale was rewritten")
+assert(cvarWrites==0,"layout wrote a clamped CVar and risks a display feedback loop")
 combat=true;addon.db.hudScale=0.65;addon.Viewport:ApplyGlobalScale();assert(writes==1)
 combat=false;addon.Viewport:ApplyGlobalScale();assert(writes==2)
 addon.db.enabled=false;addon.Viewport:ApplyGlobalScale();

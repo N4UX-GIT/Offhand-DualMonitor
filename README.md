@@ -33,8 +33,8 @@ value and click Apply, or use the -1/+1 pixel buttons for fine alignment.
 
 Global UI size is based on the game viewport. Offhand applies one baseline to
 `UIParent`, which Blizzard frames and addons inherit through their normal parent
-hierarchy. It does not write the `uiScale` CVar or repeatedly set individual addon
-frame scales. Addons retain their own relative scale settings. The original root
+hierarchy. Normal layout changes do not write the `uiScale` CVar or repeatedly set individual addon
+frame scales. Disabling can restore CVar values saved by an older Offhand build. Addons retain their own relative scale settings. The original root
 scale is restored when Offhand is disabled; after reload with Offhand disabled, WoW
 uses its normal scale settings.
 
@@ -52,9 +52,10 @@ Protected layout changes remain deferred in combat.
 
 | Command | Effect |
 | --- | --- |
-| `/offhand`, `/oh`, `/offhand wizard`, `/offhand setup` | Open the calibration wizard. |
+| `/offhand`, `/oh` | Open settings. |
+| `/offhand wizard`, `/offhand setup` | Open the calibration wizard. |
 | `/offhand settings` or `/offhand options` | Open detailed settings, including bezel gap and module toggles. |
-| `/offhand guide` or `/offhand span` | Open the window-spanning guide. |
+| `/offhand guide` or `/offhand span` | Open the setup wizard. |
 | `/offhand seam 36` | Set deck width to 36% of the whole window; supported range 15–80%. |
 | `/offhand hud 70` | Set global UI size to 70% relative to the game viewport; range 25–125%. |
 | `/offhand bottom 6` | Place the game bottom six physical pixels above the canvas bottom. |
@@ -81,7 +82,8 @@ need not coincide with the center of the full window.
 - `Core/Config.lua`: saved settings and defaults.
 - `Core/Init.lua`: events, combat queue, and slash commands.
 - `UI/Wizard.lua`: visual calibration; `UI/Options.lua`: settings and span guide.
-- `Core/Canvas.lua` and `Modules/`: workspace and optional docking modules.
+- `Core/Canvas.lua`: active workspace placement, map scaling, dragging and persistence.
+- `Modules/`: historical docking implementation; not loaded by either TOC.
 - `tests/geometry.lua`, `tests/lifecycle.lua`: Lua 5.1 regression checks.
 - `tests/QA-notes.md`: live observations, historical results, and remaining checks.
 
@@ -110,35 +112,44 @@ restored when reopened or reloaded. Generic discovery handles movable top-level
 windows and tooltips without maintaining an addon-name list. Frames anchored to a
 custom parent or not marked movable may still require manual placement.
 
-With **Independent, resizable World Map on Deck** enabled, Offhand removes only the
-map from Blizzard's exclusive panel stack. You can keep it open while opening the
-Character sheet, Social window, or another standard panel. Those other panels retain
-Blizzard's normal opening/closing rules. The map remains windowed while docked.
+The World Map stays windowed and independent of the normal panel stack. Move it
+using its title handle. On the workspace, it auto-fits the deck width unless you
+choose a custom scale; the game monitor has a separate map scale preference.
+Hold Ctrl and scroll over the map/title to adjust scale. This scales the native
+map rather than changing its canvas dimensions with a resize grip. Scaling is
+blocked during combat. Leatrix Maps takes precedence when present.
 
-Drag the map's bottom-right grip to resize it; its dimensions and dragged position
-are saved. Resizing is disabled in combat. Disabling map docking restores the map's
-panel-stack behavior and hides the grip. The movement option controls the map's
-PLAYER_STARTED_MOVING registration when that event is used by the client.
+Panels dragged to the workspace can be independent of other panels, remain open
+through Escape, and reopen after reload. These are separate settings. Standard
+panels moved back to the game monitor resume native panel-stack behavior.
 
-Global-scale inheritance and map behavior have automated regression coverage.
-Current live-client acceptance results and limitations are in tests/QA-notes.md.
+Configuration uses account-wide `OffhandDB.profiles` with the active profile in
+per-character `OffhandCharDB`. Settings have Display, Workspace, Themes, Profiles,
+and FAQ tabs. The minimap button opens settings or the setup/recovery menu.
 
-## Edit Mode Layouts & Combat Taint
-When you first enable **Offhand**, your UI will seamlessly expand across both monitors. However, because Blizzard hardcodes their default Edit Mode presets (like "Classic" or "Modern") to the absolute edges of your screen, some native combat frames like the **Stance Bar**, **Pet Action Bar**, and **Raid Frames** will automatically snap to the far left of your Workspace monitor.
+See `tests/QA-notes.md` for the latest automated baseline and live-test limitations.
 
-### Why doesn't Offhand move them automatically?
-World of Warcraft's security engine strictly protects these specific combat frames. If an addon attempts to programmatically intercept and reposition them while Edit Mode is managing them, it triggers the internal **Taint System**. The moment you enter combat and cast a spell, change stances, or command your pet, the game will throw an ADDON_ACTION_BLOCKED error and lock up your interface.
+## Edit Mode layouts and runtime verification
 
-To guarantee flawless, error-free combat, **Offhand** strictly yields control of these specific frames to Edit Mode.
+Offhand leaves stance and pet bar positioning to native Edit Mode. Arrange these
+frames on the game monitor and save a layout named `Offhand`. The current addon
+attempts to select a matching layout during delayed setup. Select a normal layout
+manually when returning to a single monitor.
 
-### How to setup your layout (The Secure Way):
-1. With **Offhand** enabled, open Edit Mode in-game.
-2. Manually drag your Stance Bar, Pet Bar, and Raid Frames back to your preferred positions on your 3D Game View monitor.
-3. Save your arrangement as a **New Layout** and name it exactly: **"Offhand"** (case insensitive).
+Combat guards reduce unsafe layout changes, but do not prove absence of taint.
+The current compatibility implementation replaces two `EditModeUtil` measurement
+functions to tolerate missing bar anchors and wraps `CloseAllBags` for workspace
+persistence. These remain explicit live-verification points, including combat,
+stance/pet changes and other addons. See `tests/SECURE-UI-AUDIT.md`.
 
-By manually dragging and saving them, Edit Mode securely locks their coordinates into the Blizzard server cache, completely bypassing the taint system and keeping your combat 100% safe!
+## Development checkpoint and test coverage
 
-### Automatic Layout Switching
-When you disable Offhand to play on a single monitor, your frames will dynamically shift. To fix this, simply select the standard **"Classic"** or **"Modern"** layout from the Edit Mode dropdown, and everything will snap back to normal.
+The as-is development checkpoint is tag
+`checkpoint/2026-09-16-before-stabilization` (commit `85f62ac`). Stabilization work
+is separate from that tag. Run every top-level `tests/*.lua` file with Lua 5.1;
+CI uses the same selection. `tests/legacy/` preserves historical tests for unloaded
+modules and is excluded from the active acceptance baseline.
 
-When you re-enable Offhand, the addon will automatically detect your saved **"Offhand"** layout and securely load it for you in the background!
+The companion executable requires Windows .NET Framework. Source changes do not
+update previously built downloads automatically; build/package and verify the
+artifacts before a release.

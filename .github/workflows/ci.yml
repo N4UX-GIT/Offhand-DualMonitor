@@ -34,3 +34,11 @@ jobs:
           if ($failed -gt 0) {
               throw "$failed test suites failed."
           }
+
+      - name: Test companion window operations
+        shell: powershell
+        run: ./tests/companion.ps1
+
+      - name: Compile and test native companion preferences
+        shell: powershell
+        run: ./tests/companion-preferences.ps1

@@ -143,6 +143,8 @@ end
 if CloseAllBags and not _G.Offhand_OriginalCloseAllBags then
     _G.Offhand_OriginalCloseAllBags = CloseAllBags
     CloseAllBags = function(...)
+        -- Native bag closure must remain available during combat.
+        if InCombatLockdown() then return _G.Offhand_OriginalCloseAllBags(...) end
         if Offhand.db and Offhand.db.enabled and Offhand.db.persistentWorkspacePanels ~= false then
             local closedAny = false
             for i = 1, NUM_CONTAINER_FRAMES or 13 do
@@ -207,7 +209,7 @@ end
 
 function Canvas:ConfigureWorldMap()
     local map = WorldMapFrame
-    if not map or HasLeatrixMaps() or not Offhand.db or not Offhand.db.enabled then return end
+    if InCombatLockdown() or not map or HasLeatrixMaps() or not Offhand.db or not Offhand.db.enabled then return end
 
     local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
     if not m or not m.isSpanned then return end
@@ -251,7 +253,7 @@ function Canvas:ConfigureWorldMap()
 
     -- Interactive Ctrl + MouseWheel scaling
     local function OnMapMouseWheel(self, delta)
-        if not IsControlKeyDown() then return end
+        if InCombatLockdown() or not IsControlKeyDown() then return end
         if not Offhand.db or not Offhand.db.enabled then return end
         local current = map:GetScale() or 1.0
         local newScale
@@ -571,6 +573,8 @@ OnPanelDragStop = function(frame)
             if UpdateUIPanelPositions then
                 pcall(UpdateUIPanelPositions, frame)
             end
+            frame:ClearAllPoints()
+            frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         end
     end
 

@@ -1,3 +1,20 @@
+# Current stabilization baseline — 2026-09-16
+
+Historical entries below do not establish acceptance of the present Canvas
+implementation. Rollback: checkpoint/2026-09-16-before-stabilization (85f62ac).
+
+- Corrected test harnesses: separate event handlers, CENTER-relative offsets,
+  GetChildren varargs, child registration and delayed Edit Mode initialization.
+- Active map coverage is in escape-and-bags.lua and loads Core/Canvas.lua.
+  Historical module tests moved to tests/legacy, outside CI's active selection.
+- Regressions cover a single scanner, clamped-CVar independence, native map
+  dimensions and Ctrl-wheel combat protection, plus game-monitor drag bounds.
+- Verification: all 14 active Lua suites and both TOCs pass; simulated companion
+  window-operation tests and compiled C# preference regressions pass.
+- No game-folder deployment or live runtime acceptance in this pass.
+
+---
+
 # Lifecycle validation â€” 2026-09-12
 
 ## Global UI baseline and independent resizable map

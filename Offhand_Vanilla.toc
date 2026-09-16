@@ -20,4 +20,5 @@ Locales\enUS.lua
 # UI & Themes
 UI\Themes.lua
 UI\Options.lua
+UI\Minimap.lua
 UI\Wizard.lua

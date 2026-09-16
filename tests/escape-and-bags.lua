@@ -264,7 +264,7 @@ flushTimers()
 assert(GameMenuFrame:IsShown(), "GameMenuFrame must be shown after first Escape")
 local p = GameMenuFrame.points[#GameMenuFrame.points]
 assert(p and p[1] == "CENTER", "GameMenuFrame must be centered")
-local expectedCX = (metrics.gameLeft + metrics.gameRight) / 2
+local expectedCX = (metrics.gameLeft + metrics.gameRight) / 2 - UIParent:GetWidth()/2
 assert(math.abs(p[4] - expectedCX) < 0.01, "GameMenuFrame centerX must match primary monitor center")
 
 -- TEST 3: AddonList from Game Menu shows centered on gaming monitor
@@ -367,3 +367,19 @@ flushTimers()
 assert(WorldMapFrame:IsShown(), "WorldMapFrame on workspace must remain open through Escape")
 
 print("PASS: escape menu centering, AddonList, gaming monitor panel offsets, universal handles, map fitting, drag out/in reopen, bag flicker, workspace escape persistence")
+
+-- Map wheel scaling is a layout mutation and must not run during combat.
+local beforeScale=WorldMapFrame:GetScale()
+local beforeWidth=WorldMapFrame:GetWidth()
+local beforeHeight=WorldMapFrame:GetHeight()
+IsControlKeyDown=function() return true end
+InCombatLockdown=function() return true end
+WorldMapFrame.scripts.OnMouseWheel(WorldMapFrame,1)
+addon.Canvas:ConfigureWorldMap()
+assert(WorldMapFrame:GetScale()==beforeScale, "Map changed scale during combat")
+InCombatLockdown=function() return false end
+WorldMapFrame.scripts.OnMouseWheel(WorldMapFrame,1)
+assert(WorldMapFrame:GetScale()>beforeScale, "Ctrl-wheel did not increase map scale")
+assert(WorldMapFrame:GetWidth()==beforeWidth and WorldMapFrame:GetHeight()==beforeHeight,
+    "Map scaling mutated the native canvas dimensions")
+print("PASS: active Canvas map scale, native dimensions and combat guard")

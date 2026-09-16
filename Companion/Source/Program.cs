@@ -17,6 +17,28 @@ using System.Windows.Forms;
 
 namespace Offhand.Companion
 {
+    internal static class PreferenceFile
+    {
+        internal static Dictionary<string, string> Read(string path)
+        {
+            var settings = new Dictionary<string, string>();
+            if (!File.Exists(path)) return settings;
+            foreach (var line in File.ReadAllLines(path))
+            {
+                var parts = line.Split(new char[] { '=' }, 2);
+                if (parts.Length == 2 && parts[0].Trim().Length > 0)
+                    settings[parts[0].Trim()] = parts[1].Trim();
+            }
+            return settings;
+        }
+
+        internal static decimal Delay(string value)
+        {
+            decimal delay;
+            return decimal.TryParse(value, out delay) ? Math.Max(0, Math.Min(60, delay)) : 15;
+        }
+    }
+
     public static class NativeMethods
     {
         public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
@@ -147,25 +169,35 @@ namespace Offhand.Companion
         private Label lblHotkey;
 
         private static Dictionary<string, string> appSettings = new Dictionary<string, string>();
-        private static string configPath = "OffhandConfig.ini";
+        private static readonly string configPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Offhand", "OffhandConfig.ini");
+        private string configWarning;
 
         private void LoadConfig()
         {
-            if (File.Exists(configPath))
+            try
             {
-                foreach (var line in File.ReadAllLines(configPath))
-                {
-                    var parts = line.Split('=');
-                    if (parts.Length == 2) appSettings[parts[0].Trim()] = parts[1].Trim();
-                }
+                // Import portable settings once; future launches are independent of CWD.
+                string source = File.Exists(configPath) ? configPath :
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "OffhandConfig.ini");
+                appSettings = PreferenceFile.Read(source);
             }
+            catch (IOException ex) { configWarning = "Cannot read settings: " + ex.Message; }
+            catch (UnauthorizedAccessException ex) { configWarning = "Cannot read settings: " + ex.Message; }
         }
 
         private void SaveConfig()
         {
-            var lines = new System.Collections.Generic.List<string>();
-            foreach(var kv in appSettings) lines.Add(kv.Key + "=" + kv.Value);
-            File.WriteAllLines(configPath, lines);
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(configPath));
+                var lines = new System.Collections.Generic.List<string>();
+                foreach(var kv in appSettings) lines.Add(kv.Key + "=" + kv.Value);
+                File.WriteAllLines(configPath, lines);
+            }
+            catch (IOException ex) { AddLog("Cannot save settings: " + ex.Message); }
+            catch (UnauthorizedAccessException ex) { AddLog("Cannot save settings: " + ex.Message); }
         }
 
         private Button btnSpanNow;
@@ -196,7 +228,8 @@ namespace Offhand.Companion
             NativeMethods.UnregisterHotKey(this.Handle, 1);
             int modifier = 0;
             int key = 0;
-            string sel = cmbHotkey.SelectedItem.ToString();
+            string sel = cmbHotkey.SelectedItem as string;
+            if (string.IsNullOrEmpty(sel)) return;
             
             if (sel == "Ctrl+Alt+S") { modifier = 0x0002 | 0x0001; key = (int)Keys.S; } // Alt is 1, Ctrl is 2
             else if (sel == "Ctrl+Shift+S") { modifier = 0x0002 | 0x0004; key = (int)Keys.S; } // Ctrl is 2, Shift is 4
@@ -205,8 +238,10 @@ namespace Offhand.Companion
             else if (sel == "F11") { modifier = 0; key = (int)Keys.F11; }
             else if (sel == "F12") { modifier = 0; key = (int)Keys.F12; }
             
-            NativeMethods.RegisterHotKey(this.Handle, 1, modifier, key);
-            AddLog("Global Hotkey Registered: " + sel + " to Span Now.");
+            if (NativeMethods.RegisterHotKey(this.Handle, 1, modifier | 0x4000, key))
+                AddLog("Global Hotkey Registered: " + sel + " to Span Now.");
+            else
+                AddLog("Hotkey unavailable: " + sel + ". Choose another shortcut; Span Now still works.");
         }
 
         public CompanionForm()
@@ -216,6 +251,7 @@ namespace Offhand.Companion
             InitializeTray();
             InitializeTimer();
             UpdateHotkey();
+            if (configWarning != null) AddLog(configWarning);
 
             AddLog("Offhand Companion v1.2 initialized.");
             AddLog("Monitoring active. Enable Offhand in WoW; calibrate with /offhand wizard.");
@@ -409,7 +445,7 @@ namespace Offhand.Companion
             configPanel.Controls.Add(cmbHotkey);
 
             if (appSettings.ContainsKey("AutoSpan")) chkAutoSpan.Checked = appSettings["AutoSpan"] == "True";
-            if (appSettings.ContainsKey("DelaySpan")) { decimal d; if (decimal.TryParse(appSettings["DelaySpan"], out d)) numDelaySpan.Value = d; }
+            if (appSettings.ContainsKey("DelaySpan")) numDelaySpan.Value = PreferenceFile.Delay(appSettings["DelaySpan"]);
 
             chkAutoSpan.CheckedChanged += (s, e) => { appSettings["AutoSpan"] = chkAutoSpan.Checked.ToString(); SaveConfig(); };
             numDelaySpan.ValueChanged += (s, e) => { appSettings["DelaySpan"] = numDelaySpan.Value.ToString(); SaveConfig(); };
@@ -603,6 +639,7 @@ namespace Offhand.Companion
 
         private void ExitApplication()
         {
+            NativeMethods.UnregisterHotKey(this.Handle, 1);
             isExplicitExit = true;
             if (monitorTimer != null) monitorTimer.Stop();
             if (trayIcon != null) trayIcon.Visible = false;
@@ -612,6 +649,7 @@ namespace Offhand.Companion
 
         private void AddLog(string message)
         {
+            if (logBox == null) { configWarning = message; return; }
             string time = DateTime.Now.ToString("HH:mm:ss");
             logBox.Items.Insert(0, string.Format("[{0}] {1}", time, message));
             while (logBox.Items.Count > 100)
