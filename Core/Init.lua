@@ -401,7 +401,7 @@ end
 -- ============================================================================
 
 StaticPopupDialogs["OFFHAND_COMPANION_WARNING"] = {
-    text = [[|cffd0d0d0Offhand is enabled, but your window is not spanned!|r
+    text = [[|cffd0d0d0Offhand is enabled, but your window is not optimally spanned to your physical monitor setup and resolution.|r
 
 For a seamless, borderless experience, the Offhand Companion App is highly recommended. Download it securely from GitHub below:
 
