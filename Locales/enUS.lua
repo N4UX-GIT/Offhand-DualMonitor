@@ -1,5 +1,5 @@
 --[[
-    Offhand: Multi-Monitor Workspace Addon
+    Offhand: Multi-Monitor Setup Addon
     Locales/enUS.lua: English localization dictionary and comprehensive user help tooltips
 --]]
 
@@ -17,7 +17,7 @@ Offhand.L = L
 -- Settings and guided setup
 L["CARD_SCALE_ALIGNMENT"] = "Game alignment & UI scale"
 L["GLOBAL_SCALE_HELP"] = "Sets the shared game UI scale. Addons inherit it unless they apply their own scale."
-L["CARD_PERSISTENCE"] = "Workspace windows"
+L["CARD_PERSISTENCE"] = "Offhand Monitor windows"
 L["CARD_RECOVERY"] = "Recovery & preview"
 L["CARD_BEZEL"] = "Bezel compensation (advanced)"
 L["PREVIEW_DUAL"] = "Preview dual-monitor layout on a single display"
@@ -42,33 +42,33 @@ L["WIZARD_CHECK_RECOMMENDATION"] = "Continue to check monitor layout, alignment 
 L["BTN_SETTINGS"] = "All Settings"
 L["STEP_PROGRESS"] = "Step %d of 4"
 L["STEP_1_HELP"] = "Set WoW to Windowed mode, then use Span Now in the Companion. These recommendations are based on the game window size; check the next steps against your actual monitors."
-L["STEP_2_HELP"] = "Choose which monitor shows the game and select its aspect ratio. Your other monitor becomes the workspace."
-L["STEP_3_HELP"] = "Align the red guide with the monitor boundary. Adjust the bottom offset if the game view sits too high or too low."
-L["STEP_4_HELP"] = "Choose a comfortable UI size. Changes apply immediately. Finish Setup when the game and workspace fit your monitors."
+L["STEP_2_HELP"] = "Choose which monitor shows the game and select its aspect ratio. Your other monitor becomes the Offhand Monitor."
+L["STEP_3_HELP"] = "Align the red guide with the monitor boundary. Adjust the bottom offset if the Mainhand Monitor sits too high or too low."
+L["STEP_4_HELP"] = "Choose a comfortable UI size. Changes apply immediately. Finish Setup when the game and Offhand Monitor fit your monitors."
 L["HELP_SETUP_TITLE"] = "Set up two monitors"
 L["HELP_SETUP_BODY"] = "1. Set WoW to Windowed mode.\n2. Click Span Now in the Companion, then open the setup wizard.\n3. Check monitor layout, seam, bottom alignment and UI scale."
-L["HELP_PANELS_TITLE"] = "Use the workspace"
-L["HELP_PANELS_BODY"] = "Drag supported windows by their headers to either monitor. In Workspace, enable independent panels to keep several open together. Hold Ctrl and use the mouse wheel over the world map to change its size."
+L["HELP_PANELS_TITLE"] = "Use the Offhand Monitor"
+L["HELP_PANELS_BODY"] = "Drag supported windows by their headers to either monitor. In Offhand Monitor, enable independent panels to keep several open together. Hold Ctrl and use the mouse wheel over the world map to change its size."
 L["HELP_RECOVERY_TITLE"] = "Recover windows or return to one monitor"
-L["HELP_RECOVERY_BODY"] = "Use Gather Off-Screen UI in Workspace to recover open windows outside the visible areas. To return to one monitor, disable Offhand's dual-monitor mode and use Restore Window in the Companion (Ctrl+Alt+R)."
+L["HELP_RECOVERY_BODY"] = "Use Gather Off-Screen UI in Offhand Monitor to recover open windows outside the visible areas. To return to one monitor, disable Offhand's dual-monitor mode and use Restore Window in the Companion (Ctrl+Alt+R)."
 L["HELP_EDIT_MODE_TITLE"] = "Position combat frames with Edit Mode"
 L["HELP_EDIT_MODE_BODY"] = "Where available, use Blizzard Edit Mode outside combat to position stance, pet and raid frames. Save a layout named Offhand for automatic selection. Choose your usual layout when returning to one monitor. Some changes wait until combat ends."
 
 -- ============================================================================
 -- Core & General Strings
 -- ============================================================================
-L["ADDON_TITLE"] = "Offhand: Multi-Monitor Workspace"
+L["ADDON_TITLE"] = "Offhand: Multi-Monitor Setup"
 L["ADDON_DESC"] = "Transforms dual monitor setups into a dedicated primary 3D viewport and secondary command deck."
 L["CMD_HELP_TITLE"] = "Offhand Slash Commands"
 L["LAYOUT_REAPPLIED"] = "Layout reapplied!"
-L["CONFIG_SAVED"] = "Configuration saved! Welcome to Offhand Multi-Monitor Workspace."
+L["CONFIG_SAVED"] = "Configuration saved! Welcome to Offhand Multi-Monitor Setup."
 
 -- ============================================================================
 -- Options Dashboard Header & Tabs
 -- ============================================================================
 L["OPTIONS_TITLE"] = "OFFHAND MULTI-MONITOR WORKSPACE"
 L["TAB_DISPLAY"] = "Display & Viewport"
-L["TAB_WORKSPACE"] = "Workspace & Map"
+L["TAB_WORKSPACE"] = "Offhand Monitor & Map"
 L["TAB_THEMES"] = "Themes & Colors"
 L["BTN_AUTO_WIZARD"] = "Auto-Setup Wizard"
 L["BTN_AUTO_WIZARD_TIP_TITLE"] = "Display Calibration Wizard"
@@ -78,14 +78,14 @@ L["BTN_AUTO_WIZARD_TIP_DESC"] = "Open the guided 1-click display configuration w
 -- Tab 1: Display & Viewport
 -- ============================================================================
 L["CARD_LAYOUT_PRESETS"] = "1. Monitor Layout Preset"
-L["CARD_LAYOUT_PRESETS_DESC"] = "Select which physical monitor displays your 3D game world and which displays your 2D workspace."
+L["CARD_LAYOUT_PRESETS_DESC"] = "Select which physical monitor displays your 3D game world and which displays your 2D Offhand Monitor."
 L["PRESET_PL_LR"] = "Portrait Left + Game Right"
 L["PRESET_PL_LR_TIP_TITLE"] = "Portrait Left + Game Right"
-L["PRESET_PL_LR_TIP_DESC"] = "Ideal for setups with a vertical secondary monitor on the left and your main horizontal gaming monitor on the right."
+L["PRESET_PL_LR_TIP_DESC"] = "Ideal for setups with a vertical Offhand Monitor on the left and your main horizontal gaming monitor on the right."
 
 L["PRESET_GL_PR"] = "Game Left + Portrait Right"
 L["PRESET_GL_PR_TIP_TITLE"] = "Game Left + Portrait Right"
-L["PRESET_GL_PR_TIP_DESC"] = "Ideal for setups with your main gaming monitor on the left and a vertical secondary monitor on the right."
+L["PRESET_GL_PR_TIP_DESC"] = "Ideal for setups with your main gaming monitor on the left and a vertical Offhand Monitor on the right."
 
 L["PRESET_DUAL_LANDSCAPE"] = "Dual Landscape (50/50)"
 L["PRESET_DUAL_LANDSCAPE_TIP_TITLE"] = "Dual Landscape (Side by Side)"
@@ -108,31 +108,31 @@ L["AR_FILL"] = "Fit Window Height (Fill)"
 L["AR_FILL_TIP_TITLE"] = "Fit Window Height (Fill Mode)"
 L["AR_FILL_TIP_DESC"] = "Stretches the 3D viewport vertically to match the configured height percentage without top or bottom letterboxing."
 
-L["ALIGN_LABEL"] = "Game Viewport Alignment:"
+L["ALIGN_LABEL"] = "Mainhand Monitor Alignment:"
 L["ALIGN_CENTER"] = "Center"
 L["ALIGN_CENTER_TIP_TITLE"] = "Center Alignment"
-L["ALIGN_CENTER_TIP_DESC"] = "Centers the 3D game viewport within your dedicated game monitor area."
+L["ALIGN_CENTER_TIP_DESC"] = "Centers the Mainhand Monitor within your dedicated Mainhand Monitor area."
 
 L["ALIGN_LEFT"] = "Left"
 L["ALIGN_LEFT_TIP_TITLE"] = "Left Alignment"
-L["ALIGN_LEFT_TIP_DESC"] = "Anchors the 3D game viewport flush to the left boundary of your game monitor area."
+L["ALIGN_LEFT_TIP_DESC"] = "Anchors the Mainhand Monitor flush to the left boundary of your Mainhand Monitor area."
 
 L["ALIGN_RIGHT"] = "Right"
 L["ALIGN_RIGHT_TIP_TITLE"] = "Right Alignment"
-L["ALIGN_RIGHT_TIP_DESC"] = "Anchors the 3D game viewport flush to the right boundary of your game monitor area."
+L["ALIGN_RIGHT_TIP_DESC"] = "Anchors the Mainhand Monitor flush to the right boundary of your Mainhand Monitor area."
 
 L["SLIDER_GAME_HEIGHT"] = "Game Height Ratio:"
-L["SLIDER_GAME_HEIGHT_TIP_TITLE"] = "Game Viewport Height"
-L["SLIDER_GAME_HEIGHT_TIP_DESC"] = "Adjusts what percentage of the total window height is occupied by the 3D game viewport when using Fill mode."
+L["SLIDER_GAME_HEIGHT_TIP_TITLE"] = "Mainhand Monitor Height"
+L["SLIDER_GAME_HEIGHT_TIP_DESC"] = "Adjusts what percentage of the total window height is occupied by the Mainhand Monitor when using Fill mode."
 
 L["LABEL_BOTTOM_OFFSET"] = "Game bottom offset (pixels):"
 L["LABEL_BOTTOM_OFFSET_TIP_TITLE"] = "Bottom Inset Offset"
-L["LABEL_BOTTOM_OFFSET_TIP_DESC"] = "Pushes the bottom of the 3D game viewport upward by the specified number of pixels to clear taskbars or secondary HUD elements."
+L["LABEL_BOTTOM_OFFSET_TIP_DESC"] = "Pushes the bottom of the Mainhand Monitor upward by the specified number of pixels to clear taskbars or secondary HUD elements."
 
 L["CARD_SEAM_CALIBRATION"] = "3. Physical Monitor Seam Alignment & Laser Guide"
-L["SLIDER_SEAM_WIDTH"] = "Workspace width (%):"
+L["SLIDER_SEAM_WIDTH"] = "Offhand Monitor width (%):"
 L["SLIDER_SEAM_WIDTH_TIP_TITLE"] = "Physical Seam Position"
-L["SLIDER_SEAM_WIDTH_TIP_DESC"] = "Defines where the boundary between your secondary workspace and 3D game monitor sits, as a percentage of total spanned screen width."
+L["SLIDER_SEAM_WIDTH_TIP_DESC"] = "Defines where the boundary between your Offhand Monitor and Mainhand Monitor sits, as a percentage of total spanned screen width."
 
 L["BTN_SEAM_MINUS"] = "- 1%"
 L["BTN_SEAM_MINUS_TIP_TITLE"] = "Nudge Seam Left"
@@ -151,54 +151,54 @@ L["SLIDER_BEZEL_GAP_TIP_TITLE"] = "Bezel Gap Compensation"
 L["SLIDER_BEZEL_GAP_TIP_DESC"] = "Compensates for the physical plastic border between your screens by creating a blank dead zone to prevent visual misalignment across monitors."
 
 -- ============================================================================
--- Tab 2: Workspace & Map
+-- Tab 2: Offhand Monitor & Map
 -- ============================================================================
-L["CARD_WORKSPACE_MGMT"] = "1. Workspace Panel Management & Behavior"
-L["CHECK_CANVAS_ENABLED"] = "Enable Offhand Workspace Canvas"
-L["CHECK_CANVAS_ENABLED_TIP_TITLE"] = "Offhand Workspace Canvas"
-L["CHECK_CANVAS_ENABLED_TIP_DESC"] = "Enables the secondary monitor workstation backdrop where UI panels, maps, character sheets, and bags are organized."
+L["CARD_WORKSPACE_MGMT"] = "1. Offhand Monitor Panel Management & Behavior"
+L["CHECK_CANVAS_ENABLED"] = "Enable Offhand Offhand Canvas"
+L["CHECK_CANVAS_ENABLED_TIP_TITLE"] = "Offhand Offhand Canvas"
+L["CHECK_CANVAS_ENABLED_TIP_DESC"] = "Enables the Offhand Monitor workstation backdrop where UI panels, maps, character sheets, and bags are organized."
 
-L["CHECK_ESC_PERSIST"] = "Keep Panels in Workspace on ESC (Independent Panels)"
-L["CHECK_ESC_PERSIST_TIP_TITLE"] = "Independent Workspace Panels"
-L["CHECK_ESC_PERSIST_TIP_DESC"] = "Prevents pressing Escape from closing panels docked in your secondary workspace. Escape will only clear targets or open the game menu on your main monitor."
+L["CHECK_ESC_PERSIST"] = "Keep Panels in Offhand Monitor on ESC (Independent Panels)"
+L["CHECK_ESC_PERSIST_TIP_TITLE"] = "Independent Offhand Monitor Panels"
+L["CHECK_ESC_PERSIST_TIP_DESC"] = "Prevents pressing Escape from closing panels docked in your Offhand Monitor. Escape will only clear targets or open the game menu on your main monitor."
 
 L["CHECK_ALLOW_DRAG"] = "Allow Panel Cross-Seam Dragging"
 L["CHECK_ALLOW_DRAG_TIP_TITLE"] = "Cross-Seam Dragging"
-L["CHECK_ALLOW_DRAG_TIP_DESC"] = "Allows you to freely drag supported frames (Character Frame, Spellbook, Bags) across the seam between your game monitor and workspace."
+L["CHECK_ALLOW_DRAG_TIP_DESC"] = "Allows you to freely drag supported frames (Character Frame, Spellbook, Bags) across the seam between your Mainhand Monitor and Offhand Monitor."
 
-L["CHECK_SEAM_REDIRECT"] = "Workspace Panel Redirection (Bags, Char, Spellbook)"
+L["CHECK_SEAM_REDIRECT"] = "Offhand Monitor Panel Redirection (Bags, Char, Spellbook)"
 L["CHECK_SEAM_REDIRECT_TIP_TITLE"] = "Automatic Panel Redirection"
-L["CHECK_SEAM_REDIRECT_TIP_DESC"] = "Automatically routes standard Blizzard panels (Character, Spellbook, Quest Log) into the secondary workspace deck upon opening."
+L["CHECK_SEAM_REDIRECT_TIP_DESC"] = "Automatically routes standard Blizzard panels (Character, Spellbook, Quest Log) into the Offhand Monitor upon opening."
 
 L["CHECK_SEAM_SNAP"] = "Clean Seam Snapping & Edge Alignment"
 L["CHECK_SEAM_SNAP_TIP_TITLE"] = "Edge Snapping"
-L["CHECK_SEAM_SNAP_TIP_DESC"] = "Snaps dragging frames neatly to the workspace borders and monitor seam so your secondary workstation stays tidy."
+L["CHECK_SEAM_SNAP_TIP_DESC"] = "Snaps dragging frames neatly to the Offhand Monitor borders and monitor seam so your Offhand Monitor stays tidy."
 
 L["SLIDER_HUD_SCALE"] = "Global UI & HUD Scale:"
 L["SLIDER_HUD_SCALE_TIP_TITLE"] = "Global Interface Scale"
 L["SLIDER_HUD_SCALE_TIP_DESC"] = "Resizes the entire user interface (action bars, unit frames, dialogs). Recommended: 56% to 70% for multi-monitor setups."
 
 L["CARD_MINIMAP_CONFIG"] = "2. Minimap Configuration & Positioning"
-L["CHECK_DOCK_MINIMAP"] = "Dock Minimap into Secondary Workspace Deck"
-L["CHECK_DOCK_MINIMAP_TIP_TITLE"] = "Workspace Minimap Docking"
-L["CHECK_DOCK_MINIMAP_TIP_DESC"] = "Moves the Minimap from your main game screen into the top of your secondary workspace deck, keeping your 3D view clean and uncluttered."
+L["CHECK_DOCK_MINIMAP"] = "Dock Minimap into Secondary Offhand Monitor Deck"
+L["CHECK_DOCK_MINIMAP_TIP_TITLE"] = "Offhand Monitor Minimap Docking"
+L["CHECK_DOCK_MINIMAP_TIP_DESC"] = "Moves the Minimap from your main game screen into the top of your Offhand Monitor, keeping your 3D view clean and uncluttered."
 
 L["SLIDER_MINIMAP_SCALE"] = "Minimap Scale Multiplier:"
 L["SLIDER_MINIMAP_SCALE_TIP_TITLE"] = "Minimap Size"
-L["SLIDER_MINIMAP_SCALE_TIP_DESC"] = "Controls the size of the Minimap when docked in your secondary workspace (0.6x to 2.0x)."
+L["SLIDER_MINIMAP_SCALE_TIP_DESC"] = "Controls the size of the Minimap when docked in your Offhand Monitor (0.6x to 2.0x)."
 
-L["CHECK_LOCK_MINIMAP"] = "Lock Minimap Position in Workspace"
+L["CHECK_LOCK_MINIMAP"] = "Lock Minimap Position in Offhand Monitor"
 L["CHECK_LOCK_MINIMAP_TIP_TITLE"] = "Lock Minimap"
 L["CHECK_LOCK_MINIMAP_TIP_DESC"] = "Prevents accidental dragging or repositioning of the Minimap in your secondary deck."
 
-L["BTN_RESET_MINIMAP"] = "Reset Minimap to Default Workspace Position"
+L["BTN_RESET_MINIMAP"] = "Reset Minimap to Default Offhand Monitor Position"
 L["BTN_RESET_MINIMAP_TIP_TITLE"] = "Reset Minimap"
-L["BTN_RESET_MINIMAP_TIP_DESC"] = "Resets the Minimap position, frame strata, and layout to the top center of the secondary workspace deck."
+L["BTN_RESET_MINIMAP_TIP_DESC"] = "Resets the Minimap position, frame strata, and layout to the top center of the Offhand Monitor."
 
 L["CARD_BAG_MGMT"] = "3. Bag Management & Docking"
 L["CHECK_DOCK_BAGS"] = "Auto-Dock All Bags into Secondary Deck"
 L["CHECK_DOCK_BAGS_TIP_TITLE"] = "Secondary Deck Bag Docking"
-L["CHECK_DOCK_BAGS_TIP_DESC"] = "Automatically places all opened container bags into your secondary workspace, clearing your gaming monitor for full combat visibility."
+L["CHECK_DOCK_BAGS_TIP_DESC"] = "Automatically places all opened container bags into your Offhand Monitor, clearing your gaming monitor for full combat visibility."
 
 L["CHECK_VERTICAL_BAGS"] = "Force Vertical Bag Column Layout"
 L["CHECK_VERTICAL_BAGS_TIP_TITLE"] = "Vertical Bag Columns"
@@ -206,7 +206,7 @@ L["CHECK_VERTICAL_BAGS_TIP_DESC"] = "Stacks open container bags neatly in vertic
 
 L["SLIDER_BAG_SCALE"] = "Bag Scale Multiplier:"
 L["SLIDER_BAG_SCALE_TIP_TITLE"] = "Bag Window Size"
-L["SLIDER_BAG_SCALE_TIP_DESC"] = "Adjusts the scale of your container bags on the secondary monitor (0.6x to 1.5x)."
+L["SLIDER_BAG_SCALE_TIP_DESC"] = "Adjusts the scale of your container bags on the Offhand Monitor (0.6x to 1.5x)."
 
 -- ============================================================================
 -- Tab 3: Themes & Colors
@@ -255,7 +255,7 @@ L["CANVAS_NAVY"] = "Midnight Navy"
 L["CANVAS_BLACK"] = "Pitch Black"
 L["SLIDER_CANVAS_OPACITY"] = "Canvas Background Opacity:"
 L["SLIDER_CANVAS_OPACITY_TIP_TITLE"] = "Canvas Transparency"
-L["SLIDER_CANVAS_OPACITY_TIP_DESC"] = "Adjusts how solid or translucent the secondary monitor workspace background appears (0% to 100%)."
+L["SLIDER_CANVAS_OPACITY_TIP_DESC"] = "Adjusts how solid or translucent the Offhand Monitor background appears (0% to 100%)."
 
 -- ============================================================================
 -- Wizard Dialog Strings & Tooltips
@@ -272,11 +272,11 @@ L["WIZARD_STATUS_APPLIED"] = "[Applied] Setup automatically configured for %s"
 
 L["WIZARD_CARD2_TITLE"] = "2. Monitor Orientation & 3D Viewport"
 L["WIZARD_LABEL_LAYOUT"] = "Monitor Layout Preset:"
-L["WIZARD_LABEL_AR"] = "3D Game Viewport Aspect Ratio:"
+L["WIZARD_LABEL_AR"] = "Mainhand Monitor Aspect Ratio:"
 
 L["WIZARD_CARD3_TITLE"] = "3. Physical Monitor Seam Alignment"
 L["WIZARD_SEAM_INSTRUCTION"] = "Align the red laser line with the physical bezel dividing your two monitors:"
-L["WIZARD_LABEL_SEAM"] = "Workspace width:"
+L["WIZARD_LABEL_SEAM"] = "Offhand Monitor width:"
 L["WIZARD_BTN_LASER_SHOW"] = "Show Laser"
 L["WIZARD_BTN_LASER_HIDE"] = "Hide Laser"
 L["WIZARD_PRESET_SEAM_36"] = "1440/4000 Seam (36%)"
@@ -372,7 +372,7 @@ L["SLIDER_EDITBOX_TIP_DESC"] = "Click to type an exact numeric or percentage val
 -- ============================================================================
 L["BTN_MAP_AUTOFIT"] = "Auto-Fit"
 L["BTN_MAP_AUTOFIT_TIP_TITLE"] = "Auto-Fit World Map"
-L["BTN_MAP_AUTOFIT_TIP_DESC"] = "Automatically scales the World Map to fit the exact width of your secondary monitor deck."
+L["BTN_MAP_AUTOFIT_TIP_DESC"] = "Automatically scales the World Map to fit the exact width of your Offhand Monitor."
 L["BTN_MAP_100_TIP_TITLE"] = "100% Map Scale"
 L["BTN_MAP_100_TIP_DESC"] = "Sets the World Map to standard 100% scale."
 L["BTN_MAP_150_TIP_TITLE"] = "150% Map Scale"
@@ -386,11 +386,11 @@ L["BTN_MAP_250_TIP_DESC"] = "Sets the World Map to 250% scale, filling a large p
 -- Options Panel â€” Canvas & Trim Color Buttons
 -- ============================================================================
 L["BTN_CANVAS_TONE_TIP_TITLE_FMT"] = "%s Tone"
-L["BTN_CANVAS_TONE_TIP_DESC_FMT"] = "Sets the secondary monitor workspace background tone to %s."
+L["BTN_CANVAS_TONE_TIP_DESC_FMT"] = "Sets the Offhand Monitor background tone to %s."
 L["BTN_CANVAS_CUSTOM"] = "Custom Color..."
 L["BTN_CANVAS_CUSTOM_ACTIVE_FMT"] = "Custom (#%02x%02x%02x)"
 L["BTN_CANVAS_CUSTOM_TIP_TITLE"] = "Custom Canvas Color"
-L["BTN_CANVAS_CUSTOM_TIP_DESC"] = "Open the color wheel to choose any custom background color and opacity for your secondary workspace monitor."
+L["BTN_CANVAS_CUSTOM_TIP_DESC"] = "Open the color wheel to choose any custom background color and opacity for your secondary Offhand Monitor."
 L["BTN_CANVAS_PREVIEW_TIP_TITLE"] = "Live Background Preview"
 L["BTN_CANVAS_PREVIEW_TIP_DESC"] = "Click this swatch to open the Color Picker and customize your secondary screen background color."
 L["BTN_TRIM_ACCENT_TIP_TITLE_FMT"] = "%s Accent"
@@ -420,10 +420,10 @@ L["MSG_AR_16_9"] = "Aspect Ratio locked to 16:9 (Standard Widescreen)."
 L["MSG_AR_21_9"] = "Aspect Ratio locked to 21:9 (Ultrawide)."
 L["MSG_AR_FILL"] = "Using configured game height. Adjust with /offhand height <5-100 percent>."
 L["MSG_AR_CUSTOM"] = "Custom Aspect Ratio set to %.3f:1."
-L["MSG_HUD_SET"] = "Global UI size set to %.0f%% of game view."
+L["MSG_HUD_SET"] = "Global UI size set to %.0f%% of Mainhand Monitor."
 L["MSG_HUD_CURRENT"] = "Current global UI size multiplier: %.2f (default 0.70). Usage: /offhand hud <25-125 percent>"
 L["MSG_CHAT_DECK"] = "Chat docked to Command Deck (Bottom Bay)."
-L["MSG_CHAT_GAME"] = "Chat locked to 3D Game Monitor (Bottom-Left)."
+L["MSG_CHAT_GAME"] = "Chat locked to Mainhand Monitor (Bottom-Left)."
 L["MSG_CHAT_TOGGLED"] = "Chat position toggled to: %s."
 L["MSG_SEAM_SET"] = "Seam & Secondary Deck width set to %.1f%%."
 L["MSG_BOTTOM_SET"] = "Game bottom inset set to %.0f pixels."

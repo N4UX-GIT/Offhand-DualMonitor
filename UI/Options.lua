@@ -1,5 +1,5 @@
 --[[
-    Offhand: Multi-Monitor Workspace Addon
+    Offhand: Multi-Monitor Setup Addon
     UI/Options.lua: Clean Tabbed Settings, Calibration Dashboard & Setup Guide
     (Pure ASCII, sleek tabbed interface, zero clutter, bulletproof native widgets)
 --]]
@@ -831,7 +831,7 @@ function Options:CreateFloatingPanel()
     
     local desc = header:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
-    desc:SetText("Dual Monitor Workspace and Seamless Display Topology Manager")
+    desc:SetText("Dual Monitor Offhand Monitor and Seamless Display Topology Manager")
     
     local closeBtn = CreateFrame("Button", nil, configFrame.header, "UIPanelCloseButton")
     closeBtn:SetSize(28, 28)
@@ -1004,7 +1004,7 @@ function Options:CreateFloatingPanel()
 
     local tabConfig = {
         { id = 1, frame = tab1, label = "Display" },
-        { id = 2, frame = tab2, label = "Workspace" },
+        { id = 2, frame = tab2, label = "Offhand Monitor" },
         { id = 3, frame = tab3, label = "Themes" },
         { id = 4, frame = tab4, label = L["TAB_PROFILES"] },
         { id = 5, frame = tab5, label = "FAQ & Help" }
@@ -1146,7 +1146,7 @@ function Options:CreateFloatingPanel()
     card1_1.autoDetectBtn = autoDetectBtn
 
 
-    local card1_2 = CreateCard(tab1, "3D Game Viewport Geometry & Bezel Seam", 120)
+    local card1_2 = CreateCard(tab1, "Mainhand Monitor Geometry & Bezel Seam", 120)
 
     local r169 = CreateNativeRadioButton(card1_2, "16:9 Standard",
         function() return (Offhand.db and Offhand.db.aspectRatioMode == "16_9") end,
@@ -1209,7 +1209,7 @@ function Options:CreateFloatingPanel()
     local bottomControl = Options:CreateBottomControl(card1_3)
     bottomControl:SetPoint("TOPLEFT", 12, -26)
 
-    local hudSlider = CreateNativeSlider(card1_3, "Global UI Size (% of Game View)", 0.25, 1.25, 0.01,
+    local hudSlider = CreateNativeSlider(card1_3, "Global UI Size (% of Mainhand Monitor)", 0.25, 1.25, 0.01,
         function() return (Offhand.db and Offhand.db.hudScale) or 0.70 end,
         function(val) Offhand.db.hudScale = val end,
         "%.0f%%",
@@ -1327,7 +1327,7 @@ function Options:CreateFloatingPanel()
             end
         end,
         "%.0f%%",
-        L["SLIDER_MINIMAP_SCALE_TIP_TITLE"], "Adjusts the scale of the World Map on your secondary workstation canvas."
+        L["SLIDER_MINIMAP_SCALE_TIP_TITLE"], "Adjusts the scale of the World Map on your Offhand Monitor canvas."
     )
     mapScaleSlider:SetPoint("TOPLEFT", 12, -54)
     mapScaleSlider:SetWidth(290)
@@ -1419,7 +1419,7 @@ function Options:CreateFloatingPanel()
     proTipDesc:SetJustifyH("LEFT")
     proTipDesc:SetText("|cffffd100Pro Tip:|r You can click and drag the header of standard Blizzard windows (Character, Spellbook, Quest Log, Bags) to freely move them across your monitors!")
 
-    local panelCheck = CreateNativeCheckbox(card2_2, "Keep panels placed on workspace open independently",
+    local panelCheck = CreateNativeCheckbox(card2_2, "Keep panels placed on Offhand Monitor open independently",
         function() return Offhand.db and Offhand.db.independentWorkspacePanels end,
         function(val) Offhand.db.independentWorkspacePanels = val end,
         L["CHECK_ESC_PERSIST_TIP_TITLE"], L["CHECK_ESC_PERSIST_TIP_DESC"]
@@ -1430,7 +1430,7 @@ function Options:CreateFloatingPanel()
     panelDesc:SetPoint("TOPLEFT", 32, -88)
     panelDesc:SetText("|cff888888Allows opening bags, character pane, spellbook & map simultaneously.|r")
 
-    local escapeCheck = CreateNativeCheckbox(card2_2, "Keep workspace panels open when pressing Escape",
+    local escapeCheck = CreateNativeCheckbox(card2_2, "Keep Offhand Monitor panels open when pressing Escape",
         function() return Offhand.db and Offhand.db.persistentWorkspacePanels ~= false end,
         function(val)
             Offhand.db.persistentWorkspacePanels = val
@@ -1444,12 +1444,12 @@ function Options:CreateFloatingPanel()
 
     local escapeDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     escapeDesc:SetPoint("TOPLEFT", 32, -132)
-    escapeDesc:SetText("|cff888888Escape clears targets or opens Game Menu without closing workspace elements.|r")
+    escapeDesc:SetText("|cff888888Escape clears targets or opens Game Menu without closing Offhand Monitor elements.|r")
 
     local reloadCheck = CreateNativeCheckbox(card2_2, "Persist open panels across reloads & zone transitions",
         function() return Offhand.db and Offhand.db.restoreWorkspaceOnReload ~= false end,
         function(val) Offhand.db.restoreWorkspaceOnReload = val end,
-        "Reload Persistence", "Automatically re-opens any panels you had open on the workspace after a /reload or loading screen completes."
+        "Reload Persistence", "Automatically re-opens any panels you had open on the Offhand Monitor after a /reload or loading screen completes."
     )
     reloadCheck:SetPoint("TOPLEFT", 10, -154)
 
@@ -1557,7 +1557,7 @@ function Options:CreateFloatingPanel()
 
     local subObsidian = card3_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     subObsidian:SetPoint("TOPLEFT", 34, -88)
-    subObsidian:SetText("|cff888888Dark neutral slate workspace|r")
+    subObsidian:SetText("|cff888888Dark neutral slate Offhand Monitor|r")
 
     local rPitchBlack = CreateNativeRadioButton(card3_1, "Pitch Black",
         function() return (Offhand.db and Offhand.db.theme == "PITCH_BLACK") end,
@@ -1663,7 +1663,7 @@ function Options:CreateFloatingPanel()
     Options:UpdateTrimHighlights()
 
 
-    local card3_3 = CreateCard(tab3, "Workspace Canvas Background (Secondary Monitor)", 210)
+    local card3_3 = CreateCard(tab3, "Offhand Canvas Background (Secondary Monitor)", 210)
 
     local canvasButtons = {
         { "CLASSIC_STONE", "Classic Stone" },
@@ -1727,7 +1727,7 @@ function Options:CreateFloatingPanel()
         Offhand:SetTooltip(customCanvasBtn, L["BTN_CANVAS_CUSTOM_TIP_TITLE"], L["BTN_CANVAS_CUSTOM_TIP_DESC"])
     end
 
-    -- Live Workspace Canvas Swatch Preview (Interactive click-to-pick)
+    -- Live Offhand Canvas Swatch Preview (Interactive click-to-pick)
     local swatchCard = CreateFrame("Frame", nil, card3_3, "BackdropTemplate")
     swatchCard:SetSize(300, 36)
     swatchCard:SetPoint("TOPLEFT", 12, -84)
