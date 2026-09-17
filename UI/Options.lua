@@ -14,6 +14,8 @@ local L = Offhand.L or setmetatable({}, {
 
 local tinsert = table.insert
 
+
+
 local Options = {}
 Offhand.Options = Options
 
@@ -844,13 +846,6 @@ function Options:CreateFloatingPanel()
         end
     end)
 
-    local compAppBtn = CreateFrame("Button", nil, configFrame, "UIPanelButtonTemplate")
-    compAppBtn:SetSize(155, 22)
-    compAppBtn:SetPoint("RIGHT", autoWizardBtn, "LEFT", -10, 0)
-    compAppBtn:SetText("Get Companion App")
-    compAppBtn:SetScript("OnClick", function()
-        StaticPopup_Show("OFFHAND_DOWNLOAD_LINK")
-    end)
 
     if Offhand.SetTooltip then
         Offhand:SetTooltip(autoWizardBtn, L["BTN_AUTO_WIZARD_TIP_TITLE"], L["BTN_AUTO_WIZARD_TIP_DESC"])
