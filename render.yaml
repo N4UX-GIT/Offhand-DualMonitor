@@ -1,9 +1,9 @@
-services:
+﻿services:
   - type: web
     name: offhand-wow
     env: static
     buildCommand: ""
-    staticPublishPath: .
+    staticPublishPath: ./Website
     routes:
       - type: rewrite
         source: /*
