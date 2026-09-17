@@ -1,4 +1,4 @@
-## Interface: 11509
+﻿## Interface: 11509
 ## Interface-Vanilla: 11509
 ## Interface-Classic: 11509
 ## Interface-Cata: 40402
@@ -6,7 +6,7 @@
 ## Title: |cffffbd0aOffhand|r |cffffffff[Multi-Monitor Workspace]|r
 ## Notes: Equip your Offhand. Dual wield your monitors. Multi-monitor workspace UI.
 ## Author: N4UX (Noggaholic)
-## Version: 1.0.1
+## Version: 1.0.2
 ## IconTexture: Interface\AddOns\Offhand\Media\OffhandLogo64x64.blp
 ## SavedVariables: OffhandDB
 ## SavedVariablesPerCharacter: OffhandCharDB
@@ -27,4 +27,5 @@ UI\Themes.lua
 UI\Options.lua
 UI\Minimap.lua
 UI\Wizard.lua
+
 
