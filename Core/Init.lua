@@ -1,4 +1,4 @@
-﻿--[[
+--[[
     Offhand: Multi-Monitor Workspace Addon
     Core/Init.lua: Addon initialization, namespace, event dispatcher, and combat-safe queue
 --]]
