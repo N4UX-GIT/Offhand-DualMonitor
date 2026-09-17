@@ -506,7 +506,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
 
             -- Guard: Companion App check
             if Offhand.db and Offhand.db.enabled and not Offhand.db.suppressCompanionWarning then
-                local w, h = GetScreenWidth(), GetScreenHeight()
+                local w = GetScreenWidth() * UIParent:GetEffectiveScale()
                 local physW = w
                 if GetPhysicalScreenSize then
                     pcall(function() physW = select(1, GetPhysicalScreenSize()) end)
