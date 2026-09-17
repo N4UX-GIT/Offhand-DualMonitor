@@ -1,4 +1,4 @@
---[[
+﻿--[[
     Offhand: Multi-Monitor Workspace Addon
     Core/Init.lua: Addon initialization, namespace, event dispatcher, and combat-safe queue
 --]]
@@ -403,9 +403,9 @@ end
 StaticPopupDialogs["OFFHAND_COMPANION_WARNING"] = {
     text = [[|cffd0d0d0Offhand is enabled, but your window is not optimally spanned to your physical monitor setup and resolution.|r
 
-For a seamless, borderless experience, the Offhand Companion App is highly recommended. Download it securely from GitHub below:
+For a seamless, borderless experience--and to avoid the tedious process of manually stretching the window edges every time you launch the game--the Offhand Companion App is highly recommended. Download it securely from GitHub below:
 
-(Alternatively, if you are attempting to stretch the window manually, ensure you drag it fully across both monitors. Click Ignore to permanently dismiss this warning).]],
+(Alternatively, if you prefer to stretch the window manually across both monitors, click Ignore to permanently dismiss this warning).]],
     button1 = "OK",
     button2 = "Ignore",
     hasEditBox = true,
@@ -718,3 +718,5 @@ function Offhand:GatherOffScreenUI()
     self:Print(string.format(self.L["GATHER_RESULT"], moved))
     return moved
 end
+
+
