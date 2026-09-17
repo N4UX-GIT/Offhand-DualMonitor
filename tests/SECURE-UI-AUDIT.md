@@ -1,4 +1,4 @@
-# Secure UI review — 2026-09-16
+# Secure UI review -- 2026-09-16
 
 ## Changes
 Regular layout no longer writes uiScale/useUiScale. Root scaling remains guarded

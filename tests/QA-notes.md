@@ -1,4 +1,4 @@
-# Current stabilization baseline — 2026-09-16
+# Current stabilization baseline -- 2026-09-16
 
 ## Build and deployment follow-up
 

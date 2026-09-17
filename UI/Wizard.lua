@@ -305,7 +305,7 @@ function Wizard:CreateFrame()
         Offhand:SetTooltip(seamEditBox, L["WIZARD_SEAM_EDIT_TIP_TITLE"], L["WIZARD_SEAM_EDIT_TIP_DESC"])
     end
 
-    -- seamValText: lightweight stub without visual output — the editBox already shows the value.
+    -- seamValText: lightweight stub without visual output -- the editBox already shows the value.
     -- Kept as a real object so tests and UpdateState calls remain compatible.
     local seamValTextStub = { _text = "" }
     seamValTextStub.SetText = function(self, t) self._text = t or "" end
@@ -528,7 +528,7 @@ function Wizard:CreateFrame()
         Offhand:SetTooltip(scaleEditBox, L["WIZARD_SCALE_EDIT_TIP_TITLE"], L["WIZARD_SCALE_EDIT_TIP_DESC"])
     end
 
-    -- scaleValText: lightweight stub without visual output — the editBox already shows the value.
+    -- scaleValText: lightweight stub without visual output -- the editBox already shows the value.
     -- Kept as a real object so tests and UpdateState calls remain compatible.
     local scaleValTextStub = { _text = "" }
     scaleValTextStub.SetText = function(self, t) self._text = t or "" end
