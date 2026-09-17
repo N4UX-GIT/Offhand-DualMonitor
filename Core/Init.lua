@@ -401,12 +401,11 @@ end
 -- ============================================================================
 
 StaticPopupDialogs["OFFHAND_COMPANION_WARNING"] = {
-    text = "|cffd0d0d0Offhand is enabled, but your window is not spanned!|r
+    text = [[|cffd0d0d0Offhand is enabled, but your window is not spanned!|r
 
 For a seamless, borderless experience, the Offhand Companion App is highly recommended. Download it securely from GitHub below:
 
-(Alternatively, put WoW in Windowed mode and manually drag the edges across your monitors to dismiss this warning).
-",
+(Alternatively, put WoW in Windowed mode and manually drag the edges across your monitors to dismiss this warning).]],
     button1 = "OK",
     hasEditBox = true,
     editBoxWidth = 260,
