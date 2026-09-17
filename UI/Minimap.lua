@@ -71,35 +71,7 @@ end
 local menuFrame = CreateFrame("Frame", "OffhandMinimapMenu", UIParent, "UIDropDownMenuTemplate")
 
 local function GatherOffScreenUI()
-    local m = Offhand.Viewport:GetMetrics()
-    if not m then return end
-    local cx = (m.gameLeft + m.gameRight) / 2
-    local cy = (m.gameBottom + m.gameTop) / 2
-    local parentScale = UIParent:GetEffectiveScale() or 1
-    local offsetX = cx - (UIParent:GetWidth() / 2)
-    local offsetY = cy - (UIParent:GetHeight() / 2)
-    
-    local moved = 0
-    if UIPanelWindows then
-        for name, _ in pairs(UIPanelWindows) do
-            local frame = _G[name]
-            if frame and frame:IsShown() and not frame:IsProtected() then
-                pcall(function()
-                    frame:ClearAllPoints()
-                    local fScale = frame:GetEffectiveScale() or parentScale
-                    local invFactor = parentScale / fScale
-                    frame:SetPoint("CENTER", UIParent, "CENTER", offsetX * invFactor, offsetY * invFactor)
-                end)
-                moved = moved + 1
-            end
-        end
-    end
-    
-    if moved > 0 then
-        Offhand:Print("Gathered " .. moved .. " frames to the Game View center.")
-    else
-        Offhand:Print("No open UI panels found to gather.")
-    end
+    if Offhand.GatherOffScreenUI then Offhand:GatherOffScreenUI() end
 end
 
 icon:SetScript("OnClick", function(self, button)

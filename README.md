@@ -1,63 +1,64 @@
-# Offhand – Multi-Monitor Workspace for World of Warcraft
+# Offhand - Multi-Monitor Workspace for World of Warcraft
 
-Offhand is a seamless multi-monitor UI manager that stretches your World of Warcraft client across multiple physical displays. It perfectly anchors your 3D Game View to your primary gaming monitor while converting your secondary portrait or landscape monitor into a dedicated UI workspace. 
+Offhand places the 3D game view on your gaming monitor and uses a second monitor as a workspace for maps, bags and other supported windows. The addon controls the in-game layout; the Windows Companion spans and restores the game window.
 
-## Installation & Setup
+## Installation and setup
 
-1. Copy the Offhand folder into your World of Warcraft/_classic_era_/Interface/AddOns directory.
-2. Enable the addon in your character selection screen.
-3. Set your World of Warcraft client to **Windowed Mode**.
-4. Open the Companion folder inside the addon directory and run Offhand.exe. 
-5. In the Companion App, click **Span WoW Window Now** (or press the global hotkey Ctrl+Alt+S). The window will seamlessly stretch across your virtual desktop, removing its borders.
-6. In-game, type /offhand wizard to launch the one-click calibration wizard, which will perfectly align the 3D Game View to your primary monitor!
+1. Install the addon archive as `Interface/AddOns/Offhand` and enable it at character selection.
+2. Download the separate Companion archive, extract it and run `Offhand.exe`.
+3. Set WoW to **Windowed** mode. Click **Span Now** in the Companion (default shortcut: **Ctrl+Alt+S**).
+4. Type `/offhand wizard`. The four steps cover recommendations, monitor layout, seam/bottom alignment and UI scale.
+5. Check the recommendations against your physical monitors. Window dimensions alone cannot identify every monitor arrangement.
+6. Click **Finish Setup**. Use `/offhand` for later adjustments.
 
-## Companion App Features
+For the common 1440x2560 portrait + 2560x1440 landscape arrangement, the portrait occupies 36% of the 4000-pixel combined width. Adjust the seam to match the actual client bounds; 55% is a custom split, not a universal portrait preset.
 
-The included lightweight C# Companion App (Companion/Offhand.exe) is designed to run in your system tray and manage the physical window spanning. 
-* **Auto-Span:** Automatically spans WoW when it detects a new launch.
-* **Global Hotkeys:** Press Ctrl+Alt+S to span the window instantly, or Ctrl+Alt+R to restore it to a single monitor.
-* **Pause Monitoring:** Temporarily pause the background watcher.
-* **Preferences:** Saves your delay timers and hotkeys securely to %LOCALAPPDATA%\Offhand\OffhandConfig.ini.
+## Settings
 
-## Workspace Window Management
+- **Display:** Orientation, aspect ratio, seam, bottom offset, global UI scale, bezel compensation and OBS crop values.
+- **Workspace:** Map size, window persistence, off-screen recovery and single-display preview.
+- **Themes:** Warcraft-style presets, accent colors and workspace background. Settings dialogs keep an opaque backing for readability independently of workspace opacity.
+- **Profiles:** Create or load settings profiles. Copying into the active profile, deleting another profile and resetting the active profile require confirmation.
+- **FAQ & Help:** Short instructions for setup, workspace windows, recovery and Edit Mode.
 
-Offhand completely overhauls the Blizzard UI engine to support an expanded canvas:
-* **Freedom of Movement:** Click and drag the headers of standard Blizzard windows (Character, Spellbook, Quest Log, Bags) to freely move them onto your secondary monitor.
-* **Persistence:** Panels dragged to your workspace stay open independently, survive the Escape key, and automatically reopen after loading screens or a /reload.
-* **World Map:** The World Map stays windowed on your workspace. Hold Ctrl and scroll over the map to scale it instantly!
-* **Gather Lost UI:** If you ever lose a window, right-click the Offhand minimap icon (or use the Options panel) and click **Gather Off-Screen UI** to instantly teleport all open windows back to the center of your screen.
+Changes update the active profile as you use the controls. WoW writes SavedVariables to disk on logout or `/reload`. **Close** closes the settings window; **Reapply Layout** retries the current layout. Numeric edit fields commit with Enter or their Apply button.
 
-## Edit Mode Layouts & Combat Taint
+The global UI scale is shared through the game's UI parent. Addons that explicitly set their own scale may still need adjustment in their own settings.
 
-When you first span your UI, Blizzard's default Edit Mode presets (like "Classic") will anchor native combat frames (Stance Bar, Pet Bar, Raid Frames) to the absolute edges of your spanned window.
+## Companion
 
-**Why doesn't Offhand move them automatically?**
-World of Warcraft strictly protects combat frames. If an addon attempts to automatically intercept and reposition them, it triggers the internal **Taint System**, resulting in ADDON_ACTION_BLOCKED errors mid-combat. Offhand intentionally yields control of these frames to Edit Mode to guarantee flawless combat.
+- **Auto-span:** Watches for new WoW launches with an Offhand installation. Installation detection cannot verify whether the addon is enabled in the current session.
+- **Restore Window / Ctrl+Alt+R:** Restores the bounds remembered before spanning, fitted to an available monitor's work area. Without remembered bounds, uses a window up to 1920x1080 on the primary monitor, reduced to fit.
+- **Manual restore pauses auto-span for that WoW client:** It resumes after **Span Now**, a new WoW launch, or restarting the Companion. Pause Monitoring if you want to stop the watcher generally.
+- **Shortcuts:** The span shortcut is configurable. Ctrl+Alt+R remains available independently; conflicts are reported and the buttons remain usable.
+- **Preferences:** Stored in `%LOCALAPPDATA%/Offhand/OffhandConfig.ini`.
 
-**The Secure Setup:**
-1. With Offhand spanned, open Edit Mode in-game.
-2. Manually drag your Stance Bar, Pet Bar, and Raid Frames to your preferred positions on your 3D Game View or Workspace monitor.
-3. Save your arrangement as a **New Layout** named exactly: **"Offhand"**.
+To return to one monitor, disable Offhand's dual-monitor mode in-game and use **Restore Window**. Choose your normal Edit Mode layout if needed.
 
-By manually dragging them, Edit Mode securely locks their coordinates into the Blizzard server cache. When you log in with Offhand enabled, it will automatically detect and silently load your "Offhand" layout in the background!
+The source is `Companion/Source/Program.cs`; `Companion/build.bat` embeds the icon, logo and DPI manifest. The PowerShell alternative has separate controls and does not share all native Companion features.
+
+## Workspace and recovery
+
+Drag supported windows by their headers to either monitor. Workspace settings can keep panels open independently, retain them when pressing Escape and reopen them after reloads. Hold **Ctrl + mouse wheel** over the world map to change its size.
+
+**Gather Off-Screen UI**, available in Workspace, the minimap menu and `/offhand gather`, moves eligible open windows with inaccessible title edges to the game view. It leaves reachable windows alone, skips protected/forbidden frames and does nothing in combat. It does not reset other addons' stored positions.
+
+Where Blizzard Edit Mode is available, use it outside combat to arrange stance, pet and raid frames. Save a layout named **Offhand** for automatic selection. Offhand yields management of these frames to Edit Mode to reduce conflicts; this is not a guarantee against taint from every addon combination.
 
 ## Commands
 
 | Command | Effect |
 | --- | --- |
-| /offhand or /oh | Open the main Settings panel. |
-| /offhand wizard | Open the one-click calibration wizard. |
-| /offhand gather | Teleports all open UI panels to the center of the game view. |
-| /offhand diag | Report physical viewport bounds and save a geometry snapshot. |
-| /offhand apply | Manually force a re-application of the layout engine. |
-| /offhand reset | Reset saved calibration and options to defaults. |
-| /offhand toggle | Toggle Offhand on or off. |
+| `/offhand` or `/oh` | Open settings. |
+| `/offhand wizard` | Open guided setup. |
+| `/offhand gather` | Recover eligible off-screen windows. |
+| `/offhand diag` | Report viewport bounds and save a geometry snapshot. |
+| `/offhand apply` | Reapply the current layout. |
+| `/offhand reset` | Reset the active profile to defaults (immediate). |
+| `/offhand toggle` | Toggle Offhand on or off. |
 
-## Source and Architecture
-* Core/Viewport.lua: Physical geometry, spanning, and scale conversion.
-* Core/SeamRedirect.lua: Managed HUD scale, anchors, dialog routing, and Edit Mode layout detection.
-* Core/Config.lua: SavedVariables and defaults.
-* Core/Init.lua: Event dispatch, combat queues, slash commands, and void rescues.
-* UI/Wizard.lua: Visual calibration laser guide.
-* UI/Options.lua: Clean tabbed interface for settings.
-* Core/Canvas.lua: Active workspace placement, persistence, and world map scaling.
+## Development and validation
+
+Run the top-level Lua scripts in `tests` with Lua 5.1, then `tests/companion.ps1` and `tests/companion-preferences.ps1`. `package.ps1` rebuilds the Companion and stages addon/Companion ZIPs plus website downloads. `tests/package-artifacts.ps1` checks that packaged files match source.
+
+See `docs/UI-REFACTOR-2026-09-17.md` for this iteration's changes and outstanding live checks. The addon and native Companion have separate version metadata; rebuilding artifacts does not publish a release.

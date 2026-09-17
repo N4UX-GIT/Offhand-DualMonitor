@@ -70,7 +70,7 @@ function Wizard:CreateFrame()
     if not CreateFrame then return nil end
 
     local f = CreateFrame("Frame", "OffhandSetupWizardFrame", UIParent, "BackdropTemplate")
-    f:SetSize(668, 732)
+    f:SetSize(668, 454)
     f:SetFrameStrata("FULLSCREEN_DIALOG")
     f:EnableMouse(true)
     f:SetMovable(true)
@@ -170,15 +170,12 @@ function Wizard:CreateFrame()
 
     autoBtn:SetScript("OnClick", function()
         if Offhand.Options and Offhand.Options.AutoConfigure then
-            local info = Offhand.Options:AutoConfigure(false)
+            Offhand.Options:AutoConfigure(true, true)
             f:UpdateState()
             
-            -- Success State UI Feedback
-            autoBtn:SetText("|cff00ff00Calibration Complete!|r")
-            if f.finishBtn and f.finishBtn.LockHighlight then
-                f.finishBtn:LockHighlight()
-            end
-            statusText:SetText("|cffffd100Your dual-monitor setup is fully calibrated. You may now click Finish.|r")
+            autoBtn:SetText(L["WIZARD_RECOMMENDATION_APPLIED"])
+            statusText:SetText(L["WIZARD_CHECK_RECOMMENDATION"])
+            f:SetStep(2)
         end
     end)
 
@@ -720,9 +717,9 @@ function Wizard:CreateFrame()
     -- FOOTER ACTIONS
     -- ========================================================================
     local advBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    advBtn:SetSize(280, 28)
+    advBtn:SetSize(170, 28)
     advBtn:SetPoint("BOTTOMLEFT", 18, 14)
-    advBtn:SetText(L["WIZARD_BTN_ADVANCED"])
+    advBtn:SetText(L["BTN_SETTINGS"])
     advBtn:SetScript("OnClick", function()
         Wizard.openedFromOptions = false
         Wizard:Close()
@@ -734,10 +731,11 @@ function Wizard:CreateFrame()
 
     local finishBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     f.finishBtn = finishBtn
-    finishBtn:SetSize(280, 28)
+    finishBtn:SetSize(170, 28)
     finishBtn:SetPoint("BOTTOMRIGHT", -18, 14)
     finishBtn:SetText("|cffffd100" .. L["WIZARD_BTN_FINISH"] .. "|r")
     finishBtn:SetScript("OnClick", function()
+        if f.step < 4 then f:SetStep(f.step + 1); return end
         if Offhand.db then
             Offhand.db.firstRunComplete = true
         end
@@ -748,7 +746,38 @@ function Wizard:CreateFrame()
             Offhand:Print(L["CONFIG_SAVED"] or "Configuration saved! Welcome to Offhand Dual Monitor Workstation.")
         end
     end)
-    if Offhand.SetTooltip then Offhand:SetTooltip(finishBtn, L["WIZARD_BTN_FINISH_TIP_TITLE"], L["WIZARD_BTN_FINISH_TIP_DESC"]) end
+
+
+    local backBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    backBtn:SetSize(100, 28)
+    backBtn:SetPoint("RIGHT", finishBtn, "LEFT", -12, 0)
+    backBtn:SetText(L["BTN_BACK"])
+    backBtn:SetScript("OnClick", function() f:SetStep(f.step - 1) end)
+    f.backBtn = backBtn
+    local progress = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    progress:SetPoint("TOPLEFT", 18, -116)
+    f.pages = {card1, card2, card3, card4}
+    card3:SetHeight(208)
+    local bottomControl = Offhand.Options:CreateBottomControl(card3)
+    bottomControl:SetPoint("TOPLEFT", 14, -148)
+    for _, card in ipairs(f.pages) do
+        card:ClearAllPoints()
+        card:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -140)
+    end
+    function f:SetStep(step)
+        self.step = math.max(1, math.min(4, step))
+        for i, card in ipairs(self.pages) do card:SetShown(i == self.step) end
+        progress:SetText(string.format(L["STEP_PROGRESS"], self.step))
+        welcomeText:SetText(L["STEP_" .. self.step .. "_HELP"])
+        backBtn:SetEnabled(self.step > 1)
+        finishBtn:SetText(self.step == 4 and L["BTN_FINISH"] or L["BTN_NEXT"])
+        if self.step == 3 then
+            Offhand.Options:ShowSeamGuide(Offhand.db and Offhand.db.deckWidthRatio)
+        else
+            Offhand.Options:HideSeamGuide()
+        end
+        self:UpdateLaserButton()
+    end
 
     function f:UpdateLaserButton()
         local isShown = Offhand.Options and Offhand.Options.IsSeamGuideShown and Offhand.Options:IsSeamGuideShown()
@@ -775,18 +804,18 @@ function Wizard:CreateFrame()
             scaleEditBox:SetText(string.format("%.0f%%", hud * 100))
         end
 
-        btnPl:SetEnabled(not (p == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and pos == "RIGHT"))
-        btnPr:SetEnabled(not (p == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and pos == "LEFT"))
-        btnDual:SetEnabled(not (p == "LANDSCAPE_DUAL"))
+        Offhand.Options:SetChoiceSelected(btnPl, p == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and pos == "RIGHT")
+        Offhand.Options:SetChoiceSelected(btnPr, p == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and pos == "LEFT")
+        Offhand.Options:SetChoiceSelected(btnDual, p == "LANDSCAPE_DUAL")
 
-        btn169:SetEnabled(ar ~= "16_9")
-        btn219:SetEnabled(ar ~= "21_9")
-        btnFill:SetEnabled(ar ~= "FILL")
+        Offhand.Options:SetChoiceSelected(btn169, ar == "16_9")
+        Offhand.Options:SetChoiceSelected(btn219, ar == "21_9")
+        Offhand.Options:SetChoiceSelected(btnFill, ar == "FILL")
 
-        btnHud56:SetEnabled(math.abs(hud - 0.56) > 0.02)
-        btnHud65:SetEnabled(math.abs(hud - 0.65) > 0.02)
-        btnHud70:SetEnabled(math.abs(hud - 0.70) > 0.02)
-        btnHud100:SetEnabled(math.abs(hud - 1.00) > 0.02)
+        Offhand.Options:SetChoiceSelected(btnHud56, math.abs(hud - 0.56) < 0.005)
+        Offhand.Options:SetChoiceSelected(btnHud65, math.abs(hud - 0.65) < 0.005)
+        Offhand.Options:SetChoiceSelected(btnHud70, math.abs(hud - 0.70) < 0.005)
+        Offhand.Options:SetChoiceSelected(btnHud100, math.abs(hud - 1.00) < 0.005)
 
         local trimKey = (Offhand.db and Offhand.db.trimColor) or "GOLD"
         local pals = Offhand.Themes and Offhand.Themes.GetColorPalettes and Offhand.Themes:GetColorPalettes()
@@ -867,10 +896,7 @@ function Wizard:Open()
         f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     end
 
-    if Offhand.Options and Offhand.Options.ShowSeamGuide then
-        Offhand.Options:ShowSeamGuide(Offhand.db and Offhand.db.deckWidthRatio)
-        f:UpdateLaserButton()
-    end
+    f:SetStep(1)
 
     f:Show()
 end

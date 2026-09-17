@@ -17,6 +17,19 @@ using System.Windows.Forms;
 
 namespace Offhand.Companion
 {
+    internal static class RestoreGeometry
+    {
+        // Coordinates may be negative on monitors left of/above the primary.
+        internal static Rectangle Fit(Rectangle desired, Rectangle workArea)
+        {
+            int width = Math.Max(1, Math.Min(desired.Width, workArea.Width));
+            int height = Math.Max(1, Math.Min(desired.Height, workArea.Height));
+            return new Rectangle(
+                Math.Max(workArea.Left, Math.Min(desired.Left, workArea.Right - width)),
+                Math.Max(workArea.Top, Math.Min(desired.Top, workArea.Bottom - height)), width, height);
+        }
+    }
+
     internal static class PreferenceFile
     {
         internal static Dictionary<string, string> Read(string path)
@@ -211,6 +224,14 @@ namespace Offhand.Companion
         private bool isMonitoring = true;
         private bool isExplicitExit = false;
         private readonly HashSet<int> spannedPids = new HashSet<int>();
+        private readonly HashSet<int> restoredPids = new HashSet<int>();
+        private sealed class WindowSnapshot
+        {
+            internal IntPtr Handle;
+            internal Rectangle Bounds;
+            internal int Style;
+        }
+        private readonly Dictionary<int, WindowSnapshot> originalWindows = new Dictionary<int, WindowSnapshot>();
         private readonly Dictionary<int, DateTime> retryAfter = new Dictionary<int, DateTime>();
         private readonly Dictionary<int, DateTime> launchTimes = new Dictionary<int, DateTime>();
 
@@ -220,13 +241,13 @@ namespace Offhand.Companion
             base.WndProc(ref m);
         }
 
-                private void UpdateHotkey()
+        private void UpdateHotkey()
         {
             NativeMethods.UnregisterHotKey(this.Handle, 1);
             int modifier = 0;
             int key = 0;
             string sel = cmbHotkey.SelectedItem as string;
-            if (string.IsNullOrEmpty(sel)) return;
+            if (string.IsNullOrEmpty(sel)) sel = "Ctrl+Alt+S";
             
             if (sel == "Ctrl+Alt+S") { modifier = 0x0002 | 0x0001; key = (int)Keys.S; } // Alt is 1, Ctrl is 2
             else if (sel == "Ctrl+Shift+S") { modifier = 0x0002 | 0x0004; key = (int)Keys.S; } // Ctrl is 2, Shift is 4
@@ -240,10 +261,10 @@ namespace Offhand.Companion
             else
                 AddLog("Hotkey unavailable: " + sel + ". Choose another shortcut; Span Now still works.");
             NativeMethods.UnregisterHotKey(this.Handle, 2);
-            if (sel == "Ctrl+Alt+S") {
-                if (NativeMethods.RegisterHotKey(this.Handle, 2, 0x0002 | 0x0001 | 0x4000, (int)Keys.R))
-                    AddLog("Ctrl+Alt+R hotkey registered to Restore window.");
-            }
+            if (NativeMethods.RegisterHotKey(this.Handle, 2, 0x0002 | 0x0001 | 0x4000, (int)Keys.R))
+                AddLog("Ctrl+Alt+R hotkey registered to Restore window.");
+            else
+                AddLog("Ctrl+Alt+R unavailable. The Restore Window button still works.");
         }
 
         public CompanionForm()
@@ -646,6 +667,7 @@ namespace Offhand.Companion
         private void ExitApplication()
         {
             NativeMethods.UnregisterHotKey(this.Handle, 1);
+            NativeMethods.UnregisterHotKey(this.Handle, 2);
             isExplicitExit = true;
             if (monitorTimer != null) monitorTimer.Stop();
             if (trayIcon != null) trayIcon.Visible = false;
@@ -709,7 +731,7 @@ namespace Offhand.Companion
 
                 if (isMonitoring && chkAutoSpan.Checked && status.Installed)
                 {
-                    if (!spannedPids.Contains(proc.Id) &&
+                    if (!spannedPids.Contains(proc.Id) && !restoredPids.Contains(proc.Id) &&
                         (!retryAfter.ContainsKey(proc.Id) || DateTime.Now >= retryAfter[proc.Id]))
                     {
                         if (!launchTimes.ContainsKey(proc.Id)) launchTimes[proc.Id] = DateTime.Now;
@@ -733,7 +755,9 @@ namespace Offhand.Companion
             }
 
             // Clean dead PIDs
-            List<int> pidsToCheck = new List<int>(spannedPids);
+            var pidsToCheck = new HashSet<int>(spannedPids);
+            pidsToCheck.UnionWith(restoredPids);
+            pidsToCheck.UnionWith(launchTimes.Keys);
             foreach (int pid in pidsToCheck)
             {
                 try
@@ -743,6 +767,9 @@ namespace Offhand.Companion
                 catch
                 {
                     spannedPids.Remove(pid);
+                    restoredPids.Remove(pid);
+                    originalWindows.Remove(pid);
+                    launchTimes.Remove(pid);
                     retryAfter.Remove(pid);
                     AddLog(string.Format("WoW process (PID: {0}) closed.", pid));
                 }
@@ -846,7 +873,7 @@ namespace Offhand.Companion
             }
         }
 
-                private bool InvokeRestoreWindow(bool manual)
+        private bool InvokeRestoreWindow(bool manual)
         {
             try
             {
@@ -861,22 +888,44 @@ namespace Offhand.Companion
                 }
 
                 int oldStyle = NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE);
-                int newStyle = oldStyle | NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME;
+                NativeMethods.RECT oldRect;
+                if (!NativeMethods.GetWindowRect(handle, out oldRect)) throw new Exception("Could not read WoW window bounds.");
+                WindowSnapshot snapshot;
+                bool known = originalWindows.TryGetValue(proc.Id, out snapshot) && snapshot.Handle == handle;
+                int newStyle = (known ? snapshot.Style : oldStyle) | NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME;
+                Rectangle desired = known ? snapshot.Bounds : new Rectangle(Screen.PrimaryScreen.WorkingArea.Location, new Size(1920, 1080));
+                Rectangle target = RestoreGeometry.Fit(desired, Screen.FromRectangle(desired).WorkingArea);
                 
                 NativeMethods.SetLastError(0);
-                NativeMethods.SetWindowLong(handle, NativeMethods.GWL_STYLE, newStyle);
+                int previousStyle = NativeMethods.SetWindowLong(handle, NativeMethods.GWL_STYLE, newStyle);
+                if (previousStyle == 0 && Marshal.GetLastWin32Error() != 0)
+                    throw new Exception("Windows rejected restoring the window borders.");
                 
                 uint flags = NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_FRAMECHANGED | NativeMethods.SWP_SHOWWINDOW;
-                // Try to set it to a reasonable standard windowed size if possible (e.g. 1920x1080)
-                NativeMethods.SetWindowPos(handle, IntPtr.Zero, 100, 100, 1920, 1080, flags);
+                try
+                {
+                    if (!NativeMethods.SetWindowPos(handle, IntPtr.Zero, target.X, target.Y, target.Width, target.Height, flags))
+                        throw new Exception("Windows rejected restoring the window bounds.");
+                    NativeMethods.RECT actual;
+                    if (!NativeMethods.GetWindowRect(handle, out actual) || actual.Left != target.X || actual.Top != target.Y || actual.Width != target.Width || actual.Height != target.Height)
+                        throw new Exception("WoW did not accept the restore. Select Windowed mode and retry.");
+                }
+                catch
+                {
+                    NativeMethods.SetWindowLong(handle, NativeMethods.GWL_STYLE, oldStyle);
+                    NativeMethods.SetWindowPos(handle, IntPtr.Zero, oldRect.Left, oldRect.Top, oldRect.Width, oldRect.Height, flags);
+                    throw;
+                }
                 
-                if (spannedPids.Contains(proc.Id)) spannedPids.Remove(proc.Id);
-                AddLog("Restored WoW window to single monitor (1920x1080).");
+                spannedPids.Remove(proc.Id);
+                restoredPids.Add(proc.Id);
+                AddLog("Restored WoW window. Auto-span paused for this client until Span Now or a new WoW launch.");
                 return true;
             }
             catch (Exception ex)
             {
                 AddLog(ex.Message);
+                if (manual) MessageBox.Show(ex.Message, "Offhand", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return false;
             }
         }
@@ -940,6 +989,12 @@ namespace Offhand.Companion
                     throw;
                 }
 
+                WindowSnapshot original;
+                if (!originalWindows.TryGetValue(proc.Id, out original) || original.Handle != handle)
+                    originalWindows[proc.Id] = new WindowSnapshot { Handle = handle, Style = oldStyle,
+                        Bounds = new Rectangle(oldRect.Left, oldRect.Top, oldRect.Width, oldRect.Height) };
+                restoredPids.Remove(proc.Id);
+                spannedPids.Add(proc.Id);
                 AddLog(string.Format("Spanned {0}x{1}. Calibrate with /offhand wizard.", bounds.Width, bounds.Height));
                 trayIcon.ShowBalloonTip(3000, "Offhand Spanned", "Window spanned. Use /offhand wizard to calibrate.", ToolTipIcon.Info);
                 return true;

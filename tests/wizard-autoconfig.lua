@@ -303,9 +303,25 @@ assert(wizardFrame.recomText:GetText():find("36.0%%"), "Wizard recomText must sh
 
 -- Click 1-Click Auto-Configure inside wizard
 addon.db.deckWidthRatio = 0.55
+addon.db.firstRunComplete = false
 wizardFrame.autoBtn.scripts["OnClick"]()
+assert(not addon.db.firstRunComplete, "Applying a recommendation must not finish the wizard")
 assert(math.abs(addon.db.deckWidthRatio - 0.36) < 0.001, "AutoConfigure button in Wizard must set 36% seam")
-assert(wizardFrame.statusText:GetText():find("fully calibrated"), "Wizard status text must confirm applied setup")
+assert(wizardFrame.step == 2, "Applying recommendations must advance to layout review")
+assert(wizardFrame.statusText:GetText() == addon.L["WIZARD_CHECK_RECOMMENDATION"], "Auto detection must ask the user to check calibration")
+for step = 1, 4 do
+    wizardFrame:SetStep(step)
+    for index, page in ipairs(wizardFrame.pages) do
+        assert(page:IsShown() == (index == step), "Only the current setup step may be visible")
+    end
+    assert(addon.Options:IsSeamGuideShown() == (step == 3), "Seam guide belongs to alignment step")
+end
+wizardFrame:SetStep(1)
+addon.db.firstRunComplete = false
+wizardFrame.finishBtn.scripts.OnClick()
+assert(wizardFrame.step == 2 and not addon.db.firstRunComplete, "Next must not complete setup")
+wizardFrame.backBtn.scripts.OnClick()
+assert(wizardFrame.step == 1, "Back must return to the previous step")
 
 -- Test Continuous Global UI Scale Slider in Wizard
 assert(wizardFrame.scaleSlider ~= nil, "Wizard must have scaleSlider")
@@ -354,6 +370,23 @@ addon.Wizard.Open = originalWizardOpen
 -- 5. Test Options Dialog 1-Click and Wizard Integration Buttons
 -- ============================================================================
 local optPanel = addon.Options:CreateFloatingPanel()
+-- Check the real generated card rectangles, not hardcoded expected offsets.
+for tabIndex = 1, 5 do
+    local tab = optPanel["tab" .. tabIndex]
+    local previousBottom = 0
+    local cards = {}
+    for _, card in ipairs(optPanel.cards) do
+        if card.parent == tab then cards[#cards + 1] = card end
+    end
+    table.sort(cards, function(a, b) return select(5, a:GetPoint(1)) > select(5, b:GetPoint(1)) end)
+    for _, card in ipairs(cards) do
+        local top = -select(5, card:GetPoint(1))
+        assert(top >= previousBottom, "Settings cards overlap on tab " .. tabIndex)
+        previousBottom = top + card:GetHeight()
+        assert(previousBottom <= tab:GetHeight(), "Scroll content must include every card")
+    end
+    assert(#cards > 0, "Each tab must contain cards")
+end
 assert(optPanel.autoWizardBtn ~= nil, "Options dashboard must have autoWizardBtn in top banner")
 
 -- Test Window Overlap Prevention:
@@ -384,6 +417,56 @@ for _, f in ipairs(frames) do
     end
 end
 assert(foundAutoDetectBtn, "Card 1_1 must contain 1-Click Auto-Configure button")
+
+-- Recovery must preserve reachable panels on both monitors and skip protected UI.
+local recoveryMetrics = { isSpanned = true, screenWidth = 4000, screenHeight = 2560,
+    gameLeft = 1440, gameRight = 4000, gameBottom = 0, gameTop = 1440, deckWidth = 1440 }
+local getMetrics = addon.Viewport.GetMetrics
+addon.Viewport.GetMetrics = function() return recoveryMetrics end
+addon.db.primaryPosition = "RIGHT"
+local function RecoveryFrame(left, top, scale, protected, reject)
+    return {
+        IsShown = function() return true end,
+        IsProtected = function() return protected end,
+        GetEffectiveScale = function() return scale end,
+        GetLeft = function() return left end, GetTop = function() return top end,
+        GetWidth = function() return 200 end,
+        ClearAllPoints = function() end,
+        SetPoint = function(self, ...) if reject then error("rejected") end; self.moved = true end,
+    }
+end
+local deck = RecoveryFrame(100, 2200, 1)
+local game = RecoveryFrame(1800, 1000, 1)
+local lost = RecoveryFrame(1000, 1200, 2) -- physically in the void after scale conversion
+local secure = RecoveryFrame(2000, 2400, 1, true)
+local rejected = RecoveryFrame(2000, 2400, 1, false, true)
+UIPanelWindows = {}
+for index, frame in ipairs({deck, game, lost, secure, rejected}) do
+    local name = "RecoveryTest" .. index
+    _G[name] = frame
+    UIPanelWindows[name] = {}
+end
+assert(addon:GatherOffScreenUI() == 1, "Only successfully moved, off-screen panels may count")
+assert(lost.moved and not deck.moved and not game.moved and not secure.moved)
+InCombatLockdown = function() return true end
+assert(addon:GatherOffScreenUI() == 0, "Recovery must do nothing in combat")
+InCombatLockdown = function() return false end
+addon.db.primaryPosition = "LEFT"
+recoveryMetrics.gameLeft, recoveryMetrics.gameRight = 0, 2560
+assert(addon:IsWindowReachable(2800, 2200, 200, recoveryMetrics), "Right workspace must remain reachable")
+assert(not addon:IsWindowReachable(200, 2200, 200, recoveryMetrics), "Void over left game monitor must be recoverable")
+addon.Viewport.GetMetrics = getMetrics
+
+-- A profile mutation must be deferred until the confirmation is accepted.
+StaticPopupDialogs = {}
+ACCEPT, CANCEL = "Accept", "Cancel"
+local pending
+StaticPopup_Show = function(key, text, _, callback) pending = {key=key, callback=callback} end
+local mutations = 0
+addon.Options:Confirm("Replace profile?", function() mutations = mutations + 1 end)
+assert(mutations == 0, "Opening a confirmation must not modify a profile")
+StaticPopupDialogs[pending.key].OnAccept(nil, pending.callback)
+assert(mutations == 1, "Accept must run the deferred profile operation once")
 
 -- ============================================================================
 -- 6. Test Localization & Tooltips Integration

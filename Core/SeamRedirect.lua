@@ -959,49 +959,7 @@ function HUD:HookFrames()
 end
 
 function HUD:GatherLostFrames()
-    if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then
-        Offhand:Print("Cannot gather frames while in combat or disabled.")
-        return
-    end
-    local m = Offhand.Viewport:GetMetrics()
-    if not m or not m.isSpanned then return end
-    
-    local parentScale = UIParent:GetEffectiveScale() or 1
-    local isPortraitDeck = Offhand.db.primaryPosition ~= "LEFT"
-    local gameLeftThreshold = isPortraitDeck and (m.deckWidth - 20) or 0
-    local gameRightThreshold = isPortraitDeck and m.screenWidth or m.gameRight
-    local cx = (m.gameLeft + m.gameRight) / 2
-    local cy = (m.gameBottom + m.gameTop) / 2
-    local count = 0
-
-    for _, child in ipairs({UIParent:GetChildren()}) do
-        if type(child) == "table" and child ~= WorldFrame and child ~= Offhand.canvas then
-            pcall(function()
-                if child.IsForbidden and child:IsForbidden() then return end
-                -- Do NOT check IsProtected or IsShown here; this is an aggressive manual sweep.
-                local fScale = (child.GetEffectiveScale and child:GetEffectiveScale()) or parentScale
-                if fScale <= 0 then fScale = parentScale end
-                local scaleFactor = fScale / parentScale
-                local top = (child.GetTop and child:GetTop() or 0) * scaleFactor
-                local left = (child.GetLeft and child:GetLeft() or 0) * scaleFactor
-                local onGameSide = isPortraitDeck and (left >= gameLeftThreshold) or (left < gameRightThreshold)
-                if onGameSide and top > (m.gameTop + 2) then
-                    if child.GetPoint and child.ClearAllPoints and child.SetPoint then
-                        child:ClearAllPoints()
-                        local invFactor = parentScale / fScale
-                        local offsetX = cx - (UIParent:GetWidth() / 2)
-                        local offsetY = cy - (UIParent:GetHeight() / 2)
-                        -- Stagger offsets slightly so they don't perfectly stack
-                        offsetX = offsetX + (math.random(-50, 50))
-                        offsetY = offsetY + (math.random(-50, 50))
-                        child:SetPoint("CENTER", UIParent, "CENTER", offsetX * invFactor, offsetY * invFactor)
-                        count = count + 1
-                    end
-                end
-            end)
-        end
-    end
-    Offhand:Print("Gathered " .. count .. " lost frames from the void. Please /reload after positioning them to clear any taint.")
+    return Offhand:GatherOffScreenUI()
 end
 
 function Offhand:InitializeSeamRedirect()

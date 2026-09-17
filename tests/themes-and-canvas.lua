@@ -100,6 +100,7 @@ local function makeMockFrame(name, w, h)
             GetText = function(self) return self.text end,
             SetTextColor = function() end,
             SetJustifyH = function() end,
+            SetWidth = function(self, width) self.width = width end,
         }
     end
     function f:CreateTexture()

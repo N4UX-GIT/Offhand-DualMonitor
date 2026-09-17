@@ -114,7 +114,7 @@ L["LABEL_BOTTOM_OFFSET_TIP_TITLE"] = "Bottom Inset Offset"
 L["LABEL_BOTTOM_OFFSET_TIP_DESC"] = "Pushes the bottom of the 3D game viewport upward by the specified number of pixels to clear taskbars or secondary HUD elements."
 
 L["CARD_SEAM_CALIBRATION"] = "3. Physical Monitor Seam Alignment & Laser Guide"
-L["SLIDER_SEAM_WIDTH"] = "Seam Width (Secondary Deck):"
+L["SLIDER_SEAM_WIDTH"] = "Workspace width (%):"
 L["SLIDER_SEAM_WIDTH_TIP_TITLE"] = "Physical Seam Position"
 L["SLIDER_SEAM_WIDTH_TIP_DESC"] = "Defines where the boundary between your secondary workspace and 3D game monitor sits, as a percentage of total spanned screen width."
 L["BTN_SEAM_MINUS"] = "- 1%"
@@ -236,7 +236,7 @@ L["WIZARD_LABEL_AR"] = "3D Game Viewport Aspect Ratio:"
 
 L["WIZARD_CARD3_TITLE"] = "3. Physical Monitor Seam Alignment"
 L["WIZARD_SEAM_INSTRUCTION"] = "Align the red laser line with the physical bezel dividing your two monitors:"
-L["WIZARD_LABEL_SEAM"] = "Bezel Seam Width:"
+L["WIZARD_LABEL_SEAM"] = "Workspace width:"
 L["WIZARD_BTN_LASER_SHOW"] = "Show Laser"
 L["WIZARD_BTN_LASER_HIDE"] = "Hide Laser"
 L["WIZARD_PRESET_SEAM_36"] = "1440/4000 Seam (36%)"
@@ -264,14 +264,14 @@ L["WIZARD_PRESET_SCALE_65_TIP_DESC"] = "A well-balanced scale providing crisp te
 L["WIZARD_PRESET_SCALE_70"] = "Standard (70%)"
 L["WIZARD_PRESET_SCALE_70_TIP_TITLE"] = "Standard UI (70%)"
 L["WIZARD_PRESET_SCALE_70_TIP_DESC"] = "Standard Offhand default scale, ideal for 1440p and 4K displays at normal desk viewing distance."
-L["WIZARD_PRESET_SCALE_100"] = "Default (100%)"
+L["WIZARD_PRESET_SCALE_100"] = "Full size (100%)"
 L["WIZARD_PRESET_SCALE_100_TIP_TITLE"] = "Unscaled UI (100%)"
 L["WIZARD_PRESET_SCALE_100_TIP_DESC"] = "Standard 100% Blizzard UI size without scaling reductions."
 
 L["WIZARD_BTN_ADVANCED"] = "Advanced Settings (/Offhand)"
 L["WIZARD_BTN_ADVANCED_TIP_TITLE"] = "Advanced Settings"
 L["WIZARD_BTN_ADVANCED_TIP_DESC"] = "Closes the wizard and opens the full 3-tab Offhand options dashboard with complete customization controls."
-L["WIZARD_BTN_FINISH"] = "Save & Finish Setup"
+L["WIZARD_BTN_FINISH"] = "Finish Setup"
 L["WIZARD_BTN_FINISH_TIP_TITLE"] = "Finish Calibration"
 L["WIZARD_BTN_FINISH_TIP_DESC"] = "Saves your configuration, marks initial setup complete, and applies your new multi-monitor layout."
 
@@ -619,34 +619,57 @@ end)
 
 
 
+-- A window is reachable when enough of its title edge is inside a visible area.
+-- Use UIParent units throughout, including when the window has its own scale.
+function Offhand:IsWindowReachable(left, top, width, m)
+    local function InArea(x1, y1, x2, y2)
+        return top >= y1 + 16 and top <= y2 + 2
+            and math.min(left + width, x2) - math.max(left, x1) >= math.min(48, width)
+    end
+    if not m.isSpanned then return InArea(0, 0, m.screenWidth, m.screenHeight) end
+    if InArea(m.gameLeft, m.gameBottom, m.gameRight, m.gameTop) then return true end
+    local deckLeft = self.db.primaryPosition == "LEFT" and (m.gameRight + (m.bezel or 0)) or 0
+    return InArea(deckLeft, 0, deckLeft + m.deckWidth, m.screenHeight)
+end
+
 function Offhand:GatherOffScreenUI()
-    local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
-    if not m then return end
-    local cx = (m.gameLeft + m.gameRight) / 2
-    local cy = (m.gameBottom + m.gameTop) / 2
+    if InCombatLockdown() then self:Print(self.L["GATHER_COMBAT"]); return 0 end
+    local m = self.Viewport and self.Viewport:GetMetrics()
+    if not m then return 0 end
     local parentScale = UIParent:GetEffectiveScale() or 1
-    local offsetX = cx - (UIParent:GetWidth() / 2)
-    local offsetY = cy - (UIParent:GetHeight() / 2)
-    
-    local moved = 0
-    if UIPanelWindows then
-        for name, _ in pairs(UIPanelWindows) do
-            local frame = _G[name]
-            if frame and frame:IsShown() and not frame:IsProtected() then
-                pcall(function()
-                    frame:ClearAllPoints()
-                    local fScale = frame:GetEffectiveScale() or parentScale
-                    local invFactor = parentScale / fScale
-                    frame:SetPoint("CENTER", UIParent, "CENTER", offsetX * invFactor, offsetY * invFactor)
-                end)
-                moved = moved + 1
-            end
+    local candidates = {}
+    for name in pairs(UIPanelWindows or {}) do
+        if _G[name] then candidates[_G[name]] = true end
+    end
+    if UIParent.GetChildren then
+        for _, child in ipairs({ UIParent:GetChildren() }) do
+            pcall(function()
+                if child.IsForbidden and child:IsForbidden() then return end
+                if child.IsMovable and child:IsMovable() then candidates[child] = true end
+            end)
         end
     end
-    
-    if moved > 0 then
-        Offhand:Print("Gathered " .. moved .. " frames to the Game View center.")
-    else
-        Offhand:Print("No open UI panels found to gather.")
+    local moved = 0
+    for frame in pairs(candidates) do
+        local ok, recovered = pcall(function()
+            if frame == WorldFrame or frame == self.canvas then return false end
+            if frame.IsForbidden and frame:IsForbidden() then return false end
+            if not frame:IsShown() or frame:IsProtected() then return false end
+            if frame.IsObjectType and frame:IsObjectType("GameTooltip") then return false end
+            local scale = frame:GetEffectiveScale()
+            if not scale or scale <= 0 then return false end
+            local factor = scale / parentScale
+            local left, top, width = frame:GetLeft(), frame:GetTop(), frame:GetWidth()
+            if not left or not top or not width or width <= 0 then return false end
+            if self:IsWindowReachable(left * factor, top * factor, width * factor, m) then return false end
+            local x = (m.gameLeft + m.gameRight - UIParent:GetWidth()) / 2
+            local y = (m.gameBottom + m.gameTop - UIParent:GetHeight()) / 2
+            frame:ClearAllPoints()
+            frame:SetPoint("CENTER", UIParent, "CENTER", x / factor, y / factor)
+            return true
+        end)
+        if ok and recovered then moved = moved + 1 end
     end
+    self:Print(string.format(self.L["GATHER_RESULT"], moved))
+    return moved
 end

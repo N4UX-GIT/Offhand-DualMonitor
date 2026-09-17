@@ -17,6 +17,33 @@ local tinsert = table.insert
 local Options = {}
 Offhand.Options = Options
 
+-- Shared presentation rules for settings and the wizard. Selection is not disability.
+function Options:SetChoiceSelected(button, selected)
+    button:SetEnabled(true)
+    button.selected = selected
+    if selected and button.LockHighlight then button:LockHighlight()
+    elseif button.UnlockHighlight then button:UnlockHighlight() end
+end
+
+function Options:StackCards(parent, cards)
+    local height = 0
+    for _, card in ipairs(cards) do
+        card:ClearAllPoints()
+        card:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -height)
+        height = height + card:GetHeight() + 12
+    end
+    parent:SetHeight(height)
+end
+
+function Options:Confirm(message, callback)
+    StaticPopupDialogs["OFFHAND_CONFIRM_PROFILE"] = {
+        text = "%s", button1 = ACCEPT, button2 = CANCEL,
+        OnAccept = function(_, data) data() end,
+        timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
+    }
+    StaticPopup_Show("OFFHAND_CONFIRM_PROFILE", message, nil, callback)
+end
+
 local configFrame
 local setupFrame
 local seamGuideLine
@@ -218,7 +245,7 @@ function Options:DetectTopology()
     return info
 end
 
-function Options:AutoConfigure(silent)
+function Options:AutoConfigure(silent, fromWizard)
     local info = Options:DetectTopology()
     if not Offhand.db then return info end
 
@@ -228,7 +255,7 @@ function Options:AutoConfigure(silent)
     Offhand.db.primaryPosition = info.recommendedPosition or "RIGHT"
     Offhand.db.aspectRatioMode = info.recommendedAR or "16_9"
     Offhand.db.hudScale = 0.70
-    Offhand.db.firstRunComplete = true
+    if not fromWizard then Offhand.db.firstRunComplete = true end
 
     if Offhand.ApplyFullLayout then
         Offhand:ApplyFullLayout()
@@ -319,7 +346,20 @@ local function CreateNativeCheckbox(parent, text, getVal, setVal, tooltipTitle, 
     local label = check:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     label:SetPoint("LEFT", check, "RIGHT", 8, 1)
     label:SetText(text)
+    label:SetWidth(600)
+    label:SetJustifyH("LEFT")
     check.Text = label
+
+    -- Keep the native 22px check art; extend only the label's click target.
+    local labelButton = CreateFrame("Button", nil, check)
+    labelButton:SetPoint("TOPLEFT", label, "TOPLEFT", -4, 5)
+    labelButton:SetPoint("BOTTOMRIGHT", label, "BOTTOMRIGHT", 4, -5)
+    labelButton:SetScript("OnClick", function()
+        check:SetChecked(not check:GetChecked())
+        setVal(check:GetChecked())
+        Offhand:ApplyFullLayout()
+    end)
+    check.labelButton = labelButton
 
     check:SetChecked(getVal())
     check:SetScript("OnClick", function(self)
@@ -328,6 +368,7 @@ local function CreateNativeCheckbox(parent, text, getVal, setVal, tooltipTitle, 
     end)
     if (tooltipTitle or tooltipText) and Offhand.SetTooltip then
         Offhand:SetTooltip(check, tooltipTitle, tooltipText)
+        Offhand:SetTooltip(labelButton, tooltipTitle, tooltipText)
     end
     return check
 end
@@ -827,39 +868,39 @@ function Options:CreateFloatingPanel()
     local tab1 = CreateFrame("Frame", nil, optionsScrollChild)
     tab1:SetPoint("TOPLEFT", 0, 0)
     tab1:SetPoint("TOPRIGHT", 0, 0)
-    tab1:SetHeight(545)
+    tab1:SetHeight(1)
     configFrame.tab1 = tab1
 
     local tab2 = CreateFrame("Frame", nil, optionsScrollChild)
     tab2:SetPoint("TOPLEFT", 0, 0)
     tab2:SetPoint("TOPRIGHT", 0, 0)
-    tab2:SetHeight(560)
+    tab2:SetHeight(1)
     configFrame.tab2 = tab2
 
     local tab3 = CreateFrame("Frame", nil, optionsScrollChild)
     tab3:SetPoint("TOPLEFT", 0, 0)
     tab3:SetPoint("TOPRIGHT", 0, 0)
-    tab3:SetHeight(700)
+    tab3:SetHeight(1)
     configFrame.tab3 = tab3
     
     local tab4 = CreateFrame("Frame", nil, optionsScrollChild)
     tab4:SetPoint("TOPLEFT", 0, 0)
     tab4:SetPoint("TOPRIGHT", 0, 0)
-    tab4:SetHeight(400)
+    tab4:SetHeight(1)
     configFrame.tab4 = tab4
 
     local tab5 = CreateFrame("Frame", nil, optionsScrollChild)
     tab5:SetPoint("TOPLEFT", 0, 0)
     tab5:SetPoint("TOPRIGHT", 0, 0)
-    tab5:SetHeight(800)
+    tab5:SetHeight(1)
     configFrame.tab5 = tab5
 
     local registeredCards = {}
 
-    local function CreateCard(parent, titleText, yOffset, height)
+    local function CreateCard(parent, titleText, height)
         local card = CreateFrame("Frame", nil, parent, "BackdropTemplate")
         card:SetSize(662, height)
-        card:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, yOffset)
+        card:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
 
         card:SetBackdrop({
             bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
@@ -896,14 +937,14 @@ function Options:CreateFloatingPanel()
 
         for _, card in ipairs(registeredCards) do
             if themeKey == "CLASSIC" then
-                card:SetBackdropColor(1.0, 1.0, 1.0, 0.85)
+                card:SetBackdropColor(1.0, 1.0, 1.0, 1.0)
                 if trimKey == "GOLD" then
                     card:SetBackdropBorderColor(0.55, 0.50, 0.35, 0.85)
                 else
                     card:SetBackdropBorderColor(br[1], br[2], br[3], br[4])
                 end
             else
-                card:SetBackdropColor(0.04, 0.04, 0.05, 0.70)
+                card:SetBackdropColor(0.04, 0.04, 0.05, 1.0)
                 card:SetBackdropBorderColor(br[1], br[2], br[3], br[4])
             end
             if card.title then
@@ -934,6 +975,7 @@ function Options:CreateFloatingPanel()
     }
     
     local tabButtons = {}
+    configFrame.cards = registeredCards
 
     local function SwitchTab(tabIndex)
         currentTab = tabIndex
@@ -988,7 +1030,7 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 1: DISPLAY & VIEWPORT CALIBRATION
     -- ========================================================================
-    local card1_1 = CreateCard(tab1, "Display Mode & Dual Monitor Orientation", 0, 130)
+    local card1_1 = CreateCard(tab1, "Display Mode & Dual Monitor Orientation", 130)
 
     local enableCheck = CreateNativeCheckbox(card1_1, "Enable Offhand Dual Monitor Mode",
         function() return Offhand.db and Offhand.db.enabled end,
@@ -1006,6 +1048,7 @@ function Options:CreateFloatingPanel()
         "Minimap Icon", "Toggle the Offhand icon on the minimap ring."
     )
     minimapCheck:SetPoint("TOPLEFT", 12, -96)
+    minimapCheck.Text:SetWidth(180)
 
 
     local laserCheck = CreateNativeCheckbox(card1_1, "Show Red Seam Guide Laser",
@@ -1020,6 +1063,7 @@ function Options:CreateFloatingPanel()
         L["BTN_LASER_TOGGLE_TIP_TITLE"], L["BTN_LASER_TOGGLE_TIP_DESC"]
     )
     laserCheck:SetPoint("TOPLEFT", 240, -96)
+    laserCheck.Text:SetWidth(360)
     configFrame.laserCheck = laserCheck
 
     local rPortraitLeft = CreateNativeRadioButton(card1_1, "Portrait (Left) + Game (Right)",
@@ -1066,7 +1110,7 @@ function Options:CreateFloatingPanel()
     card1_1.autoDetectBtn = autoDetectBtn
 
 
-    local card1_2 = CreateCard(tab1, "3D Game Viewport Geometry & Bezel Seam", -118, 120)
+    local card1_2 = CreateCard(tab1, "3D Game Viewport Geometry & Bezel Seam", 120)
 
     local r169 = CreateNativeRadioButton(card1_2, "16:9 Standard",
         function() return (Offhand.db and Offhand.db.aspectRatioMode == "16_9") end,
@@ -1089,7 +1133,7 @@ function Options:CreateFloatingPanel()
     )
     rFill:SetPoint("TOPLEFT", 380, -26)
 
-    local seamSlider = CreateNativeSlider(card1_2, "Bezel Seam Width (%)", 0.15, 0.80, 0.005,
+    local seamSlider = CreateNativeSlider(card1_2, L["SLIDER_SEAM_WIDTH"], 0.15, 0.80, 0.005,
         function() return (Offhand.db and Offhand.db.deckWidthRatio) or 0.36 end,
         function(val)
             Offhand.db.deckWidthRatio = val
@@ -1124,7 +1168,7 @@ function Options:CreateFloatingPanel()
     if Offhand.SetTooltip then Offhand:SetTooltip(p55Btn, L["WIZARD_PRESET_SEAM_55_TIP_TITLE"], L["WIZARD_PRESET_SEAM_55_TIP_DESC"]) end
 
 
-    local card1_3 = CreateCard(tab1, "Screen Bottom Offset & Global UI Scale", -278, 120)
+    local card1_3 = CreateCard(tab1, L["CARD_SCALE_ALIGNMENT"], 156)
 
     local bottomControl = Options:CreateBottomControl(card1_3)
     bottomControl:SetPoint("TOPLEFT", 12, -26)
@@ -1177,9 +1221,9 @@ function Options:CreateFloatingPanel()
     hudNote:SetPoint("TOPLEFT", 336, -112)
     hudNote:SetPoint("TOPRIGHT", -12, -112)
     hudNote:SetJustifyH("LEFT")
-    hudNote:SetText("|cff888888Scales Blizzard action bars, unit frames, and dialogs relative to primary display resolution.|r")
+    hudNote:SetText(L["GLOBAL_SCALE_HELP"])
 
-    local card1_4 = CreateCard(tab1, "OBS Streamer Capture Setup", -418, 110)
+    local card1_4 = CreateCard(tab1, "OBS Streamer Capture Setup", 110)
     
     local obsDesc = card1_4:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     obsDesc:SetPoint("TOPLEFT", 16, -26)
@@ -1226,7 +1270,7 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 2: WORKSPACE & WORLD MAP
     -- ========================================================================
-    local card2_1 = CreateCard(tab2, "World Map Scaling & Navigation", 0, 150)
+    local card2_1 = CreateCard(tab2, "World Map Scaling & Navigation", 150)
 
     local mapScaleSlider = CreateNativeSlider(card2_1, "Map Scale (% of Native)", 0.50, 2.50, 0.05,
         function()
@@ -1324,12 +1368,13 @@ function Options:CreateFloatingPanel()
     end
 
 
-    local card2_2 = CreateCard(tab2, "Workspace Window Management & Persistence", -164, 296)
+    local card2_2 = CreateCard(tab2, L["CARD_PERSISTENCE"], 220)
+    local recoveryCard = CreateCard(tab2, L["CARD_RECOVERY"], 118)
 
-        local gatherBtn = CreateFrame("Button", nil, card2_2, "UIPanelButtonTemplate")
+        local gatherBtn = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
     gatherBtn:SetSize(160, 26)
-    gatherBtn:SetPoint("TOPLEFT", 10, -256)
-    gatherBtn:SetText("Gather Off-Screen UI")
+    gatherBtn:SetPoint("TOPLEFT", 12, -30)
+    gatherBtn:SetText(L["GATHER_UI"])
     gatherBtn:SetScript("OnClick", function() if Offhand.GatherOffScreenUI then Offhand:GatherOffScreenUI() end end)
 
     local proTipDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
@@ -1379,19 +1424,21 @@ function Options:CreateFloatingPanel()
     )
     seamCheck:SetPoint("TOPLEFT", 10, -178)
 
-    local forceCheck = CreateNativeCheckbox(card2_2, "Force Dual Mode (Preview on single display)",
+    local forceCheck = CreateNativeCheckbox(recoveryCard, L["PREVIEW_DUAL"],
         function() return (Offhand.db and Offhand.db.forceDualOnSingle) or false end,
         function(val) Offhand.db.forceDualOnSingle = val end,
         "Force Dual Mode", "Forces multi-monitor canvas logic on single-screen setups for testing and preview."
     )
-    forceCheck:SetPoint("TOPLEFT", 10, -202)
+    forceCheck:SetPoint("TOPLEFT", 12, -76)
 
     local compatDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    compatDesc:SetPoint("TOPLEFT", 12, -228)
+    compatDesc:SetPoint("TOPLEFT", 12, -202)
+    compatDesc:SetWidth(636)
+    compatDesc:SetJustifyH("LEFT")
     card2_2.compatDesc = compatDesc
 
 
-    local card2_3 = CreateCard(tab2, "Bezel Compensation & Window Spanning", -476, 104)
+    local card2_3 = CreateCard(tab1, L["CARD_BEZEL"], 116)
 
     local bezelSlider = CreateNativeSlider(card2_3, "Bezel Compensation Gap", 0, 100, 2,
         function() return (Offhand.db and Offhand.db.bezelGap) or 0 end,
@@ -1410,7 +1457,7 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 3: THEMES & COLOR CUSTOMIZATION
     -- ========================================================================
-    local card3_1 = CreateCard(tab3, "Visual Theme Preset", 0, 114)
+    local card3_1 = CreateCard(tab3, "Visual Theme Preset", 114)
 
     local rClassic = CreateNativeRadioButton(card3_1, "Classic Warcraft",
         function() return (Offhand.db and Offhand.db.theme == "CLASSIC") end,
@@ -1492,7 +1539,7 @@ function Options:CreateFloatingPanel()
     subPitchBlack:SetText("|cff888888True OLED pure black canvas|r")
 
 
-    local card3_2 = CreateCard(tab3, "Dialog Header & Border Trim Palette", -122, 94)
+    local card3_2 = CreateCard(tab3, "Dialog Header & Border Trim Palette", 94)
 
     local trimButtons = {
         { "GOLD", "Gold", 1.00, 0.82, 0.00 },
@@ -1550,7 +1597,7 @@ function Options:CreateFloatingPanel()
             local t = btn.trimData
             local isSelected = (btn.trimKey == curTrim)
             btn:SetText(t[2])
-            btn:SetEnabled(not isSelected)
+            Options:SetChoiceSelected(btn, isSelected)
             if isSelected then
                 if btn.LockHighlight then btn:LockHighlight() end
                 local fs = btn.GetFontString and btn:GetFontString()
@@ -1580,7 +1627,7 @@ function Options:CreateFloatingPanel()
     Options:UpdateTrimHighlights()
 
 
-    local card3_3 = CreateCard(tab3, "Workspace Canvas Background (Secondary Monitor)", -224, 210)
+    local card3_3 = CreateCard(tab3, "Workspace Canvas Background (Secondary Monitor)", 210)
 
     local canvasButtons = {
         { "CLASSIC_STONE", "Classic Stone" },
@@ -1664,7 +1711,7 @@ function Options:CreateFloatingPanel()
         for _, btn in ipairs(canvasBtnFrames) do
             local isSelected = (btn.canvasKey == curColor)
             btn:SetText(btn.canvasTitle)
-            btn:SetEnabled(not isSelected)
+            Options:SetChoiceSelected(btn, isSelected)
             if isSelected then
                 if btn.LockHighlight then btn:LockHighlight() end
                 local fs = btn.GetFontString and btn:GetFontString()
@@ -1727,7 +1774,7 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 4: PROFILES
     -- ========================================================================
-    local card4_1 = CreateCard(tab4, L["PROFILES_LIST_TITLE"] or "Profiles", 0, 480)
+    local card4_1 = CreateCard(tab4, L["PROFILES_LIST_TITLE"] or "Profiles", 390)
     
     local activeProfileLabel = card4_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightLarge")
     activeProfileLabel:SetPoint("TOPLEFT", 16, -24)
@@ -1735,7 +1782,7 @@ function Options:CreateFloatingPanel()
 
     local profileScroll = CreateFrame("ScrollFrame", "OffhandProfileScrollFrame", card4_1, "UIPanelScrollFrameTemplate")
     profileScroll:SetPoint("TOPLEFT", 16, -56)
-    profileScroll:SetSize(280, 360)
+    profileScroll:SetSize(280, 220)
     
     local profileScrollBG = CreateFrame("Frame", nil, profileScroll, "BackdropTemplate")
     profileScrollBG:SetPoint("TOPLEFT", -4, 4)
@@ -1765,7 +1812,7 @@ function Options:CreateFloatingPanel()
     local copyBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
     copyBtn:SetSize(160, 26)
     copyBtn:SetPoint("TOPLEFT", loadBtn, "BOTTOMLEFT", 0, -8)
-    copyBtn:SetText(L["PROFILES_BTN_COPY"] or "Copy From")
+    copyBtn:SetText(L["PROFILE_COPY_INTO_CURRENT"])
     
     local deleteBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
     deleteBtn:SetSize(160, 26)
@@ -1779,8 +1826,12 @@ function Options:CreateFloatingPanel()
     
     local createEditBox = CreateFrame("EditBox", nil, card4_1, "InputBoxTemplate")
     createEditBox:SetSize(200, 26)
-    createEditBox:SetPoint("TOPLEFT", profileScroll, "BOTTOMLEFT", 6, -16)
+    createEditBox:SetPoint("TOPLEFT", profileScroll, "BOTTOMLEFT", 6, -34)
     createEditBox:SetAutoFocus(false)
+    createEditBox:SetMaxLetters(40)
+    local nameLabel = card4_1:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    nameLabel:SetPoint("TOPLEFT", profileScroll, "BOTTOMLEFT", 0, -14)
+    nameLabel:SetText(L["PROFILE_NEW_NAME"])
     
     local createBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
     createBtn:SetSize(80, 26)
@@ -1788,8 +1839,10 @@ function Options:CreateFloatingPanel()
     createBtn:SetText(L["PROFILES_BTN_CREATE"] or "Save As")
 
     local autoSaveNote = card4_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    autoSaveNote:SetPoint("TOPLEFT", profileScroll, "BOTTOMLEFT", 0, -42)
-    autoSaveNote:SetText("|cff888888Note: Settings are automatically saved to your Active Profile as you change them.|r")
+    autoSaveNote:SetPoint("TOPLEFT", profileScroll, "BOTTOMLEFT", 0, -72)
+    autoSaveNote:SetWidth(620)
+    autoSaveNote:SetJustifyH("LEFT")
+    autoSaveNote:SetText(L["SETTINGS_AUTOSAVE"])
 
     function Options:UpdateProfileList()
         local profiles = Offhand.GetProfiles and Offhand:GetProfiles() or {"Default"}
@@ -1806,6 +1859,8 @@ function Options:CreateFloatingPanel()
                 btn:SetSize(270, 20)
                 local fs = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
                 fs:SetPoint("LEFT", btn, "LEFT", 8, 0)
+                fs:SetWidth(250)
+                fs:SetJustifyH("LEFT")
                 btn.text = fs
                 local tex = btn:CreateTexture(nil, "BACKGROUND")
                 tex:SetAllPoints()
@@ -1821,7 +1876,7 @@ function Options:CreateFloatingPanel()
             end
             btn.profileName = pName
             btn:SetPoint("TOPLEFT", profileScrollContent, "TOPLEFT", 4, yOffset)
-            btn.text:SetText(pName)
+            btn.text:SetText(pName .. (pName == ((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") and ("  |cffffd100" .. L["PROFILE_ACTIVE"] .. "|r") or ""))
             if pName == selectedProfileName then
                 btn.highlight:Show()
             else
@@ -1831,6 +1886,7 @@ function Options:CreateFloatingPanel()
             yOffset = yOffset - 22
         end
         
+        profileScrollContent:SetHeight(math.max(220, #profiles * 22 + 8))
         loadBtn:SetEnabled(selectedProfileName ~= nil and selectedProfileName ~= (OffhandCharDB and OffhandCharDB.activeProfile))
         copyBtn:SetEnabled(selectedProfileName ~= nil and selectedProfileName ~= (OffhandCharDB and OffhandCharDB.activeProfile))
         deleteBtn:SetEnabled(selectedProfileName ~= nil and selectedProfileName ~= (OffhandCharDB and OffhandCharDB.activeProfile) and selectedProfileName ~= "Default")
@@ -1843,18 +1899,32 @@ function Options:CreateFloatingPanel()
     end)
     copyBtn:SetScript("OnClick", function()
         if selectedProfileName and Offhand.CopyProfile then
-            Offhand:CopyProfile(selectedProfileName)
+            local source = selectedProfileName
+            local destination = (OffhandCharDB and OffhandCharDB.activeProfile) or "Default"
+            Options:Confirm(string.format(L["PROFILE_COPY_CONFIRM"], destination, source), function()
+                if ((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") == destination then
+                    Offhand:CopyProfile(source)
+                end
+            end)
         end
     end)
     deleteBtn:SetScript("OnClick", function()
         if selectedProfileName and Offhand.DeleteProfile then
-            Offhand:DeleteProfile(selectedProfileName)
-            selectedProfileName = nil
-            Options:UpdateProfileList()
+            local name = selectedProfileName
+            Options:Confirm(string.format(L["PROFILE_DELETE_CONFIRM"], name), function()
+                Offhand:DeleteProfile(name)
+                selectedProfileName = nil
+                Options:UpdateProfileList()
+            end)
         end
     end)
     resetBtn:SetScript("OnClick", function()
-        if Offhand.ResetConfig then Offhand:ResetConfig() end
+        local name = (OffhandCharDB and OffhandCharDB.activeProfile) or "Default"
+        Options:Confirm(string.format(L["PROFILE_RESET_CONFIRM"], name), function()
+            if ((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") == name then
+                if Offhand.ResetConfig then Offhand:ResetConfig() end
+            end
+        end)
     end)
     createBtn:SetScript("OnClick", function()
         local t = strtrim(createEditBox:GetText() or "")
@@ -1874,30 +1944,22 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 5: FAQ & HELP
     -- ========================================================================
-    local card5_1 = CreateCard(tab5, "Edit Mode Layouts & Combat Taint", 0, 360)
-    
-    local faqDesc = card5_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    faqDesc:SetPoint("TOPLEFT", 16, -26)
-    faqDesc:SetPoint("TOPRIGHT", -16, -26)
-    faqDesc:SetJustifyH("LEFT")
-    faqDesc:SetText([[When you first enable Offhand, your UI will seamlessly expand across both monitors. However, because Blizzard hardcodes their default Edit Mode presets (like "Classic" or "Modern") to the absolute edges of your screen, some native combat frames like the Stance Bar, Pet Action Bar, and Raid Frames will automatically snap to the far left of your Workspace monitor.
+    local helpCards = {}
+    for _, topic in ipairs({ "SETUP", "PANELS", "RECOVERY", "EDIT_MODE" }) do
+        local card = CreateCard(tab5, L["HELP_" .. topic .. "_TITLE"], 112)
+        local body = card:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        body:SetPoint("TOPLEFT", 14, -30)
+        body:SetPoint("TOPRIGHT", -14, -30)
+        body:SetJustifyH("LEFT")
+        body:SetText(L["HELP_" .. topic .. "_BODY"])
+        helpCards[#helpCards + 1] = card
+    end
 
-|cffffd100Why doesn't Offhand move them automatically?|r
-World of Warcraft's security engine strictly protects these specific combat frames. If an addon attempts to programmatically intercept and reposition them while Edit Mode is managing them, it triggers the internal Taint System. The moment you enter combat and cast a spell, change stances, or command your pet, the game will throw an ADDON_ACTION_BLOCKED error and lock up your interface.
-
-To guarantee flawless, error-free combat, Offhand strictly yields control of these specific frames to Edit Mode.
-
-|cffffd100How to setup your layout (The Secure Way):|r
-1. With Offhand enabled, open Edit Mode in-game.
-2. Manually drag your Stance Bar, Pet Bar, and Raid Frames back to your preferred positions on your 3D Game View or Workspace monitor.
-3. Save your arrangement as a New Layout and name it exactly: "Offhand" (case insensitive).
-
-By manually dragging and saving them, Edit Mode securely locks their coordinates into the Blizzard server cache, completely bypassing the taint system and keeping your combat 100% safe!
-
-|cffffd100Automatic Layout Switching:|r
-When you disable Offhand to play on a single monitor, your frames will dynamically shift. To fix this, simply select the standard "Classic" or "Modern" layout from the Edit Mode dropdown, and everything will snap back to normal.
-
-When you re-enable Offhand, the addon will automatically detect your saved "Offhand" layout and securely load it for you in the background!]])
+    Options:StackCards(tab1, {card1_1, card1_2, card1_3, card2_3, card1_4})
+    Options:StackCards(tab2, {card2_1, card2_2, recoveryCard})
+    Options:StackCards(tab3, {card3_1, card3_2, card3_3})
+    Options:StackCards(tab4, {card4_1})
+    Options:StackCards(tab5, helpCards)
 
     -- ========================================================================
     -- BOTTOM ACTION BAR (Shared across tabs)
@@ -1905,7 +1967,7 @@ When you re-enable Offhand, the addon will automatically detect your saved "Offh
     local applyBtn = CreateFrame("Button", nil, configFrame, "UIPanelButtonTemplate")
     applyBtn:SetSize(150, 28)
     applyBtn:SetPoint("BOTTOMLEFT", 20, 14)
-    applyBtn:SetText(L["BTN_APPLY_LAYOUT"])
+    applyBtn:SetText(L["BTN_REAPPLY"])
     applyBtn:SetScript("OnClick", function()
         Offhand:ApplyFullLayout()
         Offhand:Print(L["MSG_LAYOUT_APPLIED"])
@@ -1914,15 +1976,19 @@ When you re-enable Offhand, the addon will automatically detect your saved "Offh
         Offhand:SetTooltip(applyBtn, L["BTN_APPLY_LAYOUT_TIP_TITLE"], L["BTN_APPLY_LAYOUT_TIP_DESC"])
     end
 
+    local saveStatus = configFrame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    saveStatus:SetPoint("BOTTOM", configFrame, "BOTTOM", 0, 23)
+    saveStatus:SetText(L["SETTINGS_SAVED_LIVE"])
+
     local closePanelBtn = CreateFrame("Button", nil, configFrame, "UIPanelButtonTemplate")
     closePanelBtn:SetSize(150, 28)
     closePanelBtn:SetPoint("BOTTOMRIGHT", -20, 14)
-    closePanelBtn:SetText("|cffffd100" .. L["BTN_SAVE_CLOSE"] .. "|r")
+    closePanelBtn:SetText(L["BTN_CLOSE"])
     closePanelBtn:SetScript("OnClick", function()
         Options:Close()
     end)
     if Offhand.SetTooltip then
-        Offhand:SetTooltip(closePanelBtn, L["BTN_SAVE_CLOSE_TIP_TITLE"], L["BTN_SAVE_CLOSE_TIP_DESC"])
+        Offhand:SetTooltip(closePanelBtn, L["BTN_CLOSE"], L["SETTINGS_AUTOSAVE"])
     end
 
     function Options:RefreshPanel()

@@ -29,3 +29,21 @@ while held and are released on application exit.
 
 These settings describe the C# companion; the PowerShell alternative has its own
 controls and does not share the native application's preference file.
+
+## Restore Window
+
+Use the Restore Window button or Ctrl+Alt+R to return WoW to a bordered window.
+The shortcut is independent of the selected span shortcut. The Companion remembers
+the bounds before its first successful span of a window and fits restored bounds
+inside a monitor's work area. If no bounds were remembered, it uses a window up to
+1920x1080 on the primary monitor, reduced to fit. Remembered bounds last for the
+current Companion session only.
+
+A successful restore pauses automatic spanning for that WoW process. Click Span
+Now to resume, or launch a new WoW client. Restarting the Companion clears this
+temporary pause. Disable Offhand's dual-monitor mode in-game when returning to a
+single monitor; the Companion cannot read live addon enablement.
+
+Restore checks both Win32 results and the resulting bounds before reporting
+success. If the requested move fails, it attempts to restore the previous style
+and bounds and reports the failure.

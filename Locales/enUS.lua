@@ -14,6 +14,46 @@ local L = Offhand.L or setmetatable({}, {
 
 Offhand.L = L
 
+-- Settings and guided setup
+L["CARD_SCALE_ALIGNMENT"] = "Game alignment & UI scale"
+L["GLOBAL_SCALE_HELP"] = "Sets the shared game UI scale. Addons inherit it unless they apply their own scale."
+L["CARD_PERSISTENCE"] = "Workspace windows"
+L["CARD_RECOVERY"] = "Recovery & preview"
+L["CARD_BEZEL"] = "Bezel compensation (advanced)"
+L["PREVIEW_DUAL"] = "Preview dual-monitor layout on a single display"
+L["GATHER_UI"] = "Gather Off-Screen UI"
+L["GATHER_COMBAT"] = "Leave combat before gathering off-screen windows."
+L["GATHER_RESULT"] = "Recovered %d off-screen windows. Visible windows were left in place."
+L["PROFILE_NEW_NAME"] = "New profile name"
+L["PROFILE_ACTIVE"] = "(active)"
+L["PROFILE_COPY_INTO_CURRENT"] = "Copy into current"
+L["PROFILE_COPY_CONFIRM"] = "Replace settings in '%s' with a copy of '%s'? This cannot be undone."
+L["PROFILE_DELETE_CONFIRM"] = "Delete profile '%s'? This cannot be undone."
+L["PROFILE_RESET_CONFIRM"] = "Reset profile '%s' to defaults? This cannot be undone."
+L["SETTINGS_AUTOSAVE"] = "Changes update your active profile immediately. WoW writes them to disk on logout or /reload."
+L["SETTINGS_SAVED_LIVE"] = "Changes apply automatically"
+L["BTN_CLOSE"] = "Close"
+L["BTN_REAPPLY"] = "Reapply Layout"
+L["BTN_NEXT"] = "Next"
+L["BTN_BACK"] = "Back"
+L["BTN_FINISH"] = "Finish Setup"
+L["WIZARD_RECOMMENDATION_APPLIED"] = "Recommended settings applied"
+L["WIZARD_CHECK_RECOMMENDATION"] = "Continue to check monitor layout, alignment and UI size."
+L["BTN_SETTINGS"] = "All Settings"
+L["STEP_PROGRESS"] = "Step %d of 4"
+L["STEP_1_HELP"] = "Set WoW to Windowed mode, then use Span Now in the Companion. These recommendations are based on the game window size; check the next steps against your actual monitors."
+L["STEP_2_HELP"] = "Choose which monitor shows the game and select its aspect ratio. Your other monitor becomes the workspace."
+L["STEP_3_HELP"] = "Align the red guide with the monitor boundary. Adjust the bottom offset if the game view sits too high or too low."
+L["STEP_4_HELP"] = "Choose a comfortable UI size. Changes apply immediately. Finish Setup when the game and workspace fit your monitors."
+L["HELP_SETUP_TITLE"] = "Set up two monitors"
+L["HELP_SETUP_BODY"] = "1. Set WoW to Windowed mode.\n2. Click Span Now in the Companion, then open the setup wizard.\n3. Check monitor layout, seam, bottom alignment and UI scale."
+L["HELP_PANELS_TITLE"] = "Use the workspace"
+L["HELP_PANELS_BODY"] = "Drag supported windows by their headers to either monitor. In Workspace, enable independent panels to keep several open together. Hold Ctrl and use the mouse wheel over the world map to change its size."
+L["HELP_RECOVERY_TITLE"] = "Recover windows or return to one monitor"
+L["HELP_RECOVERY_BODY"] = "Use Gather Off-Screen UI in Workspace to recover open windows outside the visible areas. To return to one monitor, disable Offhand's dual-monitor mode and use Restore Window in the Companion (Ctrl+Alt+R)."
+L["HELP_EDIT_MODE_TITLE"] = "Position combat frames with Edit Mode"
+L["HELP_EDIT_MODE_BODY"] = "Where available, use Blizzard Edit Mode outside combat to position stance, pet and raid frames. Save a layout named Offhand for automatic selection. Choose your usual layout when returning to one monitor. Some changes wait until combat ends."
+
 -- ============================================================================
 -- Core & General Strings
 -- ============================================================================
@@ -90,7 +130,7 @@ L["LABEL_BOTTOM_OFFSET_TIP_TITLE"] = "Bottom Inset Offset"
 L["LABEL_BOTTOM_OFFSET_TIP_DESC"] = "Pushes the bottom of the 3D game viewport upward by the specified number of pixels to clear taskbars or secondary HUD elements."
 
 L["CARD_SEAM_CALIBRATION"] = "3. Physical Monitor Seam Alignment & Laser Guide"
-L["SLIDER_SEAM_WIDTH"] = "Seam Width (Secondary Deck):"
+L["SLIDER_SEAM_WIDTH"] = "Workspace width (%):"
 L["SLIDER_SEAM_WIDTH_TIP_TITLE"] = "Physical Seam Position"
 L["SLIDER_SEAM_WIDTH_TIP_DESC"] = "Defines where the boundary between your secondary workspace and 3D game monitor sits, as a percentage of total spanned screen width."
 
@@ -236,7 +276,7 @@ L["WIZARD_LABEL_AR"] = "3D Game Viewport Aspect Ratio:"
 
 L["WIZARD_CARD3_TITLE"] = "3. Physical Monitor Seam Alignment"
 L["WIZARD_SEAM_INSTRUCTION"] = "Align the red laser line with the physical bezel dividing your two monitors:"
-L["WIZARD_LABEL_SEAM"] = "Bezel Seam Width:"
+L["WIZARD_LABEL_SEAM"] = "Workspace width:"
 L["WIZARD_BTN_LASER_SHOW"] = "Show Laser"
 L["WIZARD_BTN_LASER_HIDE"] = "Hide Laser"
 L["WIZARD_PRESET_SEAM_36"] = "1440/4000 Seam (36%)"
@@ -269,7 +309,7 @@ L["WIZARD_PRESET_SCALE_70"] = "Standard (70%)"
 L["WIZARD_PRESET_SCALE_70_TIP_TITLE"] = "Standard UI (70%)"
 L["WIZARD_PRESET_SCALE_70_TIP_DESC"] = "Standard Offhand default scale, ideal for 1440p and 4K displays at normal desk viewing distance."
 
-L["WIZARD_PRESET_SCALE_100"] = "Default (100%)"
+L["WIZARD_PRESET_SCALE_100"] = "Full size (100%)"
 L["WIZARD_PRESET_SCALE_100_TIP_TITLE"] = "Unscaled UI (100%)"
 L["WIZARD_PRESET_SCALE_100_TIP_DESC"] = "Standard 100% Blizzard UI size without scaling reductions."
 
@@ -281,7 +321,7 @@ L["WIZARD_BTN_ADVANCED"] = "Advanced Settings (/offhand)"
 L["WIZARD_BTN_ADVANCED_TIP_TITLE"] = "Advanced Settings"
 L["WIZARD_BTN_ADVANCED_TIP_DESC"] = "Closes the wizard and opens the full 3-tab Offhand options dashboard with complete customization controls."
 
-L["WIZARD_BTN_FINISH"] = "Save & Finish Setup"
+L["WIZARD_BTN_FINISH"] = "Finish Setup"
 L["WIZARD_BTN_FINISH_TIP_TITLE"] = "Finish Calibration"
 L["WIZARD_BTN_FINISH_TIP_DESC"] = "Saves your configuration, marks initial setup complete, and applies your new multi-monitor layout."
 
@@ -312,8 +352,8 @@ L["WIZARD_BTN_SCALE_RESET_TIP_DESC"] = "Resets the Global UI Scale to the recomm
 L["BTN_APPLY_LAYOUT"] = "Apply Layout"
 L["BTN_APPLY_LAYOUT_TIP_TITLE"] = "Apply Layout"
 L["BTN_APPLY_LAYOUT_TIP_DESC"] = "Immediately forces all viewports, seams, and UI elements to update with the current settings."
-L["BTN_SAVE_CLOSE"] = "Save & Close"
-L["BTN_SAVE_CLOSE_TIP_TITLE"] = "Save & Close"
+L["BTN_SAVE_CLOSE"] = "Close"
+L["BTN_SAVE_CLOSE_TIP_TITLE"] = "Close"
 L["BTN_SAVE_CLOSE_TIP_DESC"] = "Saves all settings and closes the configuration dashboard."
 L["LABEL_BOTTOM_OFFSET_SHORT"] = "Game bottom offset (pixels):"
 

@@ -17,6 +17,13 @@ namespace Offhand.Companion {
                 Check(PreferenceFile.Delay("garbage") == 15);
                 Check(PreferenceFile.Delay("99999999999999999999999999999999999999") == 15);
                 Check(PreferenceFile.Delay("30") == 30);
+                var leftMonitor = new System.Drawing.Rectangle(-1440, -1120, 1440, 2520);
+                var fit = RestoreGeometry.Fit(new System.Drawing.Rectangle(-1800, -1500, 1920, 3000), leftMonitor);
+                Check(leftMonitor.Contains(fit) && fit.Width == 1440 && fit.Height == 2520);
+                var work = new System.Drawing.Rectangle(0, 0, 1920, 1040);
+                var remembered = new System.Drawing.Rectangle(120, 90, 1200, 800);
+                Check(RestoreGeometry.Fit(remembered, work) == remembered);
+                Check(work.Contains(RestoreGeometry.Fit(new System.Drawing.Rectangle(5000, 4000, 1920, 1080), work)));
                 Console.WriteLine("PASS: missing/malformed settings, duplicate keys, delay bounds and overflow");
             } finally { if (File.Exists(file)) File.Delete(file); Directory.Delete(root); }
         }
