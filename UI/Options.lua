@@ -14,6 +14,29 @@ local L = Offhand.L or setmetatable({}, {
 
 local tinsert = table.insert
 
+
+StaticPopupDialogs["OFFHAND_DOWNLOAD_LINK"] = {
+    text = "The Companion App automates a pixel-perfect, borderless span across multiple monitors.\n\nDownload it securely from GitHub below:",
+    button1 = "Close",
+    hasEditBox = true,
+    editBoxWidth = 260,
+    OnShow = function(self)
+        local eb = self.EditBox or _G[self:GetName().."EditBox"]
+        if eb then
+            eb:SetText("https://github.com/N4UX/Offhand/releases")
+            eb:HighlightText()
+            eb:SetFocus()
+        end
+    end,
+    EditBoxOnEscapePressed = function(self)
+        self:GetParent():Hide()
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
 local Options = {}
 Offhand.Options = Options
 
@@ -843,6 +866,15 @@ function Options:CreateFloatingPanel()
             Offhand.Wizard:Open()
         end
     end)
+
+    local compAppBtn = CreateFrame("Button", nil, configFrame, "UIPanelButtonTemplate")
+    compAppBtn:SetSize(155, 22)
+    compAppBtn:SetPoint("RIGHT", autoWizardBtn, "LEFT", -10, 0)
+    compAppBtn:SetText("Get Companion App")
+    compAppBtn:SetScript("OnClick", function()
+        StaticPopup_Show("OFFHAND_DOWNLOAD_LINK")
+    end)
+
     if Offhand.SetTooltip then
         Offhand:SetTooltip(autoWizardBtn, L["BTN_AUTO_WIZARD_TIP_TITLE"], L["BTN_AUTO_WIZARD_TIP_DESC"])
     end
