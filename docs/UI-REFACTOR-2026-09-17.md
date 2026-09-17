@@ -59,3 +59,21 @@ in-game visual correctness, combat safety or successful native Win32 operation.
 Future work can replace remaining manually sized control rows with reusable field
 components and add a monitor diagram to the wizard. Those visual enhancements
 should follow live feedback on this iteration.
+
+## Speech-bubble follow-up
+
+User visual feedback confirmed the settings changes and identified oversized native
+speech bubbles. `Core/ChatBubbles.lua` now applies the UIParent scale baseline to
+bubbles outside that hierarchy, preserving their relative scale. It neither scales
+WorldFrame nor changes bubble anchors/fonts. A single 100ms watcher picks up newly
+created/reused bubbles and avoids writes while the scale is already correct.
+Protected/forbidden bubbles are skipped. Disabling Offhand restores the prior scale
+unless another addon has since changed it.
+
+API reference: [Classic Era ChatBubbles documentation](https://github.com/Gethe/wow-ui-source/blob/classic_era/Interface/AddOns/Blizzard_APIDocumentationGenerated/ChatBubblesDocumentation.lua).
+The API excludes forbidden bubbles by default and exposes no creation event.
+
+All 15 Lua regression suites and addon validation pass, including tests for new and
+pooled bubbles, UIParent inheritance, relative scale, repeated updates, restricted
+frames and restoration. Live check: reload, observe a speech bubble, adjust Global
+UI Size and observe another; then toggle Offhand off/on to check restoration.

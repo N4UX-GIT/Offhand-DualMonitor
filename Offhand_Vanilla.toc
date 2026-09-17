@@ -11,6 +11,7 @@
 Core\Init.lua
 Core\Config.lua
 Core\Viewport.lua
+Core\ChatBubbles.lua
 Core\SeamRedirect.lua
 Core\Canvas.lua
 
