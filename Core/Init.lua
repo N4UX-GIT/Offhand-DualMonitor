@@ -399,6 +399,27 @@ end
 -- ============================================================================
 -- Core Event Dispatcher
 -- ============================================================================
+
+StaticPopupDialogs["OFFHAND_COMPANION_WARNING"] = {
+    text = "|cffd0d0d0Offhand is enabled, but your window is not spanned!|r\n\nThe Offhand Companion App is required to stretch the WoW window. Download it securely from GitHub below:
+",
+    button1 = "OK",
+    hasEditBox = true,
+    editBoxWidth = 260,
+    OnShow = function(self)
+        self.editBox:SetText("https://github.com/N4UX/Offhand/releases")
+        self.editBox:HighlightText()
+        self.editBox:SetFocus()
+    end,
+    EditBoxOnEscapePressed = function(self)
+        self:GetParent():Hide()
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
 local eventFrame = CreateFrame("Frame", "OffhandEventFrame")
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
@@ -474,6 +495,15 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             if Offhand.Canvas and Offhand.Canvas.RestorePersistentFrames then
                 Offhand.Canvas:RestorePersistentFrames()
             end
+
+            -- Guard: Companion App check
+            if Offhand.db and Offhand.db.enabled then
+                local w, h = GetScreenWidth(), GetScreenHeight()
+                if w and h and (w / h) < 2.1 then
+                    StaticPopup_Show("OFFHAND_COMPANION_WARNING")
+                end
+            end
+
         end)
 
     elseif event == "PLAYER_REGEN_ENABLED" then

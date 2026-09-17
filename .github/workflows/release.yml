@@ -1,60 +1,39 @@
-name: Release Offhand
+name: Build and Release
 
 on:
   push:
     tags:
-      - 'v*'
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version tag (e.g. 1.0.1)'
-        required: true
-        default: '1.0.1'
-
-permissions:
-  contents: write
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
 
 jobs:
-  build-and-release:
+  build:
     runs-on: windows-latest
-
+    permissions:
+      contents: write
+      
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Extract Version
-        id: get_version
-        shell: pwsh
-        run: |
-          $ver = "${{ github.event.inputs.version }}"
-          if (-not $ver) {
-              $ver = "${{ github.ref_name }}" -replace '^v', ''
-          }
-          if (-not $ver) { $ver = "1.0.1" }
-          echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
-          Write-Host "Releasing version: $ver"
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
 
-      - name: Build Companion & Package Release
-        shell: pwsh
-        run: |
-          .\package.ps1 -Version "${{ steps.get_version.outputs.VERSION }}"
+    - name: Build and Package
+      shell: powershell
+      run: |
+        # Run the packaging script. It automatically compiles the C# app 
+        # and generates the .zip files in the dist/ folder.
+        # We extract the version from the tag (e.g., v1.0.1 -> 1.0.1)
+        $version = "${{ github.ref_name }}".TrimStart('v')
+        .\package.ps1 -Version $version
 
-      - name: Verify packaged sources and download checksums
-        shell: pwsh
-        run: ./tests/package-artifacts.ps1 -Version "${{ steps.get_version.outputs.VERSION }}"
-
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name || format('v{0}', steps.get_version.outputs.VERSION) }}
-          name: Offhand v${{ steps.get_version.outputs.VERSION }}
-          generate_release_notes: true
-          draft: false
-          prerelease: false
-          files: |
-            dist/Offhand.exe
-            dist/Offhand-Companion-*.zip
-            dist/Offhand-*.zip
-            dist/checksums-sha256.txt
+    - name: Create Release and Upload Assets
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          dist/Offhand-v*.zip
+          dist/Offhand-Companion-v*.zip
+          dist/Offhand.exe
+          dist/checksums-sha256.txt
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
