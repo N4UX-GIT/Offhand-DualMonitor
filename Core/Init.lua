@@ -502,7 +502,12 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             -- Guard: Companion App check
             if Offhand.db and Offhand.db.enabled then
                 local w, h = GetScreenWidth(), GetScreenHeight()
-                if w and h and (w / h) < 2.1 then
+                local physW = w
+                if GetPhysicalScreenSize then
+                    pcall(function() physW = select(1, GetPhysicalScreenSize()) end)
+                end
+                -- If the game width is less than or equal to a single monitor's physical width, it is not spanned.
+                if w and physW and w <= (physW + 50) then
                     StaticPopup_Show("OFFHAND_COMPANION_WARNING")
                 end
             end
