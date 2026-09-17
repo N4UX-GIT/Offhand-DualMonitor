@@ -405,14 +405,19 @@ StaticPopupDialogs["OFFHAND_COMPANION_WARNING"] = {
 
 For a seamless, borderless experience, the Offhand Companion App is highly recommended. Download it securely from GitHub below:
 
-(Alternatively, put WoW in Windowed mode and manually drag the edges across your monitors to dismiss this warning).]],
+(Alternatively, if you are using Eyefinity/Surround or stretching manually, click Ignore).]],
     button1 = "OK",
+    button2 = "Ignore",
     hasEditBox = true,
     editBoxWidth = 260,
     OnShow = function(self)
         self.editBox:SetText("https://github.com/N4UX/Offhand/releases")
         self.editBox:HighlightText()
         self.editBox:SetFocus()
+    end,
+    OnAccept = function() end,
+    OnCancel = function(self)
+        Offhand.db.suppressCompanionWarning = true
     end,
     EditBoxOnEscapePressed = function(self)
         self:GetParent():Hide()
@@ -500,13 +505,12 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             end
 
             -- Guard: Companion App check
-            if Offhand.db and Offhand.db.enabled then
+            if Offhand.db and Offhand.db.enabled and not Offhand.db.suppressCompanionWarning then
                 local w, h = GetScreenWidth(), GetScreenHeight()
                 local physW = w
                 if GetPhysicalScreenSize then
                     pcall(function() physW = select(1, GetPhysicalScreenSize()) end)
                 end
-                -- If the game width is less than or equal to a single monitor's physical width, it is not spanned.
                 if w and physW and w <= (physW + 50) then
                     StaticPopup_Show("OFFHAND_COMPANION_WARNING")
                 end
