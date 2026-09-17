@@ -47,6 +47,7 @@ end
 local configFrame
 local setupFrame
 local seamGuideLine
+local seamGuideRevision = 0
 local currentTab = 1
 
 -- ============================================================================
@@ -263,9 +264,10 @@ function Options:AutoConfigure(silent, fromWizard)
 
     if not silent then
         Options:ShowSeamGuide(info.recommendedDeckRatio)
+        local previewRevision = seamGuideRevision
         if C_Timer and C_Timer.After then
             C_Timer.After(4.0, function()
-                Options:HideSeamGuide()
+                if seamGuideRevision == previewRevision then Options:HideSeamGuide() end
             end)
         end
         if Offhand.Print then
@@ -293,6 +295,7 @@ end
 -- ============================================================================
 function Options:ShowSeamGuide(deckRatio)
     if not UIParent then return end
+    seamGuideRevision = seamGuideRevision + 1
     if not deckRatio then
         deckRatio = (Offhand.db and Offhand.db.deckWidthRatio) or 0.36
     end
@@ -327,6 +330,7 @@ function Options:ShowSeamGuide(deckRatio)
 end
 
 function Options:HideSeamGuide()
+    seamGuideRevision = seamGuideRevision + 1
     if seamGuideLine then
         seamGuideLine:Hide()
     end

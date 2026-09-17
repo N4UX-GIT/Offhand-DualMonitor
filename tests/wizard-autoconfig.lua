@@ -478,3 +478,16 @@ assert(addon.L["CHECK_CANVAS_ENABLED_TIP_DESC"] ~= nil, "Localization must have 
 assert(addon.SetTooltip ~= nil, "Offhand:SetTooltip must be defined")
 
 print("PASS: 1-click auto-configuration, topology heuristics, wizard frame, UI scale slider, overlap prevention, and tooltips verified!")
+
+local oldAfter = C_Timer.After
+local previewTimeout
+C_Timer.After = function(delay, callback)
+    if delay == 4 then previewTimeout = callback end
+end
+addon.Options:AutoConfigure(false)
+assert(previewTimeout, "Auto setup must schedule its temporary guide preview")
+addon.Options:ShowSeamGuide(addon.db.deckWidthRatio)
+previewTimeout()
+assert(addon.Options:IsSeamGuideShown(), "Old auto-setup timeout must not hide a manually enabled guide")
+addon.Options:HideSeamGuide()
+C_Timer.After = oldAfter

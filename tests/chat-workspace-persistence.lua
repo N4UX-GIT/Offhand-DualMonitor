@@ -181,7 +181,7 @@ end
 addon.db.savedWorkspacePositions.GeneralDockManager = {x=10,y=10}
 addon.HUD:AlignChatFrame(metrics)
 local _, _, _, defaultX, defaultY = ChatFrame1:GetPoint(1)
-assert(defaultX == metrics.gameLeft + 24 and defaultY == metrics.gameBottom + 120,
+assert(defaultX == metrics.gameLeft + 48 and defaultY == metrics.gameBottom + 120,
     "Classic default must use bottom-left of game view despite userPlaced")
 assert(not addon.db.savedWorkspacePositions.ChatFrame1, "Default alignment must not save a workspace preference")
 assert(not addon.db.savedWorkspacePositions.GeneralDockManager, "Invalid old dock-container position must be cleared")
@@ -190,6 +190,21 @@ local dockPoint, dockRelative, dockRelativePoint = GeneralDockManager:GetPoint(1
 assert(dockPoint == "BOTTOMLEFT" and dockRelative == ChatFrame1 and dockRelativePoint == "TOPLEFT")
 addon.HUD:AlignChatFrame(metrics)
 assert(dockUpdates == 1, "Do not continuously rebuild chat tabs")
+
+-- Blizzard can replay its default anchor between rendered frames. Repair must
+-- complete synchronously, without scheduling another full layout or resizing.
+local oldAfter = C_Timer.After
+C_Timer.After = function() error("Native anchor repair must not use a delayed timer") end
+local oldSetSize = ChatFrame1.SetSize
+ChatFrame1.SetSize = function() error("Anchor repair must not resize chat") end
+for i = 1, 10 do
+    ChatFrame1:ClearAllPoints()
+    ChatFrame1:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 0, 120)
+    assert(select(4, ChatFrame1:GetPoint(1)) == metrics.gameLeft + 48,
+        "Default anchor must be corrected before SetPoint returns")
+end
+C_Timer.After = oldAfter
+ChatFrame1.SetSize = oldSetSize
 
 -- 2. Simulate dragging ChatFrame1 to workspace (x = 100, y = 300; deckWidth is 1440)
 MOVING_CHATFRAME = ChatFrame1

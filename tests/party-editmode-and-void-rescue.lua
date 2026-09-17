@@ -379,3 +379,13 @@ print("PASS: Bad self intrinsic widgets in UIParent:GetChildren() safely handled
 print("\nALL PARTY FRAMES, EDIT MODE, AND VOID RESCUE TESTS PASSED!")
 
 assert(#tickers == 1, "Repeated HUD setup installed duplicate scanners")
+
+-- A full-height seam guide deliberately extends above the game viewport.
+local guide = makeMockFrame("OffhandSeamGuideLine", 4, 2560)
+table.insert(UIParent.children, guide)
+guide:SetPoint("TOPLEFT", UIParent, "TOPLEFT", metrics.deckWidth - 2, 0)
+guide:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", metrics.deckWidth - 2, 0)
+local guidePoints = #guide.points
+for i = 1, 3 do flushTimers() end
+assert(#guide.points == guidePoints and guide.points[1][1] == "TOPLEFT",
+    "Popup recovery must preserve the seam guide's full-height anchors")

@@ -97,3 +97,23 @@ workspace reload restoration, deliberate game-view placement and combat deferral
 Live verification remains outstanding: with only Offhand enabled, reload, leave
 Edit Mode, hover and right-click General, switch Combat Log, drag chat to each
 display and reload again. Confirm custom Edit Mode layouts retain their placement.
+
+### Chat flicker and seam-guide regression
+
+Native default chat now replays only its committed anchor synchronously when
+Blizzard resets it. This replaces the delayed full-layout repair that exposed the
+old workspace anchor for 50ms. Dragging, custom Edit Mode positions, workspace
+placements, disabled Offhand and combat remain excluded. Repeated HUD alignment
+also avoids writing unchanged chat dimensions.
+
+Default native chat receives at least 48 UI units of left inset, enlarged for its
+external button strip as needed. The prior 24-unit text-frame inset did not account
+for all left-side chrome. Monitor split and bezel compensation are unchanged:
+1440/4000 is 36%; a negative gap would move the right-hand viewport further left.
+
+Popup rescue now excludes OffhandSeamGuideLine, whose intentional full-height
+anchors otherwise made it look like an off-screen popup. Auto-setup preview timers
+cannot hide a more recently enabled guide. Regression coverage includes repeated
+synchronous native anchor resets, preserved guide anchors across scanner ticks,
+and superseded preview timers. Live QA: reload, apply Classic preset, watch chat
+idle, hover its controls, and leave the laser enabled while hovering tooltips.

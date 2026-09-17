@@ -170,8 +170,17 @@ function HUD:AlignChatFrame(m)
             x + 24 * m.hudScale, 45 * m.hudScale)
         chat:SetSize(math.min(460, m.deckWidth / m.hudScale - 48), 220)
     else
-        Anchor(chat, "BOTTOMLEFT", m, 24, 120, nativeDefault)
-        chat:SetSize(math.min(460, m.gameWidth / m.hudScale * 0.40), 220)
+        -- The native button strip sits outside the message frame's left edge.
+        local inset = native and 48 or 24
+        if native and chat.buttonFrame and chat.buttonFrame.GetWidth then
+            inset = math.max(inset, chat.buttonFrame:GetWidth() + 17)
+        end
+        Anchor(chat, "BOTTOMLEFT", m, inset, 120, nativeDefault)
+        local width = math.min(460, m.gameWidth / m.hudScale * 0.40)
+        if not chat.GetWidth or not chat.GetHeight
+            or math.abs(chat:GetWidth() - width) > 0.001 or math.abs(chat:GetHeight() - 220) > 0.001 then
+            chat:SetSize(width, 220)
+        end
     end
     if ChatFrame1EditBox then
         Points(ChatFrame1EditBox,
@@ -330,6 +339,23 @@ function HUD:IsManagedFrame(frame)
     return desiredFrames[frame] ~= nil
 end
 
+-- Repair only the committed native chat anchor before the next rendered frame.
+-- Do not run a full HUD layout (or resize chat) from a SetPoint callback.
+function HUD:RepairChatAnchor(frame)
+    if aligning or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
+        or Offhand.db.dockChat == false or Chattynator then return end
+    if frame._OffhandDragging or MOVING_CHATFRAME == frame then return end
+    if Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions.ChatFrame1 then return end
+    if frame.Selection and frame.IsEditModeDragging and frame:IsEditModeDragging() then return end
+    if frame.IsInDefaultPosition and not frame:IsInDefaultPosition() then return end
+    local desired = desiredFrames[frame]
+    if not desired or not desired.points then return end
+    aligning = true
+    local ok, err = pcall(Points, frame, unpack(desired.points))
+    aligning = false
+    if not ok then Offhand:Print("HUD layout error: %s", tostring(err)) end
+end
+
 function HUD:HookFrames()
     if not HasCustomActionBarAddon() then
         if not self.managerHooked and UIParent_ManageFramePositions then
@@ -358,9 +384,9 @@ function HUD:HookFrames()
             hooks[frame] = true
             hooksecurefunc(frame, "SetPoint", function()
                 if frame._OffhandDragging or MOVING_CHATFRAME == frame then return end
+                if frame == ChatFrame1 then HUD:RepairChatAnchor(frame); return end
                 local isWs = Offhand.db and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
-                local defaultChat = frame == ChatFrame1 and frame.IsInDefaultPosition and frame:IsInDefaultPosition()
-                if not isWs and (defaultChat or not (frame.IsUserPlaced and frame:IsUserPlaced())) then
+                if not isWs and not (frame.IsUserPlaced and frame:IsUserPlaced()) then
                     HUD:RequestLayout()
                 end
             end)
@@ -596,7 +622,7 @@ function HUD:HookFrames()
                         local okName, name = pcall(child.GetName, child)
                         if okName then cName = name end
                     end
-                    if cName == "OffhandCanvasFrame" then return end
+                    if cName == "OffhandCanvasFrame" or cName == "OffhandSeamGuideLine" then return end
                     -- Native chat owns these linked frames. Moving a dock or tab
                     -- independently separates the headers from the message window.
                     if child == GeneralDockManager or child == GENERAL_CHAT_DOCK
