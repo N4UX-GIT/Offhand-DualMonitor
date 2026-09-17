@@ -216,10 +216,7 @@ namespace Offhand.Companion
 
         protected override void WndProc(ref Message m)
         {
-            if (m.Msg == 0x0312 && m.WParam.ToInt32() == 1)
-            {
-                InvokeSpanWindow(true);
-            }
+            if (m.Msg == 0x0312) { if (m.WParam.ToInt32() == 1) InvokeSpanWindow(true); else if (m.WParam.ToInt32() == 2) InvokeRestoreWindow(true); }
             base.WndProc(ref m);
         }
 
@@ -242,6 +239,11 @@ namespace Offhand.Companion
                 AddLog("Global Hotkey Registered: " + sel + " to Span Now.");
             else
                 AddLog("Hotkey unavailable: " + sel + ". Choose another shortcut; Span Now still works.");
+            NativeMethods.UnregisterHotKey(this.Handle, 2);
+            if (sel == "Ctrl+Alt+S") {
+                if (NativeMethods.RegisterHotKey(this.Handle, 2, 0x0002 | 0x0001 | 0x4000, (int)Keys.R))
+                    AddLog("Ctrl+Alt+R hotkey registered to Restore window.");
+            }
         }
 
         public CompanionForm()
@@ -453,23 +455,27 @@ namespace Offhand.Companion
 
 
             // Action Buttons
-            btnSpanNow = CreateButton("Span WoW Window Now", 16, 368, 238, 36, cBtnPrimaryBg, cGoldBright, cGold);
+                        btnSpanNow = CreateButton("Span WoW Now", 16, 368, 158, 36, cBtnPrimaryBg, cGoldBright, cGold);
             btnSpanNow.Click += (s, e) => { InvokeSpanWindow(true); };
             this.Controls.Add(btnSpanNow);
 
-            btnToggleWatch = CreateButton("Pause Monitoring", 262, 368, 244, 36, cBtnBg, cText, cBorder);
+            Button btnRestoreNow = CreateButton("Restore Window", 182, 368, 158, 36, cBtnBg, cText, cBorder);
+            btnRestoreNow.Click += (s, e) => { InvokeRestoreWindow(true); };
+            this.Controls.Add(btnRestoreNow);
+
+            btnToggleWatch = CreateButton("Pause Monitor", 348, 368, 158, 36, cBtnBg, cText, cBorder);
             btnToggleWatch.Click += (s, e) =>
             {
                 isMonitoring = !isMonitoring;
                 if (isMonitoring)
                 {
-                    btnToggleWatch.Text = "Pause Monitoring";
+                    btnToggleWatch.Text = "Pause Monitor";
                     btnToggleWatch.ForeColor = cText;
                     AddLog("Background auto-watcher resumed.");
                 }
                 else
                 {
-                    btnToggleWatch.Text = "Resume Monitoring";
+                    btnToggleWatch.Text = "Resume Monitor";
                     btnToggleWatch.ForeColor = cYellow;
                     AddLog("Background auto-watcher PAUSED by user.");
                 }
@@ -840,6 +846,41 @@ namespace Offhand.Companion
             }
         }
 
+                private bool InvokeRestoreWindow(bool manual)
+        {
+            try
+            {
+                Process proc = GetWoWProcess();
+                if (proc == null) throw new Exception("Launch exactly one WoW client first.");
+                IntPtr handle = GetWoWWindowHandle(proc);
+                if (handle == IntPtr.Zero) throw new Exception("WoW window is not ready.");
+
+                if (NativeMethods.IsZoomed(handle) || NativeMethods.IsIconic(handle))
+                {
+                    NativeMethods.ShowWindow(handle, NativeMethods.SW_RESTORE);
+                }
+
+                int oldStyle = NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE);
+                int newStyle = oldStyle | NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME;
+                
+                NativeMethods.SetLastError(0);
+                NativeMethods.SetWindowLong(handle, NativeMethods.GWL_STYLE, newStyle);
+                
+                uint flags = NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_FRAMECHANGED | NativeMethods.SWP_SHOWWINDOW;
+                // Try to set it to a reasonable standard windowed size if possible (e.g. 1920x1080)
+                NativeMethods.SetWindowPos(handle, IntPtr.Zero, 100, 100, 1920, 1080, flags);
+                
+                if (spannedPids.Contains(proc.Id)) spannedPids.Remove(proc.Id);
+                AddLog("Restored WoW window to single monitor (1920x1080).");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                AddLog(ex.Message);
+                return false;
+            }
+        }
+
         private bool InvokeSpanWindow(bool manual)
         {
             try
@@ -923,6 +964,7 @@ namespace Offhand.Companion
         }
     }
 }
+
 
 
 

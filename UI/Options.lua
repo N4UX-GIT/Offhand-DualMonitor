@@ -926,11 +926,11 @@ function Options:CreateFloatingPanel()
     end
 
     local tabConfig = {
-        { id = 1, frame = tab1, label = L["TAB_DISPLAY"] },
-        { id = 2, frame = tab2, label = L["TAB_WORKSPACE"] },
-        { id = 3, frame = tab3, label = L["TAB_THEMES"] },
+        { id = 1, frame = tab1, label = "Display" },
+        { id = 2, frame = tab2, label = "Workspace" },
+        { id = 3, frame = tab3, label = "Themes" },
         { id = 4, frame = tab4, label = L["TAB_PROFILES"] },
-        { id = 5, frame = tab5, label = L["TAB_FAQ"] or "FAQ" }
+        { id = 5, frame = tab5, label = "FAQ & Help" }
     }
     
     local tabButtons = {}
@@ -988,7 +988,7 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 1: DISPLAY & VIEWPORT CALIBRATION
     -- ========================================================================
-    local card1_1 = CreateCard(tab1, "Display Mode & Dual Monitor Orientation", 0, 104)
+    local card1_1 = CreateCard(tab1, "Display Mode & Dual Monitor Orientation", 0, 130)
 
     local enableCheck = CreateNativeCheckbox(card1_1, "Enable Offhand Dual Monitor Mode",
         function() return Offhand.db and Offhand.db.enabled end,
@@ -1005,7 +1005,7 @@ function Options:CreateFloatingPanel()
         end,
         "Minimap Icon", "Toggle the Offhand icon on the minimap ring."
     )
-    minimapCheck:SetPoint("TOPLEFT", 300, -26)
+    minimapCheck:SetPoint("TOPLEFT", 12, -96)
 
 
     local laserCheck = CreateNativeCheckbox(card1_1, "Show Red Seam Guide Laser",
@@ -1019,7 +1019,7 @@ function Options:CreateFloatingPanel()
         end,
         L["BTN_LASER_TOGGLE_TIP_TITLE"], L["BTN_LASER_TOGGLE_TIP_DESC"]
     )
-    laserCheck:SetPoint("TOPLEFT", 360, -26)
+    laserCheck:SetPoint("TOPLEFT", 240, -96)
     configFrame.laserCheck = laserCheck
 
     local rPortraitLeft = CreateNativeRadioButton(card1_1, "Portrait (Left) + Game (Right)",
@@ -1124,7 +1124,7 @@ function Options:CreateFloatingPanel()
     if Offhand.SetTooltip then Offhand:SetTooltip(p55Btn, L["WIZARD_PRESET_SEAM_55_TIP_TITLE"], L["WIZARD_PRESET_SEAM_55_TIP_DESC"]) end
 
 
-    local card1_3 = CreateCard(tab1, "Screen Bottom Offset & Global UI Scale", -252, 120)
+    local card1_3 = CreateCard(tab1, "Screen Bottom Offset & Global UI Scale", -278, 120)
 
     local bottomControl = Options:CreateBottomControl(card1_3)
     bottomControl:SetPoint("TOPLEFT", 12, -26)
@@ -1179,7 +1179,7 @@ function Options:CreateFloatingPanel()
     hudNote:SetJustifyH("LEFT")
     hudNote:SetText("|cff888888Scales Blizzard action bars, unit frames, and dialogs relative to primary display resolution.|r")
 
-    local card1_4 = CreateCard(tab1, "OBS Streamer Capture Setup", -386, 110)
+    local card1_4 = CreateCard(tab1, "OBS Streamer Capture Setup", -418, 110)
     
     local obsDesc = card1_4:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     obsDesc:SetPoint("TOPLEFT", 16, -26)
@@ -1324,7 +1324,13 @@ function Options:CreateFloatingPanel()
     end
 
 
-    local card2_2 = CreateCard(tab2, "Workspace Window Management & Persistence", -164, 260)
+    local card2_2 = CreateCard(tab2, "Workspace Window Management & Persistence", -164, 296)
+
+        local gatherBtn = CreateFrame("Button", nil, card2_2, "UIPanelButtonTemplate")
+    gatherBtn:SetSize(160, 26)
+    gatherBtn:SetPoint("TOPLEFT", 10, -256)
+    gatherBtn:SetText("Gather Off-Screen UI")
+    gatherBtn:SetScript("OnClick", function() if Offhand.GatherOffScreenUI then Offhand:GatherOffScreenUI() end end)
 
     local proTipDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     proTipDesc:SetPoint("TOPLEFT", 10, -26)
@@ -1385,7 +1391,7 @@ function Options:CreateFloatingPanel()
     card2_2.compatDesc = compatDesc
 
 
-    local card2_3 = CreateCard(tab2, "Bezel Compensation & Window Spanning", -436, 104)
+    local card2_3 = CreateCard(tab2, "Bezel Compensation & Window Spanning", -476, 104)
 
     local bezelSlider = CreateNativeSlider(card2_3, "Bezel Compensation Gap", 0, 100, 2,
         function() return (Offhand.db and Offhand.db.bezelGap) or 0 end,
@@ -1883,7 +1889,7 @@ To guarantee flawless, error-free combat, Offhand strictly yields control of the
 
 |cffffd100How to setup your layout (The Secure Way):|r
 1. With Offhand enabled, open Edit Mode in-game.
-2. Manually drag your Stance Bar, Pet Bar, and Raid Frames back to your preferred positions on your 3D Game View monitor.
+2. Manually drag your Stance Bar, Pet Bar, and Raid Frames back to your preferred positions on your 3D Game View or Workspace monitor.
 3. Save your arrangement as a New Layout and name it exactly: "Offhand" (case insensitive).
 
 By manually dragging and saving them, Edit Mode securely locks their coordinates into the Blizzard server cache, completely bypassing the taint system and keeping your combat 100% safe!
@@ -2036,4 +2042,6 @@ end
 function Offhand:InitializeOptions()
     -- Options ready
 end
+
+
 

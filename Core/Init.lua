@@ -544,73 +544,9 @@ SLASH_OFFHAND4 = "/ak"
 
 SlashCmdList["OFFHAND"] = function(msg)
     msg = strtrim(msg or ""):lower()
-
     local cmd, arg = strsplit(" ", msg, 2)
 
-    if cmd == "16:9" or cmd == "16/9" or cmd == "169" then
-        Offhand.db.aspectRatioMode = "16_9"
-        Offhand:ApplyFullLayout()
-        Offhand:Print(L["MSG_AR_16_9"])
-    elseif cmd == "21:9" or cmd == "21/9" or cmd == "219" then
-        Offhand.db.aspectRatioMode = "21_9"
-        Offhand:ApplyFullLayout()
-        Offhand:Print(L["MSG_AR_21_9"])
-    elseif cmd == "fill" then
-        Offhand.db.aspectRatioMode = "FILL"
-        Offhand:ApplyFullLayout()
-        Offhand:Print(L["MSG_AR_FILL"])
-    elseif (cmd == "ar" or cmd == "fov") and tonumber(arg) then
-        local ratio = tonumber(arg)
-        Offhand.db.aspectRatioMode = "CUSTOM"
-        Offhand.db.customAspectRatio = ratio
-        Offhand:ApplyFullLayout()
-        Offhand:Print(L["MSG_AR_CUSTOM"], ratio)
-    elseif cmd == "hud" or cmd == "scale" then
-        if tonumber(arg) then
-            local scale = tonumber(arg)
-            if scale > 1.25 then scale = scale / 100 end
-            scale = math.max(0.25, math.min(1.25, scale))
-            Offhand.db.hudScale = scale
-            Offhand:ApplyFullLayout()
-            Offhand:Print(L["MSG_HUD_SET"], scale * 100)
-        else
-            Offhand:Print(L["MSG_HUD_CURRENT"], Offhand.db.hudScale or 0.70)
-        end
-    elseif cmd == "chat" then
-        arg = strtrim(arg or ""):lower()
-        if arg == "deck" or arg == "secondary" or arg == "bay" then
-            Offhand.db.chatPosition = "DECK"
-            Offhand:ApplyFullLayout()
-            Offhand:Print(L["MSG_CHAT_DECK"])
-        elseif arg == "game" or arg == "hud" or arg == "primary" then
-            Offhand.db.chatPosition = "GAME"
-            Offhand:ApplyFullLayout()
-            Offhand:Print(L["MSG_CHAT_GAME"])
-        else
-            -- Toggle
-            Offhand.db.chatPosition = (Offhand.db.chatPosition == "DECK") and "GAME" or "DECK"
-            Offhand:ApplyFullLayout()
-            Offhand:Print(L["MSG_CHAT_TOGGLED"], Offhand.db.chatPosition)
-        end
-    elseif (cmd == "deck" or cmd == "seam") and tonumber(arg) then
-        local pct = tonumber(arg)
-        if pct > 1 then pct = pct / 100 end
-        pct = math.max(0.15, math.min(0.80, pct))
-        Offhand.db.deckWidthRatio = pct
-        Offhand:ApplyFullLayout()
-        Offhand:Print(L["MSG_SEAM_SET"], pct * 100)
-    elseif cmd == "bottom" and tonumber(arg) then
-        Offhand.db.gameBottomPixels = math.max(0, tonumber(arg))
-        Offhand:ApplyFullLayout()
-        Offhand:Print(L["MSG_BOTTOM_SET"], Offhand.db.gameBottomPixels)
-    elseif cmd == "height" and tonumber(arg) then
-        local pct = tonumber(arg)
-        if pct > 1 then pct = pct / 100 end
-        pct = math.max(0.05, math.min(1, pct))
-        Offhand.db.gameHeightRatio = pct
-        Offhand:ApplyFullLayout()
-        Offhand:Print(L["MSG_HEIGHT_SET"], pct * 100)
-    elseif cmd == "diag" or cmd == "metrics" or cmd == "info" then
+    if cmd == "diag" or cmd == "metrics" or cmd == "info" then
         local snapshot = Offhand.Viewport:CaptureDiagnostics()
         local vpStatus = snapshot.viewportMatches and L["MSG_DIAG_PASS"] or L["MSG_DIAG_MISMATCH"]
         Offhand:Print(L["MSG_DIAG_VIEWPORT"], vpStatus)
@@ -637,23 +573,15 @@ SlashCmdList["OFFHAND"] = function(msg)
     elseif msg == "debug" then
         Offhand.db.debugMode = not Offhand.db.debugMode
         Offhand:Print(L["MSG_DEBUG_TOGGLED"], Offhand.db.debugMode and L["MSG_DEBUG_ON"] or L["MSG_DEBUG_OFF"])
-    elseif cmd == "wizard" or cmd == "setup" or cmd == "calibrate" then
+    elseif cmd == "wizard" or cmd == "setup" or cmd == "calibrate" or cmd == "span" or cmd == "guide" then
         if Offhand.Wizard and Offhand.Wizard.Open then
             Offhand.Wizard:Open()
         elseif Offhand.Options and Offhand.Options.Open then
             Offhand.Options:Open(true)
         end
     elseif cmd == "gather" then
-        if Offhand.SeamRedirect and Offhand.SeamRedirect.GatherLostFrames then
-            Offhand.SeamRedirect:GatherLostFrames()
-        end
-    elseif msg == "settings" or msg == "options" or msg == "config" then
-        if Offhand.Options and Offhand.Options.Open then
-            Offhand.Options:Open()
-        end
-    elseif msg == "span" or msg == "guide" then
-        if Offhand.Wizard and Offhand.Wizard.Open then
-            Offhand.Wizard:Open()
+        if Offhand.GatherOffScreenUI then
+            Offhand:GatherOffScreenUI()
         end
     else
         if Offhand.Options and Offhand.Options.Open then
