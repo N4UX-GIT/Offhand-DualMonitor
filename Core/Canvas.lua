@@ -398,6 +398,9 @@ end
 
 OnPanelDragStop = function(frame)
     if not frame then return end
+    if InCombatLockdown() then frame._OffhandDragging = false; return end
+    local dragName = frame.GetName and frame:GetName()
+    if dragName and dragName:match("^ChatFrame%d+$") then frame._OffhandDragging = true end
     if frame.StopMovingOrSizing then
         pcall(function() frame:StopMovingOrSizing() end)
     end
@@ -563,6 +566,9 @@ OnPanelDragStop = function(frame)
             end
         elseif string.match(name, "^ChatFrame") then
             pcall(function() frame:SetUserPlaced(true) end)
+            Offhand.db.savedMainPositions[name] = { x = clampedX, y = clampedY }
+            frame:ClearAllPoints()
+            frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
             if FCF_SavePositionAndDimensions then
                 pcall(function() FCF_SavePositionAndDimensions(frame) end)
             end
@@ -898,7 +904,9 @@ function Canvas:EnableFreeDragging()
         end
 
         if chatFrame.HookScript then
+            chatFrame:HookScript("OnDragStart", function(self) self._OffhandDragging = true end)
             chatFrame:HookScript("OnDragStop", function(self)
+                self._OffhandDragging = false
                 if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
                 OnPanelDragStop(self)
             end)
@@ -908,10 +916,13 @@ function Canvas:EnableFreeDragging()
         local chatTab = chatName and _G[chatName .. "Tab"]
         if chatTab and not chatTab._OffhandTabHooked and chatTab.HookScript then
             chatTab._OffhandTabHooked = true
+            chatTab:HookScript("OnDragStart", function() chatFrame._OffhandDragging = true end)
             chatTab:HookScript("OnDragStop", function(self)
+                chatFrame._OffhandDragging = false
                 if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
-                local parent = (self.GetParent and self:GetParent()) or chatFrame
-                OnPanelDragStop(parent)
+                -- Docked tabs belong to GeneralDockManager (or its scroll child),
+                -- not the message frame. Persist the associated chat window.
+                OnPanelDragStop(chatFrame)
             end)
         end
     end

@@ -77,3 +77,23 @@ All 15 Lua regression suites and addon validation pass, including tests for new 
 pooled bubbles, UIParent inheritance, relative scale, repeated updates, restricted
 frames and restoration. Live check: reload, observe a speech bubble, adjust Global
 UI Size and observe another; then toggle Offhand off/on to check restoration.
+
+## Native chat follow-up
+
+Native default chat previously stayed on the workspace because its current location
+was mistaken for an intentional workspace placement. Classic default chat now
+anchors inside the game viewport, while explicit workspace and game-view drags
+remain persistent. Active native drags and combat defer placement changes.
+
+The tab drag handler now saves its associated chat window instead of the tab's
+parent (which can be GeneralDockManager). Invalid saved dock-container positions
+are removed. The native dock is reattached above ChatFrame1 and its tabs refreshed
+once, preserving Blizzard's normal hover fading. Popup recovery excludes native
+chat components so it cannot independently relocate the dock or tabs.
+
+Validation: all 15 Lua suites and addon validation pass. The expanded chat test
+covers default positioning, tab restoration, dock-parent persistence, drag guards,
+workspace reload restoration, deliberate game-view placement and combat deferral.
+Live verification remains outstanding: with only Offhand enabled, reload, leave
+Edit Mode, hover and right-click General, switch Combat Log, drag chat to each
+display and reload again. Confirm custom Edit Mode layouts retain their placement.

@@ -138,6 +138,7 @@ end
 FCF_SavePositionAndDimensions = function() end
 FCF_StopDragging = function(cf)
     if cf then cf:StopMovingOrSizing() end
+    MOVING_CHATFRAME = nil
 end
 
 ChatFrame1 = makeMockFrame("ChatFrame1", 400, 220)
@@ -158,10 +159,48 @@ assert(ChatFrame1._OffhandChatHooked == true, "ChatFrame1 must be hooked for wor
 assert(ChatFrame1Tab._OffhandTabHooked == true, "ChatFrame1Tab must be hooked for workspace dragging")
 assert(ChatFrame1.clamped == false, "ChatFrame1 must be unclamped from screen")
 
+-- Blizzard's default anchor starts over the workspace. Position alone must not
+-- turn that default into an explicit workspace placement, even if userPlaced is set.
+ChatFrame1.IsInDefaultPosition = function() return true end
+ChatFrame1:SetUserPlaced(true)
+ChatFrame1:ClearAllPoints()
+ChatFrame1:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 0, 120)
+GeneralDockManager = makeMockFrame("GeneralDockManager", 400, 24)
+GENERAL_CHAT_DOCK = GeneralDockManager
+GeneralDockManager.primary = ChatFrame1
+GeneralDockManager.DOCKED_CHAT_FRAMES = {ChatFrame1}
+GeneralDockManager:Hide()
+ChatFrame1Tab:Hide()
+ChatFrame1Tab.GetParent = function() return GeneralDockManager end
+local dockUpdates = 0
+FCFDock_UpdateTabs = function(dock, force)
+    assert(dock == GeneralDockManager and force)
+    dockUpdates = dockUpdates + 1
+    ChatFrame1Tab:Show()
+end
+addon.db.savedWorkspacePositions.GeneralDockManager = {x=10,y=10}
+addon.HUD:AlignChatFrame(metrics)
+local _, _, _, defaultX, defaultY = ChatFrame1:GetPoint(1)
+assert(defaultX == metrics.gameLeft + 24 and defaultY == metrics.gameBottom + 120,
+    "Classic default must use bottom-left of game view despite userPlaced")
+assert(not addon.db.savedWorkspacePositions.ChatFrame1, "Default alignment must not save a workspace preference")
+assert(not addon.db.savedWorkspacePositions.GeneralDockManager, "Invalid old dock-container position must be cleared")
+assert(ChatFrame1Tab:IsShown() and GeneralDockManager:IsShown(), "Native dock update must restore missing tab visibility")
+local dockPoint, dockRelative, dockRelativePoint = GeneralDockManager:GetPoint(1)
+assert(dockPoint == "BOTTOMLEFT" and dockRelative == ChatFrame1 and dockRelativePoint == "TOPLEFT")
+addon.HUD:AlignChatFrame(metrics)
+assert(dockUpdates == 1, "Do not continuously rebuild chat tabs")
+
 -- 2. Simulate dragging ChatFrame1 to workspace (x = 100, y = 300; deckWidth is 1440)
+MOVING_CHATFRAME = ChatFrame1
+ChatFrame1Tab.scripts.OnDragStart(ChatFrame1Tab)
 ChatFrame1:ClearAllPoints()
 ChatFrame1:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 100, 300)
+addon.HUD:AlignChatFrame(metrics)
+assert(select(4, ChatFrame1:GetPoint(1)) == 100, "Layout must not interrupt a native tab drag")
 FCF_StopDragging(ChatFrame1)
+ChatFrame1Tab.scripts.OnDragStop(ChatFrame1Tab)
+assert(not addon.db.savedWorkspacePositions.GeneralDockManager, "A tab drag must not persist its dock parent")
 
 assert(addon.db.savedWorkspacePositions["ChatFrame1"] ~= nil, "ChatFrame1 must be saved to savedWorkspacePositions")
 assert(addon.db.savedWorkspacePositions["ChatFrame1"].x >= 12, "ChatFrame1 x must be clamped within workspace")
@@ -185,10 +224,24 @@ assert(reloadPt[4] < metrics.deckWidth, "ChatFrame1 must remain on workspace mon
 assert(addon.db.savedWorkspacePositions["ChatFrame1"] ~= nil, "savedWorkspacePositions for ChatFrame1 must still exist")
 
 -- 5. Test dragging ChatFrame1 back to game view screen (x = 2000 >= deckWidth)
+MOVING_CHATFRAME = ChatFrame1
+ChatFrame1Tab.scripts.OnDragStart(ChatFrame1Tab)
 ChatFrame1:ClearAllPoints()
 ChatFrame1:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 2000, 300)
 FCF_StopDragging(ChatFrame1)
 
 assert(addon.db.savedWorkspacePositions["ChatFrame1"] == nil, "savedWorkspacePositions for ChatFrame1 must be cleared when on game view screen")
+addon.HUD:AlignChatFrame(metrics)
+assert(select(4, ChatFrame1:GetPoint(1)) == 2000, "Deliberate game-view placement must survive default-layout refresh")
+
+-- Respect customized Edit Mode positions and avoid mutations during combat.
+ChatFrame1.IsInDefaultPosition = function() return false end
+local _, _, _, customX = ChatFrame1:GetPoint(1)
+addon.HUD:AlignChatFrame(metrics)
+assert(select(4, ChatFrame1:GetPoint(1)) == customX)
+InCombatLockdown = function() return true end
+ChatFrame1.IsInDefaultPosition = function() return true end
+addon.HUD:AlignChatFrame(metrics)
+assert(select(4, ChatFrame1:GetPoint(1)) == customX, "Chat relocation must wait until combat ends")
 
 print("PASS: ChatFrame1 workspace dragging, FCF_StopDragging hook, and reload persistence verified!")

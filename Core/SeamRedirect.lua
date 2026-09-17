@@ -114,7 +114,7 @@ function HUD:RequestLayout()
 end
 
 function HUD:AlignChatFrame(m)
-    if not ChatFrame1 or Offhand.db.dockChat == false then return end
+    if InCombatLockdown() or not Offhand.db.enabled or not ChatFrame1 or Offhand.db.dockChat == false then return end
     local chat = ChatFrame1
     -- Chattynator replaces the visible chat frame. Use its exposed handler to
     -- locate the primary window without changing its saved profile or messages.
@@ -125,10 +125,15 @@ function HUD:AlignChatFrame(m)
             if child:GetID() == 1 and child.ScrollingMessages then chat = child; break end
         end
     end
+    if chat._OffhandDragging or MOVING_CHATFRAME == chat then return end
+    if chat.Selection and chat.IsEditModeDragging and chat:IsEditModeDragging() then return end
     Prepare(chat, m)
     local chatName = (chat.GetName and chat:GetName()) or "ChatFrame1"
+    local native = chat == ChatFrame1
+    local nativeDefault = native and chat.IsInDefaultPosition and chat:IsInDefaultPosition()
+    if native then self:RepairChatDock() end
     local isWs = (Offhand.db and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[chatName])
-        or (Offhand.Canvas and Offhand.Canvas.IsFrameOnWorkspace and Offhand.Canvas.IsFrameOnWorkspace(chat))
+        or (not native and Offhand.Canvas and Offhand.Canvas.IsFrameOnWorkspace and Offhand.Canvas.IsFrameOnWorkspace(chat))
     if isWs then
         if Offhand.Canvas and Offhand.Canvas.RestoreWorkspacePosition then
             Offhand.Canvas:RestoreWorkspacePosition(chat)
@@ -142,7 +147,12 @@ function HUD:AlignChatFrame(m)
         end
         return
     end
-    if chat.IsUserPlaced and chat:IsUserPlaced() and Offhand.db.chatPosition ~= "DECK" then return end
+    local mainPosition = native and Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[chatName]
+    if mainPosition and Offhand.db.chatPosition ~= "DECK" then
+        ScreenPoint(chat, "BOTTOMLEFT", mainPosition.x, mainPosition.y)
+        return
+    end
+    if not nativeDefault and chat.IsUserPlaced and chat:IsUserPlaced() and Offhand.db.chatPosition ~= "DECK" then return end
     if chat ~= ChatFrame1 and not hooks[chat] then
         hooks[chat] = true
         hooksecurefunc(chat, "SetPoint", function()
@@ -160,13 +170,36 @@ function HUD:AlignChatFrame(m)
             x + 24 * m.hudScale, 45 * m.hudScale)
         chat:SetSize(math.min(460, m.deckWidth / m.hudScale - 48), 220)
     else
-        Anchor(chat, "BOTTOMLEFT", m, 24, 120)
+        Anchor(chat, "BOTTOMLEFT", m, 24, 120, nativeDefault)
         chat:SetSize(math.min(460, m.gameWidth / m.hudScale * 0.40), 220)
     end
     if ChatFrame1EditBox then
         Points(ChatFrame1EditBox,
             {"TOPLEFT", chat, "BOTTOMLEFT", 0, 0},
             {"TOPRIGHT", chat, "BOTTOMRIGHT", 0, 0})
+    end
+end
+
+function HUD:RepairChatDock()
+    local dock = GENERAL_CHAT_DOCK or GeneralDockManager
+    if not dock or dock.primary ~= ChatFrame1 then return end
+    if dock.IsForbidden and dock:IsForbidden() then return end
+    if dock.IsProtected and dock:IsProtected() then return end
+    for _, key in ipairs({"savedWorkspacePositions", "savedMainPositions", "openWorkspacePanels"}) do
+        if Offhand.db[key] then Offhand.db[key].GeneralDockManager = nil end
+    end
+    -- Tabs are dock children, not chat-frame children. Keep the native dock
+    -- attached to chat, including after a former erroneous tab-parent drag.
+    Points(dock,
+        {"BOTTOMLEFT", ChatFrame1, "TOPLEFT", 0, 6},
+        {"BOTTOMRIGHT", ChatFrame1, "TOPRIGHT", 0, 6})
+    if not self.chatDockRepaired or (dock.IsShown and not dock:IsShown()) then
+        if dock.Show then dock:Show() end
+        if dock.SetAlpha then dock:SetAlpha(1) end
+        if FCFDock_UpdateTabs and dock.DOCKED_CHAT_FRAMES then
+            FCFDock_UpdateTabs(dock, true)
+        end
+        self.chatDockRepaired = true
     end
 end
 
@@ -324,8 +357,10 @@ function HUD:HookFrames()
         if frame and not hooks[frame] then
             hooks[frame] = true
             hooksecurefunc(frame, "SetPoint", function()
+                if frame._OffhandDragging or MOVING_CHATFRAME == frame then return end
                 local isWs = Offhand.db and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
-                if not isWs and not (frame.IsUserPlaced and frame:IsUserPlaced()) then
+                local defaultChat = frame == ChatFrame1 and frame.IsInDefaultPosition and frame:IsInDefaultPosition()
+                if not isWs and (defaultChat or not (frame.IsUserPlaced and frame:IsUserPlaced())) then
                     HUD:RequestLayout()
                 end
             end)
@@ -562,6 +597,10 @@ function HUD:HookFrames()
                         if okName then cName = name end
                     end
                     if cName == "OffhandCanvasFrame" then return end
+                    -- Native chat owns these linked frames. Moving a dock or tab
+                    -- independently separates the headers from the message window.
+                    if child == GeneralDockManager or child == GENERAL_CHAT_DOCK
+                        or (cName and cName:match("^ChatFrame%d")) then return end
 
                     -- Void Rescue check for general children on the game side
                     local fScale = (child.GetEffectiveScale and child:GetEffectiveScale()) or parentScale
