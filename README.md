@@ -63,3 +63,4 @@ Run the top-level Lua scripts in `tests` with Lua 5.1, then `tests/companion.ps1
 
 See `docs/UI-REFACTOR-2026-09-17.md` for this iteration's changes and outstanding live checks. The addon and native Companion have separate version metadata; rebuilding artifacts does not publish a release.
 
+

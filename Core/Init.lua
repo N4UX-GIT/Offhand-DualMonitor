@@ -405,15 +405,18 @@ StaticPopupDialogs["OFFHAND_COMPANION_WARNING"] = {
 
 For a seamless, borderless experience, the Offhand Companion App is highly recommended. Download it securely from GitHub below:
 
-(Alternatively, if you are using Eyefinity/Surround or stretching manually, click Ignore).]],
+(Alternatively, if you are attempting to stretch the window manually, ensure you drag it fully across both monitors. Click Ignore to permanently dismiss this warning).]],
     button1 = "OK",
     button2 = "Ignore",
     hasEditBox = true,
     editBoxWidth = 260,
     OnShow = function(self)
-        self.editBox:SetText("https://github.com/N4UX/Offhand/releases")
-        self.editBox:HighlightText()
-        self.editBox:SetFocus()
+        local eb = self.EditBox or _G[self:GetName().."EditBox"]
+        if eb then
+            eb:SetText("https://github.com/N4UX/Offhand/releases")
+            eb:HighlightText()
+            eb:SetFocus()
+        end
     end,
     OnAccept = function() end,
     OnCancel = function(self)
