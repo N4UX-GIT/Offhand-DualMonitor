@@ -62,3 +62,4 @@ Where Blizzard Edit Mode is available, use it outside combat to arrange stance, 
 Run the top-level Lua scripts in `tests` with Lua 5.1, then `tests/companion.ps1` and `tests/companion-preferences.ps1`. `package.ps1` rebuilds the Companion and stages addon/Companion ZIPs plus website downloads. `tests/package-artifacts.ps1` checks that packaged files match source.
 
 See `docs/UI-REFACTOR-2026-09-17.md` for this iteration's changes and outstanding live checks. The addon and native Companion have separate version metadata; rebuilding artifacts does not publish a release.
+
