@@ -14,8 +14,6 @@ local L = Offhand.L or setmetatable({}, {
 
 local tinsert = table.insert
 
-
-
 local Options = {}
 Offhand.Options = Options
 
@@ -845,8 +843,6 @@ function Options:CreateFloatingPanel()
             Offhand.Wizard:Open()
         end
     end)
-
-
     if Offhand.SetTooltip then
         Offhand:SetTooltip(autoWizardBtn, L["BTN_AUTO_WIZARD_TIP_TITLE"], L["BTN_AUTO_WIZARD_TIP_DESC"])
     end
@@ -1962,10 +1958,6 @@ function Options:CreateFloatingPanel()
         body:SetText(L["HELP_" .. topic .. "_BODY"])
         helpCards[#helpCards + 1] = card
     end
-
-
-    compEdit:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
-    compEdit:SetScript("OnTextChanged", function(self, userChanged) if userChanged then self:SetText("https://github.com/N4UX/Offhand/releases") self:HighlightText() end end)
 
     Options:StackCards(tab1, {card1_1, card1_2, card1_3, card2_3, card1_4})
     Options:StackCards(tab2, {card2_1, card2_2, recoveryCard})
