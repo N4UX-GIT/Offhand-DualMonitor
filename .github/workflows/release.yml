@@ -32,7 +32,7 @@ jobs:
       with:
         files: |
           dist/Offhand-v*.zip
-          dist/Offhand-Companion-v*.zip
+          dist/Offhand-Companion.zip
           dist/Offhand.exe
           dist/checksums-sha256.txt
       env:
