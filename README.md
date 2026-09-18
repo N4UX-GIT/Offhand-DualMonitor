@@ -27,6 +27,10 @@
 
 1.  **Install the Addon:** Download the addon from [CurseForge](https://www.curseforge.com/wow/addons/offhand) or install it via your preferred addon manager.
 2.  **Get the Companion App (Highly Recommended):** Download the Offhand.exe Companion App from the [GitHub Releases page](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases) and run it alongside WoW.
+
+> [!NOTE]
+> **Windows SmartScreen:** Because the Companion App is an independent, open-source executable, Windows Defender SmartScreen may flag it as an "unrecognized app" on first launch. This is completely normal. Simply click **"More info" -> "Run anyway"**.
+
 3.  **Set WoW to Windowed Mode:** In WoW's Graphics settings, set Display Mode to **Windowed**. 
 4.  **Span Your Window:** If using the Companion App, click **Span Now** (or press Ctrl+Alt+S). The app will instantly strip the borders and stretch your game seamlessly across both monitors.
 5.  **Run the Wizard:** Type /offhand wizard in-game. The automated setup will detect your monitors, adjust the seam, and scale your UI perfectly in 4 easy steps.
