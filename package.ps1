@@ -17,7 +17,7 @@ Write-Host "===================================================" -ForegroundColo
 
 # 1. Ensure Companion executable is compiled
 Write-Host "
-[1/4] Compiling Companion executable..." -ForegroundColor Yellow
+[1/5] Compiling Companion executable..." -ForegroundColor Yellow
 & (Join-Path $rootDir "Companion\build.bat")
 if ($LASTEXITCODE -ne 0) {
     throw "Companion build failed. Close a running companion if it locks the executable, then retry."
@@ -25,13 +25,13 @@ if ($LASTEXITCODE -ne 0) {
 
 # 2. Reset dist directory
 Write-Host "
-[2/4] Initializing output directory: $distDir" -ForegroundColor Yellow
+[2/5] Initializing output directory: $distDir" -ForegroundColor Yellow
 New-Item -ItemType Directory -Path $distDir -Force | Out-Null
 New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 
 # 3. Package In-Game Addon for CurseForge / Wago
 Write-Host "
-[3/4] Packaging In-Game Addon (Offhand-v$Version.zip)..." -ForegroundColor Yellow
+[3/5] Packaging In-Game Addon (Offhand-v$Version.zip)..." -ForegroundColor Yellow
 $addonStaging = Join-Path $tempDir "Offhand"
 New-Item -ItemType Directory -Path $addonStaging -Force | Out-Null
 
@@ -60,7 +60,7 @@ Write-Host "  -> Created: $addonZip" -ForegroundColor Green
 
 # 4. Package Desktop Companion for GitHub Releases
 Write-Host "
-[4/4] Packaging Desktop Companion (Offhand-Companion.zip)..." -ForegroundColor Yellow
+[4/5] Packaging Desktop Companion (Offhand-Companion.zip)..." -ForegroundColor Yellow
 $compStaging = Join-Path $tempDir "Offhand-Companion"
 New-Item -ItemType Directory -Path $compStaging -Force | Out-Null
 
@@ -77,13 +77,26 @@ $standaloneExe = Join-Path $distDir "Offhand.exe"
 Copy-Item (Join-Path $rootDir "Companion\Offhand.exe") -Destination $standaloneExe
 Write-Host "  -> Created standalone executable: $standaloneExe" -ForegroundColor Green
 
+
+# 5. Package Complete Bundle for GitHub Releases (Addon + Companion)
+Write-Host "\n[5/5] Packaging Complete Bundle (Offhand-Complete-v$Version.zip)..." -ForegroundColor Yellow
+$bundleStaging = Join-Path $tempDir "Offhand-Bundle"
+New-Item -ItemType Directory -Path $bundleStaging -Force | Out-Null
+
+Copy-Item $addonStaging -Destination (Join-Path $bundleStaging "Offhand") -Recurse
+Copy-Item (Join-Path $rootDir "Companion\Offhand.exe") -Destination (Join-Path $bundleStaging "Offhand-Companion.exe")
+Copy-Item (Join-Path $rootDir "README.md") -Destination $bundleStaging
+
+$bundleZip = Join-Path $distDir "Offhand-Complete-v$Version.zip"
+Compress-Archive -Path (Join-Path $bundleStaging "*") -DestinationPath $bundleZip -CompressionLevel Optimal -Force
+Write-Host "  -> Created: $bundleZip" -ForegroundColor Green
+
 # Clean staging and generate SHA-256 Checksums
-Write-Host "
-Generating release checksums..." -ForegroundColor Yellow
+Write-Host "\nGenerating release checksums..." -ForegroundColor Yellow
 Write-Host "Build staging retained for inspection: $tempDir"
 
 $checksumFile = Join-Path $distDir "checksums-sha256.txt"
-$distFiles = Get-Item -LiteralPath $addonZip, $compZip, $standaloneExe
+$distFiles = Get-Item -LiteralPath $addonZip, $compZip, $standaloneExe, $bundleZip
 
 $checksumLines = foreach ($file in $distFiles) {
     $hash = (Get-FileHash -Path $file.FullName -Algorithm SHA256).Hash
