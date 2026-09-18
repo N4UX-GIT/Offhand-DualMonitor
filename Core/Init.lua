@@ -792,24 +792,33 @@ frame:SetScript("OnEvent", function()
         if Quit then hooksecurefunc("Quit", function() isLoggingOut = true end) end
         if ForceQuit then hooksecurefunc("ForceQuit", function() isLoggingOut = true end) end
         
-        hooksecurefunc("OpenAllBags", function() if not isLoggingOut then Offhand.db.bagsWereOpen = true end end)
-        local function CommitBagClose()
-            if not isLoggingOut and Offhand.db then
-                Offhand.db.bagsWereOpen = false
-            end
-        end
-        local function CommitBagToggle()
-            if not isLoggingOut and Offhand.db then
-                Offhand.db.bagsWereOpen = not Offhand.db.bagsWereOpen
-            end
-        end
         
-        hooksecurefunc("CloseAllBags", function() C_Timer.After(0.1, CommitBagClose) end)
-        hooksecurefunc("ToggleAllBags", function() C_Timer.After(0.1, CommitBagToggle) end)
-        
-        if ToggleBackpack then hooksecurefunc("ToggleBackpack", function() C_Timer.After(0.1, CommitBagToggle) end) end
-        if OpenBackpack then hooksecurefunc("OpenBackpack", function() if not isLoggingOut then Offhand.db.bagsWereOpen = true end end) end
-        if CloseBackpack then hooksecurefunc("CloseBackpack", function() C_Timer.After(0.1, CommitBagClose) end) end
+        local function SaveBagStateBeforeTeardown()
+            if isLoggingOut then return end
+            isLoggingOut = true
+            
+            local isOpen = false
+            if IsBagOpen and IsBagOpen(0) then isOpen = true end
+            
+            for k, v in pairs(_G) do
+                if type(k) == "string" and type(v) == "table" and type(rawget(v, 0)) == "userdata" then
+                    if k:match("^Baganator") or k:match("^Baginator") or k:match("^Bagnon") or k:match("^AdiBags") or k:match("^BetterBags") or k:match("^ArkInventory") or k:match("^ElvUI_ContainerFrame") then
+                        local ok, isShown = pcall(function() return v:IsShown() end)
+                        if ok and isShown then
+                            isOpen = true
+                            break
+                        end
+                    end
+                end
+            end
+            
+            if Offhand.db then Offhand.db.bagsWereOpen = isOpen end
+        end
+
+        if ReloadUI then hooksecurefunc("ReloadUI", SaveBagStateBeforeTeardown) end
+        if Logout then hooksecurefunc("Logout", SaveBagStateBeforeTeardown) end
+        if Quit then hooksecurefunc("Quit", SaveBagStateBeforeTeardown) end
+        if ForceQuit then hooksecurefunc("ForceQuit", SaveBagStateBeforeTeardown) end
     end
     for _, name in ipairs(tooltips) do
         local tt = _G[name]
