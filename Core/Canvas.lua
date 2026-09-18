@@ -200,18 +200,21 @@ if CloseAllWindows and not _G.Offhand_OriginalCloseAllWindows then
         local restoredUIPanels = {}
         
         if not ignoreCenter and not InCombatLockdown() and Offhand.db and Offhand.db.enabled and Offhand.db.persistentWorkspacePanels ~= false then
-            -- 1. Track standard bags
-            local standardBags = {}
-            for i = 1, NUM_CONTAINER_FRAMES or 13 do table.insert(standardBags, _G["ContainerFrame"..i]) end
-            if _G.ContainerFrameCombinedBags then table.insert(standardBags, _G.ContainerFrameCombinedBags) end
-            
-            for _, f in ipairs(standardBags) do
-                if f and f.IsShown and f:IsShown() then
-                    if IsFrameOnWorkspace(f) or (Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[f:GetName() or ""]) then
-                        TrackFrame(f)
-                    else
-                        if f.Hide then f:Hide() end
-                        closedBags = true
+            -- 1. Track standard bags ONLY if no custom bag addon is controlling them
+            local hasCustomBags = Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()
+            if not hasCustomBags then
+                local standardBags = {}
+                for i = 1, NUM_CONTAINER_FRAMES or 13 do table.insert(standardBags, _G["ContainerFrame"..i]) end
+                if _G.ContainerFrameCombinedBags then table.insert(standardBags, _G.ContainerFrameCombinedBags) end
+                
+                for _, f in ipairs(standardBags) do
+                    if f and f.IsShown and f:IsShown() then
+                        if IsFrameOnWorkspace(f) or (Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[f:GetName() or ""]) then
+                            TrackFrame(f)
+                        else
+                            if f.Hide then f:Hide() end
+                            closedBags = true
+                        end
                     end
                 end
             end
