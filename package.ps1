@@ -58,7 +58,7 @@ Write-Host "  -> Created: $addonZip" -ForegroundColor Green
 
 # 4. Package Desktop Companion for GitHub Releases
 Write-Host "
-[4/4] Packaging Desktop Companion (Offhand-Companion-v$Version.zip)..." -ForegroundColor Yellow
+[4/4] Packaging Desktop Companion (Offhand-Companion.zip)..." -ForegroundColor Yellow
 $compStaging = Join-Path $tempDir "Offhand-Companion"
 New-Item -ItemType Directory -Path $compStaging -Force | Out-Null
 
@@ -66,7 +66,7 @@ Copy-Item (Join-Path $rootDir "Companion\Offhand.exe") -Destination $compStaging
 Copy-Item (Join-Path $rootDir "Companion\LICENSE") -Destination $compStaging
 Copy-Item (Join-Path $rootDir "Companion\README.md") -Destination $compStaging
 
-$compZip = Join-Path $distDir "Offhand-Companion-v$Version.zip"
+$compZip = Join-Path $distDir "Offhand-Companion.zip"
 Compress-Archive -Path (Join-Path $compStaging "*") -DestinationPath $compZip -CompressionLevel Optimal -Force
 Write-Host "  -> Created: $compZip" -ForegroundColor Green
 
