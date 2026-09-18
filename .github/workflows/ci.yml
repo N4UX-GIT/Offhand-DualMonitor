@@ -27,8 +27,7 @@ jobs:
         run: |
           $failed = 0
           Get-ChildItem tests\ -Filter "*.lua" | ForEach-Object {
-              Write-Host "
-Running $($_.Name)..." -ForegroundColor Cyan
+              Write-Host "Running $($_.Name)..." -ForegroundColor Cyan
               lua.exe "tests\$($_.Name)"
               if ($LASTEXITCODE -ne 0) {
                   $failed++
