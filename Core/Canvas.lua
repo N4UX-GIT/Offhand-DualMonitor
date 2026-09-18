@@ -382,6 +382,13 @@ function Canvas:RestorePersistentFrames()
     local hasBag = false
     local openPanels = Offhand.db.openWorkspacePanels or {}
     
+    for name, _ in pairs(openPanels) do
+        if name:match("^ContainerFrame") or name:match("^Baganator") or name:match("^Baginator") or name:match("^Bagnon") or name:match("^AdiBags") or name:match("^BetterBags") or name:match("^ArkInventory") then
+            hasBag = true
+            break
+        end
+    end
+    
     for name, _ in pairs(Offhand.db.savedWorkspacePositions) do
         local frame = _G[name]
         if frame then
@@ -412,7 +419,7 @@ function Canvas:RestorePersistentFrames()
     end
     
     if hasBag and OpenAllBags then 
-        C_Timer.After(0.5, function() OpenAllBags() end)
+        C_Timer.After(1.0, function() OpenAllBags() end)
     end
 end
 
