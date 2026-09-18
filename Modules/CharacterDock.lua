@@ -75,6 +75,12 @@ function Panels:Place(frame)
         local deck={left=deckLeft,bottom=0,right=deckLeft+m.deckWidth,top=m.screenHeight}
         local name=frame:GetName() or ""
         local tooltip=IsTooltip(frame)
+        if tooltip and frame.IsIgnoringParentScale and frame:IsIgnoringParentScale() then
+            local pScale = UIParent:GetEffectiveScale()
+            if math.abs(frame:GetScale() - pScale) > 0.01 then
+                frame:SetScale(pScale)
+            end
+        end
         local isBag=name:match("^ContainerFrame%d+$") ~= nil or name=="ContainerFrameCombinedBags"
         local saved=not tooltip and Offhand.db.panelPositions and Offhand.db.panelPositions[name]
         local target=((frame==WorldMapFrame and Offhand.db.dockMap)

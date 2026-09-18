@@ -266,7 +266,38 @@ if CloseAllWindows and not _G.Offhand_OriginalCloseAllWindows then
             end
         end
         
+        -- Pre-scan to see if there is ANYTHING legitimately open on the main screen
+        local mainScreenHadPanels = false
+        if not InCombatLockdown() then
+            local function IsMainScreenPanel(frame)
+                if not frame or not frame.IsShown or not frame:IsShown() then return false end
+                for _, w in ipairs(activeWorkspaceFrames) do
+                    if w == frame then return false end
+                end
+                return true
+            end
+            
+            if UISpecialFrames then
+                for _, name in ipairs(UISpecialFrames) do
+                    if IsMainScreenPanel(_G[name]) then mainScreenHadPanels = true; break end
+                end
+            end
+            if not mainScreenHadPanels and GetUIPanel then
+                if IsMainScreenPanel(GetUIPanel("left")) then mainScreenHadPanels = true end
+                if not mainScreenHadPanels and IsMainScreenPanel(GetUIPanel("center")) then mainScreenHadPanels = true end
+                if not mainScreenHadPanels and IsMainScreenPanel(GetUIPanel("right")) then mainScreenHadPanels = true end
+                if not mainScreenHadPanels and IsMainScreenPanel(GetUIPanel("doublewide")) then mainScreenHadPanels = true end
+                if not mainScreenHadPanels and IsMainScreenPanel(GetUIPanel("fullscreen")) then mainScreenHadPanels = true end
+            end
+        end
+        
         local closedAny = _G.Offhand_OriginalCloseAllWindows(ignoreCenter)
+        
+        -- If NOTHING was open on the main screen, then the only things that closed were our workspace frames (which we are restoring).
+        -- So we force closedAny to false, allowing ToggleGameMenu to open the Game Menu on the first Escape!
+        if not mainScreenHadPanels and #activeWorkspaceFrames > 0 then
+            closedAny = false
+        end
         
         if not InCombatLockdown() then
             -- Put everything back!
