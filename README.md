@@ -5,7 +5,7 @@
   
   **Equip your Offhand. Dual wield your monitors.**
   
-  Offhand transforms dual displays into a dedicated 3D gaming viewport and a persistent secondary utility space. It locks your 3D gameplay to your **Mainhand Monitor** while turning your secondary screen into a highly customizable **Offhand Monitor** for your map, bags, character sheets, and other UI panels.
+  Playing WoW stretched across two monitors usually sucks: your character is split by the bezel, and your UI is a mess. Offhand fixes this. It keeps your game centered on your **Mainhand Monitor**, and turns your second screen into a dedicated **Offhand Monitor** for your map, bags, and bulky interface panels.
   
   [![Download on CurseForge](https://img.shields.io/badge/CurseForge-Download-f56e0f?style=for-the-badge&logo=curseforge)](https://www.curseforge.com/wow/addons/offhand)
   [![Companion Downloads](https://img.shields.io/github/downloads/N4UX-GIT/Offhand-DualMonitor/total?style=for-the-badge&color=blue&logo=github)](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases)
@@ -16,11 +16,11 @@
 
 ## 🚀 Features
 
-*   **Flawless Dual-Monitor Topology:** Instantly splits your screen real estate. The **Mainhand Monitor** renders the 3D game world perfectly centered and scaled, while the **Offhand Monitor** is dedicated entirely to your UI panels.
-*   **Persistent Offhand Monitor:** Keep your map, bags, spellbook, and character pane open simultaneously on your Offhand Monitor without them closing when you press Escape or enter combat.
-*   **Fully Dynamic Layout Engine:** Supports any monitor arrangement (e.g., standard 16:9 Landscape next to a vertical 9:16 Portrait, or dual Ultrawides).
-*   **Bezel Compensation & OBS Support:** Hide the physical bezel gap between your monitors perfectly. Included OBS instructions allow you to stream without the gap visible to viewers.
-*   **The Companion App:** A lightweight, optional C# executable that automatically strips the Windows title borders and spans your game window flawlessly across multiple monitors on launch.
+*   **True Dual-Monitor Support:** No more UI elements split down the middle of your screens. The game stays focused on your main monitor, while your bulky UI panels are routed to your second screen.
+*   **Persistent Panels:** Keep your world map, bags, and character sheet open on your second screen without cluttering your game view. They stay open even while you're moving around.
+*   **Mix & Match Monitors:** Got a 4K main screen and a 1080p vertical monitor on the side? Offhand handles asymmetrical layouts, mixed resolutions, and different refresh rates naturally.
+*   **Hide the Bezel:** Offhand calculates the physical plastic gap between your monitors so the game world flows behind it instead of warping. Streaming? The included OBS guide shows you how to broadcast a clean, gap-free feed.
+*   **The Companion App:** A tiny, open-source tool that removes the Windows title bar and stretches the game across your screens with one click.
 
 ---
 
@@ -37,13 +37,13 @@
 5.  **Run the Wizard:** Type /offhand wizard in-game. The automated setup will detect your monitors, adjust the seam, and scale your UI perfectly in 4 easy steps.
 
 ### Manual Fallback (No Companion App)
-While highly recommended for a borderless, automated experience, the Companion App is strictly optional. The Offhand layout engine automatically recalculates all math based on the physical pixel dimensions of the game window, regardless of how it gets sized. If you prefer not to run external applications, you can achieve the same result manually:
+The Companion App is highly recommended for a clean, borderless experience, but it's totally optional. If you don't want to run external apps, you can do it manually:
 
-1. Open WoW's Graphics settings and set Display Mode to **Windowed**.
-2. Manually grab the edges of the game window and stretch them completely across both of your monitors.
-3. Because the window now encompasses your entire desk, the Offhand addon will instantly detect the massive new dimensions and seamlessly split your UI onto the Offhand Monitor, and the 3D Game View onto the Mainhand Monitor.
+1. Set WoW to **Windowed** mode.
+2. Grab the edges of the game window and manually drag them across both of your monitors.
+3. The Offhand addon will instantly notice the massive new window size and split your UI automatically.
 
-**Note:** If you use this manual method, you will see the standard Windows Title Bar stretching across the top of your game. The Companion App's primary purpose is to simply strip that title bar off and automate the spanning process for you perfectly.
+**Note:** If you do it manually, you'll still have the standard Windows Title Bar across the top of your game. The Companion App exists purely to hide that bar and automate the stretching for you.
 
 ---
 
