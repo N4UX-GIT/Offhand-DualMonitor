@@ -183,59 +183,61 @@ end
 if CloseAllWindows and not _G.Offhand_OriginalCloseAllWindows then
     _G.Offhand_OriginalCloseAllWindows = CloseAllWindows
     CloseAllWindows = function(ignoreCenter)
+        local activeWorkspaceFrames = {}
         local closedBags = false
-        if not ignoreCenter and Offhand.db and Offhand.db.enabled and Offhand.db.persistentWorkspacePanels ~= false then
-            local framesToCheck = {}
-            for i = 1, NUM_CONTAINER_FRAMES or 13 do
-                table.insert(framesToCheck, _G["ContainerFrame"..i])
-            end
-            if _G.ContainerFrameCombinedBags then
-                table.insert(framesToCheck, _G.ContainerFrameCombinedBags)
-            end
+        
+        -- 1. Identify ALL frames on the workspace that are currently open
+        if not ignoreCenter and not InCombatLockdown() and Offhand.db and Offhand.db.enabled and Offhand.db.persistentWorkspacePanels ~= false then
+            -- Standard bags
+            local standardBags = {}
+            for i = 1, NUM_CONTAINER_FRAMES or 13 do table.insert(standardBags, _G["ContainerFrame"..i]) end
+            if _G.ContainerFrameCombinedBags then table.insert(standardBags, _G.ContainerFrameCombinedBags) end
             
-            local workspaceBags = {}
-            local nonWorkspaceBags = {}
-            for _, f in ipairs(framesToCheck) do
+            for _, f in ipairs(standardBags) do
                 if f and f.IsShown and f:IsShown() then
                     local name = f.GetName and f:GetName()
                     if name then
                         local isWs = (Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]) or IsFrameOnWorkspace(f)
                         if isWs then
-                            table.insert(workspaceBags, f)
+                            table.insert(activeWorkspaceFrames, f)
                         else
-                            table.insert(nonWorkspaceBags, f)
+                            if f.Hide then f:Hide() end
+                            closedBags = true
                         end
                     end
                 end
             end
             
-            if #workspaceBags > 0 then
-                -- Workspace bags exist! We must prevent C_Container.CloseAllBags from closing them.
-                -- We close the non-workspace bags manually.
-                for _, f in ipairs(nonWorkspaceBags) do
-                    if f.Hide then f:Hide() end
-                    closedBags = true
+            -- Any other custom frames (like Baginator, CharacterFrame, Map) saved in the workspace
+            if Offhand.db.savedWorkspacePositions then
+                for name, _ in pairs(Offhand.db.savedWorkspacePositions) do
+                    local f = _G[name]
+                    if f and f.IsShown and f:IsShown() then
+                        -- Prevent duplicates if it was a standard bag
+                        local isDuplicate = false
+                        for _, existing in ipairs(activeWorkspaceFrames) do
+                            if existing == f then isDuplicate = true; break end
+                        end
+                        if not isDuplicate then
+                            table.insert(activeWorkspaceFrames, f)
+                        end
+                    end
                 end
-                -- We tell CloseAllWindows to ignore bags by tricking it, or we just restore them after!
-                ignoreCenter = true -- This skips C_Container.CloseAllBags() natively!
+            end
+            
+            if #activeWorkspaceFrames > 0 then
+                ignoreCenter = true -- Bypass native C_Container.CloseAllBags()
             end
         end
         
+        -- 2. Run the native Blizzard close engine
         local closedAny = _G.Offhand_OriginalCloseAllWindows(ignoreCenter)
         
-        -- Fallback: Just in case they got closed anyway, force them back open instantly without flicker
-        if not InCombatLockdown() and Offhand.db and Offhand.db.persistentWorkspacePanels ~= false then
-            local frames = {}
-            if _G.ContainerFrameCombinedBags then table.insert(frames, _G.ContainerFrameCombinedBags) end
-            for i = 1, NUM_CONTAINER_FRAMES or 13 do
-                table.insert(frames, _G["ContainerFrame"..i])
-            end
-            for _, f in ipairs(frames) do
-                local name = f.GetName and f:GetName()
-                if name and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name] then
-                    if f.Show and not f:IsShown() then
-                        f:Show()
-                    end
+        -- 3. IMMEDIATELY restore any workspace frames that the engine just nuked
+        if not InCombatLockdown() then
+            for _, f in ipairs(activeWorkspaceFrames) do
+                if f.Show and not f:IsShown() then
+                    f:Show()
                 end
             end
         end
