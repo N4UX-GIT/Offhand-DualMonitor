@@ -420,8 +420,31 @@ function Canvas:RestorePersistentFrames()
     
     if hasBag then 
         C_Timer.After(1.0, function() 
-            if OpenAllBags then OpenAllBags() end
-            if OpenBackpack then pcall(OpenBackpack) end
+            -- Check if the bags are ALREADY open natively or by the custom addon's own persistence.
+            -- If they are, calling OpenAllBags() might accidentally trigger an internal toggle and close them!
+            local isAlreadyOpen = false
+            if IsBagOpen then
+                isAlreadyOpen = IsBagOpen(0)
+            end
+            
+            -- Brute-force verify custom bags aren't already visible before firing OpenAllBags, 
+            -- because custom bags often route OpenAllBags to a toggle function!
+            for k, v in pairs(_G) do
+                if type(k) == "string" and type(v) == "table" and type(rawget(v, 0)) == "userdata" then
+                    if k:match("^Baganator") or k:match("^Baginator") or k:match("^Bagnon") or k:match("^AdiBags") or k:match("^BetterBags") or k:match("^ArkInventory") or k:match("^ElvUI_ContainerFrame") then
+                        local ok, isShown = pcall(function() return v:IsShown() end)
+                        if ok and isShown then
+                            isAlreadyOpen = true
+                            break
+                        end
+                    end
+                end
+            end
+            
+            if not isAlreadyOpen then
+                if OpenAllBags then OpenAllBags() end
+                if OpenBackpack then pcall(OpenBackpack) end
+            end
         end)
     end
 end
