@@ -8,6 +8,7 @@
   Offhand transforms dual displays into a dedicated 3D gaming viewport and a persistent secondary utility space. It locks your 3D gameplay to your **Mainhand Monitor** while turning your secondary screen into a highly customizable **Offhand Monitor** for your map, bags, character sheets, and other UI panels.
   
   [![Download on CurseForge](https://img.shields.io/badge/CurseForge-Download-f56e0f?style=for-the-badge&logo=curseforge)](https://www.curseforge.com/wow/addons/offhand)
+  [![Companion Downloads](https://img.shields.io/github/downloads/N4UX-GIT/Offhand-DualMonitor/total?style=for-the-badge&color=blue&logo=github)](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases)
   [![Get Companion App](https://img.shields.io/badge/GitHub_Releases-Companion_App-181717?style=for-the-badge&logo=github)](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases)
 </div>
 
@@ -71,3 +72,7 @@ Drag supported windows by their headers between either monitor freely.
 If you accidentally drag a window off-screen or change your monitor configuration and lose a panel, click the **Gather Off-Screen UI** button in the settings, or type /offhand gather. This instantly moves any eligible open windows with inaccessible title edges safely back to the Mainhand Monitor. 
 
 To return to one monitor, simply disable Offhand's dual-monitor mode in-game, and click **Restore Window** in the Companion App (or press Ctrl+Alt+R) to snap WoW back to a single screen.
+
+
+
+
