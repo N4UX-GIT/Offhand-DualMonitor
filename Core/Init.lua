@@ -496,6 +496,20 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                     Offhand.db.openWorkspacePanels[name] = true
                 end
             end
+            
+            for key, val in pairs(_G) do
+                if type(key) == "string" and type(val) == "table" and val.IsShown and val:IsShown() then
+                    if key:match("^Baginator") or key:match("^Bagnon") or key:match("^AdiBags") or key:match("^BetterBags") or key:match("^ArkInventory") or key:match("^ElvUI_ContainerFrame") then
+                        if Offhand.Canvas and Offhand.Canvas.IsFrameOnWorkspace then
+                            local ok, onWs = pcall(Offhand.Canvas.IsFrameOnWorkspace, val)
+                            if ok and onWs then
+                                Offhand.db.openWorkspacePanels[key] = true
+                                Offhand.db.savedWorkspacePositions[key] = true
+                            end
+                        end
+                    end
+                end
+            end
         else
             if Offhand.db then Offhand.db.openWorkspacePanels = {} end
         end
