@@ -140,28 +140,49 @@ function Canvas:UpdatePersistenceBehavior()
 end
 
 -- Global Bag Closure Hook for Escape Persistence
+
+local function HandleCustomCloseAllBags(originalFunc, ...)
+    if InCombatLockdown() then return originalFunc(...) end
+    if not Offhand.db or not Offhand.db.enabled or Offhand.db.persistentWorkspacePanels == false then
+        return originalFunc(...)
+    end
+    
+    local closedAny = false
+    local framesToCheck = {}
+    for i = 1, NUM_CONTAINER_FRAMES or 13 do
+        table.insert(framesToCheck, _G["ContainerFrame"..i])
+    end
+    if _G.ContainerFrameCombinedBags then
+        table.insert(framesToCheck, _G.ContainerFrameCombinedBags)
+    end
+    
+    for _, f in ipairs(framesToCheck) do
+        if f and f.IsShown and f:IsShown() then
+            local name = f.GetName and f:GetName()
+            if name then
+                local isWs = (Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]) or IsFrameOnWorkspace(f)
+                if not isWs then
+                    if f.Hide then f:Hide() end
+                    closedAny = true
+                end
+            end
+        end
+    end
+    
+    if closedAny then return true else return false end
+end
+
+if C_Container and C_Container.CloseAllBags and not _G.Offhand_Original_C_Container_CloseAllBags then
+    _G.Offhand_Original_C_Container_CloseAllBags = C_Container.CloseAllBags
+    C_Container.CloseAllBags = function(...)
+        return HandleCustomCloseAllBags(_G.Offhand_Original_C_Container_CloseAllBags, ...)
+    end
+end
+
 if CloseAllBags and not _G.Offhand_OriginalCloseAllBags then
     _G.Offhand_OriginalCloseAllBags = CloseAllBags
     CloseAllBags = function(...)
-        -- Native bag closure must remain available during combat.
-        if InCombatLockdown() then return _G.Offhand_OriginalCloseAllBags(...) end
-        if Offhand.db and Offhand.db.enabled and Offhand.db.persistentWorkspacePanels ~= false then
-            local closedAny = false
-            for i = 1, NUM_CONTAINER_FRAMES or 13 do
-                local f = _G["ContainerFrame"..i]
-                if f and f:IsShown() then
-                    local name = f:GetName()
-                    -- If the bag is NOT in the workspace, close it
-                    if not (Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]) and not IsFrameOnWorkspace(f) then
-                        if f.Hide then f:Hide() end
-                        closedAny = true
-                    end
-                end
-            end
-            if closedAny then return true else return false end
-        else
-            return _G.Offhand_OriginalCloseAllBags(...)
-        end
+        return HandleCustomCloseAllBags(_G.Offhand_OriginalCloseAllBags, ...)
     end
 end
 
