@@ -780,9 +780,19 @@ frame:SetScript("OnEvent", function()
     
     -- Globally track if the user has their bags open
     if OpenAllBags and CloseAllBags and ToggleAllBags then
-        hooksecurefunc("OpenAllBags", function() Offhand.db.bagsWereOpen = true end)
-        hooksecurefunc("CloseAllBags", function() Offhand.db.bagsWereOpen = false end)
-        hooksecurefunc("ToggleAllBags", function() Offhand.db.bagsWereOpen = not Offhand.db.bagsWereOpen end)
+        local isLoggingOut = false
+        local logoutFrame = CreateFrame("Frame")
+        logoutFrame:RegisterEvent("PLAYER_LEAVING_WORLD")
+        logoutFrame:RegisterEvent("PLAYER_LOGOUT")
+        logoutFrame:SetScript("OnEvent", function() isLoggingOut = true end)
+        
+        hooksecurefunc("OpenAllBags", function() if not isLoggingOut then Offhand.db.bagsWereOpen = true end end)
+        hooksecurefunc("CloseAllBags", function() if not isLoggingOut then Offhand.db.bagsWereOpen = false end end)
+        hooksecurefunc("ToggleAllBags", function() if not isLoggingOut then Offhand.db.bagsWereOpen = not Offhand.db.bagsWereOpen end end)
+        
+        if ToggleBackpack then hooksecurefunc("ToggleBackpack", function() if not isLoggingOut then Offhand.db.bagsWereOpen = not Offhand.db.bagsWereOpen end end) end
+        if OpenBackpack then hooksecurefunc("OpenBackpack", function() if not isLoggingOut then Offhand.db.bagsWereOpen = true end end) end
+        if CloseBackpack then hooksecurefunc("CloseBackpack", function() if not isLoggingOut then Offhand.db.bagsWereOpen = false end end) end
     end
     for _, name in ipairs(tooltips) do
         local tt = _G[name]
