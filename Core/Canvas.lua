@@ -266,37 +266,74 @@ if CloseAllWindows and not _G.Offhand_OriginalCloseAllWindows then
             end
         end
         
-        -- Pre-scan to see if there is ANYTHING legitimately open on the main screen
-        local mainScreenHadPanels = false
+        -- Pre-scan ALL UI panels to see their EXACT state before CloseAllWindows runs
+        local statesBefore = {}
         if not InCombatLockdown() then
-            local function IsMainScreenPanel(frame)
-                if not frame or not frame.IsShown or not frame:IsShown() then return false end
-                for _, w in ipairs(activeWorkspaceFrames) do
-                    if w == frame then return false end
-                end
-                return true
-            end
-            
             if UISpecialFrames then
                 for _, name in ipairs(UISpecialFrames) do
-                    if IsMainScreenPanel(_G[name]) then mainScreenHadPanels = true; break end
+                    local f = _G[name]
+                    if f and f.IsShown and f:IsShown() then statesBefore[name] = true end
                 end
             end
-            if not mainScreenHadPanels and GetUIPanel then
-                if IsMainScreenPanel(GetUIPanel("left")) then mainScreenHadPanels = true end
-                if not mainScreenHadPanels and IsMainScreenPanel(GetUIPanel("center")) then mainScreenHadPanels = true end
-                if not mainScreenHadPanels and IsMainScreenPanel(GetUIPanel("right")) then mainScreenHadPanels = true end
-                if not mainScreenHadPanels and IsMainScreenPanel(GetUIPanel("doublewide")) then mainScreenHadPanels = true end
-                if not mainScreenHadPanels and IsMainScreenPanel(GetUIPanel("fullscreen")) then mainScreenHadPanels = true end
+            if UIPanelWindows then
+                for name, _ in pairs(UIPanelWindows) do
+                    local f = _G[name]
+                    if f and f.IsShown and f:IsShown() then statesBefore[name] = true end
+                end
+            end
+            for i = 1, NUM_CONTAINER_FRAMES or 13 do
+                local f = _G["ContainerFrame"..i]
+                if f and f.IsShown and f:IsShown() then statesBefore[f:GetName()] = true end
             end
         end
         
         local closedAny = _G.Offhand_OriginalCloseAllWindows(ignoreCenter)
         
-        -- If NOTHING was open on the main screen, then the only things that closed were our workspace frames (which we are restoring).
-        -- So we force closedAny to false, allowing ToggleGameMenu to open the Game Menu on the first Escape!
-        if not mainScreenHadPanels and #activeWorkspaceFrames > 0 then
-            closedAny = false
+        -- Post-scan: Did anything on the main screen actually close?
+        if not InCombatLockdown() and closedAny then
+            local legitimateClose = false
+            local function CheckLegitimateClose(name)
+                local f = _G[name]
+                if f and statesBefore[name] and not f:IsShown() then
+                    local isWs = false
+                    for _, w in ipairs(activeWorkspaceFrames) do
+                        if w == f then isWs = true; break end
+                    end
+                    -- A legitimate close is a frame not on the workspace that was physically visible to the user
+                    if not isWs and f.GetEffectiveAlpha and f:GetEffectiveAlpha() > 0.05 then
+                        local left, bottom, width, height = f:GetRect()
+                        if left and bottom and width and height and width > 1 and height > 1 then
+                            local scale = f:GetEffectiveScale() or 1
+                            local fLeft, fBottom = left * scale, bottom * scale
+                            local fRight, fTop = fLeft + (width * scale), fBottom + (height * scale)
+                            
+                            local pWidth = (UIParent:GetWidth() or 0) * (UIParent:GetEffectiveScale() or 1)
+                            local pHeight = (UIParent:GetHeight() or 0) * (UIParent:GetEffectiveScale() or 1)
+                            
+                            -- Simple bounding box collision with the total UIParent bounds
+                            if fLeft < pWidth and fRight > 0 and fBottom < pHeight and fTop > 0 then
+                                legitimateClose = true
+                            end
+                        end
+                    end
+                end
+            end
+            
+            if UISpecialFrames then
+                for _, name in ipairs(UISpecialFrames) do CheckLegitimateClose(name) end
+            end
+            if UIPanelWindows and not legitimateClose then
+                for name, _ in pairs(UIPanelWindows) do CheckLegitimateClose(name) end
+            end
+            if not legitimateClose then
+                for i = 1, NUM_CONTAINER_FRAMES or 13 do CheckLegitimateClose("ContainerFrame"..i) end
+            end
+            
+            -- If the ONLY things that closed were our activeWorkspaceFrames, then we SPOOF the return value to false!
+            -- This perfectly guarantees ToggleGameMenu will open the Game Menu on the first Escape.
+            if not legitimateClose and #activeWorkspaceFrames > 0 then
+                closedAny = false
+            end
         end
         
         if not InCombatLockdown() then
