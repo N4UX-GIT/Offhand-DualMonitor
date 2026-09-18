@@ -807,7 +807,7 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
     if not m then return end
 
     local wPos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
-    if wPos and wPos.x and wPos.y then
+    if type(wPos) == "table" and wPos.x and wPos.y then
         if Offhand.db.independentWorkspacePanels or frame == WorldMapFrame then
             DemodalizePanel(frame)
         end
