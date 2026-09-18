@@ -113,6 +113,7 @@ code {
    ============================================================================ */
 .btn {
     display: inline-flex;
+    white-space: nowrap;
     align-items: center;
     justify-content: center;
     gap: 10px;
@@ -227,6 +228,7 @@ code {
 .brand-text {
     display: flex;
     flex-direction: column;
+    white-space: nowrap;
 }
 
 .brand-title {
@@ -253,6 +255,7 @@ code {
 }
 
 .nav-links a {
+    white-space: nowrap;
     font-family: var(--font-warcraft);
     font-size: 0.92rem;
     font-weight: 700;
