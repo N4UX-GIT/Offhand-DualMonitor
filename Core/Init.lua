@@ -724,7 +724,17 @@ end
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:SetScript("OnEvent", function()
-    local tooltips = { "GameTooltip", "ItemRefTooltip", "ShoppingTooltip1", "ShoppingTooltip2" }
+    local tooltips = { "GameTooltip", "ItemRefTooltip", "ShoppingTooltip1", "ShoppingTooltip2", "SettingsTooltip" }
+    
+    -- Dynamically find any other global tooltips
+    for key, val in pairs(_G) do
+        if type(key) == "string" and string.match(key, "Tooltip") and type(val) == "table" and val.GetObjectType and val:GetObjectType() == "GameTooltip" then
+            local found = false
+            for _, v in ipairs(tooltips) do if v == key then found = true end end
+            if not found then table.insert(tooltips, key) end
+        end
+    end
+
     local function EnforceTooltipScale(self)
         if not UIParent then return end
         local pScale = UIParent:GetEffectiveScale() or 1
@@ -732,6 +742,10 @@ frame:SetScript("OnEvent", function()
         if self.GetScale and math.abs(self:GetScale() - pScale) > 0.05 then
             self:SetScale(pScale)
         end
+    end
+    
+    if SharedTooltip_SetBackdropStyle then
+        hooksecurefunc("SharedTooltip_SetBackdropStyle", EnforceTooltipScale)
     end
     for _, name in ipairs(tooltips) do
         local tt = _G[name]
