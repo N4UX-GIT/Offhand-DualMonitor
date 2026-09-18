@@ -38,6 +38,7 @@ New-Item -ItemType Directory -Path $addonStaging -Force | Out-Null
 # Copy root addon files
 Copy-Item (Join-Path $rootDir "Offhand.toc") -Destination $addonStaging
 Copy-Item (Join-Path $rootDir "Offhand_Vanilla.toc") -Destination $addonStaging
+Copy-Item (Join-Path $rootDir "Offhand_Forever.toc") -Destination $addonStaging
 Copy-Item (Join-Path $rootDir "LICENSE") -Destination $addonStaging
 Copy-Item (Join-Path $rootDir "README.md") -Destination $addonStaging
 
@@ -98,3 +99,4 @@ Write-Host "
 ===================================================" -ForegroundColor Green
 Write-Host "  Packaging complete successfully!" -ForegroundColor Green
 Write-Host "===================================================" -ForegroundColor Green
+
