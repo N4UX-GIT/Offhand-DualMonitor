@@ -196,6 +196,9 @@ if CloseAllWindows and not _G.Offhand_OriginalCloseAllWindows then
             end
         end
 
+        local restoredSpecialFrames = {}
+        local restoredUIPanels = {}
+        
         if not ignoreCenter and not InCombatLockdown() and Offhand.db and Offhand.db.enabled and Offhand.db.persistentWorkspacePanels ~= false then
             -- 1. Track standard bags
             local standardBags = {}
@@ -220,17 +223,38 @@ if CloseAllWindows and not _G.Offhand_OriginalCloseAllWindows then
                 end
             end
             
-            -- 3. Track ALL UISpecialFrames (this is crucial for Baginator and custom addons!)
+            -- 3. Track ALL UISpecialFrames
             if UISpecialFrames then
                 for _, name in ipairs(UISpecialFrames) do
                     TrackFrame(_G[name])
                 end
             end
             
-            -- 4. Track ALL UIPanelWindows (just in case they register as a panel instead of a special frame)
+            -- 4. Track ALL UIPanelWindows
             if UIPanelWindows then
                 for name, _ in pairs(UIPanelWindows) do
                     TrackFrame(_G[name])
+                end
+            end
+            
+            -- 5. Strip them out of the Blizzard engine so Hide() is never called!
+            for _, f in ipairs(activeWorkspaceFrames) do
+                local name = f.GetName and f:GetName()
+                if name then
+                    -- Temporarily remove from UISpecialFrames
+                    if UISpecialFrames then
+                        for i = #UISpecialFrames, 1, -1 do
+                            if UISpecialFrames[i] == name then
+                                table.insert(restoredSpecialFrames, name)
+                                table.remove(UISpecialFrames, i)
+                            end
+                        end
+                    end
+                    -- Temporarily remove from UIPanelWindows
+                    if UIPanelWindows and UIPanelWindows[name] and UIPanelWindows[name].area then
+                        restoredUIPanels[name] = UIPanelWindows[name].area
+                        UIPanelWindows[name].area = nil
+                    end
                 end
             end
             
@@ -242,6 +266,19 @@ if CloseAllWindows and not _G.Offhand_OriginalCloseAllWindows then
         local closedAny = _G.Offhand_OriginalCloseAllWindows(ignoreCenter)
         
         if not InCombatLockdown() then
+            -- Put everything back!
+            if UISpecialFrames then
+                for _, name in ipairs(restoredSpecialFrames) do
+                    table.insert(UISpecialFrames, name)
+                end
+            end
+            if UIPanelWindows then
+                for name, area in pairs(restoredUIPanels) do
+                    UIPanelWindows[name].area = area
+                end
+            end
+            
+            -- Failsafe (in case something bypassed the tables and closed anyway)
             for _, f in ipairs(activeWorkspaceFrames) do
                 if f.Show and not f:IsShown() then
                     f:Show()
