@@ -501,7 +501,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 if type(key) == "string" and type(val) == "table" and type(rawget(val, 0)) == "userdata" and val.IsShown then
                     local okShow, isShown = pcall(function() return val:IsShown() end)
                     if okShow and isShown then
-                        if key:match("^Baginator") or key:match("^Bagnon") or key:match("^AdiBags") or key:match("^BetterBags") or key:match("^ArkInventory") or key:match("^ElvUI_ContainerFrame") then
+                        if key:match("^Baganator") or key:match("^Baginator") or key:match("^Bagnon") or key:match("^AdiBags") or key:match("^BetterBags") or key:match("^ArkInventory") or key:match("^ElvUI_ContainerFrame") then
                             if Offhand.Canvas and Offhand.Canvas.IsFrameOnWorkspace then
                                 local okWs, onWs = pcall(Offhand.Canvas.IsFrameOnWorkspace, val)
                                 if okWs and onWs then

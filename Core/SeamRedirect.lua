@@ -25,7 +25,7 @@ local function HasCustomActionBarAddon()
 end
 
 local function HasCustomBagAddon()
-    if _G.Baginator or _G.Bagnon or _G.AdiBags or _G.ArkInventory or _G.BetterBags or _G.Inventorian or _G.ElvUI or _G.Tukui then return true end
+    if _G.Baganator or _G.Baginator or _G.Bagnon or _G.AdiBags or _G.ArkInventory or _G.BetterBags or _G.Inventorian or _G.ElvUI or _G.Tukui then return true end
     
     local c1 = _G.ContainerFrame1
     if not c1 then return true end
