@@ -726,12 +726,15 @@ frame:RegisterEvent("PLAYER_LOGIN")
 frame:SetScript("OnEvent", function()
     local tooltips = { "GameTooltip", "ItemRefTooltip", "ShoppingTooltip1", "ShoppingTooltip2", "SettingsTooltip" }
     
-    -- Dynamically find any other global tooltips
+    -- Dynamically find any other global tooltips safely
     for key, val in pairs(_G) do
-        if type(key) == "string" and string.match(key, "Tooltip") and type(val) == "table" and val.GetObjectType and val:GetObjectType() == "GameTooltip" then
-            local found = false
-            for _, v in ipairs(tooltips) do if v == key then found = true end end
-            if not found then table.insert(tooltips, key) end
+        if type(key) == "string" and string.match(key, "Tooltip") and type(val) == "table" and val.GetObjectType then
+            local ok, objType = pcall(function() return val:GetObjectType() end)
+            if ok and objType == "GameTooltip" then
+                local found = false
+                for _, v in ipairs(tooltips) do if v == key then found = true end end
+                if not found then table.insert(tooltips, key) end
+            end
         end
     end
 
