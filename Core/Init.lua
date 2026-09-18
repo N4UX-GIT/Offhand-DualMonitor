@@ -403,11 +403,46 @@ end
 StaticPopupDialogs["OFFHAND_COMPANION_WARNING"] = {
     text = [[|cffd0d0d0Offhand is enabled, but your window is not optimally spanned to your physical monitor setup and resolution.|r
 
-For a seamless, borderless experience--and to avoid the tedious process of manually stretching the window edges every time you launch the game--the Offhand Companion App is highly recommended. Download it securely from GitHub below:
+For a seamless, borderless experience--and to avoid manually stretching the window edges every time you launch the game--the Offhand Companion App is highly recommended. Download it securely from GitHub below:
 
 (Alternatively, if you prefer to stretch the window manually across both monitors, click Ignore to permanently dismiss this warning).]],
     button1 = "OK",
     button2 = "Ignore",
+StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"] = {
+    text = [[|cffffd100Welcome to Offhand!|r
+
+To use this dual-monitor interface, your World of Warcraft window must be spanned across two screens. Currently, your game is only running on one screen.
+
+We highly recommend using the |cff00ff00Offhand Companion App|r (Windows .exe) to automatically achieve a pixel-perfect, borderless span across your monitors.
+
+Once your game spans both monitors, click 'Launch Wizard' to calibrate your UI.]],
+    button1 = "Get App (Copy Link)",
+    button2 = "Launch Wizard",
+    hasEditBox = true,
+    editBoxWidth = 260,
+    OnShow = function(self)
+        local eb = self.EditBox or _G[self:GetName()."EditBox"]
+        if eb then
+            eb:SetText("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest")
+            eb:HighlightText()
+            eb:SetFocus()
+        end
+    end,
+    OnAccept = function() end,
+    OnCancel = function(self)
+        if Offhand.Wizard and Offhand.Wizard.Open then
+            Offhand.Wizard:Open()
+        end
+    end,
+    EditBoxOnEscapePressed = function(self)
+        self:GetParent():Hide()
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
     hasEditBox = true,
     editBoxWidth = 260,
     OnShow = function(self)
@@ -478,15 +513,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         end)
         Offhand:ApplyFullLayout()
         Offhand:Print(L["MSG_LOADED"], Offhand.version)
-        if not Offhand.db.firstRunComplete then
-            C_Timer.After(1.5, function()
-                if Offhand.Wizard and Offhand.Wizard.Open then
-                    Offhand.Wizard:Open()
-                else
-                    Offhand:Print(L["MSG_FIRST_RUN"])
-                end
-            end)
-        end
+
     elseif event == "PLAYER_LEAVING_WORLD" then
         if Offhand.db and Offhand.db.enabled and Offhand.db.savedWorkspacePositions and Offhand.db.restoreWorkspaceOnReload ~= false then
             Offhand.db.openWorkspacePanels = {}
@@ -524,15 +551,35 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 Offhand.Canvas:RestorePersistentFrames()
             end
 
-            -- Guard: Companion App check
-            if Offhand.db and Offhand.db.enabled and not Offhand.db.suppressCompanionWarning then
+            -- Setup Wizard and Guard checks
+            if Offhand.db and Offhand.db.enabled then
+                local isSpanned = true
                 local w = GetScreenWidth() * UIParent:GetEffectiveScale()
                 local physW = w
                 if GetPhysicalScreenSize then
                     pcall(function() physW = select(1, GetPhysicalScreenSize()) end)
                 end
                 if w and physW and w <= (physW + 50) then
-                    StaticPopup_Show("OFFHAND_COMPANION_WARNING")
+                    isSpanned = false
+                end
+
+                if not Offhand.db.firstRunComplete then
+                    if not isSpanned then
+                        -- First run, but NOT spanned yet: Show the welcome guard
+                        StaticPopup_Show("OFFHAND_WELCOME_SPAN_WARNING")
+                    else
+                        -- First run, and successfully spanned: Show the wizard immediately
+                        if Offhand.Wizard and Offhand.Wizard.Open then
+                            Offhand.Wizard:Open()
+                        else
+                            Offhand:Print(L["MSG_FIRST_RUN"])
+                        end
+                    end
+                else
+                    -- Not first run, but not spanned: Show the standard warning (if not suppressed)
+                    if not isSpanned and not Offhand.db.suppressCompanionWarning then
+                        StaticPopup_Show("OFFHAND_COMPANION_WARNING")
+                    end
                 end
             end
 

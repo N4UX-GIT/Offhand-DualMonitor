@@ -123,7 +123,11 @@ function Wizard:CreateFrame()
     welcomeText:SetPoint("TOPLEFT", 16, -54)
     welcomeText:SetPoint("TOPRIGHT", -16, -54)
     welcomeText:SetJustifyH("LEFT")
-    welcomeText:SetText("|cffffd100Welcome to Offhand!|r This addon splits your UI across two monitors, placing the 3D game on your primary monitor and a clean 'Canvas' on your Offhand Monitor for maps, bags, and reading. Click |cff00ff00Auto-Configure|r below to calibrate instantly.")
+    welcomeText:SetText("|cffffd100Welcome to Offhand!|r Your World of Warcraft window is now spanned across your monitors.
+
+Offhand will split your UI perfectly: placing the 3D game on your main monitor, and providing a clean 'Canvas' on your secondary monitor for maps, bags, and reading.
+
+Click |cff00ff00Auto-Configure|r below to calibrate instantly.")
 
     -- ========================================================================
     -- CARD 1: DISPLAY TOPOLOGY & 1-CLICK AUTO-SETUP
