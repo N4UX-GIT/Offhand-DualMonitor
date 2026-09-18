@@ -506,7 +506,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                                 local okWs, onWs = pcall(Offhand.Canvas.IsFrameOnWorkspace, val)
                                 if okWs and onWs then
                                     Offhand.db.openWorkspacePanels[key] = true
-                                    Offhand.db.savedWorkspacePositions[key] = true
+                                    Offhand.db.savedWorkspacePositions[key] = Offhand.db.savedWorkspacePositions[key] or {}
                                 end
                             end
                         end
