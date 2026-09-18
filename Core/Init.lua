@@ -720,20 +720,17 @@ function Offhand:GatherOffScreenUI()
 end
 
 
+
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:SetScript("OnEvent", function()
     local tooltips = { "GameTooltip", "ItemRefTooltip", "ShoppingTooltip1", "ShoppingTooltip2" }
     for _, name in ipairs(tooltips) do
         local tt = _G[name]
-        if tt and tt.HookScript then
-            tt:HookScript("OnUpdate", function(self)
-                if self.IsIgnoringParentScale and self:IsIgnoringParentScale() then
-                    local pScale = UIParent:GetEffectiveScale()
-                    if pScale and math.abs(self:GetScale() - pScale) > 0.01 then
-                        self:SetScale(pScale)
-                    end
-                end
+        if tt and tt.SetIgnoreParentScale then
+            tt:SetIgnoreParentScale(false)
+            hooksecurefunc(tt, "SetIgnoreParentScale", function(self, ignore)
+                if ignore then self:SetIgnoreParentScale(false) end
             end)
         end
     end

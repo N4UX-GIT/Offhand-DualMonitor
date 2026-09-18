@@ -281,9 +281,12 @@ if CloseAllWindows and not _G.Offhand_OriginalCloseAllWindows then
                     if f and f.IsShown and f:IsShown() then statesBefore[name] = true end
                 end
             end
-            for i = 1, NUM_CONTAINER_FRAMES or 13 do
-                local f = _G["ContainerFrame"..i]
-                if f and f.IsShown and f:IsShown() then statesBefore[f:GetName()] = true end
+            local hasCustomBags = Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()
+            if not hasCustomBags then
+                for i = 1, NUM_CONTAINER_FRAMES or 13 do
+                    local f = _G["ContainerFrame"..i]
+                    if f and f.IsShown and f:IsShown() then statesBefore[f:GetName()] = true end
+                end
             end
         end
         
@@ -325,7 +328,7 @@ if CloseAllWindows and not _G.Offhand_OriginalCloseAllWindows then
             if UIPanelWindows and not legitimateClose then
                 for name, _ in pairs(UIPanelWindows) do CheckLegitimateClose(name) end
             end
-            if not legitimateClose then
+            if not legitimateClose and not hasCustomBags then
                 for i = 1, NUM_CONTAINER_FRAMES or 13 do CheckLegitimateClose("ContainerFrame"..i) end
             end
             
