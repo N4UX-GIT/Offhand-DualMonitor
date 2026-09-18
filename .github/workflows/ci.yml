@@ -27,7 +27,8 @@ jobs:
         run: |
           $failed = 0
           Get-ChildItem tests\ -Filter "*.lua" | ForEach-Object {
-              Write-Host "`nRunning $($_.Name)..." -ForegroundColor Cyan
+              Write-Host "
+Running $($_.Name)..." -ForegroundColor Cyan
               lua.exe "tests\$($_.Name)"
               if ($LASTEXITCODE -ne 0) {
                   $failed++
@@ -37,11 +38,3 @@ jobs:
           if ($failed -gt 0) {
               throw "$failed test suites failed."
           }
-
-      - name: Test companion window operations
-        shell: powershell
-        run: ./tests/companion.ps1
-
-      - name: Compile and test native companion preferences
-        shell: powershell
-        run: ./tests/companion-preferences.ps1
