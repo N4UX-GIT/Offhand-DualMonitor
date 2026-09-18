@@ -116,11 +116,11 @@ L["SLIDER_SEAM_WIDTH"] = "Larghezza monitor Offhand (%):"
 L["SLIDER_SEAM_WIDTH_TIP_TITLE"] = "Posizione del confine"
 L["SLIDER_SEAM_WIDTH_TIP_DESC"] = "Confine tra Offhand e Mainhand come percentuale della larghezza totale."
 
-L["BTN_SEAM_MINUS"] = "- 1%"[cite: 2]
+L["BTN_SEAM_MINUS"] = "- 1%"
 L["BTN_SEAM_MINUS_TIP_TITLE"] = "Sposta confine a sinistra"
 L["BTN_SEAM_MINUS_TIP_DESC"] = "Sposta il confine dell’1% a sinistra."
 
-L["BTN_SEAM_PLUS"] = "+ 1%"[cite: 2]
+L["BTN_SEAM_PLUS"] = "+ 1%"
 L["BTN_SEAM_PLUS_TIP_TITLE"] = "Sposta confine a destra"
 L["BTN_SEAM_PLUS_TIP_DESC"] = "Sposta il confine dell’1% a destra."
 

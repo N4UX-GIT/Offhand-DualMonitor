@@ -116,11 +116,11 @@ L["SLIDER_SEAM_WIDTH"] = "Offhand 螢幕寬度（%）："
 L["SLIDER_SEAM_WIDTH_TIP_TITLE"] = "螢幕分界位置"
 L["SLIDER_SEAM_WIDTH_TIP_DESC"] = "以跨螢幕總寬度百分比設定 Offhand 與 Mainhand 的分界位置。"
 
-L["BTN_SEAM_MINUS"] = "- 1%"[cite: 2]
+L["BTN_SEAM_MINUS"] = "- 1%"
 L["BTN_SEAM_MINUS_TIP_TITLE"] = "分界線左移"
 L["BTN_SEAM_MINUS_TIP_DESC"] = "將分界線向左移動 1%。"
 
-L["BTN_SEAM_PLUS"] = "+ 1%"[cite: 2]
+L["BTN_SEAM_PLUS"] = "+ 1%"
 L["BTN_SEAM_PLUS_TIP_TITLE"] = "分界線右移"
 L["BTN_SEAM_PLUS_TIP_DESC"] = "將分界線向右移動 1%。"
 

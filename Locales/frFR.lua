@@ -116,11 +116,11 @@ L["SLIDER_SEAM_WIDTH"] = "Largeur du moniteur Offhand (%) :"
 L["SLIDER_SEAM_WIDTH_TIP_TITLE"] = "Position de la séparation"
 L["SLIDER_SEAM_WIDTH_TIP_DESC"] = "Limite entre Offhand et Mainhand, en pourcentage de la largeur totale."
 
-L["BTN_SEAM_MINUS"] = "- 1%"[cite: 2]
+L["BTN_SEAM_MINUS"] = "- 1%"
 L["BTN_SEAM_MINUS_TIP_TITLE"] = "Déplacer la séparation à gauche"
 L["BTN_SEAM_MINUS_TIP_DESC"] = "Déplace la séparation de 1% à gauche."
 
-L["BTN_SEAM_PLUS"] = "+ 1%"[cite: 2]
+L["BTN_SEAM_PLUS"] = "+ 1%"
 L["BTN_SEAM_PLUS_TIP_TITLE"] = "Déplacer la séparation à droite"
 L["BTN_SEAM_PLUS_TIP_DESC"] = "Déplace la séparation de 1% à droite."
 

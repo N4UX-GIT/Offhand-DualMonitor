@@ -116,11 +116,11 @@ L["SLIDER_SEAM_WIDTH"] = "Largura do monitor Offhand (%):"
 L["SLIDER_SEAM_WIDTH_TIP_TITLE"] = "Posição da divisão"
 L["SLIDER_SEAM_WIDTH_TIP_DESC"] = "Limite entre Offhand e Mainhand como porcentagem da largura total."
 
-L["BTN_SEAM_MINUS"] = "- 1%"[cite: 2]
+L["BTN_SEAM_MINUS"] = "- 1%"
 L["BTN_SEAM_MINUS_TIP_TITLE"] = "Mover divisão à esquerda"
 L["BTN_SEAM_MINUS_TIP_DESC"] = "Move a divisão 1% à esquerda."
 
-L["BTN_SEAM_PLUS"] = "+ 1%"[cite: 2]
+L["BTN_SEAM_PLUS"] = "+ 1%"
 L["BTN_SEAM_PLUS_TIP_TITLE"] = "Mover divisão à direita"
 L["BTN_SEAM_PLUS_TIP_DESC"] = "Move a divisão 1% à direita."
 

@@ -116,11 +116,11 @@ L["SLIDER_SEAM_WIDTH"] = "Ширина монитора Offhand (%):"
 L["SLIDER_SEAM_WIDTH_TIP_TITLE"] = "Положение границы"
 L["SLIDER_SEAM_WIDTH_TIP_DESC"] = "Граница между Offhand и Mainhand в процентах общей ширины."
 
-L["BTN_SEAM_MINUS"] = "- 1%"[cite: 2]
+L["BTN_SEAM_MINUS"] = "- 1%"
 L["BTN_SEAM_MINUS_TIP_TITLE"] = "Сдвинуть границу влево"
 L["BTN_SEAM_MINUS_TIP_DESC"] = "Сдвигает границу на 1% влево."
 
-L["BTN_SEAM_PLUS"] = "+ 1%"[cite: 2]
+L["BTN_SEAM_PLUS"] = "+ 1%"
 L["BTN_SEAM_PLUS_TIP_TITLE"] = "Сдвинуть границу вправо"
 L["BTN_SEAM_PLUS_TIP_DESC"] = "Сдвигает границу на 1% вправо."
 

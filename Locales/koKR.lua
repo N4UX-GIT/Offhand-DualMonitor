@@ -116,11 +116,11 @@ L["SLIDER_SEAM_WIDTH"] = "Offhand 모니터 너비(%):"
 L["SLIDER_SEAM_WIDTH_TIP_TITLE"] = "모니터 경계 위치"
 L["SLIDER_SEAM_WIDTH_TIP_DESC"] = "전체 창 너비에서 Offhand와 Mainhand 경계가 위치하는 비율입니다."
 
-L["BTN_SEAM_MINUS"] = "- 1%"[cite: 2]
+L["BTN_SEAM_MINUS"] = "- 1%"
 L["BTN_SEAM_MINUS_TIP_TITLE"] = "경계 왼쪽 이동"
 L["BTN_SEAM_MINUS_TIP_DESC"] = "경계를 왼쪽으로 1% 이동합니다."
 
-L["BTN_SEAM_PLUS"] = "+ 1%"[cite: 2]
+L["BTN_SEAM_PLUS"] = "+ 1%"
 L["BTN_SEAM_PLUS_TIP_TITLE"] = "경계 오른쪽 이동"
 L["BTN_SEAM_PLUS_TIP_DESC"] = "경계를 오른쪽으로 1% 이동합니다."
 

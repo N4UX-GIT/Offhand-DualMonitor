@@ -62,11 +62,11 @@ L["BTN_AUTO_WIZARD_TIP_DESC"] = "打开向导以检测分辨率并校准显示�
 L["CARD_LAYOUT_PRESETS"] = "1. 显示器布局预设"
 L["CARD_LAYOUT_PRESETS_DESC"] = "选择分别显示 3D 游戏世界和 2D Offhand 工作区的显示器。"
 L["PRESET_PL_LR"] = "左侧竖屏 + 右侧游戏"
-L["PRESET_PL_LR_TIP_TITLE"] = "左侧竖屏 + 右侧游戏"[cite: 2]
+L["PRESET_PL_LR_TIP_TITLE"] = "左侧竖屏 + 右侧游戏"
 L["PRESET_PL_LR_TIP_DESC"] = "适用于左侧竖向 Offhand 显示器与右侧横向游戏显示器。"
 
 L["PRESET_GL_PR"] = "左侧游戏 + 右侧竖屏"
-L["PRESET_GL_PR_TIP_TITLE"] = "左侧游戏 + 右侧竖屏"[cite: 2]
+L["PRESET_GL_PR_TIP_TITLE"] = "左侧游戏 + 右侧竖屏"
 L["PRESET_GL_PR_TIP_DESC"] = "适用于左侧游戏显示器与右侧竖向 Offhand 显示器。"
 
 L["PRESET_DUAL_LANDSCAPE"] = "双横屏（50/50）"
@@ -116,11 +116,11 @@ L["SLIDER_SEAM_WIDTH"] = "Offhand 显示器宽度（%）："
 L["SLIDER_SEAM_WIDTH_TIP_TITLE"] = "显示器分界位置"
 L["SLIDER_SEAM_WIDTH_TIP_DESC"] = "以跨屏总宽度百分比设置 Offhand 与 Mainhand 的分界位置。"
 
-L["BTN_SEAM_MINUS"] = "- 1%"[cite: 2]
+L["BTN_SEAM_MINUS"] = "- 1%"
 L["BTN_SEAM_MINUS_TIP_TITLE"] = "分界线左移"
 L["BTN_SEAM_MINUS_TIP_DESC"] = "将分界线向左移动 1%。"
 
-L["BTN_SEAM_PLUS"] = "+ 1%"[cite: 2]
+L["BTN_SEAM_PLUS"] = "+ 1%"
 L["BTN_SEAM_PLUS_TIP_TITLE"] = "分界线右移"
 L["BTN_SEAM_PLUS_TIP_DESC"] = "将分界线向右移动 1%。"
 
@@ -238,193 +238,193 @@ L["SLIDER_CANVAS_OPACITY_TIP_TITLE"] = "背景透明度"
 L["SLIDER_CANVAS_OPACITY_TIP_DESC"] = "将 Offhand 背景不透明度设为 0% 至 100%。"
 
 -- Wizard Dialog Strings & Tooltips
-L["WIZARD_TITLE"] = "OFFHAND 自动配置向导"[cite: 2]
-L["WIZARD_CARD1_TITLE"] = "1. 显示拓扑与一键自动设置"[cite: 2]
-L["WIZARD_DETECTED_PREFIX"] = "检测到显示器："[cite: 2]
-L["WIZARD_RECOM_PREFIX"] = "推荐设置："[cite: 2]
-L["WIZARD_BTN_AUTOCONFIG"] = "一键自动配置并应用（推荐）"[cite: 2]
-L["WIZARD_BTN_AUTOCONFIG_TIP_TITLE"] = "一键自动校准"[cite: 2]
-L["WIZARD_BTN_AUTOCONFIG_TIP_DESC"] = "根据检测到的屏幕分辨率快速校准双屏设置。一键应用分界比例、3D 视口与方向。"[cite: 2]
-L["WIZARD_STATUS_READY"] = "点击上方按钮自动检测分辨率并配置分界线、方向与视口。"[cite: 2]
-L["WIZARD_STATUS_APPLIED"] = "[已应用] 已自动完成适用于 %s 的配置"[cite: 2]
+L["WIZARD_TITLE"] = "OFFHAND 自动配置向导"
+L["WIZARD_CARD1_TITLE"] = "1. 显示拓扑与一键自动设置"
+L["WIZARD_DETECTED_PREFIX"] = "检测到显示器："
+L["WIZARD_RECOM_PREFIX"] = "推荐设置："
+L["WIZARD_BTN_AUTOCONFIG"] = "一键自动配置并应用（推荐）"
+L["WIZARD_BTN_AUTOCONFIG_TIP_TITLE"] = "一键自动校准"
+L["WIZARD_BTN_AUTOCONFIG_TIP_DESC"] = "根据检测到的屏幕分辨率快速校准双屏设置。一键应用分界比例、3D 视口与方向。"
+L["WIZARD_STATUS_READY"] = "点击上方按钮自动检测分辨率并配置分界线、方向与视口。"
+L["WIZARD_STATUS_APPLIED"] = "[已应用] 已自动完成适用于 %s 的配置"
 
-L["WIZARD_CARD2_TITLE"] = "2. 显示器方向与 3D 视口"[cite: 2]
-L["WIZARD_LABEL_LAYOUT"] = "显示器布局预设："[cite: 2]
-L["WIZARD_LABEL_AR"] = "Mainhand 宽高比："[cite: 2]
+L["WIZARD_CARD2_TITLE"] = "2. 显示器方向与 3D 视口"
+L["WIZARD_LABEL_LAYOUT"] = "显示器布局预设："
+L["WIZARD_LABEL_AR"] = "Mainhand 宽高比："
 
-L["WIZARD_CARD3_TITLE"] = "3. 物理显示器分界对齐"[cite: 2]
-L["WIZARD_SEAM_INSTRUCTION"] = "调整红色激光参考线，使其与两台显示器之间的实体边框对齐："[cite: 2]
-L["WIZARD_LABEL_SEAM"] = "Offhand 宽度："[cite: 2]
-L["WIZARD_BTN_LASER_SHOW"] = "显示激光线"[cite: 2]
-L["WIZARD_BTN_LASER_HIDE"] = "隐藏激光线"[cite: 2]
-L["WIZARD_PRESET_SEAM_36"] = "1440/4000 分界（36%）"[cite: 2]
-L["WIZARD_PRESET_SEAM_36_TIP_TITLE"] = "1440p 竖屏 + 4K 横屏"[cite: 2]
-L["WIZARD_PRESET_SEAM_36_TIP_DESC"] = "配置 36% 分界比例，专为 1440x2560 竖屏搭配 2560x1440 横屏量身定制。"[cite: 2]
+L["WIZARD_CARD3_TITLE"] = "3. 物理显示器分界对齐"
+L["WIZARD_SEAM_INSTRUCTION"] = "调整红色激光参考线，使其与两台显示器之间的实体边框对齐："
+L["WIZARD_LABEL_SEAM"] = "Offhand 宽度："
+L["WIZARD_BTN_LASER_SHOW"] = "显示激光线"
+L["WIZARD_BTN_LASER_HIDE"] = "隐藏激光线"
+L["WIZARD_PRESET_SEAM_36"] = "1440/4000 分界（36%）"
+L["WIZARD_PRESET_SEAM_36_TIP_TITLE"] = "1440p 竖屏 + 4K 横屏"
+L["WIZARD_PRESET_SEAM_36_TIP_DESC"] = "配置 36% 分界比例，专为 1440x2560 竖屏搭配 2560x1440 横屏量身定制。"
 
-L["WIZARD_PRESET_SEAM_50"] = "等分（50%）"[cite: 2]
-L["WIZARD_PRESET_SEAM_50_TIP_TITLE"] = "50% 等分布局"[cite: 2]
-L["WIZARD_PRESET_SEAM_50_TIP_DESC"] = "在两台等宽显示器之间平均分割画面。"[cite: 2]
+L["WIZARD_PRESET_SEAM_50"] = "等分（50%）"
+L["WIZARD_PRESET_SEAM_50_TIP_TITLE"] = "50% 等分布局"
+L["WIZARD_PRESET_SEAM_50_TIP_DESC"] = "在两台等宽显示器之间平均分割画面。"
 
-L["WIZARD_PRESET_SEAM_55"] = "非对称分割（55%）"[cite: 2]
-L["WIZARD_PRESET_SEAM_55_TIP_TITLE"] = "55% 非对称分割"[cite: 2]
-L["WIZARD_PRESET_SEAM_55_TIP_DESC"] = "将总屏幕宽度的 55% 分配给左侧显示器，45% 分配给右侧。"[cite: 2]
+L["WIZARD_PRESET_SEAM_55"] = "非对称分割（55%）"
+L["WIZARD_PRESET_SEAM_55_TIP_TITLE"] = "55% 非对称分割"
+L["WIZARD_PRESET_SEAM_55_TIP_DESC"] = "将总屏幕宽度的 55% 分配给左侧显示器，45% 分配给右侧。"
 
-L["WIZARD_CARD4_TITLE"] = "4. 全局界面缩放与校准"[cite: 2]
-L["WIZARD_UI_SCALE_INSTRUCTION"] = "调整用户界面的整体尺寸，以适合您的视距："[cite: 2]
-L["WIZARD_LABEL_UI_SCALE"] = "全局界面缩放："[cite: 2]
-L["WIZARD_UI_SCALE_TIP_TITLE"] = "全局界面缩放"[cite: 2]
-L["WIZARD_UI_SCALE_TIP_DESC"] = "缩放所有动作条、单位框体和对话框。建议选择紧凑尺寸（56% 至 70%）以保持游戏画面开阔。"[cite: 2]
+L["WIZARD_CARD4_TITLE"] = "4. 全局界面缩放与校准"
+L["WIZARD_UI_SCALE_INSTRUCTION"] = "调整用户界面的整体尺寸，以适合您的视距："
+L["WIZARD_LABEL_UI_SCALE"] = "全局界面缩放："
+L["WIZARD_UI_SCALE_TIP_TITLE"] = "全局界面缩放"
+L["WIZARD_UI_SCALE_TIP_DESC"] = "缩放所有动作条、单位框体和对话框。建议选择紧凑尺寸（56% 至 70%）以保持游戏画面开阔。"
 
-L["WIZARD_PRESET_SCALE_56"] = "紧凑（56%）"[cite: 2]
-L["WIZARD_PRESET_SCALE_56_TIP_TITLE"] = "紧凑界面（56%）"[cite: 2]
-L["WIZARD_PRESET_SCALE_56_TIP_DESC"] = "极致精简比例，为 3D 游戏世界留出最大的可视空间。"[cite: 2]
+L["WIZARD_PRESET_SCALE_56"] = "紧凑（56%）"
+L["WIZARD_PRESET_SCALE_56_TIP_TITLE"] = "紧凑界面（56%）"
+L["WIZARD_PRESET_SCALE_56_TIP_DESC"] = "极致精简比例，为 3D 游戏世界留出最大的可视空间。"
 
-L["WIZARD_PRESET_SCALE_65"] = "均衡（65%）"[cite: 2]
-L["WIZARD_PRESET_SCALE_65_TIP_TITLE"] = "均衡界面（65%）"[cite: 2]
-L["WIZARD_PRESET_SCALE_65_TIP_DESC"] = "兼顾清晰文字可读性与宽敞视野的平衡比例。"[cite: 2]
+L["WIZARD_PRESET_SCALE_65"] = "均衡（65%）"
+L["WIZARD_PRESET_SCALE_65_TIP_TITLE"] = "均衡界面（65%）"
+L["WIZARD_PRESET_SCALE_65_TIP_DESC"] = "兼顾清晰文字可读性与宽敞视野的平衡比例。"
 
-L["WIZARD_PRESET_SCALE_70"] = "标准（70%）"[cite: 2]
-L["WIZARD_PRESET_SCALE_70_TIP_TITLE"] = "标准界面（70%）"[cite: 2]
-L["WIZARD_PRESET_SCALE_70_TIP_DESC"] = "Offhand 默认标准比例，适合正常桌面视距下的 1440p 与 4K 显示器。"[cite: 2]
+L["WIZARD_PRESET_SCALE_70"] = "标准（70%）"
+L["WIZARD_PRESET_SCALE_70_TIP_TITLE"] = "标准界面（70%）"
+L["WIZARD_PRESET_SCALE_70_TIP_DESC"] = "Offhand 默认标准比例，适合正常桌面视距下的 1440p 与 4K 显示器。"
 
-L["WIZARD_PRESET_SCALE_100"] = "原始大小（100%）"[cite: 2]
-L["WIZARD_PRESET_SCALE_100_TIP_TITLE"] = "无缩放界面（100%）"[cite: 2]
-L["WIZARD_PRESET_SCALE_100_TIP_DESC"] = "暴雪原生标准 100% 尺寸，不作任何缩减。"[cite: 2]
+L["WIZARD_PRESET_SCALE_100"] = "原始大小（100%）"
+L["WIZARD_PRESET_SCALE_100_TIP_TITLE"] = "无缩放界面（100%）"
+L["WIZARD_PRESET_SCALE_100_TIP_DESC"] = "暴雪原生标准 100% 尺寸，不作任何缩减。"
 
-L["WIZARD_PRESET_SCALE_85"] = "宽松舒适（85%）"[cite: 2]
-L["WIZARD_PRESET_SCALE_85_TIP_TITLE"] = "宽松界面（85%）"[cite: 2]
-L["WIZARD_PRESET_SCALE_85_TIP_DESC"] = "专为偏好更大字体与图标的玩家设计的清晰比例。"[cite: 2]
+L["WIZARD_PRESET_SCALE_85"] = "宽松舒适（85%）"
+L["WIZARD_PRESET_SCALE_85_TIP_TITLE"] = "宽松界面（85%）"
+L["WIZARD_PRESET_SCALE_85_TIP_DESC"] = "专为偏好更大字体与图标的玩家设计的清晰比例。"
 
-L["WIZARD_BTN_ADVANCED"] = "高级设置（/offhand）"[cite: 2]
-L["WIZARD_BTN_ADVANCED_TIP_TITLE"] = "高级设置"[cite: 2]
-L["WIZARD_BTN_ADVANCED_TIP_DESC"] = "关闭向导并打开包含完整控制选项的 3 标签页控制面板。"[cite: 2]
+L["WIZARD_BTN_ADVANCED"] = "高级设置（/offhand）"
+L["WIZARD_BTN_ADVANCED_TIP_TITLE"] = "高级设置"
+L["WIZARD_BTN_ADVANCED_TIP_DESC"] = "关闭向导并打开包含完整控制选项的 3 标签页控制面板。"
 
-L["WIZARD_BTN_FINISH"] = "完成设置"[cite: 2]
-L["WIZARD_BTN_FINISH_TIP_TITLE"] = "完成校准"[cite: 2]
-L["WIZARD_BTN_FINISH_TIP_DESC"] = "保存配置，标记初始设置已完成，并应用新的多屏布局。"[cite: 2]
+L["WIZARD_BTN_FINISH"] = "完成设置"
+L["WIZARD_BTN_FINISH_TIP_TITLE"] = "完成校准"
+L["WIZARD_BTN_FINISH_TIP_DESC"] = "保存配置，标记初始设置已完成，并应用新的多屏布局。"
 
-L["WIZARD_BTN_CLOSE"] = "关闭向导"[cite: 2]
-L["WIZARD_BTN_CLOSE_TIP_TITLE"] = "关闭向导"[cite: 2]
-L["WIZARD_BTN_CLOSE_TIP_DESC"] = "关闭设置向导且不保存新的更改。"[cite: 2]
+L["WIZARD_BTN_CLOSE"] = "关闭向导"
+L["WIZARD_BTN_CLOSE_TIP_TITLE"] = "关闭向导"
+L["WIZARD_BTN_CLOSE_TIP_DESC"] = "关闭设置向导且不保存新的更改。"
 
 -- Wizard — Inline Display Text (non-button)
-L["WIZARD_SEAM_VAL_FMT"] = "分界：%.1f%%"[cite: 2]
-L["WIZARD_SCALE_VAL_FMT"] = "缩放：%.0f%%"[cite: 2]
-L["WIZARD_SEAM_EDIT_TIP_TITLE"] = "手动输入分界宽度"[cite: 2]
-L["WIZARD_SEAM_EDIT_TIP_DESC"] = "输入百分比（如 36%）或比率（如 0.36）后按 Enter 键应用分界位置。"[cite: 2]
-L["WIZARD_SCALE_EDIT_TIP_TITLE"] = "手动输入界面缩放"[cite: 2]
-L["WIZARD_SCALE_EDIT_TIP_DESC"] = "输入百分比（如 70%）或小数（如 0.70）后按 Enter 键应用全局缩放。"[cite: 2]
-L["WIZARD_BTN_SCALE_DOWN_TIP_TITLE"] = "缩小"[cite: 2]
-L["WIZARD_BTN_SCALE_DOWN_TIP_DESC"] = "将全局界面缩放降低 1%。"[cite: 2]
-L["WIZARD_BTN_SCALE_UP_TIP_TITLE"] = "放大"[cite: 2]
-L["WIZARD_BTN_SCALE_UP_TIP_DESC"] = "将全局界面缩放提高 1%。"[cite: 2]
-L["WIZARD_BTN_SCALE_RESET"] = "重置（70%）"[cite: 2]
-L["WIZARD_BTN_SCALE_RESET_TIP_TITLE"] = "重置界面缩放"[cite: 2]
-L["WIZARD_BTN_SCALE_RESET_TIP_DESC"] = "将全局界面缩放重置为推荐的标准默认值 70%。"[cite: 2]
+L["WIZARD_SEAM_VAL_FMT"] = "分界：%.1f%%"
+L["WIZARD_SCALE_VAL_FMT"] = "缩放：%.0f%%"
+L["WIZARD_SEAM_EDIT_TIP_TITLE"] = "手动输入分界宽度"
+L["WIZARD_SEAM_EDIT_TIP_DESC"] = "输入百分比（如 36%）或比率（如 0.36）后按 Enter 键应用分界位置。"
+L["WIZARD_SCALE_EDIT_TIP_TITLE"] = "手动输入界面缩放"
+L["WIZARD_SCALE_EDIT_TIP_DESC"] = "输入百分比（如 70%）或小数（如 0.70）后按 Enter 键应用全局缩放。"
+L["WIZARD_BTN_SCALE_DOWN_TIP_TITLE"] = "缩小"
+L["WIZARD_BTN_SCALE_DOWN_TIP_DESC"] = "将全局界面缩放降低 1%。"
+L["WIZARD_BTN_SCALE_UP_TIP_TITLE"] = "放大"
+L["WIZARD_BTN_SCALE_UP_TIP_DESC"] = "将全局界面缩放提高 1%。"
+L["WIZARD_BTN_SCALE_RESET"] = "重置（70%）"
+L["WIZARD_BTN_SCALE_RESET_TIP_TITLE"] = "重置界面缩放"
+L["WIZARD_BTN_SCALE_RESET_TIP_DESC"] = "将全局界面缩放重置为推荐的标准默认值 70%。"
 
 -- Options Panel — Tab Labels & General Buttons
-L["BTN_APPLY_LAYOUT"] = "应用布局"[cite: 2]
-L["BTN_APPLY_LAYOUT_TIP_TITLE"] = "应用布局"[cite: 2]
-L["BTN_APPLY_LAYOUT_TIP_DESC"] = "立即强制所有视口、分界线和界面元素更新为当前设置。"[cite: 2]
-L["BTN_SAVE_CLOSE"] = "关闭"[cite: 2]
-L["BTN_SAVE_CLOSE_TIP_TITLE"] = "关闭"[cite: 2]
-L["BTN_SAVE_CLOSE_TIP_DESC"] = "保存所有设置并关闭配置面板。"[cite: 2]
-L["LABEL_BOTTOM_OFFSET_SHORT"] = "游戏底部偏移（像素）："[cite: 2]
+L["BTN_APPLY_LAYOUT"] = "应用布局"
+L["BTN_APPLY_LAYOUT_TIP_TITLE"] = "应用布局"
+L["BTN_APPLY_LAYOUT_TIP_DESC"] = "立即强制所有视口、分界线和界面元素更新为当前设置。"
+L["BTN_SAVE_CLOSE"] = "关闭"
+L["BTN_SAVE_CLOSE_TIP_TITLE"] = "关闭"
+L["BTN_SAVE_CLOSE_TIP_DESC"] = "保存所有设置并关闭配置面板。"
+L["LABEL_BOTTOM_OFFSET_SHORT"] = "游戏底部偏移（像素）："
 
 -- Options Panel — Slider Step & Edit Tooltips
-L["SLIDER_STEP_UP_TIP_TITLE"] = "增加"[cite: 2]
-L["SLIDER_STEP_UP_TIP_DESC_FMT"] = "将数值增加 %s。"[cite: 2]
-L["SLIDER_STEP_DOWN_TIP_TITLE"] = "减少"[cite: 2]
-L["SLIDER_STEP_DOWN_TIP_DESC_FMT"] = "将数值减少 %s。"[cite: 2]
-L["SLIDER_EDITBOX_TIP_TITLE"] = "手动输入数值"[cite: 2]
-L["SLIDER_EDITBOX_TIP_DESC"] = "点击输入精确数值或百分比后按 Enter 键。"[cite: 2]
+L["SLIDER_STEP_UP_TIP_TITLE"] = "增加"
+L["SLIDER_STEP_UP_TIP_DESC_FMT"] = "将数值增加 %s。"
+L["SLIDER_STEP_DOWN_TIP_TITLE"] = "减少"
+L["SLIDER_STEP_DOWN_TIP_DESC_FMT"] = "将数值减少 %s。"
+L["SLIDER_EDITBOX_TIP_TITLE"] = "手动输入数值"
+L["SLIDER_EDITBOX_TIP_DESC"] = "点击输入精确数值或百分比后按 Enter 键。"
 
 -- Options Panel — World Map Section
-L["BTN_MAP_AUTOFIT"] = "自动贴合"[cite: 2]
-L["BTN_MAP_AUTOFIT_TIP_TITLE"] = "自动适配世界地图"[cite: 2]
-L["BTN_MAP_AUTOFIT_TIP_DESC"] = "自动缩放世界地图以精准贴合 Offhand 显示器的宽度。"[cite: 2]
-L["BTN_MAP_100_TIP_TITLE"] = "100% 地图缩放"[cite: 2]
-L["BTN_MAP_100_TIP_DESC"] = "将世界地图设为标准 100% 缩放。"[cite: 2]
-L["BTN_MAP_150_TIP_TITLE"] = "150% 地图缩放"[cite: 2]
-L["BTN_MAP_150_TIP_DESC"] = "将世界地图设为 150% 缩放以查看更宏大详细的视图。"[cite: 2]
-L["BTN_MAP_200_TIP_TITLE"] = "200% 地图缩放"[cite: 2]
-L["BTN_MAP_200_TIP_DESC"] = "将世界地图设为 200% 缩放。"[cite: 2]
-L["BTN_MAP_250_TIP_TITLE"] = "250% 地图缩放"[cite: 2]
-L["BTN_MAP_250_TIP_DESC"] = "将世界地图设为 250% 缩放，填满副屏的大部分区域。"[cite: 2]
+L["BTN_MAP_AUTOFIT"] = "自动贴合"
+L["BTN_MAP_AUTOFIT_TIP_TITLE"] = "自动适配世界地图"
+L["BTN_MAP_AUTOFIT_TIP_DESC"] = "自动缩放世界地图以精准贴合 Offhand 显示器的宽度。"
+L["BTN_MAP_100_TIP_TITLE"] = "100% 地图缩放"
+L["BTN_MAP_100_TIP_DESC"] = "将世界地图设为标准 100% 缩放。"
+L["BTN_MAP_150_TIP_TITLE"] = "150% 地图缩放"
+L["BTN_MAP_150_TIP_DESC"] = "将世界地图设为 150% 缩放以查看更宏大详细的视图。"
+L["BTN_MAP_200_TIP_TITLE"] = "200% 地图缩放"
+L["BTN_MAP_200_TIP_DESC"] = "将世界地图设为 200% 缩放。"
+L["BTN_MAP_250_TIP_TITLE"] = "250% 地图缩放"
+L["BTN_MAP_250_TIP_DESC"] = "将世界地图设为 250% 缩放，填满副屏的大部分区域。"
 
 -- Options Panel — Canvas & Trim Color Buttons
-L["BTN_CANVAS_TONE_TIP_TITLE_FMT"] = "%s 色调"[cite: 2]
-L["BTN_CANVAS_TONE_TIP_DESC_FMT"] = "将 Offhand 显示器背景色调设为 %s。"[cite: 2]
-L["BTN_CANVAS_CUSTOM"] = "自定义颜色..."[cite: 2]
-L["BTN_CANVAS_CUSTOM_ACTIVE_FMT"] = "自定义 (#%02x%02x%02x)"[cite: 2]
-L["BTN_CANVAS_CUSTOM_TIP_TITLE"] = "自定义画布颜色"[cite: 2]
-L["BTN_CANVAS_CUSTOM_TIP_DESC"] = "打开调色盘，为副屏 Offhand 选择自定义背景颜色与不透明度。"[cite: 2]
-L["BTN_CANVAS_PREVIEW_TIP_TITLE"] = "实时背景预览"[cite: 2]
-L["BTN_CANVAS_PREVIEW_TIP_DESC"] = "点击此色块打开颜色选择器并自定义副屏背景颜色。"[cite: 2]
-L["BTN_TRIM_ACCENT_TIP_TITLE_FMT"] = "%s 强调色"[cite: 2]
-L["BTN_TRIM_ACCENT_TIP_DESC_FMT"] = "对对话框边框、滑块手柄及界面框架应用 %s 高亮着色。"[cite: 2]
-L["BTN_TRIM_CUSTOM"] = "自定义强调色..."[cite: 2]
-L["BTN_TRIM_CUSTOM_ACTIVE_FMT"] = "自定义 (#%02x%02x%02x)"[cite: 2]
-L["BTN_TRIM_CUSTOM_TIP_TITLE"] = "自定义强调色"[cite: 2]
-L["BTN_TRIM_CUSTOM_TIP_DESC"] = "打开颜色选择器，为边框、标题栏及滑块手柄自选强调色。"[cite: 2]
+L["BTN_CANVAS_TONE_TIP_TITLE_FMT"] = "%s 色调"
+L["BTN_CANVAS_TONE_TIP_DESC_FMT"] = "将 Offhand 显示器背景色调设为 %s。"
+L["BTN_CANVAS_CUSTOM"] = "自定义颜色..."
+L["BTN_CANVAS_CUSTOM_ACTIVE_FMT"] = "自定义 (#%02x%02x%02x)"
+L["BTN_CANVAS_CUSTOM_TIP_TITLE"] = "自定义画布颜色"
+L["BTN_CANVAS_CUSTOM_TIP_DESC"] = "打开调色盘，为副屏 Offhand 选择自定义背景颜色与不透明度。"
+L["BTN_CANVAS_PREVIEW_TIP_TITLE"] = "实时背景预览"
+L["BTN_CANVAS_PREVIEW_TIP_DESC"] = "点击此色块打开颜色选择器并自定义副屏背景颜色。"
+L["BTN_TRIM_ACCENT_TIP_TITLE_FMT"] = "%s 强调色"
+L["BTN_TRIM_ACCENT_TIP_DESC_FMT"] = "对对话框边框、滑块手柄及界面框架应用 %s 高亮着色。"
+L["BTN_TRIM_CUSTOM"] = "自定义强调色..."
+L["BTN_TRIM_CUSTOM_ACTIVE_FMT"] = "自定义 (#%02x%02x%02x)"
+L["BTN_TRIM_CUSTOM_TIP_TITLE"] = "自定义强调色"
+L["BTN_TRIM_CUSTOM_TIP_DESC"] = "打开颜色选择器，为边框、标题栏及滑块手柄自选强调色。"
 
 -- Options Panel — Guide Link & Autoconfig Print
-L["BTN_GUIDE_LINK"] = "查看窗口跨屏指南"[cite: 2]
-L["BTN_GUIDE_LINK_TIP_TITLE"] = "窗口跨屏指南"[cite: 2]
-L["BTN_GUIDE_LINK_TIP_DESC"] = "查看跨多台物理显示器运行 World of Warcraft 的操作说明与批处理脚本。"[cite: 2]
-L["MSG_AUTOCONFIG_APPLIED"] = "|cff00ff00一键自动配置已应用：|r %s"[cite: 2]
-L["MSG_AUTOCONFIG_DETAILS"] = "预设：|cffffd100%s|r | 分界：|cffffd100%.1f%%|r | 视口：|cffffd100%s|r"[cite: 2]
-L["MSG_LAYOUT_APPLIED"] = "布局应用成功。"[cite: 2]
+L["BTN_GUIDE_LINK"] = "查看窗口跨屏指南"
+L["BTN_GUIDE_LINK_TIP_TITLE"] = "窗口跨屏指南"
+L["BTN_GUIDE_LINK_TIP_DESC"] = "查看跨多台物理显示器运行 World of Warcraft 的操作说明与批处理脚本。"
+L["MSG_AUTOCONFIG_APPLIED"] = "|cff00ff00一键自动配置已应用：|r %s"
+L["MSG_AUTOCONFIG_DETAILS"] = "预设：|cffffd100%s|r | 分界：|cffffd100%.1f%%|r | 视口：|cffffd100%s|r"
+L["MSG_LAYOUT_APPLIED"] = "布局应用成功。"
 
 -- Slash Command System Messages
-L["MSG_LOADED"] = "v%s 已加载！输入 |cffffcc00/offhand|r 进行配置。"[cite: 2]
-L["MSG_FIRST_RUN"] = "初次使用 Offhand？输入 |cff00ff00/offhand wizard|r 即可进行一键自动设置与校准。"[cite: 2]
-L["MSG_LAYOUT_ERROR"] = "布局错误：%s"[cite: 2]
-L["MSG_AR_16_9"] = "宽高比已锁定为 16:9（标准宽屏）。"[cite: 2]
-L["MSG_AR_21_9"] = "宽高比已锁定为 21:9（超宽屏）。"[cite: 2]
-L["MSG_AR_FILL"] = "使用已配置的游戏高度。可通过 /offhand height <5-100 百分比> 调整。"[cite: 2]
-L["MSG_AR_CUSTOM"] = "自定义宽高比已设为 %.3f:1。"[cite: 2]
-L["MSG_HUD_SET"] = "全局界面大小已设为 Mainhand 显示器的 %.0f%%。"[cite: 2]
-L["MSG_HUD_CURRENT"] = "当前全局界面尺寸倍数：%.2f（默认 0.70）。用法：/offhand hud <25-125 百分比>"[cite: 2]
-L["MSG_CHAT_DECK"] = "聊天栏已停靠至副屏指挥区（底部仓位）。"[cite: 2]
-L["MSG_CHAT_GAME"] = "聊天栏已锁定至 Mainhand 游戏显示器（左下角）。"[cite: 2]
-L["MSG_CHAT_TOGGLED"] = "聊天栏位置已切换为：%s。"[cite: 2]
-L["MSG_SEAM_SET"] = "分界与副屏指挥区宽度已设为 %.1f%%。"[cite: 2]
-L["MSG_BOTTOM_SET"] = "游戏底部内嵌偏移已设为 %.0f 像素。"[cite: 2]
-L["MSG_HEIGHT_SET"] = "游戏高度已设为画布的 %.0f%%（用于填充模式）。"[cite: 2]
-L["MSG_DIAG_VIEWPORT"] = "视口边界检测：%s。"[cite: 2]
-L["MSG_DIAG_PASS"] = "通过"[cite: 2]
-L["MSG_DIAG_MISMATCH"] = "不匹配"[cite: 2]
-L["MSG_DIAG_GAME_PIX"] = "游戏像素：%dx%d 位于 (%d, %d)，全局界面缩放 %.3f。"[cite: 2]
-L["MSG_DIAG_FULL"] = "诊断信息：物理=%dx%d | 屏幕=%dx%d | 有效缩放=%.3f | 副屏宽=%d (%.1f%%) | 游戏区=%dx%d"[cite: 2]
-L["MSG_TOGGLE_ON"] = "|cff00ff00已启用|r"[cite: 2]
-L["MSG_TOGGLE_OFF"] = "|cffff3333已禁用|r"[cite: 2]
-L["MSG_TOGGLED"] = "Offhand 现已 %s。"[cite: 2]
-L["MSG_DEBUG_ON"] = "|cff00ff00开|r"[cite: 2]
-L["MSG_DEBUG_OFF"] = "|cffff3333关|r"[cite: 2]
-L["MSG_DEBUG_TOGGLED"] = "调试模式 %s。"[cite: 2]
-L["MSG_SPAN_GUIDE"] = "请使用内置的 Offhand.exe 工具将 WoW 拉伸至跨越两台显示器。"[cite: 2]
-L["MSG_STATUS"] = "状态：%s。输入 |cffffcc00/offhand|r 打开选项，或输入 |cff00ff00/offhand wizard|r 打开自动配置。"[cite: 2]
-L["MSG_PANEL_LAYOUT_ERROR"] = "面板布局错误：%s"[cite: 2]
-L["MSG_MAP_LAYOUT_ERROR"] = "地图布局错误：%s"[cite: 2]
+L["MSG_LOADED"] = "v%s 已加载！输入 |cffffcc00/offhand|r 进行配置。"
+L["MSG_FIRST_RUN"] = "初次使用 Offhand？输入 |cff00ff00/offhand wizard|r 即可进行一键自动设置与校准。"
+L["MSG_LAYOUT_ERROR"] = "布局错误：%s"
+L["MSG_AR_16_9"] = "宽高比已锁定为 16:9（标准宽屏）。"
+L["MSG_AR_21_9"] = "宽高比已锁定为 21:9（超宽屏）。"
+L["MSG_AR_FILL"] = "使用已配置的游戏高度。可通过 /offhand height <5-100 百分比> 调整。"
+L["MSG_AR_CUSTOM"] = "自定义宽高比已设为 %.3f:1。"
+L["MSG_HUD_SET"] = "全局界面大小已设为 Mainhand 显示器的 %.0f%%。"
+L["MSG_HUD_CURRENT"] = "当前全局界面尺寸倍数：%.2f（默认 0.70）。用法：/offhand hud <25-125 百分比>"
+L["MSG_CHAT_DECK"] = "聊天栏已停靠至副屏指挥区（底部仓位）。"
+L["MSG_CHAT_GAME"] = "聊天栏已锁定至 Mainhand 游戏显示器（左下角）。"
+L["MSG_CHAT_TOGGLED"] = "聊天栏位置已切换为：%s。"
+L["MSG_SEAM_SET"] = "分界与副屏指挥区宽度已设为 %.1f%%。"
+L["MSG_BOTTOM_SET"] = "游戏底部内嵌偏移已设为 %.0f 像素。"
+L["MSG_HEIGHT_SET"] = "游戏高度已设为画布的 %.0f%%（用于填充模式）。"
+L["MSG_DIAG_VIEWPORT"] = "视口边界检测：%s。"
+L["MSG_DIAG_PASS"] = "通过"
+L["MSG_DIAG_MISMATCH"] = "不匹配"
+L["MSG_DIAG_GAME_PIX"] = "游戏像素：%dx%d 位于 (%d, %d)，全局界面缩放 %.3f。"
+L["MSG_DIAG_FULL"] = "诊断信息：物理=%dx%d | 屏幕=%dx%d | 有效缩放=%.3f | 副屏宽=%d (%.1f%%) | 游戏区=%dx%d"
+L["MSG_TOGGLE_ON"] = "|cff00ff00已启用|r"
+L["MSG_TOGGLE_OFF"] = "|cffff3333已禁用|r"
+L["MSG_TOGGLED"] = "Offhand 现已 %s。"
+L["MSG_DEBUG_ON"] = "|cff00ff00开|r"
+L["MSG_DEBUG_OFF"] = "|cffff3333关|r"
+L["MSG_DEBUG_TOGGLED"] = "调试模式 %s。"
+L["MSG_SPAN_GUIDE"] = "请使用内置的 Offhand.exe 工具将 WoW 拉伸至跨越两台显示器。"
+L["MSG_STATUS"] = "状态：%s。输入 |cffffcc00/offhand|r 打开选项，或输入 |cff00ff00/offhand wizard|r 打开自动配置。"
+L["MSG_PANEL_LAYOUT_ERROR"] = "面板布局错误：%s"
+L["MSG_MAP_LAYOUT_ERROR"] = "地图布局错误：%s"
 
 -- Profile Management
-L["TAB_PROFILES"] = "配置"[cite: 2]
-L["PROFILES_CURRENT_LABEL"] = "当前配置："[cite: 2]
-L["PROFILES_LIST_TITLE"] = "已存配置"[cite: 2]
-L["PROFILES_BTN_CREATE"] = "创建"[cite: 2]
-L["PROFILES_BTN_LOAD"] = "加载"[cite: 2]
-L["PROFILES_BTN_COPY"] = "复制自"[cite: 2]
-L["PROFILES_BTN_DELETE"] = "删除"[cite: 2]
-L["PROFILES_BTN_RESET"] = "重置当前"[cite: 2]
-L["PROFILES_CREATE_TIP_TITLE"] = "创建配置"[cite: 2]
-L["PROFILES_CREATE_TIP_DESC"] = "使用指定名称创建新配置。"[cite: 2]
-L["MSG_PROFILE_CREATED"] = "已创建配置：%s"[cite: 2]
-L["MSG_PROFILE_LOADED"] = "已加载配置：%s"[cite: 2]
-L["MSG_PROFILE_DELETED"] = "已删除配置：%s"[cite: 2]
-L["MSG_PROFILE_RESET"] = "配置已恢复默认。"[cite: 2]
-L["MSG_PROFILE_COPIED"] = "已从配置复制设置：%s"[cite: 2]
-L["PROFILES_WARN_DELETE_ACTIVE"] = "无法删除当前正在使用的配置。"[cite: 2]
-L["PROFILES_WARN_DEFAULT"] = "无法删除默认（Default）配置。"[cite: 2]
-L["PROFILES_WARN_EMPTY_NAME"] = "配置名称不能为空。"[cite: 2]
-L["PROFILES_WARN_EXISTS"] = "已存在同名配置。"[cite: 2]
+L["TAB_PROFILES"] = "配置"
+L["PROFILES_CURRENT_LABEL"] = "当前配置："
+L["PROFILES_LIST_TITLE"] = "已存配置"
+L["PROFILES_BTN_CREATE"] = "创建"
+L["PROFILES_BTN_LOAD"] = "加载"
+L["PROFILES_BTN_COPY"] = "复制自"
+L["PROFILES_BTN_DELETE"] = "删除"
+L["PROFILES_BTN_RESET"] = "重置当前"
+L["PROFILES_CREATE_TIP_TITLE"] = "创建配置"
+L["PROFILES_CREATE_TIP_DESC"] = "使用指定名称创建新配置。"
+L["MSG_PROFILE_CREATED"] = "已创建配置：%s"
+L["MSG_PROFILE_LOADED"] = "已加载配置：%s"
+L["MSG_PROFILE_DELETED"] = "已删除配置：%s"
+L["MSG_PROFILE_RESET"] = "配置已恢复默认。"
+L["MSG_PROFILE_COPIED"] = "已从配置复制设置：%s"
+L["PROFILES_WARN_DELETE_ACTIVE"] = "无法删除当前正在使用的配置。"
+L["PROFILES_WARN_DEFAULT"] = "无法删除默认（Default）配置。"
+L["PROFILES_WARN_EMPTY_NAME"] = "配置名称不能为空。"
+L["PROFILES_WARN_EXISTS"] = "已存在同名配置。"
