@@ -418,7 +418,9 @@ function Canvas:RestorePersistentFrames()
         end
     end
     
-    if hasBag then 
+    -- Baganator has its own root-frame snapshot/restore path. The generic
+    -- prefix scan can see its still-shown child buttons while the bag is hidden.
+    if hasBag and not (Baganator and Offhand.BagPersistence) then
         C_Timer.After(1.5, function() 
             -- Check if the bags are ALREADY open natively or by the custom addon's own persistence.
             -- If they are, calling OpenAllBags() might accidentally trigger an internal toggle and close them!

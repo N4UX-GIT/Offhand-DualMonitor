@@ -1,4 +1,4 @@
-﻿## Interface: 11509
+## Interface: 11509
 ## Interface-Vanilla: 11509
 ## Interface-Classic: 11509
 ## Interface-Cata: 40402
@@ -19,18 +19,23 @@ Core\Viewport.lua
 Core\ChatBubbles.lua
 Core\SeamRedirect.lua
 Core\Canvas.lua
+Core\BagPersistence.lua
 
 # Locales
 Locales\enUS.lua
-Locales\deDE.lua Locales\esES.lua Locales\esMX.lua Locales\frFR.lua Locales\itIT.lua Locales\koKR.lua Locales\ptBR.lua Locales\ruRU.lua Locales\zhCN.lua Locales\zhTW.lua
+Locales\deDE.lua
+Locales\esES.lua
+Locales\esMX.lua
+Locales\frFR.lua
+Locales\itIT.lua
+Locales\koKR.lua
+Locales\ptBR.lua
+Locales\ruRU.lua
+Locales\zhCN.lua
+Locales\zhTW.lua
 
 # UI & Themes
 UI\Themes.lua
 UI\Options.lua
 UI\Minimap.lua
 UI\Wizard.lua
-
-
-
-
-

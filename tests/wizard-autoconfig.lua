@@ -1,3 +1,4 @@
+StaticPopupDialogs = {}
 --[[
     tests/wizard-autoconfig.lua
     Verifies 1-click Auto-Configuration heuristics, Options:AutoConfigure,

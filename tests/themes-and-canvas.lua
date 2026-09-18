@@ -1,3 +1,4 @@
+StaticPopupDialogs = {}
 -- Test Canvas themes, real-time opacity updates, padded headers, and themed slider handles
 local addon = {
     modules = {},

@@ -1,4 +1,4 @@
-﻿## Interface: 11509
+## Interface: 11509
 ## Title: |cffffbd0aOffhand|r |cffffffff[Multi-Monitor Workspace]|r
 ## Notes: Equip your Offhand. Dual wield your monitors. Multi-monitor workspace for World of Warcraft.
 ## Author: N4UX (Noggaholic)
@@ -14,14 +14,23 @@ Core\Viewport.lua
 Core\ChatBubbles.lua
 Core\SeamRedirect.lua
 Core\Canvas.lua
+Core\BagPersistence.lua
 
 # Locales
 Locales\enUS.lua
-Locales\deDE.lua Locales\esES.lua Locales\esMX.lua Locales\frFR.lua Locales\itIT.lua Locales\koKR.lua Locales\ptBR.lua Locales\ruRU.lua Locales\zhCN.lua Locales\zhTW.lua
+Locales\deDE.lua
+Locales\esES.lua
+Locales\esMX.lua
+Locales\frFR.lua
+Locales\itIT.lua
+Locales\koKR.lua
+Locales\ptBR.lua
+Locales\ruRU.lua
+Locales\zhCN.lua
+Locales\zhTW.lua
 
 # UI & Themes
 UI\Themes.lua
 UI\Options.lua
 UI\Minimap.lua
 UI\Wizard.lua
-

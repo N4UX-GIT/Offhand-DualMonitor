@@ -1,3 +1,4 @@
+StaticPopupDialogs = {}
 -- Test the actual shared settings/wizard control without a live game.
 local frames = {}
 function CreateFrame(kind)

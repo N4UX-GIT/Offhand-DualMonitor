@@ -1,3 +1,4 @@
+StaticPopupDialogs = {}
 C_Timer = {After=function() end}
 -- tests/expanded-bags-and-ui-overlaps.lua
 -- Tests for bag expansion on workspace, method vs function call safety, and options card clearance

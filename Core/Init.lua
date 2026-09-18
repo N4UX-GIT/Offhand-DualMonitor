@@ -778,48 +778,6 @@ frame:SetScript("OnEvent", function()
         hooksecurefunc("SharedTooltip_SetBackdropStyle", EnforceTooltipScale)
     end
     
-    -- Globally track if the user has their bags open
-    if OpenAllBags and CloseAllBags and ToggleAllBags then
-        local isLoggingOut = false
-        local logoutFrame = CreateFrame("Frame")
-        logoutFrame:RegisterEvent("PLAYER_LEAVING_WORLD")
-        logoutFrame:RegisterEvent("PLAYER_LOGOUT")
-        logoutFrame:SetScript("OnEvent", function() isLoggingOut = true end)
-        
-        -- Hook the actual C-functions that trigger teardown BEFORE the engine calls CloseAllWindows
-        if ReloadUI then hooksecurefunc("ReloadUI", function() isLoggingOut = true end) end
-        if Logout then hooksecurefunc("Logout", function() isLoggingOut = true end) end
-        if Quit then hooksecurefunc("Quit", function() isLoggingOut = true end) end
-        if ForceQuit then hooksecurefunc("ForceQuit", function() isLoggingOut = true end) end
-        
-        
-        local function SaveBagStateBeforeTeardown()
-            if isLoggingOut then return end
-            isLoggingOut = true
-            
-            local isOpen = false
-            if IsBagOpen and IsBagOpen(0) then isOpen = true end
-            
-            for k, v in pairs(_G) do
-                if type(k) == "string" and type(v) == "table" and type(rawget(v, 0)) == "userdata" then
-                    if k:match("^Baganator") or k:match("^Baginator") or k:match("^BGR") or k:match("^Bagnon") or k:match("^AdiBags") or k:match("^BetterBags") or k:match("^ArkInventory") or k:match("^ElvUI_ContainerFrame") then
-                        local ok, isShown = pcall(function() return v:IsShown() end)
-                        if ok and isShown then
-                            isOpen = true
-                            break
-                        end
-                    end
-                end
-            end
-            
-            if Offhand.db then Offhand.db.bagsWereOpen = isOpen end
-        end
-
-        if ReloadUI then hooksecurefunc("ReloadUI", SaveBagStateBeforeTeardown) end
-        if Logout then hooksecurefunc("Logout", SaveBagStateBeforeTeardown) end
-        if Quit then hooksecurefunc("Quit", SaveBagStateBeforeTeardown) end
-        if ForceQuit then hooksecurefunc("ForceQuit", SaveBagStateBeforeTeardown) end
-    end
     for _, name in ipairs(tooltips) do
         local tt = _G[name]
         if tt then

@@ -1,3 +1,4 @@
+StaticPopupDialogs = {}
 -- Run from the project root with Lua 5.1.
 local addon = {}
 local events = {}
