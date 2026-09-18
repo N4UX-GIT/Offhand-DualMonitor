@@ -1,4 +1,4 @@
-## Interface: 120100, 110100
+## Interface: 121500, 121000, 120100, 120007, 120005
 ## Title: |cffffbd0aOffhand|r |cffffffff[Multi-Monitor Setup]|r
 ## Notes: Equip your Offhand. Dual wield your monitors. Multi-Monitor Setup UI.
 ## Author: N4UX (Noggaholic)
