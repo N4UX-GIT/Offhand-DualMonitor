@@ -597,7 +597,12 @@ function HUD:HookFrames()
                     local scaleFactor = fScale / parentScale
                     local top = (frame:GetTop() or 0) * scaleFactor
                     local left = (frame:GetLeft() or 0) * scaleFactor
-                    local onGameSide = isPortraitDeck and (left >= gameLeftThreshold) or (left < gameRightThreshold)
+                    local onGameSide = false
+                    if isPortraitDeck then
+                        onGameSide = (left >= gameLeftThreshold)
+                    else
+                        onGameSide = (left < gameRightThreshold)
+                    end
                     if onGameSide and top > (m.gameTop + 2) then
                         frame:ClearAllPoints()
                         local invFactor = parentScale / fScale
@@ -634,7 +639,12 @@ function HUD:HookFrames()
                     local scaleFactor = fScale / parentScale
                     local top = (child.GetTop and child:GetTop() or 0) * scaleFactor
                     local left = (child.GetLeft and child:GetLeft() or 0) * scaleFactor
-                    local onGameSide = isPortraitDeck and (left >= gameLeftThreshold) or (left < gameRightThreshold)
+                    local onGameSide = false
+                    if isPortraitDeck then
+                        onGameSide = (left >= gameLeftThreshold)
+                    else
+                        onGameSide = (left < gameRightThreshold)
+                    end
                     if onGameSide and top > (m.gameTop + 2) then
                         if child.GetPoint and child.ClearAllPoints and child.SetPoint then
                             child:ClearAllPoints()
