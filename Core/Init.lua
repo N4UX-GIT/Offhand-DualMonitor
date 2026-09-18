@@ -8,7 +8,7 @@ _G.Offhand = Offhand
 
 Offhand.name = addonName
 local getMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
-Offhand.version = (getMetadata and getMetadata(addonName, "Version")) or "1.0.1"
+Offhand.version = (getMetadata and getMetadata(addonName, "Version")) or "1.0.0"
 Offhand.modules = {}
 Offhand.callbacks = {}
 

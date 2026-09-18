@@ -1,4 +1,4 @@
-# Offhand v1.0.1 ? Multi-Monitor Workspace for World of Warcraft
+# Offhand v1.0.0 ? Multi-Monitor Workspace for World of Warcraft
 
 **Equip your Offhand. Dual wield your monitors.**
 
@@ -6,7 +6,7 @@ Offhand transforms dual displays into an expansive, calibrated gaming workstatio
 
 ---
 
-### What's New in v1.0.1
+### What's New in v1.0.0
 
 #### ?? 3D Viewport Geometry & Aspect Ratio Lock
 * Constrain 3D camera rendering strictly to your primary monitor's pixel bounds (16:9 Standard, 21:9 Ultrawide, or Fit Window Height).
@@ -39,12 +39,12 @@ Offhand transforms dual displays into an expansive, calibrated gaming workstatio
 | Asset | Description |
 | --- | --- |
 | **`Offhand.exe`** | Standalone Windows desktop companion (Recommended) |
-| **`Offhand-Companion-v1.0.1.zip`** | Companion bundle with `.exe`, batch scripts, and PowerShell alternatives |
-| **`Offhand-v1.0.1.zip`** | In-game add-on package for manual installation |
+| **`Offhand-Companion-v1.0.0.zip`** | Companion bundle with `.exe`, batch scripts, and PowerShell alternatives |
+| **`Offhand-v1.0.0.zip`** | In-game add-on package for manual installation |
 | **`checksums-sha256.txt`** | SHA-256 verification hashes for all release artifacts |
 
 ### Installation Quick-Start
-1. Extract `Offhand-v1.0.1.zip` into `World of Warcraft\_classic_era_\Interface\AddOns\`.
+1. Extract `Offhand-v1.0.0.zip` into `World of Warcraft\_classic_era_\Interface\AddOns\`.
 2. Set World of Warcraft Display Mode to **Windowed** (<kbd>Alt</kbd> + <kbd>Enter</kbd>).
 3. Run **`Offhand.exe`** and click **Span WoW Window Now**.
 4. In-game, type `/offhand` to open the configuration wizard.

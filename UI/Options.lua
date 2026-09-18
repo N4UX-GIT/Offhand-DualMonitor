@@ -826,7 +826,7 @@ function Options:CreateFloatingPanel()
     
     local version = header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     version:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 8, 2)
-    local verNum = (GetAddOnMetadata and GetAddOnMetadata("Offhand", "Version")) or "1.0.1"
+    local verNum = (GetAddOnMetadata and GetAddOnMetadata("Offhand", "Version")) or "1.0.0"
     version:SetText("|cffaaaaaaVersion " .. verNum .. "|r")
     
     local desc = header:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
