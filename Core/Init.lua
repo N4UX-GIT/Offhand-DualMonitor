@@ -786,13 +786,30 @@ frame:SetScript("OnEvent", function()
         logoutFrame:RegisterEvent("PLAYER_LOGOUT")
         logoutFrame:SetScript("OnEvent", function() isLoggingOut = true end)
         
-        hooksecurefunc("OpenAllBags", function() if not isLoggingOut then Offhand.db.bagsWereOpen = true end end)
-        hooksecurefunc("CloseAllBags", function() if not isLoggingOut then Offhand.db.bagsWereOpen = false end end)
-        hooksecurefunc("ToggleAllBags", function() if not isLoggingOut then Offhand.db.bagsWereOpen = not Offhand.db.bagsWereOpen end end)
+        -- Hook the actual C-functions that trigger teardown BEFORE the engine calls CloseAllWindows
+        if ReloadUI then hooksecurefunc("ReloadUI", function() isLoggingOut = true end) end
+        if Logout then hooksecurefunc("Logout", function() isLoggingOut = true end) end
+        if Quit then hooksecurefunc("Quit", function() isLoggingOut = true end) end
+        if ForceQuit then hooksecurefunc("ForceQuit", function() isLoggingOut = true end) end
         
-        if ToggleBackpack then hooksecurefunc("ToggleBackpack", function() if not isLoggingOut then Offhand.db.bagsWereOpen = not Offhand.db.bagsWereOpen end end) end
+        hooksecurefunc("OpenAllBags", function() if not isLoggingOut then Offhand.db.bagsWereOpen = true end end)
+        local function CommitBagClose()
+            if not isLoggingOut and Offhand.db then
+                Offhand.db.bagsWereOpen = false
+            end
+        end
+        local function CommitBagToggle()
+            if not isLoggingOut and Offhand.db then
+                Offhand.db.bagsWereOpen = not Offhand.db.bagsWereOpen
+            end
+        end
+        
+        hooksecurefunc("CloseAllBags", function() C_Timer.After(0.1, CommitBagClose) end)
+        hooksecurefunc("ToggleAllBags", function() C_Timer.After(0.1, CommitBagToggle) end)
+        
+        if ToggleBackpack then hooksecurefunc("ToggleBackpack", function() C_Timer.After(0.1, CommitBagToggle) end) end
         if OpenBackpack then hooksecurefunc("OpenBackpack", function() if not isLoggingOut then Offhand.db.bagsWereOpen = true end end) end
-        if CloseBackpack then hooksecurefunc("CloseBackpack", function() if not isLoggingOut then Offhand.db.bagsWereOpen = false end end) end
+        if CloseBackpack then hooksecurefunc("CloseBackpack", function() C_Timer.After(0.1, CommitBagClose) end) end
     end
     for _, name in ipairs(tooltips) do
         local tt = _G[name]

@@ -418,8 +418,11 @@ function Canvas:RestorePersistentFrames()
         end
     end
     
-    if hasBag and OpenAllBags then 
-        C_Timer.After(1.0, function() OpenAllBags() end)
+    if hasBag then 
+        C_Timer.After(1.0, function() 
+            if OpenAllBags then OpenAllBags() end
+            if OpenBackpack then pcall(OpenBackpack) end
+        end)
     end
 end
 
