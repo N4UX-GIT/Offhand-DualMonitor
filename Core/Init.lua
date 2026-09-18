@@ -498,7 +498,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             end
             
             for key, val in pairs(_G) do
-                if type(key) == "string" and type(val) == "table" and val.IsShown then
+                if type(key) == "string" and type(val) == "table" and type(rawget(val, 0)) == "userdata" and val.IsShown then
                     local okShow, isShown = pcall(function() return val:IsShown() end)
                     if okShow and isShown then
                         if key:match("^Baginator") or key:match("^Bagnon") or key:match("^AdiBags") or key:match("^BetterBags") or key:match("^ArkInventory") or key:match("^ElvUI_ContainerFrame") then
@@ -745,7 +745,7 @@ frame:SetScript("OnEvent", function()
     
     -- Dynamically find any other global tooltips safely
     for key, val in pairs(_G) do
-        if type(key) == "string" and string.match(key, "Tooltip") and type(val) == "table" and val.GetObjectType then
+        if type(key) == "string" and string.match(key, "Tooltip") and type(val) == "table" and type(rawget(val, 0)) == "userdata" and val.GetObjectType then
             local ok, objType = pcall(function() return val:GetObjectType() end)
             if ok and objType == "GameTooltip" then
                 local found = false
