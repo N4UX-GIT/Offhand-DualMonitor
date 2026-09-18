@@ -610,6 +610,26 @@ code {
     color: var(--text-muted);
 }
 
+.companion-preview-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 520px);
+    align-items: center;
+    gap: 36px;
+}
+
+.companion-preview-copy p + p { margin-top: 16px; }
+.quest-step-card { min-width: 0; overflow-wrap: anywhere; }
+.companion-preview-figure { margin: 0; min-width: 0; }
+.companion-preview-figure img { display: block; width: 100%; height: auto; border-radius: 8px; }
+.companion-preview-figure a { display: block; border-radius: 8px; }
+.companion-preview-figure a:focus-visible { outline: 3px solid var(--rio-gold); outline-offset: 5px; }
+.companion-preview-figure figcaption { margin-top: 12px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5; }
+
+@media (max-width: 960px) {
+    .companion-preview-card { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+    .companion-preview-figure { width: 100%; max-width: 520px; justify-self: center; }
+}
+
 .grid-3 {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
