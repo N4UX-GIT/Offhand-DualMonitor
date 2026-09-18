@@ -383,7 +383,7 @@ function Canvas:RestorePersistentFrames()
     local openPanels = Offhand.db.openWorkspacePanels or {}
     
     for name, _ in pairs(openPanels) do
-        if name:match("^ContainerFrame") or name:match("^Baganator") or name:match("^Baginator") or name:match("^Bagnon") or name:match("^AdiBags") or name:match("^BetterBags") or name:match("^ArkInventory") or name == "CustomBagRestorer" then
+        if name:match("^ContainerFrame") or name:match("^Baganator") or name:match("^Baginator") or name:match("^BGR") or name:match("^Bagnon") or name:match("^AdiBags") or name:match("^BetterBags") or name:match("^ArkInventory") or name == "CustomBagRestorer" then
             hasBag = true
             break
         end
@@ -401,7 +401,7 @@ function Canvas:RestorePersistentFrames()
                     else
                         frame:Show()
                     end
-                elseif name:match("^ContainerFrame") or name:match("Baganator") or name:match("Baginator") or name:match("Bagnon") or name:match("AdiBags") or name:match("BetterBags") or name:match("ArkInventory") then
+                elseif name:match("^ContainerFrame") or name:match("Baganator") or name:match("Baginator") or name:match("BGR") or name:match("Bagnon") or name:match("AdiBags") or name:match("BetterBags") or name:match("ArkInventory") then
                     hasBag = true
                 elseif name:match("^ChatFrame") then
                     frame:Show()
@@ -419,7 +419,7 @@ function Canvas:RestorePersistentFrames()
     end
     
     if hasBag then 
-        C_Timer.After(1.0, function() 
+        C_Timer.After(1.5, function() 
             -- Check if the bags are ALREADY open natively or by the custom addon's own persistence.
             -- If they are, calling OpenAllBags() might accidentally trigger an internal toggle and close them!
             local isAlreadyOpen = false
@@ -431,7 +431,7 @@ function Canvas:RestorePersistentFrames()
             -- because custom bags often route OpenAllBags to a toggle function!
             for k, v in pairs(_G) do
                 if type(k) == "string" and type(v) == "table" and type(rawget(v, 0)) == "userdata" then
-                    if k:match("^Baganator") or k:match("^Baginator") or k:match("^Bagnon") or k:match("^AdiBags") or k:match("^BetterBags") or k:match("^ArkInventory") or k:match("^ElvUI_ContainerFrame") then
+                    if k:match("^Baganator") or k:match("^Baginator") or k:match("^BGR") or k:match("^Bagnon") or k:match("^AdiBags") or k:match("^BetterBags") or k:match("^ArkInventory") or k:match("^ElvUI_ContainerFrame") then
                         local ok, isShown = pcall(function() return v:IsShown() end)
                         if ok and isShown then
                             isAlreadyOpen = true
@@ -442,8 +442,8 @@ function Canvas:RestorePersistentFrames()
             end
             
             if not isAlreadyOpen then
-                if OpenAllBags then OpenAllBags() end
-                if OpenBackpack then pcall(OpenBackpack) end
+                -- Some custom bags completely ignore OpenAllBags and only listen to the Toggle API!
+                if ToggleAllBags then ToggleAllBags() end
             end
         end)
     end

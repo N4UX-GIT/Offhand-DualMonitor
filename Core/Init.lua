@@ -802,7 +802,7 @@ frame:SetScript("OnEvent", function()
             
             for k, v in pairs(_G) do
                 if type(k) == "string" and type(v) == "table" and type(rawget(v, 0)) == "userdata" then
-                    if k:match("^Baganator") or k:match("^Baginator") or k:match("^Bagnon") or k:match("^AdiBags") or k:match("^BetterBags") or k:match("^ArkInventory") or k:match("^ElvUI_ContainerFrame") then
+                    if k:match("^Baganator") or k:match("^Baginator") or k:match("^BGR") or k:match("^Bagnon") or k:match("^AdiBags") or k:match("^BetterBags") or k:match("^ArkInventory") or k:match("^ElvUI_ContainerFrame") then
                         local ok, isShown = pcall(function() return v:IsShown() end)
                         if ok and isShown then
                             isOpen = true
