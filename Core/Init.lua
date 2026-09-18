@@ -460,7 +460,18 @@ StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"] = {
     preferredIndex = 3,
 }
 
+
+function Offhand:InitializePopups()
+    StaticPopupDialogs["OFFHAND_COMPANION_WARNING"].text = Offhand.L["POPUP_COMPANION_WARNING_TEXT"]
+    StaticPopupDialogs["OFFHAND_COMPANION_WARNING"].button2 = Offhand.L["POPUP_BTN_IGNORE"]
+    
+    StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"].text = Offhand.L["POPUP_WELCOME_WARNING_TEXT"]
+    StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"].button1 = Offhand.L["POPUP_BTN_GET_APP"]
+    StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"].button2 = Offhand.L["POPUP_BTN_LAUNCH_WIZARD"]
+end
+
 local eventFrame = CreateFrame("Frame", "OffhandEventFrame")
+
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -472,6 +483,7 @@ eventFrame:RegisterEvent("DISPLAY_SIZE_CHANGED")
 
 eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
     if event == "ADDON_LOADED" and arg1 == addonName then
+        Offhand:InitializePopups()
         Offhand:InitializeConfig()
         if Offhand.InitializeThemes then Offhand:InitializeThemes() end
         if Offhand.InitializeCanvas then Offhand:InitializeCanvas() end
