@@ -10,7 +10,11 @@ local function entries(path)
     end
     return result
 end
-local main,era=entries("Offhand.toc"),entries("Offhand_Vanilla.toc")
-assert(#main==#era, "Client TOCs load different numbers of files")
-for i,file in ipairs(main) do assert(file==era[i], "Client TOC load order mismatch: "..file) end
-print("PASS: matching client load order and loadable Lua files")
+local tocs = {"Offhand.toc", "Offhand_Mainline.toc", "Offhand_Vanilla.toc", "Offhand_Classic.toc", "Offhand_Forever.toc"}
+local main = entries(tocs[1])
+for i=2,#tocs do
+    local flavor = entries(tocs[i])
+    assert(#main==#flavor, "Client TOCs load different numbers of files: " .. tocs[i])
+    for j,file in ipairs(main) do assert(file==flavor[j], "Client TOC load order mismatch: "..file) end
+end
+print("PASS: matching client load order and loadable Lua files across all TOCs")

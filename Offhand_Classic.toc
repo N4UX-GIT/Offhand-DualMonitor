@@ -1,4 +1,4 @@
-## Interface: 11509
+## Interface: 40402
 ## Title: |cffffbd0aOffhand|r |cffffffff[Multi-Monitor Setup]|r
 ## Notes: Equip your Offhand. Dual wield your monitors. Multi-Monitor Setup UI.
 ## Author: N4UX (Noggaholic)
