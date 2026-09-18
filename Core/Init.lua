@@ -412,7 +412,7 @@ StaticPopupDialogs["OFFHAND_COMPANION_WARNING"] = {
     OnShow = function(self)
         local eb = self.EditBox or _G[self:GetName().."EditBox"]
         if eb then
-            eb:SetText("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest")
+            eb:SetText("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest/download/Offhand-Companion.zip")
             eb:HighlightText()
             eb:SetFocus()
         end
@@ -440,7 +440,7 @@ StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"] = {
     OnShow = function(self)
         local eb = self.EditBox or _G[self:GetName().."EditBox"]
         if eb then
-            eb:SetText("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest")
+            eb:SetText("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest/download/Offhand-Companion.zip")
             eb:HighlightText()
             eb:SetFocus()
         end

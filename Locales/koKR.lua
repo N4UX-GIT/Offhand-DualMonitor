@@ -430,18 +430,9 @@ L["PROFILES_WARN_EMPTY_NAME"] = "프로필 이름은 비워 둘 수 없습니다
 L["PROFILES_WARN_EXISTS"] = "해당 이름의 프로필이 이미 존재합니다."
 -- New Setup UI Strings
 
-L["POPUP_COMPANION_WARNING_TEXT"] = "|cffd0d0d0Offhand is enabled, but your window is not optimally spanned to your physical monitor setup and resolution.|r\n\nFor a seamless, borderless experience--and to avoid manually stretching the window edges every time you launch the game--the Offhand Companion App is highly recommended. Download it securely from GitHub below:\n\n(Alternatively, if you prefer to stretch the window manually across both monitors, click Ignore to permanently dismiss this warning)."
-L["POPUP_WELCOME_WARNING_TEXT"] = "|cffffd100Welcome to Offhand!|r\n\nTo use this dual-monitor interface, your World of Warcraft window must be spanned across two screens. Currently, your game is only running on one screen.\n\nWe highly recommend using the |cff00ff00Offhand Companion App|r (Windows .exe) to automatically achieve a pixel-perfect, borderless span across your monitors.\n\nOnce your game spans both monitors, click 'Launch Wizard' to calibrate your UI."
-L["POPUP_BTN_GET_APP"] = "Get App (Copy Link)"
-L["POPUP_BTN_LAUNCH_WIZARD"] = "Launch Wizard"
-L["POPUP_BTN_IGNORE"] = "Ignore"
-L["WIZARD_WELCOME_TEXT"] = "|cffffd100Welcome to Offhand!|r Your World of Warcraft window is now spanned across your monitors.\n\nOffhand will split your UI perfectly: placing the 3D game on your main monitor, and providing a clean 'Canvas' on your secondary monitor for maps, bags, and reading.\n\nClick |cff00ff00Auto-Configure|r below to calibrate instantly."
-
--- New Setup UI Strings
-
-L["POPUP_COMPANION_WARNING_TEXT"] = "|cffd0d0d0Offhand is enabled, but your window is not optimally spanned to your physical monitor setup and resolution.|r\n\nFor a seamless, borderless experience--and to avoid manually stretching the window edges every time you launch the game--the Offhand Companion App is highly recommended. Download it securely from GitHub below:\n\n(Alternatively, if you prefer to stretch the window manually across both monitors, click Ignore to permanently dismiss this warning)."
-L["POPUP_WELCOME_WARNING_TEXT"] = "|cffffd100Welcome to Offhand!|r\n\nTo use this dual-monitor interface, your World of Warcraft window must be spanned across two screens. Currently, your game is only running on one screen.\n\nWe highly recommend using the |cff00ff00Offhand Companion App|r (Windows .exe) to automatically achieve a pixel-perfect, borderless span across your monitors.\n\nOnce your game spans both monitors, click 'Launch Wizard' to calibrate your UI."
-L["POPUP_BTN_GET_APP"] = "Get App (Copy Link)"
-L["POPUP_BTN_LAUNCH_WIZARD"] = "Launch Wizard"
-L["POPUP_BTN_IGNORE"] = "Ignore"
-L["WIZARD_WELCOME_TEXT"] = "|cffffd100Welcome to Offhand!|r Your World of Warcraft window is now spanned across your monitors.\n\nOffhand will split your UI perfectly: placing the 3D game on your main monitor, and providing a clean 'Canvas' on your secondary monitor for maps, bags, and reading.\n\nClick |cff00ff00Auto-Configure|r below to calibrate instantly."
+L["POPUP_COMPANION_WARNING_TEXT"] = "|cffd0d0d0Offhand가 활성화되었지만, 현재 창이 모니터 해상도 및 배치에 맞게 최적으로 확장되지 않았습니다.|r\n\n게임을 실행할 때마다 창 크기를 수동으로 늘릴 필요 없이 깔끔한 테두리 없는 전체 화면을 유지하려면 Offhand Companion 앱 사용을 적극 권장합니다. 아래 GitHub 링크를 통해 안전하게 다운로드할 수 있습니다:\n\n(두 모니터에 걸쳐 창을 직접 늘리는 방식을 선호하신다면, '무시'를 눌러 이 경고를 영구적으로 닫으세요)."
+L["POPUP_WELCOME_WARNING_TEXT"] = "|cffffd100Offhand에 오신 것을 환영합니다!|r\n\n듀얼 모니터 인터페이스를 사용하려면 World of Warcraft 창이 두 화면에 걸쳐 확장되어 있어야 합니다. 현재 게임이 단일 모니터에서만 실행 중입니다.\n\n픽셀 단위로 정확하게 테두리 없는 창 확장을 지원하는 |cff00ff00Offhand Companion 앱|r(Windows .exe) 사용을 적극 권장합니다.\n\n게임 창이 두 모니터에 걸쳐 표시되면 '마법사 실행'을 클릭하여 UI 보정을 시작하세요."
+L["POPUP_BTN_GET_APP"] = "앱 다운로드 (링크 복사)"
+L["POPUP_BTN_LAUNCH_WIZARD"] = "마법사 실행"
+L["POPUP_BTN_IGNORE"] = "무시"
+L["WIZARD_WELCOME_TEXT"] = "|cffffd100Offhand에 오신 것을 환영합니다!|r 이제 World of Warcraft 창이 모니터 전반에 확장되었습니다.\n\nOffhand는 인터페이스를 완벽하게 분할합니다. 주 모니터에는 3D 게임 화면을 배치하고, 보조 모니터에는 지도, 가방 및 정보를 확인할 수 있는 깔끔한 '작업 공간'을 제공합니다.\n\n아래의 |cff00ff00원클릭 자동 설정|r을 클릭하여 즉시 보정하세요."

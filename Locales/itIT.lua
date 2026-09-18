@@ -430,18 +430,9 @@ L["PROFILES_WARN_EMPTY_NAME"] = "Il nome del profilo non può essere vuoto."
 L["PROFILES_WARN_EXISTS"] = "Esiste già un profilo con questo nome."
 -- New Setup UI Strings
 
-L["POPUP_COMPANION_WARNING_TEXT"] = "|cffd0d0d0Offhand is enabled, but your window is not optimally spanned to your physical monitor setup and resolution.|r\n\nFor a seamless, borderless experience--and to avoid manually stretching the window edges every time you launch the game--the Offhand Companion App is highly recommended. Download it securely from GitHub below:\n\n(Alternatively, if you prefer to stretch the window manually across both monitors, click Ignore to permanently dismiss this warning)."
-L["POPUP_WELCOME_WARNING_TEXT"] = "|cffffd100Welcome to Offhand!|r\n\nTo use this dual-monitor interface, your World of Warcraft window must be spanned across two screens. Currently, your game is only running on one screen.\n\nWe highly recommend using the |cff00ff00Offhand Companion App|r (Windows .exe) to automatically achieve a pixel-perfect, borderless span across your monitors.\n\nOnce your game spans both monitors, click 'Launch Wizard' to calibrate your UI."
-L["POPUP_BTN_GET_APP"] = "Get App (Copy Link)"
-L["POPUP_BTN_LAUNCH_WIZARD"] = "Launch Wizard"
-L["POPUP_BTN_IGNORE"] = "Ignore"
-L["WIZARD_WELCOME_TEXT"] = "|cffffd100Welcome to Offhand!|r Your World of Warcraft window is now spanned across your monitors.\n\nOffhand will split your UI perfectly: placing the 3D game on your main monitor, and providing a clean 'Canvas' on your secondary monitor for maps, bags, and reading.\n\nClick |cff00ff00Auto-Configure|r below to calibrate instantly."
-
--- New Setup UI Strings
-
-L["POPUP_COMPANION_WARNING_TEXT"] = "|cffd0d0d0Offhand is enabled, but your window is not optimally spanned to your physical monitor setup and resolution.|r\n\nFor a seamless, borderless experience--and to avoid manually stretching the window edges every time you launch the game--the Offhand Companion App is highly recommended. Download it securely from GitHub below:\n\n(Alternatively, if you prefer to stretch the window manually across both monitors, click Ignore to permanently dismiss this warning)."
-L["POPUP_WELCOME_WARNING_TEXT"] = "|cffffd100Welcome to Offhand!|r\n\nTo use this dual-monitor interface, your World of Warcraft window must be spanned across two screens. Currently, your game is only running on one screen.\n\nWe highly recommend using the |cff00ff00Offhand Companion App|r (Windows .exe) to automatically achieve a pixel-perfect, borderless span across your monitors.\n\nOnce your game spans both monitors, click 'Launch Wizard' to calibrate your UI."
-L["POPUP_BTN_GET_APP"] = "Get App (Copy Link)"
-L["POPUP_BTN_LAUNCH_WIZARD"] = "Launch Wizard"
-L["POPUP_BTN_IGNORE"] = "Ignore"
-L["WIZARD_WELCOME_TEXT"] = "|cffffd100Welcome to Offhand!|r Your World of Warcraft window is now spanned across your monitors.\n\nOffhand will split your UI perfectly: placing the 3D game on your main monitor, and providing a clean 'Canvas' on your secondary monitor for maps, bags, and reading.\n\nClick |cff00ff00Auto-Configure|r below to calibrate instantly."
+L["POPUP_COMPANION_WARNING_TEXT"] = "|cffd0d0d0Offhand è attivo, ma la finestra non è estesa in modo ottimale per la configurazione e la risoluzione dei tuoi monitor.|r\n\nPer un'esperienza senza bordi perfetta, ed evitare di ridimensionare manualmente i bordi a ogni avvio del gioco, ti consigliamo vivamente l'app Offhand Companion. Scaricala in sicurezza da GitHub:\n\n(In alternativa, se preferisci estendere manualmente la finestra su entrambi i monitor, clicca su «Ignora» per disattivare questo avviso in modo permanente)."
+L["POPUP_WELCOME_WARNING_TEXT"] = "|cffffd100Benvenuto in Offhand!|r\n\nPer utilizzare questa interfaccia a doppio monitor, la finestra di World of Warcraft deve estendersi su due schermi. Attualmente il gioco è visualizzato solo su uno schermo.\n\nConsigliamo di usare l'app |cff00ff00Offhand Companion|r (.exe per Windows) per estendere automaticamente la finestra a tutto schermo e senza bordi al pixel esatto.\n\nUna volta esteso il gioco su entrambi i monitor, clicca su «Avvia procedura guidata» per calibrare l'interfaccia."
+L["POPUP_BTN_GET_APP"] = "Scarica app (Copia link)"
+L["POPUP_BTN_LAUNCH_WIZARD"] = "Avvia procedura guidata"
+L["POPUP_BTN_IGNORE"] = "Ignora"
+L["WIZARD_WELCOME_TEXT"] = "|cffffd100Benvenuto in Offhand!|r La finestra di World of Warcraft è ora estesa su entrambi i monitor.\n\nOffhand suddividerà perfettamente l'interfaccia: posizionerà il mondo 3D sullo schermo principale e predisporrà un'area sgombra sullo schermo secondario per mappa, borse e pannelli informativi.\n\nClicca su |cff00ff00Configura con un clic|r qui sotto per calibrare immediatamente."
