@@ -413,7 +413,7 @@ For a seamless, borderless experience--and to avoid the tedious process of manua
     OnShow = function(self)
         local eb = self.EditBox or _G[self:GetName().."EditBox"]
         if eb then
-            eb:SetText("https://github.com/N4UX/Offhand/releases")
+            eb:SetText("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest")
             eb:HighlightText()
             eb:SetFocus()
         end
