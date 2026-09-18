@@ -383,7 +383,7 @@ function Canvas:RestorePersistentFrames()
     local openPanels = Offhand.db.openWorkspacePanels or {}
     
     for name, _ in pairs(openPanels) do
-        if name:match("^ContainerFrame") or name:match("^Baganator") or name:match("^Baginator") or name:match("^Bagnon") or name:match("^AdiBags") or name:match("^BetterBags") or name:match("^ArkInventory") then
+        if name:match("^ContainerFrame") or name:match("^Baganator") or name:match("^Baginator") or name:match("^Bagnon") or name:match("^AdiBags") or name:match("^BetterBags") or name:match("^ArkInventory") or name == "CustomBagRestorer" then
             hasBag = true
             break
         end

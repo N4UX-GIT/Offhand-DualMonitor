@@ -777,6 +777,13 @@ frame:SetScript("OnEvent", function()
     if SharedTooltip_SetBackdropStyle then
         hooksecurefunc("SharedTooltip_SetBackdropStyle", EnforceTooltipScale)
     end
+    
+    -- Globally track if the user has their bags open
+    if OpenAllBags and CloseAllBags and ToggleAllBags then
+        hooksecurefunc("OpenAllBags", function() Offhand.db.bagsWereOpen = true end)
+        hooksecurefunc("CloseAllBags", function() Offhand.db.bagsWereOpen = false end)
+        hooksecurefunc("ToggleAllBags", function() Offhand.db.bagsWereOpen = not Offhand.db.bagsWereOpen end)
+    end
     for _, name in ipairs(tooltips) do
         local tt = _G[name]
         if tt then
