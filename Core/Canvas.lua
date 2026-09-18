@@ -412,7 +412,7 @@ function Canvas:RestorePersistentFrames()
     end
     
     if hasBag and OpenAllBags then 
-        OpenAllBags() 
+        C_Timer.After(0.5, function() OpenAllBags() end)
     end
 end
 

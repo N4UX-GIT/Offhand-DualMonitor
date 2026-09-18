@@ -739,14 +739,21 @@ frame:SetScript("OnEvent", function()
     end
 
     local function EnforceTooltipScale(self)
-        -- Ensure this tooltip naturally inherits UIParent (undoes Blizzard's 1.0 pixel-perfect enforcement)
+        if not UIParent then return end
         if self.SetIgnoreParentScale and self.IsIgnoringParentScale and self:IsIgnoringParentScale() then
             self:SetIgnoreParentScale(false)
         end
-        -- Because it now inherits UIParent (e.g. 0.39), its local scale MUST be locked to 1.0.
-        -- If we set it to UIParent scale here, we would double-scale it (0.39 * 0.39 = 0.15!).
-        if self.GetScale and math.abs(self:GetScale() - 1.0) > 0.01 then
-            self:SetScale(1.0)
+        
+        -- Mathematically calculate the exact local scale required to make the tooltip's absolute size match UIParent.
+        -- This flawlessly handles tooltips parented to UIParent (requiring 1.0) AND tooltips parented to WorldFrame (requiring 0.39).
+        if self.GetScale then
+            local desiredAbsolute = UIParent:GetEffectiveScale() or 1
+            local parentAbsolute = (self:GetParent() and self:GetParent():GetEffectiveScale()) or 1
+            local desiredLocal = desiredAbsolute / parentAbsolute
+            
+            if math.abs(self:GetScale() - desiredLocal) > 0.01 then
+                self:SetScale(desiredLocal)
+            end
         end
     end
     
