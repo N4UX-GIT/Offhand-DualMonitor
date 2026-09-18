@@ -179,6 +179,71 @@ if C_Container and C_Container.CloseAllBags and not _G.Offhand_Original_C_Contai
     end
 end
 
+
+if CloseAllWindows and not _G.Offhand_OriginalCloseAllWindows then
+    _G.Offhand_OriginalCloseAllWindows = CloseAllWindows
+    CloseAllWindows = function(ignoreCenter)
+        local closedBags = false
+        if not ignoreCenter and Offhand.db and Offhand.db.enabled and Offhand.db.persistentWorkspacePanels ~= false then
+            local framesToCheck = {}
+            for i = 1, NUM_CONTAINER_FRAMES or 13 do
+                table.insert(framesToCheck, _G["ContainerFrame"..i])
+            end
+            if _G.ContainerFrameCombinedBags then
+                table.insert(framesToCheck, _G.ContainerFrameCombinedBags)
+            end
+            
+            local workspaceBags = {}
+            local nonWorkspaceBags = {}
+            for _, f in ipairs(framesToCheck) do
+                if f and f.IsShown and f:IsShown() then
+                    local name = f.GetName and f:GetName()
+                    if name then
+                        local isWs = (Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]) or IsFrameOnWorkspace(f)
+                        if isWs then
+                            table.insert(workspaceBags, f)
+                        else
+                            table.insert(nonWorkspaceBags, f)
+                        end
+                    end
+                end
+            end
+            
+            if #workspaceBags > 0 then
+                -- Workspace bags exist! We must prevent C_Container.CloseAllBags from closing them.
+                -- We close the non-workspace bags manually.
+                for _, f in ipairs(nonWorkspaceBags) do
+                    if f.Hide then f:Hide() end
+                    closedBags = true
+                end
+                -- We tell CloseAllWindows to ignore bags by tricking it, or we just restore them after!
+                ignoreCenter = true -- This skips C_Container.CloseAllBags() natively!
+            end
+        end
+        
+        local closedAny = _G.Offhand_OriginalCloseAllWindows(ignoreCenter)
+        
+        -- Fallback: Just in case they got closed anyway, force them back open instantly without flicker
+        if not InCombatLockdown() and Offhand.db and Offhand.db.persistentWorkspacePanels ~= false then
+            local frames = {}
+            if _G.ContainerFrameCombinedBags then table.insert(frames, _G.ContainerFrameCombinedBags) end
+            for i = 1, NUM_CONTAINER_FRAMES or 13 do
+                table.insert(frames, _G["ContainerFrame"..i])
+            end
+            for _, f in ipairs(frames) do
+                local name = f.GetName and f:GetName()
+                if name and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name] then
+                    if f.Show and not f:IsShown() then
+                        f:Show()
+                    end
+                end
+            end
+        end
+        
+        return closedAny or closedBags
+    end
+end
+
 if CloseAllBags and not _G.Offhand_OriginalCloseAllBags then
     _G.Offhand_OriginalCloseAllBags = CloseAllBags
     CloseAllBags = function(...)
