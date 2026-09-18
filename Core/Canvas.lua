@@ -394,7 +394,7 @@ function Canvas:RestorePersistentFrames()
                     else
                         frame:Show()
                     end
-                elseif name:match("^ContainerFrame") then
+                elseif name:match("^ContainerFrame") or name:match("Baginator") or name:match("Bagnon") or name:match("AdiBags") or name:match("BetterBags") or name:match("ArkInventory") then
                     hasBag = true
                 elseif name:match("^ChatFrame") then
                     frame:Show()
