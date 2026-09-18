@@ -1527,7 +1527,7 @@ function Options:CreateFloatingPanel()
     subSlate:SetPoint("TOPLEFT", 258, -46)
     subSlate:SetText("|cff888888Charcoal dialog & silver trim|r")
 
-    local rTinker = CreateNativeRadioButton(card3_1, "Gnomish Tinker",
+    local rTinker = CreateNativeRadioButton(card3_1, "Forged Brass",
         function() return (Offhand.db and Offhand.db.theme == "GNOMISH_TINKER") end,
         function()
             Offhand.db.theme = "GNOMISH_TINKER"
@@ -1541,7 +1541,7 @@ function Options:CreateFloatingPanel()
 
     local subTinker = card3_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     subTinker:SetPoint("TOPLEFT", 492, -46)
-    subTinker:SetText("|cff00ccffClockwork brass & cyan glow|r")
+    subTinker:SetText("|cff888888Forged brass & blue accents|r")
 
     local rObsidian = CreateNativeRadioButton(card3_1, "Obsidian Dark",
         function() return (Offhand.db and Offhand.db.theme == "OBSIDIAN") end,

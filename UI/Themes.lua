@@ -58,8 +58,8 @@ local THEME_DATA = {
         headerTextColor = { 0.8, 0.8, 0.8, 1.0 },
     },
     GNOMISH_TINKER = {
-        name = "Gnomish Tinker",
-        description = "Dark forged metal with electric blue HUD accents",
+        name = "Forged Brass",
+        description = "Dark forged metal with blue HUD accents",
         bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
         edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
         edgeSize = 16,

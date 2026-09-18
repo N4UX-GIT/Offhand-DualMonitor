@@ -183,12 +183,12 @@ assert(mockCanvas.backdrop.edgeSize == 14, "Blizzard Slate edgeSize must be 14")
 local pals = addon.Themes:GetColorPalettes()
 assert(math.abs(mockCanvas.borderColor.r - pals.SILVER.r) < 0.01, "Blizzard Slate border color must match Silver trim")
 
--- C. Gnomish Tinker theme with Brass trim
+-- C. Forged Brass theme with Brass trim
 addon.db.theme = "GNOMISH_TINKER"
 addon.db.trimColor = "TINKER_BRASS"
 addon.Themes:ApplyCanvasTheme(mockCanvas)
-assert(mockCanvas.backdrop.edgeFile == "Interface\\DialogFrame\\UI-DialogBox-Border", "Gnomish Tinker must use DialogBox-Border")
-assert(math.abs(mockCanvas.borderColor.r - pals.TINKER_BRASS.r) < 0.01, "Gnomish Tinker border color must match Tinker Brass trim")
+assert(mockCanvas.backdrop.edgeFile == "Interface\\DialogFrame\\UI-DialogBox-Border", "Forged Brass must use DialogBox-Border")
+assert(math.abs(mockCanvas.borderColor.r - pals.TINKER_BRASS.r) < 0.01, "Forged Brass border color must match Tinker Brass trim")
 
 -- 2. Test BayHeader Padded Dimensions and Anchoring
 local mockParent = makeMockFrame("MockParent", 720, 650)
