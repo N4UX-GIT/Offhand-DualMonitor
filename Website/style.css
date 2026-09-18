@@ -169,7 +169,8 @@ code {
 }
 
 .btn-sm {
-    padding: 6px 16px;
+    padding: 0 16px;
+    height: 34px;
     font-size: 0.85rem;
 }
 
@@ -1011,4 +1012,10 @@ kbd {
     .footer-legal {
         text-align: center;
     }
+}
+
+.nav-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
 }
