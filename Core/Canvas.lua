@@ -186,42 +186,51 @@ if CloseAllWindows and not _G.Offhand_OriginalCloseAllWindows then
         local activeWorkspaceFrames = {}
         local closedBags = false
         
-        -- 1. Identify ALL frames on the workspace that are currently open
+        local function TrackFrame(f)
+            if not f or not f.IsShown or not f:IsShown() then return end
+            for _, existing in ipairs(activeWorkspaceFrames) do
+                if existing == f then return end
+            end
+            if IsFrameOnWorkspace(f) then
+                table.insert(activeWorkspaceFrames, f)
+            end
+        end
+
         if not ignoreCenter and not InCombatLockdown() and Offhand.db and Offhand.db.enabled and Offhand.db.persistentWorkspacePanels ~= false then
-            -- Standard bags
+            -- 1. Track standard bags
             local standardBags = {}
             for i = 1, NUM_CONTAINER_FRAMES or 13 do table.insert(standardBags, _G["ContainerFrame"..i]) end
             if _G.ContainerFrameCombinedBags then table.insert(standardBags, _G.ContainerFrameCombinedBags) end
             
             for _, f in ipairs(standardBags) do
                 if f and f.IsShown and f:IsShown() then
-                    local name = f.GetName and f:GetName()
-                    if name then
-                        local isWs = (Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]) or IsFrameOnWorkspace(f)
-                        if isWs then
-                            table.insert(activeWorkspaceFrames, f)
-                        else
-                            if f.Hide then f:Hide() end
-                            closedBags = true
-                        end
+                    if IsFrameOnWorkspace(f) or (Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[f:GetName() or ""]) then
+                        TrackFrame(f)
+                    else
+                        if f.Hide then f:Hide() end
+                        closedBags = true
                     end
                 end
             end
             
-            -- Any other custom frames (like Baginator, CharacterFrame, Map) saved in the workspace
+            -- 2. Track known saved workspace panels
             if Offhand.db.savedWorkspacePositions then
                 for name, _ in pairs(Offhand.db.savedWorkspacePositions) do
-                    local f = _G[name]
-                    if f and f.IsShown and f:IsShown() then
-                        -- Prevent duplicates if it was a standard bag
-                        local isDuplicate = false
-                        for _, existing in ipairs(activeWorkspaceFrames) do
-                            if existing == f then isDuplicate = true; break end
-                        end
-                        if not isDuplicate then
-                            table.insert(activeWorkspaceFrames, f)
-                        end
-                    end
+                    TrackFrame(_G[name])
+                end
+            end
+            
+            -- 3. Track ALL UISpecialFrames (this is crucial for Baginator and custom addons!)
+            if UISpecialFrames then
+                for _, name in ipairs(UISpecialFrames) do
+                    TrackFrame(_G[name])
+                end
+            end
+            
+            -- 4. Track ALL UIPanelWindows (just in case they register as a panel instead of a special frame)
+            if UIPanelWindows then
+                for name, _ in pairs(UIPanelWindows) do
+                    TrackFrame(_G[name])
                 end
             end
             
@@ -230,10 +239,8 @@ if CloseAllWindows and not _G.Offhand_OriginalCloseAllWindows then
             end
         end
         
-        -- 2. Run the native Blizzard close engine
         local closedAny = _G.Offhand_OriginalCloseAllWindows(ignoreCenter)
         
-        -- 3. IMMEDIATELY restore any workspace frames that the engine just nuked
         if not InCombatLockdown() then
             for _, f in ipairs(activeWorkspaceFrames) do
                 if f.Show and not f:IsShown() then
