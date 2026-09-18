@@ -149,11 +149,14 @@ local function HandleCustomCloseAllBags(originalFunc, ...)
     
     local closedAny = false
     local framesToCheck = {}
-    for i = 1, NUM_CONTAINER_FRAMES or 13 do
-        table.insert(framesToCheck, _G["ContainerFrame"..i])
-    end
-    if _G.ContainerFrameCombinedBags then
-        table.insert(framesToCheck, _G.ContainerFrameCombinedBags)
+    local hasCustomBags = Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()
+    if not hasCustomBags then
+        for i = 1, NUM_CONTAINER_FRAMES or 13 do
+            table.insert(framesToCheck, _G["ContainerFrame"..i])
+        end
+        if _G.ContainerFrameCombinedBags then
+            table.insert(framesToCheck, _G.ContainerFrameCombinedBags)
+        end
     end
     
     for _, f in ipairs(framesToCheck) do

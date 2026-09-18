@@ -725,13 +725,30 @@ local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:SetScript("OnEvent", function()
     local tooltips = { "GameTooltip", "ItemRefTooltip", "ShoppingTooltip1", "ShoppingTooltip2" }
+    local function EnforceTooltipScale(self)
+        if not UIParent then return end
+        local pScale = UIParent:GetEffectiveScale() or 1
+        -- Allow a tiny bit of floating point variance, but catch large scale differences
+        if self.GetScale and math.abs(self:GetScale() - pScale) > 0.05 then
+            self:SetScale(pScale)
+        end
+    end
     for _, name in ipairs(tooltips) do
         local tt = _G[name]
-        if tt and tt.SetIgnoreParentScale then
-            tt:SetIgnoreParentScale(false)
-            hooksecurefunc(tt, "SetIgnoreParentScale", function(self, ignore)
-                if ignore then self:SetIgnoreParentScale(false) end
-            end)
+        if tt then
+            if tt.HookScript then
+                tt:HookScript("OnShow", EnforceTooltipScale)
+                tt:HookScript("OnSizeChanged", EnforceTooltipScale)
+            end
+            if tt.SetOwner then
+                hooksecurefunc(tt, "SetOwner", EnforceTooltipScale)
+            end
+            if tt.SetIgnoreParentScale then
+                tt:SetIgnoreParentScale(false)
+                hooksecurefunc(tt, "SetIgnoreParentScale", function(self, ignore)
+                    if ignore then self:SetIgnoreParentScale(false) end
+                end)
+            end
         end
     end
 end)
