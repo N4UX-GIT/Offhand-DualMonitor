@@ -499,13 +499,6 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         end
 
     elseif event == "PLAYER_LOGIN" then
-        -- Unclamp ChatFrame1 in Retail so Edit Mode allows it on secondary monitors
-        if ChatFrame1 and ChatFrame1.SetClampedToScreen then
-            ChatFrame1:SetClampedToScreen(false)
-            hooksecurefunc(ChatFrame1, "SetClampedToScreen", function(self, clamped)
-                if clamped then self:SetClampedToScreen(false) end
-            end)
-        end
         pcall(function()
             for i=1, 13 do
                 local f = _G["ContainerFrame"..i]
