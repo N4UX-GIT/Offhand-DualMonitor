@@ -616,24 +616,7 @@ local originalAreas = {}
 
 
 DemodalizePanel = function(frame)
-    if not frame then return end
-    local name = frame:GetName()
-    if not name then return end
-    if UIPanelWindows and UIPanelWindows[name] then
-        if not originalAreas[name] then
-            originalAreas[name] = UIPanelWindows[name].area
-        end
-        UIPanelWindows[name].area = nil
-    end
-    if SetUIPanelAttribute then
-        pcall(function() SetUIPanelAttribute(frame, "area", nil) end)
-    end
-    local isWs = (Offhand.db and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]) or IsFrameOnWorkspace(frame)
-    if isWs and (Offhand.db and Offhand.db.persistentWorkspacePanels ~= false) then
-        UnregisterSpecialFrame(name)
-    else
-        RegisterSpecialFrame(name)
-    end
+    -- Disabled: Removing UIPanel attributes breaks Retail WoW's internal frame width calculations (e.g. CharacterFrame stats panel expansion)
 end
 
 RemodalizePanel = function(frame)
@@ -660,10 +643,10 @@ OnPanelDragStop = function(frame)
         pcall(function() frame:StopMovingOrSizing() end)
     end
     local name = frame.GetName and frame:GetName()
-    if name and string.match(name, "^ContainerFrame") then
-        pcall(function() frame:SetUserPlaced(false) end)
+    if name and string.match(name, "^ChatFrame") then
+        
     else
-        pcall(function() frame:SetUserPlaced(true) end)
+        pcall(function() frame:SetUserPlaced(false) end)
     end
 
     if not Offhand.db or not Offhand.db.enabled then
@@ -803,7 +786,7 @@ OnPanelDragStop = function(frame)
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         elseif string.match(name, "^PartyMemberFrame") or string.match(name, "^CompactPartyFrame") then
             Offhand.db.savedMainPositions[name] = { x = clampedX, y = clampedY }
-            pcall(function() frame:SetUserPlaced(true) end)
+            
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         
@@ -820,7 +803,7 @@ OnPanelDragStop = function(frame)
                 Offhand.HUD:AlignHUDFrames()
             end
         elseif string.match(name, "^ChatFrame") then
-            pcall(function() frame:SetUserPlaced(true) end)
+            
             Offhand.db.savedMainPositions[name] = { x = clampedX, y = clampedY }
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
@@ -892,7 +875,7 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         end
         frame:ClearAllPoints()
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
-        pcall(function() frame:SetUserPlaced(true) end)
+        
         if string.match(name, "^ChatFrame") and ChatFrame1EditBox and frame == ChatFrame1 then
             if ChatFrame1EditBox.ClearAllPoints and ChatFrame1EditBox.SetPoint then
                 ChatFrame1EditBox:ClearAllPoints()
@@ -1251,6 +1234,25 @@ function Offhand:InitializeCanvas()
         Canvas.showUIPanelHooked = true
         hooksecurefunc("ShowUIPanel", function(frame)
             Canvas:TryMakeFrameDraggable(frame)
+            if frame and frame.GetName and Offhand.db and Offhand.db.savedWorkspacePositions then
+                local name = frame:GetName()
+                if name and Offhand.db.savedWorkspacePositions[name] then
+                    C_Timer.After(0.01, function() Canvas.RestoreWorkspacePosition(frame) end)
+                end
+            end
+        end)
+    end
+    
+    if not Canvas.updateUIPanelHooked and UpdateUIPanelPositions then
+        Canvas.updateUIPanelHooked = true
+        hooksecurefunc("UpdateUIPanelPositions", function()
+            if not Offhand.db or not Offhand.db.savedWorkspacePositions then return end
+            for name, _ in pairs(Offhand.db.savedWorkspacePositions) do
+                local frame = _G[name]
+                if frame and frame.IsShown and frame:IsShown() and UIPanelWindows and UIPanelWindows[name] then
+                    Canvas.RestoreWorkspacePosition(frame)
+                end
+            end
         end)
     end
 end
