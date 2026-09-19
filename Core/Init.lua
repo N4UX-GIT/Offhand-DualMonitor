@@ -713,6 +713,19 @@ SlashCmdList["Offhand"] = SlashCmdList["OFFHAND"]
 local logoutFix = CreateFrame('Frame')
 logoutFix:RegisterEvent('PLAYER_LOGOUT')
 logoutFix:SetScript('OnEvent', function()
+    if Offhand.Viewport and Offhand.Viewport.Reset then
+        Offhand.Viewport:Reset()
+    end
+    local db = Offhand.db
+    if db then
+        if db.originalUiScale and SetCVar then
+            SetCVar("uiScale", db.originalUiScale)
+        end
+        if db.originalUseUiScale and SetCVar then
+            SetCVar("useUiScale", db.originalUseUiScale)
+        end
+    end
+
     for i = 1, 13 do
         local bag = _G['ContainerFrame'..i]
         if bag then
