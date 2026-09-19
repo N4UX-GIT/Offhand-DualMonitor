@@ -815,16 +815,6 @@ function HUD:HookFrames()
         local bagsOnWorkspace = false
         if bpPos and bpPos.x and bpPos.y then
             bagsOnWorkspace = true
-        else
-            for i = 1, (NUM_CONTAINER_FRAMES or 13) do
-                local f = _G["ContainerFrame" .. i]
-                local fname = f and f:GetName()
-                if fname and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[fname] then
-                    bagsOnWorkspace = true
-                    bpPos = Offhand.db.savedWorkspacePositions[fname]
-                    break
-                end
-            end
         end
 
         local bagSpacing = 4
@@ -898,7 +888,12 @@ function HUD:HookFrames()
                 if frame and frame:IsShown() then
                     local name = frame:GetName()
                     local pos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
-                    if not pos then
+                    if pos and pos.x and pos.y then
+                        if Offhand.Canvas and Offhand.Canvas.RestoreWorkspacePosition then
+                            Offhand.Canvas.RestoreWorkspacePosition(frame)
+                        end
+                        if frame.SetAlpha then frame:SetAlpha(1) end
+                    else
                         frame:SetUserPlaced(false)
                         frame:ClearAllPoints()
                         local w = frame:GetWidth() or defaultBagWidth
@@ -915,7 +910,12 @@ function HUD:HookFrames()
 
         if ContainerFrameCombinedBags and ContainerFrameCombinedBags:IsShown() then
             local pos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["ContainerFrameCombinedBags"]
-            if not pos then
+            if pos and pos.x and pos.y then
+                if Offhand.Canvas and Offhand.Canvas.RestoreWorkspacePosition then
+                    Offhand.Canvas.RestoreWorkspacePosition(ContainerFrameCombinedBags)
+                end
+                if ContainerFrameCombinedBags.SetAlpha then ContainerFrameCombinedBags:SetAlpha(1) end
+            else
                 local right = m.gameRight - 16
                 local bottom = m.gameBottom + 32
                 ContainerFrameCombinedBags:SetUserPlaced(false)
