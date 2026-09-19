@@ -790,12 +790,18 @@ OnPanelDragStop = function(frame)
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
             if w and h and w > 0 and h > 0 then frame:SetSize(w, h) end
-        elseif string.match(name, "^PartyMemberFrame") or string.match(name, "^CompactPartyFrame") then
-            Offhand.db.savedMainPositions[name] = { x = clampedX, y = clampedY }
-            local w, h = frame:GetWidth(), frame:GetHeight()
-            frame:ClearAllPoints()
-            frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
-            if w and h and w > 0 and h > 0 then frame:SetSize(w, h) end
+        elseif string.match(name, "^PartyMemberFrame") or string.match(name, "^CompactPartyFrame") or name == "CompactRaidFrameContainer" then
+            if EditModeManagerFrame then
+                -- Retail Edit Mode manages these. Do not taint!
+                Offhand.db.savedWorkspacePositions[name] = nil
+                Offhand.db.savedMainPositions[name] = nil
+            else
+                Offhand.db.savedMainPositions[name] = { x = clampedX, y = clampedY }
+                local w, h = frame:GetWidth(), frame:GetHeight()
+                frame:ClearAllPoints()
+                frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+                if w and h and w > 0 and h > 0 then frame:SetSize(w, h) end
+            end
         
         elseif string.match(name, "^ContainerFrame") then
             pcall(function() frame:SetUserPlaced(false) end)
@@ -1103,10 +1109,15 @@ function Canvas:EnableFreeDragging()
         "ClassTrainerFrame",
         "TradeSkillFrame",
         "CraftFrame",
-        "PartyMemberFrame1",
-        "CompactPartyFrame",
-        "CompactRaidFrameContainer",
-            }
+    }
+    
+    -- In Classic Era (no Edit Mode), we allow dragging unit frames.
+    -- In modern WoW, Edit Mode natively handles moving these frames to the offhand monitor.
+    if not EditModeManagerFrame then
+        table.insert(frameNames, "PartyMemberFrame1")
+        table.insert(frameNames, "CompactPartyFrame")
+        table.insert(frameNames, "CompactRaidFrameContainer")
+    end
 
     if not hasCustomMinimap then
         table.insert(frameNames, "MinimapCluster")
