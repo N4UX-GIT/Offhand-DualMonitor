@@ -182,7 +182,7 @@ function Wizard:CreateFrame()
     -- ========================================================================
     -- CARD 2: MONITOR ORIENTATION & 3D VIEWPORT
     -- ========================================================================
-    local card2 = CreateWizardCard(f, L["WIZARD_CARD2_TITLE"], -256, 138)
+    local card2 = CreateWizardCard(f, L["WIZARD_CARD2_TITLE"], -256, 158)
 
     local orientLabel = card2:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     orientLabel:SetPoint("TOPLEFT", 14, -28)
@@ -217,7 +217,7 @@ function Wizard:CreateFrame()
     btnVb:SetText("Stacked: Game (Bottom)")
 
     local arLabel = card2:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-    arLabel:SetPoint("TOPLEFT", 14, -100)
+    arLabel:SetPoint("TOPLEFT", 14, -104)
     arLabel:SetText(L["WIZARD_LABEL_AR"])
 
     local btn169 = CreateFrame("Button", nil, card2, "UIPanelButtonTemplate")

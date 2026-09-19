@@ -1133,7 +1133,7 @@ function Options:CreateFloatingPanel()
     )
     rDual:SetPoint("TOPLEFT", 500, -50)
     
-    local rVerticalBottom = CreateNativeRadioButton(card1_1, "Stacked: Workspace (Top) + Game (Bottom)",
+    local rVerticalBottom = CreateNativeRadioButton(card1_1, "Stacked (Game Bottom)",
         function() return (Offhand.db and Offhand.db.primaryPosition == "BOTTOM") end,
         function()
             Offhand.db.layoutPreset = "STACKED_VERTICAL"
@@ -1143,7 +1143,7 @@ function Options:CreateFloatingPanel()
     )
     rVerticalBottom:SetPoint("TOPLEFT", 12, -74)
 
-    local rVerticalTop = CreateNativeRadioButton(card1_1, "Stacked: Game (Top) + Workspace (Bottom)",
+    local rVerticalTop = CreateNativeRadioButton(card1_1, "Stacked (Game Top)",
         function() return (Offhand.db and Offhand.db.primaryPosition == "TOP") end,
         function()
             Offhand.db.layoutPreset = "STACKED_VERTICAL"
@@ -1155,7 +1155,7 @@ function Options:CreateFloatingPanel()
 
     local autoDetectBtn = CreateFrame("Button", nil, card1_1, "UIPanelButtonTemplate")
     autoDetectBtn:SetSize(200, 22)
-    autoDetectBtn:SetPoint("TOPLEFT", 360, -74)
+    autoDetectBtn:SetPoint("TOPLEFT", 500, -74)
     autoDetectBtn:SetText("1-Click Auto-Configure")
     autoDetectBtn:SetScript("OnClick", function()
         Options:AutoConfigure()

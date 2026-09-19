@@ -696,7 +696,7 @@ OnPanelDragStop = function(frame)
         local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
         local scaleFactor = frameScale / parentScale
         local xInParent = (frame:GetLeft() or 0) * scaleFactor
-        local yInParent = (frame:GetBottom() or 0) * scaleFactor
+        local yInParent = (frame:GetTop() or 0) * scaleFactor
         local frameWidth = (frame:GetWidth() or 0) * (frame.GetScale and frame:GetScale() or 1)
         local frameHeight = (frame:GetHeight() or 0) * (frame.GetScale and frame:GetScale() or 1)
         if frameWidth <= 0 then frameWidth = 192 end
@@ -725,7 +725,7 @@ OnPanelDragStop = function(frame)
 
         frame:ClearAllPoints()
         local factor = parentScale / frameScale
-        frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+        frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
 
         if Offhand.db.independentWorkspacePanels or frame == WorldMapFrame then
             -- Evict from Blizzard UIPanel slot if currently occupying one
@@ -738,7 +738,7 @@ OnPanelDragStop = function(frame)
                 pcall(function() HideUIPanel(frame, 1) end)
                 
                 frame:ClearAllPoints()
-                frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+                frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
                 frame:Show()
                 
                 if oldHide then frame:SetScript("OnHide", oldHide) end
@@ -780,7 +780,7 @@ OnPanelDragStop = function(frame)
         local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
         local scaleFactor = frameScale / parentScale
         local xInParent = (frame:GetLeft() or 0) * scaleFactor
-        local yInParent = (frame:GetBottom() or 0) * scaleFactor
+        local yInParent = (frame:GetTop() or 0) * scaleFactor
         local frameWidth = (frame:GetWidth() or 0) * (frame.GetScale and frame:GetScale() or 1)
         local frameHeight = (frame:GetHeight() or 0) * (frame.GetScale and frame:GetScale() or 1)
         if frameWidth <= 0 then frameWidth = 192 end
@@ -791,8 +791,8 @@ OnPanelDragStop = function(frame)
         local maxX = math.max(minX, m.gameRight - frameWidth - 12)
         local clampedX = math.max(minX, math.min(xInParent, maxX))
 
-        local minY = m.gameBottom + 12
-        local maxY = math.max(minY, m.gameTop - frameHeight - 12)
+        local minY = m.gameBottom + frameHeight + 12
+        local maxY = math.max(minY, m.gameTop - 12)
         local clampedY = math.max(minY, math.min(yInParent, maxY))
         local factor = parentScale / frameScale
 
@@ -800,12 +800,12 @@ OnPanelDragStop = function(frame)
             Offhand.db.savedMainPositions[name] = { x = clampedX, y = clampedY }
             RegisterSpecialFrame(name)
             frame:ClearAllPoints()
-            frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+            frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         elseif string.match(name, "^PartyMemberFrame") or string.match(name, "^CompactPartyFrame") then
             Offhand.db.savedMainPositions[name] = { x = clampedX, y = clampedY }
             pcall(function() frame:SetUserPlaced(true) end)
             frame:ClearAllPoints()
-            frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+            frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         
         elseif string.match(name, "^ContainerFrame") then
             pcall(function() frame:SetUserPlaced(false) end)
@@ -823,7 +823,7 @@ OnPanelDragStop = function(frame)
             pcall(function() frame:SetUserPlaced(true) end)
             Offhand.db.savedMainPositions[name] = { x = clampedX, y = clampedY }
             frame:ClearAllPoints()
-            frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+            frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
             if FCF_SavePositionAndDimensions then
                 pcall(function() FCF_SavePositionAndDimensions(frame) end)
             end
@@ -835,7 +835,7 @@ OnPanelDragStop = function(frame)
                 pcall(UpdateUIPanelPositions, frame)
             end
             frame:ClearAllPoints()
-            frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+            frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         end
     end
 
@@ -879,9 +879,9 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         end
         local clampedX = math.max(minX, math.min(wPos.x, maxX))
 
-        local minY = 12
         local screenHeight = m.screenHeight or (UIParent.GetHeight and UIParent:GetHeight()) or 1080
-        local maxY = math.max(minY, screenHeight - frameHeight - 30)
+        local minY = frameHeight + 12
+        local maxY = math.max(minY, screenHeight - 12)
         local clampedY = math.max(minY, math.min(wPos.y, maxY))
 
         wPos.x, wPos.y = clampedX, clampedY
@@ -891,7 +891,7 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
             pcall(function() frame:SetClampedToScreen(false) end)
         end
         frame:ClearAllPoints()
-        frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+        frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         pcall(function() frame:SetUserPlaced(true) end)
         if string.match(name, "^ChatFrame") and ChatFrame1EditBox and frame == ChatFrame1 then
             if ChatFrame1EditBox.ClearAllPoints and ChatFrame1EditBox.SetPoint then
@@ -922,12 +922,12 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
             local posX = math.max(minX, math.min(mPos.x, maxX))
             local posY = math.max(10, math.min(mPos.y, m.gameTop - (frame:GetHeight() or 438) - 10))
             frame:ClearAllPoints()
-            frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", posX * factor, posY * factor)
+            frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", posX * factor, posY * factor)
         else
             local defaultX = m.gameLeft + 20
             local defaultY = math.max(20, m.gameTop - (frame:GetHeight() or 438) - 40)
             frame:ClearAllPoints()
-            frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", defaultX * factor, defaultY * factor)
+            frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", defaultX * factor, defaultY * factor)
         end
     end
 end
