@@ -49,5 +49,5 @@ jobs:
         changelog_type: markdown
         display_name: "Offhand ${{ github.ref_name }}"
         release_type: beta
-        game_versions: "11.0.2, 4.4.1, 4.4.0, 1.15.3"
+        game_versions: "11596, 11925, 11459"
 
