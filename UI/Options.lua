@@ -1120,9 +1120,9 @@ function Options:CreateFloatingPanel()
         end,
         L["PRESET_GL_PR_TIP_TITLE"], L["PRESET_GL_PR_TIP_DESC"]
     )
-    rPortraitRight:SetPoint("TOPLEFT", 360, -50)
+    rPortraitRight:SetPoint("TOPLEFT", 280, -50)
 
-    local rDual = CreateNativeRadioButton(card1_1, "Dual Landscape Side-by-Side (50/50)",
+    local rDual = CreateNativeRadioButton(card1_1, "Dual Side-by-Side (50/50)",
         function() return (Offhand.db and Offhand.db.layoutPreset == "LANDSCAPE_DUAL") end,
         function()
             Offhand.db.layoutPreset = "LANDSCAPE_DUAL"
@@ -1131,7 +1131,27 @@ function Options:CreateFloatingPanel()
         end,
         L["PRESET_DUAL_LANDSCAPE_TIP_TITLE"], L["PRESET_DUAL_LANDSCAPE_TIP_DESC"]
     )
-    rDual:SetPoint("TOPLEFT", 12, -74)
+    rDual:SetPoint("TOPLEFT", 500, -50)
+    
+    local rVerticalBottom = CreateNativeRadioButton(card1_1, "Stacked: Workspace (Top) + Game (Bottom)",
+        function() return (Offhand.db and Offhand.db.primaryPosition == "BOTTOM") end,
+        function()
+            Offhand.db.layoutPreset = "STACKED_VERTICAL"
+            Offhand.db.primaryPosition = "BOTTOM"
+        end,
+        "Vertical Stack", "Use this if your monitors are mounted vertically. The 3D game will render on the bottom monitor, leaving the top monitor as a black canvas for UI panels."
+    )
+    rVerticalBottom:SetPoint("TOPLEFT", 12, -74)
+
+    local rVerticalTop = CreateNativeRadioButton(card1_1, "Stacked: Game (Top) + Workspace (Bottom)",
+        function() return (Offhand.db and Offhand.db.primaryPosition == "TOP") end,
+        function()
+            Offhand.db.layoutPreset = "STACKED_VERTICAL"
+            Offhand.db.primaryPosition = "TOP"
+        end,
+        "Vertical Stack", "Use this if your monitors are mounted vertically. The 3D game will render on the top monitor, leaving the bottom monitor as a black canvas for UI panels."
+    )
+    rVerticalTop:SetPoint("TOPLEFT", 280, -74)
 
     local autoDetectBtn = CreateFrame("Button", nil, card1_1, "UIPanelButtonTemplate")
     autoDetectBtn:SetSize(200, 22)
@@ -2043,6 +2063,8 @@ function Options:CreateFloatingPanel()
         rPortraitLeft:SetChecked(Offhand.db and Offhand.db.layoutPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and Offhand.db.primaryPosition == "RIGHT")
         rPortraitRight:SetChecked(Offhand.db and Offhand.db.layoutPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and Offhand.db.primaryPosition == "LEFT")
         rDual:SetChecked(Offhand.db and Offhand.db.layoutPreset == "LANDSCAPE_DUAL")
+        rVerticalBottom:SetChecked(Offhand.db and Offhand.db.primaryPosition == "BOTTOM")
+        rVerticalTop:SetChecked(Offhand.db and Offhand.db.primaryPosition == "TOP")
 
         r169:SetChecked(Offhand.db and Offhand.db.aspectRatioMode == "16_9")
         r219:SetChecked(Offhand.db and Offhand.db.aspectRatioMode == "21_9")

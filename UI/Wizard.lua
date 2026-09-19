@@ -206,13 +206,23 @@ function Wizard:CreateFrame()
     btnDual:SetText(L["PRESET_DUAL_LANDSCAPE"])
     if Offhand.SetTooltip then Offhand:SetTooltip(btnDual, L["PRESET_DUAL_LANDSCAPE_TIP_TITLE"], L["PRESET_DUAL_LANDSCAPE_TIP_DESC"]) end
 
+    local btnVt = CreateFrame("Button", nil, card2, "UIPanelButtonTemplate")
+    btnVt:SetSize(299, 24)
+    btnVt:SetPoint("TOPLEFT", 14, -68)
+    btnVt:SetText("Stacked: Game (Top)")
+
+    local btnVb = CreateFrame("Button", nil, card2, "UIPanelButtonTemplate")
+    btnVb:SetSize(299, 24)
+    btnVb:SetPoint("LEFT", btnVt, "RIGHT", 10, 0)
+    btnVb:SetText("Stacked: Game (Bottom)")
+
     local arLabel = card2:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-    arLabel:SetPoint("TOPLEFT", 14, -80)
+    arLabel:SetPoint("TOPLEFT", 14, -100)
     arLabel:SetText(L["WIZARD_LABEL_AR"])
 
     local btn169 = CreateFrame("Button", nil, card2, "UIPanelButtonTemplate")
     btn169:SetSize(196, 24)
-    btn169:SetPoint("TOPLEFT", 14, -98)
+    btn169:SetPoint("TOPLEFT", 14, -118)
     btn169:SetText(L["AR_16_9"])
     if Offhand.SetTooltip then Offhand:SetTooltip(btn169, L["AR_16_9_TIP_TITLE"], L["AR_16_9_TIP_DESC"]) end
 
@@ -246,6 +256,20 @@ function Wizard:CreateFrame()
         Offhand.db.layoutPreset = "LANDSCAPE_DUAL"
         Offhand.db.primaryPosition = "LEFT"
         Offhand.db.deckWidthRatio = 0.50
+        f:UpdateState()
+        Offhand:ApplyFullLayout()
+    end)
+
+    btnVt:SetScript("OnClick", function()
+        Offhand.db.layoutPreset = "STACKED_VERTICAL"
+        Offhand.db.primaryPosition = "TOP"
+        f:UpdateState()
+        Offhand:ApplyFullLayout()
+    end)
+
+    btnVb:SetScript("OnClick", function()
+        Offhand.db.layoutPreset = "STACKED_VERTICAL"
+        Offhand.db.primaryPosition = "BOTTOM"
         f:UpdateState()
         Offhand:ApplyFullLayout()
     end)
@@ -807,6 +831,8 @@ function Wizard:CreateFrame()
         Offhand.Options:SetChoiceSelected(btnPl, p == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and pos == "RIGHT")
         Offhand.Options:SetChoiceSelected(btnPr, p == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and pos == "LEFT")
         Offhand.Options:SetChoiceSelected(btnDual, p == "LANDSCAPE_DUAL")
+        Offhand.Options:SetChoiceSelected(btnVt, p == "STACKED_VERTICAL" and pos == "TOP")
+        Offhand.Options:SetChoiceSelected(btnVb, p == "STACKED_VERTICAL" and pos == "BOTTOM")
 
         Offhand.Options:SetChoiceSelected(btn169, ar == "16_9")
         Offhand.Options:SetChoiceSelected(btn219, ar == "21_9")
