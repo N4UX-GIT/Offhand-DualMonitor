@@ -472,20 +472,15 @@ function Canvas:ConfigureWorldMap()
             map:Minimize()
         end
         
-        -- Aggressively prevent WorldMap from maximizing, as spanning a 4000x2560 map will lock up the GPU
-        if map.Maximize and not map._OffhandMaximizeHooked then
-            map._OffhandMaximizeHooked = true
-            hooksecurefunc(map, "Maximize", function(self)
-                if Offhand.db and Offhand.db.enabled and self.Minimize then
-                    self:Minimize()
-                end
-            end)
-        end
+        -- The map maximize button is hidden below. We no longer aggressively hook Maximize() as it can break Blizzard's animation state machine.
         
         -- Hide the maximize button
         if map.BorderFrame and map.BorderFrame.MaximizeMinimizeFrame and map.BorderFrame.MaximizeMinimizeFrame.MaximizeButton then
             map.BorderFrame.MaximizeMinimizeFrame.MaximizeButton:Hide()
-            map.BorderFrame.MaximizeMinimizeFrame.MaximizeButton:SetScript("OnShow", function(self) self:Hide() end)
+            if not map.BorderFrame.MaximizeMinimizeFrame.MaximizeButton._offhandHooked then
+                map.BorderFrame.MaximizeMinimizeFrame.MaximizeButton._offhandHooked = true
+                map.BorderFrame.MaximizeMinimizeFrame.MaximizeButton:HookScript("OnShow", function(self) self:Hide() end)
+            end
         end
     end)
 
