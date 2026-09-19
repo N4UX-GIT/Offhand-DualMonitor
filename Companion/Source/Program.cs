@@ -12,8 +12,8 @@ using System.Windows.Forms;
 [assembly: AssemblyCompany("Offhand Project")]
 [assembly: AssemblyProduct("Offhand")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
-[assembly: AssemblyVersion("1.3.0.0")]
-[assembly: AssemblyFileVersion("1.3.0.0")]
+[assembly: AssemblyVersion("1.5.0.0")]
+[assembly: AssemblyFileVersion("1.5.0.0")]
 
 namespace Offhand.Companion
 {
@@ -277,8 +277,50 @@ namespace Offhand.Companion
             UpdateHotkey();
             if (configWarning != null) AddLog(configWarning);
 
-            AddLog("Offhand Companion v1.2 initialized.");
+            AddLog("Offhand Companion v1.4 initialized.");
             AddLog("Monitoring active. Enable Offhand in WoW; calibrate with /offhand wizard.");
+            
+            CheckForUpdates();
+        }
+
+        private void CheckForUpdates()
+        {
+            System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
+                    using (System.Net.WebClient wc = new System.Net.WebClient())
+                    {
+                        wc.Headers.Add("User-Agent", "Offhand-Companion");
+                        string json = wc.DownloadString("https://api.github.com/repos/N4UX-GIT/Offhand-DualMonitor/releases/latest");
+                        
+                        int idx = json.IndexOf("\"tag_name\":");
+                        if (idx != -1)
+                        {
+                            int start = json.IndexOf("\"", idx + 11) + 1;
+                            int end = json.IndexOf("\"", start);
+                            string tag = json.Substring(start, end - start).TrimStart('v');
+                            
+                            string cleanTag = tag.Contains("-") ? tag.Substring(0, tag.IndexOf("-")) : tag;
+                            Version latest = new Version(cleanTag + (cleanTag.Split('.').Length == 3 ? ".0" : ""));
+                            Version current = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+                            
+                            if (latest > current)
+                            {
+                                this.BeginInvoke(new Action(() => {
+                                    AddLog("UPDATE AVAILABLE: v" + tag + " is out!");
+                                    if (MessageBox.Show("A new version of Offhand (v" + tag + ") is available!\n\nWould you like to download it now?", "Update Available", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                                    {
+                                        System.Diagnostics.Process.Start("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest");
+                                    }
+                                }));
+                            }
+                        }
+                    }
+                }
+                catch { }
+            });
         }
 
         private void InitializeUI()
