@@ -21,35 +21,51 @@ function Viewport:GetMetrics()
     if not pw or pw <= 0 or not ph or ph <= 0 then pw, ph = sw, sh end
     local db = Offhand.db
     local preset = db.layoutPreset or "PORTRAIT_LEFT_LANDSCAPE_RIGHT"
+    
+    local isVertical = (db.primaryPosition == "TOP" or db.primaryPosition == "BOTTOM")
+    
     local ratio = Number(db.deckWidthRatio, preset == "LANDSCAPE_DUAL" and 0.5 or 0.36, 0.15, 0.80)
-    local deck = math.floor(pw * ratio + 0.5)
-    local bezel = math.floor(Number(db.bezelGap, 0, 0, pw - deck - 1) + 0.5)
-    local width = pw - deck - bezel
-    local bottom = math.floor(Number(db.gameBottomPixels, 0, 0, ph - 1) + 0.5)
-    local mode = db.aspectRatioMode or "16_9"
-    local height
-    if mode == "FILL" then
-        height = ph * Number(db.gameHeightRatio, 0.5625, 0.05, 1)
+    local deck = isVertical and math.floor(ph * ratio + 0.5) or math.floor(pw * ratio + 0.5)
+    local bezel = isVertical and math.floor(Number(db.bezelGap, 0, 0, ph - deck - 1) + 0.5) or math.floor(Number(db.bezelGap, 0, 0, pw - deck - 1) + 0.5)
+    
+    local width = isVertical and pw or (pw - deck - bezel)
+    local height = isVertical and (ph - deck - bezel) or ph
+    
+    local bottom = 0
+    if isVertical then
+        bottom = db.primaryPosition == "TOP" and (deck + bezel) or 0
     else
-        local ar = mode == "16_9" and 16 / 9 or mode == "21_9" and 21 / 9
-            or Number(db.customAspectRatio, 16 / 9, 0.25, 8)
-        height = width / ar
+        bottom = math.floor(Number(db.gameBottomPixels, 0, 0, ph - 1) + 0.5)
+        local mode = db.aspectRatioMode or "16_9"
+        if mode == "FILL" then
+            height = ph * Number(db.gameHeightRatio, 0.5625, 0.05, 1)
+        else
+            local ar = mode == "16_9" and 16 / 9 or mode == "21_9" and 21 / 9
+                or Number(db.customAspectRatio, 16 / 9, 0.25, 8)
+            height = width / ar
+        end
+        height = math.max(1, math.min(math.floor(height + 0.5), ph - bottom))
     end
-    height = math.max(1, math.min(math.floor(height + 0.5), ph - bottom))
-    local left = db.primaryPosition == "LEFT" and 0 or deck + bezel
+    
+    local left = 0
+    if not isVertical then
+        left = db.primaryPosition == "LEFT" and 0 or deck + bezel
+    else
+        left = math.floor(Number(db.gameLeftPixels, 0, 0, pw - 1) + 0.5)
+    end
+    
     local ux, uy = sw / pw, sh / ph
     local gameHeight = height * uy
-    -- Children inherit the global UIParent baseline; HUD offsets use native units.
     local hudScale = 1
     return {
         screenWidth = sw, screenHeight = sh, physicalWidth = pw, physicalHeight = ph,
-        deckWidth = deck * ux, gameWidth = width * ux, gameHeight = gameHeight,
+        deckWidth = isVertical and (deck * uy) or (deck * ux), gameWidth = width * ux, gameHeight = gameHeight,
         gameLeft = left * ux, gameBottom = bottom * uy,
         gameRight = (left + width) * ux, gameTop = (bottom + height) * uy,
         gamePixelLeft = left, gamePixelBottom = bottom,
         gamePixelWidth = width, gamePixelHeight = height,
-        hudScale = hudScale, bezel = bezel * ux, preset = preset,
-        actualAR = width / height, arMode = mode, isSpanned = true,
+        hudScale = hudScale, bezel = isVertical and (bezel * uy) or (bezel * ux), preset = preset,
+        actualAR = width / height, arMode = db.aspectRatioMode or "16_9", isSpanned = true,
     }
 end
 

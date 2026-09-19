@@ -811,7 +811,10 @@ namespace Offhand.Companion
             {
                 candidates.AddRange(Process.GetProcessesByName(name));
             }
-            if (candidates.Count == 1)
+            // Remove background/zombie processes that don't have a UI window
+            candidates.RemoveAll(p => p.MainWindowHandle == IntPtr.Zero);
+            
+            if (candidates.Count > 0)
             {
                 return candidates[0];
             }
