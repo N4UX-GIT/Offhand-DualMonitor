@@ -428,6 +428,7 @@ function Wizard:CreateFrame()
             self._pendingApply = false
             self:SetScript("OnUpdate", nil)
             Offhand:ApplyFullLayout()
+            if f.RefreshState then f:RefreshState() end
         end
     end)
 
@@ -447,6 +448,7 @@ function Wizard:CreateFrame()
             self._pendingApply = false
             self:SetScript("OnUpdate", nil)
             Offhand:ApplyFullLayout()
+            if f.RefreshState then f:RefreshState() end
             return
         end
 
@@ -692,9 +694,11 @@ function Wizard:CreateFrame()
             self._pendingApply = false
             self:SetScript("OnUpdate", nil)
             Offhand:ApplyFullLayout()
+            if f.RefreshState then f:RefreshState() end
             return
         end
         Offhand:ApplyFullLayout()
+        if f.RefreshState then f:RefreshState() end
     end)
     if Offhand.SetTooltip then Offhand:SetTooltip(scaleSlider, L["WIZARD_UI_SCALE_TIP_TITLE"], L["WIZARD_UI_SCALE_TIP_DESC"]) end
 

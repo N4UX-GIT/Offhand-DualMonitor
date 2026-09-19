@@ -616,7 +616,24 @@ local originalAreas = {}
 
 
 DemodalizePanel = function(frame)
-    -- Disabled: Removing UIPanel attributes breaks Retail WoW's internal frame width calculations (e.g. CharacterFrame stats panel expansion)
+    if not frame then return end
+    local name = frame:GetName()
+    if not name then return end
+    if UIPanelWindows and UIPanelWindows[name] then
+        if not originalAreas[name] then
+            originalAreas[name] = UIPanelWindows[name].area
+        end
+        UIPanelWindows[name].area = nil
+    end
+    if SetUIPanelAttribute then
+        pcall(function() SetUIPanelAttribute(frame, "area", nil) end)
+    end
+    local isWs = (Offhand.db and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]) or IsFrameOnWorkspace(frame)
+    if isWs and (Offhand.db and Offhand.db.persistentWorkspacePanels ~= false) then
+        UnregisterSpecialFrame(name)
+    else
+        RegisterSpecialFrame(name)
+    end
 end
 
 RemodalizePanel = function(frame)
@@ -1260,25 +1277,6 @@ function Offhand:InitializeCanvas()
         Canvas.showUIPanelHooked = true
         hooksecurefunc("ShowUIPanel", function(frame)
             Canvas:TryMakeFrameDraggable(frame)
-            if frame and frame.GetName and Offhand.db and Offhand.db.savedWorkspacePositions then
-                local name = frame:GetName()
-                if name and Offhand.db.savedWorkspacePositions[name] then
-                    C_Timer.After(0.01, function() Canvas.RestoreWorkspacePosition(frame) end)
-                end
-            end
-        end)
-    end
-    
-    if not Canvas.updateUIPanelHooked and UpdateUIPanelPositions then
-        Canvas.updateUIPanelHooked = true
-        hooksecurefunc("UpdateUIPanelPositions", function()
-            if not Offhand.db or not Offhand.db.savedWorkspacePositions then return end
-            for name, _ in pairs(Offhand.db.savedWorkspacePositions) do
-                local frame = _G[name]
-                if frame and frame.IsShown and frame:IsShown() and UIPanelWindows and UIPanelWindows[name] then
-                    Canvas.RestoreWorkspacePosition(frame)
-                end
-            end
         end)
     end
 end

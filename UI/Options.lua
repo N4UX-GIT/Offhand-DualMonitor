@@ -1083,7 +1083,7 @@ function Options:CreateFloatingPanel()
         end,
         "Minimap Icon", "Toggle the Offhand icon on the minimap ring."
     )
-    minimapCheck:SetPoint("TOPLEFT", 12, -96)
+    minimapCheck:SetPoint("TOPLEFT", 12, -122)
     minimapCheck.Text:SetWidth(180)
 
 
@@ -1098,7 +1098,7 @@ function Options:CreateFloatingPanel()
         end,
         L["BTN_LASER_TOGGLE_TIP_TITLE"], L["BTN_LASER_TOGGLE_TIP_DESC"]
     )
-    laserCheck:SetPoint("TOPLEFT", 240, -96)
+    laserCheck:SetPoint("TOPLEFT", 240, -122)
     laserCheck.Text:SetWidth(360)
     configFrame.laserCheck = laserCheck
 
