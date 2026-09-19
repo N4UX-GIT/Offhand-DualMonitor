@@ -43,6 +43,7 @@ Copy-Item (Join-Path $rootDir "Offhand_Classic.toc") -Destination $addonStaging
 Copy-Item (Join-Path $rootDir "Offhand_Forever.toc") -Destination $addonStaging
 Copy-Item (Join-Path $rootDir "LICENSE") -Destination $addonStaging
 Copy-Item (Join-Path $rootDir "README.md") -Destination $addonStaging
+Copy-Item (Join-Path $rootDir "CHANGELOG.md") -Destination $addonStaging
 
 # Copy addon directories
 Copy-Item (Join-Path $rootDir "Core") -Destination $addonStaging -Recurse
