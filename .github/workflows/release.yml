@@ -37,3 +37,17 @@ jobs:
           dist/checksums-sha256.txt
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload to CurseForge
+      uses: itsmeow/curseforge-upload@v3
+      with:
+        token: ${{ secrets.CURSEFORGE_TOKEN }}
+        project_id: 1696140
+        game_endpoint: wow
+        file_path: dist/Offhand-${{ github.ref_name }}.zip
+        changelog: "Please see the GitHub Releases page for the full changelog."
+        changelog_type: markdown
+        display_name: "Offhand ${{ github.ref_name }}"
+        release_type: release
+        game_versions: "11.0.2, 4.4.0, 1.15.3"
+
