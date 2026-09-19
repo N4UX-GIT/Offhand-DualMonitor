@@ -465,7 +465,7 @@ function Canvas:ConfigureWorldMap()
 
     -- Ensure windowed mini world map in Classic Era
     pcall(function()
-        if GetCVar("miniWorldMap") ~= "1" then
+        if type(GetCVar("miniWorldMap")) == "string" and GetCVar("miniWorldMap") ~= "1" then
             SetCVar("miniWorldMap", "1")
         end
         if map.IsMaximized and map:IsMaximized() and map.Minimize then
