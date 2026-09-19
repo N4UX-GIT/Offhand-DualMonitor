@@ -706,9 +706,11 @@ OnPanelDragStop = function(frame)
             Offhand.db.savedMainPositions[name] = nil
         end
 
+        local rawW, rawH = frame:GetWidth(), frame:GetHeight()
         frame:ClearAllPoints()
         local factor = parentScale / frameScale
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+        if rawW and rawH and rawW > 0 and rawH > 0 then frame:SetSize(rawW, rawH) end
 
         if Offhand.db.independentWorkspacePanels or frame == WorldMapFrame then
             -- Evict from Blizzard UIPanel slot if currently occupying one
@@ -720,8 +722,10 @@ OnPanelDragStop = function(frame)
                 
                 pcall(function() HideUIPanel(frame, 1) end)
                 
+                local w, h = frame:GetWidth(), frame:GetHeight()
                 frame:ClearAllPoints()
                 frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+                if w and h and w > 0 and h > 0 then frame:SetSize(w, h) end
                 frame:Show()
                 
                 if oldHide then frame:SetScript("OnHide", oldHide) end
@@ -782,13 +786,16 @@ OnPanelDragStop = function(frame)
         if frame == WorldMapFrame then
             Offhand.db.savedMainPositions[name] = { x = clampedX, y = clampedY }
             RegisterSpecialFrame(name)
+            local w, h = frame:GetWidth(), frame:GetHeight()
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+            if w and h and w > 0 and h > 0 then frame:SetSize(w, h) end
         elseif string.match(name, "^PartyMemberFrame") or string.match(name, "^CompactPartyFrame") then
             Offhand.db.savedMainPositions[name] = { x = clampedX, y = clampedY }
-            
+            local w, h = frame:GetWidth(), frame:GetHeight()
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+            if w and h and w > 0 and h > 0 then frame:SetSize(w, h) end
         
         elseif string.match(name, "^ContainerFrame") then
             pcall(function() frame:SetUserPlaced(false) end)
@@ -805,8 +812,10 @@ OnPanelDragStop = function(frame)
         elseif string.match(name, "^ChatFrame") then
             
             Offhand.db.savedMainPositions[name] = { x = clampedX, y = clampedY }
+            local w, h = frame:GetWidth(), frame:GetHeight()
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+            if w and h and w > 0 and h > 0 then frame:SetSize(w, h) end
             if FCF_SavePositionAndDimensions then
                 pcall(function() FCF_SavePositionAndDimensions(frame) end)
             end
@@ -817,8 +826,10 @@ OnPanelDragStop = function(frame)
             if UpdateUIPanelPositions then
                 pcall(UpdateUIPanelPositions, frame)
             end
+            local w, h = frame:GetWidth(), frame:GetHeight()
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+            if w and h and w > 0 and h > 0 then frame:SetSize(w, h) end
         end
     end
 
@@ -904,13 +915,17 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
             local maxX = m.gameRight - (frame:GetWidth() or 610) - 10
             local posX = math.max(minX, math.min(mPos.x, maxX))
             local posY = math.max(10, math.min(mPos.y, m.gameTop - (frame:GetHeight() or 438) - 10))
+            local w, h = frame:GetWidth(), frame:GetHeight()
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", posX * factor, posY * factor)
+            if w and h and w > 0 and h > 0 then frame:SetSize(w, h) end
         else
             local defaultX = m.gameLeft + 20
             local defaultY = math.max(20, m.gameTop - (frame:GetHeight() or 438) - 40)
+            local w, h = frame:GetWidth(), frame:GetHeight()
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", defaultX * factor, defaultY * factor)
+            if w and h and w > 0 and h > 0 then frame:SetSize(w, h) end
         end
     end
 end

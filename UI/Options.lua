@@ -1066,7 +1066,7 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 1: DISPLAY & VIEWPORT CALIBRATION
     -- ========================================================================
-    local card1_1 = CreateCard(tab1, "Display Mode & Dual Monitor Orientation", 130)
+    local card1_1 = CreateCard(tab1, "Display Mode & Dual Monitor Orientation", 160)
 
     local enableCheck = CreateNativeCheckbox(card1_1, "Enable Offhand Dual Monitor Mode",
         function() return Offhand.db and Offhand.db.enabled end,
@@ -1131,7 +1131,7 @@ function Options:CreateFloatingPanel()
         end,
         L["PRESET_DUAL_LANDSCAPE_TIP_TITLE"], L["PRESET_DUAL_LANDSCAPE_TIP_DESC"]
     )
-    rDual:SetPoint("TOPLEFT", 500, -50)
+    rDual:SetPoint("TOPLEFT", 12, -74)
     
     local rVerticalBottom = CreateNativeRadioButton(card1_1, "Stacked (Game Bottom)",
         function() return (Offhand.db and Offhand.db.primaryPosition == "BOTTOM") end,
@@ -1141,7 +1141,7 @@ function Options:CreateFloatingPanel()
         end,
         "Vertical Stack", "Use this if your monitors are mounted vertically. The 3D game will render on the bottom monitor, leaving the top monitor as a black canvas for UI panels."
     )
-    rVerticalBottom:SetPoint("TOPLEFT", 12, -74)
+    rVerticalBottom:SetPoint("TOPLEFT", 280, -74)
 
     local rVerticalTop = CreateNativeRadioButton(card1_1, "Stacked (Game Top)",
         function() return (Offhand.db and Offhand.db.primaryPosition == "TOP") end,
@@ -1151,11 +1151,11 @@ function Options:CreateFloatingPanel()
         end,
         "Vertical Stack", "Use this if your monitors are mounted vertically. The 3D game will render on the top monitor, leaving the bottom monitor as a black canvas for UI panels."
     )
-    rVerticalTop:SetPoint("TOPLEFT", 280, -74)
+    rVerticalTop:SetPoint("TOPLEFT", 12, -98)
 
     local autoDetectBtn = CreateFrame("Button", nil, card1_1, "UIPanelButtonTemplate")
     autoDetectBtn:SetSize(200, 22)
-    autoDetectBtn:SetPoint("TOPLEFT", 500, -74)
+    autoDetectBtn:SetPoint("TOPLEFT", 280, -98)
     autoDetectBtn:SetText("1-Click Auto-Configure")
     autoDetectBtn:SetScript("OnClick", function()
         Options:AutoConfigure()
