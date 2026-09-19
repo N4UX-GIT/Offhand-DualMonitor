@@ -1171,8 +1171,18 @@ function Canvas:EnableFreeDragging()
         local chatTab = chatName and _G[chatName .. "Tab"]
         if chatTab and not chatTab._OffhandTabHooked and chatTab.HookScript then
             chatTab._OffhandTabHooked = true
-            chatTab:HookScript("OnDragStart", function() chatFrame._OffhandDragging = true end)
+            chatTab:RegisterForDrag("LeftButton")
+            chatFrame:SetMovable(true)
+            
+            -- Override to physically force the chat frame to move even in Retail WoW
+            chatTab:HookScript("OnDragStart", function() 
+                if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+                chatFrame._OffhandDragging = true 
+                chatFrame:StartMoving()
+            end)
+            
             chatTab:HookScript("OnDragStop", function(self)
+                chatFrame:StopMovingOrSizing()
                 chatFrame._OffhandDragging = false
                 if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
                 -- Docked tabs belong to GeneralDockManager (or its scroll child),
