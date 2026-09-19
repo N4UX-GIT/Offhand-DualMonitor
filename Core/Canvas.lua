@@ -696,9 +696,9 @@ OnPanelDragStop = function(frame)
         end
         local clampedX = math.max(minX, math.min(xInParent, maxX))
 
-        local minY = 12
         local screenHeight = m.screenHeight or (UIParent.GetHeight and UIParent:GetHeight()) or 1080
-        local maxY = math.max(minY, screenHeight - frameHeight - 30)
+        local minY = frameHeight + 12
+        local maxY = math.max(minY, screenHeight - 12)
         local clampedY = math.max(minY, math.min(yInParent, maxY))
 
         Offhand.db.savedWorkspacePositions[name] = { x = clampedX, y = clampedY }
