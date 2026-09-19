@@ -12,8 +12,8 @@ using System.Windows.Forms;
 [assembly: AssemblyCompany("Offhand Project")]
 [assembly: AssemblyProduct("Offhand")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
-[assembly: AssemblyVersion("1.2.0.0")]
-[assembly: AssemblyFileVersion("1.2.0.0")]
+[assembly: AssemblyVersion("1.3.0.0")]
+[assembly: AssemblyFileVersion("1.3.0.0")]
 
 namespace Offhand.Companion
 {
@@ -180,6 +180,7 @@ namespace Offhand.Companion
         private Label lblDelay;
         private ComboBox cmbHotkey;
         private Label lblHotkey;
+        private CheckedListBox clbMonitors;
 
         private static Dictionary<string, string> appSettings = new Dictionary<string, string>();
         private static readonly string configPath = Path.Combine(
@@ -466,6 +467,32 @@ namespace Offhand.Companion
                 UpdateHotkey();
             };
             configPanel.Controls.Add(cmbHotkey);
+
+            Label lblMonitors = new Label { Text = "Span Monitors:", Location = new Point(310, 26), Size = new Size(130, 22), ForeColor = cText, BackColor = Color.Transparent };
+            configPanel.Controls.Add(lblMonitors);
+            clbMonitors = new CheckedListBox { Location = new Point(310, 54), Size = new Size(160, 60), BackColor = cCard, ForeColor = cText, BorderStyle = BorderStyle.None };
+            clbMonitors.CheckOnClick = true;
+            for (int i = 0; i < Screen.AllScreens.Length; i++)
+            {
+                clbMonitors.Items.Add("Display " + (i + 1), true);
+            }
+            clbMonitors.ItemCheck += (s, e) => {
+                if (!this.IsHandleCreated) return;
+                this.BeginInvoke(new Action(() => {
+                    List<string> selected = new List<string>();
+                    for (int i = 0; i < clbMonitors.Items.Count; i++) if (clbMonitors.GetItemChecked(i)) selected.Add(i.ToString());
+                    appSettings["Monitors"] = string.Join(",", selected.ToArray());
+                    SaveConfig();
+                }));
+            };
+            configPanel.Controls.Add(clbMonitors);
+
+            if (appSettings.ContainsKey("Monitors"))
+            {
+                string[] saved = appSettings["Monitors"].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                for (int i = 0; i < clbMonitors.Items.Count; i++) clbMonitors.SetItemChecked(i, false);
+                foreach (string m in saved) { int idx; if (int.TryParse(m, out idx) && idx >= 0 && idx < clbMonitors.Items.Count) clbMonitors.SetItemChecked(idx, true); }
+            }
 
             if (appSettings.ContainsKey("AutoSpan")) chkAutoSpan.Checked = appSettings["AutoSpan"] == "True";
             if (appSettings.ContainsKey("DelaySpan")) numDelaySpan.Value = PreferenceFile.Delay(appSettings["DelaySpan"]);
@@ -779,7 +806,7 @@ namespace Offhand.Companion
         private Process GetWoWProcess()
         {
             List<Process> candidates = new List<Process>();
-            string[] names = new string[] { "WowClassic", "Wow", "WowClassicEra" };
+            string[] names = new string[] { "WowClassic", "Wow", "WowClassicEra", "WowForever", "WowT", "WowB", "WowClassicT", "WowClassicB" };
             foreach (string name in names)
             {
                 candidates.AddRange(Process.GetProcessesByName(name));
@@ -856,6 +883,29 @@ namespace Offhand.Companion
             IntPtr prevDpi = NativeMethods.SetThreadDpiAwarenessContext((IntPtr)(-4));
             try
             {
+                if (appSettings.ContainsKey("Monitors") && !string.IsNullOrEmpty(appSettings["Monitors"]))
+                {
+                    string[] saved = appSettings["Monitors"].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                    int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
+                    bool any = false;
+                    foreach (string m in saved)
+                    {
+                        int idx;
+                        if (int.TryParse(m, out idx) && idx >= 0 && idx < Screen.AllScreens.Length)
+                        {
+                            Rectangle b = Screen.AllScreens[idx].Bounds;
+                            if (b.Left < minX) minX = b.Left;
+                            if (b.Top < minY) minY = b.Top;
+                            if (b.Right > maxX) maxX = b.Right;
+                            if (b.Bottom > maxY) maxY = b.Bottom;
+                            any = true;
+                        }
+                    }
+                    if (any)
+                    {
+                        return new DesktopBounds { X = minX, Y = minY, Width = maxX - minX, Height = maxY - minY };
+                    }
+                }
                 return new DesktopBounds
                 {
                     X = NativeMethods.GetSystemMetrics(76),
