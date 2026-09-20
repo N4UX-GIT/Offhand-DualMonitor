@@ -965,18 +965,29 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         frame:ClearAllPoints()
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         
-                        if frame == CharacterFrame then
+                                        if frame == CharacterFrame then
             local function FixCharacterFrameSize()
                 if Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["CharacterFrame"] then
                     local collapsed = GetCVar("characterFrameCollapsed")
                     if tostring(collapsed) == "0" then
-                        if CharacterFrame.Expand then CharacterFrame:Expand() elseif CharacterFrame_Expand then CharacterFrame_Expand() end
+                        CharacterFrame.Expanded = true
+                        pcall(function() if CharacterFrame.Expand then CharacterFrame:Expand() elseif CharacterFrame_Expand then CharacterFrame_Expand() end end)
                         CharacterFrame:SetWidth(540)
                         if UIPanelWindows and UIPanelWindows["CharacterFrame"] then UIPanelWindows["CharacterFrame"].width = 540 end
+                        if CharacterFrameInsetRight then CharacterFrameInsetRight:Show() end
+                        if PaperDollFrame_SetSidebar and PaperDollFrame and PaperDollFrame.currentSideBar then
+                            pcall(PaperDollFrame_SetSidebar, PaperDollFrame, PaperDollFrame.currentSideBar:GetID())
+                        end
+                        if PaperDollSidebarTabs and PaperDollSidebarTabs.Show then pcall(function() PaperDollSidebarTabs:Show() end) end
                     else
-                        if CharacterFrame.Collapse then CharacterFrame:Collapse() elseif CharacterFrame_Collapse then CharacterFrame_Collapse() end
+                        CharacterFrame.Expanded = false
+                        pcall(function() if CharacterFrame.Collapse then CharacterFrame:Collapse() elseif CharacterFrame_Collapse then CharacterFrame_Collapse() end end)
                         CharacterFrame:SetWidth(338)
                         if UIPanelWindows and UIPanelWindows["CharacterFrame"] then UIPanelWindows["CharacterFrame"].width = 338 end
+                        if CharacterFrameInsetRight then CharacterFrameInsetRight:Hide() end
+                        if PaperDollFrame_ClearSidebar and PaperDollFrame then
+                            pcall(PaperDollFrame_ClearSidebar, PaperDollFrame)
+                        end
                     end
                 end
             end
@@ -988,6 +999,7 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
                 FixCharacterFrameSize()
             end
         end
+
 
         if string.match(name, "^ChatFrame") and ChatFrame1EditBox and frame == ChatFrame1 then
             if ChatFrame1EditBox.ClearAllPoints and ChatFrame1EditBox.SetPoint then
