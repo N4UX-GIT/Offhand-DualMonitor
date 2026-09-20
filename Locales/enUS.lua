@@ -58,7 +58,7 @@ L["HELP_EDIT_MODE_BODY"] = "Where available, use Blizzard Edit Mode outside comb
 -- Core & General Strings
 -- ============================================================================
 L["ADDON_TITLE"] = "Offhand: Multi-Monitor Setup"
-L["ADDON_DESC"] = "Transforms dual monitor setups into a dedicated primary 3D viewport and secondary command deck."
+L["ADDON_DESC"] = "Dual Monitor Offhand Monitor and Seamless Display Topology Manager"
 L["CMD_HELP_TITLE"] = "Offhand Slash Commands"
 L["LAYOUT_REAPPLIED"] = "Layout reapplied!"
 L["CONFIG_SAVED"] = "Configuration saved! Welcome to Offhand Multi-Monitor Setup."
@@ -67,7 +67,7 @@ L["CONFIG_SAVED"] = "Configuration saved! Welcome to Offhand Multi-Monitor Setup
 -- Options Dashboard Header & Tabs
 -- ============================================================================
 L["OPTIONS_TITLE"] = "OFFHAND MULTI-MONITOR WORKSPACE"
-L["TAB_DISPLAY"] = "Display & Viewport"
+L["TAB_DISPLAY"] = "Display"
 L["TAB_WORKSPACE"] = "Offhand Monitor & Map"
 L["TAB_THEMES"] = "Themes & Colors"
 L["BTN_AUTO_WIZARD"] = "Auto-Setup Wizard"
@@ -77,17 +77,17 @@ L["BTN_AUTO_WIZARD_TIP_DESC"] = "Open the guided 1-click display configuration w
 -- ============================================================================
 -- Tab 1: Display & Viewport
 -- ============================================================================
-L["CARD_LAYOUT_PRESETS"] = "1. Monitor Layout Preset"
+L["CARD_LAYOUT_PRESETS"] = "Display Mode & Dual Monitor Orientation"
 L["CARD_LAYOUT_PRESETS_DESC"] = "Select which physical monitor displays your 3D game world and which displays your 2D Offhand Monitor."
-L["PRESET_PL_LR"] = "Portrait Left + Game Right"
+L["PRESET_PL_LR"] = "Portrait (Left) + Game (Right)"
 L["PRESET_PL_LR_TIP_TITLE"] = "Portrait Left + Game Right"
 L["PRESET_PL_LR_TIP_DESC"] = "Ideal for setups with a vertical Offhand Monitor on the left and your main horizontal gaming monitor on the right."
 
-L["PRESET_GL_PR"] = "Game Left + Portrait Right"
+L["PRESET_GL_PR"] = "Game (Left) + Portrait (Right)"
 L["PRESET_GL_PR_TIP_TITLE"] = "Game Left + Portrait Right"
 L["PRESET_GL_PR_TIP_DESC"] = "Ideal for setups with your main gaming monitor on the left and a vertical Offhand Monitor on the right."
 
-L["PRESET_DUAL_LANDSCAPE"] = "Dual Landscape (50/50)"
+L["PRESET_DUAL_LANDSCAPE"] = "Dual Landscape Side-by-Side (50/50)"
 L["PRESET_DUAL_LANDSCAPE_TIP_TITLE"] = "Dual Landscape (Side by Side)"
 L["PRESET_DUAL_LANDSCAPE_TIP_DESC"] = "Splits the game window equally in half across two identical horizontal monitors side by side."
 
@@ -95,8 +95,8 @@ L["BTN_1CLICK_AUTOCONFIG"] = "1-Click Auto-Configure"
 L["BTN_1CLICK_AUTOCONFIG_TIP_TITLE"] = "Automatic Hardware Detection"
 L["BTN_1CLICK_AUTOCONFIG_TIP_DESC"] = "Queries your active screen resolution and automatically applies recommended seam ratio, monitor orientation, and 3D aspect ratio."
 
-L["CARD_VIEWPORT_AR"] = "2. 3D Viewport Aspect Ratio & Position"
-L["AR_16_9"] = "16:9 Standard Widescreen"
+L["CARD_VIEWPORT_AR"] = "Mainhand Monitor Geometry & Bezel Seam"
+L["AR_16_9"] = "16:9 Standard"
 L["AR_16_9_TIP_TITLE"] = "16:9 Aspect Ratio"
 L["AR_16_9_TIP_DESC"] = "Locks the 3D game camera to standard 16:9 widescreen. Letterboxes top and bottom if necessary to maintain natural perspective without horizontal stretching."
 
@@ -130,7 +130,7 @@ L["LABEL_BOTTOM_OFFSET_TIP_TITLE"] = "Bottom Inset Offset"
 L["LABEL_BOTTOM_OFFSET_TIP_DESC"] = "Pushes the bottom of the Mainhand Monitor upward by the specified number of pixels to clear taskbars or secondary HUD elements."
 
 L["CARD_SEAM_CALIBRATION"] = "3. Physical Monitor Seam Alignment & Laser Guide"
-L["SLIDER_SEAM_WIDTH"] = "Offhand Monitor width (%):"
+L["SLIDER_SEAM_WIDTH"] = "Offhand Monitor width ():"
 L["SLIDER_SEAM_WIDTH_TIP_TITLE"] = "Physical Seam Position"
 L["SLIDER_SEAM_WIDTH_TIP_DESC"] = "Defines where the boundary between your Offhand Monitor and Mainhand Monitor sits, as a percentage of total spanned screen width."
 
@@ -142,11 +142,11 @@ L["BTN_SEAM_PLUS"] = "+ 1%"
 L["BTN_SEAM_PLUS_TIP_TITLE"] = "Nudge Seam Right"
 L["BTN_SEAM_PLUS_TIP_DESC"] = "Moves the monitor dividing seam 1% to the right."
 
-L["BTN_LASER_TOGGLE"] = "Toggle Laser Guide"
+L["BTN_LASER_TOGGLE"] = "Show Red Seam Guide Laser"
 L["BTN_LASER_TOGGLE_TIP_TITLE"] = "Physical Bezel Laser Guide"
 L["BTN_LASER_TOGGLE_TIP_DESC"] = "Shows or hides a bright vertical red laser line on screen. Adjust your seam slider until the line aligns exactly with your physical monitor plastic bezel."
 
-L["SLIDER_BEZEL_GAP"] = "Physical Bezel Gap Correction:"
+L["SLIDER_BEZEL_GAP"] = "Bezel Compensation Gap"
 L["SLIDER_BEZEL_GAP_TIP_TITLE"] = "Bezel Gap Compensation"
 L["SLIDER_BEZEL_GAP_TIP_DESC"] = "Compensates for the physical plastic border between your screens by creating a blank dead zone to prevent visual misalignment across monitors."
 
@@ -472,7 +472,7 @@ L["PROFILES_WARN_EXISTS"] = "A profile with that name already exists."
 
 L["POPUP_COMPANION_WARNING_TEXT"] = "|cffd0d0d0Offhand is enabled, but your window is not optimally spanned to your physical monitor setup and resolution.|r\n\nFor a seamless, borderless experience--and to avoid manually stretching the window edges every time you launch the game--the Offhand Companion App is highly recommended. Download it securely from GitHub below:\n\n(Alternatively, if you prefer to stretch the window manually across both monitors, click Ignore to permanently dismiss this warning)."
 L["POPUP_WELCOME_WARNING_TEXT"] = "|cffffd100Welcome to Offhand!|r\n\nTo use this dual-monitor interface, your World of Warcraft window must be spanned across two screens. Currently, your game is only running on one screen.\n\nWe highly recommend using the |cff00ff00Offhand Companion App|r (Windows .exe) to automatically achieve a pixel-perfect, borderless span across your monitors.\n\nOnce your game spans both monitors, click 'Launch Wizard' to calibrate your UI."
-L["POPUP_BTN_GET_APP"] = "Get App (Copy Link)"
+L["POPUP_BTN_GET_APP"] = "Get Companion App"
 L["POPUP_BTN_LAUNCH_WIZARD"] = "Launch Wizard"
 L["POPUP_BTN_IGNORE"] = "Ignore"
 L["WIZARD_WELCOME_TEXT"] = "|cffffd100Welcome to Offhand!|r Your World of Warcraft window is now spanned across your monitors.\n\nOffhand will split your UI perfectly: placing the 3D game on your main monitor, and providing a clean 'Canvas' on your secondary monitor for maps, bags, and reading.\n\nClick |cff00ff00Auto-Configure|r below to calibrate instantly."
