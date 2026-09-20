@@ -642,15 +642,22 @@ local originalAreas = {}
 
 
 DemodalizePanel = function(frame)
-    if not frame then return end
-    local name = frame:GetName()
-    if not name then return end
-    if UIPanelWindows and UIPanelWindows[name] then
-        if not originalAreas[name] then
-            originalAreas[name] = UIPanelWindows[name]
-        end
-        UIPanelWindows[name] = nil
-    end
+      if not frame then return end
+      local name = frame:GetName()
+      if not name then return end
+      if UIPanelWindows and UIPanelWindows[name] then
+          if name == "CharacterFrame" then
+              if not originalAreas[name] then
+                  originalAreas[name] = { isAreaNil = true, val = UIPanelWindows[name].area }
+              end
+              UIPanelWindows[name].area = nil
+          else
+              if not originalAreas[name] then
+                  originalAreas[name] = { isAreaNil = false, val = UIPanelWindows[name] }
+              end
+              UIPanelWindows[name] = nil
+          end
+      end
     if SetUIPanelAttribute then
         pcall(function() SetUIPanelAttribute(frame, "area", nil) end)
     end
@@ -663,19 +670,24 @@ DemodalizePanel = function(frame)
 end
 
 RemodalizePanel = function(frame)
-    if not frame then return end
-    local name = frame:GetName()
-    if not name then return end
-    UnregisterSpecialFrame(name)
-    if originalAreas[name] then
-        if UIPanelWindows then
-            UIPanelWindows[name] = originalAreas[name]
-        end
-        if SetUIPanelAttribute then
-            pcall(function() SetUIPanelAttribute(frame, "area", originalAreas[name] and originalAreas[name].area or nil) end)
-        end
-    end
-end
+      if not frame then return end
+      local name = frame:GetName()
+      if not name then return end
+      UnregisterSpecialFrame(name)
+      if originalAreas[name] then
+          if UIPanelWindows then
+              if originalAreas[name].isAreaNil then
+                  if UIPanelWindows[name] then UIPanelWindows[name].area = originalAreas[name].val end
+              else
+                  UIPanelWindows[name] = originalAreas[name].val
+              end
+          end
+          if SetUIPanelAttribute then
+              local area = originalAreas[name].isAreaNil and originalAreas[name].val or (originalAreas[name].val and originalAreas[name].val.area)
+              pcall(function() SetUIPanelAttribute(frame, "area", area) end)
+          end
+      end
+  end
 
 OnPanelDragStop = function(frame)
     if not frame then return end
@@ -753,7 +765,7 @@ OnPanelDragStop = function(frame)
         local rawW, rawH = frame:GetWidth(), frame:GetHeight()
         frame:ClearAllPoints()
         local factor = parentScale / frameScale
-        frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", clampedX * factor, (clampedY * factor) - (UIParent:GetHeight() or 0))
+        frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         
         if Offhand.db.independentWorkspacePanels or frame == WorldMapFrame then
             -- Evict from Blizzard UIPanel slot if currently occupying one
@@ -767,7 +779,7 @@ OnPanelDragStop = function(frame)
                 
                 local w, h = frame:GetWidth(), frame:GetHeight()
                 frame:ClearAllPoints()
-                frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", clampedX * factor, (clampedY * factor) - (UIParent:GetHeight() or 0))
+                frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
                                 frame:Show()
                 
                 if oldHide then frame:SetScript("OnHide", oldHide) end
@@ -839,7 +851,7 @@ OnPanelDragStop = function(frame)
             RegisterSpecialFrame(name)
             local w, h = frame:GetWidth(), frame:GetHeight()
             frame:ClearAllPoints()
-            frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", clampedX * factor, (clampedY * factor) - (UIParent:GetHeight() or 0))
+            frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
                     elseif string.match(name, "^PartyMemberFrame") or string.match(name, "^CompactPartyFrame") or name == "CompactRaidFrameContainer" then
             if EditModeManagerFrame then
                 -- Retail Edit Mode manages these. Do not taint!
@@ -849,7 +861,7 @@ OnPanelDragStop = function(frame)
                 Offhand.db.savedMainPositions[name] = { x = clampedX, y = clampedY }
                 local w, h = frame:GetWidth(), frame:GetHeight()
                 frame:ClearAllPoints()
-                frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", clampedX * factor, (clampedY * factor) - (UIParent:GetHeight() or 0))
+                frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
                             end
         
         elseif string.match(name, "^ContainerFrame") then
@@ -878,7 +890,7 @@ OnPanelDragStop = function(frame)
             Offhand.db.savedMainPositions[name] = { x = clampedX, y = clampedY }
             local w, h = frame:GetWidth(), frame:GetHeight()
             frame:ClearAllPoints()
-            frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", clampedX * factor, (clampedY * factor) - (UIParent:GetHeight() or 0))
+            frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
                         if FCF_SavePositionAndDimensions then
                 pcall(function() FCF_SavePositionAndDimensions(frame) end)
             end
@@ -895,7 +907,7 @@ OnPanelDragStop = function(frame)
             end
             local w, h = frame:GetWidth(), frame:GetHeight()
             frame:ClearAllPoints()
-            frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", clampedX * factor, (clampedY * factor) - (UIParent:GetHeight() or 0))
+            frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
                     end
     end
 
@@ -951,7 +963,7 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
             pcall(function() frame:SetClampedToScreen(false) end)
         end
         frame:ClearAllPoints()
-        frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", clampedX * factor, (clampedY * factor) - (UIParent:GetHeight() or 0))
+        frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         
         if frame == CharacterFrame then
             if not frame._offhandSizeHooked then
@@ -1004,7 +1016,7 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         local x = math.max(minX, math.min((mPos and mPos.x) or minX, maxX))
         local y = math.min(maxY, math.max(minY, (mPos and mPos.y) or maxY))
         frame:ClearAllPoints()
-        frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", x*factor, (y*factor) - (UIParent:GetHeight() or 0))
+        frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x*factor, y*factor)
     end
 end
 
@@ -1328,12 +1340,24 @@ function Offhand:InitializeCanvas()
     Canvas:UpdatePersistenceBehavior()
     Canvas:ConfigureWorldMap()
 
-    if not Canvas.showUIPanelHooked and ShowUIPanel then
+        if not Canvas.showUIPanelHooked and ShowUIPanel then
         Canvas.showUIPanelHooked = true
         hooksecurefunc("ShowUIPanel", function(frame)
+            if frame and UIPanelWindows and UIPanelWindows[frame:GetName()] and not UIPanelWindows[frame:GetName()].area then
+                if not frame:IsShown() then frame:Show() end
+            end
             Canvas:TryMakeFrameDraggable(frame)
         end)
     end
+    if not Canvas.hideUIPanelHooked and HideUIPanel then
+        Canvas.hideUIPanelHooked = true
+        hooksecurefunc("HideUIPanel", function(frame)
+            if frame and UIPanelWindows and UIPanelWindows[frame:GetName()] and not UIPanelWindows[frame:GetName()].area then
+                if frame:IsShown() then frame:Hide() end
+            end
+        end)
+    end
+
 end
 
 function Offhand:UpdateCanvas()

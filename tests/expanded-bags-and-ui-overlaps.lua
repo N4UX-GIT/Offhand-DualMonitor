@@ -186,7 +186,7 @@ local okMethod, errMethod = pcall(function()
 end)
 assert(okMethod, "Canvas:RestoreWorkspacePosition method call failed: " .. tostring(errMethod))
 local p = cf1.points[#cf1.points]
-assert(p and p.x == 120 and (p.y == 300 or p.y == 300 - UIParent:GetHeight()), "ContainerFrame1 not restored to saved workspace coordinates via method call")
+assert(p and p.x == 120 and p.y == 300, "ContainerFrame1 not restored to saved workspace coordinates via method call")
 
 -- Call as function Canvas.RestoreWorkspacePosition(cf1) (passes cf1 as 1st arg)
 local okFunc, errFunc = pcall(function()
