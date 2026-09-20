@@ -862,18 +862,23 @@ OnPanelDragStop = function(frame)
             end
             
             if frame == ChatFrame1 then
-                local buttons = { "ChatFrameMenuButton", "ChatFrameChannelButton", "ChatFrameToggleVoiceDeafenButton", "ChatFrameToggleVoiceMuteButton" }
-                local lastBtn = nil
-                for _, btnName in ipairs(buttons) do
-                    local btn = _G[btnName]
-                    if btn and btn:IsShown() then
-                        btn:ClearAllPoints()
-                        if not lastBtn then
-                            btn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMLEFT", -4, 0)
-                        else
-                            btn:SetPoint("BOTTOM", lastBtn, "TOP", 0, 4)
+                if frame.buttonFrame then
+                    frame.buttonFrame:ClearAllPoints()
+                    frame.buttonFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMLEFT", -4, 0)
+                else
+                    local buttons = { "ChatFrameMenuButton", "ChatFrameChannelButton", "ChatFrameToggleVoiceDeafenButton", "ChatFrameToggleVoiceMuteButton" }
+                    local lastBtn = nil
+                    for _, btnName in ipairs(buttons) do
+                        local btn = _G[btnName]
+                        if btn then
+                            btn:ClearAllPoints()
+                            if not lastBtn then
+                                btn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMLEFT", -4, 0)
+                            else
+                                btn:SetPoint("BOTTOM", lastBtn, "TOP", 0, 4)
+                            end
+                            lastBtn = btn
                         end
-                        lastBtn = btn
                     end
                 end
             end
@@ -952,20 +957,23 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
                 ChatFrame1EditBox:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", 0, 0)
             end
             
-            -- In Retail, the social buttons are detached if we move ChatFrame1 directly instead of via EditMode.
-            -- We force them to stick to ChatFrame1's left edge.
-            local buttons = { "ChatFrameMenuButton", "ChatFrameChannelButton", "ChatFrameToggleVoiceDeafenButton", "ChatFrameToggleVoiceMuteButton" }
-            local lastBtn = nil
-            for _, btnName in ipairs(buttons) do
-                local btn = _G[btnName]
-                if btn and btn:IsShown() then
-                    btn:ClearAllPoints()
-                    if not lastBtn then
-                        btn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMLEFT", -4, 0)
-                    else
-                        btn:SetPoint("BOTTOM", lastBtn, "TOP", 0, 4)
+            if frame.buttonFrame then
+                frame.buttonFrame:ClearAllPoints()
+                frame.buttonFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMLEFT", -4, 0)
+            else
+                local buttons = { "ChatFrameMenuButton", "ChatFrameChannelButton", "ChatFrameToggleVoiceDeafenButton", "ChatFrameToggleVoiceMuteButton" }
+                local lastBtn = nil
+                for _, btnName in ipairs(buttons) do
+                    local btn = _G[btnName]
+                    if btn then
+                        btn:ClearAllPoints()
+                        if not lastBtn then
+                            btn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMLEFT", -4, 0)
+                        else
+                            btn:SetPoint("BOTTOM", lastBtn, "TOP", 0, 4)
+                        end
+                        lastBtn = btn
                     end
-                    lastBtn = btn
                 end
             end
         end

@@ -891,8 +891,8 @@ function HUD:HookFrames()
                     end
                 end
                 
-                -- If it's a horizontal bar on the bottom right, push bags up
-                if fr >= right - 150 and fb <= m.gameBottom + 150 then
+                -- If it's a horizontal bar in the bottom right quadrant, push bags up
+                if fr >= m.gameRight - 400 and fb <= m.gameBottom + 200 then
                     bottom = math.max(bottom, ft + 16)
                 end
             end
