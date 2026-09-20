@@ -20,6 +20,9 @@ local tocVersion = select(4, GetBuildInfo())
 Offhand.tocVersion = tocVersion
 Offhand.isClassicEra = (WOW_PROJECT_ID == WOW_PROJECT_CLASSIC)
 Offhand.isRetail = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
+-- The Forever client uses Blizzard Edit Mode to own HUD placement. Keep this
+-- branch explicit so older Classic clients retain Offhand's legacy anchors.
+Offhand.isForever = tocVersion >= 16000 and tocVersion < 17000
 
 -- Formatted chat printing
 function Offhand:Print(msg, ...)
@@ -61,6 +64,7 @@ L["ADDON_DESC"] = "Transforms dual monitor setups into a dedicated primary 3D vi
 L["CMD_HELP_TITLE"] = "Offhand Slash Commands"
 L["LAYOUT_REAPPLIED"] = "Layout reapplied!"
 L["CONFIG_SAVED"] = "Configuration saved! Welcome to Offhand Dual Monitor Workstation."
+L["EDIT_MODE_LAYOUT_MISSING"] = "Forever uses Blizzard Edit Mode for action bars and combat frames. Outside combat, position them on the Mainhand Monitor, save the layout as 'Offhand', and select it in Edit Mode."
 
 -- Options Dashboard Header & Tabs
 L["OPTIONS_TITLE"] = "Offhand DUAL MONITOR WORKSTATION"
@@ -514,10 +518,15 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             if ContainerFrameCombinedBags then
                 ContainerFrameCombinedBags:SetUserPlaced(false)
             end
-            if PlayerFrame then PlayerFrame:SetUserPlaced(false) end
-            if TargetFrame then TargetFrame:SetUserPlaced(false) end
-            if MinimapCluster and not (Offhand.db and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["MinimapCluster"]) then
-                MinimapCluster:SetUserPlaced(false)
+            -- Forever's Blizzard Edit Mode owns these frames. Even seemingly
+            -- harmless SetUserPlaced calls can taint its party-frame refresh
+            -- when Edit Mode closes.
+            if not Offhand.isForever then
+                if PlayerFrame then PlayerFrame:SetUserPlaced(false) end
+                if TargetFrame then TargetFrame:SetUserPlaced(false) end
+                if MinimapCluster and not (Offhand.db and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["MinimapCluster"]) then
+                    MinimapCluster:SetUserPlaced(false)
+                end
             end
             if SetCVar then
                 SetCVar("rawMouseEnable", "1")

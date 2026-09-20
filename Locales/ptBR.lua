@@ -40,7 +40,8 @@ L["HELP_PANELS_BODY"] = "Arraste as janelas compatíveis pelo cabeçalho para qu
 L["HELP_RECOVERY_TITLE"] = "Recuperar janelas ou voltar a um monitor"
 L["HELP_RECOVERY_BODY"] = "Use Recuperar janelas fora da tela. Para voltar a um monitor, desative o modo duplo e use Restore Window no Companion (Ctrl+Alt+R)."
 L["HELP_EDIT_MODE_TITLE"] = "Posicionar quadros de combate no modo de edição"
-L["HELP_EDIT_MODE_BODY"] = "Quando disponível, use o modo de edição da Blizzard fora de combate para posturas, ajudantes e raide. Salve um layout chamado Offhand para seleção automática. Com um monitor, use o layout habitual. Algumas alterações aguardam o fim do combate."
+L["HELP_EDIT_MODE_BODY"] = "No Forever, o modo de edição da Blizzard controla as barras de ação e os quadros de combate para evitar erros da interface protegida. Fora de combate, mova as barras e os quadros de postura, ajudante, grupo e raide para o monitor principal, salve o layout como Offhand e selecione-o no modo de edição. O Offhand não troca layouts automaticamente."
+L["EDIT_MODE_LAYOUT_MISSING"] = "O Forever usa o modo de edição da Blizzard para barras de ação e quadros de combate. Posicione-os fora de combate no monitor principal e salve o layout como 'Offhand'."
 
 -- Core & General Strings
 L["ADDON_TITLE"] = "Offhand: configuração multimonitor"

@@ -2031,7 +2031,7 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     local helpCards = {}
     for _, topic in ipairs({ "SETUP", "PANELS", "RECOVERY", "EDIT_MODE" }) do
-        local card = CreateCard(tab5, L["HELP_" .. topic .. "_TITLE"], 112)
+        local card = CreateCard(tab5, L["HELP_" .. topic .. "_TITLE"], topic == "EDIT_MODE" and 158 or 112)
         local body = card:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
         body:SetPoint("TOPLEFT", 14, -30)
         body:SetPoint("TOPRIGHT", -14, -30)

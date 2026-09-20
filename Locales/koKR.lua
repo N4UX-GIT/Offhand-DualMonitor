@@ -40,7 +40,8 @@ L["HELP_PANELS_BODY"] = "지원되는 창의 제목을 끌어 모니터 간 이�
 L["HELP_RECOVERY_TITLE"] = "창 복구 또는 단일 모니터로 복귀"
 L["HELP_RECOVERY_BODY"] = "화면 밖 창 복구를 사용하세요. 단일 모니터로 돌아가려면 듀얼 모니터 모드를 끄고 Companion의 Restore Window(Ctrl+Alt+R)를 사용하세요."
 L["HELP_EDIT_MODE_TITLE"] = "편집 모드에서 전투 프레임 배치"
-L["HELP_EDIT_MODE_BODY"] = "지원되는 경우 전투 밖에서 블리자드 편집 모드로 태세, 소환수, 공격대 프레임을 배치하세요. Offhand라는 이름으로 저장하면 자동 선택됩니다. 단일 모니터에서는 평소 배치를 선택하세요. 일부 변경은 전투 종료 후 적용됩니다."
+L["HELP_EDIT_MODE_BODY"] = "Forever에서는 보호된 UI 오류를 막기 위해 행동 단축바와 전투 프레임을 블리자드 편집 모드가 관리합니다. 전투 중이 아닐 때 행동 단축바와 태세, 소환수, 파티 및 공격대 프레임을 주 모니터로 옮기고 Offhand라는 이름으로 저장한 뒤 편집 모드에서 선택하세요. Offhand는 배치를 자동으로 전환하지 않습니다."
+L["EDIT_MODE_LAYOUT_MISSING"] = "Forever에서는 행동 단축바와 전투 프레임을 블리자드 편집 모드로 배치합니다. 전투 밖에서 주 모니터에 배치한 뒤 'Offhand'라는 이름으로 저장하세요."
 
 -- Core & General Strings
 L["ADDON_TITLE"] = "Offhand: 다중 모니터 설정"

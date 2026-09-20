@@ -40,7 +40,8 @@ L["HELP_PANELS_BODY"] = "Arrastra las ventanas compatibles por su cabecera a cua
 L["HELP_RECOVERY_TITLE"] = "Recuperar ventanas o volver a un monitor"
 L["HELP_RECOVERY_BODY"] = "Usa Recuperar ventanas fuera de pantalla para traer ventanas inaccesibles. Para volver a un monitor, desactiva el modo dual y usa Restore Window en Companion (Ctrl+Alt+R)."
 L["HELP_EDIT_MODE_TITLE"] = "Colocar marcos de combate en modo edición"
-L["HELP_EDIT_MODE_BODY"] = "Si está disponible, usa el modo edición de Blizzard fuera de combate para posturas, mascota y banda. Guarda un diseño llamado Offhand para seleccionarlo automáticamente. Vuelve a tu diseño habitual al usar un monitor. Algunos cambios esperan al fin del combate."
+L["HELP_EDIT_MODE_BODY"] = "En Forever, el modo edición de Blizzard controla las barras de acción y los marcos de combate para evitar errores de la interfaz protegida. Fuera de combate, mueve las barras y los marcos de postura, mascota, grupo y banda al monitor principal, guarda el diseño como Offhand y selecciónalo allí. Offhand no cambia diseños automáticamente."
+L["EDIT_MODE_LAYOUT_MISSING"] = "Forever usa el modo edición de Blizzard para las barras de acción y los marcos de combate. Colócalos fuera de combate en el monitor principal y guarda el diseño como 'Offhand'."
 
 -- Core & General Strings
 L["ADDON_TITLE"] = "Offhand: configuración multimonitor"

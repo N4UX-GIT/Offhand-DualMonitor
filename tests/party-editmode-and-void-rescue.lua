@@ -196,6 +196,7 @@ ToggleGameMenu = function()
         GameMenuFrame:Show()
     end
 end
+ShowUIPanel = function(frame) frame:Show() end
 
 -- Load Offhand core scripts
 local seamChunk = loadfile("Core/SeamRedirect.lua")
@@ -263,37 +264,91 @@ assert(addon.db.savedMainPositions["PartyMemberFrame1"].y == 1000 + PartyMemberF
 print("PASS: PartyMemberFrame1 dragged back to Game View updates savedMainPositions")
 
 -- ============================================================================
--- TEST 5: Edit Mode Toolbar & Dialogs Positioning inside 3D Game View
+-- TEST 5: Forever yields protected HUD placement to Blizzard Edit Mode
 -- ============================================================================
+addon.isForever = true
+MainActionBar = makeMockFrame("MainActionBar", 500, 45)
+MainActionBar.IsInDefaultPosition = function() return true end
+local originalMainSetPoint = MainActionBar.SetPoint
 local EditModeManagerFrame = makeMockFrame("EditModeManagerFrame", 600, 60)
 local EditModeSystemSettingsDialog = makeMockFrame("EditModeSystemSettingsDialog", 400, 300)
 local EditModeUnsavedChangesDialog = makeMockFrame("EditModeUnsavedChangesDialog", 350, 150)
+Enum = {
+    EditModeSystem = { ActionBar = 1 },
+    EditModeActionBarSystemIndices = { MainBar = 1 },
+}
+local layoutData = {
+    activeLayout = 1,
+    layouts = {
+        {layoutName = "Modern", layoutType = 0},
+        {
+            layoutName = "Offhand",
+            layoutType = 1,
+            systems = {
+                {system = 1, systemIndex = 1, isInDefaultPosition = true},
+            },
+        },
+    },
+}
+local selectedLayout
+C_EditMode = {
+    GetLayouts = function() return layoutData end,
+    SetActiveLayout = function(index)
+        selectedLayout = index
+        layoutData.activeLayout = index
+    end,
+}
 
 -- Simulate on-demand loading of Blizzard_EditMode
+addon.HUD.editModeLoadScheduled = nil
 addon.HUD:HookFrames()
+addon.HUD:AlignHUDFrames(metrics)
 
-EditModeManagerFrame:Show()
+assert(MainActionBar.SetPoint == originalMainSetPoint,
+    "Forever must not install a SetPoint repair hook on MainActionBar")
+assert(#MainActionBar.points == 0,
+    "Forever must not directly anchor MainActionBar")
+
+-- Forever can load Blizzard_EditMode after Offhand's canvas initialization.
+-- Protected unit frames must still be rejected when the manager did not exist
+-- at the time draggable-frame discovery first ran.
+local party2PointCount = #PartyMemberFrame2.points
+addon.Canvas.MakePanelDraggable(PartyMemberFrame2)
+addon.Canvas:TryMakeFrameDraggable(EditModeManagerFrame)
+addon.Canvas.RestoreWorkspacePosition(PartyMemberFrame2)
+addon.Canvas.OnPanelDragStop(PartyMemberFrame2)
+assert(not PartyMemberFrame2._OffhandMovable and not PartyMemberFrame2.movable,
+    "Forever must not make party frames movable")
+assert(not EditModeManagerFrame._OffhandMovable and not EditModeManagerFrame.movable,
+    "Forever must not make EditModeManagerFrame movable")
+assert(#PartyMemberFrame2.points == party2PointCount,
+    "Forever must not restore or save party-frame anchors through Canvas")
+
+ShowUIPanel(EditModeManagerFrame)
 flushTimers()
 
 local editPt = EditModeManagerFrame.points[#EditModeManagerFrame.points]
-assert(editPt, "EditModeManagerFrame must be anchored")
-assert(editPt[1] == "TOP", "EditModeManagerFrame point must be TOP")
--- cx = (1440 + 4000) / 2 = 2720
--- top = m.gameTop - 20 = 1446 - 20 = 1426
-assert(math.abs(editPt[4] + 2000 - 2720) < 1, string.format("EditModeManagerFrame X must be centered at 2720, got %s", tostring(editPt[4])))
-assert(math.abs(editPt[5] + 1280 - 1426) < 1, string.format("EditModeManagerFrame Y must dock to gameTop - 20 (1426), got %s", tostring(editPt[5])))
-print("PASS: EditModeManagerFrame docks to the top-center of the 3D Game Viewport (x=2720, y=1426)")
+assert(editPt == nil, "Forever must not reanchor EditModeManagerFrame")
+assert(selectedLayout == nil,
+    "Forever must not auto-select an Offhand layout whose main action bar is still in its full-canvas default position")
+assert(addon.HUD.editModeGuidanceShown,
+    "Forever must guide the player to configure an unpositioned Offhand Edit Mode layout")
 
--- Dialog centering
+-- Even after the player has configured the layout, Forever must leave profile
+-- selection to Blizzard Edit Mode. A delayed switch can move or hide bars.
+layoutData.layouts[2].systems[1].isInDefaultPosition = false
+addon.HUD.editModeLoadScheduled = nil
+addon.HUD:HookFrames()
+flushTimers()
+assert(selectedLayout == nil and layoutData.activeLayout == 1,
+    "Forever must not change the active Edit Mode layout after reload")
+
+-- Edit Mode dialogs also remain entirely Blizzard-owned.
 EditModeUnsavedChangesDialog:Show()
 flushTimers()
 local dialogPt = EditModeUnsavedChangesDialog.points[#EditModeUnsavedChangesDialog.points]
-assert(dialogPt, "EditModeUnsavedChangesDialog must be anchored")
-assert(dialogPt[1] == "CENTER", "EditModeUnsavedChangesDialog point must be CENTER")
--- cy = (6 + 1446) / 2 = 726
-assert(math.abs(dialogPt[4] + 2000 - 2720) < 1, string.format("Dialog X must be centered at 2720, got %s", tostring(dialogPt[4])))
-assert(math.abs(dialogPt[5] + 1280 - 726) < 1, string.format("Dialog Y must be centered at 726, got %s", tostring(dialogPt[5])))
-print("PASS: EditMode dialogs center on 3D Game Viewport (x=2720, y=726)")
+assert(dialogPt == nil, "Forever must not reanchor Edit Mode dialogs")
+print("PASS: Forever yields action bars, manager and dialogs to Blizzard Edit Mode")
 
 -- ============================================================================
 -- TEST 6: GameMenuFrame Centering & Escape Dismissal
@@ -347,20 +402,22 @@ assert(clampedTop <= metrics.gameTop, string.format("Clamped frame top (%s) must
 print(string.format("PASS: Game View drag clamping enforces top <= gameTop (%s <= %s)", tostring(clampedTop), tostring(metrics.gameTop)))
 
 -- ============================================================================
--- TEST 9: EditModeUtil nil offset crash prevention during combat entry
+-- TEST 9: Blizzard EditModeUtil remains untouched
 -- ============================================================================
 StanceBar = makeMockFrame("StanceBar", 120, 30)
 StanceBar.IsInDefaultPosition = function() return true end
 StanceBar.IsInitialized = function() return true end
 StanceBar:ClearAllPoints() -- GetPoint(1) returns nil (as occurs during stance transitions)
 
-EditModeUtil = {}
+local nativeBottomHeight = function() return 37 end
+EditModeUtil = { GetBottomActionBarHeight = nativeBottomHeight }
 addon.HUD:HookFrames()
 
 local ok, height = pcall(function() return EditModeUtil:GetBottomActionBarHeight() end)
-assert(ok, "EditModeUtil:GetBottomActionBarHeight must not throw error when bar offset is nil")
-assert(type(height) == "number", "GetBottomActionBarHeight must return a valid number")
-print("PASS: EditModeUtil nil offset combat entry crash prevented by Offhand safety patch")
+assert(ok and height == 37, "Blizzard EditModeUtil behavior must remain intact")
+assert(EditModeUtil.GetBottomActionBarHeight == nativeBottomHeight,
+    "Offhand must not replace EditModeUtil:GetBottomActionBarHeight")
+print("PASS: Blizzard EditModeUtil remains untouched")
 
 -- ============================================================================
 -- TEST 10: Bad-self intrinsic widgets in UIParent:GetChildren()

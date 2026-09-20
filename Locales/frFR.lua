@@ -40,7 +40,8 @@ L["HELP_PANELS_BODY"] = "Glissez les fenêtres compatibles par leur en-tête ver
 L["HELP_RECOVERY_TITLE"] = "Récupérer les fenêtres ou revenir à un moniteur"
 L["HELP_RECOVERY_BODY"] = "Utilisez la récupération des fenêtres hors écran. Pour revenir à un moniteur, désactivez le mode double écran et utilisez Restore Window dans Companion (Ctrl+Alt+R)."
 L["HELP_EDIT_MODE_TITLE"] = "Placer les cadres de combat en mode Édition"
-L["HELP_EDIT_MODE_BODY"] = "Si disponible, utilisez le mode Édition de Blizzard hors combat pour les postures, familiers et raids. Nommez la disposition Offhand pour la sélection automatique. Reprenez votre disposition habituelle sur un moniteur. Certains changements attendent la fin du combat."
+L["HELP_EDIT_MODE_BODY"] = "Dans Forever, le mode Édition de Blizzard contrôle les barres d'action et les cadres de combat afin d'éviter les erreurs d'interface protégée. Hors combat, placez les barres et les cadres de posture, familier, groupe et raid sur l'écran principal, enregistrez la disposition sous le nom Offhand et sélectionnez-la dans le mode Édition. Offhand ne change pas automatiquement de disposition."
+L["EDIT_MODE_LAYOUT_MISSING"] = "Forever utilise le mode Édition de Blizzard pour les barres d'action et les cadres de combat. Placez-les hors combat sur l'écran principal et enregistrez la disposition sous le nom 'Offhand'."
 
 -- Core & General Strings
 L["ADDON_TITLE"] = "Offhand : configuration multiécran"

@@ -40,7 +40,8 @@ L["HELP_PANELS_BODY"] = "拖动支持窗口的标题栏即可移至任意显示�
 L["HELP_RECOVERY_TITLE"] = "找回窗口或返回单屏"
 L["HELP_RECOVERY_BODY"] = "使用“找回屏幕外窗口”恢复不可见窗口。返回单屏时关闭双屏模式，再点击 Companion 的 Restore Window（Ctrl+Alt+R）。"
 L["HELP_EDIT_MODE_TITLE"] = "在编辑模式中定位战斗框体"
-L["HELP_EDIT_MODE_BODY"] = "若客户端支持，请在脱战后使用暴雪编辑模式放置姿态、宠物和团队框体。将布局命名为 Offhand 可自动选择；返回单屏时选择平常的布局。部分更改需等待战斗结束。"
+L["HELP_EDIT_MODE_BODY"] = "Forever 由暴雪编辑模式管理动作条和战斗框体，以避免受保护界面错误。请在脱战后打开编辑模式，将动作条以及姿态、宠物、小队和团队框体移动到主显示器，将布局保存为 Offhand，并在编辑模式中选择它。Offhand 不会自动切换布局。"
+L["EDIT_MODE_LAYOUT_MISSING"] = "Forever 使用暴雪编辑模式管理动作条和战斗框体。请在脱战后将它们放到主显示器，并将布局保存为“Offhand”。"
 
 -- Core & General Strings
 L["ADDON_TITLE"] = "Offhand：多显示器设置"

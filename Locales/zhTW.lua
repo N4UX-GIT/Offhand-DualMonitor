@@ -40,7 +40,8 @@ L["HELP_PANELS_BODY"] = "拖曳支援視窗的標題列即可移至任意螢幕�
 L["HELP_RECOVERY_TITLE"] = "找回視窗或返回單螢幕"
 L["HELP_RECOVERY_BODY"] = "使用「找回螢幕外視窗」復原不可見視窗。返回單螢幕時關閉雙螢幕模式，再點擊 Companion 的 Restore Window（Ctrl+Alt+R）。"
 L["HELP_EDIT_MODE_TITLE"] = "在編輯模式中定位戰鬥框架"
-L["HELP_EDIT_MODE_BODY"] = "若客戶端支援，請在脫戰後使用暴雪編輯模式放置姿態、寵物和團隊框架。將配置命名為 Offhand 可自動選取；返回單螢幕時選擇平常的配置。部分變更需等待戰鬥結束。"
+L["HELP_EDIT_MODE_BODY"] = "Forever 由暴雪編輯模式管理快捷列與戰鬥框架，以避免受保護介面錯誤。請在脫戰後開啟編輯模式，將快捷列以及姿態、寵物、小隊與團隊框架移到主螢幕，將配置儲存為 Offhand，並在編輯模式中選取它。Offhand 不會自動切換配置。"
+L["EDIT_MODE_LAYOUT_MISSING"] = "Forever 使用暴雪編輯模式管理快捷列與戰鬥框架。請在脫戰後將它們放到主螢幕，並將配置儲存為「Offhand」。"
 
 -- Core & General Strings
 L["ADDON_TITLE"] = "Offhand：多螢幕設定"

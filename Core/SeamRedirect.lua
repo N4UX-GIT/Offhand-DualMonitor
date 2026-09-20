@@ -26,23 +26,23 @@ end
 
 local function HasCustomBagAddon()
     if _G.Baganator or _G.Baginator or _G.Bagnon or _G.AdiBags or _G.ArkInventory or _G.BetterBags or _G.Inventorian or _G.ElvUI or _G.Tukui then return true end
-    
+
     local c1 = _G.ContainerFrame1
     if not c1 then return true end
-    
+
     return false
 end
 
 local function HasCustomMinimapAddon()
     -- Heuristic check for minimap overrides.
     if _G.SexyMap or _G.Carbonite or _G.ElvUI then return true end
-    
+
     local mm = _G.MinimapCluster
     if not mm then return true end
-    
+
     -- If another addon has forcibly moved or unanchored the Minimap natively without Offhand's permission
     if mm.IsUserPlaced and mm:IsUserPlaced() then return true end
-    
+
     return false
 end
 
@@ -53,6 +53,25 @@ Offhand.HasCustomMinimapAddon = HasCustomMinimapAddon
 local actionNames = {"MainMenuBar", "MainActionBar", "StatusTrackingBarManager", "MainMenuExpBar",
     "MultiBarBottomLeft", "MultiBarBottomRight", "MultiBarLeft", "MultiBarRight",
     }
+local foreverEditModeFrameNames = {
+    MainMenuBar = true, MainActionBar = true, StatusTrackingBarManager = true, MainMenuExpBar = true,
+    MultiBarBottomLeft = true, MultiBarBottomRight = true, MultiBarLeft = true, MultiBarRight = true,
+    StanceBar = true, PetActionBar = true, PossessActionBar = true,
+    MinimapCluster = true, PlayerFrame = true, TargetFrame = true,
+    PartyMemberFrame1 = true, CompactPartyFrame = true,
+    BuffFrame = true, BuffCluster = true, CastingBarFrame = true, PlayerCastingBarFrame = true,
+    UIErrorsFrame = true, RaidWarningFrame = true,
+}
+local function UsesForeverEditMode()
+    if Offhand.isForever ~= nil then return Offhand.isForever end
+    local version = tonumber(Offhand.tocVersion)
+    return version and version >= 16000 and version < 17000 or false
+end
+local function IsForeverEditModeFrame(frame, name)
+    if not UsesForeverEditMode() then return false end
+    name = name or (frame and frame.GetName and frame:GetName())
+    return name and (foreverEditModeFrameNames[name] or name:match("^EditMode")) or false
+end
 local function Remember(frame)
     desiredFrames[frame] = desiredFrames[frame] or {}
     return desiredFrames[frame]
@@ -217,37 +236,73 @@ function HUD:AlignHUDFrames(m)
     aligning = true
     local ok, err = pcall(function()
         m = m or Offhand.Viewport:GetMetrics()
-        if not HasCustomActionBarAddon() then
+        if not UsesForeverEditMode() and not HasCustomActionBarAddon() then
             local main = MainMenuBar or MainActionBar
-            Prepare(main, m)
-            if main then Anchor(main, "BOTTOM", m, 0, 0) end
-            if MainActionBar and MainActionBar ~= main and (not MainActionBar.IsInDefaultPosition or MainActionBar:IsInDefaultPosition()) then
-                Prepare(MainActionBar, m)
-                Points(MainActionBar, {"BOTTOMLEFT", main, "BOTTOMLEFT", 8, 4})
+
+            -- Detect if the action bar is currently centered in the bezel (default Edit Mode behavior for bottom)
+            local isBezelCentered = false
+            if main and main.GetCenter then
+                local cx = main:GetCenter()
+                local screenCenter = UIParent:GetWidth() / 2
+                if cx and math.abs(cx - screenCenter) < 150 then
+                    isBezelCentered = true
+                end
             end
 
-            local xp = StatusTrackingBarManager or MainMenuExpBar
-            Prepare(xp, m)
-            if xp and main and (not xp.IsInDefaultPosition or xp:IsInDefaultPosition()) then
-                Points(xp, {"BOTTOM", main, "TOP", 0, -2})
+            -- If it's in the default Edit Mode position, or it's Classic Era, center it on the game viewport!
+            if main and (isBezelCentered or not EditModeManagerFrame) then
+                Prepare(main, m)
+                Anchor(main, "BOTTOM", m, 0, 0)
             end
-            -- Preserve Blizzard's visibility rules (XP at max level, pet, stance, etc.).
-            local bottomLeft, bottomRight = MultiBarBottomLeft, MultiBarBottomRight
-            Prepare(bottomLeft, m)
-            Prepare(bottomRight, m)
-            if bottomLeft and main and (not bottomLeft.IsInDefaultPosition or bottomLeft:IsInDefaultPosition()) then
-                Points(bottomLeft, {"BOTTOMLEFT", main, "TOPLEFT", 0, 8})
+
+            -- For older clients (Classic Era) that don't have Edit Mode, we must manually stack the extra bars
+            if not EditModeManagerFrame then
+                if MainActionBar and MainActionBar ~= main and (not MainActionBar.IsInDefaultPosition or MainActionBar:IsInDefaultPosition()) then
+                    Prepare(MainActionBar, m)
+                    Points(MainActionBar, {"BOTTOMLEFT", main, "BOTTOMLEFT", 8, 4})
+                end
+
+                local xp = StatusTrackingBarManager or MainMenuExpBar
+                Prepare(xp, m)
+                if xp and main and (not xp.IsInDefaultPosition or xp:IsInDefaultPosition()) then
+                    Points(xp, {"BOTTOM", main, "TOP", 0, -2})
+                end
+
+                local bottomLeft, bottomRight = MultiBarBottomLeft, MultiBarBottomRight
+                Prepare(bottomLeft, m)
+                Prepare(bottomRight, m)
+                if bottomLeft and main and (not bottomLeft.IsInDefaultPosition or bottomLeft:IsInDefaultPosition()) then
+                    Points(bottomLeft, {"BOTTOMLEFT", main, "TOPLEFT", 0, 8})
+                end
+                if bottomRight and main and (not bottomRight.IsInDefaultPosition or bottomRight:IsInDefaultPosition()) then
+                    Points(bottomRight, {"BOTTOMLEFT", main, "TOPLEFT", 515, 8})
+                end
             end
-            if bottomRight and main and (not bottomRight.IsInDefaultPosition or bottomRight:IsInDefaultPosition()) then
-                Points(bottomRight, {"BOTTOMLEFT", main, "TOPLEFT", 515, 8})
+
+            -- Right side action bars (Safely dock to the game viewport right edge if they are at the bezel edge)
+            local function IsRightBezelAnchored(frame)
+                if not frame or not frame.GetCenter then return false end
+                local cx = frame:GetCenter()
+                local screenCenter = UIParent:GetWidth() / 2
+
+                -- Check if the frame is sitting in the bezel (center of the entire span)
+                if cx and math.abs(cx - screenCenter) < 150 then return true end
+
+                -- Also check if it's sitting on the far physical right edge of the screen, BUT the game viewport is on the left
+                if cx and m and cx > m.gameRight and cx > (UIParent:GetWidth() - 150) then return true end
+
+                return false
             end
-                        -- StanceBar and PetActionBar are inherently tied to EditMode and deeply protected.
-            -- Offhand no longer manually points these frames, avoiding the ADDON_ACTION_BLOCKED taint.
-            -- EditMode will natively drag them alongside the MainMenuBar.
-            Prepare(MultiBarRight, m)
-            if MultiBarRight then Anchor(MultiBarRight, "RIGHT", m, -4, 0) end
-            Prepare(MultiBarLeft, m)
-            if MultiBarLeft then Anchor(MultiBarLeft, "RIGHT", m, -48, 0) end
+
+            if MultiBarRight and (IsRightBezelAnchored(MultiBarRight) or not EditModeManagerFrame) then
+                Prepare(MultiBarRight, m)
+                Anchor(MultiBarRight, "RIGHT", m, -4, 0)
+            end
+
+            if MultiBarLeft and (IsRightBezelAnchored(MultiBarLeft) or not EditModeManagerFrame) then
+                Prepare(MultiBarLeft, m)
+                Anchor(MultiBarLeft, "RIGHT", m, -48, 0)
+            end
         end
 
         for _, item in ipairs({
@@ -263,7 +318,10 @@ function HUD:AlignHUDFrames(m)
         }) do
             local frame = _G[item[1]]
             if frame then
-                if item[1] == "MinimapCluster" and HasCustomMinimapAddon() then
+                if IsForeverEditModeFrame(frame, item[1]) then
+                    -- Forever's saved Edit Mode layout owns these frames. Writing
+                    -- their anchors here can taint later Edit Mode/party refreshes.
+                elseif item[1] == "MinimapCluster" and HasCustomMinimapAddon() then
                     -- Yield completely to custom minimap addon (e.g. SexyMap, BasicMinimap, ElvUI)
                 elseif frame._OffhandDragging then
                     -- Frame is actively being dragged by the player; do not interrupt!
@@ -321,9 +379,29 @@ end
 -- force visibility/action state. The guard prevents our setters from re-entering.
 function HUD:RepairFrame(frame)
     if aligning or not Offhand.db or not Offhand.db.enabled then return end
+    if IsForeverEditModeFrame(frame) then return end
     if frame.IsUserPlaced and frame:IsUserPlaced() then return end
-    if frame.IsInDefaultPosition and not frame:IsInDefaultPosition() then return end
     if HasCustomActionBarAddon() then return end
+
+    if frame.IsInDefaultPosition and not frame:IsInDefaultPosition() then
+        -- Edit Mode marks preset layouts (like "Classic") as non-default.
+        -- We must check if it's an action bar sitting in the bezel before yielding!
+        local yieldToEditMode = true
+        if frame == _G.MainMenuBar or frame == _G.MainActionBar then
+            local cx = frame.GetCenter and frame:GetCenter()
+            if cx and math.abs(cx - (UIParent:GetWidth() / 2)) < 150 then
+                yieldToEditMode = false -- It's sitting in the bezel, let Offhand move it
+            end
+        elseif frame == _G.MultiBarRight or frame == _G.MultiBarLeft then
+            local cx = frame.GetCenter and frame:GetCenter()
+            local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+            if cx and (math.abs(cx - UIParent:GetWidth()) < 150 or (m and cx > m.gameRight and cx > (UIParent:GetWidth() - 150))) then
+                yieldToEditMode = false -- It's on the far right bezel edge, let Offhand move it
+            end
+        end
+
+        if yieldToEditMode then return end
+    end
     local desired = desiredFrames[frame]
     if not desired then return end
     if InCombatLockdown() then self:RequestLayout(); return end
@@ -357,7 +435,7 @@ function HUD:RepairChatAnchor(frame)
 end
 
 function HUD:HookFrames()
-    if not HasCustomActionBarAddon() then
+    if not UsesForeverEditMode() and not HasCustomActionBarAddon() then
         if not self.managerHooked and UIParent_ManageFramePositions then
             self.managerHooked = true
             hooksecurefunc("UIParent_ManageFramePositions", function()
@@ -380,7 +458,7 @@ function HUD:HookFrames()
     for _, name in ipairs({"PlayerFrame", "TargetFrame", "PartyMemberFrame1", "CompactPartyFrame", "ChatFrame1",
         "BuffFrame", "UIErrorsFrame", "RaidWarningFrame"}) do
         local frame = _G[name]
-        if frame and not hooks[frame] then
+        if frame and not IsForeverEditModeFrame(frame, name) and not hooks[frame] then
             hooks[frame] = true
             hooksecurefunc(frame, "SetPoint", function()
                 if frame._OffhandDragging or MOVING_CHATFRAME == frame then return end
@@ -398,40 +476,16 @@ function HUD:HookFrames()
         "GameMenuFrame", "SettingsPanel", "InterfaceOptionsFrame", "VideoOptionsFrame",
         "AddonList", "KeyBindingFrame", "HelpFrame",
         "BugSackFrame", "RedIsFriendFrame",
-        "EditModeSystemSettingsDialog", "EditModeUnsavedChangesDialog", "EditModeDialog"
     }
+    if not UsesForeverEditMode() then
+        menuFrameNames[#menuFrameNames + 1] = "EditModeSystemSettingsDialog"
+        menuFrameNames[#menuFrameNames + 1] = "EditModeUnsavedChangesDialog"
+        menuFrameNames[#menuFrameNames + 1] = "EditModeDialog"
+    end
 
     local function PositionEditMode()
-        if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
-        local m = Offhand.Viewport:GetMetrics()
-        if not m or not m.isSpanned then return end
-        local cx = (m.gameLeft + m.gameRight) / 2
-        local factor = UIParent:GetEffectiveScale()
-
-        -- Dock EditModeManagerFrame toolbar cleanly at the top-center of the 3D Game View
-        local mgr = _G["EditModeManagerFrame"]
-        if mgr and mgr:IsShown() then
-            mgr:ClearAllPoints()
-            local mScale = mgr:GetEffectiveScale() or factor
-            local scaleFactor = factor / mScale
-            local offsetX = cx - (UIParent:GetWidth() / 2)
-            local offsetY = (m.gameTop - 20) - (UIParent:GetHeight() / 2)
-            mgr:SetPoint("TOP", UIParent, "CENTER", offsetX * scaleFactor, offsetY * scaleFactor)
-        end
-
-        -- Center dialogs inside the 3D Game View
-        for _, name in ipairs({"EditModeSystemSettingsDialog", "EditModeUnsavedChangesDialog", "EditModeDialog"}) do
-            local dlg = _G[name]
-            if dlg and dlg:IsShown() then
-                dlg:ClearAllPoints()
-                local dScale = dlg:GetEffectiveScale() or factor
-                local scaleFactor = factor / dScale
-                local cy = (m.gameBottom + m.gameTop) / 2
-                local offsetX = cx - (UIParent:GetWidth() / 2)
-                local offsetY = cy - (UIParent:GetHeight() / 2)
-                dlg:SetPoint("CENTER", UIParent, "CENTER", offsetX * scaleFactor, offsetY * scaleFactor)
-            end
-        end
+        -- Disabled: Calling ClearAllPoints and SetPoint on EditModeManagerFrame
+        -- and its dialogs taints the protected UI, causing CompactUnitFrame errors on exit.
     end
 
     local function CenterGameMenu()
@@ -486,50 +540,17 @@ function HUD:HookFrames()
     end
 
     local function PatchEditModeUtil()
-        if not _G.EditModeUtil then return end
-        if _G.EditModeUtil._offhand_patched then return end
-        _G.EditModeUtil._offhand_patched = true
-
-        local function SafeGetBarsLayoutSize(barHierarchy, getWidth)
-            if not barHierarchy then return 0 end
-            for _, bar in ipairs(barHierarchy) do
-                if bar and bar.IsVisible and bar:IsVisible()
-                    and (not bar.IsInitialized or bar:IsInitialized())
-                    and (not bar.IsInDefaultPosition or bar:IsInDefaultPosition())
-                    then
-                    local offset, size
-                    if getWidth then
-                        offset = select(4, bar:GetPoint(1)) or 0
-                        size = (bar.GetWidth and bar:GetWidth()) or 0
-                    else
-                        offset = select(5, bar:GetPoint(1)) or 0
-                        size = (bar.GetHeight and bar:GetHeight()) or 0
-                    end
-                    offset = tonumber(offset) or 0
-                    size = tonumber(size) or 0
-                    return math.abs(offset) + size
-                end
-            end
-            return 0
-        end
-
-        _G.EditModeUtil.GetBottomActionBarHeight = function(self)
-            local barHierarchy = {
-                _G.MainMenuBarVehicleLeaveButton, _G.PossessActionBar, _G.PetActionBar,
-                _G.StanceBar, _G.OverrideActionBar, _G.MultiBarBottomRight,
-                _G.MultiBarBottomLeft, _G.MainActionBar
-            }
-            return SafeGetBarsLayoutSize(barHierarchy, false)
-        end
-
-        _G.EditModeUtil.GetRightActionBarWidth = function(self)
-            local barHierarchy = { _G.MultiBarLeft, _G.MultiBarRight }
-            return SafeGetBarsLayoutSize(barHierarchy, true)
-        end
+        -- Disabled: Overriding EditModeUtil causes taint in CompactUnitFrame (e.g. party/raid frames)
+        -- We no longer attempt to patch GetBottomActionBarHeight.
     end
 
     local function CheckEditModeHooks()
         PatchEditModeUtil()
+        if UsesForeverEditMode() then
+            -- Do not attach addon script handlers to Forever's Edit Mode
+            -- manager. Its layout and close/reset path must remain Blizzard-owned.
+            return
+        end
         local mgr = _G["EditModeManagerFrame"]
         if mgr and not hooks[mgr] then
             hooks[mgr] = true
@@ -538,8 +559,10 @@ function HUD:HookFrames()
                 C_Timer.After(0, PositionEditMode)
             end)
         end
-        for _, name in ipairs({"EditModeSystemSettingsDialog", "EditModeUnsavedChangesDialog", "EditModeDialog"}) do
-            HookMenuFrame(name)
+        if not UsesForeverEditMode() then
+            for _, name in ipairs({"EditModeSystemSettingsDialog", "EditModeUnsavedChangesDialog", "EditModeDialog"}) do
+                HookMenuFrame(name)
+            end
         end
     end
     CheckEditModeHooks()
@@ -582,9 +605,6 @@ function HUD:HookFrames()
 
         -- 2. Void Rescue: Detect any frame on the game monitor side whose top extends into the black void above m.gameTop
         local voidTargets = {
-            _G.EditModeManagerFrame,
-            _G.EditModeSystemSettingsDialog,
-            _G.EditModeUnsavedChangesDialog,
         }
         for _, frame in ipairs(voidTargets) do
             if frame and type(frame) == "table" then
@@ -628,6 +648,7 @@ function HUD:HookFrames()
                         if okName then cName = name end
                     end
                     if cName == "OffhandCanvasFrame" or cName == "OffhandSeamGuideLine" then return end
+                    if IsForeverEditModeFrame(child, cName) then return end
                     -- Native chat owns these linked frames. Moving a dock or tab
                     -- independently separates the headers from the message window.
                     if child == GeneralDockManager or child == GENERAL_CHAT_DOCK
@@ -689,21 +710,44 @@ function HUD:HookFrames()
         
         local layoutData = C_EditMode.GetLayouts()
         if not layoutData or not layoutData.layouts then return end
-        
+
         local targetName = "Offhand"
+        local found = false
+        local needsSetup = false
         for index, layout in ipairs(layoutData.layouts) do
-            if layout.layoutName and string.match(string.lower(layout.layoutName), string.lower(targetName)) then
-                local id = layout.layoutType or index
-                if layoutData.activeLayout ~= id then
+            if layout.layoutName and string.lower(layout.layoutName) == string.lower(targetName) then
+                found = true
+                if UsesForeverEditMode() then
+                    -- A newly copied/renamed layout can still contain Blizzard's
+                    -- full-canvas default for Action Bar 1. Selecting it would
+                    -- appear to move the bar away from the Mainhand viewport.
+                    -- Require the player to position the main bar once in Edit
+                    -- Mode; this keeps all protected writes inside Blizzard UI.
+                    needsSetup = true
+                    local actionBarSystem = Enum and Enum.EditModeSystem and Enum.EditModeSystem.ActionBar
+                    local mainBarIndex = Enum and Enum.EditModeActionBarSystemIndices and Enum.EditModeActionBarSystemIndices.MainBar
+                    for _, systemInfo in ipairs(layout.systems or {}) do
+                        if systemInfo.system == actionBarSystem and systemInfo.systemIndex == mainBarIndex then
+                            needsSetup = systemInfo.isInDefaultPosition ~= false
+                            break
+                        end
+                    end
+                end
+                if not needsSetup and layoutData.activeLayout ~= index and not UsesForeverEditMode() then
                     if EditModeManagerFrame and EditModeManagerFrame.SelectLayout then
                         EditModeManagerFrame:SelectLayout(index)
                     elseif C_EditMode.SetActiveLayout then
-                        C_EditMode.SetActiveLayout(id)
+                        C_EditMode.SetActiveLayout(index)
                     end
                     Offhand:Print("Auto-loaded Edit Mode layout: " .. layout.layoutName)
                 end
                 break
             end
+        end
+        if UsesForeverEditMode() and (not found or needsSetup or layoutData.activeLayout ~= nil) and not self.editModeGuidanceShown then
+            self.editModeGuidanceShown = true
+            Offhand:Print((Offhand.L and Offhand.L["EDIT_MODE_LAYOUT_MISSING"])
+                or "Position action bars and combat frames with Blizzard Edit Mode, save the layout as 'Offhand', and select it there.")
         end
     end
 
@@ -755,6 +799,7 @@ function HUD:HookFrames()
                 if frame and not InCombatLockdown() and Offhand.db and Offhand.db.enabled then
                     local name = frame.GetName and frame:GetName()
                     if name then
+                        if IsForeverEditModeFrame(frame, name) then return end
                         local isMenu = false
                         for _, n in ipairs(menuFrameNames) do
                             if n == name then isMenu = true; break end

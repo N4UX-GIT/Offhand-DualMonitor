@@ -56,6 +56,12 @@ Type /offhand (or /oh) to open the main configuration dashboard.
 *   **Themes:** Choose from various Warcraft-style presets and custom colors for your Offhand Monitor background and border accents.
 *   **Profiles:** Create, load, and copy settings profiles across your characters.
 
+### Forever Beta: Action Bars and Combat Frames
+
+Forever Beta uses Blizzard Edit Mode as the owner of action bars and combat frames. Offhand deliberately does not move those protected HUD frames because doing so can taint Edit Mode and break party or raid frame updates.
+
+While outside combat, open Blizzard Edit Mode, move your action bars and combat frames onto the Mainhand Monitor, save the layout with the exact name **Offhand**, and select it there. Offhand does not switch Edit Mode layouts automatically because delayed layout changes can move or hide protected frames. Select your normal layout again when returning to one monitor.
+
 ### Slash Commands
 | Command | Effect |
 | :--- | :--- |

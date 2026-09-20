@@ -51,8 +51,9 @@ L["HELP_PANELS_TITLE"] = "Use the Offhand Monitor"
 L["HELP_PANELS_BODY"] = "Drag supported windows by their headers to either monitor. In Offhand Monitor, enable independent panels to keep several open together. Hold Ctrl and use the mouse wheel over the world map to change its size."
 L["HELP_RECOVERY_TITLE"] = "Recover windows or return to one monitor"
 L["HELP_RECOVERY_BODY"] = "Use Gather Off-Screen UI in Offhand Monitor to recover open windows outside the visible areas. To return to one monitor, disable Offhand's dual-monitor mode and use Restore Window in the Companion (Ctrl+Alt+R)."
-L["HELP_EDIT_MODE_TITLE"] = "Position combat frames with Edit Mode"
-L["HELP_EDIT_MODE_BODY"] = "Where available, use Blizzard Edit Mode outside combat to position stance, pet and raid frames. Save a layout named Offhand for automatic selection. Choose your usual layout when returning to one monitor. Some changes wait until combat ends."
+L["HELP_EDIT_MODE_TITLE"] = "Position the Forever HUD with Edit Mode"
+L["HELP_EDIT_MODE_BODY"] = "Forever keeps Blizzard Edit Mode in control of action bars and combat frames to prevent protected-UI errors. Outside combat, open Edit Mode, move action bars, stance, pet, party and raid frames onto the Mainhand Monitor, save the layout as Offhand, and select it there. Offhand does not switch Edit Mode layouts automatically. Choose your usual layout when returning to one monitor."
+L["EDIT_MODE_LAYOUT_MISSING"] = "Forever uses Blizzard Edit Mode for action bars and combat frames. Outside combat, position them on the Mainhand Monitor, save the layout as 'Offhand', and select it in Edit Mode."
 
 -- ============================================================================
 -- Core & General Strings

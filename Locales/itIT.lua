@@ -40,7 +40,8 @@ L["HELP_PANELS_BODY"] = "Trascina le finestre supportate dall’intestazione su 
 L["HELP_RECOVERY_TITLE"] = "Recupera finestre o torna a un monitor"
 L["HELP_RECOVERY_BODY"] = "Recupera le finestre fuori schermo. Per tornare a un monitor, disattiva la modalità doppio monitor e usa Restore Window nel Companion (Ctrl+Alt+R)."
 L["HELP_EDIT_MODE_TITLE"] = "Posiziona i riquadri di combattimento in modalità modifica"
-L["HELP_EDIT_MODE_BODY"] = "Se disponibile, usa la modalità modifica Blizzard fuori combattimento per posture, famiglio e incursione. Salva una disposizione chiamata Offhand per la selezione automatica. Con un monitor usa quella abituale. Alcune modifiche attendono la fine del combattimento."
+L["HELP_EDIT_MODE_BODY"] = "In Forever, la modalità modifica di Blizzard gestisce le barre delle azioni e i riquadri di combattimento per evitare errori dell'interfaccia protetta. Fuori dal combattimento, sposta barre e riquadri di postura, famiglio, gruppo e incursione sul monitor principale, salva la disposizione come Offhand e selezionala lì. Offhand non cambia automaticamente disposizione."
+L["EDIT_MODE_LAYOUT_MISSING"] = "Forever usa la modalità modifica di Blizzard per barre delle azioni e riquadri di combattimento. Posizionali fuori dal combattimento sul monitor principale e salva la disposizione come 'Offhand'."
 
 -- Core & General Strings
 L["ADDON_TITLE"] = "Offhand: configurazione multimonitor"

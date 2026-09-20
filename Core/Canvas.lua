@@ -85,6 +85,52 @@ end
 
 local DemodalizePanel, RemodalizePanel, OnPanelDragStop, RestoreWorkspacePosition, IsFrameOnWorkspace
 
+-- Forever exposes Edit Mode through a load-on-demand addon.  The absence of
+-- EditModeManagerFrame during early login therefore does not mean these frames
+-- are safe for addons to move or make draggable.
+local foreverEditModeFrameNames = {
+    EditModeManagerFrame = true,
+    EditModeSystemSettingsDialog = true,
+    EditModeUnsavedChangesDialog = true,
+    EditModeDialog = true,
+    MainMenuBar = true,
+    MainActionBar = true,
+    StatusTrackingBarManager = true,
+    MainMenuExpBar = true,
+    MultiBarBottomLeft = true,
+    MultiBarBottomRight = true,
+    MultiBarLeft = true,
+    MultiBarRight = true,
+    StanceBar = true,
+    PetActionBar = true,
+    PossessActionBar = true,
+    MinimapCluster = true,
+    PlayerFrame = true,
+    TargetFrame = true,
+    FocusFrame = true,
+    PartyFrame = true,
+    PartyMemberFrame1 = true,
+    CompactPartyFrame = true,
+    CompactRaidFrameContainer = true,
+    BuffFrame = true,
+    BuffCluster = true,
+    CastingBarFrame = true,
+    PlayerCastingBarFrame = true,
+    UIErrorsFrame = true,
+    RaidWarningFrame = true,
+}
+
+local function IsForeverEditModeFrame(frame, suppliedName)
+    if not Offhand.isForever then return false end
+    local name = suppliedName or (frame and frame.GetName and frame:GetName())
+    if not name then return false end
+    return foreverEditModeFrameNames[name]
+        or name:match("^EditMode") ~= nil
+        or name:match("^PartyMemberFrame") ~= nil
+        or name:match("^CompactPartyFrame") ~= nil
+        or name:match("^CompactRaidFrame") ~= nil
+end
+
 local function RegisterSpecialFrame(name)
     if not name or not UISpecialFrames then return end
     for _, n in ipairs(UISpecialFrames) do
@@ -703,6 +749,10 @@ OnPanelDragStop = function(frame)
     if not frame then return end
     if InCombatLockdown() then frame._OffhandDragging = false; return end
     local dragName = frame.GetName and frame:GetName()
+    if IsForeverEditModeFrame(frame, dragName) then
+        frame._OffhandDragging = false
+        return
+    end
     if dragName and dragName:match("^ChatFrame%d+$") then frame._OffhandDragging = true end
     if frame.StopMovingOrSizing then
         pcall(function() frame:StopMovingOrSizing() end)
@@ -930,6 +980,7 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
     if not Offhand.db or not Offhand.db.enabled then return end
     local name = frame:GetName()
     if not name then return end
+    if IsForeverEditModeFrame(frame, name) then return end
 
     local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
     if not m then return end
@@ -1040,6 +1091,7 @@ end
 local function MakePanelDraggable(frame)
     if not frame or frame._OffhandMovable then return end
     local name = frame.GetName and frame:GetName()
+    if IsForeverEditModeFrame(frame, name) then return end
 
     if name == "MinimapCluster" and Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon() then
         return
@@ -1155,6 +1207,7 @@ function Canvas:TryMakeFrameDraggable(frame)
     if not frame or frame._OffhandMovable or not frame.GetName then return end
     local name = frame:GetName()
     if not name then return end
+    if IsForeverEditModeFrame(frame, name) then return end
     if name == "MinimapCluster" and Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon() then
         return
     end
@@ -1211,13 +1264,13 @@ function Canvas:EnableFreeDragging()
     
     -- In Classic Era (no Edit Mode), we allow dragging unit frames.
     -- In modern WoW, Edit Mode natively handles moving these frames to the offhand monitor.
-    if not EditModeManagerFrame then
+    if not Offhand.isForever and not EditModeManagerFrame then
         table.insert(frameNames, "PartyMemberFrame1")
         table.insert(frameNames, "CompactPartyFrame")
         table.insert(frameNames, "CompactRaidFrameContainer")
     end
 
-    if not hasCustomMinimap then
+    if not Offhand.isForever and not hasCustomMinimap then
         table.insert(frameNames, "MinimapCluster")
     end
 
@@ -1249,10 +1302,10 @@ function Canvas:EnableFreeDragging()
         end)
     end
 
-    if not hasCustomMinimap and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["MinimapCluster"] and MinimapCluster then
+    if not Offhand.isForever and not hasCustomMinimap and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["MinimapCluster"] and MinimapCluster then
         RestoreWorkspacePosition(MinimapCluster)
     end
-    if Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["PartyMemberFrame1"] and _G.PartyMemberFrame1 then
+    if not Offhand.isForever and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["PartyMemberFrame1"] and _G.PartyMemberFrame1 then
         RestoreWorkspacePosition(_G.PartyMemberFrame1)
     end
     
@@ -1357,6 +1410,7 @@ function Offhand:InitializeCanvas()
         if not Canvas.showUIPanelHooked and ShowUIPanel then
         Canvas.showUIPanelHooked = true
         hooksecurefunc("ShowUIPanel", function(frame)
+            if IsForeverEditModeFrame(frame) then return end
             if frame and UIPanelWindows and UIPanelWindows[frame:GetName()] and not UIPanelWindows[frame:GetName()].area then
                 if not frame:IsShown() then frame:Show() end
             end
@@ -1366,6 +1420,7 @@ function Offhand:InitializeCanvas()
     if not Canvas.hideUIPanelHooked and HideUIPanel then
         Canvas.hideUIPanelHooked = true
         hooksecurefunc("HideUIPanel", function(frame)
+            if IsForeverEditModeFrame(frame) then return end
             if frame and UIPanelWindows and UIPanelWindows[frame:GetName()] and not UIPanelWindows[frame:GetName()].area then
                 if frame:IsShown() then frame:Hide() end
             end
