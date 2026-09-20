@@ -436,7 +436,8 @@ L["POPUP_BTN_GET_APP"] = "Télécharger l’app (Copier le lien)"
 L["POPUP_BTN_LAUNCH_WIZARD"] = "Lancer l’assistant"
 L["POPUP_BTN_IGNORE"] = "Ignorer"
 L["WIZARD_WELCOME_TEXT"] = "|cffffd100Bienvenue dans Offhand !|r Votre fenêtre de World of Warcraft s’étend désormais sur vos écrans.\n\nOffhand organise votre interface idéalement : le monde 3D prend place sur votre écran principal, tandis que votre écran secondaire offre un espace dégagé pour les cartes, sacs et panneaux de lecture.\n\nCliquez sur |cff00ff00Configuration en un clic|r ci-dessous pour étalonner instantanément."
--- Multi-monitor settings labels
+
+-- Newly Added Fields
 L["ENABLE_OFFHAND"] = "Activer Offhand sur plusieurs écrans"
 L["SHOW_MINIMAP_ICON"] = "Afficher l’icône de la minicarte"
 L["STACKED_LAYOUT"] = "Écrans superposés"
@@ -448,7 +449,6 @@ L["MAP_KEEP_OPEN"] = "Garder la carte ouverte en déplacement"
 L["PANELS_INDEPENDENT"] = "Garder les fenêtres de travail ouvertes indépendamment"
 L["RELOAD_PERSIST"] = "Restaurer les fenêtres après rechargement et changement de zone"
 L["REDIRECT_POPUPS"] = "Éloigner les dialogues de la jonction des écrans"
-
 L["OBS_SETUP"] = "Capture OBS"
 L["OBS_HELP"] = "Utilisez deux sources de capture de jeu avec des filtres de rognage. Appliquez ces valeurs en pixels, puis alignez les sources."
 L["OBS_GAME"] = "Rognage du jeu"
@@ -460,7 +460,5 @@ L["COMPAT_BOTH"] = "Les addons de sacs et de minicarte contrôlent leurs fenêtr
 L["COMPAT_BAGS"] = "Votre addon de sacs contrôle ses fenêtres."
 L["COMPAT_MINIMAP"] = "Votre addon de minicarte contrôle sa fenêtre."
 L["COMPAT_AUTO"] = "Les addons compatibles de sacs et de minicarte sont détectés automatiquement."
-
 L["MAP_KEEP_OPEN_DESC"] = "Allows navigating with map open. (Compatible with Leatrix)"
-
 L["PANELS_INDEPENDENT_DESC"] = "Allows opening bags, character pane, spellbook & map simultaneously."

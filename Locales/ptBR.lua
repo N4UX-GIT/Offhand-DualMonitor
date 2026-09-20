@@ -436,7 +436,8 @@ L["POPUP_BTN_GET_APP"] = "Baixar app (Copiar link)"
 L["POPUP_BTN_LAUNCH_WIZARD"] = "Iniciar assistente"
 L["POPUP_BTN_IGNORE"] = "Ignorar"
 L["WIZARD_WELCOME_TEXT"] = "|cffffd100Boas-vindas ao Offhand!|r A janela do World of Warcraft agora está estendida entre seus monitores.\n\nO Offhand dividirá sua interface perfeitamente: exibirá o jogo 3D no monitor principal e oferecerá uma área livre no monitor secundário para mapas, bolsas e consultas.\n\nClique em |cff00ff00Configurar com um clique|r abaixo para calibrar instantaneamente."
--- Multi-monitor settings labels
+
+-- Newly Added Fields
 L["ENABLE_OFFHAND"] = "Ativar Offhand em vários monitores"
 L["SHOW_MINIMAP_ICON"] = "Mostrar ícone no minimapa"
 L["STACKED_LAYOUT"] = "Monitores empilhados"
@@ -448,7 +449,6 @@ L["MAP_KEEP_OPEN"] = "Manter o mapa aberto ao se mover"
 L["PANELS_INDEPENDENT"] = "Manter janelas da área de trabalho abertas independentemente"
 L["RELOAD_PERSIST"] = "Restaurar janelas após recarregar e mudar de área"
 L["REDIRECT_POPUPS"] = "Afastar diálogos da junção entre monitores"
-
 L["OBS_SETUP"] = "Captura no OBS"
 L["OBS_HELP"] = "Use duas fontes de captura de jogo com filtros de recorte. Aplique estes valores em pixels e alinhe as fontes."
 L["OBS_GAME"] = "Recorte do jogo"
@@ -460,7 +460,5 @@ L["COMPAT_BOTH"] = "Addons de bolsas e minimapa controlam suas janelas."
 L["COMPAT_BAGS"] = "Seu addon de bolsas controla suas janelas."
 L["COMPAT_MINIMAP"] = "Seu addon de minimapa controla sua janela."
 L["COMPAT_AUTO"] = "Addons compatíveis de bolsas e minimapa são detectados automaticamente."
-
 L["MAP_KEEP_OPEN_DESC"] = "Allows navigating with map open. (Compatible with Leatrix)"
-
 L["PANELS_INDEPENDENT_DESC"] = "Allows opening bags, character pane, spellbook & map simultaneously."

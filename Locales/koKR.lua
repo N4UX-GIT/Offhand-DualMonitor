@@ -436,7 +436,8 @@ L["POPUP_BTN_GET_APP"] = "앱 다운로드 (링크 복사)"
 L["POPUP_BTN_LAUNCH_WIZARD"] = "마법사 실행"
 L["POPUP_BTN_IGNORE"] = "무시"
 L["WIZARD_WELCOME_TEXT"] = "|cffffd100Offhand에 오신 것을 환영합니다!|r 이제 World of Warcraft 창이 모니터 전반에 확장되었습니다.\n\nOffhand는 인터페이스를 완벽하게 분할합니다. 주 모니터에는 3D 게임 화면을 배치하고, 보조 모니터에는 지도, 가방 및 정보를 확인할 수 있는 깔끔한 '작업 공간'을 제공합니다.\n\n아래의 |cff00ff00원클릭 자동 설정|r을 클릭하여 즉시 보정하세요."
--- Multi-monitor settings labels
+
+-- Newly Added Fields
 L["ENABLE_OFFHAND"] = "Offhand 다중 모니터 모드 사용"
 L["SHOW_MINIMAP_ICON"] = "미니맵 아이콘 표시"
 L["STACKED_LAYOUT"] = "모니터 세로 배치"
@@ -448,7 +449,6 @@ L["MAP_KEEP_OPEN"] = "이동 중 세계 지도 유지"
 L["PANELS_INDEPENDENT"] = "작업 공간 창을 독립적으로 유지"
 L["RELOAD_PERSIST"] = "재시작 및 지역 이동 후 창 복원"
 L["REDIRECT_POPUPS"] = "대화 상자를 모니터 경계에서 이동"
-
 L["OBS_SETUP"] = "OBS 캡처 설정"
 L["OBS_HELP"] = "게임 캡처 소스 두 개에 자르기 필터를 적용하세요. 이 픽셀 값으로 자른 후 소스를 정렬하세요."
 L["OBS_GAME"] = "게임 화면 자르기"
@@ -460,7 +460,5 @@ L["COMPAT_BOTH"] = "가방 및 미니맵 애드온이 각 창을 제어합니다
 L["COMPAT_BAGS"] = "가방 애드온이 가방 창을 제어합니다."
 L["COMPAT_MINIMAP"] = "미니맵 애드온이 미니맵을 제어합니다."
 L["COMPAT_AUTO"] = "호환되는 가방 및 미니맵 애드온을 자동 감지합니다."
-
 L["MAP_KEEP_OPEN_DESC"] = "Allows navigating with map open. (Compatible with Leatrix)"
-
 L["PANELS_INDEPENDENT_DESC"] = "Allows opening bags, character pane, spellbook & map simultaneously."

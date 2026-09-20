@@ -436,7 +436,8 @@ L["POPUP_BTN_GET_APP"] = "取得程式（複製連結）"
 L["POPUP_BTN_LAUNCH_WIZARD"] = "啟動精靈"
 L["POPUP_BTN_IGNORE"] = "略過"
 L["WIZARD_WELCOME_TEXT"] = "|cffffd100歡迎使用 Offhand！|r 您的 World of Warcraft 視窗已成功跨越螢幕。\n\nOffhand 將完美分割介面：主螢幕呈現 3D 遊戲畫面，副螢幕則提供乾淨俐落的「工作區」以供查看地圖、背包與面板。\n\n點擊下方的 |cff00ff00一鍵自動設定|r 即可立即校準。"
--- Multi-monitor settings labels
+
+-- Newly Added Fields
 L["ENABLE_OFFHAND"] = "啟用 Offhand 多螢幕模式"
 L["SHOW_MINIMAP_ICON"] = "顯示小地圖圖示"
 L["STACKED_LAYOUT"] = "螢幕上下排列"
@@ -448,7 +449,6 @@ L["MAP_KEEP_OPEN"] = "移動時保持世界地圖開啟"
 L["PANELS_INDEPENDENT"] = "獨立保持工作區視窗開啟"
 L["RELOAD_PERSIST"] = "重載及切換區域後還原視窗"
 L["REDIRECT_POPUPS"] = "將對話框移離螢幕邊界"
-
 L["OBS_SETUP"] = "OBS 擷取設定"
 L["OBS_HELP"] = "使用兩個遊戲擷取來源並加入裁剪濾鏡。依這些像素值裁剪，再對齊來源。"
 L["OBS_GAME"] = "遊戲畫面裁剪"
@@ -460,7 +460,5 @@ L["COMPAT_BOTH"] = "背包及小地圖插件自行管理視窗。"
 L["COMPAT_BAGS"] = "背包插件自行管理背包視窗。"
 L["COMPAT_MINIMAP"] = "小地圖插件自行管理小地圖。"
 L["COMPAT_AUTO"] = "自動偵測相容的背包及小地圖插件。"
-
 L["MAP_KEEP_OPEN_DESC"] = "Allows navigating with map open. (Compatible with Leatrix)"
-
 L["PANELS_INDEPENDENT_DESC"] = "Allows opening bags, character pane, spellbook & map simultaneously."

@@ -476,7 +476,8 @@ L["POPUP_BTN_GET_APP"] = "Get App (Copy Link)"
 L["POPUP_BTN_LAUNCH_WIZARD"] = "Launch Wizard"
 L["POPUP_BTN_IGNORE"] = "Ignore"
 L["WIZARD_WELCOME_TEXT"] = "|cffffd100Welcome to Offhand!|r Your World of Warcraft window is now spanned across your monitors.\n\nOffhand will split your UI perfectly: placing the 3D game on your main monitor, and providing a clean 'Canvas' on your secondary monitor for maps, bags, and reading.\n\nClick |cff00ff00Auto-Configure|r below to calibrate instantly."
--- Multi-monitor settings labels
+
+-- Newly Added Fields
 L["ENABLE_OFFHAND"] = "Enable Offhand Dual Monitor Mode"
 L["SHOW_MINIMAP_ICON"] = "Show Minimap Icon"
 L["STACKED_LAYOUT"] = "Vertical Stack"
@@ -489,7 +490,6 @@ L["MAP_KEEP_OPEN_DESC"] = "Allows navigating with map open. (Compatible with Lea
 L["PANELS_INDEPENDENT"] = "Keep panels placed on Offhand Monitor open independently"
 L["RELOAD_PERSIST"] = "Persist open panels across reloads & zone transitions"
 L["REDIRECT_POPUPS"] = "Reroute popups & dialogs away from center bezel"
-
 L["OBS_SETUP"] = "OBS capture setup"
 L["OBS_HELP"] = "Use two Game Capture sources with Crop/Pad filters. Apply these pixel crops, then align the sources."
 L["OBS_GAME"] = "Game crop"

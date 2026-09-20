@@ -436,7 +436,8 @@ L["POPUP_BTN_GET_APP"] = "Scarica app (Copia link)"
 L["POPUP_BTN_LAUNCH_WIZARD"] = "Avvia procedura guidata"
 L["POPUP_BTN_IGNORE"] = "Ignora"
 L["WIZARD_WELCOME_TEXT"] = "|cffffd100Benvenuto in Offhand!|r La finestra di World of Warcraft è ora estesa su entrambi i monitor.\n\nOffhand suddividerà perfettamente l'interfaccia: posizionerà il mondo 3D sullo schermo principale e predisporrà un'area sgombra sullo schermo secondario per mappa, borse e pannelli informativi.\n\nClicca su |cff00ff00Configura con un clic|r qui sotto per calibrare immediatamente."
--- Multi-monitor settings labels
+
+-- Newly Added Fields
 L["ENABLE_OFFHAND"] = "Attiva Offhand su più monitor"
 L["SHOW_MINIMAP_ICON"] = "Mostra icona sulla minimappa"
 L["STACKED_LAYOUT"] = "Monitor sovrapposti"
@@ -448,7 +449,6 @@ L["MAP_KEEP_OPEN"] = "Tieni aperta la mappa durante il movimento"
 L["PANELS_INDEPENDENT"] = "Tieni aperte le finestre di lavoro indipendentemente"
 L["RELOAD_PERSIST"] = "Ripristina le finestre dopo ricaricamenti e cambi di zona"
 L["REDIRECT_POPUPS"] = "Allontana le finestre di dialogo dal bordo tra i monitor"
-
 L["OBS_SETUP"] = "Cattura OBS"
 L["OBS_HELP"] = "Usa due sorgenti di cattura del gioco con filtri di ritaglio. Applica questi valori in pixel e allinea le sorgenti."
 L["OBS_GAME"] = "Ritaglio del gioco"
@@ -460,7 +460,5 @@ L["COMPAT_BOTH"] = "Gli addon di borse e minimappa controllano le proprie finest
 L["COMPAT_BAGS"] = "Il tuo addon delle borse controlla le proprie finestre."
 L["COMPAT_MINIMAP"] = "Il tuo addon della minimappa controlla la propria finestra."
 L["COMPAT_AUTO"] = "Gli addon compatibili di borse e minimappa vengono rilevati automaticamente."
-
 L["MAP_KEEP_OPEN_DESC"] = "Allows navigating with map open. (Compatible with Leatrix)"
-
 L["PANELS_INDEPENDENT_DESC"] = "Allows opening bags, character pane, spellbook & map simultaneously."

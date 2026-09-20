@@ -436,7 +436,8 @@ L["POPUP_BTN_GET_APP"] = "Скачать приложение (Скопиров�
 L["POPUP_BTN_LAUNCH_WIZARD"] = "Запустить мастер"
 L["POPUP_BTN_IGNORE"] = "Игнорировать"
 L["WIZARD_WELCOME_TEXT"] = "|cffffd100Добро пожаловать в Offhand!|r Теперь окно World of Warcraft растянуто на оба ваших монитора.\n\nOffhand идеально разделяет интерфейс: помещает 3D-игру на основной монитор и создает удобную рабочую область на втором мониторе для карт, сумок и чтения.\n\nНажмите |cff00ff00Настроить одним нажатием|r ниже для мгновенной калибровки."
--- Multi-monitor settings labels
+
+-- Newly Added Fields
 L["ENABLE_OFFHAND"] = "Включить Offhand для нескольких мониторов"
 L["SHOW_MINIMAP_ICON"] = "Показывать значок у мини-карты"
 L["STACKED_LAYOUT"] = "Мониторы друг над другом"
@@ -448,7 +449,6 @@ L["MAP_KEEP_OPEN"] = "Не закрывать карту при движении
 L["PANELS_INDEPENDENT"] = "Держать окна рабочей области открытыми независимо"
 L["RELOAD_PERSIST"] = "Восстанавливать окна после перезагрузки и смены зоны"
 L["REDIRECT_POPUPS"] = "Перемещать диалоги от стыка мониторов"
-
 L["OBS_SETUP"] = "Захват OBS"
 L["OBS_HELP"] = "Используйте два источника захвата игры с фильтрами обрезки. Задайте эти значения в пикселях и совместите источники."
 L["OBS_GAME"] = "Обрезка игры"
@@ -460,7 +460,5 @@ L["COMPAT_BOTH"] = "Аддоны сумок и мини-карты управл�
 L["COMPAT_BAGS"] = "Окнами сумок управляет ваш аддон."
 L["COMPAT_MINIMAP"] = "Мини-картой управляет ваш аддон."
 L["COMPAT_AUTO"] = "Совместимые аддоны сумок и мини-карты определяются автоматически."
-
 L["MAP_KEEP_OPEN_DESC"] = "Allows navigating with map open. (Compatible with Leatrix)"
-
 L["PANELS_INDEPENDENT_DESC"] = "Allows opening bags, character pane, spellbook & map simultaneously."
