@@ -752,6 +752,15 @@ OnPanelDragStop = function(frame)
         end
 
         if string.match(name, "^ContainerFrame") then
+            if name == "ContainerFrame1" or name == "ContainerFrameCombinedBags" then
+                if Offhand.db.savedWorkspacePositions then
+                    for i = 2, 13 do
+                        Offhand.db.savedWorkspacePositions["ContainerFrame" .. i] = nil
+                        local bf = _G["ContainerFrame" .. i]
+                        if bf then pcall(function() bf:SetUserPlaced(false) end) end
+                    end
+                end
+            end
             if not (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()) then
                 if Offhand.HUD and Offhand.HUD.LayoutBags then
                     Offhand.HUD:LayoutBags()
@@ -822,6 +831,15 @@ OnPanelDragStop = function(frame)
         
         elseif string.match(name, "^ContainerFrame") then
             pcall(function() frame:SetUserPlaced(false) end)
+            if name == "ContainerFrame1" or name == "ContainerFrameCombinedBags" then
+                if Offhand.db.savedWorkspacePositions then
+                    for i = 2, 13 do
+                        Offhand.db.savedWorkspacePositions["ContainerFrame" .. i] = nil
+                        local bf = _G["ContainerFrame" .. i]
+                        if bf then pcall(function() bf:SetUserPlaced(false) end) end
+                    end
+                end
+            end
             if not (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()) then
                 if Offhand.HUD and Offhand.HUD.LayoutBags then
                     Offhand.HUD:LayoutBags()
