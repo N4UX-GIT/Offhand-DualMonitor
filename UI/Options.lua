@@ -1518,7 +1518,7 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 3: THEMES & COLOR CUSTOMIZATION
     -- ========================================================================
-    local card3_1 = CreateCard(tab3, L["CARD_THEMES"], 140)
+    local card3_1 = CreateCard(tab3, L["CARD_THEMES"], 200)
 
     local rClassic = CreateNativeRadioButton(card3_1, L["THEME_CLASSIC"],
         function() return (Offhand.db and Offhand.db.theme == "CLASSIC") end,
@@ -1533,7 +1533,8 @@ function Options:CreateFloatingPanel()
     rClassic:SetPoint("TOPLEFT", 12, -26)
 
     local subClassic = card3_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    subClassic:SetWidth(210)
+    subClassic:SetWidth(280)
+    subClassic:SetWordWrap(true)
     subClassic:SetPoint("TOPLEFT", 34, -46)
     subClassic:SetText(L["THEME_CLASSIC_DESC"])
 
@@ -1547,11 +1548,12 @@ function Options:CreateFloatingPanel()
         end,
         L["THEME_SLATE_TIP_TITLE"], L["THEME_SLATE_TIP_DESC"]
     )
-    rSlate:SetPoint("TOPLEFT", 236, -26)
+    rSlate:SetPoint("TOPLEFT", 320, -26)
 
     local subSlate = card3_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    subSlate:SetWidth(210)
-    subSlate:SetPoint("TOPLEFT", 258, -46)
+    subSlate:SetWidth(280)
+    subSlate:SetWordWrap(true)
+    subSlate:SetPoint("TOPLEFT", 342, -46)
     subSlate:SetText(L["THEME_SLATE_DESC"])
 
     local rTinker = CreateNativeRadioButton(card3_1, L["THEME_TINKER"],
@@ -1564,11 +1566,12 @@ function Options:CreateFloatingPanel()
         end,
         L["THEME_TINKER_TIP_TITLE"], L["THEME_TINKER_TIP_DESC"]
     )
-    rTinker:SetPoint("TOPLEFT", 470, -26)
+    rTinker:SetPoint("TOPLEFT", 12, -142)
 
     local subTinker = card3_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    subTinker:SetWidth(210)
-    subTinker:SetPoint("TOPLEFT", 492, -46)
+    subTinker:SetWidth(280)
+    subTinker:SetWordWrap(true)
+    subTinker:SetPoint("TOPLEFT", 34, -162)
     subTinker:SetText(L["THEME_TINKER_DESC"])
 
     local rObsidian = CreateNativeRadioButton(card3_1, L["THEME_OBSIDIAN"],
@@ -1581,11 +1584,12 @@ function Options:CreateFloatingPanel()
         end,
         L["THEME_OBSIDIAN_TIP_TITLE"], L["THEME_OBSIDIAN_TIP_DESC"]
     )
-    rObsidian:SetPoint("TOPLEFT", 12, -90)
+    rObsidian:SetPoint("TOPLEFT", 12, -84)
 
     local subObsidian = card3_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    subObsidian:SetWidth(210)
-    subObsidian:SetPoint("TOPLEFT", 34, -110)
+    subObsidian:SetWidth(280)
+    subObsidian:SetWordWrap(true)
+    subObsidian:SetPoint("TOPLEFT", 34, -104)
     subObsidian:SetText(L["THEME_OBSIDIAN_DESC"])
 
     local rPitchBlack = CreateNativeRadioButton(card3_1, L["CANVAS_BLACK"],
@@ -1597,11 +1601,12 @@ function Options:CreateFloatingPanel()
         end,
         L["THEME_PITCH_BLACK_TIP_TITLE"], L["THEME_PITCH_BLACK_TIP_DESC"]
     )
-    rPitchBlack:SetPoint("TOPLEFT", 236, -90)
+    rPitchBlack:SetPoint("TOPLEFT", 320, -84)
 
     local subPitchBlack = card3_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    subPitchBlack:SetWidth(210)
-    subPitchBlack:SetPoint("TOPLEFT", 258, -110)
+    subPitchBlack:SetWidth(280)
+    subPitchBlack:SetWordWrap(true)
+    subPitchBlack:SetPoint("TOPLEFT", 342, -104)
     subPitchBlack:SetText(L["THEME_PITCH_BLACK_DESC"])
 
 
