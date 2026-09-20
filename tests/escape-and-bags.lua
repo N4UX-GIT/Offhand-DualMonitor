@@ -289,7 +289,7 @@ CharacterFrame:Show()
 assert(CharacterFrame:IsShown(), "CharacterFrame must be shown")
 assert(delegate.left == nil, "CharacterFrame must NOT occupy delegate.left")
 local cp = CharacterFrame.points[#CharacterFrame.points]
-assert(cp[1] == "TOPLEFT" and cp[4] == 100 and cp[5] == math.max(200, CharacterFrame:GetHeight()+12), "CharacterFrame must restore saved position")
+assert(cp[1] == "TOPLEFT" and cp[4] == 100 and cp[5] == math.max(200, CharacterFrame:GetHeight()+12) - UIParent:GetHeight(), "CharacterFrame must restore saved position")
 
 -- Verify elevated drag handle exists for CharacterFrame and panels
 assert(CharacterFrame._OffhandHandle ~= nil, "CharacterFrame must have an elevated title drag handle")
@@ -403,6 +403,7 @@ flushTimers()
 assert(not WorldMapFrame:IsMaximized(), "Native maximize was not corrected after completion")
 local p=WorldMapFrame.points[1]; local scale=WorldMapFrame:GetScale()
 assert(p[4]*scale>=metrics.gameLeft and p[4]*scale+WorldMapFrame:GetWidth()*scale<=metrics.gameRight)
-assert(p[5]*scale<=metrics.gameTop and p[5]*scale-WorldMapFrame:GetHeight()*scale>=metrics.gameBottom)
+local absY = p[3] == "TOPLEFT" and (p[5]*scale + UIParent:GetHeight()) or (p[5]*scale)
+assert(absY<=metrics.gameTop and absY-WorldMapFrame:GetHeight()*scale>=metrics.gameBottom)
 assert(WorldMapFrame:GetWidth()==702 and WorldMapFrame:GetHeight()==534,"Native windowed map size changed")
 print("PASS: maximized map reopening, stale saved position, full bounding-box fit")

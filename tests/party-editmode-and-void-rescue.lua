@@ -245,7 +245,8 @@ assert(addon.db.savedWorkspacePositions["PartyMemberFrame1"].y == 1500 + PartyMe
 PartyMemberFrame1:ClearAllPoints()
 addon.HUD:AlignHUDFrames(metrics)
 local reloadPt = PartyMemberFrame1.points[#PartyMemberFrame1.points]
-assert(reloadPt and reloadPt[4] == 200 and reloadPt[5] == 1500 + PartyMemberFrame1:GetHeight(), "PartyMemberFrame1 must restore to workspace on reload")
+local absY = reloadPt[3] == "TOPLEFT" and (reloadPt[5] + UIParent:GetHeight()) or reloadPt[5]
+assert(reloadPt and reloadPt[4] == 200 and absY == 1500 + PartyMemberFrame1:GetHeight(), "PartyMemberFrame1 must restore to workspace on reload")
 print("PASS: PartyMemberFrame1 dragging to secondary workspace and reload persistence verified")
 
 -- ============================================================================
