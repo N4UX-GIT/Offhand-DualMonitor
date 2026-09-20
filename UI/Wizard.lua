@@ -182,28 +182,28 @@ function Wizard:CreateFrame()
     -- ========================================================================
     -- CARD 2: MONITOR ORIENTATION & 3D VIEWPORT
     -- ========================================================================
-    local card2 = CreateWizardCard(f, L["WIZARD_CARD2_TITLE"], -256, 158)
+    local card2 = CreateWizardCard(f, L["WIZARD_CARD2_TITLE"], -256, 180)
 
     local orientLabel = card2:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     orientLabel:SetPoint("TOPLEFT", 14, -28)
     orientLabel:SetText(L["WIZARD_LABEL_LAYOUT"])
 
     local btnPl = CreateFrame("Button", nil, card2, "UIPanelButtonTemplate")
-    btnPl:SetSize(196, 24)
+    btnPl:SetSize(299, 24)
     btnPl:SetPoint("TOPLEFT", 14, -46)
     btnPl:SetText(L["PRESET_PL_LR"])
     if Offhand.SetTooltip then Offhand:SetTooltip(btnPl, L["PRESET_PL_LR_TIP_TITLE"], L["PRESET_PL_LR_TIP_DESC"]) end
 
     local btnPr = CreateFrame("Button", nil, card2, "UIPanelButtonTemplate")
-    btnPr:SetSize(196, 24)
+    btnPr:SetSize(299, 24)
     btnPr:SetPoint("LEFT", btnPl, "RIGHT", 10, 0)
     btnPr:SetText(L["PRESET_GL_PR"])
     if Offhand.SetTooltip then Offhand:SetTooltip(btnPr, L["PRESET_GL_PR_TIP_TITLE"], L["PRESET_GL_PR_TIP_DESC"]) end
 
     local btnDual = CreateFrame("Button", nil, card2, "UIPanelButtonTemplate")
-    btnDual:SetSize(196, 24)
-    btnDual:SetPoint("LEFT", btnPr, "RIGHT", 10, 0)
-    btnDual:SetText(L["PRESET_DUAL_LANDSCAPE"])  btnDual:GetFontString():SetWidth(186)  btnDual:GetFontString():SetWordWrap(false)
+    btnDual:SetSize(608, 24)
+    btnDual:SetPoint("TOPLEFT", 14, -90)
+    btnDual:SetText(L["PRESET_DUAL_LANDSCAPE"])  
     if Offhand.SetTooltip then Offhand:SetTooltip(btnDual, L["PRESET_DUAL_LANDSCAPE_TIP_TITLE"], L["PRESET_DUAL_LANDSCAPE_TIP_DESC"]) end
 
     local btnVt = CreateFrame("Button", nil, card2, "UIPanelButtonTemplate")
@@ -217,7 +217,7 @@ function Wizard:CreateFrame()
     btnVb:SetText(L["PRESET_STACK_BOTTOM"])
 
     local arLabel = card2:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-    arLabel:SetPoint("TOPLEFT", 14, -104)
+    arLabel:SetPoint("TOPLEFT", 14, -120)
     arLabel:SetText(L["WIZARD_LABEL_AR"])
 
     local btn169 = CreateFrame("Button", nil, card2, "UIPanelButtonTemplate")
