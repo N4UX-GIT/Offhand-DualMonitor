@@ -965,22 +965,26 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         frame:ClearAllPoints()
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         
-        if frame == CharacterFrame then
+                if frame == CharacterFrame then
             if not frame._offhandSizeHooked then
                 frame._offhandSizeHooked = true
                 frame:HookScript("OnShow", function(self)
                     if Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["CharacterFrame"] then
                         local collapsed = GetCVar("characterFrameCollapsed")
-                        if collapsed == "0" and CharacterFrame_Expand then
-                            CharacterFrame_Expand()
-                        elseif collapsed == "1" and CharacterFrame_Collapse then
-                            CharacterFrame_Collapse()
+                        if collapsed == "0" then
+                            if CharacterFrame_Expand then CharacterFrame_Expand() end
+                            self:SetWidth(540)
+                            if UIPanelWindows and UIPanelWindows["CharacterFrame"] then UIPanelWindows["CharacterFrame"].width = 540 end
+                        else
+                            if CharacterFrame_Collapse then CharacterFrame_Collapse() end
+                            self:SetWidth(338)
+                            if UIPanelWindows and UIPanelWindows["CharacterFrame"] then UIPanelWindows["CharacterFrame"].width = 338 end
                         end
                     end
                 end)
             end
         end
-        
+
         if string.match(name, "^ChatFrame") and ChatFrame1EditBox and frame == ChatFrame1 then
             if ChatFrame1EditBox.ClearAllPoints and ChatFrame1EditBox.SetPoint then
                 ChatFrame1EditBox:ClearAllPoints()
