@@ -953,6 +953,10 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         frame:ClearAllPoints()
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         
+        if frame == CharacterFrame and CharacterFrame_UpdateSize then
+            pcall(CharacterFrame_UpdateSize, frame)
+        end
+        
         if string.match(name, "^ChatFrame") and ChatFrame1EditBox and frame == ChatFrame1 then
             if ChatFrame1EditBox.ClearAllPoints and ChatFrame1EditBox.SetPoint then
                 ChatFrame1EditBox:ClearAllPoints()
