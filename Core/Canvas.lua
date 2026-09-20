@@ -131,6 +131,13 @@ local function IsForeverEditModeFrame(frame, suppliedName)
         or name:match("^CompactRaidFrame") ~= nil
 end
 
+local function IsUnsafeForDirectMutation(frame)
+    if not frame then return true end
+    if frame.IsForbidden and frame:IsForbidden() then return true end
+    if frame.IsProtected and frame:IsProtected() then return true end
+    return false
+end
+
 local function RegisterSpecialFrame(name)
     if not name or not UISpecialFrames then return end
     for _, n in ipairs(UISpecialFrames) do
@@ -749,7 +756,7 @@ OnPanelDragStop = function(frame)
     if not frame then return end
     if InCombatLockdown() then frame._OffhandDragging = false; return end
     local dragName = frame.GetName and frame:GetName()
-    if IsForeverEditModeFrame(frame, dragName) then
+    if IsForeverEditModeFrame(frame, dragName) or IsUnsafeForDirectMutation(frame) then
         frame._OffhandDragging = false
         return
     end
@@ -980,7 +987,7 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
     if not Offhand.db or not Offhand.db.enabled then return end
     local name = frame:GetName()
     if not name then return end
-    if IsForeverEditModeFrame(frame, name) then return end
+    if IsForeverEditModeFrame(frame, name) or IsUnsafeForDirectMutation(frame) then return end
 
     local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
     if not m then return end
@@ -1091,7 +1098,7 @@ end
 local function MakePanelDraggable(frame)
     if not frame or frame._OffhandMovable then return end
     local name = frame.GetName and frame:GetName()
-    if IsForeverEditModeFrame(frame, name) then return end
+    if IsForeverEditModeFrame(frame, name) or IsUnsafeForDirectMutation(frame) then return end
 
     if name == "MinimapCluster" and Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon() then
         return
@@ -1207,7 +1214,7 @@ function Canvas:TryMakeFrameDraggable(frame)
     if not frame or frame._OffhandMovable or not frame.GetName then return end
     local name = frame:GetName()
     if not name then return end
-    if IsForeverEditModeFrame(frame, name) then return end
+    if IsForeverEditModeFrame(frame, name) or IsUnsafeForDirectMutation(frame) then return end
     if name == "MinimapCluster" and Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon() then
         return
     end
@@ -1216,7 +1223,6 @@ function Canvas:TryMakeFrameDraggable(frame)
     end
     local isPanel = UIPanelWindows and UIPanelWindows[name]
     if isPanel or frame.TitleContainer or frame.TitleText or _G[name .. "TitleText"] then
-        frame:SetClampedToScreen(false)
         MakePanelDraggable(frame)
         if Offhand.db and Offhand.db.independentWorkspacePanels and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name] then
             DemodalizePanel(frame)
@@ -1283,8 +1289,7 @@ function Canvas:EnableFreeDragging()
 
     for _, name in ipairs(frameNames) do
         local frame = _G[name]
-        if frame then
-            frame:SetClampedToScreen(false)
+        if frame and not IsUnsafeForDirectMutation(frame) and not IsForeverEditModeFrame(frame, name) then
             MakePanelDraggable(frame)
             if Offhand.db and Offhand.db.independentWorkspacePanels and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name] then
                 DemodalizePanel(frame)
@@ -1295,8 +1300,8 @@ function Canvas:EnableFreeDragging()
     if not hasCustomBags and ContainerFrame_GenerateFrame and not Canvas._bagGenHooked then
         Canvas._bagGenHooked = true
         hooksecurefunc("ContainerFrame_GenerateFrame", function(frame)
-            if frame and not (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()) then
-                frame:SetClampedToScreen(false)
+            if frame and not IsUnsafeForDirectMutation(frame)
+                and not (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()) then
                 MakePanelDraggable(frame)
             end
         end)
@@ -1410,7 +1415,7 @@ function Offhand:InitializeCanvas()
         if not Canvas.showUIPanelHooked and ShowUIPanel then
         Canvas.showUIPanelHooked = true
         hooksecurefunc("ShowUIPanel", function(frame)
-            if IsForeverEditModeFrame(frame) then return end
+            if IsForeverEditModeFrame(frame) or IsUnsafeForDirectMutation(frame) then return end
             if frame and UIPanelWindows and UIPanelWindows[frame:GetName()] and not UIPanelWindows[frame:GetName()].area then
                 if not frame:IsShown() then frame:Show() end
             end
@@ -1420,7 +1425,7 @@ function Offhand:InitializeCanvas()
     if not Canvas.hideUIPanelHooked and HideUIPanel then
         Canvas.hideUIPanelHooked = true
         hooksecurefunc("HideUIPanel", function(frame)
-            if IsForeverEditModeFrame(frame) then return end
+            if IsForeverEditModeFrame(frame) or IsUnsafeForDirectMutation(frame) then return end
             if frame and UIPanelWindows and UIPanelWindows[frame:GetName()] and not UIPanelWindows[frame:GetName()].area then
                 if frame:IsShown() then frame:Hide() end
             end

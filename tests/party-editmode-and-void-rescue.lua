@@ -22,7 +22,10 @@ UIParent = {
     GetTop = function() return 2560 end,
     GetBottom = function() return 0 end,
     GetAttribute = function(self, key) return self[key] or 0 end,
-    SetAttribute = function(self, key, val) self[key] = val end,
+    SetAttribute = function(self, key, val)
+        self.attributeWrites = (self.attributeWrites or 0) + 1
+        self[key] = val
+    end,
     children = {},
     GetChildren = function(self) return unpack(self.children) end,
 }
@@ -301,8 +304,11 @@ C_EditMode = {
 
 -- Simulate on-demand loading of Blizzard_EditMode
 addon.HUD.editModeLoadScheduled = nil
+local panelAttributeWrites = UIParent.attributeWrites or 0
 addon.HUD:HookFrames()
 addon.HUD:AlignHUDFrames(metrics)
+assert((UIParent.attributeWrites or 0) == panelAttributeWrites,
+    "Forever must not write legacy UIParent panel-layout attributes")
 
 assert(MainActionBar.SetPoint == originalMainSetPoint,
     "Forever must not install a SetPoint repair hook on MainActionBar")
@@ -323,6 +329,19 @@ assert(not EditModeManagerFrame._OffhandMovable and not EditModeManagerFrame.mov
     "Forever must not make EditModeManagerFrame movable")
 assert(#PartyMemberFrame2.points == party2PointCount,
     "Forever must not restore or save party-frame anchors through Canvas")
+
+local protectedPanel = makeMockFrame("ProtectedPanel", 300, 200)
+protectedPanel.TitleText = {}
+protectedPanel.IsProtected = function() return true end
+local forbiddenPanel = makeMockFrame("ForbiddenPanel", 300, 200)
+forbiddenPanel.TitleText = {}
+forbiddenPanel.IsForbidden = function() return true end
+addon.Canvas:TryMakeFrameDraggable(protectedPanel)
+addon.Canvas:TryMakeFrameDraggable(forbiddenPanel)
+assert(not protectedPanel._OffhandMovable and not protectedPanel.movable,
+    "Generic discovery must not mutate protected panels")
+assert(not forbiddenPanel._OffhandMovable and not forbiddenPanel.movable,
+    "Generic discovery must not mutate forbidden panels")
 
 ShowUIPanel(EditModeManagerFrame)
 flushTimers()

@@ -753,6 +753,12 @@ function HUD:HookFrames()
 
     local function UpdateUIPanelOffsets()
         if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+        if UsesForeverEditMode() then
+            -- Forever dispatches UIParent attribute changes through its secure
+            -- panel manager and reads layout offsets from UIPanelLayoutFrame.
+            -- Avoid this legacy attribute path entirely on that client.
+            return
+        end
         local m = Offhand.Viewport:GetMetrics()
         if m and m.isSpanned and UIParent.SetAttribute then
             -- Default blizzard panels to the Game World monitor, but add standard 16px left padding

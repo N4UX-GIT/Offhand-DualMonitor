@@ -92,5 +92,16 @@ assert(initOk, "ADDON_LOADED failed with error: " .. tostring(initErr))
 assert(type(addon.InitializeCanvas) == "function", "InitializeCanvas missing")
 assert(type(addon.InitializeSeamRedirect) == "function", "InitializeSeamRedirect missing")
 
-print("PASS: config preservation, defaults, combat coalescing, error recovery, reentrancy, ADDON_LOADED stack safety")
+-- Disabled profiles must not mutate Blizzard frame placement or user CVars at login.
+local loginMutations = 0
+addon.db.enabled = false
+addon.ApplyFullLayout = function() end
+ChatFrame1 = { SetClampedToScreen = function() loginMutations = loginMutations + 1 end }
+ContainerFrame1 = { SetUserPlaced = function() loginMutations = loginMutations + 1 end }
+PlayerFrame = { SetUserPlaced = function() loginMutations = loginMutations + 1 end }
+SetCVar = function() loginMutations = loginMutations + 1 end
+events.OnEvent(nil, "PLAYER_LOGIN")
+assert(loginMutations == 0, "disabled Offhand profile mutated Blizzard frames or CVars at login")
+
+print("PASS: config preservation, defaults, combat coalescing, error recovery, reentrancy, ADDON_LOADED stack safety, disabled login isolation")
 

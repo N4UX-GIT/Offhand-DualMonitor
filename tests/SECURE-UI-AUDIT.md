@@ -6,12 +6,11 @@ and combat-deferred; legacy CVars can be restored on disable. Map configuration
 and Ctrl-wheel scaling stop in combat. CloseAllBags delegates to Blizzard during
 combat. Repeated HUD setup retains one scanner and one delayed layout load.
 
-## Retained compatibility surfaces
-The EditModeUtil replacements remain because the preceding development used them
-to fix an observed nil-offset crash. Blizzard's Classic Era source passes GetPoint
-offsets directly to math.abs. Removing the workaround without live reproduction
-could restore the crash; replacing these methods can itself affect taint.
-Source: https://github.com/Gethe/wow-ui-source/blob/classic_era/Interface/AddOns/Blizzard_EditMode/Shared/EditModeUtil.lua
+## Forever Edit Mode ownership
+Forever action bars, combat frames, the minimap, and Edit Mode windows remain
+Blizzard-owned. Offhand does not replace EditModeUtil, attach handlers to the
+Forever Edit Mode manager, switch layouts after login, or write legacy UIParent
+panel-offset attributes on this client.
 
 Canvas also wraps CloseAllBags, changes UIPanel metadata, and temporarily suppresses
 panel scripts when releasing occupied slots. Out-of-combat checks and pcall do not
@@ -26,4 +25,6 @@ prove these paths taint-free. These compatibility mechanisms were not removed.
 - Test Escape persistence and replacement bags/action bars/Leatrix Maps.
 - Test companion shortcut conflicts, malformed settings and different launch paths.
 
-No live client was launched or modified for this stabilization pass.
+The Forever Beta client was manually verified through reload, Edit Mode save and
+exit, and persistent action-bar placement without a Lua error. The broader matrix
+above remains required for release acceptance.

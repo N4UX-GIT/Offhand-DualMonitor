@@ -503,36 +503,39 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         end
 
     elseif event == "PLAYER_LOGIN" then
-        -- Unclamp ChatFrame1 in Retail so Edit Mode allows it on secondary monitors
-        if ChatFrame1 and ChatFrame1.SetClampedToScreen then
-            ChatFrame1:SetClampedToScreen(false)
-            hooksecurefunc(ChatFrame1, "SetClampedToScreen", function(self, clamped)
-                if clamped then self:SetClampedToScreen(false) end
+        if Offhand.db and Offhand.db.enabled then
+            -- Unclamp chat while Offhand is active so native tab dragging can
+            -- cross monitor boundaries. Disabled profiles retain Blizzard state.
+            if ChatFrame1 and ChatFrame1.SetClampedToScreen then
+                ChatFrame1:SetClampedToScreen(false)
+                hooksecurefunc(ChatFrame1, "SetClampedToScreen", function(self, clamped)
+                    if Offhand.db and Offhand.db.enabled and clamped then
+                        self:SetClampedToScreen(false)
+                    end
+                end)
+            end
+            pcall(function()
+                if not (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()) then
+                    for i=1, 13 do
+                        local f = _G["ContainerFrame"..i]
+                        if f then f:SetUserPlaced(false) end
+                    end
+                    if ContainerFrameCombinedBags then
+                        ContainerFrameCombinedBags:SetUserPlaced(false)
+                    end
+                end
+                -- Forever's Blizzard Edit Mode owns these frames. Even seemingly
+                -- harmless SetUserPlaced calls can taint its party-frame refresh
+                -- when Edit Mode closes.
+                if not Offhand.isForever then
+                    if PlayerFrame then PlayerFrame:SetUserPlaced(false) end
+                    if TargetFrame then TargetFrame:SetUserPlaced(false) end
+                    if MinimapCluster and not (Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["MinimapCluster"]) then
+                        MinimapCluster:SetUserPlaced(false)
+                    end
+                end
             end)
         end
-        pcall(function()
-            for i=1, 13 do
-                local f = _G["ContainerFrame"..i]
-                if f then f:SetUserPlaced(false) end
-            end
-            if ContainerFrameCombinedBags then
-                ContainerFrameCombinedBags:SetUserPlaced(false)
-            end
-            -- Forever's Blizzard Edit Mode owns these frames. Even seemingly
-            -- harmless SetUserPlaced calls can taint its party-frame refresh
-            -- when Edit Mode closes.
-            if not Offhand.isForever then
-                if PlayerFrame then PlayerFrame:SetUserPlaced(false) end
-                if TargetFrame then TargetFrame:SetUserPlaced(false) end
-                if MinimapCluster and not (Offhand.db and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["MinimapCluster"]) then
-                    MinimapCluster:SetUserPlaced(false)
-                end
-            end
-            if SetCVar then
-                SetCVar("rawMouseEnable", "1")
-                SetCVar("rawMouseAccelerationEnable", "0")
-            end
-        end)
         Offhand:ApplyFullLayout()
         Offhand:Print(L["MSG_LOADED"], Offhand.version)
 
