@@ -754,8 +754,7 @@ OnPanelDragStop = function(frame)
         frame:ClearAllPoints()
         local factor = parentScale / frameScale
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
-        if rawW and rawH and rawW > 0 and rawH > 0 then frame:SetSize(rawW, rawH) end
-
+        
         if Offhand.db.independentWorkspacePanels or frame == WorldMapFrame then
             -- Evict from Blizzard UIPanel slot if currently occupying one
             if GetUIPanel and (GetUIPanel("left") == frame or GetUIPanel("center") == frame or GetUIPanel("right") == frame or GetUIPanel("doublewide") == frame) then
@@ -769,8 +768,7 @@ OnPanelDragStop = function(frame)
                 local w, h = frame:GetWidth(), frame:GetHeight()
                 frame:ClearAllPoints()
                 frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
-                if w and h and w > 0 and h > 0 then frame:SetSize(w, h) end
-                frame:Show()
+                                frame:Show()
                 
                 if oldHide then frame:SetScript("OnHide", oldHide) end
                 if oldShow then frame:SetScript("OnShow", oldShow) end
@@ -842,8 +840,7 @@ OnPanelDragStop = function(frame)
             local w, h = frame:GetWidth(), frame:GetHeight()
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
-            if w and h and w > 0 and h > 0 then frame:SetSize(w, h) end
-        elseif string.match(name, "^PartyMemberFrame") or string.match(name, "^CompactPartyFrame") or name == "CompactRaidFrameContainer" then
+                    elseif string.match(name, "^PartyMemberFrame") or string.match(name, "^CompactPartyFrame") or name == "CompactRaidFrameContainer" then
             if EditModeManagerFrame then
                 -- Retail Edit Mode manages these. Do not taint!
                 Offhand.db.savedWorkspacePositions[name] = nil
@@ -853,8 +850,7 @@ OnPanelDragStop = function(frame)
                 local w, h = frame:GetWidth(), frame:GetHeight()
                 frame:ClearAllPoints()
                 frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
-                if w and h and w > 0 and h > 0 then frame:SetSize(w, h) end
-            end
+                            end
         
         elseif string.match(name, "^ContainerFrame") then
             pcall(function() frame:SetUserPlaced(false) end)
@@ -883,8 +879,7 @@ OnPanelDragStop = function(frame)
             local w, h = frame:GetWidth(), frame:GetHeight()
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
-            if w and h and w > 0 and h > 0 then frame:SetSize(w, h) end
-            if FCF_SavePositionAndDimensions then
+                        if FCF_SavePositionAndDimensions then
                 pcall(function() FCF_SavePositionAndDimensions(frame) end)
             end
             
@@ -901,8 +896,7 @@ OnPanelDragStop = function(frame)
             local w, h = frame:GetWidth(), frame:GetHeight()
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
-            if w and h and w > 0 and h > 0 then frame:SetSize(w, h) end
-        end
+                    end
     end
 
     frame._OffhandDragging = false
