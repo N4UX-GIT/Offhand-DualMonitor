@@ -645,6 +645,11 @@ DemodalizePanel = function(frame)
       if not frame then return end
       local name = frame:GetName()
       if not name then return end
+      
+      if frame == WorldMapFrame and PlayerMovementFrameFader and PlayerMovementFrameFader.RemoveFrame then
+          PlayerMovementFrameFader.RemoveFrame(WorldMapFrame)
+      end
+
       if UIPanelWindows and UIPanelWindows[name] then
           if name == "CharacterFrame" then
               if not originalAreas[name] then
@@ -673,6 +678,11 @@ RemodalizePanel = function(frame)
       if not frame then return end
       local name = frame:GetName()
       if not name then return end
+      
+      if frame == WorldMapFrame and PlayerMovementFrameFader and PlayerMovementFrameFader.AddDeferredFrame then
+          PlayerMovementFrameFader.AddDeferredFrame(WorldMapFrame, .5, 1.0, 0.5, function() return not WorldMapFrame:IsMaximized() end)
+      end
+
       UnregisterSpecialFrame(name)
       if originalAreas[name] then
           if UIPanelWindows then
