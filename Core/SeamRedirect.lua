@@ -824,8 +824,9 @@ function HUD:HookFrames()
         if bagsOnWorkspace and bpPos then
             -- Layout on workspace: dock unpositioned bags relative to the backpack on the workspace
             local expandRight = (bpPos.x + (defaultBagWidth + bagSpacing) * 3 <= deckMaxX)
+            local currentX = bpPos.x
             local currentY = bpPos.y
-            local rowBagCount = 0
+            local stackBagCount = 0
 
             for i = 1, (NUM_CONTAINER_FRAMES or 13) do
                 local frame = _G["ContainerFrame" .. i]
@@ -842,38 +843,30 @@ function HUD:HookFrames()
                         local h = frame:GetHeight() or defaultBagHeight
                         local targetX, targetY
 
-                        if expandRight then
-                            targetX = bpPos.x + (w + bagSpacing) * (rowBagCount + 1)
-                            targetY = currentY
-                            if targetX + w > deckMaxX then
-                                currentY = math.min(deckMaxY - h, currentY + h + bagSpacing)
-                                rowBagCount = 0
-                                targetX = bpPos.x + (w + bagSpacing) * (rowBagCount + 1)
-                                targetY = currentY
+                        targetX = currentX
+                        targetY = currentY + (h + bagSpacing) * (stackBagCount + 1)
+                        if targetY + h > deckMaxY then
+                            if expandRight then
+                                currentX = currentX + w + bagSpacing
+                            else
+                                currentX = currentX - w - bagSpacing
                             end
-                        else
-                            targetX = bpPos.x - (w + bagSpacing) * (rowBagCount + 1)
-                            targetY = currentY
-                            if targetX < deckMinX then
-                                currentY = math.min(deckMaxY - h, currentY + h + bagSpacing)
-                                rowBagCount = 0
-                                targetX = bpPos.x - (w + bagSpacing) * (rowBagCount + 1)
-                                targetY = currentY
-                            end
+                            stackBagCount = 0
+                            targetX = currentX
+                            targetY = currentY + (h + bagSpacing) * (stackBagCount + 1)
                         end
 
                         targetX = math.max(deckMinX, math.min(targetX, deckMaxX - w))
                         targetY = math.max(deckMinY, math.min(targetY, deckMaxY - h))
 
-                        local name = frame:GetName()
                         if name and not string.match(name, "^ContainerFrame") then
                             frame:SetUserPlaced(true)
                         end
                         frame:ClearAllPoints()
                         local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
-                        frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", targetX * factor, targetY * factor)
+                        frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", targetX * factor, targetY * factor)
                         if frame.SetAlpha then frame:SetAlpha(1) end
-                        rowBagCount = rowBagCount + 1
+                        stackBagCount = stackBagCount + 1
                     end
                 end
             end
@@ -897,10 +890,19 @@ function HUD:HookFrames()
                         frame:SetUserPlaced(false)
                         frame:ClearAllPoints()
                         local w = frame:GetWidth() or defaultBagWidth
+                        local h = frame:GetHeight() or defaultBagHeight
                         local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
-                        local x = (right - (w + bagSpacing) * bagIndex) * factor
-                        local y = bottom * factor
-                        frame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMLEFT", x, y)
+                        
+                        local currentX = right
+                        local targetY = bottom + (h + bagSpacing) * bagIndex
+                        if targetY + h > deckMaxY then
+                             right = right - w - bagSpacing
+                             bagIndex = 0
+                             currentX = right
+                             targetY = bottom + (h + bagSpacing) * bagIndex
+                        end
+                        
+                        frame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMLEFT", currentX * factor, targetY * factor)
                         if frame.SetAlpha then frame:SetAlpha(1) end
                         bagIndex = bagIndex + 1
                     end
