@@ -970,11 +970,11 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
                 if Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["CharacterFrame"] then
                     local collapsed = GetCVar("characterFrameCollapsed")
                     if tostring(collapsed) == "0" then
-                        if CharacterFrame_Expand then CharacterFrame_Expand() end
+                        if CharacterFrame.Expand then CharacterFrame:Expand() elseif CharacterFrame_Expand then CharacterFrame_Expand() end
                         CharacterFrame:SetWidth(540)
                         if UIPanelWindows and UIPanelWindows["CharacterFrame"] then UIPanelWindows["CharacterFrame"].width = 540 end
                     else
-                        if CharacterFrame_Collapse then CharacterFrame_Collapse() end
+                        if CharacterFrame.Collapse then CharacterFrame:Collapse() elseif CharacterFrame_Collapse then CharacterFrame_Collapse() end
                         CharacterFrame:SetWidth(338)
                         if UIPanelWindows and UIPanelWindows["CharacterFrame"] then UIPanelWindows["CharacterFrame"].width = 338 end
                     end
