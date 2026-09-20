@@ -12,8 +12,8 @@ using System.Windows.Forms;
 [assembly: AssemblyCompany("Offhand Project")]
 [assembly: AssemblyProduct("Offhand")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
-[assembly: AssemblyVersion("1.6.8.0")]
-[assembly: AssemblyFileVersion("1.6.8.0")]
+[assembly: AssemblyVersion("1.6.9.0")]
+[assembly: AssemblyFileVersion("1.6.9.0")]
 
 namespace Offhand.Companion
 {
@@ -289,7 +289,7 @@ namespace Offhand.Companion
             UpdateHotkey();
             if (configWarning != null) AddLog(configWarning);
 
-            AddLog("Offhand Companion v1.6.8 initialized.");
+            AddLog("Offhand Companion v1.6.9 initialized.");
             AddLog("Monitoring active. Enable Offhand in WoW; calibrate with /offhand wizard.");
             
             CheckForUpdates();
@@ -430,7 +430,7 @@ namespace Offhand.Companion
 
             // Version
             Label verLabel = new Label();
-            verLabel.Text = "v1.6.8";
+            verLabel.Text = "v1.6.9";
             verLabel.Location = new Point(98, 66);
             verLabel.Size = new Size(100, 14);
             verLabel.Font = new Font("Segoe UI", 7.5f, FontStyle.Italic);
