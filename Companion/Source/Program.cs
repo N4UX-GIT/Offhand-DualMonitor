@@ -12,8 +12,8 @@ using System.Windows.Forms;
 [assembly: AssemblyCompany("Offhand Project")]
 [assembly: AssemblyProduct("Offhand")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
-[assembly: AssemblyVersion("1.6.5.0")]
-[assembly: AssemblyFileVersion("1.6.5.0")]
+[assembly: AssemblyVersion("1.6.6.0")]
+[assembly: AssemblyFileVersion("1.6.6.0")]
 
 namespace Offhand.Companion
 {
@@ -96,6 +96,18 @@ namespace Offhand.Companion
 
         [DllImport("user32.dll", SetLastError = true)]
         public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+        [DllImport("user32.dll")]
+        public static extern int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool bRedraw);
+
+        [DllImport("gdi32.dll")]
+        public static extern IntPtr CreateRectRgn(int nLeftRect, int nTopRect, int nRightRect, int nBottomRect);
+
+        [DllImport("gdi32.dll")]
+        public static extern int CombineRgn(IntPtr hrgnDest, IntPtr hrgnSrc1, IntPtr hrgnSrc2, int fnCombineMode);
+
+        [DllImport("gdi32.dll")]
+        public static extern bool DeleteObject(IntPtr hObject);
 
         [DllImport("user32.dll")]
         public static extern bool RegisterHotKey(IntPtr hWnd, int id, int fsModifiers, int vk);
@@ -277,7 +289,7 @@ namespace Offhand.Companion
             UpdateHotkey();
             if (configWarning != null) AddLog(configWarning);
 
-            AddLog("Offhand Companion v1.6.5 initialized.");
+            AddLog("Offhand Companion v1.6.6 initialized.");
             AddLog("Monitoring active. Enable Offhand in WoW; calibrate with /offhand wizard.");
             
             CheckForUpdates();
@@ -418,7 +430,7 @@ namespace Offhand.Companion
 
             // Version
             Label verLabel = new Label();
-            verLabel.Text = "v1.6.5";
+            verLabel.Text = "v1.6.6";
             verLabel.Location = new Point(98, 66);
             verLabel.Size = new Size(100, 14);
             verLabel.Font = new Font("Segoe UI", 7.5f, FontStyle.Italic);
@@ -999,6 +1011,7 @@ namespace Offhand.Companion
                 uint flags = NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_FRAMECHANGED | NativeMethods.SWP_SHOWWINDOW;
                 try
                 {
+                    NativeMethods.SetWindowRgn(handle, IntPtr.Zero, true);
                     if (!NativeMethods.SetWindowPos(handle, IntPtr.Zero, target.X, target.Y, target.Width, target.Height, flags))
                         throw new Exception("Windows rejected restoring the window bounds.");
                     NativeMethods.RECT actual;
@@ -1063,6 +1076,31 @@ namespace Offhand.Companion
 
                 try
                 {
+                    IntPtr combinedRgn = IntPtr.Zero;
+                    string[] saved = appSettings["Monitors"].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (string m in saved)
+                    {
+                        int idx;
+                        if (int.TryParse(m, out idx) && idx >= 0 && idx < Screen.AllScreens.Length)
+                        {
+                            Rectangle b = Screen.AllScreens[idx].Bounds;
+                            IntPtr rgn = NativeMethods.CreateRectRgn(b.Left - bounds.X, b.Top - bounds.Y, b.Right - bounds.X, b.Bottom - bounds.Y);
+                            if (combinedRgn == IntPtr.Zero)
+                            {
+                                combinedRgn = rgn;
+                            }
+                            else
+                            {
+                                NativeMethods.CombineRgn(combinedRgn, combinedRgn, rgn, 2); // RGN_OR = 2
+                                NativeMethods.DeleteObject(rgn);
+                            }
+                        }
+                    }
+                    if (combinedRgn != IntPtr.Zero)
+                    {
+                        NativeMethods.SetWindowRgn(handle, combinedRgn, true);
+                    }
+
                     uint flags = NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_FRAMECHANGED | NativeMethods.SWP_SHOWWINDOW;
                     if (!NativeMethods.SetWindowPos(handle, IntPtr.Zero, bounds.X, bounds.Y, bounds.Width, bounds.Height, flags))
                     {
