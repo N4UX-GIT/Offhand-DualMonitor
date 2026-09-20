@@ -1417,6 +1417,9 @@ function Options:CreateFloatingPanel()
 
     local mapDesc = card2_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     mapDesc:SetPoint("TOPLEFT", 32, -134)
+    mapDesc:SetJustifyH("LEFT")
+    mapDesc:SetWidth(530)
+    mapDesc:SetWordWrap(true)
     local hasLMap = C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("Leatrix_Maps") or (IsAddOnLoaded and IsAddOnLoaded("Leatrix_Maps"))
     if hasLMap then
         mapDesc:SetText(L["COMPAT_LEATRIX"])
@@ -1450,6 +1453,9 @@ function Options:CreateFloatingPanel()
     local panelDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     panelDesc:SetPoint("TOPLEFT", 32, -88)
     panelDesc:SetText(L["PANELS_INDEPENDENT_DESC"])
+    panelDesc:SetJustifyH("LEFT")
+    panelDesc:SetWidth(530)
+    panelDesc:SetWordWrap(true)
 
     local escapeCheck = CreateNativeCheckbox(card2_2, L["CHECK_ESC_PERSIST"],
         function() return Offhand.db and Offhand.db.persistentWorkspacePanels ~= false end,
@@ -1466,6 +1472,7 @@ function Options:CreateFloatingPanel()
     local escapeDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     escapeDesc:SetPoint("TOPLEFT", 32, -132)
     escapeDesc:SetText(L["CHECK_ESC_PERSIST_TIP_DESC"])
+    escapeDesc:SetJustifyH("LEFT")
     escapeDesc:SetWidth(530)
     escapeDesc:SetWordWrap(true)
 
@@ -1491,9 +1498,10 @@ function Options:CreateFloatingPanel()
     forceCheck:SetPoint("TOPLEFT", 12, -76)
 
     local compatDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    compatDesc:SetPoint("TOPLEFT", 12, -202)
-    compatDesc:SetWidth(636)
+    compatDesc:SetPoint("TOPLEFT", 32, -212)
+    compatDesc:SetWidth(530)
     compatDesc:SetJustifyH("LEFT")
+    compatDesc:SetWordWrap(true)
     card2_2.compatDesc = compatDesc
 
 
@@ -1512,6 +1520,7 @@ function Options:CreateFloatingPanel()
     local bezelNote = card2_3:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     bezelNote:SetPoint("TOPLEFT", 12, -76)
     bezelNote:SetText(L["SLIDER_BEZEL_GAP_TIP_DESC"])
+    bezelNote:SetJustifyH("LEFT")
     bezelNote:SetWidth(530)
     bezelNote:SetWordWrap(true)
 
