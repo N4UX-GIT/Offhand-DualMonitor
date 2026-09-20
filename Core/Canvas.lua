@@ -647,9 +647,9 @@ DemodalizePanel = function(frame)
     if not name then return end
     if UIPanelWindows and UIPanelWindows[name] then
         if not originalAreas[name] then
-            originalAreas[name] = UIPanelWindows[name]
-        end
-        UIPanelWindows[name] = nil
+              originalAreas[name] = UIPanelWindows[name].area
+          end
+          UIPanelWindows[name].area = nil
     end
     if SetUIPanelAttribute then
         pcall(function() SetUIPanelAttribute(frame, "area", nil) end)
@@ -668,11 +668,11 @@ RemodalizePanel = function(frame)
     if not name then return end
     UnregisterSpecialFrame(name)
     if originalAreas[name] then
-        if UIPanelWindows then
-            UIPanelWindows[name] = originalAreas[name]
-        end
-        if SetUIPanelAttribute then
-            pcall(function() SetUIPanelAttribute(frame, "area", originalAreas[name] and originalAreas[name].area or nil) end)
+        if UIPanelWindows and UIPanelWindows[name] then
+              UIPanelWindows[name].area = originalAreas[name]
+          end
+          if SetUIPanelAttribute then
+              pcall(function() SetUIPanelAttribute(frame, "area", originalAreas[name]) end)
         end
     end
 end
@@ -732,11 +732,11 @@ OnPanelDragStop = function(frame)
         -- Clamp strictly within the workspace boundaries so panels never bleed across the seam
         local minX, maxX
         if Offhand.db.primaryPosition ~= "LEFT" then
-            minX = 12
-            maxX = math.max(minX, m.deckWidth - frameWidth - 12)
+            minX = string.match(name, "^ChatFrame") and 48 or 12
+              maxX = math.max(minX, m.deckWidth - frameWidth - 12)
         else
-            minX = m.gameRight + 12
-            maxX = math.max(minX, m.screenWidth - frameWidth - 12)
+            minX = m.gameRight + (string.match(name, "^ChatFrame") and 48 or 12)
+              maxX = math.max(minX, m.screenWidth - frameWidth - 12)
         end
         local clampedX = math.max(minX, math.min(xInParent, maxX))
 
@@ -931,11 +931,11 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         -- Sanitize/clamp in case DB had bad coordinates (like y = -4.2 or x = 493.6)
         local minX, maxX
         if Offhand.db.primaryPosition ~= "LEFT" then
-            minX = 12
-            maxX = math.max(minX, m.deckWidth - frameWidth - 12)
+            minX = string.match(name, "^ChatFrame") and 48 or 12
+              maxX = math.max(minX, m.deckWidth - frameWidth - 12)
         else
-            minX = m.gameRight + 12
-            maxX = math.max(minX, m.screenWidth - frameWidth - 12)
+            minX = m.gameRight + (string.match(name, "^ChatFrame") and 48 or 12)
+              maxX = math.max(minX, m.screenWidth - frameWidth - 12)
         end
         local clampedX = math.max(minX, math.min(wPos.x, maxX))
 
@@ -1316,12 +1316,24 @@ function Offhand:InitializeCanvas()
     Canvas:UpdatePersistenceBehavior()
     Canvas:ConfigureWorldMap()
 
-    if not Canvas.showUIPanelHooked and ShowUIPanel then
+        if not Canvas.showUIPanelHooked and ShowUIPanel then
         Canvas.showUIPanelHooked = true
         hooksecurefunc("ShowUIPanel", function(frame)
+            if frame and UIPanelWindows and UIPanelWindows[frame:GetName()] and not UIPanelWindows[frame:GetName()].area then
+                if not frame:IsShown() then frame:Show() end
+            end
             Canvas:TryMakeFrameDraggable(frame)
         end)
     end
+    if not Canvas.hideUIPanelHooked and HideUIPanel then
+        Canvas.hideUIPanelHooked = true
+        hooksecurefunc("HideUIPanel", function(frame)
+            if frame and UIPanelWindows and UIPanelWindows[frame:GetName()] and not UIPanelWindows[frame:GetName()].area then
+                if frame:IsShown() then frame:Hide() end
+            end
+        end)
+    end
+
 end
 
 function Offhand:UpdateCanvas()
