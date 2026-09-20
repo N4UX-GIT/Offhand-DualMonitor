@@ -460,3 +460,7 @@ L["COMPAT_BOTH"] = "Les addons de sacs et de minicarte contrôlent leurs fenêtr
 L["COMPAT_BAGS"] = "Votre addon de sacs contrôle ses fenêtres."
 L["COMPAT_MINIMAP"] = "Votre addon de minicarte contrôle sa fenêtre."
 L["COMPAT_AUTO"] = "Les addons compatibles de sacs et de minicarte sont détectés automatiquement."
+
+L["MAP_KEEP_OPEN_DESC"] = "Allows navigating with map open. (Compatible with Leatrix)"
+
+L["PANELS_INDEPENDENT_DESC"] = "Allows opening bags, character pane, spellbook & map simultaneously."

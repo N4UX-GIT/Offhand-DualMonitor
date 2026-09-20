@@ -1099,7 +1099,7 @@ function Options:CreateFloatingPanel()
         end,
         L["BTN_LASER_TOGGLE_TIP_TITLE"], L["BTN_LASER_TOGGLE_TIP_DESC"]
     )
-    laserCheck:SetPoint("TOPLEFT", 240, -122)
+    laserCheck:SetPoint("TOPLEFT", 330, -122)
     laserCheck.Text:SetWidth(360)
     configFrame.laserCheck = laserCheck
 
@@ -1121,7 +1121,7 @@ function Options:CreateFloatingPanel()
         end,
         L["PRESET_GL_PR_TIP_TITLE"], L["PRESET_GL_PR_TIP_DESC"]
     )
-    rPortraitRight:SetPoint("TOPLEFT", 280, -50)
+    rPortraitRight:SetPoint("TOPLEFT", 330, -50)
 
     local rDual = CreateNativeRadioButton(card1_1, L["PRESET_DUAL_LANDSCAPE"],
         function() return (Offhand.db and Offhand.db.layoutPreset == "LANDSCAPE_DUAL") end,
@@ -1142,7 +1142,7 @@ function Options:CreateFloatingPanel()
         end,
         L["STACKED_LAYOUT"], L["PRESET_STACK_BOTTOM"]
     )
-    rVerticalBottom:SetPoint("TOPLEFT", 280, -74)
+    rVerticalBottom:SetPoint("TOPLEFT", 330, -74)
 
     local rVerticalTop = CreateNativeRadioButton(card1_1, L["PRESET_STACK_TOP"],
         function() return (Offhand.db and Offhand.db.primaryPosition == "TOP") end,
@@ -1156,7 +1156,7 @@ function Options:CreateFloatingPanel()
 
     local autoDetectBtn = CreateFrame("Button", nil, card1_1, "UIPanelButtonTemplate")
     autoDetectBtn:SetSize(200, 22)
-    autoDetectBtn:SetPoint("TOPLEFT", 280, -98)
+    autoDetectBtn:SetPoint("TOPLEFT", 330, -98)
     autoDetectBtn:SetText(L["BTN_1CLICK_AUTOCONFIG"])
     autoDetectBtn:SetScript("OnClick", function()
         Options:AutoConfigure()
@@ -1421,7 +1421,7 @@ function Options:CreateFloatingPanel()
     if hasLMap then
         mapDesc:SetText(L["COMPAT_LEATRIX"])
     else
-        mapDesc:SetText(L["MAP_KEEP_OPEN"])
+        mapDesc:SetText(L["MAP_KEEP_OPEN_DESC"])
     end
 
 
@@ -1449,7 +1449,7 @@ function Options:CreateFloatingPanel()
 
     local panelDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     panelDesc:SetPoint("TOPLEFT", 32, -88)
-    panelDesc:SetText(L["PANELS_INDEPENDENT_HELP"])
+    panelDesc:SetText(L["PANELS_INDEPENDENT_DESC"])
 
     local escapeCheck = CreateNativeCheckbox(card2_2, L["CHECK_ESC_PERSIST"],
         function() return Offhand.db and Offhand.db.persistentWorkspacePanels ~= false end,
@@ -1529,6 +1529,7 @@ function Options:CreateFloatingPanel()
     rClassic:SetPoint("TOPLEFT", 12, -26)
 
     local subClassic = card3_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    subClassic:SetWidth(210)
     subClassic:SetPoint("TOPLEFT", 34, -46)
     subClassic:SetText(L["THEME_CLASSIC_DESC"])
 
@@ -1545,6 +1546,7 @@ function Options:CreateFloatingPanel()
     rSlate:SetPoint("TOPLEFT", 236, -26)
 
     local subSlate = card3_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    subSlate:SetWidth(210)
     subSlate:SetPoint("TOPLEFT", 258, -46)
     subSlate:SetText(L["THEME_SLATE_DESC"])
 
@@ -1561,6 +1563,7 @@ function Options:CreateFloatingPanel()
     rTinker:SetPoint("TOPLEFT", 470, -26)
 
     local subTinker = card3_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    subTinker:SetWidth(210)
     subTinker:SetPoint("TOPLEFT", 492, -46)
     subTinker:SetText(L["THEME_TINKER_DESC"])
 
@@ -1577,6 +1580,7 @@ function Options:CreateFloatingPanel()
     rObsidian:SetPoint("TOPLEFT", 12, -68)
 
     local subObsidian = card3_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    subObsidian:SetWidth(210)
     subObsidian:SetPoint("TOPLEFT", 34, -88)
     subObsidian:SetText(L["THEME_OBSIDIAN_DESC"])
 
@@ -1592,6 +1596,7 @@ function Options:CreateFloatingPanel()
     rPitchBlack:SetPoint("TOPLEFT", 236, -68)
 
     local subPitchBlack = card3_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    subPitchBlack:SetWidth(210)
     subPitchBlack:SetPoint("TOPLEFT", 258, -88)
     subPitchBlack:SetText(L["THEME_PITCH_BLACK_DESC"])
 

@@ -460,3 +460,7 @@ L["COMPAT_BOTH"] = "背包及小地图插件自行管理窗口。"
 L["COMPAT_BAGS"] = "背包插件自行管理背包窗口。"
 L["COMPAT_MINIMAP"] = "小地图插件自行管理小地图。"
 L["COMPAT_AUTO"] = "自动检测兼容的背包及小地图插件。"
+
+L["MAP_KEEP_OPEN_DESC"] = "Allows navigating with map open. (Compatible with Leatrix)"
+
+L["PANELS_INDEPENDENT_DESC"] = "Allows opening bags, character pane, spellbook & map simultaneously."

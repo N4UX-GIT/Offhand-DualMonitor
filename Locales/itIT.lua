@@ -460,3 +460,7 @@ L["COMPAT_BOTH"] = "Gli addon di borse e minimappa controllano le proprie finest
 L["COMPAT_BAGS"] = "Il tuo addon delle borse controlla le proprie finestre."
 L["COMPAT_MINIMAP"] = "Il tuo addon della minimappa controlla la propria finestra."
 L["COMPAT_AUTO"] = "Gli addon compatibili di borse e minimappa vengono rilevati automaticamente."
+
+L["MAP_KEEP_OPEN_DESC"] = "Allows navigating with map open. (Compatible with Leatrix)"
+
+L["PANELS_INDEPENDENT_DESC"] = "Allows opening bags, character pane, spellbook & map simultaneously."

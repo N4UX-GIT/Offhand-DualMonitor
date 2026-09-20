@@ -460,3 +460,7 @@ L["COMPAT_BOTH"] = "가방 및 미니맵 애드온이 각 창을 제어합니다
 L["COMPAT_BAGS"] = "가방 애드온이 가방 창을 제어합니다."
 L["COMPAT_MINIMAP"] = "미니맵 애드온이 미니맵을 제어합니다."
 L["COMPAT_AUTO"] = "호환되는 가방 및 미니맵 애드온을 자동 감지합니다."
+
+L["MAP_KEEP_OPEN_DESC"] = "Allows navigating with map open. (Compatible with Leatrix)"
+
+L["PANELS_INDEPENDENT_DESC"] = "Allows opening bags, character pane, spellbook & map simultaneously."

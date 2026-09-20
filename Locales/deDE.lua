@@ -458,3 +458,7 @@ L["COMPAT_BOTH"] = "Taschen- und Minikarten-Addons steuern ihre Fenster."
 L["COMPAT_BAGS"] = "Das Taschen-Addon steuert seine Fenster."
 L["COMPAT_MINIMAP"] = "Das Minikarten-Addon steuert sein Fenster."
 L["COMPAT_AUTO"] = "Kompatible Taschen- und Minikarten-Addons werden automatisch erkannt."
+
+L["MAP_KEEP_OPEN_DESC"] = "Allows navigating with map open. (Compatible with Leatrix)"
+
+L["PANELS_INDEPENDENT_DESC"] = "Allows opening bags, character pane, spellbook & map simultaneously."

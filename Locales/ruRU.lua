@@ -460,3 +460,7 @@ L["COMPAT_BOTH"] = "Аддоны сумок и мини-карты управл�
 L["COMPAT_BAGS"] = "Окнами сумок управляет ваш аддон."
 L["COMPAT_MINIMAP"] = "Мини-картой управляет ваш аддон."
 L["COMPAT_AUTO"] = "Совместимые аддоны сумок и мини-карты определяются автоматически."
+
+L["MAP_KEEP_OPEN_DESC"] = "Allows navigating with map open. (Compatible with Leatrix)"
+
+L["PANELS_INDEPENDENT_DESC"] = "Allows opening bags, character pane, spellbook & map simultaneously."
