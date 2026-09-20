@@ -77,6 +77,10 @@ function CreateFrame(kind, name, parent, template)
     function f:SetShown(shown) if shown then self:Show() else self:Hide() end end
     function f:IsShown() return self.shown end
     function f:SetText(t) self.text = t end
+    function f:GetFontString()
+        if not f._fontString then f._fontString = { SetWidth = function() end, SetWordWrap = function() end, SetTextColor = function() end } end
+        return f._fontString
+    end
     function f:GetText() return self.text end
     function f:SetTextColor() end
     function f:SetEnabled(val) self.enabled = val end

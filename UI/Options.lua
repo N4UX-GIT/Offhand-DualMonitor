@@ -1425,7 +1425,7 @@ function Options:CreateFloatingPanel()
     end
 
 
-    local card2_2 = CreateCard(tab2, L["CARD_PERSISTENCE"], 220)
+    local card2_2 = CreateCard(tab2, L["CARD_PERSISTENCE"], 240)
     local recoveryCard = CreateCard(tab2, L["CARD_RECOVERY"], 118)
 
         local gatherBtn = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
@@ -1472,7 +1472,7 @@ function Options:CreateFloatingPanel()
         function(val) Offhand.db.restoreWorkspaceOnReload = val end,
         L["RELOAD_PERSIST"], L["RELOAD_PERSIST"]
     )
-    reloadCheck:SetPoint("TOPLEFT", 10, -154)
+    reloadCheck:SetPoint("TOPLEFT", 10, -170)
 
     local seamCheck = CreateNativeCheckbox(card2_2, L["REDIRECT_POPUPS"],
         function() return Offhand.db and Offhand.db.seamRedirect end,
@@ -1514,7 +1514,7 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 3: THEMES & COLOR CUSTOMIZATION
     -- ========================================================================
-    local card3_1 = CreateCard(tab3, L["CARD_THEMES"], 114)
+    local card3_1 = CreateCard(tab3, L["CARD_THEMES"], 140)
 
     local rClassic = CreateNativeRadioButton(card3_1, L["THEME_CLASSIC"],
         function() return (Offhand.db and Offhand.db.theme == "CLASSIC") end,
@@ -1577,11 +1577,11 @@ function Options:CreateFloatingPanel()
         end,
         L["THEME_OBSIDIAN_TIP_TITLE"], L["THEME_OBSIDIAN_TIP_DESC"]
     )
-    rObsidian:SetPoint("TOPLEFT", 12, -68)
+    rObsidian:SetPoint("TOPLEFT", 12, -90)
 
     local subObsidian = card3_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     subObsidian:SetWidth(210)
-    subObsidian:SetPoint("TOPLEFT", 34, -88)
+    subObsidian:SetPoint("TOPLEFT", 34, -110)
     subObsidian:SetText(L["THEME_OBSIDIAN_DESC"])
 
     local rPitchBlack = CreateNativeRadioButton(card3_1, L["CANVAS_BLACK"],
@@ -1593,11 +1593,11 @@ function Options:CreateFloatingPanel()
         end,
         L["THEME_PITCH_BLACK_TIP_TITLE"], L["THEME_PITCH_BLACK_TIP_DESC"]
     )
-    rPitchBlack:SetPoint("TOPLEFT", 236, -68)
+    rPitchBlack:SetPoint("TOPLEFT", 236, -90)
 
     local subPitchBlack = card3_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     subPitchBlack:SetWidth(210)
-    subPitchBlack:SetPoint("TOPLEFT", 258, -88)
+    subPitchBlack:SetPoint("TOPLEFT", 258, -110)
     subPitchBlack:SetText(L["THEME_PITCH_BLACK_DESC"])
 
 

@@ -51,6 +51,10 @@ local function makeMockFrame(name, w, h)
     function f:SetFrameStrata() end
     function f:SetFrameLevel() end
     function f:SetText(t) self.text = t end
+    function f:GetFontString()
+        if not f._fontString then f._fontString = { SetWidth = function() end, SetWordWrap = function() end, SetTextColor = function() end } end
+        return f._fontString
+    end
     function f:GetText() return self.text or "" end
     function f:SetTextColor() end
     function f:SetAutoFocus() end

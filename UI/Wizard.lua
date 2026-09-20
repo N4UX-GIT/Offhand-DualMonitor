@@ -203,7 +203,7 @@ function Wizard:CreateFrame()
     local btnDual = CreateFrame("Button", nil, card2, "UIPanelButtonTemplate")
     btnDual:SetSize(196, 24)
     btnDual:SetPoint("LEFT", btnPr, "RIGHT", 10, 0)
-    btnDual:SetText(L["PRESET_DUAL_LANDSCAPE"])
+    btnDual:SetText(L["PRESET_DUAL_LANDSCAPE"])  btnDual:GetFontString():SetWidth(186)  btnDual:GetFontString():SetWordWrap(false)
     if Offhand.SetTooltip then Offhand:SetTooltip(btnDual, L["PRESET_DUAL_LANDSCAPE_TIP_TITLE"], L["PRESET_DUAL_LANDSCAPE_TIP_DESC"]) end
 
     local btnVt = CreateFrame("Button", nil, card2, "UIPanelButtonTemplate")
