@@ -12,8 +12,8 @@ using System.Windows.Forms;
 [assembly: AssemblyCompany("Offhand Project")]
 [assembly: AssemblyProduct("Offhand")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
-[assembly: AssemblyVersion("1.6.38.0")]
-[assembly: AssemblyFileVersion("1.6.38.0")]
+[assembly: AssemblyVersion("1.0.2.0")]
+[assembly: AssemblyFileVersion("1.0.2.0")]
 
 namespace Offhand.Companion
 {
@@ -305,7 +305,7 @@ namespace Offhand.Companion
             UpdateHotkey();
             if (configWarning != null) AddLog(configWarning);
 
-            AddLog("Offhand Companion v1.6.38 initialized.");
+            AddLog("Offhand Companion v1.0.2 initialized.");
             AddLog("Monitoring active. Enable Offhand in WoW; calibrate with /offhand wizard.");
             
             CheckForUpdates();
@@ -337,8 +337,8 @@ namespace Offhand.Companion
                             if (latest > current)
                             {
                                 this.BeginInvoke(new Action(() => {
-                                    AddLog("UPDATE AVAILABLE: v" + tag + " is out!");
-                                    if (MessageBox.Show("A new version of Offhand (v" + tag + ") is available!\n\nWould you like to download it now?", "Update Available", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                                    AddLog("UPDATE AVAILABLE: A new version is out!");
+                                    if (MessageBox.Show("A new version of Offhand is available!\n\nWould you like to download it now?", "Update Available", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
                                     {
                                         System.Diagnostics.Process.Start("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest");
                                     }
@@ -446,7 +446,7 @@ namespace Offhand.Companion
 
             // Version
             Label verLabel = new Label();
-            verLabel.Text = "v1.6.38";
+            verLabel.Text = "v1.0.2";
             verLabel.Location = new Point(98, 66);
             verLabel.Size = new Size(100, 14);
             verLabel.Font = new Font("Segoe UI", 7.5f, FontStyle.Italic);
