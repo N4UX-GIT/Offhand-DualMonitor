@@ -2,7 +2,7 @@
 ## Title: |cffffbd0aOffhand|r |cffffffff[Dual-Screen and Multi-Monitor UI]|r
 ## Notes: Equip your Offhand. Dual wield your monitors. Multi-Monitor Setup UI.
 ## Author: N4UX (Noggaholic)
-## Version: 1.6.7
+## Version: 1.6.8
 ## X-Website: https://offhand-wow.onrender.com/
 ## IconTexture: Interface\AddOns\Offhand\Media\OffhandLogo64x64.blp
 ## SavedVariables: OffhandDB

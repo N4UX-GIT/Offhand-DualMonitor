@@ -946,6 +946,14 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         frame:SetScale(1.0)
         DemodalizePanel(frame)
         RegisterSpecialFrame("WorldMapFrame")
+        
+        -- Force windowed mode so it doesn't span across multiple monitors or render off-screen
+        pcall(function()
+            if frame.IsMaximized and frame:IsMaximized() and frame.Minimize then
+                frame:Minimize()
+            end
+        end)
+        
         local mPos = Offhand.db.savedMainPositions and Offhand.db.savedMainPositions["WorldMapFrame"]
         local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
         local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
@@ -953,20 +961,16 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
 
         if mPos and mPos.x and mPos.y then
             local minX = m.gameLeft + 10
-            local maxX = m.gameRight - (frame:GetWidth() or 610) - 10
+            local maxX = m.gameRight - 200 -- Don't clamp strictly by width as it might be animating
             local posX = math.max(minX, math.min(mPos.x, maxX))
-            local posY = math.max(10, math.min(mPos.y, m.gameTop - (frame:GetHeight() or 438) - 10))
-            local w, h = frame:GetWidth(), frame:GetHeight()
+            local posY = math.max(200, math.min(mPos.y, m.gameTop - 10)) -- Don't clamp strictly by height either
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", posX * factor, posY * factor)
-            if w and h and w > 0 and h > 0 then frame:SetSize(w, h) end
         else
             local defaultX = m.gameLeft + 20
-            local defaultY = math.max(20, m.gameTop - (frame:GetHeight() or 438) - 40)
-            local w, h = frame:GetWidth(), frame:GetHeight()
+            local defaultY = m.gameTop - 40
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", defaultX * factor, defaultY * factor)
-            if w and h and w > 0 and h > 0 then frame:SetSize(w, h) end
         end
     end
 end
