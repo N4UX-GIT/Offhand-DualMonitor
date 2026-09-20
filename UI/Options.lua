@@ -1512,6 +1512,8 @@ function Options:CreateFloatingPanel()
     local bezelNote = card2_3:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     bezelNote:SetPoint("TOPLEFT", 12, -76)
     bezelNote:SetText(L["SLIDER_BEZEL_GAP_TIP_DESC"])
+    bezelNote:SetWidth(530)
+    bezelNote:SetWordWrap(true)
 
     -- ========================================================================
     -- TAB 3: THEMES & COLOR CUSTOMIZATION
