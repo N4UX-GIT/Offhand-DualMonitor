@@ -1466,20 +1466,22 @@ function Options:CreateFloatingPanel()
     local escapeDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     escapeDesc:SetPoint("TOPLEFT", 32, -132)
     escapeDesc:SetText(L["CHECK_ESC_PERSIST_TIP_DESC"])
+    escapeDesc:SetWidth(530)
+    escapeDesc:SetWordWrap(true)
 
     local reloadCheck = CreateNativeCheckbox(card2_2, L["RELOAD_PERSIST"],
         function() return Offhand.db and Offhand.db.restoreWorkspaceOnReload ~= false end,
         function(val) Offhand.db.restoreWorkspaceOnReload = val end,
         L["RELOAD_PERSIST"], L["RELOAD_PERSIST"]
     )
-    reloadCheck:SetPoint("TOPLEFT", 10, -170)
+    reloadCheck:SetPoint("TOPLEFT", 10, -164)
 
     local seamCheck = CreateNativeCheckbox(card2_2, L["REDIRECT_POPUPS"],
         function() return Offhand.db and Offhand.db.seamRedirect end,
         function(val) Offhand.db.seamRedirect = val end,
         L["CHECK_SEAM_REDIRECT_TIP_TITLE"], L["CHECK_SEAM_REDIRECT_TIP_DESC"]
     )
-    seamCheck:SetPoint("TOPLEFT", 10, -178)
+    seamCheck:SetPoint("TOPLEFT", 10, -190)
 
     local forceCheck = CreateNativeCheckbox(recoveryCard, L["PREVIEW_DUAL"],
         function() return (Offhand.db and Offhand.db.forceDualOnSingle) or false end,

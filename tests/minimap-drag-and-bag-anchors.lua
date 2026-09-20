@@ -220,3 +220,4 @@ _G.UpdateContainerFrameAnchors()
 assert(origBlizzardCalled == true, "UpdateContainerFrameAnchors must yield and invoke original function when custom bag addon is active")
 
 print("PASS: Minimap drag resilience, UpdateContainerFrameAnchors override, and bag expansion cycle prevention verified!")
+

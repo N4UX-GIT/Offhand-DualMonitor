@@ -21,3 +21,4 @@ for _,locale in ipairs(locales) do
     end
 end
 print("PASS: all 11 locale dictionaries have complete keys and matching format arguments")
+

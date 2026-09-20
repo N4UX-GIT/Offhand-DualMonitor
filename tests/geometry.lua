@@ -220,3 +220,4 @@ combat=false;addon.Viewport:ApplyGlobalScale();assert(writes==2)
 addon.db.enabled=false;addon.Viewport:ApplyGlobalScale();
 near(uiScale,original)
 print("PASS: inherited global baseline, addon relative scales, no repeated writes, recursion/combat guards, restore")
+

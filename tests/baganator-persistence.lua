@@ -69,3 +69,4 @@ table.remove(queue,1)()
 assert(#queue>0 and not bag.shown)
 _G[name]=bag; flush(); assert(bag.shown and bag.x==110)
 print("PASS: Baganator reload snapshots, root-only detection, lazy restore, manual close, settings and combat")
+

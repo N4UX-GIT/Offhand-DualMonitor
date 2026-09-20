@@ -98,6 +98,8 @@ local function makeMockFrame(name, w, h)
         return {
             SetPoint = function() end,
             SetText = function(self, t) self.text = t end,
+            SetWidth = function() end,
+            SetWordWrap = function() end,
             GetText = function(self) return self.text end,
             SetTextColor = function() end,
             SetJustifyH = function() end,
@@ -250,3 +252,4 @@ assert(math.abs(mockCanvas.bgColor.b - 0.55) < 0.01, "Custom canvas b must match
 assert(math.abs(mockCanvas.bgColor.a - 0.88) < 0.01, "Custom canvas alpha must match 0.88")
 
 print("PASS: Canvas themes, custom color pickers, live opacity, padded header (36px), and themed slider handles verified!")
+

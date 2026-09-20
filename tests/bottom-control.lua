@@ -42,3 +42,4 @@ assert(input.text=="0")
 addon.db.gameBottomPixels=6; row.scripts.OnShow()
 assert(input.text=="6")
 print("PASS: bottom control preserves opening value, nudges, bounds and refresh")
+

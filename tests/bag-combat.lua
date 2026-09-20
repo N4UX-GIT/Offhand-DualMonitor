@@ -15,3 +15,4 @@ assert(CloseAllBags()==false and nativeCalls==1, "Workspace bag was not preserve
 addon.db.enabled=false
 assert(CloseAllBags("disabled")=="disabled" and nativeCalls==2)
 print("PASS: native bag closure in combat/disabled, workspace persistence outside combat")
+

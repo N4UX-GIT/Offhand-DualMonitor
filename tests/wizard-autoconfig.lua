@@ -109,6 +109,9 @@ function CreateFrame(kind, name, parent, template)
             text = "",
             points = {},
             SetText = function(s, t) s.text = t end,
+            SetWidth = function() end,
+            SetWordWrap = function() end,
+            SetTextColor = function() end,
             GetText = function(s) return s.text end,
             SetPoint = function(s, pt, rel, relPt, x, y) s.points[pt] = { rel = rel, relPt = relPt, x = x, y = y } end,
             SetJustifyH = function() end,
@@ -496,3 +499,4 @@ previewTimeout()
 assert(addon.Options:IsSeamGuideShown(), "Old auto-setup timeout must not hide a manually enabled guide")
 addon.Options:HideSeamGuide()
 C_Timer.After = oldAfter
+

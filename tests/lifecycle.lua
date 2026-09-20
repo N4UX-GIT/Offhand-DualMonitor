@@ -93,3 +93,4 @@ assert(type(addon.InitializeCanvas) == "function", "InitializeCanvas missing")
 assert(type(addon.InitializeSeamRedirect) == "function", "InitializeSeamRedirect missing")
 
 print("PASS: config preservation, defaults, combat coalescing, error recovery, reentrancy, ADDON_LOADED stack safety")
+

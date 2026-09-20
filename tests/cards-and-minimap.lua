@@ -235,3 +235,4 @@ addon.Canvas.MakePanelDraggable(customMinimap)
 assert(customMinimap._OffhandMovable == nil, "MakePanelDraggable must yield and NOT manage MinimapCluster when SexyMap is present")
 
 print("PASS: MinimapCluster & Bag workspace persistence, header border & close button, 3rd-party addon yielding without conflict")
+

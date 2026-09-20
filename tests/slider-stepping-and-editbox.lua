@@ -85,6 +85,8 @@ local function makeMockFrame(name, w, h)
             text = "",
             SetPoint = function(s, pt, rel, relPt, x, y) table.insert(s.points, { point = pt, rel = rel, relPt = relPt, x = x, y = y }) end,
             SetText = function(self, t) self.text = t end,
+            SetWidth = function() end,
+            SetWordWrap = function() end,
             GetText = function(self) return self.text or "" end,
             SetTextColor = function() end,
             SetJustifyH = function() end,
@@ -332,3 +334,4 @@ assert(wiz.scaleSlider._isCustomDrag == false or wiz.scaleSlider._isCustomDrag =
 assert(layoutAppliedCount == 1, "Wizard scaleSlider mouse up must apply layout")
 
 print("PASS: Universal slider manual stepping ([-]/[+]), interactive text entry (EditBox), smart parser, and drag debounce verified!")
+

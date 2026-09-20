@@ -60,3 +60,4 @@ C_ChatBubbles = nil
 addon.db.enabled = true
 tick() -- unsupported clients must remain usable
 print("PASS: speech bubble baseline, inherited/custom scales, no feedback, pooled/new frames, protected guards and disable restoration")
+

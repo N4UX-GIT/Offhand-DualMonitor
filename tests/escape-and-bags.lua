@@ -406,3 +406,4 @@ assert(p[4]*scale>=metrics.gameLeft and p[4]*scale+WorldMapFrame:GetWidth()*scal
 assert(p[5]*scale<=metrics.gameTop and p[5]*scale-WorldMapFrame:GetHeight()*scale>=metrics.gameBottom)
 assert(WorldMapFrame:GetWidth()==702 and WorldMapFrame:GetHeight()==534,"Native windowed map size changed")
 print("PASS: maximized map reopening, stale saved position, full bounding-box fit")
+

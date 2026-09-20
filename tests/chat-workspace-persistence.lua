@@ -264,3 +264,4 @@ addon.HUD:AlignChatFrame(metrics)
 assert(select(4, ChatFrame1:GetPoint(1)) == customX, "Chat relocation must wait until combat ends")
 
 print("PASS: ChatFrame1 workspace dragging, FCF_StopDragging hook, and reload persistence verified!")
+

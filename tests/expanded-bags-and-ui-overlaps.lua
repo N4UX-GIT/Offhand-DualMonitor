@@ -131,6 +131,8 @@ local function makeMockFrame(name, w, h)
         return {
             SetPoint = function(self, ...) self.pointArgs = {...} end,
             SetText = function(self, t) self.text = t end,
+            SetWidth = function() end,
+            SetWordWrap = function() end,
             SetTextColor = function() end,
             SetJustifyH = function() end,
             SetWidth = function() end,
@@ -260,3 +262,4 @@ for i=1,5 do
     boxes[#boxes+1]={l=l,r=r,b=b,t=t}
 end
 print("PASS: mixed bag sizes/scales, scaled bar collision and game-height column wrapping")
+

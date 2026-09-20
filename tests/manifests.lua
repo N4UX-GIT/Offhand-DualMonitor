@@ -18,3 +18,4 @@ for i=2,#tocs do
     for j,file in ipairs(main) do assert(file==flavor[j], "Client TOC load order mismatch: "..file) end
 end
 print("PASS: matching client load order and loadable Lua files across all TOCs")
+
