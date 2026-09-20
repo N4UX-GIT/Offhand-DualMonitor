@@ -965,23 +965,27 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         frame:ClearAllPoints()
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         
-                if frame == CharacterFrame then
+                        if frame == CharacterFrame then
+            local function FixCharacterFrameSize()
+                if Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["CharacterFrame"] then
+                    local collapsed = GetCVar("characterFrameCollapsed")
+                    if tostring(collapsed) == "0" then
+                        if CharacterFrame_Expand then CharacterFrame_Expand() end
+                        CharacterFrame:SetWidth(540)
+                        if UIPanelWindows and UIPanelWindows["CharacterFrame"] then UIPanelWindows["CharacterFrame"].width = 540 end
+                    else
+                        if CharacterFrame_Collapse then CharacterFrame_Collapse() end
+                        CharacterFrame:SetWidth(338)
+                        if UIPanelWindows and UIPanelWindows["CharacterFrame"] then UIPanelWindows["CharacterFrame"].width = 338 end
+                    end
+                end
+            end
             if not frame._offhandSizeHooked then
                 frame._offhandSizeHooked = true
-                frame:HookScript("OnShow", function(self)
-                    if Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["CharacterFrame"] then
-                        local collapsed = GetCVar("characterFrameCollapsed")
-                        if collapsed == "0" then
-                            if CharacterFrame_Expand then CharacterFrame_Expand() end
-                            self:SetWidth(540)
-                            if UIPanelWindows and UIPanelWindows["CharacterFrame"] then UIPanelWindows["CharacterFrame"].width = 540 end
-                        else
-                            if CharacterFrame_Collapse then CharacterFrame_Collapse() end
-                            self:SetWidth(338)
-                            if UIPanelWindows and UIPanelWindows["CharacterFrame"] then UIPanelWindows["CharacterFrame"].width = 338 end
-                        end
-                    end
-                end)
+                frame:HookScript("OnShow", FixCharacterFrameSize)
+            end
+            if frame:IsShown() then
+                FixCharacterFrameSize()
             end
         end
 
