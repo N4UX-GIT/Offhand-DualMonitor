@@ -250,7 +250,7 @@ addon.SeamRedirect:HookFrames()
 -- TEST 1: UIPanelWindows for GameMenuFrame, AddonList and saved workspace panels must be demodalized
 assert(UIPanelWindows.GameMenuFrame.area == nil, "GameMenuFrame area must be nil in UIPanelWindows")
 assert(UIPanelWindows.AddonList.area == nil, "AddonList area must be nil in UIPanelWindows")
-assert(UIPanelWindows.CharacterFrame.area == nil, "CharacterFrame area must be nil because it has a saved workspace position")
+assert(UIPanelWindows.CharacterFrame == nil, "CharacterFrame area must be nil because it has a saved workspace position")
 
 local function inSpecial(name)
     for _, n in ipairs(UISpecialFrames) do

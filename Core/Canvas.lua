@@ -498,9 +498,6 @@ function Canvas:ConfigureWorldMap()
         if map.HookScript then map:HookScript("OnShow", ScheduleWindowed) end
     end
 
-    -- Permanently demodalize WorldMapFrame so it never conflicts with UIPanels
-    DemodalizePanel(map)
-
     -- Hook Blizzard's built-in title button drag handlers
     if WorldMapTitleButton and not WorldMapTitleButton._OffhandHooked then
         WorldMapTitleButton._OffhandHooked = true
@@ -650,9 +647,9 @@ DemodalizePanel = function(frame)
     if not name then return end
     if UIPanelWindows and UIPanelWindows[name] then
         if not originalAreas[name] then
-            originalAreas[name] = UIPanelWindows[name].area
+            originalAreas[name] = UIPanelWindows[name]
         end
-        UIPanelWindows[name].area = nil
+        UIPanelWindows[name] = nil
     end
     if SetUIPanelAttribute then
         pcall(function() SetUIPanelAttribute(frame, "area", nil) end)
@@ -671,11 +668,11 @@ RemodalizePanel = function(frame)
     if not name then return end
     UnregisterSpecialFrame(name)
     if originalAreas[name] then
-        if UIPanelWindows and UIPanelWindows[name] then
-            UIPanelWindows[name].area = originalAreas[name]
+        if UIPanelWindows then
+            UIPanelWindows[name] = originalAreas[name]
         end
         if SetUIPanelAttribute then
-            pcall(function() SetUIPanelAttribute(frame, "area", originalAreas[name]) end)
+            pcall(function() SetUIPanelAttribute(frame, "area", originalAreas[name] and originalAreas[name].area or nil) end)
         end
     end
 end
@@ -982,8 +979,8 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
     -- If frame is WorldMapFrame and on the main gaming screen:
     if frame == WorldMapFrame then
         Canvas:ConfigureWorldMap()
-        DemodalizePanel(frame)
-        RegisterSpecialFrame("WorldMapFrame")
+          RemodalizePanel(frame)
+          RegisterSpecialFrame("WorldMapFrame")
 
         local mPos = Offhand.db.savedMainPositions and Offhand.db.savedMainPositions["WorldMapFrame"]
         local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
@@ -1321,13 +1318,7 @@ function Offhand:InitializeCanvas()
     Canvas:UpdatePersistenceBehavior()
     Canvas:ConfigureWorldMap()
 
-    if not Canvas.hideUIPanelHooked and HideUIPanel then
-          Canvas.hideUIPanelHooked = true
-          hooksecurefunc("HideUIPanel", function(frame)
-              if frame == WorldMapFrame and frame:IsShown() then frame:Hide() end
-          end)
-      end
-      if not Canvas.showUIPanelHooked and ShowUIPanel then
+    if not Canvas.showUIPanelHooked and ShowUIPanel then
         Canvas.showUIPanelHooked = true
         hooksecurefunc("ShowUIPanel", function(frame)
             Canvas:TryMakeFrameDraggable(frame)
