@@ -871,11 +871,18 @@ function HUD:HookFrames()
                 end
             end
         else
-            -- Standard game view bag layout (bottom right of gaming screen)
-            local right = m.gameRight - 16
-            local bottom = m.gameBottom + 32
-            local bagIndex = 0
+            -- Standard game view bag layout: rely on native Blizzard logic but shift it to the game monitor
+            if HUD.origUpdateContainerFrameAnchors then
+                local hook = _G.UpdateContainerFrameAnchors
+                _G.UpdateContainerFrameAnchors = HUD.origUpdateContainerFrameAnchors
+                pcall(HUD.origUpdateContainerFrameAnchors)
+                _G.UpdateContainerFrameAnchors = hook
+            end
 
+            -- Shift from UIParent edges to game edges
+            local shiftX = m.gameRight - (UIParent:GetRight() or 0)
+            local shiftY = m.gameBottom - (UIParent:GetBottom() or 0)
+            
             for i = 1, (NUM_CONTAINER_FRAMES or 13) do
                 local frame = _G["ContainerFrame" .. i]
                 if frame and frame:IsShown() then
@@ -887,44 +894,38 @@ function HUD:HookFrames()
                         end
                         if frame.SetAlpha then frame:SetAlpha(1) end
                     else
-                        frame:SetUserPlaced(false)
-                        frame:ClearAllPoints()
-                        local w = frame:GetWidth() or defaultBagWidth
-                        local h = frame:GetHeight() or defaultBagHeight
-                        local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
-                        
-                        local currentX = right
-                        local targetY = bottom + (h + bagSpacing) * bagIndex
-                        if targetY + h > deckMaxY then
-                             right = right - w - bagSpacing
-                             bagIndex = 0
-                             currentX = right
-                             targetY = bottom + (h + bagSpacing) * bagIndex
+                        -- Only shift the root frame (ContainerFrame1) in Classic, or all frames in Retail if they anchor to UIParent
+                        local numPoints = frame:GetNumPoints()
+                        if numPoints and numPoints > 0 then
+                            local point, relTo, relPoint, x, y = frame:GetPoint(1)
+                            if relTo == UIParent or relTo == _G.UIParent or not relTo or (relTo.GetName and string.match(relTo:GetName() or "", "ManagedFrame")) then
+                                frame:ClearAllPoints()
+                                frame:SetPoint(point, relTo, relPoint, (x or 0) + shiftX, (y or 0) + shiftY)
+                            end
                         end
-                        
-                        frame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMLEFT", currentX * factor, targetY * factor)
                         if frame.SetAlpha then frame:SetAlpha(1) end
-                        bagIndex = bagIndex + 1
                     end
                 end
             end
-        end
 
-        if ContainerFrameCombinedBags and ContainerFrameCombinedBags:IsShown() then
-            local pos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["ContainerFrameCombinedBags"]
-            if pos and pos.x and pos.y then
-                if Offhand.Canvas and Offhand.Canvas.RestoreWorkspacePosition then
-                    Offhand.Canvas.RestoreWorkspacePosition(ContainerFrameCombinedBags)
+            if ContainerFrameCombinedBags and ContainerFrameCombinedBags:IsShown() then
+                local pos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["ContainerFrameCombinedBags"]
+                if pos and pos.x and pos.y then
+                    if Offhand.Canvas and Offhand.Canvas.RestoreWorkspacePosition then
+                        Offhand.Canvas.RestoreWorkspacePosition(ContainerFrameCombinedBags)
+                    end
+                    if ContainerFrameCombinedBags.SetAlpha then ContainerFrameCombinedBags:SetAlpha(1) end
+                else
+                    local numPoints = ContainerFrameCombinedBags:GetNumPoints()
+                    if numPoints and numPoints > 0 then
+                        local point, relTo, relPoint, x, y = ContainerFrameCombinedBags:GetPoint(1)
+                        if relTo == UIParent or relTo == _G.UIParent or not relTo or (relTo.GetName and string.match(relTo:GetName() or "", "ManagedFrame")) then
+                            ContainerFrameCombinedBags:ClearAllPoints()
+                            ContainerFrameCombinedBags:SetPoint(point, relTo, relPoint, (x or 0) + shiftX, (y or 0) + shiftY)
+                        end
+                    end
+                    if ContainerFrameCombinedBags.SetAlpha then ContainerFrameCombinedBags:SetAlpha(1) end
                 end
-                if ContainerFrameCombinedBags.SetAlpha then ContainerFrameCombinedBags:SetAlpha(1) end
-            else
-                local right = m.gameRight - 16
-                local bottom = m.gameBottom + 32
-                ContainerFrameCombinedBags:SetUserPlaced(false)
-                ContainerFrameCombinedBags:ClearAllPoints()
-                local factor = UIParent:GetEffectiveScale() / ContainerFrameCombinedBags:GetEffectiveScale()
-                ContainerFrameCombinedBags:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMLEFT", right * factor, bottom * factor)
-                if ContainerFrameCombinedBags.SetAlpha then ContainerFrameCombinedBags:SetAlpha(1) end
             end
         end
 
@@ -934,10 +935,10 @@ function HUD:HookFrames()
     -- Override UpdateContainerFrameAnchors to completely eliminate Blizzard's anchor family connection crashes
     if _G.UpdateContainerFrameAnchors and not self.anchorsHooked then
         self.anchorsHooked = true
-        local origUpdateContainerFrameAnchors = _G.UpdateContainerFrameAnchors
+        HUD.origUpdateContainerFrameAnchors = _G.UpdateContainerFrameAnchors
         _G.UpdateContainerFrameAnchors = function(...)
             if HasCustomBagAddon() or not Offhand.db or not Offhand.db.enabled then
-                return origUpdateContainerFrameAnchors(...)
+                return HUD.origUpdateContainerFrameAnchors(...)
             end
             HUD:LayoutBags()
         end
