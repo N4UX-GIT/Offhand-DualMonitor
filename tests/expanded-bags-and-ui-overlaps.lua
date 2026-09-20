@@ -68,6 +68,7 @@ local function makeMockFrame(name, w, h)
     function f:SetPoint(pt, relTo, relPt, x, y)
         table.insert(self.points, { point = pt, relTo = relTo, relPt = relPt, x = x, y = y })
     end
+    function f:GetNumPoints() return #self.points end
     function f:GetPoint(idx)
         local p = self.points[idx or 1]
         if not p then return nil end
@@ -215,7 +216,7 @@ for i = 2, 5 do
     assert(pt ~= nil, "ContainerFrame" .. i .. " has no point")
     assert(pt.x >= 12 and pt.x <= (deckWidth - 12),
         string.format("ContainerFrame%d spilled out of workspace! x=%f, deckWidth=%f", i, pt.x, deckWidth))
-    assert(pt.point == "BOTTOMLEFT", "ContainerFrame" .. i .. " should anchor BOTTOMLEFT on workspace")
+    assert(pt.point == "BOTTOMRIGHT", "ContainerFrame" .. i .. " should anchor BOTTOMRIGHT on workspace")
 end
 
 -- TEST 3: Moving Backpack back to main game view re-docks all bags to main view
@@ -235,3 +236,27 @@ local configFrame = addon.Options:CreateFloatingPanel()
 assert(configFrame ~= nil, "Floating config frame was not created")
 
 print("PASS: RestoreWorkspacePosition method/function safety, expanded bags workspace docking & redocking, card clearance")
+
+-- Unequal, scaled bags must not overlap or use the portrait monitor's height.
+for i=1,5 do local f=_G["ContainerFrame"..i]; f.h=80+i*57; f.scale=0.8+i*0.1 end
+local function obstacle(name,l,b,r,t,scale)
+    local f=makeMockFrame(name,r-l,t-b); _G[name]=f; f.shown=true; f.scale=scale
+    f.GetLeft=function() return l end; f.GetRight=function() return r end
+    f.GetBottom=function() return b end; f.GetTop=function() return t end
+    return f
+end
+-- Effective-scale conversion puts this bar on the game's right edge.
+obstacle("MultiBarRight",7800,40,8000,2000,0.5)
+obstacle("MicroMenuContainer",3500,6,3900,100,1)
+addon.HUD:LayoutBags()
+local boxes={}
+for i=1,5 do
+    local f=_G["ContainerFrame"..i]; local p=f.points[#f.points]
+    local r,b=p.x*f.scale,p.y*f.scale; local l,t=r-f.w*f.scale,b+f.h*f.scale
+    print("BAG:", i, "L:", l, "R:", r); assert(l>=metrics.gameLeft and r<=3900-8, "Bag overlaps scaled right action bar")
+    print("BAG:", i, "T:", t, "B:", b); assert(t<=metrics.gameTop and b>=metrics.gameBottom, "Bag extends beyond game monitor")
+    assert(r<=3500 or l>=3900 or b>=100 or t<=6, "Bag overlaps micro menu")
+    for _,o in ipairs(boxes) do assert(r<=o.l or l>=o.r or b>=o.t or t<=o.b,"Unequal bags overlap") end
+    boxes[#boxes+1]={l=l,r=r,b=b,t=t}
+end
+print("PASS: mixed bag sizes/scales, scaled bar collision and game-height column wrapping")

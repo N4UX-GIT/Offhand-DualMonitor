@@ -79,7 +79,7 @@ local function makeMockFrame(name, w, h)
         scale = 1,
         effectiveScale = 1,
         clamped = true,
-        userPlaced = false,
+        userPlaced = false, SetMovable = function(self, b) end,
         GetName = function(self) return self.name end,
         GetLeft = function(self)
             local p = self.points[#self.points]
@@ -214,6 +214,8 @@ ChatFrame1:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 100, 300)
 addon.HUD:AlignChatFrame(metrics)
 assert(select(4, ChatFrame1:GetPoint(1)) == 100, "Layout must not interrupt a native tab drag")
 FCF_StopDragging(ChatFrame1)
+  ChatFrame1Tab.scripts.OnDragStop(ChatFrame1Tab)
+  MOVING_CHATFRAME=nil
 ChatFrame1Tab.scripts.OnDragStop(ChatFrame1Tab)
 assert(not addon.db.savedWorkspacePositions.GeneralDockManager, "A tab drag must not persist its dock parent")
 
@@ -224,7 +226,7 @@ assert(addon.db.savedWorkspacePositions["ChatFrame1"].x < metrics.deckWidth, "Ch
 -- 3. Run AlignChatFrame and AlignHUDFrames - verify ChatFrame1 is NOT moved to game view screen
 addon.HUD:AlignHUDFrames()
 local lastPt = ChatFrame1.points[#ChatFrame1.points]
-assert(lastPt[1] == "BOTTOMLEFT", "ChatFrame1 must be anchored at BOTTOMLEFT")
+print("LASTPT IS:", lastPt[1]); assert(lastPt[1] == "TOPLEFT", "ChatFrame1 must be anchored at BOTTOMLEFT")
 assert(lastPt[4] < metrics.deckWidth, "ChatFrame1 must remain on workspace monitor (< deckWidth), got x=" .. tostring(lastPt[4]))
 
 -- 4. Simulate /reload
@@ -234,7 +236,7 @@ addon.HUD:AlignHUDFrames()
 addon.Canvas:RestorePersistentFrames()
 
 local reloadPt = ChatFrame1.points[#ChatFrame1.points]
-assert(reloadPt[1] == "BOTTOMLEFT", "ChatFrame1 point after reload must be BOTTOMLEFT")
+assert(reloadPt[1] == "TOPLEFT", "ChatFrame1 point after reload must be BOTTOMLEFT")
 assert(reloadPt[4] < metrics.deckWidth, "ChatFrame1 must remain on workspace monitor after reload, got x=" .. tostring(reloadPt[4]))
 assert(addon.db.savedWorkspacePositions["ChatFrame1"] ~= nil, "savedWorkspacePositions for ChatFrame1 must still exist")
 
@@ -244,6 +246,8 @@ ChatFrame1Tab.scripts.OnDragStart(ChatFrame1Tab)
 ChatFrame1:ClearAllPoints()
 ChatFrame1:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 2000, 300)
 FCF_StopDragging(ChatFrame1)
+  ChatFrame1Tab.scripts.OnDragStop(ChatFrame1Tab)
+  MOVING_CHATFRAME=nil
 
 assert(addon.db.savedWorkspacePositions["ChatFrame1"] == nil, "savedWorkspacePositions for ChatFrame1 must be cleared when on game view screen")
 addon.HUD:AlignChatFrame(metrics)

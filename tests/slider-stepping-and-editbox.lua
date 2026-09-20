@@ -232,7 +232,7 @@ assert(#sliders >= 5, string.format("Must have at least 5 enhanced sliders with 
 
 local hudSlider = nil
 for _, s in ipairs(sliders) do
-    if s.title and s.title:GetText() and s.title:GetText():find("Global UI Size") then
+    if s.title and s.title:GetText() and s.title:GetText() == addon.L["SLIDER_HUD_SCALE"] then
         hudSlider = s
         break
     end

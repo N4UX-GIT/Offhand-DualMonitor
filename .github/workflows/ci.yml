@@ -37,3 +37,7 @@ jobs:
           if ($failed -gt 0) {
               throw "$failed test suites failed."
           }
+
+      - name: Compile and test companion preferences and monitor selection
+        shell: powershell
+        run: ./tests/companion-preferences.ps1

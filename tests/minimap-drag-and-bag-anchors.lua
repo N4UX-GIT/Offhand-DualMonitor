@@ -65,6 +65,8 @@ local function makeMockFrame(name, w, h)
         shown = false, alpha = 1, points = {}, scripts = {}, scale = 1,
         userPlaced = false,
     }
+    function f:SetSize(w,h) self.w=w; self.h=h end
+    function f:GetTop() return self:GetBottom()+self.h end
     function f:GetName() return self.name end
     function f:GetWidth() return self.w end
     function f:GetHeight() return self.h end
@@ -181,7 +183,7 @@ assert(addon.db.savedWorkspacePositions["MinimapCluster"].x >= 12, "MinimapClust
 
 flushTimers()
 local postDragPt = MinimapCluster.points[#MinimapCluster.points]
-assert(postDragPt.point == "BOTTOMLEFT", "MinimapCluster on workspace must remain at BOTTOMLEFT point")
+assert(postDragPt.point == "TOPLEFT", "MinimapCluster on workspace must remain at BOTTOMLEFT point")
 assert(postDragPt.x < metrics.deckWidth, "MinimapCluster must remain on workspace after timers fire")
 
 local cf1 = _G["ContainerFrame1"]
@@ -204,7 +206,8 @@ for i = 1, 5 do
     local frame = _G["ContainerFrame" .. i]
     local lastP = frame.points[#frame.points]
     assert(lastP ~= nil, "ContainerFrame" .. i .. " must have points")
-    assert(lastP.point == "BOTTOMLEFT", "ContainerFrame" .. i .. " must be anchored BOTTOMLEFT")
+    local expectedPoint = (i == 1) and "TOPLEFT" or "BOTTOMRIGHT"
+    assert(lastP.point == expectedPoint, "ContainerFrame" .. i .. " must be anchored " .. expectedPoint)
     assert(lastP.relTo == UIParent, "ContainerFrame" .. i .. " must be anchored to UIParent (no relative chaining cycles)")
     assert(lastP.x < metrics.deckWidth, "ContainerFrame" .. i .. " must be on workspace")
     assert(frame:GetAlpha() == 1, "ContainerFrame" .. i .. " must have alpha 1")

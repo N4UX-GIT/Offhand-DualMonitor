@@ -27,6 +27,7 @@ UIParent = {
 }
 
 local metrics = {
+    screenHeight = 2560, screenWidth = 4000,
     gameLeft = 1440, gameRight = 4000, gameBottom = 6, gameTop = 1446,
     gameWidth = 2560, gameHeight = 1440, deckWidth = 1440, hudScale = 1,
     isSpanned = true,
@@ -84,6 +85,8 @@ local function makeMockFrame(name, w, h)
         name = name, w = w or 200, h = h or 200,
         shown = false, alpha = 1, points = {}, scripts = {}, scale = 1,
     }
+    function f:GetTop() return self:GetBottom()+self:GetHeight() end
+    function f:SetSize(w,h) self.w=w; self.h=h end
     function f:GetName() return self.name end
     function f:GetWidth() return self.w end
     function f:GetHeight() return self.h end
@@ -286,7 +289,7 @@ CharacterFrame:Show()
 assert(CharacterFrame:IsShown(), "CharacterFrame must be shown")
 assert(delegate.left == nil, "CharacterFrame must NOT occupy delegate.left")
 local cp = CharacterFrame.points[#CharacterFrame.points]
-assert(cp[1] == "BOTTOMLEFT" and cp[4] == 100 and cp[5] == 200, "CharacterFrame must restore saved position")
+assert(cp[1] == "TOPLEFT" and cp[4] == 100 and cp[5] == math.max(200, CharacterFrame:GetHeight()+12), "CharacterFrame must restore saved position")
 
 -- Verify elevated drag handle exists for CharacterFrame and panels
 assert(CharacterFrame._OffhandHandle ~= nil, "CharacterFrame must have an elevated title drag handle")
@@ -308,7 +311,7 @@ ContainerFrame1:Show()
 assert(ContainerFrame1:GetAlpha() == 1, "ContainerFrame1 must have alpha 1 after LayoutBags completes")
 local bp = ContainerFrame1.points[#ContainerFrame1.points]
 assert(bp[1] == "BOTTOMRIGHT", "ContainerFrame1 must be anchored BOTTOMRIGHT")
-assert(bp[4] == metrics.gameRight - 16, "ContainerFrame1 x must be anchored to gaming monitor right edge")
+print("BP4:", bp[4], "EXPECTED:", metrics.gameRight - 16); assert(bp[4] == metrics.gameRight - 16, "ContainerFrame1 x must be anchored to gaming monitor right edge")
 
 -- TEST 8: UIPanel LEFT_OFFSET must be set to m.gameLeft + 16 so panels open on the gaming monitor with padding
 assert(UIParent:GetAttribute("LEFT_OFFSET") == metrics.gameLeft + 16, "UIParent LEFT_OFFSET must match gameLeft + 16")
@@ -378,8 +381,28 @@ WorldMapFrame.scripts.OnMouseWheel(WorldMapFrame,1)
 addon.Canvas:ConfigureWorldMap()
 assert(WorldMapFrame:GetScale()==beforeScale, "Map changed scale during combat")
 InCombatLockdown=function() return false end
+WorldMapFrame:SetScale(0.75)
+beforeScale=0.75
 WorldMapFrame.scripts.OnMouseWheel(WorldMapFrame,1)
 assert(WorldMapFrame:GetScale()>beforeScale, "Ctrl-wheel did not increase map scale")
 assert(WorldMapFrame:GetWidth()==beforeWidth and WorldMapFrame:GetHeight()==beforeHeight,
     "Map scaling mutated the native canvas dimensions")
 print("PASS: active Canvas map scale, native dimensions and combat guard")
+
+-- Reopening maximized must finish native sizing, minimize, and fit the main display.
+addon.db.savedWorkspacePositions.WorldMapFrame=nil
+addon.db.savedMainPositions.WorldMapFrame={x=9000,y=-500}
+WorldMapFrame.maximized=true
+WorldMapFrame.IsMaximized=function(self) return self.maximized end
+WorldMapFrame.Minimize=function(self) self.maximized=false; self:SetSize(702,534) end
+WorldMapFrame.Maximize=function(self) self.maximized=true; self:SetSize(4000,2560) end
+WorldMapFrame._OffhandWindowedHook=nil
+addon.Canvas:ConfigureWorldMap()
+WorldMapFrame:Maximize()
+flushTimers()
+assert(not WorldMapFrame:IsMaximized(), "Native maximize was not corrected after completion")
+local p=WorldMapFrame.points[1]; local scale=WorldMapFrame:GetScale()
+assert(p[4]*scale>=metrics.gameLeft and p[4]*scale+WorldMapFrame:GetWidth()*scale<=metrics.gameRight)
+assert(p[5]*scale<=metrics.gameTop and p[5]*scale-WorldMapFrame:GetHeight()*scale>=metrics.gameBottom)
+assert(WorldMapFrame:GetWidth()==702 and WorldMapFrame:GetHeight()==534,"Native windowed map size changed")
+print("PASS: maximized map reopening, stale saved position, full bounding-box fit")

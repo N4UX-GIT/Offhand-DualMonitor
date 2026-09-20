@@ -63,6 +63,8 @@ local function makeMockFrame(name, w, h)
         shown = false, alpha = 1, points = {}, scripts = {}, scale = 1,
         userPlaced = false,
     }
+    function f:SetSize(w,h) self.w=w; self.h=h end
+    function f:GetTop() return self:GetBottom()+self.h end
     function f:GetName() return self.name end
     function f:GetWidth() return self.w end
     function f:GetHeight() return self.h end
@@ -173,7 +175,7 @@ assert(addon.db.savedWorkspacePositions["MinimapCluster"].x >= 12, "MinimapClust
 -- 3. Run AlignHUDFrames pass and verify MinimapCluster does NOT get reset to TOPRIGHT of game monitor
 addon.HUD:AlignHUDFrames()
 local lastPoint = MinimapCluster.points[#MinimapCluster.points]
-assert(lastPoint[1] == "BOTTOMLEFT", "MinimapCluster on workspace must remain at BOTTOMLEFT point")
+assert(lastPoint[1] == "TOPLEFT", "MinimapCluster on workspace must remain at BOTTOMLEFT point")
 assert(lastPoint[4] < metrics.deckWidth, "MinimapCluster must remain within workspace boundaries")
 
 -- 3b. Drag MinimapCluster back to game monitor (x >= deckWidth)

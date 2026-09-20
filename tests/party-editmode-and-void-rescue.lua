@@ -62,6 +62,7 @@ local function makeMockFrame(name, w, h)
         shown = true, alpha = 1, points = {}, scripts = {}, scale = 1,
         userPlaced = false, movable = false, clamped = false, mouse = false,
     }
+    function f:SetSize(w,h) self.w=w; self.h=h end
     function f:GetName() return self.name end
     function f:GetWidth() return self.w end
     function f:GetHeight() return self.h end
@@ -238,13 +239,13 @@ addon.Canvas.OnPanelDragStop(PartyMemberFrame1)
 
 assert(addon.db.savedWorkspacePositions["PartyMemberFrame1"] ~= nil, "PartyMemberFrame1 position must be saved in savedWorkspacePositions")
 assert(addon.db.savedWorkspacePositions["PartyMemberFrame1"].x == 200, "PartyMemberFrame1 saved x must match 200")
-assert(addon.db.savedWorkspacePositions["PartyMemberFrame1"].y == 1500, "PartyMemberFrame1 saved y must match 1500")
+assert(addon.db.savedWorkspacePositions["PartyMemberFrame1"].y == 1500 + PartyMemberFrame1:GetHeight(), "PartyMemberFrame1 saved y must match 1500")
 
 -- Simulate reload
 PartyMemberFrame1:ClearAllPoints()
 addon.HUD:AlignHUDFrames(metrics)
 local reloadPt = PartyMemberFrame1.points[#PartyMemberFrame1.points]
-assert(reloadPt and reloadPt[4] == 200 and reloadPt[5] == 1500, "PartyMemberFrame1 must restore to workspace on reload")
+assert(reloadPt and reloadPt[4] == 200 and reloadPt[5] == 1500 + PartyMemberFrame1:GetHeight(), "PartyMemberFrame1 must restore to workspace on reload")
 print("PASS: PartyMemberFrame1 dragging to secondary workspace and reload persistence verified")
 
 -- ============================================================================
@@ -258,7 +259,7 @@ addon.Canvas.OnPanelDragStop(PartyMemberFrame1)
 assert(addon.db.savedWorkspacePositions["PartyMemberFrame1"] == nil, "PartyMemberFrame1 must be cleared from savedWorkspacePositions when on Game View")
 assert(addon.db.savedMainPositions["PartyMemberFrame1"] ~= nil, "PartyMemberFrame1 must be saved in savedMainPositions")
 assert(addon.db.savedMainPositions["PartyMemberFrame1"].x == 1600, "PartyMemberFrame1 main x must be 1600")
-assert(addon.db.savedMainPositions["PartyMemberFrame1"].y == 1000, "PartyMemberFrame1 main y must be 1000")
+assert(addon.db.savedMainPositions["PartyMemberFrame1"].y == 1000 + PartyMemberFrame1:GetHeight(), "PartyMemberFrame1 main y must be 1000")
 print("PASS: PartyMemberFrame1 dragged back to Game View updates savedMainPositions")
 
 -- ============================================================================

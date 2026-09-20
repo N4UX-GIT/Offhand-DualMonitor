@@ -30,6 +30,22 @@ namespace Offhand.Companion
         }
     }
 
+    internal static class MonitorSelection
+    {
+        internal static int[] Resolve(string saved, int count)
+        {
+            var selected = new List<int>();
+            if (saved == null) { for (int i = 0; i < count; i++) selected.Add(i); }
+            else foreach (string token in saved.Split(','))
+            {
+                int index;
+                if (int.TryParse(token, out index) && index >= 0 && index < count && !selected.Contains(index)) selected.Add(index);
+            }
+            if (selected.Count == 0) throw new InvalidOperationException("Select at least one connected monitor before spanning.");
+            return selected.ToArray();
+        }
+    }
+
     internal static class PreferenceFile
     {
         internal static Dictionary<string, string> Read(string path)
@@ -940,36 +956,13 @@ namespace Offhand.Companion
             IntPtr prevDpi = NativeMethods.SetThreadDpiAwarenessContext((IntPtr)(-4));
             try
             {
-                if (appSettings.ContainsKey("Monitors") && !string.IsNullOrEmpty(appSettings["Monitors"]))
-                {
-                    string[] saved = appSettings["Monitors"].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-                    int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
-                    bool any = false;
-                    foreach (string m in saved)
-                    {
-                        int idx;
-                        if (int.TryParse(m, out idx) && idx >= 0 && idx < Screen.AllScreens.Length)
-                        {
-                            Rectangle b = Screen.AllScreens[idx].Bounds;
-                            if (b.Left < minX) minX = b.Left;
-                            if (b.Top < minY) minY = b.Top;
-                            if (b.Right > maxX) maxX = b.Right;
-                            if (b.Bottom > maxY) maxY = b.Bottom;
-                            any = true;
-                        }
-                    }
-                    if (any)
-                    {
-                        return new DesktopBounds { X = minX, Y = minY, Width = maxX - minX, Height = maxY - minY };
-                    }
-                }
-                return new DesktopBounds
-                {
-                    X = NativeMethods.GetSystemMetrics(76),
-                    Y = NativeMethods.GetSystemMetrics(77),
-                    Width = NativeMethods.GetSystemMetrics(78),
-                    Height = NativeMethods.GetSystemMetrics(79)
-                };
+                var screens = Screen.AllScreens;
+                string saved;
+                appSettings.TryGetValue("Monitors", out saved);
+                var selected = MonitorSelection.Resolve(saved, screens.Length);
+                Rectangle bounds = screens[selected[0]].Bounds;
+                foreach (int index in selected) bounds = Rectangle.Union(bounds, screens[index].Bounds);
+                return new DesktopBounds { X = bounds.X, Y = bounds.Y, Width = bounds.Width, Height = bounds.Height };
             }
             finally
             {
@@ -1020,6 +1013,7 @@ namespace Offhand.Companion
                 }
                 catch
                 {
+                    NativeMethods.SetWindowRgn(handle, IntPtr.Zero, true);
                     NativeMethods.SetWindowLong(handle, NativeMethods.GWL_STYLE, oldStyle);
                     NativeMethods.SetWindowPos(handle, IntPtr.Zero, oldRect.Left, oldRect.Top, oldRect.Width, oldRect.Height, flags);
                     throw;
@@ -1077,28 +1071,31 @@ namespace Offhand.Companion
                 try
                 {
                     IntPtr combinedRgn = IntPtr.Zero;
-                    string[] saved = appSettings["Monitors"].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-                    foreach (string m in saved)
+                    IntPtr previousDpi = NativeMethods.SetThreadDpiAwarenessContext((IntPtr)(-4));
+                    try
                     {
-                        int idx;
-                        if (int.TryParse(m, out idx) && idx >= 0 && idx < Screen.AllScreens.Length)
+                        string saved;
+                        appSettings.TryGetValue("Monitors", out saved);
+                        var screens = Screen.AllScreens;
+                        foreach (int index in MonitorSelection.Resolve(saved, screens.Length))
                         {
-                            Rectangle b = Screen.AllScreens[idx].Bounds;
+                            Rectangle b = screens[index].Bounds;
                             IntPtr rgn = NativeMethods.CreateRectRgn(b.Left - bounds.X, b.Top - bounds.Y, b.Right - bounds.X, b.Bottom - bounds.Y);
-                            if (combinedRgn == IntPtr.Zero)
-                            {
-                                combinedRgn = rgn;
-                            }
+                            if (rgn == IntPtr.Zero) throw new Exception("Could not create monitor clipping region.");
+                            if (combinedRgn == IntPtr.Zero) combinedRgn = rgn;
                             else
                             {
-                                NativeMethods.CombineRgn(combinedRgn, combinedRgn, rgn, 2); // RGN_OR = 2
-                                NativeMethods.DeleteObject(rgn);
+                                try { if (NativeMethods.CombineRgn(combinedRgn, combinedRgn, rgn, 2) == 0) throw new Exception("Could not combine monitor regions."); }
+                                finally { NativeMethods.DeleteObject(rgn); }
                             }
                         }
+                        if (NativeMethods.SetWindowRgn(handle, combinedRgn, true) == 0) throw new Exception("Could not apply monitor clipping region.");
+                        combinedRgn = IntPtr.Zero; // Windows owns the region after success.
                     }
-                    if (combinedRgn != IntPtr.Zero)
+                    finally
                     {
-                        NativeMethods.SetWindowRgn(handle, combinedRgn, true);
+                        if (combinedRgn != IntPtr.Zero) NativeMethods.DeleteObject(combinedRgn);
+                        if (previousDpi != IntPtr.Zero) NativeMethods.SetThreadDpiAwarenessContext(previousDpi);
                     }
 
                     uint flags = NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_FRAMECHANGED | NativeMethods.SWP_SHOWWINDOW;
@@ -1117,6 +1114,7 @@ namespace Offhand.Companion
                 }
                 catch
                 {
+                    NativeMethods.SetWindowRgn(handle, IntPtr.Zero, true);
                     NativeMethods.SetWindowLong(handle, NativeMethods.GWL_STYLE, oldStyle);
                     NativeMethods.SetWindowPos(handle, IntPtr.Zero, oldRect.Left, oldRect.Top, oldRect.Width, oldRect.Height, 0x0074);
                     throw;

@@ -209,12 +209,12 @@ function Wizard:CreateFrame()
     local btnVt = CreateFrame("Button", nil, card2, "UIPanelButtonTemplate")
     btnVt:SetSize(299, 24)
     btnVt:SetPoint("TOPLEFT", 14, -68)
-    btnVt:SetText("Stacked: Game (Top)")
+    btnVt:SetText(L["PRESET_STACK_TOP"])
 
     local btnVb = CreateFrame("Button", nil, card2, "UIPanelButtonTemplate")
     btnVb:SetSize(299, 24)
     btnVb:SetPoint("LEFT", btnVt, "RIGHT", 10, 0)
-    btnVb:SetText("Stacked: Game (Bottom)")
+    btnVb:SetText(L["PRESET_STACK_BOTTOM"])
 
     local arLabel = card2:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     arLabel:SetPoint("TOPLEFT", 14, -104)
@@ -629,13 +629,13 @@ function Wizard:CreateFrame()
     local btnScaleMinus = CreateFrame("Button", nil, card4, "UIPanelButtonTemplate")
     btnScaleMinus:SetSize(46, 22)
     btnScaleMinus:SetPoint("LEFT", scaleSlider, "RIGHT", 12, 0)
-    btnScaleMinus:SetText("- 1%")
+    btnScaleMinus:SetText(L["BTN_SEAM_MINUS"])
     if Offhand.SetTooltip then Offhand:SetTooltip(btnScaleMinus, L["WIZARD_BTN_SCALE_DOWN_TIP_TITLE"], L["WIZARD_BTN_SCALE_DOWN_TIP_DESC"]) end
 
     local btnScalePlus = CreateFrame("Button", nil, card4, "UIPanelButtonTemplate")
     btnScalePlus:SetSize(46, 22)
     btnScalePlus:SetPoint("LEFT", btnScaleMinus, "RIGHT", 4, 0)
-    btnScalePlus:SetText("+ 1%")
+    btnScalePlus:SetText(L["BTN_SEAM_PLUS"])
     if Offhand.SetTooltip then Offhand:SetTooltip(btnScalePlus, L["WIZARD_BTN_SCALE_UP_TIP_TITLE"], L["WIZARD_BTN_SCALE_UP_TIP_DESC"]) end
 
     local btnScaleReset = CreateFrame("Button", nil, card4, "UIPanelButtonTemplate")
@@ -898,7 +898,7 @@ function Wizard:Open()
     f.topoText:SetText(string.format("|cffffd100%s|r %s  |cff888888%dx%d|r",
         L["WIZARD_DETECTED_PREFIX"], info.description, info.physWidth, info.physHeight))
 
-    f.recomText:SetText(string.format("|cffffd100%s|r %s | Seam: %.1f%% | Viewport: %s",
+    f.recomText:SetText(string.format("|cffffd100%s|r %s | %.1f%% | %s",
         L["WIZARD_RECOM_PREFIX"],
         (info.recommendedPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and (info.recommendedPosition == "RIGHT" and L["PRESET_PL_LR"] or L["PRESET_GL_PR"]) or L["PRESET_DUAL_LANDSCAPE"]),
         info.recommendedDeckRatio * 100,

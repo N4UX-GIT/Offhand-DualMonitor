@@ -864,7 +864,8 @@ function HUD:HookFrames()
                         end
                         frame:ClearAllPoints()
                         local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
-                        frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", targetX * factor, targetY * factor)
+                        -- Offset X by width so BOTTOMRIGHT anchor acts identically to old TOPLEFT
+                        frame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMLEFT", (targetX + w) * factor, (targetY - h) * factor)
                         if frame.SetAlpha then frame:SetAlpha(1) end
                         stackBagCount = stackBagCount + 1
                     end
@@ -878,12 +879,13 @@ function HUD:HookFrames()
             local function DodgeFrame(f)
                 if type(f) == "string" then f = _G[f] end
                 if not f or not f.IsShown or not f:IsShown() then return end
-                local fl = (f:GetLeft() or 0)
-                local fr = (f:GetRight() or 0)
-                local ft = (f:GetTop() or 0)
-                local fb = (f:GetBottom() or 0)
+                local factor = (f.GetEffectiveScale and f:GetEffectiveScale() or 1) / UIParent:GetEffectiveScale()
+                local fl = (f:GetLeft() or 0) * factor
+                local fr = (f:GetRight() or 0) * factor
+                local ft = (f:GetTop() or 0) * factor
+                local fb = (f:GetBottom() or 0) * factor
                 if fr == 0 and fb == 0 then return end
-                
+                                
                 -- If it's a vertical bar on the right edge, push bags left
                 if fr >= m.gameRight - 200 and fb < m.gameBottom + 500 then
                     if (ft - fb) > (fr - fl) * 1.5 then
@@ -893,12 +895,14 @@ function HUD:HookFrames()
                 
                 -- If it's a horizontal bar in the bottom right quadrant, push bags up
                 if fr >= m.gameRight - 400 and fb <= m.gameBottom + 200 then
-                    bottom = math.max(bottom, ft + 16)
-                end
+                      if (fr - fl) > (ft - fb) * 1.5 then
+                          bottom = math.max(bottom, ft + 16)
+                      end
+                  end
             end
             
-            DodgeFrame("MultiBarRight")
-            DodgeFrame("MultiBarLeft")
+                        DodgeFrame("MultiBarRight")
+                        DodgeFrame("MultiBarLeft")
             DodgeFrame("MultiBar5")
             DodgeFrame("MultiBar6")
             DodgeFrame("MultiBar7")
@@ -908,37 +912,42 @@ function HUD:HookFrames()
             DodgeFrame("MainMenuBar")
             DodgeFrame("StanceBar")
             DodgeFrame("PetActionBar")
+                        local curColRight = right
+            local curColY = bottom
+            local nextColRight = right
             
-            local bagIndex = 0
             for i = 1, (NUM_CONTAINER_FRAMES or 13) do
                 local frame = _G["ContainerFrame" .. i]
-                if frame and frame:IsShown() then
-                    local name = frame:GetName()
-                    local pos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
+                if frame and frame.IsShown and frame:IsShown() then
+                    local name = frame.GetName and frame:GetName()
+                    local pos = name and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
                     if pos and pos.x and pos.y then
                         if Offhand.Canvas and Offhand.Canvas.RestoreWorkspacePosition then
                             Offhand.Canvas.RestoreWorkspacePosition(frame)
                         end
                         if frame.SetAlpha then frame:SetAlpha(1) end
                     else
-                        frame:SetUserPlaced(false)
+                        pcall(function() frame:SetUserPlaced(false) end)
                         frame:ClearAllPoints()
-                        local w = frame:GetWidth() or defaultBagWidth
-                        local h = frame:GetHeight() or defaultBagHeight
+                        local rawW = frame:GetWidth() or defaultBagWidth
+                        local rawH = frame:GetHeight() or defaultBagHeight
                         local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
                         
-                        local currentX = right
-                        local targetY = bottom + (h + bagSpacing) * bagIndex
-                        if targetY + h > deckMaxY then
-                             right = right - w - bagSpacing
-                             bagIndex = 0
-                             currentX = right
-                             targetY = bottom + (h + bagSpacing) * bagIndex
+                        -- Convert physical dimensions to UIParent scale for stacking
+                        local uiW = rawW / factor
+                        local uiH = rawH / factor
+                        
+                        -- If adding this bag pushes us above the top of the GAME view monitor (not the spanned void)
+                        if curColY + uiH > m.gameTop - 32 then
+                            curColRight = nextColRight - bagSpacing
+                            curColY = bottom
                         end
                         
-                        frame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMLEFT", currentX * factor, targetY * factor)
+                        frame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMLEFT", curColRight * factor, curColY * factor)
                         if frame.SetAlpha then frame:SetAlpha(1) end
-                        bagIndex = bagIndex + 1
+                        
+                        curColY = curColY + uiH + bagSpacing
+                        nextColRight = math.min(nextColRight, curColRight - uiW)
                     end
                 end
             end

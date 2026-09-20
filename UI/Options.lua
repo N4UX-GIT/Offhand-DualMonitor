@@ -335,7 +335,7 @@ function Options:ShowSeamGuide(deckRatio)
 
         local label = seamGuideLine:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         label:SetPoint("CENTER", seamGuideLine, "CENTER", 0, 0)
-        label:SetText("<< BEZEL SEAM >>")
+        label:SetText(L["SLIDER_SEAM_WIDTH"])
         label:SetTextColor(1, 1, 1, 1)
     end
 
@@ -828,11 +828,11 @@ function Options:CreateFloatingPanel()
     version:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 8, 2)
     local getMetadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
     local verNum = (getMetadata and getMetadata("Offhand", "Version")) or "1.0.0"
-    version:SetText("|cffaaaaaaVersion " .. verNum .. "|r")
+    version:SetText("|cffaaaaaav" .. verNum .. "|r")
     
     local desc = header:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
-    desc:SetText("Dual Monitor Offhand Monitor and Seamless Display Topology Manager")
+    desc:SetText(L["ADDON_DESC"])
     
     local closeBtn = CreateFrame("Button", nil, configFrame.header, "UIPanelCloseButton")
     closeBtn:SetSize(28, 28)
@@ -871,7 +871,7 @@ function Options:CreateFloatingPanel()
     local compAppBtn = CreateFrame("Button", nil, configFrame, "UIPanelButtonTemplate")
     compAppBtn:SetSize(155, 22)
     compAppBtn:SetPoint("RIGHT", autoWizardBtn, "LEFT", -10, 0)
-    compAppBtn:SetText("Get Companion App")
+    compAppBtn:SetText(L["POPUP_BTN_GET_APP"])
     compAppBtn:SetScript("OnClick", function()
         StaticPopup_Show("OFFHAND_DOWNLOAD_LINK")
     end)
@@ -1067,16 +1067,16 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 1: DISPLAY & VIEWPORT CALIBRATION
     -- ========================================================================
-    local card1_1 = CreateCard(tab1, "Display Mode & Dual Monitor Orientation", 160)
+    local card1_1 = CreateCard(tab1, L["CARD_LAYOUT_PRESETS"], 160)
 
-    local enableCheck = CreateNativeCheckbox(card1_1, "Enable Offhand Dual Monitor Mode",
+    local enableCheck = CreateNativeCheckbox(card1_1, L["ENABLE_OFFHAND"],
         function() return Offhand.db and Offhand.db.enabled end,
         function(val) Offhand.db.enabled = val end,
         L["CHECK_CANVAS_ENABLED_TIP_TITLE"], L["CHECK_CANVAS_ENABLED_TIP_DESC"]
     )
     enableCheck:SetPoint("TOPLEFT", 12, -26)
     configFrame.enableCheck = enableCheck
-    local minimapCheck = CreateNativeCheckbox(card1_1, "Show Minimap Icon",
+    local minimapCheck = CreateNativeCheckbox(card1_1, L["SHOW_MINIMAP_ICON"],
         function() return Offhand.db and Offhand.db.showMinimapIcon end,
         function(val) 
             Offhand.db.showMinimapIcon = val 
@@ -1088,7 +1088,7 @@ function Options:CreateFloatingPanel()
     minimapCheck.Text:SetWidth(180)
 
 
-    local laserCheck = CreateNativeCheckbox(card1_1, "Show Red Seam Guide Laser",
+    local laserCheck = CreateNativeCheckbox(card1_1, L["BTN_LASER_TOGGLE"],
         function() return (seamGuideLine and seamGuideLine:IsShown()) or false end,
         function(val)
             if val then
@@ -1103,7 +1103,7 @@ function Options:CreateFloatingPanel()
     laserCheck.Text:SetWidth(360)
     configFrame.laserCheck = laserCheck
 
-    local rPortraitLeft = CreateNativeRadioButton(card1_1, "Portrait (Left) + Game (Right)",
+    local rPortraitLeft = CreateNativeRadioButton(card1_1, L["PRESET_PL_LR"],
         function() return (Offhand.db and Offhand.db.layoutPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and Offhand.db.primaryPosition == "RIGHT") end,
         function()
             Offhand.db.layoutPreset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT"
@@ -1113,7 +1113,7 @@ function Options:CreateFloatingPanel()
     )
     rPortraitLeft:SetPoint("TOPLEFT", 12, -50)
 
-    local rPortraitRight = CreateNativeRadioButton(card1_1, "Game (Left) + Portrait (Right)",
+    local rPortraitRight = CreateNativeRadioButton(card1_1, L["PRESET_GL_PR"],
         function() return (Offhand.db and Offhand.db.layoutPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and Offhand.db.primaryPosition == "LEFT") end,
         function()
             Offhand.db.layoutPreset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT"
@@ -1123,7 +1123,7 @@ function Options:CreateFloatingPanel()
     )
     rPortraitRight:SetPoint("TOPLEFT", 280, -50)
 
-    local rDual = CreateNativeRadioButton(card1_1, "Dual Side-by-Side (50/50)",
+    local rDual = CreateNativeRadioButton(card1_1, L["PRESET_DUAL_LANDSCAPE"],
         function() return (Offhand.db and Offhand.db.layoutPreset == "LANDSCAPE_DUAL") end,
         function()
             Offhand.db.layoutPreset = "LANDSCAPE_DUAL"
@@ -1134,30 +1134,30 @@ function Options:CreateFloatingPanel()
     )
     rDual:SetPoint("TOPLEFT", 12, -74)
     
-    local rVerticalBottom = CreateNativeRadioButton(card1_1, "Stacked (Game Bottom)",
+    local rVerticalBottom = CreateNativeRadioButton(card1_1, L["PRESET_STACK_BOTTOM"],
         function() return (Offhand.db and Offhand.db.primaryPosition == "BOTTOM") end,
         function()
             Offhand.db.layoutPreset = "STACKED_VERTICAL"
             Offhand.db.primaryPosition = "BOTTOM"
         end,
-        "Vertical Stack", "Use this if your monitors are mounted vertically. The 3D game will render on the bottom monitor, leaving the top monitor as a black canvas for UI panels."
+        L["STACKED_LAYOUT"], L["PRESET_STACK_BOTTOM"]
     )
     rVerticalBottom:SetPoint("TOPLEFT", 280, -74)
 
-    local rVerticalTop = CreateNativeRadioButton(card1_1, "Stacked (Game Top)",
+    local rVerticalTop = CreateNativeRadioButton(card1_1, L["PRESET_STACK_TOP"],
         function() return (Offhand.db and Offhand.db.primaryPosition == "TOP") end,
         function()
             Offhand.db.layoutPreset = "STACKED_VERTICAL"
             Offhand.db.primaryPosition = "TOP"
         end,
-        "Vertical Stack", "Use this if your monitors are mounted vertically. The 3D game will render on the top monitor, leaving the bottom monitor as a black canvas for UI panels."
+        L["STACKED_LAYOUT"], L["PRESET_STACK_TOP"]
     )
     rVerticalTop:SetPoint("TOPLEFT", 12, -98)
 
     local autoDetectBtn = CreateFrame("Button", nil, card1_1, "UIPanelButtonTemplate")
     autoDetectBtn:SetSize(200, 22)
     autoDetectBtn:SetPoint("TOPLEFT", 280, -98)
-    autoDetectBtn:SetText("1-Click Auto-Configure")
+    autoDetectBtn:SetText(L["BTN_1CLICK_AUTOCONFIG"])
     autoDetectBtn:SetScript("OnClick", function()
         Options:AutoConfigure()
     end)
@@ -1167,9 +1167,9 @@ function Options:CreateFloatingPanel()
     card1_1.autoDetectBtn = autoDetectBtn
 
 
-    local card1_2 = CreateCard(tab1, "Mainhand Monitor Geometry & Bezel Seam", 120)
+    local card1_2 = CreateCard(tab1, L["CARD_VIEWPORT_AR"], 120)
 
-    local r169 = CreateNativeRadioButton(card1_2, "16:9 Standard",
+    local r169 = CreateNativeRadioButton(card1_2, L["AR_16_9"],
         function() return (Offhand.db and Offhand.db.aspectRatioMode == "16_9") end,
         function() Offhand.db.aspectRatioMode = "16_9" end,
         L["AR_16_9_TIP_TITLE"], L["AR_16_9_TIP_DESC"]
@@ -1183,7 +1183,7 @@ function Options:CreateFloatingPanel()
     )
     r219:SetPoint("TOPLEFT", 200, -26)
 
-    local rFill = CreateNativeRadioButton(card1_2, "Fit Window Height (Fill)",
+    local rFill = CreateNativeRadioButton(card1_2, L["AR_FILL"],
         function() return (Offhand.db and Offhand.db.aspectRatioMode == "FILL") end,
         function() Offhand.db.aspectRatioMode = "FILL" end,
         L["AR_FILL_TIP_TITLE"], L["AR_FILL_TIP_DESC"]
@@ -1230,7 +1230,7 @@ function Options:CreateFloatingPanel()
     local bottomControl = Options:CreateBottomControl(card1_3)
     bottomControl:SetPoint("TOPLEFT", 12, -26)
 
-    local hudSlider = CreateNativeSlider(card1_3, "Global UI Size (% of Mainhand Monitor)", 0.25, 1.25, 0.01,
+    local hudSlider = CreateNativeSlider(card1_3, L["SLIDER_HUD_SCALE"], 0.25, 1.25, 0.01,
         function() return (Offhand.db and Offhand.db.hudScale) or 0.70 end,
         function(val) Offhand.db.hudScale = val end,
         "%.0f%%",
@@ -1280,13 +1280,13 @@ function Options:CreateFloatingPanel()
     hudNote:SetJustifyH("LEFT")
     hudNote:SetText(L["GLOBAL_SCALE_HELP"])
 
-    local card1_4 = CreateCard(tab1, "OBS Streamer Capture Setup", 110)
+    local card1_4 = CreateCard(tab1, L["OBS_SETUP"], 110)
     
     local obsDesc = card1_4:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     obsDesc:SetPoint("TOPLEFT", 16, -26)
     obsDesc:SetPoint("TOPRIGHT", -16, -26)
     obsDesc:SetJustifyH("LEFT")
-    obsDesc:SetText("|cffaaaaaaTo hide the bezel gap on stream, create two Game Capture sources in OBS. Add a 'Crop/Pad' filter to both and enter these exact pixel values, then snap them together.|r")
+    obsDesc:SetText(L["OBS_HELP"])
     
     local obsSource1 = card1_4:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     obsSource1:SetPoint("TOPLEFT", 16, -60)
@@ -1320,16 +1320,16 @@ function Options:CreateFloatingPanel()
             deckCropR = 0
         end
         
-        obsSource1:SetText(string.format("Source 1 (Main Game) Crop:  Left: |cffffffff%d|r   Right: |cffffffff%d|r", gameCropL, gameCropR))
-        obsSource2:SetText(string.format("Source 2 (Offhand Canvas) Crop:  Left: |cffffffff%d|r   Right: |cffffffff%d|r", deckCropL, deckCropR))
+        obsSource1:SetText(string.format(L["OBS_GAME"] .. " — " .. L["ALIGN_LEFT"] .. ": %d  " .. L["ALIGN_RIGHT"] .. ": %d", gameCropL, gameCropR))
+        obsSource2:SetText(string.format(L["OBS_WORKSPACE"] .. " — " .. L["ALIGN_LEFT"] .. ": %d  " .. L["ALIGN_RIGHT"] .. ": %d", deckCropL, deckCropR))
     end
 
     -- ========================================================================
     -- TAB 2: WORKSPACE & WORLD MAP
     -- ========================================================================
-    local card2_1 = CreateCard(tab2, "World Map Scaling & Navigation", 150)
+    local card2_1 = CreateCard(tab2, L["MAP_SETTINGS"], 150)
 
-    local mapScaleSlider = CreateNativeSlider(card2_1, "Map Scale (% of Native)", 0.50, 2.50, 0.05,
+    local mapScaleSlider = CreateNativeSlider(card2_1, L["MAP_SCALE"], 0.50, 2.50, 0.05,
         function()
             local s = Offhand.db and Offhand.db.workspaceMapScale
             if s == "AUTO" then
@@ -1356,7 +1356,7 @@ function Options:CreateFloatingPanel()
     local autoFitBtn = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
     autoFitBtn:SetSize(72, 22)
     autoFitBtn:SetPoint("LEFT", mapScaleSlider, "RIGHT", 12, -6)
-    autoFitBtn:SetText("Auto-Fit")
+    autoFitBtn:SetText(L["BTN_MAP_AUTOFIT"])
     autoFitBtn:SetScript("OnClick", function()
         Offhand.db.workspaceMapScale = "AUTO"
         if Offhand.Canvas and Offhand.Canvas.ConfigureWorldMap then
@@ -1401,9 +1401,9 @@ function Options:CreateFloatingPanel()
 
     local mapTip = card2_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     mapTip:SetPoint("TOPLEFT", 12, -88)
-    mapTip:SetText("|cffffd100Map Zoom Tip:|r Hold |cffffffffCtrl + Mousewheel|r over the World Map to scale it in real-time!")
+    mapTip:SetText(L["MAP_SCALE_HELP"])
 
-    local mapMoveCheck = CreateNativeCheckbox(card2_1, "Keep World Map open while running / walking",
+    local mapMoveCheck = CreateNativeCheckbox(card2_1, L["MAP_KEEP_OPEN"],
         function() return Offhand.db and Offhand.db.preventMapCloseOnMove end,
         function(val)
             Offhand.db.preventMapCloseOnMove = val
@@ -1419,9 +1419,9 @@ function Options:CreateFloatingPanel()
     mapDesc:SetPoint("TOPLEFT", 32, -134)
     local hasLMap = C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("Leatrix_Maps") or (IsAddOnLoaded and IsAddOnLoaded("Leatrix_Maps"))
     if hasLMap then
-        mapDesc:SetText("|cff00ff00Leatrix Maps detected:|r Compatible with Leatrix.")
+        mapDesc:SetText(L["COMPAT_LEATRIX"])
     else
-        mapDesc:SetText("|cff888888Allows navigating with map open. (Compatible with Leatrix)|r")
+        mapDesc:SetText(L["MAP_KEEP_OPEN"])
     end
 
 
@@ -1438,9 +1438,9 @@ function Options:CreateFloatingPanel()
     proTipDesc:SetPoint("TOPLEFT", 10, -26)
     proTipDesc:SetPoint("TOPRIGHT", -10, -26)
     proTipDesc:SetJustifyH("LEFT")
-    proTipDesc:SetText("|cffffd100Pro Tip:|r You can click and drag the header of standard Blizzard windows (Character, Spellbook, Quest Log, Bags) to freely move them across your monitors!")
+    proTipDesc:SetText(L["CHECK_ALLOW_DRAG_TIP_DESC"])
 
-    local panelCheck = CreateNativeCheckbox(card2_2, "Keep panels placed on Offhand Monitor open independently",
+    local panelCheck = CreateNativeCheckbox(card2_2, L["PANELS_INDEPENDENT"],
         function() return Offhand.db and Offhand.db.independentWorkspacePanels end,
         function(val) Offhand.db.independentWorkspacePanels = val end,
         L["CHECK_ESC_PERSIST_TIP_TITLE"], L["CHECK_ESC_PERSIST_TIP_DESC"]
@@ -1449,9 +1449,9 @@ function Options:CreateFloatingPanel()
 
     local panelDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     panelDesc:SetPoint("TOPLEFT", 32, -88)
-    panelDesc:SetText("|cff888888Allows opening bags, character pane, spellbook & map simultaneously.|r")
+    panelDesc:SetText(L["PANELS_INDEPENDENT_HELP"])
 
-    local escapeCheck = CreateNativeCheckbox(card2_2, "Keep Offhand Monitor panels open when pressing Escape",
+    local escapeCheck = CreateNativeCheckbox(card2_2, L["CHECK_ESC_PERSIST"],
         function() return Offhand.db and Offhand.db.persistentWorkspacePanels ~= false end,
         function(val)
             Offhand.db.persistentWorkspacePanels = val
@@ -1465,16 +1465,16 @@ function Options:CreateFloatingPanel()
 
     local escapeDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     escapeDesc:SetPoint("TOPLEFT", 32, -132)
-    escapeDesc:SetText("|cff888888Escape clears targets or opens Game Menu without closing Offhand Monitor elements.|r")
+    escapeDesc:SetText(L["CHECK_ESC_PERSIST_TIP_DESC"])
 
-    local reloadCheck = CreateNativeCheckbox(card2_2, "Persist open panels across reloads & zone transitions",
+    local reloadCheck = CreateNativeCheckbox(card2_2, L["RELOAD_PERSIST"],
         function() return Offhand.db and Offhand.db.restoreWorkspaceOnReload ~= false end,
         function(val) Offhand.db.restoreWorkspaceOnReload = val end,
-        "Reload Persistence", "Automatically re-opens any panels you had open on the Offhand Monitor after a /reload or loading screen completes."
+        L["RELOAD_PERSIST"], L["RELOAD_PERSIST"]
     )
     reloadCheck:SetPoint("TOPLEFT", 10, -154)
 
-    local seamCheck = CreateNativeCheckbox(card2_2, "Reroute popups & dialogs away from center bezel",
+    local seamCheck = CreateNativeCheckbox(card2_2, L["REDIRECT_POPUPS"],
         function() return Offhand.db and Offhand.db.seamRedirect end,
         function(val) Offhand.db.seamRedirect = val end,
         L["CHECK_SEAM_REDIRECT_TIP_TITLE"], L["CHECK_SEAM_REDIRECT_TIP_DESC"]
@@ -1484,7 +1484,7 @@ function Options:CreateFloatingPanel()
     local forceCheck = CreateNativeCheckbox(recoveryCard, L["PREVIEW_DUAL"],
         function() return (Offhand.db and Offhand.db.forceDualOnSingle) or false end,
         function(val) Offhand.db.forceDualOnSingle = val end,
-        "Force Dual Mode", "Forces multi-monitor canvas logic on single-screen setups for testing and preview."
+        L["PREVIEW_DUAL"], L["PREVIEW_DUAL"]
     )
     forceCheck:SetPoint("TOPLEFT", 12, -76)
 
@@ -1497,7 +1497,7 @@ function Options:CreateFloatingPanel()
 
     local card2_3 = CreateCard(tab1, L["CARD_BEZEL"], 116)
 
-    local bezelSlider = CreateNativeSlider(card2_3, "Bezel Compensation Gap", 0, 100, 2,
+    local bezelSlider = CreateNativeSlider(card2_3, L["SLIDER_BEZEL_GAP"], 0, 100, 2,
         function() return (Offhand.db and Offhand.db.bezelGap) or 0 end,
         function(val) Offhand.db.bezelGap = val end,
         "%d px",
@@ -1509,14 +1509,14 @@ function Options:CreateFloatingPanel()
 
     local bezelNote = card2_3:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     bezelNote:SetPoint("TOPLEFT", 12, -76)
-    bezelNote:SetText("|cff888888Compensates for physical display monitor edges to align frames continuously.|r")
+    bezelNote:SetText(L["SLIDER_BEZEL_GAP_TIP_DESC"])
 
     -- ========================================================================
     -- TAB 3: THEMES & COLOR CUSTOMIZATION
     -- ========================================================================
-    local card3_1 = CreateCard(tab3, "Visual Theme Preset", 114)
+    local card3_1 = CreateCard(tab3, L["CARD_THEMES"], 114)
 
-    local rClassic = CreateNativeRadioButton(card3_1, "Classic Warcraft",
+    local rClassic = CreateNativeRadioButton(card3_1, L["THEME_CLASSIC"],
         function() return (Offhand.db and Offhand.db.theme == "CLASSIC") end,
         function()
             Offhand.db.theme = "CLASSIC"
@@ -1530,9 +1530,9 @@ function Options:CreateFloatingPanel()
 
     local subClassic = card3_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     subClassic:SetPoint("TOPLEFT", 34, -46)
-    subClassic:SetText("|cff888888Authentic WoW gold & stone|r")
+    subClassic:SetText(L["THEME_CLASSIC_DESC"])
 
-    local rSlate = CreateNativeRadioButton(card3_1, "Blizzard Slate",
+    local rSlate = CreateNativeRadioButton(card3_1, L["THEME_SLATE"],
         function() return (Offhand.db and Offhand.db.theme == "BLIZZARD_SLATE") end,
         function()
             Offhand.db.theme = "BLIZZARD_SLATE"
@@ -1546,9 +1546,9 @@ function Options:CreateFloatingPanel()
 
     local subSlate = card3_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     subSlate:SetPoint("TOPLEFT", 258, -46)
-    subSlate:SetText("|cff888888Charcoal dialog & silver trim|r")
+    subSlate:SetText(L["THEME_SLATE_DESC"])
 
-    local rTinker = CreateNativeRadioButton(card3_1, "Forged Brass",
+    local rTinker = CreateNativeRadioButton(card3_1, L["THEME_TINKER"],
         function() return (Offhand.db and Offhand.db.theme == "GNOMISH_TINKER") end,
         function()
             Offhand.db.theme = "GNOMISH_TINKER"
@@ -1562,9 +1562,9 @@ function Options:CreateFloatingPanel()
 
     local subTinker = card3_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     subTinker:SetPoint("TOPLEFT", 492, -46)
-    subTinker:SetText("|cff888888Forged brass & blue accents|r")
+    subTinker:SetText(L["THEME_TINKER_DESC"])
 
-    local rObsidian = CreateNativeRadioButton(card3_1, "Obsidian Dark",
+    local rObsidian = CreateNativeRadioButton(card3_1, L["THEME_OBSIDIAN"],
         function() return (Offhand.db and Offhand.db.theme == "OBSIDIAN") end,
         function()
             Offhand.db.theme = "OBSIDIAN"
@@ -1578,9 +1578,9 @@ function Options:CreateFloatingPanel()
 
     local subObsidian = card3_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     subObsidian:SetPoint("TOPLEFT", 34, -88)
-    subObsidian:SetText("|cff888888Dark neutral slate Offhand Monitor|r")
+    subObsidian:SetText(L["THEME_OBSIDIAN_DESC"])
 
-    local rPitchBlack = CreateNativeRadioButton(card3_1, "Pitch Black",
+    local rPitchBlack = CreateNativeRadioButton(card3_1, L["CANVAS_BLACK"],
         function() return (Offhand.db and Offhand.db.theme == "PITCH_BLACK") end,
         function()
             Offhand.db.theme = "PITCH_BLACK"
@@ -1593,10 +1593,10 @@ function Options:CreateFloatingPanel()
 
     local subPitchBlack = card3_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     subPitchBlack:SetPoint("TOPLEFT", 258, -88)
-    subPitchBlack:SetText("|cff888888True OLED pure black canvas|r")
+    subPitchBlack:SetText(L["THEME_PITCH_BLACK_DESC"])
 
 
-    local card3_2 = CreateCard(tab3, "Dialog Header & Border Trim Palette", 94)
+    local card3_2 = CreateCard(tab3, L["CARD_TRIM_COLOR"], 94)
 
     local trimButtons = {
         { "GOLD", "Gold", 1.00, 0.82, 0.00 },
@@ -1684,7 +1684,7 @@ function Options:CreateFloatingPanel()
     Options:UpdateTrimHighlights()
 
 
-    local card3_3 = CreateCard(tab3, "Offhand Canvas Background (Secondary Monitor)", 210)
+    local card3_3 = CreateCard(tab3, L["CARD_CANVAS_BACKGROUND"], 210)
 
     local canvasButtons = {
         { "CLASSIC_STONE", "Classic Stone" },
@@ -1692,7 +1692,7 @@ function Options:CreateFloatingPanel()
         { "CHARCOAL",      "Charcoal Slate" },
         { "WARM_NIGHT",    "Warm Night" },
         { "DEEP_BLUE",     "Midnight Navy" },
-        { "PURE_BLACK",    "Pitch Black" },
+        { "PURE_BLACK",    L["CANVAS_BLACK"] },
     }
     local canvasBtnFrames = {}
     local customCanvasBtn
@@ -1805,11 +1805,11 @@ function Options:CreateFloatingPanel()
                 local pals = Offhand.Themes:GetCanvasPalettes()
                 pName = pals and pals[curColor] and pals[curColor].name or curColor
             end
-            swatchText:SetText(string.format("|cffffd100Preview:|r %s (%d%%)", pName, math.floor(curAlpha * 100 + 0.5)))
+            swatchText:SetText(string.format(L["BTN_CANVAS_PREVIEW_TIP_TITLE"] .. ": %s (%d%%)", pName, math.floor(curAlpha * 100 + 0.5)))
         end
     end
 
-    alphaSlider = CreateNativeSlider(card3_3, "Background Opacity", 0.10, 1.0, 0.05,
+    alphaSlider = CreateNativeSlider(card3_3, L["SLIDER_CANVAS_OPACITY"], 0.10, 1.0, 0.05,
         function() return (Offhand.db and Offhand.db.canvasAlpha) or 0.95 end,
         function(val)
             Offhand.db.canvasAlpha = val
@@ -1826,7 +1826,7 @@ function Options:CreateFloatingPanel()
 
     local themeNote = card3_3:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     themeNote:SetPoint("TOPLEFT", 12, -188)
-    themeNote:SetText("|cff888888Colors & opacity apply live to your secondary screen canvas backdrop. Click preview swatch or Custom for color wheel.|r")
+    themeNote:SetText(L["BTN_CANVAS_PREVIEW_TIP_DESC"])
 
     -- ========================================================================
     -- TAB 4: PROFILES
@@ -2051,7 +2051,7 @@ function Options:CreateFloatingPanel()
     function Options:RefreshPanel()
         if not configFrame then return end
         local info = Options:DetectTopology()
-        banner:SetText(string.format("|cffffd100Display:|r %s  |cff888888(%dx%d)|r",
+        banner:SetText(string.format(L["TAB_DISPLAY"] .. ": %s (%dx%d)",
             info.description, info.physWidth, info.physHeight))
 
         local curSeam = (Offhand.db and Offhand.db.deckWidthRatio) or 0.36
@@ -2098,13 +2098,13 @@ function Options:CreateFloatingPanel()
         local mmAddon = Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon()
         if card2_2.compatDesc then
             if bagAddon and mmAddon then
-                card2_2.compatDesc:SetText("|cff00ff00Addon Compatibility:|r Custom Bag & Minimap addons active (control yielded).")
+                card2_2.compatDesc:SetText(L["COMPAT_BOTH"])
             elseif bagAddon then
-                card2_2.compatDesc:SetText("|cff00ff00Addon Compatibility:|r Custom Bag addon active (control yielded).")
+                card2_2.compatDesc:SetText(L["COMPAT_BAGS"])
             elseif mmAddon then
-                card2_2.compatDesc:SetText("|cff00ff00Addon Compatibility:|r Custom Minimap addon active (control yielded).")
+                card2_2.compatDesc:SetText(L["COMPAT_MINIMAP"])
             else
-                card2_2.compatDesc:SetText("|cff888888Auto-detects Bagnon, SexyMap, AdiBags, ElvUI, etc. to prevent conflicts.|r")
+                card2_2.compatDesc:SetText(L["COMPAT_AUTO"])
             end
         end
         if Options.UpdateOBSCard then

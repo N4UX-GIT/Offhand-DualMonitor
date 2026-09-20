@@ -472,17 +472,31 @@ function Canvas:ConfigureWorldMap()
             map:Minimize()
         end
         
-        -- The map maximize button is hidden below. We no longer aggressively hook Maximize() as it can break Blizzard's animation state machine.
-        
-        -- Hide the maximize button
-        if map.BorderFrame and map.BorderFrame.MaximizeMinimizeFrame and map.BorderFrame.MaximizeMinimizeFrame.MaximizeButton then
-            map.BorderFrame.MaximizeMinimizeFrame.MaximizeButton:Hide()
-            if not map.BorderFrame.MaximizeMinimizeFrame.MaximizeButton._offhandHooked then
-                map.BorderFrame.MaximizeMinimizeFrame.MaximizeButton._offhandHooked = true
-                map.BorderFrame.MaximizeMinimizeFrame.MaximizeButton:HookScript("OnShow", function(self) self:Hide() end)
-            end
-        end
+
     end)
+
+    if not map._OffhandWindowedHook and hooksecurefunc then
+        map._OffhandWindowedHook = true
+        local function ScheduleWindowed()
+            if map._OffhandWindowedPending or not C_Timer then return end
+            map._OffhandWindowedPending = true
+            C_Timer.After(0, function()
+                map._OffhandWindowedPending = nil
+                local function ApplyWindowed()
+                    if not Offhand.db or not Offhand.db.enabled or HasLeatrixMaps() then return end
+                    if map.IsShown and map:IsShown() then
+                        Canvas:ConfigureWorldMap()
+                        RestoreWorkspacePosition(map)
+                    end
+                end
+                if InCombatLockdown() then
+                    if Offhand.RunOrQueueCombat then Offhand:RunOrQueueCombat(ApplyWindowed) end
+                else ApplyWindowed() end
+            end)
+        end
+        if map.Maximize then hooksecurefunc(map, "Maximize", ScheduleWindowed) end
+        if map.HookScript then map:HookScript("OnShow", ScheduleWindowed) end
+    end
 
     -- Permanently demodalize WorldMapFrame so it never conflicts with UIPanels
     DemodalizePanel(map)
@@ -547,7 +561,7 @@ function Canvas:ConfigureWorldMap()
 
     -- If map is on the workspace, apply preferred or auto-fit scale
     local pos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["WorldMapFrame"]
-    local isWorkspaceMap = pos or IsFrameOnWorkspace(map)
+    local isWorkspaceMap = pos or (not (Offhand.db.savedMainPositions and Offhand.db.savedMainPositions.WorldMapFrame) and IsFrameOnWorkspace(map))
     if isWorkspaceMap then
         local userScale = Offhand.db.workspaceMapScale
         local fitScale
@@ -571,6 +585,21 @@ function Canvas:ConfigureWorldMap()
             map:SetScale(1.0)
         end
         RegisterSpecialFrame("WorldMapFrame")
+    end
+
+    local availableWidth, availableHeight = m.gameWidth-24, m.gameHeight-24
+    if isWorkspaceMap then
+        if Offhand.db.primaryPosition == "TOP" or Offhand.db.primaryPosition == "BOTTOM" then
+            availableWidth, availableHeight = m.screenWidth-24, m.deckWidth-24
+        else
+            availableWidth, availableHeight = m.deckWidth-24, m.screenHeight-24
+        end
+    end
+    local width, height = map:GetWidth(), map:GetHeight()
+    if width and height and width > 0 and height > 0 and availableWidth > 0 and availableHeight > 0 then
+        local inherited = map:GetEffectiveScale() / map:GetScale() / UIParent:GetEffectiveScale()
+        local scale = math.min(map:GetScale(), availableWidth/width/inherited, availableHeight/height/inherited)
+        if scale > 0 and scale < math.huge then map:SetScale(scale) end
     end
 
     if not map._OffhandPersistenceHooked and map.HookScript then
@@ -689,6 +718,7 @@ OnPanelDragStop = function(frame)
 
     if onDeck then
         if frame == WorldMapFrame then
+            Offhand.db.savedMainPositions.WorldMapFrame = nil
             Canvas:ConfigureWorldMap()
         end
 
@@ -861,26 +891,8 @@ OnPanelDragStop = function(frame)
                 pcall(function() FCF_SavePositionAndDimensions(frame) end)
             end
             
-            if frame == ChatFrame1 then
-                if frame.buttonFrame then
-                    frame.buttonFrame:ClearAllPoints()
-                    frame.buttonFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMLEFT", -4, 0)
-                else
-                    local buttons = { "ChatFrameMenuButton", "ChatFrameChannelButton", "ChatFrameToggleVoiceDeafenButton", "ChatFrameToggleVoiceMuteButton" }
-                    local lastBtn = nil
-                    for _, btnName in ipairs(buttons) do
-                        local btn = _G[btnName]
-                        if btn then
-                            btn:ClearAllPoints()
-                            if not lastBtn then
-                                btn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMLEFT", -4, 0)
-                            else
-                                btn:SetPoint("BOTTOM", lastBtn, "TOP", 0, 4)
-                            end
-                            lastBtn = btn
-                        end
-                    end
-                end
+            if frame == ChatFrame1 and Offhand.HUD and Offhand.HUD.RepairChatButtons then
+                Offhand.HUD:RepairChatButtons(frame)
             end
         else
             pcall(function() frame:SetUserPlaced(false) end)
@@ -901,7 +913,7 @@ end
 
 RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
     local frame = (selfOrFrame == Canvas and maybeFrame) or maybeFrame or selfOrFrame
-    if not frame or type(frame) ~= "table" or not frame.GetName then return end
+    if InCombatLockdown() or not frame or type(frame) ~= "table" or not frame.GetName then return end
     if not Offhand.db or not Offhand.db.enabled then return end
     local name = frame:GetName()
     if not name then return end
@@ -957,24 +969,8 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
                 ChatFrame1EditBox:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", 0, 0)
             end
             
-            if frame.buttonFrame then
-                frame.buttonFrame:ClearAllPoints()
-                frame.buttonFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMLEFT", -4, 0)
-            else
-                local buttons = { "ChatFrameMenuButton", "ChatFrameChannelButton", "ChatFrameToggleVoiceDeafenButton", "ChatFrameToggleVoiceMuteButton" }
-                local lastBtn = nil
-                for _, btnName in ipairs(buttons) do
-                    local btn = _G[btnName]
-                    if btn then
-                        btn:ClearAllPoints()
-                        if not lastBtn then
-                            btn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMLEFT", -4, 0)
-                        else
-                            btn:SetPoint("BOTTOM", lastBtn, "TOP", 0, 4)
-                        end
-                        lastBtn = btn
-                    end
-                end
+            if Offhand.HUD and Offhand.HUD.RepairChatButtons then
+                Offhand.HUD:RepairChatButtons(frame)
             end
         end
         if Offhand.db.persistentWorkspacePanels ~= false then
@@ -985,35 +981,23 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
 
     -- If frame is WorldMapFrame and on the main gaming screen:
     if frame == WorldMapFrame then
-        frame:SetScale(1.0)
+        Canvas:ConfigureWorldMap()
         DemodalizePanel(frame)
         RegisterSpecialFrame("WorldMapFrame")
-        
-        -- Force windowed mode so it doesn't span across multiple monitors or render off-screen
-        pcall(function()
-            if frame.IsMaximized and frame:IsMaximized() and frame.Minimize then
-                frame:Minimize()
-            end
-        end)
-        
+
         local mPos = Offhand.db.savedMainPositions and Offhand.db.savedMainPositions["WorldMapFrame"]
         local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
         local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
         local factor = parentScale / frameScale
 
-        if mPos and mPos.x and mPos.y then
-            local minX = m.gameLeft + 10
-            local maxX = m.gameRight - 200 -- Don't clamp strictly by width as it might be animating
-            local posX = math.max(minX, math.min(mPos.x, maxX))
-            local posY = math.max(200, math.min(mPos.y, m.gameTop - 10)) -- Don't clamp strictly by height either
-            frame:ClearAllPoints()
-            frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", posX * factor, posY * factor)
-        else
-            local defaultX = m.gameLeft + 20
-            local defaultY = m.gameTop - 40
-            frame:ClearAllPoints()
-            frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", defaultX * factor, defaultY * factor)
-        end
+        local width = frame:GetWidth() / factor
+        local height = frame:GetHeight() / factor
+        local minX, maxX = m.gameLeft+12, math.max(m.gameLeft+12, m.gameRight-width-12)
+        local minY, maxY = m.gameBottom+height+12, m.gameTop-12
+        local x = math.max(minX, math.min((mPos and mPos.x) or minX, maxX))
+        local y = math.min(maxY, math.max(minY, (mPos and mPos.y) or maxY))
+        frame:ClearAllPoints()
+        frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x*factor, y*factor)
     end
 end
 
