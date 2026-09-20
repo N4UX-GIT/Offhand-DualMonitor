@@ -647,9 +647,9 @@ DemodalizePanel = function(frame)
     if not name then return end
     if UIPanelWindows and UIPanelWindows[name] then
         if not originalAreas[name] then
-              originalAreas[name] = UIPanelWindows[name].area
-          end
-          UIPanelWindows[name].area = nil
+            originalAreas[name] = UIPanelWindows[name]
+        end
+        UIPanelWindows[name] = nil
     end
     if SetUIPanelAttribute then
         pcall(function() SetUIPanelAttribute(frame, "area", nil) end)
@@ -668,11 +668,11 @@ RemodalizePanel = function(frame)
     if not name then return end
     UnregisterSpecialFrame(name)
     if originalAreas[name] then
-        if UIPanelWindows and UIPanelWindows[name] then
-              UIPanelWindows[name].area = originalAreas[name]
-          end
-          if SetUIPanelAttribute then
-              pcall(function() SetUIPanelAttribute(frame, "area", originalAreas[name]) end)
+        if UIPanelWindows then
+            UIPanelWindows[name] = originalAreas[name]
+        end
+        if SetUIPanelAttribute then
+            pcall(function() SetUIPanelAttribute(frame, "area", originalAreas[name] and originalAreas[name].area or nil) end)
         end
     end
 end
@@ -953,8 +953,20 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         frame:ClearAllPoints()
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         
-        if frame == CharacterFrame and CharacterFrame_UpdateSize then
-            pcall(CharacterFrame_UpdateSize, frame)
+        if frame == CharacterFrame then
+            if not frame._offhandSizeHooked then
+                frame._offhandSizeHooked = true
+                frame:HookScript("OnShow", function(self)
+                    if Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["CharacterFrame"] then
+                        local collapsed = GetCVar("characterFrameCollapsed")
+                        if collapsed == "0" and CharacterFrame_Expand then
+                            CharacterFrame_Expand()
+                        elseif collapsed == "1" and CharacterFrame_Collapse then
+                            CharacterFrame_Collapse()
+                        end
+                    end
+                end)
+            end
         end
         
         if string.match(name, "^ChatFrame") and ChatFrame1EditBox and frame == ChatFrame1 then
@@ -1316,24 +1328,12 @@ function Offhand:InitializeCanvas()
     Canvas:UpdatePersistenceBehavior()
     Canvas:ConfigureWorldMap()
 
-        if not Canvas.showUIPanelHooked and ShowUIPanel then
+    if not Canvas.showUIPanelHooked and ShowUIPanel then
         Canvas.showUIPanelHooked = true
         hooksecurefunc("ShowUIPanel", function(frame)
-            if frame and UIPanelWindows and UIPanelWindows[frame:GetName()] and not UIPanelWindows[frame:GetName()].area then
-                if not frame:IsShown() then frame:Show() end
-            end
             Canvas:TryMakeFrameDraggable(frame)
         end)
     end
-    if not Canvas.hideUIPanelHooked and HideUIPanel then
-        Canvas.hideUIPanelHooked = true
-        hooksecurefunc("HideUIPanel", function(frame)
-            if frame and UIPanelWindows and UIPanelWindows[frame:GetName()] and not UIPanelWindows[frame:GetName()].area then
-                if frame:IsShown() then frame:Hide() end
-            end
-        end)
-    end
-
 end
 
 function Offhand:UpdateCanvas()
