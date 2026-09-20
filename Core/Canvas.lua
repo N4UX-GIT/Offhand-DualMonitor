@@ -965,38 +965,23 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         frame:ClearAllPoints()
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         
-                                                                                if frame == CharacterFrame then
-            -- We absolutely lock the width if it's supposed to be expanded.
-            -- This bypasses whatever native layout engine is forcing it to 338.
-            if not frame._offhandWidthHooked then
-                frame._offhandWidthHooked = true
-                hooksecurefunc(frame, "SetWidth", function(self, width)
-                    if self == CharacterFrame and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["CharacterFrame"] then
-                        local c = GetCVar("characterFrameCollapsed")
-                        if tostring(c) == "0" and width ~= 540 and not self._offhandForcingWidth then
-                            self._offhandForcingWidth = true
-                            self:SetWidth(540)
-                            self._offhandForcingWidth = false
-                        elseif tostring(c) ~= "0" and width ~= 338 and not self._offhandForcingWidth then
-                            self._offhandForcingWidth = true
-                            self:SetWidth(338)
-                            self._offhandForcingWidth = false
+                                                                                        if frame == CharacterFrame then
+            if not frame._offhandInitCycled then
+                frame._offhandInitCycled = true
+                C_Timer.After(0.5, function()
+                    if Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["CharacterFrame"] then
+                        if CharacterFrame:IsShown() and tostring(GetCVar("characterFrameCollapsed")) == "0" then
+                            if ToggleCharacter then
+                                -- Space out the toggle by a tick to allow the UI to process the transition
+                                pcall(ToggleCharacter, "ReputationFrame")
+                                C_Timer.After(0.05, function()
+                                    pcall(ToggleCharacter, "PaperDollFrame")
+                                end)
+                            end
                         end
                     end
                 end)
             end
-            
-            -- Trigger an immediate evaluation
-            C_Timer.After(0.1, function()
-                if Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["CharacterFrame"] then
-                    local c = GetCVar("characterFrameCollapsed")
-                    if tostring(c) == "0" then
-                        frame._offhandForcingWidth = true
-                        frame:SetWidth(540)
-                        frame._offhandForcingWidth = false
-                    end
-                end
-            end)
         end
 
 
