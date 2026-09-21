@@ -18,17 +18,17 @@ The Companion does not inspect game memory or automate gameplay. It resizes the 
 1. Install the Offhand addon and enable it for your character.
 2. Put WoW in standard **Windowed** mode—not Windowed (Fullscreen).
 3. Install **Offhand Companion v2.0.0 or newer** and start it before WoW.
-4. In the Companion, select the monitors to span and enable automatic spanning. Click **Span WoW Now** for the initial setup.
+4. In the Companion, select the monitors to span and click **Span WoW Now** for the initial setup. Automatic spanning is disabled by default; enable it later only if you want WoW spanned on every launch.
 5. In WoW, type `/oh`, select **Launch Setup Wizard**, and complete every step.
 6. On WoW Forever, open Blizzard **Edit Mode**, select the **Offhand** layout, position protected action bars and combat frames inside the Mainhand game view, and save. If Edit Mode controls are missing, use **Gather Off-Screen UI** in `/oh`.
-7. Exit WoW normally while leaving the Companion running. Relaunch WoW and confirm that the window spans and the layout returns automatically.
+7. Exit WoW normally while leaving the Companion running. Relaunch WoW, span it manually (or wait if you deliberately enabled automatic spanning), and confirm that the layout returns.
 
 The first-run welcome is only an introduction. Clicking either welcome button acknowledges it; completing the Wizard records setup completion separately. You can reopen the Wizard and the full FAQ at any time with `/oh`.
 
 ## Everyday use
 
 - Start the Companion before WoW and leave it running in the system tray.
-- Let automatic spanning finish before opening workspace panels.
+- Click **Span WoW Now**, or let spanning finish first if you deliberately enabled automatic spanning, before opening workspace panels.
 - Move ordinary workspace panels with Offhand Edit Mode.
 - Move protected Forever combat UI with Blizzard Edit Mode.
 - Exit WoW normally before closing the Companion so the newest state can be recovered.
@@ -49,3 +49,11 @@ The first-run welcome is only an introduction. Clicking either welcome button ac
 - Progression and Anniversary Classic
 
 Download the Companion or complete bundle from the [latest GitHub release](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest).
+
+## Companion safety and verification
+
+The Companion is open source and does not request administrator access, install a service, inject into WoW, collect telemetry, or read browser data or credentials. Its window-management behavior—enumerating WoW processes, resizing a window, registering hotkeys, and remaining in the notification area—can resemble broad antivirus heuristic patterns, especially while a new unsigned build has little reputation.
+
+Download only from the official GitHub release. Compare the executable's SHA-256 digest with `checksums-sha256.txt`, and verify its GitHub build-provenance attestation when GitHub CLI is available. Update checks are never automatic: the app contacts the official GitHub Releases API only after you click **Check for Updates**. Do not bypass a security warning for a copy obtained elsewhere.
+
+Full behavior, file locations, source-build steps, and verification commands are documented in the [Offhand security guide](https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md).

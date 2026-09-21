@@ -14,8 +14,8 @@ using System.Windows.Forms;
 [assembly: AssemblyCompany("Offhand Project")]
 [assembly: AssemblyProduct("Offhand")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
-[assembly: AssemblyVersion("2.0.2.0")]
-[assembly: AssemblyFileVersion("2.0.2.0")]
+[assembly: AssemblyVersion("2.0.3.0")]
+[assembly: AssemblyFileVersion("2.0.3.0")]
 
 namespace Offhand.Companion
 {
@@ -415,6 +415,7 @@ namespace Offhand.Companion
 
         private Button btnSpanNow;
         private Button btnToggleWatch;
+        private Button btnCheckUpdates;
         private ListBox logBox;
         private NotifyIcon trayIcon;
         private ToolStripMenuItem itemAuto;
@@ -424,6 +425,7 @@ namespace Offhand.Companion
         // State
         private bool isMonitoring = true;
         private bool isExplicitExit = false;
+        private bool updateCheckInProgress = false;
         private readonly HashSet<int> spannedPids = new HashSet<int>();
         private readonly HashSet<int> restoredPids = new HashSet<int>();
         private sealed class WindowSnapshot
@@ -482,14 +484,17 @@ namespace Offhand.Companion
             UpdateHotkey();
             if (configWarning != null) AddLog(configWarning);
 
-            AddLog("Offhand Companion v2.0.2 initialized.");
+            AddLog("Offhand Companion v2.0.3 initialized.");
             AddLog("Monitoring active. Enable Offhand in WoW; calibrate with /offhand wizard.");
-            
-            CheckForUpdates();
         }
 
         private void CheckForUpdates()
         {
+            if (updateCheckInProgress) return;
+            updateCheckInProgress = true;
+            if (btnCheckUpdates != null) btnCheckUpdates.Enabled = false;
+            AddLog("Checking GitHub for Companion updates (requested by user)...");
+
             System.Threading.ThreadPool.QueueUserWorkItem(_ =>
             {
                 try
@@ -501,31 +506,56 @@ namespace Offhand.Companion
                         string json = wc.DownloadString("https://api.github.com/repos/N4UX-GIT/Offhand-DualMonitor/releases/latest");
                         
                         int idx = json.IndexOf("\"tag_name\":");
-                        if (idx != -1)
+                        if (idx == -1) throw new FormatException("GitHub response did not include a release tag.");
+                        int start = json.IndexOf("\"", idx + 11) + 1;
+                        int end = json.IndexOf("\"", start);
+                        if (start <= 0 || end <= start) throw new FormatException("GitHub release tag was malformed.");
+                        string tag = json.Substring(start, end - start).TrimStart('v');
+                        string cleanTag = tag.Contains("-") ? tag.Substring(0, tag.IndexOf("-")) : tag;
+                        Version latest;
+                        if (!Version.TryParse(cleanTag, out latest)) throw new FormatException("GitHub release version was not recognized.");
+                        Version current = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+
+                        CompleteUpdateCheck(new Action(() =>
                         {
-                            int start = json.IndexOf("\"", idx + 11) + 1;
-                            int end = json.IndexOf("\"", start);
-                            string tag = json.Substring(start, end - start).TrimStart('v');
-                            
-                            string cleanTag = tag.Contains("-") ? tag.Substring(0, tag.IndexOf("-")) : tag;
-                            Version latest = new Version(cleanTag + (cleanTag.Split('.').Length == 3 ? ".0" : ""));
-                            Version current = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-                            
                             if (latest > current)
                             {
-                                this.BeginInvoke(new Action(() => {
-                                    AddLog("UPDATE AVAILABLE: A new version is out!");
-                                    if (MessageBox.Show("A new version of Offhand is available!\n\nWould you like to download it now?", "Update Available", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
-                                    {
-                                        System.Diagnostics.Process.Start("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest");
-                                    }
-                                }));
+                                AddLog("UPDATE AVAILABLE: v" + latest.ToString(3));
+                                if (MessageBox.Show("Offhand Companion v" + latest.ToString(3) + " is available.\n\nOpen the official GitHub release page?", "Update Available", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                                    System.Diagnostics.Process.Start("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest");
                             }
-                        }
+                            else
+                            {
+                                AddLog("Companion is up to date (v" + current.ToString(3) + ").");
+                                MessageBox.Show("You are running the latest published Companion version.", "No Update Available", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            }
+                        }));
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    CompleteUpdateCheck(new Action(() =>
+                    {
+                        AddLog("Update check failed: " + ex.Message);
+                        MessageBox.Show("The Companion could not check the official GitHub release page. No automatic retry will be made.", "Update Check Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }));
+                }
             });
+        }
+
+        private void CompleteUpdateCheck(Action completion)
+        {
+            if (IsDisposed || Disposing || !IsHandleCreated) return;
+            try
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    updateCheckInProgress = false;
+                    if (btnCheckUpdates != null) btnCheckUpdates.Enabled = true;
+                    if (completion != null) completion();
+                }));
+            }
+            catch (InvalidOperationException) { }
         }
 
         private void InitializeUI()
@@ -549,10 +579,9 @@ namespace Offhand.Companion
             // Load Application Icon if available
             try
             {
-                using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Offhand.Companion.Resources.offhand-logo.ico"))
-                {
-                    if (stream != null) this.Icon = new Icon(stream);
-                }
+                // The icon is already stored in the PE by /win32icon. Extracting
+                // it avoids embedding a second 182 KB managed-resource copy.
+                this.Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
             }
             catch { }
 
@@ -631,7 +660,7 @@ namespace Offhand.Companion
 
             // Version
             Label verLabel = new Label();
-            verLabel.Text = "v2.0.2";
+            verLabel.Text = "v2.0.3";
             verLabel.Location = new Point(98, 66);
             verLabel.Size = new Size(100, 14);
             verLabel.Font = new Font("Segoe UI", 7.5f, FontStyle.Italic);
@@ -835,6 +864,11 @@ namespace Offhand.Companion
             this.Controls.Add(btnMinimize);
             uiToolTips.SetToolTip(btnMinimize, "Hide the dashboard while keeping the Companion and launch monitor running in the Windows notification tray.");
 
+            btnCheckUpdates = CreateButton("Check for Updates", 182, 628, 158, 30, cBtnBg, cText, cBorder);
+            btnCheckUpdates.Click += (s, e) => { CheckForUpdates(); };
+            this.Controls.Add(btnCheckUpdates);
+            uiToolTips.SetToolTip(btnCheckUpdates, "Contact the official GitHub Releases API once to compare versions. The Companion never checks for updates automatically.");
+
             Button btnExit = CreateButton("Exit Companion", 356, 628, 152, 30, cBtnDanger, Color.FromArgb(235, 130, 130), Color.FromArgb(140, 45, 45));
             btnExit.Click += (s, e) => { ExitApplication(); };
             this.Controls.Add(btnExit);
@@ -930,6 +964,7 @@ namespace Offhand.Companion
                 "Span WoW Now: Span immediately and resume a process previously restored.",
                 "Restore Window: Return WoW to a safe bordered window and pause auto-span for that process.",
                 "Pause Monitor: Stop launch detection without disabling the manual controls.",
+                "Check for Updates: Make a one-time HTTPS request to the official GitHub Releases API. Update checks never run automatically.",
                 "",
                 "FOREVER AND EDIT MODE",
                 "Forever's protected action bars, unit frames, minimap, and Edit Mode controls belong to Blizzard Edit Mode. Offhand restores workspace panels separately. The Companion is required because WoW must already have the final multi-monitor window geometry when those protected frames initialize. It also works around Forever builds that write Offhand SavedVariables but do not reliably load them on the next cold launch.",
@@ -938,7 +973,10 @@ namespace Offhand.Companion
                 "If UI is inaccessible, click Restore Window (or press Ctrl+Alt+R), enter WoW, and use Offhand's Gather Off-Screen UI action. Re-enter Edit Mode and save/select the Offhand layout, then click Span WoW Now. If the Companion reports no addon, confirm Offhand is enabled for the current client and that the detected WoW installation is correct. WoW must be fully closed before the Forever recovery snapshot can be refreshed.",
                 "",
                 "TROUBLESHOOTING",
-                "Select at least one monitor. If a global shortcut is unavailable, choose another or use the dashboard button. Mixed monitor scale or resolution is supported, but Windows display positions should match their physical arrangement. Hover any dashboard control for a concise explanation."
+                "Select at least one monitor. If a global shortcut is unavailable, choose another or use the dashboard button. Mixed monitor scale or resolution is supported, but Windows display positions should match their physical arrangement. Hover any dashboard control for a concise explanation.",
+                "",
+                "PRIVACY & VERIFICATION",
+                "The Companion does not collect telemetry, credentials, chat, or gameplay data. Network access occurs only when you click Check for Updates, and is limited to the official GitHub Releases API. Release checksums, source, and build provenance are published with official GitHub releases."
             });
         }
 
@@ -1044,6 +1082,10 @@ namespace Offhand.Companion
             ToolStripMenuItem itemHelp = new ToolStripMenuItem("Help / Setup Guide");
             itemHelp.Click += (s, e) => { RestoreForm(); ShowHelpDialog(); };
             trayMenu.Items.Add(itemHelp);
+
+            ToolStripMenuItem itemCheckUpdates = new ToolStripMenuItem("Check for Updates");
+            itemCheckUpdates.Click += (s, e) => { RestoreForm(); CheckForUpdates(); };
+            trayMenu.Items.Add(itemCheckUpdates);
 
             trayMenu.Items.Add(new ToolStripSeparator());
 

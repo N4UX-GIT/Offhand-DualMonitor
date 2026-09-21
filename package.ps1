@@ -68,6 +68,13 @@ New-Item -ItemType Directory -Path $compStaging -Force | Out-Null
 Copy-Item (Join-Path $rootDir "Companion\Offhand.exe") -Destination $compStaging
 Copy-Item (Join-Path $rootDir "Companion\LICENSE") -Destination $compStaging
 Copy-Item (Join-Path $rootDir "Companion\README.md") -Destination $compStaging
+Copy-Item (Join-Path $rootDir "Companion\build.bat") -Destination $compStaging
+Copy-Item (Join-Path $rootDir "Companion\Source") -Destination $compStaging -Recurse
+Copy-Item (Join-Path $rootDir "SECURITY.md") -Destination $compStaging
+$compMedia = Join-Path $compStaging "Media"
+New-Item -ItemType Directory -Path $compMedia -Force | Out-Null
+Copy-Item (Join-Path $rootDir "Media\offhand-logo.ico") -Destination $compMedia
+Copy-Item (Join-Path $rootDir "Media\offhand-logo-small.png") -Destination $compMedia
 
 $compZip = Join-Path $distDir "Offhand-Companion.zip"
 Compress-Archive -Path (Join-Path $compStaging "*") -DestinationPath $compZip -CompressionLevel Optimal -Force
@@ -87,6 +94,7 @@ New-Item -ItemType Directory -Path $bundleStaging -Force | Out-Null
 Copy-Item $addonStaging -Destination (Join-Path $bundleStaging "Offhand") -Recurse
 Copy-Item (Join-Path $rootDir "Companion\Offhand.exe") -Destination (Join-Path $bundleStaging "Offhand-Companion.exe")
 Copy-Item (Join-Path $rootDir "README.md") -Destination $bundleStaging
+Copy-Item (Join-Path $rootDir "SECURITY.md") -Destination $bundleStaging
 
 $bundleZip = Join-Path $distDir "Offhand-Complete-v$Version.zip"
 Compress-Archive -Path (Join-Path $bundleStaging "*") -DestinationPath $bundleZip -CompressionLevel Optimal -Force

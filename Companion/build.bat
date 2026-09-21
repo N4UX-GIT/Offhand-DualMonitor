@@ -21,11 +21,13 @@ set "OUT=%~dp0Offhand.exe"
 set "SRC=%~dp0Source\Program.cs"
 set "MANIFEST=%~dp0Source\app.manifest"
 set "ICO=%~dp0..\Media\offhand-logo.ico"
-set "PNG=%~dp0..\Media\offhand-logo.png"
+set "PNG=%~dp0..\Media\offhand-logo-small.png"
+if not exist "%ICO%" set "ICO=%~dp0Media\offhand-logo.ico"
+if not exist "%PNG%" set "PNG=%~dp0Media\offhand-logo-small.png"
 
 echo Compiling %OUT% ...
 
-"%CSC%" /target:winexe /optimize+ /platform:anycpu /out:"%OUT%" /win32icon:"%ICO%" /win32manifest:"%MANIFEST%" /resource:"%PNG%",Offhand.Companion.Resources.offhand-logo.png /resource:"%ICO%",Offhand.Companion.Resources.offhand-logo.ico /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll "%SRC%"
+"%CSC%" /target:winexe /optimize+ /platform:anycpu /out:"%OUT%" /win32icon:"%ICO%" /win32manifest:"%MANIFEST%" /resource:"%PNG%",Offhand.Companion.Resources.offhand-logo.png /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll "%SRC%"
 
 if %ERRORLEVEL% equ 0 (
     echo ===================================================

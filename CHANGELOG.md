@@ -6,6 +6,13 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Added durable Forever onboarding state and Companion recovery so acknowledged welcome/setup state survives reloads and cold launches.
 - Expanded the in-game FAQ, first-run guide, website, and distribution documentation with the complete Companion, Wizard, Edit Mode, and cold-launch setup flow.
+- Added Companion control tooltips, an in-app setup/help guide, a security behavior disclosure, release SHA-256 verification instructions, and GitHub build-provenance attestations.
+
+### Changed
+- Companion automatic spanning is now disabled by default on fresh installs while preserving existing saved choices.
+- Replaced automatic startup update traffic with an explicit **Check for Updates** action.
+- Replaced the oversized embedded Companion artwork with the supplied 64×64 asset, reducing the executable from roughly 2 MB to roughly 250 KB.
+- Companion release archives now include their exact C# source, manifest, build script, artwork, and security documentation.
 
 ### Fixed
 - Fixed the Welcome to Offhand popup returning after it was acknowledged or after the setup wizard was completed.

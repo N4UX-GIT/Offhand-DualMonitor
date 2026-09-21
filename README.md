@@ -29,11 +29,11 @@
 1.  **Install the Addon:** Download the addon from [CurseForge](https://www.curseforge.com/wow/addons/offhand) or install it via your preferred addon manager.
 2.  **Get Companion v2.0.0 or newer:** Download the Companion App from the [GitHub Releases page](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases), extract it, and start it before WoW. It is required for reliable cold-launch restoration on the current Forever beta and strongly recommended on other clients.
 
-> [!NOTE]
-> **Windows SmartScreen:** Because the Companion App is an independent, open-source executable, Windows Defender SmartScreen may flag it as an "unrecognized app" on first launch. This is completely normal. Simply click **"More info" -> "Run anyway"**.
+> [!IMPORTANT]
+> **Verify the Companion before running it.** Official GitHub releases include SHA-256 checksums and a GitHub build-provenance attestation. An unsigned or low-reputation build may still produce a Windows SmartScreen warning; never bypass a warning for a file obtained from an unofficial source. Follow the verification steps in [SECURITY.md](SECURITY.md).
 
 3.  **Set WoW to standard Windowed Mode:** In WoW's Graphics settings, set Display Mode to **Windowed**, not Windowed (Fullscreen).
-4.  **Choose displays and span:** In Companion, select the displays to use and enable automatic spanning. Launch WoW, or click **Span WoW Now** (Ctrl+Alt+S) after it starts.
+4.  **Choose displays and span:** In Companion, select the displays to use. Automatic spanning is disabled by default; launch WoW and click **Span WoW Now** (Ctrl+Alt+S) after it starts. Enable automatic spanning later only if you want it.
 5.  **Finish the setup wizard:** Type `/offhand wizard` and complete all four calibration steps for monitor order, aspect ratio, seam/bottom alignment, and UI scale.
 6.  **Forever only — configure protected HUD frames:** Outside combat, open Blizzard Edit Mode. Move action bars, player/target, stance, pet, party, and raid frames onto the Mainhand Monitor. Save the layout with the exact name **Offhand** and select it.
 7.  **Verify a cold launch:** Exit WoW normally, leave Companion running, and relaunch. Workspace panels, their open state, Blizzard HUD placement, and the Edit Mode options frame should return correctly.

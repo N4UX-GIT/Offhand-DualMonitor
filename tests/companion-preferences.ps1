@@ -7,6 +7,19 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Companion test compilation failed' }
     & $testExe
     if ($LASTEXITCODE -ne 0) { throw 'Companion preference test failed' }
+
+    $source = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Source\Program.cs') -Raw
+    $constructor = [regex]::Match(
+        $source,
+        'public CompanionForm\(\)\s*\{(?<body>.*?)\n\s*\}\s*\n\s*private void CheckForUpdates',
+        [Text.RegularExpressions.RegexOptions]::Singleline).Groups['body'].Value
+    if ($constructor -match 'CheckForUpdates') {
+        throw 'Companion must not contact the update service during startup.'
+    }
+    if ($source -notmatch 'btnCheckUpdates\.Click.*CheckForUpdates') {
+        throw 'Companion update checks must remain wired to an explicit user action.'
+    }
+    Write-Output 'PASS: update checks are user initiated'
 } finally {
     if (Test-Path -LiteralPath $testExe) { Remove-Item -LiteralPath $testExe }
 }

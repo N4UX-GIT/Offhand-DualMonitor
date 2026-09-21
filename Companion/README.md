@@ -8,6 +8,7 @@ Native Windows desktop companion application for the Offhand World of Warcraft a
 * **Zero Console Flashing**: Compiled as a native Win32 subsystem application (`Offhand.exe`).
 * **System Tray Integration**: Minimizes silently to the Windows notification tray with quick-actions and live status tips.
 * **Built-in Guidance**: Hover dashboard controls for detailed tooltips, or use the `?` button (also available from the tray menu) for the complete setup, daily-use, Forever recovery, and troubleshooting guide.
+* **User-Initiated Updates**: The Companion never contacts an update service at startup. **Check for Updates** makes a one-time request to the official GitHub Releases API only when clicked.
 * **DPI-Aware**: Full Per-Monitor V2 scaling ensures crisp fonts and accurate window positioning on mixed-resolution / mixed-scale setups.
 * **Forever Layout Recovery**: While WoW is closed, mirrors the newest valid
   account and character Offhand SavedVariables into a guarded addon snapshot.
@@ -25,6 +26,7 @@ Native Windows desktop companion application for the Offhand World of Warcraft a
 * **Open Source Auditability**: 
   * Full source code is in `Source/Program.cs`.
   * To compile yourself, run `build.bat`. It uses the native Windows C# compiler (`csc.exe`) built into Windows 10 & 11.
+  * Official releases include SHA-256 checksums and GitHub build-provenance attestations. See the project `SECURITY.md` for verification commands and the complete behavior disclosure.
 * **PowerShell Alternative**: `Offhand-Companion.ps1` is included for technical users who prefer raw script execution.
 ## Settings and shortcuts
 
@@ -43,6 +45,11 @@ On a fresh install, **Automatically span WoW window on game launch is disabled**
 Use **Span WoW Now** for the initial setup after reviewing the selected displays.
 Enabling auto-span is an explicit preference and is remembered on later launches;
 updating the Companion does not overwrite an existing saved choice.
+
+The Companion does not perform an automatic update check. Clicking **Check for
+Updates** makes one HTTPS request to
+`api.github.com/repos/N4UX-GIT/Offhand-DualMonitor/releases/latest`. It opens the
+official release page only after an update is found and the user confirms.
 
 ## Forever SavedVariables recovery
 

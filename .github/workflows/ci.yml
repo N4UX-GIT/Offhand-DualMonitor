@@ -41,3 +41,7 @@ jobs:
       - name: Compile and test companion preferences and monitor selection
         shell: powershell
         run: ./tests/companion-preferences.ps1
+
+      - name: Build Companion release executable
+        shell: cmd
+        run: Companion\build.bat

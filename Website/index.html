@@ -273,8 +273,8 @@
                         <div class="step-seal">2</div>
                         <h3>Span Your Game Window</h3>
                         <p>
-                            Put WoW in standard <strong>Windowed</strong> mode. Install Companion v2.0.0 or newer, start it before WoW, select the displays to span, and enable automatic spanning. Click <strong>Span WoW Now</strong> for the first setup.
-                            <br><br><span style="font-size: 0.9em; color: #a3a9b8;"><strong>Note:</strong> Windows SmartScreen may flag the app as unrecognized on your first launch. This is normal for open-source tools. Click <strong>More info &rarr; Run anyway</strong>.</span> 
+                            Put WoW in standard <strong>Windowed</strong> mode. Install Companion v2.0.0 or newer, start it before WoW, select the displays to span, and click <strong>Span WoW Now</strong> for the first setup. Automatic spanning is disabled by default; enable it later only if you want WoW spanned on every launch.
+                            <br><br><span style="font-size: 0.9em; color: #a3a9b8;"><strong>Security:</strong> Download only from the official GitHub release. Before responding to a Windows warning, verify the published SHA-256 checksum and GitHub artifact attestation. Never bypass a warning for a file from another source. See the <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md" target="_blank" style="color: var(--rio-gold);">security and verification guide</a>.</span>
                             <br><br><span style="font-size: 0.9em; color: #a3a9b8;"><strong>WoW Forever:</strong> Keep the Companion running. Forever currently needs its recovery bridge to preserve Offhand state across a full client restart.</span>
                         </p>
                         <div style="margin-top: 14px;">
@@ -307,7 +307,7 @@
                         <div class="step-seal">5</div>
                         <h3>Verify a Cold Launch</h3>
                         <p>
-                            Exit WoW normally while the Companion remains running. Relaunch WoW and confirm that the window spans automatically, workspace panels return to the Offhand display, and the Edit Mode options remain visible.
+                            Exit WoW normally while the Companion remains running. Relaunch WoW, click <strong>Span WoW Now</strong> (or wait if you deliberately enabled automatic spanning), and confirm that workspace panels return to the Offhand display and the Edit Mode options remain visible.
                         </p>
                     </div>
                 </div>
@@ -395,6 +395,9 @@
                         <div class="faq-body">
                             <p>
                                 Yes. The in-game addon uses standard Blizzard UI APIs. The open-source Companion does not inspect game memory or automate gameplay. It resizes the WoW desktop window and, while WoW is closed, refreshes only Offhand's own recovery bridge file for Forever cold-launch restoration.
+                            </p>
+                            <p>
+                                Download it only from the official GitHub release, then compare its SHA-256 hash with <code>checksums-sha256.txt</code> and verify its GitHub artifact attestation. The Companion does not require administrator access, install a service, inject into WoW, collect telemetry, or read browser data or credentials. Update checks happen only when you select <strong>Check for Updates</strong>. Full behavior, build, and verification details are published in the <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md" target="_blank">security guide</a>.
                             </p>
                         </div>
                     </details>
