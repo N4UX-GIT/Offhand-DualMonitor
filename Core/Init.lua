@@ -627,14 +627,29 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         ProcessCombatQueue()
 
     elseif event == "UI_SCALE_CHANGED" or event == "DISPLAY_SIZE_CHANGED" then
-        if not Offhand._displayDebounceTimer then
-            Offhand._displayDebounceTimer = C_Timer.NewTimer(0.2, function()
-                Offhand._displayDebounceTimer = nil
-                Offhand:RunOrQueueCombat(function()
-                    Offhand:ApplyFullLayout()
-                end)
-            end)
+        -- A Companion span can dispatch several size/scale notifications while
+        -- Blizzard is still rebuilding UIParent and Edit Mode geometry. Treat
+        -- the whole burst as one transition and restore saved panels only after
+        -- the final canvas dimensions have settled.
+        Offhand._displayGeometryGeneration = (Offhand._displayGeometryGeneration or 0) + 1
+        local generation = Offhand._displayGeometryGeneration
+        Offhand._displayGeometryTransitionActive = true
+        if Offhand._displayDebounceTimer and Offhand._displayDebounceTimer.Cancel then
+            Offhand._displayDebounceTimer:Cancel()
         end
+        Offhand._displayDebounceTimer = C_Timer.NewTimer(0.75, function()
+            if generation ~= Offhand._displayGeometryGeneration then return end
+            Offhand._displayDebounceTimer = nil
+            Offhand:RunOrQueueCombat(function()
+                Offhand:ApplyFullLayout()
+                if Offhand.Canvas and Offhand.Canvas.RestorePersistentFrames then
+                    Offhand.Canvas:RestorePersistentFrames()
+                end
+                if generation == Offhand._displayGeometryGeneration then
+                    Offhand._displayGeometryTransitionActive = false
+                end
+            end)
+        end)
     end
 end)
 

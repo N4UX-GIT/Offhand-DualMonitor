@@ -14,8 +14,8 @@ using System.Windows.Forms;
 [assembly: AssemblyCompany("Offhand Project")]
 [assembly: AssemblyProduct("Offhand")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
-[assembly: AssemblyVersion("2.0.0.0")]
-[assembly: AssemblyFileVersion("2.0.0.0")]
+[assembly: AssemblyVersion("2.0.1.0")]
+[assembly: AssemblyFileVersion("2.0.1.0")]
 
 namespace Offhand.Companion
 {
@@ -67,6 +67,20 @@ namespace Offhand.Companion
         {
             decimal delay;
             return decimal.TryParse(value, out delay) ? Math.Max(0, Math.Min(60, delay)) : 15;
+        }
+    }
+
+    internal static class CompanionTiming
+    {
+        internal static double AutoSpanDelay(string processName, string wowDir, decimal configuredDelay)
+        {
+            bool foreverProcess = string.Equals(processName, "WowB", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(processName, "WowForever", StringComparison.OrdinalIgnoreCase);
+            bool foreverDirectory = !string.IsNullOrEmpty(wowDir)
+                && wowDir.IndexOf("_classic_beta_", StringComparison.OrdinalIgnoreCase) >= 0;
+            // Forever must reach its final window geometry before Blizzard loads
+            // Edit Mode and before Offhand restores workspace coordinates.
+            return foreverProcess || foreverDirectory ? 0 : (double)configuredDelay;
         }
     }
 
@@ -460,7 +474,7 @@ namespace Offhand.Companion
             UpdateHotkey();
             if (configWarning != null) AddLog(configWarning);
 
-            AddLog("Offhand Companion v2.0.0 initialized.");
+            AddLog("Offhand Companion v2.0.1 initialized.");
             AddLog("Monitoring active. Enable Offhand in WoW; calibrate with /offhand wizard.");
             
             CheckForUpdates();
@@ -601,7 +615,7 @@ namespace Offhand.Companion
 
             // Version
             Label verLabel = new Label();
-            verLabel.Text = "v2.0.0";
+            verLabel.Text = "v2.0.1";
             verLabel.Location = new Point(98, 66);
             verLabel.Size = new Size(100, 14);
             verLabel.Font = new Font("Segoe UI", 7.5f, FontStyle.Italic);
@@ -1035,7 +1049,8 @@ namespace Offhand.Companion
                         (!retryAfter.ContainsKey(proc.Id) || DateTime.Now >= retryAfter[proc.Id]))
                     {
                         if (!launchTimes.ContainsKey(proc.Id)) launchTimes[proc.Id] = DateTime.Now;
-                        if ((DateTime.Now - launchTimes[proc.Id]).TotalSeconds < (double)numDelaySpan.Value) { retryAfter[proc.Id] = DateTime.Now.AddSeconds(1); return; }
+                        double spanDelay = CompanionTiming.AutoSpanDelay(proc.ProcessName, status.WowDir, numDelaySpan.Value);
+                        if ((DateTime.Now - launchTimes[proc.Id]).TotalSeconds < spanDelay) { retryAfter[proc.Id] = DateTime.Now.AddSeconds(1); return; }
                         AddLog(string.Format("New WoW launch detected (PID: {0}). Preparing auto-span...", proc.Id));
                         retryAfter[proc.Id] = DateTime.Now.AddSeconds(10);
                         if (InvokeSpanWindow(false))

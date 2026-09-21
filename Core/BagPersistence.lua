@@ -37,7 +37,13 @@ function Bags:Capture()
                 and Offhand.Canvas.IsFrameOnWorkspace(frame) then
                 local factor = frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
                 local x, y = frame:GetLeft(), frame:GetBottom()
-                if x and y then snapshot[name] = { x = x * factor, y = y * factor } end
+                if x and y then
+                    local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+                    snapshot[name] = {
+                        x = x * factor, y = y * factor,
+                        canvasHeight = metrics and metrics.screenHeight or nil,
+                    }
+                end
             end
         end
     end

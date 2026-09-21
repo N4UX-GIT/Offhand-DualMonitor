@@ -840,7 +840,9 @@ OnPanelDragStop = function(frame)
         local maxY = math.max(minY, screenHeight - 12)
         local clampedY = math.max(minY, math.min(yInParent, maxY))
 
-        Offhand.db.savedWorkspacePositions[name] = { x = clampedX, y = clampedY }
+        Offhand.db.savedWorkspacePositions[name] = {
+            x = clampedX, y = clampedY, canvasHeight = m.screenHeight,
+        }
         if Offhand.db.savedMainPositions then
             Offhand.db.savedMainPositions[name] = nil
         end
@@ -1031,7 +1033,11 @@ function Canvas:CaptureForeverFramePosition(frame)
 
     Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
     if onWorkspace and x and y then
-        local position = { x = x, y = y, width = width, height = height }
+        local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+        local position = {
+            x = x, y = y, width = width, height = height,
+            canvasHeight = metrics and metrics.screenHeight or nil,
+        }
         Offhand.db.savedWorkspacePositions[name] = position
         Offhand.ForeverPersistence:SaveWorkspacePosition(name, position, width, height)
         return true
@@ -1087,9 +1093,12 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         local screenHeight = m.screenHeight or (UIParent.GetHeight and UIParent:GetHeight()) or 1080
         local minY = frameHeight + 12
         local maxY = math.max(minY, screenHeight - 12)
-        local clampedY = math.max(minY, math.min(wPos.y, maxY))
-
-        wPos.x, wPos.y = clampedX, clampedY
+        local savedCanvasHeight = tonumber(wPos.canvasHeight)
+        local targetY = wPos.y
+        if savedCanvasHeight and savedCanvasHeight > 0 and screenHeight > 0 then
+            targetY = targetY * screenHeight / savedCanvasHeight
+        end
+        local clampedY = math.max(minY, math.min(targetY, maxY))
 
         local factor = parentScale / frameScale
         if frame.SetClampedToScreen then
@@ -1559,6 +1568,18 @@ function Offhand:InitializeCanvas()
 
     if Offhand.isForever and C_Timer and C_Timer.NewTicker and not Canvas.foreverPositionTicker then
         Canvas.foreverPositionTicker = C_Timer.NewTicker(0.5, function()
+            if Offhand._displayGeometryTransitionActive then return end
+            local editModeShown = EditModeManagerFrame and EditModeManagerFrame.IsShown
+                and EditModeManagerFrame:IsShown()
+            if editModeShown then
+                Canvas._foreverEditModeWasShown = true
+            elseif Canvas._foreverEditModeWasShown then
+                -- Capture once more after Edit Mode closes in case the final
+                -- drag happened between ticker samples.
+                Canvas._foreverEditModeWasShown = false
+            else
+                return
+            end
             Canvas:CaptureForeverFramePosition(_G.ContainerFrameCombinedBags)
             for i = 1, (NUM_CHAT_WINDOWS or 10) do
                 Canvas:CaptureForeverFramePosition(_G["ChatFrame" .. i])

@@ -23,7 +23,7 @@ end
 local first = NewAddon(true)
 first.ForeverPersistence:SaveWorkspacePosition(
     "ContainerFrameCombinedBags",
-    { x = 274.8437194824219, y = 997.0802001953125 },
+    { x = 274.8437194824219, y = 997.0802001953125, canvasHeight = 1697.8769 },
     320,
     220
 )
@@ -34,6 +34,8 @@ local restored = reloaded.db.savedWorkspacePositions.ContainerFrameCombinedBags
 assert(restored and math.abs(restored.x - 274.8437194824219) < 0.001, "Forever x coordinate must restore from its CVar")
 assert(math.abs(restored.y - 997.0802001953125) < 0.001, "Forever y coordinate must restore from its CVar")
 assert(restored.width == 320 and restored.height == 220, "Forever frame dimensions must restore from its CVar")
+assert(math.abs(restored.canvasHeight - 1697.8769) < 0.001,
+    "Forever capture canvas height must restore from its CVar")
 
 reloaded.ForeverPersistence:SaveOpenPanels({
     ContainerFrameCombinedBags = true,
@@ -61,7 +63,7 @@ cvars.offhandForeverOpenPanels = nil
 cvars.offhandForeverPositionIndex = nil
 local coldAccountDB = { profiles = { Default = {
     openWorkspacePanels = { CharacterFrame = true, WorldMapFrame = true },
-    savedWorkspacePositions = { WorldMapFrame = { x = 12, y = 1685 } },
+    savedWorkspacePositions = { WorldMapFrame = { x = 12, y = 1685, canvasHeight = 1697 } },
 } } }
 local coldLaunch = NewAddon(true, coldAccountDB)
 assert(coldLaunch.db.openWorkspacePanels.CharacterFrame == true

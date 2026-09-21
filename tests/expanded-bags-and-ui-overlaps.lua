@@ -196,6 +196,29 @@ local okFunc, errFunc = pcall(function()
 end)
 assert(okFunc, "Canvas.RestoreWorkspacePosition function call failed: " .. tostring(errFunc))
 
+-- A temporary pre-span window may require a clamped visual position, but that
+-- must never overwrite the durable full-canvas coordinates.
+local durable = { x = -500, y = 9999 }
+addon.db.savedWorkspacePositions["ContainerFrame1"] = durable
+addon.Canvas:RestoreWorkspacePosition(cf1)
+local clamped = cf1.points[#cf1.points]
+assert(clamped.x == 12 and clamped.y == metrics.screenHeight - 12,
+    "temporary restore was not visually clamped to the current canvas")
+assert(durable.x == -500 and durable.y == 9999,
+    "temporary pre-span clamp corrupted the durable workspace coordinates")
+addon.db.savedWorkspacePositions["ContainerFrame1"] = { x = 120, y = 300 }
+
+-- Positions captured on another logical canvas scale proportionally without
+-- altering their durable raw coordinates or capture metadata.
+local normalized = { x = 120, y = 300, canvasHeight = 1280 }
+addon.db.savedWorkspacePositions["ContainerFrame1"] = normalized
+addon.Canvas:RestoreWorkspacePosition(cf1)
+local normalizedPoint = cf1.points[#cf1.points]
+assert(normalizedPoint.y == 600, "workspace Y was not normalized to the current canvas height")
+assert(normalized.y == 300 and normalized.canvasHeight == 1280,
+    "normalized restore mutated durable capture coordinates")
+addon.db.savedWorkspacePositions["ContainerFrame1"] = { x = 120, y = 300 }
+
 -- Call with nil or malformed table -> must safely return without throwing
 local okNil = pcall(function()
     addon.Canvas.RestoreWorkspacePosition(nil)

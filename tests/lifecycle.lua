@@ -93,6 +93,33 @@ assert(initOk, "ADDON_LOADED failed with error: " .. tostring(initErr))
 assert(type(addon.InitializeCanvas) == "function", "InitializeCanvas missing")
 assert(type(addon.InitializeSeamRedirect) == "function", "InitializeSeamRedirect missing")
 
+-- Display changes are a burst during Companion spanning. The prior timer must
+-- be cancelled, persistence capture suspended, and layout restored only after
+-- the final geometry settles.
+local displayTimers = {}
+C_Timer.NewTimer = function(delay, fn)
+    local timer = { delay = delay, fn = fn, cancelled = false }
+    function timer:Cancel() self.cancelled = true end
+    displayTimers[#displayTimers + 1] = timer
+    return timer
+end
+local displayApplies, displayRestores = 0, 0
+addon.ApplyFullLayout = function() displayApplies = displayApplies + 1 end
+addon.Canvas.RestorePersistentFrames = function() displayRestores = displayRestores + 1 end
+initOnEvent(nil, "DISPLAY_SIZE_CHANGED")
+local superseded = displayTimers[#displayTimers]
+initOnEvent(nil, "UI_SCALE_CHANGED")
+local finalTimer = displayTimers[#displayTimers]
+assert(superseded.cancelled == true, "display debounce did not cancel the superseded geometry pass")
+assert(addon._displayGeometryTransitionActive == true, "display transition did not suspend persistence capture")
+superseded.fn()
+assert(displayApplies == 0, "superseded display geometry pass applied a layout")
+finalTimer.fn()
+assert(displayApplies == 1 and displayRestores == 1,
+    "settled display geometry did not apply and restore exactly once")
+assert(addon._displayGeometryTransitionActive == false,
+    "display transition remained active after settled layout restore")
+
 -- Disabled profiles must not mutate Blizzard frame placement or user CVars at login.
 local loginMutations = 0
 addon.db.enabled = false

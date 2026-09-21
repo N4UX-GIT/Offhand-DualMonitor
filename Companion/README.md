@@ -12,6 +12,10 @@ Native Windows desktop companion application for the Offhand World of Warcraft a
   account and character Offhand SavedVariables into a guarded addon snapshot.
   This works around Forever beta builds that write `Offhand.lua` but fail to
   load it on the next client launch.
+* **Forever Pre-Login Span**: Forever clients bypass the configurable launch
+  delay once their main window exists, ensuring Blizzard Edit Mode and Offhand
+  initialize against the final multi-monitor canvas rather than a temporary
+  single-window geometry.
 
 ---
 

@@ -130,7 +130,9 @@ function ForeverPersistence:SaveWorkspacePosition(name, position, width, height)
     local x, y = tonumber(position.x), tonumber(position.y)
     if not x or not y then return end
     self:RememberFrame(name)
-    local value = table.concat({ "W", tostring(x), tostring(y), tostring(tonumber(width) or 0), tostring(tonumber(height) or 0) }, "|")
+    local canvasHeight = tonumber(position.canvasHeight) or 0
+    local value = table.concat({ "W2", tostring(x), tostring(y), tostring(tonumber(width) or 0),
+        tostring(tonumber(height) or 0), tostring(canvasHeight) }, "|")
     WritePersistentCVar(PositionCVar(name), value)
 end
 
@@ -147,14 +149,20 @@ function ForeverPersistence:RestorePositions()
     for _, name in ipairs(names) do
         RegisterPersistentCVar(PositionCVar(name))
         local value = ReadPersistentCVar(PositionCVar(name))
-        local kind, x, y, width, height = tostring(value or ""):match("^(%u)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)$")
-        x, y, width, height = tonumber(x), tonumber(y), tonumber(width), tonumber(height)
-        if kind == "W" and x and y then
+        local kind, x, y, width, height, canvasHeight = tostring(value or ""):match(
+            "^(W2)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)$")
+        if not kind then
+            kind, x, y, width, height = tostring(value or ""):match(
+                "^(W)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)$")
+        end
+        x, y, width, height, canvasHeight = tonumber(x), tonumber(y), tonumber(width), tonumber(height), tonumber(canvasHeight)
+        if (kind == "W" or kind == "W2") and x and y then
             Offhand.db.savedWorkspacePositions[name] = {
                 x = x,
                 y = y,
                 width = width and width > 0 and width or nil,
                 height = height and height > 0 and height or nil,
+                canvasHeight = canvasHeight and canvasHeight > 0 and canvasHeight or nil,
             }
         end
     end

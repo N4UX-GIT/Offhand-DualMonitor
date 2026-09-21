@@ -6,6 +6,8 @@ namespace Offhand.Companion {
         public static void Main() {
             Check(MonitorSelection.Resolve(null, 3).Length == 3);
             Check(MonitorSelection.Resolve("2,2,0,99,bad", 3).Length == 2);
+            Check(CompanionTiming.AutoSpanDelay("WowB", @"D:\Games\World of Warcraft\_classic_beta_", 30) == 0);
+            Check(CompanionTiming.AutoSpanDelay("Wow", @"D:\Games\World of Warcraft\_retail_", 30) == 30);
             foreach (string invalid in new string[] { "", "99", "bad" }) {
                 bool rejected = false;
                 try { MonitorSelection.Resolve(invalid, 3); } catch (InvalidOperationException) { rejected = true; }
