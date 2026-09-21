@@ -143,7 +143,6 @@ for i = 1, 5 do
     _G["ContainerFrame" .. i] = makeMockFrame("ContainerFrame" .. i, 192, 250)
 end
 ContainerFrameCombinedBags = makeMockFrame("ContainerFrameCombinedBags", 320, 220)
-ContainerFrameCombinedBags.TitleContainer = makeMockFrame("ContainerFrameCombinedBagsTitleContainer", 320, 32)
 _G["ContainerFrameCombinedBags"] = ContainerFrameCombinedBags
 
 local origBlizzardCalled = false
@@ -198,9 +197,11 @@ end
 assert(addon.db.savedWorkspacePositions["ContainerFrame1"] ~= nil, "ContainerFrame1 must be saved to workspace")
 
 local combined = _G.ContainerFrameCombinedBags
-assert(combined.TitleContainer._OffhandPersistenceHooked == true,
-    "Combined bag native TitleContainer must be hooked for persistence")
+assert(combined.TitleContainer == nil, "Combined bag title must begin unavailable to exercise delayed creation")
+combined.TitleContainer = makeMockFrame("ContainerFrameCombinedBagsTitleContainer", 320, 32)
 combined:Show()
+assert(combined.TitleContainer._OffhandPersistenceHooked == true,
+    "Delayed combined bag TitleContainer must be hooked when the parent first shows")
 combined.TitleContainer.scripts["OnDragStart"](combined.TitleContainer)
 assert(combined._OffhandDragging == true, "Combined bag must be marked as dragging from its native title")
 combined.points = { { point = "BOTTOMLEFT", relTo = UIParent, relPt = "BOTTOMLEFT", x = 120, y = 500 } }
@@ -208,6 +209,12 @@ combined.TitleContainer.scripts["OnDragStop"](combined.TitleContainer)
 assert(addon.db.savedWorkspacePositions["ContainerFrameCombinedBags"] ~= nil,
     "Combined bag native title drag must save the workspace position")
 assert(combined._OffhandDragging == false, "Combined bag drag state must clear after its native title drag")
+
+addon.db.savedWorkspacePositions["ContainerFrameCombinedBags"] = nil
+combined.points = { { point = "BOTTOMLEFT", relTo = UIParent, relPt = "BOTTOMLEFT", x = 140, y = 520 } }
+combined:Hide()
+assert(addon.db.savedWorkspacePositions["ContainerFrameCombinedBags"] ~= nil,
+    "Closing a combined bag on the workspace must capture its final position")
 
 for i = 2, 5 do
     _G["ContainerFrame" .. i]:Show()

@@ -1095,6 +1095,25 @@ end
 -- ============================================================================
 -- Universal Panel Dragger (Allows moving panels to the secondary monitor)
 -- ============================================================================
+local function HookContainerTitlePersistence(frame, name)
+    if not frame or not name or not string.match(name, "^ContainerFrame") then return end
+    local titleContainer = frame.TitleContainer
+    if not titleContainer or not titleContainer.HookScript or titleContainer._OffhandPersistenceHooked then return end
+
+    titleContainer._OffhandPersistenceHooked = true
+    titleContainer:HookScript("OnDragStart", function()
+        if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+        frame._OffhandDragging = true
+    end)
+    titleContainer:HookScript("OnDragStop", function()
+        if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then
+            frame._OffhandDragging = false
+            return
+        end
+        OnPanelDragStop(frame)
+    end)
+end
+
 local function MakePanelDraggable(frame)
     if not frame or frame._OffhandMovable then return end
     local name = frame.GetName and frame:GetName()
@@ -1156,29 +1175,23 @@ local function MakePanelDraggable(frame)
     end)
 
     -- Modern/Forever combined bags are dragged by their native TitleContainer,
-    -- so the parent frame's OnDragStop does not reliably fire. Observe the
-    -- native drag surface and persist the parent after Blizzard finishes moving
-    -- it. This is intentionally limited to container frames; Edit Mode frames
-    -- continue to be owned entirely by Blizzard.
-    local titleContainer = name and string.match(name, "^ContainerFrame") and frame.TitleContainer
-    if titleContainer and titleContainer.HookScript and not titleContainer._OffhandPersistenceHooked then
-        titleContainer._OffhandPersistenceHooked = true
-        titleContainer:HookScript("OnDragStart", function()
-            if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
-            frame._OffhandDragging = true
-        end)
-        titleContainer:HookScript("OnDragStop", function()
-            if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then
-                frame._OffhandDragging = false
-                return
-            end
-            OnPanelDragStop(frame)
-        end)
-    end
+    -- which may not exist yet when the parent frame is first discovered.
+    HookContainerTitlePersistence(frame, name)
 
     frame:HookScript("OnShow", function(self)
+        HookContainerTitlePersistence(frame, name)
         RestoreWorkspacePosition(frame)
     end)
+
+    if name == "ContainerFrameCombinedBags" then
+        frame:HookScript("OnHide", function()
+            -- Closing the combined backpack is a reliable final opportunity to
+            -- capture a workspace placement even on clients whose native title
+            -- drag does not propagate OnDragStop to the parent.
+            if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+            if IsFrameOnWorkspace(frame) then OnPanelDragStop(frame) end
+        end)
+    end
 
     if frame == MinimapCluster then
         local function HookMinimapDragHandle(handleFrame)
