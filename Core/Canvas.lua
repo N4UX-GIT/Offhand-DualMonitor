@@ -830,6 +830,11 @@ OnPanelDragStop = function(frame)
         end
 
         local rawW, rawH = frame:GetWidth(), frame:GetHeight()
+        if Offhand.ForeverPersistence then
+            Offhand.ForeverPersistence:SaveWorkspacePosition(
+                name, Offhand.db.savedWorkspacePositions[name], rawW, rawH
+            )
+        end
         frame:ClearAllPoints()
         local factor = parentScale / frameScale
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
@@ -888,6 +893,9 @@ OnPanelDragStop = function(frame)
         end
     else
         Offhand.db.savedWorkspacePositions[name] = nil
+        if Offhand.ForeverPersistence then
+            Offhand.ForeverPersistence:ClearPosition(name)
+        end
         if frame == WorldMapFrame then
             frame:SetScale(1.0)
             DemodalizePanel(frame)
@@ -999,6 +1007,9 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         end
         if frame == WorldMapFrame then
             Canvas:ConfigureWorldMap()
+        end
+        if string.match(name, "^ChatFrame") and wPos.width and wPos.height and frame.SetSize then
+            pcall(function() frame:SetSize(wPos.width, wPos.height) end)
         end
 
         local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1

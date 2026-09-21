@@ -53,6 +53,107 @@ local function CopyDefaults(src, dst)
     return dst
 end
 
+-- The current Forever Beta client writes SavedVariables correctly but does not
+-- load them again. Custom CVars use a separate persistence path, so mirror only
+-- movable frame positions there as a narrowly scoped, Forever-only fallback.
+-- Other clients never register, read, or write these CVars.
+local ForeverPersistence = {}
+Offhand.ForeverPersistence = ForeverPersistence
+
+local FOREVER_INDEX_CVAR = "offhandForeverPositionIndex"
+local FOREVER_POSITION_PREFIX = "offhandForeverPosition_"
+
+local function RegisterPersistentCVar(name)
+    local register = RegisterCVar or (C_CVar and C_CVar.RegisterCVar)
+    if not register then return false end
+    return pcall(register, name, "")
+end
+
+local function ReadPersistentCVar(name)
+    local getter = GetCVar or (C_CVar and C_CVar.GetCVar)
+    if not getter then return nil end
+    local ok, value = pcall(getter, name)
+    if not ok then return nil end
+    return value
+end
+
+local function WritePersistentCVar(name, value)
+    local setter = SetCVar or (C_CVar and C_CVar.SetCVar)
+    if not setter then return false end
+    RegisterPersistentCVar(name)
+    return pcall(setter, name, value or "")
+end
+
+local function IsSafeFrameName(name)
+    return type(name) == "string" and name ~= "" and name:match("^[%w_]+$") ~= nil
+end
+
+local function PositionCVar(name)
+    return FOREVER_POSITION_PREFIX .. name
+end
+
+function ForeverPersistence:IsAvailable()
+    return Offhand.isForever and (RegisterCVar or (C_CVar and C_CVar.RegisterCVar))
+        and (GetCVar or (C_CVar and C_CVar.GetCVar))
+        and (SetCVar or (C_CVar and C_CVar.SetCVar))
+end
+
+function ForeverPersistence:GetIndex()
+    if not self:IsAvailable() then return {}, {} end
+    RegisterPersistentCVar(FOREVER_INDEX_CVAR)
+    local names, seen = {}, {}
+    for name in tostring(ReadPersistentCVar(FOREVER_INDEX_CVAR) or ""):gmatch("[^,]+") do
+        if IsSafeFrameName(name) and not seen[name] then
+            seen[name] = true
+            table.insert(names, name)
+        end
+    end
+    return names, seen
+end
+
+function ForeverPersistence:RememberFrame(name)
+    if not self:IsAvailable() or not IsSafeFrameName(name) then return end
+    local names, seen = self:GetIndex()
+    if seen[name] then return end
+    table.insert(names, name)
+    WritePersistentCVar(FOREVER_INDEX_CVAR, table.concat(names, ","))
+end
+
+function ForeverPersistence:SaveWorkspacePosition(name, position, width, height)
+    if not self:IsAvailable() or not IsSafeFrameName(name) or type(position) ~= "table" then return end
+    local x, y = tonumber(position.x), tonumber(position.y)
+    if not x or not y then return end
+    self:RememberFrame(name)
+    local value = table.concat({ "W", tostring(x), tostring(y), tostring(tonumber(width) or 0), tostring(tonumber(height) or 0) }, "|")
+    WritePersistentCVar(PositionCVar(name), value)
+end
+
+function ForeverPersistence:ClearPosition(name)
+    if not self:IsAvailable() or not IsSafeFrameName(name) then return end
+    self:RememberFrame(name)
+    WritePersistentCVar(PositionCVar(name), "")
+end
+
+function ForeverPersistence:RestorePositions()
+    if not self:IsAvailable() or not Offhand.db then return end
+    Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
+    local names = self:GetIndex()
+    for _, name in ipairs(names) do
+        RegisterPersistentCVar(PositionCVar(name))
+        local value = ReadPersistentCVar(PositionCVar(name))
+        local kind, x, y, width, height = tostring(value or ""):match("^(%u)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)$")
+        x, y, width, height = tonumber(x), tonumber(y), tonumber(width), tonumber(height)
+        if kind == "W" and x and y then
+            Offhand.db.savedWorkspacePositions[name] = {
+                x = x,
+                y = y,
+                width = width and width > 0 and width or nil,
+                height = height and height > 0 and height or nil,
+            }
+        end
+    end
+end
+
 function Offhand:InitializeConfig()
     if type(OffhandDB) ~= "table" then OffhandDB = {} end
     if type(OffhandCharDB) ~= "table" then OffhandCharDB = {} end
@@ -102,6 +203,7 @@ function Offhand:InitializeConfig()
     end
 
     CopyDefaults(defaultSettings, Offhand.db)
+    ForeverPersistence:RestorePositions()
 end
 
 function Offhand:GetProfiles()
