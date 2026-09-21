@@ -701,6 +701,9 @@ function Offhand:ApplyFullLayout()
             Offhand:UpdateCanvas()
         end
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+        if Offhand.HUD and Offhand.HUD.UpdateForeverRecoveryLayout then
+            Offhand.HUD:UpdateForeverRecoveryLayout(metrics)
+        end
         if not metrics or metrics.isSpanned then
             if Offhand.UpdateSeamRedirect then
                 Offhand:UpdateSeamRedirect()

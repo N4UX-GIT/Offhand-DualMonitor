@@ -3,7 +3,7 @@
     Packages the Offhand Addon for CurseForge and the Offhand Companion for GitHub Releases.
 #>
 param(
-    [string]$Version = "2.1.0"
+    [string]$Version = "2.1.1"
 )
 
 $ErrorActionPreference = "Stop"

@@ -389,6 +389,41 @@ assert(selectedLayout == nil,
 assert(addon.HUD.editModeGuidanceShown,
     "Forever must guide the player to configure an unpositioned Offhand Edit Mode layout")
 
+-- A disconnected saved display must temporarily use a built-in single-screen
+-- layout rather than letting Blizzard clamp the spanned Offhand HUD into a
+-- malformed arrangement. Reconnecting restores Offhand, unless the player
+-- manually chose a different layout during recovery.
+layoutData.activeLayout = 2
+selectedLayout = nil
+addon.HUD:UpdateForeverRecoveryLayout({ topologyStatus = "MISMATCH", isSpanned = false })
+assert(selectedLayout == 1 and layoutData.activeLayout == 1,
+    "Forever must select a built-in Edit Mode layout when the saved display is missing")
+assert(addon.db.foreverEditModeRecovery
+        and addon.db.foreverEditModeRecovery.restoreLayoutName == "Offhand"
+        and addon.db.foreverEditModeRecovery.fallbackLayoutName == "Modern",
+    "Forever must remember the protected layout handoff")
+
+selectedLayout = nil
+addon.HUD:UpdateForeverRecoveryLayout({ topologyStatus = "READY", companionTopology = true, isSpanned = true })
+assert(selectedLayout == 2 and layoutData.activeLayout == 2,
+    "Forever must restore the Offhand Edit Mode layout when exact topology returns")
+assert(addon.db.foreverEditModeRecovery == nil,
+    "Forever must clear the completed protected layout handoff")
+
+layoutData.activeLayout = 2
+addon.HUD:UpdateForeverRecoveryLayout({ topologyStatus = "MISMATCH", isSpanned = false })
+layoutData.activeLayout = 3
+layoutData.layouts[3] = { layoutName = "Player Choice", layoutType = 1 }
+selectedLayout = nil
+addon.HUD:UpdateForeverRecoveryLayout({ topologyStatus = "READY", companionTopology = true, isSpanned = true })
+assert(selectedLayout == nil and layoutData.activeLayout == 3,
+    "Forever must preserve a layout manually selected during single-screen recovery")
+assert(addon.db.foreverEditModeRecovery == nil,
+    "Forever must clear stale recovery state after manual layout selection")
+layoutData.layouts[3] = nil
+layoutData.activeLayout = 1
+selectedLayout = nil
+
 -- Even after the player has configured the layout, Forever must leave profile
 -- selection to Blizzard Edit Mode. A delayed switch can move or hide bars.
 layoutData.layouts[2].systems[1].isInDefaultPosition = false

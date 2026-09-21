@@ -1,4 +1,4 @@
-# Offhand v2.1.0 — Exact Display Topology and Safe Recovery
+# Offhand v2.1.1 — Exact Display Topology and Safe Recovery
 
 Offhand 2.1 replaces combined-resolution guessing with exact display rectangles
 provided by Companion 2.1. Select exactly two screens and choose the Mainhand,
@@ -8,6 +8,9 @@ coordinates, and ultrawide Mainhand displays now retain native geometry.
 
 If a saved display is disconnected, the Companion refuses to span and the
 addon rejects the stale snapshot, restoring a readable full-window viewport.
+Forever temporarily selects a built-in Blizzard Edit Mode layout for its
+protected HUD, then restores the prior Offhand layout when exact topology
+returns unless the player selected another layout during recovery.
 Fresh profiles remain inert until the setup wizard is completed. Existing
 Forever recovery, workspace persistence, and Blizzard Edit Mode ownership are
 preserved.

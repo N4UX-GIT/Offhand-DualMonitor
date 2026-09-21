@@ -258,4 +258,6 @@ setup deferral, and reporting of caught layout errors.
 - Forever loaded the workspace panels, protected HUD, and persistent Edit Mode options frame in their expected rectangles.
 - A normal WoW exit followed by a cold relaunch with Companion running preserved the complete layout.
 - User accepted all seven primary release-candidate steps. The disconnected-workspace-display fail-safe remains the final live safety check.
+- Physical workspace-display disconnect confirmed Companion refused `Span WoW Now` and did not collapse the 4000x2560 span onto the 2560x1440 Mainhand. The stale topology was rejected and the game remained viewable.
+- The first disconnected-display run exposed a protected-HUD gap: Forever retained the spanned `Offhand` Blizzard Edit Mode layout, so protected frames were readable but malformed. v2.1.1 adds a Blizzard-API-only handoff to a built-in layout and restores `Offhand` after reconnection unless the player makes another manual selection. Live retest pending.
 

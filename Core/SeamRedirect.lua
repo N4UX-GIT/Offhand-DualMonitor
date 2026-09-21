@@ -72,6 +72,99 @@ local function IsForeverEditModeFrame(frame, name)
     name = name or (frame and frame.GetName and frame:GetName())
     return name and (foreverEditModeFrameNames[name] or name:match("^EditMode")) or false
 end
+
+local function GetEditModeLayouts()
+    if not C_EditMode or not C_EditMode.GetLayouts then return nil end
+    local ok, data = pcall(C_EditMode.GetLayouts)
+    if not ok or type(data) ~= "table" or type(data.layouts) ~= "table" then return nil end
+    return data
+end
+
+local function SelectEditModeLayout(index)
+    if not index then return false end
+    if EditModeManagerFrame and EditModeManagerFrame.SelectLayout then
+        return pcall(EditModeManagerFrame.SelectLayout, EditModeManagerFrame, index)
+    end
+    if C_EditMode and C_EditMode.SetActiveLayout then
+        return pcall(C_EditMode.SetActiveLayout, index)
+    end
+    return false
+end
+
+local function FindLayout(layouts, name)
+    if not name then return nil end
+    name = string.lower(tostring(name))
+    for index, layout in ipairs(layouts or {}) do
+        if string.lower(tostring(layout.layoutName or "")) == name then return index, layout end
+    end
+end
+
+-- Forever's protected HUD is owned by Blizzard Edit Mode. A layout saved for a
+-- 4000x2560 span remains active if a display disappears, so Blizzard clamps its
+-- anchors into a readable but malformed single-screen arrangement. Temporarily
+-- select a built-in layout through Blizzard's API and remember enough state to
+-- restore Offhand when the exact Companion topology returns. If the player
+-- chooses another layout during recovery, that explicit choice wins.
+function HUD:UpdateForeverRecoveryLayout(metrics)
+    if not UsesForeverEditMode() or not Offhand.db or not Offhand.db.enabled
+        or InCombatLockdown() or not metrics then return end
+
+    local data = GetEditModeLayouts()
+    if not data then
+        if C_Timer and C_Timer.After and not self.foreverRecoveryRetryPending then
+            self.foreverRecoveryRetryPending = true
+            C_Timer.After(2, function()
+                self.foreverRecoveryRetryPending = nil
+                local current = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+                self:UpdateForeverRecoveryLayout(current)
+            end)
+        end
+        return
+    end
+
+    local activeIndex = tonumber(data.activeLayout)
+    local active = activeIndex and data.layouts[activeIndex]
+    local activeName = active and active.layoutName
+    local recovery = Offhand.db.foreverEditModeRecovery
+
+    if metrics.topologyStatus == "MISMATCH" then
+        if recovery or not activeName or string.lower(activeName) ~= "offhand" then return end
+
+        local fallbackIndex, fallback
+        for index, layout in ipairs(data.layouts) do
+            if index ~= activeIndex and string.lower(tostring(layout.layoutName or "")) ~= "offhand"
+                and tonumber(layout.layoutType) == 0 then
+                fallbackIndex, fallback = index, layout
+                break
+            end
+        end
+        if not fallbackIndex then
+            for index, layout in ipairs(data.layouts) do
+                if index ~= activeIndex and string.lower(tostring(layout.layoutName or "")) ~= "offhand" then
+                    fallbackIndex, fallback = index, layout
+                    break
+                end
+            end
+        end
+        if fallbackIndex and SelectEditModeLayout(fallbackIndex) then
+            Offhand.db.foreverEditModeRecovery = {
+                restoreLayoutName = activeName,
+                fallbackLayoutName = fallback.layoutName,
+            }
+        end
+        return
+    end
+
+    if recovery and metrics.companionTopology and metrics.isSpanned then
+        local fallbackMatches = activeName and recovery.fallbackLayoutName
+            and string.lower(activeName) == string.lower(recovery.fallbackLayoutName)
+        local restoreIndex = FindLayout(data.layouts, recovery.restoreLayoutName)
+        if fallbackMatches and restoreIndex then SelectEditModeLayout(restoreIndex) end
+        -- Clear on success or manual intervention; never override a layout the
+        -- user deliberately selected while operating on one screen.
+        Offhand.db.foreverEditModeRecovery = nil
+    end
+end
 local function Remember(frame)
     desiredFrames[frame] = desiredFrames[frame] or {}
     return desiredFrames[frame]
