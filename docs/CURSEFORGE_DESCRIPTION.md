@@ -54,6 +54,8 @@ Download the Companion or complete bundle from the [latest GitHub release](https
 
 The Companion is open source and does not request administrator access, install a service, inject into WoW, collect telemetry, or read browser data or credentials. Its window-management behavior—enumerating WoW processes, resizing a window, registering hotkeys, and remaining in the notification area—can resemble broad antivirus heuristic patterns, especially while a new unsigned build has little reputation.
 
+Some VirusTotal engines currently report the unsigned Companion with generic machine-learning or heuristic labels. No reporting engine has identified a malware family or specific malicious payload. VirusTotal is one input rather than a safety guarantee: review the source and documented behavior, verify the official release checksum and build provenance, and make your own security decision before running it.
+
 Download only from the official GitHub release. Compare the executable's SHA-256 digest with `checksums-sha256.txt`, and verify its GitHub build-provenance attestation when GitHub CLI is available. Update checks are never automatic: the app contacts the official GitHub Releases API only after you click **Check for Updates**. Do not bypass a security warning for a copy obtained elsewhere.
 
 Full behavior, file locations, source-build steps, and verification commands are documented in the [Offhand security guide](https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md).
