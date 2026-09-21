@@ -81,7 +81,9 @@ local function WritePersistentCVar(name, value)
     local setter = SetCVar or (C_CVar and C_CVar.SetCVar)
     if not setter then return false end
     RegisterPersistentCVar(name)
-    return pcall(setter, name, value or "")
+    value = value or ""
+    if tostring(ReadPersistentCVar(name) or "") == tostring(value) then return true end
+    return pcall(setter, name, value)
 end
 
 local function IsSafeFrameName(name)

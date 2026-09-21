@@ -216,6 +216,34 @@ combined:Hide()
 assert(addon.db.savedWorkspacePositions["ContainerFrameCombinedBags"] ~= nil,
     "Closing a combined bag on the workspace must capture its final position")
 
+addon.isForever = true
+local mirrored
+addon.ForeverPersistence = {
+    SaveWorkspacePosition = function(_, name, position, width, height)
+        mirrored = { name = name, x = position.x, y = position.y, width = width, height = height }
+    end,
+    ClearPosition = function() mirrored = nil end,
+}
+combined:Show()
+combined.points = { { point = "BOTTOMLEFT", relTo = UIParent, relPt = "BOTTOMLEFT", x = 260, y = 640 } }
+combined:SetSize(410, 275)
+assert(addon.Canvas:CaptureForeverFramePosition(combined) == true,
+    "Forever read-only sampler must capture an Edit Mode bag move")
+assert(mirrored and mirrored.name == "ContainerFrameCombinedBags" and mirrored.x == 260,
+    "Forever Edit Mode capture must mirror the new combined bag position")
+assert(mirrored.width == 410 and mirrored.height == 275,
+    "Forever Edit Mode capture must mirror the resized combined bag dimensions")
+
+local editModeChat = makeMockFrame("ChatFrame1", 560, 340)
+editModeChat:Show()
+editModeChat.points = { { point = "BOTTOMLEFT", relTo = UIParent, relPt = "BOTTOMLEFT", x = 180, y = 420 } }
+assert(addon.Canvas:CaptureForeverFramePosition(editModeChat) == true,
+    "Forever read-only sampler must capture an Edit Mode chat move")
+assert(mirrored and mirrored.name == "ChatFrame1" and mirrored.x == 180,
+    "Forever Edit Mode capture must mirror the new chat position")
+assert(mirrored.width == 560 and mirrored.height == 340,
+    "Forever Edit Mode capture must mirror the resized chat dimensions")
+
 for i = 2, 5 do
     _G["ContainerFrame" .. i]:Show()
 end

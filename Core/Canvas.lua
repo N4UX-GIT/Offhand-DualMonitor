@@ -989,6 +989,44 @@ OnPanelDragStop = function(frame)
     frame._OffhandDragging = false
 end
 
+-- Forever's Edit Mode can move and resize non-secure utility frames without
+-- dispatching their normal drag callbacks. Sample only the Combined Backpack
+-- and chat frames, and mirror their geometry without touching their anchors or
+-- attaching handlers to EditModeManagerFrame. This keeps the capture path
+-- read-only with respect to Blizzard's protected Edit Mode state.
+function Canvas:CaptureForeverFramePosition(frame)
+    if not Offhand.isForever or InCombatLockdown() or not frame or not Offhand.db
+        or not Offhand.db.enabled or not Offhand.ForeverPersistence then return false end
+    local name = frame.GetName and frame:GetName()
+    if name ~= "ContainerFrameCombinedBags" and not (name and name:match("^ChatFrame%d+$")) then return false end
+    if IsUnsafeForDirectMutation(frame) or not frame.IsShown or not frame:IsShown() then return false end
+
+    local ok, onWorkspace, x, y, width, height = pcall(function()
+        local isWorkspace = IsFrameOnWorkspace(frame)
+        local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
+        local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
+        local factor = frameScale / parentScale
+        local left = frame:GetLeft()
+        local top = frame:GetTop()
+        if not left or not top then return isWorkspace end
+        return isWorkspace, left * factor, top * factor, frame:GetWidth(), frame:GetHeight()
+    end)
+    if not ok then return false end
+
+    Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
+    if onWorkspace and x and y then
+        local position = { x = x, y = y, width = width, height = height }
+        Offhand.db.savedWorkspacePositions[name] = position
+        Offhand.ForeverPersistence:SaveWorkspacePosition(name, position, width, height)
+        return true
+    elseif Offhand.db.savedWorkspacePositions[name] then
+        Offhand.db.savedWorkspacePositions[name] = nil
+        Offhand.ForeverPersistence:ClearPosition(name)
+        return true
+    end
+    return false
+end
+
 RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
     local frame = (selfOrFrame == Canvas and maybeFrame) or maybeFrame or selfOrFrame
     if InCombatLockdown() or not frame or type(frame) ~= "table" or not frame.GetName then return end
@@ -1456,6 +1494,15 @@ function Offhand:InitializeCanvas()
     Canvas:UpdateMapMovementBehavior()
     Canvas:UpdatePersistenceBehavior()
     Canvas:ConfigureWorldMap()
+
+    if Offhand.isForever and C_Timer and C_Timer.NewTicker and not Canvas.foreverPositionTicker then
+        Canvas.foreverPositionTicker = C_Timer.NewTicker(0.5, function()
+            Canvas:CaptureForeverFramePosition(_G.ContainerFrameCombinedBags)
+            for i = 1, (NUM_CHAT_WINDOWS or 10) do
+                Canvas:CaptureForeverFramePosition(_G["ChatFrame" .. i])
+            end
+        end)
+    end
 
         if not Canvas.showUIPanelHooked and ShowUIPanel then
         Canvas.showUIPanelHooked = true
