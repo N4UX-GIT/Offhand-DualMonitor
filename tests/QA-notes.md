@@ -249,3 +249,13 @@ setup deferral, and reporting of caught layout errors.
 - Map OnShow/display synchronization now defers configuration to avoid reentrant minimize/resize during native layout.
 - Bag reopen and tooltip position/dimension regressions, map deferred-show regression, existing Lua suites and validator pass. Two runtime files deployed with backups and matching hashes. User screenshots exposed behavior not covered by former mocks; live verification remains required.
 
+## 2026-09-21: Forever v2.1.0 exact-topology acceptance
+
+- Hardware topology: 1440x2560 portrait workspace beside a 2560x1440 landscape Mainhand, spanned as a 4000x2560 virtual desktop.
+- Companion v2.1.0 displayed the new display selection and explicit Mainhand controls.
+- Selecting both displays and the landscape gaming display as Mainhand succeeded.
+- `Span WoW Now` generated the exact topology and spanned the client correctly.
+- Forever loaded the workspace panels, protected HUD, and persistent Edit Mode options frame in their expected rectangles.
+- A normal WoW exit followed by a cold relaunch with Companion running preserved the complete layout.
+- User accepted all seven primary release-candidate steps. The disconnected-workspace-display fail-safe remains the final live safety check.
+
