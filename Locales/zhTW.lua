@@ -45,6 +45,13 @@ L["HELP_EDIT_MODE_TITLE"] = "在編輯模式中定位戰鬥框架"
 L["HELP_EDIT_MODE_BODY"] = "Forever 由暴雪編輯模式管理快捷列與戰鬥框架，以避免受保護介面錯誤。請在脫戰後開啟編輯模式，將快捷列以及姿態、寵物、小隊與團隊框架移到主螢幕，將配置儲存為 Offhand，並在編輯模式中選取它。Offhand 不會自動切換配置。"
 L["EDIT_MODE_LAYOUT_MISSING"] = "Forever 使用暴雪編輯模式管理快捷列與戰鬥框架。請在脫戰後將它們放到主螢幕，並將配置儲存為「Offhand」。"
 
+L["HELP_OVERVIEW_TITLE"] = "Offhand Setup & Recovery Handbook"
+L["HELP_OVERVIEW_BODY"] = "Follow the numbered sections once from top to bottom. Use the buttons to reopen the Wizard, gather ordinary off-screen windows, or get Companion. On Forever, Blizzard Edit Mode owns protected combat UI."
+L["HELP_COLD_LAUNCH_TITLE"] = "Everyday launch, shutdown and cold-start check"
+L["HELP_COLD_LAUNCH_BODY"] = "Start Companion before WoW and leave it running. Let spanning finish before opening panels. Exit WoW normally before closing Companion so it can capture the newest Forever recovery state. After setup changes, perform one full exit and relaunch to verify the window, workspace panels and Edit Mode manager."
+L["HELP_WELCOME_TITLE"] = "Welcome message and setup status"
+L["HELP_WELCOME_BODY"] = "Either welcome button acknowledges the introduction; completing the final Wizard step records setup completion separately. Both states are account-wide and included in Forever recovery. If an older build repeats the message, update Offhand, click either action once, then /reload."
+
 -- Core & General Strings
 L["ADDON_TITLE"] = "Offhand：多螢幕設定"
 L["ADDON_DESC"] = "將雙螢幕劃分為主螢幕 3D 遊戲區域與副螢幕工作區。"

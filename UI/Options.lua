@@ -2035,19 +2035,54 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 5: FAQ & HELP
     -- ========================================================================
+    local helpOverview = CreateCard(tab5, L["HELP_OVERVIEW_TITLE"], 170)
+    local overviewBody = helpOverview:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    overviewBody:SetPoint("TOPLEFT", 14, -32)
+    overviewBody:SetPoint("TOPRIGHT", -14, -32)
+    overviewBody:SetJustifyH("LEFT")
+    overviewBody:SetText(L["HELP_OVERVIEW_BODY"])
+
+    local wizardHelpBtn = CreateFrame("Button", nil, helpOverview, "UIPanelButtonTemplate")
+    wizardHelpBtn:SetSize(196, 26)
+    wizardHelpBtn:SetPoint("BOTTOMLEFT", 14, 14)
+    wizardHelpBtn:SetText(L["BTN_AUTO_WIZARD"])
+    wizardHelpBtn:SetScript("OnClick", function()
+        if Offhand.Wizard and Offhand.Wizard.Open then Offhand.Wizard:Open() end
+    end)
+
+    local gatherHelpBtn = CreateFrame("Button", nil, helpOverview, "UIPanelButtonTemplate")
+    gatherHelpBtn:SetSize(196, 26)
+    gatherHelpBtn:SetPoint("LEFT", wizardHelpBtn, "RIGHT", 10, 0)
+    gatherHelpBtn:SetText(L["GATHER_UI"])
+    gatherHelpBtn:SetScript("OnClick", function()
+        if Offhand.GatherOffScreenUI then Offhand:GatherOffScreenUI() end
+    end)
+
+    local companionHelpBtn = CreateFrame("Button", nil, helpOverview, "UIPanelButtonTemplate")
+    companionHelpBtn:SetSize(196, 26)
+    companionHelpBtn:SetPoint("LEFT", gatherHelpBtn, "RIGHT", 10, 0)
+    companionHelpBtn:SetText(L["POPUP_BTN_GET_APP"])
+    companionHelpBtn:SetScript("OnClick", function()
+        StaticPopup_Show("OFFHAND_DOWNLOAD_LINK")
+    end)
+
     local helpCardHeights = {
-        SETUP = 250,
-        COMPANION = 190,
-        PANELS = 158,
-        RECOVERY = 190,
-        EDIT_MODE = 190,
+        SETUP = 310,
+        COMPANION = 230,
+        EDIT_MODE = 250,
+        PANELS = 220,
+        COLD_LAUNCH = 245,
+        RECOVERY = 280,
+        WELCOME = 205,
     }
-    local helpCards = {}
-    for _, topic in ipairs({ "SETUP", "COMPANION", "PANELS", "RECOVERY", "EDIT_MODE" }) do
-        local card = CreateCard(tab5, L["HELP_" .. topic .. "_TITLE"], helpCardHeights[topic])
+    local helpCards = { helpOverview }
+    local helpTopics = { "SETUP", "COMPANION", "EDIT_MODE", "PANELS", "COLD_LAUNCH", "RECOVERY", "WELCOME" }
+    for index, topic in ipairs(helpTopics) do
+        local title = string.format("%d. %s", index, L["HELP_" .. topic .. "_TITLE"])
+        local card = CreateCard(tab5, title, helpCardHeights[topic])
         local body = card:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        body:SetPoint("TOPLEFT", 14, -30)
-        body:SetPoint("TOPRIGHT", -14, -30)
+        body:SetPoint("TOPLEFT", 16, -34)
+        body:SetPoint("TOPRIGHT", -16, -34)
         body:SetJustifyH("LEFT")
         body:SetText(L["HELP_" .. topic .. "_BODY"])
         helpCards[#helpCards + 1] = card

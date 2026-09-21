@@ -45,6 +45,13 @@ L["HELP_EDIT_MODE_TITLE"] = "Posiziona i riquadri di combattimento in modalità 
 L["HELP_EDIT_MODE_BODY"] = "In Forever, la modalità modifica di Blizzard gestisce le barre delle azioni e i riquadri di combattimento per evitare errori dell'interfaccia protetta. Fuori dal combattimento, sposta barre e riquadri di postura, famiglio, gruppo e incursione sul monitor principale, salva la disposizione come Offhand e selezionala lì. Offhand non cambia automaticamente disposizione."
 L["EDIT_MODE_LAYOUT_MISSING"] = "Forever usa la modalità modifica di Blizzard per barre delle azioni e riquadri di combattimento. Posizionali fuori dal combattimento sul monitor principale e salva la disposizione come 'Offhand'."
 
+L["HELP_OVERVIEW_TITLE"] = "Offhand Setup & Recovery Handbook"
+L["HELP_OVERVIEW_BODY"] = "Follow the numbered sections once from top to bottom. Use the buttons to reopen the Wizard, gather ordinary off-screen windows, or get Companion. On Forever, Blizzard Edit Mode owns protected combat UI."
+L["HELP_COLD_LAUNCH_TITLE"] = "Everyday launch, shutdown and cold-start check"
+L["HELP_COLD_LAUNCH_BODY"] = "Start Companion before WoW and leave it running. Let spanning finish before opening panels. Exit WoW normally before closing Companion so it can capture the newest Forever recovery state. After setup changes, perform one full exit and relaunch to verify the window, workspace panels and Edit Mode manager."
+L["HELP_WELCOME_TITLE"] = "Welcome message and setup status"
+L["HELP_WELCOME_BODY"] = "Either welcome button acknowledges the introduction; completing the final Wizard step records setup completion separately. Both states are account-wide and included in Forever recovery. If an older build repeats the message, update Offhand, click either action once, then /reload."
+
 -- Core & General Strings
 L["ADDON_TITLE"] = "Offhand: configurazione multimonitor"
 L["ADDON_DESC"] = "Un’area 3D principale e uno spazio di lavoro sul secondo monitor."

@@ -45,6 +45,13 @@ L["HELP_EDIT_MODE_TITLE"] = "편집 모드에서 전투 프레임 배치"
 L["HELP_EDIT_MODE_BODY"] = "Forever에서는 보호된 UI 오류를 막기 위해 행동 단축바와 전투 프레임을 블리자드 편집 모드가 관리합니다. 전투 중이 아닐 때 행동 단축바와 태세, 소환수, 파티 및 공격대 프레임을 주 모니터로 옮기고 Offhand라는 이름으로 저장한 뒤 편집 모드에서 선택하세요. Offhand는 배치를 자동으로 전환하지 않습니다."
 L["EDIT_MODE_LAYOUT_MISSING"] = "Forever에서는 행동 단축바와 전투 프레임을 블리자드 편집 모드로 배치합니다. 전투 밖에서 주 모니터에 배치한 뒤 'Offhand'라는 이름으로 저장하세요."
 
+L["HELP_OVERVIEW_TITLE"] = "Offhand Setup & Recovery Handbook"
+L["HELP_OVERVIEW_BODY"] = "Follow the numbered sections once from top to bottom. Use the buttons to reopen the Wizard, gather ordinary off-screen windows, or get Companion. On Forever, Blizzard Edit Mode owns protected combat UI."
+L["HELP_COLD_LAUNCH_TITLE"] = "Everyday launch, shutdown and cold-start check"
+L["HELP_COLD_LAUNCH_BODY"] = "Start Companion before WoW and leave it running. Let spanning finish before opening panels. Exit WoW normally before closing Companion so it can capture the newest Forever recovery state. After setup changes, perform one full exit and relaunch to verify the window, workspace panels and Edit Mode manager."
+L["HELP_WELCOME_TITLE"] = "Welcome message and setup status"
+L["HELP_WELCOME_BODY"] = "Either welcome button acknowledges the introduction; completing the final Wizard step records setup completion separately. Both states are account-wide and included in Forever recovery. If an older build repeats the message, update Offhand, click either action once, then /reload."
+
 -- Core & General Strings
 L["ADDON_TITLE"] = "Offhand: 다중 모니터 설정"
 L["ADDON_DESC"] = "주 모니터의 3D 게임 영역과 보조 모니터의 작업 공간을 구성합니다."
