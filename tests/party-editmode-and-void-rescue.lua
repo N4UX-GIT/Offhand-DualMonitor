@@ -64,6 +64,7 @@ local function makeMockFrame(name, w, h)
         name = name, w = w or 200, h = h or 100,
         shown = true, alpha = 1, points = {}, scripts = {}, scale = 1,
         userPlaced = false, movable = false, clamped = false, mouse = false,
+        attributes = {},
     }
     function f:SetSize(w,h) self.w=w; self.h=h end
     function f:GetName() return self.name end
@@ -146,6 +147,8 @@ local function makeMockFrame(name, w, h)
     end
     function f:GetScript(event) return self.scripts[event] end
     function f:SetScript(event, fn) self.scripts[event] = fn end
+    function f:GetAttribute(key) return self.attributes[key] end
+    function f:SetAttributeNoHandler(key, value) self.attributes[key] = value end
     function f:IsForbidden() return false end
     function f:IsProtected() return false end
     frames[name] = f
@@ -200,6 +203,12 @@ ToggleGameMenu = function()
     end
 end
 ShowUIPanel = function(frame) frame:Show() end
+UIPanelWindows = {
+    EditModeManagerFrame = { area = "center", pushable = 0, whileDead = 1, neverAllowOtherPanels = 1 },
+}
+SetUIPanelAttribute = function(frame, name, value)
+    frame:SetAttributeNoHandler("UIPanelLayout-" .. name, value)
+end
 
 -- Load Offhand core scripts
 local seamChunk = loadfile("Core/SeamRedirect.lua")
@@ -347,7 +356,34 @@ ShowUIPanel(EditModeManagerFrame)
 flushTimers()
 
 local editPt = EditModeManagerFrame.points[#EditModeManagerFrame.points]
-assert(editPt == nil, "Forever must not reanchor EditModeManagerFrame")
+assert(EditModeManagerFrame:GetAttribute("UIPanelLayout-centerFrameSkipAnchoring") == true,
+    "Forever must tell Blizzard's panel manager to retain the Edit Mode manager anchor")
+assert(UIPanelWindows.EditModeManagerFrame.centerFrameSkipAnchoring == true,
+    "Forever must update the Edit Mode manager's registered panel metadata")
+assert(editPt and editPt[1] == "TOP" and editPt[2] == UIParent and editPt[3] == "BOTTOMLEFT"
+        and editPt[4] == (metrics.gameLeft + metrics.gameRight) / 2
+        and editPt[5] == metrics.gameTop - 40,
+    "Forever must anchor EditModeManagerFrame inside the current game viewport")
+local editPointCount = #EditModeManagerFrame.points
+EditModeManagerFrame:Hide()
+ShowUIPanel(EditModeManagerFrame)
+flushTimers()
+assert(#EditModeManagerFrame.points == editPointCount
+        and EditModeManagerFrame.points[#EditModeManagerFrame.points][2] == UIParent,
+    "Forever must preserve the Edit Mode manager anchor across close and reopen")
+
+-- Companion spanning can finish after Blizzard_EditMode is prepared. A geometry
+-- change must update the one retained anchor without installing an OnShow hook.
+local originalGameTop = metrics.gameTop
+metrics.gameTop = originalGameTop - 200
+flushTimers()
+local resizedEditPt = EditModeManagerFrame.points[#EditModeManagerFrame.points]
+assert(resizedEditPt and resizedEditPt[5] == metrics.gameTop - 40,
+    "Forever must refresh the Edit Mode manager anchor after a late Companion span")
+metrics.gameTop = originalGameTop
+flushTimers()
+assert(EditModeManagerFrame.points[#EditModeManagerFrame.points][5] == originalGameTop - 40,
+    "Forever must follow subsequent viewport geometry changes")
 assert(selectedLayout == nil,
     "Forever must not auto-select an Offhand layout whose main action bar is still in its full-canvas default position")
 assert(addon.HUD.editModeGuidanceShown,
@@ -367,7 +403,7 @@ EditModeUnsavedChangesDialog:Show()
 flushTimers()
 local dialogPt = EditModeUnsavedChangesDialog.points[#EditModeUnsavedChangesDialog.points]
 assert(dialogPt == nil, "Forever must not reanchor Edit Mode dialogs")
-print("PASS: Forever yields action bars, manager and dialogs to Blizzard Edit Mode")
+print("PASS: Forever preserves Blizzard Edit Mode while keeping its manager inside the game viewport")
 
 -- ============================================================================
 -- TEST 6: GameMenuFrame Centering & Escape Dismissal

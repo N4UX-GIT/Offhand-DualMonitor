@@ -483,9 +483,49 @@ function HUD:HookFrames()
         menuFrameNames[#menuFrameNames + 1] = "EditModeDialog"
     end
 
+    local function PrepareForeverEditModeManager()
+        if not UsesForeverEditMode() then return end
+
+        local frame = _G.EditModeManagerFrame
+        if not frame or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+
+        -- Forever registers this as a centered UI panel. Its panel manager normally
+        -- reapplies the full-canvas TOP anchor on every open, placing the controls in
+        -- the black void above WorldFrame on mixed-height spans. This Blizzard-owned
+        -- flag tells the panel manager to retain the frame's existing anchor instead.
+        if not self.foreverEditModeManagerPrepared then
+            if UIPanelWindows and UIPanelWindows.EditModeManagerFrame then
+                UIPanelWindows.EditModeManagerFrame.centerFrameSkipAnchoring = true
+            end
+            if not SetUIPanelAttribute then return end
+
+            local ok = pcall(SetUIPanelAttribute, frame, "centerFrameSkipAnchoring", true)
+            if not ok then return end
+            self.foreverEditModeManagerPrepared = true
+        end
+
+        local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+        if not m or not m.isSpanned then return end
+        local geometry = table.concat({
+            tostring(m.screenWidth), tostring(m.screenHeight),
+            tostring(m.gameLeft), tostring(m.gameTop), tostring(m.gameRight),
+        }, ":")
+        if self.foreverEditModeManagerGeometry == geometry then return end
+
+        -- Companion spanning can finish after Blizzard_EditMode loads. Recalculate
+        -- only when the viewport geometry changes, using UIParent coordinates rather
+        -- than WorldFrame's transient pre-span anchor. No Edit Mode scripts are hooked.
+        local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
+        local x = (m.gameLeft + m.gameRight) / 2
+        local y = m.gameTop - 40
+        frame:ClearAllPoints()
+        frame:SetPoint("TOP", UIParent, "BOTTOMLEFT", x * factor, y * factor)
+        self.foreverEditModeManagerGeometry = geometry
+    end
+
     local function PositionEditMode()
-        -- Disabled: Calling ClearAllPoints and SetPoint on EditModeManagerFrame
-        -- and its dialogs taints the protected UI, causing CompactUnitFrame errors on exit.
+        -- Non-Forever Edit Mode positioning remains disabled. Repeatedly moving the
+        -- manager or its dialogs from OnShow taints CompactUnitFrame on some clients.
     end
 
     local function CenterGameMenu()
@@ -547,8 +587,10 @@ function HUD:HookFrames()
     local function CheckEditModeHooks()
         PatchEditModeUtil()
         if UsesForeverEditMode() then
-            -- Do not attach addon script handlers to Forever's Edit Mode
-            -- manager. Its layout and close/reset path must remain Blizzard-owned.
+            PrepareForeverEditModeManager()
+            -- Do not attach addon script handlers to Forever's Edit Mode manager.
+            -- Its layout and close/reset path remain Blizzard-owned after the
+            -- one-time panel-manager preparation above.
             return
         end
         local mgr = _G["EditModeManagerFrame"]
