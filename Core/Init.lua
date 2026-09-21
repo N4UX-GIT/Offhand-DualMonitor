@@ -565,8 +565,16 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                     end
                 end
             end
+            if Offhand.ForeverPersistence then
+                Offhand.ForeverPersistence:SaveOpenPanels(Offhand.db.openWorkspacePanels)
+            end
         else
-            if Offhand.db then Offhand.db.openWorkspacePanels = {} end
+            if Offhand.db then
+                Offhand.db.openWorkspacePanels = {}
+                if Offhand.ForeverPersistence then
+                    Offhand.ForeverPersistence:SaveOpenPanels(Offhand.db.openWorkspacePanels)
+                end
+            end
         end
     elseif event == "PLAYER_ENTERING_WORLD" then
         -- Refresh viewport and layout after zone transition or loading screen

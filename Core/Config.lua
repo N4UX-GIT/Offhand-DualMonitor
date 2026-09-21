@@ -62,6 +62,7 @@ Offhand.ForeverPersistence = ForeverPersistence
 
 local FOREVER_INDEX_CVAR = "offhandForeverPositionIndex"
 local FOREVER_POSITION_PREFIX = "offhandForeverPosition_"
+local FOREVER_OPEN_PANELS_CVAR = "offhandForeverOpenPanels"
 
 local function RegisterPersistentCVar(name)
     local register = RegisterCVar or (C_CVar and C_CVar.RegisterCVar)
@@ -156,6 +157,26 @@ function ForeverPersistence:RestorePositions()
     end
 end
 
+function ForeverPersistence:SaveOpenPanels(openPanels)
+    if not self:IsAvailable() then return end
+    local names = {}
+    for name, isOpen in pairs(type(openPanels) == "table" and openPanels or {}) do
+        if isOpen and IsSafeFrameName(name) then table.insert(names, name) end
+    end
+    table.sort(names)
+    WritePersistentCVar(FOREVER_OPEN_PANELS_CVAR, table.concat(names, ","))
+end
+
+function ForeverPersistence:RestoreOpenPanels()
+    if not self:IsAvailable() or not Offhand.db then return end
+    RegisterPersistentCVar(FOREVER_OPEN_PANELS_CVAR)
+    local openPanels = {}
+    for name in tostring(ReadPersistentCVar(FOREVER_OPEN_PANELS_CVAR) or ""):gmatch("[^,]+") do
+        if IsSafeFrameName(name) then openPanels[name] = true end
+    end
+    Offhand.db.openWorkspacePanels = openPanels
+end
+
 function Offhand:InitializeConfig()
     if type(OffhandDB) ~= "table" then OffhandDB = {} end
     if type(OffhandCharDB) ~= "table" then OffhandCharDB = {} end
@@ -206,6 +227,7 @@ function Offhand:InitializeConfig()
 
     CopyDefaults(defaultSettings, Offhand.db)
     ForeverPersistence:RestorePositions()
+    ForeverPersistence:RestoreOpenPanels()
 end
 
 function Offhand:GetProfiles()

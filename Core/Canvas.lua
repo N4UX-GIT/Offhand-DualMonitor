@@ -431,6 +431,16 @@ function Canvas:RestorePersistentFrames()
     if not Offhand.db or not Offhand.db.enabled or Offhand.db.persistentWorkspacePanels == false then return end
     if Offhand.db.restoreWorkspaceOnReload == false then return end
     if not Offhand.db.savedWorkspacePositions then return end
+    if InCombatLockdown() then
+        if Offhand.RunOrQueueCombat and not self.persistentRestorePending then
+            self.persistentRestorePending = true
+            Offhand:RunOrQueueCombat(function()
+                Canvas.persistentRestorePending = false
+                Canvas:RestorePersistentFrames()
+            end)
+        end
+        return
+    end
     
     local hasBag = false
     local openPanels = Offhand.db.openWorkspacePanels or {}
