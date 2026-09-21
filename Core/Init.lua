@@ -480,6 +480,7 @@ eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("PLAYER_LEAVING_WORLD")
+eventFrame:RegisterEvent("PLAYER_LOGOUT")
 eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 eventFrame:RegisterEvent("UI_SCALE_CHANGED")
@@ -539,7 +540,13 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         Offhand:ApplyFullLayout()
         Offhand:Print(L["MSG_LOADED"], Offhand.version)
 
-    elseif event == "PLAYER_LEAVING_WORLD" then
+    elseif event == "PLAYER_LEAVING_WORLD" or event == "PLAYER_LOGOUT" then
+        -- Some Forever builds dispatch PLAYER_LOGOUT, but not
+        -- PLAYER_LEAVING_WORLD, during /reload. Capture once per transition so
+        -- a later teardown event cannot replace the visible snapshot with an
+        -- empty one after Blizzard has already hidden its panels.
+        if Offhand._openPanelsCapturedForTransition then return end
+        Offhand._openPanelsCapturedForTransition = true
         if Offhand.db and Offhand.db.enabled and Offhand.db.savedWorkspacePositions and Offhand.db.restoreWorkspaceOnReload ~= false then
             Offhand.db.openWorkspacePanels = {}
             for name, _ in pairs(Offhand.db.savedWorkspacePositions) do
@@ -577,6 +584,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             end
         end
     elseif event == "PLAYER_ENTERING_WORLD" then
+        Offhand._openPanelsCapturedForTransition = false
         -- Refresh viewport and layout after zone transition or loading screen
         C_Timer.After(0.5, function()
             Offhand:ApplyFullLayout()

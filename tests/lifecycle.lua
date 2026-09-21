@@ -13,6 +13,7 @@ end
 InCombatLockdown = function() return combat end
 SlashCmdList = {}
 assert(loadfile("Core/Init.lua"))("Offhand", addon)
+local initOnEvent = events.OnEvent
 assert(loadfile("Core/Config.lua"))("Offhand", addon)
 local messages = {}
 addon.Print = function(_, message) messages[#messages + 1] = message end
@@ -86,7 +87,7 @@ assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 assert(loadfile("Core/SeamRedirect.lua"))("Offhand", addon)
 C_Timer = {After=function() end}
 local initOk, initErr = pcall(function()
-    events.OnEvent(nil, "ADDON_LOADED", "Offhand")
+    initOnEvent(nil, "ADDON_LOADED", "Offhand")
 end)
 assert(initOk, "ADDON_LOADED failed with error: " .. tostring(initErr))
 assert(type(addon.InitializeCanvas) == "function", "InitializeCanvas missing")
@@ -100,8 +101,29 @@ ChatFrame1 = { SetClampedToScreen = function() loginMutations = loginMutations +
 ContainerFrame1 = { SetUserPlaced = function() loginMutations = loginMutations + 1 end }
 PlayerFrame = { SetUserPlaced = function() loginMutations = loginMutations + 1 end }
 SetCVar = function() loginMutations = loginMutations + 1 end
-events.OnEvent(nil, "PLAYER_LOGIN")
+initOnEvent(nil, "PLAYER_LOGIN")
 assert(loginMutations == 0, "disabled Offhand profile mutated Blizzard frames or CVars at login")
+
+-- Forever /reload may emit PLAYER_LOGOUT without PLAYER_LEAVING_WORLD. Capture
+-- visibility there, and do not let a later teardown event overwrite it.
+local capturedOpenPanels
+addon.db.enabled = true
+addon.db.restoreWorkspaceOnReload = true
+addon.db.savedWorkspacePositions = { TestWorkspaceFrame = { x = 10, y = 20 } }
+TestWorkspaceFrame = { IsVisible = function() return true end }
+addon.ForeverPersistence = {
+    SaveOpenPanels = function(_, panels)
+        capturedOpenPanels = {}
+        for name, value in pairs(panels) do capturedOpenPanels[name] = value end
+    end,
+}
+initOnEvent(nil, "PLAYER_LOGOUT")
+assert(capturedOpenPanels and capturedOpenPanels.TestWorkspaceFrame == true,
+    "PLAYER_LOGOUT must capture open workspace panels for /reload")
+TestWorkspaceFrame.IsVisible = function() return false end
+initOnEvent(nil, "PLAYER_LEAVING_WORLD")
+assert(capturedOpenPanels.TestWorkspaceFrame == true,
+    "a later teardown event must not overwrite the captured visibility snapshot")
 
 print("PASS: config preservation, defaults, combat coalescing, error recovery, reentrancy, ADDON_LOADED stack safety, disabled login isolation")
 
