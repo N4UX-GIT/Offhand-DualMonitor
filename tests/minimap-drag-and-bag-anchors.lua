@@ -142,6 +142,9 @@ _G.NUM_CONTAINER_FRAMES = 5
 for i = 1, 5 do
     _G["ContainerFrame" .. i] = makeMockFrame("ContainerFrame" .. i, 192, 250)
 end
+ContainerFrameCombinedBags = makeMockFrame("ContainerFrameCombinedBags", 320, 220)
+ContainerFrameCombinedBags.TitleContainer = makeMockFrame("ContainerFrameCombinedBagsTitleContainer", 320, 32)
+_G["ContainerFrameCombinedBags"] = ContainerFrameCombinedBags
 
 local origBlizzardCalled = false
 _G.UpdateContainerFrameAnchors = function()
@@ -193,6 +196,18 @@ if cf1._OffhandHandle and cf1._OffhandHandle.scripts["OnDragStop"] then
     cf1._OffhandHandle.scripts["OnDragStop"]()
 end
 assert(addon.db.savedWorkspacePositions["ContainerFrame1"] ~= nil, "ContainerFrame1 must be saved to workspace")
+
+local combined = _G.ContainerFrameCombinedBags
+assert(combined.TitleContainer._OffhandPersistenceHooked == true,
+    "Combined bag native TitleContainer must be hooked for persistence")
+combined:Show()
+combined.TitleContainer.scripts["OnDragStart"](combined.TitleContainer)
+assert(combined._OffhandDragging == true, "Combined bag must be marked as dragging from its native title")
+combined.points = { { point = "BOTTOMLEFT", relTo = UIParent, relPt = "BOTTOMLEFT", x = 120, y = 500 } }
+combined.TitleContainer.scripts["OnDragStop"](combined.TitleContainer)
+assert(addon.db.savedWorkspacePositions["ContainerFrameCombinedBags"] ~= nil,
+    "Combined bag native title drag must save the workspace position")
+assert(combined._OffhandDragging == false, "Combined bag drag state must clear after its native title drag")
 
 for i = 2, 5 do
     _G["ContainerFrame" .. i]:Show()

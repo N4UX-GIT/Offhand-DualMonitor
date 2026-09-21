@@ -1155,6 +1155,27 @@ local function MakePanelDraggable(frame)
         OnPanelDragStop(frame)
     end)
 
+    -- Modern/Forever combined bags are dragged by their native TitleContainer,
+    -- so the parent frame's OnDragStop does not reliably fire. Observe the
+    -- native drag surface and persist the parent after Blizzard finishes moving
+    -- it. This is intentionally limited to container frames; Edit Mode frames
+    -- continue to be owned entirely by Blizzard.
+    local titleContainer = name and string.match(name, "^ContainerFrame") and frame.TitleContainer
+    if titleContainer and titleContainer.HookScript and not titleContainer._OffhandPersistenceHooked then
+        titleContainer._OffhandPersistenceHooked = true
+        titleContainer:HookScript("OnDragStart", function()
+            if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+            frame._OffhandDragging = true
+        end)
+        titleContainer:HookScript("OnDragStop", function()
+            if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then
+                frame._OffhandDragging = false
+                return
+            end
+            OnPanelDragStop(frame)
+        end)
+    end
+
     frame:HookScript("OnShow", function(self)
         RestoreWorkspacePosition(frame)
     end)
