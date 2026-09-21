@@ -8,6 +8,10 @@ Native Windows desktop companion application for the Offhand World of Warcraft a
 * **Zero Console Flashing**: Compiled as a native Win32 subsystem application (`Offhand.exe`).
 * **System Tray Integration**: Minimizes silently to the Windows notification tray with quick-actions and live status tips.
 * **DPI-Aware**: Full Per-Monitor V2 scaling ensures crisp fonts and accurate window positioning on mixed-resolution / mixed-scale setups.
+* **Forever Layout Recovery**: While WoW is closed, mirrors the newest valid
+  account and character Offhand SavedVariables into a guarded addon snapshot.
+  This works around Forever beta builds that write `Offhand.lua` but fail to
+  load it on the next client launch.
 
 ---
 
@@ -29,6 +33,23 @@ while held and are released on application exit.
 
 These settings describe the C# companion; the PowerShell alternative has its own
 controls and does not share the native application's preference file.
+
+## Forever SavedVariables recovery
+
+The Companion remembers the last detected WoW installation. When that client
+closes—or when the Companion starts from the installed addon's `Companion`
+folder while WoW is already closed—it finds the newest valid account-wide and
+character-specific `Offhand.lua` files under that installation's `WTF` folder.
+It atomically generates `Core\ForeverState.lua`, retaining the previous copy as
+`ForeverState.lua.bak`. The generated Lua is guarded to interface versions
+16000–16999, so it is inert on other WoW clients.
+
+WoW must be fully closed before the Companion reads or updates this snapshot.
+The addon consumes each generated version once per client session, then uses its
+session CVar fallback for subsequent `/reload` operations. With multiple
+accounts or characters, the most recently written valid account snapshot and
+the most recently written valid character snapshot belonging to that account
+are selected.
 
 ## Restore Window
 

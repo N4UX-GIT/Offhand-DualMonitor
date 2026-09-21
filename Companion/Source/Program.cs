@@ -5,6 +5,8 @@ using System.Drawing;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
 using System.Windows.Forms;
 
 [assembly: AssemblyTitle("Offhand Companion")]
@@ -65,6 +67,154 @@ namespace Offhand.Companion
         {
             decimal delay;
             return decimal.TryParse(value, out delay) ? Math.Max(0, Math.Min(60, delay)) : 15;
+        }
+    }
+
+    internal static class ForeverStateBridge
+    {
+        private const int MaxSavedVariablesBytes = 16 * 1024 * 1024;
+
+        private static string ReadValidated(string path, string variable)
+        {
+            if (!File.Exists(path)) return null;
+            var info = new FileInfo(path);
+            if (info.Length <= 0 || info.Length > MaxSavedVariablesBytes) return null;
+            string text = File.ReadAllText(path);
+            if (text.IndexOf('\0') >= 0) return null;
+            text = text.TrimStart('\uFEFF', '\r', '\n', ' ', '\t');
+            if (!text.StartsWith(variable + " =", StringComparison.Ordinal)) return null;
+            return text.TrimEnd() + Environment.NewLine;
+        }
+
+        private static string NewestValid(IEnumerable<string> paths, string variable)
+        {
+            string newest = null;
+            DateTime newestWrite = DateTime.MinValue;
+            foreach (string path in paths)
+            {
+                string valid;
+                try { valid = ReadValidated(path, variable); }
+                catch (IOException) { continue; }
+                catch (UnauthorizedAccessException) { continue; }
+                if (valid == null) continue;
+                DateTime write = File.GetLastWriteTimeUtc(path);
+                if (newest == null || write > newestWrite)
+                {
+                    newest = path;
+                    newestWrite = write;
+                }
+            }
+            return newest;
+        }
+
+        private static string Hash(string value)
+        {
+            using (var sha = SHA256.Create())
+            {
+                byte[] digest = sha.ComputeHash(Encoding.UTF8.GetBytes(value));
+                var result = new StringBuilder(digest.Length * 2);
+                foreach (byte b in digest) result.Append(b.ToString("x2"));
+                return result.ToString();
+            }
+        }
+
+        internal static bool TryRefresh(string wowDir, out string message)
+        {
+            message = "Forever recovery bridge was not updated.";
+            if (string.IsNullOrEmpty(wowDir) || !Directory.Exists(wowDir))
+            {
+                message = "Forever recovery skipped: WoW directory unavailable.";
+                return false;
+            }
+
+            string accountRoot = Path.Combine(wowDir, "WTF", "Account");
+            string addonCore = Path.Combine(wowDir, "Interface", "AddOns", "Offhand", "Core");
+            if (!Directory.Exists(accountRoot) || !Directory.Exists(addonCore))
+            {
+                message = "Forever recovery skipped: Offhand or WTF directory unavailable.";
+                return false;
+            }
+
+            string[] all;
+            try { all = Directory.GetFiles(accountRoot, "Offhand.lua", SearchOption.AllDirectories); }
+            catch (IOException ex) { message = "Forever recovery cannot scan SavedVariables: " + ex.Message; return false; }
+            catch (UnauthorizedAccessException ex) { message = "Forever recovery cannot scan SavedVariables: " + ex.Message; return false; }
+
+            var accountFiles = new List<string>();
+            foreach (string path in all)
+            {
+                var savedVariables = Directory.GetParent(path);
+                var account = savedVariables == null ? null : savedVariables.Parent;
+                if (savedVariables != null && account != null &&
+                    savedVariables.Name.Equals("SavedVariables", StringComparison.OrdinalIgnoreCase) &&
+                    account.Parent != null && account.Parent.FullName.Equals(accountRoot, StringComparison.OrdinalIgnoreCase))
+                    accountFiles.Add(path);
+            }
+
+            string accountPath = NewestValid(accountFiles, "OffhandDB");
+            if (accountPath == null)
+            {
+                message = "Forever recovery skipped: no valid account Offhand.lua found.";
+                return false;
+            }
+
+            DirectoryInfo accountDirectory = Directory.GetParent(accountPath).Parent;
+            var characterFiles = new List<string>();
+            foreach (string path in all)
+            {
+                if (!path.StartsWith(accountDirectory.FullName + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) continue;
+                if (path.Equals(accountPath, StringComparison.OrdinalIgnoreCase)) continue;
+                characterFiles.Add(path);
+            }
+            string characterPath = NewestValid(characterFiles, "OffhandCharDB");
+            if (characterPath == null)
+            {
+                message = "Forever recovery skipped: no valid character Offhand.lua found for the newest account.";
+                return false;
+            }
+
+            string accountText = ReadValidated(accountPath, "OffhandDB");
+            string characterText = ReadValidated(characterPath, "OffhandCharDB");
+            if (accountText == null || characterText == null)
+            {
+                message = "Forever recovery skipped: SavedVariables changed while being read.";
+                return false;
+            }
+
+            string version = Hash(accountText + "\n" + characterText);
+            string generated =
+                "-- Generated by Offhand Companion from Forever SavedVariables while WoW was closed.\r\n" +
+                "local interfaceVersion = select(4, GetBuildInfo())\r\n" +
+                "if interfaceVersion >= 16000 and interfaceVersion < 17000 then\r\n" +
+                "OffhandForeverStateBridgeVersion = \"" + version + "\"\r\n" +
+                accountText + characterText + "end\r\n";
+            string target = Path.Combine(addonCore, "ForeverState.lua");
+            try
+            {
+                if (File.Exists(target) && File.ReadAllText(target) == generated)
+                {
+                    message = "Forever recovery snapshot is current.";
+                    return true;
+                }
+                string temporary = target + ".tmp." + Process.GetCurrentProcess().Id;
+                File.WriteAllText(temporary, generated, new UTF8Encoding(false));
+                try
+                {
+                    if (File.Exists(target))
+                        File.Replace(temporary, target, target + ".bak", true);
+                    else
+                        File.Move(temporary, target);
+                }
+                finally
+                {
+                    if (File.Exists(temporary)) File.Delete(temporary);
+                }
+                message = "Forever recovery snapshot updated from " +
+                    accountDirectory.Name + " / " + Directory.GetParent(Directory.GetParent(characterPath).FullName).Name + ".";
+                return true;
+            }
+            catch (IOException ex) { message = "Forever recovery cannot update addon state: " + ex.Message; return false; }
+            catch (UnauthorizedAccessException ex) { message = "Forever recovery cannot update addon state: " + ex.Message; return false; }
         }
     }
 
@@ -263,6 +413,11 @@ namespace Offhand.Companion
         private readonly Dictionary<int, WindowSnapshot> originalWindows = new Dictionary<int, WindowSnapshot>();
         private readonly Dictionary<int, DateTime> retryAfter = new Dictionary<int, DateTime>();
         private readonly Dictionary<int, DateTime> launchTimes = new Dictionary<int, DateTime>();
+        private string lastObservedWowDir;
+        private bool bridgeAttemptedWhileStopped;
+        private static readonly string[] wowProcessNames = new string[] {
+            "WowClassic", "Wow", "WowClassicEra", "WowForever", "WowT", "WowB", "WowClassicT", "WowClassicB"
+        };
 
         protected override void WndProc(ref Message m)
         {
@@ -793,6 +948,52 @@ namespace Offhand.Companion
             monitorTimer.Start();
         }
 
+        private void RememberWowDirectory(string wowDir)
+        {
+            if (string.IsNullOrEmpty(wowDir)) return;
+            lastObservedWowDir = wowDir;
+            string saved;
+            if (!appSettings.TryGetValue("LastWowDir", out saved) ||
+                !string.Equals(saved, wowDir, StringComparison.OrdinalIgnoreCase))
+            {
+                appSettings["LastWowDir"] = wowDir;
+                SaveConfig();
+            }
+        }
+
+        private string ResolveStoppedWowDirectory()
+        {
+            if (!string.IsNullOrEmpty(lastObservedWowDir) && Directory.Exists(lastObservedWowDir))
+                return lastObservedWowDir;
+            string saved;
+            if (appSettings.TryGetValue("LastWowDir", out saved) && Directory.Exists(saved))
+                return saved;
+
+            var companion = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory.TrimEnd(
+                Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            var addon = companion.Name.Equals("Companion", StringComparison.OrdinalIgnoreCase) ? companion.Parent : null;
+            var addOns = addon == null ? null : addon.Parent;
+            var interfaceDirectory = addOns == null ? null : addOns.Parent;
+            var wow = interfaceDirectory == null ? null : interfaceDirectory.Parent;
+            if (addon != null && addOns != null && interfaceDirectory != null && wow != null &&
+                addon.Name.Equals("Offhand", StringComparison.OrdinalIgnoreCase) &&
+                addOns.Name.Equals("AddOns", StringComparison.OrdinalIgnoreCase) &&
+                interfaceDirectory.Name.Equals("Interface", StringComparison.OrdinalIgnoreCase))
+                return wow.FullName;
+            return null;
+        }
+
+        private void RefreshForeverStateWhileStopped()
+        {
+            if (bridgeAttemptedWhileStopped) return;
+            bridgeAttemptedWhileStopped = true;
+            string wowDir = ResolveStoppedWowDirectory();
+            if (string.IsNullOrEmpty(wowDir)) return;
+            string message;
+            ForeverStateBridge.TryRefresh(wowDir, out message);
+            AddLog(message);
+        }
+
         private void OnTimerTick()
         {
             try
@@ -813,6 +1014,8 @@ namespace Offhand.Companion
                 lblWowStatus.ForeColor = cGreen;
 
                 AddonStatus status = TestOffhandAddonStatus(proc);
+                RememberWowDirectory(status.WowDir);
+                bridgeAttemptedWhileStopped = false;
                 if (status.Installed)
                 {
                     lblAddonStatus.Text = "  * Offhand Addon: INSTALLED";
@@ -849,6 +1052,10 @@ namespace Offhand.Companion
                 lblAddonStatus.Text = "  o Offhand Addon: Waiting for WoW...";
                 lblAddonStatus.ForeColor = cMuted;
                 lblAddonReason.Text = "";
+                // The game window can disappear before the process finishes
+                // flushing SavedVariables. Never read or replace the recovery
+                // snapshot until every recognized WoW process has exited.
+                if (!IsAnyWoWProcessRunning()) RefreshForeverStateWhileStopped();
             }
 
             // Clean dead PIDs
@@ -876,8 +1083,7 @@ namespace Offhand.Companion
         private Process GetWoWProcess()
         {
             List<Process> candidates = new List<Process>();
-            string[] names = new string[] { "WowClassic", "Wow", "WowClassicEra", "WowForever", "WowT", "WowB", "WowClassicT", "WowClassicB" };
-            foreach (string name in names)
+            foreach (string name in wowProcessNames)
             {
                 candidates.AddRange(Process.GetProcessesByName(name));
             }
@@ -889,6 +1095,16 @@ namespace Offhand.Companion
                 return candidates[0];
             }
             return null;
+        }
+
+        private bool IsAnyWoWProcessRunning()
+        {
+            foreach (string name in wowProcessNames)
+            {
+                Process[] processes = Process.GetProcessesByName(name);
+                if (processes.Length > 0) return true;
+            }
+            return false;
         }
 
         private AddonStatus TestOffhandAddonStatus(Process proc)

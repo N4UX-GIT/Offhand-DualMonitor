@@ -1160,6 +1160,28 @@ end
 -- ============================================================================
 -- Universal Panel Dragger (Allows moving panels to the secondary monitor)
 -- ============================================================================
+local function RestoreSavedPositionAfterShow(frame)
+    if not frame or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+    local name = frame.GetName and frame:GetName()
+    local workspacePosition = name and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
+    local mainPosition = name and Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name]
+    if not workspacePosition and not mainPosition then return end
+
+    -- Apply once after Blizzard's show/layout stack has finished. UIPanel and
+    -- container managers can set their native anchor after OnShow, which made
+    -- the final position depend on panel opening order after a cold launch.
+    RestoreWorkspacePosition(frame)
+    if C_Timer and C_Timer.After then
+        frame._OffhandRestoreGeneration = (frame._OffhandRestoreGeneration or 0) + 1
+        local generation = frame._OffhandRestoreGeneration
+        C_Timer.After(0, function()
+            if frame._OffhandRestoreGeneration ~= generation then return end
+            if frame.IsShown and not frame:IsShown() then return end
+            RestoreWorkspacePosition(frame)
+        end)
+    end
+end
+
 local function HookContainerTitlePersistence(frame, name)
     if not frame or not name or not string.match(name, "^ContainerFrame") then return end
     local titleContainer = frame.TitleContainer
@@ -1268,7 +1290,7 @@ local function MakePanelDraggable(frame)
     frame:HookScript("OnShow", function(self)
         HookContainerTitlePersistence(frame, name)
         HookCombinedBagCloseButton(frame, name)
-        RestoreWorkspacePosition(frame)
+        RestoreSavedPositionAfterShow(frame)
     end)
 
     if name == "ContainerFrameCombinedBags" then
@@ -1552,6 +1574,7 @@ function Offhand:InitializeCanvas()
                 if not frame:IsShown() then frame:Show() end
             end
             Canvas:TryMakeFrameDraggable(frame)
+            RestoreSavedPositionAfterShow(frame)
         end)
     end
     if not Canvas.hideUIPanelHooked and HideUIPanel then

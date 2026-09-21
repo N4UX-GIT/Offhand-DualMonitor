@@ -31,8 +31,30 @@ namespace Offhand.Companion {
                 var remembered = new System.Drawing.Rectangle(120, 90, 1200, 800);
                 Check(RestoreGeometry.Fit(remembered, work) == remembered);
                 Check(work.Contains(RestoreGeometry.Fit(new System.Drawing.Rectangle(5000, 4000, 1920, 1080), work)));
-                Console.WriteLine("PASS: missing/malformed settings, duplicate keys, delay bounds and overflow");
-            } finally { if (File.Exists(file)) File.Delete(file); Directory.Delete(root); }
+
+                string wow = Path.Combine(root, "_classic_beta_");
+                string core = Path.Combine(wow, "Interface", "AddOns", "Offhand", "Core");
+                string account = Path.Combine(wow, "WTF", "Account", "123", "SavedVariables", "Offhand.lua");
+                string character = Path.Combine(wow, "WTF", "Account", "123", "Realm", "Character", "SavedVariables", "Offhand.lua");
+                Directory.CreateDirectory(core);
+                Directory.CreateDirectory(Path.GetDirectoryName(account));
+                Directory.CreateDirectory(Path.GetDirectoryName(character));
+                File.WriteAllText(account, "\r\nOffhandDB = { [\"profiles\"] = { [\"Default\"] = {} } }\n");
+                File.WriteAllText(character, "OffhandCharDB = { [\"activeProfile\"] = \"Default\" }\n");
+                string bridgeMessage;
+                Check(ForeverStateBridge.TryRefresh(wow, out bridgeMessage));
+                string bridge = File.ReadAllText(Path.Combine(core, "ForeverState.lua"));
+                Check(bridge.Contains("OffhandForeverStateBridgeVersion = \"") &&
+                    bridge.Contains("OffhandDB = {") && bridge.Contains("OffhandCharDB = {") &&
+                    bridge.Contains("interfaceVersion >= 16000"));
+                Check(ForeverStateBridge.TryRefresh(wow, out bridgeMessage) && bridgeMessage.Contains("current"));
+                string priorBridge = bridge;
+                File.WriteAllText(character, "OffhandCharDB = { [\"activeProfile\"] = \"Other\" }\n");
+                Check(ForeverStateBridge.TryRefresh(wow, out bridgeMessage));
+                bridge = File.ReadAllText(Path.Combine(core, "ForeverState.lua"));
+                Check(bridge != priorBridge && bridge.Contains("\"Other\""));
+                Console.WriteLine("PASS: settings validation, restore geometry and atomic Forever state generation");
+            } finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }
     }
 }

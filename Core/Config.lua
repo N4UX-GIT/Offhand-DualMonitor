@@ -53,9 +53,11 @@ local function CopyDefaults(src, dst)
     return dst
 end
 
--- The current Forever Beta client writes SavedVariables correctly but does not
--- load them again. Custom CVars use a separate persistence path, so mirror only
--- movable frame positions there as a narrowly scoped, Forever-only fallback.
+-- Some Forever Beta transitions fail to reload normal SavedVariables. Custom
+-- CVars survive relog/reload within the running client, so mirror movable frame
+-- state there as a narrowly scoped, Forever-only session fallback. They do not
+-- survive closing the executable; a cold launch must retain any SavedVariables
+-- the client successfully loaded instead of replacing them with empty CVars.
 -- Other clients never register, read, or write these CVars.
 local ForeverPersistence = {}
 Offhand.ForeverPersistence = ForeverPersistence
@@ -63,6 +65,7 @@ Offhand.ForeverPersistence = ForeverPersistence
 local FOREVER_INDEX_CVAR = "offhandForeverPositionIndex"
 local FOREVER_POSITION_PREFIX = "offhandForeverPosition_"
 local FOREVER_OPEN_PANELS_CVAR = "offhandForeverOpenPanels"
+local FOREVER_RECOVERY_VERSION_CVAR = "offhandForeverRecoveryVersion"
 
 local function RegisterPersistentCVar(name)
     local register = RegisterCVar or (C_CVar and C_CVar.RegisterCVar)
@@ -164,17 +167,54 @@ function ForeverPersistence:SaveOpenPanels(openPanels)
         if isOpen and IsSafeFrameName(name) then table.insert(names, name) end
     end
     table.sort(names)
-    WritePersistentCVar(FOREVER_OPEN_PANELS_CVAR, table.concat(names, ","))
+    -- The marker distinguishes an intentionally empty snapshot ("V1|") from
+    -- an uninitialized CVar after a cold client launch ("").
+    WritePersistentCVar(FOREVER_OPEN_PANELS_CVAR, "V1|" .. table.concat(names, ","))
 end
 
 function ForeverPersistence:RestoreOpenPanels()
     if not self:IsAvailable() or not Offhand.db then return end
     RegisterPersistentCVar(FOREVER_OPEN_PANELS_CVAR)
+    local value = tostring(ReadPersistentCVar(FOREVER_OPEN_PANELS_CVAR) or "")
+    local payload = value:match("^V1|(.*)$")
+    if payload == nil then
+        -- Backward compatibility for earlier non-empty session snapshots. An
+        -- empty value means this is a cold launch, so preserve disk-loaded data.
+        if value == "" then return end
+        payload = value
+    end
     local openPanels = {}
-    for name in tostring(ReadPersistentCVar(FOREVER_OPEN_PANELS_CVAR) or ""):gmatch("[^,]+") do
+    for name in payload:gmatch("[^,]+") do
         if IsSafeFrameName(name) then openPanels[name] = true end
     end
     Offhand.db.openWorkspacePanels = openPanels
+end
+
+function ForeverPersistence:BeginRecoverySnapshot()
+    if not self:IsAvailable() then return false end
+    local version = type(_G.OffhandForeverStateBridgeVersion) == "string"
+        and _G.OffhandForeverStateBridgeVersion or ""
+    if version == "" then return false end
+
+    RegisterPersistentCVar(FOREVER_RECOVERY_VERSION_CVAR)
+    if tostring(ReadPersistentCVar(FOREVER_RECOVERY_VERSION_CVAR) or "") == version then
+        return false
+    end
+
+    -- A bridge snapshot is the durable cold-start source. Mark it consumed for
+    -- this client session, then seed the session CVars from it below. This lets
+    -- later /reload changes win without allowing stale empty CVars from startup
+    -- to erase the recovered layout.
+    WritePersistentCVar(FOREVER_RECOVERY_VERSION_CVAR, version)
+    return true
+end
+
+function ForeverPersistence:SeedSessionFallback()
+    if not self:IsAvailable() or not Offhand.db then return end
+    for name, position in pairs(Offhand.db.savedWorkspacePositions or {}) do
+        self:SaveWorkspacePosition(name, position, position.width, position.height)
+    end
+    self:SaveOpenPanels(Offhand.db.openWorkspacePanels)
 end
 
 function Offhand:InitializeConfig()
@@ -226,8 +266,12 @@ function Offhand:InitializeConfig()
     end
 
     CopyDefaults(defaultSettings, Offhand.db)
-    ForeverPersistence:RestorePositions()
-    ForeverPersistence:RestoreOpenPanels()
+    if ForeverPersistence:BeginRecoverySnapshot() then
+        ForeverPersistence:SeedSessionFallback()
+    else
+        ForeverPersistence:RestorePositions()
+        ForeverPersistence:RestoreOpenPanels()
+    end
 end
 
 function Offhand:GetProfiles()

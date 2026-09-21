@@ -11,6 +11,11 @@ local function entries(path)
     return result
 end
 local tocs = {"Offhand.toc", "Offhand_Mainline.toc", "Offhand_Vanilla.toc", "Offhand_Classic.toc", "Offhand_Forever.toc"}
+for _, toc in ipairs(tocs) do
+    local text = assert(io.open(toc, "rb")):read("*a")
+    assert(text:match("## LoadSavedVariablesFirst:%s*1"), "Missing early SavedVariables load: " .. toc)
+    assert(text:match("## X%-Offhand%-Manifest:%s*%S+"), "Missing manifest diagnostic marker: " .. toc)
+end
 local main = entries(tocs[1])
 for i=2,#tocs do
     local flavor = entries(tocs[i])
