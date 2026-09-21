@@ -2035,12 +2035,37 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 5: FAQ & HELP
     -- ========================================================================
-    local helpOverview = CreateCard(tab5, L["HELP_OVERVIEW_TITLE"], 170)
+    local function MeasureHelpText(fontString, text)
+        if fontString.GetStringHeight then
+            local ok, measured = pcall(fontString.GetStringHeight, fontString)
+            if ok and type(measured) == "number" and measured > 0 then
+                return math.ceil(measured)
+            end
+        end
+
+        -- Headless tests and a few older clients do not expose measured font
+        -- metrics. Prefer a conservative fallback so translated text expands
+        -- instead of being clipped.
+        local lines = 0
+        for line in (tostring(text or "") .. "\n"):gmatch("(.-)\n") do
+            lines = lines + math.max(1, math.ceil(#line / 92))
+        end
+        return math.max(1, lines) * 15
+    end
+
+    local function FitHelpCard(card, body, text, reservedHeight, minimumHeight)
+        local bodyHeight = MeasureHelpText(body, text)
+        card:SetHeight(math.max(minimumHeight or 88, bodyHeight + (reservedHeight or 50)))
+    end
+
+    local helpOverview = CreateCard(tab5, L["HELP_OVERVIEW_TITLE"], 1)
     local overviewBody = helpOverview:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    overviewBody:SetPoint("TOPLEFT", 14, -32)
-    overviewBody:SetPoint("TOPRIGHT", -14, -32)
+    overviewBody:SetPoint("TOPLEFT", helpOverview, "TOPLEFT", 14, -32)
+    overviewBody:SetWidth(634)
+    if overviewBody.SetWordWrap then overviewBody:SetWordWrap(true) end
     overviewBody:SetJustifyH("LEFT")
     overviewBody:SetText(L["HELP_OVERVIEW_BODY"])
+    FitHelpCard(helpOverview, overviewBody, L["HELP_OVERVIEW_BODY"], 88, 132)
 
     local wizardHelpBtn = CreateFrame("Button", nil, helpOverview, "UIPanelButtonTemplate")
     wizardHelpBtn:SetSize(196, 26)
@@ -2066,25 +2091,19 @@ function Options:CreateFloatingPanel()
         StaticPopup_Show("OFFHAND_DOWNLOAD_LINK")
     end)
 
-    local helpCardHeights = {
-        SETUP = 310,
-        COMPANION = 230,
-        EDIT_MODE = 250,
-        PANELS = 220,
-        COLD_LAUNCH = 245,
-        RECOVERY = 280,
-        WELCOME = 205,
-    }
     local helpCards = { helpOverview }
     local helpTopics = { "SETUP", "COMPANION", "EDIT_MODE", "PANELS", "COLD_LAUNCH", "RECOVERY", "WELCOME" }
     for index, topic in ipairs(helpTopics) do
         local title = string.format("%d. %s", index, L["HELP_" .. topic .. "_TITLE"])
-        local card = CreateCard(tab5, title, helpCardHeights[topic])
+        local text = L["HELP_" .. topic .. "_BODY"]
+        local card = CreateCard(tab5, title, 1)
         local body = card:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        body:SetPoint("TOPLEFT", 16, -34)
-        body:SetPoint("TOPRIGHT", -16, -34)
+        body:SetPoint("TOPLEFT", card, "TOPLEFT", 16, -34)
+        body:SetWidth(630)
+        if body.SetWordWrap then body:SetWordWrap(true) end
         body:SetJustifyH("LEFT")
-        body:SetText(L["HELP_" .. topic .. "_BODY"])
+        body:SetText(text)
+        FitHelpCard(card, body, text, 50, 88)
         helpCards[#helpCards + 1] = card
     end
 
