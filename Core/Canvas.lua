@@ -194,7 +194,13 @@ end
 
 -- Global Bag Closure Hook for Escape Persistence
 
+-- The Combined Backpack close button uses CloseAllBags too. Distinguish that
+-- explicit user action from Escape/CloseAllWindows cleanup so a workspace bag
+-- can still be closed from its own X button.
+local explicitCombinedBagClose = false
+
 local function HandleCustomCloseAllBags(originalFunc, ...)
+    if explicitCombinedBagClose then return originalFunc(...) end
     if InCombatLockdown() then return originalFunc(...) end
     if not Offhand.db or not Offhand.db.enabled or Offhand.db.persistentWorkspacePanels == false then
         return originalFunc(...)
@@ -1173,6 +1179,27 @@ local function HookContainerTitlePersistence(frame, name)
     end)
 end
 
+local function HookCombinedBagCloseButton(frame, name)
+    if not frame or name ~= "ContainerFrameCombinedBags" then return end
+    local closeButton = frame.CloseButton or _G[name .. "CloseButton"]
+    if not closeButton or not closeButton.HookScript or closeButton._OffhandExplicitCloseHooked then return end
+
+    closeButton._OffhandExplicitCloseHooked = true
+    closeButton:HookScript("PreClick", function()
+        explicitCombinedBagClose = true
+        -- Do not leave the bypass armed if Blizzard aborts the click before
+        -- PostClick. The native close runs synchronously between these scripts.
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0, function()
+                explicitCombinedBagClose = false
+            end)
+        end
+    end)
+    closeButton:HookScript("PostClick", function()
+        explicitCombinedBagClose = false
+    end)
+end
+
 local function MakePanelDraggable(frame)
     if not frame or frame._OffhandMovable then return end
     local name = frame.GetName and frame:GetName()
@@ -1236,9 +1263,11 @@ local function MakePanelDraggable(frame)
     -- Modern/Forever combined bags are dragged by their native TitleContainer,
     -- which may not exist yet when the parent frame is first discovered.
     HookContainerTitlePersistence(frame, name)
+    HookCombinedBagCloseButton(frame, name)
 
     frame:HookScript("OnShow", function(self)
         HookContainerTitlePersistence(frame, name)
+        HookCombinedBagCloseButton(frame, name)
         RestoreWorkspacePosition(frame)
     end)
 
@@ -1300,6 +1329,7 @@ end
 
 Canvas.RestoreWorkspacePosition = RestoreWorkspacePosition
 Canvas.MakePanelDraggable = MakePanelDraggable
+Canvas.HookCombinedBagCloseButton = HookCombinedBagCloseButton
 Canvas.IsFrameOnWorkspace = IsFrameOnWorkspace
 Canvas.OnPanelDragStop = OnPanelDragStop
 
