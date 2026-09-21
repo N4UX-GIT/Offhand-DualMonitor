@@ -17,7 +17,7 @@ The Companion does not inspect game memory or automate gameplay. It resizes the 
 
 1. Install the Offhand addon and enable it for your character.
 2. Put WoW in standard **Windowed** mode—not Windowed (Fullscreen).
-3. Install **Offhand Companion v2.0.0 or newer** and start it before WoW.
+3. Install **Offhand Companion v2.1.0 or newer** and start it before WoW.
 4. In the Companion, select the monitors to span and click **Span WoW Now** for the initial setup. Automatic spanning is disabled by default; enable it later only if you want WoW spanned on every launch.
 5. In WoW, type `/oh`, select **Launch Setup Wizard**, and complete every step.
 6. On WoW Forever, open Blizzard **Edit Mode**, select the **Offhand** layout, position protected action bars and combat frames inside the Mainhand game view, and save. If Edit Mode controls are missing, use **Gather Off-Screen UI** in `/oh`.
@@ -59,3 +59,31 @@ Some VirusTotal engines currently report the unsigned Companion with generic mac
 Download only from the official GitHub release. Compare the executable's SHA-256 digest with `checksums-sha256.txt`, and verify its GitHub build-provenance attestation when GitHub CLI is available. Update checks are never automatic: the app contacts the official GitHub Releases API only after you click **Check for Updates**. Do not bypass a security warning for a copy obtained elsewhere.
 
 Full behavior, file locations, source-build steps, and verification commands are documented in the [Offhand security guide](https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md).
+
+## Exact display layouts and unusual monitor setups
+
+Current Companion builds no longer ask the addon to infer your monitor layout
+from one combined resolution. The Companion records each selected Windows
+display rectangle and an explicit **Mainhand (game)** role; the other selected
+display becomes the Offhand workspace. This covers:
+
+- Equal or mixed resolutions, including 1440p Mainhand + 1080p workspace.
+- Portrait + landscape and landscape + landscape arrangements.
+- Vertically stacked monitors and screens with unequal horizontal alignment.
+- Ultrawide or 32:9 Mainhand displays paired with a separate workspace screen.
+- Negative Windows desktop coordinates and unequal screen heights.
+- One 49-inch 32:9/32:10 display divided into equal game/workspace halves with
+  the explicit **Single-display 32:9 split** option.
+
+For normal use, select exactly two displays in the Companion and choose the
+Mainhand display. For a single super-ultrawide split, select only that display,
+enable the split option, and choose the game side. If WoW already reached the
+character UI before you clicked **Span WoW Now**, type `/reload` once so Offhand
+can read the new exact-topology snapshot.
+
+The missing-monitor guard is deliberate. If a previously selected display is
+disconnected, the Companion refuses to span rather than squeezing the game and
+UI onto the remaining screen. Use **Restore Window**, reconnect the display, or
+review the saved display selection. This makes switching between a home
+dual-monitor setup and a travel single-monitor setup recoverable without a
+magnifying glass.

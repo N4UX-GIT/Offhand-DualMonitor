@@ -100,6 +100,32 @@ local m=addon.Viewport:GetMetrics()
 assert(m.gameWidth>0 and m.gameHeight>0 and m.gameTop<=m.screenHeight)
 print("PASS: physical seam, cross-scale anchors, HUD fit, nested scale, left primary, fill bounds, invalid input")
 
+-- Companion topology is authoritative and preserves mixed monitor heights and
+-- offsets without guessing from the combined aspect ratio.
+pw,ph=5360,1440
+OffhandCompanionTopology={schema=1,physicalWidth=5360,physicalHeight=1440,mode="DUAL_DISPLAY",
+    workspace={x=0,y=360,width=1920,height=1080},game={x=1920,y=0,width=3440,height=1440}}
+local tm=addon.Viewport:GetMetrics()
+assert(tm.companionTopology and tm.gamePixelWidth==3440 and tm.gamePixelHeight==1440)
+assert(tm.workspacePixelLeft==0 and tm.workspacePixelBottom==360 and tm.workspacePixelHeight==1080)
+addon.Viewport:Apply()
+x,y,w,h=worldPixels()
+near(x,1920); near(y,0); near(w,3440); near(h,1440)
+pw,ph=2560,2520
+OffhandCompanionTopology={schema=1,physicalWidth=2560,physicalHeight=2520,mode="DUAL_DISPLAY",
+    workspace={x=200,y=1440,width=1920,height=1080},game={x=0,y=0,width=2560,height=1440}}
+tm=addon.Viewport:GetMetrics()
+assert(tm.workspacePixelBottom==1440 and tm.workspacePixelHeight==1080 and tm.gamePixelWidth==2560)
+addon.Viewport:Apply()
+x,y,w,h=worldPixels()
+near(x,0); near(y,0); near(w,2560); near(h,1440)
+OffhandCompanionTopology.physicalWidth=9999
+tm=addon.Viewport:GetMetrics()
+assert(not tm.isSpanned and tm.topologyStatus=="MISMATCH" and tm.gamePixelWidth==2560)
+OffhandCompanionTopology=nil
+pw,ph=4000,2560
+print("PASS: exact mixed-resolution Companion topology and stale-topology fail-safe")
+
 -- Regression: Blizzard XP scale resets must be repaired before the call returns,
 -- without scheduling another full viewport layout or recursively hooking itself.
 local timers, combatQueue, combat = {}, {}, false

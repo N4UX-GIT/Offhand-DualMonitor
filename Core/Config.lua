@@ -7,7 +7,9 @@ local _, Offhand = ...
 _G.Offhand = Offhand
 
 local defaultSettings = {
-    enabled = true,
+    -- First launch is intentionally inert. The wizard enables Offhand only
+    -- after the user has reviewed the Companion's detected display topology.
+    enabled = false,
     layoutPreset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT", -- "PORTRAIT_LEFT_LANDSCAPE_RIGHT", "LANDSCAPE_DUAL", "CUSTOM"
     primaryPosition = "RIGHT",      -- "LEFT" or "RIGHT" (In Portrait Left, Primary 3D Game is on the RIGHT!)
     primaryWidthMode = "AUTO",      -- "AUTO", "CUSTOM"
@@ -131,9 +133,13 @@ function ForeverPersistence:SaveWorkspacePosition(name, position, width, height)
     local x, y = tonumber(position.x), tonumber(position.y)
     if not x or not y then return end
     self:RememberFrame(name)
+    local canvasWidth = tonumber(position.canvasWidth) or 0
     local canvasHeight = tonumber(position.canvasHeight) or 0
-    local value = table.concat({ "W2", tostring(x), tostring(y), tostring(tonumber(width) or 0),
-        tostring(tonumber(height) or 0), tostring(canvasHeight) }, "|")
+    local canvasLeft = tonumber(position.canvasLeft) or 0
+    local canvasBottom = tonumber(position.canvasBottom) or 0
+    local value = table.concat({ "W4", tostring(x), tostring(y), tostring(tonumber(width) or 0),
+        tostring(tonumber(height) or 0), tostring(canvasWidth), tostring(canvasHeight),
+        tostring(canvasLeft), tostring(canvasBottom) }, "|")
     WritePersistentCVar(PositionCVar(name), value)
 end
 
@@ -150,20 +156,33 @@ function ForeverPersistence:RestorePositions()
     for _, name in ipairs(names) do
         RegisterPersistentCVar(PositionCVar(name))
         local value = ReadPersistentCVar(PositionCVar(name))
-        local kind, x, y, width, height, canvasHeight = tostring(value or ""):match(
+        local kind, x, y, width, height, canvasWidth, canvasHeight, canvasLeft, canvasBottom = tostring(value or ""):match(
+            "^(W4)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)$")
+        if not kind then
+            kind, x, y, width, height, canvasHeight, canvasBottom = tostring(value or ""):match(
+            "^(W3)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)$")
+        end
+        if not kind then
+            kind, x, y, width, height, canvasHeight = tostring(value or ""):match(
             "^(W2)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)$")
+        end
         if not kind then
             kind, x, y, width, height = tostring(value or ""):match(
                 "^(W)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)$")
         end
-        x, y, width, height, canvasHeight = tonumber(x), tonumber(y), tonumber(width), tonumber(height), tonumber(canvasHeight)
-        if (kind == "W" or kind == "W2") and x and y then
+        x, y, width, height = tonumber(x), tonumber(y), tonumber(width), tonumber(height)
+        canvasWidth, canvasHeight = tonumber(canvasWidth), tonumber(canvasHeight)
+        canvasLeft, canvasBottom = tonumber(canvasLeft), tonumber(canvasBottom)
+        if (kind == "W" or kind == "W2" or kind == "W3" or kind == "W4") and x and y then
             Offhand.db.savedWorkspacePositions[name] = {
                 x = x,
                 y = y,
                 width = width and width > 0 and width or nil,
                 height = height and height > 0 and height or nil,
+                canvasWidth = canvasWidth and canvasWidth > 0 and canvasWidth or nil,
                 canvasHeight = canvasHeight and canvasHeight > 0 and canvasHeight or nil,
+                canvasLeft = canvasLeft,
+                canvasBottom = canvasBottom,
             }
         end
     end

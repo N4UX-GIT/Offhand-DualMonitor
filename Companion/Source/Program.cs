@@ -14,8 +14,8 @@ using System.Windows.Forms;
 [assembly: AssemblyCompany("Offhand Project")]
 [assembly: AssemblyProduct("Offhand")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
-[assembly: AssemblyVersion("2.0.3.0")]
-[assembly: AssemblyFileVersion("2.0.3.0")]
+[assembly: AssemblyVersion("2.1.0.0")]
+[assembly: AssemblyFileVersion("2.1.0.0")]
 
 namespace Offhand.Companion
 {
@@ -34,17 +34,179 @@ namespace Offhand.Companion
 
     internal static class MonitorSelection
     {
-        internal static int[] Resolve(string saved, int count)
+        internal sealed class Display
         {
+            internal int Index;
+            internal string DeviceName;
+            internal Rectangle Bounds;
+            internal bool Primary;
+        }
+
+        internal sealed class Plan
+        {
+            internal int[] Indices;
+            internal int MainhandIndex;
+            internal int WorkspaceIndex;
+            internal bool SplitSingle;
+            internal bool GameOnLeft;
+            internal Rectangle Bounds;
+            internal Rectangle MainhandBounds;
+            internal Rectangle WorkspaceBounds;
+        }
+
+        private static string[] Tokens(string value, char separator)
+        {
+            return string.IsNullOrWhiteSpace(value)
+                ? new string[0]
+                : value.Split(new char[] { separator }, StringSplitOptions.RemoveEmptyEntries);
+        }
+
+        internal static Plan CreatePlan(string savedDevices, string legacySaved, string mainhandDevice,
+            bool splitSingle, bool gameOnLeft, IList<Display> displays)
+        {
+            if (displays == null || displays.Count == 0)
+                throw new InvalidOperationException("Windows reports no connected displays.");
+
             var selected = new List<int>();
-            if (saved == null) { for (int i = 0; i < count; i++) selected.Add(i); }
-            else foreach (string token in saved.Split(','))
+            string[] devices = Tokens(savedDevices, '|');
+            if (savedDevices != null)
             {
-                int index;
-                if (int.TryParse(token, out index) && index >= 0 && index < count && !selected.Contains(index)) selected.Add(index);
+                foreach (string requested in devices)
+                {
+                    int match = -1;
+                    for (int i = 0; i < displays.Count; i++)
+                    {
+                        if (string.Equals(displays[i].DeviceName, requested, StringComparison.OrdinalIgnoreCase))
+                        {
+                            match = i;
+                            break;
+                        }
+                    }
+                    if (match < 0)
+                        throw new InvalidOperationException("A saved display is disconnected (" + requested + "). Restore the WoW window or reconnect it; Offhand will not collapse the span onto the remaining screen.");
+                    if (!selected.Contains(match)) selected.Add(match);
+                }
             }
-            if (selected.Count == 0) throw new InvalidOperationException("Select at least one connected monitor before spanning.");
-            return selected.ToArray();
+            else if (legacySaved != null)
+            {
+                foreach (string token in Tokens(legacySaved, ','))
+                {
+                    int index;
+                    if (!int.TryParse(token, out index) || index < 0 || index >= displays.Count)
+                        throw new InvalidOperationException("A previously selected display is disconnected. Review the display selection before spanning.");
+                    if (!selected.Contains(index)) selected.Add(index);
+                }
+            }
+            else
+            {
+                for (int i = 0; i < displays.Count; i++) selected.Add(i);
+            }
+
+            if (selected.Count == 0)
+                throw new InvalidOperationException("Select displays before spanning.");
+            if (selected.Count == 1 && !splitSingle)
+                throw new InvalidOperationException("Select exactly two displays, or enable Single-display 32:9 split for one super-ultrawide monitor.");
+            if (selected.Count > 2)
+                throw new InvalidOperationException("Offhand currently supports exactly two displays, or one super-ultrawide in split mode. Select only the Mainhand and Offhand displays.");
+
+            int mainhand = -1;
+            if (!string.IsNullOrWhiteSpace(mainhandDevice))
+            {
+                foreach (int index in selected)
+                    if (string.Equals(displays[index].DeviceName, mainhandDevice, StringComparison.OrdinalIgnoreCase)) mainhand = index;
+                if (mainhand < 0)
+                    throw new InvalidOperationException("The saved Mainhand display is unavailable. Select the connected game-view display before spanning.");
+            }
+            if (mainhand < 0)
+            {
+                foreach (int index in selected) if (displays[index].Primary) { mainhand = index; break; }
+                if (mainhand < 0) mainhand = selected[selected.Count - 1];
+            }
+
+            Rectangle union = displays[selected[0]].Bounds;
+            foreach (int index in selected) union = Rectangle.Union(union, displays[index].Bounds);
+            Rectangle game = displays[mainhand].Bounds;
+            int workspaceIndex = selected.Count == 2 ? selected[0] == mainhand ? selected[1] : selected[0] : mainhand;
+            Rectangle workspace = displays[workspaceIndex].Bounds;
+            if (selected.Count == 1)
+            {
+                int workspaceWidth = workspace.Width / 2;
+                int gameWidth = workspace.Width - workspaceWidth;
+                if (gameOnLeft)
+                {
+                    game = new Rectangle(workspace.Left, workspace.Top, gameWidth, workspace.Height);
+                    workspace = new Rectangle(game.Right, workspace.Top, workspaceWidth, workspace.Height);
+                }
+                else
+                {
+                    workspace = new Rectangle(workspace.Left, workspace.Top, workspaceWidth, workspace.Height);
+                    game = new Rectangle(workspace.Right, workspace.Top, gameWidth, workspace.Height);
+                }
+            }
+
+            return new Plan { Indices = selected.ToArray(), MainhandIndex = mainhand,
+                WorkspaceIndex = workspaceIndex, SplitSingle = selected.Count == 1,
+                GameOnLeft = gameOnLeft, Bounds = union, MainhandBounds = game,
+                WorkspaceBounds = workspace };
+        }
+    }
+
+    internal static class CompanionTopologyBridge
+    {
+        private static string LuaString(string value)
+        {
+            return "\"" + (value ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+        }
+
+        private static string RectLua(Rectangle rect, Rectangle union)
+        {
+            int left = rect.Left - union.Left;
+            int bottom = union.Bottom - rect.Bottom;
+            return string.Format("{{ x = {0}, y = {1}, width = {2}, height = {3} }}", left, bottom, rect.Width, rect.Height);
+        }
+
+        internal static bool TryWrite(string wowDir, MonitorSelection.Plan plan,
+            IList<MonitorSelection.Display> displays, out string message)
+        {
+            message = "Display topology was not written.";
+            if (string.IsNullOrEmpty(wowDir) || plan == null) return false;
+            string core = Path.Combine(wowDir, "Interface", "AddOns", "Offhand", "Core");
+            if (!Directory.Exists(core)) return false;
+            string target = Path.Combine(core, "CompanionTopology.lua");
+            string temporary = target + ".tmp";
+            var selected = new StringBuilder();
+            for (int i = 0; i < plan.Indices.Length; i++)
+            {
+                if (i > 0) selected.Append(", ");
+                selected.Append(LuaString(displays[plan.Indices[i]].DeviceName));
+            }
+            string text =
+                "-- Generated by Offhand Companion. Do not edit while the Companion is running.\r\n" +
+                "OffhandCompanionTopology = {\r\n" +
+                "  schema = 1, generatedAt = " + LuaString(DateTime.UtcNow.ToString("o")) + ",\r\n" +
+                "  mode = " + LuaString(plan.SplitSingle ? "SPLIT_ULTRAWIDE" : "DUAL_DISPLAY") + ",\r\n" +
+                "  physicalWidth = " + plan.Bounds.Width + ", physicalHeight = " + plan.Bounds.Height + ",\r\n" +
+                "  mainhandDevice = " + LuaString(displays[plan.MainhandIndex].DeviceName) + ",\r\n" +
+                "  selectedDevices = { " + selected + " },\r\n" +
+                "  game = " + RectLua(plan.MainhandBounds, plan.Bounds) + ",\r\n" +
+                "  workspace = " + RectLua(plan.WorkspaceBounds, plan.Bounds) + ",\r\n" +
+                "}\r\n";
+            try
+            {
+                File.WriteAllText(temporary, text, new UTF8Encoding(false));
+                if (File.Exists(target)) File.Replace(temporary, target, null);
+                else File.Move(temporary, target);
+                message = string.Format("Display topology updated: game {0}x{1}, workspace {2}x{3}.",
+                    plan.MainhandBounds.Width, plan.MainhandBounds.Height,
+                    plan.WorkspaceBounds.Width, plan.WorkspaceBounds.Height);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                try { if (File.Exists(temporary)) File.Delete(temporary); } catch { }
+                message = "Display topology update failed: " + ex.Message;
+                return false;
+            }
         }
     }
 
@@ -343,11 +505,6 @@ namespace Offhand.Companion
         public string Reason;
     }
 
-    public class DesktopBounds
-    {
-        public int X, Y, Width, Height;
-    }
-
     public class CompanionForm : Form
     {
         // Warcraft Dark Interface Palette (Black / Dark Grey / Burnished Gold)
@@ -380,6 +537,62 @@ namespace Offhand.Companion
         private ComboBox cmbHotkey;
         private Label lblHotkey;
         private CheckedListBox clbMonitors;
+        private ComboBox cmbMainhand;
+        private CheckBox chkSingleSplit;
+        private ComboBox cmbSingleSide;
+        private List<MonitorSelection.Display> uiDisplays;
+
+        private sealed class DisplayChoice
+        {
+            internal int Index;
+            internal string DeviceName;
+            internal string Label;
+            public override string ToString() { return Label; }
+        }
+
+        private static List<MonitorSelection.Display> ReadDisplays()
+        {
+            var result = new List<MonitorSelection.Display>();
+            var screens = Screen.AllScreens;
+            for (int i = 0; i < screens.Length; i++)
+                result.Add(new MonitorSelection.Display { Index = i, DeviceName = screens[i].DeviceName,
+                    Bounds = screens[i].Bounds, Primary = screens[i].Primary });
+            return result;
+        }
+
+        private MonitorSelection.Plan GetMonitorPlan()
+        {
+            string devices, legacy, mainhand, split, side;
+            appSettings.TryGetValue("MonitorDevices", out devices);
+            appSettings.TryGetValue("Monitors", out legacy);
+            appSettings.TryGetValue("MainhandDevice", out mainhand);
+            appSettings.TryGetValue("SingleDisplaySplit", out split);
+            appSettings.TryGetValue("SingleGameSide", out side);
+            return MonitorSelection.CreatePlan(devices, legacy, mainhand,
+                string.Equals(split, "True", StringComparison.OrdinalIgnoreCase),
+                string.Equals(side, "LEFT", StringComparison.OrdinalIgnoreCase), ReadDisplays());
+        }
+
+        private void SaveDisplaySettingsFromControls()
+        {
+            if (clbMonitors == null || uiDisplays == null) return;
+            var devices = new List<string>();
+            var legacy = new List<string>();
+            for (int i = 0; i < clbMonitors.Items.Count; i++)
+            {
+                if (!clbMonitors.GetItemChecked(i)) continue;
+                devices.Add(uiDisplays[i].DeviceName);
+                legacy.Add(i.ToString());
+            }
+            appSettings["MonitorDevices"] = string.Join("|", devices.ToArray());
+            appSettings["Monitors"] = string.Join(",", legacy.ToArray());
+            var choice = cmbMainhand == null ? null : cmbMainhand.SelectedItem as DisplayChoice;
+            if (choice != null) appSettings["MainhandDevice"] = choice.DeviceName;
+            if (chkSingleSplit != null) appSettings["SingleDisplaySplit"] = chkSingleSplit.Checked.ToString();
+            if (cmbSingleSide != null && cmbSingleSide.SelectedItem != null)
+                appSettings["SingleGameSide"] = cmbSingleSide.SelectedItem.ToString().ToUpperInvariant();
+            SaveConfig();
+        }
 
         private static Dictionary<string, string> appSettings = new Dictionary<string, string>();
         private static readonly string configPath = Path.Combine(
@@ -484,7 +697,7 @@ namespace Offhand.Companion
             UpdateHotkey();
             if (configWarning != null) AddLog(configWarning);
 
-            AddLog("Offhand Companion v2.0.3 initialized.");
+            AddLog("Offhand Companion v2.1.0 initialized.");
             AddLog("Monitoring active. Enable Offhand in WoW; calibrate with /offhand wizard.");
         }
 
@@ -561,7 +774,7 @@ namespace Offhand.Companion
         private void InitializeUI()
         {
             this.Text = "Offhand Companion";
-            this.Size = new Size(524, 700);
+            this.Size = new Size(524, 758);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -660,7 +873,7 @@ namespace Offhand.Companion
 
             // Version
             Label verLabel = new Label();
-            verLabel.Text = "v2.0.3";
+            verLabel.Text = "v2.1.0";
             verLabel.Location = new Point(98, 66);
             verLabel.Size = new Size(100, 14);
             verLabel.Font = new Font("Segoe UI", 7.5f, FontStyle.Italic);
@@ -720,7 +933,7 @@ namespace Offhand.Companion
             statusPanel.Controls.Add(lblAddonReason);
 
             // Configuration Card
-            Panel configPanel = CreateCardPanel(16, 230, 490, 126, "Configuration");
+            Panel configPanel = CreateCardPanel(16, 230, 490, 184, "Configuration");
             this.Controls.Add(configPanel);
 
             chkAutoSpan = new CheckBox
@@ -759,24 +972,44 @@ namespace Offhand.Companion
             };
             configPanel.Controls.Add(cmbHotkey);
 
-            Label lblMonitors = new Label { Text = "Span Monitors:", Location = new Point(310, 26), Size = new Size(130, 22), ForeColor = cText, BackColor = Color.Transparent };
+            Label lblMonitors = new Label { Text = "Span displays:", Location = new Point(270, 26), Size = new Size(150, 22), ForeColor = cText, BackColor = Color.Transparent };
             configPanel.Controls.Add(lblMonitors);
-            clbMonitors = new CheckedListBox { Location = new Point(310, 54), Size = new Size(160, 60), BackColor = cCard, ForeColor = cText, BorderStyle = BorderStyle.None };
+            clbMonitors = new CheckedListBox { Location = new Point(270, 50), Size = new Size(210, 62), BackColor = cCard, ForeColor = cText, BorderStyle = BorderStyle.None };
             clbMonitors.CheckOnClick = true;
-            for (int i = 0; i < Screen.AllScreens.Length; i++)
+            uiDisplays = ReadDisplays();
+            for (int i = 0; i < uiDisplays.Count; i++)
             {
-                clbMonitors.Items.Add("Display " + (i + 1), true);
+                Rectangle b = uiDisplays[i].Bounds;
+                clbMonitors.Items.Add(string.Format("Display {0}: {1}x{2}{3}", i + 1, b.Width, b.Height,
+                    uiDisplays[i].Primary ? " (Primary)" : ""), true);
             }
             clbMonitors.ItemCheck += (s, e) => {
                 if (!this.IsHandleCreated) return;
                 this.BeginInvoke(new Action(() => {
-                    List<string> selected = new List<string>();
-                    for (int i = 0; i < clbMonitors.Items.Count; i++) if (clbMonitors.GetItemChecked(i)) selected.Add(i.ToString());
-                    appSettings["Monitors"] = string.Join(",", selected.ToArray());
-                    SaveConfig();
+                    SaveDisplaySettingsFromControls();
                 }));
             };
             configPanel.Controls.Add(clbMonitors);
+
+            Label lblMainhand = new Label { Text = "Mainhand (game):", Location = new Point(270, 112), Size = new Size(130, 20), ForeColor = cText, BackColor = Color.Transparent };
+            configPanel.Controls.Add(lblMainhand);
+            cmbMainhand = new ComboBox { Location = new Point(270, 134), Size = new Size(210, 22), DropDownStyle = ComboBoxStyle.DropDownList, BackColor = cCard, ForeColor = cText };
+            for (int i = 0; i < uiDisplays.Count; i++)
+            {
+                Rectangle b = uiDisplays[i].Bounds;
+                cmbMainhand.Items.Add(new DisplayChoice { Index = i, DeviceName = uiDisplays[i].DeviceName,
+                    Label = string.Format("Display {0} — {1}x{2}", i + 1, b.Width, b.Height) });
+            }
+            configPanel.Controls.Add(cmbMainhand);
+
+            chkSingleSplit = new CheckBox { Text = "Single-display 32:9 split", Location = new Point(10, 116), Size = new Size(245, 22), Font = new Font("Segoe UI", 9), ForeColor = cText, BackColor = Color.Transparent };
+            configPanel.Controls.Add(chkSingleSplit);
+            Label lblSingleSide = new Label { Text = "Game side:", Location = new Point(10, 146), Size = new Size(90, 22), ForeColor = cText, BackColor = Color.Transparent };
+            configPanel.Controls.Add(lblSingleSide);
+            cmbSingleSide = new ComboBox { Location = new Point(100, 144), Size = new Size(100, 22), DropDownStyle = ComboBoxStyle.DropDownList, BackColor = cCard, ForeColor = cText };
+            cmbSingleSide.Items.AddRange(new object[] { "Right", "Left" });
+            cmbSingleSide.SelectedIndex = 0;
+            configPanel.Controls.Add(cmbSingleSide);
 
             uiToolTips.SetToolTip(chkAutoSpan,
                 "Disabled by default. When enabled, Offhand spans each newly detected WoW window across the selected displays. Manual Span WoW Now remains available when disabled.");
@@ -791,14 +1024,43 @@ namespace Offhand.Companion
             uiToolTips.SetToolTip(lblMonitors,
                 "Select every display that should form WoW's borderless virtual desktop.");
             uiToolTips.SetToolTip(clbMonitors,
-                "Checked displays define the span rectangle. Select at least one; for Offhand's dual-monitor layout, select both the workspace and game-view displays.");
+                "Select exactly two displays for normal use. If a saved display is disconnected, Offhand refuses to span rather than shrinking the UI onto the remaining screen.");
+            uiToolTips.SetToolTip(cmbMainhand,
+                "The display that contains the 3D game view and Blizzard combat UI. The other selected display becomes the Offhand workspace.");
+            uiToolTips.SetToolTip(chkSingleSplit,
+                "For one 32:9 or 32:10 super-ultrawide only: divide that display into a game half and workspace half. Leave disabled for ordinary single-monitor use.");
+            uiToolTips.SetToolTip(cmbSingleSide,
+                "Choose which half of a single super-ultrawide contains the game view.");
 
-            if (appSettings.ContainsKey("Monitors"))
+            string savedDevices;
+            if (appSettings.TryGetValue("MonitorDevices", out savedDevices))
+            {
+                var wanted = new HashSet<string>(savedDevices.Split(new char[] { '|' }, StringSplitOptions.RemoveEmptyEntries), StringComparer.OrdinalIgnoreCase);
+                for (int i = 0; i < clbMonitors.Items.Count; i++) clbMonitors.SetItemChecked(i, wanted.Contains(uiDisplays[i].DeviceName));
+            }
+            else if (appSettings.ContainsKey("Monitors"))
             {
                 string[] saved = appSettings["Monitors"].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
                 for (int i = 0; i < clbMonitors.Items.Count; i++) clbMonitors.SetItemChecked(i, false);
                 foreach (string m in saved) { int idx; if (int.TryParse(m, out idx) && idx >= 0 && idx < clbMonitors.Items.Count) clbMonitors.SetItemChecked(idx, true); }
             }
+
+            string savedMainhand;
+            appSettings.TryGetValue("MainhandDevice", out savedMainhand);
+            for (int i = 0; i < cmbMainhand.Items.Count; i++)
+            {
+                var choice = (DisplayChoice)cmbMainhand.Items[i];
+                if (string.Equals(choice.DeviceName, savedMainhand, StringComparison.OrdinalIgnoreCase)
+                    || (string.IsNullOrEmpty(savedMainhand) && uiDisplays[i].Primary)) { cmbMainhand.SelectedIndex = i; break; }
+            }
+            if (cmbMainhand.SelectedIndex < 0 && cmbMainhand.Items.Count > 0) cmbMainhand.SelectedIndex = cmbMainhand.Items.Count - 1;
+            chkSingleSplit.Checked = appSettings.ContainsKey("SingleDisplaySplit") && appSettings["SingleDisplaySplit"] == "True";
+            if (appSettings.ContainsKey("SingleGameSide") && appSettings["SingleGameSide"].Equals("LEFT", StringComparison.OrdinalIgnoreCase)) cmbSingleSide.SelectedIndex = 1;
+
+            cmbMainhand.SelectedIndexChanged += (s, e) => { SaveDisplaySettingsFromControls(); };
+            chkSingleSplit.CheckedChanged += (s, e) => { cmbSingleSide.Enabled = chkSingleSplit.Checked; SaveDisplaySettingsFromControls(); };
+            cmbSingleSide.SelectedIndexChanged += (s, e) => { SaveDisplaySettingsFromControls(); };
+            cmbSingleSide.Enabled = chkSingleSplit.Checked;
 
             if (appSettings.ContainsKey("AutoSpan")) chkAutoSpan.Checked = appSettings["AutoSpan"] == "True";
             if (appSettings.ContainsKey("DelaySpan")) numDelaySpan.Value = PreferenceFile.Delay(appSettings["DelaySpan"]);
@@ -806,20 +1068,41 @@ namespace Offhand.Companion
             chkAutoSpan.CheckedChanged += (s, e) => { appSettings["AutoSpan"] = chkAutoSpan.Checked.ToString(); SaveConfig(); };
             numDelaySpan.ValueChanged += (s, e) => { appSettings["DelaySpan"] = numDelaySpan.Value.ToString(); SaveConfig(); };
             numDelaySpan.KeyUp += (s, e) => { appSettings["DelaySpan"] = numDelaySpan.Value.ToString(); SaveConfig(); if (e.KeyCode == Keys.Enter) { e.Handled = true; this.ActiveControl = null; } };
+            // Migrate legacy numeric monitor indices only when every saved
+            // display is currently connected. Never erase evidence of a
+            // disconnected display merely because Windows renumbered screens.
+            if (!appSettings.ContainsKey("MonitorDevices"))
+            {
+                bool completeLegacySelection = true;
+                string legacySelection;
+                if (appSettings.TryGetValue("Monitors", out legacySelection))
+                {
+                    foreach (string token in legacySelection.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        int index;
+                        if (!int.TryParse(token, out index) || index < 0 || index >= uiDisplays.Count)
+                        {
+                            completeLegacySelection = false;
+                            break;
+                        }
+                    }
+                }
+                if (completeLegacySelection) SaveDisplaySettingsFromControls();
+            }
 
 
             // Action Buttons
-            btnSpanNow = CreateButton("Span WoW Now", 16, 368, 158, 36, cBtnPrimaryBg, cGoldBright, cGold);
+            btnSpanNow = CreateButton("Span WoW Now", 16, 426, 158, 36, cBtnPrimaryBg, cGoldBright, cGold);
             btnSpanNow.Click += (s, e) => { InvokeSpanWindow(true); };
             this.Controls.Add(btnSpanNow);
             uiToolTips.SetToolTip(btnSpanNow, "Immediately make the detected WoW window borderless and span it across the selected displays. This also resumes spanning after Restore Window.");
 
-            Button btnRestoreNow = CreateButton("Restore Window", 182, 368, 158, 36, cBtnBg, cText, cBorder);
+            Button btnRestoreNow = CreateButton("Restore Window", 182, 426, 158, 36, cBtnBg, cText, cBorder);
             btnRestoreNow.Click += (s, e) => { InvokeRestoreWindow(true); };
             this.Controls.Add(btnRestoreNow);
             uiToolTips.SetToolTip(btnRestoreNow, "Return WoW to a bordered, single-monitor window so off-screen UI can be recovered. Automatic spanning pauses for that WoW process until Span WoW Now is used.");
 
-            btnToggleWatch = CreateButton("Pause Monitor", 348, 368, 158, 36, cBtnBg, cText, cBorder);
+            btnToggleWatch = CreateButton("Pause Monitor", 348, 426, 158, 36, cBtnBg, cText, cBorder);
             btnToggleWatch.Click += (s, e) =>
             {
                 isMonitoring = !isMonitoring;
@@ -840,7 +1123,7 @@ namespace Offhand.Companion
             uiToolTips.SetToolTip(btnToggleWatch, "Pause or resume background detection of WoW launches. Manual Span and Restore controls remain available while monitoring is paused.");
 
             // Activity Log Card
-            Panel logPanel = CreateCardPanel(16, 416, 490, 200, "Activity Log");
+            Panel logPanel = CreateCardPanel(16, 474, 490, 200, "Activity Log");
             this.Controls.Add(logPanel);
 
             logBox = new ListBox
@@ -855,7 +1138,7 @@ namespace Offhand.Companion
             logPanel.Controls.Add(logBox);
 
             // Footer Buttons
-            Button btnMinimize = CreateButton("Minimize to Tray", 16, 628, 152, 30, cBtnBg, cMuted, cBorderDim);
+            Button btnMinimize = CreateButton("Minimize to Tray", 16, 686, 152, 30, cBtnBg, cMuted, cBorderDim);
             btnMinimize.Click += (s, e) =>
             {
                 this.Hide();
@@ -864,12 +1147,12 @@ namespace Offhand.Companion
             this.Controls.Add(btnMinimize);
             uiToolTips.SetToolTip(btnMinimize, "Hide the dashboard while keeping the Companion and launch monitor running in the Windows notification tray.");
 
-            btnCheckUpdates = CreateButton("Check for Updates", 182, 628, 158, 30, cBtnBg, cText, cBorder);
+            btnCheckUpdates = CreateButton("Check for Updates", 182, 686, 158, 30, cBtnBg, cText, cBorder);
             btnCheckUpdates.Click += (s, e) => { CheckForUpdates(); };
             this.Controls.Add(btnCheckUpdates);
             uiToolTips.SetToolTip(btnCheckUpdates, "Contact the official GitHub Releases API once to compare versions. The Companion never checks for updates automatically.");
 
-            Button btnExit = CreateButton("Exit Companion", 356, 628, 152, 30, cBtnDanger, Color.FromArgb(235, 130, 130), Color.FromArgb(140, 45, 45));
+            Button btnExit = CreateButton("Exit Companion", 356, 686, 152, 30, cBtnDanger, Color.FromArgb(235, 130, 130), Color.FromArgb(140, 45, 45));
             btnExit.Click += (s, e) => { ExitApplication(); };
             this.Controls.Add(btnExit);
             uiToolTips.SetToolTip(btnExit, "Stop monitoring and fully exit the Companion. Closing the title-bar X only minimizes it to the tray.");
@@ -946,9 +1229,10 @@ namespace Offhand.Companion
                 "FIRST-TIME SETUP",
                 "1. In WoW, choose standard Windowed mode (not Windowed Fullscreen).",
                 "2. Start Offhand Companion before WoW.",
-                "3. Check the workspace and game-view displays under Span Monitors.",
+                "3. Select exactly two displays, then choose which one is Mainhand (game). The other becomes the Offhand workspace.",
+                "   For one 32:9/32:10 super-ultrawide, select only that display, enable Single-display 32:9 split, and choose the game side.",
                 "4. Leave Automatically span WoW window on game launch disabled for the first setup. Launch WoW, wait for its window, then click Span WoW Now.",
-                "5. In WoW, type /oh, launch the Auto-Setup Wizard, and complete all calibration steps.",
+                "5. If WoW had already reached the character UI when you clicked Span, type /reload once. Then type /oh and complete the Auto-Setup Wizard.",
                 "6. On Forever, open Blizzard Edit Mode, select or create the Offhand layout, place protected HUD elements on the game-view monitor, and save it.",
                 "7. Arrange the map, character frame, backpack, and chat on the Offhand workspace.",
                 "8. Exit WoW normally with the Companion still running. Relaunch once to verify a cold start.",
@@ -960,7 +1244,9 @@ namespace Offhand.Companion
                 "Automatically span on launch: Opt-in automatic spanning; disabled by default.",
                 "Delay Span: Delay used by non-Forever clients. Forever spans immediately so the UI loads against its final geometry.",
                 "Global Hotkey: System-wide shortcut for Span WoW Now. Ctrl+Alt+R restores the window.",
-                "Span Monitors: Displays included in the borderless virtual desktop.",
+                "Span displays: Exactly two displays for normal use, or one super-ultrawide in explicit split mode.",
+                "Mainhand (game): The selected display's exact rectangle becomes the 3D game viewport. The other selected display becomes the workspace.",
+                "Single-display 32:9 split: Divides one super-ultrawide into equal workspace/game halves. It never activates automatically.",
                 "Span WoW Now: Span immediately and resume a process previously restored.",
                 "Restore Window: Return WoW to a safe bordered window and pause auto-span for that process.",
                 "Pause Monitor: Stop launch detection without disabling the manual controls.",
@@ -970,10 +1256,10 @@ namespace Offhand.Companion
                 "Forever's protected action bars, unit frames, minimap, and Edit Mode controls belong to Blizzard Edit Mode. Offhand restores workspace panels separately. The Companion is required because WoW must already have the final multi-monitor window geometry when those protected frames initialize. It also works around Forever builds that write Offhand SavedVariables but do not reliably load them on the next cold launch.",
                 "",
                 "RECOVERY",
-                "If UI is inaccessible, click Restore Window (or press Ctrl+Alt+R), enter WoW, and use Offhand's Gather Off-Screen UI action. Re-enter Edit Mode and save/select the Offhand layout, then click Span WoW Now. If the Companion reports no addon, confirm Offhand is enabled for the current client and that the detected WoW installation is correct. WoW must be fully closed before the Forever recovery snapshot can be refreshed.",
+                "If UI is inaccessible, click Restore Window (or press Ctrl+Alt+R), enter WoW, and use Offhand's Gather Off-Screen UI action. Re-enter Edit Mode and save/select the Offhand layout, then click Span WoW Now and /reload once. If a saved display is disconnected, the Companion deliberately refuses to span; reconnect it or review the display selection. WoW must be fully closed before the Forever recovery snapshot can be refreshed.",
                 "",
                 "TROUBLESHOOTING",
-                "Select at least one monitor. If a global shortcut is unavailable, choose another or use the dashboard button. Mixed monitor scale or resolution is supported, but Windows display positions should match their physical arrangement. Hover any dashboard control for a concise explanation.",
+                "Select exactly two displays and a connected Mainhand, or explicitly enable the one-display super-ultrawide split. If a global shortcut is unavailable, choose another or use the dashboard button. Mixed resolutions, ultrawide Mainhand displays, portrait screens, negative desktop coordinates, and stacked arrangements use Windows' exact display rectangles; make sure Windows Display Settings matches the physical arrangement. Hover any dashboard control for a concise explanation.",
                 "",
                 "PRIVACY & VERIFICATION",
                 "The Companion does not collect telemetry, credentials, chat, or gameplay data. Network access occurs only when you click Check for Updates, and is limited to the official GitHub Releases API. Release checksums, source, and build provenance are published with official GitHub releases."
@@ -1203,12 +1489,15 @@ namespace Offhand.Companion
         {
             try
             {
-                DesktopBounds vs = GetDesktopBounds();
-                lblDisplayInfo.Text = string.Format("  Virtual Desktop: {0} x {1} px  (Offset X:{2}, Y:{3})", vs.Width, vs.Height, vs.X, vs.Y);
+                MonitorSelection.Plan displayPlan = GetMonitorPlan();
+                lblDisplayInfo.Text = string.Format("  Game: {0}x{1}  Workspace: {2}x{3}  ({4})",
+                    displayPlan.MainhandBounds.Width, displayPlan.MainhandBounds.Height,
+                    displayPlan.WorkspaceBounds.Width, displayPlan.WorkspaceBounds.Height,
+                    displayPlan.SplitSingle ? "one-screen split" : "two displays");
             }
-            catch
+            catch (Exception ex)
             {
-                lblDisplayInfo.Text = "  Virtual Desktop: physical coordinates unavailable";
+                lblDisplayInfo.Text = "  Display plan: " + ex.Message;
             }
 
             Process proc = GetWoWProcess();
@@ -1373,28 +1662,6 @@ namespace Offhand.Companion
             return handle;
         }
 
-        private DesktopBounds GetDesktopBounds()
-        {
-            IntPtr prevDpi = NativeMethods.SetThreadDpiAwarenessContext((IntPtr)(-4));
-            try
-            {
-                var screens = Screen.AllScreens;
-                string saved;
-                appSettings.TryGetValue("Monitors", out saved);
-                var selected = MonitorSelection.Resolve(saved, screens.Length);
-                Rectangle bounds = screens[selected[0]].Bounds;
-                foreach (int index in selected) bounds = Rectangle.Union(bounds, screens[index].Bounds);
-                return new DesktopBounds { X = bounds.X, Y = bounds.Y, Width = bounds.Width, Height = bounds.Height };
-            }
-            finally
-            {
-                if (prevDpi != IntPtr.Zero)
-                {
-                    NativeMethods.SetThreadDpiAwarenessContext(prevDpi);
-                }
-            }
-        }
-
         private bool InvokeRestoreWindow(bool manual)
         {
             try
@@ -1467,8 +1734,23 @@ namespace Offhand.Companion
                 IntPtr handle = GetWoWWindowHandle(proc);
                 if (handle == IntPtr.Zero) throw new Exception("WoW window is not ready. Retry after it opens.");
 
-                DesktopBounds bounds = GetDesktopBounds();
+                List<MonitorSelection.Display> displays = ReadDisplays();
+                string devices, legacy, mainhand, split, side;
+                appSettings.TryGetValue("MonitorDevices", out devices);
+                appSettings.TryGetValue("Monitors", out legacy);
+                appSettings.TryGetValue("MainhandDevice", out mainhand);
+                appSettings.TryGetValue("SingleDisplaySplit", out split);
+                appSettings.TryGetValue("SingleGameSide", out side);
+                MonitorSelection.Plan plan = MonitorSelection.CreatePlan(devices, legacy, mainhand,
+                    string.Equals(split, "True", StringComparison.OrdinalIgnoreCase),
+                    string.Equals(side, "LEFT", StringComparison.OrdinalIgnoreCase), displays);
+                Rectangle plannedBounds = plan.Bounds;
+                Rectangle bounds = plannedBounds;
                 if (bounds.Width <= 0 || bounds.Height <= 0) throw new Exception("Invalid virtual desktop dimensions.");
+
+                string topologyMessage;
+                if (CompanionTopologyBridge.TryWrite(status.WowDir, plan, displays, out topologyMessage)) AddLog(topologyMessage);
+                else AddLog(topologyMessage + " The current session may require /reload after correcting this.");
 
                 if (NativeMethods.IsZoomed(handle) || NativeMethods.IsIconic(handle))
                 {
@@ -1496,10 +1778,8 @@ namespace Offhand.Companion
                     IntPtr previousDpi = NativeMethods.SetThreadDpiAwarenessContext((IntPtr)(-4));
                     try
                     {
-                        string saved;
-                        appSettings.TryGetValue("Monitors", out saved);
                         var screens = Screen.AllScreens;
-                        foreach (int index in MonitorSelection.Resolve(saved, screens.Length))
+                        foreach (int index in plan.Indices)
                         {
                             Rectangle b = screens[index].Bounds;
                             IntPtr rgn = NativeMethods.CreateRectRgn(b.Left - bounds.X, b.Top - bounds.Y, b.Right - bounds.X, b.Bottom - bounds.Y);
@@ -1548,8 +1828,8 @@ namespace Offhand.Companion
                         Bounds = new Rectangle(oldRect.Left, oldRect.Top, oldRect.Width, oldRect.Height) };
                 restoredPids.Remove(proc.Id);
                 spannedPids.Add(proc.Id);
-                AddLog(string.Format("Spanned {0}x{1}. Calibrate with /offhand wizard.", bounds.Width, bounds.Height));
-                trayIcon.ShowBalloonTip(3000, "Offhand Spanned", "Window spanned. Use /offhand wizard to calibrate.", ToolTipIcon.Info);
+                AddLog(string.Format("Spanned {0}x{1}. If the character UI was already loaded, use /reload once, then run /offhand wizard.", bounds.Width, bounds.Height));
+                trayIcon.ShowBalloonTip(4000, "Offhand Spanned", "Exact display geometry saved. If already in game, use /reload once.", ToolTipIcon.Info);
                 return true;
             }
             catch (Exception ex)

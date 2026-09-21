@@ -43,12 +43,19 @@ It performs the following operations:
   windows.
 - Changes the selected WoW window's border style, position, dimensions, and
   clipping region across the displays selected by the user.
+- Reads the connected displays' Windows device names and rectangles so an
+  explicit Mainhand/workspace selection survives display reordering and fails
+  safely when a saved display is disconnected.
 - Registers the user-selected global Span shortcut and `Ctrl+Alt+R` for Restore.
 - Reads Offhand's installation markers and, for Forever recovery, reads the
   newest valid Offhand SavedVariables only while WoW is fully closed.
 - Writes preferences to `%LOCALAPPDATA%\Offhand\OffhandConfig.ini`.
 - Generates `Core\ForeverState.lua` and its backup inside the detected Offhand
   installation when the guarded Forever recovery bridge is needed.
+- Generates `Core\CompanionTopology.lua` inside the detected Offhand
+  installation when spanning. It contains only selected display device names,
+  normalized rectangles, dimensions, mode, and generation time; it contains no
+  gameplay, account, character, or chat data.
 - Makes one HTTPS request to the official GitHub Releases API only when the user
   clicks **Check for Updates**. It opens the official release page only after an
   update is found and the user confirms.

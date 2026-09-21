@@ -1,19 +1,47 @@
 using System;
+using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 namespace Offhand.Companion {
     internal static class PreferencesTest {
-        private static void Check(bool value) { if (!value) throw new Exception("Preference regression"); }
+        private static int checkNumber;
+        private static void Check(bool value) { checkNumber++; if (!value) throw new Exception("Preference regression at check " + checkNumber); }
         public static void Main() {
             Check(!CompanionDefaults.AutoSpanOnLaunch);
-            Check(MonitorSelection.Resolve(null, 3).Length == 3);
-            Check(MonitorSelection.Resolve("2,2,0,99,bad", 3).Length == 2);
+            var displays = new List<MonitorSelection.Display> {
+                new MonitorSelection.Display { Index = 0, DeviceName = @"\\.\DISPLAY1", Bounds = new Rectangle(0, 0, 3440, 1440), Primary = true },
+                new MonitorSelection.Display { Index = 1, DeviceName = @"\\.\DISPLAY2", Bounds = new Rectangle(-1920, 360, 1920, 1080), Primary = false }
+            };
+            var plan = MonitorSelection.CreatePlan(@"\\.\DISPLAY1|\\.\DISPLAY2", null, @"\\.\DISPLAY1", false, false, displays);
+            Check(plan.Indices.Length == 2 && plan.MainhandBounds.Width == 3440 && plan.WorkspaceBounds.Height == 1080);
+            bool missingRejected = false;
+            try { MonitorSelection.CreatePlan(@"\\.\DISPLAY1|\\.\DISPLAY3", null, @"\\.\DISPLAY1", false, false, displays); }
+            catch (InvalidOperationException) { missingRejected = true; }
+            Check(missingRejected);
+            bool singleRejected = false;
+            try { MonitorSelection.CreatePlan(@"\\.\DISPLAY1", null, @"\\.\DISPLAY1", false, false, displays); }
+            catch (InvalidOperationException) { singleRejected = true; }
+            Check(singleRejected);
+            var splitPlan = MonitorSelection.CreatePlan(@"\\.\DISPLAY1", null, @"\\.\DISPLAY1", true, false, displays);
+            Check(splitPlan.SplitSingle && splitPlan.WorkspaceBounds.Width == 1720 && splitPlan.MainhandBounds.Left == 1720);
+            var reordered = new List<MonitorSelection.Display> { displays[1], displays[0] };
+            var reorderedPlan = MonitorSelection.CreatePlan(@"\\.\DISPLAY1|\\.\DISPLAY2", null, @"\\.\DISPLAY1", false, false, reordered);
+            Check(reorderedPlan.MainhandIndex == 1 && reorderedPlan.MainhandBounds.Width == 3440);
+            var stacked = new List<MonitorSelection.Display> {
+                new MonitorSelection.Display { Index = 0, DeviceName = @"\\.\DISPLAY4", Bounds = new Rectangle(-200, -1080, 1920, 1080), Primary = false },
+                new MonitorSelection.Display { Index = 1, DeviceName = @"\\.\DISPLAY5", Bounds = new Rectangle(0, 0, 2560, 1440), Primary = true }
+            };
+            var stackedPlan = MonitorSelection.CreatePlan(@"\\.\DISPLAY4|\\.\DISPLAY5", null, @"\\.\DISPLAY5", false, false, stacked);
+            Check(stackedPlan.Bounds.X == -200 && stackedPlan.Bounds.Y == -1080 && stackedPlan.Bounds.Width == 2760 && stackedPlan.Bounds.Height == 2520);
+            Check(stackedPlan.MainhandBounds.Height == 1440 && stackedPlan.WorkspaceBounds.Bottom == 0);
+            bool tooManyRejected = false;
+            var three = new List<MonitorSelection.Display>(displays);
+            three.Add(new MonitorSelection.Display { Index = 2, DeviceName = @"\\.\DISPLAY3", Bounds = new Rectangle(3440, 0, 1920, 1080) });
+            try { MonitorSelection.CreatePlan(null, null, null, false, false, three); }
+            catch (InvalidOperationException) { tooManyRejected = true; }
+            Check(tooManyRejected);
             Check(CompanionTiming.AutoSpanDelay("WowB", @"D:\Games\World of Warcraft\_classic_beta_", 30) == 0);
             Check(CompanionTiming.AutoSpanDelay("Wow", @"D:\Games\World of Warcraft\_retail_", 30) == 30);
-            foreach (string invalid in new string[] { "", "99", "bad" }) {
-                bool rejected = false;
-                try { MonitorSelection.Resolve(invalid, 3); } catch (InvalidOperationException) { rejected = true; }
-                Check(rejected);
-            }
             string root = Path.Combine(Path.GetTempPath(), "Offhand-preferences-" + Guid.NewGuid());
             Directory.CreateDirectory(root);
             string file = Path.Combine(root, "settings.ini");
@@ -56,7 +84,12 @@ namespace Offhand.Companion {
                 Check(ForeverStateBridge.TryRefresh(wow, out bridgeMessage));
                 bridge = File.ReadAllText(Path.Combine(core, "ForeverState.lua"));
                 Check(bridge != priorBridge && bridge.Contains("\"Other\""));
-                Console.WriteLine("PASS: safe defaults, settings validation, restore geometry and atomic Forever state generation");
+                string topologyMessage;
+                Check(CompanionTopologyBridge.TryWrite(wow, plan, displays, out topologyMessage));
+                string topology = File.ReadAllText(Path.Combine(core, "CompanionTopology.lua"));
+                Check(topology.Contains("mode = \"DUAL_DISPLAY\"") && topology.Contains("width = 3440") &&
+                    topology.Contains("height = 1080") && topology.Contains("y = 0"));
+                Console.WriteLine("PASS: safe display identities, missing-monitor guard, topology bridge, settings validation, restore geometry and atomic Forever state generation");
             } finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }
     }

@@ -107,6 +107,29 @@ function Options:DetectTopology()
         description = "Single Display",
     }
 
+    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+    if metrics and metrics.companionTopology then
+        local gameAR = metrics.gamePixelWidth / math.max(metrics.gamePixelHeight, 1)
+        local stacked = metrics.workspaceTop <= metrics.gameBottom + 2
+            or metrics.gameTop <= metrics.workspaceBottom + 2
+        info.isSpanned = true
+        info.exactTopology = true
+        info.recommendedPreset = stacked and "STACKED_VERTICAL" or "LANDSCAPE_DUAL"
+        if stacked then
+            info.recommendedPosition = metrics.gameBottom >= metrics.workspaceTop - 2 and "TOP" or "BOTTOM"
+            info.recommendedDeckRatio = metrics.workspacePixelHeight / physH
+        else
+            info.recommendedPosition = metrics.gameLeft < metrics.workspaceLeft and "LEFT" or "RIGHT"
+            info.recommendedDeckRatio = metrics.workspacePixelWidth / physW
+        end
+        info.recommendedAR = gameAR >= 2.9 and "32_9" or gameAR >= 2.1 and "21_9" or "16_9"
+        info.description = string.format("Companion: game %dx%d + workspace %dx%d (%s)",
+            metrics.gamePixelWidth, metrics.gamePixelHeight,
+            metrics.workspacePixelWidth, metrics.workspacePixelHeight,
+            metrics.topologyMode == "SPLIT_ULTRAWIDE" and "single-display split" or (stacked and "stacked" or "side-by-side"))
+        return info
+    end
+
     -- ------------------------------------------------------------------------
     -- 1. Specific High-Confidence Multi-Monitor Topologies
     -- ------------------------------------------------------------------------
@@ -309,7 +332,10 @@ function Options:AutoConfigure(silent, fromWizard)
                     presetLabel = L["PRESET_GL_PR"]
                 end
             end
-            local arLabel = L["AR_" .. (info.recommendedAR or "16_9")] or (info.recommendedAR or "16:9")
+            local arKey = info.recommendedAR or "16_9"
+            local localeKey = "AR_" .. arKey
+            local arLabel = L[localeKey]
+            if not arLabel or arLabel == localeKey then arLabel = arKey == "32_9" and "32:9" or arKey end
             Offhand:Print(L["MSG_AUTOCONFIG_DETAILS"], presetLabel, info.recommendedDeckRatio * 100, arLabel)
         end
         if configFrame and configFrame.IsShown and configFrame:IsShown() then
@@ -345,16 +371,33 @@ function Options:ShowSeamGuide(deckRatio)
         label:SetTextColor(1, 1, 1, 1)
     end
 
-    local screenW = UIParent:GetWidth() or 1920
-    local screenH = UIParent:GetHeight() or 1080
-    local x = screenW * deckRatio
-    if Offhand.db and Offhand.db.primaryPosition == "LEFT" then
-        x = screenW - x
-    end
-
     seamGuideLine:ClearAllPoints()
-    seamGuideLine:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x - 2, screenH)
-    seamGuideLine:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x - 2, 0)
+    local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+    if m and m.companionTopology then
+        local vertical = m.workspaceRight <= m.gameLeft + 2 or m.gameRight <= m.workspaceLeft + 2
+        if vertical then
+            local x = m.workspaceRight <= m.gameLeft + 2 and m.gameLeft or m.workspaceLeft
+            local bottom = math.max(m.workspaceBottom, m.gameBottom)
+            local top = math.min(m.workspaceTop, m.gameTop)
+            if top <= bottom then bottom, top = 0, m.screenHeight end
+            seamGuideLine:SetSize(4, math.max(4, top - bottom))
+            seamGuideLine:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x - 2, bottom)
+        else
+            local y = m.workspaceTop <= m.gameBottom + 2 and m.gameBottom or m.workspaceBottom
+            local left = math.max(m.workspaceLeft, m.gameLeft)
+            local right = math.min(m.workspaceRight, m.gameRight)
+            if right <= left then left, right = 0, m.screenWidth end
+            seamGuideLine:SetSize(math.max(4, right - left), 4)
+            seamGuideLine:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left, y - 2)
+        end
+    else
+        local screenW = UIParent:GetWidth() or 1920
+        local screenH = UIParent:GetHeight() or 1080
+        local x = screenW * deckRatio
+        if Offhand.db and Offhand.db.primaryPosition == "LEFT" then x = screenW - x end
+        seamGuideLine:SetSize(4, screenH)
+        seamGuideLine:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x - 2, 0)
+    end
     seamGuideLine:Show()
 end
 
@@ -1307,27 +1350,22 @@ function Options:CreateFloatingPanel()
         if not m then return end
         
         local pw = m.physicalWidth or 0
+        local ph = m.physicalHeight or 0
         local gameCropL = math.floor(m.gamePixelLeft + 0.5)
         local gameCropR = math.floor(pw - (m.gamePixelLeft + m.gamePixelWidth) + 0.5)
-        
-        local db = Offhand.db
-        local deckRatio = tonumber(db.deckWidthRatio) or (m.preset == "LANDSCAPE_DUAL" and 0.5 or 0.36)
-        local deck = math.floor(pw * deckRatio + 0.5)
-        local bezel = math.floor((tonumber(db.bezelGap) or 0) + 0.5)
-        
-        local deckCropL, deckCropR = 0, 0
-        if m.gamePixelLeft > 0 then
-            -- Game is on Right, Deck is on Left
-            deckCropL = 0
-            deckCropR = math.floor(pw - deck + 0.5)
-        else
-            -- Game is on Left, Deck is on Right
-            deckCropL = math.floor(m.gamePixelWidth + bezel + 0.5)
-            deckCropR = 0
-        end
-        
-        obsSource1:SetText(string.format(L["OBS_GAME"] .. " — " .. L["ALIGN_LEFT"] .. ": %d  " .. L["ALIGN_RIGHT"] .. ": %d", gameCropL, gameCropR))
-        obsSource2:SetText(string.format(L["OBS_WORKSPACE"] .. " — " .. L["ALIGN_LEFT"] .. ": %d  " .. L["ALIGN_RIGHT"] .. ": %d", deckCropL, deckCropR))
+        local gameCropT = math.floor(ph - (m.gamePixelBottom + m.gamePixelHeight) + 0.5)
+        local gameCropB = math.floor(m.gamePixelBottom + 0.5)
+        local workspaceLeft = m.workspacePixelLeft or 0
+        local workspaceBottom = m.workspacePixelBottom or 0
+        local workspaceWidth = m.workspacePixelWidth or 0
+        local workspaceHeight = m.workspacePixelHeight or 0
+        local deckCropL = math.floor(workspaceLeft + 0.5)
+        local deckCropR = math.floor(pw - (workspaceLeft + workspaceWidth) + 0.5)
+        local deckCropT = math.floor(ph - (workspaceBottom + workspaceHeight) + 0.5)
+        local deckCropB = math.floor(workspaceBottom + 0.5)
+
+        obsSource1:SetText(string.format(L["OBS_GAME"] .. " — L:%d R:%d T:%d B:%d", gameCropL, gameCropR, gameCropT, gameCropB))
+        obsSource2:SetText(string.format(L["OBS_WORKSPACE"] .. " — L:%d R:%d T:%d B:%d", deckCropL, deckCropR, deckCropT, deckCropB))
     end
 
     -- ========================================================================
@@ -1342,7 +1380,7 @@ function Options:CreateFloatingPanel()
                 local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
                 local baseWidth = (WorldMapFrame and WorldMapFrame:GetWidth()) or 610
                 if baseWidth <= 0 then baseWidth = 610 end
-                local availableWidth = (m and m.deckWidth and (m.deckWidth - 24)) or 610
+                local availableWidth = (m and (m.workspaceWidth or m.deckWidth) and ((m.workspaceWidth or m.deckWidth) - 24)) or 610
                 return math.max(0.50, math.min(2.50, math.floor((availableWidth / baseWidth) * 100 + 0.5) / 100))
             end
             return (tonumber(s) and tonumber(s)) or 1.00
@@ -1371,7 +1409,7 @@ function Options:CreateFloatingPanel()
         local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
         local baseWidth = (WorldMapFrame and WorldMapFrame:GetWidth()) or 610
         if baseWidth <= 0 then baseWidth = 610 end
-        local availableWidth = (m and m.deckWidth and (m.deckWidth - 24)) or 610
+        local availableWidth = (m and (m.workspaceWidth or m.deckWidth) and ((m.workspaceWidth or m.deckWidth) - 24)) or 610
         local computedScale = math.max(0.50, math.min(2.50, math.floor((availableWidth / baseWidth) * 100 + 0.5) / 100))
         mapScaleSlider:SetValue(computedScale)
     end)
@@ -2152,6 +2190,13 @@ function Options:CreateFloatingPanel()
         local curSeam = (Offhand.db and Offhand.db.deckWidthRatio) or 0.36
         seamSlider:SetValue(curSeam)
         if seamSlider.UpdateText then seamSlider:UpdateText() end
+
+        local manualGeometryEnabled = not info.exactTopology
+        for _, control in ipairs({rPortraitLeft, rPortraitRight, rDual, rVerticalBottom,
+            rVerticalTop, r169, r219, rFill, seamSlider, p36Btn, p50Btn, p55Btn}) do
+            if control and control.SetEnabled then control:SetEnabled(manualGeometryEnabled) end
+            if control and control.SetAlpha then control:SetAlpha(manualGeometryEnabled and 1 or 0.55) end
+        end
 
         enableCheck:SetChecked((Offhand.db and Offhand.db.enabled) or false)
         laserCheck:SetChecked((seamGuideLine and seamGuideLine:IsShown()) or false)

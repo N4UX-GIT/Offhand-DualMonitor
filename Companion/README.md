@@ -10,6 +10,14 @@ Native Windows desktop companion application for the Offhand World of Warcraft a
 * **Built-in Guidance**: Hover dashboard controls for detailed tooltips, or use the `?` button (also available from the tray menu) for the complete setup, daily-use, Forever recovery, and troubleshooting guide.
 * **User-Initiated Updates**: The Companion never contacts an update service at startup. **Check for Updates** makes a one-time request to the official GitHub Releases API only when clicked.
 * **DPI-Aware**: Full Per-Monitor V2 scaling ensures crisp fonts and accurate window positioning on mixed-resolution / mixed-scale setups.
+* **Exact Display Topology**: Persists Windows display identities, an explicit
+  Mainhand role, and the actual rectangle of each selected screen. The addon no
+  longer has to guess a layout from the combined window resolution.
+* **Missing-Monitor Fail-Safe**: If a saved display is disconnected, spanning
+  stops with a recovery message instead of collapsing WoW and its UI onto the
+  remaining screen.
+* **Super-Ultrawide Split**: An explicit one-display mode divides a 32:9/32:10
+  display into equal game and workspace halves. It is never enabled implicitly.
 * **Forever Layout Recovery**: While WoW is closed, mirrors the newest valid
   account and character Offhand SavedVariables into a guarded addon snapshot.
   This works around Forever beta builds that write `Offhand.lua` but fail to
@@ -51,6 +59,30 @@ Updates** makes one HTTPS request to
 `api.github.com/repos/N4UX-GIT/Offhand-DualMonitor/releases/latest`. It opens the
 official release page only after an update is found and the user confirms.
 
+## Display selection and topology
+
+Normal Offhand operation uses exactly two checked displays. Select the display
+that should contain the 3D world and Blizzard combat UI in **Mainhand (game)**;
+the other selected display becomes the Offhand workspace. Monitor choices are
+stored by Windows device name rather than transient list position, so a display
+order change does not silently swap roles.
+
+For one 49-inch or similar 32:9/32:10 display, check only that display, enable
+**Single-display 32:9 split**, and choose whether the game belongs on the left
+or right. For a 32:9 Mainhand plus a separate workspace monitor, leave split
+mode disabled, select both screens, and choose the 32:9 screen as Mainhand.
+
+When spanning, the Companion writes the exact normalized game and workspace
+rectangles to `Core\CompanionTopology.lua`. This supports side-by-side, stacked,
+portrait/landscape, unequal resolutions and heights, negative Windows desktop
+coordinates, and ultrawide Mainhand displays without hardcoded resolution
+presets. If WoW had already loaded the character UI when **Span WoW Now** was
+clicked, use `/reload` once so the addon reads the new snapshot.
+
+Offhand currently accepts exactly two physical displays, or one display in
+explicit split mode. Selecting more screens is rejected instead of guessing
+which should become the workspace.
+
 ## Forever SavedVariables recovery
 
 The Companion remembers the last detected WoW installation. When that client
@@ -79,8 +111,10 @@ current Companion session only.
 
 A successful restore pauses automatic spanning for that WoW process. Click Span
 Now to resume, or launch a new WoW client. Restarting the Companion clears this
-temporary pause. Disable Offhand's dual-monitor mode in-game when returning to a
-single monitor; the Companion cannot read live addon enablement.
+temporary pause. If one of a saved pair is absent, the Companion refuses to
+span and the addon's stale-topology guard restores a full-window viewport. This
+makes a travel/single-monitor launch recoverable without navigating a shrunken
+quarter-size interface.
 
 Restore checks both Win32 results and the resulting bounds before reporting
 success. If the requested move fails, it attempts to restore the previous style

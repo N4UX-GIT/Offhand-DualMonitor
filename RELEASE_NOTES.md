@@ -1,3 +1,23 @@
+# Offhand v2.1.0 — Exact Display Topology and Safe Recovery
+
+Offhand 2.1 replaces combined-resolution guessing with exact display rectangles
+provided by Companion 2.1. Select exactly two screens and choose the Mainhand,
+or explicitly split one 32:9/32:10 super-ultrawide. Mixed resolutions and
+heights, stacked screens, portrait/landscape pairs, negative desktop
+coordinates, and ultrawide Mainhand displays now retain native geometry.
+
+If a saved display is disconnected, the Companion refuses to span and the
+addon rejects the stale snapshot, restoring a readable full-window viewport.
+Fresh profiles remain inert until the setup wizard is completed. Existing
+Forever recovery, workspace persistence, and Blizzard Edit Mode ownership are
+preserved.
+
+Use standard Windowed mode. Start Companion 2.1 before WoW, select the displays
+and Mainhand, then click **Span WoW Now**. If WoW already loaded the character
+UI, use `/reload` once before completing `/offhand wizard`.
+
+---
+
 # Offhand v1.0.0 ? Multi-Monitor Workspace for World of Warcraft
 
 **Equip your Offhand. Dual wield your monitors.**

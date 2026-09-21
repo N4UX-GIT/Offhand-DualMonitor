@@ -27,14 +27,14 @@
 ## 🛠️ Installation & Setup
 
 1.  **Install the Addon:** Download the addon from [CurseForge](https://www.curseforge.com/wow/addons/offhand) or install it via your preferred addon manager.
-2.  **Get Companion v2.0.0 or newer:** Download the Companion App from the [GitHub Releases page](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases), extract it, and start it before WoW. It is required for reliable cold-launch restoration on the current Forever beta and strongly recommended on other clients.
+2.  **Get Companion v2.1.0 or newer:** Download the Companion App from the [GitHub Releases page](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases), extract it, and start it before WoW. It is required for exact-topology setup and reliable cold-launch restoration on the current Forever beta, and strongly recommended on other clients.
 
 > [!IMPORTANT]
 > **Verify the Companion before running it.** Official GitHub releases include SHA-256 checksums and a GitHub build-provenance attestation. An unsigned or low-reputation build may still produce a Windows SmartScreen warning; never bypass a warning for a file obtained from an unofficial source. Follow the verification steps in [SECURITY.md](SECURITY.md).
 
 3.  **Set WoW to standard Windowed Mode:** In WoW's Graphics settings, set Display Mode to **Windowed**, not Windowed (Fullscreen).
-4.  **Choose displays and span:** In Companion, select the displays to use. Automatic spanning is disabled by default; launch WoW and click **Span WoW Now** (Ctrl+Alt+S) after it starts. Enable automatic spanning later only if you want it.
-5.  **Finish the setup wizard:** Type `/offhand wizard` and complete all four calibration steps for monitor order, aspect ratio, seam/bottom alignment, and UI scale.
+4.  **Choose displays and span:** In Companion, select exactly two displays and choose the **Mainhand (game)** display. The other becomes the workspace. For one 32:9/32:10 screen, select only it and explicitly enable **Single-display 32:9 split**. Automatic spanning is disabled by default; launch WoW and click **Span WoW Now** (Ctrl+Alt+S) after it starts.
+5.  **Finish the setup wizard:** If WoW was already at the character UI when you spanned it, type `/reload` once. Then type `/offhand wizard` and complete the setup flow.
 6.  **Forever only — configure protected HUD frames:** Outside combat, open Blizzard Edit Mode. Move action bars, player/target, stance, pet, party, and raid frames onto the Mainhand Monitor. Save the layout with the exact name **Offhand** and select it.
 7.  **Verify a cold launch:** Exit WoW normally, leave Companion running, and relaunch. Workspace panels, their open state, Blizzard HUD placement, and the Edit Mode options frame should return correctly.
 
@@ -43,6 +43,12 @@
 WoW addon code cannot resize or borderlessly span the Windows game client. The Forever beta also currently writes Offhand's SavedVariables but may fail to restore them reliably on the next client launch. Companion v2.0.0+ solves both sides: it spans the selected displays, removes the window borders, waits until WoW has fully closed, snapshots the newest valid Offhand state, and restores that state before the next cold launch.
 
 This recovery bridge is specific to the current Forever client behavior. The addon remains usable with manual spanning or another window manager on other WoW clients.
+
+### Exact topology and missing-monitor safety
+
+The current Companion passes the addon's exact Mainhand and workspace rectangles instead of making Offhand guess from the combined window resolution. Mixed resolutions and heights, portrait/landscape pairs, stacked displays, negative Windows coordinates, ultrawide Mainhand screens, and the explicit one-screen super-ultrawide split therefore use their native geometry without manual width/height compensation.
+
+Display choices are persisted by Windows device identity. If any saved display is disconnected, the Companion refuses to span and Offhand ignores the stale topology, restoring a normal full-window viewport. Reconnect the display or review the selection; it will not silently compress a dual-screen profile onto one travel screen.
 
 ### Manual Fallback (No Companion App)
 Manual spanning remains available on Retail and Classic clients, but it does not provide Forever's reliable cold-launch state recovery:

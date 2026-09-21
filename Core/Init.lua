@@ -513,7 +513,8 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         end
 
     elseif event == "PLAYER_LOGIN" then
-        if Offhand.db and Offhand.db.enabled then
+        local loginMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+        if Offhand.db and Offhand.db.enabled and (not loginMetrics or loginMetrics.isSpanned) then
             -- Unclamp chat while Offhand is active so native tab dragging can
             -- cross monitor boundaries. Disabled profiles retain Blizzard state.
             if ChatFrame1 and ChatFrame1.SetClampedToScreen then
@@ -597,20 +598,23 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         -- Refresh viewport and layout after zone transition or loading screen
         C_Timer.After(0.5, function()
             Offhand:ApplyFullLayout()
-            if Offhand.Canvas and Offhand.Canvas.RestorePersistentFrames then
+            local entryMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+            if (not entryMetrics or entryMetrics.isSpanned) and Offhand.Canvas and Offhand.Canvas.RestorePersistentFrames then
                 Offhand.Canvas:RestorePersistentFrames()
             end
 
             -- Setup Wizard and Guard checks
             if Offhand.db and Offhand.db.enabled then
-                local isSpanned = true
+                local viewportMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+                local isSpanned = viewportMetrics and viewportMetrics.companionTopology and viewportMetrics.isSpanned
+                if viewportMetrics and viewportMetrics.topologyStatus == "MISMATCH" then isSpanned = false end
                 local w = GetScreenWidth() * UIParent:GetEffectiveScale()
                 local physW = w
                 if GetPhysicalScreenSize then
                     pcall(function() physW = select(1, GetPhysicalScreenSize()) end)
                 end
-                if w and physW and w <= (physW + 50) then
-                    isSpanned = false
+                if isSpanned == nil then
+                    isSpanned = not (w and physW and w <= (physW + 50))
                 end
 
                 local welcomeDismissed = Offhand.IsWelcomeDismissed and Offhand:IsWelcomeDismissed()
@@ -657,7 +661,8 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             Offhand._displayDebounceTimer = nil
             Offhand:RunOrQueueCombat(function()
                 Offhand:ApplyFullLayout()
-                if Offhand.Canvas and Offhand.Canvas.RestorePersistentFrames then
+                local displayMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+                if (not displayMetrics or displayMetrics.isSpanned) and Offhand.Canvas and Offhand.Canvas.RestorePersistentFrames then
                     Offhand.Canvas:RestorePersistentFrames()
                 end
                 if generation == Offhand._displayGeometryGeneration then
@@ -695,12 +700,15 @@ function Offhand:ApplyFullLayout()
         if Offhand.UpdateCanvas then
             Offhand:UpdateCanvas()
         end
-        if Offhand.UpdateSeamRedirect then
-            Offhand:UpdateSeamRedirect()
-        end
-        for _, module in pairs(Offhand.modules) do
-            if module.ApplyLayout then
-                module:ApplyLayout()
+        local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+        if not metrics or metrics.isSpanned then
+            if Offhand.UpdateSeamRedirect then
+                Offhand:UpdateSeamRedirect()
+            end
+            for _, module in pairs(Offhand.modules) do
+                if module.ApplyLayout then
+                    module:ApplyLayout()
+                end
             end
         end
     end)
@@ -818,6 +826,9 @@ function Offhand:IsWindowReachable(left, top, width, m)
     end
     if not m.isSpanned then return InArea(0, 0, m.screenWidth, m.screenHeight) end
     if InArea(m.gameLeft, m.gameBottom, m.gameRight, m.gameTop) then return true end
+    if m.workspaceLeft ~= nil then
+        return InArea(m.workspaceLeft, m.workspaceBottom, m.workspaceRight, m.workspaceTop)
+    end
     local deckLeft = self.db.primaryPosition == "LEFT" and (m.gameRight + (m.bezel or 0)) or 0
     return InArea(deckLeft, 0, deckLeft + m.deckWidth, m.screenHeight)
 end

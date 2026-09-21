@@ -10,6 +10,29 @@ Offhand.Canvas = Canvas
 
 local rootCanvas
 
+-- Accept metrics from older modules/tests while all live Viewport metrics now
+-- expose an explicit workspace rectangle.
+local function WithWorkspace(metrics)
+    if not metrics or metrics.workspaceLeft ~= nil then return metrics end
+    local position = Offhand.db and Offhand.db.primaryPosition or "RIGHT"
+    if position == "TOP" then
+        metrics.workspaceLeft, metrics.workspaceBottom = 0, 0
+        metrics.workspaceWidth, metrics.workspaceHeight = metrics.screenWidth, metrics.deckWidth
+    elseif position == "BOTTOM" then
+        metrics.workspaceLeft, metrics.workspaceBottom = 0, metrics.gameTop + (metrics.bezel or 0)
+        metrics.workspaceWidth, metrics.workspaceHeight = metrics.screenWidth, metrics.deckWidth
+    elseif position == "LEFT" then
+        metrics.workspaceLeft, metrics.workspaceBottom = metrics.gameRight + (metrics.bezel or 0), 0
+        metrics.workspaceWidth, metrics.workspaceHeight = metrics.deckWidth, metrics.screenHeight
+    else
+        metrics.workspaceLeft, metrics.workspaceBottom = 0, 0
+        metrics.workspaceWidth, metrics.workspaceHeight = metrics.deckWidth, metrics.screenHeight
+    end
+    metrics.workspaceRight = metrics.workspaceLeft + metrics.workspaceWidth
+    metrics.workspaceTop = metrics.workspaceBottom + metrics.workspaceHeight
+    return metrics
+end
+
 function Canvas:CreateFrames()
     if rootCanvas then return end
 
@@ -32,7 +55,7 @@ end
 function Canvas:UpdateLayout()
     if not rootCanvas then self:CreateFrames() end
 
-    local metrics = Offhand.Viewport:GetMetrics()
+    local metrics = WithWorkspace(Offhand.Viewport:GetMetrics())
 
     if not metrics.isSpanned or not Offhand.db.enabled then
         rootCanvas:Hide()
@@ -41,19 +64,8 @@ function Canvas:UpdateLayout()
 
     rootCanvas:Show()
     rootCanvas:ClearAllPoints()
-
-    local isPortraitDeck = Offhand.db.primaryPosition ~= "LEFT"
-
-    if isPortraitDeck then
-        -- Secondary monitor (free space workspace) is on the LEFT
-        rootCanvas:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, 0)
-        rootCanvas:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMLEFT", metrics.deckWidth, 0)
-    else
-        -- Secondary monitor is on the RIGHT
-        local leftOffset = metrics.gameWidth + metrics.bezel
-        rootCanvas:SetPoint("TOPLEFT", UIParent, "TOPLEFT", leftOffset, 0)
-        rootCanvas:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", 0, 0)
-    end
+    rootCanvas:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", metrics.workspaceLeft, metrics.workspaceBottom)
+    rootCanvas:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", metrics.workspaceRight, metrics.workspaceTop)
 
     -- Apply clean, dark backdrop theme to the workspace
     if Offhand.Themes and Offhand.Themes.ApplyCanvasTheme then
@@ -524,7 +536,7 @@ function Canvas:ConfigureWorldMap()
     local map = WorldMapFrame
     if InCombatLockdown() or not map or HasLeatrixMaps() or not Offhand.db or not Offhand.db.enabled then return end
 
-    local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+    local m = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
     if not m or not m.isSpanned then return end
 
     -- Enable proper parent scaling so the map scales consistently with UIParent
@@ -636,7 +648,7 @@ function Canvas:ConfigureWorldMap()
         else
             local baseWidth = map:GetWidth() or 610
             if baseWidth <= 0 then baseWidth = 610 end
-            local availableWidth = m.deckWidth - 24
+            local availableWidth = m.workspaceWidth - 24
             fitScale = math.max(0.50, math.min(3.00, availableWidth / baseWidth))
         end
         map:SetScale(fitScale)
@@ -655,11 +667,7 @@ function Canvas:ConfigureWorldMap()
 
     local availableWidth, availableHeight = m.gameWidth-24, m.gameHeight-24
     if isWorkspaceMap then
-        if Offhand.db.primaryPosition == "TOP" or Offhand.db.primaryPosition == "BOTTOM" then
-            availableWidth, availableHeight = m.screenWidth-24, m.deckWidth-24
-        else
-            availableWidth, availableHeight = m.deckWidth-24, m.screenHeight-24
-        end
+        availableWidth, availableHeight = m.workspaceWidth-24, m.workspaceHeight-24
     end
     local width, height = map:GetWidth(), map:GetHeight()
     if width and height and width > 0 and height > 0 and availableWidth > 0 and availableHeight > 0 then
@@ -684,7 +692,8 @@ end
 IsFrameOnWorkspace = function(frame)
     if not frame then return false end
     local x = frame:GetLeft()
-    local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+    local y = frame.GetBottom and frame:GetBottom()
+    local m = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
     if not m then return false end
     if not x then
         local numPoints = frame.GetNumPoints and frame:GetNumPoints() or 0
@@ -693,18 +702,18 @@ IsFrameOnWorkspace = function(frame)
             if px then x = px; break end
         end
     end
-    if not x then return false end
+    if not x or not y then return false end
     local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
     local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
     local scaleFactor = frameScale / parentScale
     local width = (frame:GetWidth() or 0) * scaleFactor
+    local height = (frame:GetHeight() or 0) * scaleFactor
     if width <= 0 then width = 192 * scaleFactor end
+    if height <= 0 then height = 192 * scaleFactor end
     local centerX = (x * scaleFactor) + (width / 2)
-    if Offhand.db.primaryPosition ~= "LEFT" then
-        return centerX < m.deckWidth
-    else
-        return centerX >= (m.gameWidth + m.bezel)
-    end
+    local centerY = (y * scaleFactor) + (height / 2)
+    return centerX >= m.workspaceLeft and centerX <= m.workspaceRight
+        and centerY >= m.workspaceBottom and centerY <= m.workspaceTop
 end
 
 local originalAreas = {}
@@ -800,7 +809,7 @@ OnPanelDragStop = function(frame)
     Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
     Offhand.db.savedMainPositions = Offhand.db.savedMainPositions or {}
 
-    local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+    local m = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
     if not m then
         frame._OffhandDragging = false
         return
@@ -825,23 +834,20 @@ OnPanelDragStop = function(frame)
         if frameHeight <= 0 then frameHeight = 192 end
 
         -- Clamp strictly within the workspace boundaries so panels never bleed across the seam
-        local minX, maxX
-        if Offhand.db.primaryPosition ~= "LEFT" then
-            minX = string.match(name, "^ChatFrame") and 48 or 12
-              maxX = math.max(minX, m.deckWidth - frameWidth - 12)
-        else
-            minX = m.gameRight + (string.match(name, "^ChatFrame") and 48 or 12)
-              maxX = math.max(minX, m.screenWidth - frameWidth - 12)
-        end
+        local inset = string.match(name, "^ChatFrame") and 48 or 12
+        local minX = m.workspaceLeft + inset
+        local maxX = math.max(minX, m.workspaceRight - frameWidth - 12)
         local clampedX = math.max(minX, math.min(xInParent, maxX))
 
-        local screenHeight = m.screenHeight or (UIParent.GetHeight and UIParent:GetHeight()) or 1080
-        local minY = frameHeight + 12
-        local maxY = math.max(minY, screenHeight - 12)
+        local screenHeight = m.workspaceHeight or m.screenHeight or (UIParent.GetHeight and UIParent:GetHeight()) or 1080
+        local minY = m.workspaceBottom + frameHeight + 12
+        local maxY = math.max(minY, m.workspaceTop - 12)
         local clampedY = math.max(minY, math.min(yInParent, maxY))
 
         Offhand.db.savedWorkspacePositions[name] = {
-            x = clampedX, y = clampedY, canvasHeight = m.screenHeight,
+            x = clampedX, y = clampedY,
+            canvasWidth = m.workspaceWidth, canvasHeight = screenHeight,
+            canvasLeft = m.workspaceLeft, canvasBottom = m.workspaceBottom,
         }
         if Offhand.db.savedMainPositions then
             Offhand.db.savedMainPositions[name] = nil
@@ -1033,10 +1039,13 @@ function Canvas:CaptureForeverFramePosition(frame)
 
     Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
     if onWorkspace and x and y then
-        local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+        local metrics = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
         local position = {
             x = x, y = y, width = width, height = height,
-            canvasHeight = metrics and metrics.screenHeight or nil,
+            canvasWidth = metrics and metrics.workspaceWidth or nil,
+            canvasHeight = metrics and metrics.workspaceHeight or nil,
+            canvasLeft = metrics and metrics.workspaceLeft or nil,
+            canvasBottom = metrics and metrics.workspaceBottom or nil,
         }
         Offhand.db.savedWorkspacePositions[name] = position
         Offhand.ForeverPersistence:SaveWorkspacePosition(name, position, width, height)
@@ -1057,7 +1066,7 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
     if not name then return end
     if IsForeverEditModeFrame(frame, name) or IsUnsafeForDirectMutation(frame) then return end
 
-    local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+    local m = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
     if not m then return end
 
     local wPos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
@@ -1080,23 +1089,25 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         if frameHeight <= 0 then frameHeight = 192 end
 
         -- Sanitize/clamp in case DB had bad coordinates (like y = -4.2 or x = 493.6)
-        local minX, maxX
-        if Offhand.db.primaryPosition ~= "LEFT" then
-            minX = string.match(name, "^ChatFrame") and 48 or 12
-              maxX = math.max(minX, m.deckWidth - frameWidth - 12)
-        else
-            minX = m.gameRight + (string.match(name, "^ChatFrame") and 48 or 12)
-              maxX = math.max(minX, m.screenWidth - frameWidth - 12)
+        local inset = string.match(name, "^ChatFrame") and 48 or 12
+        local minX = m.workspaceLeft + inset
+        local maxX = math.max(minX, m.workspaceRight - frameWidth - 12)
+        local targetX = wPos.x
+        local savedCanvasWidth = tonumber(wPos.canvasWidth)
+        local savedCanvasLeft = tonumber(wPos.canvasLeft) or 0
+        if savedCanvasWidth and savedCanvasWidth > 0 and m.workspaceWidth > 0 then
+            targetX = m.workspaceLeft + (targetX - savedCanvasLeft) * m.workspaceWidth / savedCanvasWidth
         end
-        local clampedX = math.max(minX, math.min(wPos.x, maxX))
+        local clampedX = math.max(minX, math.min(targetX, maxX))
 
-        local screenHeight = m.screenHeight or (UIParent.GetHeight and UIParent:GetHeight()) or 1080
-        local minY = frameHeight + 12
-        local maxY = math.max(minY, screenHeight - 12)
+        local screenHeight = m.workspaceHeight or m.screenHeight or (UIParent.GetHeight and UIParent:GetHeight()) or 1080
+        local minY = m.workspaceBottom + frameHeight + 12
+        local maxY = math.max(minY, m.workspaceTop - 12)
         local savedCanvasHeight = tonumber(wPos.canvasHeight)
+        local savedCanvasBottom = tonumber(wPos.canvasBottom) or 0
         local targetY = wPos.y
         if savedCanvasHeight and savedCanvasHeight > 0 and screenHeight > 0 then
-            targetY = targetY * screenHeight / savedCanvasHeight
+            targetY = m.workspaceBottom + (targetY - savedCanvasBottom) * screenHeight / savedCanvasHeight
         end
         local clampedY = math.max(minY, math.min(targetY, maxY))
 

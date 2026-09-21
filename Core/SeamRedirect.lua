@@ -184,10 +184,9 @@ function HUD:AlignChatFrame(m)
     end
     if Offhand.db.chatPosition == "DECK" and Offhand.canvas then
         pcall(function() chat:SetUserPlaced(false) end)
-        local x = Offhand.db.primaryPosition == "LEFT" and m.gameRight + m.bezel or 0
         ScreenPoint(chat, "BOTTOMLEFT",
-            x + 24 * m.hudScale, 45 * m.hudScale)
-        chat:SetSize(math.min(460, m.deckWidth / m.hudScale - 48), 220)
+            m.workspaceLeft + 24 * m.hudScale, m.workspaceBottom + 45 * m.hudScale)
+        chat:SetSize(math.min(460, m.workspaceWidth / m.hudScale - 48), 220)
     else
         -- The native button strip sits outside the message frame's left edge.
         local inset = native and 48 or 24
@@ -620,9 +619,6 @@ function HUD:HookFrames()
         local cx = (m.gameLeft + m.gameRight) / 2
         local cy = (m.gameBottom + m.gameTop) / 2
         local parentScale = UIParent:GetEffectiveScale() or 1
-        local isPortraitDeck = Offhand.db.primaryPosition ~= "LEFT"
-        local gameLeftThreshold = isPortraitDeck and (m.deckWidth - 20) or 0
-        local gameRightThreshold = isPortraitDeck and m.screenWidth or m.gameRight
 
         -- 1. Check UISpecialFrames (standard config panels)
         if UISpecialFrames then
@@ -659,12 +655,9 @@ function HUD:HookFrames()
                     local scaleFactor = fScale / parentScale
                     local top = (frame:GetTop() or 0) * scaleFactor
                     local left = (frame:GetLeft() or 0) * scaleFactor
-                    local onGameSide = false
-                    if isPortraitDeck then
-                        onGameSide = (left >= gameLeftThreshold)
-                    else
-                        onGameSide = (left < gameRightThreshold)
-                    end
+                    local width = (frame.GetWidth and frame:GetWidth() or 0) * scaleFactor
+                    local centerX = left + width / 2
+                    local onGameSide = centerX >= m.gameLeft and centerX <= m.gameRight
                     if onGameSide and top > (m.gameTop + 2) then
                         frame:ClearAllPoints()
                         local invFactor = parentScale / fScale
@@ -702,12 +695,9 @@ function HUD:HookFrames()
                     local scaleFactor = fScale / parentScale
                     local top = (child.GetTop and child:GetTop() or 0) * scaleFactor
                     local left = (child.GetLeft and child:GetLeft() or 0) * scaleFactor
-                    local onGameSide = false
-                    if isPortraitDeck then
-                        onGameSide = (left >= gameLeftThreshold)
-                    else
-                        onGameSide = (left < gameRightThreshold)
-                    end
+                    local width = (child.GetWidth and child:GetWidth() or 0) * scaleFactor
+                    local centerX = left + width / 2
+                    local onGameSide = centerX >= m.gameLeft and centerX <= m.gameRight
                     if onGameSide and top > (m.gameTop + 2) then
                         if child.GetPoint and child.ClearAllPoints and child.SetPoint then
                             child:ClearAllPoints()
@@ -893,12 +883,10 @@ function HUD:HookFrames()
             return
         end
 
-        local isPortraitDeck = Offhand.db.primaryPosition ~= "LEFT"
-        local deckMinX = isPortraitDeck and 12 or (m.gameRight + 12)
-        local deckMaxX = isPortraitDeck and (m.deckWidth - 12) or (m.screenWidth - 12)
-        local deckMinY = 12
-        local screenHeight = m.screenHeight or (UIParent.GetHeight and UIParent:GetHeight()) or 1080
-        local deckMaxY = math.max(deckMinY, screenHeight - 30)
+        local deckMinX = m.workspaceLeft + 12
+        local deckMaxX = m.workspaceRight - 12
+        local deckMinY = m.workspaceBottom + 12
+        local deckMaxY = math.max(deckMinY, m.workspaceTop - 30)
 
         -- Determine if bags are stationed on the workspace
         local bpPos = Offhand.db.savedWorkspacePositions and (

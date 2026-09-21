@@ -82,7 +82,7 @@
                 </a>
             </div>
             <div class="hero-download-note" style="margin-top: 12px; font-size: 0.88rem; color: #8a92a6;">
-                Includes Addon &amp; Companion (v2.0.0+) &bull; <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest" target="_blank" style="color: var(--rio-gold);">GitHub Releases</a>
+                Includes Addon &amp; Companion (v2.1.0+) &bull; <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest" target="_blank" style="color: var(--rio-gold);">GitHub Releases</a>
             </div>
 
             <div class="hero-stats-bar">
@@ -273,7 +273,7 @@
                         <div class="step-seal">2</div>
                         <h3>Span Your Game Window</h3>
                         <p>
-                            Put WoW in standard <strong>Windowed</strong> mode. Install Companion v2.0.0 or newer, start it before WoW, select the displays to span, and click <strong>Span WoW Now</strong> for the first setup. Automatic spanning is disabled by default; enable it later only if you want WoW spanned on every launch.
+                            Put WoW in standard <strong>Windowed</strong> mode. Start the Companion, select exactly two displays, and choose the <strong>Mainhand (game)</strong> display; the other becomes the workspace. For one 32:9/32:10 super-ultrawide, select only that display and explicitly enable <strong>Single-display 32:9 split</strong>. Click <strong>Span WoW Now</strong> for the first setup. Automatic spanning is disabled by default.
                             <br><br><span style="font-size: 0.9em; color: #a3a9b8;"><strong>Security:</strong> Download only from the official GitHub release. Before responding to a Windows warning, verify the published SHA-256 checksum and GitHub artifact attestation. Never bypass a warning for a file from another source. See the <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md" target="_blank" style="color: var(--rio-gold);">security and verification guide</a>.</span>
                             <br><br><span style="font-size: 0.9em; color: #a3a9b8;"><strong>WoW Forever:</strong> Keep the Companion running. Forever currently needs its recovery bridge to preserve Offhand state across a full client restart.</span>
                         </p>
@@ -290,7 +290,7 @@
                         <div class="step-seal">3</div>
                         <h3>Auto-Configure In-Game</h3>
                         <p>
-                            Type <code>/oh</code>, click <strong>Launch Setup Wizard</strong>, and complete every step. Confirm the monitor arrangement, select the Mainhand display, apply the layout, and save the calibration.
+                            If WoW was already at the character UI when you clicked Span, type <code>/reload</code> once. Then type <code>/oh</code>, click <strong>Launch Setup Wizard</strong>, and complete every step. The Companion's exact Mainhand and workspace rectangles replace resolution guessing.
                         </p>
                         <img src="assets/setup-step3.png" alt="Run Wizard" style="width:100%; border-radius:6px; margin-top:12px; border:1px solid rgba(255,255,255,0.1);">
                     </div>
@@ -382,7 +382,31 @@
                         </summary>
                         <div class="faq-body">
                             <p>
-                                Yes. Offhand is specifically engineered for asymmetrical multi-monitor setups, including vertical portrait monitors alongside ultrawide or standard landscape gaming monitors, with independent refresh rate handling.
+                                Yes. The Companion passes the exact Windows rectangle for the explicit Mainhand and workspace displays. Mixed resolutions and heights, portrait/landscape pairs, stacked screens, negative desktop coordinates, ultrawide or 32:9 Mainhand displays, and unequal alignment therefore use native geometry instead of a guessed combined-resolution preset.
+                            </p>
+                        </div>
+                    </details>
+
+                    <details class="faq-card">
+                        <summary class="faq-summary">
+                            <h4>Can I use one 49-inch 32:9 screen, or a 32:9 Mainhand plus another monitor?</h4>
+                            <svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </summary>
+                        <div class="faq-body">
+                            <p>
+                                For one super-ultrawide, select only it in the Companion, enable <strong>Single-display 32:9 split</strong>, and choose which half contains the game. For a 32:9 game screen plus a separate workspace screen, leave split mode disabled, select both displays, and choose the 32:9 display as <strong>Mainhand (game)</strong>.
+                            </p>
+                        </div>
+                    </details>
+
+                    <details class="faq-card">
+                        <summary class="faq-summary">
+                            <h4>What happens if my second monitor is disconnected?</h4>
+                            <svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </summary>
+                        <div class="faq-body">
+                            <p>
+                                Offhand fails safely. The Companion remembers displays by Windows identity and refuses to collapse a two-display profile onto the remaining screen. The addon rejects the stale geometry and restores a full-window viewport. Use <strong>Restore Window</strong>, reconnect the display, or review the saved selection.
                             </p>
                         </div>
                     </details>

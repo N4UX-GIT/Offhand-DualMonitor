@@ -41,7 +41,10 @@ function Bags:Capture()
                     local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
                     snapshot[name] = {
                         x = x * factor, y = y * factor,
-                        canvasHeight = metrics and metrics.screenHeight or nil,
+                        canvasWidth = metrics and metrics.workspaceWidth or nil,
+                        canvasHeight = metrics and metrics.workspaceHeight or nil,
+                        canvasLeft = metrics and metrics.workspaceLeft or nil,
+                        canvasBottom = metrics and metrics.workspaceBottom or nil,
                     }
                 end
             end

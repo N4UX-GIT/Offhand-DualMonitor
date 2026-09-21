@@ -9,6 +9,25 @@ local function Number(value, fallback, low, high)
     return math.max(low, math.min(high, value))
 end
 
+local function ValidRect(rect, pw, ph)
+    if type(rect) ~= "table" then return false end
+    local x, y, w, h = tonumber(rect.x), tonumber(rect.y), tonumber(rect.width), tonumber(rect.height)
+    return x and y and w and h and w > 0 and h > 0 and x >= 0 and y >= 0
+        and x + w <= pw + 2 and y + h <= ph + 2
+end
+
+function Viewport:GetCompanionTopology(pw, ph)
+    local topology = _G.OffhandCompanionTopology
+    if type(topology) ~= "table" or tonumber(topology.schema) ~= 1 then return nil, "ABSENT" end
+    if math.abs((tonumber(topology.physicalWidth) or -1) - pw) > 2
+        or math.abs((tonumber(topology.physicalHeight) or -1) - ph) > 2
+        or not ValidRect(topology.game, pw, ph)
+        or not ValidRect(topology.workspace, pw, ph) then
+        return nil, "MISMATCH"
+    end
+    return topology, "READY"
+end
+
 -- SetPoint offsets belong to the receiving frame, not its relative frame.
 function Viewport:SetPoint(frame, point, relativePoint, x, y)
     local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
@@ -21,6 +40,44 @@ function Viewport:GetMetrics()
     if not pw or pw <= 0 or not ph or ph <= 0 then pw, ph = sw, sh end
     local db = Offhand.db
     local preset = db.layoutPreset or "PORTRAIT_LEFT_LANDSCAPE_RIGHT"
+    local ux, uy = sw / pw, sh / ph
+    local topology, topologyStatus = self:GetCompanionTopology(pw, ph)
+    if topology then
+        local game, workspace = topology.game, topology.workspace
+        local width, height = tonumber(game.width), tonumber(game.height)
+        local left, bottom = tonumber(game.x), tonumber(game.y)
+        local workspaceLeft, workspaceBottom = tonumber(workspace.x), tonumber(workspace.y)
+        local workspaceWidth, workspaceHeight = tonumber(workspace.width), tonumber(workspace.height)
+        return {
+            screenWidth = sw, screenHeight = sh, physicalWidth = pw, physicalHeight = ph,
+            deckWidth = workspaceWidth * ux,
+            workspaceWidth = workspaceWidth * ux, workspaceHeight = workspaceHeight * uy,
+            workspaceLeft = workspaceLeft * ux, workspaceBottom = workspaceBottom * uy,
+            workspaceRight = (workspaceLeft + workspaceWidth) * ux,
+            workspaceTop = (workspaceBottom + workspaceHeight) * uy,
+            workspacePixelLeft = workspaceLeft, workspacePixelBottom = workspaceBottom,
+            workspacePixelWidth = workspaceWidth, workspacePixelHeight = workspaceHeight,
+            gameWidth = width * ux, gameHeight = height * uy,
+            gameLeft = left * ux, gameBottom = bottom * uy,
+            gameRight = (left + width) * ux, gameTop = (bottom + height) * uy,
+            gamePixelLeft = left, gamePixelBottom = bottom,
+            gamePixelWidth = width, gamePixelHeight = height,
+            hudScale = 1, bezel = 0, preset = preset,
+            actualAR = width / height, arMode = "NATIVE", isSpanned = true,
+            companionTopology = true, topologyMode = topology.mode, topologyStatus = "READY",
+        }
+    elseif topologyStatus == "MISMATCH" then
+        return {
+            screenWidth = sw, screenHeight = sh, physicalWidth = pw, physicalHeight = ph,
+            deckWidth = 0, workspaceWidth = 0, workspaceHeight = 0,
+            workspaceLeft = 0, workspaceBottom = 0, workspaceRight = 0, workspaceTop = 0,
+            gameWidth = sw, gameHeight = sh, gameLeft = 0, gameBottom = 0,
+            gameRight = sw, gameTop = sh, gamePixelLeft = 0, gamePixelBottom = 0,
+            gamePixelWidth = pw, gamePixelHeight = ph, hudScale = 1, bezel = 0,
+            preset = preset, actualAR = pw / ph, arMode = "NATIVE", isSpanned = false,
+            companionTopology = false, topologyStatus = "MISMATCH",
+        }
+    end
     
     local isVertical = (db.primaryPosition == "TOP" or db.primaryPosition == "BOTTOM")
     
@@ -40,7 +97,7 @@ function Viewport:GetMetrics()
         if mode == "FILL" then
             height = ph * Number(db.gameHeightRatio, 0.5625, 0.05, 1)
         else
-            local ar = mode == "16_9" and 16 / 9 or mode == "21_9" and 21 / 9
+            local ar = mode == "16_9" and 16 / 9 or mode == "21_9" and 21 / 9 or mode == "32_9" and 32 / 9
                 or Number(db.customAspectRatio, 16 / 9, 0.25, 8)
             height = width / ar
         end
@@ -54,18 +111,33 @@ function Viewport:GetMetrics()
         left = math.floor(Number(db.gameLeftPixels, 0, 0, pw - 1) + 0.5)
     end
     
-    local ux, uy = sw / pw, sh / ph
     local gameHeight = height * uy
+    local workspaceLeft, workspaceBottom, workspaceWidth, workspaceHeight
+    if isVertical then
+        workspaceLeft, workspaceWidth = 0, pw
+        workspaceBottom = db.primaryPosition == "TOP" and 0 or (bottom + height + bezel)
+        workspaceHeight = deck
+    else
+        workspaceLeft = db.primaryPosition == "LEFT" and (left + width + bezel) or 0
+        workspaceBottom, workspaceWidth, workspaceHeight = 0, deck, ph
+    end
     local hudScale = 1
     return {
         screenWidth = sw, screenHeight = sh, physicalWidth = pw, physicalHeight = ph,
         deckWidth = isVertical and (deck * uy) or (deck * ux), gameWidth = width * ux, gameHeight = gameHeight,
+        workspaceWidth = workspaceWidth * ux, workspaceHeight = workspaceHeight * uy,
+        workspaceLeft = workspaceLeft * ux, workspaceBottom = workspaceBottom * uy,
+        workspaceRight = (workspaceLeft + workspaceWidth) * ux,
+        workspaceTop = (workspaceBottom + workspaceHeight) * uy,
+        workspacePixelLeft = workspaceLeft, workspacePixelBottom = workspaceBottom,
+        workspacePixelWidth = workspaceWidth, workspacePixelHeight = workspaceHeight,
         gameLeft = left * ux, gameBottom = bottom * uy,
         gameRight = (left + width) * ux, gameTop = (bottom + height) * uy,
         gamePixelLeft = left, gamePixelBottom = bottom,
         gamePixelWidth = width, gamePixelHeight = height,
         hudScale = hudScale, bezel = isVertical and (bezel * uy) or (bezel * ux), preset = preset,
         actualAR = width / height, arMode = db.aspectRatioMode or "16_9", isSpanned = true,
+        companionTopology = false, topologyStatus = topologyStatus,
     }
 end
 
@@ -74,7 +146,8 @@ function Viewport:ApplyGlobalScale()
     if InCombatLockdown() or self.scaling then return end
     local db=Offhand.db
     if not db then return end
-    if not db.enabled then
+    local metrics = db.enabled and self:GetMetrics() or nil
+    if not db.enabled or (metrics and not metrics.isSpanned) then
         if self.originalScale or db.originalUiScale then
             self.scaling=true
             pcall(function() 
@@ -99,7 +172,7 @@ function Viewport:ApplyGlobalScale()
         end
         return
     end
-    local m=self:GetMetrics()
+    local m=metrics or self:GetMetrics()
     local desired=math.min(m.gamePixelHeight/m.physicalHeight,
         m.gamePixelWidth*768/(1100*m.physicalHeight)) * Number(db.hudScale,0.70,0.25,1.25)
     
@@ -156,6 +229,7 @@ function Viewport:Apply()
     end
     if not Offhand.db.enabled then self:Reset(); return end
     local m = self:GetMetrics()
+    if not m.isSpanned then self:Reset(); return end
     WorldFrame:ClearAllPoints()
     self:SetPoint(WorldFrame, "BOTTOMLEFT", "BOTTOMLEFT", m.gameLeft, m.gameBottom)
     self:SetPoint(WorldFrame, "TOPRIGHT", "BOTTOMLEFT", m.gameRight, m.gameTop)

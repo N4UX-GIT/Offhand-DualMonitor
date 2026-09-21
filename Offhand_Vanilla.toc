@@ -2,7 +2,7 @@
 ## Title: |cffffbd0aOffhand|r |cffffffff[Multi-Monitor Setup]|r
 ## Notes: Equip your Offhand. Dual wield your monitors. Multi-Monitor Setup UI.
 ## Author: N4UX (Noggaholic)
-## Version: 2.0.0
+## Version: 2.1.0
 ## X-Offhand-Manifest: Vanilla
 ## X-Website: https://offhand-wow.onrender.com/
 ## IconTexture: Interface\AddOns\Offhand\Media\OffhandLogo64x64.blp
@@ -11,6 +11,7 @@
 ## SavedVariablesPerCharacter: OffhandCharDB
 
 # Core Subsystems
+Core\CompanionTopology.lua
 Core\Init.lua
 Core\ForeverState.lua
 Core\Config.lua

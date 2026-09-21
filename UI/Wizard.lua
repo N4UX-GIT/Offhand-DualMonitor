@@ -821,6 +821,13 @@ function Wizard:CreateFrame()
         local ar = Offhand.db.aspectRatioMode
         local hud = Offhand.db.hudScale or 0.70
         local seam = Offhand.db.deckWidthRatio or 0.36
+        local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+        local manualGeometryEnabled = not (metrics and metrics.companionTopology)
+        for _, control in ipairs({btnPl, btnPr, btnDual, btnVt, btnVb, btn169, btn219,
+            btnFill, seamSlider, seamEditBox, btnMinus, btnPlus, btnSeam36, btnSeam50, btnSeam55}) do
+            if control and control.SetEnabled then control:SetEnabled(manualGeometryEnabled) end
+            if control and control.SetAlpha then control:SetAlpha(manualGeometryEnabled and 1 or 0.55) end
+        end
 
         seamSlider:SetValue(seam)
         seamValText:SetText(string.format(L["WIZARD_SEAM_VAL_FMT"], seam * 100))
