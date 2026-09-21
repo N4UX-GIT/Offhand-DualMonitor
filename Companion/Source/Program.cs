@@ -14,8 +14,8 @@ using System.Windows.Forms;
 [assembly: AssemblyCompany("Offhand Project")]
 [assembly: AssemblyProduct("Offhand")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
-[assembly: AssemblyVersion("2.0.1.0")]
-[assembly: AssemblyFileVersion("2.0.1.0")]
+[assembly: AssemblyVersion("2.0.2.0")]
+[assembly: AssemblyFileVersion("2.0.2.0")]
 
 namespace Offhand.Companion
 {
@@ -82,6 +82,13 @@ namespace Offhand.Companion
             // Edit Mode and before Offhand restores workspace coordinates.
             return foreverProcess || foreverDirectory ? 0 : (double)configuredDelay;
         }
+    }
+
+    internal static class CompanionDefaults
+    {
+        // Automatic window movement is opt-in so a first launch cannot unexpectedly
+        // rearrange a player's WoW window before the selected displays are reviewed.
+        internal const bool AutoSpanOnLaunch = false;
     }
 
     internal static class ForeverStateBridge
@@ -412,6 +419,7 @@ namespace Offhand.Companion
         private NotifyIcon trayIcon;
         private ToolStripMenuItem itemAuto;
         private Timer monitorTimer;
+        private ToolTip uiToolTips;
 
         // State
         private bool isMonitoring = true;
@@ -474,7 +482,7 @@ namespace Offhand.Companion
             UpdateHotkey();
             if (configWarning != null) AddLog(configWarning);
 
-            AddLog("Offhand Companion v2.0.1 initialized.");
+            AddLog("Offhand Companion v2.0.2 initialized.");
             AddLog("Monitoring active. Enable Offhand in WoW; calibrate with /offhand wizard.");
             
             CheckForUpdates();
@@ -529,6 +537,14 @@ namespace Offhand.Companion
             this.MaximizeBox = false;
             this.BackColor = cBg;
             this.ForeColor = cText;
+            uiToolTips = new ToolTip
+            {
+                AutoPopDelay = 12000,
+                InitialDelay = 450,
+                ReshowDelay = 100,
+                ShowAlways = true
+            };
+            this.Disposed += (s, e) => { if (uiToolTips != null) uiToolTips.Dispose(); };
 
             // Load Application Icon if available
             try
@@ -597,7 +613,7 @@ namespace Offhand.Companion
             Label titleLabel = new Label();
             titleLabel.Text = "OFFHAND";
             titleLabel.Location = new Point(96, 12);
-            titleLabel.Size = new Size(400, 34);
+            titleLabel.Size = new Size(365, 34);
             titleLabel.Font = new Font("Georgia", 22, FontStyle.Bold);
             titleLabel.ForeColor = cGold;
             titleLabel.BackColor = Color.Transparent;
@@ -607,7 +623,7 @@ namespace Offhand.Companion
             Label subLabel = new Label();
             subLabel.Text = "Multi-Monitor Companion for World of Warcraft";
             subLabel.Location = new Point(98, 48);
-            subLabel.Size = new Size(400, 18);
+            subLabel.Size = new Size(365, 18);
             subLabel.Font = new Font("Segoe UI", 8.5f);
             subLabel.ForeColor = cBrass;
             subLabel.BackColor = Color.Transparent;
@@ -615,13 +631,20 @@ namespace Offhand.Companion
 
             // Version
             Label verLabel = new Label();
-            verLabel.Text = "v2.0.1";
+            verLabel.Text = "v2.0.2";
             verLabel.Location = new Point(98, 66);
             verLabel.Size = new Size(100, 14);
             verLabel.Font = new Font("Segoe UI", 7.5f, FontStyle.Italic);
             verLabel.ForeColor = cMuted;
             verLabel.BackColor = Color.Transparent;
             headerPanel.Controls.Add(verLabel);
+
+            Button btnHelp = CreateButton("?", 470, 12, 34, 34, cBtnPrimaryBg, cGoldBright, cGold);
+            btnHelp.Font = new Font("Georgia", 14, FontStyle.Bold);
+            btnHelp.AccessibleName = "Companion Help and Setup Guide";
+            btnHelp.Click += (s, e) => { ShowHelpDialog(); };
+            headerPanel.Controls.Add(btnHelp);
+            uiToolTips.SetToolTip(btnHelp, "Open the complete Companion setup, daily-use, recovery, and troubleshooting guide.");
 
             // Status Card
             Panel statusPanel = CreateCardPanel(16, 102, 490, 118, "System Status");
@@ -679,7 +702,7 @@ namespace Offhand.Companion
                 Font = new Font("Segoe UI", 9),
                 ForeColor = cText,
                 BackColor = Color.Transparent,
-                Checked = true
+                Checked = CompanionDefaults.AutoSpanOnLaunch
             };
             chkAutoSpan.CheckedChanged += (s, e) =>
             {
@@ -726,6 +749,21 @@ namespace Offhand.Companion
             };
             configPanel.Controls.Add(clbMonitors);
 
+            uiToolTips.SetToolTip(chkAutoSpan,
+                "Disabled by default. When enabled, Offhand spans each newly detected WoW window across the selected displays. Manual Span WoW Now remains available when disabled.");
+            uiToolTips.SetToolTip(lblDelay,
+                "Wait time before automatically spanning supported WoW clients. Forever uses immediate pre-login spanning so its UI initializes against the final desktop geometry.");
+            uiToolTips.SetToolTip(numDelaySpan,
+                "Automatic-span delay for non-Forever clients (0-60 seconds). Forever intentionally ignores this delay and spans immediately.");
+            uiToolTips.SetToolTip(lblHotkey,
+                "Choose the system-wide shortcut for Span WoW Now. Ctrl+Alt+R always restores WoW to a normal window when available.");
+            uiToolTips.SetToolTip(cmbHotkey,
+                "Choose the system-wide shortcut for Span WoW Now. If another application owns it, use the dashboard button or select another shortcut.");
+            uiToolTips.SetToolTip(lblMonitors,
+                "Select every display that should form WoW's borderless virtual desktop.");
+            uiToolTips.SetToolTip(clbMonitors,
+                "Checked displays define the span rectangle. Select at least one; for Offhand's dual-monitor layout, select both the workspace and game-view displays.");
+
             if (appSettings.ContainsKey("Monitors"))
             {
                 string[] saved = appSettings["Monitors"].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
@@ -742,13 +780,15 @@ namespace Offhand.Companion
 
 
             // Action Buttons
-                        btnSpanNow = CreateButton("Span WoW Now", 16, 368, 158, 36, cBtnPrimaryBg, cGoldBright, cGold);
+            btnSpanNow = CreateButton("Span WoW Now", 16, 368, 158, 36, cBtnPrimaryBg, cGoldBright, cGold);
             btnSpanNow.Click += (s, e) => { InvokeSpanWindow(true); };
             this.Controls.Add(btnSpanNow);
+            uiToolTips.SetToolTip(btnSpanNow, "Immediately make the detected WoW window borderless and span it across the selected displays. This also resumes spanning after Restore Window.");
 
             Button btnRestoreNow = CreateButton("Restore Window", 182, 368, 158, 36, cBtnBg, cText, cBorder);
             btnRestoreNow.Click += (s, e) => { InvokeRestoreWindow(true); };
             this.Controls.Add(btnRestoreNow);
+            uiToolTips.SetToolTip(btnRestoreNow, "Return WoW to a bordered, single-monitor window so off-screen UI can be recovered. Automatic spanning pauses for that WoW process until Span WoW Now is used.");
 
             btnToggleWatch = CreateButton("Pause Monitor", 348, 368, 158, 36, cBtnBg, cText, cBorder);
             btnToggleWatch.Click += (s, e) =>
@@ -768,6 +808,7 @@ namespace Offhand.Companion
                 }
             };
             this.Controls.Add(btnToggleWatch);
+            uiToolTips.SetToolTip(btnToggleWatch, "Pause or resume background detection of WoW launches. Manual Span and Restore controls remain available while monitoring is paused.");
 
             // Activity Log Card
             Panel logPanel = CreateCardPanel(16, 416, 490, 200, "Activity Log");
@@ -792,10 +833,12 @@ namespace Offhand.Companion
                 trayIcon.ShowBalloonTip(2000, "Offhand Running in Tray", "Monitoring in background. Double-click tray icon to restore.", ToolTipIcon.Info);
             };
             this.Controls.Add(btnMinimize);
+            uiToolTips.SetToolTip(btnMinimize, "Hide the dashboard while keeping the Companion and launch monitor running in the Windows notification tray.");
 
             Button btnExit = CreateButton("Exit Companion", 356, 628, 152, 30, cBtnDanger, Color.FromArgb(235, 130, 130), Color.FromArgb(140, 45, 45));
             btnExit.Click += (s, e) => { ExitApplication(); };
             this.Controls.Add(btnExit);
+            uiToolTips.SetToolTip(btnExit, "Stop monitoring and fully exit the Companion. Closing the title-bar X only minimizes it to the tray.");
 
             this.FormClosing += (s, e) =>
             {
@@ -860,6 +903,108 @@ namespace Offhand.Companion
             return btn;
         }
 
+        private string GetHelpText()
+        {
+            return string.Join(Environment.NewLine, new string[] {
+                "WHAT THE COMPANION DOES",
+                "Offhand Companion spans WoW's ordinary Windowed-mode window borderlessly across the displays you select. On Forever it also establishes the final desktop geometry before Blizzard Edit Mode initializes and, while WoW is fully closed, prepares a guarded recovery snapshot of Offhand's SavedVariables.",
+                "",
+                "FIRST-TIME SETUP",
+                "1. In WoW, choose standard Windowed mode (not Windowed Fullscreen).",
+                "2. Start Offhand Companion before WoW.",
+                "3. Check the workspace and game-view displays under Span Monitors.",
+                "4. Leave Automatically span WoW window on game launch disabled for the first setup. Launch WoW, wait for its window, then click Span WoW Now.",
+                "5. In WoW, type /oh, launch the Auto-Setup Wizard, and complete all calibration steps.",
+                "6. On Forever, open Blizzard Edit Mode, select or create the Offhand layout, place protected HUD elements on the game-view monitor, and save it.",
+                "7. Arrange the map, character frame, backpack, and chat on the Offhand workspace.",
+                "8. Exit WoW normally with the Companion still running. Relaunch once to verify a cold start.",
+                "",
+                "EVERYDAY USE",
+                "Start the Companion before WoW. With auto-span disabled, click Span WoW Now after the WoW window appears. If you later enable auto-span, each newly detected WoW window is spanned automatically. The title-bar X minimizes the Companion to the tray; Exit Companion stops it.",
+                "",
+                "CONTROLS",
+                "Automatically span on launch: Opt-in automatic spanning; disabled by default.",
+                "Delay Span: Delay used by non-Forever clients. Forever spans immediately so the UI loads against its final geometry.",
+                "Global Hotkey: System-wide shortcut for Span WoW Now. Ctrl+Alt+R restores the window.",
+                "Span Monitors: Displays included in the borderless virtual desktop.",
+                "Span WoW Now: Span immediately and resume a process previously restored.",
+                "Restore Window: Return WoW to a safe bordered window and pause auto-span for that process.",
+                "Pause Monitor: Stop launch detection without disabling the manual controls.",
+                "",
+                "FOREVER AND EDIT MODE",
+                "Forever's protected action bars, unit frames, minimap, and Edit Mode controls belong to Blizzard Edit Mode. Offhand restores workspace panels separately. The Companion is required because WoW must already have the final multi-monitor window geometry when those protected frames initialize. It also works around Forever builds that write Offhand SavedVariables but do not reliably load them on the next cold launch.",
+                "",
+                "RECOVERY",
+                "If UI is inaccessible, click Restore Window (or press Ctrl+Alt+R), enter WoW, and use Offhand's Gather Off-Screen UI action. Re-enter Edit Mode and save/select the Offhand layout, then click Span WoW Now. If the Companion reports no addon, confirm Offhand is enabled for the current client and that the detected WoW installation is correct. WoW must be fully closed before the Forever recovery snapshot can be refreshed.",
+                "",
+                "TROUBLESHOOTING",
+                "Select at least one monitor. If a global shortcut is unavailable, choose another or use the dashboard button. Mixed monitor scale or resolution is supported, but Windows display positions should match their physical arrangement. Hover any dashboard control for a concise explanation."
+            });
+        }
+
+        private void ShowHelpDialog()
+        {
+            using (Form help = new Form())
+            {
+                help.Text = "Offhand Companion Help";
+                help.StartPosition = FormStartPosition.CenterParent;
+                help.Size = new Size(720, 680);
+                help.MinimumSize = new Size(600, 520);
+                help.BackColor = cBg;
+                help.ForeColor = cText;
+                help.FormBorderStyle = FormBorderStyle.Sizable;
+                help.MinimizeBox = false;
+                help.ShowInTaskbar = false;
+                if (this.Icon != null) help.Icon = this.Icon;
+
+                Label heading = new Label
+                {
+                    Text = "OFFHAND COMPANION — SETUP & HELP",
+                    Dock = DockStyle.Top,
+                    Height = 52,
+                    Padding = new Padding(16, 14, 10, 0),
+                    Font = new Font("Georgia", 14, FontStyle.Bold),
+                    ForeColor = cGoldBright,
+                    BackColor = cCard
+                };
+                Panel footer = new Panel { Dock = DockStyle.Bottom, Height = 54, BackColor = cCard };
+                Button close = CreateButton("Close", 0, 0, 120, 30, cBtnPrimaryBg, cGoldBright, cGold);
+                close.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+                close.Location = new Point(footer.ClientSize.Width - close.Width - 16, 12);
+                footer.Resize += (s, e) => { close.Left = footer.ClientSize.Width - close.Width - 16; };
+                close.Click += (s, e) => { help.Close(); };
+                footer.Controls.Add(close);
+
+                RichTextBox guide = new RichTextBox
+                {
+                    Dock = DockStyle.Fill,
+                    ReadOnly = true,
+                    DetectUrls = false,
+                    BorderStyle = BorderStyle.None,
+                    BackColor = cBg,
+                    ForeColor = cText,
+                    Font = new Font("Segoe UI", 10),
+                    Text = GetHelpText(),
+                    ScrollBars = RichTextBoxScrollBars.Vertical,
+                    TabStop = true,
+                    WordWrap = true
+                };
+                guide.SelectionStart = 0;
+                guide.SelectionLength = 0;
+                Panel guidePanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(16), BackColor = cBg };
+                guidePanel.Controls.Add(guide);
+
+                // Add the fill area first so the fixed header/footer always retain
+                // their space when Windows recalculates docking at a new DPI.
+                help.Controls.Add(guidePanel);
+                help.Controls.Add(footer);
+                help.Controls.Add(heading);
+                help.AcceptButton = close;
+                help.CancelButton = close;
+                help.ShowDialog(this);
+            }
+        }
+
         private void InitializeTray()
         {
             trayIcon = new NotifyIcon
@@ -896,13 +1041,17 @@ namespace Offhand.Companion
             itemOpen.Click += (s, e) => { RestoreForm(); };
             trayMenu.Items.Add(itemOpen);
 
+            ToolStripMenuItem itemHelp = new ToolStripMenuItem("Help / Setup Guide");
+            itemHelp.Click += (s, e) => { RestoreForm(); ShowHelpDialog(); };
+            trayMenu.Items.Add(itemHelp);
+
             trayMenu.Items.Add(new ToolStripSeparator());
 
             ToolStripMenuItem itemSpan = new ToolStripMenuItem("Span WoW Now");
             itemSpan.Click += (s, e) => { InvokeSpanWindow(true); };
             trayMenu.Items.Add(itemSpan);
 
-            itemAuto = new ToolStripMenuItem("Auto-Span Enabled")
+            itemAuto = new ToolStripMenuItem("Automatically Span on Launch")
             {
                 Checked = chkAutoSpan.Checked
             };

@@ -4,6 +4,7 @@ namespace Offhand.Companion {
     internal static class PreferencesTest {
         private static void Check(bool value) { if (!value) throw new Exception("Preference regression"); }
         public static void Main() {
+            Check(!CompanionDefaults.AutoSpanOnLaunch);
             Check(MonitorSelection.Resolve(null, 3).Length == 3);
             Check(MonitorSelection.Resolve("2,2,0,99,bad", 3).Length == 2);
             Check(CompanionTiming.AutoSpanDelay("WowB", @"D:\Games\World of Warcraft\_classic_beta_", 30) == 0);
@@ -55,7 +56,7 @@ namespace Offhand.Companion {
                 Check(ForeverStateBridge.TryRefresh(wow, out bridgeMessage));
                 bridge = File.ReadAllText(Path.Combine(core, "ForeverState.lua"));
                 Check(bridge != priorBridge && bridge.Contains("\"Other\""));
-                Console.WriteLine("PASS: settings validation, restore geometry and atomic Forever state generation");
+                Console.WriteLine("PASS: safe defaults, settings validation, restore geometry and atomic Forever state generation");
             } finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }
     }

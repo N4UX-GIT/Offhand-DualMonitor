@@ -3,10 +3,11 @@
 Native Windows desktop companion application for the Offhand World of Warcraft add-on.
 
 ## Features
-* **Auto-Spanning**: Detects World of Warcraft launches and spans the game window borderlessly across your multi-monitor virtual desktop.
+* **Optional Auto-Spanning**: Detects World of Warcraft launches and can span the game window borderlessly across your multi-monitor virtual desktop. This is disabled by default so a first launch cannot move WoW before the display selection is reviewed.
 * **Addon Verification**: Validates that the Offhand add-on is properly installed in your WoW client's `Interface\AddOns` folder.
 * **Zero Console Flashing**: Compiled as a native Win32 subsystem application (`Offhand.exe`).
 * **System Tray Integration**: Minimizes silently to the Windows notification tray with quick-actions and live status tips.
+* **Built-in Guidance**: Hover dashboard controls for detailed tooltips, or use the `?` button (also available from the tray menu) for the complete setup, daily-use, Forever recovery, and troubleshooting guide.
 * **DPI-Aware**: Full Per-Monitor V2 scaling ensures crisp fonts and accurate window positioning on mixed-resolution / mixed-scale setups.
 * **Forever Layout Recovery**: While WoW is closed, mirrors the newest valid
   account and character Offhand SavedVariables into a guarded addon snapshot.
@@ -37,6 +38,11 @@ while held and are released on application exit.
 
 These settings describe the C# companion; the PowerShell alternative has its own
 controls and does not share the native application's preference file.
+
+On a fresh install, **Automatically span WoW window on game launch is disabled**.
+Use **Span WoW Now** for the initial setup after reviewing the selected displays.
+Enabling auto-span is an explicit preference and is remembered on later launches;
+updating the Companion does not overwrite an existing saved choice.
 
 ## Forever SavedVariables recovery
 
