@@ -421,9 +421,15 @@ StaticPopupDialogs["OFFHAND_COMPANION_WARNING"] = {
             eb:SetFocus()
         end
     end,
-    OnAccept = function() end,
+    OnAccept = function()
+        if Offhand.MarkWelcomeDismissed then Offhand:MarkWelcomeDismissed() end
+    end,
     OnCancel = function(self)
-        Offhand.db.suppressCompanionWarning = true
+        if Offhand.SetCompanionWarningSuppressed then
+            Offhand:SetCompanionWarningSuppressed(true)
+        elseif Offhand.db then
+            Offhand.db.suppressCompanionWarning = true
+        end
     end,
     EditBoxOnEscapePressed = function(self)
         self:GetParent():Hide()
@@ -449,8 +455,11 @@ StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"] = {
             eb:SetFocus()
         end
     end,
-    OnAccept = function() end,
+    OnAccept = function()
+        if Offhand.MarkWelcomeDismissed then Offhand:MarkWelcomeDismissed() end
+    end,
     OnCancel = function(self)
+        if Offhand.MarkWelcomeDismissed then Offhand:MarkWelcomeDismissed() end
         if Offhand.Wizard and Offhand.Wizard.Open then
             Offhand.Wizard:Open()
         end
@@ -604,7 +613,11 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                     isSpanned = false
                 end
 
-                if not Offhand.db.firstRunComplete then
+                local welcomeDismissed = Offhand.IsWelcomeDismissed and Offhand:IsWelcomeDismissed()
+                    or Offhand.db.firstRunComplete
+                local setupComplete = Offhand.IsSetupComplete and Offhand:IsSetupComplete()
+                    or Offhand.db.firstRunComplete
+                if not welcomeDismissed then
                     if not isSpanned then
                         StaticPopup_Show("OFFHAND_WELCOME_SPAN_WARNING")
                     else
@@ -614,8 +627,10 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                             Offhand:Print(Offhand.L["MSG_FIRST_RUN"])
                         end
                     end
-                else
-                    if not isSpanned and not Offhand.db.suppressCompanionWarning then
+                elseif setupComplete then
+                    local warningSuppressed = Offhand.IsCompanionWarningSuppressed
+                        and Offhand:IsCompanionWarningSuppressed() or Offhand.db.suppressCompanionWarning
+                    if not isSpanned and not warningSuppressed then
                         StaticPopup_Show("OFFHAND_COMPANION_WARNING")
                     end
                 end

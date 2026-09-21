@@ -82,7 +82,7 @@
                 </a>
             </div>
             <div class="hero-download-note" style="margin-top: 12px; font-size: 0.88rem; color: #8a92a6;">
-                Includes Addon & Companion (v1.0.0) &bull; <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest" target="_blank" style="color: var(--rio-gold);">GitHub Releases</a> 
+                Includes Addon &amp; Companion (v2.0.0+) &bull; <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest" target="_blank" style="color: var(--rio-gold);">GitHub Releases</a>
             </div>
 
             <div class="hero-stats-bar">
@@ -216,7 +216,7 @@
                         </div>
                         <h3 class="wow-card-title">Lightweight Windows Companion</h3>
                         <p class="wow-card-desc">
-                            Includes an optional, open-source Windows companion app (<code>Offhand.exe</code>) to borderless-span your game window in a single click without complicated GPU surround setups.
+                            Includes an open-source Windows companion app (<code>Offhand.exe</code>) to borderless-span your game window and reliably restore Forever layouts after a cold launch.
                         </p>
                     </div>
                 </div>
@@ -229,8 +229,8 @@
                 <div class="wow-card companion-preview-card">
                     <div class="companion-preview-copy">
                         <h2 class="wow-card-title" id="companion-preview-title">Your setup, one click away</h2>
-                        <p class="wow-card-desc">Span WoW across your monitors, restore a single window, or let the Companion span automatically when the game launches. Check your connection and recent activity from one compact Windows app.</p>
-                        <p class="wow-card-desc">Keep it nearby in the system tray and use your chosen hotkey whenever you need to span.</p>
+                        <p class="wow-card-desc">Span WoW across your monitors, restore a single window, or let the Companion span automatically when the game launches. On WoW Forever, Companion v2.0.0 or newer also refreshes Offhand's recovery snapshot while WoW is closed so your workspace survives a full client restart.</p>
+                        <p class="wow-card-desc">Start it before WoW, leave it running in the system tray, and exit WoW normally so the most recent layout can be captured.</p>
                         <div style="margin-top: 24px;">
                             <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest/download/Offhand-Companion.zip" download class="btn btn-wow-stone btn-sm">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -253,9 +253,9 @@
 <section class="section" id="setup">
             <div class="section-container">
                 <div class="section-header">
-                    <h2 class="section-title">Get Started in 3 Simple Steps</h2>
+                    <h2 class="section-title">Get Started in 5 Steps</h2>
                     <p class="section-subtitle">
-                        No complex configuration required. Get up and running in under two minutes.
+                        Follow this once, then verify a cold launch before you settle in.
                     </p>
                 </div>
 
@@ -273,9 +273,9 @@
                         <div class="step-seal">2</div>
                         <h3>Span Your Game Window</h3>
                         <p>
-                            Put WoW in Windowed mode. Extract the <code>Offhand-Companion.zip</code> folder, launch the Offhand Companion app inside, and hit <strong>Span Now</strong> to stretch the game across your monitors without the ugly Windows borders.
+                            Put WoW in standard <strong>Windowed</strong> mode. Install Companion v2.0.0 or newer, start it before WoW, select the displays to span, and enable automatic spanning. Click <strong>Span WoW Now</strong> for the first setup.
                             <br><br><span style="font-size: 0.9em; color: #a3a9b8;"><strong>Note:</strong> Windows SmartScreen may flag the app as unrecognized on your first launch. This is normal for open-source tools. Click <strong>More info &rarr; Run anyway</strong>.</span> 
-                            <br><br><span style="font-size: 0.9em; color: #a3a9b8;"><strong>No App?</strong> Just grab the edges of your WoW window and manually stretch it across both screens yourself.</span>
+                            <br><br><span style="font-size: 0.9em; color: #a3a9b8;"><strong>WoW Forever:</strong> Keep the Companion running. Forever currently needs its recovery bridge to preserve Offhand state across a full client restart.</span>
                         </p>
                         <div style="margin-top: 14px;">
                             <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest/download/Offhand-Complete.zip" download class="btn btn-wow-stone btn-sm" style="white-space: nowrap;">
@@ -290,9 +290,25 @@
                         <div class="step-seal">3</div>
                         <h3>Auto-Configure In-Game</h3>
                         <p>
-                            Type <code>/oh</code> in chat and run the quick setup wizard to align your bezels and scale your UI. You're ready to play!
+                            Type <code>/oh</code>, click <strong>Launch Setup Wizard</strong>, and complete every step. Confirm the monitor arrangement, select the Mainhand display, apply the layout, and save the calibration.
                         </p>
                         <img src="assets/setup-step3.png" alt="Run Wizard" style="width:100%; border-radius:6px; margin-top:12px; border:1px solid rgba(255,255,255,0.1);">
+                    </div>
+
+                    <div class="quest-step-card">
+                        <div class="step-seal">4</div>
+                        <h3>Arrange Protected UI</h3>
+                        <p>
+                            On WoW Forever, open Blizzard <strong>Edit Mode</strong>, select the <strong>Offhand</strong> layout, place action bars and protected combat frames inside the Mainhand game view, then save. If the Edit Mode options frame is missing, use <strong>Gather Off-Screen UI</strong> from <code>/oh</code>.
+                        </p>
+                    </div>
+
+                    <div class="quest-step-card">
+                        <div class="step-seal">5</div>
+                        <h3>Verify a Cold Launch</h3>
+                        <p>
+                            Exit WoW normally while the Companion remains running. Relaunch WoW and confirm that the window spans automatically, workspace panels return to the Offhand display, and the Edit Mode options remain visible.
+                        </p>
                     </div>
                 </div>
             </div>
@@ -354,7 +370,7 @@
                         </summary>
                         <div class="faq-body">
                             <p>
-                                No. The companion app (<code>Offhand.exe</code>) is an optional convenience tool to borderless-span your game window in one click. You can also use GPU driver spanning (NVIDIA Surround, AMD Eyefinity) or utilities like Borderless Gaming and DisplayFusion.
+                                On the current <strong>WoW Forever</strong> beta, Companion v2.0.0 or newer is required for reliable full-restart recovery. Forever does not consistently restore the addon SavedVariables that hold panel positions, open state, and onboarding state. The Companion refreshes Offhand's own recovery bridge while WoW is closed and spans the window before the addon restores the UI. On other supported clients, it remains the recommended one-click spanning method, but external spanning tools can still be used.
                             </p>
                         </div>
                     </details>
@@ -378,7 +394,7 @@
                         </summary>
                         <div class="faq-body">
                             <p>
-                                Yes. The in-game addon just uses standard Blizzard UI APIs. The companion app is open source and only resizes your Windows desktop window - it doesn't touch the game's memory, alter files, or automate gameplay.
+                                Yes. The in-game addon uses standard Blizzard UI APIs. The open-source Companion does not inspect game memory or automate gameplay. It resizes the WoW desktop window and, while WoW is closed, refreshes only Offhand's own recovery bridge file for Forever cold-launch restoration.
                             </p>
                         </div>
                     </details>
@@ -390,7 +406,19 @@
                         </summary>
                         <div class="faq-body">
                             <p>
-                                Offhand is built and tested for World of Warcraft Classic Era (1.15.x), Hardcore, and 20th Anniversary Classic realms, with underlying architecture compatible with modern Retail.
+                                Offhand supports WoW Forever (1.60.x), Retail, Classic Era and Hardcore, and progression/Anniversary Classic clients. Forever has a distinct Mainline-style UI and therefore uses Blizzard Edit Mode for protected action bars and combat frames.
+                            </p>
+                        </div>
+                    </details>
+
+                    <details class="faq-card">
+                        <summary class="faq-summary">
+                            <h4>Why must Forever use Blizzard Edit Mode?</h4>
+                            <svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </summary>
+                        <div class="faq-body">
+                            <p>
+                                Forever protects action bars, unit frames, and other combat UI. Offhand can safely restore ordinary workspace panels such as the map, character frame, backpack, and chat, but protected frames must be positioned in Blizzard Edit Mode. Select the <strong>Offhand</strong> layout there and save it. Use <strong>Gather Off-Screen UI</strong> if the Edit Mode options frame is outside the visible game area.
                             </p>
                         </div>
                     </details>

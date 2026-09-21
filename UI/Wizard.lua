@@ -764,7 +764,9 @@ function Wizard:CreateFrame()
     finishBtn:SetText("|cffffd100" .. L["WIZARD_BTN_FINISH"] .. "|r")
     finishBtn:SetScript("OnClick", function()
         if f.step < 4 then f:SetStep(f.step + 1); return end
-        if Offhand.db then
+        if Offhand.MarkSetupComplete then
+            Offhand:MarkSetupComplete()
+        elseif Offhand.db then
             Offhand.db.firstRunComplete = true
         end
         Wizard.openedFromOptions = false

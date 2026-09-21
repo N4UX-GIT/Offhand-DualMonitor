@@ -66,6 +66,7 @@ local FOREVER_INDEX_CVAR = "offhandForeverPositionIndex"
 local FOREVER_POSITION_PREFIX = "offhandForeverPosition_"
 local FOREVER_OPEN_PANELS_CVAR = "offhandForeverOpenPanels"
 local FOREVER_RECOVERY_VERSION_CVAR = "offhandForeverRecoveryVersion"
+local FOREVER_ONBOARDING_CVAR = "offhandForeverOnboarding"
 
 local function RegisterPersistentCVar(name)
     local register = RegisterCVar or (C_CVar and C_CVar.RegisterCVar)
@@ -198,6 +199,27 @@ function ForeverPersistence:RestoreOpenPanels()
     Offhand.db.openWorkspacePanels = openPanels
 end
 
+function ForeverPersistence:SaveOnboarding(onboarding)
+    if not self:IsAvailable() or type(onboarding) ~= "table" then return end
+    local function Flag(value) return value and "1" or "0" end
+    WritePersistentCVar(FOREVER_ONBOARDING_CVAR, table.concat({
+        "V1", Flag(onboarding.welcomeDismissed), Flag(onboarding.setupComplete),
+        Flag(onboarding.suppressCompanionWarning),
+    }, "|"))
+end
+
+function ForeverPersistence:RestoreOnboarding(onboarding)
+    if not self:IsAvailable() or type(onboarding) ~= "table" then return false end
+    RegisterPersistentCVar(FOREVER_ONBOARDING_CVAR)
+    local welcome, setup, suppress = tostring(ReadPersistentCVar(FOREVER_ONBOARDING_CVAR) or ""):match(
+        "^V1|([01])|([01])|([01])$")
+    if not welcome then return false end
+    onboarding.welcomeDismissed = welcome == "1"
+    onboarding.setupComplete = setup == "1"
+    onboarding.suppressCompanionWarning = suppress == "1"
+    return true
+end
+
 function ForeverPersistence:BeginRecoverySnapshot()
     if not self:IsAvailable() then return false end
     local version = type(_G.OffhandForeverStateBridgeVersion) == "string"
@@ -223,6 +245,56 @@ function ForeverPersistence:SeedSessionFallback()
         self:SaveWorkspacePosition(name, position, position.width, position.height)
     end
     self:SaveOpenPanels(Offhand.db.openWorkspacePanels)
+    self:SaveOnboarding(OffhandDB and OffhandDB.onboarding)
+end
+
+local function EnsureOnboarding()
+    if type(OffhandDB) ~= "table" then OffhandDB = {} end
+    if type(OffhandDB.onboarding) ~= "table" then OffhandDB.onboarding = {} end
+    return OffhandDB.onboarding
+end
+
+local function SyncLegacyOnboarding()
+    local onboarding = EnsureOnboarding()
+    if Offhand.db then
+        Offhand.db.firstRunComplete = onboarding.setupComplete == true
+        Offhand.db.suppressCompanionWarning = onboarding.suppressCompanionWarning == true
+    end
+    return onboarding
+end
+
+local function SaveOnboarding()
+    local onboarding = SyncLegacyOnboarding()
+    ForeverPersistence:SaveOnboarding(onboarding)
+end
+
+function Offhand:IsWelcomeDismissed()
+    return EnsureOnboarding().welcomeDismissed == true
+end
+
+function Offhand:IsSetupComplete()
+    return EnsureOnboarding().setupComplete == true
+end
+
+function Offhand:IsCompanionWarningSuppressed()
+    return EnsureOnboarding().suppressCompanionWarning == true
+end
+
+function Offhand:MarkWelcomeDismissed()
+    EnsureOnboarding().welcomeDismissed = true
+    SaveOnboarding()
+end
+
+function Offhand:MarkSetupComplete()
+    local onboarding = EnsureOnboarding()
+    onboarding.welcomeDismissed = true
+    onboarding.setupComplete = true
+    SaveOnboarding()
+end
+
+function Offhand:SetCompanionWarningSuppressed(suppressed)
+    EnsureOnboarding().suppressCompanionWarning = suppressed == true
+    SaveOnboarding()
 end
 
 function Offhand:InitializeConfig()
@@ -234,7 +306,7 @@ function Offhand:InitializeConfig()
         OffhandDB.profiles = {}
         OffhandDB.profiles["Default"] = {}
         for k, v in pairs(OffhandDB) do
-            if k ~= "profiles" then
+            if k ~= "profiles" and k ~= "onboarding" then
                 OffhandDB.profiles["Default"][k] = v
                 OffhandDB[k] = nil
             end
@@ -259,6 +331,17 @@ function Offhand:InitializeConfig()
 
     Offhand.db = OffhandDB.profiles[current]
 
+    local onboarding = EnsureOnboarding()
+    -- Migrate the former profile-scoped flags into account-wide onboarding.
+    -- A completed setup always implies that the welcome guide was acknowledged.
+    if Offhand.db.firstRunComplete then
+        onboarding.setupComplete = true
+        onboarding.welcomeDismissed = true
+    end
+    if Offhand.db.suppressCompanionWarning then
+        onboarding.suppressCompanionWarning = true
+    end
+
     -- Auto-migrate to vertical portrait setup if preset is unset or old default
     if not Offhand.db.layoutPreset or Offhand.db.layoutPreset == "AUTO" then
         Offhand.db.layoutPreset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT"
@@ -279,7 +362,9 @@ function Offhand:InitializeConfig()
     else
         ForeverPersistence:RestorePositions()
         ForeverPersistence:RestoreOpenPanels()
+        ForeverPersistence:RestoreOnboarding(onboarding)
     end
+    SyncLegacyOnboarding()
 end
 
 function Offhand:GetProfiles()

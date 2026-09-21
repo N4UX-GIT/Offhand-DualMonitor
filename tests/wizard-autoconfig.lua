@@ -175,6 +175,19 @@ addon.db = {
     firstRunComplete = false,
 }
 
+-- Either welcome action must acknowledge the first-run guide without claiming
+-- that calibration was completed. This prevents the popup recurring on login.
+OffhandDB = { onboarding = {} }
+StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"].OnAccept()
+assert(addon:IsWelcomeDismissed(), "Get Companion App must acknowledge the welcome guide")
+assert(not addon:IsSetupComplete(), "Downloading the Companion must not complete calibration")
+OffhandDB.onboarding = {}
+StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"].OnCancel()
+assert(addon:IsWelcomeDismissed(), "Launch Wizard must acknowledge the welcome guide")
+assert(OffhandSetupWizardFrame and OffhandSetupWizardFrame:IsShown(),
+    "Launch Wizard must open the setup wizard")
+addon.Wizard:Close()
+
 local layoutAppliedCount = 0
 function addon:ApplyFullLayout()
     layoutAppliedCount = layoutAppliedCount + 1

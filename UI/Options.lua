@@ -279,7 +279,13 @@ function Options:AutoConfigure(silent, fromWizard)
     Offhand.db.primaryPosition = info.recommendedPosition or "RIGHT"
     Offhand.db.aspectRatioMode = info.recommendedAR or "16_9"
     Offhand.db.hudScale = 0.70
-    if not fromWizard then Offhand.db.firstRunComplete = true end
+    if not fromWizard then
+        if Offhand.MarkSetupComplete then
+            Offhand:MarkSetupComplete()
+        else
+            Offhand.db.firstRunComplete = true
+        end
+    end
 
     if Offhand.ApplyFullLayout then
         Offhand:ApplyFullLayout()
@@ -2029,9 +2035,16 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 5: FAQ & HELP
     -- ========================================================================
+    local helpCardHeights = {
+        SETUP = 250,
+        COMPANION = 190,
+        PANELS = 158,
+        RECOVERY = 190,
+        EDIT_MODE = 190,
+    }
     local helpCards = {}
-    for _, topic in ipairs({ "SETUP", "PANELS", "RECOVERY", "EDIT_MODE" }) do
-        local card = CreateCard(tab5, L["HELP_" .. topic .. "_TITLE"], topic == "EDIT_MODE" and 158 or 112)
+    for _, topic in ipairs({ "SETUP", "COMPANION", "PANELS", "RECOVERY", "EDIT_MODE" }) do
+        local card = CreateCard(tab5, L["HELP_" .. topic .. "_TITLE"], helpCardHeights[topic])
         local body = card:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
         body:SetPoint("TOPLEFT", 14, -30)
         body:SetPoint("TOPRIGHT", -14, -30)
@@ -2182,9 +2195,6 @@ end
 
 function Options:Close()
     self:HideSeamGuide()
-    if Offhand.db then
-        Offhand.db.firstRunComplete = true
-    end
     if configFrame then
         configFrame:Hide()
     end

@@ -21,6 +21,17 @@ local function NewAddon(isForever, accountDB, characterDB, recoveryVersion)
 end
 
 local first = NewAddon(true)
+first:MarkWelcomeDismissed()
+assert(cvars.offhandForeverOnboarding == "V1|1|0|0",
+    "Acknowledging the welcome guide must persist in the Forever session fallback")
+local onboardingReload = NewAddon(true)
+assert(onboardingReload:IsWelcomeDismissed() and not onboardingReload:IsSetupComplete(),
+    "Welcome acknowledgement must survive reload without falsely completing setup")
+onboardingReload:MarkSetupComplete()
+local completedReload = NewAddon(true)
+assert(completedReload:IsWelcomeDismissed() and completedReload:IsSetupComplete(),
+    "Completed onboarding must survive Forever reloads")
+
 first.ForeverPersistence:SaveWorkspacePosition(
     "ContainerFrameCombinedBags",
     { x = 274.8437194824219, y = 997.0802001953125, canvasHeight = 1697.8769 },
@@ -61,9 +72,11 @@ assert(next(visibilityCleared.db.openWorkspacePanels) == nil,
 -- an empty CVar must not erase a valid visibility snapshot loaded from disk.
 cvars.offhandForeverOpenPanels = nil
 cvars.offhandForeverPositionIndex = nil
+cvars.offhandForeverOnboarding = nil
 local coldAccountDB = { profiles = { Default = {
     openWorkspacePanels = { CharacterFrame = true, WorldMapFrame = true },
     savedWorkspacePositions = { WorldMapFrame = { x = 12, y = 1685, canvasHeight = 1697 } },
+    firstRunComplete = true,
 } } }
 local coldLaunch = NewAddon(true, coldAccountDB)
 assert(coldLaunch.db.openWorkspacePanels.CharacterFrame == true
@@ -71,6 +84,8 @@ assert(coldLaunch.db.openWorkspacePanels.CharacterFrame == true
     "Cold launch must preserve disk-loaded panel visibility")
 assert(coldLaunch.db.savedWorkspacePositions.WorldMapFrame.x == 12,
     "Cold launch must preserve disk-loaded frame positions")
+assert(coldLaunch:IsWelcomeDismissed() and coldLaunch:IsSetupComplete(),
+    "Cold launch must migrate a completed legacy setup into account onboarding")
 
 -- A generated cold-recovery snapshot must beat stale empty session CVars once,
 -- then seed those CVars so user changes win on subsequent reloads.
@@ -85,6 +100,8 @@ assert(cvars.offhandForeverRecoveryVersion == "snapshot-1",
     "Fresh bridge snapshot must be marked consumed for this session")
 assert(cvars.offhandForeverOpenPanels == "V1|CharacterFrame,WorldMapFrame",
     "Fresh bridge snapshot must seed the session visibility fallback")
+assert(cvars.offhandForeverOnboarding == "V1|1|1|0",
+    "Fresh bridge snapshot must seed Forever onboarding state")
 recovered.ForeverPersistence:SaveOpenPanels({ CharacterFrame = true })
 local sameSession = NewAddon(true, coldAccountDB, nil, "snapshot-1")
 assert(sameSession.db.openWorkspacePanels.CharacterFrame == true
@@ -97,11 +114,14 @@ assert(cleared.db.savedWorkspacePositions.ContainerFrameCombinedBags == nil, "Cl
 
 local writesBefore = cvars.offhandForeverPositionIndex
 local openPanelsBefore = cvars.offhandForeverOpenPanels
+local onboardingBefore = cvars.offhandForeverOnboarding
 local otherClient = NewAddon(false)
 otherClient.ForeverPersistence:SaveWorkspacePosition("ContainerFrameCombinedBags", { x = 1, y = 2 }, 3, 4)
 otherClient.ForeverPersistence:SaveOpenPanels({ CharacterFrame = true })
+otherClient:MarkSetupComplete()
 assert(cvars.offhandForeverPositionIndex == writesBefore, "Non-Forever clients must not write fallback CVars")
 assert(cvars.offhandForeverOpenPanels == openPanelsBefore, "Non-Forever clients must not write visibility CVars")
+assert(cvars.offhandForeverOnboarding == onboardingBefore, "Non-Forever clients must not write onboarding CVars")
 assert(otherClient.db.savedWorkspacePositions.ContainerFrameCombinedBags == nil,
     "Non-Forever clients must not restore fallback CVars")
 
