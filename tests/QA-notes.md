@@ -46,7 +46,7 @@ remaining-work list is superseded where this ledger records a later pass.
 | Confirmed open runtime defects | NONE | No unresolved runtime defect is confirmed at this checkpoint; new failures must be reproduced and recorded separately from validation gaps. |
 | Cross-client disabled-state isolation | PASS (automated) / GAP (live) | Retail mocks now prove disabled and temporary single-screen profiles leave tooltip and bag ownership untouched. Live confirmation remains required on every supported client family. |
 | Deferred product scope | DEFERRED | Antivirus submissions, code signing, more than two selected displays, guaranteed management of every arbitrary third-party frame and low-priority Companion UI refactoring. |
-| External publication | BETA APPROVED / ACCESS PENDING | User approved an all-client CurseForge Beta package on 2026-09-22. Package and validate `v2.1.2-beta.1`; upload access remains separate. GitHub authorization expired and will resume when the user returns to the machine. Do not merge, promote to stable, modify the live website or submit antivirus reports without further approval. |
+| External publication | GITHUB BETA PUBLISHED / CURSEFORGE PENDING | GitHub pre-release `2.1.2-beta.1` was published on 2026-09-22 from annotated tag `2.1.2-beta.1`, resolving to commit `4dcf37b2d43a03922a3bedfbbae4cd0d06ec4116`. Its addon ZIP, Companion ZIP, standalone EXE and checksum file were verified as uploaded. The user will upload the separately validated all-client Beta to CurseForge. Do not merge, promote to stable, modify the live website or submit antivirus reports without further approval. |
 
 ---
 
