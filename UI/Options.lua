@@ -296,7 +296,7 @@ function Options:AutoConfigure(silent, fromWizard)
     local info = Options:DetectTopology()
     if not Offhand.db then return info end
 
-    Offhand.db.enabled = true
+    if Offhand.SetEnabled then Offhand:SetEnabled(true) else Offhand.db.enabled = true end
     Offhand.db.layoutPreset = info.recommendedPreset
     Offhand.db.deckWidthRatio = info.recommendedDeckRatio
     Offhand.db.primaryPosition = info.recommendedPosition or "RIGHT"
@@ -1116,11 +1116,13 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 1: DISPLAY & VIEWPORT CALIBRATION
     -- ========================================================================
-    local card1_1 = CreateCard(tab1, L["CARD_LAYOUT_PRESETS"], 160)
+    local card1_1 = CreateCard(tab1, L["CARD_LAYOUT_PRESETS"], 184)
 
     local enableCheck = CreateNativeCheckbox(card1_1, L["ENABLE_OFFHAND"],
         function() return Offhand.db and Offhand.db.enabled end,
-        function(val) Offhand.db.enabled = val end,
+        function(val)
+            if Offhand.SetEnabled then Offhand:SetEnabled(val) else Offhand.db.enabled = val end
+        end,
         L["CHECK_CANVAS_ENABLED_TIP_TITLE"], L["CHECK_CANVAS_ENABLED_TIP_DESC"]
     )
     enableCheck:SetPoint("TOPLEFT", 12, -26)
@@ -1151,6 +1153,16 @@ function Options:CreateFloatingPanel()
     laserCheck:SetPoint("TOPLEFT", 330, -122)
     laserCheck.Text:SetWidth(360)
     configFrame.laserCheck = laserCheck
+
+    local rawMouseCheck = CreateNativeCheckbox(card1_1, L["RAW_MOUSE_INPUT"],
+        function() return Offhand.db and Offhand.db.rawMouseInput ~= false end,
+        function(val)
+            if Offhand.SetRawMouseInput then Offhand:SetRawMouseInput(val) else Offhand.db.rawMouseInput = val end
+        end,
+        L["RAW_MOUSE_INPUT_TIP_TITLE"], L["RAW_MOUSE_INPUT_TIP_DESC"]
+    )
+    rawMouseCheck:SetPoint("TOPLEFT", 12, -146)
+    rawMouseCheck.Text:SetWidth(560)
 
     local rPortraitLeft = CreateNativeRadioButton(card1_1, L["PRESET_PL_LR"],
         function() return (Offhand.db and Offhand.db.layoutPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and Offhand.db.primaryPosition == "RIGHT") end,
@@ -2200,6 +2212,7 @@ function Options:CreateFloatingPanel()
 
         enableCheck:SetChecked((Offhand.db and Offhand.db.enabled) or false)
         laserCheck:SetChecked((seamGuideLine and seamGuideLine:IsShown()) or false)
+        rawMouseCheck:SetChecked((Offhand.db and Offhand.db.rawMouseInput ~= false) or false)
 
         rPortraitLeft:SetChecked(Offhand.db and Offhand.db.layoutPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and Offhand.db.primaryPosition == "RIGHT")
         rPortraitRight:SetChecked(Offhand.db and Offhand.db.layoutPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and Offhand.db.primaryPosition == "LEFT")

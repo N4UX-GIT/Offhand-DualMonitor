@@ -1,21 +1,31 @@
-# Offhand v2.1.1 — Exact Display Topology and Safe Recovery
+# Offhand v2.1.2 — Forever Missing-Monitor Recovery
 
 Offhand 2.1 replaces combined-resolution guessing with exact display rectangles
-provided by Companion 2.1. Select exactly two screens and choose the Mainhand,
+provided by Companion 2.1.2. Select exactly two screens and choose the Mainhand,
 or explicitly split one 32:9/32:10 super-ultrawide. Mixed resolutions and
 heights, stacked screens, portrait/landscape pairs, negative desktop
 coordinates, and ultrawide Mainhand displays now retain native geometry.
 
-If a saved display is disconnected, the Companion refuses to span and the
-addon rejects the stale snapshot, restoring a readable full-window viewport.
-Forever temporarily selects a built-in Blizzard Edit Mode layout for its
-protected HUD, then restores the prior Offhand layout when exact topology
-returns unless the player selected another layout during recovery.
+If a saved workspace display disconnects while WoW is spanned, Companion now
+restores a bordered WoW window that fills the surviving Mainhand work area and
+refuses to reuse the stale span. The addon rejects the stale topology and keeps
+ordinary workspace panels reachable without erasing their saved dual-screen
+positions.
+
+Forever only accepts protected Edit Mode layout changes from a player action.
+Offhand therefore offers a **Use Modern** recovery prompt when the workspace
+disappears and a **Restore Offhand** prompt when the exact topology returns.
+Manual layout choices take precedence. A consumed Forever recovery bridge also
+no longer overwrites newer SavedVariables during `/reload`.
+Offhand's account and character state now have a versioned, data-only session fallback for
+Forever's reported SavedVariables reload fault. A matching or newer revision in
+the ordinary SavedVariables table always wins, allowing Blizzard's eventual fix
+to take effect without removing or reversing Offhand's recovery code.
 Fresh profiles remain inert until the setup wizard is completed. Existing
 Forever recovery, workspace persistence, and Blizzard Edit Mode ownership are
 preserved.
 
-Use standard Windowed mode. Start Companion 2.1 before WoW, select the displays
+Use standard Windowed mode. Start Companion 2.1.2 before WoW, select the displays
 and Mainhand, then click **Span WoW Now**. If WoW already loaded the character
 UI, use `/reload` once before completing `/offhand wizard`.
 

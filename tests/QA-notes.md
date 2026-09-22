@@ -259,5 +259,57 @@ setup deferral, and reporting of caught layout errors.
 - A normal WoW exit followed by a cold relaunch with Companion running preserved the complete layout.
 - User accepted all seven primary release-candidate steps. The disconnected-workspace-display fail-safe remains the final live safety check.
 - Physical workspace-display disconnect confirmed Companion refused `Span WoW Now` and did not collapse the 4000x2560 span onto the 2560x1440 Mainhand. The stale topology was rejected and the game remained viewable.
-- The first disconnected-display run exposed a protected-HUD gap: Forever retained the spanned `Offhand` Blizzard Edit Mode layout, so protected frames were readable but malformed. v2.1.1 adds a Blizzard-API-only handoff to a built-in layout and restores `Offhand` after reconnection unless the player makes another manual selection. Live retest pending.
+- The first disconnected-display run exposed a protected-HUD gap: Forever retained the spanned `Offhand` Blizzard Edit Mode layout, so protected frames were readable but malformed. The initial v2.1.1 automatic API handoff was later proven ineffective because Forever ignores this protected change outside a hardware event; v2.1.2 replaces it with player-click recovery prompts.
+
+## 2026-09-22: Forever v2.1.2 recovery findings
+
+- The primary seven-step exact-topology and cold-launch sequence passed on the
+  1440x2560 portrait workspace plus 2560x1440 landscape Mainhand.
+- Companion refused a new span after the workspace was physically disconnected,
+  and Offhand rejected stale topology. Temporary single-screen recovery now gives
+  map, character, bag, and chat windows clean reachable positions while retaining
+  their saved Offhand coordinates for reconnection.
+- Forever layout IDs are global: Modern 1, Classic 2, and the tested custom
+  Offhand layout 6. A timer/addon call to `C_EditMode.SetActiveLayout(6)` was
+  ignored, while the same call issued directly by the player succeeded. Recovery
+  therefore uses player-click **Use Modern** and **Restore Offhand** prompts.
+- A stale generated Forever bridge was found overwriting newly saved state during
+  `/reload`. The bridge is now consumed once, and current SavedVariables win on
+  subsequent reloads.
+- Disconnecting the workspace from an already-spanned session exposed desktop
+  content where the missing monitor had been. Companion v2.1.2 now detects this
+  state and restores a bordered WoW window that fills the surviving Mainhand work
+  area. Live disconnect/reconnect acceptance of that final native-window recovery
+  remains pending.
+- During the first v2.1.2 retest, the workspace was reconnected after Companion
+  launched. Its status calculation saw both displays, but the selectors retained
+  the one-display startup inventory, and manual Restore Window returned WoW to its
+  stale portrait-workspace position. The selectors now refresh on Windows topology
+  changes without rewriting saved device identities, and manual restore fills the
+  selected or surviving Mainhand. Live acceptance remains pending.
+- The selected Mainhand restore and subsequent exact two-monitor respan passed.
+  Repeated full-range vertical camera sweeps while holding right mouse eventually
+  exhausted cursor travel; releasing the button reset it. Setting
+  `rawMouseEnable=1` eliminated the block in the same live session. Offhand now
+  enables raw input only while its span is active and restores the prior setting
+  on single-screen recovery, disable, or logout. Automated lifecycle coverage was
+  added; addon-managed live acceptance remains pending.
+- A clean cold-launch control with both displays continuously connected reproduced
+  the vertical camera block with `rawMouseEnable=0`, establishing that it is a
+  normal mixed-height span requirement rather than a disconnect-test artifact.
+  The same control also exposed a false missing-workspace prompt during the brief
+  pre-span startup interval. Recovery now waits eight seconds for a sustained
+  mismatch, cancels if exact topology arrives, and hides obsolete prompts.
+- Enabling the master dual-monitor mode was then proven to revert to disabled on
+  `/reload`. Forever had reloaded the profile default while its normal
+  SavedVariables update was unavailable. The session fallback now mirrors the
+  master enabled and raw-mouse preference flags together, and updates them from
+  the options UI, auto-configure, slash toggle, profile changes, and reset.
+- The same client defect can affect every account or character field, not only the
+  master switch. Forever now records a bounded, checksummed, data-only snapshot
+  of the complete Offhand account and character state at the reload boundary. The ordinary account
+  table carries the same monotonically increasing revision: an equal or newer
+  standard load wins automatically, while only a stale revision activates the
+  fallback. Tests cover geometry, themes, nested custom colors, Mainhand frame
+  positions, active profile selection, and protected Edit Mode recovery state.
 

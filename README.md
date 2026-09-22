@@ -21,13 +21,14 @@
 *   **Mix & Match Monitors:** Got a 4K main screen and a 1080p vertical monitor on the side? Offhand handles asymmetrical layouts, mixed resolutions, and different refresh rates naturally.
 *   **Hide the Bezel:** Offhand calculates the physical plastic gap between your monitors so the game world flows behind it instead of warping. Streaming? The included OBS guide shows you how to broadcast a clean, gap-free feed.
 *   **The Companion App:** A tiny, open-source tool that removes the Windows title bar, spans WoW across selected displays, and restores Forever layouts across cold launches.
+*   **Reliable Camera Input:** While spanned, Offhand enables WoW's raw mouse input so repeated right-button camera movement cannot exhaust the hidden cursor against a mixed-height window edge. The player's previous setting is restored outside the span.
 
 ---
 
 ## 🛠️ Installation & Setup
 
 1.  **Install the Addon:** Download the addon from [CurseForge](https://www.curseforge.com/wow/addons/offhand) or install it via your preferred addon manager.
-2.  **Get Companion v2.1.1 or newer:** Download the Companion App from the [GitHub Releases page](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases), extract it, and start it before WoW. It is required for exact-topology setup and reliable cold-launch restoration on the current Forever beta, and strongly recommended on other clients.
+2.  **Get Companion v2.1.2 or newer:** Download the Companion App from the [GitHub Releases page](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases), extract it, and start it before WoW. It is required for exact-topology setup, safe missing-monitor recovery, and reliable cold-launch restoration on the current Forever beta, and strongly recommended on other clients.
 
 > [!IMPORTANT]
 > **Verify the Companion before running it.** Official GitHub releases include SHA-256 checksums and a GitHub build-provenance attestation. An unsigned or low-reputation build may still produce a Windows SmartScreen warning; never bypass a warning for a file obtained from an unofficial source. Follow the verification steps in [SECURITY.md](SECURITY.md).
@@ -38,17 +39,25 @@
 6.  **Forever only — configure protected HUD frames:** Outside combat, open Blizzard Edit Mode. Move action bars, player/target, stance, pet, party, and raid frames onto the Mainhand Monitor. Save the layout with the exact name **Offhand** and select it.
 7.  **Verify a cold launch:** Exit WoW normally, leave Companion running, and relaunch. Workspace panels, their open state, Blizzard HUD placement, and the Edit Mode options frame should return correctly.
 
+The Display tab option **Use raw mouse input while Offhand is spanned** is enabled by default. Keep it enabled if vertical camera movement eventually stops while holding the right mouse button. Offhand remembers the previous `rawMouseEnable` value and restores it when the layout is no longer spanned, Offhand is disabled, or the client logs out.
+
 ### Why Forever currently relies on Companion
 
 WoW addon code cannot resize or borderlessly span the Windows game client. The Forever beta also currently writes Offhand's SavedVariables but may fail to restore them reliably on the next client launch. Companion v2.0.0+ solves both sides: it spans the selected displays, removes the window borders, waits until WoW has fully closed, snapshots the newest valid Offhand state, and restores that state before the next cold launch.
 
 This recovery bridge is specific to the current Forever client behavior. The addon remains usable with manual spanning or another window manager on other WoW clients.
 
+During a running Forever session, Offhand also keeps a versioned, data-only copy
+of its account and character state in registered CVars so `/reload` cannot revert options,
+geometry, themes, frame positions, or recovery state. Normal SavedVariables are
+still preferred whenever their revision proves that the client loaded the latest
+table, so this fallback automatically becomes inactive after a client fix.
+
 ### Exact topology and missing-monitor safety
 
 The current Companion passes the addon's exact Mainhand and workspace rectangles instead of making Offhand guess from the combined window resolution. Mixed resolutions and heights, portrait/landscape pairs, stacked displays, negative Windows coordinates, ultrawide Mainhand screens, and the explicit one-screen super-ultrawide split therefore use their native geometry without manual width/height compensation.
 
-Display choices are persisted by Windows device identity. If any saved display is disconnected, the Companion refuses to span and Offhand ignores the stale topology, restoring a normal full-window viewport. On Forever, Offhand temporarily selects a built-in Blizzard Edit Mode layout so protected HUD frames also recover to the remaining screen; it restores the prior Offhand layout when the exact topology returns unless you selected another layout manually. Reconnect the display or review the selection; it will not silently compress a dual-screen profile onto one travel screen.
+Display choices are persisted by Windows device identity. If a saved display disconnects while WoW is spanned, Companion v2.1.2 restores a bordered WoW window that fills the surviving Mainhand work area. It also refuses another span until the saved topology is available. Offhand ignores the stale topology and restores a normal full-window viewport. On Forever, Blizzard requires protected Edit Mode layout changes to originate from a player click, so Offhand offers **Use Modern** when the workspace disappears and **Restore Offhand** when the exact topology returns. Reconnect the display or review the selection; Offhand will not silently compress a dual-screen profile onto one travel screen.
 
 ### Manual Fallback (No Companion App)
 Manual spanning remains available on Retail and Classic clients, but it does not provide Forever's reliable cold-launch state recovery:
@@ -74,7 +83,7 @@ Type /offhand (or /oh) to open the main configuration dashboard.
 
 Forever Beta uses Blizzard Edit Mode as the owner of action bars and combat frames. Offhand deliberately does not move those protected HUD frames because doing so can taint Edit Mode and break party or raid frame updates.
 
-While outside combat, open Blizzard Edit Mode, move your action bars and combat frames onto the Mainhand Monitor, save the layout with the exact name **Offhand**, and select it there. During normal spanned operation Offhand leaves layout selection to Blizzard Edit Mode. The only automatic handoff occurs when a saved display disappears: Forever temporarily uses a built-in layout for a readable single-screen HUD, then restores Offhand after exact topology returns unless you selected another layout manually.
+While outside combat, open Blizzard Edit Mode, move your action bars and combat frames onto the Mainhand Monitor, save the layout with the exact name **Offhand**, and select it there. During normal spanned operation Offhand leaves layout selection to Blizzard Edit Mode. If a saved display disappears while Offhand is active, click **Use Modern** in Offhand's recovery prompt for a readable single-screen HUD. When the exact topology returns, click **Restore Offhand**. A layout you choose manually is never silently replaced.
 
 Offhand positions the Edit Mode options frame inside the Mainhand viewport after Companion spanning. If controls are inaccessible during recovery, click **Restore Window**, enter Edit Mode, then click **Span WoW Now**. Use **Gather Off-Screen UI** only for ordinary movable panels; protected HUD frames remain owned by Blizzard Edit Mode.
 
@@ -93,7 +102,7 @@ Offhand positions the Edit Mode options frame inside the Mainhand viewport after
 Drag supported windows by their headers between either monitor freely. 
 If you accidentally drag a window off-screen or change your monitor configuration and lose a panel, click the **Gather Off-Screen UI** button in the settings, or type /offhand gather. This instantly moves any eligible open windows with inaccessible title edges safely back to the Mainhand Monitor. 
 
-To return to one monitor, simply disable Offhand's dual-monitor mode in-game, and click **Restore Window** in the Companion App (or press Ctrl+Alt+R) to snap WoW back to a single screen.
+To return to one monitor, simply disable Offhand's dual-monitor mode in-game, and click **Restore Window** in the Companion App (or press Ctrl+Alt+R) to fill the selected connected Mainhand with a bordered WoW window. The display controls refresh automatically when Windows reports a monitor connection change.
 
 On Forever, exit WoW normally before closing Companion. Companion only refreshes the cold-start recovery snapshot after the WoW process has fully stopped.
 

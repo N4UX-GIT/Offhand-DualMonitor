@@ -80,90 +80,166 @@ local function GetEditModeLayouts()
     return data
 end
 
-local function SelectEditModeLayout(index)
-    if not index then return false end
-    if EditModeManagerFrame and EditModeManagerFrame.SelectLayout then
-        return pcall(EditModeManagerFrame.SelectLayout, EditModeManagerFrame, index)
-    end
-    if C_EditMode and C_EditMode.SetActiveLayout then
-        return pcall(C_EditMode.SetActiveLayout, index)
-    end
-    return false
+local function SelectEditModeLayout(layoutID)
+    if not layoutID or not C_EditMode or not C_EditMode.SetActiveLayout then return false end
+    return pcall(C_EditMode.SetActiveLayout, layoutID)
 end
 
-local function FindLayout(layouts, name)
-    if not name then return nil end
-    name = string.lower(tostring(name))
-    for index, layout in ipairs(layouts or {}) do
-        if string.lower(tostring(layout.layoutName or "")) == name then return index, layout end
-    end
+-- Forever reserves global identifiers 1 and 2 for Modern and Classic and a
+-- third internal slot before custom layouts. GetLayouts().layouts contains only
+-- custom entries, while activeLayout/SetActiveLayout use the global identifier.
+-- For example, layouts[3] named Offhand is activeLayout 6.
+local FOREVER_CUSTOM_LAYOUT_OFFSET = 3
+local FOREVER_MODERN_LAYOUT_ID = 1
+local FOREVER_MISMATCH_GRACE_SECONDS = 8
+
+local function GetForeverLayoutByID(data, layoutID)
+    layoutID = tonumber(layoutID)
+    if not layoutID or layoutID <= FOREVER_CUSTOM_LAYOUT_OFFSET then return nil end
+    return data.layouts[layoutID - FOREVER_CUSTOM_LAYOUT_OFFSET]
+end
+
+local function ScheduleForeverRecoveryRetry(self, delay)
+    if not C_Timer or not C_Timer.After or self.foreverRecoveryRetryPending then return end
+    self.foreverRecoveryRetryPending = true
+    C_Timer.After(delay or 1, function()
+        self.foreverRecoveryRetryPending = nil
+        local current = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+        self:UpdateForeverRecoveryLayout(current)
+    end)
+end
+
+local function ScheduleForeverMismatchConfirmation(self)
+    if not C_Timer or not C_Timer.After or self.foreverMismatchConfirmationPending then return end
+    self.foreverMismatchConfirmationPending = true
+    C_Timer.After(FOREVER_MISMATCH_GRACE_SECONDS, function()
+        self.foreverMismatchConfirmationPending = nil
+        local current = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+        if current and current.topologyStatus == "MISMATCH" then
+            self.foreverMismatchConfirmed = true
+            self:UpdateForeverRecoveryLayout(current)
+        else
+            self.foreverMismatchConfirmed = nil
+            self.foreverMismatchDeclined = nil
+            if Offhand.HideForeverLayoutRecoveryPrompt then
+                Offhand:HideForeverLayoutRecoveryPrompt("fallback")
+            end
+        end
+    end)
 end
 
 -- Forever's protected HUD is owned by Blizzard Edit Mode. A layout saved for a
 -- 4000x2560 span remains active if a display disappears, so Blizzard clamps its
--- anchors into a readable but malformed single-screen arrangement. Temporarily
--- select a built-in layout through Blizzard's API and remember enough state to
--- restore Offhand when the exact Companion topology returns. If the player
--- chooses another layout during recovery, that explicit choice wins.
+-- anchors into a readable but malformed single-screen arrangement. Forever only
+-- accepts the protected layout change from a hardware event, so remember enough
+-- state and present a player-click prompt for both fallback and restoration. If
+-- the player chooses another layout during recovery, that explicit choice wins.
 function HUD:UpdateForeverRecoveryLayout(metrics)
     if not UsesForeverEditMode() or not Offhand.db or not Offhand.db.enabled
         or InCombatLockdown() or not metrics then return end
 
     local data = GetEditModeLayouts()
     if not data then
-        if C_Timer and C_Timer.After and not self.foreverRecoveryRetryPending then
-            self.foreverRecoveryRetryPending = true
-            C_Timer.After(2, function()
-                self.foreverRecoveryRetryPending = nil
-                local current = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
-                self:UpdateForeverRecoveryLayout(current)
-            end)
-        end
+        ScheduleForeverRecoveryRetry(self, 2)
         return
     end
 
-    local activeIndex = tonumber(data.activeLayout)
-    local active = activeIndex and data.layouts[activeIndex]
+    local activeID = tonumber(data.activeLayout)
+    local active = GetForeverLayoutByID(data, activeID)
     local activeName = active and active.layoutName
     local recovery = Offhand.db.foreverEditModeRecovery
 
     if metrics.topologyStatus == "MISMATCH" then
-        if recovery or not activeName or string.lower(activeName) ~= "offhand" then return end
-
-        local fallbackIndex, fallback
-        for index, layout in ipairs(data.layouts) do
-            if index ~= activeIndex and string.lower(tostring(layout.layoutName or "")) ~= "offhand"
-                and tonumber(layout.layoutType) == 0 then
-                fallbackIndex, fallback = index, layout
-                break
+        if not recovery then
+            if not activeName or string.lower(activeName) ~= "offhand" then return end
+            if self.foreverMismatchDeclined then return end
+            if not self.foreverMismatchConfirmed then
+                ScheduleForeverMismatchConfirmation(self)
+                return
             end
-        end
-        if not fallbackIndex then
-            for index, layout in ipairs(data.layouts) do
-                if index ~= activeIndex and string.lower(tostring(layout.layoutName or "")) ~= "offhand" then
-                    fallbackIndex, fallback = index, layout
-                    break
-                end
-            end
-        end
-        if fallbackIndex and SelectEditModeLayout(fallbackIndex) then
-            Offhand.db.foreverEditModeRecovery = {
+            recovery = {
+                restoreLayoutID = activeID,
                 restoreLayoutName = activeName,
-                fallbackLayoutName = fallback.layoutName,
+                fallbackLayoutID = FOREVER_MODERN_LAYOUT_ID,
+                fallbackLayoutName = "Modern",
             }
+            Offhand.db.foreverEditModeRecovery = recovery
+        end
+        if activeID == tonumber(recovery.restoreLayoutID)
+            and self.foreverRecoveryPromptShown ~= "fallback" then
+            self.foreverRecoveryPromptShown = "fallback"
+            if Offhand.ShowForeverLayoutRecoveryPrompt then
+                Offhand:ShowForeverLayoutRecoveryPrompt("fallback")
+            end
         end
         return
     end
 
+
+    self.foreverMismatchConfirmed = nil
+    self.foreverMismatchDeclined = nil
+
     if recovery and metrics.companionTopology and metrics.isSpanned then
-        local fallbackMatches = activeName and recovery.fallbackLayoutName
-            and string.lower(activeName) == string.lower(recovery.fallbackLayoutName)
-        local restoreIndex = FindLayout(data.layouts, recovery.restoreLayoutName)
-        if fallbackMatches and restoreIndex then SelectEditModeLayout(restoreIndex) end
-        -- Clear on success or manual intervention; never override a layout the
-        -- user deliberately selected while operating on one screen.
-        Offhand.db.foreverEditModeRecovery = nil
+        local restoreID = tonumber(recovery.restoreLayoutID)
+        local fallbackMatches = activeID == tonumber(recovery.fallbackLayoutID)
+        if activeID == restoreID then
+            Offhand.db.foreverEditModeRecovery = nil
+            self.foreverRecoveryPromptShown = nil
+            if Offhand.HideForeverLayoutRecoveryPrompt then
+                Offhand:HideForeverLayoutRecoveryPrompt("fallback")
+                Offhand:HideForeverLayoutRecoveryPrompt("restore")
+            end
+            return
+        end
+        if not fallbackMatches or not restoreID then
+            -- A different active layout means the player made an explicit
+            -- choice during recovery. Do not replace it.
+            Offhand.db.foreverEditModeRecovery = nil
+            self.foreverRecoveryPromptShown = nil
+            if Offhand.HideForeverLayoutRecoveryPrompt then
+                Offhand:HideForeverLayoutRecoveryPrompt("fallback")
+                Offhand:HideForeverLayoutRecoveryPrompt("restore")
+            end
+            return
+        end
+        if self.foreverRecoveryPromptShown ~= "restore" then
+            self.foreverRecoveryPromptShown = "restore"
+            if Offhand.ShowForeverLayoutRecoveryPrompt then
+                Offhand:ShowForeverLayoutRecoveryPrompt("restore")
+            end
+        end
     end
+end
+
+-- Forever marks layout switching AllowedWhenUntainted. Calls made from addon
+-- timers are ignored, while the same call succeeds from a player click. These
+-- methods are invoked only by the recovery popup buttons.
+function HUD:ApplyForeverRecoveryChoice(choice)
+    if InCombatLockdown() or not Offhand.db then return end
+    local recovery = Offhand.db.foreverEditModeRecovery
+    if type(recovery) ~= "table" then return end
+    local targetID = choice == "restore" and tonumber(recovery.restoreLayoutID)
+        or tonumber(recovery.fallbackLayoutID)
+    if not targetID then return end
+    SelectEditModeLayout(targetID)
+    self.foreverRecoveryPromptShown = nil
+    local confirmed = GetEditModeLayouts()
+    if choice == "restore" and confirmed and tonumber(confirmed.activeLayout) == targetID then
+        Offhand.db.foreverEditModeRecovery = nil
+        return
+    end
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0.1, function()
+            local current = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+            self:UpdateForeverRecoveryLayout(current)
+        end)
+    end
+end
+
+function HUD:CancelForeverRecoveryChoice(kind)
+    if Offhand.db then Offhand.db.foreverEditModeRecovery = nil end
+    self.foreverRecoveryPromptShown = nil
+    if kind == "fallback" then self.foreverMismatchDeclined = true end
 end
 local function Remember(frame)
     desiredFrames[frame] = desiredFrames[frame] or {}

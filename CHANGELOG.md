@@ -24,7 +24,15 @@ All notable changes to this project will be documented in this file.
 - Fixed Forever workspace panels and Blizzard Edit Mode controls drifting or becoming inaccessible after window spanning and full client restarts.
 - Fixed mixed-resolution and stacked layouts being treated as equal-height side-by-side screens, which caused overlap, squashed game views, and black bars.
 - Fixed disconnected displays silently collapsing a saved dual-monitor span onto one screen and shrinking the UI to an unreadable size.
-- Fixed Forever retaining its spanned protected-HUD Edit Mode layout after a display disconnect; it now temporarily uses a built-in single-screen layout and restores Offhand when exact topology returns without overriding a manual choice.
+- Fixed a disconnected workspace leaving a previously spanned WoW window partially outside the surviving display; Companion now restores a bordered window that fills the surviving Mainhand work area.
+- Fixed **Restore Window** returning WoW to a stale position on the workspace display; manual recovery now fills the selected connected Mainhand.
+- Fixed display selectors remaining stale when a monitor is connected or disconnected after Companion starts; the controls now refresh without discarding saved device identities.
+- Fixed vertical camera movement eventually stopping while right-button mouse-look remained held on mixed-height shaped spans. Offhand now manages raw mouse input only while spanned and restores the player's previous setting afterward.
+- Fixed the missing-workspace Edit Mode prompt appearing during the brief normal-launch interval before a manual Companion span; recovery now requires a sustained topology mismatch and cancels stale prompts when the saved topology arrives.
+- Fixed Forever retaining its spanned protected-HUD Edit Mode layout after a display disconnect. Because Forever only accepts this protected layout change from a hardware event, Offhand now presents player-click **Use Modern** and **Restore Offhand** recovery prompts without overriding a manual choice.
+- Fixed a consumed Forever recovery bridge overwriting newer SavedVariables again on `/reload`.
+- Fixed Forever reverting newly changed options and profiles during `/reload`. A bounded, checksummed session snapshot now restores complete Offhand account and character state only when the standard SavedVariables revision is stale; normal loading automatically remains authoritative after a client-side fix.
+- Fixed map, character, bag, and chat windows remaining unreachable on a temporary single-screen setup while preserving their saved Offhand positions for reconnection.
 - Fixed 32:9 Mainhand displays being constrained by the legacy 16:9/21:9 resolution heuristic.
 
 ## [2.0.0] - 2026-09-20

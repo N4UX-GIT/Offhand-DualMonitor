@@ -24,6 +24,18 @@ Offhand.isRetail = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
 -- branch explicit so older Classic clients retain Offhand's legacy anchors.
 Offhand.isForever = tocVersion >= 16000 and tocVersion < 17000
 
+-- SavedVariables are available before addon files execute. Preserve the exact
+-- tables the client loaded before ForeverState.lua runs: older Companion
+-- snapshots assigned their bridge tables unconditionally, which could replace
+-- newer same-session changes on /reload. Config chooses between these captured
+-- disk tables and a genuinely new cold-start bridge snapshot.
+if Offhand.isForever then
+    Offhand.foreverDiskSavedVariables = {
+        account = OffhandDB,
+        character = OffhandCharDB,
+    }
+end
+
 -- Formatted chat printing
 function Offhand:Print(msg, ...)
     if select("#", ...) > 0 then
@@ -65,6 +77,12 @@ L["CMD_HELP_TITLE"] = "Offhand Slash Commands"
 L["LAYOUT_REAPPLIED"] = "Layout reapplied!"
 L["CONFIG_SAVED"] = "Configuration saved! Welcome to Offhand Dual Monitor Workstation."
 L["EDIT_MODE_LAYOUT_MISSING"] = "Forever uses Blizzard Edit Mode for action bars and combat frames. Outside combat, position them on the Mainhand Monitor, save the layout as 'Offhand', and select it in Edit Mode."
+L["FOREVER_SINGLE_SCREEN_LAYOUT_TEXT"] = "The saved workspace display is unavailable. Forever protects action bars and combat frames, so Offhand needs one player click to switch them to a clean single-screen layout.\n\nOffhand will remember your protected HUD layout and offer to restore it when the display returns."
+L["FOREVER_USE_MODERN"] = "Use Modern"
+L["FOREVER_KEEP_OFFHAND"] = "Keep Offhand"
+L["FOREVER_RESTORE_LAYOUT_TEXT"] = "Your saved display layout is available again. Forever requires one player click to change protected HUD layouts.\n\nRestore the Offhand layout now?"
+L["FOREVER_RESTORE_OFFHAND"] = "Restore Offhand"
+L["FOREVER_KEEP_MODERN"] = "Keep Modern"
 
 -- Options Dashboard Header & Tabs
 L["OPTIONS_TITLE"] = "Offhand DUAL MONITOR WORKSTATION"
@@ -473,6 +491,46 @@ StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"] = {
     preferredIndex = 3,
 }
 
+StaticPopupDialogs["OFFHAND_FOREVER_SINGLE_SCREEN_LAYOUT"] = {
+    text = Offhand.L["FOREVER_SINGLE_SCREEN_LAYOUT_TEXT"],
+    button1 = Offhand.L["FOREVER_USE_MODERN"],
+    button2 = Offhand.L["FOREVER_KEEP_OFFHAND"],
+    OnAccept = function()
+        if Offhand.HUD and Offhand.HUD.ApplyForeverRecoveryChoice then
+            Offhand.HUD:ApplyForeverRecoveryChoice("fallback")
+        end
+    end,
+    OnCancel = function()
+        if Offhand.HUD and Offhand.HUD.CancelForeverRecoveryChoice then
+            Offhand.HUD:CancelForeverRecoveryChoice("fallback")
+        end
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
+StaticPopupDialogs["OFFHAND_FOREVER_RESTORE_LAYOUT"] = {
+    text = Offhand.L["FOREVER_RESTORE_LAYOUT_TEXT"],
+    button1 = Offhand.L["FOREVER_RESTORE_OFFHAND"],
+    button2 = Offhand.L["FOREVER_KEEP_MODERN"],
+    OnAccept = function()
+        if Offhand.HUD and Offhand.HUD.ApplyForeverRecoveryChoice then
+            Offhand.HUD:ApplyForeverRecoveryChoice("restore")
+        end
+    end,
+    OnCancel = function()
+        if Offhand.HUD and Offhand.HUD.CancelForeverRecoveryChoice then
+            Offhand.HUD:CancelForeverRecoveryChoice("restore")
+        end
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
 
 function Offhand:InitializePopups()
     StaticPopupDialogs["OFFHAND_COMPANION_WARNING"].text = Offhand.L["POPUP_COMPANION_WARNING_TEXT"]
@@ -481,6 +539,27 @@ function Offhand:InitializePopups()
     StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"].text = Offhand.L["POPUP_WELCOME_WARNING_TEXT"]
     StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"].button1 = Offhand.L["POPUP_BTN_GET_APP"]
     StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"].button2 = Offhand.L["POPUP_BTN_LAUNCH_WIZARD"]
+
+    local single = StaticPopupDialogs["OFFHAND_FOREVER_SINGLE_SCREEN_LAYOUT"]
+    single.text = Offhand.L["FOREVER_SINGLE_SCREEN_LAYOUT_TEXT"]
+    single.button1 = Offhand.L["FOREVER_USE_MODERN"]
+    single.button2 = Offhand.L["FOREVER_KEEP_OFFHAND"]
+    local restore = StaticPopupDialogs["OFFHAND_FOREVER_RESTORE_LAYOUT"]
+    restore.text = Offhand.L["FOREVER_RESTORE_LAYOUT_TEXT"]
+    restore.button1 = Offhand.L["FOREVER_RESTORE_OFFHAND"]
+    restore.button2 = Offhand.L["FOREVER_KEEP_MODERN"]
+end
+
+function Offhand:ShowForeverLayoutRecoveryPrompt(kind)
+    local key = kind == "restore" and "OFFHAND_FOREVER_RESTORE_LAYOUT"
+        or "OFFHAND_FOREVER_SINGLE_SCREEN_LAYOUT"
+    if StaticPopup_Show then StaticPopup_Show(key) end
+end
+
+function Offhand:HideForeverLayoutRecoveryPrompt(kind)
+    local key = kind == "restore" and "OFFHAND_FOREVER_RESTORE_LAYOUT"
+        or "OFFHAND_FOREVER_SINGLE_SCREEN_LAYOUT"
+    if StaticPopup_Hide then StaticPopup_Hide(key) end
 end
 
 local eventFrame = CreateFrame("Frame", "OffhandEventFrame")
@@ -557,7 +636,12 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         -- empty one after Blizzard has already hidden its panels.
         if Offhand._openPanelsCapturedForTransition then return end
         Offhand._openPanelsCapturedForTransition = true
-        if Offhand.db and Offhand.db.enabled and Offhand.db.savedWorkspacePositions and Offhand.db.restoreWorkspaceOnReload ~= false then
+        if Offhand.ForeverPersistence and Offhand.ForeverPersistence.SaveProfileSnapshot then
+            Offhand.ForeverPersistence:SaveProfileSnapshot(true)
+        end
+        local transitionMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+        local preserveWorkspaceSnapshot = transitionMetrics and transitionMetrics.topologyStatus == "MISMATCH"
+        if not preserveWorkspaceSnapshot and Offhand.db and Offhand.db.enabled and Offhand.db.savedWorkspacePositions and Offhand.db.restoreWorkspaceOnReload ~= false then
             Offhand.db.openWorkspacePanels = {}
             for name, _ in pairs(Offhand.db.savedWorkspacePositions) do
                 local frame = _G[name]
@@ -585,7 +669,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             if Offhand.ForeverPersistence then
                 Offhand.ForeverPersistence:SaveOpenPanels(Offhand.db.openWorkspacePanels)
             end
-        else
+        elseif not preserveWorkspaceSnapshot then
             if Offhand.db then
                 Offhand.db.openWorkspacePanels = {}
                 if Offhand.ForeverPersistence then
@@ -701,8 +785,14 @@ function Offhand:ApplyFullLayout()
             Offhand:UpdateCanvas()
         end
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+        if Offhand.RawMouse and Offhand.RawMouse.Update then
+            Offhand.RawMouse:Update(metrics)
+        end
         if Offhand.HUD and Offhand.HUD.UpdateForeverRecoveryLayout then
             Offhand.HUD:UpdateForeverRecoveryLayout(metrics)
+        end
+        if Offhand.Canvas and Offhand.Canvas.PrepareSingleScreenRecovery then
+            Offhand.Canvas:PrepareSingleScreenRecovery(metrics)
         end
         if not metrics or metrics.isSpanned then
             if Offhand.UpdateSeamRedirect then
@@ -755,7 +845,11 @@ SlashCmdList["OFFHAND"] = function(msg)
     elseif msg == "reset" then
         Offhand:ResetConfig()
     elseif msg == "toggle" then
-        Offhand.db.enabled = not Offhand.db.enabled
+        if Offhand.SetEnabled then
+            Offhand:SetEnabled(not Offhand.db.enabled)
+        else
+            Offhand.db.enabled = not Offhand.db.enabled
+        end
         Offhand:Print(L["MSG_TOGGLED"], Offhand.db.enabled and L["MSG_TOGGLE_ON"] or L["MSG_TOGGLE_OFF"])
         Offhand:ApplyFullLayout()
     elseif msg == "debug" then
@@ -789,6 +883,9 @@ SlashCmdList["Offhand"] = SlashCmdList["OFFHAND"]
 local logoutFix = CreateFrame('Frame')
 logoutFix:RegisterEvent('PLAYER_LOGOUT')
 logoutFix:SetScript('OnEvent', function()
+    if Offhand.RawMouse and Offhand.RawMouse.Restore then
+        Offhand.RawMouse:Restore()
+    end
     if Offhand.Viewport and Offhand.Viewport.Reset then
         Offhand.Viewport:Reset()
     end

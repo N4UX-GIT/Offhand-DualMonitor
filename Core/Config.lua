@@ -27,6 +27,7 @@ local defaultSettings = {
     workspaceMapScale = "AUTO",     -- "AUTO" (fits deck width) or number (0.50 to 1.50)
     mainMapScale = 1.0,             -- Map scale when placed on the main gaming monitor
     showMinimapIcon = true,
+    rawMouseInput = true,           -- Prevent hidden cursor exhaustion during camera look across shaped spans
     debugMode = false,
     forceDualOnSingle = false,      -- For testing
     hudScale = 0.70,                -- Global UI size multiplier relative to the game viewport (default 70%)
@@ -55,6 +56,53 @@ local function CopyDefaults(src, dst)
     return dst
 end
 
+local RawMouse = {}
+Offhand.RawMouse = RawMouse
+
+local function ReadRawMouse()
+    local getter = GetCVar or (C_CVar and C_CVar.GetCVar)
+    if not getter then return nil end
+    local ok, value = pcall(getter, "rawMouseEnable")
+    if not ok or value == nil then return nil end
+    return tostring(value)
+end
+
+local function WriteRawMouse(value)
+    local setter = SetCVar or (C_CVar and C_CVar.SetCVar)
+    if not setter then return false end
+    return pcall(setter, "rawMouseEnable", tostring(value))
+end
+
+function RawMouse:Restore()
+    local db = Offhand.db
+    if not db or not db.rawMouseManaged then return end
+    local original = db.originalRawMouseEnable
+    if original ~= nil and ReadRawMouse() ~= tostring(original) then
+        WriteRawMouse(original)
+    end
+    db.rawMouseManaged = nil
+    db.originalRawMouseEnable = nil
+end
+
+function RawMouse:Update(metrics)
+    local db = Offhand.db
+    if not db then return end
+    local shouldManage = db.enabled and db.rawMouseInput ~= false
+        and metrics and metrics.isSpanned
+    if not shouldManage then
+        self:Restore()
+        return
+    end
+
+    local current = ReadRawMouse()
+    if current == nil then return end
+    if not db.rawMouseManaged then
+        db.originalRawMouseEnable = current
+        db.rawMouseManaged = true
+    end
+    if current ~= "1" then WriteRawMouse("1") end
+end
+
 -- Some Forever Beta transitions fail to reload normal SavedVariables. Custom
 -- CVars survive relog/reload within the running client, so mirror movable frame
 -- state there as a narrowly scoped, Forever-only session fallback. They do not
@@ -69,6 +117,12 @@ local FOREVER_POSITION_PREFIX = "offhandForeverPosition_"
 local FOREVER_OPEN_PANELS_CVAR = "offhandForeverOpenPanels"
 local FOREVER_RECOVERY_VERSION_CVAR = "offhandForeverRecoveryVersion"
 local FOREVER_ONBOARDING_CVAR = "offhandForeverOnboarding"
+local FOREVER_DISPLAY_FLAGS_CVAR = "offhandForeverDisplayFlags"
+local FOREVER_PROFILE_MANIFEST_CVAR = "offhandForeverProfileManifest"
+local FOREVER_PROFILE_CHUNK_PREFIX = "offhandForeverProfileChunk_"
+local FOREVER_PROFILE_CHUNK_BYTES = 180
+local FOREVER_PROFILE_MAX_BYTES = 128 * 1024
+local FOREVER_PROFILE_MAX_CHUNKS = math.ceil(FOREVER_PROFILE_MAX_BYTES / FOREVER_PROFILE_CHUNK_BYTES)
 
 local function RegisterPersistentCVar(name)
     local register = RegisterCVar or (C_CVar and C_CVar.RegisterCVar)
@@ -91,6 +145,217 @@ local function WritePersistentCVar(name, value)
     value = value or ""
     if tostring(ReadPersistentCVar(name) or "") == tostring(value) then return true end
     return pcall(setter, name, value)
+end
+
+local SNAPSHOT_INVALID = {}
+local SNAPSHOT_TRANSIENT_KEYS = {
+    rawMouseManaged = true,
+    originalRawMouseEnable = true,
+    originalUiScale = true,
+    originalUseUiScale = true,
+    lastGeometryCheck = true,
+}
+
+local function SnapshotCopy(value, depth, budget, topLevel)
+    local valueType = type(value)
+    if valueType == "boolean" or valueType == "number" or valueType == "string" then
+        if valueType == "string" and #value > 8192 then return SNAPSHOT_INVALID end
+        return value
+    end
+    if valueType ~= "table" or depth > 12 then return SNAPSHOT_INVALID end
+    if budget.tables[value] then return SNAPSHOT_INVALID end
+    budget.tables[value] = true
+    local copy = {}
+    for key, child in pairs(value) do
+        local keyType = type(key)
+        if (keyType == "string" or keyType == "number")
+            and not (topLevel and SNAPSHOT_TRANSIENT_KEYS[key]) then
+            budget.entries = budget.entries + 1
+            if budget.entries > 5000 then
+                budget.tables[value] = nil
+                return SNAPSHOT_INVALID
+            end
+            local childCopy = SnapshotCopy(child, depth + 1, budget, false)
+            if childCopy ~= SNAPSHOT_INVALID then copy[key] = childCopy end
+        end
+    end
+    budget.tables[value] = nil
+    return copy
+end
+
+local function SnapshotAccountState(accountDB)
+    local budget = { entries = 0, tables = {} }
+    local copy = {}
+    for key, value in pairs(accountDB) do
+        if key == "profiles" and type(value) == "table" then
+            local profiles = {}
+            for profileName, profile in pairs(value) do
+                if type(profileName) == "string" and type(profile) == "table" then
+                    local profileCopy = SnapshotCopy(profile, 0, budget, true)
+                    if profileCopy == SNAPSHOT_INVALID then return SNAPSHOT_INVALID end
+                    profiles[profileName] = profileCopy
+                end
+            end
+            copy.profiles = profiles
+        else
+            local childCopy = SnapshotCopy(value, 0, budget, false)
+            if childCopy ~= SNAPSHOT_INVALID then copy[key] = childCopy end
+        end
+    end
+    return copy
+end
+
+local function EncodeLengthValue(tag, value)
+    value = tostring(value)
+    return tag .. tostring(#value) .. ":" .. value
+end
+
+local function EncodeSnapshotValue(value)
+    local valueType = type(value)
+    if valueType == "boolean" then return value and "B1" or "B0" end
+    if valueType == "number" then return EncodeLengthValue("N", value) end
+    if valueType == "string" then return EncodeLengthValue("S", value) end
+    if valueType ~= "table" then return nil end
+
+    local keys = {}
+    for key in pairs(value) do table.insert(keys, key) end
+    table.sort(keys, function(a, b)
+        local ta, tb = type(a), type(b)
+        if ta ~= tb then return ta < tb end
+        if ta == "number" then return a < b end
+        return tostring(a) < tostring(b)
+    end)
+    local parts = { "T", tostring(#keys), ":" }
+    for _, key in ipairs(keys) do
+        local encodedKey = EncodeSnapshotValue(key)
+        local encodedValue = EncodeSnapshotValue(value[key])
+        if not encodedKey or not encodedValue then return nil end
+        table.insert(parts, encodedKey)
+        table.insert(parts, encodedValue)
+    end
+    return table.concat(parts)
+end
+
+local function ReadLength(encoded, index)
+    local colon = encoded:find(":", index, true)
+    if not colon then return nil end
+    local length = tonumber(encoded:sub(index, colon - 1))
+    if not length or length < 0 or length > FOREVER_PROFILE_MAX_BYTES then return nil end
+    return length, colon + 1
+end
+
+local function DecodeSnapshotValue(encoded, index, depth, budget)
+    if depth > 12 or index > #encoded then return nil end
+    local tag = encoded:sub(index, index)
+    if tag == "B" then
+        local flag = encoded:sub(index + 1, index + 1)
+        if flag ~= "0" and flag ~= "1" then return nil end
+        return flag == "1", index + 2
+    end
+    if tag == "N" or tag == "S" then
+        local length, startIndex = ReadLength(encoded, index + 1)
+        if not length then return nil end
+        local endIndex = startIndex + length - 1
+        if endIndex > #encoded then return nil end
+        local raw = encoded:sub(startIndex, endIndex)
+        if tag == "N" then
+            raw = tonumber(raw)
+            if not raw then return nil end
+        end
+        return raw, endIndex + 1
+    end
+    if tag ~= "T" then return nil end
+    local count, childIndex = ReadLength(encoded, index + 1)
+    if not count or count > 5000 then return nil end
+    local result = {}
+    for _ = 1, count do
+        budget.entries = budget.entries + 1
+        if budget.entries > 5000 then return nil end
+        local key, nextIndex = DecodeSnapshotValue(encoded, childIndex, depth + 1, budget)
+        if key == nil then return nil end
+        local child
+        child, childIndex = DecodeSnapshotValue(encoded, nextIndex, depth + 1, budget)
+        if child == nil then return nil end
+        if type(key) ~= "string" and type(key) ~= "number" then return nil end
+        result[key] = child
+    end
+    return result, childIndex
+end
+
+local function SnapshotChecksum(value)
+    local a, b = 1, 0
+    for index = 1, #value do
+        a = (a + value:byte(index)) % 65521
+        b = (b + a) % 65521
+    end
+    return tostring(a) .. "-" .. tostring(b)
+end
+
+function ForeverPersistence:SaveProfileSnapshot(incrementRevision)
+    if not self:IsAvailable() or not Offhand.db then return false end
+    if type(OffhandDB) ~= "table" then return false end
+    local revision = (tonumber(OffhandDB.foreverPersistenceRevision) or 0) + (incrementRevision and 1 or 0)
+    local account = SnapshotAccountState(OffhandDB)
+    local character = SnapshotCopy(OffhandCharDB, 0, { entries = 0, tables = {} }, false)
+    if account == SNAPSHOT_INVALID or character == SNAPSHOT_INVALID then return false end
+    account.foreverPersistenceRevision = revision
+    local encoded = EncodeSnapshotValue({
+        revision = revision,
+        account = account,
+        character = character,
+    })
+    if not encoded or #encoded > FOREVER_PROFILE_MAX_BYTES then return false end
+
+    OffhandDB.foreverPersistenceRevision = revision
+
+    local count = math.max(1, math.ceil(#encoded / FOREVER_PROFILE_CHUNK_BYTES))
+    local oldCount = tonumber(tostring(ReadPersistentCVar(FOREVER_PROFILE_MANIFEST_CVAR) or ""):match(
+        "^V1|%d+|(%d+)|%d+|[%d%-]+$")) or 0
+    for index = 1, count do
+        local first = ((index - 1) * FOREVER_PROFILE_CHUNK_BYTES) + 1
+        WritePersistentCVar(FOREVER_PROFILE_CHUNK_PREFIX .. index,
+            encoded:sub(first, first + FOREVER_PROFILE_CHUNK_BYTES - 1))
+    end
+    for index = count + 1, math.min(oldCount, FOREVER_PROFILE_MAX_CHUNKS) do
+        WritePersistentCVar(FOREVER_PROFILE_CHUNK_PREFIX .. index, "")
+    end
+    WritePersistentCVar(FOREVER_PROFILE_MANIFEST_CVAR, table.concat({
+        "V1", tostring(revision), tostring(count), tostring(#encoded), SnapshotChecksum(encoded),
+    }, "|"))
+    return true
+end
+
+function ForeverPersistence:RestoreProfileSnapshot(accountDB, characterDB)
+    if not self:IsAvailable() or type(accountDB) ~= "table" or type(characterDB) ~= "table" then return "none" end
+    RegisterPersistentCVar(FOREVER_PROFILE_MANIFEST_CVAR)
+    local revision, count, length, checksum = tostring(ReadPersistentCVar(FOREVER_PROFILE_MANIFEST_CVAR) or ""):match(
+        "^V1|(%d+)|(%d+)|(%d+)|([%d%-]+)$")
+    revision, count, length = tonumber(revision), tonumber(count), tonumber(length)
+    if not revision or not count or not length or count < 1 or count > FOREVER_PROFILE_MAX_CHUNKS
+        or length > FOREVER_PROFILE_MAX_BYTES then return "none" end
+
+    local parts = {}
+    for index = 1, count do
+        RegisterPersistentCVar(FOREVER_PROFILE_CHUNK_PREFIX .. index)
+        local chunk = tostring(ReadPersistentCVar(FOREVER_PROFILE_CHUNK_PREFIX .. index) or "")
+        if chunk == "" then return "none" end
+        table.insert(parts, chunk)
+    end
+    local encoded = table.concat(parts)
+    if #encoded ~= length or SnapshotChecksum(encoded) ~= checksum then return "none" end
+    local snapshot, nextIndex = DecodeSnapshotValue(encoded, 1, 0, { entries = 0 })
+    if type(snapshot) ~= "table" or nextIndex ~= #encoded + 1
+        or tonumber(snapshot.revision) ~= revision
+        or type(snapshot.account) ~= "table" or type(snapshot.account.profiles) ~= "table"
+        or type(snapshot.character) ~= "table" then return "none" end
+
+    local standardRevision = tonumber(accountDB.foreverPersistenceRevision) or 0
+    if standardRevision >= revision then return "standard" end
+    for key in pairs(accountDB) do accountDB[key] = nil end
+    for key, value in pairs(snapshot.account) do accountDB[key] = value end
+    for key in pairs(characterDB) do characterDB[key] = nil end
+    for key, value in pairs(snapshot.character) do characterDB[key] = value end
+    return "fallback"
 end
 
 local function IsSafeFrameName(name)
@@ -227,6 +492,25 @@ function ForeverPersistence:SaveOnboarding(onboarding)
     }, "|"))
 end
 
+function ForeverPersistence:SaveDisplayFlags(db)
+    if not self:IsAvailable() or type(db) ~= "table" then return end
+    local function Flag(value) return value and "1" or "0" end
+    WritePersistentCVar(FOREVER_DISPLAY_FLAGS_CVAR, table.concat({
+        "V1", Flag(db.enabled), Flag(db.rawMouseInput ~= false),
+    }, "|"))
+end
+
+function ForeverPersistence:RestoreDisplayFlags(db)
+    if not self:IsAvailable() or type(db) ~= "table" then return false end
+    RegisterPersistentCVar(FOREVER_DISPLAY_FLAGS_CVAR)
+    local enabled, rawMouse = tostring(ReadPersistentCVar(FOREVER_DISPLAY_FLAGS_CVAR) or ""):match(
+        "^V1|([01])|([01])$")
+    if not enabled then return false end
+    db.enabled = enabled == "1"
+    db.rawMouseInput = rawMouse == "1"
+    return true
+end
+
 function ForeverPersistence:RestoreOnboarding(onboarding)
     if not self:IsAvailable() or type(onboarding) ~= "table" then return false end
     RegisterPersistentCVar(FOREVER_ONBOARDING_CVAR)
@@ -260,11 +544,25 @@ end
 
 function ForeverPersistence:SeedSessionFallback()
     if not self:IsAvailable() or not Offhand.db then return end
+    self:SaveProfileSnapshot(false)
     for name, position in pairs(Offhand.db.savedWorkspacePositions or {}) do
         self:SaveWorkspacePosition(name, position, position.width, position.height)
     end
     self:SaveOpenPanels(Offhand.db.openWorkspacePanels)
     self:SaveOnboarding(OffhandDB and OffhandDB.onboarding)
+    self:SaveDisplayFlags(Offhand.db)
+end
+
+function Offhand:SetEnabled(enabled)
+    if not Offhand.db then return end
+    Offhand.db.enabled = enabled == true
+    ForeverPersistence:SaveDisplayFlags(Offhand.db)
+end
+
+function Offhand:SetRawMouseInput(enabled)
+    if not Offhand.db then return end
+    Offhand.db.rawMouseInput = enabled == true
+    ForeverPersistence:SaveDisplayFlags(Offhand.db)
 end
 
 local function EnsureOnboarding()
@@ -317,6 +615,16 @@ function Offhand:SetCompanionWarningSuppressed(suppressed)
 end
 
 function Offhand:InitializeConfig()
+    -- ForeverState.lua is loaded immediately before this module. A new bridge
+    -- version is authoritative once after a cold launch; an already-consumed
+    -- version must yield to the fresher SavedVariables captured by Init.lua.
+    local useForeverBridge = ForeverPersistence:BeginRecoverySnapshot()
+    local diskState = Offhand.foreverDiskSavedVariables
+    if Offhand.isForever and not useForeverBridge and type(diskState) == "table" then
+        if type(diskState.account) == "table" then OffhandDB = diskState.account end
+        if type(diskState.character) == "table" then OffhandCharDB = diskState.character end
+    end
+
     if type(OffhandDB) ~= "table" then OffhandDB = {} end
     if type(OffhandCharDB) ~= "table" then OffhandCharDB = {} end
 
@@ -330,6 +638,11 @@ function Offhand:InitializeConfig()
                 OffhandDB[k] = nil
             end
         end
+    end
+
+    local profileSnapshotState = "none"
+    if Offhand.isForever and not useForeverBridge then
+        profileSnapshotState = ForeverPersistence:RestoreProfileSnapshot(OffhandDB, OffhandCharDB)
     end
 
         -- Scrub any rogue hijacked Focused frames so native placement takes back control
@@ -376,12 +689,22 @@ function Offhand:InitializeConfig()
     end
 
     CopyDefaults(defaultSettings, Offhand.db)
-    if ForeverPersistence:BeginRecoverySnapshot() then
+    if useForeverBridge then
         ForeverPersistence:SeedSessionFallback()
     else
-        ForeverPersistence:RestorePositions()
-        ForeverPersistence:RestoreOpenPanels()
-        ForeverPersistence:RestoreOnboarding(onboarding)
+        -- The older field-specific CVars remain an upgrade path only. A complete
+        -- profile fallback already contains these values, while a standard table
+        -- with an equal/newer revision must remain authoritative after Blizzard
+        -- repairs SavedVariables loading.
+        if profileSnapshotState == "none" then
+            ForeverPersistence:RestoreDisplayFlags(Offhand.db)
+            ForeverPersistence:RestorePositions()
+            ForeverPersistence:RestoreOpenPanels()
+            ForeverPersistence:RestoreOnboarding(onboarding)
+        elseif profileSnapshotState == "fallback" then
+            -- Account-wide onboarding is intentionally outside the profile.
+            ForeverPersistence:RestoreOnboarding(onboarding)
+        end
     end
     SyncLegacyOnboarding()
 end
@@ -404,6 +727,7 @@ function Offhand:SetProfile(name)
     OffhandCharDB.activeProfile = name
     Offhand.db = OffhandDB.profiles[name]
     CopyDefaults(defaultSettings, Offhand.db)
+    ForeverPersistence:SaveDisplayFlags(Offhand.db)
     
     local L = Offhand.L or setmetatable({}, { __index = function(t, k) return k end })
     Offhand:ApplyFullLayout()
@@ -450,6 +774,7 @@ function Offhand:CopyProfile(sourceName)
     
     Offhand.db = OffhandDB.profiles[dest]
     CopyDefaults(defaultSettings, Offhand.db)
+    ForeverPersistence:SaveDisplayFlags(Offhand.db)
     Offhand:ApplyFullLayout()
     if self.Options and self.Options.RefreshPanel then self.Options:RefreshPanel() end
     Offhand:Print(L["MSG_PROFILE_COPIED"]:format(sourceName))
@@ -461,6 +786,7 @@ function Offhand:ResetConfig()
     local current = (OffhandCharDB and OffhandCharDB.activeProfile) or "Default"
     OffhandDB.profiles[current] = CopyDefaults(defaultSettings, {})
     Offhand.db = OffhandDB.profiles[current]
+    ForeverPersistence:SaveDisplayFlags(Offhand.db)
     
     Offhand:ApplyFullLayout()
     if self.Options and self.Options.RefreshPanel then self.Options:RefreshPanel() end

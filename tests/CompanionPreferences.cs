@@ -9,8 +9,8 @@ namespace Offhand.Companion {
         public static void Main() {
             Check(!CompanionDefaults.AutoSpanOnLaunch);
             var displays = new List<MonitorSelection.Display> {
-                new MonitorSelection.Display { Index = 0, DeviceName = @"\\.\DISPLAY1", Bounds = new Rectangle(0, 0, 3440, 1440), Primary = true },
-                new MonitorSelection.Display { Index = 1, DeviceName = @"\\.\DISPLAY2", Bounds = new Rectangle(-1920, 360, 1920, 1080), Primary = false }
+                new MonitorSelection.Display { Index = 0, DeviceName = @"\\.\DISPLAY1", Bounds = new Rectangle(0, 0, 3440, 1440), WorkArea = new Rectangle(0, 0, 3440, 1400), Primary = true },
+                new MonitorSelection.Display { Index = 1, DeviceName = @"\\.\DISPLAY2", Bounds = new Rectangle(-1920, 360, 1920, 1080), WorkArea = new Rectangle(-1920, 360, 1920, 1040), Primary = false }
             };
             var plan = MonitorSelection.CreatePlan(@"\\.\DISPLAY1|\\.\DISPLAY2", null, @"\\.\DISPLAY1", false, false, displays);
             Check(plan.Indices.Length == 2 && plan.MainhandBounds.Width == 3440 && plan.WorkspaceBounds.Height == 1080);
@@ -18,6 +18,15 @@ namespace Offhand.Companion {
             try { MonitorSelection.CreatePlan(@"\\.\DISPLAY1|\\.\DISPLAY3", null, @"\\.\DISPLAY1", false, false, displays); }
             catch (InvalidOperationException) { missingRejected = true; }
             Check(missingRejected);
+            Check(MonitorSelection.HasDisconnectedSavedDisplay(@"\\.\DISPLAY1|\\.\DISPLAY3", displays));
+            Check(!MonitorSelection.HasDisconnectedSavedDisplay(@"\\.\DISPLAY1|\\.\DISPLAY2", displays));
+            Check(MonitorSelection.RecoveryDisplay(@"\\.\DISPLAY1", displays) == displays[0]);
+            Check(MonitorSelection.RecoveryDisplay(@"\\.\DISPLAY3", displays) == displays[0]);
+            Check(MonitorSelection.SameDisplays(displays, new List<MonitorSelection.Display> {
+                new MonitorSelection.Display { Index = 0, DeviceName = @"\\.\DISPLAY1", Bounds = new Rectangle(0, 0, 3440, 1440), WorkArea = new Rectangle(0, 0, 3440, 1400), Primary = true },
+                new MonitorSelection.Display { Index = 1, DeviceName = @"\\.\DISPLAY2", Bounds = new Rectangle(-1920, 360, 1920, 1080), WorkArea = new Rectangle(-1920, 360, 1920, 1040), Primary = false }
+            }));
+            Check(!MonitorSelection.SameDisplays(displays, new List<MonitorSelection.Display> { displays[0] }));
             bool singleRejected = false;
             try { MonitorSelection.CreatePlan(@"\\.\DISPLAY1", null, @"\\.\DISPLAY1", false, false, displays); }
             catch (InvalidOperationException) { singleRejected = true; }
@@ -77,7 +86,9 @@ namespace Offhand.Companion {
                 string bridge = File.ReadAllText(Path.Combine(core, "ForeverState.lua"));
                 Check(bridge.Contains("OffhandForeverStateBridgeVersion = \"") &&
                     bridge.Contains("OffhandDB = {") && bridge.Contains("OffhandCharDB = {") &&
-                    bridge.Contains("interfaceVersion >= 16000"));
+                    bridge.Contains("interfaceVersion >= 16000") &&
+                    bridge.Contains("offhandForeverRecoveryVersion") &&
+                    bridge.Contains("if not consumed then"));
                 Check(ForeverStateBridge.TryRefresh(wow, out bridgeMessage) && bridgeMessage.Contains("current"));
                 string priorBridge = bridge;
                 File.WriteAllText(character, "OffhandCharDB = { [\"activeProfile\"] = \"Other\" }\n");

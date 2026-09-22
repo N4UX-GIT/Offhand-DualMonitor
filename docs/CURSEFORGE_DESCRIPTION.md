@@ -17,7 +17,7 @@ The Companion does not inspect game memory or automate gameplay. It resizes the 
 
 1. Install the Offhand addon and enable it for your character.
 2. Put WoW in standard **Windowed** mode—not Windowed (Fullscreen).
-3. Install **Offhand Companion v2.1.1 or newer** and start it before WoW.
+3. Install **Offhand Companion v2.1.2 or newer** and start it before WoW.
 4. In the Companion, select the monitors to span and click **Span WoW Now** for the initial setup. Automatic spanning is disabled by default; enable it later only if you want WoW spanned on every launch.
 5. In WoW, type `/oh`, select **Launch Setup Wizard**, and complete every step.
 6. On WoW Forever, open Blizzard **Edit Mode**, select the **Offhand** layout, position protected action bars and combat frames inside the Mainhand game view, and save. If Edit Mode controls are missing, use **Gather Off-Screen UI** in `/oh`.
@@ -81,11 +81,27 @@ enable the split option, and choose the game side. If WoW already reached the
 character UI before you clicked **Span WoW Now**, type `/reload` once so Offhand
 can read the new exact-topology snapshot.
 
-The missing-monitor guard is deliberate. If a previously selected display is
-disconnected, the Companion refuses to span rather than squeezing the game and
-UI onto the remaining screen. On Forever, Offhand temporarily selects a built-in
-Blizzard Edit Mode layout for a clean protected HUD, then restores the prior
-Offhand layout when the exact topology returns unless you made a different manual
-layout choice. Use **Restore Window**, reconnect the display, or review the saved
-display selection. This makes switching between a home dual-monitor setup and a
-travel single-monitor setup recoverable without a magnifying glass.
+The missing-monitor guard is deliberate. If a previously selected workspace
+disconnects while WoW is spanned, Companion v2.1.2 restores a bordered window
+that fills the surviving Mainhand work area. It then refuses another span rather
+than squeezing the dual-screen layout onto one display. Offhand temporarily makes
+ordinary workspace panels reachable without erasing their saved dual-screen
+positions.
+
+On Forever, protected HUD layouts can only be changed by a player click. If the
+saved **Offhand** layout is active when the workspace disappears, click
+**Use Modern** in Offhand's prompt. After reconnecting the exact display topology
+and spanning again, click **Restore Offhand**. A different layout you select
+manually always takes precedence. You can also use **Restore Window**, reconnect
+the display, or review the saved display selection. This makes switching between
+a home dual-monitor setup and a travel single-monitor setup recoverable without
+a magnifying glass.
+
+### Camera movement on mixed-height displays
+
+On a shaped portrait/landscape span, WoW's hidden cursor can eventually reach a
+vertical window edge while the right mouse button remains held, stopping further
+up/down camera movement until the button is released. Offhand enables raw mouse
+input while its spanned layout is active, which uses movement deltas and avoids
+that boundary. The option is visible on the Display tab and enabled by default;
+Offhand remembers and restores the player's previous setting outside the span.

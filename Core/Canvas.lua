@@ -1013,6 +1013,54 @@ OnPanelDragStop = function(frame)
     frame._OffhandDragging = false
 end
 
+-- A missing saved display leaves no workspace rectangle. Close only panels
+-- that were visible on that workspace so they do not get clamped into a pile
+-- on Mainhand. Their saved geometry and open-state snapshot are intentionally
+-- retained; reconnecting and reloading restores them. Panels opened manually
+-- after recovery remain usable with Blizzard's native single-screen anchors.
+function Canvas:PrepareSingleScreenRecovery(metrics)
+    if not metrics or metrics.topologyStatus ~= "MISMATCH" or not Offhand.db
+        or not Offhand.db.savedWorkspacePositions then return end
+    for name in pairs(Offhand.db.savedWorkspacePositions) do
+        if not tostring(name):match("^ChatFrame%d+$") and not IsForeverEditModeFrame(_G[name], name) then
+            local frame = _G[name]
+            if frame and frame.IsShown and frame:IsShown() and frame.Hide then
+                pcall(frame.Hide, frame)
+            end
+        end
+    end
+end
+
+function Canvas:PlaceForSingleScreenRecovery(frame, metrics)
+    if not frame or not Offhand.db or not Offhand.db.savedWorkspacePositions then return false end
+    metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics())
+    if not metrics or metrics.topologyStatus ~= "MISMATCH" then return false end
+    local name = frame.GetName and frame:GetName()
+    if not name or not Offhand.db.savedWorkspacePositions[name]
+        or IsForeverEditModeFrame(frame, name) or IsUnsafeForDirectMutation(frame) then return false end
+
+    -- Blizzard Edit Mode's Modern fallback already places chat correctly and
+    -- may also restore its preferred size. Do not override it with panel logic.
+    if tostring(name):match("^ChatFrame%d+$") then return false end
+
+    if frame.SetClampedToScreen then pcall(frame.SetClampedToScreen, frame, true) end
+    if frame.ClearAllPoints and frame.SetPoint then
+        pcall(function()
+            frame:ClearAllPoints()
+            if name == "CharacterFrame" then
+                frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 24, -80)
+            elseif name == "ContainerFrameCombinedBags" or tostring(name):match("^ContainerFrame%d+$")
+                or tostring(name):match("Baganator") or tostring(name):match("Baginator")
+                or tostring(name):match("Bagnon") or tostring(name):match("BetterBags") then
+                frame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -32, 140)
+            else
+                frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+            end
+        end)
+    end
+    return true
+end
+
 -- Forever's Edit Mode can move and resize non-secure utility frames without
 -- dispatching their normal drag callbacks. Sample only the Combined Backpack
 -- and chat frames, and mirror their geometry without touching their anchors or
@@ -1068,6 +1116,10 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
 
     local m = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
     if not m then return end
+    if not m.isSpanned then
+        Canvas:PlaceForSingleScreenRecovery(frame, m)
+        return
+    end
 
     local wPos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
     if type(wPos) == "table" and wPos.x and wPos.y then
@@ -1182,6 +1234,20 @@ end
 -- ============================================================================
 local function RestoreSavedPositionAfterShow(frame)
     if not frame or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+    if metrics and not metrics.isSpanned then
+        Canvas:PlaceForSingleScreenRecovery(frame, metrics)
+        if C_Timer and C_Timer.After then
+            frame._OffhandRecoveryGeneration = (frame._OffhandRecoveryGeneration or 0) + 1
+            local generation = frame._OffhandRecoveryGeneration
+            C_Timer.After(0, function()
+                if frame._OffhandRecoveryGeneration ~= generation then return end
+                if frame.IsShown and not frame:IsShown() then return end
+                Canvas:PlaceForSingleScreenRecovery(frame)
+            end)
+        end
+        return
+    end
     local name = frame.GetName and frame:GetName()
     local workspacePosition = name and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
     local mainPosition = name and Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name]

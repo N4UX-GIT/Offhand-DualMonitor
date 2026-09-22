@@ -290,9 +290,12 @@ Enum = {
     EditModeActionBarSystemIndices = { MainBar = 1 },
 }
 local layoutData = {
-    activeLayout = 1,
+    -- Forever exposes Modern=1 and Classic=2 as global identifiers, reserves
+    -- identifier 3, then maps custom layouts from layouts[1] to identifier 4.
+    activeLayout = 6,
     layouts = {
-        {layoutName = "Modern", layoutType = 0},
+        {layoutName = "123", layoutType = 1},
+        {layoutName = "432", layoutType = 1},
         {
             layoutName = "Offhand",
             layoutType = 1,
@@ -300,6 +303,8 @@ local layoutData = {
                 {system = 1, systemIndex = 1, isInDefaultPosition = true},
             },
         },
+        {layoutName = "777", layoutType = 1},
+        {layoutName = "666", layoutType = 1},
     },
 }
 local selectedLayout
@@ -393,45 +398,156 @@ assert(addon.HUD.editModeGuidanceShown,
 -- layout rather than letting Blizzard clamp the spanned Offhand HUD into a
 -- malformed arrangement. Reconnecting restores Offhand, unless the player
 -- manually chose a different layout during recovery.
-layoutData.activeLayout = 2
+local recoveryPrompt
+addon.ShowForeverLayoutRecoveryPrompt = function(_, kind) recoveryPrompt = kind end
+local originalTopologyStatus, originalCompanionTopology, originalSpanned =
+    metrics.topologyStatus, metrics.companionTopology, metrics.isSpanned
+metrics.topologyStatus = "MISMATCH"
+metrics.companionTopology = true
+metrics.isSpanned = false
+layoutData.activeLayout = 6
 selectedLayout = nil
-addon.HUD:UpdateForeverRecoveryLayout({ topologyStatus = "MISMATCH", isSpanned = false })
-assert(selectedLayout == 1 and layoutData.activeLayout == 1,
-    "Forever must select a built-in Edit Mode layout when the saved display is missing")
+addon.HUD:UpdateForeverRecoveryLayout(metrics)
+assert(recoveryPrompt == nil and addon.db.foreverEditModeRecovery == nil,
+    "Forever must allow a normal launch grace period before declaring a display missing")
+metrics.topologyStatus = "READY"
+metrics.isSpanned = true
+addon.HUD:UpdateForeverRecoveryLayout(metrics)
+flushTimers()
+assert(recoveryPrompt == nil and addon.db.foreverEditModeRecovery == nil,
+    "A normal Companion span during the grace period must cancel missing-display recovery")
+metrics.topologyStatus = "MISMATCH"
+metrics.isSpanned = false
+addon.HUD:UpdateForeverRecoveryLayout(metrics)
+flushTimers()
+assert(selectedLayout == nil and layoutData.activeLayout == 6 and recoveryPrompt == "fallback",
+    "Forever must request a player click before selecting a protected single-screen layout")
 assert(addon.db.foreverEditModeRecovery
+        and addon.db.foreverEditModeRecovery.restoreLayoutID == 6
         and addon.db.foreverEditModeRecovery.restoreLayoutName == "Offhand"
+        and addon.db.foreverEditModeRecovery.fallbackLayoutID == 1
         and addon.db.foreverEditModeRecovery.fallbackLayoutName == "Modern",
     "Forever must remember the protected layout handoff")
+addon.HUD:ApplyForeverRecoveryChoice("fallback")
+assert(selectedLayout == 1 and layoutData.activeLayout == 1
+        and addon.db.foreverEditModeRecovery,
+    "The single-screen recovery button must select Modern and retain the return handoff")
 
 selectedLayout = nil
-addon.HUD:UpdateForeverRecoveryLayout({ topologyStatus = "READY", companionTopology = true, isSpanned = true })
-assert(selectedLayout == 2 and layoutData.activeLayout == 2,
-    "Forever must restore the Offhand Edit Mode layout when exact topology returns")
+recoveryPrompt = nil
+metrics.topologyStatus = "READY"
+metrics.isSpanned = true
+addon.HUD:UpdateForeverRecoveryLayout(metrics)
+assert(selectedLayout == nil and layoutData.activeLayout == 1 and recoveryPrompt == "restore",
+    "Forever must request a player click before restoring its protected layout")
+addon.HUD:ApplyForeverRecoveryChoice("restore")
+assert(selectedLayout == 6 and layoutData.activeLayout == 6,
+    "The restore button must select the remembered Offhand Edit Mode layout")
 assert(addon.db.foreverEditModeRecovery == nil,
     "Forever must clear the completed protected layout handoff")
 
+-- If Forever ignores a non-hardware or otherwise blocked selection, retain the
+-- marker and clear it only after a later read-back confirms Offhand.
+layoutData.activeLayout = 6
+metrics.topologyStatus = "MISMATCH"
+metrics.isSpanned = false
+addon.HUD:UpdateForeverRecoveryLayout(metrics)
+flushTimers()
+addon.HUD:ApplyForeverRecoveryChoice("fallback")
+recoveryPrompt = nil
+metrics.topologyStatus = "READY"
+metrics.isSpanned = true
+addon.HUD:UpdateForeverRecoveryLayout(metrics)
+local blockedRestoreID
+C_EditMode.SetActiveLayout = function(index)
+    selectedLayout = index
+    blockedRestoreID = index
+end
+addon.HUD:ApplyForeverRecoveryChoice("restore")
+assert(blockedRestoreID == 6 and layoutData.activeLayout == 1
+        and addon.db.foreverEditModeRecovery,
+    "Forever must retain the protected layout handoff until selection is confirmed")
+layoutData.activeLayout = blockedRestoreID
+addon.HUD:UpdateForeverRecoveryLayout(metrics)
+assert(addon.db.foreverEditModeRecovery == nil and layoutData.activeLayout == 6,
+    "Forever must clear the handoff after delayed Edit Mode read-back confirms Offhand")
+C_EditMode.SetActiveLayout = function(index)
+    selectedLayout = index
+    layoutData.activeLayout = index
+end
+
+layoutData.activeLayout = 6
+metrics.topologyStatus = "MISMATCH"
+metrics.isSpanned = false
+addon.HUD:UpdateForeverRecoveryLayout(metrics)
+flushTimers()
+addon.HUD:ApplyForeverRecoveryChoice("fallback")
 layoutData.activeLayout = 2
-addon.HUD:UpdateForeverRecoveryLayout({ topologyStatus = "MISMATCH", isSpanned = false })
-layoutData.activeLayout = 3
-layoutData.layouts[3] = { layoutName = "Player Choice", layoutType = 1 }
 selectedLayout = nil
-addon.HUD:UpdateForeverRecoveryLayout({ topologyStatus = "READY", companionTopology = true, isSpanned = true })
-assert(selectedLayout == nil and layoutData.activeLayout == 3,
+metrics.topologyStatus = "READY"
+metrics.isSpanned = true
+addon.HUD:UpdateForeverRecoveryLayout(metrics)
+assert(selectedLayout == nil and layoutData.activeLayout == 2,
     "Forever must preserve a layout manually selected during single-screen recovery")
 assert(addon.db.foreverEditModeRecovery == nil,
     "Forever must clear stale recovery state after manual layout selection")
-layoutData.layouts[3] = nil
-layoutData.activeLayout = 1
+layoutData.activeLayout = 6
 selectedLayout = nil
+metrics.topologyStatus = originalTopologyStatus
+metrics.companionTopology = originalCompanionTopology
+metrics.isSpanned = originalSpanned
 
 -- Even after the player has configured the layout, Forever must leave profile
 -- selection to Blizzard Edit Mode. A delayed switch can move or hide bars.
-layoutData.layouts[2].systems[1].isInDefaultPosition = false
+layoutData.layouts[3].systems[1].isInDefaultPosition = false
 addon.HUD.editModeLoadScheduled = nil
 addon.HUD:HookFrames()
 flushTimers()
-assert(selectedLayout == nil and layoutData.activeLayout == 1,
+assert(selectedLayout == nil and layoutData.activeLayout == 6,
     "Forever must not change the active Edit Mode layout after reload")
+
+local recoveryPanel = makeMockFrame("RecoveryWorkspacePanel", 500, 400)
+local recoveryChat = makeMockFrame("ChatFrame9", 500, 300)
+local recoveryCharacter = makeMockFrame("CharacterFrame", 500, 700)
+local recoveryBag = makeMockFrame("ContainerFrameCombinedBags", 500, 300)
+addon.db.savedWorkspacePositions.RecoveryWorkspacePanel = { x = 100, y = 900 }
+addon.db.savedWorkspacePositions.ChatFrame9 = { x = 100, y = 400 }
+addon.db.savedWorkspacePositions.CharacterFrame = { x = 100, y = 800 }
+addon.db.savedWorkspacePositions.ContainerFrameCombinedBags = { x = 100, y = 300 }
+addon.Canvas:PrepareSingleScreenRecovery({ topologyStatus = "MISMATCH", isSpanned = false })
+assert(not recoveryPanel:IsShown(),
+    "single-screen recovery must temporarily close visible workspace panels")
+assert(recoveryChat:IsShown(),
+    "single-screen recovery must keep chat available")
+assert(addon.db.savedWorkspacePositions.RecoveryWorkspacePanel,
+    "single-screen recovery must preserve saved workspace geometry")
+recoveryPanel:Show()
+assert(addon.Canvas:PlaceForSingleScreenRecovery(recoveryPanel,
+        { topologyStatus = "MISMATCH", isSpanned = false }),
+    "a workspace panel opened during recovery must receive a temporary visible anchor")
+local recoveryPoint = recoveryPanel.points[#recoveryPanel.points]
+assert(recoveryPoint and recoveryPoint[1] == "CENTER" and recoveryPoint[2] == UIParent
+        and recoveryPoint[3] == "CENTER" and recoveryPoint[4] == 0 and recoveryPoint[5] == 0,
+    "single-screen recovery must center reopened workspace panels")
+assert(addon.db.savedWorkspacePositions.RecoveryWorkspacePanel.x == 100,
+    "temporary recovery anchors must not overwrite saved Offhand coordinates")
+local chatPointCount = #recoveryChat.points
+assert(not addon.Canvas:PlaceForSingleScreenRecovery(recoveryChat,
+        { topologyStatus = "MISMATCH", isSpanned = false })
+        and #recoveryChat.points == chatPointCount,
+    "Modern must retain ownership of the single-screen chat anchor")
+assert(addon.Canvas:PlaceForSingleScreenRecovery(recoveryCharacter,
+        { topologyStatus = "MISMATCH", isSpanned = false }),
+    "the character sheet must receive a single-screen recovery anchor")
+local characterPoint = recoveryCharacter.points[#recoveryCharacter.points]
+assert(characterPoint and characterPoint[1] == "TOPLEFT" and characterPoint[3] == "TOPLEFT",
+    "the character sheet must recover near the upper-left")
+assert(addon.Canvas:PlaceForSingleScreenRecovery(recoveryBag,
+        { topologyStatus = "MISMATCH", isSpanned = false }),
+    "the backpack must receive a single-screen recovery anchor")
+local bagPoint = recoveryBag.points[#recoveryBag.points]
+assert(bagPoint and bagPoint[1] == "BOTTOMRIGHT" and bagPoint[3] == "BOTTOMRIGHT",
+    "the backpack must recover above the lower-right action UI")
 
 -- Edit Mode dialogs also remain entirely Blizzard-owned.
 EditModeUnsavedChangesDialog:Show()

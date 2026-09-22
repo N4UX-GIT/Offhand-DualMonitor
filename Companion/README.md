@@ -95,7 +95,12 @@ It atomically generates `Core\ForeverState.lua`, retaining the previous copy as
 
 WoW must be fully closed before the Companion reads or updates this snapshot.
 The addon consumes each generated version once per client session, then uses its
-session CVar fallback for subsequent `/reload` operations. With multiple
+versioned session CVar fallback for subsequent `/reload` operations. The fallback
+captures the complete Offhand account and character state without executing serialized code.
+Each reload advances a revision stored in both the ordinary SavedVariables table
+and the fallback. If Forever loads that revision normally, the standard table is
+authoritative and the fallback stands down automatically; this makes the recovery
+path compatible with a future client-side fix. With multiple
 accounts or characters, the most recently written valid account snapshot and
 the most recently written valid character snapshot belonging to that account
 are selected.
