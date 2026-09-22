@@ -3,35 +3,45 @@
     Packages the Offhand Addon for CurseForge and the Offhand Companion for GitHub Releases.
 #>
 param(
-    [string]$Version = "2.1.2"
+    [string]$Version = "2.1.2",
+    [switch]$AddonOnly
 )
 
 $ErrorActionPreference = "Stop"
 $rootDir = $PSScriptRoot
 $distDir = Join-Path $rootDir "dist"
 $tempDir = Join-Path ([IO.Path]::GetTempPath()) ("Offhand-package-" + [guid]::NewGuid().ToString())
+$stepTotal = 5
+if ($AddonOnly) { $stepTotal = 3 }
 
 Write-Host "===================================================" -ForegroundColor Cyan
 Write-Host "  Offhand Release Packager v$Version" -ForegroundColor Cyan
 Write-Host "===================================================" -ForegroundColor Cyan
 
-# 1. Ensure Companion executable is compiled
-Write-Host "
-[1/5] Compiling Companion executable..." -ForegroundColor Yellow
-& (Join-Path $rootDir "Companion\build.bat")
-if ($LASTEXITCODE -ne 0) {
-    throw "Companion build failed. Close a running companion if it locks the executable, then retry."
+# 1. Ensure Companion executable is compiled for bundles that include it. An
+# addon-only CurseForge build must not replace a previously accepted Companion
+# binary with a fresh, differently hashed compiler output.
+if (-not $AddonOnly) {
+    Write-Host "
+[1/$stepTotal] Compiling Companion executable..." -ForegroundColor Yellow
+    & (Join-Path $rootDir "Companion\build.bat")
+    if ($LASTEXITCODE -ne 0) {
+        throw "Companion build failed. Close a running companion if it locks the executable, then retry."
+    }
+} else {
+    Write-Host "
+[1/$stepTotal] Addon-only mode: preserving the accepted Companion binary." -ForegroundColor Yellow
 }
 
 # 2. Reset dist directory
 Write-Host "
-[2/5] Initializing output directory: $distDir" -ForegroundColor Yellow
+[2/$stepTotal] Initializing output directory: $distDir" -ForegroundColor Yellow
 New-Item -ItemType Directory -Path $distDir -Force | Out-Null
 New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 
 # 3. Package In-Game Addon for CurseForge / Wago
 Write-Host "
-[3/5] Packaging In-Game Addon (Offhand-v$Version.zip)..." -ForegroundColor Yellow
+[3/$stepTotal] Packaging In-Game Addon (Offhand-v$Version.zip)..." -ForegroundColor Yellow
 $addonStaging = Join-Path $tempDir "Offhand"
 New-Item -ItemType Directory -Path $addonStaging -Force | Out-Null
 
@@ -58,6 +68,23 @@ Copy-Item (Join-Path $rootDir "Media\*.blp") -Destination $mediaStaging -Force
 $addonZip = Join-Path $distDir "Offhand-v$Version.zip"
 Compress-Archive -Path $addonStaging -DestinationPath $addonZip -CompressionLevel Optimal -Force
 Write-Host "  -> Created: $addonZip" -ForegroundColor Green
+
+if ($AddonOnly) {
+    $checksumFile = Join-Path $distDir "checksums-addon-v$Version-sha256.txt"
+    $hash = (Get-FileHash -Path $addonZip -Algorithm SHA256).Hash
+    $checksumLine = "$hash  $([IO.Path]::GetFileName($addonZip))"
+    $checksumLine | Set-Content -Path $checksumFile -Encoding UTF8
+
+    Write-Host "
+CurseForge Beta artifact ready:" -ForegroundColor Cyan
+    Write-Host "  $checksumLine" -ForegroundColor White
+    Write-Host "  $checksumFile" -ForegroundColor White
+    Write-Host "
+===================================================" -ForegroundColor Green
+    Write-Host "  Addon-only packaging complete successfully!" -ForegroundColor Green
+    Write-Host "===================================================" -ForegroundColor Green
+    return
+}
 
 # 4. Package Desktop Companion for GitHub Releases
 Write-Host "

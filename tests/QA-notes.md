@@ -1,4 +1,56 @@
-# Current stabilization baseline -- 2026-09-16
+# Forever v2.1.2 release-candidate ledger -- 2026-09-22
+
+This section is the authoritative current ledger. Earlier dated sections are
+retained as engineering history; an older `pending`, failed smoke result, or
+remaining-work list is superseded where this ledger records a later pass.
+
+## Ordered execution plan
+
+1. Preserve the accepted 4000x2560 Forever baseline and run the remaining
+   combat/taint, post-combat, HUD-bar, transition, idle, relog and panel-reopen
+   matrix one controlled live step at a time.
+2. Exercise the complete Forever SavedVariables fallback live across `/reload`,
+   relog and cold restart, then repeat on another character/account where
+   practical.
+3. Exercise Companion tray, hotkey, pause, update, help and repeated hotplug
+   recovery behavior.
+4. Test addon coexistence and arbitrary movable windows, then test additional
+   physical topologies as hardware permits.
+5. Recheck version, changelog, release notes, website copy and package contents;
+   prepare review and final artifacts without publishing or merging.
+6. Only after Forever acceptance, reproduce Retail v2.0.0 reports and port the
+   proven fixes across the supported client families.
+
+## Release-candidate matrix
+
+| Area | Status | Evidence / remaining work |
+| --- | --- | --- |
+| Branch and checkpoint | PASS | `codex/forever-safe-recovery` is clean at `2d02266d842dbb148f05429d65f2fe7caa3ee7e1`; annotated tag `checkpoint/2026-09-22-forever-v2.1.2-stable` points at HEAD and the branch matches origin. |
+| Automated addon baseline | PASS | All 19 Lua suites and all five addon manifest validations passed on 2026-09-22. |
+| Companion preference regression | PASS | `tests/companion-preferences.ps1` passed on 2026-09-22. |
+| Companion checkpoint binary | PASS | SHA-256 is `9FB8FA71CD76F71ABCB3BE73A69556630FCAE90153CBA10F95B5F7030BA2580A`. |
+| Exact Forever topology | PASS | 1440x2560 portrait workspace plus 2560x1440 landscape Mainhand spans as 4000x2560; cold launch and respan retain the layout. |
+| Missing-workspace recovery | PASS | Physical disconnect restores WoW to the surviving Mainhand; map, character, bags and chat remain reachable without replacing saved Offhand positions. |
+| Reconnect recovery | PASS | Reconnection, selected-Mainhand restore and exact two-monitor respan passed. |
+| Protected Edit Mode recovery | PASS | Player-click **Use Modern** and **Restore Offhand** prompts perform the protected layout changes Forever rejects from addon timers. |
+| Raw mouse span handling | PASS | `OH RAW 1` was observed live and continuous right-button vertical camera movement passed; the prior CVar is restored outside the active span. |
+| Core preference persistence | PASS | Master enable and minimap preference survived `/reload`. |
+| Complete fallback logic | PASS (automated) / GAP (broad live) | Versioned, checksummed account and character snapshots are covered for geometry, themes, nested custom colors, profiles and Edit Mode recovery; equal-or-newer normal SavedVariables win. Broader live `/reload`, relog, cold-restart and multi-character coverage remains. |
+| Combat, taint and HUD bars | GAP | Requires structured live combat/post-combat tests covering action, stance, pet, XP and reputation bars. |
+| Runtime transitions and longevity | GAP | Long idle, zone/loading transitions, cinematics, relog/character changes and repeated map/bag/chat/tooltip/dropdown/panel reopen tests remain. |
+| Companion controls and repeated hotplug | GAP | Tray, hotkey, pause, update/help behavior and repeated recovery cycles remain. |
+| Addon coexistence | GAP | Chattynator, bag addons, RIF, OneWorld, Focused, DeSync and representative movable addon windows remain. |
+| Additional physical topologies | GAP | Dual landscape, stacked, mixed 1440p/1080p, 32:9 combinations, negative origins and primary-display changes require available hardware. Unavailable hardware is not a defect. |
+| Release source consistency | PASS / GAP | TOCs, Companion assembly/manifest/UI, packager default, README, release notes and website source identify v2.1.2; the changelog now has a dated v2.1.2 section. The website's combat-safe claim remains subject to the live combat/taint matrix. |
+| Existing `dist` artifacts | BLOCKED | The current source Companion hashes to `9FB8FA71...2580A`, but the existing standalone and archived `dist` copies hash to `4E26C83F...9101`. Rebuild and re-inspect all artifacts only after live acceptance; do not publish the stale set. |
+| Confirmed open runtime defects | NONE | No unresolved runtime defect is confirmed at this checkpoint; new failures must be reproduced and recorded separately from validation gaps. |
+| Cross-client disabled-state isolation | PASS (automated) / GAP (live) | Retail mocks now prove disabled and temporary single-screen profiles leave tooltip and bag ownership untouched. Live confirmation remains required on every supported client family. |
+| Deferred product scope | DEFERRED | Antivirus submissions, code signing, more than two selected displays, guaranteed management of every arbitrary third-party frame and low-priority Companion UI refactoring. |
+| External publication | BETA APPROVED / ACCESS PENDING | User approved an all-client CurseForge Beta package on 2026-09-22. Package and validate `v2.1.2-beta.1`; upload access remains separate. GitHub authorization expired and will resume when the user returns to the machine. Do not merge, promote to stable, modify the live website or submit antivirus reports without further approval. |
+
+---
+
+# Historical stabilization baseline -- 2026-09-16
 
 ## Build and deployment follow-up
 
@@ -279,21 +331,23 @@ setup deferral, and reporting of caught layout errors.
 - Disconnecting the workspace from an already-spanned session exposed desktop
   content where the missing monitor had been. Companion v2.1.2 now detects this
   state and restores a bordered WoW window that fills the surviving Mainhand work
-  area. Live disconnect/reconnect acceptance of that final native-window recovery
-  remains pending.
+  area. Later v2.1.2 acceptance confirmed the native-window disconnect recovery,
+  reconnection and exact respan; the original pending status is superseded.
 - During the first v2.1.2 retest, the workspace was reconnected after Companion
   launched. Its status calculation saw both displays, but the selectors retained
   the one-display startup inventory, and manual Restore Window returned WoW to its
   stale portrait-workspace position. The selectors now refresh on Windows topology
   changes without rewriting saved device identities, and manual restore fills the
-  selected or surviving Mainhand. Live acceptance remains pending.
+  selected or surviving Mainhand. The selected-Mainhand restore and subsequent
+  exact two-monitor respan passed later in this same acceptance cycle.
 - The selected Mainhand restore and subsequent exact two-monitor respan passed.
   Repeated full-range vertical camera sweeps while holding right mouse eventually
   exhausted cursor travel; releasing the button reset it. Setting
   `rawMouseEnable=1` eliminated the block in the same live session. Offhand now
   enables raw input only while its span is active and restores the prior setting
   on single-screen recovery, disable, or logout. Automated lifecycle coverage was
-  added; addon-managed live acceptance remains pending.
+  added. Later live acceptance observed `OH RAW 1` and confirmed continuous RMB
+  vertical camera movement; the original pending status is superseded.
 - A clean cold-launch control with both displays continuously connected reproduced
   the vertical camera block with `rawMouseEnable=0`, establishing that it is a
   normal mixed-height span requirement rather than a disconnect-test artifact.

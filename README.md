@@ -43,7 +43,7 @@ The Display tab option **Use raw mouse input while Offhand is spanned** is enabl
 
 ### Why Forever currently relies on Companion
 
-WoW addon code cannot resize or borderlessly span the Windows game client. The Forever beta also currently writes Offhand's SavedVariables but may fail to restore them reliably on the next client launch. Companion v2.0.0+ solves both sides: it spans the selected displays, removes the window borders, waits until WoW has fully closed, snapshots the newest valid Offhand state, and restores that state before the next cold launch.
+WoW addon code cannot resize or borderlessly span the Windows game client. The Forever beta also currently writes Offhand's SavedVariables but may fail to restore them reliably on the next client launch. Companion v2.1.2+ solves both sides: it spans the selected displays, removes the window borders, waits until WoW has fully closed, snapshots the newest valid Offhand state, and restores that state before the next cold launch.
 
 This recovery bridge is specific to the current Forever client behavior. The addon remains usable with manual spanning or another window manager on other WoW clients.
 

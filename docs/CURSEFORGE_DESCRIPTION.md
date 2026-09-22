@@ -2,7 +2,7 @@
 
 Offhand keeps the 3D game world on your **Mainhand** monitor and moves large interface panels—such as the map, character frame, backpack, and chat—onto your **Offhand** workspace monitor. The result is a clean game view without stretching or fisheye distortion.
 
-## WoW Forever users: Companion v2.0.0+ is required
+## WoW Forever users: Companion v2.1.2+ is required
 
 The current WoW Forever beta does not consistently restore addon SavedVariables across a full client restart. Those variables normally hold panel positions, open/closed state, and setup completion. Without recovery, frames can return to default anchors or change position according to the order in which they are opened.
 
@@ -37,7 +37,7 @@ The first-run welcome is only an introduction. Clicking either welcome button ac
 
 - **Window or UI is in the wrong place:** open `/oh` and run the setup Wizard again.
 - **Edit Mode options or another frame is off-screen:** click **Gather Off-Screen UI**, then reopen Edit Mode.
-- **Forever layout is correct after `/reload` but wrong after restarting WoW:** confirm Companion v2.0.0+ was running before launch and remained running while WoW exited.
+- **Forever layout is correct after `/reload` but wrong after restarting WoW:** confirm Companion v2.1.2+ was running before launch and remained running while WoW exited.
 - **Need to return to one screen:** click **Restore Window** in the Companion.
 - **Welcome popup repeats:** update to the newest addon version; the acknowledgement is now stored independently from Wizard completion and included in Forever recovery.
 

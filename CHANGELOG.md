@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+
+## [2.1.2] - 2026-09-22
 ### Added
 - Added durable Forever onboarding state and Companion recovery so acknowledged welcome/setup state survives reloads and cold launches.
 - Expanded the in-game FAQ, first-run guide, website, and distribution documentation with the complete Companion, Wizard, Edit Mode, and cold-launch setup flow.
@@ -20,6 +22,9 @@ All notable changes to this project will be documented in this file.
 - Fresh addon profiles remain inert until the setup wizard enables Offhand.
 
 ### Fixed
+- Disabled and temporary single-screen profiles no longer change tooltip scale,
+  override another addon's tooltip parent-scale choice, or rewrite Blizzard bag
+  anchors during logout. This protection applies across Retail and Classic clients.
 - Fixed the Welcome to Offhand popup returning after it was acknowledged or after the setup wizard was completed.
 - Fixed Forever workspace panels and Blizzard Edit Mode controls drifting or becoming inaccessible after window spanning and full client restarts.
 - Fixed mixed-resolution and stacked layouts being treated as equal-height side-by-side screens, which caused overlap, squashed game views, and black bars.

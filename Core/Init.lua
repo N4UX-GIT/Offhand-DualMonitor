@@ -899,6 +899,12 @@ logoutFix:SetScript('OnEvent', function()
         end
     end
 
+    -- A disabled profile must be completely inert. The viewport/CVar cleanup
+    -- above is still safe and necessary if Offhand was disabled mid-session,
+    -- but rewriting Blizzard bag anchors would modify the player's layout even
+    -- though Offhand no longer owns it.
+    if not db or not db.enabled then return end
+
     for i = 1, 13 do
         local bag = _G['ContainerFrame'..i]
         if bag then
@@ -981,6 +987,15 @@ local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:SetScript("OnEvent", function()
     local tooltips = { "GameTooltip", "ItemRefTooltip", "ShoppingTooltip1", "ShoppingTooltip2", "SettingsTooltip" }
+
+    local function HasActiveSpannedLayout()
+        if not Offhand.db or not Offhand.db.enabled then return false end
+        if Offhand.Viewport and Offhand.Viewport.GetMetrics then
+            local ok, metrics = pcall(Offhand.Viewport.GetMetrics, Offhand.Viewport)
+            if ok and metrics and metrics.isSpanned == false then return false end
+        end
+        return true
+    end
     
     -- Dynamically find any other global tooltips safely
     for key, val in pairs(_G) do
@@ -995,7 +1010,7 @@ frame:SetScript("OnEvent", function()
     end
 
     local function EnforceTooltipScale(self)
-        if not UIParent then return end
+        if not UIParent or not HasActiveSpannedLayout() then return end
         if self.SetIgnoreParentScale and self.IsIgnoringParentScale and self:IsIgnoringParentScale() then
             self:SetIgnoreParentScale(false)
         end
@@ -1028,9 +1043,9 @@ frame:SetScript("OnEvent", function()
                 hooksecurefunc(tt, "SetOwner", EnforceTooltipScale)
             end
             if tt.SetIgnoreParentScale then
-                tt:SetIgnoreParentScale(false)
+                if HasActiveSpannedLayout() then tt:SetIgnoreParentScale(false) end
                 hooksecurefunc(tt, "SetIgnoreParentScale", function(self, ignore)
-                    if ignore then self:SetIgnoreParentScale(false) end
+                    if ignore and HasActiveSpannedLayout() then self:SetIgnoreParentScale(false) end
                 end)
             end
         end
