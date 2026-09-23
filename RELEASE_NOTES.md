@@ -31,7 +31,12 @@ secure panel-manager metadata, or reanchors the Edit Mode manager, Game Menu,
 Cooldown Viewer and other Blizzard-managed Edit Mode frames. This targets the
 reported `CompactUnitFrame`, `TextStatusBar` and Cooldown Viewer taint errors.
 On Forever, native Escape and panel behavior now takes precedence over forcing
-every Blizzard panel to remain open on the workspace.
+every Blizzard panel to remain open on the workspace. Escape may therefore
+close a Blizzard map, character or bag panel before opening the Game Menu; the
+saved Offhand position remains available when the panel reopens. Offhand also
+no longer force-centers the Edit Mode manager. If its native controls land in a
+mixed-height black void, use Companion **Restore Window**, edit the layout in
+the normal window, then span again.
 
 Use standard Windowed mode. Start Companion 2.1.2 before WoW, select the displays
 and Mainhand, then click **Span WoW Now**. If WoW already loaded the character
