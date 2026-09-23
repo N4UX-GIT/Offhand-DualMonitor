@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- Companion display-plan and activity-log messages now wrap instead of drawing
+  long missing-monitor diagnostics outside their cards.
+
+### Fixed
+- Forever now fails safe to a normal full-window viewport when exact Companion
+  topology is absent, including after Restore Window. The same recovery flow
+  preserves workspace panel state and offers the player-click Modern/Offhand
+  Edit Mode handoff so protected HUD elements cannot remain in black void.
+- Forever Edit Mode recovery now matches the `Offhand` layout name without case
+  sensitivity and re-resolves that name before restoration when its local custom
+  layout slot differs from the previously remembered ID.
+- Chat-tab persistence now observes Blizzard's native drag lifecycle without
+  forcing locked or docked chat frames into a movable state, avoiding the
+  `ChatFrame1:StartMoving(): Frame is not movable` error on Forever.
+
 ## [2.1.2] - 2026-09-22
 ### Added
 - Added durable Forever onboarding state and Companion recovery so acknowledged welcome/setup state survives reloads and cold launches.

@@ -131,6 +131,24 @@ SetCVar = function() loginMutations = loginMutations + 1 end
 initOnEvent(nil, "PLAYER_LOGIN")
 assert(loginMutations == 0, "disabled Offhand profile mutated Blizzard frames or CVars at login")
 
+-- Forever owns protected HUD placement through Blizzard Edit Mode. Login may
+-- normalize bag placement, but must not mark PlayerFrame, TargetFrame or the
+-- minimap as user-placed; even that seemingly harmless write can taint secret
+-- status-bar values when CharacterFrame later closes.
+local foreverBagMutations, foreverHudMutations = 0, 0
+addon.db.enabled = true
+addon.isForever = true
+ChatFrame1 = { SetClampedToScreen = function() end }
+ContainerFrame1 = { SetUserPlaced = function() foreverBagMutations = foreverBagMutations + 1 end }
+PlayerFrame = { SetUserPlaced = function() foreverHudMutations = foreverHudMutations + 1 end }
+TargetFrame = { SetUserPlaced = function() foreverHudMutations = foreverHudMutations + 1 end }
+MinimapCluster = { SetUserPlaced = function() foreverHudMutations = foreverHudMutations + 1 end }
+initOnEvent(nil, "PLAYER_LOGIN")
+assert(foreverBagMutations == 1,
+    "Forever login regression did not exercise the enabled placement path")
+assert(foreverHudMutations == 0,
+    "Forever login must not mutate protected PlayerFrame, TargetFrame or minimap placement")
+
 -- Forever /reload may emit PLAYER_LOGOUT without PLAYER_LEAVING_WORLD. Capture
 -- visibility there, and do not let a later teardown event overwrite it.
 local capturedOpenPanels
@@ -151,6 +169,23 @@ TestWorkspaceFrame.IsVisible = function() return false end
 initOnEvent(nil, "PLAYER_LEAVING_WORLD")
 assert(capturedOpenPanels.TestWorkspaceFrame == true,
     "a later teardown event must not overwrite the captured visibility snapshot")
+
+-- Restore Window can leave Forever without any loaded exact topology. Do not
+-- replace the last spanned-session visibility snapshot with the temporary
+-- single-screen state during logout or /reload.
+addon._openPanelsCapturedForTransition = false
+addon.db.openWorkspacePanels = { TestWorkspaceFrame = true }
+capturedOpenPanels = nil
+addon.Viewport.GetMetrics = function()
+    return { isSpanned = false, topologyStatus = "ABSENT" }
+end
+addon.Viewport.IsSingleScreenRecovery = function(_, metrics)
+    return metrics and not metrics.isSpanned
+        and (metrics.topologyStatus == "MISMATCH" or metrics.topologyStatus == "ABSENT")
+end
+initOnEvent(nil, "PLAYER_LOGOUT")
+assert(capturedOpenPanels == nil and addon.db.openWorkspacePanels.TestWorkspaceFrame == true,
+    "Forever absent-topology recovery must preserve the last workspace visibility snapshot")
 
 print("PASS: config preservation, defaults, combat coalescing, error recovery, reentrancy, ADDON_LOADED stack safety, disabled login isolation")
 

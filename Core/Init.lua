@@ -640,7 +640,11 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             Offhand.ForeverPersistence:SaveProfileSnapshot(true)
         end
         local transitionMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
-        local preserveWorkspaceSnapshot = transitionMetrics and transitionMetrics.topologyStatus == "MISMATCH"
+        local preserveWorkspaceSnapshot = Offhand.Viewport and Offhand.Viewport.IsSingleScreenRecovery
+            and Offhand.Viewport:IsSingleScreenRecovery(transitionMetrics)
+            or (transitionMetrics and not transitionMetrics.isSpanned
+                and (transitionMetrics.topologyStatus == "MISMATCH"
+                    or (Offhand.isForever and transitionMetrics.topologyStatus == "ABSENT")))
         if not preserveWorkspaceSnapshot and Offhand.db and Offhand.db.enabled and Offhand.db.savedWorkspacePositions and Offhand.db.restoreWorkspaceOnReload ~= false then
             Offhand.db.openWorkspacePanels = {}
             for name, _ in pairs(Offhand.db.savedWorkspacePositions) do

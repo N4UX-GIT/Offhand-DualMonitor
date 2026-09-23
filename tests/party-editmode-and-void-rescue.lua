@@ -282,6 +282,8 @@ addon.isForever = true
 MainActionBar = makeMockFrame("MainActionBar", 500, 45)
 MainActionBar.IsInDefaultPosition = function() return true end
 local originalMainSetPoint = MainActionBar.SetPoint
+PlayerFrame = makeMockFrame("PlayerFrame", 232, 100)
+local originalPlayerSetPoint = PlayerFrame.SetPoint
 local EditModeManagerFrame = makeMockFrame("EditModeManagerFrame", 600, 60)
 local EditModeSystemSettingsDialog = makeMockFrame("EditModeSystemSettingsDialog", 400, 300)
 local EditModeUnsavedChangesDialog = makeMockFrame("EditModeUnsavedChangesDialog", 350, 150)
@@ -328,6 +330,10 @@ assert(MainActionBar.SetPoint == originalMainSetPoint,
     "Forever must not install a SetPoint repair hook on MainActionBar")
 assert(#MainActionBar.points == 0,
     "Forever must not directly anchor MainActionBar")
+assert(PlayerFrame.SetPoint == originalPlayerSetPoint,
+    "Forever must not install a SetPoint repair hook on PlayerFrame")
+assert(#PlayerFrame.points == 0,
+    "Forever must not directly anchor PlayerFrame")
 
 -- Forever can load Blizzard_EditMode after Offhand's canvas initialization.
 -- Protected unit frames must still be rejected when the manager did not exist
@@ -446,6 +452,83 @@ assert(selectedLayout == 6 and layoutData.activeLayout == 6,
 assert(addon.db.foreverEditModeRecovery == nil,
     "Forever must clear the completed protected layout handoff")
 
+-- Restore Window can shrink WoW before the running addon has loaded any exact
+-- topology. Forever must treat ABSENT like a missing-display recovery instead
+-- of leaving protected HUD frames at their old spanned coordinates.
+layoutData.activeLayout = 6
+selectedLayout = nil
+recoveryPrompt = nil
+metrics.topologyStatus = "ABSENT"
+metrics.companionTopology = false
+metrics.isSpanned = false
+addon.HUD:UpdateForeverRecoveryLayout(metrics)
+flushTimers()
+assert(selectedLayout == nil and layoutData.activeLayout == 6 and recoveryPrompt == "fallback",
+    "Forever absent topology must request the player-click single-screen layout")
+assert(addon.db.foreverEditModeRecovery
+        and addon.db.foreverEditModeRecovery.restoreLayoutID == 6,
+    "Forever absent topology must retain the protected Offhand layout handoff")
+addon.HUD:ApplyForeverRecoveryChoice("fallback")
+metrics.topologyStatus = "READY"
+metrics.companionTopology = true
+metrics.isSpanned = true
+recoveryPrompt = nil
+addon.HUD:UpdateForeverRecoveryLayout(metrics)
+assert(recoveryPrompt == "restore",
+    "Forever must offer to restore Offhand after exact topology returns")
+addon.HUD:ApplyForeverRecoveryChoice("restore")
+assert(layoutData.activeLayout == 6 and addon.db.foreverEditModeRecovery == nil,
+    "Forever must complete the absent-topology recovery round trip")
+
+-- Layout names are case-insensitive, and a recovery snapshot must follow the
+-- named layout if its custom slot differs from the ID remembered at disconnect.
+layoutData.layouts[3].layoutName = "OFFHAND"
+layoutData.activeLayout = 6
+selectedLayout = nil
+recoveryPrompt = nil
+metrics.topologyStatus = "MISMATCH"
+metrics.isSpanned = false
+addon.HUD:UpdateForeverRecoveryLayout(metrics)
+flushTimers()
+assert(recoveryPrompt == "fallback" and addon.db.foreverEditModeRecovery
+        and addon.db.foreverEditModeRecovery.restoreLayoutName == "OFFHAND",
+    "Forever recovery must recognize Offhand layout names without case sensitivity")
+addon.HUD:ApplyForeverRecoveryChoice("fallback")
+local movedOffhand = layoutData.layouts[3]
+layoutData.layouts[3] = layoutData.layouts[2]
+layoutData.layouts[2] = movedOffhand
+selectedLayout = nil
+recoveryPrompt = nil
+metrics.topologyStatus = "READY"
+metrics.isSpanned = true
+addon.HUD:UpdateForeverRecoveryLayout(metrics)
+assert(recoveryPrompt == "restore" and addon.db.foreverEditModeRecovery.restoreLayoutID == 5,
+    "Forever recovery must re-resolve a named Offhand layout after its custom slot changes")
+addon.HUD:ApplyForeverRecoveryChoice("restore")
+assert(selectedLayout == 5 and layoutData.activeLayout == 5
+        and addon.db.foreverEditModeRecovery == nil,
+    "Forever restore must select the current slot for the remembered Offhand layout name")
+
+-- Never trust a stale numeric slot when the remembered named layout no longer
+-- exists; the slot may now belong to an unrelated custom profile.
+addon.db.foreverEditModeRecovery = {
+    restoreLayoutID = 6,
+    restoreLayoutName = "Missing Offhand",
+    fallbackLayoutID = 1,
+}
+layoutData.activeLayout = 1
+selectedLayout = nil
+recoveryPrompt = nil
+addon.HUD:UpdateForeverRecoveryLayout(metrics)
+assert(addon.db.foreverEditModeRecovery == nil and selectedLayout == nil
+        and layoutData.activeLayout == 1,
+    "Forever must not select an unrelated stale slot when the named layout is missing")
+
+layoutData.layouts[2] = layoutData.layouts[3]
+layoutData.layouts[3] = movedOffhand
+layoutData.layouts[3].layoutName = "Offhand"
+layoutData.activeLayout = 6
+
 -- If Forever ignores a non-hardware or otherwise blocked selection, retain the
 -- marker and clear it only after a later read-back confirms Offhand.
 layoutData.activeLayout = 6
@@ -548,6 +631,14 @@ assert(addon.Canvas:PlaceForSingleScreenRecovery(recoveryBag,
 local bagPoint = recoveryBag.points[#recoveryBag.points]
 assert(bagPoint and bagPoint[1] == "BOTTOMRIGHT" and bagPoint[3] == "BOTTOMRIGHT",
     "the backpack must recover above the lower-right action UI")
+recoveryPanel:Show()
+addon.Canvas:PrepareSingleScreenRecovery({ topologyStatus = "ABSENT", isSpanned = false })
+assert(not recoveryPanel:IsShown(),
+    "Forever absent topology must temporarily close visible workspace panels")
+recoveryPanel:Show()
+assert(addon.Canvas:PlaceForSingleScreenRecovery(recoveryPanel,
+        { topologyStatus = "ABSENT", isSpanned = false }),
+    "Forever absent topology must give reopened workspace panels a visible anchor")
 
 -- Edit Mode dialogs also remain entirely Blizzard-owned.
 EditModeUnsavedChangesDialog:Show()

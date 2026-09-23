@@ -28,6 +28,19 @@ function Viewport:GetCompanionTopology(pw, ph)
     return topology, "READY"
 end
 
+-- A stale exact topology is unsafe on every client. Forever additionally
+-- requires exact Companion rectangles: its protected HUD cannot be repaired by
+-- legacy percentage geometry without risking taint or leaving frames in void.
+function Viewport:IsRecoveryTopologyStatus(topologyStatus)
+    return topologyStatus == "MISMATCH"
+        or (Offhand.isForever and topologyStatus == "ABSENT")
+end
+
+function Viewport:IsSingleScreenRecovery(metrics)
+    return metrics and not metrics.isSpanned
+        and self:IsRecoveryTopologyStatus(metrics.topologyStatus) or false
+end
+
 -- SetPoint offsets belong to the receiving frame, not its relative frame.
 function Viewport:SetPoint(frame, point, relativePoint, x, y)
     local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
@@ -66,7 +79,7 @@ function Viewport:GetMetrics()
             actualAR = width / height, arMode = "NATIVE", isSpanned = true,
             companionTopology = true, topologyMode = topology.mode, topologyStatus = "READY",
         }
-    elseif topologyStatus == "MISMATCH" then
+    elseif self:IsRecoveryTopologyStatus(topologyStatus) then
         return {
             screenWidth = sw, screenHeight = sh, physicalWidth = pw, physicalHeight = ph,
             deckWidth = 0, workspaceWidth = 0, workspaceHeight = 0,
@@ -75,7 +88,7 @@ function Viewport:GetMetrics()
             gameRight = sw, gameTop = sh, gamePixelLeft = 0, gamePixelBottom = 0,
             gamePixelWidth = pw, gamePixelHeight = ph, hudScale = 1, bezel = 0,
             preset = preset, actualAR = pw / ph, arMode = "NATIVE", isSpanned = false,
-            companionTopology = false, topologyStatus = "MISMATCH",
+            companionTopology = false, topologyStatus = topologyStatus,
         }
     end
     

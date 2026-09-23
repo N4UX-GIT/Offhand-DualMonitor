@@ -732,7 +732,8 @@ namespace Offhand.Companion
         private Button btnSpanNow;
         private Button btnToggleWatch;
         private Button btnCheckUpdates;
-        private ListBox logBox;
+        private RichTextBox logBox;
+        private readonly List<string> activityLogEntries = new List<string>();
         private NotifyIcon trayIcon;
         private ToolStripMenuItem itemAuto;
         private Timer monitorTimer;
@@ -877,7 +878,7 @@ namespace Offhand.Companion
         private void InitializeUI()
         {
             this.Text = "Offhand Companion";
-            this.Size = new Size(524, 758);
+            this.Size = new Size(524, 780);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -992,7 +993,7 @@ namespace Offhand.Companion
             uiToolTips.SetToolTip(btnHelp, "Open the complete Companion setup, daily-use, recovery, and troubleshooting guide.");
 
             // Status Card
-            Panel statusPanel = CreateCardPanel(16, 102, 490, 118, "System Status");
+            Panel statusPanel = CreateCardPanel(16, 102, 490, 140, "System Status");
             this.Controls.Add(statusPanel);
 
             lblWowStatus = new Label
@@ -1018,8 +1019,10 @@ namespace Offhand.Companion
             lblDisplayInfo = new Label
             {
                 Text = "  Virtual Desktop: Checking...",
-                Location = new Point(0, 78),
-                Size = new Size(490, 18),
+                Location = new Point(10, 76),
+                Size = new Size(470, 36),
+                AutoSize = false,
+                UseMnemonic = false,
                 Font = new Font("Segoe UI", 8.5f),
                 ForeColor = cMuted
             };
@@ -1028,15 +1031,17 @@ namespace Offhand.Companion
             lblAddonReason = new Label
             {
                 Text = "",
-                Location = new Point(0, 98),
-                Size = new Size(490, 16),
+                Location = new Point(10, 114),
+                Size = new Size(470, 18),
+                AutoSize = false,
+                UseMnemonic = false,
                 Font = new Font("Segoe UI", 7.5f, FontStyle.Italic),
                 ForeColor = cYellow
             };
             statusPanel.Controls.Add(lblAddonReason);
 
             // Configuration Card
-            Panel configPanel = CreateCardPanel(16, 230, 490, 184, "Configuration");
+            Panel configPanel = CreateCardPanel(16, 252, 490, 184, "Configuration");
             this.Controls.Add(configPanel);
 
             chkAutoSpan = new CheckBox
@@ -1195,17 +1200,17 @@ namespace Offhand.Companion
 
 
             // Action Buttons
-            btnSpanNow = CreateButton("Span WoW Now", 16, 426, 158, 36, cBtnPrimaryBg, cGoldBright, cGold);
+            btnSpanNow = CreateButton("Span WoW Now", 16, 448, 158, 36, cBtnPrimaryBg, cGoldBright, cGold);
             btnSpanNow.Click += (s, e) => { InvokeSpanWindow(true); };
             this.Controls.Add(btnSpanNow);
             uiToolTips.SetToolTip(btnSpanNow, "Immediately make the detected WoW window borderless and span it across the selected displays. This also resumes spanning after Restore Window.");
 
-            Button btnRestoreNow = CreateButton("Restore Window", 182, 426, 158, 36, cBtnBg, cText, cBorder);
+            Button btnRestoreNow = CreateButton("Restore Window", 182, 448, 158, 36, cBtnBg, cText, cBorder);
             btnRestoreNow.Click += (s, e) => { InvokeRestoreWindow(true); };
             this.Controls.Add(btnRestoreNow);
             uiToolTips.SetToolTip(btnRestoreNow, "Return WoW to a bordered window filling the selected Mainhand display so off-screen UI can be recovered. Automatic spanning pauses for that WoW process until Span WoW Now is used.");
 
-            btnToggleWatch = CreateButton("Pause Monitor", 348, 426, 158, 36, cBtnBg, cText, cBorder);
+            btnToggleWatch = CreateButton("Pause Monitor", 348, 448, 158, 36, cBtnBg, cText, cBorder);
             btnToggleWatch.Click += (s, e) =>
             {
                 isMonitoring = !isMonitoring;
@@ -1226,22 +1231,27 @@ namespace Offhand.Companion
             uiToolTips.SetToolTip(btnToggleWatch, "Pause or resume background detection of WoW launches. Manual Span and Restore controls remain available while monitoring is paused.");
 
             // Activity Log Card
-            Panel logPanel = CreateCardPanel(16, 474, 490, 200, "Activity Log");
+            Panel logPanel = CreateCardPanel(16, 496, 490, 200, "Activity Log");
             this.Controls.Add(logPanel);
 
-            logBox = new ListBox
+            logBox = new RichTextBox
             {
                 Location = new Point(4, 28),
                 Size = new Size(482, 166),
                 BackColor = cLogBg,
                 ForeColor = cLogText,
                 BorderStyle = BorderStyle.None,
-                Font = new Font("Consolas", 8.5f)
+                Font = new Font("Consolas", 8.5f),
+                ReadOnly = true,
+                DetectUrls = false,
+                ScrollBars = RichTextBoxScrollBars.Vertical,
+                WordWrap = true,
+                TabStop = false
             };
             logPanel.Controls.Add(logBox);
 
             // Footer Buttons
-            Button btnMinimize = CreateButton("Minimize to Tray", 16, 686, 152, 30, cBtnBg, cMuted, cBorderDim);
+            Button btnMinimize = CreateButton("Minimize to Tray", 16, 708, 152, 30, cBtnBg, cMuted, cBorderDim);
             btnMinimize.Click += (s, e) =>
             {
                 this.Hide();
@@ -1250,12 +1260,12 @@ namespace Offhand.Companion
             this.Controls.Add(btnMinimize);
             uiToolTips.SetToolTip(btnMinimize, "Hide the dashboard while keeping the Companion and launch monitor running in the Windows notification tray.");
 
-            btnCheckUpdates = CreateButton("Check for Updates", 182, 686, 158, 30, cBtnBg, cText, cBorder);
+            btnCheckUpdates = CreateButton("Check for Updates", 182, 708, 158, 30, cBtnBg, cText, cBorder);
             btnCheckUpdates.Click += (s, e) => { CheckForUpdates(); };
             this.Controls.Add(btnCheckUpdates);
             uiToolTips.SetToolTip(btnCheckUpdates, "Contact the official GitHub Releases API once to compare versions. The Companion never checks for updates automatically.");
 
-            Button btnExit = CreateButton("Exit Companion", 356, 686, 152, 30, cBtnDanger, Color.FromArgb(235, 130, 130), Color.FromArgb(140, 45, 45));
+            Button btnExit = CreateButton("Exit Companion", 356, 708, 152, 30, cBtnDanger, Color.FromArgb(235, 130, 130), Color.FromArgb(140, 45, 45));
             btnExit.Click += (s, e) => { ExitApplication(); };
             this.Controls.Add(btnExit);
             uiToolTips.SetToolTip(btnExit, "Stop monitoring and fully exit the Companion. Closing the title-bar X only minimizes it to the tray.");
@@ -1525,11 +1535,12 @@ namespace Offhand.Companion
         {
             if (logBox == null) { configWarning = message; return; }
             string time = DateTime.Now.ToString("HH:mm:ss");
-            logBox.Items.Insert(0, string.Format("[{0}] {1}", time, message));
-            while (logBox.Items.Count > 100)
-            {
-                logBox.Items.RemoveAt(logBox.Items.Count - 1);
-            }
+            activityLogEntries.Insert(0, string.Format("[{0}] {1}", time, message));
+            while (activityLogEntries.Count > 100) activityLogEntries.RemoveAt(activityLogEntries.Count - 1);
+            logBox.Lines = activityLogEntries.ToArray();
+            logBox.SelectionStart = 0;
+            logBox.SelectionLength = 0;
+            logBox.ScrollToCaret();
         }
 
         private void InitializeTimer()
@@ -1866,7 +1877,7 @@ namespace Offhand.Companion
                 spannedPids.Remove(proc.Id);
                 restoredPids.Add(proc.Id);
                 AddLog(fillConnectedMainhand
-                    ? "Restored WoW across the selected or surviving Mainhand display. Auto-span paused until Span Now."
+                    ? "Restored WoW across the selected or surviving Mainhand display. Auto-span paused until Span Now. On Forever, click Use Modern if Offhand prompts."
                     : "Restored WoW window. Auto-span paused for this client until Span Now or a new WoW launch.");
                 return true;
             }

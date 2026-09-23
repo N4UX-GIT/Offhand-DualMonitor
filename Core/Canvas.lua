@@ -1018,8 +1018,17 @@ end
 -- on Mainhand. Their saved geometry and open-state snapshot are intentionally
 -- retained; reconnecting and reloading restores them. Panels opened manually
 -- after recovery remain usable with Blizzard's native single-screen anchors.
+local function IsSingleScreenRecovery(metrics)
+    if Offhand.Viewport and Offhand.Viewport.IsSingleScreenRecovery then
+        return Offhand.Viewport:IsSingleScreenRecovery(metrics)
+    end
+    return metrics and not metrics.isSpanned
+        and (metrics.topologyStatus == "MISMATCH"
+            or (Offhand.isForever and metrics.topologyStatus == "ABSENT")) or false
+end
+
 function Canvas:PrepareSingleScreenRecovery(metrics)
-    if not metrics or metrics.topologyStatus ~= "MISMATCH" or not Offhand.db
+    if not IsSingleScreenRecovery(metrics) or not Offhand.db
         or not Offhand.db.savedWorkspacePositions then return end
     for name in pairs(Offhand.db.savedWorkspacePositions) do
         if not tostring(name):match("^ChatFrame%d+$") and not IsForeverEditModeFrame(_G[name], name) then
@@ -1034,7 +1043,7 @@ end
 function Canvas:PlaceForSingleScreenRecovery(frame, metrics)
     if not frame or not Offhand.db or not Offhand.db.savedWorkspacePositions then return false end
     metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics())
-    if not metrics or metrics.topologyStatus ~= "MISMATCH" then return false end
+    if not IsSingleScreenRecovery(metrics) then return false end
     local name = frame.GetName and frame:GetName()
     if not name or not Offhand.db.savedWorkspacePositions[name]
         or IsForeverEditModeFrame(frame, name) or IsUnsafeForDirectMutation(frame) then return false end
@@ -1567,18 +1576,16 @@ function Canvas:EnableFreeDragging()
         local chatTab = chatName and _G[chatName .. "Tab"]
         if chatTab and not chatTab._OffhandTabHooked and chatTab.HookScript then
             chatTab._OffhandTabHooked = true
-            chatTab:RegisterForDrag("LeftButton")
-            chatFrame:SetMovable(true)
-            
-            -- Override to physically force the chat frame to move even in Retail WoW
-            chatTab:HookScript("OnDragStart", function() 
+
+            -- Observe Blizzard's native chat-tab drag without changing its lock,
+            -- docking, drag registration or movable state. Forcing StartMoving on
+            -- Forever's locked static ChatFrame1 raises "Frame is not movable".
+            chatTab:HookScript("OnDragStart", function()
                 if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
-                chatFrame._OffhandDragging = true 
-                chatFrame:StartMoving()
+                chatFrame._OffhandDragging = true
             end)
-            
+
             chatTab:HookScript("OnDragStop", function(self)
-                chatFrame:StopMovingOrSizing()
                 chatFrame._OffhandDragging = false
                 if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
                 -- Docked tabs belong to GeneralDockManager (or its scroll child),

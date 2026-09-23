@@ -123,8 +123,20 @@ OffhandCompanionTopology.physicalWidth=9999
 tm=addon.Viewport:GetMetrics()
 assert(not tm.isSpanned and tm.topologyStatus=="MISMATCH" and tm.gamePixelWidth==2560)
 OffhandCompanionTopology=nil
+addon.isForever=true
+tm=addon.Viewport:GetMetrics()
+assert(not tm.isSpanned and tm.topologyStatus=="ABSENT"
+        and tm.gamePixelLeft==0 and tm.gamePixelBottom==0
+        and tm.gamePixelWidth==pw and tm.gamePixelHeight==ph,
+    "Forever must fail safe to the full current window without exact Companion topology")
+assert(addon.Viewport:IsSingleScreenRecovery(tm),
+    "Forever absent topology must enter the single-screen recovery path")
+addon.isForever=false
+tm=addon.Viewport:GetMetrics()
+assert(tm.isSpanned and tm.topologyStatus=="ABSENT",
+    "non-Forever clients must retain legacy manual-span geometry")
 pw,ph=4000,2560
-print("PASS: exact mixed-resolution Companion topology and stale-topology fail-safe")
+print("PASS: exact mixed-resolution topology, stale guard, Forever absent-topology fail-safe")
 
 -- Regression: Blizzard XP scale resets must be repaired before the call returns,
 -- without scheduling another full viewport layout or recursively hooking itself.

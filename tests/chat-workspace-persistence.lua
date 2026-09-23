@@ -145,6 +145,17 @@ ChatFrame1 = makeMockFrame("ChatFrame1", 400, 220)
 ChatFrame1Tab = makeMockFrame("ChatFrame1Tab", 60, 24)
 ChatFrame1Tab.GetParent = function() return ChatFrame1 end
 ChatFrame1EditBox = makeMockFrame("ChatFrame1EditBox", 400, 30)
+ChatFrame1.isLocked = true
+ChatFrame1.isDocked = 1
+ChatFrame1.SetMovable = function()
+    error("Offhand must not override Blizzard's locked chat movable state")
+end
+ChatFrame1.StartMoving = function()
+    error("Offhand must not force StartMoving on a locked or docked chat frame")
+end
+ChatFrame1Tab.RegisterForDrag = function()
+    error("Offhand must not override Blizzard's native chat-tab drag registration")
+end
 
 -- Load Offhand modules
 assert(loadfile("UI/Themes.lua"))("Offhand", addon)
@@ -158,6 +169,9 @@ addon.SeamRedirect:HookFrames()
 assert(ChatFrame1._OffhandChatHooked == true, "ChatFrame1 must be hooked for workspace dragging")
 assert(ChatFrame1Tab._OffhandTabHooked == true, "ChatFrame1Tab must be hooked for workspace dragging")
 assert(ChatFrame1.clamped == false, "ChatFrame1 must be unclamped from screen")
+local lockedDragOk, lockedDragError = pcall(ChatFrame1Tab.scripts.OnDragStart, ChatFrame1Tab)
+assert(lockedDragOk, "Locked/docked ChatFrame1 drag observation must not force movement: " .. tostring(lockedDragError))
+ChatFrame1._OffhandDragging = false
 
 -- Blizzard's default anchor starts over the workspace. Position alone must not
 -- turn that default into an explicit workspace placement, even if userPlaced is set.

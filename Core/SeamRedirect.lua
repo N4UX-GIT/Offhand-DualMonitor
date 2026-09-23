@@ -94,9 +94,47 @@ local FOREVER_MODERN_LAYOUT_ID = 1
 local FOREVER_MISMATCH_GRACE_SECONDS = 8
 
 local function GetForeverLayoutByID(data, layoutID)
+    if type(data) ~= "table" or type(data.layouts) ~= "table" then return nil end
     layoutID = tonumber(layoutID)
     if not layoutID or layoutID <= FOREVER_CUSTOM_LAYOUT_OFFSET then return nil end
     return data.layouts[layoutID - FOREVER_CUSTOM_LAYOUT_OFFSET]
+end
+
+local function EditModeLayoutNamesMatch(left, right)
+    return type(left) == "string" and type(right) == "string"
+        and string.lower(left) == string.lower(right)
+end
+
+local function FindForeverLayoutByName(data, layoutName)
+    if type(data) ~= "table" or type(data.layouts) ~= "table" or type(layoutName) ~= "string" then return nil end
+    for index, layout in ipairs(data.layouts) do
+        if layout and EditModeLayoutNamesMatch(layout.layoutName, layoutName) then
+            return layout, index + FOREVER_CUSTOM_LAYOUT_OFFSET
+        end
+    end
+end
+
+local function ResolveForeverLayoutID(data, savedID, savedName)
+    local numericID = tonumber(savedID)
+    local layout = GetForeverLayoutByID(data, numericID)
+    if layout and (not savedName or EditModeLayoutNamesMatch(layout.layoutName, savedName)) then
+        return numericID, layout
+    end
+    local namedLayout, namedID = FindForeverLayoutByName(data, savedName)
+    if namedID then return namedID, namedLayout end
+    -- A remembered name is stronger evidence than a stale numeric slot. If the
+    -- named layout no longer exists, never select whichever unrelated layout
+    -- happens to occupy its former ID.
+    if type(savedName) == "string" then return nil end
+    return numericID, layout
+end
+
+local function IsForeverSingleScreenRecovery(metrics)
+    if Offhand.Viewport and Offhand.Viewport.IsSingleScreenRecovery then
+        return Offhand.Viewport:IsSingleScreenRecovery(metrics)
+    end
+    return metrics and not metrics.isSpanned
+        and (metrics.topologyStatus == "MISMATCH" or metrics.topologyStatus == "ABSENT") or false
 end
 
 local function ScheduleForeverRecoveryRetry(self, delay)
@@ -115,7 +153,7 @@ local function ScheduleForeverMismatchConfirmation(self)
     C_Timer.After(FOREVER_MISMATCH_GRACE_SECONDS, function()
         self.foreverMismatchConfirmationPending = nil
         local current = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
-        if current and current.topologyStatus == "MISMATCH" then
+        if IsForeverSingleScreenRecovery(current) then
             self.foreverMismatchConfirmed = true
             self:UpdateForeverRecoveryLayout(current)
         else
@@ -149,9 +187,9 @@ function HUD:UpdateForeverRecoveryLayout(metrics)
     local activeName = active and active.layoutName
     local recovery = Offhand.db.foreverEditModeRecovery
 
-    if metrics.topologyStatus == "MISMATCH" then
+    if IsForeverSingleScreenRecovery(metrics) then
         if not recovery then
-            if not activeName or string.lower(activeName) ~= "offhand" then return end
+            if not EditModeLayoutNamesMatch(activeName, "Offhand") then return end
             if self.foreverMismatchDeclined then return end
             if not self.foreverMismatchConfirmed then
                 ScheduleForeverMismatchConfirmation(self)
@@ -180,7 +218,12 @@ function HUD:UpdateForeverRecoveryLayout(metrics)
     self.foreverMismatchDeclined = nil
 
     if recovery and metrics.companionTopology and metrics.isSpanned then
-        local restoreID = tonumber(recovery.restoreLayoutID)
+        local restoreID, restoreLayout = ResolveForeverLayoutID(
+            data, recovery.restoreLayoutID, recovery.restoreLayoutName)
+        if restoreID and restoreLayout then
+            recovery.restoreLayoutID = restoreID
+            recovery.restoreLayoutName = restoreLayout.layoutName
+        end
         local fallbackMatches = activeID == tonumber(recovery.fallbackLayoutID)
         if activeID == restoreID then
             Offhand.db.foreverEditModeRecovery = nil
@@ -218,8 +261,18 @@ function HUD:ApplyForeverRecoveryChoice(choice)
     if InCombatLockdown() or not Offhand.db then return end
     local recovery = Offhand.db.foreverEditModeRecovery
     if type(recovery) ~= "table" then return end
-    local targetID = choice == "restore" and tonumber(recovery.restoreLayoutID)
-        or tonumber(recovery.fallbackLayoutID)
+    local targetID
+    if choice == "restore" then
+        local data = GetEditModeLayouts()
+        local layout
+        targetID, layout = ResolveForeverLayoutID(data, recovery.restoreLayoutID, recovery.restoreLayoutName)
+        if targetID and layout then
+            recovery.restoreLayoutID = targetID
+            recovery.restoreLayoutName = layout.layoutName
+        end
+    else
+        targetID = tonumber(recovery.fallbackLayoutID)
+    end
     if not targetID then return end
     SelectEditModeLayout(targetID)
     self.foreverRecoveryPromptShown = nil
@@ -916,7 +969,7 @@ function HUD:HookFrames()
         local found = false
         local needsSetup = false
         for index, layout in ipairs(layoutData.layouts) do
-            if layout.layoutName and string.lower(layout.layoutName) == string.lower(targetName) then
+            if EditModeLayoutNamesMatch(layout.layoutName, targetName) then
                 found = true
                 if UsesForeverEditMode() then
                     -- A newly copied/renamed layout can still contain Blizzard's

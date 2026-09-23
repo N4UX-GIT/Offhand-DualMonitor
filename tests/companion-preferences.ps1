@@ -19,7 +19,15 @@ try {
     if ($source -notmatch 'btnCheckUpdates\.Click.*CheckForUpdates') {
         throw 'Companion update checks must remain wired to an explicit user action.'
     }
+    if ($source -notmatch 'private RichTextBox logBox' -or
+        $source -notmatch 'logBox = new RichTextBox(?s:.*?)WordWrap = true') {
+        throw 'Companion activity log must remain a word-wrapped read-only text surface.'
+    }
+    if ($source -notmatch 'lblDisplayInfo = new Label(?s:.*?)Size = new Size\(470, 36\)(?s:.*?)AutoSize = false') {
+        throw 'Companion display-plan status must retain enough fixed-width height to wrap disconnect errors.'
+    }
     Write-Output 'PASS: update checks are user initiated'
+    Write-Output 'PASS: long display-plan and activity-log text uses wrapped surfaces'
 } finally {
     if (Test-Path -LiteralPath $testExe) { Remove-Item -LiteralPath $testExe }
 }

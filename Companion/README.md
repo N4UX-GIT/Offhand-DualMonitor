@@ -71,6 +71,9 @@ For one 49-inch or similar 32:9/32:10 display, check only that display, enable
 **Single-display 32:9 split**, and choose whether the game belongs on the left
 or right. For a 32:9 Mainhand plus a separate workspace monitor, leave split
 mode disabled, select both screens, and choose the 32:9 screen as Mainhand.
+The one-display split is currently an equal 50/50 division. Exact Companion
+topology is authoritative, so the in-game seam slider is disabled in this mode
+and does not resize the two native rectangles.
 
 When spanning, the Companion writes the exact normalized game and workspace
 rectangles to `Core\CompanionTopology.lua`. This supports side-by-side, stacked,
