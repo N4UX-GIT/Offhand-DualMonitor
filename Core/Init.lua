@@ -83,6 +83,9 @@ L["FOREVER_KEEP_OFFHAND"] = "Keep Offhand"
 L["FOREVER_RESTORE_LAYOUT_TEXT"] = "Your saved display layout is available again. Forever requires one player click to change protected HUD layouts.\n\nRestore the Offhand layout now?"
 L["FOREVER_RESTORE_OFFHAND"] = "Restore Offhand"
 L["FOREVER_KEEP_MODERN"] = "Keep Modern"
+L["FOREVER_EDIT_MODE_CONTROLS_TEXT"] = "Blizzard opened the Edit Mode controls in unused space outside the physical displays.\n\nBring only the Edit Mode control window to the Mainhand Monitor? Offhand will not move action bars or other protected UI."
+L["FOREVER_EDIT_MODE_BRING_TO_MAINHAND"] = "Bring to Mainhand"
+L["FOREVER_EDIT_MODE_NOT_NOW"] = "Not Now"
 
 -- Options Dashboard Header & Tabs
 L["OPTIONS_TITLE"] = "Offhand DUAL MONITOR WORKSTATION"
@@ -532,6 +535,26 @@ StaticPopupDialogs["OFFHAND_FOREVER_RESTORE_LAYOUT"] = {
     preferredIndex = 3,
 }
 
+StaticPopupDialogs["OFFHAND_FOREVER_EDIT_MODE_CONTROLS"] = {
+    text = Offhand.L["FOREVER_EDIT_MODE_CONTROLS_TEXT"],
+    button1 = Offhand.L["FOREVER_EDIT_MODE_BRING_TO_MAINHAND"],
+    button2 = Offhand.L["FOREVER_EDIT_MODE_NOT_NOW"],
+    OnAccept = function()
+        if Offhand.HUD and Offhand.HUD.BringForeverEditModeControlsToMainhand then
+            Offhand.HUD:BringForeverEditModeControlsToMainhand()
+        end
+    end,
+    OnCancel = function()
+        if Offhand.HUD and Offhand.HUD.DismissForeverEditModeControlsPrompt then
+            Offhand.HUD:DismissForeverEditModeControlsPrompt()
+        end
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
 
 function Offhand:InitializePopups()
     StaticPopupDialogs["OFFHAND_COMPANION_WARNING"].text = Offhand.L["POPUP_COMPANION_WARNING_TEXT"]
@@ -549,6 +572,10 @@ function Offhand:InitializePopups()
     restore.text = Offhand.L["FOREVER_RESTORE_LAYOUT_TEXT"]
     restore.button1 = Offhand.L["FOREVER_RESTORE_OFFHAND"]
     restore.button2 = Offhand.L["FOREVER_KEEP_MODERN"]
+    local editMode = StaticPopupDialogs["OFFHAND_FOREVER_EDIT_MODE_CONTROLS"]
+    editMode.text = Offhand.L["FOREVER_EDIT_MODE_CONTROLS_TEXT"]
+    editMode.button1 = Offhand.L["FOREVER_EDIT_MODE_BRING_TO_MAINHAND"]
+    editMode.button2 = Offhand.L["FOREVER_EDIT_MODE_NOT_NOW"]
 end
 
 function Offhand:ShowForeverLayoutRecoveryPrompt(kind)
@@ -561,6 +588,14 @@ function Offhand:HideForeverLayoutRecoveryPrompt(kind)
     local key = kind == "restore" and "OFFHAND_FOREVER_RESTORE_LAYOUT"
         or "OFFHAND_FOREVER_SINGLE_SCREEN_LAYOUT"
     if StaticPopup_Hide then StaticPopup_Hide(key) end
+end
+
+function Offhand:ShowForeverEditModeControlsPrompt()
+    if StaticPopup_Show then StaticPopup_Show("OFFHAND_FOREVER_EDIT_MODE_CONTROLS") end
+end
+
+function Offhand:HideForeverEditModeControlsPrompt()
+    if StaticPopup_Hide then StaticPopup_Hide("OFFHAND_FOREVER_EDIT_MODE_CONTROLS") end
 end
 
 local eventFrame = CreateFrame("Frame", "OffhandEventFrame")

@@ -26,18 +26,27 @@ Forever recovery, workspace persistence, and Blizzard Edit Mode ownership are
 preserved.
 
 This beta also tightens Forever's secure-UI boundary after user reports from
-Beta 1. Offhand no longer replaces Blizzard's global close functions, changes
-secure panel-manager metadata, or reanchors the Edit Mode manager, Game Menu,
-Cooldown Viewer and other Blizzard-managed Edit Mode frames. This targets the
-reported `CompactUnitFrame`, `TextStatusBar` and Cooldown Viewer taint errors.
-On Forever, the dedicated World Map path still removes a workspace map from
-Blizzard's Escape-close registry, so it remains open without replacing global
-window functions. Character and other native UI panels can close when Blizzard
-still considers them the active left/center panel; native bags use a separate
-bag-close path. Saved Offhand positions remain available when those panels
-reopen. Offhand also no longer force-centers the Edit Mode manager. If its
-native controls land in a mixed-height black void, use Companion **Restore
-Window**, edit the layout in the normal window, then span again.
+Beta 1. Offhand no longer replaces Blizzard's global close functions or changes
+secure panel-manager metadata, and it excludes the Game Menu, Cooldown Viewer
+and other Blizzard-managed Edit Mode frames from generic dragging and recovery.
+This targets the reported `CompactUnitFrame`, `TextStatusBar` and Cooldown
+Viewer taint errors.
+
+The dedicated World Map path now detaches a saved workspace map from both of
+Blizzard's Escape-close mechanisms: `UISpecialFrames` and the active UI-panel
+slot. The map therefore remains open while the first Escape opens the Game Menu
+and the second closes only that menu, including after reopening the map or using
+Edit Mode. This does not replace Blizzard's global close functions or mutate
+secure panel metadata. Character and other native UI panels can still close
+when Blizzard owns their active panel slot; native bags use a separate bag-close
+path. Saved Offhand positions remain available when those panels reopen.
+
+If Forever places the unprotected Edit Mode control window in mixed-height
+black void, Offhand now displays a player-click recovery prompt. **Bring to
+Mainhand** moves only that control window to the game view. It does not move
+action bars, unit frames or other protected HUD elements. Live acceptance
+confirmed clean Edit Mode entry and exit, persistent workspace map behavior,
+native Game Menu access and no Lua error.
 
 Use standard Windowed mode. Start Companion 2.1.2 before WoW, select the displays
 and Mainhand, then click **Span WoW Now**. If WoW already loaded the character

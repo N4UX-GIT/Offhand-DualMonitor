@@ -24,9 +24,12 @@ All notable changes to this project will be documented in this file.
 - Blizzard Cooldown Viewer and other Forever Edit Mode-managed frames are now
   excluded from generic dragging, saved-position recovery and void rescue,
   preventing aura-table taint after display-orientation changes.
-- Forever leaves the Edit Mode manager, Game Menu and native panel anchors under
-  Blizzard ownership. Native Escape behavior now takes precedence over keeping
-  every Blizzard panel persistently open on the workspace.
+- Forever leaves the Game Menu and protected Edit Mode systems under Blizzard
+  ownership. If the unprotected Edit Mode control window opens in mixed-height
+  display void, a player-click prompt can move only that window to Mainhand.
+- A saved Forever workspace map now detaches from both `UISpecialFrames` and
+  Blizzard's active UI-panel slot, preserving the map through Escape without
+  replacing global close functions or changing secure panel metadata.
 - Forever now fails safe to a normal full-window viewport when exact Companion
   topology is absent, including after Restore Window. The same recovery flow
   preserves workspace panel state and offers the player-click Modern/Offhand

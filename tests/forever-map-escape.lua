@@ -1,6 +1,6 @@
 -- Forever World Map Escape persistence.
--- The map uses Blizzard's UISpecialFrames registry, so it can remain open on
--- the workspace without replacing CloseAllWindows or mutating UIPanelWindows.
+-- The map is detached from both Blizzard Escape-close mechanisms, so it can
+-- remain open without replacing CloseAllWindows or mutating UIPanelWindows.
 
 local addon = {
     isForever = true,
@@ -34,6 +34,16 @@ UIParent = {
 }
 InCombatLockdown = function() return false end
 GetCVar = function() return "1" end
+C_Timer = { After = function(_, fn) fn() end }
+
+local activePanels = { left = nil, center = nil, right = nil, doublewide = nil }
+GetUIPanel = function(area) return activePanels[area] end
+HideUIPanel = function(frame)
+    for area, panel in pairs(activePanels) do
+        if panel == frame then activePanels[area] = nil end
+    end
+    frame:Hide()
+end
 
 local function makeMap()
     local map = {
@@ -42,8 +52,14 @@ local function makeMap()
     }
     function map:GetName() return "WorldMapFrame" end
     function map:IsShown() return self.shown end
-    function map:Show() self.shown = true end
-    function map:Hide() self.shown = false end
+    function map:Show()
+        self.shown = true
+        if self.scripts.OnShow then self.scripts.OnShow(self) end
+    end
+    function map:Hide()
+        self.shown = false
+        if self.scripts.OnHide then self.scripts.OnHide(self) end
+    end
     function map:GetWidth() return self.width end
     function map:GetHeight() return self.height end
     function map:GetScale() return self.scale end
@@ -54,6 +70,8 @@ local function makeMap()
     function map:SetIgnoreParentScale() end
     function map:EnableMouseWheel() end
     function map:HookScript(event, fn) self.scripts[event] = fn end
+    function map:GetScript(event) return self.scripts[event] end
+    function map:SetScript(event, fn) self.scripts[event] = fn end
     function map:ClearAllPoints() end
     function map:SetPoint(_, _, _, x, y)
         self.left = x or self.left
@@ -64,6 +82,7 @@ end
 
 WorldMapFrame = makeMap()
 UISpecialFrames = { "WorldMapFrame" }
+activePanels.left = WorldMapFrame
 
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 addon.Canvas:ConfigureWorldMap()
@@ -84,9 +103,18 @@ end
 
 assert(not isSpecial("WorldMapFrame"),
     "A Forever workspace map must be removed from the Escape-close registry")
+assert(GetUIPanel("left") ~= WorldMapFrame,
+    "A Forever workspace map must be detached from Blizzard's active panel slot")
 pressEscapeCloseSpecialFrames()
 assert(WorldMapFrame:IsShown(),
     "Escape must not close a Forever map with a saved workspace position")
+
+-- Native reopening can put the map back into a UIPanel slot. Its OnShow repair
+-- must detach and restore the workspace map before the next Escape press.
+activePanels.left = WorldMapFrame
+WorldMapFrame:Show()
+assert(GetUIPanel("left") ~= WorldMapFrame and WorldMapFrame:IsShown(),
+    "Reopening a saved workspace map must not leave it in an Escape-close panel slot")
 
 addon.db.savedWorkspacePositions.WorldMapFrame = nil
 addon.db.savedMainPositions.WorldMapFrame = { x = 1600, y = 1000 }

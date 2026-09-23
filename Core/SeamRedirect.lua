@@ -300,6 +300,91 @@ function HUD:CancelForeverRecoveryChoice(kind)
     self.foreverRecoveryPromptShown = nil
     if kind == "fallback" then self.foreverMismatchDeclined = true end
 end
+
+local function FrameFitsPhysicalDisplay(frame, metrics)
+    if not frame or not metrics or not frame.GetLeft or not frame.GetBottom
+        or not frame.GetWidth or not frame.GetHeight then return true end
+    local ok, left, bottom, width, height = pcall(function()
+        local parentScale = (UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
+        local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or parentScale
+        local factor = frameScale / parentScale
+        return frame:GetLeft() * factor, frame:GetBottom() * factor,
+            frame:GetWidth() * factor, frame:GetHeight() * factor
+    end)
+    if not ok or not left or not bottom or not width or not height then return true end
+    local right, top = left + width, bottom + height
+    local function Fits(l, b, r, t)
+        return l and b and r and t and left >= l - 1 and bottom >= b - 1
+            and right <= r + 1 and top <= t + 1
+    end
+    return Fits(metrics.gameLeft, metrics.gameBottom, metrics.gameRight, metrics.gameTop)
+        or Fits(metrics.workspaceLeft, metrics.workspaceBottom, metrics.workspaceRight, metrics.workspaceTop)
+end
+
+-- Forever anchors this unprotected control window to the top of the complete
+-- virtual canvas. With mixed-height displays that anchor can land in the void.
+-- Detection stays read-only; the one anchor write is reserved for the recovery
+-- popup's explicit player click and never touches Edit Mode systems or metadata.
+function HUD:UpdateForeverEditModeControlsRecovery(metrics)
+    if not UsesForeverEditMode() or not Offhand.db or not Offhand.db.enabled then return end
+    local manager = _G.EditModeManagerFrame
+    local shown = manager and manager.IsShown and manager:IsShown()
+    if not shown then
+        if self.foreverEditModeManagerWasShown and Offhand.HideForeverEditModeControlsPrompt then
+            Offhand:HideForeverEditModeControlsPrompt()
+        end
+        self.foreverEditModeManagerWasShown = nil
+        self.foreverEditModeControlsPromptShown = nil
+        self.foreverEditModeControlsPromptDeclined = nil
+        return
+    end
+
+    if not self.foreverEditModeManagerWasShown then
+        self.foreverEditModeManagerWasShown = true
+        self.foreverEditModeControlsPromptShown = nil
+        self.foreverEditModeControlsPromptDeclined = nil
+    end
+    if InCombatLockdown() then return end
+    metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics())
+    if not metrics or not metrics.isSpanned or FrameFitsPhysicalDisplay(manager, metrics) then return end
+    if self.foreverEditModeControlsPromptShown or self.foreverEditModeControlsPromptDeclined then return end
+    self.foreverEditModeControlsPromptShown = true
+    if Offhand.ShowForeverEditModeControlsPrompt then
+        Offhand:ShowForeverEditModeControlsPrompt()
+    end
+end
+
+function HUD:BringForeverEditModeControlsToMainhand()
+    if not UsesForeverEditMode() or InCombatLockdown() then return false end
+    local manager = _G.EditModeManagerFrame
+    if not manager or not manager.IsShown or not manager:IsShown()
+        or (manager.IsForbidden and manager:IsForbidden())
+        or (manager.IsProtected and manager:IsProtected()) then return false end
+    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+    if not metrics or not metrics.isSpanned then return false end
+
+    manager:ClearAllPoints()
+    if WorldFrame then
+        manager:SetPoint("CENTER", WorldFrame, "CENTER", 0, 0)
+    else
+        local parentScale = UIParent:GetEffectiveScale()
+        local frameScale = manager:GetEffectiveScale()
+        local factor = parentScale / frameScale
+        local centerX = (metrics.gameLeft + metrics.gameRight) / 2
+        local centerY = (metrics.gameBottom + metrics.gameTop) / 2
+        manager:SetPoint("CENTER", UIParent, "CENTER",
+            (centerX - UIParent:GetWidth() / 2) * factor,
+            (centerY - UIParent:GetHeight() / 2) * factor)
+    end
+    self.foreverEditModeControlsPromptShown = nil
+    return true
+end
+
+function HUD:DismissForeverEditModeControlsPrompt()
+    self.foreverEditModeControlsPromptShown = nil
+    self.foreverEditModeControlsPromptDeclined = true
+end
+
 local function Remember(frame)
     desiredFrames[frame] = desiredFrames[frame] or {}
     return desiredFrames[frame]
@@ -929,6 +1014,7 @@ function HUD:HookFrames()
         self.popupTicker = C_Timer.NewTicker(2, function()
             RedirectExternalPopups()
             CheckEditModeHooks()
+            HUD:UpdateForeverEditModeControlsRecovery()
         end)
     end
 

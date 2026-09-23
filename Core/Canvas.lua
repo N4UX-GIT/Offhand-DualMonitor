@@ -96,6 +96,7 @@ local function HasLeatrixPlus()
 end
 
 local DemodalizePanel, RemodalizePanel, OnPanelDragStop, RestoreWorkspacePosition, IsFrameOnWorkspace
+local EvictWorkspacePanelSlot
 
 -- Forever exposes Edit Mode through a load-on-demand addon.  The absence of
 -- EditModeManagerFrame during early login therefore does not mean these frames
@@ -665,6 +666,7 @@ function Canvas:ConfigureWorldMap()
         map:SetScale(fitScale)
         if Offhand.db.persistentWorkspacePanels ~= false then
             UnregisterSpecialFrame("WorldMapFrame")
+            EvictWorkspacePanelSlot(map)
         end
     else
         local userMainScale = Offhand.db.mainMapScale
@@ -693,6 +695,15 @@ function Canvas:ConfigureWorldMap()
             local isWs = (Offhand.db and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["WorldMapFrame"]) or IsFrameOnWorkspace(self)
             if isWs and (Offhand.db and Offhand.db.persistentWorkspacePanels ~= false) then
                 UnregisterSpecialFrame("WorldMapFrame")
+                if not self._OffhandEvictingPanelSlot and C_Timer and C_Timer.After then
+                    C_Timer.After(0, function()
+                        local saved = Offhand.db and Offhand.db.savedWorkspacePositions
+                            and Offhand.db.savedWorkspacePositions["WorldMapFrame"]
+                        if saved and self.IsShown and self:IsShown() then
+                            RestoreWorkspacePosition(self)
+                        end
+                    end)
+                end
             else
                 RegisterSpecialFrame("WorldMapFrame")
             end
@@ -728,6 +739,29 @@ IsFrameOnWorkspace = function(frame)
 end
 
 local originalAreas = {}
+
+-- A workspace panel can still occupy one of Blizzard's active UIPanel slots
+-- even after it has been removed from UISpecialFrames. Escape closes that slot
+-- independently. Detach only the already-saved workspace panel; do not alter
+-- UIPanelWindows or any secure layout attributes (especially on Forever).
+EvictWorkspacePanelSlot = function(frame)
+    if not frame or not GetUIPanel or not HideUIPanel or frame._OffhandEvictingPanelSlot then return false end
+    local occupiesSlot = GetUIPanel("left") == frame or GetUIPanel("center") == frame
+        or GetUIPanel("right") == frame or GetUIPanel("doublewide") == frame
+    if not occupiesSlot then return false end
+
+    frame._OffhandEvictingPanelSlot = true
+    local oldHide = frame.GetScript and frame:GetScript("OnHide")
+    local oldShow = frame.GetScript and frame:GetScript("OnShow")
+    if oldHide and frame.SetScript then frame:SetScript("OnHide", nil) end
+    if oldShow and frame.SetScript then frame:SetScript("OnShow", nil) end
+    pcall(function() HideUIPanel(frame, 1) end)
+    if frame.Show then frame:Show() end
+    if oldHide and frame.SetScript then frame:SetScript("OnHide", oldHide) end
+    if oldShow and frame.SetScript then frame:SetScript("OnShow", oldShow) end
+    frame._OffhandEvictingPanelSlot = nil
+    return true
+end
 
 
 DemodalizePanel = function(frame)
@@ -881,23 +915,12 @@ OnPanelDragStop = function(frame)
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         
         if Offhand.db.independentWorkspacePanels or frame == WorldMapFrame then
-            -- Evict from Blizzard UIPanel slot if currently occupying one
-            if GetUIPanel and (GetUIPanel("left") == frame or GetUIPanel("center") == frame or GetUIPanel("right") == frame or GetUIPanel("doublewide") == frame) then
-                local oldHide = frame:GetScript("OnHide")
-                local oldShow = frame:GetScript("OnShow")
-                if oldHide then frame:SetScript("OnHide", nil) end
-                if oldShow then frame:SetScript("OnShow", nil) end
-                
-                pcall(function() HideUIPanel(frame, 1) end)
-                
-                local w, h = frame:GetWidth(), frame:GetHeight()
-                frame:ClearAllPoints()
-                frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
-                                frame:Show()
-                
-                if oldHide then frame:SetScript("OnHide", oldHide) end
-                if oldShow then frame:SetScript("OnShow", oldShow) end
-            end
+            -- Escape closes active UIPanel slots even when UISpecialFrames no
+            -- longer contains this workspace panel.
+            EvictWorkspacePanelSlot(frame)
+            frame:ClearAllPoints()
+            frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+            frame:Show()
             DemodalizePanel(frame)
         end
 
@@ -1154,6 +1177,7 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         end
         if frame == WorldMapFrame then
             Canvas:ConfigureWorldMap()
+            EvictWorkspacePanelSlot(frame)
         end
         if string.match(name, "^ChatFrame") and wPos.width and wPos.height and frame.SetSize then
             pcall(function() frame:SetSize(wPos.width, wPos.height) end)

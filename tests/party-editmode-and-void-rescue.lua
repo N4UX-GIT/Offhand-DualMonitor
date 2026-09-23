@@ -36,6 +36,7 @@ local metrics = {
     deckWidth = 1440, gameWidth = 2560, gameHeight = 1440,
     gameLeft = 1440, gameBottom = 6, gameRight = 4000, gameTop = 1446,
     gamePixelLeft = 1440, gamePixelBottom = 6, gamePixelWidth = 2560, gamePixelHeight = 1440,
+    workspaceLeft = 0, workspaceBottom = 0, workspaceRight = 1440, workspaceTop = 2560,
     hudScale = 1, bezel = 0, preset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT",
     actualAR = 2560 / 1440, arMode = "16_9", isSpanned = true,
 }
@@ -395,6 +396,39 @@ assert(selectedLayout == nil,
     "Forever must not auto-select an Offhand layout whose main action bar is still in its full-canvas default position")
 assert(addon.HUD.editModeGuidanceShown,
     "Forever must guide the player to configure an unpositioned Offhand Edit Mode layout")
+
+-- A mixed-height span can place only the Edit Mode control window in the
+-- physical void. Detection must not attach handlers or mutate Blizzard state;
+-- the explicit player-click recovery moves only the unprotected manager.
+local editModePromptCount, editModePromptHidden = 0, 0
+addon.ShowForeverEditModeControlsPrompt = function() editModePromptCount = editModePromptCount + 1 end
+addon.HideForeverEditModeControlsPrompt = function() editModePromptHidden = editModePromptHidden + 1 end
+EditModeManagerFrame:ClearAllPoints()
+EditModeManagerFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1268, 1586)
+local voidManagerPointCount = #EditModeManagerFrame.points
+addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+assert(editModePromptCount == 1, "Forever must offer recovery when Edit Mode controls are in the void")
+assert(#EditModeManagerFrame.points == voidManagerPointCount
+        and EditModeManagerFrame.points[1][1] == "BOTTOMLEFT",
+    "Edit Mode void detection must remain read-only")
+assert(next(EditModeManagerFrame.scripts) == nil,
+    "Edit Mode recovery must not attach scripts to Blizzard's manager")
+assert(addon.HUD:BringForeverEditModeControlsToMainhand(),
+    "Player-click recovery must bring the unprotected manager to Mainhand")
+assert(editModePromptHidden == 0,
+    "The Accept callback must let Blizzard close its popup without a re-entrant hide")
+local recoveredManagerPoint = EditModeManagerFrame.points[1]
+assert(recoveredManagerPoint and recoveredManagerPoint[1] == "CENTER"
+        and recoveredManagerPoint[2] == UIParent,
+    "Edit Mode recovery must center the manager without changing panel metadata")
+assert(UIPanelWindows.EditModeManagerFrame.area == "center"
+        and EditModeManagerFrame:GetAttribute("UIPanelLayout-centerFrameSkipAnchoring") == nil,
+    "Edit Mode recovery must not mutate Blizzard panel metadata or attributes")
+EditModeManagerFrame:Hide()
+addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+assert(editModePromptHidden >= 1 and addon.HUD.foreverEditModeManagerWasShown == nil,
+    "Closing Edit Mode must reset control-window recovery for its next opening")
+EditModeManagerFrame:Show()
 
 -- A disconnected saved display must temporarily use a built-in single-screen
 -- layout rather than letting Blizzard clamp the spanned Offhand HUD into a

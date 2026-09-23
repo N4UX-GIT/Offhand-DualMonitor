@@ -387,3 +387,51 @@ setup deferral, and reporting of caught layout errors.
   fallback. Tests cover geometry, themes, nested custom colors, Mainhand frame
   positions, active profile selection, and protected Edit Mode recovery state.
 
+## 2026-09-23: Beta 4 display identity and live panel recovery follow-up
+
+- Companion's stable physical display identity migration selected the landscape
+  2560x1440 primary as Mainhand and generated the expected 4000x2560 topology
+  beside the 1440x2560 portrait workspace. Restore Window and explicit spanning
+  both passed after the one-time physical-display confirmation.
+- The ordinary SavedVariables table and complete Forever fallback were both at
+  revision 4 with empty `savedWorkspacePositions`, `savedMainPositions`, and
+  `openWorkspacePanels`. The per-frame fallback index was also empty. Previously
+  remembered panel coordinates had therefore already been cleared and were not
+  recoverable; this was not a Beta 4 failure to restore an existing coordinate.
+- A fresh World Map drag to the workspace wrote matching active and `W4` Forever
+  fallback coordinates. First Escape opened the Game Menu without closing the
+  map; second Escape closed only the Game Menu. Critical map Escape persistence
+  therefore passed with a valid saved workspace record.
+- The Game Menu initially appeared against the full virtual canvas and visibly
+  jumped to Mainhand through void recovery. This is a confirmed presentation
+  defect; the menu remained accessible and functional.
+- Forever opened `EditModeManagerFrame` at approximately x=1268.8, y=1586.9,
+  size 510x247.6 while Mainhand ended near y=1446. The protected HUD entered Edit
+  Mode correctly, but its control window was inaccessible in the mixed-height
+  void. Blizzard reports the manager as movable, unprotected and mouse-enabled,
+  with its own drag handler, but its small physical intersection was not usable.
+- A diagnostic player-issued anchor change moving only the manager to
+  `WorldFrame` center made the controls visible. Exiting Edit Mode then completed
+  cleanly: the workspace map stayed open, protected HUD placement remained stable,
+  and no Offhand taint error occurred. Blizzard reset the manager to the void on
+  the next Edit Mode opening.
+- Source candidate detects the shown manager outside both physical display
+  rectangles without mutating it. A player-click recovery prompt performs only
+  the tested manager anchor change and leaves Edit Mode systems, scripts, panel
+  metadata and layout attributes untouched.
+- Initial live acceptance exposed two related lifecycle defects: the Accept
+  callback explicitly hid a popup that Blizzard was already closing, and a map
+  reopened through Blizzard could reoccupy the active `left` UI-panel slot even
+  though it remained absent from `UISpecialFrames`. The callback now lets
+  Blizzard complete its native close, while a saved workspace map is detached
+  from the active panel slot after every native reopen.
+- Final live `/reload` acceptance passed. The map reopened at its saved workspace
+  position, occupied no left/center/right/doublewide UI-panel slot, survived the
+  first Escape while the Game Menu opened, and survived the second Escape while
+  only the Game Menu closed. Edit Mode then opened with the map intact; **Bring
+  to Mainhand** exposed its control window without closing the map or producing
+  a Lua error; normal Edit Mode exit and a subsequent Escape repeated the same
+  correct map and Game Menu behavior.
+- All 20 Lua test files, manifests, locale dictionaries, Forever taint-boundary
+  checks and Companion preference tests pass after the final map-panel fix.
+
