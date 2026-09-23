@@ -31,7 +31,7 @@
 2.  **Get Companion v2.1.2 or newer:** Download the Companion App from the [GitHub Releases page](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases), extract it, and start it before WoW. It is required for exact-topology setup, safe missing-monitor recovery, and reliable cold-launch restoration on the current Forever beta, and strongly recommended on other clients.
 
 > [!IMPORTANT]
-> **Verify the Companion before running it.** Official GitHub releases include SHA-256 checksums and a GitHub build-provenance attestation. An unsigned or low-reputation build may still produce a Windows SmartScreen warning; never bypass a warning for a file obtained from an unofficial source. Follow the verification steps in [SECURITY.md](SECURITY.md).
+> **Verify the Companion before running it.** Official GitHub releases include SHA-256 checksums. Releases built by GitHub Actions may additionally provide a build-provenance attestation; check the individual release notes rather than assuming one exists. An unsigned or low-reputation build may still produce a Windows SmartScreen warning; never bypass a warning for a file obtained from an unofficial source. Follow the verification steps in [SECURITY.md](SECURITY.md).
 
 3.  **Set WoW to standard Windowed Mode:** In WoW's Graphics settings, set Display Mode to **Windowed**, not Windowed (Fullscreen).
 4.  **Choose displays and span:** In Companion, select exactly two displays and choose the **Mainhand (game)** display. The other becomes the workspace. For one 32:9/32:10 screen, select only it and explicitly enable **Single-display 32:9 split**. Automatic spanning is disabled by default; launch WoW and click **Span WoW Now** (Ctrl+Alt+S) after it starts.

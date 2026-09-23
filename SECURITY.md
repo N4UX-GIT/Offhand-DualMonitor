@@ -8,7 +8,8 @@ https://github.com/N4UX-GIT/Offhand-DualMonitor/releases
 
 Do not bypass a browser, antivirus, or SmartScreen warning for an executable
 obtained from another source. Official releases provide the source code,
-`checksums-sha256.txt`, and a GitHub build-provenance attestation.
+and `checksums-sha256.txt`. A release built by GitHub Actions may additionally
+provide a build-provenance attestation when its release notes explicitly say so.
 
 ## Verify a release
 
@@ -21,15 +22,16 @@ Get-FileHash -Algorithm SHA256 -LiteralPath .\Offhand.exe
 Compare the complete digest with the `Offhand.exe` entry in the release's
 `checksums-sha256.txt`. A mismatch means the file must not be run.
 
-With GitHub CLI installed, verify that GitHub Actions built the artifact from
-this repository:
+If the release notes identify the artifact as a GitHub Actions build, use GitHub
+CLI to verify its attestation:
 
 ```powershell
 gh attestation verify .\Offhand.exe --repo N4UX-GIT/Offhand-DualMonitor
 ```
 
 An attestation proves build provenance and integrity; it is not an antivirus
-verdict or an Authenticode publisher signature.
+verdict or an Authenticode publisher signature. A locally compiled release may
+have an official checksum without an attestation.
 
 ## What the Companion does
 
@@ -75,8 +77,9 @@ publisher and file reputation.
 
 VirusTotal aggregates vendor verdicts and does not create or remove those
 verdicts. Generic labels should be investigated, not ignored. The project will
-publish checksums and provenance for each release and submit stable release
-candidates directly to any vendors reporting a suspected false positive.
+publish checksums for each release, publish provenance for CI-built artifacts,
+and submit stable release candidates directly to any vendors reporting a
+suspected false positive.
 
 ## Build from source
 

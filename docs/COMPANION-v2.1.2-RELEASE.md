@@ -28,7 +28,7 @@ install the next addon update when it becomes available.
 
 Verified standalone SHA-256:
 
-`9FB8FA71CD76F71ABCB3BE73A69556630FCAE90153CBA10F95B5F7030BA2580A`
+`CBA79B70788C904BBA13321CC16A1F00BCCDF6A265584C977DB5E255136A73B5`
 
 The Companion is unsigned. Download it only from this official repository and
 verify the checksum before running it.

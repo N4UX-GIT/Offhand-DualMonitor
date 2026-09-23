@@ -56,7 +56,7 @@ The Companion is open source and does not request administrator access, install 
 
 Some VirusTotal engines currently report the unsigned Companion with generic machine-learning or heuristic labels. No reporting engine has identified a malware family or specific malicious payload. VirusTotal is one input rather than a safety guarantee: review the source and documented behavior, verify the official release checksum and build provenance, and make your own security decision before running it.
 
-Download only from the official GitHub release. Compare the executable's SHA-256 digest with `checksums-sha256.txt`, and verify its GitHub build-provenance attestation when GitHub CLI is available. Update checks are never automatic: the app contacts the official GitHub Releases API only after you click **Check for Updates**. Do not bypass a security warning for a copy obtained elsewhere.
+Download only from the official GitHub release. Compare the executable's SHA-256 digest with `checksums-sha256.txt`, and verify a GitHub build-provenance attestation when the release notes explicitly provide one. Update checks are never automatic: the app contacts the official GitHub Releases API only after you click **Check for Updates**. Do not bypass a security warning for a copy obtained elsewhere.
 
 Full behavior, file locations, source-build steps, and verification commands are documented in the [Offhand security guide](https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md).
 

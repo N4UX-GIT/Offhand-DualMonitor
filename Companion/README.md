@@ -34,7 +34,7 @@ Native Windows desktop companion application for the Offhand World of Warcraft a
 * **Open Source Auditability**: 
   * Full source code is in `Source/Program.cs`.
   * To compile yourself, run `build.bat`. It uses the native Windows C# compiler (`csc.exe`) built into Windows 10 & 11.
-  * Official releases include SHA-256 checksums and GitHub build-provenance attestations. See the project `SECURITY.md` for verification commands and the complete behavior disclosure.
+  * Official releases include SHA-256 checksums. GitHub Actions builds may also include a build-provenance attestation when the release notes explicitly say so. See the project `SECURITY.md` for verification guidance and the complete behavior disclosure.
 * **PowerShell Alternative**: `Offhand-Companion.ps1` is included for technical users who prefer raw script execution.
 ## Settings and shortcuts
 
