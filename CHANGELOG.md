@@ -9,6 +9,15 @@ All notable changes to this project will be documented in this file.
   long missing-monitor diagnostics outside their cards.
 
 ### Fixed
+- Companion now keys saved selections to physical monitor identities instead of
+  renumberable Windows `DISPLAY#` labels. Existing installations require one
+  confirmation before automatic spanning resumes, preventing a stale label from
+  silently swapping Mainhand and workspace.
+- Restored settings panels now resynchronize the master enable checkbox and all
+  displayed values from the active profile whenever shown.
+- Exact portrait-plus-landscape topology is no longer mislabeled or saved as
+  dual landscape. The settings panel and wizard now explain that Companion owns
+  exact monitor geometry while those manual controls are disabled.
 - Forever no longer replaces Blizzard's global window/bag close functions or
   mutates secure panel-manager metadata. This closes the remaining taint paths
   behind reported `CompactUnitFrame` and `TextStatusBar` secret-number errors.

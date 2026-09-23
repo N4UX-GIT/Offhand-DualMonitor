@@ -95,6 +95,7 @@ L["PRESET_DUAL_LANDSCAPE_TIP_DESC"] = "Teilt das Spielfenster gleichmäßig auf 
 L["BTN_1CLICK_AUTOCONFIG"] = "Automatisch einrichten"
 L["BTN_1CLICK_AUTOCONFIG_TIP_TITLE"] = "Automatische Hardwareerkennung"
 L["BTN_1CLICK_AUTOCONFIG_TIP_DESC"] = "Erkennt die Auflösung und wendet empfohlene Trennlinie, Ausrichtung und Seitenverhältnis an."
+L["EXACT_TOPOLOGY_LOCKED"] = "Die exakte Geometrie wird vom Companion gesteuert. Ändere dort Anzeigen oder Mainhand und spanne erneut."
 
 L["CARD_VIEWPORT_AR"] = "2. Seitenverhältnis & Position"
 L["AR_16_9"] = "16:9 Breitbild"

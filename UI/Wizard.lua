@@ -913,7 +913,7 @@ function Wizard:Open()
         info.recommendedDeckRatio * 100,
         info.recommendedAR or "16:9"))
 
-    f.statusText:SetText(L["WIZARD_STATUS_READY"])
+    f.statusText:SetText(info.exactTopology and L["EXACT_TOPOLOGY_LOCKED"] or L["WIZARD_STATUS_READY"])
     if f.autoBtn then
         f.autoBtn:SetText("|cff00ff00" .. L["WIZARD_BTN_AUTOCONFIG"] .. "|r")
     end

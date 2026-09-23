@@ -43,6 +43,14 @@ Use standard Windowed mode. Start Companion 2.1.2 before WoW, select the display
 and Mainhand, then click **Span WoW Now**. If WoW already loaded the character
 UI, use `/reload` once before completing `/offhand wizard`.
 
+The post-Beta-3 candidate also corrects a critical display-identity migration.
+Windows can reassign `DISPLAY1` and `DISPLAY2` after topology changes, so
+Companion now remembers each physical monitor instead. Existing installations
+pause automatic spanning once and ask the player to verify Mainhand before the
+new identity is saved. The in-game settings panel also refreshes its master
+checkbox whenever restored, and exact portrait-plus-landscape geometry is no
+longer described as dual landscape.
+
 ---
 
 # Offhand v1.0.0 ? Multi-Monitor Workspace for World of Warcraft

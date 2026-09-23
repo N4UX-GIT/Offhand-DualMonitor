@@ -95,6 +95,7 @@ L["PRESET_DUAL_LANDSCAPE_TIP_DESC"] = "將遊戲視窗平均分配到兩個相�
 L["BTN_1CLICK_AUTOCONFIG"] = "一鍵自動設定"
 L["BTN_1CLICK_AUTOCONFIG_TIP_TITLE"] = "自動偵測硬體"
 L["BTN_1CLICK_AUTOCONFIG_TIP_DESC"] = "偵測解析度並套用建議的分界比例、方向和長寬比。"
+L["EXACT_TOPOLOGY_LOCKED"] = "精確顯示配置由 Companion 控制。請在其中變更顯示器或 Mainhand，然後重新跨螢幕。"
 
 L["CARD_VIEWPORT_AR"] = "2. 3D 區域長寬比與位置"
 L["AR_16_9"] = "16:9 標準寬螢幕"

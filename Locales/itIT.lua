@@ -95,6 +95,7 @@ L["PRESET_DUAL_LANDSCAPE_TIP_DESC"] = "Divide equamente la finestra tra due moni
 L["BTN_1CLICK_AUTOCONFIG"] = "Configura con un clic"
 L["BTN_1CLICK_AUTOCONFIG_TIP_TITLE"] = "Rilevamento automatico hardware"
 L["BTN_1CLICK_AUTOCONFIG_TIP_DESC"] = "Rileva la risoluzione e applica separazione, orientamento e formato consigliati."
+L["EXACT_TOPOLOGY_LOCKED"] = "Companion controlla la geometria esatta. Modifica lì gli schermi o Mainhand, poi estendi di nuovo."
 
 L["CARD_VIEWPORT_AR"] = "2. Formato e posizione area 3D"
 L["AR_16_9"] = "16:9 panoramico"

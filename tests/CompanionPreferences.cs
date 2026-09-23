@@ -9,44 +9,50 @@ namespace Offhand.Companion {
         public static void Main() {
             Check(!CompanionDefaults.AutoSpanOnLaunch);
             var displays = new List<MonitorSelection.Display> {
-                new MonitorSelection.Display { Index = 0, DeviceName = @"\\.\DISPLAY1", Bounds = new Rectangle(0, 0, 3440, 1440), WorkArea = new Rectangle(0, 0, 3440, 1400), Primary = true },
-                new MonitorSelection.Display { Index = 1, DeviceName = @"\\.\DISPLAY2", Bounds = new Rectangle(-1920, 360, 1920, 1080), WorkArea = new Rectangle(-1920, 360, 1920, 1040), Primary = false }
+                new MonitorSelection.Display { Index = 0, DeviceName = @"\\.\DISPLAY1", StableId = @"MONITOR\MAIN\A", Bounds = new Rectangle(0, 0, 3440, 1440), WorkArea = new Rectangle(0, 0, 3440, 1400), Primary = true },
+                new MonitorSelection.Display { Index = 1, DeviceName = @"\\.\DISPLAY2", StableId = @"MONITOR\WORK\B", Bounds = new Rectangle(-1920, 360, 1920, 1080), WorkArea = new Rectangle(-1920, 360, 1920, 1040), Primary = false }
             };
-            var plan = MonitorSelection.CreatePlan(@"\\.\DISPLAY1|\\.\DISPLAY2", null, @"\\.\DISPLAY1", false, false, displays);
+            var plan = MonitorSelection.CreatePlan(@"MONITOR\MAIN\A|MONITOR\WORK\B", @"\\.\DISPLAY1|\\.\DISPLAY2", null, @"MONITOR\MAIN\A", @"\\.\DISPLAY1", false, false, displays);
             Check(plan.Indices.Length == 2 && plan.MainhandBounds.Width == 3440 && plan.WorkspaceBounds.Height == 1080);
             bool missingRejected = false;
-            try { MonitorSelection.CreatePlan(@"\\.\DISPLAY1|\\.\DISPLAY3", null, @"\\.\DISPLAY1", false, false, displays); }
+            try { MonitorSelection.CreatePlan(@"MONITOR\MAIN\A|MONITOR\MISSING\C", null, null, @"MONITOR\MAIN\A", null, false, false, displays); }
             catch (InvalidOperationException) { missingRejected = true; }
             Check(missingRejected);
-            Check(MonitorSelection.HasDisconnectedSavedDisplay(@"\\.\DISPLAY1|\\.\DISPLAY3", displays));
-            Check(!MonitorSelection.HasDisconnectedSavedDisplay(@"\\.\DISPLAY1|\\.\DISPLAY2", displays));
-            Check(MonitorSelection.RecoveryDisplay(@"\\.\DISPLAY1", displays) == displays[0]);
-            Check(MonitorSelection.RecoveryDisplay(@"\\.\DISPLAY3", displays) == displays[0]);
+            Check(MonitorSelection.HasDisconnectedSavedDisplay(@"MONITOR\MAIN\A|MONITOR\MISSING\C", null, displays));
+            Check(!MonitorSelection.HasDisconnectedSavedDisplay(@"MONITOR\MAIN\A|MONITOR\WORK\B", null, displays));
+            Check(MonitorSelection.RecoveryDisplay(@"MONITOR\MAIN\A", @"\\.\DISPLAY2", displays) == displays[0]);
+            Check(MonitorSelection.RecoveryDisplay(@"MONITOR\MISSING\C", null, displays) == displays[0]);
             Check(MonitorSelection.SameDisplays(displays, new List<MonitorSelection.Display> {
-                new MonitorSelection.Display { Index = 0, DeviceName = @"\\.\DISPLAY1", Bounds = new Rectangle(0, 0, 3440, 1440), WorkArea = new Rectangle(0, 0, 3440, 1400), Primary = true },
-                new MonitorSelection.Display { Index = 1, DeviceName = @"\\.\DISPLAY2", Bounds = new Rectangle(-1920, 360, 1920, 1080), WorkArea = new Rectangle(-1920, 360, 1920, 1040), Primary = false }
+                new MonitorSelection.Display { Index = 0, DeviceName = @"\\.\DISPLAY1", StableId = @"MONITOR\MAIN\A", Bounds = new Rectangle(0, 0, 3440, 1440), WorkArea = new Rectangle(0, 0, 3440, 1400), Primary = true },
+                new MonitorSelection.Display { Index = 1, DeviceName = @"\\.\DISPLAY2", StableId = @"MONITOR\WORK\B", Bounds = new Rectangle(-1920, 360, 1920, 1080), WorkArea = new Rectangle(-1920, 360, 1920, 1040), Primary = false }
             }));
             Check(!MonitorSelection.SameDisplays(displays, new List<MonitorSelection.Display> { displays[0] }));
             bool singleRejected = false;
-            try { MonitorSelection.CreatePlan(@"\\.\DISPLAY1", null, @"\\.\DISPLAY1", false, false, displays); }
+            try { MonitorSelection.CreatePlan(@"MONITOR\MAIN\A", null, null, @"MONITOR\MAIN\A", null, false, false, displays); }
             catch (InvalidOperationException) { singleRejected = true; }
             Check(singleRejected);
-            var splitPlan = MonitorSelection.CreatePlan(@"\\.\DISPLAY1", null, @"\\.\DISPLAY1", true, false, displays);
+            var splitPlan = MonitorSelection.CreatePlan(@"MONITOR\MAIN\A", null, null, @"MONITOR\MAIN\A", null, true, false, displays);
             Check(splitPlan.SplitSingle && splitPlan.WorkspaceBounds.Width == 1720 && splitPlan.MainhandBounds.Left == 1720);
             var reordered = new List<MonitorSelection.Display> { displays[1], displays[0] };
-            var reorderedPlan = MonitorSelection.CreatePlan(@"\\.\DISPLAY1|\\.\DISPLAY2", null, @"\\.\DISPLAY1", false, false, reordered);
+            var reorderedPlan = MonitorSelection.CreatePlan(@"MONITOR\MAIN\A|MONITOR\WORK\B", null, null, @"MONITOR\MAIN\A", null, false, false, reordered);
             Check(reorderedPlan.MainhandIndex == 1 && reorderedPlan.MainhandBounds.Width == 3440);
+            var renumbered = new List<MonitorSelection.Display> {
+                new MonitorSelection.Display { Index = 0, DeviceName = @"\\.\DISPLAY1", StableId = @"MONITOR\WORK\B", Bounds = displays[1].Bounds, WorkArea = displays[1].WorkArea, Primary = false },
+                new MonitorSelection.Display { Index = 1, DeviceName = @"\\.\DISPLAY2", StableId = @"MONITOR\MAIN\A", Bounds = displays[0].Bounds, WorkArea = displays[0].WorkArea, Primary = true }
+            };
+            var renumberedPlan = MonitorSelection.CreatePlan(@"MONITOR\MAIN\A|MONITOR\WORK\B", @"\\.\DISPLAY1|\\.\DISPLAY2", null, @"MONITOR\MAIN\A", @"\\.\DISPLAY1", false, false, renumbered);
+            Check(renumberedPlan.MainhandIndex == 1 && renumberedPlan.MainhandBounds.Width == 3440);
             var stacked = new List<MonitorSelection.Display> {
                 new MonitorSelection.Display { Index = 0, DeviceName = @"\\.\DISPLAY4", Bounds = new Rectangle(-200, -1080, 1920, 1080), Primary = false },
                 new MonitorSelection.Display { Index = 1, DeviceName = @"\\.\DISPLAY5", Bounds = new Rectangle(0, 0, 2560, 1440), Primary = true }
             };
-            var stackedPlan = MonitorSelection.CreatePlan(@"\\.\DISPLAY4|\\.\DISPLAY5", null, @"\\.\DISPLAY5", false, false, stacked);
+            var stackedPlan = MonitorSelection.CreatePlan(null, @"\\.\DISPLAY4|\\.\DISPLAY5", null, null, @"\\.\DISPLAY5", false, false, stacked);
             Check(stackedPlan.Bounds.X == -200 && stackedPlan.Bounds.Y == -1080 && stackedPlan.Bounds.Width == 2760 && stackedPlan.Bounds.Height == 2520);
             Check(stackedPlan.MainhandBounds.Height == 1440 && stackedPlan.WorkspaceBounds.Bottom == 0);
             bool tooManyRejected = false;
             var three = new List<MonitorSelection.Display>(displays);
             three.Add(new MonitorSelection.Display { Index = 2, DeviceName = @"\\.\DISPLAY3", Bounds = new Rectangle(3440, 0, 1920, 1080) });
-            try { MonitorSelection.CreatePlan(null, null, null, false, false, three); }
+            try { MonitorSelection.CreatePlan(null, null, null, null, null, false, false, three); }
             catch (InvalidOperationException) { tooManyRejected = true; }
             Check(tooManyRejected);
             Check(CompanionTiming.AutoSpanDelay("WowB", @"D:\Games\World of Warcraft\_classic_beta_", 30) == 0);

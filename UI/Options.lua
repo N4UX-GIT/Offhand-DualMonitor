@@ -112,9 +112,13 @@ function Options:DetectTopology()
         local gameAR = metrics.gamePixelWidth / math.max(metrics.gamePixelHeight, 1)
         local stacked = metrics.workspaceTop <= metrics.gameBottom + 2
             or metrics.gameTop <= metrics.workspaceBottom + 2
+        local workspacePortrait = metrics.workspacePixelHeight > metrics.workspacePixelWidth
+        local gameLandscape = metrics.gamePixelWidth >= metrics.gamePixelHeight
         info.isSpanned = true
         info.exactTopology = true
-        info.recommendedPreset = stacked and "STACKED_VERTICAL" or "LANDSCAPE_DUAL"
+        info.recommendedPreset = stacked and "STACKED_VERTICAL"
+            or (workspacePortrait and gameLandscape and "PORTRAIT_LEFT_LANDSCAPE_RIGHT")
+            or "LANDSCAPE_DUAL"
         if stacked then
             info.recommendedPosition = metrics.gameBottom >= metrics.workspaceTop - 2 and "TOP" or "BOTTOM"
             info.recommendedDeckRatio = metrics.workspacePixelHeight / physH
@@ -2196,8 +2200,15 @@ function Options:CreateFloatingPanel()
     function Options:RefreshPanel()
         if not configFrame then return end
         local info = Options:DetectTopology()
-        banner:SetText(string.format(L["TAB_DISPLAY"] .. ": %s (%dx%d)",
-            info.description, info.physWidth, info.physHeight))
+        local bannerText = string.format(L["TAB_DISPLAY"] .. ": %s (%dx%d)",
+            info.description, info.physWidth, info.physHeight)
+        if info.exactTopology then
+            bannerText = bannerText .. "\n|cffaaaaaa" .. L["EXACT_TOPOLOGY_LOCKED"] .. "|r"
+        end
+        banner:SetText(bannerText)
+        optionsScrollFrame:ClearAllPoints()
+        optionsScrollFrame:SetPoint("TOPLEFT", 16, info.exactTopology and -180 or -156)
+        optionsScrollFrame:SetPoint("BOTTOMRIGHT", -42, 52)
 
         local curSeam = (Offhand.db and Offhand.db.deckWidthRatio) or 0.36
         seamSlider:SetValue(curSeam)
@@ -2266,6 +2277,13 @@ function Options:CreateFloatingPanel()
         Options:UpdateCardThemes()
         Offhand:ApplyFullLayout()
     end
+
+    -- Canvas persistence may restore this frame by calling Show() directly,
+    -- bypassing Options:Open(). Always resync checkbox/radio state from the
+    -- live profile so a stale construction-time checkbox cannot invert a click.
+    configFrame:SetScript("OnShow", function()
+        Options:RefreshPanel()
+    end)
 
     SwitchTab(currentTab or 1)
     Options:UpdateCardThemes()

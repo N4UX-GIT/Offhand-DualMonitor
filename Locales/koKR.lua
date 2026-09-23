@@ -95,6 +95,7 @@ L["PRESET_DUAL_LANDSCAPE_TIP_DESC"] = "동일한 가로 모니터 2개에 게임
 L["BTN_1CLICK_AUTOCONFIG"] = "원클릭 자동 설정"
 L["BTN_1CLICK_AUTOCONFIG_TIP_TITLE"] = "하드웨어 자동 감지"
 L["BTN_1CLICK_AUTOCONFIG_TIP_DESC"] = "해상도를 확인하고 권장 경계, 방향 및 화면 비율을 적용합니다."
+L["EXACT_TOPOLOGY_LOCKED"] = "정확한 화면 배치는 Companion이 관리합니다. Companion에서 디스플레이 또는 Mainhand를 변경한 뒤 다시 확장하세요."
 
 L["CARD_VIEWPORT_AR"] = "2. 3D 영역 비율 및 위치"
 L["AR_16_9"] = "16:9 와이드스크린"

@@ -203,6 +203,26 @@ assert(math.abs(infoMixed.recommendedDeckRatio - 0.36) < 0.001, "Mixed setup mus
 assert(infoMixed.recommendedPosition == "RIGHT", "Mixed setup must recommend game monitor on RIGHT")
 assert(infoMixed.recommendedAR == "16_9", "Mixed setup must recommend 16:9 AR")
 
+-- Exact Companion geometry must classify the monitor rectangles themselves.
+-- Treating every side-by-side exact plan as dual landscape corrupts the saved
+-- manual fallback and misleads the wizard for portrait + landscape users.
+local originalGetMetrics = addon.Viewport.GetMetrics
+addon.Viewport.GetMetrics = function()
+    return {
+        companionTopology = true, topologyMode = "DUAL_DISPLAY",
+        gamePixelWidth = 2560, gamePixelHeight = 1440,
+        workspacePixelWidth = 1440, workspacePixelHeight = 2560,
+        gameLeft = 1440, gameRight = 4000, gameBottom = 0, gameTop = 1440,
+        workspaceLeft = 0, workspaceRight = 1440, workspaceBottom = 0, workspaceTop = 2560,
+    }
+end
+local infoExactMixed = addon.Options:DetectTopology()
+assert(infoExactMixed.exactTopology and infoExactMixed.recommendedPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT",
+    "Exact portrait workspace plus landscape game must not be reported as dual landscape")
+assert(infoExactMixed.recommendedPosition == "RIGHT" and math.abs(infoExactMixed.recommendedDeckRatio - 0.36) < 0.001,
+    "Exact mixed topology must retain its physical side and workspace ratio")
+addon.Viewport.GetMetrics = originalGetMetrics
+
 -- Test 3840x1080 (dual landscape side by side)
 GetPhysicalScreenSize = function() return 3840, 1080 end
 local infoDual = addon.Options:DetectTopology()
@@ -391,6 +411,16 @@ addon.Wizard.Open = originalWizardOpen
 -- 5. Test Options Dialog 1-Click and Wizard Integration Buttons
 -- ============================================================================
 local optPanel = addon.Options:CreateFloatingPanel()
+addon.db.enabled = false
+optPanel:Show()
+assert(optPanel.enableCheck:GetChecked() == false,
+    "Directly restored Options panel must sync the master checkbox from the live profile")
+optPanel:Hide()
+addon.db.enabled = true
+optPanel:Show()
+assert(optPanel.enableCheck:GetChecked() == true,
+    "Restored Options panel must not retain a stale unchecked master state")
+optPanel:Hide()
 -- Check the real generated card rectangles, not hardcoded expected offsets.
 for tabIndex = 1, 5 do
     local tab = optPanel["tab" .. tabIndex]

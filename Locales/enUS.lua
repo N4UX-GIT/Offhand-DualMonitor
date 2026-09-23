@@ -112,6 +112,7 @@ L["PRESET_DUAL_LANDSCAPE_TIP_DESC"] = "Splits the game window equally in half ac
 L["BTN_1CLICK_AUTOCONFIG"] = "1-Click Auto-Configure"
 L["BTN_1CLICK_AUTOCONFIG_TIP_TITLE"] = "Automatic Hardware Detection"
 L["BTN_1CLICK_AUTOCONFIG_TIP_DESC"] = "Queries your active screen resolution and automatically applies recommended seam ratio, monitor orientation, and 3D aspect ratio."
+L["EXACT_TOPOLOGY_LOCKED"] = "Exact geometry is locked to Companion. Change displays or Mainhand there, then span again."
 
 L["CARD_VIEWPORT_AR"] = "Mainhand Monitor Geometry & Bezel Seam"
 L["AR_16_9"] = "16:9 Standard"

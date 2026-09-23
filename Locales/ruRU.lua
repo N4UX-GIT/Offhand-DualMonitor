@@ -95,6 +95,7 @@ L["PRESET_DUAL_LANDSCAPE_TIP_DESC"] = "Делит окно поровну меж
 L["BTN_1CLICK_AUTOCONFIG"] = "Настроить одним нажатием"
 L["BTN_1CLICK_AUTOCONFIG_TIP_TITLE"] = "Автоопределение оборудования"
 L["BTN_1CLICK_AUTOCONFIG_TIP_DESC"] = "Определяет разрешение и применяет рекомендуемые границу, ориентацию и пропорции."
+L["EXACT_TOPOLOGY_LOCKED"] = "Точная геометрия управляется Companion. Измените там экраны или Mainhand и разверните снова."
 
 L["CARD_VIEWPORT_AR"] = "2. Пропорции и положение области 3D"
 L["AR_16_9"] = "16:9 широкоформатный"

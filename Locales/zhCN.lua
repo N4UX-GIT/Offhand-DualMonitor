@@ -95,6 +95,7 @@ L["PRESET_DUAL_LANDSCAPE_TIP_DESC"] = "将游戏窗口平均分配到两个相�
 L["BTN_1CLICK_AUTOCONFIG"] = "一键自动设置"
 L["BTN_1CLICK_AUTOCONFIG_TIP_TITLE"] = "自动检测硬件"
 L["BTN_1CLICK_AUTOCONFIG_TIP_DESC"] = "检测分辨率并应用推荐的分界比例、方向和宽高比。"
+L["EXACT_TOPOLOGY_LOCKED"] = "精确显示布局由 Companion 控制。请在其中更改显示器或 Mainhand，然后重新跨屏。"
 
 L["CARD_VIEWPORT_AR"] = "2. 3D 区域宽高比与位置"
 L["AR_16_9"] = "16:9 标准宽屏"
