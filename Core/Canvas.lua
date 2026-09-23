@@ -130,14 +130,21 @@ local foreverEditModeFrameNames = {
     PlayerCastingBarFrame = true,
     UIErrorsFrame = true,
     RaidWarningFrame = true,
+    EssentialCooldownViewer = true,
+    UtilityCooldownViewer = true,
+    BuffIconCooldownViewer = true,
+    BottomManagedFrameContainer = true,
 }
 
 local function IsForeverEditModeFrame(frame, suppliedName)
     if not Offhand.isForever then return false end
     local name = suppliedName or (frame and frame.GetName and frame:GetName())
+    if frame and frame.isManagedFrame == true then return true end
     if not name then return false end
     return foreverEditModeFrameNames[name]
         or name:match("^EditMode") ~= nil
+        or name:match("CooldownViewer") ~= nil
+        or name:match("ManagedFrameContainer") ~= nil
         or name:match("^PartyMemberFrame") ~= nil
         or name:match("^CompactPartyFrame") ~= nil
         or name:match("^CompactRaidFrame") ~= nil
@@ -181,6 +188,10 @@ end
 
 function Canvas:UpdatePersistenceBehavior()
     if not Offhand.db then return end
+    -- Forever's UI panel manager participates in secure Edit Mode and secret-value
+    -- flows. Removing Blizzard frames from its global registries taints later panel
+    -- opens, so native Escape behavior wins over persistent-open panels here.
+    if Offhand.isForever then return end
     local shouldPersist = (Offhand.db.persistentWorkspacePanels ~= false)
     if WorldMapFrame then
         local isWs = (Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["WorldMapFrame"]) or IsFrameOnWorkspace(WorldMapFrame)
@@ -246,7 +257,7 @@ local function HandleCustomCloseAllBags(originalFunc, ...)
     if closedAny then return true else return false end
 end
 
-if C_Container and C_Container.CloseAllBags and not _G.Offhand_Original_C_Container_CloseAllBags then
+if not Offhand.isForever and C_Container and C_Container.CloseAllBags and not _G.Offhand_Original_C_Container_CloseAllBags then
     _G.Offhand_Original_C_Container_CloseAllBags = C_Container.CloseAllBags
     C_Container.CloseAllBags = function(...)
         return HandleCustomCloseAllBags(_G.Offhand_Original_C_Container_CloseAllBags, ...)
@@ -254,7 +265,7 @@ if C_Container and C_Container.CloseAllBags and not _G.Offhand_Original_C_Contai
 end
 
 
-if CloseAllWindows and not _G.Offhand_OriginalCloseAllWindows then
+if not Offhand.isForever and CloseAllWindows and not _G.Offhand_OriginalCloseAllWindows then
     _G.Offhand_OriginalCloseAllWindows = CloseAllWindows
     CloseAllWindows = function(ignoreCenter)
         local activeWorkspaceFrames = {}
@@ -438,7 +449,7 @@ if CloseAllWindows and not _G.Offhand_OriginalCloseAllWindows then
     end
 end
 
-if CloseAllBags and not _G.Offhand_OriginalCloseAllBags then
+if not Offhand.isForever and CloseAllBags and not _G.Offhand_OriginalCloseAllBags then
     _G.Offhand_OriginalCloseAllBags = CloseAllBags
     CloseAllBags = function(...)
         return HandleCustomCloseAllBags(_G.Offhand_OriginalCloseAllBags, ...)
@@ -728,6 +739,10 @@ DemodalizePanel = function(frame)
           PlayerMovementFrameFader.RemoveFrame(WorldMapFrame)
       end
 
+      -- Do not mutate Forever's Blizzard-owned panel registry or panel-layout
+      -- attributes. Those values feed secure Edit Mode and secret-value UI paths.
+      if Offhand.isForever then return end
+
       if UIPanelWindows and UIPanelWindows[name] then
           if name == "CharacterFrame" then
               if not originalAreas[name] then
@@ -760,6 +775,8 @@ RemodalizePanel = function(frame)
       if frame == WorldMapFrame and PlayerMovementFrameFader and PlayerMovementFrameFader.AddDeferredFrame then
           PlayerMovementFrameFader.AddDeferredFrame(WorldMapFrame, .5, 1.0, 0.5, function() return not WorldMapFrame:IsMaximized() end)
       end
+
+      if Offhand.isForever then return end
 
       UnregisterSpecialFrame(name)
       if originalAreas[name] then
@@ -1671,7 +1688,7 @@ function Offhand:InitializeCanvas()
         end)
     end
 
-        if not Canvas.showUIPanelHooked and ShowUIPanel then
+        if not Offhand.isForever and not Canvas.showUIPanelHooked and ShowUIPanel then
         Canvas.showUIPanelHooked = true
         hooksecurefunc("ShowUIPanel", function(frame)
             if IsForeverEditModeFrame(frame) or IsUnsafeForDirectMutation(frame) then return end
@@ -1682,7 +1699,7 @@ function Offhand:InitializeCanvas()
             RestoreSavedPositionAfterShow(frame)
         end)
     end
-    if not Canvas.hideUIPanelHooked and HideUIPanel then
+    if not Offhand.isForever and not Canvas.hideUIPanelHooked and HideUIPanel then
         Canvas.hideUIPanelHooked = true
         hooksecurefunc("HideUIPanel", function(frame)
             if IsForeverEditModeFrame(frame) or IsUnsafeForDirectMutation(frame) then return end

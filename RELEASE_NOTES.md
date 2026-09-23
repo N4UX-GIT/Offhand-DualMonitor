@@ -25,6 +25,14 @@ Fresh profiles remain inert until the setup wizard is completed. Existing
 Forever recovery, workspace persistence, and Blizzard Edit Mode ownership are
 preserved.
 
+This beta also tightens Forever's secure-UI boundary after user reports from
+Beta 1. Offhand no longer replaces Blizzard's global close functions, changes
+secure panel-manager metadata, or reanchors the Edit Mode manager, Game Menu,
+Cooldown Viewer and other Blizzard-managed Edit Mode frames. This targets the
+reported `CompactUnitFrame`, `TextStatusBar` and Cooldown Viewer taint errors.
+On Forever, native Escape and panel behavior now takes precedence over forcing
+every Blizzard panel to remain open on the workspace.
+
 Use standard Windowed mode. Start Companion 2.1.2 before WoW, select the displays
 and Mainhand, then click **Span WoW Now**. If WoW already loaded the character
 UI, use `/reload` once before completing `/offhand wizard`.

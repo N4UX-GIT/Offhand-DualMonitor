@@ -367,34 +367,30 @@ ShowUIPanel(EditModeManagerFrame)
 flushTimers()
 
 local editPt = EditModeManagerFrame.points[#EditModeManagerFrame.points]
-assert(EditModeManagerFrame:GetAttribute("UIPanelLayout-centerFrameSkipAnchoring") == true,
-    "Forever must tell Blizzard's panel manager to retain the Edit Mode manager anchor")
-assert(UIPanelWindows.EditModeManagerFrame.centerFrameSkipAnchoring == true,
-    "Forever must update the Edit Mode manager's registered panel metadata")
-assert(editPt and editPt[1] == "TOP" and editPt[2] == UIParent and editPt[3] == "BOTTOMLEFT"
-        and editPt[4] == (metrics.gameLeft + metrics.gameRight) / 2
-        and editPt[5] == metrics.gameTop - 40,
-    "Forever must anchor EditModeManagerFrame inside the current game viewport")
+assert(EditModeManagerFrame:GetAttribute("UIPanelLayout-centerFrameSkipAnchoring") == nil,
+    "Forever must not write Edit Mode panel-layout attributes")
+assert(UIPanelWindows.EditModeManagerFrame.centerFrameSkipAnchoring == nil,
+    "Forever must not mutate Edit Mode panel metadata")
+assert(editPt == nil,
+    "Forever must leave EditModeManagerFrame anchors entirely Blizzard-owned")
 local editPointCount = #EditModeManagerFrame.points
 EditModeManagerFrame:Hide()
 ShowUIPanel(EditModeManagerFrame)
 flushTimers()
-assert(#EditModeManagerFrame.points == editPointCount
-        and EditModeManagerFrame.points[#EditModeManagerFrame.points][2] == UIParent,
-    "Forever must preserve the Edit Mode manager anchor across close and reopen")
+assert(#EditModeManagerFrame.points == editPointCount,
+    "Forever must not alter the Edit Mode manager when it reopens")
 
--- Companion spanning can finish after Blizzard_EditMode is prepared. A geometry
--- change must update the one retained anchor without installing an OnShow hook.
+-- Companion geometry changes must not cause addon writes to the manager.
 local originalGameTop = metrics.gameTop
 metrics.gameTop = originalGameTop - 200
 flushTimers()
 local resizedEditPt = EditModeManagerFrame.points[#EditModeManagerFrame.points]
-assert(resizedEditPt and resizedEditPt[5] == metrics.gameTop - 40,
-    "Forever must refresh the Edit Mode manager anchor after a late Companion span")
+assert(resizedEditPt == nil,
+    "Forever must not reanchor Edit Mode after a late Companion span")
 metrics.gameTop = originalGameTop
 flushTimers()
-assert(EditModeManagerFrame.points[#EditModeManagerFrame.points][5] == originalGameTop - 40,
-    "Forever must follow subsequent viewport geometry changes")
+assert(#EditModeManagerFrame.points == 0,
+    "Forever must preserve native Edit Mode ownership across geometry changes")
 assert(selectedLayout == nil,
     "Forever must not auto-select an Offhand layout whose main action bar is still in its full-canvas default position")
 assert(addon.HUD.editModeGuidanceShown,
@@ -645,7 +641,7 @@ EditModeUnsavedChangesDialog:Show()
 flushTimers()
 local dialogPt = EditModeUnsavedChangesDialog.points[#EditModeUnsavedChangesDialog.points]
 assert(dialogPt == nil, "Forever must not reanchor Edit Mode dialogs")
-print("PASS: Forever preserves Blizzard Edit Mode while keeping its manager inside the game viewport")
+print("PASS: Forever preserves Blizzard ownership of Edit Mode and its manager")
 
 -- ============================================================================
 -- TEST 6: GameMenuFrame Centering & Escape Dismissal
@@ -653,13 +649,10 @@ print("PASS: Forever preserves Blizzard Edit Mode while keeping its manager insi
 ToggleGameMenu()
 flushTimers()
 local menuPt = GameMenuFrame.points[#GameMenuFrame.points]
-assert(menuPt, "GameMenuFrame must be anchored")
-assert(menuPt[1] == "CENTER", "GameMenuFrame point must be CENTER")
-assert(math.abs(menuPt[4] + 2000 - 2720) < 1, "GameMenuFrame X must be centered at 2720")
-assert(math.abs(menuPt[5] + 1280 - 726) < 1, "GameMenuFrame Y must be centered at 726")
+assert(menuPt == nil, "Forever must leave GameMenuFrame anchors Blizzard-owned")
 ToggleGameMenu() -- Dismiss cleanly
 assert(not GameMenuFrame:IsShown(), "GameMenuFrame must dismiss cleanly on toggle")
-print("PASS: GameMenuFrame centers on Game Viewport and dismisses cleanly")
+print("PASS: Forever leaves GameMenuFrame native and it dismisses cleanly")
 
 -- ============================================================================
 -- TEST 7: Universal Void Rescue Engine (Focused Roster Frame & Rogue Frames)
@@ -685,6 +678,28 @@ assert(rescuedPt, "ExampleAddonWindow must be repositioned by Void Rescue Engine
 local rescuedTop = ExampleAddonWindow:GetTop()
 assert(rescuedTop <= metrics.gameTop, string.format("Rescued frame top (%s) must be <= gameTop (%s)", tostring(rescuedTop), tostring(metrics.gameTop)))
 print(string.format("PASS: Void Rescue Engine successfully rescued ExampleAddonWindow from void (top=%s <= gameTop=%s)", tostring(rescuedTop), tostring(metrics.gameTop)))
+
+-- Forever Cooldown Viewer systems are Blizzard Edit Mode-managed even though
+-- they are not protected frames. The generic rescue scanner must never move,
+-- hook or make them movable; doing so taints aura tables used by Blizzard.
+local cooldownViewer = makeMockFrame("EssentialCooldownViewer", 420, 90)
+cooldownViewer.isManagedFrame = true
+cooldownViewer.Selection = {}
+cooldownViewer.system = 20
+cooldownViewer:ClearAllPoints()
+cooldownViewer:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 2100, -40)
+table.insert(UIParent.children, cooldownViewer)
+local cooldownPointCount = #cooldownViewer.points
+addon.Canvas:TryMakeFrameDraggable(cooldownViewer)
+flushTimers()
+assert(not cooldownViewer._OffhandMovable and not cooldownViewer.movable,
+    "Forever must not make Cooldown Viewer systems movable")
+assert(#cooldownViewer.points == cooldownPointCount
+        and cooldownViewer.points[#cooldownViewer.points][1] == "TOPLEFT",
+    "Forever void rescue must not reanchor Cooldown Viewer systems")
+assert(next(cooldownViewer.scripts) == nil,
+    "Forever must not attach scripts to Cooldown Viewer systems")
+print("PASS: Forever leaves Blizzard Cooldown Viewer systems entirely native")
 
 -- ============================================================================
 -- TEST 8: Game View Monitor Drag Clamping

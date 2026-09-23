@@ -9,6 +9,15 @@ All notable changes to this project will be documented in this file.
   long missing-monitor diagnostics outside their cards.
 
 ### Fixed
+- Forever no longer replaces Blizzard's global window/bag close functions or
+  mutates secure panel-manager metadata. This closes the remaining taint paths
+  behind reported `CompactUnitFrame` and `TextStatusBar` secret-number errors.
+- Blizzard Cooldown Viewer and other Forever Edit Mode-managed frames are now
+  excluded from generic dragging, saved-position recovery and void rescue,
+  preventing aura-table taint after display-orientation changes.
+- Forever leaves the Edit Mode manager, Game Menu and native panel anchors under
+  Blizzard ownership. Native Escape behavior now takes precedence over keeping
+  every Blizzard panel persistently open on the workspace.
 - Forever now fails safe to a normal full-window viewport when exact Companion
   topology is absent, including after Restore Window. The same recovery flow
   preserves workspace panel state and offers the player-click Modern/Offhand

@@ -61,6 +61,8 @@ local foreverEditModeFrameNames = {
     PartyMemberFrame1 = true, CompactPartyFrame = true,
     BuffFrame = true, BuffCluster = true, CastingBarFrame = true, PlayerCastingBarFrame = true,
     UIErrorsFrame = true, RaidWarningFrame = true,
+    EssentialCooldownViewer = true, UtilityCooldownViewer = true,
+    BuffIconCooldownViewer = true, BottomManagedFrameContainer = true,
 }
 local function UsesForeverEditMode()
     if Offhand.isForever ~= nil then return Offhand.isForever end
@@ -70,7 +72,11 @@ end
 local function IsForeverEditModeFrame(frame, name)
     if not UsesForeverEditMode() then return false end
     name = name or (frame and frame.GetName and frame:GetName())
-    return name and (foreverEditModeFrameNames[name] or name:match("^EditMode")) or false
+    if frame and frame.isManagedFrame == true then return true end
+    return name and (foreverEditModeFrameNames[name]
+        or name:match("^EditMode")
+        or name:match("CooldownViewer")
+        or name:match("ManagedFrameContainer")) or false
 end
 
 local function GetEditModeLayouts()
@@ -705,43 +711,9 @@ function HUD:HookFrames()
     end
 
     local function PrepareForeverEditModeManager()
-        if not UsesForeverEditMode() then return end
-
-        local frame = _G.EditModeManagerFrame
-        if not frame or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
-
-        -- Forever registers this as a centered UI panel. Its panel manager normally
-        -- reapplies the full-canvas TOP anchor on every open, placing the controls in
-        -- the black void above WorldFrame on mixed-height spans. This Blizzard-owned
-        -- flag tells the panel manager to retain the frame's existing anchor instead.
-        if not self.foreverEditModeManagerPrepared then
-            if UIPanelWindows and UIPanelWindows.EditModeManagerFrame then
-                UIPanelWindows.EditModeManagerFrame.centerFrameSkipAnchoring = true
-            end
-            if not SetUIPanelAttribute then return end
-
-            local ok = pcall(SetUIPanelAttribute, frame, "centerFrameSkipAnchoring", true)
-            if not ok then return end
-            self.foreverEditModeManagerPrepared = true
-        end
-
-        local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
-        if not m or not m.isSpanned then return end
-        local geometry = table.concat({
-            tostring(m.screenWidth), tostring(m.screenHeight),
-            tostring(m.gameLeft), tostring(m.gameTop), tostring(m.gameRight),
-        }, ":")
-        if self.foreverEditModeManagerGeometry == geometry then return end
-
-        -- Companion spanning can finish after Blizzard_EditMode loads. Recalculate
-        -- only when the viewport geometry changes, using UIParent coordinates rather
-        -- than WorldFrame's transient pre-span anchor. No Edit Mode scripts are hooked.
-        local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
-        local x = (m.gameLeft + m.gameRight) / 2
-        local y = m.gameTop - 40
-        frame:ClearAllPoints()
-        frame:SetPoint("TOP", UIParent, "BOTTOMLEFT", x * factor, y * factor)
-        self.foreverEditModeManagerGeometry = geometry
+        -- Forever's Edit Mode manager is part of a secure/secret-value path.
+        -- Leave its panel metadata, attributes, scripts and anchors entirely native.
+        return
     end
 
     local function PositionEditMode()
@@ -750,6 +722,7 @@ function HUD:HookFrames()
     end
 
     local function CenterGameMenu()
+        if UsesForeverEditMode() then return end
         PositionEditMode()
         for _, name in ipairs(menuFrameNames) do
             local frame = _G[name]
@@ -767,6 +740,7 @@ function HUD:HookFrames()
     end
 
     local function HookMenuFrame(name)
+        if UsesForeverEditMode() then return end
         local frame = _G[name]
         if frame and not hooks[frame] then
             hooks[frame] = true
@@ -787,7 +761,7 @@ function HUD:HookFrames()
         end
     end
 
-    if UIPanelWindows then
+    if not UsesForeverEditMode() and UIPanelWindows then
         for _, name in ipairs(menuFrameNames) do
             if UIPanelWindows[name] then
                 UIPanelWindows[name].area = nil
@@ -1033,7 +1007,7 @@ function HUD:HookFrames()
         C_Timer.After(3, AutoLoadEditModeLayout)
     end
 
-    if not self.menuHooksInstalled then
+    if not UsesForeverEditMode() and not self.menuHooksInstalled then
         self.menuHooksInstalled = true
         if ToggleGameMenu then
             hooksecurefunc("ToggleGameMenu", function()
@@ -1275,8 +1249,9 @@ function HUD:HookFrames()
         isArrangingBags = false
     end
 
-    -- Override UpdateContainerFrameAnchors to completely eliminate Blizzard's anchor family connection crashes
-    if _G.UpdateContainerFrameAnchors and not self.anchorsHooked then
+    -- Legacy clients use the custom bag anchor pass to avoid anchor-family
+    -- cycles. Forever keeps Blizzard's function identity to preserve taint safety.
+    if _G.UpdateContainerFrameAnchors and not self.anchorsHooked and not UsesForeverEditMode() then
         self.anchorsHooked = true
         HUD.origUpdateContainerFrameAnchors = _G.UpdateContainerFrameAnchors
         _G.UpdateContainerFrameAnchors = function(...)
