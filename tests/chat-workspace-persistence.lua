@@ -237,6 +237,21 @@ assert(addon.db.savedWorkspacePositions["ChatFrame1"] ~= nil, "ChatFrame1 must b
 assert(addon.db.savedWorkspacePositions["ChatFrame1"].x >= 12, "ChatFrame1 x must be clamped within workspace")
 assert(addon.db.savedWorkspacePositions["ChatFrame1"].x < metrics.deckWidth, "ChatFrame1 x must be on workspace")
 
+-- Forever's chat size control saves through Blizzard's native FCF function.
+-- Capture that explicit size once, then prove a stale runtime width is repaired
+-- from the Offhand workspace snapshot during reload restoration.
+addon.isForever = true
+addon.ForeverPersistence = {
+    SaveWorkspacePosition = function() end,
+    ClearPosition = function() end,
+    SaveOpenPanels = function() end,
+}
+ChatFrame1:SetSize(800, 257)
+FCF_SavePositionAndDimensions(ChatFrame1)
+assert(addon.db.savedWorkspacePositions.ChatFrame1.width == 800
+    and addon.db.savedWorkspacePositions.ChatFrame1.height == 257,
+    "An explicit Forever chat resize must update the workspace dimensions")
+
 -- 3. Run AlignChatFrame and AlignHUDFrames - verify ChatFrame1 is NOT moved to game view screen
 addon.HUD:AlignHUDFrames()
 local lastPt = ChatFrame1.points[#ChatFrame1.points]
@@ -245,6 +260,7 @@ assert(lastPt[4] < metrics.deckWidth, "ChatFrame1 must remain on workspace monit
 
 -- 4. Simulate /reload
 addon.db.openWorkspacePanels["ChatFrame1"] = true
+ChatFrame1:SetSize(460, 220)
 addon.Canvas:EnableFreeDragging()
 addon.HUD:AlignHUDFrames()
 addon.Canvas:RestorePersistentFrames()
@@ -253,6 +269,8 @@ local reloadPt = ChatFrame1.points[#ChatFrame1.points]
 assert(reloadPt[1] == "TOPLEFT", "ChatFrame1 point after reload must be BOTTOMLEFT")
 assert(reloadPt[4] < metrics.deckWidth, "ChatFrame1 must remain on workspace monitor after reload, got x=" .. tostring(reloadPt[4]))
 assert(addon.db.savedWorkspacePositions["ChatFrame1"] ~= nil, "savedWorkspacePositions for ChatFrame1 must still exist")
+assert(ChatFrame1:GetWidth() == 800 and ChatFrame1:GetHeight() == 257,
+    "Reload restoration must reapply the last explicitly saved chat dimensions")
 
 -- 5. Test dragging ChatFrame1 back to game view screen (x = 2000 >= deckWidth)
 MOVING_CHATFRAME = ChatFrame1

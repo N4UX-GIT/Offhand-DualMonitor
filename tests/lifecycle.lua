@@ -152,6 +152,7 @@ assert(foreverHudMutations == 0,
 -- Forever /reload may emit PLAYER_LOGOUT without PLAYER_LEAVING_WORLD. Capture
 -- visibility there, and do not let a later teardown event overwrite it.
 local capturedOpenPanels
+local capturedProfileOpenPanels
 addon.db.enabled = true
 addon.db.restoreWorkspaceOnReload = true
 addon.db.savedWorkspacePositions = { TestWorkspaceFrame = { x = 10, y = 20 } }
@@ -161,14 +162,32 @@ addon.ForeverPersistence = {
         capturedOpenPanels = {}
         for name, value in pairs(panels) do capturedOpenPanels[name] = value end
     end,
+    SaveProfileSnapshot = function()
+        capturedProfileOpenPanels = {}
+        for name, value in pairs(addon.db.openWorkspacePanels or {}) do
+            capturedProfileOpenPanels[name] = value
+        end
+    end,
 }
 initOnEvent(nil, "PLAYER_LOGOUT")
 assert(capturedOpenPanels and capturedOpenPanels.TestWorkspaceFrame == true,
     "PLAYER_LOGOUT must capture open workspace panels for /reload")
+assert(capturedProfileOpenPanels and capturedProfileOpenPanels.TestWorkspaceFrame == true,
+    "the complete Forever snapshot must be written after open-panel capture")
 TestWorkspaceFrame.IsVisible = function() return false end
 initOnEvent(nil, "PLAYER_LEAVING_WORLD")
 assert(capturedOpenPanels.TestWorkspaceFrame == true,
     "a later teardown event must not overwrite the captured visibility snapshot")
+
+-- Forever may hide panels before the first teardown event is delivered. The
+-- continuously tracked state must survive that already-hidden first snapshot.
+addon._openPanelsCapturedForTransition = false
+addon.db.openWorkspacePanels = { TestWorkspaceFrame = true }
+capturedOpenPanels = nil
+TestWorkspaceFrame.IsVisible = function() return false end
+initOnEvent(nil, "PLAYER_LOGOUT")
+assert(capturedOpenPanels and capturedOpenPanels.TestWorkspaceFrame == true,
+    "PLAYER_LOGOUT must preserve the last explicit open state after Blizzard teardown hiding")
 
 -- Restore Window can leave Forever without any loaded exact topology. Do not
 -- replace the last spanned-session visibility snapshot with the temporary

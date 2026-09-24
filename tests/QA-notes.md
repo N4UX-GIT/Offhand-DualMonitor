@@ -435,3 +435,53 @@ setup deferral, and reporting of caught layout errors.
 - All 20 Lua test files, manifests, locale dictionaries, Forever taint-boundary
   checks and Companion preference tests pass after the final map-panel fix.
 
+## 2026-09-23: Post-Beta 4 backpack, panel and chat-size candidate
+
+- Live follow-up found that hiding the Combined Backpack invoked Offhand's drag
+  completion path, which immediately showed an independent workspace panel
+  again. This trapped B and the close button, while also preventing Escape from
+  reaching the Game Menu. Hide no longer runs drag completion. Explicit B and
+  close-button actions retain native closure. Live tracing established that
+  Forever's Escape path directly calls `CloseAllBags` and then `ToggleGameMenu`,
+  bypassing both `CloseAllWindows` variants. Secure post-hooks pair only those
+  two calls within one event turn and defer the native B-key toggle to restore
+  the workspace backpack. Because reopening the native backpack itself dismisses
+  the Game Menu—and Forever's `ToggleGameMenu` post-hook runs before the menu
+  reaches its final state—Offhand derives the intended result from the stable
+  pre-Escape menu state and reapplies it through the verified non-toggling
+  `GameMenuFrame:Show()`/`Hide()` route after the bag. Both hooks have independent
+  late-load guards; no Blizzard global or protected panel-manager function is
+  replaced.
+- Forever can hide Character and Backpack before its first reload/logout event is
+  delivered. Teardown now preserves the continuously tracked explicit open state
+  rather than rebuilding it from an already-hidden UI, allowing those panels to
+  reopen after `/reload` when they were open beforehand.
+- The complete Forever fallback profile was previously written before that
+  open-panel capture. On the next reload its stale embedded visibility table won
+  over the newer field-specific CVar. The full snapshot now writes last, after
+  the final open-panel table has been captured and mirrored.
+- Forever also calls `CloseAllBags` during startup cleanup. Treating every such
+  call as an explicit player close erased the correctly restored request before
+  the delayed reopen. Generic `CloseAllBags` state syncing was removed: B remains
+  tracked by `ToggleAllBags`, X by its button hook, and Escape by the paired
+  `CloseAllBags`/`ToggleGameMenu` observer.
+- During early reload startup, Combined Backpack mode may not create
+  `ContainerFrame1`; the general compatibility heuristic then falsely reports a
+  custom bag addon and skips native restoration. A saved
+  `ContainerFrameCombinedBags` root is now authoritative and restores according
+  to its rendered visibility rather than stale logical `IsBagOpen` state.
+- Restoring any independent workspace panel now evicts it from Blizzard's active
+  UI-panel slots. Map show/hide and Edit Mode exit reapply only currently shown
+  workspace panels. The obsolete Character tab-toggle cycle was removed so map
+  transitions cannot reclaim or briefly re-toggle the Character frame.
+- Explicit Blizzard chat dimension saves now update the Forever workspace
+  snapshot. Periodic Edit Mode sampling no longer overwrites that snapshot with
+  a stale runtime width, and startup/Edit Mode exit reapply the saved dimensions.
+- All 20 Lua test files, Companion preference tests, manifests, locale checks and
+  the addon validator pass. This remains an unpublished local test candidate.
+- Final live acceptance passed after the persistence and direct-Escape fixes:
+  Backpack, Map and Character all reopened after `/reload`; first Escape kept all
+  three open while opening the Game Menu; second Escape kept them open while
+  closing only the Game Menu; and both B and the Backpack X remained functional
+  explicit close controls. No Lua error was reported during this sequence.
+

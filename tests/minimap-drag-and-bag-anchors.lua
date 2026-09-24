@@ -213,8 +213,8 @@ assert(combined._OffhandDragging == false, "Combined bag drag state must clear a
 addon.db.savedWorkspacePositions["ContainerFrameCombinedBags"] = nil
 combined.points = { { point = "BOTTOMLEFT", relTo = UIParent, relPt = "BOTTOMLEFT", x = 140, y = 520 } }
 combined:Hide()
-assert(addon.db.savedWorkspacePositions["ContainerFrameCombinedBags"] ~= nil,
-    "Closing a combined bag on the workspace must capture its final position")
+assert(addon.db.savedWorkspacePositions["ContainerFrameCombinedBags"] == nil and not combined:IsShown(),
+    "Closing a combined bag must not run drag-stop persistence or resurrect it")
 
 addon.isForever = true
 local mirrored

@@ -175,6 +175,29 @@ local function UnregisterSpecialFrame(name)
     end
 end
 
+local function SaveOpenWorkspacePanels()
+    if Offhand.ForeverPersistence and Offhand.ForeverPersistence.SaveOpenPanels then
+        Offhand.ForeverPersistence:SaveOpenPanels(Offhand.db and Offhand.db.openWorkspacePanels)
+    end
+end
+
+function Canvas:SetWorkspacePanelOpen(frameOrName, isOpen)
+    if not Offhand.db then return false end
+    local name = type(frameOrName) == "string" and frameOrName
+        or (frameOrName and frameOrName.GetName and frameOrName:GetName())
+    if not name then return false end
+    Offhand.db.openWorkspacePanels = Offhand.db.openWorkspacePanels or {}
+    local hasWorkspacePosition = Offhand.db.savedWorkspacePositions
+        and Offhand.db.savedWorkspacePositions[name]
+    if isOpen and hasWorkspacePosition then
+        Offhand.db.openWorkspacePanels[name] = true
+    else
+        Offhand.db.openWorkspacePanels[name] = nil
+    end
+    SaveOpenWorkspacePanels()
+    return Offhand.db.openWorkspacePanels[name] == true
+end
+
 function Canvas:UpdateMapMovementBehavior()
     local map = WorldMapFrame
     if not map then return end
@@ -514,31 +537,68 @@ function Canvas:RestorePersistentFrames()
     -- Baganator has its own root-frame snapshot/restore path. The generic
     -- prefix scan can see its still-shown child buttons while the bag is hidden.
     if hasBag and not (Baganator and Offhand.BagPersistence) then
-        C_Timer.After(1.5, function() 
-            -- Check if the bags are ALREADY open natively or by the custom addon's own persistence.
-            -- If they are, calling OpenAllBags() might accidentally trigger an internal toggle and close them!
+        C_Timer.After(1.5, function()
+            -- Combined Backpack mode may never create ContainerFrame1 during
+            -- startup, which makes the general compatibility heuristic report
+            -- a false custom-bag positive. An explicit saved native root wins.
+            local hasNativeCombinedSnapshot = openPanels.ContainerFrameCombinedBags
+                and Offhand.db.savedWorkspacePositions.ContainerFrameCombinedBags
+                and _G.ContainerFrameCombinedBags
+            local hasCustomBagAddon = not hasNativeCombinedSnapshot
+                and Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()
             local isAlreadyOpen = false
-            if IsBagOpen then
-                isAlreadyOpen = IsBagOpen(0)
-            end
-            
-            -- Brute-force verify custom bags aren't already visible before firing OpenAllBags, 
-            -- because custom bags often route OpenAllBags to a toggle function!
-            for k, v in pairs(_G) do
-                if type(k) == "string" and type(v) == "table" and type(rawget(v, 0)) == "userdata" then
-                    if k:match("^Baganator") or k:match("^Baginator") or k:match("^BGR") or k:match("^Bagnon") or k:match("^AdiBags") or k:match("^BetterBags") or k:match("^ArkInventory") or k:match("^ElvUI_ContainerFrame") then
-                        local ok, isShown = pcall(function() return v:IsShown() end)
-                        if ok and isShown then
+
+            if hasCustomBagAddon then
+                if IsBagOpen then isAlreadyOpen = IsBagOpen(0) end
+                -- Custom bags can route OpenAllBags to a toggle, so inspect
+                -- their actual root frames before invoking it.
+                for k, v in pairs(_G) do
+                    if type(k) == "string" and type(v) == "table" and type(rawget(v, 0)) == "userdata" then
+                        if k:match("^Baganator") or k:match("^Baginator") or k:match("^BGR") or k:match("^Bagnon") or k:match("^AdiBags") or k:match("^BetterBags") or k:match("^ArkInventory") or k:match("^ElvUI_ContainerFrame") then
+                            local ok, isShown = pcall(function() return v:IsShown() end)
+                            if ok and isShown then
+                                isAlreadyOpen = true
+                                break
+                            end
+                        end
+                    end
+                end
+            else
+                -- IsBagOpen() reports logical container state and can remain
+                -- true while Forever's Combined Backpack root is hidden.
+                -- Native restoration therefore trusts rendered frame state.
+                local combined = _G.ContainerFrameCombinedBags
+                isAlreadyOpen = combined and combined.IsShown and combined:IsShown() or false
+                if not isAlreadyOpen then
+                    for i = 1, (NUM_CONTAINER_FRAMES or 13) do
+                        local frame = _G["ContainerFrame" .. i]
+                        if frame and frame.IsShown and frame:IsShown() then
                             isAlreadyOpen = true
                             break
                         end
                     end
                 end
             end
-            
+
             if not isAlreadyOpen then
-                -- Some custom bags completely ignore OpenAllBags and only listen to the Toggle API!
-                if ToggleAllBags then ToggleAllBags() end
+                if not hasCustomBagAddon and OpenAllBags then
+                    OpenAllBags()
+                elseif ToggleAllBags then
+                    -- Some custom bags ignore OpenAllBags and expose only the
+                    -- native toggle route.
+                    ToggleAllBags()
+                end
+            end
+        end)
+    end
+
+    -- Blizzard and Edit Mode can finish their initial layout after the first
+    -- restore pass. Reapply only already-visible saved workspace frames so chat
+    -- dimensions and panel-slot detachment win the final startup race.
+    if C_Timer and C_Timer.After then
+        C_Timer.After(2, function()
+            if Offhand.db and Offhand.db.enabled then
+                Canvas:RepairShownWorkspacePanels()
             end
         end)
     end
@@ -701,12 +761,19 @@ function Canvas:ConfigureWorldMap()
                             and Offhand.db.savedWorkspacePositions["WorldMapFrame"]
                         if saved and self.IsShown and self:IsShown() then
                             RestoreWorkspacePosition(self)
+                            Canvas:RepairShownWorkspacePanels(self)
                         end
                     end)
                 end
             else
                 RegisterSpecialFrame("WorldMapFrame")
             end
+        end)
+        map:HookScript("OnHide", function(self)
+            if self._OffhandEvictingPanelSlot or not C_Timer or not C_Timer.After then return end
+            C_Timer.After(0, function()
+                Canvas:RepairShownWorkspacePanels(self)
+            end)
         end)
     end
 end
@@ -841,6 +908,7 @@ OnPanelDragStop = function(frame)
         pcall(function() frame:StopMovingOrSizing() end)
     end
     local name = frame.GetName and frame:GetName()
+    local wasShown = not frame.IsShown or frame:IsShown()
     if name and string.match(name, "^ChatFrame") then
         
     else
@@ -914,7 +982,7 @@ OnPanelDragStop = function(frame)
         local factor = parentScale / frameScale
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         
-        if Offhand.db.independentWorkspacePanels or frame == WorldMapFrame then
+        if wasShown and (Offhand.db.independentWorkspacePanels or frame == WorldMapFrame) then
             -- Escape closes active UIPanel slots even when UISpecialFrames no
             -- longer contains this workspace panel.
             EvictWorkspacePanelSlot(frame)
@@ -924,7 +992,7 @@ OnPanelDragStop = function(frame)
             DemodalizePanel(frame)
         end
 
-        if string.match(name, "^ContainerFrame") then
+        if wasShown and string.match(name, "^ContainerFrame") then
             if name == "ContainerFrame1" or name == "ContainerFrameCombinedBags" then
                 if Offhand.db.savedWorkspacePositions then
                     for i = 2, 13 do
@@ -955,8 +1023,10 @@ OnPanelDragStop = function(frame)
         if Offhand.db.persistentWorkspacePanels ~= false then
             UnregisterSpecialFrame(name)
         end
+        if wasShown then Canvas:SetWorkspacePanelOpen(name, true) end
     else
         Offhand.db.savedWorkspacePositions[name] = nil
+        Canvas:SetWorkspacePanelOpen(name, false)
         if Offhand.ForeverPersistence then
             Offhand.ForeverPersistence:ClearPosition(name)
         end
@@ -1111,10 +1181,8 @@ function Canvas:PlaceForSingleScreenRecovery(frame, metrics)
 end
 
 -- Forever's Edit Mode can move and resize non-secure utility frames without
--- dispatching their normal drag callbacks. Sample only the Combined Backpack
--- and chat frames, and mirror their geometry without touching their anchors or
--- attaching handlers to EditModeManagerFrame. This keeps the capture path
--- read-only with respect to Blizzard's protected Edit Mode state.
+-- dispatching their normal drag callbacks. Mirror explicit Combined Backpack
+-- and chat saves without touching protected Edit Mode anchors or handlers.
 function Canvas:CaptureForeverFramePosition(frame)
     if not Offhand.isForever or InCombatLockdown() or not frame or not Offhand.db
         or not Offhand.db.enabled or not Offhand.ForeverPersistence then return false end
@@ -1174,6 +1242,7 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
     if type(wPos) == "table" and wPos.x and wPos.y then
         if Offhand.db.independentWorkspacePanels or frame == WorldMapFrame then
             DemodalizePanel(frame)
+            EvictWorkspacePanelSlot(frame)
         end
         if frame == WorldMapFrame then
             Canvas:ConfigureWorldMap()
@@ -1219,27 +1288,6 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         end
         frame:ClearAllPoints()
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
-        
-                                                                                        if frame == CharacterFrame then
-            if not frame._offhandInitCycled then
-                frame._offhandInitCycled = true
-                C_Timer.After(0.5, function()
-                    if Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["CharacterFrame"] then
-                        if CharacterFrame:IsShown() and tostring(GetCVar("characterFrameCollapsed")) == "0" then
-                            if ToggleCharacter then
-                                -- Space out the toggle by a tick to allow the UI to process the transition
-                                pcall(ToggleCharacter, "ReputationFrame")
-                                C_Timer.After(0.05, function()
-                                    pcall(ToggleCharacter, "PaperDollFrame")
-                                end)
-                            end
-                        end
-                    end
-                end)
-            end
-        end
-
-
         if string.match(name, "^ChatFrame") and ChatFrame1EditBox and frame == ChatFrame1 then
             if ChatFrame1EditBox.ClearAllPoints and ChatFrame1EditBox.SetPoint then
                 ChatFrame1EditBox:ClearAllPoints()
@@ -1276,6 +1324,18 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         local y = math.min(maxY, math.max(minY, (mPos and mPos.y) or maxY))
         frame:ClearAllPoints()
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x*factor, y*factor)
+    end
+end
+
+function Canvas:RepairShownWorkspacePanels(exceptFrame)
+    if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
+        or not Offhand.db.savedWorkspacePositions then return end
+    for name in pairs(Offhand.db.savedWorkspacePositions) do
+        local frame = _G[name]
+        if frame and frame ~= exceptFrame and frame.IsShown and frame:IsShown()
+            and not IsForeverEditModeFrame(frame, name) and not IsUnsafeForDirectMutation(frame) then
+            RestoreWorkspacePosition(frame)
+        end
     end
 end
 
@@ -1345,6 +1405,7 @@ local function HookCombinedBagCloseButton(frame, name)
     closeButton._OffhandExplicitCloseHooked = true
     closeButton:HookScript("PreClick", function()
         explicitCombinedBagClose = true
+        Canvas:SetWorkspacePanelOpen(frame, false)
         -- Do not leave the bypass armed if Blizzard aborts the click before
         -- PostClick. The native close runs synchronously between these scripts.
         if C_Timer and C_Timer.After then
@@ -1355,6 +1416,16 @@ local function HookCombinedBagCloseButton(frame, name)
     end)
     closeButton:HookScript("PostClick", function()
         explicitCombinedBagClose = false
+    end)
+end
+
+local function HookPanelCloseButton(frame, name)
+    if not frame or not name or name == "ContainerFrameCombinedBags" then return end
+    local closeButton = frame.CloseButton or _G[name .. "CloseButton"]
+    if not closeButton or not closeButton.HookScript or closeButton._OffhandOpenStateHooked then return end
+    closeButton._OffhandOpenStateHooked = true
+    closeButton:HookScript("PreClick", function()
+        Canvas:SetWorkspacePanelOpen(frame, false)
     end)
 end
 
@@ -1422,22 +1493,18 @@ local function MakePanelDraggable(frame)
     -- which may not exist yet when the parent frame is first discovered.
     HookContainerTitlePersistence(frame, name)
     HookCombinedBagCloseButton(frame, name)
+    HookPanelCloseButton(frame, name)
 
     frame:HookScript("OnShow", function(self)
         HookContainerTitlePersistence(frame, name)
         HookCombinedBagCloseButton(frame, name)
+        HookPanelCloseButton(frame, name)
         RestoreSavedPositionAfterShow(frame)
+        if Offhand.db and Offhand.db.savedWorkspacePositions
+            and Offhand.db.savedWorkspacePositions[name] then
+            Canvas:SetWorkspacePanelOpen(frame, true)
+        end
     end)
-
-    if name == "ContainerFrameCombinedBags" then
-        frame:HookScript("OnHide", function()
-            -- Closing the combined backpack is a reliable final opportunity to
-            -- capture a workspace placement even on clients whose native title
-            -- drag does not propagate OnDragStop to the parent.
-            if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
-            if IsFrameOnWorkspace(frame) then OnPanelDragStop(frame) end
-        end)
-    end
 
     if frame == MinimapCluster then
         local function HookMinimapDragHandle(handleFrame)
@@ -1526,6 +1593,112 @@ function Canvas:EnableFreeDragging()
 
     local hasCustomBags = Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()
     local hasCustomMinimap = Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon()
+
+    if hooksecurefunc and not Canvas._explicitPanelToggleHooks then
+        Canvas._explicitPanelToggleHooks = true
+        local function SyncExplicitToggle(frame)
+            if not frame or not C_Timer or not C_Timer.After then return end
+            C_Timer.After(0, function()
+                local name = frame.GetName and frame:GetName()
+                if not name or not Offhand.db or not Offhand.db.savedWorkspacePositions
+                    or not Offhand.db.savedWorkspacePositions[name] then return end
+                local shown = frame.IsShown and frame:IsShown()
+                Canvas:SetWorkspacePanelOpen(name, shown)
+                if shown then RestoreSavedPositionAfterShow(frame) end
+            end)
+        end
+        local function SyncNativeBags()
+            SyncExplicitToggle(_G.ContainerFrameCombinedBags)
+            for i = 1, (NUM_CONTAINER_FRAMES or 13) do
+                SyncExplicitToggle(_G["ContainerFrame" .. i])
+            end
+        end
+        if ToggleAllBags then hooksecurefunc("ToggleAllBags", SyncNativeBags) end
+        if ToggleBag then hooksecurefunc("ToggleBag", SyncNativeBags) end
+        if ToggleWorldMap then
+            hooksecurefunc("ToggleWorldMap", function() SyncExplicitToggle(_G.WorldMapFrame) end)
+        end
+        if ToggleCharacter then
+            hooksecurefunc("ToggleCharacter", function() SyncExplicitToggle(_G.CharacterFrame) end)
+        end
+    end
+
+    -- Forever's Escape path calls CloseAllBags followed by ToggleGameMenu
+    -- directly; it does not pass through CloseAllWindows. Pair those native
+    -- calls within one event turn so B and the backpack X remain explicit
+    -- closers while Escape restores a workspace backpack after opening or
+    -- closing the Game Menu. Each hook has a retryable late-load guard.
+    if hooksecurefunc and CloseAllBags and not Canvas._closeAllBagsEscapeHooked then
+        Canvas._closeAllBagsEscapeHooked = true
+        hooksecurefunc("CloseAllBags", function()
+            if Canvas._restoringWorkspaceBagFromEscape or not C_Timer or not C_Timer.After
+                or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+            local bag = _G.ContainerFrameCombinedBags
+            local name = bag and bag.GetName and bag:GetName()
+            local saved = name and Offhand.db.savedWorkspacePositions
+                and Offhand.db.savedWorkspacePositions[name]
+            local wasTrackedOpen = name and Offhand.db.openWorkspacePanels
+                and Offhand.db.openWorkspacePanels[name]
+            if not bag or not saved or not wasTrackedOpen
+                or (bag.IsShown and bag:IsShown()) then return end
+
+            local token = {}
+            Canvas._workspaceBagAwaitingGameMenuToggle = {
+                bag = bag, name = name, token = token,
+                menuWasShown = GameMenuFrame and GameMenuFrame.IsShown
+                    and GameMenuFrame:IsShown() or false,
+            }
+            C_Timer.After(0, function()
+                local pending = Canvas._workspaceBagAwaitingGameMenuToggle
+                if pending and pending.token == token then
+                    Canvas._workspaceBagAwaitingGameMenuToggle = nil
+                end
+            end)
+        end)
+    end
+
+    if hooksecurefunc and ToggleGameMenu and not Canvas._toggleGameMenuEscapeHooked then
+        Canvas._toggleGameMenuEscapeHooked = true
+        hooksecurefunc("ToggleGameMenu", function()
+            local pending = Canvas._workspaceBagAwaitingGameMenuToggle
+            if not pending or not C_Timer or not C_Timer.After then return end
+            Canvas._workspaceBagAwaitingGameMenuToggle = nil
+            C_Timer.After(0, function()
+                local bag, name = pending.bag, pending.name
+                local menuShouldBeShown = not pending.menuWasShown
+                Canvas._restoringWorkspaceBagFromEscape = true
+                if ToggleAllBags then
+                    pcall(ToggleAllBags)
+                elseif OpenAllBags then
+                    pcall(OpenAllBags)
+                elseif bag and bag.Show then
+                    pcall(function() bag:Show() end)
+                end
+                if bag and bag.IsShown and bag:IsShown() then
+                    RestoreSavedPositionAfterShow(bag)
+                    Canvas:SetWorkspacePanelOpen(name, true)
+                end
+                -- ToggleGameMenu's post-hook runs before Forever finishes the
+                -- menu transition, so derive the desired result from the stable
+                -- state captured before Escape closed the bags.
+                local menuIsShown = GameMenuFrame and GameMenuFrame.IsShown
+                    and GameMenuFrame:IsShown() or false
+                if menuShouldBeShown ~= menuIsShown then
+                    -- A second ToggleGameMenu closes the backpack again on
+                    -- Forever. Direct Show/Hide was verified to preserve the
+                    -- bag while keeping the Escape-derived end state.
+                    if menuShouldBeShown and GameMenuFrame and GameMenuFrame.Show then
+                        pcall(function() GameMenuFrame:Show() end)
+                    elseif GameMenuFrame and GameMenuFrame.Hide then
+                        pcall(function() GameMenuFrame:Hide() end)
+                    end
+                end
+                C_Timer.After(0, function()
+                    Canvas._restoringWorkspaceBagFromEscape = false
+                end)
+            end)
+        end)
+    end
 
     -- List of standard frames that players love dragging to their secondary workspace
     local frameNames = {
@@ -1651,6 +1824,18 @@ function Canvas:EnableFreeDragging()
         end)
     end
 
+    if FCF_SavePositionAndDimensions and not Canvas._fcfSaveHooked then
+        Canvas._fcfSaveHooked = true
+        hooksecurefunc("FCF_SavePositionAndDimensions", function(chatFrame)
+            local name = chatFrame and chatFrame.GetName and chatFrame:GetName()
+            if name and Offhand.db and Offhand.db.enabled
+                and Offhand.db.savedWorkspacePositions
+                and Offhand.db.savedWorkspacePositions[name] then
+                Canvas:CaptureForeverFramePosition(chatFrame)
+            end
+        end)
+    end
+
     if FCF_OpenNewWindow and not Canvas._fcfNewHooked then
         Canvas._fcfNewHooked = true
         hooksecurefunc("FCF_OpenNewWindow", function(...)
@@ -1699,16 +1884,16 @@ function Offhand:InitializeCanvas()
             if editModeShown then
                 Canvas._foreverEditModeWasShown = true
             elseif Canvas._foreverEditModeWasShown then
-                -- Capture once more after Edit Mode closes in case the final
-                -- drag happened between ticker samples.
                 Canvas._foreverEditModeWasShown = false
+                -- Blizzard can display the saved chat width in Edit Mode while
+                -- applying a stale runtime width. Trust Offhand's last explicit
+                -- FCF save and restore it after protected Edit Mode closes.
+                Canvas:RepairShownWorkspacePanels()
+                return
             else
                 return
             end
             Canvas:CaptureForeverFramePosition(_G.ContainerFrameCombinedBags)
-            for i = 1, (NUM_CHAT_WINDOWS or 10) do
-                Canvas:CaptureForeverFramePosition(_G["ChatFrame" .. i])
-            end
         end)
     end
 

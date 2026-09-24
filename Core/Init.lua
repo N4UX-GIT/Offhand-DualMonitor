@@ -672,9 +672,6 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         -- empty one after Blizzard has already hidden its panels.
         if Offhand._openPanelsCapturedForTransition then return end
         Offhand._openPanelsCapturedForTransition = true
-        if Offhand.ForeverPersistence and Offhand.ForeverPersistence.SaveProfileSnapshot then
-            Offhand.ForeverPersistence:SaveProfileSnapshot(true)
-        end
         local transitionMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
         local preserveWorkspaceSnapshot = Offhand.Viewport and Offhand.Viewport.IsSingleScreenRecovery
             and Offhand.Viewport:IsSingleScreenRecovery(transitionMetrics)
@@ -682,7 +679,11 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 and (transitionMetrics.topologyStatus == "MISMATCH"
                     or (Offhand.isForever and transitionMetrics.topologyStatus == "ABSENT")))
         if not preserveWorkspaceSnapshot and Offhand.db and Offhand.db.enabled and Offhand.db.savedWorkspacePositions and Offhand.db.restoreWorkspaceOnReload ~= false then
-            Offhand.db.openWorkspacePanels = {}
+            -- Explicit panel toggles and close buttons maintain this table while
+            -- the player is active. Preserve that last known state here: on
+            -- Forever, Blizzard can hide CharacterFrame and the Combined
+            -- Backpack before the first teardown event reaches addons.
+            Offhand.db.openWorkspacePanels = Offhand.db.openWorkspacePanels or {}
             for name, _ in pairs(Offhand.db.savedWorkspacePositions) do
                 local frame = _G[name]
                 if frame and frame:IsVisible() then
@@ -716,6 +717,12 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                     Offhand.ForeverPersistence:SaveOpenPanels(Offhand.db.openWorkspacePanels)
                 end
             end
+        end
+        -- The complete Forever snapshot must be written after open-panel
+        -- capture. Otherwise its older embedded visibility table wins over the
+        -- newer field-specific CVar on the next /reload.
+        if Offhand.ForeverPersistence and Offhand.ForeverPersistence.SaveProfileSnapshot then
+            Offhand.ForeverPersistence:SaveProfileSnapshot(true)
         end
     elseif event == "PLAYER_ENTERING_WORLD" then
         Offhand._openPanelsCapturedForTransition = false
