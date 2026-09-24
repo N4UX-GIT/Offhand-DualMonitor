@@ -272,6 +272,18 @@ assert(addon.db.savedWorkspacePositions["ChatFrame1"] ~= nil, "savedWorkspacePos
 assert(ChatFrame1:GetWidth() == 800 and ChatFrame1:GetHeight() == 257,
     "Reload restoration must reapply the last explicitly saved chat dimensions")
 
+-- Chattynator reuses ChatFrame1EditBox but anchors it to its own chat window.
+-- Offhand must not move that shared edit box back to Blizzard's hidden frame.
+local chattynatorFrame = makeMockFrame("ChattynatorPrimaryTestFrame", 800, 257)
+ChatFrame1EditBox:ClearAllPoints()
+ChatFrame1EditBox:SetPoint("TOPLEFT", chattynatorFrame, "BOTTOMLEFT", 0, 30)
+C_AddOns = { IsAddOnLoaded = function(name) return name == "Chattynator" end }
+addon.Canvas:RestoreWorkspacePosition(ChatFrame1)
+local _, chatEditRelative = ChatFrame1EditBox:GetPoint(1)
+assert(chatEditRelative == chattynatorFrame,
+    "Offhand must preserve Chattynator's ChatFrame1EditBox anchor")
+C_AddOns = nil
+
 -- 5. Test dragging ChatFrame1 back to game view screen (x = 2000 >= deckWidth)
 MOVING_CHATFRAME = ChatFrame1
 ChatFrame1Tab.scripts.OnDragStart(ChatFrame1Tab)

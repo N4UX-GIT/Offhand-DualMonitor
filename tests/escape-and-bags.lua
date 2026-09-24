@@ -407,3 +407,40 @@ assert(p[5]*scale<=metrics.gameTop and p[5]*scale-WorldMapFrame:GetHeight()*scal
 assert(WorldMapFrame:GetWidth()==702 and WorldMapFrame:GetHeight()==534,"Native windowed map size changed")
 print("PASS: maximized map reopening, stale saved position, full bounding-box fit")
 
+-- Forever system Options must be placed directly on Mainhand, and opening it
+-- must not consume a tracked workspace backpack.
+addon.isForever = true
+addon.db.persistentWorkspacePanels = true
+addon.db.openWorkspacePanels = addon.db.openWorkspacePanels or {}
+local combinedBag = makeMockFrame("ContainerFrameCombinedBags", 520, 620)
+addon.db.savedWorkspacePositions.ContainerFrameCombinedBags = {x=100, y=900}
+addon.db.openWorkspacePanels.ContainerFrameCombinedBags = true
+-- CloseSpecialWindows can hide only the combined parent while Blizzard still
+-- considers its bags logically open; OpenAllBags then performs no Show.
+local nativeOpenAttempts = 0
+OpenAllBags = function() nativeOpenAttempts = nativeOpenAttempts + 1 end
+local settingsPanel = makeMockFrame("SettingsPanel", 980, 760)
+settingsPanel:SetPoint("CENTER", UIParent, "CENTER", 900, 900)
+addon.Canvas:HookMainhandSystemPanels()
+combinedBag:Show()
+settingsPanel:Show()
+-- Forever performs this cleanup after the panel has begun showing.
+combinedBag:Hide()
+assert(addon.Canvas:RestoreWorkspaceBagClosedDuringSystemPanelOpen(),
+    "A bag closed during the Settings opening transition must schedule restoration")
+flushTimers()
+local settingsPoint = settingsPanel.points[#settingsPanel.points]
+local expectedCY = (metrics.gameBottom + metrics.gameTop) / 2 - UIParent:GetHeight()/2
+assert(settingsPoint and settingsPoint[1] == "CENTER",
+    "Forever SettingsPanel must receive a deterministic Mainhand center anchor")
+assert(math.abs(settingsPoint[4] - expectedCX) < 0.01
+    and math.abs(settingsPoint[5] - expectedCY) < 0.01,
+    "Forever SettingsPanel must be centered inside the game rectangle")
+assert(combinedBag:IsShown(),
+    "Opening Forever SettingsPanel must restore a tracked workspace backpack")
+assert(nativeOpenAttempts > 0,
+    "Settings restoration must try Blizzard's native bag opener first")
+assert(addon.db.openWorkspacePanels.ContainerFrameCombinedBags == true,
+    "Settings must not clear the backpack's persistent-open state")
+print("PASS: Forever SettingsPanel Mainhand placement and workspace backpack persistence")
+

@@ -95,7 +95,8 @@ L["PRESET_DUAL_LANDSCAPE_TIP_DESC"] = "Divide a janela igualmente entre dois mon
 L["BTN_1CLICK_AUTOCONFIG"] = "Configurar com um clique"
 L["BTN_1CLICK_AUTOCONFIG_TIP_TITLE"] = "Detecção automática de hardware"
 L["BTN_1CLICK_AUTOCONFIG_TIP_DESC"] = "Detecta a resolução e aplica divisão, orientação e proporção recomendadas."
-L["EXACT_TOPOLOGY_LOCKED"] = "O Companion controla a geometria exata. Altere as telas ou a Mainhand nele e expanda novamente."
+L["EXACT_TOPOLOGY_LOCKED"] = "O Companion controla o layout dos monitores. Altere as telas ou a Mainhand nele e expanda novamente."
+L["COMPANION_TOPOLOGY_SUMMARY"] = "Companion ativo: Jogo %dx%d | Área de trabalho %dx%d"
 
 L["CARD_VIEWPORT_AR"] = "2. Proporção e posição da área 3D"
 L["AR_16_9"] = "16:9 widescreen"

@@ -37,10 +37,20 @@ try {
         $packager -notmatch 'Companion\\Linux\.md.*-Destination \$bundleCompanionDocs') {
         throw 'Linux compatibility documentation must ship in Companion and complete release archives.'
     }
+    if ($packager -match 'Compress-Archive' -or $packager -notmatch 'New-PortableZip') {
+        throw 'Release archives must use the portable ZIP writer rather than Windows backslash entry paths.'
+    }
+    $linuxGuide = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Linux.md') -Raw
+    if ($linuxGuide -notmatch 'Wine/Proton runner must also match' -or
+        $linuxGuide -notmatch 'Pre-launch script' -or
+        $linuxGuide -notmatch 'WINEPREFIX') {
+        throw 'Linux guide must document the matching prefix, matching runner, and Lutris pre-launch setup.'
+    }
     Write-Output 'PASS: update checks are user initiated'
     Write-Output 'PASS: long display-plan and activity-log text uses wrapped surfaces'
     Write-Output 'PASS: hotkey selector does not overlap the display checklist'
     Write-Output 'PASS: Linux compatibility documentation is included by the release packager'
+    Write-Output 'PASS: release ZIPs are portable and Linux guidance covers prefix/runner matching'
 } finally {
     if (Test-Path -LiteralPath $testExe) { Remove-Item -LiteralPath $testExe }
 }

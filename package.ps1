@@ -8,6 +8,55 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+function New-PortableZip {
+    param(
+        [Parameter(Mandatory = $true)][string]$SourceDirectory,
+        [Parameter(Mandatory = $true)][string]$DestinationPath,
+        [switch]$IncludeRootDirectory
+    )
+
+    $source = (Resolve-Path -LiteralPath $SourceDirectory).Path.TrimEnd('\', '/')
+    $relativeBase = if ($IncludeRootDirectory) {
+        Split-Path -Parent $source
+    } else {
+        $source
+    }
+    $relativeBase = $relativeBase.TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+
+    if (Test-Path -LiteralPath $DestinationPath) {
+        Remove-Item -LiteralPath $DestinationPath -Force
+    }
+
+    $archive = [IO.Compression.ZipFile]::Open(
+        $DestinationPath, [IO.Compression.ZipArchiveMode]::Create)
+    try {
+        Get-ChildItem -LiteralPath $source -File -Recurse | ForEach-Object {
+            $entryName = $_.FullName.Substring($relativeBase.Length).Replace('\', '/')
+            [IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                $archive, $_.FullName, $entryName,
+                [IO.Compression.CompressionLevel]::Optimal) | Out-Null
+        }
+    } finally {
+        $archive.Dispose()
+    }
+
+    $validationArchive = [IO.Compression.ZipFile]::OpenRead($DestinationPath)
+    try {
+        $invalidEntry = $validationArchive.Entries |
+            Where-Object { $_.FullName.Contains('\') } |
+            Select-Object -First 1
+        if ($invalidEntry) {
+            throw "ZIP contains a non-portable backslash entry: $($invalidEntry.FullName)"
+        }
+    } finally {
+        $validationArchive.Dispose()
+    }
+}
+
 $rootDir = $PSScriptRoot
 $distDir = Join-Path $rootDir "dist"
 $tempDir = Join-Path ([IO.Path]::GetTempPath()) ("Offhand-package-" + [guid]::NewGuid().ToString())
@@ -66,7 +115,7 @@ New-Item -ItemType Directory -Path $mediaStaging -Force | Out-Null
 Copy-Item (Join-Path $rootDir "Media\*.blp") -Destination $mediaStaging -Force
 
 $addonZip = Join-Path $distDir "Offhand-v$Version.zip"
-Compress-Archive -Path $addonStaging -DestinationPath $addonZip -CompressionLevel Optimal -Force
+New-PortableZip -SourceDirectory $addonStaging -DestinationPath $addonZip -IncludeRootDirectory
 Write-Host "  -> Created: $addonZip" -ForegroundColor Green
 
 if ($AddonOnly) {
@@ -105,7 +154,7 @@ Copy-Item (Join-Path $rootDir "Media\offhand-logo.ico") -Destination $compMedia
 Copy-Item (Join-Path $rootDir "Media\offhand-logo-small.png") -Destination $compMedia
 
 $compZip = Join-Path $distDir "Offhand-Companion.zip"
-Compress-Archive -Path (Join-Path $compStaging "*") -DestinationPath $compZip -CompressionLevel Optimal -Force
+New-PortableZip -SourceDirectory $compStaging -DestinationPath $compZip
 Write-Host "  -> Created: $compZip" -ForegroundColor Green
 
 # Copy standalone Offhand.exe directly to dist
@@ -128,7 +177,7 @@ New-Item -ItemType Directory -Path $bundleCompanionDocs -Force | Out-Null
 Copy-Item (Join-Path $rootDir "Companion\Linux.md") -Destination $bundleCompanionDocs
 
 $bundleZip = Join-Path $distDir "Offhand-Complete-v$Version.zip"
-Compress-Archive -Path (Join-Path $bundleStaging "*") -DestinationPath $bundleZip -CompressionLevel Optimal -Force
+New-PortableZip -SourceDirectory $bundleStaging -DestinationPath $bundleZip
 Write-Host "  -> Created: $bundleZip" -ForegroundColor Green
 
 # Clean staging and generate SHA-256 Checksums

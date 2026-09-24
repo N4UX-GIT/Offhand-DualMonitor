@@ -14,8 +14,9 @@ Native Windows desktop companion application for the Offhand World of Warcraft a
 * **DPI-Aware**: Full Per-Monitor V2 scaling ensures crisp fonts and accurate window positioning on mixed-resolution / mixed-scale setups.
 * **Wine Process-Path Fallback**: If .NET cannot read `Process.MainModule`, the
   Companion retries with the limited-access Win32 image-path API implemented by
-  Wine. This improves same-prefix Wine compatibility without claiming a native
-  Linux build.
+  Wine. WoW and the Companion must use the same prefix and the same Wine/Proton
+  runner version; see [Linux.md](Linux.md). This improves Wine compatibility
+  without claiming a native Linux build.
 * **Exact Display Topology**: Persists Windows display identities, an explicit
   Mainhand role, and the actual rectangle of each selected screen. The addon no
   longer has to guess a layout from the combined window resolution.

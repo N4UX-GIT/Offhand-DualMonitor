@@ -116,6 +116,10 @@ function Options:DetectTopology()
         local gameLandscape = metrics.gamePixelWidth >= metrics.gamePixelHeight
         info.isSpanned = true
         info.exactTopology = true
+        info.gamePixelWidth = metrics.gamePixelWidth
+        info.gamePixelHeight = metrics.gamePixelHeight
+        info.workspacePixelWidth = metrics.workspacePixelWidth
+        info.workspacePixelHeight = metrics.workspacePixelHeight
         info.recommendedPreset = stacked and "STACKED_VERTICAL"
             or (workspacePortrait and gameLandscape and "PORTRAIT_LEFT_LANDSCAPE_RIGHT")
             or "LANDSCAPE_DUAL"
@@ -933,11 +937,12 @@ function Options:CreateFloatingPanel()
         Offhand:SetTooltip(autoWizardBtn, L["BTN_AUTO_WIZARD_TIP_TITLE"], L["BTN_AUTO_WIZARD_TIP_DESC"])
     end
     configFrame.autoWizardBtn = autoWizardBtn
+    configFrame.companionAppBtn = compAppBtn
 
     -- Status & Topology Detection Banner
     local banner = configFrame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     banner:SetPoint("TOPLEFT", 18, -130)
-    banner:SetPoint("TOPRIGHT", autoWizardBtn, "TOPLEFT", -8, 0)
+    banner:SetPoint("TOPRIGHT", compAppBtn, "TOPLEFT", -8, 0)
     banner:SetJustifyH("LEFT")
     configFrame.banner = banner
 
@@ -2200,11 +2205,21 @@ function Options:CreateFloatingPanel()
     function Options:RefreshPanel()
         if not configFrame then return end
         local info = Options:DetectTopology()
-        local bannerText = string.format(L["TAB_DISPLAY"] .. ": %s (%dx%d)",
-            info.description, info.physWidth, info.physHeight)
+        local bannerText
         if info.exactTopology then
-            bannerText = bannerText .. "\n|cffaaaaaa" .. L["EXACT_TOPOLOGY_LOCKED"] .. "|r"
+            bannerText = string.format(L["COMPANION_TOPOLOGY_SUMMARY"],
+                info.gamePixelWidth, info.gamePixelHeight,
+                info.workspacePixelWidth, info.workspacePixelHeight)
+                .. "\n|cffaaaaaa" .. L["EXACT_TOPOLOGY_LOCKED"] .. "|r"
+            compAppBtn:Hide()
+        else
+            bannerText = string.format(L["TAB_DISPLAY"] .. ": %s (%dx%d)",
+                info.description, info.physWidth, info.physHeight)
+            compAppBtn:Show()
         end
+        banner:ClearAllPoints()
+        banner:SetPoint("TOPLEFT", 18, -130)
+        banner:SetPoint("TOPRIGHT", info.exactTopology and autoWizardBtn or compAppBtn, "TOPLEFT", -8, 0)
         banner:SetText(bannerText)
         optionsScrollFrame:ClearAllPoints()
         optionsScrollFrame:SetPoint("TOPLEFT", 16, info.exactTopology and -180 or -156)

@@ -9,10 +9,25 @@ All notable changes to this project will be documented in this file.
   long missing-monitor diagnostics outside their cards.
 - Companion's Hotkey selector is narrower so it no longer covers the monitor
   checklist when three or more displays are connected.
-- Companion documents an experimental same-prefix Wine path and the separate
-  work required for native X11 and compositor-specific Wayland support.
+- Companion documents an experimental same-prefix, same-runner Wine path,
+  including a Lutris pre-launch example and Linux extraction checks, while
+  keeping native X11 and compositor-specific Wayland support as separate work.
+- Release ZIPs now use portable forward-slash entry paths so Linux extractors
+  preserve the addon directory tree without a custom deflattening script.
 
 ### Fixed
+- Load-on-demand Blizzard panels are now discovered dynamically, including
+  Forever panels flagged protected, gain an out-of-combat title-bar drag
+  handle, and are fitted wholly inside the nearest visible monitor when their
+  default anchor straddles a mixed-height display void.
+- Forever now anchors Blizzard Options directly to Mainhand instead of relying
+  on timing-sensitive void rescue, and keeps a tracked workspace backpack open
+  while entering Options from the Game Menu.
+- Offhand now leaves `ChatFrame1EditBox` anchored by Chattynator, so pressing
+  Enter reveals Chattynator's text input while its window is on the workspace.
+- Companion-controlled layouts now show a concise game/workspace summary in
+  settings, explain why manual geometry is locked, and no longer overlap that
+  status with the redundant Companion download button.
 - Companion retries inaccessible WoW executable paths through
   `QueryFullProcessImageName`, recognizes every supported Offhand TOC, and
   diagnoses an accidental `Offhand/Offhand` addon installation directly.

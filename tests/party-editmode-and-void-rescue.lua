@@ -713,6 +713,42 @@ local rescuedTop = ExampleAddonWindow:GetTop()
 assert(rescuedTop <= metrics.gameTop, string.format("Rescued frame top (%s) must be <= gameTop (%s)", tostring(rescuedTop), tostring(metrics.gameTop)))
 print(string.format("PASS: Void Rescue Engine successfully rescued ExampleAddonWindow from void (top=%s <= gameTop=%s)", tostring(rescuedTop), tostring(metrics.gameTop)))
 
+-- Load-on-demand panels are not a stable name list. A newly registered spell
+-- book that straddles the portrait workspace and the void must be discovered,
+-- made draggable, and fitted completely inside the workspace.
+local playerSpellsFrame = makeMockFrame("PlayerSpellsFrame", 600, 700)
+local playerSpellsTitle = makeMockFrame("PlayerSpellsFrameTitleContainer", 500, 20)
+playerSpellsFrame.TitleContainer = playerSpellsTitle
+playerSpellsFrame.IsProtected = function() return true end
+playerSpellsTitle.IsProtected = function() return true end
+playerSpellsFrame.StartMoving = function(self) self.startMovingCalls = (self.startMovingCalls or 0) + 1 end
+playerSpellsFrame:ClearAllPoints()
+playerSpellsFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 1000, 2500)
+UIPanelWindows.PlayerSpellsFrame = { area = "left", pushable = 0 }
+addon.Canvas:DiscoverUIPanels()
+flushTimers()
+assert(playerSpellsFrame._OffhandMovable and playerSpellsFrame.movable,
+    "dynamic UIPanel discovery must make registered out-of-combat protected panels draggable")
+assert(playerSpellsFrame._OffhandHandle == playerSpellsTitle
+        and playerSpellsTitle._OffhandPanelDragTarget == playerSpellsFrame,
+    "modern Blizzard panels must use their elevated native TitleContainer as the drag surface")
+playerSpellsTitle.scripts.OnDragStart(playerSpellsTitle)
+assert(playerSpellsFrame.startMovingCalls == 1,
+    "dragging the native title container must start moving its owning panel")
+assert(playerSpellsFrame:GetLeft() >= metrics.workspaceLeft + 12
+        and playerSpellsFrame:GetRight() <= metrics.workspaceRight - 12,
+    "a panel straddling the workspace void must be fitted inside the workspace")
+assert(playerSpellsFrame:GetTop() <= metrics.workspaceTop - 12
+        and playerSpellsFrame:GetBottom() >= metrics.workspaceBottom + 12,
+    "rescued panels must remain vertically contained in the workspace")
+
+playerSpellsFrame:ClearAllPoints()
+playerSpellsFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 260, 1900)
+playerSpellsTitle.scripts.OnDragStop(playerSpellsTitle)
+assert(addon.db.savedWorkspacePositions.PlayerSpellsFrame,
+    "a dynamically discovered panel drag must persist its workspace position")
+print("PASS: dynamic Blizzard panels are draggable, void-safe, and persistent")
+
 -- Forever Cooldown Viewer systems are Blizzard Edit Mode-managed even though
 -- they are not protected frames. The generic rescue scanner must never move,
 -- hook or make them movable; doing so taints aura tables used by Blizzard.

@@ -158,6 +158,21 @@ local function IsUnsafeForDirectMutation(frame)
     return false
 end
 
+-- Forever marks several ordinary, load-on-demand UIPanels as protected even
+-- while they are only usable out of combat.  They may still be repositioned
+-- from a hardware drag while out of combat. Keep the exception restricted to
+-- Blizzard's UIPanel registry; secure HUD/Edit Mode frames are not registered
+-- here and remain covered by the stricter guard above.
+local function IsUnsafeForPanelMutation(frame, name)
+    if not frame then return true end
+    if frame.IsForbidden and frame:IsForbidden() then return true end
+    if frame.IsProtected and frame:IsProtected() then
+        name = name or (frame.GetName and frame:GetName())
+        return not (name and UIPanelWindows and UIPanelWindows[name])
+    end
+    return false
+end
+
 local function RegisterSpecialFrame(name)
     if not name or not UISpecialFrames then return end
     for _, n in ipairs(UISpecialFrames) do
@@ -173,6 +188,22 @@ local function UnregisterSpecialFrame(name)
             table.remove(UISpecialFrames, i)
         end
     end
+end
+
+local function HasChattynator()
+    if C_AddOns and C_AddOns.IsAddOnLoaded then
+        return C_AddOns.IsAddOnLoaded("Chattynator")
+    elseif IsAddOnLoaded then
+        return IsAddOnLoaded("Chattynator")
+    end
+    return false
+end
+
+-- Chattynator deliberately reuses Blizzard's primary edit box while anchoring
+-- it to an unnamed Chattynator window.  Reattaching that edit box to the hidden
+-- ChatFrame1 makes Enter focus a valid but invisible input field.
+local function ShouldManageBlizzardChatEditBox(frame)
+    return frame == ChatFrame1 and not HasChattynator()
 end
 
 local function IsRetailEditModePrimaryChat(frame)
@@ -909,7 +940,7 @@ OnPanelDragStop = function(frame)
     if not frame then return end
     if InCombatLockdown() then frame._OffhandDragging = false; return end
     local dragName = frame.GetName and frame:GetName()
-    if IsForeverEditModeFrame(frame, dragName) or IsUnsafeForDirectMutation(frame) then
+    if IsForeverEditModeFrame(frame, dragName) or IsUnsafeForPanelMutation(frame, dragName) then
         frame._OffhandDragging = false
         return
     end
@@ -1029,7 +1060,7 @@ OnPanelDragStop = function(frame)
                 end
             end
         elseif string.match(name, "^ChatFrame") then
-            if ChatFrame1EditBox and frame == ChatFrame1 then
+            if ChatFrame1EditBox and ShouldManageBlizzardChatEditBox(frame) then
                 if ChatFrame1EditBox.ClearAllPoints and ChatFrame1EditBox.SetPoint then
                     ChatFrame1EditBox:ClearAllPoints()
                     ChatFrame1EditBox:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, 0)
@@ -1180,7 +1211,7 @@ function Canvas:PlaceForSingleScreenRecovery(frame, metrics)
     if not IsSingleScreenRecovery(metrics) then return false end
     local name = frame.GetName and frame:GetName()
     if not name or not Offhand.db.savedWorkspacePositions[name]
-        or IsForeverEditModeFrame(frame, name) or IsUnsafeForDirectMutation(frame) then return false end
+        or IsForeverEditModeFrame(frame, name) or IsUnsafeForPanelMutation(frame, name) then return false end
 
     -- Blizzard Edit Mode's Modern fallback already places chat correctly and
     -- may also restore its preferred size. Do not override it with panel logic.
@@ -1253,7 +1284,7 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
     if not Offhand.db or not Offhand.db.enabled then return end
     local name = frame:GetName()
     if not name then return end
-    if IsForeverEditModeFrame(frame, name) or IsUnsafeForDirectMutation(frame) then return end
+    if IsForeverEditModeFrame(frame, name) or IsUnsafeForPanelMutation(frame, name) then return end
     if IsRetailChatEditModeActive(frame) then return end
 
     local m = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
@@ -1313,7 +1344,8 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         end
         frame:ClearAllPoints()
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
-        if string.match(name, "^ChatFrame") and ChatFrame1EditBox and frame == ChatFrame1 then
+        if string.match(name, "^ChatFrame") and ChatFrame1EditBox
+            and ShouldManageBlizzardChatEditBox(frame) then
             if ChatFrame1EditBox.ClearAllPoints and ChatFrame1EditBox.SetPoint then
                 ChatFrame1EditBox:ClearAllPoints()
                 ChatFrame1EditBox:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, 0)
@@ -1375,7 +1407,7 @@ function Canvas:RepairShownWorkspacePanels(exceptFrame)
     for name in pairs(Offhand.db.savedWorkspacePositions) do
         local frame = _G[name]
         if frame and frame ~= exceptFrame and frame.IsShown and frame:IsShown()
-            and not IsForeverEditModeFrame(frame, name) and not IsUnsafeForDirectMutation(frame) then
+            and not IsForeverEditModeFrame(frame, name) and not IsUnsafeForPanelMutation(frame, name) then
             RestoreWorkspacePosition(frame)
         end
     end
@@ -1384,6 +1416,87 @@ end
 -- ============================================================================
 -- Universal Panel Dragger (Allows moving panels to the secondary monitor)
 -- ============================================================================
+local nonMovableSystemPanels = {
+    GameMenuFrame = true,
+    SettingsPanel = true,
+    InterfaceOptionsFrame = true,
+    VideoOptionsFrame = true,
+    AudioOptionsFrame = true,
+}
+
+-- A normal Blizzard panel can be reachable by its left edge while its close
+-- button and most of its title bar sit in the mixed-height monitor void. Keep
+-- the complete window inside whichever visible monitor currently contains the
+-- greatest portion of it. Saved user placements are restored separately and
+-- therefore always take precedence over this default-position rescue.
+function Canvas:RescuePanelFromVoid(frame, metrics)
+    if not frame or (InCombatLockdown and InCombatLockdown()) or not Offhand.db
+        or not Offhand.db.enabled then return false end
+    local name = frame.GetName and frame:GetName()
+    if not name or nonMovableSystemPanels[name] or IsForeverEditModeFrame(frame, name)
+        or IsUnsafeForPanelMutation(frame, name) then return false end
+    if not UIPanelWindows or not UIPanelWindows[name] then return false end
+    if frame.IsShown and not frame:IsShown() then return false end
+
+    metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics
+        and WithWorkspace(Offhand.Viewport:GetMetrics()))
+    if not metrics or not metrics.isSpanned or metrics.workspaceLeft == nil then return false end
+
+    local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
+    local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or parentScale
+    if parentScale <= 0 or frameScale <= 0 then return false end
+    local scaleFactor = frameScale / parentScale
+    local left = frame.GetLeft and frame:GetLeft()
+    local top = frame.GetTop and frame:GetTop()
+    local width = frame.GetWidth and frame:GetWidth()
+    local height = frame.GetHeight and frame:GetHeight()
+    if not left or not top or not width or not height or width <= 0 or height <= 0 then return false end
+
+    left, top = left * scaleFactor, top * scaleFactor
+    width, height = width * scaleFactor, height * scaleFactor
+    local right, bottom = left + width, top - height
+    local inset = 12
+    local areas = {
+        {
+            left = metrics.workspaceLeft, right = metrics.workspaceRight,
+            bottom = metrics.workspaceBottom, top = metrics.workspaceTop,
+        },
+        {
+            left = metrics.gameLeft, right = metrics.gameRight,
+            bottom = metrics.gameBottom, top = metrics.gameTop,
+        },
+    }
+
+    local function IsContained(area)
+        return left >= area.left + inset and right <= area.right - inset
+            and bottom >= area.bottom + inset and top <= area.top - inset
+    end
+    if IsContained(areas[1]) or IsContained(areas[2]) then return false end
+
+    local function Overlap(area)
+        local overlapWidth = math.max(0, math.min(right, area.right) - math.max(left, area.left))
+        local overlapHeight = math.max(0, math.min(top, area.top) - math.max(bottom, area.bottom))
+        return overlapWidth * overlapHeight
+    end
+    local target = Overlap(areas[1]) >= Overlap(areas[2]) and areas[1] or areas[2]
+    local availableWidth = math.max(0, target.right - target.left - inset * 2)
+    local availableHeight = math.max(0, target.top - target.bottom - inset * 2)
+    local targetLeft = width <= availableWidth
+        and math.max(target.left + inset, math.min(left, target.right - width - inset))
+        or target.left + inset
+    local targetTop = height <= availableHeight
+        and math.max(target.bottom + height + inset, math.min(top, target.top - inset))
+        or target.top - inset
+    local pointFactor = parentScale / frameScale
+    local ok = pcall(function()
+        if frame.SetClampedToScreen then frame:SetClampedToScreen(false) end
+        frame:ClearAllPoints()
+        frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT",
+            targetLeft * pointFactor, targetTop * pointFactor)
+    end)
+    return ok
+end
+
 local function RestoreSavedPositionAfterShow(frame)
     if not frame or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
     local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
@@ -1403,7 +1516,19 @@ local function RestoreSavedPositionAfterShow(frame)
     local name = frame.GetName and frame:GetName()
     local workspacePosition = name and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
     local mainPosition = name and Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name]
-    if not workspacePosition and not mainPosition then return end
+    if not workspacePosition and not mainPosition then
+        Canvas:RescuePanelFromVoid(frame, metrics)
+        if C_Timer and C_Timer.After then
+            frame._OffhandRescueGeneration = (frame._OffhandRescueGeneration or 0) + 1
+            local generation = frame._OffhandRescueGeneration
+            C_Timer.After(0, function()
+                if frame._OffhandRescueGeneration ~= generation then return end
+                if frame.IsShown and not frame:IsShown() then return end
+                Canvas:RescuePanelFromVoid(frame)
+            end)
+        end
+        return
+    end
 
     -- Apply once after Blizzard's show/layout stack has finished. UIPanel and
     -- container managers can set their native anchor after OnShow, which made
@@ -1474,7 +1599,7 @@ end
 local function MakePanelDraggable(frame)
     if not frame or frame._OffhandMovable then return end
     local name = frame.GetName and frame:GetName()
-    if IsForeverEditModeFrame(frame, name) or IsUnsafeForDirectMutation(frame) then return end
+    if IsForeverEditModeFrame(frame, name) or IsUnsafeForPanelMutation(frame, name) then return end
 
     if name == "MinimapCluster" and Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon() then
         return
@@ -1484,52 +1609,74 @@ local function MakePanelDraggable(frame)
         return
     end
 
-    frame:SetMovable(true)
-    frame:SetClampedToScreen(false)
+    local movableOK = pcall(function()
+        frame:SetMovable(true)
+        frame:SetClampedToScreen(false)
+    end)
+    if not movableOK or (frame.IsMovable and not frame:IsMovable()) then return end
 
-    -- Create an elevated drag handle across the title bar area so clicks aren't swallowed by child elements
+    local function HookPanelDragSurface(surface)
+        if not surface or surface._OffhandPanelDragTarget == frame
+            or (surface.IsForbidden and surface:IsForbidden()) then return false end
+
+        local hooked = pcall(function()
+            surface:EnableMouse(true)
+            surface:RegisterForDrag("LeftButton")
+            surface:HookScript("OnDragStart", function()
+                if InCombatLockdown() or not Offhand.db.enabled then return end
+                local started = pcall(function() frame:StartMoving() end)
+                frame._OffhandDragging = started and true or false
+            end)
+            surface:HookScript("OnDragStop", function()
+                OnPanelDragStop(frame)
+            end)
+        end)
+        if not hooked then return false end
+        surface._OffhandPanelDragTarget = frame
+        return true
+    end
+
+    -- Modern Blizzard panel templates place TitleContainer at frame level 510.
+    -- Use that native title region directly: a child overlay at the parent's
+    -- ordinary frame level sits underneath it and never receives drag input.
+    -- Fall back to an elevated overlay only for older panels without a title
+    -- container.
     -- MinimapCluster uses MinimapZoneTextButton as its natural drag handle and must not have an overlaid handle
     -- Unit frames (PartyMemberFrame, CompactPartyFrame) and FocusedRosterFrame must NOT have an overlaid handle
     -- to prevent blocking unit targeting, healing, right-click context menus, and roster row selection
     local isUnitFrame = name and (string.match(name, "^PartyMemberFrame") or string.match(name, "^CompactPartyFrame") or name == "PlayerFrame" or name == "TargetFrame")
     if frame ~= MinimapCluster and not isUnitFrame  then
-        local handle = frame._OffhandHandle
-        if not handle and CreateFrame then
+        local titleContainer = frame.TitleContainer or (name and _G[name .. "TitleContainer"])
+        if titleContainer and HookPanelDragSurface(titleContainer) then
+            frame._OffhandHandle = titleContainer
+        elseif not frame._OffhandHandle and CreateFrame then
+            local handle
             handle = CreateFrame("Frame", nil, frame)
             handle:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, 0)
             handle:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -36, 0)
             handle:SetHeight(32)
             local lvl = (frame.GetFrameLevel and frame:GetFrameLevel()) or 1
-            if handle.SetFrameLevel then handle:SetFrameLevel(lvl + 25) end
-            handle:EnableMouse(true)
-            handle:RegisterForDrag("LeftButton")
-
-            handle:HookScript("OnDragStart", function(self)
-                if InCombatLockdown() or not Offhand.db.enabled then return end
-                frame._OffhandDragging = true
-                frame:StartMoving()
-            end)
-
-            handle:HookScript("OnDragStop", function(self)
-                OnPanelDragStop(frame)
-            end)
-
+            if handle.SetFrameLevel then handle:SetFrameLevel(math.max(lvl + 25, 520)) end
+            HookPanelDragSurface(handle)
             frame._OffhandHandle = handle
         end
     end
 
-    frame:EnableMouse(true)
-    frame:RegisterForDrag("LeftButton")
+    local frameIsProtected = frame.IsProtected and frame:IsProtected()
+    if not frameIsProtected then
+        frame:EnableMouse(true)
+        frame:RegisterForDrag("LeftButton")
 
-    frame:HookScript("OnDragStart", function(self)
-        if InCombatLockdown() or not Offhand.db.enabled then return end
-        frame._OffhandDragging = true
-        frame:StartMoving()
-    end)
+        frame:HookScript("OnDragStart", function(self)
+            if InCombatLockdown() or not Offhand.db.enabled then return end
+            frame._OffhandDragging = true
+            frame:StartMoving()
+        end)
 
-    frame:HookScript("OnDragStop", function(self)
-        OnPanelDragStop(frame)
-    end)
+        frame:HookScript("OnDragStop", function(self)
+            OnPanelDragStop(frame)
+        end)
+    end
 
     -- Modern/Forever combined bags are dragged by their native TitleContainer,
     -- which may not exist yet when the parent frame is first discovered.
@@ -1537,15 +1684,17 @@ local function MakePanelDraggable(frame)
     HookCombinedBagCloseButton(frame, name)
     HookPanelCloseButton(frame, name)
 
-    frame:HookScript("OnShow", function(self)
-        HookContainerTitlePersistence(frame, name)
-        HookCombinedBagCloseButton(frame, name)
-        HookPanelCloseButton(frame, name)
-        RestoreSavedPositionAfterShow(frame)
-        if Offhand.db and Offhand.db.savedWorkspacePositions
-            and Offhand.db.savedWorkspacePositions[name] then
-            Canvas:SetWorkspacePanelOpen(frame, true)
-        end
+    pcall(function()
+        frame:HookScript("OnShow", function(self)
+            HookContainerTitlePersistence(frame, name)
+            HookCombinedBagCloseButton(frame, name)
+            HookPanelCloseButton(frame, name)
+            RestoreSavedPositionAfterShow(frame)
+            if Offhand.db and Offhand.db.savedWorkspacePositions
+                and Offhand.db.savedWorkspacePositions[name] then
+                Canvas:SetWorkspacePanelOpen(frame, true)
+            end
+        end)
     end)
 
     if frame == MinimapCluster then
@@ -1600,11 +1749,123 @@ Canvas.HookCombinedBagCloseButton = HookCombinedBagCloseButton
 Canvas.IsFrameOnWorkspace = IsFrameOnWorkspace
 Canvas.OnPanelDragStop = OnPanelDragStop
 
+local foreverSystemPanelNames = {
+    "SettingsPanel",
+    "InterfaceOptionsFrame",
+    "VideoOptionsFrame",
+    "AudioOptionsFrame",
+}
+
+-- System settings must always open on Mainhand.  Generic void rescue is a
+-- fallback and can miss a panel whose geometry is not final on its first show.
+function Canvas:PlaceSystemPanelOnMainhand(frame)
+    if not Offhand.isForever or not frame or IsUnsafeForDirectMutation(frame)
+        or (InCombatLockdown and InCombatLockdown()) then return false end
+    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
+        and WithWorkspace(Offhand.Viewport:GetMetrics())
+    if not metrics or not metrics.isSpanned then return false end
+
+    local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
+    local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
+    if frameScale <= 0 or parentScale <= 0 then return false end
+    local factor = frameScale / parentScale
+    local x = ((metrics.gameLeft + metrics.gameRight) / 2 - UIParent:GetWidth() / 2) / factor
+    local y = ((metrics.gameBottom + metrics.gameTop) / 2 - UIParent:GetHeight() / 2) / factor
+    local ok = pcall(function()
+        if frame.SetClampedToScreen then frame:SetClampedToScreen(false) end
+        frame:ClearAllPoints()
+        frame:SetPoint("CENTER", UIParent, "CENTER", x, y)
+    end)
+    return ok
+end
+
+-- Opening Blizzard Settings closes native bags as part of its panel cleanup.
+-- A workspace backpack marked open is independent workspace content, so reopen
+-- only that tracked bag after Settings finishes its transition.
+function Canvas:RestoreTrackedWorkspaceBag()
+    if not Offhand.isForever or (InCombatLockdown and InCombatLockdown())
+        or not Offhand.db or not Offhand.db.enabled
+        or Offhand.db.persistentWorkspacePanels == false then return false end
+    local bag = _G.ContainerFrameCombinedBags
+    local name = bag and bag.GetName and bag:GetName()
+    local saved = name and Offhand.db.savedWorkspacePositions
+        and Offhand.db.savedWorkspacePositions[name]
+    local trackedOpen = name and Offhand.db.openWorkspacePanels
+        and Offhand.db.openWorkspacePanels[name]
+    if not bag or not saved or not trackedOpen then return false end
+
+    Canvas._restoringWorkspaceBagFromEscape = true
+    if not (bag.IsShown and bag:IsShown()) then
+        if OpenAllBags then
+            pcall(OpenAllBags)
+        elseif ToggleAllBags then
+            pcall(ToggleAllBags)
+        end
+        -- CloseSpecialWindows can hide the combined parent without changing
+        -- Blizzard's logical bag-open state.  OpenAllBags then returns early,
+        -- so reveal that already-open parent directly as the final fallback.
+        if not (bag.IsShown and bag:IsShown()) and bag.Show then
+            pcall(bag.Show, bag)
+        end
+    end
+    local restored = bag.IsShown and bag:IsShown()
+    if restored then
+        RestoreSavedPositionAfterShow(bag)
+        Canvas:SetWorkspacePanelOpen(name, true)
+    end
+    Canvas._restoringWorkspaceBagFromEscape = false
+    return restored and true or false
+end
+
+-- Settings can run its native bag cleanup after the panel's OnShow callbacks.
+-- Keep this short-lived marker separate from normal bag persistence so B and
+-- the backpack close button remain explicit closers once the transition ends.
+function Canvas:RestoreWorkspaceBagClosedDuringSystemPanelOpen()
+    if not Canvas._systemPanelOpeningToken or not C_Timer or not C_Timer.After then
+        return false
+    end
+    C_Timer.After(0, function() Canvas:RestoreTrackedWorkspaceBag() end)
+    C_Timer.After(0.10, function() Canvas:RestoreTrackedWorkspaceBag() end)
+    return true
+end
+
+function Canvas:HookMainhandSystemPanels()
+    if not Offhand.isForever then return end
+    for _, name in ipairs(foreverSystemPanelNames) do
+        local panel = _G[name]
+        if panel and panel.HookScript and not panel._OffhandMainhandHooked then
+            panel._OffhandMainhandHooked = true
+            panel:HookScript("OnShow", function(self)
+                local openingToken = {}
+                Canvas._systemPanelOpeningToken = openingToken
+                local function SettleSystemPanel()
+                    if self.IsShown and not self:IsShown() then return end
+                    Canvas:PlaceSystemPanelOnMainhand(self)
+                    Canvas:RestoreTrackedWorkspaceBag()
+                end
+                SettleSystemPanel()
+                if C_Timer and C_Timer.After then
+                    C_Timer.After(0, SettleSystemPanel)
+                    C_Timer.After(0.50, function()
+                        if Canvas._systemPanelOpeningToken == openingToken then
+                            Canvas._systemPanelOpeningToken = nil
+                        end
+                    end)
+                end
+            end)
+        end
+        if panel and panel.IsShown and panel:IsShown() then
+            Canvas:PlaceSystemPanelOnMainhand(panel)
+        end
+    end
+end
+
 function Canvas:TryMakeFrameDraggable(frame)
     if not frame or frame._OffhandMovable or not frame.GetName then return end
     local name = frame:GetName()
     if not name then return end
-    if IsForeverEditModeFrame(frame, name) or IsUnsafeForDirectMutation(frame) then return end
+    if nonMovableSystemPanels[name] then return end
+    if IsForeverEditModeFrame(frame, name) or IsUnsafeForPanelMutation(frame, name) then return end
     if name == "MinimapCluster" and Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon() then
         return
     end
@@ -1620,6 +1881,23 @@ function Canvas:TryMakeFrameDraggable(frame)
     end
 end
 
+-- Load-on-demand Blizzard features register their panels independently and do
+-- not share a stable exhaustive name list across clients. Discover the native
+-- UIPanel registry after each addon load instead of requiring one Offhand entry
+-- for every spell book, profession, collection, guild or future panel.
+function Canvas:DiscoverUIPanels()
+    if not UIPanelWindows or not Offhand.db or not Offhand.db.enabled then return end
+    for name in pairs(UIPanelWindows) do
+        local frame = _G[name]
+        if frame then
+            self:TryMakeFrameDraggable(frame)
+            if frame.IsShown and frame:IsShown() then
+                RestoreSavedPositionAfterShow(frame)
+            end
+        end
+    end
+end
+
 function Canvas:EnableFreeDragging()
     if not Offhand.db or not Offhand.db.enabled then return end
     if InCombatLockdown() then
@@ -1631,6 +1909,29 @@ function Canvas:EnableFreeDragging()
             end)
         end
         return
+    end
+
+    self:HookMainhandSystemPanels()
+
+    -- RegisterUIPanel is the common path used by load-on-demand Blizzard
+    -- features (including PlayerSpellsFrame). Hook the registration itself so
+    -- a panel cannot be missed because its addon initialized after Offhand's
+    -- ADDON_LOADED callback.
+    if hooksecurefunc and RegisterUIPanel and not self.registerUIPanelHooked then
+        self.registerUIPanelHooked = true
+        hooksecurefunc("RegisterUIPanel", function(frame)
+            local function AttachRegisteredPanel()
+                Canvas:TryMakeFrameDraggable(frame)
+                if frame and frame.IsShown and frame:IsShown() then
+                    RestoreSavedPositionAfterShow(frame)
+                end
+            end
+            if C_Timer and C_Timer.After then
+                C_Timer.After(0, AttachRegisteredPanel)
+            else
+                AttachRegisteredPanel()
+            end
+        end)
     end
 
     local hasCustomBags = Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()
@@ -1683,6 +1984,13 @@ function Canvas:EnableFreeDragging()
                 and Offhand.db.openWorkspacePanels[name]
             if not bag or not saved or not wasTrackedOpen
                 or (bag.IsShown and bag:IsShown()) then return end
+
+            -- Forever Settings may close bags after its OnShow handler. Restore
+            -- from this post-hook while the bounded opening marker is active.
+            if Canvas:RestoreWorkspaceBagClosedDuringSystemPanelOpen() then
+                Canvas._workspaceBagAwaitingGameMenuToggle = nil
+                return
+            end
 
             local token = {}
             Canvas._workspaceBagAwaitingGameMenuToggle = {
@@ -1785,13 +2093,15 @@ function Canvas:EnableFreeDragging()
 
     for _, name in ipairs(frameNames) do
         local frame = _G[name]
-        if frame and not IsUnsafeForDirectMutation(frame) and not IsForeverEditModeFrame(frame, name) then
+        if frame and not IsUnsafeForPanelMutation(frame, name) and not IsForeverEditModeFrame(frame, name) then
             MakePanelDraggable(frame)
             if Offhand.db and Offhand.db.independentWorkspacePanels and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name] then
                 DemodalizePanel(frame)
             end
         end
     end
+
+    self:DiscoverUIPanels()
 
     if not hasCustomBags and ContainerFrame_GenerateFrame and not Canvas._bagGenHooked then
         Canvas._bagGenHooked = true
@@ -1922,6 +2232,13 @@ function Offhand:InitializeCanvas()
         Canvas:UpdateMapMovementBehavior()
         Canvas:UpdatePersistenceBehavior()
         Canvas:ConfigureWorldMap()
+        -- Other ADDON_LOADED handlers may create/register their panel later in
+        -- the same event dispatch. Rescan once that initialization settles.
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0, function()
+                Canvas:EnableFreeDragging()
+            end)
+        end
     end)
     Canvas:UpdateMapMovementBehavior()
     Canvas:UpdatePersistenceBehavior()

@@ -15,6 +15,39 @@ failure. WoW and the Companion must run as the same user and in the same
 `WINEPREFIX`; separate prefixes use separate Wine servers and cannot discover
 or control one another through the existing Win32 process/window APIs.
 
+The Wine/Proton runner must also match the one currently hosting WoW. A Wine
+client from another runner version may refuse the prefix's active wineserver
+with a `wine client error: version mismatch` message. In Lutris, check both the
+configured Wine prefix and runner version for the Battle.net entry, then use
+that runner's `wine` binary for the Companion.
+
+## Running alongside Lutris
+
+Create a launcher such as the following, replacing every example path with the
+paths configured on your system:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+export WINEPREFIX="${HOME}/Games/battlenet"
+WINE_BIN="${HOME}/.local/share/Steam/compatibilitytools.d/GE-Proton11-7-x86_64/files/bin/wine"
+COMPANION_EXE="${HOME}/Documents/Offhand-Companion/Offhand.exe"
+
+"${WINE_BIN}" "${COMPANION_EXE}" &
+```
+
+Make the launcher executable, then either run it before Battle.net or select it
+as the Battle.net entry's **Pre-launch script** in Lutris. Leave **Wait for
+pre-launch script completion** disabled so Lutris can continue launching
+Battle.net while the Companion remains open. The example runner name and paths
+are illustrative; copying them verbatim is not expected to work on another
+machine.
+
+If Wine reports a version mismatch, close every application using that prefix
+and relaunch Battle.net and the Companion with the same Lutris runner. Do not
+mix a system `wine` executable with a running GE-Proton wineserver.
+
 The expected addon layout is:
 
 ```text
@@ -29,6 +62,15 @@ The expected addon layout is:
 manual install. Move the inner `Offhand` directory up one level. The packaged
 addon ZIP already has one `Offhand` root directory; the TOCs and their folder
 references do not need to be renamed for Linux.
+
+Download the named addon or complete-package asset from the release, rather
+than GitHub's automatically generated source archive. Extract it with a ZIP
+tool that preserves directories (for example `unzip` or `bsdtar`). Some older
+prerelease ZIPs were produced with Windows-style backslash entry separators;
+Linux extractors that treated those separators literally created flattened
+filenames. Current packages use portable forward-slash entries and should not
+require a custom "deflatten" script. Verify the resulting layout above before
+starting WoW.
 
 Wine validation should cover process discovery, addon verification, display
 enumeration, Span, Restore, both hotkeys, topology generation, a complete WoW

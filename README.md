@@ -33,6 +33,9 @@
 Linux users should read [Companion/Linux.md](Companion/Linux.md). The current
 binary remains a Windows application; running it under Wine is an experimental
 compatibility path, while a native Linux window-control backend is future work.
+The Companion must be launched as the same user, in WoW's exact `WINEPREFIX`,
+and with the same Wine/Proton runner version as Battle.net/WoW. The Linux guide
+includes a Lutris pre-launch example and addon extraction troubleshooting.
 
 > [!IMPORTANT]
 > **Verify the Companion before running it.** Official GitHub releases include SHA-256 checksums. Releases built by GitHub Actions may additionally provide a build-provenance attestation; check the individual release notes rather than assuming one exists. An unsigned or low-reputation build may still produce a Windows SmartScreen warning; never bypass a warning for a file obtained from an unofficial source. Follow the verification steps in [SECURITY.md](SECURITY.md).

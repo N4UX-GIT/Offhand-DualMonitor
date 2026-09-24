@@ -82,7 +82,7 @@ $changes
 
 ## Linux and Wine status
 
-The Companion is still a Windows WinForms application. Wine support is experimental: run WoW and the Companion as the same user in the same ``WINEPREFIX``. Native Linux, X11, and general Wayland support are not claimed by this release.
+The Companion is still a Windows WinForms application. Wine support is experimental: run WoW and the Companion as the same user in the same ``WINEPREFIX`` and with the same Wine/Proton runner version. See ``Companion/Linux.md`` in the complete package for a Lutris example and extraction checks. Native Linux, X11, and general Wayland support are not claimed by this release.
 
 ## Reporting issues
 

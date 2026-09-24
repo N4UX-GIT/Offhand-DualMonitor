@@ -114,6 +114,7 @@ function CreateFrame(kind, name, parent, template)
             SetTextColor = function() end,
             GetText = function(s) return s.text end,
             SetPoint = function(s, pt, rel, relPt, x, y) s.points[pt] = { rel = rel, relPt = relPt, x = x, y = y } end,
+            ClearAllPoints = function(s) s.points = {} end,
             SetJustifyH = function() end,
             SetTextColor = function() end,
             SetWidth = function() end,
@@ -210,8 +211,11 @@ local originalGetMetrics = addon.Viewport.GetMetrics
 addon.Viewport.GetMetrics = function()
     return {
         companionTopology = true, topologyMode = "DUAL_DISPLAY",
+        physicalWidth = 4000, physicalHeight = 2560,
         gamePixelWidth = 2560, gamePixelHeight = 1440,
+        gamePixelLeft = 1440, gamePixelBottom = 0,
         workspacePixelWidth = 1440, workspacePixelHeight = 2560,
+        workspacePixelLeft = 0, workspacePixelBottom = 0,
         gameLeft = 1440, gameRight = 4000, gameBottom = 0, gameTop = 1440,
         workspaceLeft = 0, workspaceRight = 1440, workspaceBottom = 0, workspaceTop = 2560,
     }
@@ -439,6 +443,37 @@ for tabIndex = 1, 5 do
     assert(#cards > 0, "Each tab must contain cards")
 end
 assert(optPanel.autoWizardBtn ~= nil, "Options dashboard must have autoWizardBtn in top banner")
+assert(optPanel.companionAppBtn ~= nil, "Options dashboard must expose its Companion App button")
+
+-- An active Companion plan owns exact monitor geometry. The settings header
+-- must summarize that plan without colliding with a redundant download button.
+local panelGetMetrics = addon.Viewport.GetMetrics
+addon.Viewport.GetMetrics = function()
+    return {
+        companionTopology = true, topologyMode = "DUAL_DISPLAY",
+        physicalWidth = 4000, physicalHeight = 2560,
+        gamePixelWidth = 2560, gamePixelHeight = 1440,
+        gamePixelLeft = 1440, gamePixelBottom = 0,
+        workspacePixelWidth = 1440, workspacePixelHeight = 2560,
+        workspacePixelLeft = 0, workspacePixelBottom = 0,
+        gameLeft = 1440, gameRight = 4000, gameBottom = 0, gameTop = 1440,
+        workspaceLeft = 0, workspaceRight = 1440, workspaceBottom = 0, workspaceTop = 2560,
+    }
+end
+addon.Options:RefreshPanel()
+assert(optPanel.banner:GetText():find("Companion active: Game 2560x1440 | Workspace 1440x2560", 1, true),
+    "Exact Companion status must use a concise game/workspace summary")
+assert(not optPanel.companionAppBtn:IsShown(),
+    "The Companion download button must be hidden while Companion is actively supplying geometry")
+assert(optPanel.banner.points["TOPRIGHT"].rel == optPanel.autoWizardBtn,
+    "Exact Companion status must use the space vacated by the download button")
+
+addon.Viewport.GetMetrics = panelGetMetrics
+addon.Options:RefreshPanel()
+assert(optPanel.companionAppBtn:IsShown(),
+    "The Companion download button must return when exact Companion geometry is absent")
+assert(optPanel.banner.points["TOPRIGHT"].rel == optPanel.companionAppBtn,
+    "Manual display status must end before the Companion download button")
 
 -- Test Window Overlap Prevention:
 -- When Options is shown and Auto-Setup Wizard is clicked, Options must hide and Wizard must open
