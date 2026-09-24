@@ -485,3 +485,25 @@ setup deferral, and reporting of caught layout errors.
   closing only the Game Menu; and both B and the Backpack X remained functional
   explicit close controls. No Lua error was reported during this sequence.
 
+## 2026-09-24: Retail primary-chat Edit Mode candidate
+
+- A Retail report showed the default primary chat frame accepting an Edit Mode
+  drag, then snapping upward/offscreen after save-and-exit; the channel button
+  was separately stranded near screen center. Secondary chat windows retained
+  their placement and the behavior persisted with ElvUI disabled.
+- Source review confirmed that Retail `ChatFrame1` inherits Blizzard's
+  `EditModeChatFrameSystemTemplate`. Offhand was replaying its own primary-chat
+  anchor after Edit Mode and had stored the frame's top coordinate while later
+  interpreting it as a bottom coordinate.
+- The candidate yields position and dimensions to Blizzard whenever the Retail
+  primary chat remains on Mainhand. It clears legacy Offhand Mainhand chat
+  coordinates after Edit Mode exits, while still capturing an explicit
+  workspace placement. Workspace moves call Blizzard's `FCF_SetButtonSide` to
+  bring the native channel/menu button strip with the frame.
+- Automated coverage verifies Mainhand ownership, unchanged Retail size and
+  coordinates after Edit Mode exit, deliberate workspace persistence, the
+  top-edge coordinate schema, and button-strip repair. All Lua tests, Companion
+  preference tests, manifests, locales, and static addon validation pass.
+- Reporter confirmation on a live Retail client remains pending; this build is
+  suitable for beta testing and can be adjusted if the observed result differs.
+

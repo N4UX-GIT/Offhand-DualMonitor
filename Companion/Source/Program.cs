@@ -206,6 +206,81 @@ namespace Offhand.Companion
         }
     }
 
+    internal sealed class AddonInstallCheck
+    {
+        internal bool Installed;
+        internal string AddonDir;
+        internal string Reason;
+    }
+
+    internal static class AddonInstallation
+    {
+        private static readonly string[] ManifestNames = new string[] {
+            "Offhand.toc", "Offhand_Mainline.toc", "Offhand_Vanilla.toc",
+            "Offhand_Classic.toc", "Offhand_Forever.toc"
+        };
+
+        private static string ChildDirectory(string parent, string wanted)
+        {
+            if (string.IsNullOrEmpty(parent) || !Directory.Exists(parent)) return null;
+            string exact = Path.Combine(parent, wanted);
+            if (Directory.Exists(exact)) return exact;
+            try
+            {
+                foreach (string child in Directory.GetDirectories(parent))
+                    if (string.Equals(Path.GetFileName(child), wanted, StringComparison.OrdinalIgnoreCase))
+                        return child;
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            return null;
+        }
+
+        private static bool HasManifest(string addonDir)
+        {
+            if (string.IsNullOrEmpty(addonDir) || !Directory.Exists(addonDir)) return false;
+            try
+            {
+                var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (string file in Directory.GetFiles(addonDir, "*.toc", SearchOption.TopDirectoryOnly))
+                    names.Add(Path.GetFileName(file));
+                foreach (string manifest in ManifestNames)
+                    if (names.Contains(manifest)) return true;
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            return false;
+        }
+
+        internal static AddonInstallCheck Inspect(string wowDir)
+        {
+            var result = new AddonInstallCheck {
+                Installed = false,
+                Reason = "Install Offhand in this client's Interface\\AddOns folder."
+            };
+            string interfaceDir = ChildDirectory(wowDir, "Interface");
+            string addOnsDir = ChildDirectory(interfaceDir, "AddOns");
+            string addonDir = ChildDirectory(addOnsDir, "Offhand");
+            result.AddonDir = addonDir;
+            if (HasManifest(addonDir))
+            {
+                result.Installed = true;
+                result.Reason = "Installed; confirm enabled in WoW. Live addon state is unavailable.";
+                return result;
+            }
+
+            string nested = ChildDirectory(addonDir, "Offhand");
+            if (HasManifest(nested))
+            {
+                result.Reason = "Nested install found: move the inner Offhand folder directly into Interface\\AddOns.";
+                return result;
+            }
+            if (!string.IsNullOrEmpty(addonDir))
+                result.Reason = "Offhand folder found, but no supported Offhand TOC is at its top level.";
+            return result;
+        }
+    }
+
     internal static class CompanionTopologyBridge
     {
         private static string LuaString(string value)
@@ -306,6 +381,30 @@ namespace Offhand.Companion
         // Automatic window movement is opt-in so a first launch cannot unexpectedly
         // rearrange a player's WoW window before the selected displays are reviewed.
         internal const bool AutoSpanOnLaunch = false;
+    }
+
+    internal static class ProcessPathResolver
+    {
+        internal static string Get(Process process)
+        {
+            if (process == null) return null;
+            try { return process.MainModule.FileName; }
+            catch (System.ComponentModel.Win32Exception) { }
+            catch (InvalidOperationException) { }
+            catch (NotSupportedException) { }
+
+            IntPtr handle = NativeMethods.OpenProcess(
+                NativeMethods.PROCESS_QUERY_LIMITED_INFORMATION, false, process.Id);
+            if (handle == IntPtr.Zero) return null;
+            try
+            {
+                int size = 32768;
+                var path = new StringBuilder(size);
+                return NativeMethods.QueryFullProcessImageName(handle, 0, path, ref size)
+                    ? path.ToString() : null;
+            }
+            finally { NativeMethods.CloseHandle(handle); }
+        }
     }
 
     internal static class ForeverStateBridge
@@ -515,6 +614,18 @@ namespace Offhand.Companion
         [DllImport("kernel32.dll")]
         public static extern void SetLastError(uint dwErrCode);
 
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, int dwProcessId);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool QueryFullProcessImageName(IntPtr hProcess, int dwFlags,
+            StringBuilder lpExeName, ref int lpdwSize);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool CloseHandle(IntPtr hObject);
+
         [DllImport("user32.dll", SetLastError = true)]
         public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
@@ -555,6 +666,7 @@ namespace Offhand.Companion
         public const uint SWP_FRAMECHANGED = 0x0020;
         public const uint SWP_SHOWWINDOW = 0x0040;
         public const int SW_RESTORE = 9;
+        public const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 
         public static IntPtr FindProcessWindow(int processId)
         {
@@ -1160,7 +1272,7 @@ namespace Offhand.Companion
 
             lblHotkey = new Label { Text = "Global Hotkey:", Location = new Point(10, 84), Size = new Size(130, 22), ForeColor = cText, BackColor = Color.Transparent };
             configPanel.Controls.Add(lblHotkey);
-            cmbHotkey = new ComboBox { Location = new Point(140, 82), Size = new Size(160, 22), DropDownStyle = ComboBoxStyle.DropDownList, BackColor = cCard, ForeColor = cText };
+            cmbHotkey = new ComboBox { Location = new Point(140, 82), Size = new Size(120, 22), DropDownStyle = ComboBoxStyle.DropDownList, BackColor = cCard, ForeColor = cText };
             cmbHotkey.Items.AddRange(new object[] { "Ctrl+Alt+S", "Ctrl+Shift+S", "Alt+S", "F10", "F11", "F12" });
             cmbHotkey.SelectedIndex = 0;
             if (appSettings.ContainsKey("Hotkey") && cmbHotkey.Items.Contains(appSettings["Hotkey"])) cmbHotkey.SelectedItem = appSettings["Hotkey"];
@@ -1859,7 +1971,12 @@ namespace Offhand.Companion
 
             try
             {
-                string mainModule = proc.MainModule.FileName;
+                string mainModule = ProcessPathResolver.Get(proc);
+                if (string.IsNullOrEmpty(mainModule))
+                {
+                    result.Reason = "Client path unavailable. Under Wine, start the Companion in WoW's WINEPREFIX.";
+                    return result;
+                }
                 result.WowDir = Path.GetDirectoryName(mainModule);
                 if (string.IsNullOrEmpty(result.WowDir))
                 {
@@ -1867,27 +1984,9 @@ namespace Offhand.Companion
                     return result;
                 }
 
-                string addonDir = Path.Combine(result.WowDir, @"Interface\AddOns\Offhand");
-                string[] manifests = new string[] { "Offhand.toc", "Offhand_Vanilla.toc" };
-                
-                bool exists = false;
-                if (Directory.Exists(addonDir))
-                {
-                    foreach (string m in manifests)
-                    {
-                        if (File.Exists(Path.Combine(addonDir, m))) { exists = true; break; }
-                    }
-                }
-
-                if (exists)
-                {
-                    result.Installed = true;
-                    result.Reason = "Installed; confirm enabled in WoW. Live addon state is unavailable.";
-                }
-                else
-                {
-                    result.Reason = "Install Offhand in this client's Interface\\AddOns folder.";
-                }
+                AddonInstallCheck install = AddonInstallation.Inspect(result.WowDir);
+                result.Installed = install.Installed;
+                result.Reason = install.Reason;
             }
             catch
             {

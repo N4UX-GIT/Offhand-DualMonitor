@@ -175,6 +175,16 @@ local function UnregisterSpecialFrame(name)
     end
 end
 
+local function IsRetailEditModePrimaryChat(frame)
+    return Offhand.HUD and Offhand.HUD.IsRetailEditModePrimaryChat
+        and Offhand.HUD:IsRetailEditModePrimaryChat(frame) or false
+end
+
+local function IsRetailChatEditModeActive(frame)
+    return IsRetailEditModePrimaryChat(frame) and ((frame and frame.isInEditMode == true)
+        or (EditModeManagerFrame and EditModeManagerFrame.IsShown and EditModeManagerFrame:IsShown()))
+end
+
 local function SaveOpenWorkspacePanels()
     if Offhand.ForeverPersistence and Offhand.ForeverPersistence.SaveOpenPanels then
         Offhand.ForeverPersistence:SaveOpenPanels(Offhand.db and Offhand.db.openWorkspacePanels)
@@ -936,6 +946,17 @@ OnPanelDragStop = function(frame)
 
     local onDeck = IsFrameOnWorkspace(frame)
 
+    if IsRetailEditModePrimaryChat(frame) and not onDeck then
+        -- Mainhand ChatFrame1 belongs to Retail Edit Mode. Remove legacy
+        -- Offhand coordinates without writing another anchor over Blizzard's.
+        Offhand.db.savedWorkspacePositions[name] = nil
+        Offhand.db.savedMainPositions[name] = nil
+        Canvas:SetWorkspacePanelOpen(name, false)
+        if Offhand.ForeverPersistence then Offhand.ForeverPersistence:ClearPosition(name) end
+        frame._OffhandDragging = false
+        return
+    end
+
     if onDeck then
         if frame == WorldMapFrame then
             Offhand.db.savedMainPositions.WorldMapFrame = nil
@@ -1018,6 +1039,9 @@ OnPanelDragStop = function(frame)
             if FCF_SavePositionAndDimensions then
                 pcall(function() FCF_SavePositionAndDimensions(frame) end)
             end
+            if frame == ChatFrame1 and Offhand.HUD and Offhand.HUD.RepairChatButtons then
+                Offhand.HUD:RepairChatButtons(frame)
+            end
         end
 
         if Offhand.db.persistentWorkspacePanels ~= false then
@@ -1096,7 +1120,7 @@ OnPanelDragStop = function(frame)
             end
         elseif string.match(name, "^ChatFrame") then
             
-            Offhand.db.savedMainPositions[name] = { x = clampedX, y = clampedY }
+            Offhand.db.savedMainPositions[name] = { point = "TOPLEFT", x = clampedX, y = clampedY }
             local w, h = frame:GetWidth(), frame:GetHeight()
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
@@ -1230,6 +1254,7 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
     local name = frame:GetName()
     if not name then return end
     if IsForeverEditModeFrame(frame, name) or IsUnsafeForDirectMutation(frame) then return end
+    if IsRetailChatEditModeActive(frame) then return end
 
     local m = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
     if not m then return end
@@ -1324,6 +1349,23 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         local y = math.min(maxY, math.max(minY, (mPos and mPos.y) or maxY))
         frame:ClearAllPoints()
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x*factor, y*factor)
+    end
+end
+
+function Canvas:CaptureRetailEditModeChatPlacement()
+    local frame = _G.ChatFrame1
+    if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
+        or not IsRetailEditModePrimaryChat(frame) then return end
+
+    Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
+    Offhand.db.savedMainPositions = Offhand.db.savedMainPositions or {}
+    if IsFrameOnWorkspace(frame) then
+        OnPanelDragStop(frame)
+    else
+        Offhand.db.savedWorkspacePositions.ChatFrame1 = nil
+        Offhand.db.savedMainPositions.ChatFrame1 = nil
+        self:SetWorkspacePanelOpen("ChatFrame1", false)
+        if Offhand.ForeverPersistence then Offhand.ForeverPersistence:ClearPosition("ChatFrame1") end
     end
 end
 
@@ -1821,6 +1863,15 @@ function Canvas:EnableFreeDragging()
                     pcall(function() FCF_SavePositionAndDimensions(chatFrame) end)
                 end
             end
+        end)
+    end
+
+    if EditModeManagerFrame and EditModeManagerFrame.HookScript
+        and not EditModeManagerFrame._OffhandRetailChatExitHooked then
+        EditModeManagerFrame._OffhandRetailChatExitHooked = true
+        EditModeManagerFrame:HookScript("OnHide", function()
+            local capture = function() Canvas:CaptureRetailEditModeChatPlacement() end
+            if C_Timer and C_Timer.After then C_Timer.After(0, capture) else capture() end
         end)
     end
 

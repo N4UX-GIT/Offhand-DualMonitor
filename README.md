@@ -27,8 +27,12 @@
 
 ## 🛠️ Installation & Setup
 
-1.  **Install the Addon:** Download the addon from [CurseForge](https://www.curseforge.com/wow/addons/offhand) or install it via your preferred addon manager.
+1.  **Install the Addon:** Download the addon from [CurseForge](https://www.curseforge.com/wow/addons/offhand) or install it via your preferred addon manager. For a manual ZIP install, the TOC files must be directly inside `Interface/AddOns/Offhand`; `Interface/AddOns/Offhand/Offhand/Offhand_Forever.toc` is one folder too deep.
 2.  **Get Companion v2.1.2 or newer:** Download the Companion App from the [GitHub Releases page](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases), extract it, and start it before WoW. It is required for exact-topology setup, safe missing-monitor recovery, and reliable cold-launch restoration on the current Forever beta, and strongly recommended on other clients.
+
+Linux users should read [Companion/Linux.md](Companion/Linux.md). The current
+binary remains a Windows application; running it under Wine is an experimental
+compatibility path, while a native Linux window-control backend is future work.
 
 > [!IMPORTANT]
 > **Verify the Companion before running it.** Official GitHub releases include SHA-256 checksums. Releases built by GitHub Actions may additionally provide a build-provenance attestation; check the individual release notes rather than assuming one exists. An unsigned or low-reputation build may still produce a Windows SmartScreen warning; never bypass a warning for a file obtained from an unofficial source. Follow the verification steps in [SECURITY.md](SECURITY.md).

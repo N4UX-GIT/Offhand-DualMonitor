@@ -79,6 +79,13 @@ local function IsForeverEditModeFrame(frame, name)
         or name:match("ManagedFrameContainer")) or false
 end
 
+local function RetailEditModeOwnsPrimaryChat(frame)
+    return not UsesForeverEditMode() and frame and frame == _G.ChatFrame1
+        and frame.isStaticDocked == true
+        and type(frame.OnEditModeEnter) == "function"
+        and type(frame.OnEditModeExit) == "function"
+end
+
 local function GetEditModeLayouts()
     if not C_EditMode or not C_EditMode.GetLayouts then return nil end
     local ok, data = pcall(C_EditMode.GetLayouts)
@@ -457,15 +464,25 @@ function HUD:AlignChatFrame(m)
             if child:GetID() == 1 and child.ScrollingMessages then chat = child; break end
         end
     end
-    if chat._OffhandDragging or MOVING_CHATFRAME == chat then return end
-    if chat.Selection and chat.IsEditModeDragging and chat:IsEditModeDragging() then return end
-    Prepare(chat, m)
     local chatName = (chat.GetName and chat:GetName()) or "ChatFrame1"
     local native = chat == ChatFrame1
+    local retailManaged = native and RetailEditModeOwnsPrimaryChat(chat)
+    local editModeActive = retailManaged and ((chat.isInEditMode == true)
+        or (EditModeManagerFrame and EditModeManagerFrame.IsShown and EditModeManagerFrame:IsShown()))
+    if chat._OffhandDragging or MOVING_CHATFRAME == chat or editModeActive then return end
+    if chat.Selection and chat.IsEditModeDragging and chat:IsEditModeDragging() then return end
     local nativeDefault = native and chat.IsInDefaultPosition and chat:IsInDefaultPosition()
-    if native then self:RepairChatDock() end
     local isWs = (Offhand.db and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[chatName])
         or (not native and Offhand.Canvas and Offhand.Canvas.IsFrameOnWorkspace and Offhand.Canvas.IsFrameOnWorkspace(chat))
+    -- Retail's primary chat frame is a Blizzard Edit Mode system. Offhand owns
+    -- it only after an explicit workspace placement; otherwise Blizzard's
+    -- active layout remains authoritative for both position and dimensions.
+    if retailManaged and not isWs and Offhand.db.chatPosition ~= "DECK" then
+        if Offhand.db.savedMainPositions then Offhand.db.savedMainPositions[chatName] = nil end
+        return
+    end
+    Prepare(chat, m)
+    if native then self:RepairChatDock() end
     if isWs then
         if Offhand.Canvas and Offhand.Canvas.RestoreWorkspacePosition then
             Offhand.Canvas:RestoreWorkspacePosition(chat)
@@ -481,7 +498,7 @@ function HUD:AlignChatFrame(m)
     end
     local mainPosition = native and Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[chatName]
     if mainPosition and Offhand.db.chatPosition ~= "DECK" then
-        ScreenPoint(chat, "BOTTOMLEFT", mainPosition.x, mainPosition.y)
+        ScreenPoint(chat, mainPosition.point or "TOPLEFT", mainPosition.x, mainPosition.y)
         return
     end
     if not nativeDefault and chat.IsUserPlaced and chat:IsUserPlaced() and Offhand.db.chatPosition ~= "DECK" then return end
@@ -541,6 +558,16 @@ function HUD:RepairChatDock()
         end
         self.chatDockRepaired = true
     end
+end
+
+function HUD:RepairChatButtons(chat)
+    if not chat or chat ~= _G.ChatFrame1 or not FCF_SetButtonSide then return end
+    -- The channel/menu controls are children of ChatFrame1ButtonFrame. Force
+    -- Blizzard's own layout function to reattach that frame after Offhand moves
+    -- the message frame into the workspace.
+    pcall(function()
+        FCF_SetButtonSide(chat, chat.buttonSide or "left", true)
+    end)
 end
 
 function HUD:AlignHUDFrames(m)
@@ -734,6 +761,7 @@ end
 function HUD:RepairChatAnchor(frame)
     if aligning or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
         or Offhand.db.dockChat == false or Chattynator then return end
+    if RetailEditModeOwnsPrimaryChat(frame) then return end
     if frame._OffhandDragging or MOVING_CHATFRAME == frame then return end
     if Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions.ChatFrame1 then return end
     if frame.Selection and frame.IsEditModeDragging and frame:IsEditModeDragging() then return end
@@ -744,6 +772,11 @@ function HUD:RepairChatAnchor(frame)
     local ok, err = pcall(Points, frame, unpack(desired.points))
     aligning = false
     if not ok then Offhand:Print("HUD layout error: %s", tostring(err)) end
+end
+
+
+function HUD:IsRetailEditModePrimaryChat(frame)
+    return RetailEditModeOwnsPrimaryChat(frame)
 end
 
 function HUD:HookFrames()

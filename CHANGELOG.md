@@ -7,8 +7,15 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Companion display-plan and activity-log messages now wrap instead of drawing
   long missing-monitor diagnostics outside their cards.
+- Companion's Hotkey selector is narrower so it no longer covers the monitor
+  checklist when three or more displays are connected.
+- Companion documents an experimental same-prefix Wine path and the separate
+  work required for native X11 and compositor-specific Wayland support.
 
 ### Fixed
+- Companion retries inaccessible WoW executable paths through
+  `QueryFullProcessImageName`, recognizes every supported Offhand TOC, and
+  diagnoses an accidental `Offhand/Offhand` addon installation directly.
 - Companion now keys saved selections to physical monitor identities instead of
   renumberable Windows `DISPLAY#` labels. Existing installations require one
   confirmation before automatic spanning resumes, preventing a stale label from
@@ -40,6 +47,11 @@ All notable changes to this project will be documented in this file.
 - Chat-tab persistence now observes Blizzard's native drag lifecycle without
   forcing locked or docked chat frames into a movable state, avoiding the
   `ChatFrame1:StartMoving(): Frame is not movable` error on Forever.
+- Retail now leaves the primary chat frame under Blizzard Edit Mode ownership
+  while it is on Mainhand, preventing saved layouts from snapping the frame
+  upward or restoring stale Offhand coordinates after Edit Mode closes. An
+  intentional workspace placement is captured after Edit Mode exits, and the
+  native channel/menu button strip is reattached through Blizzard's layout API.
 
 ## [2.1.2] - 2026-09-22
 ### Added

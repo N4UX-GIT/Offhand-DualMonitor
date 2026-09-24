@@ -95,6 +95,7 @@ New-Item -ItemType Directory -Path $compStaging -Force | Out-Null
 Copy-Item (Join-Path $rootDir "Companion\Offhand.exe") -Destination $compStaging
 Copy-Item (Join-Path $rootDir "Companion\LICENSE") -Destination $compStaging
 Copy-Item (Join-Path $rootDir "Companion\README.md") -Destination $compStaging
+Copy-Item (Join-Path $rootDir "Companion\Linux.md") -Destination $compStaging
 Copy-Item (Join-Path $rootDir "Companion\build.bat") -Destination $compStaging
 Copy-Item (Join-Path $rootDir "Companion\Source") -Destination $compStaging -Recurse
 Copy-Item (Join-Path $rootDir "SECURITY.md") -Destination $compStaging
@@ -122,6 +123,9 @@ Copy-Item $addonStaging -Destination (Join-Path $bundleStaging "Offhand") -Recur
 Copy-Item (Join-Path $rootDir "Companion\Offhand.exe") -Destination (Join-Path $bundleStaging "Offhand-Companion.exe")
 Copy-Item (Join-Path $rootDir "README.md") -Destination $bundleStaging
 Copy-Item (Join-Path $rootDir "SECURITY.md") -Destination $bundleStaging
+$bundleCompanionDocs = Join-Path $bundleStaging "Companion"
+New-Item -ItemType Directory -Path $bundleCompanionDocs -Force | Out-Null
+Copy-Item (Join-Path $rootDir "Companion\Linux.md") -Destination $bundleCompanionDocs
 
 $bundleZip = Join-Path $distDir "Offhand-Complete-v$Version.zip"
 Compress-Archive -Path (Join-Path $bundleStaging "*") -DestinationPath $bundleZip -CompressionLevel Optimal -Force

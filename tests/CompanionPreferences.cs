@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 namespace Offhand.Companion {
@@ -8,6 +9,8 @@ namespace Offhand.Companion {
         private static void Check(bool value) { checkNumber++; if (!value) throw new Exception("Preference regression at check " + checkNumber); }
         public static void Main() {
             Check(!CompanionDefaults.AutoSpanOnLaunch);
+            Check(ProcessPathResolver.Get(null) == null);
+            Check(!string.IsNullOrEmpty(ProcessPathResolver.Get(Process.GetCurrentProcess())));
             var displays = new List<MonitorSelection.Display> {
                 new MonitorSelection.Display { Index = 0, DeviceName = @"\\.\DISPLAY1", StableId = @"MONITOR\MAIN\A", Bounds = new Rectangle(0, 0, 3440, 1440), WorkArea = new Rectangle(0, 0, 3440, 1400), Primary = true },
                 new MonitorSelection.Display { Index = 1, DeviceName = @"\\.\DISPLAY2", StableId = @"MONITOR\WORK\B", Bounds = new Rectangle(-1920, 360, 1920, 1080), WorkArea = new Rectangle(-1920, 360, 1920, 1040), Primary = false }
@@ -83,6 +86,16 @@ namespace Offhand.Companion {
                 string account = Path.Combine(wow, "WTF", "Account", "123", "SavedVariables", "Offhand.lua");
                 string character = Path.Combine(wow, "WTF", "Account", "123", "Realm", "Character", "SavedVariables", "Offhand.lua");
                 Directory.CreateDirectory(core);
+                File.WriteAllText(Path.Combine(Path.GetDirectoryName(core), "Offhand_Forever.toc"), "## Interface: 16000\n");
+                AddonInstallCheck install = AddonInstallation.Inspect(wow);
+                Check(install.Installed && install.AddonDir == Path.GetDirectoryName(core));
+
+                string nestedWow = Path.Combine(root, "nested");
+                string nestedAddon = Path.Combine(nestedWow, "Interface", "AddOns", "Offhand", "Offhand");
+                Directory.CreateDirectory(nestedAddon);
+                File.WriteAllText(Path.Combine(nestedAddon, "Offhand_Forever.toc"), "## Interface: 16000\n");
+                AddonInstallCheck nestedInstall = AddonInstallation.Inspect(nestedWow);
+                Check(!nestedInstall.Installed && nestedInstall.Reason.Contains("Nested install found"));
                 Directory.CreateDirectory(Path.GetDirectoryName(account));
                 Directory.CreateDirectory(Path.GetDirectoryName(character));
                 File.WriteAllText(account, "\r\nOffhandDB = { [\"profiles\"] = { [\"Default\"] = {} } }\n");
@@ -106,7 +119,7 @@ namespace Offhand.Companion {
                 string topology = File.ReadAllText(Path.Combine(core, "CompanionTopology.lua"));
                 Check(topology.Contains("mode = \"DUAL_DISPLAY\"") && topology.Contains("width = 3440") &&
                     topology.Contains("height = 1080") && topology.Contains("y = 0"));
-                Console.WriteLine("PASS: safe display identities, missing-monitor guard, topology bridge, settings validation, restore geometry and atomic Forever state generation");
+                Console.WriteLine("PASS: safe display identities, addon layout diagnosis, missing-monitor guard, topology bridge, settings validation, restore geometry and atomic Forever state generation");
             } finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }
     }

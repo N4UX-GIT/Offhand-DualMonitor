@@ -282,8 +282,12 @@ FCF_StopDragging(ChatFrame1)
   MOVING_CHATFRAME=nil
 
 assert(addon.db.savedWorkspacePositions["ChatFrame1"] == nil, "savedWorkspacePositions for ChatFrame1 must be cleared when on game view screen")
+local savedMainTop = addon.db.savedMainPositions.ChatFrame1.y
 addon.HUD:AlignChatFrame(metrics)
 assert(select(4, ChatFrame1:GetPoint(1)) == 2000, "Deliberate game-view placement must survive default-layout refresh")
+assert(select(1, ChatFrame1:GetPoint(1)) == "TOPLEFT"
+    and select(5, ChatFrame1:GetPoint(1)) == savedMainTop,
+    "Mainhand chat restoration must preserve the saved top edge instead of treating it as a bottom edge")
 
 -- Respect customized Edit Mode positions and avoid mutations during combat.
 ChatFrame1.IsInDefaultPosition = function() return false end
@@ -295,5 +299,70 @@ ChatFrame1.IsInDefaultPosition = function() return true end
 addon.HUD:AlignChatFrame(metrics)
 assert(select(4, ChatFrame1:GetPoint(1)) == customX, "Chat relocation must wait until combat ends")
 
-print("PASS: ChatFrame1 workspace dragging, FCF_StopDragging hook, and reload persistence verified!")
+-- 6. Retail owns the primary chat frame while it remains on Mainhand. Offhand
+-- must neither replay a legacy coordinate nor resize it after Edit Mode exits.
+InCombatLockdown = function() return false end
+addon.isForever = false
+ChatFrame1.isStaticDocked = true
+ChatFrame1.isInEditMode = true
+ChatFrame1.OnEditModeEnter = function(self) self.isInEditMode = true end
+ChatFrame1.OnEditModeExit = function(self) self.isInEditMode = false end
+EditModeManagerFrame = makeMockFrame("EditModeManagerFrame", 510, 248)
+EditModeManagerFrame.shown = true
+addon.Canvas:EnableFreeDragging()
+assert(EditModeManagerFrame._OffhandRetailChatExitHooked == true,
+    "Retail Edit Mode exit must be observed")
+
+addon.db.savedWorkspacePositions.ChatFrame1 = nil
+addon.db.savedMainPositions.ChatFrame1 = {point="TOPLEFT", x=1750, y=1000}
+ChatFrame1:ClearAllPoints()
+ChatFrame1:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 2300, 180)
+ChatFrame1:SetSize(640, 260)
+addon.HUD:AlignChatFrame(metrics)
+assert(select(1, ChatFrame1:GetPoint(1)) == "BOTTOMLEFT"
+    and select(4, ChatFrame1:GetPoint(1)) == 2300
+    and select(5, ChatFrame1:GetPoint(1)) == 180,
+    "Offhand must yield to Retail Edit Mode while the primary chat is on Mainhand")
+assert(ChatFrame1:GetWidth() == 640 and ChatFrame1:GetHeight() == 260,
+    "Offhand must preserve Retail Edit Mode chat dimensions")
+
+ChatFrame1.isInEditMode = false
+EditModeManagerFrame.shown = false
+EditModeManagerFrame.scripts.OnHide(EditModeManagerFrame)
+assert(addon.db.savedMainPositions.ChatFrame1 == nil
+    and addon.db.savedWorkspacePositions.ChatFrame1 == nil,
+    "Retail Mainhand placement must clear stale Offhand chat coordinates")
+addon.HUD:AlignChatFrame(metrics)
+assert(select(1, ChatFrame1:GetPoint(1)) == "BOTTOMLEFT"
+    and select(4, ChatFrame1:GetPoint(1)) == 2300
+    and select(5, ChatFrame1:GetPoint(1)) == 180,
+    "Retail Edit Mode chat placement must survive save-and-exit")
+
+-- A deliberate workspace placement remains Offhand-owned. Capture it only
+-- after Edit Mode exits, then use Blizzard's button-layout helper so the
+-- channel/menu controls follow the primary chat frame.
+local buttonRepairs = 0
+FCF_SetButtonSide = function(frame, side, forceUpdate)
+    assert(frame == ChatFrame1 and side == "left" and forceUpdate == true)
+    buttonRepairs = buttonRepairs + 1
+end
+ChatFrame1.buttonSide = "left"
+ChatFrame1.isInEditMode = true
+EditModeManagerFrame.shown = true
+ChatFrame1:ClearAllPoints()
+ChatFrame1:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 100, 300)
+addon.HUD:AlignChatFrame(metrics)
+assert(addon.db.savedWorkspacePositions.ChatFrame1 == nil,
+    "Workspace chat placement must not be captured mid-Edit-Mode")
+ChatFrame1.isInEditMode = false
+EditModeManagerFrame.shown = false
+EditModeManagerFrame.scripts.OnHide(EditModeManagerFrame)
+assert(addon.db.savedWorkspacePositions.ChatFrame1 ~= nil,
+    "Retail workspace chat placement must be captured after Edit Mode exits")
+assert(select(1, ChatFrame1:GetPoint(1)) == "TOPLEFT"
+    and select(4, ChatFrame1:GetPoint(1)) < metrics.deckWidth,
+    "Retail workspace chat must remain in the workspace after Edit Mode exits")
+assert(buttonRepairs > 0, "Blizzard's chat-button layout must be repaired after a workspace move")
+
+print("PASS: ChatFrame1 workspace persistence and Retail Edit Mode ownership verified!")
 

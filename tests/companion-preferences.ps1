@@ -26,8 +26,21 @@ try {
     if ($source -notmatch 'lblDisplayInfo = new Label(?s:.*?)Size = new Size\(470, 36\)(?s:.*?)AutoSize = false') {
         throw 'Companion display-plan status must retain enough fixed-width height to wrap disconnect errors.'
     }
+    $hotkey = [regex]::Match($source, 'cmbHotkey = new ComboBox \{ Location = new Point\((?<x>\d+), 82\), Size = new Size\((?<w>\d+), 22\)')
+    $monitors = [regex]::Match($source, 'clbMonitors = new CheckedListBox \{ Location = new Point\((?<x>\d+), 50\)')
+    if (-not $hotkey.Success -or -not $monitors.Success -or
+        ([int]$hotkey.Groups['x'].Value + [int]$hotkey.Groups['w'].Value) -ge [int]$monitors.Groups['x'].Value) {
+        throw 'Companion hotkey selector must not overlap the display checklist.'
+    }
+    $packager = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\package.ps1') -Raw
+    if ($packager -notmatch 'Companion\\Linux\.md.*-Destination \$compStaging' -or
+        $packager -notmatch 'Companion\\Linux\.md.*-Destination \$bundleCompanionDocs') {
+        throw 'Linux compatibility documentation must ship in Companion and complete release archives.'
+    }
     Write-Output 'PASS: update checks are user initiated'
     Write-Output 'PASS: long display-plan and activity-log text uses wrapped surfaces'
+    Write-Output 'PASS: hotkey selector does not overlap the display checklist'
+    Write-Output 'PASS: Linux compatibility documentation is included by the release packager'
 } finally {
     if (Test-Path -LiteralPath $testExe) { Remove-Item -LiteralPath $testExe }
 }

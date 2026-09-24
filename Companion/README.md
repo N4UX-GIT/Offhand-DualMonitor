@@ -1,15 +1,21 @@
 # Offhand Companion
 
-Native Windows desktop companion application for the Offhand World of Warcraft add-on.
+Native Windows desktop companion application for the Offhand World of Warcraft add-on. See [Linux.md](Linux.md) for the current experimental Wine path and the native-Linux implementation boundary.
 
 ## Features
 * **Optional Auto-Spanning**: Detects World of Warcraft launches and can span the game window borderlessly across your multi-monitor virtual desktop. This is disabled by default so a first launch cannot move WoW before the display selection is reviewed.
 * **Addon Verification**: Validates that the Offhand add-on is properly installed in your WoW client's `Interface\AddOns` folder.
+  It recognizes every supported Offhand TOC and reports the common accidental
+  `Interface\AddOns\Offhand\Offhand` nesting explicitly.
 * **Zero Console Flashing**: Compiled as a native Win32 subsystem application (`Offhand.exe`).
 * **System Tray Integration**: Minimizes silently to the Windows notification tray with quick-actions and live status tips.
 * **Built-in Guidance**: Hover dashboard controls for detailed tooltips, or use the `?` button (also available from the tray menu) for the complete setup, daily-use, Forever recovery, and troubleshooting guide.
 * **User-Initiated Updates**: The Companion never contacts an update service at startup. **Check for Updates** makes a one-time request to the official GitHub Releases API only when clicked.
 * **DPI-Aware**: Full Per-Monitor V2 scaling ensures crisp fonts and accurate window positioning on mixed-resolution / mixed-scale setups.
+* **Wine Process-Path Fallback**: If .NET cannot read `Process.MainModule`, the
+  Companion retries with the limited-access Win32 image-path API implemented by
+  Wine. This improves same-prefix Wine compatibility without claiming a native
+  Linux build.
 * **Exact Display Topology**: Persists Windows display identities, an explicit
   Mainhand role, and the actual rectangle of each selected screen. The addon no
   longer has to guess a layout from the combined window resolution.
