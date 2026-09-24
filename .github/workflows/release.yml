@@ -29,6 +29,16 @@ jobs:
         $version = "${{ github.ref_name }}".TrimStart('v')
         .\package.ps1 -Version $version
 
+    - name: Create standardized release metadata
+      id: metadata
+      shell: powershell
+      run: |
+        .\scripts\New-ReleaseMetadata.ps1 `
+          -Tag "${{ github.ref_name }}" `
+          -Repository "${{ github.repository }}" `
+          -OutputPath "dist\release-notes.md" `
+          -GitHubOutputPath $env:GITHUB_OUTPUT
+
     - name: Attest release build provenance
       uses: actions/attest@v4
       with:
@@ -42,8 +52,9 @@ jobs:
     - name: Create Release and Upload Assets
       uses: softprops/action-gh-release@v2
       with:
-        prerelease: ${{ contains(github.ref_name, '-') }}
-        generate_release_notes: true
+        name: ${{ steps.metadata.outputs.release_name }}
+        body_path: dist/release-notes.md
+        prerelease: ${{ steps.metadata.outputs.prerelease }}
         files: |
           dist/Offhand-v*.zip
           dist/Offhand-Companion.zip
