@@ -605,6 +605,52 @@ end
 
 local eventFrame = CreateFrame("Frame", "OffhandEventFrame")
 
+-- Blizzard can restore WorldFrame to the complete spanned window while an
+-- in-engine cinematic starts or finishes.  The independently positioned UI
+-- remains on Mainhand, but the 3D projection then centres on the monitor seam.
+-- Reassert only the viewport here: a full layout pass would needlessly touch
+-- panels and saved workspace state during a cinematic transition.
+local cinematicViewportGeneration = 0
+local cinematicViewportQueuedForCombat = false
+
+local function ApplyCinematicViewportRecovery()
+    if not Offhand.db or not Offhand.db.enabled
+        or not Offhand.Viewport or not Offhand.Viewport.Apply then
+        return
+    end
+
+    if InCombatLockdown() then
+        if cinematicViewportQueuedForCombat then return end
+        cinematicViewportQueuedForCombat = true
+        Offhand:RunOrQueueCombat(function()
+            cinematicViewportQueuedForCombat = false
+            if Offhand.db and Offhand.db.enabled
+                and Offhand.Viewport and Offhand.Viewport.Apply then
+                Offhand.Viewport:Apply()
+            end
+        end)
+        return
+    end
+
+    Offhand.Viewport:Apply()
+end
+
+local function ScheduleCinematicViewportRecovery()
+    cinematicViewportGeneration = cinematicViewportGeneration + 1
+    local generation = cinematicViewportGeneration
+
+    -- The zero-delay pass runs after Blizzard's current event dispatch.  Some
+    -- clients finish their cinematic teardown over later frames, so retain two
+    -- short idempotent follow-ups. A newer transition supersedes older timers.
+    for _, delay in ipairs({0, 0.1, 0.5}) do
+        C_Timer.After(delay, function()
+            if generation == cinematicViewportGeneration then
+                ApplyCinematicViewportRecovery()
+            end
+        end)
+    end
+end
+
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -614,6 +660,8 @@ eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 eventFrame:RegisterEvent("UI_SCALE_CHANGED")
 eventFrame:RegisterEvent("DISPLAY_SIZE_CHANGED")
+eventFrame:RegisterEvent("CINEMATIC_START")
+eventFrame:RegisterEvent("CINEMATIC_STOP")
 
 eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
     if event == "ADDON_LOADED" and arg1 == addonName then
@@ -777,6 +825,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             end
 
         end)
+
+    elseif event == "CINEMATIC_START" or event == "CINEMATIC_STOP" then
+        ScheduleCinematicViewportRecovery()
 
     elseif event == "PLAYER_REGEN_ENABLED" then
         ProcessCombatQueue()

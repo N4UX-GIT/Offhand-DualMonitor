@@ -19,8 +19,8 @@ try {
     if ($source -notmatch 'btnCheckUpdates\.Click.*CheckForUpdates') {
         throw 'Companion update checks must remain wired to an explicit user action.'
     }
-    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.2-beta\.9"\)' -or
-        $source -notmatch 'AssemblyFileVersion\("2\.1\.2\.9"\)') {
+    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.2-beta\.10"\)' -or
+        $source -notmatch 'AssemblyFileVersion\("2\.1\.2\.10"\)') {
         throw 'Companion binary metadata must identify the exact beta build.'
     }
     if ($source -match 'GetProcessesByName' -or $source -notmatch 'Process\[\] processes = Process\.GetProcesses\(\)') {

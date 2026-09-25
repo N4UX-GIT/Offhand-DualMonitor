@@ -2,10 +2,11 @@ StaticPopupDialogs = {}
 -- Run from the project root with Lua 5.1.
 local addon = {}
 local events = {}
+local registeredEvents = {}
 local combat = false
 GetBuildInfo = function() return "", "", "", 11509 end
 CreateFrame = function(_, frameName)
-    return { RegisterEvent = function() end,
+    return { RegisterEvent = function(_, event) registeredEvents[event] = true end,
         SetScript = function(_, name, fn)
             if frameName == "OffhandEventFrame" then events[name] = fn end
         end }
@@ -29,6 +30,8 @@ local defaultHeight = addon.db.gameHeightRatio
 addon:ResetConfig()
 assert(addon.db.deckWidthRatio == defaultSeam)
 assert(addon.db.gameHeightRatio == defaultHeight)
+assert(registeredEvents.CINEMATIC_START and registeredEvents.CINEMATIC_STOP,
+    "cinematic viewport recovery events were not registered")
 
 local calls = 0
 addon.UpdateViewport = function() calls = calls + 1 end
@@ -120,6 +123,39 @@ assert(displayApplies == 1 and displayRestores == 1,
 assert(addon._displayGeometryTransitionActive == false,
     "display transition remained active after settled layout restore")
 
+-- In-engine cinematics can restore WorldFrame across the entire spanned
+-- window. Start/stop transitions must reassert only the viewport after
+-- Blizzard settles, cancel stale transition timers, and coalesce combat work.
+local cinematicTimers = {}
+C_Timer.After = function(delay, fn)
+    cinematicTimers[#cinematicTimers + 1] = { delay = delay, fn = fn }
+end
+local cinematicApplies = 0
+addon.db.enabled = true
+addon.Viewport.Apply = function() cinematicApplies = cinematicApplies + 1 end
+addon.ApplyFullLayout = function() error("cinematic recovery rebuilt the full layout") end
+initOnEvent(nil, "CINEMATIC_START")
+local startTimers = cinematicTimers
+cinematicTimers = {}
+initOnEvent(nil, "CINEMATIC_STOP")
+local stopTimers = cinematicTimers
+for _, timer in ipairs(startTimers) do timer.fn() end
+assert(cinematicApplies == 0, "stale cinematic-start timers were not superseded")
+assert(#stopTimers == 3 and stopTimers[1].delay == 0
+        and stopTimers[2].delay == 0.1 and stopTimers[3].delay == 0.5,
+    "cinematic recovery did not schedule the expected settling passes")
+for _, timer in ipairs(stopTimers) do timer.fn() end
+assert(cinematicApplies == 3, "cinematic stop did not reassert the viewport")
+
+cinematicTimers = {}
+combat = true
+initOnEvent(nil, "CINEMATIC_STOP")
+for _, timer in ipairs(cinematicTimers) do timer.fn() end
+assert(cinematicApplies == 3, "cinematic viewport changed during combat")
+combat = false
+initOnEvent(nil, "PLAYER_REGEN_ENABLED")
+assert(cinematicApplies == 4, "combat cinematic recovery was not coalesced")
+
 -- Disabled profiles must not mutate Blizzard frame placement or user CVars at login.
 local loginMutations = 0
 addon.db.enabled = false
@@ -206,5 +242,5 @@ initOnEvent(nil, "PLAYER_LOGOUT")
 assert(capturedOpenPanels == nil and addon.db.openWorkspacePanels.TestWorkspaceFrame == true,
     "Forever absent-topology recovery must preserve the last workspace visibility snapshot")
 
-print("PASS: config preservation, defaults, combat coalescing, error recovery, reentrancy, ADDON_LOADED stack safety, disabled login isolation")
+print("PASS: config preservation, defaults, combat coalescing, cinematic recovery, error recovery, reentrancy, ADDON_LOADED stack safety, disabled login isolation")
 

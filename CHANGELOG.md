@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Changed
-- Addon settings and Companion now identify the exact `v2.1.2-beta.9`
+- Addon settings and Companion now identify the exact `v2.1.2-beta.10`
   pre-release build while retaining `2.1.2` as the compatible base version.
 - Companion display-plan and activity-log messages now wrap instead of drawing
   long missing-monitor diagnostics outside their cards.
@@ -20,6 +20,9 @@ All notable changes to this project will be documented in this file.
   `Offhand.exe`, matching the standalone file and Companion archive.
 
 ### Fixed
+- In-engine cinematics no longer leave the 3D camera centred on the monitor
+  seam. Offhand now reapplies only the configured Mainhand viewport after
+  cinematic start and completion, including delayed and combat-safe recovery.
 - Companion idle monitoring now enumerates processes once per poll, backs off
   while WoW is absent, and pauses polling while its window is being moved or
   its Help dialog is open, eliminating the high idle CPU and sluggish UI.

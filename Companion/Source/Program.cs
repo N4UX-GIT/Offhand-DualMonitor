@@ -15,8 +15,8 @@ using System.Windows.Forms;
 [assembly: AssemblyProduct("Offhand")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
 [assembly: AssemblyVersion("2.1.2.0")]
-[assembly: AssemblyFileVersion("2.1.2.9")]
-[assembly: AssemblyInformationalVersion("2.1.2-beta.9")]
+[assembly: AssemblyFileVersion("2.1.2.10")]
+[assembly: AssemblyInformationalVersion("2.1.2-beta.10")]
 
 namespace Offhand.Companion
 {
@@ -218,7 +218,7 @@ namespace Offhand.Companion
 
     internal static class AddonInstallation
     {
-        internal const string ExpectedRelease = "beta.9";
+        internal const string ExpectedRelease = "beta.10";
         private static readonly string[] ManifestNames = new string[] {
             "Offhand.toc", "Offhand_Mainline.toc", "Offhand_Vanilla.toc",
             "Offhand_Classic.toc", "Offhand_Forever.toc"
@@ -793,7 +793,7 @@ namespace Offhand.Companion
     public class CompanionForm : Form
     {
         internal const string BaseVersion = "2.1.2";
-        internal const string ReleaseLabel = "Beta 9";
+        internal const string ReleaseLabel = "Beta 10";
         internal const string FullVersion = BaseVersion + " " + ReleaseLabel;
 
         // Warcraft Dark Interface Palette (Black / Dark Grey / Burnished Gold)
