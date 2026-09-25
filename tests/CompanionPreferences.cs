@@ -8,6 +8,7 @@ namespace Offhand.Companion {
         private static int checkNumber;
         private static void Check(bool value) { checkNumber++; if (!value) throw new Exception("Preference regression at check " + checkNumber); }
         public static void Main() {
+            Check(CompanionForm.FullVersion == "2.1.2 Beta 8");
             Check(!CompanionDefaults.AutoSpanOnLaunch);
             Check(ProcessPathResolver.Get(null) == null);
             Check(!string.IsNullOrEmpty(ProcessPathResolver.Get(Process.GetCurrentProcess())));

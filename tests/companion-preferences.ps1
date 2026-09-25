@@ -19,6 +19,10 @@ try {
     if ($source -notmatch 'btnCheckUpdates\.Click.*CheckForUpdates') {
         throw 'Companion update checks must remain wired to an explicit user action.'
     }
+    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.2-beta\.8"\)' -or
+        $source -notmatch 'AssemblyFileVersion\("2\.1\.2\.8"\)') {
+        throw 'Companion binary metadata must identify the exact beta build.'
+    }
     if ($source -notmatch 'private RichTextBox logBox' -or
         $source -notmatch 'logBox = new RichTextBox(?s:.*?)WordWrap = true') {
         throw 'Companion activity log must remain a word-wrapped read-only text surface.'

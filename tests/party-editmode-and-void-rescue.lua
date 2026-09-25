@@ -207,6 +207,10 @@ ShowUIPanel = function(frame) frame:Show() end
 UIPanelWindows = {
     EditModeManagerFrame = { area = "center", pushable = 0, whileDead = 1, neverAllowOtherPanels = 1 },
 }
+RegisterUIPanel = function(frame)
+    local name = frame and frame.GetName and frame:GetName()
+    if name then UIPanelWindows[name] = UIPanelWindows[name] or { area = "left", pushable = 0 } end
+end
 SetUIPanelAttribute = function(frame, name, value)
     frame:SetAttributeNoHandler("UIPanelLayout-" .. name, value)
 end
@@ -619,6 +623,38 @@ flushTimers()
 assert(selectedLayout == nil and layoutData.activeLayout == 6,
     "Forever must not change the active Edit Mode layout after reload")
 
+-- Anniversary exposes an active global ID that does not share the custom
+-- layout array's index namespace. Compare by active name, and use only the
+-- C_EditMode array-index API when a change is actually required.
+addon.isForever = false
+local anniversaryActiveName = "Offhand"
+local managerSelection
+EditModeManagerFrame.GetActiveLayoutInfo = function()
+    return { layoutName = anniversaryActiveName }
+end
+EditModeManagerFrame.SelectLayout = function(_, index)
+    managerSelection = index
+end
+layoutData.activeLayout = 5
+selectedLayout = nil
+addon.HUD.editModeLoadScheduled = nil
+addon.HUD:HookFrames()
+flushTimers()
+assert(selectedLayout == nil and managerSelection == nil,
+    "Anniversary reload must preserve an already-active Offhand layout despite a different numeric ID")
+
+anniversaryActiveName = "Modern"
+selectedLayout = nil
+managerSelection = nil
+addon.HUD.editModeLoadScheduled = nil
+addon.HUD:HookFrames()
+flushTimers()
+assert(selectedLayout == 3 and managerSelection == nil,
+    "Anniversary must select Offhand through C_EditMode's layout-array index, not a manager row ID")
+addon.isForever = true
+layoutData.activeLayout = 6
+selectedLayout = nil
+
 local recoveryPanel = makeMockFrame("RecoveryWorkspacePanel", 500, 400)
 local recoveryChat = makeMockFrame("ChatFrame9", 500, 300)
 local recoveryCharacter = makeMockFrame("CharacterFrame", 500, 700)
@@ -713,15 +749,64 @@ local rescuedTop = ExampleAddonWindow:GetTop()
 assert(rescuedTop <= metrics.gameTop, string.format("Rescued frame top (%s) must be <= gameTop (%s)", tostring(rescuedTop), tostring(metrics.gameTop)))
 print(string.format("PASS: Void Rescue Engine successfully rescued ExampleAddonWindow from void (top=%s <= gameTop=%s)", tostring(rescuedTop), tostring(metrics.gameTop)))
 
+-- A workspace stacked directly above Mainhand shares the same horizontal
+-- range. The void scanner must use the complete workspace rectangle instead
+-- of treating every frame above gameTop as lost.
+local originalMetrics = {}
+for key, value in pairs(metrics) do originalMetrics[key] = value end
+metrics.screenWidth, metrics.screenHeight = 2560, 2880
+metrics.physicalWidth, metrics.physicalHeight = 2560, 2880
+metrics.gameLeft, metrics.gameBottom, metrics.gameRight, metrics.gameTop = 0, 0, 2560, 1440
+metrics.workspaceLeft, metrics.workspaceBottom = 0, 1440
+metrics.workspaceRight, metrics.workspaceTop = 2560, 2880
+metrics.workspaceWidth, metrics.workspaceHeight = 2560, 1440
+
+local stackedWorkspaceFrame = makeMockFrame("StackedWorkspaceFrame", 500, 400)
+stackedWorkspaceFrame:ClearAllPoints()
+stackedWorkspaceFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 700, 2500)
+table.insert(UIParent.children, stackedWorkspaceFrame)
+
+-- Exercise the complete Forever drag/save/reload path, not only the popup
+-- scanner. A saved frame on an upper monitor shares Mainhand's X range and
+-- must retain its absolute workspace Y coordinate.
+addon.Canvas.OnPanelDragStop(stackedWorkspaceFrame)
+local stackedSaved = addon.db.savedWorkspacePositions.StackedWorkspaceFrame
+assert(stackedSaved and stackedSaved.canvasBottom == 1440
+        and stackedSaved.y > metrics.gameTop,
+    "Forever must save upper-workspace drag coordinates against the workspace rectangle")
+stackedWorkspaceFrame:ClearAllPoints()
+stackedWorkspaceFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+addon.Canvas.RestoreWorkspacePosition(stackedWorkspaceFrame)
+assert(addon.Canvas.IsFrameOnWorkspace(stackedWorkspaceFrame),
+    "Forever reload restoration must return a saved frame to the upper workspace")
+
+local stackedPointCount = #stackedWorkspaceFrame.points
+flushTimers()
+assert(#stackedWorkspaceFrame.points == stackedPointCount
+        and stackedWorkspaceFrame.points[#stackedWorkspaceFrame.points][1] == "TOPLEFT",
+    "void rescue must not return a valid upper-workspace frame to Mainhand")
+assert(addon.Canvas.IsFrameOnWorkspace(stackedWorkspaceFrame),
+    "upper stacked workspace must be recognized by its full rectangle")
+for key in pairs(metrics) do metrics[key] = nil end
+for key, value in pairs(originalMetrics) do metrics[key] = value end
+print("PASS: upper stacked workspace frames are not mistaken for Mainhand void")
+
 -- Load-on-demand panels are not a stable name list. A newly registered spell
--- book that straddles the portrait workspace and the void must be discovered,
--- made draggable, and fitted completely inside the workspace.
+-- book with no explicit Offhand placement must be discovered, made draggable,
+-- and moved from Blizzard's UIParent-relative workspace anchor to Mainhand.
 local playerSpellsFrame = makeMockFrame("PlayerSpellsFrame", 600, 700)
 local playerSpellsTitle = makeMockFrame("PlayerSpellsFrameTitleContainer", 500, 20)
 playerSpellsFrame.TitleContainer = playerSpellsTitle
 playerSpellsFrame.IsProtected = function() return true end
 playerSpellsTitle.IsProtected = function() return true end
 playerSpellsFrame.StartMoving = function(self) self.startMovingCalls = (self.startMovingCalls or 0) + 1 end
+playerSpellsFrame.SetUserPlaced = function(self, value)
+    self.setUserPlacedFalseCalls = (self.setUserPlacedFalseCalls or 0) + (value == false and 1 or 0)
+    if value == false then
+        self:ClearAllPoints()
+        self:SetPoint("CENTER", UIParent, "BOTTOMLEFT", 2720, 720)
+    end
+end
 playerSpellsFrame:ClearAllPoints()
 playerSpellsFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 1000, 2500)
 UIPanelWindows.PlayerSpellsFrame = { area = "left", pushable = 0 }
@@ -735,19 +820,112 @@ assert(playerSpellsFrame._OffhandHandle == playerSpellsTitle
 playerSpellsTitle.scripts.OnDragStart(playerSpellsTitle)
 assert(playerSpellsFrame.startMovingCalls == 1,
     "dragging the native title container must start moving its owning panel")
-assert(playerSpellsFrame:GetLeft() >= metrics.workspaceLeft + 12
-        and playerSpellsFrame:GetRight() <= metrics.workspaceRight - 12,
-    "a panel straddling the workspace void must be fitted inside the workspace")
-assert(playerSpellsFrame:GetTop() <= metrics.workspaceTop - 12
-        and playerSpellsFrame:GetBottom() >= metrics.workspaceBottom + 12,
-    "rescued panels must remain vertically contained in the workspace")
+assert(playerSpellsFrame:GetLeft() >= metrics.gameLeft + 12
+        and playerSpellsFrame:GetRight() <= metrics.gameRight - 12,
+    "an unsaved Blizzard panel must default inside the Mainhand viewport")
+assert(playerSpellsFrame:GetTop() <= metrics.gameTop - 12
+        and playerSpellsFrame:GetBottom() >= metrics.gameBottom + 12,
+    "default Blizzard panels must remain vertically contained in Mainhand")
 
 playerSpellsFrame:ClearAllPoints()
 playerSpellsFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 260, 1900)
 playerSpellsTitle.scripts.OnDragStop(playerSpellsTitle)
 assert(addon.db.savedWorkspacePositions.PlayerSpellsFrame,
     "a dynamically discovered panel drag must persist its workspace position")
-print("PASS: dynamic Blizzard panels are draggable, void-safe, and persistent")
+assert((playerSpellsFrame.setUserPlacedFalseCalls or 0) == 0,
+    "Forever drag stop must not clear user-placed state and trigger a native center reset")
+assert(addon.Canvas.IsFrameOnWorkspace(playerSpellsFrame),
+    "a Forever panel dropped on the left workspace must not snap back to Mainhand")
+
+-- Moving the same panel back to Mainhand is also an explicit placement. It
+-- must survive a native close/reopen instead of falling back to the workspace
+-- anchor, and it must rejoin normal Escape ownership there.
+playerSpellsFrame:ClearAllPoints()
+playerSpellsFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 1900, 1100)
+playerSpellsTitle.scripts.OnDragStop(playerSpellsTitle)
+local spellMain = addon.db.savedMainPositions.PlayerSpellsFrame
+assert(not addon.db.savedWorkspacePositions.PlayerSpellsFrame and spellMain
+        and spellMain.x == 1900 and spellMain.y == 1100,
+    "a Blizzard panel dragged back to Mainhand must save its Mainhand position")
+assert(not addon.Canvas.IsFrameOnWorkspace(playerSpellsFrame),
+    "a Blizzard panel dragged to Mainhand must remain there immediately")
+
+playerSpellsFrame:Hide()
+playerSpellsFrame:ClearAllPoints()
+playerSpellsFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 160, 2300)
+playerSpellsFrame:Show()
+flushTimers()
+assert(not addon.Canvas.IsFrameOnWorkspace(playerSpellsFrame)
+        and playerSpellsFrame:GetLeft() == 1900 and playerSpellsFrame:GetTop() == 1100,
+    "closing and reopening a Mainhand panel must restore its saved Mainhand anchor")
+
+local professionsFrame = makeMockFrame("ProfessionsFrame", 700, 800)
+UIPanelWindows.ProfessionsFrame = { area = "left", pushable = 0 }
+addon.db.savedMainPositions.ProfessionsFrame = { x = 9000, y = -500 }
+addon.Canvas.RestoreWorkspacePosition(professionsFrame)
+assert(professionsFrame:GetLeft() >= metrics.gameLeft + 12
+        and professionsFrame:GetRight() <= metrics.gameRight - 12
+        and professionsFrame:GetTop() <= metrics.gameTop - 12
+        and professionsFrame:GetBottom() >= metrics.gameBottom + 12,
+    "stale Mainhand panel coordinates must be clamped back onto the visible game monitor")
+print("PASS: dynamic Blizzard panels default to Mainhand and persist explicit monitor placements")
+
+-- A panel whose Blizzard addon loads after login did not exist during the
+-- initial persistence pass. RegisterUIPanel must reopen it when Offhand has an
+-- explicit saved/open workspace record (the live Professions failure).
+local lateProfessionsFrame = makeMockFrame("ProfessionsBookFrame", 700, 800)
+lateProfessionsFrame:Hide()
+addon.db.savedWorkspacePositions.ProfessionsBookFrame = {
+    x = 180, y = 1500, canvasLeft = 0, canvasBottom = 0,
+    canvasWidth = metrics.workspaceWidth, canvasHeight = metrics.workspaceHeight,
+}
+addon.db.openWorkspacePanels = addon.db.openWorkspacePanels or {}
+addon.db.openWorkspacePanels.ProfessionsBookFrame = true
+RegisterUIPanel(lateProfessionsFrame)
+flushTimers()
+assert(lateProfessionsFrame:IsShown() and addon.Canvas.IsFrameOnWorkspace(lateProfessionsFrame),
+    "a persisted Professions panel must reopen when its load-on-demand addon registers late")
+print("PASS: late load-on-demand Professions panels honor saved open workspace state")
+
+-- Horizontal layouts also need explicit coverage when the workspace is to the
+-- right of Mainhand. Emulate the live client behavior where clearing
+-- userPlaced synchronously restores the frame to Mainhand center.
+for key in pairs(metrics) do metrics[key] = nil end
+metrics.isSpanned = true
+metrics.screenWidth, metrics.screenHeight = 4000, 1440
+metrics.physicalWidth, metrics.physicalHeight = 4000, 1440
+metrics.gameLeft, metrics.gameBottom, metrics.gameRight, metrics.gameTop = 0, 0, 2560, 1440
+metrics.gameWidth, metrics.gameHeight = 2560, 1440
+metrics.workspaceLeft, metrics.workspaceBottom = 2560, 0
+metrics.workspaceRight, metrics.workspaceTop = 4000, 1440
+metrics.workspaceWidth, metrics.workspaceHeight = 1440, 1440
+
+local rightWorkspaceFrame = makeMockFrame("RightWorkspaceFrame", 500, 400)
+rightWorkspaceFrame.SetUserPlaced = function(self, value)
+    self.setUserPlacedFalseCalls = (self.setUserPlacedFalseCalls or 0) + (value == false and 1 or 0)
+    if value == false then
+        self:ClearAllPoints()
+        self:SetPoint("CENTER", UIParent, "BOTTOMLEFT", 1280, 720)
+    end
+end
+rightWorkspaceFrame:ClearAllPoints()
+rightWorkspaceFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 2850, 1100)
+addon.Canvas.OnPanelDragStop(rightWorkspaceFrame)
+local rightSaved = addon.db.savedWorkspacePositions.RightWorkspaceFrame
+assert(rightSaved and rightSaved.canvasLeft == 2560,
+    "Forever must save right-workspace drag coordinates against the workspace rectangle")
+assert((rightWorkspaceFrame.setUserPlacedFalseCalls or 0) == 0
+        and addon.Canvas.IsFrameOnWorkspace(rightWorkspaceFrame),
+    "a Forever panel dropped on the right workspace must not snap back to Mainhand")
+rightWorkspaceFrame:ClearAllPoints()
+rightWorkspaceFrame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", 1280, 720)
+addon.Canvas.RestoreWorkspacePosition(rightWorkspaceFrame)
+assert(addon.Canvas.IsFrameOnWorkspace(rightWorkspaceFrame),
+    "Forever reload restoration must return a saved frame to the right workspace")
+
+for key in pairs(metrics) do metrics[key] = nil end
+for key, value in pairs(originalMetrics) do metrics[key] = value end
+print("PASS: Forever horizontal left/right workspace drops survive native userPlaced resets")
 
 -- Forever Cooldown Viewer systems are Blizzard Edit Mode-managed even though
 -- they are not protected frames. The generic rescue scanner must never move,

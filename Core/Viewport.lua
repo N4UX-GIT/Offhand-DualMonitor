@@ -16,16 +16,40 @@ local function ValidRect(rect, pw, ph)
         and x + w <= pw + 2 and y + h <= ph + 2
 end
 
-function Viewport:GetCompanionTopology(pw, ph)
+local function Near(value, expected)
+    return math.abs((tonumber(value) or -1) - expected) <= 2
+end
+
+function Viewport:GetCompanionTopology(pw, ph, sw, sh)
     local topology = _G.OffhandCompanionTopology
     if type(topology) ~= "table" or tonumber(topology.schema) ~= 1 then return nil, "ABSENT" end
-    if math.abs((tonumber(topology.physicalWidth) or -1) - pw) > 2
-        or math.abs((tonumber(topology.physicalHeight) or -1) - ph) > 2
-        or not ValidRect(topology.game, pw, ph)
-        or not ValidRect(topology.workspace, pw, ph) then
+    local topologyWidth = tonumber(topology.physicalWidth)
+    local topologyHeight = tonumber(topology.physicalHeight)
+    if not topologyWidth or not topologyHeight or topologyWidth <= 0 or topologyHeight <= 0
+        or not ValidRect(topology.game, topologyWidth, topologyHeight)
+        or not ValidRect(topology.workspace, topologyWidth, topologyHeight) then
         return nil, "MISMATCH"
     end
-    return topology, "READY"
+
+    if Near(topologyWidth, pw) and Near(topologyHeight, ph) then
+        return topology, "READY"
+    end
+
+    -- Classic Era and Anniversary clients can keep reporting the native size
+    -- of one monitor after an external borderless window resize. Their UIParent
+    -- aspect ratio still reflects the complete spanned canvas. Accept the
+    -- Companion rectangle only when both signals agree; after Restore Window,
+    -- the canvas aspect returns to the single-monitor ratio and this safely
+    -- becomes MISMATCH again. Forever retains the stricter exact-size guard.
+    local reportedDisplay = (Near(topology.game.width, pw) and Near(topology.game.height, ph))
+        or (Near(topology.workspace.width, pw) and Near(topology.workspace.height, ph))
+    local canvasAspect = tonumber(sw) and tonumber(sh) and sh > 0 and (sw / sh) or nil
+    local topologyAspect = topologyWidth / topologyHeight
+    if not Offhand.isForever and reportedDisplay and canvasAspect
+        and math.abs(canvasAspect - topologyAspect) <= 0.01 then
+        return topology, "READY"
+    end
+    return nil, "MISMATCH"
 end
 
 -- A stale exact topology is unsafe on every client. Forever additionally
@@ -53,9 +77,10 @@ function Viewport:GetMetrics()
     if not pw or pw <= 0 or not ph or ph <= 0 then pw, ph = sw, sh end
     local db = Offhand.db
     local preset = db.layoutPreset or "PORTRAIT_LEFT_LANDSCAPE_RIGHT"
-    local ux, uy = sw / pw, sh / ph
-    local topology, topologyStatus = self:GetCompanionTopology(pw, ph)
+    local topology, topologyStatus = self:GetCompanionTopology(pw, ph, sw, sh)
     if topology then
+        pw, ph = tonumber(topology.physicalWidth), tonumber(topology.physicalHeight)
+        local ux, uy = sw / pw, sh / ph
         local game, workspace = topology.game, topology.workspace
         local width, height = tonumber(game.width), tonumber(game.height)
         local left, bottom = tonumber(game.x), tonumber(game.y)
@@ -91,6 +116,8 @@ function Viewport:GetMetrics()
             companionTopology = false, topologyStatus = topologyStatus,
         }
     end
+
+    local ux, uy = sw / pw, sh / ph
     
     local isVertical = (db.primaryPosition == "TOP" or db.primaryPosition == "BOTTOM")
     

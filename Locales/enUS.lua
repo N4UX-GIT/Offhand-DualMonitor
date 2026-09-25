@@ -164,7 +164,7 @@ L["BTN_SEAM_PLUS_TIP_DESC"] = "Moves the monitor dividing seam 1% to the right."
 
 L["BTN_LASER_TOGGLE"] = "Show Red Seam Guide Laser"
 L["BTN_LASER_TOGGLE_TIP_TITLE"] = "Physical Bezel Laser Guide"
-L["BTN_LASER_TOGGLE_TIP_DESC"] = "Shows or hides a bright vertical red laser line on screen. Adjust your seam slider until the line aligns exactly with your physical monitor plastic bezel."
+L["BTN_LASER_TOGGLE_TIP_DESC"] = "Shows or hides a bright red seam line: vertical for side-by-side displays and horizontal for stacked displays. Align it with the physical monitor bezel."
 
 L["SLIDER_BEZEL_GAP"] = "Bezel Compensation Gap"
 L["SLIDER_BEZEL_GAP_TIP_TITLE"] = "Bezel Gap Compensation"

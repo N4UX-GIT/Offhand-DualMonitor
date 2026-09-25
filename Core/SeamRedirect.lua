@@ -934,6 +934,17 @@ function HUD:HookFrames()
         local cy = (m.gameBottom + m.gameTop) / 2
         local parentScale = UIParent:GetEffectiveScale() or 1
 
+        local function CenterIsInside(left, top, width, height, areaLeft, areaBottom, areaRight, areaTop)
+            if not left or not top or not width or not height
+                or areaLeft == nil or areaBottom == nil or areaRight == nil or areaTop == nil then
+                return false
+            end
+            local centerX = left + width / 2
+            local centerY = top - height / 2
+            return centerX >= areaLeft and centerX <= areaRight
+                and centerY >= areaBottom and centerY <= areaTop
+        end
+
         -- 1. Check UISpecialFrames (standard config panels)
         if UISpecialFrames then
             for _, name in ipairs(UISpecialFrames) do
@@ -970,9 +981,12 @@ function HUD:HookFrames()
                     local top = (frame:GetTop() or 0) * scaleFactor
                     local left = (frame:GetLeft() or 0) * scaleFactor
                     local width = (frame.GetWidth and frame:GetWidth() or 0) * scaleFactor
+                    local height = (frame.GetHeight and frame:GetHeight() or 0) * scaleFactor
                     local centerX = left + width / 2
                     local onGameSide = centerX >= m.gameLeft and centerX <= m.gameRight
-                    if onGameSide and top > (m.gameTop + 2) then
+                    local onWorkspace = CenterIsInside(left, top, width, height,
+                        m.workspaceLeft, m.workspaceBottom, m.workspaceRight, m.workspaceTop)
+                    if onGameSide and not onWorkspace and top > (m.gameTop + 2) then
                         frame:ClearAllPoints()
                         local invFactor = parentScale / fScale
                         local offsetX = cx - (UIParent:GetWidth() / 2)
@@ -1010,9 +1024,12 @@ function HUD:HookFrames()
                     local top = (child.GetTop and child:GetTop() or 0) * scaleFactor
                     local left = (child.GetLeft and child:GetLeft() or 0) * scaleFactor
                     local width = (child.GetWidth and child:GetWidth() or 0) * scaleFactor
+                    local height = (child.GetHeight and child:GetHeight() or 0) * scaleFactor
                     local centerX = left + width / 2
                     local onGameSide = centerX >= m.gameLeft and centerX <= m.gameRight
-                    if onGameSide and top > (m.gameTop + 2) then
+                    local onWorkspace = CenterIsInside(left, top, width, height,
+                        m.workspaceLeft, m.workspaceBottom, m.workspaceRight, m.workspaceTop)
+                    if onGameSide and not onWorkspace and top > (m.gameTop + 2) then
                         if child.GetPoint and child.ClearAllPoints and child.SetPoint then
                             child:ClearAllPoints()
                             local invFactor = parentScale / fScale
@@ -1051,7 +1068,7 @@ function HUD:HookFrames()
         end)
     end
 
-        local function AutoLoadEditModeLayout()
+    local function AutoLoadEditModeLayout()
         if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
         if not C_EditMode or not C_EditMode.GetLayouts then return end
         
@@ -1061,6 +1078,14 @@ function HUD:HookFrames()
         local targetName = "Offhand"
         local found = false
         local needsSetup = false
+        local activeName
+        if not UsesForeverEditMode() and EditModeManagerFrame
+            and EditModeManagerFrame.GetActiveLayoutInfo then
+            local ok, activeInfo = pcall(EditModeManagerFrame.GetActiveLayoutInfo, EditModeManagerFrame)
+            if ok and type(activeInfo) == "table" then
+                activeName = activeInfo.layoutName
+            end
+        end
         for index, layout in ipairs(layoutData.layouts) do
             if EditModeLayoutNamesMatch(layout.layoutName, targetName) then
                 found = true
@@ -1080,13 +1105,18 @@ function HUD:HookFrames()
                         end
                     end
                 end
-                if not needsSetup and layoutData.activeLayout ~= index and not UsesForeverEditMode() then
-                    if EditModeManagerFrame and EditModeManagerFrame.SelectLayout then
-                        EditModeManagerFrame:SelectLayout(index)
-                    elseif C_EditMode.SetActiveLayout then
-                        C_EditMode.SetActiveLayout(index)
+                if not needsSetup and not UsesForeverEditMode()
+                    and not EditModeLayoutNamesMatch(activeName, targetName)
+                    and C_EditMode.SetActiveLayout then
+                    -- GetLayouts().layouts is indexed in the form expected by
+                    -- C_EditMode.SetActiveLayout. EditModeManagerFrame:SelectLayout
+                    -- uses manager-row identifiers on Anniversary and can select
+                    -- a different profile. Compare the active layout by name: its
+                    -- numeric ID is not the same namespace as this array index.
+                    local ok = pcall(C_EditMode.SetActiveLayout, index)
+                    if ok then
+                        Offhand:Print("Auto-loaded Edit Mode layout: " .. layout.layoutName)
                     end
-                    Offhand:Print("Auto-loaded Edit Mode layout: " .. layout.layoutName)
                 end
                 break
             end

@@ -97,6 +97,7 @@ end
 
 local DemodalizePanel, RemodalizePanel, OnPanelDragStop, RestoreWorkspacePosition, IsFrameOnWorkspace
 local EvictWorkspacePanelSlot
+local nonMovableSystemPanels
 
 -- Forever exposes Edit Mode through a load-on-demand addon.  The absence of
 -- EditModeManagerFrame during early login therefore does not mean these frames
@@ -657,17 +658,18 @@ function Canvas:ConfigureWorldMap()
         pcall(function() map:SetIgnoreParentScale(false) end)
     end
 
-    -- Ensure windowed mini world map in Classic Era
-    pcall(function()
-        if type(GetCVar("miniWorldMap")) == "string" and GetCVar("miniWorldMap") ~= "1" then
-            SetCVar("miniWorldMap", "1")
-        end
-        if map.IsMaximized and map:IsMaximized() and map.Minimize then
-            map:Minimize()
-        end
-        
-
-    end)
+    -- Ensure windowed mini world map in Classic Era. Forever owns protected
+    -- map state and must not be minimized or have its CVar changed by Offhand.
+    if not Offhand.isForever then
+        pcall(function()
+            if type(GetCVar("miniWorldMap")) == "string" and GetCVar("miniWorldMap") ~= "1" then
+                SetCVar("miniWorldMap", "1")
+            end
+            if map.IsMaximized and map:IsMaximized() and map.Minimize then
+                map:Minimize()
+            end
+        end)
+    end
 
     if not map._OffhandWindowedHook and hooksecurefunc then
         map._OffhandWindowedHook = true
@@ -754,6 +756,9 @@ function Canvas:ConfigureWorldMap()
     local pos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["WorldMapFrame"]
     local isWorkspaceMap = pos or (not (Offhand.db.savedMainPositions and Offhand.db.savedMainPositions.WorldMapFrame) and IsFrameOnWorkspace(map))
     if isWorkspaceMap then
+        if PlayerMovementFrameFader and PlayerMovementFrameFader.RemoveFrame then
+            pcall(function() PlayerMovementFrameFader.RemoveFrame(map) end)
+        end
         local userScale = Offhand.db.workspaceMapScale
         local fitScale
         if userScale and userScale ~= "AUTO" and tonumber(userScale) and tonumber(userScale) > 0 then
@@ -770,6 +775,13 @@ function Canvas:ConfigureWorldMap()
             EvictWorkspacePanelSlot(map)
         end
     else
+        if PlayerMovementFrameFader and PlayerMovementFrameFader.AddDeferredFrame then
+            pcall(function()
+                PlayerMovementFrameFader.AddDeferredFrame(
+                    map, .5, 1.0, 0.5,
+                    function() return not map:IsMaximized() end)
+            end)
+        end
         local userMainScale = Offhand.db.mainMapScale
         if userMainScale and tonumber(userMainScale) and tonumber(userMainScale) > 0 then
             map:SetScale(tonumber(userMainScale))
@@ -858,15 +870,13 @@ EvictWorkspacePanelSlot = function(frame)
         or GetUIPanel("right") == frame or GetUIPanel("doublewide") == frame
     if not occupiesSlot then return false end
 
+    -- Keep Blizzard's scripts installed. Replacing even an unchanged protected
+    -- World Map handler taints later quest-pin acquisition on Forever. The
+    -- re-entrancy flag makes Offhand's secure post-hooks ignore this deliberate
+    -- hide/show cycle while Blizzard vacates the UIPanel slot normally.
     frame._OffhandEvictingPanelSlot = true
-    local oldHide = frame.GetScript and frame:GetScript("OnHide")
-    local oldShow = frame.GetScript and frame:GetScript("OnShow")
-    if oldHide and frame.SetScript then frame:SetScript("OnHide", nil) end
-    if oldShow and frame.SetScript then frame:SetScript("OnShow", nil) end
     pcall(function() HideUIPanel(frame, 1) end)
     if frame.Show then frame:Show() end
-    if oldHide and frame.SetScript then frame:SetScript("OnHide", oldHide) end
-    if oldShow and frame.SetScript then frame:SetScript("OnShow", oldShow) end
     frame._OffhandEvictingPanelSlot = nil
     return true
 end
@@ -876,13 +886,18 @@ DemodalizePanel = function(frame)
       if not frame then return end
       local name = frame:GetName()
       if not name then return end
-      
-      if frame == WorldMapFrame and PlayerMovementFrameFader and PlayerMovementFrameFader.RemoveFrame then
-          PlayerMovementFrameFader.RemoveFrame(WorldMapFrame)
+
+      -- Removing the workspace map from Blizzard's movement fader prevents the
+      -- intended always-open map from becoming subdued while the player runs.
+      -- This public fader registration is independent of the protected map
+      -- scripts and UIPanel metadata that must remain untouched on Forever.
+      if frame == WorldMapFrame and PlayerMovementFrameFader
+          and PlayerMovementFrameFader.RemoveFrame then
+          pcall(function() PlayerMovementFrameFader.RemoveFrame(WorldMapFrame) end)
       end
 
       -- Do not mutate Forever's Blizzard-owned panel registry or panel-layout
-      -- attributes. Those values feed secure Edit Mode and secret-value UI paths.
+      -- attributes. Those feed protected UI execution paths.
       if Offhand.isForever then return end
 
       if UIPanelWindows and UIPanelWindows[name] then
@@ -913,9 +928,13 @@ RemodalizePanel = function(frame)
       if not frame then return end
       local name = frame:GetName()
       if not name then return end
-      
+
       if frame == WorldMapFrame and PlayerMovementFrameFader and PlayerMovementFrameFader.AddDeferredFrame then
-          PlayerMovementFrameFader.AddDeferredFrame(WorldMapFrame, .5, 1.0, 0.5, function() return not WorldMapFrame:IsMaximized() end)
+          pcall(function()
+              PlayerMovementFrameFader.AddDeferredFrame(
+                  WorldMapFrame, .5, 1.0, 0.5,
+                  function() return not WorldMapFrame:IsMaximized() end)
+          end)
       end
 
       if Offhand.isForever then return end
@@ -950,9 +969,25 @@ OnPanelDragStop = function(frame)
     end
     local name = frame.GetName and frame:GetName()
     local wasShown = not frame.IsShown or frame:IsShown()
+
+    -- Capture the hardware drag result before changing Blizzard's user-placed
+    -- state. Some clients immediately restore the native anchor when
+    -- SetUserPlaced(false) runs, which previously made a valid workspace drop
+    -- look like a Mainhand-centered drop on every monitor orientation.
+    local dragFrameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
+    local dragParentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
+    local dragScaleFactor = dragFrameScale / dragParentScale
+    local dragLeftRaw = frame.GetLeft and frame:GetLeft() or 0
+    local dragTopRaw = frame.GetTop and frame:GetTop() or 0
+    local dragLeftInParent = dragLeftRaw * dragScaleFactor
+    local dragTopInParent = dragTopRaw * dragScaleFactor
+    local droppedOnWorkspace = IsFrameOnWorkspace(frame)
+
     if name and string.match(name, "^ChatFrame") then
         
-    else
+    elseif not Offhand.isForever then
+        -- Forever should retain Blizzard's user-placed state. Clearing it can
+        -- synchronously return the frame to its native center anchor.
         pcall(function() frame:SetUserPlaced(false) end)
     end
 
@@ -975,7 +1010,7 @@ OnPanelDragStop = function(frame)
         return
     end
 
-    local onDeck = IsFrameOnWorkspace(frame)
+    local onDeck = droppedOnWorkspace
 
     if IsRetailEditModePrimaryChat(frame) and not onDeck then
         -- Mainhand ChatFrame1 belongs to Retail Edit Mode. Remove legacy
@@ -997,8 +1032,8 @@ OnPanelDragStop = function(frame)
         local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
         local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
         local scaleFactor = frameScale / parentScale
-        local xInParent = (frame:GetLeft() or 0) * scaleFactor
-        local yInParent = (frame:GetTop() or 0) * scaleFactor
+        local xInParent = dragLeftInParent
+        local yInParent = dragTopInParent
         local frameWidth = (frame:GetWidth() or 0) * (frame.GetScale and frame:GetScale() or 1)
         local frameHeight = (frame:GetHeight() or 0) * (frame.GetScale and frame:GetScale() or 1)
         if frameWidth <= 0 then frameWidth = 192 end
@@ -1093,8 +1128,10 @@ OnPanelDragStop = function(frame)
         local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
         local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
         local scaleFactor = frameScale / parentScale
-        local xInParent = (frame:GetLeft() or 0) * scaleFactor
-        local yInParent = (frame:GetTop() or 0) * scaleFactor
+        -- World Map resets to scale 1 on Mainhand; retain its pre-reset anchor
+        -- units to preserve the established map drag behavior.
+        local xInParent = frame == WorldMapFrame and dragLeftRaw or dragLeftInParent
+        local yInParent = frame == WorldMapFrame and dragTopRaw or dragTopInParent
         local frameWidth = (frame:GetWidth() or 0) * (frame.GetScale and frame:GetScale() or 1)
         local frameHeight = (frame:GetHeight() or 0) * (frame.GetScale and frame:GetScale() or 1)
         if frameWidth <= 0 then frameWidth = 192 end
@@ -1163,10 +1200,12 @@ OnPanelDragStop = function(frame)
                 Offhand.HUD:RepairChatButtons(frame)
             end
         else
-            pcall(function() frame:SetUserPlaced(false) end)
+            Offhand.db.savedMainPositions[name] = {
+                point = "TOPLEFT", x = clampedX, y = clampedY,
+            }
             RemodalizePanel(frame)
             RegisterSpecialFrame(name)
-            if UpdateUIPanelPositions then
+            if UpdateUIPanelPositions and not Offhand.isForever then
                 pcall(UpdateUIPanelPositions, frame)
             end
             local w, h = frame:GetWidth(), frame:GetHeight()
@@ -1278,6 +1317,71 @@ function Canvas:CaptureForeverFramePosition(frame)
     return false
 end
 
+-- Blizzard UIPanels anchor against the full UIParent. In an Offhand topology
+-- that native origin may be the workspace, so an unsaved Spellbook,
+-- Professions or Collections panel can open on the wrong monitor. Mainhand
+-- placements use physical UIParent coordinates and are clamped on every
+-- restore so display changes cannot strand a panel off screen.
+function Canvas:PlacePanelOnMainhand(frame, metrics, position, preserveContained)
+    if not frame or (InCombatLockdown and InCombatLockdown()) or not Offhand.db
+        or not Offhand.db.enabled then return false end
+    local name = frame.GetName and frame:GetName()
+    if not name or (nonMovableSystemPanels and nonMovableSystemPanels[name])
+        or IsForeverEditModeFrame(frame, name) or IsUnsafeForPanelMutation(frame, name) then return false end
+
+    metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics
+        and WithWorkspace(Offhand.Viewport:GetMetrics()))
+    if not metrics or not metrics.isSpanned then return false end
+
+    local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
+    local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or parentScale
+    if parentScale <= 0 or frameScale <= 0 then return false end
+    local scaleFactor = frameScale / parentScale
+    local width = ((frame.GetWidth and frame:GetWidth()) or 0) * scaleFactor
+    local height = ((frame.GetHeight and frame:GetHeight()) or 0) * scaleFactor
+    if width <= 0 then width = 192 * scaleFactor end
+    if height <= 0 then height = 192 * scaleFactor end
+
+    local inset = 12
+    local minX = metrics.gameLeft + inset
+    local maxX = math.max(minX, metrics.gameRight - width - inset)
+    local minY = metrics.gameBottom + height + inset
+    local maxY = math.max(minY, metrics.gameTop - inset)
+
+    if preserveContained and not position then
+        local left = frame.GetLeft and frame:GetLeft()
+        local top = frame.GetTop and frame:GetTop()
+        if left and top then
+            left, top = left * scaleFactor, top * scaleFactor
+            if left >= minX and left + width <= metrics.gameRight - inset
+                and top <= maxY and top - height >= metrics.gameBottom + inset then
+                return false
+            end
+        end
+    end
+
+    local targetX = position and tonumber(position.x)
+    local targetY = position and tonumber(position.y)
+    if not targetX then
+        targetX = metrics.gameLeft + (metrics.gameRight - metrics.gameLeft - width) / 2
+    end
+    if not targetY then
+        targetY = metrics.gameBottom + (metrics.gameTop - metrics.gameBottom + height) / 2
+    end
+    local clampedX = math.max(minX, math.min(targetX, maxX))
+    local clampedY = math.max(minY, math.min(targetY, maxY))
+    local pointFactor = parentScale / frameScale
+
+    local ok = pcall(function()
+        if frame.SetClampedToScreen then frame:SetClampedToScreen(false) end
+        frame:ClearAllPoints()
+        frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT",
+            clampedX * pointFactor, clampedY * pointFactor)
+    end)
+    if ok then RegisterSpecialFrame(name) end
+    return ok
+end
+
 RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
     local frame = (selfOrFrame == Canvas and maybeFrame) or maybeFrame or selfOrFrame
     if InCombatLockdown() or not frame or type(frame) ~= "table" or not frame.GetName then return end
@@ -1362,13 +1466,20 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         return
     end
 
+    local mPos = Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name]
+    if type(mPos) == "table" and mPos.x and mPos.y then
+        if frame == WorldMapFrame then Canvas:ConfigureWorldMap() end
+        RemodalizePanel(frame)
+        Canvas:PlacePanelOnMainhand(frame, m, mPos, false)
+        return
+    end
+
     -- If frame is WorldMapFrame and on the main gaming screen:
     if frame == WorldMapFrame then
         Canvas:ConfigureWorldMap()
           RemodalizePanel(frame)
           RegisterSpecialFrame("WorldMapFrame")
 
-        local mPos = Offhand.db.savedMainPositions and Offhand.db.savedMainPositions["WorldMapFrame"]
         local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
         local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
         local factor = parentScale / frameScale
@@ -1416,7 +1527,7 @@ end
 -- ============================================================================
 -- Universal Panel Dragger (Allows moving panels to the secondary monitor)
 -- ============================================================================
-local nonMovableSystemPanels = {
+nonMovableSystemPanels = {
     GameMenuFrame = true,
     SettingsPanel = true,
     InterfaceOptionsFrame = true,
@@ -1517,14 +1628,24 @@ local function RestoreSavedPositionAfterShow(frame)
     local workspacePosition = name and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
     local mainPosition = name and Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name]
     if not workspacePosition and not mainPosition then
-        Canvas:RescuePanelFromVoid(frame, metrics)
+        local isNativePanel = name and UIPanelWindows and UIPanelWindows[name]
+            and not nonMovableSystemPanels[name]
+        if isNativePanel then
+            Canvas:PlacePanelOnMainhand(frame, metrics, nil, true)
+        else
+            Canvas:RescuePanelFromVoid(frame, metrics)
+        end
         if C_Timer and C_Timer.After then
             frame._OffhandRescueGeneration = (frame._OffhandRescueGeneration or 0) + 1
             local generation = frame._OffhandRescueGeneration
             C_Timer.After(0, function()
                 if frame._OffhandRescueGeneration ~= generation then return end
                 if frame.IsShown and not frame:IsShown() then return end
-                Canvas:RescuePanelFromVoid(frame)
+                if isNativePanel then
+                    Canvas:PlacePanelOnMainhand(frame, nil, nil, true)
+                else
+                    Canvas:RescuePanelFromVoid(frame)
+                end
             end)
         end
         return
@@ -1922,6 +2043,18 @@ function Canvas:EnableFreeDragging()
         hooksecurefunc("RegisterUIPanel", function(frame)
             local function AttachRegisteredPanel()
                 Canvas:TryMakeFrameDraggable(frame)
+                local name = frame and frame.GetName and frame:GetName()
+                local shouldRestore = name and Offhand.db and Offhand.db.openWorkspacePanels
+                    and Offhand.db.openWorkspacePanels[name]
+                    and Offhand.db.savedWorkspacePositions
+                    and Offhand.db.savedWorkspacePositions[name]
+                if shouldRestore and frame.IsShown and not frame:IsShown() then
+                    if ShowUIPanel and UIPanelWindows and UIPanelWindows[name] then
+                        pcall(ShowUIPanel, frame)
+                    elseif frame.Show then
+                        pcall(frame.Show, frame)
+                    end
+                end
                 if frame and frame.IsShown and frame:IsShown() then
                     RestoreSavedPositionAfterShow(frame)
                 end
@@ -2237,6 +2370,7 @@ function Offhand:InitializeCanvas()
         if C_Timer and C_Timer.After then
             C_Timer.After(0, function()
                 Canvas:EnableFreeDragging()
+                Canvas:RestorePersistentFrames()
             end)
         end
     end)

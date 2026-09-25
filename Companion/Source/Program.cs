@@ -15,7 +15,8 @@ using System.Windows.Forms;
 [assembly: AssemblyProduct("Offhand")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
 [assembly: AssemblyVersion("2.1.2.0")]
-[assembly: AssemblyFileVersion("2.1.2.0")]
+[assembly: AssemblyFileVersion("2.1.2.8")]
+[assembly: AssemblyInformationalVersion("2.1.2-beta.8")]
 
 namespace Offhand.Companion
 {
@@ -695,6 +696,10 @@ namespace Offhand.Companion
 
     public class CompanionForm : Form
     {
+        internal const string BaseVersion = "2.1.2";
+        internal const string ReleaseLabel = "Beta 8";
+        internal const string FullVersion = BaseVersion + " " + ReleaseLabel;
+
         // Warcraft Dark Interface Palette (Black / Dark Grey / Burnished Gold)
         private readonly Color cBg = Color.FromArgb(12, 12, 14);                // Obsidian black canvas (#0c0c0e)
         private readonly Color cCard = Color.FromArgb(20, 20, 24);              // Dark forged iron card (#141418)
@@ -1005,7 +1010,7 @@ namespace Offhand.Companion
             UpdateHotkey();
             if (configWarning != null) AddLog(configWarning);
 
-            AddLog("Offhand Companion v2.1.2 initialized.");
+            AddLog("Offhand Companion v" + FullVersion + " initialized.");
             AddLog("Monitoring active. Enable Offhand in WoW; calibrate with /offhand wizard.");
         }
 
@@ -1181,9 +1186,9 @@ namespace Offhand.Companion
 
             // Version
             Label verLabel = new Label();
-            verLabel.Text = "v2.1.2";
+            verLabel.Text = "v" + FullVersion;
             verLabel.Location = new Point(98, 66);
-            verLabel.Size = new Size(100, 14);
+            verLabel.Size = new Size(150, 14);
             verLabel.Font = new Font("Segoe UI", 7.5f, FontStyle.Italic);
             verLabel.ForeColor = cMuted;
             verLabel.BackColor = Color.Transparent;

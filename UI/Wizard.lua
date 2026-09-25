@@ -217,12 +217,13 @@ function Wizard:CreateFrame()
     btnVb:SetText(L["PRESET_STACK_BOTTOM"])
 
     local arLabel = card2:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-    arLabel:SetPoint("TOPLEFT", 14, -120)
+    arLabel:SetPoint("TOPLEFT", card2, "TOPLEFT", 14, -116)
     arLabel:SetText(L["WIZARD_LABEL_AR"])
+    f.aspectLabel = arLabel
 
     local btn169 = CreateFrame("Button", nil, card2, "UIPanelButtonTemplate")
     btn169:SetSize(196, 24)
-    btn169:SetPoint("TOPLEFT", 14, -118)
+    btn169:SetPoint("TOPLEFT", card2, "TOPLEFT", 14, -136)
     btn169:SetText(L["AR_16_9"])
     if Offhand.SetTooltip then Offhand:SetTooltip(btn169, L["AR_16_9_TIP_TITLE"], L["AR_16_9_TIP_DESC"]) end
 
@@ -237,6 +238,7 @@ function Wizard:CreateFrame()
     btnFill:SetPoint("LEFT", btn219, "RIGHT", 10, 0)
     btnFill:SetText(L["AR_FILL"])
     if Offhand.SetTooltip then Offhand:SetTooltip(btnFill, L["AR_FILL_TIP_TITLE"], L["AR_FILL_TIP_DESC"]) end
+    f.aspectButtons = { btn169, btn219, btnFill }
 
     btnPl:SetScript("OnClick", function()
         Offhand.db.layoutPreset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT"
@@ -823,6 +825,8 @@ function Wizard:CreateFrame()
         local seam = Offhand.db.deckWidthRatio or 0.36
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
         local manualGeometryEnabled = not (metrics and metrics.companionTopology)
+        seamHelp:SetText(manualGeometryEnabled and L["WIZARD_SEAM_INSTRUCTION"]
+            or (L["EXACT_TOPOLOGY_LOCKED"] .. " " .. L["WIZARD_SEAM_INSTRUCTION"]))
         for _, control in ipairs({btnPl, btnPr, btnDual, btnVt, btnVb, btn169, btn219,
             btnFill, seamSlider, seamEditBox, btnMinus, btnPlus, btnSeam36, btnSeam50, btnSeam55}) do
             if control and control.SetEnabled then control:SetEnabled(manualGeometryEnabled) end

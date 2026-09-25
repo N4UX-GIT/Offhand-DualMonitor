@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- Addon settings and Companion now identify the exact `v2.1.2-beta.8`
+  pre-release build while retaining `2.1.2` as the compatible base version.
 - Companion display-plan and activity-log messages now wrap instead of drawing
   long missing-monitor diagnostics outside their cards.
 - Companion's Hotkey selector is narrower so it no longer covers the monitor
@@ -16,6 +18,30 @@ All notable changes to this project will be documented in this file.
   preserve the addon directory tree without a custom deflattening script.
 
 ### Fixed
+- Forever workspace maps remain fully opaque while the player moves without
+  altering Blizzard's protected map scripts or UIPanel metadata.
+- Persisted load-on-demand panels such as Professions are reopened after their
+  Blizzard addon registers the frame, instead of being skipped because the
+  frame did not exist during Offhand's initial reload restoration pass.
+- The seam guide is now vertical for side-by-side layouts and horizontal for
+  stacked layouts in both Companion-controlled and manual topology modes.
+- Unsaved Blizzard panels now open on Mainhand instead of inheriting a
+  UIParent anchor in the Offhand workspace. Explicit Mainhand drops persist
+  across close/reopen and reload, while only explicit Offhand drops receive
+  Offhand ESC and open-panel persistence behavior. Stale coordinates are
+  clamped back onto the visible game monitor.
+- Anniversary now preserves an already-selected Blizzard Edit Mode layout by
+  comparing its active name, and loads `Offhand` through the correct layout
+  index API instead of confusing the global active ID with a manager row ID.
+- Auto-Setup Wizard step 2 now places the Mainhand aspect-ratio title above
+  its buttons instead of drawing the label across the first button row.
+- Classic Era and Anniversary clients now accept Companion topology when their
+  resolution API reports only Mainhand but the live UI canvas matches the full
+  span; restored single-monitor windows still reject stale topology.
+- Frames dragged into any horizontal or stacked workspace now retain their
+  final hardware-drag coordinates before Blizzard can restore a native anchor.
+  Forever also keeps the frame's user-placed state, preventing valid workspace
+  drops from snapping back to the game-view center.
 - Load-on-demand Blizzard panels are now discovered dynamically, including
   Forever panels flagged protected, gain an out-of-combat title-bar drag
   handle, and are fitted wholly inside the nearest visible monitor when their
@@ -49,9 +75,10 @@ All notable changes to this project will be documented in this file.
 - Forever leaves the Game Menu and protected Edit Mode systems under Blizzard
   ownership. If the unprotected Edit Mode control window opens in mixed-height
   display void, a player-click prompt can move only that window to Mainhand.
-- A saved Forever workspace map now detaches from both `UISpecialFrames` and
-  Blizzard's active UI-panel slot, preserving the map through Escape without
-  replacing global close functions or changing secure panel metadata.
+- Forever workspace maps again remain open through Escape and reopen after
+  reload. Offhand now vacates Blizzard's active panel slot without temporarily
+  replacing protected `OnShow`/`OnHide` scripts, preventing the reported quest-
+  pin `Button:SetPassThroughButtons()` taint while preserving map persistence.
 - Forever now fails safe to a normal full-window viewport when exact Companion
   topology is absent, including after Restore Window. The same recovery flow
   preserves workspace panel state and offers the player-click Modern/Offhand

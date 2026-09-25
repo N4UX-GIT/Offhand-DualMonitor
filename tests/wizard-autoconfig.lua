@@ -151,6 +151,12 @@ GetScreenWidth = function() return 4000 end
 GetScreenHeight = function() return 2560 end
 GetBuildInfo = function() return "1.15.5", "58238", "Jan 1 2025", 11505 end
 hooksecurefunc = function(t, name, fn) end
+C_AddOns = {
+    GetAddOnMetadata = function(_, key)
+        if key == "Version" then return "2.1.2" end
+        if key == "X-Offhand-Release" then return "beta.8" end
+    end,
+}
 
 -- Load Offhand modules
 local addon = { modules = {} }
@@ -345,6 +351,12 @@ assert(wizardFrame ~= nil, "OffhandSetupWizardFrame must be created")
 assert(wizardFrame:IsShown() == true, "Wizard frame must be shown after Wizard:Open()")
 assert(wizardFrame.topoText:GetText():find("4000x2560"), "Wizard topoText must show detected resolution")
 assert(wizardFrame.recomText:GetText():find("36.0%%"), "Wizard recomText must show recommended 36% seam")
+assert(wizardFrame.aspectLabel ~= nil and wizardFrame.aspectButtons ~= nil,
+    "Wizard step 2 must expose its aspect-ratio label and controls")
+local aspectLabelPoint = wizardFrame.aspectLabel.points["TOPLEFT"]
+local aspectButtonPoint = wizardFrame.aspectButtons[1].points["TOPLEFT"]
+assert(aspectLabelPoint and aspectButtonPoint and aspectButtonPoint.y <= aspectLabelPoint.y - 20,
+    "Wizard step 2 aspect-ratio buttons must sit below the label without overlap")
 
 -- Click 1-Click Auto-Configure inside wizard
 addon.db.deckWidthRatio = 0.55
@@ -386,6 +398,39 @@ assert(addon.Options.IsSeamGuideShown ~= nil, "Options:IsSeamGuideShown must exi
 local seamGuideLine = _G["OffhandSeamGuideLine"]
 assert(seamGuideLine ~= nil, "Seam guide line must exist")
 
+-- Side-by-side monitor layouts use a vertical seam; stacked layouts use a
+-- horizontal seam. This must work both with manual topology and Companion's
+-- exact rectangles.
+local guideMetrics = addon.Viewport.GetMetrics
+addon.Viewport.GetMetrics = function() return nil end
+addon.db.layoutPreset = "STACKED_VERTICAL"
+addon.db.primaryPosition = "TOP"
+addon.Options:ShowSeamGuide(0.36)
+assert(seamGuideLine.width == UIParent:GetWidth() and seamGuideLine.height == 4,
+    "manual stacked layouts must render a horizontal seam guide")
+assert(math.abs(seamGuideLine.points.BOTTOMLEFT.y - (UIParent:GetHeight() * 0.36 - 2)) < 0.01,
+    "manual stacked Game Top guide must follow the workspace height ratio")
+
+addon.db.layoutPreset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT"
+addon.db.primaryPosition = "RIGHT"
+addon.Options:ShowSeamGuide(0.36)
+assert(seamGuideLine.width == 4 and seamGuideLine.height == UIParent:GetHeight(),
+    "manual side-by-side layouts must render a vertical seam guide")
+
+addon.Viewport.GetMetrics = function()
+    return {
+        companionTopology = true, screenWidth = 2560, screenHeight = 2520,
+        workspaceLeft = 200, workspaceRight = 2120,
+        workspaceBottom = 1440, workspaceTop = 2520,
+        gameLeft = 0, gameRight = 2560, gameBottom = 0, gameTop = 1440,
+    }
+end
+addon.Options:ShowSeamGuide(0.36)
+assert(seamGuideLine.width > seamGuideLine.height
+        and seamGuideLine.points.BOTTOMLEFT.y == 1438,
+    "Companion-controlled stacked layouts must render the guide on the horizontal boundary")
+addon.Viewport.GetMetrics = guideMetrics
+
 -- Close Wizard
 addon.Wizard:Close()
 assert(wizardFrame:IsShown() == false, "Wizard:Close must hide wizardFrame")
@@ -415,6 +460,11 @@ addon.Wizard.Open = originalWizardOpen
 -- 5. Test Options Dialog 1-Click and Wizard Integration Buttons
 -- ============================================================================
 local optPanel = addon.Options:CreateFloatingPanel()
+assert(addon.fullVersion == "2.1.2-beta.8" and addon.releaseDisplay == "Beta 8",
+    "addon metadata must expose the exact standardized pre-release build")
+assert(optPanel.versionButton and optPanel.versionButton.scripts.OnEnter
+        and optPanel.versionButton.scripts.OnLeave,
+    "the settings header version must expose an exact-build hover tooltip")
 addon.db.enabled = false
 optPanel:Show()
 assert(optPanel.enableCheck:GetChecked() == false,

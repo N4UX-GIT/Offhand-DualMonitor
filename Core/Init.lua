@@ -9,6 +9,10 @@ _G.Offhand = Offhand
 Offhand.name = addonName
 local getMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
 Offhand.version = (getMetadata and getMetadata(addonName, "Version")) or "1.0.0"
+Offhand.release = (getMetadata and getMetadata(addonName, "X-Offhand-Release")) or ""
+local betaNumber = Offhand.release:match("^beta%.(%d+)$")
+Offhand.releaseDisplay = betaNumber and ("Beta " .. betaNumber) or Offhand.release
+Offhand.fullVersion = Offhand.version .. (Offhand.release ~= "" and ("-" .. Offhand.release) or "")
 Offhand.modules = {}
 Offhand.callbacks = {}
 
@@ -155,7 +159,7 @@ L["BTN_SEAM_PLUS_TIP_TITLE"] = "Nudge Seam Right"
 L["BTN_SEAM_PLUS_TIP_DESC"] = "Moves the monitor dividing seam 1% to the right."
 L["BTN_LASER_TOGGLE"] = "Toggle Laser Guide"
 L["BTN_LASER_TOGGLE_TIP_TITLE"] = "Physical Bezel Laser Guide"
-L["BTN_LASER_TOGGLE_TIP_DESC"] = "Shows or hides a bright vertical red laser line on screen. Adjust your seam slider until the line aligns exactly with your physical monitor plastic bezel."
+L["BTN_LASER_TOGGLE_TIP_DESC"] = "Shows or hides a bright red seam line: vertical for side-by-side displays and horizontal for stacked displays. Align it with the physical monitor bezel."
 L["SLIDER_BEZEL_GAP"] = "Physical Bezel Gap Correction:"
 L["SLIDER_BEZEL_GAP_TIP_TITLE"] = "Bezel Gap Compensation"
 L["SLIDER_BEZEL_GAP_TIP_DESC"] = "Compensates for the physical plastic border between your screens by creating a blank dead zone to prevent visual misalignment across monitors."
@@ -876,11 +880,10 @@ SlashCmdList["OFFHAND"] = function(msg)
         local snapshot = Offhand.Viewport:CaptureDiagnostics()
         local vpStatus = snapshot.viewportMatches and L["MSG_DIAG_PASS"] or L["MSG_DIAG_MISMATCH"]
         Offhand:Print(L["MSG_DIAG_VIEWPORT"], vpStatus)
-        local physW, physH = 0, 0
-        if GetPhysicalScreenSize then pcall(function() physW, physH = GetPhysicalScreenSize() end) end
+        local m = Offhand.Viewport and Offhand.Viewport:GetMetrics() or {}
+        local physW, physH = m.physicalWidth or 0, m.physicalHeight or 0
         local screenW = GetScreenWidth()
         local screenH = GetScreenHeight()
-        local m = Offhand.Viewport and Offhand.Viewport:GetMetrics() or {}
         local effScale = UIParent and UIParent:GetEffectiveScale() or 1.0
         Offhand:Print(L["MSG_DIAG_GAME_PIX"],
             m.gamePixelWidth or 0, m.gamePixelHeight or 0, m.gamePixelLeft or 0,

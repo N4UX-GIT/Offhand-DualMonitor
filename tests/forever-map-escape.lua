@@ -1,6 +1,6 @@
--- Forever World Map Escape persistence.
--- The map is detached from both Blizzard Escape-close mechanisms, so it can
--- remain open without replacing CloseAllWindows or mutating UIPanelWindows.
+-- Forever World Map Escape persistence and taint boundary.
+-- The map is detached from both Blizzard Escape-close mechanisms without
+-- replacing its protected OnShow/OnHide scripts.
 
 local addon = {
     isForever = true,
@@ -50,7 +50,7 @@ end
 local function makeMap()
     local map = {
         shown = true, width = 610, height = 438, scale = 1,
-        left = 20, bottom = 762, scripts = {},
+        left = 20, bottom = 762, scripts = {}, setScriptWrites = 0,
     }
     function map:GetName() return "WorldMapFrame" end
     function map:IsShown() return self.shown end
@@ -73,7 +73,10 @@ local function makeMap()
     function map:EnableMouseWheel() end
     function map:HookScript(event, fn) self.scripts[event] = fn end
     function map:GetScript(event) return self.scripts[event] end
-    function map:SetScript(event, fn) self.scripts[event] = fn end
+    function map:SetScript(event, fn)
+        self.setScriptWrites = self.setScriptWrites + 1
+        self.scripts[event] = fn
+    end
     function map:ClearAllPoints() end
     function map:SetPoint(_, _, _, x, y)
         self.left = x or self.left
@@ -85,6 +88,18 @@ end
 WorldMapFrame = makeMap()
 UISpecialFrames = { "WorldMapFrame" }
 activePanels.left = WorldMapFrame
+PlayerMovementFrameFader = {
+    removed = 0,
+    added = 0,
+    RemoveFrame = function(frame)
+        assert(frame == WorldMapFrame, "movement fader must remove only the World Map")
+        PlayerMovementFrameFader.removed = PlayerMovementFrameFader.removed + 1
+    end,
+    AddDeferredFrame = function(frame)
+        assert(frame == WorldMapFrame, "movement fader must restore only the World Map")
+        PlayerMovementFrameFader.added = PlayerMovementFrameFader.added + 1
+    end,
+}
 
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 addon.Canvas:ConfigureWorldMap()
@@ -107,9 +122,23 @@ assert(not isSpecial("WorldMapFrame"),
     "A Forever workspace map must be removed from the Escape-close registry")
 assert(GetUIPanel("left") ~= WorldMapFrame,
     "A Forever workspace map must be detached from Blizzard's active panel slot")
+assert(WorldMapFrame.setScriptWrites == 0,
+    "Forever must not replace the World Map OnShow or OnHide scripts")
+assert(PlayerMovementFrameFader.removed > 0 and PlayerMovementFrameFader.added == 0,
+    "A Forever workspace map must be removed from Blizzard's movement-dimming fader")
 pressEscapeCloseSpecialFrames()
 assert(WorldMapFrame:IsShown(),
     "Escape must not close a Forever map with a saved workspace position")
+
+-- Reload restoration must reopen the saved workspace map without replacing
+-- Blizzard's protected scripts.
+WorldMapFrame:Hide()
+addon.db.openWorkspacePanels.WorldMapFrame = true
+addon.Canvas:RestorePersistentFrames()
+assert(WorldMapFrame:IsShown(),
+    "Forever reload restoration must reopen the saved World Map")
+assert(WorldMapFrame.setScriptWrites == 0,
+    "Reload restoration must not replace protected World Map scripts")
 
 -- Native reopening can put the map back into a UIPanel slot. Its OnShow repair
 -- must detach and restore the workspace map before the next Escape press.
@@ -117,10 +146,13 @@ activePanels.left = WorldMapFrame
 WorldMapFrame:Show()
 assert(GetUIPanel("left") ~= WorldMapFrame and WorldMapFrame:IsShown(),
     "Reopening a saved workspace map must not leave it in an Escape-close panel slot")
+assert(WorldMapFrame:GetLeft() < metrics.workspaceRight,
+    "Reopening a saved workspace map must restore its workspace geometry")
+assert(WorldMapFrame.setScriptWrites == 0,
+    "Native reopening must preserve protected World Map scripts")
 
--- Other saved workspace panels must also be detached from active UIPanel slots.
--- Map panel transitions must repair CharacterFrame instead of reclaiming it on
--- Mainhand, and a hidden bag drag-stop must never resurrect the bag.
+-- Other saved workspace panels must also detach from active UIPanel slots,
+-- while a hidden bag drag-stop must never resurrect the bag.
 local function makePanel(name, shown, left, bottom, width, height)
     local frame = {
         shown = shown, left = left, bottom = bottom,
@@ -171,7 +203,7 @@ addon.db.savedWorkspacePositions.CharacterFrame = {
 activePanels.left = CharacterFrame
 addon.Canvas:RestoreWorkspacePosition(CharacterFrame)
 assert(GetUIPanel("left") ~= CharacterFrame and CharacterFrame:IsShown(),
-    "A restored workspace CharacterFrame must be detached from active UIPanel slots")
+    "A restored workspace CharacterFrame must detach from active UIPanel slots")
 assert(CharacterFrame:GetLeft() < metrics.workspaceRight,
     "A restored CharacterFrame must remain on the workspace")
 
@@ -279,8 +311,10 @@ addon.db.savedMainPositions.WorldMapFrame = { x = 1600, y = 1000 }
 addon.Canvas:ConfigureWorldMap()
 assert(isSpecial("WorldMapFrame"),
     "A map on Mainhand must return to Blizzard's Escape-close registry")
+assert(PlayerMovementFrameFader.added > 0,
+    "A Mainhand map must return to Blizzard's native movement fader")
 pressEscapeCloseSpecialFrames()
 assert(not WorldMapFrame:IsShown(),
     "Escape must retain native close behavior for a Mainhand map")
 
-print("PASS: Forever workspace map remains open through Escape without global overrides")
+print("PASS: Forever map persists through reload/Escape without script replacement")

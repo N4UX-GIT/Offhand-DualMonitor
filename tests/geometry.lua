@@ -122,6 +122,33 @@ near(x,0); near(y,0); near(w,2560); near(h,1440)
 OffhandCompanionTopology.physicalWidth=9999
 tm=addon.Viewport:GetMetrics()
 assert(not tm.isSpanned and tm.topologyStatus=="MISMATCH" and tm.gamePixelWidth==2560)
+
+-- Classic/TBC can report only Mainhand's native resolution after the Companion
+-- has resized the window. The complete UI canvas aspect still proves that the
+-- exact topology is active. Accept it, but reject the same file after the
+-- window returns to Mainhand's single-monitor aspect.
+pw,ph=2560,1440
+OffhandCompanionTopology={schema=1,physicalWidth=4000,physicalHeight=2560,mode="DUAL_DISPLAY",
+    workspace={x=0,y=0,width=1440,height=2560},game={x=1440,y=6,width=2560,height=1440}}
+local originalGetWidth, originalGetHeight = UIParent.GetWidth, UIParent.GetHeight
+UIParent.GetWidth=function() return (4000/2560)*768/uiScale end
+UIParent.GetHeight=function() return 768/uiScale end
+tm=addon.Viewport:GetMetrics()
+assert(tm.companionTopology and tm.topologyStatus=="READY"
+        and tm.physicalWidth==4000 and tm.physicalHeight==2560
+        and tm.gamePixelWidth==2560 and tm.workspacePixelWidth==1440,
+    "Classic Mainhand-sized physical report must accept matching spanned canvas topology")
+UIParent.GetWidth=function() return (2560/1440)*768/uiScale end
+tm=addon.Viewport:GetMetrics()
+assert(not tm.isSpanned and tm.topologyStatus=="MISMATCH",
+    "restored single-monitor canvas must reject stale Companion topology")
+addon.isForever=true
+UIParent.GetWidth=function() return (4000/2560)*768/uiScale end
+tm=addon.Viewport:GetMetrics()
+assert(not tm.isSpanned and tm.topologyStatus=="MISMATCH",
+    "Forever must retain strict exact-size topology validation")
+addon.isForever=false
+UIParent.GetWidth, UIParent.GetHeight = originalGetWidth, originalGetHeight
 OffhandCompanionTopology=nil
 addon.isForever=true
 tm=addon.Viewport:GetMetrics()

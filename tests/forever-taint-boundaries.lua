@@ -31,6 +31,13 @@ assert(_G.Offhand_OriginalCloseAllWindows == nil
         and _G.Offhand_Original_C_Container_CloseAllBags == nil,
     "Forever must not publish replacement-function state")
 
+local canvasFile = assert(io.open("Core/Canvas.lua", "r"))
+local canvasSource = canvasFile:read("*a")
+canvasFile:close()
+assert(not canvasSource:find('frame:SetScript("OnHide", nil)', 1, true)
+        and not canvasSource:find('frame:SetScript("OnShow", nil)', 1, true),
+    "Forever persistence must not replace Blizzard panel scripts")
+
 local seamFile = assert(io.open("Core/SeamRedirect.lua", "r"))
 local seamSource = seamFile:read("*a")
 seamFile:close()

@@ -401,10 +401,20 @@ function Options:ShowSeamGuide(deckRatio)
     else
         local screenW = UIParent:GetWidth() or 1920
         local screenH = UIParent:GetHeight() or 1080
-        local x = screenW * deckRatio
-        if Offhand.db and Offhand.db.primaryPosition == "LEFT" then x = screenW - x end
-        seamGuideLine:SetSize(4, screenH)
-        seamGuideLine:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x - 2, 0)
+        local db = Offhand.db or {}
+        local stacked = db.layoutPreset == "STACKED_VERTICAL"
+            or db.primaryPosition == "TOP" or db.primaryPosition == "BOTTOM"
+        if stacked then
+            local y = screenH * deckRatio
+            if db.primaryPosition == "BOTTOM" then y = screenH - y end
+            seamGuideLine:SetSize(screenW, 4)
+            seamGuideLine:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 0, y - 2)
+        else
+            local x = screenW * deckRatio
+            if db.primaryPosition == "LEFT" then x = screenW - x end
+            seamGuideLine:SetSize(4, screenH)
+            seamGuideLine:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x - 2, 0)
+        end
     end
     seamGuideLine:Show()
 end
@@ -886,6 +896,19 @@ function Options:CreateFloatingPanel()
     local getMetadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
     local verNum = (getMetadata and getMetadata("Offhand", "Version")) or "1.0.0"
     version:SetText("|cffaaaaaav" .. verNum .. "|r")
+
+    local versionButton = CreateFrame("Button", nil, header)
+    versionButton:SetSize(96, 18)
+    versionButton:SetPoint("CENTER", version, "CENTER", 0, 0)
+    configFrame.versionButton = versionButton
+    if Offhand.SetTooltip then
+        local releaseDisplay = Offhand.releaseDisplay or ""
+        local fullDisplay = "Offhand v" .. verNum
+            .. (releaseDisplay ~= "" and (" " .. releaseDisplay) or "")
+        local releaseTag = "v" .. (Offhand.fullVersion or verNum)
+        Offhand:SetTooltip(versionButton, fullDisplay,
+            "Exact build: " .. releaseTag .. "\nUse this value when reporting an issue.")
+    end
     
     local desc = header:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
