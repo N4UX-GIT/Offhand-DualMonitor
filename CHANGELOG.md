@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Changed
-- Addon settings and Companion now identify the exact `v2.1.2-beta.8`
+- Addon settings and Companion now identify the exact `v2.1.2-beta.9`
   pre-release build while retaining `2.1.2` as the compatible base version.
 - Companion display-plan and activity-log messages now wrap instead of drawing
   long missing-monitor diagnostics outside their cards.
@@ -16,8 +16,21 @@ All notable changes to this project will be documented in this file.
   keeping native X11 and compositor-specific Wayland support as separate work.
 - Release ZIPs now use portable forward-slash entry paths so Linux extractors
   preserve the addon directory tree without a custom deflattening script.
+- The executable in the complete release bundle is now consistently named
+  `Offhand.exe`, matching the standalone file and Companion archive.
 
 ### Fixed
+- Companion idle monitoring now enumerates processes once per poll, backs off
+  while WoW is absent, and pauses polling while its window is being moved or
+  its Help dialog is open, eliminating the high idle CPU and sluggish UI.
+- Companion addon verification now reports the exact path expected by the
+  running WoW client and identifies nested, version-suffixed, or sibling-client
+  installs instead of repeating a generic installation instruction. It also
+  rejects mismatched Companion/addon beta builds before spanning, displays the
+  complete diagnostic on the status card, and records it in the activity log.
+- Span now stops before resizing WoW when Companion cannot write the selected
+  display topology into the running client's Offhand folder, preventing a
+  desktop-sized game window with no matching addon viewport geometry.
 - Forever workspace maps remain fully opaque while the player moves without
   altering Blizzard's protected map scripts or UIPanel metadata.
 - Persisted load-on-demand panels such as Professions are reopened after their

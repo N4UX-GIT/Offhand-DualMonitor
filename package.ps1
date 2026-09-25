@@ -3,7 +3,7 @@
     Packages the Offhand Addon for CurseForge and the Offhand Companion for GitHub Releases.
 #>
 param(
-    [string]$Version = "2.1.2-beta.8",
+    [string]$Version = "2.1.2-beta.9",
     [switch]$AddonOnly
 )
 
@@ -169,7 +169,7 @@ $bundleStaging = Join-Path $tempDir "Offhand-Bundle"
 New-Item -ItemType Directory -Path $bundleStaging -Force | Out-Null
 
 Copy-Item $addonStaging -Destination (Join-Path $bundleStaging "Offhand") -Recurse
-Copy-Item (Join-Path $rootDir "Companion\Offhand.exe") -Destination (Join-Path $bundleStaging "Offhand-Companion.exe")
+Copy-Item (Join-Path $rootDir "Companion\Offhand.exe") -Destination (Join-Path $bundleStaging "Offhand.exe")
 Copy-Item (Join-Path $rootDir "README.md") -Destination $bundleStaging
 Copy-Item (Join-Path $rootDir "SECURITY.md") -Destination $bundleStaging
 $bundleCompanionDocs = Join-Path $bundleStaging "Companion"

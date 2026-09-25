@@ -15,8 +15,8 @@ using System.Windows.Forms;
 [assembly: AssemblyProduct("Offhand")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
 [assembly: AssemblyVersion("2.1.2.0")]
-[assembly: AssemblyFileVersion("2.1.2.8")]
-[assembly: AssemblyInformationalVersion("2.1.2-beta.8")]
+[assembly: AssemblyFileVersion("2.1.2.9")]
+[assembly: AssemblyInformationalVersion("2.1.2-beta.9")]
 
 namespace Offhand.Companion
 {
@@ -211,11 +211,14 @@ namespace Offhand.Companion
     {
         internal bool Installed;
         internal string AddonDir;
+        internal string ExpectedAddonDir;
+        internal string ReleaseTag;
         internal string Reason;
     }
 
     internal static class AddonInstallation
     {
+        internal const string ExpectedRelease = "beta.9";
         private static readonly string[] ManifestNames = new string[] {
             "Offhand.toc", "Offhand_Mainline.toc", "Offhand_Vanilla.toc",
             "Offhand_Classic.toc", "Offhand_Forever.toc"
@@ -253,20 +256,90 @@ namespace Offhand.Companion
             return false;
         }
 
+        private static string ReadReleaseTag(string addonDir)
+        {
+            if (string.IsNullOrEmpty(addonDir)) return null;
+            foreach (string manifest in ManifestNames)
+            {
+                string path = Path.Combine(addonDir, manifest);
+                if (!File.Exists(path)) continue;
+                try
+                {
+                    foreach (string line in File.ReadAllLines(path))
+                    {
+                        const string prefix = "## X-Offhand-Release:";
+                        if (line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                            return line.Substring(prefix.Length).Trim();
+                    }
+                }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+            return null;
+        }
+
+        private static string FindVersionedOffhandFolder(string addOnsDir)
+        {
+            if (string.IsNullOrEmpty(addOnsDir) || !Directory.Exists(addOnsDir)) return null;
+            try
+            {
+                foreach (string child in Directory.GetDirectories(addOnsDir))
+                {
+                    string name = Path.GetFileName(child);
+                    if (name.StartsWith("Offhand", StringComparison.OrdinalIgnoreCase)
+                        && !name.Equals("Offhand", StringComparison.OrdinalIgnoreCase)
+                        && HasManifest(child)) return child;
+                }
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            return null;
+        }
+
+        private static string FindSiblingClientInstall(string wowDir)
+        {
+            DirectoryInfo current;
+            try { current = new DirectoryInfo(wowDir); }
+            catch { return null; }
+            DirectoryInfo productRoot = current.Parent;
+            if (productRoot == null || !productRoot.Exists) return null;
+            try
+            {
+                foreach (DirectoryInfo sibling in productRoot.GetDirectories())
+                {
+                    if (sibling.FullName.Equals(current.FullName, StringComparison.OrdinalIgnoreCase)) continue;
+                    string candidate = Path.Combine(sibling.FullName, "Interface", "AddOns", "Offhand");
+                    if (HasManifest(candidate)) return candidate;
+                }
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            return null;
+        }
+
         internal static AddonInstallCheck Inspect(string wowDir)
         {
             var result = new AddonInstallCheck {
                 Installed = false,
-                Reason = "Install Offhand in this client's Interface\\AddOns folder."
+                Reason = "The running WoW client's addon directory could not be determined."
             };
             string interfaceDir = ChildDirectory(wowDir, "Interface");
             string addOnsDir = ChildDirectory(interfaceDir, "AddOns");
             string addonDir = ChildDirectory(addOnsDir, "Offhand");
             result.AddonDir = addonDir;
+            result.ExpectedAddonDir = string.IsNullOrEmpty(wowDir) ? null
+                : Path.Combine(wowDir, "Interface", "AddOns", "Offhand");
             if (HasManifest(addonDir))
             {
+                result.ReleaseTag = ReadReleaseTag(addonDir);
+                if (!string.Equals(result.ReleaseTag, ExpectedRelease, StringComparison.OrdinalIgnoreCase))
+                {
+                    result.Reason = "Offhand is installed at " + addonDir + ", but this Companion requires addon "
+                        + ExpectedRelease + " (found " + (result.ReleaseTag ?? "an unmarked/older build") + ").";
+                    return result;
+                }
                 result.Installed = true;
-                result.Reason = "Installed; confirm enabled in WoW. Live addon state is unavailable.";
+                result.Reason = "Verified " + result.ReleaseTag + " at " + addonDir + ". Confirm it is enabled in WoW.";
                 return result;
             }
 
@@ -277,7 +350,30 @@ namespace Offhand.Companion
                 return result;
             }
             if (!string.IsNullOrEmpty(addonDir))
-                result.Reason = "Offhand folder found, but no supported Offhand TOC is at its top level.";
+            {
+                result.Reason = "Offhand folder found, but no supported Offhand TOC is at its top level: "
+                    + addonDir;
+                return result;
+            }
+
+            string versioned = FindVersionedOffhandFolder(addOnsDir);
+            if (!string.IsNullOrEmpty(versioned))
+            {
+                result.Reason = "Offhand files were found in a differently named folder: " + versioned
+                    + ". Install the addon as " + result.ExpectedAddonDir + ".";
+                return result;
+            }
+
+            string sibling = FindSiblingClientInstall(wowDir);
+            if (!string.IsNullOrEmpty(sibling))
+            {
+                result.Reason = "Offhand is installed for a different WoW client at " + sibling
+                    + ". The running client expects: " + result.ExpectedAddonDir;
+                return result;
+            }
+
+            result.Reason = "Offhand was not found for the running WoW client. Expected: "
+                + result.ExpectedAddonDir;
             return result;
         }
     }
@@ -697,7 +793,7 @@ namespace Offhand.Companion
     public class CompanionForm : Form
     {
         internal const string BaseVersion = "2.1.2";
-        internal const string ReleaseLabel = "Beta 8";
+        internal const string ReleaseLabel = "Beta 9";
         internal const string FullVersion = BaseVersion + " " + ReleaseLabel;
 
         // Warcraft Dark Interface Palette (Black / Dark Grey / Burnished Gold)
@@ -724,6 +820,7 @@ namespace Offhand.Companion
         private Label lblAddonStatus;
         private Label lblDisplayInfo;
         private Label lblAddonReason;
+        private string lastAddonDiagnostic;
         private CheckBox chkAutoSpan;
                 private NumericUpDown numDelaySpan;
         private Label lblDelay;
@@ -835,7 +932,7 @@ namespace Offhand.Companion
             AddLog("Windows display topology changed; refreshed the display controls.");
         }
 
-        private MonitorSelection.Plan GetMonitorPlan()
+        private MonitorSelection.Plan GetMonitorPlan(List<MonitorSelection.Display> displays)
         {
             string identities, devices, legacy, mainhandIdentity, mainhand, split, side;
             appSettings.TryGetValue("MonitorIdentities", out identities);
@@ -849,7 +946,7 @@ namespace Offhand.Companion
                 throw new InvalidOperationException("Display identity upgrade required. Verify the selected displays and Mainhand, then click Span WoW Now.");
             return MonitorSelection.CreatePlan(identities, devices, legacy, mainhandIdentity, mainhand,
                 string.Equals(split, "True", StringComparison.OrdinalIgnoreCase),
-                string.Equals(side, "LEFT", StringComparison.OrdinalIgnoreCase), ReadDisplays());
+                string.Equals(side, "LEFT", StringComparison.OrdinalIgnoreCase), displays);
         }
 
         private void SaveDisplaySettingsFromControls()
@@ -968,11 +1065,18 @@ namespace Offhand.Companion
         private static readonly string[] wowProcessNames = new string[] {
             "WowClassic", "Wow", "WowClassicEra", "WowForever", "WowT", "WowB", "WowClassicT", "WowClassicB"
         };
+        private static readonly HashSet<string> wowProcessNameSet = new HashSet<string>(
+            wowProcessNames, StringComparer.OrdinalIgnoreCase);
+        private bool uiInteractionPaused;
 
         protected override void WndProc(ref Message m)
         {
+            const int WM_ENTERSIZEMOVE = 0x0231;
+            const int WM_EXITSIZEMOVE = 0x0232;
+            if (m.Msg == WM_ENTERSIZEMOVE) SuspendUiPolling();
             if (m.Msg == 0x0312) { if (m.WParam.ToInt32() == 1) InvokeSpanWindow(true); else if (m.WParam.ToInt32() == 2) InvokeRestoreWindow(true); }
             base.WndProc(ref m);
+            if (m.Msg == WM_EXITSIZEMOVE) ResumeUiPolling();
         }
 
         private void UpdateHotkey()
@@ -1087,7 +1191,7 @@ namespace Offhand.Companion
         private void InitializeUI()
         {
             this.Text = "Offhand Companion";
-            this.Size = new Size(524, 780);
+            this.Size = new Size(524, 804);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -1202,7 +1306,7 @@ namespace Offhand.Companion
             uiToolTips.SetToolTip(btnHelp, "Open the complete Companion setup, daily-use, recovery, and troubleshooting guide.");
 
             // Status Card
-            Panel statusPanel = CreateCardPanel(16, 102, 490, 140, "System Status");
+            Panel statusPanel = CreateCardPanel(16, 102, 490, 164, "System Status");
             this.Controls.Add(statusPanel);
 
             lblWowStatus = new Label
@@ -1241,7 +1345,7 @@ namespace Offhand.Companion
             {
                 Text = "",
                 Location = new Point(10, 114),
-                Size = new Size(470, 18),
+                Size = new Size(470, 42),
                 AutoSize = false,
                 UseMnemonic = false,
                 Font = new Font("Segoe UI", 7.5f, FontStyle.Italic),
@@ -1250,7 +1354,7 @@ namespace Offhand.Companion
             statusPanel.Controls.Add(lblAddonReason);
 
             // Configuration Card
-            Panel configPanel = CreateCardPanel(16, 252, 490, 184, "Configuration");
+            Panel configPanel = CreateCardPanel(16, 276, 490, 184, "Configuration");
             this.Controls.Add(configPanel);
 
             chkAutoSpan = new CheckBox
@@ -1420,17 +1524,17 @@ namespace Offhand.Companion
 
 
             // Action Buttons
-            btnSpanNow = CreateButton("Span WoW Now", 16, 448, 158, 36, cBtnPrimaryBg, cGoldBright, cGold);
+            btnSpanNow = CreateButton("Span WoW Now", 16, 472, 158, 36, cBtnPrimaryBg, cGoldBright, cGold);
             btnSpanNow.Click += (s, e) => { InvokeSpanWindow(true); };
             this.Controls.Add(btnSpanNow);
             uiToolTips.SetToolTip(btnSpanNow, "Immediately make the detected WoW window borderless and span it across the selected displays. This also resumes spanning after Restore Window.");
 
-            Button btnRestoreNow = CreateButton("Restore Window", 182, 448, 158, 36, cBtnBg, cText, cBorder);
+            Button btnRestoreNow = CreateButton("Restore Window", 182, 472, 158, 36, cBtnBg, cText, cBorder);
             btnRestoreNow.Click += (s, e) => { InvokeRestoreWindow(true); };
             this.Controls.Add(btnRestoreNow);
             uiToolTips.SetToolTip(btnRestoreNow, "Return WoW to a bordered window filling the selected Mainhand display so off-screen UI can be recovered. Automatic spanning pauses for that WoW process until Span WoW Now is used.");
 
-            btnToggleWatch = CreateButton("Pause Monitor", 348, 448, 158, 36, cBtnBg, cText, cBorder);
+            btnToggleWatch = CreateButton("Pause Monitor", 348, 472, 158, 36, cBtnBg, cText, cBorder);
             btnToggleWatch.Click += (s, e) =>
             {
                 isMonitoring = !isMonitoring;
@@ -1451,7 +1555,7 @@ namespace Offhand.Companion
             uiToolTips.SetToolTip(btnToggleWatch, "Pause or resume background detection of WoW launches. Manual Span and Restore controls remain available while monitoring is paused.");
 
             // Activity Log Card
-            Panel logPanel = CreateCardPanel(16, 496, 490, 200, "Activity Log");
+            Panel logPanel = CreateCardPanel(16, 520, 490, 200, "Activity Log");
             this.Controls.Add(logPanel);
 
             logBox = new RichTextBox
@@ -1471,7 +1575,7 @@ namespace Offhand.Companion
             logPanel.Controls.Add(logBox);
 
             // Footer Buttons
-            Button btnMinimize = CreateButton("Minimize to Tray", 16, 708, 152, 30, cBtnBg, cMuted, cBorderDim);
+            Button btnMinimize = CreateButton("Minimize to Tray", 16, 732, 152, 30, cBtnBg, cMuted, cBorderDim);
             btnMinimize.Click += (s, e) =>
             {
                 this.Hide();
@@ -1480,12 +1584,12 @@ namespace Offhand.Companion
             this.Controls.Add(btnMinimize);
             uiToolTips.SetToolTip(btnMinimize, "Hide the dashboard while keeping the Companion and launch monitor running in the Windows notification tray.");
 
-            btnCheckUpdates = CreateButton("Check for Updates", 182, 708, 158, 30, cBtnBg, cText, cBorder);
+            btnCheckUpdates = CreateButton("Check for Updates", 182, 732, 158, 30, cBtnBg, cText, cBorder);
             btnCheckUpdates.Click += (s, e) => { CheckForUpdates(); };
             this.Controls.Add(btnCheckUpdates);
             uiToolTips.SetToolTip(btnCheckUpdates, "Contact the official GitHub Releases API once to compare versions. The Companion never checks for updates automatically.");
 
-            Button btnExit = CreateButton("Exit Companion", 356, 708, 152, 30, cBtnDanger, Color.FromArgb(235, 130, 130), Color.FromArgb(140, 45, 45));
+            Button btnExit = CreateButton("Exit Companion", 356, 732, 152, 30, cBtnDanger, Color.FromArgb(235, 130, 130), Color.FromArgb(140, 45, 45));
             btnExit.Click += (s, e) => { ExitApplication(); };
             this.Controls.Add(btnExit);
             uiToolTips.SetToolTip(btnExit, "Stop monitoring and fully exit the Companion. Closing the title-bar X only minimizes it to the tray.");
@@ -1580,19 +1684,19 @@ namespace Offhand.Companion
                 "Span displays: Exactly two displays for normal use, or one super-ultrawide in explicit split mode.",
                 "Mainhand (game): The selected display's exact rectangle becomes the 3D game viewport. The other selected display becomes the workspace.",
                 "Single-display 32:9 split: Divides one super-ultrawide into equal workspace/game halves. It never activates automatically.",
-                "Span WoW Now: Span immediately and resume a process previously restored.",
+                "Span WoW Now: Save the selected physical display geometry for Offhand, then span immediately and resume a process previously restored. The resulting desktop-sized WoW window is expected; after /reload, Offhand confines the 3D game view to Mainhand.",
                 "Restore Window: Fill the selected Mainhand with a safe bordered WoW window and pause auto-span for that process.",
                 "Pause Monitor: Stop launch detection without disabling the manual controls.",
                 "Check for Updates: Make a one-time HTTPS request to the official GitHub Releases API. Update checks never run automatically.",
                 "",
                 "FOREVER AND EDIT MODE",
-                "Forever's protected action bars, unit frames, minimap, and Edit Mode controls belong to Blizzard Edit Mode. Offhand restores workspace panels separately. The Companion is required because WoW must already have the final multi-monitor window geometry when those protected frames initialize. It also works around Forever builds that write Offhand SavedVariables but do not reliably load them on the next cold launch.",
+                "Forever's protected action bars, unit frames, minimap, and Edit Mode controls belong to Blizzard Edit Mode. Offhand restores workspace panels separately. The Companion is required because WoW must already have the final multi-monitor window geometry when those protected frames initialize. When Companion topology is active, choose displays in the Companion; Offhand intentionally locks duplicate in-game geometry controls. It also works around Forever builds that write Offhand SavedVariables but do not reliably load them on the next cold launch.",
                 "",
                 "RECOVERY",
                 "If UI is inaccessible, click Restore Window (or press Ctrl+Alt+R), enter WoW, and use Offhand's Gather Off-Screen UI action. Re-enter Edit Mode and save/select the Offhand layout, then click Span WoW Now and /reload once. If a saved workspace display disconnects while WoW is spanned, Companion restores a bordered WoW window that fills the surviving Mainhand and refuses another span until the topology is valid. On Forever, click Use Modern when Offhand prompts; after reconnecting and spanning the exact topology, click Restore Offhand. WoW must be fully closed before the Forever recovery snapshot can be refreshed.",
                 "",
                 "TROUBLESHOOTING",
-                "Select exactly two displays and a connected Mainhand, or explicitly enable the one-display super-ultrawide split. If a global shortcut is unavailable, choose another or use the dashboard button. Mixed resolutions, ultrawide Mainhand displays, portrait screens, negative desktop coordinates, and stacked arrangements use Windows' exact display rectangles; make sure Windows Display Settings matches the physical arrangement. Hover any dashboard control for a concise explanation.",
+                "Select exactly two displays and a connected Mainhand, or explicitly enable the one-display super-ultrawide split. The status card names the running WoW client and the exact addon path it verifies; installs for another client, nested folders, and version-suffixed addon folders are reported explicitly. If Span is refused because topology could not be written, fix that path or file-permission error first. If WoW spans but the 3D world still fills both displays after /reload, confirm the in-game addon is enabled and that its version matches this Companion. Mixed resolutions, ultrawide Mainhand displays, portrait screens, negative desktop coordinates, and stacked arrangements use Windows' exact display rectangles; make sure Windows Display Settings matches the physical arrangement. Hover any dashboard control for a concise explanation.",
                 "",
                 "PRIVACY & VERIFICATION",
                 "The Companion does not collect telemetry, credentials, chat, or gameplay data. Network access occurs only when you click Check for Updates, and is limited to the official GitHub Releases API. Release checksums, source, and build provenance are published with official GitHub releases."
@@ -1601,9 +1705,12 @@ namespace Offhand.Companion
 
         private void ShowHelpDialog()
         {
-            using (Form help = new Form())
+            SuspendUiPolling();
+            try
             {
-                help.Text = "Offhand Companion Help";
+                using (Form help = new Form())
+                {
+                    help.Text = "Offhand Companion Help";
                 help.StartPosition = FormStartPosition.CenterParent;
                 help.Size = new Size(720, 680);
                 help.MinimumSize = new Size(600, 520);
@@ -1658,8 +1765,10 @@ namespace Offhand.Companion
                 help.Controls.Add(heading);
                 help.AcceptButton = close;
                 help.CancelButton = close;
-                help.ShowDialog(this);
+                    help.ShowDialog(this);
+                }
             }
+            finally { ResumeUiPolling(); }
         }
 
         private void InitializeTray()
@@ -1773,6 +1882,19 @@ namespace Offhand.Companion
             monitorTimer.Start();
         }
 
+        private void SuspendUiPolling()
+        {
+            uiInteractionPaused = true;
+            if (monitorTimer != null) monitorTimer.Stop();
+        }
+
+        private void ResumeUiPolling()
+        {
+            uiInteractionPaused = false;
+            if (monitorTimer == null || isExplicitExit) return;
+            monitorTimer.Start();
+        }
+
         private void RememberWowDirectory(string wowDir)
         {
             if (string.IsNullOrEmpty(wowDir)) return;
@@ -1821,13 +1943,14 @@ namespace Offhand.Companion
 
         private void OnTimerTick()
         {
+            if (uiInteractionPaused) return;
             bool savedDisplayDisconnected = false;
             MonitorSelection.Plan currentDisplayPlan = null;
             List<MonitorSelection.Display> currentDisplays = ReadDisplays();
             RefreshDisplayControls(currentDisplays);
             try
             {
-                currentDisplayPlan = GetMonitorPlan();
+                currentDisplayPlan = GetMonitorPlan(currentDisplays);
                 lblDisplayInfo.Text = string.Format("  Game: {0}x{1}  Workspace: {2}x{3}  ({4})",
                     currentDisplayPlan.MainhandBounds.Width, currentDisplayPlan.MainhandBounds.Height,
                     currentDisplayPlan.WorkspaceBounds.Width, currentDisplayPlan.WorkspaceBounds.Height,
@@ -1843,7 +1966,9 @@ namespace Offhand.Companion
                     HasStableIdentitySettings() ? savedIdentities : null, savedDevices, currentDisplays);
             }
 
-            Process proc = GetWoWProcess();
+            bool anyWoWProcess;
+            Process proc = GetWoWProcess(out anyWoWProcess);
+            if (monitorTimer != null) monitorTimer.Interval = proc == null ? 5000 : 2000;
 
             if (proc != null)
             {
@@ -1853,6 +1978,12 @@ namespace Offhand.Companion
                 AddonStatus status = TestOffhandAddonStatus(proc);
                 RememberWowDirectory(status.WowDir);
                 bridgeAttemptedWhileStopped = false;
+                string addonDiagnostic = proc.Id + "|" + status.Installed + "|" + status.Reason;
+                if (!string.Equals(lastAddonDiagnostic, addonDiagnostic, StringComparison.Ordinal))
+                {
+                    lastAddonDiagnostic = addonDiagnostic;
+                    AddLog("Addon verification: " + status.Reason);
+                }
                 if (currentDisplayPlan != null && !spannedPids.Contains(proc.Id) && !restoredPids.Contains(proc.Id))
                 {
                     IntPtr observedHandle = GetWoWWindowHandle(proc);
@@ -1871,7 +2002,7 @@ namespace Offhand.Companion
                 {
                     lblAddonStatus.Text = "  * Offhand Addon: INSTALLED";
                     lblAddonStatus.ForeColor = cGreen;
-                    lblAddonReason.Text = "  Confirm Offhand is enabled in the current WoW session.";
+                    lblAddonReason.Text = "  " + status.Reason;
                 }
                 else
                 {
@@ -1897,7 +2028,12 @@ namespace Offhand.Companion
                     {
                         if (!launchTimes.ContainsKey(proc.Id)) launchTimes[proc.Id] = DateTime.Now;
                         double spanDelay = CompanionTiming.AutoSpanDelay(proc.ProcessName, status.WowDir, numDelaySpan.Value);
-                        if ((DateTime.Now - launchTimes[proc.Id]).TotalSeconds < spanDelay) { retryAfter[proc.Id] = DateTime.Now.AddSeconds(1); return; }
+                        if ((DateTime.Now - launchTimes[proc.Id]).TotalSeconds < spanDelay)
+                        {
+                            retryAfter[proc.Id] = DateTime.Now.AddSeconds(1);
+                            proc.Dispose();
+                            return;
+                        }
                         AddLog(string.Format("New WoW launch detected (PID: {0}). Preparing auto-span...", proc.Id));
                         retryAfter[proc.Id] = DateTime.Now.AddSeconds(10);
                         if (InvokeSpanWindow(false))
@@ -1914,11 +2050,14 @@ namespace Offhand.Companion
                 lblAddonStatus.Text = "  o Offhand Addon: Waiting for WoW...";
                 lblAddonStatus.ForeColor = cMuted;
                 lblAddonReason.Text = "";
+                lastAddonDiagnostic = null;
                 // The game window can disappear before the process finishes
                 // flushing SavedVariables. Never read or replace the recovery
                 // snapshot until every recognized WoW process has exited.
-                if (!IsAnyWoWProcessRunning()) RefreshForeverStateWhileStopped();
+                if (!anyWoWProcess) RefreshForeverStateWhileStopped();
             }
+
+            if (proc != null) proc.Dispose();
 
             // Clean dead PIDs
             var pidsToCheck = new HashSet<int>(spannedPids);
@@ -1942,31 +2081,48 @@ namespace Offhand.Companion
             }
         }
 
+        private Process GetWoWProcess(out bool anyRecognizedProcess)
+        {
+            anyRecognizedProcess = false;
+            Process selected = null;
+            Process[] processes = Process.GetProcesses();
+            foreach (Process candidate in processes)
+            {
+                bool keep = false;
+                try
+                {
+                    if (!wowProcessNameSet.Contains(candidate.ProcessName)) continue;
+                    anyRecognizedProcess = true;
+                    if (selected == null && candidate.MainWindowHandle != IntPtr.Zero)
+                    {
+                        selected = candidate;
+                        keep = true;
+                    }
+                }
+                catch
+                {
+                    // A process can exit while Windows is returning its metadata.
+                }
+                finally
+                {
+                    if (!keep) candidate.Dispose();
+                }
+            }
+            return selected;
+        }
+
         private Process GetWoWProcess()
         {
-            List<Process> candidates = new List<Process>();
-            foreach (string name in wowProcessNames)
-            {
-                candidates.AddRange(Process.GetProcessesByName(name));
-            }
-            // Remove background/zombie processes that don't have a UI window
-            candidates.RemoveAll(p => p.MainWindowHandle == IntPtr.Zero);
-            
-            if (candidates.Count > 0)
-            {
-                return candidates[0];
-            }
-            return null;
+            bool anyRecognizedProcess;
+            return GetWoWProcess(out anyRecognizedProcess);
         }
 
         private bool IsAnyWoWProcessRunning()
         {
-            foreach (string name in wowProcessNames)
-            {
-                Process[] processes = Process.GetProcessesByName(name);
-                if (processes.Length > 0) return true;
-            }
-            return false;
+            bool anyRecognizedProcess;
+            Process process = GetWoWProcess(out anyRecognizedProcess);
+            if (process != null) process.Dispose();
+            return anyRecognizedProcess;
         }
 
         private AddonStatus TestOffhandAddonStatus(Process proc)
@@ -2023,9 +2179,10 @@ namespace Offhand.Companion
 
         private bool InvokeRestoreWindow(bool manual, bool fillConnectedMainhand)
         {
+            Process proc = null;
             try
             {
-                Process proc = GetWoWProcess();
+                proc = GetWoWProcess();
                 if (proc == null) throw new Exception("Launch exactly one WoW client first.");
                 IntPtr handle = GetWoWWindowHandle(proc);
                 if (handle == IntPtr.Zero) throw new Exception("WoW window is not ready.");
@@ -2099,13 +2256,18 @@ namespace Offhand.Companion
                 if (manual) MessageBox.Show(ex.Message, "Offhand", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return false;
             }
+            finally
+            {
+                if (proc != null) proc.Dispose();
+            }
         }
 
         private bool InvokeSpanWindow(bool manual)
         {
+            Process proc = null;
             try
             {
-                Process proc = GetWoWProcess();
+                proc = GetWoWProcess();
                 if (proc == null) throw new Exception("Launch exactly one WoW client first.");
 
                 ConfirmStableDisplayIdentity(manual);
@@ -2134,8 +2296,9 @@ namespace Offhand.Companion
                 if (bounds.Width <= 0 || bounds.Height <= 0) throw new Exception("Invalid virtual desktop dimensions.");
 
                 string topologyMessage;
-                if (CompanionTopologyBridge.TryWrite(status.WowDir, plan, displays, out topologyMessage)) AddLog(topologyMessage);
-                else AddLog(topologyMessage + " The current session may require /reload after correcting this.");
+                if (!CompanionTopologyBridge.TryWrite(status.WowDir, plan, displays, out topologyMessage))
+                    throw new IOException(topologyMessage + " WoW was not spanned because Offhand cannot safely receive the selected display geometry.");
+                AddLog(topologyMessage);
 
                 if (NativeMethods.IsZoomed(handle) || NativeMethods.IsIconic(handle))
                 {
@@ -2225,6 +2388,10 @@ namespace Offhand.Companion
                     MessageBox.Show(ex.Message, "Offhand", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 return false;
+            }
+            finally
+            {
+                if (proc != null) proc.Dispose();
             }
         }
 

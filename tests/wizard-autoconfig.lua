@@ -154,7 +154,7 @@ hooksecurefunc = function(t, name, fn) end
 C_AddOns = {
     GetAddOnMetadata = function(_, key)
         if key == "Version" then return "2.1.2" end
-        if key == "X-Offhand-Release" then return "beta.8" end
+        if key == "X-Offhand-Release" then return "beta.9" end
     end,
 }
 
@@ -460,7 +460,7 @@ addon.Wizard.Open = originalWizardOpen
 -- 5. Test Options Dialog 1-Click and Wizard Integration Buttons
 -- ============================================================================
 local optPanel = addon.Options:CreateFloatingPanel()
-assert(addon.fullVersion == "2.1.2-beta.8" and addon.releaseDisplay == "Beta 8",
+assert(addon.fullVersion == "2.1.2-beta.9" and addon.releaseDisplay == "Beta 9",
     "addon metadata must expose the exact standardized pre-release build")
 assert(optPanel.versionButton and optPanel.versionButton.scripts.OnEnter
         and optPanel.versionButton.scripts.OnLeave,
