@@ -9,6 +9,8 @@ Native Windows desktop companion application for the Offhand World of Warcraft a
   `Interface\AddOns\Offhand\Offhand` nesting explicitly.
 * **Zero Console Flashing**: Compiled as a native Win32 subsystem application (`Offhand.exe`).
 * **System Tray Integration**: Minimizes silently to the Windows notification tray with quick-actions and live status tips.
+* **Optional Windows Startup**: Adds an explicit current-user startup entry and launches one Companion instance minimized in the notification area, ready for WoW without modifying Battle.net.
+* **Privilege Preflight**: Detects when elevated WoW cannot be controlled by a normally launched Companion, blocks the unsafe span attempt, and provides copyable recovery steps before Windows returns access denied.
 * **Built-in Guidance**: Hover dashboard controls for detailed tooltips, or use the `?` button (also available from the tray menu) for the complete setup, daily-use, Forever recovery, and troubleshooting guide.
 * **User-Initiated Updates**: The Companion never contacts an update service at startup. **Check for Updates** makes a one-time request to the official GitHub Releases API only when clicked.
 * **DPI-Aware**: Full Per-Monitor V2 scaling ensures crisp fonts and accurate window positioning on mixed-resolution / mixed-scale setups.
@@ -42,6 +44,7 @@ Native Windows desktop companion application for the Offhand World of Warcraft a
   * Full source code is in `Source/Program.cs`.
   * To compile yourself, run `build.bat`. It uses the native Windows C# compiler (`csc.exe`) built into Windows 10 & 11.
   * Official releases include SHA-256 checksums. GitHub Actions builds may also include a build-provenance attestation when the release notes explicitly say so. See the project `SECURITY.md` for verification guidance and the complete behavior disclosure.
+  * The GitHub release attachment is the canonical executable. Compiler metadata can give a source-checkout or locally rebuilt `Offhand.exe` a different hash even when its source is identical. Release packaging reuses one build across the standalone download and both Companion-containing archives.
 * **PowerShell Alternative**: `Offhand-Companion.ps1` is included for technical users who prefer raw script execution.
 ## Settings and shortcuts
 
@@ -60,6 +63,14 @@ On a fresh install, **Automatically span WoW window on game launch is disabled**
 Use **Span WoW Now** for the initial setup after reviewing the selected displays.
 Enabling auto-span is an explicit preference and is remembered on later launches;
 updating the Companion does not overwrite an existing saved choice.
+
+**Run Offhand on Windows startup** is also opt-in. It writes the current
+`Offhand.exe` path plus `--minimized` to the current user's Windows Run key. It
+does not require administrator access, install a service or scheduled task, or
+modify Battle.net. A single-instance guard prevents a manual launch from
+creating a second background monitor while the startup copy is in the tray.
+If the executable is moved, launch it from the new location and enable the
+option again to replace the stale path.
 
 The Companion does not perform an automatic update check. Clicking **Check for
 Updates** makes one HTTPS request to
@@ -133,4 +144,18 @@ quarter-size interface.
 
 Restore checks both Win32 results and the resulting bounds before reporting
 success. If the requested move fails, it attempts to restore the previous style
-and bounds and reports the failure.
+and bounds and reports the failure. A manual restore also asks Windows to return
+keyboard focus to WoW; if Windows refuses that focus change, click the restored
+WoW window once.
+
+If spanning reports Windows error 5 while removing the borders, Windows has
+blocked one process from controlling the other. Close both programs and launch
+WoW and the Companion at the same privilege level. Prefer running both normally;
+only elevate the Companion when WoW must also run as administrator.
+
+The System Status card checks process integrity before Span or Restore. When a
+standard Companion cannot control an administrator WoW process, automatic
+actions stop for that WoW process and **Copy fix steps** provides the exact
+recovery checklist and executable paths. If Wine cannot expose Windows token
+integrity, the preflight remains informational and the normal Win32 result is
+still reported.

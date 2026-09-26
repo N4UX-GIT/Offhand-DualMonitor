@@ -716,6 +716,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             end)
         end
         Offhand:ApplyFullLayout()
+        if Offhand.RawMouse and Offhand.RawMouse.Refresh then
+            Offhand.RawMouse:Refresh(loginMetrics)
+        end
         Offhand:Print(L["MSG_LOADED"], Offhand.version)
 
     elseif event == "PLAYER_LEAVING_WORLD" or event == "PLAYER_LOGOUT" then
@@ -783,6 +786,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         C_Timer.After(0.5, function()
             Offhand:ApplyFullLayout()
             local entryMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+            if Offhand.RawMouse and Offhand.RawMouse.Refresh then
+                Offhand.RawMouse:Refresh(entryMetrics)
+            end
             if (not entryMetrics or entryMetrics.isSpanned) and Offhand.Canvas and Offhand.Canvas.RestorePersistentFrames then
                 Offhand.Canvas:RestorePersistentFrames()
             end
@@ -828,6 +834,15 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
 
     elseif event == "CINEMATIC_START" or event == "CINEMATIC_STOP" then
         ScheduleCinematicViewportRecovery()
+        if event == "CINEMATIC_STOP" then
+            C_Timer.After(0.5, function()
+                local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
+                    and Offhand.Viewport:GetMetrics() or nil
+                if Offhand.RawMouse and Offhand.RawMouse.Refresh then
+                    Offhand.RawMouse:Refresh(metrics)
+                end
+            end)
+        end
 
     elseif event == "PLAYER_REGEN_ENABLED" then
         ProcessCombatQueue()
@@ -849,6 +864,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             Offhand:RunOrQueueCombat(function()
                 Offhand:ApplyFullLayout()
                 local displayMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+                if Offhand.RawMouse and Offhand.RawMouse.Refresh then
+                    Offhand.RawMouse:Refresh(displayMetrics)
+                end
                 if (not displayMetrics or displayMetrics.isSpanned) and Offhand.Canvas and Offhand.Canvas.RestorePersistentFrames then
                     Offhand.Canvas:RestorePersistentFrames()
                 end
@@ -883,6 +901,9 @@ function Offhand:ApplyFullLayout()
         if Offhand.Viewport and Offhand.Viewport.ApplyGlobalScale then Offhand.Viewport:ApplyGlobalScale() end
         if Offhand.UpdateViewport then
             Offhand:UpdateViewport()
+        end
+        if Offhand.RetailFullscreen and Offhand.RetailFullscreen.Apply then
+            Offhand.RetailFullscreen:Apply()
         end
         if Offhand.UpdateCanvas then
             Offhand:UpdateCanvas()

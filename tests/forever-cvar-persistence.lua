@@ -248,9 +248,14 @@ assert(otherClient.db.savedWorkspacePositions.ContainerFrameCombinedBags == nil,
 -- A mixed-height shaped span can exhaust WoW's hidden cursor while camera
 -- looking. Raw input is managed only while Offhand is enabled and spanned,
 -- and the player's prior preference must be restored afterward.
+local rawMouseTimers = {}
+C_Timer = {After = function(delay, callback)
+    rawMouseTimers[#rawMouseTimers + 1] = {delay = delay, callback = callback}
+end}
 cvars.rawMouseEnable = "0"
 local mouseAddon = NewAddon(false)
 mouseAddon.db.enabled = true
+mouseAddon.Viewport = {GetMetrics = function() return {isSpanned = true} end}
 mouseAddon.RawMouse:Update({ isSpanned = true })
 assert(cvars.rawMouseEnable == "1" and mouseAddon.db.originalRawMouseEnable == "0",
     "A spanned Offhand layout must enable raw mouse and remember the prior value")
@@ -261,5 +266,27 @@ mouseAddon.db.rawMouseInput = false
 mouseAddon.RawMouse:Update({ isSpanned = true })
 assert(cvars.rawMouseEnable == "0",
     "Disabling Offhand raw-mouse management must preserve the player preference")
+
+-- A full-screen or display transition can leave the CVar at 1 while Retail's
+-- native input registration is stale. Refresh must issue a real 0 -> 1 across
+-- frames, without losing the original value or re-enabling after opt-out.
+mouseAddon.db.rawMouseInput = true
+cvars.rawMouseEnable = "1"
+rawMouseTimers = {}
+assert(mouseAddon.RawMouse:Refresh({isSpanned = true}) == true)
+assert(cvars.rawMouseEnable == "0" and #rawMouseTimers == 1
+        and rawMouseTimers[1].delay == 0,
+    "raw-mouse refresh did not begin a deferred 0 -> 1 transition")
+rawMouseTimers[1].callback()
+assert(cvars.rawMouseEnable == "1",
+    "raw-mouse refresh did not re-enable input on the following frame")
+
+rawMouseTimers = {}
+mouseAddon.RawMouse:Refresh({isSpanned = true})
+mouseAddon.db.rawMouseInput = false
+mouseAddon.RawMouse:Update({isSpanned = true})
+rawMouseTimers[1].callback()
+assert(cvars.rawMouseEnable == "1" and not mouseAddon.db.rawMouseManaged,
+    "a cancelled raw-mouse refresh overrode the restored player preference")
 
 print("PASS: Forever CVar persistence and reversible spanned raw-mouse management")

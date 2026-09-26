@@ -11,7 +11,7 @@ try {
     $source = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Source\Program.cs') -Raw
     $constructor = [regex]::Match(
         $source,
-        'public CompanionForm\(\)\s*\{(?<body>.*?)\n\s*\}\s*\n\s*private void CheckForUpdates',
+        'public CompanionForm\(bool startMinimized = false\)\s*\{(?<body>.*?)\n\s*\}\s*\n\s*private void CheckForUpdates',
         [Text.RegularExpressions.RegexOptions]::Singleline).Groups['body'].Value
     if ($constructor -match 'CheckForUpdates') {
         throw 'Companion must not contact the update service during startup.'
@@ -19,12 +19,13 @@ try {
     if ($source -notmatch 'btnCheckUpdates\.Click.*CheckForUpdates') {
         throw 'Companion update checks must remain wired to an explicit user action.'
     }
-    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.2-beta\.10"\)' -or
-        $source -notmatch 'AssemblyFileVersion\("2\.1\.2\.10"\)') {
+    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.2-beta\.11"\)' -or
+        $source -notmatch 'AssemblyFileVersion\("2\.1\.2\.11"\)') {
         throw 'Companion binary metadata must identify the exact beta build.'
     }
-    if ($source -match 'GetProcessesByName' -or $source -notmatch 'Process\[\] processes = Process\.GetProcesses\(\)') {
-        throw 'Companion polling must enumerate the process table once instead of querying every WoW process name separately.'
+    if ($source -match 'Process\.GetProcesses\(\)' -or
+        $source -notmatch 'foreach \(string processName in wowProcessNames\)(?s:.*?)Process\.GetProcessesByName\(processName\)') {
+        throw 'Companion polling must query only the allowlisted WoW process names, not enumerate the full process table.'
     }
     if ($source -notmatch 'monitorTimer\.Interval = proc == null \? 5000 : 2000' -or
         $source -notmatch 'ShowHelpDialog\(\)(?s:.*?)SuspendUiPolling\(\)(?s:.*?)finally \{ ResumeUiPolling\(\); \}') {
@@ -32,6 +33,25 @@ try {
     }
     if ($source -notmatch '!CompanionTopologyBridge\.TryWrite(?s:.*?)throw new IOException') {
         throw 'Companion must refuse to span when addon topology cannot be written.'
+    }
+    if ($source -notmatch 'SetForegroundWindow\(handle\)' -or
+        $source -notmatch 'same privilege level') {
+        throw 'Manual restore must return focus to WoW and border failures must explain privilege mismatches.'
+    }
+    if ($source -notmatch 'TokenIntegrityLevel' -or
+        $source -notmatch 'EnsureWindowControlAllowed\(proc\)(?s:.*?)ConfirmStableDisplayIdentity' -or
+        $source -notmatch 'Window control BLOCKED') {
+        throw 'Companion must detect and block lower-integrity control of an elevated WoW process before spanning.'
+    }
+    if ($source -notmatch 'Registry\.CurrentUser\.CreateSubKey\(RunKey\)' -or
+        $source -notmatch '\" --minimized' -or
+        $source -notmatch 'Run Offhand on Windows startup \(minimized to tray\)' -or
+        $source -match 'Registry\.LocalMachine') {
+        throw 'Windows startup must remain an explicit per-user, minimized-to-tray option.'
+    }
+    if ($source -notmatch 'new System\.Threading\.Mutex\(true, @"Local\\OffhandCompanion"' -or
+        $source -notmatch 'Offhand Companion is already running') {
+        throw 'Windows startup support must prevent duplicate Companion tray processes.'
     }
     if ($source -notmatch 'private RichTextBox logBox' -or
         $source -notmatch 'logBox = new RichTextBox(?s:.*?)WordWrap = true') {
@@ -62,6 +82,16 @@ try {
         $packager -notmatch 'bundleStaging "Offhand\.exe"') {
         throw 'Every shipped Companion executable, including the complete bundle, must be named Offhand.exe.'
     }
+    if ($packager -notmatch '\[switch\]\$UseExistingCompanion' -or
+        $packager -notmatch 'Canonical Companion SHA-256' -or
+        $packager -notmatch 'contains a different executable than the canonical Companion build') {
+        throw 'Release packaging must reuse and verify one canonical Companion executable.'
+    }
+    $releaseWorkflow = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\.github\workflows\release.yml') -Raw
+    if ($releaseWorkflow -notmatch 'Build canonical Companion executable' -or
+        $releaseWorkflow -notmatch 'package\.ps1 -Version \$version -UseExistingCompanion') {
+        throw 'Release automation must build the Companion once and package that exact executable.'
+    }
     $linuxGuide = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Linux.md') -Raw
     if ($linuxGuide -notmatch 'Wine/Proton runner must also match' -or
         $linuxGuide -notmatch 'Pre-launch script' -or
@@ -69,13 +99,17 @@ try {
         throw 'Linux guide must document the matching prefix, matching runner, and Lutris pre-launch setup.'
     }
     Write-Output 'PASS: update checks are user initiated'
-    Write-Output 'PASS: idle polling is throttled and topology handoff failures block unsafe spans'
+    Write-Output 'PASS: polling is restricted to known WoW process names and topology handoff failures block unsafe spans'
+    Write-Output 'PASS: manual restore returns focus and border failures include actionable diagnostics'
+    Write-Output 'PASS: integrity preflight blocks elevated WoW before window mutation'
+    Write-Output 'PASS: opt-in per-user Windows startup launches one minimized tray instance'
     Write-Output 'PASS: long display-plan and activity-log text uses wrapped surfaces'
     Write-Output 'PASS: addon verification paths are visible and copied into the activity log'
     Write-Output 'PASS: hotkey selector does not overlap the display checklist'
     Write-Output 'PASS: Linux compatibility documentation is included by the release packager'
     Write-Output 'PASS: release ZIPs are portable and Linux guidance covers prefix/runner matching'
     Write-Output 'PASS: all shipped Companion executables use the consistent Offhand.exe name'
+    Write-Output 'PASS: release packaging preserves and verifies one canonical Companion executable'
 } finally {
     if (Test-Path -LiteralPath $testExe) { Remove-Item -LiteralPath $testExe }
 }

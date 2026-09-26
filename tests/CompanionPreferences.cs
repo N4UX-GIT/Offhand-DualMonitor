@@ -8,8 +8,23 @@ namespace Offhand.Companion {
         private static int checkNumber;
         private static void Check(bool value) { checkNumber++; if (!value) throw new Exception("Preference regression at check " + checkNumber); }
         public static void Main() {
-            Check(CompanionForm.FullVersion == "2.1.2 Beta 10");
+            Check(CompanionForm.FullVersion == "2.1.2 Beta 11");
             Check(!CompanionDefaults.AutoSpanOnLaunch);
+            Check(WindowInteropDiagnostics.StyleFailure("Could not remove WoW window borders", 5)
+                .Contains("same privilege level"));
+            Check(WindowInteropDiagnostics.StyleFailure("Could not remove WoW window borders", 87)
+                .Contains("Windows error 87"));
+            Check(WindowsStartupRegistration.BuildCommand(@"C:\Program Files\Offhand\Offhand.exe")
+                == "\"C:\\Program Files\\Offhand\\Offhand.exe\" --minimized");
+            Check(WindowsStartupRegistration.ShouldStartMinimized(new string[] { "Offhand.exe", "--MINIMIZED" }));
+            Check(!WindowsStartupRegistration.ShouldStartMinimized(new string[] { "Offhand.exe" }));
+            WindowControlAccess blocked = WindowControlPreflight.Compare(0x2000, 0x3000);
+            Check(blocked.Known && blocked.Blocked && blocked.CompanionLabel == "Standard"
+                && blocked.WowLabel == "Administrator");
+            Check(!WindowControlPreflight.Compare(0x3000, 0x2000).Blocked);
+            Check(!WindowControlPreflight.Compare(0, 0x3000).Blocked);
+            Check(WindowControlPreflight.FixSteps(@"C:\Games\World of Warcraft\Wow.exe")
+                .Contains("Change settings for all users"));
             Check(ProcessPathResolver.Get(null) == null);
             Check(!string.IsNullOrEmpty(ProcessPathResolver.Get(Process.GetCurrentProcess())));
             var displays = new List<MonitorSelection.Display> {
@@ -87,11 +102,11 @@ namespace Offhand.Companion {
                 string account = Path.Combine(wow, "WTF", "Account", "123", "SavedVariables", "Offhand.lua");
                 string character = Path.Combine(wow, "WTF", "Account", "123", "Realm", "Character", "SavedVariables", "Offhand.lua");
                 Directory.CreateDirectory(core);
-                File.WriteAllText(Path.Combine(Path.GetDirectoryName(core), "Offhand_Forever.toc"), "## Interface: 16000\n## X-Offhand-Release: beta.10\n");
+                File.WriteAllText(Path.Combine(Path.GetDirectoryName(core), "Offhand_Forever.toc"), "## Interface: 16000\n## X-Offhand-Release: beta.11\n");
                 AddonInstallCheck install = AddonInstallation.Inspect(wow);
                 Check(install.Installed && install.AddonDir == Path.GetDirectoryName(core));
                 Check(install.ExpectedAddonDir == Path.Combine(wow, "Interface", "AddOns", "Offhand"));
-                Check(install.ReleaseTag == "beta.10" && install.Reason.Contains(install.AddonDir));
+                Check(install.ReleaseTag == "beta.11" && install.Reason.Contains(install.AddonDir));
 
                 string oldWow = Path.Combine(root, "old-client");
                 string oldAddon = Path.Combine(oldWow, "Interface", "AddOns", "Offhand");
@@ -99,7 +114,7 @@ namespace Offhand.Companion {
                 File.WriteAllText(Path.Combine(oldAddon, "Offhand_Forever.toc"), "## Interface: 16000\n## X-Offhand-Release: beta.9\n");
                 AddonInstallCheck oldInstall = AddonInstallation.Inspect(oldWow);
                 Check(!oldInstall.Installed && oldInstall.ReleaseTag == "beta.9"
-                    && oldInstall.Reason.Contains("requires addon beta.10"));
+                    && oldInstall.Reason.Contains("requires addon beta.11"));
 
                 string nestedWow = Path.Combine(root, "nested");
                 string nestedAddon = Path.Combine(nestedWow, "Interface", "AddOns", "Offhand", "Offhand");
@@ -109,7 +124,7 @@ namespace Offhand.Companion {
                 Check(!nestedInstall.Installed && nestedInstall.Reason.Contains("Nested install found"));
 
                 string versionedWow = Path.Combine(root, "versioned");
-                string versionedAddon = Path.Combine(versionedWow, "Interface", "AddOns", "Offhand-v2.1.2-beta.10");
+                string versionedAddon = Path.Combine(versionedWow, "Interface", "AddOns", "Offhand-v2.1.2-beta.11");
                 Directory.CreateDirectory(versionedAddon);
                 File.WriteAllText(Path.Combine(versionedAddon, "Offhand_Forever.toc"), "## Interface: 16000\n");
                 AddonInstallCheck versionedInstall = AddonInstallation.Inspect(versionedWow);

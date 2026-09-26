@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Changed
-- Addon settings and Companion now identify the exact `v2.1.2-beta.10`
+- Addon settings and Companion now identify the exact `v2.1.2-beta.11`
   pre-release build while retaining `2.1.2` as the compatible base version.
 - Companion display-plan and activity-log messages now wrap instead of drawing
   long missing-monitor diagnostics outside their cards.
@@ -18,14 +18,30 @@ All notable changes to this project will be documented in this file.
   preserve the addon directory tree without a custom deflattening script.
 - The executable in the complete release bundle is now consistently named
   `Offhand.exe`, matching the standalone file and Companion archive.
+- Release automation now builds the Companion once, reuses that exact executable
+  in every release container, and verifies each embedded copy against the
+  canonical SHA-256 before publishing.
+- Companion can now be explicitly registered for current-user Windows startup;
+  startup launches one instance minimized to the notification area without a
+  service, scheduled task, administrator access, or Battle.net modification.
 
 ### Fixed
 - In-engine cinematics no longer leave the 3D camera centred on the monitor
   seam. Offhand now reapplies only the configured Mainhand viewport after
   cinematic start and completion, including delayed and combat-safe recovery.
-- Companion idle monitoring now enumerates processes once per poll, backs off
-  while WoW is absent, and pauses polling while its window is being moved or
-  its Help dialog is open, eliminating the high idle CPU and sluggish UI.
+- Companion idle monitoring now queries only the allowlisted WoW executable
+  names, backs off while WoW is absent, and pauses polling while its window is
+  being moved or its Help dialog is open. This avoids broad process-table
+  discovery while preserving the low idle CPU and safe stopped-client guard.
+- Manual Restore Window now returns keyboard focus to WoW after the bordered
+  Mainhand window is established, avoiding a restored client that appears
+  unresponsive while the Companion remains foreground.
+- Window-border failures now include the native Windows error code and explain
+  the common mismatched-privilege case instead of showing only a generic error.
+- Companion now compares its Windows integrity level with WoW before Span or
+  Restore, suppresses repeated automatic attempts when elevated WoW cannot be
+  controlled, and exposes copyable, path-specific recovery steps in System
+  Status. Unknown Wine integrity remains a non-blocking diagnostic.
 - Companion addon verification now reports the exact path expected by the
   running WoW client and identifies nested, version-suffixed, or sibling-client
   installs instead of repeating a generic installation instruction. It also
@@ -39,6 +55,10 @@ All notable changes to this project will be documented in this file.
 - Persisted load-on-demand panels such as Professions are reopened after their
   Blizzard addon registers the frame, instead of being skipped because the
   frame did not exist during Offhand's initial reload restoration pass.
+- Load-on-demand panels now wait for Blizzard's native registration/opening
+  sequence to settle before reload restoration. This removes a possible
+  re-entry into the Forever Beta Professions loader while preserving workspace
+  position, open state and the user's panel-persistence settings.
 - The seam guide is now vertical for side-by-side layouts and horizontal for
   stacked layouts in both Companion-controlled and manual topology modes.
 - Unsaved Blizzard panels now open on Mainhand instead of inheriting a
@@ -67,6 +87,9 @@ All notable changes to this project will be documented in this file.
   while entering Options from the Game Menu.
 - Offhand now leaves `ChatFrame1EditBox` anchored by Chattynator, so pressing
   Enter reveals Chattynator's text input while its window is on the workspace.
+- Explicit Offhand chat placements now survive Blizzard's late cold-start
+  anchor pass on Retail and Forever while still yielding during Retail Edit
+  Mode, preventing the default chat window from returning to Mainhand.
 - Companion-controlled layouts now show a concise game/workspace summary in
   settings, explain why manual geometry is locked, and no longer overlap that
   status with the redundant Companion download button.

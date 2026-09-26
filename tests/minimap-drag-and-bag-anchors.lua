@@ -145,6 +145,16 @@ end
 ContainerFrameCombinedBags = makeMockFrame("ContainerFrameCombinedBags", 320, 220)
 _G["ContainerFrameCombinedBags"] = ContainerFrameCombinedBags
 
+ChatFrame1 = makeMockFrame("ChatFrame1", 560, 340)
+ChatFrame1:Show()
+_G.ChatFrame1 = ChatFrame1
+addon.db.savedWorkspacePositions.ChatFrame1 = {
+    x = 180, y = 720,
+    canvasWidth = metrics.workspaceWidth or 1440,
+    canvasHeight = metrics.screenHeight,
+    canvasLeft = 0, canvasBottom = 0,
+}
+
 local origBlizzardCalled = false
 _G.UpdateContainerFrameAnchors = function()
     origBlizzardCalled = true
@@ -159,6 +169,34 @@ addon.SeamRedirect:HookFrames()
 
 assert(_G.UpdateContainerFrameAnchors ~= nil, "UpdateContainerFrameAnchors must be defined")
 assert(addon.HUD.bagHooksInstalled == true, "Bag hooks must be marked installed")
+
+-- Blizzard applies a late primary-chat anchor during cold startup. A saved
+-- Offhand placement must win on the next frame rather than silently returning
+-- to Mainhand until another layout pass occurs.
+ChatFrame1.points = {}
+ChatFrame1:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+flushTimers()
+local repairedChatPoint = ChatFrame1.points[#ChatFrame1.points]
+assert(repairedChatPoint and repairedChatPoint.point == "TOPLEFT"
+    and repairedChatPoint.x == 180 and repairedChatPoint.y == 720,
+    "late Blizzard chat anchors must be repaired to the saved workspace position")
+
+ChatFrame1.isStaticDocked = true
+ChatFrame1.OnEditModeEnter = function() end
+ChatFrame1.OnEditModeExit = function() end
+ChatFrame1.isInEditMode = true
+ChatFrame1.points = {}
+ChatFrame1:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+flushTimers()
+assert(ChatFrame1.points[#ChatFrame1.points].point == "CENTER",
+    "Retail chat repair must yield while Blizzard Edit Mode is active")
+ChatFrame1.isInEditMode = false
+ChatFrame1:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+flushTimers()
+repairedChatPoint = ChatFrame1.points[#ChatFrame1.points]
+assert(repairedChatPoint and repairedChatPoint.point == "TOPLEFT"
+    and repairedChatPoint.x == 180 and repairedChatPoint.y == 720,
+    "Retail saved workspace chat must be repaired after Edit Mode releases it")
 
 assert(MinimapZoneTextButton._OffhandHooked == true, "MinimapZoneTextButton must be hooked")
 assert(MinimapBorderTop._OffhandHooked == true, "MinimapBorderTop must be hooked")

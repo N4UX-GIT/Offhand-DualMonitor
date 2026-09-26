@@ -73,7 +73,14 @@ local function WriteRawMouse(value)
     return pcall(setter, "rawMouseEnable", tostring(value))
 end
 
+local function ShouldManageRawMouse(metrics)
+    local db = Offhand.db
+    return db and db.enabled and db.rawMouseInput ~= false
+        and metrics and metrics.isSpanned or false
+end
+
 function RawMouse:Restore()
+    self.refreshGeneration = (self.refreshGeneration or 0) + 1
     local db = Offhand.db
     if not db or not db.rawMouseManaged then return end
     local original = db.originalRawMouseEnable
@@ -87,9 +94,7 @@ end
 function RawMouse:Update(metrics)
     local db = Offhand.db
     if not db then return end
-    local shouldManage = db.enabled and db.rawMouseInput ~= false
-        and metrics and metrics.isSpanned
-    if not shouldManage then
+    if not ShouldManageRawMouse(metrics) then
         self:Restore()
         return
     end
@@ -101,6 +106,35 @@ function RawMouse:Update(metrics)
         db.rawMouseManaged = true
     end
     if current ~= "1" then WriteRawMouse("1") end
+end
+
+-- Retail can retain rawMouseEnable=1 while its native raw-input registration
+-- becomes stale after window or full-screen UI transitions. A real 0 -> 1
+-- transition refreshes that backend. Split the writes across frames so the
+-- client cannot coalesce them, and invalidate the pending enable if Offhand is
+-- disabled or leaves its spanned topology in the meantime.
+function RawMouse:Refresh(metrics)
+    self:Update(metrics)
+    if not ShouldManageRawMouse(metrics) then return false end
+
+    self.refreshGeneration = (self.refreshGeneration or 0) + 1
+    local generation = self.refreshGeneration
+    WriteRawMouse("0")
+
+    local function EnableAgain()
+        if generation ~= RawMouse.refreshGeneration then return end
+        local currentMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
+            and Offhand.Viewport:GetMetrics() or metrics
+        if ShouldManageRawMouse(currentMetrics) then
+            WriteRawMouse("1")
+        end
+    end
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0, EnableAgain)
+    else
+        EnableAgain()
+    end
+    return true
 end
 
 -- Some Forever Beta transitions fail to reload normal SavedVariables. Custom
@@ -563,6 +597,13 @@ function Offhand:SetRawMouseInput(enabled)
     if not Offhand.db then return end
     Offhand.db.rawMouseInput = enabled == true
     ForeverPersistence:SaveDisplayFlags(Offhand.db)
+    if enabled and RawMouse and RawMouse.Refresh then
+        local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
+            and Offhand.Viewport:GetMetrics() or nil
+        RawMouse:Refresh(metrics)
+    elseif not enabled and RawMouse and RawMouse.Restore then
+        RawMouse:Restore()
+    end
 end
 
 local function EnsureOnboarding()

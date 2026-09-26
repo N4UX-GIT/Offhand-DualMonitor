@@ -883,9 +883,56 @@ addon.db.openWorkspacePanels = addon.db.openWorkspacePanels or {}
 addon.db.openWorkspacePanels.ProfessionsBookFrame = true
 RegisterUIPanel(lateProfessionsFrame)
 flushTimers()
+assert(not lateProfessionsFrame:IsShown(),
+    "a late Professions registration must not re-enter ShowUIPanel in Blizzard's opening turn")
+flushTimers()
 assert(lateProfessionsFrame:IsShown() and addon.Canvas.IsFrameOnWorkspace(lateProfessionsFrame),
-    "a persisted Professions panel must reopen when its load-on-demand addon registers late")
-print("PASS: late load-on-demand Professions panels honor saved open workspace state")
+    "a persisted Professions panel must reopen after its load-on-demand addon settles")
+assert(addon.db.openWorkspacePanels.ProfessionsBookFrame
+        and addon.db.savedWorkspacePositions.ProfessionsBookFrame,
+    "safe delayed Professions restore must preserve open state and workspace position")
+
+-- The crash report path: RegisterUIPanel runs inside the same hardware action
+-- that will show Professions natively. If Blizzard shows it before Offhand's
+-- settlement timer, the queued restore must not call ShowUIPanel a second time.
+local nativeOpenedProfessions = makeMockFrame("NativeOpenedProfessionsFrame", 700, 800)
+nativeOpenedProfessions:Hide()
+local nativeShow = nativeOpenedProfessions.Show
+nativeOpenedProfessions.Show = function(self)
+    self.showCalls = (self.showCalls or 0) + 1
+    nativeShow(self)
+end
+addon.db.savedWorkspacePositions.NativeOpenedProfessionsFrame = {
+    x = 240, y = 1420, canvasLeft = 0, canvasBottom = 0,
+    canvasWidth = metrics.workspaceWidth, canvasHeight = metrics.workspaceHeight,
+}
+addon.db.openWorkspacePanels.NativeOpenedProfessionsFrame = true
+RegisterUIPanel(nativeOpenedProfessions)
+nativeOpenedProfessions:Show()
+flushTimers()
+flushTimers()
+assert(nativeOpenedProfessions.showCalls == 1,
+    "Offhand must not show a Professions panel again when Blizzard's native action already opened it")
+assert(addon.Canvas.IsFrameOnWorkspace(nativeOpenedProfessions),
+    "a natively opened late Professions panel must still restore its workspace position")
+
+local noReloadProfessions = makeMockFrame("NoReloadProfessionsFrame", 700, 800)
+noReloadProfessions:Hide()
+addon.db.savedWorkspacePositions.NoReloadProfessionsFrame = {
+    x = 220, y = 1450, canvasLeft = 0, canvasBottom = 0,
+    canvasWidth = metrics.workspaceWidth, canvasHeight = metrics.workspaceHeight,
+}
+addon.db.openWorkspacePanels.NoReloadProfessionsFrame = true
+addon.db.restoreWorkspaceOnReload = false
+RegisterUIPanel(noReloadProfessions)
+flushTimers()
+flushTimers()
+assert(not noReloadProfessions:IsShown(),
+    "late panel restoration must respect the reload-persistence checkbox")
+assert(addon.db.savedWorkspacePositions.NoReloadProfessionsFrame,
+    "disabling reload restoration must not discard the panel's workspace position")
+addon.db.restoreWorkspaceOnReload = true
+print("PASS: late Professions restore settles safely and preserves persistence settings")
 
 -- Horizontal layouts also need explicit coverage when the workspace is to the
 -- right of Mainhand. Emulate the live client behavior where clearing

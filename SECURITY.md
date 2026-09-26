@@ -22,6 +22,12 @@ Get-FileHash -Algorithm SHA256 -LiteralPath .\Offhand.exe
 Compare the complete digest with the `Offhand.exe` entry in the release's
 `checksums-sha256.txt`. A mismatch means the file must not be run.
 
+The executable stored in a source checkout is a convenience build and may have
+a different hash because .NET Framework compiler metadata changes between
+builds. The executable attached to the GitHub release is canonical. Release
+packaging builds it once, reuses those exact bytes in every archive, and records
+that hash in `checksums-sha256.txt`.
+
 If the release notes identify the artifact as a GitHub Actions build, use GitHub
 CLI to verify its attestation:
 
@@ -52,6 +58,10 @@ It performs the following operations:
 - Reads Offhand's installation markers and, for Forever recovery, reads the
   newest valid Offhand SavedVariables only while WoW is fully closed.
 - Writes preferences to `%LOCALAPPDATA%\Offhand\OffhandConfig.ini`.
+- Only when the user enables **Run Offhand on Windows startup**, writes the
+  current executable path plus `--minimized` to the current user's Windows Run
+  registry key. Disabling the option removes that value. No machine-wide key,
+  service, scheduled task, or Battle.net setting is created.
 - Generates `Core\ForeverState.lua` and its backup inside the detected Offhand
   installation when the guarded Forever recovery bridge is needed.
 - Generates `Core\CompanionTopology.lua` inside the detected Offhand
@@ -63,9 +73,9 @@ It performs the following operations:
   update is found and the user confirms.
 
 The application requests ordinary `asInvoker` privileges and does not request
-administrator access. It does not install a service, configure startup
-persistence, inject code, read browser data, collect telemetry, inspect chat or
-gameplay, or handle account credentials.
+administrator access. It does not install a service, configure startup without
+the explicit per-user option above, inject code, read browser data, collect
+telemetry, inspect chat or gameplay, or handle account credentials.
 
 ## Why antivirus false positives can occur
 

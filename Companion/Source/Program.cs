@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using Microsoft.Win32;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -15,8 +16,8 @@ using System.Windows.Forms;
 [assembly: AssemblyProduct("Offhand")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
 [assembly: AssemblyVersion("2.1.2.0")]
-[assembly: AssemblyFileVersion("2.1.2.10")]
-[assembly: AssemblyInformationalVersion("2.1.2-beta.10")]
+[assembly: AssemblyFileVersion("2.1.2.11")]
+[assembly: AssemblyInformationalVersion("2.1.2-beta.11")]
 
 namespace Offhand.Companion
 {
@@ -207,6 +208,187 @@ namespace Offhand.Companion
         }
     }
 
+    internal static class WindowInteropDiagnostics
+    {
+        internal static string StyleFailure(string action, int error)
+        {
+            string detail = string.Format("{0} (Windows error {1}).", action, error);
+            if (error == 5)
+                return detail + " Windows blocked cross-process window control. Close both programs and launch WoW and Offhand Companion at the same privilege level; avoid Run as administrator unless both must use it.";
+            return detail + " Confirm WoW is using standard Windowed mode, then restart WoW and the Companion and retry.";
+        }
+    }
+
+    internal static class WindowsStartupRegistration
+    {
+        internal const string ValueName = "Offhand Companion";
+        private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
+
+        internal static string BuildCommand(string executablePath)
+        {
+            return "\"" + executablePath + "\" --minimized";
+        }
+
+        internal static bool ShouldStartMinimized(string[] args)
+        {
+            if (args == null) return false;
+            foreach (string arg in args)
+                if (string.Equals(arg, "--minimized", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(arg, "--tray", StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }
+
+        internal static bool IsEnabled(string executablePath, out string warning)
+        {
+            warning = null;
+            try
+            {
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(RunKey, false))
+                {
+                    string command = key == null ? null : key.GetValue(ValueName) as string;
+                    if (string.IsNullOrEmpty(command)) return false;
+                    if (string.Equals(command, BuildCommand(executablePath), StringComparison.OrdinalIgnoreCase))
+                        return true;
+                    warning = "The Windows startup entry points to a different Offhand.exe. Enable the option again to replace it with this copy.";
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                warning = "Cannot read the per-user Windows startup setting: " + ex.Message;
+                return false;
+            }
+        }
+
+        internal static bool SetEnabled(string executablePath, bool enabled, out string error)
+        {
+            error = null;
+            try
+            {
+                using (RegistryKey key = Registry.CurrentUser.CreateSubKey(RunKey))
+                {
+                    if (key == null) throw new UnauthorizedAccessException("Windows did not open the current-user startup registry key.");
+                    if (enabled)
+                        key.SetValue(ValueName, BuildCommand(executablePath), RegistryValueKind.String);
+                    else
+                        key.DeleteValue(ValueName, false);
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = "Windows could not update the per-user startup setting: " + ex.Message;
+                return false;
+            }
+        }
+    }
+
+    internal sealed class WindowControlAccess
+    {
+        internal int CompanionIntegrity;
+        internal int WowIntegrity;
+        internal bool Blocked;
+        internal bool Known;
+        internal string CompanionLabel;
+        internal string WowLabel;
+
+        internal string StatusText
+        {
+            get
+            {
+                if (!Known) return "Window control: privilege level unavailable; Windows will verify when spanning.";
+                if (Blocked) return "Window control BLOCKED: WoW is elevated; Companion is not.";
+                if (CompanionIntegrity > WowIntegrity)
+                    return "Window control ready, but Companion is elevated unnecessarily.";
+                return "Window control ready: Companion and WoW use " + CompanionLabel + ".";
+            }
+        }
+    }
+
+    internal static class WindowControlPreflight
+    {
+        private const int SECURITY_MANDATORY_LOW_RID = 0x1000;
+        private const int SECURITY_MANDATORY_MEDIUM_RID = 0x2000;
+        private const int SECURITY_MANDATORY_HIGH_RID = 0x3000;
+        private const int SECURITY_MANDATORY_SYSTEM_RID = 0x4000;
+
+        internal static string IntegrityLabel(int rid)
+        {
+            if (rid >= SECURITY_MANDATORY_SYSTEM_RID) return "System";
+            if (rid >= SECURITY_MANDATORY_HIGH_RID) return "Administrator";
+            if (rid >= SECURITY_MANDATORY_MEDIUM_RID) return "Standard";
+            if (rid >= SECURITY_MANDATORY_LOW_RID) return "Low";
+            return "Unknown";
+        }
+
+        internal static WindowControlAccess Compare(int companionIntegrity, int wowIntegrity)
+        {
+            bool known = companionIntegrity > 0 && wowIntegrity > 0;
+            return new WindowControlAccess {
+                CompanionIntegrity = companionIntegrity,
+                WowIntegrity = wowIntegrity,
+                Known = known,
+                Blocked = known && wowIntegrity > companionIntegrity,
+                CompanionLabel = IntegrityLabel(companionIntegrity),
+                WowLabel = IntegrityLabel(wowIntegrity),
+            };
+        }
+
+        internal static WindowControlAccess Inspect(int wowProcessId)
+        {
+            return Compare(ProcessIntegrityReader.Read(Process.GetCurrentProcess().Id),
+                ProcessIntegrityReader.Read(wowProcessId));
+        }
+
+        internal static string FixSteps(string wowPath)
+        {
+            return "Offhand cannot control this WoW window because WoW is running at a higher Windows privilege level.\r\n\r\n" +
+                "1. Exit WoW, Battle.net, and Offhand Companion.\r\n" +
+                "2. In Properties > Compatibility, clear 'Run this program as an administrator' for Battle.net, the WoW executable, and Offhand.exe (also check 'Change settings for all users').\r\n" +
+                "3. Start Battle.net and Offhand normally, set WoW to standard Windowed mode, then try Span WoW Now again.\r\n\r\n" +
+                "WoW: " + (string.IsNullOrEmpty(wowPath) ? "path unavailable" : wowPath) + "\r\n" +
+                "Companion: " + Application.ExecutablePath;
+        }
+    }
+
+    internal static class ProcessIntegrityReader
+    {
+        internal static int Read(int processId)
+        {
+            IntPtr process = NativeMethods.OpenProcess(NativeMethods.PROCESS_QUERY_LIMITED_INFORMATION, false, processId);
+            if (process == IntPtr.Zero) return 0;
+            IntPtr token = IntPtr.Zero;
+            IntPtr buffer = IntPtr.Zero;
+            try
+            {
+                if (!NativeMethods.OpenProcessToken(process, NativeMethods.TOKEN_QUERY, out token)) return 0;
+                int required;
+                NativeMethods.GetTokenInformation(token, NativeMethods.TOKEN_INFORMATION_CLASS.TokenIntegrityLevel,
+                    IntPtr.Zero, 0, out required);
+                if (required <= 0) return 0;
+                buffer = Marshal.AllocHGlobal(required);
+                if (!NativeMethods.GetTokenInformation(token, NativeMethods.TOKEN_INFORMATION_CLASS.TokenIntegrityLevel,
+                    buffer, required, out required)) return 0;
+                NativeMethods.TOKEN_MANDATORY_LABEL label = (NativeMethods.TOKEN_MANDATORY_LABEL)
+                    Marshal.PtrToStructure(buffer, typeof(NativeMethods.TOKEN_MANDATORY_LABEL));
+                if (label.Label.Sid == IntPtr.Zero) return 0;
+                IntPtr countPointer = NativeMethods.GetSidSubAuthorityCount(label.Label.Sid);
+                if (countPointer == IntPtr.Zero) return 0;
+                byte count = Marshal.ReadByte(countPointer);
+                if (count == 0) return 0;
+                IntPtr ridPointer = NativeMethods.GetSidSubAuthority(label.Label.Sid, (uint)(count - 1));
+                return ridPointer == IntPtr.Zero ? 0 : Marshal.ReadInt32(ridPointer);
+            }
+            catch { return 0; }
+            finally
+            {
+                if (buffer != IntPtr.Zero) Marshal.FreeHGlobal(buffer);
+                if (token != IntPtr.Zero) NativeMethods.CloseHandle(token);
+                NativeMethods.CloseHandle(process);
+            }
+        }
+    }
+
     internal sealed class AddonInstallCheck
     {
         internal bool Installed;
@@ -218,7 +400,7 @@ namespace Offhand.Companion
 
     internal static class AddonInstallation
     {
-        internal const string ExpectedRelease = "beta.10";
+        internal const string ExpectedRelease = "beta.11";
         private static readonly string[] ManifestNames = new string[] {
             "Offhand.toc", "Offhand_Mainline.toc", "Offhand_Vanilla.toc",
             "Offhand_Classic.toc", "Offhand_Forever.toc"
@@ -684,6 +866,24 @@ namespace Offhand.Companion
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceKey;
         }
 
+        [StructLayout(LayoutKind.Sequential)]
+        public struct SID_AND_ATTRIBUTES
+        {
+            public IntPtr Sid;
+            public uint Attributes;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct TOKEN_MANDATORY_LABEL
+        {
+            public SID_AND_ATTRIBUTES Label;
+        }
+
+        public enum TOKEN_INFORMATION_CLASS
+        {
+            TokenIntegrityLevel = 25
+        }
+
         [DllImport("user32.dll")]
         public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
 
@@ -701,6 +901,9 @@ namespace Offhand.Companion
 
         [DllImport("user32.dll")]
         public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [DllImport("user32.dll")]
+        public static extern bool SetForegroundWindow(IntPtr hWnd);
 
         [DllImport("user32.dll")]
         public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
@@ -722,6 +925,21 @@ namespace Offhand.Companion
         [DllImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool CloseHandle(IntPtr hObject);
+
+        [DllImport("advapi32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool OpenProcessToken(IntPtr processHandle, uint desiredAccess, out IntPtr tokenHandle);
+
+        [DllImport("advapi32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool GetTokenInformation(IntPtr tokenHandle, TOKEN_INFORMATION_CLASS tokenInformationClass,
+            IntPtr tokenInformation, int tokenInformationLength, out int returnLength);
+
+        [DllImport("advapi32.dll")]
+        public static extern IntPtr GetSidSubAuthorityCount(IntPtr sid);
+
+        [DllImport("advapi32.dll")]
+        public static extern IntPtr GetSidSubAuthority(IntPtr sid, uint subAuthority);
 
         [DllImport("user32.dll", SetLastError = true)]
         public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
@@ -764,6 +982,7 @@ namespace Offhand.Companion
         public const uint SWP_SHOWWINDOW = 0x0040;
         public const int SW_RESTORE = 9;
         public const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+        public const uint TOKEN_QUERY = 0x0008;
 
         public static IntPtr FindProcessWindow(int processId)
         {
@@ -793,7 +1012,7 @@ namespace Offhand.Companion
     public class CompanionForm : Form
     {
         internal const string BaseVersion = "2.1.2";
-        internal const string ReleaseLabel = "Beta 10";
+        internal const string ReleaseLabel = "Beta 11";
         internal const string FullVersion = BaseVersion + " " + ReleaseLabel;
 
         // Warcraft Dark Interface Palette (Black / Dark Grey / Burnished Gold)
@@ -820,8 +1039,11 @@ namespace Offhand.Companion
         private Label lblAddonStatus;
         private Label lblDisplayInfo;
         private Label lblAddonReason;
+        private Label lblPrivilegeStatus;
+        private LinkLabel lnkPrivilegeHelp;
         private string lastAddonDiagnostic;
         private CheckBox chkAutoSpan;
+        private CheckBox chkRunAtStartup;
                 private NumericUpDown numDelaySpan;
         private Label lblDelay;
         private ComboBox cmbHotkey;
@@ -1008,6 +1230,9 @@ namespace Offhand.Companion
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Offhand", "OffhandConfig.ini");
         private string configWarning;
+        private string startupRegistrationWarning;
+        private string privilegeFixText;
+        private bool updatingStartupCheckbox;
 
         private void LoadConfig()
         {
@@ -1035,6 +1260,95 @@ namespace Offhand.Companion
             catch (UnauthorizedAccessException ex) { AddLog("Cannot save settings: " + ex.Message); }
         }
 
+        private void ApplyStartupPreference(bool enabled)
+        {
+            if (updatingStartupCheckbox) return;
+            string error;
+            if (WindowsStartupRegistration.SetEnabled(Application.ExecutablePath, enabled, out error))
+            {
+                AddLog(enabled
+                    ? "Windows startup enabled. Offhand will start minimized in the notification area for this user."
+                    : "Windows startup disabled.");
+                return;
+            }
+
+            updatingStartupCheckbox = true;
+            chkRunAtStartup.Checked = !enabled;
+            updatingStartupCheckbox = false;
+            AddLog(error);
+            MessageBox.Show(error, "Offhand Startup", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+
+        private WindowControlAccess InspectWindowControl(Process proc)
+        {
+            return proc == null ? WindowControlPreflight.Compare(0, 0)
+                : WindowControlPreflight.Inspect(proc.Id);
+        }
+
+        private void UpdateWindowControlStatus(Process proc)
+        {
+            if (lblPrivilegeStatus == null) return;
+            if (proc == null)
+            {
+                lblPrivilegeStatus.Text = "";
+                lnkPrivilegeHelp.Visible = false;
+                privilegeFixText = null;
+                return;
+            }
+
+            WindowControlAccess access = InspectWindowControl(proc);
+            lblPrivilegeStatus.Text = "  " + access.StatusText;
+            if (!access.Known)
+            {
+                lblPrivilegeStatus.ForeColor = cMuted;
+                lnkPrivilegeHelp.Visible = false;
+                privilegeFixText = null;
+                privilegeBlockedPids.Remove(proc.Id);
+                return;
+            }
+
+            if (access.Blocked)
+            {
+                lblPrivilegeStatus.ForeColor = cRed;
+                privilegeFixText = WindowControlPreflight.FixSteps(ProcessPathResolver.Get(proc));
+                lnkPrivilegeHelp.Visible = true;
+                if (privilegeBlockedPids.Add(proc.Id))
+                    AddLog("Window control blocked before spanning: Companion " + access.CompanionLabel
+                        + ", WoW " + access.WowLabel + ". Use Copy fix steps in System Status.");
+            }
+            else
+            {
+                lblPrivilegeStatus.ForeColor = access.CompanionIntegrity > access.WowIntegrity
+                    || access.CompanionLabel == "Administrator" ? cYellow : cGreen;
+                lnkPrivilegeHelp.Visible = false;
+                privilegeFixText = null;
+                privilegeBlockedPids.Remove(proc.Id);
+            }
+        }
+
+        private void CopyPrivilegeFixSteps()
+        {
+            if (string.IsNullOrEmpty(privilegeFixText)) return;
+            try
+            {
+                Clipboard.SetText(privilegeFixText);
+                AddLog("Copied Windows privilege fix steps to the clipboard.");
+            }
+            catch (Exception ex)
+            {
+                AddLog("Could not copy privilege fix steps: " + ex.Message);
+            }
+        }
+
+        private void EnsureWindowControlAllowed(Process proc)
+        {
+            WindowControlAccess access = InspectWindowControl(proc);
+            if (!access.Blocked) return;
+            privilegeBlockedPids.Add(proc.Id);
+            privilegeFixText = WindowControlPreflight.FixSteps(ProcessPathResolver.Get(proc));
+            throw new InvalidOperationException(privilegeFixText);
+        }
+
         private Button btnSpanNow;
         private Button btnToggleWatch;
         private Button btnCheckUpdates;
@@ -1051,6 +1365,7 @@ namespace Offhand.Companion
         private bool updateCheckInProgress = false;
         private readonly HashSet<int> spannedPids = new HashSet<int>();
         private readonly HashSet<int> restoredPids = new HashSet<int>();
+        private readonly HashSet<int> privilegeBlockedPids = new HashSet<int>();
         private sealed class WindowSnapshot
         {
             internal IntPtr Handle;
@@ -1065,8 +1380,6 @@ namespace Offhand.Companion
         private static readonly string[] wowProcessNames = new string[] {
             "WowClassic", "Wow", "WowClassicEra", "WowForever", "WowT", "WowB", "WowClassicT", "WowClassicB"
         };
-        private static readonly HashSet<string> wowProcessNameSet = new HashSet<string>(
-            wowProcessNames, StringComparer.OrdinalIgnoreCase);
         private bool uiInteractionPaused;
 
         protected override void WndProc(ref Message m)
@@ -1105,7 +1418,7 @@ namespace Offhand.Companion
                 AddLog("Ctrl+Alt+R unavailable. The Restore Window button still works.");
         }
 
-        public CompanionForm()
+        public CompanionForm(bool startMinimized = false)
         {
             LoadConfig();
             InitializeUI();
@@ -1113,9 +1426,17 @@ namespace Offhand.Companion
             InitializeTimer();
             UpdateHotkey();
             if (configWarning != null) AddLog(configWarning);
+            if (startupRegistrationWarning != null) AddLog(startupRegistrationWarning);
 
             AddLog("Offhand Companion v" + FullVersion + " initialized.");
             AddLog("Monitoring active. Enable Offhand in WoW; calibrate with /offhand wizard.");
+            if (startMinimized)
+            {
+                ShowInTaskbar = false;
+                WindowState = FormWindowState.Minimized;
+                Shown += (s, e) => { BeginInvoke(new Action(() => { Hide(); })); };
+                AddLog("Started with Windows in the notification area.");
+            }
         }
 
         private void CheckForUpdates()
@@ -1191,7 +1512,7 @@ namespace Offhand.Companion
         private void InitializeUI()
         {
             this.Text = "Offhand Companion";
-            this.Size = new Size(524, 804);
+            this.Size = new Size(524, 854);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -1306,7 +1627,7 @@ namespace Offhand.Companion
             uiToolTips.SetToolTip(btnHelp, "Open the complete Companion setup, daily-use, recovery, and troubleshooting guide.");
 
             // Status Card
-            Panel statusPanel = CreateCardPanel(16, 102, 490, 164, "System Status");
+            Panel statusPanel = CreateCardPanel(16, 102, 490, 184, "System Status");
             this.Controls.Add(statusPanel);
 
             lblWowStatus = new Label
@@ -1344,7 +1665,7 @@ namespace Offhand.Companion
             lblAddonReason = new Label
             {
                 Text = "",
-                Location = new Point(10, 114),
+                Location = new Point(10, 134),
                 Size = new Size(470, 42),
                 AutoSize = false,
                 UseMnemonic = false,
@@ -1353,8 +1674,34 @@ namespace Offhand.Companion
             };
             statusPanel.Controls.Add(lblAddonReason);
 
+            lblPrivilegeStatus = new Label
+            {
+                Text = "",
+                Location = new Point(10, 112),
+                Size = new Size(345, 20),
+                AutoSize = false,
+                UseMnemonic = false,
+                Font = new Font("Segoe UI", 8f, FontStyle.Bold),
+                ForeColor = cMuted
+            };
+            statusPanel.Controls.Add(lblPrivilegeStatus);
+
+            lnkPrivilegeHelp = new LinkLabel
+            {
+                Text = "Copy fix steps",
+                Location = new Point(370, 112),
+                Size = new Size(105, 20),
+                LinkColor = cGoldBright,
+                ActiveLinkColor = Color.White,
+                VisitedLinkColor = cGoldBright,
+                BackColor = Color.Transparent,
+                Visible = false
+            };
+            lnkPrivilegeHelp.LinkClicked += (s, e) => { CopyPrivilegeFixSteps(); };
+            statusPanel.Controls.Add(lnkPrivilegeHelp);
+
             // Configuration Card
-            Panel configPanel = CreateCardPanel(16, 276, 490, 184, "Configuration");
+            Panel configPanel = CreateCardPanel(16, 296, 490, 212, "Configuration");
             this.Controls.Add(configPanel);
 
             chkAutoSpan = new CheckBox
@@ -1494,6 +1841,23 @@ namespace Offhand.Companion
             cmbSingleSide.SelectedIndexChanged += (s, e) => { SaveDisplaySettingsFromControls(); };
             cmbSingleSide.Enabled = chkSingleSplit.Checked;
 
+            string startupWarning;
+            chkRunAtStartup = new CheckBox
+            {
+                Text = "Run Offhand on Windows startup (minimized to tray)",
+                Location = new Point(10, 174),
+                Size = new Size(460, 22),
+                Font = new Font("Segoe UI", 9),
+                ForeColor = cText,
+                BackColor = Color.Transparent,
+                Checked = WindowsStartupRegistration.IsEnabled(Application.ExecutablePath, out startupWarning)
+            };
+            startupRegistrationWarning = startupWarning;
+            chkRunAtStartup.CheckedChanged += (s, e) => { ApplyStartupPreference(chkRunAtStartup.Checked); };
+            configPanel.Controls.Add(chkRunAtStartup);
+            uiToolTips.SetToolTip(chkRunAtStartup,
+                "Opt in to a per-user Windows startup entry. Offhand starts hidden in the notification area; no service, scheduled task, administrator access, or Battle.net modification is used.");
+
             if (appSettings.ContainsKey("AutoSpan")) chkAutoSpan.Checked = appSettings["AutoSpan"] == "True";
             if (appSettings.ContainsKey("DelaySpan")) numDelaySpan.Value = PreferenceFile.Delay(appSettings["DelaySpan"]);
 
@@ -1524,17 +1888,17 @@ namespace Offhand.Companion
 
 
             // Action Buttons
-            btnSpanNow = CreateButton("Span WoW Now", 16, 472, 158, 36, cBtnPrimaryBg, cGoldBright, cGold);
+            btnSpanNow = CreateButton("Span WoW Now", 16, 522, 158, 36, cBtnPrimaryBg, cGoldBright, cGold);
             btnSpanNow.Click += (s, e) => { InvokeSpanWindow(true); };
             this.Controls.Add(btnSpanNow);
             uiToolTips.SetToolTip(btnSpanNow, "Immediately make the detected WoW window borderless and span it across the selected displays. This also resumes spanning after Restore Window.");
 
-            Button btnRestoreNow = CreateButton("Restore Window", 182, 472, 158, 36, cBtnBg, cText, cBorder);
+            Button btnRestoreNow = CreateButton("Restore Window", 182, 522, 158, 36, cBtnBg, cText, cBorder);
             btnRestoreNow.Click += (s, e) => { InvokeRestoreWindow(true); };
             this.Controls.Add(btnRestoreNow);
             uiToolTips.SetToolTip(btnRestoreNow, "Return WoW to a bordered window filling the selected Mainhand display so off-screen UI can be recovered. Automatic spanning pauses for that WoW process until Span WoW Now is used.");
 
-            btnToggleWatch = CreateButton("Pause Monitor", 348, 472, 158, 36, cBtnBg, cText, cBorder);
+            btnToggleWatch = CreateButton("Pause Monitor", 348, 522, 158, 36, cBtnBg, cText, cBorder);
             btnToggleWatch.Click += (s, e) =>
             {
                 isMonitoring = !isMonitoring;
@@ -1555,7 +1919,7 @@ namespace Offhand.Companion
             uiToolTips.SetToolTip(btnToggleWatch, "Pause or resume background detection of WoW launches. Manual Span and Restore controls remain available while monitoring is paused.");
 
             // Activity Log Card
-            Panel logPanel = CreateCardPanel(16, 520, 490, 200, "Activity Log");
+            Panel logPanel = CreateCardPanel(16, 570, 490, 200, "Activity Log");
             this.Controls.Add(logPanel);
 
             logBox = new RichTextBox
@@ -1575,21 +1939,22 @@ namespace Offhand.Companion
             logPanel.Controls.Add(logBox);
 
             // Footer Buttons
-            Button btnMinimize = CreateButton("Minimize to Tray", 16, 732, 152, 30, cBtnBg, cMuted, cBorderDim);
+            Button btnMinimize = CreateButton("Minimize to Tray", 16, 782, 152, 30, cBtnBg, cMuted, cBorderDim);
             btnMinimize.Click += (s, e) =>
             {
+                this.ShowInTaskbar = false;
                 this.Hide();
                 trayIcon.ShowBalloonTip(2000, "Offhand Running in Tray", "Monitoring in background. Double-click tray icon to restore.", ToolTipIcon.Info);
             };
             this.Controls.Add(btnMinimize);
             uiToolTips.SetToolTip(btnMinimize, "Hide the dashboard while keeping the Companion and launch monitor running in the Windows notification tray.");
 
-            btnCheckUpdates = CreateButton("Check for Updates", 182, 732, 158, 30, cBtnBg, cText, cBorder);
+            btnCheckUpdates = CreateButton("Check for Updates", 182, 782, 158, 30, cBtnBg, cText, cBorder);
             btnCheckUpdates.Click += (s, e) => { CheckForUpdates(); };
             this.Controls.Add(btnCheckUpdates);
             uiToolTips.SetToolTip(btnCheckUpdates, "Contact the official GitHub Releases API once to compare versions. The Companion never checks for updates automatically.");
 
-            Button btnExit = CreateButton("Exit Companion", 356, 732, 152, 30, cBtnDanger, Color.FromArgb(235, 130, 130), Color.FromArgb(140, 45, 45));
+            Button btnExit = CreateButton("Exit Companion", 356, 782, 152, 30, cBtnDanger, Color.FromArgb(235, 130, 130), Color.FromArgb(140, 45, 45));
             btnExit.Click += (s, e) => { ExitApplication(); };
             this.Controls.Add(btnExit);
             uiToolTips.SetToolTip(btnExit, "Stop monitoring and fully exit the Companion. Closing the title-bar X only minimizes it to the tray.");
@@ -1599,6 +1964,7 @@ namespace Offhand.Companion
                 if (!isExplicitExit && e.CloseReason == CloseReason.UserClosing)
                 {
                     e.Cancel = true;
+                    this.ShowInTaskbar = false;
                     this.Hide();
                     trayIcon.ShowBalloonTip(1500, "Offhand Minimized", "Running in System Tray. Right-click or double-click to control.", ToolTipIcon.Info);
                 }
@@ -1675,7 +2041,7 @@ namespace Offhand.Companion
                 "8. Exit WoW normally with the Companion still running. Relaunch once to verify a cold start.",
                 "",
                 "EVERYDAY USE",
-                "Start the Companion before WoW. With auto-span disabled, click Span WoW Now after the WoW window appears. If you later enable auto-span, each newly detected WoW window is spanned automatically. The title-bar X minimizes the Companion to the tray; Exit Companion stops it.",
+                "Start the Companion before WoW. With auto-span disabled, click Span WoW Now after the WoW window appears. If you later enable auto-span, each newly detected WoW window is spanned automatically. Run Offhand on Windows startup can keep one minimized tray instance ready without modifying Battle.net. The title-bar X minimizes the Companion to the tray; Exit Companion stops it.",
                 "",
                 "CONTROLS",
                 "Automatically span on launch: Opt-in automatic spanning; disabled by default.",
@@ -1684,6 +2050,7 @@ namespace Offhand.Companion
                 "Span displays: Exactly two displays for normal use, or one super-ultrawide in explicit split mode.",
                 "Mainhand (game): The selected display's exact rectangle becomes the 3D game viewport. The other selected display becomes the workspace.",
                 "Single-display 32:9 split: Divides one super-ultrawide into equal workspace/game halves. It never activates automatically.",
+                "Run Offhand on Windows startup: Adds an opt-in current-user startup entry and launches Offhand minimized to the notification area. It does not install a service or scheduled task and does not modify Battle.net.",
                 "Span WoW Now: Save the selected physical display geometry for Offhand, then span immediately and resume a process previously restored. The resulting desktop-sized WoW window is expected; after /reload, Offhand confines the 3D game view to Mainhand.",
                 "Restore Window: Fill the selected Mainhand with a safe bordered WoW window and pause auto-span for that process.",
                 "Pause Monitor: Stop launch detection without disabling the manual controls.",
@@ -1696,10 +2063,10 @@ namespace Offhand.Companion
                 "If UI is inaccessible, click Restore Window (or press Ctrl+Alt+R), enter WoW, and use Offhand's Gather Off-Screen UI action. Re-enter Edit Mode and save/select the Offhand layout, then click Span WoW Now and /reload once. If a saved workspace display disconnects while WoW is spanned, Companion restores a bordered WoW window that fills the surviving Mainhand and refuses another span until the topology is valid. On Forever, click Use Modern when Offhand prompts; after reconnecting and spanning the exact topology, click Restore Offhand. WoW must be fully closed before the Forever recovery snapshot can be refreshed.",
                 "",
                 "TROUBLESHOOTING",
-                "Select exactly two displays and a connected Mainhand, or explicitly enable the one-display super-ultrawide split. The status card names the running WoW client and the exact addon path it verifies; installs for another client, nested folders, and version-suffixed addon folders are reported explicitly. If Span is refused because topology could not be written, fix that path or file-permission error first. If WoW spans but the 3D world still fills both displays after /reload, confirm the in-game addon is enabled and that its version matches this Companion. Mixed resolutions, ultrawide Mainhand displays, portrait screens, negative desktop coordinates, and stacked arrangements use Windows' exact display rectangles; make sure Windows Display Settings matches the physical arrangement. Hover any dashboard control for a concise explanation.",
+                "Select exactly two displays and a connected Mainhand, or explicitly enable the one-display super-ultrawide split. The status card names the running WoW client and the exact addon path it verifies; installs for another client, nested folders, and version-suffixed addon folders are reported explicitly. If Window control is BLOCKED, use Copy fix steps: Windows will not let a standard Companion control an administrator WoW process. Run Battle.net, WoW, and Offhand normally whenever possible. If Span is refused because topology could not be written, fix that path or file-permission error first. If WoW spans but the 3D world still fills both displays after /reload, confirm the in-game addon is enabled and that its version matches this Companion. Mixed resolutions, ultrawide Mainhand displays, portrait screens, negative desktop coordinates, and stacked arrangements use Windows' exact display rectangles; make sure Windows Display Settings matches the physical arrangement. Hover any dashboard control for a concise explanation.",
                 "",
                 "PRIVACY & VERIFICATION",
-                "The Companion does not collect telemetry, credentials, chat, or gameplay data. Network access occurs only when you click Check for Updates, and is limited to the official GitHub Releases API. Release checksums, source, and build provenance are published with official GitHub releases."
+                "The Companion does not collect telemetry, credentials, chat, or gameplay data. The optional Windows startup setting writes only the current Offhand.exe path and --minimized to the current user's Run registry key. Network access occurs only when you click Check for Updates, and is limited to the official GitHub Releases API. Release checksums, source, and build provenance are published with official GitHub releases."
             });
         }
 
@@ -1844,6 +2211,7 @@ namespace Offhand.Companion
 
         private void RestoreForm()
         {
+            this.ShowInTaskbar = true;
             this.Show();
             this.WindowState = FormWindowState.Normal;
             this.Activate();
@@ -1974,6 +2342,7 @@ namespace Offhand.Companion
             {
                 lblWowStatus.Text = string.Format("  * WoW Running  ({0}  PID: {1})", proc.ProcessName, proc.Id);
                 lblWowStatus.ForeColor = cGreen;
+                UpdateWindowControlStatus(proc);
 
                 AddonStatus status = TestOffhandAddonStatus(proc);
                 RememberWowDirectory(status.WowDir);
@@ -2013,6 +2382,7 @@ namespace Offhand.Companion
 
                 if (isMonitoring && savedDisplayDisconnected && spannedPids.Contains(proc.Id)
                     && !restoredPids.Contains(proc.Id)
+                    && !privilegeBlockedPids.Contains(proc.Id)
                     && (!retryAfter.ContainsKey(proc.Id) || DateTime.Now >= retryAfter[proc.Id]))
                 {
                     retryAfter[proc.Id] = DateTime.Now.AddSeconds(10);
@@ -2021,7 +2391,8 @@ namespace Offhand.Companion
                         AddLog("Missing-monitor recovery filled the surviving Mainhand display. Reconnect the workspace display before spanning again.");
                 }
 
-                if (isMonitoring && chkAutoSpan.Checked && status.Installed)
+                if (isMonitoring && chkAutoSpan.Checked && status.Installed
+                    && !privilegeBlockedPids.Contains(proc.Id))
                 {
                     if (!spannedPids.Contains(proc.Id) && !restoredPids.Contains(proc.Id) &&
                         (!retryAfter.ContainsKey(proc.Id) || DateTime.Now >= retryAfter[proc.Id]))
@@ -2045,6 +2416,7 @@ namespace Offhand.Companion
             }
             else
             {
+                UpdateWindowControlStatus(null);
                 lblWowStatus.Text = "  o WoW Process: Not running";
                 lblWowStatus.ForeColor = cMuted;
                 lblAddonStatus.Text = "  o Offhand Addon: Waiting for WoW...";
@@ -2073,6 +2445,7 @@ namespace Offhand.Companion
                 {
                     spannedPids.Remove(pid);
                     restoredPids.Remove(pid);
+                    privilegeBlockedPids.Remove(pid);
                     originalWindows.Remove(pid);
                     launchTimes.Remove(pid);
                     retryAfter.Remove(pid);
@@ -2085,27 +2458,39 @@ namespace Offhand.Companion
         {
             anyRecognizedProcess = false;
             Process selected = null;
-            Process[] processes = Process.GetProcesses();
-            foreach (Process candidate in processes)
+            foreach (string processName in wowProcessNames)
             {
-                bool keep = false;
+                Process[] candidates;
                 try
                 {
-                    if (!wowProcessNameSet.Contains(candidate.ProcessName)) continue;
-                    anyRecognizedProcess = true;
-                    if (selected == null && candidate.MainWindowHandle != IntPtr.Zero)
-                    {
-                        selected = candidate;
-                        keep = true;
-                    }
+                    candidates = Process.GetProcessesByName(processName);
                 }
                 catch
                 {
-                    // A process can exit while Windows is returning its metadata.
+                    // Process discovery can race with process startup or shutdown.
+                    continue;
                 }
-                finally
+
+                if (candidates.Length > 0) anyRecognizedProcess = true;
+                foreach (Process candidate in candidates)
                 {
-                    if (!keep) candidate.Dispose();
+                    bool keep = false;
+                    try
+                    {
+                        if (selected == null && candidate.MainWindowHandle != IntPtr.Zero)
+                        {
+                            selected = candidate;
+                            keep = true;
+                        }
+                    }
+                    catch
+                    {
+                        // A process can exit while Windows is returning its window.
+                    }
+                    finally
+                    {
+                        if (!keep) candidate.Dispose();
+                    }
                 }
             }
             return selected;
@@ -2184,6 +2569,7 @@ namespace Offhand.Companion
             {
                 proc = GetWoWProcess();
                 if (proc == null) throw new Exception("Launch exactly one WoW client first.");
+                EnsureWindowControlAllowed(proc);
                 IntPtr handle = GetWoWWindowHandle(proc);
                 if (handle == IntPtr.Zero) throw new Exception("WoW window is not ready.");
 
@@ -2222,8 +2608,10 @@ namespace Offhand.Companion
                 
                 NativeMethods.SetLastError(0);
                 int previousStyle = NativeMethods.SetWindowLong(handle, NativeMethods.GWL_STYLE, newStyle);
-                if (previousStyle == 0 && Marshal.GetLastWin32Error() != 0)
-                    throw new Exception("Windows rejected restoring the window borders.");
+                int styleError = Marshal.GetLastWin32Error();
+                if (previousStyle == 0 && styleError != 0)
+                    throw new Exception(WindowInteropDiagnostics.StyleFailure(
+                        "Windows rejected restoring the WoW window borders", styleError));
                 
                 uint flags = NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_FRAMECHANGED | NativeMethods.SWP_SHOWWINDOW;
                 try
@@ -2245,6 +2633,8 @@ namespace Offhand.Companion
                 
                 spannedPids.Remove(proc.Id);
                 restoredPids.Add(proc.Id);
+                if (manual && !NativeMethods.SetForegroundWindow(handle))
+                    AddLog("WoW was restored, but Windows did not return keyboard focus automatically. Click the WoW window once to activate it.");
                 AddLog(fillConnectedMainhand
                     ? "Restored WoW across the selected or surviving Mainhand display. Auto-span paused until Span Now. On Forever, click Use Modern if Offhand prompts."
                     : "Restored WoW window. Auto-span paused for this client until Span Now or a new WoW launch.");
@@ -2269,6 +2659,7 @@ namespace Offhand.Companion
             {
                 proc = GetWoWProcess();
                 if (proc == null) throw new Exception("Launch exactly one WoW client first.");
+                EnsureWindowControlAllowed(proc);
 
                 ConfirmStableDisplayIdentity(manual);
 
@@ -2314,9 +2705,11 @@ namespace Offhand.Companion
                 {
                     NativeMethods.SetLastError(0);
                     int res = NativeMethods.SetWindowLong(handle, NativeMethods.GWL_STYLE, newStyle);
-                    if (res == 0 && Marshal.GetLastWin32Error() != 0)
+                    int styleError = Marshal.GetLastWin32Error();
+                    if (res == 0 && styleError != 0)
                     {
-                        throw new Exception("Could not remove WoW window borders.");
+                        throw new Exception(WindowInteropDiagnostics.StyleFailure(
+                            "Could not remove WoW window borders", styleError));
                     }
                 }
 
@@ -2398,9 +2791,21 @@ namespace Offhand.Companion
         [STAThread]
         public static void Main()
         {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new CompanionForm());
+            bool startMinimized = WindowsStartupRegistration.ShouldStartMinimized(Environment.GetCommandLineArgs());
+            bool ownsInstance;
+            using (System.Threading.Mutex instanceMutex = new System.Threading.Mutex(true, @"Local\OffhandCompanion", out ownsInstance))
+            {
+                if (!ownsInstance)
+                {
+                    if (!startMinimized)
+                        MessageBox.Show("Offhand Companion is already running. Open it from the Windows notification area.",
+                            "Offhand Companion", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                Application.Run(new CompanionForm(startMinimized));
+            }
         }
     }
 }

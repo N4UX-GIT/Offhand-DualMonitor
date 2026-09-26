@@ -522,6 +522,59 @@ if not Offhand.isForever and CloseAllBags and not _G.Offhand_OriginalCloseAllBag
     end
 end
 
+-- A load-on-demand UIPanel can register while the same hardware action that
+-- loaded its Blizzard addon is still opening it. Calling ShowUIPanel from that
+-- registration stack (or its immediate zero-delay continuation) can re-enter
+-- the native panel loader and is a credible cause of reported Forever Beta
+-- crashes when opening Professions. Give Blizzard time to finish first. If the
+-- native K/micro-button path already showed the panel, only restore its saved
+-- workspace anchor. Otherwise perform the requested reload restoration after
+-- the frame is fully initialized.
+function Canvas:QueuePersistentPanelRestore(frame, name)
+    if not frame or not name or not C_Timer or not C_Timer.After then return false end
+    if frame._OffhandPersistentRestoreQueued then return true end
+
+    frame._OffhandPersistentRestoreQueued = true
+    C_Timer.After(0.75, function()
+        frame._OffhandPersistentRestoreQueued = nil
+        local db = Offhand.db
+        local shouldRestore = db and db.enabled
+            and db.persistentWorkspacePanels ~= false
+            and db.restoreWorkspaceOnReload ~= false
+            and db.openWorkspacePanels and db.openWorkspacePanels[name]
+            and db.savedWorkspacePositions and db.savedWorkspacePositions[name]
+        if not shouldRestore then return end
+        if InCombatLockdown() then
+            if Offhand.RunOrQueueCombat then
+                Offhand:RunOrQueueCombat(function()
+                    Canvas:QueuePersistentPanelRestore(frame, name)
+                end)
+            end
+            return
+        end
+
+        if frame.IsShown and frame:IsShown() then
+            RestoreWorkspacePosition(frame)
+            return
+        end
+
+        if ShowUIPanel and UIPanelWindows and UIPanelWindows[name] then
+            pcall(ShowUIPanel, frame)
+        elseif frame.Show then
+            pcall(frame.Show, frame)
+        end
+
+        -- OnShow normally restores the position. Retain a final deferred pass
+        -- for panels whose native layout writes its anchor after OnShow.
+        C_Timer.After(0, function()
+            if frame.IsShown and frame:IsShown() then
+                RestoreWorkspacePosition(frame)
+            end
+        end)
+    end)
+    return true
+end
+
 function Canvas:RestorePersistentFrames()
     if not Offhand.db or not Offhand.db.enabled or Offhand.db.persistentWorkspacePanels == false then return end
     if Offhand.db.restoreWorkspaceOnReload == false then return end
@@ -566,11 +619,7 @@ function Canvas:RestorePersistentFrames()
                     RestoreWorkspacePosition(frame)
                 else
                     -- Generic UIPanels (Character, Quest, Guild, etc.)
-                    if ShowUIPanel and (UIPanelWindows and UIPanelWindows[name]) then
-                        ShowUIPanel(frame)
-                    elseif frame.Show then
-                        frame:Show()
-                    end
+                    Canvas:QueuePersistentPanelRestore(frame, name)
                 end
             end
         end
@@ -2037,7 +2086,10 @@ function Canvas:EnableFreeDragging()
     -- RegisterUIPanel is the common path used by load-on-demand Blizzard
     -- features (including PlayerSpellsFrame). Hook the registration itself so
     -- a panel cannot be missed because its addon initialized after Offhand's
-    -- ADDON_LOADED callback.
+    -- ADDON_LOADED callback. Never show the frame from the registration turn:
+    -- the same K/micro-button action may still be inside Blizzard's native
+    -- loader. The settlement queue preserves reload persistence without that
+    -- re-entrant panel open.
     if hooksecurefunc and RegisterUIPanel and not self.registerUIPanelHooked then
         self.registerUIPanelHooked = true
         hooksecurefunc("RegisterUIPanel", function(frame)
@@ -2049,11 +2101,7 @@ function Canvas:EnableFreeDragging()
                     and Offhand.db.savedWorkspacePositions
                     and Offhand.db.savedWorkspacePositions[name]
                 if shouldRestore and frame.IsShown and not frame:IsShown() then
-                    if ShowUIPanel and UIPanelWindows and UIPanelWindows[name] then
-                        pcall(ShowUIPanel, frame)
-                    elseif frame.Show then
-                        pcall(frame.Show, frame)
-                    end
+                    Canvas:QueuePersistentPanelRestore(frame, name)
                 end
                 if frame and frame.IsShown and frame:IsShown() then
                     RestoreSavedPositionAfterShow(frame)

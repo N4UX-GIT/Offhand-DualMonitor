@@ -761,9 +761,41 @@ end
 function HUD:RepairChatAnchor(frame)
     if aligning or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
         or Offhand.db.dockChat == false or Chattynator then return end
-    if RetailEditModeOwnsPrimaryChat(frame) then return end
     if frame._OffhandDragging or MOVING_CHATFRAME == frame then return end
-    if Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions.ChatFrame1 then return end
+    local retailManaged = RetailEditModeOwnsPrimaryChat(frame)
+    local retailEditModeActive = retailManaged and ((frame and frame.isInEditMode == true)
+        or (EditModeManagerFrame and EditModeManagerFrame.IsShown
+            and EditModeManagerFrame:IsShown()))
+    if retailEditModeActive then return end
+    if Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions.ChatFrame1 then
+        -- Blizzard restores the primary chat anchor late during cold login on
+        -- both legacy and Forever clients. The SetPoint hook runs inside that
+        -- write, so reanchoring synchronously risks recursion. Reassert the
+        -- explicit Offhand placement on the next frame and coalesce bursts of
+        -- native layout writes into one repair.
+        if self.chatWorkspaceRepairPending or not C_Timer or not C_Timer.After then return end
+        self.chatWorkspaceRepairPending = true
+        C_Timer.After(0, function()
+            self.chatWorkspaceRepairPending = nil
+            if aligning or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
+                or Offhand.db.dockChat == false or Chattynator
+                or frame._OffhandDragging or MOVING_CHATFRAME == frame
+                or (RetailEditModeOwnsPrimaryChat(frame)
+                    and ((frame and frame.isInEditMode == true)
+                        or (EditModeManagerFrame and EditModeManagerFrame.IsShown
+                            and EditModeManagerFrame:IsShown())))
+                or not (Offhand.db.savedWorkspacePositions
+                    and Offhand.db.savedWorkspacePositions.ChatFrame1) then return end
+            if Offhand.Canvas and Offhand.Canvas.RestoreWorkspacePosition then
+                aligning = true
+                local ok, err = pcall(Offhand.Canvas.RestoreWorkspacePosition, Offhand.Canvas, frame)
+                aligning = false
+                if not ok then Offhand:Print("Chat workspace repair error: %s", tostring(err)) end
+            end
+        end)
+        return
+    end
+    if retailManaged then return end
     if frame.Selection and frame.IsEditModeDragging and frame:IsEditModeDragging() then return end
     if frame.IsInDefaultPosition and not frame:IsInDefaultPosition() then return end
     local desired = desiredFrames[frame]

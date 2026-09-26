@@ -3,8 +3,9 @@
     Packages the Offhand Addon for CurseForge and the Offhand Companion for GitHub Releases.
 #>
 param(
-    [string]$Version = "2.1.2-beta.10",
-    [switch]$AddonOnly
+    [string]$Version = "2.1.2-beta.11",
+    [switch]$AddonOnly,
+    [switch]$UseExistingCompanion
 )
 
 $ErrorActionPreference = "Stop"
@@ -67,19 +68,27 @@ Write-Host "===================================================" -ForegroundColo
 Write-Host "  Offhand Release Packager v$Version" -ForegroundColor Cyan
 Write-Host "===================================================" -ForegroundColor Cyan
 
-# 1. Ensure Companion executable is compiled for bundles that include it. An
-# addon-only CurseForge build must not replace a previously accepted Companion
-# binary with a fresh, differently hashed compiler output.
-if (-not $AddonOnly) {
+# 1. Produce one canonical Companion executable. Release automation builds it
+# explicitly, then passes -UseExistingCompanion so packaging cannot silently
+# replace the reviewed/scanned bytes with a second compiler output.
+$companionExe = Join-Path $rootDir "Companion\Offhand.exe"
+if (-not $AddonOnly -and -not $UseExistingCompanion) {
     Write-Host "
 [1/$stepTotal] Compiling Companion executable..." -ForegroundColor Yellow
     & (Join-Path $rootDir "Companion\build.bat")
     if ($LASTEXITCODE -ne 0) {
         throw "Companion build failed. Close a running companion if it locks the executable, then retry."
     }
-} else {
+} elseif ($AddonOnly) {
     Write-Host "
 [1/$stepTotal] Addon-only mode: preserving the accepted Companion binary." -ForegroundColor Yellow
+} else {
+    Write-Host "
+[1/$stepTotal] Using the prebuilt canonical Companion executable." -ForegroundColor Yellow
+}
+
+if (-not $AddonOnly -and -not (Test-Path -LiteralPath $companionExe -PathType Leaf)) {
+    throw "Canonical Companion executable is missing: $companionExe"
 }
 
 # 2. Reset dist directory
@@ -141,7 +150,7 @@ Write-Host "
 $compStaging = Join-Path $tempDir "Offhand-Companion"
 New-Item -ItemType Directory -Path $compStaging -Force | Out-Null
 
-Copy-Item (Join-Path $rootDir "Companion\Offhand.exe") -Destination $compStaging
+Copy-Item $companionExe -Destination $compStaging
 Copy-Item (Join-Path $rootDir "Companion\LICENSE") -Destination $compStaging
 Copy-Item (Join-Path $rootDir "Companion\README.md") -Destination $compStaging
 Copy-Item (Join-Path $rootDir "Companion\Linux.md") -Destination $compStaging
@@ -159,7 +168,7 @@ Write-Host "  -> Created: $compZip" -ForegroundColor Green
 
 # Copy standalone Offhand.exe directly to dist
 $standaloneExe = Join-Path $distDir "Offhand.exe"
-Copy-Item (Join-Path $rootDir "Companion\Offhand.exe") -Destination $standaloneExe
+Copy-Item $companionExe -Destination $standaloneExe
 Write-Host "  -> Created standalone executable: $standaloneExe" -ForegroundColor Green
 
 
@@ -169,7 +178,7 @@ $bundleStaging = Join-Path $tempDir "Offhand-Bundle"
 New-Item -ItemType Directory -Path $bundleStaging -Force | Out-Null
 
 Copy-Item $addonStaging -Destination (Join-Path $bundleStaging "Offhand") -Recurse
-Copy-Item (Join-Path $rootDir "Companion\Offhand.exe") -Destination (Join-Path $bundleStaging "Offhand.exe")
+Copy-Item $companionExe -Destination (Join-Path $bundleStaging "Offhand.exe")
 Copy-Item (Join-Path $rootDir "README.md") -Destination $bundleStaging
 Copy-Item (Join-Path $rootDir "SECURITY.md") -Destination $bundleStaging
 $bundleCompanionDocs = Join-Path $bundleStaging "Companion"
@@ -192,6 +201,43 @@ $checksumLines = foreach ($file in $distFiles) {
     "$hash  $($file.Name)"
 }
 $checksumLines | Set-Content -Path $checksumFile -Encoding UTF8
+
+$canonicalCompanionHash = (Get-FileHash -LiteralPath $companionExe -Algorithm SHA256).Hash
+if ((Get-FileHash -LiteralPath $standaloneExe -Algorithm SHA256).Hash -ne $canonicalCompanionHash) {
+    throw "Standalone release contains a different executable than the canonical Companion build."
+}
+
+$archiveChecks = @(
+    @{ Path = $compZip; Entry = 'Offhand.exe'; Label = 'Companion archive' },
+    @{ Path = $bundleZip; Entry = 'Offhand.exe'; Label = 'Complete archive' }
+)
+$sha256 = [Security.Cryptography.SHA256]::Create()
+try {
+    foreach ($check in $archiveChecks) {
+        $archive = [IO.Compression.ZipFile]::OpenRead($check.Path)
+        try {
+            $entry = $archive.GetEntry($check.Entry)
+            if ($null -eq $entry) {
+                throw "$($check.Label) is missing $($check.Entry)."
+            }
+            $stream = $entry.Open()
+            try {
+                $entryHash = [BitConverter]::ToString($sha256.ComputeHash($stream)).Replace('-', '')
+            } finally {
+                $stream.Dispose()
+            }
+            if ($entryHash -ne $canonicalCompanionHash) {
+                throw "$($check.Label) contains a different executable than the canonical Companion build."
+            }
+        } finally {
+            $archive.Dispose()
+        }
+    }
+} finally {
+    $sha256.Dispose()
+}
+
+Write-Host "  Canonical Companion SHA-256: $canonicalCompanionHash" -ForegroundColor White
 
 Write-Host "
 Release Artifacts Ready in dist/:" -ForegroundColor Cyan

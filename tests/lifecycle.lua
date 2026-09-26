@@ -131,8 +131,10 @@ C_Timer.After = function(delay, fn)
     cinematicTimers[#cinematicTimers + 1] = { delay = delay, fn = fn }
 end
 local cinematicApplies = 0
+local rawMouseRefreshes = 0
 addon.db.enabled = true
 addon.Viewport.Apply = function() cinematicApplies = cinematicApplies + 1 end
+addon.RawMouse = {Refresh = function() rawMouseRefreshes = rawMouseRefreshes + 1 end}
 addon.ApplyFullLayout = function() error("cinematic recovery rebuilt the full layout") end
 initOnEvent(nil, "CINEMATIC_START")
 local startTimers = cinematicTimers
@@ -141,11 +143,14 @@ initOnEvent(nil, "CINEMATIC_STOP")
 local stopTimers = cinematicTimers
 for _, timer in ipairs(startTimers) do timer.fn() end
 assert(cinematicApplies == 0, "stale cinematic-start timers were not superseded")
-assert(#stopTimers == 3 and stopTimers[1].delay == 0
-        and stopTimers[2].delay == 0.1 and stopTimers[3].delay == 0.5,
+assert(#stopTimers == 4 and stopTimers[1].delay == 0
+        and stopTimers[2].delay == 0.1 and stopTimers[3].delay == 0.5
+        and stopTimers[4].delay == 0.5,
     "cinematic recovery did not schedule the expected settling passes")
 for _, timer in ipairs(stopTimers) do timer.fn() end
 assert(cinematicApplies == 3, "cinematic stop did not reassert the viewport")
+assert(rawMouseRefreshes == 1,
+    "cinematic stop did not refresh native raw-mouse registration")
 
 cinematicTimers = {}
 combat = true

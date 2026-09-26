@@ -20,14 +20,18 @@ jobs:
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
 
+    - name: Build canonical Companion executable
+      shell: cmd
+      run: Companion\build.bat
+
     - name: Build and Package
       shell: powershell
       run: |
-        # Run the packaging script. It automatically compiles the C# app 
-        # and generates the .zip files in the dist/ folder.
+        # Package the already-built Companion so every release container and
+        # checksum refers to the same reviewed executable bytes.
         # We extract the version from the tag (e.g., v1.0.1 -> 1.0.1)
         $version = "${{ github.ref_name }}".TrimStart('v')
-        .\package.ps1 -Version $version
+        .\package.ps1 -Version $version -UseExistingCompanion
 
     - name: Create standardized release metadata
       id: metadata
