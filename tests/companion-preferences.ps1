@@ -19,8 +19,8 @@ try {
     if ($source -notmatch 'btnCheckUpdates\.Click.*CheckForUpdates') {
         throw 'Companion update checks must remain wired to an explicit user action.'
     }
-    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.2-beta\.12"\)' -or
-        $source -notmatch 'AssemblyFileVersion\("2\.1\.2\.12"\)') {
+    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.2-beta\.13"\)' -or
+        $source -notmatch 'AssemblyFileVersion\("2\.1\.2\.13"\)') {
         throw 'Companion binary metadata must identify the exact beta build.'
     }
     if ($source -match 'Process\.GetProcesses\(\)' -or
@@ -49,8 +49,18 @@ try {
         $source -notmatch 'logBox = new RichTextBox(?s:.*?)WordWrap = true') {
         throw 'Companion activity log must remain a word-wrapped read-only text surface.'
     }
-    if ($source -notmatch 'lblDisplayInfo = new Label(?s:.*?)Size = new Size\(470, 36\)(?s:.*?)AutoSize = false') {
-        throw 'Companion display-plan status must retain enough fixed-width height to wrap disconnect errors.'
+    if ($source -notmatch 'AutoScaleDimensions = new SizeF\(96F, 96F\)' -or
+        $source -notmatch 'AutoScaleMode = AutoScaleMode\.Dpi' -or
+        $source -notmatch 'ClientSize = new Size\(524, 824\)' -or
+        $source -notmatch 'AutoScroll = true') {
+        throw 'Companion must scale its 96-DPI dashboard geometry linearly and remain scrollable at enlarged display scales.'
+    }
+    $displayInfo = [regex]::Match($source, 'lblDisplayInfo = new Label(?s:.*?)Location = new Point\(10, (?<y>\d+)\)(?s:.*?)Size = new Size\(470, (?<h>\d+)\)(?s:.*?)AutoSize = false')
+    $addonReason = [regex]::Match($source, 'lblAddonReason = new Label(?s:.*?)Location = new Point\(10, (?<y>\d+)\)')
+    if (-not $displayInfo.Success -or -not $addonReason.Success -or
+        [int]$displayInfo.Groups['h'].Value -lt 54 -or
+        ([int]$displayInfo.Groups['y'].Value + [int]$displayInfo.Groups['h'].Value) -gt [int]$addonReason.Groups['y'].Value) {
+        throw 'Companion display-plan status must wrap at least three lines without overlapping addon diagnostics.'
     }
     if ($source -notmatch 'lblAddonReason = new Label(?s:.*?)Size = new Size\(470, 42\)(?s:.*?)AutoSize = false' -or
         $source -notmatch 'AddLog\("Addon verification: " \+ status\.Reason\)') {
@@ -61,6 +71,15 @@ try {
     if (-not $hotkey.Success -or -not $monitors.Success -or
         ([int]$hotkey.Groups['x'].Value + [int]$hotkey.Groups['w'].Value) -ge [int]$monitors.Groups['x'].Value) {
         throw 'Companion hotkey selector must not overlap the display checklist.'
+    }
+    $autoSpan = [regex]::Match($source, 'chkAutoSpan = new CheckBox(?s:.*?)Location = new Point\((?<x>\d+), 28\)(?s:.*?)Size = new Size\((?<w>\d+), 22\)')
+    $monitorLabel = [regex]::Match($source, 'Label lblMonitors = new Label \{ Text = "Span displays:", Location = new Point\((?<x>\d+), 26\)')
+    if (-not $autoSpan.Success -or -not $monitorLabel.Success -or
+        ([int]$autoSpan.Groups['x'].Value + [int]$autoSpan.Groups['w'].Value) -ge [int]$monitorLabel.Groups['x'].Value) {
+        throw 'Companion auto-span preference must not cover the Span displays heading.'
+    }
+    if ($source -notmatch 'Text = "Auto-span WoW on launch"') {
+        throw 'Companion auto-span caption must remain concise enough for enlarged DPI layouts.'
     }
     $packager = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\package.ps1') -Raw
     if ($packager -notmatch 'Companion\\Linux\.md.*-Destination \$compStaging' -or
@@ -95,7 +114,7 @@ try {
     Write-Output 'PASS: manual restore returns focus and border failures include actionable diagnostics'
     Write-Output 'PASS: Companion avoids startup persistence and process-token inspection'
     Write-Output 'PASS: single-instance guard prevents duplicate Companion tray processes'
-    Write-Output 'PASS: long display-plan and activity-log text uses wrapped surfaces'
+    Write-Output 'PASS: DPI-scaled dashboard geometry keeps wrapped status and configuration controls separate'
     Write-Output 'PASS: addon verification paths are visible and copied into the activity log'
     Write-Output 'PASS: hotkey selector does not overlap the display checklist'
     Write-Output 'PASS: Linux compatibility documentation is included by the release packager'

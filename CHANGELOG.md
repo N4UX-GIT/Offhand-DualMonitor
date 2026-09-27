@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Changed
-- Addon settings and Companion now identify the exact `v2.1.2-beta.12`
+- Addon settings and Companion now identify the exact `v2.1.2-beta.13`
   pre-release build while retaining `2.1.2` as the compatible base version.
 - Companion display-plan and activity-log messages now wrap instead of drawing
   long missing-monitor diagnostics outside their cards.
@@ -27,6 +27,11 @@ All notable changes to this project will be documented in this file.
   Companion's required window-management behavior.
 
 ### Fixed
+- Companion now uses an explicit 96-DPI design baseline with linear DPI
+  autoscaling, preventing fixed dashboard panels from clipping enlarged text
+  on high-resolution and mixed-scale displays.
+- The System Status display-plan diagnostic now has room for three wrapped
+  lines, and the auto-span checkbox no longer covers the Span displays heading.
 - In-engine cinematics no longer leave the 3D camera centred on the monitor
   seam. Offhand now reapplies only the configured Mainhand viewport after
   cinematic start and completion, including delayed and combat-safe recovery.

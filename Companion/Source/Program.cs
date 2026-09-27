@@ -15,8 +15,8 @@ using System.Windows.Forms;
 [assembly: AssemblyProduct("Offhand")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
 [assembly: AssemblyVersion("2.1.2.0")]
-[assembly: AssemblyFileVersion("2.1.2.12")]
-[assembly: AssemblyInformationalVersion("2.1.2-beta.12")]
+[assembly: AssemblyFileVersion("2.1.2.13")]
+[assembly: AssemblyInformationalVersion("2.1.2-beta.13")]
 
 namespace Offhand.Companion
 {
@@ -229,7 +229,7 @@ namespace Offhand.Companion
 
     internal static class AddonInstallation
     {
-        internal const string ExpectedRelease = "beta.12";
+        internal const string ExpectedRelease = "beta.13";
         private static readonly string[] ManifestNames = new string[] {
             "Offhand.toc", "Offhand_Mainline.toc", "Offhand_Vanilla.toc",
             "Offhand_Classic.toc", "Offhand_Forever.toc"
@@ -807,7 +807,7 @@ namespace Offhand.Companion
     public class CompanionForm : Form
     {
         internal const string BaseVersion = "2.1.2";
-        internal const string ReleaseLabel = "Beta 12";
+        internal const string ReleaseLabel = "Beta 13";
         internal const string FullVersion = BaseVersion + " " + ReleaseLabel;
 
         // Warcraft Dark Interface Palette (Black / Dark Grey / Burnished Gold)
@@ -1201,11 +1201,19 @@ namespace Offhand.Companion
 
         private void InitializeUI()
         {
+            this.SuspendLayout();
+            // Every coordinate below is authored against a 96-DPI baseline.
+            // Explicit DPI scaling keeps the fixed dashboard geometry and its
+            // fonts proportional on high-resolution and mixed-DPI displays.
+            this.AutoScaleDimensions = new SizeF(96F, 96F);
+            this.AutoScaleMode = AutoScaleMode.Dpi;
+            this.Font = new Font("Segoe UI", 9F);
             this.Text = "Offhand Companion";
-            this.Size = new Size(524, 854);
+            this.ClientSize = new Size(524, 824);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
+            this.AutoScroll = true;
             this.BackColor = cBg;
             this.ForeColor = cText;
             uiToolTips = new ToolTip
@@ -1282,8 +1290,8 @@ namespace Offhand.Companion
             // Title
             Label titleLabel = new Label();
             titleLabel.Text = "OFFHAND";
-            titleLabel.Location = new Point(96, 12);
-            titleLabel.Size = new Size(365, 34);
+            titleLabel.Location = new Point(96, 8);
+            titleLabel.Size = new Size(365, 38);
             titleLabel.Font = new Font("Georgia", 22, FontStyle.Bold);
             titleLabel.ForeColor = cGold;
             titleLabel.BackColor = Color.Transparent;
@@ -1344,7 +1352,7 @@ namespace Offhand.Companion
             {
                 Text = "  Virtual Desktop: Checking...",
                 Location = new Point(10, 76),
-                Size = new Size(470, 36),
+                Size = new Size(470, 54),
                 AutoSize = false,
                 UseMnemonic = false,
                 Font = new Font("Segoe UI", 8.5f),
@@ -1370,9 +1378,9 @@ namespace Offhand.Companion
 
             chkAutoSpan = new CheckBox
             {
-                Text = "Automatically span WoW window on game launch",
+                Text = "Auto-span WoW on launch",
                 Location = new Point(10, 28),
-                Size = new Size(460, 22),
+                Size = new Size(245, 22),
                 Font = new Font("Segoe UI", 9),
                 ForeColor = cText,
                 BackColor = Color.Transparent,
@@ -1616,6 +1624,7 @@ namespace Offhand.Companion
                     trayIcon.ShowBalloonTip(1500, "Offhand Minimized", "Running in System Tray. Right-click or double-click to control.", ToolTipIcon.Info);
                 }
             };
+            this.ResumeLayout(false);
         }
 
         private Panel CreateCardPanel(int x, int y, int w, int h, string title)
