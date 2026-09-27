@@ -11,7 +11,7 @@ try {
     $source = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Source\Program.cs') -Raw
     $constructor = [regex]::Match(
         $source,
-        'public CompanionForm\(bool startMinimized = false\)\s*\{(?<body>.*?)\n\s*\}\s*\n\s*private void CheckForUpdates',
+        'public CompanionForm\(\)\s*\{(?<body>.*?)\n\s*\}\s*\n\s*private void CheckForUpdates',
         [Text.RegularExpressions.RegexOptions]::Singleline).Groups['body'].Value
     if ($constructor -match 'CheckForUpdates') {
         throw 'Companion must not contact the update service during startup.'
@@ -19,8 +19,8 @@ try {
     if ($source -notmatch 'btnCheckUpdates\.Click.*CheckForUpdates') {
         throw 'Companion update checks must remain wired to an explicit user action.'
     }
-    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.2-beta\.11"\)' -or
-        $source -notmatch 'AssemblyFileVersion\("2\.1\.2\.11"\)') {
+    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.2-beta\.12"\)' -or
+        $source -notmatch 'AssemblyFileVersion\("2\.1\.2\.12"\)') {
         throw 'Companion binary metadata must identify the exact beta build.'
     }
     if ($source -match 'Process\.GetProcesses\(\)' -or
@@ -38,20 +38,12 @@ try {
         $source -notmatch 'same privilege level') {
         throw 'Manual restore must return focus to WoW and border failures must explain privilege mismatches.'
     }
-    if ($source -notmatch 'TokenIntegrityLevel' -or
-        $source -notmatch 'EnsureWindowControlAllowed\(proc\)(?s:.*?)ConfirmStableDisplayIdentity' -or
-        $source -notmatch 'Window control BLOCKED') {
-        throw 'Companion must detect and block lower-integrity control of an elevated WoW process before spanning.'
-    }
-    if ($source -notmatch 'Registry\.CurrentUser\.CreateSubKey\(RunKey\)' -or
-        $source -notmatch '\" --minimized' -or
-        $source -notmatch 'Run Offhand on Windows startup \(minimized to tray\)' -or
-        $source -match 'Registry\.LocalMachine') {
-        throw 'Windows startup must remain an explicit per-user, minimized-to-tray option.'
+    if ($source -match 'Microsoft\.Win32|Registry\.(CurrentUser|LocalMachine)|OpenProcessToken|GetTokenInformation|TokenIntegrityLevel|advapi32\.dll|--minimized') {
+        throw 'Companion must not configure startup persistence or inspect process security tokens.'
     }
     if ($source -notmatch 'new System\.Threading\.Mutex\(true, @"Local\\OffhandCompanion"' -or
         $source -notmatch 'Offhand Companion is already running') {
-        throw 'Windows startup support must prevent duplicate Companion tray processes.'
+        throw 'Companion must prevent duplicate tray processes.'
     }
     if ($source -notmatch 'private RichTextBox logBox' -or
         $source -notmatch 'logBox = new RichTextBox(?s:.*?)WordWrap = true') {
@@ -101,8 +93,8 @@ try {
     Write-Output 'PASS: update checks are user initiated'
     Write-Output 'PASS: polling is restricted to known WoW process names and topology handoff failures block unsafe spans'
     Write-Output 'PASS: manual restore returns focus and border failures include actionable diagnostics'
-    Write-Output 'PASS: integrity preflight blocks elevated WoW before window mutation'
-    Write-Output 'PASS: opt-in per-user Windows startup launches one minimized tray instance'
+    Write-Output 'PASS: Companion avoids startup persistence and process-token inspection'
+    Write-Output 'PASS: single-instance guard prevents duplicate Companion tray processes'
     Write-Output 'PASS: long display-plan and activity-log text uses wrapped surfaces'
     Write-Output 'PASS: addon verification paths are visible and copied into the activity log'
     Write-Output 'PASS: hotkey selector does not overlap the display checklist'

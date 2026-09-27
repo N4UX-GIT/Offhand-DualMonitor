@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Changed
-- Addon settings and Companion now identify the exact `v2.1.2-beta.11`
+- Addon settings and Companion now identify the exact `v2.1.2-beta.12`
   pre-release build while retaining `2.1.2` as the compatible base version.
 - Companion display-plan and activity-log messages now wrap instead of drawing
   long missing-monitor diagnostics outside their cards.
@@ -21,9 +21,10 @@ All notable changes to this project will be documented in this file.
 - Release automation now builds the Companion once, reuses that exact executable
   in every release container, and verifies each embedded copy against the
   canonical SHA-256 before publishing.
-- Companion can now be explicitly registered for current-user Windows startup;
-  startup launches one instance minimized to the notification area without a
-  service, scheduled task, administrator access, or Battle.net modification.
+- Companion no longer creates a Windows Run-key startup entry or inspects
+  process security tokens. Removing these nonessential beta.11 additions
+  reduces overlap with generic antivirus heuristics while retaining the
+  Companion's required window-management behavior.
 
 ### Fixed
 - In-engine cinematics no longer leave the 3D camera centred on the monitor
@@ -38,10 +39,6 @@ All notable changes to this project will be documented in this file.
   unresponsive while the Companion remains foreground.
 - Window-border failures now include the native Windows error code and explain
   the common mismatched-privilege case instead of showing only a generic error.
-- Companion now compares its Windows integrity level with WoW before Span or
-  Restore, suppresses repeated automatic attempts when elevated WoW cannot be
-  controlled, and exposes copyable, path-specific recovery steps in System
-  Status. Unknown Wine integrity remains a non-blocking diagnostic.
 - Companion addon verification now reports the exact path expected by the
   running WoW client and identifies nested, version-suffixed, or sibling-client
   installs instead of repeating a generic installation instruction. It also
