@@ -15,7 +15,10 @@ for _, toc in ipairs(tocs) do
     local text = assert(io.open(toc, "rb")):read("*a")
     assert(text:match("## LoadSavedVariablesFirst:%s*1"), "Missing early SavedVariables load: " .. toc)
     assert(text:match("## X%-Offhand%-Manifest:%s*%S+"), "Missing manifest diagnostic marker: " .. toc)
-    assert(text:match("## X%-Offhand%-Release:%s*beta%.13"), "Missing standardized beta build marker: " .. toc)
+    assert(text:match("## X%-Offhand%-Release:%s*beta%.13"), "Frozen Companion compatibility marker changed: " .. toc)
+    assert(text:match("## X%-Offhand%-Companion%-Version:%s*2%.1%.2"), "Frozen Companion version marker changed: " .. toc)
+    assert(text:match("## X%-Offhand%-Companion%-Release:%s*beta%.13"), "Frozen Companion release marker changed: " .. toc)
+    assert(text:match("## X%-Offhand%-Addon%-Release:%s*beta%.14"), "Beta 14 addon release marker missing: " .. toc)
 end
 local main = entries(tocs[1])
 for i=2,#tocs do

@@ -48,7 +48,7 @@ The first-run welcome is only an introduction. Clicking either welcome button ac
 - Classic Era and Hardcore
 - Progression and Anniversary Classic
 
-Download the Companion or complete bundle from the [latest GitHub release](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest).
+Download the current Windows Companion from the pinned [v2.1.2 Beta 13 release](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.13/Offhand-Companion.zip). Addon-only updates continue to use this Companion unless the desktop application itself is explicitly updated.
 
 ## Companion safety and verification
 

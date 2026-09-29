@@ -439,6 +439,183 @@ local function Prepare(frame, m)
     frame:SetClampedToScreen(false)
 end
 
+-- Blizzard owns the visibility and interaction lifecycle of these transient
+-- frames, but their stock anchors are relative to the complete spanned
+-- UIParent. Keep only their presentation anchor relative to Mainhand. In
+-- particular, do not register them as workspace panels, remember visibility,
+-- or add Escape-key protection.
+local mainhandTransientFrames = {
+    { name = "ZoneTextFrame", point = "TOP", x = 0, y = -128 },
+    { name = "SubZoneTextFrame", point = "BOTTOM", x = 0, y = 512 },
+    { name = "BossBanner", point = "TOP", x = 0, y = -120 },
+    { name = "EventToastManagerFrame", point = "TOP", x = 0, y = -190 },
+    { name = "AlertFrame", point = "BOTTOM", x = 0, y = 128 },
+    { name = "RolePollPopup", point = "TOP", x = 0, y = -15 },
+    { name = "ReadyCheckFrame", point = "CENTER", x = 0, y = -10 },
+    { name = "TimerTracker", bounds = true, hookEvent = true },
+    { name = "HousingControlsFrame", point = "TOP", x = 0, y = -30 },
+    {
+        name = "HouseEditorFrame.ModeBar",
+        point = "BOTTOM", x = 0, y = 0,
+        resolve = function()
+            return _G.HouseEditorFrame and _G.HouseEditorFrame.ModeBar
+        end,
+    },
+    {
+        name = "HouseEditorFrame.StorageButton",
+        point = "LEFT", x = 24, y = 150,
+        resolve = function()
+            return _G.HouseEditorFrame and _G.HouseEditorFrame.StorageButton
+        end,
+    },
+    {
+        name = "HouseEditorFrame.StoragePanel",
+        point = "LEFT", x = 24, y = 150,
+        resolve = function()
+            return _G.HouseEditorFrame and _G.HouseEditorFrame.StoragePanel
+        end,
+    },
+    {
+        name = "HouseEditorFrame.MarketShoppingCartFrame",
+        point = "BOTTOMRIGHT", x = -30, y = 20,
+        resolve = function()
+            return _G.HouseEditorFrame and _G.HouseEditorFrame.MarketShoppingCartFrame
+        end,
+    },
+}
+
+local transientHooks = {}
+
+local function ResolveMainhandTransient(spec)
+    if spec.resolve then return spec.resolve() end
+    return _G[spec.name]
+end
+
+local function CanPositionMainhandTransient(frame)
+    if not frame or not frame.ClearAllPoints or not frame.SetPoint then return false end
+    if frame.IsForbidden and frame:IsForbidden() then return false end
+    -- Protected HUD/action frames remain Blizzard/Edit Mode owned. This keeps
+    -- OverrideActionBar and any future secure replacements out of this path.
+    if frame.IsProtected and frame:IsProtected() then return false end
+    return true
+end
+
+local function PositionTimerTracker(frame, m)
+    local parent = frame.GetParent and frame:GetParent()
+    if parent and parent ~= UIParent then
+        -- Commentator mode reparents TimerTracker to WorldFrame. Restore native
+        -- fill behavior if Offhand previously bounded it, then yield ownership.
+        if frame._OffhandMainhandTimerTracker and frame.SetAllPoints then
+            frame:ClearAllPoints()
+            frame:SetAllPoints(parent)
+            frame._OffhandMainhandTimerTracker = nil
+        end
+        return
+    end
+
+    local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
+    Points(frame,
+        {"BOTTOMLEFT", UIParent, "BOTTOMLEFT", m.gameLeft * factor, m.gameBottom * factor},
+        {"TOPRIGHT", UIParent, "BOTTOMLEFT", m.gameRight * factor, m.gameTop * factor})
+    frame._OffhandMainhandTimerTracker = true
+
+    -- The final "Go" texture is explicitly anchored to UIParent in Blizzard's
+    -- XML instead of TimerTracker. Reattach only that presentation texture;
+    -- its glow remains natively anchored to the texture.
+    if type(frame.timerList) == "table" then
+        for _, timer in pairs(frame.timerList) do
+            local goTexture = timer and timer.GoTexture
+            if goTexture and goTexture.ClearAllPoints and goTexture.SetPoint then
+                goTexture:ClearAllPoints()
+                goTexture:SetPoint("CENTER", frame, "CENTER", 0, 0)
+            end
+        end
+    end
+end
+
+function HUD:PositionMainhandTransientFrames(m)
+    if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
+        or not Offhand.db.seamRedirect then return end
+    m = m or Offhand.Viewport:GetMetrics()
+    if not m or not m.isSpanned then return end
+
+    for _, spec in ipairs(mainhandTransientFrames) do
+        local frame = ResolveMainhandTransient(spec)
+        if CanPositionMainhandTransient(frame) then
+            pcall(function()
+                Prepare(frame, m)
+                if spec.bounds then
+                    PositionTimerTracker(frame, m)
+                else
+                    Anchor(frame, spec.point, m, spec.x, spec.y, true)
+                end
+            end)
+        end
+    end
+
+    -- Static popups are pooled and Blizzard may restore their stock CENTER
+    -- point after OnShow. Reapplying the same desired point is a no-op, while a
+    -- later native reset is repaired on the next layout/ticker pass.
+    for i = 1, 4 do
+        local frame = _G["StaticPopup" .. i]
+        if CanPositionMainhandTransient(frame) then
+            pcall(function()
+                Prepare(frame, m)
+                Anchor(frame, "CENTER", m, 0, (i - 1) * 120, true)
+            end)
+        end
+    end
+end
+
+function HUD:HookMainhandTransientFrames()
+    -- Housing controls and the full-screen House Editor are load-on-demand.
+    -- Install the hook as soon as Blizzard creates either module so an already
+    -- shown child (notably HouseEditorFrame.ModeBar) is positioned before the
+    -- periodic recovery pass. ModeBar does not receive its own OnShow when its
+    -- hidden top-level parent becomes visible, so waiting for that script alone
+    -- leaves it centered on the complete spanned UIParent.
+    if not self.mainhandTransientLoader and CreateFrame then
+        local loader = CreateFrame("Frame")
+        if loader and loader.RegisterEvent and loader.SetScript then
+            self.mainhandTransientLoader = loader
+            loader:RegisterEvent("ADDON_LOADED")
+            loader:SetScript("OnEvent", function(_, _, addonName)
+                if addonName ~= "Blizzard_HousingControls"
+                    and addonName ~= "Blizzard_HouseEditor" then return end
+                HUD:HookMainhandTransientFrames()
+                HUD:PositionMainhandTransientFrames()
+                if C_Timer and C_Timer.After then
+                    C_Timer.After(0, function()
+                        HUD:HookMainhandTransientFrames()
+                        HUD:PositionMainhandTransientFrames()
+                    end)
+                end
+            end)
+        end
+    end
+
+    for _, spec in ipairs(mainhandTransientFrames) do
+        local frame = ResolveMainhandTransient(spec)
+        if CanPositionMainhandTransient(frame) and not transientHooks[frame] and frame.HookScript then
+            transientHooks[frame] = true
+            frame:HookScript("OnShow", function()
+                HUD:PositionMainhandTransientFrames()
+                if C_Timer and C_Timer.After then
+                    C_Timer.After(0, function() HUD:PositionMainhandTransientFrames() end)
+                end
+            end)
+            if spec.hookEvent then
+                frame:HookScript("OnEvent", function()
+                    HUD:PositionMainhandTransientFrames()
+                    if C_Timer and C_Timer.After then
+                        C_Timer.After(0, function() HUD:PositionMainhandTransientFrames() end)
+                    end
+                end)
+            end
+        end
+    end
+end
+
 function HUD:RequestLayout()
     if aligning or pending or not Offhand.db or not Offhand.db.enabled then return end
     pending = true
@@ -706,6 +883,7 @@ function HUD:AlignHUDFrames(m)
                 Prepare(frame, m)
                 if frame then Anchor(frame, "TOP", m, 0, item[2]) end
             end
+            self:PositionMainhandTransientFrames(m)
         end
     end)
     aligning = false
@@ -812,6 +990,7 @@ function HUD:IsRetailEditModePrimaryChat(frame)
 end
 
 function HUD:HookFrames()
+    self:HookMainhandTransientFrames()
     if not UsesForeverEditMode() and not HasCustomActionBarAddon() then
         if not self.managerHooked and UIParent_ManageFramePositions then
             self.managerHooked = true
@@ -1072,11 +1251,10 @@ function HUD:HookFrames()
                     end
 
                     -- Seam centering check
-                    if not child._offhand_centered and child.GetNumPoints and child:GetNumPoints() == 1 then
+                    if child.GetNumPoints and child:GetNumPoints() == 1 then
                         local pt, rel, relPt, x, y = child:GetPoint(1)
                         if (rel == UIParent or rel == nil) and pt == "CENTER" and relPt == "CENTER" then
                             if (x or 0) == 0 and (y or 0) == 0 then
-                                child._offhand_centered = true
                                 if child.ClearAllPoints and child.SetPoint then
                                     child:ClearAllPoints()
                                     local factor = UIParent:GetEffectiveScale() / child:GetEffectiveScale()
@@ -1095,6 +1273,8 @@ function HUD:HookFrames()
     if C_Timer and C_Timer.NewTicker and not self.popupTicker then
         self.popupTicker = C_Timer.NewTicker(2, function()
             RedirectExternalPopups()
+            HUD:HookMainhandTransientFrames()
+            HUD:PositionMainhandTransientFrames()
             CheckEditModeHooks()
             HUD:UpdateForeverEditModeControlsRecovery()
         end)
@@ -1530,6 +1710,9 @@ function HUD:HookFrames()
                 local m = Offhand.Viewport:GetMetrics()
                 Prepare(self, m)
                 Anchor(self, "CENTER", m, 0, (index - 1) * 120)
+                if C_Timer and C_Timer.After then
+                    C_Timer.After(0, function() HUD:PositionMainhandTransientFrames() end)
+                end
             end)
         end
     end

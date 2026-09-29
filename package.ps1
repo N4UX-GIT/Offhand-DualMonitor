@@ -1,10 +1,12 @@
 <#
 .SYNOPSIS
-    Packages the Offhand Addon for CurseForge and the Offhand Companion for GitHub Releases.
+    Packages the Offhand addon with the frozen Beta 13 Companion unless an
+    intentional Companion update is explicitly requested.
 #>
 param(
     [string]$Version = "2.1.2-beta.13",
     [switch]$AddonOnly,
+    [switch]$CompanionChanged,
     [switch]$UseExistingCompanion
 )
 
@@ -68,13 +70,18 @@ Write-Host "===================================================" -ForegroundColo
 Write-Host "  Offhand Release Packager v$Version" -ForegroundColor Cyan
 Write-Host "===================================================" -ForegroundColor Cyan
 
-# 1. Produce one canonical Companion executable. Release automation builds it
-# explicitly, then passes -UseExistingCompanion so packaging cannot silently
-# replace the reviewed/scanned bytes with a second compiler output.
+# The published Beta 13 executable is the default Companion for every addon-only
+# release. A new Companion build must be explicitly requested.
+$frozenCompanionTag = "v2.1.2-beta.13"
+$frozenCompanionSha256 = "E41E043EFCBB01936155FA0C8A8634F8DF80D7A83599BB5D583F1ECF6B07AEBE"
 $companionExe = Join-Path $rootDir "Companion\Offhand.exe"
-if (-not $AddonOnly -and -not $UseExistingCompanion) {
+if ($CompanionChanged -and $AddonOnly) {
+    throw "-CompanionChanged cannot be combined with -AddonOnly."
+}
+
+if ($CompanionChanged -and -not $UseExistingCompanion) {
     Write-Host "
-[1/$stepTotal] Compiling Companion executable..." -ForegroundColor Yellow
+[1/$stepTotal] Companion change explicitly requested; compiling executable..." -ForegroundColor Yellow
     & (Join-Path $rootDir "Companion\build.bat")
     if ($LASTEXITCODE -ne 0) {
         throw "Companion build failed. Close a running companion if it locks the executable, then retry."
@@ -82,13 +89,23 @@ if (-not $AddonOnly -and -not $UseExistingCompanion) {
 } elseif ($AddonOnly) {
     Write-Host "
 [1/$stepTotal] Addon-only mode: preserving the accepted Companion binary." -ForegroundColor Yellow
+} elseif ($CompanionChanged) {
+    Write-Host "
+[1/$stepTotal] Companion change explicitly requested; using the prebuilt executable." -ForegroundColor Yellow
 } else {
     Write-Host "
-[1/$stepTotal] Using the prebuilt canonical Companion executable." -ForegroundColor Yellow
+[1/$stepTotal] Using frozen Companion $frozenCompanionTag." -ForegroundColor Yellow
 }
 
 if (-not $AddonOnly -and -not (Test-Path -LiteralPath $companionExe -PathType Leaf)) {
     throw "Canonical Companion executable is missing: $companionExe"
+}
+
+if (-not $AddonOnly -and -not $CompanionChanged) {
+    $actualCompanionHash = (Get-FileHash -LiteralPath $companionExe -Algorithm SHA256).Hash
+    if ($actualCompanionHash -ne $frozenCompanionSha256) {
+        throw "Addon-only releases require the published $frozenCompanionTag Companion (SHA-256 $frozenCompanionSha256), but $companionExe is $actualCompanionHash. Run scripts\Restore-FrozenCompanion.ps1 or use -CompanionChanged only when the Companion itself was intentionally updated."
+    }
 }
 
 # 2. Reset dist directory
@@ -96,6 +113,18 @@ Write-Host "
 [2/$stepTotal] Initializing output directory: $distDir" -ForegroundColor Yellow
 New-Item -ItemType Directory -Path $distDir -Force | Out-Null
 New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+if (-not $CompanionChanged) {
+    # Prevent old locally generated Companion artifacts from being mistaken for
+    # outputs of an addon-only release.
+    foreach ($staleCompanionArtifact in @(
+        (Join-Path $distDir "Offhand-Companion.zip"),
+        (Join-Path $distDir "Offhand.exe")
+    )) {
+        if (Test-Path -LiteralPath $staleCompanionArtifact) {
+            Remove-Item -LiteralPath $staleCompanionArtifact -Force
+        }
+    }
+}
 
 # 3. Package In-Game Addon for CurseForge / Wago
 Write-Host "
@@ -144,32 +173,35 @@ CurseForge Beta artifact ready:" -ForegroundColor Cyan
     return
 }
 
-# 4. Package Desktop Companion for GitHub Releases
-Write-Host "
-[4/5] Packaging Desktop Companion (Offhand-Companion.zip)..." -ForegroundColor Yellow
-$compStaging = Join-Path $tempDir "Offhand-Companion"
-New-Item -ItemType Directory -Path $compStaging -Force | Out-Null
-
-Copy-Item $companionExe -Destination $compStaging
-Copy-Item (Join-Path $rootDir "Companion\LICENSE") -Destination $compStaging
-Copy-Item (Join-Path $rootDir "Companion\README.md") -Destination $compStaging
-Copy-Item (Join-Path $rootDir "Companion\Linux.md") -Destination $compStaging
-Copy-Item (Join-Path $rootDir "Companion\build.bat") -Destination $compStaging
-Copy-Item (Join-Path $rootDir "Companion\Source") -Destination $compStaging -Recurse
-Copy-Item (Join-Path $rootDir "SECURITY.md") -Destination $compStaging
-$compMedia = Join-Path $compStaging "Media"
-New-Item -ItemType Directory -Path $compMedia -Force | Out-Null
-Copy-Item (Join-Path $rootDir "Media\offhand-logo.ico") -Destination $compMedia
-Copy-Item (Join-Path $rootDir "Media\offhand-logo-small.png") -Destination $compMedia
-
+# 4. Companion-only artifacts exist only for an intentional Companion update.
 $compZip = Join-Path $distDir "Offhand-Companion.zip"
-New-PortableZip -SourceDirectory $compStaging -DestinationPath $compZip
-Write-Host "  -> Created: $compZip" -ForegroundColor Green
-
-# Copy standalone Offhand.exe directly to dist
 $standaloneExe = Join-Path $distDir "Offhand.exe"
-Copy-Item $companionExe -Destination $standaloneExe
-Write-Host "  -> Created standalone executable: $standaloneExe" -ForegroundColor Green
+if ($CompanionChanged) {
+    Write-Host "
+[4/5] Packaging updated Desktop Companion (Offhand-Companion.zip)..." -ForegroundColor Yellow
+    $compStaging = Join-Path $tempDir "Offhand-Companion"
+    New-Item -ItemType Directory -Path $compStaging -Force | Out-Null
+
+    Copy-Item $companionExe -Destination $compStaging
+    Copy-Item (Join-Path $rootDir "Companion\LICENSE") -Destination $compStaging
+    Copy-Item (Join-Path $rootDir "Companion\README.md") -Destination $compStaging
+    Copy-Item (Join-Path $rootDir "Companion\Linux.md") -Destination $compStaging
+    Copy-Item (Join-Path $rootDir "Companion\build.bat") -Destination $compStaging
+    Copy-Item (Join-Path $rootDir "Companion\Source") -Destination $compStaging -Recurse
+    Copy-Item (Join-Path $rootDir "SECURITY.md") -Destination $compStaging
+    $compMedia = Join-Path $compStaging "Media"
+    New-Item -ItemType Directory -Path $compMedia -Force | Out-Null
+    Copy-Item (Join-Path $rootDir "Media\offhand-logo.ico") -Destination $compMedia
+    Copy-Item (Join-Path $rootDir "Media\offhand-logo-small.png") -Destination $compMedia
+
+    New-PortableZip -SourceDirectory $compStaging -DestinationPath $compZip
+    Copy-Item $companionExe -Destination $standaloneExe
+    Write-Host "  -> Created: $compZip" -ForegroundColor Green
+    Write-Host "  -> Created standalone executable: $standaloneExe" -ForegroundColor Green
+} else {
+    Write-Host "
+[4/5] Skipping Companion-only artifacts; $frozenCompanionTag remains canonical." -ForegroundColor Yellow
+}
 
 
 # 5. Package Complete Bundle for GitHub Releases (Addon + Companion)
@@ -194,7 +226,11 @@ Write-Host "\nGenerating release checksums..." -ForegroundColor Yellow
 Write-Host "Build staging retained for inspection: $tempDir"
 
 $checksumFile = Join-Path $distDir "checksums-sha256.txt"
-$distFiles = Get-Item -LiteralPath $addonZip, $compZip, $standaloneExe, $bundleZip
+$artifactPaths = @($addonZip, $bundleZip)
+if ($CompanionChanged) {
+    $artifactPaths += @($compZip, $standaloneExe)
+}
+$distFiles = Get-Item -LiteralPath $artifactPaths
 
 $checksumLines = foreach ($file in $distFiles) {
     $hash = (Get-FileHash -Path $file.FullName -Algorithm SHA256).Hash
@@ -203,14 +239,14 @@ $checksumLines = foreach ($file in $distFiles) {
 $checksumLines | Set-Content -Path $checksumFile -Encoding UTF8
 
 $canonicalCompanionHash = (Get-FileHash -LiteralPath $companionExe -Algorithm SHA256).Hash
-if ((Get-FileHash -LiteralPath $standaloneExe -Algorithm SHA256).Hash -ne $canonicalCompanionHash) {
+if ($CompanionChanged -and (Get-FileHash -LiteralPath $standaloneExe -Algorithm SHA256).Hash -ne $canonicalCompanionHash) {
     throw "Standalone release contains a different executable than the canonical Companion build."
 }
 
-$archiveChecks = @(
-    @{ Path = $compZip; Entry = 'Offhand.exe'; Label = 'Companion archive' },
-    @{ Path = $bundleZip; Entry = 'Offhand.exe'; Label = 'Complete archive' }
-)
+$archiveChecks = @(@{ Path = $bundleZip; Entry = 'Offhand.exe'; Label = 'Complete archive' })
+if ($CompanionChanged) {
+    $archiveChecks += @{ Path = $compZip; Entry = 'Offhand.exe'; Label = 'Companion archive' }
+}
 $sha256 = [Security.Cryptography.SHA256]::Create()
 try {
     foreach ($check in $archiveChecks) {
@@ -238,6 +274,9 @@ try {
 }
 
 Write-Host "  Canonical Companion SHA-256: $canonicalCompanionHash" -ForegroundColor White
+if (-not $CompanionChanged) {
+    Write-Host "  Companion policy: frozen at $frozenCompanionTag" -ForegroundColor White
+}
 
 Write-Host "
 Release Artifacts Ready in dist/:" -ForegroundColor Cyan

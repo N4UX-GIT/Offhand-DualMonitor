@@ -94,14 +94,35 @@ try {
         throw 'Every shipped Companion executable, including the complete bundle, must be named Offhand.exe.'
     }
     if ($packager -notmatch '\[switch\]\$UseExistingCompanion' -or
+        $packager -notmatch '\[switch\]\$CompanionChanged' -or
+        $packager -notmatch 'E41E043EFCBB01936155FA0C8A8634F8DF80D7A83599BB5D583F1ECF6B07AEBE' -or
         $packager -notmatch 'Canonical Companion SHA-256' -or
         $packager -notmatch 'contains a different executable than the canonical Companion build') {
-        throw 'Release packaging must reuse and verify one canonical Companion executable.'
+        throw 'Release packaging must freeze Beta 13 by hash and require an explicit Companion-change lane.'
     }
     $releaseWorkflow = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\.github\workflows\release.yml') -Raw
-    if ($releaseWorkflow -notmatch 'Build canonical Companion executable' -or
-        $releaseWorkflow -notmatch 'package\.ps1 -Version \$version -UseExistingCompanion') {
-        throw 'Release automation must build the Companion once and package that exact executable.'
+    if ($releaseWorkflow -notmatch 'Restore frozen Beta 13 Companion' -or
+        $releaseWorkflow -notmatch 'COMPANION_RELEASE_TAG: v2\.1\.2-beta\.13' -or
+        $releaseWorkflow -notmatch 'COMPANION_ARCHIVE_SHA256: A308ACF1B117B08B2912A77079168C40E32535DFEB66425F541BD7518581818D' -or
+        $releaseWorkflow -notmatch 'Attach frozen Beta 13 Companion assets' -or
+        $releaseWorkflow -notmatch 'dist/Offhand-Companion\.zip' -or
+        $releaseWorkflow -notmatch 'dist/Offhand\.exe' -or
+        $releaseWorkflow -notmatch 'package\.ps1 -Version \$version -CompanionChanged -UseExistingCompanion') {
+        throw 'Release automation must attach exact frozen Beta 13 assets by default and build only in the explicit Companion-change lane.'
+    }
+    $pinnedCompanionUrl = 'https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.13/Offhand-Companion.zip'
+    foreach ($relativePath in @(
+        'Core\Init.lua',
+        'UI\Options.lua',
+        'README.md',
+        'docs\CURSEFORGE_DESCRIPTION.md',
+        'Website\index.html'
+    )) {
+        $publicSurface = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\$relativePath") -Raw
+        if (-not $publicSurface.Contains($pinnedCompanionUrl) -or
+            $publicSurface -match 'releases/latest/download/Offhand-Companion\.zip') {
+            throw "$relativePath must point directly to the frozen Beta 13 Companion."
+        }
     }
     $linuxGuide = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Linux.md') -Raw
     if ($linuxGuide -notmatch 'Wine/Proton runner must also match' -or
@@ -118,6 +139,8 @@ try {
     Write-Output 'PASS: addon verification paths are visible and copied into the activity log'
     Write-Output 'PASS: hotkey selector does not overlap the display checklist'
     Write-Output 'PASS: Linux compatibility documentation is included by the release packager'
+    Write-Output 'PASS: addon-only releases attach the published Beta 13 Companion assets by exact hash'
+    Write-Output 'PASS: every public Companion download points directly to Beta 13'
     Write-Output 'PASS: release ZIPs are portable and Linux guidance covers prefix/runner matching'
     Write-Output 'PASS: all shipped Companion executables use the consistent Offhand.exe name'
     Write-Output 'PASS: release packaging preserves and verifies one canonical Companion executable'

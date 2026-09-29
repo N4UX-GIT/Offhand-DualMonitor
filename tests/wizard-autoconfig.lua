@@ -155,6 +155,9 @@ C_AddOns = {
     GetAddOnMetadata = function(_, key)
         if key == "Version" then return "2.1.2" end
         if key == "X-Offhand-Release" then return "beta.13" end
+        if key == "X-Offhand-Addon-Release" then return "beta.14" end
+        if key == "X-Offhand-Companion-Version" then return "2.1.2" end
+        if key == "X-Offhand-Companion-Release" then return "beta.13" end
     end,
 }
 
@@ -460,11 +463,22 @@ addon.Wizard.Open = originalWizardOpen
 -- 5. Test Options Dialog 1-Click and Wizard Integration Buttons
 -- ============================================================================
 local optPanel = addon.Options:CreateFloatingPanel()
-assert(addon.fullVersion == "2.1.2-beta.13" and addon.releaseDisplay == "Beta 13",
+assert(addon.fullVersion == "2.1.2-beta.14" and addon.releaseDisplay == "Beta 14",
     "addon metadata must expose the exact standardized pre-release build")
+assert(addon.companionRelease == "beta.13",
+    "addon metadata must retain the frozen Companion compatibility release")
+assert(addon.companionVersion == "2.1.2"
+        and addon.companionFullVersion == "2.1.2-beta.13"
+        and addon.companionVersionDisplay == "v2.1.2 Beta 13",
+    "addon metadata must expose the exact paired Companion build")
 assert(optPanel.versionButton and optPanel.versionButton.scripts.OnEnter
         and optPanel.versionButton.scripts.OnLeave,
     "the settings header version must expose an exact-build hover tooltip")
+assert(optPanel.header.versionText:GetText():find("Companion v2.1.2 Beta 13", 1, true),
+    "the settings header must show the paired Companion build")
+assert(optPanel.versionButton.offhandTooltipText:find("v2.1.2-beta.14", 1, true)
+        and optPanel.versionButton.offhandTooltipText:find("v2.1.2 Beta 13", 1, true),
+    "the version tooltip must distinguish addon and paired Companion builds")
 addon.db.enabled = false
 optPanel:Show()
 assert(optPanel.enableCheck:GetChecked() == false,

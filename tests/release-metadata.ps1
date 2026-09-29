@@ -22,10 +22,26 @@ try {
         '## Linux and Wine status',
         '## Reporting issues',
         '## Verification',
-        'Offhand-Complete-v2.1.2-beta.5.zip'
+        'Offhand-Complete-v2.1.2-beta.5.zip',
+        '**Companion package:**',
+        '**Standalone Companion:**',
+        'byte-identical v2.1.2 Beta 13',
+        'releases/latest/download'
     )) {
         if (-not $betaBody.Contains($required)) {
             throw "Beta release notes are missing: $required"
+        }
+    }
+    if ($betaBody.Contains('updated Windows executable only')) {
+        throw 'Addon-only release notes must identify the attached Companion as frozen, not updated.'
+    }
+
+    $companionNotes = Join-Path $temp 'companion.md'
+    & $script -Tag 'v2.1.2-beta.13' -ChangelogPath $changelog -OutputPath $companionNotes -CompanionChanged | Out-Null
+    $companionBody = Get-Content -LiteralPath $companionNotes -Raw
+    foreach ($required in @('**Companion package:**', '**Standalone Companion:**')) {
+        if (-not $companionBody.Contains($required)) {
+            throw "Companion release notes are missing: $required"
         }
     }
     $outputs = Get-Content -LiteralPath $betaOutput -Raw
@@ -40,7 +56,7 @@ try {
         throw 'Release-candidate metadata is not standardized.'
     }
 
-    $stable = & $script -Tag 'v3.0.0' -ChangelogPath $changelog -OutputPath (Join-Path $temp 'stable.md')
+    $stable = & $script -Tag 'v3.0.0' -ChangelogPath $changelog -OutputPath (Join-Path $temp 'stable.md') -CompanionChanged
     if ($stable.ReleaseName -ne 'Offhand v3.0.0' -or $stable.Prerelease) {
         throw 'Stable release metadata is not standardized.'
     }
@@ -53,6 +69,16 @@ try {
     }
     if (-not $invalidFailed) {
         throw 'Invalid release tags must be rejected.'
+    }
+
+    $unsafeStableFailed = $false
+    try {
+        & $script -Tag 'v2.1.3' -ChangelogPath $changelog -OutputPath (Join-Path $temp 'unsafe-stable.md') | Out-Null
+    } catch {
+        $unsafeStableFailed = $_.Exception.Message -match 'false update'
+    }
+    if (-not $unsafeStableFailed) {
+        throw 'A newer stable addon-only tag must be blocked while Companion Beta 13 uses the shared latest-release endpoint.'
     }
 
     Write-Output 'PASS: standardized beta, release-candidate, stable, and invalid release metadata'

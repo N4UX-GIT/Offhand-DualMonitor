@@ -51,6 +51,7 @@ local function makeMap()
     local map = {
         shown = true, width = 610, height = 438, scale = 1,
         left = 20, bottom = 762, scripts = {}, setScriptWrites = 0,
+        hookScriptWrites = 0, registeredEvents = {},
     }
     function map:GetName() return "WorldMapFrame" end
     function map:IsShown() return self.shown end
@@ -69,9 +70,19 @@ local function makeMap()
     function map:GetEffectiveScale() return self.scale end
     function map:GetLeft() return self.left end
     function map:GetBottom() return self.bottom end
-    function map:SetIgnoreParentScale() end
+    function map:GetTop() return self.bottom + self.height end
+    function map:SetMovable(value) self.movable = value end
+    function map:SetClampedToScreen(value) self.clamped = value end
+    function map:StartMoving() self.startedMoving = true end
+    function map:StopMovingOrSizing() self.startedMoving = false end
+    function map:SetIgnoreParentScale() self.ignoreParentScaleWrites = (self.ignoreParentScaleWrites or 0) + 1 end
     function map:EnableMouseWheel() end
-    function map:HookScript(event, fn) self.scripts[event] = fn end
+    function map:HookScript(event, fn)
+        self.hookScriptWrites = self.hookScriptWrites + 1
+        self.scripts[event] = fn
+    end
+    function map:RegisterEvent(event) self.registeredEvents[event] = true end
+    function map:UnregisterEvent(event) self.registeredEvents[event] = nil end
     function map:GetScript(event) return self.scripts[event] end
     function map:SetScript(event, fn)
         self.setScriptWrites = self.setScriptWrites + 1
@@ -86,6 +97,35 @@ local function makeMap()
 end
 
 WorldMapFrame = makeMap()
+local function makeNativeControl()
+    local control = { hookScriptWrites = 0 }
+    function control:HookScript()
+        self.hookScriptWrites = self.hookScriptWrites + 1
+    end
+    function control:EnableMouse() self.enableMouseWrites = (self.enableMouseWrites or 0) + 1 end
+    function control:RegisterForDrag() self.dragRegistrationWrites = (self.dragRegistrationWrites or 0) + 1 end
+    return control
+end
+WorldMapFrame.TitleContainer = makeNativeControl()
+WorldMapFrame.CloseButton = makeNativeControl()
+WorldMapTitleButton = makeNativeControl()
+WorldMapFrameCloseButton = WorldMapFrame.CloseButton
+
+local createdHandles = {}
+CreateFrame = function(_, _, parent)
+    local handle = { parent = parent, scripts = {} }
+    function handle:SetFrameStrata(value) self.strata = value end
+    function handle:SetFrameLevel(value) self.level = value end
+    function handle:EnableMouse(value) self.mouseEnabled = value end
+    function handle:RegisterForDrag(value) self.dragButton = value end
+    function handle:SetScript(event, callback) self.scripts[event] = callback end
+    function handle:SetSize(width, height) self.width, self.height = width, height end
+    function handle:ClearAllPoints() self.point = nil end
+    function handle:SetPoint(...) self.point = { ... } end
+    function handle:Show() self.shown = true end
+    table.insert(createdHandles, handle)
+    return handle
+end
 UISpecialFrames = { "WorldMapFrame" }
 activePanels.left = WorldMapFrame
 PlayerMovementFrameFader = {
@@ -103,6 +143,35 @@ PlayerMovementFrameFader = {
 
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 addon.Canvas:ConfigureWorldMap()
+addon.Canvas.MakePanelDraggable(WorldMapFrame)
+
+assert(#createdHandles == 1 and createdHandles[1].parent == UIParent,
+    "Forever World Map dragging must use one Offhand-owned UIParent handle")
+assert(WorldMapFrame.hookScriptWrites == 0,
+    "Forever World Map dragging must not hook the native map frame")
+assert(WorldMapFrame.TitleContainer.hookScriptWrites == 0
+        and not WorldMapFrame.TitleContainer.enableMouseWrites
+        and not WorldMapFrame.TitleContainer.dragRegistrationWrites,
+    "Forever World Map dragging must not mutate its native title container")
+assert(WorldMapTitleButton.hookScriptWrites == 0
+        and not WorldMapTitleButton.enableMouseWrites
+        and not WorldMapTitleButton.dragRegistrationWrites,
+    "Forever World Map dragging must not mutate its native title button")
+assert(WorldMapFrame.CloseButton.hookScriptWrites == 0,
+    "Forever World Map dragging must not hook its native close button")
+assert(WorldMapFrame._OffhandMovable == nil and WorldMapFrame._OffhandHandle == nil
+        and WorldMapFrame._OffhandDragging == nil,
+    "Forever World Map bookkeeping must not be written onto the Blizzard frame")
+createdHandles[1].scripts.OnDragStart()
+assert(WorldMapFrame.startedMoving == true,
+    "the isolated Forever World Map handle must retain map dragging")
+createdHandles[1].scripts.OnDragStop()
+assert(WorldMapFrame.startedMoving == false,
+    "the isolated Forever World Map handle must stop and save the drag")
+assert(WorldMapFrame._OffhandMovable == nil and WorldMapFrame._OffhandHandle == nil
+        and WorldMapFrame._OffhandDragging == nil
+        and WorldMapFrame._OffhandEvictingPanelSlot == nil,
+    "Forever World Map drag and panel-slot state must remain addon-owned")
 
 local function isSpecial(name)
     for _, value in ipairs(UISpecialFrames) do
@@ -124,6 +193,13 @@ assert(GetUIPanel("left") ~= WorldMapFrame,
     "A Forever workspace map must be detached from Blizzard's active panel slot")
 assert(WorldMapFrame.setScriptWrites == 0,
     "Forever must not replace the World Map OnShow or OnHide scripts")
+assert(WorldMapFrame.hookScriptWrites == 0,
+    "Forever must not attach addon handlers to the native World Map frame")
+assert((WorldMapFrame.ignoreParentScaleWrites or 0) == 0,
+    "Forever must preserve the World Map's native parent-scale behavior")
+addon.Canvas:UpdateMapMovementBehavior()
+assert(next(WorldMapFrame.registeredEvents) == nil,
+    "Forever must preserve the World Map's native event registration")
 assert(PlayerMovementFrameFader.removed > 0 and PlayerMovementFrameFader.added == 0,
     "A Forever workspace map must be removed from Blizzard's movement-dimming fader")
 pressEscapeCloseSpecialFrames()
@@ -140,16 +216,20 @@ assert(WorldMapFrame:IsShown(),
 assert(WorldMapFrame.setScriptWrites == 0,
     "Reload restoration must not replace protected World Map scripts")
 
--- Native reopening can put the map back into a UIPanel slot. Its OnShow repair
--- must detach and restore the workspace map before the next Escape press.
+-- Native reopening can put the map back into a UIPanel slot. Forever must not
+-- repair that from a handler attached to the protected map itself. The external
+-- post-toggle path performs the same restoration after Blizzard's open turn.
 activePanels.left = WorldMapFrame
 WorldMapFrame:Show()
+assert(GetUIPanel("left") == WorldMapFrame,
+    "a raw native map Show must not invoke an addon handler on Forever")
+addon.Canvas:RestoreWorkspacePosition(WorldMapFrame)
 assert(GetUIPanel("left") ~= WorldMapFrame and WorldMapFrame:IsShown(),
-    "Reopening a saved workspace map must not leave it in an Escape-close panel slot")
+    "the external post-toggle pass must detach the restored workspace map")
 assert(WorldMapFrame:GetLeft() < metrics.workspaceRight,
-    "Reopening a saved workspace map must restore its workspace geometry")
-assert(WorldMapFrame.setScriptWrites == 0,
-    "Native reopening must preserve protected World Map scripts")
+    "the external post-toggle pass must restore workspace geometry")
+assert(WorldMapFrame.setScriptWrites == 0 and WorldMapFrame.hookScriptWrites == 0,
+    "map reopening and restoration must preserve protected World Map scripts")
 
 -- Other saved workspace panels must also detach from active UIPanel slots,
 -- while a hidden bag drag-stop must never resurrect the bag.
@@ -210,8 +290,9 @@ assert(CharacterFrame:GetLeft() < metrics.workspaceRight,
 activePanels.left = CharacterFrame
 CharacterFrame.left = 1800
 WorldMapFrame:Hide()
+addon.Canvas:RepairShownWorkspacePanels(WorldMapFrame)
 assert(GetUIPanel("left") ~= CharacterFrame and CharacterFrame:GetLeft() < metrics.workspaceRight,
-    "Closing the map must repair CharacterFrame instead of moving it to Mainhand")
+    "the external map-close pass must repair CharacterFrame instead of moving it to Mainhand")
 
 ContainerFrameCombinedBags = makePanel(
     "ContainerFrameCombinedBags", false, 120, 400, 520, 760)

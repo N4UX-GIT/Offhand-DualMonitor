@@ -8,7 +8,9 @@ param(
 
     [string]$OutputPath = (Join-Path $PSScriptRoot "..\dist\release-notes.md"),
 
-    [string]$GitHubOutputPath
+    [string]$GitHubOutputPath,
+
+    [switch]$CompanionChanged
 )
 
 $ErrorActionPreference = "Stop"
@@ -23,6 +25,15 @@ $channel = $match.Groups['channel'].Value
 $sequence = $match.Groups['number'].Value
 $packageVersion = $Tag.Substring(1)
 $isPrerelease = -not [string]::IsNullOrEmpty($channel)
+
+# Beta 13's manual update check reads GitHub's latest stable release and
+# compares only the base AssemblyVersion (2.1.2). A newer stable addon tag
+# would falsely look like a new Companion. Require the explicit Companion lane
+# before crossing that boundary.
+if (-not $CompanionChanged -and -not $isPrerelease -and
+    ([version]$version -gt [version]'2.1.2')) {
+    throw "Stable addon tag '$Tag' would make the frozen Beta 13 Companion report a false update. Use a prerelease tag, or intentionally update the Companion and pass -CompanionChanged."
+}
 
 $channelName = switch ($channel) {
     'alpha' { 'Alpha' }
@@ -57,6 +68,19 @@ $statusText = if ($isPrerelease) {
     "This is a stable release of Offhand. Back up your existing Offhand SavedVariables before upgrading."
 }
 
+$companionDownloads = if ($CompanionChanged) {
+@"
+- **Companion package:** ``Offhand-Companion.zip`` — updated executable, source, documentation, and security guidance.
+- **Standalone Companion:** ``Offhand.exe`` — updated Windows executable only.
+"@
+} else {
+@"
+- **Companion package:** ``Offhand-Companion.zip`` — unchanged, byte-identical v2.1.2 Beta 13 archive retained so the permanent ``releases/latest/download`` link continues to work.
+- **Standalone Companion:** ``Offhand.exe`` — unchanged, byte-identical v2.1.2 Beta 13 executable.
+- **Companion source release:** [v2.1.2 Beta 13](https://github.com/$Repository/releases/tag/v2.1.2-beta.13).
+"@
+}
+
 $notes = @"
 # $releaseName
 
@@ -70,8 +94,7 @@ $changes
 
 - **Complete package:** ``Offhand-Complete-v$packageVersion.zip`` — addon and Companion together.
 - **Addon only:** ``Offhand-v$packageVersion.zip`` — install the contained ``Offhand`` folder in ``Interface/AddOns``.
-- **Companion package:** ``Offhand-Companion.zip`` — executable, source, documentation, and security guidance.
-- **Standalone Companion:** ``Offhand.exe`` — Windows executable only.
+$companionDownloads
 
 ## Test focus
 
@@ -90,7 +113,7 @@ Use the [GitHub issue tracker](https://github.com/$Repository/issues) and includ
 
 ## Verification
 
-The Companion is unsigned. Download it only from this official release and verify every downloaded asset against ``checksums-sha256.txt``. GitHub Actions also publishes build-provenance attestations for the release artifacts.
+The Companion is unsigned. Download it only from the official release linked above. GitHub Actions publishes build-provenance attestations and SHA-256 checksums for newly packaged release artifacts.
 
 [Full changelog](https://github.com/$Repository/blob/$Tag/CHANGELOG.md)
 "@

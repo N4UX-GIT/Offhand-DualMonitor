@@ -17,7 +17,8 @@ if not exist "%CSC%" (
     exit /b 1
 )
 
-set "OUT=%~dp0Offhand.exe"
+set "OUT=%~1"
+if not defined OUT set "OUT=%~dp0Offhand.exe"
 set "SRC=%~dp0Source\Program.cs"
 set "MANIFEST=%~dp0Source\app.manifest"
 set "ICO=%~dp0..\Media\offhand-logo.ico"

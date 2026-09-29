@@ -9,10 +9,25 @@ _G.Offhand = Offhand
 Offhand.name = addonName
 local getMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
 Offhand.version = (getMetadata and getMetadata(addonName, "Version")) or "1.0.0"
-Offhand.release = (getMetadata and getMetadata(addonName, "X-Offhand-Release")) or ""
+-- X-Offhand-Release is the compatibility token consumed by the frozen Beta 13
+-- Companion. Keep it stable until the Companion itself changes. The addon's
+-- independently advancing public release is carried by X-Offhand-Addon-Release.
+Offhand.companionVersion = (getMetadata and getMetadata(addonName, "X-Offhand-Companion-Version"))
+    or Offhand.version
+Offhand.companionRelease = (getMetadata and getMetadata(addonName, "X-Offhand-Companion-Release"))
+    or (getMetadata and getMetadata(addonName, "X-Offhand-Release")) or ""
+Offhand.release = (getMetadata and getMetadata(addonName, "X-Offhand-Addon-Release"))
+    or Offhand.companionRelease
 local betaNumber = Offhand.release:match("^beta%.(%d+)$")
 Offhand.releaseDisplay = betaNumber and ("Beta " .. betaNumber) or Offhand.release
 Offhand.fullVersion = Offhand.version .. (Offhand.release ~= "" and ("-" .. Offhand.release) or "")
+local companionBetaNumber = Offhand.companionRelease:match("^beta%.(%d+)$")
+Offhand.companionReleaseDisplay = companionBetaNumber
+    and ("Beta " .. companionBetaNumber) or Offhand.companionRelease
+Offhand.companionFullVersion = Offhand.companionVersion
+    .. (Offhand.companionRelease ~= "" and ("-" .. Offhand.companionRelease) or "")
+Offhand.companionVersionDisplay = "v" .. Offhand.companionVersion
+    .. (Offhand.companionReleaseDisplay ~= "" and (" " .. Offhand.companionReleaseDisplay) or "")
 Offhand.modules = {}
 Offhand.callbacks = {}
 
@@ -443,7 +458,7 @@ StaticPopupDialogs["OFFHAND_COMPANION_WARNING"] = {
     OnShow = function(self)
         local eb = self.EditBox or _G[self:GetName().."EditBox"]
         if eb then
-            eb:SetText("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest/download/Offhand-Companion.zip")
+            eb:SetText("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.13/Offhand-Companion.zip")
             eb:HighlightText()
             eb:SetFocus()
         end
@@ -477,7 +492,7 @@ StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"] = {
     OnShow = function(self)
         local eb = self.EditBox or _G[self:GetName().."EditBox"]
         if eb then
-            eb:SetText("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest/download/Offhand-Companion.zip")
+            eb:SetText("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.13/Offhand-Companion.zip")
             eb:HighlightText()
             eb:SetFocus()
         end
@@ -962,6 +977,17 @@ SlashCmdList["OFFHAND"] = function(msg)
             m.gamePixelBottom or 0, effScale)
         Offhand:Print(L["MSG_DIAG_FULL"],
             physW, physH, screenW, screenH, effScale, m.deckWidth or 0, (Offhand.db.deckWidthRatio or 0) * 100, m.gameWidth or 0, m.gameHeight or 0)
+        -- Rendering fidelity is owned by the client, not Offhand's viewport
+        -- anchors. Report the relevant read-only CVars so a window-backbuffer
+        -- mismatch can be distinguished from UI scale or geometry problems.
+        local function DiagnosticCVar(name)
+            if not GetCVar then return "unavailable" end
+            local ok, value = pcall(GetCVar, name)
+            return ok and tostring(value or "") or "unavailable"
+        end
+        Offhand:Print("Render diagnostics: gxWindowedResolution=%s | RenderScale=%s | ResampleQuality=%s | gxWindow=%s.",
+            DiagnosticCVar("gxWindowedResolution"), DiagnosticCVar("RenderScale"),
+            DiagnosticCVar("ResampleQuality"), DiagnosticCVar("gxWindow"))
     elseif msg == "apply" or msg == "reload" then
         Offhand:ApplyFullLayout()
         Offhand:Print(L["LAYOUT_REAPPLIED"])

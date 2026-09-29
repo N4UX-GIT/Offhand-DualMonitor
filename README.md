@@ -9,7 +9,7 @@
   
   [![Download on CurseForge](https://img.shields.io/badge/CurseForge-Download-f56e0f?style=for-the-badge&logo=curseforge)](https://www.curseforge.com/wow/addons/offhand)
   [![Companion Downloads](https://img.shields.io/github/downloads/N4UX-GIT/Offhand-DualMonitor/total?style=for-the-badge&color=blue&logo=github)](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases)
-  [![Get Companion App](https://img.shields.io/badge/GitHub_Releases-Companion_App-181717?style=for-the-badge&logo=github)](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases)
+  [![Get Companion Beta 13](https://img.shields.io/badge/GitHub-Companion_Beta_13-181717?style=for-the-badge&logo=github)](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.13/Offhand-Companion.zip)
 </div>
 
 ---

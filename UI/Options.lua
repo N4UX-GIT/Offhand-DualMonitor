@@ -23,13 +23,26 @@ StaticPopupDialogs["OFFHAND_DOWNLOAD_LINK"] = {
     OnShow = function(self)
         local eb = self.EditBox or _G[self:GetName().."EditBox"]
         if eb then
-            eb:SetText("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest/download/Offhand-Companion.zip")
+            eb:SetText("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.13/Offhand-Companion.zip")
             eb:HighlightText()
             eb:SetFocus()
         end
     end,
     EditBoxOnEscapePressed = function(self)
         self:GetParent():Hide()
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
+StaticPopupDialogs["OFFHAND_ENABLE_FOREVER_PROFESSIONS_MOVEMENT"] = {
+    text = L["FOREVER_PROF_MOVE_CONFIRM"],
+    button1 = L["FOREVER_PROF_MOVE_ENABLE"],
+    button2 = L["FOREVER_PROF_MOVE_SAFE"],
+    OnAccept = function(_, callback)
+        if callback then callback() end
     end,
     timeout = 0,
     whileDead = true,
@@ -895,10 +908,14 @@ function Options:CreateFloatingPanel()
     version:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 8, 2)
     local getMetadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
     local verNum = (getMetadata and getMetadata("Offhand", "Version")) or "1.0.0"
-    version:SetText("|cffaaaaaav" .. verNum .. "|r")
+    local companionDisplay = Offhand.companionVersionDisplay or ("v" .. verNum)
+    version:SetText("|cffaaaaaav" .. verNum .. "|r |cff777777[Companion "
+        .. companionDisplay .. "]|r")
+    header.versionText = version
 
     local versionButton = CreateFrame("Button", nil, header)
-    versionButton:SetSize(96, 18)
+    local versionWidth = version.GetStringWidth and version:GetStringWidth() or 220
+    versionButton:SetSize(math.max(96, math.min(360, versionWidth + 10)), 18)
     versionButton:SetPoint("CENTER", version, "CENTER", 0, 0)
     configFrame.versionButton = versionButton
     if Offhand.SetTooltip then
@@ -906,8 +923,12 @@ function Options:CreateFloatingPanel()
         local fullDisplay = "Offhand v" .. verNum
             .. (releaseDisplay ~= "" and (" " .. releaseDisplay) or "")
         local releaseTag = "v" .. (Offhand.fullVersion or verNum)
-        Offhand:SetTooltip(versionButton, fullDisplay,
-            "Exact build: " .. releaseTag .. "\nUse this value when reporting an issue.")
+        local tooltipText = string.format(L["VERSION_TOOLTIP_ADDON_BUILD"], releaseTag)
+            .. "\n" .. string.format(L["VERSION_TOOLTIP_COMPANION_BUILD"], companionDisplay)
+            .. "\n\n" .. L["VERSION_TOOLTIP_COMPANION_NOTE"]
+        versionButton.offhandTooltipTitle = fullDisplay
+        versionButton.offhandTooltipText = tooltipText
+        Offhand:SetTooltip(versionButton, fullDisplay, tooltipText)
     end
     
     local desc = header:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -1518,6 +1539,79 @@ function Options:CreateFloatingPanel()
 
     local card2_2 = CreateCard(tab2, L["CARD_PERSISTENCE"], 240)
     local recoveryCard = CreateCard(tab2, L["CARD_RECOVERY"], 118)
+    local advancedCard
+    local advancedCheck
+    local offhandCards
+
+    if Offhand.isForever then
+        advancedCard = CreateCard(tab2, L["CARD_ADVANCED_COMPAT"], 52)
+        local expanded = false
+        local advancedControls = {}
+
+        local disclosure = CreateFrame("Button", nil, advancedCard, "UIPanelButtonTemplate")
+        disclosure:SetSize(172, 22)
+        disclosure:SetPoint("TOPRIGHT", advancedCard, "TOPRIGHT", -10, -7)
+        disclosure:SetText(L["ADVANCED_SHOW"])
+
+        local warning = advancedCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        warning:SetPoint("TOPLEFT", advancedCard, "TOPLEFT", 14, -38)
+        warning:SetPoint("TOPRIGHT", advancedCard, "TOPRIGHT", -14, -38)
+        warning:SetJustifyH("LEFT")
+        warning:SetWordWrap(true)
+        warning:SetText("|cffffaa00" .. L["FOREVER_PROF_MOVE_DESC"] .. "|r")
+        advancedControls[#advancedControls + 1] = warning
+
+        advancedCheck = CreateNativeCheckbox(advancedCard, L["FOREVER_PROF_MOVE"],
+            function()
+                return Offhand.IsExperimentalForeverProfessionsMovementEnabled
+                    and Offhand:IsExperimentalForeverProfessionsMovementEnabled() or false
+            end,
+            function(enabled)
+                if not enabled then
+                    if Offhand.SetExperimentalForeverProfessionsMovement then
+                        Offhand:SetExperimentalForeverProfessionsMovement(false)
+                    end
+                    return
+                end
+
+                -- The native checkbox reflects committed consent only. Keep it
+                -- off while the warning dialog is awaiting a decision.
+                advancedCheck:SetChecked(false)
+                StaticPopup_Show("OFFHAND_ENABLE_FOREVER_PROFESSIONS_MOVEMENT", nil, nil, function()
+                    if Offhand.SetExperimentalForeverProfessionsMovement then
+                        Offhand:SetExperimentalForeverProfessionsMovement(true)
+                    end
+                    advancedCheck:SetChecked(Offhand.IsExperimentalForeverProfessionsMovementEnabled
+                        and Offhand:IsExperimentalForeverProfessionsMovementEnabled() or false)
+                end)
+            end,
+            L["FOREVER_PROF_MOVE"], L["FOREVER_PROF_MOVE_DESC"]
+        )
+        advancedCheck:SetPoint("TOPLEFT", advancedCard, "TOPLEFT", 12, -102)
+        advancedControls[#advancedControls + 1] = advancedCheck
+
+        local forgetButton = CreateFrame("Button", nil, advancedCard, "UIPanelButtonTemplate")
+        forgetButton:SetSize(220, 24)
+        forgetButton:SetPoint("TOPLEFT", advancedCard, "TOPLEFT", 14, -138)
+        forgetButton:SetText(L["FOREVER_PROF_FORGET"])
+        forgetButton:SetScript("OnClick", function()
+            if Offhand.Canvas and Offhand.Canvas.RelinquishForeverProfessionsPanels then
+                Offhand.Canvas:RelinquishForeverProfessionsPanels()
+            end
+            Offhand:Print(L["FOREVER_PROF_FORGOT"])
+        end)
+        advancedControls[#advancedControls + 1] = forgetButton
+
+        local function SetAdvancedExpanded(value)
+            expanded = value == true
+            advancedCard:SetHeight(expanded and 176 or 52)
+            disclosure:SetText(expanded and L["ADVANCED_HIDE"] or L["ADVANCED_SHOW"])
+            for _, control in ipairs(advancedControls) do control:SetShown(expanded) end
+            if offhandCards then Options:StackCards(tab2, offhandCards) end
+        end
+        disclosure:SetScript("OnClick", function() SetAdvancedExpanded(not expanded) end)
+        SetAdvancedExpanded(false)
+    end
 
         local gatherBtn = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
     gatherBtn:SetSize(160, 26)
@@ -2190,7 +2284,10 @@ function Options:CreateFloatingPanel()
     end
 
     Options:StackCards(tab1, {card1_1, card1_2, card1_3, card2_3, card1_4})
-    Options:StackCards(tab2, {card2_1, card2_2, recoveryCard})
+    offhandCards = {card2_1, card2_2}
+    if advancedCard then offhandCards[#offhandCards + 1] = advancedCard end
+    offhandCards[#offhandCards + 1] = recoveryCard
+    Options:StackCards(tab2, offhandCards)
     Options:StackCards(tab3, {card3_1, card3_2, card3_3})
     Options:StackCards(tab4, {card4_1})
     Options:StackCards(tab5, helpCards)
@@ -2279,6 +2376,10 @@ function Options:CreateFloatingPanel()
         escapeCheck:SetChecked((Offhand.db and Offhand.db.persistentWorkspacePanels ~= false) or false)
         reloadCheck:SetChecked((Offhand.db and Offhand.db.restoreWorkspaceOnReload ~= false) or false)
         forceCheck:SetChecked((Offhand.db and Offhand.db.forceDualOnSingle) or false)
+        if advancedCheck then
+            advancedCheck:SetChecked(Offhand.IsExperimentalForeverProfessionsMovementEnabled
+                and Offhand:IsExperimentalForeverProfessionsMovementEnabled() or false)
+        end
 
         local curTheme = (Offhand.db and Offhand.db.theme) or "CLASSIC"
         rClassic:SetChecked(curTheme == "CLASSIC")

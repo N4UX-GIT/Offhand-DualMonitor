@@ -44,6 +44,10 @@ local metrics = {
 addon.Viewport = { GetMetrics = function() return metrics end }
 addon.Print = function() end
 addon.RunOrQueueCombat = function(self, fn) fn() end
+local experimentalProfessionsMovement = false
+addon.IsExperimentalForeverProfessionsMovementEnabled = function()
+    return experimentalProfessionsMovement
+end
 InCombatLockdown = function() return false end
 
 local timers = {}
@@ -65,7 +69,7 @@ local function makeMockFrame(name, w, h)
         name = name, w = w or 200, h = h or 100,
         shown = true, alpha = 1, points = {}, scripts = {}, scale = 1,
         userPlaced = false, movable = false, clamped = false, mouse = false,
-        attributes = {},
+        attributes = {}, registeredEvents = {},
     }
     function f:SetSize(w,h) self.w=w; self.h=h end
     function f:GetName() return self.name end
@@ -148,6 +152,7 @@ local function makeMockFrame(name, w, h)
     end
     function f:GetScript(event) return self.scripts[event] end
     function f:SetScript(event, fn) self.scripts[event] = fn end
+    function f:RegisterEvent(event) self.registeredEvents[event] = true end
     function f:GetAttribute(key) return self.attributes[key] end
     function f:SetAttributeNoHandler(key, value) self.attributes[key] = value end
     function f:IsForbidden() return false end
@@ -196,6 +201,27 @@ GameMenuFrame:Hide()
 ExampleAddonWindow = makeMockFrame("ExampleAddonWindow", 220, 300)
 table.insert(UIParent.children, ExampleAddonWindow)
 
+-- Blizzard transient UI that defaults to the complete spanned UIParent. These
+-- frames must be redirected to Mainhand without becoming persistent/draggable
+-- workspace panels or having their native visibility changed.
+ZoneTextFrame = makeMockFrame("ZoneTextFrame", 600, 100)
+SubZoneTextFrame = makeMockFrame("SubZoneTextFrame", 600, 100)
+BossBanner = makeMockFrame("BossBanner", 500, 180)
+BossBanner:Hide()
+EventToastManagerFrame = makeMockFrame("EventToastManagerFrame", 700, 160)
+AlertFrame = makeMockFrame("AlertFrame", 500, 180)
+RolePollPopup = makeMockFrame("RolePollPopup", 420, 180)
+ReadyCheckFrame = makeMockFrame("ReadyCheckFrame", 320, 140)
+ReadyCheckFrame.TitleContainer = {}
+TimerTracker = makeMockFrame("TimerTracker", 4000, 2560)
+TimerTracker.GetParent = function() return UIParent end
+local countdownTimer = makeMockFrame("TimerTrackerTimer1", 206, 26)
+countdownTimer.GoTexture = makeMockFrame("TimerTrackerTimer1GoTexture", 256, 256)
+TimerTracker.timerList = { countdownTimer }
+HousingControlsFrame = makeMockFrame("HousingControlsFrame", 150, 50)
+OverrideActionBar = makeMockFrame("OverrideActionBar", 900, 120)
+OverrideActionBar.IsProtected = function() return true end
+
 ToggleGameMenu = function()
     if GameMenuFrame:IsShown() then
         GameMenuFrame:Hide()
@@ -206,6 +232,7 @@ end
 ShowUIPanel = function(frame) frame:Show() end
 UIPanelWindows = {
     EditModeManagerFrame = { area = "center", pushable = 0, whileDead = 1, neverAllowOtherPanels = 1 },
+    HouseEditorFrame = { area = "full", pushable = 0, whileDead = 1, neverAllowOtherPanels = 1 },
 }
 RegisterUIPanel = function(frame)
     local name = frame and frame.GetName and frame:GetName()
@@ -231,6 +258,82 @@ addon.HUD:HookFrames()
 -- ============================================================================
 addon.HUD:AlignHUDFrames(metrics)
 
+local function assertMainhandAnchor(frame, point, x, y, message)
+    local anchor = frame.points[#frame.points]
+    assert(anchor and anchor[1] == point and anchor[2] == UIParent and anchor[3] == "BOTTOMLEFT",
+        message .. " must use a physical Mainhand anchor")
+    assert(math.abs(anchor[4] - x) < 1 and math.abs(anchor[5] - y) < 1,
+        string.format("%s expected (%s,%s), got (%s,%s)", message, x, y,
+            tostring(anchor[4]), tostring(anchor[5])))
+end
+
+assertMainhandAnchor(ZoneTextFrame, "TOP", 2720, 1318, "Zone text")
+assertMainhandAnchor(SubZoneTextFrame, "BOTTOM", 2720, 518, "Sub-zone text")
+assertMainhandAnchor(BossBanner, "TOP", 2720, 1326, "Boss banner")
+assertMainhandAnchor(EventToastManagerFrame, "TOP", 2720, 1256, "Event toast")
+assertMainhandAnchor(AlertFrame, "BOTTOM", 2720, 134, "Alert frame")
+assertMainhandAnchor(RolePollPopup, "TOP", 2720, 1431, "Role poll")
+assertMainhandAnchor(ReadyCheckFrame, "CENTER", 2720, 716, "Ready check")
+assert(TimerTracker:GetNumPoints() == 2, "TimerTracker must be bounded to the Mainhand rectangle")
+local timerBottomLeft = { TimerTracker:GetPoint(1) }
+local timerTopRight = { TimerTracker:GetPoint(2) }
+assert(timerBottomLeft[1] == "BOTTOMLEFT" and timerBottomLeft[2] == UIParent
+        and timerBottomLeft[3] == "BOTTOMLEFT" and timerBottomLeft[4] == 1440
+        and timerBottomLeft[5] == 6,
+    "TimerTracker must begin at the physical Mainhand bottom-left")
+assert(timerTopRight[1] == "TOPRIGHT" and timerTopRight[2] == UIParent
+        and timerTopRight[3] == "BOTTOMLEFT" and timerTopRight[4] == 4000
+        and timerTopRight[5] == 1446,
+    "TimerTracker must end at the physical Mainhand top-right")
+local goPoint = { countdownTimer.GoTexture:GetPoint(1) }
+assert(goPoint[1] == "CENTER" and goPoint[2] == TimerTracker
+        and goPoint[3] == "CENTER" and goPoint[4] == 0 and goPoint[5] == 0,
+    "countdown completion texture must follow the Mainhand TimerTracker")
+assertMainhandAnchor(HousingControlsFrame, "TOP", 2720, 1416, "Housing controls")
+
+-- The House Editor is load-on-demand. Its ModeBar is already shown beneath a
+-- hidden full-screen parent when Blizzard_HouseEditor finishes loading, so it
+-- will not necessarily receive a child OnShow when the parent later appears.
+-- The ADDON_LOADED handoff must discover and position it immediately.
+HouseEditorFrame = makeMockFrame("HouseEditorFrame", 4000, 2560)
+HouseEditorFrame.TitleContainer = {}
+HouseEditorFrame.ModeBar = makeMockFrame("HouseEditorModeBar", 700, 100)
+HouseEditorFrame.StorageButton = makeMockFrame("HouseEditorStorageButton", 64, 64)
+HouseEditorFrame.StoragePanel = makeMockFrame("HouseEditorStoragePanel", 520, 700)
+HouseEditorFrame.MarketShoppingCartFrame = makeMockFrame("HousingMarketShoppingCart", 360, 180)
+for _, frame in ipairs(UIParent.children) do
+    local onEvent = frame.GetScript and frame:GetScript("OnEvent")
+    if onEvent and frame.registeredEvents and frame.registeredEvents.ADDON_LOADED then
+        onEvent(frame, "ADDON_LOADED", "Blizzard_HouseEditor")
+    end
+end
+assertMainhandAnchor(HouseEditorFrame.ModeBar, "BOTTOM", 2720, 6, "House editor mode bar")
+assertMainhandAnchor(HouseEditorFrame.StorageButton, "LEFT", 1464, 876, "House editor storage button")
+assertMainhandAnchor(HouseEditorFrame.StoragePanel, "LEFT", 1464, 876, "House editor storage panel")
+assertMainhandAnchor(HouseEditorFrame.MarketShoppingCartFrame, "BOTTOMRIGHT", 3970, 26,
+    "House editor market cart")
+assert(not BossBanner:IsShown(), "positioning transient UI must not change native visibility")
+
+-- Blizzard can restore a stock full-span anchor during OnShow. The secure
+-- post-hook must put it back on Mainhand without opening/closing anything.
+BossBanner:ClearAllPoints()
+BossBanner:SetPoint("TOP", UIParent, "TOP", 0, -120)
+BossBanner:Show()
+assertMainhandAnchor(BossBanner, "TOP", 2720, 1326, "Boss banner after native reset")
+BossBanner:Hide()
+
+-- START_TIMER dynamically creates/reuses timer children. The post-event hook
+-- must catch a newly allocated completion texture immediately.
+local secondCountdown = makeMockFrame("TimerTrackerTimer2", 206, 26)
+secondCountdown.GoTexture = makeMockFrame("TimerTrackerTimer2GoTexture", 256, 256)
+TimerTracker.timerList[2] = secondCountdown
+TimerTracker:GetScript("OnEvent")(TimerTracker, "START_PLAYER_COUNTDOWN")
+local secondGoPoint = { secondCountdown.GoTexture:GetPoint(1) }
+assert(secondGoPoint[1] == "CENTER" and secondGoPoint[2] == TimerTracker
+        and secondGoPoint[3] == "CENTER" and secondGoPoint[4] == 0 and secondGoPoint[5] == 0,
+    "new countdown completion textures must follow the Mainhand TimerTracker")
+print("PASS: transient Blizzard UI anchors to Mainhand without visibility ownership")
+
 local partyPt = PartyMemberFrame1.points[#PartyMemberFrame1.points]
 assert(partyPt, "PartyMemberFrame1 must be positioned by AlignHUDFrames")
 assert(partyPt[1] == "TOPLEFT", "PartyMemberFrame1 anchor point must be TOPLEFT")
@@ -244,7 +347,19 @@ print("PASS: PartyMemberFrame1 defaults cleanly inside the 3D Game Viewport (x=1
 -- TEST 2: Party Frame Click-Safety (No Overlaid Blocking Handles)
 -- ============================================================================
 addon.Canvas:EnableFreeDragging()
+addon.Canvas:TryMakeFrameDraggable(ReadyCheckFrame)
+addon.Canvas:TryMakeFrameDraggable(TimerTracker)
+addon.Canvas:TryMakeFrameDraggable(HouseEditorFrame)
+addon.Canvas:TryMakeFrameDraggable(OverrideActionBar)
 assert(PartyMemberFrame1._OffhandHandle == nil, "PartyMemberFrame1 must NOT have an overlaid drag handle so unit targeting/healing is never blocked")
+assert(ReadyCheckFrame._OffhandMovable == nil,
+    "ReadyCheckFrame must not receive generic panel dragging or persistence")
+assert(TimerTracker._OffhandMovable == nil,
+    "TimerTracker must not receive generic panel dragging or persistence")
+assert(HouseEditorFrame._OffhandMovable == nil,
+    "the full-screen House Editor must remain Blizzard-owned")
+assert(OverrideActionBar._OffhandMovable == nil,
+    "the protected Override Action Bar must remain Blizzard/Edit Mode-owned")
 print("PASS: PartyMemberFrame1 click-safety confirmed (no overlaid handle)")
 
 -- ============================================================================
@@ -859,80 +974,144 @@ assert(not addon.Canvas.IsFrameOnWorkspace(playerSpellsFrame)
         and playerSpellsFrame:GetLeft() == 1900 and playerSpellsFrame:GetTop() == 1100,
     "closing and reopening a Mainhand panel must restore its saved Mainhand anchor")
 
-local professionsFrame = makeMockFrame("ProfessionsFrame", 700, 800)
-UIPanelWindows.ProfessionsFrame = { area = "left", pushable = 0 }
-addon.db.savedMainPositions.ProfessionsFrame = { x = 9000, y = -500 }
-addon.Canvas.RestoreWorkspacePosition(professionsFrame)
-assert(professionsFrame:GetLeft() >= metrics.gameLeft + 12
-        and professionsFrame:GetRight() <= metrics.gameRight - 12
-        and professionsFrame:GetTop() <= metrics.gameTop - 12
-        and professionsFrame:GetBottom() >= metrics.gameBottom + 12,
+local collectionsFrame = makeMockFrame("CollectionsFrame", 700, 800)
+UIPanelWindows.CollectionsFrame = { area = "left", pushable = 0 }
+addon.db.savedMainPositions.CollectionsFrame = { x = 9000, y = -500 }
+addon.Canvas.RestoreWorkspacePosition(collectionsFrame)
+assert(collectionsFrame:GetLeft() >= metrics.gameLeft + 12
+        and collectionsFrame:GetRight() <= metrics.gameRight - 12
+        and collectionsFrame:GetTop() <= metrics.gameTop - 12
+        and collectionsFrame:GetBottom() >= metrics.gameBottom + 12,
     "stale Mainhand panel coordinates must be clamped back onto the visible game monitor")
 print("PASS: dynamic Blizzard panels default to Mainhand and persist explicit monitor placements")
 
 -- A panel whose Blizzard addon loads after login did not exist during the
--- initial persistence pass. RegisterUIPanel must reopen it when Offhand has an
--- explicit saved/open workspace record (the live Professions failure).
-local lateProfessionsFrame = makeMockFrame("ProfessionsBookFrame", 700, 800)
-lateProfessionsFrame:Hide()
-addon.db.savedWorkspacePositions.ProfessionsBookFrame = {
+-- initial persistence pass. RegisterUIPanel must reopen ordinary safe panels
+-- when Offhand has an explicit saved/open workspace record.
+local lateCollectionsFrame = makeMockFrame("CollectionsJournalFrame", 700, 800)
+lateCollectionsFrame:Hide()
+addon.db.savedWorkspacePositions.CollectionsJournalFrame = {
     x = 180, y = 1500, canvasLeft = 0, canvasBottom = 0,
     canvasWidth = metrics.workspaceWidth, canvasHeight = metrics.workspaceHeight,
 }
 addon.db.openWorkspacePanels = addon.db.openWorkspacePanels or {}
-addon.db.openWorkspacePanels.ProfessionsBookFrame = true
-RegisterUIPanel(lateProfessionsFrame)
+addon.db.openWorkspacePanels.CollectionsJournalFrame = true
+RegisterUIPanel(lateCollectionsFrame)
 flushTimers()
-assert(not lateProfessionsFrame:IsShown(),
-    "a late Professions registration must not re-enter ShowUIPanel in Blizzard's opening turn")
+assert(not lateCollectionsFrame:IsShown(),
+    "a late panel registration must not re-enter ShowUIPanel in Blizzard's opening turn")
 flushTimers()
-assert(lateProfessionsFrame:IsShown() and addon.Canvas.IsFrameOnWorkspace(lateProfessionsFrame),
-    "a persisted Professions panel must reopen after its load-on-demand addon settles")
-assert(addon.db.openWorkspacePanels.ProfessionsBookFrame
-        and addon.db.savedWorkspacePositions.ProfessionsBookFrame,
-    "safe delayed Professions restore must preserve open state and workspace position")
+assert(lateCollectionsFrame:IsShown() and addon.Canvas.IsFrameOnWorkspace(lateCollectionsFrame),
+    "a persisted safe panel must reopen after its load-on-demand addon settles")
+assert(addon.db.openWorkspacePanels.CollectionsJournalFrame
+        and addon.db.savedWorkspacePositions.CollectionsJournalFrame,
+    "safe delayed panel restore must preserve open state and workspace position")
 
 -- The crash report path: RegisterUIPanel runs inside the same hardware action
--- that will show Professions natively. If Blizzard shows it before Offhand's
+-- that will show the panel natively. If Blizzard shows it before Offhand's
 -- settlement timer, the queued restore must not call ShowUIPanel a second time.
-local nativeOpenedProfessions = makeMockFrame("NativeOpenedProfessionsFrame", 700, 800)
-nativeOpenedProfessions:Hide()
-local nativeShow = nativeOpenedProfessions.Show
-nativeOpenedProfessions.Show = function(self)
+local nativeOpenedCollections = makeMockFrame("NativeOpenedCollectionsFrame", 700, 800)
+nativeOpenedCollections:Hide()
+local nativeShow = nativeOpenedCollections.Show
+nativeOpenedCollections.Show = function(self)
     self.showCalls = (self.showCalls or 0) + 1
     nativeShow(self)
 end
-addon.db.savedWorkspacePositions.NativeOpenedProfessionsFrame = {
+addon.db.savedWorkspacePositions.NativeOpenedCollectionsFrame = {
     x = 240, y = 1420, canvasLeft = 0, canvasBottom = 0,
     canvasWidth = metrics.workspaceWidth, canvasHeight = metrics.workspaceHeight,
 }
-addon.db.openWorkspacePanels.NativeOpenedProfessionsFrame = true
-RegisterUIPanel(nativeOpenedProfessions)
-nativeOpenedProfessions:Show()
+addon.db.openWorkspacePanels.NativeOpenedCollectionsFrame = true
+RegisterUIPanel(nativeOpenedCollections)
+nativeOpenedCollections:Show()
 flushTimers()
 flushTimers()
-assert(nativeOpenedProfessions.showCalls == 1,
-    "Offhand must not show a Professions panel again when Blizzard's native action already opened it")
-assert(addon.Canvas.IsFrameOnWorkspace(nativeOpenedProfessions),
-    "a natively opened late Professions panel must still restore its workspace position")
+assert(nativeOpenedCollections.showCalls == 1,
+    "Offhand must not show a panel again when Blizzard's native action already opened it")
+assert(addon.Canvas.IsFrameOnWorkspace(nativeOpenedCollections),
+    "a natively opened late panel must still restore its workspace position")
 
-local noReloadProfessions = makeMockFrame("NoReloadProfessionsFrame", 700, 800)
-noReloadProfessions:Hide()
-addon.db.savedWorkspacePositions.NoReloadProfessionsFrame = {
+local noReloadCollections = makeMockFrame("NoReloadCollectionsFrame", 700, 800)
+noReloadCollections:Hide()
+addon.db.savedWorkspacePositions.NoReloadCollectionsFrame = {
     x = 220, y = 1450, canvasLeft = 0, canvasBottom = 0,
     canvasWidth = metrics.workspaceWidth, canvasHeight = metrics.workspaceHeight,
 }
-addon.db.openWorkspacePanels.NoReloadProfessionsFrame = true
+addon.db.openWorkspacePanels.NoReloadCollectionsFrame = true
 addon.db.restoreWorkspaceOnReload = false
-RegisterUIPanel(noReloadProfessions)
+RegisterUIPanel(noReloadCollections)
 flushTimers()
 flushTimers()
-assert(not noReloadProfessions:IsShown(),
+assert(not noReloadCollections:IsShown(),
     "late panel restoration must respect the reload-persistence checkbox")
-assert(addon.db.savedWorkspacePositions.NoReloadProfessionsFrame,
+assert(addon.db.savedWorkspacePositions.NoReloadCollectionsFrame,
     "disabling reload restoration must not discard the panel's workspace position")
 addon.db.restoreWorkspaceOnReload = true
-print("PASS: late Professions restore settles safely and preserves persistence settings")
+print("PASS: late safe-panel restore settles without re-entering Blizzard's loader")
+
+-- Forever Professions is fully Blizzard-owned after repeatable client crashes.
+-- Registration must not attach drag/show/position behavior, and historical
+-- persistence records must be discarded without touching the live frame.
+local professionsFrame = makeMockFrame("ProfessionsFrame", 700, 800)
+professionsFrame:Hide()
+UIPanelWindows.ProfessionsFrame = { area = "left", pushable = 0 }
+addon.db.savedWorkspacePositions.ProfessionsFrame = { x = 180, y = 1500 }
+addon.db.savedMainPositions.ProfessionsFrame = { x = 1700, y = 1200 }
+addon.db.openWorkspacePanels.ProfessionsFrame = true
+RegisterUIPanel(professionsFrame)
+flushTimers()
+flushTimers()
+assert(not professionsFrame._OffhandMovable and not professionsFrame:IsShown(),
+    "Offhand must not make Forever Professions movable or show it")
+assert(not addon.db.savedWorkspacePositions.ProfessionsFrame
+        and not addon.db.savedMainPositions.ProfessionsFrame
+        and not addon.db.openWorkspacePanels.ProfessionsFrame,
+    "historical Forever Professions ownership records must be removed")
+assert(addon.Canvas.IsForeverProfessionsPanel(professionsFrame),
+    "Forever Professions roots must be recognized as Blizzard-owned")
+print("PASS: Forever Professions remains entirely under Blizzard ownership")
+
+-- Unaffected users may explicitly opt into movement, but Professions remains
+-- isolated from automatic opening, Escape ownership and reload restoration.
+experimentalProfessionsMovement = true
+local optedInProfessions = makeMockFrame("ProfessionsBookFrame", 700, 800)
+optedInProfessions:Hide()
+RegisterUIPanel(optedInProfessions)
+optedInProfessions:Show()
+flushTimers()
+assert(optedInProfessions._OffhandExperimentalProfessionsAttached
+        and optedInProfessions._OffhandExperimentalProfessionsHandle,
+    "opted-in Professions must receive its isolated drag surface after native opening")
+assert(not optedInProfessions._OffhandMovable,
+    "experimental Professions must not enter the generic panel lifecycle")
+assert(not (addon.db.openWorkspacePanels
+        and addon.db.openWorkspacePanels.ProfessionsBookFrame),
+    "experimental Professions must not acquire automatic-open state")
+
+optedInProfessions:ClearAllPoints()
+optedInProfessions:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 180, 1500)
+addon.Canvas.OnPanelDragStop(optedInProfessions)
+assert(addon.db.savedWorkspacePositions.ProfessionsBookFrame,
+    "experimental Professions dragging must save an explicit workspace position")
+assert(not addon.db.openWorkspacePanels.ProfessionsBookFrame,
+    "saving an experimental Professions position must not enable reload persistence")
+
+optedInProfessions:ClearAllPoints()
+optedInProfessions:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 2100, 1100)
+optedInProfessions:Hide()
+optedInProfessions:Show()
+flushTimers()
+assert(addon.Canvas.IsFrameOnWorkspace(optedInProfessions),
+    "a later manual Professions opening must restore its saved position after settling")
+
+experimentalProfessionsMovement = false
+addon.Canvas:DisableExperimentalForeverProfessionsMovement()
+assert(not addon.db.savedWorkspacePositions.ProfessionsBookFrame,
+    "disabling experimental Professions movement must clear its saved position")
+assert(not optedInProfessions._OffhandExperimentalProfessionsHandle:IsShown()
+        and not optedInProfessions._OffhandExperimentalProfessionsHandle.mouse,
+    "disabling experimental Professions movement must deactivate its drag surface")
+print("PASS: experimental Forever Professions movement is isolated and reversible")
 
 -- Horizontal layouts also need explicit coverage when the workspace is to the
 -- right of Mainhand. Emulate the live client behavior where clearing

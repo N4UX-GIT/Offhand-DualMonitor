@@ -1,5 +1,12 @@
 name: Build and Release
 
+env:
+  # Addon-only releases reuse these exact, already-published Companion bytes.
+  # Change both values only for a deliberate Companion release.
+  COMPANION_RELEASE_TAG: v2.1.2-beta.13
+  COMPANION_SHA256: E41E043EFCBB01936155FA0C8A8634F8DF80D7A83599BB5D583F1ECF6B07AEBE
+  COMPANION_ARCHIVE_SHA256: A308ACF1B117B08B2912A77079168C40E32535DFEB66425F541BD7518581818D
+
 on:
   push:
     tags:
@@ -17,43 +24,88 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Determine release lane
+      id: policy
+      shell: powershell
+      run: |
+        $changed = "${{ github.ref_name }}" -eq $env:COMPANION_RELEASE_TAG
+        "companion_changed=$($changed.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
     - name: Setup MSBuild
+      if: steps.policy.outputs.companion_changed == 'true'
       uses: microsoft/setup-msbuild@v2
 
     - name: Build canonical Companion executable
+      if: steps.policy.outputs.companion_changed == 'true'
       shell: cmd
       run: Companion\build.bat
+
+    - name: Restore frozen Beta 13 Companion
+      if: steps.policy.outputs.companion_changed != 'true'
+      shell: powershell
+      run: |
+        .\scripts\Restore-FrozenCompanion.ps1 `
+          -Tag $env:COMPANION_RELEASE_TAG `
+          -ExpectedSha256 $env:COMPANION_SHA256
 
     - name: Build and Package
       shell: powershell
       run: |
-        # Package the already-built Companion so every release container and
-        # checksum refers to the same reviewed executable bytes.
-        # We extract the version from the tag (e.g., v1.0.1 -> 1.0.1)
         $version = "${{ github.ref_name }}".TrimStart('v')
-        .\package.ps1 -Version $version -UseExistingCompanion
+        if ("${{ steps.policy.outputs.companion_changed }}" -eq "true") {
+          .\package.ps1 -Version $version -CompanionChanged -UseExistingCompanion
+        } else {
+          .\package.ps1 -Version $version
+        }
+
+    - name: Attach frozen Beta 13 Companion assets
+      if: steps.policy.outputs.companion_changed != 'true'
+      shell: powershell
+      run: |
+        .\scripts\Restore-FrozenCompanion.ps1 `
+          -Tag $env:COMPANION_RELEASE_TAG `
+          -ExpectedSha256 $env:COMPANION_SHA256 `
+          -ArchiveDestination "dist\Offhand-Companion.zip" `
+          -ExpectedArchiveSha256 $env:COMPANION_ARCHIVE_SHA256
+        Copy-Item -LiteralPath "Companion\Offhand.exe" -Destination "dist\Offhand.exe" -Force
+        foreach ($path in @("dist\Offhand-Companion.zip", "dist\Offhand.exe")) {
+          $file = Get-Item -LiteralPath $path
+          $hash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+          "$hash  $($file.Name)" | Add-Content -LiteralPath "dist\checksums-sha256.txt" -Encoding UTF8
+        }
 
     - name: Create standardized release metadata
       id: metadata
       shell: powershell
       run: |
-        .\scripts\New-ReleaseMetadata.ps1 `
-          -Tag "${{ github.ref_name }}" `
-          -Repository "${{ github.repository }}" `
-          -OutputPath "dist\release-notes.md" `
-          -GitHubOutputPath $env:GITHUB_OUTPUT
+        $arguments = @{
+          Tag = "${{ github.ref_name }}"
+          Repository = "${{ github.repository }}"
+          OutputPath = "dist\release-notes.md"
+          GitHubOutputPath = $env:GITHUB_OUTPUT
+        }
+        if ("${{ steps.policy.outputs.companion_changed }}" -eq "true") {
+          $arguments.CompanionChanged = $true
+        }
+        .\scripts\New-ReleaseMetadata.ps1 @arguments
 
-    - name: Attest release build provenance
+    - name: Attest addon and complete bundle provenance
       uses: actions/attest@v4
       with:
         subject-path: |
           dist/Offhand-v*.zip
-          dist/Offhand-Companion.zip
           dist/Offhand-Complete-v*.zip
-          dist/Offhand.exe
           dist/checksums-sha256.txt
 
-    - name: Create Release and Upload Assets
+    - name: Attest updated Companion provenance
+      if: steps.policy.outputs.companion_changed == 'true'
+      uses: actions/attest@v4
+      with:
+        subject-path: |
+          dist/Offhand-Companion.zip
+          dist/Offhand.exe
+
+    - name: Create Release and upload addon assets
       uses: softprops/action-gh-release@v2
       with:
         name: ${{ steps.metadata.outputs.release_name }}

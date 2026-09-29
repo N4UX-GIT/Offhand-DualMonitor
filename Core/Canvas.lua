@@ -10,6 +10,51 @@ Offhand.Canvas = Canvas
 
 local rootCanvas
 
+-- Never store Offhand bookkeeping on Forever's native World Map object. The
+-- shareable user-waypoint pin enters restricted Blizzard code on Shift-click;
+-- addon fields or handlers anywhere in that native map tree can taint the
+-- protected chat-link action. Keep all of our state in an addon-owned weak
+-- table instead.
+local foreverWorldMapState = setmetatable({}, { __mode = "k" })
+
+local function IsForeverWorldMap(frame)
+    return Offhand.isForever and frame and frame == _G.WorldMapFrame
+end
+
+local function GetForeverWorldMapState(frame)
+    if not IsForeverWorldMap(frame) then return nil end
+    local state = foreverWorldMapState[frame]
+    if not state then
+        state = {}
+        foreverWorldMapState[frame] = state
+    end
+    return state
+end
+
+local function SetPanelDragging(frame, dragging)
+    local state = GetForeverWorldMapState(frame)
+    if state then
+        state.dragging = dragging and true or false
+    else
+        frame._OffhandDragging = dragging and true or false
+    end
+end
+
+local function IsPanelEvicting(frame)
+    local state = GetForeverWorldMapState(frame)
+    if state then return state.evicting == true end
+    return frame._OffhandEvictingPanelSlot
+end
+
+local function SetPanelEvicting(frame, evicting)
+    local state = GetForeverWorldMapState(frame)
+    if state then
+        state.evicting = evicting and true or false
+    else
+        frame._OffhandEvictingPanelSlot = evicting and true or nil
+    end
+end
+
 -- Accept metrics from older modules/tests while all live Viewport metrics now
 -- expose an explicit workspace rectangle.
 local function WithWorkspace(metrics)
@@ -99,6 +144,32 @@ local DemodalizePanel, RemodalizePanel, OnPanelDragStop, RestoreWorkspacePositio
 local EvictWorkspacePanelSlot
 local nonMovableSystemPanels
 
+-- Forever's load-on-demand Professions UI has produced repeatable client
+-- crashes while Offhand participates in its registration, drag, or restore
+-- lifecycle. Treat the complete Professions family as Blizzard-owned by
+-- default. A separately consented experimental path supports delayed movement
+-- without reconnecting it to the generic panel lifecycle.
+local function IsForeverProfessionsPanel(frame, suppliedName)
+    if not Offhand.isForever then return false end
+    local name = suppliedName or (frame and frame.GetName and frame:GetName())
+    if not name then return false end
+    return name == "TradeSkillFrame" or name == "CraftFrame"
+        or name:match("^Professions") ~= nil
+        or name:match("^Profession") ~= nil
+        or name:match("TradeSkill") ~= nil
+end
+
+local function IsExperimentalForeverProfessionsMovementEnabled()
+    return Offhand.isForever
+        and Offhand.IsExperimentalForeverProfessionsMovementEnabled
+        and Offhand:IsExperimentalForeverProfessionsMovementEnabled() or false
+end
+
+local function ShouldYieldForeverProfessionsPanel(frame, suppliedName)
+    return IsForeverProfessionsPanel(frame, suppliedName)
+        and not IsExperimentalForeverProfessionsMovementEnabled()
+end
+
 -- Forever exposes Edit Mode through a load-on-demand addon.  The absence of
 -- EditModeManagerFrame during early login therefore does not mean these frames
 -- are safe for addons to move or make draggable.
@@ -154,6 +225,7 @@ end
 
 local function IsUnsafeForDirectMutation(frame)
     if not frame then return true end
+    if ShouldYieldForeverProfessionsPanel(frame) then return true end
     if frame.IsForbidden and frame:IsForbidden() then return true end
     if frame.IsProtected and frame:IsProtected() then return true end
     return false
@@ -166,6 +238,7 @@ end
 -- here and remain covered by the stricter guard above.
 local function IsUnsafeForPanelMutation(frame, name)
     if not frame then return true end
+    if ShouldYieldForeverProfessionsPanel(frame, name) then return true end
     if frame.IsForbidden and frame:IsForbidden() then return true end
     if frame.IsProtected and frame:IsProtected() then
         name = name or (frame.GetName and frame:GetName())
@@ -244,6 +317,11 @@ function Canvas:UpdateMapMovementBehavior()
     local map = WorldMapFrame
     if not map then return end
     if HasLeatrixMaps() then return end
+    -- Forever routes map-pin mouse actions through restricted Blizzard code.
+    -- Do not change the native map event registration on that client; even an
+    -- unrelated movement-event mutation can taint the shared map frame before
+    -- a player shift-clicks a pin.
+    if Offhand.isForever then return end
 
     if Offhand.db and Offhand.db.enabled and Offhand.db.preventMapCloseOnMove then
         pcall(function() map:UnregisterEvent("PLAYER_STARTED_MOVING") end)
@@ -532,6 +610,14 @@ end
 -- the frame is fully initialized.
 function Canvas:QueuePersistentPanelRestore(frame, name)
     if not frame or not name or not C_Timer or not C_Timer.After then return false end
+    if IsForeverProfessionsPanel(frame, name) then
+        if ShouldYieldForeverProfessionsPanel(frame, name) then
+            self:RelinquishForeverProfessionsPanels(name)
+        end
+        -- Even opted-in Professions panels are never opened automatically.
+        -- Their saved anchor is restored only after a native manual opening.
+        return false
+    end
     if frame._OffhandPersistentRestoreQueued then return true end
 
     frame._OffhandPersistentRestoreQueued = true
@@ -577,6 +663,9 @@ end
 
 function Canvas:RestorePersistentFrames()
     if not Offhand.db or not Offhand.db.enabled or Offhand.db.persistentWorkspacePanels == false then return end
+    if not IsExperimentalForeverProfessionsMovementEnabled() then
+        self:RelinquishForeverProfessionsPanels()
+    end
     if Offhand.db.restoreWorkspaceOnReload == false then return end
     if not Offhand.db.savedWorkspacePositions then return end
     if InCombatLockdown() then
@@ -602,7 +691,7 @@ function Canvas:RestorePersistentFrames()
     
     for name, _ in pairs(Offhand.db.savedWorkspacePositions) do
         local frame = _G[name]
-        if frame then
+        if frame and not IsForeverProfessionsPanel(frame, name) then
             if frame:IsShown() then
                 RestoreWorkspacePosition(frame)
             elseif openPanels[name] then
@@ -703,7 +792,7 @@ function Canvas:ConfigureWorldMap()
     if not m or not m.isSpanned then return end
 
     -- Enable proper parent scaling so the map scales consistently with UIParent
-    if map.SetIgnoreParentScale then
+    if not Offhand.isForever and map.SetIgnoreParentScale then
         pcall(function() map:SetIgnoreParentScale(false) end)
     end
 
@@ -720,7 +809,7 @@ function Canvas:ConfigureWorldMap()
         end)
     end
 
-    if not map._OffhandWindowedHook and hooksecurefunc then
+    if not Offhand.isForever and not map._OffhandWindowedHook and hooksecurefunc then
         map._OffhandWindowedHook = true
         local function ScheduleWindowed()
             if map._OffhandWindowedPending or not C_Timer then return end
@@ -744,7 +833,7 @@ function Canvas:ConfigureWorldMap()
     end
 
     -- Hook Blizzard's built-in title button drag handlers
-    if WorldMapTitleButton and not WorldMapTitleButton._OffhandHooked then
+    if not Offhand.isForever and WorldMapTitleButton and not WorldMapTitleButton._OffhandHooked then
         WorldMapTitleButton._OffhandHooked = true
         WorldMapTitleButton:RegisterForDrag("LeftButton")
         WorldMapTitleButton:HookScript("OnDragStart", function(self)
@@ -755,7 +844,7 @@ function Canvas:ConfigureWorldMap()
             OnPanelDragStop(map)
         end)
     end
-    if WorldMapTitleButton_OnDragStop and not Canvas._titleButtonHooked then
+    if not Offhand.isForever and WorldMapTitleButton_OnDragStop and not Canvas._titleButtonHooked then
         Canvas._titleButtonHooked = true
         hooksecurefunc("WorldMapTitleButton_OnDragStop", function()
             OnPanelDragStop(map)
@@ -790,12 +879,12 @@ function Canvas:ConfigureWorldMap()
         end
     end
 
-    if not map._OffhandWheelHooked then
+    if not Offhand.isForever and not map._OffhandWheelHooked then
         map._OffhandWheelHooked = true
         if map.EnableMouseWheel then map:EnableMouseWheel(true) end
         if map.HookScript then map:HookScript("OnMouseWheel", OnMapMouseWheel) end
     end
-    if WorldMapTitleButton and not WorldMapTitleButton._OffhandWheelHooked then
+    if not Offhand.isForever and WorldMapTitleButton and not WorldMapTitleButton._OffhandWheelHooked then
         WorldMapTitleButton._OffhandWheelHooked = true
         if WorldMapTitleButton.EnableMouseWheel then WorldMapTitleButton:EnableMouseWheel(true) end
         if WorldMapTitleButton.HookScript then WorldMapTitleButton:HookScript("OnMouseWheel", OnMapMouseWheel) end
@@ -851,13 +940,13 @@ function Canvas:ConfigureWorldMap()
         if scale > 0 and scale < math.huge then map:SetScale(scale) end
     end
 
-    if not map._OffhandPersistenceHooked and map.HookScript then
+    if not Offhand.isForever and not map._OffhandPersistenceHooked and map.HookScript then
         map._OffhandPersistenceHooked = true
         map:HookScript("OnShow", function(self)
             local isWs = (Offhand.db and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["WorldMapFrame"]) or IsFrameOnWorkspace(self)
             if isWs and (Offhand.db and Offhand.db.persistentWorkspacePanels ~= false) then
                 UnregisterSpecialFrame("WorldMapFrame")
-                if not self._OffhandEvictingPanelSlot and C_Timer and C_Timer.After then
+                if not IsPanelEvicting(self) and C_Timer and C_Timer.After then
                     C_Timer.After(0, function()
                         local saved = Offhand.db and Offhand.db.savedWorkspacePositions
                             and Offhand.db.savedWorkspacePositions["WorldMapFrame"]
@@ -872,7 +961,7 @@ function Canvas:ConfigureWorldMap()
             end
         end)
         map:HookScript("OnHide", function(self)
-            if self._OffhandEvictingPanelSlot or not C_Timer or not C_Timer.After then return end
+            if IsPanelEvicting(self) or not C_Timer or not C_Timer.After then return end
             C_Timer.After(0, function()
                 Canvas:RepairShownWorkspacePanels(self)
             end)
@@ -914,7 +1003,7 @@ local originalAreas = {}
 -- independently. Detach only the already-saved workspace panel; do not alter
 -- UIPanelWindows or any secure layout attributes (especially on Forever).
 EvictWorkspacePanelSlot = function(frame)
-    if not frame or not GetUIPanel or not HideUIPanel or frame._OffhandEvictingPanelSlot then return false end
+    if not frame or not GetUIPanel or not HideUIPanel or IsPanelEvicting(frame) then return false end
     local occupiesSlot = GetUIPanel("left") == frame or GetUIPanel("center") == frame
         or GetUIPanel("right") == frame or GetUIPanel("doublewide") == frame
     if not occupiesSlot then return false end
@@ -923,10 +1012,10 @@ EvictWorkspacePanelSlot = function(frame)
     -- World Map handler taints later quest-pin acquisition on Forever. The
     -- re-entrancy flag makes Offhand's secure post-hooks ignore this deliberate
     -- hide/show cycle while Blizzard vacates the UIPanel slot normally.
-    frame._OffhandEvictingPanelSlot = true
+    SetPanelEvicting(frame, true)
     pcall(function() HideUIPanel(frame, 1) end)
     if frame.Show then frame:Show() end
-    frame._OffhandEvictingPanelSlot = nil
+    SetPanelEvicting(frame, false)
     return true
 end
 
@@ -1006,13 +1095,13 @@ RemodalizePanel = function(frame)
 
 OnPanelDragStop = function(frame)
     if not frame then return end
-    if InCombatLockdown() then frame._OffhandDragging = false; return end
+    if InCombatLockdown() then SetPanelDragging(frame, false); return end
     local dragName = frame.GetName and frame:GetName()
     if IsForeverEditModeFrame(frame, dragName) or IsUnsafeForPanelMutation(frame, dragName) then
-        frame._OffhandDragging = false
+        SetPanelDragging(frame, false)
         return
     end
-    if dragName and dragName:match("^ChatFrame%d+$") then frame._OffhandDragging = true end
+    if dragName and dragName:match("^ChatFrame%d+$") then SetPanelDragging(frame, true) end
     if frame.StopMovingOrSizing then
         pcall(function() frame:StopMovingOrSizing() end)
     end
@@ -1041,21 +1130,23 @@ OnPanelDragStop = function(frame)
     end
 
     if not Offhand.db or not Offhand.db.enabled then
-        frame._OffhandDragging = false
+        SetPanelDragging(frame, false)
         return
     end
     local name = frame:GetName()
     if not name then
-        frame._OffhandDragging = false
+        SetPanelDragging(frame, false)
         return
     end
+    local restrictedProfessionsMovement = IsForeverProfessionsPanel(frame, name)
+        and IsExperimentalForeverProfessionsMovementEnabled()
 
     Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
     Offhand.db.savedMainPositions = Offhand.db.savedMainPositions or {}
 
     local m = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
     if not m then
-        frame._OffhandDragging = false
+        SetPanelDragging(frame, false)
         return
     end
 
@@ -1068,7 +1159,7 @@ OnPanelDragStop = function(frame)
         Offhand.db.savedMainPositions[name] = nil
         Canvas:SetWorkspacePanelOpen(name, false)
         if Offhand.ForeverPersistence then Offhand.ForeverPersistence:ClearPosition(name) end
-        frame._OffhandDragging = false
+        SetPanelDragging(frame, false)
         return
     end
 
@@ -1118,7 +1209,8 @@ OnPanelDragStop = function(frame)
         local factor = parentScale / frameScale
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         
-        if wasShown and (Offhand.db.independentWorkspacePanels or frame == WorldMapFrame) then
+        if not restrictedProfessionsMovement and wasShown
+            and (Offhand.db.independentWorkspacePanels or frame == WorldMapFrame) then
             -- Escape closes active UIPanel slots even when UISpecialFrames no
             -- longer contains this workspace panel.
             EvictWorkspacePanelSlot(frame)
@@ -1159,10 +1251,14 @@ OnPanelDragStop = function(frame)
             end
         end
 
-        if Offhand.db.persistentWorkspacePanels ~= false then
+        if not restrictedProfessionsMovement and Offhand.db.persistentWorkspacePanels ~= false then
             UnregisterSpecialFrame(name)
         end
-        if wasShown then Canvas:SetWorkspacePanelOpen(name, true) end
+        if restrictedProfessionsMovement then
+            Canvas:SetWorkspacePanelOpen(name, false)
+        elseif wasShown then
+            Canvas:SetWorkspacePanelOpen(name, true)
+        end
     else
         Offhand.db.savedWorkspacePositions[name] = nil
         Canvas:SetWorkspacePanelOpen(name, false)
@@ -1252,8 +1348,10 @@ OnPanelDragStop = function(frame)
             Offhand.db.savedMainPositions[name] = {
                 point = "TOPLEFT", x = clampedX, y = clampedY,
             }
-            RemodalizePanel(frame)
-            RegisterSpecialFrame(name)
+            if not restrictedProfessionsMovement then
+                RemodalizePanel(frame)
+                RegisterSpecialFrame(name)
+            end
             if UpdateUIPanelPositions and not Offhand.isForever then
                 pcall(UpdateUIPanelPositions, frame)
             end
@@ -1263,7 +1361,7 @@ OnPanelDragStop = function(frame)
                     end
     end
 
-    frame._OffhandDragging = false
+    SetPanelDragging(frame, false)
 end
 
 -- A missing saved display leaves no workspace rectangle. Close only panels
@@ -1284,7 +1382,9 @@ function Canvas:PrepareSingleScreenRecovery(metrics)
     if not IsSingleScreenRecovery(metrics) or not Offhand.db
         or not Offhand.db.savedWorkspacePositions then return end
     for name in pairs(Offhand.db.savedWorkspacePositions) do
-        if not tostring(name):match("^ChatFrame%d+$") and not IsForeverEditModeFrame(_G[name], name) then
+        if not tostring(name):match("^ChatFrame%d+$")
+            and not IsForeverEditModeFrame(_G[name], name)
+            and not IsForeverProfessionsPanel(_G[name], name) then
             local frame = _G[name]
             if frame and frame.IsShown and frame:IsShown() and frame.Hide then
                 pcall(frame.Hide, frame)
@@ -1427,7 +1527,7 @@ function Canvas:PlacePanelOnMainhand(frame, metrics, position, preserveContained
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT",
             clampedX * pointFactor, clampedY * pointFactor)
     end)
-    if ok then RegisterSpecialFrame(name) end
+    if ok and not IsForeverProfessionsPanel(frame, name) then RegisterSpecialFrame(name) end
     return ok
 end
 
@@ -1438,6 +1538,8 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
     local name = frame:GetName()
     if not name then return end
     if IsForeverEditModeFrame(frame, name) or IsUnsafeForPanelMutation(frame, name) then return end
+    local restrictedProfessionsMovement = IsForeverProfessionsPanel(frame, name)
+        and IsExperimentalForeverProfessionsMovementEnabled()
     if IsRetailChatEditModeActive(frame) then return end
 
     local m = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
@@ -1449,7 +1551,8 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
 
     local wPos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
     if type(wPos) == "table" and wPos.x and wPos.y then
-        if Offhand.db.independentWorkspacePanels or frame == WorldMapFrame then
+        if not restrictedProfessionsMovement
+            and (Offhand.db.independentWorkspacePanels or frame == WorldMapFrame) then
             DemodalizePanel(frame)
             EvictWorkspacePanelSlot(frame)
         end
@@ -1509,7 +1612,7 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
                 Offhand.HUD:RepairChatButtons(frame)
             end
         end
-        if Offhand.db.persistentWorkspacePanels ~= false then
+        if not restrictedProfessionsMovement and Offhand.db.persistentWorkspacePanels ~= false then
             UnregisterSpecialFrame(name)
         end
         return
@@ -1567,7 +1670,9 @@ function Canvas:RepairShownWorkspacePanels(exceptFrame)
     for name in pairs(Offhand.db.savedWorkspacePositions) do
         local frame = _G[name]
         if frame and frame ~= exceptFrame and frame.IsShown and frame:IsShown()
-            and not IsForeverEditModeFrame(frame, name) and not IsUnsafeForPanelMutation(frame, name) then
+            and not IsForeverEditModeFrame(frame, name)
+            and not IsForeverProfessionsPanel(frame, name)
+            and not IsUnsafeForPanelMutation(frame, name) then
             RestoreWorkspacePosition(frame)
         end
     end
@@ -1582,6 +1687,20 @@ nonMovableSystemPanels = {
     InterfaceOptionsFrame = true,
     VideoOptionsFrame = true,
     AudioOptionsFrame = true,
+    -- Transient/interactive Blizzard UI is positioned by SeamRedirect (where
+    -- safe) or left to secure/Edit Mode ownership. It must never acquire the
+    -- generic panel drag, persistence, independent-open, or Escape behavior.
+    ZoneTextFrame = true,
+    SubZoneTextFrame = true,
+    BossBanner = true,
+    EventToastManagerFrame = true,
+    AlertFrame = true,
+    RolePollPopup = true,
+    ReadyCheckFrame = true,
+    TimerTracker = true,
+    OverrideActionBar = true,
+    HousingControlsFrame = true,
+    HouseEditorFrame = true,
 }
 
 -- A normal Blizzard panel can be reachable by its left edge while its close
@@ -1659,6 +1778,11 @@ end
 
 local function RestoreSavedPositionAfterShow(frame)
     if not frame or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+    local frameName = frame.GetName and frame:GetName()
+    if IsForeverProfessionsPanel(frame, frameName) then
+        if not IsExperimentalForeverProfessionsMovementEnabled()
+            or not frame._OffhandExperimentalProfessionsRestoreAllowed then return end
+    end
     local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
     if metrics and not metrics.isSpanned then
         Canvas:PlaceForSingleScreenRecovery(frame, metrics)
@@ -1673,7 +1797,7 @@ local function RestoreSavedPositionAfterShow(frame)
         end
         return
     end
-    local name = frame.GetName and frame:GetName()
+    local name = frameName
     local workspacePosition = name and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
     local mainPosition = name and Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name]
     if not workspacePosition and not mainPosition then
@@ -1766,8 +1890,90 @@ local function HookPanelCloseButton(frame, name)
     end)
 end
 
+-- Forever's map-pin sharing path is protected. A drag handler parented to the
+-- World Map, or attached to its native title/close controls, taints the same
+-- widget tree used by Blizzard's Shift-click link insertion. Provide the map's
+-- drag affordance from an independent UIParent child and follow the map by
+-- reading geometry only. The handle never becomes a child or anchor dependent
+-- of WorldMapFrame and no script is installed on any native map object.
+local function AttachForeverWorldMapDragHandle(map)
+    if not IsForeverWorldMap(map) or not CreateFrame or not UIParent then return false end
+    local state = GetForeverWorldMapState(map)
+    if state.handle then return true end
+
+    local handle = CreateFrame("Frame", nil, UIParent)
+    if not handle then return false end
+    state.handle = handle
+
+    if handle.SetFrameStrata then handle:SetFrameStrata("TOOLTIP") end
+    if handle.SetFrameLevel then handle:SetFrameLevel(10000) end
+    if handle.EnableMouse then handle:EnableMouse(false) end
+    if handle.RegisterForDrag then handle:RegisterForDrag("LeftButton") end
+
+    local elapsedSinceUpdate = 1
+    local function UpdateHandle(_, elapsed)
+        elapsedSinceUpdate = elapsedSinceUpdate + (tonumber(elapsed) or 0)
+        if elapsedSinceUpdate < 0.10 then return end
+        elapsedSinceUpdate = 0
+
+        local usable = Offhand.db and Offhand.db.enabled
+            and map.IsShown and map:IsShown()
+            and map.GetLeft and map:GetLeft()
+            and map.GetTop and map:GetTop()
+        if not usable then
+            if handle.EnableMouse then handle:EnableMouse(false) end
+            if handle.SetSize then handle:SetSize(1, 1) end
+            if handle.ClearAllPoints and handle.SetPoint then
+                handle:ClearAllPoints()
+                handle:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", -100, -100)
+            end
+            return
+        end
+
+        local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
+        local mapScale = (map.GetEffectiveScale and map:GetEffectiveScale()) or parentScale
+        local factor = parentScale > 0 and mapScale / parentScale or 1
+        local left = map:GetLeft() * factor
+        local top = map:GetTop() * factor
+        local width = math.max(48, ((map.GetWidth and map:GetWidth()) or 610) * factor - 64)
+        local height = math.max(18, 28 * factor)
+
+        if handle.ClearAllPoints and handle.SetPoint then
+            handle:ClearAllPoints()
+            handle:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left + 8, top)
+        end
+        if handle.SetSize then handle:SetSize(width, height) end
+        if handle.EnableMouse then handle:EnableMouse(true) end
+    end
+
+    if handle.SetScript then
+        handle:SetScript("OnUpdate", UpdateHandle)
+        handle:SetScript("OnDragStart", function()
+            if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+            local started = pcall(function()
+                map:SetMovable(true)
+                map:SetClampedToScreen(false)
+                map:StartMoving()
+            end)
+            SetPanelDragging(map, started)
+        end)
+        handle:SetScript("OnDragStop", function()
+            OnPanelDragStop(map)
+            UpdateHandle(nil, 1)
+        end)
+    end
+    if handle.Show then handle:Show() end
+    UpdateHandle(nil, 1)
+    return true
+end
+
 local function MakePanelDraggable(frame)
-    if not frame or frame._OffhandMovable then return end
+    if not frame then return end
+    if IsForeverWorldMap(frame) then
+        AttachForeverWorldMapDragHandle(frame)
+        return
+    end
+    if frame._OffhandMovable then return end
     local name = frame.GetName and frame:GetName()
     if IsForeverEditModeFrame(frame, name) or IsUnsafeForPanelMutation(frame, name) then return end
 
@@ -1890,7 +2096,7 @@ local function MakePanelDraggable(frame)
         HookMinimapDragHandle(MinimapCluster)
     end
 
-    if frame == WorldMapFrame then
+    if frame == WorldMapFrame and not Offhand.isForever then
         if WorldMapTitleButton and not WorldMapTitleButton._OffhandHooked then
             WorldMapTitleButton._OffhandHooked = true
             WorldMapTitleButton:RegisterForDrag("LeftButton")
@@ -1918,6 +2124,183 @@ Canvas.MakePanelDraggable = MakePanelDraggable
 Canvas.HookCombinedBagCloseButton = HookCombinedBagCloseButton
 Canvas.IsFrameOnWorkspace = IsFrameOnWorkspace
 Canvas.OnPanelDragStop = OnPanelDragStop
+Canvas.IsForeverProfessionsPanel = IsForeverProfessionsPanel
+Canvas.ShouldYieldForeverProfessionsPanel = ShouldYieldForeverProfessionsPanel
+
+-- Experimental Forever Professions support is intentionally isolated from the
+-- universal panel lifecycle. It never opens the panel, changes its Escape/UI
+-- panel registration, or participates in login/reload restoration. Blizzard
+-- must first finish a native manual opening; only then is an Offhand drag
+-- surface attached and an existing saved anchor applied.
+function Canvas:QueueExperimentalForeverProfessionsMovement(frame, suppliedName)
+    local name = suppliedName or (frame and frame.GetName and frame:GetName())
+    if not frame or not name or not IsForeverProfessionsPanel(frame, name)
+        or not IsExperimentalForeverProfessionsMovementEnabled()
+        or not C_Timer or not C_Timer.After then return false end
+    if frame._OffhandExperimentalProfessionsQueued then return true end
+
+    frame._OffhandExperimentalProfessionsQueued = true
+    frame._OffhandExperimentalProfessionsGeneration =
+        (frame._OffhandExperimentalProfessionsGeneration or 0) + 1
+    local generation = frame._OffhandExperimentalProfessionsGeneration
+    C_Timer.After(1.0, function()
+        frame._OffhandExperimentalProfessionsQueued = nil
+        if frame._OffhandExperimentalProfessionsGeneration ~= generation
+            or not IsExperimentalForeverProfessionsMovementEnabled()
+            or (frame.IsShown and not frame:IsShown()) then return end
+        if InCombatLockdown() then
+            if Offhand.RunOrQueueCombat then
+                Offhand:RunOrQueueCombat(function()
+                    Canvas:QueueExperimentalForeverProfessionsMovement(frame, name)
+                end)
+            end
+            return
+        end
+
+        if not frame._OffhandExperimentalProfessionsAttached then
+            local movableOK = pcall(function()
+                frame:SetMovable(true)
+                frame:SetClampedToScreen(false)
+            end)
+            if not movableOK or (frame.IsMovable and not frame:IsMovable()) then return end
+
+            local handle = CreateFrame("Frame", nil, frame)
+            handle:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, 0)
+            handle:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -36, 0)
+            handle:SetHeight(32)
+            local level = (frame.GetFrameLevel and frame:GetFrameLevel()) or 1
+            if handle.SetFrameLevel then handle:SetFrameLevel(math.max(level + 25, 520)) end
+            handle:EnableMouse(true)
+            handle:RegisterForDrag("LeftButton")
+            handle:SetScript("OnDragStart", function()
+                if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
+                    or not IsExperimentalForeverProfessionsMovementEnabled() then return end
+                local started = pcall(function() frame:StartMoving() end)
+                frame._OffhandDragging = started and true or false
+            end)
+            handle:SetScript("OnDragStop", function()
+                if frame._OffhandDragging and IsExperimentalForeverProfessionsMovementEnabled() then
+                    OnPanelDragStop(frame)
+                elseif frame.StopMovingOrSizing then
+                    pcall(frame.StopMovingOrSizing, frame)
+                    frame._OffhandDragging = false
+                end
+            end)
+            frame._OffhandExperimentalProfessionsHandle = handle
+            frame._OffhandExperimentalProfessionsAttached = true
+            if frame.HookScript then
+                frame:HookScript("OnShow", function(self)
+                    Canvas:QueueExperimentalForeverProfessionsMovement(self, name)
+                end)
+            end
+        end
+
+        local handle = frame._OffhandExperimentalProfessionsHandle
+        if handle then
+            if handle.EnableMouse then handle:EnableMouse(true) end
+            if handle.Show then handle:Show() end
+        end
+        Canvas:SetWorkspacePanelOpen(name, false)
+        local hasSavedPosition = Offhand.db and
+            ((Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name])
+                or (Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name]))
+        if hasSavedPosition then
+            frame._OffhandExperimentalProfessionsRestoreAllowed = true
+            RestoreSavedPositionAfterShow(frame)
+            frame._OffhandExperimentalProfessionsRestoreAllowed = nil
+        end
+    end)
+    return true
+end
+
+function Canvas:EnableExperimentalForeverProfessionsMovement()
+    if not IsExperimentalForeverProfessionsMovementEnabled() then return false end
+    if C_Timer and C_Timer.NewTicker and not self.experimentalProfessionsWatcher then
+        self.experimentalProfessionsWatcher = C_Timer.NewTicker(0.5, function()
+            if not IsExperimentalForeverProfessionsMovementEnabled() then
+                if Canvas.experimentalProfessionsWatcher.Cancel then
+                    Canvas.experimentalProfessionsWatcher:Cancel()
+                end
+                Canvas.experimentalProfessionsWatcher = nil
+                return
+            end
+            if not UIPanelWindows then return end
+            for name in pairs(UIPanelWindows) do
+                local frame = _G[name]
+                if frame and IsForeverProfessionsPanel(frame, name)
+                    and frame.IsShown and frame:IsShown()
+                    and not frame._OffhandExperimentalProfessionsAttached then
+                    Canvas:QueueExperimentalForeverProfessionsMovement(frame, name)
+                end
+            end
+        end)
+    end
+    return true
+end
+
+function Canvas:DisableExperimentalForeverProfessionsMovement()
+    if not Offhand.isForever then return false end
+    if self.experimentalProfessionsWatcher then
+        if self.experimentalProfessionsWatcher.Cancel then
+            self.experimentalProfessionsWatcher:Cancel()
+        end
+        self.experimentalProfessionsWatcher = nil
+    end
+    if UIPanelWindows then
+        for name in pairs(UIPanelWindows) do
+            if IsForeverProfessionsPanel(nil, name) then
+                local frame = _G[name]
+                if frame then
+                    frame._OffhandExperimentalProfessionsGeneration =
+                        (frame._OffhandExperimentalProfessionsGeneration or 0) + 1
+                    frame._OffhandExperimentalProfessionsQueued = nil
+                    frame._OffhandExperimentalProfessionsRestoreAllowed = nil
+                    local handle = frame._OffhandExperimentalProfessionsHandle
+                    if handle then
+                        if handle.EnableMouse then handle:EnableMouse(false) end
+                        if handle.Hide then handle:Hide() end
+                    end
+                end
+            end
+        end
+    end
+    self:RelinquishForeverProfessionsPanels()
+    return true
+end
+
+-- Remove historical Offhand ownership records so an upgraded installation
+-- cannot keep retrying a Professions restore that the new policy forbids.
+-- This does not hide, show, anchor, register, or otherwise touch Blizzard's
+-- live frame.
+function Canvas:RelinquishForeverProfessionsPanels(onlyName)
+    if not Offhand.isForever or not Offhand.db then return false end
+    local cleared = false
+    local clearedNames = {}
+    local tables = {
+        Offhand.db.savedWorkspacePositions,
+        Offhand.db.savedMainPositions,
+        Offhand.db.openWorkspacePanels,
+    }
+    for _, records in ipairs(tables) do
+        if type(records) == "table" then
+            for name in pairs(records) do
+                if (not onlyName or name == onlyName)
+                    and IsForeverProfessionsPanel(nil, name) then
+                    records[name] = nil
+                    cleared = true
+                    clearedNames[name] = true
+                end
+            end
+        end
+    end
+    if cleared and Offhand.ForeverPersistence and Offhand.ForeverPersistence.ClearPosition then
+        for name in pairs(clearedNames) do
+            Offhand.ForeverPersistence:ClearPosition(name)
+        end
+    end
+    if cleared then SaveOpenWorkspacePanels() end
+    return cleared
+end
 
 local foreverSystemPanelNames = {
     "SettingsPanel",
@@ -2031,9 +2414,22 @@ function Canvas:HookMainhandSystemPanels()
 end
 
 function Canvas:TryMakeFrameDraggable(frame)
-    if not frame or frame._OffhandMovable or not frame.GetName then return end
+    if not frame or not frame.GetName then return end
+    if IsForeverWorldMap(frame) then
+        MakePanelDraggable(frame)
+        return
+    end
+    if frame._OffhandMovable then return end
     local name = frame:GetName()
     if not name then return end
+    if IsForeverProfessionsPanel(frame, name) then
+        if ShouldYieldForeverProfessionsPanel(frame, name) then
+            self:RelinquishForeverProfessionsPanels(name)
+        elseif frame.IsShown and frame:IsShown() then
+            self:QueueExperimentalForeverProfessionsMovement(frame, name)
+        end
+        return
+    end
     if nonMovableSystemPanels[name] then return end
     if IsForeverEditModeFrame(frame, name) or IsUnsafeForPanelMutation(frame, name) then return end
     if name == "MinimapCluster" and Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon() then
@@ -2060,8 +2456,17 @@ function Canvas:DiscoverUIPanels()
     for name in pairs(UIPanelWindows) do
         local frame = _G[name]
         if frame then
-            self:TryMakeFrameDraggable(frame)
-            if frame.IsShown and frame:IsShown() then
+            if IsForeverProfessionsPanel(frame, name) then
+                if ShouldYieldForeverProfessionsPanel(frame, name) then
+                    self:RelinquishForeverProfessionsPanels(name)
+                elseif frame.IsShown and frame:IsShown() then
+                    self:QueueExperimentalForeverProfessionsMovement(frame, name)
+                end
+            else
+                self:TryMakeFrameDraggable(frame)
+            end
+            if not IsForeverProfessionsPanel(frame, name)
+                and frame.IsShown and frame:IsShown() then
                 RestoreSavedPositionAfterShow(frame)
             end
         end
@@ -2070,6 +2475,11 @@ end
 
 function Canvas:EnableFreeDragging()
     if not Offhand.db or not Offhand.db.enabled then return end
+    if not IsExperimentalForeverProfessionsMovementEnabled() then
+        self:RelinquishForeverProfessionsPanels()
+    else
+        self:EnableExperimentalForeverProfessionsMovement()
+    end
     if InCombatLockdown() then
         if not self.dragSetupPending then
             self.dragSetupPending = true
@@ -2093,6 +2503,18 @@ function Canvas:EnableFreeDragging()
     if hooksecurefunc and RegisterUIPanel and not self.registerUIPanelHooked then
         self.registerUIPanelHooked = true
         hooksecurefunc("RegisterUIPanel", function(frame)
+            local registeredName = frame and frame.GetName and frame:GetName()
+            if IsForeverProfessionsPanel(frame, registeredName) then
+                if ShouldYieldForeverProfessionsPanel(frame, registeredName) then
+                    Canvas:RelinquishForeverProfessionsPanels(registeredName)
+                else
+                    -- The queue waits beyond the native registration/opening
+                    -- stack and verifies that Blizzard actually showed the
+                    -- panel before attaching experimental movement.
+                    Canvas:QueueExperimentalForeverProfessionsMovement(frame, registeredName)
+                end
+                return
+            end
             local function AttachRegisteredPanel()
                 Canvas:TryMakeFrameDraggable(frame)
                 local name = frame and frame.GetName and frame:GetName()
@@ -2129,6 +2551,13 @@ function Canvas:EnableFreeDragging()
                 local shown = frame.IsShown and frame:IsShown()
                 Canvas:SetWorkspacePanelOpen(name, shown)
                 if shown then RestoreSavedPositionAfterShow(frame) end
+                -- A native World Map close can reshuffle Blizzard's active
+                -- panel slots. Repair other saved workspace panels from this
+                -- external post-toggle hook rather than attaching OnHide to the
+                -- restricted Forever map frame.
+                if frame == _G.WorldMapFrame then
+                    Canvas:RepairShownWorkspacePanels(frame)
+                end
             end)
         end
         local function SyncNativeBags()

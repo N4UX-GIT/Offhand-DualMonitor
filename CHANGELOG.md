@@ -5,8 +5,17 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Changed
-- Addon settings and Companion now identify the exact `v2.1.2-beta.13`
-  pre-release build while retaining `2.1.2` as the compatible base version.
+- The settings header now shows the Companion release paired with the installed
+  addon. Its version tooltip lists the exact addon build and paired Companion
+  build separately, and explains that WoW cannot inspect the executable that is
+  actually running.
+- Forever users whose client opens Professions reliably can explicitly enable
+  experimental movement from a new collapsed Advanced compatibility card. The
+  override is off by default, requires a crash warning confirmation, resets on
+  client build changes, and supports only delayed dragging and position restore;
+  automatic opening, Escape protection and reload persistence remain disabled.
+- Addon metadata now separates the addon's independently advancing public
+  release from the frozen Companion compatibility release (`beta.13`).
 - Companion display-plan and activity-log messages now wrap instead of drawing
   long missing-monitor diagnostics outside their cards.
 - Companion's Hotkey selector is narrower so it no longer covers the monitor
@@ -18,15 +27,24 @@ All notable changes to this project will be documented in this file.
   preserve the addon directory tree without a custom deflattening script.
 - The executable in the complete release bundle is now consistently named
   `Offhand.exe`, matching the standalone file and Companion archive.
-- Release automation now builds the Companion once, reuses that exact executable
-  in every release container, and verifies each embedded copy against the
-  canonical SHA-256 before publishing.
+- Addon-only release automation now restores the published Beta 13 Companion,
+  verifies its exact SHA-256, and reuses those frozen bytes in the complete
+  bundle and the stable `releases/latest/download` asset names. Rebuilding the
+  Companion still requires an explicit Companion-change release lane.
 - Companion no longer creates a Windows Run-key startup entry or inspects
   process security tokens. Removing these nonessential beta.11 additions
   reduces overlap with generic antivirus heuristics while retaining the
   Companion's required window-management behavior.
 
 ### Fixed
+- Forever's load-on-demand Professions interface is now Blizzard-owned by
+  default. Offhand no longer changes its panel registration, position or open
+  state unless the user explicitly enables the isolated experimental movement
+  override. This removes the default behavior from the repeatedly confirmed
+  client-crash path.
+- `/offhand diag` now reports the client's windowed resolution, render scale,
+  resampling quality, and window mode as read-only diagnostics for investigating
+  visual degradation after an external span.
 - Companion now uses an explicit 96-DPI design baseline with linear DPI
   autoscaling, preventing fixed dashboard panels from clipping enlarged text
   on high-resolution and mixed-scale displays.
@@ -117,9 +135,12 @@ All notable changes to this project will be documented in this file.
   ownership. If the unprotected Edit Mode control window opens in mixed-height
   display void, a player-click prompt can move only that window to Mainhand.
 - Forever workspace maps again remain open through Escape and reopen after
-  reload. Offhand now vacates Blizzard's active panel slot without temporarily
-  replacing protected `OnShow`/`OnHide` scripts, preventing the reported quest-
-  pin `Button:SetPassThroughButtons()` taint while preserving map persistence.
+  reload without replacing protected `OnShow`/`OnHide` scripts. Map dragging is
+  now provided by an independent Offhand-owned surface: no handler or addon
+  bookkeeping is attached to the native map, title container, title button, or
+  close button. This protects both quest-pin acquisition and the yellow `Map Pin
+  Sharing` waypoint's Shift-click chat-link action while preserving map
+  movement and persistence.
 - Forever now fails safe to a normal full-window viewport when exact Companion
   topology is absent, including after Restore Window. The same recovery flow
   preserves workspace panel state and offers the player-click Modern/Offhand

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap desktop rescap">
+
+  <Identity
+    Name="@@IDENTITY_NAME@@"
+    Publisher="@@PUBLISHER@@"
+    Version="@@PACKAGE_VERSION@@"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Offhand Companion</DisplayName>
+    <PublisherDisplayName>@@PUBLISHER_DISPLAY_NAME@@</PublisherDisplayName>
+    <Description>Multi-monitor companion for the Offhand World of Warcraft addon.</Description>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Dependencies>
+    <TargetDeviceFamily
+      Name="Windows.Desktop"
+      MinVersion="10.0.17763.0"
+      MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Applications>
+    <Application
+      Id="OffhandCompanion"
+      Executable="Offhand.exe"
+      EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        AppListEntry="default"
+        DisplayName="Offhand Companion"
+        Description="Multi-monitor companion for the Offhand World of Warcraft addon."
+        BackgroundColor="#111116"
+        Square44x44Logo="Assets\Square44x44Logo.png"
+        Square150x150Logo="Assets\Square150x150Logo.png">
+        <uap:DefaultTile
+          Wide310x150Logo="Assets\Wide310x150Logo.png"
+          Square310x310Logo="Assets\Square310x310Logo.png" />
+      </uap:VisualElements>
+      <Extensions>
+        <desktop:Extension
+          Category="windows.startupTask"
+          Executable="Offhand.exe"
+          EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask
+            TaskId="OffhandCompanionStartup"
+            Enabled="false"
+            DisplayName="Offhand Companion" />
+        </desktop:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <Capability Name="internetClient" />
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

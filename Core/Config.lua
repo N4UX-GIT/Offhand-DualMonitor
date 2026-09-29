@@ -56,6 +56,57 @@ local function CopyDefaults(src, dst)
     return dst
 end
 
+local function CurrentClientBuildKey()
+    if not GetBuildInfo then return nil end
+    local ok, version, build, _, interfaceVersion = pcall(GetBuildInfo)
+    if not ok then return nil end
+    build = tostring(build or "")
+    version = tostring(version or "")
+    interfaceVersion = tostring(interfaceVersion or "")
+    if build == "" and version == "" and interfaceVersion == "" then return nil end
+    return version .. ":" .. build .. ":" .. interfaceVersion
+end
+
+local function EnsureCompatibilitySettings()
+    if type(OffhandDB) ~= "table" then OffhandDB = {} end
+    if type(OffhandDB.compatibility) ~= "table" then OffhandDB.compatibility = {} end
+    return OffhandDB.compatibility
+end
+
+-- This consent is deliberately account-wide rather than profile-scoped. It is
+-- a client-safety override, not part of a monitor layout, and therefore must
+-- not be enabled accidentally by copying or switching profiles.
+function Offhand:IsExperimentalForeverProfessionsMovementEnabled()
+    if not self.isForever or type(OffhandDB) ~= "table"
+        or type(OffhandDB.compatibility) ~= "table" then return false end
+    local compatibility = OffhandDB.compatibility
+    local buildKey = CurrentClientBuildKey()
+    return buildKey ~= nil
+        and compatibility.foreverProfessionsMovement == true
+        and compatibility.foreverProfessionsMovementBuild == buildKey
+end
+
+function Offhand:SetExperimentalForeverProfessionsMovement(enabled)
+    if not self.isForever then return false end
+    local compatibility = EnsureCompatibilitySettings()
+    if enabled == true then
+        local buildKey = CurrentClientBuildKey()
+        if not buildKey then return false end
+        compatibility.foreverProfessionsMovement = true
+        compatibility.foreverProfessionsMovementBuild = buildKey
+        if self.Canvas and self.Canvas.EnableExperimentalForeverProfessionsMovement then
+            self.Canvas:EnableExperimentalForeverProfessionsMovement()
+        end
+    else
+        compatibility.foreverProfessionsMovement = false
+        compatibility.foreverProfessionsMovementBuild = nil
+        if self.Canvas and self.Canvas.DisableExperimentalForeverProfessionsMovement then
+            self.Canvas:DisableExperimentalForeverProfessionsMovement()
+        end
+    end
+    return self:IsExperimentalForeverProfessionsMovementEnabled()
+end
+
 local RawMouse = {}
 Offhand.RawMouse = RawMouse
 
@@ -674,11 +725,22 @@ function Offhand:InitializeConfig()
         OffhandDB.profiles = {}
         OffhandDB.profiles["Default"] = {}
         for k, v in pairs(OffhandDB) do
-            if k ~= "profiles" and k ~= "onboarding" then
+            if k ~= "profiles" and k ~= "onboarding" and k ~= "compatibility" then
                 OffhandDB.profiles["Default"][k] = v
                 OffhandDB[k] = nil
             end
         end
+    end
+
+    local compatibility = EnsureCompatibilitySettings()
+    local currentBuildKey = CurrentClientBuildKey()
+    if compatibility.foreverProfessionsMovement == true
+        and compatibility.foreverProfessionsMovementBuild ~= currentBuildKey then
+        -- Forever is a beta client. Requiring consent again after every client
+        -- build change prevents an old opt-in from silently carrying into a UI
+        -- implementation whose Professions crash behavior may have changed.
+        compatibility.foreverProfessionsMovement = false
+        compatibility.foreverProfessionsMovementBuild = nil
     end
 
     local profileSnapshotState = "none"

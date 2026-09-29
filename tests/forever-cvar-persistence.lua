@@ -14,6 +14,8 @@ end
 SetCVar = function(name, value) cvars[name] = tostring(value) end
 GetCVar = function(name) return cvars[name] end
 C_CVar = nil
+local clientBuild = "70009"
+GetBuildInfo = function() return "1.60.1", clientBuild, "Sep 25 2026", 16001 end
 
 local function NewAddon(isForever, accountDB, characterDB, recoveryVersion, diskState)
     local addon = { isForever = isForever }
@@ -28,6 +30,19 @@ local function NewAddon(isForever, accountDB, characterDB, recoveryVersion, disk
 end
 
 local first = NewAddon(true)
+assert(not first:IsExperimentalForeverProfessionsMovementEnabled(),
+    "Forever Professions movement must default to the safe disabled state")
+assert(first:SetExperimentalForeverProfessionsMovement(true),
+    "explicit consent must enable experimental Professions movement")
+local compatibilityAccount = OffhandDB
+local consentReload = NewAddon(true, compatibilityAccount)
+assert(consentReload:IsExperimentalForeverProfessionsMovementEnabled(),
+    "experimental Professions consent must survive reload on the same client build")
+clientBuild = "70010"
+local changedBuild = NewAddon(true, compatibilityAccount)
+assert(not changedBuild:IsExperimentalForeverProfessionsMovementEnabled(),
+    "a Forever client build change must return Professions movement to the safe default")
+clientBuild = "70009"
 first:MarkWelcomeDismissed()
 assert(cvars.offhandForeverOnboarding == "V1|1|0|0",
     "Acknowledging the welcome guide must persist in the Forever session fallback")
