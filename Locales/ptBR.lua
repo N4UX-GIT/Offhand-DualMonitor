@@ -66,6 +66,7 @@ L["HELP_RECOVERY_BODY"] = "Use Recuperar janelas fora da tela. Para voltar a um 
 L["HELP_EDIT_MODE_TITLE"] = "Posicionar quadros de combate no modo de edição"
 L["HELP_EDIT_MODE_BODY"] = "No Forever, o modo de edição da Blizzard controla as barras de ação e os quadros de combate para evitar erros da interface protegida. Fora de combate, mova as barras e os quadros de postura, ajudante, grupo e raide para o monitor principal, salve o layout como Offhand e selecione-o no modo de edição. O Offhand não troca layouts automaticamente."
 L["EDIT_MODE_LAYOUT_MISSING"] = "O Forever usa o modo de edição da Blizzard para barras de ação e quadros de combate. Posicione-os fora de combate no monitor principal e salve o layout como 'Offhand'."
+L["COMPAT_ELLESMERE_PARTY"] = "Quadros de raide do EllesmereUI detectados. Posicione os quadros substitutos de grupo e raide no modo de desbloqueio do EllesmereUI. Para usar o modo de edição da Blizzard, desative o módulo Raid Frames do EllesmereUI."
 
 L["HELP_OVERVIEW_TITLE"] = "Offhand Setup & Recovery Handbook"
 L["HELP_OVERVIEW_BODY"] = "Follow the numbered sections once from top to bottom. Use the buttons to reopen the Wizard, gather ordinary off-screen windows, or get Companion. On Forever, Blizzard Edit Mode owns protected combat UI."

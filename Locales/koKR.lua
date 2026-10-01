@@ -66,6 +66,7 @@ L["HELP_RECOVERY_BODY"] = "화면 밖 창 복구를 사용하세요. 단일 모�
 L["HELP_EDIT_MODE_TITLE"] = "편집 모드에서 전투 프레임 배치"
 L["HELP_EDIT_MODE_BODY"] = "Forever에서는 보호된 UI 오류를 막기 위해 행동 단축바와 전투 프레임을 블리자드 편집 모드가 관리합니다. 전투 중이 아닐 때 행동 단축바와 태세, 소환수, 파티 및 공격대 프레임을 주 모니터로 옮기고 Offhand라는 이름으로 저장한 뒤 편집 모드에서 선택하세요. Offhand는 배치를 자동으로 전환하지 않습니다."
 L["EDIT_MODE_LAYOUT_MISSING"] = "Forever에서는 행동 단축바와 전투 프레임을 블리자드 편집 모드로 배치합니다. 전투 밖에서 주 모니터에 배치한 뒤 'Offhand'라는 이름으로 저장하세요."
+L["COMPAT_ELLESMERE_PARTY"] = "EllesmereUI 공격대 프레임이 감지되었습니다. 대체 파티/공격대 프레임은 EllesmereUI 잠금 해제 모드에서 배치하세요. 블리자드 편집 모드를 사용하려면 EllesmereUI Raid Frames 모듈을 비활성화하세요."
 
 L["HELP_OVERVIEW_TITLE"] = "Offhand Setup & Recovery Handbook"
 L["HELP_OVERVIEW_BODY"] = "Follow the numbered sections once from top to bottom. Use the buttons to reopen the Wizard, gather ordinary off-screen windows, or get Companion. On Forever, Blizzard Edit Mode owns protected combat UI."

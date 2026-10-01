@@ -84,6 +84,7 @@ L["HELP_COLD_LAUNCH_BODY"] = "Start Companion before WoW and leave it running in
 L["HELP_WELCOME_TITLE"] = "Welcome message and setup status"
 L["HELP_WELCOME_BODY"] = "The welcome message is an introduction, not proof that calibration is complete. Clicking Get Companion App or Launch Wizard acknowledges it; completing the final Wizard step separately records setup completion. Both states are stored account-wide and included in Forever recovery. If an older build repeats the welcome on every login, update Offhand, click either welcome action once, then /reload. The full guide remains here and the Wizard can be reopened at any time."
 L["EDIT_MODE_LAYOUT_MISSING"] = "Forever uses Blizzard Edit Mode for action bars and combat frames. Outside combat, position them on the Mainhand Monitor, save the layout as 'Offhand', and select it in Edit Mode."
+L["COMPAT_ELLESMERE_PARTY"] = "EllesmereUI Raid Frames detected. Position its replacement Party/Raid Frames with EllesmereUI Unlock Mode. To use Blizzard Edit Mode instead, disable the EllesmereUI Raid Frames module."
 
 -- ============================================================================
 -- Core & General Strings

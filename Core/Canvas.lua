@@ -296,11 +296,50 @@ local function SaveOpenWorkspacePanels()
     end
 end
 
+-- Old Offhand builds could capture Blizzard Edit Mode frames as persistent
+-- workspace panels. A later ADDON_LOADED restore (Professions is a common
+-- trigger) would then call ShowUIPanel on the manager and appear to open Edit
+-- Mode alongside the requested window. Purge that historical ownership without
+-- touching the live Blizzard frames.
+function Canvas:RelinquishForeverEditModeFrames(onlyName)
+    if not Offhand.isForever or not Offhand.db then return false end
+    local cleared = false
+    local clearedNames = {}
+    local tables = {
+        Offhand.db.savedWorkspacePositions,
+        Offhand.db.savedMainPositions,
+        Offhand.db.openWorkspacePanels,
+    }
+    for _, records in ipairs(tables) do
+        if type(records) == "table" then
+            for name in pairs(records) do
+                if (not onlyName or name == onlyName)
+                    and IsForeverEditModeFrame(nil, name) then
+                    records[name] = nil
+                    cleared = true
+                    clearedNames[name] = true
+                end
+            end
+        end
+    end
+    if cleared and Offhand.ForeverPersistence and Offhand.ForeverPersistence.ClearPosition then
+        for name in pairs(clearedNames) do
+            Offhand.ForeverPersistence:ClearPosition(name)
+        end
+    end
+    if cleared then SaveOpenWorkspacePanels() end
+    return cleared
+end
+
 function Canvas:SetWorkspacePanelOpen(frameOrName, isOpen)
     if not Offhand.db then return false end
     local name = type(frameOrName) == "string" and frameOrName
         or (frameOrName and frameOrName.GetName and frameOrName:GetName())
     if not name then return false end
+    if Offhand.isForever and IsForeverEditModeFrame(frameOrName, name) then
+        self:RelinquishForeverEditModeFrames(name)
+        return false
+    end
     Offhand.db.openWorkspacePanels = Offhand.db.openWorkspacePanels or {}
     local hasWorkspacePosition = Offhand.db.savedWorkspacePositions
         and Offhand.db.savedWorkspacePositions[name]
@@ -610,6 +649,10 @@ end
 -- the frame is fully initialized.
 function Canvas:QueuePersistentPanelRestore(frame, name)
     if not frame or not name or not C_Timer or not C_Timer.After then return false end
+    if IsForeverEditModeFrame(frame, name) then
+        self:RelinquishForeverEditModeFrames(name)
+        return false
+    end
     if IsForeverProfessionsPanel(frame, name) then
         if ShouldYieldForeverProfessionsPanel(frame, name) then
             self:RelinquishForeverProfessionsPanels(name)
@@ -662,7 +705,9 @@ function Canvas:QueuePersistentPanelRestore(frame, name)
 end
 
 function Canvas:RestorePersistentFrames()
-    if not Offhand.db or not Offhand.db.enabled or Offhand.db.persistentWorkspacePanels == false then return end
+    if not Offhand.db or not Offhand.db.enabled then return end
+    self:RelinquishForeverEditModeFrames()
+    if Offhand.db.persistentWorkspacePanels == false then return end
     if not IsExperimentalForeverProfessionsMovementEnabled() then
         self:RelinquishForeverProfessionsPanels()
     end
@@ -691,7 +736,8 @@ function Canvas:RestorePersistentFrames()
     
     for name, _ in pairs(Offhand.db.savedWorkspacePositions) do
         local frame = _G[name]
-        if frame and not IsForeverProfessionsPanel(frame, name) then
+        if frame and not IsForeverEditModeFrame(frame, name)
+            and not IsForeverProfessionsPanel(frame, name) then
             if frame:IsShown() then
                 RestoreWorkspacePosition(frame)
             elseif openPanels[name] then
@@ -1779,6 +1825,10 @@ end
 local function RestoreSavedPositionAfterShow(frame)
     if not frame or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
     local frameName = frame.GetName and frame:GetName()
+    if IsForeverEditModeFrame(frame, frameName) then
+        Canvas:RelinquishForeverEditModeFrames(frameName)
+        return
+    end
     if IsForeverProfessionsPanel(frame, frameName) then
         if not IsExperimentalForeverProfessionsMovementEnabled()
             or not frame._OffhandExperimentalProfessionsRestoreAllowed then return end
@@ -2465,7 +2515,8 @@ function Canvas:DiscoverUIPanels()
             else
                 self:TryMakeFrameDraggable(frame)
             end
-            if not IsForeverProfessionsPanel(frame, name)
+            if not IsForeverEditModeFrame(frame, name)
+                and not IsForeverProfessionsPanel(frame, name)
                 and frame.IsShown and frame:IsShown() then
                 RestoreSavedPositionAfterShow(frame)
             end
@@ -2475,6 +2526,7 @@ end
 
 function Canvas:EnableFreeDragging()
     if not Offhand.db or not Offhand.db.enabled then return end
+    self:RelinquishForeverEditModeFrames()
     if not IsExperimentalForeverProfessionsMovementEnabled() then
         self:RelinquishForeverProfessionsPanels()
     else
@@ -2504,6 +2556,10 @@ function Canvas:EnableFreeDragging()
         self.registerUIPanelHooked = true
         hooksecurefunc("RegisterUIPanel", function(frame)
             local registeredName = frame and frame.GetName and frame:GetName()
+            if IsForeverEditModeFrame(frame, registeredName) then
+                Canvas:RelinquishForeverEditModeFrames(registeredName)
+                return
+            end
             if IsForeverProfessionsPanel(frame, registeredName) then
                 if ShouldYieldForeverProfessionsPanel(frame, registeredName) then
                     Canvas:RelinquishForeverProfessionsPanels(registeredName)
@@ -2786,7 +2842,11 @@ function Canvas:EnableFreeDragging()
         end)
     end
 
-    if EditModeManagerFrame and EditModeManagerFrame.HookScript
+    -- Forever's manager participates in protected/secret-value Edit Mode paths.
+    -- Even a read-only OnHide hook makes Offhand part of that execution chain
+    -- and can prevent native Party Frame dragging. Retail alone needs this hook
+    -- to hand ChatFrame1 placement back after Edit Mode closes.
+    if not Offhand.isForever and EditModeManagerFrame and EditModeManagerFrame.HookScript
         and not EditModeManagerFrame._OffhandRetailChatExitHooked then
         EditModeManagerFrame._OffhandRetailChatExitHooked = true
         EditModeManagerFrame:HookScript("OnHide", function()

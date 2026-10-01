@@ -66,6 +66,7 @@ L["HELP_RECOVERY_BODY"] = "使用「找回螢幕外視窗」復原不可見視�
 L["HELP_EDIT_MODE_TITLE"] = "在編輯模式中定位戰鬥框架"
 L["HELP_EDIT_MODE_BODY"] = "Forever 由暴雪編輯模式管理快捷列與戰鬥框架，以避免受保護介面錯誤。請在脫戰後開啟編輯模式，將快捷列以及姿態、寵物、小隊與團隊框架移到主螢幕，將配置儲存為 Offhand，並在編輯模式中選取它。Offhand 不會自動切換配置。"
 L["EDIT_MODE_LAYOUT_MISSING"] = "Forever 使用暴雪編輯模式管理快捷列與戰鬥框架。請在脫戰後將它們放到主螢幕，並將配置儲存為「Offhand」。"
+L["COMPAT_ELLESMERE_PARTY"] = "偵測到 EllesmereUI 團隊框架。請使用 EllesmereUI 解鎖模式放置其替代的隊伍/團隊框架。若要改用暴雪編輯模式，請停用 EllesmereUI 的 Raid Frames 模組。"
 
 L["HELP_OVERVIEW_TITLE"] = "Offhand Setup & Recovery Handbook"
 L["HELP_OVERVIEW_BODY"] = "Follow the numbered sections once from top to bottom. Use the buttons to reopen the Wizard, gather ordinary off-screen windows, or get Companion. On Forever, Blizzard Edit Mode owns protected combat UI."

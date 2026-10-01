@@ -96,15 +96,15 @@ L["CMD_HELP_TITLE"] = "Offhand Slash Commands"
 L["LAYOUT_REAPPLIED"] = "Layout reapplied!"
 L["CONFIG_SAVED"] = "Configuration saved! Welcome to Offhand Dual Monitor Workstation."
 L["EDIT_MODE_LAYOUT_MISSING"] = "Forever uses Blizzard Edit Mode for action bars and combat frames. Outside combat, position them on the Mainhand Monitor, save the layout as 'Offhand', and select it in Edit Mode."
+L["COMPAT_ELLESMERE_PARTY"] = "EllesmereUI Raid Frames detected. Position its replacement Party/Raid Frames with EllesmereUI Unlock Mode. To use Blizzard Edit Mode instead, disable the EllesmereUI Raid Frames module."
 L["FOREVER_SINGLE_SCREEN_LAYOUT_TEXT"] = "The saved workspace display is unavailable. Forever protects action bars and combat frames, so Offhand needs one player click to switch them to a clean single-screen layout.\n\nOffhand will remember your protected HUD layout and offer to restore it when the display returns."
 L["FOREVER_USE_MODERN"] = "Use Modern"
 L["FOREVER_KEEP_OFFHAND"] = "Keep Offhand"
 L["FOREVER_RESTORE_LAYOUT_TEXT"] = "Your saved display layout is available again. Forever requires one player click to change protected HUD layouts.\n\nRestore the Offhand layout now?"
 L["FOREVER_RESTORE_OFFHAND"] = "Restore Offhand"
 L["FOREVER_KEEP_MODERN"] = "Keep Modern"
-L["FOREVER_EDIT_MODE_CONTROLS_TEXT"] = "Blizzard opened the Edit Mode controls in unused space outside the physical displays.\n\nBring only the Edit Mode control window to the Mainhand Monitor? Offhand will not move action bars or other protected UI."
-L["FOREVER_EDIT_MODE_BRING_TO_MAINHAND"] = "Bring to Mainhand"
-L["FOREVER_EDIT_MODE_NOT_NOW"] = "Not Now"
+L["FOREVER_EDIT_MODE_CONTROLS_TEXT"] = "Blizzard opened Edit Mode controls in unused space outside the physical displays. Offhand cannot safely move Blizzard's Edit Mode manager without interfering with native frame dragging.\n\nClose Edit Mode, choose Restore Window in the Companion, configure and save your Offhand layout, then choose Span WoW Now and /reload."
+L["FOREVER_EDIT_MODE_CONTROLS_OK"] = "OK"
 
 -- Options Dashboard Header & Tabs
 L["OPTIONS_TITLE"] = "Offhand DUAL MONITOR WORKSTATION"
@@ -557,11 +557,10 @@ StaticPopupDialogs["OFFHAND_FOREVER_RESTORE_LAYOUT"] = {
 
 StaticPopupDialogs["OFFHAND_FOREVER_EDIT_MODE_CONTROLS"] = {
     text = Offhand.L["FOREVER_EDIT_MODE_CONTROLS_TEXT"],
-    button1 = Offhand.L["FOREVER_EDIT_MODE_BRING_TO_MAINHAND"],
-    button2 = Offhand.L["FOREVER_EDIT_MODE_NOT_NOW"],
+    button1 = Offhand.L["FOREVER_EDIT_MODE_CONTROLS_OK"],
     OnAccept = function()
-        if Offhand.HUD and Offhand.HUD.BringForeverEditModeControlsToMainhand then
-            Offhand.HUD:BringForeverEditModeControlsToMainhand()
+        if Offhand.HUD and Offhand.HUD.DismissForeverEditModeControlsPrompt then
+            Offhand.HUD:DismissForeverEditModeControlsPrompt()
         end
     end,
     OnCancel = function()
@@ -594,8 +593,8 @@ function Offhand:InitializePopups()
     restore.button2 = Offhand.L["FOREVER_KEEP_MODERN"]
     local editMode = StaticPopupDialogs["OFFHAND_FOREVER_EDIT_MODE_CONTROLS"]
     editMode.text = Offhand.L["FOREVER_EDIT_MODE_CONTROLS_TEXT"]
-    editMode.button1 = Offhand.L["FOREVER_EDIT_MODE_BRING_TO_MAINHAND"]
-    editMode.button2 = Offhand.L["FOREVER_EDIT_MODE_NOT_NOW"]
+    editMode.button1 = Offhand.L["FOREVER_EDIT_MODE_CONTROLS_OK"]
+    editMode.button2 = nil
 end
 
 function Offhand:ShowForeverLayoutRecoveryPrompt(kind)
@@ -988,6 +987,9 @@ SlashCmdList["OFFHAND"] = function(msg)
         Offhand:Print("Render diagnostics: gxWindowedResolution=%s | RenderScale=%s | ResampleQuality=%s | gxWindow=%s.",
             DiagnosticCVar("gxWindowedResolution"), DiagnosticCVar("RenderScale"),
             DiagnosticCVar("ResampleQuality"), DiagnosticCVar("gxWindow"))
+        if Offhand.HasEllesmerePartyFrames and Offhand.HasEllesmerePartyFrames() then
+            Offhand:Print(L["COMPAT_ELLESMERE_PARTY"])
+        end
     elseif msg == "apply" or msg == "reload" then
         Offhand:ApplyFullLayout()
         Offhand:Print(L["LAYOUT_REAPPLIED"])

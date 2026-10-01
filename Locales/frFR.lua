@@ -66,6 +66,7 @@ L["HELP_RECOVERY_BODY"] = "Utilisez la récupération des fenêtres hors écran.
 L["HELP_EDIT_MODE_TITLE"] = "Placer les cadres de combat en mode Édition"
 L["HELP_EDIT_MODE_BODY"] = "Dans Forever, le mode Édition de Blizzard contrôle les barres d'action et les cadres de combat afin d'éviter les erreurs d'interface protégée. Hors combat, placez les barres et les cadres de posture, familier, groupe et raid sur l'écran principal, enregistrez la disposition sous le nom Offhand et sélectionnez-la dans le mode Édition. Offhand ne change pas automatiquement de disposition."
 L["EDIT_MODE_LAYOUT_MISSING"] = "Forever utilise le mode Édition de Blizzard pour les barres d'action et les cadres de combat. Placez-les hors combat sur l'écran principal et enregistrez la disposition sous le nom 'Offhand'."
+L["COMPAT_ELLESMERE_PARTY"] = "Cadres de raid EllesmereUI détectés. Placez ses cadres de groupe et de raid avec le mode déverrouillage d’EllesmereUI. Pour utiliser le mode Édition de Blizzard, désactivez le module Raid Frames d’EllesmereUI."
 
 L["HELP_OVERVIEW_TITLE"] = "Offhand Setup & Recovery Handbook"
 L["HELP_OVERVIEW_BODY"] = "Follow the numbered sections once from top to bottom. Use the buttons to reopen the Wizard, gather ordinary off-screen windows, or get Companion. On Forever, Blizzard Edit Mode owns protected combat UI."

@@ -66,6 +66,7 @@ L["HELP_RECOVERY_BODY"] = "Recupera le finestre fuori schermo. Per tornare a un 
 L["HELP_EDIT_MODE_TITLE"] = "Posiziona i riquadri di combattimento in modalità modifica"
 L["HELP_EDIT_MODE_BODY"] = "In Forever, la modalità modifica di Blizzard gestisce le barre delle azioni e i riquadri di combattimento per evitare errori dell'interfaccia protetta. Fuori dal combattimento, sposta barre e riquadri di postura, famiglio, gruppo e incursione sul monitor principale, salva la disposizione come Offhand e selezionala lì. Offhand non cambia automaticamente disposizione."
 L["EDIT_MODE_LAYOUT_MISSING"] = "Forever usa la modalità modifica di Blizzard per barre delle azioni e riquadri di combattimento. Posizionali fuori dal combattimento sul monitor principale e salva la disposizione come 'Offhand'."
+L["COMPAT_ELLESMERE_PARTY"] = "Riquadri incursione di EllesmereUI rilevati. Posiziona i riquadri gruppo e incursione sostitutivi con la modalità sblocco di EllesmereUI. Per usare la modalità modifica di Blizzard, disattiva il modulo Raid Frames di EllesmereUI."
 
 L["HELP_OVERVIEW_TITLE"] = "Offhand Setup & Recovery Handbook"
 L["HELP_OVERVIEW_BODY"] = "Follow the numbered sections once from top to bottom. Use the buttons to reopen the Wizard, gather ordinary off-screen windows, or get Companion. On Forever, Blizzard Edit Mode owns protected combat UI."

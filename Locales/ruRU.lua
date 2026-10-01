@@ -66,6 +66,7 @@ L["HELP_RECOVERY_BODY"] = "Верните окна из-за края экран
 L["HELP_EDIT_MODE_TITLE"] = "Размещение боевых рамок в режиме редактирования"
 L["HELP_EDIT_MODE_BODY"] = "В Forever панели команд и боевые рамки размещаются через режим редактирования Blizzard, чтобы избежать ошибок защищённого интерфейса. Вне боя перенесите панели и рамки стоек, питомца, группы и рейда на основной монитор, сохраните схему под именем Offhand и выберите её в режиме редактирования. Offhand не переключает схемы автоматически."
 L["EDIT_MODE_LAYOUT_MISSING"] = "В Forever панели команд и боевые рамки настраиваются через режим редактирования Blizzard. Вне боя разместите их на основном мониторе и сохраните схему под именем 'Offhand'."
+L["COMPAT_ELLESMERE_PARTY"] = "Обнаружены рейдовые рамки EllesmereUI. Размещайте заменяющие рамки группы и рейда в режиме разблокировки EllesmereUI. Чтобы использовать режим редактирования Blizzard, отключите модуль Raid Frames в EllesmereUI."
 
 L["HELP_OVERVIEW_TITLE"] = "Offhand Setup & Recovery Handbook"
 L["HELP_OVERVIEW_BODY"] = "Follow the numbered sections once from top to bottom. Use the buttons to reopen the Wizard, gather ordinary off-screen windows, or get Companion. On Forever, Blizzard Edit Mode owns protected combat UI."

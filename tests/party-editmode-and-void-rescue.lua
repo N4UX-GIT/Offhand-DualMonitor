@@ -399,12 +399,17 @@ print("PASS: PartyMemberFrame1 dragged back to Game View updates savedMainPositi
 -- TEST 5: Forever yields protected HUD placement to Blizzard Edit Mode
 -- ============================================================================
 addon.isForever = true
+C_AddOns = { IsAddOnLoaded = function(name) return name == "EllesmereUIRaidFrames" end }
+assert(addon.HasEllesmerePartyFrames and addon.HasEllesmerePartyFrames(),
+    "Offhand must detect EllesmereUI's loaded Party/Raid Frames module")
+C_AddOns = nil
 MainActionBar = makeMockFrame("MainActionBar", 500, 45)
 MainActionBar.IsInDefaultPosition = function() return true end
 local originalMainSetPoint = MainActionBar.SetPoint
 PlayerFrame = makeMockFrame("PlayerFrame", 232, 100)
 local originalPlayerSetPoint = PlayerFrame.SetPoint
 local EditModeManagerFrame = makeMockFrame("EditModeManagerFrame", 600, 60)
+EditModeManagerFrame:Hide()
 local EditModeSystemSettingsDialog = makeMockFrame("EditModeSystemSettingsDialog", 400, 300)
 local EditModeUnsavedChangesDialog = makeMockFrame("EditModeUnsavedChangesDialog", 350, 150)
 Enum = {
@@ -459,14 +464,40 @@ assert(#PlayerFrame.points == 0,
 -- Protected unit frames must still be rejected when the manager did not exist
 -- at the time draggable-frame discovery first ran.
 local party2PointCount = #PartyMemberFrame2.points
+addon.db.savedWorkspacePositions.EditModeManagerFrame = { point = "CENTER", x = 200, y = 200 }
+addon.db.savedMainPositions.EditModeManagerFrame = { point = "CENTER", x = 200, y = 200 }
+addon.db.openWorkspacePanels = { EditModeManagerFrame = true }
+RegisterUIPanel(EditModeManagerFrame)
+assert(not EditModeManagerFrame:IsShown()
+        and addon.db.savedWorkspacePositions.EditModeManagerFrame == nil
+        and addon.db.savedMainPositions.EditModeManagerFrame == nil
+        and addon.db.openWorkspacePanels.EditModeManagerFrame == nil,
+    "a load-on-demand Edit Mode registration must purge stale persistence without opening Edit Mode")
+addon.db.savedWorkspacePositions.EditModeManagerFrame = { point = "CENTER", x = 200, y = 200 }
+addon.db.savedMainPositions.EditModeManagerFrame = { point = "CENTER", x = 200, y = 200 }
+addon.db.openWorkspacePanels.EditModeManagerFrame = true
 addon.Canvas.MakePanelDraggable(PartyMemberFrame2)
 addon.Canvas:TryMakeFrameDraggable(EditModeManagerFrame)
+addon.Canvas:EnableFreeDragging()
 addon.Canvas.RestoreWorkspacePosition(PartyMemberFrame2)
 addon.Canvas.OnPanelDragStop(PartyMemberFrame2)
 assert(not PartyMemberFrame2._OffhandMovable and not PartyMemberFrame2.movable,
     "Forever must not make party frames movable")
 assert(not EditModeManagerFrame._OffhandMovable and not EditModeManagerFrame.movable,
     "Forever must not make EditModeManagerFrame movable")
+assert(not EditModeManagerFrame._OffhandRetailChatExitHooked
+        and next(EditModeManagerFrame.scripts) == nil,
+    "Forever must not attach even read-only hooks to EditModeManagerFrame")
+assert(not EditModeManagerFrame:IsShown()
+        and addon.db.savedWorkspacePositions.EditModeManagerFrame == nil
+        and addon.db.savedMainPositions.EditModeManagerFrame == nil
+        and addon.db.openWorkspacePanels.EditModeManagerFrame == nil,
+    "Forever must purge stale Edit Mode persistence without reopening the manager")
+assert(not addon.Canvas:QueuePersistentPanelRestore(EditModeManagerFrame, "EditModeManagerFrame"),
+    "generic persistence must reject the Forever Edit Mode manager")
+flushTimers()
+assert(not EditModeManagerFrame:IsShown(),
+    "load-on-demand persistence must never reopen Forever Edit Mode")
 assert(#PartyMemberFrame2.points == party2PointCount,
     "Forever must not restore or save party-frame anchors through Canvas")
 
@@ -516,9 +547,9 @@ assert(selectedLayout == nil,
 assert(addon.HUD.editModeGuidanceShown,
     "Forever must guide the player to configure an unpositioned Offhand Edit Mode layout")
 
--- A mixed-height span can place only the Edit Mode control window in the
--- physical void. Detection must not attach handlers or mutate Blizzard state;
--- the explicit player-click recovery moves only the unprotected manager.
+-- A mixed-height span can place the Edit Mode manager in the physical void.
+-- Detection and acknowledgement must not attach handlers or mutate Blizzard
+-- state: moving the manager breaks native drag behavior for Party Frames.
 local editModePromptCount, editModePromptHidden = 0, 0
 addon.ShowForeverEditModeControlsPrompt = function() editModePromptCount = editModePromptCount + 1 end
 addon.HideForeverEditModeControlsPrompt = function() editModePromptHidden = editModePromptHidden + 1 end
@@ -532,14 +563,14 @@ assert(#EditModeManagerFrame.points == voidManagerPointCount
     "Edit Mode void detection must remain read-only")
 assert(next(EditModeManagerFrame.scripts) == nil,
     "Edit Mode recovery must not attach scripts to Blizzard's manager")
-assert(addon.HUD:BringForeverEditModeControlsToMainhand(),
-    "Player-click recovery must bring the unprotected manager to Mainhand")
+addon.HUD:DismissForeverEditModeControlsPrompt()
 assert(editModePromptHidden == 0,
-    "The Accept callback must let Blizzard close its popup without a re-entrant hide")
-local recoveredManagerPoint = EditModeManagerFrame.points[1]
-assert(recoveredManagerPoint and recoveredManagerPoint[1] == "CENTER"
-        and recoveredManagerPoint[2] == UIParent,
-    "Edit Mode recovery must center the manager without changing panel metadata")
+    "Acknowledgement must let Blizzard close its popup without a re-entrant hide")
+local untouchedManagerPoint = EditModeManagerFrame.points[1]
+assert(untouchedManagerPoint and untouchedManagerPoint[1] == "BOTTOMLEFT"
+        and untouchedManagerPoint[2] == UIParent
+        and #EditModeManagerFrame.points == voidManagerPointCount,
+    "Edit Mode recovery guidance must leave Blizzard's manager anchor untouched")
 assert(UIPanelWindows.EditModeManagerFrame.area == "center"
         and EditModeManagerFrame:GetAttribute("UIPanelLayout-centerFrameSkipAnchoring") == nil,
     "Edit Mode recovery must not mutate Blizzard panel metadata or attributes")

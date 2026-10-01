@@ -46,9 +46,17 @@ local function HasCustomMinimapAddon()
     return false
 end
 
+local function HasEllesmerePartyFrames()
+    -- EllesmereUI ships Party/Raid Frames as this child addon in both its full
+    -- suite and standalone package. Its replacement frames are positioned with
+    -- EllesmereUI Unlock Mode, not Blizzard Edit Mode.
+    return IsAddonPresent("EllesmereUIRaidFrames")
+end
+
 Offhand.HasCustomActionBarAddon = HasCustomActionBarAddon
 Offhand.HasCustomBagAddon = HasCustomBagAddon
 Offhand.HasCustomMinimapAddon = HasCustomMinimapAddon
+Offhand.HasEllesmerePartyFrames = HasEllesmerePartyFrames
 
 local actionNames = {"MainMenuBar", "MainActionBar", "StatusTrackingBarManager", "MainMenuExpBar",
     "MultiBarBottomLeft", "MultiBarBottomRight", "MultiBarLeft", "MultiBarRight",
@@ -328,10 +336,10 @@ local function FrameFitsPhysicalDisplay(frame, metrics)
         or Fits(metrics.workspaceLeft, metrics.workspaceBottom, metrics.workspaceRight, metrics.workspaceTop)
 end
 
--- Forever anchors this unprotected control window to the top of the complete
--- virtual canvas. With mixed-height displays that anchor can land in the void.
--- Detection stays read-only; the one anchor write is reserved for the recovery
--- popup's explicit player click and never touches Edit Mode systems or metadata.
+-- Forever can anchor its Edit Mode manager outside the physical displays on a
+-- mixed-height span. Keep this path strictly diagnostic: reanchoring the manager
+-- changes Blizzard's Edit Mode coordinate space and can stop native systems such
+-- as Party Frames from being dragged even though their settings still respond.
 function HUD:UpdateForeverEditModeControlsRecovery(metrics)
     if not UsesForeverEditMode() or not Offhand.db or not Offhand.db.enabled then return end
     local manager = _G.EditModeManagerFrame
@@ -359,32 +367,6 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
     if Offhand.ShowForeverEditModeControlsPrompt then
         Offhand:ShowForeverEditModeControlsPrompt()
     end
-end
-
-function HUD:BringForeverEditModeControlsToMainhand()
-    if not UsesForeverEditMode() or InCombatLockdown() then return false end
-    local manager = _G.EditModeManagerFrame
-    if not manager or not manager.IsShown or not manager:IsShown()
-        or (manager.IsForbidden and manager:IsForbidden())
-        or (manager.IsProtected and manager:IsProtected()) then return false end
-    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
-    if not metrics or not metrics.isSpanned then return false end
-
-    manager:ClearAllPoints()
-    if WorldFrame then
-        manager:SetPoint("CENTER", WorldFrame, "CENTER", 0, 0)
-    else
-        local parentScale = UIParent:GetEffectiveScale()
-        local frameScale = manager:GetEffectiveScale()
-        local factor = parentScale / frameScale
-        local centerX = (metrics.gameLeft + metrics.gameRight) / 2
-        local centerY = (metrics.gameBottom + metrics.gameTop) / 2
-        manager:SetPoint("CENTER", UIParent, "CENTER",
-            (centerX - UIParent:GetWidth() / 2) * factor,
-            (centerY - UIParent:GetHeight() / 2) * factor)
-    end
-    self.foreverEditModeControlsPromptShown = nil
-    return true
 end
 
 function HUD:DismissForeverEditModeControlsPrompt()
@@ -1335,8 +1317,10 @@ function HUD:HookFrames()
         end
         if UsesForeverEditMode() and (not found or needsSetup or layoutData.activeLayout ~= nil) and not self.editModeGuidanceShown then
             self.editModeGuidanceShown = true
-            Offhand:Print((Offhand.L and Offhand.L["EDIT_MODE_LAYOUT_MISSING"])
-                or "Position action bars and combat frames with Blizzard Edit Mode, save the layout as 'Offhand', and select it there.")
+            local messageKey = HasEllesmerePartyFrames()
+                and "COMPAT_ELLESMERE_PARTY" or "EDIT_MODE_LAYOUT_MISSING"
+            Offhand:Print((Offhand.L and Offhand.L[messageKey])
+                or "Position action bars and combat frames with their owning UI editor.")
         end
     end
 

@@ -66,6 +66,7 @@ L["HELP_RECOVERY_BODY"] = "Nutze „Verlorene Fenster zurückholen“, um unzug�
 L["HELP_EDIT_MODE_TITLE"] = "Kampffenster im Bearbeitungsmodus positionieren"
 L["HELP_EDIT_MODE_BODY"] = "In Forever verwaltet Blizzards Bearbeitungsmodus die Aktionsleisten und Kampffenster, um Fehler der geschützten UI zu vermeiden. Öffne ihn außerhalb des Kampfes, verschiebe die Aktionsleisten sowie Haltungs-, Begleiter-, Gruppen- und Schlachtzugsfenster auf den Hauptmonitor, speichere das Layout als Offhand und wähle es dort aus. Offhand wechselt Layouts nicht automatisch."
 L["EDIT_MODE_LAYOUT_MISSING"] = "Forever verwendet Blizzards Bearbeitungsmodus für Aktionsleisten und Kampffenster. Positioniere sie außerhalb des Kampfes auf dem Hauptmonitor und speichere das Layout als 'Offhand'."
+L["COMPAT_ELLESMERE_PARTY"] = "EllesmereUI-Schlachtzugfenster erkannt. Positioniere die Ersatz-Gruppen- und Schlachtzugfenster im Entsperrmodus von EllesmereUI. Deaktiviere das EllesmereUI-Schlachtzugfenster-Modul, um stattdessen Blizzards Bearbeitungsmodus zu verwenden."
 
 L["HELP_OVERVIEW_TITLE"] = "Offhand Setup & Recovery Handbook"
 L["HELP_OVERVIEW_BODY"] = "Follow the numbered sections once from top to bottom. Use the buttons to reopen the Wizard, gather ordinary off-screen windows, or get Companion. On Forever, Blizzard Edit Mode owns protected combat UI."

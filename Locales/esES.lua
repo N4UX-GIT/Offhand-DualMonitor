@@ -66,6 +66,7 @@ L["HELP_RECOVERY_BODY"] = "Usa Recuperar ventanas fuera de pantalla para traer v
 L["HELP_EDIT_MODE_TITLE"] = "Colocar marcos de combate en modo edición"
 L["HELP_EDIT_MODE_BODY"] = "En Forever, el modo edición de Blizzard controla las barras de acción y los marcos de combate para evitar errores de la interfaz protegida. Fuera de combate, mueve las barras y los marcos de postura, mascota, grupo y banda al monitor principal, guarda el diseño como Offhand y selecciónalo allí. Offhand no cambia diseños automáticamente."
 L["EDIT_MODE_LAYOUT_MISSING"] = "Forever usa el modo edición de Blizzard para las barras de acción y los marcos de combate. Colócalos fuera de combate en el monitor principal y guarda el diseño como 'Offhand'."
+L["COMPAT_ELLESMERE_PARTY"] = "Se detectaron los marcos de banda de EllesmereUI. Coloca sus marcos de grupo y banda con el modo de desbloqueo de EllesmereUI. Para usar el modo edición de Blizzard, desactiva el módulo Raid Frames de EllesmereUI."
 
 L["HELP_OVERVIEW_TITLE"] = "Offhand Setup & Recovery Handbook"
 L["HELP_OVERVIEW_BODY"] = "Follow the numbered sections once from top to bottom. Use the buttons to reopen the Wizard, gather ordinary off-screen windows, or get Companion. On Forever, Blizzard Edit Mode owns protected combat UI."
