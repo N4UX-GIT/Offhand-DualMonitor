@@ -236,7 +236,8 @@ function Themes:ApplyBackdrop(frame, themeKey, customAlpha)
     -- Dialog textures contain transparent pixels even at alpha 1. Give settings
     -- an opaque backing without changing the workspace's opacity preference.
     local name = frame.GetName and frame:GetName()
-    if name == "OffhandFloatingConfigFrame" or name == "OffhandSetupWizardFrame" then
+    if name == "OffhandFloatingConfigFrame" or name == "OffhandSetupWizardFrame"
+        or name == "OffhandFirstLaunchFrame" then
         if not frame.readabilityBacking then
             local backing = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
             backing:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -8)

@@ -572,8 +572,9 @@ function ForeverPersistence:SaveOnboarding(onboarding)
     if not self:IsAvailable() or type(onboarding) ~= "table" then return end
     local function Flag(value) return value and "1" or "0" end
     WritePersistentCVar(FOREVER_ONBOARDING_CVAR, table.concat({
-        "V1", Flag(onboarding.welcomeDismissed), Flag(onboarding.setupComplete),
+        "V2", Flag(onboarding.welcomeDismissed), Flag(onboarding.setupComplete),
         Flag(onboarding.suppressCompanionWarning),
+        tostring(math.max(0, math.min(6, tonumber(onboarding.resumeStep) or 0))),
     }, "|"))
 end
 
@@ -599,12 +600,18 @@ end
 function ForeverPersistence:RestoreOnboarding(onboarding)
     if not self:IsAvailable() or type(onboarding) ~= "table" then return false end
     RegisterPersistentCVar(FOREVER_ONBOARDING_CVAR)
-    local welcome, setup, suppress = tostring(ReadPersistentCVar(FOREVER_ONBOARDING_CVAR) or ""):match(
-        "^V1|([01])|([01])|([01])$")
+    local value = tostring(ReadPersistentCVar(FOREVER_ONBOARDING_CVAR) or "")
+    local welcome, setup, suppress, resume = value:match(
+        "^V2|([01])|([01])|([01])|([0-6])$")
+    if not welcome then
+        welcome, setup, suppress = value:match("^V1|([01])|([01])|([01])$")
+    end
     if not welcome then return false end
     onboarding.welcomeDismissed = welcome == "1"
     onboarding.setupComplete = setup == "1"
     onboarding.suppressCompanionWarning = suppress == "1"
+    local resumeStep = tonumber(resume)
+    onboarding.resumeStep = resumeStep and resumeStep > 0 and resumeStep or nil
     return true
 end
 
@@ -698,7 +705,29 @@ function Offhand:MarkSetupComplete()
     local onboarding = EnsureOnboarding()
     onboarding.welcomeDismissed = true
     onboarding.setupComplete = true
+    onboarding.resumeStep = nil
     SaveOnboarding()
+end
+
+function Offhand:SetOnboardingResumeStep(step)
+    local onboarding = EnsureOnboarding()
+    step = tonumber(step)
+    onboarding.resumeStep = step and math.max(1, math.min(6, math.floor(step))) or nil
+    SaveOnboarding()
+end
+
+function Offhand:GetOnboardingResumeStep()
+    local step = tonumber(EnsureOnboarding().resumeStep)
+    if not step or step < 1 or step > 6 then return nil end
+    return math.floor(step)
+end
+
+function Offhand:ConsumeOnboardingResumeStep()
+    local onboarding = EnsureOnboarding()
+    local step = tonumber(onboarding.resumeStep)
+    onboarding.resumeStep = nil
+    SaveOnboarding()
+    return step
 end
 
 function Offhand:SetCompanionWarningSuppressed(suppressed)

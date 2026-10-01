@@ -48,7 +48,7 @@ The first-run welcome is only an introduction. Clicking either welcome button ac
 - Classic Era and Hardcore
 - Progression and Anniversary Classic
 
-Review the current Windows Companion download and signing status on the [official Companion page](https://offhand-wow.onrender.com/companion.html). Because some browsers and antivirus products are currently blocking the unsigned Beta 13 executable, the page does not force a binary download and provides a [no-executable manual setup](https://offhand-wow.onrender.com/manual-spanning.html). Addon-only updates continue to target Companion Beta 13 unless the desktop application itself is explicitly updated.
+Review the current Windows Companion download and signing status on the [official Companion page](https://offhand-wow.onrender.com/companion.html), or download the frozen [v2.1.2 Beta 13 Companion directly from GitHub](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.13/Offhand-Companion.zip). Because some browsers and antivirus products are currently blocking the unsigned Beta 13 executable, the page does not force a binary download and provides a [no-executable manual setup](https://offhand-wow.onrender.com/manual-spanning.html). Addon-only updates continue to target Companion Beta 13 unless the desktop application itself is explicitly updated.
 
 ## Companion safety and verification
 

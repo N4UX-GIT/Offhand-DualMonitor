@@ -80,6 +80,8 @@ local function makeMockFrame(name, w, h)
     function f:GetEffectiveScale() return self.scale end
     function f:GetScale() return self.scale end
     function f:SetScale(s) self.scale = s end
+    function f:IsIgnoringParentScale() return self.ignoreParentScale == true end
+    function f:SetIgnoreParentScale(value) self.ignoreParentScale = value == true end
     function f:GetNumPoints() return #self.points end
     function f:GetPoint(i)
         i = i or 1
@@ -213,14 +215,23 @@ AlertFrame = makeMockFrame("AlertFrame", 500, 180)
 RolePollPopup = makeMockFrame("RolePollPopup", 420, 180)
 ReadyCheckFrame = makeMockFrame("ReadyCheckFrame", 320, 140)
 ReadyCheckFrame.TitleContainer = {}
+LFGDungeonReadyPopup = makeMockFrame("LFGDungeonReadyPopup", 520, 300)
+GroupLootContainer = makeMockFrame("GroupLootContainer", 420, 180)
+CombatText = makeMockFrame("CombatText", 600, 600)
+CombatText.ignoreParentScale = true
 TimerTracker = makeMockFrame("TimerTracker", 4000, 2560)
 TimerTracker.GetParent = function() return UIParent end
+TimerTracker.ignoreParentScale = true
 local countdownTimer = makeMockFrame("TimerTrackerTimer1", 206, 26)
 countdownTimer.GoTexture = makeMockFrame("TimerTrackerTimer1GoTexture", 256, 256)
 TimerTracker.timerList = { countdownTimer }
 HousingControlsFrame = makeMockFrame("HousingControlsFrame", 150, 50)
 OverrideActionBar = makeMockFrame("OverrideActionBar", 900, 120)
 OverrideActionBar.IsProtected = function() return true end
+DamageMeter = makeMockFrame("DamageMeter", 500, 300)
+DamageMeter.isManagedFrame = true
+DamageMeter:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+table.insert(UIParent.children, DamageMeter)
 
 ToggleGameMenu = function()
     if GameMenuFrame:IsShown() then
@@ -274,7 +285,14 @@ assertMainhandAnchor(EventToastManagerFrame, "TOP", 2720, 1256, "Event toast")
 assertMainhandAnchor(AlertFrame, "BOTTOM", 2720, 134, "Alert frame")
 assertMainhandAnchor(RolePollPopup, "TOP", 2720, 1431, "Role poll")
 assertMainhandAnchor(ReadyCheckFrame, "CENTER", 2720, 716, "Ready check")
+assertMainhandAnchor(LFGDungeonReadyPopup, "CENTER", 2720, 716, "Dungeon queue popup")
+assertMainhandAnchor(GroupLootContainer, "BOTTOM", 2720, 196, "Group loot rolls")
+assertMainhandAnchor(CombatText, "CENTER", 2720, 726, "Floating combat text")
+assert(CombatText:IsIgnoringParentScale() == false,
+    "floating combat text must inherit Offhand's UIParent scale")
 assert(TimerTracker:GetNumPoints() == 2, "TimerTracker must be bounded to the Mainhand rectangle")
+assert(TimerTracker:IsIgnoringParentScale() == false,
+    "countdown overlays must inherit Offhand's UIParent scale")
 local timerBottomLeft = { TimerTracker:GetPoint(1) }
 local timerTopRight = { TimerTracker:GetPoint(2) }
 assert(timerBottomLeft[1] == "BOTTOMLEFT" and timerBottomLeft[2] == UIParent
@@ -322,6 +340,17 @@ BossBanner:Show()
 assertMainhandAnchor(BossBanner, "TOP", 2720, 1326, "Boss banner after native reset")
 BossBanner:Hide()
 
+LFGDungeonReadyPopup:ClearAllPoints()
+LFGDungeonReadyPopup:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+LFGDungeonReadyPopup:GetScript("OnEvent")(LFGDungeonReadyPopup, "LFG_PROPOSAL_SHOW")
+assertMainhandAnchor(LFGDungeonReadyPopup, "CENTER", 2720, 716,
+    "Dungeon queue popup after native reset")
+GroupLootContainer:ClearAllPoints()
+GroupLootContainer:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 0)
+GroupLootContainer:GetScript("OnEvent")(GroupLootContainer, "START_LOOT_ROLL")
+assertMainhandAnchor(GroupLootContainer, "BOTTOM", 2720, 196,
+    "Group loot rolls after native reset")
+
 -- START_TIMER dynamically creates/reuses timer children. The post-event hook
 -- must catch a newly allocated completion texture immediately.
 local secondCountdown = makeMockFrame("TimerTrackerTimer2", 206, 26)
@@ -348,12 +377,18 @@ print("PASS: PartyMemberFrame1 defaults cleanly inside the 3D Game Viewport (x=1
 -- ============================================================================
 addon.Canvas:EnableFreeDragging()
 addon.Canvas:TryMakeFrameDraggable(ReadyCheckFrame)
+addon.Canvas:TryMakeFrameDraggable(LFGDungeonReadyPopup)
+addon.Canvas:TryMakeFrameDraggable(GroupLootContainer)
 addon.Canvas:TryMakeFrameDraggable(TimerTracker)
 addon.Canvas:TryMakeFrameDraggable(HouseEditorFrame)
 addon.Canvas:TryMakeFrameDraggable(OverrideActionBar)
 assert(PartyMemberFrame1._OffhandHandle == nil, "PartyMemberFrame1 must NOT have an overlaid drag handle so unit targeting/healing is never blocked")
 assert(ReadyCheckFrame._OffhandMovable == nil,
     "ReadyCheckFrame must not receive generic panel dragging or persistence")
+assert(LFGDungeonReadyPopup._OffhandMovable == nil,
+    "LFGDungeonReadyPopup must not receive generic panel dragging or persistence")
+assert(GroupLootContainer._OffhandMovable == nil,
+    "GroupLootContainer must not receive generic panel dragging or persistence")
 assert(TimerTracker._OffhandMovable == nil,
     "TimerTracker must not receive generic panel dragging or persistence")
 assert(HouseEditorFrame._OffhandMovable == nil,
@@ -513,6 +548,12 @@ assert(not protectedPanel._OffhandMovable and not protectedPanel.movable,
     "Generic discovery must not mutate protected panels")
 assert(not forbiddenPanel._OffhandMovable and not forbiddenPanel.movable,
     "Generic discovery must not mutate forbidden panels")
+local damageMeterPoints = #DamageMeter.points
+addon.Canvas:TryMakeFrameDraggable(DamageMeter)
+flushTimers()
+assert(not DamageMeter._OffhandMovable and not DamageMeter.movable
+        and #DamageMeter.points == damageMeterPoints,
+    "Edit Mode Damage Meter must remain outside generic drag and popup rescue")
 
 ShowUIPanel(EditModeManagerFrame)
 flushTimers()
@@ -563,14 +604,14 @@ assert(#EditModeManagerFrame.points == voidManagerPointCount
     "Edit Mode void detection must remain read-only")
 assert(next(EditModeManagerFrame.scripts) == nil,
     "Edit Mode recovery must not attach scripts to Blizzard's manager")
-addon.HUD:DismissForeverEditModeControlsPrompt()
+assert(addon.HUD:BringForeverEditModeControlsToMainhand(),
+    "player-click recovery must bring the unprotected manager to Mainhand")
 assert(editModePromptHidden == 0,
-    "Acknowledgement must let Blizzard close its popup without a re-entrant hide")
-local untouchedManagerPoint = EditModeManagerFrame.points[1]
-assert(untouchedManagerPoint and untouchedManagerPoint[1] == "BOTTOMLEFT"
-        and untouchedManagerPoint[2] == UIParent
-        and #EditModeManagerFrame.points == voidManagerPointCount,
-    "Edit Mode recovery guidance must leave Blizzard's manager anchor untouched")
+    "the Accept callback must let Blizzard close its popup without a re-entrant hide")
+local recoveredManagerPoint = EditModeManagerFrame.points[1]
+assert(recoveredManagerPoint and recoveredManagerPoint[1] == "CENTER"
+        and recoveredManagerPoint[2] == UIParent,
+    "Edit Mode recovery must center the manager without changing panel metadata")
 assert(UIPanelWindows.EditModeManagerFrame.area == "center"
         and EditModeManagerFrame:GetAttribute("UIPanelLayout-centerFrameSkipAnchoring") == nil,
     "Edit Mode recovery must not mutate Blizzard panel metadata or attributes")
@@ -578,6 +619,26 @@ EditModeManagerFrame:Hide()
 addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
 assert(editModePromptHidden >= 1 and addon.HUD.foreverEditModeManagerWasShown == nil,
     "Closing Edit Mode must reset control-window recovery for its next opening")
+
+-- The manager toolbar can fit inside Mainhand while the separate settings
+-- dialog is mostly in the void. That state needs the same read-only guidance.
+EditModeManagerFrame:ClearAllPoints()
+EditModeManagerFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT",
+    metrics.gameLeft + 100, metrics.gameBottom + 100)
+EditModeManagerFrame:Show()
+EditModeSystemSettingsDialog:ClearAllPoints()
+EditModeSystemSettingsDialog:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1268, 1586)
+EditModeSystemSettingsDialog:Show()
+addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+assert(editModePromptCount == 2,
+    "Forever must detect an off-screen Edit Mode settings dialog even when its manager fits")
+assert(#EditModeSystemSettingsDialog.points == 1
+        and EditModeSystemSettingsDialog.points[1][1] == "BOTTOMLEFT",
+    "Edit Mode settings-dialog recovery guidance must remain read-only")
+addon.HUD:DismissForeverEditModeControlsPrompt()
+EditModeSystemSettingsDialog:Hide()
+EditModeManagerFrame:Hide()
+addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
 EditModeManagerFrame:Show()
 
 -- A disconnected saved display must temporarily use a built-in single-screen
@@ -632,9 +693,8 @@ assert(selectedLayout == 6 and layoutData.activeLayout == 6,
 assert(addon.db.foreverEditModeRecovery == nil,
     "Forever must clear the completed protected layout handoff")
 
--- Restore Window can shrink WoW before the running addon has loaded any exact
--- topology. Forever must treat ABSENT like a missing-display recovery instead
--- of leaving protected HUD frames at their old spanned coordinates.
+-- ABSENT is the normal packaged state for a deliberately manual span. It must
+-- not trigger Companion recovery or replace the player's Edit Mode layout.
 layoutData.activeLayout = 6
 selectedLayout = nil
 recoveryPrompt = nil
@@ -643,22 +703,17 @@ metrics.companionTopology = false
 metrics.isSpanned = false
 addon.HUD:UpdateForeverRecoveryLayout(metrics)
 flushTimers()
-assert(selectedLayout == nil and layoutData.activeLayout == 6 and recoveryPrompt == "fallback",
-    "Forever absent topology must request the player-click single-screen layout")
-assert(addon.db.foreverEditModeRecovery
-        and addon.db.foreverEditModeRecovery.restoreLayoutID == 6,
-    "Forever absent topology must retain the protected Offhand layout handoff")
-addon.HUD:ApplyForeverRecoveryChoice("fallback")
+assert(selectedLayout == nil and layoutData.activeLayout == 6 and recoveryPrompt == nil,
+    "Forever manual topology must not request Companion recovery")
+assert(addon.db.foreverEditModeRecovery == nil,
+    "Forever manual topology must not create a protected layout handoff")
 metrics.topologyStatus = "READY"
 metrics.companionTopology = true
 metrics.isSpanned = true
 recoveryPrompt = nil
 addon.HUD:UpdateForeverRecoveryLayout(metrics)
-assert(recoveryPrompt == "restore",
-    "Forever must offer to restore Offhand after exact topology returns")
-addon.HUD:ApplyForeverRecoveryChoice("restore")
-assert(layoutData.activeLayout == 6 and addon.db.foreverEditModeRecovery == nil,
-    "Forever must complete the absent-topology recovery round trip")
+assert(recoveryPrompt == nil and layoutData.activeLayout == 6,
+    "Exact topology must preserve the manual setup's active Offhand layout")
 
 -- Layout names are case-insensitive, and a recovery snapshot must follow the
 -- named layout if its custom slot differs from the ID remembered at disconnect.
@@ -788,6 +843,8 @@ addon.HUD:HookFrames()
 flushTimers()
 assert(selectedLayout == nil and managerSelection == nil,
     "Anniversary reload must preserve an already-active Offhand layout despite a different numeric ID")
+assert(next(EditModeManagerFrame.scripts) == nil,
+    "Non-Forever Edit Mode manager must remain free of addon OnShow hooks")
 
 anniversaryActiveName = "Modern"
 selectedLayout = nil
@@ -845,12 +902,11 @@ assert(bagPoint and bagPoint[1] == "BOTTOMRIGHT" and bagPoint[3] == "BOTTOMRIGHT
     "the backpack must recover above the lower-right action UI")
 recoveryPanel:Show()
 addon.Canvas:PrepareSingleScreenRecovery({ topologyStatus = "ABSENT", isSpanned = false })
-assert(not recoveryPanel:IsShown(),
-    "Forever absent topology must temporarily close visible workspace panels")
-recoveryPanel:Show()
-assert(addon.Canvas:PlaceForSingleScreenRecovery(recoveryPanel,
+assert(recoveryPanel:IsShown(),
+    "Forever manual topology must not close visible workspace panels")
+assert(not addon.Canvas:PlaceForSingleScreenRecovery(recoveryPanel,
         { topologyStatus = "ABSENT", isSpanned = false }),
-    "Forever absent topology must give reopened workspace panels a visible anchor")
+    "Forever manual topology must not apply Companion recovery anchors")
 
 -- Edit Mode dialogs also remain entirely Blizzard-owned.
 EditModeUnsavedChangesDialog:Show()
@@ -1004,6 +1060,19 @@ flushTimers()
 assert(not addon.Canvas.IsFrameOnWorkspace(playerSpellsFrame)
         and playerSpellsFrame:GetLeft() == 1900 and playerSpellsFrame:GetTop() == 1100,
     "closing and reopening a Mainhand panel must restore its saved Mainhand anchor")
+
+-- Communities reanchors its root when switching internal tabs. An explicit
+-- Mainhand placement must survive that same-show native reset.
+CommunitiesFrame = makeMockFrame("CommunitiesFrame", 900, 760)
+CommunitiesFrame.TitleContainer = makeMockFrame("CommunitiesFrameTitleContainer", 800, 24)
+UIPanelWindows.CommunitiesFrame = { area = "left", pushable = 0 }
+addon.Canvas:DiscoverUIPanels()
+addon.db.savedMainPositions.CommunitiesFrame = { point="TOPLEFT", x=1880, y=1180 }
+CommunitiesFrame:ClearAllPoints()
+CommunitiesFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 80, 2400)
+flushTimers()
+assert(CommunitiesFrame:GetLeft() == 1880 and CommunitiesFrame:GetTop() == 1180,
+    "Communities internal tab resets must preserve its explicit Mainhand placement")
 
 local collectionsFrame = makeMockFrame("CollectionsFrame", 700, 800)
 UIPanelWindows.CollectionsFrame = { area = "left", pushable = 0 }

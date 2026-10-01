@@ -97,14 +97,15 @@ L["LAYOUT_REAPPLIED"] = "Layout reapplied!"
 L["CONFIG_SAVED"] = "Configuration saved! Welcome to Offhand Dual Monitor Workstation."
 L["EDIT_MODE_LAYOUT_MISSING"] = "Forever uses Blizzard Edit Mode for action bars and combat frames. Outside combat, position them on the Mainhand Monitor, save the layout as 'Offhand', and select it in Edit Mode."
 L["COMPAT_ELLESMERE_PARTY"] = "EllesmereUI Raid Frames detected. Position its replacement Party/Raid Frames with EllesmereUI Unlock Mode. To use Blizzard Edit Mode instead, disable the EllesmereUI Raid Frames module."
-L["FOREVER_SINGLE_SCREEN_LAYOUT_TEXT"] = "The saved workspace display is unavailable. Forever protects action bars and combat frames, so Offhand needs one player click to switch them to a clean single-screen layout.\n\nOffhand will remember your protected HUD layout and offer to restore it when the display returns."
+L["FOREVER_SINGLE_SCREEN_LAYOUT_TEXT"] = "Your saved Offhand monitor is unavailable. Forever needs your confirmation to move protected UI frames to a single-screen layout.\n\nChoose Use Modern to recover now. Offhand will offer to restore your Offhand layout when the monitor returns."
 L["FOREVER_USE_MODERN"] = "Use Modern"
 L["FOREVER_KEEP_OFFHAND"] = "Keep Offhand"
 L["FOREVER_RESTORE_LAYOUT_TEXT"] = "Your saved display layout is available again. Forever requires one player click to change protected HUD layouts.\n\nRestore the Offhand layout now?"
 L["FOREVER_RESTORE_OFFHAND"] = "Restore Offhand"
 L["FOREVER_KEEP_MODERN"] = "Keep Modern"
-L["FOREVER_EDIT_MODE_CONTROLS_TEXT"] = "Blizzard opened Edit Mode controls in unused space outside the physical displays. Offhand cannot safely move Blizzard's Edit Mode manager without interfering with native frame dragging.\n\nClose Edit Mode, choose Restore Window in the Companion, configure and save your Offhand layout, then choose Span WoW Now and /reload."
-L["FOREVER_EDIT_MODE_CONTROLS_OK"] = "OK"
+L["FOREVER_EDIT_MODE_CONTROLS_TEXT"] = "Blizzard opened the Edit Mode control bar outside the physical displays.\n\nSelect Bring to Mainhand to center only the Edit Mode controls. Offhand will not move action bars, Party or Raid Frames, or other protected UI."
+L["FOREVER_EDIT_MODE_BRING_TO_MAINHAND"] = "Bring to Mainhand"
+L["FOREVER_EDIT_MODE_NOT_NOW"] = "Not Now"
 
 -- Options Dashboard Header & Tabs
 L["OPTIONS_TITLE"] = "Offhand DUAL MONITOR WORKSTATION"
@@ -452,7 +453,6 @@ end
 StaticPopupDialogs["OFFHAND_COMPANION_WARNING"] = {
     text = Offhand.L["POPUP_COMPANION_WARNING_TEXT"],
     button1 = "OK",
-    button2 = Offhand.L["POPUP_BTN_IGNORE"],
     hasEditBox = true,
     editBoxWidth = 260,
     OnShow = function(self)
@@ -465,13 +465,6 @@ StaticPopupDialogs["OFFHAND_COMPANION_WARNING"] = {
     end,
     OnAccept = function()
         if Offhand.MarkWelcomeDismissed then Offhand:MarkWelcomeDismissed() end
-    end,
-    OnCancel = function(self)
-        if Offhand.SetCompanionWarningSuppressed then
-            Offhand:SetCompanionWarningSuppressed(true)
-        elseif Offhand.db then
-            Offhand.db.suppressCompanionWarning = true
-        end
     end,
     EditBoxOnEscapePressed = function(self)
         self:GetParent():Hide()
@@ -557,10 +550,11 @@ StaticPopupDialogs["OFFHAND_FOREVER_RESTORE_LAYOUT"] = {
 
 StaticPopupDialogs["OFFHAND_FOREVER_EDIT_MODE_CONTROLS"] = {
     text = Offhand.L["FOREVER_EDIT_MODE_CONTROLS_TEXT"],
-    button1 = Offhand.L["FOREVER_EDIT_MODE_CONTROLS_OK"],
+    button1 = Offhand.L["FOREVER_EDIT_MODE_BRING_TO_MAINHAND"],
+    button2 = Offhand.L["FOREVER_EDIT_MODE_NOT_NOW"],
     OnAccept = function()
-        if Offhand.HUD and Offhand.HUD.DismissForeverEditModeControlsPrompt then
-            Offhand.HUD:DismissForeverEditModeControlsPrompt()
+        if Offhand.HUD and Offhand.HUD.BringForeverEditModeControlsToMainhand then
+            Offhand.HUD:BringForeverEditModeControlsToMainhand()
         end
     end,
     OnCancel = function()
@@ -576,8 +570,9 @@ StaticPopupDialogs["OFFHAND_FOREVER_EDIT_MODE_CONTROLS"] = {
 
 
 function Offhand:InitializePopups()
-    StaticPopupDialogs["OFFHAND_COMPANION_WARNING"].text = Offhand.L["POPUP_COMPANION_WARNING_TEXT"]
-    StaticPopupDialogs["OFFHAND_COMPANION_WARNING"].button2 = Offhand.L["POPUP_BTN_IGNORE"]
+    StaticPopupDialogs["OFFHAND_COMPANION_WARNING"].text = string.format(
+        Offhand.L["POPUP_COMPANION_WARNING_TEXT"], Offhand.companionVersionDisplay)
+    StaticPopupDialogs["OFFHAND_COMPANION_WARNING"].button2 = nil
     
     StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"].text = Offhand.L["POPUP_WELCOME_WARNING_TEXT"]
     StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"].button1 = Offhand.L["POPUP_BTN_GET_APP"]
@@ -593,8 +588,8 @@ function Offhand:InitializePopups()
     restore.button2 = Offhand.L["FOREVER_KEEP_MODERN"]
     local editMode = StaticPopupDialogs["OFFHAND_FOREVER_EDIT_MODE_CONTROLS"]
     editMode.text = Offhand.L["FOREVER_EDIT_MODE_CONTROLS_TEXT"]
-    editMode.button1 = Offhand.L["FOREVER_EDIT_MODE_CONTROLS_OK"]
-    editMode.button2 = nil
+    editMode.button1 = Offhand.L["FOREVER_EDIT_MODE_BRING_TO_MAINHAND"]
+    editMode.button2 = Offhand.L["FOREVER_EDIT_MODE_NOT_NOW"]
 end
 
 function Offhand:ShowForeverLayoutRecoveryPrompt(kind)
@@ -746,8 +741,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         local preserveWorkspaceSnapshot = Offhand.Viewport and Offhand.Viewport.IsSingleScreenRecovery
             and Offhand.Viewport:IsSingleScreenRecovery(transitionMetrics)
             or (transitionMetrics and not transitionMetrics.isSpanned
-                and (transitionMetrics.topologyStatus == "MISMATCH"
-                    or (Offhand.isForever and transitionMetrics.topologyStatus == "ABSENT")))
+                and transitionMetrics.topologyStatus == "MISMATCH")
         if not preserveWorkspaceSnapshot and Offhand.db and Offhand.db.enabled and Offhand.db.savedWorkspacePositions and Offhand.db.restoreWorkspaceOnReload ~= false then
             -- Explicit panel toggles and close buttons maintain this table while
             -- the player is active. Preserve that last known state here: on
@@ -808,7 +802,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             end
 
             -- Setup Wizard and Guard checks
-            if Offhand.db and Offhand.db.enabled then
+            if Offhand.db then
                 local viewportMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
                 local isSpanned = viewportMetrics and viewportMetrics.companionTopology and viewportMetrics.isSpanned
                 if viewportMetrics and viewportMetrics.topologyStatus == "MISMATCH" then isSpanned = false end
@@ -825,20 +819,26 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                     or Offhand.db.firstRunComplete
                 local setupComplete = Offhand.IsSetupComplete and Offhand:IsSetupComplete()
                     or Offhand.db.firstRunComplete
-                if not welcomeDismissed then
-                    if not isSpanned then
+                local onboardingResumeStep = Offhand.GetOnboardingResumeStep
+                    and Offhand:GetOnboardingResumeStep() or nil
+                if onboardingResumeStep or not welcomeDismissed then
+                    -- Installation onboarding is deliberately independent from
+                    -- display calibration. A saved reload handoff takes priority
+                    -- over an older welcome acknowledgement so Step 4 can resume
+                    -- for existing users as well as first-time users.
+                    if Offhand.Onboarding and Offhand.Onboarding.Open then
+                        Offhand.Onboarding:Open()
+                    elseif not isSpanned then
                         StaticPopup_Show("OFFHAND_WELCOME_SPAN_WARNING")
+                    elseif Offhand.Wizard and Offhand.Wizard.Open then
+                        Offhand.Wizard:Open()
                     else
-                        if Offhand.Wizard and Offhand.Wizard.Open then
-                            Offhand.Wizard:Open()
-                        else
-                            Offhand:Print(Offhand.L["MSG_FIRST_RUN"])
-                        end
+                        Offhand:Print(Offhand.L["MSG_FIRST_RUN"])
                     end
-                elseif setupComplete then
-                    local warningSuppressed = Offhand.IsCompanionWarningSuppressed
-                        and Offhand:IsCompanionWarningSuppressed() or Offhand.db.suppressCompanionWarning
-                    if not isSpanned and not warningSuppressed then
+                elseif Offhand.db.enabled and setupComplete then
+                    local recoveryPromptActive = Offhand.isForever and Offhand.HUD
+                        and Offhand.HUD.foreverRecoveryPromptShown ~= nil
+                    if not isSpanned and not recoveryPromptActive then
                         StaticPopup_Show("OFFHAND_COMPANION_WARNING")
                     end
                 end
@@ -976,6 +976,10 @@ SlashCmdList["OFFHAND"] = function(msg)
             m.gamePixelBottom or 0, effScale)
         Offhand:Print(L["MSG_DIAG_FULL"],
             physW, physH, screenW, screenH, effScale, m.deckWidth or 0, (Offhand.db.deckWidthRatio or 0) * 100, m.gameWidth or 0, m.gameHeight or 0)
+        Offhand:Print("Companion topology writer: %s | expected: %s | status: %s.",
+            tostring(m.companionVersion or "not recorded"),
+            tostring(m.expectedCompanionVersion or Offhand.companionFullVersion or "unknown"),
+            tostring(m.companionVersionStatus or "unavailable"))
         -- Rendering fidelity is owned by the client, not Offhand's viewport
         -- anchors. Report the relevant read-only CVars so a window-backbuffer
         -- mismatch can be distinguished from UI scale or geometry problems.
@@ -1006,7 +1010,13 @@ SlashCmdList["OFFHAND"] = function(msg)
     elseif msg == "debug" then
         Offhand.db.debugMode = not Offhand.db.debugMode
         Offhand:Print(L["MSG_DEBUG_TOGGLED"], Offhand.db.debugMode and L["MSG_DEBUG_ON"] or L["MSG_DEBUG_OFF"])
-    elseif cmd == "wizard" or cmd == "setup" or cmd == "calibrate" or cmd == "span" or cmd == "guide" then
+    elseif cmd == "guide" or cmd == "setup" then
+        if Offhand.Onboarding and Offhand.Onboarding.Open then
+            Offhand.Onboarding:Open()
+        elseif Offhand.Wizard and Offhand.Wizard.Open then
+            Offhand.Wizard:Open()
+        end
+    elseif cmd == "wizard" or cmd == "calibrate" or cmd == "span" then
         if Offhand.Wizard and Offhand.Wizard.Open then
             Offhand.Wizard:Open()
         elseif Offhand.Options and Offhand.Options.Open then

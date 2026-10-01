@@ -52,12 +52,22 @@ function Viewport:GetCompanionTopology(pw, ph, sw, sh)
     return nil, "MISMATCH"
 end
 
--- A stale exact topology is unsafe on every client. Forever additionally
--- requires exact Companion rectangles: its protected HUD cannot be repaired by
--- legacy percentage geometry without risking taint or leaving frames in void.
+local function CompanionVersionStatus(topology)
+    local actual = topology and type(topology.companionVersion) == "string"
+        and topology.companionVersion or nil
+    local expected = type(Offhand.companionFullVersion) == "string"
+        and Offhand.companionFullVersion or nil
+    if not actual or actual == "" then return "UNKNOWN", nil, expected end
+    if not expected or expected == "" then return "UNKNOWN", actual, nil end
+    return string.lower(actual) == string.lower(expected) and "MATCH" or "MISMATCH",
+        actual, expected
+end
+
+-- A stale exact topology is unsafe on every client. An absent topology is
+-- different: it is the packaged state for users who deliberately span the WoW
+-- window themselves, so the saved percentage geometry remains authoritative.
 function Viewport:IsRecoveryTopologyStatus(topologyStatus)
     return topologyStatus == "MISMATCH"
-        or (Offhand.isForever and topologyStatus == "ABSENT")
 end
 
 function Viewport:IsSingleScreenRecovery(metrics)
@@ -79,6 +89,7 @@ function Viewport:GetMetrics()
     local preset = db.layoutPreset or "PORTRAIT_LEFT_LANDSCAPE_RIGHT"
     local topology, topologyStatus = self:GetCompanionTopology(pw, ph, sw, sh)
     if topology then
+        local companionVersionStatus, companionVersion, expectedCompanionVersion = CompanionVersionStatus(topology)
         pw, ph = tonumber(topology.physicalWidth), tonumber(topology.physicalHeight)
         local ux, uy = sw / pw, sh / ph
         local game, workspace = topology.game, topology.workspace
@@ -103,6 +114,9 @@ function Viewport:GetMetrics()
             hudScale = 1, bezel = 0, preset = preset,
             actualAR = width / height, arMode = "NATIVE", isSpanned = true,
             companionTopology = true, topologyMode = topology.mode, topologyStatus = "READY",
+            companionVersionStatus = companionVersionStatus,
+            companionVersion = companionVersion,
+            expectedCompanionVersion = expectedCompanionVersion,
         }
     elseif self:IsRecoveryTopologyStatus(topologyStatus) then
         return {

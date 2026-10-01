@@ -142,6 +142,8 @@ _G.NUM_CONTAINER_FRAMES = 5
 for i = 1, 5 do
     _G["ContainerFrame" .. i] = makeMockFrame("ContainerFrame" .. i, 192, 250)
 end
+ContainerFrame1.TitleContainer = makeMockFrame("ContainerFrame1TitleContainer", 192, 32)
+ContainerFrame1.IsProtected = function() return true end
 ContainerFrameCombinedBags = makeMockFrame("ContainerFrameCombinedBags", 320, 220)
 _G["ContainerFrameCombinedBags"] = ContainerFrameCombinedBags
 
@@ -227,11 +229,14 @@ assert(postDragPt.point == "TOPLEFT", "MinimapCluster on workspace must remain a
 assert(postDragPt.x < metrics.deckWidth, "MinimapCluster must remain on workspace after timers fire")
 
 local cf1 = _G["ContainerFrame1"]
+assert(cf1._OffhandHandle == nil,
+    "Protected individual bags must not receive an addon-owned drag overlay")
+assert(cf1.TitleContainer._OffhandPersistenceHooked == true,
+    "Protected individual bags must observe their native title drag")
 cf1:Show()
 cf1.points = { { point = "BOTTOMLEFT", relTo = UIParent, relPt = "BOTTOMLEFT", x = 100, y = 400 } }
-if cf1._OffhandHandle and cf1._OffhandHandle.scripts["OnDragStop"] then
-    cf1._OffhandHandle.scripts["OnDragStop"]()
-end
+cf1.TitleContainer.scripts["OnDragStart"]()
+cf1.TitleContainer.scripts["OnDragStop"]()
 assert(addon.db.savedWorkspacePositions["ContainerFrame1"] ~= nil, "ContainerFrame1 must be saved to workspace")
 
 local combined = _G.ContainerFrameCombinedBags
@@ -246,7 +251,38 @@ combined.points = { { point = "BOTTOMLEFT", relTo = UIParent, relPt = "BOTTOMLEF
 combined.TitleContainer.scripts["OnDragStop"](combined.TitleContainer)
 assert(addon.db.savedWorkspacePositions["ContainerFrameCombinedBags"] ~= nil,
     "Combined bag native title drag must save the workspace position")
+assert(addon.db.savedWorkspacePositions["ContainerFrame1"] == nil,
+    "Combined bag workspace placement must retire the inactive individual backpack root")
 assert(combined._OffhandDragging == false, "Combined bag drag state must clear after its native title drag")
+
+-- Switching Blizzard's presentation must transfer the one backpack-family
+-- workspace position to the newly active root in either direction.
+combined:Hide()
+cf1:Show()
+assert(addon.db.savedWorkspacePositions["ContainerFrame1"] ~= nil
+    and addon.db.savedWorkspacePositions["ContainerFrameCombinedBags"] == nil,
+    "switching to individual bags must transfer the combined workspace anchor")
+cf1:Hide()
+combined:Show()
+assert(addon.db.savedWorkspacePositions["ContainerFrameCombinedBags"] ~= nil
+    and addon.db.savedWorkspacePositions["ContainerFrame1"] == nil,
+    "switching back to combined bags must transfer the individual workspace anchor")
+
+-- Moving the combined presentation to Mainhand must clear stale ownership from
+-- both bag roots. Otherwise LayoutBags sees ContainerFrame1's old record and
+-- pulls the combined bag offscreen the next time it opens.
+addon.db.savedWorkspacePositions["ContainerFrame1"] = { x = 100, y = 400 }
+combined:Show()
+combined.TitleContainer.scripts["OnDragStart"](combined.TitleContainer)
+combined.points = { { point = "BOTTOMLEFT", relTo = UIParent, relPt = "BOTTOMLEFT", x = 1800, y = 500 } }
+combined.TitleContainer.scripts["OnDragStop"](combined.TitleContainer)
+assert(addon.db.savedWorkspacePositions["ContainerFrame1"] == nil
+    and addon.db.savedWorkspacePositions["ContainerFrameCombinedBags"] == nil,
+    "moving either backpack presentation to Mainhand must clear both workspace roots")
+local combinedMainhandPoint = combined.points[#combined.points]
+assert(combinedMainhandPoint and combinedMainhandPoint.point == "BOTTOMRIGHT"
+    and combinedMainhandPoint.x >= metrics.gameLeft,
+    "combined bags must re-dock inside Mainhand after the family ownership is cleared")
 
 addon.db.savedWorkspacePositions["ContainerFrameCombinedBags"] = nil
 combined.points = { { point = "BOTTOMLEFT", relTo = UIParent, relPt = "BOTTOMLEFT", x = 140, y = 520 } }
@@ -282,6 +318,12 @@ assert(mirrored and mirrored.name == "ChatFrame1" and mirrored.x == 180,
 assert(mirrored.width == 560 and mirrored.height == 340,
     "Forever Edit Mode capture must mirror the resized chat dimensions")
 
+addon.isForever = false
+combined:Hide()
+cf1:Show()
+cf1.TitleContainer.scripts["OnDragStart"]()
+cf1.points = { { point = "BOTTOMLEFT", relTo = UIParent, relPt = "BOTTOMLEFT", x = 100, y = 400 } }
+cf1.TitleContainer.scripts["OnDragStop"]()
 for i = 2, 5 do
     _G["ContainerFrame" .. i]:Show()
 end

@@ -91,6 +91,11 @@ All notable changes to this project will be documented in this file.
   index API instead of confusing the global active ID with a manager row ID.
 - Auto-Setup Wizard step 2 now places the Mainhand aspect-ratio title above
   its buttons instead of drawing the label across the first button row.
+- Calibration Wizard steps 2 and 3 now explain when Companion-owned monitor
+  geometry disables their manual controls, and step 3 no longer overlaps the
+  Offhand Monitor width label with its alignment instructions.
+- The installation guide now resumes at step 4 after its requested `/reload`,
+  and its visible copy uses plain punctuation instead of em dashes.
 - Classic Era and Anniversary clients now accept Companion topology when their
   resolution API reports only Mainhand but the live UI canvas matches the full
   span; restored single-monitor windows still reject stale topology.
@@ -141,10 +146,12 @@ All notable changes to this project will be documented in this file.
   close button. This protects both quest-pin acquisition and the yellow `Map Pin
   Sharing` waypoint's Shift-click chat-link action while preserving map
   movement and persistence.
-- Forever now fails safe to a normal full-window viewport when exact Companion
-  topology is absent, including after Restore Window. The same recovery flow
-  preserves workspace panel state and offers the player-click Modern/Offhand
-  Edit Mode handoff so protected HUD elements cannot remain in black void.
+- Forever now honors the configured manual split and allows the calibration
+  wizard to complete when Companion topology is absent. A present but
+  mismatched Companion topology still fails safe to a normal full-window
+  viewport, preserves workspace panel state, and offers the player-click
+  Modern/Offhand Edit Mode handoff so protected HUD elements cannot remain in
+  black void.
 - Forever Edit Mode recovery now matches the `Offhand` layout name without case
   sensitivity and re-resolves that name before restoration when its local custom
   layout slot differs from the previously remembered ID.
@@ -156,6 +163,17 @@ All notable changes to this project will be documented in this file.
   upward or restoring stale Offhand coordinates after Edit Mode closes. An
   intentional workspace placement is captured after Edit Mode exits, and the
   native channel/menu button strip is reattached through Blizzard's layout API.
+- Combined and individual backpack modes now share one tracked workspace
+  position, discard stale coordinates from the inactive presentation, and
+  prepare the new native bag root before Blizzard opens it. This prevents bags
+  from disappearing after switching modes and avoids Retail's combined-bag
+  toggle assertion.
+- Retail panel transitions no longer reopen the world map as an unintended
+  side effect of opening another Blizzard panel.
+- Blizzard Edit Mode frames, including the native Damage Meter, are now
+  excluded from generic centering and dragging on every supported client. This
+  preserves Blizzard's secure initialization while retaining the explicit
+  player-click recovery prompt for an Edit Mode control window in display void.
 
 ## [2.1.2] - 2026-09-22
 ### Added

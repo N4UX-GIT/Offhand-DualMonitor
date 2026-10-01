@@ -87,6 +87,8 @@ function CreateFrame(kind, name, parent, template)
     function f:IsEnabled() return self.enabled end
     function f:SetChecked(val) self.checked = val end
     function f:GetChecked() return self.checked end
+    function f:LockHighlight() self.highlightLocked = true end
+    function f:UnlockHighlight() self.highlightLocked = false end
     function f:SetMinMaxValues(min, max) self.minVal, self.maxVal = min, max end
     function f:SetValueStep(step) self.step = step end
     function f:SetObeyStepOnDrag() end
@@ -110,12 +112,14 @@ function CreateFrame(kind, name, parent, template)
             points = {},
             SetText = function(s, t) s.text = t end,
             SetWidth = function() end,
+            SetHeight = function() end,
             SetWordWrap = function() end,
             SetTextColor = function() end,
             GetText = function(s) return s.text end,
             SetPoint = function(s, pt, rel, relPt, x, y) s.points[pt] = { rel = rel, relPt = relPt, x = x, y = y } end,
             ClearAllPoints = function(s) s.points = {} end,
             SetJustifyH = function() end,
+            SetJustifyV = function() end,
             SetTextColor = function() end,
             SetWidth = function() end,
         }
@@ -171,6 +175,7 @@ assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 assert(loadfile("Locales/enUS.lua"))("Offhand", addon)
 assert(loadfile("UI/Themes.lua"))("Offhand", addon)
 assert(loadfile("UI/Options.lua"))("Offhand", addon)
+assert(loadfile("UI/Onboarding.lua"))("Offhand", addon)
 assert(loadfile("UI/Wizard.lua"))("Offhand", addon)
 
 -- Initialize defaults
@@ -184,6 +189,15 @@ addon.db = {
     theme = "CLASSIC",
     firstRunComplete = false,
 }
+
+addon:InitializePopups()
+local companionWarning = StaticPopupDialogs["OFFHAND_COMPANION_WARNING"]
+assert(companionWarning.text:find("v2.1.2 Beta 13", 1, true),
+    "Companion warning must display the paired Companion release")
+assert(not companionWarning.text:find("--", 1, true),
+    "Companion warning must avoid unsupported dash typography")
+assert(companionWarning.button2 == nil and companionWarning.OnCancel == nil,
+    "required Companion warning must not offer permanent Ignore")
 
 -- Either welcome action must acknowledge the first-run guide without claiming
 -- that calibration was completed. This prevents the popup recurring on login.
@@ -361,6 +375,33 @@ local aspectButtonPoint = wizardFrame.aspectButtons[1].points["TOPLEFT"]
 assert(aspectLabelPoint and aspectButtonPoint and aspectButtonPoint.y <= aspectLabelPoint.y - 20,
     "Wizard step 2 aspect-ratio buttons must sit below the label without overlap")
 
+local initialWizardMetrics = addon.Viewport.GetMetrics
+addon.Viewport.GetMetrics = function()
+    return { companionTopology = true, isSpanned = true, topologyStatus = "READY" }
+end
+wizardFrame:UpdateState()
+assert(wizardFrame.aspectButtons[1]:IsEnabled() == false
+        and wizardFrame.exactTopologyHelp:GetText():find("locked", 1, true),
+    "Wizard step 2 must explain that exact Companion geometry locks its choices")
+assert(wizardFrame.seamSlider:IsEnabled() == false
+        and wizardFrame.laserButton:IsEnabled() == true
+        and wizardFrame.seamHelp:GetText():find("locked", 1, true),
+    "Wizard step 3 must explain its width lock while leaving physical alignment available")
+local seamHelpPoint = wizardFrame.seamHelp.points["TOPLEFT"]
+local seamTitlePoint = wizardFrame.seamTitle.points["TOPLEFT"]
+local seamHelpY = seamHelpPoint and (seamHelpPoint.y or seamHelpPoint.relPt)
+local seamTitleY = seamTitlePoint and (seamTitlePoint.y or seamTitlePoint.relPt)
+assert(seamHelpY and seamTitleY and seamTitleY <= seamHelpY - 32,
+    "Wizard step 3 lock guidance must not overlap the Offhand Monitor width label")
+addon.Viewport.GetMetrics = initialWizardMetrics
+wizardFrame:UpdateState()
+assert(wizardFrame.aspectButtons[1]:IsEnabled() == true
+        and wizardFrame.exactTopologyHelp:GetText() == "",
+    "Wizard step 2 must remove the lock explanation when manual geometry is available")
+assert(wizardFrame.seamSlider:IsEnabled() == true
+        and wizardFrame.seamHelp:GetText() == addon.L["WIZARD_SEAM_INSTRUCTION"],
+    "Wizard step 3 must restore normal guidance when manual geometry is available")
+
 -- Click 1-Click Auto-Configure inside wizard
 addon.db.deckWidthRatio = 0.55
 addon.db.firstRunComplete = false
@@ -383,6 +424,35 @@ assert(wizardFrame.step == 2 and not addon.db.firstRunComplete, "Next must not c
 wizardFrame.backBtn.scripts.OnClick()
 assert(wizardFrame.step == 1, "Back must return to the previous step")
 
+local wizardMetrics = addon.Viewport.GetMetrics
+addon.isForever = true
+addon.Viewport.GetMetrics = function()
+    return { companionTopology=false, topologyStatus="ABSENT", isSpanned=false }
+end
+wizardFrame:SetStep(4)
+wizardFrame.finishBtn.scripts.OnClick()
+assert(addon:IsSetupComplete(),
+    "Forever manual setup must finish when Companion topology is absent")
+OffhandDB.onboarding.setupComplete = false
+addon.Viewport.GetMetrics = function()
+    return {
+        companionTopology=true, topologyStatus="READY", isSpanned=true,
+        companionVersionStatus="MISMATCH", companionVersion="2.1.2-beta.12",
+        expectedCompanionVersion="2.1.2-beta.13",
+        gamePixelWidth=2560, gamePixelHeight=1440,
+        workspacePixelWidth=1440, workspacePixelHeight=2560,
+        workspaceTop=2560, workspaceBottom=0, workspaceLeft=0,
+        gameTop=1446, gameBottom=6, gameLeft=1440,
+        topologyMode="DUAL_DISPLAY",
+    }
+end
+wizardFrame:SetStep(4)
+wizardFrame.finishBtn.scripts.OnClick()
+assert(wizardFrame.step == 1 and not addon:IsSetupComplete(),
+    "a known Companion mismatch must block completion and return to preflight")
+addon.Viewport.GetMetrics = wizardMetrics
+addon.isForever = false
+
 -- Test Continuous Global UI Scale Slider in Wizard
 assert(wizardFrame.scaleSlider ~= nil, "Wizard must have scaleSlider")
 assert(wizardFrame.scaleValText ~= nil, "Wizard must have scaleValText")
@@ -391,10 +461,17 @@ addon.db.hudScale = 0.70
 wizardFrame.scaleSlider:SetValue(0.56)
 assert(math.abs(addon.db.hudScale - 0.56) < 0.001, "scaleSlider must set hudScale to 0.56")
 assert(wizardFrame.scaleValText:GetText():find("56%%"), "scaleValText must reflect 56%")
+assert(wizardFrame.scalePresetButtons[1].highlightLocked == true
+        and wizardFrame.scalePresetButtons[3].highlightLocked == false,
+    "56% must highlight Compact and clear the Standard preset highlight")
 
 wizardFrame.scaleSlider:SetValue(0.85)
 assert(math.abs(addon.db.hudScale - 0.85) < 0.001, "scaleSlider must set hudScale to 0.85")
 assert(wizardFrame.scaleValText:GetText():find("85%%"), "scaleValText must reflect 85%")
+for _, button in ipairs(wizardFrame.scalePresetButtons) do
+    assert(button.highlightLocked == false,
+        "a custom scale must clear every preset highlight")
+end
 
 -- Test Laser Toggle in Wizard
 assert(addon.Options.IsSeamGuideShown ~= nil, "Options:IsSeamGuideShown must exist")
@@ -449,15 +526,73 @@ addon.Wizard.Open = function() wizardOpened = true end
 SlashCmdList["Offhand"]("wizard")
 assert(wizardOpened == true, "/Offhand wizard must call Offhand.Wizard:Open()")
 
-wizardOpened = false
+local onboardingOpened = false
+local originalOnboardingOpen = addon.Onboarding.Open
+addon.Onboarding.Open = function() onboardingOpened = true end
 SlashCmdList["Offhand"]("setup")
-assert(wizardOpened == true, "/Offhand setup must call Offhand.Wizard:Open()")
+assert(onboardingOpened == true, "/Offhand setup must open first-time onboarding")
+
+onboardingOpened = false
+SlashCmdList["Offhand"]("guide")
+assert(onboardingOpened == true, "/Offhand guide must reopen first-time onboarding")
+addon.Onboarding.Open = originalOnboardingOpen
 
 wizardOpened = false
 SlashCmdList["Offhand"]("calibrate")
 assert(wizardOpened == true, "/Offhand calibrate must call Offhand.Wizard:Open()")
 
 addon.Wizard.Open = originalWizardOpen
+
+-- The installation guide is distinct from display calibration. It does not
+-- acknowledge the welcome until the verified handoff into the Wizard.
+OffhandDB.onboarding = {}
+addon.Viewport.GetMetrics = function()
+    return {
+        companionTopology = true, isSpanned = true, topologyStatus = "MATCH",
+        companionVersionStatus = "MATCH", gameLeft = 1440, gameRight = 4000,
+        gameBottom = 0, gameTop = 1440, gameWidth = 2560,
+    }
+end
+addon.Onboarding:Open()
+local onboardingFrame = OffhandFirstLaunchFrame
+assert(onboardingFrame and onboardingFrame:IsShown() and onboardingFrame.page == 1,
+    "first-time onboarding must open at its introduction")
+local originalStaticPopupShow = StaticPopup_Show
+local downloadDialog = { SetFrameStrata = function(self, strata) self.strata = strata end }
+StaticPopup_Show = function(key)
+    assert(key == "OFFHAND_DOWNLOAD_LINK", "onboarding must open the Companion download dialog")
+    return downloadDialog
+end
+onboardingFrame:SetPage(2)
+onboardingFrame.actionButton.scripts.OnClick()
+assert(not onboardingFrame:IsShown() and downloadDialog.strata == "TOOLTIP",
+    "download dialog must temporarily replace the onboarding guide")
+StaticPopupDialogs["OFFHAND_DOWNLOAD_LINK"].OnHide()
+assert(onboardingFrame:IsShown() and onboardingFrame.page == 2,
+    "closing the download dialog must return to onboarding step 2")
+StaticPopup_Show = originalStaticPopupShow
+
+local reloadCount = 0
+ReloadUI = function() reloadCount = reloadCount + 1 end
+onboardingFrame:SetPage(4)
+onboardingFrame.actionButton.scripts.OnClick()
+assert(reloadCount == 1 and OffhandDB.onboarding.resumeStep == 4,
+    "step 4 Reload UI must persist its resume point before reloading")
+OffhandDB.onboarding.welcomeDismissed = true
+assert(addon:GetOnboardingResumeStep() == 4 and addon:IsWelcomeDismissed(),
+    "a pending Step 4 resume must remain discoverable for users who dismissed the older welcome")
+addon.Onboarding:Open()
+assert(onboardingFrame.page == 4 and OffhandDB.onboarding.resumeStep == nil,
+    "onboarding must return to step 4 once after Reload UI")
+onboardingFrame:SetPage(1)
+local calibrationOpened = false
+addon.Wizard.Open = function() calibrationOpened = true end
+for _ = 1, 6 do onboardingFrame.nextButton.scripts.OnClick() end
+assert(addon:IsWelcomeDismissed(),
+    "onboarding must acknowledge the welcome only when handing off to calibration")
+assert(calibrationOpened, "onboarding must hand off to the separate calibration wizard")
+addon.Wizard.Open = originalWizardOpen
+addon.Viewport.GetMetrics = originalGetMetrics
 
 -- ============================================================================
 -- 5. Test Options Dialog 1-Click and Wizard Integration Buttons

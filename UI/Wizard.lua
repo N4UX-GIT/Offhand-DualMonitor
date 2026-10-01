@@ -182,7 +182,7 @@ function Wizard:CreateFrame()
     -- ========================================================================
     -- CARD 2: MONITOR ORIENTATION & 3D VIEWPORT
     -- ========================================================================
-    local card2 = CreateWizardCard(f, L["WIZARD_CARD2_TITLE"], -256, 180)
+    local card2 = CreateWizardCard(f, L["WIZARD_CARD2_TITLE"], -256, 206)
 
     local orientLabel = card2:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     orientLabel:SetPoint("TOPLEFT", 14, -28)
@@ -239,6 +239,13 @@ function Wizard:CreateFrame()
     btnFill:SetText(L["AR_FILL"])
     if Offhand.SetTooltip then Offhand:SetTooltip(btnFill, L["AR_FILL_TIP_TITLE"], L["AR_FILL_TIP_DESC"]) end
     f.aspectButtons = { btn169, btn219, btnFill }
+
+    local exactTopologyHelp = card2:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    exactTopologyHelp:SetPoint("TOPLEFT", card2, "TOPLEFT", 14, -166)
+    exactTopologyHelp:SetPoint("TOPRIGHT", card2, "TOPRIGHT", -14, -166)
+    exactTopologyHelp:SetJustifyH("CENTER")
+    if exactTopologyHelp.SetWordWrap then exactTopologyHelp:SetWordWrap(true) end
+    f.exactTopologyHelp = exactTopologyHelp
 
     btnPl:SetScript("OnClick", function()
         Offhand.db.layoutPreset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT"
@@ -304,10 +311,12 @@ function Wizard:CreateFrame()
     seamHelp:SetPoint("TOPRIGHT", -14, -28)
     seamHelp:SetJustifyH("LEFT")
     seamHelp:SetText(L["WIZARD_SEAM_INSTRUCTION"])
+    f.seamHelp = seamHelp
 
     local seamTitle = card3:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-    seamTitle:SetPoint("TOPLEFT", 14, -48)
+    seamTitle:SetPoint("TOPLEFT", 14, -60)
     seamTitle:SetText(L["WIZARD_LABEL_SEAM"])
+    f.seamTitle = seamTitle
 
     local seamEditBox = CreateFrame("EditBox", nil, card3, "BackdropTemplate")
     seamEditBox:SetSize(60, 20)
@@ -343,7 +352,7 @@ function Wizard:CreateFrame()
     local seamSlider = CreateFrame("Slider", nil, card3, "BackdropTemplate")
     seamSlider:SetOrientation("HORIZONTAL")
     seamSlider:SetSize(280, 16)
-    seamSlider:SetPoint("TOPLEFT", 14, -68)
+    seamSlider:SetPoint("TOPLEFT", 14, -80)
     seamSlider:SetMinMaxValues(0.15, 0.80)
     seamSlider:SetValueStep(0.005)
     seamSlider:SetObeyStepOnDrag(true)
@@ -418,6 +427,7 @@ function Wizard:CreateFrame()
     btnLaser:SetSize(138, 22)
     btnLaser:SetPoint("LEFT", btnPlus, "RIGHT", 12, 0)
     btnLaser:SetText(L["BTN_LASER_TOGGLE"])
+    f.laserButton = btnLaser
     if Offhand.SetTooltip then Offhand:SetTooltip(btnLaser, L["BTN_LASER_TOGGLE_TIP_TITLE"], L["BTN_LASER_TOGGLE_TIP_DESC"]) end
 
     seamSlider:SetScript("OnMouseDown", function(self, button)
@@ -430,7 +440,7 @@ function Wizard:CreateFrame()
             self._pendingApply = false
             self:SetScript("OnUpdate", nil)
             Offhand:ApplyFullLayout()
-            if f.RefreshState then f:RefreshState() end
+            if f.UpdateState then f:UpdateState() end
         end
     end)
 
@@ -450,7 +460,7 @@ function Wizard:CreateFrame()
             self._pendingApply = false
             self:SetScript("OnUpdate", nil)
             Offhand:ApplyFullLayout()
-            if f.RefreshState then f:RefreshState() end
+            if f.UpdateState then f:UpdateState() end
             return
         end
 
@@ -500,7 +510,7 @@ function Wizard:CreateFrame()
     -- Quick Seam Presets
     local btnSeam36 = CreateFrame("Button", nil, card3, "UIPanelButtonTemplate")
     btnSeam36:SetSize(196, 24)
-    btnSeam36:SetPoint("TOPLEFT", 14, -98)
+    btnSeam36:SetPoint("TOPLEFT", 14, -110)
     btnSeam36:SetText(L["WIZARD_PRESET_SEAM_36"])
     btnSeam36:SetScript("OnClick", function() seamSlider:SetValue(0.36) end)
     if Offhand.SetTooltip then Offhand:SetTooltip(btnSeam36, L["WIZARD_PRESET_SEAM_36_TIP_TITLE"], L["WIZARD_PRESET_SEAM_36_TIP_DESC"]) end
@@ -696,11 +706,11 @@ function Wizard:CreateFrame()
             self._pendingApply = false
             self:SetScript("OnUpdate", nil)
             Offhand:ApplyFullLayout()
-            if f.RefreshState then f:RefreshState() end
+            if f.UpdateState then f:UpdateState() end
             return
         end
         Offhand:ApplyFullLayout()
-        if f.RefreshState then f:RefreshState() end
+        if f.UpdateState then f:UpdateState() end
     end)
     if Offhand.SetTooltip then Offhand:SetTooltip(scaleSlider, L["WIZARD_UI_SCALE_TIP_TITLE"], L["WIZARD_UI_SCALE_TIP_DESC"]) end
 
@@ -742,6 +752,7 @@ function Wizard:CreateFrame()
     btnHud100:SetText(L["WIZARD_PRESET_SCALE_100"])
     btnHud100:SetScript("OnClick", function() scaleSlider:SetValueDirect(1.00) end)
     if Offhand.SetTooltip then Offhand:SetTooltip(btnHud100, L["WIZARD_PRESET_SCALE_100_TIP_TITLE"], L["WIZARD_PRESET_SCALE_100_TIP_DESC"]) end
+    f.scalePresetButtons = { btnHud56, btnHud65, btnHud70, btnHud100 }
 
     -- ========================================================================
     -- FOOTER ACTIONS
@@ -766,6 +777,13 @@ function Wizard:CreateFrame()
     finishBtn:SetText("|cffffd100" .. L["WIZARD_BTN_FINISH"] .. "|r")
     finishBtn:SetScript("OnClick", function()
         if f.step < 4 then f:SetStep(f.step + 1); return end
+        local currentInfo = Wizard:DetectTopology()
+        if currentInfo.exactTopology and currentInfo.companionVersionStatus == "MISMATCH" then
+            statusText:SetText("|cffff5555" .. string.format(L["WIZARD_STATUS_COMPANION_MISMATCH"],
+                currentInfo.companionVersion or "?", currentInfo.expectedCompanionVersion or "?") .. "|r")
+            f:SetStep(1)
+            return
+        end
         if Offhand.MarkSetupComplete then
             Offhand:MarkSetupComplete()
         elseif Offhand.db then
@@ -817,7 +835,8 @@ function Wizard:CreateFrame()
     end
 
     function f:UpdateState()
-        if not Offhand.db then return end
+        if self._updatingState or not Offhand.db then return end
+        self._updatingState = true
         local p = Offhand.db.layoutPreset
         local pos = Offhand.db.primaryPosition
         local ar = Offhand.db.aspectRatioMode
@@ -825,8 +844,10 @@ function Wizard:CreateFrame()
         local seam = Offhand.db.deckWidthRatio or 0.36
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
         local manualGeometryEnabled = not (metrics and metrics.companionTopology)
+        exactTopologyHelp:SetText(manualGeometryEnabled and ""
+            or ("|cffffd100" .. L["WIZARD_STEP2_OPTIONS_LOCKED"] .. "|r"))
         seamHelp:SetText(manualGeometryEnabled and L["WIZARD_SEAM_INSTRUCTION"]
-            or (L["EXACT_TOPOLOGY_LOCKED"] .. " " .. L["WIZARD_SEAM_INSTRUCTION"]))
+            or L["WIZARD_STEP3_OPTIONS_LOCKED"])
         for _, control in ipairs({btnPl, btnPr, btnDual, btnVt, btnVb, btn169, btn219,
             btnFill, seamSlider, seamEditBox, btnMinus, btnPlus, btnSeam36, btnSeam50, btnSeam55}) do
             if control and control.SetEnabled then control:SetEnabled(manualGeometryEnabled) end
@@ -854,6 +875,12 @@ function Wizard:CreateFrame()
         Offhand.Options:SetChoiceSelected(btn169, ar == "16_9")
         Offhand.Options:SetChoiceSelected(btn219, ar == "21_9")
         Offhand.Options:SetChoiceSelected(btnFill, ar == "FILL")
+        -- Selection styling intentionally enables a choice button, so enforce
+        -- the exact-topology lock after applying that styling.
+        for _, control in ipairs({btnPl, btnPr, btnDual, btnVt, btnVb,
+            btn169, btn219, btnFill}) do
+            if control and control.SetEnabled then control:SetEnabled(manualGeometryEnabled) end
+        end
 
         Offhand.Options:SetChoiceSelected(btnHud56, math.abs(hud - 0.56) < 0.005)
         Offhand.Options:SetChoiceSelected(btnHud65, math.abs(hud - 0.65) < 0.005)
@@ -880,6 +907,7 @@ function Wizard:CreateFrame()
         end
 
         self:UpdateLaserButton()
+        self._updatingState = nil
     end
 
     f.seamSlider = seamSlider
@@ -917,7 +945,18 @@ function Wizard:Open()
         info.recommendedDeckRatio * 100,
         info.recommendedAR or "16:9"))
 
-    f.statusText:SetText(info.exactTopology and L["EXACT_TOPOLOGY_LOCKED"] or L["WIZARD_STATUS_READY"])
+    if info.exactTopology and info.companionVersionStatus == "MISMATCH" then
+        f.statusText:SetText("|cffff5555" .. string.format(L["WIZARD_STATUS_COMPANION_MISMATCH"],
+            info.companionVersion or "?", info.expectedCompanionVersion or "?") .. "|r")
+    elseif info.exactTopology and info.companionVersionStatus == "UNKNOWN" then
+        -- Beta 13 predates topology-writer metadata. Its exact geometry remains
+        -- valid; diagnostics report the unverified writer without blocking setup.
+        f.statusText:SetText(L["EXACT_TOPOLOGY_LOCKED"])
+    elseif info.exactTopology then
+        f.statusText:SetText(L["EXACT_TOPOLOGY_LOCKED"])
+    else
+        f.statusText:SetText(L["WIZARD_STATUS_READY"])
+    end
     if f.autoBtn then
         f.autoBtn:SetText("|cff00ff00" .. L["WIZARD_BTN_AUTOCONFIG"] .. "|r")
     end

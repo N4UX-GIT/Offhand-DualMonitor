@@ -301,6 +301,26 @@ assert(select(1, ChatFrame1:GetPoint(1)) == "TOPLEFT"
     and select(5, ChatFrame1:GetPoint(1)) == savedMainTop,
     "Mainhand chat restoration must preserve the saved top edge instead of treating it as a bottom edge")
 
+-- Newer Forever builds expose the primary chat as a native Edit Mode system.
+-- Once that contract is present, Blizzard's active profile must be authoritative
+-- and any historical Offhand coordinates must be discarded.
+ChatFrame1.OnEditModeEnter = function(self) self.isInEditMode = true end
+ChatFrame1.OnEditModeExit = function(self) self.isInEditMode = false end
+addon.db.savedWorkspacePositions.ChatFrame1 = {x=100, y=300, width=800, height=257}
+addon.db.savedMainPositions.ChatFrame1 = {point="TOPLEFT", x=2000, y=900}
+addon.db.openWorkspacePanels.ChatFrame1 = true
+local beforeForeverEditModePoint = {ChatFrame1:GetPoint(1)}
+addon.Canvas:EnableFreeDragging()
+assert(addon.db.savedWorkspacePositions.ChatFrame1 == nil
+        and addon.db.savedMainPositions.ChatFrame1 == nil
+        and addon.db.openWorkspacePanels.ChatFrame1 == nil,
+    "Forever Edit Mode chat must relinquish historical Offhand persistence")
+addon.HUD:AlignChatFrame(metrics)
+assert(select(1, ChatFrame1:GetPoint(1)) == beforeForeverEditModePoint[1]
+        and select(4, ChatFrame1:GetPoint(1)) == beforeForeverEditModePoint[4]
+        and select(5, ChatFrame1:GetPoint(1)) == beforeForeverEditModePoint[5],
+    "Forever Edit Mode chat must remain entirely Blizzard-owned")
+
 -- Respect customized Edit Mode positions and avoid mutations during combat.
 ChatFrame1.IsInDefaultPosition = function() return false end
 local _, _, _, customX = ChatFrame1:GetPoint(1)

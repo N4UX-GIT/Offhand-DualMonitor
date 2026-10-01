@@ -72,6 +72,20 @@ local foreverEditModeFrameNames = {
     EssentialCooldownViewer = true, UtilityCooldownViewer = true,
     BuffIconCooldownViewer = true, BottomManagedFrameContainer = true,
 }
+
+-- Every modern Blizzard client owns these frames through Edit Mode. They may
+-- be unprotected at the instant a load-on-demand module initializes, but that
+-- does not make them safe for the generic popup rescue or UIPanel centering
+-- paths. In particular, the native Damage Meter rebuilds secure ScrollBox
+-- entries while Edit Mode opens; changing its frame tree during that lifecycle
+-- can leave Blizzard's element initializer incomplete.
+local function IsBlizzardEditModeOwnedFrame(frame, name)
+    name = name or (frame and frame.GetName and frame:GetName())
+    if frame and frame.isManagedFrame == true then return true end
+    return name and (name:match("^EditMode") ~= nil
+        or name:match("^DamageMeter") ~= nil) or false
+end
+
 local function UsesForeverEditMode()
     if Offhand.isForever ~= nil then return Offhand.isForever end
     local version = tonumber(Offhand.tocVersion)
@@ -80,7 +94,12 @@ end
 local function IsForeverEditModeFrame(frame, name)
     if not UsesForeverEditMode() then return false end
     name = name or (frame and frame.GetName and frame:GetName())
-    if frame and frame.isManagedFrame == true then return true end
+    if IsBlizzardEditModeOwnedFrame(frame, name) then return true end
+    if name == "ChatFrame1" and frame
+        and type(frame.OnEditModeEnter) == "function"
+        and type(frame.OnEditModeExit) == "function" then
+        return true
+    end
     return name and (foreverEditModeFrameNames[name]
         or name:match("^EditMode")
         or name:match("CooldownViewer")
@@ -155,7 +174,7 @@ local function IsForeverSingleScreenRecovery(metrics)
         return Offhand.Viewport:IsSingleScreenRecovery(metrics)
     end
     return metrics and not metrics.isSpanned
-        and (metrics.topologyStatus == "MISMATCH" or metrics.topologyStatus == "ABSENT") or false
+        and metrics.topologyStatus == "MISMATCH" or false
 end
 
 local function ScheduleForeverRecoveryRetry(self, delay)
@@ -337,9 +356,8 @@ local function FrameFitsPhysicalDisplay(frame, metrics)
 end
 
 -- Forever can anchor its Edit Mode manager outside the physical displays on a
--- mixed-height span. Keep this path strictly diagnostic: reanchoring the manager
--- changes Blizzard's Edit Mode coordinate space and can stop native systems such
--- as Party Frames from being dragged even though their settings still respond.
+-- mixed-height span. Detection stays read-only. The single manager anchor write
+-- below is reserved for an explicit player click and never runs from this scan.
 function HUD:UpdateForeverEditModeControlsRecovery(metrics)
     if not UsesForeverEditMode() or not Offhand.db or not Offhand.db.enabled then return end
     local manager = _G.EditModeManagerFrame
@@ -361,12 +379,57 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
     end
     if InCombatLockdown() then return end
     metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics())
-    if not metrics or not metrics.isSpanned or FrameFitsPhysicalDisplay(manager, metrics) then return end
+    if not metrics or not metrics.isSpanned then return end
+
+    -- The manager toolbar can be fully visible while the separate settings
+    -- dialog opened for a selected HUD element is mostly in the mixed-height
+    -- void. Inspect every Blizzard-owned Edit Mode control surface, but never
+    -- reanchor or hook it: those writes interfere with native Party Frame drag.
+    local controlsOutsideDisplays = not FrameFitsPhysicalDisplay(manager, metrics)
+    for _, name in ipairs({"EditModeSystemSettingsDialog", "EditModeUnsavedChangesDialog", "EditModeDialog"}) do
+        local frame = _G[name]
+        if frame and frame.IsShown and frame:IsShown()
+            and not FrameFitsPhysicalDisplay(frame, metrics) then
+            controlsOutsideDisplays = true
+            break
+        end
+    end
+    if not controlsOutsideDisplays then return end
     if self.foreverEditModeControlsPromptShown or self.foreverEditModeControlsPromptDeclined then return end
     self.foreverEditModeControlsPromptShown = true
     if Offhand.ShowForeverEditModeControlsPrompt then
         Offhand:ShowForeverEditModeControlsPrompt()
     end
+end
+
+-- Forever accepts this tested manager-only anchor change from the recovery
+-- popup's hardware click. Do not move Edit Mode systems, attach handlers to the
+-- manager, or alter Blizzard's panel metadata from this path.
+function HUD:BringForeverEditModeControlsToMainhand()
+    if not UsesForeverEditMode() or InCombatLockdown() then return false end
+    local manager = _G.EditModeManagerFrame
+    if not manager or not manager.IsShown or not manager:IsShown()
+        or (manager.IsForbidden and manager:IsForbidden())
+        or (manager.IsProtected and manager:IsProtected()) then return false end
+    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
+        and Offhand.Viewport:GetMetrics()
+    if not metrics or not metrics.isSpanned then return false end
+
+    manager:ClearAllPoints()
+    if WorldFrame then
+        manager:SetPoint("CENTER", WorldFrame, "CENTER", 0, 0)
+    else
+        local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
+        local frameScale = (manager.GetEffectiveScale and manager:GetEffectiveScale()) or parentScale
+        local factor = parentScale / frameScale
+        local centerX = (metrics.gameLeft + metrics.gameRight) / 2
+        local centerY = (metrics.gameBottom + metrics.gameTop) / 2
+        manager:SetPoint("CENTER", UIParent, "CENTER",
+            (centerX - UIParent:GetWidth() / 2) * factor,
+            (centerY - UIParent:GetHeight() / 2) * factor)
+    end
+    self.foreverEditModeControlsPromptShown = nil
+    return true
 end
 
 function HUD:DismissForeverEditModeControlsPrompt()
@@ -434,7 +497,14 @@ local mainhandTransientFrames = {
     { name = "AlertFrame", point = "BOTTOM", x = 0, y = 128 },
     { name = "RolePollPopup", point = "TOP", x = 0, y = -15 },
     { name = "ReadyCheckFrame", point = "CENTER", x = 0, y = -10 },
-    { name = "TimerTracker", bounds = true, hookEvent = true },
+    { name = "LFGDungeonReadyPopup", point = "CENTER", x = 0, y = -10, hookEvent = true },
+    { name = "GroupLootContainer", point = "BOTTOM", x = 0, y = 190, hookEvent = true },
+    -- These overlays opt out of UIParent scaling on some client builds. That
+    -- makes Blizzard's text roughly 1/UIParentScale times too large after a
+    -- mixed-resolution span. Rejoin the normal scale hierarchy while Offhand
+    -- owns their Mainhand presentation rectangle.
+    { name = "CombatText", point = "CENTER", x = 0, y = 0, normalizeScale = true },
+    { name = "TimerTracker", bounds = true, normalizeScale = true, hookEvent = true },
     { name = "HousingControlsFrame", point = "TOP", x = 0, y = -30 },
     {
         name = "HouseEditorFrame.ModeBar",
@@ -482,6 +552,14 @@ local function CanPositionMainhandTransient(frame)
     return true
 end
 
+local function NormalizeMainhandTransientScale(frame)
+    if not frame or not frame.SetIgnoreParentScale or not frame.IsIgnoringParentScale then return end
+    local ok, ignoresParent = pcall(frame.IsIgnoringParentScale, frame)
+    if ok and ignoresParent then
+        frame:SetIgnoreParentScale(false)
+    end
+end
+
 local function PositionTimerTracker(frame, m)
     local parent = frame.GetParent and frame:GetParent()
     if parent and parent ~= UIParent then
@@ -526,6 +604,7 @@ function HUD:PositionMainhandTransientFrames(m)
         if CanPositionMainhandTransient(frame) then
             pcall(function()
                 Prepare(frame, m)
+                if spec.normalizeScale then NormalizeMainhandTransientScale(frame) end
                 if spec.bounds then
                     PositionTimerTracker(frame, m)
                 else
@@ -614,6 +693,7 @@ end
 function HUD:AlignChatFrame(m)
     if InCombatLockdown() or not Offhand.db.enabled or not ChatFrame1 or Offhand.db.dockChat == false then return end
     local chat = ChatFrame1
+    if IsForeverEditModeFrame(chat, "ChatFrame1") then return end
     -- Chattynator replaces the visible chat frame. Use its exposed handler to
     -- locate the primary window without changing its saved profile or messages.
     local handler = Chattynator and Chattynator.API and Chattynator.API.GetHyperlinkHandler
@@ -1009,18 +1089,13 @@ function HUD:HookFrames()
         end
     end
 
-    -- Center Game Menu (Escape menu), AddonList, Edit Mode dialogs, and settings panels onto the primary game monitor
+    -- Center ordinary menus and settings panels on Mainhand. Edit Mode and its
+    -- system dialogs stay entirely Blizzard-owned on every client.
     local menuFrameNames = {
         "GameMenuFrame", "SettingsPanel", "InterfaceOptionsFrame", "VideoOptionsFrame",
         "AddonList", "KeyBindingFrame", "HelpFrame",
         "BugSackFrame", "RedIsFriendFrame",
     }
-    if not UsesForeverEditMode() then
-        menuFrameNames[#menuFrameNames + 1] = "EditModeSystemSettingsDialog"
-        menuFrameNames[#menuFrameNames + 1] = "EditModeUnsavedChangesDialog"
-        menuFrameNames[#menuFrameNames + 1] = "EditModeDialog"
-    end
-
     local function PrepareForeverEditModeManager()
         -- Forever's Edit Mode manager is part of a secure/secret-value path.
         -- Leave its panel metadata, attributes, scripts and anchors entirely native.
@@ -1099,19 +1174,9 @@ function HUD:HookFrames()
             -- one-time panel-manager preparation above.
             return
         end
-        local mgr = _G["EditModeManagerFrame"]
-        if mgr and not hooks[mgr] then
-            hooks[mgr] = true
-            mgr:HookScript("OnShow", function()
-                PositionEditMode()
-                C_Timer.After(0, PositionEditMode)
-            end)
-        end
-        if not UsesForeverEditMode() then
-            for _, name in ipairs({"EditModeSystemSettingsDialog", "EditModeUnsavedChangesDialog", "EditModeDialog"}) do
-                HookMenuFrame(name)
-            end
-        end
+        -- Non-Forever clients also own the manager, dialogs, and managed
+        -- systems. Do not attach even a no-op OnShow hook: new Blizzard builds
+        -- initialize the Damage Meter from the same secure Edit Mode traversal.
     end
     CheckEditModeHooks()
 
@@ -1142,7 +1207,9 @@ function HUD:HookFrames()
         if UISpecialFrames then
             for _, name in ipairs(UISpecialFrames) do
                 local frame = _G[name]
-                if frame and type(frame) == "table" and frame.GetPoint and not hooks[frame] and frame.IsProtected and not frame:IsProtected() then
+                if frame and type(frame) == "table" and frame.GetPoint
+                    and not IsBlizzardEditModeOwnedFrame(frame, name)
+                    and not hooks[frame] and frame.IsProtected and not frame:IsProtected() then
                     hooks[frame] = true
                     frame:HookScript("OnShow", function(self)
                         if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
@@ -1204,7 +1271,8 @@ function HUD:HookFrames()
                         if okName then cName = name end
                     end
                     if cName == "OffhandCanvasFrame" or cName == "OffhandSeamGuideLine" then return end
-                    if IsForeverEditModeFrame(child, cName) then return end
+                    if IsBlizzardEditModeOwnedFrame(child, cName)
+                        or IsForeverEditModeFrame(child, cName) then return end
                     -- Native chat owns these linked frames. Moving a dock or tab
                     -- independently separates the headers from the message window.
                     if child == GeneralDockManager or child == GENERAL_CHAT_DOCK
@@ -1378,7 +1446,8 @@ function HUD:HookFrames()
                 if frame and not InCombatLockdown() and Offhand.db and Offhand.db.enabled then
                     local name = frame.GetName and frame:GetName()
                     if name then
-                        if IsForeverEditModeFrame(frame, name) then return end
+                        if IsBlizzardEditModeOwnedFrame(frame, name)
+                            or IsForeverEditModeFrame(frame, name) then return end
                         local isMenu = false
                         for _, n in ipairs(menuFrameNames) do
                             if n == name then isMenu = true; break end
@@ -1429,11 +1498,19 @@ function HUD:HookFrames()
         local deckMinY = m.workspaceBottom + 12
         local deckMaxY = math.max(deckMinY, m.workspaceTop - 30)
 
+        local visibleBackpack = ContainerFrameCombinedBags and ContainerFrameCombinedBags:IsShown()
+            and ContainerFrameCombinedBags
+            or (ContainerFrame1 and ContainerFrame1:IsShown() and ContainerFrame1 or nil)
+        if visibleBackpack and Offhand.Canvas and Offhand.Canvas.PrepareNativeBackpackFrame then
+            Offhand.Canvas:PrepareNativeBackpackFrame(visibleBackpack)
+        end
+
         -- Determine if bags are stationed on the workspace
-        local bpPos = Offhand.db.savedWorkspacePositions and (
+        local bpPos = Offhand.Canvas and Offhand.Canvas.GetNativeBackpackWorkspacePosition
+            and Offhand.Canvas:GetNativeBackpackWorkspacePosition() or (Offhand.db.savedWorkspacePositions and (
             Offhand.db.savedWorkspacePositions["ContainerFrame1"] or 
             Offhand.db.savedWorkspacePositions["ContainerFrameCombinedBags"]
-        )
+        ))
         local bagsOnWorkspace = false
         if bpPos and bpPos.x and bpPos.y then
             bagsOnWorkspace = true
@@ -1492,6 +1569,12 @@ function HUD:HookFrames()
                         stackBagCount = stackBagCount + 1
                     end
                 end
+            end
+            if ContainerFrameCombinedBags and ContainerFrameCombinedBags:IsShown() then
+                if Offhand.Canvas and Offhand.Canvas.RestoreWorkspacePosition then
+                    Offhand.Canvas.RestoreWorkspacePosition(ContainerFrameCombinedBags)
+                end
+                if ContainerFrameCombinedBags.SetAlpha then ContainerFrameCombinedBags:SetAlpha(1) end
             end
         else
             -- Standard game view bag layout: Custom collision detection to wrap around action bars
@@ -1614,6 +1697,10 @@ function HUD:HookFrames()
             hooks[frame] = true
             frame:HookScript("OnShow", function(self)
                 if HasCustomBagAddon() then return end
+                if self:GetName() == "ContainerFrame1" and Offhand.Canvas
+                    and Offhand.Canvas.PrepareNativeBackpackFrame then
+                    Offhand.Canvas:PrepareNativeBackpackFrame(self)
+                end
                 local name = self:GetName()
                 local pos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
                 if not pos then
@@ -1634,6 +1721,9 @@ function HUD:HookFrames()
         hooks[ContainerFrameCombinedBags] = true
         ContainerFrameCombinedBags:HookScript("OnShow", function(self)
             if HasCustomBagAddon() then return end
+            if Offhand.Canvas and Offhand.Canvas.PrepareNativeBackpackFrame then
+                Offhand.Canvas:PrepareNativeBackpackFrame(self)
+            end
             local pos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["ContainerFrameCombinedBags"]
             if not pos then
                 if self.SetAlpha then self:SetAlpha(0) end

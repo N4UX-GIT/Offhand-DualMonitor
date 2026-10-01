@@ -44,11 +44,15 @@ assert(not changedBuild:IsExperimentalForeverProfessionsMovementEnabled(),
     "a Forever client build change must return Professions movement to the safe default")
 clientBuild = "70009"
 first:MarkWelcomeDismissed()
-assert(cvars.offhandForeverOnboarding == "V1|1|0|0",
+assert(cvars.offhandForeverOnboarding == "V2|1|0|0|0",
     "Acknowledging the welcome guide must persist in the Forever session fallback")
 local onboardingReload = NewAddon(true)
 assert(onboardingReload:IsWelcomeDismissed() and not onboardingReload:IsSetupComplete(),
     "Welcome acknowledgement must survive reload without falsely completing setup")
+onboardingReload:SetOnboardingResumeStep(4)
+local resumedOnboarding = NewAddon(true)
+assert(resumedOnboarding:ConsumeOnboardingResumeStep() == 4,
+    "Forever onboarding must restore its Reload UI resume step")
 onboardingReload:MarkSetupComplete()
 local completedReload = NewAddon(true)
 assert(completedReload:IsWelcomeDismissed() and completedReload:IsSetupComplete(),
@@ -122,7 +126,7 @@ assert(cvars.offhandForeverRecoveryVersion == "snapshot-1",
     "Fresh bridge snapshot must be marked consumed for this session")
 assert(cvars.offhandForeverOpenPanels == "V1|CharacterFrame,WorldMapFrame",
     "Fresh bridge snapshot must seed the session visibility fallback")
-assert(cvars.offhandForeverOnboarding == "V1|1|1|0",
+assert(cvars.offhandForeverOnboarding == "V2|1|1|0|0",
     "Fresh bridge snapshot must seed Forever onboarding state")
 recovered.ForeverPersistence:SaveOpenPanels({ CharacterFrame = true })
 recovered.db.openWorkspacePanels = { CharacterFrame = true }

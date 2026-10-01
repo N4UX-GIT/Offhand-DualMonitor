@@ -13,6 +13,7 @@ local L = Offhand.L or setmetatable({}, {
 })
 
 local tinsert = table.insert
+local COMPANION_DOWNLOAD_URL = "https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.13/Offhand-Companion.zip"
 
 
 StaticPopupDialogs["OFFHAND_DOWNLOAD_LINK"] = {
@@ -23,13 +24,27 @@ StaticPopupDialogs["OFFHAND_DOWNLOAD_LINK"] = {
     OnShow = function(self)
         local eb = self.EditBox or _G[self:GetName().."EditBox"]
         if eb then
-            eb:SetText("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.13/Offhand-Companion.zip")
+            eb._OffhandSettingDownloadUrl = true
+            eb:SetText(COMPANION_DOWNLOAD_URL)
+            eb._OffhandSettingDownloadUrl = nil
             eb:HighlightText()
             eb:SetFocus()
         end
     end,
+    EditBoxOnTextChanged = function(self)
+        if self._OffhandSettingDownloadUrl or self:GetText() == COMPANION_DOWNLOAD_URL then return end
+        self._OffhandSettingDownloadUrl = true
+        self:SetText(COMPANION_DOWNLOAD_URL)
+        self._OffhandSettingDownloadUrl = nil
+        self:HighlightText()
+    end,
     EditBoxOnEscapePressed = function(self)
         self:GetParent():Hide()
+    end,
+    OnHide = function()
+        if Offhand.Onboarding and Offhand.Onboarding.ResumeAfterDownload then
+            Offhand.Onboarding:ResumeAfterDownload()
+        end
     end,
     timeout = 0,
     whileDead = true,
@@ -129,6 +144,9 @@ function Options:DetectTopology()
         local gameLandscape = metrics.gamePixelWidth >= metrics.gamePixelHeight
         info.isSpanned = true
         info.exactTopology = true
+        info.companionVersionStatus = metrics.companionVersionStatus
+        info.companionVersion = metrics.companionVersion
+        info.expectedCompanionVersion = metrics.expectedCompanionVersion
         info.gamePixelWidth = metrics.gamePixelWidth
         info.gamePixelHeight = metrics.gamePixelHeight
         info.workspacePixelWidth = metrics.workspacePixelWidth
@@ -1510,7 +1528,7 @@ function Options:CreateFloatingPanel()
 
     local mapTip = card2_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     mapTip:SetPoint("TOPLEFT", 12, -88)
-    mapTip:SetText(L["MAP_SCALE_HELP"])
+    mapTip:SetText(Offhand.isForever and L["MAP_SCALE_HELP_FOREVER"] or L["MAP_SCALE_HELP"])
 
     local mapMoveCheck = CreateNativeCheckbox(card2_1, L["MAP_KEEP_OPEN"],
         function() return Offhand.db and Offhand.db.preventMapCloseOnMove end,
@@ -2243,16 +2261,24 @@ function Options:CreateFloatingPanel()
     overviewBody:SetText(L["HELP_OVERVIEW_BODY"])
     FitHelpCard(helpOverview, overviewBody, L["HELP_OVERVIEW_BODY"], 88, 132)
 
+    local onboardingHelpBtn = CreateFrame("Button", nil, helpOverview, "UIPanelButtonTemplate")
+    onboardingHelpBtn:SetSize(145, 26)
+    onboardingHelpBtn:SetPoint("BOTTOMLEFT", 14, 14)
+    onboardingHelpBtn:SetText(L["ONBOARD_TITLE"])
+    onboardingHelpBtn:SetScript("OnClick", function()
+        if Offhand.Onboarding and Offhand.Onboarding.Open then Offhand.Onboarding:Open() end
+    end)
+
     local wizardHelpBtn = CreateFrame("Button", nil, helpOverview, "UIPanelButtonTemplate")
-    wizardHelpBtn:SetSize(196, 26)
-    wizardHelpBtn:SetPoint("BOTTOMLEFT", 14, 14)
+    wizardHelpBtn:SetSize(145, 26)
+    wizardHelpBtn:SetPoint("LEFT", onboardingHelpBtn, "RIGHT", 10, 0)
     wizardHelpBtn:SetText(L["BTN_AUTO_WIZARD"])
     wizardHelpBtn:SetScript("OnClick", function()
         if Offhand.Wizard and Offhand.Wizard.Open then Offhand.Wizard:Open() end
     end)
 
     local gatherHelpBtn = CreateFrame("Button", nil, helpOverview, "UIPanelButtonTemplate")
-    gatherHelpBtn:SetSize(196, 26)
+    gatherHelpBtn:SetSize(145, 26)
     gatherHelpBtn:SetPoint("LEFT", wizardHelpBtn, "RIGHT", 10, 0)
     gatherHelpBtn:SetText(L["GATHER_UI"])
     gatherHelpBtn:SetScript("OnClick", function()
@@ -2260,7 +2286,7 @@ function Options:CreateFloatingPanel()
     end)
 
     local companionHelpBtn = CreateFrame("Button", nil, helpOverview, "UIPanelButtonTemplate")
-    companionHelpBtn:SetSize(196, 26)
+    companionHelpBtn:SetSize(145, 26)
     companionHelpBtn:SetPoint("LEFT", gatherHelpBtn, "RIGHT", 10, 0)
     companionHelpBtn:SetText(L["POPUP_BTN_GET_APP"])
     companionHelpBtn:SetScript("OnClick", function()

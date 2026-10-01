@@ -246,6 +246,7 @@ end
 
 -- TEST 3: Moving Backpack back to main game view re-docks all bags to main view
 addon.db.savedWorkspacePositions["ContainerFrame1"] = nil
+addon.db.nativeBackpackWorkspacePosition = nil
 addon.HUD:LayoutBags()
 
 for i = 1, 5 do

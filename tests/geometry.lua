@@ -1,5 +1,5 @@
 -- Lua 5.1. Mock engine coordinates: 768 units high before effective scale.
-local addon = { db = {enabled=true, deckWidthRatio=0.36, hudScale=0.7,
+local addon = { companionFullVersion="2.1.2-beta.13", db = {enabled=true, deckWidthRatio=0.36, hudScale=0.7,
     gameBottomPixels=6, primaryPosition="RIGHT"}, Debug=function() end, Print=error }
 local pw, ph, uiScale = 4000, 2560, 0.8
 local function near(a,b) assert(math.abs(a-b)<0.01, tostring(a).." ~= "..tostring(b)) end
@@ -103,10 +103,16 @@ print("PASS: physical seam, cross-scale anchors, HUD fit, nested scale, left pri
 -- Companion topology is authoritative and preserves mixed monitor heights and
 -- offsets without guessing from the combined aspect ratio.
 pw,ph=5360,1440
-OffhandCompanionTopology={schema=1,physicalWidth=5360,physicalHeight=1440,mode="DUAL_DISPLAY",
+OffhandCompanionTopology={schema=1,companionVersion="2.1.2-beta.13",physicalWidth=5360,physicalHeight=1440,mode="DUAL_DISPLAY",
     workspace={x=0,y=360,width=1920,height=1080},game={x=1920,y=0,width=3440,height=1440}}
 local tm=addon.Viewport:GetMetrics()
-assert(tm.companionTopology and tm.gamePixelWidth==3440 and tm.gamePixelHeight==1440)
+assert(tm.companionTopology and tm.gamePixelWidth==3440 and tm.gamePixelHeight==1440
+    and tm.companionVersionStatus=="MATCH")
+OffhandCompanionTopology.companionVersion="2.1.2-beta.12"
+tm=addon.Viewport:GetMetrics()
+assert(tm.companionVersionStatus=="MISMATCH" and tm.companionVersion=="2.1.2-beta.12"
+    and tm.expectedCompanionVersion=="2.1.2-beta.13")
+OffhandCompanionTopology.companionVersion="2.1.2-beta.13"
 assert(tm.workspacePixelLeft==0 and tm.workspacePixelBottom==360 and tm.workspacePixelHeight==1080)
 addon.Viewport:Apply()
 x,y,w,h=worldPixels()
@@ -151,19 +157,39 @@ addon.isForever=false
 UIParent.GetWidth, UIParent.GetHeight = originalGetWidth, originalGetHeight
 OffhandCompanionTopology=nil
 addon.isForever=true
+addon.db.aspectRatioMode="16_9"
 tm=addon.Viewport:GetMetrics()
-assert(not tm.isSpanned and tm.topologyStatus=="ABSENT"
-        and tm.gamePixelLeft==0 and tm.gamePixelBottom==0
-        and tm.gamePixelWidth==pw and tm.gamePixelHeight==ph,
-    "Forever must fail safe to the full current window without exact Companion topology")
-assert(addon.Viewport:IsSingleScreenRecovery(tm),
-    "Forever absent topology must enter the single-screen recovery path")
+assert(tm.isSpanned and tm.topologyStatus=="ABSENT"
+        and tm.gamePixelLeft==922 and tm.gamePixelBottom==6
+        and tm.gamePixelWidth==1638 and tm.gamePixelHeight==921,
+    "Forever must retain manual percentage geometry when Companion topology is absent")
+assert(not addon.Viewport:IsSingleScreenRecovery(tm),
+    "Forever manual spanning must not enter Companion recovery")
+
+-- Match the reported equal-landscape manual span. Without a generated
+-- CompanionTopology.lua, a 50/50 preset must still confine WorldFrame to the
+-- left monitor instead of treating the full window as the game rectangle.
+pw,ph=3835,1059
+addon.db.layoutPreset="LANDSCAPE_DUAL"
+addon.db.primaryPosition="LEFT"
+addon.db.deckWidthRatio=0.50
+addon.db.aspectRatioMode="16_9"
+addon.db.gameBottomPixels=0
+tm=addon.Viewport:GetMetrics()
+assert(tm.isSpanned and tm.topologyStatus=="ABSENT"
+        and tm.gamePixelLeft==0 and tm.gamePixelWidth==1917
+        and tm.gamePixelHeight==1059 and tm.workspacePixelWidth==1918,
+    "Forever manual dual-landscape geometry must split the spanned client")
+addon.Viewport:Apply()
+x,y,w,h=worldPixels()
+near(x,0); near(y,0); near(w,1917); near(h,1059)
+
 addon.isForever=false
 tm=addon.Viewport:GetMetrics()
 assert(tm.isSpanned and tm.topologyStatus=="ABSENT",
     "non-Forever clients must retain legacy manual-span geometry")
 pw,ph=4000,2560
-print("PASS: exact mixed-resolution topology, stale guard, Forever absent-topology fail-safe")
+print("PASS: exact mixed-resolution topology, stale guard, and manual absent-topology spanning")
 
 -- Regression: Blizzard XP scale resets must be repaired before the call returns,
 -- without scheduling another full viewport layout or recursively hooking itself.

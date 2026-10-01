@@ -5,7 +5,7 @@
 ## Author: N4UX (Noggaholic)
 ## Version: 2.1.2
 ## X-Offhand-Release: beta.13
-## X-Offhand-Addon-Release: beta.14
+## X-Offhand-Addon-Release: beta.17
 ## X-Offhand-Companion-Version: 2.1.2
 ## X-Offhand-Companion-Release: beta.13
 ## X-Offhand-Manifest: Mainline
@@ -44,4 +44,5 @@ Locales\zhTW.lua
 UI\Themes.lua
 UI\Options.lua
 UI\Minimap.lua
+UI\Onboarding.lua
 UI\Wizard.lua

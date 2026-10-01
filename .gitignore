@@ -22,3 +22,6 @@ ehthumbs_vista.db
 
 # Build & distribution output
 dist/
+
+# Codex task attachment cache
+.codex-remote-attachments/

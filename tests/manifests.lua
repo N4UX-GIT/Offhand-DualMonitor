@@ -18,7 +18,7 @@ for _, toc in ipairs(tocs) do
     assert(text:match("## X%-Offhand%-Release:%s*beta%.13"), "Frozen Companion compatibility marker changed: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Version:%s*2%.1%.2"), "Frozen Companion version marker changed: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Release:%s*beta%.13"), "Frozen Companion release marker changed: " .. toc)
-    assert(text:match("## X%-Offhand%-Addon%-Release:%s*beta%.14"), "Beta 14 addon release marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Addon%-Release:%s*beta%.17"), "Beta 17 addon release marker missing: " .. toc)
 end
 local main = entries(tocs[1])
 for i=2,#tocs do

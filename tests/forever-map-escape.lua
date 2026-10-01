@@ -51,7 +51,7 @@ local function makeMap()
     local map = {
         shown = true, width = 610, height = 438, scale = 1,
         left = 20, bottom = 762, scripts = {}, setScriptWrites = 0,
-        hookScriptWrites = 0, registeredEvents = {},
+        hookScriptWrites = 0, registeredEvents = {}, maximized = false,
     }
     function map:GetName() return "WorldMapFrame" end
     function map:IsShown() return self.shown end
@@ -71,6 +71,11 @@ local function makeMap()
     function map:GetLeft() return self.left end
     function map:GetBottom() return self.bottom end
     function map:GetTop() return self.bottom + self.height end
+    function map:IsMaximized() return self.maximized end
+    function map:HandleUserActionMinimizeSelf()
+        self.minimizeUserActions = (self.minimizeUserActions or 0) + 1
+        self.maximized = false
+    end
     function map:SetMovable(value) self.movable = value end
     function map:SetClampedToScreen(value) self.clamped = value end
     function map:StartMoving() self.startedMoving = true end
@@ -122,7 +127,9 @@ CreateFrame = function(_, _, parent)
     function handle:SetSize(width, height) self.width, self.height = width, height end
     function handle:ClearAllPoints() self.point = nil end
     function handle:SetPoint(...) self.point = { ... } end
+    function handle:SetText(value) self.text = value end
     function handle:Show() self.shown = true end
+    function handle:Hide() self.shown = false end
     table.insert(createdHandles, handle)
     return handle
 end
@@ -145,8 +152,11 @@ assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 addon.Canvas:ConfigureWorldMap()
 addon.Canvas.MakePanelDraggable(WorldMapFrame)
 
-assert(#createdHandles == 1 and createdHandles[1].parent == UIParent,
-    "Forever World Map dragging must use one Offhand-owned UIParent handle")
+assert(#createdHandles == 2 and createdHandles[1].parent == UIParent
+        and createdHandles[2].parent == UIParent,
+    "Forever World Map dragging and recovery must use Offhand-owned UIParent controls")
+assert(createdHandles[2].text == "Return to Windowed Map",
+    "Forever's full-map recovery control must clearly describe its action")
 assert(WorldMapFrame.hookScriptWrites == 0,
     "Forever World Map dragging must not hook the native map frame")
 assert(WorldMapFrame.TitleContainer.hookScriptWrites == 0
@@ -162,6 +172,34 @@ assert(WorldMapFrame.CloseButton.hookScriptWrites == 0,
 assert(WorldMapFrame._OffhandMovable == nil and WorldMapFrame._OffhandHandle == nil
         and WorldMapFrame._OffhandDragging == nil,
     "Forever World Map bookkeeping must not be written onto the Blizzard frame")
+
+-- A maximized Forever map is Blizzard-owned. Configure and the external
+-- controls' OnUpdate may read that state, but must not apply the saved windowed
+-- scale or position. The explicit hardware click minimizes and then restores
+-- the normal workspace map in one step.
+WorldMapFrame.maximized = true
+WorldMapFrame.scale = 0.37
+WorldMapFrame.left = 900
+WorldMapFrame.bottom = 300
+addon.Canvas:ConfigureWorldMap()
+assert(WorldMapFrame.scale == 0.37 and WorldMapFrame.left == 900
+        and WorldMapFrame.bottom == 300,
+    "Forever configuration must leave Blizzard's maximized map geometry untouched")
+createdHandles[1].scripts.OnUpdate(nil, 1)
+assert(createdHandles[2].shown == true,
+    "The Return to Windowed Map control must be visible while Full Map is active")
+assert(WorldMapFrame.scale == 0.37 and WorldMapFrame.left == 900
+        and WorldMapFrame.bottom == 300,
+    "The independent control update must never mutate the protected World Map")
+createdHandles[2].scripts.OnClick()
+assert(WorldMapFrame.maximized == false and WorldMapFrame.minimizeUserActions == 1,
+    "The recovery button must use Blizzard's user-action minimize route")
+assert(WorldMapFrame.scale ~= 0.37 and WorldMapFrame:GetLeft() < metrics.workspaceRight,
+    "The recovery click must immediately restore the normal workspace map scale and position")
+createdHandles[1].scripts.OnUpdate(nil, 1)
+assert(createdHandles[2].shown == false,
+    "The recovery button must hide after the map returns to windowed mode")
+
 createdHandles[1].scripts.OnDragStart()
 assert(WorldMapFrame.startedMoving == true,
     "the isolated Forever World Map handle must retain map dragging")
@@ -329,22 +367,28 @@ hooksecurefunc = function(name, callback)
     end
 end
 GameMenuFrame = makePanel("GameMenuFrame", false, 1800, 500, 220, 420)
+ContainerFrame1 = makePanel("ContainerFrame1", false, 120, 400, 260, 520)
+local useCombinedBags = true
 local function lateToggleGameMenu()
     if GameMenuFrame:IsShown() then GameMenuFrame:Hide() else GameMenuFrame:Show() end
 end
-OpenAllBags = function() ContainerFrameCombinedBags:Show() end
+OpenAllBags = function()
+    if useCombinedBags then ContainerFrameCombinedBags:Show() else ContainerFrame1:Show() end
+end
 ToggleAllBags = function()
-    if ContainerFrameCombinedBags:IsShown() then
-        ContainerFrameCombinedBags:Hide()
+    local bag = useCombinedBags and ContainerFrameCombinedBags or ContainerFrame1
+    if bag:IsShown() then
+        bag:Hide()
     else
-        ContainerFrameCombinedBags:Show()
+        bag:Show()
         -- Forever dismisses the Game Menu when the native backpack is opened.
         if GameMenuFrame and GameMenuFrame:IsShown() then GameMenuFrame:Hide() end
     end
 end
 local function lateCloseAllBags()
-    local shown = ContainerFrameCombinedBags:IsShown()
+    local shown = ContainerFrameCombinedBags:IsShown() or ContainerFrame1:IsShown()
     ContainerFrameCombinedBags:Hide()
+    ContainerFrame1:Hide()
     return shown
 end
 local function lateCloseAllWindows()
@@ -386,6 +430,23 @@ ToggleAllBags()
 flushTimers()
 assert(not ContainerFrameCombinedBags:IsShown(),
     "B must still close a workspace backpack explicitly")
+
+useCombinedBags = false
+ContainerFrame1:Show()
+addon.Canvas:PrepareNativeBackpackFrame(ContainerFrame1)
+addon.Canvas:SetWorkspacePanelOpen(ContainerFrame1, true)
+CloseAllWindows()
+flushTimers()
+assert(ContainerFrame1:IsShown() and GameMenuFrame:IsShown(),
+    "Escape must preserve the individual workspace backpack and open the Game Menu")
+CloseAllWindows()
+flushTimers()
+assert(ContainerFrame1:IsShown() and not GameMenuFrame:IsShown(),
+    "Second Escape must preserve individual bags while closing the Game Menu")
+ToggleAllBags()
+flushTimers()
+assert(not ContainerFrame1:IsShown(),
+    "B must still close individual workspace bags explicitly")
 
 addon.db.savedWorkspacePositions.WorldMapFrame = nil
 addon.db.savedMainPositions.WorldMapFrame = { x = 1600, y = 1000 }
