@@ -8,14 +8,14 @@
     <link rel="icon" type="image/png" href="assets/offhand-icon.png">
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="companion-page">
     <header class="navbar">
         <div class="nav-container">
             <a class="brand" href="index.html" style="text-decoration:none">
                 <img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="brand-medallion">
-                <div class="brand-text"><span class="brand-title">OFFHAND</span><span class="brand-subtitle">Companion status</span></div>
+                <div class="brand-text"><span class="brand-title">OFFHAND</span><span class="brand-subtitle">Dual-Wield Your Monitors</span></div>
             </a>
-            <nav class="nav-links"><a href="index.html">Home</a><a href="manual-spanning.html">Manual setup</a><a href="https://github.com/N4UX-GIT/Offhand-Companion">Source code</a></nav>
+            <nav class="nav-links" aria-label="Companion navigation"><a href="#status">Companion Status</a><a href="#manual-setup">Manual Setup</a><a href="https://github.com/N4UX-GIT/Offhand-Companion">Source Code</a></nav>
         </div>
     </header>
 
@@ -27,13 +27,13 @@
                 <p class="deck-intro-text">The Offhand addon itself remains available through CurseForge. Its optional Windows Companion is open source, but the current unsigned build is being incorrectly classified by some browser and antivirus systems. We are preparing a publicly trusted code-signed release.</p>
                 <p class="deck-intro-text"><strong>We do not recommend disabling Windows Security or bypassing a browser warning.</strong> Until the signed release is ready, use the manual setup below or review and build the public source yourself.</p>
                 <div class="hero-actions">
-                    <a href="manual-spanning.html" class="btn btn-wow-red btn-lg">Use Offhand without an EXE</a>
+                    <a href="#manual-setup" class="btn btn-wow-red btn-lg">Use Offhand without an EXE</a>
                     <a href="https://github.com/N4UX-GIT/Offhand-Companion" class="btn btn-wow-stone btn-lg">Review the source</a>
                 </div>
             </div>
         </section>
 
-        <section class="content-section">
+        <section class="content-section" id="status">
             <div class="section-header"><h2 class="section-title">Current status</h2></div>
             <div class="grid-3">
                 <article class="wow-card"><h3 class="wow-card-title">Addon download</h3><p class="wow-card-desc">Install and update the in-game addon normally through CurseForge. The addon package contains Lua UI code and does not include the Windows executable.</p><p><a href="https://www.curseforge.com/wow/addons/offhand">Get the addon on CurseForge</a></p></article>
@@ -49,6 +49,40 @@
                 <p>The Companion identifies the visible World of Warcraft window, changes its border and dimensions across displays selected by the user, and gives the addon exact display geometry. For WoW Forever it can also refresh Offhand's own recovery data after WoW closes.</p>
                 <p>It does not request administrator access, install a service or driver, inject code, read WoW memory, automate gameplay, collect telemetry, or download and execute code. Update checks occur only when the user clicks <strong>Check for Updates</strong>.</p>
                 <p>See the public <a href="https://github.com/N4UX-GIT/Offhand-Companion/blob/main/SECURITY.md">security disclosure</a>, <a href="https://github.com/N4UX-GIT/Offhand-Companion/blob/main/PRIVACY.md">privacy statement</a>, and <a href="https://github.com/N4UX-GIT/Offhand-Companion/actions">build history</a>.</p>
+            </div>
+        </section>
+
+        <section class="content-section" id="manual-setup">
+            <div class="section-header">
+                <div class="hero-badge">NO EXECUTABLE REQUIRED</div>
+                <h2 class="section-title" style="margin-top:18px">Manual Setup</h2>
+                <p class="deck-intro-text">The in-game addon can arrange its viewport and workspace after you resize the ordinary WoW window across both displays. This fallback requires no Companion download.</p>
+            </div>
+
+            <div class="grid-3">
+                <article class="wow-card">
+                    <h3 class="wow-card-title">Before you begin</h3>
+                    <ul class="wow-card-desc">
+                        <li>Install and enable Offhand through CurseForge.</li>
+                        <li>Arrange the monitor rectangles in Windows Display Settings to match their physical alignment.</li>
+                        <li>Manual spanning leaves the title bar visible and usually must be repeated after launching WoW.</li>
+                        <li>WoW Forever may not preserve every panel position across a complete restart without the Companion recovery bridge.</li>
+                    </ul>
+                </article>
+                <article class="wow-card">
+                    <h3 class="wow-card-title">Span the window</h3>
+                    <ol class="wow-card-desc">
+                        <li>Choose <strong>Options → Graphics → Display Mode → Windowed</strong>, not Windowed (Fullscreen).</li>
+                        <li>Restore WoW to a movable window and drag it onto the Mainhand display.</li>
+                        <li>Drag the window edges across the second display until WoW covers the intended area.</li>
+                        <li>Type <code>/reload</code>, then run <code>/offhand wizard</code> and complete the setup.</li>
+                    </ol>
+                </article>
+                <article class="wow-card">
+                    <h3 class="wow-card-title">Forever and recovery</h3>
+                    <p class="wow-card-desc">On WoW Forever, configure action bars and combat frames with Blizzard Edit Mode, save the layout as <strong>Offhand</strong>, and select it.</p>
+                    <p class="wow-card-desc">To return to one monitor, disable dual-monitor mode in <code>/offhand</code>, move WoW back to one display, and resize or maximize it normally. Use <code>/offhand gather</code> if an ordinary panel is inaccessible.</p>
+                </article>
             </div>
         </section>
     </main>

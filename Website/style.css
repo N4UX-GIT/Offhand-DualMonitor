@@ -282,6 +282,11 @@ code {
     box-shadow: 0 0 8px var(--rio-gold);
 }
 
+#status,
+#manual-setup {
+    scroll-margin-top: 110px;
+}
+
 /* ============================================================================
    Hero Section
    ============================================================================ */
@@ -1002,6 +1007,24 @@ kbd {
     }
     .nav-links {
         display: none;
+    }
+    .companion-page .nav-container {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    .companion-page .brand {
+        width: 100%;
+        justify-content: center;
+    }
+    .companion-page .nav-links {
+        display: flex;
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 10px 16px;
+    }
+    .companion-page .nav-links a {
+        font-size: 0.82rem;
     }
     .footer-container {
         flex-direction: column;
