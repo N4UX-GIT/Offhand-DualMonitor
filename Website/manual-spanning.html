@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offhand | Manual setup without the Companion</title>
+    <meta name="description" content="Use the Offhand World of Warcraft addon across two monitors without downloading a Windows executable.">
+    <link rel="icon" type="image/png" href="assets/offhand-icon.png">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="navbar"><div class="nav-container"><a class="brand" href="index.html" style="text-decoration:none"><img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="brand-medallion"><div class="brand-text"><span class="brand-title">OFFHAND</span><span class="brand-subtitle">Manual setup</span></div></a><nav class="nav-links"><a href="index.html">Home</a><a href="companion.html">Companion status</a><a href="https://www.curseforge.com/wow/addons/offhand">CurseForge</a></nav></div></header>
+
+    <main class="content-deck" style="margin-top:48px">
+        <section class="content-section">
+            <div class="deck-intro-banner">
+                <div class="hero-badge">NO EXECUTABLE REQUIRED</div>
+                <h1 style="color:var(--rio-gold);margin:18px 0 12px">Manually span World of Warcraft</h1>
+                <p class="deck-intro-text">The in-game addon can arrange its viewport and workspace after you resize the ordinary WoW window across both displays. This fallback requires no Companion download.</p>
+            </div>
+        </section>
+
+        <section class="content-section">
+            <div class="section-header"><h2 class="section-title">Before you begin</h2></div>
+            <div class="faq-card" style="padding:24px">
+                <ul>
+                    <li>Install and enable Offhand through CurseForge.</li>
+                    <li>In Windows Display Settings, arrange the monitor rectangles to match their physical left/right and vertical alignment.</li>
+                    <li>This method leaves the Windows title bar visible and usually must be repeated after launching WoW.</li>
+                    <li>WoW Forever may not preserve every Offhand panel position across a complete client restart without the Companion recovery bridge.</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="content-section">
+            <div class="section-header"><h2 class="section-title">Setup steps</h2></div>
+            <div class="faq-card" style="padding:24px">
+                <ol>
+                    <li>Open WoW and choose <strong>Options → Graphics → Display Mode → Windowed</strong>. Do not choose Windowed (Fullscreen).</li>
+                    <li>If the window is maximized, restore it to a movable window. Drag its title bar onto the monitor that will contain the game view.</li>
+                    <li>Drag the left or right window edge across the second monitor. Adjust the top, bottom, and outer edges until the WoW window covers the desired area of both displays.</li>
+                    <li>Return to WoW and type <code>/reload</code> so Offhand reads the final window dimensions.</li>
+                    <li>Type <code>/offhand wizard</code> and complete the setup. Choose which side is Mainhand and which side is the workspace.</li>
+                    <li>On WoW Forever, configure action bars and combat frames with Blizzard Edit Mode, save the layout as <strong>Offhand</strong>, and select it.</li>
+                </ol>
+            </div>
+        </section>
+
+        <section class="content-section">
+            <div class="section-header"><h2 class="section-title">Returning to one monitor</h2></div>
+            <div class="faq-card" style="padding:24px">
+                <p>Disable Offhand's dual-monitor mode in <code>/offhand</code>, then drag the WoW window back onto one display and resize or maximize it normally. If an ordinary panel is inaccessible, use <code>/offhand gather</code>.</p>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

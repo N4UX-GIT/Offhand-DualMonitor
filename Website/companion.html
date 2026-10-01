@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offhand Companion | Download and security status</title>
+    <meta name="description" content="Current download, signing, security, source-code, and manual setup options for Offhand Companion.">
+    <link rel="icon" type="image/png" href="assets/offhand-icon.png">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="navbar">
+        <div class="nav-container">
+            <a class="brand" href="index.html" style="text-decoration:none">
+                <img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="brand-medallion">
+                <div class="brand-text"><span class="brand-title">OFFHAND</span><span class="brand-subtitle">Companion status</span></div>
+            </a>
+            <nav class="nav-links"><a href="index.html">Home</a><a href="manual-spanning.html">Manual setup</a><a href="https://github.com/N4UX-GIT/Offhand-Companion">Source code</a></nav>
+        </div>
+    </header>
+
+    <main class="content-deck" style="margin-top:48px">
+        <section class="content-section">
+            <div class="deck-intro-banner">
+                <div class="hero-badge">COMPANION DOWNLOAD STATUS</div>
+                <h1 style="color:var(--rio-gold);margin:18px 0 12px">Choose the safe setup for you</h1>
+                <p class="deck-intro-text">The Offhand addon itself remains available through CurseForge. Its optional Windows Companion is open source, but the current unsigned build is being incorrectly classified by some browser and antivirus systems. We are preparing a publicly trusted code-signed release.</p>
+                <p class="deck-intro-text"><strong>We do not recommend disabling Windows Security or bypassing a browser warning.</strong> Until the signed release is ready, use the manual setup below or review and build the public source yourself.</p>
+                <div class="hero-actions">
+                    <a href="manual-spanning.html" class="btn btn-wow-red btn-lg">Use Offhand without an EXE</a>
+                    <a href="https://github.com/N4UX-GIT/Offhand-Companion" class="btn btn-wow-stone btn-lg">Review the source</a>
+                </div>
+            </div>
+        </section>
+
+        <section class="content-section">
+            <div class="section-header"><h2 class="section-title">Current status</h2></div>
+            <div class="grid-3">
+                <article class="wow-card"><h3 class="wow-card-title">Addon download</h3><p class="wow-card-desc">Install and update the in-game addon normally through CurseForge. The addon package contains Lua UI code and does not include the Windows executable.</p><p><a href="https://www.curseforge.com/wow/addons/offhand">Get the addon on CurseForge</a></p></article>
+                <article class="wow-card"><h3 class="wow-card-title">Signed Companion</h3><p class="wow-card-desc">A code-signed Companion release is being prepared. This page will link to the signed, checksummed artifact after its signature and security-vendor results have been verified.</p><p><strong>Status: in preparation.</strong></p></article>
+                <article class="wow-card"><h3 class="wow-card-title">Unsigned Beta 13</h3><p class="wow-card-desc">The previous unsigned release remains preserved for transparency, but browsers or Windows Security may block it. We are not presenting it as the recommended installation path.</p><p><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.2-beta.13">View the archived release and checksums</a></p></article>
+                <article class="wow-card"><h3 class="wow-card-title">Build from source</h3><p class="wow-card-desc">Advanced users can review the complete MIT-licensed source and build it using the .NET Framework compiler included with Windows. A local build is not code signed and can still be scanned by security software.</p><p><a href="https://github.com/N4UX-GIT/Offhand-Companion#build">Source-build instructions</a></p></article>
+            </div>
+        </section>
+
+        <section class="content-section">
+            <div class="section-header"><h2 class="section-title">What the Companion does</h2></div>
+            <div class="faq-card" style="padding:24px">
+                <p>The Companion identifies the visible World of Warcraft window, changes its border and dimensions across displays selected by the user, and gives the addon exact display geometry. For WoW Forever it can also refresh Offhand's own recovery data after WoW closes.</p>
+                <p>It does not request administrator access, install a service or driver, inject code, read WoW memory, automate gameplay, collect telemetry, or download and execute code. Update checks occur only when the user clicks <strong>Check for Updates</strong>.</p>
+                <p>See the public <a href="https://github.com/N4UX-GIT/Offhand-Companion/blob/main/SECURITY.md">security disclosure</a>, <a href="https://github.com/N4UX-GIT/Offhand-Companion/blob/main/PRIVACY.md">privacy statement</a>, and <a href="https://github.com/N4UX-GIT/Offhand-Companion/actions">build history</a>.</p>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

@@ -48,7 +48,7 @@ The first-run welcome is only an introduction. Clicking either welcome button ac
 - Classic Era and Hardcore
 - Progression and Anniversary Classic
 
-Download the current Windows Companion from the pinned [v2.1.2 Beta 13 release](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.13/Offhand-Companion.zip). Addon-only updates continue to use this Companion unless the desktop application itself is explicitly updated.
+Review the current Windows Companion download and signing status on the [official Companion page](https://offhand-wow.onrender.com/companion.html). Because some browsers and antivirus products are currently blocking the unsigned Beta 13 executable, the page does not force a binary download and provides a [no-executable manual setup](https://offhand-wow.onrender.com/manual-spanning.html). Addon-only updates continue to target Companion Beta 13 unless the desktop application itself is explicitly updated.
 
 ## Companion safety and verification
 
@@ -56,7 +56,7 @@ The Companion is open source and does not request administrator access, install 
 
 Some VirusTotal engines currently report the unsigned Companion with generic machine-learning or heuristic labels. No reporting engine has identified a malware family or specific malicious payload. VirusTotal is one input rather than a safety guarantee: review the source and documented behavior, verify the official release checksum and build provenance, and make your own security decision before running it.
 
-Download only from the official GitHub release. Compare the executable's SHA-256 digest with `checksums-sha256.txt`, and verify a GitHub build-provenance attestation when the release notes explicitly provide one. Update checks are never automatic: the app contacts the official GitHub Releases API only after you click **Check for Updates**. Do not bypass a security warning for a copy obtained elsewhere.
+Do not disable Windows Security or bypass a browser warning. When a signed release is available, download it only through the official Companion page, compare the executable's SHA-256 digest with `checksums-sha256.txt`, and verify a GitHub build-provenance attestation when the release notes explicitly provide one. Update checks are never automatic: the app contacts the official GitHub Releases API only after you click **Check for Updates**.
 
 Full behavior, file locations, source-build steps, and verification commands are documented in the [Offhand security guide](https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md).
 
