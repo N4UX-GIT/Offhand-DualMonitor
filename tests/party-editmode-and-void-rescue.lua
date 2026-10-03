@@ -536,6 +536,43 @@ assert(not EditModeManagerFrame:IsShown(),
 assert(#PartyMemberFrame2.points == party2PointCount,
     "Forever must not restore or save party-frame anchors through Canvas")
 
+-- A bottom-aligned 1080p workspace beside a 2160p Mainhand leaves real
+-- UIParent coordinates above the workspace with no physical display. Detect a
+-- Blizzard Party Frame there and guide the player without touching its anchor.
+PartyFrame = makeMockFrame("PartyFrame", 300, 220)
+PartyFrame.IsProtected = function() return true end
+PartyFrame:ClearAllPoints()
+PartyFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 200, 1400)
+local partyRecoveryPointCount = #PartyFrame.points
+local partyRecoveryPromptCount, partyRecoveryPromptHidden = 0, 0
+addon.ShowForeverPartyFrameRecoveryPrompt = function()
+    partyRecoveryPromptCount = partyRecoveryPromptCount + 1
+end
+addon.HideForeverPartyFrameRecoveryPrompt = function()
+    partyRecoveryPromptHidden = partyRecoveryPromptHidden + 1
+end
+local partyRecoveryMetrics = {
+    isSpanned = true, screenWidth = 5760, screenHeight = 2160,
+    gameLeft = 1920, gameBottom = 0, gameRight = 5760, gameTop = 2160,
+    workspaceLeft = 0, workspaceBottom = 0, workspaceRight = 1920, workspaceTop = 1080,
+}
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+assert(partyRecoveryPromptCount == 1,
+    "Forever must explain recovery when Blizzard Party Frames are in mixed-height dead space")
+assert(#PartyFrame.points == partyRecoveryPointCount
+        and PartyFrame.points[1][1] == "BOTTOMLEFT",
+    "Party Frame recovery detection must remain read-only")
+addon.HUD:DismissForeverPartyFrameRecoveryPrompt()
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+assert(partyRecoveryPromptCount == 1,
+    "declining Party Frame guidance must suppress repeats while the frame remains lost")
+PartyFrame:ClearAllPoints()
+PartyFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 200, 200)
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+assert(partyRecoveryPromptHidden == 1
+        and addon.HUD.foreverPartyFrameOutsideDisplays == nil,
+    "recovering Party Frames must clear the guidance state")
+
 local protectedPanel = makeMockFrame("ProtectedPanel", 300, 200)
 protectedPanel.TitleText = {}
 protectedPanel.IsProtected = function() return true end
@@ -591,6 +628,7 @@ assert(addon.HUD.editModeGuidanceShown,
 -- A mixed-height span can place the Edit Mode manager in the physical void.
 -- Detection and acknowledgement must not attach handlers or mutate Blizzard
 -- state: moving the manager breaks native drag behavior for Party Frames.
+WorldFrame = makeMockFrame("WorldFrame", 2560, 1440)
 local editModePromptCount, editModePromptHidden = 0, 0
 addon.ShowForeverEditModeControlsPrompt = function() editModePromptCount = editModePromptCount + 1 end
 addon.HideForeverEditModeControlsPrompt = function() editModePromptHidden = editModePromptHidden + 1 end
@@ -1187,6 +1225,14 @@ assert(not optedInProfessions._OffhandMovable,
 assert(not (addon.db.openWorkspacePanels
         and addon.db.openWorkspacePanels.ProfessionsBookFrame),
     "experimental Professions must not acquire automatic-open state")
+local initialProfessionsPoint = optedInProfessions.points[#optedInProfessions.points]
+assert(initialProfessionsPoint and initialProfessionsPoint[1] == "TOPLEFT"
+        and initialProfessionsPoint[4] == 2370
+        and initialProfessionsPoint[5] == 1126,
+    "first opted-in Professions opening must center the reachable title on Mainhand")
+assert(not addon.db.savedWorkspacePositions.ProfessionsBookFrame
+        and not addon.db.savedMainPositions.ProfessionsBookFrame,
+    "automatic first-open centering must not create persistence ownership")
 
 optedInProfessions:ClearAllPoints()
 optedInProfessions:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 180, 1500)
@@ -1200,6 +1246,13 @@ optedInProfessions:ClearAllPoints()
 optedInProfessions:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 2100, 1100)
 optedInProfessions:Hide()
 optedInProfessions:Show()
+assert(addon.Canvas.IsFrameOnWorkspace(optedInProfessions),
+    "a later manual Professions opening must restore its saved position immediately without waiting for timers")
+-- Simulate Blizzard's native UpdateUIPanelPositions attempting to re-anchor to spanned TOPLEFT
+optedInProfessions:ClearAllPoints()
+optedInProfessions:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, -104)
+assert(addon.Canvas.IsFrameOnWorkspace(optedInProfessions),
+    "Blizzard UIPanel anchor resets on Professions must be caught synchronously without jumping to top-left")
 flushTimers()
 assert(addon.Canvas.IsFrameOnWorkspace(optedInProfessions),
     "a later manual Professions opening must restore its saved position after settling")
@@ -1319,6 +1372,63 @@ table.insert(UIParent.children, badSelfWidget)
 -- Flush timers which invokes RedirectExternalPopups() over UIParent.children
 flushTimers()
 print("PASS: Bad self intrinsic widgets in UIParent:GetChildren() safely handled without error")
+
+-- ============================================================================
+-- TEST 11: Retail Edit Mode and Action Bar Isolation
+-- ============================================================================
+addon.isRetail = true
+addon.isForever = false
+
+local retailActionBar = makeMockFrame("MainActionBar", 500, 45)
+retailActionBar.IsInDefaultPosition = function() return true end
+retailActionBar.isManagedFrame = false
+local originalRetailSetPoint = retailActionBar.SetPoint
+local retailMenuBar = makeMockFrame("MainMenuBar", 500, 45)
+local originalRetailMenuBarSetPoint = retailMenuBar.SetPoint
+local retailMultiBarBottomLeft = makeMockFrame("MultiBarBottomLeft", 500, 45)
+local originalRetailMultiBarSetPoint = retailMultiBarBottomLeft.SetPoint
+local retailStatusTrackingBarManager = makeMockFrame("StatusTrackingBarManager", 500, 20)
+local originalRetailStatusBarSetPoint = retailStatusTrackingBarManager.SetPoint
+
+_G.MainActionBar = retailActionBar
+_G.MainMenuBar = retailMenuBar
+_G.MultiBarBottomLeft = retailMultiBarBottomLeft
+_G.StatusTrackingBarManager = retailStatusTrackingBarManager
+
+local retailPanelWrites = UIParent.attributeWrites or 0
+addon.HUD:HookFrames()
+addon.HUD:AlignHUDFrames(metrics)
+
+assert((UIParent.attributeWrites or 0) == retailPanelWrites,
+    "Retail must not write legacy UIParent panel-layout attributes")
+assert(retailActionBar.SetPoint == originalRetailSetPoint,
+    "Retail must not install a SetPoint repair hook on MainActionBar")
+assert(#retailActionBar.points == 0,
+    "Retail must not directly anchor MainActionBar")
+assert(retailMenuBar.SetPoint == originalRetailMenuBarSetPoint,
+    "Retail must not install a SetPoint repair hook on MainMenuBar")
+assert(#retailMenuBar.points == 0,
+    "Retail must not directly anchor MainMenuBar")
+assert(retailMultiBarBottomLeft.SetPoint == originalRetailMultiBarSetPoint,
+    "Retail must not install a SetPoint repair hook on MultiBarBottomLeft")
+assert(#retailMultiBarBottomLeft.points == 0,
+    "Retail must not directly anchor MultiBarBottomLeft")
+assert(retailStatusTrackingBarManager.SetPoint == originalRetailStatusBarSetPoint,
+    "Retail must not install a SetPoint repair hook on StatusTrackingBarManager")
+assert(#retailStatusTrackingBarManager.points == 0,
+    "Retail must not directly anchor StatusTrackingBarManager")
+
+-- Canvas draggable verification on Retail
+addon.Canvas:TryMakeFrameDraggable(retailActionBar)
+assert(not retailActionBar._OffhandMovable and not retailActionBar.movable,
+    "Retail Edit Mode MainActionBar must never be made draggable by Offhand Canvas")
+
+local retailEditModeManager = makeMockFrame("EditModeManagerFrame", 600, 60)
+addon.Canvas:TryMakeFrameDraggable(retailEditModeManager)
+assert(not retailEditModeManager._OffhandMovable and not retailEditModeManager.movable,
+    "Retail EditModeManagerFrame must never be made draggable by Offhand Canvas")
+
+print("PASS: Retail Edit Mode action bars and managers remain strictly untouched")
 
 print("\nALL PARTY FRAMES, EDIT MODE, AND VOID RESCUE TESTS PASSED!")
 

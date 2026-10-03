@@ -8,7 +8,17 @@ namespace Offhand.Companion {
         private static int checkNumber;
         private static void Check(bool value) { checkNumber++; if (!value) throw new Exception("Preference regression at check " + checkNumber); }
         public static void Main() {
-            Check(CompanionForm.FullVersion == "2.1.2 Beta 13");
+            Check(CompanionForm.FullVersion == "2.1.2 Beta 18");
+            CompanionReleaseVersion beta13, beta14, beta15, beta18, stable, newer;
+            Check(CompanionReleaseVersion.TryParse("v2.1.2-beta.13", out beta13));
+            Check(CompanionReleaseVersion.TryParse("2.1.2-beta.14", out beta14));
+            Check(CompanionReleaseVersion.TryParse("2.1.2-beta.15", out beta15));
+            Check(CompanionReleaseVersion.TryParse("2.1.2-beta.18", out beta18));
+            Check(CompanionReleaseVersion.TryParse("2.1.2", out stable));
+            Check(CompanionReleaseVersion.TryParse("2.1.3-beta.1", out newer));
+            Check(beta14.CompareTo(beta13) > 0 && beta15.CompareTo(beta14) > 0
+                && beta18.CompareTo(beta15) > 0 && stable.CompareTo(beta18) > 0 && newer.CompareTo(stable) > 0);
+            Check(!CompanionReleaseVersion.TryParse("2.1.2-preview.1", out newer));
             Check(!CompanionDefaults.AutoSpanOnLaunch);
             Check(WindowInteropDiagnostics.StyleFailure("Could not remove WoW window borders", 5)
                 .Contains("same privilege level"));
@@ -63,7 +73,8 @@ namespace Offhand.Companion {
             try { MonitorSelection.CreatePlan(null, null, null, null, null, false, false, three); }
             catch (InvalidOperationException) { tooManyRejected = true; }
             Check(tooManyRejected);
-            Check(CompanionTiming.AutoSpanDelay("WowB", @"D:\Games\World of Warcraft\_classic_beta_", 30) == 0);
+            Check(CompanionTiming.AutoSpanDelay("WowB", @"D:\Games\World of Warcraft\_classic_beta_", 30) == 30);
+            Check(CompanionTiming.AutoSpanDelay("WowForever", @"D:\Games\World of Warcraft\_classic_beta_", 0) == 0);
             Check(CompanionTiming.AutoSpanDelay("Wow", @"D:\Games\World of Warcraft\_retail_", 30) == 30);
             string root = Path.Combine(Path.GetTempPath(), "Offhand-preferences-" + Guid.NewGuid());
             Directory.CreateDirectory(root);
@@ -91,11 +102,27 @@ namespace Offhand.Companion {
                 string account = Path.Combine(wow, "WTF", "Account", "123", "SavedVariables", "Offhand.lua");
                 string character = Path.Combine(wow, "WTF", "Account", "123", "Realm", "Character", "SavedVariables", "Offhand.lua");
                 Directory.CreateDirectory(core);
-                File.WriteAllText(Path.Combine(Path.GetDirectoryName(core), "Offhand_Forever.toc"), "## Interface: 16000\n## X-Offhand-Release: beta.13\n");
+                File.WriteAllText(Path.Combine(Path.GetDirectoryName(core), "Offhand_Forever.toc"),
+                    "## Interface: 16000\n## X-Offhand-Release: beta.18\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.2-beta.18\n");
                 AddonInstallCheck install = AddonInstallation.Inspect(wow);
                 Check(install.Installed && install.AddonDir == Path.GetDirectoryName(core));
                 Check(install.ExpectedAddonDir == Path.Combine(wow, "Interface", "AddOns", "Offhand"));
-                Check(install.ReleaseTag == "beta.13" && install.Reason.Contains(install.AddonDir));
+                Check(install.ReleaseTag == "beta.18" && install.CompanionProtocol == 1
+                    && install.MinimumCompanionVersion == "2.1.2-beta.18" && install.Reason.Contains(install.AddonDir));
+
+                string futureWow = Path.Combine(root, "future-client");
+                string futureAddon = Path.Combine(futureWow, "Interface", "AddOns", "Offhand");
+                Directory.CreateDirectory(futureAddon);
+                File.WriteAllText(Path.Combine(futureAddon, "Offhand_Forever.toc"),
+                    "## Interface: 16000\n## X-Offhand-Release: beta.19\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.2-beta.18\n");
+                Check(AddonInstallation.Inspect(futureWow).Installed);
+
+                string legacyWow = Path.Combine(root, "legacy-compatible");
+                string legacyAddon = Path.Combine(legacyWow, "Interface", "AddOns", "Offhand");
+                Directory.CreateDirectory(legacyAddon);
+                File.WriteAllText(Path.Combine(legacyAddon, "Offhand_Forever.toc"),
+                    "## Interface: 16000\n## X-Offhand-Release: beta.13\n## X-Offhand-Companion-Version: 2.1.2\n");
+                Check(AddonInstallation.Inspect(legacyWow).Installed);
 
                 string oldWow = Path.Combine(root, "old-client");
                 string oldAddon = Path.Combine(oldWow, "Interface", "AddOns", "Offhand");
@@ -103,7 +130,15 @@ namespace Offhand.Companion {
                 File.WriteAllText(Path.Combine(oldAddon, "Offhand_Forever.toc"), "## Interface: 16000\n## X-Offhand-Release: beta.9\n");
                 AddonInstallCheck oldInstall = AddonInstallation.Inspect(oldWow);
                 Check(!oldInstall.Installed && oldInstall.ReleaseTag == "beta.9"
-                    && oldInstall.Reason.Contains("requires addon beta.13"));
+                    && oldInstall.Reason.Contains("supported Companion protocol"));
+
+                string incompatibleWow = Path.Combine(root, "incompatible-protocol");
+                string incompatibleAddon = Path.Combine(incompatibleWow, "Interface", "AddOns", "Offhand");
+                Directory.CreateDirectory(incompatibleAddon);
+                File.WriteAllText(Path.Combine(incompatibleAddon, "Offhand_Forever.toc"),
+                    "## Interface: 16000\n## X-Offhand-Release: beta.25\n## X-Offhand-Companion-Protocol: 2\n## X-Offhand-Companion-Min-Version: 2.2.0-beta.1\n");
+                Check(!AddonInstallation.Inspect(incompatibleWow).Installed
+                    && AddonInstallation.Inspect(incompatibleWow).Reason.Contains("supports protocol 1"));
 
                 string nestedWow = Path.Combine(root, "nested");
                 string nestedAddon = Path.Combine(nestedWow, "Interface", "AddOns", "Offhand", "Offhand");
@@ -146,7 +181,7 @@ namespace Offhand.Companion {
                 string topologyMessage;
                 Check(CompanionTopologyBridge.TryWrite(wow, plan, displays, out topologyMessage));
                 string topology = File.ReadAllText(Path.Combine(core, "CompanionTopology.lua"));
-                Check(topology.Contains("mode = \"DUAL_DISPLAY\"") && topology.Contains("companionVersion = \"2.1.2-beta.13\"") && topology.Contains("width = 3440") &&
+                Check(topology.Contains("mode = \"DUAL_DISPLAY\"") && topology.Contains("companionVersion = \"2.1.2-beta.18\"") && topology.Contains("width = 3440") &&
                     topology.Contains("height = 1080") && topology.Contains("y = 0"));
                 Console.WriteLine("PASS: safe display identities, addon layout diagnosis, missing-monitor guard, topology bridge, settings validation, restore geometry and atomic Forever state generation");
             } finally { if (Directory.Exists(root)) Directory.Delete(root, true); }

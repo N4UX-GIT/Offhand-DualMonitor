@@ -3,9 +3,9 @@ name: Build and Release
 env:
   # Addon-only releases reuse these exact, already-published Companion bytes.
   # Change both values only for a deliberate Companion release.
-  COMPANION_RELEASE_TAG: v2.1.2-beta.13
-  COMPANION_SHA256: E41E043EFCBB01936155FA0C8A8634F8DF80D7A83599BB5D583F1ECF6B07AEBE
-  COMPANION_ARCHIVE_SHA256: A308ACF1B117B08B2912A77079168C40E32535DFEB66425F541BD7518581818D
+  COMPANION_RELEASE_TAG: v2.1.2-beta.18
+  COMPANION_SHA256: A42A45CB149C66EF884308F15A79EE8905C58A94E9B4AE1A3B05B43BAF929F37
+  COMPANION_ARCHIVE_SHA256: 20D8FF3DC38D2C0517A2D88362934E0A2A41088927C63245ED01FFF0ECD5664F
 
 on:
   push:
@@ -31,16 +31,20 @@ jobs:
         $changed = "${{ github.ref_name }}" -eq $env:COMPANION_RELEASE_TAG
         "companion_changed=$($changed.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
-    - name: Setup MSBuild
+    - name: Validate canonical Companion executable
       if: steps.policy.outputs.companion_changed == 'true'
-      uses: microsoft/setup-msbuild@v2
+      shell: powershell
+      run: |
+        $path = 'Companion\Offhand.exe'
+        $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+        if ($actual -ne $env:COMPANION_SHA256) {
+          throw "Checked-in Companion hash $actual does not match $env:COMPANION_SHA256."
+        }
+        if ((Get-Item -LiteralPath $path).VersionInfo.ProductVersion -ne '2.1.2-beta.18') {
+          throw 'Checked-in Companion product version is not 2.1.2-beta.18.'
+        }
 
-    - name: Build canonical Companion executable
-      if: steps.policy.outputs.companion_changed == 'true'
-      shell: cmd
-      run: Companion\build.bat
-
-    - name: Restore frozen Beta 13 Companion
+    - name: Restore frozen Beta 18 Companion
       if: steps.policy.outputs.companion_changed != 'true'
       shell: powershell
       run: |
@@ -58,7 +62,16 @@ jobs:
           .\package.ps1 -Version $version
         }
 
-    - name: Attach frozen Beta 13 Companion assets
+    - name: Validate canonical Companion archive
+      if: steps.policy.outputs.companion_changed == 'true'
+      shell: powershell
+      run: |
+        $actual = (Get-FileHash -LiteralPath 'dist\Offhand-Companion.zip' -Algorithm SHA256).Hash
+        if ($actual -ne $env:COMPANION_ARCHIVE_SHA256) {
+          throw "Packaged Companion archive hash $actual does not match $env:COMPANION_ARCHIVE_SHA256."
+        }
+
+    - name: Attach frozen Beta 18 Companion assets
       if: steps.policy.outputs.companion_changed != 'true'
       shell: powershell
       run: |

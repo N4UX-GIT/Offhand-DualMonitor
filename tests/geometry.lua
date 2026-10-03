@@ -1,5 +1,5 @@
 -- Lua 5.1. Mock engine coordinates: 768 units high before effective scale.
-local addon = { companionFullVersion="2.1.2-beta.13", db = {enabled=true, deckWidthRatio=0.36, hudScale=0.7,
+local addon = { companionFullVersion="2.1.2-beta.18", db = {enabled=true, deckWidthRatio=0.36, hudScale=0.7,
     gameBottomPixels=6, primaryPosition="RIGHT"}, Debug=function() end, Print=error }
 local pw, ph, uiScale = 4000, 2560, 0.8
 local function near(a,b) assert(math.abs(a-b)<0.01, tostring(a).." ~= "..tostring(b)) end
@@ -9,6 +9,7 @@ UIParent = {GetWidth=function() return pw/ph*768/uiScale end,
 GetPhysicalScreenSize=function() return pw,ph end
 InCombatLockdown=function() return false end
 local cvars = { useUiScale = "1" }
+GetFramerate = function() return 73.5 end
 GetCVar = function(name) 
     if name == "uiScale" then return tostring(uiScale) end
     return cvars[name] 
@@ -103,7 +104,7 @@ print("PASS: physical seam, cross-scale anchors, HUD fit, nested scale, left pri
 -- Companion topology is authoritative and preserves mixed monitor heights and
 -- offsets without guessing from the combined aspect ratio.
 pw,ph=5360,1440
-OffhandCompanionTopology={schema=1,companionVersion="2.1.2-beta.13",physicalWidth=5360,physicalHeight=1440,mode="DUAL_DISPLAY",
+OffhandCompanionTopology={schema=1,companionVersion="2.1.2-beta.18",physicalWidth=5360,physicalHeight=1440,mode="DUAL_DISPLAY",
     workspace={x=0,y=360,width=1920,height=1080},game={x=1920,y=0,width=3440,height=1440}}
 local tm=addon.Viewport:GetMetrics()
 assert(tm.companionTopology and tm.gamePixelWidth==3440 and tm.gamePixelHeight==1440
@@ -111,8 +112,8 @@ assert(tm.companionTopology and tm.gamePixelWidth==3440 and tm.gamePixelHeight==
 OffhandCompanionTopology.companionVersion="2.1.2-beta.12"
 tm=addon.Viewport:GetMetrics()
 assert(tm.companionVersionStatus=="MISMATCH" and tm.companionVersion=="2.1.2-beta.12"
-    and tm.expectedCompanionVersion=="2.1.2-beta.13")
-OffhandCompanionTopology.companionVersion="2.1.2-beta.13"
+    and tm.expectedCompanionVersion=="2.1.2-beta.18")
+OffhandCompanionTopology.companionVersion="2.1.2-beta.18"
 assert(tm.workspacePixelLeft==0 and tm.workspacePixelBottom==360 and tm.workspacePixelHeight==1080)
 addon.Viewport:Apply()
 x,y,w,h=worldPixels()
@@ -148,11 +149,67 @@ UIParent.GetWidth=function() return (2560/1440)*768/uiScale end
 tm=addon.Viewport:GetMetrics()
 assert(not tm.isSpanned and tm.topologyStatus=="MISMATCH",
     "restored single-monitor canvas must reject stale Companion topology")
+
+-- Renderer diagnostics stay read-only and distinguish the complete spanned
+-- window bounds from the Mainhand viewport. A saved gxWindowedResolution is
+-- evidence to report, not a replacement for the live physical dimensions.
+pw,ph=4480,1440
+UIParent.GetWidth=function() return (4480/1440)*768/uiScale end
+UIParent.GetHeight=function() return 768/uiScale end
+OffhandCompanionTopology={schema=1,companionVersion="2.1.2-beta.18",physicalWidth=4480,physicalHeight=1440,mode="DUAL_DISPLAY",
+    workspace={x=2560,y=0,width=1920,height=1080},game={x=0,y=0,width=2560,height=1440}}
+cvars.gxWindowedResolution="2544x1342"
+cvars.RenderScale="1"
+cvars.ResampleQuality="3"
+cvars.gxApi="D3D12"
+cvars.vsync="1"
+cvars.maxFPS="120"
+cvars.maxFPSBk="30"
+cvars.LowLatencyMode="2"
+cvars.MSAAQuality="0"
+cvars.MSAAAlphaTest="1"
+cvars.ffxAntiAliasingMode="2"
+cvars.CMAA2Quality="3"
+cvars.textureFilteringMode="5"
+cvars.DynamicRenderScale="0"
+cvars.ResampleAlwaysSharpen="0"
+cvars.ResampleSharpness="0.2"
+cvars.RenderScaleDowngradeForegroundMinSize="1080"
+cvars.RenderScaleDowngradeBackgroundMinSize="720"
+local performance=addon.Viewport:GetPerformanceDiagnostics(addon.Viewport:GetMetrics())
+near(performance.fps,73.5)
+near(performance.spanPixels,4480*1440)
+near(performance.mainhandPixels,2560*1440)
+near(performance.boundsToMainhandRatio,1.75)
+assert(performance.gxWindowedResolution=="2544x1342" and performance.renderScale=="1"
+    and performance.gxApi=="D3D12" and performance.gxVSync=="1"
+    and performance.maxFPS=="120" and performance.lowLatencyMode=="2"
+    and performance.msaaAlphaTest=="1" and performance.antiAliasingMode=="2"
+    and performance.cmaa2Quality=="3" and performance.textureFilteringMode=="5"
+    and performance.dynamicRenderScale=="0" and performance.resampleSharpness=="0.2"
+    and performance.foregroundDowngradeMin=="1080"
+    and performance.backgroundDowngradeMin=="720",
+    "performance diagnostics must retain renderer CVars without changing them")
+local topologyDiagnostics=addon.Viewport:GetTopologyDiagnostics()
+assert(topologyDiagnostics.status=="READY" and topologyDiagnostics.loaded
+    and topologyDiagnostics.schema==1 and topologyDiagnostics.accepted
+    and topologyDiagnostics.expectedWidth==4480 and topologyDiagnostics.expectedHeight==1440
+    and topologyDiagnostics.liveWidth==4480 and topologyDiagnostics.liveHeight==1440,
+    "topology diagnostics must expose raw handoff and live renderer dimensions")
+pw,ph=2560,1440
+OffhandCompanionTopology={schema=1,physicalWidth=4000,physicalHeight=2560,mode="DUAL_DISPLAY",
+    workspace={x=0,y=0,width=1440,height=2560},game={x=1440,y=6,width=2560,height=1440}}
 addon.isForever=true
 UIParent.GetWidth=function() return (4000/2560)*768/uiScale end
 tm=addon.Viewport:GetMetrics()
 assert(not tm.isSpanned and tm.topologyStatus=="MISMATCH",
     "Forever must retain strict exact-size topology validation")
+topologyDiagnostics=addon.Viewport:GetTopologyDiagnostics()
+assert(topologyDiagnostics.status=="MISMATCH" and topologyDiagnostics.loaded
+    and not topologyDiagnostics.accepted and topologyDiagnostics.expectedWidth==4000
+    and topologyDiagnostics.expectedHeight==2560 and topologyDiagnostics.liveWidth==2560
+    and topologyDiagnostics.liveHeight==1440,
+    "mismatch diagnostics must preserve both expected topology and live dimensions")
 addon.isForever=false
 UIParent.GetWidth, UIParent.GetHeight = originalGetWidth, originalGetHeight
 OffhandCompanionTopology=nil
@@ -165,6 +222,10 @@ assert(tm.isSpanned and tm.topologyStatus=="ABSENT"
     "Forever must retain manual percentage geometry when Companion topology is absent")
 assert(not addon.Viewport:IsSingleScreenRecovery(tm),
     "Forever manual spanning must not enter Companion recovery")
+topologyDiagnostics=addon.Viewport:GetTopologyDiagnostics()
+assert(topologyDiagnostics.status=="ABSENT" and not topologyDiagnostics.loaded
+    and not topologyDiagnostics.accepted,
+    "absent topology diagnostics must remain distinct from a mismatch")
 
 -- Match the reported equal-landscape manual span. Without a generated
 -- CompanionTopology.lua, a 50/50 preset must still confine WorldFrame to the

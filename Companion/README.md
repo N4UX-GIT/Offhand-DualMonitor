@@ -118,8 +118,7 @@ are selected.
 
 ## Restore Window
 
-Use the Restore Window button or Ctrl+Alt+R to return WoW to a bordered window.
-The shortcut is independent of the selected span shortcut. The Companion remembers
+Use the Restore Window button to return WoW to a bordered window. The Companion remembers
 the bounds before its first successful span of a window and fits restored bounds
 inside a monitor's work area. If no bounds were remembered, it uses a window up to
 1920x1080 on the primary monitor, reduced to fit. Remembered bounds last for the

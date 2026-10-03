@@ -24,7 +24,7 @@ communication, and rollback workflow, use
 
 ```powershell
 .\Companion\Store\Build-StorePackage.ps1 `
-  -PackageVersion 2.1.13.0
+  -PackageVersion 2.1.18.0
 ```
 
 Store package versions must contain four numeric components and end in `.0`.

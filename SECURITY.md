@@ -54,7 +54,8 @@ It performs the following operations:
 - Reads the connected displays' Windows device names and rectangles so an
   explicit Mainhand/workspace selection survives display reordering and fails
   safely when a saved display is disconnected.
-- Registers the user-selected global Span shortcut and `Ctrl+Alt+R` for Restore.
+- Shows temporary, click-through display-identification overlays only when the
+  user clicks **Identify Displays**.
 - Reads Offhand's installation markers and, for Forever recovery, reads the
   newest valid Offhand SavedVariables only while WoW is fully closed.
 - Writes preferences to `%LOCALAPPDATA%\Offhand\OffhandConfig.ini`.
@@ -76,8 +77,8 @@ collect telemetry, inspect chat or gameplay, or handle account credentials.
 ## Why antivirus false positives can occur
 
 Window-management utilities commonly enumerate processes, manipulate another
-application's window, register global hotkeys, and remain in the notification
-area. Those legitimate capabilities can overlap with broad heuristic or
+application's window, and remain in the notification area. Those legitimate
+capabilities can overlap with broad heuristic or
 machine-learning rules. A new or unsigned executable also lacks established
 publisher and file reputation.
 

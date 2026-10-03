@@ -65,8 +65,9 @@ local foreverEditModeFrameNames = {
     MainMenuBar = true, MainActionBar = true, StatusTrackingBarManager = true, MainMenuExpBar = true,
     MultiBarBottomLeft = true, MultiBarBottomRight = true, MultiBarLeft = true, MultiBarRight = true,
     StanceBar = true, PetActionBar = true, PossessActionBar = true,
-    MinimapCluster = true, PlayerFrame = true, TargetFrame = true,
-    PartyMemberFrame1 = true, CompactPartyFrame = true,
+    MinimapCluster = true, PlayerFrame = true, TargetFrame = true, FocusFrame = true,
+    PartyFrame = true, PartyMemberFrame1 = true, CompactPartyFrame = true,
+    CompactRaidFrameContainer = true,
     BuffFrame = true, BuffCluster = true, CastingBarFrame = true, PlayerCastingBarFrame = true,
     UIErrorsFrame = true, RaidWarningFrame = true,
     EssentialCooldownViewer = true, UtilityCooldownViewer = true,
@@ -86,16 +87,23 @@ local function IsBlizzardEditModeOwnedFrame(frame, name)
         or name:match("^DamageMeter") ~= nil) or false
 end
 
+local function HasBlizzardEditMode()
+    if Offhand.isRetail or Offhand.isForever then return true end
+    if C_EditMode ~= nil or EditModeManagerFrame ~= nil then return true end
+    local version = tonumber(Offhand.tocVersion)
+    return (version and (version >= 100000 or (version >= 16000 and version < 17000))) or false
+end
+
 local function UsesForeverEditMode()
     if Offhand.isForever ~= nil then return Offhand.isForever end
     local version = tonumber(Offhand.tocVersion)
     return version and version >= 16000 and version < 17000 or false
 end
 local function IsForeverEditModeFrame(frame, name)
-    if not UsesForeverEditMode() then return false end
+    if not HasBlizzardEditMode() then return false end
     name = name or (frame and frame.GetName and frame:GetName())
     if IsBlizzardEditModeOwnedFrame(frame, name) then return true end
-    if name == "ChatFrame1" and frame
+    if name == "ChatFrame1" and UsesForeverEditMode() and frame
         and type(frame.OnEditModeEnter) == "function"
         and type(frame.OnEditModeExit) == "function" then
         return true
@@ -103,7 +111,10 @@ local function IsForeverEditModeFrame(frame, name)
     return name and (foreverEditModeFrameNames[name]
         or name:match("^EditMode")
         or name:match("CooldownViewer")
-        or name:match("ManagedFrameContainer")) or false
+        or name:match("ManagedFrameContainer")
+        or name:match("^PartyMemberFrame")
+        or name:match("^CompactPartyFrame")
+        or name:match("^CompactRaidFrame")) or false
 end
 
 local function RetailEditModeOwnsPrimaryChat(frame)
@@ -416,18 +427,14 @@ function HUD:BringForeverEditModeControlsToMainhand()
     if not metrics or not metrics.isSpanned then return false end
 
     manager:ClearAllPoints()
-    if WorldFrame then
-        manager:SetPoint("CENTER", WorldFrame, "CENTER", 0, 0)
-    else
-        local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
-        local frameScale = (manager.GetEffectiveScale and manager:GetEffectiveScale()) or parentScale
-        local factor = parentScale / frameScale
-        local centerX = (metrics.gameLeft + metrics.gameRight) / 2
-        local centerY = (metrics.gameBottom + metrics.gameTop) / 2
-        manager:SetPoint("CENTER", UIParent, "CENTER",
-            (centerX - UIParent:GetWidth() / 2) * factor,
-            (centerY - UIParent:GetHeight() / 2) * factor)
-    end
+    local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
+    local frameScale = (manager.GetEffectiveScale and manager:GetEffectiveScale()) or parentScale
+    local factor = parentScale / frameScale
+    local centerX = (metrics.gameLeft + metrics.gameRight) / 2
+    local centerY = (metrics.gameBottom + metrics.gameTop) / 2
+    manager:SetPoint("CENTER", UIParent, "CENTER",
+        (centerX - UIParent:GetWidth() / 2) * factor,
+        (centerY - UIParent:GetHeight() / 2) * factor)
     self.foreverEditModeControlsPromptShown = nil
     return true
 end
@@ -435,6 +442,60 @@ end
 function HUD:DismissForeverEditModeControlsPrompt()
     self.foreverEditModeControlsPromptShown = nil
     self.foreverEditModeControlsPromptDeclined = true
+end
+
+-- Mixed-height spans contain real UIParent space that is not backed by a
+-- physical monitor. Blizzard's default TOPLEFT party anchor can land there on
+-- Forever. These frames remain Edit Mode-owned; detect the condition without
+-- writing anchors and explain the player-click recovery once per occurrence.
+function HUD:UpdateForeverPartyFrameRecovery(metrics)
+    if not UsesForeverEditMode() or not Offhand.db or not Offhand.db.enabled then return end
+    metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics
+        and Offhand.Viewport:GetMetrics())
+    if not metrics or not metrics.isSpanned then
+        if self.foreverPartyFrameOutsideDisplays and Offhand.HideForeverPartyFrameRecoveryPrompt then
+            Offhand:HideForeverPartyFrameRecoveryPrompt()
+        end
+        self.foreverPartyFrameOutsideDisplays = nil
+        self.foreverPartyFrameRecoveryPromptShown = nil
+        self.foreverPartyFrameRecoveryPromptDeclined = nil
+        return
+    end
+    if InCombatLockdown() or HasEllesmerePartyFrames() then return end
+    local manager = _G.EditModeManagerFrame
+    if manager and manager.IsShown and manager:IsShown() then return end
+
+    local outsideName
+    for _, name in ipairs({"PartyFrame", "PartyMemberFrame1", "CompactPartyFrame", "CompactRaidFrameContainer"}) do
+        local frame = _G[name]
+        if frame and frame.IsShown and frame:IsShown()
+            and not FrameFitsPhysicalDisplay(frame, metrics) then
+            outsideName = name
+            break
+        end
+    end
+
+    if not outsideName then
+        if self.foreverPartyFrameOutsideDisplays and Offhand.HideForeverPartyFrameRecoveryPrompt then
+            Offhand:HideForeverPartyFrameRecoveryPrompt()
+        end
+        self.foreverPartyFrameOutsideDisplays = nil
+        self.foreverPartyFrameRecoveryPromptShown = nil
+        self.foreverPartyFrameRecoveryPromptDeclined = nil
+        return
+    end
+    self.foreverPartyFrameOutsideDisplays = outsideName
+    if self.foreverPartyFrameRecoveryPromptShown
+        or self.foreverPartyFrameRecoveryPromptDeclined then return end
+    self.foreverPartyFrameRecoveryPromptShown = true
+    if Offhand.ShowForeverPartyFrameRecoveryPrompt then
+        Offhand:ShowForeverPartyFrameRecoveryPrompt()
+    end
+end
+
+function HUD:DismissForeverPartyFrameRecoveryPrompt()
+    self.foreverPartyFrameRecoveryPromptShown = nil
+    self.foreverPartyFrameRecoveryPromptDeclined = true
 end
 
 local function Remember(frame)
@@ -814,7 +875,7 @@ function HUD:AlignHUDFrames(m)
     aligning = true
     local ok, err = pcall(function()
         m = m or Offhand.Viewport:GetMetrics()
-        if not UsesForeverEditMode() and not HasCustomActionBarAddon() then
+        if not HasBlizzardEditMode() and not HasCustomActionBarAddon() then
             local main = MainMenuBar or MainActionBar
 
             -- Detect if the action bar is currently centered in the bezel (default Edit Mode behavior for bottom)
@@ -1053,7 +1114,7 @@ end
 
 function HUD:HookFrames()
     self:HookMainhandTransientFrames()
-    if not UsesForeverEditMode() and not HasCustomActionBarAddon() then
+    if not HasBlizzardEditMode() and not HasCustomActionBarAddon() then
         if not self.managerHooked and UIParent_ManageFramePositions then
             self.managerHooked = true
             hooksecurefunc("UIParent_ManageFramePositions", function()
@@ -1327,6 +1388,7 @@ function HUD:HookFrames()
             HUD:PositionMainhandTransientFrames()
             CheckEditModeHooks()
             HUD:UpdateForeverEditModeControlsRecovery()
+            HUD:UpdateForeverPartyFrameRecovery()
         end)
     end
 
@@ -1383,18 +1445,17 @@ function HUD:HookFrames()
                 break
             end
         end
-        if UsesForeverEditMode() and (not found or needsSetup or layoutData.activeLayout ~= nil) and not self.editModeGuidanceShown then
+        if (UsesForeverEditMode() or Offhand.isRetail) and (not found or needsSetup or layoutData.activeLayout ~= nil) and not self.editModeGuidanceShown then
             self.editModeGuidanceShown = true
             local messageKey = HasEllesmerePartyFrames()
-                and "COMPAT_ELLESMERE_PARTY" or "EDIT_MODE_LAYOUT_MISSING"
-            Offhand:Print((Offhand.L and Offhand.L[messageKey])
-                or "Position action bars and combat frames with their owning UI editor.")
+                and "COMPAT_ELLESMERE_PARTY" or (UsesForeverEditMode() and "EDIT_MODE_LAYOUT_MISSING" or "EDIT_MODE_LAYOUT_MISSING_RETAIL")
+            Offhand:Print((Offhand.L and Offhand.L[messageKey]) or (Offhand.L and Offhand.L["EDIT_MODE_LAYOUT_MISSING"]))
         end
     end
 
     local function UpdateUIPanelOffsets()
         if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
-        if UsesForeverEditMode() then
+        if HasBlizzardEditMode() then
             -- Forever dispatches UIParent attribute changes through its secure
             -- panel manager and reads layout offsets from UIPanelLayoutFrame.
             -- Avoid this legacy attribute path entirely on that client.
@@ -1679,7 +1740,7 @@ function HUD:HookFrames()
 
     -- Legacy clients use the custom bag anchor pass to avoid anchor-family
     -- cycles. Forever keeps Blizzard's function identity to preserve taint safety.
-    if _G.UpdateContainerFrameAnchors and not self.anchorsHooked and not UsesForeverEditMode() then
+    if _G.UpdateContainerFrameAnchors and not self.anchorsHooked and not UsesForeverEditMode() and not HasBlizzardEditMode() then
         self.anchorsHooked = true
         HUD.origUpdateContainerFrameAnchors = _G.UpdateContainerFrameAnchors
         _G.UpdateContainerFrameAnchors = function(...)

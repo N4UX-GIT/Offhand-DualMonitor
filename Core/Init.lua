@@ -9,15 +9,19 @@ _G.Offhand = Offhand
 Offhand.name = addonName
 local getMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
 Offhand.version = (getMetadata and getMetadata(addonName, "Version")) or "1.0.0"
--- X-Offhand-Release is the compatibility token consumed by the frozen Beta 13
--- Companion. Keep it stable until the Companion itself changes. The addon's
--- independently advancing public release is carried by X-Offhand-Addon-Release.
+-- Public addon release identity and Companion compatibility are independent.
+-- Addon-only releases may advance X-Offhand-Release while keeping the same
+-- Companion protocol and minimum version.
 Offhand.companionVersion = (getMetadata and getMetadata(addonName, "X-Offhand-Companion-Version"))
     or Offhand.version
+Offhand.companionProtocol = tonumber(
+    (getMetadata and getMetadata(addonName, "X-Offhand-Companion-Protocol")) or "")
+Offhand.companionMinVersion =
+    (getMetadata and getMetadata(addonName, "X-Offhand-Companion-Min-Version")) or ""
 Offhand.companionRelease = (getMetadata and getMetadata(addonName, "X-Offhand-Companion-Release"))
-    or (getMetadata and getMetadata(addonName, "X-Offhand-Release")) or ""
-Offhand.release = (getMetadata and getMetadata(addonName, "X-Offhand-Addon-Release"))
-    or Offhand.companionRelease
+    or ""
+Offhand.release = (getMetadata and getMetadata(addonName, "X-Offhand-Release"))
+    or (getMetadata and getMetadata(addonName, "X-Offhand-Addon-Release")) or ""
 local betaNumber = Offhand.release:match("^beta%.(%d+)$")
 Offhand.releaseDisplay = betaNumber and ("Beta " .. betaNumber) or Offhand.release
 Offhand.fullVersion = Offhand.version .. (Offhand.release ~= "" and ("-" .. Offhand.release) or "")
@@ -87,243 +91,6 @@ local L = Offhand.L or setmetatable({}, {
 })
 Offhand.L = L
 
--- ============================================================================
--- Default English Localization (Baseline for all clients)
--- ============================================================================
-L["ADDON_TITLE"] = "Offhand: Dual Monitor Workstation"
-L["ADDON_DESC"] = "Transforms dual monitor setups into a dedicated primary 3D viewport and secondary command deck."
-L["CMD_HELP_TITLE"] = "Offhand Slash Commands"
-L["LAYOUT_REAPPLIED"] = "Layout reapplied!"
-L["CONFIG_SAVED"] = "Configuration saved! Welcome to Offhand Dual Monitor Workstation."
-L["EDIT_MODE_LAYOUT_MISSING"] = "Forever uses Blizzard Edit Mode for action bars and combat frames. Outside combat, position them on the Mainhand Monitor, save the layout as 'Offhand', and select it in Edit Mode."
-L["COMPAT_ELLESMERE_PARTY"] = "EllesmereUI Raid Frames detected. Position its replacement Party/Raid Frames with EllesmereUI Unlock Mode. To use Blizzard Edit Mode instead, disable the EllesmereUI Raid Frames module."
-L["FOREVER_SINGLE_SCREEN_LAYOUT_TEXT"] = "Your saved Offhand monitor is unavailable. Forever needs your confirmation to move protected UI frames to a single-screen layout.\n\nChoose Use Modern to recover now. Offhand will offer to restore your Offhand layout when the monitor returns."
-L["FOREVER_USE_MODERN"] = "Use Modern"
-L["FOREVER_KEEP_OFFHAND"] = "Keep Offhand"
-L["FOREVER_RESTORE_LAYOUT_TEXT"] = "Your saved display layout is available again. Forever requires one player click to change protected HUD layouts.\n\nRestore the Offhand layout now?"
-L["FOREVER_RESTORE_OFFHAND"] = "Restore Offhand"
-L["FOREVER_KEEP_MODERN"] = "Keep Modern"
-L["FOREVER_EDIT_MODE_CONTROLS_TEXT"] = "Blizzard opened the Edit Mode control bar outside the physical displays.\n\nSelect Bring to Mainhand to center only the Edit Mode controls. Offhand will not move action bars, Party or Raid Frames, or other protected UI."
-L["FOREVER_EDIT_MODE_BRING_TO_MAINHAND"] = "Bring to Mainhand"
-L["FOREVER_EDIT_MODE_NOT_NOW"] = "Not Now"
-
--- Options Dashboard Header & Tabs
-L["OPTIONS_TITLE"] = "Offhand DUAL MONITOR WORKSTATION"
-L["TAB_DISPLAY"] = "Display & Viewport"
-L["TAB_WORKSPACE"] = "Offhand Monitor & Map"
-L["TAB_THEMES"] = "Themes & Colors"
-L["BTN_AUTO_WIZARD"] = "Auto-Setup Wizard"
-L["BTN_AUTO_WIZARD_TIP_TITLE"] = "Display Calibration Wizard"
-L["BTN_AUTO_WIZARD_TIP_DESC"] = "Open the guided 1-click display configuration wizard to automatically detect your screen resolution and calibrate your physical monitor seam."
-
--- Tab 1: Display & Viewport
-L["CARD_LAYOUT_PRESETS"] = "1. Monitor Layout Preset"
-L["CARD_LAYOUT_PRESETS_DESC"] = "Select which physical monitor displays your 3D game world and which displays your 2D Offhand Monitor."
-L["PRESET_PL_LR"] = "Portrait Left + Game Right"
-L["PRESET_PL_LR_TIP_TITLE"] = "Portrait Left + Game Right"
-L["PRESET_PL_LR_TIP_DESC"] = "Ideal for setups with a vertical Offhand Monitor on the left and your main horizontal gaming monitor on the right."
-L["PRESET_GL_PR"] = "Game Left + Portrait Right"
-L["PRESET_GL_PR_TIP_TITLE"] = "Game Left + Portrait Right"
-L["PRESET_GL_PR_TIP_DESC"] = "Ideal for setups with your main gaming monitor on the left and a vertical Offhand Monitor on the right."
-L["PRESET_DUAL_LANDSCAPE"] = "Dual Landscape (50/50)"
-L["PRESET_DUAL_LANDSCAPE_TIP_TITLE"] = "Dual Landscape (Side by Side)"
-L["PRESET_DUAL_LANDSCAPE_TIP_DESC"] = "Splits the game window equally in half across two identical horizontal monitors side by side."
-L["BTN_1CLICK_AUTOCONFIG"] = "1-Click Auto-Configure"
-L["BTN_1CLICK_AUTOCONFIG_TIP_TITLE"] = "Automatic Hardware Detection"
-L["BTN_1CLICK_AUTOCONFIG_TIP_DESC"] = "Queries your active screen resolution and automatically applies recommended seam ratio, monitor orientation, and 3D aspect ratio."
-L["EXACT_TOPOLOGY_LOCKED"] = "Companion controls monitor layout. Change displays or Mainhand there, then span again."
-L["COMPANION_TOPOLOGY_SUMMARY"] = "Companion active: Game %dx%d | Workspace %dx%d"
-
-L["CARD_VIEWPORT_AR"] = "2. 3D Viewport Aspect Ratio & Position"
-L["AR_16_9"] = "16:9 Standard Widescreen"
-L["AR_16_9_TIP_TITLE"] = "16:9 Aspect Ratio"
-L["AR_16_9_TIP_DESC"] = "Locks the 3D game camera to standard 16:9 widescreen. Letterboxes top and bottom if necessary to maintain natural perspective without horizontal stretching."
-L["AR_21_9"] = "21:9 Ultrawide"
-L["AR_21_9_TIP_TITLE"] = "21:9 Aspect Ratio"
-L["AR_21_9_TIP_DESC"] = "Locks the 3D game camera to 21:9 cinematic ultrawide for expanded field of view."
-L["AR_FILL"] = "Fit Window Height (Fill)"
-L["AR_FILL_TIP_TITLE"] = "Fit Window Height (Fill Mode)"
-L["AR_FILL_TIP_DESC"] = "Stretches the 3D viewport vertically to match the configured height percentage without top or bottom letterboxing."
-
-L["ALIGN_LABEL"] = "Mainhand Monitor Alignment:"
-L["ALIGN_CENTER"] = "Center"
-L["ALIGN_CENTER_TIP_TITLE"] = "Center Alignment"
-L["ALIGN_CENTER_TIP_DESC"] = "Centers the Mainhand Monitor within your dedicated Mainhand Monitor area."
-L["ALIGN_LEFT"] = "Left"
-L["ALIGN_LEFT_TIP_TITLE"] = "Left Alignment"
-L["ALIGN_LEFT_TIP_DESC"] = "Anchors the Mainhand Monitor flush to the left boundary of your Mainhand Monitor area."
-L["ALIGN_RIGHT"] = "Right"
-L["ALIGN_RIGHT_TIP_TITLE"] = "Right Alignment"
-L["ALIGN_RIGHT_TIP_DESC"] = "Anchors the Mainhand Monitor flush to the right boundary of your Mainhand Monitor area."
-
-L["SLIDER_GAME_HEIGHT"] = "Game Height Ratio:"
-L["SLIDER_GAME_HEIGHT_TIP_TITLE"] = "Mainhand Monitor Height"
-L["SLIDER_GAME_HEIGHT_TIP_DESC"] = "Adjusts what percentage of the total window height is occupied by the Mainhand Monitor when using Fill mode."
-L["LABEL_BOTTOM_OFFSET"] = "Game bottom offset (pixels):"
-L["LABEL_BOTTOM_OFFSET_TIP_TITLE"] = "Bottom Inset Offset"
-L["LABEL_BOTTOM_OFFSET_TIP_DESC"] = "Pushes the bottom of the Mainhand Monitor upward by the specified number of pixels to clear taskbars or secondary HUD elements."
-
-L["CARD_SEAM_CALIBRATION"] = "3. Physical Monitor Seam Alignment & Laser Guide"
-L["SLIDER_SEAM_WIDTH"] = "Offhand Monitor width (%):"
-L["SLIDER_SEAM_WIDTH_TIP_TITLE"] = "Physical Seam Position"
-L["SLIDER_SEAM_WIDTH_TIP_DESC"] = "Defines where the boundary between your Offhand Monitor and Mainhand Monitor sits, as a percentage of total spanned screen width."
-L["BTN_SEAM_MINUS"] = "- 1%"
-L["BTN_SEAM_MINUS_TIP_TITLE"] = "Nudge Seam Left"
-L["BTN_SEAM_MINUS_TIP_DESC"] = "Moves the monitor dividing seam 1% to the left."
-L["BTN_SEAM_PLUS"] = "+ 1%"
-L["BTN_SEAM_PLUS_TIP_TITLE"] = "Nudge Seam Right"
-L["BTN_SEAM_PLUS_TIP_DESC"] = "Moves the monitor dividing seam 1% to the right."
-L["BTN_LASER_TOGGLE"] = "Toggle Laser Guide"
-L["BTN_LASER_TOGGLE_TIP_TITLE"] = "Physical Bezel Laser Guide"
-L["BTN_LASER_TOGGLE_TIP_DESC"] = "Shows or hides a bright red seam line: vertical for side-by-side displays and horizontal for stacked displays. Align it with the physical monitor bezel."
-L["SLIDER_BEZEL_GAP"] = "Physical Bezel Gap Correction:"
-L["SLIDER_BEZEL_GAP_TIP_TITLE"] = "Bezel Gap Compensation"
-L["SLIDER_BEZEL_GAP_TIP_DESC"] = "Compensates for the physical plastic border between your screens by creating a blank dead zone to prevent visual misalignment across monitors."
-
--- Tab 2: Offhand Monitor & Map
-L["CARD_WORKSPACE_MGMT"] = "1. Offhand Monitor Panel Management & Behavior"
-L["CHECK_CANVAS_ENABLED"] = "Enable Offhand Offhand Canvas"
-L["CHECK_CANVAS_ENABLED_TIP_TITLE"] = "Offhand Offhand Canvas"
-L["CHECK_CANVAS_ENABLED_TIP_DESC"] = "Enables the Offhand Monitor workstation backdrop where UI panels, maps, character sheets, and bags are organized."
-L["CHECK_ESC_PERSIST"] = "Keep Panels in Offhand Monitor on ESC (Independent Panels)"
-L["CHECK_ESC_PERSIST_TIP_TITLE"] = "Independent Offhand Monitor Panels"
-L["CHECK_ESC_PERSIST_TIP_DESC"] = "Prevents pressing Escape from closing panels docked in your Offhand Monitor. Escape will only clear targets or open the game menu on your main monitor."
-L["CHECK_ALLOW_DRAG"] = "Allow Panel Cross-Seam Dragging"
-L["CHECK_ALLOW_DRAG_TIP_TITLE"] = "Cross-Seam Dragging"
-L["CHECK_ALLOW_DRAG_TIP_DESC"] = "Allows you to freely drag supported frames (Character Frame, Spellbook, Bags) across the seam between your Mainhand Monitor and Offhand Monitor."
-L["CHECK_SEAM_REDIRECT"] = "Offhand Monitor Panel Redirection (Bags, Char, Spellbook)"
-L["CHECK_SEAM_REDIRECT_TIP_TITLE"] = "Automatic Panel Redirection"
-L["CHECK_SEAM_REDIRECT_TIP_DESC"] = "Automatically routes standard Blizzard panels (Character, Spellbook, Quest Log) into the Offhand Monitor upon opening."
-L["CHECK_SEAM_SNAP"] = "Clean Seam Snapping & Edge Alignment"
-L["CHECK_SEAM_SNAP_TIP_TITLE"] = "Edge Snapping"
-L["CHECK_SEAM_SNAP_TIP_DESC"] = "Snaps dragging frames neatly to the Offhand Monitor borders and monitor seam so your Offhand Monitor stays tidy."
-L["SLIDER_HUD_SCALE"] = "Global UI & HUD Scale:"
-L["SLIDER_HUD_SCALE_TIP_TITLE"] = "Global Interface Scale"
-L["SLIDER_HUD_SCALE_TIP_DESC"] = "Resizes the entire user interface (action bars, unit frames, dialogs). Recommended: 56% to 70% for multi-monitor setups."
-
-L["CARD_MINIMAP_CONFIG"] = "2. Minimap Configuration & Positioning"
-L["CHECK_DOCK_MINIMAP"] = "Dock Minimap into Secondary Offhand Monitor Deck"
-L["CHECK_DOCK_MINIMAP_TIP_TITLE"] = "Offhand Monitor Minimap Docking"
-L["CHECK_DOCK_MINIMAP_TIP_DESC"] = "Moves the Minimap from your main game screen into the top of your Offhand Monitor, keeping your 3D view clean and uncluttered."
-L["SLIDER_MINIMAP_SCALE"] = "Minimap Scale Multiplier:"
-L["SLIDER_MINIMAP_SCALE_TIP_TITLE"] = "Minimap Size"
-L["SLIDER_MINIMAP_SCALE_TIP_DESC"] = "Controls the size of the Minimap when docked in your Offhand Monitor (0.6x to 2.0x)."
-L["CHECK_LOCK_MINIMAP"] = "Lock Minimap Position in Offhand Monitor"
-L["CHECK_LOCK_MINIMAP_TIP_TITLE"] = "Lock Minimap"
-L["CHECK_LOCK_MINIMAP_TIP_DESC"] = "Prevents accidental dragging or repositioning of the Minimap in your secondary deck."
-L["BTN_RESET_MINIMAP"] = "Reset Minimap to Default Offhand Monitor Position"
-L["BTN_RESET_MINIMAP_TIP_TITLE"] = "Reset Minimap"
-L["BTN_RESET_MINIMAP_TIP_DESC"] = "Resets the Minimap position, frame strata, and layout to the top center of the Offhand Monitor."
-
-L["CARD_BAG_MGMT"] = "3. Bag Management & Docking"
-L["CHECK_DOCK_BAGS"] = "Auto-Dock All Bags into Secondary Deck"
-L["CHECK_DOCK_BAGS_TIP_TITLE"] = "Secondary Deck Bag Docking"
-L["CHECK_DOCK_BAGS_TIP_DESC"] = "Automatically places all opened container bags into your Offhand Monitor, clearing your gaming monitor for full combat visibility."
-L["CHECK_VERTICAL_BAGS"] = "Force Vertical Bag Column Layout"
-L["CHECK_VERTICAL_BAGS_TIP_TITLE"] = "Vertical Bag Columns"
-L["CHECK_VERTICAL_BAGS_TIP_DESC"] = "Stacks open container bags neatly in vertical columns on your secondary screen instead of sprawling horizontally."
-L["SLIDER_BAG_SCALE"] = "Bag Scale Multiplier:"
-L["SLIDER_BAG_SCALE_TIP_TITLE"] = "Bag Window Size"
-L["SLIDER_BAG_SCALE_TIP_DESC"] = "Adjusts the scale of your container bags on the Offhand Monitor (0.6x to 1.5x)."
-
--- Tab 3: Themes & Colors
-L["CARD_THEMES"] = "1. Visual Theme Style Presets"
-L["THEME_CLASSIC"] = "Classic Warcraft"
-L["THEME_CLASSIC_DESC"] = "Authentic WoW dialog style with gold trim and stone backdrop"
-L["THEME_CLASSIC_TIP_TITLE"] = "Classic Warcraft Theme"
-L["THEME_CLASSIC_TIP_DESC"] = "Uses genuine Blizzard dialog art and authentic stone textures matching the original World of Warcraft aesthetic."
-L["THEME_SLATE"] = "Blizzard Slate"
-L["THEME_SLATE_DESC"] = "Muted charcoal dialog with pewter/silver trim"
-L["THEME_SLATE_TIP_TITLE"] = "Blizzard Slate Theme"
-L["THEME_SLATE_TIP_DESC"] = "A sophisticated dark charcoal theme with sleek silver-pewter borders."
-L["THEME_TINKER"] = "Forged Brass"
-L["THEME_TINKER_DESC"] = "Forged brass borders with glowing blue accents"
-L["THEME_TINKER_TIP_TITLE"] = "Forged Brass Theme"
-L["THEME_TINKER_TIP_DESC"] = "Dark metal featuring antique brass trim and bright blue energy accents."
-L["THEME_OBSIDIAN"] = "Obsidian Dark"
-L["THEME_OBSIDIAN_DESC"] = "Clean modern dark theme with subtle stone borders"
-L["THEME_OBSIDIAN_TIP_TITLE"] = "Obsidian Dark Theme"
-L["THEME_OBSIDIAN_TIP_DESC"] = "A clean, minimalist dark theme designed for modern gaming aesthetics."
-L["THEME_PITCH_BLACK"] = "Pitch Black (OLED)"
-L["THEME_PITCH_BLACK_DESC"] = "Pure black for OLED displays"
-L["THEME_PITCH_BLACK_TIP_TITLE"] = "Pitch Black (OLED) Theme"
-L["THEME_PITCH_BLACK_TIP_DESC"] = "Pure black background designed to turn off pixels on OLED displays for maximum contrast."
-
-L["CARD_TRIM_COLOR"] = "2. Border Trim & Accent Color"
-L["TRIM_GOLD"] = "Blizzard Gold"
-L["TRIM_BRASS"] = "Clockwork Brass"
-L["TRIM_CYAN"] = "Goggle Cyan"
-L["TRIM_SILVER"] = "Pewter Silver"
-L["TRIM_BRONZE"] = "Warm Bronze"
-L["TRIM_EMERALD"] = "Emerald Green"
-L["TRIM_CRIMSON"] = "Crimson Red"
-
-L["CARD_CANVAS_BACKGROUND"] = "3. Secondary Deck Background Tone & Opacity"
-L["CANVAS_STONE"] = "Classic Stone"
-L["CANVAS_TINKER"] = "Tinker Slate"
-L["CANVAS_CHARCOAL"] = "Charcoal Slate"
-L["CANVAS_WARM_NIGHT"] = "Warm Night"
-L["CANVAS_NAVY"] = "Midnight Navy"
-L["CANVAS_BLACK"] = "Pitch Black"
-L["SLIDER_CANVAS_OPACITY"] = "Canvas Background Opacity:"
-L["SLIDER_CANVAS_OPACITY_TIP_TITLE"] = "Canvas Transparency"
-L["SLIDER_CANVAS_OPACITY_TIP_DESC"] = "Adjusts how solid or translucent the Offhand Monitor background appears (0% to 100%)."
-
--- Wizard Dialog Strings & Tooltips
-L["WIZARD_TITLE"] = "Offhand AUTO-CONFIGURATION WIZARD"
-L["WIZARD_CARD1_TITLE"] = "1. Display Topology & 1-Click Auto-Setup"
-L["WIZARD_DETECTED_PREFIX"] = "Detected Display:"
-L["WIZARD_RECOM_PREFIX"] = "Recommendation:"
-L["WIZARD_BTN_AUTOCONFIG"] = "1-Click Auto-Configure & Apply (Recommended)"
-L["WIZARD_BTN_AUTOCONFIG_TIP_TITLE"] = "Automatic 1-Click Calibration"
-L["WIZARD_BTN_AUTOCONFIG_TIP_DESC"] = "Instantly calibrates your dual monitor setup based on detected screen resolution. Sets the seam split, 3D viewport, and orientation with a single click."
-L["WIZARD_STATUS_READY"] = "Click above to automatically detect resolution and configure seam, orientation, and viewport."
-L["WIZARD_STATUS_APPLIED"] = "[Applied] Setup automatically configured for %s"
-
-L["WIZARD_CARD2_TITLE"] = "2. Monitor Orientation & 3D Viewport"
-L["WIZARD_LABEL_LAYOUT"] = "Monitor Layout Preset:"
-L["WIZARD_LABEL_AR"] = "Mainhand Monitor Aspect Ratio:"
-
-L["WIZARD_CARD3_TITLE"] = "3. Physical Monitor Seam Alignment"
-L["WIZARD_SEAM_INSTRUCTION"] = "Align the red laser line with the physical bezel dividing your two monitors:"
-L["WIZARD_LABEL_SEAM"] = "Offhand Monitor width:"
-L["WIZARD_BTN_LASER_SHOW"] = "Show Laser"
-L["WIZARD_BTN_LASER_HIDE"] = "Hide Laser"
-L["WIZARD_PRESET_SEAM_36"] = "1440/4000 Seam (36%)"
-L["WIZARD_PRESET_SEAM_36_TIP_TITLE"] = "1440p Portrait + 4K Landscape"
-L["WIZARD_PRESET_SEAM_36_TIP_DESC"] = "Configures a 36% seam split, precisely tailored for a 1440x2560 portrait screen paired with a 2560x1440 landscape screen."
-L["WIZARD_PRESET_SEAM_50"] = "Equal Split (50%)"
-L["WIZARD_PRESET_SEAM_50_TIP_TITLE"] = "50% Equal Split"
-L["WIZARD_PRESET_SEAM_50_TIP_DESC"] = "Splits the display exactly in half across two monitors of equal width."
-L["WIZARD_PRESET_SEAM_55"] = "Custom Split (55%)"
-L["WIZARD_PRESET_SEAM_55_TIP_TITLE"] = "55% Asymmetric Split"
-L["WIZARD_PRESET_SEAM_55_TIP_DESC"] = "Places 55% of the total screen width on the left monitor and 45% on the right monitor."
-
-L["WIZARD_CARD4_TITLE"] = "4. Global UI Scale & Calibration"
-L["WIZARD_UI_SCALE_INSTRUCTION"] = "Adjust the overall size of the user interface to suit your monitor viewing distance:"
-L["WIZARD_LABEL_UI_SCALE"] = "Global UI Scale:"
-L["WIZARD_UI_SCALE_TIP_TITLE"] = "Global UI Scale"
-L["WIZARD_UI_SCALE_TIP_DESC"] = "Scales all action bars, unit frames, and dialogs. Choose a compact scale (56% to 70%) to keep your game screen unobstructed."
-
-L["WIZARD_PRESET_SCALE_56"] = "Compact (56%)"
-L["WIZARD_PRESET_SCALE_56_TIP_TITLE"] = "Compact UI (56%)"
-L["WIZARD_PRESET_SCALE_56_TIP_DESC"] = "Ultra-clean minimalist scale, freeing maximum screen space for 3D world visuals."
-L["WIZARD_PRESET_SCALE_65"] = "Balanced (65%)"
-L["WIZARD_PRESET_SCALE_65_TIP_TITLE"] = "Balanced UI (65%)"
-L["WIZARD_PRESET_SCALE_65_TIP_DESC"] = "A well-balanced scale providing crisp text legibility while maintaining generous screen real estate."
-L["WIZARD_PRESET_SCALE_70"] = "Standard (70%)"
-L["WIZARD_PRESET_SCALE_70_TIP_TITLE"] = "Standard UI (70%)"
-L["WIZARD_PRESET_SCALE_70_TIP_DESC"] = "Standard Offhand default scale, ideal for 1440p and 4K displays at normal desk viewing distance."
-L["WIZARD_PRESET_SCALE_100"] = "Full size (100%)"
-L["WIZARD_PRESET_SCALE_100_TIP_TITLE"] = "Unscaled UI (100%)"
-L["WIZARD_PRESET_SCALE_100_TIP_DESC"] = "Standard 100% Blizzard UI size without scaling reductions."
-
-L["WIZARD_BTN_ADVANCED"] = "Advanced Settings (/Offhand)"
-L["WIZARD_BTN_ADVANCED_TIP_TITLE"] = "Advanced Settings"
-L["WIZARD_BTN_ADVANCED_TIP_DESC"] = "Closes the wizard and opens the full 3-tab Offhand options dashboard with complete customization controls."
-L["WIZARD_BTN_FINISH"] = "Finish Setup"
-L["WIZARD_BTN_FINISH_TIP_TITLE"] = "Finish Calibration"
-L["WIZARD_BTN_FINISH_TIP_DESC"] = "Saves your configuration, marks initial setup complete, and applies your new multi-monitor layout."
 
 -- ============================================================================
 -- Color Picker Helper
@@ -458,7 +225,7 @@ StaticPopupDialogs["OFFHAND_COMPANION_WARNING"] = {
     OnShow = function(self)
         local eb = self.EditBox or _G[self:GetName().."EditBox"]
         if eb then
-            eb:SetText("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.13/Offhand-Companion.zip")
+            eb:SetText("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.18/Offhand-Companion.zip")
             eb:HighlightText()
             eb:SetFocus()
         end
@@ -485,7 +252,7 @@ StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"] = {
     OnShow = function(self)
         local eb = self.EditBox or _G[self:GetName().."EditBox"]
         if eb then
-            eb:SetText("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.13/Offhand-Companion.zip")
+            eb:SetText("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.18/Offhand-Companion.zip")
             eb:HighlightText()
             eb:SetFocus()
         end
@@ -568,6 +335,25 @@ StaticPopupDialogs["OFFHAND_FOREVER_EDIT_MODE_CONTROLS"] = {
     preferredIndex = 3,
 }
 
+StaticPopupDialogs["OFFHAND_FOREVER_PARTY_FRAME_RECOVERY"] = {
+    text = Offhand.L["FOREVER_PARTY_FRAME_RECOVERY_TEXT"],
+    button1 = Offhand.L["FOREVER_PARTY_FRAME_RECOVERY_ACK"],
+    OnAccept = function()
+        if Offhand.HUD and Offhand.HUD.DismissForeverPartyFrameRecoveryPrompt then
+            Offhand.HUD:DismissForeverPartyFrameRecoveryPrompt()
+        end
+    end,
+    OnCancel = function()
+        if Offhand.HUD and Offhand.HUD.DismissForeverPartyFrameRecoveryPrompt then
+            Offhand.HUD:DismissForeverPartyFrameRecoveryPrompt()
+        end
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
 
 function Offhand:InitializePopups()
     StaticPopupDialogs["OFFHAND_COMPANION_WARNING"].text = string.format(
@@ -590,6 +376,9 @@ function Offhand:InitializePopups()
     editMode.text = Offhand.L["FOREVER_EDIT_MODE_CONTROLS_TEXT"]
     editMode.button1 = Offhand.L["FOREVER_EDIT_MODE_BRING_TO_MAINHAND"]
     editMode.button2 = Offhand.L["FOREVER_EDIT_MODE_NOT_NOW"]
+    local partyFrame = StaticPopupDialogs["OFFHAND_FOREVER_PARTY_FRAME_RECOVERY"]
+    partyFrame.text = Offhand.L["FOREVER_PARTY_FRAME_RECOVERY_TEXT"]
+    partyFrame.button1 = Offhand.L["FOREVER_PARTY_FRAME_RECOVERY_ACK"]
 end
 
 function Offhand:ShowForeverLayoutRecoveryPrompt(kind)
@@ -610,6 +399,14 @@ end
 
 function Offhand:HideForeverEditModeControlsPrompt()
     if StaticPopup_Hide then StaticPopup_Hide("OFFHAND_FOREVER_EDIT_MODE_CONTROLS") end
+end
+
+function Offhand:ShowForeverPartyFrameRecoveryPrompt()
+    if StaticPopup_Show then StaticPopup_Show("OFFHAND_FOREVER_PARTY_FRAME_RECOVERY") end
+end
+
+function Offhand:HideForeverPartyFrameRecoveryPrompt()
+    if StaticPopup_Hide then StaticPopup_Hide("OFFHAND_FOREVER_PARTY_FRAME_RECOVERY") end
 end
 
 local eventFrame = CreateFrame("Frame", "OffhandEventFrame")
@@ -956,7 +753,6 @@ end
 SLASH_OFFHAND1 = "/offhand"
 SLASH_OFFHAND2 = "/oh"
 SLASH_OFFHAND3 = "/Offhand"
-SLASH_OFFHAND4 = "/ak"
 
 SlashCmdList["OFFHAND"] = function(msg)
     msg = strtrim(msg or ""):lower()
@@ -980,17 +776,36 @@ SlashCmdList["OFFHAND"] = function(msg)
             tostring(m.companionVersion or "not recorded"),
             tostring(m.expectedCompanionVersion or Offhand.companionFullVersion or "unknown"),
             tostring(m.companionVersionStatus or "unavailable"))
+        local topologyDiag = Offhand.Viewport:GetTopologyDiagnostics()
+        Offhand:Print("Topology diagnostics: state=%s | loaded=%s | schema=%s | expected=%sx%s | live=%dx%d | canvas=%.0fx%.0f.",
+            tostring(topologyDiag.status or "UNKNOWN"),
+            topologyDiag.loaded and "yes" or "no",
+            tostring(topologyDiag.schema or "none"),
+            tostring(topologyDiag.expectedWidth or "unknown"),
+            tostring(topologyDiag.expectedHeight or "unknown"),
+            topologyDiag.liveWidth, topologyDiag.liveHeight,
+            topologyDiag.canvasWidth, topologyDiag.canvasHeight)
         -- Rendering fidelity is owned by the client, not Offhand's viewport
-        -- anchors. Report the relevant read-only CVars so a window-backbuffer
-        -- mismatch can be distinguished from UI scale or geometry problems.
-        local function DiagnosticCVar(name)
-            if not GetCVar then return "unavailable" end
-            local ok, value = pcall(GetCVar, name)
-            return ok and tostring(value or "") or "unavailable"
-        end
+        -- anchors. Report read-only renderer state and the spanned bounding
+        -- surface so scanout tearing, frame pacing and pixel load can be
+        -- investigated separately from viewport geometry.
+        local perf = Offhand.Viewport:GetPerformanceDiagnostics(m)
         Offhand:Print("Render diagnostics: gxWindowedResolution=%s | RenderScale=%s | ResampleQuality=%s | gxWindow=%s.",
-            DiagnosticCVar("gxWindowedResolution"), DiagnosticCVar("RenderScale"),
-            DiagnosticCVar("ResampleQuality"), DiagnosticCVar("gxWindow"))
+            perf.gxWindowedResolution, perf.renderScale, perf.resampleQuality, perf.gxWindow)
+        Offhand:Print("Performance diagnostics: FPS=%s | API=%s | VSync=%s | ForegroundCap=%s | BackgroundCap=%s | LowLatency=%s | MSAA=%s.",
+            perf.fps and string.format("%.1f", perf.fps) or "unavailable",
+            perf.gxApi, perf.gxVSync, perf.maxFPS, perf.maxFPSBk,
+            perf.lowLatencyMode, perf.msaaQuality)
+        Offhand:Print("AA diagnostics: ImageAA=%s | CMAA2=%s | MSAAAlpha=%s | TextureFilter=%s.",
+            perf.antiAliasingMode, perf.cmaa2Quality, perf.msaaAlphaTest,
+            perf.textureFilteringMode)
+        Offhand:Print("Scaling diagnostics: Dynamic=%s | AlwaysSharpen=%s | Sharpness=%s | ForegroundMin=%s | BackgroundMin=%s.",
+            perf.dynamicRenderScale, perf.resampleAlwaysSharpen,
+            perf.resampleSharpness, perf.foregroundDowngradeMin,
+            perf.backgroundDowngradeMin)
+        Offhand:Print("Pixel bounds: Span=%.2f MP | Mainhand=%.2f MP | Bounds/Mainhand=%.2fx.",
+            perf.spanPixels / 1000000, perf.mainhandPixels / 1000000,
+            perf.boundsToMainhandRatio)
         if Offhand.HasEllesmerePartyFrames and Offhand.HasEllesmerePartyFrames() then
             Offhand:Print(L["COMPAT_ELLESMERE_PARTY"])
         end
@@ -1171,7 +986,7 @@ frame:SetScript("OnEvent", function()
     end
 
     local function EnforceTooltipScale(self)
-        if not UIParent or not HasActiveSpannedLayout() then return end
+        if (InCombatLockdown and InCombatLockdown()) or not UIParent or not HasActiveSpannedLayout() then return end
         if self.SetIgnoreParentScale and self.IsIgnoringParentScale and self:IsIgnoringParentScale() then
             self:SetIgnoreParentScale(false)
         end
@@ -1204,8 +1019,9 @@ frame:SetScript("OnEvent", function()
                 hooksecurefunc(tt, "SetOwner", EnforceTooltipScale)
             end
             if tt.SetIgnoreParentScale then
-                if HasActiveSpannedLayout() then tt:SetIgnoreParentScale(false) end
+                if (not InCombatLockdown or not InCombatLockdown()) and HasActiveSpannedLayout() then tt:SetIgnoreParentScale(false) end
                 hooksecurefunc(tt, "SetIgnoreParentScale", function(self, ignore)
+                    if InCombatLockdown and InCombatLockdown() then return end
                     if ignore and HasActiveSpannedLayout() then self:SetIgnoreParentScale(false) end
                 end)
             end

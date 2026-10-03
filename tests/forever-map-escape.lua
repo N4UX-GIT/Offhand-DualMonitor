@@ -134,6 +134,7 @@ CreateFrame = function(_, _, parent)
     return handle
 end
 UISpecialFrames = { "WorldMapFrame" }
+UIPanelWindows = { WorldMapFrame = { area = "left", pushable = 0 } }
 activePanels.left = WorldMapFrame
 PlayerMovementFrameFader = {
     removed = 0,
@@ -401,6 +402,17 @@ CharacterFrame._OffhandMovable = true
 ContainerFrameCombinedBags._OffhandMovable = true
 CloseAllBags = lateCloseAllBags
 ToggleGameMenu = nil
+ToggleWorldMap = function()
+    if WorldMapFrame:IsShown() then
+        WorldMapFrame:Hide()
+    else
+        -- Blizzard's full-canvas TOPLEFT default lands entirely above a
+        -- bottom-aligned 1080p workspace beside a 2160p Mainhand.
+        WorldMapFrame.left = 200
+        WorldMapFrame.bottom = 1300
+        WorldMapFrame:Show()
+    end
+end
 addon.Canvas:EnableFreeDragging()
 assert(addon.Canvas._closeAllBagsEscapeHooked
     and not addon.Canvas._toggleGameMenuEscapeHooked,
@@ -411,6 +423,41 @@ addon.Canvas:EnableFreeDragging()
 assert(addon.Canvas._closeAllBagsEscapeHooked
     and addon.Canvas._toggleGameMenuEscapeHooked,
     "A later addon-load pass must install both direct Forever Escape hooks")
+
+-- An unsaved Forever map cannot receive a native OnShow hook without tainting
+-- MapCanvas. Its external M-key post-hook must still rescue Blizzard's default
+-- anchor from the non-physical area above a shorter workspace.
+local originalMetrics = {}
+for key, value in pairs(metrics) do originalMetrics[key] = value end
+metrics.screenWidth, metrics.screenHeight = 5760, 2160
+metrics.gameLeft, metrics.gameBottom = 1920, 0
+metrics.gameRight, metrics.gameTop = 5760, 2160
+metrics.gameWidth, metrics.gameHeight = 3840, 2160
+metrics.workspaceLeft, metrics.workspaceBottom = 0, 0
+metrics.workspaceRight, metrics.workspaceTop = 1920, 1080
+metrics.workspaceWidth, metrics.workspaceHeight = 1920, 1080
+local savedWorkspaceMap = addon.db.savedWorkspacePositions.WorldMapFrame
+local savedMainMap = addon.db.savedMainPositions.WorldMapFrame
+addon.db.savedWorkspacePositions.WorldMapFrame = nil
+addon.db.savedMainPositions.WorldMapFrame = nil
+WorldMapFrame:Hide()
+ToggleWorldMap()
+flushTimers()
+local mapLeft, mapBottom = WorldMapFrame:GetLeft(), WorldMapFrame:GetBottom()
+local mapRight = mapLeft + WorldMapFrame:GetWidth() * WorldMapFrame:GetEffectiveScale()
+local mapTop = mapBottom + WorldMapFrame:GetHeight() * WorldMapFrame:GetEffectiveScale()
+local mapOnWorkspace = mapLeft >= metrics.workspaceLeft and mapRight <= metrics.workspaceRight
+    and mapBottom >= metrics.workspaceBottom and mapTop <= metrics.workspaceTop
+local mapOnMainhand = mapLeft >= metrics.gameLeft and mapRight <= metrics.gameRight
+    and mapBottom >= metrics.gameBottom and mapTop <= metrics.gameTop
+assert(mapOnWorkspace or mapOnMainhand,
+    "the external Forever map toggle must rescue an unsaved map from mixed-height dead space")
+assert(WorldMapFrame.setScriptWrites == 0 and WorldMapFrame.hookScriptWrites == 0,
+    "unsaved map rescue must preserve the native Forever MapCanvas script boundary")
+for key in pairs(metrics) do metrics[key] = nil end
+for key, value in pairs(originalMetrics) do metrics[key] = value end
+addon.db.savedWorkspacePositions.WorldMapFrame = savedWorkspaceMap
+addon.db.savedMainPositions.WorldMapFrame = savedMainMap
 
 addon.db.openWorkspacePanels.ContainerFrameCombinedBags = true
 CloseAllBags()
@@ -447,6 +494,49 @@ ToggleAllBags()
 flushTimers()
 assert(not ContainerFrame1:IsShown(),
     "B must still close individual workspace bags explicitly")
+
+-- Restore Window/single-screen play must use Blizzard's normal Escape path.
+-- A stale dual-screen open snapshot may be retained for the next span, but it
+-- must never reopen the native backpack while the workspace is inactive.
+useCombinedBags = true
+ContainerFrameCombinedBags:Show()
+addon.db.nativeBackpackWorkspaceOpen = true
+addon.db.openWorkspacePanels.ContainerFrameCombinedBags = true
+metrics.isSpanned = false
+CloseAllWindows()
+flushTimers()
+assert(not ContainerFrameCombinedBags:IsShown(),
+    "Escape must leave the native backpack closed while Offhand is not spanned")
+assert(addon.Canvas._workspaceBagAwaitingGameMenuToggle == nil,
+    "single-screen Escape must not arm the Forever workspace-bag repair")
+metrics.isSpanned = true
+
+-- If Blizzard's bag API declines to reopen a logically stale backpack, Offhand
+-- must not reveal ContainerFrame directly. That shell lacks initialized pooled
+-- item buttons and crashes ContainerFrame_OnHide on the next Escape.
+local nativeOpenAllBags, nativeToggleAllBags = OpenAllBags, ToggleAllBags
+OpenAllBags = function() end
+ToggleAllBags = function() end
+ContainerFrameCombinedBags:Hide()
+assert(not addon.Canvas:RestoreTrackedWorkspaceBag()
+        and not ContainerFrameCombinedBags:IsShown(),
+    "workspace restore must not call Show directly on a native bag frame")
+OpenAllBags, ToggleAllBags = nativeOpenAllBags, nativeToggleAllBags
+
+useCombinedBags = true
+ContainerFrameCombinedBags:Show()
+addon.Canvas:PrepareNativeBackpackFrame(ContainerFrameCombinedBags)
+addon.Canvas:SetWorkspacePanelOpen(ContainerFrameCombinedBags, true)
+CloseAllWindows()
+local combatActive = true
+InCombatLockdown = function() return combatActive end
+flushTimers()
+combatActive = false
+InCombatLockdown = function() return false end
+assert(not ContainerFrameCombinedBags:IsShown(),
+    "Combat lockdown must abort deferred workspace backpack restoration from Escape")
+assert(addon.Canvas._restoringWorkspaceBagFromEscape == false,
+    "Combat lockdown must reset the restoringWorkspaceBagFromEscape guard flag")
 
 addon.db.savedWorkspacePositions.WorldMapFrame = nil
 addon.db.savedMainPositions.WorldMapFrame = { x = 1600, y = 1000 }

@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- Companion 2.1.2 Beta 18 is the new desktop baseline. Addon manifests now
+  identify the actual addon release separately from Companion protocol `1` and
+  minimum Companion version `2.1.2-beta.18`, so later addon-only releases can
+  reuse the exact approved Companion bytes without rebuilding them.
+- The Companion now respects the configured automatic-span delay on Forever as
+  well as other clients. Choose `0` explicitly when immediate pre-login
+  spanning is desired.
+- The Companion no longer registers system-wide hotkeys and adds a managed
+  **Identify Displays** overlay for mapping Offhand display numbers and roles.
 - The settings header now shows the Companion release paired with the installed
   addon. Its version tooltip lists the exact addon build and paired Companion
   build separately, and explains that WoW cannot inspect the executable that is
@@ -15,11 +24,11 @@ All notable changes to this project will be documented in this file.
   client build changes, and supports only delayed dragging and position restore;
   automatic opening, Escape protection and reload persistence remain disabled.
 - Addon metadata now separates the addon's independently advancing public
-  release from the frozen Companion compatibility release (`beta.13`).
+  release from the Companion protocol and minimum supported Companion build.
 - Companion display-plan and activity-log messages now wrap instead of drawing
   long missing-monitor diagnostics outside their cards.
-- Companion's Hotkey selector is narrower so it no longer covers the monitor
-  checklist when three or more displays are connected.
+- Companion replaces the former Hotkey selector with the display-identification
+  control, avoiding the prior overlap and removing the global-hotkey behavior.
 - Companion documents an experimental same-prefix, same-runner Wine path,
   including a Lutris pre-launch example and Linux extraction checks, while
   keeping native X11 and compositor-specific Wayland support as separate work.
@@ -27,7 +36,7 @@ All notable changes to this project will be documented in this file.
   preserve the addon directory tree without a custom deflattening script.
 - The executable in the complete release bundle is now consistently named
   `Offhand.exe`, matching the standalone file and Companion archive.
-- Addon-only release automation now restores the published Beta 13 Companion,
+- Addon-only release automation now restores the published Beta 18 Companion,
   verifies its exact SHA-256, and reuses those frozen bytes in the complete
   bundle and the stable `releases/latest/download` asset names. Rebuilding the
   Companion still requires an explicit Companion-change release lane.
@@ -37,6 +46,28 @@ All notable changes to this project will be documented in this file.
   Companion's required window-management behavior.
 
 ### Fixed
+- Forever's opt-in experimental Professions movement now centers the fully
+  opened window on Mainhand when it has no saved Offhand position. This makes
+  its drag surface reachable when Blizzard's default upper-left anchor lands in
+  the non-physical area of a mixed-height span, without enabling automatic open,
+  Escape ownership or reload persistence.
+- Forever native backpacks now use only Blizzard's title-bar drag lifecycle.
+  Offhand no longer applies its generic whole-panel mouse, movable or clamping
+  changes when a generated bag temporarily reports itself as unprotected,
+  preventing the item-grid hover shade from remaining over the backpack.
+- Forever no longer reopens a saved workspace backpack when Escape is pressed
+  after Restore Window or while Offhand is otherwise unspanned. Native backpack
+  recovery also never calls `Show()` on a `ContainerFrame`; if Blizzard's bag
+  API declines to rebuild the frame, Offhand clears the stale open request
+  instead of exposing an uninitialized grey shell whose next hide can error.
+- On Forever mixed-height spans, an unsaved World Map opened from the M key is
+  now rescued from non-physical canvas space by the existing external toggle
+  hook. The recovery does not attach scripts to the protected MapCanvas tree
+  and leaves maximized maps under Blizzard ownership.
+- Forever now warns once when Blizzard Party or Raid Frames are visible outside
+  both physical monitor rectangles. The in-game guidance explains the safe Edit
+  Mode recovery through Companion's Restore Window flow and why inaccessible
+  protected HUD frames cannot be dragged or gathered while the span is active.
 - Forever's load-on-demand Professions interface is now Blizzard-owned by
   default. Offhand no longer changes its panel registration, position or open
   state unless the user explicitly enables the isolated experimental movement
@@ -177,6 +208,12 @@ All notable changes to this project will be documented in this file.
 
 ## [2.1.2] - 2026-09-22
 ### Added
+- Added an opt-in **Hide close buttons on Offhand windows** setting. Supported
+  Blizzard, Baganator and EllesmereUI close buttons become transparent and
+  non-interactive only while their visible parent window is in the Offhand
+  workspace, and are restored on Mainhand or when the option is disabled. The
+  controller uses polling rather than attaching scripts to protected Blizzard
+  controls.
 - Added durable Forever onboarding state and Companion recovery so acknowledged welcome/setup state survives reloads and cold launches.
 - Expanded the in-game FAQ, first-run guide, website, and distribution documentation with the complete Companion, Wizard, Edit Mode, and cold-launch setup flow.
 - Added Companion control tooltips, an in-app setup/help guide, a security behavior disclosure, release SHA-256 verification instructions, and GitHub build-provenance attestations.

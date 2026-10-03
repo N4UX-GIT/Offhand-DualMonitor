@@ -13,7 +13,7 @@ local L = Offhand.L or setmetatable({}, {
 })
 
 local tinsert = table.insert
-local COMPANION_DOWNLOAD_URL = "https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.13/Offhand-Companion.zip"
+local COMPANION_DOWNLOAD_URL = "https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.18/Offhand-Companion.zip"
 
 
 StaticPopupDialogs["OFFHAND_DOWNLOAD_LINK"] = {
@@ -166,6 +166,18 @@ function Options:DetectTopology()
             metrics.gamePixelWidth, metrics.gamePixelHeight,
             metrics.workspacePixelWidth, metrics.workspacePixelHeight,
             metrics.topologyMode == "SPLIT_ULTRAWIDE" and "single-display split" or (stacked and "stacked" or "side-by-side"))
+        return info
+    end
+
+    -- A loaded exact topology that does not match the current WoW surface is a
+    -- recovery/readiness state, not permission to guess from the old window's
+    -- aspect ratio. For example, a decorated 3840x2160 window can temporarily
+    -- report 3818x2104 while the Companion is spanning it. That single
+    -- landscape surface otherwise satisfies the broad mixed-monitor heuristic
+    -- below and makes the wizard save a false portrait + landscape layout.
+    if metrics and metrics.topologyStatus == "MISMATCH" then
+        info.topologyStatus = metrics.topologyStatus
+        info.description = "Companion topology does not match the current WoW window"
         return info
     end
 
@@ -1555,7 +1567,7 @@ function Options:CreateFloatingPanel()
     end
 
 
-    local card2_2 = CreateCard(tab2, L["CARD_PERSISTENCE"], 240)
+    local card2_2 = CreateCard(tab2, L["CARD_PERSISTENCE"], 308)
     local recoveryCard = CreateCard(tab2, L["CARD_RECOVERY"], 118)
     local advancedCard
     local advancedCheck
@@ -1690,6 +1702,26 @@ function Options:CreateFloatingPanel()
     )
     seamCheck:SetPoint("TOPLEFT", 10, -190)
 
+    local hideCloseCheck = CreateNativeCheckbox(card2_2, L["HIDE_WORKSPACE_CLOSE_BUTTONS"],
+        function() return Offhand.db and Offhand.db.hideWorkspaceCloseButtons == true end,
+        function(val)
+            if Offhand.WorkspaceChrome and Offhand.WorkspaceChrome.SetEnabled then
+                Offhand.WorkspaceChrome:SetEnabled(val)
+            elseif Offhand.db then
+                Offhand.db.hideWorkspaceCloseButtons = val == true
+            end
+        end,
+        L["HIDE_WORKSPACE_CLOSE_BUTTONS"], L["HIDE_WORKSPACE_CLOSE_BUTTONS_DESC"]
+    )
+    hideCloseCheck:SetPoint("TOPLEFT", 10, -216)
+
+    local hideCloseDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    hideCloseDesc:SetPoint("TOPLEFT", 32, -238)
+    hideCloseDesc:SetWidth(530)
+    hideCloseDesc:SetJustifyH("LEFT")
+    hideCloseDesc:SetWordWrap(true)
+    hideCloseDesc:SetText(L["HIDE_WORKSPACE_CLOSE_BUTTONS_DESC"])
+
     local forceCheck = CreateNativeCheckbox(recoveryCard, L["PREVIEW_DUAL"],
         function() return (Offhand.db and Offhand.db.forceDualOnSingle) or false end,
         function(val) Offhand.db.forceDualOnSingle = val end,
@@ -1698,7 +1730,7 @@ function Options:CreateFloatingPanel()
     forceCheck:SetPoint("TOPLEFT", 12, -76)
 
     local compatDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    compatDesc:SetPoint("TOPLEFT", 32, -212)
+    compatDesc:SetPoint("TOPLEFT", 32, -278)
     compatDesc:SetWidth(530)
     compatDesc:SetJustifyH("LEFT")
     compatDesc:SetWordWrap(true)
@@ -2059,11 +2091,11 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 4: PROFILES
     -- ========================================================================
-    local card4_1 = CreateCard(tab4, L["PROFILES_LIST_TITLE"] or "Profiles", 390)
+    local card4_1 = CreateCard(tab4, L["PROFILES_LIST_TITLE"], 390)
     
     local activeProfileLabel = card4_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightLarge")
     activeProfileLabel:SetPoint("TOPLEFT", 16, -24)
-    activeProfileLabel:SetText((L["PROFILES_CURRENT_LABEL"] or "Active Profile:") .. " |cff00ff00" .. tostring((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") .. "|r")
+    activeProfileLabel:SetText(L["PROFILES_CURRENT_LABEL"] .. " |cff00ff00" .. tostring((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") .. "|r")
 
     local profileScroll = CreateFrame("ScrollFrame", "OffhandProfileScrollFrame", card4_1, "UIPanelScrollFrameTemplate")
     profileScroll:SetPoint("TOPLEFT", 16, -56)
@@ -2092,7 +2124,7 @@ function Options:CreateFloatingPanel()
     local loadBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
     loadBtn:SetSize(160, 26)
     loadBtn:SetPoint("TOPLEFT", profileScroll, "TOPRIGHT", 40, 0)
-    loadBtn:SetText(L["PROFILES_BTN_LOAD"] or "Load")
+    loadBtn:SetText(L["PROFILES_BTN_LOAD"])
     
     local copyBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
     copyBtn:SetSize(160, 26)
@@ -2102,12 +2134,12 @@ function Options:CreateFloatingPanel()
     local deleteBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
     deleteBtn:SetSize(160, 26)
     deleteBtn:SetPoint("TOPLEFT", copyBtn, "BOTTOMLEFT", 0, -8)
-    deleteBtn:SetText(L["PROFILES_BTN_DELETE"] or "Delete")
+    deleteBtn:SetText(L["PROFILES_BTN_DELETE"])
     
     local resetBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
     resetBtn:SetSize(160, 26)
     resetBtn:SetPoint("TOPLEFT", deleteBtn, "BOTTOMLEFT", 0, -24)
-    resetBtn:SetText(L["PROFILES_BTN_RESET"] or "Reset Current")
+    resetBtn:SetText(L["PROFILES_BTN_RESET"])
     
     local createEditBox = CreateFrame("EditBox", nil, card4_1, "InputBoxTemplate")
     createEditBox:SetSize(200, 26)
@@ -2121,7 +2153,7 @@ function Options:CreateFloatingPanel()
     local createBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
     createBtn:SetSize(80, 26)
     createBtn:SetPoint("LEFT", createEditBox, "RIGHT", 4, 0)
-    createBtn:SetText(L["PROFILES_BTN_CREATE"] or "Save As")
+    createBtn:SetText(L["PROFILES_BTN_CREATE"])
 
     local autoSaveNote = card4_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     autoSaveNote:SetPoint("TOPLEFT", profileScroll, "BOTTOMLEFT", 0, -72)
@@ -2131,7 +2163,7 @@ function Options:CreateFloatingPanel()
 
     function Options:UpdateProfileList()
         local profiles = Offhand.GetProfiles and Offhand:GetProfiles() or {"Default"}
-        activeProfileLabel:SetText((L["PROFILES_CURRENT_LABEL"] or "Active Profile:") .. " |cff00ff00" .. tostring((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") .. "|r")
+        activeProfileLabel:SetText(L["PROFILES_CURRENT_LABEL"] .. " |cff00ff00" .. tostring((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") .. "|r")
         
         -- Hide old buttons
         for _, btn in ipairs(profileButtons) do btn:Hide() end
@@ -2397,6 +2429,7 @@ function Options:CreateFloatingPanel()
         rFill:SetChecked(Offhand.db and Offhand.db.aspectRatioMode == "FILL")
 
         seamCheck:SetChecked((Offhand.db and Offhand.db.seamRedirect) or false)
+        hideCloseCheck:SetChecked((Offhand.db and Offhand.db.hideWorkspaceCloseButtons == true) or false)
         mapMoveCheck:SetChecked((Offhand.db and Offhand.db.preventMapCloseOnMove) or false)
         panelCheck:SetChecked((Offhand.db and Offhand.db.independentWorkspacePanels) or false)
         escapeCheck:SetChecked((Offhand.db and Offhand.db.persistentWorkspacePanels ~= false) or false)

@@ -76,29 +76,35 @@ end
 
 icon:SetScript("OnClick", function(self, button)
     if isDragging then return end
+    local L = Offhand.L or {}
     if button == "LeftButton" then
         if Offhand.Options then Offhand.Options:Open() end
     elseif button == "RightButton" then
+        local title = L["MINIMAP_MENU_TITLE"]
+        local openSettings = L["MINIMAP_MENU_SETTINGS"]
+        local runWizard = L["MINIMAP_MENU_WIZARD"]
+        local gatherUI = L["GATHER_UI"]
+
         if MenuUtil and MenuUtil.CreateContextMenu then
             MenuUtil.CreateContextMenu(self, function(owner, rootDescription)
-                rootDescription:CreateTitle("Offhand Workspace")
-                rootDescription:CreateButton("Open Settings", function()
+                rootDescription:CreateTitle(title)
+                rootDescription:CreateButton(openSettings, function()
                     if Offhand.Options then Offhand.Options:Open() end
                 end)
-                rootDescription:CreateButton("Run Setup Wizard", function()
+                rootDescription:CreateButton(runWizard, function()
                     if Offhand.Wizard then Offhand.Wizard:Open() end
                 end)
                 rootDescription:CreateDivider()
-                rootDescription:CreateButton("Gather Off-Screen UI", GatherOffScreenUI)
+                rootDescription:CreateButton(gatherUI, GatherOffScreenUI)
             end)
         else
             -- Fallback for older clients without MenuUtil
             local menuList = {
-                { text = "Offhand Workspace", isTitle = true, notCheckable = true },
-                { text = "Open Settings", notCheckable = true, func = function() if Offhand.Options then Offhand.Options:Open() end end },
-                { text = "Run Setup Wizard", notCheckable = true, func = function() if Offhand.Wizard then Offhand.Wizard:Open() end end },
+                { text = title, isTitle = true, notCheckable = true },
+                { text = openSettings, notCheckable = true, func = function() if Offhand.Options then Offhand.Options:Open() end end },
+                { text = runWizard, notCheckable = true, func = function() if Offhand.Wizard then Offhand.Wizard:Open() end end },
                 { text = "", isTitle = true, notCheckable = true },
-                { text = "Gather Off-Screen UI", notCheckable = true, func = GatherOffScreenUI }
+                { text = gatherUI, notCheckable = true, func = GatherOffScreenUI }
             }
             EasyMenu(menuList, menuFrame, "cursor", 0, 0, "MENU")
         end
@@ -106,11 +112,12 @@ icon:SetScript("OnClick", function(self, button)
 end)
 
 icon:SetScript("OnEnter", function(self)
+    local L = Offhand.L or {}
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    GameTooltip:AddLine("Offhand Workspace")
-    GameTooltip:AddLine("Left-Click:|r Open Settings", 1, 1, 1)
-    GameTooltip:AddLine("Right-Click:|r Open Menu", 1, 1, 1)
-    GameTooltip:AddLine("Drag:|r Move Icon", 1, 1, 1)
+    GameTooltip:AddLine(L["MINIMAP_MENU_TITLE"])
+    GameTooltip:AddLine(L["MINIMAP_TIP_LEFT"], 1, 1, 1)
+    GameTooltip:AddLine(L["MINIMAP_TIP_RIGHT"], 1, 1, 1)
+    GameTooltip:AddLine(L["MINIMAP_TIP_DRAG"], 1, 1, 1)
     GameTooltip:Show()
 end)
 icon:SetScript("OnLeave", function(self)

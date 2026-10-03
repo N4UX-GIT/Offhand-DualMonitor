@@ -9,10 +9,10 @@ artifact remains the in-game addon only.
 
 Every release must satisfy all of the following:
 
-- Addon releases keep the portable Companion frozen at `v2.1.2-beta.13`
+- Addon releases keep the portable Companion frozen at `v2.1.2-beta.18`
   unless the desktop application itself requires an intentional update.
-- The addon's public version advances independently while its Companion
-  compatibility token remains `beta.13`.
+- The addon's public release advances independently while compatible releases
+  retain Companion protocol `1` and minimum version `2.1.2-beta.18`.
 - GitHub artifacts are built once, checksummed, and traceable to the release
   tag.
 - The Microsoft Store package uses the Store-assigned identity and a package
@@ -33,10 +33,12 @@ Every release must satisfy all of the following:
 
 The canonical portable Companion is currently:
 
-- Release: `v2.1.2-beta.13`
-- Download: <https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.13/Offhand-Companion.zip>
+- Release: `v2.1.2-beta.18`
+- Download: <https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.18/Offhand-Companion.zip>
 - Standalone `Offhand.exe` SHA-256:
-  `E41E043EFCBB01936155FA0C8A8634F8DF80D7A83599BB5D583F1ECF6B07AEBE`
+  `A42A45CB149C66EF884308F15A79EE8905C58A94E9B4AE1A3B05B43BAF929F37`
+- `Offhand-Companion.zip` SHA-256:
+  `20D8FF3DC38D2C0517A2D88362934E0A2A41088927C63245ED01FFF0ECD5664F`
 
 Normal addon releases include those exact bytes in the complete bundle and
 reattach the byte-identical `Offhand-Companion.zip` and `Offhand.exe`. This
@@ -82,21 +84,21 @@ The source, addon metadata, UI, Git tag, and GitHub release use semantic release
 identifiers such as:
 
 ```text
-2.1.2-beta.14
-v2.1.2-beta.14
+2.1.2-beta.19
+v2.1.2-beta.19
 ```
 
 For an addon-only beta release, update at least:
 
-- Every supported `Offhand*.toc`: `## Version` and
-  `## X-Offhand-Addon-Release`.
-- Keep `## X-Offhand-Release: beta.13` and
-  `## X-Offhand-Companion-Release: beta.13` unchanged. The published Beta 13
-  Companion reads `X-Offhand-Release` as its compatibility contract.
-- Keep addon-only releases as prereleases if their base version advances past
-  `2.1.2`. A newer stable GitHub release would make Beta 13's manual update
-  check incorrectly announce an updated Companion; release metadata generation
-  blocks that case.
+- Every supported `Offhand*.toc`: `## Version`, `## X-Offhand-Release`, and
+  `## X-Offhand-Addon-Release`. These fields identify the actual addon release.
+- Keep `## X-Offhand-Companion-Release: beta.18`,
+  `## X-Offhand-Companion-Protocol: 1`, and
+  `## X-Offhand-Companion-Min-Version: 2.1.2-beta.18` unchanged while the
+  frozen Beta 18 Companion remains compatible.
+- The addon may advance to another beta or base version without forcing a new
+  Companion. Compatibility is determined by protocol and minimum version, not
+  by matching the addon's release label.
 - Do not change `Companion/Source/Program.cs`, rebuild the executable, or make
   a new Store submission.
 - Update `package.ps1`'s default addon version when useful for local packaging.
@@ -108,8 +110,8 @@ Only when Companion behavior itself must change, update:
   - `AssemblyVersion` for the compatible base release.
   - `AssemblyFileVersion` for the exact build.
   - `AssemblyInformationalVersion` for the full public version.
-  - `ExpectedRelease` for addon/Companion compatibility.
-- All three TOC compatibility fields to the new Companion release.
+  - the supported Companion protocol only when the integration contract changes.
+- The TOC Companion release, protocol, and minimum-version fields as required.
 - The frozen tag and SHA-256 in `.github/workflows/release.yml`,
   `package.ps1`, and this runbook after the new artifact is approved.
 
@@ -123,6 +125,7 @@ version. Its fourth component must remain `0`.
 | `2.1.2-beta.13` | `2.1.13.0` |
 | `2.1.2-beta.14` | `2.1.14.0` |
 | `2.1.2-beta.15` | `2.1.15.0` |
+| `2.1.2-beta.18` | `2.1.18.0` |
 | `2.1.2` stable | The next unused version greater than the published package |
 
 Never reduce the Store package version to match the public patch number. For
@@ -200,8 +203,9 @@ Companion change.
 - [ ] Run `tests/companion-preferences.ps1`.
 - [ ] Build `Companion/Offhand.exe` successfully.
 - [ ] Visually test normal and high-DPI layout when UI changed.
-- [ ] Test launch detection, manual span, auto-span, restore, pause, tray,
-      hotkeys, help, update check, monitor disconnect/reconnect, and exit.
+- [ ] Test launch detection, manual span, delayed auto-span, restore, pause,
+      tray, display identification, help, update check, monitor
+      disconnect/reconnect, and exit.
 - [ ] Verify ordinary `asInvoker` behavior and do not test only as
       administrator.
 - [ ] Verify the addon/Companion release mismatch guard.
@@ -218,9 +222,9 @@ cmd /c .\Companion\build.bat
 ### 4. Build and inspect GitHub artifacts
 
 The tag-triggered GitHub workflow restores and hash-verifies the published Beta
-13 executable for ordinary addon tags. It builds and publishes Companion-only
-assets only when the workflow's explicit Companion release tag is deliberately
-advanced to the new tag.
+18 executable for ordinary addon tags. The explicit Companion release lane also
+validates and packages the checked-in reviewed executable; it must never rebuild
+different bytes after antivirus review.
 
 - [ ] Run release metadata tests.
 - [ ] Tag only the reviewed commit using `vMAJOR.MINOR.PATCH`,
@@ -229,12 +233,12 @@ advanced to the new tag.
 - [ ] Verify the workflow succeeded.
 - [ ] Download and inspect every addon release's:
   - `Offhand-v<VERSION>.zip`
-  - `Offhand-Companion.zip` (frozen Beta 13)
+  - `Offhand-Companion.zip` (frozen Beta 18)
   - `Offhand-Complete-v<VERSION>.zip`
-  - `Offhand.exe` (frozen Beta 13)
+  - `Offhand.exe` (frozen Beta 18)
   - `checksums-sha256.txt`
-- [ ] Confirm the complete bundle contains the frozen Beta 13 executable with
-      SHA-256 `E41E043EFCBB01936155FA0C8A8634F8DF80D7A83599BB5D583F1ECF6B07AEBE`.
+- [ ] Confirm the complete bundle contains the frozen Beta 18 executable with
+      the SHA-256 recorded in the release workflow and package script.
 - [ ] For an intentional Companion release only, also inspect
       `Offhand-Companion.zip` and `Offhand.exe` and confirm every container has
       identical executable bytes.
@@ -251,7 +255,7 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -File .\tests\release-metadata.ps1
 
 .\scripts\Restore-FrozenCompanion.ps1
-.\package.ps1 -Version 2.1.2-beta.14
+.\package.ps1 -Version 2.1.2-beta.19
 Get-Content .\dist\checksums-sha256.txt
 ```
 
@@ -264,22 +268,22 @@ Use `-CompanionChanged` only after reviewing actual Companion source changes:
 After the candidate commit is approved, create and push the release tag:
 
 ```powershell
-git tag -a v2.1.2-beta.14 -m "Offhand v2.1.2 Beta 14"
-git push origin v2.1.2-beta.14
+git tag -a v2.1.2-beta.19 -m "Offhand v2.1.2 Beta 19"
+git push origin v2.1.2-beta.19
 ```
 
 Replace the example version in every command with the recorded release version.
 
 ### 5. Build the Store package (Companion changes only)
 
-Skip this section for addon-only releases. Store delivery remains on Beta 13
+Skip this section for addon-only releases. Store delivery remains on Beta 18
 until the Companion application itself is intentionally updated.
 
 Use the Store-assigned identity already encoded in the builder. Example:
 
 ```powershell
 .\Companion\Store\Build-StorePackage.ps1 `
-  -PackageVersion 2.1.14.0
+  -PackageVersion 2.1.18.0
 ```
 
 - [ ] Use a Store version higher than the currently published x64 package.
@@ -428,20 +432,17 @@ Every announcement must state:
 
 Complete these improvements before or as part of the next beta cycle:
 
-1. Make **Check for Updates** prerelease-aware. The current code strips
-   `-beta.N` and compares only the base `AssemblyVersion`, so it cannot
-   distinguish Beta 13 from Beta 14.
-2. Make update messaging channel-aware: Store users should rely on Store
+1. Make update messaging channel-aware: Store users should rely on Store
    updates, while portable users may check GitHub prereleases.
-3. After the first Store publication is verified, change the primary Companion
+2. After the first Store publication is verified, change the primary Companion
    links in the root README, CurseForge description, and pinned Discord guidance
    to the Microsoft Store listing.
-4. Extend CI to build the Store MSIX from the same reviewed source/canonical
+3. Extend CI to build the Store MSIX from the same reviewed source/canonical
    Companion build and retain it as a private workflow artifact. Never publish
    the unsigned MSIX as a normal GitHub release asset.
-5. Add automated validation for public version parity, monotonically increasing
+4. Add automated validation for public version parity, monotonically increasing
    Store version input, Store manifest identity, and release-note consistency.
-6. After at least two successful manual Store updates, evaluate Microsoft Store
+5. After at least two successful manual Store updates, evaluate Microsoft Store
    Developer CLI automation. Do not add persistent Partner Center credentials
    until the manual process is stable and the release owner approves that
    security tradeoff.

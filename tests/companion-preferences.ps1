@@ -19,8 +19,8 @@ try {
     if ($source -notmatch 'btnCheckUpdates\.Click.*CheckForUpdates') {
         throw 'Companion update checks must remain wired to an explicit user action.'
     }
-    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.2-beta\.13"\)' -or
-        $source -notmatch 'AssemblyFileVersion\("2\.1\.2\.13"\)') {
+    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.2-beta\.18"\)' -or
+        $source -notmatch 'AssemblyFileVersion\("2\.1\.2\.18"\)') {
         throw 'Companion binary metadata must identify the exact beta build.'
     }
     if ($source -match 'Process\.GetProcesses\(\)' -or
@@ -66,11 +66,12 @@ try {
         $source -notmatch 'AddLog\("Addon verification: " \+ status\.Reason\)') {
         throw 'Companion must show and log the complete client-specific addon verification diagnostic.'
     }
-    $hotkey = [regex]::Match($source, 'cmbHotkey = new ComboBox \{ Location = new Point\((?<x>\d+), 82\), Size = new Size\((?<w>\d+), 22\)')
+    $identify = [regex]::Match($source, 'Button btnIdentifyDisplays = CreateButton\("Identify Displays", (?<x>\d+), 82, (?<w>\d+), 27')
     $monitors = [regex]::Match($source, 'clbMonitors = new CheckedListBox \{ Location = new Point\((?<x>\d+), 50\)')
-    if (-not $hotkey.Success -or -not $monitors.Success -or
-        ([int]$hotkey.Groups['x'].Value + [int]$hotkey.Groups['w'].Value) -ge [int]$monitors.Groups['x'].Value) {
-        throw 'Companion hotkey selector must not overlap the display checklist.'
+    if (-not $identify.Success -or -not $monitors.Success -or
+        ([int]$identify.Groups['x'].Value + [int]$identify.Groups['w'].Value) -ge [int]$monitors.Groups['x'].Value -or
+        $source -match 'RegisterHotKey|UnregisterHotKey|WM_HOTKEY|0x0312') {
+        throw 'Companion display identification must not overlap the checklist or restore global hotkeys.'
     }
     $autoSpan = [regex]::Match($source, 'chkAutoSpan = new CheckBox(?s:.*?)Location = new Point\((?<x>\d+), 28\)(?s:.*?)Size = new Size\((?<w>\d+), 22\)')
     $monitorLabel = [regex]::Match($source, 'Label lblMonitors = new Label \{ Text = "Span displays:", Location = new Point\((?<x>\d+), 26\)')
@@ -89,28 +90,39 @@ try {
     if ($packager -match 'Compress-Archive' -or $packager -notmatch 'New-PortableZip') {
         throw 'Release archives must use the portable ZIP writer rather than Windows backslash entry paths.'
     }
+    if ($packager -notmatch 'Sort-Object FullName' -or
+        $packager -notmatch "LastWriteTime = \[DateTimeOffset\]::Parse\('2026-01-01T00:00:00Z'\)") {
+        throw 'Release archives must use deterministic entry order and timestamps.'
+    }
     if ($packager -match 'Offhand-Companion\.exe' -or
         $packager -notmatch 'bundleStaging "Offhand\.exe"') {
         throw 'Every shipped Companion executable, including the complete bundle, must be named Offhand.exe.'
     }
     if ($packager -notmatch '\[switch\]\$UseExistingCompanion' -or
         $packager -notmatch '\[switch\]\$CompanionChanged' -or
-        $packager -notmatch 'E41E043EFCBB01936155FA0C8A8634F8DF80D7A83599BB5D583F1ECF6B07AEBE' -or
+        $packager -notmatch 'A42A45CB149C66EF884308F15A79EE8905C58A94E9B4AE1A3B05B43BAF929F37' -or
         $packager -notmatch 'Canonical Companion SHA-256' -or
         $packager -notmatch 'contains a different executable than the canonical Companion build') {
-        throw 'Release packaging must freeze Beta 13 by hash and require an explicit Companion-change lane.'
+        throw 'Release packaging must freeze Beta 18 by hash and require an explicit Companion-change lane.'
+    }
+    $storeBuilder = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Store\Build-StorePackage.ps1') -Raw
+    if ($storeBuilder -notmatch "\[string\]\`$PackageVersion = '2\.1\.18\.0'") {
+        throw 'The Store package default must identify the Beta 18 Companion baseline.'
     }
     $releaseWorkflow = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\.github\workflows\release.yml') -Raw
-    if ($releaseWorkflow -notmatch 'Restore frozen Beta 13 Companion' -or
-        $releaseWorkflow -notmatch 'COMPANION_RELEASE_TAG: v2\.1\.2-beta\.13' -or
-        $releaseWorkflow -notmatch 'COMPANION_ARCHIVE_SHA256: A308ACF1B117B08B2912A77079168C40E32535DFEB66425F541BD7518581818D' -or
-        $releaseWorkflow -notmatch 'Attach frozen Beta 13 Companion assets' -or
+    if ($releaseWorkflow -notmatch 'Validate canonical Companion executable' -or
+        $releaseWorkflow -notmatch 'Validate canonical Companion archive' -or
+        $releaseWorkflow -notmatch 'COMPANION_RELEASE_TAG: v2\.1\.2-beta\.18' -or
+        $releaseWorkflow -notmatch 'COMPANION_SHA256: A42A45CB149C66EF884308F15A79EE8905C58A94E9B4AE1A3B05B43BAF929F37' -or
+        $releaseWorkflow -notmatch 'COMPANION_ARCHIVE_SHA256: 20D8FF3DC38D2C0517A2D88362934E0A2A41088927C63245ED01FFF0ECD5664F' -or
+        $releaseWorkflow -notmatch 'Restore frozen Beta 18 Companion' -or
+        $releaseWorkflow -notmatch 'Attach frozen Beta 18 Companion assets' -or
         $releaseWorkflow -notmatch 'dist/Offhand-Companion\.zip' -or
         $releaseWorkflow -notmatch 'dist/Offhand\.exe' -or
         $releaseWorkflow -notmatch 'package\.ps1 -Version \$version -CompanionChanged -UseExistingCompanion') {
-        throw 'Release automation must attach exact frozen Beta 13 assets by default and build only in the explicit Companion-change lane.'
+        throw 'Release automation must validate and attach exact frozen Beta 18 assets without rebuilding the reviewed executable.'
     }
-    $pinnedCompanionUrl = 'https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.13/Offhand-Companion.zip'
+    $pinnedCompanionUrl = 'https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.18/Offhand-Companion.zip'
     foreach ($relativePath in @(
         'Core\Init.lua',
         'UI\Options.lua',
@@ -121,7 +133,7 @@ try {
         $publicSurface = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\$relativePath") -Raw
         if (-not $publicSurface.Contains($pinnedCompanionUrl) -or
             $publicSurface -match 'releases/latest/download/Offhand-Companion\.zip') {
-            throw "$relativePath must point directly to the frozen Beta 13 Companion."
+            throw "$relativePath must point directly to the frozen Beta 18 Companion."
         }
     }
     $linuxGuide = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Linux.md') -Raw
@@ -137,10 +149,10 @@ try {
     Write-Output 'PASS: single-instance guard prevents duplicate Companion tray processes'
     Write-Output 'PASS: DPI-scaled dashboard geometry keeps wrapped status and configuration controls separate'
     Write-Output 'PASS: addon verification paths are visible and copied into the activity log'
-    Write-Output 'PASS: hotkey selector does not overlap the display checklist'
+    Write-Output 'PASS: hotkeyless display identification does not overlap the display checklist'
     Write-Output 'PASS: Linux compatibility documentation is included by the release packager'
-    Write-Output 'PASS: addon-only releases attach the published Beta 13 Companion assets by exact hash'
-    Write-Output 'PASS: every public Companion download points directly to Beta 13'
+    Write-Output 'PASS: addon-only releases attach the published Beta 18 Companion assets by exact hash'
+    Write-Output 'PASS: every public Companion download points directly to Beta 18'
     Write-Output 'PASS: release ZIPs are portable and Linux guidance covers prefix/runner matching'
     Write-Output 'PASS: all shipped Companion executables use the consistent Offhand.exe name'
     Write-Output 'PASS: release packaging preserves and verifies one canonical Companion executable'

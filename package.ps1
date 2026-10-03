@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    Packages the Offhand addon with the frozen Beta 13 Companion unless an
+    Packages the Offhand addon with the frozen Beta 18 Companion unless an
     intentional Companion update is explicitly requested.
 #>
 param(
-    [string]$Version = "2.1.2-beta.13",
+    [string]$Version = "2.1.2-beta.18",
     [switch]$AddonOnly,
     [switch]$CompanionChanged,
     [switch]$UseExistingCompanion
@@ -37,11 +37,21 @@ function New-PortableZip {
     $archive = [IO.Compression.ZipFile]::Open(
         $DestinationPath, [IO.Compression.ZipArchiveMode]::Create)
     try {
-        Get-ChildItem -LiteralPath $source -File -Recurse | ForEach-Object {
+        Get-ChildItem -LiteralPath $source -File -Recurse | Sort-Object FullName | ForEach-Object {
             $entryName = $_.FullName.Substring($relativeBase.Length).Replace('\', '/')
-            [IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
-                $archive, $_.FullName, $entryName,
-                [IO.Compression.CompressionLevel]::Optimal) | Out-Null
+            $entry = $archive.CreateEntry(
+                $entryName, [IO.Compression.CompressionLevel]::Optimal)
+            # Stable timestamps make security-vendor submissions byte-identical
+            # to CI archives produced later from the same reviewed source.
+            $entry.LastWriteTime = [DateTimeOffset]::Parse('2026-01-01T00:00:00Z')
+            $inputStream = [IO.File]::OpenRead($_.FullName)
+            $outputStream = $entry.Open()
+            try {
+                $inputStream.CopyTo($outputStream)
+            } finally {
+                $outputStream.Dispose()
+                $inputStream.Dispose()
+            }
         }
     } finally {
         $archive.Dispose()
@@ -70,10 +80,10 @@ Write-Host "===================================================" -ForegroundColo
 Write-Host "  Offhand Release Packager v$Version" -ForegroundColor Cyan
 Write-Host "===================================================" -ForegroundColor Cyan
 
-# The published Beta 13 executable is the default Companion for every addon-only
+# The published Beta 18 executable is the default Companion for every addon-only
 # release. A new Companion build must be explicitly requested.
-$frozenCompanionTag = "v2.1.2-beta.13"
-$frozenCompanionSha256 = "E41E043EFCBB01936155FA0C8A8634F8DF80D7A83599BB5D583F1ECF6B07AEBE"
+$frozenCompanionTag = "v2.1.2-beta.18"
+$frozenCompanionSha256 = "A42A45CB149C66EF884308F15A79EE8905C58A94E9B4AE1A3B05B43BAF929F37"
 $companionExe = Join-Path $rootDir "Companion\Offhand.exe"
 if ($CompanionChanged -and $AddonOnly) {
     throw "-CompanionChanged cannot be combined with -AddonOnly."

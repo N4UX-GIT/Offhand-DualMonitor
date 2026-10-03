@@ -10,7 +10,7 @@
 #>
 param(
     [ValidatePattern('^\d+\.\d+\.\d+\.0$')]
-    [string]$PackageVersion = '2.1.13.0',
+    [string]$PackageVersion = '2.1.18.0',
 
     [string]$IdentityName = 'N4UX.OffhandCompanion',
     [string]$Publisher = 'CN=E7BD7796-76DA-40C2-B114-9DD85609CD7F',

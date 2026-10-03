@@ -3,7 +3,7 @@
 ## Current status
 
 `Offhand.exe` is still a Windows .NET Framework/WinForms application. Its
-display enumeration, global hotkeys, window discovery, border changes, window
+display enumeration, window discovery, border changes, window
 placement, clipping regions, and tray UI all use Win32 APIs. There is no native
 Linux executable in this repository yet.
 
@@ -73,7 +73,7 @@ require a custom "deflatten" script. Verify the resulting layout above before
 starting WoW.
 
 Wine validation should cover process discovery, addon verification, display
-enumeration, Span, Restore, both hotkeys, topology generation, a complete WoW
+enumeration and identification, Span, Restore, topology generation, a complete WoW
 exit, and Forever cold-launch recovery. XWayland/Wine and compositor behavior
 can differ, so a successful addon check alone is not proof that window movement
 and clipping work.
@@ -90,7 +90,7 @@ more `kernel32.dll` imports cannot provide it. The existing monolithic
 3. A Linux process/path backend using `/proc`, plus an explicit WoW-directory
    chooser for Lutris, Bottles, Steam/Proton, and custom Wine layouts.
 4. An X11 backend using monitor geometry and EWMH window operations for
-   discovery, borderless placement, restore, and hotkeys.
+   discovery, borderless placement, and restore.
 5. Wayland compositor adapters. Generic Wayland clients do not own global
    window placement, so KDE, wlroots-based compositors, and GNOME may require
    different supported integrations. The UI must report unsupported compositor
@@ -103,7 +103,7 @@ needed.
 
 Minimum acceptance criteria for a native build are two-display and one-screen
 split selection, explicit Mainhand choice, mixed orientation and negative
-coordinates, safe display disconnect, Span/Restore, global shortcuts, addon
+coordinates, safe display disconnect, Span/Restore, display identification, addon
 layout diagnostics, topology writes, and Forever recovery across a cold
 launch. X11 can be the first supported backend; each Wayland compositor should
 remain opt-in until its full matrix passes.

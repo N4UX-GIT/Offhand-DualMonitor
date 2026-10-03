@@ -252,6 +252,92 @@ function Viewport:IsDualActive()
     return Offhand.db and Offhand.db.enabled
 end
 
+-- Keep the raw Companion handoff separate from the applied metrics. When the
+-- generated topology is valid but WoW still reports its old bordered-window
+-- dimensions, GetMetrics deliberately enters safe single-screen recovery and
+-- therefore cannot describe why the exact topology was rejected.
+function Viewport:GetTopologyDiagnostics()
+    local sw, sh = UIParent:GetWidth(), UIParent:GetHeight()
+    local pw, ph = GetPhysicalScreenSize()
+    if not pw or pw <= 0 or not ph or ph <= 0 then pw, ph = sw, sh end
+    local topology, status = self:GetCompanionTopology(pw, ph, sw, sh)
+    local raw = _G.OffhandCompanionTopology
+    local loaded = type(raw) == "table"
+    return {
+        status = status,
+        loaded = loaded,
+        schema = loaded and tonumber(raw.schema) or nil,
+        generatedAt = loaded and raw.generatedAt or nil,
+        companionVersion = loaded and raw.companionVersion or nil,
+        expectedWidth = loaded and tonumber(raw.physicalWidth) or nil,
+        expectedHeight = loaded and tonumber(raw.physicalHeight) or nil,
+        liveWidth = tonumber(pw) or 0,
+        liveHeight = tonumber(ph) or 0,
+        canvasWidth = tonumber(sw) or 0,
+        canvasHeight = tonumber(sh) or 0,
+        accepted = topology ~= nil,
+    }
+end
+
+local function DiagnosticCVar(name)
+    if not GetCVar then return "unavailable" end
+    local ok, value = pcall(GetCVar, name)
+    return ok and value ~= nil and tostring(value) or "unavailable"
+end
+
+local function DiagnosticCVarFallback(primary, fallback)
+    local value = DiagnosticCVar(primary)
+    if value == "unavailable" and fallback then
+        value = DiagnosticCVar(fallback)
+    end
+    return value
+end
+
+-- Read-only renderer evidence for performance reports. The physical dimensions
+-- describe the bounding surface Windows gives the one spanned WoW window; they
+-- do not claim that every pixel receives the same 3D workload. In particular,
+-- gxWindowedResolution can remain the saved pre-span window size after an
+-- external SetWindowPos and must not be presented as a live backbuffer size.
+function Viewport:GetPerformanceDiagnostics(metrics)
+    local m = metrics or self:GetMetrics()
+    local spanPixels = math.max(0, tonumber(m.physicalWidth) or 0)
+        * math.max(0, tonumber(m.physicalHeight) or 0)
+    local mainhandPixels = math.max(0, tonumber(m.gamePixelWidth) or 0)
+        * math.max(0, tonumber(m.gamePixelHeight) or 0)
+    local fps
+    if GetFramerate then
+        local ok, value = pcall(GetFramerate)
+        if ok then fps = tonumber(value) end
+    end
+    return {
+        fps = fps,
+        spanPixels = spanPixels,
+        mainhandPixels = mainhandPixels,
+        boundsToMainhandRatio = mainhandPixels > 0 and spanPixels / mainhandPixels or 0,
+        gxWindowedResolution = DiagnosticCVar("gxWindowedResolution"),
+        renderScale = DiagnosticCVar("RenderScale"),
+        resampleQuality = DiagnosticCVar("ResampleQuality"),
+        gxWindow = DiagnosticCVar("gxWindow"),
+        gxApi = DiagnosticCVar("gxApi"),
+        -- Retail exposes this as "vsync"; older branches have also used the
+        -- gx-prefixed spelling. Keep one diagnostic field across both.
+        gxVSync = DiagnosticCVarFallback("vsync", "gxVSync"),
+        maxFPS = DiagnosticCVar("maxFPS"),
+        maxFPSBk = DiagnosticCVar("maxFPSBk"),
+        lowLatencyMode = DiagnosticCVar("LowLatencyMode"),
+        msaaQuality = DiagnosticCVar("MSAAQuality"),
+        msaaAlphaTest = DiagnosticCVar("MSAAAlphaTest"),
+        antiAliasingMode = DiagnosticCVar("ffxAntiAliasingMode"),
+        cmaa2Quality = DiagnosticCVar("CMAA2Quality"),
+        textureFilteringMode = DiagnosticCVar("textureFilteringMode"),
+        dynamicRenderScale = DiagnosticCVar("DynamicRenderScale"),
+        resampleAlwaysSharpen = DiagnosticCVar("ResampleAlwaysSharpen"),
+        resampleSharpness = DiagnosticCVar("ResampleSharpness"),
+        foregroundDowngradeMin = DiagnosticCVar("RenderScaleDowngradeForegroundMinSize"),
+        backgroundDowngradeMin = DiagnosticCVar("RenderScaleDowngradeBackgroundMinSize"),
+    }
+end
+
 function Viewport:CaptureDiagnostics()
     local m = self:GetMetrics()
     local snapshot = { metrics = m, frames = {} }

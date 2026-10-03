@@ -793,7 +793,7 @@ function Wizard:CreateFrame()
         Wizard:Close()
         Offhand:ApplyFullLayout()
         if Offhand.Print then
-            Offhand:Print(L["CONFIG_SAVED"] or "Configuration saved! Welcome to Offhand Dual Monitor Workstation.")
+            Offhand:Print(L["CONFIG_SAVED"])
         end
     end)
 

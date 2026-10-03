@@ -3,10 +3,12 @@
 ## Notes: Equip your Offhand. Dual wield your monitors. Multi-Monitor Setup UI.
 ## Author: N4UX (Noggaholic)
 ## Version: 2.1.2
-## X-Offhand-Release: beta.13
-## X-Offhand-Addon-Release: beta.17
+## X-Offhand-Release: beta.18
+## X-Offhand-Addon-Release: beta.18
 ## X-Offhand-Companion-Version: 2.1.2
-## X-Offhand-Companion-Release: beta.13
+## X-Offhand-Companion-Release: beta.18
+## X-Offhand-Companion-Protocol: 1
+## X-Offhand-Companion-Min-Version: 2.1.2-beta.18
 ## X-Offhand-Manifest: Classic
 ## X-Website: https://offhand-wow.onrender.com/
 ## IconTexture: Interface\AddOns\Offhand\Media\OffhandLogo64x64.blp
@@ -24,6 +26,7 @@ Core\RetailFullscreen.lua
 Core\ChatBubbles.lua
 Core\SeamRedirect.lua
 Core\Canvas.lua
+Core\WorkspaceChrome.lua
 Core\BagPersistence.lua
 
 # Locales

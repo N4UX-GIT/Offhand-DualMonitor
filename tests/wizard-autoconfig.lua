@@ -158,10 +158,12 @@ hooksecurefunc = function(t, name, fn) end
 C_AddOns = {
     GetAddOnMetadata = function(_, key)
         if key == "Version" then return "2.1.2" end
-        if key == "X-Offhand-Release" then return "beta.13" end
-        if key == "X-Offhand-Addon-Release" then return "beta.14" end
+        if key == "X-Offhand-Release" then return "beta.18" end
+        if key == "X-Offhand-Addon-Release" then return "beta.18" end
         if key == "X-Offhand-Companion-Version" then return "2.1.2" end
-        if key == "X-Offhand-Companion-Release" then return "beta.13" end
+        if key == "X-Offhand-Companion-Release" then return "beta.18" end
+        if key == "X-Offhand-Companion-Protocol" then return "1" end
+        if key == "X-Offhand-Companion-Min-Version" then return "2.1.2-beta.18" end
     end,
 }
 
@@ -192,7 +194,7 @@ addon.db = {
 
 addon:InitializePopups()
 local companionWarning = StaticPopupDialogs["OFFHAND_COMPANION_WARNING"]
-assert(companionWarning.text:find("v2.1.2 Beta 13", 1, true),
+assert(companionWarning.text:find("v2.1.2 Beta 18", 1, true),
     "Companion warning must display the paired Companion release")
 assert(not companionWarning.text:find("--", 1, true),
     "Companion warning must avoid unsupported dash typography")
@@ -248,6 +250,24 @@ assert(infoExactMixed.exactTopology and infoExactMixed.recommendedPreset == "POR
     "Exact portrait workspace plus landscape game must not be reported as dual landscape")
 assert(infoExactMixed.recommendedPosition == "RIGHT" and math.abs(infoExactMixed.recommendedDeckRatio - 0.36) < 0.001,
     "Exact mixed topology must retain its physical side and workspace ratio")
+addon.Viewport.GetMetrics = originalGetMetrics
+
+-- A valid Companion handoff can briefly disagree with Forever's stale
+-- pre-span bordered-window dimensions. Do not reinterpret that one landscape
+-- window as a mixed portrait/landscape monitor pair.
+GetPhysicalScreenSize = function() return 3818, 2104 end
+addon.Viewport.GetMetrics = function()
+    return {
+        companionTopology = false,
+        topologyStatus = "MISMATCH",
+        isSpanned = false,
+    }
+end
+local infoPendingExact = addon.Options:DetectTopology()
+assert(not infoPendingExact.isSpanned and infoPendingExact.topologyStatus == "MISMATCH",
+    "a mismatched exact topology must not fall through to aspect-ratio guesses")
+assert(infoPendingExact.description == "Companion topology does not match the current WoW window",
+    "the wizard must explain the exact-topology mismatch")
 addon.Viewport.GetMetrics = originalGetMetrics
 
 -- Test 3840x1080 (dual landscape side by side)
@@ -438,7 +458,7 @@ addon.Viewport.GetMetrics = function()
     return {
         companionTopology=true, topologyStatus="READY", isSpanned=true,
         companionVersionStatus="MISMATCH", companionVersion="2.1.2-beta.12",
-        expectedCompanionVersion="2.1.2-beta.13",
+        expectedCompanionVersion="2.1.2-beta.18",
         gamePixelWidth=2560, gamePixelHeight=1440,
         workspacePixelWidth=1440, workspacePixelHeight=2560,
         workspaceTop=2560, workspaceBottom=0, workspaceLeft=0,
@@ -598,21 +618,21 @@ addon.Viewport.GetMetrics = originalGetMetrics
 -- 5. Test Options Dialog 1-Click and Wizard Integration Buttons
 -- ============================================================================
 local optPanel = addon.Options:CreateFloatingPanel()
-assert(addon.fullVersion == "2.1.2-beta.14" and addon.releaseDisplay == "Beta 14",
+assert(addon.fullVersion == "2.1.2-beta.18" and addon.releaseDisplay == "Beta 18",
     "addon metadata must expose the exact standardized pre-release build")
-assert(addon.companionRelease == "beta.13",
+assert(addon.companionRelease == "beta.18",
     "addon metadata must retain the frozen Companion compatibility release")
 assert(addon.companionVersion == "2.1.2"
-        and addon.companionFullVersion == "2.1.2-beta.13"
-        and addon.companionVersionDisplay == "v2.1.2 Beta 13",
+        and addon.companionFullVersion == "2.1.2-beta.18"
+        and addon.companionVersionDisplay == "v2.1.2 Beta 18",
     "addon metadata must expose the exact paired Companion build")
 assert(optPanel.versionButton and optPanel.versionButton.scripts.OnEnter
         and optPanel.versionButton.scripts.OnLeave,
     "the settings header version must expose an exact-build hover tooltip")
-assert(optPanel.header.versionText:GetText():find("Companion v2.1.2 Beta 13", 1, true),
+assert(optPanel.header.versionText:GetText():find("Companion v2.1.2 Beta 18", 1, true),
     "the settings header must show the paired Companion build")
-assert(optPanel.versionButton.offhandTooltipText:find("v2.1.2-beta.14", 1, true)
-        and optPanel.versionButton.offhandTooltipText:find("v2.1.2 Beta 13", 1, true),
+assert(optPanel.versionButton.offhandTooltipText:find("v2.1.2-beta.18", 1, true)
+        and optPanel.versionButton.offhandTooltipText:find("v2.1.2 Beta 18", 1, true),
     "the version tooltip must distinguish addon and paired Companion builds")
 addon.db.enabled = false
 optPanel:Show()

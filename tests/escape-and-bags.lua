@@ -436,11 +436,12 @@ assert(settingsPoint and settingsPoint[1] == "CENTER",
 assert(math.abs(settingsPoint[4] - expectedCX) < 0.01
     and math.abs(settingsPoint[5] - expectedCY) < 0.01,
     "Forever SettingsPanel must be centered inside the game rectangle")
-assert(combinedBag:IsShown(),
-    "Opening Forever SettingsPanel must restore a tracked workspace backpack")
+assert(not combinedBag:IsShown(),
+    "Settings recovery must not directly show a native backpack whose opener declined")
 assert(nativeOpenAttempts > 0,
     "Settings restoration must try Blizzard's native bag opener first")
-assert(addon.db.openWorkspacePanels.ContainerFrameCombinedBags == true,
-    "Settings must not clear the backpack's persistent-open state")
-print("PASS: Forever SettingsPanel Mainhand placement and workspace backpack persistence")
+assert(addon.db.openWorkspacePanels.ContainerFrameCombinedBags == nil
+        and addon.db.nativeBackpackWorkspaceOpen == nil,
+    "a declined native reopen must clear the stale open request instead of exposing a bag shell")
+print("PASS: Forever SettingsPanel Mainhand placement and safe native backpack recovery")
 

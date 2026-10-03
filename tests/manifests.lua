@@ -15,10 +15,12 @@ for _, toc in ipairs(tocs) do
     local text = assert(io.open(toc, "rb")):read("*a")
     assert(text:match("## LoadSavedVariablesFirst:%s*1"), "Missing early SavedVariables load: " .. toc)
     assert(text:match("## X%-Offhand%-Manifest:%s*%S+"), "Missing manifest diagnostic marker: " .. toc)
-    assert(text:match("## X%-Offhand%-Release:%s*beta%.13"), "Frozen Companion compatibility marker changed: " .. toc)
+    assert(text:match("## X%-Offhand%-Release:%s*beta%.18"), "Beta 18 addon release marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Version:%s*2%.1%.2"), "Frozen Companion version marker changed: " .. toc)
-    assert(text:match("## X%-Offhand%-Companion%-Release:%s*beta%.13"), "Frozen Companion release marker changed: " .. toc)
-    assert(text:match("## X%-Offhand%-Addon%-Release:%s*beta%.17"), "Beta 17 addon release marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Companion%-Release:%s*beta%.18"), "Frozen Companion release marker changed: " .. toc)
+    assert(text:match("## X%-Offhand%-Companion%-Protocol:%s*1"), "Companion protocol marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Companion%-Min%-Version:%s*2%.1%.2%-beta%.18"), "Companion minimum version marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Addon%-Release:%s*beta%.18"), "Beta 18 addon release marker missing: " .. toc)
 end
 local main = entries(tocs[1])
 for i=2,#tocs do

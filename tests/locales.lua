@@ -7,6 +7,9 @@ local function dictionary(locale)
     return addon.L
 end
 local base = dictionary("enUS")
+assert(base.FOREVER_PARTY_FRAME_RECOVERY_TEXT:find("Restore Window", 1, true)
+        and base.FOREVER_PARTY_FRAME_RECOVERY_TEXT:find("/reload", 1, true),
+    "Party Frame recovery must describe the reachable single-window workflow")
 local function placeholders(text)
     local result={}
     text=text:gsub("%%%%","")

@@ -12,14 +12,56 @@ using System.Windows.Forms;
 [assembly: AssemblyTitle("Offhand Companion")]
 [assembly: AssemblyDescription("Dual-Monitor Multi-Display Controller for World of Warcraft")]
 [assembly: AssemblyCompany("Offhand Project")]
-[assembly: AssemblyProduct("Offhand")]
+[assembly: AssemblyProduct("Offhand Companion")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
 [assembly: AssemblyVersion("2.1.2.0")]
-[assembly: AssemblyFileVersion("2.1.2.13")]
-[assembly: AssemblyInformationalVersion("2.1.2-beta.13")]
+[assembly: AssemblyFileVersion("2.1.2.18")]
+[assembly: AssemblyInformationalVersion("2.1.2-beta.18")]
 
 namespace Offhand.Companion
 {
+    internal sealed class CompanionReleaseVersion : IComparable<CompanionReleaseVersion>
+    {
+        internal Version Core;
+        internal int? Beta;
+
+        internal static bool TryParse(string value, out CompanionReleaseVersion result)
+        {
+            result = null;
+            if (string.IsNullOrWhiteSpace(value)) return false;
+            string normalized = value.Trim().TrimStart('v', 'V');
+            string[] parts = normalized.Split(new char[] { '-' }, 2);
+            Version core;
+            if (!Version.TryParse(parts[0], out core)) return false;
+            int? beta = null;
+            if (parts.Length == 2)
+            {
+                const string prefix = "beta.";
+                if (!parts[1].StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return false;
+                int number;
+                if (!int.TryParse(parts[1].Substring(prefix.Length), out number) || number < 0) return false;
+                beta = number;
+            }
+            result = new CompanionReleaseVersion { Core = core, Beta = beta };
+            return true;
+        }
+
+        public int CompareTo(CompanionReleaseVersion other)
+        {
+            if (other == null) return 1;
+            int core = Core.CompareTo(other.Core);
+            if (core != 0) return core;
+            if (!Beta.HasValue) return other.Beta.HasValue ? 1 : 0;
+            if (!other.Beta.HasValue) return -1;
+            return Beta.Value.CompareTo(other.Beta.Value);
+        }
+
+        internal string Display
+        {
+            get { return "v" + Core.ToString(3) + (Beta.HasValue ? " Beta " + Beta.Value : ""); }
+        }
+    }
+
     internal static class RestoreGeometry
     {
         // Coordinates may be negative on monitors left of/above the primary.
@@ -224,12 +266,15 @@ namespace Offhand.Companion
         internal string AddonDir;
         internal string ExpectedAddonDir;
         internal string ReleaseTag;
+        internal int? CompanionProtocol;
+        internal string MinimumCompanionVersion;
         internal string Reason;
     }
 
     internal static class AddonInstallation
     {
-        internal const string ExpectedRelease = "beta.13";
+        internal const int SupportedCompanionProtocol = 1;
+        internal const string LegacyCompanionVersion = "2.1.2";
         private static readonly string[] ManifestNames = new string[] {
             "Offhand.toc", "Offhand_Mainline.toc", "Offhand_Vanilla.toc",
             "Offhand_Classic.toc", "Offhand_Forever.toc"
@@ -267,9 +312,10 @@ namespace Offhand.Companion
             return false;
         }
 
-        private static string ReadReleaseTag(string addonDir)
+        private static string ReadMetadata(string addonDir, string key)
         {
             if (string.IsNullOrEmpty(addonDir)) return null;
+            string prefix = "## " + key + ":";
             foreach (string manifest in ManifestNames)
             {
                 string path = Path.Combine(addonDir, manifest);
@@ -278,7 +324,6 @@ namespace Offhand.Companion
                 {
                     foreach (string line in File.ReadAllLines(path))
                     {
-                        const string prefix = "## X-Offhand-Release:";
                         if (line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                             return line.Substring(prefix.Length).Trim();
                     }
@@ -287,6 +332,16 @@ namespace Offhand.Companion
                 catch (UnauthorizedAccessException) { }
             }
             return null;
+        }
+
+        private static CompanionReleaseVersion CurrentCompanionVersion()
+        {
+            var informational = (AssemblyInformationalVersionAttribute)Attribute.GetCustomAttribute(
+                Assembly.GetExecutingAssembly(), typeof(AssemblyInformationalVersionAttribute));
+            CompanionReleaseVersion version;
+            return informational != null
+                && CompanionReleaseVersion.TryParse(informational.InformationalVersion, out version)
+                ? version : null;
         }
 
         private static string FindVersionedOffhandFolder(string addOnsDir)
@@ -342,15 +397,56 @@ namespace Offhand.Companion
                 : Path.Combine(wowDir, "Interface", "AddOns", "Offhand");
             if (HasManifest(addonDir))
             {
-                result.ReleaseTag = ReadReleaseTag(addonDir);
-                if (!string.Equals(result.ReleaseTag, ExpectedRelease, StringComparison.OrdinalIgnoreCase))
+                result.ReleaseTag = ReadMetadata(addonDir, "X-Offhand-Release");
+                string protocolText = ReadMetadata(addonDir, "X-Offhand-Companion-Protocol");
+                string legacyVersion = ReadMetadata(addonDir, "X-Offhand-Companion-Version");
+                result.MinimumCompanionVersion = ReadMetadata(addonDir, "X-Offhand-Companion-Min-Version");
+                int protocol;
+                if (int.TryParse(protocolText, out protocol)) result.CompanionProtocol = protocol;
+                else if (string.IsNullOrWhiteSpace(protocolText)
+                    && string.Equals(legacyVersion, LegacyCompanionVersion, StringComparison.OrdinalIgnoreCase))
+                    result.CompanionProtocol = SupportedCompanionProtocol;
+
+                if (!result.CompanionProtocol.HasValue)
                 {
-                    result.Reason = "Offhand is installed at " + addonDir + ", but this Companion requires addon "
-                        + ExpectedRelease + " (found " + (result.ReleaseTag ?? "an unmarked/older build") + ").";
+                    result.Reason = "Offhand is installed at " + addonDir
+                        + ", but it does not declare a supported Companion protocol.";
+                    return result;
+                }
+                if (result.CompanionProtocol.Value != SupportedCompanionProtocol)
+                {
+                    result.Reason = "Offhand is installed at " + addonDir + " and uses Companion protocol "
+                        + result.CompanionProtocol.Value + ", but this Companion supports protocol "
+                        + SupportedCompanionProtocol + ".";
+                    return result;
+                }
+                if (!string.IsNullOrWhiteSpace(result.MinimumCompanionVersion))
+                {
+                    CompanionReleaseVersion required;
+                    CompanionReleaseVersion current = CurrentCompanionVersion();
+                    if (!CompanionReleaseVersion.TryParse(result.MinimumCompanionVersion, out required))
+                    {
+                        result.Reason = "Offhand is installed at " + addonDir
+                            + ", but its minimum Companion version is malformed: "
+                            + result.MinimumCompanionVersion + ".";
+                        return result;
+                    }
+                    if (current == null || current.CompareTo(required) < 0)
+                    {
+                        result.Reason = "Offhand " + (result.ReleaseTag ?? "addon")
+                            + " requires Companion " + required.Display + " or newer.";
+                        return result;
+                    }
+                }
+                else if (!string.Equals(legacyVersion, LegacyCompanionVersion, StringComparison.OrdinalIgnoreCase))
+                {
+                    result.Reason = "Offhand is installed at " + addonDir
+                        + ", but it does not declare a minimum or legacy-compatible Companion version.";
                     return result;
                 }
                 result.Installed = true;
-                result.Reason = "Verified " + result.ReleaseTag + " at " + addonDir + ". Confirm it is enabled in WoW.";
+                result.Reason = "Verified " + (result.ReleaseTag ?? "Offhand") + " at " + addonDir
+                    + " (Companion protocol " + result.CompanionProtocol.Value + "). Confirm it is enabled in WoW.";
                 return result;
             }
 
@@ -478,13 +574,9 @@ namespace Offhand.Companion
     {
         internal static double AutoSpanDelay(string processName, string wowDir, decimal configuredDelay)
         {
-            bool foreverProcess = string.Equals(processName, "WowB", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(processName, "WowForever", StringComparison.OrdinalIgnoreCase);
-            bool foreverDirectory = !string.IsNullOrEmpty(wowDir)
-                && wowDir.IndexOf("_classic_beta_", StringComparison.OrdinalIgnoreCase) >= 0;
-            // Forever must reach its final window geometry before Blizzard loads
-            // Edit Mode and before Offhand restores workspace coordinates.
-            return foreverProcess || foreverDirectory ? 0 : (double)configuredDelay;
+            // Respect the user's configured delay on every supported client.
+            // Forever users who need pre-login geometry can explicitly select 0.
+            return (double)configuredDelay;
         }
     }
 
@@ -757,10 +849,6 @@ namespace Offhand.Companion
         public static extern bool DeleteObject(IntPtr hObject);
 
         [DllImport("user32.dll")]
-        public static extern bool RegisterHotKey(IntPtr hWnd, int id, int fsModifiers, int vk);
-        [DllImport("user32.dll")]
-        public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
-        [DllImport("user32.dll")]
         public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
         [DllImport("user32.dll")]
@@ -811,7 +899,7 @@ namespace Offhand.Companion
     public class CompanionForm : Form
     {
         internal const string BaseVersion = "2.1.2";
-        internal const string ReleaseLabel = "Beta 13";
+        internal const string ReleaseLabel = "Beta 18";
         internal const string FullVersion = BaseVersion + " " + ReleaseLabel;
 
         // Warcraft Dark Interface Palette (Black / Dark Grey / Burnished Gold)
@@ -840,10 +928,8 @@ namespace Offhand.Companion
         private Label lblAddonReason;
         private string lastAddonDiagnostic;
         private CheckBox chkAutoSpan;
-                private NumericUpDown numDelaySpan;
+        private NumericUpDown numDelaySpan;
         private Label lblDelay;
-        private ComboBox cmbHotkey;
-        private Label lblHotkey;
         private CheckedListBox clbMonitors;
         private ComboBox cmbMainhand;
         private CheckBox chkSingleSplit;
@@ -858,6 +944,110 @@ namespace Offhand.Companion
             internal string StableId;
             internal string Label;
             public override string ToString() { return Label; }
+        }
+
+        private sealed class DisplayIdentifierForm : Form
+        {
+            internal DisplayIdentifierForm(MonitorSelection.Display display, string role,
+                Color background, Color border, Color heading, Color text)
+            {
+                Text = "Offhand Display Identifier";
+                StartPosition = FormStartPosition.Manual;
+                Bounds = display.Bounds;
+                FormBorderStyle = FormBorderStyle.None;
+                ShowInTaskbar = false;
+                TopMost = true;
+                BackColor = background;
+                Opacity = 0.92;
+                KeyPreview = true;
+                Cursor = Cursors.Hand;
+
+                var content = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    BackColor = background,
+                    ColumnCount = 1,
+                    RowCount = 4,
+                    Padding = new Padding(24)
+                };
+                content.RowStyles.Add(new RowStyle(SizeType.Percent, 28));
+                content.RowStyles.Add(new RowStyle(SizeType.Percent, 30));
+                content.RowStyles.Add(new RowStyle(SizeType.Percent, 24));
+                content.RowStyles.Add(new RowStyle(SizeType.Percent, 18));
+
+                var title = new Label
+                {
+                    Text = "DISPLAY " + (display.Index + 1),
+                    Dock = DockStyle.Fill,
+                    TextAlign = ContentAlignment.BottomCenter,
+                    Font = new Font("Georgia", 48, FontStyle.Bold),
+                    ForeColor = heading,
+                    BackColor = background
+                };
+                var roleLabel = new Label
+                {
+                    Text = role,
+                    Dock = DockStyle.Fill,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Font = new Font("Segoe UI", 22, FontStyle.Bold),
+                    ForeColor = text,
+                    BackColor = background
+                };
+                var details = new Label
+                {
+                    Text = string.Format("{0} x {1}{2}", display.Bounds.Width, display.Bounds.Height,
+                        display.Primary ? "  •  Windows primary display" : ""),
+                    Dock = DockStyle.Fill,
+                    TextAlign = ContentAlignment.TopCenter,
+                    Font = new Font("Segoe UI", 14),
+                    ForeColor = text,
+                    BackColor = background
+                };
+                var hint = new Label
+                {
+                    Text = "Closes automatically • Click to close now",
+                    Dock = DockStyle.Fill,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Font = new Font("Segoe UI", 10),
+                    ForeColor = border,
+                    BackColor = background
+                };
+
+                content.Controls.Add(title, 0, 0);
+                content.Controls.Add(roleLabel, 0, 1);
+                content.Controls.Add(details, 0, 2);
+                content.Controls.Add(hint, 0, 3);
+                content.Paint += (s, e) =>
+                {
+                    using (var pen = new Pen(border, 8))
+                        e.Graphics.DrawRectangle(pen, 4, 4,
+                            content.ClientSize.Width - 9, content.ClientSize.Height - 9);
+                };
+                Controls.Add(content);
+
+                Action close = () => { if (!IsDisposed) Close(); };
+                Click += (s, e) => close();
+                content.Click += (s, e) => close();
+                foreach (Control child in content.Controls) child.Click += (s, e) => close();
+                KeyDown += (s, e) => { if (e.KeyCode == Keys.Escape) close(); };
+
+            }
+
+            protected override bool ShowWithoutActivation
+            {
+                get { return true; }
+            }
+
+            protected override CreateParams CreateParams
+            {
+                get
+                {
+                    const int WS_EX_NOACTIVATE = 0x08000000;
+                    CreateParams parameters = base.CreateParams;
+                    parameters.ExStyle |= WS_EX_NOACTIVATE;
+                    return parameters;
+                }
+            }
         }
 
         private static string ReadStableDisplayId(string deviceName)
@@ -1090,35 +1280,71 @@ namespace Offhand.Companion
             const int WM_ENTERSIZEMOVE = 0x0231;
             const int WM_EXITSIZEMOVE = 0x0232;
             if (m.Msg == WM_ENTERSIZEMOVE) SuspendUiPolling();
-            if (m.Msg == 0x0312) { if (m.WParam.ToInt32() == 1) InvokeSpanWindow(true); else if (m.WParam.ToInt32() == 2) InvokeRestoreWindow(true); }
             base.WndProc(ref m);
             if (m.Msg == WM_EXITSIZEMOVE) ResumeUiPolling();
         }
 
-        private void UpdateHotkey()
+        private void ShowDisplayIdentifiers()
         {
-            NativeMethods.UnregisterHotKey(this.Handle, 1);
-            int modifier = 0;
-            int key = 0;
-            string sel = cmbHotkey.SelectedItem as string;
-            if (string.IsNullOrEmpty(sel)) sel = "Ctrl+Alt+S";
-            
-            if (sel == "Ctrl+Alt+S") { modifier = 0x0002 | 0x0001; key = (int)Keys.S; } // Alt is 1, Ctrl is 2
-            else if (sel == "Ctrl+Shift+S") { modifier = 0x0002 | 0x0004; key = (int)Keys.S; } // Ctrl is 2, Shift is 4
-            else if (sel == "Alt+S") { modifier = 0x0001; key = (int)Keys.S; }
-            else if (sel == "F10") { modifier = 0; key = (int)Keys.F10; }
-            else if (sel == "F11") { modifier = 0; key = (int)Keys.F11; }
-            else if (sel == "F12") { modifier = 0; key = (int)Keys.F12; }
-            
-            if (NativeMethods.RegisterHotKey(this.Handle, 1, modifier | 0x4000, key))
-                AddLog("Global Hotkey Registered: " + sel + " to Span Now.");
-            else
-                AddLog("Hotkey unavailable: " + sel + ". Choose another shortcut; Span Now still works.");
-            NativeMethods.UnregisterHotKey(this.Handle, 2);
-            if (NativeMethods.RegisterHotKey(this.Handle, 2, 0x0002 | 0x0001 | 0x4000, (int)Keys.R))
-                AddLog("Ctrl+Alt+R hotkey registered to Restore window.");
-            else
-                AddLog("Ctrl+Alt+R unavailable. The Restore Window button still works.");
+            List<MonitorSelection.Display> displays = ReadDisplays();
+            RefreshDisplayControls(displays);
+            if (displays.Count == 0)
+            {
+                MessageBox.Show("Windows did not report any connected displays.", "Identify Displays",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            SuspendUiPolling();
+            int mainhandIndex = -1;
+            var choice = cmbMainhand == null ? null : cmbMainhand.SelectedItem as DisplayChoice;
+            if (choice != null) mainhandIndex = choice.Index;
+            var overlays = new List<DisplayIdentifierForm>();
+            var closeTimer = new Timer { Interval = 4000 };
+            int remaining = displays.Count;
+            bool resumed = false;
+            Action finish = () =>
+            {
+                if (resumed) return;
+                resumed = true;
+                closeTimer.Stop();
+                closeTimer.Dispose();
+                ResumeUiPolling();
+                if (!IsDisposed) Activate();
+            };
+
+            for (int i = 0; i < displays.Count; i++)
+            {
+                bool selected = clbMonitors != null && i < clbMonitors.Items.Count
+                    && clbMonitors.GetItemChecked(i);
+                string role;
+                if (selected && chkSingleSplit != null && chkSingleSplit.Checked)
+                    role = "Selected super-ultrawide • game " +
+                        (cmbSingleSide != null && cmbSingleSide.SelectedIndex == 1 ? "left" : "right");
+                else if (selected && i == mainhandIndex) role = "Mainhand (game)";
+                else if (selected) role = "Offhand workspace";
+                else role = "Not selected";
+
+                var overlay = new DisplayIdentifierForm(displays[i], role,
+                    Color.FromArgb(12, 12, 14), cGold, cGoldBright, cText);
+                overlay.FormClosed += (s, e) =>
+                {
+                    remaining--;
+                    if (remaining <= 0) finish();
+                };
+                overlays.Add(overlay);
+            }
+
+            closeTimer.Tick += (s, e) =>
+            {
+                closeTimer.Stop();
+                foreach (DisplayIdentifierForm overlay in overlays.ToArray())
+                    if (!overlay.IsDisposed) overlay.Close();
+                if (remaining <= 0) finish();
+            };
+            foreach (DisplayIdentifierForm overlay in overlays) overlay.Show();
+            closeTimer.Start();
+            AddLog("Display identifiers shown for four seconds.");
         }
 
         public CompanionForm()
@@ -1127,7 +1353,6 @@ namespace Offhand.Companion
             InitializeUI();
             InitializeTray();
             InitializeTimer();
-            UpdateHotkey();
             if (configWarning != null) AddLog(configWarning);
             AddLog("Offhand Companion v" + FullVersion + " initialized.");
             AddLog("Monitoring active. Enable Offhand in WoW; calibrate with /offhand wizard.");
@@ -1148,30 +1373,33 @@ namespace Offhand.Companion
                     using (System.Net.WebClient wc = new System.Net.WebClient())
                     {
                         wc.Headers.Add("User-Agent", "Offhand-Companion");
-                        string json = wc.DownloadString("https://api.github.com/repos/N4UX-GIT/Offhand-DualMonitor/releases/latest");
+                        string json = wc.DownloadString("https://api.github.com/repos/N4UX-GIT/Offhand-Companion/releases/latest");
                         
                         int idx = json.IndexOf("\"tag_name\":");
                         if (idx == -1) throw new FormatException("GitHub response did not include a release tag.");
                         int start = json.IndexOf("\"", idx + 11) + 1;
                         int end = json.IndexOf("\"", start);
                         if (start <= 0 || end <= start) throw new FormatException("GitHub release tag was malformed.");
-                        string tag = json.Substring(start, end - start).TrimStart('v');
-                        string cleanTag = tag.Contains("-") ? tag.Substring(0, tag.IndexOf("-")) : tag;
-                        Version latest;
-                        if (!Version.TryParse(cleanTag, out latest)) throw new FormatException("GitHub release version was not recognized.");
-                        Version current = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+                        string tag = json.Substring(start, end - start);
+                        CompanionReleaseVersion latest;
+                        if (!CompanionReleaseVersion.TryParse(tag, out latest)) throw new FormatException("GitHub release version was not recognized.");
+                        var informational = Assembly.GetExecutingAssembly()
+                            .GetCustomAttribute<AssemblyInformationalVersionAttribute>();
+                        CompanionReleaseVersion current;
+                        if (informational == null || !CompanionReleaseVersion.TryParse(informational.InformationalVersion, out current))
+                            throw new FormatException("The installed Companion version was not recognized.");
 
                         CompleteUpdateCheck(new Action(() =>
                         {
-                            if (latest > current)
+                            if (latest.CompareTo(current) > 0)
                             {
-                                AddLog("UPDATE AVAILABLE: v" + latest.ToString(3));
-                                if (MessageBox.Show("Offhand Companion v" + latest.ToString(3) + " is available.\n\nOpen the official GitHub release page?", "Update Available", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
-                                    System.Diagnostics.Process.Start("https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/latest");
+                                AddLog("UPDATE AVAILABLE: " + latest.Display);
+                                if (MessageBox.Show("Offhand Companion " + latest.Display + " is available.\n\nOpen the official GitHub release page?", "Update Available", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                                    System.Diagnostics.Process.Start("https://github.com/N4UX-GIT/Offhand-Companion/releases/latest");
                             }
                             else
                             {
-                                AddLog("Companion is up to date (v" + current.ToString(3) + ").");
+                                AddLog("Companion is up to date (" + current.Display + ").");
                                 MessageBox.Show("You are running the latest published Companion version.", "No Update Available", MessageBoxButtons.OK, MessageBoxIcon.Information);
                             }
                         }));
@@ -1402,19 +1630,11 @@ namespace Offhand.Companion
             numDelaySpan = new NumericUpDown { Location = new Point(140, 54), Size = new Size(60, 22), Minimum = 0, Maximum = 60, Value = 15, BackColor = cCard, ForeColor = cText };
                         configPanel.Controls.Add(numDelaySpan);
 
-            lblHotkey = new Label { Text = "Global Hotkey:", Location = new Point(10, 84), Size = new Size(130, 22), ForeColor = cText, BackColor = Color.Transparent };
-            configPanel.Controls.Add(lblHotkey);
-            cmbHotkey = new ComboBox { Location = new Point(140, 82), Size = new Size(120, 22), DropDownStyle = ComboBoxStyle.DropDownList, BackColor = cCard, ForeColor = cText };
-            cmbHotkey.Items.AddRange(new object[] { "Ctrl+Alt+S", "Ctrl+Shift+S", "Alt+S", "F10", "F11", "F12" });
-            cmbHotkey.SelectedIndex = 0;
-            if (appSettings.ContainsKey("Hotkey") && cmbHotkey.Items.Contains(appSettings["Hotkey"])) cmbHotkey.SelectedItem = appSettings["Hotkey"];
-            
-            cmbHotkey.SelectedIndexChanged += (s, e) => { 
-                appSettings["Hotkey"] = cmbHotkey.SelectedItem.ToString(); 
-                SaveConfig(); 
-                UpdateHotkey();
-            };
-            configPanel.Controls.Add(cmbHotkey);
+            Button btnIdentifyDisplays = CreateButton("Identify Displays", 10, 82, 190, 27,
+                cBtnBg, cText, cBorder);
+            btnIdentifyDisplays.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            btnIdentifyDisplays.Click += (s, e) => { ShowDisplayIdentifiers(); };
+            configPanel.Controls.Add(btnIdentifyDisplays);
 
             Label lblMonitors = new Label { Text = "Span displays:", Location = new Point(270, 26), Size = new Size(150, 22), ForeColor = cText, BackColor = Color.Transparent };
             configPanel.Controls.Add(lblMonitors);
@@ -1459,13 +1679,11 @@ namespace Offhand.Companion
             uiToolTips.SetToolTip(chkAutoSpan,
                 "Disabled by default. When enabled, Offhand spans each newly detected WoW window across the selected displays. Manual Span WoW Now remains available when disabled.");
             uiToolTips.SetToolTip(lblDelay,
-                "Wait time before automatically spanning supported WoW clients. Forever uses immediate pre-login spanning so its UI initializes against the final desktop geometry.");
+                "Wait time before automatically spanning a newly detected WoW window. Use 0 for immediate pre-login spanning.");
             uiToolTips.SetToolTip(numDelaySpan,
-                "Automatic-span delay for non-Forever clients (0-60 seconds). Forever intentionally ignores this delay and spans immediately.");
-            uiToolTips.SetToolTip(lblHotkey,
-                "Choose the system-wide shortcut for Span WoW Now. Ctrl+Alt+R always restores WoW to a normal window when available.");
-            uiToolTips.SetToolTip(cmbHotkey,
-                "Choose the system-wide shortcut for Span WoW Now. If another application owns it, use the dashboard button or select another shortcut.");
+                "Automatic-span delay for every supported WoW client (0-60 seconds). Forever no longer overrides this value.");
+            uiToolTips.SetToolTip(btnIdentifyDisplays,
+                "Temporarily label every connected screen with the same Display number and role used by Offhand.");
             uiToolTips.SetToolTip(lblMonitors,
                 "Select every display that should form WoW's borderless virtual desktop.");
             uiToolTips.SetToolTip(clbMonitors,
@@ -1705,8 +1923,8 @@ namespace Offhand.Companion
                 "",
                 "CONTROLS",
                 "Automatically span on launch: Opt-in automatic spanning; disabled by default.",
-                "Delay Span: Delay used by non-Forever clients. Forever spans immediately so the UI loads against its final geometry.",
-                "Global Hotkey: System-wide shortcut for Span WoW Now. Ctrl+Alt+R restores the window.",
+                "Delay Span: Wait before automatic spanning on every supported client. Choose 0 when Forever must establish final geometry before its UI loads.",
+                "Identify Displays: Temporarily label every connected screen with Offhand's Display number, resolution, and selected role.",
                 "Span displays: Exactly two displays for normal use, or one super-ultrawide in explicit split mode.",
                 "Mainhand (game): The selected display's exact rectangle becomes the 3D game viewport. The other selected display becomes the workspace.",
                 "Single-display 32:9 split: Divides one super-ultrawide into equal workspace/game halves. It never activates automatically.",
@@ -1719,7 +1937,7 @@ namespace Offhand.Companion
                 "Forever's protected action bars, unit frames, minimap, and Edit Mode controls belong to Blizzard Edit Mode. Offhand restores workspace panels separately. The Companion is required because WoW must already have the final multi-monitor window geometry when those protected frames initialize. When Companion topology is active, choose displays in the Companion; Offhand intentionally locks duplicate in-game geometry controls. It also works around Forever builds that write Offhand SavedVariables but do not reliably load them on the next cold launch.",
                 "",
                 "RECOVERY",
-                "If UI is inaccessible, click Restore Window (or press Ctrl+Alt+R), enter WoW, and use Offhand's Gather Off-Screen UI action. Re-enter Edit Mode and save/select the Offhand layout, then click Span WoW Now and /reload once. If a saved workspace display disconnects while WoW is spanned, Companion restores a bordered WoW window that fills the surviving Mainhand and refuses another span until the topology is valid. On Forever, click Use Modern when Offhand prompts; after reconnecting and spanning the exact topology, click Restore Offhand. WoW must be fully closed before the Forever recovery snapshot can be refreshed.",
+                "If UI is inaccessible, click Restore Window, enter WoW, and use Offhand's Gather Off-Screen UI action. Re-enter Edit Mode and save/select the Offhand layout, then click Span WoW Now and /reload once. If a saved workspace display disconnects while WoW is spanned, Companion restores a bordered WoW window that fills the surviving Mainhand and refuses another span until the topology is valid. On Forever, click Use Modern when Offhand prompts; after reconnecting and spanning the exact topology, click Restore Offhand. WoW must be fully closed before the Forever recovery snapshot can be refreshed.",
                 "",
                 "TROUBLESHOOTING",
                 "Select exactly two displays and a connected Mainhand, or explicitly enable the one-display super-ultrawide split. The status card names the running WoW client and the exact addon path it verifies; installs for another client, nested folders, and version-suffixed addon folders are reported explicitly. If Windows reports error 5, close both programs and run Battle.net, WoW, and Offhand at the same privilege level. If Span is refused because topology could not be written, fix that path or file-permission error first. If WoW spans but the 3D world still fills both displays after /reload, confirm the in-game addon is enabled and that its version matches this Companion. Mixed resolutions, ultrawide Mainhand displays, portrait screens, negative desktop coordinates, and stacked arrangements use Windows' exact display rectangles; make sure Windows Display Settings matches the physical arrangement. Hover any dashboard control for a concise explanation.",
@@ -1878,8 +2096,6 @@ namespace Offhand.Companion
 
         private void ExitApplication()
         {
-            NativeMethods.UnregisterHotKey(this.Handle, 1);
-            NativeMethods.UnregisterHotKey(this.Handle, 2);
             isExplicitExit = true;
             if (monitorTimer != null) monitorTimer.Stop();
             if (trayIcon != null) trayIcon.Visible = false;
@@ -2443,9 +2659,18 @@ namespace Offhand.Companion
         [STAThread]
         public static void Main()
         {
-            bool ownsInstance;
-            using (System.Threading.Mutex instanceMutex = new System.Threading.Mutex(true, @"Local\OffhandCompanion", out ownsInstance))
+            bool ownsInstance = false;
+            System.Threading.Mutex instanceMutex = null;
+            try
             {
+                try
+                {
+                    instanceMutex = new System.Threading.Mutex(true, @"Local\OffhandCompanion", out ownsInstance);
+                }
+                catch (System.Threading.AbandonedMutexException)
+                {
+                    ownsInstance = true;
+                }
                 if (!ownsInstance)
                 {
                     MessageBox.Show("Offhand Companion is already running. Open it from the Windows notification area.",
@@ -2455,6 +2680,18 @@ namespace Offhand.Companion
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
                 Application.Run(new CompanionForm());
+            }
+            finally
+            {
+                if (instanceMutex != null)
+                {
+                    if (ownsInstance)
+                    {
+                        try { instanceMutex.ReleaseMutex(); }
+                        catch { }
+                    }
+                    instanceMutex.Dispose();
+                }
             }
         }
     }

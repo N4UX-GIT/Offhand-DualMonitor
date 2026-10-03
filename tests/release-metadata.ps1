@@ -25,7 +25,7 @@ try {
         'Offhand-Complete-v2.1.2-beta.5.zip',
         '**Companion package:**',
         '**Standalone Companion:**',
-        'byte-identical v2.1.2 Beta 13',
+        'byte-identical v2.1.2 Beta 18',
         'releases/latest/download'
     )) {
         if (-not $betaBody.Contains($required)) {
@@ -37,7 +37,7 @@ try {
     }
 
     $companionNotes = Join-Path $temp 'companion.md'
-    & $script -Tag 'v2.1.2-beta.13' -ChangelogPath $changelog -OutputPath $companionNotes -CompanionChanged | Out-Null
+    & $script -Tag 'v2.1.2-beta.18' -ChangelogPath $changelog -OutputPath $companionNotes -CompanionChanged | Out-Null
     $companionBody = Get-Content -LiteralPath $companionNotes -Raw
     foreach ($required in @('**Companion package:**', '**Standalone Companion:**')) {
         if (-not $companionBody.Contains($required)) {
@@ -71,14 +71,9 @@ try {
         throw 'Invalid release tags must be rejected.'
     }
 
-    $unsafeStableFailed = $false
-    try {
-        & $script -Tag 'v2.1.3' -ChangelogPath $changelog -OutputPath (Join-Path $temp 'unsafe-stable.md') | Out-Null
-    } catch {
-        $unsafeStableFailed = $_.Exception.Message -match 'false update'
-    }
-    if (-not $unsafeStableFailed) {
-        throw 'A newer stable addon-only tag must be blocked while Companion Beta 13 uses the shared latest-release endpoint.'
+    $addonOnlyStable = & $script -Tag 'v2.1.3' -ChangelogPath $changelog -OutputPath (Join-Path $temp 'addon-only-stable.md')
+    if ($addonOnlyStable.ReleaseName -ne 'Offhand v2.1.3' -or $addonOnlyStable.Prerelease) {
+        throw 'Addon-only stable releases must remain independent of the Companion version.'
     }
 
     Write-Output 'PASS: standardized beta, release-candidate, stable, and invalid release metadata'

@@ -26,15 +26,6 @@ $sequence = $match.Groups['number'].Value
 $packageVersion = $Tag.Substring(1)
 $isPrerelease = -not [string]::IsNullOrEmpty($channel)
 
-# Beta 13's manual update check reads GitHub's latest stable release and
-# compares only the base AssemblyVersion (2.1.2). A newer stable addon tag
-# would falsely look like a new Companion. Require the explicit Companion lane
-# before crossing that boundary.
-if (-not $CompanionChanged -and -not $isPrerelease -and
-    ([version]$version -gt [version]'2.1.2')) {
-    throw "Stable addon tag '$Tag' would make the frozen Beta 13 Companion report a false update. Use a prerelease tag, or intentionally update the Companion and pass -CompanionChanged."
-}
-
 $channelName = switch ($channel) {
     'alpha' { 'Alpha' }
     'beta' { 'Beta' }
@@ -75,9 +66,9 @@ $companionDownloads = if ($CompanionChanged) {
 "@
 } else {
 @"
-- **Companion package:** ``Offhand-Companion.zip`` — unchanged, byte-identical v2.1.2 Beta 13 archive retained so the permanent ``releases/latest/download`` link continues to work.
-- **Standalone Companion:** ``Offhand.exe`` — unchanged, byte-identical v2.1.2 Beta 13 executable.
-- **Companion source release:** [v2.1.2 Beta 13](https://github.com/$Repository/releases/tag/v2.1.2-beta.13).
+- **Companion package:** ``Offhand-Companion.zip`` — unchanged, byte-identical v2.1.2 Beta 18 archive retained so the permanent ``releases/latest/download`` link continues to work.
+- **Standalone Companion:** ``Offhand.exe`` — unchanged, byte-identical v2.1.2 Beta 18 executable.
+- **Companion source release:** [v2.1.2 Beta 18](https://github.com/$Repository/releases/tag/v2.1.2-beta.18).
 "@
 }
 
