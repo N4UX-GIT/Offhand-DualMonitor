@@ -2,7 +2,7 @@ param(
     [string]$Tag = "v2.1.2-beta.18",
     [string]$ExpectedSha256 = "A42A45CB149C66EF884308F15A79EE8905C58A94E9B4AE1A3B05B43BAF929F37",
     [string]$ArchiveDestination,
-    [string]$ExpectedArchiveSha256 = ""
+    [string]$ExpectedArchiveSha256 = "AD49BE14A9C8ADF5A888F873CE9B99F183C4AD2924909ECDF52801F303248A93"
 )
 
 $ErrorActionPreference = "Stop"

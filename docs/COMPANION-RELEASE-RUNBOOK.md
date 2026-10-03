@@ -37,8 +37,8 @@ The canonical portable Companion is currently:
 - Download: <https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.18/Offhand-Companion.zip>
 - Standalone `Offhand.exe` SHA-256:
   `A42A45CB149C66EF884308F15A79EE8905C58A94E9B4AE1A3B05B43BAF929F37`
-- `Offhand-Companion.zip` SHA-256: recorded from the published GitHub asset in
-  `checksums-sha256.txt` immediately after the initial Beta 18 workflow.
+- `Offhand-Companion.zip` SHA-256:
+  `AD49BE14A9C8ADF5A888F873CE9B99F183C4AD2924909ECDF52801F303248A93`
 
 Normal addon releases include those exact bytes in the complete bundle and
 reattach the byte-identical `Offhand-Companion.zip` and `Offhand.exe`. This

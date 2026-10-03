@@ -114,7 +114,7 @@ try {
         $releaseWorkflow -notmatch 'Validate canonical Companion archive' -or
         $releaseWorkflow -notmatch 'COMPANION_RELEASE_TAG: v2\.1\.2-beta\.18' -or
         $releaseWorkflow -notmatch 'COMPANION_SHA256: A42A45CB149C66EF884308F15A79EE8905C58A94E9B4AE1A3B05B43BAF929F37' -or
-        $releaseWorkflow -notmatch 'COMPANION_ARCHIVE_SHA256: PENDING_INITIAL_RELEASE' -or
+        $releaseWorkflow -notmatch 'COMPANION_ARCHIVE_SHA256: AD49BE14A9C8ADF5A888F873CE9B99F183C4AD2924909ECDF52801F303248A93' -or
         $releaseWorkflow -notmatch "GetEntry\('Offhand\.exe'\)" -or
         $releaseWorkflow -notmatch 'ComputeHash\(\$stream\)' -or
         $releaseWorkflow -notmatch 'Restore frozen Beta 18 Companion' -or

@@ -5,10 +5,7 @@ env:
   # Change both values only for a deliberate Companion release.
   COMPANION_RELEASE_TAG: v2.1.2-beta.18
   COMPANION_SHA256: A42A45CB149C66EF884308F15A79EE8905C58A94E9B4AE1A3B05B43BAF929F37
-  # Filled with the published asset hash immediately after the first Beta 18
-  # workflow succeeds. ZIP container bytes vary between .NET patch levels, so
-  # the initial release validates its contents and records the runner's hash.
-  COMPANION_ARCHIVE_SHA256: PENDING_INITIAL_RELEASE
+  COMPANION_ARCHIVE_SHA256: AD49BE14A9C8ADF5A888F873CE9B99F183C4AD2924909ECDF52801F303248A93
 
 on:
   push:
