@@ -5,7 +5,10 @@ env:
   # Change both values only for a deliberate Companion release.
   COMPANION_RELEASE_TAG: v2.1.2-beta.18
   COMPANION_SHA256: A42A45CB149C66EF884308F15A79EE8905C58A94E9B4AE1A3B05B43BAF929F37
-  COMPANION_ARCHIVE_SHA256: 20D8FF3DC38D2C0517A2D88362934E0A2A41088927C63245ED01FFF0ECD5664F
+  # Filled with the published asset hash immediately after the first Beta 18
+  # workflow succeeds. ZIP container bytes vary between .NET patch levels, so
+  # the initial release validates its contents and records the runner's hash.
+  COMPANION_ARCHIVE_SHA256: PENDING_INITIAL_RELEASE
 
 on:
   push:
@@ -66,9 +69,35 @@ jobs:
       if: steps.policy.outputs.companion_changed == 'true'
       shell: powershell
       run: |
-        $actual = (Get-FileHash -LiteralPath 'dist\Offhand-Companion.zip' -Algorithm SHA256).Hash
-        if ($actual -ne $env:COMPANION_ARCHIVE_SHA256) {
-          throw "Packaged Companion archive hash $actual does not match $env:COMPANION_ARCHIVE_SHA256."
+        Add-Type -AssemblyName System.IO.Compression
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $archive = [IO.Compression.ZipFile]::OpenRead('dist\Offhand-Companion.zip')
+        try {
+          foreach ($required in @(
+            'Offhand.exe',
+            'Source/Program.cs',
+            'Source/app.manifest',
+            'README.md',
+            'SECURITY.md'
+          )) {
+            if (-not $archive.GetEntry($required)) {
+              throw "Companion archive is missing $required."
+            }
+          }
+          $entry = $archive.GetEntry('Offhand.exe')
+          $stream = $entry.Open()
+          $sha256 = [Security.Cryptography.SHA256]::Create()
+          try {
+            $actual = ([BitConverter]::ToString($sha256.ComputeHash($stream))).Replace('-', '')
+          } finally {
+            $sha256.Dispose()
+            $stream.Dispose()
+          }
+          if ($actual -ne $env:COMPANION_SHA256) {
+            throw "Companion archive contains executable hash $actual, expected $env:COMPANION_SHA256."
+          }
+        } finally {
+          $archive.Dispose()
         }
 
     - name: Attach frozen Beta 18 Companion assets

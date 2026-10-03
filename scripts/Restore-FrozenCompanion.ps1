@@ -2,7 +2,7 @@ param(
     [string]$Tag = "v2.1.2-beta.18",
     [string]$ExpectedSha256 = "A42A45CB149C66EF884308F15A79EE8905C58A94E9B4AE1A3B05B43BAF929F37",
     [string]$ArchiveDestination,
-    [string]$ExpectedArchiveSha256 = "20D8FF3DC38D2C0517A2D88362934E0A2A41088927C63245ED01FFF0ECD5664F"
+    [string]$ExpectedArchiveSha256 = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -26,6 +26,9 @@ try {
     Write-Host "SHA-256: $actual" -ForegroundColor White
 
     if (-not [string]::IsNullOrWhiteSpace($ArchiveDestination)) {
+        if ([string]::IsNullOrWhiteSpace($ExpectedArchiveSha256)) {
+            throw "ExpectedArchiveSha256 is required when restoring the frozen Companion archive."
+        }
         $archiveParent = Split-Path -Parent $ArchiveDestination
         if ($archiveParent) {
             New-Item -ItemType Directory -Path $archiveParent -Force | Out-Null
