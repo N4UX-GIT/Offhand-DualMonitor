@@ -345,6 +345,31 @@ addon.Canvas:RepairShownWorkspacePanels(WorldMapFrame)
 assert(GetUIPanel("left") ~= CharacterFrame and CharacterFrame:GetLeft() < metrics.workspaceRight,
     "the external map-close pass must repair CharacterFrame instead of moving it to Mainhand")
 
+-- Blizzard's left-panel manager reflows the already-open panel whenever a
+-- second panel opens. Mainhand ownership must be reasserted for every shown
+-- peer, not only for workspace panels, so opening order cannot strand one at
+-- the full-canvas origin or in the Offhand workspace.
+local savedWorkspaceMap = addon.db.savedWorkspacePositions.WorldMapFrame
+local savedWorkspaceCharacter = addon.db.savedWorkspacePositions.CharacterFrame
+addon.db.savedWorkspacePositions.WorldMapFrame = nil
+addon.db.savedWorkspacePositions.CharacterFrame = nil
+addon.db.savedMainPositions.WorldMapFrame = { x = 1700, y = 1100 }
+addon.db.savedMainPositions.CharacterFrame = { x = 1900, y = 1050 }
+WorldMapFrame:Show()
+CharacterFrame:Show()
+WorldMapFrame.left, WorldMapFrame.bottom = 200, 400
+CharacterFrame.left, CharacterFrame.bottom = 300, 330
+addon.Canvas:RepairShownWorkspacePanels()
+assert(WorldMapFrame:GetLeft() >= metrics.gameLeft
+        and CharacterFrame:GetLeft() >= metrics.gameLeft,
+    "Mainhand UIPanel peers must survive Blizzard's opening-order reflow")
+addon.db.savedMainPositions.WorldMapFrame = nil
+addon.db.savedMainPositions.CharacterFrame = nil
+addon.db.savedWorkspacePositions.WorldMapFrame = savedWorkspaceMap
+addon.db.savedWorkspacePositions.CharacterFrame = savedWorkspaceCharacter
+addon.Canvas:RestoreWorkspacePosition(WorldMapFrame)
+addon.Canvas:RestoreWorkspacePosition(CharacterFrame)
+
 ContainerFrameCombinedBags = makePanel(
     "ContainerFrameCombinedBags", false, 120, 400, 520, 760)
 local snapshotsBeforePanelDrop = profileSnapshotWrites
@@ -367,6 +392,25 @@ assert(nativeBagOpens == 1 and ContainerFrameCombinedBags:IsShown()
         and addon.db.savedWorkspacePositions.ContainerFrameCombinedBags ~= nil
         and addon.db.openWorkspacePanels.ContainerFrameCombinedBags == true,
     "Forever must restore a tracked native backpack through Blizzard's opener")
+
+-- Child-frame names left by an unrelated or disabled bag addon are not native
+-- backpack ownership. They must never cause Offhand to open Blizzard's bag on
+-- login when the native root is explicitly saved on Mainhand.
+local trackedBagWorkspace = addon.db.savedWorkspacePositions.ContainerFrameCombinedBags
+ContainerFrameCombinedBags:Hide()
+addon.db.savedWorkspacePositions.ContainerFrameCombinedBags = nil
+addon.db.savedMainPositions.ContainerFrameCombinedBags = { x = 2100, y = 900 }
+addon.db.openWorkspacePanels.ContainerFrameCombinedBags = nil
+addon.db.openWorkspacePanels.Baganator_StaleChild = true
+local bagOpensBeforeStaleRestore = nativeBagOpens
+addon.Canvas:RestorePersistentFrames()
+assert(nativeBagOpens == bagOpensBeforeStaleRestore
+        and not ContainerFrameCombinedBags:IsShown(),
+    "stale bag-addon child visibility must not auto-open the native backpack")
+addon.db.openWorkspacePanels.Baganator_StaleChild = nil
+addon.db.savedMainPositions.ContainerFrameCombinedBags = nil
+addon.db.savedWorkspacePositions.ContainerFrameCombinedBags = trackedBagWorkspace
+addon.db.openWorkspacePanels.ContainerFrameCombinedBags = true
 
 -- Forever must not replace CloseAllWindows, but its secure post-hook can repair
 -- the workspace backpack after Escape and open the Game Menu. Explicit B
@@ -441,6 +485,17 @@ ToggleQuestLog = function()
         WorldMapFrame:Show()
     end
 end
+ToggleCharacter = function()
+    if CharacterFrame:IsShown() then
+        CharacterFrame:Hide()
+    else
+        -- Reproduce Blizzard's left-slot reflow: opening Character moves the
+        -- already-visible map back toward the full-canvas origin.
+        if WorldMapFrame:IsShown() then WorldMapFrame.left = 180 end
+        CharacterFrame.left, CharacterFrame.bottom = 260, 320
+        CharacterFrame:Show()
+    end
+end
 addon.Canvas:EnableFreeDragging()
 assert(not addon.Canvas._closeAllBagsEscapeHooked
     and not addon.Canvas._toggleGameMenuEscapeHooked,
@@ -453,6 +508,27 @@ assert(not addon.Canvas._closeAllBagsEscapeHooked
     "Later setup passes must keep native bag and Game Menu paths unhooked")
 assert(addon.Canvas._toggleQuestLogPersistenceHooked,
     "Forever's L-key quest-log path must participate in World Map persistence")
+
+local toggleWorkspaceMap = addon.db.savedWorkspacePositions.WorldMapFrame
+local toggleWorkspaceCharacter = addon.db.savedWorkspacePositions.CharacterFrame
+addon.db.savedWorkspacePositions.WorldMapFrame = nil
+addon.db.savedWorkspacePositions.CharacterFrame = nil
+addon.db.savedMainPositions.WorldMapFrame = { x = 1700, y = 1100 }
+addon.db.savedMainPositions.CharacterFrame = { x = 1950, y = 1050 }
+WorldMapFrame:Show()
+CharacterFrame:Hide()
+addon.Canvas:RestoreWorkspacePosition(WorldMapFrame)
+ToggleCharacter()
+flushTimers()
+assert(WorldMapFrame:GetLeft() >= metrics.gameLeft
+        and CharacterFrame:GetLeft() >= metrics.gameLeft,
+    "the character toggle must repair both newly opened and reflowed Mainhand panels")
+addon.db.savedMainPositions.WorldMapFrame = nil
+addon.db.savedMainPositions.CharacterFrame = nil
+addon.db.savedWorkspacePositions.WorldMapFrame = toggleWorkspaceMap
+addon.db.savedWorkspacePositions.CharacterFrame = toggleWorkspaceCharacter
+addon.Canvas:RestoreWorkspacePosition(WorldMapFrame)
+addon.Canvas:RestoreWorkspacePosition(CharacterFrame)
 
 -- M and L open the same protected WorldMapFrame through different globals.
 -- Both must settle at the one saved workspace anchor without native hooks.

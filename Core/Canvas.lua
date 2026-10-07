@@ -1385,7 +1385,16 @@ function Canvas:RestorePersistentFrames()
     local openPanels = Offhand.db.openWorkspacePanels or {}
     
     for name, _ in pairs(openPanels) do
-        if name:match("^ContainerFrame") or name:match("^Baganator") or name:match("^Baginator") or name:match("^BGR") or name:match("^Bagnon") or name:match("^AdiBags") or name:match("^BetterBags") or name:match("^ArkInventory") or name == "CustomBagRestorer" then
+        local hasWorkspaceOwner = Offhand.db.savedWorkspacePositions
+            and Offhand.db.savedWorkspacePositions[name]
+        local hasMainhandOwner = Offhand.db.savedMainPositions
+            and Offhand.db.savedMainPositions[name]
+        if hasWorkspaceOwner and not hasMainhandOwner
+            and (name:match("^ContainerFrame") or name:match("^Baganator")
+                or name:match("^Baginator") or name:match("^BGR")
+                or name:match("^Bagnon") or name:match("^AdiBags")
+                or name:match("^BetterBags") or name:match("^ArkInventory")
+                or name == "CustomBagRestorer") then
             hasBag = true
             break
         end
@@ -2553,8 +2562,7 @@ function Canvas:CaptureRetailEditModeChatPlacement()
 end
 
 function Canvas:RepairShownWorkspacePanels(exceptFrame)
-    if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
-        or not Offhand.db.savedWorkspacePositions then return end
+    if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
     -- Addon-owned bag roots can be moved by their own Edit Mode without
     -- dispatching Offhand's drag callbacks. Reconcile their physical monitor
     -- before consuming general workspace records so map toggles cannot apply a
@@ -2562,13 +2570,26 @@ function Canvas:RepairShownWorkspacePanels(exceptFrame)
     if Offhand.BagPersistence and Offhand.BagPersistence.Capture then
         Offhand.BagPersistence:Capture()
     end
-    for name in pairs(Offhand.db.savedWorkspacePositions) do
+    local repaired = {}
+    local function Repair(name, isMainhand)
+        if repaired[name] then return end
+        repaired[name] = true
         local frame = _G[name]
         if frame and frame ~= exceptFrame and frame.IsShown and frame:IsShown()
             and not IsForeverEditModeFrame(frame, name)
             and not IsForeverProfessionsPanel(frame, name)
+            and not (isMainhand and IsBackpackRoot(name))
             and not IsUnsafeForPanelMutation(frame, name) then
             RestoreWorkspacePosition(frame)
+        end
+    end
+    for name in pairs(Offhand.db.savedWorkspacePositions or {}) do
+        Repair(name, false)
+    end
+    for name in pairs(Offhand.db.savedMainPositions or {}) do
+        if not (Offhand.db.savedWorkspacePositions
+            and Offhand.db.savedWorkspacePositions[name]) then
+            Repair(name, true)
         end
     end
 end
@@ -4349,11 +4370,11 @@ function Canvas:EnableFreeDragging()
                         RestoreSavedPositionAfterShow(frame)
                     end
                 end
-                -- A native World Map close can reshuffle Blizzard's active
-                -- panel slots. Repair other saved workspace panels from this
-                -- external post-toggle hook rather than attaching OnHide to the
-                -- restricted Forever map frame.
-                if repairPeers and frame == _G.WorldMapFrame then
+                -- Opening or closing either native left-slot panel can reflow
+                -- every other shown UIPanel. Reassert both Offhand and Mainhand
+                -- peers from this external post-toggle hook; the restricted
+                -- Forever map itself still receives no OnShow/OnHide hooks.
+                if repairPeers then
                     Canvas:RepairShownWorkspacePanels(frame)
                 end
             end
