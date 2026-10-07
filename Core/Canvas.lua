@@ -2237,12 +2237,16 @@ end
 -- Professions or Collections panel can open on the wrong monitor. Mainhand
 -- placements use physical UIParent coordinates and are clamped on every
 -- restore so display changes cannot strand a panel off screen.
-function Canvas:PlacePanelOnMainhand(frame, metrics, position, preserveContained)
+function Canvas:PlacePanelOnMainhand(frame, metrics, position, preserveContained, recoveryAction)
     if not frame or (InCombatLockdown and InCombatLockdown()) or not Offhand.db
         or not Offhand.db.enabled then return false end
     local name = frame.GetName and frame:GetName()
+    local recoverySafePanel = recoveryAction and name and (
+        IsBackpackRoot(name) or (UIPanelWindows and UIPanelWindows[name])
+    )
     if not name or (nonMovableSystemPanels and nonMovableSystemPanels[name])
-        or IsForeverEditModeFrame(frame, name) or IsUnsafeForPanelMutation(frame, name) then return false end
+        or IsForeverEditModeFrame(frame, name)
+        or (IsUnsafeForPanelMutation(frame, name) and not recoverySafePanel) then return false end
 
     metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics
         and WithWorkspace(Offhand.Viewport:GetMetrics()))
@@ -2295,6 +2299,90 @@ function Canvas:PlacePanelOnMainhand(frame, metrics, position, preserveContained
     end)
     if ok and not IsForeverProfessionsPanel(frame, name) then RegisterSpecialFrame(name) end
     return ok
+end
+
+-- Recovery is an explicit out-of-combat hardware action. Unlike a generic
+-- re-anchor, it must also retire Offhand's workspace ownership or the next
+-- OnShow/restore pass will put the panel back on the secondary display.
+function Canvas:GatherSafeUIToMainhand()
+    if InCombatLockdown and InCombatLockdown() then return false, "combat", 0, 0 end
+    if not Offhand.db or not Offhand.db.enabled then return false, "disabled", 0, 0 end
+    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
+        and WithWorkspace(Offhand.Viewport:GetMetrics())
+    if not metrics or not metrics.isSpanned then return false, "span", 0, 0 end
+    Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
+    Offhand.db.openWorkspacePanels = Offhand.db.openWorkspacePanels or {}
+    Offhand.db.savedMainPositions = Offhand.db.savedMainPositions or {}
+
+    local candidates = {}
+    local function Add(frame)
+        if frame then candidates[frame] = true end
+    end
+    for name in pairs(Offhand.db.savedWorkspacePositions or {}) do Add(_G[name]) end
+    for name in pairs(UIPanelWindows or {}) do Add(_G[name]) end
+    if UIParent and UIParent.GetChildren then
+        for _, child in ipairs({ UIParent:GetChildren() }) do Add(child) end
+    end
+    if Offhand.BagPersistence and type(Offhand.BagPersistence.frames) == "table" then
+        for _, frame in pairs(Offhand.BagPersistence.frames) do Add(frame) end
+    end
+    Add(_G.WorldMapFrame)
+    Add(_G.CharacterFrame)
+    Add(_G.ContainerFrameCombinedBags)
+    Add(_G.ContainerFrame1)
+
+    local moved, skipped = 0, 0
+    for frame in pairs(candidates) do
+        local name = frame.GetName and frame:GetName()
+        local shown = frame.IsShown and frame:IsShown()
+        local tracked = name and Offhand.db.savedWorkspacePositions
+            and Offhand.db.savedWorkspacePositions[name]
+        local onWorkspace = shown and IsFrameOnWorkspace(frame)
+        if shown and name and (tracked or onWorkspace)
+            and frame ~= UIParent and frame ~= WorldFrame and frame ~= Offhand.canvas
+            and not IsForeverEditModeFrame(frame, name) then
+            if frame == _G.WorldMapFrame and frame.SetScale then
+                pcall(frame.SetScale, frame, 1)
+            end
+            local placed = self:PlacePanelOnMainhand(frame, metrics, nil, false, true)
+            if placed then
+                moved = moved + 1
+                Offhand.db.savedWorkspacePositions[name] = nil
+                Offhand.db.openWorkspacePanels[name] = nil
+                if Offhand.db.baganatorWorkspacePanels then
+                    Offhand.db.baganatorWorkspacePanels[name] = nil
+                end
+
+                if IsBackpackRoot(name) then
+                    ClearOtherBackpackRootState(nil)
+                    Offhand.db.nativeBackpackWorkspacePosition = nil
+                    Offhand.db.nativeBackpackWorkspaceOpen = nil
+                elseif Offhand.ForeverPersistence and Offhand.ForeverPersistence.ClearPosition then
+                    Offhand.ForeverPersistence:ClearPosition(name)
+                end
+
+                local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
+                local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
+                local left = frame.GetLeft and frame:GetLeft()
+                local top = frame.GetTop and frame:GetTop()
+                if left and top and parentScale > 0 then
+                    local factor = frameScale / parentScale
+                    Offhand.db.savedMainPositions[name] = { x = left * factor, y = top * factor }
+                end
+            else
+                skipped = skipped + 1
+            end
+        end
+    end
+
+    SaveOpenWorkspacePanels()
+    if Offhand.BagPersistence then
+        if Offhand.BagPersistence.ForgetOpenSnapshot then
+            Offhand.BagPersistence:ForgetOpenSnapshot()
+        end
+        if Offhand.BagPersistence.Capture then Offhand.BagPersistence:Capture() end
+    end
+    return true, nil, moved, skipped
 end
 
 RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)

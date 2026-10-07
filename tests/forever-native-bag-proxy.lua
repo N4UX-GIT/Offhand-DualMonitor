@@ -94,6 +94,8 @@ local function makeFrame(name, width, height)
     function frame:GetWidth() return self.width end
     function frame:GetHeight() return self.height end
     function frame:GetEffectiveScale() return 1 end
+    function frame:GetScale() return self.scale or 1 end
+    function frame:SetScale(value) self.scale = value end
     function frame:IsShown() return self.shown end
     function frame:Show() self.shown = true end
     function frame:Hide() self.shown = false end
@@ -182,6 +184,71 @@ local restored = bag.points[1]
 assert(restored and restored[1] == "TOPLEFT" and restored[2] == UIParent
         and math.abs(restored[4] - 120) < 0.01 and math.abs(restored[5] - 900) < 0.01,
     "proxy controller did not restore the saved native bag root position")
+
+-- Recovery must transfer both the visible native bag and its persistence
+-- ownership to Mainhand. A raw SetPoint without this cleanup appears to work
+-- until the bag is reopened, when the proxy restores the stale workspace
+-- snapshot.
+local gatherOK, gatherWhy, gatherMoved = addon.Canvas:GatherSafeUIToMainhand()
+assert(gatherOK and not gatherWhy and gatherMoved == 1,
+    "Mainhand recovery did not count the tracked native bag")
+assert(addon.db.savedWorkspacePositions.ContainerFrameCombinedBags == nil
+        and addon.db.nativeBackpackWorkspacePosition == nil,
+    "Mainhand recovery left native bag workspace ownership behind")
+assert(addon.db.savedMainPositions.ContainerFrameCombinedBags
+        and addon.db.savedMainPositions.ContainerFrameCombinedBags.x >= metrics.gameLeft,
+    "Mainhand recovery did not persist the native bag's recovered position")
+bag:Hide()
+bag:Show()
+controller.scripts.OnUpdate(controller, 0.11)
+assert(bag:GetLeft() >= metrics.gameLeft,
+    "reopened native bag returned to its retired workspace position")
+
+-- Forever can mark ordinary UIPanels protected. The recovery button is a
+-- hardware action, so known UIPanels may move while Edit Mode/HUD frames stay
+-- excluded by Canvas' stricter ownership checks.
+local character = makeFrame("CharacterFrame", 430, 600)
+character:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 200, 1000)
+character:Show()
+function character:IsProtected() return true end
+local map = makeFrame("WorldMapFrame", 700, 500)
+map:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 500, 1100)
+map:Show()
+function map:IsProtected() return true end
+_G.CharacterFrame, _G.WorldMapFrame = character, map
+UIPanelWindows = { CharacterFrame = {}, WorldMapFrame = {} }
+addon.db.savedWorkspacePositions.CharacterFrame = { x = 200, y = 1000 }
+addon.db.savedWorkspacePositions.WorldMapFrame = { x = 500, y = 1100 }
+addon.db.openWorkspacePanels.CharacterFrame = true
+addon.db.openWorkspacePanels.WorldMapFrame = true
+
+gatherOK, gatherWhy, gatherMoved = addon.Canvas:GatherSafeUIToMainhand()
+assert(gatherOK and not gatherWhy and gatherMoved == 2,
+    "Mainhand recovery did not move and count protected ordinary UIPanels")
+assert(addon.db.savedWorkspacePositions.CharacterFrame == nil
+        and addon.db.savedWorkspacePositions.WorldMapFrame == nil,
+    "Mainhand recovery retained ordinary UIPanel workspace ownership")
+assert(character:GetLeft() >= metrics.gameLeft and map:GetLeft() >= metrics.gameLeft,
+    "Mainhand recovery did not place ordinary UIPanels inside the game viewport")
+character:Hide()
+character:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 200, 1000)
+character:Show()
+addon.Canvas:RestoreWorkspacePosition(character)
+assert(character:GetLeft() >= metrics.gameLeft,
+    "reopened Character frame returned to its retired workspace position")
+
+-- Restore the workspace fixture for the proxy drag lifecycle checks below.
+local workspaceBagPosition = {
+    x = 120, y = 900,
+    canvasWidth = 1440, canvasHeight = 1440,
+    canvasLeft = 0, canvasBottom = 0,
+}
+addon.db.savedWorkspacePositions.ContainerFrameCombinedBags = workspaceBagPosition
+addon.db.savedMainPositions.ContainerFrameCombinedBags = nil
+addon.db.openWorkspacePanels.ContainerFrameCombinedBags = true
+addon.db.nativeBackpackWorkspacePosition = workspaceBagPosition
+addon.db.nativeBackpackWorkspaceOpen = true
+bag:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 120, 900)
 
 local handle
 for _, frame in ipairs(created) do

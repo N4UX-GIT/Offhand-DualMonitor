@@ -93,6 +93,18 @@ assert(safe.points[1] and safe.points[1][1] == "CENTER", "safe window was not ga
 assert(#protected.points == 0 and #managed.points == 0,
     "safe gather touched a protected or Edit Mode-owned frame")
 
+local canvasGathered = false
+addon.Canvas = {
+    GatherSafeUIToMainhand = function()
+        canvasGathered = true
+        return true, nil, 3, 0
+    end,
+}
+ok, why, moved = addon.Mainhand:GatherSafeUI()
+assert(ok and not why and moved == 3 and canvasGathered,
+    "safe gather did not delegate persistence-aware recovery to Canvas")
+addon.Canvas = nil
+
 Enum = {
     EditModeLayoutType = { Account = 1 },
     InputDeviceInterfaceType = { Gamepad = 2 },

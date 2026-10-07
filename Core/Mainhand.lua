@@ -212,6 +212,9 @@ function Mainhand:GatherSafeUI()
     if InCombatLockdown and InCombatLockdown() then return false, "combat", 0, 0 end
     local rect = self:GetRect()
     if not rect.isSpanned then return false, "span", 0, 0 end
+    if Offhand.Canvas and Offhand.Canvas.GatherSafeUIToMainhand then
+        return Offhand.Canvas:GatherSafeUIToMainhand()
+    end
     local parentScale = UIParent:GetEffectiveScale() or 1
     local candidates = {}
     for name in pairs(UIPanelWindows or {}) do
