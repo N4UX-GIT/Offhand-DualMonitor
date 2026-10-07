@@ -167,6 +167,29 @@ assert(uninitializedDisplayFlags.db.enabled == true and uninitializedDisplayFlag
 -- that has loaded the newly written SavedVariables table correctly.
 cvars.offhandForeverDisplayFlags = nil
 ClearProfileSnapshotCVars()
+local legacyProfiles = {
+    profiles = {
+        Raid = { foreverEditModeRecovery = {
+            restoreLayoutID = 6,
+            restoreLayoutName = "Raid Layout",
+            fallbackLayoutID = 1,
+        } },
+        Alt = { foreverEditModeRecovery = {
+            restoreLayoutID = 7,
+            restoreLayoutName = "Alt Layout",
+            fallbackLayoutID = 1,
+        } },
+    },
+}
+local legacyCharacter = { activeProfile = "Raid" }
+NewAddon(true, legacyProfiles, legacyCharacter)
+assert(legacyProfiles.profiles.Raid.foreverEditModeRecovery == nil
+        and legacyProfiles.profiles.Alt.foreverEditModeRecovery == nil,
+    "Forever migration must scrub profile-scoped recovery from every profile")
+assert(legacyCharacter.foreverEditModeLegacyRecovery
+        and legacyCharacter.foreverEditModeLegacyRecovery.restoreLayoutID == 6,
+    "Forever migration must stage only the character's active profile recovery for API validation")
+
 local completeProfile = NewAddon(true, {
     onboarding = { welcomeDismissed = true, setupComplete = true },
     profiles = {
@@ -204,8 +227,9 @@ assert(math.abs(brokenStandardLoad.db.deckWidthRatio - 0.4125) < 0.0001
         and brokenStandardLoad.db.customTrimColor.g == 0.4,
     "A full Forever profile snapshot must restore geometry, theme, and nested color settings")
 assert(brokenStandardLoad.db.savedMainPositions.ChatFrame1.x == 1777.5
-        and brokenStandardLoad.db.foreverEditModeRecovery.restoreLayoutID == 6,
-    "A full Forever profile snapshot must restore main positions and Edit Mode recovery state")
+        and brokenStandardLoad.db.foreverEditModeRecovery == nil
+        and OffhandCharDB.foreverEditModeLegacyRecovery.restoreLayoutID == 6,
+    "Forever migration must preserve main positions while staging legacy Edit Mode recovery per character")
 
 local repairedStandardAccount = {
     profiles = { Raid = {
@@ -241,9 +265,10 @@ local bridgeReload = NewAddon(true, staleBridgeDB, {}, "snapshot-1", {
     account = capturedAccountDB,
     character = capturedCharacterDB,
 })
-assert(bridgeReload.db.foreverEditModeRecovery
-        and bridgeReload.db.foreverEditModeRecovery.restoreLayoutID == 6,
-    "A consumed Forever bridge must not erase newer same-session recovery state")
+assert(bridgeReload.db.foreverEditModeRecovery == nil
+        and OffhandCharDB.foreverEditModeLegacyRecovery
+        and OffhandCharDB.foreverEditModeLegacyRecovery.restoreLayoutID == 6,
+    "A consumed Forever bridge must stage newer same-session recovery state on the character")
 assert(OffhandDB == capturedAccountDB and OffhandCharDB == capturedCharacterDB,
     "A consumed Forever bridge must restore the exact client-loaded SavedVariables tables")
 

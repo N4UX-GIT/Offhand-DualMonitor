@@ -28,7 +28,7 @@
 ## 🛠️ Installation & Setup
 
 1.  **Install the Addon:** Download the addon from [CurseForge](https://www.curseforge.com/wow/addons/offhand) or install it via your preferred addon manager. For a manual ZIP install, the TOC files must be directly inside `Interface/AddOns/Offhand`; `Interface/AddOns/Offhand/Offhand/Offhand_Forever.toc` is one folder too deep.
-2.  **Choose a spanning method:** Review the [Companion download and signing status](https://offhand-wow.onrender.com/companion.html), or download the [v2.1.2 Beta 18 Companion directly from GitHub](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.18/Offhand-Companion.zip). While unsigned builds are being incorrectly blocked by some security products, use the [no-executable manual setup](https://offhand-wow.onrender.com/manual-spanning.html). Companion v2.1.2 Beta 18 is the new protocol-1 baseline for exact-topology setup, safe missing-monitor recovery, and reliable cold-launch restoration on the current Forever beta, and is strongly recommended on other clients.
+2.  **Choose a spanning method:** Review the [Companion download and security status](https://offhand-wow.onrender.com/companion.html), or download the [v2.1.2 Beta 18 Companion ZIP directly from GitHub](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.18/Offhand-Companion.zip). Microsoft Security Intelligence reviewed the submitted Beta 18 executable and archives without retaining a malware detection. The unsigned standalone EXE may still produce an Edge **"isn't commonly downloaded"** reputation notice; that notice is not a malware verdict. The [no-executable manual setup](https://offhand-wow.onrender.com/manual-spanning.html) remains available. Companion v2.1.2 Beta 18 is the protocol-1 baseline for exact-topology setup, safe missing-monitor recovery, and reliable cold-launch restoration on the current Forever beta, and is strongly recommended on other clients.
 
 Linux users should read [Companion/Linux.md](Companion/Linux.md). The current
 binary remains a Windows application; running it under Wine is an experimental
@@ -37,13 +37,24 @@ The Companion must be launched as the same user, in WoW's exact `WINEPREFIX`,
 and with the same Wine/Proton runner version as Battle.net/WoW. The Linux guide
 includes a Lutris pre-launch example and addon extraction troubleshooting.
 
+### Experimental WotLK 3.3.5a support
+
+The addon now declares the original Wrath `30300` interface and includes a
+legacy-only compatibility layer for APIs introduced after 3.3.5a. Use manual
+window spanning for the initial test cycle. This target has passed static and
+simulated compatibility tests, but it is not considered fully supported until
+login, `/reload`, configuration, viewport, bag, map, and combat-lockdown tests
+have been completed on a genuine 3.3.5a client. Please include the complete Lua
+error and `/offhand diag` output with any report. See the
+[3.3.5a test matrix](docs/WOTLK-335A-TESTING.md) for the required validation.
+
 > [!IMPORTANT]
-> **Verify the Companion before running it.** Official GitHub releases include SHA-256 checksums. Releases built by GitHub Actions may additionally provide a build-provenance attestation; check the individual release notes rather than assuming one exists. An unsigned or low-reputation build may still produce a Windows SmartScreen warning; never bypass a warning for a file obtained from an unofficial source. Follow the verification steps in [SECURITY.md](SECURITY.md).
+> **Verify the Companion before running it.** Official GitHub releases include SHA-256 checksums. Releases built by GitHub Actions may additionally provide a build-provenance attestation; check the individual release notes rather than assuming one exists. Prefer `Offhand-Companion.zip`. An unsigned EXE may still produce a Windows SmartScreen reputation warning; never bypass any warning for a file obtained from an unofficial source. Follow the verification steps and warning guide in [SECURITY.md](SECURITY.md).
 
 3.  **Set WoW to standard Windowed Mode:** In WoW's Graphics settings, set Display Mode to **Windowed**, not Windowed (Fullscreen). In Windows Display Settings, arrange the monitor rectangles to match their physical left/right and top/bottom edge alignment; an accidental vertical offset creates unreachable canvas space.
 4.  **Choose displays and span:** In Companion, select exactly two displays and choose the **Mainhand (game)** display. The other becomes the workspace. Use **Identify Displays** if the Windows display numbers are unclear. For one 32:9/32:10 screen, select only it and explicitly enable **Single-display 32:9 split**. Automatic spanning is disabled by default; launch WoW and click **Span WoW Now** after it starts.
 5.  **Finish the setup wizard:** If WoW was already at the character UI when you spanned it, type `/reload` once. Then type `/offhand wizard` and complete the setup flow.
-6.  **Forever only — configure protected HUD frames:** Outside combat, open Blizzard Edit Mode. Move action bars, player/target, stance, pet, party, and raid frames onto the Mainhand Monitor. Save the layout as **Offhand** and select it. Matching is case-insensitive, but the canonical spelling keeps the profile easy to recognize.
+6.  **Forever only — configure protected HUD frames:** Outside combat, open Blizzard Edit Mode. Move action bars, player/target, stance, pet, party, and raid frames onto the Mainhand Monitor and save any custom layout. In Offhand's Recovery card, click **Use Current Edit Mode Layout**. This designation is stored per character and does not require a particular layout name.
 7.  **Verify a cold launch:** Exit WoW normally, leave Companion running, and relaunch. Workspace panels, their open state, Blizzard HUD placement, and the Edit Mode options frame should return correctly.
 
 The Display tab option **Use raw mouse input while Offhand is spanned** is enabled by default. Keep it enabled if vertical camera movement eventually stops while holding the right mouse button. Offhand remembers the previous `rawMouseEnable` value and restores it when the layout is no longer spanned, Offhand is disabled, or the client logs out.
@@ -80,6 +91,11 @@ uses the selected orientation, seam percentage, and aspect-ratio controls. After
 **Span WoW Now**, use `/reload` once if WoW was already open so the Companion's
 exact rectangles become active.
 
+Addon managers and manual source copies can replace the generated topology file
+with the packaged placeholder. While WoW remains exactly spanned, Companion
+Beta 19 and later automatically repairs that handoff without moving the window
+and records that one `/reload` is required in its activity log.
+
 ### Manual Fallback (No Companion App)
 Manual spanning remains available on Retail, Classic, and Forever clients, but it does not provide Forever's reliable cold-launch state recovery:
 
@@ -106,7 +122,7 @@ Type /offhand (or /oh) to open the main configuration dashboard.
 
 Forever Beta uses Blizzard Edit Mode as the owner of action bars and combat frames. Offhand deliberately does not move those protected HUD frames because doing so can taint Edit Mode and break party or raid frame updates.
 
-While outside combat, open Blizzard Edit Mode, move your action bars and combat frames onto the Mainhand Monitor, save the layout as **Offhand**, and select it there. Layout-name matching is case-insensitive. Recovery also resolves the layout by name before using its numeric slot, so a profile stored as slot 6 on one installation can safely occupy another custom slot locally. During normal spanned operation Offhand leaves layout selection to Blizzard Edit Mode. If a saved display disappears while Offhand is active, click **Use Modern** in Offhand's recovery prompt for a readable single-screen HUD. When the exact topology returns, click **Restore Offhand**. A layout you choose manually is never silently replaced.
+While outside combat, open Blizzard Edit Mode, move your action bars and combat frames onto the Mainhand Monitor, and save a custom layout. Select it, then click **Use Current Edit Mode Layout** in Offhand's Recovery card. The designation is stored per character rather than in a shared Offhand settings profile. Recovery resolves the saved name before using its numeric slot, so reordered custom layouts cannot select an unrelated profile. During normal spanned operation Offhand leaves layout selection to Blizzard Edit Mode. If a saved display disappears while Offhand is active, click **Use Modern** in the recovery prompt for a readable single-screen HUD. When the exact topology returns, click **Restore Saved Layout**. A layout you choose manually is never silently replaced.
 
 Offhand leaves the Edit Mode manager and protected HUD frames entirely under Blizzard ownership. If its controls are inaccessible after spanning, Offhand displays recovery guidance: close Edit Mode, click **Restore Window**, configure and save the **Offhand** layout in the normal window, then click **Span WoW Now** and `/reload`. Use **Gather Off-Screen UI** only for ordinary movable panels.
 

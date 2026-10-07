@@ -70,16 +70,15 @@ jobs:
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         $archive = [IO.Compression.ZipFile]::OpenRead('dist\Offhand-Companion.zip')
         try {
-          foreach ($required in @(
-            'Offhand.exe',
-            'Source/Program.cs',
-            'Source/app.manifest',
-            'README.md',
-            'SECURITY.md'
-          )) {
+          $expectedEntries = @('LICENSE', 'Offhand.exe', 'README.txt')
+          foreach ($required in $expectedEntries) {
             if (-not $archive.GetEntry($required)) {
               throw "Companion archive is missing $required."
             }
+          }
+          $actualEntries = @($archive.Entries | ForEach-Object FullName | Sort-Object)
+          if (($actualEntries -join "`n") -ne ($expectedEntries -join "`n")) {
+            throw "Companion archive contains unexpected files: $($actualEntries -join ', ')"
           }
           $entry = $archive.GetEntry('Offhand.exe')
           $stream = $entry.Open()
@@ -120,6 +119,7 @@ jobs:
         $arguments = @{
           Tag = "${{ github.ref_name }}"
           Repository = "${{ github.repository }}"
+          CompanionReleaseTag = $env:COMPANION_RELEASE_TAG
           OutputPath = "dist\release-notes.md"
           GitHubOutputPath = $env:GITHUB_OUTPUT
         }

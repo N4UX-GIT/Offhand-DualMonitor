@@ -32,6 +32,8 @@ assert(addon.db.deckWidthRatio == defaultSeam)
 assert(addon.db.gameHeightRatio == defaultHeight)
 assert(registeredEvents.CINEMATIC_START and registeredEvents.CINEMATIC_STOP,
     "cinematic viewport recovery events were not registered")
+assert(registeredEvents.PLAYER_CONTROL_LOST and registeredEvents.PLAYER_CONTROL_GAINED,
+    "Blizzard input-ownership events were not registered")
 
 local calls = 0
 addon.UpdateViewport = function() calls = calls + 1 end
@@ -132,25 +134,83 @@ C_Timer.After = function(delay, fn)
 end
 local cinematicApplies = 0
 local rawMouseRefreshes = 0
+local onboardingCloses, cinematicPopupShows = 0, 0
+local skipDialogHook
+local skipDialog = {
+    shown = false,
+    points = {},
+    IsShown = function(self) return self.shown end,
+    IsForbidden = function() return false end,
+    IsProtected = function() return false end,
+    GetEffectiveScale = function() return 1 end,
+    ClearAllPoints = function(self) self.points = {} end,
+    SetPoint = function(self, ...) self.points[#self.points + 1] = {...} end,
+    HookScript = function(_, event, fn) if event == "OnShow" then skipDialogHook = fn end end,
+}
+CinematicFrame = { closeDialog = skipDialog, IsShown = function() return true end }
+GetScreenWidth = function() return UIParent:GetWidth() end
 addon.db.enabled = true
+addon.isForever = true
 addon.Viewport.Apply = function() cinematicApplies = cinematicApplies + 1 end
 addon.RawMouse = {Refresh = function() rawMouseRefreshes = rawMouseRefreshes + 1 end}
+addon.Onboarding = {Close = function() onboardingCloses = onboardingCloses + 1 end}
+StaticPopup_Show = function() cinematicPopupShows = cinematicPopupShows + 1 end
 addon.ApplyFullLayout = function() error("cinematic recovery rebuilt the full layout") end
 initOnEvent(nil, "CINEMATIC_START")
+assert(type(skipDialogHook) == "function",
+    "Forever cinematic start must observe the native skip dialog without replacing key handling")
+skipDialog.shown = true
+skipDialogHook(skipDialog)
+local skipPoint = skipDialog.points[#skipDialog.points]
+assert(skipPoint and skipPoint[1] == "CENTER" and skipPoint[2] == UIParent
+        and skipPoint[3] == "BOTTOMLEFT",
+    "shown cinematic skip dialog must be centered in the visible Mainhand rectangle")
+addon.isForever = false
+addon:ShowCompanionNotice("HANDOFF", { topologyStatus = "ABSENT" })
+assert(addon:IsCinematicOrMovieActive() and onboardingCloses == 1
+        and cinematicPopupShows == 0,
+    "intro cinematics must hide first-launch UI and suppress automatic popups so Escape reaches Blizzard")
 local startTimers = cinematicTimers
 cinematicTimers = {}
+CinematicFrame.IsShown = function() return false end
+skipDialog.shown = false
 initOnEvent(nil, "CINEMATIC_STOP")
 local stopTimers = cinematicTimers
 for _, timer in ipairs(startTimers) do timer.fn() end
 assert(cinematicApplies == 0, "stale cinematic-start timers were not superseded")
-assert(#stopTimers == 4 and stopTimers[1].delay == 0
+assert(#stopTimers == 5 and stopTimers[1].delay == 0
         and stopTimers[2].delay == 0.1 and stopTimers[3].delay == 0.5
-        and stopTimers[4].delay == 0.5,
+        and stopTimers[4].delay == 0.5 and stopTimers[5].delay == 0.75,
     "cinematic recovery did not schedule the expected settling passes")
 for _, timer in ipairs(stopTimers) do timer.fn() end
 assert(cinematicApplies == 3, "cinematic stop did not reassert the viewport")
 assert(rawMouseRefreshes == 1,
     "cinematic stop did not refresh native raw-mouse registration")
+assert(not addon:IsCinematicOrMovieActive(),
+    "cinematic stop must release automatic UI deferral")
+MovieFrame = { IsShown = function() return true end }
+local popupsBeforeMovie = cinematicPopupShows
+addon:ShowForeverLayoutRecoveryPrompt("fallback", "Offhand")
+assert(cinematicPopupShows == popupsBeforeMovie and addon._automaticUIPendingAfterCinematic,
+    "movie playback must suppress recovery popups without relying on cinematic events")
+MovieFrame = nil
+addon._automaticUIPendingAfterCinematic = nil
+
+-- Some first-character intros reserve player input without a cinematic frame.
+-- Automatic UI and inherited workspace restoration must remain deferred until
+-- Blizzard returns control.
+local inputRestoreCalls = 0
+addon.Canvas.RestorePersistentFrames = function() inputRestoreCalls = inputRestoreCalls + 1 end
+initOnEvent(nil, "PLAYER_CONTROL_LOST")
+addon:ShowCompanionNotice("HANDOFF", { topologyStatus = "ABSENT" })
+assert(addon:IsBlizzardInputReserved() and cinematicPopupShows == popupsBeforeMovie,
+    "PLAYER_CONTROL_LOST must suppress automatic UI even without a cinematic frame")
+cinematicTimers = {}
+addon.Canvas.persistentRestorePendingForInput = true
+initOnEvent(nil, "PLAYER_CONTROL_GAINED")
+assert(not addon:IsBlizzardInputReserved() and inputRestoreCalls == 1,
+    "PLAYER_CONTROL_GAINED must release and resume inherited workspace restoration")
+for _, timer in ipairs(cinematicTimers) do timer.fn() end
 
 cinematicTimers = {}
 combat = true

@@ -194,17 +194,26 @@ if ($CompanionChanged) {
 
     Copy-Item $companionExe -Destination $compStaging
     Copy-Item (Join-Path $rootDir "Companion\LICENSE") -Destination $compStaging
-    Copy-Item (Join-Path $rootDir "Companion\README.md") -Destination $compStaging
-    Copy-Item (Join-Path $rootDir "Companion\Linux.md") -Destination $compStaging
-    Copy-Item (Join-Path $rootDir "Companion\build.bat") -Destination $compStaging
-    Copy-Item (Join-Path $rootDir "Companion\Source") -Destination $compStaging -Recurse
-    Copy-Item (Join-Path $rootDir "SECURITY.md") -Destination $compStaging
-    $compMedia = Join-Path $compStaging "Media"
-    New-Item -ItemType Directory -Path $compMedia -Force | Out-Null
-    Copy-Item (Join-Path $rootDir "Media\offhand-logo.ico") -Destination $compMedia
-    Copy-Item (Join-Path $rootDir "Media\offhand-logo-small.png") -Destination $compMedia
+    $portableReadmeTemplate = Get-Content -LiteralPath (Join-Path $rootDir "Companion\PORTABLE-README.txt") -Raw
+    $candidateCompanionHash = (Get-FileHash -LiteralPath $companionExe -Algorithm SHA256).Hash
+    $portableReadme = $portableReadmeTemplate.Replace('{{VERSION}}', $Version).Replace(
+        '{{EXE_SHA256}}', $candidateCompanionHash)
+    [IO.File]::WriteAllText(
+        (Join-Path $compStaging "README.txt"),
+        $portableReadme,
+        (New-Object Text.UTF8Encoding($false)))
 
     New-PortableZip -SourceDirectory $compStaging -DestinationPath $compZip
+    $portableArchive = [IO.Compression.ZipFile]::OpenRead($compZip)
+    try {
+        $expectedEntries = @('LICENSE', 'Offhand.exe', 'README.txt')
+        $actualEntries = @($portableArchive.Entries | ForEach-Object FullName | Sort-Object)
+        if (($actualEntries -join "`n") -ne ($expectedEntries -join "`n")) {
+            throw "Companion archive must contain only LICENSE, Offhand.exe, and README.txt; found: $($actualEntries -join ', ')"
+        }
+    } finally {
+        $portableArchive.Dispose()
+    }
     Copy-Item $companionExe -Destination $standaloneExe
     Write-Host "  -> Created: $compZip" -ForegroundColor Green
     Write-Host "  -> Created standalone executable: $standaloneExe" -ForegroundColor Green

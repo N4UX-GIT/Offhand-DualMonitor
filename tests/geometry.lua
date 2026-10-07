@@ -1,5 +1,6 @@
 -- Lua 5.1. Mock engine coordinates: 768 units high before effective scale.
-local addon = { companionFullVersion="2.1.2-beta.18", db = {enabled=true, deckWidthRatio=0.36, hudScale=0.7,
+local addon = { companionFullVersion="2.1.2-beta.18", companionMinVersion="2.1.2-beta.18",
+    db = {enabled=true, deckWidthRatio=0.36, hudScale=0.7,
     gameBottomPixels=6, primaryPosition="RIGHT"}, Debug=function() end, Print=error }
 local pw, ph, uiScale = 4000, 2560, 0.8
 local function near(a,b) assert(math.abs(a-b)<0.01, tostring(a).." ~= "..tostring(b)) end
@@ -113,7 +114,20 @@ OffhandCompanionTopology.companionVersion="2.1.2-beta.12"
 tm=addon.Viewport:GetMetrics()
 assert(tm.companionVersionStatus=="MISMATCH" and tm.companionVersion=="2.1.2-beta.12"
     and tm.expectedCompanionVersion=="2.1.2-beta.18")
+OffhandCompanionTopology.companionVersion="2.1.2-beta.19"
+tm=addon.Viewport:GetMetrics()
+assert(tm.companionVersionStatus=="MATCH",
+    "a newer Companion beta must satisfy the addon's declared minimum version")
+OffhandCompanionTopology.companionVersion="2.1.2"
+tm=addon.Viewport:GetMetrics()
+assert(tm.companionVersionStatus=="MATCH",
+    "a stable Companion release must satisfy an older beta minimum")
+OffhandCompanionTopology.companionVersion="future-build"
+tm=addon.Viewport:GetMetrics()
+assert(tm.companionVersionStatus=="UNKNOWN",
+    "an unparseable future Companion version must not produce a false update warning")
 OffhandCompanionTopology.companionVersion="2.1.2-beta.18"
+tm=addon.Viewport:GetMetrics()
 assert(tm.workspacePixelLeft==0 and tm.workspacePixelBottom==360 and tm.workspacePixelHeight==1080)
 addon.Viewport:Apply()
 x,y,w,h=worldPixels()

@@ -1,0 +1,52 @@
+## Interface: 30300
+## Title: |cffffbd0aOffhand|r |cffffffff[Multi-Monitor Setup - WotLK 3.3.5a Test]|r
+## Notes: Experimental original Wrath 3.3.5a compatibility test build.
+## Author: N4UX (Noggaholic)
+## Version: 2.1.2
+## X-Offhand-Release: beta.19
+## X-Offhand-Addon-Release: beta.19
+## X-Offhand-Companion-Version: 2.1.2
+## X-Offhand-Companion-Release: beta.19
+## X-Offhand-Companion-Protocol: 1
+## X-Offhand-Companion-Min-Version: 2.1.2-beta.19
+## X-Offhand-Manifest: Wrath335a
+## X-Website: https://offhand-wow.onrender.com/
+## IconTexture: Interface\AddOns\Offhand\Media\OffhandLogo64x64.blp
+## LoadSavedVariablesFirst: 1
+## SavedVariables: OffhandDB
+## SavedVariablesPerCharacter: OffhandCharDB
+
+# Core Subsystems
+Core\LegacyWrathCompat.lua
+Core\CompanionTopology.lua
+Core\Init.lua
+Core\ForeverState.lua
+Core\Config.lua
+Core\Viewport.lua
+Core\RetailFullscreen.lua
+Core\ChatBubbles.lua
+Core\SeamRedirect.lua
+Core\PanelMotion.lua
+Core\Canvas.lua
+Core\WorkspaceChrome.lua
+Core\BagPersistence.lua
+
+# Locales
+Locales\enUS.lua
+Locales\deDE.lua
+Locales\esES.lua
+Locales\esMX.lua
+Locales\frFR.lua
+Locales\itIT.lua
+Locales\koKR.lua
+Locales\ptBR.lua
+Locales\ruRU.lua
+Locales\zhCN.lua
+Locales\zhTW.lua
+
+# UI & Themes
+UI\Themes.lua
+UI\Options.lua
+UI\Minimap.lua
+UI\Onboarding.lua
+UI\Wizard.lua

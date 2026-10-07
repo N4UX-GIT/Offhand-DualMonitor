@@ -94,6 +94,10 @@ local function HasBlizzardEditMode()
     return (version and (version >= 100000 or (version >= 16000 and version < 17000))) or false
 end
 
+local function HasChattynator()
+    return IsAddonPresent("Chattynator")
+end
+
 local function UsesForeverEditMode()
     if Offhand.isForever ~= nil then return Offhand.isForever end
     local version = tonumber(Offhand.tocVersion)
@@ -156,6 +160,60 @@ local function EditModeLayoutNamesMatch(left, right)
         and string.lower(left) == string.lower(right)
 end
 
+local function GetActiveEditModeLayoutName()
+    local manager = _G.EditModeManagerFrame
+    if not manager or type(manager.GetActiveLayoutInfo) ~= "function" then return nil end
+    local ok, activeInfo = pcall(manager.GetActiveLayoutInfo, manager)
+    local name = ok and type(activeInfo) == "table" and activeInfo.layoutName or nil
+    if type(name) ~= "string" or not name:match("%S") then return nil end
+    return name
+end
+
+-- Retail and Anniversary can briefly restore the wrong active layout during
+-- login. Remember the player's last explicit selection per character so a
+-- later mismatch can be repaired without imposing one account-wide layout
+-- name on every class. Forever intentionally keeps its separate, click-driven
+-- missing-monitor recovery path and never writes this preference.
+local function RememberCharacterEditModeLayout(layoutID)
+    if UsesForeverEditMode() or type(OffhandCharDB) ~= "table" then return nil end
+
+    local name
+    local data = GetEditModeLayouts()
+    local index = tonumber(layoutID)
+    local layout = data and index and data.layouts[index]
+    if layout and type(layout.layoutName) == "string" and layout.layoutName:match("%S") then
+        name = layout.layoutName
+    else
+        name = GetActiveEditModeLayoutName()
+    end
+
+    if name then OffhandCharDB.editModeLayoutName = name end
+    return name
+end
+
+local function HookCharacterEditModeSelection()
+    if UsesForeverEditMode() or HUD.characterEditModeSelectionHooked
+        or not _G.EditModeManagerFrame
+        or type(_G.EditModeManagerFrame.HookScript) ~= "function" then return end
+
+    HUD.characterEditModeSelectionHooked = true
+    _G.EditModeManagerFrame:HookScript("OnShow", function()
+        HUD.characterEditModeManagerWasShown = true
+    end)
+    _G.EditModeManagerFrame:HookScript("OnHide", function()
+        if not HUD.characterEditModeManagerWasShown then return end
+        HUD.characterEditModeManagerWasShown = nil
+        -- Read after Blizzard finishes its close/save transaction. Observing
+        -- the manager avoids treating login-time API activity as a deliberate
+        -- player choice.
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0, function() RememberCharacterEditModeLayout() end)
+        else
+            RememberCharacterEditModeLayout()
+        end
+    end)
+end
+
 local function FindForeverLayoutByName(data, layoutName)
     if type(data) ~= "table" or type(data.layouts) ~= "table" or type(layoutName) ~= "string" then return nil end
     for index, layout in ipairs(data.layouts) do
@@ -178,6 +236,111 @@ local function ResolveForeverLayoutID(data, savedID, savedName)
     -- happens to occupy its former ID.
     if type(savedName) == "string" then return nil end
     return numericID, layout
+end
+
+local function PersistForeverEditModeState()
+    local persistence = Offhand.ForeverPersistence
+    if persistence and persistence.SaveProfileSnapshot then
+        persistence:SaveProfileSnapshot(true)
+    end
+end
+
+local function PrepareForeverEditModeState(data, metrics)
+    if not UsesForeverEditMode() or type(OffhandCharDB) ~= "table"
+        or type(data) ~= "table" then return nil end
+
+    local changed = false
+    local activeID = tonumber(data.activeLayout)
+    local legacy = OffhandCharDB.foreverEditModeLegacyRecovery
+    if type(legacy) == "table" then
+        local restoreID, restoreLayout = ResolveForeverLayoutID(
+            data, legacy.restoreLayoutID, legacy.restoreLayoutName)
+        local fallbackID = tonumber(legacy.fallbackLayoutID) or FOREVER_MODERN_LAYOUT_ID
+        if restoreID and restoreLayout
+            and (activeID == restoreID or activeID == fallbackID) then
+            OffhandCharDB.foreverEditModeLayoutName = restoreLayout.layoutName
+            OffhandCharDB.foreverEditModeLayoutID = restoreID
+            OffhandCharDB.foreverEditModeRecovery = {
+                restoreLayoutID = restoreID,
+                restoreLayoutName = restoreLayout.layoutName,
+                fallbackLayoutID = fallbackID,
+                fallbackLayoutName = type(legacy.fallbackLayoutName) == "string"
+                    and legacy.fallbackLayoutName or "Modern",
+            }
+        end
+        OffhandCharDB.foreverEditModeLegacyRecovery = nil
+        changed = true
+    end
+
+    local preferredName = OffhandCharDB.foreverEditModeLayoutName
+    local preferredID, preferredLayout = ResolveForeverLayoutID(
+        data, OffhandCharDB.foreverEditModeLayoutID, preferredName)
+    if preferredLayout then
+        if preferredName ~= preferredLayout.layoutName or preferredID ~= OffhandCharDB.foreverEditModeLayoutID then
+            OffhandCharDB.foreverEditModeLayoutName = preferredLayout.layoutName
+            OffhandCharDB.foreverEditModeLayoutID = preferredID
+            changed = true
+        end
+    elseif not preferredName and metrics and metrics.companionTopology and metrics.isSpanned then
+        -- Safe upgrade path: a healthy exact span with an active custom layout
+        -- is unambiguous. Built-in Modern/Classic layouts are never adopted.
+        local activeLayout = GetForeverLayoutByID(data, activeID)
+        if activeLayout and type(activeLayout.layoutName) == "string" then
+            OffhandCharDB.foreverEditModeLayoutName = activeLayout.layoutName
+            OffhandCharDB.foreverEditModeLayoutID = activeID
+            preferredID, preferredLayout = activeID, activeLayout
+            changed = true
+        end
+    end
+
+    if changed then PersistForeverEditModeState() end
+    return preferredID, preferredLayout
+end
+
+function HUD:GetForeverEditModeLayoutStatus()
+    local data = GetEditModeLayouts()
+    local character = type(OffhandCharDB) == "table" and OffhandCharDB or nil
+    local activeID = data and tonumber(data.activeLayout) or nil
+    local activeLayout = data and GetForeverLayoutByID(data, activeID) or nil
+    local preferredName = character and character.foreverEditModeLayoutName or nil
+    local preferredID, preferredLayout
+    if data then
+        preferredID, preferredLayout = ResolveForeverLayoutID(
+            data, character and character.foreverEditModeLayoutID, preferredName)
+    end
+    return {
+        preferredName = preferredName,
+        preferredID = preferredID,
+        preferredAvailable = preferredLayout ~= nil,
+        activeName = activeLayout and activeLayout.layoutName or nil,
+        activeID = activeID,
+        activeIsCustom = activeLayout ~= nil,
+        activeMatches = preferredID ~= nil and activeID == preferredID,
+        recoveryPending = character and type(character.foreverEditModeRecovery) == "table" or false,
+    }
+end
+
+function HUD:UseCurrentForeverEditModeLayout()
+    if not UsesForeverEditMode() then return false, "client" end
+    if InCombatLockdown() then return false, "combat" end
+    if type(OffhandCharDB) ~= "table" then return false, "state" end
+    local data = GetEditModeLayouts()
+    if not data then return false, "unavailable" end
+    local activeID = tonumber(data.activeLayout)
+    local layout = GetForeverLayoutByID(data, activeID)
+    if not layout or type(layout.layoutName) ~= "string" then return false, "builtin" end
+
+    OffhandCharDB.foreverEditModeLayoutName = layout.layoutName
+    OffhandCharDB.foreverEditModeLayoutID = activeID
+    OffhandCharDB.foreverEditModeLegacyRecovery = nil
+    OffhandCharDB.foreverEditModeRecovery = nil
+    self.foreverRecoveryPromptShown = nil
+    if Offhand.HideForeverLayoutRecoveryPrompt then
+        Offhand:HideForeverLayoutRecoveryPrompt("fallback")
+        Offhand:HideForeverLayoutRecoveryPrompt("restore")
+    end
+    PersistForeverEditModeState()
+    return true, layout.layoutName
 end
 
 local function IsForeverSingleScreenRecovery(metrics)
@@ -236,11 +399,15 @@ function HUD:UpdateForeverRecoveryLayout(metrics)
     local activeID = tonumber(data.activeLayout)
     local active = GetForeverLayoutByID(data, activeID)
     local activeName = active and active.layoutName
-    local recovery = Offhand.db.foreverEditModeRecovery
+    local preferredID, preferredLayout = PrepareForeverEditModeState(data, metrics)
+    local preferredName = preferredLayout and preferredLayout.layoutName
+        or (type(OffhandCharDB) == "table" and OffhandCharDB.foreverEditModeLayoutName or nil)
+    local recovery = type(OffhandCharDB) == "table" and OffhandCharDB.foreverEditModeRecovery or nil
 
     if IsForeverSingleScreenRecovery(metrics) then
         if not recovery then
-            if not EditModeLayoutNamesMatch(activeName, "Offhand") then return end
+            if not preferredID or activeID ~= preferredID
+                or not EditModeLayoutNamesMatch(activeName, preferredName) then return end
             if self.foreverMismatchDeclined then return end
             if not self.foreverMismatchConfirmed then
                 ScheduleForeverMismatchConfirmation(self)
@@ -252,13 +419,14 @@ function HUD:UpdateForeverRecoveryLayout(metrics)
                 fallbackLayoutID = FOREVER_MODERN_LAYOUT_ID,
                 fallbackLayoutName = "Modern",
             }
-            Offhand.db.foreverEditModeRecovery = recovery
+            OffhandCharDB.foreverEditModeRecovery = recovery
+            PersistForeverEditModeState()
         end
         if activeID == tonumber(recovery.restoreLayoutID)
             and self.foreverRecoveryPromptShown ~= "fallback" then
             self.foreverRecoveryPromptShown = "fallback"
             if Offhand.ShowForeverLayoutRecoveryPrompt then
-                Offhand:ShowForeverLayoutRecoveryPrompt("fallback")
+                Offhand:ShowForeverLayoutRecoveryPrompt("fallback", recovery.restoreLayoutName)
             end
         end
         return
@@ -272,12 +440,16 @@ function HUD:UpdateForeverRecoveryLayout(metrics)
         local restoreID, restoreLayout = ResolveForeverLayoutID(
             data, recovery.restoreLayoutID, recovery.restoreLayoutName)
         if restoreID and restoreLayout then
+            local changed = recovery.restoreLayoutID ~= restoreID
+                or recovery.restoreLayoutName ~= restoreLayout.layoutName
             recovery.restoreLayoutID = restoreID
             recovery.restoreLayoutName = restoreLayout.layoutName
+            if changed then PersistForeverEditModeState() end
         end
         local fallbackMatches = activeID == tonumber(recovery.fallbackLayoutID)
         if activeID == restoreID then
-            Offhand.db.foreverEditModeRecovery = nil
+            OffhandCharDB.foreverEditModeRecovery = nil
+            PersistForeverEditModeState()
             self.foreverRecoveryPromptShown = nil
             if Offhand.HideForeverLayoutRecoveryPrompt then
                 Offhand:HideForeverLayoutRecoveryPrompt("fallback")
@@ -288,7 +460,8 @@ function HUD:UpdateForeverRecoveryLayout(metrics)
         if not fallbackMatches or not restoreID then
             -- A different active layout means the player made an explicit
             -- choice during recovery. Do not replace it.
-            Offhand.db.foreverEditModeRecovery = nil
+            OffhandCharDB.foreverEditModeRecovery = nil
+            PersistForeverEditModeState()
             self.foreverRecoveryPromptShown = nil
             if Offhand.HideForeverLayoutRecoveryPrompt then
                 Offhand:HideForeverLayoutRecoveryPrompt("fallback")
@@ -299,7 +472,7 @@ function HUD:UpdateForeverRecoveryLayout(metrics)
         if self.foreverRecoveryPromptShown ~= "restore" then
             self.foreverRecoveryPromptShown = "restore"
             if Offhand.ShowForeverLayoutRecoveryPrompt then
-                Offhand:ShowForeverLayoutRecoveryPrompt("restore")
+                Offhand:ShowForeverLayoutRecoveryPrompt("restore", recovery.restoreLayoutName)
             end
         end
     end
@@ -309,8 +482,8 @@ end
 -- timers are ignored, while the same call succeeds from a player click. These
 -- methods are invoked only by the recovery popup buttons.
 function HUD:ApplyForeverRecoveryChoice(choice)
-    if InCombatLockdown() or not Offhand.db then return end
-    local recovery = Offhand.db.foreverEditModeRecovery
+    if InCombatLockdown() or type(OffhandCharDB) ~= "table" then return end
+    local recovery = OffhandCharDB.foreverEditModeRecovery
     if type(recovery) ~= "table" then return end
     local targetID
     if choice == "restore" then
@@ -329,7 +502,8 @@ function HUD:ApplyForeverRecoveryChoice(choice)
     self.foreverRecoveryPromptShown = nil
     local confirmed = GetEditModeLayouts()
     if choice == "restore" and confirmed and tonumber(confirmed.activeLayout) == targetID then
-        Offhand.db.foreverEditModeRecovery = nil
+        OffhandCharDB.foreverEditModeRecovery = nil
+        PersistForeverEditModeState()
         return
     end
     if C_Timer and C_Timer.After then
@@ -341,7 +515,10 @@ function HUD:ApplyForeverRecoveryChoice(choice)
 end
 
 function HUD:CancelForeverRecoveryChoice(kind)
-    if Offhand.db then Offhand.db.foreverEditModeRecovery = nil end
+    if type(OffhandCharDB) == "table" then
+        OffhandCharDB.foreverEditModeRecovery = nil
+        PersistForeverEditModeState()
+    end
     self.foreverRecoveryPromptShown = nil
     if kind == "fallback" then self.foreverMismatchDeclined = true end
 end
@@ -364,6 +541,16 @@ local function FrameFitsPhysicalDisplay(frame, metrics)
     end
     return Fits(metrics.gameLeft, metrics.gameBottom, metrics.gameRight, metrics.gameTop)
         or Fits(metrics.workspaceLeft, metrics.workspaceBottom, metrics.workspaceRight, metrics.workspaceTop)
+end
+
+local foreverEditModeControlNames = {
+    "EditModeSystemSettingsDialog",
+    "EditModeUnsavedChangesDialog",
+    "EditModeDialog",
+}
+
+local function CanRecoverForeverEditModeControls(metrics)
+    return metrics and (metrics.isSpanned or IsForeverSingleScreenRecovery(metrics)) or false
 end
 
 -- Forever can anchor its Edit Mode manager outside the physical displays on a
@@ -390,14 +577,18 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
     end
     if InCombatLockdown() then return end
     metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics())
-    if not metrics or not metrics.isSpanned then return end
+    -- A stale spanned layout can strand the manager or its settings dialog
+    -- after the Companion restores WoW to one display. That recovery state is
+    -- as actionable as the mixed-height span: the scan remains read-only and
+    -- the player must still accept the popup before any anchor is changed.
+    if not CanRecoverForeverEditModeControls(metrics) then return end
 
     -- The manager toolbar can be fully visible while the separate settings
     -- dialog opened for a selected HUD element is mostly in the mixed-height
     -- void. Inspect every Blizzard-owned Edit Mode control surface, but never
     -- reanchor or hook it: those writes interfere with native Party Frame drag.
     local controlsOutsideDisplays = not FrameFitsPhysicalDisplay(manager, metrics)
-    for _, name in ipairs({"EditModeSystemSettingsDialog", "EditModeUnsavedChangesDialog", "EditModeDialog"}) do
+    for _, name in ipairs(foreverEditModeControlNames) do
         local frame = _G[name]
         if frame and frame.IsShown and frame:IsShown()
             and not FrameFitsPhysicalDisplay(frame, metrics) then
@@ -413,9 +604,9 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
     end
 end
 
--- Forever accepts this tested manager-only anchor change from the recovery
--- popup's hardware click. Do not move Edit Mode systems, attach handlers to the
--- manager, or alter Blizzard's panel metadata from this path.
+-- Forever accepts these unprotected control-surface anchor changes from the
+-- recovery popup's hardware click. Do not move Edit Mode systems, attach
+-- handlers, or alter Blizzard's panel metadata from this path.
 function HUD:BringForeverEditModeControlsToMainhand()
     if not UsesForeverEditMode() or InCombatLockdown() then return false end
     local manager = _G.EditModeManagerFrame
@@ -424,17 +615,29 @@ function HUD:BringForeverEditModeControlsToMainhand()
         or (manager.IsProtected and manager:IsProtected()) then return false end
     local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
         and Offhand.Viewport:GetMetrics()
-    if not metrics or not metrics.isSpanned then return false end
+    if not CanRecoverForeverEditModeControls(metrics) then return false end
 
-    manager:ClearAllPoints()
     local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
-    local frameScale = (manager.GetEffectiveScale and manager:GetEffectiveScale()) or parentScale
-    local factor = parentScale / frameScale
     local centerX = (metrics.gameLeft + metrics.gameRight) / 2
     local centerY = (metrics.gameBottom + metrics.gameTop) / 2
-    manager:SetPoint("CENTER", UIParent, "CENTER",
-        (centerX - UIParent:GetWidth() / 2) * factor,
-        (centerY - UIParent:GetHeight() / 2) * factor)
+    local moved = false
+    local function Recover(frame)
+        if not frame or not frame.IsShown or not frame:IsShown()
+            or (frame.IsForbidden and frame:IsForbidden())
+            or (frame.IsProtected and frame:IsProtected())
+            or FrameFitsPhysicalDisplay(frame, metrics) then return end
+        local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or parentScale
+        local factor = parentScale / frameScale
+        frame:ClearAllPoints()
+        frame:SetPoint("CENTER", UIParent, "CENTER",
+            (centerX - UIParent:GetWidth() / 2) * factor,
+            (centerY - UIParent:GetHeight() / 2) * factor)
+        moved = true
+    end
+
+    Recover(manager)
+    for _, name in ipairs(foreverEditModeControlNames) do Recover(_G[name]) end
+    if not moved then return false end
     self.foreverEditModeControlsPromptShown = nil
     return true
 end
@@ -559,13 +762,34 @@ local mainhandTransientFrames = {
     { name = "RolePollPopup", point = "TOP", x = 0, y = -15 },
     { name = "ReadyCheckFrame", point = "CENTER", x = 0, y = -10 },
     { name = "LFGDungeonReadyPopup", point = "CENTER", x = 0, y = -10, hookEvent = true },
-    { name = "GroupLootContainer", point = "BOTTOM", x = 0, y = 190, hookEvent = true },
+    {
+        name = "GroupLootContainer", point = "BOTTOM", x = 0, y = 190,
+        secure = true, stockPoint = "BOTTOM", stockRelativePoint = "BOTTOM", stockX = 0, stockY = 190,
+        allowAnyUIParentAnchor = true,
+    },
     -- These overlays opt out of UIParent scaling on some client builds. That
     -- makes Blizzard's text roughly 1/UIParentScale times too large after a
     -- mixed-resolution span. Rejoin the normal scale hierarchy while Offhand
     -- owns their Mainhand presentation rectangle.
     { name = "CombatText", point = "CENTER", x = 0, y = 0, normalizeScale = true },
     { name = "TimerTracker", bounds = true, normalizeScale = true, hookEvent = true },
+    -- Battleground objective widgets and score windows are anchored to the
+    -- complete UIParent, which puts them on the monitor seam while spanned.
+    -- Their widget/score trees can consume secret values in instanced combat,
+    -- so adopt only Blizzard's stock anchor and write the replacement through
+    -- a restricted secure handler. Never fall back to an insecure SetPoint.
+    {
+        name = "UIWidgetTopCenterContainerFrame", point = "TOP", x = 0, y = -15,
+        secure = true, stockPoint = "TOP", stockRelativePoint = "TOP", stockX = 0, stockY = -15,
+    },
+    {
+        name = "PVPMatchScoreboard", point = "CENTER", x = 0, y = 0,
+        secure = true, stockPoint = "CENTER", stockRelativePoint = "CENTER", stockX = 0, stockY = 0,
+    },
+    {
+        name = "PVPMatchResults", point = "CENTER", x = 0, y = 0,
+        secure = true, stockPoint = "CENTER", stockRelativePoint = "CENTER", stockX = 0, stockY = 0,
+    },
     { name = "HousingControlsFrame", point = "TOP", x = 0, y = -30 },
     {
         name = "HouseEditorFrame.ModeBar",
@@ -598,18 +822,86 @@ local mainhandTransientFrames = {
 }
 
 local transientHooks = {}
+local secureTransientOwned = setmetatable({}, { __mode = "k" })
+local secureTransientPositioner
+
+local function EnsureSecureTransientPositioner()
+    if secureTransientPositioner then return secureTransientPositioner end
+    if not CreateFrame or not UIParent or InCombatLockdown() then return nil end
+    local ok, positioner = pcall(CreateFrame, "Frame", nil, UIParent, "SecureHandlerBaseTemplate")
+    if not ok or not positioner or not positioner.SetFrameRef
+        or not positioner.SetAttribute or not positioner.Execute then return nil end
+    secureTransientPositioner = positioner
+    return positioner
+end
+
+local function IsStockSecureTransientAnchor(frame, spec)
+    if secureTransientOwned[frame] then return true end
+    if frame.IsUserPlaced and frame:IsUserPlaced() then return false end
+    if not frame.GetNumPoints or frame:GetNumPoints() ~= 1 or not frame.GetPoint then return false end
+    local point, relativeTo, relativePoint, x, y = frame:GetPoint(1)
+    if relativeTo ~= nil and relativeTo ~= UIParent then return false end
+    -- GroupLootContainer's stock vertical offset varies between client builds.
+    -- A single UIParent-relative, non-user-placed anchor is still native stock;
+    -- addon/user placements relative to another frame remain untouched.
+    if spec.allowAnyUIParentAnchor then return true end
+    local tolerance = 0.5
+    return point == spec.stockPoint
+        and (relativePoint or point) == spec.stockRelativePoint
+        and math.abs((tonumber(x) or 0) - spec.stockX) <= tolerance
+        and math.abs((tonumber(y) or 0) - spec.stockY) <= tolerance
+end
+
+local function SecureScreenPoint(frame, point, x, y)
+    if InCombatLockdown() then return false end
+    local positioner = EnsureSecureTransientPositioner()
+    if not positioner then return false end
+    local ok = pcall(function()
+        positioner:SetFrameRef("offhandTransient", frame)
+        positioner:SetAttribute("offhandPoint", point)
+        positioner:SetAttribute("offhandX", x)
+        positioner:SetAttribute("offhandY", y)
+        positioner:Execute([[
+            local frame = self:GetFrameRef("offhandTransient")
+            if frame then
+                frame:ClearAllPoints()
+                frame:SetPoint(
+                    self:GetAttribute("offhandPoint"),
+                    self:GetParent(), "BOTTOMLEFT",
+                    self:GetAttribute("offhandX"), self:GetAttribute("offhandY"))
+            end
+        ]])
+    end)
+    return ok
+end
+
+local function PositionSecureMainhandTransient(frame, spec, m)
+    if not IsStockSecureTransientAnchor(frame, spec) then return false end
+    local px = spec.point:find("LEFT") and m.gameLeft or spec.point:find("RIGHT") and m.gameRight
+        or (m.gameLeft + m.gameRight) / 2
+    local py = spec.point:find("TOP") and m.gameTop or spec.point:find("BOTTOM") and m.gameBottom
+        or (m.gameBottom + m.gameTop) / 2
+    local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
+    if SecureScreenPoint(frame, spec.point,
+        (px + (spec.x or 0) * m.hudScale) * factor,
+        (py + (spec.y or 0) * m.hudScale) * factor) then
+        secureTransientOwned[frame] = true
+        return true
+    end
+    return false
+end
 
 local function ResolveMainhandTransient(spec)
     if spec.resolve then return spec.resolve() end
     return _G[spec.name]
 end
 
-local function CanPositionMainhandTransient(frame)
+local function CanPositionMainhandTransient(frame, spec)
     if not frame or not frame.ClearAllPoints or not frame.SetPoint then return false end
     if frame.IsForbidden and frame:IsForbidden() then return false end
     -- Protected HUD/action frames remain Blizzard/Edit Mode owned. This keeps
     -- OverrideActionBar and any future secure replacements out of this path.
-    if frame.IsProtected and frame:IsProtected() then return false end
+    if frame.IsProtected and frame:IsProtected() and not (spec and spec.secure) then return false end
     return true
 end
 
@@ -655,21 +947,35 @@ local function PositionTimerTracker(frame, m)
 end
 
 function HUD:PositionMainhandTransientFrames(m)
-    if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
+    if not Offhand.db or not Offhand.db.enabled
         or not Offhand.db.seamRedirect then return end
+    if InCombatLockdown() then
+        if not self.mainhandTransientCombatPending and Offhand.RunOrQueueCombat then
+            self.mainhandTransientCombatPending = true
+            Offhand:RunOrQueueCombat(function()
+                HUD.mainhandTransientCombatPending = false
+                HUD:PositionMainhandTransientFrames()
+            end)
+        end
+        return
+    end
     m = m or Offhand.Viewport:GetMetrics()
     if not m or not m.isSpanned then return end
 
     for _, spec in ipairs(mainhandTransientFrames) do
         local frame = ResolveMainhandTransient(spec)
-        if CanPositionMainhandTransient(frame) then
+        if CanPositionMainhandTransient(frame, spec) then
             pcall(function()
-                Prepare(frame, m)
-                if spec.normalizeScale then NormalizeMainhandTransientScale(frame) end
-                if spec.bounds then
-                    PositionTimerTracker(frame, m)
+                if spec.secure then
+                    PositionSecureMainhandTransient(frame, spec, m)
                 else
-                    Anchor(frame, spec.point, m, spec.x, spec.y, true)
+                    Prepare(frame, m)
+                    if spec.normalizeScale then NormalizeMainhandTransientScale(frame) end
+                    if spec.bounds then
+                        PositionTimerTracker(frame, m)
+                    else
+                        Anchor(frame, spec.point, m, spec.x, spec.y, true)
+                    end
                 end
             end)
         end
@@ -703,7 +1009,11 @@ function HUD:HookMainhandTransientFrames()
             loader:RegisterEvent("ADDON_LOADED")
             loader:SetScript("OnEvent", function(_, _, addonName)
                 if addonName ~= "Blizzard_HousingControls"
-                    and addonName ~= "Blizzard_HouseEditor" then return end
+                    and addonName ~= "Blizzard_HouseEditor"
+                    and addonName ~= "Blizzard_UIWidgets"
+                    and addonName ~= "Blizzard_PVPMatch"
+                    and addonName ~= "Blizzard_GroupLoot"
+                    and addonName ~= "Blizzard_LootUI" then return end
                 HUD:HookMainhandTransientFrames()
                 HUD:PositionMainhandTransientFrames()
                 if C_Timer and C_Timer.After then
@@ -718,7 +1028,11 @@ function HUD:HookMainhandTransientFrames()
 
     for _, spec in ipairs(mainhandTransientFrames) do
         local frame = ResolveMainhandTransient(spec)
-        if CanPositionMainhandTransient(frame) and not transientHooks[frame] and frame.HookScript then
+        -- Do not attach addon scripts to secret-sensitive widget/score trees.
+        -- Their stock anchors are adopted before combat and repaired by the
+        -- existing layout/ticker pass after combat.
+        if not spec.secure and CanPositionMainhandTransient(frame, spec)
+            and not transientHooks[frame] and frame.HookScript then
             transientHooks[frame] = true
             frame:HookScript("OnShow", function()
                 HUD:PositionMainhandTransientFrames()
@@ -753,17 +1067,12 @@ end
 
 function HUD:AlignChatFrame(m)
     if InCombatLockdown() or not Offhand.db.enabled or not ChatFrame1 or Offhand.db.dockChat == false then return end
+    -- Chattynator owns the complete chat layout, including Blizzard's shared
+    -- ChatFrame1EditBox.  Touching either its custom windows or that edit box
+    -- can leave the visible input without mouse/focus handling.
+    if HasChattynator() then return end
     local chat = ChatFrame1
     if IsForeverEditModeFrame(chat, "ChatFrame1") then return end
-    -- Chattynator replaces the visible chat frame. Use its exposed handler to
-    -- locate the primary window without changing its saved profile or messages.
-    local handler = Chattynator and Chattynator.API and Chattynator.API.GetHyperlinkHandler
-        and Chattynator.API.GetHyperlinkHandler()
-    if handler then
-        for _, child in ipairs({handler:GetChildren()}) do
-            if child:GetID() == 1 and child.ScrollingMessages then chat = child; break end
-        end
-    end
     local chatName = (chat.GetName and chat:GetName()) or "ChatFrame1"
     local native = chat == ChatFrame1
     local retailManaged = native and RetailEditModeOwnsPrimaryChat(chat)
@@ -1061,8 +1370,9 @@ end
 -- Do not run a full HUD layout (or resize chat) from a SetPoint callback.
 function HUD:RepairChatAnchor(frame)
     if aligning or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
-        or Offhand.db.dockChat == false or Chattynator then return end
-    if frame._OffhandDragging or MOVING_CHATFRAME == frame then return end
+        or Offhand.db.dockChat == false or HasChattynator() then return end
+    if frame._OffhandDragging or frame._OffhandApplyingTrackedChatPosition
+        or MOVING_CHATFRAME == frame then return end
     local retailManaged = RetailEditModeOwnsPrimaryChat(frame)
     local retailEditModeActive = retailManaged and ((frame and frame.isInEditMode == true)
         or (EditModeManagerFrame and EditModeManagerFrame.IsShown
@@ -1079,7 +1389,7 @@ function HUD:RepairChatAnchor(frame)
         C_Timer.After(0, function()
             self.chatWorkspaceRepairPending = nil
             if aligning or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
-                or Offhand.db.dockChat == false or Chattynator
+                or Offhand.db.dockChat == false or HasChattynator()
                 or frame._OffhandDragging or MOVING_CHATFRAME == frame
                 or (RetailEditModeOwnsPrimaryChat(frame)
                     and ((frame and frame.isInEditMode == true)
@@ -1399,21 +1709,30 @@ function HUD:HookFrames()
         local layoutData = C_EditMode.GetLayouts()
         if not layoutData or not layoutData.layouts then return end
 
-        local targetName = "Offhand"
+        local forever = UsesForeverEditMode()
+        if forever then
+            local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
+                and Offhand.Viewport:GetMetrics() or nil
+            PrepareForeverEditModeState(layoutData, metrics)
+        end
+        local activeName = not forever and GetActiveEditModeLayoutName() or nil
+        local targetName = forever
+            and (type(OffhandCharDB) == "table" and OffhandCharDB.foreverEditModeLayoutName or nil)
+            or (type(OffhandCharDB) == "table" and OffhandCharDB.editModeLayoutName or nil)
+        if not forever and (type(targetName) ~= "string" or not targetName:match("%S")) then
+            -- Upgrade behavior: adopt the layout Blizzard already selected for
+            -- this character. Do not replace it merely because a layout named
+            -- "Offhand" also exists on the account.
+            targetName = activeName
+            RememberCharacterEditModeLayout()
+        end
+
         local found = false
         local needsSetup = false
-        local activeName
-        if not UsesForeverEditMode() and EditModeManagerFrame
-            and EditModeManagerFrame.GetActiveLayoutInfo then
-            local ok, activeInfo = pcall(EditModeManagerFrame.GetActiveLayoutInfo, EditModeManagerFrame)
-            if ok and type(activeInfo) == "table" then
-                activeName = activeInfo.layoutName
-            end
-        end
         for index, layout in ipairs(layoutData.layouts) do
-            if EditModeLayoutNamesMatch(layout.layoutName, targetName) then
+            if targetName and EditModeLayoutNamesMatch(layout.layoutName, targetName) then
                 found = true
-                if UsesForeverEditMode() then
+                if forever then
                     -- A newly copied/renamed layout can still contain Blizzard's
                     -- full-canvas default for Action Bar 1. Selecting it would
                     -- appear to move the bar away from the Mainhand viewport.
@@ -1429,7 +1748,7 @@ function HUD:HookFrames()
                         end
                     end
                 end
-                if not needsSetup and not UsesForeverEditMode()
+                if not needsSetup and not forever
                     and not EditModeLayoutNamesMatch(activeName, targetName)
                     and C_EditMode.SetActiveLayout then
                     -- GetLayouts().layouts is indexed in the form expected by
@@ -1445,7 +1764,17 @@ function HUD:HookFrames()
                 break
             end
         end
-        if (UsesForeverEditMode() or Offhand.isRetail) and (not found or needsSetup or layoutData.activeLayout ~= nil) and not self.editModeGuidanceShown then
+
+        if not forever and not found and activeName and type(OffhandCharDB) == "table" then
+            -- The remembered layout was renamed or deleted. The currently
+            -- active Blizzard choice is the safest replacement; never select
+            -- an unrelated layout that inherited the old numeric slot.
+            OffhandCharDB.editModeLayoutName = activeName
+        end
+
+        local needsGuidance = forever and (not targetName or not found or needsSetup)
+            or (Offhand.isRetail and not activeName)
+        if needsGuidance and not self.editModeGuidanceShown then
             self.editModeGuidanceShown = true
             local messageKey = HasEllesmerePartyFrames()
                 and "COMPAT_ELLESMERE_PARTY" or (UsesForeverEditMode() and "EDIT_MODE_LAYOUT_MISSING" or "EDIT_MODE_LAYOUT_MISSING_RETAIL")
@@ -1474,6 +1803,7 @@ function HUD:HookFrames()
     end
 
     UpdateUIPanelOffsets()
+    HookCharacterEditModeSelection()
     if not Offhand.db or not Offhand.db.enabled then
         self.editModeLoadScheduled = nil
     elseif not self.editModeLoadScheduled then
@@ -1497,6 +1827,7 @@ function HUD:HookFrames()
                 editModeLoader:SetScript("OnEvent", function(_, _, addonName)
                     if addonName == "Blizzard_EditMode" or addonName == "Blizzard_Settings" then
                         CheckEditModeHooks()
+                        HookCharacterEditModeSelection()
                         for _, name in ipairs(menuFrameNames) do HookMenuFrame(name) end
                     end
                 end)
@@ -1545,7 +1876,8 @@ function HUD:HookFrames()
     -- Keep bags on regular monitor unless user explicitly dragged them to workspace
     local isArrangingBags = false
     function HUD:LayoutBags()
-        if HasCustomBagAddon() or isArrangingBags or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+        if Offhand.isForever or HasCustomBagAddon() or isArrangingBags
+            or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
         isArrangingBags = true
 
         local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
@@ -1751,6 +2083,11 @@ function HUD:HookFrames()
         end
     end
 
+    -- Forever's native bag frames are protected item-action ancestors. Even an
+    -- OnShow observer or a post-toggle layout hook can attribute later
+    -- UseContainerItem calls to Offhand, so that client gets no native-bag
+    -- hooks at all. Custom bag-addon roots are handled by their own adapters.
+    if not Offhand.isForever then
     -- Pre-hook bag OnShow to suppress flicker by setting alpha 0 before positioning
     for i = 1, (NUM_CONTAINER_FRAMES or 13) do
         local frame = _G["ContainerFrame" .. i]
@@ -1834,6 +2171,7 @@ function HUD:HookFrames()
         if CloseAllBags then
             hooksecurefunc("CloseAllBags", TriggerBagLayout)
         end
+    end
     end
     for i = 1, 4 do
         local frame = _G["StaticPopup" .. i]

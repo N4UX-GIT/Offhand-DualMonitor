@@ -140,6 +140,62 @@ FCF_StopDragging = function(cf)
     if cf then cf:StopMovingOrSizing() end
     MOVING_CHATFRAME = nil
 end
+FCF_IsDocked = function(cf)
+    return cf and (cf.isDocked == true or cf.isDocked == 1) or false
+end
+FCF_DockFrame = function(cf)
+    cf.isDocked = 1
+end
+local undockRefreshes = 0
+FCF_UnDockFrame = function(cf)
+    undockRefreshes = undockRefreshes + 1
+    cf.isDocked = nil
+    cf.isStaticDocked = nil
+    cf.floatingPresentation = true
+end
+FCF_SetLocked = function(cf, locked)
+    cf.isLocked = locked
+end
+local chatWindowPresentation = {
+    [2] = {name="Combat Log", r=0.08, g=0.09, b=0.10, alpha=0.35},
+    [3] = {name="1", r=0.08, g=0.09, b=0.10, alpha=0.35},
+}
+OffhandDB = { compatibility = {} }
+FCF_GetChatWindowInfo = function(id)
+    local info = chatWindowPresentation[id] or chatWindowPresentation[2]
+    return info.name, 14, info.r, info.g, info.b, info.alpha,
+        info.shown ~= false, true, info.docked == true
+end
+FCF_SetWindowColor = function(cf, r, g, b, doNotSave)
+    local id = tonumber(cf:GetName():match("(%d+)$"))
+    if not doNotSave then
+        chatWindowPresentation[id].r = r
+        chatWindowPresentation[id].g = g
+        chatWindowPresentation[id].b = b
+    end
+    cf.floatingColor = {r, g, b}
+end
+FCF_SetWindowAlpha = function(cf, alpha, doNotSave)
+    local id = tonumber(cf:GetName():match("(%d+)$"))
+    if not doNotSave then chatWindowPresentation[id].alpha = alpha end
+    cf.floatingAlpha = alpha
+end
+local shownChatWindows = {}
+local chatStateWrites = {}
+SetChatWindowShown = function(id, shown)
+    shownChatWindows[id] = shown
+    if chatWindowPresentation[id] then chatWindowPresentation[id].shown = shown end
+    chatStateWrites[#chatStateWrites + 1] = {"shown", id, shown}
+end
+SetChatWindowDocked = function(id, docked)
+    chatStateWrites[#chatStateWrites + 1] = {"docked", id, docked}
+end
+FCF_CheckShowChatFrame = function(frame)
+    frame:Show()
+end
+FCF_FadeInChatFrame = function(frame)
+    frame.floatingFadedIn = true
+end
 
 ChatFrame1 = makeMockFrame("ChatFrame1", 400, 220)
 ChatFrame1Tab = makeMockFrame("ChatFrame1Tab", 60, 24)
@@ -157,6 +213,18 @@ ChatFrame1Tab.RegisterForDrag = function()
     error("Offhand must not override Blizzard's native chat-tab drag registration")
 end
 
+-- A detached chat window explicitly placed on Mainhand must be restored just
+-- like an Offhand-side window. Forever otherwise rebuilds it at the full-span
+-- center during login/reload, causing detached windows to stack.
+ChatFrame2 = makeMockFrame("ChatFrame2", 520, 240)
+ChatFrame2Tab = makeMockFrame("ChatFrame2Tab", 60, 24)
+ChatFrame2Tab.GetParent = function() return ChatFrame2 end
+ChatFrame2:ClearAllPoints()
+ChatFrame2:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+addon.db.savedMainPositions.ChatFrame2 = {
+    point = "TOPLEFT", x = 2860, y = 1120,
+}
+
 -- Load Offhand modules
 assert(loadfile("UI/Themes.lua"))("Offhand", addon)
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
@@ -169,6 +237,10 @@ addon.SeamRedirect:HookFrames()
 assert(ChatFrame1._OffhandChatHooked == true, "ChatFrame1 must be hooked for workspace dragging")
 assert(ChatFrame1Tab._OffhandTabHooked == true, "ChatFrame1Tab must be hooked for workspace dragging")
 assert(ChatFrame1.clamped == false, "ChatFrame1 must be unclamped from screen")
+assert(select(1, ChatFrame2:GetPoint(1)) == "TOPLEFT"
+    and select(4, ChatFrame2:GetPoint(1)) == 2860
+    and select(5, ChatFrame2:GetPoint(1)) == 1120,
+    "Detached Mainhand chat must restore its explicit position during initialization")
 local lockedDragOk, lockedDragError = pcall(ChatFrame1Tab.scripts.OnDragStart, ChatFrame1Tab)
 assert(lockedDragOk, "Locked/docked ChatFrame1 drag observation must not force movement: " .. tostring(lockedDragError))
 ChatFrame1._OffhandDragging = false
@@ -204,6 +276,69 @@ local dockPoint, dockRelative, dockRelativePoint = GeneralDockManager:GetPoint(1
 assert(dockPoint == "BOTTOMLEFT" and dockRelative == ChatFrame1 and dockRelativePoint == "TOPLEFT")
 addon.HUD:AlignChatFrame(metrics)
 assert(dockUpdates == 1, "Do not continuously rebuild chat tabs")
+
+-- Recover a custom detached window damaged by the reverted undock-based beta.
+-- Unlike built-in Combat Log, a custom frame may return with both legacy dock
+-- flags nil, so live dock membership alone must select visibility recovery.
+ChatFrame3 = makeMockFrame("ChatFrame3", 430, 210)
+ChatFrame3Tab = makeMockFrame("ChatFrame3Tab", 60, 24)
+ChatFrame3Tab.GetParent = function() return ChatFrame3 end
+ChatFrame3:Hide()
+ChatFrame3Tab:Hide()
+addon.db.savedMainPositions.ChatFrame3 = {
+    point = "TOPLEFT", x = 3100, y = 1040,
+}
+addon.Canvas:EnableFreeDragging()
+assert(ChatFrame3:IsShown() and ChatFrame3Tab:IsShown()
+    and shownChatWindows[3] == true
+    and ChatFrame3.isDocked == nil and ChatFrame3.isStaticDocked == nil
+    and select(4, ChatFrame3:GetPoint(1)) == 3100
+    and ChatFrame3.floatingFadedIn == true,
+    "A tracked custom chat with no dock flags must recover visibility and position")
+assert(undockRefreshes == 0,
+    "Custom chat recovery must never call FCF_UnDockFrame")
+
+-- Changing a tracked floating window through Blizzard's color picker must
+-- retain the newly selected values after its later dock-oriented fade update.
+ChatFrame3.floatingFadedIn = false
+local appearanceTimers = {}
+local immediateAfter = C_Timer.After
+C_Timer.After = function(delay, fn)
+    appearanceTimers[#appearanceTimers + 1] = {delay=delay, callback=fn}
+end
+FCF_SetWindowColor(ChatFrame3, 0.45, 0.25, 0.15, false)
+FCF_SetWindowAlpha(ChatFrame3, 0.72, false)
+assert(#appearanceTimers == 2 and appearanceTimers[1].delay == 0
+        and appearanceTimers[2].delay > 0,
+    "Color and opacity changes must share immediate and settlement refreshes")
+appearanceTimers[1].callback()
+-- Forever performs this late fade after the setters and their next-frame
+-- callbacks, which used to erase the detached frame background again.
+ChatFrame3.floatingColor = nil
+ChatFrame3.floatingAlpha = 0
+ChatFrame3.floatingFadedIn = false
+appearanceTimers[2].callback()
+assert(ChatFrame3.floatingColor[1] == 0.45
+    and ChatFrame3.floatingColor[2] == 0.25
+    and ChatFrame3.floatingAlpha == 0.72
+    and chatWindowPresentation[3].alpha == 0.72
+    and ChatFrame3.floatingFadedIn == true,
+    "Color-picker changes must survive the detached chat presentation refresh")
+
+-- Opening Settings can run the same setter with doNotSave=true before its
+-- dock-oriented fade. It still needs a presentation replay, while Offhand's
+-- guarded replay must not recursively enqueue itself.
+appearanceTimers = {}
+FCF_SetWindowAlpha(ChatFrame3, 0, true)
+assert(#appearanceTimers == 2,
+    "Settings initialization must schedule detached presentation settlement")
+appearanceTimers[1].callback()
+ChatFrame3.floatingAlpha = 0
+ChatFrame3.floatingFadedIn = false
+appearanceTimers[2].callback()
+C_Timer.After = immediateAfter
+assert(ChatFrame3.floatingAlpha == 0.72 and ChatFrame3.floatingFadedIn == true,
+    "Opening chat Settings must not erase the saved background opacity")
 
 -- Blizzard can replay its default anchor between rendered frames. Repair must
 -- complete synchronously, without scheduling another full layout or resizing.
@@ -246,6 +381,40 @@ addon.ForeverPersistence = {
     ClearPosition = function() end,
     SaveOpenPanels = function() end,
 }
+
+-- Repair the exact Beta 19 loss signature once: native Combat Log remains
+-- detached with a valid Blizzard position, but both SHOWN and Offhand's saved
+-- Mainhand snapshot were cleared by the transient-dock misclassification.
+local originalCombatPosition = addon.db.savedMainPositions.ChatFrame2
+addon.db.savedMainPositions.ChatFrame2 = nil
+ChatFrame2:Hide()
+ChatFrame2Tab:Hide()
+chatWindowPresentation[2].shown = false
+chatWindowPresentation[2].docked = false
+assert(addon.Canvas:RecoverLostForeverCombatLog()
+        and ChatFrame2:IsShown() and ChatFrame2Tab:IsShown()
+        and addon.db.savedMainPositions.ChatFrame2 ~= nil
+        and OffhandDB.compatibility.detachedCombatLogRecoveryVersion == 1,
+    "Forever must recover and recapture the Combat Log snapshot erased by the affected beta")
+addon.db.savedMainPositions.ChatFrame2 = originalCombatPosition
+
+-- Chat Settings may fade detached windows without calling either FCF setter.
+-- The Forever-owned observer must repair presentation while the panel is open
+-- and once more on the transition back to gameplay.
+ChatConfigFrame = makeMockFrame("ChatConfigFrame", 600, 500)
+ChatConfigFrame:Show()
+ChatFrame3.floatingAlpha = 0
+ChatFrame3.floatingFadedIn = false
+addon.Canvas:MonitorDetachedChatSettingsPresentation()
+assert(ChatFrame3.floatingAlpha == 0.72 and ChatFrame3.floatingFadedIn == true,
+    "Chat Settings observer must restore detached presentation without setter callbacks")
+ChatConfigFrame:Hide()
+ChatFrame3.floatingAlpha = 0
+ChatFrame3.floatingFadedIn = false
+addon.Canvas:MonitorDetachedChatSettingsPresentation()
+assert(ChatFrame3.floatingAlpha == 0.72 and ChatFrame3.floatingFadedIn == true,
+    "Closing Chat Settings must perform a final detached presentation repair")
+
 ChatFrame1:SetSize(800, 257)
 FCF_SavePositionAndDimensions(ChatFrame1)
 assert(addon.db.savedWorkspacePositions.ChatFrame1.width == 800
@@ -272,6 +441,60 @@ assert(addon.db.savedWorkspacePositions["ChatFrame1"] ~= nil, "savedWorkspacePos
 assert(ChatFrame1:GetWidth() == 800 and ChatFrame1:GetHeight() == 257,
     "Reload restoration must reapply the last explicitly saved chat dimensions")
 
+-- Simulate Forever's late native chat rebuild after the first Offhand pass.
+-- Its save callback must reassert the committed Mainhand placement rather than
+-- accepting the full-span centered anchor as a new user choice.
+-- Forever may leave its legacy dock flags set on a visually detached frame;
+-- current membership in the dock manager is the authoritative topology.
+table.insert(GeneralDockManager.DOCKED_CHAT_FRAMES, ChatFrame2)
+FCF_DockFrame(ChatFrame2)
+FCF_SavePositionAndDimensions(ChatFrame2)
+assert(addon.db.savedMainPositions.ChatFrame2 ~= nil,
+    "Transient reload-time dock and save callbacks must not delete detached chat state")
+table.remove(GeneralDockManager.DOCKED_CHAT_FRAMES)
+ChatFrame2.isDocked = 1
+ChatFrame2.isStaticDocked = true
+ChatFrame2.isLocked = true
+ChatFrame2:Hide()
+ChatFrame2Tab:Hide()
+ChatFrame2:ClearAllPoints()
+ChatFrame2:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+FCF_SavePositionAndDimensions(ChatFrame2)
+assert(select(1, ChatFrame2:GetPoint(1)) == "TOPLEFT"
+    and select(4, ChatFrame2:GetPoint(1)) == 2860
+    and select(5, ChatFrame2:GetPoint(1)) == 1120,
+    "Late Forever chat layout must not overwrite a detached Mainhand position")
+local shownWrite, dockedWrite
+for index, write in ipairs(chatStateWrites) do
+    if write[2] == 2 and write[1] == "shown" then shownWrite = index end
+    if write[2] == 2 and write[1] == "docked" then dockedWrite = index end
+end
+assert(undockRefreshes == 0 and ChatFrame2.isDocked == nil
+    and ChatFrame2.isStaticDocked == true and ChatFrame2.isLocked == true
+    and ChatFrame2.floatingAlpha == 0.35 and ChatFrame2.floatingColor[1] == 0.08
+    and ChatFrame2.floatingFadedIn == true
+    and ChatFrame2:IsShown() and ChatFrame2Tab:IsShown()
+    and shownChatWindows[2] == true and shownWrite and dockedWrite
+    and shownWrite < dockedWrite,
+    "A detached Forever chat must commit shown before detached, then refresh presentation safely")
+
+-- Returning a detached chat to Blizzard's primary dock relinquishes Offhand's
+-- monitor snapshot and normalizes the tab to the primary chat dimensions.
+ChatFrame1:SetSize(760, 280)
+ChatFrame2:SetSize(520, 240)
+table.insert(GeneralDockManager.DOCKED_CHAT_FRAMES, ChatFrame2)
+ChatFrame2._OffhandDragging = true
+MOVING_CHATFRAME = ChatFrame2
+FCF_DockFrame(ChatFrame2)
+ChatFrame2._OffhandDragging = false
+MOVING_CHATFRAME = nil
+assert(addon.db.savedMainPositions.ChatFrame2 == nil
+    and addon.db.savedWorkspacePositions.ChatFrame2 == nil,
+    "Docking a detached chat must clear its Offhand monitor snapshot")
+assert(ChatFrame2:GetWidth() == ChatFrame1:GetWidth()
+    and ChatFrame2:GetHeight() == ChatFrame1:GetHeight(),
+    "Docked chat tabs must inherit the primary chat frame size")
+
 -- Chattynator reuses ChatFrame1EditBox but anchors it to its own chat window.
 -- Offhand must not move that shared edit box back to Blizzard's hidden frame.
 local chattynatorFrame = makeMockFrame("ChattynatorPrimaryTestFrame", 800, 257)
@@ -282,6 +505,27 @@ addon.Canvas:RestoreWorkspacePosition(ChatFrame1)
 local _, chatEditRelative = ChatFrame1EditBox:GetPoint(1)
 assert(chatEditRelative == chattynatorFrame,
     "Offhand must preserve Chattynator's ChatFrame1EditBox anchor")
+local chattyPrimaryPoints = chattynatorFrame:GetNumPoints()
+local chattyEditPoints = ChatFrame1EditBox:GetNumPoints()
+addon.HUD:AlignChatFrame(metrics)
+assert(chattynatorFrame:GetNumPoints() == chattyPrimaryPoints
+    and ChatFrame1EditBox:GetNumPoints() == chattyEditPoints
+    and select(2, ChatFrame1EditBox:GetPoint(1)) == chattynatorFrame,
+    "HUD alignment must fully yield Chattynator's window and shared edit box")
+
+ChatFrame2.isDocked = 1
+ChatFrame2:ClearAllPoints()
+ChatFrame2:SetPoint("TOPLEFT", chattynatorFrame, "TOPLEFT", 0, -22)
+ChatFrame2:SetPoint("BOTTOMRIGHT", chattynatorFrame, "BOTTOMRIGHT", -15, 0)
+ChatFrame2:SetSize(615, 330)
+addon.db.savedMainPositions.ChatFrame2 = {point="TOPLEFT", x=2860, y=1120}
+local chattyCombatPoints = ChatFrame2:GetNumPoints()
+addon.Canvas:RestoreWorkspacePosition(ChatFrame2)
+assert(ChatFrame2:GetNumPoints() == chattyCombatPoints
+    and ChatFrame2:GetWidth() == 615 and ChatFrame2:GetHeight() == 330,
+    "Offhand must not reanchor or resize Chattynator's borrowed ChatFrame2")
+assert(addon.db.savedMainPositions.ChatFrame2 == nil,
+    "Chattynator ownership must clear stale native chat persistence")
 C_AddOns = nil
 
 -- 5. Test dragging ChatFrame1 back to game view screen (x = 2000 >= deckWidth)
@@ -296,7 +540,9 @@ FCF_StopDragging(ChatFrame1)
 assert(addon.db.savedWorkspacePositions["ChatFrame1"] == nil, "savedWorkspacePositions for ChatFrame1 must be cleared when on game view screen")
 local savedMainTop = addon.db.savedMainPositions.ChatFrame1.y
 addon.HUD:AlignChatFrame(metrics)
-assert(select(4, ChatFrame1:GetPoint(1)) == 2000, "Deliberate game-view placement must survive default-layout refresh")
+assert(select(4, ChatFrame1:GetPoint(1)) == 2000,
+    "Deliberate game-view placement must survive default-layout refresh; got "
+        .. tostring(select(4, ChatFrame1:GetPoint(1))))
 assert(select(1, ChatFrame1:GetPoint(1)) == "TOPLEFT"
     and select(5, ChatFrame1:GetPoint(1)) == savedMainTop,
     "Mainhand chat restoration must preserve the saved top edge instead of treating it as a bottom edge")

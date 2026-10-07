@@ -10,13 +10,16 @@
 #>
 param(
     [ValidatePattern('^\d+\.\d+\.\d+\.0$')]
-    [string]$PackageVersion = '2.1.18.0',
+    [string]$PackageVersion = '2.1.19.0',
 
     [string]$IdentityName = 'N4UX.OffhandCompanion',
     [string]$Publisher = 'CN=E7BD7796-76DA-40C2-B114-9DD85609CD7F',
     [string]$PublisherDisplayName = 'N4UX',
 
     [string]$OutputDirectory,
+    [string]$CompanionPath,
+    [ValidatePattern('^[A-Fa-f0-9]{64}$')]
+    [string]$ExpectedCompanionSha256,
     [switch]$UseExistingCompanion
 )
 
@@ -106,6 +109,10 @@ Assert-ManifestValue -Name 'IdentityName' -Value $IdentityName
 Assert-ManifestValue -Name 'Publisher' -Value $Publisher
 Assert-ManifestValue -Name 'PublisherDisplayName' -Value $PublisherDisplayName
 
+if ($UseExistingCompanion -and -not [string]::IsNullOrWhiteSpace($CompanionPath)) {
+    throw 'UseExistingCompanion and CompanionPath are mutually exclusive.'
+}
+
 if (-not (Test-Path -LiteralPath $sourceLogo -PathType Leaf)) {
     throw "Store artwork source is missing: $sourceLogo"
 }
@@ -118,7 +125,13 @@ New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 
 try {
     $packagedExe = Join-Path $stagingDir 'Offhand.exe'
-    if ($UseExistingCompanion) {
+    if (-not [string]::IsNullOrWhiteSpace($CompanionPath)) {
+        $resolvedCompanionPath = (Resolve-Path -LiteralPath $CompanionPath -ErrorAction Stop).Path
+        if (-not (Test-Path -LiteralPath $resolvedCompanionPath -PathType Leaf)) {
+            throw "Companion executable is missing: $resolvedCompanionPath"
+        }
+        Copy-Item -LiteralPath $resolvedCompanionPath -Destination $packagedExe
+    } elseif ($UseExistingCompanion) {
         if (-not (Test-Path -LiteralPath $companionExe -PathType Leaf)) {
             throw "Companion executable is missing: $companionExe"
         }
@@ -128,6 +141,12 @@ try {
         if ($LASTEXITCODE -ne 0) {
             throw "Companion build failed with exit code $LASTEXITCODE."
         }
+    }
+
+    $packagedExeHash = (Get-FileHash -LiteralPath $packagedExe -Algorithm SHA256).Hash
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedCompanionSha256) -and
+        $packagedExeHash -ne $ExpectedCompanionSha256.ToUpperInvariant()) {
+        throw "Companion SHA-256 mismatch. Expected $($ExpectedCompanionSha256.ToUpperInvariant()), got $packagedExeHash."
     }
 
     Add-Type -AssemblyName System.Drawing
@@ -167,6 +186,7 @@ try {
     Write-Host "Store package created:" -ForegroundColor Green
     Write-Host "  $outputPath"
     Write-Host "  SHA-256: $hash"
+    Write-Host "  Embedded Offhand.exe SHA-256: $packagedExeHash"
     Write-Host "The package is intentionally unsigned; Microsoft signs the accepted Store submission."
     Write-Output $outputPath
 } finally {

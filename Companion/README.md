@@ -29,30 +29,39 @@ Native Windows desktop companion application for the Offhand World of Warcraft a
   account and character Offhand SavedVariables into a guarded addon snapshot.
   This works around Forever beta builds that write `Offhand.lua` but fail to
   load it on the next client launch.
-* **Forever Pre-Login Span**: Forever clients bypass the configurable launch
-  delay once their main window exists, ensuring Blizzard Edit Mode and Offhand
-  initialize against the final multi-monitor canvas rather than a temporary
-  single-window geometry.
+* **Forever Pre-Login Span**: Forever clients honor the configured launch delay
+  before spanning their main window, including an explicit `0`-second option
+  for users who need the final multi-monitor canvas before login.
 
 ---
 
 ## Downloads & Distribution
 * **`Offhand.exe`**: Ready-to-run standalone executable. No installer needed; uses the Windows .NET Framework.
+* **`Offhand-Companion.zip` (recommended portable download)**: The canonical
+  runtime-only archive containing `Offhand.exe`, `README.txt`, and `LICENSE`.
+  Source, build scripts, manifests, and development assets remain available in
+  the repository and GitHub source archives. Microsoft Security Intelligence reviewed the submitted Beta
+  18 executable and archives without retaining a malware detection. Microsoft's
+  first Beta 19 review was also clean, but those exact bytes were superseded
+  after a high-DPI layout defect was found during testing. The replacement must
+  complete tester and hash-specific review before publication. Edge may still
+  call an unsigned standalone EXE **"not commonly
+  downloaded"**; that is a SmartScreen reputation notice rather than an
+  antivirus detection. Verify `checksums-sha256.txt`, and never disable security
+  software to run Offhand.
 * **Open Source Auditability**: 
   * Full source code is in `Source/Program.cs`.
   * To compile yourself, run `build.bat`. It uses the native Windows C# compiler (`csc.exe`) built into Windows 10 & 11.
   * Official releases include SHA-256 checksums. GitHub Actions builds may also include a build-provenance attestation when the release notes explicitly say so. See the project `SECURITY.md` for verification guidance and the complete behavior disclosure.
   * The GitHub release attachment is the canonical executable. Compiler metadata can give a source-checkout or locally rebuilt `Offhand.exe` a different hash even when its source is identical. Release packaging reuses one build across the standalone download and both Companion-containing archives.
-* **PowerShell Alternative**: `Offhand-Companion.ps1` is included for technical users who prefer raw script execution.
 ## Settings and shortcuts
 
 The native companion stores settings in `%LOCALAPPDATA%\Offhand\OffhandConfig.ini`,
 independent of the launch working directory. If no saved file exists, it reads the
 legacy INI next to the executable. Changing an option saves to the new location.
 Unreadable/unwritable settings are reported without terminating the application.
-The auto-span delay is clamped to 0–60 seconds. Shortcut conflicts are reported;
-the manual Span button remains available. Registered shortcuts suppress repeat
-while held and are released on application exit.
+The auto-span delay is clamped to 0–60 seconds. The Companion does not register
+system-wide shortcuts; manual Span and Restore buttons remain available.
 
 These settings describe the C# companion; the PowerShell alternative has its own
 controls and does not share the native application's preference file.
@@ -63,9 +72,13 @@ Enabling auto-span is an explicit preference and is remembered on later launches
 updating the Companion does not overwrite an existing saved choice.
 
 The Companion does not perform an automatic update check. Clicking **Check for
-Updates** makes one HTTPS request to
-`api.github.com/repos/N4UX-GIT/Offhand-DualMonitor/releases/latest`. It opens the
-official release page only after an update is found and the user confirms.
+Updates** makes one HTTPS request to the official
+`N4UX-GIT/Offhand-DualMonitor` GitHub Releases API. Beta installations consider
+both published beta/prerelease and stable Companion builds; stable installations
+ignore prereleases. Release metadata carries the actual Companion version, so a
+later addon-only release that reuses an existing Companion does not create a
+false update prompt. The exact matching release page opens only after an update
+is found and the user confirms.
 
 ## Display selection and topology
 

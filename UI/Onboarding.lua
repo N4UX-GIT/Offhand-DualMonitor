@@ -45,7 +45,8 @@ function Onboarding:CreateFrame()
     if guideFrame then return guideFrame end
     if not CreateFrame then return nil end
 
-    local f = CreateFrame("Frame", "OffhandFirstLaunchFrame", UIParent, "BackdropTemplate")
+    local f = CreateFrame("Frame", "OffhandFirstLaunchFrame", UIParent,
+        not Offhand.isLegacyWrath and "BackdropTemplate" or nil)
     f:SetSize(660, 430)
     f:SetFrameStrata("FULLSCREEN_DIALOG")
     f:EnableMouse(true)

@@ -2,11 +2,17 @@ $ErrorActionPreference = 'Stop'
 $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path -LiteralPath $compiler)) { throw 'C# compiler unavailable' }
 $testExe = Join-Path ([IO.Path]::GetTempPath()) ('Offhand-preferences-' + [guid]::NewGuid().ToString() + '.exe')
+$layoutTestExe = Join-Path ([IO.Path]::GetTempPath()) ('Offhand-layout-' + [guid]::NewGuid().ToString() + '.exe')
 try {
-    & $compiler /nologo /target:exe /main:Offhand.Companion.PreferencesTest "/out:$testExe" /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll (Join-Path $PSScriptRoot '..\Companion\Source\Program.cs') (Join-Path $PSScriptRoot 'CompanionPreferences.cs')
+    & $compiler /nologo /target:exe /main:Offhand.Companion.PreferencesTest "/out:$testExe" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $PSScriptRoot '..\Companion\Source\Program.cs') (Join-Path $PSScriptRoot 'CompanionPreferences.cs')
     if ($LASTEXITCODE -ne 0) { throw 'Companion test compilation failed' }
     & $testExe
     if ($LASTEXITCODE -ne 0) { throw 'Companion preference test failed' }
+
+    & $compiler /nologo /target:exe /main:Offhand.Companion.LayoutTest "/out:$layoutTestExe" /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $PSScriptRoot '..\Companion\Source\Program.cs') (Join-Path $PSScriptRoot 'CompanionLayout.cs')
+    if ($LASTEXITCODE -ne 0) { throw 'Companion layout test compilation failed' }
+    & $layoutTestExe
+    if ($LASTEXITCODE -ne 0) { throw 'Companion scaled-layout test failed' }
 
     $source = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Source\Program.cs') -Raw
     $constructor = [regex]::Match(
@@ -19,9 +25,18 @@ try {
     if ($source -notmatch 'btnCheckUpdates\.Click.*CheckForUpdates') {
         throw 'Companion update checks must remain wired to an explicit user action.'
     }
-    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.2-beta\.18"\)' -or
-        $source -notmatch 'AssemblyFileVersion\("2\.1\.2\.18"\)') {
+    if ($source -notmatch 'Offhand-DualMonitor/releases\?per_page=30' -or
+        $source -match 'Offhand-Companion/releases' -or
+        $source -notmatch 'CompanionUpdatePolicy\.SelectLatest') {
+        throw 'Companion update checks must use the official repository release list and channel policy.'
+    }
+    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.2-beta\.19"\)' -or
+        $source -notmatch 'AssemblyFileVersion\("2\.1\.2\.19"\)') {
         throw 'Companion binary metadata must identify the exact beta build.'
+    }
+    $appManifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Source\app.manifest') -Raw
+    if ($appManifest -notmatch '<assemblyIdentity version="2\.1\.2\.19" name="Offhand\.Companion\.App"/>') {
+        throw 'Companion application manifest must identify the exact beta build.'
     }
     if ($source -match 'Process\.GetProcesses\(\)' -or
         $source -notmatch 'foreach \(string processName in wowProcessNames\)(?s:.*?)Process\.GetProcessesByName\(processName\)') {
@@ -66,26 +81,25 @@ try {
         $source -notmatch 'AddLog\("Addon verification: " \+ status\.Reason\)') {
         throw 'Companion must show and log the complete client-specific addon verification diagnostic.'
     }
-    $identify = [regex]::Match($source, 'Button btnIdentifyDisplays = CreateButton\("Identify Displays", (?<x>\d+), 82, (?<w>\d+), 27')
-    $monitors = [regex]::Match($source, 'clbMonitors = new CheckedListBox \{ Location = new Point\((?<x>\d+), 50\)')
-    if (-not $identify.Success -or -not $monitors.Success -or
-        ([int]$identify.Groups['x'].Value + [int]$identify.Groups['w'].Value) -ge [int]$monitors.Groups['x'].Value -or
+    if ($source -notmatch 'TableLayoutPanel configLayout' -or
+        $source -notmatch 'FlowLayoutPanel configLeft' -or
+        $source -notmatch 'FlowLayoutPanel configRight' -or
         $source -match 'RegisterHotKey|UnregisterHotKey|WM_HOTKEY|0x0312') {
-        throw 'Companion display identification must not overlap the checklist or restore global hotkeys.'
-    }
-    $autoSpan = [regex]::Match($source, 'chkAutoSpan = new CheckBox(?s:.*?)Location = new Point\((?<x>\d+), 28\)(?s:.*?)Size = new Size\((?<w>\d+), 22\)')
-    $monitorLabel = [regex]::Match($source, 'Label lblMonitors = new Label \{ Text = "Span displays:", Location = new Point\((?<x>\d+), 26\)')
-    if (-not $autoSpan.Success -or -not $monitorLabel.Success -or
-        ([int]$autoSpan.Groups['x'].Value + [int]$autoSpan.Groups['w'].Value) -ge [int]$monitorLabel.Groups['x'].Value) {
-        throw 'Companion auto-span preference must not cover the Span displays heading.'
+        throw 'Companion configuration must use separate measured layout columns without restoring global hotkeys.'
     }
     if ($source -notmatch 'Text = "Auto-span WoW on launch"') {
         throw 'Companion auto-span caption must remain concise enough for enlarged DPI layouts.'
     }
     $packager = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\package.ps1') -Raw
-    if ($packager -notmatch 'Companion\\Linux\.md.*-Destination \$compStaging' -or
+    if ($packager -match 'Companion\\Linux\.md.*-Destination \$compStaging' -or
         $packager -notmatch 'Companion\\Linux\.md.*-Destination \$bundleCompanionDocs') {
-        throw 'Linux compatibility documentation must ship in Companion and complete release archives.'
+        throw 'Linux compatibility documentation must ship in the complete bundle, not the minimal Windows Companion archive.'
+    }
+    if ($packager -notmatch 'Companion\\PORTABLE-README\.txt' -or
+        $packager -notmatch "expectedEntries = @\('LICENSE', 'Offhand\.exe', 'README\.txt'\)" -or
+        $packager -match 'Companion\\build\.bat.*-Destination \$compStaging' -or
+        $packager -match 'Companion\\Source.*-Destination \$compStaging') {
+        throw 'The portable Companion archive must contain only the executable, generated quick-start README, and license.'
     }
     if ($packager -match 'Compress-Archive' -or $packager -notmatch 'New-PortableZip') {
         throw 'Release archives must use the portable ZIP writer rather than Windows backslash entry paths.'
@@ -106,8 +120,11 @@ try {
         throw 'Release packaging must freeze Beta 18 by hash and require an explicit Companion-change lane.'
     }
     $storeBuilder = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Store\Build-StorePackage.ps1') -Raw
-    if ($storeBuilder -notmatch "\[string\]\`$PackageVersion = '2\.1\.18\.0'") {
-        throw 'The Store package default must identify the Beta 18 Companion baseline.'
+    if ($storeBuilder -notmatch "\[string\]\`$PackageVersion = '2\.1\.19\.0'" -or
+        $storeBuilder -notmatch '\[string\]\$CompanionPath' -or
+        $storeBuilder -notmatch '\[string\]\$ExpectedCompanionSha256' -or
+        $storeBuilder -notmatch 'Companion SHA-256 mismatch') {
+        throw 'The Store package must default to Beta 19 and support exact reviewed executable bytes with hash enforcement.'
     }
     $releaseWorkflow = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\.github\workflows\release.yml') -Raw
     if ($releaseWorkflow -notmatch 'Validate canonical Companion executable' -or
@@ -126,8 +143,6 @@ try {
     }
     $pinnedCompanionUrl = 'https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.18/Offhand-Companion.zip'
     foreach ($relativePath in @(
-        'Core\Init.lua',
-        'UI\Options.lua',
         'README.md',
         'docs\CURSEFORGE_DESCRIPTION.md',
         'Website\index.html'
@@ -137,6 +152,15 @@ try {
             $publicSurface -match 'releases/latest/download/Offhand-Companion\.zip') {
             throw "$relativePath must point directly to the frozen Beta 18 Companion."
         }
+    }
+    $addonInit = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Core\Init.lua') -Raw
+    if ($addonInit -notmatch 'Offhand\.companionDownloadUrl = "https://github\.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v"' -or
+        $addonInit -notmatch '\.\. Offhand\.companionFullVersion \.\. "/Offhand-Companion\.zip"') {
+        throw 'The addon must derive its version-matched Companion download from release metadata.'
+    }
+    $addonOptions = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\UI\Options.lua') -Raw
+    if ($addonOptions -notmatch 'local COMPANION_DOWNLOAD_URL = Offhand\.companionDownloadUrl') {
+        throw 'The addon options must use the version-matched Companion download URL.'
     }
     $linuxGuide = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Linux.md') -Raw
     if ($linuxGuide -notmatch 'Wine/Proton runner must also match' -or
@@ -151,13 +175,14 @@ try {
     Write-Output 'PASS: single-instance guard prevents duplicate Companion tray processes'
     Write-Output 'PASS: DPI-scaled dashboard geometry keeps wrapped status and configuration controls separate'
     Write-Output 'PASS: addon verification paths are visible and copied into the activity log'
-    Write-Output 'PASS: hotkeyless display identification does not overlap the display checklist'
+    Write-Output 'PASS: hotkeyless display identification and multi-monitor selection remain separated at enlarged DPI'
     Write-Output 'PASS: Linux compatibility documentation is included by the release packager'
     Write-Output 'PASS: addon-only releases attach the published Beta 18 Companion assets by exact hash'
-    Write-Output 'PASS: every public Companion download points directly to Beta 18'
+    Write-Output 'PASS: public website/docs remain pinned to Beta 18 while the addon derives its version-matched Companion URL'
     Write-Output 'PASS: release ZIPs are portable and Linux guidance covers prefix/runner matching'
     Write-Output 'PASS: all shipped Companion executables use the consistent Offhand.exe name'
     Write-Output 'PASS: release packaging preserves and verifies one canonical Companion executable'
 } finally {
     if (Test-Path -LiteralPath $testExe) { Remove-Item -LiteralPath $testExe }
+    if (Test-Path -LiteralPath $layoutTestExe) { Remove-Item -LiteralPath $layoutTestExe }
 }

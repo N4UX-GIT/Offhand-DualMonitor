@@ -7,6 +7,8 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
+using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
 [assembly: AssemblyTitle("Offhand Companion")]
@@ -15,8 +17,8 @@ using System.Windows.Forms;
 [assembly: AssemblyProduct("Offhand Companion")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
 [assembly: AssemblyVersion("2.1.2.0")]
-[assembly: AssemblyFileVersion("2.1.2.18")]
-[assembly: AssemblyInformationalVersion("2.1.2-beta.18")]
+[assembly: AssemblyFileVersion("2.1.2.19")]
+[assembly: AssemblyInformationalVersion("2.1.2-beta.19")]
 
 namespace Offhand.Companion
 {
@@ -59,6 +61,69 @@ namespace Offhand.Companion
         internal string Display
         {
             get { return "v" + Core.ToString(3) + (Beta.HasValue ? " Beta " + Beta.Value : ""); }
+        }
+    }
+
+    internal sealed class GitHubReleaseInfo
+    {
+        public string tag_name { get; set; }
+        public string html_url { get; set; }
+        public string body { get; set; }
+        public bool draft { get; set; }
+        public bool prerelease { get; set; }
+    }
+
+    internal sealed class CompanionUpdateRelease
+    {
+        internal CompanionReleaseVersion Version;
+        internal string Url;
+    }
+
+    internal static class CompanionUpdatePolicy
+    {
+        private static readonly Regex CompanionVersionMarker = new Regex(
+            @"<!--\s*offhand-companion-version:\s*(?<version>[^\s>]+)\s*-->",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        internal static CompanionUpdateRelease SelectLatest(string json, CompanionReleaseVersion current)
+        {
+            if (current == null) throw new ArgumentNullException("current");
+            GitHubReleaseInfo[] releases = new JavaScriptSerializer().Deserialize<GitHubReleaseInfo[]>(json);
+            if (releases == null) throw new FormatException("GitHub returned no release list.");
+
+            CompanionUpdateRelease latest = null;
+            CompanionUpdateRelease legacyFallback = null;
+            foreach (GitHubReleaseInfo release in releases)
+            {
+                if (release == null || release.draft) continue;
+                if (!current.Beta.HasValue && release.prerelease) continue;
+
+                Match marker = CompanionVersionMarker.Match(release.body ?? string.Empty);
+                CompanionReleaseVersion version;
+                bool hasMarker = marker.Success;
+                string versionText = hasMarker ? marker.Groups["version"].Value : release.tag_name;
+                if (!CompanionReleaseVersion.TryParse(versionText, out version)) continue;
+
+                string url = release.html_url;
+                if (string.IsNullOrWhiteSpace(url) && !string.IsNullOrWhiteSpace(release.tag_name))
+                    url = "https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/" + Uri.EscapeDataString(release.tag_name);
+                CompanionUpdateRelease candidate = new CompanionUpdateRelease { Version = version, Url = url };
+                if (hasMarker)
+                {
+                    if (latest == null || version.CompareTo(latest.Version) > 0) latest = candidate;
+                }
+                else if (legacyFallback == null || version.CompareTo(legacyFallback.Version) > 0)
+                {
+                    legacyFallback = candidate;
+                }
+            }
+
+            // Releases created before Beta 19 do not carry the Companion marker.
+            // Use their tags only while the repository has no marked releases.
+            if (latest == null) latest = legacyFallback;
+            if (latest == null)
+                throw new FormatException("No published Companion release metadata was found.");
+            return latest;
         }
     }
 
@@ -499,6 +564,43 @@ namespace Offhand.Companion
             return string.Format("{{ x = {0}, y = {1}, width = {2}, height = {3} }}", left, bottom, rect.Width, rect.Height);
         }
 
+        private static string CurrentVersion()
+        {
+            return (Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+                ?? new AssemblyInformationalVersionAttribute(CompanionForm.BaseVersion))
+                .InformationalVersion;
+        }
+
+        internal static bool IsCurrent(string wowDir, MonitorSelection.Plan plan,
+            IList<MonitorSelection.Display> displays)
+        {
+            if (string.IsNullOrEmpty(wowDir) || plan == null || displays == null) return false;
+            string target = Path.Combine(wowDir, "Interface", "AddOns", "Offhand", "Core", "CompanionTopology.lua");
+            string text;
+            try { text = File.ReadAllText(target); }
+            catch (IOException) { return false; }
+            catch (UnauthorizedAccessException) { return false; }
+
+            var selected = new StringBuilder();
+            for (int i = 0; i < plan.Indices.Length; i++)
+            {
+                if (i > 0) selected.Append(", ");
+                selected.Append(LuaString(displays[plan.Indices[i]].DeviceName));
+            }
+            string[] expected = {
+                "companionVersion = " + LuaString(CurrentVersion()),
+                "mode = " + LuaString(plan.SplitSingle ? "SPLIT_ULTRAWIDE" : "DUAL_DISPLAY"),
+                "physicalWidth = " + plan.Bounds.Width + ", physicalHeight = " + plan.Bounds.Height,
+                "mainhandDevice = " + LuaString(displays[plan.MainhandIndex].DeviceName),
+                "selectedDevices = { " + selected + " }",
+                "game = " + RectLua(plan.MainhandBounds, plan.Bounds),
+                "workspace = " + RectLua(plan.WorkspaceBounds, plan.Bounds),
+            };
+            foreach (string fragment in expected)
+                if (text.IndexOf(fragment, StringComparison.Ordinal) < 0) return false;
+            return true;
+        }
+
         internal static bool TryWrite(string wowDir, MonitorSelection.Plan plan,
             IList<MonitorSelection.Display> displays, out string message)
         {
@@ -518,10 +620,7 @@ namespace Offhand.Companion
                 "-- Generated by Offhand Companion. Do not edit while the Companion is running.\r\n" +
                 "OffhandCompanionTopology = {\r\n" +
                 "  schema = 1, generatedAt = " + LuaString(DateTime.UtcNow.ToString("o")) + ",\r\n" +
-                "  companionVersion = " + LuaString(
-                    (Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-                        ?? new AssemblyInformationalVersionAttribute(CompanionForm.BaseVersion))
-                    .InformationalVersion) + ",\r\n" +
+                "  companionVersion = " + LuaString(CurrentVersion()) + ",\r\n" +
                 "  mode = " + LuaString(plan.SplitSingle ? "SPLIT_ULTRAWIDE" : "DUAL_DISPLAY") + ",\r\n" +
                 "  physicalWidth = " + plan.Bounds.Width + ", physicalHeight = " + plan.Bounds.Height + ",\r\n" +
                 "  mainhandDevice = " + LuaString(displays[plan.MainhandIndex].DeviceName) + ",\r\n" +
@@ -899,7 +998,7 @@ namespace Offhand.Companion
     public class CompanionForm : Form
     {
         internal const string BaseVersion = "2.1.2";
-        internal const string ReleaseLabel = "Beta 18";
+        internal const string ReleaseLabel = "Beta 19";
         internal const string FullVersion = BaseVersion + " " + ReleaseLabel;
 
         // Warcraft Dark Interface Palette (Black / Dark Grey / Burnished Gold)
@@ -1269,6 +1368,7 @@ namespace Offhand.Companion
         private readonly Dictionary<int, DateTime> retryAfter = new Dictionary<int, DateTime>();
         private readonly Dictionary<int, DateTime> launchTimes = new Dictionary<int, DateTime>();
         private string lastObservedWowDir;
+        private string lastTopologyRepairFailure;
         private bool bridgeAttemptedWhileStopped;
         private static readonly string[] wowProcessNames = new string[] {
             "WowClassic", "Wow", "WowClassicEra", "WowForever", "WowT", "WowB", "WowClassicT", "WowClassicB"
@@ -1373,29 +1473,22 @@ namespace Offhand.Companion
                     using (System.Net.WebClient wc = new System.Net.WebClient())
                     {
                         wc.Headers.Add("User-Agent", "Offhand-Companion");
-                        string json = wc.DownloadString("https://api.github.com/repos/N4UX-GIT/Offhand-Companion/releases/latest");
-                        
-                        int idx = json.IndexOf("\"tag_name\":");
-                        if (idx == -1) throw new FormatException("GitHub response did not include a release tag.");
-                        int start = json.IndexOf("\"", idx + 11) + 1;
-                        int end = json.IndexOf("\"", start);
-                        if (start <= 0 || end <= start) throw new FormatException("GitHub release tag was malformed.");
-                        string tag = json.Substring(start, end - start);
-                        CompanionReleaseVersion latest;
-                        if (!CompanionReleaseVersion.TryParse(tag, out latest)) throw new FormatException("GitHub release version was not recognized.");
+                        wc.Headers.Add("Accept", "application/vnd.github+json");
+                        string json = wc.DownloadString("https://api.github.com/repos/N4UX-GIT/Offhand-DualMonitor/releases?per_page=30");
                         var informational = Assembly.GetExecutingAssembly()
                             .GetCustomAttribute<AssemblyInformationalVersionAttribute>();
                         CompanionReleaseVersion current;
                         if (informational == null || !CompanionReleaseVersion.TryParse(informational.InformationalVersion, out current))
                             throw new FormatException("The installed Companion version was not recognized.");
+                        CompanionUpdateRelease latest = CompanionUpdatePolicy.SelectLatest(json, current);
 
                         CompleteUpdateCheck(new Action(() =>
                         {
-                            if (latest.CompareTo(current) > 0)
+                            if (latest.Version.CompareTo(current) > 0)
                             {
-                                AddLog("UPDATE AVAILABLE: " + latest.Display);
-                                if (MessageBox.Show("Offhand Companion " + latest.Display + " is available.\n\nOpen the official GitHub release page?", "Update Available", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
-                                    System.Diagnostics.Process.Start("https://github.com/N4UX-GIT/Offhand-Companion/releases/latest");
+                                AddLog("UPDATE AVAILABLE: " + latest.Version.Display);
+                                if (MessageBox.Show("Offhand Companion " + latest.Version.Display + " is available.\n\nOpen the official GitHub release page?", "Update Available", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                                    System.Diagnostics.Process.Start(latest.Url ?? "https://github.com/N4UX-GIT/Offhand-DualMonitor/releases");
                             }
                             else
                             {
@@ -1410,7 +1503,7 @@ namespace Offhand.Companion
                     CompleteUpdateCheck(new Action(() =>
                     {
                         AddLog("Update check failed: " + ex.Message);
-                        MessageBox.Show("The Companion could not check the official GitHub release page. No automatic retry will be made.", "Update Check Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        MessageBox.Show("The Companion could not check the official GitHub releases.\n\n" + ex.Message + "\n\nNo automatic retry will be made.", "Update Check Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     }));
                 }
             });
@@ -1608,11 +1701,53 @@ namespace Offhand.Companion
             Panel configPanel = CreateCardPanel(16, 296, 490, 212, "Configuration");
             this.Controls.Add(configPanel);
 
+            // Native WinForms selectors choose their own preferred height at
+            // the active DPI. Absolute child coordinates scale, but controls
+            // such as ComboBox and NumericUpDown can retain that preferred
+            // height, leaving large gaps or clipped rows at 125-200% scaling.
+            // Keep the card itself on the 96-DPI dashboard grid, then let two
+            // flow columns measure and position their children after scaling.
+            TableLayoutPanel configLayout = new TableLayoutPanel
+            {
+                Location = new Point(10, 26),
+                Size = new Size(470, 176),
+                ColumnCount = 2,
+                RowCount = 1,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty,
+                BackColor = Color.Transparent
+            };
+            configLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 230));
+            configLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            configLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            configPanel.Controls.Add(configLayout);
+
+            FlowLayoutPanel configLeft = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty,
+                BackColor = Color.Transparent
+            };
+            FlowLayoutPanel configRight = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty,
+                BackColor = Color.Transparent
+            };
+            configLayout.Controls.Add(configLeft, 0, 0);
+            configLayout.Controls.Add(configRight, 1, 0);
+
             chkAutoSpan = new CheckBox
             {
                 Text = "Auto-span WoW on launch",
-                Location = new Point(10, 28),
-                Size = new Size(245, 22),
+                Size = new Size(220, 22),
+                Margin = new Padding(0, 0, 0, 4),
                 Font = new Font("Segoe UI", 9),
                 ForeColor = cText,
                 BackColor = Color.Transparent,
@@ -1623,22 +1758,39 @@ namespace Offhand.Companion
                 if (itemAuto != null) itemAuto.Checked = chkAutoSpan.Checked;
                 AddLog("Auto-Span on launch: " + chkAutoSpan.Checked);
             };
-            configPanel.Controls.Add(chkAutoSpan);
+            configLeft.Controls.Add(chkAutoSpan);
 
-            lblDelay = new Label { Text = "Delay Span (Seconds):", Location = new Point(10, 56), Size = new Size(130, 22), ForeColor = cText, BackColor = Color.Transparent };
-            configPanel.Controls.Add(lblDelay);
-            numDelaySpan = new NumericUpDown { Location = new Point(140, 54), Size = new Size(60, 22), Minimum = 0, Maximum = 60, Value = 15, BackColor = cCard, ForeColor = cText };
-                        configPanel.Controls.Add(numDelaySpan);
+            FlowLayoutPanel delayRow = new FlowLayoutPanel
+            {
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Size = new Size(220, 24),
+                Margin = new Padding(0, 0, 0, 4),
+                Padding = Padding.Empty,
+                BackColor = Color.Transparent
+            };
+            lblDelay = new Label { Text = "Delay Span (Seconds):", Size = new Size(130, 22), Margin = Padding.Empty, ForeColor = cText, BackColor = Color.Transparent };
+            delayRow.Controls.Add(lblDelay);
+            numDelaySpan = new NumericUpDown { Width = 60, Minimum = 0, Maximum = 60, Value = 15, Margin = Padding.Empty, BackColor = cCard, ForeColor = cText };
+            delayRow.Controls.Add(numDelaySpan);
+            configLeft.Controls.Add(delayRow);
 
-            Button btnIdentifyDisplays = CreateButton("Identify Displays", 10, 82, 190, 27,
+            Button btnIdentifyDisplays = CreateButton("Identify Displays", 0, 0, 190, 27,
                 cBtnBg, cText, cBorder);
+            btnIdentifyDisplays.Margin = new Padding(0, 0, 0, 5);
             btnIdentifyDisplays.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
             btnIdentifyDisplays.Click += (s, e) => { ShowDisplayIdentifiers(); };
-            configPanel.Controls.Add(btnIdentifyDisplays);
+            configLeft.Controls.Add(btnIdentifyDisplays);
 
-            Label lblMonitors = new Label { Text = "Span displays:", Location = new Point(270, 26), Size = new Size(150, 22), ForeColor = cText, BackColor = Color.Transparent };
-            configPanel.Controls.Add(lblMonitors);
-            clbMonitors = new CheckedListBox { Location = new Point(270, 50), Size = new Size(210, 62), BackColor = cCard, ForeColor = cText, BorderStyle = BorderStyle.None };
+            Label lblMonitors = new Label { Text = "Span displays:", AutoSize = true, Margin = new Padding(0, 0, 0, 2), ForeColor = cText, BackColor = Color.Transparent };
+            configRight.Controls.Add(lblMonitors);
+            // Keep the checklist at a fixed logical height. CheckedListBox uses
+            // IntegralHeight by default and can silently grow to the next whole
+            // row; with three or more connected displays that growth overlaps
+            // Mainhand controls. Four rows fit at 96 DPI and additional
+            // displays scroll; the flow column positions Mainhand below the
+            // checklist using its actual scaled height.
+            clbMonitors = new CheckedListBox { Size = new Size(220, 74), Margin = new Padding(0, 0, 0, 4), IntegralHeight = false, BackColor = cCard, ForeColor = cText, BorderStyle = BorderStyle.None };
             clbMonitors.CheckOnClick = true;
             uiDisplays = ReadDisplays();
             for (int i = 0; i < uiDisplays.Count; i++)
@@ -1653,11 +1805,11 @@ namespace Offhand.Companion
                     SaveDisplaySettingsFromControls();
                 }));
             };
-            configPanel.Controls.Add(clbMonitors);
+            configRight.Controls.Add(clbMonitors);
 
-            Label lblMainhand = new Label { Text = "Mainhand (game):", Location = new Point(270, 112), Size = new Size(130, 20), ForeColor = cText, BackColor = Color.Transparent };
-            configPanel.Controls.Add(lblMainhand);
-            cmbMainhand = new ComboBox { Location = new Point(270, 134), Size = new Size(210, 22), DropDownStyle = ComboBoxStyle.DropDownList, BackColor = cCard, ForeColor = cText };
+            Label lblMainhand = new Label { Text = "Mainhand (game):", AutoSize = true, Margin = new Padding(0, 0, 0, 2), ForeColor = cText, BackColor = Color.Transparent };
+            configRight.Controls.Add(lblMainhand);
+            cmbMainhand = new ComboBox { Width = 220, Margin = Padding.Empty, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = cCard, ForeColor = cText };
             for (int i = 0; i < uiDisplays.Count; i++)
             {
                 Rectangle b = uiDisplays[i].Bounds;
@@ -1665,16 +1817,26 @@ namespace Offhand.Companion
                     StableId = uiDisplays[i].StableId,
                     Label = string.Format("Display {0} — {1}x{2}", i + 1, b.Width, b.Height) });
             }
-            configPanel.Controls.Add(cmbMainhand);
+            configRight.Controls.Add(cmbMainhand);
 
-            chkSingleSplit = new CheckBox { Text = "Single-display 32:9 split", Location = new Point(10, 116), Size = new Size(245, 22), Font = new Font("Segoe UI", 9), ForeColor = cText, BackColor = Color.Transparent };
-            configPanel.Controls.Add(chkSingleSplit);
-            Label lblSingleSide = new Label { Text = "Game side:", Location = new Point(10, 146), Size = new Size(90, 22), ForeColor = cText, BackColor = Color.Transparent };
-            configPanel.Controls.Add(lblSingleSide);
-            cmbSingleSide = new ComboBox { Location = new Point(100, 144), Size = new Size(100, 22), DropDownStyle = ComboBoxStyle.DropDownList, BackColor = cCard, ForeColor = cText };
+            chkSingleSplit = new CheckBox { Text = "Single-display 32:9 split", Size = new Size(220, 22), Margin = new Padding(0, 0, 0, 4), Font = new Font("Segoe UI", 9), ForeColor = cText, BackColor = Color.Transparent };
+            configLeft.Controls.Add(chkSingleSplit);
+            FlowLayoutPanel sideRow = new FlowLayoutPanel
+            {
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Size = new Size(220, 24),
+                Margin = Padding.Empty,
+                Padding = Padding.Empty,
+                BackColor = Color.Transparent
+            };
+            Label lblSingleSide = new Label { Text = "Game side:", Size = new Size(90, 22), Margin = Padding.Empty, ForeColor = cText, BackColor = Color.Transparent };
+            sideRow.Controls.Add(lblSingleSide);
+            cmbSingleSide = new ComboBox { Width = 100, Margin = Padding.Empty, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = cCard, ForeColor = cText };
             cmbSingleSide.Items.AddRange(new object[] { "Right", "Left" });
             cmbSingleSide.SelectedIndex = 0;
-            configPanel.Controls.Add(cmbSingleSide);
+            sideRow.Controls.Add(cmbSingleSide);
+            configLeft.Controls.Add(sideRow);
 
             uiToolTips.SetToolTip(chkAutoSpan,
                 "Disabled by default. When enabled, Offhand spans each newly detected WoW window across the selected displays. Manual Span WoW Now remains available when disabled.");
@@ -2227,7 +2389,8 @@ namespace Offhand.Companion
                     lastAddonDiagnostic = addonDiagnostic;
                     AddLog("Addon verification: " + status.Reason);
                 }
-                if (currentDisplayPlan != null && !spannedPids.Contains(proc.Id) && !restoredPids.Contains(proc.Id))
+                bool windowMatchesCurrentPlan = false;
+                if (currentDisplayPlan != null)
                 {
                     IntPtr observedHandle = GetWoWWindowHandle(proc);
                     NativeMethods.RECT observedRect;
@@ -2237,8 +2400,12 @@ namespace Offhand.Companion
                         && observedRect.Width == currentDisplayPlan.Bounds.Width
                         && observedRect.Height == currentDisplayPlan.Bounds.Height)
                     {
-                        spannedPids.Add(proc.Id);
-                        AddLog("Detected an existing WoW span and resumed display-loss protection for this client.");
+                        windowMatchesCurrentPlan = true;
+                        if (!spannedPids.Contains(proc.Id) && !restoredPids.Contains(proc.Id))
+                        {
+                            spannedPids.Add(proc.Id);
+                            AddLog("Detected an existing WoW span and resumed display-loss protection for this client.");
+                        }
                     }
                 }
                 if (status.Installed)
@@ -2252,6 +2419,30 @@ namespace Offhand.Companion
                     lblAddonStatus.Text = "  o Offhand Addon: NOT VERIFIED";
                     lblAddonStatus.ForeColor = cRed;
                     lblAddonReason.Text = "  " + status.Reason;
+                }
+
+                // Addon managers and local deployments replace the generated
+                // bridge with the packaged placeholder. If the live WoW window
+                // still exactly matches the selected span, repair that file
+                // without moving the window. The next /reload can then consume
+                // the same trusted display plan again.
+                if (status.Installed && windowMatchesCurrentPlan
+                    && spannedPids.Contains(proc.Id) && !restoredPids.Contains(proc.Id)
+                    && !CompanionTopologyBridge.IsCurrent(status.WowDir, currentDisplayPlan, currentDisplays))
+                {
+                    string topologyMessage;
+                    if (CompanionTopologyBridge.TryWrite(status.WowDir, currentDisplayPlan,
+                        currentDisplays, out topologyMessage))
+                    {
+                        lastTopologyRepairFailure = null;
+                        AddLog("Repaired the addon-updated display topology. Use /reload once in WoW.");
+                    }
+                    else if (!string.Equals(lastTopologyRepairFailure, topologyMessage,
+                        StringComparison.Ordinal))
+                    {
+                        lastTopologyRepairFailure = topologyMessage;
+                        AddLog(topologyMessage);
+                    }
                 }
 
                 if (isMonitoring && savedDisplayDisconnected && spannedPids.Contains(proc.Id)

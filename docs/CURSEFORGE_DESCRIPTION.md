@@ -48,17 +48,124 @@ The first-run welcome is only an introduction. Clicking either welcome button ac
 - Classic Era and Hardcore
 - Progression and Anniversary Classic
 
-Review the current Windows Companion download and signing status on the [official Companion page](https://offhand-wow.onrender.com/companion.html), or download the [v2.1.2 Beta 18 Companion directly from GitHub](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.18/Offhand-Companion.zip). Because some browsers and antivirus products may still block a new unsigned executable while reputation propagates, the page also provides a [no-executable manual setup](https://offhand-wow.onrender.com/manual-spanning.html). Addon-only updates can continue to use the byte-identical Beta 18 Companion while protocol 1 remains compatible.
+## Public Service Announcement: Companion download and antivirus status
 
-## Companion safety and verification
+> **Current verified status — October 4, 2026:** Microsoft Security Intelligence
+> has reviewed the submitted canonical Offhand Companion Beta 18 executable and
+> archives without retaining a malware detection. The exact Beta 18 ZIP is now
+> downloading without an antivirus block in our local Chrome and Edge tests.
+> Edge may still show **"isn't commonly downloaded"** for the direct unsigned
+> EXE; that is an application-reputation notice rather than a malware verdict.
+> Independent browser testing and third-party vendor follow-up are continuing.
 
-The Companion is open source and does not request administrator access, install a service, register global hotkeys, inject into WoW, collect telemetry, or read browser data or credentials. Its window-management behavior—detecting allowlisted WoW processes, resizing a window, and remaining in the notification area—can resemble broad antivirus heuristic patterns, especially while a new unsigned build has little reputation.
+The in-game addon downloaded from CurseForge contains Lua addon code and does
+not contain the Windows Companion executable. The Companion is an optional,
+separate Windows utility hosted in the project's official GitHub releases.
 
-Some VirusTotal engines currently report the unsigned Companion with generic machine-learning or heuristic labels. No reporting engine has identified a malware family or specific malicious payload. VirusTotal is one input rather than a safety guarantee: review the source and documented behavior, verify the official release checksum and build provenance, and make your own security decision before running it.
+We continue to see comments stating that the Companion is a virus or linking to
+VirusTotal reports. We understand why those results are concerning. The section
+below records what happened, what has changed, what remains unresolved, and how
+to verify whether a report refers to the current file.
 
-Do not disable Windows Security or bypass a browser warning. When a signed release is available, download it only through the official Companion page, compare the executable's SHA-256 digest with `checksums-sha256.txt`, and verify a GitHub build-provenance attestation when the release notes explicitly provide one. Update checks are never automatic: the app contacts the official GitHub Releases API only after you click **Check for Updates**.
+### What do the previous and ongoing comments mean?
 
-Full behavior, file locations, source-build steps, and verification commands are documented in the [Offhand security guide](https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md).
+Those users genuinely saw browser and antivirus warnings during earlier
+downloads. Chrome and Brave blocked some Companion archives, and Microsoft
+Defender reported the generic machine-learning label
+`Trojan:Win32/Wacatac.B!ml`. We took those reports seriously, paused normal
+distribution work, audited and simplified the Companion, published its complete
+source, froze the release artifacts by SHA-256, and submitted the exact files
+directly to Microsoft and the remaining reporting vendors.
+
+Microsoft Security Intelligence subsequently reviewed the submitted Beta 18
+executable and archives without retaining a malware detection. The authenticated
+Microsoft submission records and exact hashes are published in the [Offhand
+security guide](https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md).
+The recommended Beta 18 ZIP now downloads successfully in our local Chrome and
+Edge tests, although independent browser testing is continuing.
+
+This does not mean users were wrong to report what their security software
+showed, and it is not a request to ignore future warnings. The earlier comments
+are an important record of the problem that prompted this investigation.
+
+However, security results are tied to an exact file hash. Some ongoing comments
+link scans of older builds or different files. A VirusTotal link for an older
+build, a locally rebuilt executable, or a newly generated archive does not
+describe the current canonical Beta 18 files. Compare the report's SHA-256 with
+the hashes below before applying its verdict to the current download.
+
+If somebody receives a new named malware detection against one of the exact
+canonical hashes, we want that report and will investigate it. It should include
+the complete warning, download URL, hash, browser, security product, and
+definition version. General claims without the file hash cannot establish which
+release was scanned.
+
+### What does the current Edge warning mean?
+
+The Companion is not yet digitally signed. Edge may describe the standalone
+`Offhand.exe` as **"isn't commonly downloaded."** Microsoft documents this as a
+SmartScreen application-reputation notice for an uncommon or unsigned program;
+it is not the same result as **"Virus detected"** or a named malware detection.
+The ZIP is therefore the recommended portable download while the executable
+builds reputation.
+
+### Why can VirusTotal still show detections?
+
+VirusTotal reports the independent verdicts of many security vendors; it does
+not create or remove those verdicts. Some engines have assigned the unsigned
+Companion generic machine-learning or heuristic labels. Microsoft's review does
+not automatically change the databases of CrowdStrike, Elastic, Malwarebytes,
+SecureAge, Trapmine, VIPRE, or other vendors, so older or cached VirusTotal
+results may remain visible while separate correction requests are processed.
+
+A low detection count does not prove that a file is safe, and neither a clean
+scan nor this PSA is an absolute guarantee. The current status means that
+Microsoft did not retain a malware detection for the submitted Beta 18 files;
+it does not ask users to suspend normal security precautions. The evidence
+available for Beta 18 should be
+considered together: immutable hashes, public source and build instructions,
+GitHub provenance where provided, Microsoft's completed reviews, and the
+documented behavior below.
+
+### What does the Companion actually do?
+
+The Companion is open source. It looks only for allowlisted World of Warcraft
+processes, changes the selected WoW window's border and dimensions, reads the
+connected display rectangles, remains available in the notification area, and
+updates Offhand's own topology or guarded Forever recovery files. These
+legitimate window-management behaviors can overlap with broad antivirus
+heuristics.
+
+It does not request administrator access, install a service or driver, create a
+Windows startup entry, register global hotkeys, inject into WoW, read game
+memory, automate gameplay, download and execute programs, collect telemetry, or
+read browser data, passwords, or account credentials. It contacts the official
+GitHub Releases API only when you click **Check for Updates**.
+
+### Recommended download and verification
+
+Download the official [Offhand Companion v2.1.2 Beta 18
+ZIP](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.18/Offhand-Companion.zip).
+
+- `Offhand.exe` SHA-256:
+  `A42A45CB149C66EF884308F15A79EE8905C58A94E9B4AE1A3B05B43BAF929F37`
+- `Offhand-Companion.zip` SHA-256:
+  `AD49BE14A9C8ADF5A888F873CE9B99F183C4AD2924909ECDF52801F303248A93`
+
+Compare the downloaded file with `checksums-sha256.txt` from the same release.
+Do not download the Companion from mirrors, Discord attachments, or re-upload
+sites, and do not disable Windows Security. If a warning says **"Virus
+detected"**, names a threat, or the checksum does not match, stop and report the
+exact download URL, filename, SHA-256, browser, security product and definition
+version, and a full screenshot so the specific file can be investigated.
+
+If you prefer not to run an executable, use the [no-executable manual
+setup](https://offhand-wow.onrender.com/manual-spanning.html). Full behavior,
+source-build steps, Microsoft submission references, and verification commands
+are available in the [security
+guide](https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md).
+Addon-only updates can continue using the byte-identical Beta 18 Companion while
+protocol 1 remains compatible.
 
 ## Exact display layouts and unusual monitor setups
 

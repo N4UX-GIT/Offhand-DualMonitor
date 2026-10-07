@@ -40,10 +40,26 @@ The canonical portable Companion is currently:
 - `Offhand-Companion.zip` SHA-256:
   `AD49BE14A9C8ADF5A888F873CE9B99F183C4AD2924909ECDF52801F303248A93`
 
+Microsoft Security Intelligence completed reviews of the submitted Beta 18
+executable and archives without retaining a malware detection; the submission
+references are recorded in `SECURITY.md` and `docs/SECURITY-FOLLOWUP.md`. Preserve
+the exact bytes above. Edge's **"isn't commonly downloaded"** message for the
+unsigned standalone EXE is an application-reputation notice, not a Defender
+malware verdict. Prefer the ZIP in public instructions, but treat **"Virus
+detected"**, a named malware detection, or a checksum mismatch as a stop
+condition requiring a new investigation.
+
 Normal addon releases include those exact bytes in the complete bundle and
 reattach the byte-identical `Offhand-Companion.zip` and `Offhand.exe`. This
 keeps GitHub's permanent `/releases/latest/download/...` URLs valid without
 rebuilding the application.
+
+The canonical end-user `Offhand-Companion.zip` is deliberately runtime-only and
+must contain exactly `Offhand.exe`, `README.txt`, and `LICENSE`. Do not place
+`build.bat`, source files, manifests, artwork, Linux guidance, or other
+development material in that archive. Those files remain available through the
+repository and GitHub's automatic source archives. CI and `package.ps1` enforce
+the exact three-entry layout.
 
 After the first Store publication is live, use the following links in public
 documentation:
@@ -242,11 +258,21 @@ different bytes after antivirus review.
 - [ ] For an intentional Companion release only, also inspect
       `Offhand-Companion.zip` and `Offhand.exe` and confirm every container has
       identical executable bytes.
+- [ ] Confirm `Offhand-Companion.zip` contains exactly `Offhand.exe`,
+      `README.txt`, and `LICENSE`, with no source or executable scripts.
 - [ ] Verify the GitHub build-provenance attestations.
 - [ ] Confirm the release is marked prerelease or stable correctly.
-- [ ] If the Companion still uses GitHub's `/releases/latest` API, confirm the
-      intended release is what that endpoint returns.
+- [ ] Confirm the release notes contain the hidden
+      `offhand-companion-version` marker. For addon-only releases it must remain
+      the frozen Companion version; for Companion releases it must match the
+      new build.
+- [ ] From a beta Companion, confirm **Check for Updates** considers published
+      prereleases. From a stable Companion, confirm prereleases are ignored.
 - [ ] Test the exact public download links before announcing them.
+- [ ] Test the canonical ZIP and standalone EXE in Chrome, Edge, and Brave.
+      Record reputation-only warnings separately from antivirus detections.
+- [ ] Preserve screenshots and exact hashes for any **"Virus detected"** or
+      named-malware result; do not tell testers to disable security software.
 
 Local metadata and packaging checks before creating the tag:
 
@@ -276,14 +302,16 @@ Replace the example version in every command with the recorded release version.
 
 ### 5. Build the Store package (Companion changes only)
 
-Skip this section for addon-only releases. Store delivery remains on Beta 18
-until the Companion application itself is intentionally updated.
+Skip this section for addon-only releases. Package the exact reviewed Companion
+artifact when the application itself is intentionally updated.
 
 Use the Store-assigned identity already encoded in the builder. Example:
 
 ```powershell
 .\Companion\Store\Build-StorePackage.ps1 `
-  -PackageVersion 2.1.18.0
+  -PackageVersion 2.1.19.0 `
+  -CompanionPath .\dist\defender-beta19-current\Offhand.exe `
+  -ExpectedCompanionSha256 658B633783CA388C3E525B565D6061D8F75D9DEBB34E0489E04F046218AAF3E3
 ```
 
 - [ ] Use a Store version higher than the currently published x64 package.
@@ -292,6 +320,8 @@ Use the Store-assigned identity already encoded in the builder. Example:
       `CN=E7BD7796-76DA-40C2-B114-9DD85609CD7F`.
 - [ ] Confirm architecture `x64`, target family `Windows.Desktop`, expected
       capabilities, and the Windows-managed startup task.
+- [ ] Confirm the embedded `Offhand.exe` hash is identical to the reviewed
+      portable executable.
 - [ ] Inspect the packaged manifest and file list.
 - [ ] Record the MSIX filename and SHA-256.
 - [ ] Do not sign the production submission with a self-signed certificate.

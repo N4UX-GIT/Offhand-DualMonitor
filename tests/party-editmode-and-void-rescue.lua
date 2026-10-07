@@ -37,18 +37,33 @@ local metrics = {
     gameLeft = 1440, gameBottom = 6, gameRight = 4000, gameTop = 1446,
     gamePixelLeft = 1440, gamePixelBottom = 6, gamePixelWidth = 2560, gamePixelHeight = 1440,
     workspaceLeft = 0, workspaceBottom = 0, workspaceRight = 1440, workspaceTop = 2560,
+    workspaceWidth = 1440, workspaceHeight = 2560,
     hudScale = 1, bezel = 0, preset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT",
     actualAR = 2560 / 1440, arMode = "16_9", isSpanned = true,
 }
 
 addon.Viewport = { GetMetrics = function() return metrics end }
 addon.Print = function() end
-addon.RunOrQueueCombat = function(self, fn) fn() end
+local combatLocked = false
+local combatQueue = {}
+addon.RunOrQueueCombat = function(self, fn)
+    if combatLocked then
+        combatQueue[#combatQueue + 1] = fn
+    else
+        fn()
+    end
+end
 local experimentalProfessionsMovement = false
 addon.IsExperimentalForeverProfessionsMovementEnabled = function()
     return experimentalProfessionsMovement
 end
-InCombatLockdown = function() return false end
+InCombatLockdown = function() return combatLocked end
+local function LeaveCombat()
+    combatLocked = false
+    local queued = combatQueue
+    combatQueue = {}
+    for _, fn in ipairs(queued) do fn() end
+end
 
 local timers = {}
 local tickers = {}
@@ -143,8 +158,8 @@ local function makeMockFrame(name, w, h)
     function f:SetClampedToScreen(c) self.clamped = c end
     function f:EnableMouse(m) self.mouse = m end
     function f:RegisterForDrag() end
-    function f:StartMoving() end
-    function f:StopMovingOrSizing() end
+    function f:StartMoving() self.startMovingCalls = (self.startMovingCalls or 0) + 1 end
+    function f:StopMovingOrSizing() self.stopMovingCalls = (self.stopMovingCalls or 0) + 1 end
     function f:HookScript(event, fn)
         local orig = self.scripts[event]
         self.scripts[event] = function(...)
@@ -164,10 +179,43 @@ local function makeMockFrame(name, w, h)
     return f
 end
 
-CreateFrame = function(frameType, name, parent)
+CreateFrame = function(frameType, name, parent, template)
     local f = makeMockFrame(name or ("AnonFrame_" .. tostring(#UIParent.children + 1)), 200, 100)
+    f.parent = parent
+    f.template = template
+    function f:GetParent() return self.parent end
+    if template == "SecureHandlerBaseTemplate" then
+        f.frameRefs = {}
+        function f:SetFrameRef(key, value) self.frameRefs[key] = value end
+        function f:GetFrameRef(key) return self.frameRefs[key] end
+        function f:SetAttribute(key, value) self.attributes[key] = value end
+        function f:Execute()
+            local target = self:GetFrameRef("offhandTransient")
+            if target then
+                target:ClearAllPoints()
+                target:SetPoint(self:GetAttribute("offhandPoint"), self:GetParent(), "BOTTOMLEFT",
+                    self:GetAttribute("offhandX"), self:GetAttribute("offhandY"))
+            end
+        end
+    end
+    if template == "PanelDragBarTemplate" then
+        f:SetScript("OnDragStart", function(self)
+            if self.parent then self.parent:StartMoving() end
+        end)
+        f:SetScript("OnDragStop", function(self)
+            if self.parent then self.parent:StopMovingOrSizing() end
+        end)
+    end
     table.insert(UIParent.children, f)
     return f
+end
+
+RegisterStateDriver = function(frame, state, condition)
+    frame.stateDrivers = frame.stateDrivers or {}
+    frame.stateDrivers[state] = condition
+end
+UnregisterStateDriver = function(frame, state)
+    if frame.stateDrivers then frame.stateDrivers[state] = nil end
 end
 
 hooksecurefunc = function(arg1, arg2, arg3)
@@ -217,6 +265,7 @@ ReadyCheckFrame = makeMockFrame("ReadyCheckFrame", 320, 140)
 ReadyCheckFrame.TitleContainer = {}
 LFGDungeonReadyPopup = makeMockFrame("LFGDungeonReadyPopup", 520, 300)
 GroupLootContainer = makeMockFrame("GroupLootContainer", 420, 180)
+GroupLootContainer:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 190)
 CombatText = makeMockFrame("CombatText", 600, 600)
 CombatText.ignoreParentScale = true
 TimerTracker = makeMockFrame("TimerTracker", 4000, 2560)
@@ -233,6 +282,14 @@ DamageMeter.isManagedFrame = true
 DamageMeter:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 table.insert(UIParent.children, DamageMeter)
 
+UIWidgetTopCenterContainerFrame = makeMockFrame("UIWidgetTopCenterContainerFrame", 400, 60)
+UIWidgetTopCenterContainerFrame.isManagedFrame = true
+UIWidgetTopCenterContainerFrame:SetPoint("TOP", UIParent, "TOP", 0, -15)
+PVPMatchScoreboard = makeMockFrame("PVPMatchScoreboard", 1024, 420)
+PVPMatchScoreboard:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+PVPMatchResults = makeMockFrame("PVPMatchResults", 1024, 620)
+PVPMatchResults:SetPoint("CENTER", UIParent, "CENTER", 140, 80)
+
 ToggleGameMenu = function()
     if GameMenuFrame:IsShown() then
         GameMenuFrame:Hide()
@@ -245,6 +302,7 @@ UIPanelWindows = {
     EditModeManagerFrame = { area = "center", pushable = 0, whileDead = 1, neverAllowOtherPanels = 1 },
     HouseEditorFrame = { area = "full", pushable = 0, whileDead = 1, neverAllowOtherPanels = 1 },
 }
+OffhandCharDB = {}
 RegisterUIPanel = function(frame)
     local name = frame and frame.GetName and frame:GetName()
     if name then UIPanelWindows[name] = UIPanelWindows[name] or { area = "left", pushable = 0 } end
@@ -257,6 +315,10 @@ end
 local seamChunk = loadfile("Core/SeamRedirect.lua")
 assert(seamChunk, "Core/SeamRedirect.lua must compile cleanly")
 seamChunk("Offhand", addon)
+
+local panelMotionChunk = loadfile("Core/PanelMotion.lua")
+assert(panelMotionChunk, "Core/PanelMotion.lua must compile cleanly")
+panelMotionChunk("Offhand", addon)
 
 local canvasChunk = loadfile("Core/Canvas.lua")
 assert(canvasChunk, "Core/Canvas.lua must compile cleanly")
@@ -308,6 +370,37 @@ assert(goPoint[1] == "CENTER" and goPoint[2] == TimerTracker
         and goPoint[3] == "CENTER" and goPoint[4] == 0 and goPoint[5] == 0,
     "countdown completion texture must follow the Mainhand TimerTracker")
 assertMainhandAnchor(HousingControlsFrame, "TOP", 2720, 1416, "Housing controls")
+assertMainhandAnchor(UIWidgetTopCenterContainerFrame, "TOP", 2720, 1431,
+    "Battleground objective widgets")
+assertMainhandAnchor(PVPMatchScoreboard, "CENTER", 2720, 726,
+    "PvP scoreboard")
+local customResultsPoint = { PVPMatchResults:GetPoint(1) }
+assert(customResultsPoint[1] == "CENTER" and customResultsPoint[3] == "CENTER"
+        and customResultsPoint[4] == 140 and customResultsPoint[5] == 80,
+    "an existing custom PvP results placement must remain untouched")
+
+-- A frame that later returns to Blizzard's stock anchor becomes eligible for
+-- secure Mainhand adoption. Once adopted, native stock resets are repaired.
+PVPMatchResults:ClearAllPoints()
+PVPMatchResults:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+addon.HUD:PositionMainhandTransientFrames(metrics)
+assertMainhandAnchor(PVPMatchResults, "CENTER", 2720, 726,
+    "PvP match results")
+
+-- Combat-time resets are not modified insecurely. One deferred pass repairs
+-- the stock anchor as soon as combat ends.
+combatLocked = true
+PVPMatchScoreboard:ClearAllPoints()
+PVPMatchScoreboard:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+addon.HUD:PositionMainhandTransientFrames(metrics)
+addon.HUD:PositionMainhandTransientFrames(metrics)
+local combatScorePoint = { PVPMatchScoreboard:GetPoint(1) }
+assert(combatScorePoint[3] == "CENTER" and combatScorePoint[4] == 0
+        and combatScorePoint[5] == 0 and #combatQueue == 1,
+    "scoreboard repositioning must defer exactly once during combat")
+LeaveCombat()
+assertMainhandAnchor(PVPMatchScoreboard, "CENTER", 2720, 726,
+    "PvP scoreboard after combat")
 
 -- The House Editor is load-on-demand. Its ModeBar is already shown beneath a
 -- hidden full-screen parent when Blizzard_HouseEditor finishes loading, so it
@@ -347,9 +440,11 @@ assertMainhandAnchor(LFGDungeonReadyPopup, "CENTER", 2720, 716,
     "Dungeon queue popup after native reset")
 GroupLootContainer:ClearAllPoints()
 GroupLootContainer:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 0)
-GroupLootContainer:GetScript("OnEvent")(GroupLootContainer, "START_LOOT_ROLL")
+assert(GroupLootContainer:GetScript("OnEvent") == nil,
+    "Group loot must not receive an insecure event hook")
+addon.HUD:PositionMainhandTransientFrames()
 assertMainhandAnchor(GroupLootContainer, "BOTTOM", 2720, 196,
-    "Group loot rolls after native reset")
+    "Group loot rolls after secure layout repair")
 
 -- START_TIMER dynamically creates/reuses timer children. The post-event hook
 -- must catch a newly allocated completion texture immediately.
@@ -622,6 +717,8 @@ assert(#EditModeManagerFrame.points == 0,
     "Forever must preserve native Edit Mode ownership across geometry changes")
 assert(selectedLayout == nil,
     "Forever must not auto-select an Offhand layout whose main action bar is still in its full-canvas default position")
+assert(OffhandCharDB.editModeLayoutName == nil,
+    "Forever must not create a character layout preference during ordinary login")
 assert(addon.HUD.editModeGuidanceShown,
     "Forever must guide the player to configure an unpositioned Offhand Edit Mode layout")
 
@@ -673,11 +770,37 @@ assert(editModePromptCount == 2,
 assert(#EditModeSystemSettingsDialog.points == 1
         and EditModeSystemSettingsDialog.points[1][1] == "BOTTOMLEFT",
     "Edit Mode settings-dialog recovery guidance must remain read-only")
-addon.HUD:DismissForeverEditModeControlsPrompt()
+assert(addon.HUD:BringForeverEditModeControlsToMainhand(),
+    "player-click recovery must bring an off-screen settings dialog to Mainhand")
+local recoveredSettingsPoint = EditModeSystemSettingsDialog.points[1]
+assert(recoveredSettingsPoint and recoveredSettingsPoint[1] == "CENTER"
+        and recoveredSettingsPoint[2] == UIParent,
+    "Edit Mode settings-dialog recovery must center the unprotected dialog")
 EditModeSystemSettingsDialog:Hide()
 EditModeManagerFrame:Hide()
 addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
 EditModeManagerFrame:Show()
+
+-- Restoring the window to one monitor is when a stale spanned Edit Mode
+-- control is most likely to be unreachable. Recovery must continue to offer
+-- the same player-click action in the explicit topology-mismatch state.
+local singleScreenMetrics = {
+    gameLeft = 0, gameBottom = 0, gameRight = 2560, gameTop = 1440,
+    workspaceLeft = 0, workspaceBottom = 0, workspaceRight = 0, workspaceTop = 0,
+    screenWidth = 2560, screenHeight = 1440, isSpanned = false,
+    topologyStatus = "MISMATCH",
+}
+EditModeManagerFrame:ClearAllPoints()
+EditModeManagerFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 3100, 1700)
+addon.HUD:UpdateForeverEditModeControlsRecovery(singleScreenMetrics)
+assert(editModePromptCount == 3,
+    "single-screen recovery must offer the off-screen Edit Mode controls action")
+assert(addon.HUD:BringForeverEditModeControlsToMainhand(),
+    "single-screen player click must recover stale spanned Edit Mode controls")
+local singleScreenManagerPoint = EditModeManagerFrame.points[1]
+assert(singleScreenManagerPoint and singleScreenManagerPoint[1] == "CENTER"
+        and singleScreenManagerPoint[2] == UIParent,
+    "single-screen recovery must center the manager in the current game display")
 
 -- A disconnected saved display must temporarily use a built-in single-screen
 -- layout rather than letting Blizzard clamp the spanned Offhand HUD into a
@@ -687,19 +810,26 @@ local recoveryPrompt
 addon.ShowForeverLayoutRecoveryPrompt = function(_, kind) recoveryPrompt = kind end
 local originalTopologyStatus, originalCompanionTopology, originalSpanned =
     metrics.topologyStatus, metrics.companionTopology, metrics.isSpanned
+metrics.topologyStatus = "READY"
+metrics.companionTopology = true
+metrics.isSpanned = true
+addon.HUD:UpdateForeverRecoveryLayout(metrics)
+assert(OffhandCharDB.foreverEditModeLayoutName == "Offhand"
+        and OffhandCharDB.foreverEditModeLayoutID == 6,
+    "a healthy exact Forever span must adopt the active custom layout per character")
 metrics.topologyStatus = "MISMATCH"
 metrics.companionTopology = true
 metrics.isSpanned = false
 layoutData.activeLayout = 6
 selectedLayout = nil
 addon.HUD:UpdateForeverRecoveryLayout(metrics)
-assert(recoveryPrompt == nil and addon.db.foreverEditModeRecovery == nil,
+assert(recoveryPrompt == nil and OffhandCharDB.foreverEditModeRecovery == nil,
     "Forever must allow a normal launch grace period before declaring a display missing")
 metrics.topologyStatus = "READY"
 metrics.isSpanned = true
 addon.HUD:UpdateForeverRecoveryLayout(metrics)
 flushTimers()
-assert(recoveryPrompt == nil and addon.db.foreverEditModeRecovery == nil,
+assert(recoveryPrompt == nil and OffhandCharDB.foreverEditModeRecovery == nil,
     "A normal Companion span during the grace period must cancel missing-display recovery")
 metrics.topologyStatus = "MISMATCH"
 metrics.isSpanned = false
@@ -707,15 +837,15 @@ addon.HUD:UpdateForeverRecoveryLayout(metrics)
 flushTimers()
 assert(selectedLayout == nil and layoutData.activeLayout == 6 and recoveryPrompt == "fallback",
     "Forever must request a player click before selecting a protected single-screen layout")
-assert(addon.db.foreverEditModeRecovery
-        and addon.db.foreverEditModeRecovery.restoreLayoutID == 6
-        and addon.db.foreverEditModeRecovery.restoreLayoutName == "Offhand"
-        and addon.db.foreverEditModeRecovery.fallbackLayoutID == 1
-        and addon.db.foreverEditModeRecovery.fallbackLayoutName == "Modern",
+assert(OffhandCharDB.foreverEditModeRecovery
+        and OffhandCharDB.foreverEditModeRecovery.restoreLayoutID == 6
+        and OffhandCharDB.foreverEditModeRecovery.restoreLayoutName == "Offhand"
+        and OffhandCharDB.foreverEditModeRecovery.fallbackLayoutID == 1
+        and OffhandCharDB.foreverEditModeRecovery.fallbackLayoutName == "Modern",
     "Forever must remember the protected layout handoff")
 addon.HUD:ApplyForeverRecoveryChoice("fallback")
 assert(selectedLayout == 1 and layoutData.activeLayout == 1
-        and addon.db.foreverEditModeRecovery,
+        and OffhandCharDB.foreverEditModeRecovery,
     "The single-screen recovery button must select Modern and retain the return handoff")
 
 selectedLayout = nil
@@ -728,7 +858,7 @@ assert(selectedLayout == nil and layoutData.activeLayout == 1 and recoveryPrompt
 addon.HUD:ApplyForeverRecoveryChoice("restore")
 assert(selectedLayout == 6 and layoutData.activeLayout == 6,
     "The restore button must select the remembered Offhand Edit Mode layout")
-assert(addon.db.foreverEditModeRecovery == nil,
+assert(OffhandCharDB.foreverEditModeRecovery == nil,
     "Forever must clear the completed protected layout handoff")
 
 -- ABSENT is the normal packaged state for a deliberately manual span. It must
@@ -743,7 +873,7 @@ addon.HUD:UpdateForeverRecoveryLayout(metrics)
 flushTimers()
 assert(selectedLayout == nil and layoutData.activeLayout == 6 and recoveryPrompt == nil,
     "Forever manual topology must not request Companion recovery")
-assert(addon.db.foreverEditModeRecovery == nil,
+assert(OffhandCharDB.foreverEditModeRecovery == nil,
     "Forever manual topology must not create a protected layout handoff")
 metrics.topologyStatus = "READY"
 metrics.companionTopology = true
@@ -763,8 +893,8 @@ metrics.topologyStatus = "MISMATCH"
 metrics.isSpanned = false
 addon.HUD:UpdateForeverRecoveryLayout(metrics)
 flushTimers()
-assert(recoveryPrompt == "fallback" and addon.db.foreverEditModeRecovery
-        and addon.db.foreverEditModeRecovery.restoreLayoutName == "OFFHAND",
+assert(recoveryPrompt == "fallback" and OffhandCharDB.foreverEditModeRecovery
+        and OffhandCharDB.foreverEditModeRecovery.restoreLayoutName == "OFFHAND",
     "Forever recovery must recognize Offhand layout names without case sensitivity")
 addon.HUD:ApplyForeverRecoveryChoice("fallback")
 local movedOffhand = layoutData.layouts[3]
@@ -775,16 +905,16 @@ recoveryPrompt = nil
 metrics.topologyStatus = "READY"
 metrics.isSpanned = true
 addon.HUD:UpdateForeverRecoveryLayout(metrics)
-assert(recoveryPrompt == "restore" and addon.db.foreverEditModeRecovery.restoreLayoutID == 5,
+assert(recoveryPrompt == "restore" and OffhandCharDB.foreverEditModeRecovery.restoreLayoutID == 5,
     "Forever recovery must re-resolve a named Offhand layout after its custom slot changes")
 addon.HUD:ApplyForeverRecoveryChoice("restore")
 assert(selectedLayout == 5 and layoutData.activeLayout == 5
-        and addon.db.foreverEditModeRecovery == nil,
+        and OffhandCharDB.foreverEditModeRecovery == nil,
     "Forever restore must select the current slot for the remembered Offhand layout name")
 
 -- Never trust a stale numeric slot when the remembered named layout no longer
 -- exists; the slot may now belong to an unrelated custom profile.
-addon.db.foreverEditModeRecovery = {
+OffhandCharDB.foreverEditModeRecovery = {
     restoreLayoutID = 6,
     restoreLayoutName = "Missing Offhand",
     fallbackLayoutID = 1,
@@ -793,7 +923,7 @@ layoutData.activeLayout = 1
 selectedLayout = nil
 recoveryPrompt = nil
 addon.HUD:UpdateForeverRecoveryLayout(metrics)
-assert(addon.db.foreverEditModeRecovery == nil and selectedLayout == nil
+assert(OffhandCharDB.foreverEditModeRecovery == nil and selectedLayout == nil
         and layoutData.activeLayout == 1,
     "Forever must not select an unrelated stale slot when the named layout is missing")
 
@@ -821,11 +951,11 @@ C_EditMode.SetActiveLayout = function(index)
 end
 addon.HUD:ApplyForeverRecoveryChoice("restore")
 assert(blockedRestoreID == 6 and layoutData.activeLayout == 1
-        and addon.db.foreverEditModeRecovery,
+        and OffhandCharDB.foreverEditModeRecovery,
     "Forever must retain the protected layout handoff until selection is confirmed")
 layoutData.activeLayout = blockedRestoreID
 addon.HUD:UpdateForeverRecoveryLayout(metrics)
-assert(addon.db.foreverEditModeRecovery == nil and layoutData.activeLayout == 6,
+assert(OffhandCharDB.foreverEditModeRecovery == nil and layoutData.activeLayout == 6,
     "Forever must clear the handoff after delayed Edit Mode read-back confirms Offhand")
 C_EditMode.SetActiveLayout = function(index)
     selectedLayout = index
@@ -845,9 +975,50 @@ metrics.isSpanned = true
 addon.HUD:UpdateForeverRecoveryLayout(metrics)
 assert(selectedLayout == nil and layoutData.activeLayout == 2,
     "Forever must preserve a layout manually selected during single-screen recovery")
-assert(addon.db.foreverEditModeRecovery == nil,
+assert(OffhandCharDB.foreverEditModeRecovery == nil,
     "Forever must clear stale recovery state after manual layout selection")
+
+-- The explicit player button can designate any active custom layout without
+-- changing it. Built-in Modern/Classic layouts are rejected.
+layoutData.layouts[3].layoutName = "Druid Forever"
 layoutData.activeLayout = 6
+selectedLayout = nil
+local designated, designatedName = addon.HUD:UseCurrentForeverEditModeLayout()
+local designatedStatus = addon.HUD:GetForeverEditModeLayoutStatus()
+assert(designated and designatedName == "Druid Forever"
+        and designatedStatus.preferredName == "Druid Forever"
+        and designatedStatus.preferredID == 6
+        and designatedStatus.activeMatches
+        and selectedLayout == nil,
+    "Forever must designate the active custom layout per character without selecting it")
+layoutData.activeLayout = 1
+local builtInDesignated, builtInReason = addon.HUD:UseCurrentForeverEditModeLayout()
+assert(not builtInDesignated and builtInReason == "builtin"
+        and OffhandCharDB.foreverEditModeLayoutName == "Druid Forever",
+    "Forever must reject built-in fallback layouts without replacing the saved custom layout")
+
+-- A staged legacy profile transaction is accepted only when its named layout
+-- resolves and the character is still on either side of that transaction.
+OffhandCharDB.foreverEditModeLayoutName = nil
+OffhandCharDB.foreverEditModeLayoutID = nil
+OffhandCharDB.foreverEditModeRecovery = nil
+OffhandCharDB.foreverEditModeLegacyRecovery = {
+    restoreLayoutID = 6, restoreLayoutName = "Druid Forever",
+    fallbackLayoutID = 1, fallbackLayoutName = "Modern",
+}
+layoutData.activeLayout = 6
+metrics.topologyStatus = "READY"
+metrics.companionTopology = true
+metrics.isSpanned = true
+addon.HUD:UpdateForeverRecoveryLayout(metrics)
+assert(OffhandCharDB.foreverEditModeLegacyRecovery == nil
+        and OffhandCharDB.foreverEditModeLayoutName == "Druid Forever"
+        and OffhandCharDB.foreverEditModeRecovery == nil,
+    "Forever must validate and finish a staged legacy recovery on the owning character")
+
+layoutData.layouts[3].layoutName = "Offhand"
+layoutData.activeLayout = 6
+addon.HUD:UseCurrentForeverEditModeLayout()
 selectedLayout = nil
 metrics.topologyStatus = originalTopologyStatus
 metrics.companionTopology = originalCompanionTopology
@@ -862,11 +1033,14 @@ flushTimers()
 assert(selectedLayout == nil and layoutData.activeLayout == 6,
     "Forever must not change the active Edit Mode layout after reload")
 
--- Anniversary exposes an active global ID that does not share the custom
--- layout array's index namespace. Compare by active name, and use only the
--- C_EditMode array-index API when a change is actually required.
+-- Retail/Anniversary must adopt each character's current Blizzard layout on
+-- upgrade instead of imposing the account's layout named Offhand. Later
+-- mismatches restore that remembered name through C_EditMode's array index;
+-- the active global ID is a different namespace on Anniversary.
 addon.isForever = false
-local anniversaryActiveName = "Offhand"
+OffhandCharDB.editModeLayoutName = nil
+layoutData.layouts[4].layoutName = "Druid Offhand"
+local anniversaryActiveName = "Druid Offhand"
 local managerSelection
 EditModeManagerFrame.GetActiveLayoutInfo = function()
     return { layoutName = anniversaryActiveName }
@@ -880,9 +1054,12 @@ addon.HUD.editModeLoadScheduled = nil
 addon.HUD:HookFrames()
 flushTimers()
 assert(selectedLayout == nil and managerSelection == nil,
-    "Anniversary reload must preserve an already-active Offhand layout despite a different numeric ID")
-assert(next(EditModeManagerFrame.scripts) == nil,
-    "Non-Forever Edit Mode manager must remain free of addon OnShow hooks")
+    "Retail upgrade must preserve the character's already-active Blizzard layout")
+assert(OffhandCharDB.editModeLayoutName == "Druid Offhand",
+    "Retail upgrade must remember the active Blizzard layout per character")
+assert(type(EditModeManagerFrame.scripts.OnShow) == "function"
+        and type(EditModeManagerFrame.scripts.OnHide) == "function",
+    "Non-Forever Edit Mode manager must use read-only visibility observers")
 
 anniversaryActiveName = "Modern"
 selectedLayout = nil
@@ -890,8 +1067,24 @@ managerSelection = nil
 addon.HUD.editModeLoadScheduled = nil
 addon.HUD:HookFrames()
 flushTimers()
+assert(selectedLayout == 4 and managerSelection == nil,
+    "Anniversary must restore the remembered character layout through C_EditMode's array index")
+
+-- A later explicit selection becomes this character's new preference without
+-- intercepting or replacing Blizzard's layout-selection API.
+anniversaryActiveName = "Offhand"
+EditModeManagerFrame:Show()
+EditModeManagerFrame:Hide()
+flushTimers()
+assert(OffhandCharDB.editModeLayoutName == "Offhand",
+    "Retail must remember a later explicit Edit Mode selection")
+anniversaryActiveName = "Modern"
+selectedLayout = nil
+addon.HUD.editModeLoadScheduled = nil
+addon.HUD:HookFrames()
+flushTimers()
 assert(selectedLayout == 3 and managerSelection == nil,
-    "Anniversary must select Offhand through C_EditMode's layout-array index, not a manager row ID")
+    "Retail must restore the character's newly selected layout by name")
 addon.isForever = true
 layoutData.activeLayout = 6
 selectedLayout = nil
@@ -1054,12 +1247,17 @@ addon.Canvas:DiscoverUIPanels()
 flushTimers()
 assert(playerSpellsFrame._OffhandMovable and playerSpellsFrame.movable,
     "dynamic UIPanel discovery must make registered out-of-combat protected panels draggable")
-assert(playerSpellsFrame._OffhandHandle == playerSpellsTitle
-        and playerSpellsTitle._OffhandPanelDragTarget == playerSpellsFrame,
-    "modern Blizzard panels must use their elevated native TitleContainer as the drag surface")
-playerSpellsTitle.scripts.OnDragStart(playerSpellsTitle)
+assert(playerSpellsFrame._OffhandPanelMotionGrip
+        and playerSpellsFrame._OffhandHandle == playerSpellsFrame._OffhandPanelMotionGrip
+        and playerSpellsFrame._OffhandPanelMotionGrip.template == "PanelDragBarTemplate"
+        and playerSpellsFrame._OffhandPanelMotionStatus == "active",
+    "Forever Blizzard panels must use Offhand's guarded Blizzard-template title grip")
+assert(not playerSpellsFrame.mouse and not playerSpellsTitle.mouse,
+    "guarded panel movement must not claim mouse input on the panel body or native title")
+playerSpellsFrame._OffhandPanelMotionGrip.scripts.OnDragStart(
+    playerSpellsFrame._OffhandPanelMotionGrip)
 assert(playerSpellsFrame.startMovingCalls == 1,
-    "dragging the native title container must start moving its owning panel")
+    "dragging the guarded title grip must start moving its owning panel")
 assert(playerSpellsFrame:GetLeft() >= metrics.gameLeft + 12
         and playerSpellsFrame:GetRight() <= metrics.gameRight - 12,
     "an unsaved Blizzard panel must default inside the Mainhand viewport")
@@ -1069,7 +1267,8 @@ assert(playerSpellsFrame:GetTop() <= metrics.gameTop - 12
 
 playerSpellsFrame:ClearAllPoints()
 playerSpellsFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 260, 1900)
-playerSpellsTitle.scripts.OnDragStop(playerSpellsTitle)
+playerSpellsFrame._OffhandPanelMotionGrip.scripts.OnDragStop(
+    playerSpellsFrame._OffhandPanelMotionGrip)
 assert(addon.db.savedWorkspacePositions.PlayerSpellsFrame,
     "a dynamically discovered panel drag must persist its workspace position")
 assert((playerSpellsFrame.setUserPlacedFalseCalls or 0) == 0,
@@ -1082,7 +1281,10 @@ assert(addon.Canvas.IsFrameOnWorkspace(playerSpellsFrame),
 -- anchor, and it must rejoin normal Escape ownership there.
 playerSpellsFrame:ClearAllPoints()
 playerSpellsFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 1900, 1100)
-playerSpellsTitle.scripts.OnDragStop(playerSpellsTitle)
+playerSpellsFrame._OffhandPanelMotionGrip.scripts.OnDragStart(
+    playerSpellsFrame._OffhandPanelMotionGrip)
+playerSpellsFrame._OffhandPanelMotionGrip.scripts.OnDragStop(
+    playerSpellsFrame._OffhandPanelMotionGrip)
 local spellMain = addon.db.savedMainPositions.PlayerSpellsFrame
 assert(not addon.db.savedWorkspacePositions.PlayerSpellsFrame and spellMain
         and spellMain.x == 1900 and spellMain.y == 1100,
@@ -1187,6 +1389,65 @@ assert(addon.db.savedWorkspacePositions.NoReloadCollectionsFrame,
 addon.db.restoreWorkspaceOnReload = true
 print("PASS: late safe-panel restore settles without re-entering Blizzard's loader")
 
+-- Spellbook, Macros, Collections, and similar panels do not exist at the first
+-- reload restoration pass. Offhand must load only the Blizzard addon belonging
+-- to an explicitly saved/open workspace panel, then use the normal delayed
+-- panel restoration path after registration has settled.
+local loadedBlizzardAddons, requestedBlizzardAddons = {}, {}
+C_AddOns = {
+    IsAddOnLoaded = function(name) return loadedBlizzardAddons[name] == true end,
+    LoadAddOn = function(name)
+        requestedBlizzardAddons[name] = (requestedBlizzardAddons[name] or 0) + 1
+        loadedBlizzardAddons[name] = true
+        if name == "Blizzard_MacroUI" then
+            MacroFrame = makeMockFrame("MacroFrame", 700, 800)
+            MacroFrame:Hide()
+            RegisterUIPanel(MacroFrame)
+        end
+        return true
+    end,
+}
+addon.db.savedWorkspacePositions.MacroFrame = {
+    x = 210, y = 1510, canvasLeft = 0, canvasBottom = 0,
+    canvasWidth = metrics.workspaceWidth, canvasHeight = metrics.workspaceHeight,
+}
+addon.db.openWorkspacePanels.MacroFrame = true
+addon.Canvas:RestorePersistentFrames()
+flushTimers()
+flushTimers()
+flushTimers()
+assert(requestedBlizzardAddons.Blizzard_MacroUI == 1,
+    "reload restoration must request the saved MacroFrame's Blizzard addon exactly once")
+assert(MacroFrame and MacroFrame:IsShown() and addon.Canvas.IsFrameOnWorkspace(MacroFrame),
+    "a saved/open MacroFrame must reopen on the workspace after its addon loads")
+
+-- New Blizzard modules are learned from UIPanels registered during their
+-- ADDON_LOADED turn, providing forward compatibility beyond the seed table.
+local futurePanel = makeMockFrame("FutureJournalFrame", 700, 800)
+RegisterUIPanel(futurePanel)
+addon.Canvas:RecordLoadedPanelAddon("Blizzard_FutureJournal")
+assert(addon.db.workspacePanelLoadAddons.FutureJournalFrame == "Blizzard_FutureJournal",
+    "new load-on-demand Blizzard UIPanels must remember their owning addon")
+
+addon.db.savedWorkspacePositions.ClassTrainerFrame = { x = 200, y = 1500 }
+addon.db.openWorkspacePanels.ClassTrainerFrame = true
+addon.db.workspacePanelLoadAddons.ClassTrainerFrame = "Blizzard_TrainerUI"
+addon.Canvas:RestorePersistentFrames()
+flushTimers()
+assert(not requestedBlizzardAddons.Blizzard_TrainerUI,
+    "NPC/context-bound panels must retain their position without reopening after reload")
+
+-- The guarded Professions family must never be pulled into automatic loading
+-- or opening even if a stale/custom owner record exists.
+addon.db.savedWorkspacePositions.ProfessionsBookFrame = { x = 200, y = 1500 }
+addon.db.openWorkspacePanels.ProfessionsBookFrame = true
+addon.db.workspacePanelLoadAddons.ProfessionsBookFrame = "Blizzard_Professions"
+addon.Canvas:RestorePersistentFrames()
+flushTimers()
+assert(not requestedBlizzardAddons.Blizzard_Professions,
+    "automatic panel loading must retain the Forever Professions exclusion")
+print("PASS: saved load-on-demand panels load narrowly and Professions remains excluded")
+
 -- Forever Professions is fully Blizzard-owned after repeatable client crashes.
 -- Registration must not attach drag/show/position behavior, and historical
 -- persistence records must be discarded without touching the live frame.
@@ -1218,8 +1479,17 @@ RegisterUIPanel(optedInProfessions)
 optedInProfessions:Show()
 flushTimers()
 assert(optedInProfessions._OffhandExperimentalProfessionsAttached
-        and optedInProfessions._OffhandExperimentalProfessionsHandle,
-    "opted-in Professions must receive its isolated drag surface after native opening")
+        and optedInProfessions._OffhandExperimentalProfessionsGrip,
+    "opted-in Professions must receive its isolated Blizzard-template title grip after native opening")
+assert(optedInProfessions._OffhandExperimentalProfessionsGrip.template == "PanelDragBarTemplate"
+        and optedInProfessions._OffhandExperimentalProfessionsMotionStatus == "active",
+    "experimental Professions movement must use the guarded Blizzard title template")
+assert(not optedInProfessions.mouse,
+    "the title grip must not enable mouse input across the Professions panel body")
+local professionsMotionDiag = addon.Canvas:GetExperimentalProfessionsMotionDiagnostics()
+assert(professionsMotionDiag:find("Enabled=1", 1, true)
+        and professionsMotionDiag:find("ProfessionsBookFrame:active/protected=0", 1, true),
+    "panel motion diagnostics must expose the active policy without changing the frame")
 assert(not optedInProfessions._OffhandMovable,
     "experimental Professions must not enter the generic panel lifecycle")
 assert(not (addon.db.openWorkspacePanels
@@ -1236,7 +1506,11 @@ assert(not addon.db.savedWorkspacePositions.ProfessionsBookFrame
 
 optedInProfessions:ClearAllPoints()
 optedInProfessions:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 180, 1500)
-addon.Canvas.OnPanelDragStop(optedInProfessions)
+local professionsGrip = optedInProfessions._OffhandExperimentalProfessionsGrip
+professionsGrip.scripts.OnDragStart(professionsGrip)
+professionsGrip.scripts.OnDragStop(professionsGrip)
+assert(optedInProfessions.startMovingCalls == 1 and optedInProfessions.stopMovingCalls >= 1,
+    "the Blizzard title template must initiate movement before Offhand persists the completed drag")
 assert(addon.db.savedWorkspacePositions.ProfessionsBookFrame,
     "experimental Professions dragging must save an explicit workspace position")
 assert(not addon.db.openWorkspacePanels.ProfessionsBookFrame,
@@ -1261,8 +1535,9 @@ experimentalProfessionsMovement = false
 addon.Canvas:DisableExperimentalForeverProfessionsMovement()
 assert(not addon.db.savedWorkspacePositions.ProfessionsBookFrame,
     "disabling experimental Professions movement must clear its saved position")
-assert(not optedInProfessions._OffhandExperimentalProfessionsHandle:IsShown()
-        and not optedInProfessions._OffhandExperimentalProfessionsHandle.mouse,
+assert(not optedInProfessions._OffhandExperimentalProfessionsGrip:IsShown()
+        and not optedInProfessions._OffhandExperimentalProfessionsGrip.mouse
+        and not optedInProfessions._OffhandExperimentalProfessionsGrip.stateDrivers.visibility,
     "disabling experimental Professions movement must deactivate its drag surface")
 print("PASS: experimental Forever Professions movement is isolated and reversible")
 

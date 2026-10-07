@@ -24,14 +24,19 @@ communication, and rollback workflow, use
 
 ```powershell
 .\Companion\Store\Build-StorePackage.ps1 `
-  -PackageVersion 2.1.18.0
+  -PackageVersion 2.1.19.0 `
+  -CompanionPath .\dist\defender-beta19-current\Offhand.exe `
+  -ExpectedCompanionSha256 658B633783CA388C3E525B565D6061D8F75D9DEBB34E0489E04F046218AAF3E3
 ```
 
 Store package versions must contain four numeric components and end in `.0`.
-Increase the version for every submission. The package builder compiles the
-current Companion into temporary staging without replacing the canonical
-portable executable, produces exact-size Store artwork, validates the manifest,
-and writes the resulting MSIX beneath `dist/store`.
+Increase the version for every submission. `CompanionPath` packages frozen,
+already-reviewed bytes, while `ExpectedCompanionSha256` makes the build fail if
+the selected executable is not the approved artifact. Without `CompanionPath`,
+the package builder compiles the current Companion into temporary staging. It
+never replaces the canonical portable executable, produces exact-size Store
+artwork, validates the manifest, and writes the resulting MSIX beneath
+`dist/store`.
 
 The output is intentionally not signed with a development certificate. The
 Microsoft Store signs accepted submissions with a trusted certificate. Use a

@@ -5,15 +5,24 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Changed
-- Companion 2.1.2 Beta 18 is the new desktop baseline. Addon manifests now
+- Added an initial compatibility target for the original WoW 3.3.5a client
+  (`Interface 30300`). A legacy-only runtime adapter supplies the timer and
+  physical-window primitives used by Offhand, while Backdrop and visibility
+  code now falls back to APIs available in Wrath. This target remains
+  experimental until exercised on a real 3.3.5a client.
+- Companion 2.1.2 Beta 19 is the next desktop candidate. Addon manifests now
   identify the actual addon release separately from Companion protocol `1` and
-  minimum Companion version `2.1.2-beta.18`, so later addon-only releases can
+  minimum Companion version `2.1.2-beta.19`, so later addon-only releases can
   reuse the exact approved Companion bytes without rebuilding them.
 - The Companion now respects the configured automatic-span delay on Forever as
   well as other clients. Choose `0` explicitly when immediate pre-login
   spanning is desired.
 - The Companion no longer registers system-wide hotkeys and adds a managed
   **Identify Displays** overlay for mapping Offhand display numbers and roles.
+- The user-initiated update check now reads the official Offhand repository's
+  published release list. Beta installations include published prereleases,
+  stable installations ignore them, and Companion-specific release metadata
+  prevents addon-only version bumps from producing false update prompts.
 - The settings header now shows the Companion release paired with the installed
   addon. Its version tooltip lists the exact addon build and paired Companion
   build separately, and explains that WoW cannot inspect the executable that is
@@ -46,14 +55,163 @@ All notable changes to this project will be documented in this file.
   Companion's required window-management behavior.
 
 ### Fixed
+- Forever's Edit Mode control recovery now remains available after Companion
+  restores WoW to one display with a stale spanned topology. The read-only
+  detector covers both the manager and its separate settings dialog; only the
+  explicit recovery-popup click centers shown, unprotected control surfaces.
+- Detached native chat backgrounds now receive a bounded final presentation
+  replay after Forever's delayed Settings fade, preserving the player's saved
+  color and opacity instead of losing them when the chat Settings UI opens.
+  Settings initialization is observed even when Blizzard marks its color/alpha
+  replay `doNotSave`; an addon-owned Settings-state observer also covers native
+  fades that bypass both setters. Reload-time dock/save callbacks no longer
+  delete detached positions; only an observed user re-dock relinquishes them. A one-time Forever
+  migration reopens and recaptures a detached Combat Log hidden by the affected
+  beta while retaining Blizzard's native position.
+- Forever's native Blizzard bags can again be placed and restored on the
+  Offhand workspace through an isolated `UIParent`-owned title grip. Offhand
+  installs no scripts or hooks on the bag, its title/close controls, item
+  buttons, bag functions, or Blizzard's anchor manager; only a user-initiated
+  root move and an out-of-combat root-anchor restore cross into the native
+  frame. Existing native-bag snapshots are retained, reload restoration uses
+  Blizzard's own opener, and custom bag addons remain independently supported.
+  Returning the bag to Mainhand clears both the active-root and shared-family
+  workspace snapshots so the observer cannot pull it back across the seam.
+  The observer now preserves a tracked workspace bag when Escape closes it and
+  also completes Forever's consumed Game Menu toggle. After the native call
+  stack ends, Offhand applies the already-requested menu visibility change
+  directly, then reopens the bag through Blizzard's native API. It never calls
+  `ToggleGameMenu` from deferred addon code, avoiding Forever's protected
+  `SpellStopCasting` path. Secure post-hooks on the
+  global close/toggle transaction distinguish Escape and system cleanup from
+  B/X without attaching to the native bag tree or replacing Blizzard functions.
+  The isolated bag controller also observes Settings, AddOns and Edit Mode
+  visibility so their delayed native cleanup cannot discard the tracked bag;
+  explicit B/X closes remain authoritative while those panels are open.
+  If Forever hides the bag root but leaves its logical-open state set, Offhand
+  normalizes that mismatch through Blizzard's toggle/open APIs before restoring
+  it, rather than clearing persistence or directly showing an uninitialized
+  `ContainerFrame` shell.
+  Forever can reject all native bag APIs while Options, AddOns or Edit Mode owns
+  the modal UI. In that narrow state, Offhand may re-show only the same bag root
+  it observed fully initialized and visible immediately before the transition;
+  the fallback cannot construct or expose an unseen login/reload shell.
+  A bounded transition window bridges lazy Settings discovery and the additional
+  cleanup performed when AddOn List closes. Secure post-hooks on Blizzard's
+  Settings-opening APIs identify Options' own `ToggleAllBags` cleanup before
+  its frame is observable. Forever builds that bypass those APIs are covered by
+  the simultaneous open-to-hidden Game Menu transition; an ordinary B/X close
+  outside panel navigation still cancels the window.
+  Settings' older immediate recovery path also retains the tracked-open intent
+  when the modal panel rejects native bag APIs, allowing the isolated controller
+  to complete recovery instead of discarding persistence.
+  Anchors settle every rendered frame so the
+  default bottom-right opening position is corrected before paint.
+  This replaces the overly broad OH-FOR-006 containment that removed native
+  bag workspace support while preserving the protected item-click boundary.
+- Group-loot rolls now use the restricted secure Mainhand positioner and no
+  longer receive Offhand event scripts, keeping the roll UI out of the monitor
+  seam without adding an insecure hook to Blizzard's loot path.
+- Detached Blizzard chat windows placed on Mainhand now retain their individual
+  positions through Forever login and UI reloads instead of stacking at the
+  full-span center. Offhand restores both Mainhand and workspace chat snapshots
+  after Forever's late native chat layout while preserving deliberate moves,
+  even when Forever leaves stale dock flags on a detached frame. Offhand leaves
+  the tracked window shown before committing its observed detached state, then
+  clears the stale runtime dock flag and reapplies Blizzard's saved floating
+  color, opacity, and fade-in. This includes custom windows left without legacy
+  dock flags by an earlier beta. Later color-picker changes receive the same
+  next-frame appearance refresh so their newly saved values remain visible.
+  Re-docking a detached tab clears its Offhand snapshot and adopts the primary
+  dock's dimensions instead of retaining its detached size.
+- When Chattynator is loaded, Offhand now leaves its borrowed native chat frames
+  entirely under Chattynator ownership. Stale `ChatFrameN` snapshots are cleared
+  without hooking, clamping, resizing, or reanchoring the embedded Combat Log;
+  Offhand also leaves Chattynator's custom windows and shared text input alone.
+- Companion now repairs a generated display-topology snapshot when an addon
+  update replaces it with the packaged placeholder while WoW is still exactly
+  spanned. The window is not moved; the repaired handoff becomes active after
+  one `/reload`.
+- Companion compatibility now treats the manifest value as a minimum version.
+  A newer beta or stable Companion no longer produces a false update warning.
+- Automatic onboarding, recovery UI, and inherited workspace/bag restoration are
+  deferred while Blizzard owns player input during cinematics, movies, and
+  first-character intro scenes. Replacement-bag snapshots now retain only
+  top-level roots instead of child widgets. Forever's native cinematic skip
+  confirmation, which can be placed outside the visible Mainhand rectangle by a
+  mixed-height span, is recentered only after Blizzard shows it; Offhand does not
+  intercept Escape or invoke the confirmation action.
+- Forever now tracks its recovery Edit Mode layout per character instead of
+  assuming every character uses a custom layout named `Offhand`. Existing users
+  keep all Blizzard layouts unchanged: a healthy exact-span session adopts the
+  active custom layout, ambiguous cases can designate it from the Recovery card,
+  and legacy profile-scoped recovery state is validated before migration.
+- Retail and Anniversary now remember each character's selected Blizzard Edit
+  Mode layout instead of forcing every character onto a layout named `Offhand`
+  after login. Existing characters adopt their currently active layout on the
+  first upgraded session, and later manual selections replace that preference.
+- Battleground objective widgets, the live PvP scoreboard and post-match
+  results now use secure Mainhand anchors instead of appearing at the center of
+  the complete monitor span. Offhand adopts only Blizzard's stock positions and
+  leaves existing user/addon placements untouched.
+- Companion guidance now distinguishes a missing or stale display-layout
+  handoff from a genuine version mismatch. Matching installations no longer
+  receive an alarming download prompt, layout guidance appears at most once
+  per UI session after display geometry settles, and only confirmed version
+  mismatches show the paired Companion download address.
+- Forever now preserves supported addon-owned workspace bags through Escape and
+  restores them after reload without treating Escape's native `CloseAllBags`
+  call as an intentional close. The compatibility path now recognizes both
+  Baganator backpack roots and EllesmereUI's `EUI_MainBagFrame`; their own bag
+  APIs remain responsible for opening and closing the windows.
+- Addon-owned bag snapshots now store the top edge used by Offhand's common
+  panel restorer. Beta 18 bottom-edge snapshots are upgraded when the bag root
+  appears, preventing map toggles, Escape recovery and reload restoration from
+  shifting the bag downward by its own height.
+- EllesmereUI's explicit bag-close state now cancels Offhand's open-window
+  snapshot, so pressing Escape after closing its bag no longer reopens it. The
+  saved workspace position remains eligible for normal reload restoration.
+- Escape and Edit Mode transitions remain owned by Blizzard and EllesmereUI;
+  Offhand no longer reopens hidden addon bags or ordinary panels from their
+  hide/menu callbacks, preventing Game Menu state from becoming inaccessible.
+- Moving an EllesmereUI or Baganator bag to Mainhand now retires its stale
+  Offhand workspace anchor before map layout repair, so opening or closing the
+  World Map cannot move the bag back to the secondary workspace.
+- Forever now observes both the M-key World Map and L-key Quest Log entry points
+  for their shared `WorldMapFrame`, keeping one saved workspace location.
+- Reload recovery for ordinary Blizzard workspace panels is now
+  serialized through the native UIPanel lifecycle. Multiple left-slot panels no
+  longer close one another before Offhand can detach and restore them. Protected
+  Edit Mode frames and automatic Professions opening remain deliberately excluded.
+- Companion configuration now uses measured auto-layout columns instead of
+  scaling fixed child coordinates. Native spinners, display checklists, and
+  combo boxes remain separated and usable at 125%, 150%, and 200% Windows
+  scaling with two or more monitors; additional display rows still scroll.
+- Forever's opt-in experimental Professions movement now uses an original,
+  title-only Offhand adapter around Blizzard's `PanelDragBarTemplate`. Blizzard
+  retains the native drag scripts, the grip is securely hidden in combat, and
+  Offhand only observes gesture completion for its existing position storage.
+  The adapter fails closed if combat-safe visibility cannot be established.
+- Ordinary registered Forever Blizzard panels now use that same validated,
+  Offhand-owned title-grip adapter instead of enabling mouse input or installing
+  drag handlers on the panel body or native title. Protected Edit Mode/HUD
+  systems, transient popups, World Map, bags and chat remain on their dedicated
+  paths; unavailable secure grip support fails closed.
+- The optional Offhand window-chrome controls now include a separate World Map
+  enlarge-button toggle, matching NoCloseX without coupling it to the general X
+  button option. The native return-to-windowed control is deliberately retained.
+- Forever native backpacks remain draggable from the visual title region after
+  a clean load. The input surface is an independent `UIParent` sibling rather
+  than Blizzard's native title, and mouse input remains disabled on the bag
+  root, avoiding recurrence of the grey item-grid overlay.
 - Forever's opt-in experimental Professions movement now centers the fully
   opened window on Mainhand when it has no saved Offhand position. This makes
   its drag surface reachable when Blizzard's default upper-left anchor lands in
   the non-physical area of a mixed-height span, without enabling automatic open,
   Escape ownership or reload persistence.
-- Forever native backpacks now use only Blizzard's title-bar drag lifecycle.
-  Offhand no longer applies its generic whole-panel mouse, movable or clamping
-  changes when a generated bag temporarily reports itself as unprotected,
+- Forever native backpacks no longer enter Offhand's generic whole-panel drag
+  lifecycle when a generated bag temporarily reports itself as unprotected.
+  Their external title grip leaves the item grid and native title untouched,
   preventing the item-grid hover shade from remaining over the backpack.
 - Forever no longer reopens a saved workspace backpack when Escape is pressed
   after Restore Window or while Offhand is otherwise unspanned. Native backpack

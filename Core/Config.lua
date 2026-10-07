@@ -40,8 +40,10 @@ local defaultSettings = {
     independentWorkspacePanels = true, -- Panels placed on the secondary workspace stay open independently
     persistentWorkspacePanels = true,  -- Keep workspace panels and maps open when pressing Escape
     hideWorkspaceCloseButtons = false, -- Hide supported X buttons only while their windows are on the workspace
+    hideWorkspaceMapMaximizeButton = false, -- Hide the windowed World Map enlarge button on the workspace
     savedWorkspacePositions = {},   -- Persisted coordinates for frames placed on the secondary workspace
     savedMainPositions = {},        -- Persisted coordinates for movable frames on the main screen
+    workspacePanelLoadAddons = {},  -- Learned Blizzard load-on-demand owner for persistent panels
 }
 
 local function CopyDefaults(src, dst)
@@ -55,6 +57,28 @@ local function CopyDefaults(src, dst)
         end
     end
     return dst
+end
+
+local FOREVER_EDIT_MODE_MIGRATION_VERSION = 1
+
+local function StageForeverEditModeMigration()
+    if not Offhand.isForever or type(OffhandCharDB) ~= "table"
+        or (tonumber(OffhandCharDB.foreverEditModeMigrationVersion) or 0)
+            >= FOREVER_EDIT_MODE_MIGRATION_VERSION then return false end
+
+    -- The former recovery transaction lived inside an account-wide settings
+    -- profile even though Blizzard Edit Mode selection belongs to a character.
+    -- Stage only the current profile's record for later API validation, then
+    -- scrub every profile so another character cannot inherit stale IDs.
+    local legacy = Offhand.db and Offhand.db.foreverEditModeRecovery
+    if type(legacy) == "table" then
+        OffhandCharDB.foreverEditModeLegacyRecovery = CopyDefaults(legacy, {})
+    end
+    for _, profile in pairs(OffhandDB.profiles or {}) do
+        if type(profile) == "table" then profile.foreverEditModeRecovery = nil end
+    end
+    OffhandCharDB.foreverEditModeMigrationVersion = FOREVER_EDIT_MODE_MIGRATION_VERSION
+    return true
 end
 
 local function CurrentClientBuildKey()
@@ -795,6 +819,7 @@ function Offhand:InitializeConfig()
     end
 
     Offhand.db = OffhandDB.profiles[current]
+    StageForeverEditModeMigration()
 
     local onboarding = EnsureOnboarding()
     -- Migrate the former profile-scoped flags into account-wide onboarding.

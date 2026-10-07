@@ -10,6 +10,8 @@ param(
 
     [string]$GitHubOutputPath,
 
+    [string]$CompanionReleaseTag = 'v2.1.2-beta.18',
+
     [switch]$CompanionChanged
 )
 
@@ -25,6 +27,12 @@ $channel = $match.Groups['channel'].Value
 $sequence = $match.Groups['number'].Value
 $packageVersion = $Tag.Substring(1)
 $isPrerelease = -not [string]::IsNullOrEmpty($channel)
+
+$companionTagMatch = [regex]::Match($CompanionReleaseTag, '^v(?<version>\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?)$')
+if (-not $companionTagMatch.Success) {
+    throw "Companion release tag '$CompanionReleaseTag' is invalid."
+}
+$companionVersion = if ($CompanionChanged) { $packageVersion } else { $companionTagMatch.Groups['version'].Value }
 
 $channelName = switch ($channel) {
     'alpha' { 'Alpha' }
@@ -61,8 +69,9 @@ $statusText = if ($isPrerelease) {
 
 $companionDownloads = if ($CompanionChanged) {
 @"
-- **Companion package:** ``Offhand-Companion.zip`` — updated executable, source, documentation, and security guidance.
+- **Companion package:** ``Offhand-Companion.zip`` — minimal portable package containing the reviewed executable, quick-start/security README, and license.
 - **Standalone Companion:** ``Offhand.exe`` — updated Windows executable only.
+- **Source:** review the tagged repository or GitHub's automatic source archive; development files are intentionally excluded from the end-user Companion ZIP.
 "@
 } else {
 @"
@@ -73,6 +82,8 @@ $companionDownloads = if ($CompanionChanged) {
 }
 
 $notes = @"
+<!-- offhand-companion-version: $companionVersion -->
+
 # $releaseName
 
 > $statusText

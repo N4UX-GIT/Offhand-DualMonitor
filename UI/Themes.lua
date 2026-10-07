@@ -8,6 +8,15 @@ local _, Offhand = ...
 local Themes = {}
 Offhand.Themes = Themes
 
+local function SetSolidColor(texture, r, g, b, a)
+    if not texture then return end
+    if texture.SetColorTexture then
+        texture:SetColorTexture(r, g, b, a)
+    elseif texture.SetTexture then
+        texture:SetTexture(r, g, b, a)
+    end
+end
+
 local THEME_DATA = {
     CLASSIC = {
         name = "Classic Warcraft",
@@ -145,7 +154,7 @@ function Themes:ApplyCanvasTheme(canvasFrame)
         bgFile = c.bg or bgFile
     end
 
-    if not canvasFrame.SetBackdrop then
+    if not canvasFrame.SetBackdrop and Mixin and BackdropTemplateMixin then
         Mixin(canvasFrame, BackdropTemplateMixin)
     end
 
@@ -179,8 +188,8 @@ function Themes:ApplyCanvasTheme(canvasFrame)
             canvasFrame.bgTexture:SetAllPoints(canvasFrame)
         end
     end
-    if canvasFrame.bgTexture and canvasFrame.bgTexture.SetColorTexture then
-        canvasFrame.bgTexture:SetColorTexture(r, g, b, alpha)
+    if canvasFrame.bgTexture then
+        SetSolidColor(canvasFrame.bgTexture, r, g, b, alpha)
         if canvasFrame.bgTexture.Show then canvasFrame.bgTexture:Show() end
     end
 
@@ -220,9 +229,11 @@ function Themes:ApplyBackdrop(frame, themeKey, customAlpha)
     local isClassic = (currentThemeKey == "CLASSIC")
     local alpha = customAlpha or (Offhand.db and Offhand.db.canvasAlpha) or 0.95
 
-    if not frame.SetBackdrop then
+    if not frame.SetBackdrop and Mixin and BackdropTemplateMixin then
         Mixin(frame, BackdropTemplateMixin)
     end
+
+    if not frame.SetBackdrop then return end
 
     frame:SetBackdrop({
         bgFile = theme.bgFile,
@@ -242,7 +253,7 @@ function Themes:ApplyBackdrop(frame, themeKey, customAlpha)
             local backing = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
             backing:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -8)
             backing:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -8, 8)
-            backing:SetColorTexture(0.025, 0.025, 0.03, 1)
+            SetSolidColor(backing, 0.025, 0.025, 0.03, 1)
             frame.readabilityBacking = backing
         end
     end
@@ -275,7 +286,8 @@ function Themes:ApplyBackdrop(frame, themeKey, customAlpha)
 end
 
 function Themes:CreateBayHeader(parent, titleText, customHeight)
-    local header = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    local header = CreateFrame("Frame", nil, parent,
+        not Offhand.isLegacyWrath and "BackdropTemplate" or nil)
     local h = customHeight or 36
     header:SetHeight(h)
     header:SetPoint("TOPLEFT", parent, "TOPLEFT", 14, -14)

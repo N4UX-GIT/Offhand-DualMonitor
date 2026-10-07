@@ -13,7 +13,26 @@ local L = Offhand.L or setmetatable({}, {
 })
 
 local tinsert = table.insert
-local COMPANION_DOWNLOAD_URL = "https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.18/Offhand-Companion.zip"
+local COMPANION_DOWNLOAD_URL = Offhand.companionDownloadUrl
+
+local function BackdropTemplate()
+    return not Offhand.isLegacyWrath and "BackdropTemplate" or nil
+end
+
+local function SetShown(frame, shown)
+    if frame.SetShown then frame:SetShown(shown)
+    elseif shown then frame:Show()
+    else frame:Hide() end
+end
+
+local function SetSolidColor(texture, r, g, b, a)
+    if not texture then return end
+    if texture.SetColorTexture then
+        texture:SetColorTexture(r, g, b, a)
+    elseif texture.SetTexture then
+        texture:SetTexture(r, g, b, a)
+    end
+end
 
 
 StaticPopupDialogs["OFFHAND_DOWNLOAD_LINK"] = {
@@ -413,7 +432,7 @@ function Options:ShowSeamGuide(deckRatio)
 
         local tex = seamGuideLine:CreateTexture(nil, "OVERLAY")
         tex:SetAllPoints()
-        tex:SetColorTexture(1.0, 0.2, 0.2, 0.85)
+        SetSolidColor(tex, 1.0, 0.2, 0.2, 0.85)
         seamGuideLine.texture = tex
 
         local label = seamGuideLine:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -561,7 +580,7 @@ Offhand.ParseSliderInput = function(self, ...)
 end
 
 local function CreateNativeSlider(parent, text, minVal, maxVal, step, getVal, setVal, formatStr, tooltipTitle, tooltipText)
-    local slider = CreateFrame("Slider", nil, parent, "BackdropTemplate")
+    local slider = CreateFrame("Slider", nil, parent, BackdropTemplate())
     slider:SetOrientation("HORIZONTAL")
     slider:SetSize(220, 16)
     slider:SetMinMaxValues(minVal, maxVal)
@@ -608,7 +627,7 @@ local function CreateNativeSlider(parent, text, minVal, maxVal, step, getVal, se
     end
 
     -- Direct Value Entry EditBox
-    local editBox = CreateFrame("EditBox", nil, slider, "BackdropTemplate")
+    local editBox = CreateFrame("EditBox", nil, slider, BackdropTemplate())
     editBox:SetSize(56, 24)
     editBox:SetPoint("RIGHT", btnPlus, "LEFT", -2, 0)
     editBox:SetAutoFocus(false)
@@ -890,7 +909,7 @@ end
 function Options:CreateFloatingPanel()
     if configFrame then return configFrame end
 
-    configFrame = CreateFrame("Frame", "OffhandFloatingConfigFrame", UIParent, "BackdropTemplate")
+    configFrame = CreateFrame("Frame", "OffhandFloatingConfigFrame", UIParent, BackdropTemplate())
     configFrame:SetSize(720, 732)
     configFrame:SetFrameStrata("DIALOG")
     configFrame:EnableMouse(true)
@@ -983,7 +1002,7 @@ function Options:CreateFloatingPanel()
         divider:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 4, -36)
         divider:SetPoint("TOPRIGHT", header, "BOTTOMRIGHT", -4, -36)
     end
-    if divider.SetColorTexture then divider:SetColorTexture(1, 1, 1, 0.15) end
+    SetSolidColor(divider, 1, 1, 1, 0.15)
     configFrame.divider = divider
 
     -- Auto-Setup Wizard Button
@@ -1067,7 +1086,7 @@ function Options:CreateFloatingPanel()
     local registeredCards = {}
 
     local function CreateCard(parent, titleText, height)
-        local card = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+        local card = CreateFrame("Frame", nil, parent, BackdropTemplate())
         card:SetSize(662, height)
         card:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
 
@@ -1153,7 +1172,7 @@ function Options:CreateFloatingPanel()
 
         for i, t in ipairs(tabConfig) do
             local isActive = (tabIndex == t.id)
-            t.frame:SetShown(isActive)
+            SetShown(t.frame, isActive)
             
             local c = isActive and activeColor or normalColor
             local btn = tabButtons[i]
@@ -1567,10 +1586,11 @@ function Options:CreateFloatingPanel()
     end
 
 
-    local card2_2 = CreateCard(tab2, L["CARD_PERSISTENCE"], 308)
-    local recoveryCard = CreateCard(tab2, L["CARD_RECOVERY"], 118)
+    local card2_2 = CreateCard(tab2, L["CARD_PERSISTENCE"], 374)
+    local recoveryCard = CreateCard(tab2, L["CARD_RECOVERY"], Offhand.isForever and 184 or 118)
     local advancedCard
     local advancedCheck
+    local foreverLayoutStatus
     local offhandCards
 
     if Offhand.isForever then
@@ -1636,18 +1656,51 @@ function Options:CreateFloatingPanel()
             expanded = value == true
             advancedCard:SetHeight(expanded and 176 or 52)
             disclosure:SetText(expanded and L["ADVANCED_HIDE"] or L["ADVANCED_SHOW"])
-            for _, control in ipairs(advancedControls) do control:SetShown(expanded) end
+            for _, control in ipairs(advancedControls) do SetShown(control, expanded) end
             if offhandCards then Options:StackCards(tab2, offhandCards) end
         end
         disclosure:SetScript("OnClick", function() SetAdvancedExpanded(not expanded) end)
         SetAdvancedExpanded(false)
     end
 
-        local gatherBtn = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
+    local gatherBtn = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
     gatherBtn:SetSize(160, 26)
     gatherBtn:SetPoint("TOPLEFT", 12, -30)
     gatherBtn:SetText(L["GATHER_UI"])
     gatherBtn:SetScript("OnClick", function() if Offhand.GatherOffScreenUI then Offhand:GatherOffScreenUI() end end)
+
+    if Offhand.isForever then
+        foreverLayoutStatus = recoveryCard:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        foreverLayoutStatus:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 14, -68)
+        foreverLayoutStatus:SetPoint("TOPRIGHT", recoveryCard, "TOPRIGHT", -14, -68)
+        foreverLayoutStatus:SetJustifyH("LEFT")
+
+        local useCurrentLayout = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
+        useCurrentLayout:SetSize(220, 26)
+        useCurrentLayout:SetPoint("TOPRIGHT", recoveryCard, "TOPRIGHT", -12, -30)
+        useCurrentLayout:SetText(L["FOREVER_EDIT_MODE_USE_CURRENT"])
+        useCurrentLayout:SetScript("OnClick", function()
+            local ok, value = Offhand.HUD and Offhand.HUD.UseCurrentForeverEditModeLayout
+                and Offhand.HUD:UseCurrentForeverEditModeLayout()
+            if ok then
+                Offhand:Print(L["FOREVER_EDIT_MODE_LAYOUT_SAVED"], tostring(value))
+            else
+                Offhand:Print(L["FOREVER_EDIT_MODE_LAYOUT_FAILED"])
+            end
+            if Options.RefreshPanel then Options:RefreshPanel() end
+        end)
+        if Offhand.SetTooltip then
+            Offhand:SetTooltip(useCurrentLayout, L["FOREVER_EDIT_MODE_USE_CURRENT"],
+                L["FOREVER_EDIT_MODE_USE_CURRENT_DESC"])
+        end
+
+        local layoutHelp = recoveryCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        layoutHelp:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 14, -94)
+        layoutHelp:SetPoint("TOPRIGHT", recoveryCard, "TOPRIGHT", -14, -94)
+        layoutHelp:SetJustifyH("LEFT")
+        layoutHelp:SetWordWrap(true)
+        layoutHelp:SetText(L["FOREVER_EDIT_MODE_USE_CURRENT_DESC"])
+    end
 
     local proTipDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     proTipDesc:SetPoint("TOPLEFT", 10, -26)
@@ -1722,15 +1775,35 @@ function Options:CreateFloatingPanel()
     hideCloseDesc:SetWordWrap(true)
     hideCloseDesc:SetText(L["HIDE_WORKSPACE_CLOSE_BUTTONS_DESC"])
 
+    local hideMapMaximizeCheck = CreateNativeCheckbox(card2_2, L["HIDE_WORKSPACE_MAP_MAXIMIZE"],
+        function() return Offhand.db and Offhand.db.hideWorkspaceMapMaximizeButton == true end,
+        function(val)
+            if Offhand.WorkspaceChrome and Offhand.WorkspaceChrome.SetMapMaximizeEnabled then
+                Offhand.WorkspaceChrome:SetMapMaximizeEnabled(val)
+            elseif Offhand.db then
+                Offhand.db.hideWorkspaceMapMaximizeButton = val == true
+            end
+        end,
+        L["HIDE_WORKSPACE_MAP_MAXIMIZE"], L["HIDE_WORKSPACE_MAP_MAXIMIZE_DESC"]
+    )
+    hideMapMaximizeCheck:SetPoint("TOPLEFT", 10, -282)
+
+    local hideMapMaximizeDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    hideMapMaximizeDesc:SetPoint("TOPLEFT", 32, -304)
+    hideMapMaximizeDesc:SetWidth(530)
+    hideMapMaximizeDesc:SetJustifyH("LEFT")
+    hideMapMaximizeDesc:SetWordWrap(true)
+    hideMapMaximizeDesc:SetText(L["HIDE_WORKSPACE_MAP_MAXIMIZE_DESC"])
+
     local forceCheck = CreateNativeCheckbox(recoveryCard, L["PREVIEW_DUAL"],
         function() return (Offhand.db and Offhand.db.forceDualOnSingle) or false end,
         function(val) Offhand.db.forceDualOnSingle = val end,
         L["PREVIEW_DUAL"], L["PREVIEW_DUAL"]
     )
-    forceCheck:SetPoint("TOPLEFT", 12, -76)
+    forceCheck:SetPoint("TOPLEFT", 12, Offhand.isForever and -148 or -76)
 
     local compatDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    compatDesc:SetPoint("TOPLEFT", 32, -278)
+    compatDesc:SetPoint("TOPLEFT", 32, -344)
     compatDesc:SetWidth(530)
     compatDesc:SetJustifyH("LEFT")
     compatDesc:SetWordWrap(true)
@@ -2009,7 +2082,7 @@ function Options:CreateFloatingPanel()
     end
 
     -- Live Offhand Canvas Swatch Preview (Interactive click-to-pick)
-    local swatchCard = CreateFrame("Frame", nil, card3_3, "BackdropTemplate")
+    local swatchCard = CreateFrame("Frame", nil, card3_3, BackdropTemplate())
     swatchCard:SetSize(300, 36)
     swatchCard:SetPoint("TOPLEFT", 12, -84)
     if swatchCard.EnableMouse then swatchCard:EnableMouse(true) end
@@ -2101,7 +2174,7 @@ function Options:CreateFloatingPanel()
     profileScroll:SetPoint("TOPLEFT", 16, -56)
     profileScroll:SetSize(280, 220)
     
-    local profileScrollBG = CreateFrame("Frame", nil, profileScroll, "BackdropTemplate")
+    local profileScrollBG = CreateFrame("Frame", nil, profileScroll, BackdropTemplate())
     profileScrollBG:SetPoint("TOPLEFT", -4, 4)
     profileScrollBG:SetPoint("BOTTOMRIGHT", 24, -4)
     if profileScrollBG.SetFrameLevel then
@@ -2181,7 +2254,7 @@ function Options:CreateFloatingPanel()
                 btn.text = fs
                 local tex = btn:CreateTexture(nil, "BACKGROUND")
                 tex:SetAllPoints()
-                tex:SetColorTexture(1, 0.82, 0, 0.3)
+                SetSolidColor(tex, 1, 0.82, 0, 0.3)
                 tex:Hide()
                 btn.highlight = tex
                 
@@ -2430,6 +2503,7 @@ function Options:CreateFloatingPanel()
 
         seamCheck:SetChecked((Offhand.db and Offhand.db.seamRedirect) or false)
         hideCloseCheck:SetChecked((Offhand.db and Offhand.db.hideWorkspaceCloseButtons == true) or false)
+        hideMapMaximizeCheck:SetChecked((Offhand.db and Offhand.db.hideWorkspaceMapMaximizeButton == true) or false)
         mapMoveCheck:SetChecked((Offhand.db and Offhand.db.preventMapCloseOnMove) or false)
         panelCheck:SetChecked((Offhand.db and Offhand.db.independentWorkspacePanels) or false)
         escapeCheck:SetChecked((Offhand.db and Offhand.db.persistentWorkspacePanels ~= false) or false)
@@ -2438,6 +2512,15 @@ function Options:CreateFloatingPanel()
         if advancedCheck then
             advancedCheck:SetChecked(Offhand.IsExperimentalForeverProfessionsMovementEnabled
                 and Offhand:IsExperimentalForeverProfessionsMovementEnabled() or false)
+        end
+        if foreverLayoutStatus then
+            local status = Offhand.HUD and Offhand.HUD.GetForeverEditModeLayoutStatus
+                and Offhand.HUD:GetForeverEditModeLayoutStatus() or nil
+            local name = status and status.preferredName or L["FOREVER_EDIT_MODE_LAYOUT_UNSET"]
+            if status and status.preferredName and not status.preferredAvailable then
+                name = string.format(L["FOREVER_EDIT_MODE_LAYOUT_MISSING_STATUS"], status.preferredName)
+            end
+            foreverLayoutStatus:SetText(string.format(L["FOREVER_EDIT_MODE_LAYOUT_LABEL"], name))
         end
 
         local curTheme = (Offhand.db and Offhand.db.theme) or "CLASSIC"

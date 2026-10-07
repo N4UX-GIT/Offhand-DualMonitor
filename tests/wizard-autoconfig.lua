@@ -170,6 +170,11 @@ C_AddOns = {
 -- Load Offhand modules
 local addon = { modules = {} }
 assert(loadfile("Core/Init.lua"))("Offhand", addon)
+assert(StaticPopupDialogs["OFFHAND_COMPANION_VERSION_WARNING"].text
+        ~= "POPUP_COMPANION_VERSION_TEXT"
+        and StaticPopupDialogs["OFFHAND_COMPANION_VERSION_WARNING"].button1
+        ~= "POPUP_BTN_GOT_IT",
+    "Companion popups must use readable fallback copy before locale files load")
 assert(loadfile("Core/Config.lua"))("Offhand", addon)
 assert(loadfile("Core/Viewport.lua"))("Offhand", addon)
 assert(loadfile("Core/SeamRedirect.lua"))("Offhand", addon)
@@ -193,13 +198,83 @@ addon.db = {
 }
 
 addon:InitializePopups()
-local companionWarning = StaticPopupDialogs["OFFHAND_COMPANION_WARNING"]
-assert(companionWarning.text:find("v2.1.2 Beta 18", 1, true),
-    "Companion warning must display the paired Companion release")
-assert(not companionWarning.text:find("--", 1, true),
-    "Companion warning must avoid unsupported dash typography")
-assert(companionWarning.button2 == nil and companionWarning.OnCancel == nil,
-    "required Companion warning must not offer permanent Ignore")
+local handoffNotice = StaticPopupDialogs["OFFHAND_COMPANION_HANDOFF_NOTICE"]
+local topologyWarning = StaticPopupDialogs["OFFHAND_COMPANION_TOPOLOGY_WARNING"]
+local versionWarning = StaticPopupDialogs["OFFHAND_COMPANION_VERSION_WARNING"]
+assert(not handoffNotice.hasEditBox and not topologyWarning.hasEditBox,
+    "layout handoff notices must not imply that Companion needs downloading")
+assert(handoffNotice.text:find("versions may already be correct", 1, true),
+    "missing-layout guidance must reassure users with matching versions")
+assert(not handoffNotice.text:find("is required", 1, true),
+    "missing-layout guidance must not report a version requirement")
+assert(versionWarning.hasEditBox,
+    "a genuine Companion version mismatch must retain the official download address")
+
+local readyMatch = {
+    topologyStatus = "READY", companionVersionStatus = "MATCH",
+}
+local readyUnknown = {
+    topologyStatus = "READY", companionVersionStatus = "UNKNOWN",
+}
+local readyMismatch = {
+    topologyStatus = "READY", companionVersionStatus = "MISMATCH",
+}
+assert(addon:GetCompanionNoticeKind(readyMatch, false) == nil,
+    "matching Companion topology and version must not show a warning")
+assert(addon:GetCompanionNoticeKind(readyUnknown, false) == nil,
+    "a valid topology with unknown legacy version must not show a warning")
+assert(addon:GetCompanionNoticeKind(readyMismatch, false) == "VERSION",
+    "only an explicit version mismatch should request a Companion update")
+assert(addon:GetCompanionNoticeKind({ topologyStatus = "ABSENT" }, false) == nil,
+    "non-Forever clients must retain their manual-span path")
+assert(addon:GetCompanionNoticeKind({ topologyStatus = "MISMATCH" }, false) == "TOPOLOGY",
+    "non-Forever stale topology must provide layout-only guidance")
+addon.isForever = true
+assert(addon:GetCompanionNoticeKind({ topologyStatus = "ABSENT" }, false) == "HANDOFF",
+    "Forever must explain a missing Companion handoff")
+assert(addon:GetCompanionNoticeKind({ topologyStatus = "MISMATCH" }, false) == nil,
+    "Forever topology recovery must remain owned by its recovery prompt")
+assert(addon:GetCompanionNoticeKind({ topologyStatus = "ABSENT" }, true) == nil,
+    "Companion guidance must not compete with an active recovery prompt")
+addon.isForever = false
+
+local shownCompanionNotices = {}
+local originalCompanionStaticPopupShow = StaticPopup_Show
+StaticPopup_Show = function(key)
+    shownCompanionNotices[#shownCompanionNotices + 1] = key
+end
+addon:ShowCompanionNotice("HANDOFF", { topologyStatus = "ABSENT" })
+addon:ShowCompanionNotice("HANDOFF", { topologyStatus = "ABSENT" })
+assert(#shownCompanionNotices == 1
+        and shownCompanionNotices[1] == "OFFHAND_COMPANION_HANDOFF_NOTICE",
+    "automatic Companion guidance must appear at most once per UI session")
+addon:ShowCompanionNotice("VERSION", {
+    companionVersion = "2.1.2-beta.18",
+    expectedCompanionVersion = "2.1.2-beta.19",
+})
+assert(versionWarning.text:find("2.1.2%-beta%.18")
+        and versionWarning.text:find("2.1.2%-beta%.19"),
+    "version mismatch guidance must identify both actual and required builds")
+StaticPopup_Show = originalCompanionStaticPopupShow
+
+local hiddenCompanionPopups = {}
+StaticPopup_Hide = function(key) hiddenCompanionPopups[key] = true end
+addon.db.firstRunComplete = true
+addon._companionNoticesShown = { HANDOFF = true, TOPOLOGY = true, VERSION = true }
+local resolvedKind = addon:RefreshCompanionNoticeState({
+    topologyStatus = "READY", companionVersionStatus = "MATCH",
+    companionTopology = true, isSpanned = true,
+})
+assert(resolvedKind == nil
+        and hiddenCompanionPopups.OFFHAND_COMPANION_HANDOFF_NOTICE
+        and hiddenCompanionPopups.OFFHAND_COMPANION_TOPOLOGY_WARNING
+        and hiddenCompanionPopups.OFFHAND_COMPANION_VERSION_WARNING
+        and hiddenCompanionPopups.OFFHAND_WELCOME_SPAN_WARNING
+        and hiddenCompanionPopups.OFFHAND_COMPANION_WARNING,
+    "a verified span must dismiss current and legacy Companion/download prompts")
+assert(not next(addon._companionNoticesShown),
+    "resolved Companion notices must be eligible to appear again after a later regression")
+StaticPopup_Hide = nil
 
 -- Either welcome action must acknowledge the first-run guide without claiming
 -- that calibration was completed. This prevents the popup recurring on login.

@@ -427,7 +427,7 @@ settingsPanel:Show()
 -- Forever performs this cleanup after the panel has begun showing.
 combinedBag:Hide()
 assert(addon.Canvas:RestoreWorkspaceBagClosedDuringSystemPanelOpen(),
-    "A bag closed during the Settings opening transition must schedule restoration")
+    "Forever must queue the isolated native-bag restore after Settings")
 flushTimers()
 local settingsPoint = settingsPanel.points[#settingsPanel.points]
 local expectedCY = (metrics.gameBottom + metrics.gameTop) / 2 - UIParent:GetHeight()/2
@@ -438,10 +438,8 @@ assert(math.abs(settingsPoint[4] - expectedCX) < 0.01
     "Forever SettingsPanel must be centered inside the game rectangle")
 assert(not combinedBag:IsShown(),
     "Settings recovery must not directly show a native backpack whose opener declined")
-assert(nativeOpenAttempts > 0,
-    "Settings restoration must try Blizzard's native bag opener first")
-assert(addon.db.openWorkspacePanels.ContainerFrameCombinedBags == nil
-        and addon.db.nativeBackpackWorkspaceOpen == nil,
-    "a declined native reopen must clear the stale open request instead of exposing a bag shell")
+assert(addon.db.openWorkspacePanels.ContainerFrameCombinedBags == true
+        and addon.db.nativeBackpackWorkspaceOpen == true,
+    "a modal Settings rejection must retain intent for the isolated bag controller")
 print("PASS: Forever SettingsPanel Mainhand placement and safe native backpack recovery")
 

@@ -15,6 +15,7 @@ try {
     }
     $betaBody = Get-Content -LiteralPath $betaNotes -Raw
     foreach ($required in @(
+        '<!-- offhand-companion-version: 2.1.2-beta.18 -->',
         '# Offhand v2.1.2 Beta 5',
         '## Changes in this build',
         '## Downloads',
@@ -39,10 +40,14 @@ try {
     $companionNotes = Join-Path $temp 'companion.md'
     & $script -Tag 'v2.1.2-beta.18' -ChangelogPath $changelog -OutputPath $companionNotes -CompanionChanged | Out-Null
     $companionBody = Get-Content -LiteralPath $companionNotes -Raw
-    foreach ($required in @('**Companion package:**', '**Standalone Companion:**')) {
+    foreach ($required in @('<!-- offhand-companion-version: 2.1.2-beta.18 -->', '**Companion package:**', '**Standalone Companion:**')) {
         if (-not $companionBody.Contains($required)) {
             throw "Companion release notes are missing: $required"
         }
+    }
+    if ($companionBody -notmatch 'minimal portable package' -or
+        $companionBody -match 'updated executable, source') {
+        throw 'Companion release notes must describe the minimal runtime-only archive.'
     }
     $outputs = Get-Content -LiteralPath $betaOutput -Raw
     if ($outputs -notmatch '(?m)^release_name=Offhand v2\.1\.2 Beta 5\r?$' -or
@@ -74,6 +79,11 @@ try {
     $addonOnlyStable = & $script -Tag 'v2.1.3' -ChangelogPath $changelog -OutputPath (Join-Path $temp 'addon-only-stable.md')
     if ($addonOnlyStable.ReleaseName -ne 'Offhand v2.1.3' -or $addonOnlyStable.Prerelease) {
         throw 'Addon-only stable releases must remain independent of the Companion version.'
+    }
+    $futureAddonNotes = Join-Path $temp 'future-addon.md'
+    & $script -Tag 'v2.1.2-beta.20' -CompanionReleaseTag 'v2.1.2-beta.19' -ChangelogPath $changelog -OutputPath $futureAddonNotes | Out-Null
+    if ((Get-Content -LiteralPath $futureAddonNotes -Raw) -notmatch '<!-- offhand-companion-version: 2\.1\.2-beta\.19 -->') {
+        throw 'Addon-only release metadata must advertise the frozen Companion version rather than the addon tag.'
     }
 
     Write-Output 'PASS: standardized beta, release-candidate, stable, and invalid release metadata'

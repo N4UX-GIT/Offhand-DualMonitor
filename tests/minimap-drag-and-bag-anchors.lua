@@ -255,24 +255,34 @@ assert(addon.db.savedWorkspacePositions["ContainerFrame1"] == nil,
     "Combined bag workspace placement must retire the inactive individual backpack root")
 assert(combined._OffhandDragging == false, "Combined bag drag state must clear after its native title drag")
 
--- Forever can report a generated native ContainerFrame as unprotected. It must
--- still use only Blizzard's native title drag and never enter Offhand's generic
--- whole-panel drag path, which changes the bag root's mouse/movable state and
--- can leave the item-grid hover shade visible.
+-- Forever's native ContainerFrames are protected item-action ancestors. Even
+-- title-only hooks can taint a later right-click UseContainerItem call, so the
+-- whole native bag tree must remain untouched.
 local foreverBag = makeMockFrame("ContainerFrame99", 192, 250)
 foreverBag.TitleContainer = makeMockFrame("ContainerFrame99TitleContainer", 192, 32)
-local rootMouseChanges, movableChanges, clampChanges = 0, 0, 0
+local rootMouseChanges, movableChanges, clampChanges, startMovingCalls = 0, 0, 0, 0
+local titleMouseChanges, titleDragRegistrations = 0, 0
 foreverBag.EnableMouse = function() rootMouseChanges = rootMouseChanges + 1 end
 foreverBag.SetMovable = function() movableChanges = movableChanges + 1 end
 foreverBag.SetClampedToScreen = function() clampChanges = clampChanges + 1 end
+foreverBag.StartMoving = function() startMovingCalls = startMovingCalls + 1 end
+foreverBag.TitleContainer.EnableMouse = function(_, enabled)
+    if enabled then titleMouseChanges = titleMouseChanges + 1 end
+end
+foreverBag.TitleContainer.RegisterForDrag = function(_, button)
+    if button == "LeftButton" then titleDragRegistrations = titleDragRegistrations + 1 end
+end
 addon.isForever = true
 addon.Canvas:TryMakeFrameDraggable(foreverBag)
-assert(foreverBag.TitleContainer._OffhandPersistenceHooked == true,
-    "Forever native bags must observe Blizzard's title drag even when unprotected")
+assert(foreverBag.TitleContainer._OffhandPersistenceHooked == nil,
+    "Forever native bag titles must remain wholly Blizzard-owned")
 assert(foreverBag._OffhandHandle == nil and foreverBag._OffhandMovable == nil,
     "Forever native bags must not receive Offhand's generic drag surface")
-assert(rootMouseChanges == 0 and movableChanges == 0 and clampChanges == 0,
-    "Forever native bag roots must retain Blizzard's mouse, movable and clamping state")
+assert(rootMouseChanges == 0,
+    "Forever native bag roots must never have mouse input enabled over the item grid")
+assert(titleMouseChanges == 0 and titleDragRegistrations == 0
+        and movableChanges == 0 and clampChanges == 0 and startMovingCalls == 0,
+    "Forever native bags must receive no Offhand input or movement mutations")
 addon.isForever = false
 
 -- Switching Blizzard's presentation must transfer the one backpack-family

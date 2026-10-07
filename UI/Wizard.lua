@@ -18,6 +18,16 @@ Offhand.Wizard = Wizard
 
 local wizardFrame = nil
 
+local function BackdropTemplate()
+    return not Offhand.isLegacyWrath and "BackdropTemplate" or nil
+end
+
+local function SetShown(frame, shown)
+    if frame.SetShown then frame:SetShown(shown)
+    elseif shown then frame:Show()
+    else frame:Hide() end
+end
+
 function Wizard:DetectTopology()
     if Offhand.Options and Offhand.Options.DetectTopology then
         return Offhand.Options:DetectTopology()
@@ -36,7 +46,7 @@ function Wizard:DetectTopology()
 end
 
 local function CreateWizardCard(parent, titleText, yOffset, height)
-    local card = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    local card = CreateFrame("Frame", nil, parent, BackdropTemplate())
     card:SetSize(628, height)
     card:SetPoint("TOPLEFT", parent, "TOPLEFT", 16, yOffset)
 
@@ -69,7 +79,7 @@ function Wizard:CreateFrame()
     if wizardFrame then return wizardFrame end
     if not CreateFrame then return nil end
 
-    local f = CreateFrame("Frame", "OffhandSetupWizardFrame", UIParent, "BackdropTemplate")
+    local f = CreateFrame("Frame", "OffhandSetupWizardFrame", UIParent, BackdropTemplate())
     f:SetSize(668, 454)
     f:SetFrameStrata("FULLSCREEN_DIALOG")
     f:EnableMouse(true)
@@ -318,7 +328,7 @@ function Wizard:CreateFrame()
     seamTitle:SetText(L["WIZARD_LABEL_SEAM"])
     f.seamTitle = seamTitle
 
-    local seamEditBox = CreateFrame("EditBox", nil, card3, "BackdropTemplate")
+    local seamEditBox = CreateFrame("EditBox", nil, card3, BackdropTemplate())
     seamEditBox:SetSize(60, 20)
     seamEditBox:SetPoint("LEFT", seamTitle, "RIGHT", 10, 0)
     seamEditBox:SetAutoFocus(false)
@@ -349,7 +359,7 @@ function Wizard:CreateFrame()
     f.seamValText = seamValText
 
     -- Seam Slider
-    local seamSlider = CreateFrame("Slider", nil, card3, "BackdropTemplate")
+    local seamSlider = CreateFrame("Slider", nil, card3, BackdropTemplate())
     seamSlider:SetOrientation("HORIZONTAL")
     seamSlider:SetSize(280, 16)
     seamSlider:SetPoint("TOPLEFT", 14, -80)
@@ -544,7 +554,7 @@ function Wizard:CreateFrame()
     scaleTitle:SetPoint("TOPLEFT", 14, -48)
     scaleTitle:SetText(L["WIZARD_LABEL_UI_SCALE"])
 
-    local scaleEditBox = CreateFrame("EditBox", nil, card4, "BackdropTemplate")
+    local scaleEditBox = CreateFrame("EditBox", nil, card4, BackdropTemplate())
     scaleEditBox:SetSize(60, 20)
     scaleEditBox:SetPoint("LEFT", scaleTitle, "RIGHT", 10, 0)
     scaleEditBox:SetAutoFocus(false)
@@ -575,7 +585,7 @@ function Wizard:CreateFrame()
     f.scaleValText = scaleValText
 
     -- Continuous UI Scale Slider
-    local scaleSlider = CreateFrame("Slider", nil, card4, "BackdropTemplate")
+    local scaleSlider = CreateFrame("Slider", nil, card4, BackdropTemplate())
     scaleSlider:SetOrientation("HORIZONTAL")
     scaleSlider:SetSize(280, 16)
     scaleSlider:SetPoint("TOPLEFT", 14, -68)
@@ -816,7 +826,7 @@ function Wizard:CreateFrame()
     end
     function f:SetStep(step)
         self.step = math.max(1, math.min(4, step))
-        for i, card in ipairs(self.pages) do card:SetShown(i == self.step) end
+        for i, card in ipairs(self.pages) do SetShown(card, i == self.step) end
         progress:SetText(string.format(L["STEP_PROGRESS"], self.step))
         welcomeText:SetText(L["STEP_" .. self.step .. "_HELP"])
         backBtn:SetEnabled(self.step > 1)

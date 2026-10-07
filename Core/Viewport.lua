@@ -52,15 +52,46 @@ function Viewport:GetCompanionTopology(pw, ph, sw, sh)
     return nil, "MISMATCH"
 end
 
+local function ParseReleaseVersion(value)
+    if type(value) ~= "string" then return nil end
+    local major, minor, patch, label, number = string.lower(value):match(
+        "^v?(%d+)%.(%d+)%.(%d+)%-?([%a]*)[%.%-]?(%d*)$")
+    if not major then return nil end
+    if label ~= "" and label ~= "beta" then return nil end
+    if label == "beta" and number == "" then return nil end
+    return {
+        major = tonumber(major), minor = tonumber(minor), patch = tonumber(patch),
+        beta = label == "beta" and tonumber(number) or nil,
+        stable = label == "",
+    }
+end
+
+local function ReleaseAtLeast(actual, minimum)
+    local left, right = ParseReleaseVersion(actual), ParseReleaseVersion(minimum)
+    if not left or not right then return nil end
+    for _, field in ipairs({"major", "minor", "patch"}) do
+        if left[field] ~= right[field] then return left[field] > right[field] end
+    end
+    if left.stable ~= right.stable then return left.stable end
+    if left.stable then return true end
+    return left.beta >= right.beta
+end
+
 local function CompanionVersionStatus(topology)
     local actual = topology and type(topology.companionVersion) == "string"
         and topology.companionVersion or nil
-    local expected = type(Offhand.companionFullVersion) == "string"
-        and Offhand.companionFullVersion or nil
+    local expected = type(Offhand.companionMinVersion) == "string"
+        and Offhand.companionMinVersion ~= "" and Offhand.companionMinVersion
+        or (type(Offhand.companionFullVersion) == "string"
+            and Offhand.companionFullVersion or nil)
     if not actual or actual == "" then return "UNKNOWN", nil, expected end
     if not expected or expected == "" then return "UNKNOWN", actual, nil end
-    return string.lower(actual) == string.lower(expected) and "MATCH" or "MISMATCH",
-        actual, expected
+    local compatible = ReleaseAtLeast(actual, expected)
+    if compatible == nil then
+        return string.lower(actual) == string.lower(expected) and "MATCH" or "UNKNOWN",
+            actual, expected
+    end
+    return compatible and "MATCH" or "MISMATCH", actual, expected
 end
 
 -- A stale exact topology is unsafe on every client. An absent topology is

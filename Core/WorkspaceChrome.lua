@@ -102,6 +102,15 @@ local function GetCloseButtons(frame, name)
     return buttons
 end
 
+local function GetMapMaximizeButtons(frame, name)
+    local buttons = {}
+    if name ~= "WorldMapFrame" then return buttons end
+    local border = frame and frame.BorderFrame
+    local maximizeMinimize = border and border.MaximizeMinimizeFrame
+    AddButton(buttons, maximizeMinimize and maximizeMinimize.MaximizeButton)
+    return buttons
+end
+
 local function IsOnWorkspace(frame)
     return CanUseFrame(frame) and IsVisible(frame)
         and Offhand.Canvas and Offhand.Canvas.IsFrameOnWorkspace
@@ -129,7 +138,8 @@ function Chrome:Refresh()
     local db = Offhand.db
     local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
         and Offhand.Viewport:GetMetrics() or nil
-    local enabled = db and db.enabled and db.hideWorkspaceCloseButtons == true
+    local enabled = db and db.enabled
+        and (db.hideWorkspaceCloseButtons == true or db.hideWorkspaceMapMaximizeButton == true)
         and metrics and metrics.isSpanned == true
     if not enabled then
         self:RestoreAll()
@@ -153,8 +163,15 @@ function Chrome:Refresh()
         local frame = _G[name]
         if CanUseFrame(frame) then
             local hide = IsOnWorkspace(frame)
-            for button in pairs(GetCloseButtons(frame, name)) do
-                desired[button] = desired[button] or hide
+            if db.hideWorkspaceCloseButtons == true then
+                for button in pairs(GetCloseButtons(frame, name)) do
+                    desired[button] = desired[button] or hide
+                end
+            end
+            if db.hideWorkspaceMapMaximizeButton == true then
+                for button in pairs(GetMapMaximizeButtons(frame, name)) do
+                    desired[button] = desired[button] or hide
+                end
             end
         end
     end
@@ -168,6 +185,11 @@ end
 
 function Chrome:SetEnabled(enabled)
     if Offhand.db then Offhand.db.hideWorkspaceCloseButtons = enabled == true end
+    self:Refresh()
+end
+
+function Chrome:SetMapMaximizeEnabled(enabled)
+    if Offhand.db then Offhand.db.hideWorkspaceMapMaximizeButton = enabled == true end
     self:Refresh()
 end
 

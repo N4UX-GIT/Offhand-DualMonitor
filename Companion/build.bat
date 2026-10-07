@@ -28,7 +28,7 @@ if not exist "%PNG%" set "PNG=%~dp0Media\offhand-logo-small.png"
 
 echo Compiling %OUT% ...
 
-"%CSC%" /target:winexe /optimize+ /platform:anycpu /out:"%OUT%" /win32icon:"%ICO%" /win32manifest:"%MANIFEST%" /resource:"%PNG%",Offhand.Companion.Resources.offhand-logo.png /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll "%SRC%"
+"%CSC%" /target:winexe /optimize+ /platform:anycpu /out:"%OUT%" /win32icon:"%ICO%" /win32manifest:"%MANIFEST%" /resource:"%PNG%",Offhand.Companion.Resources.offhand-logo.png /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll "%SRC%"
 
 if %ERRORLEVEL% equ 0 (
     echo ===================================================

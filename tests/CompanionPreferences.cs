@@ -8,17 +8,35 @@ namespace Offhand.Companion {
         private static int checkNumber;
         private static void Check(bool value) { checkNumber++; if (!value) throw new Exception("Preference regression at check " + checkNumber); }
         public static void Main() {
-            Check(CompanionForm.FullVersion == "2.1.2 Beta 18");
-            CompanionReleaseVersion beta13, beta14, beta15, beta18, stable, newer;
+            Check(CompanionForm.FullVersion == "2.1.2 Beta 19");
+            CompanionReleaseVersion beta13, beta14, beta15, beta18, beta19, stable, newer;
             Check(CompanionReleaseVersion.TryParse("v2.1.2-beta.13", out beta13));
             Check(CompanionReleaseVersion.TryParse("2.1.2-beta.14", out beta14));
             Check(CompanionReleaseVersion.TryParse("2.1.2-beta.15", out beta15));
             Check(CompanionReleaseVersion.TryParse("2.1.2-beta.18", out beta18));
+            Check(CompanionReleaseVersion.TryParse("2.1.2-beta.19", out beta19));
             Check(CompanionReleaseVersion.TryParse("2.1.2", out stable));
             Check(CompanionReleaseVersion.TryParse("2.1.3-beta.1", out newer));
             Check(beta14.CompareTo(beta13) > 0 && beta15.CompareTo(beta14) > 0
-                && beta18.CompareTo(beta15) > 0 && stable.CompareTo(beta18) > 0 && newer.CompareTo(stable) > 0);
+                && beta18.CompareTo(beta15) > 0 && beta19.CompareTo(beta18) > 0
+                && stable.CompareTo(beta19) > 0 && newer.CompareTo(stable) > 0);
             Check(!CompanionReleaseVersion.TryParse("2.1.2-preview.1", out newer));
+            string betaFeed = "["
+                + "{\"tag_name\":\"v2.1.2-beta.21\",\"html_url\":\"https://example.invalid/addon-21\",\"body\":\"<!-- offhand-companion-version: 2.1.2-beta.19 -->\",\"draft\":false,\"prerelease\":true},"
+                + "{\"tag_name\":\"v2.1.2-beta.20\",\"html_url\":\"https://example.invalid/companion-20\",\"body\":\"<!-- offhand-companion-version: 2.1.2-beta.20 -->\",\"draft\":false,\"prerelease\":true},"
+                + "{\"tag_name\":\"v2.1.2-beta.22\",\"html_url\":\"https://example.invalid/draft-22\",\"body\":\"<!-- offhand-companion-version: 2.1.2-beta.22 -->\",\"draft\":true,\"prerelease\":true}"
+                + "]";
+            CompanionUpdateRelease betaUpdate = CompanionUpdatePolicy.SelectLatest(betaFeed, beta19);
+            Check(betaUpdate.Version.Display == "v2.1.2 Beta 20" && betaUpdate.Url.EndsWith("companion-20"));
+            string stableFeed = "["
+                + "{\"tag_name\":\"v3.1.0-beta.1\",\"html_url\":\"https://example.invalid/beta\",\"body\":\"<!-- offhand-companion-version: 3.1.0-beta.1 -->\",\"draft\":false,\"prerelease\":true},"
+                + "{\"tag_name\":\"v3.0.0\",\"html_url\":\"https://example.invalid/stable\",\"body\":\"<!-- offhand-companion-version: 3.0.0 -->\",\"draft\":false,\"prerelease\":false}"
+                + "]";
+            CompanionUpdateRelease stableUpdate = CompanionUpdatePolicy.SelectLatest(stableFeed, stable);
+            Check(stableUpdate.Version.Display == "v3.0.0" && stableUpdate.Url.EndsWith("stable"));
+            string legacyFeed = "[{\"tag_name\":\"v2.1.2-beta.18\",\"html_url\":\"https://example.invalid/legacy-18\",\"body\":\"Older release without marker\",\"draft\":false,\"prerelease\":false}]";
+            CompanionUpdateRelease legacyUpdate = CompanionUpdatePolicy.SelectLatest(legacyFeed, beta19);
+            Check(legacyUpdate.Version.Display == "v2.1.2 Beta 18" && legacyUpdate.Url.EndsWith("legacy-18"));
             Check(!CompanionDefaults.AutoSpanOnLaunch);
             Check(WindowInteropDiagnostics.StyleFailure("Could not remove WoW window borders", 5)
                 .Contains("same privilege level"));
@@ -103,18 +121,18 @@ namespace Offhand.Companion {
                 string character = Path.Combine(wow, "WTF", "Account", "123", "Realm", "Character", "SavedVariables", "Offhand.lua");
                 Directory.CreateDirectory(core);
                 File.WriteAllText(Path.Combine(Path.GetDirectoryName(core), "Offhand_Forever.toc"),
-                    "## Interface: 16000\n## X-Offhand-Release: beta.18\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.2-beta.18\n");
+                    "## Interface: 16000\n## X-Offhand-Release: beta.19\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.2-beta.19\n");
                 AddonInstallCheck install = AddonInstallation.Inspect(wow);
                 Check(install.Installed && install.AddonDir == Path.GetDirectoryName(core));
                 Check(install.ExpectedAddonDir == Path.Combine(wow, "Interface", "AddOns", "Offhand"));
-                Check(install.ReleaseTag == "beta.18" && install.CompanionProtocol == 1
-                    && install.MinimumCompanionVersion == "2.1.2-beta.18" && install.Reason.Contains(install.AddonDir));
+                Check(install.ReleaseTag == "beta.19" && install.CompanionProtocol == 1
+                    && install.MinimumCompanionVersion == "2.1.2-beta.19" && install.Reason.Contains(install.AddonDir));
 
                 string futureWow = Path.Combine(root, "future-client");
                 string futureAddon = Path.Combine(futureWow, "Interface", "AddOns", "Offhand");
                 Directory.CreateDirectory(futureAddon);
                 File.WriteAllText(Path.Combine(futureAddon, "Offhand_Forever.toc"),
-                    "## Interface: 16000\n## X-Offhand-Release: beta.19\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.2-beta.18\n");
+                    "## Interface: 16000\n## X-Offhand-Release: beta.20\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.2-beta.19\n");
                 Check(AddonInstallation.Inspect(futureWow).Installed);
 
                 string legacyWow = Path.Combine(root, "legacy-compatible");
@@ -181,8 +199,14 @@ namespace Offhand.Companion {
                 string topologyMessage;
                 Check(CompanionTopologyBridge.TryWrite(wow, plan, displays, out topologyMessage));
                 string topology = File.ReadAllText(Path.Combine(core, "CompanionTopology.lua"));
-                Check(topology.Contains("mode = \"DUAL_DISPLAY\"") && topology.Contains("companionVersion = \"2.1.2-beta.18\"") && topology.Contains("width = 3440") &&
+                Check(topology.Contains("mode = \"DUAL_DISPLAY\"") && topology.Contains("companionVersion = \"2.1.2-beta.19\"") && topology.Contains("width = 3440") &&
                     topology.Contains("height = 1080") && topology.Contains("y = 0"));
+                Check(CompanionTopologyBridge.IsCurrent(wow, plan, displays));
+                File.WriteAllText(Path.Combine(core, "CompanionTopology.lua"),
+                    "-- packaged placeholder\r\nOffhandCompanionTopology = nil\r\n");
+                Check(!CompanionTopologyBridge.IsCurrent(wow, plan, displays));
+                Check(CompanionTopologyBridge.TryWrite(wow, plan, displays, out topologyMessage)
+                    && CompanionTopologyBridge.IsCurrent(wow, plan, displays));
                 Console.WriteLine("PASS: safe display identities, addon layout diagnosis, missing-monitor guard, topology bridge, settings validation, restore geometry and atomic Forever state generation");
             } finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }

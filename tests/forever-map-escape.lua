@@ -341,15 +341,17 @@ assert(not ContainerFrameCombinedBags:IsShown(),
 
 addon.db.openWorkspacePanels.ContainerFrameCombinedBags = true
 IsBagOpen = function() return true end
-addon.HasCustomBagAddon = function() return true end
+addon.HasCustomBagAddon = function() return false end
 local nativeBagOpens = 0
 OpenAllBags = function()
     nativeBagOpens = nativeBagOpens + 1
     ContainerFrameCombinedBags:Show()
 end
 addon.Canvas:RestorePersistentFrames()
-assert(nativeBagOpens == 1 and ContainerFrameCombinedBags:IsShown(),
-    "Saved native backpack restore must override early false custom-bag detection and stale IsBagOpen state")
+assert(nativeBagOpens == 1 and ContainerFrameCombinedBags:IsShown()
+        and addon.db.savedWorkspacePositions.ContainerFrameCombinedBags ~= nil
+        and addon.db.openWorkspacePanels.ContainerFrameCombinedBags == true,
+    "Forever must restore a tracked native backpack through Blizzard's opener")
 
 -- Forever must not replace CloseAllWindows, but its secure post-hook can repair
 -- the workspace backpack after Escape and open the Game Menu. Explicit B
@@ -413,16 +415,40 @@ ToggleWorldMap = function()
         WorldMapFrame:Show()
     end
 end
+ToggleQuestLog = function()
+    -- Forever's L binding reaches the same map root through a different native
+    -- entry point and can apply its own default anchor before post-hooks run.
+    if WorldMapFrame:IsShown() then
+        WorldMapFrame:Hide()
+    else
+        WorldMapFrame.left = 760
+        WorldMapFrame.bottom = 420
+        WorldMapFrame:Show()
+    end
+end
 addon.Canvas:EnableFreeDragging()
-assert(addon.Canvas._closeAllBagsEscapeHooked
+assert(not addon.Canvas._closeAllBagsEscapeHooked
     and not addon.Canvas._toggleGameMenuEscapeHooked,
-    "Each direct Forever Escape hook must install independently when available")
+    "Forever must not hook native bag-close or Game Menu paths")
 ToggleGameMenu = lateToggleGameMenu
 CloseAllWindows = lateCloseAllWindows
 addon.Canvas:EnableFreeDragging()
-assert(addon.Canvas._closeAllBagsEscapeHooked
-    and addon.Canvas._toggleGameMenuEscapeHooked,
-    "A later addon-load pass must install both direct Forever Escape hooks")
+assert(not addon.Canvas._closeAllBagsEscapeHooked
+    and not addon.Canvas._toggleGameMenuEscapeHooked,
+    "Later setup passes must keep native bag and Game Menu paths unhooked")
+assert(addon.Canvas._toggleQuestLogPersistenceHooked,
+    "Forever's L-key quest-log path must participate in World Map persistence")
+
+-- M and L open the same protected WorldMapFrame through different globals.
+-- Both must settle at the one saved workspace anchor without native hooks.
+WorldMapFrame:Hide()
+ToggleQuestLog()
+assert(WorldMapFrame:IsShown() and WorldMapFrame:GetLeft() < 100,
+    "the map must restore its saved anchor before the next rendered frame")
+flushTimers()
+assert(WorldMapFrame:IsShown() and WorldMapFrame:GetLeft() < 100,
+    "the L-key quest-log path must restore the same saved World Map location as M")
+WorldMapFrame:Hide()
 
 -- An unsaved Forever map cannot receive a native OnShow hook without tainting
 -- MapCanvas. Its external M-key post-hook must still rescue Blizzard's default
@@ -459,84 +485,28 @@ for key, value in pairs(originalMetrics) do metrics[key] = value end
 addon.db.savedWorkspacePositions.WorldMapFrame = savedWorkspaceMap
 addon.db.savedMainPositions.WorldMapFrame = savedMainMap
 
-addon.db.openWorkspacePanels.ContainerFrameCombinedBags = true
-CloseAllBags()
-flushTimers()
-assert(addon.db.openWorkspacePanels.ContainerFrameCombinedBags == true,
-    "A standalone Forever startup CloseAllBags call must not erase the saved open request")
 OpenAllBags()
 CloseAllWindows()
 flushTimers()
-assert(ContainerFrameCombinedBags:IsShown() and GameMenuFrame:IsShown(),
-    "First Escape must preserve the workspace backpack and open the Game Menu")
-CloseAllWindows()
+assert(not ContainerFrameCombinedBags:IsShown() and GameMenuFrame:IsShown(),
+    "Forever Escape must retain Blizzard's native bag-close and Game Menu behavior")
+
+-- Escape and Edit Mode transitions remain Blizzard-owned. A tracked generic
+-- panel must not be reopened from ToggleGameMenu's post-hook.
+addon.db.openWorkspacePanels.CharacterFrame = true
+CharacterFrame:Hide()
+ToggleGameMenu()
 flushTimers()
-assert(ContainerFrameCombinedBags:IsShown() and not GameMenuFrame:IsShown(),
-    "Second Escape must preserve the workspace backpack while closing the Game Menu")
-ToggleAllBags()
-flushTimers()
-assert(not ContainerFrameCombinedBags:IsShown(),
-    "B must still close a workspace backpack explicitly")
+assert(not CharacterFrame:IsShown(),
+    "Escape must not auto-open a tracked generic Blizzard workspace panel")
+GameMenuFrame:Hide()
 
 useCombinedBags = false
 ContainerFrame1:Show()
-addon.Canvas:PrepareNativeBackpackFrame(ContainerFrame1)
-addon.Canvas:SetWorkspacePanelOpen(ContainerFrame1, true)
 CloseAllWindows()
-flushTimers()
-assert(ContainerFrame1:IsShown() and GameMenuFrame:IsShown(),
-    "Escape must preserve the individual workspace backpack and open the Game Menu")
-CloseAllWindows()
-flushTimers()
-assert(ContainerFrame1:IsShown() and not GameMenuFrame:IsShown(),
-    "Second Escape must preserve individual bags while closing the Game Menu")
-ToggleAllBags()
 flushTimers()
 assert(not ContainerFrame1:IsShown(),
-    "B must still close individual workspace bags explicitly")
-
--- Restore Window/single-screen play must use Blizzard's normal Escape path.
--- A stale dual-screen open snapshot may be retained for the next span, but it
--- must never reopen the native backpack while the workspace is inactive.
-useCombinedBags = true
-ContainerFrameCombinedBags:Show()
-addon.db.nativeBackpackWorkspaceOpen = true
-addon.db.openWorkspacePanels.ContainerFrameCombinedBags = true
-metrics.isSpanned = false
-CloseAllWindows()
-flushTimers()
-assert(not ContainerFrameCombinedBags:IsShown(),
-    "Escape must leave the native backpack closed while Offhand is not spanned")
-assert(addon.Canvas._workspaceBagAwaitingGameMenuToggle == nil,
-    "single-screen Escape must not arm the Forever workspace-bag repair")
-metrics.isSpanned = true
-
--- If Blizzard's bag API declines to reopen a logically stale backpack, Offhand
--- must not reveal ContainerFrame directly. That shell lacks initialized pooled
--- item buttons and crashes ContainerFrame_OnHide on the next Escape.
-local nativeOpenAllBags, nativeToggleAllBags = OpenAllBags, ToggleAllBags
-OpenAllBags = function() end
-ToggleAllBags = function() end
-ContainerFrameCombinedBags:Hide()
-assert(not addon.Canvas:RestoreTrackedWorkspaceBag()
-        and not ContainerFrameCombinedBags:IsShown(),
-    "workspace restore must not call Show directly on a native bag frame")
-OpenAllBags, ToggleAllBags = nativeOpenAllBags, nativeToggleAllBags
-
-useCombinedBags = true
-ContainerFrameCombinedBags:Show()
-addon.Canvas:PrepareNativeBackpackFrame(ContainerFrameCombinedBags)
-addon.Canvas:SetWorkspacePanelOpen(ContainerFrameCombinedBags, true)
-CloseAllWindows()
-local combatActive = true
-InCombatLockdown = function() return combatActive end
-flushTimers()
-combatActive = false
-InCombatLockdown = function() return false end
-assert(not ContainerFrameCombinedBags:IsShown(),
-    "Combat lockdown must abort deferred workspace backpack restoration from Escape")
-assert(addon.Canvas._restoringWorkspaceBagFromEscape == false,
-    "Combat lockdown must reset the restoringWorkspaceBagFromEscape guard flag")
+    "Forever must leave individual native-bag Escape behavior to Blizzard")
 
 addon.db.savedWorkspacePositions.WorldMapFrame = nil
 addon.db.savedMainPositions.WorldMapFrame = { x = 1600, y = 1000 }
