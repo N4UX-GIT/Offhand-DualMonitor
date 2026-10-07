@@ -548,7 +548,14 @@ function ForeverPersistence:RestorePositions()
         x, y, width, height = tonumber(x), tonumber(y), tonumber(width), tonumber(height)
         canvasWidth, canvasHeight = tonumber(canvasWidth), tonumber(canvasHeight)
         canvasLeft, canvasBottom = tonumber(canvasLeft), tonumber(canvasBottom)
-        if (kind == "W" or kind == "W2" or kind == "W3" or kind == "W4") and x and y then
+        local mainPosition = Offhand.db.savedMainPositions
+            and Offhand.db.savedMainPositions[name]
+        if type(mainPosition) == "table" and mainPosition.x and mainPosition.y then
+            -- Field-specific workspace CVars are only an older emergency
+            -- fallback. A durable Mainhand record is an explicit, mutually
+            -- exclusive owner and must not be combined with a stale W* value.
+            Offhand.db.savedWorkspacePositions[name] = nil
+        elseif (kind == "W" or kind == "W2" or kind == "W3" or kind == "W4") and x and y then
             Offhand.db.savedWorkspacePositions[name] = {
                 x = x,
                 y = y,
@@ -588,7 +595,12 @@ function ForeverPersistence:RestoreOpenPanels()
     end
     local openPanels = {}
     for name in payload:gmatch("[^,]+") do
-        if IsSafeFrameName(name) then openPanels[name] = true end
+        local mainPosition = Offhand.db.savedMainPositions
+            and Offhand.db.savedMainPositions[name]
+        if IsSafeFrameName(name)
+            and not (type(mainPosition) == "table" and mainPosition.x and mainPosition.y) then
+            openPanels[name] = true
+        end
     end
     Offhand.db.openWorkspacePanels = openPanels
 end
@@ -662,6 +674,11 @@ end
 function ForeverPersistence:SeedSessionFallback()
     if not self:IsAvailable() or not Offhand.db then return end
     self:SaveProfileSnapshot(false)
+    for name, position in pairs(Offhand.db.savedMainPositions or {}) do
+        if type(position) == "table" and position.x and position.y then
+            self:ClearPosition(name)
+        end
+    end
     for name, position in pairs(Offhand.db.savedWorkspacePositions or {}) do
         self:SaveWorkspacePosition(name, position, position.width, position.height)
     end
@@ -798,7 +815,12 @@ function Offhand:InitializeConfig()
     end
 
     local profileSnapshotState = "none"
-    if Offhand.isForever and not useForeverBridge then
+    if Offhand.isForever then
+        -- A newly generated Companion bridge can legitimately lag the newest
+        -- in-client snapshot by one shutdown (for example when Forever rotates
+        -- the SavedVariables .bak file during exit). Compare revisions even for
+        -- a fresh bridge so the newest complete state wins before seeding the
+        -- field-specific session fallbacks.
         profileSnapshotState = ForeverPersistence:RestoreProfileSnapshot(OffhandDB, OffhandCharDB)
     end
 

@@ -137,6 +137,62 @@ assert(sameSession.db.openWorkspacePanels.CharacterFrame == true
     "A consumed bridge snapshot must yield to later same-session visibility")
 ClearProfileSnapshotCVars()
 
+-- A cold launch can retain older field-specific workspace CVars after a panel
+-- was explicitly gathered to Mainhand. Never merge those mutually exclusive
+-- owners or the next UIPanel reflow will move it back to Offhand.
+cvars.offhandForeverPositionIndex = "CharacterFrame"
+cvars.offhandForeverPosition_CharacterFrame = "W4|100|900|430|600|1440|2560|0|0"
+cvars.offhandForeverOpenPanels = "V1|CharacterFrame"
+local mainhandDisk = NewAddon(true, { profiles = { Default = {
+    savedMainPositions = { CharacterFrame = { x = 1800, y = 1000 } },
+    savedWorkspacePositions = {},
+    openWorkspacePanels = {},
+} } })
+assert(mainhandDisk.db.savedMainPositions.CharacterFrame
+        and mainhandDisk.db.savedWorkspacePositions.CharacterFrame == nil
+        and mainhandDisk.db.openWorkspacePanels.CharacterFrame == nil,
+    "stale field CVars must not override durable Mainhand ownership")
+
+-- The Companion bridge may be generated from Forever's rotated .bak file and
+-- lag the complete in-client snapshot by one shutdown. Revision comparison
+-- must still run for a fresh bridge, then reseed/clear the older field CVars.
+ClearProfileSnapshotCVars()
+local newestMainhand = NewAddon(true, {
+    profiles = { Default = {
+        savedMainPositions = { CharacterFrame = { x = 1900, y = 980 } },
+        savedWorkspacePositions = {},
+        openWorkspacePanels = {},
+    } },
+    foreverPersistenceRevision = 4,
+})
+assert(newestMainhand.ForeverPersistence:SaveProfileSnapshot(true),
+    "newer Mainhand fixture must create a complete revisioned snapshot")
+cvars.offhandForeverRecoveryVersion = nil
+cvars.offhandForeverPositionIndex = "CharacterFrame"
+cvars.offhandForeverPosition_CharacterFrame = "W4|120|880|430|600|1440|2560|0|0"
+cvars.offhandForeverOpenPanels = "V1|CharacterFrame"
+local staleBridgeAccount = {
+    profiles = { Default = {
+        savedMainPositions = {},
+        savedWorkspacePositions = {
+            CharacterFrame = { x = 120, y = 880, canvasWidth = 1440, canvasHeight = 2560 },
+        },
+        openWorkspacePanels = { CharacterFrame = true },
+    } },
+    foreverPersistenceRevision = 4,
+}
+local bridgeWithNewerSnapshot = NewAddon(true, staleBridgeAccount, {}, "snapshot-2")
+assert(bridgeWithNewerSnapshot.db.savedMainPositions.CharacterFrame
+        and bridgeWithNewerSnapshot.db.savedMainPositions.CharacterFrame.x == 1900
+        and bridgeWithNewerSnapshot.db.savedWorkspacePositions.CharacterFrame == nil
+        and bridgeWithNewerSnapshot.db.openWorkspacePanels.CharacterFrame == nil,
+    "a newer complete snapshot must supersede a lagging fresh Companion bridge")
+assert(cvars.offhandForeverPosition_CharacterFrame == ""
+        and cvars.offhandForeverOpenPanels == "V1|",
+    "Mainhand bridge recovery must retire stale workspace position and visibility CVars")
+ClearProfileSnapshotCVars()
+cvars.offhandForeverRecoveryVersion = "snapshot-1"
+
 -- Forever can lose ordinary SavedVariables during /reload. Mirror the two
 -- display switches that determine whether the viewport and raw mouse manager
 -- are active, without treating an uninitialized cold-launch CVar as a value.
