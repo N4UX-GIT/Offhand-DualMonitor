@@ -1250,10 +1250,14 @@ print("PASS: Forever preserves Blizzard ownership of Edit Mode and its manager")
 ToggleGameMenu()
 flushTimers()
 local menuPt = GameMenuFrame.points[#GameMenuFrame.points]
-assert(menuPt == nil, "Forever must leave GameMenuFrame anchors Blizzard-owned")
+assert(menuPt and menuPt[1] == "CENTER" and menuPt[2] == UIParent
+        and menuPt[3] == "BOTTOMLEFT"
+        and math.abs(menuPt[4] - ((metrics.gameLeft + metrics.gameRight) / 2)) < 0.01
+        and math.abs(menuPt[5] - ((metrics.gameBottom + metrics.gameTop) / 2)) < 0.01,
+    "Forever must center GameMenuFrame on Mainhand during the native toggle")
 ToggleGameMenu() -- Dismiss cleanly
 assert(not GameMenuFrame:IsShown(), "GameMenuFrame must dismiss cleanly on toggle")
-print("PASS: Forever leaves GameMenuFrame native and it dismisses cleanly")
+print("PASS: Forever centers GameMenuFrame before render and it dismisses cleanly")
 
 -- ============================================================================
 -- TEST 7: Universal Void Rescue Engine (Focused Roster Frame & Rogue Frames)

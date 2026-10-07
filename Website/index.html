@@ -297,9 +297,9 @@
 
                     <div class="quest-step-card">
                         <div class="step-seal">4</div>
-                        <h3>Arrange Protected UI</h3>
+                        <h3>Create the Mainhand HUD Layout</h3>
                         <p>
-                            On WoW Forever, open Blizzard <strong>Edit Mode</strong>, select the <strong>Offhand</strong> layout, place action bars and protected combat frames inside the Mainhand game view, then save. If the Edit Mode options frame is missing, use <strong>Gather Off-Screen UI</strong> from <code>/oh</code>.
+                            Outside combat with Edit Mode closed, open <code>/oh</code> &rarr; <strong>Offhand Monitor</strong> &rarr; <strong>Recovery &amp; Preview</strong>, then click <strong>Create Mainhand HUD Layout</strong>. Reload when prompted. Offhand moves default protected HUD anchors into Mainhand and gives the XP and stance bars a compact action-bar stack while preserving custom-positioned source entries. Fine-tune the generated layout in Blizzard Edit Mode; on Forever, designate it with <strong>Use Current Edit Mode Layout</strong>.
                         </p>
                     </div>
 
@@ -348,6 +348,18 @@
                             <div class="faq-tip">
                                 <strong>Important:</strong> Do not select <em>Windowed (Fullscreen)</em>. Windows restricts borderless fullscreen to a single monitor. Selecting standard <em>Windowed</em> mode allows the Offhand Companion or your window manager to span the canvas across both screens.
                             </div>
+                        </div>
+                    </details>
+
+                    <details class="faq-card">
+                        <summary class="faq-summary">
+                            <h4>How should I place action bars, XP, stance, party, and raid frames?</h4>
+                            <svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </summary>
+                        <div class="faq-body">
+                            <p>
+                                On Forever and Retail, use <strong>Create Mainhand HUD Layout</strong> from the in-game Recovery &amp; Preview card. It clones the active Blizzard layout instead of directly moving protected frames, translates default anchors into Mainhand, places the XP/status bar above the main action bar, and places the stance bar above action button 1. Reload, then use Blizzard Edit Mode for personal adjustments. Classic clients without Blizzard Edit Mode use Offhand's direct compatibility layout; custom action-bar addons retain ownership of their own frames.
+                            </p>
                         </div>
                     </details>
 

@@ -959,6 +959,29 @@ local function EnsureSecureTransientPositioner()
     return positioner
 end
 
+-- Forever initially anchors the Escape menu to the full spanned UIParent, whose
+-- center can be the upper-left corner of Mainhand in a mixed-height topology.
+-- Correct it from an external secure post-hook during the same ToggleGameMenu
+-- call, before the next rendered frame. Do not replace Blizzard's function or
+-- attach scripts to the menu itself.
+local function PositionForeverGameMenu()
+    if not UsesForeverEditMode() or InCombatLockdown()
+        or not Offhand.db or not Offhand.db.enabled or not Offhand.db.seamRedirect then return false end
+    local frame = _G.GameMenuFrame
+    local m = Offhand.Viewport and Offhand.Viewport.GetMetrics
+        and Offhand.Viewport:GetMetrics() or nil
+    if not frame or not m or not m.isSpanned or not frame.ClearAllPoints
+        or not frame.SetPoint or (frame.IsForbidden and frame:IsForbidden()) then return false end
+    local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
+    local cx = (m.gameLeft + m.gameRight) / 2
+    local cy = (m.gameBottom + m.gameTop) / 2
+    local ok = pcall(function()
+        frame:ClearAllPoints()
+        frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
+    end)
+    return ok
+end
+
 local function IsStockSecureTransientAnchor(frame, spec)
     if secureTransientOwned[frame] then return true end
     if frame.IsUserPlaced and frame:IsUserPlaced() then return false end
@@ -1340,6 +1363,24 @@ function HUD:AlignHUDFrames(m)
                     Points(xp, {"BOTTOM", main, "TOP", 0, -2})
                 end
 
+                -- Match Blizzard's compact default stack: the thin XP/reputation
+                -- bar sits directly above the main bar, while stance/form buttons
+                -- begin above action button 1 on the left. This is a one-pass
+                -- legacy default adjustment, not a managed-frame hook: form bars
+                -- retain native ownership after the initial layout.
+                local stance = StanceBar or ShapeshiftBarFrame
+                if stance and main
+                    and (not stance.IsInDefaultPosition or stance:IsInDefaultPosition()) then
+                    local point, relativeTo, relativePoint, x, y = stance:GetPoint(1)
+                    if stance:GetNumPoints() ~= 1 or point ~= "BOTTOMLEFT"
+                        or relativeTo ~= main or relativePoint ~= "TOPLEFT"
+                        or math.abs((x or 0) - 0) > 0.001
+                        or math.abs((y or 0) - 14) > 0.001 then
+                        stance:ClearAllPoints()
+                        stance:SetPoint("BOTTOMLEFT", main, "TOPLEFT", 0, 14)
+                    end
+                end
+
                 local bottomLeft, bottomRight = MultiBarBottomLeft, MultiBarBottomRight
                 Prepare(bottomLeft, m)
                 Prepare(bottomRight, m)
@@ -1548,6 +1589,17 @@ end
 
 function HUD:HookFrames()
     self:HookMainhandTransientFrames()
+    if UsesForeverEditMode() then
+        -- Seed the hidden frame as soon as it exists, then repair synchronously
+        -- after every native toggle in case Blizzard rebuilt its stock anchor.
+        PositionForeverGameMenu()
+        if hooksecurefunc and ToggleGameMenu and not self.foreverGameMenuHooked then
+            self.foreverGameMenuHooked = true
+            hooksecurefunc("ToggleGameMenu", function()
+                PositionForeverGameMenu()
+            end)
+        end
+    end
     if not HasBlizzardEditMode() and not HasCustomActionBarAddon() then
         if not self.managerHooked and UIParent_ManageFramePositions then
             self.managerHooked = true

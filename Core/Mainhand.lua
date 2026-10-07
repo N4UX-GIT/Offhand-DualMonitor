@@ -364,6 +364,73 @@ local function TransformLayout(layout, rect)
     return moved
 end
 
+local function EntryScreenPoint(entry, screen)
+    local info = entry and entry.anchorInfo
+    if type(info) ~= "table" or type(info.offsetX) ~= "number"
+        or type(info.offsetY) ~= "number" then return nil end
+    local relativePoint = info.relativePoint or info.point or "CENTER"
+    local x, y = PointBase(relativePoint, screen)
+    return x + info.offsetX, y + info.offsetY
+end
+
+local function SetScreenAnchor(entry, screen, point, x, y)
+    local info = entry and entry.anchorInfo
+    if type(info) ~= "table" then return false end
+    local baseX, baseY = PointBase(point, screen)
+    info.point = point
+    info.relativeTo = "UIParent"
+    info.relativePoint = point
+    info.offsetX = x - baseX
+    info.offsetY = y - baseY
+    entry.isInDefaultPosition = false
+    return true
+end
+
+-- Refine only HUD systems that were still in their source layout's default
+-- position. Explicitly customized source entries remain untouched. Enum lookup
+-- keeps this capability-based across Forever and Retail without assuming that
+-- numeric system identifiers are identical between client versions.
+local function RefineStandardHUDLayout(layout, rect, sourceDefaults)
+    local systems = Enum and Enum.EditModeSystem
+    local indices = Enum and Enum.EditModeActionBarSystemIndices
+    if type(systems) ~= "table" or type(indices) ~= "table" then return 0 end
+    local actionSystem = systems.ActionBar
+    local statusSystem = systems.StatusTrackingBar
+    local mainIndex = indices.MainBar
+    local stanceIndex = indices.StanceBar or indices.Stance or indices.ClassBar
+    if actionSystem == nil or mainIndex == nil then return 0 end
+
+    local screen = {
+        left = 0, bottom = 0, right = UIParent:GetWidth(), top = UIParent:GetHeight(),
+    }
+    local mainX, mainY = (rect.left + rect.right) / 2, rect.bottom
+    for index, entry in ipairs(layout.systems or {}) do
+        if sourceDefaults[index] and entry.system == actionSystem
+            and entry.systemIndex == mainIndex then
+            mainX, mainY = EntryScreenPoint(entry, screen)
+            mainX, mainY = mainX or (rect.left + rect.right) / 2, mainY or rect.bottom
+            break
+        end
+    end
+
+    local refined = 0
+    for index, entry in ipairs(layout.systems or {}) do
+        if sourceDefaults[index] then
+            if statusSystem ~= nil and entry.system == statusSystem then
+                if SetScreenAnchor(entry, screen, "BOTTOM", mainX, mainY + 43) then
+                    refined = refined + 1
+                end
+            elseif stanceIndex ~= nil and entry.system == actionSystem
+                and entry.systemIndex == stanceIndex then
+                if SetScreenAnchor(entry, screen, "BOTTOMLEFT", mainX - 252, mainY + 58) then
+                    refined = refined + 1
+                end
+            end
+        end
+    end
+    return refined
+end
+
 local function UniqueLayoutName(data)
     local player = UnitName and UnitName("player") or nil
     local base = "Offhand - Mainhand" .. (player and (" - " .. player) or "")
@@ -436,7 +503,12 @@ function Mainhand:CreateOrUpdateEditModeLayout()
     if not generatedName then generatedName = UniqueLayoutName(data) end
 
     local layout = DeepCopy(source)
+    local sourceDefaults = {}
+    for index, entry in ipairs(layout.systems or {}) do
+        sourceDefaults[index] = entry.isInDefaultPosition ~= false
+    end
     local moved = TransformLayout(layout, rect)
+    RefineStandardHUDLayout(layout, rect, sourceDefaults)
     if moved == 0 then return false, "already", LayoutName(source, "layout"), 0 end
     layout.layoutName = generatedName
     layout.layoutIndex = nil

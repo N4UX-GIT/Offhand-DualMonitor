@@ -1,6 +1,6 @@
 # Mainhand Placement
 
-Status: **implementation branch; static and simulated tests pass, live client approval pending.**
+Status: **implementation branch; core Forever workflow live-tested, refined HUD stacking pending live approval.**
 
 Offhand exposes the Mainhand game rectangle without taking ownership of arbitrary
 addon frames. The implementation has separate paths for unprotected windows and
@@ -17,7 +17,10 @@ The Recovery card contains three related actions:
 - **Create Mainhand HUD Layout** clones the recorded source or active Blizzard
   Edit Mode layout, translates its UIParent-relative anchors from the complete
   WoW canvas to the Mainhand rectangle, saves a character-associated generated
-  layout, activates it, and offers to reload.
+  layout, activates it, and offers to reload. Source entries still using
+  Blizzard's default positions receive a compact standard stack: the XP/status
+  bar sits above the main action bar and the stance bar begins above action
+  button 1. Explicitly customized source entries remain unchanged.
 
 Layout writes require a player click, no combat, and a closed Edit Mode window.
 Regeneration always starts from the recorded source layout. It never applies a
@@ -61,6 +64,19 @@ an error is also removed so repeated display events cannot flood the client.
 - Offhand does not globally hook `CreateFrame`, `SetPoint`, or third-party mover
   implementations.
 
+## Client behavior
+
+- **Forever:** generated Edit Mode layouts use the client-specific custom-layout
+  identifier offset and are designated per character for Companion recovery.
+- **Retail:** the same capability-detected Edit Mode transformation and default
+  XP/stance refinement applies, without Forever's recovery bridge.
+- **Classic Era, Hardcore, and Classic branches without Edit Mode:** no generated
+  layout is written. Offhand uses its established direct compatibility anchors;
+  XP/reputation stays above the main bar and stance/form buttons align over its
+  left edge. Custom action-bar addons remain authoritative.
+- **Legacy Wrath 3.3.5a:** the direct path is syntax/simulation compatible but
+  remains experimental until the documented genuine-client matrix passes.
+
 ## Required live validation
 
 - Forever and Retail: Modern, Classic, and existing custom source layouts.
@@ -71,4 +87,3 @@ an error is also removed so repeated display events cannot flood the client.
   viewers, and taint logging before and after reload.
 - Missing-monitor fallback and restoration of the generated Forever layout.
 - Safe gathering with Blizzard windows and several movable addon windows.
-

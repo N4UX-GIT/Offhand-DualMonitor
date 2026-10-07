@@ -121,6 +121,8 @@ addon.Canvas = nil
 Enum = {
     EditModeLayoutType = { Account = 1 },
     InputDeviceInterfaceType = { Gamepad = 2 },
+    EditModeSystem = { ActionBar = 10, StatusTrackingBar = 20 },
+    EditModeActionBarSystemIndices = { MainBar = 1, StanceBar = 8 },
 }
 Constants = { EditModeConsts = { EditModeMaxLayoutsPerType = 10 } }
 local preset = {
@@ -128,10 +130,14 @@ local preset = {
     systems = {
         { isInDefaultPosition = true,
           anchorInfo = { point = "CENTER", relativeTo = "UIParent", relativePoint = "CENTER", offsetX = 0, offsetY = 0 } },
-        { isInDefaultPosition = true,
+        { system = 20, systemIndex = 1, isInDefaultPosition = true,
           anchorInfo = { point = "TOPRIGHT", relativeTo = "UIParent", relativePoint = "TOPRIGHT", offsetX = -20, offsetY = -30 } },
-        { isInDefaultPosition = false,
+        { system = 10, systemIndex = 8, isInDefaultPosition = false,
           anchorInfo = { point = "LEFT", relativeTo = "OtherSystem", relativePoint = "RIGHT", offsetX = 5, offsetY = 0 } },
+        { system = 10, systemIndex = 8, isInDefaultPosition = true,
+          anchorInfo = { point = "BOTTOMLEFT", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT", offsetX = 0, offsetY = 0 } },
+        { system = 10, systemIndex = 1, isInDefaultPosition = true,
+          anchorInfo = { point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOM", offsetX = 0, offsetY = 0 } },
     },
 }
 EditModePresetLayoutManager = {
@@ -147,18 +153,26 @@ C_EditMode = {
 }
 
 ok, localName, moved = addon.Mainhand:CreateOrUpdateEditModeLayout()
-assert(ok and localName == "Offhand - Mainhand - Tester" and moved == 2,
+assert(ok and localName == "Offhand - Mainhand - Tester" and moved == 4,
     "Mainhand Edit Mode layout was not generated from the active preset")
 assert(activated == 4 and #saved.layouts == 1, "generated custom layout used the wrong global ID")
 local generated = saved.layouts[1]
 assert(generated.systems[1].anchorInfo.offsetX == 720
         and generated.systems[1].anchorInfo.offsetY == -560,
     "center anchor was not translated to the Mainhand center")
-assert(generated.systems[2].anchorInfo.offsetX == -20
-        and generated.systems[2].anchorInfo.offsetY == -1150,
-    "edge anchor was not translated to the Mainhand edge")
+assert(generated.systems[2].anchorInfo.point == "BOTTOM"
+        and generated.systems[2].anchorInfo.offsetX == 720
+        and generated.systems[2].anchorInfo.offsetY == 43,
+    "the default XP/status bar was not stacked directly above the Mainhand action bar")
 assert(generated.systems[3].anchorInfo.offsetX == 5,
     "a system-relative anchor was unexpectedly changed")
+assert(generated.systems[4].anchorInfo.point == "BOTTOMLEFT"
+        and generated.systems[4].anchorInfo.offsetX == 2468
+        and generated.systems[4].anchorInfo.offsetY == 58,
+    "the default stance bar was not placed above the first Mainhand action button")
+assert(generated.systems[5].anchorInfo.offsetX == 720
+        and generated.systems[5].anchorInfo.offsetY == 0,
+    "the default Mainhand action bar anchor was not translated")
 assert(preset.systems[1].anchorInfo.offsetX == 0 and preset.systems[1].anchorInfo.offsetY == 0,
     "the source preset was mutated")
 assert(OffhandCharDB.mainhandLayout.sourcePreset
@@ -171,7 +185,7 @@ assert(OffhandCharDB.mainhandLayout.sourcePreset
 metrics = { gameLeft = 0, gameBottom = 0, gameRight = 2560, gameTop = 1440, isSpanned = true }
 addon.Mainhand:Update("topology")
 ok, localName, moved = addon.Mainhand:CreateOrUpdateEditModeLayout()
-assert(ok and #saved.layouts == 1 and activated == 4 and moved == 2,
+assert(ok and #saved.layouts == 1 and activated == 4 and moved == 4,
     "layout update duplicated the generated layout")
 generated = saved.layouts[1]
 assert(generated.systems[1].anchorInfo.offsetX == -720
