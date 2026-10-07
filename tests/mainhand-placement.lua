@@ -207,6 +207,17 @@ assert(actionOK and actionName == "Offhand - Mainhand - Return Contract" and act
     "Options collapsed the Mainhand layout result values")
 addon.Mainhand.CreateOrUpdateEditModeLayout = createLayout
 
+local gatherAction = addon.Mainhand.GatherSafeUI
+addon.Mainhand.GatherSafeUI = function()
+    return false, "combat", 4, 5
+end
+local gatherActionOK, gatherActionWhy, gatherActionMoved, gatherActionSkipped =
+    addon.Options:GatherSafeUIToMainhand()
+assert(not gatherActionOK and gatherActionWhy == "combat"
+        and gatherActionMoved == 4 and gatherActionSkipped == 5,
+    "Options collapsed the safe gather result values")
+addon.Mainhand.GatherSafeUI = gatherAction
+
 C_EditMode.SaveLayouts = nil
 ok, why = addon.Mainhand:CreateOrUpdateEditModeLayout()
 assert(not ok and why == "save-api",

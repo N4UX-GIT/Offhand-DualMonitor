@@ -94,6 +94,13 @@ function Options:CreateMainhandHUDLayout()
     return false, "unavailable"
 end
 
+function Options:GatherSafeUIToMainhand()
+    if Offhand.Mainhand and Offhand.Mainhand.GatherSafeUI then
+        return Offhand.Mainhand:GatherSafeUI()
+    end
+    return false, "unavailable", 0, 0
+end
+
 -- Shared presentation rules for settings and the wizard. Selection is not disability.
 function Options:SetChoiceSelected(button, selected)
     button:SetEnabled(true)
@@ -1686,8 +1693,7 @@ function Options:CreateFloatingPanel()
     gatherMainhand:SetPoint("TOPRIGHT", recoveryCard, "TOPRIGHT", -12, -30)
     gatherMainhand:SetText(L["GATHER_MAINHAND_UI"])
     gatherMainhand:SetScript("OnClick", function()
-        local ok, why, moved, skipped = Offhand.Mainhand and Offhand.Mainhand.GatherSafeUI
-            and Offhand.Mainhand:GatherSafeUI()
+        local ok, why, moved, skipped = Options:GatherSafeUIToMainhand()
         if ok then
             Offhand:Print(L["GATHER_MAINHAND_RESULT"], moved or 0, skipped or 0)
         else
