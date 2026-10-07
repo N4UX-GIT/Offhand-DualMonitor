@@ -345,12 +345,13 @@ local function PointBase(point, rect)
     return x, y
 end
 
-local function TransformLayout(layout, rect)
+local function TransformLayout(layout, rect, skipEntry)
     local screen = { left = 0, bottom = 0, right = UIParent:GetWidth(), top = UIParent:GetHeight() }
     local moved = 0
     for _, entry in ipairs(layout.systems or {}) do
         local info = entry.anchorInfo
-        if type(info) == "table" and (info.relativeTo == nil or info.relativeTo == "UIParent")
+        if not (skipEntry and skipEntry(entry))
+            and type(info) == "table" and (info.relativeTo == nil or info.relativeTo == "UIParent")
             and type(info.offsetX) == "number" and type(info.offsetY) == "number" then
             local relativePoint = info.relativePoint or info.point or "CENTER"
             local sx, sy = PointBase(relativePoint, screen)
@@ -394,6 +395,13 @@ local function FramePoint(frame, fallback)
     return type(fallback) == "string" and fallback or "CENTER"
 end
 
+local function FrameEdge(frame, method)
+    if frame and type(frame[method]) == "function" then
+        local ok, value = pcall(frame[method], frame)
+        if ok and type(value) == "number" then return value end
+    end
+end
+
 local function PlaceFromMainAnchor(entry, mainAnchor, targetFrame,
     fallbackWidth, fallbackHeight, left, bottom)
     if type(entry) ~= "table" or type(mainAnchor) ~= "table"
@@ -428,34 +436,56 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults)
     local statusSystem = systems.StatusTrackingBar
     local extraSystem = systems.ExtraAbilities or systems.ExtraAbility
     local vehicleSystem = systems.VehicleLeaveButton or systems.VehicleExitButton
+    local encounterSystem = systems.EncounterBar
+    local lossOfControlSystem = systems.LossOfControl or systems.LossOfControlFrame
     local mainIndex = indices.MainBar
-    local stanceIndex = indices.StanceBar or indices.Stance or indices.ClassBar
+    -- ClassBar is not a safe stance fallback on Forever: it can identify the
+    -- empty MultiCast/Totem preview, whose native tooltip rejects a nil spell.
+    local stanceIndex = indices.StanceBar or indices.Stance
     local petIndex = indices.PetActionBar or indices.PetBar
+    local possessIndex = indices.PossessActionBar or indices.PossessBar
     if actionSystem == nil or mainIndex == nil then return 0 end
 
-    local mainAnchor
+    local mainAnchor, lossOfControlAnchor
     for index, entry in ipairs(layout.systems or {}) do
         if sourceDefaults[index] and entry.system == actionSystem
             and entry.systemIndex == mainIndex and type(entry.anchorInfo) == "table" then
             mainAnchor = entry.anchorInfo
-            break
+        elseif sourceDefaults[index] and lossOfControlSystem ~= nil
+            and entry.system == lossOfControlSystem and type(entry.anchorInfo) == "table" then
+            lossOfControlAnchor = entry.anchorInfo
         end
     end
     if not mainAnchor then return 0 end
 
-    local mainFrame = _G.MainMenuBar or _G.MainActionBar
+    local mainFrame = _G.MainActionBar or _G.MainMenuBar
     local mainWidth, mainHeight = FrameSize(mainFrame, 1390, 50)
     local mainPX, mainPY = PointFractions(FramePoint(mainFrame, mainAnchor.point))
     local mainLeft = -(mainWidth * mainPX)
     local mainBottom = -(mainHeight * mainPY)
     local mainRight, mainTop = mainLeft + mainWidth, mainBottom + mainHeight
+    local mainScreenLeft = FrameEdge(mainFrame, "GetLeft")
+    local mainReferenceX = mainScreenLeft and (mainScreenLeft + mainWidth * mainPX) or nil
+    local actionLeft = FrameEdge(_G.ActionButton1, "GetLeft") or mainScreenLeft
+    local bagRight
+    for _, name in ipairs({
+        "MainMenuBarBackpackButton", "BagsBar", "MicroButtonAndBagsBar", "MainMenuBar",
+    }) do
+        bagRight = FrameEdge(_G[name], "GetRight")
+        if bagRight then break end
+    end
+    local hudLeft = mainReferenceX and actionLeft and (actionLeft - mainReferenceX) or mainLeft
+    local hudRight = mainReferenceX and bagRight and (bagRight - mainReferenceX) or mainRight
     local statusFrame = _G.StatusTrackingBarManager or _G.MainMenuExpBar
     local statusWidth, statusHeight = FrameSize(statusFrame, mainWidth, 14)
     local stanceFrame = _G.StanceBar or _G.ShapeshiftBarFrame
-    local stanceWidth, stanceHeight = FrameSize(stanceFrame, 252, 36)
+    local _, stanceHeight = FrameSize(stanceFrame, 252, 36)
     local petFrame = _G.PetActionBar or _G.PetActionBarFrame
     local vehicleFrame = _G.MainMenuBarVehicleLeaveButton or _G.VehicleExitButton
     local extraFrame = _G.ExtraAbilityContainer or _G.ExtraAbilityBar
+    local possessFrame = _G.PossessActionBar or _G.PossessBarFrame
+    local lossOfControlFrame = _G.LossOfControlFrame
+    local encounterFrame = _G.EncounterBar or _G.UIWidgetPowerBarContainerFrame
     local stanceBottom = mainTop + statusHeight + 8
 
     local refined = 0
@@ -465,19 +495,19 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults)
                 -- Align the complete XP/reputation bar's right edge with the
                 -- complete Blizzard main/bag bar, not merely Action Button 1.
                 if PlaceFromMainAnchor(entry, mainAnchor, statusFrame,
-                    mainWidth, 14, mainRight - statusWidth, mainTop + 3) then
+                    mainWidth, 14, hudRight - statusWidth, mainTop + 3) then
                     refined = refined + 1
                 end
             elseif stanceIndex ~= nil and entry.system == actionSystem
                 and entry.systemIndex == stanceIndex then
                 if PlaceFromMainAnchor(entry, mainAnchor, stanceFrame,
-                    252, 36, mainLeft, stanceBottom) then
+                    252, 36, hudLeft, stanceBottom) then
                     refined = refined + 1
                 end
             elseif petIndex ~= nil and entry.system == actionSystem
                 and entry.systemIndex == petIndex then
                 if PlaceFromMainAnchor(entry, mainAnchor, petFrame,
-                    400, 36, mainLeft + stanceWidth + 8, stanceBottom) then
+                    400, 36, hudLeft, stanceBottom) then
                     refined = refined + 1
                 end
             elseif extraSystem ~= nil and entry.system == extraSystem then
@@ -489,7 +519,25 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults)
                 end
             elseif vehicleSystem ~= nil and entry.system == vehicleSystem then
                 if PlaceFromMainAnchor(entry, mainAnchor, vehicleFrame,
-                    52, 52, mainLeft, stanceBottom + stanceHeight + 8) then
+                    52, 52, hudLeft, stanceBottom + stanceHeight + 8) then
+                    refined = refined + 1
+                end
+            elseif possessIndex ~= nil and entry.system == actionSystem
+                and entry.systemIndex == possessIndex then
+                if PlaceFromMainAnchor(entry, mainAnchor, possessFrame,
+                    400, 36, hudLeft, mainTop + statusHeight + 8) then
+                    refined = refined + 1
+                end
+            elseif encounterSystem ~= nil and entry.system == encounterSystem
+                and lossOfControlAnchor then
+                local locWidth, locHeight = FrameSize(lossOfControlFrame, 300, 90)
+                local locPX, locPY = PointFractions(FramePoint(lossOfControlFrame,
+                    lossOfControlAnchor.point))
+                local locLeft, locBottom = -(locWidth * locPX), -(locHeight * locPY)
+                local encounterWidth = FrameSize(encounterFrame, 280, 40)
+                if PlaceFromMainAnchor(entry, lossOfControlAnchor, encounterFrame,
+                    280, 40, locLeft + (locWidth - encounterWidth) / 2,
+                    locBottom + locHeight + 8) then
                     refined = refined + 1
                 end
             end
@@ -574,7 +622,18 @@ function Mainhand:CreateOrUpdateEditModeLayout()
     for index, entry in ipairs(layout.systems or {}) do
         sourceDefaults[index] = entry.isInDefaultPosition ~= false
     end
-    local moved = TransformLayout(layout, rect)
+    local editModeSystems = Enum and Enum.EditModeSystem
+    local actionIndices = Enum and Enum.EditModeActionBarSystemIndices
+    local foreverActionSystem = editModeSystems and editModeSystems.ActionBar
+    local foreverClassBar = actionIndices and actionIndices.ClassBar
+    local moved = TransformLayout(layout, rect, function(entry)
+        -- Forever's empty MultiCast/Totem Edit Mode preview can call
+        -- C_TooltipInfo.GetSpellByID(nil) after an addon-generated relocation.
+        -- Leave this ambiguous ClassBar entry exactly where the source layout
+        -- put it; stance, pet and possess have their own unambiguous indices.
+        return Offhand.isForever and foreverActionSystem ~= nil and foreverClassBar ~= nil
+            and entry.system == foreverActionSystem and entry.systemIndex == foreverClassBar
+    end)
     RefineStandardHUDLayout(layout, rect, sourceDefaults)
     if moved == 0 then return false, "already", LayoutName(source, "layout"), 0 end
     layout.layoutName = generatedName

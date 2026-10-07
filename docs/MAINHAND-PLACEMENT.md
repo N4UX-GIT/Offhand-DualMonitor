@@ -19,10 +19,12 @@ The Recovery card contains three related actions:
   WoW canvas to the Mainhand rectangle, saves a character-associated generated
   layout, activates it, and offers to reload. Source entries still using
   Blizzard's default positions receive a compact standard stack: the XP/status
-  bar aligns with the complete main/bag bar, stance and pet controls sit above
-  its left edge, the vehicle-exit control sits above stance, and extra abilities
-  sit above the action/XP stack. Explicitly customized source entries remain
-  unchanged.
+  bar aligns with Action Button 1 and the backpack edge; stance, pet, possess,
+  and vehicle-exit controls align over its left edge; extra abilities sit above
+  the action/XP stack; and Encounter sits above Loss of Control. Explicitly
+  customized source entries remain unchanged. Forever leaves the ambiguous
+  MultiCast/ClassBar entry at its source position to avoid the client's empty
+  spell-tooltip error.
 
 Layout writes require a player click, no combat, and a closed Edit Mode window.
 Regeneration always starts from the recorded source layout. It never applies a

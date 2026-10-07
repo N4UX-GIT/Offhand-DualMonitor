@@ -130,12 +130,21 @@ Enum = {
     EditModeSystem = {
         ActionBar = 10, StatusTrackingBar = 20,
         ExtraAbilities = 30, VehicleLeaveButton = 40,
+        EncounterBar = 50, LossOfControl = 60,
     },
-    EditModeActionBarSystemIndices = { MainBar = 1, StanceBar = 8, PetActionBar = 9 },
+    EditModeActionBarSystemIndices = {
+        MainBar = 1, StanceBar = 8, PetActionBar = 9,
+        PossessActionBar = 10, ClassBar = 11,
+    },
 }
 MainMenuBar = frame("MainMenuBar")
 MainMenuBar.w, MainMenuBar.h = 1000, 40
+MainMenuBar.left, MainMenuBar.right = 2000, 3000
 MainMenuBar:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 0)
+ActionButton1 = frame("ActionButton1")
+ActionButton1.left = 2050
+MainMenuBarBackpackButton = frame("MainMenuBarBackpackButton")
+MainMenuBarBackpackButton.right = 3100
 StatusTrackingBarManager = frame("StatusTrackingBarManager")
 StatusTrackingBarManager.w, StatusTrackingBarManager.h = 1000, 12
 StatusTrackingBarManager:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 0)
@@ -151,6 +160,15 @@ ExtraAbilityContainer:SetPoint("CENTER", UIParent, "BOTTOM", 0, 0)
 MainMenuBarVehicleLeaveButton = frame("MainMenuBarVehicleLeaveButton")
 MainMenuBarVehicleLeaveButton.w, MainMenuBarVehicleLeaveButton.h = 50, 50
 MainMenuBarVehicleLeaveButton:SetPoint("BOTTOMLEFT", UIParent, "BOTTOM", 0, 0)
+PossessActionBar = frame("PossessActionBar")
+PossessActionBar.w, PossessActionBar.h = 400, 36
+PossessActionBar:SetPoint("BOTTOMLEFT", UIParent, "BOTTOM", 0, 0)
+LossOfControlFrame = frame("LossOfControlFrame")
+LossOfControlFrame.w, LossOfControlFrame.h = 300, 90
+LossOfControlFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+EncounterBar = frame("EncounterBar")
+EncounterBar.w, EncounterBar.h = 280, 40
+EncounterBar:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 Constants = { EditModeConsts = { EditModeMaxLayoutsPerType = 10 } }
 local preset = {
     layoutName = "Modern", layoutIndex = 1, layoutType = 1, interfaceStyle = 1,
@@ -171,6 +189,14 @@ local preset = {
           anchorInfo = { point = "CENTER", relativeTo = "UIParent", relativePoint = "CENTER", offsetX = 0, offsetY = 0 } },
         { system = 40, systemIndex = 1, isInDefaultPosition = true,
           anchorInfo = { point = "BOTTOMLEFT", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT", offsetX = 0, offsetY = 0 } },
+        { system = 10, systemIndex = 10, isInDefaultPosition = true,
+          anchorInfo = { point = "BOTTOMLEFT", relativeTo = "UIParent", relativePoint = "BOTTOM", offsetX = 0, offsetY = 0 } },
+        { system = 60, systemIndex = 1, isInDefaultPosition = true,
+          anchorInfo = { point = "CENTER", relativeTo = "UIParent", relativePoint = "CENTER", offsetX = 0, offsetY = 0 } },
+        { system = 50, systemIndex = 1, isInDefaultPosition = true,
+          anchorInfo = { point = "CENTER", relativeTo = "UIParent", relativePoint = "CENTER", offsetX = 0, offsetY = 0 } },
+        { system = 10, systemIndex = 11, isInDefaultPosition = true,
+          anchorInfo = { point = "CENTER", relativeTo = "UIParent", relativePoint = "CENTER", offsetX = 0, offsetY = 0 } },
     },
 }
 EditModePresetLayoutManager = {
@@ -186,7 +212,7 @@ C_EditMode = {
 }
 
 ok, localName, moved = addon.Mainhand:CreateOrUpdateEditModeLayout()
-assert(ok and localName == "Offhand - Mainhand - Tester" and moved == 7,
+assert(ok and localName == "Offhand - Mainhand - Tester" and moved == 10,
     "Mainhand Edit Mode layout was not generated from the active preset")
 assert(activated == 4 and #saved.layouts == 1, "generated custom layout used the wrong global ID")
 local generated = saved.layouts[1]
@@ -194,20 +220,20 @@ assert(generated.systems[1].anchorInfo.offsetX == 720
         and generated.systems[1].anchorInfo.offsetY == -560,
     "center anchor was not translated to the Mainhand center")
 assert(generated.systems[2].anchorInfo.point == "BOTTOM"
-        and generated.systems[2].anchorInfo.offsetX == 720
+        and generated.systems[2].anchorInfo.offsetX == 820
         and generated.systems[2].anchorInfo.offsetY == 43,
     "the default XP/status bar was not stacked directly above the Mainhand action bar")
 assert(generated.systems[3].anchorInfo.offsetX == 5,
     "a system-relative anchor was unexpectedly changed")
 assert(generated.systems[4].anchorInfo.point == "BOTTOMLEFT"
-        and generated.systems[4].anchorInfo.offsetX == 220
+        and generated.systems[4].anchorInfo.offsetX == 270
         and generated.systems[4].anchorInfo.offsetY == 60,
     "the default stance bar was not placed above the first Mainhand action button")
 assert(generated.systems[5].anchorInfo.offsetX == 720
         and generated.systems[5].anchorInfo.offsetY == 0,
     "the default Mainhand action bar anchor was not translated")
 assert(generated.systems[6].anchorInfo.point == "BOTTOMLEFT"
-        and generated.systems[6].anchorInfo.offsetX == 468
+        and generated.systems[6].anchorInfo.offsetX == 270
         and generated.systems[6].anchorInfo.offsetY == 60,
     "the default pet bar was not placed beside the stance bar")
 assert(generated.systems[7].anchorInfo.point == "CENTER"
@@ -215,9 +241,21 @@ assert(generated.systems[7].anchorInfo.point == "CENTER"
         and generated.systems[7].anchorInfo.offsetY == 110,
     "the default extra-abilities frame was not placed above the XP bar")
 assert(generated.systems[8].anchorInfo.point == "BOTTOMLEFT"
-        and generated.systems[8].anchorInfo.offsetX == 220
+        and generated.systems[8].anchorInfo.offsetX == 270
         and generated.systems[8].anchorInfo.offsetY == 104,
     "the default vehicle-exit frame was not placed above the stance bar")
+assert(generated.systems[9].anchorInfo.point == "BOTTOMLEFT"
+        and generated.systems[9].anchorInfo.offsetX == 270
+        and generated.systems[9].anchorInfo.offsetY == 60,
+    "the default possess bar was not placed above the XP bar")
+assert(generated.systems[11].anchorInfo.point == "CENTER"
+        and generated.systems[11].anchorInfo.offsetX == 720
+        and generated.systems[11].anchorInfo.offsetY == -487,
+    "the default encounter bar was not placed above Loss of Control")
+assert(generated.systems[12].anchorInfo.offsetX == 0
+        and generated.systems[12].anchorInfo.offsetY == 0
+        and generated.systems[12].isInDefaultPosition == true,
+    "the Forever MultiCast/Class bar was moved away from its safe source position")
 assert(preset.systems[1].anchorInfo.offsetX == 0 and preset.systems[1].anchorInfo.offsetY == 0,
     "the source preset was mutated")
 assert(OffhandCharDB.mainhandLayout.sourcePreset
@@ -230,7 +268,7 @@ assert(OffhandCharDB.mainhandLayout.sourcePreset
 metrics = { gameLeft = 0, gameBottom = 0, gameRight = 2560, gameTop = 1440, isSpanned = true }
 addon.Mainhand:Update("topology")
 ok, localName, moved = addon.Mainhand:CreateOrUpdateEditModeLayout()
-assert(ok and #saved.layouts == 1 and activated == 4 and moved == 7,
+assert(ok and #saved.layouts == 1 and activated == 4 and moved == 10,
     "layout update duplicated the generated layout")
 generated = saved.layouts[1]
 assert(generated.systems[1].anchorInfo.offsetX == -720
