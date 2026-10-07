@@ -140,6 +140,7 @@ function Wizard:CreateFrame()
     welcomeText:SetPoint("TOPRIGHT", -16, -54)
     welcomeText:SetJustifyH("LEFT")
     welcomeText:SetText(L["WIZARD_WELCOME_TEXT"])
+    f.welcomeText = welcomeText
 
     -- ========================================================================
     -- CARD 1: DISPLAY TOPOLOGY & 1-CLICK AUTO-SETUP
@@ -773,7 +774,7 @@ function Wizard:CreateFrame()
     -- ========================================================================
     -- CARD 5: GENERATED MAINHAND HUD LAYOUT (FOREVER / RETAIL)
     -- ========================================================================
-    local card5 = CreateWizardCard(f, L["MAINHAND_LAYOUT_CREATE"], -690, 180)
+    local card5 = CreateWizardCard(f, L["MAINHAND_LAYOUT_CREATE"], -690, 216)
 
     local layoutHelp = card5:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     layoutHelp:SetPoint("TOPLEFT", card5, "TOPLEFT", 14, -32)
@@ -783,7 +784,8 @@ function Wizard:CreateFrame()
     layoutHelp:SetJustifyH("LEFT")
     if layoutHelp.SetJustifyV then layoutHelp:SetJustifyV("TOP") end
     if layoutHelp.SetWordWrap then layoutHelp:SetWordWrap(true) end
-    layoutHelp:SetText(L["MAINHAND_LAYOUT_CREATE_DESC"])
+    layoutHelp:SetText(L["WIZARD_STEP_5_BODY"])
+    f.mainhandLayoutHelp = layoutHelp
 
     local layoutStatus = card5:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     layoutStatus:SetPoint("BOTTOMLEFT", card5, "BOTTOMLEFT", 14, 20)
@@ -902,7 +904,7 @@ function Wizard:CreateFrame()
         for i, card in ipairs(self.pages) do SetShown(card, i == self.step) end
         progress:SetText(string.format(L["STEP_PROGRESS"], self.step, self.totalSteps))
         welcomeText:SetText(self.step == 5
-            and L["RECOVERY_CREATE_LABEL"]
+            and L["STEP_5_HELP"]
             or L["STEP_" .. self.step .. "_HELP"])
         backBtn:SetEnabled(self.step > 1)
         finishBtn:SetText(self.step == 5

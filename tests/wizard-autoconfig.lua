@@ -531,6 +531,12 @@ for step = 1, wizardFrame.totalSteps do
     end
     assert(addon.Options:IsSeamGuideShown() == (step == 3), "Seam guide belongs to alignment step")
 end
+wizardFrame:SetStep(5)
+assert(wizardFrame.welcomeText:GetText() == addon.L["STEP_5_HELP"]
+        and wizardFrame.mainhandLayoutHelp:GetText() == addon.L["WIZARD_STEP_5_BODY"]
+        and wizardFrame.welcomeText:GetText() ~= wizardFrame.mainhandLayoutHelp:GetText()
+        and wizardFrame.mainhandLayoutHelp:GetText():find("Recovery & Preview", 1, true),
+    "wizard step 5 must separate its purpose from its detailed action and recovery guidance")
 wizardFrame:SetStep(1)
 addon.db.firstRunComplete = false
 wizardFrame.finishBtn.scripts.OnClick()
