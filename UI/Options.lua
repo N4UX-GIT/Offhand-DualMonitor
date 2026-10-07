@@ -1604,13 +1604,28 @@ function Options:CreateFloatingPanel()
     local supportsMainhandLayout = Offhand.isForever or Offhand.isRetail
     -- Forever has two layout-status rows plus wrapped Edit Mode guidance.
     -- Keep the preview checkbox below that text instead of sharing its line.
-    local recoveryHeight = Offhand.isForever and 246 or (supportsMainhandLayout and 190 or 118)
+    local recoveryHeight = Offhand.isForever and 342 or (supportsMainhandLayout and 270 or 152)
     local recoveryCard = CreateCard(tab2, L["CARD_RECOVERY"], recoveryHeight)
     local advancedCard
     local advancedCheck
     local foreverLayoutStatus
     local mainhandLayoutStatus
     local offhandCards
+
+    local function CreateRecoveryCaption(text, leftColumn, top)
+        local caption = recoveryCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        if leftColumn then
+            caption:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 14, top)
+            caption:SetPoint("TOPRIGHT", recoveryCard, "TOP", -8, top)
+        else
+            caption:SetPoint("TOPLEFT", recoveryCard, "TOP", 8, top)
+            caption:SetPoint("TOPRIGHT", recoveryCard, "TOPRIGHT", -14, top)
+        end
+        caption:SetJustifyH("LEFT")
+        caption:SetWordWrap(true)
+        caption:SetText(text)
+        return caption
+    end
 
     if Offhand.isForever then
         advancedCard = CreateCard(tab2, L["CARD_ADVANCED_COMPAT"], 52)
@@ -1687,6 +1702,10 @@ function Options:CreateFloatingPanel()
     gatherBtn:SetPoint("TOPLEFT", 12, -30)
     gatherBtn:SetText(L["GATHER_UI"])
     gatherBtn:SetScript("OnClick", function() if Offhand.GatherOffScreenUI then Offhand:GatherOffScreenUI() end end)
+    CreateRecoveryCaption(L["RECOVERY_RESCUE_LABEL"], true, -60)
+    if Offhand.SetTooltip then
+        Offhand:SetTooltip(gatherBtn, L["GATHER_UI"], L["RECOVERY_RESCUE_LABEL"])
+    end
 
     local gatherMainhand = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
     gatherMainhand:SetSize(220, 26)
@@ -1703,11 +1722,12 @@ function Options:CreateFloatingPanel()
     if Offhand.SetTooltip then
         Offhand:SetTooltip(gatherMainhand, L["GATHER_MAINHAND_UI"], L["GATHER_MAINHAND_UI_DESC"])
     end
+    CreateRecoveryCaption(L["RECOVERY_GATHER_LABEL"], false, -60)
 
     if supportsMainhandLayout then
         local createLayout = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
         createLayout:SetSize(220, 26)
-        createLayout:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 12, -66)
+        createLayout:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 12, -104)
         createLayout:SetText(L["MAINHAND_LAYOUT_CREATE"])
         createLayout:SetScript("OnClick", function()
             local ok, value, moved = Options:CreateMainhandHUDLayout()
@@ -1724,22 +1744,23 @@ function Options:CreateFloatingPanel()
         if Offhand.SetTooltip then
             Offhand:SetTooltip(createLayout, L["MAINHAND_LAYOUT_CREATE"], L["MAINHAND_LAYOUT_CREATE_DESC"])
         end
+        CreateRecoveryCaption(L["RECOVERY_CREATE_LABEL"], true, -134)
 
         mainhandLayoutStatus = recoveryCard:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        mainhandLayoutStatus:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 14, -106)
-        mainhandLayoutStatus:SetPoint("TOPRIGHT", recoveryCard, "TOPRIGHT", -14, -106)
+        mainhandLayoutStatus:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 14, -190)
+        mainhandLayoutStatus:SetPoint("TOPRIGHT", recoveryCard, "TOPRIGHT", -14, -190)
         mainhandLayoutStatus:SetJustifyH("LEFT")
     end
 
     if Offhand.isForever then
         foreverLayoutStatus = recoveryCard:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        foreverLayoutStatus:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 14, -130)
-        foreverLayoutStatus:SetPoint("TOPRIGHT", recoveryCard, "TOPRIGHT", -14, -130)
+        foreverLayoutStatus:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 14, -214)
+        foreverLayoutStatus:SetPoint("TOPRIGHT", recoveryCard, "TOPRIGHT", -14, -214)
         foreverLayoutStatus:SetJustifyH("LEFT")
 
         local useCurrentLayout = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
         useCurrentLayout:SetSize(220, 26)
-        useCurrentLayout:SetPoint("TOPRIGHT", recoveryCard, "TOPRIGHT", -12, -66)
+        useCurrentLayout:SetPoint("TOPRIGHT", recoveryCard, "TOPRIGHT", -12, -104)
         useCurrentLayout:SetText(L["FOREVER_EDIT_MODE_USE_CURRENT"])
         useCurrentLayout:SetScript("OnClick", function()
             local ok, value = Offhand.HUD and Offhand.HUD.UseCurrentForeverEditModeLayout
@@ -1755,10 +1776,11 @@ function Options:CreateFloatingPanel()
             Offhand:SetTooltip(useCurrentLayout, L["FOREVER_EDIT_MODE_USE_CURRENT"],
                 L["FOREVER_EDIT_MODE_USE_CURRENT_DESC"])
         end
+        CreateRecoveryCaption(L["RECOVERY_DESIGNATE_LABEL"], false, -134)
 
         local layoutHelp = recoveryCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-        layoutHelp:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 14, -156)
-        layoutHelp:SetPoint("TOPRIGHT", recoveryCard, "TOPRIGHT", -14, -156)
+        layoutHelp:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 14, -238)
+        layoutHelp:SetPoint("TOPRIGHT", recoveryCard, "TOPRIGHT", -14, -238)
         layoutHelp:SetJustifyH("LEFT")
         layoutHelp:SetWordWrap(true)
         layoutHelp:SetText(L["FOREVER_EDIT_MODE_USE_CURRENT_DESC"])
@@ -1862,7 +1884,8 @@ function Options:CreateFloatingPanel()
         function(val) Offhand.db.forceDualOnSingle = val end,
         L["PREVIEW_DUAL"], L["PREVIEW_DUAL"]
     )
-    forceCheck:SetPoint("TOPLEFT", 12, Offhand.isForever and -204 or -76)
+    forceCheck:SetPoint("TOPLEFT", 12,
+        Offhand.isForever and -304 or (supportsMainhandLayout and -230 or -112))
 
     local compatDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     compatDesc:SetPoint("TOPLEFT", 32, -344)

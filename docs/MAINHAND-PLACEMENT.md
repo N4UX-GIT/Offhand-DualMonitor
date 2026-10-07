@@ -19,8 +19,10 @@ The Recovery card contains three related actions:
   WoW canvas to the Mainhand rectangle, saves a character-associated generated
   layout, activates it, and offers to reload. Source entries still using
   Blizzard's default positions receive a compact standard stack: the XP/status
-  bar sits above the main action bar and the stance bar begins above action
-  button 1. Explicitly customized source entries remain unchanged.
+  bar aligns with the complete main/bag bar, stance and pet controls sit above
+  its left edge, the vehicle-exit control sits above stance, and extra abilities
+  sit above the action/XP stack. Explicitly customized source entries remain
+  unchanged.
 
 Layout writes require a player click, no combat, and a closed Edit Mode window.
 Regeneration always starts from the recorded source layout. It never applies a

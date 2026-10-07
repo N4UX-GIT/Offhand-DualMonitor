@@ -364,17 +364,54 @@ local function TransformLayout(layout, rect)
     return moved
 end
 
-local function CopyMainBarAnchor(entry, mainAnchor, offsetX, offsetY)
+local function PointFractions(point)
+    point = type(point) == "string" and point or "CENTER"
+    local x = point:find("LEFT", 1, true) and 0
+        or point:find("RIGHT", 1, true) and 1 or 0.5
+    local y = point:find("BOTTOM", 1, true) and 0
+        or point:find("TOP", 1, true) and 1 or 0.5
+    return x, y
+end
+
+local function FrameSize(frame, fallbackWidth, fallbackHeight)
+    local width, height
+    if frame and frame.GetWidth then
+        local ok, value = pcall(frame.GetWidth, frame)
+        if ok and type(value) == "number" and value > 0 then width = value end
+    end
+    if frame and frame.GetHeight then
+        local ok, value = pcall(frame.GetHeight, frame)
+        if ok and type(value) == "number" and value > 0 then height = value end
+    end
+    return width or fallbackWidth, height or fallbackHeight
+end
+
+local function FramePoint(frame, fallback)
+    if frame and frame.GetPoint then
+        local ok, point = pcall(frame.GetPoint, frame, 1)
+        if ok and type(point) == "string" then return point end
+    end
+    return type(fallback) == "string" and fallback or "CENTER"
+end
+
+local function PlaceFromMainAnchor(entry, mainAnchor, targetFrame,
+    fallbackWidth, fallbackHeight, left, bottom)
     if type(entry) ~= "table" or type(mainAnchor) ~= "table"
         or type(mainAnchor.offsetX) ~= "number"
         or type(mainAnchor.offsetY) ~= "number" then return false end
-    -- Forever's status and stance systems do not reliably honor a replacement
-    -- anchor point. Reuse the already-valid Action Bar 1 anchor schema and only
-    -- adjust its offsets, so Blizzard resolves all three systems in the same
-    -- coordinate space.
-    entry.anchorInfo = DeepCopy(mainAnchor)
-    entry.anchorInfo.offsetX = mainAnchor.offsetX + (offsetX or 0)
-    entry.anchorInfo.offsetY = mainAnchor.offsetY + (offsetY or 0)
+    local current = entry.anchorInfo
+    local targetPoint = FramePoint(targetFrame, current and current.point)
+    local width, height = FrameSize(targetFrame, fallbackWidth, fallbackHeight)
+    local px, py = PointFractions(targetPoint)
+    local info = DeepCopy(mainAnchor)
+    -- Keep Action Bar 1's proven UIParent reference point, but retain the target
+    -- frame's own attachment point. Forever's systems use different fixed self
+    -- points; treating every entry like Action Bar 1 moves wide bars into the
+    -- Offhand canvas.
+    info.point = targetPoint
+    info.offsetX = mainAnchor.offsetX + left + (width * px)
+    info.offsetY = mainAnchor.offsetY + bottom + (height * py)
+    entry.anchorInfo = info
     entry.isInDefaultPosition = false
     return true
 end
@@ -389,8 +426,11 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults)
     if type(systems) ~= "table" or type(indices) ~= "table" then return 0 end
     local actionSystem = systems.ActionBar
     local statusSystem = systems.StatusTrackingBar
+    local extraSystem = systems.ExtraAbilities or systems.ExtraAbility
+    local vehicleSystem = systems.VehicleLeaveButton or systems.VehicleExitButton
     local mainIndex = indices.MainBar
     local stanceIndex = indices.StanceBar or indices.Stance or indices.ClassBar
+    local petIndex = indices.PetActionBar or indices.PetBar
     if actionSystem == nil or mainIndex == nil then return 0 end
 
     local mainAnchor
@@ -403,16 +443,53 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults)
     end
     if not mainAnchor then return 0 end
 
+    local mainFrame = _G.MainMenuBar or _G.MainActionBar
+    local mainWidth, mainHeight = FrameSize(mainFrame, 1390, 50)
+    local mainPX, mainPY = PointFractions(FramePoint(mainFrame, mainAnchor.point))
+    local mainLeft = -(mainWidth * mainPX)
+    local mainBottom = -(mainHeight * mainPY)
+    local mainRight, mainTop = mainLeft + mainWidth, mainBottom + mainHeight
+    local statusFrame = _G.StatusTrackingBarManager or _G.MainMenuExpBar
+    local statusWidth, statusHeight = FrameSize(statusFrame, mainWidth, 14)
+    local stanceFrame = _G.StanceBar or _G.ShapeshiftBarFrame
+    local stanceWidth, stanceHeight = FrameSize(stanceFrame, 252, 36)
+    local petFrame = _G.PetActionBar or _G.PetActionBarFrame
+    local vehicleFrame = _G.MainMenuBarVehicleLeaveButton or _G.VehicleExitButton
+    local extraFrame = _G.ExtraAbilityContainer or _G.ExtraAbilityBar
+    local stanceBottom = mainTop + statusHeight + 8
+
     local refined = 0
     for index, entry in ipairs(layout.systems or {}) do
         if sourceDefaults[index] then
             if statusSystem ~= nil and entry.system == statusSystem then
-                if CopyMainBarAnchor(entry, mainAnchor, 0, 43) then
+                -- Align the complete XP/reputation bar's right edge with the
+                -- complete Blizzard main/bag bar, not merely Action Button 1.
+                if PlaceFromMainAnchor(entry, mainAnchor, statusFrame,
+                    mainWidth, 14, mainRight - statusWidth, mainTop + 3) then
                     refined = refined + 1
                 end
             elseif stanceIndex ~= nil and entry.system == actionSystem
                 and entry.systemIndex == stanceIndex then
-                if CopyMainBarAnchor(entry, mainAnchor, -252, 58) then
+                if PlaceFromMainAnchor(entry, mainAnchor, stanceFrame,
+                    252, 36, mainLeft, stanceBottom) then
+                    refined = refined + 1
+                end
+            elseif petIndex ~= nil and entry.system == actionSystem
+                and entry.systemIndex == petIndex then
+                if PlaceFromMainAnchor(entry, mainAnchor, petFrame,
+                    400, 36, mainLeft + stanceWidth + 8, stanceBottom) then
+                    refined = refined + 1
+                end
+            elseif extraSystem ~= nil and entry.system == extraSystem then
+                local extraWidth = FrameSize(extraFrame, 256, 80)
+                if PlaceFromMainAnchor(entry, mainAnchor, extraFrame,
+                    256, 80, (mainLeft + mainRight - extraWidth) / 2,
+                    mainTop + statusHeight + 18) then
+                    refined = refined + 1
+                end
+            elseif vehicleSystem ~= nil and entry.system == vehicleSystem then
+                if PlaceFromMainAnchor(entry, mainAnchor, vehicleFrame,
+                    52, 52, mainLeft, stanceBottom + stanceHeight + 8) then
                     refined = refined + 1
                 end
             end

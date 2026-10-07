@@ -18,6 +18,12 @@ local function frame(name)
     function f:IsMovable() return self.movable end
     function f:IsObjectType(kind) return self.kind == kind end
     function f:GetEffectiveScale() return self.scale end
+    function f:GetWidth() return self.w end
+    function f:GetHeight() return self.h end
+    function f:GetPoint(index)
+        local point = self.points[index or 1]
+        if point then return unpack(point) end
+    end
     function f:GetLeft() return self.left end
     function f:GetRight() return self.right end
     function f:GetBottom() return self.bottom end
@@ -121,9 +127,30 @@ addon.Canvas = nil
 Enum = {
     EditModeLayoutType = { Account = 1 },
     InputDeviceInterfaceType = { Gamepad = 2 },
-    EditModeSystem = { ActionBar = 10, StatusTrackingBar = 20 },
-    EditModeActionBarSystemIndices = { MainBar = 1, StanceBar = 8 },
+    EditModeSystem = {
+        ActionBar = 10, StatusTrackingBar = 20,
+        ExtraAbilities = 30, VehicleLeaveButton = 40,
+    },
+    EditModeActionBarSystemIndices = { MainBar = 1, StanceBar = 8, PetActionBar = 9 },
 }
+MainMenuBar = frame("MainMenuBar")
+MainMenuBar.w, MainMenuBar.h = 1000, 40
+MainMenuBar:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 0)
+StatusTrackingBarManager = frame("StatusTrackingBarManager")
+StatusTrackingBarManager.w, StatusTrackingBarManager.h = 1000, 12
+StatusTrackingBarManager:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 0)
+StanceBar = frame("StanceBar")
+StanceBar.w, StanceBar.h = 240, 36
+StanceBar:SetPoint("BOTTOMLEFT", UIParent, "BOTTOM", 0, 0)
+PetActionBar = frame("PetActionBar")
+PetActionBar.w, PetActionBar.h = 400, 36
+PetActionBar:SetPoint("BOTTOMLEFT", UIParent, "BOTTOM", 0, 0)
+ExtraAbilityContainer = frame("ExtraAbilityContainer")
+ExtraAbilityContainer.w, ExtraAbilityContainer.h = 240, 80
+ExtraAbilityContainer:SetPoint("CENTER", UIParent, "BOTTOM", 0, 0)
+MainMenuBarVehicleLeaveButton = frame("MainMenuBarVehicleLeaveButton")
+MainMenuBarVehicleLeaveButton.w, MainMenuBarVehicleLeaveButton.h = 50, 50
+MainMenuBarVehicleLeaveButton:SetPoint("BOTTOMLEFT", UIParent, "BOTTOM", 0, 0)
 Constants = { EditModeConsts = { EditModeMaxLayoutsPerType = 10 } }
 local preset = {
     layoutName = "Modern", layoutIndex = 1, layoutType = 1, interfaceStyle = 1,
@@ -138,6 +165,12 @@ local preset = {
           anchorInfo = { point = "BOTTOMLEFT", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT", offsetX = 0, offsetY = 0 } },
         { system = 10, systemIndex = 1, isInDefaultPosition = true,
           anchorInfo = { point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOM", offsetX = 0, offsetY = 0 } },
+        { system = 10, systemIndex = 9, isInDefaultPosition = true,
+          anchorInfo = { point = "BOTTOMLEFT", relativeTo = "UIParent", relativePoint = "BOTTOM", offsetX = 0, offsetY = 0 } },
+        { system = 30, systemIndex = 1, isInDefaultPosition = true,
+          anchorInfo = { point = "CENTER", relativeTo = "UIParent", relativePoint = "CENTER", offsetX = 0, offsetY = 0 } },
+        { system = 40, systemIndex = 1, isInDefaultPosition = true,
+          anchorInfo = { point = "BOTTOMLEFT", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT", offsetX = 0, offsetY = 0 } },
     },
 }
 EditModePresetLayoutManager = {
@@ -153,7 +186,7 @@ C_EditMode = {
 }
 
 ok, localName, moved = addon.Mainhand:CreateOrUpdateEditModeLayout()
-assert(ok and localName == "Offhand - Mainhand - Tester" and moved == 4,
+assert(ok and localName == "Offhand - Mainhand - Tester" and moved == 7,
     "Mainhand Edit Mode layout was not generated from the active preset")
 assert(activated == 4 and #saved.layouts == 1, "generated custom layout used the wrong global ID")
 local generated = saved.layouts[1]
@@ -166,13 +199,25 @@ assert(generated.systems[2].anchorInfo.point == "BOTTOM"
     "the default XP/status bar was not stacked directly above the Mainhand action bar")
 assert(generated.systems[3].anchorInfo.offsetX == 5,
     "a system-relative anchor was unexpectedly changed")
-assert(generated.systems[4].anchorInfo.point == "BOTTOM"
-        and generated.systems[4].anchorInfo.offsetX == 468
-        and generated.systems[4].anchorInfo.offsetY == 58,
+assert(generated.systems[4].anchorInfo.point == "BOTTOMLEFT"
+        and generated.systems[4].anchorInfo.offsetX == 220
+        and generated.systems[4].anchorInfo.offsetY == 60,
     "the default stance bar was not placed above the first Mainhand action button")
 assert(generated.systems[5].anchorInfo.offsetX == 720
         and generated.systems[5].anchorInfo.offsetY == 0,
     "the default Mainhand action bar anchor was not translated")
+assert(generated.systems[6].anchorInfo.point == "BOTTOMLEFT"
+        and generated.systems[6].anchorInfo.offsetX == 468
+        and generated.systems[6].anchorInfo.offsetY == 60,
+    "the default pet bar was not placed beside the stance bar")
+assert(generated.systems[7].anchorInfo.point == "CENTER"
+        and generated.systems[7].anchorInfo.offsetX == 720
+        and generated.systems[7].anchorInfo.offsetY == 110,
+    "the default extra-abilities frame was not placed above the XP bar")
+assert(generated.systems[8].anchorInfo.point == "BOTTOMLEFT"
+        and generated.systems[8].anchorInfo.offsetX == 220
+        and generated.systems[8].anchorInfo.offsetY == 104,
+    "the default vehicle-exit frame was not placed above the stance bar")
 assert(preset.systems[1].anchorInfo.offsetX == 0 and preset.systems[1].anchorInfo.offsetY == 0,
     "the source preset was mutated")
 assert(OffhandCharDB.mainhandLayout.sourcePreset
@@ -185,7 +230,7 @@ assert(OffhandCharDB.mainhandLayout.sourcePreset
 metrics = { gameLeft = 0, gameBottom = 0, gameRight = 2560, gameTop = 1440, isSpanned = true }
 addon.Mainhand:Update("topology")
 ok, localName, moved = addon.Mainhand:CreateOrUpdateEditModeLayout()
-assert(ok and #saved.layouts == 1 and activated == 4 and moved == 4,
+assert(ok and #saved.layouts == 1 and activated == 4 and moved == 7,
     "layout update duplicated the generated layout")
 generated = saved.layouts[1]
 assert(generated.systems[1].anchorInfo.offsetX == -720
