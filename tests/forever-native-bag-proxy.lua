@@ -34,6 +34,8 @@ local metrics = {
 }
 addon.Viewport = { GetMetrics = function() return metrics end }
 InCombatLockdown = function() return false end
+local unitCombat = false
+UnitAffectingCombat = function(unit) return unit == "player" and unitCombat end
 
 UIParent = {
     GetWidth = function() return 4000 end,
@@ -185,11 +187,17 @@ assert(restored and restored[1] == "TOPLEFT" and restored[2] == UIParent
         and math.abs(restored[4] - 120) < 0.01 and math.abs(restored[5] - 900) < 0.01,
     "proxy controller did not restore the saved native bag root position")
 
+unitCombat = true
+local gatherOK, gatherWhy, gatherMoved = addon.Canvas:GatherSafeUIToMainhand()
+assert(not gatherOK and gatherWhy == "combat" and gatherMoved == 0,
+    "Canvas recovery ignored player combat while lockdown state lagged")
+unitCombat = false
+
 -- Recovery must transfer both the visible native bag and its persistence
 -- ownership to Mainhand. A raw SetPoint without this cleanup appears to work
 -- until the bag is reopened, when the proxy restores the stale workspace
 -- snapshot.
-local gatherOK, gatherWhy, gatherMoved = addon.Canvas:GatherSafeUIToMainhand()
+gatherOK, gatherWhy, gatherMoved = addon.Canvas:GatherSafeUIToMainhand()
 assert(gatherOK and not gatherWhy and gatherMoved == 1,
     "Mainhand recovery did not count the tracked native bag")
 assert(addon.db.savedWorkspacePositions.ContainerFrameCombinedBags == nil

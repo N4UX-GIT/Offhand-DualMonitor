@@ -39,6 +39,8 @@ CreateFrame = function(_, name)
     return f
 end
 InCombatLockdown = function() return false end
+local unitCombat = false
+UnitAffectingCombat = function(unit) return unit == "player" and unitCombat end
 C_Timer = { After = function(_, callback) callback() end }
 StaticPopupDialogs = {}
 StaticPopup_Show = function() end
@@ -100,6 +102,11 @@ addon.Canvas = {
         return true, nil, 3, 0
     end,
 }
+unitCombat = true
+ok, why, moved = addon.Mainhand:GatherSafeUI()
+assert(not ok and why == "combat" and moved == 0 and not canvasGathered,
+    "player combat state did not block safe gather when lockdown lagged")
+unitCombat = false
 local activeRect = addon.Mainhand.rect
 addon.Mainhand.rect = {
     left = 0, bottom = 0, right = 4000, top = 2560,

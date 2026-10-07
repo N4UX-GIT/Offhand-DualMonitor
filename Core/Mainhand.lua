@@ -21,6 +21,15 @@ local function Number(value)
     return value
 end
 
+local function IsPlayerCombatRestricted()
+    if InCombatLockdown and InCombatLockdown() then return true end
+    if UnitAffectingCombat then
+        local ok, active = pcall(UnitAffectingCombat, "player")
+        if ok and active then return true end
+    end
+    return false
+end
+
 local function ValidMetrics(metrics)
     return type(metrics) == "table"
         and Number(metrics.gameLeft) and Number(metrics.gameBottom)
@@ -209,7 +218,7 @@ local function Clamp(value, low, high)
 end
 
 function Mainhand:GatherSafeUI()
-    if InCombatLockdown and InCombatLockdown() then return false, "combat", 0, 0 end
+    if IsPlayerCombatRestricted() then return false, "combat", 0, 0 end
     if Offhand.Canvas and Offhand.Canvas.GatherSafeUIToMainhand then
         return Offhand.Canvas:GatherSafeUIToMainhand()
     end

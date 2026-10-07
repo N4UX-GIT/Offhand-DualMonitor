@@ -2305,7 +2305,12 @@ end
 -- re-anchor, it must also retire Offhand's workspace ownership or the next
 -- OnShow/restore pass will put the panel back on the secondary display.
 function Canvas:GatherSafeUIToMainhand()
-    if InCombatLockdown and InCombatLockdown() then return false, "combat", 0, 0 end
+    local playerInCombat = InCombatLockdown and InCombatLockdown() or false
+    if not playerInCombat and UnitAffectingCombat then
+        local ok, active = pcall(UnitAffectingCombat, "player")
+        playerInCombat = ok and active == true or false
+    end
+    if playerInCombat then return false, "combat", 0, 0 end
     if not Offhand.db or not Offhand.db.enabled then return false, "disabled", 0, 0 end
     local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
         and WithWorkspace(Offhand.Viewport:GetMetrics())
