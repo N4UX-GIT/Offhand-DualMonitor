@@ -210,11 +210,14 @@ end
 
 function Mainhand:GatherSafeUI()
     if InCombatLockdown and InCombatLockdown() then return false, "combat", 0, 0 end
-    local rect = self:GetRect()
-    if not rect.isSpanned then return false, "span", 0, 0 end
     if Offhand.Canvas and Offhand.Canvas.GatherSafeUIToMainhand then
         return Offhand.Canvas:GatherSafeUIToMainhand()
     end
+    -- Canvas consumes live viewport metrics. The fallback must do the same:
+    -- the anchor rectangle may still contain its pre-topology value just after
+    -- /reload even though Companion geometry is already active.
+    local rect = CurrentRect()
+    if not rect.isSpanned then return false, "span", 0, 0 end
     local parentScale = UIParent:GetEffectiveScale() or 1
     local candidates = {}
     for name in pairs(UIPanelWindows or {}) do

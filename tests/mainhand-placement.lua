@@ -100,9 +100,15 @@ addon.Canvas = {
         return true, nil, 3, 0
     end,
 }
+local activeRect = addon.Mainhand.rect
+addon.Mainhand.rect = {
+    left = 0, bottom = 0, right = 4000, top = 2560,
+    width = 4000, height = 2560, isSpanned = false,
+}
 ok, why, moved = addon.Mainhand:GatherSafeUI()
 assert(ok and not why and moved == 3 and canvasGathered,
-    "safe gather did not delegate persistence-aware recovery to Canvas")
+    "safe gather let a stale anchor block live Canvas recovery")
+addon.Mainhand.rect = activeRect
 addon.Canvas = nil
 
 Enum = {
