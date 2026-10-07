@@ -1453,19 +1453,23 @@ function Canvas:RestorePersistentFrames()
                     -- Restore one native UIPanel per settlement window. Forever's
                     -- panel manager otherwise opens every saved left-slot panel
                     -- in the same timer turn, causing each to close the previous
-                    -- one before Offhand can detach it from the active slot.
-                    genericRestoreIndex = genericRestoreIndex + 1
-                    Canvas:QueuePersistentPanelRestore(
-                        frame, name, 0.75 + (genericRestoreIndex - 1) * 0.20)
+                    -- one before Offhand can detach it from the active slot. Only
+                    -- an accepted restore consumes a slot: old addon child-frame
+                    -- snapshots must not push valid panels several seconds back.
+                    local delay = 0.75 + genericRestoreIndex * 0.20
+                    if Canvas:QueuePersistentPanelRestore(frame, name, delay) then
+                        genericRestoreIndex = genericRestoreIndex + 1
+                    end
                 end
             end
         elseif not frame and openPanels[name] then
             -- Load-on-demand Blizzard frames (Spellbook, Macros, Collections,
             -- and similar panels) do not exist yet after /reload. Load only the
             -- owner of a panel the user explicitly left open on the workspace.
-            genericRestoreIndex = genericRestoreIndex + 1
-            Canvas:RequestPersistentPanelLoad(
-                name, 0.75 + (genericRestoreIndex - 1) * 0.20)
+            local delay = 0.75 + genericRestoreIndex * 0.20
+            if Canvas:RequestPersistentPanelLoad(name, delay) then
+                genericRestoreIndex = genericRestoreIndex + 1
+            end
         end
     end
     

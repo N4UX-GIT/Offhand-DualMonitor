@@ -1487,6 +1487,38 @@ assert(addon.db.savedWorkspacePositions.NoReloadCollectionsFrame,
 addon.db.restoreWorkspaceOnReload = true
 print("PASS: late safe-panel restore settles without re-entering Blizzard's loader")
 
+-- Rejected legacy snapshots must not consume restore timing slots. A polluted
+-- profile previously delayed a valid panel by 0.2 seconds per stale name,
+-- producing an approximately eight-second login delay in real profiles.
+local promptRestorePanel = makeMockFrame("ZPromptRestorePanel", 700, 800)
+promptRestorePanel:Hide()
+RegisterUIPanel(promptRestorePanel)
+addon.db.savedWorkspacePositions.ZPromptRestorePanel = { x = 190, y = 1500 }
+addon.db.openWorkspacePanels.ZPromptRestorePanel = true
+for i = 1, 40 do
+    local staleName = string.format("AStaleAddonChild%02d", i)
+    addon.db.savedWorkspacePositions[staleName] = { x = 10, y = 10 }
+    addon.db.openWorkspacePanels[staleName] = true
+end
+local promptRestoreDelay
+local originalQueuePersistentPanelRestore = addon.Canvas.QueuePersistentPanelRestore
+addon.Canvas.QueuePersistentPanelRestore = function(self, frame, name, delay)
+    if name == "ZPromptRestorePanel" then promptRestoreDelay = delay end
+    return originalQueuePersistentPanelRestore(self, frame, name, delay)
+end
+addon.Canvas:RestorePersistentFrames()
+addon.Canvas.QueuePersistentPanelRestore = originalQueuePersistentPanelRestore
+assert(promptRestoreDelay and promptRestoreDelay < 3,
+    "rejected stale snapshots must not add the former eight-second delay")
+addon.db.savedWorkspacePositions.ZPromptRestorePanel = nil
+addon.db.openWorkspacePanels.ZPromptRestorePanel = nil
+for i = 1, 40 do
+    local staleName = string.format("AStaleAddonChild%02d", i)
+    addon.db.savedWorkspacePositions[staleName] = nil
+    addon.db.openWorkspacePanels[staleName] = nil
+end
+print("PASS: stale snapshots do not delay valid persistent panels")
+
 -- Spellbook, Macros, Collections, and similar panels do not exist at the first
 -- reload restoration pass. Offhand must load only the Blizzard addon belonging
 -- to an explicitly saved/open workspace panel, then use the normal delayed
