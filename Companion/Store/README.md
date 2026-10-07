@@ -38,6 +38,11 @@ never replaces the canonical portable executable, produces exact-size Store
 artwork, validates the manifest, and writes the resulting MSIX beneath
 `dist/store`.
 
+The command above records the frozen `2.1.19.0` package currently in
+certification and must not be rerun as a replacement for that submission. After
+certification completes, follow `docs/COMPANION-RELEASE-RUNBOOK.md` and use a
+higher Store package version for the final topology-repair executable.
+
 The output is intentionally not signed with a development certificate. The
 Microsoft Store signs accepted submissions with a trusted certificate. Use a
 self-signed development certificate only for local installation testing; never

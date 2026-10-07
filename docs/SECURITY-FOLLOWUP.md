@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-06
 
-## Final tested Beta 19 candidate awaiting review
+## Final tested Beta 19 candidate — review passed
 
 - `Offhand.exe`:
   `89C065D28D5EB37A3CCBF868DA006C64E7FD403A50417E8799806DF92E46BF52`
@@ -10,10 +10,11 @@ Last updated: 2026-10-06
   `83EEDFE4DFE96EA4A34E6414E55797CAD4E02181604DAAA2F6E6B3EC57F1576B`
 
 These artifacts include the topology-bridge repair validated during the final
-Forever test cycle. They supersede the previously reviewed candidate below and
-must receive their own hash-specific determination before publication.
+Forever test cycle. The maintainer confirmed both exact submissions passed
+Microsoft review on 2026-10-07. Their portal submission IDs still need to be
+copied into this record.
 
-## Previously reviewed Beta 19 candidate
+## Previously reviewed Beta 19 candidate and current Store submission
 
 Microsoft Security Intelligence completed review of the current Beta 19
 executable and minimal Companion archive on 2026-10-06 without retaining a
@@ -27,8 +28,9 @@ malware detection. Cloud and client report no malware detected.
 
 The archive contains exactly `LICENSE`, `Offhand.exe`, and `README.txt`, and its
 embedded executable is byte-identical to the separately reviewed executable.
-Retain these as historical review records; do not transfer their determination
-to the newer final candidate or any rebuild.
+Retain these as historical review records. The Store `2.1.19.0` package now in
+certification embeds this earlier `658B633...` executable; allow that submission
+to complete, then use a higher Store version for the final topology-repair build.
 
 ## Frozen Beta 18 candidate
 

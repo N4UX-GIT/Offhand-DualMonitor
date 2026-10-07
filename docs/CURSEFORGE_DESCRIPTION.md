@@ -50,13 +50,12 @@ The first-run welcome is only an introduction. Clicking either welcome button ac
 
 ## Public Service Announcement: Companion download and antivirus status
 
-> **Current verified status — October 4, 2026:** Microsoft Security Intelligence
-> has reviewed the submitted canonical Offhand Companion Beta 18 executable and
-> archives without retaining a malware detection. The exact Beta 18 ZIP is now
-> downloading without an antivirus block in our local Chrome and Edge tests.
-> Edge may still show **"isn't commonly downloaded"** for the direct unsigned
-> EXE; that is an application-reputation notice rather than a malware verdict.
-> Independent browser testing and third-party vendor follow-up are continuing.
+> **Current verified status — October 7, 2026:** Offhand Companion Beta 19 is
+> the current portable release. Microsoft Security Intelligence reviewed the
+> exact executable and minimal ZIP without retaining a malware detection. Edge
+> may still show **"isn't commonly downloaded"** for the direct unsigned EXE;
+> that is an application-reputation notice rather than a malware verdict.
+> Third-party antivirus vendors control their own independent verdicts.
 
 The in-game addon downloaded from CurseForge contains Lua addon code and does
 not contain the Windows Companion executable. The Companion is an optional,
@@ -77,12 +76,10 @@ distribution work, audited and simplified the Companion, published its complete
 source, froze the release artifacts by SHA-256, and submitted the exact files
 directly to Microsoft and the remaining reporting vendors.
 
-Microsoft Security Intelligence subsequently reviewed the submitted Beta 18
-executable and archives without retaining a malware detection. The authenticated
-Microsoft submission records and exact hashes are published in the [Offhand
-security guide](https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md).
-The recommended Beta 18 ZIP now downloads successfully in our local Chrome and
-Edge tests, although independent browser testing is continuing.
+Microsoft Security Intelligence subsequently reviewed the exact Beta 19
+executable and minimal archive without retaining a malware detection. Their
+exact hashes are published in the [Offhand security
+guide](https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md).
 
 This does not mean users were wrong to report what their security software
 showed, and it is not a request to ignore future warnings. The earlier comments
@@ -91,7 +88,7 @@ are an important record of the problem that prompted this investigation.
 However, security results are tied to an exact file hash. Some ongoing comments
 link scans of older builds or different files. A VirusTotal link for an older
 build, a locally rebuilt executable, or a newly generated archive does not
-describe the current canonical Beta 18 files. Compare the report's SHA-256 with
+describe the current canonical Beta 19 files. Compare the report's SHA-256 with
 the hashes below before applying its verdict to the current download.
 
 If somebody receives a new named malware detection against one of the exact
@@ -120,9 +117,9 @@ results may remain visible while separate correction requests are processed.
 
 A low detection count does not prove that a file is safe, and neither a clean
 scan nor this PSA is an absolute guarantee. The current status means that
-Microsoft did not retain a malware detection for the submitted Beta 18 files;
+Microsoft did not retain a malware detection for the submitted Beta 19 files;
 it does not ask users to suspend normal security precautions. The evidence
-available for Beta 18 should be
+available for Beta 19 should be
 considered together: immutable hashes, public source and build instructions,
 GitHub provenance where provided, Microsoft's completed reviews, and the
 documented behavior below.
@@ -144,13 +141,13 @@ GitHub Releases API only when you click **Check for Updates**.
 
 ### Recommended download and verification
 
-Download the official [Offhand Companion v2.1.2 Beta 18
-ZIP](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.18/Offhand-Companion.zip).
+Download the official [Offhand Companion v2.1.2 Beta 19
+ZIP](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.19/Offhand-Companion.zip).
 
 - `Offhand.exe` SHA-256:
-  `A42A45CB149C66EF884308F15A79EE8905C58A94E9B4AE1A3B05B43BAF929F37`
+  `89C065D28D5EB37A3CCBF868DA006C64E7FD403A50417E8799806DF92E46BF52`
 - `Offhand-Companion.zip` SHA-256:
-  `AD49BE14A9C8ADF5A888F873CE9B99F183C4AD2924909ECDF52801F303248A93`
+  `83EEDFE4DFE96EA4A34E6414E55797CAD4E02181604DAAA2F6E6B3EC57F1576B`
 
 Compare the downloaded file with `checksums-sha256.txt` from the same release.
 Do not download the Companion from mirrors, Discord attachments, or re-upload
@@ -164,7 +161,7 @@ setup](https://offhand-wow.onrender.com/manual-spanning.html). Full behavior,
 source-build steps, Microsoft submission references, and verification commands
 are available in the [security
 guide](https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md).
-Addon-only updates can continue using the byte-identical Beta 18 Companion while
+Addon-only updates can continue using the byte-identical Beta 19 Companion while
 protocol 1 remains compatible.
 
 ## Exact display layouts and unusual monitor setups

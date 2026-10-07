@@ -1,13 +1,15 @@
 <#
 .SYNOPSIS
-    Packages the Offhand addon with the frozen Beta 18 Companion unless an
+    Packages the Offhand addon with the frozen Beta 19 Companion unless an
     intentional Companion update is explicitly requested.
 #>
 param(
-    [string]$Version = "2.1.2-beta.18",
+    [string]$Version = "2.1.2-beta.19",
     [switch]$AddonOnly,
     [switch]$CompanionChanged,
-    [switch]$UseExistingCompanion
+    [switch]$UseExistingCompanion,
+    [string]$ExpectedCompanionSha256,
+    [string]$ExpectedCompanionArchiveSha256
 )
 
 $ErrorActionPreference = "Stop"
@@ -80,10 +82,10 @@ Write-Host "===================================================" -ForegroundColo
 Write-Host "  Offhand Release Packager v$Version" -ForegroundColor Cyan
 Write-Host "===================================================" -ForegroundColor Cyan
 
-# The published Beta 18 executable is the default Companion for every addon-only
+# The reviewed Beta 19 executable is the default Companion for every addon-only
 # release. A new Companion build must be explicitly requested.
-$frozenCompanionTag = "v2.1.2-beta.18"
-$frozenCompanionSha256 = "A42A45CB149C66EF884308F15A79EE8905C58A94E9B4AE1A3B05B43BAF929F37"
+$frozenCompanionTag = "v2.1.2-beta.19"
+$frozenCompanionSha256 = "89C065D28D5EB37A3CCBF868DA006C64E7FD403A50417E8799806DF92E46BF52"
 $companionExe = Join-Path $rootDir "Companion\Offhand.exe"
 if ($CompanionChanged -and $AddonOnly) {
     throw "-CompanionChanged cannot be combined with -AddonOnly."
@@ -109,6 +111,13 @@ if ($CompanionChanged -and -not $UseExistingCompanion) {
 
 if (-not $AddonOnly -and -not (Test-Path -LiteralPath $companionExe -PathType Leaf)) {
     throw "Canonical Companion executable is missing: $companionExe"
+}
+
+if (-not $AddonOnly -and -not [string]::IsNullOrWhiteSpace($ExpectedCompanionSha256)) {
+    $actualExpectedCompanionHash = (Get-FileHash -LiteralPath $companionExe -Algorithm SHA256).Hash
+    if ($actualExpectedCompanionHash -ne $ExpectedCompanionSha256.ToUpperInvariant()) {
+        throw "Canonical Companion hash $actualExpectedCompanionHash does not match expected $($ExpectedCompanionSha256.ToUpperInvariant())."
+    }
 }
 
 if (-not $AddonOnly -and -not $CompanionChanged) {
@@ -193,7 +202,14 @@ if ($CompanionChanged) {
     New-Item -ItemType Directory -Path $compStaging -Force | Out-Null
 
     Copy-Item $companionExe -Destination $compStaging
-    Copy-Item (Join-Path $rootDir "Companion\LICENSE") -Destination $compStaging
+    # Preserve the exact reviewed Companion license bytes independent of Git's
+    # checkout settings: UTF-8 BOM, LF internally, and one final CRLF.
+    $licenseText = (Get-Content -LiteralPath (Join-Path $rootDir "Companion\LICENSE") -Raw) -replace "`r`n", "`n"
+    $licenseText = $licenseText.TrimEnd("`r", "`n") + "`r`n"
+    [IO.File]::WriteAllText(
+        (Join-Path $compStaging "LICENSE"),
+        $licenseText,
+        (New-Object Text.UTF8Encoding($true)))
     $portableReadmeTemplate = Get-Content -LiteralPath (Join-Path $rootDir "Companion\PORTABLE-README.txt") -Raw
     $candidateCompanionHash = (Get-FileHash -LiteralPath $companionExe -Algorithm SHA256).Hash
     $portableReadme = $portableReadmeTemplate.Replace('{{VERSION}}', $Version).Replace(
@@ -204,6 +220,12 @@ if ($CompanionChanged) {
         (New-Object Text.UTF8Encoding($false)))
 
     New-PortableZip -SourceDirectory $compStaging -DestinationPath $compZip
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedCompanionArchiveSha256)) {
+        $actualExpectedArchiveHash = (Get-FileHash -LiteralPath $compZip -Algorithm SHA256).Hash
+        if ($actualExpectedArchiveHash -ne $ExpectedCompanionArchiveSha256.ToUpperInvariant()) {
+            throw "Companion archive hash $actualExpectedArchiveHash does not match expected $($ExpectedCompanionArchiveSha256.ToUpperInvariant())."
+        }
+    }
     $portableArchive = [IO.Compression.ZipFile]::OpenRead($compZip)
     try {
         $expectedEntries = @('LICENSE', 'Offhand.exe', 'README.txt')

@@ -9,10 +9,10 @@ artifact remains the in-game addon only.
 
 Every release must satisfy all of the following:
 
-- Addon releases keep the portable Companion frozen at `v2.1.2-beta.18`
+- Addon releases keep the portable Companion frozen at `v2.1.2-beta.19`
   unless the desktop application itself requires an intentional update.
 - The addon's public release advances independently while compatible releases
-  retain Companion protocol `1` and minimum version `2.1.2-beta.18`.
+  retain Companion protocol `1` and minimum version `2.1.2-beta.19`.
 - GitHub artifacts are built once, checksummed, and traceable to the release
   tag.
 - The Microsoft Store package uses the Store-assigned identity and a package
@@ -33,14 +33,14 @@ Every release must satisfy all of the following:
 
 The canonical portable Companion is currently:
 
-- Release: `v2.1.2-beta.18`
-- Download: <https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.18/Offhand-Companion.zip>
+- Release: `v2.1.2-beta.19`
+- Download: <https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.19/Offhand-Companion.zip>
 - Standalone `Offhand.exe` SHA-256:
-  `A42A45CB149C66EF884308F15A79EE8905C58A94E9B4AE1A3B05B43BAF929F37`
+  `89C065D28D5EB37A3CCBF868DA006C64E7FD403A50417E8799806DF92E46BF52`
 - `Offhand-Companion.zip` SHA-256:
-  `AD49BE14A9C8ADF5A888F873CE9B99F183C4AD2924909ECDF52801F303248A93`
+  `83EEDFE4DFE96EA4A34E6414E55797CAD4E02181604DAAA2F6E6B3EC57F1576B`
 
-Microsoft Security Intelligence completed reviews of the submitted Beta 18
+Microsoft Security Intelligence completed reviews of the submitted Beta 19
 executable and archives without retaining a malware detection; the submission
 references are recorded in `SECURITY.md` and `docs/SECURITY-FOLLOWUP.md`. Preserve
 the exact bytes above. Edge's **"isn't commonly downloaded"** message for the
@@ -108,10 +108,10 @@ For an addon-only beta release, update at least:
 
 - Every supported `Offhand*.toc`: `## Version`, `## X-Offhand-Release`, and
   `## X-Offhand-Addon-Release`. These fields identify the actual addon release.
-- Keep `## X-Offhand-Companion-Release: beta.18`,
+- Keep `## X-Offhand-Companion-Release: beta.19`,
   `## X-Offhand-Companion-Protocol: 1`, and
-  `## X-Offhand-Companion-Min-Version: 2.1.2-beta.18` unchanged while the
-  frozen Beta 18 Companion remains compatible.
+  `## X-Offhand-Companion-Min-Version: 2.1.2-beta.19` unchanged while the
+  frozen Beta 19 Companion remains compatible.
 - The addon may advance to another beta or base version without forcing a new
   Companion. Compatibility is determined by protocol and minimum version, not
   by matching the addon's release label.
@@ -238,7 +238,7 @@ cmd /c .\Companion\build.bat
 ### 4. Build and inspect GitHub artifacts
 
 The tag-triggered GitHub workflow restores and hash-verifies the published Beta
-18 executable for ordinary addon tags. The explicit Companion release lane also
+19 executable for ordinary addon tags. The explicit Companion release lane also
 validates and packages the checked-in reviewed executable; it must never rebuild
 different bytes after antivirus review.
 
@@ -249,11 +249,11 @@ different bytes after antivirus review.
 - [ ] Verify the workflow succeeded.
 - [ ] Download and inspect every addon release's:
   - `Offhand-v<VERSION>.zip`
-  - `Offhand-Companion.zip` (frozen Beta 18)
+  - `Offhand-Companion.zip` (frozen Beta 19)
   - `Offhand-Complete-v<VERSION>.zip`
-  - `Offhand.exe` (frozen Beta 18)
+  - `Offhand.exe` (frozen Beta 19)
   - `checksums-sha256.txt`
-- [ ] Confirm the complete bundle contains the frozen Beta 18 executable with
+- [ ] Confirm the complete bundle contains the frozen Beta 19 executable with
       the SHA-256 recorded in the release workflow and package script.
 - [ ] For an intentional Companion release only, also inspect
       `Offhand-Companion.zip` and `Offhand.exe` and confirm every container has
@@ -309,10 +309,15 @@ Use the Store-assigned identity already encoded in the builder. Example:
 
 ```powershell
 .\Companion\Store\Build-StorePackage.ps1 `
-  -PackageVersion 2.1.19.0 `
-  -CompanionPath .\dist\defender-beta19-current\Offhand.exe `
-  -ExpectedCompanionSha256 658B633783CA388C3E525B565D6061D8F75D9DEBB34E0489E04F046218AAF3E3
+  -PackageVersion 2.1.20.0 `
+  -CompanionPath .\Companion\Offhand.exe `
+  -ExpectedCompanionSha256 89C065D28D5EB37A3CCBF868DA006C64E7FD403A50417E8799806DF92E46BF52
 ```
+
+The Store `2.1.19.0` submission embeds the earlier reviewed `658B633...`
+executable. Let that certification complete. Use `2.1.20.0` or another unused
+higher version for the topology-repair executable; never replace the package in
+an active certification submission.
 
 - [ ] Use a Store version higher than the currently published x64 package.
 - [ ] Confirm the package name is `N4UX.OffhandCompanion`.

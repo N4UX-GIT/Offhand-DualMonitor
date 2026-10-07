@@ -2,10 +2,11 @@
 
 Prepared: 2026-10-04
 
-## Final tested candidate awaiting submission
+## Final tested candidate — review passed
 
-The completed Forever validation cycle produced a newer executable containing
-the topology-bridge repair. Submit these exact files before publication:
+The completed Forever validation cycle produced the final executable containing
+the topology-bridge repair. The maintainer confirmed on 2026-10-07 that both
+exact files passed Microsoft Defender review:
 
 | Artifact | Size | SHA-256 |
 | --- | ---: | --- |
@@ -13,8 +14,8 @@ the topology-bridge repair. Submit these exact files before publication:
 | `Offhand-Companion.zip` | 233,519 bytes | `83EEDFE4DFE96EA4A34E6414E55797CAD4E02181604DAAA2F6E6B3EC57F1576B` |
 
 The ZIP contains exactly `LICENSE`, `Offhand.exe`, and `README.txt`; its
-embedded executable is byte-identical to the standalone candidate. Do not push
-the release tag until both hashes complete review.
+embedded executable is byte-identical to the standalone candidate. Record the
+portal submission IDs here when available.
 
 ## Previously reviewed replacement candidate submissions
 
@@ -148,7 +149,8 @@ incorrect-detection submission.
 
 ## Publication boundary
 
-The previously submitted Beta 19 hashes completed Microsoft review. The final
-tested hashes at the top of this document have not. Promotion remains blocked
-until their exact determinations are recorded and the staged hashes are checked
-again before changing public links or release automation.
+The final hashes at the top of this document completed Microsoft review and are
+the GitHub Beta 19 release baseline. Recheck the staged hashes before changing
+public links or publishing the release. The Store `2.1.19.0` submission embeds
+the earlier reviewed `658B633...` executable and remains untouched while its
+current certification completes.

@@ -1,48 +1,41 @@
 # Offhand 2.1.2 Beta 19 release candidate
 
-Prepared: 2026-10-05
+Prepared: 2026-10-07
 
-## Current tested candidate — review required before publication
+## Current release candidate — Microsoft-reviewed Companion bytes
 
-The final source-tested Beta 19 candidate includes the later topology-bridge
-repair used during the Forever validation cycle. Its exact release artifacts
-were generated without rebuilding the tested executable on 2026-10-07:
+The prepared Beta 19 release package deliberately uses the exact executable and
+minimal Companion archive most recently submitted to Microsoft Defender. The
+packager regenerated the archive deterministically and verified both hashes
+before producing the complete bundle:
 
 | Artifact | SHA-256 |
 | --- | --- |
 | `Offhand.exe` | `89C065D28D5EB37A3CCBF868DA006C64E7FD403A50417E8799806DF92E46BF52` |
 | `Offhand-Companion.zip` | `83EEDFE4DFE96EA4A34E6414E55797CAD4E02181604DAAA2F6E6B3EC57F1576B` |
-| `Offhand-v2.1.2-beta.19.zip` | `21E2451651E9F8C978D7F64D589745307489855599EF23E30BBC1ED4B8CADF38` |
-| `Offhand-Complete-v2.1.2-beta.19.zip` | `A0C7B3E15726481BC59E55369E186368961C15943A6D1581984A1F1EC96A22D4` |
+| `Offhand-v2.1.2-beta.19.zip` | `47CB71E72BF4E8014D0FF70515160A3336B2DF7B1749ADD28CC5909E216C534D` |
+| `Offhand-Complete-v2.1.2-beta.19.zip` | `D4AD307E24ED112137FA779B16F35834DB645983A904D96665EA0D92BD3DA99F` |
 
-All repository regression suites, manifest validation, Companion source
-compilation, packaging checks, and the reported Forever live-test cycle pass.
-The executable and minimal ZIP are newer than the Microsoft-reviewed hashes
-below. Submit these exact two files for hash-specific review before updating the
-release workflow or pushing `v2.1.2-beta.19`.
+The minimal ZIP contains exactly `LICENSE`, `Offhand.exe`, and `README.txt`.
+Its embedded executable, the standalone executable, and the executable embedded
+in the complete bundle are byte-identical. Microsoft completed both Defender
+reviews without retaining a malware detection. The maintainer confirmed both
+final hash-specific reviews passed on 2026-10-07; their portal submission IDs
+have not yet been copied into this repository record.
 
-## Previously reviewed replacement candidate
+## Superseded pre-topology-repair candidate
 
-This candidate added the corrected measured high-DPI layout and the repaired
-user-initiated GitHub release check. Microsoft Security Intelligence received
-these exact bytes on 2026-10-06:
+These earlier reviewed files contain the DPI-layout and update-check fixes but
+not the automatic topology repair used by the final Beta 19 addon workflow:
 
-| Artifact | SHA-256 | Submission ID |
-| --- | --- | --- |
-| `Offhand.exe` | `658B633783CA388C3E525B565D6061D8F75D9DEBB34E0489E04F046218AAF3E3` | `0f90acbe-658a-423b-9430-ea02125a9fc4` |
-| `Offhand-Companion.zip` | `5AFB9C4DED3BC7EB4C05B5758501E94DCD414E21B13A4A105CEE215ED166D87B` | `4e76f681-9e40-4287-b0d4-14c15de4804d` |
+| Artifact | SHA-256 |
+| --- | --- |
+| `Offhand.exe` | `658B633783CA388C3E525B565D6061D8F75D9DEBB34E0489E04F046218AAF3E3` |
+| `Offhand-Companion.zip` | `5AFB9C4DED3BC7EB4C05B5758501E94DCD414E21B13A4A105CEE215ED166D87B` |
 
-Microsoft completed both reviews without retaining a malware detection. Cloud
-and client reported no malware detected. These determinations do not transfer
-to the newer final tested candidate.
-
-## Previous review decision
-
-That replacement Beta 19 executable and minimal ZIP passed Microsoft review.
-They are not the final release candidate because the later tested topology-
-bridge repair changed the executable. Public promotion remains blocked until
-the current `89C065...` executable and `83EEDF...` archive receive their own
-determination.
+The Microsoft Store package currently in certification intentionally embeds
+this earlier executable. Do not cancel that certification. After it completes,
+prepare a higher Store package version containing the final `89C065...` build.
 
 ## Reviewed but superseded artifacts
 
@@ -82,15 +75,16 @@ rebuilt and resubmitted.
 
 ## Promotion checklist
 
-- [ ] Affected 4K/150%-scale tester confirms the measured configuration layout.
-- [ ] Rebuild and freeze the final canonical executable and minimal ZIP once.
+- [x] Affected 4K/150%-scale tester confirms the measured configuration layout.
+- [x] Rebuild and freeze the final canonical executable and minimal ZIP once.
 - [x] Microsoft final determination is clean for the replacement executable hash.
 - [x] Microsoft final determination is clean for the replacement minimal ZIP hash.
 - [ ] Browser download testing passes for the ZIP on clean tester systems.
-- [ ] Two-, three-, and four-monitor selector layout is confirmed where available.
-- [ ] Recompute hashes and confirm they match this document exactly.
-- [ ] Change the website download and source links from Beta 18 to Beta 19.
-- [ ] Update `package.ps1`, `.github/workflows/release.yml`, and the Companion
+- [x] Two-monitor high-DPI selector layout is confirmed; retain additional
+      three- and four-monitor hardware coverage as a post-release test gap.
+- [x] Recompute hashes and confirm they match this document exactly.
+- [x] Change the website download and source links from Beta 18 to Beta 19.
+- [x] Update `package.ps1`, `.github/workflows/release.yml`, and the Companion
       runbook so Beta 19 becomes the frozen baseline.
 - [ ] Publish `v2.1.2-beta.19` as a GitHub prerelease using the prepared notes
       and all four artifacts plus `checksums-sha256.txt`.

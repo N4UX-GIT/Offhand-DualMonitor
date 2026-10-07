@@ -17,7 +17,12 @@ $temp = Join-Path ([IO.Path]::GetTempPath()) ('Offhand-companion-test-' + [guid]
 try {
     New-Item -ItemType Directory -Path $temp | Out-Null
     Copy-Item -LiteralPath $binary -Destination (Join-Path $temp 'Offhand.exe')
-    Copy-Item -LiteralPath (Join-Path $root 'LICENSE') -Destination (Join-Path $temp 'LICENSE')
+    $licenseText = (Get-Content -LiteralPath (Join-Path $root 'Companion\LICENSE') -Raw) -replace "`r`n", "`n"
+    $licenseText = $licenseText.TrimEnd("`r", "`n") + "`r`n"
+    [IO.File]::WriteAllText(
+        (Join-Path $temp 'LICENSE'),
+        $licenseText,
+        [Text.UTF8Encoding]::new($true))
     $readme = (Get-Content -LiteralPath (Join-Path $root 'Companion\PORTABLE-README.txt') -Raw).
         Replace('{{VERSION}}', $Version).
         Replace('{{EXE_SHA256}}', $hash)

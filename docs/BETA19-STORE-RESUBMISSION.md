@@ -15,6 +15,11 @@ Do not modify or cancel the submission while certification is running. Record
 Microsoft's certification result and publication time when they become
 available.
 
+This submitted package predates the final topology-bridge repair. Allow its
+certification to complete unchanged. Afterwards, prepare a higher Store package
+version containing the reviewed `89C065D28D5EB37A3CCBF868DA006C64E7FD403A50417E8799806DF92E46BF52`
+executable; do not attempt to replace the in-certification `2.1.19.0` package.
+
 ## Frozen package
 
 - Package: `dist/store/Offhand-Companion_2_1_19_0_x64.msix`

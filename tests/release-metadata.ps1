@@ -15,7 +15,7 @@ try {
     }
     $betaBody = Get-Content -LiteralPath $betaNotes -Raw
     foreach ($required in @(
-        '<!-- offhand-companion-version: 2.1.2-beta.18 -->',
+        '<!-- offhand-companion-version: 2.1.2-beta.19 -->',
         '# Offhand v2.1.2 Beta 5',
         '## Changes in this build',
         '## Downloads',
@@ -26,7 +26,7 @@ try {
         'Offhand-Complete-v2.1.2-beta.5.zip',
         '**Companion package:**',
         '**Standalone Companion:**',
-        'byte-identical v2.1.2 Beta 18',
+        'byte-identical 2.1.2-beta.19',
         'releases/latest/download'
     )) {
         if (-not $betaBody.Contains($required)) {
@@ -38,9 +38,9 @@ try {
     }
 
     $companionNotes = Join-Path $temp 'companion.md'
-    & $script -Tag 'v2.1.2-beta.18' -ChangelogPath $changelog -OutputPath $companionNotes -CompanionChanged | Out-Null
+    & $script -Tag 'v2.1.2-beta.19' -ChangelogPath $changelog -OutputPath $companionNotes -CompanionChanged | Out-Null
     $companionBody = Get-Content -LiteralPath $companionNotes -Raw
-    foreach ($required in @('<!-- offhand-companion-version: 2.1.2-beta.18 -->', '**Companion package:**', '**Standalone Companion:**')) {
+    foreach ($required in @('<!-- offhand-companion-version: 2.1.2-beta.19 -->', '**Companion package:**', '**Standalone Companion:**')) {
         if (-not $companionBody.Contains($required)) {
             throw "Companion release notes are missing: $required"
         }

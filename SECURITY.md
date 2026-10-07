@@ -39,21 +39,23 @@ An attestation proves build provenance and integrity; it is not an antivirus
 verdict or an Authenticode publisher signature. A locally compiled release may
 have an official checksum without an attestation.
 
-## Current Beta 18 security status
+## Current Beta 19 security status
 
-The canonical portable release is **Offhand Companion v2.1.2 Beta 18**. Use the
+The canonical portable release is **Offhand Companion v2.1.2 Beta 19**. Use the
 ZIP as the primary download:
 
-https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.18/Offhand-Companion.zip
+https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.19/Offhand-Companion.zip
 
 Canonical SHA-256 digests:
 
-- `Offhand.exe`: `A42A45CB149C66EF884308F15A79EE8905C58A94E9B4AE1A3B05B43BAF929F37`
-- `Offhand-Companion.zip`: `AD49BE14A9C8ADF5A888F873CE9B99F183C4AD2924909ECDF52801F303248A93`
+- `Offhand.exe`: `89C065D28D5EB37A3CCBF868DA006C64E7FD403A50417E8799806DF92E46BF52`
+- `Offhand-Companion.zip`: `83EEDFE4DFE96EA4A34E6414E55797CAD4E02181604DAAA2F6E6B3EC57F1576B`
 
-On 2026-10-04, Microsoft Security Intelligence had completed its reviews of
-the submitted Beta 18 executable and archives without retaining a malware
-detection. The authenticated submission records are:
+On 2026-10-07, the maintainer confirmed Microsoft Security Intelligence had
+completed its reviews of both exact Beta 19 files without retaining a malware
+detection. Record their authenticated submission links here when available.
+
+Earlier Beta 18 review records remain available for historical verification:
 
 - https://www.microsoft.com/en-us/wdsi/submission/5520a8b4-e4fa-44a1-aa61-09a9e8078998
 - https://www.microsoft.com/en-us/wdsi/submission/c874681f-5e6e-4c5f-9984-354dc76f85c0
@@ -63,21 +65,19 @@ These determinations apply to the submitted file hashes. They do not transfer
 automatically to a rebuilt executable or newly generated archive, and they do
 not replace checksum verification or independent review of the source.
 
-## Beta 19 reviewed release candidate
+## Beta 19 review scope
 
-On 2026-10-06, Microsoft Security Intelligence also completed review of the
-current Beta 19 release-candidate executable and minimal archive without
-retaining a malware detection. Cloud and client reported no malware detected:
+On 2026-10-07, the maintainer confirmed Microsoft Security Intelligence also
+completed review of the final Beta 19 executable and minimal archive without
+retaining a malware detection:
 
 - `Offhand.exe` SHA-256:
-  `658B633783CA388C3E525B565D6061D8F75D9DEBB34E0489E04F046218AAF3E3`
-  ([submission record](https://www.microsoft.com/en-us/wdsi/submission/0f90acbe-658a-423b-9430-ea02125a9fc4))
+  `89C065D28D5EB37A3CCBF868DA006C64E7FD403A50417E8799806DF92E46BF52`
 - `Offhand-Companion.zip` SHA-256:
-  `5AFB9C4DED3BC7EB4C05B5758501E94DCD414E21B13A4A105CEE215ED166D87B`
-  ([submission record](https://www.microsoft.com/en-us/wdsi/submission/4e76f681-9e40-4287-b0d4-14c15de4804d))
+  `83EEDFE4DFE96EA4A34E6414E55797CAD4E02181604DAAA2F6E6B3EC57F1576B`
 
-These results apply only to those exact bytes. Until Beta 19 is deliberately
-published, the Beta 18 links and hashes above remain the public baseline.
+These results apply only to those exact bytes. Rebuilt executables or regenerated
+archives do not inherit the determination unless their SHA-256 remains identical.
 
 Microsoft Edge may still describe the standalone unsigned executable as
 **"isn't commonly downloaded."** That is a SmartScreen application-reputation

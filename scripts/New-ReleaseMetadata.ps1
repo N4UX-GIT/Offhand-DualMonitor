@@ -4,18 +4,29 @@ param(
 
     [string]$Repository = "N4UX-GIT/Offhand-DualMonitor",
 
-    [string]$ChangelogPath = (Join-Path $PSScriptRoot "..\CHANGELOG.md"),
+    [string]$ChangelogPath,
 
-    [string]$OutputPath = (Join-Path $PSScriptRoot "..\dist\release-notes.md"),
+    [string]$OutputPath,
 
     [string]$GitHubOutputPath,
 
-    [string]$CompanionReleaseTag = 'v2.1.2-beta.18',
+    [string]$CompanionReleaseTag = 'v2.1.2-beta.19',
 
     [switch]$CompanionChanged
 )
 
 $ErrorActionPreference = "Stop"
+
+# Windows PowerShell evaluates parameter default expressions before it reliably
+# exposes $PSScriptRoot. Resolve script-relative defaults after binding so the
+# same release metadata command works locally and in GitHub's powershell shell.
+$scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+if ([string]::IsNullOrWhiteSpace($ChangelogPath)) {
+    $ChangelogPath = Join-Path $scriptRoot "..\CHANGELOG.md"
+}
+if ([string]::IsNullOrWhiteSpace($OutputPath)) {
+    $OutputPath = Join-Path $scriptRoot "..\dist\release-notes.md"
+}
 
 $match = [regex]::Match($Tag, '^v(?<version>\d+\.\d+\.\d+)(?:-(?<channel>alpha|beta|rc)\.(?<number>\d+))?$')
 if (-not $match.Success) {
@@ -75,9 +86,9 @@ $companionDownloads = if ($CompanionChanged) {
 "@
 } else {
 @"
-- **Companion package:** ``Offhand-Companion.zip`` — unchanged, byte-identical v2.1.2 Beta 18 archive retained so the permanent ``releases/latest/download`` link continues to work.
-- **Standalone Companion:** ``Offhand.exe`` — unchanged, byte-identical v2.1.2 Beta 18 executable.
-- **Companion source release:** [v2.1.2 Beta 18](https://github.com/$Repository/releases/tag/v2.1.2-beta.18).
+- **Companion package:** ``Offhand-Companion.zip`` — unchanged, byte-identical $companionVersion archive retained so the permanent ``releases/latest/download`` link continues to work.
+- **Standalone Companion:** ``Offhand.exe`` — unchanged, byte-identical $companionVersion executable.
+- **Companion source release:** [$CompanionReleaseTag](https://github.com/$Repository/releases/tag/$CompanionReleaseTag).
 "@
 }
 

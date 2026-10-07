@@ -114,10 +114,12 @@ try {
     }
     if ($packager -notmatch '\[switch\]\$UseExistingCompanion' -or
         $packager -notmatch '\[switch\]\$CompanionChanged' -or
-        $packager -notmatch 'A42A45CB149C66EF884308F15A79EE8905C58A94E9B4AE1A3B05B43BAF929F37' -or
+        $packager -notmatch '89C065D28D5EB37A3CCBF868DA006C64E7FD403A50417E8799806DF92E46BF52' -or
+        $packager -notmatch '\[string\]\$ExpectedCompanionArchiveSha256' -or
+        $packager -notmatch 'Companion archive hash.*does not match expected' -or
         $packager -notmatch 'Canonical Companion SHA-256' -or
         $packager -notmatch 'contains a different executable than the canonical Companion build') {
-        throw 'Release packaging must freeze Beta 18 by hash and require an explicit Companion-change lane.'
+        throw 'Release packaging must freeze the reviewed Beta 19 bytes and require an explicit Companion-change lane.'
     }
     $storeBuilder = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Store\Build-StorePackage.ps1') -Raw
     if ($storeBuilder -notmatch "\[string\]\`$PackageVersion = '2\.1\.19\.0'" -or
@@ -129,19 +131,19 @@ try {
     $releaseWorkflow = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\.github\workflows\release.yml') -Raw
     if ($releaseWorkflow -notmatch 'Validate canonical Companion executable' -or
         $releaseWorkflow -notmatch 'Validate canonical Companion archive' -or
-        $releaseWorkflow -notmatch 'COMPANION_RELEASE_TAG: v2\.1\.2-beta\.18' -or
-        $releaseWorkflow -notmatch 'COMPANION_SHA256: A42A45CB149C66EF884308F15A79EE8905C58A94E9B4AE1A3B05B43BAF929F37' -or
-        $releaseWorkflow -notmatch 'COMPANION_ARCHIVE_SHA256: AD49BE14A9C8ADF5A888F873CE9B99F183C4AD2924909ECDF52801F303248A93' -or
+        $releaseWorkflow -notmatch 'COMPANION_RELEASE_TAG: v2\.1\.2-beta\.19' -or
+        $releaseWorkflow -notmatch 'COMPANION_SHA256: 89C065D28D5EB37A3CCBF868DA006C64E7FD403A50417E8799806DF92E46BF52' -or
+        $releaseWorkflow -notmatch 'COMPANION_ARCHIVE_SHA256: 83EEDFE4DFE96EA4A34E6414E55797CAD4E02181604DAAA2F6E6B3EC57F1576B' -or
         $releaseWorkflow -notmatch "GetEntry\('Offhand\.exe'\)" -or
         $releaseWorkflow -notmatch 'ComputeHash\(\$stream\)' -or
-        $releaseWorkflow -notmatch 'Restore frozen Beta 18 Companion' -or
-        $releaseWorkflow -notmatch 'Attach frozen Beta 18 Companion assets' -or
+        $releaseWorkflow -notmatch 'Restore frozen Beta 19 Companion' -or
+        $releaseWorkflow -notmatch 'Attach frozen Beta 19 Companion assets' -or
         $releaseWorkflow -notmatch 'dist/Offhand-Companion\.zip' -or
         $releaseWorkflow -notmatch 'dist/Offhand\.exe' -or
         $releaseWorkflow -notmatch 'package\.ps1 -Version \$version -CompanionChanged -UseExistingCompanion') {
-        throw 'Release automation must validate and attach exact frozen Beta 18 assets without rebuilding the reviewed executable.'
+        throw 'Release automation must validate and attach exact frozen Beta 19 assets without rebuilding the reviewed executable.'
     }
-    $pinnedCompanionUrl = 'https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.18/Offhand-Companion.zip'
+    $pinnedCompanionUrl = 'https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.19/Offhand-Companion.zip'
     foreach ($relativePath in @(
         'README.md',
         'docs\CURSEFORGE_DESCRIPTION.md',
@@ -150,7 +152,7 @@ try {
         $publicSurface = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\$relativePath") -Raw
         if (-not $publicSurface.Contains($pinnedCompanionUrl) -or
             $publicSurface -match 'releases/latest/download/Offhand-Companion\.zip') {
-            throw "$relativePath must point directly to the frozen Beta 18 Companion."
+            throw "$relativePath must point directly to the frozen Beta 19 Companion."
         }
     }
     $addonInit = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Core\Init.lua') -Raw
@@ -177,8 +179,8 @@ try {
     Write-Output 'PASS: addon verification paths are visible and copied into the activity log'
     Write-Output 'PASS: hotkeyless display identification and multi-monitor selection remain separated at enlarged DPI'
     Write-Output 'PASS: Linux compatibility documentation is included by the release packager'
-    Write-Output 'PASS: addon-only releases attach the published Beta 18 Companion assets by exact hash'
-    Write-Output 'PASS: public website/docs remain pinned to Beta 18 while the addon derives its version-matched Companion URL'
+    Write-Output 'PASS: addon-only releases attach the reviewed Beta 19 Companion assets by exact hash'
+    Write-Output 'PASS: public website/docs point to the reviewed Beta 19 Companion while the addon derives its version-matched URL'
     Write-Output 'PASS: release ZIPs are portable and Linux guidance covers prefix/runner matching'
     Write-Output 'PASS: all shipped Companion executables use the consistent Offhand.exe name'
     Write-Output 'PASS: release packaging preserves and verifies one canonical Companion executable'

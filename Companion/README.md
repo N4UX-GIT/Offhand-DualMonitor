@@ -42,9 +42,9 @@ Native Windows desktop companion application for the Offhand World of Warcraft a
   Source, build scripts, manifests, and development assets remain available in
   the repository and GitHub source archives. Microsoft Security Intelligence reviewed the submitted Beta
   18 executable and archives without retaining a malware detection. Microsoft's
-  first Beta 19 review was also clean, but those exact bytes were superseded
-  after a high-DPI layout defect was found during testing. The replacement must
-  complete tester and hash-specific review before publication. Edge may still
+  first Beta 19 review was also clean but was superseded during testing. The
+  final Beta 19 executable and minimal archive, including the DPI-layout and
+  topology-repair fixes, also passed hash-specific review. Edge may still
   call an unsigned standalone EXE **"not commonly
   downloaded"**; that is a SmartScreen reputation notice rather than an
   antivirus detection. Verify `checksums-sha256.txt`, and never disable security

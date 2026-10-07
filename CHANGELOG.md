@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
   physical-window primitives used by Offhand, while Backdrop and visibility
   code now falls back to APIs available in Wrath. This target remains
   experimental until exercised on a real 3.3.5a client.
-- Companion 2.1.2 Beta 19 is the next desktop candidate. Addon manifests now
+- Companion 2.1.2 Beta 19 is the current public testing build. Addon manifests now
   identify the actual addon release separately from Companion protocol `1` and
   minimum Companion version `2.1.2-beta.19`, so later addon-only releases can
   reuse the exact approved Companion bytes without rebuilding them.
@@ -45,7 +45,7 @@ All notable changes to this project will be documented in this file.
   preserve the addon directory tree without a custom deflattening script.
 - The executable in the complete release bundle is now consistently named
   `Offhand.exe`, matching the standalone file and Companion archive.
-- Addon-only release automation now restores the published Beta 18 Companion,
+- Addon-only release automation now restores the published Beta 19 Companion,
   verifies its exact SHA-256, and reuses those frozen bytes in the complete
   bundle and the stable `releases/latest/download` asset names. Rebuilding the
   Companion still requires an explicit Companion-change release lane.
