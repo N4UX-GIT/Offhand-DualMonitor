@@ -547,6 +547,7 @@ local foreverEditModeControlNames = {
     "EditModeSystemSettingsDialog",
     "EditModeLayoutDialog",
     "EditModeImportLayoutDialog",
+    "EditModeImportLayoutLinkDialog",
     "EditModeUnsavedChangesDialog",
     "EditModeDialog",
 }
@@ -589,16 +590,48 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
     -- dialog opened for a selected HUD element is mostly in the mixed-height
     -- void. Inspect every Blizzard-owned Edit Mode control surface, but never
     -- reanchor or hook it: those writes interfere with native Party Frame drag.
-    local controlsOutsideDisplays = not FrameFitsPhysicalDisplay(manager, metrics)
+    local outsideControl
+    local visibleDialog
     for _, name in ipairs(foreverEditModeControlNames) do
         local frame = _G[name]
-        if frame and frame.IsShown and frame:IsShown()
-            and not FrameFitsPhysicalDisplay(frame, metrics) then
-            controlsOutsideDisplays = true
-            break
+        if frame and frame.IsShown and frame:IsShown() then
+            visibleDialog = frame
+            if not FrameFitsPhysicalDisplay(frame, metrics) then
+                outsideControl = frame
+                break
+            end
         end
     end
-    if not controlsOutsideDisplays then return end
+    -- A reachable Blizzard modal should have exclusive focus. Defer recovery
+    -- of an off-screen manager until that save/rename/delete dialog closes;
+    -- an off-screen modal itself still takes priority and remains recoverable.
+    if not outsideControl and not visibleDialog
+        and not FrameFitsPhysicalDisplay(manager, metrics) then
+        outsideControl = manager
+    end
+    if not outsideControl then
+        -- Blizzard can finish centering a modal after the scan that raised our
+        -- recovery prompt. Dismiss that now-stale prompt so it never obscures
+        -- a reachable save/rename/delete dialog. Clearing the decline marker
+        -- also lets a later reuse of EditModeLayoutDialog be recovered.
+        if self.foreverEditModeControlsPromptShown
+            and Offhand.HideForeverEditModeControlsPrompt then
+            Offhand:HideForeverEditModeControlsPrompt()
+        end
+        self.foreverEditModeControlsPromptShown = nil
+        self.foreverEditModeControlsPromptDeclined = nil
+        self.foreverEditModeOutsideControl = nil
+        return
+    end
+    if self.foreverEditModeOutsideControl ~= outsideControl then
+        if self.foreverEditModeControlsPromptShown
+            and Offhand.HideForeverEditModeControlsPrompt then
+            Offhand:HideForeverEditModeControlsPrompt()
+        end
+        self.foreverEditModeControlsPromptShown = nil
+        self.foreverEditModeControlsPromptDeclined = nil
+        self.foreverEditModeOutsideControl = outsideControl
+    end
     if self.foreverEditModeControlsPromptShown or self.foreverEditModeControlsPromptDeclined then return end
     self.foreverEditModeControlsPromptShown = true
     if Offhand.ShowForeverEditModeControlsPrompt then
@@ -641,6 +674,8 @@ function HUD:BringForeverEditModeControlsToMainhand()
     for _, name in ipairs(foreverEditModeControlNames) do Recover(_G[name]) end
     if not moved then return false end
     self.foreverEditModeControlsPromptShown = nil
+    self.foreverEditModeControlsPromptDeclined = nil
+    self.foreverEditModeOutsideControl = nil
     return true
 end
 

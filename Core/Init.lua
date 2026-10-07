@@ -644,7 +644,16 @@ function Offhand:ShowForeverEditModeControlsPrompt()
         Offhand:DeferAutomaticUIForCinematic()
         return
     end
-    if StaticPopup_Show then StaticPopup_Show("OFFHAND_FOREVER_EDIT_MODE_CONTROLS") end
+    if StaticPopup_Show then
+        local popup = StaticPopup_Show("OFFHAND_FOREVER_EDIT_MODE_CONTROLS")
+        local mainhand = Offhand.API and Offhand.API.GetMainhandFrame
+            and Offhand.API.GetMainhandFrame() or nil
+        -- Keep Offhand's recovery choice away from Blizzard's centered modal.
+        if popup and mainhand and popup.ClearAllPoints and popup.SetPoint then
+            popup:ClearAllPoints()
+            popup:SetPoint("TOP", mainhand, "TOP", 0, -36)
+        end
+    end
 end
 
 function Offhand:HideForeverEditModeControlsPrompt()
