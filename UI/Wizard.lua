@@ -28,6 +28,12 @@ local function SetShown(frame, shown)
     else frame:Hide() end
 end
 
+local function SupportsGeneratedMainhandLayout()
+    return (Offhand.isForever or Offhand.isRetail)
+        and Offhand.Options
+        and type(Offhand.Options.CreateMainhandHUDLayout) == "function"
+end
+
 function Wizard:DetectTopology()
     if Offhand.Options and Offhand.Options.DetectTopology then
         return Offhand.Options:DetectTopology()
@@ -765,6 +771,27 @@ function Wizard:CreateFrame()
     f.scalePresetButtons = { btnHud56, btnHud65, btnHud70, btnHud100 }
 
     -- ========================================================================
+    -- CARD 5: GENERATED MAINHAND HUD LAYOUT (FOREVER / RETAIL)
+    -- ========================================================================
+    local card5 = CreateWizardCard(f, L["MAINHAND_LAYOUT_CREATE"], -690, 180)
+
+    local layoutHelp = card5:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    layoutHelp:SetPoint("TOPLEFT", card5, "TOPLEFT", 14, -32)
+    layoutHelp:SetPoint("TOPRIGHT", card5, "TOPRIGHT", -14, -32)
+    layoutHelp:SetPoint("BOTTOMLEFT", card5, "BOTTOMLEFT", 14, 50)
+    layoutHelp:SetPoint("BOTTOMRIGHT", card5, "BOTTOMRIGHT", -14, 50)
+    layoutHelp:SetJustifyH("LEFT")
+    if layoutHelp.SetJustifyV then layoutHelp:SetJustifyV("TOP") end
+    if layoutHelp.SetWordWrap then layoutHelp:SetWordWrap(true) end
+    layoutHelp:SetText(L["MAINHAND_LAYOUT_CREATE_DESC"])
+
+    local layoutStatus = card5:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    layoutStatus:SetPoint("BOTTOMLEFT", card5, "BOTTOMLEFT", 14, 20)
+    layoutStatus:SetPoint("BOTTOMRIGHT", card5, "BOTTOMRIGHT", -14, 20)
+    layoutStatus:SetJustifyH("CENTER")
+    f.mainhandLayoutStatus = layoutStatus
+
+    -- ========================================================================
     -- FOOTER ACTIONS
     -- ========================================================================
     local advBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
@@ -785,15 +812,19 @@ function Wizard:CreateFrame()
     finishBtn:SetSize(170, 28)
     finishBtn:SetPoint("BOTTOMRIGHT", -18, 14)
     finishBtn:SetText("|cffffd100" .. L["WIZARD_BTN_FINISH"] .. "|r")
-    finishBtn:SetScript("OnClick", function()
-        if f.step < 4 then f:SetStep(f.step + 1); return end
+
+    local function ValidateTopology()
         local currentInfo = Wizard:DetectTopology()
         if currentInfo.exactTopology and currentInfo.companionVersionStatus == "MISMATCH" then
             statusText:SetText("|cffff5555" .. string.format(L["WIZARD_STATUS_COMPANION_MISMATCH"],
                 currentInfo.companionVersion or "?", currentInfo.expectedCompanionVersion or "?") .. "|r")
             f:SetStep(1)
-            return
+            return false
         end
+        return true
+    end
+
+    local function CompleteSetup()
         if Offhand.MarkSetupComplete then
             Offhand:MarkSetupComplete()
         elseif Offhand.db then
@@ -804,6 +835,42 @@ function Wizard:CreateFrame()
         Offhand:ApplyFullLayout()
         if Offhand.Print then
             Offhand:Print(L["CONFIG_SAVED"])
+        end
+    end
+
+    finishBtn:SetScript("OnClick", function()
+        if f.step < 4 then f:SetStep(f.step + 1); return end
+        if f.step == 4 then
+            if not ValidateTopology() then return end
+            if f.totalSteps > 4 then
+                f:SetStep(5)
+                return
+            end
+            CompleteSetup()
+            return
+        end
+
+        local ok, value, moved = Offhand.Options:CreateMainhandHUDLayout()
+        if not ok and value == "already" and Offhand.Mainhand
+            and type(Offhand.Mainhand.GetLayoutStatus) == "function" then
+            local existing = Offhand.Mainhand:GetLayoutStatus()
+            if existing and existing.configured and existing.currentGeometry then
+                ok = true
+                value = existing.generatedName
+                moved = existing.movedSystems
+            end
+        end
+        if not ok then
+            layoutStatus:SetText("|cffff5555" .. string.format(L["MAINHAND_LAYOUT_FAILED"],
+                tostring(value or "unavailable")) .. "|r")
+            return
+        end
+        if Offhand.Print then
+            Offhand:Print(L["MAINHAND_LAYOUT_CREATED"], tostring(value), moved or 0)
+        end
+        CompleteSetup()
+        if Offhand.Mainhand and Offhand.Mainhand.PromptReload then
+            Offhand.Mainhand:PromptReload()
         end
     end)
 
@@ -816,7 +883,13 @@ function Wizard:CreateFrame()
     f.backBtn = backBtn
     local progress = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     progress:SetPoint("TOPLEFT", 18, -116)
+    f.totalSteps = SupportsGeneratedMainhandLayout() and 5 or 4
     f.pages = {card1, card2, card3, card4}
+    if f.totalSteps == 5 then
+        f.pages[5] = card5
+    else
+        card5:Hide()
+    end
     card3:SetHeight(208)
     local bottomControl = Offhand.Options:CreateBottomControl(card3)
     bottomControl:SetPoint("TOPLEFT", 14, -148)
@@ -825,12 +898,27 @@ function Wizard:CreateFrame()
         card:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -140)
     end
     function f:SetStep(step)
-        self.step = math.max(1, math.min(4, step))
+        self.step = math.max(1, math.min(self.totalSteps, step))
         for i, card in ipairs(self.pages) do SetShown(card, i == self.step) end
-        progress:SetText(string.format(L["STEP_PROGRESS"], self.step))
-        welcomeText:SetText(L["STEP_" .. self.step .. "_HELP"])
+        progress:SetText(string.format(L["STEP_PROGRESS"], self.step, self.totalSteps))
+        welcomeText:SetText(self.step == 5
+            and L["MAINHAND_LAYOUT_CREATE_DESC"]
+            or L["STEP_" .. self.step .. "_HELP"])
         backBtn:SetEnabled(self.step > 1)
-        finishBtn:SetText(self.step == 4 and L["BTN_FINISH"] or L["BTN_NEXT"])
+        finishBtn:SetText(self.step == 5
+            and L["MAINHAND_LAYOUT_CREATE"]
+            or (self.step == self.totalSteps and L["BTN_FINISH"] or L["BTN_NEXT"]))
+        finishBtn:SetSize(self.step == 5 and 230 or 170, 28)
+        if self.step == 5 then
+            local state = Offhand.Mainhand and Offhand.Mainhand.GetLayoutStatus
+                and Offhand.Mainhand:GetLayoutStatus() or nil
+            local name = state and state.configured and state.generatedName
+                or L["MAINHAND_LAYOUT_UNSET"]
+            if state and state.configured and not state.currentGeometry then
+                name = string.format(L["MAINHAND_LAYOUT_STALE"], tostring(name))
+            end
+            layoutStatus:SetText(string.format(L["MAINHAND_LAYOUT_STATUS"], tostring(name)))
+        end
         if self.step == 3 then
             Offhand.Options:ShowSeamGuide(Offhand.db and Offhand.db.deckWidthRatio)
         else

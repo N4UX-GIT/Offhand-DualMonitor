@@ -283,6 +283,23 @@ StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"].OnAccept()
 assert(addon:IsWelcomeDismissed(), "Get Companion App must acknowledge the welcome guide")
 assert(not addon:IsSetupComplete(), "Downloading the Companion must not complete calibration")
 OffhandDB.onboarding = {}
+addon.isForever = true
+local createMainhandLayoutCount = 0
+local reloadPromptCount = 0
+local createMainhandLayoutResult = { true, "Offhand - Mainhand - Test", 52 }
+addon.Mainhand = {
+    GetLayoutStatus = function()
+        return { configured = false }
+    end,
+    PromptReload = function()
+        reloadPromptCount = reloadPromptCount + 1
+        return true
+    end,
+}
+addon.Options.CreateMainhandHUDLayout = function()
+    createMainhandLayoutCount = createMainhandLayoutCount + 1
+    return unpack(createMainhandLayoutResult)
+end
 StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"].OnCancel()
 assert(addon:IsWelcomeDismissed(), "Launch Wizard must acknowledge the welcome guide")
 assert(OffhandSetupWizardFrame and OffhandSetupWizardFrame:IsShown(),
@@ -505,7 +522,9 @@ assert(not addon.db.firstRunComplete, "Applying a recommendation must not finish
 assert(math.abs(addon.db.deckWidthRatio - 0.36) < 0.001, "AutoConfigure button in Wizard must set 36% seam")
 assert(wizardFrame.step == 2, "Applying recommendations must advance to layout review")
 assert(wizardFrame.statusText:GetText() == addon.L["WIZARD_CHECK_RECOMMENDATION"], "Auto detection must ask the user to check calibration")
-for step = 1, 4 do
+assert(wizardFrame.totalSteps == 5 and #wizardFrame.pages == 5,
+    "Forever setup must include the generated Mainhand HUD layout step")
+for step = 1, wizardFrame.totalSteps do
     wizardFrame:SetStep(step)
     for index, page in ipairs(wizardFrame.pages) do
         assert(page:IsShown() == (index == step), "Only the current setup step may be visible")
@@ -524,10 +543,14 @@ addon.isForever = true
 addon.Viewport.GetMetrics = function()
     return { companionTopology=false, topologyStatus="ABSENT", isSpanned=false }
 end
+OffhandDB.onboarding.setupComplete = false
 wizardFrame:SetStep(4)
 wizardFrame.finishBtn.scripts.OnClick()
-assert(addon:IsSetupComplete(),
-    "Forever manual setup must finish when Companion topology is absent")
+assert(wizardFrame.step == 5 and not addon:IsSetupComplete(),
+    "Forever setup must require the Mainhand HUD layout action after calibration")
+wizardFrame.finishBtn.scripts.OnClick()
+assert(addon:IsSetupComplete() and createMainhandLayoutCount == 1 and reloadPromptCount == 1,
+    "creating the Mainhand HUD layout must finish setup and offer the required reload")
 OffhandDB.onboarding.setupComplete = false
 addon.Viewport.GetMetrics = function()
     return {
@@ -546,7 +569,15 @@ wizardFrame.finishBtn.scripts.OnClick()
 assert(wizardFrame.step == 1 and not addon:IsSetupComplete(),
     "a known Companion mismatch must block completion and return to preflight")
 addon.Viewport.GetMetrics = wizardMetrics
-addon.isForever = false
+
+createMainhandLayoutResult = { false, "combat" }
+wizardFrame:Show()
+wizardFrame:SetStep(5)
+wizardFrame.finishBtn.scripts.OnClick()
+assert(not addon:IsSetupComplete() and wizardFrame.step == 5 and wizardFrame:IsShown()
+        and wizardFrame.mainhandLayoutStatus:GetText():find("combat", 1, true),
+    "a failed Mainhand HUD layout action must keep setup open on the final step")
+createMainhandLayoutResult = { true, "Offhand - Mainhand - Test", 52 }
 
 -- Test Continuous Global UI Scale Slider in Wizard
 assert(wizardFrame.scaleSlider ~= nil, "Wizard must have scaleSlider")
@@ -610,6 +641,7 @@ addon.Viewport.GetMetrics = guideMetrics
 addon.Wizard:Close()
 assert(wizardFrame:IsShown() == false, "Wizard:Close must hide wizardFrame")
 assert(addon.Options:IsSeamGuideShown() == false, "Wizard:Close must hide seam guide")
+addon.isForever = false
 
 -- ============================================================================
 -- 4. Test Slash Commands Routing
