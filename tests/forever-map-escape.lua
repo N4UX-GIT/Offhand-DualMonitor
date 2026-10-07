@@ -402,12 +402,18 @@ addon.db.savedWorkspacePositions.ContainerFrameCombinedBags = nil
 addon.db.savedMainPositions.ContainerFrameCombinedBags = { x = 2100, y = 900 }
 addon.db.openWorkspacePanels.ContainerFrameCombinedBags = nil
 addon.db.openWorkspacePanels.Baganator_StaleChild = true
+addon.db.savedWorkspacePositions.Baganator_StaleChild = { x = 80, y = 900 }
+addon.db.openWorkspacePanels.EUI_MainBagFrame = true
+addon.db.savedWorkspacePositions.EUI_MainBagFrame = { x = 100, y = 850 }
 local bagOpensBeforeStaleRestore = nativeBagOpens
 addon.Canvas:RestorePersistentFrames()
 assert(nativeBagOpens == bagOpensBeforeStaleRestore
         and not ContainerFrameCombinedBags:IsShown(),
-    "stale bag-addon child visibility must not auto-open the native backpack")
+    "stale bag-addon ownership must not override an explicit Mainhand backpack")
 addon.db.openWorkspacePanels.Baganator_StaleChild = nil
+addon.db.savedWorkspacePositions.Baganator_StaleChild = nil
+addon.db.openWorkspacePanels.EUI_MainBagFrame = nil
+addon.db.savedWorkspacePositions.EUI_MainBagFrame = nil
 addon.db.savedMainPositions.ContainerFrameCombinedBags = nil
 addon.db.savedWorkspacePositions.ContainerFrameCombinedBags = trackedBagWorkspace
 addon.db.openWorkspacePanels.ContainerFrameCombinedBags = true
@@ -519,6 +525,9 @@ WorldMapFrame:Show()
 CharacterFrame:Hide()
 addon.Canvas:RestoreWorkspacePosition(WorldMapFrame)
 ToggleCharacter()
+assert(WorldMapFrame:GetLeft() >= metrics.gameLeft
+        and CharacterFrame:GetLeft() >= metrics.gameLeft,
+    "the character toggle must repair Mainhand peers before the next rendered frame")
 flushTimers()
 assert(WorldMapFrame:GetLeft() >= metrics.gameLeft
         and CharacterFrame:GetLeft() >= metrics.gameLeft,

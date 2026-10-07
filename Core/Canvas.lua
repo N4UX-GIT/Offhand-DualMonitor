@@ -770,6 +770,25 @@ local function IsBackpackRoot(name)
     return name == "ContainerFrame1" or name == "ContainerFrameCombinedBags"
 end
 
+-- Only actual bag roots may request that bags reopen during persistent restore.
+-- Baganator exposes many named child regions; treating its entire namespace as
+-- a bag root lets stale child snapshots reopen Blizzard's backpack on login.
+local function IsRestorableBagRootName(name)
+    if type(name) ~= "string" then return false end
+    return name:match("^ContainerFrame%d+$") ~= nil
+        or name == "ContainerFrameCombinedBags"
+        or name == "EUI_MainBagFrame"
+        or name:match("^Baganator_SingleViewBackpackViewFrame") ~= nil
+        or name:match("^Baganator_CategoryViewBackpackViewFrame") ~= nil
+        or name:match("^Baginator") ~= nil
+        or name:match("^BGR") ~= nil
+        or name:match("^Bagnon") ~= nil
+        or name:match("^AdiBags") ~= nil
+        or name:match("^BetterBags") ~= nil
+        or name:match("^ArkInventory") ~= nil
+        or name == "CustomBagRestorer"
+end
+
 local function IsSpannedLayoutActive()
     local viewport = Offhand.Viewport
     if not viewport or not viewport.GetMetrics then return false end
@@ -1383,18 +1402,19 @@ function Canvas:RestorePersistentFrames()
     
     local hasBag = false
     local openPanels = Offhand.db.openWorkspacePanels or {}
+    local nativeBackpackOnMainhand = Offhand.db.savedMainPositions
+        and (Offhand.db.savedMainPositions.ContainerFrameCombinedBags
+            or Offhand.db.savedMainPositions.ContainerFrame1)
     
     for name, _ in pairs(openPanels) do
         local hasWorkspaceOwner = Offhand.db.savedWorkspacePositions
             and Offhand.db.savedWorkspacePositions[name]
         local hasMainhandOwner = Offhand.db.savedMainPositions
             and Offhand.db.savedMainPositions[name]
+        local conflictsWithNativeMainhand = nativeBackpackOnMainhand
+            and not IsBackpackRoot(name)
         if hasWorkspaceOwner and not hasMainhandOwner
-            and (name:match("^ContainerFrame") or name:match("^Baganator")
-                or name:match("^Baginator") or name:match("^BGR")
-                or name:match("^Bagnon") or name:match("^AdiBags")
-                or name:match("^BetterBags") or name:match("^ArkInventory")
-                or name == "CustomBagRestorer") then
+            and IsRestorableBagRootName(name) and not conflictsWithNativeMainhand then
             hasBag = true
             break
         end
@@ -1419,8 +1439,12 @@ function Canvas:RestorePersistentFrames()
                     else
                         frame:Show()
                     end
-                elseif name:match("^ContainerFrame") or name:match("Baganator") or name:match("Baginator") or name:match("BGR") or name:match("Bagnon") or name:match("AdiBags") or name:match("BetterBags") or name:match("ArkInventory") then
-                    hasBag = true
+                elseif IsRestorableBagRootName(name) then
+                    -- An explicit native Mainhand backpack ownership wins over
+                    -- stale custom-bag snapshots left by an earlier setup.
+                    if not nativeBackpackOnMainhand or IsBackpackRoot(name) then
+                        hasBag = true
+                    end
                 elseif name:match("^ChatFrame") then
                     frame:Show()
                     RestoreWorkspacePosition(frame)
@@ -4382,7 +4406,7 @@ function Canvas:EnableFreeDragging()
             -- action, before the next rendered frame. Restore a known anchor
             -- immediately to avoid showing Blizzard's default map position for
             -- one frame, then repeat after deferred native layout settles.
-            SyncPass(false)
+            SyncPass(true)
             C_Timer.After(0, function() SyncPass(true) end)
         end
         Canvas._syncExplicitPanelToggle = SyncExplicitToggle
