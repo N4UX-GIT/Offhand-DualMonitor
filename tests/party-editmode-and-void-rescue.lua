@@ -70,13 +70,20 @@ local tickers = {}
 local lastTimerDelay
 C_Timer = {
     After = function(delay, fn) lastTimerDelay = delay; table.insert(timers, fn) end,
-    NewTicker = function(_, fn) table.insert(tickers, fn); return { Cancel = function() end } end,
+    NewTicker = function(interval, fn)
+        local ticker = { interval = interval, callback = fn, cancelled = false }
+        function ticker:Cancel() self.cancelled = true end
+        table.insert(tickers, ticker)
+        return ticker
+    end,
 }
 local function flushTimers()
     local t = timers
     timers = {}
     for _, fn in ipairs(t) do fn() end
-    for _, fn in ipairs(tickers) do fn() end
+    for _, ticker in ipairs(tickers) do
+        if not ticker.cancelled then ticker.callback() end
+    end
 end
 
 local frames = {}
@@ -817,6 +824,9 @@ EditModeLayoutDialog:Show()
 addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
 assert(editModePromptCount == 2,
     "layout dialog must not trigger recovery while Blizzard positions it")
+assert(EditModeLayoutDialog.points[1][1] == "CENTER"
+        and EditModeLayoutDialog.points[1][2] == UIParent,
+    "off-screen layout dialog must be recovered non-modally to Mainhand")
 EditModeLayoutDialog:ClearAllPoints()
 EditModeLayoutDialog:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT",
     metrics.gameLeft + 200, metrics.gameBottom + 200)
@@ -829,14 +839,10 @@ addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
 flushTimers()
 assert(editModePromptCount == 2,
     "off-screen layout save dialog must not inject a competing recovery modal")
-assert(EditModeLayoutDialog.points[1][1] == "BOTTOMLEFT",
-    "Edit Mode layout-dialog detection must remain read-only")
-assert(addon.HUD:BringForeverEditModeControlsToMainhand(),
-    "explicit recovery must still bring the layout save dialog to Mainhand")
 local recoveredLayoutDialogPoint = EditModeLayoutDialog.points[1]
 assert(recoveredLayoutDialogPoint and recoveredLayoutDialogPoint[1] == "CENTER"
         and recoveredLayoutDialogPoint[2] == UIParent,
-    "Edit Mode layout save dialog must be centered by the recovery click")
+    "Edit Mode layout save dialog must be centered without a recovery popup")
 EditModeLayoutDialog:Hide()
 -- Once the dialog becomes reachable/hidden, its prompt state must clear so
 -- Blizzard can reuse the same frame for a later delete confirmation.
@@ -852,8 +858,21 @@ addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
 flushTimers()
 assert(editModePromptCount == 2,
     "reused delete dialog must not receive an automatic recovery prompt")
-assert(addon.HUD:BringForeverEditModeControlsToMainhand(),
-    "explicit recovery must still bring the delete confirmation to Mainhand")
+assert(EditModeLayoutDialog.points[1][1] == "CENTER"
+        and EditModeLayoutDialog.points[1][2] == UIParent,
+    "reused delete dialog must be recovered non-modally to Mainhand")
+EditModeLayoutDialog:Hide()
+
+local originalLayoutDialogIsProtected = EditModeLayoutDialog.IsProtected
+EditModeLayoutDialog.IsProtected = function() return true end
+EditModeLayoutDialog:ClearAllPoints()
+EditModeLayoutDialog:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1268, 1586)
+EditModeLayoutDialog:Show()
+addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+flushTimers()
+assert(EditModeLayoutDialog.points[1][1] == "BOTTOMLEFT" and editModePromptCount == 2,
+    "non-modal recovery must never move or prompt for a protected layout dialog")
+EditModeLayoutDialog.IsProtected = originalLayoutDialogIsProtected
 EditModeLayoutDialog:Hide()
 EditModeManagerFrame:Hide()
 addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
@@ -1786,7 +1805,11 @@ print("PASS: Retail Edit Mode action bars and managers remain strictly untouched
 
 print("\nALL PARTY FRAMES, EDIT MODE, AND VOID RESCUE TESTS PASSED!")
 
-assert(#tickers == 1, "Repeated HUD setup installed duplicate scanners")
+local popupScanners = 0
+for _, ticker in ipairs(tickers) do
+    if ticker.interval == 2 and not ticker.cancelled then popupScanners = popupScanners + 1 end
+end
+assert(popupScanners == 1, "Repeated HUD setup installed duplicate popup scanners")
 
 -- A full-height seam guide deliberately extends above the game viewport.
 local guide = makeMockFrame("OffhandSeamGuideLine", 4, 2560)

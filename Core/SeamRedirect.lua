@@ -560,6 +560,14 @@ local foreverEditModeAutoRecoveryNames = {
     EditModeSystemSettingsDialog = true,
 }
 
+local foreverEditModeTransactionalNames = {
+    "EditModeLayoutDialog",
+    "EditModeImportLayoutDialog",
+    "EditModeImportLayoutLinkDialog",
+    "EditModeUnsavedChangesDialog",
+    "EditModeDialog",
+}
+
 local function CanRecoverForeverEditModeControls(metrics)
     return metrics and (metrics.isSpanned or IsForeverSingleScreenRecovery(metrics)) or false
 end
@@ -576,6 +584,43 @@ local function ClearForeverEditModeControlsCandidate(self)
         (self.foreverEditModeControlsCandidateGeneration or 0) + 1
 end
 
+local function CenterUnprotectedEditModeControl(frame, metrics)
+    if not frame or not frame.IsShown or not frame:IsShown()
+        or (frame.IsForbidden and frame:IsForbidden())
+        or (frame.IsProtected and frame:IsProtected())
+        or FrameFitsPhysicalDisplay(frame, metrics) then return false end
+    local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
+    local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or parentScale
+    local factor = parentScale / frameScale
+    local centerX = (metrics.gameLeft + metrics.gameRight) / 2
+    local centerY = (metrics.gameBottom + metrics.gameTop) / 2
+    frame:ClearAllPoints()
+    frame:SetPoint("CENTER", UIParent, "CENTER",
+        (centerX - UIParent:GetWidth() / 2) * factor,
+        (centerY - UIParent:GetHeight() / 2) * factor)
+    return true
+end
+
+-- Save, rename, import, and delete dialogs are ordinary unprotected control
+-- surfaces on Forever. Keep their recovery non-modal: while Edit Mode is open,
+-- center only a visible dialog that is genuinely outside both displays. Never
+-- hook Blizzard frames or touch protected HUD systems.
+function HUD:RecoverForeverTransactionalEditModeDialogs(metrics)
+    if not UsesForeverEditMode() or InCombatLockdown()
+        or not Offhand.db or not Offhand.db.enabled then return 0 end
+    local manager = _G.EditModeManagerFrame
+    if not manager or not manager.IsShown or not manager:IsShown() then return 0 end
+    metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics
+        and Offhand.Viewport:GetMetrics())
+    if not CanRecoverForeverEditModeControls(metrics) then return 0 end
+    local moved = 0
+    for _, name in ipairs(foreverEditModeTransactionalNames) do
+        local ok, changed = pcall(CenterUnprotectedEditModeControl, _G[name], metrics)
+        if ok and changed then moved = moved + 1 end
+    end
+    return moved
+end
+
 -- Forever can anchor its Edit Mode manager outside the physical displays on a
 -- mixed-height span. Detection stays read-only. The single manager anchor write
 -- below is reserved for an explicit player click and never runs from this scan.
@@ -584,6 +629,10 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
     local manager = _G.EditModeManagerFrame
     local shown = manager and manager.IsShown and manager:IsShown()
     if not shown then
+        if self.foreverEditModeDialogRecoveryTicker then
+            self.foreverEditModeDialogRecoveryTicker:Cancel()
+            self.foreverEditModeDialogRecoveryTicker = nil
+        end
         if self.foreverEditModeManagerWasShown and Offhand.HideForeverEditModeControlsPrompt then
             Offhand:HideForeverEditModeControlsPrompt()
         end
@@ -601,6 +650,11 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
         self.foreverEditModeControlsPromptDeclined = nil
         ClearForeverEditModeControlsCandidate(self)
     end
+    if C_Timer and C_Timer.NewTicker and not self.foreverEditModeDialogRecoveryTicker then
+        self.foreverEditModeDialogRecoveryTicker = C_Timer.NewTicker(0.15, function()
+            HUD:RecoverForeverTransactionalEditModeDialogs()
+        end)
+    end
     if InCombatLockdown() then return end
     metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics())
     -- A stale spanned layout can strand the manager or its settings dialog
@@ -611,11 +665,12 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
         ClearForeverEditModeControlsCandidate(self)
         return
     end
+    self:RecoverForeverTransactionalEditModeDialogs(metrics)
 
     -- The manager toolbar can be fully visible while the separate settings
     -- dialog opened for a selected HUD element is mostly in the mixed-height
-    -- void. Inspect every Blizzard-owned Edit Mode control surface, but never
-    -- reanchor or hook it: those writes interfere with native Party Frame drag.
+    -- void. This prompt scan remains read-only; transactional dialogs were
+    -- handled separately above and protected HUD systems are never moved.
     local outsideControl
     local visibleDialog
     for _, name in ipairs(foreverEditModeControlNames) do
@@ -705,22 +760,9 @@ function HUD:BringForeverEditModeControlsToMainhand()
         and Offhand.Viewport:GetMetrics()
     if not CanRecoverForeverEditModeControls(metrics) then return false end
 
-    local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
-    local centerX = (metrics.gameLeft + metrics.gameRight) / 2
-    local centerY = (metrics.gameBottom + metrics.gameTop) / 2
     local moved = false
     local function Recover(frame)
-        if not frame or not frame.IsShown or not frame:IsShown()
-            or (frame.IsForbidden and frame:IsForbidden())
-            or (frame.IsProtected and frame:IsProtected())
-            or FrameFitsPhysicalDisplay(frame, metrics) then return end
-        local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or parentScale
-        local factor = parentScale / frameScale
-        frame:ClearAllPoints()
-        frame:SetPoint("CENTER", UIParent, "CENTER",
-            (centerX - UIParent:GetWidth() / 2) * factor,
-            (centerY - UIParent:GetHeight() / 2) * factor)
-        moved = true
+        if CenterUnprotectedEditModeControl(frame, metrics) then moved = true end
     end
 
     Recover(manager)
