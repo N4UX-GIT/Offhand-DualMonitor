@@ -103,6 +103,13 @@ coordinates, and ultrawide Mainhand displays without hardcoded resolution
 presets. If WoW had already loaded the character UI when **Span WoW Now** was
 clicked, use `/reload` once so the addon reads the new snapshot.
 
+Then open `/oh`, follow the first-time guide, and complete the calibration
+wizard. On Forever and Retail, its final step is **Create Mainhand HUD Layout**.
+Press it outside combat with Blizzard Edit Mode closed, then reload when
+prompted. Offhand creates and selects a Mainhand-safe copy of the active
+Blizzard layout while preserving custom-positioned entries. The in-game
+**Recovery & Preview** card can refresh or rebuild that generated layout later.
+
 Offhand currently accepts exactly two physical displays, or one display in
 explicit split mode. Selecting more screens is rejected instead of guessing
 which should become the workspace.

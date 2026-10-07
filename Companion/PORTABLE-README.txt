@@ -10,6 +10,10 @@ INSTALLATION
 2. Start Offhand.exe before launching World of Warcraft.
 3. Review the selected displays and use Identify Displays before enabling
    automatic spanning.
+4. Click Span WoW Now. If WoW already reached the character UI, type /reload.
+5. In WoW, open /oh and complete the setup wizard. On Forever and Retail,
+   press Create Mainhand HUD Layout on the final step outside combat with
+   Edit Mode closed, then reload when prompted.
 
 No installer is required. Offhand Companion uses the .NET Framework included
 with supported Windows installations. Preferences are stored under

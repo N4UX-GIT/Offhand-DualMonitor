@@ -19,9 +19,10 @@ The Companion does not inspect game memory or automate gameplay. It resizes the 
 2. Put WoW in standard **Windowed** mode—not Windowed (Fullscreen).
 3. Install **Offhand Companion v2.1.2 or newer** and start it before WoW.
 4. In the Companion, select the monitors to span and click **Span WoW Now** for the initial setup. Automatic spanning is disabled by default; enable it later only if you want WoW spanned on every launch.
-5. In WoW, type `/oh`, select **Launch Setup Wizard**, and complete every step.
-6. On WoW Forever, open Blizzard **Edit Mode**, select the **Offhand** layout, position protected action bars and combat frames inside the Mainhand game view, and save. If Edit Mode controls are missing, use **Gather Off-Screen UI** in `/oh`.
-7. Exit WoW normally while leaving the Companion running. Relaunch WoW, span it manually (or wait if you deliberately enabled automatic spanning), and confirm that the layout returns.
+5. In WoW, type `/oh`, follow the first-time guide, and complete every calibration step.
+6. On Forever and Retail, press **Create Mainhand HUD Layout** on the Wizard's final step while outside combat with Blizzard Edit Mode closed. Reload when prompted. Offhand creates and selects a Mainhand-safe copy of the active Blizzard layout; **Recovery & Preview** can rebuild it later.
+7. Optionally fine-tune the generated layout in Blizzard **Edit Mode**. On Forever, use **Recovery & Preview → Use Current Edit Mode Layout** after saving personal changes.
+8. Exit WoW normally while leaving the Companion running. Relaunch WoW, span it manually (or wait if you deliberately enabled automatic spanning), and confirm that the layout returns.
 
 The first-run welcome is only an introduction. Clicking either welcome button acknowledges it; completing the Wizard records setup completion separately. You can reopen the Wizard and the full FAQ at any time with `/oh`.
 
@@ -30,13 +31,14 @@ The first-run welcome is only an introduction. Clicking either welcome button ac
 - Start the Companion before WoW and leave it running in the system tray.
 - Click **Span WoW Now**, or let spanning finish first if you deliberately enabled automatic spanning, before opening workspace panels.
 - Move ordinary workspace panels with Offhand Edit Mode.
-- Move protected Forever combat UI with Blizzard Edit Mode.
+- Let the setup Wizard create the initial protected Mainhand HUD layout; use Blizzard Edit Mode only for personal fine-tuning.
 - Exit WoW normally before closing the Companion so the newest state can be recovered.
 
 ## Recovery and troubleshooting
 
 - **Window or UI is in the wrong place:** open `/oh` and run the setup Wizard again.
 - **Edit Mode options or another frame is off-screen:** click **Gather Off-Screen UI**, then reopen Edit Mode.
+- **Protected HUD layout is wrong:** outside combat with Edit Mode closed, use **Recovery & Preview → Create Mainhand HUD Layout**, then reload when prompted.
 - **Forever layout is correct after `/reload` but wrong after restarting WoW:** confirm Companion v2.1.2+ was running before launch and remained running while WoW exited.
 - **Need to return to one screen:** click **Restore Window** in the Companion.
 - **Welcome popup repeats:** update to the newest addon version; the acknowledgement is now stored independently from Wizard completion and included in Forever recovery.
