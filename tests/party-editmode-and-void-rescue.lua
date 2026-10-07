@@ -67,8 +67,9 @@ end
 
 local timers = {}
 local tickers = {}
+local lastTimerDelay
 C_Timer = {
-    After = function(_, fn) table.insert(timers, fn) end,
+    After = function(delay, fn) lastTimerDelay = delay; table.insert(timers, fn) end,
     NewTicker = function(_, fn) table.insert(tickers, fn); return { Cancel = function() end } end,
 }
 local function flushTimers()
@@ -748,9 +749,12 @@ addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
 assert(editModePromptCount == 0,
     "reachable Edit Mode modal must suppress manager recovery while it has focus")
 EditModeLayoutDialog:Hide()
+lastTimerDelay = nil
 addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
 assert(editModePromptCount == 0,
     "off-screen Edit Mode controls must wait for native positioning to settle")
+assert(lastTimerDelay and lastTimerDelay >= 2,
+    "Edit Mode recovery must wait through Blizzard's full modal transition")
 flushTimers()
 assert(editModePromptCount == 1, "Forever must offer recovery when Edit Mode controls are in the void")
 assert(#EditModeManagerFrame.points == voidManagerPointCount

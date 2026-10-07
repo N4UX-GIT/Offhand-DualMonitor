@@ -170,6 +170,18 @@ ok, localName, moved = addon.Mainhand:CreateOrUpdateEditModeLayout()
 assert(ok and layoutData.activeLayout == 4 and #saved.layouts == 1,
     "Forever layout-added fallback did not activate the generated layout")
 
+-- The Options action must preserve every return value from Mainhand. Wrapping
+-- this call in an `and` expression collapses the layout name and moved count.
+assert(loadfile("UI/Options.lua"))("Offhand", addon)
+local createLayout = addon.Mainhand.CreateOrUpdateEditModeLayout
+addon.Mainhand.CreateOrUpdateEditModeLayout = function()
+    return true, "Offhand - Mainhand - Return Contract", 7
+end
+local actionOK, actionName, actionMoved = addon.Options:CreateMainhandHUDLayout()
+assert(actionOK and actionName == "Offhand - Mainhand - Return Contract" and actionMoved == 7,
+    "Options collapsed the Mainhand layout result values")
+addon.Mainhand.CreateOrUpdateEditModeLayout = createLayout
+
 C_EditMode.SaveLayouts = nil
 ok, why = addon.Mainhand:CreateOrUpdateEditModeLayout()
 assert(not ok and why == "save-api",

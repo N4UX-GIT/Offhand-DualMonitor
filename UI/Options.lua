@@ -87,6 +87,13 @@ StaticPopupDialogs["OFFHAND_ENABLE_FOREVER_PROFESSIONS_MOVEMENT"] = {
 local Options = {}
 Offhand.Options = Options
 
+function Options:CreateMainhandHUDLayout()
+    if Offhand.Mainhand and Offhand.Mainhand.CreateOrUpdateEditModeLayout then
+        return Offhand.Mainhand:CreateOrUpdateEditModeLayout()
+    end
+    return false, "unavailable"
+end
+
 -- Shared presentation rules for settings and the wizard. Selection is not disability.
 function Options:SetChoiceSelected(button, selected)
     button:SetEnabled(true)
@@ -1697,8 +1704,7 @@ function Options:CreateFloatingPanel()
         createLayout:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 12, -66)
         createLayout:SetText(L["MAINHAND_LAYOUT_CREATE"])
         createLayout:SetScript("OnClick", function()
-            local ok, value, moved = Offhand.Mainhand and Offhand.Mainhand.CreateOrUpdateEditModeLayout
-                and Offhand.Mainhand:CreateOrUpdateEditModeLayout()
+            local ok, value, moved = Options:CreateMainhandHUDLayout()
             if ok then
                 Offhand:Print(L["MAINHAND_LAYOUT_CREATED"], tostring(value), moved or 0)
                 Offhand.Mainhand:PromptReload()

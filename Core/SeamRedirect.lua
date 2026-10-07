@@ -556,6 +556,11 @@ local function CanRecoverForeverEditModeControls(metrics)
     return metrics and (metrics.isSpanned or IsForeverSingleScreenRecovery(metrics)) or false
 end
 
+-- Forever can take more than a second to replace the reusable layout dialog's
+-- previous anchor. Require it to remain unreachable for a complete recovery
+-- scan interval before presenting a player action.
+local FOREVER_EDIT_MODE_RECOVERY_SETTLE_SECONDS = 2.25
+
 local function ClearForeverEditModeControlsCandidate(self)
     self.foreverEditModeControlsCandidate = nil
     self.foreverEditModeControlsCandidateConfirmed = nil
@@ -660,7 +665,7 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
             (self.foreverEditModeControlsCandidateGeneration or 0) + 1
         local generation = self.foreverEditModeControlsCandidateGeneration
         if C_Timer and C_Timer.After then
-            C_Timer.After(0.75, function()
+            C_Timer.After(FOREVER_EDIT_MODE_RECOVERY_SETTLE_SECONDS, function()
                 if HUD.foreverEditModeControlsCandidateGeneration ~= generation
                     or HUD.foreverEditModeControlsCandidate ~= outsideControl then return end
                 HUD.foreverEditModeControlsCandidateConfirmed = outsideControl
