@@ -545,6 +545,8 @@ end
 
 local foreverEditModeControlNames = {
     "EditModeSystemSettingsDialog",
+    "EditModeLayoutDialog",
+    "EditModeImportLayoutDialog",
     "EditModeUnsavedChangesDialog",
     "EditModeDialog",
 }

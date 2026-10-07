@@ -541,6 +541,8 @@ local originalPlayerSetPoint = PlayerFrame.SetPoint
 local EditModeManagerFrame = makeMockFrame("EditModeManagerFrame", 600, 60)
 EditModeManagerFrame:Hide()
 local EditModeSystemSettingsDialog = makeMockFrame("EditModeSystemSettingsDialog", 400, 300)
+local EditModeLayoutDialog = makeMockFrame("EditModeLayoutDialog", 420, 240)
+local EditModeImportLayoutDialog = makeMockFrame("EditModeImportLayoutDialog", 520, 360)
 local EditModeUnsavedChangesDialog = makeMockFrame("EditModeUnsavedChangesDialog", 350, 150)
 Enum = {
     EditModeSystem = { ActionBar = 1 },
@@ -781,6 +783,30 @@ EditModeManagerFrame:Hide()
 addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
 EditModeManagerFrame:Show()
 
+-- Current Edit Mode builds use a separate layout dialog for new-layout save
+-- confirmation. It needs the same opt-in recovery as the settings dialog.
+EditModeManagerFrame:ClearAllPoints()
+EditModeManagerFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT",
+    metrics.gameLeft + 100, metrics.gameBottom + 100)
+EditModeLayoutDialog:ClearAllPoints()
+EditModeLayoutDialog:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1268, 1586)
+EditModeLayoutDialog:Show()
+addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+assert(editModePromptCount == 3,
+    "Forever must detect an off-screen Edit Mode layout save dialog")
+assert(EditModeLayoutDialog.points[1][1] == "BOTTOMLEFT",
+    "Edit Mode layout-dialog detection must remain read-only")
+assert(addon.HUD:BringForeverEditModeControlsToMainhand(),
+    "player-click recovery must bring the layout save dialog to Mainhand")
+local recoveredLayoutDialogPoint = EditModeLayoutDialog.points[1]
+assert(recoveredLayoutDialogPoint and recoveredLayoutDialogPoint[1] == "CENTER"
+        and recoveredLayoutDialogPoint[2] == UIParent,
+    "Edit Mode layout save dialog must be centered by the recovery click")
+EditModeLayoutDialog:Hide()
+EditModeManagerFrame:Hide()
+addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+EditModeManagerFrame:Show()
+
 -- Restoring the window to one monitor is when a stale spanned Edit Mode
 -- control is most likely to be unreachable. Recovery must continue to offer
 -- the same player-click action in the explicit topology-mismatch state.
@@ -793,7 +819,7 @@ local singleScreenMetrics = {
 EditModeManagerFrame:ClearAllPoints()
 EditModeManagerFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 3100, 1700)
 addon.HUD:UpdateForeverEditModeControlsRecovery(singleScreenMetrics)
-assert(editModePromptCount == 3,
+assert(editModePromptCount == 4,
     "single-screen recovery must offer the off-screen Edit Mode controls action")
 assert(addon.HUD:BringForeverEditModeControlsToMainhand(),
     "single-screen player click must recover stale spanned Edit Mode controls")

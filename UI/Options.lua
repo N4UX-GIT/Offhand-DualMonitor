@@ -1588,7 +1588,9 @@ function Options:CreateFloatingPanel()
 
     local card2_2 = CreateCard(tab2, L["CARD_PERSISTENCE"], 374)
     local supportsMainhandLayout = Offhand.isForever or Offhand.isRetail
-    local recoveryHeight = Offhand.isForever and 220 or (supportsMainhandLayout and 190 or 118)
+    -- Forever has two layout-status rows plus wrapped Edit Mode guidance.
+    -- Keep the preview checkbox below that text instead of sharing its line.
+    local recoveryHeight = Offhand.isForever and 246 or (supportsMainhandLayout and 190 or 118)
     local recoveryCard = CreateCard(tab2, L["CARD_RECOVERY"], recoveryHeight)
     local advancedCard
     local advancedCheck
@@ -1701,6 +1703,8 @@ function Options:CreateFloatingPanel()
                 Offhand:Print(L["MAINHAND_LAYOUT_CREATED"], tostring(value), moved or 0)
                 Offhand.Mainhand:PromptReload()
             else
+                -- Keep capability tokens stable and untranslated so screenshots
+                -- and diagnostics identify the exact client API boundary.
                 Offhand:Print(L["MAINHAND_LAYOUT_FAILED"], tostring(value or "unavailable"))
             end
             if Options.RefreshPanel then Options:RefreshPanel() end
@@ -1846,7 +1850,7 @@ function Options:CreateFloatingPanel()
         function(val) Offhand.db.forceDualOnSingle = val end,
         L["PREVIEW_DUAL"], L["PREVIEW_DUAL"]
     )
-    forceCheck:SetPoint("TOPLEFT", 12, Offhand.isForever and -148 or -76)
+    forceCheck:SetPoint("TOPLEFT", 12, Offhand.isForever and -204 or -76)
 
     local compatDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     compatDesc:SetPoint("TOPLEFT", 32, -344)

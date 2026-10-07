@@ -369,13 +369,23 @@ local function ControllerMode(presets)
         and presets[1].interfaceStyle == gamepad
 end
 
+local function EnsureEditModeLoaded()
+    if C_EditMode and type(C_EditMode.GetLayouts) == "function"
+        and type(C_EditMode.SaveLayouts) == "function" then return end
+    local load = C_AddOns and C_AddOns.LoadAddOn or _G.LoadAddOn
+    if type(load) == "function" then pcall(load, "Blizzard_EditMode") end
+end
+
 function Mainhand:CreateOrUpdateEditModeLayout()
     if InCombatLockdown and InCombatLockdown() then return false, "combat" end
     if not Offhand.db or not Offhand.db.enabled then return false, "disabled" end
     local rect = self:GetRect()
     if not rect.isSpanned then return false, "span" end
-    if not C_EditMode or type(C_EditMode.SaveLayouts) ~= "function"
-        or type(C_EditMode.SetActiveLayout) ~= "function" then return false, "unavailable" end
+    EnsureEditModeLoaded()
+    if not C_EditMode or type(C_EditMode.GetLayouts) ~= "function" then
+        return false, "read-api"
+    end
+    if type(C_EditMode.SaveLayouts) ~= "function" then return false, "save-api" end
     local manager = _G.EditModeManagerFrame
     if manager and ((manager.IsShown and manager:IsShown()) or manager.editModeActive) then
         return false, "open"
@@ -431,8 +441,24 @@ function Mainhand:CreateOrUpdateEditModeLayout()
     local called, result = pcall(C_EditMode.SaveLayouts, writeData)
     if not called or result == false then return false, "save" end
     local targetID = (Offhand.isForever and 3 or #presets) + targetIndex
-    called, result = pcall(C_EditMode.SetActiveLayout, targetID)
-    if not called or result == false then return false, "activate" end
+    local active = tonumber(writeData.activeLayout) == targetID
+    if not active and type(C_EditMode.SetActiveLayout) == "function" then
+        called, result = pcall(C_EditMode.SetActiveLayout, targetID)
+        active = called and result ~= false
+    end
+    -- Some Edit Mode branches expose the layout-added transaction instead of
+    -- SetActiveLayout to addon code. It is also Blizzard's native path after a
+    -- newly imported layout has been saved. Pass the custom-array index here,
+    -- not Forever's global layout identifier.
+    if not active and not generated and type(C_EditMode.OnLayoutAdded) == "function" then
+        called, result = pcall(C_EditMode.OnLayoutAdded, targetIndex, true, true)
+        active = called and result ~= false
+    end
+    if not active then
+        local confirmed = EditModeData()
+        active = confirmed and tonumber(confirmed.activeLayout) == targetID or false
+    end
+    if not active then return false, "activate-api" end
 
     OffhandCharDB.mainhandLayout = {
         version = 1,

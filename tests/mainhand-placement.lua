@@ -153,4 +153,26 @@ assert(generated.systems[1].anchorInfo.offsetX == -720
         and generated.systems[1].anchorInfo.offsetY == -560,
     "layout update drifted instead of rebuilding from its source")
 
+-- Forever may expose the native post-save layout-added transaction without a
+-- directly callable SetActiveLayout. Creation must still activate the new
+-- custom layout, while subsequent updates work because it is already active.
+OffhandCharDB = {}
+layoutData = { activeLayout = 1, layouts = {} }
+saved, activated = nil, nil
+C_EditMode.SetActiveLayout = nil
+C_EditMode.OnLayoutAdded = function(index, activate)
+    assert(index == 1 and activate, "layout-added fallback received the wrong custom index")
+    layoutData.activeLayout = 3 + index
+end
+metrics = { gameLeft = 1440, gameBottom = 0, gameRight = 4000, gameTop = 1440, isSpanned = true }
+addon.Mainhand:Update("forever-layout-added")
+ok, localName, moved = addon.Mainhand:CreateOrUpdateEditModeLayout()
+assert(ok and layoutData.activeLayout == 4 and #saved.layouts == 1,
+    "Forever layout-added fallback did not activate the generated layout")
+
+C_EditMode.SaveLayouts = nil
+ok, why = addon.Mainhand:CreateOrUpdateEditModeLayout()
+assert(not ok and why == "save-api",
+    "missing Edit Mode save capability must report its exact failure")
+
 print("PASS: Mainhand anchor, public API, safe gather, layout transform, and provenance")
