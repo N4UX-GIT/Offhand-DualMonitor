@@ -552,6 +552,14 @@ local foreverEditModeControlNames = {
     "EditModeDialog",
 }
 
+-- Transactional layout modals reuse stale anchors while Blizzard changes
+-- modes. Observing those anchors must never inject another modal into the
+-- save/rename/delete flow. Keep them in the explicit recovery action above,
+-- but only auto-offer recovery for persistent Edit Mode control surfaces.
+local foreverEditModeAutoRecoveryNames = {
+    EditModeSystemSettingsDialog = true,
+}
+
 local function CanRecoverForeverEditModeControls(metrics)
     return metrics and (metrics.isSpanned or IsForeverSingleScreenRecovery(metrics)) or false
 end
@@ -614,7 +622,8 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
         local frame = _G[name]
         if frame and frame.IsShown and frame:IsShown() then
             visibleDialog = frame
-            if not FrameFitsPhysicalDisplay(frame, metrics) then
+            if foreverEditModeAutoRecoveryNames[name]
+                and not FrameFitsPhysicalDisplay(frame, metrics) then
                 outsideControl = frame
                 break
             end

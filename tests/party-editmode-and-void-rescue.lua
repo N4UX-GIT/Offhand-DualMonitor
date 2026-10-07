@@ -805,8 +805,9 @@ EditModeManagerFrame:Hide()
 addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
 EditModeManagerFrame:Show()
 
--- Current Edit Mode builds use a separate layout dialog for new-layout save
--- confirmation. It needs the same opt-in recovery as the settings dialog.
+-- Current Edit Mode builds reuse one transactional dialog for save, rename,
+-- and delete. Even while its native anchor is settling outside a display, it
+-- must suppress the manager warning rather than create a competing modal.
 EditModeManagerFrame:ClearAllPoints()
 EditModeManagerFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT",
     metrics.gameLeft + 100, metrics.gameBottom + 100)
@@ -815,7 +816,7 @@ EditModeLayoutDialog:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1268, 1586)
 EditModeLayoutDialog:Show()
 addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
 assert(editModePromptCount == 2,
-    "layout dialog recovery must not flash before Blizzard finishes positioning it")
+    "layout dialog must not trigger recovery while Blizzard positions it")
 EditModeLayoutDialog:ClearAllPoints()
 EditModeLayoutDialog:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT",
     metrics.gameLeft + 200, metrics.gameBottom + 200)
@@ -826,12 +827,12 @@ EditModeLayoutDialog:ClearAllPoints()
 EditModeLayoutDialog:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1268, 1586)
 addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
 flushTimers()
-assert(editModePromptCount == 3,
-    "Forever must detect an off-screen Edit Mode layout save dialog")
+assert(editModePromptCount == 2,
+    "off-screen layout save dialog must not inject a competing recovery modal")
 assert(EditModeLayoutDialog.points[1][1] == "BOTTOMLEFT",
     "Edit Mode layout-dialog detection must remain read-only")
 assert(addon.HUD:BringForeverEditModeControlsToMainhand(),
-    "player-click recovery must bring the layout save dialog to Mainhand")
+    "explicit recovery must still bring the layout save dialog to Mainhand")
 local recoveredLayoutDialogPoint = EditModeLayoutDialog.points[1]
 assert(recoveredLayoutDialogPoint and recoveredLayoutDialogPoint[1] == "CENTER"
         and recoveredLayoutDialogPoint[2] == UIParent,
@@ -849,10 +850,10 @@ EditModeLayoutDialog:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1268, 1586)
 EditModeLayoutDialog:Show()
 addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
 flushTimers()
-assert(editModePromptCount == 4,
-    "reused off-screen Edit Mode delete dialog must receive a fresh recovery prompt")
+assert(editModePromptCount == 2,
+    "reused delete dialog must not receive an automatic recovery prompt")
 assert(addon.HUD:BringForeverEditModeControlsToMainhand(),
-    "player-click recovery must bring the delete confirmation to Mainhand")
+    "explicit recovery must still bring the delete confirmation to Mainhand")
 EditModeLayoutDialog:Hide()
 EditModeManagerFrame:Hide()
 addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
@@ -871,7 +872,7 @@ EditModeManagerFrame:ClearAllPoints()
 EditModeManagerFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 3100, 1700)
 addon.HUD:UpdateForeverEditModeControlsRecovery(singleScreenMetrics)
 flushTimers()
-assert(editModePromptCount == 5,
+assert(editModePromptCount == 3,
     "single-screen recovery must offer the off-screen Edit Mode controls action")
 assert(addon.HUD:BringForeverEditModeControlsToMainhand(),
     "single-screen player click must recover stale spanned Edit Mode controls")
