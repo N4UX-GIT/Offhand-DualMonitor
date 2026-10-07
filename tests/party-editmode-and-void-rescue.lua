@@ -749,6 +749,9 @@ assert(editModePromptCount == 0,
     "reachable Edit Mode modal must suppress manager recovery while it has focus")
 EditModeLayoutDialog:Hide()
 addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+assert(editModePromptCount == 0,
+    "off-screen Edit Mode controls must wait for native positioning to settle")
+flushTimers()
 assert(editModePromptCount == 1, "Forever must offer recovery when Edit Mode controls are in the void")
 assert(#EditModeManagerFrame.points == voidManagerPointCount
         and EditModeManagerFrame.points[1][1] == "BOTTOMLEFT",
@@ -781,6 +784,7 @@ EditModeSystemSettingsDialog:ClearAllPoints()
 EditModeSystemSettingsDialog:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1268, 1586)
 EditModeSystemSettingsDialog:Show()
 addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+flushTimers()
 assert(editModePromptCount == 2,
     "Forever must detect an off-screen Edit Mode settings dialog even when its manager fits")
 assert(#EditModeSystemSettingsDialog.points == 1
@@ -806,6 +810,18 @@ EditModeLayoutDialog:ClearAllPoints()
 EditModeLayoutDialog:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1268, 1586)
 EditModeLayoutDialog:Show()
 addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+assert(editModePromptCount == 2,
+    "layout dialog recovery must not flash before Blizzard finishes positioning it")
+EditModeLayoutDialog:ClearAllPoints()
+EditModeLayoutDialog:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT",
+    metrics.gameLeft + 200, metrics.gameBottom + 200)
+flushTimers()
+assert(editModePromptCount == 2,
+    "layout dialog that settles on-screen must cancel its pending recovery prompt")
+EditModeLayoutDialog:ClearAllPoints()
+EditModeLayoutDialog:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1268, 1586)
+addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+flushTimers()
 assert(editModePromptCount == 3,
     "Forever must detect an off-screen Edit Mode layout save dialog")
 assert(EditModeLayoutDialog.points[1][1] == "BOTTOMLEFT",
@@ -828,6 +844,7 @@ EditModeLayoutDialog:ClearAllPoints()
 EditModeLayoutDialog:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1268, 1586)
 EditModeLayoutDialog:Show()
 addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+flushTimers()
 assert(editModePromptCount == 4,
     "reused off-screen Edit Mode delete dialog must receive a fresh recovery prompt")
 assert(addon.HUD:BringForeverEditModeControlsToMainhand(),
@@ -849,6 +866,7 @@ local singleScreenMetrics = {
 EditModeManagerFrame:ClearAllPoints()
 EditModeManagerFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 3100, 1700)
 addon.HUD:UpdateForeverEditModeControlsRecovery(singleScreenMetrics)
+flushTimers()
 assert(editModePromptCount == 5,
     "single-screen recovery must offer the off-screen Edit Mode controls action")
 assert(addon.HUD:BringForeverEditModeControlsToMainhand(),

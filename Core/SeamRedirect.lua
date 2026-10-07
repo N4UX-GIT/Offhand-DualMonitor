@@ -556,6 +556,13 @@ local function CanRecoverForeverEditModeControls(metrics)
     return metrics and (metrics.isSpanned or IsForeverSingleScreenRecovery(metrics)) or false
 end
 
+local function ClearForeverEditModeControlsCandidate(self)
+    self.foreverEditModeControlsCandidate = nil
+    self.foreverEditModeControlsCandidateConfirmed = nil
+    self.foreverEditModeControlsCandidateGeneration =
+        (self.foreverEditModeControlsCandidateGeneration or 0) + 1
+end
+
 -- Forever can anchor its Edit Mode manager outside the physical displays on a
 -- mixed-height span. Detection stays read-only. The single manager anchor write
 -- below is reserved for an explicit player click and never runs from this scan.
@@ -570,6 +577,8 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
         self.foreverEditModeManagerWasShown = nil
         self.foreverEditModeControlsPromptShown = nil
         self.foreverEditModeControlsPromptDeclined = nil
+        self.foreverEditModeOutsideControl = nil
+        ClearForeverEditModeControlsCandidate(self)
         return
     end
 
@@ -577,6 +586,7 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
         self.foreverEditModeManagerWasShown = true
         self.foreverEditModeControlsPromptShown = nil
         self.foreverEditModeControlsPromptDeclined = nil
+        ClearForeverEditModeControlsCandidate(self)
     end
     if InCombatLockdown() then return end
     metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics())
@@ -584,7 +594,10 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
     -- after the Companion restores WoW to one display. That recovery state is
     -- as actionable as the mixed-height span: the scan remains read-only and
     -- the player must still accept the popup before any anchor is changed.
-    if not CanRecoverForeverEditModeControls(metrics) then return end
+    if not CanRecoverForeverEditModeControls(metrics) then
+        ClearForeverEditModeControlsCandidate(self)
+        return
+    end
 
     -- The manager toolbar can be fully visible while the separate settings
     -- dialog opened for a selected HUD element is mostly in the mixed-height
@@ -621,6 +634,7 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
         self.foreverEditModeControlsPromptShown = nil
         self.foreverEditModeControlsPromptDeclined = nil
         self.foreverEditModeOutsideControl = nil
+        ClearForeverEditModeControlsCandidate(self)
         return
     end
     if self.foreverEditModeOutsideControl ~= outsideControl then
@@ -631,8 +645,33 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
         self.foreverEditModeControlsPromptShown = nil
         self.foreverEditModeControlsPromptDeclined = nil
         self.foreverEditModeOutsideControl = outsideControl
+        ClearForeverEditModeControlsCandidate(self)
     end
     if self.foreverEditModeControlsPromptShown or self.foreverEditModeControlsPromptDeclined then return end
+
+    -- EditModeLayoutDialog briefly inherits its old/off-screen anchor while
+    -- Blizzard changes between save, rename, and delete modes. Wait for that
+    -- native positioning pass to settle before offering recovery. This avoids
+    -- a one-second popup flash without hooking or writing protected UI.
+    if self.foreverEditModeControlsCandidate ~= outsideControl then
+        self.foreverEditModeControlsCandidate = outsideControl
+        self.foreverEditModeControlsCandidateConfirmed = nil
+        self.foreverEditModeControlsCandidateGeneration =
+            (self.foreverEditModeControlsCandidateGeneration or 0) + 1
+        local generation = self.foreverEditModeControlsCandidateGeneration
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0.75, function()
+                if HUD.foreverEditModeControlsCandidateGeneration ~= generation
+                    or HUD.foreverEditModeControlsCandidate ~= outsideControl then return end
+                HUD.foreverEditModeControlsCandidateConfirmed = outsideControl
+                HUD:UpdateForeverEditModeControlsRecovery()
+            end)
+            return
+        end
+        self.foreverEditModeControlsCandidateConfirmed = outsideControl
+    end
+    if self.foreverEditModeControlsCandidateConfirmed ~= outsideControl then return end
+    ClearForeverEditModeControlsCandidate(self)
     self.foreverEditModeControlsPromptShown = true
     if Offhand.ShowForeverEditModeControlsPrompt then
         Offhand:ShowForeverEditModeControlsPrompt()
@@ -676,12 +715,14 @@ function HUD:BringForeverEditModeControlsToMainhand()
     self.foreverEditModeControlsPromptShown = nil
     self.foreverEditModeControlsPromptDeclined = nil
     self.foreverEditModeOutsideControl = nil
+    ClearForeverEditModeControlsCandidate(self)
     return true
 end
 
 function HUD:DismissForeverEditModeControlsPrompt()
     self.foreverEditModeControlsPromptShown = nil
     self.foreverEditModeControlsPromptDeclined = true
+    ClearForeverEditModeControlsCandidate(self)
 end
 
 -- Mixed-height spans contain real UIParent space that is not backed by a
