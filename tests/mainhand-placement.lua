@@ -166,8 +166,8 @@ assert(generated.systems[2].anchorInfo.point == "BOTTOM"
     "the default XP/status bar was not stacked directly above the Mainhand action bar")
 assert(generated.systems[3].anchorInfo.offsetX == 5,
     "a system-relative anchor was unexpectedly changed")
-assert(generated.systems[4].anchorInfo.point == "BOTTOMLEFT"
-        and generated.systems[4].anchorInfo.offsetX == 2468
+assert(generated.systems[4].anchorInfo.point == "BOTTOM"
+        and generated.systems[4].anchorInfo.offsetX == 468
         and generated.systems[4].anchorInfo.offsetY == 58,
     "the default stance bar was not placed above the first Mainhand action button")
 assert(generated.systems[5].anchorInfo.offsetX == 720

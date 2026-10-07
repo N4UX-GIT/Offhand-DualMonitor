@@ -1136,6 +1136,7 @@ function HUD:PositionMainhandTransientFrames(m)
         if CanPositionMainhandTransient(frame) then
             pcall(function()
                 Prepare(frame, m)
+                NormalizeMainhandTransientScale(frame)
                 Anchor(frame, "CENTER", m, 0, (i - 1) * 120, true)
             end)
         end
@@ -2368,6 +2369,7 @@ function HUD:HookFrames()
                 if InCombatLockdown() or not Offhand.db.enabled or not Offhand.db.seamRedirect then return end
                 local m = Offhand.Viewport:GetMetrics()
                 Prepare(self, m)
+                NormalizeMainhandTransientScale(self)
                 Anchor(self, "CENTER", m, 0, (index - 1) * 120)
                 if C_Timer and C_Timer.After then
                     C_Timer.After(0, function() HUD:PositionMainhandTransientFrames() end)

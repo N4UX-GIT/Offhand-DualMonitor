@@ -256,6 +256,8 @@ PartyMemberFrame1 = makeMockFrame("PartyMemberFrame1", 180, 80)
 PartyMemberFrame2 = makeMockFrame("PartyMemberFrame2", 180, 80)
 GameMenuFrame = makeMockFrame("GameMenuFrame", 200, 400)
 GameMenuFrame:Hide()
+StaticPopup1 = makeMockFrame("StaticPopup1", 420, 180)
+StaticPopup1.ignoreParentScale = true
 ExampleAddonWindow = makeMockFrame("ExampleAddonWindow", 220, 300)
 table.insert(UIParent.children, ExampleAddonWindow)
 
@@ -360,6 +362,9 @@ assertMainhandAnchor(GroupLootContainer, "BOTTOM", 2720, 196, "Group loot rolls"
 assertMainhandAnchor(CombatText, "CENTER", 2720, 726, "Floating combat text")
 assert(CombatText:IsIgnoringParentScale() == false,
     "floating combat text must inherit Offhand's UIParent scale")
+assertMainhandAnchor(StaticPopup1, "CENTER", 2720, 726, "Static popup")
+assert(StaticPopup1:IsIgnoringParentScale() == false,
+    "static popup text must inherit Offhand's UIParent scale")
 assert(TimerTracker:GetNumPoints() == 2, "TimerTracker must be bounded to the Mainhand rectangle")
 assert(TimerTracker:IsIgnoringParentScale() == false,
     "countdown overlays must inherit Offhand's UIParent scale")

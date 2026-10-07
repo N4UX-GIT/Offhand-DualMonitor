@@ -364,24 +364,17 @@ local function TransformLayout(layout, rect)
     return moved
 end
 
-local function EntryScreenPoint(entry, screen)
-    local info = entry and entry.anchorInfo
-    if type(info) ~= "table" or type(info.offsetX) ~= "number"
-        or type(info.offsetY) ~= "number" then return nil end
-    local relativePoint = info.relativePoint or info.point or "CENTER"
-    local x, y = PointBase(relativePoint, screen)
-    return x + info.offsetX, y + info.offsetY
-end
-
-local function SetScreenAnchor(entry, screen, point, x, y)
-    local info = entry and entry.anchorInfo
-    if type(info) ~= "table" then return false end
-    local baseX, baseY = PointBase(point, screen)
-    info.point = point
-    info.relativeTo = "UIParent"
-    info.relativePoint = point
-    info.offsetX = x - baseX
-    info.offsetY = y - baseY
+local function CopyMainBarAnchor(entry, mainAnchor, offsetX, offsetY)
+    if type(entry) ~= "table" or type(mainAnchor) ~= "table"
+        or type(mainAnchor.offsetX) ~= "number"
+        or type(mainAnchor.offsetY) ~= "number" then return false end
+    -- Forever's status and stance systems do not reliably honor a replacement
+    -- anchor point. Reuse the already-valid Action Bar 1 anchor schema and only
+    -- adjust its offsets, so Blizzard resolves all three systems in the same
+    -- coordinate space.
+    entry.anchorInfo = DeepCopy(mainAnchor)
+    entry.anchorInfo.offsetX = mainAnchor.offsetX + (offsetX or 0)
+    entry.anchorInfo.offsetY = mainAnchor.offsetY + (offsetY or 0)
     entry.isInDefaultPosition = false
     return true
 end
@@ -400,29 +393,26 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults)
     local stanceIndex = indices.StanceBar or indices.Stance or indices.ClassBar
     if actionSystem == nil or mainIndex == nil then return 0 end
 
-    local screen = {
-        left = 0, bottom = 0, right = UIParent:GetWidth(), top = UIParent:GetHeight(),
-    }
-    local mainX, mainY = (rect.left + rect.right) / 2, rect.bottom
+    local mainAnchor
     for index, entry in ipairs(layout.systems or {}) do
         if sourceDefaults[index] and entry.system == actionSystem
-            and entry.systemIndex == mainIndex then
-            mainX, mainY = EntryScreenPoint(entry, screen)
-            mainX, mainY = mainX or (rect.left + rect.right) / 2, mainY or rect.bottom
+            and entry.systemIndex == mainIndex and type(entry.anchorInfo) == "table" then
+            mainAnchor = entry.anchorInfo
             break
         end
     end
+    if not mainAnchor then return 0 end
 
     local refined = 0
     for index, entry in ipairs(layout.systems or {}) do
         if sourceDefaults[index] then
             if statusSystem ~= nil and entry.system == statusSystem then
-                if SetScreenAnchor(entry, screen, "BOTTOM", mainX, mainY + 43) then
+                if CopyMainBarAnchor(entry, mainAnchor, 0, 43) then
                     refined = refined + 1
                 end
             elseif stanceIndex ~= nil and entry.system == actionSystem
                 and entry.systemIndex == stanceIndex then
-                if SetScreenAnchor(entry, screen, "BOTTOMLEFT", mainX - 252, mainY + 58) then
+                if CopyMainBarAnchor(entry, mainAnchor, -252, 58) then
                     refined = refined + 1
                 end
             end
