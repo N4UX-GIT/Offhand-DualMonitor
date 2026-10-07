@@ -743,6 +743,19 @@ local function SaveOpenWorkspacePanels()
     end
 end
 
+-- Forever's ordinary SavedVariables table can be stale or absent on /reload.
+-- Position CVars preserve workspace coordinates, but they do not carry the
+-- mutually exclusive savedMainPositions ownership table. Commit the complete
+-- profile whenever a hardware action transfers a panel across the seam so a
+-- later reload cannot resurrect the previous owner.
+local function SaveForeverPanelOwnership()
+    local persistence = Offhand.isForever and Offhand.ForeverPersistence
+    if persistence and persistence.SaveProfileSnapshot then
+        return persistence:SaveProfileSnapshot(true)
+    end
+    return false
+end
+
 local backpackRootNames = {
     "ContainerFrame1",
     "ContainerFrameCombinedBags",
@@ -1901,6 +1914,7 @@ OnPanelDragStop = function(frame)
         Offhand.db.savedMainPositions[name] = nil
         Canvas:SetWorkspacePanelOpen(name, false)
         if Offhand.ForeverPersistence then Offhand.ForeverPersistence:ClearPosition(name) end
+        SaveForeverPanelOwnership()
         SetPanelDragging(frame, false)
         return
     end
@@ -2114,6 +2128,7 @@ OnPanelDragStop = function(frame)
                     end
     end
 
+    SaveForeverPanelOwnership()
     SetPanelDragging(frame, false)
 end
 
@@ -2218,6 +2233,7 @@ function Canvas:CaptureForeverFramePosition(frame)
             Offhand.db.savedWorkspacePositions[name] = position
         end
         Offhand.ForeverPersistence:SaveWorkspacePosition(name, position, width, height)
+        SaveForeverPanelOwnership()
         return true
     elseif Offhand.db.savedWorkspacePositions[name] then
         Offhand.db.savedWorkspacePositions[name] = nil
@@ -2227,6 +2243,7 @@ function Canvas:CaptureForeverFramePosition(frame)
             Offhand.db.nativeBackpackWorkspaceOpen = nil
         end
         Offhand.ForeverPersistence:ClearPosition(name)
+        SaveForeverPanelOwnership()
         return true
     end
     return false
@@ -2394,6 +2411,7 @@ function Canvas:GatherSafeUIToMainhand()
         end
         if Offhand.BagPersistence.Capture then Offhand.BagPersistence:Capture() end
     end
+    if moved > 0 then SaveForeverPanelOwnership() end
     return true, nil, moved, skipped
 end
 
@@ -2947,6 +2965,7 @@ local function SaveForeverNativeBagRoot(frame)
             math.min(top, math.max(metrics.gameBottom + height + 12, metrics.gameTop - 12)))
         Offhand.db.savedMainPositions[name] = { x = x, y = y }
     end
+    SaveForeverPanelOwnership()
     return RestoreForeverNativeBagRoot(frame)
 end
 

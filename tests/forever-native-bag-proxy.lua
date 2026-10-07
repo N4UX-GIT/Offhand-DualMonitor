@@ -22,6 +22,18 @@ local addon = {
         },
     },
 }
+local profileSnapshotWrites = 0
+addon.ForeverPersistence = {
+    SaveWorkspacePosition = function() end,
+    ClearPosition = function() end,
+    SaveOpenPanels = function() end,
+    SaveProfileSnapshot = function(_, incrementRevision)
+        assert(incrementRevision == true,
+            "panel ownership snapshots must advance the Forever revision")
+        profileSnapshotWrites = profileSnapshotWrites + 1
+        return true
+    end,
+}
 
 local metrics = {
     isSpanned = true,
@@ -200,6 +212,8 @@ unitCombat = false
 gatherOK, gatherWhy, gatherMoved = addon.Canvas:GatherSafeUIToMainhand()
 assert(gatherOK and not gatherWhy and gatherMoved == 1,
     "Mainhand recovery did not count the tracked native bag")
+assert(profileSnapshotWrites == 1,
+    "Mainhand recovery must commit its ownership transfer before a reload")
 assert(addon.db.savedWorkspacePositions.ContainerFrameCombinedBags == nil
         and addon.db.nativeBackpackWorkspacePosition == nil,
     "Mainhand recovery left native bag workspace ownership behind")
@@ -237,6 +251,8 @@ local gatherSkipped
 gatherOK, gatherWhy, gatherMoved, gatherSkipped = addon.Canvas:GatherSafeUIToMainhand()
 assert(gatherOK and not gatherWhy and gatherMoved == 2 and gatherSkipped == 1,
     "Mainhand recovery did not move and count protected ordinary UIPanels")
+assert(profileSnapshotWrites == 2,
+    "ordinary UIPanel recovery must commit the complete ownership snapshot")
 assert(addon.db.savedWorkspacePositions.CharacterFrame == nil
         and addon.db.savedWorkspacePositions.WorldMapFrame == nil,
     "Mainhand recovery retained ordinary UIPanel workspace ownership")
@@ -268,6 +284,7 @@ for _, frame in ipairs(created) do
 end
 assert(handle and handle.scripts.OnDragStart and handle.scripts.OnDragStop,
     "Forever bag proxy must expose a UIParent-owned drag grip")
+local snapshotsBeforeBagDrag = profileSnapshotWrites
 handle.scripts.OnDragStart(handle)
 assert(bag.startMovingCalls == 1 and bag.movableCalls == 1,
     "hardware drag did not start native root movement")
@@ -275,6 +292,8 @@ bag:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 260, 880)
 handle.scripts.OnDragStop(handle)
 assert(bag.stopMovingCalls == 1,
     "hardware drag did not stop native root movement")
+assert(profileSnapshotWrites == snapshotsBeforeBagDrag + 1,
+    "workspace bag drop must refresh the complete Forever snapshot")
 local saved = addon.db.savedWorkspacePositions.ContainerFrameCombinedBags
 assert(saved and math.abs(saved.x - 260) < 0.01 and math.abs(saved.y - 880) < 0.01,
     "proxy drag did not persist the new workspace position")
@@ -283,12 +302,15 @@ assert(saved and math.abs(saved.x - 260) < 0.01 and math.abs(saved.y - 880) < 0.
 -- drags the bag back across the seam. Otherwise the observer immediately
 -- reapplies the old Offhand anchor and makes the bag appear impossible to
 -- return to Mainhand.
+snapshotsBeforeBagDrag = profileSnapshotWrites
 handle.scripts.OnDragStart(handle)
 bag:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 1900, 1100)
 handle.scripts.OnDragStop(handle)
 assert(addon.db.savedWorkspacePositions.ContainerFrameCombinedBags == nil
         and addon.db.nativeBackpackWorkspacePosition == nil,
     "Mainhand drop must retire the backpack-family workspace snapshot")
+assert(profileSnapshotWrites == snapshotsBeforeBagDrag + 1,
+    "Mainhand bag drop must refresh the complete Forever snapshot")
 local mainSaved = addon.db.savedMainPositions.ContainerFrameCombinedBags
 assert(mainSaved and mainSaved.x >= metrics.gameLeft,
     "Mainhand drop must persist a Mainhand position")
@@ -300,9 +322,12 @@ assert(bag:GetLeft() >= metrics.gameLeft,
 -- build returns from ToggleGameMenu after closing the bag without showing the
 -- menu, so the secure global observer must defer both operations until the
 -- native stack ends, completing the menu toggle before reopening the bag.
+snapshotsBeforeBagDrag = profileSnapshotWrites
 handle.scripts.OnDragStart(handle)
 bag:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 240, 860)
 handle.scripts.OnDragStop(handle)
+assert(profileSnapshotWrites == snapshotsBeforeBagDrag + 1,
+    "returning the bag to Offhand must commit workspace ownership immediately")
 local nativeOpenCalls = 0
 OpenAllBags = function()
     nativeOpenCalls = nativeOpenCalls + 1

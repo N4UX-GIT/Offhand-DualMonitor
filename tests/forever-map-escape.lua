@@ -17,6 +17,18 @@ local addon = {
         openWorkspacePanels = {},
     },
 }
+local profileSnapshotWrites = 0
+addon.ForeverPersistence = {
+    SaveWorkspacePosition = function() end,
+    ClearPosition = function() end,
+    SaveOpenPanels = function() end,
+    SaveProfileSnapshot = function(_, incrementRevision)
+        assert(incrementRevision == true,
+            "panel ownership snapshots must advance the Forever revision")
+        profileSnapshotWrites = profileSnapshotWrites + 1
+        return true
+    end,
+}
 
 local metrics = {
     isSpanned = true,
@@ -335,9 +347,12 @@ assert(GetUIPanel("left") ~= CharacterFrame and CharacterFrame:GetLeft() < metri
 
 ContainerFrameCombinedBags = makePanel(
     "ContainerFrameCombinedBags", false, 120, 400, 520, 760)
+local snapshotsBeforePanelDrop = profileSnapshotWrites
 addon.Canvas.OnPanelDragStop(ContainerFrameCombinedBags)
 assert(not ContainerFrameCombinedBags:IsShown(),
     "A hide-triggered backpack drag stop must not reopen the backpack")
+assert(profileSnapshotWrites == snapshotsBeforePanelDrop + 1,
+    "ordinary Forever panel drops must commit the complete ownership snapshot")
 
 addon.db.openWorkspacePanels.ContainerFrameCombinedBags = true
 IsBagOpen = function() return true end
