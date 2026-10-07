@@ -216,14 +216,18 @@ map:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 500, 1100)
 map:Show()
 function map:IsProtected() return true end
 _G.CharacterFrame, _G.WorldMapFrame = character, map
-UIPanelWindows = { CharacterFrame = {}, WorldMapFrame = {} }
+local forbidden = makeFrame("ForbiddenPanel", 300, 300)
+function forbidden:IsForbidden() error("forbidden object") end
+_G.ForbiddenPanel = forbidden
+UIPanelWindows = { CharacterFrame = {}, WorldMapFrame = {}, ForbiddenPanel = {} }
 addon.db.savedWorkspacePositions.CharacterFrame = { x = 200, y = 1000 }
 addon.db.savedWorkspacePositions.WorldMapFrame = { x = 500, y = 1100 }
 addon.db.openWorkspacePanels.CharacterFrame = true
 addon.db.openWorkspacePanels.WorldMapFrame = true
 
-gatherOK, gatherWhy, gatherMoved = addon.Canvas:GatherSafeUIToMainhand()
-assert(gatherOK and not gatherWhy and gatherMoved == 2,
+local gatherSkipped
+gatherOK, gatherWhy, gatherMoved, gatherSkipped = addon.Canvas:GatherSafeUIToMainhand()
+assert(gatherOK and not gatherWhy and gatherMoved == 2 and gatherSkipped == 1,
     "Mainhand recovery did not move and count protected ordinary UIPanels")
 assert(addon.db.savedWorkspacePositions.CharacterFrame == nil
         and addon.db.savedWorkspacePositions.WorldMapFrame == nil,

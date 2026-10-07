@@ -2320,9 +2320,6 @@ function Canvas:GatherSafeUIToMainhand()
     end
     for name in pairs(Offhand.db.savedWorkspacePositions or {}) do Add(_G[name]) end
     for name in pairs(UIPanelWindows or {}) do Add(_G[name]) end
-    if UIParent and UIParent.GetChildren then
-        for _, child in ipairs({ UIParent:GetChildren() }) do Add(child) end
-    end
     if Offhand.BagPersistence and type(Offhand.BagPersistence.frames) == "table" then
         for _, frame in pairs(Offhand.BagPersistence.frames) do Add(frame) end
     end
@@ -2333,18 +2330,26 @@ function Canvas:GatherSafeUIToMainhand()
 
     local moved, skipped = 0, 0
     for frame in pairs(candidates) do
-        local name = frame.GetName and frame:GetName()
-        local shown = frame.IsShown and frame:IsShown()
-        local tracked = name and Offhand.db.savedWorkspacePositions
-            and Offhand.db.savedWorkspacePositions[name]
-        local onWorkspace = shown and IsFrameOnWorkspace(frame)
-        if shown and name and (tracked or onWorkspace)
+        -- A registered Blizzard panel can become forbidden after it enters a
+        -- restricted state. Never call even basic frame methods until the
+        -- complete inspection is behind a guarded boundary.
+        local inspected, name, shown, tracked, onWorkspace = pcall(function()
+            if frame.IsForbidden and frame:IsForbidden() then return nil, false, false, false end
+            local frameName = frame.GetName and frame:GetName()
+            local frameShown = frame.IsShown and frame:IsShown() or false
+            local frameTracked = frameName and Offhand.db.savedWorkspacePositions[frameName]
+            local frameOnWorkspace = frameShown and IsFrameOnWorkspace(frame) or false
+            return frameName, frameShown, frameTracked, frameOnWorkspace
+        end)
+        if inspected and shown and name and (tracked or onWorkspace)
             and frame ~= UIParent and frame ~= WorldFrame and frame ~= Offhand.canvas
             and not IsForeverEditModeFrame(frame, name) then
             if frame == _G.WorldMapFrame and frame.SetScale then
                 pcall(frame.SetScale, frame, 1)
             end
-            local placed = self:PlacePanelOnMainhand(frame, metrics, nil, false, true)
+            local called, placed = pcall(self.PlacePanelOnMainhand,
+                self, frame, metrics, nil, false, true)
+            placed = called and placed
             if placed then
                 moved = moved + 1
                 Offhand.db.savedWorkspacePositions[name] = nil
@@ -2372,6 +2377,8 @@ function Canvas:GatherSafeUIToMainhand()
             else
                 skipped = skipped + 1
             end
+        elseif not inspected then
+            skipped = skipped + 1
         end
     end
 
