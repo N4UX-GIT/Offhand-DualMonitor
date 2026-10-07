@@ -140,6 +140,7 @@ function Onboarding:CreateFrame()
             and L["ONBOARD_START_CALIBRATION"] or L["BTN_NEXT"])
         self.statusText:SetText(self.page == 4 and L["ONBOARD_STATUS_CHECK_PROMPT"] or "")
         self.actionButton:Hide()
+        self.actionButton:SetEnabled(true)
         self.actionButton:SetScript("OnClick", nil)
         if self.page == 2 then
             self.actionButton:SetText(L["POPUP_BTN_GET_APP"])
@@ -160,6 +161,11 @@ function Onboarding:CreateFrame()
                 if Offhand.SetOnboardingResumeStep then Offhand:SetOnboardingResumeStep(4) end
                 if ReloadUI then ReloadUI() end
             end)
+            self.actionButton:Show()
+        elseif self.page == 5 and (Offhand.isForever or Offhand.isRetail) then
+            self.actionButton:SetText(L["MAINHAND_LAYOUT_CREATE"])
+            self.actionButton:SetEnabled(false)
+            self.statusText:SetText(L["RECOVERY_CREATE_LABEL"])
             self.actionButton:Show()
         end
     end

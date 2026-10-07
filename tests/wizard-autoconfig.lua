@@ -711,6 +711,14 @@ assert(addon:GetOnboardingResumeStep() == 4 and addon:IsWelcomeDismissed(),
 addon.Onboarding:Open()
 assert(onboardingFrame.page == 4 and OffhandDB.onboarding.resumeStep == nil,
     "onboarding must return to step 4 once after Reload UI")
+addon.isForever = true
+onboardingFrame:SetPage(5)
+assert(onboardingFrame.actionButton:IsShown()
+        and onboardingFrame.actionButton:IsEnabled() == false
+        and onboardingFrame.actionButton:GetText() == addon.L["MAINHAND_LAYOUT_CREATE"]
+        and onboardingFrame.statusText:GetText() == addon.L["RECOVERY_CREATE_LABEL"],
+    "onboarding step 5 must preview and label the final Mainhand layout action")
+addon.isForever = false
 onboardingFrame:SetPage(1)
 local calibrationOpened = false
 addon.Wizard.Open = function() calibrationOpened = true end

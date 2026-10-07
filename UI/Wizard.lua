@@ -902,7 +902,7 @@ function Wizard:CreateFrame()
         for i, card in ipairs(self.pages) do SetShown(card, i == self.step) end
         progress:SetText(string.format(L["STEP_PROGRESS"], self.step, self.totalSteps))
         welcomeText:SetText(self.step == 5
-            and L["MAINHAND_LAYOUT_CREATE_DESC"]
+            and L["RECOVERY_CREATE_LABEL"]
             or L["STEP_" .. self.step .. "_HELP"])
         backBtn:SetEnabled(self.step > 1)
         finishBtn:SetText(self.step == 5
