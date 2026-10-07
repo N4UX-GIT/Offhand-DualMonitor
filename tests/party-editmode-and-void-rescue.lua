@@ -760,8 +760,8 @@ lastTimerDelay = nil
 addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
 assert(editModePromptCount == 0,
     "off-screen Edit Mode controls must wait for native positioning to settle")
-assert(lastTimerDelay and lastTimerDelay >= 2,
-    "Edit Mode recovery must wait through Blizzard's full modal transition")
+assert(lastTimerDelay and lastTimerDelay > 0 and lastTimerDelay <= 0.25,
+    "persistent Edit Mode recovery must confirm promptly")
 flushTimers()
 assert(editModePromptCount == 1, "Forever must offer recovery when Edit Mode controls are in the void")
 assert(#EditModeManagerFrame.points == voidManagerPointCount
@@ -1806,10 +1806,16 @@ print("PASS: Retail Edit Mode action bars and managers remain strictly untouched
 print("\nALL PARTY FRAMES, EDIT MODE, AND VOID RESCUE TESTS PASSED!")
 
 local popupScanners = 0
+local editModeRecoveryScanners = 0
 for _, ticker in ipairs(tickers) do
     if ticker.interval == 2 and not ticker.cancelled then popupScanners = popupScanners + 1 end
+    if ticker.interval == 0.25 and not ticker.cancelled then
+        editModeRecoveryScanners = editModeRecoveryScanners + 1
+    end
 end
 assert(popupScanners == 1, "Repeated HUD setup installed duplicate popup scanners")
+assert(editModeRecoveryScanners == 1,
+    "Repeated HUD setup installed duplicate Edit Mode recovery scanners")
 
 -- A full-height seam guide deliberately extends above the game viewport.
 local guide = makeMockFrame("OffhandSeamGuideLine", 4, 2560)

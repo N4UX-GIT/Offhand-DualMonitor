@@ -572,10 +572,9 @@ local function CanRecoverForeverEditModeControls(metrics)
     return metrics and (metrics.isSpanned or IsForeverSingleScreenRecovery(metrics)) or false
 end
 
--- Forever can take more than a second to replace the reusable layout dialog's
--- previous anchor. Require it to remain unreachable for a complete recovery
--- scan interval before presenting a player action.
-local FOREVER_EDIT_MODE_RECOVERY_SETTLE_SECONDS = 2.25
+-- Transactional dialogs no longer use this popup path, so the persistent
+-- manager/settings controls need only survive one fast recovery scan.
+local FOREVER_EDIT_MODE_RECOVERY_SETTLE_SECONDS = 0.15
 
 local function ClearForeverEditModeControlsCandidate(self)
     self.foreverEditModeControlsCandidate = nil
@@ -629,10 +628,6 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
     local manager = _G.EditModeManagerFrame
     local shown = manager and manager.IsShown and manager:IsShown()
     if not shown then
-        if self.foreverEditModeDialogRecoveryTicker then
-            self.foreverEditModeDialogRecoveryTicker:Cancel()
-            self.foreverEditModeDialogRecoveryTicker = nil
-        end
         if self.foreverEditModeManagerWasShown and Offhand.HideForeverEditModeControlsPrompt then
             Offhand:HideForeverEditModeControlsPrompt()
         end
@@ -649,11 +644,6 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
         self.foreverEditModeControlsPromptShown = nil
         self.foreverEditModeControlsPromptDeclined = nil
         ClearForeverEditModeControlsCandidate(self)
-    end
-    if C_Timer and C_Timer.NewTicker and not self.foreverEditModeDialogRecoveryTicker then
-        self.foreverEditModeDialogRecoveryTicker = C_Timer.NewTicker(0.15, function()
-            HUD:RecoverForeverTransactionalEditModeDialogs()
-        end)
     end
     if InCombatLockdown() then return end
     metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics())
@@ -1823,6 +1813,16 @@ function HUD:HookFrames()
                 end)
             end
         end
+    end
+
+    -- The general scanner is intentionally broad and slow. Forever's Edit Mode
+    -- recovery gets a separate cheap cadence so its entry prompt and native
+    -- transactional dialogs become usable in well under a second.
+    if UsesForeverEditMode() and C_Timer and C_Timer.NewTicker
+        and not self.foreverEditModeRecoveryTicker then
+        self.foreverEditModeRecoveryTicker = C_Timer.NewTicker(0.25, function()
+            HUD:UpdateForeverEditModeControlsRecovery()
+        end)
     end
 
     if C_Timer and C_Timer.NewTicker and not self.popupTicker then
