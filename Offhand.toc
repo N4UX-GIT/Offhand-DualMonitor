@@ -23,6 +23,7 @@ Core\Init.lua
 Core\ForeverState.lua
 Core\Config.lua
 Core\Viewport.lua
+Core\Mainhand.lua
 Core\RetailFullscreen.lua
 Core\ChatBubbles.lua
 Core\SeamRedirect.lua

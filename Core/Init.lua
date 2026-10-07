@@ -1061,6 +1061,9 @@ function Offhand:ApplyFullLayout()
         if Offhand.UpdateViewport then
             Offhand:UpdateViewport()
         end
+        if Offhand.Mainhand and Offhand.Mainhand.Update then
+            Offhand.Mainhand:Update("layout")
+        end
         if Offhand.RetailFullscreen and Offhand.RetailFullscreen.Apply then
             Offhand.RetailFullscreen:Apply()
         end
