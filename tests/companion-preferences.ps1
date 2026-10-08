@@ -116,6 +116,7 @@ try {
         $packager -notmatch '\[switch\]\$CompanionChanged' -or
         $packager -notmatch '81EECE9430885CEAC178A44A42429854524279072305F9F94EE62E7CCD620CCB' -or
         $packager -notmatch '\[string\]\$ExpectedCompanionArchiveSha256' -or
+        $packager -notmatch '\[string\]\$ExistingCompanionArchivePath' -or
         $packager -notmatch 'Companion archive hash.*does not match expected' -or
         $packager -notmatch 'Canonical Companion SHA-256' -or
         $packager -notmatch 'contains a different executable than the canonical Companion build') {
@@ -146,7 +147,8 @@ try {
         $releaseWorkflow -notmatch 'Attach frozen Beta 20 Companion assets' -or
         $releaseWorkflow -notmatch 'dist/Offhand-Companion\.zip' -or
         $releaseWorkflow -notmatch 'dist/Offhand\.exe' -or
-        $releaseWorkflow -notmatch 'package\.ps1 -Version \$version -CompanionChanged -UseExistingCompanion') {
+        $releaseWorkflow -notmatch 'package\.ps1 -Version \$version -CompanionChanged -UseExistingCompanion' -or
+        $releaseWorkflow -notmatch 'ExistingCompanionArchivePath "Companion\\Offhand-Companion\.zip"') {
         throw 'Release automation must validate and attach exact frozen Beta 20 assets without rebuilding the candidate executable.'
     }
     $pinnedCompanionUrl = 'https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.20/Offhand-Companion.zip'

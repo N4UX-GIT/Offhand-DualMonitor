@@ -59,7 +59,8 @@ jobs:
         if ("${{ steps.policy.outputs.companion_changed }}" -eq "true") {
           .\package.ps1 -Version $version -CompanionChanged -UseExistingCompanion `
             -ExpectedCompanionSha256 $env:COMPANION_SHA256 `
-            -ExpectedCompanionArchiveSha256 $env:COMPANION_ARCHIVE_SHA256
+            -ExpectedCompanionArchiveSha256 $env:COMPANION_ARCHIVE_SHA256 `
+            -ExistingCompanionArchivePath "Companion\Offhand-Companion.zip"
         } else {
           .\package.ps1 -Version $version
         }

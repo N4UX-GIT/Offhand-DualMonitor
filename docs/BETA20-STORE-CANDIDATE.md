@@ -19,11 +19,14 @@ This is a staged candidate, not a published release.
 ### GitHub release
 
 - Addon: `dist/Offhand-v2.1.2-beta.20.zip`
-  - SHA-256: `8F0A694A36735E8E961DA108F5F27CEF778B10B4844406EB65EC504B7AACE753`
+  - SHA-256: `91F6DB209E679DEA32AFDB03648CB9E94447E92065E678228CB7D76AAE9043BF`
 - Complete bundle: `dist/Offhand-Complete-v2.1.2-beta.20.zip`
-  - SHA-256: `9DA371C03EB2BEB5FA3B23C9843A79678FB000678B881DF744C63C3848B7C9A5`
+  - SHA-256: `654E1C6206208393C5EC32A45BEEBD4211AFDC8B21D2A8ED51164FAF3A0B0D61`
 - Portable Companion: `dist/Offhand-Companion.zip`
   - SHA-256: `C726444612DD740BE3F923B83704D155E21BC017F7C5FE245379B19DBECC76E3`
+  - Canonical reviewed archive retained at `Companion/Offhand-Companion.zip` so
+    GitHub Actions publishes the exact bytes instead of recompressing the same
+    entries under a different PowerShell/.NET runtime.
 - Standalone Companion: `dist/Offhand.exe`
   - SHA-256: `81EECE9430885CEAC178A44A42429854524279072305F9F94EE62E7CCD620CCB`
 - Checksums: `dist/checksums-sha256.txt`

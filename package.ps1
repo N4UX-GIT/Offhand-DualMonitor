@@ -9,7 +9,8 @@ param(
     [switch]$CompanionChanged,
     [switch]$UseExistingCompanion,
     [string]$ExpectedCompanionSha256,
-    [string]$ExpectedCompanionArchiveSha256
+    [string]$ExpectedCompanionArchiveSha256,
+    [string]$ExistingCompanionArchivePath
 )
 
 $ErrorActionPreference = "Stop"
@@ -198,28 +199,40 @@ $standaloneExe = Join-Path $distDir "Offhand.exe"
 if ($CompanionChanged) {
     Write-Host "
 [4/5] Packaging updated Desktop Companion (Offhand-Companion.zip)..." -ForegroundColor Yellow
-    $compStaging = Join-Path $tempDir "Offhand-Companion"
-    New-Item -ItemType Directory -Path $compStaging -Force | Out-Null
+    if (-not [string]::IsNullOrWhiteSpace($ExistingCompanionArchivePath)) {
+        $sourceArchive = if ([IO.Path]::IsPathRooted($ExistingCompanionArchivePath)) {
+            $ExistingCompanionArchivePath
+        } else {
+            Join-Path $rootDir $ExistingCompanionArchivePath
+        }
+        if (-not (Test-Path -LiteralPath $sourceArchive -PathType Leaf)) {
+            throw "Reviewed Companion archive is missing: $sourceArchive"
+        }
+        Copy-Item -LiteralPath $sourceArchive -Destination $compZip -Force
+    } else {
+        $compStaging = Join-Path $tempDir "Offhand-Companion"
+        New-Item -ItemType Directory -Path $compStaging -Force | Out-Null
 
-    Copy-Item $companionExe -Destination $compStaging
-    # Preserve the exact reviewed Companion license bytes independent of Git's
-    # checkout settings: UTF-8 BOM, LF internally, and one final CRLF.
-    $licenseText = (Get-Content -LiteralPath (Join-Path $rootDir "Companion\LICENSE") -Raw) -replace "`r`n", "`n"
-    $licenseText = $licenseText.TrimEnd("`r", "`n") + "`r`n"
-    [IO.File]::WriteAllText(
-        (Join-Path $compStaging "LICENSE"),
-        $licenseText,
-        (New-Object Text.UTF8Encoding($true)))
-    $portableReadmeTemplate = Get-Content -LiteralPath (Join-Path $rootDir "Companion\PORTABLE-README.txt") -Raw
-    $candidateCompanionHash = (Get-FileHash -LiteralPath $companionExe -Algorithm SHA256).Hash
-    $portableReadme = $portableReadmeTemplate.Replace('{{VERSION}}', $Version).Replace(
-        '{{EXE_SHA256}}', $candidateCompanionHash)
-    [IO.File]::WriteAllText(
-        (Join-Path $compStaging "README.txt"),
-        $portableReadme,
-        (New-Object Text.UTF8Encoding($false)))
+        Copy-Item $companionExe -Destination $compStaging
+        # Preserve the exact reviewed Companion license bytes independent of Git's
+        # checkout settings: UTF-8 BOM, LF internally, and one final CRLF.
+        $licenseText = (Get-Content -LiteralPath (Join-Path $rootDir "Companion\LICENSE") -Raw) -replace "`r`n", "`n"
+        $licenseText = $licenseText.TrimEnd("`r", "`n") + "`r`n"
+        [IO.File]::WriteAllText(
+            (Join-Path $compStaging "LICENSE"),
+            $licenseText,
+            (New-Object Text.UTF8Encoding($true)))
+        $portableReadmeTemplate = Get-Content -LiteralPath (Join-Path $rootDir "Companion\PORTABLE-README.txt") -Raw
+        $candidateCompanionHash = (Get-FileHash -LiteralPath $companionExe -Algorithm SHA256).Hash
+        $portableReadme = $portableReadmeTemplate.Replace('{{VERSION}}', $Version).Replace(
+            '{{EXE_SHA256}}', $candidateCompanionHash)
+        [IO.File]::WriteAllText(
+            (Join-Path $compStaging "README.txt"),
+            $portableReadme,
+            (New-Object Text.UTF8Encoding($false)))
 
-    New-PortableZip -SourceDirectory $compStaging -DestinationPath $compZip
+        New-PortableZip -SourceDirectory $compStaging -DestinationPath $compZip
+    }
     if (-not [string]::IsNullOrWhiteSpace($ExpectedCompanionArchiveSha256)) {
         $actualExpectedArchiveHash = (Get-FileHash -LiteralPath $compZip -Algorithm SHA256).Hash
         if ($actualExpectedArchiveHash -ne $ExpectedCompanionArchiveSha256.ToUpperInvariant()) {

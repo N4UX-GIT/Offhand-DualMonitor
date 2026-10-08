@@ -60,7 +60,10 @@ must contain exactly `Offhand.exe`, `README.txt`, and `LICENSE`. Do not place
 `build.bat`, source files, manifests, artwork, Linux guidance, or other
 development material in that archive. Those files remain available through the
 repository and GitHub's automatic source archives. CI and `package.ps1` enforce
-the exact three-entry layout.
+the exact three-entry layout. The reviewed archive is retained at
+`Companion/Offhand-Companion.zip`; release automation copies and validates
+those exact bytes because ZIP deflate output can differ across PowerShell/.NET
+runtimes even when every entry is byte-identical.
 
 After the first Store publication is live, use the following links in public
 documentation:
