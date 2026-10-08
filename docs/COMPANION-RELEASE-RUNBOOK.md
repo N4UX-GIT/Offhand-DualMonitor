@@ -9,7 +9,7 @@ artifact remains the in-game addon only.
 
 Every release must satisfy all of the following:
 
-- Addon releases keep the portable Companion frozen at `v2.1.2-beta.19`
+- Addon releases keep the portable Companion frozen at `v2.1.2-beta.20`
   unless the desktop application itself requires an intentional update.
 - The addon's public release advances independently while compatible releases
   retain Companion protocol `1` and minimum version `2.1.2-beta.19`.
@@ -33,17 +33,18 @@ Every release must satisfy all of the following:
 
 The canonical portable Companion is currently:
 
-- Release: `v2.1.2-beta.19`
-- Download: <https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.19/Offhand-Companion.zip>
+- Release: `v2.1.2-beta.20`
+- Download: <https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.20/Offhand-Companion.zip>
 - Standalone `Offhand.exe` SHA-256:
-  `89C065D28D5EB37A3CCBF868DA006C64E7FD403A50417E8799806DF92E46BF52`
+  `81EECE9430885CEAC178A44A42429854524279072305F9F94EE62E7CCD620CCB`
 - `Offhand-Companion.zip` SHA-256:
-  `83EEDFE4DFE96EA4A34E6414E55797CAD4E02181604DAAA2F6E6B3EC57F1576B`
+  `C726444612DD740BE3F923B83704D155E21BC017F7C5FE245379B19DBECC76E3`
 
-Microsoft Security Intelligence completed reviews of the submitted Beta 19
-executable and archives without retaining a malware detection; the submission
-references are recorded in `SECURITY.md` and `docs/SECURITY-FOLLOWUP.md`. Preserve
-the exact bytes above. Edge's **"isn't commonly downloaded"** message for the
+The Beta 20 candidate received a clean local Microsoft Defender custom scan.
+The completed Microsoft Security Intelligence review recorded in `SECURITY.md`
+and `docs/SECURITY-FOLLOWUP.md` applies to the exact Beta 19 bytes and does not
+transfer to Beta 20. Preserve the exact Beta 20 bytes above. Edge's
+**"isn't commonly downloaded"** message for the
 unsigned standalone EXE is an application-reputation notice, not a Defender
 malware verdict. Prefer the ZIP in public instructions, but treat **"Virus
 detected"**, a named malware detection, or a checksum mismatch as a stop
@@ -100,18 +101,18 @@ The source, addon metadata, UI, Git tag, and GitHub release use semantic release
 identifiers such as:
 
 ```text
-2.1.2-beta.19
-v2.1.2-beta.19
+2.1.2-beta.20
+v2.1.2-beta.20
 ```
 
 For an addon-only beta release, update at least:
 
 - Every supported `Offhand*.toc`: `## Version`, `## X-Offhand-Release`, and
   `## X-Offhand-Addon-Release`. These fields identify the actual addon release.
-- Keep `## X-Offhand-Companion-Release: beta.19`,
+- Keep `## X-Offhand-Companion-Release: beta.20`,
   `## X-Offhand-Companion-Protocol: 1`, and
   `## X-Offhand-Companion-Min-Version: 2.1.2-beta.19` unchanged while the
-  frozen Beta 19 Companion remains compatible.
+  frozen Beta 20 Companion remains compatible.
 - The addon may advance to another beta or base version without forcing a new
   Companion. Compatibility is determined by protocol and minimum version, not
   by matching the addon's release label.
@@ -238,9 +239,9 @@ cmd /c .\Companion\build.bat
 ### 4. Build and inspect GitHub artifacts
 
 The tag-triggered GitHub workflow restores and hash-verifies the published Beta
-19 executable for ordinary addon tags. The explicit Companion release lane also
-validates and packages the checked-in reviewed executable; it must never rebuild
-different bytes after antivirus review.
+20 executable for ordinary addon tags. The explicit Companion release lane also
+validates and packages the checked-in frozen executable; it must never rebuild
+different bytes after candidate review.
 
 - [ ] Run release metadata tests.
 - [ ] Tag only the reviewed commit using `vMAJOR.MINOR.PATCH`,
@@ -249,11 +250,11 @@ different bytes after antivirus review.
 - [ ] Verify the workflow succeeded.
 - [ ] Download and inspect every addon release's:
   - `Offhand-v<VERSION>.zip`
-  - `Offhand-Companion.zip` (frozen Beta 19)
+  - `Offhand-Companion.zip` (frozen Beta 20)
   - `Offhand-Complete-v<VERSION>.zip`
-  - `Offhand.exe` (frozen Beta 19)
+  - `Offhand.exe` (frozen Beta 20)
   - `checksums-sha256.txt`
-- [ ] Confirm the complete bundle contains the frozen Beta 19 executable with
+- [ ] Confirm the complete bundle contains the frozen Beta 20 executable with
       the SHA-256 recorded in the release workflow and package script.
 - [ ] For an intentional Companion release only, also inspect
       `Offhand-Companion.zip` and `Offhand.exe` and confirm every container has
@@ -281,7 +282,7 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -File .\tests\release-metadata.ps1
 
 .\scripts\Restore-FrozenCompanion.ps1
-.\package.ps1 -Version 2.1.2-beta.19
+.\package.ps1 -Version 2.1.2-beta.20
 Get-Content .\dist\checksums-sha256.txt
 ```
 
@@ -294,8 +295,8 @@ Use `-CompanionChanged` only after reviewing actual Companion source changes:
 After the candidate commit is approved, create and push the release tag:
 
 ```powershell
-git tag -a v2.1.2-beta.19 -m "Offhand v2.1.2 Beta 19"
-git push origin v2.1.2-beta.19
+git tag -a v2.1.2-beta.20 -m "Offhand v2.1.2 Beta 20"
+git push origin v2.1.2-beta.20
 ```
 
 Replace the example version in every command with the recorded release version.
@@ -311,7 +312,7 @@ Use the Store-assigned identity already encoded in the builder. Example:
 .\Companion\Store\Build-StorePackage.ps1 `
   -PackageVersion 2.1.20.0 `
   -CompanionPath .\Companion\Offhand.exe `
-  -ExpectedCompanionSha256 89C065D28D5EB37A3CCBF868DA006C64E7FD403A50417E8799806DF92E46BF52
+  -ExpectedCompanionSha256 81EECE9430885CEAC178A44A42429854524279072305F9F94EE62E7CCD620CCB
 ```
 
 The Store `2.1.19.0` submission embeds the earlier reviewed `658B633...`

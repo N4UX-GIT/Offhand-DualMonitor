@@ -11,6 +11,11 @@ local addon = {
     },
 }
 _G.Offhand = addon
+local nativePairs, globalScans = pairs, 0
+pairs = function(value)
+    if value == _G then globalScans = globalScans + 1 end
+    return nativePairs(value)
+end
 
 local metrics = { isSpanned = true }
 addon.Viewport = { GetMetrics = function() return metrics end }
@@ -65,6 +70,7 @@ local baganatorClose = makeButton(1, true)
 local baganatorName = "Baganator_SingleViewBackpackViewFrameblizzard_black"
 _G[baganatorName] = makeFrame(baganatorName, true, baganatorClose)
 _G[baganatorName .. "CloseButton"] = baganatorClose
+addon.BagPersistence = { frames = { [baganatorName] = _G[baganatorName] } }
 
 local euiClose = makeButton(1, true)
 function euiClose:GetObjectType() return "Button" end
@@ -96,10 +102,14 @@ assert(characterClose.alpha == 1 and characterClose.mouse,
     "Mainhand close buttons must remain available")
 assert(mapClose.hookWrites == 0,
     "workspace chrome must not attach scripts to protected native controls")
+assert(globalScans == 0,
+    "workspace chrome must consume registered dynamic frames without scanning globals")
 mapClose.alpha, mapClose.mouse = 1, true
 chrome:Refresh()
 assert(mapClose.alpha == 0 and not mapClose.mouse,
     "polling must reapply the hidden state after a native panel refresh")
+assert(globalScans == 0,
+    "repeated workspace chrome refreshes must not scan globals")
 
 chrome:SetMapMaximizeEnabled(true)
 assert(mapMaximize.alpha == 0 and not mapMaximize.mouse,

@@ -39,21 +39,25 @@ An attestation proves build provenance and integrity; it is not an antivirus
 verdict or an Authenticode publisher signature. A locally compiled release may
 have an official checksum without an attestation.
 
-## Current Beta 19 security status
+## Current Beta 20 security status
 
-The canonical portable release is **Offhand Companion v2.1.2 Beta 19**. Use the
+The canonical portable release is **Offhand Companion v2.1.2 Beta 20**. Use the
 ZIP as the primary download:
 
-https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.19/Offhand-Companion.zip
+https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.20/Offhand-Companion.zip
 
 Canonical SHA-256 digests:
 
-- `Offhand.exe`: `89C065D28D5EB37A3CCBF868DA006C64E7FD403A50417E8799806DF92E46BF52`
-- `Offhand-Companion.zip`: `83EEDFE4DFE96EA4A34E6414E55797CAD4E02181604DAAA2F6E6B3EC57F1576B`
+- `Offhand.exe`: `81EECE9430885CEAC178A44A42429854524279072305F9F94EE62E7CCD620CCB`
+- `Offhand-Companion.zip`: `C726444612DD740BE3F923B83704D155E21BC017F7C5FE245379B19DBECC76E3`
 
-On 2026-10-07, the maintainer confirmed Microsoft Security Intelligence had
-completed its reviews of both exact Beta 19 files without retaining a malware
-detection. Record their authenticated submission links here when available.
+The Beta 20 candidate received a clean local Microsoft Defender custom scan.
+That is a local validation result, not a hash-specific Microsoft Security
+Intelligence determination. GitHub release provenance and the published
+checksum file should be verified for these exact bytes.
+
+The completed Microsoft Security Intelligence review described below applies
+only to the exact Beta 19 files and does not transfer to Beta 20.
 
 Earlier Beta 18 review records remain available for historical verification:
 

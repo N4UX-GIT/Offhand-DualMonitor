@@ -246,11 +246,12 @@ function Viewport:ApplyGlobalScale()
                 if db.originalUseUiScale then
                     if SetCVar then SetCVar("useUiScale", db.originalUseUiScale) end
                 end
-                if WorldFrame and WorldFrame.SetScale then
-                    WorldFrame:SetScale(1)
+                if WorldFrame and WorldFrame.SetScale and self.originalWorldScale then
+                    WorldFrame:SetScale(self.originalWorldScale)
                 end
             end)
             self.originalScale = nil
+            self.originalWorldScale = nil
             db.originalUiScale = nil
             db.originalUseUiScale = nil
             self.scaling=false
@@ -264,15 +265,27 @@ function Viewport:ApplyGlobalScale()
     if not self.originalScale then
         self.originalScale = UIParent:GetScale()
     end
+    if WorldFrame and WorldFrame.GetScale and not self.originalWorldScale then
+        self.originalWorldScale = WorldFrame:GetScale()
+    end
     
-    if math.abs(UIParent:GetScale()-desired)<0.00001 then return end
+    -- WorldFrame is a separate root on modern and Forever clients. Leaving its
+    -- local scale at 1 while shrinking UIParent makes world-owned nameplates,
+    -- overhead NPC text and floating combat text roughly 1 / uiScale too large.
+    -- Give both roots the same absolute baseline; Viewport:SetPoint compensates
+    -- for the receiving frame's effective scale when it applies the render rect.
+    local worldScale = WorldFrame and WorldFrame.GetScale and WorldFrame:GetScale() or nil
+    local uiNeedsWrite = math.abs(UIParent:GetScale()-desired) >= 0.00001
+    local worldNeedsWrite = WorldFrame and WorldFrame.SetScale and worldScale
+        and math.abs(worldScale-desired) >= 0.00001
+    if not uiNeedsWrite and not worldNeedsWrite then return end
     self.scaling=true
     local ok,err=pcall(function() 
         -- Keep the native CVar separate: client clamping can otherwise cause
-        -- every display notification to write it again. Children inherit UIParent.
-        UIParent:SetScale(desired) 
-        if WorldFrame and WorldFrame.SetScale then
-            WorldFrame:SetScale(1)
+        -- every display notification to write it again.
+        if uiNeedsWrite then UIParent:SetScale(desired) end
+        if worldNeedsWrite then
+            WorldFrame:SetScale(desired)
         end
     end)
     self.scaling=false

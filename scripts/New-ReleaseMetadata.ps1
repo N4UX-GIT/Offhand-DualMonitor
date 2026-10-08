@@ -10,7 +10,7 @@ param(
 
     [string]$GitHubOutputPath,
 
-    [string]$CompanionReleaseTag = 'v2.1.2-beta.19',
+    [string]$CompanionReleaseTag = 'v2.1.2-beta.20',
 
     [switch]$CompanionChanged
 )

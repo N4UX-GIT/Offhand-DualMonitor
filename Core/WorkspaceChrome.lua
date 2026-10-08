@@ -8,7 +8,6 @@ local _, Offhand = ...
 local Chrome = {
     buttonState = setmetatable({}, { __mode = "k" }),
     dynamicNames = {},
-    discoveryTicks = 0,
 }
 Offhand.WorkspaceChrome = Chrome
 
@@ -117,16 +116,17 @@ local function IsOnWorkspace(frame)
         and Offhand.Canvas.IsFrameOnWorkspace(frame) or false
 end
 
+function Chrome:RegisterDynamicFrame(name)
+    if type(name) == "string" then self.dynamicNames[name] = true end
+end
+
 function Chrome:DiscoverDynamicFrames()
-    self.discoveryTicks = self.discoveryTicks + 1
-    if self.discoveryTicks > 1 and self.discoveryTicks % 3 ~= 0 then return end
-    for name, frame in pairs(_G) do
-        if type(name) == "string" and type(frame) == "table" and frame.GetName
-            and (name:match("^Baganator_SingleViewBackpackViewFrame")
-                or name:match("^Baganator_CategoryViewBackpackViewFrame")
-                or name == "EUI_MainBagFrame") then
-            self.dynamicNames[name] = true
-        end
+    -- BagPersistence owns addon-bag discovery and reports dynamic roots here.
+    -- Merge its small registry directly instead of rescanning the entire global
+    -- namespace from the one-second chrome refresh.
+    local bags = Offhand.BagPersistence
+    if bags and type(bags.frames) == "table" then
+        for name in pairs(bags.frames) do self:RegisterDynamicFrame(name) end
     end
 end
 

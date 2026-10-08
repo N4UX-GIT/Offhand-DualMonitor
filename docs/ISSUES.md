@@ -2,6 +2,25 @@
 
 Stable IDs for reports that require follow-up across test sessions.
 
+## OH-PERF-001 — Periodic global bag-frame discovery causes micro-stutter
+
+- Status: Fix implemented and automated validation passed; live profiler QA pending.
+- Client: Forever 1.60.1, reported with Offhand 2.1.2 Beta 18 and EllesmereUI.
+- Symptom: A small frame-time spike occurs approximately once per second. WoW's
+  addon profiler attributed 5,198 frames over 5 ms to Offhand in roughly 90
+  minutes, while the next-highest addon recorded 253.
+- Cause: `BagPersistence` scanned every key in `_G` once per second to find
+  dynamically named Baganator roots, even when Baganator was absent. The
+  optional workspace-chrome feature performed a similar scan every three seconds.
+- Fix: Stable EllesmereUI and persisted root names are resolved directly.
+  Baganator receives one lifecycle scan after initialization and reports later
+  frame replacements through `BackpackFrameChanged`; workspace chrome consumes
+  the resulting small registry. Both recurring `_G` scans have been removed.
+- Live QA: Compare `C_AddOnProfiler.CountTimeOver5Ms` before/after during at
+  least 15 minutes of idle and normal play, first without Baganator and then
+  with it. Open, move, reload, change Baganator view/skin, and verify workspace
+  persistence and close-button behavior remain intact.
+
 ## OH-FOR-001 — Level-up map-pin protected-action block
 
 - Status: Confirmed once; latest level-up retest did not reproduce Offhand

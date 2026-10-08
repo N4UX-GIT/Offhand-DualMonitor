@@ -77,6 +77,7 @@ local function makeMockFrame(name, w, h)
         width = w or 300,
         height = h or 200,
         scale = 1,
+        fontSize = 14,
         effectiveScale = 1,
         clamped = true,
         userPlaced = false, SetMovable = function(self, b) end,
@@ -100,6 +101,8 @@ local function makeMockFrame(name, w, h)
         SetSize = function(self, nw, nh) self.width = nw; self.height = nh end,
         GetScale = function(self) return self.scale end,
         SetScale = function(self, s) self.scale = s end,
+        GetFont = function(self) return "Fonts\\FRIZQT__.TTF", self.fontSize, "" end,
+        SetFont = function(self, _, size) self.fontSize = size end,
         GetEffectiveScale = function(self) return self.effectiveScale end,
         SetPoint = function(self, pt, rel, relPt, x, y)
             table.insert(self.points, { pt, rel, relPt, x, y })
@@ -146,6 +149,10 @@ end
 FCF_DockFrame = function(cf)
     cf.isDocked = 1
 end
+FCF_PopInWindow = function(cf, fallback)
+    cf = fallback or cf
+    if cf then cf:Hide() end
+end
 local undockRefreshes = 0
 FCF_UnDockFrame = function(cf)
     undockRefreshes = undockRefreshes + 1
@@ -179,6 +186,9 @@ FCF_SetWindowAlpha = function(cf, alpha, doNotSave)
     local id = tonumber(cf:GetName():match("(%d+)$"))
     if not doNotSave then chatWindowPresentation[id].alpha = alpha end
     cf.floatingAlpha = alpha
+end
+FCF_SetChatWindowFontSize = function(_, cf, size)
+    cf.fontSize = size
 end
 local shownChatWindows = {}
 local chatStateWrites = {}
@@ -415,6 +425,15 @@ addon.Canvas:MonitorDetachedChatSettingsPresentation()
 assert(ChatFrame3.floatingAlpha == 0.72 and ChatFrame3.floatingFadedIn == true,
     "Closing Chat Settings must perform a final detached presentation repair")
 
+-- A deliberate native "Close Window" action must remove Offhand's position
+-- record. Otherwise visibility recovery treats it as startup damage and brings
+-- the user's closed custom window back on every reload.
+FCF_PopInWindow(ChatFrame3)
+assert(addon.db.savedMainPositions.ChatFrame3 == nil
+        and addon.db.savedWorkspacePositions.ChatFrame3 == nil
+        and addon.db.openWorkspacePanels.ChatFrame3 == nil,
+    "Closing a custom detached chat must relinquish its Offhand snapshot")
+
 ChatFrame1:SetSize(800, 257)
 FCF_SavePositionAndDimensions(ChatFrame1)
 assert(addon.db.savedWorkspacePositions.ChatFrame1.width == 800
@@ -481,7 +500,9 @@ assert(undockRefreshes == 0 and ChatFrame2.isDocked == nil
 -- Returning a detached chat to Blizzard's primary dock relinquishes Offhand's
 -- monitor snapshot and normalizes the tab to the primary chat dimensions.
 ChatFrame1:SetSize(760, 280)
+ChatFrame1.fontSize = 18
 ChatFrame2:SetSize(520, 240)
+ChatFrame2.fontSize = 12
 table.insert(GeneralDockManager.DOCKED_CHAT_FRAMES, ChatFrame2)
 ChatFrame2._OffhandDragging = true
 MOVING_CHATFRAME = ChatFrame2
@@ -494,6 +515,8 @@ assert(addon.db.savedMainPositions.ChatFrame2 == nil
 assert(ChatFrame2:GetWidth() == ChatFrame1:GetWidth()
     and ChatFrame2:GetHeight() == ChatFrame1:GetHeight(),
     "Docked chat tabs must inherit the primary chat frame size")
+assert(ChatFrame2.fontSize == ChatFrame1.fontSize,
+    "Docked chat tabs must inherit the primary chat frame font size")
 
 -- Chattynator reuses ChatFrame1EditBox but anchors it to its own chat window.
 -- Offhand must not move that shared edit box back to Blizzard's hidden frame.

@@ -3,10 +3,10 @@
 ## Notes: Equip your Offhand. Dual wield your monitors. Multi-Monitor Setup UI.
 ## Author: N4UX (Noggaholic)
 ## Version: 2.1.2
-## X-Offhand-Release: beta.19
-## X-Offhand-Addon-Release: beta.19
+## X-Offhand-Release: beta.20
+## X-Offhand-Addon-Release: beta.20
 ## X-Offhand-Companion-Version: 2.1.2
-## X-Offhand-Companion-Release: beta.19
+## X-Offhand-Companion-Release: beta.20
 ## X-Offhand-Companion-Protocol: 1
 ## X-Offhand-Companion-Min-Version: 2.1.2-beta.19
 ## X-Offhand-Manifest: Generic
@@ -23,6 +23,7 @@ Core\Init.lua
 Core\ForeverState.lua
 Core\Config.lua
 Core\Viewport.lua
+Core\PopupBounds.lua
 Core\Mainhand.lua
 Core\RetailFullscreen.lua
 Core\ChatBubbles.lua

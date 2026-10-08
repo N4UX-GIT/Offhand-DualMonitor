@@ -17,8 +17,8 @@ using System.Windows.Forms;
 [assembly: AssemblyProduct("Offhand Companion")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
 [assembly: AssemblyVersion("2.1.2.0")]
-[assembly: AssemblyFileVersion("2.1.2.19")]
-[assembly: AssemblyInformationalVersion("2.1.2-beta.19")]
+[assembly: AssemblyFileVersion("2.1.2.20")]
+[assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 
 namespace Offhand.Companion
 {
@@ -124,6 +124,60 @@ namespace Offhand.Companion
             if (latest == null)
                 throw new FormatException("No published Companion release metadata was found.");
             return latest;
+        }
+    }
+
+    internal static class CompanionDistribution
+    {
+        internal const string StoreProductId = "9PL4PW84Q90W";
+        internal const string StoreProductUri = "ms-windows-store://pdp/?ProductId=" + StoreProductId;
+
+        private const int ErrorInsufficientBuffer = 122;
+        private const int AppModelErrorNoPackage = 15700;
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+        private static extern int GetCurrentPackageFullName(ref int packageFullNameLength,
+            StringBuilder packageFullName);
+
+        internal static bool IsStorePackage()
+        {
+            try
+            {
+                int length = 0;
+                int result = GetCurrentPackageFullName(ref length, null);
+                if (result == AppModelErrorNoPackage) return false;
+                if (result != ErrorInsufficientBuffer || length <= 0) return false;
+
+                var packageFullName = new StringBuilder(length);
+                result = GetCurrentPackageFullName(ref length, packageFullName);
+                return result == 0 && packageFullName.Length > 0;
+            }
+            catch (EntryPointNotFoundException) { return false; }
+            catch (DllNotFoundException) { return false; }
+        }
+
+        internal static string UpdateButtonText(bool storePackage)
+        {
+            return storePackage ? "Store Updates" : "Check for Updates";
+        }
+
+        internal static string UpdateMenuText(bool storePackage)
+        {
+            return storePackage ? "Check Microsoft Store for Updates" : "Check for Updates";
+        }
+
+        internal static string UpdateHelpText(bool storePackage)
+        {
+            return storePackage
+                ? "Store Updates: Open the official Microsoft Store product page. Microsoft Store installs updates for this package; the Companion does not contact GitHub."
+                : "Check for Updates: Make a one-time HTTPS request to the official GitHub Releases API. Update checks never run automatically.";
+        }
+
+        internal static string PrivacyNetworkText(bool storePackage)
+        {
+            return storePackage
+                ? "The Companion does not collect telemetry, credentials, chat, or gameplay data. It does not configure Windows startup persistence or inspect process security tokens. The Companion itself makes no network request for update checks in the Store package; clicking Store Updates opens the official Microsoft Store product page, and Microsoft Store manages installation and updates."
+                : "The Companion does not collect telemetry, credentials, chat, or gameplay data. It does not configure Windows startup persistence or inspect process security tokens. Network access occurs only when you click Check for Updates, and is limited to the official GitHub Releases API. Release checksums, source, and build provenance are published with official GitHub releases.";
         }
     }
 
@@ -998,7 +1052,7 @@ namespace Offhand.Companion
     public class CompanionForm : Form
     {
         internal const string BaseVersion = "2.1.2";
-        internal const string ReleaseLabel = "Beta 19";
+        internal const string ReleaseLabel = "Beta 20";
         internal const string FullVersion = BaseVersion + " " + ReleaseLabel;
 
         // Warcraft Dark Interface Palette (Black / Dark Grey / Burnished Gold)
@@ -1356,6 +1410,7 @@ namespace Offhand.Companion
         private bool isMonitoring = true;
         private bool isExplicitExit = false;
         private bool updateCheckInProgress = false;
+        private readonly bool isStorePackage = CompanionDistribution.IsStorePackage();
         private readonly HashSet<int> spannedPids = new HashSet<int>();
         private readonly HashSet<int> restoredPids = new HashSet<int>();
         private sealed class WindowSnapshot
@@ -1455,11 +1510,29 @@ namespace Offhand.Companion
             InitializeTimer();
             if (configWarning != null) AddLog(configWarning);
             AddLog("Offhand Companion v" + FullVersion + " initialized.");
+            if (isStorePackage) AddLog("Updates are managed by Microsoft Store.");
             AddLog("Monitoring active. Enable Offhand in WoW; calibrate with /offhand wizard.");
         }
 
         private void CheckForUpdates()
         {
+            if (isStorePackage)
+            {
+                AddLog("Opening the official Microsoft Store page for updates...");
+                try
+                {
+                    Process.Start(CompanionDistribution.StoreProductUri);
+                }
+                catch (Exception ex)
+                {
+                    AddLog("Could not open Microsoft Store: " + ex.Message);
+                    MessageBox.Show("The Companion could not open its Microsoft Store page.\n\n" + ex.Message +
+                        "\n\nOpen Microsoft Store manually and search for Offhand Companion.",
+                        "Microsoft Store Unavailable", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                return;
+            }
+
             if (updateCheckInProgress) return;
             updateCheckInProgress = true;
             if (btnCheckUpdates != null) btnCheckUpdates.Enabled = false;
@@ -1988,10 +2061,12 @@ namespace Offhand.Companion
             this.Controls.Add(btnMinimize);
             uiToolTips.SetToolTip(btnMinimize, "Hide the dashboard while keeping the Companion and launch monitor running in the Windows notification tray.");
 
-            btnCheckUpdates = CreateButton("Check for Updates", 182, 782, 158, 30, cBtnBg, cText, cBorder);
+            btnCheckUpdates = CreateButton(CompanionDistribution.UpdateButtonText(isStorePackage), 182, 782, 158, 30, cBtnBg, cText, cBorder);
             btnCheckUpdates.Click += (s, e) => { CheckForUpdates(); };
             this.Controls.Add(btnCheckUpdates);
-            uiToolTips.SetToolTip(btnCheckUpdates, "Contact the official GitHub Releases API once to compare versions. The Companion never checks for updates automatically.");
+            uiToolTips.SetToolTip(btnCheckUpdates, isStorePackage
+                ? "Open the official Microsoft Store product page. Microsoft Store manages updates for this installation."
+                : "Contact the official GitHub Releases API once to compare versions. The Companion never checks for updates automatically.");
 
             Button btnExit = CreateButton("Exit Companion", 356, 782, 152, 30, cBtnDanger, Color.FromArgb(235, 130, 130), Color.FromArgb(140, 45, 45));
             btnExit.Click += (s, e) => { ExitApplication(); };
@@ -2094,7 +2169,7 @@ namespace Offhand.Companion
                 "Span WoW Now: Save the selected physical display geometry for Offhand, then span immediately and resume a process previously restored. The resulting desktop-sized WoW window is expected; after /reload, Offhand confines the 3D game view to Mainhand.",
                 "Restore Window: Fill the selected Mainhand with a safe bordered WoW window and pause auto-span for that process.",
                 "Pause Monitor: Stop launch detection without disabling the manual controls.",
-                "Check for Updates: Make a one-time HTTPS request to the official GitHub Releases API. Update checks never run automatically.",
+                CompanionDistribution.UpdateHelpText(isStorePackage),
                 "",
                 "FOREVER AND EDIT MODE",
                 "Forever's protected action bars, unit frames, minimap, and Edit Mode controls belong to Blizzard Edit Mode. The in-game Wizard's final Create Mainhand HUD Layout action safely clones the active Blizzard layout, preserves custom placements, moves default HUD anchors into Mainhand, selects the generated layout, and requests a reload. Offhand restores ordinary workspace panels separately. Recovery & Preview can rebuild the generated layout later. The Companion is required because WoW must already have the final multi-monitor window geometry when those protected frames initialize. When Companion topology is active, choose displays in the Companion; Offhand intentionally locks duplicate in-game geometry controls. It also works around Forever builds that write Offhand SavedVariables but do not reliably load them on the next cold launch.",
@@ -2106,7 +2181,7 @@ namespace Offhand.Companion
                 "Select exactly two displays and a connected Mainhand, or explicitly enable the one-display super-ultrawide split. The status card names the running WoW client and the exact addon path it verifies; installs for another client, nested folders, and version-suffixed addon folders are reported explicitly. If Windows reports error 5, close both programs and run Battle.net, WoW, and Offhand at the same privilege level. If Span is refused because topology could not be written, fix that path or file-permission error first. If WoW spans but the 3D world still fills both displays after /reload, confirm the in-game addon is enabled and that its version matches this Companion. Mixed resolutions, ultrawide Mainhand displays, portrait screens, negative desktop coordinates, and stacked arrangements use Windows' exact display rectangles; make sure Windows Display Settings matches the physical arrangement. Hover any dashboard control for a concise explanation.",
                 "",
                 "PRIVACY & VERIFICATION",
-                "The Companion does not collect telemetry, credentials, chat, or gameplay data. It does not configure Windows startup persistence or inspect process security tokens. Network access occurs only when you click Check for Updates, and is limited to the official GitHub Releases API. Release checksums, source, and build provenance are published with official GitHub releases."
+                CompanionDistribution.PrivacyNetworkText(isStorePackage)
             });
         }
 
@@ -2218,7 +2293,7 @@ namespace Offhand.Companion
             itemHelp.Click += (s, e) => { RestoreForm(); ShowHelpDialog(); };
             trayMenu.Items.Add(itemHelp);
 
-            ToolStripMenuItem itemCheckUpdates = new ToolStripMenuItem("Check for Updates");
+            ToolStripMenuItem itemCheckUpdates = new ToolStripMenuItem(CompanionDistribution.UpdateMenuText(isStorePackage));
             itemCheckUpdates.Click += (s, e) => { RestoreForm(); CheckForUpdates(); };
             trayMenu.Items.Add(itemCheckUpdates);
 

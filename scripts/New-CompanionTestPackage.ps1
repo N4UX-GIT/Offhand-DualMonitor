@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$BinaryPath,
     [Parameter(Mandatory = $true)][string]$OutputPath,
-    [string]$Version = '2.1.2-beta.19'
+    [string]$Version = '2.1.2-beta.20'
 )
 
 $ErrorActionPreference = 'Stop'

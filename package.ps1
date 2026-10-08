@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    Packages the Offhand addon with the frozen Beta 19 Companion unless an
+    Packages the Offhand addon with the frozen Beta 20 Companion unless an
     intentional Companion update is explicitly requested.
 #>
 param(
-    [string]$Version = "2.1.2-beta.19",
+    [string]$Version = "2.1.2-beta.20",
     [switch]$AddonOnly,
     [switch]$CompanionChanged,
     [switch]$UseExistingCompanion,
@@ -82,10 +82,10 @@ Write-Host "===================================================" -ForegroundColo
 Write-Host "  Offhand Release Packager v$Version" -ForegroundColor Cyan
 Write-Host "===================================================" -ForegroundColor Cyan
 
-# The reviewed Beta 19 executable is the default Companion for every addon-only
+# The frozen Beta 20 executable is the default Companion for every addon-only
 # release. A new Companion build must be explicitly requested.
-$frozenCompanionTag = "v2.1.2-beta.19"
-$frozenCompanionSha256 = "89C065D28D5EB37A3CCBF868DA006C64E7FD403A50417E8799806DF92E46BF52"
+$frozenCompanionTag = "v2.1.2-beta.20"
+$frozenCompanionSha256 = "81EECE9430885CEAC178A44A42429854524279072305F9F94EE62E7CCD620CCB"
 $companionExe = Join-Path $rootDir "Companion\Offhand.exe"
 if ($CompanionChanged -and $AddonOnly) {
     throw "-CompanionChanged cannot be combined with -AddonOnly."

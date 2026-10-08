@@ -39,6 +39,13 @@ local function IsSupportedRoot(name, frame)
     return frame and frame.GetParent and frame:GetParent() == UIParent
 end
 
+local function IsAddOnLoadedCompat(name)
+    local checker = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
+    if not checker then return _G[name] ~= nil end
+    local ok, loaded = pcall(checker, name)
+    return ok and loaded == true
+end
+
 local function IsSpanned()
     local viewport = Offhand.Viewport
     if not viewport or not viewport.GetMetrics then return true end
@@ -95,13 +102,16 @@ function Bags:NormalizePosition(position, frame)
     return normalized
 end
 
-function Bags:Discover()
-    for name, frame in pairs(_G) do
-        if type(name) == "string" and IsSupportedRoot(name, frame)
-            and type(frame) == "table" and frame.GetName and frame.HookScript
-            and not self.frames[name] then
-            self.frames[name] = frame
-            local function Changed()
+function Bags:RegisterRoot(name, frame)
+    if not IsSupportedRoot(name, frame) or type(frame) ~= "table"
+        or not frame.GetName or not frame.HookScript or self.frames[name] then
+        return false
+    end
+    self.frames[name] = frame
+    if Offhand.WorkspaceChrome and Offhand.WorkspaceChrome.RegisterDynamicFrame then
+        Offhand.WorkspaceChrome:RegisterDynamicFrame(name)
+    end
+    local function Changed()
                 -- Baganator registers its root in UISpecialFrames, so Forever
                 -- can hide it directly before ToggleGameMenu without calling
                 -- CloseAllBags. Pair that root hide with the same immediate
@@ -131,11 +141,72 @@ function Bags:Discover()
                 C_Timer.After(0, function()
                     Bags:Capture()
                 end)
+    end
+    frame:HookScript("OnShow", function() Bags:Capture() end)
+    frame:HookScript("OnHide", Changed)
+    return true
+end
+
+function Bags:Discover(scanBaganatorGlobals)
+    if not TrackEnabled() then return false end
+    local discovered = false
+
+    -- EllesmereUI exposes a stable root name, so discovery never needs a
+    -- global-table walk.
+    if _G.EUI_MainBagFrame then
+        discovered = self:RegisterRoot("EUI_MainBagFrame", _G.EUI_MainBagFrame) or discovered
+    end
+
+    -- Persisted Baganator root names can also be resolved directly. This is
+    -- enough for reload restoration even before Baganator announces a frame
+    -- replacement through its callback registry.
+    local records = Offhand.db and {
+        Offhand.db.savedWorkspacePositions,
+        Offhand.db.baganatorWorkspacePanels,
+    } or {}
+    for _, record in ipairs(records) do
+        if type(record) == "table" then
+            for name in pairs(record) do
+                if IsBaganatorRootName(name) and _G[name] then
+                    discovered = self:RegisterRoot(name, _G[name]) or discovered
+                end
             end
-            frame:HookScript("OnShow", function() Bags:Capture() end)
-            frame:HookScript("OnHide", Changed)
         end
     end
+    if not scanBaganatorGlobals or not IsAddOnLoadedCompat("Baganator") then
+        return discovered
+    end
+
+    -- Baganator derives root names from its active skin/frame group. A single
+    -- lifecycle scan finds roots that predate Offhand's callback subscription;
+    -- ongoing changes arrive through BackpackFrameChanged below.
+    for name, frame in pairs(_G) do
+        if type(name) == "string" and IsBaganatorRootName(name) then
+            discovered = self:RegisterRoot(name, frame) or discovered
+        end
+    end
+    return discovered
+end
+
+function Bags:InstallBaganatorCallbacks()
+    if self.baganatorCallbacksInstalled or not IsAddOnLoadedCompat("Baganator") then return end
+    local registry = Baganator and Baganator.CallbackRegistry
+    if not registry or not registry.RegisterCallback then return end
+    self.baganatorCallbacksInstalled = true
+    registry:RegisterCallback("BackpackFrameChanged", function(_, frame)
+        if not TrackEnabled() or not frame or not frame.GetName then return end
+        Bags:RegisterRoot(frame:GetName(), frame)
+    end)
+    registry:RegisterCallback("BagShow", function()
+        if not TrackEnabled() then return end
+        for name in pairs(Bags.frames) do
+            if IsBaganatorRootName(name) then return end
+        end
+        -- Fallback for load orders where Baganator creates its first frame
+        -- after Offhand's PLAYER_LOGIN handler. This runs at most until the
+        -- first root is found, never on a timer.
+        C_Timer.After(0, function() Bags:Discover(true) end)
+    end)
 end
 
 function Bags:Capture()
@@ -302,7 +373,7 @@ function Bags:PruneInvalidBaganatorRecords()
 end
 
 function Bags:GetDiagnostics()
-    self:Discover()
+    self:Discover(false)
     local roots, visible = 0, 0
     for _, frame in pairs(self.frames) do
         roots = roots + 1
@@ -331,7 +402,7 @@ function Bags:Resume()
             return
         end
         Bags.waitingForCombat = false
-        Bags:Discover()
+        Bags:Discover(false)
         Bags:PruneInvalidBaganatorRecords()
         if InputReserved() then
             Bags.waitingForInput = true
@@ -376,10 +447,10 @@ function Bags:Resume()
 end
 
 local events = CreateFrame("Frame")
-for _, event in ipairs({"PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "PLAYER_LEAVING_WORLD", "PLAYER_LOGOUT", "PLAYER_REGEN_ENABLED", "PLAYER_CONTROL_LOST", "PLAYER_CONTROL_GAINED", "CINEMATIC_STOP"}) do
+for _, event in ipairs({"ADDON_LOADED", "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "PLAYER_LEAVING_WORLD", "PLAYER_LOGOUT", "PLAYER_REGEN_ENABLED", "PLAYER_CONTROL_LOST", "PLAYER_CONTROL_GAINED", "CINEMATIC_STOP"}) do
     events:RegisterEvent(event)
 end
-events:SetScript("OnEvent", function(_, event)
+events:SetScript("OnEvent", function(_, event, addonName)
     if event == "PLAYER_LEAVING_WORLD" or event == "PLAYER_LOGOUT" or event == "PLAYER_CONTROL_LOST" then
         Bags.paused = true
         Bags.generation = Bags.generation + 1
@@ -389,20 +460,25 @@ events:SetScript("OnEvent", function(_, event)
         or (event == "PLAYER_CONTROL_GAINED" and Bags.waitingForInput)
         or (event == "CINEMATIC_STOP" and Bags.waitingForInput) then
         Bags:Resume()
+    elseif event == "ADDON_LOADED" then
+        -- Constant-time EllesmereUI lookup is safe for every addon load. Only
+        -- Baganator's own lifecycle is allowed to perform the one global scan.
+        Bags:Discover(false)
+        if addonName == "Baganator" then
+            Bags:InstallBaganatorCallbacks()
+            C_Timer.After(0, function() Bags:Discover(true) end)
+        end
     elseif event == "PLAYER_LOGIN" then
-        Bags:Discover()
+        Bags:InstallBaganatorCallbacks()
+        Bags:Discover(false)
+        -- Run after every PLAYER_LOGIN handler so Baganator's initial frame
+        -- group exists regardless of addon load order.
+        C_Timer.After(0, function() Bags:Discover(true) end)
         Bags:PruneInvalidBaganatorRecords()
         Bags:InstallEscapeHooks()
         if not Bags.ticker then
-            local ticks = 0
             Bags.ticker = C_Timer.NewTicker(0.2, function()
-                ticks = ticks + 1
                 if not Bags.paused then
-                    if ticks % 5 == 0 then
-                        Bags:Discover()
-                        Bags:PruneInvalidBaganatorRecords()
-                        Bags:InstallEscapeHooks()
-                    end
                     Bags:Capture()
                 end
             end)

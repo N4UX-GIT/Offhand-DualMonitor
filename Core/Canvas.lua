@@ -717,6 +717,12 @@ local function RelinquishDockedChatPosition(frame, suppliedName)
             pcall(frame.SetSize, frame, width, height)
         end
     end
+    if primary and primary ~= frame and primary.GetFont and FCF_SetChatWindowFontSize then
+        local _, fontSize = primary:GetFont()
+        if type(fontSize) == "number" and fontSize > 0 then
+            pcall(FCF_SetChatWindowFontSize, nil, frame, fontSize)
+        end
+    end
     return true
 end
 
@@ -4767,6 +4773,24 @@ function Canvas:EnableFreeDragging()
             if chatFrame and Offhand.db and Offhand.db.enabled
                 and (chatFrame._OffhandDragging or MOVING_CHATFRAME == chatFrame) then
                 RelinquishDockedChatPosition(chatFrame)
+            end
+        end)
+    end
+
+    if not HasChattynator() and FCF_PopInWindow and not Canvas._fcfPopInHooked then
+        Canvas._fcfPopInHooked = true
+        hooksecurefunc("FCF_PopInWindow", function(frame, fallback)
+            -- "Close Window" routes through FCF_PopInWindow for ordinary
+            -- custom chat windows. Relinquish the saved monitor snapshot so a
+            -- deliberate close is not mistaken for reload-time visibility loss.
+            local chatFrame = fallback or frame
+            local name = chatFrame and chatFrame.GetName and chatFrame:GetName()
+            if name and name:match("Tab$") then
+                chatFrame = _G[name:gsub("Tab$", "")]
+                name = chatFrame and chatFrame.GetName and chatFrame:GetName()
+            end
+            if name and IsSecondaryBlizzardChatFrame(chatFrame, name) then
+                ClearTrackedChatState(name)
             end
         end)
     end

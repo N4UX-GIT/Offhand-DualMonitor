@@ -2,6 +2,16 @@ local addon = { db = { enabled=true, savedWorkspacePositions={} }, Canvas={} }
 local queue, tick, onEvent = {}, nil, nil
 local combat = false
 local inputReserved = false
+local nativePairs, globalScans = pairs, 0
+pairs = function(value)
+    if value == _G then globalScans = globalScans + 1 end
+    return nativePairs(value)
+end
+C_AddOns = { IsAddOnLoaded = function(name) return name == "Baganator" end }
+local baganatorCallbacks = {}
+Baganator = { CallbackRegistry = {
+    RegisterCallback = function(_, event, callback) baganatorCallbacks[event] = callback end,
+} }
 InCombatLockdown = function() return combat end
 addon.IsBlizzardInputReserved = function() return inputReserved end
 C_Timer = {
@@ -74,6 +84,15 @@ local tracker=addon.BagPersistence
 onEvent(nil,"PLAYER_LOGIN"); onEvent(nil,"PLAYER_ENTERING_WORLD"); flush()
 assert(tracker.frames[name] == bag and tracker.frames[childName] == nil,
     "Baganator child regions must not be mistaken for backpack roots")
+assert(globalScans == 1,
+    "Baganator discovery must scan globals only once during lifecycle initialization")
+for _ = 1, 15 do tick() end
+assert(globalScans == 1,
+    "the persistence ticker must never rescan the global namespace")
+assert(type(baganatorCallbacks.BackpackFrameChanged) == "function",
+    "Baganator frame replacement discovery must use its lifecycle callback")
+assert(type(baganatorCallbacks.BagShow) == "function",
+    "Baganator lazy initialization must use its bag-show lifecycle callback")
 assert(addon.db.savedWorkspacePositions[childName] == nil
         and addon.db.openWorkspacePanels[childName] == nil
         and addon.db.baganatorWorkspacePanels[childName] == nil,

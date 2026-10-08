@@ -30,12 +30,12 @@ try {
         $source -notmatch 'CompanionUpdatePolicy\.SelectLatest') {
         throw 'Companion update checks must use the official repository release list and channel policy.'
     }
-    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.2-beta\.19"\)' -or
-        $source -notmatch 'AssemblyFileVersion\("2\.1\.2\.19"\)') {
+    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.2-beta\.20"\)' -or
+        $source -notmatch 'AssemblyFileVersion\("2\.1\.2\.20"\)') {
         throw 'Companion binary metadata must identify the exact beta build.'
     }
     $appManifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Source\app.manifest') -Raw
-    if ($appManifest -notmatch '<assemblyIdentity version="2\.1\.2\.19" name="Offhand\.Companion\.App"/>') {
+    if ($appManifest -notmatch '<assemblyIdentity version="2\.1\.2\.20" name="Offhand\.Companion\.App"/>') {
         throw 'Companion application manifest must identify the exact beta build.'
     }
     if ($source -match 'Process\.GetProcesses\(\)' -or
@@ -114,36 +114,42 @@ try {
     }
     if ($packager -notmatch '\[switch\]\$UseExistingCompanion' -or
         $packager -notmatch '\[switch\]\$CompanionChanged' -or
-        $packager -notmatch '89C065D28D5EB37A3CCBF868DA006C64E7FD403A50417E8799806DF92E46BF52' -or
+        $packager -notmatch '81EECE9430885CEAC178A44A42429854524279072305F9F94EE62E7CCD620CCB' -or
         $packager -notmatch '\[string\]\$ExpectedCompanionArchiveSha256' -or
         $packager -notmatch 'Companion archive hash.*does not match expected' -or
         $packager -notmatch 'Canonical Companion SHA-256' -or
         $packager -notmatch 'contains a different executable than the canonical Companion build') {
-        throw 'Release packaging must freeze the reviewed Beta 19 bytes and require an explicit Companion-change lane.'
+        throw 'Release packaging must freeze the Beta 20 candidate bytes and require an explicit Companion-change lane.'
     }
     $storeBuilder = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Store\Build-StorePackage.ps1') -Raw
-    if ($storeBuilder -notmatch "\[string\]\`$PackageVersion = '2\.1\.19\.0'" -or
+    if ($storeBuilder -notmatch "\[string\]\`$PackageVersion = '2\.1\.20\.0'" -or
         $storeBuilder -notmatch '\[string\]\$CompanionPath' -or
         $storeBuilder -notmatch '\[string\]\$ExpectedCompanionSha256' -or
         $storeBuilder -notmatch 'Companion SHA-256 mismatch') {
-        throw 'The Store package must default to Beta 19 and support exact reviewed executable bytes with hash enforcement.'
+        throw 'The Store package must default to Beta 20 and support exact reviewed executable bytes with hash enforcement.'
+    }
+    if ($source -notmatch 'GetCurrentPackageFullName' -or
+        $source -notmatch 'StoreProductId = "9PL4PW84Q90W"' -or
+        $source -notmatch 'StoreProductUri = "ms-windows-store://pdp/\?ProductId=" \+ StoreProductId' -or
+        $source -notmatch 'if \(isStorePackage\)(?s:.*?)Process\.Start\(CompanionDistribution\.StoreProductUri\)(?s:.*?)return;(?s:.*?)Offhand-DualMonitor/releases\?per_page=30') {
+        throw 'Companion update checks must route Store installs to Microsoft Store while portable builds retain GitHub release checks.'
     }
     $releaseWorkflow = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\.github\workflows\release.yml') -Raw
     if ($releaseWorkflow -notmatch 'Validate canonical Companion executable' -or
         $releaseWorkflow -notmatch 'Validate canonical Companion archive' -or
-        $releaseWorkflow -notmatch 'COMPANION_RELEASE_TAG: v2\.1\.2-beta\.19' -or
-        $releaseWorkflow -notmatch 'COMPANION_SHA256: 89C065D28D5EB37A3CCBF868DA006C64E7FD403A50417E8799806DF92E46BF52' -or
-        $releaseWorkflow -notmatch 'COMPANION_ARCHIVE_SHA256: 83EEDFE4DFE96EA4A34E6414E55797CAD4E02181604DAAA2F6E6B3EC57F1576B' -or
+        $releaseWorkflow -notmatch 'COMPANION_RELEASE_TAG: v2\.1\.2-beta\.20' -or
+        $releaseWorkflow -notmatch 'COMPANION_SHA256: 81EECE9430885CEAC178A44A42429854524279072305F9F94EE62E7CCD620CCB' -or
+        $releaseWorkflow -notmatch 'COMPANION_ARCHIVE_SHA256: C726444612DD740BE3F923B83704D155E21BC017F7C5FE245379B19DBECC76E3' -or
         $releaseWorkflow -notmatch "GetEntry\('Offhand\.exe'\)" -or
         $releaseWorkflow -notmatch 'ComputeHash\(\$stream\)' -or
-        $releaseWorkflow -notmatch 'Restore frozen Beta 19 Companion' -or
-        $releaseWorkflow -notmatch 'Attach frozen Beta 19 Companion assets' -or
+        $releaseWorkflow -notmatch 'Restore frozen Beta 20 Companion' -or
+        $releaseWorkflow -notmatch 'Attach frozen Beta 20 Companion assets' -or
         $releaseWorkflow -notmatch 'dist/Offhand-Companion\.zip' -or
         $releaseWorkflow -notmatch 'dist/Offhand\.exe' -or
         $releaseWorkflow -notmatch 'package\.ps1 -Version \$version -CompanionChanged -UseExistingCompanion') {
-        throw 'Release automation must validate and attach exact frozen Beta 19 assets without rebuilding the reviewed executable.'
+        throw 'Release automation must validate and attach exact frozen Beta 20 assets without rebuilding the candidate executable.'
     }
-    $pinnedCompanionUrl = 'https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.19/Offhand-Companion.zip'
+    $pinnedCompanionUrl = 'https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.20/Offhand-Companion.zip'
     foreach ($relativePath in @(
         'README.md',
         'docs\CURSEFORGE_DESCRIPTION.md',
@@ -152,7 +158,7 @@ try {
         $publicSurface = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\$relativePath") -Raw
         if (-not $publicSurface.Contains($pinnedCompanionUrl) -or
             $publicSurface -match 'releases/latest/download/Offhand-Companion\.zip') {
-            throw "$relativePath must point directly to the frozen Beta 19 Companion."
+            throw "$relativePath must point directly to the frozen Beta 20 Companion."
         }
     }
     $addonInit = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Core\Init.lua') -Raw
@@ -171,6 +177,7 @@ try {
         throw 'Linux guide must document the matching prefix, matching runner, and Lutris pre-launch setup.'
     }
     Write-Output 'PASS: update checks are user initiated'
+    Write-Output 'PASS: update checks follow the Microsoft Store or portable GitHub distribution channel'
     Write-Output 'PASS: polling is restricted to known WoW process names and topology handoff failures block unsafe spans'
     Write-Output 'PASS: manual restore returns focus and border failures include actionable diagnostics'
     Write-Output 'PASS: Companion avoids startup persistence and process-token inspection'
@@ -179,8 +186,8 @@ try {
     Write-Output 'PASS: addon verification paths are visible and copied into the activity log'
     Write-Output 'PASS: hotkeyless display identification and multi-monitor selection remain separated at enlarged DPI'
     Write-Output 'PASS: Linux compatibility documentation is included by the release packager'
-    Write-Output 'PASS: addon-only releases attach the reviewed Beta 19 Companion assets by exact hash'
-    Write-Output 'PASS: public website/docs point to the reviewed Beta 19 Companion while the addon derives its version-matched URL'
+    Write-Output 'PASS: addon-only releases attach the frozen Beta 20 Companion assets by exact hash'
+    Write-Output 'PASS: public website/docs point to the frozen Beta 20 Companion while the addon derives its version-matched URL'
     Write-Output 'PASS: release ZIPs are portable and Linux guidance covers prefix/runner matching'
     Write-Output 'PASS: all shipped Companion executables use the consistent Offhand.exe name'
     Write-Output 'PASS: release packaging preserves and verifies one canonical Companion executable'

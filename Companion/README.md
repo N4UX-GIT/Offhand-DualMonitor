@@ -10,7 +10,11 @@ Native Windows desktop companion application for the Offhand World of Warcraft a
 * **Zero Console Flashing**: Compiled as a native Win32 subsystem application (`Offhand.exe`).
 * **System Tray Integration**: Minimizes silently to the Windows notification tray with quick-actions and live status tips.
 * **Built-in Guidance**: Hover dashboard controls for detailed tooltips, or use the `?` button (also available from the tray menu) for the complete setup, daily-use, Forever recovery, and troubleshooting guide.
-* **User-Initiated Updates**: The Companion never contacts an update service at startup. **Check for Updates** makes a one-time request to the official GitHub Releases API only when clicked.
+* **Channel-Aware, User-Initiated Updates**: The Companion never contacts an
+  update service at startup. Microsoft Store installations use **Store Updates**
+  to open the official Store product page, where Store-managed updates are
+  installed. Portable installations retain the explicit one-time GitHub
+  Releases check.
 * **DPI-Aware**: Full Per-Monitor V2 scaling ensures crisp fonts and accurate window positioning on mixed-resolution / mixed-scale setups.
 * **Wine Process-Path Fallback**: If .NET cannot read `Process.MainModule`, the
   Companion retries with the limited-access Win32 image-path API implemented by
@@ -71,14 +75,17 @@ Use **Span WoW Now** for the initial setup after reviewing the selected displays
 Enabling auto-span is an explicit preference and is remembered on later launches;
 updating the Companion does not overwrite an existing saved choice.
 
-The Companion does not perform an automatic update check. Clicking **Check for
+The Companion does not perform an automatic update check. In a Microsoft Store
+installation, **Store Updates** opens the official Offhand Companion product
+page (`9PL4PW84Q90W`); the Companion does not query GitHub, and Microsoft Store
+manages installation and updates. In a portable installation, **Check for
 Updates** makes one HTTPS request to the official
-`N4UX-GIT/Offhand-DualMonitor` GitHub Releases API. Beta installations consider
-both published beta/prerelease and stable Companion builds; stable installations
-ignore prereleases. Release metadata carries the actual Companion version, so a
-later addon-only release that reuses an existing Companion does not create a
-false update prompt. The exact matching release page opens only after an update
-is found and the user confirms.
+`N4UX-GIT/Offhand-DualMonitor` GitHub Releases API. Beta portable installations
+consider both published beta/prerelease and stable Companion builds; stable
+portable installations ignore prereleases. Release metadata carries the actual
+Companion version, so a later addon-only release that reuses an existing
+Companion does not create a false update prompt. The exact matching GitHub
+release page opens only after an update is found and the user confirms.
 
 ## Display selection and topology
 

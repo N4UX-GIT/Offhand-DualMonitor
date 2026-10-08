@@ -24,9 +24,9 @@ communication, and rollback workflow, use
 
 ```powershell
 .\Companion\Store\Build-StorePackage.ps1 `
-  -PackageVersion 2.1.19.0 `
-  -CompanionPath .\dist\defender-beta19-current\Offhand.exe `
-  -ExpectedCompanionSha256 658B633783CA388C3E525B565D6061D8F75D9DEBB34E0489E04F046218AAF3E3
+  -PackageVersion 2.1.20.0 `
+  -CompanionPath .\dist\store-beta20-candidate\Offhand.exe `
+  -ExpectedCompanionSha256 81EECE9430885CEAC178A44A42429854524279072305F9F94EE62E7CCD620CCB
 ```
 
 Store package versions must contain four numeric components and end in `.0`.
@@ -38,10 +38,13 @@ never replaces the canonical portable executable, produces exact-size Store
 artwork, validates the manifest, and writes the resulting MSIX beneath
 `dist/store`.
 
-The command above records the frozen `2.1.19.0` package currently in
-certification and must not be rerun as a replacement for that submission. After
-certification completes, follow `docs/COMPANION-RELEASE-RUNBOOK.md` and use a
-higher Store package version for the final topology-repair executable.
+The currently published Microsoft Store package is `2.1.19.0`. The command
+above builds the staged `2.1.20.0` update from the exact Beta 20 candidate bytes.
+That update includes the topology bridge repair and distribution-aware update
+button: Store installations open the official Microsoft Store product page,
+while portable installations retain the explicit GitHub release check. Do not
+submit a rebuilt executable in place of the hash recorded above; if source or
+binary bytes change, increment the package version and repeat security review.
 
 The output is intentionally not signed with a development certificate. The
 Microsoft Store signs accepted submissions with a trusted certificate. Use a
@@ -55,9 +58,13 @@ The package declares a Windows-managed startup task named
 user through **Settings > Apps > Startup**. This replaces registry or shortcut
 persistence with the packaged-app mechanism reviewed by the Store.
 
+Microsoft Store owns update delivery for the packaged installation. The
+Companion does not query GitHub when it detects package identity. Its **Store
+Updates** button and tray action open the product page for Store status and
+manual update checks. Portable builds remain independent and continue using the
+official GitHub Releases API only after the user clicks **Check for Updates**.
+
 ## Release safety
 
-Do not replace an existing GitHub release asset with an MSIX or change the
-portable release workflow until the Store submission passes certification.
-The GitHub ZIP and Store package are separate distribution channels and have
-different hashes.
+Do not replace an existing GitHub release asset with an MSIX. The GitHub ZIP
+and Store package are separate distribution channels and have different hashes.

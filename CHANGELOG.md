@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
   physical-window primitives used by Offhand, while Backdrop and visibility
   code now falls back to APIs available in Wrath. This target remains
   experimental until exercised on a real 3.3.5a client.
-- Companion 2.1.2 Beta 19 is the current public testing build. Addon manifests now
+- Companion 2.1.2 Beta 20 is the current public testing build. Addon manifests now
   identify the actual addon release separately from Companion protocol `1` and
   minimum Companion version `2.1.2-beta.19`, so later addon-only releases can
   reuse the exact approved Companion bytes without rebuilding them.
@@ -53,8 +53,27 @@ All notable changes to this project will be documented in this file.
   process security tokens. Removing these nonessential beta.11 additions
   reduces overlap with generic antivirus heuristics while retaining the
   Companion's required window-management behavior.
+- Companion update actions now follow the installation channel. Microsoft Store
+  packages open the official Store product page without querying GitHub, while
+  portable builds retain the explicit, user-initiated GitHub release check.
 
 ### Fixed
+- Unit context menus near a Mainhand edge now remain inside the physical game
+  view instead of treating the complete spanned desktop as usable space and
+  extending downward or sideways off-screen. Modern menu proxies and legacy
+  dropdown lists are handled without recurring discovery scans.
+- World-owned nameplates, overhead NPC text and floating combat text now share
+  UIParent's absolute spanned-layout scale. This removes the enlarged text seen
+  on Retail and Forever while restoring the original WorldFrame scale whenever
+  Offhand is disabled or the window is no longer spanned.
+- Closing a custom Blizzard chat window now retires its Offhand placement so it
+  remains closed after reload. Re-docked tabs also adopt the primary chat
+  window's font size as well as its dimensions.
+- Addon-bag discovery no longer scans WoW's complete global namespace every
+  second. EllesmereUI roots are resolved directly, saved Baganator roots are
+  resolved by name, and new Baganator frame groups are learned from its
+  lifecycle callbacks. Workspace close-button refreshes now consume that small
+  shared registry instead of performing their own recurring global scan.
 - Forever's Edit Mode control recovery now remains available after Companion
   restores WoW to one display with a stale spanned topology. The read-only
   detector covers both the manager and its separate settings dialog; only the

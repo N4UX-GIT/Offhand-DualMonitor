@@ -361,11 +361,18 @@ print('PASS: immediate action/form anchors, native scale retained, combat deferr
 -- The viewport controls one global baseline; arbitrary addon children inherit it.
 addon.db.enabled=true;addon.db.deckWidthRatio=0.36;addon.db.aspectRatioMode="16_9"
 local writes=0
+local worldWrites=0
 function UIParent:GetScale() return uiScale end
 function UIParent:SetScale(value)
     writes=writes+1;uiScale=value
     -- Simulate reentrant display callbacks during a root scale change.
     addon.Viewport:ApplyGlobalScale()
+end
+local nativeWorldScale = WorldFrame:GetScale()
+local setWorldScale = WorldFrame.SetScale
+function WorldFrame:SetScale(value)
+    worldWrites=worldWrites+1
+    setWorldScale(self,value)
 end
 local original=uiScale
 -- The client CVar can be clamped independently of the actual root scale.
@@ -375,15 +382,19 @@ SetCVar=function() cvarWrites=cvarWrites+1 end
 local unknownAddon=frame(UIParent);unknownAddon.scale=1.2
 addon.Viewport:ApplyGlobalScale()
 near(uiScale,1440/2560*0.7)
+near(WorldFrame:GetEffectiveScale(),uiScale)
 near(unknownAddon:GetEffectiveScale(),uiScale*1.2)
 addon.SeamRedirect:AlignHUDFrames()
 near(MainMenuBar:GetEffectiveScale(),uiScale)
 for i=1,100 do addon.Viewport:ApplyGlobalScale() end
 assert(writes==1,"unchanged global scale was rewritten")
+assert(worldWrites==1,"unchanged WorldFrame scale was rewritten")
 assert(cvarWrites==0,"layout wrote a clamped CVar and risks a display feedback loop")
 combat=true;addon.db.hudScale=0.65;addon.Viewport:ApplyGlobalScale();assert(writes==1)
 combat=false;addon.Viewport:ApplyGlobalScale();assert(writes==2)
 addon.db.enabled=false;addon.Viewport:ApplyGlobalScale();
 near(uiScale,original)
+near(WorldFrame:GetScale(),nativeWorldScale)
+assert(worldWrites==3,"WorldFrame baseline was not changed once per layout and restored once")
 print("PASS: inherited global baseline, addon relative scales, no repeated writes, recursion/combat guards, restore")
 
