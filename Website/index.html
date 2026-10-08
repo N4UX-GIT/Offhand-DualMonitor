@@ -82,7 +82,7 @@
                 </a>
             </div>
             <div class="hero-download-note" style="margin-top: 12px; font-size: 0.88rem; color: #8a92a6;">
-                Offhand Companion Beta 20 is available from the <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.2-beta.20" target="_blank" style="color: var(--rio-gold);">official GitHub release</a>. Review the current security status or use the no-executable manual setup.
+                For Windows, get the Companion from the <a href="https://apps.microsoft.com/detail/9PL4PW84Q90W" target="_blank" rel="noopener" style="color: var(--rio-gold);">Microsoft Store</a>. The <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.2-beta.20" target="_blank" rel="noopener" style="color: var(--rio-gold);">portable Beta 20 release</a> remains available for Linux/Wine and direct downloads.
             </div>
 
             <div class="hero-stats-bar">
@@ -231,7 +231,10 @@
                         <h2 class="wow-card-title" id="companion-preview-title">Your setup, one click away</h2>
                         <p class="wow-card-desc">Span WoW across your monitors, restore a single window, or let the Companion span automatically when the game launches. On WoW Forever, Companion v2.1.2 or newer also refreshes Offhand's recovery snapshot while WoW is closed so your workspace survives a full client restart.</p>
                         <p class="wow-card-desc">Start it before WoW, leave it running in the system tray, and exit WoW normally so the most recent layout can be captured.</p>
-                        <div style="margin-top: 24px;">
+                        <div style="margin-top: 24px; display:flex; flex-wrap:wrap; gap:10px;">
+                            <a href="https://apps.microsoft.com/detail/9PL4PW84Q90W" target="_blank" rel="noopener" class="btn btn-wow-red btn-sm">
+                                Get from Microsoft Store
+                            </a>
                             <a href="companion.html" class="btn btn-wow-stone btn-sm">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                                 Review Companion options
@@ -274,13 +277,16 @@
                         <h3>Span Your Game Window</h3>
                         <p>
                             Put WoW in standard <strong>Windowed</strong> mode. Start the Companion, select exactly two displays, and choose the <strong>Mainhand (game)</strong> display; the other becomes the workspace. For one 32:9/32:10 super-ultrawide, select only that display and explicitly enable <strong>Single-display 32:9 split</strong>. Click <strong>Span WoW Now</strong> for the first setup. Automatic spanning is disabled by default.
-                            <br><br><span style="font-size: 0.9em; color: #a3a9b8;"><strong>Security:</strong> Use the official Beta 20 ZIP and verify its published SHA-256 checksum. The completed Microsoft Security Intelligence review applies to the exact Beta 19 hashes, not rebuilt Beta 20 files. Edge may still call the unsigned standalone EXE “not commonly downloaded”; that is an application-reputation notice, not a malware verdict. See the <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md" target="_blank" style="color: var(--rio-gold);">security and verification guide</a>.</span>
+                            <br><br><span style="font-size: 0.9em; color: #a3a9b8;"><strong>Download:</strong> Windows users should install the Microsoft-reviewed, Store-signed package from Microsoft Store. The unsigned Beta 20 GitHub ZIP remains available for Linux/Wine and direct portable installs; verify its published SHA-256 checksum. Edge may call the portable EXE “not commonly downloaded”; that is an application-reputation notice, not a malware verdict. See the <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md" target="_blank" style="color: var(--rio-gold);">security and verification guide</a>.</span>
                             <br><br><span style="font-size: 0.9em; color: #a3a9b8;"><strong>WoW Forever:</strong> Keep the Companion running. Forever currently needs its recovery bridge to preserve Offhand state across a full client restart.</span>
                         </p>
-                        <div style="margin-top: 14px;">
+                        <div style="margin-top: 14px; display:flex; flex-wrap:wrap; gap:10px;">
+                            <a href="https://apps.microsoft.com/detail/9PL4PW84Q90W" target="_blank" rel="noopener" class="btn btn-wow-red btn-sm" style="white-space: nowrap;">
+                                Get from Microsoft Store
+                            </a>
                             <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.20/Offhand-Companion.zip" class="btn btn-wow-stone btn-sm" style="white-space: nowrap;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                                Download Beta 20 ZIP
+                                Portable / Linux ZIP
                             </a>
                         </div>
                         <img src="assets/setup-step2.png" alt="Span Window" style="width:100%; border-radius:6px; margin-top:12px; border:1px solid rgba(255,255,255,0.1);">
@@ -433,10 +439,10 @@
                                 Yes. The in-game addon uses standard Blizzard UI APIs. The open-source Companion does not inspect game memory or automate gameplay. It resizes the WoW desktop window and, while WoW is closed, refreshes only Offhand's own recovery bridge file for Forever cold-launch restoration.
                             </p>
                             <p>
-                                Download it only from the official GitHub release, then compare its SHA-256 hash with <code>checksums-sha256.txt</code> and verify its GitHub artifact attestation. The Companion does not require administrator access, install a service, inject into WoW, collect telemetry, or read browser data or credentials. Update checks happen only when you select <strong>Check for Updates</strong>. Full behavior, build, and verification details are published in the <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md" target="_blank">security guide</a>.
+                                For Windows, install it from the official <a href="https://apps.microsoft.com/detail/9PL4PW84Q90W" target="_blank" rel="noopener">Microsoft Store listing</a>. Microsoft reviewed and signs the Store package, and Microsoft Store manages its updates. Linux/Wine users and anyone who prefers a direct portable download can use the official GitHub release, compare its SHA-256 hash with <code>checksums-sha256.txt</code>, and verify its GitHub artifact attestation. The Companion does not require administrator access, install a service, inject into WoW, collect telemetry, or read browser data or credentials. Store installations open Microsoft Store for updates; portable installations query GitHub only when you select <strong>Check for Updates</strong>. Full behavior, build, and verification details are published in the <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md" target="_blank">security guide</a>.
                             </p>
                             <p>
-                                Microsoft Security Intelligence reviewed the exact Beta 19 executable and minimal archive without retaining a malware detection. Beta 19 also removes global hotkeys, fixes enlarged-display layout, and repairs topology data replaced by addon updates. Some VirusTotal engines may still assign the unsigned Companion generic machine-learning or heuristic labels; each vendor controls its own verdict. An Edge “isn't commonly downloaded” message is a separate SmartScreen reputation notice. VirusTotal and vendor reviews are useful evidence, but neither a small detection count nor a clean result proves safety. Review the open source and documented behavior, and verify the official checksum and GitHub build provenance before running the app.
+                                The Store package passed Microsoft certification and is signed by Microsoft. Microsoft Security Intelligence also reviewed exact earlier portable hashes without retaining a malware detection. Some VirusTotal engines may still assign the separate unsigned GitHub Companion generic machine-learning or heuristic labels; each vendor controls its own verdict. An Edge “isn't commonly downloaded” message is a separate SmartScreen reputation notice. VirusTotal and vendor reviews are useful evidence, but neither a small detection count nor a clean result proves safety. Review the open source and documented behavior, and verify the official checksum and GitHub build provenance before running a portable copy.
                             </p>
                         </div>
                     </details>
