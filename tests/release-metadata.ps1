@@ -85,8 +85,12 @@ try {
     }
     $futureAddonNotes = Join-Path $temp 'future-addon.md'
     & $script -Tag 'v2.1.2-beta.21' -CompanionReleaseTag 'v2.1.2-beta.20' -ChangelogPath $changelog -OutputPath $futureAddonNotes | Out-Null
-    if ((Get-Content -LiteralPath $futureAddonNotes -Raw) -notmatch '<!-- offhand-companion-version: 2\.1\.2-beta\.20 -->') {
+    $futureAddonBody = Get-Content -LiteralPath $futureAddonNotes -Raw
+    if ($futureAddonBody -notmatch '<!-- offhand-companion-version: 2\.1\.2-beta\.20 -->') {
         throw 'Addon-only release metadata must advertise the frozen Companion version rather than the addon tag.'
+    }
+    if (-not $futureAddonBody.Contains('https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.2-beta.21')) {
+        throw 'The versioned frozen Companion asset must link to the addon release that attaches it.'
     }
 
     Write-Output 'PASS: standardized beta, release-candidate, stable, and invalid release metadata'

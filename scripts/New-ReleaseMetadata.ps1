@@ -46,7 +46,7 @@ if (-not $companionTagMatch.Success) {
 $companionVersion = if ($CompanionChanged) { $packageVersion } else { $companionTagMatch.Groups['version'].Value }
 $companionArchiveName = "Offhand-Companion-v$companionVersion.zip"
 $storeUrl = 'https://apps.microsoft.com/detail/9PL4PW84Q90W'
-$companionReleaseUrl = "https://github.com/$Repository/releases/tag/v$companionVersion"
+$companionReleaseUrl = "https://github.com/$Repository/releases/tag/$Tag"
 
 $channelName = switch ($channel) {
     'alpha' { 'Alpha' }
