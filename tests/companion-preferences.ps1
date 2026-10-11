@@ -53,6 +53,15 @@ try {
         $source -notmatch 'same privilege level') {
         throw 'Manual restore must return focus to WoW and border failures must explain privilege mismatches.'
     }
+    if ($source -notmatch 'RenderResizeHandshake\.IntermediateBounds' -or
+        $source -notmatch 'Render resize handshake applied; exact display bounds restored\.' -or
+        $source -match 'SendMessage|PostMessage|ResizeBuffers|dxgi\.dll|d3d11\.dll|d3d12\.dll') {
+        throw 'Render resync must use only ordinary SetWindowPos geometry changes without injected messages or renderer access.'
+    }
+    if ($source -notmatch 'private bool InvokeRestoreWindow\(bool manual\)(?s:.*?)return InvokeRestoreWindow\(manual, false\);' -or
+        $source -notmatch 'InvokeRestoreWindow\(false, true\)') {
+        throw 'Manual restore must use remembered pre-span bounds while missing-display recovery fills the surviving Mainhand.'
+    }
     if ($source -match 'Microsoft\.Win32|Registry\.(CurrentUser|LocalMachine)|OpenProcessToken|GetTokenInformation|TokenIntegrityLevel|advapi32\.dll|--minimized') {
         throw 'Companion must not configure startup persistence or inspect process security tokens.'
     }
@@ -139,22 +148,27 @@ try {
     if ($releaseWorkflow -notmatch 'Validate canonical Companion executable' -or
         $releaseWorkflow -notmatch 'Validate canonical Companion archive' -or
         $releaseWorkflow -notmatch 'COMPANION_RELEASE_TAG: v2\.1\.2-beta\.20' -or
+        $releaseWorkflow -notmatch 'COMPANION_SOURCE_ARCHIVE_NAME: Offhand-Companion\.zip' -or
+        $releaseWorkflow -notmatch 'COMPANION_ARCHIVE_NAME: Offhand-Companion-v2\.1\.2-beta\.20\.zip' -or
         $releaseWorkflow -notmatch 'COMPANION_SHA256: 81EECE9430885CEAC178A44A42429854524279072305F9F94EE62E7CCD620CCB' -or
         $releaseWorkflow -notmatch 'COMPANION_ARCHIVE_SHA256: C726444612DD740BE3F923B83704D155E21BC017F7C5FE245379B19DBECC76E3' -or
         $releaseWorkflow -notmatch "GetEntry\('Offhand\.exe'\)" -or
         $releaseWorkflow -notmatch 'ComputeHash\(\$stream\)' -or
         $releaseWorkflow -notmatch 'Restore frozen Beta 20 Companion' -or
         $releaseWorkflow -notmatch 'Attach frozen Beta 20 Companion assets' -or
-        $releaseWorkflow -notmatch 'dist/Offhand-Companion\.zip' -or
+        $releaseWorkflow -notmatch 'dist/Offhand-Companion-v\*\.zip' -or
         $releaseWorkflow -notmatch 'dist/Offhand\.exe' -or
         $releaseWorkflow -notmatch 'package\.ps1 -Version \$version -CompanionChanged -UseExistingCompanion' -or
         $releaseWorkflow -notmatch 'ExistingCompanionArchivePath "Companion\\Offhand-Companion\.zip"') {
         throw 'Release automation must validate and attach exact frozen Beta 20 assets without rebuilding the candidate executable.'
     }
+    $packager = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\package.ps1') -Raw
+    if ($packager -notmatch '\$companionArchiveName = "Offhand-Companion-v\$Version\.zip"') {
+        throw 'Companion release archives must include their exact version in the filename.'
+    }
     $pinnedCompanionUrl = 'https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.20/Offhand-Companion.zip'
     foreach ($relativePath in @(
         'README.md',
-        'docs\CURSEFORGE_DESCRIPTION.md',
         'Website\index.html'
     )) {
         $publicSurface = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\$relativePath") -Raw
@@ -163,14 +177,25 @@ try {
             throw "$relativePath must point directly to the frozen Beta 20 Companion."
         }
     }
+    $curseForgeDescription = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\docs\CURSEFORGE_DESCRIPTION.md') -Raw
+    if (-not $curseForgeDescription.Contains('https://apps.microsoft.com/detail/9PL4PW84Q90W') -or
+        -not $curseForgeDescription.Contains('https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.2-beta.20') -or
+        $curseForgeDescription -match 'releases/latest/download/Offhand-Companion\.zip') {
+        throw 'CurseForge must recommend the Store and identify the pinned Beta 20 release without using an unversioned latest-download URL.'
+    }
     $addonInit = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Core\Init.lua') -Raw
-    if ($addonInit -notmatch 'Offhand\.companionDownloadUrl = "https://github\.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v"' -or
-        $addonInit -notmatch '\.\. Offhand\.companionFullVersion \.\. "/Offhand-Companion\.zip"') {
-        throw 'The addon must derive its version-matched Companion download from release metadata.'
+    if ($addonInit -notmatch 'companionArchiveName = Offhand\.companionFullVersion == "2\.1\.2-beta\.20"' -or
+        $addonInit -notmatch '"Offhand-Companion-v" \.\. Offhand\.companionFullVersion \.\. "\.zip"' -or
+        $addonInit -notmatch 'Offhand\.companionStoreUrl = "https://apps\.microsoft\.com/detail/9PL4PW84Q90W"' -or
+        $addonInit -notmatch 'Offhand\.companionPortableDownloadUrl = "https://github\.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v"' -or
+        $addonInit -notmatch 'Offhand\.companionDownloadUrl = Offhand\.companionStoreUrl') {
+        throw 'The addon must recommend Microsoft Store while preserving the pinned Beta 20 and versioned future portable URLs.'
     }
     $addonOptions = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\UI\Options.lua') -Raw
-    if ($addonOptions -notmatch 'local COMPANION_DOWNLOAD_URL = Offhand\.companionDownloadUrl') {
-        throw 'The addon options must use the version-matched Companion download URL.'
+    if ($addonOptions -notmatch 'local COMPANION_DOWNLOAD_URL = Offhand\.companionDownloadUrl' -or
+        $addonOptions -notmatch 'Recommended for Windows: copy the Microsoft Store address below' -or
+        $addonOptions -notmatch 'offhand-wow\.onrender\.com/companion\.html') {
+        throw 'The addon options must recommend the Microsoft Store Companion URL.'
     }
     $linuxGuide = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Linux.md') -Raw
     if ($linuxGuide -notmatch 'Wine/Proton runner must also match' -or
@@ -182,6 +207,8 @@ try {
     Write-Output 'PASS: update checks follow the Microsoft Store or portable GitHub distribution channel'
     Write-Output 'PASS: polling is restricted to known WoW process names and topology handoff failures block unsafe spans'
     Write-Output 'PASS: manual restore returns focus and border failures include actionable diagnostics'
+    Write-Output 'PASS: render resize handshake stays within ordinary window geometry and restores exact bounds'
+    Write-Output 'PASS: manual restore uses remembered bounds while missing-display recovery fills Mainhand'
     Write-Output 'PASS: Companion avoids startup persistence and process-token inspection'
     Write-Output 'PASS: single-instance guard prevents duplicate Companion tray processes'
     Write-Output 'PASS: DPI-scaled dashboard geometry keeps wrapped status and configuration controls separate'

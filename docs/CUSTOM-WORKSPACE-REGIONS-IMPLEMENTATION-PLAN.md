@@ -13,6 +13,7 @@ Allow users to define one or more rectangular Offhand workspace regions instead 
 The feature must support:
 
 - Reserving only part of a monitor for Offhand while leaving the rest visible and interactive for other Windows applications.
+- Reserving a contiguous portion of one super-ultrawide for WoW while leaving the remainder available to another application. The motivating case is a `5120x1440` display with a left-side Offhand workspace and right-side Mainhand inside a `4080x1440` WoW window, leaving `1040x1440` for Discord.
 - Creating workspace regions on multiple monitors.
 - Selecting one region as the primary/default workspace.
 - Dragging supported frames between the Mainhand and any workspace region.
@@ -69,7 +70,38 @@ Retain the existing simple choices:
 
 Users who never enable custom regions must retain the current setup and generated schema 1 topology.
 
-### 4.2 Partial-monitor workspace
+### 4.2 Contiguous single-display partial span
+
+Treat the reported super-ultrawide case as the smallest independently useful
+increment. It does not require holes, multiple canvas frames, or multiple
+workspace destinations when the selected rectangles form one contiguous WoW
+window.
+
+Example on a `5120x1440` display:
+
+```text
++-----------+-------------------------------+------------+
+| Offhand   | Mainhand                      | Discord    |
+| 640x1440  | 3440x1440                     | 1040x1440  |
++-----------+-------------------------------+------------+
+|<---------- WoW 4080x1440 ---------------->|
+```
+
+The first implementation should let the user choose:
+
+- The WoW region's width and left/right monitor edge.
+- The workspace width or Mainhand width.
+- Whether Mainhand is on the left or right inside the WoW region.
+- A preview of all three widths before applying the plan.
+
+When game and workspace are contiguous and rectangular, Companion may emit a
+schema 1 topology whose `physicalWidth` and native window bounds describe only
+the `4080x1440` WoW region. This preserves the current addon's one-Mainhand,
+one-workspace contract and avoids delaying this case on schema 2. Schema 2
+remains required when regions are discontiguous, multiple, or need native
+window-region clipping.
+
+### 4.3 Partial-monitor workspace
 
 A user may create a region covering only part of a physical display. The excluded portion must remain outside the native WoW window region so other applications remain visible and interactive there.
 
@@ -86,7 +118,7 @@ Portrait display                    Mainhand
 +------------------+          +------------------------+
 ```
 
-### 4.3 Multiple workspace regions
+### 4.4 Multiple workspace regions
 
 A user may create regions on more than one monitor. Supported frames may be dragged between them and remember their assigned region.
 
@@ -98,13 +130,52 @@ Workspace A       Mainhand game       Workspace B
 +----------+    +----------------+    +----------+
 ```
 
-### 4.4 Primary workspace
+### 4.5 Primary workspace
 
 Exactly one workspace region must be primary. It receives frames that do not yet have a valid saved region, including newly routed panels, default map placement, bags, and redirected dialogs.
 
 Per-category destinations may be considered later, but are not required for the first implementation.
 
 ## 5. Companion changes
+
+### 5.0 Transitional manual-mode diagnostics
+
+Before custom sizing ships, make the existing manual path diagnosable:
+
+- When a generated Companion topology does not match the live WoW window, stop
+  the wizard before protected HUD generation and describe the mismatch instead
+  of exposing the internal `span` capability token.
+- Give separate recovery guidance for respanning with Companion and for closing
+  Companion plus restoring the packaged addon topology before manual setup.
+- Keep `/offhand diag` as the evidence source for expected topology dimensions,
+  live window dimensions, and `READY`/`MISMATCH`/`ABSENT` state.
+- Add a future Companion action that explicitly relinquishes topology ownership
+  for manual mode, so users do not need to reinstall the addon or edit
+  `CompanionTopology.lua`.
+
+### 5.0.1 Schema 1 partial-span fast path
+
+Add a narrowly scoped advanced one-display mode before the general region
+editor when stabilization permits:
+
+1. Persist the selected display identity, WoW occupied width, occupied edge,
+   workspace width, and Mainhand side.
+2. Validate that the occupied rectangle fits entirely inside the physical
+   display and that game/workspace widths meet documented minimums.
+3. Build one native rectangular WoW window from only the occupied portion of
+   the monitor; do not cover or clip the application-reserved remainder.
+4. Emit schema 1 `game` and `workspace` rectangles normalized to that smaller
+   window, retaining the existing `SPLIT_ULTRAWIDE` mode for compatibility.
+5. Show a preview such as `WoW 4080 = workspace 640 + game 3440; free 1040`.
+6. Apply topology and native bounds transactionally, preserving the existing
+   rollback and Restore Window behavior.
+7. Verify `/reload`, cold launch, Forever recovery, display renumbering, DPI
+   scaling, and switching between 50/50, partial, and manual modes.
+
+This fast path must remain optional and must not change the existing 50/50
+default. If implementation evidence shows that the client or Companion cannot
+reliably treat the smaller occupied rectangle as its physical surface, stop and
+move the case to schema 2 rather than weakening topology validation.
 
 ### 5.1 Display and plan model
 
@@ -504,6 +575,9 @@ The feature must remain ordinary external Win32 window management. It must not i
 
 ### Stage 2: one custom region
 
+- First deliver the schema 1 contiguous single-display partial-span fast path
+  when its acceptance matrix passes. This covers the `5120x1440` shared-screen
+  case without introducing multi-region persistence.
 - Implement one partial region on one Offhand monitor.
 - Add the visual editor and presets.
 - Add native exact-region clipping and rollback.

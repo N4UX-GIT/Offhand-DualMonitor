@@ -170,6 +170,55 @@ C_AddOns = {
 -- Load Offhand modules
 local addon = { modules = {} }
 assert(loadfile("Core/Init.lua"))("Offhand", addon)
+local versionDiagnostics = addon:GetVersionDiagnostics({
+    companionVersion = "2.1.2-beta.18",
+    companionVersionStatus = "MATCH",
+})
+assert(versionDiagnostics.clientVersion == "1.15.5"
+        and versionDiagnostics.clientBuild == "58238"
+        and versionDiagnostics.interfaceVersion == "11505"
+        and versionDiagnostics.clientProject == "unknown"
+        and versionDiagnostics.addonVersion == "2.1.2-beta.18"
+        and versionDiagnostics.companionWriter == "2.1.2-beta.18"
+        and versionDiagnostics.companionPaired == "2.1.2-beta.18"
+        and versionDiagnostics.companionMinimum == "2.1.2-beta.18"
+        and versionDiagnostics.companionProtocol == 1
+        and versionDiagnostics.companionStatus == "MATCH",
+    "diagnostics must identify the client, addon, and Companion builds")
+addon.db = {
+    enabled = true,
+    firstRunComplete = true,
+    layoutPreset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT",
+    primaryPosition = "RIGHT",
+}
+local operatingDiagnostics = addon:GetOperatingDiagnostics({
+    isSpanned = true,
+    companionTopology = true,
+    topologyStatus = "READY",
+    preset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT",
+    gamePixelLeft = 1440,
+    gamePixelBottom = 6,
+    gamePixelWidth = 2560,
+    gamePixelHeight = 1440,
+    workspacePixelLeft = 0,
+    workspacePixelBottom = 0,
+    workspacePixelWidth = 1440,
+    workspacePixelHeight = 2560,
+})
+assert(operatingDiagnostics.enabled and operatingDiagnostics.spanned
+        and operatingDiagnostics.topologySource == "Companion"
+        and operatingDiagnostics.layoutPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT"
+        and operatingDiagnostics.mainhandPosition == "RIGHT"
+        and not operatingDiagnostics.inCombat and operatingDiagnostics.setupComplete
+        and operatingDiagnostics.mainhandLeft == 1440
+        and operatingDiagnostics.mainhandBottom == 6
+        and operatingDiagnostics.mainhandWidth == 2560
+        and operatingDiagnostics.mainhandHeight == 1440
+        and operatingDiagnostics.workspaceLeft == 0
+        and operatingDiagnostics.workspaceBottom == 0
+        and operatingDiagnostics.workspaceWidth == 1440
+        and operatingDiagnostics.workspaceHeight == 2560,
+    "diagnostics must expose operating state and exact display rectangles")
 assert(StaticPopupDialogs["OFFHAND_COMPANION_VERSION_WARNING"].text
         ~= "POPUP_COMPANION_VERSION_TEXT"
         and StaticPopupDialogs["OFFHAND_COMPANION_VERSION_WARNING"].button1
@@ -287,9 +336,14 @@ addon.isForever = true
 local createMainhandLayoutCount = 0
 local reloadPromptCount = 0
 local createMainhandLayoutResult = { true, "Offhand - Mainhand - Test", 52 }
+local mainhandLayoutDeferred = false
 addon.Mainhand = {
     GetLayoutStatus = function()
-        return { configured = false }
+        return { configured = false, deferred = mainhandLayoutDeferred }
+    end,
+    SetEditModeLayoutDeferred = function(_, deferred)
+        mainhandLayoutDeferred = deferred == true
+        return true
     end,
     PromptReload = function()
         reloadPromptCount = reloadPromptCount + 1
@@ -360,7 +414,13 @@ assert(not infoPendingExact.isSpanned and infoPendingExact.topologyStatus == "MI
     "a mismatched exact topology must not fall through to aspect-ratio guesses")
 assert(infoPendingExact.description == "Companion topology does not match the current WoW window",
     "the wizard must explain the exact-topology mismatch")
+assert(addon.Options:GetMainhandLayoutFailureText("span")
+        == addon.L["MAINHAND_LAYOUT_SPAN_MISMATCH"],
+    "a stale Companion layout must produce actionable manual and Companion recovery guidance")
 addon.Viewport.GetMetrics = originalGetMetrics
+assert(addon.Options:GetMainhandLayoutFailureText("span")
+        == addon.L["MAINHAND_LAYOUT_SPAN_UNCONFIRMED"],
+    "an unconfirmed span without stale topology must produce actionable diagnostics guidance")
 
 -- Test 3840x1080 (dual landscape side by side)
 GetPhysicalScreenSize = function() return 3840, 1080 end
@@ -369,6 +429,18 @@ assert(infoDual.isSpanned == true, "3840x1080 must be detected as spanned")
 assert(infoDual.recommendedPreset == "LANDSCAPE_DUAL", "Dual 1080p must recommend LANDSCAPE_DUAL")
 assert(math.abs(infoDual.recommendedDeckRatio - 0.50) < 0.001, "Dual 1080p must recommend 50% seam")
 assert(infoDual.recommendedAR == "16_9", "Dual 1080p must recommend 16:9 AR")
+
+-- A manually confirmed single 21:9 display preserves a 16:9 Mainhand and
+-- assigns only the remaining width to the Offhand workspace.
+GetPhysicalScreenSize = function() return 3440, 1440 end
+local infoSingleUW = addon.Options:DetectTopology()
+assert(infoSingleUW.isSpanned == true, "3440x1440 must support an intentional single-display split")
+assert(infoSingleUW.recommendedPreset == "LANDSCAPE_DUAL",
+    "single-display ultrawide must use side-by-side landscape regions")
+assert(math.abs(infoSingleUW.recommendedDeckRatio - (880 / 3440)) < 0.002,
+    "3440x1440 must reserve 880 pixels for the workspace beside a 2560x1440 Mainhand")
+assert(infoSingleUW.recommendedPosition == "RIGHT" and infoSingleUW.recommendedAR == "16_9",
+    "single-display ultrawide must default to a right-side 16:9 Mainhand")
 
 -- Test 5360x1440 (3440x1440 Ultrawide + 1920x1080 Landscape)
 GetPhysicalScreenSize = function() return 5360, 1440 end
@@ -533,11 +605,16 @@ for step = 1, wizardFrame.totalSteps do
 end
 wizardFrame:SetStep(5)
 assert(wizardFrame.welcomeText:GetText() == addon.L["STEP_5_HELP"]
-        and wizardFrame.mainhandLayoutHelp:GetText() == addon.L["WIZARD_STEP_5_BODY"]
+        and wizardFrame.mainhandLayoutHelp:GetText():find(addon.L["WIZARD_STEP_5_BODY"], 1, true) == 1
         and wizardFrame.welcomeText:GetText() ~= wizardFrame.mainhandLayoutHelp:GetText()
-        and wizardFrame.mainhandLayoutHelp:GetText():find("Recovery & Preview", 1, true),
+        and wizardFrame.mainhandLayoutHelp:GetText():find("Recovery & Preview", 1, true)
+        and wizardFrame.mainhandLayoutHelp:GetText():find("Readiness:", 1, true),
     "wizard step 5 must separate its purpose from its detailed action and recovery guidance")
+assert(wizardFrame.skipLayoutBtn:IsShown() and not wizardFrame.advBtn:IsShown(),
+    "the final HUD step must replace All Settings with an explicit finish-without-layout path")
 wizardFrame:SetStep(1)
+assert(not wizardFrame.skipLayoutBtn:IsShown() and wizardFrame.advBtn:IsShown(),
+    "the HUD skip action must remain isolated to the final wizard step")
 addon.db.firstRunComplete = false
 wizardFrame.finishBtn.scripts.OnClick()
 assert(wizardFrame.step == 2 and not addon.db.firstRunComplete, "Next must not complete setup")
@@ -574,6 +651,17 @@ wizardFrame:SetStep(4)
 wizardFrame.finishBtn.scripts.OnClick()
 assert(wizardFrame.step == 1 and not addon:IsSetupComplete(),
     "a known Companion mismatch must block completion and return to preflight")
+addon.Viewport.GetMetrics = function()
+    return {
+        companionTopology=false, topologyStatus="MISMATCH", isSpanned=false,
+    }
+end
+wizardFrame:SetStep(4)
+wizardFrame.finishBtn.scripts.OnClick()
+assert(wizardFrame.step == 1 and not addon:IsSetupComplete()
+        and wizardFrame.statusText:GetText():find(
+            addon.L["MAINHAND_LAYOUT_SPAN_MISMATCH"], 1, true),
+    "a stale topology must block wizard preflight with actionable recovery guidance")
 addon.Viewport.GetMetrics = wizardMetrics
 
 createMainhandLayoutResult = { false, "combat" }
@@ -583,7 +671,39 @@ wizardFrame.finishBtn.scripts.OnClick()
 assert(not addon:IsSetupComplete() and wizardFrame.step == 5 and wizardFrame:IsShown()
         and wizardFrame.mainhandLayoutStatus:GetText():find("combat", 1, true),
     "a failed Mainhand HUD layout action must keep setup open on the final step")
+createMainhandLayoutResult = { false, "span" }
+addon.Viewport.GetMetrics = function()
+    return { companionTopology=false, topologyStatus="MISMATCH", isSpanned=false }
+end
+wizardFrame.finishBtn.scripts.OnClick()
+assert(wizardFrame.mainhandLayoutStatus:GetText():find(
+        addon.L["MAINHAND_LAYOUT_SPAN_MISMATCH"], 1, true),
+    "the final HUD action must replace the cryptic span token with recovery guidance")
+addon.Viewport.GetMetrics = wizardMetrics
 createMainhandLayoutResult = { true, "Offhand - Mainhand - Test", 52 }
+
+-- HUD generation is recommended but must not make onboarding impossible when
+-- Blizzard's layout slots or APIs cannot complete the transaction.
+OffhandDB.onboarding.setupComplete = false
+addon.db.firstRunComplete = false
+wizardFrame:Show()
+wizardFrame:SetStep(5)
+local skipPopup
+local skipPopupShow = StaticPopup_Show
+StaticPopup_Show = function(key, text, _, callback)
+    skipPopup = { key = key, callback = callback }
+end
+wizardFrame.skipLayoutBtn.scripts.OnClick()
+assert(skipPopup and skipPopup.key == "OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT"
+        and not addon:IsSetupComplete() and not mainhandLayoutDeferred,
+    "skipping HUD generation must require confirmation before changing setup state")
+StaticPopupDialogs[skipPopup.key].OnAccept(nil, skipPopup.callback)
+assert(addon:IsSetupComplete() and mainhandLayoutDeferred and not wizardFrame:IsShown(),
+    "confirmed HUD deferral must complete setup, persist the choice, and close the wizard")
+StaticPopup_Show = skipPopupShow
+OffhandDB.onboarding.setupComplete = false
+addon.db.firstRunComplete = false
+mainhandLayoutDeferred = false
 
 -- Test Continuous Global UI Scale Slider in Wizard
 assert(wizardFrame.scaleSlider ~= nil, "Wizard must have scaleSlider")
@@ -700,6 +820,8 @@ onboardingFrame:SetPage(2)
 onboardingFrame.actionButton.scripts.OnClick()
 assert(not onboardingFrame:IsShown() and downloadDialog.strata == "TOOLTIP",
     "download dialog must temporarily replace the onboarding guide")
+assert(addon:GetOnboardingSetupMethod() == "COMPANION",
+    "choosing Companion must persist the setup method across reload")
 StaticPopupDialogs["OFFHAND_DOWNLOAD_LINK"].OnHide()
 assert(onboardingFrame:IsShown() and onboardingFrame.page == 2,
     "closing the download dialog must return to onboarding step 2")
@@ -717,6 +839,76 @@ assert(addon:GetOnboardingResumeStep() == 4 and addon:IsWelcomeDismissed(),
 addon.Onboarding:Open()
 assert(onboardingFrame.page == 4 and OffhandDB.onboarding.resumeStep == nil,
     "onboarding must return to step 4 once after Reload UI")
+
+-- Manual spanning and intentional single-ultrawide layouts are first-class
+-- paths, but WoW cannot expose physical display boundaries. They must require
+-- explicit acknowledgement rather than claim automatic span detection.
+addon.Viewport.GetMetrics = function()
+    return {
+        companionTopology = false, topologyStatus = "ABSENT", isSpanned = true,
+        gameLeft = 1440, gameRight = 4000, gameBottom = 0, gameTop = 1440,
+        gameWidth = 2560,
+    }
+end
+assert(addon:SetOnboardingSetupMethod("MANUAL") == true,
+    "manual setup method must be accepted")
+onboardingFrame:SetPage(4)
+local manualPopup
+StaticPopup_Show = function(key, text, _, callback)
+    manualPopup = { key = key, text = text, callback = callback }
+end
+onboardingFrame.nextButton.scripts.OnClick()
+assert(onboardingFrame.page == 4 and manualPopup
+        and manualPopup.key == "OFFHAND_CONFIRM_MANUAL_LAYOUT",
+    "manual geometry must wait for explicit acknowledgement at onboarding step 4")
+StaticPopupDialogs[manualPopup.key].OnAccept(nil, manualPopup.callback)
+assert(onboardingFrame.page == 5,
+    "confirmed manual geometry must advance to calibration preparation")
+
+addon.Viewport.GetMetrics = function()
+    return { companionTopology = false, topologyStatus = "ABSENT", isSpanned = false }
+end
+onboardingFrame:SetPage(4)
+manualPopup = nil
+onboardingFrame.nextButton.scripts.OnClick()
+assert(onboardingFrame.page == 4 and manualPopup
+        and manualPopup.key == "OFFHAND_CONFIRM_MANUAL_LAYOUT",
+    "an unverified single-screen canvas must require the same deliberate manual-layout acknowledgement")
+assert(onboardingFrame.page == 4,
+    "cancelling manual layout acknowledgement must remain on onboarding step 4")
+
+addon.Viewport.GetMetrics = function()
+    return { companionTopology = false, topologyStatus = "MISMATCH", isSpanned = true }
+end
+onboardingFrame.nextButton.scripts.OnClick()
+assert(onboardingFrame.page == 4 and onboardingFrame.statusText:GetText():find(
+        addon.L["ONBOARD_STATUS_TOPOLOGY_MISMATCH"], 1, true),
+    "manual setup must not bypass a stale generated Companion topology")
+
+addon:SetOnboardingSetupMethod("COMPANION")
+addon.Viewport.GetMetrics = function()
+    return { companionTopology = false, topologyStatus = "ABSENT", isSpanned = true }
+end
+onboardingFrame.nextButton.scripts.OnClick()
+assert(onboardingFrame.page == 4 and onboardingFrame.statusText:GetText():find(
+        addon.L["ONBOARD_STATUS_COMPANION_RELOAD_REQUIRED"], 1, true),
+    "Companion setup must wait for generated topology to load after a span")
+
+addon._displayGeometryTransitionActive = true
+onboardingFrame.nextButton.scripts.OnClick()
+assert(onboardingFrame.page == 4 and onboardingFrame.statusText:GetText():find(
+        addon.L["ONBOARD_STATUS_GEOMETRY_SETTLING"], 1, true),
+    "onboarding must not validate geometry while the display is still settling")
+addon._displayGeometryTransitionActive = nil
+
+addon.Viewport.GetMetrics = function()
+    return {
+        companionTopology = true, isSpanned = true, topologyStatus = "MATCH",
+        companionVersionStatus = "MATCH", gameLeft = 1440, gameRight = 4000,
+        gameBottom = 0, gameTop = 1440, gameWidth = 2560,
+    }
+end
+StaticPopup_Show = originalStaticPopupShow
 addon.isForever = true
 onboardingFrame:SetPage(5)
 assert(onboardingFrame.actionButton:IsShown()
@@ -725,6 +917,24 @@ assert(onboardingFrame.actionButton:IsShown()
         and onboardingFrame.statusText:GetText() == addon.L["RECOVERY_CREATE_LABEL"],
     "onboarding step 5 must preview and label the final Mainhand layout action")
 addon.isForever = false
+local originalHasBlizzardEditMode = addon.HasBlizzardEditMode
+addon.HasBlizzardEditMode = function() return true end
+onboardingFrame:SetPage(5)
+assert(onboardingFrame.pageBody:GetText() == addon.L["ONBOARD_STEP_5_BODY_EDITMODE"],
+    "non-Forever clients with Edit Mode must receive client-neutral HUD guidance")
+onboardingFrame:SetPage(6)
+assert(onboardingFrame.pageBody:GetText() == addon.L["ONBOARD_STEP_6_BODY_EDITMODE"],
+    "Edit Mode completion guidance must not be restricted to Retail by name")
+addon.HasBlizzardEditMode = function() return false end
+onboardingFrame:SetPage(5)
+assert(onboardingFrame.pageTitle:GetText() == addon.L["ONBOARD_STEP_5_TITLE_NO_EDITMODE"]
+        and onboardingFrame.pageBody:GetText() == addon.L["ONBOARD_STEP_5_BODY_NO_EDITMODE"]
+        and not onboardingFrame.actionButton:IsShown(),
+    "Classic-family clients without Edit Mode must receive non-Retail preparation guidance")
+onboardingFrame:SetPage(6)
+assert(onboardingFrame.pageBody:GetText() == addon.L["ONBOARD_STEP_6_BODY_NO_EDITMODE"],
+    "Classic-family completion guidance must describe the four-step wizard")
+addon.HasBlizzardEditMode = originalHasBlizzardEditMode
 onboardingFrame:SetPage(1)
 local calibrationOpened = false
 addon.Wizard.Open = function() calibrationOpened = true end

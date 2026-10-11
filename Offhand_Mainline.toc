@@ -4,8 +4,8 @@
 ## Notes: Equip your Offhand. Dual wield your monitors. Multi-Monitor Setup UI.
 ## Author: N4UX (Noggaholic)
 ## Version: 2.1.2
-## X-Offhand-Release: beta.20
-## X-Offhand-Addon-Release: beta.20
+## X-Offhand-Release: beta.21
+## X-Offhand-Addon-Release: beta.21
 ## X-Offhand-Companion-Version: 2.1.2
 ## X-Offhand-Companion-Release: beta.20
 ## X-Offhand-Companion-Protocol: 1

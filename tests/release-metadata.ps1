@@ -23,11 +23,14 @@ try {
         '## Linux and Wine status',
         '## Reporting issues',
         '## Verification',
+        '**Recommended Windows Companion:**',
+        'https://apps.microsoft.com/detail/9PL4PW84Q90W',
+        '**Portable / Linux / Wine Companion:**',
         'Offhand-Complete-v2.1.2-beta.5.zip',
         '**Companion package:**',
         '**Standalone Companion:**',
         'byte-identical 2.1.2-beta.20',
-        'releases/latest/download'
+        'Offhand-Companion-v2.1.2-beta.20.zip'
     )) {
         if (-not $betaBody.Contains($required)) {
             throw "Beta release notes are missing: $required"
@@ -40,7 +43,7 @@ try {
     $companionNotes = Join-Path $temp 'companion.md'
     & $script -Tag 'v2.1.2-beta.20' -ChangelogPath $changelog -OutputPath $companionNotes -CompanionChanged | Out-Null
     $companionBody = Get-Content -LiteralPath $companionNotes -Raw
-    foreach ($required in @('<!-- offhand-companion-version: 2.1.2-beta.20 -->', '**Companion package:**', '**Standalone Companion:**')) {
+    foreach ($required in @('<!-- offhand-companion-version: 2.1.2-beta.20 -->', '**Recommended Windows Companion:**', 'https://apps.microsoft.com/detail/9PL4PW84Q90W', '**Portable / Linux / Wine Companion:**', '**Companion package:**', 'Offhand-Companion-v2.1.2-beta.20.zip', '**Standalone Companion:**')) {
         if (-not $companionBody.Contains($required)) {
             throw "Companion release notes are missing: $required"
         }

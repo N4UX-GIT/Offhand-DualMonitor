@@ -52,12 +52,16 @@ Canonical SHA-256 digests:
 - `Offhand-Companion.zip`: `C726444612DD740BE3F923B83704D155E21BC017F7C5FE245379B19DBECC76E3`
 
 The Beta 20 candidate received a clean local Microsoft Defender custom scan.
-That is a local validation result, not a hash-specific Microsoft Security
-Intelligence determination. GitHub release provenance and the published
-checksum file should be verified for these exact bytes.
+Microsoft Security Intelligence subsequently reviewed the exact canonical ZIP
+under submission
+[`ee73ae7c-cd58-4824-bfe5-647ff24c8251`](https://www.microsoft.com/en-us/wdsi/submission/ee73ae7c-cd58-4824-bfe5-647ff24c8251).
+On 2026-10-09, its analyst response stated that Microsoft found no positive
+detection and no telemetry indicators for the submitted file and would close
+the submission with no further action. The portal's status fields may lag the
+analyst response while the case closes.
 
-The completed Microsoft Security Intelligence review described below applies
-only to the exact Beta 19 files and does not transfer to Beta 20.
+This result applies only to the exact Beta 20 ZIP hash above. GitHub release
+provenance and the published checksum file should still be verified.
 
 Earlier Beta 18 review records remain available for historical verification:
 

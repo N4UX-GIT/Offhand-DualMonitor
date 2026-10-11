@@ -329,6 +329,42 @@ flushTimers()
 assert(WorldMapFrame:IsShown(), "WorldMapFrame on workspace must remain open when Escape is pressed!")
 ToggleGameMenu() -- close GameMenuFrame
 
+-- A persistent map does not receive Blizzard's normal OnShow refocus after a
+-- zone transition. Offhand must reproduce that native map-ID/zoom refresh.
+WorldMapFrame.mapID = 10
+WorldMapFrame.zoomResets = 0
+WorldMapFrame.GetMapID = function(self) return self.mapID end
+WorldMapFrame.SetMapID = function(self, mapID) self.mapID = mapID end
+WorldMapFrame.ResetZoom = function(self) self.zoomResets = self.zoomResets + 1 end
+MapUtil = { GetDisplayableMapForPlayer = function() return 20 end }
+addon.Canvas:RequestPersistentWorldMapRefocus()
+flushTimers()
+assert(WorldMapFrame.mapID == 20 and WorldMapFrame.zoomResets == 1,
+    "persistent workspace map must refocus to the player's new zone")
+
+local queuedMapRefocus
+local previousRunOrQueueCombat = addon.RunOrQueueCombat
+addon.RunOrQueueCombat = function(_, fn) queuedMapRefocus = fn end
+InCombatLockdown = function() return true end
+MapUtil.GetDisplayableMapForPlayer = function() return 25 end
+addon.Canvas:RequestPersistentWorldMapRefocus()
+flushTimers()
+assert(queuedMapRefocus and WorldMapFrame.mapID == 20,
+    "zone refocus must defer without touching MapCanvas during combat")
+InCombatLockdown = function() return false end
+queuedMapRefocus()
+assert(WorldMapFrame.mapID == 25 and WorldMapFrame.zoomResets == 2,
+    "deferred map refocus must complete after combat")
+addon.RunOrQueueCombat = previousRunOrQueueCombat
+
+MapUtil.GetDisplayableMapForPlayer = function() return 30 end
+WorldMapFrame:Hide()
+addon.Canvas:RequestPersistentWorldMapRefocus()
+flushTimers()
+assert(WorldMapFrame.mapID == 25,
+    "hidden maps must not be opened or refocused by a zone transition")
+WorldMapFrame:Show()
+
 -- TEST 10: Dragging WorldMapFrame out onto the main gaming monitor
 WorldMapFrame.points = { { "BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1800, 500 } }
 if WorldMapTitleButton and WorldMapTitleButton.scripts["OnDragStop"] then
@@ -407,6 +443,86 @@ assert(p[5]*scale<=metrics.gameTop and p[5]*scale-WorldMapFrame:GetHeight()*scal
 assert(WorldMapFrame:GetWidth()==702 and WorldMapFrame:GetHeight()==534,"Native windowed map size changed")
 print("PASS: maximized map reopening, stale saved position, full bounding-box fit")
 
+-- MoveAny owns WorldMapFrame on Retail as well as Forever. Offhand must leave
+-- its live scale and anchor untouched so the M/L bindings have one map owner.
+addon.isRetail = true
+MoveAny = {}
+local moveAnyFaderRemovals = 0
+PlayerMovementFrameFader = {
+    RemoveFrame = function(frame)
+        assert(frame == WorldMapFrame,
+            "MoveAny compatibility removed the wrong movement-fader frame")
+        moveAnyFaderRemovals = moveAnyFaderRemovals + 1
+    end,
+}
+assert(addon.Canvas:ShouldYieldWorldMap(WorldMapFrame),
+    "Retail must yield WorldMapFrame ownership when MoveAny is loaded")
+assert(addon.Canvas:GetCompatibilityDiagnostics()
+        == "MoveAny=loaded | WorldMapOwner=MoveAny",
+    "Retail diagnostics must identify MoveAny as the live map owner")
+WorldMapFrame.scale = 0.68
+WorldMapFrame.points = { { "TOPLEFT", UIParent, "BOTTOMLEFT", 1777, 1222 } }
+addon.Canvas:ConfigureWorldMap()
+addon.Canvas:RestoreWorkspacePosition(WorldMapFrame)
+local moveAnyPoint = WorldMapFrame.points[1]
+assert(WorldMapFrame.scale == 0.68 and moveAnyPoint
+        and moveAnyPoint[4] == 1777 and moveAnyPoint[5] == 1222,
+    "Offhand changed MoveAny's Retail World Map geometry")
+WorldMapFrame.points = {}
+WorldMapFrame:Show()
+local moveAnyGetLeft, moveAnyGetTop = WorldMapFrame.GetLeft, WorldMapFrame.GetTop
+WorldMapFrame.GetLeft = function(self)
+    if #self.points == 0 then return nil end
+    return moveAnyGetLeft(self)
+end
+WorldMapFrame.GetTop = function(self)
+    if #self.points == 0 then return nil end
+    return moveAnyGetTop(self)
+end
+addon.db.savedWorkspacePositions.WorldMapFrame = {
+    x = 20, y = 300, canvasLeft = 0, canvasBottom = 0,
+    canvasWidth = metrics.deckWidth, canvasHeight = metrics.screenHeight,
+}
+local moveAnyZoomResets = WorldMapFrame.zoomResets
+assert(addon.Canvas:RepairYieldedWorldMapAnchor(WorldMapFrame),
+    "Offhand did not bootstrap MoveAny's shown but anchorless Retail map")
+local repairedMoveAnyPoint = WorldMapFrame.points[1]
+assert(repairedMoveAnyPoint and repairedMoveAnyPoint[1] == "TOPLEFT"
+        and WorldMapFrame:GetLeft() >= 0 and WorldMapFrame:GetTop() <= metrics.screenHeight,
+    "MoveAny's anchorless Retail map was not restored inside a visible monitor")
+assert(not addon.Canvas:RepairYieldedWorldMapAnchor(WorldMapFrame),
+    "Offhand rewrote an already-positioned MoveAny Retail map")
+flushTimers()
+assert(WorldMapFrame.zoomResets == moveAnyZoomResets + 1,
+    "MoveAny's first anchored MapCanvas did not receive its deferred zoom refresh")
+assert(moveAnyFaderRemovals >= 2,
+    "persistent MoveAny workspace maps were not removed from the movement fader")
+
+addon.db.openWorkspacePanels = addon.db.openWorkspacePanels or {}
+addon.db.openWorkspacePanels.WorldMapFrame = true
+WorldMapFrame:Hide()
+WorldMapFrame.points = {}
+ToggleWorldMap = function()
+    if WorldMapFrame:IsShown() then WorldMapFrame:Hide() else WorldMapFrame:Show() end
+end
+addon.Canvas:RestorePersistentFrames()
+flushTimers()
+assert(WorldMapFrame:IsShown() and WorldMapFrame:GetLeft() ~= nil,
+    "a MoveAny-owned workspace map did not reopen with geometry after reload")
+WorldMapFrame.mapID = 30
+MapUtil.GetDisplayableMapForPlayer = function() return 40 end
+addon.Canvas:RequestPersistentWorldMapRefocus()
+flushTimers()
+assert(WorldMapFrame.mapID == 40,
+    "a MoveAny-owned persistent map did not follow the player's new zone")
+WorldMapFrame.GetLeft, WorldMapFrame.GetTop = moveAnyGetLeft, moveAnyGetTop
+PlayerMovementFrameFader = nil
+MoveAny = nil
+assert(not addon.Canvas:ShouldYieldWorldMap(WorldMapFrame),
+    "Offhand must resume Retail World Map ownership when MoveAny is absent")
+addon.isRetail = nil
+print("PASS: Retail MoveAny World Map ownership handoff")
+
 -- Forever system Options must be placed directly on Mainhand, and opening it
 -- must not consume a tracked workspace backpack.
 addon.isForever = true
@@ -427,7 +543,7 @@ settingsPanel:Show()
 -- Forever performs this cleanup after the panel has begun showing.
 combinedBag:Hide()
 assert(addon.Canvas:RestoreWorkspaceBagClosedDuringSystemPanelOpen(),
-    "Forever must queue the isolated native-bag restore after Settings")
+    "Forever must queue recovery for a Settings-triggered workspace bag closure")
 flushTimers()
 local settingsPoint = settingsPanel.points[#settingsPanel.points]
 local expectedCY = (metrics.gameBottom + metrics.gameTop) / 2 - UIParent:GetHeight()/2
@@ -440,6 +556,6 @@ assert(not combinedBag:IsShown(),
     "Settings recovery must not directly show a native backpack whose opener declined")
 assert(addon.db.openWorkspacePanels.ContainerFrameCombinedBags == true
         and addon.db.nativeBackpackWorkspaceOpen == true,
-    "a modal Settings rejection must retain intent for the isolated bag controller")
+    "Settings cleanup must retain tracked open intent for a later native retry")
 print("PASS: Forever SettingsPanel Mainhand placement and safe native backpack recovery")
 

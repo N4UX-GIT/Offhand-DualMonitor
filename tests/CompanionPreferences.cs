@@ -49,6 +49,13 @@ namespace Offhand.Companion {
                 .Contains("same privilege level"));
             Check(WindowInteropDiagnostics.StyleFailure("Could not remove WoW window borders", 87)
                 .Contains("Windows error 87"));
+            var renderTarget = new Rectangle(-440, -1080, 3440, 2520);
+            var renderIntermediate = RenderResizeHandshake.IntermediateBounds(renderTarget);
+            Check(renderIntermediate == new Rectangle(-440, -1080, 3440, 2519));
+            Check(RenderResizeHandshake.IntermediateBounds(new Rectangle(2, 3, 10, 1))
+                == new Rectangle(2, 3, 9, 1));
+            Check(RenderResizeHandshake.IntermediateBounds(new Rectangle(2, 3, 1, 1))
+                == new Rectangle(2, 3, 1, 1));
             Check(ProcessPathResolver.Get(null) == null);
             Check(!string.IsNullOrEmpty(ProcessPathResolver.Get(Process.GetCurrentProcess())));
             var displays = new List<MonitorSelection.Display> {
@@ -57,6 +64,14 @@ namespace Offhand.Companion {
             };
             var plan = MonitorSelection.CreatePlan(@"MONITOR\MAIN\A|MONITOR\WORK\B", @"\\.\DISPLAY1|\\.\DISPLAY2", null, @"MONITOR\MAIN\A", @"\\.\DISPLAY1", false, false, displays);
             Check(plan.Indices.Length == 2 && plan.MainhandBounds.Width == 3440 && plan.WorkspaceBounds.Height == 1080);
+            Check(MonitorSelection.AlignmentWarning(plan).Contains("360px"));
+            var alignedDisplays = new List<MonitorSelection.Display> {
+                new MonitorSelection.Display { Index = 0, DeviceName = @"\\.\DISPLAY1", StableId = @"MONITOR\MAIN\A", Bounds = new Rectangle(0, 0, 3440, 1440), Primary = true },
+                new MonitorSelection.Display { Index = 1, DeviceName = @"\\.\DISPLAY2", StableId = @"MONITOR\WORK\B", Bounds = new Rectangle(-1920, 0, 1920, 1080), Primary = false }
+            };
+            var alignedPlan = MonitorSelection.CreatePlan(@"MONITOR\MAIN\A|MONITOR\WORK\B", null, null,
+                @"MONITOR\MAIN\A", null, false, false, alignedDisplays);
+            Check(MonitorSelection.AlignmentWarning(alignedPlan) == null);
             bool missingRejected = false;
             try { MonitorSelection.CreatePlan(@"MONITOR\MAIN\A|MONITOR\MISSING\C", null, null, @"MONITOR\MAIN\A", null, false, false, displays); }
             catch (InvalidOperationException) { missingRejected = true; }

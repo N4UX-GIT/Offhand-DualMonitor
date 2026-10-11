@@ -218,6 +218,19 @@ namespace Offhand.Companion
             internal Rectangle WorkspaceBounds;
         }
 
+        internal static string AlignmentWarning(Plan plan)
+        {
+            if (plan == null || plan.SplitSingle) return null;
+            Rectangle game = plan.MainhandBounds;
+            Rectangle workspace = plan.WorkspaceBounds;
+            bool sideBySide = game.Right <= workspace.Left || workspace.Right <= game.Left;
+            int verticalOffset = Math.Abs(game.Top - workspace.Top);
+            if (!sideBySide || verticalOffset == 0) return null;
+            return string.Format(
+                "Windows places the selected displays {0}px apart vertically. Offhand preserves that exact arrangement, so the span contains unused corner space. If this is unintended, align their top edges in Windows Display Settings and span again.",
+                verticalOffset);
+        }
+
         private static string[] Tokens(string value, char separator)
         {
             return string.IsNullOrWhiteSpace(value)
@@ -376,6 +389,23 @@ namespace Offhand.Companion
             if (error == 5)
                 return detail + " Windows blocked cross-process window control. Close both programs and launch WoW and Offhand Companion at the same privilege level; avoid Run as administrator unless both must use it.";
             return detail + " Confirm WoW is using standard Windowed mode, then restart WoW and the Companion and retry.";
+        }
+    }
+
+    internal static class RenderResizeHandshake
+    {
+        internal static Rectangle IntermediateBounds(Rectangle target)
+        {
+            // Keep the origin and width stable so mixed-width/negative-origin
+            // monitor regions do not shift. A one-pixel height change is enough
+            // to produce a second ordinary WM_SIZE through SetWindowPos after
+            // the borderless style has settled. The exact target is restored
+            // immediately afterward.
+            if (target.Height > 1)
+                return new Rectangle(target.X, target.Y, target.Width, target.Height - 1);
+            if (target.Width > 1)
+                return new Rectangle(target.X, target.Y, target.Width - 1, target.Height);
+            return target;
         }
     }
 
@@ -2008,7 +2038,7 @@ namespace Offhand.Companion
             Button btnRestoreNow = CreateButton("Restore Window", 182, 522, 158, 36, cBtnBg, cText, cBorder);
             btnRestoreNow.Click += (s, e) => { InvokeRestoreWindow(true); };
             this.Controls.Add(btnRestoreNow);
-            uiToolTips.SetToolTip(btnRestoreNow, "Return WoW to a bordered window filling the selected Mainhand display so off-screen UI can be recovered. Automatic spanning pauses for that WoW process until Span WoW Now is used.");
+            uiToolTips.SetToolTip(btnRestoreNow, "Return WoW to the bordered bounds remembered before spanning. Missing-display recovery still fills the surviving Mainhand. Automatic spanning pauses for that WoW process until Span WoW Now is used.");
 
             btnToggleWatch = CreateButton("Pause Monitor", 348, 522, 158, 36, cBtnBg, cText, cBorder);
             btnToggleWatch.Click += (s, e) =>
@@ -2167,7 +2197,7 @@ namespace Offhand.Companion
                 "Mainhand (game): The selected display's exact rectangle becomes the 3D game viewport. The other selected display becomes the workspace.",
                 "Single-display 32:9 split: Divides one super-ultrawide into equal workspace/game halves. It never activates automatically.",
                 "Span WoW Now: Save the selected physical display geometry for Offhand, then span immediately and resume a process previously restored. The resulting desktop-sized WoW window is expected; after /reload, Offhand confines the 3D game view to Mainhand.",
-                "Restore Window: Fill the selected Mainhand with a safe bordered WoW window and pause auto-span for that process.",
+                "Restore Window: Return WoW to its remembered pre-span bordered bounds and pause auto-span for that process. Missing-display recovery still fills the surviving Mainhand.",
                 "Pause Monitor: Stop launch detection without disabling the manual controls.",
                 CompanionDistribution.UpdateHelpText(isStorePackage),
                 "",
@@ -2432,10 +2462,12 @@ namespace Offhand.Companion
             try
             {
                 currentDisplayPlan = GetMonitorPlan(currentDisplays);
+                string alignmentWarning = MonitorSelection.AlignmentWarning(currentDisplayPlan);
                 lblDisplayInfo.Text = string.Format("  Game: {0}x{1}  Workspace: {2}x{3}  ({4})",
                     currentDisplayPlan.MainhandBounds.Width, currentDisplayPlan.MainhandBounds.Height,
                     currentDisplayPlan.WorkspaceBounds.Width, currentDisplayPlan.WorkspaceBounds.Height,
-                    currentDisplayPlan.SplitSingle ? "one-screen split" : "two displays");
+                    currentDisplayPlan.SplitSingle ? "one-screen split"
+                        : alignmentWarning == null ? "two displays" : "vertically offset");
             }
             catch (Exception ex)
             {
@@ -2696,7 +2728,11 @@ namespace Offhand.Companion
 
         private bool InvokeRestoreWindow(bool manual)
         {
-            return InvokeRestoreWindow(manual, true);
+            // A user-requested restore should return to the exact bordered bounds
+            // captured before the first span. Forcing the complete Mainhand work
+            // area creates an avoidable second renderer resize when WoW reapplies
+            // its saved windowed client size, and can trigger D3D12 device recovery.
+            return InvokeRestoreWindow(manual, false);
         }
 
         private bool InvokeRestoreWindow(bool manual, bool fillConnectedMainhand)
@@ -2817,6 +2853,8 @@ namespace Offhand.Companion
                     mainhandIdentity, mainhand,
                     string.Equals(split, "True", StringComparison.OrdinalIgnoreCase),
                     string.Equals(side, "LEFT", StringComparison.OrdinalIgnoreCase), displays);
+                string alignmentWarning = MonitorSelection.AlignmentWarning(plan);
+                if (alignmentWarning != null) AddLog("Display alignment warning: " + alignmentWarning);
                 Rectangle plannedBounds = plan.Bounds;
                 Rectangle bounds = plannedBounds;
                 if (bounds.Width <= 0 || bounds.Height <= 0) throw new Exception("Invalid virtual desktop dimensions.");
@@ -2880,6 +2918,30 @@ namespace Offhand.Companion
                     if (!NativeMethods.SetWindowPos(handle, IntPtr.Zero, bounds.X, bounds.Y, bounds.Width, bounds.Height, flags))
                     {
                         throw new Exception("Windows rejected the requested span.");
+                    }
+
+                    // WoW owns its DirectX swap chain, so the Companion must not
+                    // inspect, hook or resize renderer resources directly. Some
+                    // clients can retain a soft/stretched render surface when the
+                    // borderless style and the only resize arrive together. Once
+                    // the final style is active, perform a harmless one-pixel
+                    // SetWindowPos nudge and return to the exact requested bounds.
+                    // These ordinary window resizes let WoW handle its own WM_SIZE
+                    // path while preserving the final topology byte-for-byte.
+                    Rectangle intermediate = RenderResizeHandshake.IntermediateBounds(bounds);
+                    bool renderResizeHandshake = intermediate != bounds
+                        && NativeMethods.SetWindowPos(handle, IntPtr.Zero,
+                            intermediate.X, intermediate.Y,
+                            intermediate.Width, intermediate.Height, flags);
+                    if (renderResizeHandshake)
+                    {
+                        System.Threading.Thread.Sleep(50);
+                        if (!NativeMethods.SetWindowPos(handle, IntPtr.Zero,
+                            bounds.X, bounds.Y, bounds.Width, bounds.Height, flags))
+                        {
+                            throw new Exception("WoW did not return to the exact span after the render resize handshake.");
+                        }
+                        AddLog("Render resize handshake applied; exact display bounds restored.");
                     }
 
                     NativeMethods.RECT actual;

@@ -263,6 +263,19 @@ assert(OffhandCharDB.mainhandLayout.sourcePreset
         and OffhandCharDB.foreverEditModeLayoutID == 4,
     "per-character layout provenance was not recorded")
 
+-- Retail/Anniversary login restores a character's layout by name. Repairing
+-- the HUD must replace any stale remembered layout in the same successful
+-- transaction, otherwise /reload immediately undoes the repair.
+addon.isForever = false
+addon.isRetail = true
+OffhandCharDB.editModeLayoutName = "1234"
+ok, localName, moved = addon.Mainhand:CreateOrUpdateEditModeLayout()
+assert(ok and OffhandCharDB.editModeLayoutName == localName
+        and localName == "Offhand - Mainhand - Tester",
+    "Retail HUD repair did not persist the generated layout as the character preference")
+addon.isForever = true
+addon.isRetail = false
+
 -- Updating for another topology must rebuild from the original preset, not
 -- translate the generated layout a second time.
 metrics = { gameLeft = 0, gameBottom = 0, gameRight = 2560, gameTop = 1440, isSpanned = true }
@@ -314,6 +327,70 @@ assert(not gatherActionOK and gatherActionWhy == "combat"
         and gatherActionMoved == 4 and gatherActionSkipped == 5,
     "Options collapsed the safe gather result values")
 addon.Mainhand.GatherSafeUI = gatherAction
+
+-- Forever profiles created before mainhandLayout provenance was recorded may
+-- already have the Offhand layout selected at Blizzard's custom-layout cap.
+-- Reuse that exact Offhand-owned layout instead of trying to allocate one more.
+local existingOffhand = saved.layouts[1]
+existingOffhand.layoutName = "Offhand - Mainhand - Tester"
+layoutData = {
+    activeLayout = 1,
+    layouts = {
+        existingOffhand,
+        { layoutName = "Custom 2", systems = {} },
+        { layoutName = "Custom 3", systems = {} },
+        { layoutName = "Custom 4", systems = {} },
+        { layoutName = "Custom 5", systems = {} },
+    },
+}
+Constants.EditModeConsts.EditModeMaxLayoutsPerType = 5
+OffhandCharDB = { foreverEditModeLayoutName = "Offhand - Mainhand - Tester" }
+C_EditMode.SetActiveLayout = function(id) activated = id; layoutData.activeLayout = id end
+saved, activated = nil, nil
+ok, localName, moved = addon.Mainhand:CreateOrUpdateEditModeLayout()
+assert(ok and localName == "Offhand - Mainhand - Tester" and #saved.layouts == 5,
+    "existing Forever Offhand layout was not reused at Blizzard's layout cap")
+assert(OffhandCharDB.mainhandLayout
+        and OffhandCharDB.mainhandLayout.generatedName == "Offhand - Mainhand - Tester",
+    "recovered Forever layout did not rebuild generator provenance")
+
+-- Existing profiles can predate the generated-layout setup step. Anniversary
+-- and Retail should offer a repair only when the record is absent or belongs
+-- to a different span; Forever retains its separate protected-HUD flow.
+addon.isForever = false
+addon.isRetail = false
+addon.HasBlizzardEditMode = function() return true end
+OffhandCharDB = {}
+layoutData = { activeLayout = 1, layouts = {} }
+local attention, attentionReason = addon.Mainhand:NeedsEditModeLayoutAttention()
+assert(attention and attentionReason == "missing",
+    "a completed pre-layout Anniversary profile must be offered Mainhand HUD repair")
+OffhandCharDB.mainhandLayout = {
+    generatedName = "Offhand - Mainhand - Tester",
+    geometrySignature = addon.Mainhand:GetGeometrySignature(),
+}
+attention, attentionReason = addon.Mainhand:NeedsEditModeLayoutAttention()
+assert(not attention and attentionReason == "ready",
+    "a current generated Mainhand layout must not produce a repair prompt")
+OffhandCharDB.mainhandLayout.geometrySignature = "old-topology"
+attention, attentionReason = addon.Mainhand:NeedsEditModeLayoutAttention()
+assert(attention and attentionReason == "stale"
+        and addon.Mainhand:GetEditModeDiagnostics():find("Attention=yes/stale", 1, true),
+    "a topology-stale Mainhand layout must be diagnosable and offered repair")
+assert(addon.Mainhand:SetEditModeLayoutDeferred(true)
+        and addon.Mainhand:GetLayoutStatus().deferred,
+    "the wizard skip choice must persist as per-character deferred state")
+attention, attentionReason = addon.Mainhand:NeedsEditModeLayoutAttention()
+assert(not attention and attentionReason == "deferred"
+        and addon.Mainhand:GetEditModeDiagnostics():find("Attention=no/deferred", 1, true),
+    "a deliberately deferred HUD layout must not immediately reopen the repair prompt")
+assert(addon.Mainhand:SetEditModeLayoutDeferred(false)
+        and not addon.Mainhand:GetLayoutStatus().deferred,
+    "explicit repair must be able to clear deferred HUD state")
+addon.isForever = true
+attention, attentionReason = addon.Mainhand:NeedsEditModeLayoutAttention()
+assert(not attention and attentionReason == "forever",
+    "Forever must retain its dedicated protected-HUD recovery workflow")
 
 C_EditMode.SaveLayouts = nil
 ok, why = addon.Mainhand:CreateOrUpdateEditModeLayout()

@@ -1,6 +1,18 @@
-local addon = { modules = {}, db = { enabled = true } }
+local addon = { modules = {}, db = { enabled = true }, isRetail = true }
 local uiScale = 0.39375 -- 1440 / 2560 * 70%
 UIParent = { GetEffectiveScale = function() return uiScale end }
+local spanned, inInstance = true, false
+addon.Viewport = { GetMetrics = function() return { isSpanned = spanned } end }
+IsInInstance = function() return inInstance, inInstance and "party" or "none" end
+local font = { file = "Fonts\\FRIZQT__.TTF", height = 13, flags = "OUTLINE", writes = 0 }
+ChatBubbleFont = {
+    GetFont = function() return font.file, font.height, font.flags end,
+    SetFont = function(_, file, height, flags)
+        font.file, font.height, font.flags = file, height, flags
+        font.writes = font.writes + 1
+        return true
+    end,
+}
 local bubbles, ticks, tick = {}, 0
 C_ChatBubbles = { GetAllChatBubbles = function(includeForbidden)
     assert(not includeForbidden, "Must not request forbidden bubble access")
@@ -50,6 +62,21 @@ forbidden.GetScale = function() error("Forbidden frame was inspected") end
 bubbles = {forbidden, protected, invalid, newBubble}
 tick()
 assert(forbidden.writes == 0 and protected.writes == 0 and invalid.writes == 0)
+inInstance = true
+bubbles = {native, inherited, custom}
+tick()
+Near(native.scale, 1); Near(inherited.scale, 1); Near(custom.scale, 0.8)
+Near(font.height, 6.5)
+local instanceFontWrites = font.writes
+tick()
+assert(font.writes == instanceFontWrites, "Stable instance font must not be rewritten")
+local diagnostics = module:GetDiagnostics()
+assert(diagnostics.fontManaged and diagnostics.fontOriginal == 13
+    and diagnostics.fontApplied == 6.5 and diagnostics.fontCurrent == 6.5)
+inInstance = false
+tick()
+Near(font.height, 13)
+Near(native.scale, 0.5); Near(inherited.scale, 1); Near(custom.scale, 0.4)
 custom.scale = 0.9 -- external ownership change must survive disabling
 addon.db.enabled = false
 tick()
@@ -59,5 +86,7 @@ tick(); assert(native.writes == restoredWrites)
 C_ChatBubbles = nil
 addon.db.enabled = true
 tick() -- unsupported clients must remain usable
-print("PASS: speech bubble baseline, inherited/custom scales, no feedback, pooled/new frames, protected guards and disable restoration")
+diagnostics = module:GetDiagnostics()
+assert(not diagnostics.supported and diagnostics.visible == 0)
+print("PASS: speech bubble baseline, inherited/custom scales, Retail forbidden-instance font compensation, no feedback, protected guards, diagnostics and restoration")
 

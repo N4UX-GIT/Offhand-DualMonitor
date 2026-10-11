@@ -52,6 +52,67 @@ function Viewport:GetCompanionTopology(pw, ph, sw, sh)
     return nil, "MISMATCH"
 end
 
+local function ReadNumericCVar(name)
+    local getter = GetCVar or (C_CVar and C_CVar.GetCVar)
+    if not getter then return nil end
+    local ok, value = pcall(getter, name)
+    value = ok and tonumber(value) or nil
+    if not value or value ~= value or value <= 0 or value == math.huge then return nil end
+    return value
+end
+
+local function ReadNonNegativeCVar(name)
+    local getter = GetCVar or (C_CVar and C_CVar.GetCVar)
+    if not getter then return nil end
+    local ok, value = pcall(getter, name)
+    value = ok and tonumber(value) or nil
+    if not value or value ~= value or value < 0 or value == math.huge then return nil end
+    return value
+end
+
+local function WriteNumericCVar(name, value)
+    local setter = SetCVar or (C_CVar and C_CVar.SetCVar)
+    if not setter or not value then return false end
+    return pcall(setter, name, string.format("%.6f", value))
+end
+
+local function WriteBooleanCVar(name, value)
+    local setter = SetCVar or (C_CVar and C_CVar.SetCVar)
+    if not setter or value == nil then return false end
+    return pcall(setter, name, tonumber(value) and tonumber(value) >= 0.5 and "1" or "0")
+end
+
+local function ManageFriendlyPlayerNames(db)
+    local friendlyNames = ReadNonNegativeCVar("UnitNameFriendlyPlayerName")
+    local shouldManage = db and db.enabled and Offhand.isRetail and not Offhand.isForever
+        and friendlyNames ~= nil
+    if shouldManage then
+        if db.originalFriendlyPlayerName == nil then
+            db.originalFriendlyPlayerName = friendlyNames
+        end
+        if friendlyNames < 0.5 then
+            WriteBooleanCVar("UnitNameFriendlyPlayerName", 1)
+        end
+    elseif db and db.originalFriendlyPlayerName ~= nil then
+        WriteBooleanCVar("UnitNameFriendlyPlayerName", db.originalFriendlyPlayerName)
+        db.originalFriendlyPlayerName = nil
+    end
+end
+
+local function ValidPositive(value)
+    value = tonumber(value)
+    return value and value == value and value > 0 and value < math.huge
+end
+
+local function ReadNamePlateDimensions()
+    if not C_NamePlate or type(C_NamePlate.GetNamePlateSize) ~= "function" then return nil end
+    local ok, width, height = pcall(C_NamePlate.GetNamePlateSize)
+    if not ok or not ValidPositive(width) or not ValidPositive(height) then return nil end
+    return width, height
+end
+
+local trackedNamePlateFrames = setmetatable({}, { __mode = "k" })
+
 local function ParseReleaseVersion(value)
     if type(value) ~= "string" then return nil end
     local major, minor, patch, label, number = string.lower(value):match(
@@ -104,6 +165,191 @@ end
 function Viewport:IsSingleScreenRecovery(metrics)
     return metrics and not metrics.isSpanned
         and self:IsRecoveryTopologyStatus(metrics.topologyStatus) or false
+end
+
+local function NamePlateScaleFrame(namePlate)
+    local unitFrame = namePlate and namePlate.UnitFrame
+    if not unitFrame or type(unitFrame.GetScale) ~= "function"
+        or type(unitFrame.SetScale) ~= "function"
+        or type(unitFrame.ClearAllPoints) ~= "function"
+        or type(unitFrame.SetPoint) ~= "function"
+        or type(unitFrame.SetSize) ~= "function"
+        or type(unitFrame.SetAllPoints) ~= "function" then return nil end
+    if type(unitFrame.IsForbidden) == "function" then
+        local ok, forbidden = pcall(unitFrame.IsForbidden, unitFrame)
+        if not ok or forbidden then return nil end
+    end
+    return unitFrame
+end
+
+local function ReadFrameScale(frame)
+    local ok, scale = pcall(frame.GetScale, frame)
+    scale = ok and tonumber(scale) or nil
+    return ValidPositive(scale) and scale or nil
+end
+
+local function ReadFrameEffectiveScale(frame)
+    if not frame or type(frame.GetEffectiveScale) ~= "function" then return nil end
+    local ok, scale = pcall(frame.GetEffectiveScale, frame)
+    scale = ok and tonumber(scale) or nil
+    return ValidPositive(scale) and scale or nil
+end
+
+local function RestoreTrackedNamePlateFrame(scaleFrame, state)
+    local restored = false
+    local current = ReadFrameScale(scaleFrame)
+    if current and state.applied and state.original
+        and math.abs(current - state.applied) < 0.00001
+        and pcall(scaleFrame.SetScale, scaleFrame, state.original) then
+        restored = true
+    end
+    if state.detached and state.owner then
+        pcall(scaleFrame.ClearAllPoints, scaleFrame)
+        pcall(scaleFrame.SetAllPoints, scaleFrame, state.owner)
+    end
+    return restored
+end
+
+local function FrameIsForbidden(frame)
+    if not frame or type(frame.IsForbidden) ~= "function" then return false end
+    local ok, forbidden = pcall(frame.IsForbidden, frame)
+    return not ok or forbidden and true or false
+end
+
+local function DesiredHUDScale(metrics)
+    if type(metrics) ~= "table" then return nil end
+    local physicalHeight = math.max(1, tonumber(metrics.physicalHeight) or 1)
+    local gameHeight = math.max(0, tonumber(metrics.gamePixelHeight) or 0)
+    local gameWidth = math.max(0, tonumber(metrics.gamePixelWidth) or 0)
+    local geometryScale = math.min(gameHeight / physicalHeight,
+        gameWidth * 768 / (1100 * physicalHeight))
+    return math.max(0.05, geometryScale
+        * Number(Offhand.db and Offhand.db.hudScale, 0.70, 0.25, 1.25))
+end
+
+function Viewport:RestoreNamePlateVisualScale()
+    local restored = 0
+    for scaleFrame, state in pairs(trackedNamePlateFrames) do
+        if RestoreTrackedNamePlateFrame(scaleFrame, state) then restored = restored + 1 end
+        trackedNamePlateFrames[scaleFrame] = nil
+    end
+    self.namePlateCompensationRatio = nil
+    self.namePlateVisualFrameCount = 0
+    return restored
+end
+
+function Viewport:RestoreNamePlateUnit(unitToken)
+    if not unitToken then return false end
+    for scaleFrame, state in pairs(trackedNamePlateFrames) do
+        if state.unitToken == unitToken then
+            RestoreTrackedNamePlateFrame(scaleFrame, state)
+            trackedNamePlateFrames[scaleFrame] = nil
+            return true
+        end
+    end
+    return false
+end
+
+function Viewport:ApplyNamePlateFrame(namePlate, targetEffectiveScale)
+    local scaleFrame = NamePlateScaleFrame(namePlate)
+    if not scaleFrame then return false end
+    local current = ReadFrameScale(scaleFrame)
+    local parentEffectiveScale = ReadFrameEffectiveScale(namePlate)
+    if not current or not parentEffectiveScale then return false end
+
+    local state = trackedNamePlateFrames[scaleFrame]
+    -- Blizzard or another addon can legitimately replace the local scale. If
+    -- that happens, adopt the new value as the baseline instead of multiplying
+    -- our previous correction again.
+    if not state or not state.applied
+        or math.abs(current - state.applied) >= 0.00001 then
+        state = {
+            original = current,
+            owner = namePlate,
+            unitToken = namePlate.unitToken or scaleFrame.unit,
+        }
+        trackedNamePlateFrames[scaleFrame] = state
+    end
+    -- Enemy, friendly, selected and distance-scaled nameplates can have
+    -- different C++-owned base scales. A single multiplier therefore makes
+    -- one class too large or too small. Normalize each UnitFrame against its
+    -- own parent so its final effective scale matches Blizzard's HUD preview.
+    local desired = state.original * targetEffectiveScale / parentEffectiveScale
+    -- Friendly base frames can expose smaller current bounds than the native
+    -- Size preset even though they share the same Blizzard setup options.
+    -- Use the read-only native dimensions for the explicit UnitFrame bounds;
+    -- never feed these values back through SetNamePlateSize.
+    local width, height = ReadNamePlateDimensions()
+    if not width or not height then
+        local widthOK, fallbackWidth = pcall(namePlate.GetWidth, namePlate)
+        local heightOK, fallbackHeight = pcall(namePlate.GetHeight, namePlate)
+        if not widthOK or not heightOK or not ValidPositive(fallbackWidth)
+            or not ValidPositive(fallbackHeight) then return false end
+        width, height = fallbackWidth, fallbackHeight
+    end
+    -- SetAllPoints resolves the child's local width inversely to its scale,
+    -- cancelling horizontal compensation while fixed-height regions grow.
+    -- Give the child explicit native bounds before scaling so both axes use
+    -- the same factor. RestoreTrackedNamePlateFrame returns Blizzard's anchor
+    -- contract before the pooled frame can be reused by the options preview.
+    local boundsOK = pcall(function()
+        scaleFrame:ClearAllPoints()
+        scaleFrame:SetPoint("CENTER", namePlate, "CENTER", 0, 0)
+        scaleFrame:SetSize(width, height)
+    end)
+    if not boundsOK then return false end
+    state.detached = true
+    if math.abs(current - desired) >= 0.00001 then
+        if not pcall(scaleFrame.SetScale, scaleFrame, desired) then return false end
+    end
+    state.applied = desired
+    return true
+end
+
+function Viewport:ApplyNamePlateVisualScale(metrics)
+    if not Offhand.db or not Offhand.db.enabled or not metrics or not metrics.isSpanned then
+        self:RestoreNamePlateVisualScale()
+        return
+    end
+    if InCombatLockdown and InCombatLockdown() then
+        if not self.namePlateVisualPending and type(Offhand.RunOrQueueCombat) == "function" then
+            self.namePlateVisualPending = true
+            Offhand:RunOrQueueCombat(function()
+                Viewport.namePlateVisualPending = nil
+                local live = Offhand.db and Offhand.db.enabled and Viewport:GetMetrics() or nil
+                Viewport:ApplyNamePlateVisualScale(live)
+            end)
+        end
+        return
+    end
+    self.namePlateVisualPending = nil
+    if not C_NamePlate or type(C_NamePlate.GetNamePlates) ~= "function" then return end
+    local ok, namePlates = pcall(C_NamePlate.GetNamePlates)
+    if not ok or type(namePlates) ~= "table" then return end
+
+    -- The C++ nameplate frame owns both its dimensions and its base scale.
+    -- Changing either produces stretching or is overwritten by the client.
+    -- Compensate only the Lua UnitFrame contents, using the same scale as the
+    -- HUD preview so the selected Blizzard Size remains visually consistent.
+    local targetEffectiveScale = DesiredHUDScale(metrics)
+    if not targetEffectiveScale then return end
+    local count = 0
+    for _, namePlate in pairs(namePlates) do
+        if self:ApplyNamePlateFrame(namePlate, targetEffectiveScale) then count = count + 1 end
+    end
+    self.namePlateCompensationRatio = targetEffectiveScale
+    self.namePlateVisualFrameCount = count
+end
+
+function Viewport:ScheduleNamePlateVisualScale()
+    if self.namePlateVisualScheduled then return end
+    self.namePlateVisualScheduled = true
+    local function apply()
+        Viewport.namePlateVisualScheduled = nil
+        local metrics = Offhand.db and Offhand.db.enabled and Viewport:GetMetrics() or nil
+        Viewport:ApplyNamePlateVisualScale(metrics)
+    end
+    if C_Timer and C_Timer.After then C_Timer.After(0, apply) else apply() end
 end
 
 -- SetPoint offsets belong to the receiving frame, not its relative frame.
@@ -232,8 +478,15 @@ function Viewport:ApplyGlobalScale()
     local db=Offhand.db
     if not db then return end
     local metrics = db.enabled and self:GetMetrics() or nil
+    -- Friendly Retail plates can remain visible while their name CVar is off,
+    -- producing a blank bar until the unit is selected. This is a visibility
+    -- invariant, not span compensation: keep names enabled for the whole time
+    -- Offhand is enabled, including a restored/unspanned window, and restore the
+    -- player's exact preference only when Offhand itself is disabled or unloaded.
+    ManageFriendlyPlayerNames(db)
     if not db.enabled or (metrics and not metrics.isSpanned) then
-        if self.originalScale or db.originalUiScale then
+        if self.originalScale or self.originalWorldScale or db.originalUiScale
+            or db.originalWorldTextScale or db.originalNameplateSize then
             self.scaling=true
             pcall(function() 
                 if db.originalUiScale then
@@ -246,6 +499,12 @@ function Viewport:ApplyGlobalScale()
                 if db.originalUseUiScale then
                     if SetCVar then SetCVar("useUiScale", db.originalUseUiScale) end
                 end
+                if db.originalWorldTextScale then
+                    WriteNumericCVar("WorldTextScale", db.originalWorldTextScale)
+                end
+                if db.originalNameplateSize then
+                    WriteNumericCVar("nameplateSize", db.originalNameplateSize)
+                end
                 if WorldFrame and WorldFrame.SetScale and self.originalWorldScale then
                     WorldFrame:SetScale(self.originalWorldScale)
                 end
@@ -254,13 +513,15 @@ function Viewport:ApplyGlobalScale()
             self.originalWorldScale = nil
             db.originalUiScale = nil
             db.originalUseUiScale = nil
+            db.originalWorldTextScale = nil
+            db.originalNameplateSize = nil
             self.scaling=false
         end
+        self:RestoreNamePlateVisualScale()
         return
     end
     local m=metrics or self:GetMetrics()
-    local desired=math.min(m.gamePixelHeight/m.physicalHeight,
-        m.gamePixelWidth*768/(1100*m.physicalHeight)) * Number(db.hudScale,0.70,0.25,1.25)
+    local desired=DesiredHUDScale(m)
     
     if not self.originalScale then
         self.originalScale = UIParent:GetScale()
@@ -268,28 +529,56 @@ function Viewport:ApplyGlobalScale()
     if WorldFrame and WorldFrame.GetScale and not self.originalWorldScale then
         self.originalWorldScale = WorldFrame:GetScale()
     end
-    
-    -- WorldFrame is a separate root on modern and Forever clients. Leaving its
-    -- local scale at 1 while shrinking UIParent makes world-owned nameplates,
-    -- overhead NPC text and floating combat text roughly 1 / uiScale too large.
-    -- Give both roots the same absolute baseline; Viewport:SetPoint compensates
-    -- for the receiving frame's effective scale when it applies the render rect.
-    local worldScale = WorldFrame and WorldFrame.GetScale and WorldFrame:GetScale() or nil
+    local currentWorldTextScale = ReadNumericCVar("WorldTextScale")
+    if currentWorldTextScale and not db.originalWorldTextScale then
+        db.originalWorldTextScale = currentWorldTextScale
+    end
+    -- Migrate the previous beta's discrete-preset workaround back to the
+    -- player's exact setting. Per-frame visual scaling below provides
+    -- continuous compensation without changing the Size selection or native
+    -- stacking bounds.
+    if db.originalNameplateSize then
+        WriteNumericCVar("nameplateSize", db.originalNameplateSize)
+        db.originalNameplateSize = nil
+    end
+
+    -- Keep WorldFrame at its native scale. Retail hides protected friendly
+    -- nameplates from addon enumeration inside instances, so shrinking this
+    -- shared root makes them permanently smaller than accessible enemy plates.
+    -- Viewport:SetPoint already converts the render rectangle across scales;
+    -- world text retains its separate physical-height correction below.
+    local worldDisplayRatio = math.max(0.05, math.min(1,
+        m.gamePixelHeight / m.physicalHeight))
     local uiNeedsWrite = math.abs(UIParent:GetScale()-desired) >= 0.00001
-    local worldNeedsWrite = WorldFrame and WorldFrame.SetScale and worldScale
-        and math.abs(worldScale-desired) >= 0.00001
-    if not uiNeedsWrite and not worldNeedsWrite then return end
+    local worldNeedsWrite = false
+    -- Damage numbers and other engine-owned world text are rendered against
+    -- the complete spanned window rather than the bounded WorldFrame. Correct
+    -- only that physical-height mismatch; unlike UIParent, WorldTextScale is a
+    -- user preference and must not inherit Offhand's optional HUD multiplier.
+    local worldTextRatio = worldDisplayRatio
+    local desiredWorldTextScale = db.originalWorldTextScale
+        and db.originalWorldTextScale * worldTextRatio or nil
+    local worldTextNeedsWrite = currentWorldTextScale and desiredWorldTextScale
+        and math.abs(currentWorldTextScale - desiredWorldTextScale) >= 0.00001
+    if not uiNeedsWrite and not worldNeedsWrite and not worldTextNeedsWrite then
+        self:ApplyNamePlateVisualScale(m)
+        return
+    end
     self.scaling=true
     local ok,err=pcall(function() 
         -- Keep the native CVar separate: client clamping can otherwise cause
         -- every display notification to write it again.
         if uiNeedsWrite then UIParent:SetScale(desired) end
-        if worldNeedsWrite then
-            WorldFrame:SetScale(desired)
+        if worldTextNeedsWrite then
+            WriteNumericCVar("WorldTextScale", desiredWorldTextScale)
         end
     end)
     self.scaling=false
     if not ok then error(err) end
+    -- Parent effective scales are authoritative only after both roots have
+    -- reached their new values; normalizing before this point uses stale
+    -- enemy/friendly scales on the first application.
+    self:ApplyNamePlateVisualScale(m)
 end
 
 function Viewport:IsDualActive()
@@ -344,6 +633,32 @@ end
 -- external SetWindowPos and must not be presented as a live backbuffer size.
 function Viewport:GetPerformanceDiagnostics(metrics)
     local m = metrics or self:GetMetrics()
+    local namePlateWidth, namePlateHeight = ReadNamePlateDimensions()
+    local namePlateCount, namePlateForbiddenCount = 0, 0
+    local namePlateSample
+    if C_NamePlate and type(C_NamePlate.GetNamePlates) == "function" then
+        local ok, namePlates = pcall(C_NamePlate.GetNamePlates)
+        if ok and type(namePlates) == "table" then
+            for _, namePlate in pairs(namePlates) do
+                namePlateCount = namePlateCount + 1
+                local forbidden = FrameIsForbidden(namePlate)
+                if forbidden then namePlateForbiddenCount = namePlateForbiddenCount + 1 end
+                if not namePlateSample then
+                    local unitFrame = namePlate and namePlate.UnitFrame
+                    local state = unitFrame and trackedNamePlateFrames[unitFrame] or nil
+                    namePlateSample = {
+                        forbidden = forbidden,
+                        localScale = ReadFrameScale(namePlate),
+                        effectiveScale = ReadFrameEffectiveScale(namePlate),
+                        originalScale = state and state.original or nil,
+                        appliedScale = state and state.applied or nil,
+                        unitLocalScale = ReadFrameScale(unitFrame),
+                        unitEffectiveScale = ReadFrameEffectiveScale(unitFrame),
+                    }
+                end
+            end
+        end
+    end
     local spanPixels = math.max(0, tonumber(m.physicalWidth) or 0)
         * math.max(0, tonumber(m.physicalHeight) or 0)
     local mainhandPixels = math.max(0, tonumber(m.gamePixelWidth) or 0)
@@ -361,7 +676,6 @@ function Viewport:GetPerformanceDiagnostics(metrics)
         gxWindowedResolution = DiagnosticCVar("gxWindowedResolution"),
         renderScale = DiagnosticCVar("RenderScale"),
         resampleQuality = DiagnosticCVar("ResampleQuality"),
-        gxWindow = DiagnosticCVar("gxWindow"),
         gxApi = DiagnosticCVar("gxApi"),
         -- Retail exposes this as "vsync"; older branches have also used the
         -- gx-prefixed spelling. Keep one diagnostic field across both.
@@ -377,16 +691,37 @@ function Viewport:GetPerformanceDiagnostics(metrics)
         dynamicRenderScale = DiagnosticCVar("DynamicRenderScale"),
         resampleAlwaysSharpen = DiagnosticCVar("ResampleAlwaysSharpen"),
         resampleSharpness = DiagnosticCVar("ResampleSharpness"),
-        foregroundDowngradeMin = DiagnosticCVar("RenderScaleDowngradeForegroundMinSize"),
-        backgroundDowngradeMin = DiagnosticCVar("RenderScaleDowngradeBackgroundMinSize"),
+        worldTextScale = DiagnosticCVar("WorldTextScale"),
+        originalWorldTextScale = Offhand.db and Offhand.db.originalWorldTextScale or nil,
+        worldTextHeightRatio = math.max(0, tonumber(m.gamePixelHeight) or 0)
+            / math.max(1, tonumber(m.physicalHeight) or 1),
+        nameplateGlobalScale = DiagnosticCVar("nameplateGlobalScale"),
+        nameplateSize = DiagnosticCVar("nameplateSize"),
+        originalNameplateSize = Offhand.db and Offhand.db.originalNameplateSize or nil,
+        nameplateWidth = namePlateWidth,
+        nameplateHeight = namePlateHeight,
+        nameplateCompensationRatio = self.namePlateCompensationRatio,
+        nameplateVisualFrameCount = self.namePlateVisualFrameCount or 0,
+        nameplateCount = namePlateCount,
+        nameplateForbiddenCount = namePlateForbiddenCount,
+        nameplateSample = namePlateSample,
+        nameplateHorizontalScale = DiagnosticCVar("NamePlateHorizontalScale"),
+        nameplateVerticalScale = DiagnosticCVar("NamePlateVerticalScale"),
+        nameplateLargerScale = DiagnosticCVar("nameplateLargerScale"),
+        nameplateSelectedScale = DiagnosticCVar("nameplateSelectedScale"),
+        nameplateShowFriends = DiagnosticCVar("nameplateShowFriends"),
+        nameplateShowOnlyNames = DiagnosticCVar("nameplateShowOnlyNames"),
+        unitNameFriendlyPlayerName = DiagnosticCVar("UnitNameFriendlyPlayerName"),
+        unitNameEnemyPlayerName = DiagnosticCVar("UnitNameEnemyPlayerName"),
     }
 end
 
 function Viewport:CaptureDiagnostics()
     local m = self:GetMetrics()
     local snapshot = { metrics = m, frames = {} }
-    for _, name in ipairs({"WorldFrame", "OffhandCanvasFrame", "MainMenuBar",
-        "MainActionBar", "ActionButton1", "PlayerFrame", "MinimapCluster"}) do
+    -- Only WorldFrame participates in the PASS/MISMATCH result. Historical
+    -- HUD rectangles were saved here but never displayed or consumed.
+    for _, name in ipairs({"WorldFrame"}) do
         local frame = _G[name]
         if frame then
             local x, y, w, h = frame:GetRect()
@@ -430,5 +765,36 @@ function Viewport:Reset()
     WorldFrame:SetAllPoints(UIParent)
 end
 
-function Offhand:InitializeViewport() end
+function Offhand:InitializeViewport()
+    if not Viewport.namePlateEventFrame and CreateFrame then
+        local eventFrame = CreateFrame("Frame")
+        Viewport.namePlateEventFrame = eventFrame
+        for _, event in ipairs({"NAME_PLATE_UNIT_ADDED", "NAME_PLATE_UNIT_REMOVED",
+            "PLAYER_TARGET_CHANGED", "DISPLAY_SIZE_CHANGED", "CVAR_UPDATE"}) do
+            pcall(eventFrame.RegisterEvent, eventFrame, event)
+        end
+        eventFrame:SetScript("OnEvent", function(_, event, value)
+            if event == "NAME_PLATE_UNIT_REMOVED" then
+                Viewport:RestoreNamePlateUnit(value)
+                return
+            end
+            local cvar = type(value) == "string" and string.lower(value) or ""
+            if event == "CVAR_UPDATE" and (cvar == "unitnamefriendlyplayername"
+                or cvar == "nameplateshowfriends") then
+                if not Viewport.friendlyNameVisibilityScheduled then
+                    Viewport.friendlyNameVisibilityScheduled = true
+                    local function reapply()
+                        Viewport.friendlyNameVisibilityScheduled = nil
+                        Viewport:ApplyGlobalScale()
+                    end
+                    if C_Timer and C_Timer.After then C_Timer.After(0, reapply) else reapply() end
+                end
+            end
+            if event ~= "CVAR_UPDATE" or string.find(cvar, "nameplate", 1, true) then
+                Viewport:ScheduleNamePlateVisualScale()
+            end
+        end)
+    end
+    Viewport:ScheduleNamePlateVisualScale()
+end
 function Offhand:UpdateViewport() Viewport:Apply() end

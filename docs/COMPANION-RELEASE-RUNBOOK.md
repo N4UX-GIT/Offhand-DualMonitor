@@ -41,9 +41,11 @@ The canonical portable Companion is currently:
   `C726444612DD740BE3F923B83704D155E21BC017F7C5FE245379B19DBECC76E3`
 
 The Beta 20 candidate received a clean local Microsoft Defender custom scan.
-The completed Microsoft Security Intelligence review recorded in `SECURITY.md`
-and `docs/SECURITY-FOLLOWUP.md` applies to the exact Beta 19 bytes and does not
-transfer to Beta 20. Preserve the exact Beta 20 bytes above. Edge's
+Microsoft Security Intelligence then reviewed the exact canonical Beta 20 ZIP
+under submission `ee73ae7c-cd58-4824-bfe5-647ff24c8251`; its analyst reported
+no positive detection and no telemetry indicators and stated that the case
+would close with no further action. Preserve the exact Beta 20 bytes above.
+Edge's
 **"isn't commonly downloaded"** message for the
 unsigned standalone EXE is an application-reputation notice, not a Defender
 malware verdict. Prefer the ZIP in public instructions, but treat **"Virus
@@ -51,11 +53,15 @@ detected"**, a named malware detection, or a checksum mismatch as a stop
 condition requiring a new investigation.
 
 Normal addon releases include those exact bytes in the complete bundle and
-reattach the byte-identical `Offhand-Companion.zip` and `Offhand.exe`. This
-keeps GitHub's permanent `/releases/latest/download/...` URLs valid without
-rebuilding the application.
+reattach the byte-identical archive as
+`Offhand-Companion-v2.1.2-beta.20.zip` alongside `Offhand.exe`. The versioned
+name makes downloads, checksums, and security reports attributable even when a
+later addon-only release continues to carry the frozen Beta 20 Companion. The
+original Beta 20 release retains its legacy `Offhand-Companion.zip` asset and
+must not be replaced or rebuilt.
 
-The canonical end-user `Offhand-Companion.zip` is deliberately runtime-only and
+The canonical Beta 20 source archive, `Companion/Offhand-Companion.zip`, is
+deliberately runtime-only and
 must contain exactly `Offhand.exe`, `README.txt`, and `LICENSE`. Do not place
 `build.bat`, source files, manifests, artwork, Linux guidance, or other
 development material in that archive. Those files remain available through the
@@ -64,6 +70,12 @@ the exact three-entry layout. The reviewed archive is retained at
 `Companion/Offhand-Companion.zip`; release automation copies and validates
 those exact bytes because ZIP deflate output can differ across PowerShell/.NET
 runtimes even when every entry is byte-identical.
+
+Beginning with the next release, every newly attached portable Companion
+archive must follow `Offhand-Companion-v<VERSION>.zip`, where `<VERSION>` is the
+Companion version—not necessarily the addon version. Keep `Offhand.exe` stable
+inside the archive and as the standalone asset so existing shortcuts and
+instructions remain valid.
 
 After the first Store publication is live, use the following links in public
 documentation:
@@ -104,8 +116,8 @@ The source, addon metadata, UI, Git tag, and GitHub release use semantic release
 identifiers such as:
 
 ```text
-2.1.2-beta.20
-v2.1.2-beta.20
+2.1.2-beta.21
+v2.1.2-beta.21
 ```
 
 For an addon-only beta release, update at least:
@@ -253,16 +265,16 @@ different bytes after candidate review.
 - [ ] Verify the workflow succeeded.
 - [ ] Download and inspect every addon release's:
   - `Offhand-v<VERSION>.zip`
-  - `Offhand-Companion.zip` (frozen Beta 20)
+  - `Offhand-Companion-v2.1.2-beta.20.zip` (frozen Beta 20)
   - `Offhand-Complete-v<VERSION>.zip`
   - `Offhand.exe` (frozen Beta 20)
   - `checksums-sha256.txt`
 - [ ] Confirm the complete bundle contains the frozen Beta 20 executable with
       the SHA-256 recorded in the release workflow and package script.
 - [ ] For an intentional Companion release only, also inspect
-      `Offhand-Companion.zip` and `Offhand.exe` and confirm every container has
-      identical executable bytes.
-- [ ] Confirm `Offhand-Companion.zip` contains exactly `Offhand.exe`,
+      `Offhand-Companion-v<VERSION>.zip` and `Offhand.exe` and confirm every
+      container has identical executable bytes.
+- [ ] Confirm the versioned Companion ZIP contains exactly `Offhand.exe`,
       `README.txt`, and `LICENSE`, with no source or executable scripts.
 - [ ] Verify the GitHub build-provenance attestations.
 - [ ] Confirm the release is marked prerelease or stable correctly.
@@ -270,6 +282,9 @@ different bytes after candidate review.
       `offhand-companion-version` marker. For addon-only releases it must remain
       the frozen Companion version; for Companion releases it must match the
       new build.
+- [ ] Confirm the release notes recommend the Microsoft Store for Windows and
+      identify the versioned GitHub Companion ZIP as the portable and
+      Linux/Wine alternative.
 - [ ] From a beta Companion, confirm **Check for Updates** considers published
       prereleases. From a stable Companion, confirm prereleases are ignored.
 - [ ] Test the exact public download links before announcing them.
@@ -285,7 +300,7 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -File .\tests\release-metadata.ps1
 
 .\scripts\Restore-FrozenCompanion.ps1
-.\package.ps1 -Version 2.1.2-beta.20
+.\package.ps1 -Version 2.1.2-beta.21
 Get-Content .\dist\checksums-sha256.txt
 ```
 
@@ -298,8 +313,8 @@ Use `-CompanionChanged` only after reviewing actual Companion source changes:
 After the candidate commit is approved, create and push the release tag:
 
 ```powershell
-git tag -a v2.1.2-beta.20 -m "Offhand v2.1.2 Beta 20"
-git push origin v2.1.2-beta.20
+git tag -a v2.1.2-beta.21 -m "Offhand v2.1.2 Beta 21"
+git push origin v2.1.2-beta.21
 ```
 
 Replace the example version in every command with the recorded release version.

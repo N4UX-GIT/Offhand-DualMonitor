@@ -4,6 +4,10 @@ env:
   # Addon-only releases reuse these exact, already-published Companion bytes.
   # Change both values only for a deliberate Companion release.
   COMPANION_RELEASE_TAG: v2.1.2-beta.20
+  # Beta 20 was published under the legacy generic asset name. New releases
+  # expose these bytes under a version-identifying filename.
+  COMPANION_SOURCE_ARCHIVE_NAME: Offhand-Companion.zip
+  COMPANION_ARCHIVE_NAME: Offhand-Companion-v2.1.2-beta.20.zip
   COMPANION_SHA256: 81EECE9430885CEAC178A44A42429854524279072305F9F94EE62E7CCD620CCB
   COMPANION_ARCHIVE_SHA256: C726444612DD740BE3F923B83704D155E21BC017F7C5FE245379B19DBECC76E3
 
@@ -71,7 +75,8 @@ jobs:
       run: |
         Add-Type -AssemblyName System.IO.Compression
         Add-Type -AssemblyName System.IO.Compression.FileSystem
-        $archive = [IO.Compression.ZipFile]::OpenRead('dist\Offhand-Companion.zip')
+        $archivePath = Join-Path 'dist' $env:COMPANION_ARCHIVE_NAME
+        $archive = [IO.Compression.ZipFile]::OpenRead($archivePath)
         try {
           $expectedEntries = @('LICENSE', 'Offhand.exe', 'README.txt')
           foreach ($required in $expectedEntries) {
@@ -98,7 +103,7 @@ jobs:
         } finally {
           $archive.Dispose()
         }
-        $actualArchive = (Get-FileHash -LiteralPath 'dist\Offhand-Companion.zip' -Algorithm SHA256).Hash
+        $actualArchive = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash
         if ($actualArchive -ne $env:COMPANION_ARCHIVE_SHA256) {
           throw "Companion archive hash $actualArchive does not match $env:COMPANION_ARCHIVE_SHA256."
         }
@@ -110,10 +115,11 @@ jobs:
         .\scripts\Restore-FrozenCompanion.ps1 `
           -Tag $env:COMPANION_RELEASE_TAG `
           -ExpectedSha256 $env:COMPANION_SHA256 `
-          -ArchiveDestination "dist\Offhand-Companion.zip" `
+          -ArchiveDestination (Join-Path "dist" $env:COMPANION_ARCHIVE_NAME) `
+          -ArchiveAssetName $env:COMPANION_SOURCE_ARCHIVE_NAME `
           -ExpectedArchiveSha256 $env:COMPANION_ARCHIVE_SHA256
         Copy-Item -LiteralPath "Companion\Offhand.exe" -Destination "dist\Offhand.exe" -Force
-        foreach ($path in @("dist\Offhand-Companion.zip", "dist\Offhand.exe")) {
+        foreach ($path in @((Join-Path "dist" $env:COMPANION_ARCHIVE_NAME), "dist\Offhand.exe")) {
           $file = Get-Item -LiteralPath $path
           $hash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
           "$hash  $($file.Name)" | Add-Content -LiteralPath "dist\checksums-sha256.txt" -Encoding UTF8
@@ -148,7 +154,7 @@ jobs:
       uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
       with:
         subject-path: |
-          dist/Offhand-Companion.zip
+          dist/Offhand-Companion-v*.zip
           dist/Offhand.exe
 
     - name: Create Release and upload addon assets
@@ -159,7 +165,7 @@ jobs:
         prerelease: ${{ steps.metadata.outputs.prerelease }}
         files: |
           dist/Offhand-v*.zip
-          dist/Offhand-Companion.zip
+          dist/Offhand-Companion-v*.zip
           dist/Offhand-Complete-v*.zip
           dist/Offhand.exe
           dist/checksums-sha256.txt

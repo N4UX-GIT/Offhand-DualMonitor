@@ -17,18 +17,75 @@ local guideFrame
 local PAGE_COUNT = 6
 local resumeAfterDownload
 
+StaticPopupDialogs["OFFHAND_CONFIRM_MANUAL_LAYOUT"] = {
+    text = L["ONBOARD_MANUAL_CONFIRM_TEXT"],
+    button1 = L["ONBOARD_MANUAL_CONFIRM_ACCEPT"],
+    button2 = L["BTN_BACK"],
+    OnAccept = function(_, callback)
+        if callback then callback() end
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
+StaticPopupDialogs["OFFHAND_CONFIRM_MANUAL_LAYOUT_FOREVER"] = {
+    text = L["ONBOARD_MANUAL_CONFIRM_TEXT_FOREVER"],
+    button1 = L["ONBOARD_MANUAL_CONFIRM_ACCEPT"],
+    button2 = L["BTN_BACK"],
+    OnAccept = function(_, callback)
+        if callback then callback() end
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
 local function Metrics()
     return Offhand.Viewport and Offhand.Viewport.GetMetrics
         and Offhand.Viewport:GetMetrics() or nil
 end
 
+local function SupportsGeneratedMainhandLayout()
+    return type(Offhand.HasBlizzardEditMode) == "function"
+        and Offhand:HasBlizzardEditMode()
+end
+
 local function CompanionStatus()
     local m = Metrics()
-    if not m or not m.companionTopology or not m.isSpanned then
+    local method = Offhand.GetOnboardingSetupMethod
+        and Offhand:GetOnboardingSetupMethod() or nil
+    if Offhand._displayGeometryTransitionActive then
+        return false, L["ONBOARD_STATUS_GEOMETRY_SETTLING"]
+    end
+    if not method then
+        return false, L["ONBOARD_STATUS_METHOD_REQUIRED"]
+    end
+    if not m then
         return false, L["ONBOARD_STATUS_NOT_SPANNED"]
     end
     if m.topologyStatus == "MISMATCH" then
         return false, L["ONBOARD_STATUS_TOPOLOGY_MISMATCH"]
+    end
+    -- WoW exposes the complete render canvas, but not the number or rectangles
+    -- of the physical displays beneath a manually resized window. Therefore an
+    -- absent Companion topology cannot honestly distinguish a dual-display
+    -- span, an intentional single-ultrawide split, and an ordinary window.
+    -- Require the player to acknowledge the manual logical split instead of
+    -- reporting an automatic detection that the client cannot perform.
+    if method == "COMPANION" and not m.companionTopology then
+        return false, L["ONBOARD_STATUS_COMPANION_RELOAD_REQUIRED"]
+    end
+    if method == "MANUAL" and m.companionTopology then
+        return false, L["ONBOARD_STATUS_MANUAL_TOPOLOGY_PRESENT"]
+    end
+    if method == "MANUAL" then
+        return true, L["ONBOARD_STATUS_MANUAL_CONFIRM"], true
+    end
+    if not m.isSpanned then
+        return false, L["ONBOARD_STATUS_NOT_SPANNED"]
     end
     if m.companionVersionStatus == "MISMATCH" then
         return false, string.format(L["ONBOARD_STATUS_VERSION_MISMATCH"],
@@ -102,6 +159,11 @@ function Onboarding:CreateFrame()
     action:SetPoint("BOTTOM", f, "BOTTOM", 0, 115)
     f.actionButton = action
 
+    local secondaryAction = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    secondaryAction:SetSize(190, 26)
+    secondaryAction:SetPoint("LEFT", action, "RIGHT", 12, 0)
+    f.secondaryActionButton = secondaryAction
+
     local back = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     back:SetSize(110, 28)
     back:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 24, 24)
@@ -113,10 +175,25 @@ function Onboarding:CreateFrame()
     nextButton:SetSize(150, 28)
     nextButton:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -24, 24)
     nextButton:SetScript("OnClick", function()
+        if f.page == 2 and (not Offhand.GetOnboardingSetupMethod
+            or not Offhand:GetOnboardingSetupMethod()) then
+            f.statusText:SetText("|cffff5555" .. L["ONBOARD_STATUS_METHOD_REQUIRED"] .. "|r")
+            return
+        end
         if f.page == 4 then
-            local ready, message = CompanionStatus()
+            local ready, message, confirmManual = CompanionStatus()
             f.statusText:SetText((ready and "|cff55ff55" or "|cffff5555") .. message .. "|r")
             if not ready then return end
+            if confirmManual then
+                if not StaticPopup_Show then return end
+                local popup = Offhand.isForever and "OFFHAND_CONFIRM_MANUAL_LAYOUT_FOREVER"
+                    or "OFFHAND_CONFIRM_MANUAL_LAYOUT"
+                StaticPopup_Show(popup, nil, nil, function()
+                    if f.page ~= 4 then return end
+                    f:SetPage(5)
+                end)
+                return
+            end
         end
         if f.page < PAGE_COUNT then
             f:SetPage(f.page + 1)
@@ -131,20 +208,42 @@ function Onboarding:CreateFrame()
     function f:SetPage(page)
         self.page = math.max(1, math.min(PAGE_COUNT, page or 1))
         self.stepText:SetText(string.format(L["ONBOARD_PROGRESS"], self.page, PAGE_COUNT))
-        self.pageTitle:SetText(L["ONBOARD_STEP_" .. self.page .. "_TITLE"])
+        local titleKey = "ONBOARD_STEP_" .. self.page .. "_TITLE"
+        if self.page == 5 and not SupportsGeneratedMainhandLayout() then
+            titleKey = "ONBOARD_STEP_5_TITLE_NO_EDITMODE"
+        end
+        self.pageTitle:SetText(L[titleKey])
         local bodyKey = "ONBOARD_STEP_" .. self.page .. "_BODY"
-        if self.page == 5 and Offhand.isForever then bodyKey = bodyKey .. "_FOREVER" end
+        if self.page == 5 and not SupportsGeneratedMainhandLayout() then
+            bodyKey = "ONBOARD_STEP_5_BODY_NO_EDITMODE"
+        elseif self.page == 5 and Offhand.isForever then
+            bodyKey = bodyKey .. "_FOREVER"
+        elseif self.page == 5 then
+            bodyKey = "ONBOARD_STEP_5_BODY_EDITMODE"
+        elseif self.page == 6 and not SupportsGeneratedMainhandLayout() then
+            bodyKey = "ONBOARD_STEP_6_BODY_NO_EDITMODE"
+        elseif self.page == 6 then
+            bodyKey = "ONBOARD_STEP_6_BODY_EDITMODE"
+        end
         self.pageBody:SetText(L[bodyKey])
         self.backButton:SetEnabled(self.page > 1)
         self.nextButton:SetText(self.page == PAGE_COUNT
             and L["ONBOARD_START_CALIBRATION"] or L["BTN_NEXT"])
         self.statusText:SetText(self.page == 4 and L["ONBOARD_STATUS_CHECK_PROMPT"] or "")
         self.actionButton:Hide()
+        self.secondaryActionButton:Hide()
         self.actionButton:SetEnabled(true)
         self.actionButton:SetScript("OnClick", nil)
         if self.page == 2 then
-            self.actionButton:SetText(L["POPUP_BTN_GET_APP"])
+            local method = Offhand.GetOnboardingSetupMethod
+                and Offhand:GetOnboardingSetupMethod() or nil
+            self.actionButton:ClearAllPoints()
+            self.actionButton:SetPoint("BOTTOM", self, "BOTTOM", -101, 115)
+            self.actionButton:SetText(L["ONBOARD_USE_COMPANION"])
             self.actionButton:SetScript("OnClick", function()
+                if Offhand.SetOnboardingSetupMethod then
+                    Offhand:SetOnboardingSetupMethod("COMPANION")
+                end
                 resumeAfterDownload = self.page
                 self:Hide()
                 local dialog = StaticPopup_Show and StaticPopup_Show("OFFHAND_DOWNLOAD_LINK")
@@ -155,14 +254,33 @@ function Onboarding:CreateFrame()
                 end
             end)
             self.actionButton:Show()
+            self.secondaryActionButton:SetText(L["ONBOARD_USE_MANUAL"])
+            self.secondaryActionButton:SetScript("OnClick", function()
+                if Offhand.SetOnboardingSetupMethod then
+                    Offhand:SetOnboardingSetupMethod("MANUAL")
+                end
+                self.statusText:SetText("|cff55ff55" .. L["ONBOARD_METHOD_MANUAL_SELECTED"] .. "|r")
+            end)
+            self.secondaryActionButton:Show()
+            if method == "COMPANION" then
+                self.statusText:SetText("|cff55ff55" .. L["ONBOARD_METHOD_COMPANION_SELECTED"] .. "|r")
+            elseif method == "MANUAL" then
+                self.statusText:SetText("|cff55ff55" .. L["ONBOARD_METHOD_MANUAL_SELECTED"] .. "|r")
+            end
         elseif self.page == 4 then
+            self.actionButton:ClearAllPoints()
+            self.actionButton:SetPoint("BOTTOM", self, "BOTTOM", 0, 115)
             self.actionButton:SetText(L["ONBOARD_RELOAD_UI"])
             self.actionButton:SetScript("OnClick", function()
+                if InCombatLockdown and InCombatLockdown() then
+                    self.statusText:SetText("|cffff5555" .. L["ONBOARD_RELOAD_COMBAT"] .. "|r")
+                    return
+                end
                 if Offhand.SetOnboardingResumeStep then Offhand:SetOnboardingResumeStep(4) end
                 if ReloadUI then ReloadUI() end
             end)
             self.actionButton:Show()
-        elseif self.page == 5 and (Offhand.isForever or Offhand.isRetail) then
+        elseif self.page == 5 and SupportsGeneratedMainhandLayout() then
             self.actionButton:SetText(L["MAINHAND_LAYOUT_CREATE"])
             self.actionButton:SetEnabled(false)
             self.statusText:SetText(L["RECOVERY_CREATE_LABEL"])
@@ -184,6 +302,10 @@ function Onboarding:Open()
     if Offhand.Wizard and Offhand.Wizard.Close then Offhand.Wizard:Close() end
 
     local m = Metrics()
+    if Offhand.GetOnboardingSetupMethod and not Offhand:GetOnboardingSetupMethod()
+        and m and m.companionTopology and Offhand.SetOnboardingSetupMethod then
+        Offhand:SetOnboardingSetupMethod("COMPANION")
+    end
     f:ClearAllPoints()
     if m and m.isSpanned and m.gameWidth and m.gameWidth > 0 then
         f:SetPoint("CENTER", UIParent, "BOTTOMLEFT",

@@ -263,6 +263,9 @@ local SNAPSHOT_TRANSIENT_KEYS = {
     originalRawMouseEnable = true,
     originalUiScale = true,
     originalUseUiScale = true,
+    originalWorldTextScale = true,
+    originalNameplateSize = true,
+    originalFriendlyPlayerName = true,
     lastGeometryCheck = true,
 }
 
@@ -608,10 +611,13 @@ end
 function ForeverPersistence:SaveOnboarding(onboarding)
     if not self:IsAvailable() or type(onboarding) ~= "table" then return end
     local function Flag(value) return value and "1" or "0" end
+    local method = onboarding.setupMethod == "COMPANION" and "C"
+        or (onboarding.setupMethod == "MANUAL" and "M" or "0")
     WritePersistentCVar(FOREVER_ONBOARDING_CVAR, table.concat({
-        "V2", Flag(onboarding.welcomeDismissed), Flag(onboarding.setupComplete),
+        "V3", Flag(onboarding.welcomeDismissed), Flag(onboarding.setupComplete),
         Flag(onboarding.suppressCompanionWarning),
         tostring(math.max(0, math.min(6, tonumber(onboarding.resumeStep) or 0))),
+        method,
     }, "|"))
 end
 
@@ -638,8 +644,12 @@ function ForeverPersistence:RestoreOnboarding(onboarding)
     if not self:IsAvailable() or type(onboarding) ~= "table" then return false end
     RegisterPersistentCVar(FOREVER_ONBOARDING_CVAR)
     local value = tostring(ReadPersistentCVar(FOREVER_ONBOARDING_CVAR) or "")
-    local welcome, setup, suppress, resume = value:match(
-        "^V2|([01])|([01])|([01])|([0-6])$")
+    local welcome, setup, suppress, resume, method = value:match(
+        "^V3|([01])|([01])|([01])|([0-6])|([CM0])$")
+    if not welcome then
+        welcome, setup, suppress, resume = value:match(
+            "^V2|([01])|([01])|([01])|([0-6])$")
+    end
     if not welcome then
         welcome, setup, suppress = value:match("^V1|([01])|([01])|([01])$")
     end
@@ -649,6 +659,8 @@ function ForeverPersistence:RestoreOnboarding(onboarding)
     onboarding.suppressCompanionWarning = suppress == "1"
     local resumeStep = tonumber(resume)
     onboarding.resumeStep = resumeStep and resumeStep > 0 and resumeStep or nil
+    onboarding.setupMethod = method == "C" and "COMPANION"
+        or (method == "M" and "MANUAL" or onboarding.setupMethod)
     return true
 end
 
@@ -749,6 +761,19 @@ function Offhand:MarkSetupComplete()
     onboarding.setupComplete = true
     onboarding.resumeStep = nil
     SaveOnboarding()
+end
+
+function Offhand:GetOnboardingSetupMethod()
+    local method = EnsureOnboarding().setupMethod
+    if method == "COMPANION" or method == "MANUAL" then return method end
+    return nil
+end
+
+function Offhand:SetOnboardingSetupMethod(method)
+    if method ~= "COMPANION" and method ~= "MANUAL" then return false end
+    EnsureOnboarding().setupMethod = method
+    SaveOnboarding()
+    return true
 end
 
 function Offhand:SetOnboardingResumeStep(step)

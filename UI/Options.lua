@@ -36,7 +36,7 @@ end
 
 
 StaticPopupDialogs["OFFHAND_DOWNLOAD_LINK"] = {
-    text = "The Companion App automates a pixel-perfect, borderless span across multiple monitors.\n\nDownload it securely from GitHub below:",
+    text = "The Companion App automates a pixel-perfect, borderless span across multiple monitors.\n\nRecommended for Windows: copy the Microsoft Store address below. Portable and Linux/Wine options remain available at offhand-wow.onrender.com/companion.html and through the official GitHub releases.",
     button1 = "Close",
     hasEditBox = true,
     editBoxWidth = 260,
@@ -92,6 +92,19 @@ function Options:CreateMainhandHUDLayout()
         return Offhand.Mainhand:CreateOrUpdateEditModeLayout()
     end
     return false, "unavailable"
+end
+
+function Options:GetMainhandLayoutFailureText(reason)
+    if reason == "maximum" then return L["MAINHAND_LAYOUT_MAXIMUM"] end
+    if reason == "span" then
+        local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
+            and Offhand.Viewport:GetMetrics() or nil
+        if metrics and metrics.topologyStatus == "MISMATCH" then
+            return L["MAINHAND_LAYOUT_SPAN_MISMATCH"]
+        end
+        return L["MAINHAND_LAYOUT_SPAN_UNCONFIRMED"]
+    end
+    return string.format(L["MAINHAND_LAYOUT_FAILED"], tostring(reason or "unavailable"))
 end
 
 function Options:GatherSafeUIToMainhand()
@@ -356,13 +369,15 @@ function Options:DetectTopology()
         info.description = string.format("Dual Landscape Side-by-Side")
 
     elseif ar >= 2.0 then
-        -- Ultrawide single display spanned
+        -- A single 21:9-class ultrawide can reserve the width left over after
+        -- preserving a 16:9 Mainhand region. Physical monitor ownership is not
+        -- visible to Lua, so onboarding requires explicit manual confirmation.
         info.isSpanned = true
-        info.recommendedPreset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT"
-        info.recommendedDeckRatio = 0.36
+        info.recommendedPreset = "LANDSCAPE_DUAL"
+        info.recommendedDeckRatio = math.max(0.15, math.min(0.50, 1 - ((16 / 9) / ar)))
         info.recommendedPosition = "RIGHT"
-        info.recommendedAR = "21_9"
-        info.description = string.format("Ultrawide Spanned")
+        info.recommendedAR = "16_9"
+        info.description = string.format("Single-Display Ultrawide Split")
 
     else
         info.isSpanned = false
@@ -1601,7 +1616,8 @@ function Options:CreateFloatingPanel()
 
 
     local card2_2 = CreateCard(tab2, L["CARD_PERSISTENCE"], 374)
-    local supportsMainhandLayout = Offhand.isForever or Offhand.isRetail
+    local supportsMainhandLayout = type(Offhand.HasBlizzardEditMode) == "function"
+        and Offhand:HasBlizzardEditMode()
     -- Forever has two layout-status rows plus wrapped Edit Mode guidance.
     -- Keep the preview checkbox below that text instead of sharing its line.
     local recoveryHeight = Offhand.isForever and 342 or (supportsMainhandLayout and 270 or 152)
@@ -1735,9 +1751,7 @@ function Options:CreateFloatingPanel()
                 Offhand:Print(L["MAINHAND_LAYOUT_CREATED"], tostring(value), moved or 0)
                 Offhand.Mainhand:PromptReload()
             else
-                -- Keep capability tokens stable and untranslated so screenshots
-                -- and diagnostics identify the exact client API boundary.
-                Offhand:Print(L["MAINHAND_LAYOUT_FAILED"], tostring(value or "unavailable"))
+                Offhand:Print(Options:GetMainhandLayoutFailureText(value))
             end
             if Options.RefreshPanel then Options:RefreshPanel() end
         end)
@@ -2610,9 +2624,11 @@ function Options:CreateFloatingPanel()
         if mainhandLayoutStatus then
             local status = Offhand.Mainhand and Offhand.Mainhand.GetLayoutStatus
                 and Offhand.Mainhand:GetLayoutStatus() or nil
-            local name = status and status.configured and status.generatedName
-                or L["MAINHAND_LAYOUT_UNSET"]
-            if status and status.configured and not status.currentGeometry then
+            local name = status and status.deferred and L["MAINHAND_LAYOUT_DEFERRED"]
+                or (status and status.configured and status.generatedName
+                    or L["MAINHAND_LAYOUT_UNSET"])
+            if status and status.configured and not status.deferred
+                and not status.currentGeometry then
                 name = string.format(L["MAINHAND_LAYOUT_STALE"], tostring(name))
             end
             mainhandLayoutStatus:SetText(string.format(L["MAINHAND_LAYOUT_STATUS"], tostring(name)))

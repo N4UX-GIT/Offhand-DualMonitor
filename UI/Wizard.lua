@@ -18,6 +18,19 @@ Offhand.Wizard = Wizard
 
 local wizardFrame = nil
 
+StaticPopupDialogs["OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT"] = {
+    text = L["WIZARD_SKIP_HUD_CONFIRM_TEXT"],
+    button1 = L["WIZARD_SKIP_HUD_CONFIRM"],
+    button2 = L["BTN_BACK"],
+    OnAccept = function(_, callback)
+        if callback then callback() end
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
 local function BackdropTemplate()
     return not Offhand.isLegacyWrath and "BackdropTemplate" or nil
 end
@@ -29,9 +42,29 @@ local function SetShown(frame, shown)
 end
 
 local function SupportsGeneratedMainhandLayout()
-    return (Offhand.isForever or Offhand.isRetail)
+    local supportsEditMode = type(Offhand.HasBlizzardEditMode) == "function"
+        and Offhand:HasBlizzardEditMode()
+    return supportsEditMode
         and Offhand.Options
         and type(Offhand.Options.CreateMainhandHUDLayout) == "function"
+end
+
+local function ReadinessSummary(hudState)
+    local m = Offhand.Viewport and Offhand.Viewport.GetMetrics
+        and Offhand.Viewport:GetMetrics() or nil
+    local source = m and m.companionTopology and L["READINESS_SOURCE_COMPANION"]
+        or L["READINESS_SOURCE_MANUAL"]
+    local gameW = math.floor((m and (m.gamePixelWidth or m.gameWidth) or 0) + 0.5)
+    local gameH = math.floor((m and (m.gamePixelHeight or m.gameHeight) or 0) + 0.5)
+    local workW = math.floor((m and (m.workspacePixelWidth or m.workspaceWidth) or 0) + 0.5)
+    local workH = math.floor((m and (m.workspacePixelHeight or m.workspaceHeight) or 0) + 0.5)
+    local side = (Offhand.db and Offhand.db.primaryPosition) or "?"
+    local ar = (Offhand.db and Offhand.db.aspectRatioMode) or "?"
+    local seam = ((Offhand.db and Offhand.db.deckWidthRatio) or 0) * 100
+    local recovery = Offhand.isForever and L["READINESS_RECOVERY_FOREVER"]
+        or L["READINESS_RECOVERY_STANDARD"]
+    return string.format(L["READINESS_SUMMARY"], source, gameW, gameH, workW, workH,
+        tostring(side), tostring(ar), seam, hudState, recovery)
 end
 
 function Wizard:DetectTopology()
@@ -815,8 +848,21 @@ function Wizard:CreateFrame()
     finishBtn:SetPoint("BOTTOMRIGHT", -18, 14)
     finishBtn:SetText("|cffffd100" .. L["WIZARD_BTN_FINISH"] .. "|r")
 
+    local skipLayoutBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    f.skipLayoutBtn = skipLayoutBtn
+    skipLayoutBtn:SetSize(220, 28)
+    skipLayoutBtn:SetPoint("BOTTOMLEFT", 18, 14)
+    skipLayoutBtn:SetText(L["WIZARD_SKIP_HUD_LAYOUT"])
+    skipLayoutBtn:Hide()
+
     local function ValidateTopology()
         local currentInfo = Wizard:DetectTopology()
+        if currentInfo.topologyStatus == "MISMATCH" then
+            statusText:SetText("|cffff5555" ..
+                Offhand.Options:GetMainhandLayoutFailureText("span") .. "|r")
+            f:SetStep(1)
+            return false
+        end
         if currentInfo.exactTopology and currentInfo.companionVersionStatus == "MISMATCH" then
             statusText:SetText("|cffff5555" .. string.format(L["WIZARD_STATUS_COMPANION_MISMATCH"],
                 currentInfo.companionVersion or "?", currentInfo.expectedCompanionVersion or "?") .. "|r")
@@ -826,7 +872,11 @@ function Wizard:CreateFrame()
         return true
     end
 
-    local function CompleteSetup()
+    local function CompleteSetup(deferMainhandLayout)
+        if f.totalSteps > 4 and Offhand.Mainhand
+            and type(Offhand.Mainhand.SetEditModeLayoutDeferred) == "function" then
+            Offhand.Mainhand:SetEditModeLayoutDeferred(deferMainhandLayout == true)
+        end
         if Offhand.MarkSetupComplete then
             Offhand:MarkSetupComplete()
         elseif Offhand.db then
@@ -837,8 +887,22 @@ function Wizard:CreateFrame()
         Offhand:ApplyFullLayout()
         if Offhand.Print then
             Offhand:Print(L["CONFIG_SAVED"])
+            if deferMainhandLayout then
+                Offhand:Print(L["WIZARD_SKIP_HUD_COMPLETE"])
+            end
+            Offhand:Print(ReadinessSummary(deferMainhandLayout
+                and L["READINESS_HUD_DEFERRED"] or L["READINESS_HUD_READY"]))
+            Offhand:Print(L["READINESS_COLD_START"])
         end
     end
+
+    skipLayoutBtn:SetScript("OnClick", function()
+        if not StaticPopup_Show then return end
+        StaticPopup_Show("OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT", nil, nil, function()
+            CompleteSetup(true)
+        end)
+    end)
+    f.advBtn = advBtn
 
     finishBtn:SetScript("OnClick", function()
         if f.step < 4 then f:SetStep(f.step + 1); return end
@@ -863,14 +927,14 @@ function Wizard:CreateFrame()
             end
         end
         if not ok then
-            layoutStatus:SetText("|cffff5555" .. string.format(L["MAINHAND_LAYOUT_FAILED"],
-                tostring(value or "unavailable")) .. "|r")
+            local failure = Offhand.Options:GetMainhandLayoutFailureText(value)
+            layoutStatus:SetText("|cffff5555" .. failure .. "|r")
             return
         end
         if Offhand.Print then
             Offhand:Print(L["MAINHAND_LAYOUT_CREATED"], tostring(value), moved or 0)
         end
-        CompleteSetup()
+        CompleteSetup(false)
         if Offhand.Mainhand and Offhand.Mainhand.PromptReload then
             Offhand.Mainhand:PromptReload()
         end
@@ -903,10 +967,14 @@ function Wizard:CreateFrame()
         self.step = math.max(1, math.min(self.totalSteps, step))
         for i, card in ipairs(self.pages) do SetShown(card, i == self.step) end
         progress:SetText(string.format(L["STEP_PROGRESS"], self.step, self.totalSteps))
-        welcomeText:SetText(self.step == 5
-            and L["STEP_5_HELP"]
-            or L["STEP_" .. self.step .. "_HELP"])
+        local helpKey = self.step == 5 and "STEP_5_HELP"
+            or (self.step == 4 and self.totalSteps == 4 and "STEP_4_HELP_NO_EDITMODE")
+            or (self.step == 4 and "STEP_4_HELP_EDITMODE")
+            or ("STEP_" .. self.step .. "_HELP")
+        welcomeText:SetText(L[helpKey])
         backBtn:SetEnabled(self.step > 1)
+        SetShown(advBtn, self.step ~= 5)
+        SetShown(skipLayoutBtn, self.step == 5)
         finishBtn:SetText(self.step == 5
             and L["MAINHAND_LAYOUT_CREATE"]
             or (self.step == self.totalSteps and L["BTN_FINISH"] or L["BTN_NEXT"]))
@@ -914,12 +982,17 @@ function Wizard:CreateFrame()
         if self.step == 5 then
             local state = Offhand.Mainhand and Offhand.Mainhand.GetLayoutStatus
                 and Offhand.Mainhand:GetLayoutStatus() or nil
-            local name = state and state.configured and state.generatedName
-                or L["MAINHAND_LAYOUT_UNSET"]
-            if state and state.configured and not state.currentGeometry then
+            local name = state and state.deferred and L["MAINHAND_LAYOUT_DEFERRED"]
+                or (state and state.configured and state.generatedName
+                    or L["MAINHAND_LAYOUT_UNSET"])
+            if state and state.configured and not state.deferred
+                and not state.currentGeometry then
                 name = string.format(L["MAINHAND_LAYOUT_STALE"], tostring(name))
             end
             layoutStatus:SetText(string.format(L["MAINHAND_LAYOUT_STATUS"], tostring(name)))
+            layoutHelp:SetText(L["WIZARD_STEP_5_BODY"] .. "\n\n" ..
+                ReadinessSummary(state and state.configured and not state.deferred
+                    and L["READINESS_HUD_READY"] or L["READINESS_HUD_PENDING"]))
         end
         if self.step == 3 then
             Offhand.Options:ShowSeamGuide(Offhand.db and Offhand.db.deckWidthRatio)
@@ -1045,7 +1118,10 @@ function Wizard:Open()
         info.recommendedDeckRatio * 100,
         info.recommendedAR or "16:9"))
 
-    if info.exactTopology and info.companionVersionStatus == "MISMATCH" then
+    if info.topologyStatus == "MISMATCH" then
+        f.statusText:SetText("|cffff5555" ..
+            Offhand.Options:GetMainhandLayoutFailureText("span") .. "|r")
+    elseif info.exactTopology and info.companionVersionStatus == "MISMATCH" then
         f.statusText:SetText("|cffff5555" .. string.format(L["WIZARD_STATUS_COMPANION_MISMATCH"],
             info.companionVersion or "?", info.expectedCompanionVersion or "?") .. "|r")
     elseif info.exactTopology and info.companionVersionStatus == "UNKNOWN" then

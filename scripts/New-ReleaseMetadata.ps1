@@ -44,6 +44,9 @@ if (-not $companionTagMatch.Success) {
     throw "Companion release tag '$CompanionReleaseTag' is invalid."
 }
 $companionVersion = if ($CompanionChanged) { $packageVersion } else { $companionTagMatch.Groups['version'].Value }
+$companionArchiveName = "Offhand-Companion-v$companionVersion.zip"
+$storeUrl = 'https://apps.microsoft.com/detail/9PL4PW84Q90W'
+$companionReleaseUrl = "https://github.com/$Repository/releases/tag/v$companionVersion"
 
 $channelName = switch ($channel) {
     'alpha' { 'Alpha' }
@@ -80,13 +83,13 @@ $statusText = if ($isPrerelease) {
 
 $companionDownloads = if ($CompanionChanged) {
 @"
-- **Companion package:** ``Offhand-Companion.zip`` — minimal portable package containing the reviewed executable, quick-start/security README, and license.
+- **Companion package:** ``$companionArchiveName`` — minimal portable package containing the reviewed executable, quick-start/security README, and license.
 - **Standalone Companion:** ``Offhand.exe`` — updated Windows executable only.
 - **Source:** review the tagged repository or GitHub's automatic source archive; development files are intentionally excluded from the end-user Companion ZIP.
 "@
 } else {
 @"
-- **Companion package:** ``Offhand-Companion.zip`` — unchanged, byte-identical $companionVersion archive retained so the permanent ``releases/latest/download`` link continues to work.
+- **Companion package:** ``$companionArchiveName`` — unchanged, byte-identical $companionVersion archive, named for the Companion build rather than the addon release that carries it.
 - **Standalone Companion:** ``Offhand.exe`` — unchanged, byte-identical $companionVersion executable.
 - **Companion source release:** [$CompanionReleaseTag](https://github.com/$Repository/releases/tag/$CompanionReleaseTag).
 "@
@@ -105,6 +108,8 @@ $changes
 
 ## Downloads
 
+- **Recommended Windows Companion:** [Install from Microsoft Store]($storeUrl) for a Store-signed package and Microsoft-managed updates.
+- **Portable / Linux / Wine Companion:** download ``$companionArchiveName`` from the [official GitHub release]($companionReleaseUrl).
 - **Complete package:** ``Offhand-Complete-v$packageVersion.zip`` — addon and Companion together.
 - **Addon only:** ``Offhand-v$packageVersion.zip`` — install the contained ``Offhand`` folder in ``Interface/AddOns``.
 $companionDownloads

@@ -2,6 +2,7 @@ param(
     [string]$Tag = "v2.1.2-beta.20",
     [string]$ExpectedSha256 = "81EECE9430885CEAC178A44A42429854524279072305F9F94EE62E7CCD620CCB",
     [string]$ArchiveDestination,
+    [string]$ArchiveAssetName,
     [string]$ExpectedArchiveSha256 = "C726444612DD740BE3F923B83704D155E21BC017F7C5FE245379B19DBECC76E3"
 )
 
@@ -12,7 +13,11 @@ $destination = Join-Path $root "Companion\Offhand.exe"
 $download = Join-Path ([IO.Path]::GetTempPath()) ("Offhand-frozen-" + [guid]::NewGuid() + ".exe")
 $url = "https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/$Tag/Offhand.exe"
 $archiveDownload = Join-Path ([IO.Path]::GetTempPath()) ("Offhand-frozen-" + [guid]::NewGuid() + ".zip")
-$archiveUrl = "https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/$Tag/Offhand-Companion.zip"
+$companionVersion = $Tag.TrimStart('v')
+if ([string]::IsNullOrWhiteSpace($ArchiveAssetName)) {
+    $ArchiveAssetName = "Offhand-Companion-v$companionVersion.zip"
+}
+$archiveUrl = "https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/$Tag/$ArchiveAssetName"
 
 try {
     Write-Host "Downloading frozen Companion $Tag..." -ForegroundColor Yellow

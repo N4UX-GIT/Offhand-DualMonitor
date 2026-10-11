@@ -65,10 +65,16 @@ local foreverEditModeFrameNames = {
     MainMenuBar = true, MainActionBar = true, StatusTrackingBarManager = true, MainMenuExpBar = true,
     MultiBarBottomLeft = true, MultiBarBottomRight = true, MultiBarLeft = true, MultiBarRight = true,
     StanceBar = true, PetActionBar = true, PossessActionBar = true,
-    MinimapCluster = true, PlayerFrame = true, TargetFrame = true, FocusFrame = true,
+    MinimapCluster = true, PlayerFrame = true, TargetFrame = true, FocusFrame = true, PetFrame = true,
+    BossTargetFrameContainer = true,
     PartyFrame = true, PartyMemberFrame1 = true, CompactPartyFrame = true,
     CompactRaidFrameContainer = true,
     BuffFrame = true, BuffCluster = true, CastingBarFrame = true, PlayerCastingBarFrame = true,
+    ExtraAbilityContainer = true, ExtraActionBarFrame = true, ZoneAbilityFrame = true,
+    EncounterBar = true, UIWidgetPowerBarContainerFrame = true, LossOfControlFrame = true,
+    MainMenuBarVehicleLeaveButton = true, VehicleExitButton = true,
+    TotemFrame = true, MultiCastActionBarFrame = true, PersonalResourceDisplayFrame = true,
+    DurabilityFrame = true, DamageMeter = true,
     UIErrorsFrame = true, RaidWarningFrame = true,
     EssentialCooldownViewer = true, UtilityCooldownViewer = true,
     BuffIconCooldownViewer = true, BottomManagedFrameContainer = true,
@@ -88,10 +94,11 @@ local function IsBlizzardEditModeOwnedFrame(frame, name)
 end
 
 local function HasBlizzardEditMode()
-    if Offhand.isRetail or Offhand.isForever then return true end
-    if C_EditMode ~= nil or EditModeManagerFrame ~= nil then return true end
-    local version = tonumber(Offhand.tocVersion)
-    return (version and (version >= 100000 or (version >= 16000 and version < 17000))) or false
+    if type(Offhand.HasBlizzardEditMode) == "function" then
+        return Offhand:HasBlizzardEditMode()
+    end
+    return Offhand.isRetail or Offhand.isForever
+        or C_EditMode ~= nil or EditModeManagerFrame ~= nil
 end
 
 local function HasChattynator()
@@ -167,6 +174,29 @@ local function GetActiveEditModeLayoutName()
     local name = ok and type(activeInfo) == "table" and activeInfo.layoutName or nil
     if type(name) ~= "string" or not name:match("%S") then return nil end
     return name
+end
+
+local function GetEditModeCustomLayoutOffset(data, activeName)
+    local manager = _G.EditModePresetLayoutManager
+    if manager and type(manager.GetCopyOfPresetLayouts) == "function" then
+        local ok, presets = pcall(manager.GetCopyOfPresetLayouts, manager)
+        if ok and type(presets) == "table" and #presets > 0 then return #presets end
+    end
+    -- If the preset manager has not materialized yet, a currently active custom
+    -- layout still reveals the namespace offset without hard-coding its slot.
+    local activeID = type(data) == "table" and tonumber(data.activeLayout) or nil
+    if activeID and type(activeName) == "string" and type(data.layouts) == "table" then
+        for index, layout in ipairs(data.layouts) do
+            if EditModeLayoutNamesMatch(layout and layout.layoutName, activeName) then
+                local offset = activeID - index
+                if offset >= 0 then return offset end
+            end
+        end
+    end
+    -- All supported Blizzard Edit Mode branches reserve three preset/global
+    -- identifiers before custom layouts. The live preset count above remains
+    -- authoritative if a future branch changes that topology.
+    return FOREVER_CUSTOM_LAYOUT_OFFSET
 end
 
 -- Retail and Anniversary can briefly restore the wrong active layout during
@@ -605,7 +635,7 @@ end
 -- center only a visible dialog that is genuinely outside both displays. Never
 -- hook Blizzard frames or touch protected HUD systems.
 function HUD:RecoverForeverTransactionalEditModeDialogs(metrics)
-    if not UsesForeverEditMode() or InCombatLockdown()
+    if not HasBlizzardEditMode() or InCombatLockdown()
         or not Offhand.db or not Offhand.db.enabled then return 0 end
     local manager = _G.EditModeManagerFrame
     if not manager or not manager.IsShown or not manager:IsShown() then return 0 end
@@ -620,11 +650,12 @@ function HUD:RecoverForeverTransactionalEditModeDialogs(metrics)
     return moved
 end
 
--- Forever can anchor its Edit Mode manager outside the physical displays on a
--- mixed-height span. Detection stays read-only. The single manager anchor write
--- below is reserved for an explicit player click and never runs from this scan.
+-- Blizzard can anchor its Edit Mode manager outside the physical displays on a
+-- mixed-height span. This occurs on Retail as well as Forever. Detection stays
+-- read-only; the control-window anchor write below is reserved for an explicit
+-- player click and never runs from this scan.
 function HUD:UpdateForeverEditModeControlsRecovery(metrics)
-    if not UsesForeverEditMode() or not Offhand.db or not Offhand.db.enabled then return end
+    if not HasBlizzardEditMode() or not Offhand.db or not Offhand.db.enabled then return end
     local manager = _G.EditModeManagerFrame
     local shown = manager and manager.IsShown and manager:IsShown()
     if not shown then
@@ -737,11 +768,11 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
     end
 end
 
--- Forever accepts these unprotected control-surface anchor changes from the
--- recovery popup's hardware click. Do not move Edit Mode systems, attach
--- handlers, or alter Blizzard's panel metadata from this path.
+-- Supported Blizzard clients accept these unprotected control-surface anchor
+-- changes from the recovery popup's hardware click. Do not move Edit Mode
+-- systems, attach handlers, or alter Blizzard's panel metadata from this path.
 function HUD:BringForeverEditModeControlsToMainhand()
-    if not UsesForeverEditMode() or InCombatLockdown() then return false end
+    if not HasBlizzardEditMode() or InCombatLockdown() then return false end
     local manager = _G.EditModeManagerFrame
     if not manager or not manager.IsShown or not manager:IsShown()
         or (manager.IsForbidden and manager:IsForbidden())
@@ -771,12 +802,111 @@ function HUD:DismissForeverEditModeControlsPrompt()
     ClearForeverEditModeControlsCandidate(self)
 end
 
+local foreverPartyRaidRecoveryNames = {
+    PartyFrame = true, PartyMemberFrame1 = true, CompactPartyFrame = true,
+    CompactRaidFrameContainer = true,
+}
+
+local function FrameIsActuallyVisible(frame)
+    if not frame then return false end
+    local method = type(frame.IsVisible) == "function" and frame.IsVisible or frame.IsShown
+    if type(method) ~= "function" then return false end
+    local ok, visible = pcall(method, frame)
+    return ok and visible == true
+end
+
+local function VisibleChildFitsPhysicalDisplay(frame, metrics, depth)
+    if not frame or type(frame.GetChildren) ~= "function" or (depth or 0) > 2 then
+        return false
+    end
+    local ok, children = pcall(function() return { frame:GetChildren() } end)
+    if not ok or type(children) ~= "table" then return false end
+    for _, child in ipairs(children) do
+        if FrameIsActuallyVisible(child) then
+            local dimensionsOK, width, height = pcall(function()
+                return child.GetWidth and child:GetWidth() or 0,
+                    child.GetHeight and child:GetHeight() or 0
+            end)
+            if not dimensionsOK then width, height = 0, 0 end
+            if width and height and width > 2 and height > 2
+                and FrameFitsPhysicalDisplay(child, metrics) then
+                return true
+            end
+            if VisibleChildFitsPhysicalDisplay(child, metrics, (depth or 0) + 1) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Retail exposes overlapping PartyFrame/CompactPartyFrame ownership roots.
+-- A legacy or preview container can retain stale full-canvas bounds even while
+-- the actual visible member frames from the selected layout are correctly on
+-- Mainhand. Treat a reachable visible group presentation as authoritative so
+-- the stale alias cannot create an endless Repair HUD loop.
+local function RetailGroupPresentationFits(metrics)
+    if UsesForeverEditMode() then return false end
+    for name in pairs(foreverPartyRaidRecoveryNames) do
+        local frame = _G[name]
+        if FrameIsActuallyVisible(frame) and (FrameFitsPhysicalDisplay(frame, metrics)
+            or VisibleChildFitsPhysicalDisplay(frame, metrics, 0)) then
+            return true
+        end
+    end
+    return false
+end
+
+-- Retail's MinimapCluster is another Edit Mode ownership container whose root
+-- can retain preview coordinates in mixed-height dead space. The actual
+-- Minimap child is the user-visible presentation, so its reachable bounds are
+-- authoritative. Unlike the status-bar proxies below, a genuinely unreachable
+-- minimap remains eligible for recovery.
+local function ProtectedHUDPresentationFits(name, frame, metrics)
+    if name ~= "MinimapCluster" then return false end
+    local minimap = _G.Minimap
+    if FrameIsActuallyVisible(minimap) and (FrameFitsPhysicalDisplay(minimap, metrics)
+        or VisibleChildFitsPhysicalDisplay(minimap, metrics, 0)) then
+        return true
+    end
+    return VisibleChildFitsPhysicalDisplay(frame, metrics, 0)
+end
+
+-- Explicit roots for protected Edit Mode systems whose previews can expose an
+-- unreachable anchor. Keep this bounded: transient tooltips, loot popups and
+-- nameplates use separate positioning/scaling lifecycles and do not belong in
+-- protected-layout recovery.
+local foreverProtectedHUDRecoveryNames = {
+    "PlayerFrame", "TargetFrame", "FocusFrame", "PetFrame", "BossTargetFrameContainer",
+    "PartyFrame", "PartyMemberFrame1", "CompactPartyFrame", "CompactRaidFrameContainer",
+    "MainMenuBar", "MainActionBar", "MultiBarBottomLeft", "MultiBarBottomRight",
+    "MultiBarLeft", "MultiBarRight", "StanceBar", "PetActionBar", "PossessActionBar",
+    "MinimapCluster", "StatusTrackingBarManager", "MainMenuExpBar",
+    "BuffFrame", "BuffCluster", "CastingBarFrame", "PlayerCastingBarFrame",
+    "ExtraAbilityContainer", "ExtraActionBarFrame", "ZoneAbilityFrame",
+    "EncounterBar", "UIWidgetPowerBarContainerFrame", "LossOfControlFrame",
+    "MainMenuBarVehicleLeaveButton", "VehicleExitButton", "TotemFrame",
+    "MultiCastActionBarFrame", "PersonalResourceDisplayFrame",
+    "EssentialCooldownViewer", "UtilityCooldownViewer", "BuffIconCooldownViewer",
+    "DamageMeter", "DurabilityFrame", "RaidWarningFrame", "UIErrorsFrame",
+}
+
+-- These containers expose stale or synthetic preview bounds in Edit Mode even
+-- when their live XP/reputation bars are correctly placed. Rebuilding the same
+-- layout cannot change that ownership-root rectangle, so it must never trigger
+-- the automatic Repair HUD transaction.
+local unreliableProtectedHUDRecoveryNames = {
+    StatusTrackingBarManager = true,
+    MainMenuExpBar = true,
+}
+
 -- Mixed-height spans contain real UIParent space that is not backed by a
--- physical monitor. Blizzard's default TOPLEFT party anchor can land there on
--- Forever. These frames remain Edit Mode-owned; detect the condition without
--- writing anchors and explain the player-click recovery once per occurrence.
+-- physical monitor. Blizzard Edit Mode anchors can land there on Retail and
+-- Forever.
+-- Detect the condition without writing anchors and explain the player-click
+-- recovery once per occurrence.
 function HUD:UpdateForeverPartyFrameRecovery(metrics)
-    if not UsesForeverEditMode() or not Offhand.db or not Offhand.db.enabled then return end
+    if not HasBlizzardEditMode() or not Offhand.db or not Offhand.db.enabled then return end
     metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics
         and Offhand.Viewport:GetMetrics())
     if not metrics or not metrics.isSpanned then
@@ -784,21 +914,43 @@ function HUD:UpdateForeverPartyFrameRecovery(metrics)
             Offhand:HideForeverPartyFrameRecoveryPrompt()
         end
         self.foreverPartyFrameOutsideDisplays = nil
+        self.foreverProtectedHUDDetectedInEditMode = nil
         self.foreverPartyFrameRecoveryPromptShown = nil
         self.foreverPartyFrameRecoveryPromptDeclined = nil
         return
     end
-    if InCombatLockdown() or HasEllesmerePartyFrames() then return end
-    local manager = _G.EditModeManagerFrame
-    if manager and manager.IsShown and manager:IsShown() then return end
+    if InCombatLockdown() then return end
 
+    local manager = _G.EditModeManagerFrame
+    local editModeOpen = manager and manager.IsShown and manager:IsShown() or false
     local outsideName
-    for _, name in ipairs({"PartyFrame", "PartyMemberFrame1", "CompactPartyFrame", "CompactRaidFrameContainer"}) do
-        local frame = _G[name]
-        if frame and frame.IsShown and frame:IsShown()
-            and not FrameFitsPhysicalDisplay(frame, metrics) then
-            outsideName = name
-            break
+    if editModeOpen then
+        -- Blizzard retains several dormant ownership roots with stale bounds.
+        -- They are not evidence of a lost HUD frame during ordinary play. Only
+        -- inspect them while Edit Mode is actively presenting the corresponding
+        -- systems, then remember that observed candidate until Edit Mode closes.
+        for _, name in ipairs(foreverProtectedHUDRecoveryNames) do
+            local frame = _G[name]
+            local customPartyFrames = foreverPartyRaidRecoveryNames[name] and HasEllesmerePartyFrames()
+            local groupPresentationFits = foreverPartyRaidRecoveryNames[name]
+                and RetailGroupPresentationFits(metrics)
+            local protectedPresentationFits = ProtectedHUDPresentationFits(name, frame, metrics)
+            if not unreliableProtectedHUDRecoveryNames[name]
+                and not customPartyFrames and not groupPresentationFits
+                and not protectedPresentationFits
+                and FrameIsActuallyVisible(frame)
+                and not FrameFitsPhysicalDisplay(frame, metrics) then
+                outsideName = name
+                break
+            end
+        end
+    else
+        -- Party/Raid previews can become hidden as soon as Edit Mode closes.
+        -- Retain a candidate observed while Edit Mode was open long enough to
+        -- offer the repair after Blizzard's layout transaction has finished.
+        if self.foreverProtectedHUDDetectedInEditMode
+            and self.foreverPartyFrameOutsideDisplays then
+            outsideName = self.foreverPartyFrameOutsideDisplays
         end
     end
 
@@ -807,22 +959,129 @@ function HUD:UpdateForeverPartyFrameRecovery(metrics)
             Offhand:HideForeverPartyFrameRecoveryPrompt()
         end
         self.foreverPartyFrameOutsideDisplays = nil
+        self.foreverProtectedHUDDetectedInEditMode = nil
         self.foreverPartyFrameRecoveryPromptShown = nil
         self.foreverPartyFrameRecoveryPromptDeclined = nil
         return
     end
     self.foreverPartyFrameOutsideDisplays = outsideName
+    if editModeOpen then
+        self.foreverProtectedHUDDetectedInEditMode = true
+        return
+    end
     if self.foreverPartyFrameRecoveryPromptShown
         or self.foreverPartyFrameRecoveryPromptDeclined then return end
     self.foreverPartyFrameRecoveryPromptShown = true
     if Offhand.ShowForeverPartyFrameRecoveryPrompt then
-        Offhand:ShowForeverPartyFrameRecoveryPrompt()
+        Offhand:ShowForeverPartyFrameRecoveryPrompt(outsideName)
     end
 end
 
 function HUD:DismissForeverPartyFrameRecoveryPrompt()
     self.foreverPartyFrameRecoveryPromptShown = nil
     self.foreverPartyFrameRecoveryPromptDeclined = true
+    self.foreverProtectedHUDDetectedInEditMode = nil
+end
+
+-- Protected HUD frames cannot be reanchored safely. The recovery popup is a
+-- hardware click, so use the same Blizzard Edit Mode layout transaction as the
+-- setup wizard, then let Blizzard apply the protected anchors during reload.
+function HUD:RepairProtectedHUDLayout()
+    if InCombatLockdown() then
+        self.foreverPartyFrameRecoveryPromptShown = nil
+        return false, "combat"
+    end
+    local manager = _G.EditModeManagerFrame
+    if manager and ((manager.IsShown and manager:IsShown()) or manager.editModeActive) then
+        self.foreverPartyFrameRecoveryPromptShown = nil
+        return false, "open"
+    end
+    local mainhand = Offhand.Mainhand
+    if not mainhand or type(mainhand.CreateOrUpdateEditModeLayout) ~= "function" then
+        self:DismissForeverPartyFrameRecoveryPrompt()
+        return false, "unavailable"
+    end
+
+    local ok, value, moved = mainhand:CreateOrUpdateEditModeLayout()
+    if not ok then
+        if value == "combat" or value == "open" then
+            self.foreverPartyFrameRecoveryPromptShown = nil
+        else
+            self:DismissForeverPartyFrameRecoveryPrompt()
+        end
+        return false, value
+    end
+
+    self:DismissForeverPartyFrameRecoveryPrompt()
+    if mainhand.PromptReload then mainhand:PromptReload() end
+    return true, value, moved
+end
+
+-- Read-only evidence for reports where protected group frames appear in Edit
+-- Mode but not during play. Blizzard intentionally hides these frames while
+-- solo, so diagnostics must distinguish native visibility from an unreachable
+-- anchor before recommending recovery.
+function HUD:GetForeverGroupFrameDiagnostics()
+    if not HasBlizzardEditMode() then return nil end
+    local grouped = type(IsInGroup) == "function" and IsInGroup() or false
+    local raiding = type(IsInRaid) == "function" and IsInRaid() or false
+    local manager = _G.EditModeManagerFrame
+    local editModeOpen = manager and manager.IsShown and manager:IsShown() or false
+    local states = {}
+    for _, name in ipairs({"PartyFrame", "PartyMemberFrame1", "CompactPartyFrame", "CompactRaidFrameContainer"}) do
+        local frame = _G[name]
+        if not frame then
+            states[#states + 1] = name .. "=missing"
+        else
+            local shown = false
+            if frame.IsShown then
+                local ok, value = pcall(frame.IsShown, frame)
+                shown = ok and value or false
+            end
+            local bounds = "unresolved"
+            if frame.GetLeft and frame.GetBottom and frame.GetRight and frame.GetTop then
+                local ok, left, bottom, right, top = pcall(function()
+                    return frame:GetLeft(), frame:GetBottom(), frame:GetRight(), frame:GetTop()
+                end)
+                if ok and left and bottom and right and top then
+                    bounds = string.format("%.0f,%.0f-%.0f,%.0f", left, bottom, right, top)
+                end
+            end
+            states[#states + 1] = string.format("%s=%s@%s", name,
+                shown and "shown" or "hidden", bounds)
+        end
+    end
+    return string.format("Group=%s | Raid=%s | EditMode=%s | %s",
+        grouped and "yes" or "no", raiding and "yes" or "no",
+        editModeOpen and "open" or "closed", table.concat(states, ","))
+end
+
+function HUD:GetForeverProtectedHUDDiagnostics(metrics)
+    if not HasBlizzardEditMode() then return nil end
+    metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics
+        and Offhand.Viewport:GetMetrics())
+    local manager = _G.EditModeManagerFrame
+    local editModeOpen = manager and manager.IsShown and manager:IsShown() or false
+    local visible, outside = 0, {}
+    for _, name in ipairs(foreverProtectedHUDRecoveryNames) do
+        local frame = _G[name]
+        if FrameIsActuallyVisible(frame) then
+            visible = visible + 1
+            local groupPresentationFits = foreverPartyRaidRecoveryNames[name]
+                and RetailGroupPresentationFits(metrics)
+            local protectedPresentationFits = ProtectedHUDPresentationFits(name, frame, metrics)
+            if editModeOpen and metrics and not unreliableProtectedHUDRecoveryNames[name]
+                and not groupPresentationFits and not protectedPresentationFits
+                and not FrameFitsPhysicalDisplay(frame, metrics) then
+                outside[#outside + 1] = name
+            end
+        end
+    end
+    return string.format("EditMode=%s | Visible=%d | Outside=%s | Candidate=%s",
+        editModeOpen and "open" or "closed", visible,
+        editModeOpen and (#outside > 0 and table.concat(outside, ",") or "none")
+            or "not-scanned",
+        tostring(self.foreverPartyFrameOutsideDisplays or "none"))
 end
 
 local function Remember(frame)
@@ -948,6 +1207,22 @@ local mainhandTransientFrames = {
 local transientHooks = {}
 local secureTransientOwned = setmetatable({}, { __mode = "k" })
 local secureTransientPositioner
+local groupLootPreloadAttempted = false
+
+local function PreloadGroupLootForSecurePositioning()
+    if groupLootPreloadAttempted or _G.GroupLootContainer or InCombatLockdown()
+        or not Offhand.db or not Offhand.db.enabled then return end
+    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
+        and Offhand.Viewport:GetMetrics() or nil
+    if not metrics or not metrics.isSpanned then return end
+    local load = C_AddOns and C_AddOns.LoadAddOn or _G.LoadAddOn
+    if type(load) ~= "function" then return end
+    groupLootPreloadAttempted = true
+    -- GroupLootContainer is secure and cannot be safely reanchored after combat
+    -- begins. Load Blizzard's own LoD module while the player is safe so the
+    -- restricted Mainhand anchor exists before the first roll of the session.
+    pcall(load, "Blizzard_GroupLoot")
+end
 
 local function EnsureSecureTransientPositioner()
     if secureTransientPositioner then return secureTransientPositioner end
@@ -1144,6 +1419,7 @@ function HUD:PositionMainhandTransientFrames(m)
 end
 
 function HUD:HookMainhandTransientFrames()
+    PreloadGroupLootForSecurePositioning()
     -- Housing controls and the full-screen House Editor are load-on-demand.
     -- Install the hook as soon as Blizzard creates either module so an already
     -- shown child (notably HouseEditorFrame.ModeBar) is positioned before the
@@ -1161,7 +1437,8 @@ function HUD:HookMainhandTransientFrames()
                     and addonName ~= "Blizzard_UIWidgets"
                     and addonName ~= "Blizzard_PVPMatch"
                     and addonName ~= "Blizzard_GroupLoot"
-                    and addonName ~= "Blizzard_LootUI" then return end
+                    and addonName ~= "Blizzard_LootUI"
+                    and addonName ~= "Blizzard_CombatText" then return end
                 HUD:HookMainhandTransientFrames()
                 HUD:PositionMainhandTransientFrames()
                 if C_Timer and C_Timer.After then
@@ -1185,7 +1462,9 @@ function HUD:HookMainhandTransientFrames()
             frame:HookScript("OnShow", function()
                 HUD:PositionMainhandTransientFrames()
                 if C_Timer and C_Timer.After then
-                    C_Timer.After(0, function() HUD:PositionMainhandTransientFrames() end)
+                    for _, delay in ipairs({0, 0.05, 0.2}) do
+                        C_Timer.After(delay, function() HUD:PositionMainhandTransientFrames() end)
+                    end
                 end
             end)
             if spec.hookEvent then
@@ -1868,10 +2147,11 @@ function HUD:HookFrames()
         end
     end
 
-    -- The general scanner is intentionally broad and slow. Forever's Edit Mode
+    -- The general scanner is intentionally broad and slow. Blizzard Edit Mode
     -- recovery gets a separate cheap cadence so its entry prompt and native
-    -- transactional dialogs become usable in well under a second.
-    if UsesForeverEditMode() and C_Timer and C_Timer.NewTicker
+    -- transactional dialogs become usable in well under a second on every
+    -- supported client.
+    if HasBlizzardEditMode() and C_Timer and C_Timer.NewTicker
         and not self.foreverEditModeRecoveryTicker then
         self.foreverEditModeRecoveryTicker = C_Timer.NewTicker(0.25, function()
             HUD:UpdateForeverEditModeControlsRecovery()
@@ -1938,13 +2218,15 @@ function HUD:HookFrames()
                 if not needsSetup and not forever
                     and not EditModeLayoutNamesMatch(activeName, targetName)
                     and C_EditMode.SetActiveLayout then
-                    -- GetLayouts().layouts is indexed in the form expected by
-                    -- C_EditMode.SetActiveLayout. EditModeManagerFrame:SelectLayout
-                    -- uses manager-row identifiers on Anniversary and can select
-                    -- a different profile. Compare the active layout by name: its
-                    -- numeric ID is not the same namespace as this array index.
-                    local ok = pcall(C_EditMode.SetActiveLayout, index)
-                    if ok then
+                    -- GetLayouts().layouts contains only custom entries, while
+                    -- SetActiveLayout consumes the global identifier after the
+                    -- built-in preset rows. Passing the bare array index can
+                    -- silently select Modern/Classic while appearing successful.
+                    local targetID = GetEditModeCustomLayoutOffset(layoutData, activeName) + index
+                    local ok, result = pcall(C_EditMode.SetActiveLayout, targetID)
+                    local confirmed = GetEditModeLayouts()
+                    if ok and result ~= false and confirmed
+                        and tonumber(confirmed.activeLayout) == targetID then
                         Offhand:Print("Auto-loaded Edit Mode layout: " .. layout.layoutName)
                     end
                 end
@@ -2372,7 +2654,9 @@ function HUD:HookFrames()
                 NormalizeMainhandTransientScale(self)
                 Anchor(self, "CENTER", m, 0, (index - 1) * 120)
                 if C_Timer and C_Timer.After then
-                    C_Timer.After(0, function() HUD:PositionMainhandTransientFrames() end)
+                    for _, delay in ipairs({0, 0.05, 0.2}) do
+                        C_Timer.After(delay, function() HUD:PositionMainhandTransientFrames() end)
+                    end
                 end
             end)
         end

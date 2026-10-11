@@ -26,6 +26,8 @@ local function frame(parent, w, h)
     function f:GetParent() return self.parent end
     function f:GetScale() return self.scale end
     function f:SetScale(v) self.scale=v end
+    function f:GetWidth() return self.width end
+    function f:GetHeight() return self.height end
     function f:GetEffectiveScale() return self.scale*(self.parent and self.parent:GetEffectiveScale() or 1) end
     function f:SetScrollChild(c) self.scrollChild = c end
     function f:SetVerticalScroll(v) self.verticalScroll = v end
@@ -37,11 +39,11 @@ local function frame(parent, w, h)
         local n=0
         for point, v in pairs(self.points) do n=n+1; if n==i then return point,unpack(v) end end
     end
-    function f:ClearAllPoints() self.points={}; self.clears=(self.clears or 0)+1 end
+    function f:ClearAllPoints() self.points={};self.allPoints=nil;self.clears=(self.clears or 0)+1 end
     function f:SetClampedToScreen() end
     function f:SetSize(w,h) self.width,self.height=w,h end
     function f:IsShown() return true end
-    function f:SetAllPoints() end
+    function f:SetAllPoints(owner) self.allPoints=owner or self.parent;self.points={} end
     return f
 end
 WorldFrame=frame(nil)
@@ -188,8 +190,6 @@ cvars.textureFilteringMode="5"
 cvars.DynamicRenderScale="0"
 cvars.ResampleAlwaysSharpen="0"
 cvars.ResampleSharpness="0.2"
-cvars.RenderScaleDowngradeForegroundMinSize="1080"
-cvars.RenderScaleDowngradeBackgroundMinSize="720"
 local performance=addon.Viewport:GetPerformanceDiagnostics(addon.Viewport:GetMetrics())
 near(performance.fps,73.5)
 near(performance.spanPixels,4480*1440)
@@ -200,9 +200,7 @@ assert(performance.gxWindowedResolution=="2544x1342" and performance.renderScale
     and performance.maxFPS=="120" and performance.lowLatencyMode=="2"
     and performance.msaaAlphaTest=="1" and performance.antiAliasingMode=="2"
     and performance.cmaa2Quality=="3" and performance.textureFilteringMode=="5"
-    and performance.dynamicRenderScale=="0" and performance.resampleSharpness=="0.2"
-    and performance.foregroundDowngradeMin=="1080"
-    and performance.backgroundDowngradeMin=="720",
+    and performance.dynamicRenderScale=="0" and performance.resampleSharpness=="0.2",
     "performance diagnostics must retain renderer CVars without changing them")
 local topologyDiagnostics=addon.Viewport:GetTopologyDiagnostics()
 assert(topologyDiagnostics.status=="READY" and topologyDiagnostics.loaded
@@ -376,25 +374,173 @@ function WorldFrame:SetScale(value)
 end
 local original=uiScale
 -- The client CVar can be clamped independently of the actual root scale.
-local cvarWrites=0
-GetCVar=function(name) return name=="uiScale" and "0.64" or "1" end
-SetCVar=function() cvarWrites=cvarWrites+1 end
+local cvarWrites={}
+local worldTextScale=1
+local nameplateSize=5
+local friendlyPlayerNames=0
+local friendlyPlayerNameWrites={}
+local nameplateWidth,nameplateHeight=240,60
+local nameplateDimensionWrites=0
+local nameplateVisualWrites=0
+local nameplateFrame=frame(WorldFrame)
+nameplateFrame.scale=0.325
+nameplateFrame.width,nameplateFrame.height=240,60
+nameplateFrame.unitToken="nameplate1"
+local nameplateUnitFrame=frame(nameplateFrame)
+nameplateUnitFrame:SetAllPoints(nameplateFrame)
+nameplateFrame.UnitFrame=nameplateUnitFrame
+local setNameplateVisualScale=nameplateUnitFrame.SetScale
+function nameplateUnitFrame:SetScale(value)
+    nameplateVisualWrites=nameplateVisualWrites+1
+    setNameplateVisualScale(self,value)
+end
+local friendlyNameplateFrame=frame(WorldFrame)
+friendlyNameplateFrame.scale=0.275
+friendlyNameplateFrame.width,friendlyNameplateFrame.height=150,45
+friendlyNameplateFrame.unitToken="nameplate2"
+local friendlyNameplateUnitFrame=frame(friendlyNameplateFrame)
+friendlyNameplateUnitFrame:SetAllPoints(friendlyNameplateFrame)
+friendlyNameplateUnitFrame.scale=0.8
+friendlyNameplateFrame.UnitFrame=friendlyNameplateUnitFrame
+C_NamePlate={
+    GetNamePlateSize=function() return nameplateWidth,nameplateHeight end,
+    GetNamePlates=function() return {nameplateFrame,friendlyNameplateFrame} end,
+    SetNamePlateSize=function(width,height)
+        nameplateDimensionWrites=nameplateDimensionWrites+1
+        nameplateWidth,nameplateHeight=width,height
+    end,
+}
+NamePlateDriverFrame={
+    UpdateNamePlateSize=function(_,width,height)
+        nameplateWidth,nameplateHeight=width,height
+    end,
+}
+addon.db.originalNameplateSize=3
+GetCVar=function(name)
+    if name=="uiScale" then return "0.64" end
+    if name=="WorldTextScale" then return tostring(worldTextScale) end
+    if name=="nameplateSize" then return tostring(nameplateSize) end
+    if name=="UnitNameFriendlyPlayerName" then return tostring(friendlyPlayerNames) end
+    -- Retail 12.1 can render friendly player plates while this legacy CVar is
+    -- unavailable. UnitNameFriendlyPlayerName remains the authoritative name
+    -- visibility switch and must not be gated on this missing value.
+    if name=="nameplateShowFriends" then return nil end
+    if name=="NamePlateHorizontalScale" then return nil end
+    if name=="NamePlateVerticalScale" then return nil end
+    if name=="nameplateGlobalScale" then return nil end
+    return "1"
+end
+SetCVar=function(name,value)
+    cvarWrites[name]=(cvarWrites[name] or 0)+1
+    if name=="WorldTextScale" then worldTextScale=tonumber(value) end
+    if name=="nameplateSize" then nameplateSize=tonumber(value) end
+    if name=="UnitNameFriendlyPlayerName" then
+        friendlyPlayerNameWrites[#friendlyPlayerNameWrites+1]=tostring(value)
+        -- Retail boolean CVars require their canonical integer token.
+        if value=="0" or value=="1" then friendlyPlayerNames=tonumber(value) end
+    end
+end
+addon.isRetail=true
+addon.isForever=false
 local unknownAddon=frame(UIParent);unknownAddon.scale=1.2
+local getSpannedMetrics=addon.Viewport.GetMetrics
+addon.Viewport.GetMetrics=function() return {isSpanned=false} end
 addon.Viewport:ApplyGlobalScale()
-near(uiScale,1440/2560*0.7)
-near(WorldFrame:GetEffectiveScale(),uiScale)
+near(friendlyPlayerNames,1)
+near(addon.db.originalFriendlyPlayerName,0)
+assert(friendlyPlayerNameWrites[1]=="1",
+    "friendly player names were not kept visible while Offhand was enabled but unspanned")
+addon.Viewport.GetMetrics=getSpannedMetrics
+addon.Viewport:ApplyGlobalScale()
+near(friendlyPlayerNames,1)
+assert(friendlyPlayerNameWrites[1]=="1",
+    "friendly player-name visibility was not written when the legacy plate CVar was unavailable")
+near(addon.db.originalFriendlyPlayerName,0)
+local expectedHUDScale=1440/2560*0.7
+near(uiScale,expectedHUDScale)
+near(WorldFrame:GetEffectiveScale(),nativeWorldScale)
+near(worldTextScale,1440/2560)
+near(nameplateSize,3)
+near(nameplateWidth,240)
+near(nameplateHeight,60)
+near(nameplateFrame:GetScale(),0.325)
+near(friendlyNameplateFrame:GetScale(),0.275)
+near(addon.Viewport.namePlateCompensationRatio,expectedHUDScale)
+near(nameplateUnitFrame:GetEffectiveScale(),expectedHUDScale)
+near(friendlyNameplateUnitFrame:GetEffectiveScale(),0.8*expectedHUDScale)
+assert(nameplateUnitFrame.allPoints==nil and friendlyNameplateUnitFrame.allPoints==nil,
+    "active nameplate UnitFrames retained scale-cancelling SetAllPoints anchors")
+near(nameplateUnitFrame:GetWidth(),240)
+near(nameplateUnitFrame:GetHeight(),60)
+near(friendlyNameplateUnitFrame:GetWidth(),240)
+near(friendlyNameplateUnitFrame:GetHeight(),60)
 near(unknownAddon:GetEffectiveScale(),uiScale*1.2)
 addon.SeamRedirect:AlignHUDFrames()
 near(MainMenuBar:GetEffectiveScale(),uiScale)
 for i=1,100 do addon.Viewport:ApplyGlobalScale() end
 assert(writes==1,"unchanged global scale was rewritten")
-assert(worldWrites==1,"unchanged WorldFrame scale was rewritten")
-assert(cvarWrites==0,"layout wrote a clamped CVar and risks a display feedback loop")
+assert(worldWrites==0,"native WorldFrame scale was unexpectedly rewritten")
+assert(not cvarWrites.uiScale,"layout wrote a clamped uiScale CVar and risks a display feedback loop")
+assert(cvarWrites.WorldTextScale==1,"unchanged world text correction was rewritten")
+assert(cvarWrites.nameplateSize==1,
+    "the prior beta's discrete nameplate setting was not restored exactly once")
+assert(nameplateDimensionWrites==0,
+    "Offhand changed Blizzard's native nameplate dimensions")
+assert(nameplateVisualWrites==1,
+    "unchanged visual nameplate compensation was rewritten")
+NamePlateDriverFrame:UpdateNamePlateSize(300,75)
+near(nameplateWidth,300)
+near(nameplateHeight,75)
+assert(nameplateDimensionWrites==0,
+    "a Blizzard nameplate settings refresh was unexpectedly intercepted")
+nameplateUnitFrame:SetScale(1.2)
+addon.Viewport:ApplyNamePlateVisualScale(addon.Viewport:GetMetrics())
+near(nameplateWidth,300)
+near(nameplateHeight,75)
+near(nameplateUnitFrame:GetEffectiveScale(),1.2*expectedHUDScale)
+assert(nameplateDimensionWrites==0,
+    "a Blizzard settings refresh caused Offhand to rewrite native dimensions")
+assert(nameplateVisualWrites==3,
+    "a Blizzard visual-scale refresh did not establish and compensate a new baseline")
 combat=true;addon.db.hudScale=0.65;addon.Viewport:ApplyGlobalScale();assert(writes==1)
 combat=false;addon.Viewport:ApplyGlobalScale();assert(writes==2)
+near(WorldFrame:GetEffectiveScale(),nativeWorldScale)
+near(nameplateUnitFrame:GetEffectiveScale(),1.2*(1440/2560*0.65))
+assert(nameplateDimensionWrites==0,
+    "HUD scale changes rewrote native nameplate dimensions")
+assert(addon.Viewport:RestoreNamePlateUnit("nameplate1"),
+    "removed nameplate was not restored before pool reuse")
+near(nameplateUnitFrame:GetScale(),1.2)
+assert(nameplateUnitFrame.allPoints==nameplateFrame,
+    "removed nameplate did not recover Blizzard's SetAllPoints contract")
+addon.Viewport:ApplyNamePlateVisualScale(addon.Viewport:GetMetrics())
 addon.db.enabled=false;addon.Viewport:ApplyGlobalScale();
 near(uiScale,original)
 near(WorldFrame:GetScale(),nativeWorldScale)
-assert(worldWrites==3,"WorldFrame baseline was not changed once per layout and restored once")
+near(worldTextScale,1)
+near(nameplateSize,3)
+near(friendlyPlayerNames,0)
+assert(friendlyPlayerNameWrites[#friendlyPlayerNameWrites]=="0",
+    "friendly player-name preference was not restored as a Retail boolean CVar")
+assert(addon.db.originalFriendlyPlayerName==nil,
+    "friendly player-name preference was not restored when Offhand was disabled")
+near(nameplateWidth,300)
+near(nameplateHeight,75)
+near(nameplateFrame:GetScale(),0.325)
+near(friendlyNameplateFrame:GetScale(),0.275)
+near(nameplateUnitFrame:GetScale(),1.2)
+near(friendlyNameplateUnitFrame:GetScale(),0.8)
+assert(nameplateUnitFrame.allPoints==nameplateFrame
+    and friendlyNameplateUnitFrame.allPoints==friendlyNameplateFrame,
+    "disabled layout did not restore Blizzard's pooled nameplate anchors")
+assert(cvarWrites.WorldTextScale==2,"original WorldTextScale was not restored exactly once")
+assert(cvarWrites.nameplateSize==1,
+    "the migrated discrete nameplate setting was unexpectedly rewritten")
+assert(nameplateDimensionWrites==0,
+    "native nameplate dimensions were unexpectedly changed")
+assert(nameplateVisualWrites==7,
+    "nameplate visual baseline was not restored exactly once")
+assert(worldWrites==1,
+    "native WorldFrame scale was unexpectedly changed before restore")
 print("PASS: inherited global baseline, addon relative scales, no repeated writes, recursion/combat guards, restore")
 

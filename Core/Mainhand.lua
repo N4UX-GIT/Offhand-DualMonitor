@@ -180,9 +180,16 @@ local editModeNames = {
     MainMenuExpBar = true, MultiBarBottomLeft = true, MultiBarBottomRight = true,
     MultiBarLeft = true, MultiBarRight = true, StanceBar = true,
     PetActionBar = true, PossessActionBar = true, MinimapCluster = true,
-    PlayerFrame = true, TargetFrame = true, FocusFrame = true, PartyFrame = true,
+    PlayerFrame = true, TargetFrame = true, FocusFrame = true, PetFrame = true,
+    BossTargetFrameContainer = true, PartyFrame = true,
     PartyMemberFrame1 = true, CompactPartyFrame = true,
     CompactRaidFrameContainer = true, BuffFrame = true, BuffCluster = true,
+    CastingBarFrame = true, PlayerCastingBarFrame = true,
+    ExtraAbilityContainer = true, ExtraActionBarFrame = true, ZoneAbilityFrame = true,
+    EncounterBar = true, UIWidgetPowerBarContainerFrame = true, LossOfControlFrame = true,
+    MainMenuBarVehicleLeaveButton = true, VehicleExitButton = true,
+    TotemFrame = true, MultiCastActionBarFrame = true, PersonalResourceDisplayFrame = true,
+    DurabilityFrame = true, DamageMeter = true,
     CastingBarFrame = true, PlayerCastingBarFrame = true,
     EssentialCooldownViewer = true, UtilityCooldownViewer = true,
     BuffIconCooldownViewer = true, BottomManagedFrameContainer = true,
@@ -573,6 +580,55 @@ local function EnsureEditModeLoaded()
     if type(load) == "function" then pcall(load, "Blizzard_EditMode") end
 end
 
+-- Profiles completed before generated Mainhand layouts were introduced can be
+-- fully spanned while Blizzard's protected HUD still uses the complete
+-- UIParent. The ordinary wizard no longer reopens for those users, so expose a
+-- narrow migration check that can offer the same player-initiated transaction.
+-- Forever has its own protected-layout recovery flow and is excluded here.
+function Mainhand:NeedsEditModeLayoutAttention()
+    if Offhand.isForever then return false, "forever" end
+    if InCombatLockdown and InCombatLockdown() then return false, "combat" end
+    if not Offhand.db or not Offhand.db.enabled then return false, "disabled" end
+    local rect = self:GetRect()
+    if not rect.isSpanned then return false, "span" end
+    if type(OffhandCharDB) == "table" and OffhandCharDB.mainhandLayoutDeferred then
+        return false, "deferred"
+    end
+    if type(Offhand.HasBlizzardEditMode) ~= "function"
+        or not Offhand:HasBlizzardEditMode() then return false, "unsupported" end
+
+    EnsureEditModeLoaded()
+    if not C_EditMode or type(C_EditMode.GetLayouts) ~= "function"
+        or type(C_EditMode.SaveLayouts) ~= "function" then
+        return false, "api"
+    end
+    local data = EditModeData()
+    if not data then return false, "unavailable" end
+    if #Presets() == 0 then return false, "presets" end
+
+    local status = self:GetLayoutStatus()
+    if not status.configured then return true, "missing" end
+    if not status.currentGeometry then return true, "stale" end
+    return false, "ready"
+end
+
+function Mainhand:GetEditModeDiagnostics()
+    local needsAttention, reason = self:NeedsEditModeLayoutAttention()
+    local status = self:GetLayoutStatus()
+    local data = EditModeData()
+    local active = data and data.activeLayout or "unavailable"
+    return string.format(
+        "Supported=%s | API=%s/%s | Active=%s | Generated=%s | Geometry=%s | Attention=%s/%s",
+        type(Offhand.HasBlizzardEditMode) == "function"
+            and Offhand:HasBlizzardEditMode() and "yes" or "no",
+        C_EditMode and type(C_EditMode.GetLayouts) == "function" and "read" or "none",
+        C_EditMode and type(C_EditMode.SaveLayouts) == "function" and "write" or "none",
+        tostring(active),
+        status.configured and tostring(status.generatedName or "recorded") or "none",
+        status.configured and (status.currentGeometry and "current" or "stale") or "none",
+        needsAttention and "yes" or "no", tostring(reason or "unknown"))
+end
+
 function Mainhand:CreateOrUpdateEditModeLayout()
     if InCombatLockdown and InCombatLockdown() then return false, "combat" end
     if not Offhand.db or not Offhand.db.enabled then return false, "disabled" end
@@ -615,6 +671,23 @@ function Mainhand:CreateOrUpdateEditModeLayout()
 
     local generatedName = type(record) == "table" and record.generatedName or nil
     local generated, _, generatedIndex = FindNamedLayout(data, presets, generatedName)
+    -- Forever already persisted the selected protected-frame layout before the
+    -- generated-layout provenance record was introduced. Reuse that exact
+    -- Offhand-owned layout when the newer record is absent or stale. Without
+    -- this bridge, a character at Blizzard's custom-layout cap is told to make
+    -- a sixth layout even though its existing Mainhand layout is available.
+    if not generated and Offhand.isForever then
+        local preferredName = OffhandCharDB.foreverEditModeLayoutName
+        if type(preferredName) == "string"
+            and preferredName:find("Offhand - Mainhand", 1, true) == 1 then
+            local preferred, _, preferredIndex = FindNamedLayout(data, presets, preferredName)
+            if preferred and preferredIndex then
+                generatedName = preferredName
+                generated = preferred
+                generatedIndex = preferredIndex
+            end
+        end
+    end
     if not generatedName then generatedName = UniqueLayoutName(data) end
 
     local layout = DeepCopy(source)
@@ -683,6 +756,7 @@ function Mainhand:CreateOrUpdateEditModeLayout()
         geometrySignature = self:GetGeometrySignature(),
         movedSystems = moved,
     }
+    OffhandCharDB.mainhandLayoutDeferred = nil
     if Offhand.isForever then
         OffhandCharDB.foreverEditModeLayoutName = generatedName
         OffhandCharDB.foreverEditModeLayoutID = targetID
@@ -691,21 +765,44 @@ function Mainhand:CreateOrUpdateEditModeLayout()
         if Offhand.ForeverPersistence and Offhand.ForeverPersistence.SaveProfileSnapshot then
             Offhand.ForeverPersistence:SaveProfileSnapshot(true)
         end
+    else
+        -- Retail and Anniversary restore the active layout per character by
+        -- stable name during login. Without updating that preference here, a
+        -- successful Repair HUD is immediately undone on /reload when the old
+        -- remembered layout is auto-selected again.
+        OffhandCharDB.editModeLayoutName = generatedName
     end
     return true, generatedName, moved
 end
 
 function Mainhand:GetLayoutStatus()
     local record = type(OffhandCharDB) == "table" and OffhandCharDB.mainhandLayout or nil
-    if type(record) ~= "table" then return { configured = false } end
+    local deferred = type(OffhandCharDB) == "table"
+        and OffhandCharDB.mainhandLayoutDeferred == true or false
+    if type(record) ~= "table" then
+        return { configured = false, deferred = deferred }
+    end
     return {
         configured = true,
+        deferred = deferred,
         sourceName = record.sourceName,
         generatedName = record.generatedName,
         generatedID = record.generatedID,
         movedSystems = record.movedSystems,
         currentGeometry = record.geometrySignature == self:GetGeometrySignature(),
     }
+end
+
+function Mainhand:SetEditModeLayoutDeferred(deferred)
+    if type(OffhandCharDB) ~= "table" then return false end
+    local wanted = deferred and true or false
+    if (OffhandCharDB.mainhandLayoutDeferred == true) == wanted then return true end
+    OffhandCharDB.mainhandLayoutDeferred = wanted and true or nil
+    if Offhand.isForever and Offhand.ForeverPersistence
+        and Offhand.ForeverPersistence.SaveProfileSnapshot then
+        Offhand.ForeverPersistence:SaveProfileSnapshot(true)
+    end
+    return true
 end
 
 function Mainhand:PromptReload()

@@ -16,6 +16,11 @@ Native Windows desktop companion application for the Offhand World of Warcraft a
   installed. Portable installations retain the explicit one-time GitHub
   Releases check.
 * **DPI-Aware**: Full Per-Monitor V2 scaling ensures crisp fonts and accurate window positioning on mixed-resolution / mixed-scale setups.
+* **Post-Span Render Resync**: After the exact borderless span is established,
+  the Companion performs a one-pixel resize nudge and immediately restores the
+  exact display bounds. This gives WoW a second ordinary window-resize event
+  after the final style is active without reading process memory, injecting
+  code, sending gameplay input, or changing the saved monitor topology.
 * **Wine Process-Path Fallback**: If .NET cannot read `Process.MainModule`, the
   Companion retries with the limited-access Win32 image-path API implemented by
   Wine. WoW and the Companion must use the same prefix and the same Wine/Proton
@@ -40,8 +45,12 @@ Native Windows desktop companion application for the Offhand World of Warcraft a
 ---
 
 ## Downloads & Distribution
+* **Microsoft Store (recommended for Windows)**: Install the Store-signed,
+  Microsoft-managed package from
+  <https://apps.microsoft.com/detail/9PL4PW84Q90W>. Store installations receive
+  updates through Microsoft Store.
 * **`Offhand.exe`**: Ready-to-run standalone executable. No installer needed; uses the Windows .NET Framework.
-* **`Offhand-Companion.zip` (recommended portable download)**: The canonical
+* **`Offhand-Companion.zip` (portable and Linux/Wine alternative)**: The canonical
   runtime-only archive containing `Offhand.exe`, `README.txt`, and `LICENSE`.
   Source, build scripts, manifests, and development assets remain available in
   the repository and GitHub source archives. Microsoft Security Intelligence reviewed the submitted Beta

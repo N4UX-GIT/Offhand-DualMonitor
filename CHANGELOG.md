@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- Companion download guidance now recommends the Microsoft Store for Windows
+  while retaining the version-matched GitHub ZIP for portable and Linux/Wine
+  use. The in-game guide, settings, generated GitHub release notes, and Discord
+  release announcements now use the same channel distinction.
 - Added an initial compatibility target for the original WoW 3.3.5a client
   (`Interface 30300`). A legacy-only runtime adapter supplies the timer and
   physical-window primitives used by Offhand, while Backdrop and visibility
@@ -58,6 +62,47 @@ All notable changes to this project will be documented in this file.
   portable builds retain the explicit, user-initiated GitHub release check.
 
 ### Fixed
+- First-time onboarding now supports manual dual-display and intentional
+  single-ultrawide layouts at Step 4 without requiring Companion topology.
+  Because WoW cannot report physical monitor boundaries, manual users receive
+  an explicit confirmation instead of a false automatic-detection claim;
+  stale Companion topology remains blocked. The calibration recommendation for
+  a 21:9 single display preserves a 16:9 Mainhand and assigns the remaining
+  width to Offhand.
+- The final wizard step now offers a confirmed **Finish Without HUD Layout**
+  path when Blizzard's custom-layout cap, combat state, or an unavailable Edit
+  Mode API prevents HUD generation. The per-character deferral completes
+  onboarding without claiming protected frames were repaired, remains visible
+  in Recovery & Preview, and suppresses an immediate automatic repair prompt;
+  creating or repairing the layout later clears the deferral.
+- The setup wizard and Recovery panel now replace the internal `span` HUD-layout
+  failure token with actionable guidance. A stale Companion topology is blocked
+  during wizard preflight and explains both respan and manual-setup recovery;
+  other unconfirmed spans direct the user to Windowed mode and `/offhand diag`.
+- Forever World Map restore queues now keep every generation/pending marker in
+  addon-owned weak state instead of writing generic `_Offhand*` fields onto
+  `WorldMapFrame`. M/L geometry settlement also runs from Offhand's independent
+  observer after Blizzard's protected toggle stack has returned. Its initial
+  hidden construction frame no longer erases a saved open marker, and the first
+  geometry settlement runs immediately on the observed visibility edge to
+  reduce the opening reposition. Placement, scaling, dragging, reload
+  persistence, and open state remain Offhand-owned.
+- Forever native backpacks again persist both position and intentional open
+  state on the Offhand canvas. A bag left open reopens after `/reload`, Escape
+  and system-panel cleanup restore it through Blizzard's public bag APIs, and
+  explicit B or close-button actions clear the marker and remain closed. The
+  recovery path never directly shows an uninitialized native bag frame.
+  Forever's direct `ToggleAllBags`, `ToggleBag`, and default-B
+  `ToggleBackpack` paths are treated as explicit even when they bypass
+  `CloseAllBags`, so B remains responsive immediately after the Game Menu
+  closes. The former three-second panel-transition grace timer has been removed;
+  Settings/AddOns/Edit Mode recovery now depends on visible panel state,
+  visibility edges, and same-turn navigation markers instead of elapsed time.
+- Manual **Restore Window** now returns to the remembered pre-span bordered
+  bounds instead of first filling the complete Mainhand work area. This avoids
+  the observed two-stage resize that could make Retail lose and recreate its
+  D3D12 device, briefly freezing the client while textures loaded again.
+  Missing-display recovery continues to fill the surviving Mainhand.
 - Unit context menus near a Mainhand edge now remain inside the physical game
   view instead of treating the complete spanned desktop as usable space and
   extending downward or sideways off-screen. Modern menu proxies and legacy
@@ -66,6 +111,16 @@ All notable changes to this project will be documented in this file.
   UIParent's absolute spanned-layout scale. This removes the enlarged text seen
   on Retail and Forever while restoring the original WorldFrame scale whenever
   Offhand is disabled or the window is no longer spanned.
+- Retail friendly player nameplates no longer become blank health bars outside
+  instances when the friendly-name CVar is disabled. While Offhand owns an
+  active span and friendly plates are enabled, it writes Retail's canonical
+  boolean token, keeps their names visible through later CVar refreshes, and
+  restores the player's exact prior preference when the span is removed.
+- Item and comparison tooltips opened from an Offhand-side bag now treat the
+  physical workspace edge as their boundary. Their native owner anchor first
+  opens inward, then the complete tooltip group shifts back into Offhand if
+  needed, while cursor-, world- and Mainhand-owned tooltips retain Blizzard's
+  placement.
 - Closing a custom Blizzard chat window now retires its Offhand placement so it
   remains closed after reload. Re-docked tabs also adopt the primary chat
   window's font size as well as its dimensions.

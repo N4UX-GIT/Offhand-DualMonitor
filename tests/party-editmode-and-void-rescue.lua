@@ -274,8 +274,18 @@ RolePollPopup = makeMockFrame("RolePollPopup", 420, 180)
 ReadyCheckFrame = makeMockFrame("ReadyCheckFrame", 320, 140)
 ReadyCheckFrame.TitleContainer = {}
 LFGDungeonReadyPopup = makeMockFrame("LFGDungeonReadyPopup", 520, 300)
-GroupLootContainer = makeMockFrame("GroupLootContainer", 420, 180)
-GroupLootContainer:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 190)
+GroupLootContainer = nil
+local groupLootPreloadCount = 0
+C_AddOns = {
+    LoadAddOn = function(name)
+        if name == "Blizzard_GroupLoot" then
+            groupLootPreloadCount = groupLootPreloadCount + 1
+            GroupLootContainer = makeMockFrame("GroupLootContainer", 420, 180)
+            GroupLootContainer:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 190)
+            return true
+        end
+    end,
+}
 CombatText = makeMockFrame("CombatText", 600, 600)
 CombatText.ignoreParentScale = true
 TimerTracker = makeMockFrame("TimerTracker", 4000, 2560)
@@ -436,6 +446,22 @@ assertMainhandAnchor(HouseEditorFrame.StorageButton, "LEFT", 1464, 876, "House e
 assertMainhandAnchor(HouseEditorFrame.StoragePanel, "LEFT", 1464, 876, "House editor storage panel")
 assertMainhandAnchor(HouseEditorFrame.MarketShoppingCartFrame, "BOTTOMRIGHT", 3970, 26,
     "House editor market cart")
+
+-- Blizzard_CombatText is load-on-demand on current clients. If it did not
+-- exist during Offhand initialization, its first combat/XP message must still
+-- inherit Mainhand scale and positioning as soon as Blizzard loads the module.
+CombatText = makeMockFrame("CombatText", 600, 600)
+CombatText.ignoreParentScale = true
+for _, frame in ipairs(UIParent.children) do
+    local onEvent = frame.GetScript and frame:GetScript("OnEvent")
+    if onEvent and frame.registeredEvents and frame.registeredEvents.ADDON_LOADED then
+        onEvent(frame, "ADDON_LOADED", "Blizzard_CombatText")
+    end
+end
+assertMainhandAnchor(CombatText, "CENTER", 2720, 726, "late-loaded floating combat text")
+assert(CombatText:IsIgnoringParentScale() == false,
+    "late-loaded floating combat text must inherit Offhand's UIParent scale")
+
 assert(not BossBanner:IsShown(), "positioning transient UI must not change native visibility")
 
 -- Blizzard can restore a stock full-span anchor during OnShow. The secure
@@ -655,14 +681,22 @@ assert(#PartyMemberFrame2.points == party2PointCount,
 -- A bottom-aligned 1080p workspace beside a 2160p Mainhand leaves real
 -- UIParent coordinates above the workspace with no physical display. Detect a
 -- Blizzard Party Frame there and guide the player without touching its anchor.
+-- Keep the other visible protected-HUD candidates inside a physical display so
+-- this scenario identifies PartyFrame deterministically.
+TargetFrame:ClearAllPoints()
+TargetFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 2200, 200)
+DamageMeter:ClearAllPoints()
+DamageMeter:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 2500, 200)
 PartyFrame = makeMockFrame("PartyFrame", 300, 220)
 PartyFrame.IsProtected = function() return true end
 PartyFrame:ClearAllPoints()
 PartyFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 200, 1400)
 local partyRecoveryPointCount = #PartyFrame.points
 local partyRecoveryPromptCount, partyRecoveryPromptHidden = 0, 0
-addon.ShowForeverPartyFrameRecoveryPrompt = function()
+local partyRecoveryPromptNames = {}
+addon.ShowForeverPartyFrameRecoveryPrompt = function(_, frameName)
     partyRecoveryPromptCount = partyRecoveryPromptCount + 1
+    partyRecoveryPromptNames[#partyRecoveryPromptNames + 1] = frameName
 end
 addon.HideForeverPartyFrameRecoveryPrompt = function()
     partyRecoveryPromptHidden = partyRecoveryPromptHidden + 1
@@ -672,22 +706,209 @@ local partyRecoveryMetrics = {
     gameLeft = 1920, gameBottom = 0, gameRight = 5760, gameTop = 2160,
     workspaceLeft = 0, workspaceBottom = 0, workspaceRight = 1920, workspaceTop = 1080,
 }
+EditModeManagerFrame:Show()
 addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
-assert(partyRecoveryPromptCount == 1,
-    "Forever must explain recovery when Blizzard Party Frames are in mixed-height dead space")
+assert(partyRecoveryPromptCount == 0
+        and addon.HUD.foreverPartyFrameOutsideDisplays == "PartyFrame",
+    "Forever must remember a lost Party Frame without interrupting Edit Mode")
+local groupDiagnostics = addon.HUD:GetForeverGroupFrameDiagnostics()
+assert(groupDiagnostics:find("Group=no", 1, true)
+        and groupDiagnostics:find("EditMode=open", 1, true)
+        and groupDiagnostics:find("PartyFrame=shown@", 1, true),
+    "Forever group-frame diagnostics must distinguish Edit Mode preview visibility")
 assert(#PartyFrame.points == partyRecoveryPointCount
         and PartyFrame.points[1][1] == "BOTTOMLEFT",
     "Party Frame recovery detection must remain read-only")
-addon.HUD:DismissForeverPartyFrameRecoveryPrompt()
+EditModeManagerFrame:Hide()
 addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
 assert(partyRecoveryPromptCount == 1,
-    "declining Party Frame guidance must suppress repeats while the frame remains lost")
+    "Forever must offer recovery after Edit Mode closes")
+assert(partyRecoveryPromptNames[1] == "PartyFrame",
+    "Forever recovery guidance must identify the affected protected HUD frame, got "
+        .. tostring(partyRecoveryPromptNames[1]))
+local previousMainhand = addon.Mainhand
+local repairLayoutCalls, repairReloadCalls = 0, 0
+addon.Mainhand = {
+    CreateOrUpdateEditModeLayout = function()
+        repairLayoutCalls = repairLayoutCalls + 1
+        return true, "Offhand - Mainhand - Test", 7
+    end,
+    PromptReload = function() repairReloadCalls = repairReloadCalls + 1 end,
+}
+local repaired, repairedName, repairedFrames = addon.HUD:RepairProtectedHUDLayout()
+assert(repaired and repairedName == "Offhand - Mainhand - Test" and repairedFrames == 7
+        and repairLayoutCalls == 1 and repairReloadCalls == 1,
+    "the recovery hardware click must rebuild the Blizzard layout and request reload")
+assert(#PartyFrame.points == partyRecoveryPointCount,
+    "layout recovery must not directly mutate the protected Party Frame")
+addon.Mainhand = previousMainhand
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+assert(partyRecoveryPromptCount == 1,
+    "successful protected-HUD recovery must suppress repeats until placement changes")
 PartyFrame:ClearAllPoints()
 PartyFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 200, 200)
 addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
 assert(partyRecoveryPromptHidden == 1
         and addon.HUD.foreverPartyFrameOutsideDisplays == nil,
     "recovering Party Frames must clear the guidance state")
+
+-- The same bounded, read-only recovery must cover other persistent protected
+-- Edit Mode systems. PetFrame represents the conditional unit-frame family;
+-- transient popups and nameplates intentionally use separate lifecycles.
+PetFrame = makeMockFrame("PetFrame", 180, 80)
+PetFrame.IsProtected = function() return true end
+PetFrame:ClearAllPoints()
+PetFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 500, 1500)
+local petRecoveryPointCount = #PetFrame.points
+EditModeManagerFrame:Show()
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+assert(partyRecoveryPromptCount == 1
+        and addon.HUD.foreverPartyFrameOutsideDisplays == "PetFrame",
+    "protected HUD detection must remember Edit Mode evidence without prompting")
+EditModeManagerFrame:Hide()
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+assert(partyRecoveryPromptCount == 2 and partyRecoveryPromptNames[2] == "PetFrame",
+    "Forever must detect non-party protected HUD frames in mixed-height dead space")
+local protectedHUDDiagnostics = addon.HUD:GetForeverProtectedHUDDiagnostics(partyRecoveryMetrics)
+assert(protectedHUDDiagnostics:find("EditMode=closed", 1, true)
+        and protectedHUDDiagnostics:find("Outside=not-scanned", 1, true)
+        and protectedHUDDiagnostics:find("Candidate=PetFrame", 1, true),
+    "Forever diagnostics must distinguish an Edit Mode candidate from dormant roots")
+addon.Canvas:TryMakeFrameDraggable(PetFrame)
+assert(not PetFrame._OffhandMovable and not PetFrame.movable
+        and #PetFrame.points == petRecoveryPointCount
+        and PetFrame.points[1][1] == "BOTTOMLEFT",
+    "protected HUD recovery must diagnose PetFrame without mutating its anchor")
+PetFrame:ClearAllPoints()
+PetFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 500, 300)
+EditModeManagerFrame:Show()
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+EditModeManagerFrame:Hide()
+assert(partyRecoveryPromptHidden == 2
+        and addon.HUD.foreverPartyFrameOutsideDisplays == nil,
+    "recovering a non-party protected HUD frame must clear the guidance state")
+
+-- Retail uses the same Blizzard Edit Mode ownership model. It must receive the
+-- same read-only dead-space diagnosis without enabling Forever-only recovery.
+addon.isForever = false
+addon.isRetail = true
+PetFrame:ClearAllPoints()
+PetFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 500, 1500)
+StatusTrackingBarManager = makeMockFrame("StatusTrackingBarManager", 1000, 20)
+StatusTrackingBarManager:ClearAllPoints()
+StatusTrackingBarManager:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 200, 1500)
+local promptsBeforeRetailLoginScan = partyRecoveryPromptCount
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+assert(partyRecoveryPromptCount == promptsBeforeRetailLoginScan
+        and addon.HUD.foreverPartyFrameOutsideDisplays == nil,
+    "Retail normal login must ignore dormant PetFrame and StatusTrackingBarManager roots")
+StatusTrackingBarManager:ClearAllPoints()
+StatusTrackingBarManager:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 2500, 100)
+EditModeManagerFrame:Show()
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+EditModeManagerFrame:Hide()
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+assert(partyRecoveryPromptCount == 3 and partyRecoveryPromptNames[3] == "PetFrame",
+    "Retail must detect protected Edit Mode HUD frames in mixed-height dead space")
+assert(addon.HUD:GetForeverProtectedHUDDiagnostics(partyRecoveryMetrics)
+        :find("Candidate=PetFrame", 1, true),
+    "Retail diagnostics must retain the protected HUD candidate observed in Edit Mode")
+PetFrame:ClearAllPoints()
+PetFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 500, 300)
+EditModeManagerFrame:Show()
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+EditModeManagerFrame:Hide()
+
+-- StatusTrackingBarManager is an Edit Mode ownership proxy whose reported root
+-- bounds can remain in mixed-height dead space even while its visible bars are
+-- correctly placed. Rebuilding the layout cannot change that proxy, so it must
+-- never start the Repair HUD loop when Edit Mode closes.
+StatusTrackingBarManager:ClearAllPoints()
+StatusTrackingBarManager:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 200, 1500)
+local promptsBeforeStatusProxyScan = partyRecoveryPromptCount
+EditModeManagerFrame:Show()
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+EditModeManagerFrame:Hide()
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+assert(partyRecoveryPromptCount == promptsBeforeStatusProxyScan
+        and addon.HUD.foreverPartyFrameOutsideDisplays == nil,
+    "Retail StatusTrackingBarManager ownership proxy must not trigger Repair HUD")
+assert(not addon.HUD:GetForeverProtectedHUDDiagnostics(partyRecoveryMetrics)
+        :find("StatusTrackingBarManager", 1, true),
+    "Retail diagnostics must not report the unreliable status-bar ownership proxy")
+
+-- Retail's MinimapCluster ownership root can remain in the void while the
+-- visible Minimap child is correctly placed by the selected layout. Trust the
+-- visible child, but retain recovery when both presentation and root are lost.
+MinimapCluster = makeMockFrame("MinimapCluster", 260, 260)
+MinimapCluster:ClearAllPoints()
+MinimapCluster:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 200, 1500)
+Minimap = makeMockFrame("Minimap", 220, 220)
+Minimap:ClearAllPoints()
+Minimap:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 5200, 300)
+local promptsBeforeMinimapProxyScan = partyRecoveryPromptCount
+EditModeManagerFrame:Show()
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+assert(addon.HUD.foreverPartyFrameOutsideDisplays == nil,
+    "Retail must ignore an offscreen MinimapCluster when its visible minimap is reachable")
+Minimap:ClearAllPoints()
+Minimap:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 200, 1500)
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+assert(addon.HUD.foreverPartyFrameOutsideDisplays == "MinimapCluster",
+    "Retail must retain recovery when the MinimapCluster and visible minimap are unreachable")
+Minimap:ClearAllPoints()
+Minimap:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 5200, 300)
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+EditModeManagerFrame:Hide()
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+assert(partyRecoveryPromptCount == promptsBeforeMinimapProxyScan
+        and addon.HUD.foreverPartyFrameOutsideDisplays == nil,
+    "a reachable visible minimap must clear its stale ownership-root candidate")
+
+-- Retail can leave its legacy PartyFrame ownership root in dead space while
+-- the selected layout's visible member presentation is correctly on Mainhand.
+-- The stale proxy must not restart Repair HUD after a successful reload.
+PartyFrame:ClearAllPoints()
+PartyFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 200, 1400)
+local retailVisiblePartyMember = makeMockFrame("RetailVisiblePartyMember", 180, 80)
+retailVisiblePartyMember:ClearAllPoints()
+retailVisiblePartyMember:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 5000, 300)
+PartyFrame.GetChildren = function() return retailVisiblePartyMember end
+local promptsBeforeStaleRetailProxy = partyRecoveryPromptCount
+EditModeManagerFrame:Show()
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+assert(partyRecoveryPromptCount == promptsBeforeStaleRetailProxy
+        and addon.HUD.foreverPartyFrameOutsideDisplays == nil,
+    "Retail must ignore an offscreen PartyFrame proxy when its visible member is reachable")
+EditModeManagerFrame:Hide()
+assert(addon.HUD:GetForeverProtectedHUDDiagnostics(partyRecoveryMetrics)
+        :find("Candidate=none", 1, true),
+    "Retail diagnostics must not retain a stale PartyFrame proxy as a candidate")
+PartyFrame.GetChildren = nil
+PartyFrame:ClearAllPoints()
+PartyFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 200, 200)
+addon.isForever = true
+addon.isRetail = nil
+EditModeManagerFrame:Hide()
+
+-- Classic and Anniversary expose Blizzard Edit Mode as a load-on-demand
+-- capability rather than a Retail project identity. Once that capability is
+-- present, their protected frames need the same dead-space recovery path.
+addon.isForever = false
+PetFrame:ClearAllPoints()
+PetFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 500, 1500)
+EditModeManagerFrame:Show()
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+EditModeManagerFrame:Hide()
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+assert(partyRecoveryPromptCount == 4 and partyRecoveryPromptNames[4] == "PetFrame",
+    "Classic-family Edit Mode clients must detect protected HUD frames in dead space")
+PetFrame:ClearAllPoints()
+PetFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 500, 300)
+EditModeManagerFrame:Show()
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+EditModeManagerFrame:Hide()
+addon.isForever = true
 
 local protectedPanel = makeMockFrame("ProtectedPanel", 300, 200)
 protectedPanel.TitleText = {}
@@ -904,6 +1125,25 @@ local singleScreenManagerPoint = EditModeManagerFrame.points[1]
 assert(singleScreenManagerPoint and singleScreenManagerPoint[1] == "CENTER"
         and singleScreenManagerPoint[2] == UIParent,
     "single-screen recovery must center the manager in the current game display")
+
+-- Retail uses the same off-screen manager and system-settings controls. Its
+-- project identity must not suppress the recovery popup or hardware-click fix.
+addon.isForever = false
+addon.isRetail = true
+EditModeManagerFrame:ClearAllPoints()
+EditModeManagerFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1268, 1586)
+addon.HUD:UpdateForeverEditModeControlsRecovery(partyRecoveryMetrics)
+flushTimers()
+assert(editModePromptCount == 4,
+    "Retail must offer recovery when its Edit Mode controls are in the void")
+assert(addon.HUD:BringForeverEditModeControlsToMainhand(),
+    "Retail's player-click recovery must bring Edit Mode controls to Mainhand")
+local retailManagerPoint = EditModeManagerFrame.points[1]
+assert(retailManagerPoint and retailManagerPoint[1] == "CENTER"
+        and retailManagerPoint[2] == UIParent,
+    "Retail Edit Mode recovery must center only its unprotected control window")
+addon.isForever = true
+addon.isRetail = nil
 
 -- A disconnected saved display must temporarily use a built-in single-screen
 -- layout rather than letting Blizzard clamp the spanned Offhand HUD into a
@@ -1138,9 +1378,15 @@ assert(selectedLayout == nil and layoutData.activeLayout == 6,
 
 -- Retail/Anniversary must adopt each character's current Blizzard layout on
 -- upgrade instead of imposing the account's layout named Offhand. Later
--- mismatches restore that remembered name through C_EditMode's array index;
--- the active global ID is a different namespace on Anniversary.
+-- mismatches restore that remembered name through C_EditMode's global layout
+-- identifier; the custom-array index is a different namespace.
 addon.isForever = false
+EditModePresetLayoutManager = {
+    GetCopyOfPresetLayouts = function()
+        return {{ layoutName = "Modern" }, { layoutName = "Classic" },
+            { layoutName = "Internal" }}
+    end,
+}
 OffhandCharDB.editModeLayoutName = nil
 layoutData.layouts[4].layoutName = "Druid Offhand"
 local anniversaryActiveName = "Druid Offhand"
@@ -1155,6 +1401,8 @@ layoutData.activeLayout = 5
 selectedLayout = nil
 addon.HUD.editModeLoadScheduled = nil
 addon.HUD:HookFrames()
+assert(groupLootPreloadCount == 1 and GroupLootContainer,
+    "secure GroupLootContainer must be loaded before its first in-combat roll")
 flushTimers()
 assert(selectedLayout == nil and managerSelection == nil,
     "Retail upgrade must preserve the character's already-active Blizzard layout")
@@ -1170,8 +1418,8 @@ managerSelection = nil
 addon.HUD.editModeLoadScheduled = nil
 addon.HUD:HookFrames()
 flushTimers()
-assert(selectedLayout == 4 and managerSelection == nil,
-    "Anniversary must restore the remembered character layout through C_EditMode's array index")
+assert(selectedLayout == 7 and managerSelection == nil,
+    "Anniversary must restore the remembered character layout through its global Edit Mode ID")
 
 -- A later explicit selection becomes this character's new preference without
 -- intercepting or replacing Blizzard's layout-selection API.
@@ -1186,9 +1434,10 @@ selectedLayout = nil
 addon.HUD.editModeLoadScheduled = nil
 addon.HUD:HookFrames()
 flushTimers()
-assert(selectedLayout == 3 and managerSelection == nil,
-    "Retail must restore the character's newly selected layout by name")
+assert(selectedLayout == 6 and managerSelection == nil,
+    "Retail must restore the character's newly selected layout by global ID")
 addon.isForever = true
+EditModePresetLayoutManager = nil
 layoutData.activeLayout = 6
 selectedLayout = nil
 

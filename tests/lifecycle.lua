@@ -15,6 +15,48 @@ InCombatLockdown = function() return combat end
 SlashCmdList = {}
 assert(loadfile("Core/Init.lua"))("Offhand", addon)
 local initOnEvent = events.OnEvent
+local attentionPopup
+StaticPopup_Show = function(name) attentionPopup = name end
+addon.isForever = false
+addon.Mainhand = { NeedsEditModeLayoutAttention = function() return true, "missing" end }
+assert(addon:RefreshMainhandLayoutAttention()
+        and attentionPopup == "OFFHAND_MAINHAND_LAYOUT_ATTENTION",
+    "an existing setup missing its generated HUD layout must receive a repair action")
+StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_ATTENTION.OnCancel()
+attentionPopup = nil
+assert(not addon:RefreshMainhandLayoutAttention() and attentionPopup == nil,
+    "declining Mainhand HUD repair must suppress repeats for the current UI session")
+addon._mainhandLayoutAttentionDismissed = nil
+local repairPrint, reloadPrompted
+addon.Mainhand = {
+    NeedsEditModeLayoutAttention = function() return true, "missing" end,
+    CreateOrUpdateEditModeLayout = function()
+        return true, "Offhand - Mainhand - Tester", 12
+    end,
+    PromptReload = function() reloadPrompted = true end,
+}
+addon.Print = function(_, key, name, moved)
+    repairPrint = { key, name, moved }
+end
+StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_ATTENTION.OnAccept()
+assert(repairPrint and repairPrint[2] == "Offhand - Mainhand - Tester"
+        and repairPrint[3] == 12 and reloadPrompted,
+    "the migration repair action must preserve the layout name and moved-system count")
+addon.Mainhand = nil
+assert(not addon:HasBlizzardEditMode(),
+    "a Classic-family client without an Edit Mode module must retain legacy ownership")
+C_AddOns = {
+    DoesAddOnExist = function(name) return name == "Blizzard_EditMode" end,
+}
+assert(addon:HasBlizzardEditMode(),
+    "Classic and Anniversary clients must detect load-on-demand Blizzard Edit Mode")
+C_AddOns = nil
+GetAddOnInfo = function(name)
+    return name == "Blizzard_EditMode" and name or nil
+end
+assert(addon:HasBlizzardEditMode(),
+    "legacy addon discovery must detect Blizzard Edit Mode before its API is loaded")
+GetAddOnInfo = nil
 assert(loadfile("Core/Config.lua"))("Offhand", addon)
 local messages = {}
 addon.Print = function(_, message) messages[#messages + 1] = message end

@@ -4,7 +4,7 @@
     intentional Companion update is explicitly requested.
 #>
 param(
-    [string]$Version = "2.1.2-beta.20",
+    [string]$Version = "2.1.2-beta.21",
     [switch]$AddonOnly,
     [switch]$CompanionChanged,
     [switch]$UseExistingCompanion,
@@ -136,10 +136,12 @@ New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 if (-not $CompanionChanged) {
     # Prevent old locally generated Companion artifacts from being mistaken for
     # outputs of an addon-only release.
-    foreach ($staleCompanionArtifact in @(
+    $staleCompanionArtifacts = @(
         (Join-Path $distDir "Offhand-Companion.zip"),
         (Join-Path $distDir "Offhand.exe")
-    )) {
+    )
+    $staleCompanionArtifacts += @(Get-ChildItem -LiteralPath $distDir -Filter "Offhand-Companion-v*.zip" -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName)
+    foreach ($staleCompanionArtifact in $staleCompanionArtifacts) {
         if (Test-Path -LiteralPath $staleCompanionArtifact) {
             Remove-Item -LiteralPath $staleCompanionArtifact -Force
         }
@@ -194,11 +196,14 @@ CurseForge Beta artifact ready:" -ForegroundColor Cyan
 }
 
 # 4. Companion-only artifacts exist only for an intentional Companion update.
-$compZip = Join-Path $distDir "Offhand-Companion.zip"
+# Keep the Companion version in the filename so downloads, security reports,
+# and checksums remain attributable after later addon-only releases.
+$companionArchiveName = "Offhand-Companion-v$Version.zip"
+$compZip = Join-Path $distDir $companionArchiveName
 $standaloneExe = Join-Path $distDir "Offhand.exe"
 if ($CompanionChanged) {
     Write-Host "
-[4/5] Packaging updated Desktop Companion (Offhand-Companion.zip)..." -ForegroundColor Yellow
+[4/5] Packaging updated Desktop Companion ($companionArchiveName)..." -ForegroundColor Yellow
     if (-not [string]::IsNullOrWhiteSpace($ExistingCompanionArchivePath)) {
         $sourceArchive = if ([IO.Path]::IsPathRooted($ExistingCompanionArchivePath)) {
             $ExistingCompanionArchivePath

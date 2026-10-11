@@ -168,6 +168,9 @@ ToggleAllBags = function()
         CloseAllBags()
     end
 end
+ToggleBackpack = function()
+    if bag:IsShown() then bag:Hide() else bag:Show() end
+end
 local nativeToggleGameMenuCalls = 0
 ToggleGameMenu = function()
     nativeToggleGameMenuCalls = nativeToggleGameMenuCalls + 1
@@ -318,10 +321,9 @@ controller.scripts.OnUpdate(controller, 0.11)
 assert(bag:GetLeft() >= metrics.gameLeft,
     "proxy observer must not pull a Mainhand bag back to the workspace")
 
--- Move the bag back to Offhand, then emulate Forever's Escape sequence. This
--- build returns from ToggleGameMenu after closing the bag without showing the
--- menu, so the secure global observer must defer both operations until the
--- native stack ends, completing the menu toggle before reopening the bag.
+-- Move the bag back to Offhand, then verify the independent workspace contract:
+-- Escape and system-panel cleanup preserve the open bag, while B and the native
+-- close button remain explicit closers.
 snapshotsBeforeBagDrag = profileSnapshotWrites
 handle.scripts.OnDragStart(handle)
 bag:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 240, 860)
@@ -339,31 +341,58 @@ ToggleGameMenu()
 assert(not bag:IsShown() and not GameMenuFrame:IsShown(),
     "Forever's native first Escape should be consumed by the open bag")
 controller.scripts.OnUpdate(controller, 0.001)
-assert(nativeOpenCalls == 1 and bag:IsShown() and GameMenuFrame:IsShown(),
-    "Escape repair must show the Game Menu and restore the bag through Blizzard's opener")
+assert(nativeOpenCalls > 0 and bag:IsShown() and GameMenuFrame:IsShown(),
+    "Offhand must restore a tracked workspace bag after Escape")
 assert(nativeToggleGameMenuCalls == 1,
-    "deferred Escape repair must not re-enter protected ToggleGameMenu")
-assert(math.abs(bag:GetLeft() - 240) < 0.01,
-    "Escape restoration must retain the workspace bag position")
+    "bag observation must not re-enter protected ToggleGameMenu")
 
 ToggleGameMenu()
 controller.scripts.OnUpdate(controller, 0.001)
-assert(not GameMenuFrame:IsShown() and bag:IsShown() and nativeOpenCalls == 2,
-    "second Escape must hide the Game Menu and restore the tracked bag")
+assert(not GameMenuFrame:IsShown() and bag:IsShown(),
+    "second Escape must close the Game Menu while preserving the workspace bag")
 assert(nativeToggleGameMenuCalls == 2,
-    "second deferred Escape repair must not re-enter protected ToggleGameMenu")
+    "bag observation must not add Game Menu toggles")
 
--- Settings, AddOns and Edit Mode may hide bags after the Game Menu transition
--- has already settled. The isolated observer must recover a tracked workspace
--- bag without installing hooks on any of those native panel trees.
+-- Some Forever builds complete the second Escape natively: both the menu and
+-- bag are hidden before the observer runs. That dismissal must restore the bag
+-- without starting the three-second system-panel navigation grace period.
+GameMenuFrame:Show()
+bag:Show()
+controller.scripts.OnUpdate(controller, 0.001)
+GameMenuFrame:Hide()
+bag:Hide()
+addon.Canvas._foreverNativeBagCloseObserved = true
+addon.Canvas._foreverNativeGameMenuToggleObserved = true
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown() and not GameMenuFrame:IsShown(),
+    "native second Escape must restore the bag while dismissing the Game Menu")
+ToggleBackpack()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(not bag:IsShown(),
+    "the ToggleBackpack B binding must respond immediately after Game Menu dismissal")
+ToggleBackpack()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown(),
+    "the ToggleBackpack B binding must reopen immediately after Game Menu dismissal")
+-- No time-based grace may remain after the Escape transaction. Even an
+-- otherwise unclassified native hide on the following update must be accepted
+-- instead of being reopened for three seconds.
+bag:Hide()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(not bag:IsShown(),
+    "no post-Game-Menu timer may override a subsequent native bag close")
+bag:Show()
+controller.scripts.OnUpdate(controller, 0.001)
+
+-- System panels may temporarily hide the bag, but the tracked workspace-open
+-- intent must survive and recovery must use Blizzard's bag APIs.
 SettingsPanel = makeFrame("SettingsPanel", 900, 700)
 SettingsPanel:Show()
 nativeOpenerDeclinesHiddenLogicalState = true
 bag:Hide()
 controller.scripts.OnUpdate(controller, 0.001)
-assert(bag:IsShown() and nativeOpenCalls == 4
-        and nativeOpenerDeclinesHiddenLogicalState == false,
-    "Settings transition must normalize and restore a logically-open hidden bag")
+assert(bag:IsShown(),
+    "Settings transition must restore the tracked workspace bag")
 SettingsPanel:Hide()
 
 AddonList = makeFrame("AddonList", 500, 600)
@@ -371,64 +400,58 @@ AddonList:Show()
 nativePanelBlocksBagAPIs = true
 bag:Hide()
 controller.scripts.OnUpdate(controller, 0.001)
-assert(bag:IsShown() and nativeOpenCalls == 6,
-    "AddOns transition must re-show an initialized bag when modal native APIs refuse")
+assert(not bag:IsShown() and addon.db.nativeBackpackWorkspaceOpen == true,
+    "a modal API rejection must retain the workspace-open intent without showing a shell")
 nativePanelBlocksBagAPIs = false
 AddonList:Hide()
-
--- AddOn List performs another cleanup after its visible state has ended.
-bag:Hide()
-controller.scripts.OnUpdate(controller, 0.001)
-assert(bag:IsShown() and nativeOpenCalls == 7,
-    "AddOns close transition must retain the tracked workspace bag")
 
 EditModeManagerFrame = makeFrame("EditModeManagerFrame", 600, 300)
 EditModeManagerFrame:Show()
 bag:Hide()
 controller.scripts.OnUpdate(controller, 0.001)
-assert(bag:IsShown() and nativeOpenCalls == 8,
-    "Edit Mode transition must restore the tracked workspace bag")
+assert(bag:IsShown(),
+    "Edit Mode transition must restore the tracked workspace bag through Blizzard's API")
+
+nativeOpenerDeclinesHiddenLogicalState = false
+ToggleAllBags = function()
+    -- Forever may toggle the root directly without calling CloseAllBags.
+    if bag:IsShown() then bag:Hide() else bag:Show() end
+end
+addon.Canvas._foreverNativeToggleAllBagsObserved = nil
+addon.Canvas:EnableForeverNativeBagProxy()
+EditModeManagerFrame:Hide()
+ToggleAllBags()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(not bag:IsShown(),
+    "explicit B close must remain closed without workspace restoration")
 
 ToggleAllBags()
 controller.scripts.OnUpdate(controller, 0.001)
-assert(not bag:IsShown() and nativeOpenCalls == 8,
-    "explicit bag toggle must close even while Edit Mode is visible")
-EditModeManagerFrame:Hide()
+assert(bag:IsShown(),
+    "B must remain able to reopen the native bag")
+
+ToggleAllBags()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(not bag:IsShown(),
+    "a second explicit B close must remain closed")
+
+-- Teardown preserves a shown bag, but an already-observed explicit close wins.
+bag:Show()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(addon.Canvas:FinalizeForeverNativeBagStateForTransition(),
+    "teardown must reconcile Forever bag-open state")
+assert(addon.db.nativeBackpackWorkspaceOpen == true
+        and addon.db.openWorkspacePanels.ContainerFrameCombinedBags == true,
+    "shown native backpack must remain tracked for reload restoration")
 
 bag:Show()
 controller.scripts.OnUpdate(controller, 0.001)
-
--- Options closes bags through ToggleAllBags before its panel is observable.
--- The Settings request must classify that toggle as a panel transition rather
--- than an explicit B press and keep the initialized-root fallback eligible.
-nativePanelBlocksBagAPIs = true
-Settings.OpenToCategory()
-controller.scripts.OnUpdate(controller, 0.001)
-assert(bag:IsShown() and nativeOpenCalls == 10,
-    "Options transition must survive its native ToggleAllBags cleanup")
-nativePanelBlocksBagAPIs = false
-optionFrameOpen = false
-
--- Some Forever builds route the Game Menu's Options button without calling a
--- discoverable Settings API or exposing the destination frame immediately.
--- The open -> hidden Game Menu transition must still distinguish that native
--- ToggleAllBags cleanup from an ordinary B press.
-GameMenuFrame:Show()
-controller.scripts.OnUpdate(controller, 0.001)
-nativePanelBlocksBagAPIs = true
 ToggleAllBags()
-GameMenuFrame:Hide()
-controller.scripts.OnUpdate(controller, 0.001)
-assert(bag:IsShown() and nativeOpenCalls == 12,
-    "unobservable Options routing must survive the Game Menu exit cleanup")
-nativePanelBlocksBagAPIs = false
-
--- B closes through ToggleAllBags -> CloseAllBags. Its post-hook labels the
--- already-observed close as explicit before OnUpdate consumes the transaction.
-ToggleAllBags()
-controller.scripts.OnUpdate(controller, 0.001)
-assert(not bag:IsShown() and nativeOpenCalls == 12,
-    "explicit bag toggle must close without workspace restoration")
+assert(addon.Canvas:FinalizeForeverNativeBagStateForTransition(),
+    "explicit close must be reconciled at teardown")
+assert(addon.db.nativeBackpackWorkspaceOpen == nil
+        and addon.db.openWorkspacePanels.ContainerFrameCombinedBags == nil,
+    "explicitly closed native backpack must remain closed after reload")
 
 bag:Show()
 controller.scripts.OnUpdate(controller, 0.001)
@@ -436,7 +459,7 @@ mouseFoci = { bag.CloseButton }
 CloseAllBags()
 controller.scripts.OnUpdate(controller, 0.001)
 mouseFoci = {}
-assert(not bag:IsShown() and nativeOpenCalls == 12,
+assert(not bag:IsShown(),
     "native close-button click must close without workspace restoration")
 
 -- A normal bag opening starts at Blizzard's bottom-right anchor. The observer

@@ -388,10 +388,21 @@ OpenAllBags = function()
     ContainerFrameCombinedBags:Show()
 end
 addon.Canvas:RestorePersistentFrames()
-assert(nativeBagOpens == 1 and ContainerFrameCombinedBags:IsShown()
+assert(nativeBagOpens > 0 and ContainerFrameCombinedBags:IsShown()
         and addon.db.savedWorkspacePositions.ContainerFrameCombinedBags ~= nil
         and addon.db.openWorkspacePanels.ContainerFrameCombinedBags == true,
-    "Forever must restore a tracked native backpack through Blizzard's opener")
+    "Forever must restore an explicitly tracked native workspace backpack")
+
+ContainerFrameCombinedBags:Hide()
+addon.db.nativeBackpackWorkspaceOpen = nil
+addon.db.openWorkspacePanels.ContainerFrameCombinedBags = nil
+addon.db.openWorkspacePanels.EUI_MainBagFrame = true
+addon.db.savedWorkspacePositions.EUI_MainBagFrame = { x = 100, y = 850 }
+local nativeBagOpensBeforeStaleAddon = nativeBagOpens
+addon.Canvas:RestorePersistentFrames()
+assert(nativeBagOpens == nativeBagOpensBeforeStaleAddon
+        and not ContainerFrameCombinedBags:IsShown(),
+    "stale bag-addon open state must not resurrect a Forever workspace backpack")
 
 -- Child-frame names left by an unrelated or disabled bag addon are not native
 -- backpack ownership. They must never cause Offhand to open Blizzard's bag on
@@ -464,7 +475,6 @@ local function lateCloseAllWindows()
     ToggleGameMenu()
     return closed
 end
-WorldMapFrame._OffhandMovable = true
 CharacterFrame._OffhandMovable = true
 ContainerFrameCombinedBags._OffhandMovable = true
 CloseAllBags = lateCloseAllBags
@@ -512,8 +522,8 @@ addon.Canvas:EnableFreeDragging()
 assert(not addon.Canvas._closeAllBagsEscapeHooked
     and not addon.Canvas._toggleGameMenuEscapeHooked,
     "Later setup passes must keep native bag and Game Menu paths unhooked")
-assert(addon.Canvas._toggleQuestLogPersistenceHooked,
-    "Forever's L-key quest-log path must participate in World Map persistence")
+assert(not addon.Canvas._toggleQuestLogPersistenceHooked,
+    "Forever's L-key path must stay outside Blizzard's protected toggle stack")
 
 local toggleWorkspaceMap = addon.db.savedWorkspacePositions.WorldMapFrame
 local toggleWorkspaceCharacter = addon.db.savedWorkspacePositions.CharacterFrame
@@ -542,12 +552,19 @@ addon.Canvas:RestoreWorkspacePosition(CharacterFrame)
 -- M and L open the same protected WorldMapFrame through different globals.
 -- Both must settle at the one saved workspace anchor without native hooks.
 WorldMapFrame:Hide()
+createdHandles[1].scripts.OnUpdate(nil, 1)
 ToggleQuestLog()
-assert(WorldMapFrame:IsShown() and WorldMapFrame:GetLeft() < 100,
-    "the map must restore its saved anchor before the next rendered frame")
+assert(WorldMapFrame:IsShown() and WorldMapFrame:GetLeft() == 760,
+    "the native L-key action must finish before Offhand changes map geometry")
+createdHandles[1].scripts.OnUpdate(nil, 1)
 flushTimers()
 assert(WorldMapFrame:IsShown() and WorldMapFrame:GetLeft() < 100,
-    "the L-key quest-log path must restore the same saved World Map location as M")
+    "the independent observer must restore L to the saved World Map location")
+assert(rawget(WorldMapFrame, "_OffhandPersistentRestoreQueued") == nil
+        and rawget(WorldMapFrame, "_OffhandRecoveryGeneration") == nil
+        and rawget(WorldMapFrame, "_OffhandRescueGeneration") == nil
+        and rawget(WorldMapFrame, "_OffhandRestoreGeneration") == nil,
+    "Forever map restore bookkeeping must remain outside the native MapCanvas root")
 WorldMapFrame:Hide()
 
 -- An unsaved Forever map cannot receive a native OnShow hook without tainting
@@ -567,7 +584,9 @@ local savedMainMap = addon.db.savedMainPositions.WorldMapFrame
 addon.db.savedWorkspacePositions.WorldMapFrame = nil
 addon.db.savedMainPositions.WorldMapFrame = nil
 WorldMapFrame:Hide()
+createdHandles[1].scripts.OnUpdate(nil, 1)
 ToggleWorldMap()
+createdHandles[1].scripts.OnUpdate(nil, 1)
 flushTimers()
 local mapLeft, mapBottom = WorldMapFrame:GetLeft(), WorldMapFrame:GetBottom()
 local mapRight = mapLeft + WorldMapFrame:GetWidth() * WorldMapFrame:GetEffectiveScale()
@@ -607,6 +626,68 @@ CloseAllWindows()
 flushTimers()
 assert(not ContainerFrame1:IsShown(),
     "Forever must leave individual native-bag Escape behavior to Blizzard")
+
+-- MoveAny cannot observe Offhand's deliberately script-free Forever map drag
+-- adapter, so the two addons would otherwise both restore WorldMapFrame after
+-- M/L. Loading MoveAny must dynamically make every already-installed Offhand
+-- map path inert without deleting the user's saved Offhand position.
+local moveAnyWorkspacePosition = addon.db.savedWorkspacePositions.WorldMapFrame
+local moveAnyOpenState = addon.db.openWorkspacePanels.WorldMapFrame
+addon.db.openWorkspacePanels.WorldMapFrame = true
+WorldMapFrame:Hide()
+createdHandles[1].scripts.OnUpdate(nil, 1)
+MoveAny = {}
+assert(addon.Canvas:ShouldYieldWorldMap(WorldMapFrame),
+    "Forever must yield WorldMapFrame ownership when MoveAny is loaded")
+assert(addon.Canvas:GetCompatibilityDiagnostics()
+        == "MoveAny=loaded | WorldMapOwner=MoveAny",
+    "diagnostics must identify MoveAny as the live Forever map owner")
+
+local savedScale, savedLeft, savedBottom = 0.73, 811, 477
+WorldMapFrame.scale = savedScale
+WorldMapFrame.left = savedLeft
+WorldMapFrame.bottom = savedBottom
+addon.Canvas:ConfigureWorldMap()
+addon.Canvas:RestoreWorkspacePosition(WorldMapFrame)
+assert(WorldMapFrame.scale == savedScale and WorldMapFrame.left == savedLeft
+        and WorldMapFrame.bottom == savedBottom,
+    "Offhand must not scale or anchor MoveAny's Forever World Map")
+addon.Canvas:RestorePersistentFrames()
+flushTimers()
+assert(not WorldMapFrame:IsShown(),
+    "Offhand reload restoration must not open a World Map owned by MoveAny")
+
+createdHandles[1]:Show()
+createdHandles[1]:EnableMouse(true)
+createdHandles[1].scripts.OnUpdate(nil, 1)
+assert(createdHandles[1].shown == false and createdHandles[1].mouseEnabled == false,
+    "a previously-created Offhand map drag handle must retire after MoveAny loads")
+
+ToggleWorldMap()
+createdHandles[1].scripts.OnUpdate(nil, 1)
+assert(WorldMapFrame:IsShown() and WorldMapFrame.left == 200
+        and WorldMapFrame.bottom == 1300,
+    "M must retain MoveAny/native map geometry before deferred compatibility hooks")
+flushTimers()
+assert(WorldMapFrame:IsShown() and WorldMapFrame.left == 200
+        and WorldMapFrame.bottom == 1300,
+    "Offhand's installed M post-hook must stay inert while MoveAny owns the map")
+WorldMapFrame:Hide()
+createdHandles[1].scripts.OnUpdate(nil, 1)
+ToggleQuestLog()
+createdHandles[1].scripts.OnUpdate(nil, 1)
+flushTimers()
+assert(WorldMapFrame:IsShown() and WorldMapFrame.left == 760
+        and WorldMapFrame.bottom == 420,
+    "Offhand's installed L post-hook must stay inert while MoveAny owns the map")
+assert(addon.db.savedWorkspacePositions.WorldMapFrame == moveAnyWorkspacePosition,
+    "yielding to MoveAny must preserve the user's dormant Offhand map position")
+
+MoveAny = nil
+addon.db.openWorkspacePanels.WorldMapFrame = moveAnyOpenState
+assert(not addon.Canvas:ShouldYieldWorldMap(WorldMapFrame),
+    "Offhand must resume Forever map ownership when MoveAny is absent")
+WorldMapFrame:Hide()
 
 addon.db.savedWorkspacePositions.WorldMapFrame = nil
 addon.db.savedMainPositions.WorldMapFrame = { x = 1600, y = 1000 }

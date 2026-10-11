@@ -32,8 +32,15 @@ Offhand.companionFullVersion = Offhand.companionVersion
     .. (Offhand.companionRelease ~= "" and ("-" .. Offhand.companionRelease) or "")
 Offhand.companionVersionDisplay = "v" .. Offhand.companionVersion
     .. (Offhand.companionReleaseDisplay ~= "" and (" " .. Offhand.companionReleaseDisplay) or "")
-Offhand.companionDownloadUrl = "https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v"
-    .. Offhand.companionFullVersion .. "/Offhand-Companion.zip"
+local companionArchiveName = Offhand.companionFullVersion == "2.1.2-beta.20"
+    and "Offhand-Companion.zip"
+    or ("Offhand-Companion-v" .. Offhand.companionFullVersion .. ".zip")
+Offhand.companionStoreUrl = "https://apps.microsoft.com/detail/9PL4PW84Q90W"
+Offhand.companionPortableDownloadUrl = "https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v"
+    .. Offhand.companionFullVersion .. "/" .. companionArchiveName
+-- Player-facing setup actions recommend the signed, managed Store package.
+-- Keep the versioned GitHub URL above for portable and Linux/Wine guidance.
+Offhand.companionDownloadUrl = Offhand.companionStoreUrl
 Offhand.modules = {}
 Offhand.callbacks = {}
 
@@ -41,7 +48,10 @@ Offhand.callbacks = {}
 Offhand.L = Offhand.L or setmetatable({}, { __index = function(t, key) return key end })
 
 -- Client flavor detection
-local tocVersion = select(4, GetBuildInfo())
+local clientVersion, clientBuild, clientBuildDate, tocVersion = GetBuildInfo()
+Offhand.clientVersion = tostring(clientVersion or "unknown")
+Offhand.clientBuild = tostring(clientBuild or "unknown")
+Offhand.clientBuildDate = tostring(clientBuildDate or "unknown")
 Offhand.tocVersion = tocVersion
 Offhand.isLegacyWrath = tocVersion >= 30000 and tocVersion < 30400
 local hasProjectIdentity = WOW_PROJECT_ID ~= nil
@@ -49,9 +59,104 @@ Offhand.isClassicEra = (hasProjectIdentity and WOW_PROJECT_CLASSIC ~= nil
     and WOW_PROJECT_ID == WOW_PROJECT_CLASSIC) or Offhand.isLegacyWrath
 Offhand.isRetail = hasProjectIdentity and WOW_PROJECT_MAINLINE ~= nil
     and WOW_PROJECT_ID == WOW_PROJECT_MAINLINE or false
--- The Forever client uses Blizzard Edit Mode to own HUD placement. Keep this
--- branch explicit so older Classic clients retain Offhand's legacy anchors.
+-- Forever uses a distinct interface branch, but Edit Mode ownership itself is
+-- capability-detected below because Retail, Classic and Anniversary expose
+-- different subsets and load timing.
 Offhand.isForever = tocVersion >= 16000 and tocVersion < 17000
+
+-- Edit Mode is load-on-demand on several Blizzard clients. Checking only
+-- C_EditMode during early login misclassifies its protected HUD frames on
+-- Classic-family branches until Blizzard_EditMode happens to be loaded.
+-- Detect the shipped module without loading it; callers that need to write a
+-- layout still feature-check the concrete APIs after an explicit load.
+local function BlizzardEditModeAddonExists()
+    if C_AddOns and type(C_AddOns.DoesAddOnExist) == "function" then
+        local ok, exists = pcall(C_AddOns.DoesAddOnExist, "Blizzard_EditMode")
+        if ok and exists then return true end
+    end
+    if C_AddOns and type(C_AddOns.GetAddOnInfo) == "function" then
+        local ok, info = pcall(C_AddOns.GetAddOnInfo, "Blizzard_EditMode")
+        if ok and info ~= nil then return true end
+    end
+    if type(GetAddOnInfo) == "function" then
+        local ok, name = pcall(GetAddOnInfo, "Blizzard_EditMode")
+        if ok and name ~= nil then return true end
+    end
+    return false
+end
+
+function Offhand:HasBlizzardEditMode()
+    if self.isRetail or self.isForever then return true end
+    if C_EditMode ~= nil or EditModeManagerFrame ~= nil then return true end
+    return BlizzardEditModeAddonExists()
+end
+
+local function ClientProjectLabel()
+    if Offhand.isForever then return "Forever" end
+    if Offhand.isLegacyWrath then return "Wrath 3.3.5a" end
+    if Offhand.isRetail then return "Retail" end
+    if Offhand.isClassicEra then return "Classic Era" end
+    if WOW_PROJECT_ID ~= nil then return "Project " .. tostring(WOW_PROJECT_ID) end
+    return "unknown"
+end
+
+function Offhand:GetVersionDiagnostics(metrics)
+    metrics = metrics or {}
+    return {
+        clientVersion = Offhand.clientVersion or "unknown",
+        clientBuild = Offhand.clientBuild or "unknown",
+        interfaceVersion = tostring(Offhand.tocVersion or "unknown"),
+        clientProject = ClientProjectLabel(),
+        addonVersion = Offhand.fullVersion or Offhand.version or "unknown",
+        companionWriter = metrics.companionVersion or "not recorded",
+        companionPaired = Offhand.companionFullVersion or "unknown",
+        companionMinimum = Offhand.companionMinVersion ~= ""
+            and Offhand.companionMinVersion or "not specified",
+        companionProtocol = Offhand.companionProtocol or "not specified",
+        companionStatus = metrics.companionVersionStatus or "unavailable",
+    }
+end
+
+function Offhand:GetOperatingDiagnostics(metrics)
+    metrics = metrics or {}
+    local db = Offhand.db or {}
+    local setupComplete = db.firstRunComplete == true
+    if Offhand.IsSetupComplete then
+        local ok, value = pcall(Offhand.IsSetupComplete, Offhand)
+        if ok then setupComplete = value == true end
+    end
+
+    local topologySource
+    if metrics.companionTopology then
+        topologySource = "Companion"
+    elseif metrics.isSpanned then
+        topologySource = "Manual"
+    elseif metrics.topologyStatus == "MISMATCH"
+        or metrics.topologyStatus == "INVALID"
+        or metrics.topologyStatus == "STALE" then
+        topologySource = "Recovery"
+    else
+        topologySource = "Single-screen"
+    end
+
+    return {
+        enabled = db.enabled == true,
+        spanned = metrics.isSpanned == true,
+        topologySource = topologySource,
+        layoutPreset = metrics.preset or db.layoutPreset or "unknown",
+        mainhandPosition = db.primaryPosition or "unknown",
+        inCombat = InCombatLockdown and InCombatLockdown() or false,
+        setupComplete = setupComplete,
+        mainhandLeft = tonumber(metrics.gamePixelLeft) or 0,
+        mainhandBottom = tonumber(metrics.gamePixelBottom) or 0,
+        mainhandWidth = tonumber(metrics.gamePixelWidth) or 0,
+        mainhandHeight = tonumber(metrics.gamePixelHeight) or 0,
+        workspaceLeft = tonumber(metrics.workspacePixelLeft) or 0,
+        workspaceBottom = tonumber(metrics.workspacePixelBottom) or 0,
+        workspaceWidth = tonumber(metrics.workspacePixelWidth) or 0,
+        workspaceHeight = tonumber(metrics.workspacePixelHeight) or 0,
+    }
+end
 
 -- SavedVariables are available before addon files execute. Preserve the exact
 -- tables the client loaded before ForeverState.lua runs: older Companion
@@ -376,17 +481,54 @@ StaticPopupDialogs["OFFHAND_FOREVER_EDIT_MODE_CONTROLS"] = {
 }
 
 StaticPopupDialogs["OFFHAND_FOREVER_PARTY_FRAME_RECOVERY"] = {
-    text = Offhand.L["FOREVER_PARTY_FRAME_RECOVERY_TEXT"],
-    button1 = Offhand.L["FOREVER_PARTY_FRAME_RECOVERY_ACK"],
+    text = Offhand.L["FOREVER_PROTECTED_HUD_RECOVERY_TEXT"],
+    button1 = Offhand.L["PROTECTED_HUD_RECOVERY_REPAIR"],
+    button2 = Offhand.L["FOREVER_EDIT_MODE_NOT_NOW"],
     OnAccept = function()
-        if Offhand.HUD and Offhand.HUD.DismissForeverPartyFrameRecoveryPrompt then
-            Offhand.HUD:DismissForeverPartyFrameRecoveryPrompt()
+        local ok, value, moved
+        if Offhand.HUD and Offhand.HUD.RepairProtectedHUDLayout then
+            ok, value, moved = Offhand.HUD:RepairProtectedHUDLayout()
+        end
+        if ok then
+            Offhand:Print(Offhand.L["MAINHAND_LAYOUT_CREATED"], tostring(value), moved or 0)
+        elseif value == "maximum" then
+            Offhand:Print(Offhand.L["MAINHAND_LAYOUT_MAXIMUM"])
+        else
+            Offhand:Print(Offhand.L["MAINHAND_LAYOUT_FAILED"], tostring(value or "unavailable"))
         end
     end,
     OnCancel = function()
         if Offhand.HUD and Offhand.HUD.DismissForeverPartyFrameRecoveryPrompt then
             Offhand.HUD:DismissForeverPartyFrameRecoveryPrompt()
         end
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
+StaticPopupDialogs["OFFHAND_MAINHAND_LAYOUT_ATTENTION"] = {
+    text = Offhand.L["WIZARD_STEP_5_BODY"],
+    button1 = Offhand.L["MAINHAND_LAYOUT_CREATE"],
+    button2 = Offhand.L["FOREVER_EDIT_MODE_NOT_NOW"],
+    OnAccept = function()
+        Offhand._mainhandLayoutAttentionDismissed = true
+        local ok, value, moved
+        if Offhand.Mainhand and Offhand.Mainhand.CreateOrUpdateEditModeLayout then
+            ok, value, moved = Offhand.Mainhand:CreateOrUpdateEditModeLayout()
+        end
+        if ok then
+            Offhand:Print(Offhand.L["MAINHAND_LAYOUT_CREATED"], tostring(value), moved or 0)
+            if Offhand.Mainhand.PromptReload then Offhand.Mainhand:PromptReload() end
+        elseif value == "maximum" then
+            Offhand:Print(Offhand.L["MAINHAND_LAYOUT_MAXIMUM"])
+        else
+            Offhand:Print(Offhand.L["MAINHAND_LAYOUT_FAILED"], tostring(value or "unavailable"))
+        end
+    end,
+    OnCancel = function()
+        Offhand._mainhandLayoutAttentionDismissed = true
     end,
     timeout = 0,
     whileDead = true,
@@ -423,8 +565,13 @@ function Offhand:InitializePopups()
     editMode.button1 = Offhand.L["FOREVER_EDIT_MODE_BRING_TO_MAINHAND"]
     editMode.button2 = Offhand.L["FOREVER_EDIT_MODE_NOT_NOW"]
     local partyFrame = StaticPopupDialogs["OFFHAND_FOREVER_PARTY_FRAME_RECOVERY"]
-    partyFrame.text = Offhand.L["FOREVER_PARTY_FRAME_RECOVERY_TEXT"]
-    partyFrame.button1 = Offhand.L["FOREVER_PARTY_FRAME_RECOVERY_ACK"]
+    partyFrame.text = Offhand.L["FOREVER_PROTECTED_HUD_RECOVERY_TEXT"]
+    partyFrame.button1 = Offhand.L["PROTECTED_HUD_RECOVERY_REPAIR"]
+    partyFrame.button2 = Offhand.L["FOREVER_EDIT_MODE_NOT_NOW"]
+    local mainhandLayout = StaticPopupDialogs["OFFHAND_MAINHAND_LAYOUT_ATTENTION"]
+    mainhandLayout.text = Offhand.L["WIZARD_STEP_5_BODY"]
+    mainhandLayout.button1 = Offhand.L["MAINHAND_LAYOUT_CREATE"]
+    mainhandLayout.button2 = Offhand.L["FOREVER_EDIT_MODE_NOT_NOW"]
 end
 
 local companionNoticePopups = {
@@ -539,6 +686,20 @@ function Offhand:HideCompanionNotices(exceptKind)
             end
         end
     end
+end
+
+function Offhand:RefreshMainhandLayoutAttention()
+    if Offhand.isForever or Offhand._mainhandLayoutAttentionDismissed
+        or not Offhand.Mainhand or not Offhand.Mainhand.NeedsEditModeLayoutAttention then
+        return false
+    end
+    local needed = Offhand.Mainhand:NeedsEditModeLayoutAttention()
+    if needed then
+        if StaticPopup_Show then StaticPopup_Show("OFFHAND_MAINHAND_LAYOUT_ATTENTION") end
+        return true
+    end
+    if StaticPopup_Hide then StaticPopup_Hide("OFFHAND_MAINHAND_LAYOUT_ATTENTION") end
+    return false
 end
 
 function Offhand:HideResolvedSpanPrompts(metrics)
@@ -660,12 +821,14 @@ function Offhand:HideForeverEditModeControlsPrompt()
     if StaticPopup_Hide then StaticPopup_Hide("OFFHAND_FOREVER_EDIT_MODE_CONTROLS") end
 end
 
-function Offhand:ShowForeverPartyFrameRecoveryPrompt()
+function Offhand:ShowForeverPartyFrameRecoveryPrompt(frameName)
     if Offhand:IsBlizzardInputReserved() then
         Offhand:DeferAutomaticUIForCinematic()
         return
     end
-    if StaticPopup_Show then StaticPopup_Show("OFFHAND_FOREVER_PARTY_FRAME_RECOVERY") end
+    if StaticPopup_Show then
+        StaticPopup_Show("OFFHAND_FOREVER_PARTY_FRAME_RECOVERY", frameName or "HUD")
+    end
 end
 
 function Offhand:HideForeverPartyFrameRecoveryPrompt()
@@ -777,7 +940,8 @@ local function EvaluateEntryNotices(attempt)
             Offhand:Print(Offhand.L["MSG_FIRST_RUN"])
         end
     elseif Offhand.db.enabled and setupComplete then
-        Offhand:RefreshCompanionNoticeState(viewportMetrics)
+        local companionNotice = Offhand:RefreshCompanionNoticeState(viewportMetrics)
+        if not companionNotice then Offhand:RefreshMainhandLayoutAttention() end
     end
 end
 
@@ -788,6 +952,9 @@ eventFrame:RegisterEvent("PLAYER_LEAVING_WORLD")
 eventFrame:RegisterEvent("PLAYER_LOGOUT")
 eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+eventFrame:RegisterEvent("ZONE_CHANGED")
+eventFrame:RegisterEvent("ZONE_CHANGED_INDOORS")
 eventFrame:RegisterEvent("UI_SCALE_CHANGED")
 eventFrame:RegisterEvent("DISPLAY_SIZE_CHANGED")
 eventFrame:RegisterEvent("CINEMATIC_START")
@@ -860,6 +1027,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         -- empty one after Blizzard has already hidden its panels.
         if Offhand._openPanelsCapturedForTransition then return end
         Offhand._openPanelsCapturedForTransition = true
+        if Offhand.Canvas and Offhand.Canvas.FinalizeForeverNativeBagStateForTransition then
+            Offhand.Canvas:FinalizeForeverNativeBagStateForTransition()
+        end
         local transitionMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
         local preserveWorkspaceSnapshot = Offhand.Viewport and Offhand.Viewport.IsSingleScreenRecovery
             and Offhand.Viewport:IsSingleScreenRecovery(transitionMetrics)
@@ -873,7 +1043,10 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             Offhand.db.openWorkspacePanels = Offhand.db.openWorkspacePanels or {}
             for name, _ in pairs(Offhand.db.savedWorkspacePositions) do
                 local frame = _G[name]
-                if frame and frame:IsVisible() then
+                local foreverNativeBackpack = Offhand.isForever
+                    and (name == "ContainerFrame1"
+                        or name == "ContainerFrameCombinedBags")
+                if frame and frame:IsVisible() and not foreverNativeBackpack then
                     Offhand.db.openWorkspacePanels[name] = true
                 end
             end
@@ -929,6 +1102,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             end
             if (not entryMetrics or entryMetrics.isSpanned) and Offhand.Canvas and Offhand.Canvas.RestorePersistentFrames then
                 Offhand.Canvas:RestorePersistentFrames()
+            end
+            if Offhand.Canvas and Offhand.Canvas.RequestPersistentWorldMapRefocus then
+                Offhand.Canvas:RequestPersistentWorldMapRefocus()
             end
 
             -- PLAYER_ENTERING_WORLD also fires after zone transitions. Setup
@@ -1009,6 +1185,12 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                     EvaluateEntryNotices(1)
                 end)
             end
+        end
+
+    elseif event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED"
+        or event == "ZONE_CHANGED_INDOORS" then
+        if Offhand.Canvas and Offhand.Canvas.RequestPersistentWorldMapRefocus then
+            Offhand.Canvas:RequestPersistentWorldMapRefocus()
         end
 
     elseif event == "PLAYER_REGEN_ENABLED" then
@@ -1123,13 +1305,29 @@ SlashCmdList["OFFHAND"] = function(msg)
         local vpStatus = snapshot.viewportMatches and L["MSG_DIAG_PASS"] or L["MSG_DIAG_MISMATCH"]
         Offhand:Print(L["MSG_DIAG_VIEWPORT"], vpStatus)
         local m = Offhand.Viewport and Offhand.Viewport:GetMetrics() or {}
+        local versions = Offhand:GetVersionDiagnostics(m)
+        Offhand:Print("Versions: WoW=%s | Build=%s | Interface=%s | Client=%s | Offhand=%s.",
+            versions.clientVersion, versions.clientBuild, versions.interfaceVersion,
+            versions.clientProject, versions.addonVersion)
+        Offhand:Print("Companion: Writer=%s | Paired=%s | Minimum=%s | Protocol=%s | Status=%s.",
+            tostring(versions.companionWriter), tostring(versions.companionPaired),
+            tostring(versions.companionMinimum), tostring(versions.companionProtocol),
+            tostring(versions.companionStatus))
+        local operating = Offhand:GetOperatingDiagnostics(m)
+        Offhand:Print("State: Enabled=%s | Spanned=%s | Source=%s | Preset=%s | Mainhand=%s | Combat=%s | Setup=%s.",
+            operating.enabled and "1" or "0", operating.spanned and "1" or "0",
+            operating.topologySource, tostring(operating.layoutPreset),
+            tostring(operating.mainhandPosition), operating.inCombat and "1" or "0",
+            operating.setupComplete and "1" or "0")
+        Offhand:Print("Display rectangles: Mainhand=(%d,%d %dx%d) | Workspace=(%d,%d %dx%d).",
+            operating.mainhandLeft, operating.mainhandBottom,
+            operating.mainhandWidth, operating.mainhandHeight,
+            operating.workspaceLeft, operating.workspaceBottom,
+            operating.workspaceWidth, operating.workspaceHeight)
         local physW, physH = m.physicalWidth or 0, m.physicalHeight or 0
         local screenW = GetScreenWidth()
         local screenH = GetScreenHeight()
         local effScale = UIParent and UIParent:GetEffectiveScale() or 1.0
-        Offhand:Print(L["MSG_DIAG_GAME_PIX"],
-            m.gamePixelWidth or 0, m.gamePixelHeight or 0, m.gamePixelLeft or 0,
-            m.gamePixelBottom or 0, effScale)
         Offhand:Print(L["MSG_DIAG_FULL"],
             physW, physH, screenW, screenH, effScale, m.deckWidth or 0, (Offhand.db.deckWidthRatio or 0) * 100, m.gameWidth or 0, m.gameHeight or 0)
         if Offhand.isLegacyWrath then
@@ -1138,10 +1336,6 @@ SlashCmdList["OFFHAND"] = function(msg)
                 Offhand.legacyTimerShim and "compat" or "native",
                 tostring(Offhand.legacyPhysicalSizeSource or "unavailable"))
         end
-        Offhand:Print("Companion topology writer: %s | expected: %s | status: %s.",
-            tostring(m.companionVersion or "not recorded"),
-            tostring(m.expectedCompanionVersion or Offhand.companionFullVersion or "unknown"),
-            tostring(m.companionVersionStatus or "unavailable"))
         local topologyDiag = Offhand.Viewport:GetTopologyDiagnostics()
         Offhand:Print("Topology diagnostics: state=%s | loaded=%s | schema=%s | expected=%sx%s | live=%dx%d | canvas=%.0fx%.0f.",
             tostring(topologyDiag.status or "UNKNOWN"),
@@ -1167,8 +1361,8 @@ SlashCmdList["OFFHAND"] = function(msg)
         -- surface so scanout tearing, frame pacing and pixel load can be
         -- investigated separately from viewport geometry.
         local perf = Offhand.Viewport:GetPerformanceDiagnostics(m)
-        Offhand:Print("Render diagnostics: gxWindowedResolution=%s | RenderScale=%s | ResampleQuality=%s | gxWindow=%s.",
-            perf.gxWindowedResolution, perf.renderScale, perf.resampleQuality, perf.gxWindow)
+        Offhand:Print("Render diagnostics: SavedWindowedResolution=%s | RenderScale=%s | ResampleQuality=%s.",
+            perf.gxWindowedResolution, perf.renderScale, perf.resampleQuality)
         Offhand:Print("Performance diagnostics: FPS=%s | API=%s | VSync=%s | ForegroundCap=%s | BackgroundCap=%s | LowLatency=%s | MSAA=%s.",
             perf.fps and string.format("%.1f", perf.fps) or "unavailable",
             perf.gxApi, perf.gxVSync, perf.maxFPS, perf.maxFPSBk,
@@ -1176,10 +1370,43 @@ SlashCmdList["OFFHAND"] = function(msg)
         Offhand:Print("AA diagnostics: ImageAA=%s | CMAA2=%s | MSAAAlpha=%s | TextureFilter=%s.",
             perf.antiAliasingMode, perf.cmaa2Quality, perf.msaaAlphaTest,
             perf.textureFilteringMode)
-        Offhand:Print("Scaling diagnostics: Dynamic=%s | AlwaysSharpen=%s | Sharpness=%s | ForegroundMin=%s | BackgroundMin=%s.",
+        Offhand:Print("Scaling diagnostics: Dynamic=%s | AlwaysSharpen=%s | Sharpness=%s.",
             perf.dynamicRenderScale, perf.resampleAlwaysSharpen,
-            perf.resampleSharpness, perf.foregroundDowngradeMin,
-            perf.backgroundDowngradeMin)
+            perf.resampleSharpness)
+        Offhand:Print("World text diagnostics: Current=%s | Original=%s | HeightRatio=%.4f | NameplateSize=%s | NativeDims=%s | VisualRatio=%s | VisualFrames=%d | HV=%s/%s | Global=%s | Larger=%s | Selected=%s.",
+            perf.worldTextScale, tostring(perf.originalWorldTextScale or "unmanaged"),
+            perf.worldTextHeightRatio, perf.nameplateSize,
+            perf.nameplateWidth and perf.nameplateHeight
+                and string.format("%.2fx%.2f", perf.nameplateWidth, perf.nameplateHeight)
+                or "unavailable",
+            perf.nameplateCompensationRatio
+                and string.format("%.4f", perf.nameplateCompensationRatio) or "unmanaged",
+            perf.nameplateVisualFrameCount or 0,
+            perf.nameplateHorizontalScale, perf.nameplateVerticalScale,
+            perf.nameplateGlobalScale,
+            perf.nameplateLargerScale, perf.nameplateSelectedScale)
+        local plate = perf.nameplateSample or {}
+        Offhand:Print("Nameplate frame diagnostics: Total=%d | Forbidden=%d | BaseLocal=%s | BaseEffective=%s | UnitOriginal=%s | UnitApplied=%s | UnitLocal=%s | UnitEffective=%s.",
+            perf.nameplateCount or 0, perf.nameplateForbiddenCount or 0,
+            plate.localScale and string.format("%.4f", plate.localScale) or "unavailable",
+            plate.effectiveScale and string.format("%.4f", plate.effectiveScale) or "unavailable",
+            plate.originalScale and string.format("%.4f", plate.originalScale) or "unmanaged",
+            plate.appliedScale and string.format("%.4f", plate.appliedScale) or "unmanaged",
+            plate.unitLocalScale and string.format("%.4f", plate.unitLocalScale) or "unavailable",
+            plate.unitEffectiveScale and string.format("%.4f", plate.unitEffectiveScale) or "unavailable")
+        Offhand:Print("Nameplate visibility diagnostics: ShowFriends=%s | OnlyNames=%s | FriendlyPlayerNames=%s | EnemyPlayerNames=%s.",
+            perf.nameplateShowFriends, perf.nameplateShowOnlyNames,
+            perf.unitNameFriendlyPlayerName, perf.unitNameEnemyPlayerName)
+        if Offhand.modules.ChatBubbles and Offhand.modules.ChatBubbles.GetDiagnostics then
+            local bubbles = Offhand.modules.ChatBubbles:GetDiagnostics()
+            Offhand:Print("Speech bubble diagnostics: Supported=%s | Visible=%d | IncludingForbidden=%d | Forbidden=%d | Protected=%d | FontManaged=%s | FontOriginal=%s | FontApplied=%s | FontCurrent=%s.",
+                bubbles.supported and "yes" or "no", bubbles.visible or 0,
+                bubbles.includingForbidden or 0, bubbles.forbidden or 0,
+                bubbles.protected or 0, bubbles.fontManaged and "yes" or "no",
+                bubbles.fontOriginal and string.format("%.2f", bubbles.fontOriginal) or "unmanaged",
+                bubbles.fontApplied and string.format("%.2f", bubbles.fontApplied) or "unmanaged",
+                bubbles.fontCurrent and string.format("%.2f", bubbles.fontCurrent) or "unavailable")
+        end
         Offhand:Print("Pixel bounds: Span=%.2f MP | Mainhand=%.2f MP | Bounds/Mainhand=%.2fx.",
             perf.spanPixels / 1000000, perf.mainhandPixels / 1000000,
             perf.boundsToMainhandRatio)
@@ -1187,8 +1414,11 @@ SlashCmdList["OFFHAND"] = function(msg)
             Offhand:Print("Addon bag diagnostics: %s.", Offhand.BagPersistence:GetDiagnostics())
         end
         if Offhand.isForever then
+            local cinematicStatus = tostring(Offhand._cinematicSkipDialogStatus or "not observed")
+            if cinematicStatus ~= "not observed" then
             Offhand:Print("Cinematic skip-dialog diagnostics: %s.",
-                tostring(Offhand._cinematicSkipDialogStatus or "not observed"))
+                    cinematicStatus)
+            end
             if Offhand.Canvas and Offhand.Canvas.GetForeverNativeBagDiagnostics then
                 local bagStatus = Offhand.Canvas:GetForeverNativeBagDiagnostics()
                 Offhand:Print("Forever native bag diagnostics: %s.",
@@ -1199,9 +1429,25 @@ SlashCmdList["OFFHAND"] = function(msg)
             Offhand:Print("Panel reload diagnostics: %s.",
                 Offhand.Canvas:GetPersistentPanelLoadDiagnostics())
         end
+        if Offhand.Mainhand and Offhand.Mainhand.GetEditModeDiagnostics then
+            Offhand:Print("Edit Mode layout diagnostics: %s.",
+                Offhand.Mainhand:GetEditModeDiagnostics())
+        end
+        if Offhand.Canvas and Offhand.Canvas.GetCompatibilityDiagnostics then
+            Offhand:Print("Compatibility diagnostics: %s.",
+                Offhand.Canvas:GetCompatibilityDiagnostics())
+        end
         if Offhand.Canvas and Offhand.Canvas.GetExperimentalProfessionsMotionDiagnostics then
             local panelMotion = Offhand.Canvas:GetExperimentalProfessionsMotionDiagnostics()
             if panelMotion then Offhand:Print("Panel motion diagnostics: %s.", panelMotion) end
+        end
+        if Offhand.HUD and Offhand.HUD.GetForeverGroupFrameDiagnostics then
+            local groupFrames = Offhand.HUD:GetForeverGroupFrameDiagnostics()
+            if groupFrames then Offhand:Print("Group-frame diagnostics: %s.", groupFrames) end
+        end
+        if Offhand.HUD and Offhand.HUD.GetForeverProtectedHUDDiagnostics then
+            local protectedHUD = Offhand.HUD:GetForeverProtectedHUDDiagnostics(m)
+            if protectedHUD then Offhand:Print("Protected-HUD diagnostics: %s.", protectedHUD) end
         end
         if Offhand.HasEllesmerePartyFrames and Offhand.HasEllesmerePartyFrames() then
             Offhand:Print(L["COMPAT_ELLESMERE_PARTY"])
@@ -1269,6 +1515,15 @@ logoutFix:SetScript('OnEvent', function()
         end
         if db.originalUseUiScale and SetCVar then
             SetCVar("useUiScale", db.originalUseUiScale)
+        end
+        if db.originalWorldTextScale and SetCVar then
+            SetCVar("WorldTextScale", db.originalWorldTextScale)
+        end
+        if db.originalNameplateSize and SetCVar then
+            SetCVar("nameplateSize", db.originalNameplateSize)
+        end
+        if db.originalFriendlyPlayerName ~= nil and SetCVar then
+            SetCVar("UnitNameFriendlyPlayerName", db.originalFriendlyPlayerName)
         end
     end
 
@@ -1408,6 +1663,9 @@ frame:SetScript("OnEvent", function()
     for _, name in ipairs(tooltips) do
         local tt = _G[name]
         if tt then
+            if Offhand.PopupBounds and Offhand.PopupBounds.ObserveTooltip then
+                Offhand.PopupBounds:ObserveTooltip(tt)
+            end
             if tt.HookScript then
                 tt:HookScript("OnShow", EnforceTooltipScale)
                 tt:HookScript("OnSizeChanged", EnforceTooltipScale)
