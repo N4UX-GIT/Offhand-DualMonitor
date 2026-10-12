@@ -109,6 +109,10 @@ try {
     if (-not $futureAddonBody.Contains('/offhand diag') -or $futureAddonBody.Contains('Release metadata fixture.')) {
         throw 'Beta 21 release metadata must use the exact versioned changelog section instead of Unreleased.'
     }
+    $misdecodedEnDash = ([char]0x00e2).ToString() + [char]0x20ac + [char]0x201c
+    if ($futureAddonBody.Contains($misdecodedEnDash) -or -not $futureAddonBody.Contains('50-150% fine-tuning control')) {
+        throw 'Release metadata must preserve UTF-8 changelog text and keep generated test-focus text encoding-safe.'
+    }
 
     Write-Output 'PASS: standardized beta, release-candidate, stable, and invalid release metadata'
 } finally {

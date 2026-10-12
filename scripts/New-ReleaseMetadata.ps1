@@ -65,7 +65,7 @@ if (-not (Test-Path -LiteralPath $ChangelogPath)) {
     throw "Changelog not found: $ChangelogPath"
 }
 
-$changelog = Get-Content -LiteralPath $ChangelogPath -Raw
+$changelog = Get-Content -LiteralPath $ChangelogPath -Raw -Encoding utf8
 $escapedPackageVersion = [regex]::Escape($packageVersion)
 $versioned = [regex]::Match(
     $changelog,
@@ -126,8 +126,8 @@ $companionDownloads
 
 1. Upgrade without deleting ``WTF`` or Offhand SavedVariables.
 2. Trigger several simultaneous group-loot rolls before and during combat and confirm they remain visible inside Mainhand without protected-action or secret-value errors.
-3. Verify floating combat, healing, damage, and XP text at the automatic scale and with the 50–150% fine-tuning control, including after ``/reload`` and after disabling the span.
-4. Verify speech bubbles on equal-height and mixed-height layouts, including the first bubble after spanning, consecutive bubbles, the 50–150% replacement-size control, and ownership yielding when EllesmereUI customization is enabled.
+3. Verify floating combat, healing, damage, and XP text at the automatic scale and with the 50-150% fine-tuning control, including after ``/reload`` and after disabling the span.
+4. Verify speech bubbles on equal-height and mixed-height layouts, including the first bubble after spanning, consecutive bubbles, the 50-150% replacement-size control, and ownership yielding when EllesmereUI customization is enabled.
 5. Report the WoW client and build, display arrangement, selected Mainhand/workspace, enabled UI addons, exact Lua error, ``/offhand diag`` output, and before/after screenshots.
 
 ## Linux and Wine status
