@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.2-beta.21] - 2026-10-13
+
 ### Changed
 - `/offhand diag` now reports a concise current support snapshot instead of the
   accumulated renderer, anti-aliasing, nameplate, bag, cinematic, panel-reload,

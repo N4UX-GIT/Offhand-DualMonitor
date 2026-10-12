@@ -66,14 +66,22 @@ if (-not (Test-Path -LiteralPath $ChangelogPath)) {
 }
 
 $changelog = Get-Content -LiteralPath $ChangelogPath -Raw
+$escapedPackageVersion = [regex]::Escape($packageVersion)
+$versioned = [regex]::Match(
+    $changelog,
+    "(?ms)^## \[$escapedPackageVersion\](?:\s+-[^\r\n]*)?\s*(?<body>.*?)(?=^## \[|\z)"
+)
 $unreleased = [regex]::Match(
     $changelog,
     '(?ms)^## \[Unreleased\]\s*(?<body>.*?)(?=^## \[|\z)'
 )
-if (-not $unreleased.Success -or [string]::IsNullOrWhiteSpace($unreleased.Groups['body'].Value)) {
-    throw "CHANGELOG.md must contain a non-empty ## [Unreleased] section."
+$changes = if ($versioned.Success -and -not [string]::IsNullOrWhiteSpace($versioned.Groups['body'].Value)) {
+    $versioned.Groups['body'].Value.Trim()
+} elseif ($unreleased.Success -and -not [string]::IsNullOrWhiteSpace($unreleased.Groups['body'].Value)) {
+    $unreleased.Groups['body'].Value.Trim()
+} else {
+    throw "CHANGELOG.md must contain a non-empty ## [$packageVersion] or ## [Unreleased] section."
 }
-$changes = $unreleased.Groups['body'].Value.Trim()
 
 $statusText = if ($isPrerelease) {
     "This is a public testing build. Back up your existing Offhand SavedVariables before installing and report regressions with the requested diagnostics."

@@ -1,4 +1,4 @@
-**Offhand - Dual-Screen and Multi-Monitor UI | v2.1.2 PRE-RELEASE (BETA 20)**
+**Offhand - Dual-Screen and Multi-Monitor UI | v2.1.2 PRE-RELEASE (BETA 21)**
 
 ![Offhand Logo](https://raw.githubusercontent.com/N4UX-GIT/Offhand-DualMonitor/main/Website/assets/offhand-logo.png)
 
@@ -31,7 +31,7 @@ _The complete Offhand setup on a real desk: unobstructed gameplay on Mainhand, w
 
 _What WoW actually renders across the combined play surface. The 3D world remains centered on Mainhand while the extended UI canvas uses both displays. Black padding may appear in screenshots when displays have different heights, but that area sits outside the visible physical screens during play._
 
-**Beta 20 is the current public addon release.** It is published as a beta while testing continues across different display arrangements, Windows scaling settings, WoW clients, and third-party UI addons.
+**Beta 21 is the current public addon release.** It is published as a beta while testing continues across different display arrangements, Windows scaling settings, WoW clients, and third-party UI addons.
 
 ***
 
@@ -57,7 +57,7 @@ The Microsoft Store provides a signed, managed installation and handles future C
 
 The portable ZIP is hosted on the official Offhand GitHub release, not by CurseForge. Only obtain the Companion from the Microsoft Store or the official Offhand GitHub repository.
 
-[View the complete Beta 20 GitHub release and checksums](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.2-beta.20)
+[View the Companion Beta 20 GitHub release and checksums](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.2-beta.20)
 
 You can also span the WoW window manually or use NVIDIA Surround, AMD Eyefinity, or a suitable operating-system window manager. The Companion is optional on most clients, but the current WoW Forever beta requires it for reliable layout recovery across complete client restarts.
 

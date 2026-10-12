@@ -2,11 +2,21 @@ $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
 $script = Join-Path $root 'scripts\New-ReleaseMetadata.ps1'
-$changelog = Join-Path $root 'CHANGELOG.md'
+$projectChangelog = Join-Path $root 'CHANGELOG.md'
 $temp = Join-Path ([IO.Path]::GetTempPath()) ('Offhand-release-metadata-' + [guid]::NewGuid().ToString())
 New-Item -ItemType Directory -Path $temp -Force | Out-Null
 
 try {
+    $changelog = Join-Path $temp 'CHANGELOG.md'
+    @"
+# Changelog
+
+## [Unreleased]
+
+### Fixed
+- Release metadata fixture.
+"@ | Set-Content -LiteralPath $changelog -Encoding utf8
+
     $betaNotes = Join-Path $temp 'beta.md'
     $betaOutput = Join-Path $temp 'beta-output.txt'
     $beta = & $script -Tag 'v2.1.2-beta.5' -ChangelogPath $changelog -OutputPath $betaNotes -GitHubOutputPath $betaOutput
@@ -88,13 +98,16 @@ try {
         throw 'Addon-only stable releases must remain independent of the Companion version.'
     }
     $futureAddonNotes = Join-Path $temp 'future-addon.md'
-    & $script -Tag 'v2.1.2-beta.21' -CompanionReleaseTag 'v2.1.2-beta.20' -ChangelogPath $changelog -OutputPath $futureAddonNotes | Out-Null
+    & $script -Tag 'v2.1.2-beta.21' -CompanionReleaseTag 'v2.1.2-beta.20' -ChangelogPath $projectChangelog -OutputPath $futureAddonNotes | Out-Null
     $futureAddonBody = Get-Content -LiteralPath $futureAddonNotes -Raw
     if ($futureAddonBody -notmatch '<!-- offhand-companion-version: 2\.1\.2-beta\.20 -->') {
         throw 'Addon-only release metadata must advertise the frozen Companion version rather than the addon tag.'
     }
     if (-not $futureAddonBody.Contains('https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.2-beta.21')) {
         throw 'The versioned frozen Companion asset must link to the addon release that attaches it.'
+    }
+    if (-not $futureAddonBody.Contains('/offhand diag') -or $futureAddonBody.Contains('Release metadata fixture.')) {
+        throw 'Beta 21 release metadata must use the exact versioned changelog section instead of Unreleased.'
     }
 
     Write-Output 'PASS: standardized beta, release-candidate, stable, and invalid release metadata'
