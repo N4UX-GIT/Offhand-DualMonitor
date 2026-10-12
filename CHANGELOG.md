@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- `/offhand diag` now reports a concise current support snapshot instead of the
+  accumulated renderer, anti-aliasing, nameplate, bag, cinematic, panel-reload,
+  Professions, party-frame, and protected-HUD probes used by resolved test
+  investigations. It retains environment and topology context while focusing
+  live Beta 21 evidence on combat-text scaling, speech-bubble replacement,
+  group-loot secure positioning, Edit Mode, and loaded compatibility addons.
 - World text compensation is now topology-aware and user-adjustable. Equal-height
   spans retain Blizzard's native combat/XP scale, while mixed-height spans use
   the automatic correction with an independent on/off switch and 50–150% fine

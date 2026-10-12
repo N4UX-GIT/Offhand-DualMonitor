@@ -1368,124 +1368,42 @@ SlashCmdList["OFFHAND"] = function(msg)
                 editMode.activeMatches and "yes" or "no",
                 editMode.recoveryPending and "pending" or "none")
         end
-        -- Rendering fidelity is owned by the client, not Offhand's viewport
-        -- anchors. Report read-only renderer state and the spanned bounding
-        -- surface so scanout tearing, frame pacing and pixel load can be
-        -- investigated separately from viewport geometry.
         local perf = Offhand.Viewport:GetPerformanceDiagnostics(m)
-        Offhand:Print("Render diagnostics: SavedWindowedResolution=%s | RenderScale=%s | ResampleQuality=%s.",
-            perf.gxWindowedResolution, perf.renderScale, perf.resampleQuality)
-        Offhand:Print("Performance diagnostics: FPS=%s | API=%s | VSync=%s | ForegroundCap=%s | BackgroundCap=%s | LowLatency=%s | MSAA=%s.",
-            perf.fps and string.format("%.1f", perf.fps) or "unavailable",
-            perf.gxApi, perf.gxVSync, perf.maxFPS, perf.maxFPSBk,
-            perf.lowLatencyMode, perf.msaaQuality)
-        Offhand:Print("AA diagnostics: ImageAA=%s | CMAA2=%s | MSAAAlpha=%s | TextureFilter=%s.",
-            perf.antiAliasingMode, perf.cmaa2Quality, perf.msaaAlphaTest,
-            perf.textureFilteringMode)
-        Offhand:Print("Scaling diagnostics: Dynamic=%s | AlwaysSharpen=%s | Sharpness=%s.",
-            perf.dynamicRenderScale, perf.resampleAlwaysSharpen,
-            perf.resampleSharpness)
-        Offhand:Print("World text diagnostics: Current=%s | Original=%s | CVar=%s | Method=%s | Enabled=%s | FineTune=%.2f | HeightRatio=%.4f | AppliedRatio=%.4f | WorldLocal=%s | WorldEffective=%s | NameplateSize=%s | NativeDims=%s | VisualRatio=%s | VisualFrames=%d | HV=%s/%s | Global=%s | Larger=%s | Selected=%s.",
+        Offhand:Print("Combat text diagnostics: Current=%s | Original=%s | CVar=%s | Method=%s | Enabled=%s | FineTune=%.2f | HeightRatio=%.4f | AppliedRatio=%.4f.",
             perf.worldTextScale, tostring(perf.originalWorldTextScale or "unmanaged"),
             perf.worldTextScaleCVar,
             perf.worldTextMethod, perf.worldTextCompensationEnabled and "yes" or "no",
             perf.worldTextFineTune, perf.worldTextHeightRatio,
-            perf.worldTextCompensationRatio,
-            perf.worldFrameLocalScale
-                and string.format("%.4f", perf.worldFrameLocalScale) or "unavailable",
-            perf.worldFrameEffectiveScale
-                and string.format("%.4f", perf.worldFrameEffectiveScale) or "unavailable",
-            perf.nameplateSize,
-            perf.nameplateWidth and perf.nameplateHeight
-                and string.format("%.2fx%.2f", perf.nameplateWidth, perf.nameplateHeight)
-                or "unavailable",
-            perf.nameplateCompensationRatio
-                and string.format("%.4f", perf.nameplateCompensationRatio) or "unmanaged",
-            perf.nameplateVisualFrameCount or 0,
-            perf.nameplateHorizontalScale, perf.nameplateVerticalScale,
-            perf.nameplateGlobalScale,
-            perf.nameplateLargerScale, perf.nameplateSelectedScale)
-        local plate = perf.nameplateSample or {}
-        Offhand:Print("Nameplate frame diagnostics: Total=%d | Forbidden=%d | BaseLocal=%s | BaseEffective=%s | UnitOriginal=%s | UnitApplied=%s | UnitLocal=%s | UnitEffective=%s.",
-            perf.nameplateCount or 0, perf.nameplateForbiddenCount or 0,
-            plate.localScale and string.format("%.4f", plate.localScale) or "unavailable",
-            plate.effectiveScale and string.format("%.4f", plate.effectiveScale) or "unavailable",
-            plate.originalScale and string.format("%.4f", plate.originalScale) or "unmanaged",
-            plate.appliedScale and string.format("%.4f", plate.appliedScale) or "unmanaged",
-            plate.unitLocalScale and string.format("%.4f", plate.unitLocalScale) or "unavailable",
-            plate.unitEffectiveScale and string.format("%.4f", plate.unitEffectiveScale) or "unavailable")
-        Offhand:Print("Nameplate visibility diagnostics: ShowFriends=%s | OnlyNames=%s | FriendlyPlayerNames=%s | EnemyPlayerNames=%s.",
-            perf.nameplateShowFriends, perf.nameplateShowOnlyNames,
-            perf.unitNameFriendlyPlayerName, perf.unitNameEnemyPlayerName)
+            perf.worldTextCompensationRatio)
         if Offhand.modules.ChatBubbles and Offhand.modules.ChatBubbles.GetDiagnostics then
             local bubbles = Offhand.modules.ChatBubbles:GetDiagnostics()
-            Offhand:Print("Speech bubble diagnostics: Supported=%s | Visible=%d | IncludingForbidden=%d | Forbidden=%d | Protected=%d | NativeWorldText=%s | Enabled=%s | FineTune=%.2f | Mode=%s | Conflict=%s | Replacements=%d | RootManaged=%d | FontManaged=%s | FontOriginal=%s | FontApplied=%s | FontCurrent=%s | FrameAnchors=%s.",
+            Offhand:Print("Speech bubble diagnostics: Supported=%s | Visible=%d | Enabled=%s | FineTune=%.2f | Mode=%s | Conflict=%s | Replacements=%d.",
                 bubbles.supported and "yes" or "no", bubbles.visible or 0,
-                bubbles.includingForbidden or 0, bubbles.forbidden or 0,
-                bubbles.protected or 0,
-                bubbles.nativeWorldTextOwned and "yes" or "no",
                 bubbles.foreverEnabled and "yes" or "no",
                 bubbles.foreverFineTune or 1,
                 tostring(bubbles.replacementMode or "native"),
                 tostring(bubbles.replacementConflict or "none"),
-                bubbles.visualManaged or 0,
-                bubbles.rootManaged or 0,
-                bubbles.fontManaged and "yes" or "no",
-                bubbles.fontOriginal and string.format("%.2f", bubbles.fontOriginal) or "unmanaged",
-                bubbles.fontApplied and string.format("%.2f", bubbles.fontApplied) or "unmanaged",
-                bubbles.fontCurrent and string.format("%.2f", bubbles.fontCurrent) or "unavailable",
-                bubbles.visualNativeAnchors and "native" or "unmanaged")
-            if bubbles.structure then
-                Offhand:Print("Speech bubble structure: %s.", bubbles.structure)
-            end
-            if bubbles.anchors then
-                Offhand:Print("Speech bubble anchors: %s.", bubbles.anchors)
-            end
+                bubbles.visualManaged or 0)
         end
-        Offhand:Print("Pixel bounds: Span=%.2f MP | Mainhand=%.2f MP | Bounds/Mainhand=%.2fx.",
-            perf.spanPixels / 1000000, perf.mainhandPixels / 1000000,
-            perf.boundsToMainhandRatio)
-        if Offhand.BagPersistence and Offhand.BagPersistence.GetDiagnostics then
-            Offhand:Print("Addon bag diagnostics: %s.", Offhand.BagPersistence:GetDiagnostics())
-        end
-        if Offhand.isForever then
-            local cinematicStatus = tostring(Offhand._cinematicSkipDialogStatus or "not observed")
-            if cinematicStatus ~= "not observed" then
-            Offhand:Print("Cinematic skip-dialog diagnostics: %s.",
-                    cinematicStatus)
-            end
-            if Offhand.Canvas and Offhand.Canvas.GetForeverNativeBagDiagnostics then
-                local bagStatus = Offhand.Canvas:GetForeverNativeBagDiagnostics()
-                Offhand:Print("Forever native bag diagnostics: %s.",
-                    tostring(bagStatus or "unavailable"))
-            end
-        end
-        if Offhand.Canvas and Offhand.Canvas.GetPersistentPanelLoadDiagnostics then
-            Offhand:Print("Panel reload diagnostics: %s.",
-                Offhand.Canvas:GetPersistentPanelLoadDiagnostics())
+        if Offhand.HUD and Offhand.HUD.GetGroupLootDiagnostics then
+            local loot = Offhand.HUD:GetGroupLootDiagnostics()
+            Offhand:Print("Group loot diagnostics: Loaded=%s | Preload=%s | SecureAnchor=%s | ShowRepair=%s | Triggers=%d | Combat=%s.",
+                loot.loaded and "yes" or "no",
+                loot.preloadAttempted and "yes" or "no",
+                loot.anchorPrepared and "yes" or "no",
+                loot.showRepairPrepared and "yes" or "no",
+                loot.triggerCount or 0,
+                loot.inCombat and "yes" or "no")
         end
         if Offhand.Mainhand and Offhand.Mainhand.GetEditModeDiagnostics then
             Offhand:Print("Edit Mode layout diagnostics: %s.",
                 Offhand.Mainhand:GetEditModeDiagnostics())
         end
         if Offhand.Canvas and Offhand.Canvas.GetCompatibilityDiagnostics then
-            Offhand:Print("Compatibility diagnostics: %s.",
-                Offhand.Canvas:GetCompatibilityDiagnostics())
-        end
-        if Offhand.Canvas and Offhand.Canvas.GetExperimentalProfessionsMotionDiagnostics then
-            local panelMotion = Offhand.Canvas:GetExperimentalProfessionsMotionDiagnostics()
-            if panelMotion then Offhand:Print("Panel motion diagnostics: %s.", panelMotion) end
-        end
-        if Offhand.HUD and Offhand.HUD.GetForeverGroupFrameDiagnostics then
-            local groupFrames = Offhand.HUD:GetForeverGroupFrameDiagnostics()
-            if groupFrames then Offhand:Print("Group-frame diagnostics: %s.", groupFrames) end
-        end
-        if Offhand.HUD and Offhand.HUD.GetForeverProtectedHUDDiagnostics then
-            local protectedHUD = Offhand.HUD:GetForeverProtectedHUDDiagnostics(m)
-            if protectedHUD then Offhand:Print("Protected-HUD diagnostics: %s.", protectedHUD) end
-        end
-        if Offhand.HasEllesmerePartyFrames and Offhand.HasEllesmerePartyFrames() then
-            Offhand:Print(L["COMPAT_ELLESMERE_PARTY"])
+            local compatibility = Offhand.Canvas:GetCompatibilityDiagnostics()
+            if compatibility and compatibility:find("loaded", 1, true) then
+                Offhand:Print("Compatibility diagnostics: %s.", compatibility)
+            end
         end
     elseif msg == "apply" or msg == "reload" then
         Offhand:ApplyFullLayout()

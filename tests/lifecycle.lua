@@ -14,6 +14,26 @@ end
 InCombatLockdown = function() return combat end
 SlashCmdList = {}
 assert(loadfile("Core/Init.lua"))("Offhand", addon)
+local initSource = assert(io.open("Core/Init.lua", "rb")):read("*a")
+for _, obsolete in ipairs({
+    "Performance diagnostics:", "AA diagnostics:", "Scaling diagnostics:",
+    "Nameplate frame diagnostics:", "Nameplate visibility diagnostics:",
+    "Addon bag diagnostics:", "Cinematic skip-dialog diagnostics:",
+    "Forever native bag diagnostics:", "Panel reload diagnostics:",
+    "Panel motion diagnostics:", "Group-frame diagnostics:",
+    "Protected-HUD diagnostics:",
+}) do
+    assert(not initSource:find(obsolete, 1, true),
+        "resolved test probe remains in /offhand diag: " .. obsolete)
+end
+for _, current in ipairs({
+    "Topology diagnostics:", "Combat text diagnostics:",
+    "Speech bubble diagnostics:", "Group loot diagnostics:",
+    "Edit Mode layout diagnostics:",
+}) do
+    assert(initSource:find(current, 1, true),
+        "current support diagnostic is missing: " .. current)
+end
 local printedDiagnostic
 DEFAULT_CHAT_FRAME = {
     AddMessage = function(_, message) printedDiagnostic = message end,

@@ -1213,6 +1213,26 @@ local secureTransientShowPositioners = setmetatable({}, { __mode = "k" })
 local secureTransientPositioner
 local groupLootPreloadAttempted = false
 
+-- Keep /offhand diag focused on the current group-loot QA surface without
+-- reading protected frame geometry in combat. These flags describe only the
+-- addon-owned secure setup; the tester's screenshot confirms final placement.
+function HUD:GetGroupLootDiagnostics()
+    local container = _G.GroupLootContainer
+    local triggerCount = 0
+    for index = 1, 4 do
+        if _G["GroupLootFrame" .. index] then triggerCount = triggerCount + 1 end
+    end
+    return {
+        loaded = container ~= nil,
+        preloadAttempted = groupLootPreloadAttempted,
+        anchorPrepared = container and secureTransientOwned[container] == true or false,
+        showRepairPrepared = container
+            and secureTransientShowPositioners[container] ~= nil or false,
+        triggerCount = triggerCount,
+        inCombat = InCombatLockdown and InCombatLockdown() or false,
+    }
+end
+
 local function PreloadGroupLootForSecurePositioning()
     if groupLootPreloadAttempted or _G.GroupLootContainer or InCombatLockdown()
         or not Offhand.db or not Offhand.db.enabled then return end

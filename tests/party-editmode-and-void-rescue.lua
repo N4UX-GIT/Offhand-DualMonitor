@@ -391,6 +391,12 @@ assertMainhandAnchor(RolePollPopup, "TOP", 2720, 1431, "Role poll")
 assertMainhandAnchor(ReadyCheckFrame, "CENTER", 2720, 716, "Ready check")
 assertMainhandAnchor(LFGDungeonReadyPopup, "CENTER", 2720, 716, "Dungeon queue popup")
 assertMainhandAnchor(GroupLootContainer, "BOTTOM", 2720, 196, "Group loot rolls")
+local groupLootDiagnostics = addon.HUD:GetGroupLootDiagnostics()
+assert(groupLootDiagnostics.loaded and groupLootDiagnostics.preloadAttempted
+        and groupLootDiagnostics.anchorPrepared
+        and groupLootDiagnostics.showRepairPrepared
+        and groupLootDiagnostics.triggerCount == 4,
+    "group-loot diagnostics must report the secure preload and post-show repair")
 assertMainhandAnchor(CombatText, "CENTER", 2720, 726, "Floating combat text")
 assert(CombatText:IsIgnoringParentScale() == false,
     "floating combat text must inherit Offhand's UIParent scale")
