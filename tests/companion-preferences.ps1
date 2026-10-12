@@ -117,6 +117,9 @@ try {
         $packager -notmatch "LastWriteTime = \[DateTimeOffset\]::Parse\('2026-01-01T00:00:00Z'\)") {
         throw 'Release archives must use deterministic entry order and timestamps.'
     }
+    if ($packager -notmatch 'Copy-Item \(Join-Path \$rootDir "Offhand_Wrath335a\.toc"\) -Destination \$addonStaging') {
+        throw 'Release archives must include the experimental WoW 3.3.5a manifest.'
+    }
     if ($packager -match 'Offhand-Companion\.exe' -or
         $packager -notmatch 'bundleStaging "Offhand\.exe"') {
         throw 'Every shipped Companion executable, including the complete bundle, must be named Offhand.exe.'
