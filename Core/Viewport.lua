@@ -52,32 +52,60 @@ function Viewport:GetCompanionTopology(pw, ph, sw, sh)
     return nil, "MISMATCH"
 end
 
+local function ReadCVarNumber(name, allowZero)
+    local function read(getter, setter)
+        if type(getter) ~= "function" then return nil end
+        local ok, value = pcall(getter, name)
+        value = ok and tonumber(value) or nil
+        local minimum = allowZero and 0 or 0.0000001
+        if value and value == value and value >= minimum and value < math.huge then
+            return value, type(setter) == "function" and setter or nil
+        end
+    end
+    local value, setter = read(GetCVar, SetCVar)
+    if value ~= nil then return value, setter end
+    -- Some hybrid clients retain the legacy global API while exposing a
+    -- particular CVar only through C_CVar. Do not let a legacy nil prevent the
+    -- namespaced probe.
+    return read(C_CVar and C_CVar.GetCVar, C_CVar and C_CVar.SetCVar)
+end
+
 local function ReadNumericCVar(name)
-    local getter = GetCVar or (C_CVar and C_CVar.GetCVar)
-    if not getter then return nil end
-    local ok, value = pcall(getter, name)
-    value = ok and tonumber(value) or nil
-    if not value or value ~= value or value <= 0 or value == math.huge then return nil end
-    return value
+    return ReadCVarNumber(name, false)
+end
+
+local WORLD_TEXT_SCALE_CVARS = {"WorldTextScale_v2", "WorldTextScale"}
+
+local function ReadWorldTextScale()
+    for _, name in ipairs(WORLD_TEXT_SCALE_CVARS) do
+        local value = ReadNumericCVar(name)
+        if value then return value, name end
+    end
+end
+
+-- Expose only the selected native control, not the implementation details of
+-- reading or writing it. Forever's versioned control also owns native speech-
+-- bubble presentation, so ChatBubbles uses this capability signal to avoid
+-- applying a second frame scale that changes the engine's screen anchor.
+function Viewport:GetWorldTextScaleControl()
+    local value, name = ReadWorldTextScale()
+    return name, value
 end
 
 local function ReadNonNegativeCVar(name)
-    local getter = GetCVar or (C_CVar and C_CVar.GetCVar)
-    if not getter then return nil end
-    local ok, value = pcall(getter, name)
-    value = ok and tonumber(value) or nil
-    if not value or value ~= value or value < 0 or value == math.huge then return nil end
-    return value
+    return ReadCVarNumber(name, true)
 end
 
 local function WriteNumericCVar(name, value)
-    local setter = SetCVar or (C_CVar and C_CVar.SetCVar)
+    local _, setter = ReadCVarNumber(name, false)
+    setter = setter or SetCVar or (C_CVar and C_CVar.SetCVar)
     if not setter or not value then return false end
     return pcall(setter, name, string.format("%.6f", value))
 end
 
 local function WriteBooleanCVar(name, value)
-    local setter = SetCVar or (C_CVar and C_CVar.SetCVar)
+    local _, setter = ReadCVarNumber(name, true)
+    setter = setter or SetCVar or (C_CVar and C_CVar.SetCVar)
     if not setter or value == nil then return false end
     return pcall(setter, name, tonumber(value) and tonumber(value) >= 0.5 and "1" or "0")
 end
@@ -225,6 +253,20 @@ local function DesiredHUDScale(metrics)
         gameWidth * 768 / (1100 * physicalHeight))
     return math.max(0.05, geometryScale
         * Number(Offhand.db and Offhand.db.hudScale, 0.70, 0.25, 1.25))
+end
+
+local function WorldTextCompensationRatio(metrics)
+    if type(metrics) ~= "table" then return 1 end
+    local physicalHeight = math.max(1, tonumber(metrics.physicalHeight) or 1)
+    local gameHeight = math.max(0, tonumber(metrics.gamePixelHeight) or 0)
+    local heightRatio = gameHeight / physicalHeight
+    local db = Offhand.db
+    if not db or db.worldTextCompensation == false then return 1 end
+    -- Equal-height spans are the known unaffected Forever topology. Leave the
+    -- native CVar exactly alone there, regardless of the optional HUD scale.
+    if math.abs(heightRatio - 1) <= 0.01 then return 1 end
+    return math.max(0.05, DesiredHUDScale(metrics)
+        * Number(db.worldTextScale, 1, 0.50, 1.50))
 end
 
 function Viewport:RestoreNamePlateVisualScale()
@@ -500,7 +542,9 @@ function Viewport:ApplyGlobalScale()
                     if SetCVar then SetCVar("useUiScale", db.originalUseUiScale) end
                 end
                 if db.originalWorldTextScale then
-                    WriteNumericCVar("WorldTextScale", db.originalWorldTextScale)
+                    local _, availableName = ReadWorldTextScale()
+                    WriteNumericCVar(db.originalWorldTextScaleCVar or availableName
+                        or "WorldTextScale", db.originalWorldTextScale)
                 end
                 if db.originalNameplateSize then
                     WriteNumericCVar("nameplateSize", db.originalNameplateSize)
@@ -514,6 +558,7 @@ function Viewport:ApplyGlobalScale()
             db.originalUiScale = nil
             db.originalUseUiScale = nil
             db.originalWorldTextScale = nil
+            db.originalWorldTextScaleCVar = nil
             db.originalNameplateSize = nil
             self.scaling=false
         end
@@ -529,9 +574,14 @@ function Viewport:ApplyGlobalScale()
     if WorldFrame and WorldFrame.GetScale and not self.originalWorldScale then
         self.originalWorldScale = WorldFrame:GetScale()
     end
-    local currentWorldTextScale = ReadNumericCVar("WorldTextScale")
-    if currentWorldTextScale and not db.originalWorldTextScale then
-        db.originalWorldTextScale = currentWorldTextScale
+    local currentWorldTextScale, worldTextScaleCVar = ReadWorldTextScale()
+    if currentWorldTextScale then
+        if not db.originalWorldTextScale then
+            db.originalWorldTextScale = currentWorldTextScale
+        end
+        if not db.originalWorldTextScaleCVar then
+            db.originalWorldTextScaleCVar = worldTextScaleCVar
+        end
     end
     -- Migrate the previous beta's discrete-preset workaround back to the
     -- player's exact setting. Per-frame visual scaling below provides
@@ -542,25 +592,23 @@ function Viewport:ApplyGlobalScale()
         db.originalNameplateSize = nil
     end
 
-    -- Keep WorldFrame at its native scale. Retail hides protected friendly
-    -- nameplates from addon enumeration inside instances, so shrinking this
-    -- shared root makes them permanently smaller than accessible enemy plates.
-    -- Viewport:SetPoint already converts the render rectangle across scales;
-    -- world text retains its separate physical-height correction below.
-    local worldDisplayRatio = math.max(0.05, math.min(1,
-        m.gamePixelHeight / m.physicalHeight))
+    -- Keep WorldFrame native. Retail hides protected friendly nameplates from
+    -- addon enumeration inside instances, so shrinking this shared root makes
+    -- them smaller than accessible enemy plates. Forever 1.60 also proved that
+    -- its engine-rendered damage/XP text ignores WorldFrame scale, so mutating
+    -- the root there adds risk without correcting the reported text.
     local uiNeedsWrite = math.abs(UIParent:GetScale()-desired) >= 0.00001
-    local worldNeedsWrite = false
     -- Damage numbers and other engine-owned world text are rendered against
-    -- the complete spanned window rather than the bounded WorldFrame. Correct
-    -- only that physical-height mismatch; unlike UIParent, WorldTextScale is a
-    -- user preference and must not inherit Offhand's optional HUD multiplier.
-    local worldTextRatio = worldDisplayRatio
+    -- the complete spanned window rather than the bounded WorldFrame. Live
+    -- comparison shows equal-height spans already render at the native size;
+    -- only mixed-height layouts use the Mainhand visual baseline. Preserve the
+    -- player's native value as the multiplier and apply explicit fine tuning.
+    local worldTextRatio = WorldTextCompensationRatio(m)
     local desiredWorldTextScale = db.originalWorldTextScale
         and db.originalWorldTextScale * worldTextRatio or nil
     local worldTextNeedsWrite = currentWorldTextScale and desiredWorldTextScale
         and math.abs(currentWorldTextScale - desiredWorldTextScale) >= 0.00001
-    if not uiNeedsWrite and not worldNeedsWrite and not worldTextNeedsWrite then
+    if not uiNeedsWrite and not worldTextNeedsWrite then
         self:ApplyNamePlateVisualScale(m)
         return
     end
@@ -570,7 +618,7 @@ function Viewport:ApplyGlobalScale()
         -- every display notification to write it again.
         if uiNeedsWrite then UIParent:SetScale(desired) end
         if worldTextNeedsWrite then
-            WriteNumericCVar("WorldTextScale", desiredWorldTextScale)
+            WriteNumericCVar(worldTextScaleCVar, desiredWorldTextScale)
         end
     end)
     self.scaling=false
@@ -613,9 +661,12 @@ function Viewport:GetTopologyDiagnostics()
 end
 
 local function DiagnosticCVar(name)
-    if not GetCVar then return "unavailable" end
-    local ok, value = pcall(GetCVar, name)
-    return ok and value ~= nil and tostring(value) or "unavailable"
+    local function read(getter)
+        if type(getter) ~= "function" then return nil end
+        local ok, value = pcall(getter, name)
+        return ok and value ~= nil and tostring(value) or nil
+    end
+    return read(GetCVar) or read(C_CVar and C_CVar.GetCVar) or "unavailable"
 end
 
 local function DiagnosticCVarFallback(primary, fallback)
@@ -633,6 +684,7 @@ end
 -- external SetWindowPos and must not be presented as a live backbuffer size.
 function Viewport:GetPerformanceDiagnostics(metrics)
     local m = metrics or self:GetMetrics()
+    local worldTextScale, worldTextScaleCVar = ReadWorldTextScale()
     local namePlateWidth, namePlateHeight = ReadNamePlateDimensions()
     local namePlateCount, namePlateForbiddenCount = 0, 0
     local namePlateSample
@@ -691,10 +743,19 @@ function Viewport:GetPerformanceDiagnostics(metrics)
         dynamicRenderScale = DiagnosticCVar("DynamicRenderScale"),
         resampleAlwaysSharpen = DiagnosticCVar("ResampleAlwaysSharpen"),
         resampleSharpness = DiagnosticCVar("ResampleSharpness"),
-        worldTextScale = DiagnosticCVar("WorldTextScale"),
+        worldTextScale = worldTextScale and tostring(worldTextScale) or "unavailable",
+        worldTextScaleCVar = worldTextScaleCVar or "unavailable",
         originalWorldTextScale = Offhand.db and Offhand.db.originalWorldTextScale or nil,
+        worldTextMethod = worldTextScale and "CVAR" or "UNMANAGED",
+        worldFrameLocalScale = ReadFrameScale(WorldFrame),
+        worldFrameEffectiveScale = ReadFrameEffectiveScale(WorldFrame),
         worldTextHeightRatio = math.max(0, tonumber(m.gamePixelHeight) or 0)
             / math.max(1, tonumber(m.physicalHeight) or 1),
+        worldTextCompensationEnabled = Offhand.db
+            and Offhand.db.worldTextCompensation ~= false or false,
+        worldTextFineTune = Number(Offhand.db and Offhand.db.worldTextScale,
+            1, 0.50, 1.50),
+        worldTextCompensationRatio = WorldTextCompensationRatio(m),
         nameplateGlobalScale = DiagnosticCVar("nameplateGlobalScale"),
         nameplateSize = DiagnosticCVar("nameplateSize"),
         originalNameplateSize = Offhand.db and Offhand.db.originalNameplateSize or nil,

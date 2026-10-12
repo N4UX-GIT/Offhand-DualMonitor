@@ -57,6 +57,7 @@ UIPanelWindows = {
     GameMenuFrame = { area = "center", pushable = 0, whileDead = 1 },
     AddonList = { area = "center", pushable = 0, whileDead = 1 },
     CharacterFrame = { area = "left", pushable = 1 },
+    WorldMapFrame = { area = "left", pushable = 0, maximizePoint = "TOP" },
 }
 
 local panelAttributes = {}
@@ -251,6 +252,10 @@ addon.SeamRedirect:HookFrames()
 assert(UIPanelWindows.GameMenuFrame.area == nil, "GameMenuFrame area must be nil in UIPanelWindows")
 assert(UIPanelWindows.AddonList.area == nil, "AddonList area must be nil in UIPanelWindows")
 assert(UIPanelWindows.CharacterFrame.area == nil, "CharacterFrame area must be nil because it has a saved workspace position")
+assert(UIPanelWindows.WorldMapFrame ~= nil
+        and UIPanelWindows.WorldMapFrame.area == nil
+        and GetUIPanelAttribute(WorldMapFrame, "maximizePoint") == "TOP",
+    "World Map demodalization must preserve Blizzard's maximizePoint metadata")
 
 local function inSpecial(name)
     for _, n in ipairs(UISpecialFrames) do
@@ -425,23 +430,31 @@ assert(WorldMapFrame:GetWidth()==beforeWidth and WorldMapFrame:GetHeight()==befo
     "Map scaling mutated the native canvas dimensions")
 print("PASS: active Canvas map scale, native dimensions and combat guard")
 
--- Reopening maximized must finish native sizing, minimize, and fit the main display.
+-- Blizzard's full-screen map must remain maximized. Once the player minimizes
+-- it, Offhand may restore the saved windowed scale and clamp stale geometry.
 addon.db.savedWorkspacePositions.WorldMapFrame=nil
 addon.db.savedMainPositions.WorldMapFrame={x=9000,y=-500}
-WorldMapFrame.maximized=true
+WorldMapFrame.maximized=false
 WorldMapFrame.IsMaximized=function(self) return self.maximized end
 WorldMapFrame.Minimize=function(self) self.maximized=false; self:SetSize(702,534) end
 WorldMapFrame.Maximize=function(self) self.maximized=true; self:SetSize(4000,2560) end
 WorldMapFrame._OffhandWindowedHook=nil
 addon.Canvas:ConfigureWorldMap()
+local windowedScale = WorldMapFrame:GetScale()
 WorldMapFrame:Maximize()
 flushTimers()
-assert(not WorldMapFrame:IsMaximized(), "Native maximize was not corrected after completion")
+assert(WorldMapFrame:IsMaximized(), "Offhand immediately collapsed Blizzard's full-screen map")
+assert(WorldMapFrame:GetWidth()==4000 and WorldMapFrame:GetHeight()==2560
+        and WorldMapFrame:GetScale()==windowedScale,
+    "Offhand changed Blizzard's maximized map geometry")
+WorldMapFrame:Minimize()
+flushTimers()
+assert(not WorldMapFrame:IsMaximized(), "Native minimize did not return to the windowed map")
 local p=WorldMapFrame.points[1]; local scale=WorldMapFrame:GetScale()
 assert(p[4]*scale>=metrics.gameLeft and p[4]*scale+WorldMapFrame:GetWidth()*scale<=metrics.gameRight)
 assert(p[5]*scale<=metrics.gameTop and p[5]*scale-WorldMapFrame:GetHeight()*scale>=metrics.gameBottom)
 assert(WorldMapFrame:GetWidth()==702 and WorldMapFrame:GetHeight()==534,"Native windowed map size changed")
-print("PASS: maximized map reopening, stale saved position, full bounding-box fit")
+print("PASS: native maximized map, windowed restore, stale position, full bounding-box fit")
 
 -- MoveAny owns WorldMapFrame on Retail as well as Forever. Offhand must leave
 -- its live scale and anchor untouched so the M/L bindings have one map owner.
@@ -520,8 +533,86 @@ PlayerMovementFrameFader = nil
 MoveAny = nil
 assert(not addon.Canvas:ShouldYieldWorldMap(WorldMapFrame),
     "Offhand must resume Retail World Map ownership when MoveAny is absent")
+
+-- ClassicUI Forever supports Retail and owns both WorldMapFrame and
+-- CharacterFrame placement. Offhand must dynamically leave their live anchors
+-- and saved records untouched while the addon is loaded.
+local loadedCompatibilityAddons = { ClassicUIForever = true }
+C_AddOns = {
+    IsAddOnLoaded = function(name) return loadedCompatibilityAddons[name] == true end,
+}
+addon.Canvas:EnableFreeDragging()
+assert(addon.Canvas:ShouldYieldWorldMap(WorldMapFrame),
+    "Retail must yield WorldMapFrame ownership to ClassicUI Forever")
+assert(UIPanelWindows.WorldMapFrame.area == "left"
+        and UIPanelWindows.CharacterFrame.area == "left"
+        and GetUIPanelAttribute(WorldMapFrame, "maximizePoint") == "TOP",
+    "ClassicUI Forever ownership must restore Blizzard's complete panel registration")
+assert(addon.Canvas:GetCompatibilityDiagnostics()
+        == "MoveAny=absent | ClassicUIForever=loaded | WorldMapOwner=ClassicUIForever | CharacterFrameOwner=ClassicUIForever",
+    "diagnostics must identify both ClassicUI Forever-owned frames")
+
+WorldMapFrame.points = { { "TOPLEFT", UIParent, "BOTTOMLEFT", 1810, 1180 } }
+CharacterFrame.points = { { "TOPLEFT", UIParent, "BOTTOMLEFT", 2050, 1050 } }
+local classicMapPosition = addon.db.savedWorkspacePositions.WorldMapFrame
+local classicCharacterPosition = addon.db.savedWorkspacePositions.CharacterFrame
+addon.Canvas:ConfigureWorldMap()
+addon.Canvas:RestoreWorkspacePosition(WorldMapFrame)
+addon.Canvas:RestoreWorkspacePosition(CharacterFrame)
+addon.Canvas.OnPanelDragStop(WorldMapFrame)
+addon.Canvas.OnPanelDragStop(CharacterFrame)
+assert(WorldMapFrame.points[1][4] == 1810 and WorldMapFrame.points[1][5] == 1180,
+    "Offhand changed ClassicUI Forever's World Map geometry")
+assert(CharacterFrame.points[1][4] == 2050 and CharacterFrame.points[1][5] == 1050,
+    "Offhand changed ClassicUI Forever's CharacterFrame geometry")
+assert(addon.db.savedWorkspacePositions.WorldMapFrame == classicMapPosition
+        and addon.db.savedWorkspacePositions.CharacterFrame == classicCharacterPosition,
+    "yielding to ClassicUI Forever must preserve dormant Offhand coordinates")
+
+loadedCompatibilityAddons.ClassicUIForever = nil
+assert(not addon.Canvas:ShouldYieldWorldMap(WorldMapFrame),
+    "Offhand must resume World Map ownership when ClassicUI Forever is disabled")
+
+-- Forever Leatrix Maps 1.60.20 restyles Blizzard's built-in coordinate overlay.
+-- A live UIParent scale transition must refresh those three known labels
+-- without changing Leatrix's map geometry or unrelated map text.
+loadedCompatibilityAddons.Leatrix_Maps = true
+local refreshedLabels = 0
+local function coordinateRegion(text)
+    return {
+        GetObjectType = function() return "FontString" end,
+        GetText = function() return text end,
+        GetFont = function() return "Fonts\\FRIZQT__.TTF", 13, "" end,
+        GetFontObject = function() return "GameFontNormalLarge" end,
+        SetFont = function(self, file, height, flags)
+            assert(file == "Fonts\\FRIZQT__.TTF" and height == 13 and flags == "",
+                "coordinate refresh changed the label's font tuple")
+            refreshedLabels = refreshedLabels + 1
+        end,
+        SetFontObject = function(self, object)
+            assert(object == "GameFontNormalLarge",
+                "coordinate refresh changed the label's font object")
+        end,
+    }
+end
+WorldMapFrame.overlayFrames = {{
+    PlayerCoords = {Label = coordinateRegion("Player: 49.2, 62.7")},
+    CursorCoords = {Label = coordinateRegion("Cursor: 51.0, 44.8")},
+    CrosshairCoords = {Label = coordinateRegion("Crosshair: 50.0, 50.0")},
+}}
+local originalScale, originalPoint = WorldMapFrame.scale, WorldMapFrame.points[1]
+assert(addon.Canvas:RefreshLeatrixMapCoordinateFonts() == 3 and refreshedLabels == 3,
+    "Leatrix's built-in coordinate labels were not refreshed after a live span")
+assert(WorldMapFrame.scale == originalScale and WorldMapFrame.points[1] == originalPoint,
+    "Leatrix coordinate refresh changed World Map geometry")
+assert(addon.Canvas:GetCompatibilityDiagnostics():find(
+        "LeatrixMaps=loaded | CoordinateFontRefresh=3", 1, true),
+    "compatibility diagnostics did not report the Leatrix font refresh")
+WorldMapFrame.overlayFrames = nil
+loadedCompatibilityAddons.Leatrix_Maps = nil
+C_AddOns = nil
 addon.isRetail = nil
-print("PASS: Retail MoveAny World Map ownership handoff")
+print("PASS: Retail MoveAny and ClassicUI Forever ownership handoff")
 
 -- Forever system Options must be placed directly on Mainhand, and opening it
 -- must not consume a tracked workspace backpack.

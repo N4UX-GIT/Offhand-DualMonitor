@@ -171,10 +171,21 @@ if Offhand.isForever then
 end
 
 -- Formatted chat printing
-function Offhand:Print(msg, ...)
-    if select("#", ...) > 0 then
-        msg = string.format(msg, ...)
+local function FormatChatMessage(msg, ...)
+    local count = select("#", ...)
+    if count == 0 then return msg end
+    local args = {...}
+    -- Read-only diagnostics routinely encounter unavailable client CVars. A
+    -- missing optional value must not abort the rest of /offhand diag.
+    for index = 1, count do
+        if args[index] == nil then args[index] = "unavailable" end
     end
+    local ok, formatted = pcall(string.format, msg, unpack(args, 1, count))
+    return ok and formatted or tostring(msg) .. " [format unavailable]"
+end
+
+function Offhand:Print(msg, ...)
+    msg = FormatChatMessage(msg, ...)
     local frame = DEFAULT_CHAT_FRAME or (ChatFrame1 and ChatFrame1:IsShown() and ChatFrame1)
     if frame then
         frame:AddMessage("|cff00e5ff[Offhand]|r " .. tostring(msg))
@@ -184,9 +195,7 @@ end
 function Offhand:Debug(msg, ...)
     local db = (OffhandDB or OffhandDB)
     if db and db.debugMode then
-        if select("#", ...) > 0 then
-            msg = string.format(msg, ...)
-        end
+        msg = FormatChatMessage(msg, ...)
         local frame = DEFAULT_CHAT_FRAME or (ChatFrame1 and ChatFrame1:IsShown() and ChatFrame1)
         if frame then
             frame:AddMessage("|cff888888[Offhand Debug]|r " .. tostring(msg))
@@ -1219,6 +1228,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 if (not displayMetrics or displayMetrics.isSpanned) and Offhand.Canvas and Offhand.Canvas.RestorePersistentFrames then
                     Offhand.Canvas:RestorePersistentFrames()
                 end
+                if Offhand.Canvas and Offhand.Canvas.RefreshLeatrixMapCoordinateFonts then
+                    Offhand.Canvas:RefreshLeatrixMapCoordinateFonts()
+                end
                 if generation == Offhand._displayGeometryGeneration then
                     Offhand._displayGeometryTransitionActive = false
                     Offhand:RefreshCompanionNoticeState(displayMetrics)
@@ -1373,9 +1385,17 @@ SlashCmdList["OFFHAND"] = function(msg)
         Offhand:Print("Scaling diagnostics: Dynamic=%s | AlwaysSharpen=%s | Sharpness=%s.",
             perf.dynamicRenderScale, perf.resampleAlwaysSharpen,
             perf.resampleSharpness)
-        Offhand:Print("World text diagnostics: Current=%s | Original=%s | HeightRatio=%.4f | NameplateSize=%s | NativeDims=%s | VisualRatio=%s | VisualFrames=%d | HV=%s/%s | Global=%s | Larger=%s | Selected=%s.",
+        Offhand:Print("World text diagnostics: Current=%s | Original=%s | CVar=%s | Method=%s | Enabled=%s | FineTune=%.2f | HeightRatio=%.4f | AppliedRatio=%.4f | WorldLocal=%s | WorldEffective=%s | NameplateSize=%s | NativeDims=%s | VisualRatio=%s | VisualFrames=%d | HV=%s/%s | Global=%s | Larger=%s | Selected=%s.",
             perf.worldTextScale, tostring(perf.originalWorldTextScale or "unmanaged"),
-            perf.worldTextHeightRatio, perf.nameplateSize,
+            perf.worldTextScaleCVar,
+            perf.worldTextMethod, perf.worldTextCompensationEnabled and "yes" or "no",
+            perf.worldTextFineTune, perf.worldTextHeightRatio,
+            perf.worldTextCompensationRatio,
+            perf.worldFrameLocalScale
+                and string.format("%.4f", perf.worldFrameLocalScale) or "unavailable",
+            perf.worldFrameEffectiveScale
+                and string.format("%.4f", perf.worldFrameEffectiveScale) or "unavailable",
+            perf.nameplateSize,
             perf.nameplateWidth and perf.nameplateHeight
                 and string.format("%.2fx%.2f", perf.nameplateWidth, perf.nameplateHeight)
                 or "unavailable",
@@ -1399,13 +1419,28 @@ SlashCmdList["OFFHAND"] = function(msg)
             perf.unitNameFriendlyPlayerName, perf.unitNameEnemyPlayerName)
         if Offhand.modules.ChatBubbles and Offhand.modules.ChatBubbles.GetDiagnostics then
             local bubbles = Offhand.modules.ChatBubbles:GetDiagnostics()
-            Offhand:Print("Speech bubble diagnostics: Supported=%s | Visible=%d | IncludingForbidden=%d | Forbidden=%d | Protected=%d | FontManaged=%s | FontOriginal=%s | FontApplied=%s | FontCurrent=%s.",
+            Offhand:Print("Speech bubble diagnostics: Supported=%s | Visible=%d | IncludingForbidden=%d | Forbidden=%d | Protected=%d | NativeWorldText=%s | Enabled=%s | FineTune=%.2f | Mode=%s | Conflict=%s | Replacements=%d | RootManaged=%d | FontManaged=%s | FontOriginal=%s | FontApplied=%s | FontCurrent=%s | FrameAnchors=%s.",
                 bubbles.supported and "yes" or "no", bubbles.visible or 0,
                 bubbles.includingForbidden or 0, bubbles.forbidden or 0,
-                bubbles.protected or 0, bubbles.fontManaged and "yes" or "no",
+                bubbles.protected or 0,
+                bubbles.nativeWorldTextOwned and "yes" or "no",
+                bubbles.foreverEnabled and "yes" or "no",
+                bubbles.foreverFineTune or 1,
+                tostring(bubbles.replacementMode or "native"),
+                tostring(bubbles.replacementConflict or "none"),
+                bubbles.visualManaged or 0,
+                bubbles.rootManaged or 0,
+                bubbles.fontManaged and "yes" or "no",
                 bubbles.fontOriginal and string.format("%.2f", bubbles.fontOriginal) or "unmanaged",
                 bubbles.fontApplied and string.format("%.2f", bubbles.fontApplied) or "unmanaged",
-                bubbles.fontCurrent and string.format("%.2f", bubbles.fontCurrent) or "unavailable")
+                bubbles.fontCurrent and string.format("%.2f", bubbles.fontCurrent) or "unavailable",
+                bubbles.visualNativeAnchors and "native" or "unmanaged")
+            if bubbles.structure then
+                Offhand:Print("Speech bubble structure: %s.", bubbles.structure)
+            end
+            if bubbles.anchors then
+                Offhand:Print("Speech bubble anchors: %s.", bubbles.anchors)
+            end
         end
         Offhand:Print("Pixel bounds: Span=%.2f MP | Mainhand=%.2f MP | Bounds/Mainhand=%.2fx.",
             perf.spanPixels / 1000000, perf.mainhandPixels / 1000000,
@@ -1516,8 +1551,16 @@ logoutFix:SetScript('OnEvent', function()
         if db.originalUseUiScale and SetCVar then
             SetCVar("useUiScale", db.originalUseUiScale)
         end
-        if db.originalWorldTextScale and SetCVar then
-            SetCVar("WorldTextScale", db.originalWorldTextScale)
+        local cvarSetter = SetCVar or (C_CVar and C_CVar.SetCVar)
+        if db.originalWorldTextScale and cvarSetter then
+            local cvarName = db.originalWorldTextScaleCVar
+            if not cvarName then
+                local getter = GetCVar or (C_CVar and C_CVar.GetCVar)
+                local ok, value = getter and pcall(getter, "WorldTextScale_v2")
+                cvarName = ok and value ~= nil and "WorldTextScale_v2"
+                    or "WorldTextScale"
+            end
+            cvarSetter(cvarName, db.originalWorldTextScale)
         end
         if db.originalNameplateSize and SetCVar then
             SetCVar("nameplateSize", db.originalNameplateSize)

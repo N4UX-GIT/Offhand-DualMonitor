@@ -298,9 +298,8 @@ assert(addon.db.savedWorkspacePositions["ContainerFrameCombinedBags"] ~= nil
     and addon.db.savedWorkspacePositions["ContainerFrame1"] == nil,
     "switching back to combined bags must transfer the individual workspace anchor")
 
--- Moving the combined presentation to Mainhand must clear stale ownership from
--- both bag roots. Otherwise LayoutBags sees ContainerFrame1's old record and
--- pulls the combined bag offscreen the next time it opens.
+-- Moving the combined presentation to Mainhand must clear stale workspace
+-- ownership from both roots while preserving the explicit hardware-drop point.
 addon.db.savedWorkspacePositions["ContainerFrame1"] = { x = 100, y = 400 }
 combined:Show()
 combined.TitleContainer.scripts["OnDragStart"](combined.TitleContainer)
@@ -310,9 +309,12 @@ assert(addon.db.savedWorkspacePositions["ContainerFrame1"] == nil
     and addon.db.savedWorkspacePositions["ContainerFrameCombinedBags"] == nil,
     "moving either backpack presentation to Mainhand must clear both workspace roots")
 local combinedMainhandPoint = combined.points[#combined.points]
-assert(combinedMainhandPoint and combinedMainhandPoint.point == "BOTTOMRIGHT"
-    and combinedMainhandPoint.x >= metrics.gameLeft,
-    "combined bags must re-dock inside Mainhand after the family ownership is cleared")
+assert(combinedMainhandPoint and combinedMainhandPoint.point == "TOPLEFT"
+    and combinedMainhandPoint.x == 1800 and combinedMainhandPoint.y == 720
+    and combined.userPlaced == true
+    and addon.db.savedMainPositions.ContainerFrameCombinedBags
+    and addon.db.savedMainPositions.ContainerFrameCombinedBags.x == 1800,
+    "combined bags must retain an explicit Mainhand seam-side drop")
 
 addon.db.savedWorkspacePositions["ContainerFrameCombinedBags"] = nil
 combined.points = { { point = "BOTTOMLEFT", relTo = UIParent, relPt = "BOTTOMLEFT", x = 140, y = 520 } }

@@ -29,6 +29,12 @@ local function IsForeverWorldMap(frame)
     return Offhand.isForever and frame and frame == _G.WorldMapFrame
 end
 
+local function IsWorldMapMaximized(frame)
+    if not frame or frame ~= _G.WorldMapFrame or not frame.IsMaximized then return false end
+    local ok, maximized = pcall(frame.IsMaximized, frame)
+    return ok and maximized == true
+end
+
 local function GetForeverWorldMapState(frame)
     if not IsForeverWorldMap(frame) then return nil end
     local state = foreverWorldMapState[frame]
@@ -159,6 +165,102 @@ local function HasLeatrixMaps()
         return IsAddOnLoaded("Leatrix_Maps")
     end
     return false
+end
+
+-- Leatrix Maps configures Blizzard's player, cursor, and crosshair coordinate
+-- labels before a live Companion span changes UIParent's effective scale. On
+-- affected clients those font strings can retain their pre-span raster size
+-- even though the World Map itself has the correct geometry; /reload fixes it
+-- only because the labels are then configured after the final scale is known.
+-- Refresh the known Blizzard coordinate labels when available, with a narrow
+-- text/anchor fallback for older Leatrix releases that created their own
+-- coordinate frames. Their font tuple and font object are preserved, and
+-- Leatrix retains complete ownership of map scale, anchors, settings, scripts,
+-- and saved variables.
+local function IsCoordinateLabelText(text)
+    if type(text) ~= "string" or not text:find(":", 1, true) then return false end
+    local values = 0
+    for _ in text:gmatch("%d+[%.,]?%d*") do
+        values = values + 1
+        if values >= 2 then return true end
+    end
+    return false
+end
+
+function Canvas:RefreshLeatrixMapCoordinateFonts()
+    if InCombatLockdown() or not HasLeatrixMaps() then return 0 end
+    local map = _G.WorldMapFrame
+    if not map then return 0 end
+
+    local refreshed = 0
+    local seen = {}
+    local function RefreshLabel(region, requireCoordinateText)
+        if not region or seen[region] then return false end
+        seen[region] = true
+        local okType, objectType = pcall(region.GetObjectType, region)
+        local okText, label = pcall(region.GetText, region)
+        if not okType or objectType ~= "FontString"
+            or (requireCoordinateText and (not okText or not IsCoordinateLabelText(label)))
+            or not region.GetFont or not region.SetFont then return false end
+        local okFont, file, height, flags = pcall(region.GetFont, region)
+        local okObject, fontObject = false, nil
+        if region.GetFontObject then
+            okObject, fontObject = pcall(region.GetFontObject, region)
+        end
+        fontObject = okObject and fontObject or nil
+        if not okFont or not file or not height then return false end
+        local ok = pcall(region.SetFont, region, file, height, flags or "")
+        if ok and fontObject and region.SetFontObject then
+            pcall(region.SetFontObject, region, fontObject)
+        end
+        if ok then refreshed = refreshed + 1 end
+        return ok
+    end
+
+    -- Forever Leatrix Maps 1.60.20 enables Blizzard's coordinate overlay and
+    -- reparents these three frames into the map canvas. Refer only to Blizzard's
+    -- feature-detected overlay fields; no Leatrix namespace or method is used.
+    if type(map.overlayFrames) == "table" then
+        for _, overlay in ipairs(map.overlayFrames) do
+            for _, key in ipairs({"PlayerCoords", "CursorCoords", "CrosshairCoords"}) do
+                local coordinateFrame = type(overlay) == "table" and overlay[key]
+                if coordinateFrame then RefreshLabel(coordinateFrame.Label, false) end
+            end
+        end
+    end
+
+    -- Older Leatrix branches used direct, anonymous WorldMapFrame children.
+    if refreshed == 0 and map.GetChildren then
+        local children = { pcall(map.GetChildren, map) }
+        if table.remove(children, 1) then
+            for _, child in ipairs(children) do
+                local bottomAnchored = false
+                local okPoints, points = false, 0
+                if child and child.GetNumPoints then
+                    okPoints, points = pcall(child.GetNumPoints, child)
+                end
+                points = okPoints and tonumber(points) or 0
+                for index = 1, points do
+                    local ok, point = pcall(child.GetPoint, child, index)
+                    if ok and type(point) == "string" and point:find("BOTTOM", 1, true) then
+                        bottomAnchored = true
+                        break
+                    end
+                end
+
+                if bottomAnchored and child.GetRegions then
+                    local regions = { pcall(child.GetRegions, child) }
+                    if table.remove(regions, 1) then
+                        for _, region in ipairs(regions) do
+                            RefreshLabel(region, true)
+                        end
+                    end
+                end
+            end
+        end
+    end
+    self._lastLeatrixCoordinateFontRefreshCount = refreshed
+    return refreshed
 end
 
 local function HasLeatrixPlus()
@@ -347,8 +449,31 @@ local function HasMoveAny()
         or IsAddonLoadedCompat("MoveAny") or IsAddonLoadedCompat("MoveAnything")
 end
 
+local function HasClassicUIForever()
+    return IsAddonLoadedCompat("ClassicUIForever")
+end
+
+-- ClassicUI Forever ships on Retail as well as the Forever client and has its
+-- own persistent window-drag system for these two native frames. Its name must
+-- not be confused with Offhand.isForever, which describes the client branch.
+-- Leave geometry and panel registration to one owner while retaining dormant
+-- Offhand coordinates for a later session where the addon is disabled.
+local function ShouldYieldFrameToClassicUIForever(frameOrName, suppliedName)
+    if not HasClassicUIForever() then return false end
+    local name = suppliedName
+        or (type(frameOrName) == "string" and frameOrName)
+        or (frameOrName and frameOrName.GetName and frameOrName:GetName())
+    return name == "WorldMapFrame" or name == "CharacterFrame"
+end
+
+local function GetWorldMapExternalOwner()
+    if HasMoveAny() then return "MoveAny" end
+    if HasClassicUIForever() then return "ClassicUIForever" end
+    return nil
+end
+
 local function ShouldYieldWorldMapToMoveAny(frameOrName)
-    if not HasMoveAny() then return false end
+    if not GetWorldMapExternalOwner() then return false end
     if type(frameOrName) == "string" then return frameOrName == "WorldMapFrame" end
     return frameOrName == _G.WorldMapFrame
 end
@@ -358,9 +483,17 @@ function Canvas:ShouldYieldWorldMap(frameOrName)
 end
 
 function Canvas:GetCompatibilityDiagnostics()
+    local mapOwner = GetWorldMapExternalOwner() or "Offhand"
+    local leatrixStatus = HasLeatrixMaps() and string.format(
+        " | LeatrixMaps=loaded | CoordinateFontRefresh=%s",
+        tostring(self._lastLeatrixCoordinateFontRefreshCount or "pending")) or ""
+    if HasClassicUIForever() then
+        return string.format(
+            "MoveAny=%s | ClassicUIForever=loaded | WorldMapOwner=%s | CharacterFrameOwner=ClassicUIForever",
+            HasMoveAny() and "loaded" or "absent", mapOwner) .. leatrixStatus
+    end
     return string.format("MoveAny=%s | WorldMapOwner=%s",
-        HasMoveAny() and "loaded" or "absent",
-        ShouldYieldWorldMapToMoveAny(_G.WorldMapFrame) and "MoveAny" or "Offhand")
+        HasMoveAny() and "loaded" or "absent", mapOwner) .. leatrixStatus
 end
 
 local function IsForeverEditModeFrame(frame, suppliedName)
@@ -387,6 +520,7 @@ end
 
 local function IsUnsafeForDirectMutation(frame)
     if not frame then return true end
+    if ShouldYieldFrameToClassicUIForever(frame) then return true end
     if IsBlizzardEditModeOwnedFrame(frame) then return true end
     if ShouldYieldForeverProfessionsPanel(frame) then return true end
     if frame.IsForbidden and frame:IsForbidden() then return true end
@@ -401,6 +535,7 @@ end
 -- here and remain covered by the stricter guard above.
 local function IsUnsafeForPanelMutation(frame, name)
     if not frame then return true end
+    if ShouldYieldFrameToClassicUIForever(frame, name) then return true end
     if ShouldYieldWorldMapToMoveAny(name or frame) then return true end
     if IsBlizzardEditModeOwnedFrame(frame, name) then return true end
     if ShouldYieldForeverProfessionsPanel(frame, name) then return true end
@@ -568,12 +703,34 @@ local function IsSecondaryBlizzardChatFrame(frame, suppliedName)
     return index and index > 1 or false
 end
 
+local function IsForeverCombatLog(frame, suppliedName)
+    local name = suppliedName or (frame and frame.GetName and frame:GetName())
+    return Offhand.isForever and name == "ChatFrame2"
+end
+
+local function IsChatTabAttachedToDock(frame)
+    local dock = GENERAL_CHAT_DOCK or GeneralDockManager
+    local name = frame and frame.GetName and frame:GetName()
+    local tab = name and _G[name .. "Tab"]
+    if not dock or not tab or type(tab.GetParent) ~= "function" then return false end
+    local ok, parent = pcall(tab.GetParent, tab)
+    if not ok or not parent then return false end
+    if parent == dock then return true end
+    if type(parent.GetParent) ~= "function" then return false end
+    local parentOK, grandparent = pcall(parent.GetParent, parent)
+    return parentOK and grandparent == dock or false
+end
+
 local function GetBlizzardChatDockMembership(frame)
     local dock = GENERAL_CHAT_DOCK or GeneralDockManager
     if not dock or type(dock.DOCKED_CHAT_FRAMES) ~= "table" then return nil end
     for _, dockedFrame in pairs(dock.DOCKED_CHAT_FRAMES) do
         if dockedFrame == frame then return true end
     end
+    -- During Forever's multi-frame dock rebuild the membership array can lag
+    -- behind the visible native tab hierarchy. A tab already parented to the
+    -- dock (or its scroll child) is positive ownership evidence and must win.
+    if IsChatTabAttachedToDock(frame) then return true end
     return false
 end
 
@@ -593,9 +750,51 @@ local function IsBlizzardChatFrameDocked(frame, suppliedName)
     return false
 end
 
+local ClearTrackedChatState
+
+-- Forever rebuilds the chat dock over several frames during login, reload and
+-- Edit Mode transitions. A single absent DOCKED_CHAT_FRAMES entry is therefore
+-- not proof that a secondary chat window is detached. Require two separated
+-- observations before Offhand restores a floating window; a positive dock
+-- observation wins immediately and ambiguous transitions are left to Blizzard.
+local function QueueForeverChatDockSettlement(frame, purpose, callback)
+    if not Offhand.isForever or not frame or type(callback) ~= "function"
+        or not C_Timer or not C_Timer.After then return false end
+
+    Canvas._foreverChatDockSettlements = Canvas._foreverChatDockSettlements
+        or setmetatable({}, {__mode = "k"})
+    local frameState = Canvas._foreverChatDockSettlements[frame]
+    if not frameState then
+        frameState = {}
+        Canvas._foreverChatDockSettlements[frame] = frameState
+    end
+    if frameState[purpose] then return true end
+
+    local state = { first = nil }
+    frameState[purpose] = state
+    C_Timer.After(0.25, function()
+        if frameState[purpose] ~= state then return end
+        state.first = GetBlizzardChatDockMembership(frame)
+    end)
+    C_Timer.After(1.00, function()
+        if frameState[purpose] ~= state then return end
+        frameState[purpose] = nil
+        local second = GetBlizzardChatDockMembership(frame)
+        if second == true then
+            callback(true)
+        elseif state.first == false and second == false then
+            callback(false)
+        else
+            callback(nil)
+        end
+    end)
+    return true
+end
+
 local function RefreshDetachedChatPresentation(frame, suppliedName)
     local name = suppliedName or (frame and frame.GetName and frame:GetName())
     if not IsSecondaryBlizzardChatFrame(frame, name) or HasChattynator()
+        or IsForeverCombatLog(frame, name)
         or GetBlizzardChatDockMembership(frame) ~= false
         or frame._OffhandRefreshingChatPresentation then return false end
 
@@ -649,46 +848,63 @@ local function RefreshDetachedChatPresentation(frame, suppliedName)
     return true
 end
 
--- One beta build could erase a detached Combat Log snapshot after mistaking
--- Forever's transient login dock for a user re-dock. Blizzard still retains
--- DOCKED=0 and the native position, but SHOWN=0 leaves the window unreachable.
--- Repair that exact signature once, then capture the recovered native position
--- so subsequent reloads use the normal tracked-chat path.
-function Canvas:RecoverLostForeverCombatLog()
+-- Earlier Beta 21 recovery could mistake an inactive Combat Log for a lost
+-- detached window, show ChatFrame2 over General and persist docked=false. Never
+-- synthesize visibility for the built-in Combat Log. When Blizzard's settled
+-- dock positively owns it, return saved docking and visibility entirely to
+-- Blizzard and remove only Offhand's stale position record.
+function Canvas:ReconcileForeverCombatLogOwnership()
     if not Offhand.isForever or HasChattynator() or not Offhand.db
-        or not Offhand.db.enabled or not FCF_GetChatWindowInfo then return false end
-    if type(OffhandDB) ~= "table" then return false end
-    OffhandDB.compatibility = OffhandDB.compatibility or {}
-    if (tonumber(OffhandDB.compatibility.detachedCombatLogRecoveryVersion) or 0) >= 1 then
-        return false
-    end
-
+        or not Offhand.db.enabled then return false end
     local frame = _G.ChatFrame2
     if not frame then return false end
-    local tracked = (Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions.ChatFrame2)
-        or (Offhand.db.savedMainPositions and Offhand.db.savedMainPositions.ChatFrame2)
-    local ok, windowName, _, _, _, _, _, shown, _, docked = pcall(FCF_GetChatWindowInfo, 2)
-    if not ok or type(windowName) ~= "string" then return false end
-    OffhandDB.compatibility.detachedCombatLogRecoveryVersion = 1
-    if tracked or windowName ~= "Combat Log" or shown ~= false or docked ~= false then
-        return false
-    end
 
-    if SetChatWindowShown then pcall(SetChatWindowShown, 2, true) end
-    if FCF_CheckShowChatFrame then pcall(FCF_CheckShowChatFrame, frame)
-    elseif frame.Show then pcall(frame.Show, frame) end
-    local tab = _G.ChatFrame2Tab
-    if tab and tab.Show then pcall(tab.Show, tab) end
-    if FCF_FadeInChatFrame then pcall(FCF_FadeInChatFrame, frame) end
+    local function reconcile(isDocked)
+        if not Offhand.isForever or not Offhand.db or not Offhand.db.enabled
+            or isDocked ~= true then return end
 
-    local function capture()
-        if frame.IsShown and frame:IsShown()
-            and not IsBlizzardChatFrameDocked(frame, "ChatFrame2") then
-            OnPanelDragStop(frame)
+        local nativeDocked
+        if FCF_GetChatWindowInfo then
+            local values = {pcall(FCF_GetChatWindowInfo, 2)}
+            if values[1] then nativeDocked = values[10] end
+        end
+        local compatibility = type(OffhandDB) == "table" and OffhandDB.compatibility
+        local unsafeRecoveryRan = type(compatibility) == "table"
+            and (tonumber(compatibility.detachedCombatLogRecoveryVersion) or 0) >= 1
+        -- A native false value can also describe a genuinely detached Combat
+        -- Log passing through Forever's startup dock. Repair it only when the
+        -- removed unsafe migration records that it previously took ownership,
+        -- and the tab hierarchy independently confirms the current native dock.
+        if nativeDocked == false then
+            if not unsafeRecoveryRan or not IsChatTabAttachedToDock(frame) then return end
+            if SetChatWindowDocked then pcall(SetChatWindowDocked, 2, true) end
+            compatibility.detachedCombatLogRecoveryVersion = nil
+            compatibility.combatLogOwnershipRepairVersion = 1
+        elseif nativeDocked ~= true then
+            return
+        end
+
+        ClearTrackedChatState("ChatFrame2")
+
+        local dock = GENERAL_CHAT_DOCK or GeneralDockManager
+        local selected
+        if dock and FCFDock_GetSelectedWindow then
+            local ok, value = pcall(FCFDock_GetSelectedWindow, dock)
+            if ok then selected = value end
+        end
+        if selected and selected ~= frame and frame.IsShown and frame:IsShown()
+            and frame.Hide then
+            pcall(frame.Hide, frame)
         end
     end
-    if C_Timer and C_Timer.After then C_Timer.After(0.20, capture) else capture() end
-    return true
+
+    -- Positive dock evidence is authoritative and can be handed back before
+    -- the first rendered frame. Only an apparent absence needs settlement.
+    if GetBlizzardChatDockMembership(frame) == true then
+        reconcile(true)
+        return true
+    end
+    return QueueForeverChatDockSettlement(frame, "combat-log-ownership", reconcile)
 end
 
 local function QueueDetachedChatPresentationRefresh(frame)
@@ -697,6 +913,7 @@ local function QueueDetachedChatPresentationRefresh(frame)
         or not Offhand.db or not Offhand.db.enabled then return end
     local name = frame.GetName and frame:GetName()
     if not IsSecondaryBlizzardChatFrame(frame, name)
+        or IsForeverCombatLog(frame, name)
         or GetBlizzardChatDockMembership(frame) ~= false then return end
     local tracked = (Offhand.db.savedWorkspacePositions
             and Offhand.db.savedWorkspacePositions[name])
@@ -746,7 +963,7 @@ function Canvas:MonitorDetachedChatSettingsPresentation()
     end
 end
 
-local function ClearTrackedChatState(name)
+ClearTrackedChatState = function(name)
     if not name or not Offhand.db then return false end
     local cleared = false
     for _, key in ipairs({"savedWorkspacePositions", "savedMainPositions", "openWorkspacePanels"}) do
@@ -1180,7 +1397,7 @@ function Canvas:UpdatePersistenceBehavior()
     -- opens, so native Escape behavior wins over persistent-open panels here.
     if Offhand.isForever then return end
     local shouldPersist = (Offhand.db.persistentWorkspacePanels ~= false)
-    if WorldMapFrame then
+    if WorldMapFrame and not ShouldYieldFrameToClassicUIForever(WorldMapFrame) then
         local isWs = (Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["WorldMapFrame"]) or IsFrameOnWorkspace(WorldMapFrame)
         if isWs and shouldPersist then
             UnregisterSpecialFrame("WorldMapFrame")
@@ -1191,7 +1408,7 @@ function Canvas:UpdatePersistenceBehavior()
     if Offhand.db.savedWorkspacePositions then
         for name, _ in pairs(Offhand.db.savedWorkspacePositions) do
             local frame = _G[name]
-            if frame then
+            if frame and not ShouldYieldFrameToClassicUIForever(frame, name) then
                 if shouldPersist then
                     UnregisterSpecialFrame(name)
                 else
@@ -1266,6 +1483,7 @@ if not Offhand.isForever and CloseAllWindows and not _G.Offhand_OriginalCloseAll
         
         local function TrackFrame(f)
             if not f or not f.IsShown or not f:IsShown() then return end
+            if ShouldYieldFrameToClassicUIForever(f) then return end
             for _, existing in ipairs(activeWorkspaceFrames) do
                 if existing == f then return end
             end
@@ -1460,6 +1678,7 @@ end
 -- the frame is fully initialized.
 function Canvas:QueuePersistentPanelRestore(frame, name, delaySeconds)
     if not frame or not name or not C_Timer or not C_Timer.After then return false end
+    if ShouldYieldFrameToClassicUIForever(frame, name) then return false end
     if ShouldYieldWorldMapToMoveAny(name) then return false end
     if IsForeverEditModeFrame(frame, name) then
         self:RelinquishForeverEditModeFrames(name)
@@ -1707,6 +1926,7 @@ end
 
 local function AdjustWorldMapScale(map, delta)
     if ShouldYieldWorldMapToMoveAny(map) then return false end
+    if IsWorldMapMaximized(map) then return false end
     if InCombatLockdown() or not IsControlKeyDown() then return false end
     if not Offhand.db or not Offhand.db.enabled or not map then return false end
     local current = map:GetScale() or 1.0
@@ -1737,18 +1957,14 @@ end
 function Canvas:ConfigureWorldMap()
     local map = WorldMapFrame
     if InCombatLockdown() or not map or HasLeatrixMaps() or not Offhand.db or not Offhand.db.enabled then return end
+    -- Maximized WorldMapFrame is a separate Blizzard-owned layout on every
+    -- modern client. Never apply Offhand's windowed scale, anchor, UIPanel
+    -- registration, or saved geometry until Blizzard finishes minimizing it.
+    if IsWorldMapMaximized(map) then return end
     if ShouldYieldWorldMapToMoveAny(map) then
         self:RepairYieldedWorldMapAnchor(map)
         return
     end
-
-    -- Forever's maximized map is a distinct Blizzard-owned layout. Applying the
-    -- saved windowed scale or anchors while that layout is active shrinks the
-    -- full-map chrome into the workspace and can leave its minimize control off
-    -- screen. Preserve the native maximized geometry completely; the independent
-    -- recovery button created below is the only Offhand control shown in that
-    -- state.
-    if Offhand.isForever and map.IsMaximized and map:IsMaximized() then return end
 
     local m = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
     if not m or not m.isSpanned then return end
@@ -1758,15 +1974,13 @@ function Canvas:ConfigureWorldMap()
         pcall(function() map:SetIgnoreParentScale(false) end)
     end
 
-    -- Ensure windowed mini world map in Classic Era. Forever owns protected
-    -- map state and must not be minimized or have its CVar changed by Offhand.
+    -- Keep the user's normal map in the movable windowed presentation. The
+    -- maximized state returned above remains fully native until the player
+    -- explicitly minimizes it again.
     if not Offhand.isForever then
         pcall(function()
             if type(GetCVar("miniWorldMap")) == "string" and GetCVar("miniWorldMap") ~= "1" then
                 SetCVar("miniWorldMap", "1")
-            end
-            if map.IsMaximized and map:IsMaximized() and map.Minimize then
-                map:Minimize()
             end
         end)
     end
@@ -1791,6 +2005,7 @@ function Canvas:ConfigureWorldMap()
             end)
         end
         if map.Maximize then hooksecurefunc(map, "Maximize", ScheduleWindowed) end
+        if map.Minimize then hooksecurefunc(map, "Minimize", ScheduleWindowed) end
         if map.HookScript then map:HookScript("OnShow", ScheduleWindowed) end
     end
 
@@ -1799,7 +2014,8 @@ function Canvas:ConfigureWorldMap()
         WorldMapTitleButton._OffhandHooked = true
         WorldMapTitleButton:RegisterForDrag("LeftButton")
         WorldMapTitleButton:HookScript("OnDragStart", function(self)
-            if InCombatLockdown() or not Offhand.db.enabled then return end
+            if InCombatLockdown() or not Offhand.db.enabled
+                or ShouldYieldFrameToClassicUIForever(map) then return end
             map._OffhandDragging = true
         end)
         WorldMapTitleButton:HookScript("OnDragStop", function(self)
@@ -1986,9 +2202,16 @@ DemodalizePanel = function(frame)
       if Offhand.isForever then return end
 
       if UIPanelWindows and UIPanelWindows[name] then
-          if name == "CharacterFrame" then
+          if name == "CharacterFrame" or name == "WorldMapFrame" then
               if not originalAreas[name] then
                   originalAreas[name] = { isAreaNil = true, val = UIPanelWindows[name].area }
+              end
+              -- Retail lazily copies UIPanelWindows metadata onto the frame.
+              -- Materialize it before clearing area so WorldMapFrame retains
+              -- maximizePoint; deleting the whole registry entry first makes
+              -- MaximizeUIPanel call SetPoint(nil).
+              if name == "WorldMapFrame" and SetUIPanelAttribute then
+                  pcall(function() SetUIPanelAttribute(frame, "area", nil) end)
               end
               UIPanelWindows[name].area = nil
           else
@@ -2040,8 +2263,32 @@ RemodalizePanel = function(frame)
       end
   end
 
+function Canvas:RelinquishClassicUIForeverFrames()
+    if not HasClassicUIForever() then return false end
+    for _, name in ipairs({"WorldMapFrame", "CharacterFrame"}) do
+        local frame = _G[name]
+        if frame then
+            SetPanelDragging(frame, false)
+            local handle = frame._OffhandHandle
+            if handle and handle._OffhandSyntheticPanelDragHandle and handle.Hide then
+                handle:Hide()
+            end
+            if originalAreas[name] then RemodalizePanel(frame) end
+        end
+    end
+    return true
+end
+
 OnPanelDragStop = function(frame)
     if not frame then return end
+    if IsWorldMapMaximized(frame) then
+        SetPanelDragging(frame, false)
+        return
+    end
+    if ShouldYieldFrameToClassicUIForever(frame) then
+        SetPanelDragging(frame, false)
+        return
+    end
     if ShouldYieldWorldMapToMoveAny(frame) then
         SetPanelDragging(frame, false)
         return
@@ -2086,7 +2333,7 @@ OnPanelDragStop = function(frame)
 
     if name and string.match(name, "^ChatFrame") then
         
-    elseif not Offhand.isForever then
+    elseif not Offhand.isForever and not IsBackpackRoot(name) then
         -- Forever should retain Blizzard's user-placed state. Clearing it can
         -- synchronously return the frame to its native center anchor.
         pcall(function() frame:SetUserPlaced(false) end)
@@ -2286,7 +2533,24 @@ OnPanelDragStop = function(frame)
                             end
         
         elseif string.match(name, "^ContainerFrame") then
-            pcall(function() frame:SetUserPlaced(false) end)
+            if IsBackpackRoot(name) then
+                -- A hardware drag into Mainhand is an explicit placement, not a
+                -- request to return the backpack to Blizzard's default bottom-
+                -- right stack. Retain that exact clamped position and user-
+                -- placed state so the seam edge is a usable destination.
+                Offhand.db.savedMainPositions[name] = {
+                    point = "TOPLEFT", x = clampedX, y = clampedY,
+                }
+                pcall(function() frame:SetUserPlaced(true) end)
+                if frame.SetClampedToScreen then
+                    pcall(function() frame:SetClampedToScreen(false) end)
+                end
+                frame:ClearAllPoints()
+                frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT",
+                    clampedX * factor, clampedY * factor)
+            else
+                pcall(function() frame:SetUserPlaced(false) end)
+            end
             if name == "ContainerFrame1" or name == "ContainerFrameCombinedBags" then
                 if Offhand.db.savedWorkspacePositions then
                     for i = 2, 13 do
@@ -2296,7 +2560,8 @@ OnPanelDragStop = function(frame)
                     end
                 end
             end
-            if not (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()) then
+            if not IsBackpackRoot(name)
+                and not (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()) then
                 if Offhand.HUD and Offhand.HUD.LayoutBags then
                     Offhand.HUD:LayoutBags()
                 end
@@ -2465,7 +2730,9 @@ end
 function Canvas:PlacePanelOnMainhand(frame, metrics, position, preserveContained, recoveryAction)
     if not frame or (InCombatLockdown and InCombatLockdown()) or not Offhand.db
         or not Offhand.db.enabled then return false end
+    if IsWorldMapMaximized(frame) then return false end
     local name = frame.GetName and frame:GetName()
+    if ShouldYieldFrameToClassicUIForever(frame, name) then return false end
     if ShouldYieldWorldMapToMoveAny(name or frame) then return false end
     local recoverySafePanel = recoveryAction and name and (
         IsBackpackRoot(name) or (UIPanelWindows and UIPanelWindows[name])
@@ -2575,6 +2842,7 @@ function Canvas:GatherSafeUIToMainhand()
         if inspected and shown and name and (tracked or onWorkspace)
             and frame ~= UIParent and frame ~= WorldFrame and frame ~= Offhand.canvas
             and not IsForeverEditModeFrame(frame, name)
+            and not ShouldYieldFrameToClassicUIForever(frame, name)
             and not ShouldYieldWorldMapToMoveAny(name) then
             if frame == _G.WorldMapFrame and frame.SetScale then
                 pcall(frame.SetScale, frame, 1)
@@ -2628,9 +2896,11 @@ end
 RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
     local frame = (selfOrFrame == Canvas and maybeFrame) or maybeFrame or selfOrFrame
     if InCombatLockdown() or not frame or type(frame) ~= "table" or not frame.GetName then return end
+    if IsWorldMapMaximized(frame) then return end
     if not Offhand.db or not Offhand.db.enabled then return end
     local name = frame:GetName()
     if not name then return end
+    if ShouldYieldFrameToClassicUIForever(frame, name) then return end
     if ShouldYieldWorldMapToMoveAny(name) then return end
     if name:match("^ChatFrame%d+$") and HasChattynator() then
         ClearTrackedChatState(name)
@@ -2761,6 +3031,40 @@ function Canvas:CaptureRetailEditModeChatPlacement()
         self:SetWorkspacePanelOpen("ChatFrame1", false)
         if Offhand.ForeverPersistence then Offhand.ForeverPersistence:ClearPosition("ChatFrame1") end
     end
+end
+
+function Canvas:IsRetailEditModeChatSettlementActive(frame)
+    return self._retailEditModeChatSettlementActive == true
+        and (frame == nil or frame == _G.ChatFrame1)
+end
+
+function Canvas:QueueRetailEditModeChatPlacementCapture()
+    if Offhand.isForever then return false end
+    self._retailEditModeChatSettlementGeneration =
+        (self._retailEditModeChatSettlementGeneration or 0) + 1
+    local generation = self._retailEditModeChatSettlementGeneration
+    self._retailEditModeChatSettlementActive = true
+
+    local function Finish()
+        if generation ~= Canvas._retailEditModeChatSettlementGeneration then return end
+        Canvas:CaptureRetailEditModeChatPlacement()
+        if generation == Canvas._retailEditModeChatSettlementGeneration then
+            Canvas._retailEditModeChatSettlementActive = nil
+        end
+    end
+
+    if C_Timer and C_Timer.After then
+        -- Blizzard and Edit Mode consumers can both queue zero-delay SetPoint
+        -- work from the close transition. Keep stale-anchor repair suspended
+        -- through that complete turn, then capture the settled native result.
+        C_Timer.After(0, function()
+            if generation ~= Canvas._retailEditModeChatSettlementGeneration then return end
+            C_Timer.After(0, Finish)
+        end)
+    else
+        Finish()
+    end
+    return true
 end
 
 function Canvas:RepairShownWorkspacePanels(exceptFrame)
@@ -2901,6 +3205,7 @@ end
 local function RestoreSavedPositionAfterShow(frame)
     if not frame or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
     local frameName = frame.GetName and frame:GetName()
+    if ShouldYieldFrameToClassicUIForever(frame, frameName) then return end
     if ShouldYieldWorldMapToMoveAny(frameName or frame) then return end
     if IsForeverEditModeFrame(frame, frameName) then
         Canvas:RelinquishForeverEditModeFrames(frameName)
@@ -3036,6 +3341,7 @@ end
 -- scale, drag, and persistence owner.
 function Canvas:RepairYieldedWorldMapAnchor(frame, metrics)
     if not frame or not ShouldYieldWorldMapToMoveAny(frame)
+        or IsWorldMapMaximized(frame)
         or (InCombatLockdown and InCombatLockdown())
         or not Offhand.db or not Offhand.db.enabled
         or not frame.IsShown or not frame:IsShown() then return false end
@@ -4035,12 +4341,20 @@ end
 
 local function MakePanelDraggable(frame)
     if not frame then return end
+    if ShouldYieldFrameToClassicUIForever(frame) then return end
     if ShouldYieldWorldMapToMoveAny(frame) then return end
     if IsForeverWorldMap(frame) then
         AttachForeverWorldMapDragHandle(frame)
         return
     end
-    if frame._OffhandMovable then return end
+    if frame._OffhandMovable then
+        local existingHandle = frame._OffhandHandle
+        if existingHandle and existingHandle._OffhandSyntheticPanelDragHandle
+            and existingHandle.Show then
+            existingHandle:Show()
+        end
+        return
+    end
     local name = frame.GetName and frame:GetName()
     if IsForeverNativeContainerName(name) then return end
     if IsForeverEditModeFrame(frame, name) or IsUnsafeForPanelMutation(frame, name) then return end
@@ -4072,11 +4386,16 @@ local function MakePanelDraggable(frame)
             surface:EnableMouse(true)
             surface:RegisterForDrag("LeftButton")
             surface:HookScript("OnDragStart", function()
-                if InCombatLockdown() or not Offhand.db.enabled then return end
+                if InCombatLockdown() or not Offhand.db.enabled
+                    or ShouldYieldFrameToClassicUIForever(frame, name) then return end
                 local started = pcall(function() frame:StartMoving() end)
                 frame._OffhandDragging = started and true or false
             end)
             surface:HookScript("OnDragStop", function()
+                if ShouldYieldFrameToClassicUIForever(frame, name) then
+                    SetPanelDragging(frame, false)
+                    return
+                end
                 OnPanelDragStop(frame)
             end)
         end)
@@ -4101,6 +4420,7 @@ local function MakePanelDraggable(frame)
         elseif not frame._OffhandHandle and CreateFrame then
             local handle
             handle = CreateFrame("Frame", nil, frame)
+            handle._OffhandSyntheticPanelDragHandle = true
             handle:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, 0)
             handle:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -36, 0)
             handle:SetHeight(32)
@@ -4117,12 +4437,17 @@ local function MakePanelDraggable(frame)
         frame:RegisterForDrag("LeftButton")
 
         frame:HookScript("OnDragStart", function(self)
-            if InCombatLockdown() or not Offhand.db.enabled then return end
+            if InCombatLockdown() or not Offhand.db.enabled
+                or ShouldYieldFrameToClassicUIForever(frame, name) then return end
             frame._OffhandDragging = true
             frame:StartMoving()
         end)
 
         frame:HookScript("OnDragStop", function(self)
+            if ShouldYieldFrameToClassicUIForever(frame, name) then
+                SetPanelDragging(frame, false)
+                return
+            end
             OnPanelDragStop(frame)
         end)
     end
@@ -4175,7 +4500,8 @@ local function MakePanelDraggable(frame)
             WorldMapTitleButton._OffhandHooked = true
             WorldMapTitleButton:RegisterForDrag("LeftButton")
             WorldMapTitleButton:HookScript("OnDragStart", function(self)
-                if InCombatLockdown() or not Offhand.db.enabled then return end
+                if InCombatLockdown() or not Offhand.db.enabled
+                    or ShouldYieldFrameToClassicUIForever(frame) then return end
                 frame._OffhandDragging = true
             end)
             WorldMapTitleButton:HookScript("OnDragStop", function(self)
@@ -4575,6 +4901,7 @@ end
 
 function Canvas:TryMakeFrameDraggable(frame)
     if not frame or not frame.GetName then return end
+    if ShouldYieldFrameToClassicUIForever(frame) then return end
     if ShouldYieldWorldMapToMoveAny(frame) then return end
     if IsForeverWorldMap(frame) then
         MakePanelDraggable(frame)
@@ -4638,6 +4965,7 @@ end
 function Canvas:EnableFreeDragging()
     if not Offhand.db or not Offhand.db.enabled then return end
     self:InitializePanelLoadTracking()
+    self:RelinquishClassicUIForeverFrames()
     self:RelinquishForeverEditModeFrames()
     self:RelinquishForeverNativeBags()
     if not IsExperimentalForeverProfessionsMovementEnabled() then
@@ -4956,7 +5284,9 @@ function Canvas:EnableFreeDragging()
 
     for _, name in ipairs(frameNames) do
         local frame = _G[name]
-        if frame and not IsForeverEditModeFrame(frame, name) then
+        if frame and not IsForeverEditModeFrame(frame, name)
+            and not ShouldYieldFrameToClassicUIForever(frame, name)
+            and not ShouldYieldWorldMapToMoveAny(frame) then
             local unsafe = IsUnsafeForPanelMutation(frame, name)
             if unsafe and name:match("^ContainerFrame") then
                 -- Protected native bags already implement title dragging. Only
@@ -5017,47 +5347,65 @@ function Canvas:EnableFreeDragging()
             and Offhand.db.savedMainPositions[chatName]
         if not workspacePosition and not mainPosition then return end
 
-        -- Forever temporarily inserts detached windows into the primary dock
-        -- while rebuilding chat during login. That is not a user re-dock and
-        -- must never delete the saved monitor snapshot. Wait for Blizzard's
-        -- persisted DOCKED=0 state to settle, then restore presentation and
-        -- position. A genuine re-dock is handled by the observed drag path.
-        if IsBlizzardChatFrameDocked(chatFrame, chatName) then
-            if C_Timer and C_Timer.After and not chatFrame._OffhandChatDockSettlementPending then
-                chatFrame._OffhandChatDockSettlementPending = true
-                chatFrame._OffhandChatDockSettlementGeneration =
-                    (chatFrame._OffhandChatDockSettlementGeneration or 0) + 1
-                local generation = chatFrame._OffhandChatDockSettlementGeneration
-                for _, delay in ipairs({0, 0.20, 1.00}) do
-                    local retryDelay = delay
-                    C_Timer.After(retryDelay, function()
-                        if chatFrame._OffhandChatDockSettlementGeneration ~= generation
-                            or chatFrame._OffhandDragging or MOVING_CHATFRAME == chatFrame then return end
-                        if not IsBlizzardChatFrameDocked(chatFrame, chatName) then
-                            chatFrame._OffhandChatDockSettlementPending = nil
-                            RestoreTrackedChatPosition(chatFrame)
-                        elseif retryDelay == 1.00 then
-                            chatFrame._OffhandChatDockSettlementPending = nil
-                        end
-                    end)
-                end
+        local function applyDetachedPosition()
+            if not Offhand.db or not Offhand.db.enabled or InCombatLockdown()
+                or chatFrame._OffhandDragging or MOVING_CHATFRAME == chatFrame
+                or (Offhand.isForever
+                    and GetBlizzardChatDockMembership(chatFrame) ~= false) then return end
+            -- ChatFrame2 is Blizzard's built-in Combat Log. Never turn it on,
+            -- change its saved dock bit, or replay floating presentation during
+            -- automatic recovery. A genuinely detached and already visible
+            -- Combat Log may still receive its explicitly dragged position.
+            if IsForeverCombatLog(chatFrame, chatName)
+                and chatFrame.IsShown and not chatFrame:IsShown() then return end
+            if not IsForeverCombatLog(chatFrame, chatName) then
+                RefreshDetachedChatPresentation(chatFrame, chatName)
             end
-            return
-        end
-
-        RefreshDetachedChatPresentation(chatFrame, chatName)
-        ApplyTrackedChatPosition(chatFrame)
-        if C_Timer and C_Timer.After then
+            ApplyTrackedChatPosition(chatFrame)
             chatFrame._OffhandChatRestoreGeneration =
                 (chatFrame._OffhandChatRestoreGeneration or 0) + 1
             local generation = chatFrame._OffhandChatRestoreGeneration
-            C_Timer.After(0, function()
+            if C_Timer and C_Timer.After then C_Timer.After(0, function()
                 if chatFrame._OffhandChatRestoreGeneration ~= generation
                     or chatFrame._OffhandDragging or MOVING_CHATFRAME == chatFrame
                     or (chatFrame.IsShown and not chatFrame:IsShown()) then return end
                 ApplyTrackedChatPosition(chatFrame)
-            end)
+            end) end
         end
+
+        -- A Forever secondary chat frame is not restored until Blizzard's dock
+        -- membership agrees twice. This prevents an inactive docked Combat Log
+        -- from being shown over General while still preserving genuinely
+        -- detached custom windows. Settled dock membership retires an obsolete
+        -- Offhand snapshot so later reloads cannot replay it.
+        if Offhand.isForever and IsSecondaryBlizzardChatFrame(chatFrame, chatName) then
+            QueueForeverChatDockSettlement(chatFrame, "tracked-position", function(isDocked)
+                if not Offhand.isForever or not Offhand.db or not Offhand.db.enabled then return end
+                if isDocked == true then
+                    -- A settled live dock entry prevents restoration. Retire
+                    -- the snapshot only when Blizzard's persisted state also
+                    -- says docked; disagreement can still be a slow startup
+                    -- transition for a genuinely detached window.
+                    local id = chatFrame.GetID and chatFrame:GetID()
+                        or tonumber(chatName:match("(%d+)$"))
+                    local ok, nativeDocked = false, nil
+                    if id and FCF_GetChatWindowInfo then
+                        local values = {pcall(FCF_GetChatWindowInfo, id)}
+                        ok = values[1]
+                        nativeDocked = values[10]
+                    end
+                    if ok and nativeDocked == true then
+                        ClearTrackedChatState(chatName)
+                    end
+                elseif isDocked == false then
+                    applyDetachedPosition()
+                end
+            end)
+            return
+        end
+
+        if IsBlizzardChatFrameDocked(chatFrame, chatName) then return end
+        applyDetachedPosition()
     end
 
     local function RegisterChatFrame(chatFrame)
@@ -5168,8 +5516,7 @@ function Canvas:EnableFreeDragging()
         and not EditModeManagerFrame._OffhandRetailChatExitHooked then
         EditModeManagerFrame._OffhandRetailChatExitHooked = true
         EditModeManagerFrame:HookScript("OnHide", function()
-            local capture = function() Canvas:CaptureRetailEditModeChatPlacement() end
-            if C_Timer and C_Timer.After then C_Timer.After(0, capture) else capture() end
+            Canvas:QueueRetailEditModeChatPlacementCapture()
         end)
     end
 
@@ -5237,7 +5584,7 @@ function Canvas:EnableFreeDragging()
             end
         end
     end
-    self:RecoverLostForeverCombatLog()
+    self:ReconcileForeverCombatLogOwnership()
 
     self:ConfigureWorldMap()
     self:UpdatePersistenceBehavior()

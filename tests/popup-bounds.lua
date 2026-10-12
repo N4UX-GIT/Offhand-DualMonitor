@@ -84,10 +84,25 @@ itemOwner.left, itemOwner.right, itemOwner.top, itemOwner.bottom = 850, 950, 700
 GameTooltip = tooltipFrame(900, 1250, 720, 300, itemOwner)
 ShoppingTooltip1 = tooltipFrame(1250, 1500, 720, 350, GameTooltip)
 ShoppingTooltip2 = tooltipFrame(0, 0, 0, 0, GameTooltip)
-ShoppingTooltip2.shown = false
+ShoppingTooltip2.left, ShoppingTooltip2.right = 1500, 1750
+ShoppingTooltip2.top, ShoppingTooltip2.bottom = 720, 350
 ShoppingTooltip3 = tooltipFrame(0, 0, 0, 0, GameTooltip)
 ShoppingTooltip3.shown = false
 GameTooltip_ShowCompareItem = function() end
+GameTooltip_SetDefaultAnchor = function(tooltip, owner)
+    tooltip:SetOwner(owner, "ANCHOR_NONE")
+    tooltip:ClearAllPoints()
+    tooltip:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -13, 0)
+end
+TooltipComparisonManager = {
+    tooltip = GameTooltip,
+    AnchorShoppingTooltips = function(self)
+        ShoppingTooltip1:ClearAllPoints()
+        ShoppingTooltip1:SetPoint("TOPLEFT", self.tooltip, "TOPRIGHT", 0, -10)
+        ShoppingTooltip2:ClearAllPoints()
+        ShoppingTooltip2:SetPoint("TOPLEFT", ShoppingTooltip1, "TOPRIGHT", 0, 0)
+    end,
+}
 
 assert(loadfile("Core/PopupBounds.lua"))("Offhand", addon)
 addon.PopupBounds:Initialize()
@@ -104,18 +119,32 @@ assert(ownerPoint and ownerPoint[1] == "TOPRIGHT" and ownerPoint[2] == itemOwner
         and ownerPoint[3] == "TOPLEFT",
     "hidden Retail item tooltip did not receive its inward owner anchor")
 
-assert(GameTooltip.scripts.OnShow and ShoppingTooltip1.scripts.OnShow
+-- Retail's Combined Backpack uses the default-anchor helper. Its full-screen
+-- point is assigned after SetOwner, so the completed helper must be routed.
+GameTooltip_SetDefaultAnchor(GameTooltip, itemOwner)
+ownerPoint = GameTooltip.points[1]
+assert(GameTooltip.anchor == "ANCHOR_NONE"
+        and ownerPoint and ownerPoint[1] == "TOPRIGHT"
+        and ownerPoint[2] == itemOwner and ownerPoint[3] == "TOPLEFT",
+    "Retail default tooltip anchor overwrote the Offhand seam direction")
+
+assert(GameTooltip.scripts.OnShow and not ShoppingTooltip1.scripts.OnShow
         and not ShoppingTooltip1.scripts.OnSizeChanged,
-    "Blizzard item tooltips did not receive stable layout observers")
+    "comparison tooltips retained a mid-transaction layout observer")
 GameTooltip.shown = true
 GameTooltip.scripts.OnShow(GameTooltip)
-ShoppingTooltip1.scripts.OnShow(ShoppingTooltip1)
+TooltipComparisonManager:AnchorShoppingTooltips()
 local comparisonPoint = ShoppingTooltip1.points[1]
-assert(comparisonPoint and comparisonPoint[1] == "TOPRIGHT"
+local secondaryPoint = ShoppingTooltip2.points[1]
+ownerPoint = GameTooltip.points[1]
+assert(comparisonPoint and comparisonPoint[1] == "TOPLEFT"
         and comparisonPoint[2] == GameTooltip
-        and comparisonPoint[3] == "TOPLEFT"
-        and comparisonPoint[5] == -10,
-    "equipped-item comparison did not anchor inward from the primary tooltip")
+        and comparisonPoint[3] == "TOPRIGHT"
+        and secondaryPoint and secondaryPoint[2] == ShoppingTooltip1
+        and ownerPoint and ownerPoint[1] == "TOPLEFT"
+        and ownerPoint[2] == UIParent and ownerPoint[3] == "BOTTOMLEFT"
+        and math.abs(ownerPoint[4] - 138) < 0.01,
+    "completed comparison group was not translated inside the workspace")
 
 -- Blizzard can rebuild the native comparison layout repeatedly while item
 -- data loads. The completed post-hook must produce the same inward chain with
@@ -123,10 +152,43 @@ assert(comparisonPoint and comparisonPoint[1] == "TOPRIGHT"
 ShoppingTooltip1:SetPoint("TOPLEFT", GameTooltip, "TOPRIGHT", 0, -10)
 GameTooltip_ShowCompareItem(GameTooltip)
 comparisonPoint = ShoppingTooltip1.points[1]
-assert(comparisonPoint and comparisonPoint[1] == "TOPRIGHT"
+assert(comparisonPoint and comparisonPoint[1] == "TOPLEFT"
         and comparisonPoint[2] == GameTooltip
         and #GameTooltip.points == 1,
-    "comparison refresh moved the primary tooltip or retained the seam-facing side")
+    "legacy comparison refresh rewrote Blizzard's comparison dependency")
+
+-- A second modern refresh must retain Blizzard's acyclic primary -> secondary
+-- graph. Reversing these anchors once makes the next native transaction error.
+TooltipComparisonManager:AnchorShoppingTooltips()
+comparisonPoint = ShoppingTooltip1.points[1]
+secondaryPoint = ShoppingTooltip2.points[1]
+assert(comparisonPoint and comparisonPoint[2] == GameTooltip
+        and secondaryPoint and secondaryPoint[2] == ShoppingTooltip1,
+    "comparison refresh retained a circular Offhand anchor graph")
+
+-- An Offhand owner on the other side of the workspace opens rightward even
+-- when Blizzard supplied a non-directional default anchor.
+local leftOwner = menuFrame()
+leftOwner.left, leftOwner.right = 50, 150
+GameTooltip_SetDefaultAnchor(GameTooltip, leftOwner)
+GameTooltip.left, GameTooltip.right = 150, 450
+ShoppingTooltip1.left, ShoppingTooltip1.right = 450, 700
+ShoppingTooltip2.left, ShoppingTooltip2.right = 700, 950
+ownerPoint = GameTooltip.points[1]
+assert(GameTooltip._OffhandOwnerDirection == "ANCHOR_RIGHT"
+        and ownerPoint and ownerPoint[1] == "TOPLEFT"
+        and ownerPoint[2] == leftOwner and ownerPoint[3] == "TOPRIGHT",
+    "default tooltip anchor did not route by the owner's physical workspace side")
+
+-- The completed comparison-manager transaction must also chain away from the
+-- seam when the primary tooltip opens rightward.
+TooltipComparisonManager:AnchorShoppingTooltips()
+comparisonPoint = ShoppingTooltip1.points[1]
+assert(comparisonPoint and comparisonPoint[1] == "TOPLEFT"
+        and comparisonPoint[2] == GameTooltip
+        and comparisonPoint[3] == "TOPRIGHT"
+        and ShoppingTooltip2.points[1][2] == ShoppingTooltip1,
+    "in-bounds rightward comparison graph was unnecessarily rewritten")
 
 GameTooltip.scripts.OnHide(GameTooltip)
 assert(GameTooltip._OffhandManagedOwner == nil

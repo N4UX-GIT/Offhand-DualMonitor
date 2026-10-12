@@ -202,15 +202,24 @@ Stable IDs for reports that require follow-up across test sessions.
 
 ## OH-UI-004 — Group loot rolls centered on the monitor seam
 
-- Status: Fix implemented and automated validation passed; live group-loot QA
-  pending.
-- Client: Forever Beta, Offhand 2.1.2 Beta 18.
+- Status: Beta 21 fix failed live; root cause corrected in current source and
+  automated validation passed; live group-loot QA pending.
+- Client: Forever Beta, reproduced with Offhand 2.1.2 Beta 21.
 - Symptom: Blizzard's group-loot roll container appears at the full-span center
   or partly off-screen instead of inside Mainhand.
-- Fix: `GroupLootContainer` now uses the same restricted secure Mainhand
-  positioner as battleground widgets. Offhand accepts Blizzard's build-varying
-  single UIParent anchor, preserves user/addon-relative placements, adds no
-  insecure frame scripts, and discovers both known load-on-demand loot modules.
+- Cause: `GroupLootContainer` inherits `BottomManagedFrameTemplate`. Blizzard
+  declares it hidden and unanchored, so Beta 21's stock-anchor guard rejected
+  the freshly preloaded frame. Blizzard later shows the container, runs
+  `BottomManagedFrameContainer:Layout()`, and only afterward shows
+  `GroupLootFrameN`; that final transaction would also overwrite a pre-combat
+  anchor with the full-canvas bottom center. The similarly managed Tracked
+  Buffs system is not the roll's anchor.
+- Fix: `GroupLootContainer` still uses the restricted secure Mainhand
+  positioner, but each Blizzard `GroupLootFrameN` now has a secure post-show
+  wrapper that reapplies the container anchor after the final managed-layout
+  pass, including in combat. Offhand preserves user/addon-relative placements,
+  adds no insecure loot event handler, and discovers both known load-on-demand
+  loot modules.
 - Live QA: Trigger several simultaneous need/greed rolls before and during
   combat, `/reload` in a group, and confirm the rolls remain visible without
   protected-action or secret-value errors.
@@ -273,11 +282,16 @@ Stable IDs for reports that require follow-up across test sessions.
   manager's current membership list now takes precedence over stale frame flags.
   Reload-time membership is transient, however, so it can no longer delete a
   tracked snapshot: only Blizzard's dock operation during an observed user tab
-  drag relinquishes Offhand's position. A one-time Forever migration repairs the
-  exact affected-beta signature where Combat Log remains natively detached but
-  both its shown bit and Offhand snapshot were cleared; Blizzard's own position
-  is retained and recaptured.
-  When those fields disagree, Offhand first persists the tracked window as
+  drag relinquishes Offhand's position. The earlier one-time Combat Log reopen
+  migration was removed after it could show an inactive `ChatFrame2` over
+  General and persist it as detached. On Forever, Offhand no longer synthesizes
+  visibility, docking or floating presentation for the built-in Combat Log.
+  Positive native dock or tab-parent evidence instead clears stale Offhand
+  placement and hides the inactive frame when another dock tab is selected.
+  Blizzard's saved dock bit is repaired only when the removed migration's
+  compatibility marker proves that Offhand previously took ownership. A genuinely detached Combat Log must
+  already be visible before Offhand restores only its explicit position.
+  For custom secondary chat windows, when native fields disagree, Offhand first persists the tracked window as
   shown, then persists its already-observed detached state, clears only the
   stale runtime `isDocked` flag, and reapplies the character's saved chat color
   and opacity through Blizzard's setters before fading in the frame. This order

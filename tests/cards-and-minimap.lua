@@ -202,9 +202,13 @@ if ContainerFrame1._OffhandHandle and ContainerFrame1._OffhandHandle.scripts["On
     ContainerFrame1._OffhandHandle.scripts["OnDragStop"]()
 end
 assert(addon.db.savedWorkspacePositions["ContainerFrame1"] == nil, "ContainerFrame1 must be cleared from workspace when on gaming monitor")
--- When dropped on gaming monitor, LayoutBags runs and anchors it to BOTTOMRIGHT of game monitor
+-- An explicit Mainhand drop retains its position instead of invoking the
+-- default bottom-right bag layout.
 local bagPoint = ContainerFrame1.points[#ContainerFrame1.points]
-assert(bagPoint[1] == "BOTTOMRIGHT", "ContainerFrame1 must be re-docked to BOTTOMRIGHT on gaming screen")
+assert(bagPoint[1] == "TOPLEFT" and bagPoint[4] == 2000 and bagPoint[5] == 550
+        and ContainerFrame1.userPlaced == true
+        and addon.db.savedMainPositions.ContainerFrame1.x == 2000,
+    "ContainerFrame1 must retain its explicit Mainhand drop")
 
 -- 6. Test BayHeader creation, border, and close button docking
 local mockParent = makeMockFrame("MockConfig", 660, 560)

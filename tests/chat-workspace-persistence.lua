@@ -192,12 +192,20 @@ FCF_SetChatWindowFontSize = function(_, cf, size)
 end
 local shownChatWindows = {}
 local chatStateWrites = {}
+local function CountChatStateWrites(id)
+    local count = 0
+    for _, write in ipairs(chatStateWrites) do
+        if write[2] == id then count = count + 1 end
+    end
+    return count
+end
 SetChatWindowShown = function(id, shown)
     shownChatWindows[id] = shown
     if chatWindowPresentation[id] then chatWindowPresentation[id].shown = shown end
     chatStateWrites[#chatStateWrites + 1] = {"shown", id, shown}
 end
 SetChatWindowDocked = function(id, docked)
+    if chatWindowPresentation[id] then chatWindowPresentation[id].docked = docked end
     chatStateWrites[#chatStateWrites + 1] = {"docked", id, docked}
 end
 FCF_CheckShowChatFrame = function(frame)
@@ -264,7 +272,9 @@ ChatFrame1:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 0, 120)
 GeneralDockManager = makeMockFrame("GeneralDockManager", 400, 24)
 GENERAL_CHAT_DOCK = GeneralDockManager
 GeneralDockManager.primary = ChatFrame1
+GeneralDockManager.selected = ChatFrame1
 GeneralDockManager.DOCKED_CHAT_FRAMES = {ChatFrame1}
+FCFDock_GetSelectedWindow = function(dock) return dock.selected end
 GeneralDockManager:Hide()
 ChatFrame1Tab:Hide()
 ChatFrame1Tab.GetParent = function() return GeneralDockManager end
@@ -392,20 +402,75 @@ addon.ForeverPersistence = {
     SaveOpenPanels = function() end,
 }
 
--- Repair the exact Beta 19 loss signature once: native Combat Log remains
--- detached with a valid Blizzard position, but both SHOWN and Offhand's saved
--- Mainhand snapshot were cleared by the transient-dock misclassification.
+-- A corrupted inactive Combat Log can report SHOWN=0/DOCKED=0 while its tab
+-- and frame still belong to Blizzard's dock. Offhand must hand the persisted
+-- dock bit back, retire its stale position, and hide the bleed over General.
 local originalCombatPosition = addon.db.savedMainPositions.ChatFrame2
-addon.db.savedMainPositions.ChatFrame2 = nil
+addon.db.savedMainPositions.ChatFrame2 = originalCombatPosition
+ChatFrame2:Show()
+ChatFrame2Tab:Show()
+ChatFrame2Tab.GetParent = function() return GeneralDockManager end
+chatWindowPresentation[2].shown = false
+chatWindowPresentation[2].docked = false
+OffhandDB.compatibility.detachedCombatLogRecoveryVersion = 1
+table.insert(GeneralDockManager.DOCKED_CHAT_FRAMES, ChatFrame2)
+local stateWritesBeforeRepair = #chatStateWrites
+assert(addon.Canvas:ReconcileForeverCombatLogOwnership()
+        and not ChatFrame2:IsShown() and ChatFrame2Tab:IsShown()
+        and addon.db.savedMainPositions.ChatFrame2 == nil
+        and chatWindowPresentation[2].docked == true
+        and OffhandDB.compatibility.detachedCombatLogRecoveryVersion == nil
+        and OffhandDB.compatibility.combatLogOwnershipRepairVersion == 1
+        and #chatStateWrites == stateWritesBeforeRepair + 1
+        and chatStateWrites[#chatStateWrites][1] == "docked"
+        and chatStateWrites[#chatStateWrites][3] == true,
+    "Forever must restore Blizzard ownership of a docked Combat Log without showing it")
+
+-- Absence from the settled dock is not permission to synthesize Combat Log
+-- visibility or write docked=false. A hidden detached frame remains native.
+table.remove(GeneralDockManager.DOCKED_CHAT_FRAMES)
+ChatFrame2Tab.GetParent = function() return ChatFrame2 end
 ChatFrame2:Hide()
 ChatFrame2Tab:Hide()
 chatWindowPresentation[2].shown = false
 chatWindowPresentation[2].docked = false
-assert(addon.Canvas:RecoverLostForeverCombatLog()
-        and ChatFrame2:IsShown() and ChatFrame2Tab:IsShown()
-        and addon.db.savedMainPositions.ChatFrame2 ~= nil
-        and OffhandDB.compatibility.detachedCombatLogRecoveryVersion == 1,
-    "Forever must recover and recapture the Combat Log snapshot erased by the affected beta")
+addon.db.savedMainPositions.ChatFrame2 = originalCombatPosition
+local stateWritesBeforeDetached = CountChatStateWrites(2)
+assert(addon.Canvas:ReconcileForeverCombatLogOwnership()
+        and not ChatFrame2:IsShown() and not ChatFrame2Tab:IsShown()
+        and addon.db.savedMainPositions.ChatFrame2 == originalCombatPosition
+        and CountChatStateWrites(2) == stateWritesBeforeDetached,
+    "Forever must never auto-show or change docking for a hidden Combat Log")
+
+-- An intentionally detached, already visible Combat Log can retain an
+-- explicitly dragged position without Offhand taking visibility/dock ownership.
+ChatFrame2:Show()
+ChatFrame2Tab:Show()
+ChatFrame2:ClearAllPoints()
+ChatFrame2:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+addon.Canvas:EnableFreeDragging()
+assert(select(1, ChatFrame2:GetPoint(1)) == "TOPLEFT"
+        and select(4, ChatFrame2:GetPoint(1)) == originalCombatPosition.x,
+    "A visible detached Combat Log may restore its explicit position")
+assert(CountChatStateWrites(2) == stateWritesBeforeDetached,
+    "Detached Combat Log position restore must not write visibility or docking")
+
+-- A stale Offhand snapshot must also be retired when two settled samples say
+-- the secondary frame is docked; otherwise the generic restore path can cause
+-- the same General/Combat Log overlap independently of the migration above.
+table.insert(GeneralDockManager.DOCKED_CHAT_FRAMES, ChatFrame2)
+ChatFrame2Tab.GetParent = function() return GeneralDockManager end
+ChatFrame2:Hide()
+ChatFrame2Tab:Hide()
+chatWindowPresentation[2].docked = true
+addon.Canvas:EnableFreeDragging()
+assert(addon.db.savedMainPositions.ChatFrame2 == nil
+        and addon.db.savedWorkspacePositions.ChatFrame2 == nil
+        and not ChatFrame2:IsShown() and not ChatFrame2Tab:IsShown(),
+    "Settled dock membership must retire stale detached-chat state without showing it")
+table.remove(GeneralDockManager.DOCKED_CHAT_FRAMES)
+ChatFrame2Tab.GetParent = function() return ChatFrame2 end
+chatWindowPresentation[2].docked = false
 addon.db.savedMainPositions.ChatFrame2 = originalCombatPosition
 
 -- Chat Settings may fade detached windows without calling either FCF setter.
@@ -465,12 +530,29 @@ assert(ChatFrame1:GetWidth() == 800 and ChatFrame1:GetHeight() == 257,
 -- accepting the full-span centered anchor as a new user choice.
 -- Forever may leave its legacy dock flags set on a visually detached frame;
 -- current membership in the dock manager is the authoritative topology.
+local immediateAfter = C_Timer.After
+local settlementCallbacks = {}
+C_Timer.After = function(delay, fn)
+    settlementCallbacks[#settlementCallbacks + 1] = {delay=delay, fn=fn}
+end
 table.insert(GeneralDockManager.DOCKED_CHAT_FRAMES, ChatFrame2)
 FCF_DockFrame(ChatFrame2)
 FCF_SavePositionAndDimensions(ChatFrame2)
+table.sort(settlementCallbacks, function(a, b) return a.delay < b.delay end)
+local callbackIndex = 1
+while settlementCallbacks[callbackIndex]
+    and settlementCallbacks[callbackIndex].delay <= 0.25 do
+    settlementCallbacks[callbackIndex].fn()
+    callbackIndex = callbackIndex + 1
+end
+table.remove(GeneralDockManager.DOCKED_CHAT_FRAMES)
+while settlementCallbacks[callbackIndex] do
+    settlementCallbacks[callbackIndex].fn()
+    callbackIndex = callbackIndex + 1
+end
+C_Timer.After = immediateAfter
 assert(addon.db.savedMainPositions.ChatFrame2 ~= nil,
     "Transient reload-time dock and save callbacks must not delete detached chat state")
-table.remove(GeneralDockManager.DOCKED_CHAT_FRAMES)
 ChatFrame2.isDocked = 1
 ChatFrame2.isStaticDocked = true
 ChatFrame2.isLocked = true
@@ -478,27 +560,17 @@ ChatFrame2:Hide()
 ChatFrame2Tab:Hide()
 ChatFrame2:ClearAllPoints()
 ChatFrame2:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+local combatWritesBeforeLateSave = CountChatStateWrites(2)
 FCF_SavePositionAndDimensions(ChatFrame2)
-assert(select(1, ChatFrame2:GetPoint(1)) == "TOPLEFT"
-    and select(4, ChatFrame2:GetPoint(1)) == 2860
-    and select(5, ChatFrame2:GetPoint(1)) == 1120,
-    "Late Forever chat layout must not overwrite a detached Mainhand position")
-local shownWrite, dockedWrite
-for index, write in ipairs(chatStateWrites) do
-    if write[2] == 2 and write[1] == "shown" then shownWrite = index end
-    if write[2] == 2 and write[1] == "docked" then dockedWrite = index end
-end
-assert(undockRefreshes == 0 and ChatFrame2.isDocked == nil
-    and ChatFrame2.isStaticDocked == true and ChatFrame2.isLocked == true
-    and ChatFrame2.floatingAlpha == 0.35 and ChatFrame2.floatingColor[1] == 0.08
-    and ChatFrame2.floatingFadedIn == true
-    and ChatFrame2:IsShown() and ChatFrame2Tab:IsShown()
-    and shownChatWindows[2] == true and shownWrite and dockedWrite
-    and shownWrite < dockedWrite,
-    "A detached Forever chat must commit shown before detached, then refresh presentation safely")
+assert(select(1, ChatFrame2:GetPoint(1)) == "CENTER"
+    and not ChatFrame2:IsShown() and not ChatFrame2Tab:IsShown()
+    and CountChatStateWrites(2) == combatWritesBeforeLateSave,
+    "Late native saves must not auto-show, re-dock, or position a hidden Combat Log")
 
 -- Returning a detached chat to Blizzard's primary dock relinquishes Offhand's
 -- monitor snapshot and normalizes the tab to the primary chat dimensions.
+ChatFrame2:Show()
+ChatFrame2Tab:Show()
 ChatFrame1:SetSize(760, 280)
 ChatFrame1.fontSize = 18
 ChatFrame2:SetSize(520, 240)
@@ -600,6 +672,14 @@ ChatFrame1.IsInDefaultPosition = function() return true end
 addon.HUD:AlignChatFrame(metrics)
 assert(select(4, ChatFrame1:GetPoint(1)) == customX, "Chat relocation must wait until combat ends")
 
+-- Forever owns its primary chat button strip through Edit Mode. Offhand must
+-- not replay the saved side during reload/layout settlement.
+local foreverButtonRepairs = 0
+FCF_SetButtonSide = function() foreverButtonRepairs = foreverButtonRepairs + 1 end
+addon.HUD:RepairChatButtons(ChatFrame1)
+assert(foreverButtonRepairs == 0,
+    "Forever chat buttons must remain wholly owned by Blizzard Edit Mode")
+
 -- 6. Retail owns the primary chat frame while it remains on Mainhand. Offhand
 -- must neither replay a legacy coordinate nor resize it after Edit Mode exits.
 InCombatLockdown = function() return false end
@@ -664,6 +744,53 @@ assert(select(1, ChatFrame1:GetPoint(1)) == "TOPLEFT"
     and select(4, ChatFrame1:GetPoint(1)) < metrics.deckWidth,
     "Retail workspace chat must remain in the workspace after Edit Mode exits")
 assert(buttonRepairs > 0, "Blizzard's chat-button layout must be repaired after a workspace move")
+
+-- A stale saved anchor can already have a next-frame repair queued when Edit
+-- Mode closes. Keep that repair dormant for Blizzard's complete close turn,
+-- then capture the final native placement on the following turn.
+addon.db.savedWorkspacePositions.ChatFrame1 = {
+    x = 100, y = 557, width = 640, height = 257,
+}
+local editExitTimers = {}
+local immediateEditExitAfter = C_Timer.After
+C_Timer.After = function(_, fn)
+    editExitTimers[#editExitTimers + 1] = fn
+end
+local function FlushEditExitTurn()
+    local pending = editExitTimers
+    editExitTimers = {}
+    for _, fn in ipairs(pending) do fn() end
+end
+
+addon.HUD:RepairChatAnchor(ChatFrame1)
+assert(#editExitTimers == 1, "A stale workspace anchor repair must be queued for the race test")
+ChatFrame1:ClearAllPoints()
+ChatFrame1:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 320, 420)
+ChatFrame1.isInEditMode = false
+EditModeManagerFrame.shown = false
+EditModeManagerFrame.scripts.OnHide(EditModeManagerFrame)
+assert(addon.Canvas:IsRetailEditModeChatSettlementActive(ChatFrame1),
+    "Retail chat settlement must suspend stale anchor repair after Edit Mode closes")
+
+FlushEditExitTurn()
+assert(select(1, ChatFrame1:GetPoint(1)) == "BOTTOMLEFT"
+        and select(4, ChatFrame1:GetPoint(1)) == 320
+        and select(5, ChatFrame1:GetPoint(1)) == 420,
+    "A queued stale repair must not overwrite the final Edit Mode chat placement")
+assert(addon.Canvas:IsRetailEditModeChatSettlementActive(ChatFrame1)
+        and #editExitTimers == 1,
+    "Chat capture must wait through the complete native close turn")
+
+FlushEditExitTurn()
+C_Timer.After = immediateEditExitAfter
+assert(not addon.Canvas:IsRetailEditModeChatSettlementActive(ChatFrame1),
+    "Retail chat settlement must end after the final placement is captured")
+assert(addon.db.savedWorkspacePositions.ChatFrame1
+        and addon.db.savedWorkspacePositions.ChatFrame1.x == 320,
+    "Retail Edit Mode must persist the settled workspace placement, not the stale anchor")
+assert(select(1, ChatFrame1:GetPoint(1)) == "TOPLEFT"
+        and select(4, ChatFrame1:GetPoint(1)) == 320,
+    "The settled Retail workspace placement must remain visible after capture")
 
 print("PASS: ChatFrame1 workspace persistence and Retail Edit Mode ownership verified!")
 

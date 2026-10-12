@@ -1148,7 +1148,10 @@ local mainhandTransientFrames = {
     {
         name = "GroupLootContainer", point = "BOTTOM", x = 0, y = 190,
         secure = true, stockPoint = "BOTTOM", stockRelativePoint = "BOTTOM", stockX = 0, stockY = 190,
-        allowAnyUIParentAnchor = true,
+        allowAnyUIParentAnchor = true, allowUnanchored = true,
+        secureShowTriggers = {
+            "GroupLootFrame1", "GroupLootFrame2", "GroupLootFrame3", "GroupLootFrame4",
+        },
     },
     -- These overlays opt out of UIParent scaling on some client builds. That
     -- makes Blizzard's text roughly 1/UIParentScale times too large after a
@@ -1206,6 +1209,7 @@ local mainhandTransientFrames = {
 
 local transientHooks = {}
 local secureTransientOwned = setmetatable({}, { __mode = "k" })
+local secureTransientShowPositioners = setmetatable({}, { __mode = "k" })
 local secureTransientPositioner
 local groupLootPreloadAttempted = false
 
@@ -1260,7 +1264,14 @@ end
 local function IsStockSecureTransientAnchor(frame, spec)
     if secureTransientOwned[frame] then return true end
     if frame.IsUserPlaced and frame:IsUserPlaced() then return false end
-    if not frame.GetNumPoints or frame:GetNumPoints() ~= 1 or not frame.GetPoint then return false end
+    if not frame.GetNumPoints or not frame.GetPoint then return false end
+    local numPoints = frame:GetNumPoints()
+    -- GroupLootContainer is declared hidden without an XML anchor. Its first
+    -- BottomManagedFrameContainer anchor is created only when a roll shows it,
+    -- which can happen after combat begins. Preloading is useful only if that
+    -- pristine zero-point state is eligible for the secure setup.
+    if numPoints == 0 then return spec.allowUnanchored == true end
+    if numPoints ~= 1 then return false end
     local point, relativeTo, relativePoint, x, y = frame:GetPoint(1)
     if relativeTo ~= nil and relativeTo ~= UIParent then return false end
     -- GroupLootContainer's stock vertical offset varies between client builds.
@@ -1297,6 +1308,64 @@ local function SecureScreenPoint(frame, point, x, y)
     return ok
 end
 
+local function IsRetailChatSettlementActive(frame)
+    return Offhand.Canvas and Offhand.Canvas.IsRetailEditModeChatSettlementActive
+        and Offhand.Canvas:IsRetailEditModeChatSettlementActive(frame) or false
+end
+
+-- GroupLootContainer is a BottomManagedFrameTemplate. Blizzard's
+-- GroupLootContainer_Update shows it, lets BottomManagedFrameContainer lay it
+-- out at the full-canvas bottom center, and only then shows GroupLootFrameN.
+-- That final managed-layout pass overwrites any anchor prepared before combat.
+-- Wrap the roll frames' OnShow securely so the container is corrected after
+-- Blizzard has finished the entire layout transaction, including in combat.
+-- This adds no insecure loot event/script handler and never changes the roll
+-- buttons, visibility, parent, or interaction path.
+local function ConfigureSecureShowPositioner(frame, spec, x, y)
+    if not spec.secureShowTriggers or InCombatLockdown() then return false end
+    local positioner = secureTransientShowPositioners[frame]
+    if not positioner then
+        if not CreateFrame or not UIParent then return false end
+        local ok, created = pcall(CreateFrame, "Frame", nil, UIParent, "SecureHandlerBaseTemplate")
+        if not ok or not created or not created.SetFrameRef
+            or not created.SetAttribute or not created.WrapScript then return false end
+        positioner = created
+        secureTransientShowPositioners[frame] = positioner
+        local configured = pcall(function()
+            positioner:SetFrameRef("offhandTransientTarget", frame)
+            positioner:SetAttribute("_offhandPositionTransient", [[
+                local target = self:GetFrameRef("offhandTransientTarget")
+                local parent = self:GetParent()
+                if target and parent then
+                    target:ClearAllPoints()
+                    target:SetPoint(
+                        self:GetAttribute("offhandPoint"),
+                        parent, "BOTTOMLEFT",
+                        self:GetAttribute("offhandX"),
+                        self:GetAttribute("offhandY"))
+                end
+            ]])
+            for _, name in ipairs(spec.secureShowTriggers) do
+                local trigger = _G[name]
+                if trigger then
+                    positioner:WrapScript(trigger, "OnShow", "return nil, true", [[
+                        control:RunAttribute("_offhandPositionTransient")
+                    ]])
+                end
+            end
+        end)
+        if not configured then
+            secureTransientShowPositioners[frame] = nil
+            return false
+        end
+    end
+    return pcall(function()
+        positioner:SetAttribute("offhandPoint", spec.point)
+        positioner:SetAttribute("offhandX", x)
+        positioner:SetAttribute("offhandY", y)
+    end)
+end
+
 local function PositionSecureMainhandTransient(frame, spec, m)
     if not IsStockSecureTransientAnchor(frame, spec) then return false end
     local px = spec.point:find("LEFT") and m.gameLeft or spec.point:find("RIGHT") and m.gameRight
@@ -1304,9 +1373,10 @@ local function PositionSecureMainhandTransient(frame, spec, m)
     local py = spec.point:find("TOP") and m.gameTop or spec.point:find("BOTTOM") and m.gameBottom
         or (m.gameBottom + m.gameTop) / 2
     local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
-    if SecureScreenPoint(frame, spec.point,
-        (px + (spec.x or 0) * m.hudScale) * factor,
-        (py + (spec.y or 0) * m.hudScale) * factor) then
+    local x = (px + (spec.x or 0) * m.hudScale) * factor
+    local y = (py + (spec.y or 0) * m.hudScale) * factor
+    ConfigureSecureShowPositioner(frame, spec, x, y)
+    if SecureScreenPoint(frame, spec.point, x, y) then
         secureTransientOwned[frame] = true
         return true
     end
@@ -1499,6 +1569,7 @@ function HUD:AlignChatFrame(m)
     -- can leave the visible input without mouse/focus handling.
     if HasChattynator() then return end
     local chat = ChatFrame1
+    if IsRetailChatSettlementActive(chat) then return end
     if IsForeverEditModeFrame(chat, "ChatFrame1") then return end
     local chatName = (chat.GetName and chat:GetName()) or "ChatFrame1"
     local native = chat == ChatFrame1
@@ -1598,6 +1669,11 @@ end
 
 function HUD:RepairChatButtons(chat)
     if not chat or chat ~= _G.ChatFrame1 or not FCF_SetButtonSide then return end
+    -- Forever's Edit Mode owns ChatFrame1ButtonFrame. Replaying the saved side
+    -- while that layout is settling can move the channel/menu buttons to the
+    -- opposite edge after /reload or an Edit Mode save. Retail still needs the
+    -- native helper after Offhand moves a deliberately workspace-owned chat.
+    if Offhand.isForever then return end
     -- The channel/menu controls are children of ChatFrame1ButtonFrame. Force
     -- Blizzard's own layout function to reattach that frame after Offhand moves
     -- the message frame into the workspace.
@@ -1816,6 +1892,7 @@ end
 function HUD:RepairChatAnchor(frame)
     if aligning or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
         or Offhand.db.dockChat == false or HasChattynator() then return end
+    if IsRetailChatSettlementActive(frame) then return end
     if frame._OffhandDragging or frame._OffhandApplyingTrackedChatPosition
         or MOVING_CHATFRAME == frame then return end
     local retailManaged = RetailEditModeOwnsPrimaryChat(frame)
@@ -1835,6 +1912,7 @@ function HUD:RepairChatAnchor(frame)
             self.chatWorkspaceRepairPending = nil
             if aligning or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
                 or Offhand.db.dockChat == false or HasChattynator()
+                or IsRetailChatSettlementActive(frame)
                 or frame._OffhandDragging or MOVING_CHATFRAME == frame
                 or (RetailEditModeOwnsPrimaryChat(frame)
                     and ((frame and frame.isInEditMode == true)

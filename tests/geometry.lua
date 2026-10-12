@@ -376,6 +376,9 @@ local original=uiScale
 -- The client CVar can be clamped independently of the actual root scale.
 local cvarWrites={}
 local worldTextScale=1
+local worldTextAvailable=true
+local worldTextV2Scale=1
+local worldTextV2Available=false
 local nameplateSize=5
 local friendlyPlayerNames=0
 local friendlyPlayerNameWrites={}
@@ -418,7 +421,12 @@ NamePlateDriverFrame={
 addon.db.originalNameplateSize=3
 GetCVar=function(name)
     if name=="uiScale" then return "0.64" end
-    if name=="WorldTextScale" then return tostring(worldTextScale) end
+    if name=="WorldTextScale_v2" then
+        return worldTextV2Available and tostring(worldTextV2Scale) or nil
+    end
+    if name=="WorldTextScale" then
+        return worldTextAvailable and tostring(worldTextScale) or nil
+    end
     if name=="nameplateSize" then return tostring(nameplateSize) end
     if name=="UnitNameFriendlyPlayerName" then return tostring(friendlyPlayerNames) end
     -- Retail 12.1 can render friendly player plates while this legacy CVar is
@@ -432,6 +440,7 @@ GetCVar=function(name)
 end
 SetCVar=function(name,value)
     cvarWrites[name]=(cvarWrites[name] or 0)+1
+    if name=="WorldTextScale_v2" then worldTextV2Scale=tonumber(value) end
     if name=="WorldTextScale" then worldTextScale=tonumber(value) end
     if name=="nameplateSize" then nameplateSize=tonumber(value) end
     if name=="UnitNameFriendlyPlayerName" then
@@ -459,7 +468,7 @@ near(addon.db.originalFriendlyPlayerName,0)
 local expectedHUDScale=1440/2560*0.7
 near(uiScale,expectedHUDScale)
 near(WorldFrame:GetEffectiveScale(),nativeWorldScale)
-near(worldTextScale,1440/2560)
+near(worldTextScale,expectedHUDScale)
 near(nameplateSize,3)
 near(nameplateWidth,240)
 near(nameplateHeight,60)
@@ -506,6 +515,7 @@ combat=true;addon.db.hudScale=0.65;addon.Viewport:ApplyGlobalScale();assert(writ
 combat=false;addon.Viewport:ApplyGlobalScale();assert(writes==2)
 near(WorldFrame:GetEffectiveScale(),nativeWorldScale)
 near(nameplateUnitFrame:GetEffectiveScale(),1.2*(1440/2560*0.65))
+near(worldTextScale,1440/2560*0.65)
 assert(nameplateDimensionWrites==0,
     "HUD scale changes rewrote native nameplate dimensions")
 assert(addon.Viewport:RestoreNamePlateUnit("nameplate1"),
@@ -533,7 +543,7 @@ near(friendlyNameplateUnitFrame:GetScale(),0.8)
 assert(nameplateUnitFrame.allPoints==nameplateFrame
     and friendlyNameplateUnitFrame.allPoints==friendlyNameplateFrame,
     "disabled layout did not restore Blizzard's pooled nameplate anchors")
-assert(cvarWrites.WorldTextScale==2,"original WorldTextScale was not restored exactly once")
+assert(cvarWrites.WorldTextScale==3,"original WorldTextScale was not restored exactly once")
 assert(cvarWrites.nameplateSize==1,
     "the migrated discrete nameplate setting was unexpectedly rewritten")
 assert(nameplateDimensionWrites==0,
@@ -542,5 +552,168 @@ assert(nameplateVisualWrites==7,
     "nameplate visual baseline was not restored exactly once")
 assert(worldWrites==1,
     "native WorldFrame scale was unexpectedly changed before restore")
+
+-- World text follows the calculated Mainhand visual baseline only where the
+-- physical canvas is taller than Mainhand. Equal-height spans are live-proven
+-- native, and must remain unchanged. Preserve a custom player WorldTextScale
+-- as a multiplier across every geometry and restoration.
+local universalMetrics = {
+    {name="equal-height side-by-side report", physicalWidth=4480, physicalHeight=1440,
+        gamePixelWidth=2560, gamePixelHeight=1440},
+    {name="mixed-height side-by-side", physicalWidth=4000, physicalHeight=2560,
+        gamePixelWidth=2560, gamePixelHeight=1440},
+    {name="vertically stacked", physicalWidth=2560, physicalHeight=2520,
+        gamePixelWidth=2560, gamePixelHeight=1440},
+    {name="dual 4K-width canvas", physicalWidth=7680, physicalHeight=2160,
+        gamePixelWidth=3840, gamePixelHeight=2160},
+    {name="single ultrawide split", physicalWidth=5120, physicalHeight=1440,
+        gamePixelWidth=2560, gamePixelHeight=1440},
+    {name="short Mainhand beside tall workspace", physicalWidth=3360, physicalHeight=2560,
+        gamePixelWidth=1920, gamePixelHeight=1080},
+}
+local nativeGetMetrics = addon.Viewport.GetMetrics
+addon.isForever = true
+addon.db.hudScale = 0.7
+addon.db.worldTextCompensation = true
+addon.db.worldTextScale = 1
+for _, sample in ipairs(universalMetrics) do
+    local calculated = math.max(0.05, math.min(
+        sample.gamePixelHeight / sample.physicalHeight,
+        sample.gamePixelWidth * 768 / (1100 * sample.physicalHeight))
+        * addon.db.hudScale)
+    local expectedWorld = math.abs(sample.gamePixelHeight / sample.physicalHeight - 1) <= 0.01
+        and 1 or calculated
+    sample.isSpanned = true
+    addon.db.enabled = true
+    addon.db.originalWorldTextScale = nil
+    addon.Viewport.originalScale = nil
+    worldTextScale = 1.25
+    addon.Viewport.GetMetrics = function() return sample end
+    addon.Viewport:ApplyGlobalScale()
+    near(uiScale, calculated)
+    near(worldTextScale, 1.25 * expectedWorld)
+    local sampleDiagnostics = addon.Viewport:GetPerformanceDiagnostics(sample)
+    near(sampleDiagnostics.worldTextCompensationRatio, expectedWorld)
+    addon.db.enabled = false
+    addon.Viewport:ApplyGlobalScale()
+    near(worldTextScale, 1.25)
+end
+addon.Viewport.GetMetrics = nativeGetMetrics
+
+-- User controls are independent from the global HUD scale: the toggle restores
+-- native text while spanned, and fine tuning multiplies only the correction.
+local adjustableMetrics = universalMetrics[2]
+addon.db.enabled = true
+addon.db.originalWorldTextScale = nil
+addon.Viewport.originalScale = nil
+worldTextScale = 1
+addon.Viewport.GetMetrics = function() return adjustableMetrics end
+addon.db.worldTextScale = 1.2
+addon.Viewport:ApplyGlobalScale()
+local adjustableBase = math.max(0.05, math.min(
+    adjustableMetrics.gamePixelHeight / adjustableMetrics.physicalHeight,
+    adjustableMetrics.gamePixelWidth * 768 / (1100 * adjustableMetrics.physicalHeight))
+    * addon.db.hudScale)
+near(worldTextScale, adjustableBase * 1.2)
+addon.db.worldTextCompensation = false
+addon.Viewport:ApplyGlobalScale()
+near(worldTextScale, 1)
+addon.db.enabled = false
+addon.Viewport:ApplyGlobalScale()
+addon.db.worldTextCompensation = true
+addon.db.worldTextScale = 1
+addon.Viewport.GetMetrics = nativeGetMetrics
+
+-- Some clients expose neither supported world-text CVar. Live Forever Beta 22
+-- testing also proved that engine-rendered combat/XP text ignores WorldFrame
+-- scale, so keep the world root native on any missing-CVar client.
+local foreverFallbackMetrics = {
+    physicalWidth=4480, physicalHeight=1440,
+    gamePixelWidth=2560, gamePixelHeight=1440, isSpanned=true,
+}
+local foreverExpected = 0.7
+local foreverWorldExpected = 1
+worldTextAvailable = false
+addon.isForever = true
+addon.db.enabled = true
+addon.db.hudScale = 0.7
+addon.db.originalWorldTextScale = nil
+addon.Viewport.originalScale = nil
+addon.Viewport.GetMetrics = function() return foreverFallbackMetrics end
+addon.Viewport:ApplyGlobalScale()
+near(uiScale, foreverExpected)
+near(WorldFrame:GetScale(), nativeWorldScale)
+local fallbackDiagnostics = addon.Viewport:GetPerformanceDiagnostics(foreverFallbackMetrics)
+assert(fallbackDiagnostics.worldTextMethod == "UNMANAGED",
+    "Forever missing-CVar world text was not reported as unmanaged")
+near(fallbackDiagnostics.worldTextCompensationRatio, foreverWorldExpected)
+near(fallbackDiagnostics.worldFrameLocalScale, nativeWorldScale)
+addon.db.enabled = false
+addon.Viewport:ApplyGlobalScale()
+near(WorldFrame:GetScale(), nativeWorldScale)
+
+-- Forever exposes the native control as WorldTextScale_v2. Prefer it over the
+-- legacy spelling, record the selected key, and restore the same key exactly.
+worldTextV2Available = true
+worldTextV2Scale = 1
+addon.db.enabled = true
+addon.Viewport.originalScale = nil
+addon.Viewport.GetMetrics = function() return foreverFallbackMetrics end
+addon.Viewport:ApplyGlobalScale()
+near(worldTextV2Scale, foreverWorldExpected)
+assert(addon.db.originalWorldTextScaleCVar == "WorldTextScale_v2",
+    "versioned world-text CVar was not selected")
+local selectedWorldTextCVar, selectedWorldTextValue =
+    addon.Viewport:GetWorldTextScaleControl()
+assert(selectedWorldTextCVar == "WorldTextScale_v2",
+    "public world-text capability did not report the versioned control")
+near(selectedWorldTextValue, foreverWorldExpected)
+local versionedDiagnostics = addon.Viewport:GetPerformanceDiagnostics(foreverFallbackMetrics)
+assert(versionedDiagnostics.worldTextMethod == "CVAR"
+    and versionedDiagnostics.worldTextScaleCVar == "WorldTextScale_v2",
+    "versioned world-text CVar diagnostics were not reported")
+addon.db.enabled = false
+addon.Viewport:ApplyGlobalScale()
+near(worldTextV2Scale, 1)
+assert(addon.db.originalWorldTextScaleCVar == nil,
+    "versioned world-text CVar ownership was not released")
+worldTextV2Available = false
+
+-- A hybrid client can retain GetCVar while exposing WorldTextScale only through
+-- C_CVar. The namespaced value must win over the legacy nil and avoid fallback.
+local namespacedWorldTextScale = 1
+C_CVar = {
+    GetCVar = function(name)
+        return name == "WorldTextScale" and tostring(namespacedWorldTextScale) or nil
+    end,
+    SetCVar = function(name, value)
+        if name == "WorldTextScale" then namespacedWorldTextScale = tonumber(value) end
+    end,
+}
+addon.db.enabled = true
+addon.Viewport.originalScale = nil
+addon.Viewport.GetMetrics = function() return foreverFallbackMetrics end
+addon.Viewport:ApplyGlobalScale()
+near(WorldFrame:GetScale(), nativeWorldScale)
+near(namespacedWorldTextScale, foreverWorldExpected)
+assert(addon.Viewport:GetPerformanceDiagnostics(foreverFallbackMetrics).worldTextMethod
+    == "CVAR", "namespaced-only WorldTextScale did not prevent root fallback")
+addon.db.enabled = false
+addon.Viewport:ApplyGlobalScale()
+near(namespacedWorldTextScale, 1)
+C_CVar = nil
+
+addon.isForever = false
+addon.db.enabled = true
+addon.Viewport.originalScale = nil
+addon.Viewport.GetMetrics = function() return foreverFallbackMetrics end
+addon.Viewport:ApplyGlobalScale()
+near(WorldFrame:GetScale(), nativeWorldScale)
+assert(addon.Viewport:GetPerformanceDiagnostics(foreverFallbackMetrics).worldTextMethod
+    == "UNMANAGED", "non-Forever missing-CVar client unexpectedly scaled WorldFrame")
+addon.db.enabled = false
+addon.Viewport:ApplyGlobalScale()
+worldTextAvailable = true
+addon.Viewport.GetMetrics = nativeGetMetrics
 print("PASS: inherited global baseline, addon relative scales, no repeated writes, recursion/combat guards, restore")
 

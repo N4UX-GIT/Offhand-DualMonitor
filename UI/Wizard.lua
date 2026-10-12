@@ -439,6 +439,7 @@ function Wizard:CreateFrame()
         local parsed = Offhand.ParseSliderInput and Offhand:ParseSliderInput(txt, 0.15, 0.80, 0.005, "%.1f%%")
         if parsed then
             seamSlider:SetValueDirect(parsed)
+            seamEditBox:SetText(string.format("%.1f%%", parsed * 100))
         else
             local cur = (Offhand.db and Offhand.db.deckWidthRatio) or 0.36
             seamEditBox:SetText(string.format("%.1f%%", cur * 100))
@@ -666,6 +667,7 @@ function Wizard:CreateFrame()
         local parsed = Offhand.ParseSliderInput and Offhand:ParseSliderInput(txt, 0.25, 1.25, 0.01, "%.0f%%")
         if parsed then
             scaleSlider:SetValueDirect(parsed)
+            scaleEditBox:SetText(string.format("%.0f%%", parsed * 100))
         else
             local cur = (Offhand.db and Offhand.db.hudScale) or 0.70
             scaleEditBox:SetText(string.format("%.0f%%", cur * 100))
@@ -710,7 +712,7 @@ function Wizard:CreateFrame()
     if Offhand.SetTooltip then Offhand:SetTooltip(btnScaleReset, L["WIZARD_BTN_SCALE_RESET_TIP_TITLE"], L["WIZARD_BTN_SCALE_RESET_TIP_DESC"]) end
 
     -- Physical-pixel-delta drag controller (scale-independent)
-    local DRAG_PIXELS = 300
+    local DRAG_PIXELS = 600
     local function StartScaleDrag(self)
         self._dragStartX = GetCursorPosition and select(1, GetCursorPosition()) or 0
         self._dragStartVal = self:GetValue()

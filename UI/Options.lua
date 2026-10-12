@@ -728,6 +728,9 @@ local function CreateNativeSlider(parent, text, minVal, maxVal, step, getVal, se
         local parsed = ParseSliderInput(txt, minVal, maxVal, step, formatStr)
         if parsed then
             slider:SetValueDirect(parsed)
+            -- SetValue may not emit OnValueChanged when the parsed value is
+            -- unchanged. Always normalize typed input back to its display unit.
+            editBox:SetText(FormatValue(parsed))
         else
             editBox:SetText(FormatValue(slider:GetValue() or getVal()))
         end
@@ -784,7 +787,7 @@ local function CreateNativeSlider(parent, text, minVal, maxVal, step, getVal, se
     -- The same physical mouse movement always produces the same value change
     -- regardless of UIParent:SetScale(), fixing the runaway sensitivity on the
     -- Global UI Scale slider (which modifies the parent frame's own scale).
-    local DRAG_PIXELS = 300  -- physical pixels of travel for full value range
+    local DRAG_PIXELS = 600  -- physical pixels of travel for full value range
 
     local function StartCustomDrag(self)
         self._dragStartX = GetCursorPosition and select(1, GetCursorPosition()) or 0
@@ -1472,19 +1475,49 @@ function Options:CreateFloatingPanel()
     hudNote:SetJustifyH("LEFT")
     hudNote:SetText(L["GLOBAL_SCALE_HELP"])
 
-    local card1_4 = CreateCard(tab1, L["OBS_SETUP"], 110)
+    local card1_4 = CreateCard(tab1, L["CARD_WORLD_TEXT"], 150)
+
+    local worldTextCheck = CreateNativeCheckbox(card1_4, L["WORLD_TEXT_COMPENSATION"],
+        function() return Offhand.db and Offhand.db.worldTextCompensation ~= false end,
+        function(val) Offhand.db.worldTextCompensation = val end,
+        L["WORLD_TEXT_COMPENSATION_TIP_TITLE"], L["WORLD_TEXT_COMPENSATION_TIP_DESC"])
+    worldTextCheck:SetPoint("TOPLEFT", 12, -28)
+    worldTextCheck.Text:SetWidth(290)
+
+    local worldTextSlider = CreateNativeSlider(card1_4, L["WORLD_TEXT_SCALE"], 0.50, 1.50, 0.01,
+        function() return (Offhand.db and Offhand.db.worldTextScale) or 1 end,
+        function(val) Offhand.db.worldTextScale = val end,
+        "%.0f%%", L["WORLD_TEXT_SCALE_TIP_TITLE"], L["WORLD_TEXT_SCALE_TIP_DESC"])
+    worldTextSlider:SetPoint("TOPLEFT", 336, -50)
+    worldTextSlider:SetWidth(200)
+
+    local speechBubbleCheck = CreateNativeCheckbox(card1_4, L["SPEECH_BUBBLE_COMPENSATION"],
+        function() return Offhand.db and Offhand.db.speechBubbleCompensation ~= false end,
+        function(val) Offhand.db.speechBubbleCompensation = val end,
+        L["SPEECH_BUBBLE_COMPENSATION_TIP_TITLE"], L["SPEECH_BUBBLE_COMPENSATION_TIP_DESC"])
+    speechBubbleCheck:SetPoint("TOPLEFT", 12, -92)
+    speechBubbleCheck.Text:SetWidth(290)
+
+    local speechBubbleSlider = CreateNativeSlider(card1_4, L["SPEECH_BUBBLE_SCALE"], 0.50, 1.50, 0.01,
+        function() return (Offhand.db and Offhand.db.speechBubbleScale) or 1 end,
+        function(val) Offhand.db.speechBubbleScale = val end,
+        "%.0f%%", L["SPEECH_BUBBLE_SCALE_TIP_TITLE"], L["SPEECH_BUBBLE_SCALE_TIP_DESC"])
+    speechBubbleSlider:SetPoint("TOPLEFT", 336, -114)
+    speechBubbleSlider:SetWidth(200)
+
+    local card1_5 = CreateCard(tab1, L["OBS_SETUP"], 110)
     
-    local obsDesc = card1_4:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    local obsDesc = card1_5:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     obsDesc:SetPoint("TOPLEFT", 16, -26)
     obsDesc:SetPoint("TOPRIGHT", -16, -26)
     obsDesc:SetJustifyH("LEFT")
     obsDesc:SetText(L["OBS_HELP"])
     
-    local obsSource1 = card1_4:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    local obsSource1 = card1_5:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     obsSource1:SetPoint("TOPLEFT", 16, -60)
     obsSource1:SetJustifyH("LEFT")
     
-    local obsSource2 = card1_4:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    local obsSource2 = card1_5:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     obsSource2:SetPoint("TOPLEFT", 16, -80)
     obsSource2:SetJustifyH("LEFT")
     
@@ -2513,7 +2546,7 @@ function Options:CreateFloatingPanel()
         helpCards[#helpCards + 1] = card
     end
 
-    Options:StackCards(tab1, {card1_1, card1_2, card1_3, card2_3, card1_4})
+    Options:StackCards(tab1, {card1_1, card1_2, card1_3, card2_3, card1_4, card1_5})
     offhandCards = {card2_1, card2_2}
     if advancedCard then offhandCards[#offhandCards + 1] = advancedCard end
     offhandCards[#offhandCards + 1] = recoveryCard
@@ -2589,6 +2622,10 @@ function Options:CreateFloatingPanel()
         enableCheck:SetChecked((Offhand.db and Offhand.db.enabled) or false)
         laserCheck:SetChecked((seamGuideLine and seamGuideLine:IsShown()) or false)
         rawMouseCheck:SetChecked((Offhand.db and Offhand.db.rawMouseInput ~= false) or false)
+        worldTextCheck:SetChecked((Offhand.db and Offhand.db.worldTextCompensation ~= false) or false)
+        speechBubbleCheck:SetChecked((Offhand.db and Offhand.db.speechBubbleCompensation ~= false) or false)
+        worldTextSlider:SetValue((Offhand.db and Offhand.db.worldTextScale) or 1)
+        speechBubbleSlider:SetValue((Offhand.db and Offhand.db.speechBubbleScale) or 1)
 
         rPortraitLeft:SetChecked(Offhand.db and Offhand.db.layoutPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and Offhand.db.primaryPosition == "RIGHT")
         rPortraitRight:SetChecked(Offhand.db and Offhand.db.layoutPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and Offhand.db.primaryPosition == "LEFT")

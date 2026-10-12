@@ -205,6 +205,16 @@ CreateFrame = function(frameType, name, parent, template)
                     self:GetAttribute("offhandX"), self:GetAttribute("offhandY"))
             end
         end
+        function f:WrapScript(trigger, script)
+            trigger:HookScript(script, function()
+                local target = self:GetFrameRef("offhandTransientTarget")
+                if target then
+                    target:ClearAllPoints()
+                    target:SetPoint(self:GetAttribute("offhandPoint"), self:GetParent(), "BOTTOMLEFT",
+                        self:GetAttribute("offhandX"), self:GetAttribute("offhandY"))
+                end
+            end)
+        end
     end
     if template == "PanelDragBarTemplate" then
         f:SetScript("OnDragStart", function(self)
@@ -275,13 +285,25 @@ ReadyCheckFrame = makeMockFrame("ReadyCheckFrame", 320, 140)
 ReadyCheckFrame.TitleContainer = {}
 LFGDungeonReadyPopup = makeMockFrame("LFGDungeonReadyPopup", 520, 300)
 GroupLootContainer = nil
+GroupLootFrame1 = nil
+GroupLootFrame2 = nil
+GroupLootFrame3 = nil
+GroupLootFrame4 = nil
 local groupLootPreloadCount = 0
 C_AddOns = {
     LoadAddOn = function(name)
         if name == "Blizzard_GroupLoot" then
             groupLootPreloadCount = groupLootPreloadCount + 1
             GroupLootContainer = makeMockFrame("GroupLootContainer", 420, 180)
-            GroupLootContainer:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 190)
+            -- Blizzard declares this hidden with no XML anchor. The managed
+            -- frame system assigns its first point only when the first roll
+            -- makes the container visible.
+            GroupLootContainer:ClearAllPoints()
+            GroupLootContainer:Hide()
+            for i = 1, 4 do
+                local roll = makeMockFrame("GroupLootFrame" .. i, 420, 90)
+                roll:Hide()
+            end
             return true
         end
     end,
@@ -484,6 +506,19 @@ assert(GroupLootContainer:GetScript("OnEvent") == nil,
 addon.HUD:PositionMainhandTransientFrames()
 assertMainhandAnchor(GroupLootContainer, "BOTTOM", 2720, 196,
     "Group loot rolls after secure layout repair")
+
+-- The real frame inherits BottomManagedFrameTemplate. Its OnShow registration
+-- and the explicit layout at the end of GroupLootContainer_Update both restore
+-- the full-canvas bottom-center anchor before GroupLootFrameN is finally shown.
+-- The secure roll-frame wrapper must win that last transaction during combat.
+combatLocked = true
+GroupLootContainer:ClearAllPoints()
+GroupLootContainer:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 0)
+GroupLootFrame1:Show()
+assertMainhandAnchor(GroupLootContainer, "BOTTOM", 2720, 196,
+    "Group loot rolls after in-combat managed-frame layout")
+combatLocked = false
+GroupLootFrame1:Hide()
 
 -- START_TIMER dynamically creates/reuses timer children. The post-event hook
 -- must catch a newly allocated completion texture immediately.

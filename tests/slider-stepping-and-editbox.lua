@@ -148,6 +148,8 @@ GetScreenHeight = function() return 2560 end
 GetBuildInfo = function() return "1.15.5", "58238", "Jan 1 2025", 11505 end
 hooksecurefunc = function(t, name, fn) end
 UISpecialFrames = {}
+local cursorX = 0
+GetCursorPosition = function() return cursorX, 0 end
 
 -- Load Offhand modules
 local addon = { modules = {} }
@@ -281,10 +283,23 @@ hudSlider.editBox.scripts["OnEnterPressed"](hudSlider.editBox)
 assert(math.abs(addon.db.hudScale - 0.75) < 0.001, "Typing 0.75 into EditBox must set hudScale to 0.75")
 assert(hudSlider.editBox:GetText():find("75%%"), "editBox must format to 75%")
 
+-- WoW may not emit OnValueChanged when Enter commits the value already held by
+-- the slider. The edit box must still normalize a bare number to its unit.
+hudSlider.editBox.hasFocus = true
+hudSlider.editBox:SetText("75")
+hudSlider.editBox.scripts["OnEnterPressed"](hudSlider.editBox)
+assert(hudSlider.editBox:GetText() == "75%", "unchanged typed input must regain its percent suffix")
+
 layoutAppliedCount = 0
 timerCallbacks = {}
+cursorX = 100
 hudSlider.scripts["OnMouseDown"](hudSlider, "LeftButton")
 assert(hudSlider._isCustomDrag == true, "Mouse down must initiate _isCustomDrag state")
+
+cursorX = 160
+hudSlider.scripts["OnUpdate"](hudSlider)
+assert(math.abs(addon.db.hudScale - 0.85) < 0.001,
+    "60 physical pixels must move a full-range slider by 10% with the gentler drag curve")
 
 -- During custom drag, OnValueChanged is a no-op (OnUpdate drives display instead)
 -- The editBox is updated by the OnUpdate loop, not by OnValueChanged
@@ -333,5 +348,5 @@ wiz.scaleSlider.scripts["OnMouseUp"](wiz.scaleSlider, "LeftButton")
 assert(wiz.scaleSlider._isCustomDrag == false or wiz.scaleSlider._isCustomDrag == nil, "Wizard scaleSlider mouse up must clear _isCustomDrag")
 assert(layoutAppliedCount == 1, "Wizard scaleSlider mouse up must apply layout")
 
-print("PASS: Universal slider manual stepping ([-]/[+]), interactive text entry (EditBox), smart parser, and drag debounce verified!")
+print("PASS: Universal slider manual stepping ([-]/[+]), normalized text entry, gentler drag curve, smart parser, and drag debounce verified!")
 

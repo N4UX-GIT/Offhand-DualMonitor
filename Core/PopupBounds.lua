@@ -118,27 +118,9 @@ function PopupBounds:RedirectTooltipOwner(frame, owner, anchor)
         return false
     end
 
-    anchor = tostring(anchor or "")
     local center = (ownerLeft + ownerRight) / 2
-    local desired
-    if center >= (metrics.workspaceLeft + metrics.workspaceRight) / 2
-        and anchor == "ANCHOR_RIGHT" then
-        desired = "ANCHOR_LEFT"
-    elseif center < (metrics.workspaceLeft + metrics.workspaceRight) / 2
-        and anchor == "ANCHOR_LEFT" then
-        desired = "ANCHOR_RIGHT"
-    end
-    if not desired then
-        -- Preserve an established direction across data refreshes that use an
-        -- internal non-directional anchor token for the same owner.
-        if frame._OffhandManagedOwner == owner and frame._OffhandOwnerDirection
-            and anchor ~= "ANCHOR_LEFT" and anchor ~= "ANCHOR_RIGHT" then
-            return self:PlaceTooltipByDirection(frame, owner,
-                frame._OffhandOwnerDirection)
-        end
-        self:ClearManagedTooltip(frame)
-        return false
-    end
+    local desired = center >= (metrics.workspaceLeft + metrics.workspaceRight) / 2
+        and "ANCHOR_LEFT" or "ANCHOR_RIGHT"
 
     -- Direct SetPoint correction leaves Blizzard's directional owner mode
     -- active, so Retail can reapply that native anchor during every item-data
@@ -159,41 +141,78 @@ function PopupBounds:RedirectTooltipOwner(frame, owner, anchor)
 end
 
 -- Blizzard chooses the side for equipped-item comparisons from GetScreenWidth,
--- which is the complete spanned window. Rebuild only the already-shown
--- comparison chain after Blizzard's comparison transaction completes. This is
--- deterministic and synchronous: unlike the former deferred group clamp, it
--- cannot trigger a resize/reposition feedback loop across rendered frames.
+-- which is the complete spanned window. Preserve Blizzard's comparison anchor
+-- graph exactly: reversing ShoppingTooltip1/2 can leave the next data refresh
+-- trying to anchor each frame to the other. Move only the manually-owned root
+-- after the completed comparison transaction, which translates the intact
+-- graph as one unit and leaves a small physical margin at the seam.
 function PopupBounds:ArrangeTooltipComparisons(frame)
     if InCombatLockdown and InCombatLockdown() then return false end
+    local metrics = Active()
+    if not metrics then return false end
     local root, owner = TooltipRootAndOwner(frame)
     if not root or not owner or root._OffhandManagedOwner ~= owner
-        or root._OffhandOwnerDirection ~= "ANCHOR_LEFT" then return false end
+        or not root._OffhandOwnerDirection then return false end
 
-    local previous, arranged = root, false
+    local rootLeft, rootRight, rootTop, rootBottom, uiScale, rootScale = FrameBounds(root)
+    if not rootLeft then return false end
+    local minLeft, maxRight = rootLeft, rootRight
+    local maxTop, minBottom = rootTop, rootBottom
     for _, name in ipairs(comparisonTooltipNames) do
         local comparison = _G[name]
         if comparison and comparison ~= root and comparison.IsShown
             and comparison:IsShown() then
-            local comparisonRoot = TooltipRootAndOwner(comparison)
-            if comparisonRoot == root then
-                local y = previous == root and -10 or 0
-                if self:SetTooltipPoint(comparison, "TOPRIGHT", previous,
-                    "TOPLEFT", 0, y) then
-                    previous, arranged = comparison, true
-                end
+            local left, right, top, bottom = FrameBounds(comparison)
+            if left then
+                minLeft = math.min(minLeft, left)
+                maxRight = math.max(maxRight, right)
+                maxTop = math.max(maxTop, top)
+                minBottom = math.min(minBottom, bottom)
             end
         end
     end
-    return arranged
+
+    local margin = 12 * (tonumber(metrics.hudScale) or 1)
+    local minX, maxX = metrics.workspaceLeft + margin, metrics.workspaceRight - margin
+    local minY, maxY = metrics.workspaceBottom + margin, metrics.workspaceTop - margin
+    local groupWidth, groupHeight = maxRight - minLeft, maxTop - minBottom
+    local availableWidth, availableHeight = maxX - minX, maxY - minY
+    local targetLeft, targetBottom = minLeft, minBottom
+
+    if groupWidth <= availableWidth then
+        targetLeft = math.max(minX, math.min(minLeft, maxX - groupWidth))
+    elseif metrics.workspaceRight <= metrics.gameLeft then
+        targetLeft = maxX - groupWidth
+    else
+        targetLeft = minX
+    end
+    if groupHeight <= availableHeight then
+        targetBottom = math.max(minY, math.min(minBottom, maxY - groupHeight))
+    else
+        targetBottom = minY
+    end
+
+    local dx, dy = targetLeft - minLeft, targetBottom - minBottom
+    if math.abs(dx) < 0.01 and math.abs(dy) < 0.01 then return false end
+    local fromUI = uiScale / rootScale
+    return self:SetTooltipPoint(root, "TOPLEFT", UIParent, "BOTTOMLEFT",
+        (rootLeft + dx) * fromUI, (rootTop + dy) * fromUI)
 end
 
 function PopupBounds:ObserveTooltip(tooltip)
     if not tooltip or tooltip._OffhandBoundsObserved then return false end
     tooltip._OffhandBoundsObserved = true
     if tooltip.HookScript then
-        tooltip:HookScript("OnShow", function(self)
-            PopupBounds:ArrangeTooltipComparisons(self)
-        end)
+        -- Shopping-tooltip OnShow fires while Retail's comparison manager is
+        -- still constructing its layout. Reanchoring from that intermediate
+        -- callback makes the manager and Offhand visibly alternate. Root
+        -- OnShow remains a fallback for clients without a comparison manager;
+        -- completed comparison transactions are handled below.
+        if tooltip == _G.GameTooltip or tooltip == _G.ItemRefTooltip then
+            tooltip:HookScript("OnShow", function(self)
+                PopupBounds:ArrangeTooltipComparisons(self)
+            end)
+        end
         tooltip:HookScript("OnHide", function(self) PopupBounds:ClearManagedTooltip(self) end)
     end
     if tooltip.SetOwner and hooksecurefunc then
@@ -299,6 +318,31 @@ function PopupBounds:Initialize()
     if GameTooltip_ShowCompareItem and hooksecurefunc then
         hooksecurefunc("GameTooltip_ShowCompareItem", function(tooltip)
             PopupBounds:ArrangeTooltipComparisons(tooltip or _G.GameTooltip)
+        end)
+    end
+
+    -- Current Retail and Forever builds finalize equipped-item cards through
+    -- TooltipComparisonManager after the individual ShoppingTooltip OnShow
+    -- scripts have fired. Constrain the completed group synchronously by moving
+    -- only its root; never rewrite the manager-owned comparison dependencies.
+    if TooltipComparisonManager
+        and type(TooltipComparisonManager.AnchorShoppingTooltips) == "function"
+        and hooksecurefunc then
+        hooksecurefunc(TooltipComparisonManager, "AnchorShoppingTooltips",
+            function(manager)
+                local tooltip = manager and manager.tooltip or _G.GameTooltip
+                PopupBounds:ArrangeTooltipComparisons(tooltip)
+            end)
+    end
+
+    -- Combined Backpack item buttons use GameTooltip_SetDefaultAnchor on
+    -- Retail. That helper calls SetOwner(ANCHOR_NONE) and then assigns its own
+    -- full-screen BOTTOMRIGHT point, so correcting only SetOwner is overwritten
+    -- later in the same function. Reapply the physical-workspace direction
+    -- after the complete helper transaction, before the tooltip is shown.
+    if GameTooltip_SetDefaultAnchor and hooksecurefunc then
+        hooksecurefunc("GameTooltip_SetDefaultAnchor", function(tooltip, owner)
+            PopupBounds:RedirectTooltipOwner(tooltip, owner, "ANCHOR_NONE")
         end)
     end
 end

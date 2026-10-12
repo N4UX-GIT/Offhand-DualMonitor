@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- World text compensation is now topology-aware and user-adjustable. Equal-height
+  spans retain Blizzard's native combat/XP scale, while mixed-height spans use
+  the automatic correction with an independent on/off switch and 50–150% fine
+  tuning. On affected mixed-height Forever spans, speech-bubble compensation now
+  leaves Blizzard's world-positioned frame untouched and overlays a normal-size,
+  classic-styled bubble. Equal-height and unspanned layouts remain completely
+  native, EllesmereUI customization takes precedence, and a separate 50–150%
+  slider fine-tunes only Offhand's replacement.
 - Companion download guidance now recommends the Microsoft Store for Windows
   while retaining the version-matched GitHub ZIP for portable and Linux/Wine
   use. The in-game guide, settings, generated GitHub release notes, and Discord
@@ -62,6 +70,58 @@ All notable changes to this project will be documented in this file.
   portable builds retain the explicit, user-initiated GitHub release check.
 
 ### Fixed
+- Leatrix Maps player/cursor coordinates no longer retain their enlarged
+  pre-span font raster until `/reload`. After a live display transition,
+  Offhand now refreshes only coordinate-like font strings anchored to the
+  bottom of `WorldMapFrame`, preserving their existing font data while leaving
+  Leatrix's map scale, anchors, scripts, settings, and saved variables untouched.
+- Speech-bubble replacement now reacts to bubble-producing chat events and
+  rescans again on the next frame, removing the visible tenth-second shrink on
+  the first bubble after spanning. Percentage fields now restore their unit
+  after Enter even when the value is unchanged, and slider dragging uses a
+  gentler physical-pixel curve. The speech-bubble size control is labelled as
+  the replacement size so its scope is explicit.
+- `/offhand diag` no longer aborts when a client omits an optional renderer
+  CVar; missing formatted values are reported as `unavailable` and the
+  remaining diagnostic sections continue.
+- Floating combat, damage, healing and experience text now uses the same
+  geometry-derived absolute visual baseline as the Mainhand HUD on clients
+  exposing a native scale control. Capability detection prefers Forever's
+  `WorldTextScale_v2` and falls back to legacy `WorldTextScale`; the selected
+  key and player's original value are preserved for exact restoration. Live
+  Forever testing confirms the versioned control corrects damage and XP text
+  immediately and across reloads. Forever speech-bubble frames are left at
+  their native scale while this control is active, preventing the direct frame
+  compensation from displacing bubbles toward the game-view origin. Live frame
+  diagnostics identified a native WorldFrame-anchored root and one anonymous
+  visual child owning both the FontString and all NineSlice textures. Because
+  scaling either frame also rescales Forever's position offsets, Offhand keeps
+  all Forever speech-bubble frames, anchors, NineSlice textures and fonts under
+  Blizzard ownership. Live testing showed the Beta 19 native bubble was already
+  correct, while every attempted shell compensation caused displacement,
+  deformation or disappearance. Offhand performs only a one-time cleanup of
+  font/texture state written by the affected beta iterations; the native
+  13-point font baseline is retained for that recovery. Combat, healing and XP
+  text remain independently corrected through `WorldTextScale_v2`. Beta 22 testing
+  separately proved engine text ignores WorldFrame scaling, so that root
+  remains native. A live EllesmereUI comparison subsequently proved that an
+  addon-owned visual can safely follow the untouched outer carrier across span
+  and restore transitions. Offhand now uses that narrower architecture only on
+  affected mixed-height spans: it mirrors the already-formatted native text into
+  Blizzard's classic chat-bubble artwork, hides only the accessible native visual
+  child after the replacement is ready, and restores it on every ownership exit.
+  Instances, failures, hidden children and EllesmereUI-managed bubbles fail open
+  to their existing owner.
+- Forever no longer synthesizes visibility, docking, or floating presentation
+  for the built-in Combat Log. Positive native dock or tab-parent evidence now
+  immediately returns `ChatFrame2` to Blizzard; if the removed unsafe recovery
+  records that it previously ran, Offhand repairs its persisted dock bit,
+  removes stale placement, and hides the inactive Combat Log bleeding over
+  General. Hidden or ambiguously detached Combat Logs remain
+  untouched; only an already-visible, explicitly detached Combat Log may have
+  its saved position restored. Custom detached chat windows retain the existing
+  settlement and presentation recovery. Offhand also leaves Forever's primary
+  chat button side entirely to Blizzard Edit Mode.
 - First-time onboarding now supports manual dual-display and intentional
   single-ultrawide layouts at Step 4 without requiring Companion topology.
   Because WoW cannot report physical monitor boundaries, manual users receive
@@ -107,20 +167,24 @@ All notable changes to this project will be documented in this file.
   view instead of treating the complete spanned desktop as usable space and
   extending downward or sideways off-screen. Modern menu proxies and legacy
   dropdown lists are handled without recurring discovery scans.
-- World-owned nameplates, overhead NPC text and floating combat text now share
-  UIParent's absolute spanned-layout scale. This removes the enlarged text seen
-  on Retail and Forever while restoring the original WorldFrame scale whenever
-  Offhand is disabled or the window is no longer spanned.
+- Accessible world-owned nameplates use UIParent's absolute spanned-layout
+  scale, while clients exposing `WorldTextScale_v2` or legacy
+  `WorldTextScale` apply the same baseline to engine text without changing
+  WorldFrame. The disproven Forever root fallback has been removed.
 - Retail friendly player nameplates no longer become blank health bars outside
   instances when the friendly-name CVar is disabled. While Offhand owns an
   active span and friendly plates are enabled, it writes Retail's canonical
   boolean token, keeps their names visible through later CVar refreshes, and
   restores the player's exact prior preference when the span is removed.
 - Item and comparison tooltips opened from an Offhand-side bag now treat the
-  physical workspace edge as their boundary. Their native owner anchor first
-  opens inward, then the complete tooltip group shifts back into Offhand if
-  needed, while cursor-, world- and Mainhand-owned tooltips retain Blizzard's
-  placement.
+  physical workspace edge as their boundary. Offhand preserves Blizzard's
+  comparison-card dependency graph and translates only the primary tooltip
+  after the completed comparison transaction, preventing circular anchors and
+  leaving a small seam margin. Cursor-, world- and Mainhand-owned tooltips
+  retain Blizzard's placement.
+- An explicit Retail drag of the primary or combined backpack into Mainhand now
+  retains its clamped drop point instead of clearing user placement and
+  immediately returning the bag to Blizzard's default bottom-right anchor.
 - Closing a custom Blizzard chat window now retires its Offhand placement so it
   remains closed after reload. Re-docked tabs also adopt the primary chat
   window's font size as well as its dimensions.
@@ -183,9 +247,12 @@ All notable changes to this project will be documented in this file.
   default bottom-right opening position is corrected before paint.
   This replaces the overly broad OH-FOR-006 containment that removed native
   bag workspace support while preserving the protected item-click boundary.
-- Group-loot rolls now use the restricted secure Mainhand positioner and no
-  longer receive Offhand event scripts, keeping the roll UI out of the monitor
-  seam without adding an insecure hook to Blizzard's loot path.
+- Group-loot rolls now use the restricted secure Mainhand positioner and a
+  secure post-layout wrapper on Blizzard's roll frames. This corrects the
+  container's initially unanchored load state and the
+  `BottomManagedFrameContainer` reset that occurs after the pre-combat anchor,
+  keeping the roll UI out of the monitor seam without adding an insecure hook
+  to Blizzard's loot path.
 - Detached Blizzard chat windows placed on Mainhand now retain their individual
   positions through Forever login and UI reloads instead of stacking at the
   full-span center. Offhand restores both Mainhand and workspace chat snapshots

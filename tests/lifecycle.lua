@@ -14,6 +14,14 @@ end
 InCombatLockdown = function() return combat end
 SlashCmdList = {}
 assert(loadfile("Core/Init.lua"))("Offhand", addon)
+local printedDiagnostic
+DEFAULT_CHAT_FRAME = {
+    AddMessage = function(_, message) printedDiagnostic = message end,
+}
+addon:Print("Optional diagnostic=%s", nil)
+assert(printedDiagnostic and string.find(printedDiagnostic,
+        "Optional diagnostic=unavailable", 1, true),
+    "a missing optional diagnostic value aborted formatted chat output")
 local initOnEvent = events.OnEvent
 local attentionPopup
 StaticPopup_Show = function(name) attentionPopup = name end
