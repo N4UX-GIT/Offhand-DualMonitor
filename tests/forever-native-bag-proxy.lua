@@ -353,6 +353,35 @@ assert(not GameMenuFrame:IsShown() and bag:IsShown() and nativeOpenCalls == 2,
 assert(nativeToggleGameMenuCalls == 2,
     "second deferred Escape repair must not re-enter protected ToggleGameMenu")
 
+-- Under the Gamepad UI the same repair would reopen the bag and toggle the Game
+-- Menu from addon code. The gamepad FrameControlsManager then makes a forbidden
+-- protected call, and the spreading taint can crash the client when the next
+-- menu opens. Blizzard's Escape result must stand.
+local gamepadUI = true
+addon.IsGamepadUIEnabled = function() return gamepadUI end
+local opensBeforeGamepadEscape = nativeOpenCalls
+ToggleGameMenu()
+controller.scripts.OnUpdate(controller, 0.001)
+controller.scripts.OnUpdate(controller, 0.001)
+assert(nativeOpenCalls == opensBeforeGamepadEscape and not bag:IsShown()
+        and not GameMenuFrame:IsShown(),
+    "Gamepad UI Escape must not reopen bags or toggle the Game Menu from addon code")
+-- Settings-transition restore with the bag still tracked open on the workspace.
+local trackedBefore = addon.db.nativeBackpackWorkspaceOpen
+addon.db.nativeBackpackWorkspaceOpen = true
+assert(addon.Canvas:RestoreTrackedWorkspaceBag() == false
+        and nativeOpenCalls == opensBeforeGamepadEscape and not bag:IsShown()
+        and addon.db.nativeBackpackWorkspaceOpen == true,
+    "Gamepad UI must not restore a tracked workspace bag from addon code, nor forget it")
+addon.db.nativeBackpackWorkspaceOpen = trackedBefore
+gamepadUI = false
+-- The player reopens the bag; the keyboard/mouse cases below continue.
+OpenAllBags()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown() and math.abs(bag:GetLeft() - 240) < 0.01,
+    "a player-opened bag must return to its saved workspace position")
+nativeOpenCalls = opensBeforeGamepadEscape
+
 -- Settings, AddOns and Edit Mode may hide bags after the Game Menu transition
 -- has already settled. The isolated observer must recover a tracked workspace
 -- bag without installing hooks on any of those native panel trees.

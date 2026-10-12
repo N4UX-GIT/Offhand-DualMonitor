@@ -260,7 +260,12 @@ end
 function Bags:RestoreAfterEscape(pending)
     if self.escapePending ~= pending then return false end
     self.escapePending = nil
-    if InputReserved() or not TrackEnabled() or not IsSpanned() or InCombatLockdown() then
+    -- Reopening bags and re-showing the Game Menu from addon code is forbidden
+    -- under the Gamepad UI (see Canvas.CanManagePanelsFromAddon).
+    local canOpen = not Offhand.Canvas or not Offhand.Canvas.CanManagePanelsFromAddon
+        or Offhand.Canvas.CanManagePanelsFromAddon()
+    if InputReserved() or not TrackEnabled() or not IsSpanned() or InCombatLockdown()
+        or not canOpen then
         self:Capture()
         return false
     end
@@ -421,6 +426,17 @@ function Bags:Resume()
             local visible
             for _, frame in pairs(Bags.frames) do
                 if frame:IsVisible() then visible = frame; break end
+            end
+            -- Opening bags from addon code is forbidden under the Gamepad UI
+            -- (see Canvas.CanManagePanelsFromAddon); the position still applies
+            -- when the player opens them.
+            local canOpen = not Offhand.Canvas or not Offhand.Canvas.CanManagePanelsFromAddon
+                or Offhand.Canvas.CanManagePanelsFromAddon()
+            if not visible and not canOpen then
+                -- Keep the open-bag snapshot instead of capturing "closed";
+                -- the next player-driven open or close updates it normally.
+                Bags.paused = false
+                return
             end
             if not visible and next(Bags.frames) and ToggleAllBags and not toggled then
                 toggled = true
