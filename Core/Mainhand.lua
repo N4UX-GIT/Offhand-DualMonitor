@@ -546,9 +546,10 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults)
     return refined
 end
 
-local function UniqueLayoutName(data)
+local function UniqueLayoutName(data, gamepad)
     local player = UnitName and UnitName("player") or nil
-    local base = "Offhand - Mainhand" .. (player and (" - " .. player) or "")
+    local base = "Offhand - Mainhand" .. (gamepad and " (Gamepad)" or "")
+        .. (player and (" - " .. player) or "")
     local names = {}
     for _, layout in ipairs(data.layouts) do names[string.lower(LayoutName(layout, ""))] = true end
     if not names[string.lower(base)] then return base end
@@ -559,11 +560,21 @@ local function UniqueLayoutName(data)
     return base .. " - " .. tostring(time and time() or geometryRevision)
 end
 
-local function ControllerMode(presets)
+-- The preset list is always ordered Modern, Classic, Gamepad, so the active
+-- interface style must come from the client rather than from presets[1].
+local function GamepadUIEnabled()
+    return Offhand.IsGamepadUIEnabled ~= nil and Offhand:IsGamepadUIEnabled() or false
+end
+
+local function IsGamepadLayout(layout)
     local gamepad = Enum and Enum.InputDeviceInterfaceType
         and Enum.InputDeviceInterfaceType.Gamepad
-    return gamepad ~= nil and type(presets[1]) == "table"
-        and presets[1].interfaceStyle == gamepad
+    return gamepad ~= nil and type(layout) == "table" and layout.interfaceStyle == gamepad
+end
+
+local function ForeverLayoutKeys()
+    if Offhand.GetForeverLayoutKeys then return Offhand:GetForeverLayoutKeys() end
+    return "foreverEditModeLayoutName", "foreverEditModeLayoutID"
 end
 
 local function EnsureEditModeLoaded()
@@ -592,10 +603,13 @@ function Mainhand:CreateOrUpdateEditModeLayout()
     if not data then return false, "unavailable" end
     local presets = Presets()
     if #presets == 0 then return false, "presets" end
-    if ControllerMode(presets) then return false, "gamepad" end
     if type(OffhandCharDB) ~= "table" then return false, "state" end
 
-    local record = OffhandCharDB.mainhandLayout
+    -- Keyboard/mouse and Gamepad UI layouts are separate Blizzard layouts with
+    -- different HUD systems; each style keeps its own generated layout record.
+    local gamepad = GamepadUIEnabled()
+    local recordKey = gamepad and "mainhandLayoutGamepad" or "mainhandLayout"
+    local record = OffhandCharDB[recordKey]
     local source, sourceID, sourceIndex, sourcePreset
     if type(record) == "table" and record.sourcePreset and tonumber(record.sourceID) then
         local wanted = tonumber(record.sourceID)
@@ -612,10 +626,14 @@ function Mainhand:CreateOrUpdateEditModeLayout()
         source, sourceID, sourceIndex, sourcePreset = ResolveActiveLayout(data, presets)
     end
     if not source then return false, "source" end
+    -- Blizzard disables layouts of the other interface style. Generating from
+    -- one would produce a layout that cannot be selected, or apply keyboard
+    -- action bar refinements to a Gamepad UI layout.
+    if IsGamepadLayout(source) ~= gamepad then return false, "style" end
 
     local generatedName = type(record) == "table" and record.generatedName or nil
     local generated, _, generatedIndex = FindNamedLayout(data, presets, generatedName)
-    if not generatedName then generatedName = UniqueLayoutName(data) end
+    if not generatedName then generatedName = UniqueLayoutName(data, gamepad) end
 
     local layout = DeepCopy(source)
     local sourceDefaults = {}
@@ -634,7 +652,10 @@ function Mainhand:CreateOrUpdateEditModeLayout()
         return Offhand.isForever and foreverActionSystem ~= nil and foreverClassBar ~= nil
             and entry.system == foreverActionSystem and entry.systemIndex == foreverClassBar
     end)
-    RefineStandardHUDLayout(layout, rect, sourceDefaults)
+    -- The refinement stacks keyboard/mouse bars around MainActionBar. The
+    -- Gamepad UI hides those bars and anchors its HUD to GamepadMainActionBar,
+    -- which the generic translation above already moves into Mainhand.
+    if not gamepad then RefineStandardHUDLayout(layout, rect, sourceDefaults) end
     if moved == 0 then return false, "already", LayoutName(source, "layout"), 0 end
     layout.layoutName = generatedName
     layout.layoutIndex = nil
@@ -673,7 +694,7 @@ function Mainhand:CreateOrUpdateEditModeLayout()
     end
     if not active then return false, "activate-api" end
 
-    OffhandCharDB.mainhandLayout = {
+    OffhandCharDB[recordKey] = {
         version = 1,
         sourceName = LayoutName(source, sourcePreset and ("Preset " .. tostring(sourceID)) or "Layout"),
         sourceID = sourceID,
@@ -684,8 +705,9 @@ function Mainhand:CreateOrUpdateEditModeLayout()
         movedSystems = moved,
     }
     if Offhand.isForever then
-        OffhandCharDB.foreverEditModeLayoutName = generatedName
-        OffhandCharDB.foreverEditModeLayoutID = targetID
+        local nameKey, idKey = ForeverLayoutKeys()
+        OffhandCharDB[nameKey] = generatedName
+        OffhandCharDB[idKey] = targetID
         OffhandCharDB.foreverEditModeLegacyRecovery = nil
         OffhandCharDB.foreverEditModeRecovery = nil
         if Offhand.ForeverPersistence and Offhand.ForeverPersistence.SaveProfileSnapshot then
@@ -696,7 +718,8 @@ function Mainhand:CreateOrUpdateEditModeLayout()
 end
 
 function Mainhand:GetLayoutStatus()
-    local record = type(OffhandCharDB) == "table" and OffhandCharDB.mainhandLayout or nil
+    local recordKey = GamepadUIEnabled() and "mainhandLayoutGamepad" or "mainhandLayout"
+    local record = type(OffhandCharDB) == "table" and OffhandCharDB[recordKey] or nil
     if type(record) ~= "table" then return { configured = false } end
     return {
         configured = true,

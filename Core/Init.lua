@@ -457,6 +457,26 @@ function Offhand:IsBlizzardInputReserved()
     return self._playerControlLost == true or self:IsCinematicOrMovieActive()
 end
 
+-- Forever's optional Gamepad UI (Settings > Gamepad > Enable Gamepad UI, the
+-- InputDeviceInterfaceStyle CVar) swaps in its own Edit Mode presets, action
+-- bars and radial menus. Layout generation and recovery follow the active
+-- interface style instead of assuming keyboard and mouse.
+function Offhand:IsGamepadUIEnabled()
+    if not InputUtil or type(InputUtil.IsGamepadUIEnabled) ~= "function" then return false end
+    local ok, enabled = pcall(InputUtil.IsGamepadUIEnabled)
+    return ok and enabled == true
+end
+
+-- Blizzard only enables custom layouts whose interface style matches the
+-- active one, so Forever's per-character layout preference is kept separately
+-- for each style. Switching styles never selects a layout Blizzard disabled.
+function Offhand:GetForeverLayoutKeys()
+    if self:IsGamepadUIEnabled() then
+        return "foreverEditModeLayoutNameGamepad", "foreverEditModeLayoutIDGamepad"
+    end
+    return "foreverEditModeLayoutName", "foreverEditModeLayoutID"
+end
+
 -- Forever receives Escape during a mixed-height Companion span (the cursor is
 -- released), but anchors its native skip-confirmation dialog against the full
 -- bounding canvas.  The dialog can therefore be shown outside the rendered

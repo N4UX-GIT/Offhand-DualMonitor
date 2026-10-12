@@ -103,6 +103,19 @@ local function UsesForeverEditMode()
     local version = tonumber(Offhand.tocVersion)
     return version and version >= 16000 and version < 17000 or false
 end
+-- Blizzard's Gamepad UI (radials, reticle, HUD mode, gamepad action bars and
+-- their secure flyouts) owns its placement and secure input routing. The
+-- generic popup scans must never re-anchor these frames; Mainhand placement
+-- for them belongs to a dedicated, secure-aware integration.
+local function IsGamepadUIFrame(frame, name)
+    if not name and frame and frame.GetName then
+        local ok, frameName = pcall(frame.GetName, frame)
+        name = ok and frameName or nil
+    end
+    return type(name) == "string"
+        and (name:match("^Gamepad") ~= nil or name:match("^OffhandGamepad") ~= nil)
+end
+
 local function IsForeverEditModeFrame(frame, name)
     if not HasBlizzardEditMode() then return false end
     name = name or (frame and frame.GetName and frame:GetName())
@@ -146,7 +159,27 @@ end
 -- For example, layouts[3] named Offhand is activeLayout 6.
 local FOREVER_CUSTOM_LAYOUT_OFFSET = 3
 local FOREVER_MODERN_LAYOUT_ID = 1
+-- The third built-in slot is the Gamepad UI preset. Enum.EditModePresetLayouts
+-- is zero-based (Gamepad = 2), unlike these global layout identifiers.
+local FOREVER_GAMEPAD_LAYOUT_ID = 3
 local FOREVER_MISMATCH_GRACE_SECONDS = 8
+
+local function GamepadUIEnabled()
+    return Offhand.IsGamepadUIEnabled ~= nil and Offhand:IsGamepadUIEnabled() or false
+end
+
+-- Per-character preference keys for the active interface style.
+local function ForeverLayoutKeys()
+    if Offhand.GetForeverLayoutKeys then return Offhand:GetForeverLayoutKeys() end
+    return "foreverEditModeLayoutName", "foreverEditModeLayoutID"
+end
+
+-- Blizzard only enables the built-in layout of the active interface style, so
+-- a single-screen fallback must use the Gamepad preset under the Gamepad UI.
+local function ForeverFallbackLayout()
+    if GamepadUIEnabled() then return FOREVER_GAMEPAD_LAYOUT_ID, "Gamepad" end
+    return FOREVER_MODERN_LAYOUT_ID, "Modern"
+end
 
 local function GetForeverLayoutByID(data, layoutID)
     if type(data) ~= "table" or type(data.layouts) ~= "table" then return nil end
@@ -272,13 +305,14 @@ local function PrepareForeverEditModeState(data, metrics)
         changed = true
     end
 
-    local preferredName = OffhandCharDB.foreverEditModeLayoutName
+    local nameKey, idKey = ForeverLayoutKeys()
+    local preferredName = OffhandCharDB[nameKey]
     local preferredID, preferredLayout = ResolveForeverLayoutID(
-        data, OffhandCharDB.foreverEditModeLayoutID, preferredName)
+        data, OffhandCharDB[idKey], preferredName)
     if preferredLayout then
-        if preferredName ~= preferredLayout.layoutName or preferredID ~= OffhandCharDB.foreverEditModeLayoutID then
-            OffhandCharDB.foreverEditModeLayoutName = preferredLayout.layoutName
-            OffhandCharDB.foreverEditModeLayoutID = preferredID
+        if preferredName ~= preferredLayout.layoutName or preferredID ~= OffhandCharDB[idKey] then
+            OffhandCharDB[nameKey] = preferredLayout.layoutName
+            OffhandCharDB[idKey] = preferredID
             changed = true
         end
     elseif not preferredName and metrics and metrics.companionTopology and metrics.isSpanned then
@@ -286,8 +320,8 @@ local function PrepareForeverEditModeState(data, metrics)
         -- is unambiguous. Built-in Modern/Classic layouts are never adopted.
         local activeLayout = GetForeverLayoutByID(data, activeID)
         if activeLayout and type(activeLayout.layoutName) == "string" then
-            OffhandCharDB.foreverEditModeLayoutName = activeLayout.layoutName
-            OffhandCharDB.foreverEditModeLayoutID = activeID
+            OffhandCharDB[nameKey] = activeLayout.layoutName
+            OffhandCharDB[idKey] = activeID
             preferredID, preferredLayout = activeID, activeLayout
             changed = true
         end
@@ -302,11 +336,12 @@ function HUD:GetForeverEditModeLayoutStatus()
     local character = type(OffhandCharDB) == "table" and OffhandCharDB or nil
     local activeID = data and tonumber(data.activeLayout) or nil
     local activeLayout = data and GetForeverLayoutByID(data, activeID) or nil
-    local preferredName = character and character.foreverEditModeLayoutName or nil
+    local nameKey, idKey = ForeverLayoutKeys()
+    local preferredName = character and character[nameKey] or nil
     local preferredID, preferredLayout
     if data then
         preferredID, preferredLayout = ResolveForeverLayoutID(
-            data, character and character.foreverEditModeLayoutID, preferredName)
+            data, character and character[idKey], preferredName)
     end
     return {
         preferredName = preferredName,
@@ -330,8 +365,9 @@ function HUD:UseCurrentForeverEditModeLayout()
     local layout = GetForeverLayoutByID(data, activeID)
     if not layout or type(layout.layoutName) ~= "string" then return false, "builtin" end
 
-    OffhandCharDB.foreverEditModeLayoutName = layout.layoutName
-    OffhandCharDB.foreverEditModeLayoutID = activeID
+    local nameKey, idKey = ForeverLayoutKeys()
+    OffhandCharDB[nameKey] = layout.layoutName
+    OffhandCharDB[idKey] = activeID
     OffhandCharDB.foreverEditModeLegacyRecovery = nil
     OffhandCharDB.foreverEditModeRecovery = nil
     self.foreverRecoveryPromptShown = nil
@@ -401,7 +437,7 @@ function HUD:UpdateForeverRecoveryLayout(metrics)
     local activeName = active and active.layoutName
     local preferredID, preferredLayout = PrepareForeverEditModeState(data, metrics)
     local preferredName = preferredLayout and preferredLayout.layoutName
-        or (type(OffhandCharDB) == "table" and OffhandCharDB.foreverEditModeLayoutName or nil)
+        or (type(OffhandCharDB) == "table" and OffhandCharDB[(ForeverLayoutKeys())] or nil)
     local recovery = type(OffhandCharDB) == "table" and OffhandCharDB.foreverEditModeRecovery or nil
 
     if IsForeverSingleScreenRecovery(metrics) then
@@ -413,11 +449,12 @@ function HUD:UpdateForeverRecoveryLayout(metrics)
                 ScheduleForeverMismatchConfirmation(self)
                 return
             end
+            local fallbackID, fallbackName = ForeverFallbackLayout()
             recovery = {
                 restoreLayoutID = activeID,
                 restoreLayoutName = activeName,
-                fallbackLayoutID = FOREVER_MODERN_LAYOUT_ID,
-                fallbackLayoutName = "Modern",
+                fallbackLayoutID = fallbackID,
+                fallbackLayoutName = fallbackName,
             }
             OffhandCharDB.foreverEditModeRecovery = recovery
             PersistForeverEditModeState()
@@ -1200,6 +1237,31 @@ function HUD:HookMainhandTransientFrames()
     end
 end
 
+-- Anchor a cooperating Blizzard or addon frame inside Mainhand through the
+-- restricted secure handler used for secure transient frames, rather than an
+-- insecure addon SetPoint. Offsets are UIParent units from the Mainhand point.
+-- Out of combat only; the caller owns reapplying after Blizzard re-anchors.
+Offhand.API = Offhand.API or {}
+function Offhand.API.SecureAnchorToMainhand(frame, point, x, y)
+    if InCombatLockdown() then return false, "combat" end
+    if not frame or not frame.ClearAllPoints or not frame.GetEffectiveScale then return false, "frame" end
+    if frame.IsForbidden and frame:IsForbidden() then return false, "forbidden" end
+    local m = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics() or nil
+    if not m or not m.isSpanned then return false, "span" end
+    point = point or "CENTER"
+    local px = point:find("LEFT") and m.gameLeft or point:find("RIGHT") and m.gameRight
+        or (m.gameLeft + m.gameRight) / 2
+    local py = point:find("TOP") and m.gameTop or point:find("BOTTOM") and m.gameBottom
+        or (m.gameBottom + m.gameTop) / 2
+    local scale = frame:GetEffectiveScale()
+    if type(scale) ~= "number" or scale <= 0 then return false, "scale" end
+    local factor = UIParent:GetEffectiveScale() / scale
+    if SecureScreenPoint(frame, point, (px + (x or 0)) * factor, (py + (y or 0)) * factor) then
+        return true
+    end
+    return false, "secure"
+end
+
 function HUD:RequestLayout()
     if aligning or pending or not Offhand.db or not Offhand.db.enabled then return end
     pending = true
@@ -1757,6 +1819,7 @@ function HUD:HookFrames()
                 local frame = _G[name]
                 if frame and type(frame) == "table" and frame.GetPoint
                     and not IsBlizzardEditModeOwnedFrame(frame, name)
+                    and not IsGamepadUIFrame(frame, name)
                     and not hooks[frame] and frame.IsProtected and not frame:IsProtected() then
                     hooks[frame] = true
                     frame:HookScript("OnShow", function(self)
@@ -1820,7 +1883,8 @@ function HUD:HookFrames()
                     end
                     if cName == "OffhandCanvasFrame" or cName == "OffhandSeamGuideLine" then return end
                     if IsBlizzardEditModeOwnedFrame(child, cName)
-                        or IsForeverEditModeFrame(child, cName) then return end
+                        or IsForeverEditModeFrame(child, cName)
+                        or IsGamepadUIFrame(child, cName) then return end
                     -- Native chat owns these linked frames. Moving a dock or tab
                     -- independently separates the headers from the message window.
                     if child == GeneralDockManager or child == GENERAL_CHAT_DOCK
@@ -1904,7 +1968,7 @@ function HUD:HookFrames()
         end
         local activeName = not forever and GetActiveEditModeLayoutName() or nil
         local targetName = forever
-            and (type(OffhandCharDB) == "table" and OffhandCharDB.foreverEditModeLayoutName or nil)
+            and (type(OffhandCharDB) == "table" and OffhandCharDB[(ForeverLayoutKeys())] or nil)
             or (type(OffhandCharDB) == "table" and OffhandCharDB.editModeLayoutName or nil)
         if not forever and (type(targetName) ~= "string" or not targetName:match("%S")) then
             -- Upgrade behavior: adopt the layout Blizzard already selected for
@@ -1926,10 +1990,23 @@ function HUD:HookFrames()
                     -- Require the player to position the main bar once in Edit
                     -- Mode; this keeps all protected writes inside Blizzard UI.
                     needsSetup = true
-                    local actionBarSystem = Enum and Enum.EditModeSystem and Enum.EditModeSystem.ActionBar
+                    local systems = Enum and Enum.EditModeSystem
+                    local actionBarSystem = systems and systems.ActionBar
                     local mainBarIndex = Enum and Enum.EditModeActionBarSystemIndices and Enum.EditModeActionBarSystemIndices.MainBar
+                    -- Gamepad UI layouts hide Action Bar 1; their main bar is
+                    -- the single-instance GamepadMainActionBar system.
+                    local gamepadStyle = Enum and Enum.InputDeviceInterfaceType
+                        and layout.interfaceStyle == Enum.InputDeviceInterfaceType.Gamepad
+                    local gamepadBarSystem = systems and systems.GamepadMainActionBar
                     for _, systemInfo in ipairs(layout.systems or {}) do
-                        if systemInfo.system == actionBarSystem and systemInfo.systemIndex == mainBarIndex then
+                        local isMainBar
+                        if gamepadStyle and gamepadBarSystem ~= nil then
+                            isMainBar = systemInfo.system == gamepadBarSystem
+                        else
+                            isMainBar = systemInfo.system == actionBarSystem
+                                and systemInfo.systemIndex == mainBarIndex
+                        end
+                        if isMainBar then
                             needsSetup = systemInfo.isInDefaultPosition ~= false
                             break
                         end
@@ -2026,7 +2103,8 @@ function HUD:HookFrames()
                     local name = frame.GetName and frame:GetName()
                     if name then
                         if IsBlizzardEditModeOwnedFrame(frame, name)
-                            or IsForeverEditModeFrame(frame, name) then return end
+                            or IsForeverEditModeFrame(frame, name)
+                            or IsGamepadUIFrame(frame, name) then return end
                         local isMenu = false
                         for _, n in ipairs(menuFrameNames) do
                             if n == name then isMenu = true; break end

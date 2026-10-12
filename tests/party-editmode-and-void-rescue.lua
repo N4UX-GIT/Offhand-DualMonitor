@@ -1078,6 +1078,60 @@ metrics.isSpanned = true
 addon.HUD:UpdateForeverRecoveryLayout(metrics)
 assert(selectedLayout == nil and layoutData.activeLayout == 2,
     "Forever must preserve a layout manually selected during single-screen recovery")
+
+-- Under the Gamepad UI Blizzard enables only the Gamepad built-in layout and
+-- gamepad-style custom layouts. The per-character preference and the
+-- single-screen fallback must follow the active interface style, without
+-- disturbing the keyboard/mouse preference.
+local gamepadUI = true
+addon.IsGamepadUIEnabled = function() return gamepadUI end
+addon.GetForeverLayoutKeys = function(self)
+    if self:IsGamepadUIEnabled() then
+        return "foreverEditModeLayoutNameGamepad", "foreverEditModeLayoutIDGamepad"
+    end
+    return "foreverEditModeLayoutName", "foreverEditModeLayoutID"
+end
+local mkbLayoutName = OffhandCharDB.foreverEditModeLayoutName
+local mkbLayoutID = OffhandCharDB.foreverEditModeLayoutID
+table.insert(layoutData.layouts, {
+    layoutName = "Offhand Gamepad", layoutType = 1, interfaceStyle = 2, systems = {},
+})
+local gamepadLayoutID = #layoutData.layouts + 3
+layoutData.activeLayout = gamepadLayoutID
+OffhandCharDB.foreverEditModeRecovery = nil
+recoveryPrompt, selectedLayout = nil, nil
+local usedGamepad, usedGamepadName = addon.HUD:UseCurrentForeverEditModeLayout()
+assert(usedGamepad and usedGamepadName == "Offhand Gamepad"
+        and OffhandCharDB.foreverEditModeLayoutNameGamepad == "Offhand Gamepad"
+        and OffhandCharDB.foreverEditModeLayoutIDGamepad == gamepadLayoutID
+        and OffhandCharDB.foreverEditModeLayoutName == mkbLayoutName
+        and OffhandCharDB.foreverEditModeLayoutID == mkbLayoutID,
+    "Gamepad UI layout preference must be stored separately from keyboard/mouse")
+metrics.topologyStatus = "MISMATCH"
+metrics.isSpanned = false
+addon.HUD:UpdateForeverRecoveryLayout(metrics)
+flushTimers()
+local gamepadRecovery = OffhandCharDB.foreverEditModeRecovery
+assert(recoveryPrompt == "fallback" and gamepadRecovery
+        and gamepadRecovery.restoreLayoutID == gamepadLayoutID
+        and gamepadRecovery.fallbackLayoutID == 3
+        and gamepadRecovery.fallbackLayoutName == "Gamepad",
+    "Gamepad UI single-screen recovery must fall back to the Gamepad preset, not Modern")
+addon.HUD:ApplyForeverRecoveryChoice("fallback")
+assert(selectedLayout == 3 and layoutData.activeLayout == 3,
+    "Gamepad UI recovery button must select the Gamepad built-in layout")
+selectedLayout, recoveryPrompt = nil, nil
+metrics.topologyStatus = "READY"
+metrics.isSpanned = true
+addon.HUD:UpdateForeverRecoveryLayout(metrics)
+assert(recoveryPrompt == "restore", "Gamepad UI recovery must offer to restore the Offhand layout")
+addon.HUD:ApplyForeverRecoveryChoice("restore")
+assert(selectedLayout == gamepadLayoutID and OffhandCharDB.foreverEditModeRecovery == nil,
+    "Gamepad UI recovery must restore the gamepad Offhand layout")
+gamepadUI = false
+table.remove(layoutData.layouts)
+layoutData.activeLayout = 2
+selectedLayout, recoveryPrompt = nil, nil
 assert(OffhandCharDB.foreverEditModeRecovery == nil,
     "Forever must clear stale recovery state after manual layout selection")
 
@@ -1867,4 +1921,20 @@ local guidePoints = #guide.points
 for i = 1, 3 do flushTimers() end
 assert(#guide.points == guidePoints and guide.points[1][1] == "TOPLEFT",
     "Popup recovery must preserve the seam guide's full-height anchors")
+
+-- Gamepad UI frames own their placement and secure input routing. The generic
+-- popup scan must not re-anchor them even when they sit on the spanned
+-- UIParent center, while ordinary centered popups are still recovered.
+local gamepadRadial = makeMockFrame("GamepadRadial", 400, 400)
+table.insert(UIParent.children, gamepadRadial)
+gamepadRadial:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+local strayPopup = makeMockFrame("StrayCenteredPopup", 400, 200)
+table.insert(UIParent.children, strayPopup)
+strayPopup:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+for i = 1, 3 do flushTimers() end
+assert(#gamepadRadial.points == 1 and gamepadRadial.points[1][4] == 0
+        and gamepadRadial.points[1][5] == 0,
+    "Popup recovery must never re-anchor Blizzard Gamepad UI frames")
+assert(strayPopup.points[1] and (strayPopup.points[1][4] ~= 0 or strayPopup.points[1][5] ~= 0),
+    "Popup recovery must still move ordinary popups centered on the spanned UIParent")
 
