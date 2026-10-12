@@ -300,9 +300,22 @@ C_AddOns = {
             -- makes the container visible.
             GroupLootContainer:ClearAllPoints()
             GroupLootContainer:Hide()
+            GroupLootContainer.rollFrames = {}
+            GroupLootContainer.maxIndex = 0
+            GroupLootContainer.reservedSize = 100
             for i = 1, 4 do
                 local roll = makeMockFrame("GroupLootFrame" .. i, 420, 90)
                 roll:Hide()
+            end
+            GroupLootContainer_Update = function(container)
+                for i = 1, container.maxIndex do
+                    local roll = container.rollFrames[i]
+                    if roll then
+                        roll:ClearAllPoints()
+                        roll:SetPoint("CENTER", container, "BOTTOM", 0,
+                            container.reservedSize * (i - 0.5))
+                    end
+                end
             end
             return true
         end
@@ -394,9 +407,10 @@ assertMainhandAnchor(GroupLootContainer, "BOTTOM", 2720, 196, "Group loot rolls"
 local groupLootDiagnostics = addon.HUD:GetGroupLootDiagnostics()
 assert(groupLootDiagnostics.loaded and groupLootDiagnostics.preloadAttempted
         and groupLootDiagnostics.anchorPrepared
-        and groupLootDiagnostics.showRepairPrepared
+        and groupLootDiagnostics.rowMoverPrepared
+        and groupLootDiagnostics.rowMoverActive
         and groupLootDiagnostics.triggerCount == 4,
-    "group-loot diagnostics must report the secure preload and post-show repair")
+    "group-loot diagnostics must report the preload, fallback anchor, and row mover")
 assertMainhandAnchor(CombatText, "CENTER", 2720, 726, "Floating combat text")
 assert(CombatText:IsIgnoringParentScale() == false,
     "floating combat text must inherit Offhand's UIParent scale")
@@ -513,18 +527,31 @@ addon.HUD:PositionMainhandTransientFrames()
 assertMainhandAnchor(GroupLootContainer, "BOTTOM", 2720, 196,
     "Group loot rolls after secure layout repair")
 
--- The real frame inherits BottomManagedFrameTemplate. Its OnShow registration
--- and the explicit layout at the end of GroupLootContainer_Update both restore
--- the full-canvas bottom-center anchor before GroupLootFrameN is finally shown.
--- The secure roll-frame wrapper must win that last transaction during combat.
+-- Blizzard can move its managed container on a combat-state layout pass. The
+-- individual roll rows must remain attached directly to Mainhand, and every
+-- native GroupLootContainer_Update must restore that independent row layout.
+GroupLootContainer.rollFrames[1] = GroupLootFrame1
+GroupLootContainer.maxIndex = 1
+GroupLootContainer_Update(GroupLootContainer)
+GroupLootFrame1:Show()
+assertMainhandAnchor(GroupLootFrame1, "CENTER", 2720, 246,
+    "first group-loot row after native update")
 combatLocked = true
 GroupLootContainer:ClearAllPoints()
 GroupLootContainer:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 0)
-GroupLootFrame1:Show()
-assertMainhandAnchor(GroupLootContainer, "BOTTOM", 2720, 196,
-    "Group loot rolls after in-combat managed-frame layout")
+assertMainhandAnchor(GroupLootFrame1, "CENTER", 2720, 246,
+    "group-loot row after in-combat container relocation")
+GroupLootContainer_Update(GroupLootContainer)
+assertMainhandAnchor(GroupLootFrame1, "CENTER", 2720, 246,
+    "group-loot row after in-combat native update")
+GroupLootContainer.rollFrames[2] = GroupLootFrame2
+GroupLootContainer.maxIndex = 2
+GroupLootContainer_Update(GroupLootContainer)
+assertMainhandAnchor(GroupLootFrame2, "CENTER", 2720, 346,
+    "second group-loot row after in-combat native update")
 combatLocked = false
 GroupLootFrame1:Hide()
+GroupLootFrame2:Hide()
 
 -- START_TIMER dynamically creates/reuses timer children. The post-event hook
 -- must catch a newly allocated completion texture immediately.

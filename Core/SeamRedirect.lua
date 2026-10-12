@@ -1149,9 +1149,7 @@ local mainhandTransientFrames = {
         name = "GroupLootContainer", point = "BOTTOM", x = 0, y = 190,
         secure = true, stockPoint = "BOTTOM", stockRelativePoint = "BOTTOM", stockX = 0, stockY = 190,
         allowAnyUIParentAnchor = true, allowUnanchored = true,
-        secureShowTriggers = {
-            "GroupLootFrame1", "GroupLootFrame2", "GroupLootFrame3", "GroupLootFrame4",
-        },
+        groupLootRows = true,
     },
     -- These overlays opt out of UIParent scaling on some client builds. That
     -- makes Blizzard's text roughly 1/UIParentScale times too large after a
@@ -1209,9 +1207,18 @@ local mainhandTransientFrames = {
 
 local transientHooks = {}
 local secureTransientOwned = setmetatable({}, { __mode = "k" })
-local secureTransientShowPositioners = setmetatable({}, { __mode = "k" })
 local secureTransientPositioner
 local groupLootPreloadAttempted = false
+local groupLootRowsOwned = setmetatable({}, { __mode = "k" })
+local groupLootRowMover = {
+    active = false,
+    hooked = false,
+    container = nil,
+    physicalX = nil,
+    physicalY = nil,
+    rowsMoved = 0,
+    conflict = nil,
+}
 
 -- Keep /offhand diag focused on the current group-loot QA surface without
 -- reading protected frame geometry in combat. These flags describe only the
@@ -1226,8 +1233,10 @@ function HUD:GetGroupLootDiagnostics()
         loaded = container ~= nil,
         preloadAttempted = groupLootPreloadAttempted,
         anchorPrepared = container and secureTransientOwned[container] == true or false,
-        showRepairPrepared = container
-            and secureTransientShowPositioners[container] ~= nil or false,
+        rowMoverPrepared = groupLootRowMover.hooked,
+        rowMoverActive = groupLootRowMover.active,
+        rowsMoved = groupLootRowMover.rowsMoved or 0,
+        conflict = groupLootRowMover.conflict,
         triggerCount = triggerCount,
         inCombat = InCombatLockdown and InCombatLockdown() or false,
     }
@@ -1242,9 +1251,9 @@ local function PreloadGroupLootForSecurePositioning()
     local load = C_AddOns and C_AddOns.LoadAddOn or _G.LoadAddOn
     if type(load) ~= "function" then return end
     groupLootPreloadAttempted = true
-    -- GroupLootContainer is secure and cannot be safely reanchored after combat
-    -- begins. Load Blizzard's own LoD module while the player is safe so the
-    -- restricted Mainhand anchor exists before the first roll of the session.
+    -- Load Blizzard's own LoD module while the player is safe so both the
+    -- container fallback anchor and the native roll-update hook exist before
+    -- the first in-combat roll of the session.
     pcall(load, "Blizzard_GroupLoot")
 end
 
@@ -1333,57 +1342,92 @@ local function IsRetailChatSettlementActive(frame)
         and Offhand.Canvas:IsRetailEditModeChatSettlementActive(frame) or false
 end
 
--- GroupLootContainer is a BottomManagedFrameTemplate. Blizzard's
--- GroupLootContainer_Update shows it, lets BottomManagedFrameContainer lay it
--- out at the full-canvas bottom center, and only then shows GroupLootFrameN.
--- That final managed-layout pass overwrites any anchor prepared before combat.
--- Wrap the roll frames' OnShow securely so the container is corrected after
--- Blizzard has finished the entire layout transaction, including in combat.
--- This adds no insecure loot event/script handler and never changes the roll
--- buttons, visibility, parent, or interaction path.
-local function ConfigureSecureShowPositioner(frame, spec, x, y)
-    if not spec.secureShowTriggers or InCombatLockdown() then return false end
-    local positioner = secureTransientShowPositioners[frame]
-    if not positioner then
-        if not CreateFrame or not UIParent then return false end
-        local ok, created = pcall(CreateFrame, "Frame", nil, UIParent, "SecureHandlerBaseTemplate")
-        if not ok or not created or not created.SetFrameRef
-            or not created.SetAttribute or not created.WrapScript then return false end
-        positioner = created
-        secureTransientShowPositioners[frame] = positioner
-        local configured = pcall(function()
-            positioner:SetFrameRef("offhandTransientTarget", frame)
-            positioner:SetAttribute("_offhandPositionTransient", [[
-                local target = self:GetFrameRef("offhandTransientTarget")
-                local parent = self:GetParent()
-                if target and parent then
-                    target:ClearAllPoints()
-                    target:SetPoint(
-                        self:GetAttribute("offhandPoint"),
-                        parent, "BOTTOMLEFT",
-                        self:GetAttribute("offhandX"),
-                        self:GetAttribute("offhandY"))
-                end
-            ]])
-            for _, name in ipairs(spec.secureShowTriggers) do
-                local trigger = _G[name]
-                if trigger then
-                    positioner:WrapScript(trigger, "OnShow", "return nil, true", [[
-                        control:RunAttribute("_offhandPositionTransient")
-                    ]])
-                end
+-- Blizzard deliberately owns GroupLootContainer through its alert-layout
+-- system. Moving that managed container is only a fallback: combat and other
+-- alert updates can place it back at the full-canvas center. The roll rows are
+-- ordinary, non-protected frames, however, and Blizzard already rebuilds their
+-- anchors in GroupLootContainer_Update. Follow the established mover pattern:
+-- let the native update finish, then preserve its ordering and spacing while
+-- anchoring the visible rows directly inside Mainhand. A container relocation
+-- can no longer carry those rows back to the monitor seam.
+local function IsNativeGroupLootRowAnchor(row, container)
+    if not row.GetNumPoints or not row.GetPoint then return false end
+    local numPoints = row:GetNumPoints()
+    if numPoints == 0 then return true end
+    if numPoints ~= 1 then return false end
+    local _, relativeTo = row:GetPoint(1)
+    if relativeTo == container then return true end
+    -- UIParent is accepted only after Offhand has adopted this row. A fresh
+    -- UIParent-relative point may belong to another mover and must be preserved.
+    return relativeTo == UIParent and groupLootRowsOwned[row] == true
+end
+
+local function PositionGroupLootRows(container)
+    if not groupLootRowMover.active or container ~= groupLootRowMover.container
+        or not Offhand.db or not Offhand.db.enabled or not Offhand.db.seamRedirect then return false end
+    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
+        and Offhand.Viewport:GetMetrics() or nil
+    if not metrics or not metrics.isSpanned then return false end
+
+    local rows = container and container.rollFrames
+    if type(rows) ~= "table" then return false end
+    local maxIndex = tonumber(container.maxIndex) or 0
+    local reservedSize = tonumber(container.reservedSize) or 100
+
+    -- Validate the complete native set before moving anything. This makes an
+    -- addon-owned mover (a row relative to its own anchor) an explicit conflict
+    -- instead of creating a last-writer contest.
+    for index = 1, maxIndex do
+        local row = rows[index]
+        if row then
+            if (row.IsForbidden and row:IsForbidden())
+                or (row.IsProtected and row:IsProtected())
+                or not IsNativeGroupLootRowAnchor(row, container) then
+                local name = row.GetName and row:GetName() or tostring(index)
+                groupLootRowMover.active = false
+                groupLootRowMover.conflict = "custom-or-protected-row:" .. tostring(name)
+                return false
             end
-        end)
-        if not configured then
-            secureTransientShowPositioners[frame] = nil
-            return false
         end
     end
-    return pcall(function()
-        positioner:SetAttribute("offhandPoint", spec.point)
-        positioner:SetAttribute("offhandX", x)
-        positioner:SetAttribute("offhandY", y)
-    end)
+
+    local moved = 0
+    for index = 1, maxIndex do
+        local row = rows[index]
+        if row and row.ClearAllPoints and row.SetPoint then
+            local rowScale = row.GetEffectiveScale and row:GetEffectiveScale() or 1
+            local parentScale = UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
+            local factor = parentScale / math.max(tonumber(rowScale) or 1, 0.0001)
+            row:ClearAllPoints()
+            row:SetPoint("CENTER", UIParent, "BOTTOMLEFT",
+                groupLootRowMover.physicalX * factor,
+                groupLootRowMover.physicalY * factor + reservedSize * (index - 0.5))
+            groupLootRowsOwned[row] = true
+            moved = moved + 1
+        end
+    end
+    groupLootRowMover.rowsMoved = moved
+    groupLootRowMover.conflict = nil
+    return true
+end
+
+local function ConfigureGroupLootRowMover(container, physicalX, physicalY)
+    if InCombatLockdown() or not container then return false end
+    groupLootRowMover.container = container
+    groupLootRowMover.physicalX = physicalX
+    groupLootRowMover.physicalY = physicalY
+    groupLootRowMover.active = true
+    groupLootRowMover.conflict = nil
+
+    if not groupLootRowMover.hooked and type(_G.GroupLootContainer_Update) == "function"
+        and type(hooksecurefunc) == "function" then
+        hooksecurefunc("GroupLootContainer_Update", function(updatedContainer)
+            PositionGroupLootRows(updatedContainer or _G.GroupLootContainer)
+        end)
+        groupLootRowMover.hooked = true
+    end
+    PositionGroupLootRows(container)
+    return groupLootRowMover.hooked
 end
 
 local function PositionSecureMainhandTransient(frame, spec, m)
@@ -1392,10 +1436,14 @@ local function PositionSecureMainhandTransient(frame, spec, m)
         or (m.gameLeft + m.gameRight) / 2
     local py = spec.point:find("TOP") and m.gameTop or spec.point:find("BOTTOM") and m.gameBottom
         or (m.gameBottom + m.gameTop) / 2
+    local physicalX = px + (spec.x or 0) * m.hudScale
+    local physicalY = py + (spec.y or 0) * m.hudScale
     local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
-    local x = (px + (spec.x or 0) * m.hudScale) * factor
-    local y = (py + (spec.y or 0) * m.hudScale) * factor
-    ConfigureSecureShowPositioner(frame, spec, x, y)
+    local x = physicalX * factor
+    local y = physicalY * factor
+    if spec.groupLootRows then
+        ConfigureGroupLootRowMover(frame, physicalX, physicalY)
+    end
     if SecureScreenPoint(frame, spec.point, x, y) then
         secureTransientOwned[frame] = true
         return true

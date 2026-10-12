@@ -6,6 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ## [2.1.2-beta.21] - 2026-10-13
 
+### Fixed
+- Group-loot rolls now remain inside Mainhand during combat. Offhand follows
+  Blizzard's native group-loot update and redirects the individual roll rows,
+  so later movement of Blizzard's managed alert container cannot pull them back
+  to the monitor seam. Native stacking is retained, and custom row movers keep
+  ownership instead of being overwritten.
+
 ### Changed
 - `/offhand diag` now reports a concise current support snapshot instead of the
   accumulated renderer, anti-aliasing, nameplate, bag, cinematic, panel-reload,

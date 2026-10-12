@@ -202,24 +202,22 @@ Stable IDs for reports that require follow-up across test sessions.
 
 ## OH-UI-004 — Group loot rolls centered on the monitor seam
 
-- Status: Beta 21 fix failed live; root cause corrected in current source and
-  automated validation passed; live group-loot QA pending.
+- Status: Beta 21 container fix failed live; row-level correction implemented
+  in current source and automated validation passed; live group-loot QA pending.
 - Client: Forever Beta, reproduced with Offhand 2.1.2 Beta 21.
 - Symptom: Blizzard's group-loot roll container appears at the full-span center
   or partly off-screen instead of inside Mainhand.
-- Cause: `GroupLootContainer` inherits `BottomManagedFrameTemplate`. Blizzard
-  declares it hidden and unanchored, so Beta 21's stock-anchor guard rejected
-  the freshly preloaded frame. Blizzard later shows the container, runs
-  `BottomManagedFrameContainer:Layout()`, and only afterward shows
-  `GroupLootFrameN`; that final transaction would also overwrite a pre-combat
-  anchor with the full-canvas bottom center. The similarly managed Tracked
-  Buffs system is not the roll's anchor.
-- Fix: `GroupLootContainer` still uses the restricted secure Mainhand
-  positioner, but each Blizzard `GroupLootFrameN` now has a secure post-show
-  wrapper that reapplies the container anchor after the final managed-layout
-  pass, including in combat. Offhand preserves user/addon-relative placements,
-  adds no insecure loot event handler, and discovers both known load-on-demand
-  loot modules.
+- Cause: `GroupLootContainer` is owned by Blizzard's alert-layout system. Its
+  anchor can be recalculated at combat transitions and on later alert updates,
+  so moving the container is not durable. The previous secure `OnShow` repair
+  still left every roll row parented to that movable container. The similarly
+  managed Tracked Buffs system is not the roll's anchor.
+- Fix: Offhand retains the container anchor only as a harmless fallback. After
+  Blizzard's native `GroupLootContainer_Update`, it now preserves native row
+  order and spacing while anchoring each non-protected visible roll directly to
+  Mainhand. Subsequent container movement therefore cannot drag rolls to the
+  seam. A custom/protected row anchor is treated as another addon's ownership
+  and disables Offhand's row mover instead of creating an anchor contest.
 - Live QA: Trigger several simultaneous need/greed rolls before and during
   combat, `/reload` in a group, and confirm the rolls remain visible without
   protected-action or secret-value errors.

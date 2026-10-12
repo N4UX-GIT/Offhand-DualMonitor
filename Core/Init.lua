@@ -1387,11 +1387,14 @@ SlashCmdList["OFFHAND"] = function(msg)
         end
         if Offhand.HUD and Offhand.HUD.GetGroupLootDiagnostics then
             local loot = Offhand.HUD:GetGroupLootDiagnostics()
-            Offhand:Print("Group loot diagnostics: Loaded=%s | Preload=%s | SecureAnchor=%s | ShowRepair=%s | Triggers=%d | Combat=%s.",
+            Offhand:Print("Group loot diagnostics: Loaded=%s | Preload=%s | SecureAnchor=%s | RowMover=%s/%s | Rows=%d | Conflict=%s | Triggers=%d | Combat=%s.",
                 loot.loaded and "yes" or "no",
                 loot.preloadAttempted and "yes" or "no",
                 loot.anchorPrepared and "yes" or "no",
-                loot.showRepairPrepared and "yes" or "no",
+                loot.rowMoverPrepared and "yes" or "no",
+                loot.rowMoverActive and "active" or "inactive",
+                loot.rowsMoved or 0,
+                tostring(loot.conflict or "none"),
                 loot.triggerCount or 0,
                 loot.inCombat and "yes" or "no")
         end
