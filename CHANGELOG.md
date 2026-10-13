@@ -6,6 +6,15 @@ All notable changes to this project will be documented in this file.
 
 ## [2.1.2-beta.21] - 2026-10-13
 
+### Added
+- Group-loot rolls can now be positioned from Display settings with an
+  Offhand-owned draggable preview. The saved position is proportional to the
+  Mainhand viewport, additional rolls retain Blizzard's upward stacking, and a
+  reset button restores the lower-center default. Movement is unavailable in
+  combat and yields when another addon owns a roll anchor. Layout refreshes are
+  suspended for the preview while it is actively being dragged, preventing it
+  from jittering toward its previously saved position.
+
 ### Fixed
 - Group-loot rolls now remain inside Mainhand during combat. Offhand follows
   Blizzard's native group-loot update and redirects the individual roll rows,

@@ -10,6 +10,7 @@ local addon = {
         independentWorkspacePanels = true,
         savedWorkspacePositions = {},
         savedMainPositions = {},
+        groupLootPosition = {},
     }
 }
 
@@ -150,6 +151,9 @@ local function makeMockFrame(name, w, h)
         return self.h
     end
     function f:GetBottom() return self:GetTop() - self.h end
+    function f:GetCenter()
+        return self:GetLeft() + self.w / 2, self:GetBottom() + self.h / 2
+    end
     function f:IsShown() return self.shown end
     function f:Show()
         self.shown = true
@@ -163,6 +167,9 @@ local function makeMockFrame(name, w, h)
     function f:SetUserPlaced(up) self.userPlaced = up end
     function f:IsUserPlaced() return self.userPlaced end
     function f:SetMovable(m) self.movable = m end
+    function f:SetFrameStrata(strata) self.strata = strata end
+    function f:SetFrameLevel(level) self.frameLevel = level end
+    function f:GetFrameLevel() return self.frameLevel or 0 end
     function f:SetClampedToScreen(c) self.clamped = c end
     function f:EnableMouse(m) self.mouse = m end
     function f:RegisterForDrag() end
@@ -178,6 +185,12 @@ local function makeMockFrame(name, w, h)
     function f:GetScript(event) return self.scripts[event] end
     function f:SetScript(event, fn) self.scripts[event] = fn end
     function f:RegisterEvent(event) self.registeredEvents[event] = true end
+    function f:CreateFontString()
+        local fontString = { points = {} }
+        function fontString:SetPoint(...) self.points[#self.points + 1] = { ... } end
+        function fontString:SetText(text) self.text = text end
+        return fontString
+    end
     function f:GetAttribute(key) return self.attributes[key] end
     function f:SetAttributeNoHandler(key, value) self.attributes[key] = value end
     function f:IsForbidden() return false end
@@ -550,6 +563,53 @@ GroupLootContainer_Update(GroupLootContainer)
 assertMainhandAnchor(GroupLootFrame2, "CENTER", 2720, 346,
     "second group-loot row after in-combat native update")
 combatLocked = false
+
+-- Offhand exposes its own non-secure preview outside combat instead of making
+-- Blizzard's managed container or roll rows draggable. Saving the preview
+-- records a proportional Mainhand position and the native update hook applies
+-- it to every roll while preserving Blizzard's upward stack.
+local moverOpened, moverReason = addon.HUD:SetGroupLootMoverShown(true)
+assert(moverOpened and moverReason == "shown", "group-loot mover preview must open outside combat")
+local groupLootMover = _G.OffhandGroupLootMover
+assert(groupLootMover and groupLootMover:IsShown(), "group-loot mover preview must be visible")
+groupLootMover:GetScript("OnDragStart")(groupLootMover)
+groupLootMover:ClearAllPoints()
+groupLootMover:SetPoint("CENTER", UIParent, "BOTTOMLEFT", 3300, 700)
+addon.HUD:PositionMainhandTransientFrames()
+assertMainhandAnchor(groupLootMover, "CENTER", 3300, 700,
+    "group-loot preview during an active drag and layout refresh")
+local draggingDiagnostics = addon.HUD:GetGroupLootDiagnostics()
+assert(draggingDiagnostics.moverDragging,
+    "group-loot diagnostics must report an active preview drag")
+groupLootMover:GetScript("OnDragStop")(groupLootMover)
+assert(math.abs(addon.db.groupLootPosition.x - ((3300 - 1440) / 2560)) < 0.0001,
+    "group-loot mover must save a normalized Mainhand X position")
+assert(math.abs(addon.db.groupLootPosition.y - ((700 - 6) / 1440)) < 0.0001,
+    "group-loot mover must save a normalized Mainhand Y position")
+GroupLootContainer_Update(GroupLootContainer)
+assertMainhandAnchor(GroupLootFrame1, "CENTER", 3300, 700,
+    "first group-loot row at the user position")
+assertMainhandAnchor(GroupLootFrame2, "CENTER", 3300, 800,
+    "second group-loot row above the user position")
+local movedDiagnostics = addon.HUD:GetGroupLootDiagnostics()
+assert(movedDiagnostics.customPosition and movedDiagnostics.moverShown,
+    "group-loot diagnostics must report the saved position and visible preview")
+
+addon.HUD:SetGroupLootMoverShown(false)
+assert(not groupLootMover:IsShown(), "group-loot mover preview must hide on request")
+combatLocked = true
+local openedInCombat, combatReason = addon.HUD:SetGroupLootMoverShown(true)
+assert(not openedInCombat and combatReason == "combat" and not groupLootMover:IsShown(),
+    "group-loot movement must remain unavailable in combat")
+combatLocked = false
+assert(addon.HUD:ResetGroupLootPosition(), "group-loot position reset must succeed outside combat")
+assert(addon.db.groupLootPosition.x == nil and addon.db.groupLootPosition.y == nil,
+    "group-loot position reset must remove the saved custom coordinates")
+assertMainhandAnchor(GroupLootFrame1, "CENTER", 2720, 246,
+    "first group-loot row after position reset")
+assertMainhandAnchor(GroupLootFrame2, "CENTER", 2720, 346,
+    "second group-loot row after position reset")
+
 GroupLootFrame1:Hide()
 GroupLootFrame2:Hide()
 

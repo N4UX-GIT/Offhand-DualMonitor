@@ -1219,6 +1219,9 @@ local groupLootRowMover = {
     rowsMoved = 0,
     conflict = nil,
 }
+local groupLootMoverFrame
+local groupLootMoverRequested = false
+local groupLootMoverDragging = false
 
 -- Keep /offhand diag focused on the current group-loot QA surface without
 -- reading protected frame geometry in combat. These flags describe only the
@@ -1237,6 +1240,12 @@ function HUD:GetGroupLootDiagnostics()
         rowMoverActive = groupLootRowMover.active,
         rowsMoved = groupLootRowMover.rowsMoved or 0,
         conflict = groupLootRowMover.conflict,
+        customPosition = Offhand.db and type(Offhand.db.groupLootPosition) == "table"
+            and tonumber(Offhand.db.groupLootPosition.x) ~= nil
+            and tonumber(Offhand.db.groupLootPosition.y) ~= nil or false,
+        moverShown = groupLootMoverFrame and groupLootMoverFrame.IsShown
+            and groupLootMoverFrame:IsShown() or false,
+        moverDragging = groupLootMoverDragging,
         triggerCount = triggerCount,
         inCombat = InCombatLockdown and InCombatLockdown() or false,
     }
@@ -1346,8 +1355,8 @@ end
 -- system. Moving that managed container is only a fallback: combat and other
 -- alert updates can place it back at the full-canvas center. The roll rows are
 -- ordinary, non-protected frames, however, and Blizzard already rebuilds their
--- anchors in GroupLootContainer_Update. Follow the established mover pattern:
--- let the native update finish, then preserve its ordering and spacing while
+-- anchors in GroupLootContainer_Update. Follow Blizzard's native update first,
+-- then preserve its ordering and spacing while
 -- anchoring the visible rows directly inside Mainhand. A container relocation
 -- can no longer carry those rows back to the monitor seam.
 local function IsNativeGroupLootRowAnchor(row, container)
@@ -1362,6 +1371,34 @@ local function IsNativeGroupLootRowAnchor(row, container)
     return relativeTo == UIParent and groupLootRowsOwned[row] == true
 end
 
+local function GetSavedGroupLootCenter(metrics)
+    local position = Offhand.db and Offhand.db.groupLootPosition
+    local xRatio = type(position) == "table" and tonumber(position.x) or nil
+    local yRatio = type(position) == "table" and tonumber(position.y) or nil
+    if not xRatio or not yRatio or xRatio < 0 or xRatio > 1 or yRatio < 0 or yRatio > 1 then
+        return nil, nil
+    end
+    return metrics.gameLeft + (metrics.gameRight - metrics.gameLeft) * xRatio,
+        metrics.gameBottom + (metrics.gameTop - metrics.gameBottom) * yRatio
+end
+
+local function GetDefaultGroupLootCenter(metrics, container)
+    local row = container and container.rollFrames and container.rollFrames[1]
+    local rowScale = row and row.GetEffectiveScale and row:GetEffectiveScale() or 1
+    local parentScale = UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
+    local factor = parentScale / math.max(tonumber(rowScale) or 1, 0.0001)
+    local reservedSize = tonumber(container and container.reservedSize) or 100
+    return (metrics.gameLeft + metrics.gameRight) / 2,
+        metrics.gameBottom + 190 * metrics.hudScale + (reservedSize * 0.5 / factor)
+end
+
+local function GetGroupLootCenter(metrics, container)
+    local x, y = GetSavedGroupLootCenter(metrics)
+    if x and y then return x, y, true end
+    x, y = GetDefaultGroupLootCenter(metrics, container)
+    return x, y, false
+end
+
 local function PositionGroupLootRows(container)
     if not groupLootRowMover.active or container ~= groupLootRowMover.container
         or not Offhand.db or not Offhand.db.enabled or not Offhand.db.seamRedirect then return false end
@@ -1373,6 +1410,7 @@ local function PositionGroupLootRows(container)
     if type(rows) ~= "table" then return false end
     local maxIndex = tonumber(container.maxIndex) or 0
     local reservedSize = tonumber(container.reservedSize) or 100
+    local savedCenterX, savedCenterY = GetSavedGroupLootCenter(metrics)
 
     -- Validate the complete native set before moving anything. This makes an
     -- addon-owned mover (a row relative to its own anchor) an explicit conflict
@@ -1399,9 +1437,15 @@ local function PositionGroupLootRows(container)
             local parentScale = UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
             local factor = parentScale / math.max(tonumber(rowScale) or 1, 0.0001)
             row:ClearAllPoints()
-            row:SetPoint("CENTER", UIParent, "BOTTOMLEFT",
-                groupLootRowMover.physicalX * factor,
-                groupLootRowMover.physicalY * factor + reservedSize * (index - 0.5))
+            if savedCenterX and savedCenterY then
+                row:SetPoint("CENTER", UIParent, "BOTTOMLEFT",
+                    savedCenterX * factor,
+                    savedCenterY * factor + reservedSize * (index - 1))
+            else
+                row:SetPoint("CENTER", UIParent, "BOTTOMLEFT",
+                    groupLootRowMover.physicalX * factor,
+                    groupLootRowMover.physicalY * factor + reservedSize * (index - 0.5))
+            end
             groupLootRowsOwned[row] = true
             moved = moved + 1
         end
@@ -1430,6 +1474,148 @@ local function ConfigureGroupLootRowMover(container, physicalX, physicalY)
     return groupLootRowMover.hooked
 end
 
+local function PositionGroupLootMoverFrame(metrics)
+    -- Layout, scale and native-alert refreshes may run repeatedly while the
+    -- mouse is held. Re-anchoring here would fight StartMoving and make the
+    -- preview jump back to its last saved point until mouse release.
+    if not groupLootMoverFrame or groupLootMoverDragging then return false end
+    metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics
+        and Offhand.Viewport:GetMetrics() or nil)
+    if not metrics or not metrics.isSpanned then return false end
+    local x, y = GetGroupLootCenter(metrics, groupLootRowMover.container or _G.GroupLootContainer)
+    groupLootMoverFrame:ClearAllPoints()
+    groupLootMoverFrame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x, y)
+    return true
+end
+
+local function SaveGroupLootMoverPosition(frame)
+    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
+        and Offhand.Viewport:GetMetrics() or nil
+    if not metrics or not metrics.isSpanned or not frame.GetCenter then return false end
+    local centerX, centerY = frame:GetCenter()
+    if not centerX or not centerY then return false end
+
+    local halfWidth = ((frame.GetWidth and frame:GetWidth()) or 277) * 0.5
+    local halfHeight = ((frame.GetHeight and frame:GetHeight()) or 67) * 0.5
+    centerX = math.max(metrics.gameLeft + halfWidth,
+        math.min(metrics.gameRight - halfWidth, centerX))
+    centerY = math.max(metrics.gameBottom + halfHeight,
+        math.min(metrics.gameTop - halfHeight, centerY))
+
+    local width = math.max(metrics.gameRight - metrics.gameLeft, 1)
+    local height = math.max(metrics.gameTop - metrics.gameBottom, 1)
+    Offhand.db.groupLootPosition = {
+        x = math.max(0, math.min(1, (centerX - metrics.gameLeft) / width)),
+        y = math.max(0, math.min(1, (centerY - metrics.gameBottom) / height)),
+    }
+    PositionGroupLootMoverFrame(metrics)
+    HUD:PositionMainhandTransientFrames(metrics)
+    return true
+end
+
+local function EnsureGroupLootMoverFrame()
+    if groupLootMoverFrame then return groupLootMoverFrame end
+    if not CreateFrame or not UIParent or InCombatLockdown() then return nil end
+    local template = not Offhand.isLegacyWrath and "BackdropTemplate" or nil
+    groupLootMoverFrame = CreateFrame("Frame", "OffhandGroupLootMover", UIParent, template)
+    groupLootMoverFrame:SetSize(277, 67)
+    groupLootMoverFrame:SetFrameStrata("DIALOG")
+    if groupLootMoverFrame.SetFrameLevel then groupLootMoverFrame:SetFrameLevel(900) end
+    groupLootMoverFrame:SetMovable(true)
+    groupLootMoverFrame:EnableMouse(true)
+    groupLootMoverFrame:RegisterForDrag("LeftButton")
+    if groupLootMoverFrame.SetBackdrop then
+        groupLootMoverFrame:SetBackdrop({
+            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+            tile = true, tileSize = 16, edgeSize = 12,
+            insets = { left = 3, right = 3, top = 3, bottom = 3 },
+        })
+        groupLootMoverFrame:SetBackdropColor(0.05, 0.05, 0.05, 0.92)
+        groupLootMoverFrame:SetBackdropBorderColor(1, 0.82, 0, 1)
+    end
+
+    local title = groupLootMoverFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    title:SetPoint("CENTER", groupLootMoverFrame, "CENTER", 0, 8)
+    title:SetText((Offhand.L and Offhand.L["GROUP_LOOT_MOVER_TITLE"]) or "Group Loot Rolls")
+    local instruction = groupLootMoverFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    instruction:SetPoint("TOP", title, "BOTTOM", 0, -3)
+    instruction:SetText((Offhand.L and Offhand.L["GROUP_LOOT_MOVER_DRAG"]) or "Drag to move")
+
+    groupLootMoverFrame:SetScript("OnDragStart", function(self)
+        if InCombatLockdown() or not groupLootMoverRequested then return end
+        groupLootMoverDragging = true
+        self:StartMoving()
+    end)
+    groupLootMoverFrame:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        groupLootMoverDragging = false
+        if InCombatLockdown() then return end
+        SaveGroupLootMoverPosition(self)
+    end)
+    if groupLootMoverFrame.RegisterEvent then
+        groupLootMoverFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
+        groupLootMoverFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+        groupLootMoverFrame:SetScript("OnEvent", function(self, event)
+            if event == "PLAYER_REGEN_DISABLED" then
+                if groupLootMoverDragging then self:StopMovingOrSizing() end
+                groupLootMoverDragging = false
+                self:Hide()
+            elseif groupLootMoverRequested then
+                PositionGroupLootMoverFrame()
+                self:Show()
+            end
+        end)
+    end
+    groupLootMoverFrame:Hide()
+    return groupLootMoverFrame
+end
+
+function HUD:SetGroupLootMoverShown(shown)
+    shown = shown == true
+    if shown and InCombatLockdown() then return false, "combat" end
+    if shown then
+        PreloadGroupLootForSecurePositioning()
+        self:PositionMainhandTransientFrames()
+        if groupLootRowMover.conflict then return false, "conflict" end
+        if not groupLootRowMover.hooked or not groupLootRowMover.active then
+            return false, "unavailable"
+        end
+        local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
+            and Offhand.Viewport:GetMetrics() or nil
+        if not metrics or not metrics.isSpanned then return false, "span" end
+        local mover = EnsureGroupLootMoverFrame()
+        if not mover then return false, "unavailable" end
+        groupLootMoverRequested = true
+        PositionGroupLootMoverFrame(metrics)
+        mover:Show()
+        return true, "shown"
+    end
+    groupLootMoverRequested = false
+    if groupLootMoverFrame then
+        if groupLootMoverDragging then groupLootMoverFrame:StopMovingOrSizing() end
+        groupLootMoverDragging = false
+        groupLootMoverFrame:Hide()
+    end
+    return true, "hidden"
+end
+
+function HUD:ToggleGroupLootMover()
+    return self:SetGroupLootMoverShown(not groupLootMoverRequested)
+end
+
+function HUD:ResetGroupLootPosition()
+    if not Offhand.db or InCombatLockdown() then return false end
+    Offhand.db.groupLootPosition = {}
+    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
+        and Offhand.Viewport:GetMetrics() or nil
+    if metrics and metrics.isSpanned then
+        PositionGroupLootMoverFrame(metrics)
+        self:PositionMainhandTransientFrames(metrics)
+    end
+    return true
+end
+
 local function PositionSecureMainhandTransient(frame, spec, m)
     if not IsStockSecureTransientAnchor(frame, spec) then return false end
     local px = spec.point:find("LEFT") and m.gameLeft or spec.point:find("RIGHT") and m.gameRight
@@ -1443,6 +1629,7 @@ local function PositionSecureMainhandTransient(frame, spec, m)
     local y = physicalY * factor
     if spec.groupLootRows then
         ConfigureGroupLootRowMover(frame, physicalX, physicalY)
+        if groupLootMoverRequested then PositionGroupLootMoverFrame(m) end
     end
     if SecureScreenPoint(frame, spec.point, x, y) then
         secureTransientOwned[frame] = true

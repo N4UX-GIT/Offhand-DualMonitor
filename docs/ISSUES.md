@@ -202,8 +202,9 @@ Stable IDs for reports that require follow-up across test sessions.
 
 ## OH-UI-004 — Group loot rolls centered on the monitor seam
 
-- Status: Beta 21 container fix failed live; row-level correction implemented
-  in current source and automated validation passed; live group-loot QA pending.
+- Status: Resolved in live Forever Beta QA. The row-level correction remains in
+  position before, during and after combat. An optional position control is now
+  implemented in current Beta 21 source; its movement workflow awaits live QA.
 - Client: Forever Beta, reproduced with Offhand 2.1.2 Beta 21.
 - Symptom: Blizzard's group-loot roll container appears at the full-span center
   or partly off-screen instead of inside Mainhand.
@@ -218,9 +219,15 @@ Stable IDs for reports that require follow-up across test sessions.
   Mainhand. Subsequent container movement therefore cannot drag rolls to the
   seam. A custom/protected row anchor is treated as another addon's ownership
   and disables Offhand's row mover instead of creating an anchor contest.
-- Live QA: Trigger several simultaneous need/greed rolls before and during
-  combat, `/reload` in a group, and confirm the rolls remain visible without
-  protected-action or secret-value errors.
+- Optional movement: Display settings can show an Offhand-owned drag preview
+  outside combat. Its center is stored proportionally within Mainhand, while
+  the actual Blizzard frames remain non-interactive and are positioned only by
+  the established post-update hook. Reset restores the lower-center default.
+- Live QA: Move the preview, trigger several simultaneous need/greed rolls,
+  enter and leave combat, then `/reload` while grouped. Confirm the first roll
+  returns to the saved position, later rolls stack upward, the preview hides in
+  combat, and no protected-action or secret-value errors occur. Repeat with a
+  custom loot-roll mover and confirm Offhand yields ownership.
 
 ## OH-COMP-001 — Newer Companion reported as incompatible
 

@@ -1025,6 +1025,9 @@ function Options:CreateFloatingPanel()
 
     configFrame:SetScript("OnHide", function()
         Options:HideSeamGuide()
+        if Offhand.HUD and Offhand.HUD.SetGroupLootMoverShown then
+            Offhand.HUD:SetGroupLootMoverShown(false)
+        end
     end)
 
     -- Divider Line Below Tabs
@@ -1504,6 +1507,44 @@ function Options:CreateFloatingPanel()
         "%.0f%%", L["SPEECH_BUBBLE_SCALE_TIP_TITLE"], L["SPEECH_BUBBLE_SCALE_TIP_DESC"])
     speechBubbleSlider:SetPoint("TOPLEFT", 336, -114)
     speechBubbleSlider:SetWidth(200)
+
+    local groupLootCard = CreateCard(tab1, L["CARD_GROUP_LOOT"], 94)
+
+    local groupLootDescription = groupLootCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    groupLootDescription:SetPoint("TOPLEFT", 14, -32)
+    groupLootDescription:SetWidth(365)
+    groupLootDescription:SetJustifyH("LEFT")
+    groupLootDescription:SetText(L["GROUP_LOOT_MOVE_DESC"])
+
+    local groupLootMoveButton = CreateFrame("Button", nil, groupLootCard, "UIPanelButtonTemplate")
+    groupLootMoveButton:SetSize(128, 24)
+    groupLootMoveButton:SetPoint("TOPRIGHT", -150, -38)
+    groupLootMoveButton:SetText(L["GROUP_LOOT_MOVE"])
+    groupLootMoveButton:SetScript("OnClick", function()
+        if not Offhand.HUD or not Offhand.HUD.ToggleGroupLootMover then return end
+        local ok, reason = Offhand.HUD:ToggleGroupLootMover()
+        if not ok then
+            Offhand:Print(L["GROUP_LOOT_MOVE_UNAVAILABLE"], tostring(reason or "unavailable"))
+        end
+    end)
+    if Offhand.SetTooltip then
+        Offhand:SetTooltip(groupLootMoveButton,
+            L["GROUP_LOOT_MOVE_TIP_TITLE"], L["GROUP_LOOT_MOVE_TIP_DESC"])
+    end
+
+    local groupLootResetButton = CreateFrame("Button", nil, groupLootCard, "UIPanelButtonTemplate")
+    groupLootResetButton:SetSize(128, 24)
+    groupLootResetButton:SetPoint("LEFT", groupLootMoveButton, "RIGHT", 8, 0)
+    groupLootResetButton:SetText(L["GROUP_LOOT_RESET"])
+    groupLootResetButton:SetScript("OnClick", function()
+        if Offhand.HUD and Offhand.HUD.ResetGroupLootPosition then
+            Offhand.HUD:ResetGroupLootPosition()
+        end
+    end)
+    if Offhand.SetTooltip then
+        Offhand:SetTooltip(groupLootResetButton,
+            L["GROUP_LOOT_RESET_TIP_TITLE"], L["GROUP_LOOT_RESET_TIP_DESC"])
+    end
 
     local card1_5 = CreateCard(tab1, L["OBS_SETUP"], 110)
     
@@ -2546,7 +2587,7 @@ function Options:CreateFloatingPanel()
         helpCards[#helpCards + 1] = card
     end
 
-    Options:StackCards(tab1, {card1_1, card1_2, card1_3, card2_3, card1_4, card1_5})
+    Options:StackCards(tab1, {card1_1, card1_2, card1_3, card2_3, card1_4, groupLootCard, card1_5})
     offhandCards = {card2_1, card2_2}
     if advancedCard then offhandCards[#offhandCards + 1] = advancedCard end
     offhandCards[#offhandCards + 1] = recoveryCard

@@ -1,6 +1,17 @@
 local _, Offhand = ...
 if GetLocale() ~= "esMX" then return end
 local L = Offhand.L
+L["CARD_GROUP_LOOT"] = "Group loot rolls"
+L["GROUP_LOOT_MOVE_DESC"] = "Choose where the first Need/Greed roll appears in Mainhand. Additional rolls retain Blizzard's upward stacking."
+L["GROUP_LOOT_MOVE"] = "Move position"
+L["GROUP_LOOT_MOVE_TIP_TITLE"] = "Move Group Loot Rolls"
+L["GROUP_LOOT_MOVE_TIP_DESC"] = "Shows a draggable preview in Mainhand. Movement is available only outside combat and yields to another addon's custom roll anchor."
+L["GROUP_LOOT_RESET"] = "Reset position"
+L["GROUP_LOOT_RESET_TIP_TITLE"] = "Reset Group Loot Position"
+L["GROUP_LOOT_RESET_TIP_DESC"] = "Restores Offhand's default group-loot position near the lower center of Mainhand."
+L["GROUP_LOOT_MOVER_TITLE"] = "Group Loot Rolls"
+L["GROUP_LOOT_MOVER_DRAG"] = "Drag to move"
+L["GROUP_LOOT_MOVE_UNAVAILABLE"] = "Group loot movement is unavailable: %s."
 L["ONBOARD_TITLE"] = "Welcome to Offhand"
 L["ONBOARD_PROGRESS"] = "First-time setup - Step %d of %d"
 L["ONBOARD_STEP_1_TITLE"] = "Turn a second display into your Offhand"

@@ -35,6 +35,7 @@ local defaultSettings = {
     worldTextScale = 1.00,          -- Fine tuning applied after the automatic topology correction
     speechBubbleCompensation = true, -- Replace enlarged bubbles only on affected mixed-height spans
     speechBubbleScale = 1.00,       -- Fine tuning for Offhand's replacement bubble
+    groupLootPosition = {},         -- Optional normalized Mainhand position for the first group-loot roll
     chatPosition = "GAME",          -- "GAME" (bottom-left of 3D curved monitor) or "DECK" (bottom bay of vertical monitor)
     dockChat = true,                -- Enable managed chat positioning
 
