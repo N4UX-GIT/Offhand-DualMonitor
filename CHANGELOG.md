@@ -10,6 +10,13 @@ All notable changes to this project will be documented in this file.
   upward direction remains the default for all existing and new profiles.
 
 ### Fixed
+- Workspace window locking now waits for the normal login or `/reload`
+  restoration to finish before active close recovery begins. Active recovery
+  uses one bounded, short settlement path for maps, bags and Character instead
+  of repeatedly accumulating full startup restoration callbacks.
+- Slider drags now commit the thumb's final displayed value on mouse release,
+  so Character workspace scaling updates immediately without requiring a
+  subsequent step-button click.
 - Retail 12.1.5 now uses the correct `120105` interface number in the generic
   and Mainline manifests, preventing the client from marking Offhand out of
   date. The invalid `121500` and redundant `121000` values were removed.

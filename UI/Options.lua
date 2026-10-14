@@ -847,6 +847,16 @@ local function CreateNativeSlider(parent, text, minVal, maxVal, step, getVal, se
             self._dragStartX = nil
             self._dragStartVal = nil
             self:SetScript("OnUpdate", nil)
+            -- Native slider handling can move the thumb after the last custom
+            -- OnUpdate. Commit that final displayed value before applying the
+            -- layout so a quick drag does not require a step-button click.
+            local finalValue = math.max(minVal, math.min(maxVal, self:GetValue() or getVal()))
+            finalValue = math.floor(((finalValue - minVal) / step) + 0.5) * step + minVal
+            finalValue = math.floor(finalValue * 10000 + 0.5) / 10000
+            if editBox and not (editBox.HasFocus and editBox:HasFocus()) then
+                editBox:SetText(FormatValue(finalValue))
+            end
+            setVal(finalValue)
             Offhand:ApplyFullLayout()
         end
     end)

@@ -24,8 +24,12 @@ local metrics = { isSpanned = true }
 addon.Viewport = { GetMetrics = function() return metrics end }
 
 local restores = 0
+local restoreMode
 addon.Canvas = {
-    RestorePersistentFrames = function() restores = restores + 1 end,
+    RestorePersistentFrames = function(_, mode)
+        restores = restores + 1
+        restoreMode = mode
+    end,
 }
 
 local function frame(name, shown, scale)
@@ -59,6 +63,9 @@ assert(loadfile("Core/WorkspaceBehavior.lua"))("Offhand", addon)
 local behavior = addon.WorkspaceBehavior
 
 assert(behavior:SetLockEnabled(true), "supported clients must enable lock-open")
+assert(restores == 0 and not addon.db.openWorkspacePanels.WorldMapFrame,
+    "active lock restoration must remain suspended during login or reload")
+eventFrame.callback(eventFrame, "PLAYER_ENTERING_WORLD")
 assert(addon.db.persistentWorkspacePanels and addon.db.restoreWorkspaceOnReload,
     "lock-open must enable the persistence paths it depends upon")
 assert(addon.db.openWorkspacePanels.WorldMapFrame
@@ -67,6 +74,8 @@ assert(addon.db.openWorkspacePanels.WorldMapFrame
     "lock-open must preserve open intent for every selected supported category")
 assert(addon.db.nativeBackpackWorkspaceOpen == true and restores > 0,
     "a hidden locked native backpack must request restoration through Canvas")
+assert(restoreMode == "lock",
+    "active lock enforcement must use the bounded lock settlement path")
 assert(behavior:IsFrameLocked(WorldMapFrame, "WorldMapFrame"),
     "a saved selected workspace map must report locked")
 
@@ -97,5 +106,12 @@ CharacterFrame.scale = 0.9
 behavior:RefreshCharacterScale()
 assert(CharacterFrame.scale == 0.9,
     "CharacterFrame scaling must not mutate UI during combat")
+
+eventFrame.callback(eventFrame, "PLAYER_LEAVING_WORLD")
+WorldMapFrame.shown = false
+local restoresBeforeLeaving = restores
+behavior:RestoreLockedWindows()
+assert(restores == restoresBeforeLeaving,
+    "lock enforcement must stop while reload or world exit is in progress")
 
 print("PASS: workspace lock policy and reversible CharacterFrame scaling")

@@ -8,6 +8,8 @@ local _, Offhand = ...
 local Behavior = {
     characterState = setmetatable({}, { __mode = "k" }),
     refreshQueued = false,
+    sessionReady = false,
+    enterWorldGeneration = 0,
 }
 Offhand.WorkspaceBehavior = Behavior
 
@@ -162,7 +164,7 @@ function Behavior:RefreshCharacterScale()
 end
 
 function Behavior:RestoreLockedWindows()
-    if not self:IsLockSupported() or InCombat() or not Offhand.db
+    if not self.sessionReady or not self:IsLockSupported() or InCombat() or not Offhand.db
         or not Offhand.db.enabled or not Offhand.db.lockWorkspaceWindows
         or not IsSpanned() then return false end
     local saved = Offhand.db.savedWorkspacePositions
@@ -188,7 +190,9 @@ function Behavior:RestoreLockedWindows()
     end
 
     if needsRestore and Offhand.Canvas and Offhand.Canvas.RestorePersistentFrames then
-        Offhand.Canvas:RestorePersistentFrames()
+        -- Use the shorter active-lock settlement path. The normal login/reload
+        -- restoration remains owned by Canvas and must complete only once.
+        Offhand.Canvas:RestorePersistentFrames("lock")
     end
     return needsRestore
 end
@@ -224,7 +228,33 @@ function Offhand_ToggleSettings()
 end
 
 local events = CreateFrame("Frame")
-for _, event in ipairs({"PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED", "ADDON_LOADED"}) do
+for _, event in ipairs({"PLAYER_ENTERING_WORLD", "PLAYER_LEAVING_WORLD", "PLAYER_REGEN_ENABLED"}) do
     events:RegisterEvent(event)
 end
-events:SetScript("OnEvent", function() Behavior:QueueRefresh() end)
+events:SetScript("OnEvent", function(_, event)
+    if event == "PLAYER_LEAVING_WORLD" then
+        Behavior.enterWorldGeneration = Behavior.enterWorldGeneration + 1
+        Behavior.sessionReady = false
+        return
+    end
+    if event == "PLAYER_ENTERING_WORLD" then
+        Behavior.enterWorldGeneration = Behavior.enterWorldGeneration + 1
+        local generation = Behavior.enterWorldGeneration
+        Behavior.sessionReady = false
+        local function EnableAfterStartupRestore()
+            if generation ~= Behavior.enterWorldGeneration then return end
+            Behavior.sessionReady = true
+            Behavior:Refresh()
+        end
+        -- Canvas restores the saved reload state at 0.5 to 2.0 seconds.
+        -- Begin active lock enforcement only after those native openers and
+        -- Blizzard's own panel settlement have completed.
+        if C_Timer and C_Timer.After then
+            C_Timer.After(2.25, EnableAfterStartupRestore)
+        else
+            EnableAfterStartupRestore()
+        end
+        return
+    end
+    Behavior:QueueRefresh()
+end)

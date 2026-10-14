@@ -606,3 +606,20 @@ pass. Live acceptance remains required for:
 - Forever native gamepad and ConsolePort flows with Xbox- and PlayStation-style
   controllers: wizard completion, settings binding, cursor traversal across the
   span, combat, disconnect/reconnect, `/reload` and cold launch.
+
+## Retail 12.1.5 live follow-up: 2026-10-14
+
+- Pet-battle Mainhand confinement passed the reported live retest.
+- Character workspace scaling passed when changed through the step controls.
+  Dragging the slider could leave the frame at the previous sampled value until
+  a step button was clicked. The slider now commits its final displayed value
+  on mouse release; automated regression passes and live confirmation remains.
+- Workspace locks reopened closed Map, Character and bag windows, but timing
+  varied from immediate to roughly three seconds and `/reload` crashed the
+  client. Active lock enforcement was repeatedly entering the full startup
+  restoration path while its delayed panel and bag callbacks were still
+  settling, creating overlapping callbacks and a credible crash path. It now
+  remains suspended through login or reload, begins after the
+  normal startup restoration window, uses short active-lock delays, and
+  deduplicates the bag callback. Automated reload-boundary and settlement-mode
+  regressions pass; Retail and Classic live confirmation remains required.

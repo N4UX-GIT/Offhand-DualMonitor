@@ -1776,7 +1776,8 @@ function Canvas:QueuePersistentPanelRestore(frame, name, delaySeconds)
     return true
 end
 
-function Canvas:RestorePersistentFrames()
+function Canvas:RestorePersistentFrames(mode)
+    local activeLockRestore = mode == "lock"
     if not Offhand.db or not Offhand.db.enabled then return end
     self:RelinquishForeverEditModeFrames()
     self:RelinquishForeverNativeBags()
@@ -1872,7 +1873,8 @@ function Canvas:RestorePersistentFrames()
                     -- one before Offhand can detach it from the active slot. Only
                     -- an accepted restore consumes a slot: old addon child-frame
                     -- snapshots must not push valid panels several seconds back.
-                    local delay = 0.75 + genericRestoreIndex * 0.20
+                    local delay = activeLockRestore and 0.10
+                        or (0.75 + genericRestoreIndex * 0.20)
                     if Canvas:QueuePersistentPanelRestore(frame, name, delay) then
                         genericRestoreIndex = genericRestoreIndex + 1
                     end
@@ -1882,7 +1884,8 @@ function Canvas:RestorePersistentFrames()
             -- Load-on-demand Blizzard frames (Spellbook, Macros, Collections,
             -- and similar panels) do not exist yet after /reload. Load only the
             -- owner of a panel the user explicitly left open on the workspace.
-            local delay = 0.75 + genericRestoreIndex * 0.20
+            local delay = activeLockRestore and 0.10
+                or (0.75 + genericRestoreIndex * 0.20)
             if Canvas:RequestPersistentPanelLoad(name, delay) then
                 genericRestoreIndex = genericRestoreIndex + 1
             end
@@ -1895,8 +1898,11 @@ function Canvas:RestorePersistentFrames()
     -- backpack on Forever. Only the explicit mode-independent native marker is
     -- authoritative there.
     if Offhand.isForever then hasBag = IsNativeBackpackTrackedOpen() end
-    if canOpenPanels and hasBag and not (Baganator and Offhand.BagPersistence) then
-        C_Timer.After(1.5, function()
+    if canOpenPanels and hasBag and not (Baganator and Offhand.BagPersistence)
+        and (not activeLockRestore or not self.activeLockBagRestoreQueued) then
+        if activeLockRestore then self.activeLockBagRestoreQueued = true end
+        C_Timer.After(activeLockRestore and 0.10 or 1.5, function()
+            if activeLockRestore then Canvas.activeLockBagRestoreQueued = nil end
             -- The player can change interface style during the delay.
             if not CanManagePanelsFromAddon() then return end
             -- Combined Backpack mode may never create ContainerFrame1 during
@@ -1956,7 +1962,7 @@ function Canvas:RestorePersistentFrames()
     -- Blizzard and Edit Mode can finish their initial layout after the first
     -- restore pass. Reapply only already-visible saved workspace frames so chat
     -- dimensions and panel-slot detachment win the final startup race.
-    if C_Timer and C_Timer.After then
+    if not activeLockRestore and C_Timer and C_Timer.After then
         C_Timer.After(2, function()
             if Offhand.db and Offhand.db.enabled then
                 Canvas:RepairShownWorkspacePanels()
