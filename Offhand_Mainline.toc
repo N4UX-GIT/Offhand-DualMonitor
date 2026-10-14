@@ -31,6 +31,7 @@ Core\ChatBubbles.lua
 Core\SeamRedirect.lua
 Core\PanelMotion.lua
 Core\Canvas.lua
+Core\WorkspaceBehavior.lua
 Core\WorkspaceChrome.lua
 Core\BagPersistence.lua
 

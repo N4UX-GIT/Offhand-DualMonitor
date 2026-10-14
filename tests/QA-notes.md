@@ -567,3 +567,42 @@ setup deferral, and reporting of caught layout errors.
   Verify that Mainhand is 2560x1440 and the remaining 880-pixel side is Offhand.
 - On one 32:9/32:10 display, use Companion's explicit single-display split and
   verify Step 4 accepts the exact topology without showing manual confirmation.
+# Workspace lock, Character scaling and gamepad compatibility: 2026-10-14
+
+Automated coverage now verifies a bounded non-Forever lock-open policy for the
+World Map, native/supported bags and Character window; the policy preserves
+open intent through Canvas rather than rewriting user bindings. Enabling it
+also enables Escape and reload persistence. Forever deliberately reports the
+stronger lock as unavailable and retains native close/panel-manager ownership.
+
+CharacterFrame uses a reversible 75–150% workspace-only scale multiplier over
+the native frame scale. Moving it to Mainhand, disabling ownership, or loading
+ClassicUI Forever restores/yields the native scale. Combat performs no scale
+mutation. True frame resizing/reflow remains unsupported.
+
+Controller-style Blizzard presets and ConsolePort are detected as external
+protected-HUD owners. The wizard completes without cloning those layouts, the
+recovery action is disabled, and `Bindings.xml` exposes a normal Blizzard
+binding for toggling Offhand settings. The package script includes that
+automatic binding file.
+
+Forever's live native interface style is now authoritative even when Edit Mode
+preset data is stale or unavailable. While native gamepad navigation is active,
+Offhand does not create title-grip children inside Blizzard UIPanels, run the
+broad `UIParent` popup/void re-anchor scan, or auto-select an Edit Mode layout.
+Static regression coverage verifies that a gamepad-managed panel remains
+non-movable and structurally unchanged and that a centered navigation overlay
+retains its native anchor.
+
+Automated status: all 31 Lua test files and the shared multi-TOC addon validator
+pass. Live acceptance remains required for:
+
+- Retail/Classic M, C and B toggles, Escape, native X buttons, combat and reload
+  with each lock category enabled separately and together.
+- Character tabs, equipment model, currencies and late-loaded panes at 75%,
+  100%, 125% and 150%, including a cross-seam move back to Mainhand.
+- Forever Character scaling with status text visible, followed by map-pin,
+  CompactUnitFrame, TextStatusBar and Cooldown Viewer taint regression checks.
+- Forever native gamepad and ConsolePort flows with Xbox- and PlayStation-style
+  controllers: wizard completion, settings binding, cursor traversal across the
+  span, combat, disconnect/reconnect, `/reload` and cold launch.

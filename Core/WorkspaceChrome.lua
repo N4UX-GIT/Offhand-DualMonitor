@@ -139,7 +139,8 @@ function Chrome:Refresh()
     local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
         and Offhand.Viewport:GetMetrics() or nil
     local enabled = db and db.enabled
-        and (db.hideWorkspaceCloseButtons == true or db.hideWorkspaceMapMaximizeButton == true)
+        and (db.hideWorkspaceCloseButtons == true or db.hideWorkspaceMapMaximizeButton == true
+            or db.lockWorkspaceWindows == true)
         and metrics and metrics.isSpanned == true
     if not enabled then
         self:RestoreAll()
@@ -163,7 +164,10 @@ function Chrome:Refresh()
         local frame = _G[name]
         if CanUseFrame(frame) then
             local hide = IsOnWorkspace(frame)
-            if db.hideWorkspaceCloseButtons == true then
+            local locked = Offhand.WorkspaceBehavior
+                and Offhand.WorkspaceBehavior.IsFrameLocked
+                and Offhand.WorkspaceBehavior:IsFrameLocked(frame, name)
+            if db.hideWorkspaceCloseButtons == true or locked then
                 for button in pairs(GetCloseButtons(frame, name)) do
                     desired[button] = desired[button] or hide
                 end

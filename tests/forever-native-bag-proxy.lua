@@ -353,6 +353,32 @@ assert(not GameMenuFrame:IsShown() and bag:IsShown(),
 assert(nativeToggleGameMenuCalls == 2,
     "bag observation must not add Game Menu toggles")
 
+-- Native Gamepad UI owns both bag visibility and Game Menu focus. Its Escape
+-- result must stand, while the saved position and workspace-open intent remain
+-- available for a later player-driven open.
+local gamepadUI = true
+addon.IsGamepadUIEnabled = function() return gamepadUI end
+local opensBeforeGamepadEscape = nativeOpenCalls
+ToggleGameMenu()
+controller.scripts.OnUpdate(controller, 0.001)
+controller.scripts.OnUpdate(controller, 0.001)
+assert(nativeOpenCalls == opensBeforeGamepadEscape and not bag:IsShown()
+        and not GameMenuFrame:IsShown(),
+    "Gamepad UI Escape must not reopen bags or toggle the Game Menu from addon code")
+local trackedBefore = addon.db.nativeBackpackWorkspaceOpen
+addon.db.nativeBackpackWorkspaceOpen = true
+assert(addon.Canvas:RestoreTrackedWorkspaceBag() == false
+        and nativeOpenCalls == opensBeforeGamepadEscape and not bag:IsShown()
+        and addon.db.nativeBackpackWorkspaceOpen == true,
+    "Gamepad UI must not restore a tracked bag from addon code or forget it")
+addon.db.nativeBackpackWorkspaceOpen = trackedBefore
+gamepadUI = false
+OpenAllBags()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown() and math.abs(bag:GetLeft() - 240) < 0.01,
+    "a player-opened bag must return to its saved workspace position")
+nativeOpenCalls = opensBeforeGamepadEscape
+
 -- Some Forever builds complete the second Escape natively: both the menu and
 -- bag are hidden before the observer runs. That dismissal must restore the bag
 -- without starting the three-second system-panel navigation grace period.

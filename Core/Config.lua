@@ -36,6 +36,8 @@ local defaultSettings = {
     speechBubbleCompensation = true, -- Replace enlarged bubbles only on affected mixed-height spans
     speechBubbleScale = 1.00,       -- Fine tuning for Offhand's replacement bubble
     groupLootPosition = {},         -- Optional normalized Mainhand position for the first group-loot roll
+    groupLootStackDirection = "UP", -- Preserve Blizzard's upward stack unless the user selects downward
+    antiShimmer = false,            -- Stabilize ground textures by disabling FSR edge sharpening and using bicubic resampling
     chatPosition = "GAME",          -- "GAME" (bottom-left of 3D curved monitor) or "DECK" (bottom bay of vertical monitor)
     dockChat = true,                -- Enable managed chat positioning
 
@@ -46,6 +48,9 @@ local defaultSettings = {
     persistentWorkspacePanels = true,  -- Keep workspace panels and maps open when pressing Escape
     hideWorkspaceCloseButtons = false, -- Hide supported X buttons only while their windows are on the workspace
     hideWorkspaceMapMaximizeButton = false, -- Hide the windowed World Map enlarge button on the workspace
+    lockWorkspaceWindows = false, -- Keep selected supported workspace windows open until this is disabled
+    lockedWorkspaceWindowTypes = { map = true, bags = true, character = true },
+    characterWorkspaceScale = 1.00, -- Multiplier relative to Blizzard's native CharacterFrame scale
     savedWorkspacePositions = {},   -- Persisted coordinates for frames placed on the secondary workspace
     savedMainPositions = {},        -- Persisted coordinates for movable frames on the main screen
     workspacePanelLoadAddons = {},  -- Learned Blizzard load-on-demand owner for persistent panels
@@ -721,6 +726,52 @@ function Offhand:SetRawMouseInput(enabled)
         RawMouse:Refresh(metrics)
     elseif not enabled and RawMouse and RawMouse.Restore then
         RawMouse:Restore()
+    end
+end
+
+function Offhand:IsAntiShimmerEnabled()
+    return Offhand.db and Offhand.db.antiShimmer == true or false
+end
+
+function Offhand:SetAntiShimmer(enabled)
+    if not Offhand.db then return end
+    enabled = enabled == true
+    local get = GetCVar or (C_CVar and C_CVar.GetCVar)
+    local set = SetCVar or (C_CVar and C_CVar.SetCVar)
+    if enabled then
+        if not Offhand.db.originalAntiShimmerSettings then
+            local alwaysSharpen = get and get("ResampleAlwaysSharpen") or "1"
+            local sharpness = get and get("ResampleSharpness") or "0.2"
+            local quality = get and get("ResampleQuality") or "3"
+            Offhand.db.originalAntiShimmerSettings = {
+                alwaysSharpen = tostring(alwaysSharpen),
+                sharpness = tostring(sharpness),
+                quality = tostring(quality),
+            }
+        end
+        if set then
+            pcall(set, "ResampleAlwaysSharpen", "0")
+            pcall(set, "ResampleSharpness", "0")
+            pcall(set, "ResampleQuality", "2")
+        end
+        Offhand.db.antiShimmer = true
+    else
+        if Offhand.db.originalAntiShimmerSettings then
+            local s = Offhand.db.originalAntiShimmerSettings
+            if set then
+                if s.alwaysSharpen then pcall(set, "ResampleAlwaysSharpen", tostring(s.alwaysSharpen)) end
+                if s.sharpness then pcall(set, "ResampleSharpness", tostring(s.sharpness)) end
+                if s.quality then pcall(set, "ResampleQuality", tostring(s.quality)) end
+            end
+            Offhand.db.originalAntiShimmerSettings = nil
+        else
+            if set then
+                pcall(set, "ResampleAlwaysSharpen", "1")
+                pcall(set, "ResampleSharpness", "0.2")
+                pcall(set, "ResampleQuality", "3")
+            end
+        end
+        Offhand.db.antiShimmer = false
     end
 end
 

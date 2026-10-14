@@ -8,6 +8,16 @@ local _, Offhand = ...
 local Canvas = {}
 Offhand.Canvas = Canvas
 
+-- Native Gamepad UI panel visibility is owned by Blizzard's
+-- FrameControlsManager. Addon-originated opens, closes, hide/show eviction and
+-- UISpecialFrames writes can taint its protected focus and binding paths.
+-- Positioning an already player-opened frame remains allowed.
+local function CanManagePanelsFromAddon()
+    return not (type(Offhand.IsGamepadUIEnabled) == "function"
+        and Offhand:IsGamepadUIEnabled())
+end
+Canvas.CanManagePanelsFromAddon = CanManagePanelsFromAddon
+
 local rootCanvas
 
 -- Never store Offhand bookkeeping on Forever's native World Map object. The
@@ -619,7 +629,8 @@ function Canvas:GetPersistentPanelAddon(name)
 end
 
 function Canvas:RequestPersistentPanelLoad(name, delaySeconds)
-    if not Offhand.isForever or not IsPersistentPanelLoadCandidate(name)
+    if not CanManagePanelsFromAddon()
+        or not Offhand.isForever or not IsPersistentPanelLoadCandidate(name)
         or not Offhand.db or not Offhand.db.openWorkspacePanels
         or not Offhand.db.openWorkspacePanels[name]
         or not Offhand.db.savedWorkspacePositions
@@ -673,6 +684,7 @@ end
 
 local function RegisterSpecialFrame(name)
     if not name or not UISpecialFrames then return end
+    if not CanManagePanelsFromAddon() then return end
     for _, n in ipairs(UISpecialFrames) do
         if n == name then return end
     end
@@ -681,6 +693,7 @@ end
 
 local function UnregisterSpecialFrame(name)
     if not name or not UISpecialFrames then return end
+    if not CanManagePanelsFromAddon() then return end
     for i = #UISpecialFrames, 1, -1 do
         if UISpecialFrames[i] == name then
             table.remove(UISpecialFrames, i)
@@ -1720,10 +1733,29 @@ function Canvas:QueuePersistentPanelRestore(frame, name, delaySeconds)
         end
 
         if contextBoundPanelNames[name] then return end
+        if not CanManagePanelsFromAddon() then return end
 
-        if ShowUIPanel and UIPanelWindows and UIPanelWindows[name] then
+        local retailCharacter = Offhand.isRetail and not Offhand.isForever
+            and name == "CharacterFrame" and frame == _G.CharacterFrame
+        if retailCharacter and db.independentWorkspacePanels then
+            -- CharacterFrame expands its PaperDoll child from OnShow and
+            -- collapses it from OnHide. Detach the hidden frame from Blizzard's
+            -- left UIPanel slot before opening it so RestoreWorkspacePosition's
+            -- OnShow pass never has to evict it with a nested Hide/Show cycle.
+            -- Re-entering that lifecycle during the first reload open can leave
+            -- CharacterFrameInsetRight (and therefore CharacterStatsPane)
+            -- anchored outside the expanded frame until the next clean reopen.
+            DemodalizePanel(frame)
+        end
+
+        local opened = false
+        if retailCharacter and ToggleCharacter then
+            local ok = pcall(ToggleCharacter, "PaperDollFrame", true)
+            opened = ok and frame.IsShown and frame:IsShown()
+        end
+        if not opened and ShowUIPanel and UIPanelWindows and UIPanelWindows[name] then
             pcall(ShowUIPanel, frame)
-        elseif frame.Show then
+        elseif not opened and frame.Show then
             pcall(frame.Show, frame)
         end
 
@@ -1731,6 +1763,12 @@ function Canvas:QueuePersistentPanelRestore(frame, name, delaySeconds)
         -- for panels whose native layout writes its anchor after OnShow.
         C_Timer.After(0, function()
             if frame.IsShown and frame:IsShown() then
+                if retailCharacter and frame.RefreshDisplay then
+                    -- Use Blizzard's own width/inset refresh after PaperDoll's
+                    -- expansion has settled; never take ownership of its child
+                    -- stat-pane anchors.
+                    pcall(frame.RefreshDisplay, frame)
+                end
                 RestoreWorkspacePosition(frame)
             end
         end)
@@ -1770,6 +1808,7 @@ function Canvas:RestorePersistentFrames()
     
     local hasBag = false
     local openPanels = Offhand.db.openWorkspacePanels or {}
+    local canOpenPanels = CanManagePanelsFromAddon()
     local nativeBackpackOnMainhand = Offhand.db.savedMainPositions
         and (Offhand.db.savedMainPositions.ContainerFrameCombinedBags
             or Offhand.db.savedMainPositions.ContainerFrame1)
@@ -1797,7 +1836,7 @@ function Canvas:RestorePersistentFrames()
     for _, name in ipairs(savedNames) do
         local frame = _G[name]
         if frame and ShouldYieldWorldMapToMoveAny(name) then
-            if name == "WorldMapFrame" and not Offhand.isForever and openPanels[name]
+            if canOpenPanels and name == "WorldMapFrame" and not Offhand.isForever and openPanels[name]
                 and not contextBoundPanelNames[name] then
                 if not frame:IsShown() then
                     if ToggleWorldMap then ToggleWorldMap() else frame:Show() end
@@ -1809,7 +1848,7 @@ function Canvas:RestorePersistentFrames()
             and not IsForeverProfessionsPanel(frame, name) then
             if frame:IsShown() then
                 RestoreWorkspacePosition(frame)
-            elseif openPanels[name] and not contextBoundPanelNames[name] then
+            elseif canOpenPanels and openPanels[name] and not contextBoundPanelNames[name] then
                 if name == "WorldMapFrame" then
                     if ToggleWorldMap then
                         ToggleWorldMap()
@@ -1839,7 +1878,7 @@ function Canvas:RestorePersistentFrames()
                     end
                 end
             end
-        elseif not frame and openPanels[name] then
+        elseif canOpenPanels and not frame and openPanels[name] then
             -- Load-on-demand Blizzard frames (Spellbook, Macros, Collections,
             -- and similar panels) do not exist yet after /reload. Load only the
             -- owner of a panel the user explicitly left open on the workspace.
@@ -1856,8 +1895,10 @@ function Canvas:RestorePersistentFrames()
     -- backpack on Forever. Only the explicit mode-independent native marker is
     -- authoritative there.
     if Offhand.isForever then hasBag = IsNativeBackpackTrackedOpen() end
-    if hasBag and not (Baganator and Offhand.BagPersistence) then
+    if canOpenPanels and hasBag and not (Baganator and Offhand.BagPersistence) then
         C_Timer.After(1.5, function()
+            -- The player can change interface style during the delay.
+            if not CanManagePanelsFromAddon() then return end
             -- Combined Backpack mode may never create ContainerFrame1 during
             -- startup, which makes the general compatibility heuristic report
             -- a false custom-bag positive. An explicit saved native root wins.
@@ -2162,6 +2203,7 @@ local originalAreas = {}
 EvictWorkspacePanelSlot = function(frame)
     if not frame or not GetUIPanel or not HideUIPanel or IsPanelEvicting(frame)
         or (InCombatLockdown and InCombatLockdown()) then return false end
+    if not CanManagePanelsFromAddon() then return false end
     local name = frame.GetName and frame:GetName()
     -- Native bag frames own pooled item buttons whose lifecycle is driven by
     -- Blizzard's bag APIs. A HideUIPanel + direct Show cycle can reveal only the
@@ -3753,6 +3795,7 @@ end
 local function OpenForeverNativeBackpackThroughBlizzard()
     local shownBag = GetShownNativeBackpackRoot()
     if shownBag then return shownBag end
+    if not CanManagePanelsFromAddon() then return nil end
 
     Canvas._foreverNativeBagRestoreInProgress = true
     if OpenAllBags then
@@ -3949,6 +3992,13 @@ function Canvas:EnableForeverNativeBagProxy()
                     if gameMenuToggleObserved and not gameMenuChanged then
                         state.pendingGameMenuToggle = true
                     end
+                end
+                if state.pendingOpenRestore and not CanManagePanelsFromAddon() then
+                    -- Let the Gamepad UI close stand. The saved position remains
+                    -- available when the player opens the bag again.
+                    state.pendingOpenRestore = nil
+                    state.pendingOpenAttempts = nil
+                    state.pendingGameMenuToggle = nil
                 end
                 if not shown and state.pendingOpenRestore and not inCombat
                     and not inputReserved then
@@ -4820,6 +4870,7 @@ function Canvas:RestoreTrackedWorkspaceBag()
         or not Offhand.db or not Offhand.db.enabled
         or Offhand.db.persistentWorkspacePanels == false
         or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved())
+        or not CanManagePanelsFromAddon()
         or not IsSpannedLayoutActive() then return false end
     local saved = GetNativeBackpackWorkspacePosition()
     local trackedOpen = IsNativeBackpackTrackedOpen()

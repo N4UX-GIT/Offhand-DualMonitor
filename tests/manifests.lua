@@ -37,5 +37,11 @@ for i=2,#tocs do
     assert(#main==#flavor, "Client TOCs load different numbers of files: " .. tocs[i])
     for j,file in ipairs(main) do assert(file==flavor[j], "Client TOC load order mismatch: "..file) end
 end
+local bindings = assert(io.open("Bindings.xml", "rb")):read("*a")
+assert(bindings:match('<Binding name="OFFHAND_TOGGLE_SETTINGS" header="OFFHAND">'),
+    "Offhand settings binding is missing")
+local packageSource = assert(io.open("package.ps1", "rb")):read("*a")
+assert(packageSource:find('Join%-Path %$rootDir "Bindings%.xml"'),
+    "release packaging must include the automatic Bindings.xml file")
 print("PASS: matching client load order and loadable Lua files across all TOCs")
 

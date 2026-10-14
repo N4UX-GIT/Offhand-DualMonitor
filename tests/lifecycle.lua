@@ -14,6 +14,23 @@ end
 InCombatLockdown = function() return combat end
 SlashCmdList = {}
 assert(loadfile("Core/Init.lua"))("Offhand", addon)
+
+-- The live interface-style API is authoritative when available, with
+-- InputUtil retained only for builds/load orders that do not expose it yet.
+Enum = { InputDeviceInterfaceType = { Mkb = 1, Gamepad = 2 } }
+C_InputInterfaceStyle = { GetCurrentStyle = function() return 2 end }
+InputUtil = { IsGamepadUIEnabled = function() return false end }
+assert(addon:IsGamepadUIEnabled(),
+    "native Gamepad UI detection must prefer the live interface style")
+C_InputInterfaceStyle.GetCurrentStyle = function() return 1 end
+InputUtil.IsGamepadUIEnabled = function() return true end
+assert(not addon:IsGamepadUIEnabled(),
+    "a live keyboard/mouse style must not be overridden by a stale utility result")
+C_InputInterfaceStyle = nil
+assert(addon:IsGamepadUIEnabled(),
+    "Gamepad UI detection must fall back to InputUtil when the style API is unavailable")
+InputUtil, Enum = nil, nil
+
 local initSource = assert(io.open("Core/Init.lua", "rb")):read("*a")
 for _, obsolete in ipairs({
     "Performance diagnostics:", "AA diagnostics:", "Scaling diagnostics:",
@@ -28,7 +45,7 @@ for _, obsolete in ipairs({
 end
 for _, current in ipairs({
     "Topology diagnostics:", "Combat text diagnostics:",
-    "Speech bubble diagnostics:", "Group loot diagnostics:",
+    "Speech bubble diagnostics:", "Group loot diagnostics:", "Pet battle diagnostics:",
     "Edit Mode layout diagnostics:",
 }) do
     assert(initSource:find(current, 1, true),

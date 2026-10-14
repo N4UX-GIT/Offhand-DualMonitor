@@ -1,3 +1,19 @@
+# Next Offhand addon release: Unreleased
+
+Forever's native Gamepad UI now retains ownership of window visibility, focus,
+and Escape handling. Offhand no longer automatically reopens workspace panels
+or bags, evicts player-opened windows from Blizzard's panel slots, or rewrites
+the Escape-frame registry while Gamepad UI is active. Windows opened by the
+player still return to their saved Offhand positions. This also retains the
+stricter protection that prevents Offhand drag controls and broad popup scanning
+from touching SmartNavigation-managed windows.
+
+Thanks to **Frosted (`bitwize01`)** for diagnosing the protected
+`FrameControlsManager` interaction and contributing the initial implementation
+in [PR #18](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/18).
+
+---
+
 # Offhand v2.1.2 — Forever Missing-Monitor Recovery
 
 Offhand 2.1 replaces combined-resolution guessing with exact display rectangles
