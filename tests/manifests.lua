@@ -23,10 +23,17 @@ for _, toc in ipairs(tocs) do
     assert(text:match("## X%-Offhand%-Addon%-Release:%s*beta%.21"), "Beta 21 addon release marker missing: " .. toc)
 end
 local genericText = assert(io.open("Offhand.toc", "rb")):read("*a")
+local mainlineText = assert(io.open("Offhand_Mainline.toc", "rb")):read("*a")
 local classicText = assert(io.open("Offhand_Classic.toc", "rb")):read("*a")
 local wrathText = assert(io.open("Offhand_Wrath335a.toc", "rb")):read("*a")
 assert(genericText:match("## Interface:%s*30300"),
     "generic manifest must lead with 30300 for the original single-value TOC parser")
+assert(genericText:match("120105"),
+    "generic manifest must support Retail 12.1.5 interface 120105")
+assert(mainlineText:match("## Interface:%s*120105"),
+    "Mainline manifest must lead with Retail 12.1.5 interface 120105")
+assert(not genericText:match("121500") and not mainlineText:match("121500"),
+    "12.1.5 must use interface 120105, not 121500")
 assert(classicText:match("## Interface:%s*30300"),
     "Classic manifest must retain 30300 as its leading legacy package target")
 assert(wrathText:match("## Interface:%s*30300%s*\r?\n"),

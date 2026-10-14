@@ -10,6 +10,9 @@ All notable changes to this project will be documented in this file.
   upward direction remains the default for all existing and new profiles.
 
 ### Fixed
+- Retail 12.1.5 now uses the correct `120105` interface number in the generic
+  and Mainline manifests, preventing the client from marking Offhand out of
+  date. The invalid `121500` and redundant `121000` values were removed.
 - Forever's native gamepad interface no longer receives Offhand-owned child
   drag controls during login or `/reload`. Offhand now detects the live input
   interface style, leaves SmartNavigation-managed Blizzard window structures
