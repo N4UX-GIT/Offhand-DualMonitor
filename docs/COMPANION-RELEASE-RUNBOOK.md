@@ -73,7 +73,7 @@ runtimes even when every entry is byte-identical.
 
 Beginning with the next release, every newly attached portable Companion
 archive must follow `Offhand-Companion-v<VERSION>.zip`, where `<VERSION>` is the
-Companion version—not necessarily the addon version. Keep `Offhand.exe` stable
+Companion version, which is not necessarily the addon version. Keep `Offhand.exe` stable
 inside the archive and as the standalone asset so existing shortcuts and
 instructions remain valid.
 
@@ -166,6 +166,43 @@ would not receive it as an upgrade. Record the last submitted Store version in
 the release record at the end of this document.
 
 ## Release lanes and cadence
+
+## Branch and promotion model
+
+Use `companion/develop` as the long-lived integration branch for Companion
+development. It contains the complete repository, but changes merged into it
+should be limited to Companion source, Companion-specific tests and workflows,
+and directly related documentation unless a cross-component contract must
+change.
+
+- Create individual work on short-lived branches named
+  `companion/<issue>-<description>` from `companion/develop`.
+- Open Companion feature pull requests against `companion/develop`, not
+  `main`. Keep incomplete or unverified work in its individual pull request.
+- Require the repository CI and Companion CodeQL checks before merging into
+  `companion/develop`.
+- Regularly merge `main` into `companion/develop` so addon contracts, tests,
+  and packaging behavior do not drift. Do not merge `companion/develop` into
+  `main` as routine synchronization.
+- Do not commit a newly rebuilt `Companion/Offhand.exe` during ordinary feature
+  integration. CI artifacts may be used for testing, but the checked-in
+  executable remains the exact frozen public build until a release candidate
+  is explicitly accepted.
+- When a candidate is ready, optionally create
+  `companion/rc/<version>` to freeze the source, version metadata, test record,
+  and exact executable under review.
+- Promote Companion work to `main` through one explicit release pull request.
+  That pull request must identify the accepted candidate commit, live-test
+  evidence, executable hash, version and protocol changes, documentation
+  updates, and rollback artifact.
+- Update the frozen tag and SHA-256 in release automation only after the new
+  executable has passed the required validation and the release owner has
+  approved promotion.
+
+Branch separation does not replace artifact verification. A Companion build is
+not a release candidate merely because it is present on `companion/develop`.
+The packaged executable, source commit, version metadata, and recorded hash
+must still correspond exactly.
 
 Use two release lanes:
 
