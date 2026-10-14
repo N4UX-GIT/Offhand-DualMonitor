@@ -9,6 +9,11 @@ local Bags = {
 }
 Offhand.BagPersistence = Bags
 
+local function CanOpenBagsFromAddon()
+    return not Offhand.Canvas or not Offhand.Canvas.CanManagePanelsFromAddon
+        or Offhand.Canvas.CanManagePanelsFromAddon()
+end
+
 local function TrackEnabled()
     local db = Offhand.db
     return db and db.enabled and db.persistentWorkspacePanels ~= false
@@ -260,7 +265,8 @@ end
 function Bags:RestoreAfterEscape(pending)
     if self.escapePending ~= pending then return false end
     self.escapePending = nil
-    if InputReserved() or not TrackEnabled() or not IsSpanned() or InCombatLockdown() then
+    if InputReserved() or not TrackEnabled() or not IsSpanned() or InCombatLockdown()
+        or not CanOpenBagsFromAddon() then
         self:Capture()
         return false
     end
@@ -421,6 +427,12 @@ function Bags:Resume()
             local visible
             for _, frame in pairs(Bags.frames) do
                 if frame:IsVisible() then visible = frame; break end
+            end
+            if not visible and not CanOpenBagsFromAddon() then
+                -- Keep the reload-open snapshot. A later player-driven open
+                -- applies its saved workspace position through the normal hook.
+                Bags.paused = false
+                return
             end
             if not visible and next(Bags.frames) and ToggleAllBags and not toggled then
                 toggled = true

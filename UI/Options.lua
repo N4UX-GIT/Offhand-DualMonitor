@@ -87,6 +87,9 @@ StaticPopupDialogs["OFFHAND_ENABLE_FOREVER_PROFESSIONS_MOVEMENT"] = {
 local Options = {}
 Offhand.Options = Options
 
+_G.BINDING_HEADER_OFFHAND = L["BINDING_HEADER_OFFHAND"]
+_G.BINDING_NAME_OFFHAND_TOGGLE_SETTINGS = L["BINDING_NAME_OFFHAND_TOGGLE_SETTINGS"]
+
 function Options:CreateMainhandHUDLayout()
     if Offhand.Mainhand and Offhand.Mainhand.CreateOrUpdateEditModeLayout then
         return Offhand.Mainhand:CreateOrUpdateEditModeLayout()
@@ -96,6 +99,7 @@ end
 
 function Options:GetMainhandLayoutFailureText(reason)
     if reason == "maximum" then return L["MAINHAND_LAYOUT_MAXIMUM"] end
+    if reason == "gamepad" then return L["MAINHAND_LAYOUT_GAMEPAD_FAILED"] end
     if reason == "span" then
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
             and Offhand.Viewport:GetMetrics() or nil
@@ -558,6 +562,22 @@ local function CreateNativeCheckbox(parent, text, getVal, setVal, tooltipTitle, 
     return check
 end
 
+local function SetCheckboxEnabled(check, enabled)
+    if not check then return end
+    if check.SetEnabled then check:SetEnabled(enabled) end
+    if check.labelButton and check.labelButton.SetEnabled then
+        check.labelButton:SetEnabled(enabled)
+    end
+    if check.SetAlpha then check:SetAlpha(enabled and 1 or 0.55) end
+    if check.Text and check.Text.SetTextColor then
+        if enabled then
+            check.Text:SetTextColor(1, 1, 1)
+        else
+            check.Text:SetTextColor(0.55, 0.55, 0.55)
+        end
+    end
+end
+
 local function CreateNativeRadioButton(parent, text, getVal, setVal, tooltipTitle, tooltipText)
     local radio = CreateFrame("CheckButton", nil, parent, "UIRadioButtonTemplate")
     radio:SetSize(18, 18)
@@ -827,6 +847,16 @@ local function CreateNativeSlider(parent, text, minVal, maxVal, step, getVal, se
             self._dragStartX = nil
             self._dragStartVal = nil
             self:SetScript("OnUpdate", nil)
+            -- Native slider handling can move the thumb after the last custom
+            -- OnUpdate. Commit that final displayed value before applying the
+            -- layout so a quick drag does not require a step-button click.
+            local finalValue = math.max(minVal, math.min(maxVal, self:GetValue() or getVal()))
+            finalValue = math.floor(((finalValue - minVal) / step) + 0.5) * step + minVal
+            finalValue = math.floor(finalValue * 10000 + 0.5) / 10000
+            if editBox and not (editBox.HasFocus and editBox:HasFocus()) then
+                editBox:SetText(FormatValue(finalValue))
+            end
+            setVal(finalValue)
             Offhand:ApplyFullLayout()
         end
     end)
@@ -1422,6 +1452,28 @@ function Options:CreateFloatingPanel()
     p55Btn:SetScript("OnClick", function() seamSlider:SetValue(0.55) end)
     if Offhand.SetTooltip then Offhand:SetTooltip(p55Btn, L["WIZARD_PRESET_SEAM_55_TIP_TITLE"], L["WIZARD_PRESET_SEAM_55_TIP_DESC"]) end
 
+    local motionCard = CreateCard(tab1, L["CARD_MOTION_CLARITY"], 88)
+
+    local motionDesc = motionCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    motionDesc:SetPoint("TOPLEFT", 14, -30)
+    motionDesc:SetPoint("TOPRIGHT", -14, -30)
+    motionDesc:SetJustifyH("LEFT")
+    motionDesc:SetText(L["MOTION_CLARITY_DESC"])
+
+    local motionCheck = CreateNativeCheckbox(motionCard, L["CHECK_ANTI_SHIMMER"],
+        function()
+            return Offhand.IsAntiShimmerEnabled and Offhand:IsAntiShimmerEnabled() or false
+        end,
+        function(val)
+            if Offhand.SetAntiShimmer then
+                Offhand:SetAntiShimmer(val)
+            elseif Offhand.db then
+                Offhand.db.antiShimmer = val
+            end
+        end,
+        L["CHECK_ANTI_SHIMMER_TIP_TITLE"], L["CHECK_ANTI_SHIMMER_TIP_DESC"])
+    motionCheck:SetPoint("TOPLEFT", 12, -54)
+    motionCheck.Text:SetWidth(500)
 
     local card1_3 = CreateCard(tab1, L["CARD_SCALE_ALIGNMENT"], 156)
 
@@ -1508,7 +1560,7 @@ function Options:CreateFloatingPanel()
     speechBubbleSlider:SetPoint("TOPLEFT", 336, -114)
     speechBubbleSlider:SetWidth(200)
 
-    local groupLootCard = CreateCard(tab1, L["CARD_GROUP_LOOT"], 94)
+    local groupLootCard = CreateCard(tab1, L["CARD_GROUP_LOOT"], 126)
 
     local groupLootDescription = groupLootCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     groupLootDescription:SetPoint("TOPLEFT", 14, -32)
@@ -1545,6 +1597,21 @@ function Options:CreateFloatingPanel()
         Offhand:SetTooltip(groupLootResetButton,
             L["GROUP_LOOT_RESET_TIP_TITLE"], L["GROUP_LOOT_RESET_TIP_DESC"])
     end
+
+    local groupLootDirectionCheck = CreateNativeCheckbox(groupLootCard, L["GROUP_LOOT_STACK_DOWN"],
+        function()
+            return Offhand.db and Offhand.db.groupLootStackDirection == "DOWN"
+        end,
+        function(value)
+            if Offhand.HUD and Offhand.HUD.SetGroupLootStackDirection then
+                Offhand.HUD:SetGroupLootStackDirection(value and "DOWN" or "UP")
+            elseif Offhand.db then
+                Offhand.db.groupLootStackDirection = value and "DOWN" or "UP"
+            end
+        end,
+        L["GROUP_LOOT_STACK_DOWN_TIP_TITLE"], L["GROUP_LOOT_STACK_DOWN_TIP_DESC"])
+    groupLootDirectionCheck:SetPoint("TOPLEFT", 12, -82)
+    groupLootDirectionCheck.Text:SetWidth(500)
 
     local card1_5 = CreateCard(tab1, L["OBS_SETUP"], 110)
     
@@ -1700,6 +1767,7 @@ function Options:CreateFloatingPanel()
     local advancedCheck
     local foreverLayoutStatus
     local mainhandLayoutStatus
+    local createLayout
     local offhandCards
 
     local function CreateRecoveryCaption(text, leftColumn, top)
@@ -1815,7 +1883,7 @@ function Options:CreateFloatingPanel()
     CreateRecoveryCaption(L["RECOVERY_GATHER_LABEL"], false, -60)
 
     if supportsMainhandLayout then
-        local createLayout = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
+        createLayout = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
         createLayout:SetSize(220, 26)
         createLayout:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 12, -104)
         createLayout:SetText(L["MAINHAND_LAYOUT_CREATE"])
@@ -1894,6 +1962,8 @@ function Options:CreateFloatingPanel()
     panelDesc:SetWidth(530)
     panelDesc:SetWordWrap(true)
 
+    local escapePersistenceDesc = Offhand.isForever
+        and L["CHECK_ESC_PERSIST_TIP_DESC_FOREVER"] or L["CHECK_ESC_PERSIST_TIP_DESC"]
     local escapeCheck = CreateNativeCheckbox(card2_2, L["CHECK_ESC_PERSIST"],
         function() return Offhand.db and Offhand.db.persistentWorkspacePanels ~= false end,
         function(val)
@@ -1902,13 +1972,13 @@ function Options:CreateFloatingPanel()
                 Offhand.Canvas:UpdatePersistenceBehavior()
             end
         end,
-        L["CHECK_ESC_PERSIST_TIP_TITLE"], L["CHECK_ESC_PERSIST_TIP_DESC"]
+        L["CHECK_ESC_PERSIST_TIP_TITLE"], escapePersistenceDesc
     )
     escapeCheck:SetPoint("TOPLEFT", 10, -110)
 
     local escapeDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     escapeDesc:SetPoint("TOPLEFT", 32, -132)
-    escapeDesc:SetText(L["CHECK_ESC_PERSIST_TIP_DESC"])
+    escapeDesc:SetText(escapePersistenceDesc)
     escapeDesc:SetJustifyH("LEFT")
     escapeDesc:SetWidth(530)
     escapeDesc:SetWordWrap(true)
@@ -1981,6 +2051,70 @@ function Options:CreateFloatingPanel()
     compatDesc:SetJustifyH("LEFT")
     compatDesc:SetWordWrap(true)
     card2_2.compatDesc = compatDesc
+
+    local windowControlCard = CreateCard(tab2, L["CARD_WORKSPACE_WINDOW_CONTROL"], 274)
+
+    local characterScaleSlider = CreateNativeSlider(windowControlCard, L["CHARACTER_WORKSPACE_SCALE"],
+        0.75, 1.50, 0.05,
+        function()
+            return Offhand.WorkspaceBehavior and Offhand.WorkspaceBehavior:GetCharacterScale() or 1
+        end,
+        function(value)
+            if Offhand.WorkspaceBehavior then
+                Offhand.WorkspaceBehavior:SetCharacterScale(value)
+            elseif Offhand.db then
+                Offhand.db.characterWorkspaceScale = value
+            end
+        end,
+        "%.0f%%", L["CHARACTER_WORKSPACE_SCALE_TIP_TITLE"],
+        L["CHARACTER_WORKSPACE_SCALE_TIP_DESC"])
+    characterScaleSlider:SetPoint("TOPLEFT", windowControlCard, "TOPLEFT", 14, -58)
+    characterScaleSlider:SetWidth(260)
+
+    local lockCheck = CreateNativeCheckbox(windowControlCard, L["LOCK_WORKSPACE_WINDOWS"],
+        function() return Offhand.db and Offhand.db.lockWorkspaceWindows == true end,
+        function(value)
+            if Offhand.WorkspaceBehavior then
+                Offhand.WorkspaceBehavior:SetLockEnabled(value)
+            elseif Offhand.db then
+                Offhand.db.lockWorkspaceWindows = value == true
+            end
+            if C_Timer and C_Timer.After then
+                C_Timer.After(0, function()
+                    if Options.RefreshPanel then Options:RefreshPanel() end
+                end)
+            end
+        end,
+        L["LOCK_WORKSPACE_WINDOWS_TIP_TITLE"], L["LOCK_WORKSPACE_WINDOWS_TIP_DESC"])
+    lockCheck:SetPoint("TOPLEFT", 12, -104)
+
+    local lockDesc = windowControlCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    lockDesc:SetPoint("TOPLEFT", 34, -128)
+    lockDesc:SetPoint("TOPRIGHT", -14, -128)
+    lockDesc:SetJustifyH("LEFT")
+    lockDesc:SetWordWrap(true)
+    lockDesc:SetText(Offhand.isForever
+        and L["LOCK_WORKSPACE_WINDOWS_FOREVER"] or L["LOCK_WORKSPACE_WINDOWS_DESC"])
+
+    local function CreateLockTypeCheck(label, kind, top)
+        local check = CreateNativeCheckbox(windowControlCard, label,
+            function()
+                local types = Offhand.db and Offhand.db.lockedWorkspaceWindowTypes
+                return not types or types[kind] ~= false
+            end,
+            function(value)
+                if Offhand.WorkspaceBehavior then
+                    Offhand.WorkspaceBehavior:SetWindowTypeLocked(kind, value)
+                end
+            end,
+            L["LOCK_WORKSPACE_WINDOWS_TIP_TITLE"], L["LOCK_WORKSPACE_WINDOWS_TIP_DESC"])
+        check:SetPoint("TOPLEFT", 34, top)
+        return check
+    end
+
+    local lockMapCheck = CreateLockTypeCheck(L["LOCK_WORKSPACE_MAP"], "map", -180)
+    local lockBagsCheck = CreateLockTypeCheck(L["LOCK_WORKSPACE_BAGS"], "bags", -206)
+    local lockCharacterCheck = CreateLockTypeCheck(L["LOCK_WORKSPACE_CHARACTER"], "character", -232)
 
 
     local card2_3 = CreateCard(tab1, L["CARD_BEZEL"], 116)
@@ -2587,8 +2721,8 @@ function Options:CreateFloatingPanel()
         helpCards[#helpCards + 1] = card
     end
 
-    Options:StackCards(tab1, {card1_1, card1_2, card1_3, card2_3, card1_4, groupLootCard, card1_5})
-    offhandCards = {card2_1, card2_2}
+    Options:StackCards(tab1, {card1_1, card1_2, motionCard, card1_3, card2_3, card1_4, groupLootCard, card1_5})
+    offhandCards = {card2_1, card2_2, windowControlCard}
     if advancedCard then offhandCards[#offhandCards + 1] = advancedCard end
     offhandCards[#offhandCards + 1] = recoveryCard
     Options:StackCards(tab2, offhandCards)
@@ -2686,6 +2820,29 @@ function Options:CreateFloatingPanel()
         escapeCheck:SetChecked((Offhand.db and Offhand.db.persistentWorkspacePanels ~= false) or false)
         reloadCheck:SetChecked((Offhand.db and Offhand.db.restoreWorkspaceOnReload ~= false) or false)
         forceCheck:SetChecked((Offhand.db and Offhand.db.forceDualOnSingle) or false)
+        characterScaleSlider:SetValue(Offhand.WorkspaceBehavior
+            and Offhand.WorkspaceBehavior:GetCharacterScale() or 1)
+        characterScaleSlider:UpdateText()
+        local lockSupported = Offhand.WorkspaceBehavior
+            and Offhand.WorkspaceBehavior:IsLockSupported() or not Offhand.isForever
+        lockCheck:SetChecked(lockSupported
+            and (Offhand.db and Offhand.db.lockWorkspaceWindows == true) or false)
+        local lockTypes = Offhand.db and Offhand.db.lockedWorkspaceWindowTypes or nil
+        lockMapCheck:SetChecked(not lockTypes or lockTypes.map ~= false)
+        lockBagsCheck:SetChecked(not lockTypes or lockTypes.bags ~= false)
+        lockCharacterCheck:SetChecked(not lockTypes or lockTypes.character ~= false)
+        SetCheckboxEnabled(lockCheck, lockSupported)
+        local lockChildrenEnabled = lockSupported
+            and Offhand.db and Offhand.db.lockWorkspaceWindows == true
+        SetCheckboxEnabled(lockMapCheck, lockChildrenEnabled)
+        SetCheckboxEnabled(lockBagsCheck, lockChildrenEnabled)
+        SetCheckboxEnabled(lockCharacterCheck, lockChildrenEnabled)
+        if motionCheck then
+            motionCheck:SetChecked(Offhand.IsAntiShimmerEnabled and Offhand:IsAntiShimmerEnabled() or false)
+        end
+        if groupLootDirectionCheck then
+            groupLootDirectionCheck:SetChecked(Offhand.db and Offhand.db.groupLootStackDirection == "DOWN" or false)
+        end
         if advancedCheck then
             advancedCheck:SetChecked(Offhand.IsExperimentalForeverProfessionsMovementEnabled
                 and Offhand:IsExperimentalForeverProfessionsMovementEnabled() or false)
@@ -2700,9 +2857,16 @@ function Options:CreateFloatingPanel()
             foreverLayoutStatus:SetText(string.format(L["FOREVER_EDIT_MODE_LAYOUT_LABEL"], name))
         end
         if mainhandLayoutStatus then
+            local controllerLayout = Offhand.Mainhand and Offhand.Mainhand.IsControllerLayout
+                and Offhand.Mainhand:IsControllerLayout()
+            if createLayout then
+                createLayout:SetEnabled(not controllerLayout)
+                createLayout:SetAlpha(controllerLayout and 0.55 or 1)
+            end
             local status = Offhand.Mainhand and Offhand.Mainhand.GetLayoutStatus
                 and Offhand.Mainhand:GetLayoutStatus() or nil
-            local name = status and status.deferred and L["MAINHAND_LAYOUT_DEFERRED"]
+            local name = controllerLayout and L["MAINHAND_LAYOUT_GAMEPAD_STATUS"]
+                or status and status.deferred and L["MAINHAND_LAYOUT_DEFERRED"]
                 or (status and status.configured and status.generatedName
                     or L["MAINHAND_LAYOUT_UNSET"])
             if status and status.configured and not status.deferred

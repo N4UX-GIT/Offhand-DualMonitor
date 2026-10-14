@@ -8,8 +8,10 @@ This table answers three separate questions: whether source contains a change,
 whether the target client has verified it, and whether another gate remains.
 The detailed issue section below remains authoritative.
 
-| Issue | Client scope | Source state | Automated or static evidence | Live evidence | Next gate |
+| Work item | Client scope | Source state | Automated or static evidence | Live evidence | Next gate |
 | --- | --- | --- | --- | --- | --- |
+| [PR #18](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/18) | Forever Gamepad UI | Conflicting draft against `addon/develop` | Contributor tests reported | Contributor live report requires local reconciliation | Compare safe panel handling with PR #21 |
+| [PR #21](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/21) | Shared, Retail, Forever, and legacy manifests | Draft checkpoint against `addon/develop` | 31 suites and manifest validation passed | Pending | Review, split if useful, and complete live QA |
 | OH-PERF-001 | Forever with bag addons | Implemented on `main` | Automated passed | Pending | Live profiler comparison |
 | OH-FOR-001 | Forever | Investigation on `main` | No attributable stack | Inconclusive | Reproducible Offhand taint trace |
 | OH-FOR-002 | Forever and modern Retail | Implemented on `main` | Static passed | Pending | Battleground and combat QA |
@@ -249,11 +251,54 @@ issue changes branch, evidence level, candidate, or released version.
   outside combat. Its center is stored proportionally within Mainhand, while
   the actual Blizzard frames remain non-interactive and are positioned only by
   the established post-update hook. Reset restores the lower-center default.
+  Post-Beta 21 source also lets users retain Blizzard's upward stack or grow
+  subsequent rolls downward from the first-roll anchor.
 - Live QA: Move the preview, trigger several simultaneous need/greed rolls,
   enter and leave combat, then `/reload` while grouped. Confirm the first roll
   returns to the saved position, later rolls stack upward, the preview hides in
   combat, and no protected-action or secret-value errors occur. Repeat with a
   custom loot-roll mover and confirm Offhand yields ownership.
+
+## OH-UI-005: Pet battle panels split across the monitor seam
+
+- Status: Fix implemented and automated validation passed; live QA pending.
+- Client: Reported on a spanned installation; applicable to clients that expose
+  Blizzard's load-on-demand `PetBattleFrame`.
+- Symptom: The top opponent panel and bottom pet-action panel remain centered
+  on the complete spanned canvas, leaving both split between Offhand and
+  Mainhand with no obvious setting that moves them together.
+- Cause: Blizzard builds the pet-battle interface beneath one full-screen root
+  anchored to `UIParent`. Its internal top and bottom controls are correctly
+  positioned relative to that root, but the root still covers both monitors.
+- Fix: While out of combat, Offhand loads the native pet-battle UI and replaces
+  only the pristine root's full-screen bounds with the Mainhand rectangle. All
+  Blizzard children, interaction, visibility, and battle updates remain native.
+  A user-placed or addon-owned root is treated as a compatibility conflict and
+  remains untouched.
+- Live QA: Start wild and trainer pet battles on each supported client. Confirm
+  the complete top and bottom interface appears inside Mainhand before, during,
+  and after combat; leaving battle restores normal UI without errors. Repeat
+  with a UI mover that customizes `PetBattleFrame` and confirm Offhand yields.
+
+## OH-UI-006: Retail character properties pane escapes after reload
+
+- Status: Fix implemented and automated validation passed; live QA pending.
+- Client: Retail.
+- Symptom: If `CharacterFrame` was left open on the Offhand workspace, its
+  properties/stat pane could appear outside the character window after login or
+  `/reload`. Closing and reopening the window immediately repaired the layout.
+- Cause: Reload persistence opened the native UIPanel and its `OnShow` restore
+  synchronously evicted it from Blizzard's left-panel slot with a hide/show
+  cycle. That re-entered PaperDoll's collapse/expand lifecycle while Blizzard
+  was still laying out `CharacterFrameInsetRight`, which owns the stats pane.
+- Fix: Retail now detaches the hidden character frame from the UIPanel slot
+  before opening Blizzard's native PaperDoll view. After expansion settles,
+  Offhand requests Blizzard's own display refresh and restores only the root
+  frame's saved workspace anchor; no PaperDoll child anchors are modified.
+- Live QA: Leave the Character panel open on the Offhand workspace and test a
+  cold login and `/reload` at 75%, 100%, 125%, and 150% Character Window Scale.
+  Confirm the stats pane remains inside the frame, then switch among Character,
+  Reputation, and Currency and verify close/reopen and Escape persistence.
 
 ## OH-COMP-001 — Newer Companion reported as incompatible
 

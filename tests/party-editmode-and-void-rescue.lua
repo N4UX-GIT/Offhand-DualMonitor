@@ -11,7 +11,13 @@ local addon = {
         savedWorkspacePositions = {},
         savedMainPositions = {},
         groupLootPosition = {},
+        groupLootStackDirection = "UP",
     }
+}
+local nativeGamepad = false
+addon.Mainhand = {
+    IsNativeGamepadInterface = function() return nativeGamepad end,
+    IsControllerLayout = function() return nativeGamepad end,
 }
 
 UIParent = {
@@ -214,8 +220,15 @@ CreateFrame = function(frameType, name, parent, template)
             local target = self:GetFrameRef("offhandTransient")
             if target then
                 target:ClearAllPoints()
-                target:SetPoint(self:GetAttribute("offhandPoint"), self:GetParent(), "BOTTOMLEFT",
-                    self:GetAttribute("offhandX"), self:GetAttribute("offhandY"))
+                if self:GetAttribute("offhandBounds") then
+                    target:SetPoint("BOTTOMLEFT", self:GetParent(), "BOTTOMLEFT",
+                        self:GetAttribute("offhandLeft"), self:GetAttribute("offhandBottom"))
+                    target:SetPoint("TOPRIGHT", self:GetParent(), "BOTTOMLEFT",
+                        self:GetAttribute("offhandRight"), self:GetAttribute("offhandTop"))
+                else
+                    target:SetPoint(self:GetAttribute("offhandPoint"), self:GetParent(), "BOTTOMLEFT",
+                        self:GetAttribute("offhandX"), self:GetAttribute("offhandY"))
+                end
             end
         end
         function f:WrapScript(trigger, script)
@@ -302,7 +315,9 @@ GroupLootFrame1 = nil
 GroupLootFrame2 = nil
 GroupLootFrame3 = nil
 GroupLootFrame4 = nil
+PetBattleFrame = nil
 local groupLootPreloadCount = 0
+local petBattlePreloadCount = 0
 C_AddOns = {
     LoadAddOn = function(name)
         if name == "Blizzard_GroupLoot" then
@@ -330,6 +345,15 @@ C_AddOns = {
                     end
                 end
             end
+            return true
+        elseif name == "Blizzard_PetBattleUI" then
+            petBattlePreloadCount = petBattlePreloadCount + 1
+            PetBattleFrame = makeMockFrame("PetBattleFrame", 4000, 2560)
+            PetBattleFrame:ClearAllPoints()
+            PetBattleFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, 0)
+            PetBattleFrame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", 0, 0)
+            PetBattleFrame.IsProtected = function() return true end
+            PetBattleFrame:Hide()
             return true
         end
     end,
@@ -424,6 +448,25 @@ assert(groupLootDiagnostics.loaded and groupLootDiagnostics.preloadAttempted
         and groupLootDiagnostics.rowMoverActive
         and groupLootDiagnostics.triggerCount == 4,
     "group-loot diagnostics must report the preload, fallback anchor, and row mover")
+assert(PetBattleFrame:GetNumPoints() == 2,
+    "pet-battle root must retain a bounded two-point rectangle")
+local petBattleBottomLeft = { PetBattleFrame:GetPoint(1) }
+local petBattleTopRight = { PetBattleFrame:GetPoint(2) }
+assert(petBattleBottomLeft[1] == "BOTTOMLEFT" and petBattleBottomLeft[2] == UIParent
+        and petBattleBottomLeft[3] == "BOTTOMLEFT" and petBattleBottomLeft[4] == 1440
+        and petBattleBottomLeft[5] == 6,
+    "pet-battle root must begin at the physical Mainhand bottom-left")
+assert(petBattleTopRight[1] == "TOPRIGHT" and petBattleTopRight[2] == UIParent
+        and petBattleTopRight[3] == "BOTTOMLEFT" and petBattleTopRight[4] == 4000
+        and petBattleTopRight[5] == 1446,
+    "pet-battle root must end at the physical Mainhand top-right")
+local petBattleDiagnostics = addon.HUD:GetPetBattleDiagnostics()
+assert(petBattleDiagnostics.loaded and petBattleDiagnostics.preloadAttempted
+        and petBattleDiagnostics.boundsPrepared and not petBattleDiagnostics.conflict
+        and petBattlePreloadCount == 1,
+    "pet-battle diagnostics must report preloaded Mainhand bounds")
+assert(not PetBattleFrame:IsShown(),
+    "preparing pet-battle bounds must not change Blizzard visibility")
 assertMainhandAnchor(CombatText, "CENTER", 2720, 726, "Floating combat text")
 assert(CombatText:IsIgnoringParentScale() == false,
     "floating combat text must inherit Offhand's UIParent scale")
@@ -479,6 +522,46 @@ assert(combatScorePoint[3] == "CENTER" and combatScorePoint[4] == 0
 LeaveCombat()
 assertMainhandAnchor(PVPMatchScoreboard, "CENTER", 2720, 726,
     "PvP scoreboard after combat")
+
+-- Wild pet battles hold combat lockdown. A native full-screen reset is left
+-- untouched during combat and repaired by the one coalesced post-combat pass.
+combatLocked = true
+PetBattleFrame:ClearAllPoints()
+PetBattleFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, 0)
+PetBattleFrame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", 0, 0)
+addon.HUD:PositionMainhandTransientFrames(metrics)
+addon.HUD:PositionMainhandTransientFrames(metrics)
+local combatPetPoint = { PetBattleFrame:GetPoint(1) }
+assert(combatPetPoint[1] == "TOPLEFT" and combatPetPoint[3] == "TOPLEFT"
+        and combatPetPoint[4] == 0 and combatPetPoint[5] == 0 and #combatQueue == 1,
+    "pet-battle repositioning must defer exactly once during combat")
+LeaveCombat()
+petBattleBottomLeft = { PetBattleFrame:GetPoint(1) }
+petBattleTopRight = { PetBattleFrame:GetPoint(2) }
+assert(petBattleBottomLeft[1] == "BOTTOMLEFT" and petBattleBottomLeft[4] == 1440
+        and petBattleBottomLeft[5] == 6 and petBattleTopRight[1] == "TOPRIGHT"
+        and petBattleTopRight[4] == 4000 and petBattleTopRight[5] == 1446,
+    "pet-battle root must recover its Mainhand bounds after combat")
+
+-- If another addon subsequently takes ownership with a custom anchor, yield
+-- instead of creating an anchor tug-of-war.
+PetBattleFrame:ClearAllPoints()
+PetBattleFrame:SetPoint("CENTER", UIParent, "CENTER", 75, 25)
+addon.HUD:PositionMainhandTransientFrames(metrics)
+local customPetPoint = { PetBattleFrame:GetPoint(1) }
+assert(customPetPoint[1] == "CENTER" and customPetPoint[3] == "CENTER"
+        and customPetPoint[4] == 75 and customPetPoint[5] == 25,
+    "custom pet-battle placement must remain untouched")
+petBattleDiagnostics = addon.HUD:GetPetBattleDiagnostics()
+assert(petBattleDiagnostics.conflict == "custom-anchor"
+        and not petBattleDiagnostics.boundsPrepared,
+    "pet-battle diagnostics must report and yield custom-anchor ownership")
+PetBattleFrame:ClearAllPoints()
+PetBattleFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, 0)
+PetBattleFrame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", 0, 0)
+addon.HUD:PositionMainhandTransientFrames(metrics)
+assert(addon.HUD:GetPetBattleDiagnostics().conflict == nil,
+    "restoring Blizzard pet-battle bounds must permit Offhand adoption again")
 
 -- The House Editor is load-on-demand. Its ModeBar is already shown beneath a
 -- hidden full-screen parent when Blizzard_HouseEditor finishes loading, so it
@@ -591,9 +674,24 @@ assertMainhandAnchor(GroupLootFrame1, "CENTER", 3300, 700,
     "first group-loot row at the user position")
 assertMainhandAnchor(GroupLootFrame2, "CENTER", 3300, 800,
     "second group-loot row above the user position")
+assert(addon.HUD:SetGroupLootStackDirection("DOWN"),
+    "group-loot stack direction must accept the downward option")
+assertMainhandAnchor(GroupLootFrame1, "CENTER", 3300, 700,
+    "first group-loot row remains at the user anchor when stacking downward")
+assertMainhandAnchor(GroupLootFrame2, "CENTER", 3300, 600,
+    "second group-loot row below the user position")
+GroupLootContainer_Update(GroupLootContainer)
+assertMainhandAnchor(GroupLootFrame2, "CENTER", 3300, 600,
+    "downward group-loot stack after native update")
 local movedDiagnostics = addon.HUD:GetGroupLootDiagnostics()
-assert(movedDiagnostics.customPosition and movedDiagnostics.moverShown,
-    "group-loot diagnostics must report the saved position and visible preview")
+assert(movedDiagnostics.customPosition and movedDiagnostics.moverShown
+        and movedDiagnostics.stackDirection == "DOWN",
+    "group-loot diagnostics must report the saved position, direction and visible preview")
+assert(addon.HUD:SetGroupLootStackDirection("invalid")
+        and addon.db.groupLootStackDirection == "UP",
+    "unknown group-loot directions must safely fall back to Blizzard's upward direction")
+assertMainhandAnchor(GroupLootFrame2, "CENTER", 3300, 800,
+    "second group-loot row after restoring upward stacking")
 
 addon.HUD:SetGroupLootMoverShown(false)
 assert(not groupLootMover:IsShown(), "group-loot mover preview must hide on request")
@@ -1759,6 +1857,27 @@ assert((playerSpellsFrame.setUserPlacedFalseCalls or 0) == 0,
     "Forever drag stop must not clear user-placed state and trigger a native center reset")
 assert(addon.Canvas.IsFrameOnWorkspace(playerSpellsFrame),
     "a Forever panel dropped on the left workspace must not snap back to Mainhand")
+
+local gamepadPanel = makeMockFrame("GamepadManagedPanel", 600, 700)
+gamepadPanel.TitleContainer = makeMockFrame("GamepadManagedPanelTitleContainer", 500, 20)
+gamepadPanel.IsProtected = function() return true end
+UIPanelWindows.GamepadManagedPanel = { area = "left", pushable = 0 }
+nativeGamepad = true
+addon.Canvas:TryMakeFrameDraggable(gamepadPanel)
+assert(not gamepadPanel._OffhandPanelMotionGrip and not gamepadPanel.movable
+        and gamepadPanel._OffhandPanelMotionStatus == "native_gamepad",
+    "Forever native gamepad panels must not receive child grips or movable ownership")
+
+local gamepadOverlay = makeMockFrame("GamepadNavigationOverlay", 300, 180)
+gamepadOverlay:ClearAllPoints()
+gamepadOverlay:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+table.insert(UIParent.children, gamepadOverlay)
+local gamepadOverlayPoints = #gamepadOverlay.points
+flushTimers()
+assert(#gamepadOverlay.points == gamepadOverlayPoints
+        and gamepadOverlay.points[1][4] == 0 and gamepadOverlay.points[1][5] == 0,
+    "the broad popup scanner must not re-anchor native gamepad navigation frames")
+nativeGamepad = false
 
 -- Moving the same panel back to Mainhand is also an explicit placement. It
 -- must survive a native close/reopen instead of falling back to the workspace

@@ -309,8 +309,14 @@ hudSlider.scripts["OnValueChanged"](hudSlider, 0.77)
 hudSlider.scripts["OnValueChanged"](hudSlider, 0.78)
 assert(layoutAppliedCount == 0, "ApplyFullLayout must NOT run during drag (OnValueChanged is skipped)")
 
+-- The native Slider can move its thumb after the last custom OnUpdate. Mouse
+-- release must commit that displayed value instead of leaving the setting at
+-- the previous drag sample until a step button is clicked.
+hudSlider.val = 0.90
 hudSlider.scripts["OnMouseUp"](hudSlider, "LeftButton")
 assert(hudSlider._isCustomDrag == false or hudSlider._isCustomDrag == nil, "Mouse up must end _isCustomDrag state")
+assert(math.abs(addon.db.hudScale - 0.90) < 0.001,
+    "Mouse up must commit the slider thumb's final displayed value")
 assert(layoutAppliedCount == 1, "Mouse up must apply layout exactly once")
 
 -- ============================================================================

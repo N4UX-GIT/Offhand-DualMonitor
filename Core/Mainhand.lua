@@ -566,7 +566,20 @@ local function UniqueLayoutName(data)
     return base .. " - " .. tostring(time and time() or geometryRevision)
 end
 
+local function NativeGamepadInterface()
+    if type(Offhand.IsGamepadUIEnabled) == "function" then
+        return Offhand:IsGamepadUIEnabled()
+    end
+    local gamepad = Enum and Enum.InputDeviceInterfaceType
+        and Enum.InputDeviceInterfaceType.Gamepad
+    local getStyle = C_InputInterfaceStyle and C_InputInterfaceStyle.GetCurrentStyle
+    if gamepad == nil or type(getStyle) ~= "function" then return false end
+    local ok, current = pcall(getStyle)
+    return ok and current == gamepad
+end
+
 local function ControllerMode(presets)
+    if _G.ConsolePort or NativeGamepadInterface() then return true end
     local gamepad = Enum and Enum.InputDeviceInterfaceType
         and Enum.InputDeviceInterfaceType.Gamepad
     return gamepad ~= nil and type(presets[1]) == "table"
@@ -578,6 +591,16 @@ local function EnsureEditModeLoaded()
         and type(C_EditMode.SaveLayouts) == "function" then return end
     local load = C_AddOns and C_AddOns.LoadAddOn or _G.LoadAddOn
     if type(load) == "function" then pcall(load, "Blizzard_EditMode") end
+end
+
+function Mainhand:IsNativeGamepadInterface()
+    return NativeGamepadInterface()
+end
+
+function Mainhand:IsControllerLayout()
+    if _G.ConsolePort or NativeGamepadInterface() then return true end
+    EnsureEditModeLoaded()
+    return ControllerMode(Presets())
 end
 
 -- Profiles completed before generated Mainhand layouts were introduced can be
@@ -604,7 +627,9 @@ function Mainhand:NeedsEditModeLayoutAttention()
     end
     local data = EditModeData()
     if not data then return false, "unavailable" end
-    if #Presets() == 0 then return false, "presets" end
+    local presets = Presets()
+    if #presets == 0 then return false, "presets" end
+    if ControllerMode(presets) then return false, "gamepad" end
 
     local status = self:GetLayoutStatus()
     if not status.configured then return true, "missing" end
@@ -634,6 +659,9 @@ function Mainhand:CreateOrUpdateEditModeLayout()
     if not Offhand.db or not Offhand.db.enabled then return false, "disabled" end
     local rect = self:GetRect()
     if not rect.isSpanned then return false, "span" end
+    -- Do not load Blizzard Edit Mode merely to rediscover an interface owner
+    -- already reported by the live input API or ConsolePort.
+    if _G.ConsolePort or NativeGamepadInterface() then return false, "gamepad" end
     EnsureEditModeLoaded()
     if not C_EditMode or type(C_EditMode.GetLayouts) ~= "function" then
         return false, "read-api"

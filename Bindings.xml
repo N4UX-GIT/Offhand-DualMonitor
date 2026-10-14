@@ -1,0 +1,5 @@
+<Bindings>
+    <Binding name="OFFHAND_TOGGLE_SETTINGS" header="OFFHAND">
+        Offhand_ToggleSettings()
+    </Binding>
+</Bindings>

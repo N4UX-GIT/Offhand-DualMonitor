@@ -137,6 +137,10 @@ Enum = {
         PossessActionBar = 10, ClassBar = 11,
     },
 }
+local currentInterfaceStyle = 1
+C_InputInterfaceStyle = {
+    GetCurrentStyle = function() return currentInterfaceStyle end,
+}
 MainMenuBar = frame("MainMenuBar")
 MainMenuBar.w, MainMenuBar.h = 1000, 40
 MainMenuBar.left, MainMenuBar.right = 2000, 3000
@@ -387,6 +391,35 @@ assert(not attention and attentionReason == "deferred"
 assert(addon.Mainhand:SetEditModeLayoutDeferred(false)
         and not addon.Mainhand:GetLayoutStatus().deferred,
     "explicit repair must be able to clear deferred HUD state")
+
+preset.interfaceStyle = Enum.InputDeviceInterfaceType.Gamepad
+assert(addon.Mainhand:IsControllerLayout(),
+    "Gamepad Edit Mode presets must be detected without changing their layout")
+attention, attentionReason = addon.Mainhand:NeedsEditModeLayoutAttention()
+assert(not attention and attentionReason == "gamepad",
+    "controller layouts must not trigger keyboard-layout repair prompts")
+ok, why = addon.Mainhand:CreateOrUpdateEditModeLayout()
+assert(not ok and why == "gamepad",
+    "controller layouts must remain under Blizzard or ConsolePort ownership")
+preset.interfaceStyle = 1
+currentInterfaceStyle = Enum.InputDeviceInterfaceType.Gamepad
+assert(addon.Mainhand:IsNativeGamepadInterface()
+        and addon.Mainhand:IsControllerLayout(),
+    "Forever's live native gamepad interface must be detected independently of Edit Mode presets")
+ok, why = addon.Mainhand:CreateOrUpdateEditModeLayout()
+assert(not ok and why == "gamepad",
+    "the live native gamepad interface must retain ownership of protected HUD layouts")
+currentInterfaceStyle = 1
+assert(not addon.Mainhand:IsNativeGamepadInterface(),
+    "returning to the keyboard interface must clear native gamepad detection")
+ConsolePort = {}
+assert(addon.Mainhand:IsControllerLayout(),
+    "ConsolePort must retain ownership even when Blizzard reports a keyboard preset")
+ok, why = addon.Mainhand:CreateOrUpdateEditModeLayout()
+assert(not ok and why == "gamepad",
+    "Offhand must not clone a protected HUD while ConsolePort owns controller bars")
+ConsolePort = nil
+
 addon.isForever = true
 attention, attentionReason = addon.Mainhand:NeedsEditModeLayoutAttention()
 assert(not attention and attentionReason == "forever",

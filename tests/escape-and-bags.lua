@@ -266,6 +266,51 @@ end
 assert(not inSpecial("CharacterFrame"), "CharacterFrame on workspace must NOT be in UISpecialFrames")
 assert(inSpecial("AddonList"), "AddonList must be registered in UISpecialFrames")
 
+-- Retail reload restoration must detach CharacterFrame before its native show
+-- begins. Evicting it from the UIPanel slot inside OnShow re-enters Blizzard's
+-- PaperDoll collapse/expand lifecycle and can strand CharacterStatsPane outside
+-- the expanded frame until the player closes and reopens it.
+addon.isRetail = true
+addon.db.persistentWorkspacePanels = true
+addon.db.restoreWorkspaceOnReload = true
+addon.db.openWorkspacePanels = { CharacterFrame = true }
+CharacterFrame:Hide()
+CharacterFrame.points = {}
+UIPanelWindows.CharacterFrame.area = "left"
+SetUIPanelAttribute(CharacterFrame, "area", "left")
+delegate.left = nil
+local characterHideCalls, characterToggleCalls, characterRefreshCalls = 0, 0, 0
+local originalHideUIPanel = HideUIPanel
+HideUIPanel = function(frame, ...)
+    if frame == CharacterFrame then characterHideCalls = characterHideCalls + 1 end
+    return originalHideUIPanel(frame, ...)
+end
+CharacterFrame.RefreshDisplay = function()
+    characterRefreshCalls = characterRefreshCalls + 1
+end
+ToggleCharacter = function(tab, onlyShow)
+    characterToggleCalls = characterToggleCalls + 1
+    assert(tab == "PaperDollFrame" and onlyShow == true,
+        "Retail reload restoration must request the native PaperDoll view without toggling it closed")
+    CharacterFrame:Show()
+    CharacterFrame:RefreshDisplay()
+end
+assert(addon.Canvas:QueuePersistentPanelRestore(CharacterFrame, "CharacterFrame", 0),
+    "Retail CharacterFrame reload restoration was not queued")
+flushTimers()
+flushTimers()
+assert(CharacterFrame:IsShown() and delegate.left == nil,
+    "Retail CharacterFrame must reopen independently at its saved workspace position")
+assert(characterToggleCalls == 1 and characterHideCalls == 0,
+    "Retail CharacterFrame reload restoration must not hide/show inside its native opening transaction")
+assert(characterRefreshCalls >= 2,
+    "Retail CharacterFrame must receive Blizzard's native display refresh after PaperDoll expansion settles")
+HideUIPanel = originalHideUIPanel
+ToggleCharacter = nil
+CharacterFrame.RefreshDisplay = nil
+CharacterFrame:Hide()
+addon.isRetail = nil
+
 -- TEST 2: Pressing Escape on clean state opens Game Menu centered on gaming monitor
 ToggleGameMenu()
 flushTimers()

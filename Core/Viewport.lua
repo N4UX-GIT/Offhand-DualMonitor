@@ -412,10 +412,14 @@ function Viewport:GetMetrics()
         pw, ph = tonumber(topology.physicalWidth), tonumber(topology.physicalHeight)
         local ux, uy = sw / pw, sh / ph
         local game, workspace = topology.game, topology.workspace
-        local width, height = tonumber(game.width), tonumber(game.height)
-        local left, bottom = tonumber(game.x), tonumber(game.y)
-        local workspaceLeft, workspaceBottom = tonumber(workspace.x), tonumber(workspace.y)
-        local workspaceWidth, workspaceHeight = tonumber(workspace.width), tonumber(workspace.height)
+        local width = math.floor(tonumber(game.width) + 0.5)
+        local height = math.floor(tonumber(game.height) + 0.5)
+        local left = math.floor(tonumber(game.x) + 0.5)
+        local bottom = math.floor(tonumber(game.y) + 0.5)
+        local workspaceLeft = math.floor(tonumber(workspace.x) + 0.5)
+        local workspaceBottom = math.floor(tonumber(workspace.y) + 0.5)
+        local workspaceWidth = math.floor(tonumber(workspace.width) + 0.5)
+        local workspaceHeight = math.floor(tonumber(workspace.height) + 0.5)
         return {
             screenWidth = sw, screenHeight = sh, physicalWidth = pw, physicalHeight = ph,
             deckWidth = workspaceWidth * ux,
@@ -425,9 +429,9 @@ function Viewport:GetMetrics()
             workspaceTop = (workspaceBottom + workspaceHeight) * uy,
             workspacePixelLeft = workspaceLeft, workspacePixelBottom = workspaceBottom,
             workspacePixelWidth = workspaceWidth, workspacePixelHeight = workspaceHeight,
-            gameWidth = width * ux, gameHeight = height * uy,
-            gameLeft = left * ux, gameBottom = bottom * uy,
-            gameRight = (left + width) * ux, gameTop = (bottom + height) * uy,
+            gameWidth = width * uy, gameHeight = height * uy,
+            gameLeft = left * uy, gameBottom = bottom * uy,
+            gameRight = (left + width) * uy, gameTop = (bottom + height) * uy,
             gamePixelLeft = left, gamePixelBottom = bottom,
             gamePixelWidth = width, gamePixelHeight = height,
             hudScale = 1, bezel = 0, preset = preset,
@@ -497,15 +501,15 @@ function Viewport:GetMetrics()
     local hudScale = 1
     return {
         screenWidth = sw, screenHeight = sh, physicalWidth = pw, physicalHeight = ph,
-        deckWidth = isVertical and (deck * uy) or (deck * ux), gameWidth = width * ux, gameHeight = gameHeight,
+        deckWidth = isVertical and (deck * uy) or (deck * ux), gameWidth = width * uy, gameHeight = gameHeight,
         workspaceWidth = workspaceWidth * ux, workspaceHeight = workspaceHeight * uy,
         workspaceLeft = workspaceLeft * ux, workspaceBottom = workspaceBottom * uy,
         workspaceRight = (workspaceLeft + workspaceWidth) * ux,
         workspaceTop = (workspaceBottom + workspaceHeight) * uy,
         workspacePixelLeft = workspaceLeft, workspacePixelBottom = workspaceBottom,
         workspacePixelWidth = workspaceWidth, workspacePixelHeight = workspaceHeight,
-        gameLeft = left * ux, gameBottom = bottom * uy,
-        gameRight = (left + width) * ux, gameTop = (bottom + height) * uy,
+        gameLeft = left * uy, gameBottom = bottom * uy,
+        gameRight = (left + width) * uy, gameTop = (bottom + height) * uy,
         gamePixelLeft = left, gamePixelBottom = bottom,
         gamePixelWidth = width, gamePixelHeight = height,
         hudScale = hudScale, bezel = isVertical and (bezel * uy) or (bezel * ux), preset = preset,

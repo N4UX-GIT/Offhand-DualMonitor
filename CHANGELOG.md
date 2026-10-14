@@ -4,6 +4,43 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Group-loot positioning now offers an optional downward stack direction for
+  players who place the first-roll anchor near the top of Mainhand. Blizzard's
+  upward direction remains the default for all existing and new profiles.
+
+### Fixed
+- Workspace window locking now waits for the normal login or `/reload`
+  restoration to finish before active close recovery begins. Active recovery
+  uses one bounded, short settlement path for maps, bags and Character instead
+  of repeatedly accumulating full startup restoration callbacks.
+- Slider drags now commit the thumb's final displayed value on mouse release,
+  so Character workspace scaling updates immediately without requiring a
+  subsequent step-button click.
+- Retail 12.1.5 now uses the correct `120105` interface number in the generic
+  and Mainline manifests, preventing the client from marking Offhand out of
+  date. The invalid `121500` and redundant `121000` values were removed.
+- Forever's native gamepad interface no longer receives Offhand-owned child
+  drag controls during login or `/reload`. Offhand now detects the live input
+  interface style, leaves SmartNavigation-managed Blizzard window structures
+  untouched, suspends its broad popup re-anchoring scan, does not automatically
+  reopen panels or bags, and avoids panel-slot and Escape-registry mutations
+  while native gamepad navigation is active. Player-opened windows still return
+  to their saved Offhand positions. ConsolePort continues to retain ownership
+  of its protected layouts. The panel lifecycle diagnosis and initial fix were
+  contributed by Frosted (`bitwize01`) in
+  [PR #18](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/18).
+- Pet battles now place their complete native interface inside Mainhand instead
+  of splitting the top and bottom panels across the monitor seam. Offhand
+  prepares Blizzard's full-screen pet-battle root before combat lockdown,
+  preserves its internal layout and visibility lifecycle, and yields when a
+  user or another addon has supplied a custom anchor.
+- Retail reload restoration no longer re-enters the character sheet's
+  hide/show lifecycle while its PaperDoll view is expanding. The frame is
+  detached from Blizzard's panel slot before opening and receives Blizzard's
+  own final display refresh, keeping the properties pane inside the character
+  window on the first login or `/reload` presentation.
+
 ## [2.1.2-beta.21] - 2026-10-13
 
 ### Added

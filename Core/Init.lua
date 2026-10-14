@@ -91,6 +91,25 @@ function Offhand:HasBlizzardEditMode()
     return BlizzardEditModeAddonExists()
 end
 
+-- Forever's native Gamepad UI gives Blizzard's FrameControlsManager ownership
+-- of panel visibility and focus routing. Prefer the live interface-style API;
+-- InputUtil is a compatibility fallback for builds that expose the setting but
+-- not C_InputInterfaceStyle during early addon initialization.
+function Offhand:IsGamepadUIEnabled()
+    local gamepad = Enum and Enum.InputDeviceInterfaceType
+        and Enum.InputDeviceInterfaceType.Gamepad
+    local getStyle = C_InputInterfaceStyle and C_InputInterfaceStyle.GetCurrentStyle
+    if gamepad ~= nil and type(getStyle) == "function" then
+        local ok, current = pcall(getStyle)
+        if ok then return current == gamepad end
+    end
+    if InputUtil and type(InputUtil.IsGamepadUIEnabled) == "function" then
+        local ok, enabled = pcall(InputUtil.IsGamepadUIEnabled)
+        if ok then return enabled == true end
+    end
+    return false
+end
+
 local function ClientProjectLabel()
     if Offhand.isForever then return "Forever" end
     if Offhand.isLegacyWrath then return "Wrath 3.3.5a" end
@@ -977,6 +996,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         Offhand:InitializeConfig()
         if Offhand.InitializeThemes then Offhand:InitializeThemes() end
         if Offhand.InitializeCanvas then Offhand:InitializeCanvas() end
+        if Offhand.InitializeWorkspaceBehavior then Offhand:InitializeWorkspaceBehavior() end
         if Offhand.InitializeViewport then Offhand:InitializeViewport() end
         if Offhand.InitializeSeamRedirect then Offhand:InitializeSeamRedirect() end
         if Offhand.InitializeOptions then Offhand:InitializeOptions() end
@@ -989,6 +1009,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         end
 
     elseif event == "PLAYER_LOGIN" then
+        if Offhand.db and Offhand.db.antiShimmer and Offhand.SetAntiShimmer then
+            Offhand:SetAntiShimmer(true)
+        end
         local loginMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
         if Offhand.db and Offhand.db.enabled and (not loginMetrics or loginMetrics.isSpanned) then
             -- Unclamp chat while Offhand is active so native tab dragging can
@@ -1387,7 +1410,7 @@ SlashCmdList["OFFHAND"] = function(msg)
         end
         if Offhand.HUD and Offhand.HUD.GetGroupLootDiagnostics then
             local loot = Offhand.HUD:GetGroupLootDiagnostics()
-            Offhand:Print("Group loot diagnostics: Loaded=%s | Preload=%s | SecureAnchor=%s | RowMover=%s/%s | Rows=%d | Position=%s | Preview=%s | Conflict=%s | Triggers=%d | Combat=%s.",
+            Offhand:Print("Group loot diagnostics: Loaded=%s | Preload=%s | SecureAnchor=%s | RowMover=%s/%s | Rows=%d | Position=%s | Stack=%s | Preview=%s | Conflict=%s | Triggers=%d | Combat=%s.",
                 loot.loaded and "yes" or "no",
                 loot.preloadAttempted and "yes" or "no",
                 loot.anchorPrepared and "yes" or "no",
@@ -1395,10 +1418,20 @@ SlashCmdList["OFFHAND"] = function(msg)
                 loot.rowMoverActive and "active" or "inactive",
                 loot.rowsMoved or 0,
                 loot.customPosition and "custom" or "default",
+                tostring(loot.stackDirection or "UP"),
                 loot.moverShown and "shown" or "hidden",
                 tostring(loot.conflict or "none"),
                 loot.triggerCount or 0,
                 loot.inCombat and "yes" or "no")
+        end
+        if Offhand.HUD and Offhand.HUD.GetPetBattleDiagnostics then
+            local petBattle = Offhand.HUD:GetPetBattleDiagnostics()
+            Offhand:Print("Pet battle diagnostics: Loaded=%s | Preload=%s | Bounds=%s | Conflict=%s | Combat=%s.",
+                petBattle.loaded and "yes" or "no",
+                petBattle.preloadAttempted and "yes" or "no",
+                petBattle.boundsPrepared and "prepared" or "unmanaged",
+                tostring(petBattle.conflict or "none"),
+                petBattle.inCombat and "yes" or "no")
         end
         if Offhand.Mainhand and Offhand.Mainhand.GetEditModeDiagnostics then
             Offhand:Print("Edit Mode layout diagnostics: %s.",
@@ -1441,6 +1474,22 @@ SlashCmdList["OFFHAND"] = function(msg)
     elseif cmd == "gather" then
         if Offhand.GatherOffScreenUI then
             Offhand:GatherOffScreenUI()
+        end
+    elseif cmd == "antishimmer" or cmd == "shimmer" then
+        if Offhand.SetAntiShimmer then
+            local newState
+            if arg == "on" or arg == "1" or arg == "true" then
+                newState = true
+            elseif arg == "off" or arg == "0" or arg == "false" then
+                newState = false
+            else
+                newState = not (Offhand.IsAntiShimmerEnabled and Offhand:IsAntiShimmerEnabled())
+            end
+            Offhand:SetAntiShimmer(newState)
+            Offhand:Print(newState and L["MSG_ANTI_SHIMMER_ON"] or L["MSG_ANTI_SHIMMER_OFF"])
+            if Offhand.Options and Offhand.Options.RefreshPanel then
+                Offhand.Options:RefreshPanel()
+            end
         end
     else
         if Offhand.Options and Offhand.Options.Open then
