@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- Companion process-path discovery now falls back to
+  `QueryFullProcessImageName` after any `Process.MainModule` failure, including
+  Wine Mono's `ArgumentOutOfRangeException`, and reports the underlying failure
+  when neither probe succeeds.
+- A failed automatic span is now paused for that WoW process instead of being
+  retried every polling cycle. The user can inspect the diagnostic and retry
+  explicitly with **Span WoW Now**; a successful explicit span clears the
+  pause.
+- Programmatic display-list refreshes no longer overwrite a valid saved monitor
+  selection with a transient empty selection.
+
 ## [2.1.2-beta.21] - 2026-10-13
 
 ### Added

@@ -30,12 +30,12 @@ try {
         $source -notmatch 'CompanionUpdatePolicy\.SelectLatest') {
         throw 'Companion update checks must use the official repository release list and channel policy.'
     }
-    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.2-beta\.20"\)' -or
-        $source -notmatch 'AssemblyFileVersion\("2\.1\.2\.20"\)') {
+    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.2-beta\.22"\)' -or
+        $source -notmatch 'AssemblyFileVersion\("2\.1\.2\.22"\)') {
         throw 'Companion binary metadata must identify the exact beta build.'
     }
     $appManifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Source\app.manifest') -Raw
-    if ($appManifest -notmatch '<assemblyIdentity version="2\.1\.2\.20" name="Offhand\.Companion\.App"/>') {
+    if ($appManifest -notmatch '<assemblyIdentity version="2\.1\.2\.22" name="Offhand\.Companion\.App"/>') {
         throw 'Companion application manifest must identify the exact beta build.'
     }
     if ($source -match 'Process\.GetProcesses\(\)' -or
@@ -45,6 +45,20 @@ try {
     if ($source -notmatch 'monitorTimer\.Interval = proc == null \? 5000 : 2000' -or
         $source -notmatch 'ShowHelpDialog\(\)(?s:.*?)SuspendUiPolling\(\)(?s:.*?)finally \{ ResumeUiPolling\(\); \}') {
         throw 'Companion polling must back off while WoW is absent and pause during modal Help interaction.'
+    }
+    if ($source -notmatch 'try \{ return process\.MainModule\.FileName; \}(?s:.*?)catch \(Exception ex\)(?s:.*?)OpenProcess' -or
+        $source -notmatch 'Cannot verify the addon installation for this client\. "(?s:.*?)ex\.GetType\(\)\.Name') {
+        throw 'Wine process-path failures must reach the limited-access fallback and retain actionable diagnostics.'
+    }
+    if ($source -notmatch 'failedAutoSpanPids\.Add\(proc\.Id\)' -or
+        $source -notmatch 'Automatic spanning is paused for this WoW process' -or
+        $source -notmatch 'failedAutoSpanPids\.Remove\(proc\.Id\)') {
+        throw 'A failed automatic span must remain paused for that process until an explicit span succeeds.'
+    }
+    if ($source -notmatch 'displaySelectionGeneration\+\+' -or
+        $source -notmatch 'generation == displaySelectionGeneration' -or
+        $source -notmatch 'if \(devices\.Count == 0\) return;') {
+        throw 'Programmatic display refreshes must not overwrite the last valid saved monitor selection.'
     }
     if ($source -notmatch '!CompanionTopologyBridge\.TryWrite(?s:.*?)throw new IOException') {
         throw 'Companion must refuse to span when addon topology cannot be written.'
@@ -209,6 +223,7 @@ try {
     Write-Output 'PASS: update checks are user initiated'
     Write-Output 'PASS: update checks follow the Microsoft Store or portable GitHub distribution channel'
     Write-Output 'PASS: polling is restricted to known WoW process names and topology handoff failures block unsafe spans'
+    Write-Output 'PASS: Wine path fallback, failed auto-span quarantine and display-selection preservation remain enforced'
     Write-Output 'PASS: manual restore returns focus and border failures include actionable diagnostics'
     Write-Output 'PASS: render resize handshake stays within ordinary window geometry and restores exact bounds'
     Write-Output 'PASS: manual restore uses remembered bounds while missing-display recovery fills Mainhand'

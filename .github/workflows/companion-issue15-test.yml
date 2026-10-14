@@ -1,0 +1,101 @@
+name: Companion issue 15 test build
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'Companion/**'
+      - 'tests/CompanionPreferences.cs'
+      - 'tests/companion-preferences.ps1'
+      - '.github/workflows/companion-issue15-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Test Companion preferences and policies
+        shell: powershell
+        run: .\tests\companion-preferences.ps1
+
+      - name: Build issue 15 test candidate
+        shell: powershell
+        run: |
+          $stage = Join-Path $PWD 'artifacts\Offhand-Companion-v2.1.2-beta.22-issue15-test1'
+          New-Item -ItemType Directory -Path $stage -Force | Out-Null
+          $exe = Join-Path $stage 'Offhand.exe'
+          & .\Companion\build.bat $exe
+          if ($LASTEXITCODE -ne 0) {
+            throw "Companion build failed with exit code $LASTEXITCODE."
+          }
+          $version = (Get-Item -LiteralPath $exe).VersionInfo.ProductVersion
+          if ($version -ne '2.1.2-beta.22') {
+            throw "Unexpected Companion product version: $version"
+          }
+          Copy-Item -LiteralPath 'LICENSE' -Destination (Join-Path $stage 'LICENSE')
+          @'
+          Offhand Companion 2.1.2 Beta 22 — issue #15 test candidate 1
+          Source commit: ${{ github.sha }}
+          Workflow run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          This is a narrow prerelease build for testing the Wine process-path
+          fallback, failed automatic-span quarantine, and display-selection
+          persistence. It is not a published general release.
+
+          Linux/Wine test:
+          1. Keep your current Companion executable as a backup.
+          2. Extract this archive with directories preserved.
+          3. Run Offhand.exe with the same Wine runner, user, and WINEPREFIX as WoW.
+          4. Confirm the addon is detected and inspect the Companion activity log.
+          5. Enable automatic spanning and launch WoW. If spanning fails, confirm
+             it logs one paused-retry message instead of moving the window once
+             per polling cycle.
+          6. Correct the reported condition and choose Span WoW Now. Confirm a
+             successful explicit span, Restore, and monitor selection persistence.
+          7. Exit WoW completely, relaunch it, and test Forever cold-launch recovery.
+
+          Report the Wine runner/version, WINEPREFIX arrangement, desktop session
+          (X11 or Wayland/compositor), Companion activity-log text, and whether each
+          step passed at https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/15
+          '@ | Set-Content -LiteralPath (Join-Path $stage 'README.txt') -Encoding UTF8
+
+      - name: Package and checksum test candidate
+        shell: powershell
+        run: |
+          Add-Type -AssemblyName System.IO.Compression
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $root = Join-Path $PWD 'artifacts'
+          $stage = Join-Path $root 'Offhand-Companion-v2.1.2-beta.22-issue15-test1'
+          $zip = Join-Path $root 'Offhand-Companion-v2.1.2-beta.22-issue15-test1.zip'
+          $archive = [IO.Compression.ZipFile]::Open($zip, [IO.Compression.ZipArchiveMode]::Create)
+          try {
+            foreach ($name in @('LICENSE', 'Offhand.exe', 'README.txt')) {
+              [IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                $archive, (Join-Path $stage $name), $name,
+                [IO.Compression.CompressionLevel]::Optimal) | Out-Null
+            }
+          } finally {
+            $archive.Dispose()
+          }
+          $lines = @(
+            "$(Get-FileHash -LiteralPath $zip -Algorithm SHA256 | Select-Object -ExpandProperty Hash)  $([IO.Path]::GetFileName($zip))",
+            "$(Get-FileHash -LiteralPath (Join-Path $stage 'Offhand.exe') -Algorithm SHA256 | Select-Object -ExpandProperty Hash)  Offhand.exe"
+          )
+          $lines | Set-Content -LiteralPath (Join-Path $root 'checksums-sha256.txt') -Encoding ASCII
+
+      - name: Upload issue 15 test candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: Offhand-Companion-v2.1.2-beta.22-issue15-test1
+          path: |
+            artifacts/Offhand-Companion-v2.1.2-beta.22-issue15-test1.zip
+            artifacts/checksums-sha256.txt
+          if-no-files-found: error
+          retention-days: 14

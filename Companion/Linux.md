@@ -9,9 +9,12 @@ Linux executable in this repository yet.
 
 Running the Windows Companion under Wine is an **experimental compatibility
 path**, not native Linux support. The Companion now falls back from
-`Process.MainModule` to `QueryFullProcessImageName` with limited process access.
-That API is provided by Wine and addresses a known executable-path detection
-failure. WoW and the Companion must run as the same user and in the same
+`Process.MainModule` to `QueryFullProcessImageName` with limited process access
+after any failure from the preferred .NET probe. This includes the
+`ArgumentOutOfRangeException` Wine Mono can raise when another process exposes
+an empty module collection. That API is provided by Wine and addresses the
+known executable-path detection failure reported in issue #15. WoW and the
+Companion must run as the same user and in the same
 `WINEPREFIX`; separate prefixes use separate Wine servers and cannot discover
 or control one another through the existing Win32 process/window APIs.
 
@@ -76,7 +79,11 @@ Wine validation should cover process discovery, addon verification, display
 enumeration and identification, Span, Restore, topology generation, a complete WoW
 exit, and Forever cold-launch recovery. XWayland/Wine and compositor behavior
 can differ, so a successful addon check alone is not proof that window movement
-and clipping work.
+and clipping work. If an automatic window operation fails, the Companion pauses
+automatic retries for that WoW process so it does not repeatedly fight the
+desktop compositor. Review the activity-log diagnostic and use **Span WoW Now**
+for an explicit retry after correcting the runner, prefix, permissions, or
+display selection.
 
 ## Native Linux implementation
 
