@@ -165,8 +165,6 @@ example, after publishing `2.1.13.0`, do not submit `2.1.2.0`; existing users
 would not receive it as an upgrade. Record the last submitted Store version in
 the release record at the end of this document.
 
-## Release lanes and cadence
-
 ## Branch and promotion model
 
 Use `companion/develop` as the long-lived integration branch for Companion
@@ -203,6 +201,8 @@ Branch separation does not replace artifact verification. A Companion build is
 not a release candidate merely because it is present on `companion/develop`.
 The packaged executable, source commit, version metadata, and recorded hash
 must still correspond exactly.
+
+## Release lanes and cadence
 
 Use two release lanes:
 
