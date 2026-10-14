@@ -2,6 +2,34 @@
 
 Stable IDs for reports that require follow-up across test sessions.
 
+## Validation summary
+
+This table answers three separate questions: whether source contains a change,
+whether the target client has verified it, and whether another gate remains.
+The detailed issue section below remains authoritative.
+
+| Work item | Client scope | Source state | Automated or static evidence | Live evidence | Next gate |
+| --- | --- | --- | --- | --- | --- |
+| [PR #18](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/18) | Forever Gamepad UI | Conflicting draft against `addon/develop` | Contributor tests reported | Contributor live report requires local reconciliation | Compare safe panel handling with PR #21 |
+| [PR #21](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/21) | Shared, Retail, Forever, and legacy manifests | Draft checkpoint against `addon/develop` | 31 suites and manifest validation passed | Pending | Review, split if useful, and complete live QA |
+| OH-PERF-001 | Forever with bag addons | Implemented on `main` | Automated passed | Pending | Live profiler comparison |
+| OH-FOR-001 | Forever | Investigation on `main` | No attributable stack | Inconclusive | Reproducible Offhand taint trace |
+| OH-FOR-002 | Forever and modern Retail | Implemented on `main` | Static passed | Pending | Battleground and combat QA |
+| OH-EM-001 | Retail | Implemented on `main` | Static passed | Pending | Multi-character Edit Mode QA |
+| OH-FOR-003 | Forever | Implemented on `main` | Automated passed | Pending | Layout recovery QA |
+| OH-FOR-004 | Forever and Companion | Implemented on `main` | Automated passed | Companion repair passed | In-game reload confirmation |
+| OH-FOR-005 | Forever | Boundary implemented on `main` | Automated boundary passed | Pending | Combat and taint-log QA |
+| OH-FOR-006 | Forever | Resolved on `main` | Automated passed | Passed | Retain regression coverage |
+| OH-UI-004 | Forever | Base fix on `main` | Automated passed | Base fix passed | Optional movement QA |
+| OH-COMP-001 | Shared Companion contract | Implemented on `main` | Automated passed | Pending | Newer Companion pairing QA |
+| OH-UI-001 | Forever | Resolved on `main` | Automated passed | Passed | Retain regression coverage |
+| OH-UI-002 | Forever | Resolved on `main` | Automated passed | Passed | Retain regression coverage |
+| OH-UI-003 | Forever with Chattynator | Compatibility boundary on `main` | Automated passed | Smoke test passed | Full scrolling regression QA |
+
+Use the evidence vocabulary and branch policy in
+[`ADDON-DEVELOPMENT.md`](ADDON-DEVELOPMENT.md). Update this summary whenever an
+issue changes branch, evidence level, candidate, or released version.
+
 ## OH-PERF-001 — Periodic global bag-frame discovery causes micro-stutter
 
 - Status: Fix implemented and automated validation passed; live profiler QA pending.
