@@ -8,7 +8,9 @@ All notable changes to this project will be documented in this file.
 - Companion process-path discovery now falls back to
   `QueryFullProcessImageName` after any `Process.MainModule` failure, including
   Wine Mono's `ArgumentOutOfRangeException`, and reports the underlying failure
-  when neither probe succeeds.
+  when neither probe succeeds. Thanks to @victormolla14 for the original report
+  and @bitwize01 for corroborating the failure and identifying the effective
+  fallback path.
 - A failed automatic span is now paused for that WoW process instead of being
   retried every polling cycle. The user can inspect the diagnostic and retry
   explicitly with **Span WoW Now**; a successful explicit span clears the
