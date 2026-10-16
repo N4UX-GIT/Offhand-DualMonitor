@@ -17,8 +17,8 @@ using System.Windows.Forms;
 [assembly: AssemblyProduct("Offhand Companion")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
 [assembly: AssemblyVersion("2.1.2.0")]
-[assembly: AssemblyFileVersion("2.1.2.20")]
-[assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
+[assembly: AssemblyFileVersion("2.1.2.22")]
+[assembly: AssemblyInformationalVersion("2.1.2-beta.22")]
 
 namespace Offhand.Companion
 {
@@ -236,6 +236,16 @@ namespace Offhand.Companion
             return string.IsNullOrWhiteSpace(value)
                 ? new string[0]
                 : value.Split(new char[] { separator }, StringSplitOptions.RemoveEmptyEntries);
+        }
+
+        internal static bool HasStableIdentitySettings(IDictionary<string, string> settings)
+        {
+            if (settings == null || !settings.ContainsKey("DisplayIdentityVersion")) return false;
+            string identities, mainhandIdentity;
+            return settings.TryGetValue("MonitorIdentities", out identities)
+                && !string.IsNullOrWhiteSpace(identities)
+                && settings.TryGetValue("MainhandIdentity", out mainhandIdentity)
+                && !string.IsNullOrWhiteSpace(mainhandIdentity);
         }
 
         private static int FindDisplay(IList<Display> displays, string stableId, string deviceName)
@@ -770,27 +780,73 @@ namespace Offhand.Companion
         internal const bool AutoSpanOnLaunch = false;
     }
 
+    internal static class AutoSpanAttemptPolicy
+    {
+        internal static bool ShouldAttempt(bool monitoring, bool enabled, bool addonInstalled,
+            bool displayPlanReady, bool alreadySpanned, bool explicitlyRestored, bool previousFailure)
+        {
+            return monitoring && enabled && addonInstalled && displayPlanReady
+                && !alreadySpanned && !explicitlyRestored && !previousFailure;
+        }
+    }
+
     internal static class ProcessPathResolver
     {
         internal static string Get(Process process)
         {
-            if (process == null) return null;
-            try { return process.MainModule.FileName; }
-            catch (System.ComponentModel.Win32Exception) { }
-            catch (InvalidOperationException) { }
-            catch (NotSupportedException) { }
+            string diagnostic;
+            return Get(process, out diagnostic);
+        }
 
-            IntPtr handle = NativeMethods.OpenProcess(
-                NativeMethods.PROCESS_QUERY_LIMITED_INFORMATION, false, process.Id);
-            if (handle == IntPtr.Zero) return null;
+        internal static string Get(Process process, out string diagnostic)
+        {
+            diagnostic = null;
+            if (process == null) return null;
+            Exception preferredFailure = null;
+            try { return process.MainModule.FileName; }
+            catch (Exception ex)
+            {
+                // Wine Mono can expose another process with an empty module
+                // collection, causing Process.MainModule to throw an
+                // ArgumentOutOfRangeException. MainModule is only the preferred
+                // probe; every failure must reach the limited-access fallback.
+                preferredFailure = ex;
+            }
+
+            string preferredDiagnostic = "Process.MainModule failed ("
+                + preferredFailure.GetType().Name + ": " + preferredFailure.Message + "). ";
+            IntPtr handle = IntPtr.Zero;
             try
             {
+                handle = NativeMethods.OpenProcess(
+                    NativeMethods.PROCESS_QUERY_LIMITED_INFORMATION, false, process.Id);
+                if (handle == IntPtr.Zero)
+                {
+                    diagnostic = preferredDiagnostic + "OpenProcess failed with Windows error "
+                        + Marshal.GetLastWin32Error() + ".";
+                    return null;
+                }
                 int size = 32768;
                 var path = new StringBuilder(size);
-                return NativeMethods.QueryFullProcessImageName(handle, 0, path, ref size)
-                    ? path.ToString() : null;
+                if (NativeMethods.QueryFullProcessImageName(handle, 0, path, ref size))
+                    return path.ToString();
+                diagnostic = preferredDiagnostic + "QueryFullProcessImageName failed with Windows error "
+                    + Marshal.GetLastWin32Error() + ".";
+                return null;
             }
-            finally { NativeMethods.CloseHandle(handle); }
+            catch (Exception ex)
+            {
+                diagnostic = preferredDiagnostic + ex.GetType().Name + ": " + ex.Message;
+                return null;
+            }
+            finally
+            {
+                if (handle != IntPtr.Zero)
+                {
+                    try { NativeMethods.CloseHandle(handle); }
+                    catch { }
+                }
+            }
         }
     }
 
@@ -1082,7 +1138,7 @@ namespace Offhand.Companion
     public class CompanionForm : Form
     {
         internal const string BaseVersion = "2.1.2";
-        internal const string ReleaseLabel = "Beta 20";
+        internal const string ReleaseLabel = "Beta 22";
         internal const string FullVersion = BaseVersion + " " + ReleaseLabel;
 
         // Warcraft Dark Interface Palette (Black / Dark Grey / Burnished Gold)
@@ -1119,6 +1175,7 @@ namespace Offhand.Companion
         private ComboBox cmbSingleSide;
         private List<MonitorSelection.Display> uiDisplays;
         private bool refreshingDisplayControls;
+        private int displaySelectionGeneration;
 
         private sealed class DisplayChoice
         {
@@ -1256,9 +1313,7 @@ namespace Offhand.Companion
 
         private static bool HasStableIdentitySettings()
         {
-            return appSettings.ContainsKey("DisplayIdentityVersion")
-                && appSettings.ContainsKey("MonitorIdentities")
-                && appSettings.ContainsKey("MainhandIdentity");
+            return MonitorSelection.HasStableIdentitySettings(appSettings);
         }
 
         private void RefreshDisplayControls(List<MonitorSelection.Display> displays)
@@ -1271,6 +1326,9 @@ namespace Offhand.Companion
             appSettings.TryGetValue("MonitorIdentities", out savedIdentities);
             bool useStableIdentities = HasStableIdentitySettings();
             string wantedValues = useStableIdentities ? savedIdentities : savedDevices;
+            bool hasSavedSelection = useStableIdentities
+                ? appSettings.ContainsKey("MonitorIdentities")
+                : appSettings.ContainsKey("MonitorDevices");
             var wanted = new HashSet<string>((wantedValues ?? "").Split(
                 new char[] { '|' }, StringSplitOptions.RemoveEmptyEntries), StringComparer.OrdinalIgnoreCase);
             string savedMainhandIdentity;
@@ -1290,7 +1348,7 @@ namespace Offhand.Companion
                 {
                     Rectangle b = uiDisplays[i].Bounds;
                     string selectionKey = useStableIdentities ? uiDisplays[i].StableId : uiDisplays[i].DeviceName;
-                    bool selected = string.IsNullOrWhiteSpace(wantedValues) || wanted.Contains(selectionKey ?? "");
+                    bool selected = !hasSavedSelection || wanted.Contains(selectionKey ?? "");
                     clbMonitors.Items.Add(string.Format("Display {0}: {1}x{2}{3}", i + 1, b.Width, b.Height,
                         uiDisplays[i].Primary ? " (Primary)" : ""), selected);
                     cmbMainhand.Items.Add(new DisplayChoice { Index = i, DeviceName = uiDisplays[i].DeviceName,
@@ -1319,6 +1377,7 @@ namespace Offhand.Companion
                 cmbMainhand.EndUpdate();
                 clbMonitors.EndUpdate();
                 refreshingDisplayControls = false;
+                displaySelectionGeneration++;
             }
             AddLog("Windows display topology changed; refreshed the display controls.");
         }
@@ -1353,6 +1412,11 @@ namespace Offhand.Companion
                 if (!string.IsNullOrWhiteSpace(uiDisplays[i].StableId)) identities.Add(uiDisplays[i].StableId);
                 legacy.Add(i.ToString());
             }
+            // No valid span uses zero displays. Preserve the last known-good
+            // selection while controls are rebuilt or identities temporarily
+            // disappear instead of turning an empty transient state into the
+            // next launch's implicit "select every display" default.
+            if (devices.Count == 0) return;
             appSettings["MonitorDevices"] = string.Join("|", devices.ToArray());
             if (identities.Count == devices.Count)
                 appSettings["MonitorIdentities"] = string.Join("|", identities.ToArray());
@@ -1443,6 +1507,7 @@ namespace Offhand.Companion
         private readonly bool isStorePackage = CompanionDistribution.IsStorePackage();
         private readonly HashSet<int> spannedPids = new HashSet<int>();
         private readonly HashSet<int> restoredPids = new HashSet<int>();
+        private readonly HashSet<int> failedAutoSpanPids = new HashSet<int>();
         private sealed class WindowSnapshot
         {
             internal IntPtr Handle;
@@ -1902,12 +1967,6 @@ namespace Offhand.Companion
                 clbMonitors.Items.Add(string.Format("Display {0}: {1}x{2}{3}", i + 1, b.Width, b.Height,
                     uiDisplays[i].Primary ? " (Primary)" : ""), true);
             }
-            clbMonitors.ItemCheck += (s, e) => {
-                if (!this.IsHandleCreated) return;
-                this.BeginInvoke(new Action(() => {
-                    SaveDisplaySettingsFromControls();
-                }));
-            };
             configRight.Controls.Add(clbMonitors);
 
             Label lblMainhand = new Label { Text = "Mainhand (game):", AutoSize = true, Margin = new Padding(0, 0, 0, 2), ForeColor = cText, BackColor = Color.Transparent };
@@ -1998,6 +2057,17 @@ namespace Offhand.Companion
             cmbMainhand.SelectedIndexChanged += (s, e) => { SaveDisplaySettingsFromControls(); };
             chkSingleSplit.CheckedChanged += (s, e) => { cmbSingleSide.Enabled = chkSingleSplit.Checked; SaveDisplaySettingsFromControls(); };
             cmbSingleSide.SelectedIndexChanged += (s, e) => { SaveDisplaySettingsFromControls(); };
+            clbMonitors.ItemCheck += (s, e) => {
+                if (!this.IsHandleCreated) return;
+                int generation = displaySelectionGeneration;
+                this.BeginInvoke(new Action(() => {
+                    // ItemCheck is raised for programmatic rebuilds as well as
+                    // player clicks. A rebuild advances the generation before
+                    // this deferred callback runs, so only real input is saved.
+                    if (generation == displaySelectionGeneration)
+                        SaveDisplaySettingsFromControls();
+                }));
+            };
             cmbSingleSide.Enabled = chkSingleSplit.Checked;
 
             if (appSettings.ContainsKey("AutoSpan")) chkAutoSpan.Checked = appSettings["AutoSpan"] == "True";
@@ -2563,10 +2633,12 @@ namespace Offhand.Companion
                         AddLog("Missing-monitor recovery filled the surviving Mainhand display. Reconnect the workspace display before spanning again.");
                 }
 
-                if (isMonitoring && chkAutoSpan.Checked && status.Installed)
+                if (AutoSpanAttemptPolicy.ShouldAttempt(isMonitoring, chkAutoSpan.Checked,
+                    status.Installed, currentDisplayPlan != null,
+                    spannedPids.Contains(proc.Id), restoredPids.Contains(proc.Id),
+                    failedAutoSpanPids.Contains(proc.Id)))
                 {
-                    if (!spannedPids.Contains(proc.Id) && !restoredPids.Contains(proc.Id) &&
-                        (!retryAfter.ContainsKey(proc.Id) || DateTime.Now >= retryAfter[proc.Id]))
+                    if (!retryAfter.ContainsKey(proc.Id) || DateTime.Now >= retryAfter[proc.Id])
                     {
                         if (!launchTimes.ContainsKey(proc.Id)) launchTimes[proc.Id] = DateTime.Now;
                         double spanDelay = CompanionTiming.AutoSpanDelay(proc.ProcessName, status.WowDir, numDelaySpan.Value);
@@ -2581,6 +2653,11 @@ namespace Offhand.Companion
                         if (InvokeSpanWindow(false))
                         {
                             spannedPids.Add(proc.Id);
+                        }
+                        else
+                        {
+                            failedAutoSpanPids.Add(proc.Id);
+                            AddLog("Automatic spanning is paused for this WoW process after a failed window operation. Review the diagnostic above, then use Span WoW Now to retry explicitly.");
                         }
                     }
                 }
@@ -2604,6 +2681,7 @@ namespace Offhand.Companion
             // Clean dead PIDs
             var pidsToCheck = new HashSet<int>(spannedPids);
             pidsToCheck.UnionWith(restoredPids);
+            pidsToCheck.UnionWith(failedAutoSpanPids);
             pidsToCheck.UnionWith(launchTimes.Keys);
             foreach (int pid in pidsToCheck)
             {
@@ -2615,6 +2693,7 @@ namespace Offhand.Companion
                 {
                     spannedPids.Remove(pid);
                     restoredPids.Remove(pid);
+                    failedAutoSpanPids.Remove(pid);
                     originalWindows.Remove(pid);
                     launchTimes.Remove(pid);
                     retryAfter.Remove(pid);
@@ -2686,10 +2765,13 @@ namespace Offhand.Companion
 
             try
             {
-                string mainModule = ProcessPathResolver.Get(proc);
+                string processPathDiagnostic;
+                string mainModule = ProcessPathResolver.Get(proc, out processPathDiagnostic);
                 if (string.IsNullOrEmpty(mainModule))
                 {
-                    result.Reason = "Client path unavailable. Under Wine, start the Companion in WoW's WINEPREFIX.";
+                    result.Reason = "Client path unavailable. Under Wine, start the Companion in WoW's WINEPREFIX."
+                        + (string.IsNullOrWhiteSpace(processPathDiagnostic)
+                            ? "" : " " + processPathDiagnostic);
                     return result;
                 }
                 result.WowDir = Path.GetDirectoryName(mainModule);
@@ -2703,9 +2785,10 @@ namespace Offhand.Companion
                 result.Installed = install.Installed;
                 result.Reason = install.Reason;
             }
-            catch
+            catch (Exception ex)
             {
-                result.Reason = "Cannot verify the addon installation for this client.";
+                result.Reason = "Cannot verify the addon installation for this client. "
+                    + ex.GetType().Name + ": " + ex.Message;
             }
 
             return result;
@@ -2965,6 +3048,7 @@ namespace Offhand.Companion
                     originalWindows[proc.Id] = new WindowSnapshot { Handle = handle, Style = oldStyle,
                         Bounds = new Rectangle(oldRect.Left, oldRect.Top, oldRect.Width, oldRect.Height) };
                 restoredPids.Remove(proc.Id);
+                failedAutoSpanPids.Remove(proc.Id);
                 spannedPids.Add(proc.Id);
                 AddLog(string.Format("Spanned {0}x{1}. If the character UI was already loaded, use /reload once, then run /offhand wizard.", bounds.Width, bounds.Height));
                 trayIcon.ShowBalloonTip(4000, "Offhand Spanned", "Exact display geometry saved. If already in game, use /reload once.", ToolTipIcon.Info);

@@ -242,6 +242,33 @@ Stable IDs for reports that require follow-up across test sessions.
   Unknown future version formats remain non-blocking instead of producing a
   false warning.
 
+## OH-COMP-002 — Wine addon verification failure and repeated auto-span attempts
+
+- Status: Fix implemented and automated validation passed; reporter QA pending
+  on the issue #15 Wine/XWayland environment.
+- Client: Windows Companion under Wine Mono, with WoW in the same Wine prefix.
+- Symptoms: Addon verification can fail despite a valid installation, and an
+  automatic span that the compositor rejects may be attempted again on every
+  polling cycle, producing repeated visible window movement or frame-time
+  disruption.
+- Cause: Wine Mono may throw `ArgumentOutOfRangeException` while evaluating
+  `Process.MainModule` when its process module collection is empty. The prior
+  fallback handled only three expected exception types. Separately, failed
+  automatic window operations were not remembered for the life of the WoW
+  process. A deferred checklist event could also persist an empty monitor
+  selection during programmatic display refresh.
+- Fix: Every failure from the preferred .NET process-path probe now reaches the
+  limited-access `QueryFullProcessImageName` fallback, with both failures
+  retained in the activity-log diagnostic. A failed automatic span is
+  quarantined for that process until **Span WoW Now** succeeds or WoW exits,
+  and display refreshes preserve the last valid non-empty selection.
+- Live QA: Run WoW and Companion Beta 22 with the same Wine runner and
+  `WINEPREFIX`. Confirm addon verification succeeds, automatic span either
+  succeeds once or records one failure without recurring attempts, and
+  **Span WoW Now** can retry after correcting the reported condition. Verify
+  Span, Restore, monitor selection persistence, topology generation, complete
+  WoW exit, and Forever cold-launch recovery.
+
 ## OH-UI-001 — First-login Escape consumed during intro cinematic
 
 - Status: Resolved. Automated validation and live Forever Beta verification

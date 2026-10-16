@@ -8,7 +8,7 @@ namespace Offhand.Companion {
         private static int checkNumber;
         private static void Check(bool value) { checkNumber++; if (!value) throw new Exception("Preference regression at check " + checkNumber); }
         public static void Main() {
-            Check(CompanionForm.FullVersion == "2.1.2 Beta 20");
+            Check(CompanionForm.FullVersion == "2.1.2 Beta 22");
             Check(CompanionDistribution.UpdateButtonText(true) == "Store Updates");
             Check(CompanionDistribution.UpdateButtonText(false) == "Check for Updates");
             Check(CompanionDistribution.UpdateMenuText(true).Contains("Microsoft Store"));
@@ -45,6 +45,14 @@ namespace Offhand.Companion {
             CompanionUpdateRelease legacyUpdate = CompanionUpdatePolicy.SelectLatest(legacyFeed, beta19);
             Check(legacyUpdate.Version.Display == "v2.1.2 Beta 18" && legacyUpdate.Url.EndsWith("legacy-18"));
             Check(!CompanionDefaults.AutoSpanOnLaunch);
+            Check(AutoSpanAttemptPolicy.ShouldAttempt(true, true, true, true,
+                false, false, false));
+            Check(!AutoSpanAttemptPolicy.ShouldAttempt(true, true, true, true,
+                false, false, true));
+            Check(!AutoSpanAttemptPolicy.ShouldAttempt(true, true, false, true,
+                false, false, false));
+            Check(!AutoSpanAttemptPolicy.ShouldAttempt(true, true, true, false,
+                false, false, false));
             Check(WindowInteropDiagnostics.StyleFailure("Could not remove WoW window borders", 5)
                 .Contains("same privilege level"));
             Check(WindowInteropDiagnostics.StyleFailure("Could not remove WoW window borders", 87)
@@ -58,6 +66,14 @@ namespace Offhand.Companion {
                 == new Rectangle(2, 3, 1, 1));
             Check(ProcessPathResolver.Get(null) == null);
             Check(!string.IsNullOrEmpty(ProcessPathResolver.Get(Process.GetCurrentProcess())));
+            var stableSettings = new Dictionary<string, string> {
+                { "DisplayIdentityVersion", "1" },
+                { "MonitorIdentities", "MONITOR\\MAIN\\A|MONITOR\\WORK\\B" },
+                { "MainhandIdentity", "MONITOR\\MAIN\\A" }
+            };
+            Check(MonitorSelection.HasStableIdentitySettings(stableSettings));
+            stableSettings["MonitorIdentities"] = "";
+            Check(!MonitorSelection.HasStableIdentitySettings(stableSettings));
             var displays = new List<MonitorSelection.Display> {
                 new MonitorSelection.Display { Index = 0, DeviceName = @"\\.\DISPLAY1", StableId = @"MONITOR\MAIN\A", Bounds = new Rectangle(0, 0, 3440, 1440), WorkArea = new Rectangle(0, 0, 3440, 1400), Primary = true },
                 new MonitorSelection.Display { Index = 1, DeviceName = @"\\.\DISPLAY2", StableId = @"MONITOR\WORK\B", Bounds = new Rectangle(-1920, 360, 1920, 1080), WorkArea = new Rectangle(-1920, 360, 1920, 1040), Primary = false }
@@ -221,7 +237,7 @@ namespace Offhand.Companion {
                 string topologyMessage;
                 Check(CompanionTopologyBridge.TryWrite(wow, plan, displays, out topologyMessage));
                 string topology = File.ReadAllText(Path.Combine(core, "CompanionTopology.lua"));
-                Check(topology.Contains("mode = \"DUAL_DISPLAY\"") && topology.Contains("companionVersion = \"2.1.2-beta.20\"") && topology.Contains("width = 3440") &&
+                Check(topology.Contains("mode = \"DUAL_DISPLAY\"") && topology.Contains("companionVersion = \"2.1.2-beta.22\"") && topology.Contains("width = 3440") &&
                     topology.Contains("height = 1080") && topology.Contains("y = 0"));
                 Check(CompanionTopologyBridge.IsCurrent(wow, plan, displays));
                 File.WriteAllText(Path.Combine(core, "CompanionTopology.lua"),
