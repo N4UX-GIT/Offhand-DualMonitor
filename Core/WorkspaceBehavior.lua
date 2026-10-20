@@ -227,6 +227,26 @@ function Offhand_ToggleSettings()
     Offhand.Options:Open()
 end
 
+-- Forever already owns the complete UI focus transition behind its hidden
+-- TOGGLEUIFOCUS binding. Expose a normal, player-assignable Offhand binding
+-- that delegates to that native action during the original hardware event.
+-- Do not reproduce the transition or inspect FrameControlsManager state here.
+function Offhand_ToggleGamepadUIFocus()
+    if not Offhand.isForever or not Offhand.db or not Offhand.db.enabled then
+        return false, "disabled"
+    end
+
+    local mainhand = Offhand.Mainhand
+    if not mainhand or type(mainhand.IsNativeGamepadInterface) ~= "function"
+        or not mainhand:IsNativeGamepadInterface() then
+        return false, "gamepad"
+    end
+
+    if type(RunBinding) ~= "function" then return false, "binding" end
+    RunBinding("TOGGLEUIFOCUS")
+    return true
+end
+
 local events = CreateFrame("Frame")
 for _, event in ipairs({"PLAYER_ENTERING_WORLD", "PLAYER_LEAVING_WORLD", "PLAYER_REGEN_ENABLED"}) do
     events:RegisterEvent(event)

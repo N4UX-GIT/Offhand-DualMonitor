@@ -62,6 +62,22 @@ end
 assert(loadfile("Core/WorkspaceBehavior.lua"))("Offhand", addon)
 local behavior = addon.WorkspaceBehavior
 
+local nativeBindingRuns = {}
+RunBinding = function(binding) nativeBindingRuns[#nativeBindingRuns + 1] = binding end
+addon.Mainhand = { IsNativeGamepadInterface = function() return true end }
+assert(not Offhand_ToggleGamepadUIFocus(),
+    "non-Forever clients must not forward the native Gamepad focus binding")
+addon.isForever = true
+assert(Offhand_ToggleGamepadUIFocus(),
+    "Forever Gamepad UI must forward the player-assigned focus binding")
+assert(#nativeBindingRuns == 1 and nativeBindingRuns[1] == "TOGGLEUIFOCUS",
+    "focus delegate must call only Forever's native TOGGLEUIFOCUS binding")
+addon.Mainhand.IsNativeGamepadInterface = function() return false end
+assert(not Offhand_ToggleGamepadUIFocus() and #nativeBindingRuns == 1,
+    "inactive Gamepad UI must not run the native focus binding")
+addon.Mainhand.IsNativeGamepadInterface = function() return true end
+addon.isForever = false
+
 assert(behavior:SetLockEnabled(true), "supported clients must enable lock-open")
 assert(restores == 0 and not addon.db.openWorkspacePanels.WorldMapFrame,
     "active lock restoration must remain suspended during login or reload")

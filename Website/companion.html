@@ -3,46 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Offhand Companion | Microsoft Store, portable download, and setup</title>
-    <meta name="description" content="Install Offhand Companion from Microsoft Store, use the portable GitHub download on Windows or Linux/Wine, or follow the no-executable manual setup.">
+    <title>Offhand Window Setup | FancyZones, Companion, and manual placement</title>
+    <meta name="description" content="Choose Microsoft PowerToys FancyZones, Offhand Companion, or manual window placement for your Offhand multi-monitor setup.">
     <link rel="icon" type="image/png" href="assets/offhand-icon.png">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20261016-9">
 </head>
 <body class="companion-page">
     <header class="navbar">
         <div class="nav-container">
-            <a class="brand" href="index.html" style="text-decoration:none">
+            <a class="brand" href="index.html" aria-label="Offhand home">
                 <img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="brand-medallion">
                 <div class="brand-text"><span class="brand-title">OFFHAND</span><span class="brand-subtitle">Dual-Wield Your Monitors</span></div>
             </a>
-            <nav class="nav-links" aria-label="Companion navigation"><a href="index.html">Main Page</a><a href="#status">Companion Status</a><a href="#manual-setup">Manual Setup</a><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/tree/main/Companion/Source">Source Code</a></nav>
+            <nav class="nav-primary" aria-label="Primary navigation"><a href="manual-spanning.html">Window Setup</a><a href="background-studio.html">Background Studio</a><a href="companion.html" aria-current="page">Companion</a></nav>
+            <div class="nav-controls">
+                <details class="site-menu">
+                    <summary>Menu <span aria-hidden="true">▾</span></summary>
+                    <nav class="site-menu-panel" aria-label="Complete site navigation">
+                        <div class="site-menu-group">
+                            <span class="site-menu-label">Pages</span>
+                            <a href="index.html">Home</a>
+                            <a href="manual-spanning.html">Window Setup</a>
+                            <a href="background-studio.html">Background Studio</a>
+                            <a href="companion.html" aria-current="page">Companion</a>
+                        </div>
+                        <div class="site-menu-group site-menu-sections site-menu-home-sections">
+                            <span class="site-menu-label">Home page sections</span>
+                            <a href="index.html#demo">Demonstration</a>
+                            <a href="index.html#features">Features</a>
+                            <a href="index.html#setup">Setup Guide</a>
+                            <a href="index.html#faq">FAQ</a>
+                        </div>
+                        <div class="site-menu-external">
+                            <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
+                            <a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge <span aria-hidden="true">↗</span></a>
+                        </div>
+                    </nav>
+                </details>
+                <a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener" class="btn btn-wow-red btn-sm nav-download"><svg class="curseforge-mark" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M18.326 9.2145S23.2261 8.4418 24 6.1882h-7.5066V4.4H0l2.0318 2.3576V9.173s5.1267-.2665 7.1098 1.2372c2.7146 2.516-3.053 5.917-3.053 5.917L5.0995 19.6c1.5465-1.4726 4.494-3.3775 9.8983-3.2857-2.0565.65-4.1245 1.6651-5.7344 3.2857h10.9248l-1.0288-3.2726s-7.918-4.6688-.8336-7.1127z"/></svg>CurseForge</a>
+            </div>
         </div>
     </header>
 
     <main class="content-deck" style="margin-top:48px">
         <section class="content-section">
             <div class="deck-intro-banner">
-                <div class="hero-badge">COMPANION DOWNLOAD STATUS</div>
-                <h1 style="color:var(--rio-gold);margin:18px 0 12px">Choose the safe setup for you</h1>
-                <p class="deck-intro-text">For Windows, the recommended download is <strong>Offhand Companion from Microsoft Store</strong>. Microsoft reviewed and signs the Store package, and Microsoft Store manages installation and future updates.</p>
-                <p class="deck-intro-text"><strong>Beta 20 is the current portable release.</strong> The GitHub ZIP remains available for Linux/Wine users, direct portable Windows installs, checksum verification, and source review. It contains the frozen executable, quick-start/security README, and license.</p>
-                <p class="deck-intro-text">The portable GitHub executable is not code signed. Edge may describe it as <strong>“isn't commonly downloaded”</strong>; this is a SmartScreen application-reputation notice, not a malware verdict. Do not disable Windows Security. Download only from the official links below and verify the published checksum.</p>
+                <div class="hero-badge">WINDOW PLACEMENT OPTIONS</div>
+                <h1 style="color:var(--rio-gold);margin:18px 0 12px">Choose how to position World of Warcraft</h1>
+                <p class="deck-intro-text"><strong>Microsoft PowerToys FancyZones is the recommended Windows assistant.</strong> It can restore WoW to a saved cross-monitor Canvas zone, while Offhand remembers and validates the resulting game canvas.</p>
+                <p class="deck-intro-text">Manual placement works without another application. The optional Offhand Companion remains available for exact display topology, a borderless span, Linux/Wine, automatic spanning, and active recovery features.</p>
                 <div class="hero-actions">
-                    <a href="https://apps.microsoft.com/detail/9PL4PW84Q90W" target="_blank" rel="noopener" class="btn btn-wow-red btn-lg">Get it from Microsoft Store</a>
-                    <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.20/Offhand-Companion.zip" class="btn btn-wow-stone btn-lg">Portable / Linux download</a>
-                    <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.2-beta.20" class="btn btn-wow-stone btn-lg">View Beta 20 release</a>
-                    <a href="#manual-setup" class="btn btn-wow-stone btn-lg">Use Offhand without an EXE</a>
-                    <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/tree/v2.1.2-beta.20/Companion/Source" class="btn btn-wow-stone btn-lg">Review the exact source</a>
+                    <a href="manual-spanning.html#fancyzones" class="btn btn-wow-red btn-lg">Set up FancyZones</a>
+                    <a href="manual-spanning.html#manual" class="btn btn-wow-stone btn-lg">Place WoW manually</a>
+                    <a href="#companion" class="btn btn-wow-stone btn-lg">Use Offhand Companion</a>
                 </div>
             </div>
         </section>
 
-        <section class="content-section" id="status">
-            <div class="section-header"><h2 class="section-title">Current status</h2></div>
+        <section class="content-section" id="methods">
+            <div class="section-header"><h2 class="section-title">Three supported methods</h2><p class="section-subtitle">The in-game guide records your choice and leads into the appropriate validation path.</p></div>
             <div class="grid-3">
-                <article class="wow-card"><h3 class="wow-card-title">Addon download</h3><p class="wow-card-desc">Install and update the in-game addon normally through CurseForge. The addon package contains Lua UI code and does not include the Windows executable.</p><p><a href="https://www.curseforge.com/wow/addons/offhand">Get the addon on CurseForge</a></p></article>
-                <article class="wow-card"><h3 class="wow-card-title">Recommended Windows download</h3><p class="wow-card-desc">Install from Microsoft Store for a Microsoft-reviewed, Store-signed package with Windows-managed installation and updates. No separate installer or browser download warning is required.</p><p><a href="https://apps.microsoft.com/detail/9PL4PW84Q90W" target="_blank" rel="noopener">Get Offhand Companion from Microsoft Store</a></p></article>
-                <article class="wow-card"><h3 class="wow-card-title">Portable and Linux/Wine</h3><p class="wow-card-desc">Use the official Beta 20 GitHub ZIP for a portable Windows installation, Linux/Wine compatibility, direct download, or offline verification. It contains exactly <code>Offhand.exe</code>, <code>README.txt</code>, and <code>LICENSE</code>.</p><p><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.20/Offhand-Companion.zip">Download Offhand-Companion.zip</a> · <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/Companion/Linux.md">Read the Linux/Wine guide</a></p></article>
+                <article class="wow-card method-card recommended-method"><div class="method-label">RECOMMENDED ON WINDOWS</div><h3 class="wow-card-title">PowerToys FancyZones</h3><p class="wow-card-desc">Use one saved cross-monitor Canvas zone. Offhand remembers the resulting WoW canvas without communicating with PowerToys.</p><p><a href="manual-spanning.html#fancyzones">Open the FancyZones guide</a></p></article>
+                <article class="wow-card method-card"><div class="method-label">NO EXTRA SOFTWARE</div><h3 class="wow-card-title">Manual placement</h3><p class="wow-card-desc">Resize standard Windowed WoW yourself, confirm the placement, and let Offhand remember the canvas dimensions.</p><p><a href="manual-spanning.html#manual">Open the manual guide</a></p></article>
+                <article class="wow-card method-card"><div class="method-label">EXACT TOPOLOGY</div><h3 class="wow-card-title">Offhand Companion</h3><p class="wow-card-desc">Apply exact display rectangles and an optional borderless span. Exit it afterward, or leave it running for active automation and recovery.</p><p><a href="#companion">Review Companion downloads</a></p></article>
+            </div>
+        </section>
+
+        <section class="content-section" id="companion">
+            <div class="section-header"><div class="hero-badge">OPTIONAL OFFHAND UTILITY</div><h2 class="section-title guide-section-title">Companion downloads and status</h2></div>
+            <div class="grid-3">
+                <article class="wow-card"><h3 class="wow-card-title">Recommended Companion download</h3><p class="wow-card-desc">If you choose Companion on Windows, install it from Microsoft Store. Microsoft reviewed and signs the Store package, and Store manages its updates.</p><p><a href="https://apps.microsoft.com/detail/9PL4PW84Q90W" target="_blank" rel="noopener">Get Offhand Companion from Microsoft Store</a></p></article>
+                <article class="wow-card"><h3 class="wow-card-title">Portable and Linux/Wine</h3><p class="wow-card-desc">Beta 20 remains available for Linux/Wine, direct portable Windows installs, checksum verification, and source review. The ZIP contains <code>Offhand.exe</code>, <code>README.txt</code>, and <code>LICENSE</code>.</p><p><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.20/Offhand-Companion.zip">Download the portable ZIP</a> · <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/Companion/Linux.md">Linux/Wine guide</a></p></article>
                 <article class="wow-card"><h3 class="wow-card-title">Security status</h3><p class="wow-card-desc">The Store package passed Microsoft certification and is signed by Microsoft. Microsoft Security Intelligence also reviewed the exact portable Beta 20 ZIP without finding a positive detection or telemetry indicators. Exact hashes and submission records remain documented publicly.</p><p><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md">Review hashes and submission records</a></p></article>
                 <article class="wow-card"><h3 class="wow-card-title">Beta 20 improvements</h3><p class="wow-card-desc">Store installations use Microsoft Store for updates without querying GitHub. Portable builds retain the explicit GitHub update check, plus the topology and enlarged-display layout repairs introduced in Beta 19.</p><p><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/CHANGELOG.md">Review the full changelog</a></p></article>
                 <article class="wow-card"><h3 class="wow-card-title">Portable reputation notice</h3><p class="wow-card-desc">The Microsoft Store package is signed. Edge may still warn that the separate portable EXE “isn't commonly downloaded” because that GitHub file is unsigned; this is distinct from “Virus detected” or a named malware alert.</p><p><a href="https://learn.microsoft.com/en-us/windows/security/threat-protection/microsoft-defender-smartscreen/microsoft-defender-smartscreen-overview">Microsoft SmartScreen guidance</a></p></article>
@@ -53,7 +84,7 @@
         <section class="content-section">
             <div class="section-header"><h2 class="section-title">What the Companion does</h2></div>
             <div class="faq-card" style="padding:24px">
-                <p>The Companion identifies the visible World of Warcraft window, changes its border and dimensions across displays selected by the user, and gives the addon exact display geometry. For WoW Forever it can also refresh Offhand's own recovery data after WoW closes.</p>
+                <p>The Companion identifies the visible World of Warcraft window, changes its border and dimensions across displays selected by the user, and gives the addon exact display geometry. The span remains in place if you then choose <strong>Exit Companion</strong>. Leave it in the tray only for optional automatic spanning, monitor-disconnect recovery, topology-file repair, or the Forever compatibility bridge.</p>
                 <p>It does not request administrator access, install a service or driver, inject code, read WoW memory, automate gameplay, collect telemetry, or download and execute code. Store installations use Microsoft Store for updates; portable installations contact GitHub only when the user clicks <strong>Check for Updates</strong>.</p>
                 <p>See the public <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md">security disclosure</a>, <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/tree/main/Companion/Source">source</a>, and <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/actions">build history</a>.</p>
             </div>
@@ -62,8 +93,8 @@
         <section class="content-section" id="manual-setup">
             <div class="section-header">
                 <div class="hero-badge">NO EXECUTABLE REQUIRED</div>
-                <h2 class="section-title" style="margin-top:18px">Manual Setup</h2>
-                <p class="deck-intro-text">The in-game addon can arrange its viewport and workspace after you resize the ordinary WoW window across both displays. This fallback requires no Companion download.</p>
+                <h2 class="section-title" style="margin-top:18px">Independent Setup</h2>
+                <p class="deck-intro-text">FancyZones and ordinary manual resizing both use Offhand's remembered-canvas workflow. Place WoW, confirm it visibly, and save the current canvas from the in-game guide.</p>
             </div>
 
             <div class="grid-3">
@@ -72,17 +103,17 @@
                     <ul class="wow-card-desc">
                         <li>Install and enable Offhand through CurseForge.</li>
                         <li>Arrange the monitor rectangles in Windows Display Settings to match their physical alignment.</li>
-                        <li>Manual spanning leaves the title bar visible and usually must be repeated after launching WoW.</li>
-                        <li>WoW Forever may not preserve every panel position across a complete restart without the Companion recovery bridge.</li>
+                        <li>FancyZones is the recommended Windows assistant. Manual placement remains supported everywhere.</li>
+                        <li>An earlier Forever build needed a recovery bridge for an intermittent SavedVariables loading defect. Current builds are being revalidated with the Companion fully exited.</li>
                     </ul>
                 </article>
                 <article class="wow-card">
-                    <h3 class="wow-card-title">Span the window</h3>
+                    <h3 class="wow-card-title">Place and remember the window</h3>
                     <ol class="wow-card-desc">
                         <li>Choose <strong>Options → Graphics → Display Mode → Windowed</strong>, not Windowed (Fullscreen).</li>
-                        <li>Restore WoW to a movable window and drag it onto the Mainhand display.</li>
-                        <li>Drag the window edges across the second display until WoW covers the intended area.</li>
-                        <li>Type <code>/reload</code>, then run <code>/offhand wizard</code> and complete the setup. On Forever and Retail, press <strong>Create Mainhand HUD Layout</strong> on the final step outside combat with Edit Mode closed, then reload when prompted.</li>
+                        <li>Snap WoW into a saved FancyZones Canvas zone, or drag and resize it over the intended area yourself.</li>
+                        <li>Run <code>/offhand guide</code>, choose the matching method, and select <strong>Remember Current Window</strong> only after visually confirming the placement.</li>
+                        <li>Complete calibration. On Forever and Retail, create the Mainhand HUD layout outside combat, then reload when prompted.</li>
                     </ol>
                 </article>
                 <article class="wow-card">
@@ -91,7 +122,16 @@
                     <p class="wow-card-desc">To return to one monitor, disable dual-monitor mode in <code>/offhand</code>, move WoW back to one display, and resize or maximize it normally. Use <code>/offhand gather</code> if an ordinary panel is inaccessible.</p>
                 </article>
             </div>
+            <div class="hero-actions setup-guide-actions"><a href="manual-spanning.html" class="btn btn-wow-red btn-lg">Open the complete independent setup guide</a></div>
         </section>
     </main>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-brand"><img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="footer-logo"><div class="footer-info"><span class="footer-title">OFFHAND</span><span class="footer-subtitle">Dual-Wield Your Monitors</span></div></div>
+        <nav class="footer-nav" aria-label="Footer navigation"><div class="footer-nav-row"><a href="index.html">Home</a><a href="manual-spanning.html">Window Setup</a><a href="background-studio.html">Background Studio</a><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub</a></div><div class="footer-nav-row"><a href="index.html#faq">FAQ</a><a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge</a><a href="companion.html">Companion</a><span class="footer-community-actions"><a class="footer-discord" href="https://discord.gg/3BAVSXBXH" target="_blank" rel="noopener noreferrer" aria-label="Join the Offhand Discord" title="Join the Offhand Discord"><img src="assets/discord-symbol.svg" alt="" aria-hidden="true"></a><a class="footer-support" href="https://ko-fi.com/n4uxaddons" target="_blank" rel="noopener noreferrer" aria-label="Support N4UX on Ko-fi"><img src="assets/ko-fi-symbol.png" alt="" aria-hidden="true">Support N4UX</a></span></div></nav>
+        </div>
+        <div class="footer-legal"><p>The optional Companion is one of three supported window-placement methods. FancyZones and manual placement remain fully supported.</p></div>
+    </footer>
 </body>
 </html>

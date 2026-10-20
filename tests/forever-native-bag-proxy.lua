@@ -413,7 +413,21 @@ controller.scripts.OnUpdate(controller, 0.001)
 -- System panels may temporarily hide the bag, but the tracked workspace-open
 -- intent must survive and recovery must use Blizzard's bag APIs.
 SettingsPanel = makeFrame("SettingsPanel", 900, 700)
+SettingsPanel:SetPoint("CENTER", UIParent, "CENTER", 0, 500)
 SettingsPanel:Show()
+local settingsNativeHooks = SettingsPanel.nativeHookCalls
+addon.Mainhand = { IsNativeGamepadInterface = function() return true end }
+Settings:OpenToCategory()
+addon.Mainhand = nil
+local settingsPoint = SettingsPanel.points[1]
+assert(settingsPoint and settingsPoint[1] == "CENTER" and settingsPoint[2] == UIParent
+        and settingsPoint[3] == "CENTER"
+        and math.abs(settingsPoint[4] - 720) < 0.01
+        and math.abs(settingsPoint[5] + 560) < 0.01,
+    "native gamepad Settings must be centered on Mainhand through the external opening observer")
+assert(SettingsPanel.nativeHookCalls == settingsNativeHooks
+        and SettingsPanel._OffhandMainhandHooked == nil,
+    "native gamepad Settings recovery must not hook or annotate the Blizzard frame")
 nativeOpenerDeclinesHiddenLogicalState = true
 bag:Hide()
 controller.scripts.OnUpdate(controller, 0.001)
@@ -437,6 +451,20 @@ bag:Hide()
 controller.scripts.OnUpdate(controller, 0.001)
 assert(bag:IsShown(),
     "Edit Mode transition must restore the tracked workspace bag through Blizzard's API")
+
+ProfessionsBookFrame = makeFrame("ProfessionsBookFrame", 700, 800)
+UIPanelWindows.ProfessionsBookFrame = { area = "left", pushable = 0 }
+ProfessionsBookFrame:Show()
+controller.scripts.OnUpdate(controller, 0.001)
+bag:Hide()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown() and addon.db.nativeBackpackWorkspaceOpen == true,
+    "opening Professions must preserve and restore the tracked workspace bag")
+ProfessionsBookFrame:Hide()
+bag:Hide()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown() and addon.db.nativeBackpackWorkspaceOpen == true,
+    "closing Professions must preserve and restore the tracked workspace bag")
 
 nativeOpenerDeclinesHiddenLogicalState = false
 ToggleAllBags = function()

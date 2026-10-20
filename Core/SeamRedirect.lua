@@ -374,6 +374,12 @@ function HUD:UseCurrentForeverEditModeLayout()
 
     OffhandCharDB.foreverEditModeLayoutName = layout.layoutName
     OffhandCharDB.foreverEditModeLayoutID = activeID
+    local generated = OffhandCharDB.mainhandLayout
+    if type(generated) == "table"
+        and EditModeLayoutNamesMatch(generated.generatedName, layout.layoutName) then
+        generated.generatedID = activeID
+        generated.activationPending = nil
+    end
     OffhandCharDB.foreverEditModeLegacyRecovery = nil
     OffhandCharDB.foreverEditModeRecovery = nil
     self.foreverRecoveryPromptShown = nil
@@ -781,7 +787,7 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
 end
 
 -- Supported Blizzard clients accept these unprotected control-surface anchor
--- changes from the recovery popup's hardware click. Do not move Edit Mode
+-- changes from the recovery control's hardware click. Do not move Edit Mode
 -- systems, attach handlers, or alter Blizzard's panel metadata from this path.
 function HUD:BringForeverEditModeControlsToMainhand()
     if not HasBlizzardEditMode() or InCombatLockdown() then return false end
@@ -919,6 +925,20 @@ local unreliableProtectedHUDRecoveryNames = {
 -- recovery once per occurrence.
 function HUD:UpdateForeverPartyFrameRecovery(metrics)
     if not HasBlizzardEditMode() or not Offhand.db or not Offhand.db.enabled then return end
+    -- Blizzard's Gamepad UI owns these protected HUD systems and its Edit Mode
+    -- preset. Inspecting the native frame tree during that focus/layout
+    -- transaction can taint secret unit-frame values, and Offhand cannot repair
+    -- the controller preset. Clear stale keyboard-mode recovery state instead.
+    if UsesControllerInterface() then
+        if self.foreverPartyFrameOutsideDisplays and Offhand.HideForeverPartyFrameRecoveryPrompt then
+            Offhand:HideForeverPartyFrameRecoveryPrompt()
+        end
+        self.foreverPartyFrameOutsideDisplays = nil
+        self.foreverProtectedHUDDetectedInEditMode = nil
+        self.foreverPartyFrameRecoveryPromptShown = nil
+        self.foreverPartyFrameRecoveryPromptDeclined = nil
+        return
+    end
     metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics
         and Offhand.Viewport:GetMetrics())
     if not metrics or not metrics.isSpanned then
@@ -1003,6 +1023,10 @@ function HUD:RepairProtectedHUDLayout()
         self.foreverPartyFrameRecoveryPromptShown = nil
         return false, "combat"
     end
+    if UsesControllerInterface() then
+        self:DismissForeverPartyFrameRecoveryPrompt()
+        return false, "gamepad"
+    end
     local manager = _G.EditModeManagerFrame
     if manager and ((manager.IsShown and manager:IsShown()) or manager.editModeActive) then
         self.foreverPartyFrameRecoveryPromptShown = nil
@@ -1014,7 +1038,10 @@ function HUD:RepairProtectedHUDLayout()
         return false, "unavailable"
     end
 
-    local ok, value, moved = mainhand:CreateOrUpdateEditModeLayout()
+    local candidate = self.foreverPartyFrameOutsideDisplays
+    local ok, value, moved = mainhand:CreateOrUpdateEditModeLayout({
+        repairFrameName = candidate,
+    })
     if not ok then
         if value == "combat" or value == "open" then
             self.foreverPartyFrameRecoveryPromptShown = nil
@@ -1336,6 +1363,10 @@ local function PositionForeverGameMenu()
         and Offhand.Viewport:GetMetrics() or nil
     if not frame or not m or not m.isSpanned or not frame.ClearAllPoints
         or not frame.SetPoint or (frame.IsForbidden and frame:IsForbidden()) then return false end
+    if frame.IsProtected then
+        local ok, protected = pcall(frame.IsProtected, frame)
+        if not ok or protected then return false end
+    end
     local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
     local cx = (m.gameLeft + m.gameRight) / 2
     local cy = (m.gameBottom + m.gameTop) / 2
@@ -2716,7 +2747,13 @@ function HUD:HookFrames()
             OffhandCharDB.editModeLayoutName = activeName
         end
 
-        local needsGuidance = forever and (not targetName or not found or needsSetup)
+        local designatedActive = false
+        if forever and targetName and found then
+            local status = self:GetForeverEditModeLayoutStatus()
+            designatedActive = status and status.activeMatches or false
+        end
+        local needsGuidance = forever
+            and (not targetName or not found or (needsSetup and not designatedActive))
             or (Offhand.isRetail and not activeName)
         if needsGuidance and not self.editModeGuidanceShown then
             self.editModeGuidanceShown = true

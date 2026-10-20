@@ -2,4 +2,7 @@
     <Binding name="OFFHAND_TOGGLE_SETTINGS" header="OFFHAND">
         Offhand_ToggleSettings()
     </Binding>
+    <Binding name="OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS">
+        Offhand_ToggleGamepadUIFocus()
+    </Binding>
 </Bindings>

@@ -225,6 +225,7 @@ assert(StaticPopupDialogs["OFFHAND_COMPANION_VERSION_WARNING"].text
         ~= "POPUP_BTN_GOT_IT",
     "Companion popups must use readable fallback copy before locale files load")
 assert(loadfile("Core/Config.lua"))("Offhand", addon)
+assert(loadfile("Core/ManualCanvas.lua"))("Offhand", addon)
 assert(loadfile("Core/Viewport.lua"))("Offhand", addon)
 assert(loadfile("Core/SeamRedirect.lua"))("Offhand", addon)
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
@@ -276,11 +277,16 @@ assert(addon:GetCompanionNoticeKind(readyMismatch, false) == "VERSION",
     "only an explicit version mismatch should request a Companion update")
 assert(addon:GetCompanionNoticeKind({ topologyStatus = "ABSENT" }, false) == nil,
     "non-Forever clients must retain their manual-span path")
+assert(addon:GetCompanionNoticeKind({ topologyStatus = "MISMATCH", manualCanvas = true }, false) == nil,
+    "a remembered independent canvas must supersede stale optional topology")
+assert(addon:GetCompanionNoticeKind({ topologyStatus = "ABSENT",
+        manualCanvasState = "EXACT_REQUIRED" }, false) == "HANDOFF",
+    "explicit exact mode must still explain a missing Companion handoff")
 assert(addon:GetCompanionNoticeKind({ topologyStatus = "MISMATCH" }, false) == "TOPOLOGY",
     "non-Forever stale topology must provide layout-only guidance")
 addon.isForever = true
-assert(addon:GetCompanionNoticeKind({ topologyStatus = "ABSENT" }, false) == "HANDOFF",
-    "Forever must explain a missing Companion handoff")
+assert(addon:GetCompanionNoticeKind({ topologyStatus = "ABSENT" }, false) == nil,
+    "Forever must allow an independent remembered-window path without a Companion handoff")
 assert(addon:GetCompanionNoticeKind({ topologyStatus = "MISMATCH" }, false) == nil,
     "Forever topology recovery must remain owned by its recovery prompt")
 assert(addon:GetCompanionNoticeKind({ topologyStatus = "ABSENT" }, true) == nil,
@@ -325,12 +331,27 @@ assert(not next(addon._companionNoticesShown),
     "resolved Companion notices must be eligible to appear again after a later regression")
 StaticPopup_Hide = nil
 
+local originalManualDiagnostics = addon.ManualCanvas.GetDiagnostics
+addon.ManualCanvas.GetDiagnostics = function() return { count = 0 } end
+local independentPrompt
+StaticPopup_Show = function(key) independentPrompt = key end
+addon._independentWindowPromptDismissed = nil
+local independentKind = addon:RefreshCompanionNoticeState({
+    topologyStatus = "ABSENT", companionTopology = false, isSpanned = false,
+    manualCanvasState = "MISMATCH", physicalWidth = 3998, physicalHeight = 2480,
+})
+assert(independentKind == "INDEPENDENT"
+        and independentPrompt == "OFFHAND_CONFIRM_EXISTING_WINDOW",
+    "configured upgrades without a remembered canvas must offer explicit recovery")
+addon.ManualCanvas.GetDiagnostics = originalManualDiagnostics
+StaticPopup_Show = originalCompanionStaticPopupShow
+
 -- Either welcome action must acknowledge the first-run guide without claiming
 -- that calibration was completed. This prevents the popup recurring on login.
 OffhandDB = { onboarding = {} }
 StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"].OnAccept()
-assert(addon:IsWelcomeDismissed(), "Get Companion App must acknowledge the welcome guide")
-assert(not addon:IsSetupComplete(), "Downloading the Companion must not complete calibration")
+assert(addon:IsWelcomeDismissed(), "Window Setup must acknowledge the welcome guide")
+assert(not addon:IsSetupComplete(), "Opening window setup must not complete calibration")
 OffhandDB.onboarding = {}
 addon.isForever = true
 local createMainhandLayoutCount = 0
@@ -355,15 +376,30 @@ addon.Options.CreateMainhandHUDLayout = function()
     return unpack(createMainhandLayoutResult)
 end
 StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"].OnCancel()
-assert(addon:IsWelcomeDismissed(), "Launch Wizard must acknowledge the welcome guide")
-assert(OffhandSetupWizardFrame and OffhandSetupWizardFrame:IsShown(),
-    "Launch Wizard must open the setup wizard")
-addon.Wizard:Close()
+assert(addon:IsWelcomeDismissed(), "Not Now must acknowledge the welcome guide")
 
 local layoutAppliedCount = 0
 function addon:ApplyFullLayout()
     layoutAppliedCount = layoutAppliedCount + 1
 end
+
+local originalPreviewMetrics = addon.Viewport.GetManualPreviewMetrics
+local originalRememberMetrics = addon.ManualCanvas.RememberFromMetrics
+addon.Viewport.GetManualPreviewMetrics = function()
+    return { physicalWidth = 3998, physicalHeight = 2480 }
+end
+addon.ManualCanvas.RememberFromMetrics = function(_, metrics)
+    assert(metrics.physicalWidth == 3998 and metrics.physicalHeight == 2480,
+        "upgrade recovery must remember the current preview canvas")
+    return true, "manual-1", {
+        name = "3998x2480 SIDE_BY_SIDE", referenceWidth = 3998, referenceHeight = 2480,
+    }
+end
+StaticPopupDialogs["OFFHAND_CONFIRM_EXISTING_WINDOW"].OnAccept()
+assert(layoutAppliedCount == 1,
+    "confirming the existing window must immediately reapply the saved layout")
+addon.Viewport.GetManualPreviewMetrics = originalPreviewMetrics
+addon.ManualCanvas.RememberFromMetrics = originalRememberMetrics
 
 -- ============================================================================
 -- 1. Test Topology Detection Heuristics
@@ -796,6 +832,38 @@ assert(wizardOpened == true, "/Offhand calibrate must call Offhand.Wizard:Open()
 
 addon.Wizard.Open = originalWizardOpen
 
+-- The named FancyZones shortcut must retain every return value from the
+-- remember operation and identify the independent placement method correctly.
+local originalManualRemember = addon.ManualCanvas.RememberFromMetrics
+local originalManualPreview = addon.Viewport.GetManualPreviewMetrics
+local originalApplyFullLayout = addon.ApplyFullLayout
+local originalPrint = addon.Print
+local rememberedName, rememberedSource, appliedRememberedLayout, rememberedMessage
+addon.Viewport.GetManualPreviewMetrics = function()
+    return { physicalWidth = 3998, physicalHeight = 2480,
+        screenWidth = 1934.5, screenHeight = 1200 }
+end
+addon.ManualCanvas.RememberFromMetrics = function(_, _, name, source)
+    rememberedName, rememberedSource = name, source
+    return true, "manual-1", {
+        name = name, referenceWidth = 3998, referenceHeight = 2480,
+    }
+end
+addon.ApplyFullLayout = function() appliedRememberedLayout = true end
+addon.Print = function(_, formatString, ...)
+    rememberedMessage = string.format(formatString, ...)
+end
+SlashCmdList["Offhand"]("remember FancyZones")
+assert(rememberedName == "FancyZones" and rememberedSource == "FANCYZONES",
+    "/Offhand remember FancyZones must store a canonical FancyZones record")
+assert(appliedRememberedLayout and rememberedMessage
+        and rememberedMessage:find("FancyZones", 1, true),
+    "a successful remember command must retain its record and apply the layout")
+addon.ManualCanvas.RememberFromMetrics = originalManualRemember
+addon.Viewport.GetManualPreviewMetrics = originalManualPreview
+addon.ApplyFullLayout = originalApplyFullLayout
+addon.Print = originalPrint
+
 -- The installation guide is distinct from display calibration. It does not
 -- acknowledge the welcome until the verified handoff into the Wizard.
 OffhandDB.onboarding = {}
@@ -813,18 +881,27 @@ assert(onboardingFrame and onboardingFrame:IsShown() and onboardingFrame.page ==
 local originalStaticPopupShow = StaticPopup_Show
 local downloadDialog = { SetFrameStrata = function(self, strata) self.strata = strata end }
 StaticPopup_Show = function(key)
-    assert(key == "OFFHAND_DOWNLOAD_LINK", "onboarding must open the Companion download dialog")
+    assert(key == "OFFHAND_POWERTOYS_LINK", "the primary Windows path must open the PowerToys dialog")
     return downloadDialog
 end
 onboardingFrame:SetPage(2)
 onboardingFrame.actionButton.scripts.OnClick()
 assert(not onboardingFrame:IsShown() and downloadDialog.strata == "TOOLTIP",
     "download dialog must temporarily replace the onboarding guide")
+assert(addon:GetOnboardingSetupMethod() == "FANCYZONES",
+    "choosing FancyZones must persist the setup method across reload")
+StaticPopupDialogs["OFFHAND_POWERTOYS_LINK"].OnHide()
+assert(onboardingFrame:IsShown() and onboardingFrame.page == 2,
+    "closing the download dialog must return to onboarding step 2")
+
+StaticPopup_Show = function(key)
+    assert(key == "OFFHAND_DOWNLOAD_LINK", "the Companion path must open its download dialog")
+    return downloadDialog
+end
+onboardingFrame.secondaryActionButton.scripts.OnClick()
 assert(addon:GetOnboardingSetupMethod() == "COMPANION",
     "choosing Companion must persist the setup method across reload")
 StaticPopupDialogs["OFFHAND_DOWNLOAD_LINK"].OnHide()
-assert(onboardingFrame:IsShown() and onboardingFrame.page == 2,
-    "closing the download dialog must return to onboarding step 2")
 StaticPopup_Show = originalStaticPopupShow
 
 local reloadCount = 0
@@ -847,7 +924,12 @@ addon.Viewport.GetMetrics = function()
     return {
         companionTopology = false, topologyStatus = "ABSENT", isSpanned = true,
         gameLeft = 1440, gameRight = 4000, gameBottom = 0, gameTop = 1440,
-        gameWidth = 2560,
+        gameWidth = 2560, physicalWidth = 4000, physicalHeight = 2560,
+        screenWidth = 1200, screenHeight = 768,
+        gamePixelLeft = 1440, gamePixelBottom = 0,
+        gamePixelWidth = 2560, gamePixelHeight = 1440,
+        workspacePixelLeft = 0, workspacePixelBottom = 0,
+        workspacePixelWidth = 1440, workspacePixelHeight = 2560,
     }
 end
 assert(addon:SetOnboardingSetupMethod("MANUAL") == true,
@@ -855,18 +937,42 @@ assert(addon:SetOnboardingSetupMethod("MANUAL") == true,
 onboardingFrame:SetPage(4)
 local manualPopup
 StaticPopup_Show = function(key, text, _, callback)
-    manualPopup = { key = key, text = text, callback = callback }
+    local frame = {
+        SetFrameStrata = function(self, strata) self.strata = strata end,
+        Raise = function(self) self.raised = true end,
+    }
+    manualPopup = { key = key, text = text, callback = callback, frame = frame }
+    return frame
 end
 onboardingFrame.nextButton.scripts.OnClick()
 assert(onboardingFrame.page == 4 and manualPopup
         and manualPopup.key == "OFFHAND_CONFIRM_MANUAL_LAYOUT",
     "manual geometry must wait for explicit acknowledgement at onboarding step 4")
+assert(manualPopup.frame.strata == "TOOLTIP" and manualPopup.frame.raised,
+    "the manual-layout confirmation must be raised above the onboarding window")
 StaticPopupDialogs[manualPopup.key].OnAccept(nil, manualPopup.callback)
 assert(onboardingFrame.page == 5,
     "confirmed manual geometry must advance to calibration preparation")
 
+assert(addon:SetOnboardingSetupMethod("FANCYZONES") == true,
+    "FancyZones setup method must be accepted")
+onboardingFrame:SetPage(4)
+manualPopup = nil
+onboardingFrame.nextButton.scripts.OnClick()
+assert(onboardingFrame.page == 4 and manualPopup
+        and manualPopup.key == "OFFHAND_CONFIRM_MANUAL_LAYOUT",
+    "FancyZones must use the same explicit remembered-canvas confirmation as manual placement")
+
 addon.Viewport.GetMetrics = function()
-    return { companionTopology = false, topologyStatus = "ABSENT", isSpanned = false }
+    return {
+        companionTopology = false, topologyStatus = "ABSENT", isSpanned = false,
+        physicalWidth = 2560, physicalHeight = 1440,
+        screenWidth = 1365, screenHeight = 768,
+        gamePixelLeft = 0, gamePixelBottom = 0,
+        gamePixelWidth = 2560, gamePixelHeight = 1440,
+        workspacePixelLeft = 0, workspacePixelBottom = 0,
+        workspacePixelWidth = 922, workspacePixelHeight = 1440,
+    }
 end
 onboardingFrame:SetPage(4)
 manualPopup = nil
@@ -878,12 +984,21 @@ assert(onboardingFrame.page == 4,
     "cancelling manual layout acknowledgement must remain on onboarding step 4")
 
 addon.Viewport.GetMetrics = function()
-    return { companionTopology = false, topologyStatus = "MISMATCH", isSpanned = true }
+    return {
+        companionTopology = false, topologyStatus = "MISMATCH", isSpanned = true,
+        physicalWidth = 4000, physicalHeight = 2560,
+        screenWidth = 1200, screenHeight = 768,
+        gamePixelLeft = 1440, gamePixelBottom = 0,
+        gamePixelWidth = 2560, gamePixelHeight = 1440,
+        workspacePixelLeft = 0, workspacePixelBottom = 0,
+        workspacePixelWidth = 1440, workspacePixelHeight = 2560,
+    }
 end
+manualPopup = nil
 onboardingFrame.nextButton.scripts.OnClick()
-assert(onboardingFrame.page == 4 and onboardingFrame.statusText:GetText():find(
-        addon.L["ONBOARD_STATUS_TOPOLOGY_MISMATCH"], 1, true),
-    "manual setup must not bypass a stale generated Companion topology")
+assert(onboardingFrame.page == 4 and manualPopup
+        and manualPopup.key == "OFFHAND_CONFIRM_MANUAL_LAYOUT",
+    "manual setup must be able to relinquish stale generated Companion topology explicitly")
 
 addon:SetOnboardingSetupMethod("COMPANION")
 addon.Viewport.GetMetrics = function()
@@ -1013,15 +1128,15 @@ end
 addon.Options:RefreshPanel()
 assert(optPanel.banner:GetText():find("Companion active: Game 2560x1440 | Workspace 1440x2560", 1, true),
     "Exact Companion status must use a concise game/workspace summary")
-assert(not optPanel.companionAppBtn:IsShown(),
-    "The Companion download button must be hidden while Companion is actively supplying geometry")
-assert(optPanel.banner.points["TOPRIGHT"].rel == optPanel.autoWizardBtn,
-    "Exact Companion status must use the space vacated by the download button")
+assert(optPanel.companionAppBtn:IsShown(),
+    "Window Setup must remain available when Companion is actively supplying geometry")
+assert(optPanel.banner.points["TOPRIGHT"].rel == optPanel.companionAppBtn,
+    "Exact Companion status must leave room for the neutral Window Setup action")
 
 addon.Viewport.GetMetrics = panelGetMetrics
 addon.Options:RefreshPanel()
 assert(optPanel.companionAppBtn:IsShown(),
-    "The Companion download button must return when exact Companion geometry is absent")
+    "Window Setup must remain available when exact Companion geometry is absent")
 assert(optPanel.banner.points["TOPRIGHT"].rel == optPanel.companionAppBtn,
     "Manual display status must end before the Companion download button")
 

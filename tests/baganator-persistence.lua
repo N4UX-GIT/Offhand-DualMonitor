@@ -7,7 +7,10 @@ pairs = function(value)
     if value == _G then globalScans = globalScans + 1 end
     return nativePairs(value)
 end
-C_AddOns = { IsAddOnLoaded = function(name) return name == "Baganator" end }
+local bagnonLoaded=false
+C_AddOns = { IsAddOnLoaded = function(name)
+    return name == "Baganator" or (name == "Bagnon" and bagnonLoaded)
+end }
 local baganatorCallbacks = {}
 Baganator = { CallbackRegistry = {
     RegisterCallback = function(_, event, callback) baganatorCallbacks[event] = callback end,
@@ -45,11 +48,33 @@ function bag:GetHeight() return self.height end
 function bag:HookScript(s,fn) self.scripts[s]=fn end
 function bag:Show() self.shown=true; if self.scripts.OnShow then self.scripts.OnShow() end end
 function bag:Hide() self.shown=false; if self.scripts.OnHide then self.scripts.OnHide() end end
+local canManagePanels=true
+addon.Canvas.CanManagePanelsFromAddon=function() return canManagePanels end
 addon.Canvas.IsFrameOnWorkspace=function(f) return f.x < 1440 end
 function addon.Canvas:RestoreWorkspacePosition(f)
     local p=addon.db.savedWorkspacePositions[f:GetName()]; f.x=p.x; f.y=p.y
 end
 _G[name]=bag
+local bagnon={shown=false,x=130,y=330,height=110,scripts={},id="inventory"}
+setmetatable(bagnon,{__index=bag})
+function bagnon:GetName() return "BagnonFrameinventory" end
+local bagnonShows=0
+Bagnon={Frames={}}
+function Bagnon.Frames:Get(id)
+    assert(id=="inventory")
+    return bagnon
+end
+function Bagnon.Frames:Show(id)
+    assert(id=="inventory")
+    bagnonShows=bagnonShows+1
+    bagnon:Show()
+    return bagnon
+end
+function Bagnon.Frames:Hide(id)
+    assert(id=="inventory")
+    bagnon:Hide()
+    return bagnon
+end
 local childName=name.."TitleText"
 local child={scripts={}}
 function child:GetName() return childName end
@@ -68,12 +93,20 @@ function GameMenuFrame:IsShown() return self.shown end
 function GameMenuFrame:Show() self.shown=true end
 function GameMenuFrame:Hide() self.shown=false end
 CloseAllBags=function() bag:Hide() end
+ShowUIPanel=function(panel) panel:Show() end
+HideUIPanel=function(panel) panel:Hide() end
 ToggleGameMenu=function()
     if GameMenuFrame.shown then GameMenuFrame:Hide() else GameMenuFrame:Show() end
 end
-hooksecurefunc=function(name, callback)
-    local original=_G[name]
-    _G[name]=function(...)
+hooksecurefunc=function(target, methodOrCallback, maybeCallback)
+    local owner, name, callback
+    if type(target)=="table" then
+        owner, name, callback=target,methodOrCallback,maybeCallback
+    else
+        owner, name, callback=_G,target,methodOrCallback
+    end
+    local original=owner[name]
+    owner[name]=function(...)
         local result=original(...)
         callback(...)
         return result
@@ -212,5 +245,85 @@ eui:Hide(); flush()
 assert(not eui.shown,
     "Offhand must not reopen an EllesmereUI bag from its OnHide callback")
 
-print("PASS: addon bag reload, Escape, explicit close, settings, combat and EllesmereUI roots")
+-- Bagnon registers its top-level inventory window in UISpecialFrames. Preserve
+-- that root when Escape hides it directly, but respect its own X/B hide API.
+eui.shown=false
+bag.shown=false
+bagnonLoaded=true
+onEvent(nil,"ADDON_LOADED","Bagnon"); flush()
+assert(tracker.frames.BagnonFrameinventory == bagnon,
+    "Bagnon's public inventory root must be discovered without a global scan")
+assert(tracker.bagnonCallbacksInstalled,
+    "Bagnon's lazy root observer must be enabled")
+assert(bagnon.scripts.OnShow == nil and bagnon.scripts.OnHide == nil,
+    "Offhand must not install scripts in Bagnon's Gamepad focus ancestry")
+bagnon.x=130; bagnon.y=330; bagnon:Show(); tick()
+assert(addon.db.baganatorWorkspacePanels.BagnonFrameinventory,
+    "a visible workspace Bagnon inventory must be captured")
+GameMenuFrame.shown=false
+bagnon:Hide(); ToggleGameMenu(); flush()
+assert(bagnon.shown and GameMenuFrame.shown and bagnonShows==1,
+    "Escape must restore Bagnon's inventory through its public frame manager")
+ToggleGameMenu(); flush()
+onEvent(nil,"PLAYER_LEAVING_WORLD")
+bagnon:Hide()
+onEvent(nil,"PLAYER_ENTERING_WORLD"); flush()
+assert(bagnon.shown and bagnonShows==2,
+    "reload restoration must reopen Bagnon through its public frame manager")
+Bagnon.Frames:Hide("inventory"); tick(); flush()
+assert(not bagnon.shown and not next(addon.db.baganatorWorkspacePanels),
+    "Bagnon's explicit close API must clear the independent open snapshot")
+
+-- Forever Gamepad mode owns Bagnon's visibility and Blizzard focus routing.
+-- Keep the saved intent but perform no reopen or root lifecycle participation.
+addon.db.baganatorWorkspacePanels.BagnonFrameinventory={
+    x=130,y=330,coordinateVersion=2,
+}
+canManagePanels=false
+GameMenuFrame.shown=false
+ToggleGameMenu(); flush(); tick()
+assert(not bagnon.shown and addon.db.baganatorWorkspacePanels.BagnonFrameinventory
+        and bagnon.scripts.OnShow == nil and bagnon.scripts.OnHide == nil,
+    "Gamepad UI must retain Bagnon intent without reopening or hooking its root")
+
+-- Outside native Gamepad focus, Professions and Options are temporary panel
+-- transitions rather than explicit Bagnon closes. Restore through the public
+-- manager after both their opening and closing transactions.
+canManagePanels=true
+local professions={name="ProfessionsFrame",shown=false}
+function professions:GetName() return self.name end
+function professions:Show() self.shown=true end
+function professions:Hide() self.shown=false end
+function professions:IsShown() return self.shown end
+local settings={name="SettingsPanel",shown=false}
+function settings:GetName() return self.name end
+function settings:Show() self.shown=true end
+function settings:Hide() self.shown=false end
+function settings:IsShown() return self.shown end
+addon.Canvas.IsForeverBagPreservingPanel=function(_, frame)
+    return frame == professions or frame == settings
+end
+bagnon:Show(); tick()
+local transitionShows=bagnonShows
+bagnon:Hide(); ShowUIPanel(professions); flush()
+assert(bagnon.shown and bagnonShows==transitionShows+1,
+    "opening Professions must restore a tracked Offhand Bagnon root")
+bagnon:Hide(); HideUIPanel(professions); flush()
+assert(bagnon.shown and bagnonShows==transitionShows+2,
+    "closing Professions must restore a tracked Offhand Bagnon root")
+assert(bagnon.scripts.OnShow == nil and bagnon.scripts.OnHide == nil,
+    "panel transition recovery must not hook Bagnon's protected root")
+
+-- Settings intentionally owns the native panel slot while visible. Reopening
+-- Bagnon during that transaction produces a visible flash and its audio cue.
+-- Hold the saved snapshot until Settings closes, then restore exactly once.
+local settingsShows=bagnonShows
+bagnon:Hide(); ShowUIPanel(settings); flush()
+assert(not bagnon.shown and bagnonShows==settingsShows,
+    "visible Settings must defer Bagnon restoration without an opening cue")
+HideUIPanel(settings); flush()
+assert(bagnon.shown and bagnonShows==settingsShows+1,
+    "closing Settings must restore the previously open Offhand Bagnon root once")
+
+print("PASS: addon bag reload, Escape, explicit close, Baganator, Bagnon and EllesmereUI roots")
 

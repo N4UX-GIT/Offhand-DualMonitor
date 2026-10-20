@@ -136,6 +136,12 @@ end
 
 function Chrome:Refresh()
     local db = Offhand.db
+    if Offhand.Canvas and Offhand.Canvas.CanManagePanelsFromAddon
+        and not Offhand.Canvas.CanManagePanelsFromAddon() then
+        -- Do not inspect or update close buttons while Blizzard's Gamepad
+        -- focus manager owns the surrounding frame trees.
+        return false
+    end
     local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
         and Offhand.Viewport:GetMetrics() or nil
     local enabled = db and db.enabled

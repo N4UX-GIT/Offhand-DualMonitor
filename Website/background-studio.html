@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offhand Background Studio | Create a custom canvas background</title>
+    <meta name="description" content="Prepare a custom Offhand canvas background locally in your browser and download a ready-to-install World of Warcraft media addon.">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' blob: data:">
+    <link rel="icon" type="image/png" href="assets/offhand-icon.png">
+    <link rel="stylesheet" href="style.css?v=20261016-9">
+    <link rel="stylesheet" href="background-studio.css?v=20261016-5">
+</head>
+<body class="studio-page">
+    <header class="navbar">
+        <div class="nav-container">
+            <a class="brand" href="index.html">
+                <img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="brand-medallion">
+                <div class="brand-text">
+                    <span class="brand-title">OFFHAND</span>
+                    <span class="brand-subtitle">Dual-Wield Your Monitors</span>
+                </div>
+            </a>
+            <nav class="nav-primary" aria-label="Primary navigation"><a href="manual-spanning.html">Window Setup</a><a href="background-studio.html" aria-current="page">Background Studio</a><a href="companion.html">Companion</a></nav>
+            <div class="nav-controls">
+                <details class="site-menu">
+                    <summary>Menu <span aria-hidden="true">▾</span></summary>
+                    <nav class="site-menu-panel" aria-label="Complete site navigation">
+                        <div class="site-menu-group">
+                            <span class="site-menu-label">Pages</span>
+                            <a href="index.html">Home</a>
+                            <a href="manual-spanning.html">Window Setup</a>
+                            <a href="background-studio.html" aria-current="page">Background Studio</a>
+                            <a href="companion.html">Companion</a>
+                        </div>
+                        <div class="site-menu-group site-menu-sections site-menu-home-sections">
+                            <span class="site-menu-label">Home page sections</span>
+                            <a href="index.html#demo">Demonstration</a>
+                            <a href="index.html#features">Features</a>
+                            <a href="index.html#setup">Setup Guide</a>
+                            <a href="index.html#faq">FAQ</a>
+                        </div>
+                        <div class="site-menu-external">
+                            <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
+                            <a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge <span aria-hidden="true">↗</span></a>
+                        </div>
+                    </nav>
+                </details>
+                <a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener" class="btn btn-wow-red btn-sm nav-download"><svg class="curseforge-mark" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M18.326 9.2145S23.2261 8.4418 24 6.1882h-7.5066V4.4H0l2.0318 2.3576V9.173s5.1267-.2665 7.1098 1.2372c2.7146 2.516-3.053 5.917-3.053 5.917L5.0995 19.6c1.5465-1.4726 4.494-3.3775 9.8983-3.2857-2.0565.65-4.1245 1.6651-5.7344 3.2857h10.9248l-1.0288-3.2726s-7.918-4.6688-.8336-7.1127z"/></svg>CurseForge</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="content-deck studio-deck">
+        <section class="content-section studio-intro">
+            <div class="deck-intro-banner">
+                <div class="hero-badge">LOCAL BROWSER TOOL</div>
+                <h1>Create your Offhand background</h1>
+                <p class="deck-intro-text">Choose an image, preview how it will fit your workspace, and download a ready-to-install <code>Offhand_UserMedia.zip</code>.</p>
+                <div class="privacy-banner" role="note">
+                    <strong>Your image stays on this device.</strong>
+                    <span>This page has no upload endpoint. A restrictive browser policy also blocks network submissions from the studio.</span>
+                </div>
+            </div>
+        </section>
+
+        <noscript>
+            <section class="content-section"><div class="studio-alert studio-alert-error">JavaScript is required for local image conversion. No image data is sent to a server.</div></section>
+        </noscript>
+
+        <section class="content-section studio-grid" id="create">
+            <div class="studio-panel studio-controls-panel">
+                <div class="studio-panel-heading">
+                    <span class="step-number">1</span>
+                    <div><h2>Choose source</h2><p>Create a new package or inspect one previously generated by this studio.</p></div>
+                </div>
+
+                <div class="source-tabs" role="tablist" aria-label="Source type">
+                    <button type="button" class="source-tab is-active" id="tab-image" role="tab" aria-selected="true" aria-controls="source-image">New image</button>
+                    <button type="button" class="source-tab" id="tab-package" role="tab" aria-selected="false" aria-controls="source-package">Update package</button>
+                </div>
+
+                <div id="source-image" class="source-panel" role="tabpanel" aria-labelledby="tab-image">
+                    <label class="drop-zone" for="image-input" id="image-drop-zone">
+                        <span class="drop-zone-title">Select or drop an image</span>
+                        <span class="drop-zone-copy">PNG, JPEG, or WebP. Maximum 25 MiB and 40 megapixels.</span>
+                        <span class="btn btn-wow-stone btn-sm">Choose image</span>
+                    </label>
+                    <input id="image-input" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp">
+                </div>
+
+                <div id="source-package" class="source-panel" role="tabpanel" aria-labelledby="tab-package" hidden>
+                    <label class="drop-zone" for="package-input" id="package-drop-zone">
+                        <span class="drop-zone-title">Open an existing package locally</span>
+                        <span class="drop-zone-copy">Only packages generated by this studio are accepted. The ZIP is not uploaded.</span>
+                        <span class="btn btn-wow-stone btn-sm">Choose package</span>
+                    </label>
+                    <input id="package-input" class="visually-hidden" type="file" accept="application/zip,.zip">
+                </div>
+
+                <div class="source-summary" id="source-summary" aria-live="polite">No source selected.</div>
+
+                <div class="studio-panel-heading compact-heading">
+                    <span class="step-number">2</span>
+                    <div><h2>Workspace and fit</h2><p>These settings are saved as recommendations in the media package.</p></div>
+                </div>
+
+                <fieldset class="control-group" id="studio-controls" disabled>
+                    <legend class="visually-hidden">Background settings</legend>
+
+                    <label for="workspace-preset">Workspace shape</label>
+                    <select id="workspace-preset">
+                        <option value="portrait">Portrait monitor, 9:16</option>
+                        <option value="landscape">Landscape monitor, 16:9</option>
+                        <option value="square">Square, 1:1</option>
+                        <option value="custom">Custom dimensions</option>
+                    </select>
+
+                    <div class="dimension-row" id="custom-dimensions" hidden>
+                        <label>Width <input id="workspace-width" type="number" min="320" max="8192" value="1440" inputmode="numeric"></label>
+                        <span aria-hidden="true">×</span>
+                        <label>Height <input id="workspace-height" type="number" min="320" max="8192" value="2560" inputmode="numeric"></label>
+                    </div>
+
+                    <div class="field-label">Fit mode</div>
+                    <div class="segmented-control" role="radiogroup" aria-label="Fit mode">
+                        <label><input type="radio" name="fit-mode" value="FILL" checked><span>Fill</span></label>
+                        <label><input type="radio" name="fit-mode" value="FIT"><span>Fit</span></label>
+                        <label><input type="radio" name="fit-mode" value="STRETCH"><span>Stretch</span></label>
+                    </div>
+
+                    <div class="focus-control" id="zoom-control">
+                        <label for="image-zoom">Zoom <output id="image-zoom-value">100%</output></label>
+                        <input id="image-zoom" type="range" min="100" max="200" step="1" value="100" aria-describedby="zoom-help">
+                        <small id="zoom-help">Available in Fill mode. 100% is the closest view that completely covers the workspace.</small>
+                    </div>
+
+                    <div class="crop-focus-heading">
+                        <div class="field-label">Crop focus</div>
+                        <p id="focus-guidance" class="control-help" aria-live="polite">Focus becomes available when Fill needs to crop the image.</p>
+                    </div>
+
+                    <div class="focus-control" id="focus-x-control">
+                        <label for="focus-x">Horizontal crop focus <output id="focus-x-value">Center, 50%</output></label>
+                        <input id="focus-x" type="range" min="0" max="100" value="50" aria-describedby="focus-guidance focus-x-help">
+                        <small id="focus-x-help">Choose whether the left, center, or right of a cropped image stays visible.</small>
+                    </div>
+
+                    <div class="focus-control" id="focus-y-control">
+                        <label for="focus-y">Vertical crop focus <output id="focus-y-value">Center, 50%</output></label>
+                        <input id="focus-y" type="range" min="0" max="100" value="50" aria-describedby="focus-guidance focus-y-help">
+                        <small id="focus-y-help">Choose whether the top, center, or bottom of a cropped image stays visible.</small>
+                    </div>
+
+                    <label for="image-opacity">Image opacity <output id="image-opacity-value">100%</output></label>
+                    <input id="image-opacity" type="range" min="10" max="100" value="100">
+
+                    <label for="image-dim">Darkening overlay <output id="image-dim-value">15%</output></label>
+                    <input id="image-dim" type="range" min="0" max="80" value="15">
+
+                    <label for="matte-color">Fit-mode background</label>
+                    <div class="color-row">
+                        <input id="matte-color" type="color" value="#161922">
+                        <code id="matte-color-value">#161922</code>
+                    </div>
+                </fieldset>
+            </div>
+
+            <div class="studio-panel studio-preview-panel" id="preview">
+                <div class="studio-panel-heading">
+                    <span class="step-number">3</span>
+                    <div><h2>Preview</h2><p>The frame represents the Offhand workspace, not the complete WoW window.</p></div>
+                </div>
+
+                <div class="workspace-preview-viewport" id="preview-viewport">
+                    <div class="workspace-stage">
+                        <canvas id="preview-canvas" width="720" height="1280" aria-label="Custom Offhand background preview"></canvas>
+                        <div class="preview-empty" id="preview-empty">Choose an image to begin.</div>
+                        <div class="workspace-window-demo window-one"><span>World Map</span></div>
+                        <div class="workspace-window-demo window-two"><span>Bags</span></div>
+                    </div>
+                </div>
+
+                <dl class="package-facts" id="package-facts">
+                    <div><dt>Source</dt><dd id="fact-source">Not selected</dd></div>
+                    <div><dt>Texture</dt><dd id="fact-texture">Not generated</dd></div>
+                    <div><dt>Package</dt><dd id="fact-package">Estimated after conversion</dd></div>
+                </dl>
+
+                <div class="studio-alert" id="studio-status" role="status" aria-live="polite">Select an image or existing package.</div>
+
+                <button type="button" id="generate-button" class="btn btn-wow-red btn-lg generate-button" disabled>Generate media package</button>
+                <p class="download-note">Generation happens in memory. Your browser downloads the resulting ZIP directly.</p>
+            </div>
+        </section>
+
+        <section class="content-section" id="install">
+            <div class="section-header">
+                <div class="hero-badge">INSTALLATION</div>
+                <h2 class="section-title studio-section-title">Install beside Offhand</h2>
+            </div>
+            <div class="grid-3">
+                <article class="wow-card">
+                    <h3 class="wow-card-title">1. Close WoW</h3>
+                    <p class="wow-card-desc">A full client restart is the safe requirement for newly generated interface textures. Do not replace the package while WoW is running.</p>
+                </article>
+                <article class="wow-card">
+                    <h3 class="wow-card-title">2. Extract the ZIP</h3>
+                    <p class="wow-card-desc">Place <code>Offhand_UserMedia</code> beside <code>Offhand</code> inside the client’s <code>Interface/AddOns</code> directory. Avoid creating a nested duplicate folder.</p>
+                </article>
+                <article class="wow-card">
+                    <h3 class="wow-card-title">3. Start and enable</h3>
+                    <p class="wow-card-desc">Start WoW, verify <strong>Offhand User Media</strong> is enabled, then select the custom background in <code>/offhand</code>. Offhand falls back to its normal theme if the package is unavailable.</p>
+                </article>
+            </div>
+            <details class="addon-folder-help">
+                <summary>
+                    <span class="addon-folder-help-icon" aria-hidden="true">?</span>
+                    <span class="addon-folder-help-title">
+                        <strong>Can’t find your AddOns folder?</strong>
+                        <small>Open the folder guide</small>
+                    </span>
+                    <span class="addon-folder-help-chevron" aria-hidden="true">&#9662;</span>
+                </summary>
+                <div class="addon-folder-help-body">
+                    <div class="addon-folder-help-route">
+                        <h3>Using CurseForge</h3>
+                        <p>Open your active World of Warcraft profile and use its <strong>Open Folder</strong> or <strong>Browse Folder</strong> action. The correct <code>AddOns</code> folder is the one that already contains <code>Offhand</code>.</p>
+                    </div>
+                    <div class="addon-folder-help-route">
+                        <h3>Using Battle.net</h3>
+                        <p>Select the WoW version you play, open the options beside <strong>Play</strong>, and show the installation in Explorer. Open the matching game-version folder, then <code>Interface</code> and <code>AddOns</code>.</p>
+                    </div>
+                    <div class="addon-folder-paths">
+                        <strong>Common version folders</strong>
+                        <code>_retail_\Interface\AddOns</code>
+                        <code>_classic_\Interface\AddOns</code>
+                        <code>_classic_era_\Interface\AddOns</code>
+                    </div>
+                    <p class="addon-folder-check"><strong>Check before extracting:</strong> <code>Offhand</code> and <code>Offhand_UserMedia</code> must be side by side inside the same <code>AddOns</code> folder, not nested inside one another. Your drive and parent folders may differ if WoW was installed in a custom location.</p>
+                </div>
+            </details>
+            <div class="install-support-grid">
+                <article class="wow-card install-maintenance-card">
+                    <h3 class="wow-card-title">Update or remove</h3>
+                    <p class="wow-card-desc">Close WoW before replacing <code>Offhand_UserMedia</code>. To remove it, disable the custom background and delete only that folder. Normal CurseForge updates leave this user-owned package alone.</p>
+                </article>
+                <article class="wow-card install-tree-card">
+                    <h3 class="wow-card-title">Expected folder structure</h3>
+                    <p class="wow-card-desc">Keep both addon folders side by side inside <code>Interface/AddOns</code>.</p>
+                    <div class="install-tree" aria-label="Expected addon folder structure">
+                        <code>Interface/AddOns/<br>├── Offhand/<br>└── Offhand_UserMedia/<br>&nbsp;&nbsp;&nbsp;&nbsp;├── Offhand_UserMedia.toc<br>&nbsp;&nbsp;&nbsp;&nbsp;├── Background.lua<br>&nbsp;&nbsp;&nbsp;&nbsp;├── BackgroundRecipe.json<br>&nbsp;&nbsp;&nbsp;&nbsp;├── README.txt<br>&nbsp;&nbsp;&nbsp;&nbsp;└── Textures/Background.tga</code>
+                    </div>
+                </article>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-brand"><img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="footer-logo"><div class="footer-info"><span class="footer-title">OFFHAND</span><span class="footer-subtitle">Dual-Wield Your Monitors</span></div></div>
+        <nav class="footer-nav" aria-label="Footer navigation"><div class="footer-nav-row"><a href="index.html">Home</a><a href="manual-spanning.html">Window Setup</a><a href="background-studio.html">Background Studio</a><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub</a></div><div class="footer-nav-row"><a href="index.html#faq">FAQ</a><a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge</a><a href="companion.html">Companion</a><span class="footer-community-actions"><a class="footer-discord" href="https://discord.gg/3BAVSXBXH" target="_blank" rel="noopener noreferrer" aria-label="Join the Offhand Discord" title="Join the Offhand Discord"><img src="assets/discord-symbol.svg" alt="" aria-hidden="true"></a><a class="footer-support" href="https://ko-fi.com/n4uxaddons" target="_blank" rel="noopener noreferrer" aria-label="Support N4UX on Ko-fi"><img src="assets/ko-fi-symbol.png" alt="" aria-hidden="true">Support N4UX</a></span></div></nav>
+        </div>
+        <div class="footer-legal"><p>The Background Studio processes selected files locally. It does not upload, retain, or transmit them.</p></div>
+    </footer>
+
+    <script type="module" src="background-studio.js?v=20261016-6"></script>
+</body>
+</html>

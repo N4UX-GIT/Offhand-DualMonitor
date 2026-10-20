@@ -25,6 +25,7 @@ The detailed issue section below remains authoritative.
 | OH-UI-001 | Forever | Resolved on `main` | Automated passed | Passed | Retain regression coverage |
 | OH-UI-002 | Forever | Resolved on `main` | Automated passed | Passed | Retain regression coverage |
 | OH-UI-003 | Forever with Chattynator | Compatibility boundary on `main` | Automated passed | Smoke test passed | Full scrolling regression QA |
+| OH-UI-007 | Forever with Dialogue UI | Implemented in working source | Automated passed | Pending | Live dialogue, book, and settings QA |
 
 Use the evidence vocabulary and branch policy in
 [`ADDON-DEVELOPMENT.md`](ADDON-DEVELOPMENT.md). Update this summary whenever an
@@ -228,6 +229,65 @@ issue changes branch, evidence level, candidate, or released version.
   combat. Confirm position/open restoration and inspect both BugGrabber and
   `Logs/taint.log`. Repeat once with a supported custom bag addon.
 
+## OH-FOR-007: Repair HUD repeats without recovering Party Frames
+
+- Status: Targeted fix implemented and simulated regression passed; exact
+  Forever live retest pending.
+- Reporter: WhoAmI.
+- Client: Forever 1.60.1 build 70450 with Offhand 2.1.2 Beta 21.
+- Symptom: The Party Frame remains invisible in Edit Mode after **Repair HUD**
+  and `/reload`, then Offhand offers the same repair again when Edit Mode closes.
+- Evidence: Diagnostics showed the generated `Offhand - Mainhand` layout was
+  active, matched the current stacked topology and was considered current. The
+  failure therefore occurred inside the generated payload rather than layout
+  selection or topology recovery.
+- Cause: The general translator moves only entries anchored directly to
+  `UIParent`. Forever can serialize Party and Raid unit-frame entries relative
+  to another Edit Mode system. Other entries still moved, so the transaction
+  reported success even though the detected group entry was unchanged.
+- Fix: The explicit recovery action now identifies the detected Party or Raid
+  candidate and rebases its matching `UnitFrame` layout entry to a safe
+  Mainhand-relative position. Default system-relative group entries receive the
+  same treatment during generation. Customized entries remain unchanged unless
+  the player invokes recovery. If no matching layout entry exists, repair stops
+  with `repair-system` instead of requesting a misleading reload. Diagnostics
+  now expose both group-frame bounds and protected-HUD candidate state.
+- Live QA: On the reported 3440x1440 Mainhand below a centered 1920x1200
+  workspace, open Edit Mode solo, invoke Repair HUD, `/reload`, and reopen Edit
+  Mode. Confirm the Party preview is reachable and no second prompt appears.
+  Join a party and raid, verify frames and protected clicks in and out of combat,
+  then inspect current BugGrabber and `taintLog 2` evidence.
+
+## OH-FOR-008: Bagnon Escape persistence and Gamepad focus taint
+
+- Status: Revised candidate implemented and simulated regression passed; live
+  Forever retest pending.
+- Reporter: Kruse.
+- Client: Forever with Bagnon 12.1.7 and Offhand 2.1.2 Beta 21 candidate.
+- Symptoms: In keyboard and mouse mode, Escape still closes the saved workspace
+  Bagnon inventory. In Gamepad mode, closing Blizzard Settings can produce an
+  `ADDON_ACTION_FORBIDDEN` attributed to Bagnon when Blizzard calls
+  `SetPreferredGamepadInteractTarget` from `FrameControlsManager`.
+- Cause: Offhand registered `OnShow` and `OnHide` hooks on Bagnon's top-level
+  `UISpecialFrames` root. That callback was also the only mechanism that paired
+  a direct Escape hide with the later Game Menu toggle. The hook did not cover
+  every live ordering and inserted Offhand code into a frame participating in
+  Forever's protected Gamepad focus lifecycle.
+- Fix: Bagnon's root is now discovered by a constant-time Offhand-owned observer
+  without root scripts or manager callbacks. The secure global Game Menu
+  post-transaction recognizes a saved Bagnon root that Escape has just hidden
+  and restores it through Bagnon's public manager in keyboard and mouse mode.
+  Gamepad mode retains the saved intent but performs no Bagnon inspection,
+  visibility change, anchor restore or close-button update.
+- Live QA: Start with fresh BugGrabber and `taintLog 2`. In keyboard and mouse
+  mode, move the one-bag inventory to Offhand and confirm two Escape presses
+  open and close the Game Menu without closing the bag. Confirm B and the close
+  button still close it, and `/reload` restores an intentionally open bag. In
+  Gamepad mode, open and close Settings and the Game Menu repeatedly, then use
+  Bagnon's own controls. Confirm no protected-call attribution and no automatic
+  bag reopen. If the error remains with this candidate, repeat once with Offhand
+  disabled to distinguish a native Bagnon/Forever incompatibility.
+
 ## OH-UI-004 — Group loot rolls centered on the monitor seam
 
 - Status: Resolved in live Forever Beta QA. The row-level correction remains in
@@ -362,6 +422,12 @@ issue changes branch, evidence level, candidate, or released version.
   migration was removed after it could show an inactive `ChatFrame2` over
   General and persist it as detached. On Forever, Offhand no longer synthesizes
   visibility, docking or floating presentation for the built-in Combat Log.
+  Generic persistent-panel restoration also excludes every Forever secondary
+  Blizzard chat frame. A stale `ChatFrame2` workspace record therefore cannot
+  call `Show()`, replay its obsolete dimensions, or replace Blizzard's
+  dock-relative anchor while the dock is rebuilding. The settlement-gated
+  tracked-chat path remains the only route that can restore a secondary frame
+  after repeated observations establish that it is genuinely detached.
   Positive native dock or tab-parent evidence instead clears stale Offhand
   placement and hides the inactive frame when another dock tab is selected.
   Blizzard's saved dock bit is repaired only when the removed migration's
@@ -395,6 +461,12 @@ issue changes branch, evidence level, candidate, or released version.
 - Live evidence: The default General and Combat Log tabs remained available,
   independent native chat frames retained their placements, and opening or
   changing Chat Settings preserved each frame's background color and opacity.
+- Later reporter evidence: A clean Forever character reproduced a stale
+  `ChatFrame2` record immediately after spanning. The healthy 752x537 frame was
+  dock-relative and hidden; generic restoration replaced it with the stale
+  430x120 size and a direct `UIParent` anchor. The supplied two-guard patch
+  prevented the corruption in the reporter's live client. Current source uses
+  the stronger form of that boundary for every secondary Forever chat frame.
 
 ## OH-UI-003 — ChatFrame2 scroll callback failure with Chattynator
 
@@ -420,6 +492,39 @@ issue changes branch, evidence level, candidate, or released version.
 - Live evidence: Chattynator was enabled after the native-frame retest and its
   chat windows, input, and embedded Combat Log behaved normally under Offhand's
   compatibility boundary.
+
+## OH-UI-007 — Dialogue UI uses the complete monitor canvas
+
+- Status: Compatibility layer implemented and automated regression passed;
+  live Forever verification pending.
+- Client: Forever 1.60.1 with Dialogue UI 1.0.6.
+- Symptom: Dialogue UI sizes itself from the bounded `WorldFrame`, but anchors
+  the quest parchment, tutorial banner, status helpers, book, and settings to
+  the complete spanned `UIParent`. On a mixed-height span, those elements are
+  offset into the monitor seam or the physical void above Mainhand.
+- Fix: While Offhand has an active span, only Dialogue UI-owned anchors that
+  target `UIParent` are translated to the addon-owned Mainhand region. The
+  quest, book, and settings roots receive the physical-height correction used
+  by full-screen presentations. Dialogue UI's anchor offsets remain in their
+  native coordinate space. Native animation updates are preserved.
+  Dialogue UI keeps ownership of its size preference, camera, interaction,
+  input, and saved settings; protected and forbidden frames are skipped.
+  After a frame-size rebuild, the quest root is completed at Dialogue UI's own
+  `frameHeight` target if its Unfold animation retained the intermediate
+  half-height. No replacement dimensions or preset values are introduced.
+  Dialogue UI's anonymous custom quest-reward tooltip is
+  clamped after its anchor and layout transactions so Shift comparison details
+  remain inside the physical game viewport without requiring Blizzard tooltips.
+  Disabling Offhand or returning to one screen restores the native anchor owner,
+  scale, and offsets.
+- Live QA: On Forever, test gossip, quest detail, quest progress, reward choice,
+  the first-use settings banner, F1 settings, and a readable book. Repeat with
+  Dialogue UI's left/right orientation and each frame-size option, then disable
+  Offhand and confirm Dialogue UI returns to its native single-screen layout.
+  Hover every reward type with the custom tooltip enabled, hold and release
+  Shift for item comparisons, and verify the tooltip remains inside Mainhand.
+  Change Large to Medium and back to Large while a quest is open, confirming
+  the parchment recovers its original dimensions without `/reload`.
 
 ### Single-screen retest boundary
 

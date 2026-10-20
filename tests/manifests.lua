@@ -47,6 +47,22 @@ end
 local bindings = assert(io.open("Bindings.xml", "rb")):read("*a")
 assert(bindings:match('<Binding name="OFFHAND_TOGGLE_SETTINGS" header="OFFHAND">'),
     "Offhand settings binding is missing")
+assert(bindings:match('<Binding name="OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS">'),
+    "Forever Gamepad UI focus binding is missing")
+assert(bindings:match('Offhand_ToggleGamepadUIFocus%(%s*%)'),
+    "Forever Gamepad UI focus binding does not call its safe delegate")
+local _, offhandHeaderCount = bindings:gsub('header="OFFHAND"', '')
+assert(offhandHeaderCount == 1,
+    "the OFFHAND binding header must be declared exactly once")
+local initSource = assert(io.open("Core/Init.lua", "rb")):read("*a")
+local optionsSource = assert(io.open("UI/Options.lua", "rb")):read("*a")
+assert(initSource:find("HEADER_OFFHAND", 1, true)
+        and initSource:find("BINDING_HEADER_OFFHAND", 1, true)
+        and optionsSource:find("_G.HEADER_OFFHAND", 1, true),
+    "Forever and standard binding-header globals must both be initialized")
+assert(optionsSource:find("GAMEPAD_CATEGORY_ID", 1, true)
+        and not optionsSource:find("settings.KEYBINDINGS_CATEGORY_ID,", 1, true),
+    "the controller focus helper must open Gamepad settings, not keyboard bindings")
 local packageSource = assert(io.open("package.ps1", "rb")):read("*a")
 assert(packageSource:find('Join%-Path %$rootDir "Bindings%.xml"'),
     "release packaging must include the automatic Bindings.xml file")

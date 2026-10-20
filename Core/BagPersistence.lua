@@ -35,20 +35,42 @@ local function IsBaganatorRootName(name)
             or name:match("^Baganator_CategoryViewBackpackViewFrame"))
 end
 
-local function IsSupportedRoot(name, frame)
-    if name == "EUI_MainBagFrame" then return true end
-    if not IsBaganatorRootName(name) then return false end
-    -- Baganator derives the names of every child region from the backpack
-    -- root. A prefix-only match therefore also catches title text, textures,
-    -- and buttons. Its actual backpack roots are direct UIParent children.
-    return frame and frame.GetParent and frame:GetParent() == UIParent
-end
-
 local function IsAddOnLoadedCompat(name)
     local checker = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
     if not checker then return _G[name] ~= nil end
     local ok, loaded = pcall(checker, name)
     return ok and loaded == true
+end
+
+local function GetBagnonInventoryRoot()
+    if not IsAddOnLoadedCompat("Bagnon") then return nil end
+    local manager = Bagnon and Bagnon.Frames
+    if not manager or type(manager.Get) ~= "function" then return nil end
+    local ok, frame = pcall(manager.Get, manager, "inventory")
+    if not ok or type(frame) ~= "table" or not frame.GetName then return nil end
+    return frame
+end
+
+local function IsBagnonInventoryRoot(name, frame)
+    if not frame or not frame.GetParent
+        or frame:GetParent() ~= UIParent or frame.id ~= "inventory" then
+        return false
+    end
+    return GetBagnonInventoryRoot() == frame
+end
+
+local function IsDirectEscapeRoot(name, frame)
+    return IsBaganatorRootName(name) or IsBagnonInventoryRoot(name, frame)
+end
+
+local function IsSupportedRoot(name, frame)
+    if name == "EUI_MainBagFrame" then return true end
+    if IsBagnonInventoryRoot(name, frame) then return true end
+    if not IsBaganatorRootName(name) then return false end
+    -- Baganator derives the names of every child region from the backpack
+    -- root. A prefix-only match therefore also catches title text, textures,
+    -- and buttons. Its actual backpack roots are direct UIParent children.
+    return frame and frame.GetParent and frame:GetParent() == UIParent
 end
 
 local function IsSpanned()
@@ -109,20 +131,27 @@ end
 
 function Bags:RegisterRoot(name, frame)
     if not IsSupportedRoot(name, frame) or type(frame) ~= "table"
-        or not frame.GetName or not frame.HookScript or self.frames[name] then
+        or not frame.GetName or self.frames[name] then
         return false
     end
     self.frames[name] = frame
     if Offhand.WorkspaceChrome and Offhand.WorkspaceChrome.RegisterDynamicFrame then
         Offhand.WorkspaceChrome:RegisterDynamicFrame(name)
     end
+    -- Bagnon's root participates in Forever's UISpecialFrames and Gamepad
+    -- focus lifecycle. Installing scripts on that root can place Offhand in the
+    -- execution ancestry of protected FrameControlsManager work. Observe it
+    -- only from our own ticker and the secure global Escape transaction hooks.
+    if IsBagnonInventoryRoot(name, frame) then return true end
+    if not frame.HookScript then return true end
+
     local function Changed()
                 -- Baganator registers its root in UISpecialFrames, so Forever
                 -- can hide it directly before ToggleGameMenu without calling
                 -- CloseAllBags. Pair that root hide with the same immediate
                 -- Game Menu toggle used by Escape. A bag-key or X close has no
                 -- paired toggle and is allowed to expire normally.
-                if IsBaganatorRootName(name) and not Bags.paused
+                if IsDirectEscapeRoot(name, frame) and not Bags.paused
                     and not Bags.restoring and TrackEnabled() and IsSpanned()
                     and not InCombatLockdown() then
                     local savedName, position = Bags:GetSavedPosition()
@@ -130,7 +159,8 @@ function Bags:RegisterRoot(name, frame)
                         local pending = {
                             menuWasShown = GameMenuFrame and GameMenuFrame.IsShown
                                 and GameMenuFrame:IsShown() or false,
-                            source = "baganator_root_hide",
+                            source = IsBagnonInventoryRoot(name, frame)
+                                and "bagnon_root_hide" or "baganator_root_hide",
                         }
                         Bags.escapePending = pending
                         C_Timer.After(0.10, function()
@@ -160,6 +190,14 @@ function Bags:Discover(scanBaganatorGlobals)
     -- global-table walk.
     if _G.EUI_MainBagFrame then
         discovered = self:RegisterRoot("EUI_MainBagFrame", _G.EUI_MainBagFrame) or discovered
+    end
+
+    -- Bagnon's inventory root is lazy, but its public manager provides a
+    -- constant-time identity lookup after construction. Never scan its child
+    -- regions or depend on skin-generated global names.
+    local bagnonRoot = GetBagnonInventoryRoot()
+    if bagnonRoot then
+        discovered = self:RegisterRoot(bagnonRoot:GetName(), bagnonRoot) or discovered
     end
 
     -- Persisted Baganator root names can also be resolved directly. This is
@@ -193,6 +231,100 @@ function Bags:Discover(scanBaganatorGlobals)
     return discovered
 end
 
+function Bags:InstallBagnonCallbacks()
+    -- Deliberately no Bagnon callbacks. Its root and manager can participate in
+    -- Forever's Gamepad focus path. Constant-time polling of Frames:Get from
+    -- the addon-owned observer discovers the lazy inventory root without
+    -- inserting Offhand code into Bagnon's call chain.
+    self.bagnonCallbacksInstalled = IsAddOnLoadedCompat("Bagnon") or nil
+end
+
+function Bags:OpenSavedRoot(savedName)
+    local frame = savedName and self.frames[savedName]
+    if frame and IsBagnonInventoryRoot(savedName, frame) then
+        local manager = Bagnon and Bagnon.Frames
+        if manager and type(manager.Show) == "function" then
+            local ok = pcall(manager.Show, manager, "inventory")
+            if ok then
+                self:Discover(false)
+                return true
+            end
+        end
+    end
+    if ToggleAllBags then
+        pcall(ToggleAllBags)
+        self:Discover(false)
+        return true
+    end
+    return false
+end
+
+local function IsPreservingPanel(frame)
+    local canvas = Offhand.Canvas
+    return canvas and canvas.IsForeverBagPreservingPanel
+        and canvas:IsForeverBagPreservingPanel(frame) or false
+end
+
+local function PanelDefersBagRestore(frame)
+    if not frame or not frame.GetName then return false end
+    local name = frame:GetName()
+    return name == "SettingsPanel" or name == "InterfaceOptionsFrame"
+        or name == "VideoOptionsFrame" or name == "AudioOptionsFrame"
+end
+
+-- Blizzard closes replacement bags while opening or closing certain UIPanels.
+-- Preserve a Bagnon inventory that the user deliberately left on Offhand, but
+-- do all work after the native panel transaction and through Bagnon's public
+-- manager. The native Gamepad interface remains excluded: live testing showed
+-- that reopening Bagnon there taints its protected interact-target path.
+function Bags:BeginPanelTransition(panel)
+    if not IsPreservingPanel(panel) or not TrackEnabled() or not IsSpanned()
+        or InputReserved() or InCombatLockdown() or not CanOpenBagsFromAddon()
+        or not C_Timer or not C_Timer.After then return false end
+    self:Discover(false)
+    local savedName, position = self:GetSavedPosition()
+    local frame = savedName and self.frames[savedName]
+    if not position or not IsBagnonInventoryRoot(savedName, frame) then return false end
+
+    local token = {}
+    self.panelTransition = token
+    self.restoring = true
+    local function Restore()
+        if Bags.panelTransition ~= token or InputReserved() or InCombatLockdown()
+            or not CanOpenBagsFromAddon() then return end
+        -- Options deliberately hides replacement bags while it owns the main
+        -- panel slot. Do not fight that transaction or play Bagnon's opening
+        -- cue behind the visible Settings panel. Its HideUIPanel observer will
+        -- start a fresh transition and restore the saved bag afterwards.
+        if PanelDefersBagRestore(panel) and panel.IsShown and panel:IsShown() then return end
+        Bags:Discover(false)
+        local root = Bags.frames[savedName]
+        if root and root.IsVisible and not root:IsVisible() then
+            Bags:OpenSavedRoot(savedName)
+            root = Bags.frames[savedName]
+        end
+        if root and root.IsVisible and root:IsVisible() then
+            position = Bags:NormalizePosition(position, root)
+            Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
+            Offhand.db.savedWorkspacePositions[savedName] = position
+            Offhand.db.baganatorWorkspacePanels = { [savedName] = position }
+            Offhand.Canvas:RestoreWorkspacePosition(root)
+        end
+    end
+    C_Timer.After(0, Restore)
+    C_Timer.After(0.10, Restore)
+    C_Timer.After(0.35, Restore)
+    C_Timer.After(0.60, function()
+        if Bags.panelTransition ~= token then return end
+        Bags.panelTransition = nil
+        Bags.restoring = false
+        if not (PanelDefersBagRestore(panel) and panel.IsShown and panel:IsShown()) then
+            Bags:Capture()
+        end
+    end)
+    return true
+end
+
 function Bags:InstallBaganatorCallbacks()
     if self.baganatorCallbacksInstalled or not IsAddOnLoadedCompat("Baganator") then return end
     local registry = Baganator and Baganator.CallbackRegistry
@@ -215,7 +347,9 @@ function Bags:InstallBaganatorCallbacks()
 end
 
 function Bags:Capture()
-    if self.paused or self.restoring or self.escapePending or not Offhand.db then return end
+    if self.paused or self.restoring or self.escapePending or not Offhand.db
+        or not CanOpenBagsFromAddon() then return end
+    self:Discover(false)
     local snapshot = {}
     if TrackEnabled() then
         for name, frame in pairs(self.frames) do
@@ -280,9 +414,8 @@ function Bags:RestoreAfterEscape(pending)
     self.restoring = true
     self:Discover()
     local visible = self:GetVisibleFrame()
-    if not visible and ToggleAllBags then
-        pcall(ToggleAllBags)
-        self:Discover()
+    if not visible then
+        self:OpenSavedRoot(savedName)
         visible = self:GetVisibleFrame()
     end
 
@@ -353,8 +486,35 @@ function Bags:InstallEscapeHooks()
                 return
             end
             local pending = Bags.escapePending
+            if not pending and CanOpenBagsFromAddon() then
+                local savedName, position = Bags:GetSavedPosition()
+                local frame = savedName and Bags.frames[savedName]
+                local visible = frame and frame.IsVisible and frame:IsVisible() or false
+                if position and frame and IsDirectEscapeRoot(savedName, frame) and not visible then
+                    local menuIsShown = GameMenuFrame and GameMenuFrame.IsShown
+                        and GameMenuFrame:IsShown() or false
+                    pending = {
+                        menuWasShown = not menuIsShown,
+                        source = IsBagnonInventoryRoot(savedName, frame)
+                            and "bagnon_toggle_observer" or "baganator_toggle_observer",
+                    }
+                    Bags.escapePending = pending
+                end
+            end
             if not pending then return end
             C_Timer.After(0, function() Bags:RestoreAfterEscape(pending) end)
+        end)
+    end
+    if ShowUIPanel and not self.showUIPanelHooked then
+        self.showUIPanelHooked = true
+        hooksecurefunc("ShowUIPanel", function(panel)
+            if IsPreservingPanel(panel) then Bags:BeginPanelTransition(panel) end
+        end)
+    end
+    if HideUIPanel and not self.hideUIPanelHooked then
+        self.hideUIPanelHooked = true
+        hooksecurefunc("HideUIPanel", function(panel)
+            if IsPreservingPanel(panel) then Bags:BeginPanelTransition(panel) end
         end)
     end
 end
@@ -408,6 +568,14 @@ function Bags:Resume()
             return
         end
         Bags.waitingForCombat = false
+        if not CanOpenBagsFromAddon() then
+            -- Native Gamepad UI owns third-party window visibility and focus.
+            -- Retain the saved intent for a later player-driven open, but do
+            -- not inspect, open, reanchor, or attach code to the bag root.
+            Bags.waitingForInput = true
+            Bags.paused = false
+            return
+        end
         Bags:Discover(false)
         Bags:PruneInvalidBaganatorRecords()
         if InputReserved() then
@@ -434,9 +602,9 @@ function Bags:Resume()
                 Bags.paused = false
                 return
             end
-            if not visible and next(Bags.frames) and ToggleAllBags and not toggled then
+            if not visible and next(Bags.frames) and not toggled then
                 toggled = true
-                ToggleAllBags()
+                Bags:OpenSavedRoot(savedName)
                 for _, frame in pairs(Bags.frames) do
                     if frame:IsVisible() then visible = frame; break end
                 end
@@ -479,9 +647,13 @@ events:SetScript("OnEvent", function(_, event, addonName)
         if addonName == "Baganator" then
             Bags:InstallBaganatorCallbacks()
             C_Timer.After(0, function() Bags:Discover(true) end)
+        elseif addonName == "Bagnon" then
+            Bags:InstallBagnonCallbacks()
+            C_Timer.After(0, function() Bags:Discover(false) end)
         end
     elseif event == "PLAYER_LOGIN" then
         Bags:InstallBaganatorCallbacks()
+        Bags:InstallBagnonCallbacks()
         Bags:Discover(false)
         -- Run after every PLAYER_LOGIN handler so Baganator's initial frame
         -- group exists regardless of addon load order.

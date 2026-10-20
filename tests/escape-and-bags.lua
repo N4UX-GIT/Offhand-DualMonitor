@@ -622,6 +622,11 @@ assert(not addon.Canvas:ShouldYieldWorldMap(WorldMapFrame),
 -- A live UIParent scale transition must refresh those three known labels
 -- without changing Leatrix's map geometry or unrelated map text.
 loadedCompatibilityAddons.Leatrix_Maps = true
+assert(addon.Canvas:ShouldYieldWorldMap(WorldMapFrame),
+    "Offhand must yield World Map geometry to Leatrix Maps")
+assert(addon.Canvas:GetCompatibilityDiagnostics():find(
+        "WorldMapOwner=LeatrixMaps", 1, true),
+    "compatibility diagnostics must identify Leatrix as the map owner")
 local refreshedLabels = 0
 local function coordinateRegion(text)
     return {
@@ -653,6 +658,42 @@ assert(WorldMapFrame.scale == originalScale and WorldMapFrame.points[1] == origi
 assert(addon.Canvas:GetCompatibilityDiagnostics():find(
         "LeatrixMaps=loaded | CoordinateFontRefresh=3", 1, true),
     "compatibility diagnostics did not report the Leatrix font refresh")
+
+-- Geometry ownership and visibility ownership are deliberately separate.
+-- Leatrix keeps its exact anchor/scale while Offhand detaches a workspace map
+-- from Escape and the active UIPanel slot, then reopens it after a reload.
+local dormantMapPosition = addon.db.savedWorkspacePositions.WorldMapFrame
+addon.db.savedWorkspacePositions.WorldMapFrame = nil
+addon.db.openWorkspacePanels = addon.db.openWorkspacePanels or {}
+WorldMapFrame.points = { { "TOPLEFT", UIParent, "BOTTOMLEFT", 200, 1180 } }
+WorldMapFrame.scale = 0.83
+WorldMapFrame:Show()
+delegate.left = WorldMapFrame
+table.insert(UISpecialFrames, "WorldMapFrame")
+local leatrixPoint = WorldMapFrame.points[1]
+assert(addon.Canvas:PreserveLeatrixWorldMapOpenState(WorldMapFrame),
+    "a Leatrix-owned workspace map must retain Offhand open-state handling")
+assert(WorldMapFrame.points[1] == leatrixPoint and WorldMapFrame.scale == 0.83,
+    "Offhand changed Leatrix-owned map geometry while preserving visibility")
+assert(addon.db.openWorkspacePanels.WorldMapFrame and delegate.left == nil
+        and not inSpecial("WorldMapFrame"),
+    "Leatrix map persistence must detach both Escape and the active panel slot")
+addon.Canvas:ConfigureWorldMap()
+addon.Canvas:RestoreWorkspacePosition(WorldMapFrame)
+addon.Canvas.OnPanelDragStop(WorldMapFrame)
+assert(WorldMapFrame.points[1] == leatrixPoint and WorldMapFrame.scale == 0.83,
+    "a generic Offhand path rewrote Leatrix-owned map geometry")
+WorldMapFrame:Hide()
+addon.Canvas:RestorePersistentFrames()
+flushTimers()
+assert(WorldMapFrame:IsShown() and addon.db.openWorkspacePanels.WorldMapFrame
+        and WorldMapFrame.points[1] == leatrixPoint and WorldMapFrame.scale == 0.83,
+    "a Leatrix-owned map did not preserve its open state across restoration")
+WorldMapFrame.points = { { "TOPLEFT", UIParent, "BOTTOMLEFT", 1900, 1180 } }
+addon.Canvas:PreserveLeatrixWorldMapOpenState(WorldMapFrame)
+assert(not addon.db.openWorkspacePanels.WorldMapFrame and inSpecial("WorldMapFrame"),
+    "moving a Leatrix-owned map to Mainhand must restore native Escape behavior")
+addon.db.savedWorkspacePositions.WorldMapFrame = dormantMapPosition
 WorldMapFrame.overlayFrames = nil
 loadedCompatibilityAddons.Leatrix_Maps = nil
 C_AddOns = nil

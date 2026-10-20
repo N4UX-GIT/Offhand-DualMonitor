@@ -1,6 +1,6 @@
 --[[
     Offhand: Multi-Monitor Setup Addon
-    UI/Onboarding.lua: account-wide first-launch installation and Companion guide
+    UI/Onboarding.lua: account-wide first-launch installation and window setup guide
 
     This is intentionally separate from UI/Wizard.lua. Onboarding explains and
     verifies the installation workflow; the existing wizard calibrates a window
@@ -16,6 +16,13 @@ Offhand.Onboarding = Onboarding
 local guideFrame
 local PAGE_COUNT = 6
 local resumeAfterDownload
+
+local function BringPopupForward(dialog)
+    if not dialog then return nil end
+    if dialog.SetFrameStrata then dialog:SetFrameStrata("TOOLTIP") end
+    if dialog.Raise then dialog:Raise() end
+    return dialog
+end
 
 StaticPopupDialogs["OFFHAND_CONFIRM_MANUAL_LAYOUT"] = {
     text = L["ONBOARD_MANUAL_CONFIRM_TEXT"],
@@ -53,7 +60,7 @@ local function SupportsGeneratedMainhandLayout()
         and Offhand:HasBlizzardEditMode()
 end
 
-local function CompanionStatus()
+local function SetupStatus()
     local m = Metrics()
     local method = Offhand.GetOnboardingSetupMethod
         and Offhand:GetOnboardingSetupMethod() or nil
@@ -66,7 +73,7 @@ local function CompanionStatus()
     if not m then
         return false, L["ONBOARD_STATUS_NOT_SPANNED"]
     end
-    if m.topologyStatus == "MISMATCH" then
+    if method == "COMPANION" and m.topologyStatus == "MISMATCH" then
         return false, L["ONBOARD_STATUS_TOPOLOGY_MISMATCH"]
     end
     -- WoW exposes the complete render canvas, but not the number or rectangles
@@ -78,11 +85,14 @@ local function CompanionStatus()
     if method == "COMPANION" and not m.companionTopology then
         return false, L["ONBOARD_STATUS_COMPANION_RELOAD_REQUIRED"]
     end
-    if method == "MANUAL" and m.companionTopology then
-        return false, L["ONBOARD_STATUS_MANUAL_TOPOLOGY_PRESENT"]
-    end
-    if method == "MANUAL" then
-        return true, L["ONBOARD_STATUS_MANUAL_CONFIRM"], true
+    if method == "MANUAL" or method == "FANCYZONES" then
+        local preview = Offhand.Viewport and Offhand.Viewport.GetManualPreviewMetrics
+            and Offhand.Viewport:GetManualPreviewMetrics() or nil
+        if not preview or not preview.physicalWidth or preview.physicalWidth <= 0
+            or not preview.physicalHeight or preview.physicalHeight <= 0 then
+            return false, L["ONBOARD_STATUS_NOT_SPANNED"]
+        end
+        return true, L["ONBOARD_STATUS_MANUAL_CONFIRM"], true, preview
     end
     if not m.isSpanned then
         return false, L["ONBOARD_STATUS_NOT_SPANNED"]
@@ -164,6 +174,11 @@ function Onboarding:CreateFrame()
     secondaryAction:SetPoint("LEFT", action, "RIGHT", 12, 0)
     f.secondaryActionButton = secondaryAction
 
+    local tertiaryAction = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    tertiaryAction:SetSize(190, 26)
+    tertiaryAction:SetPoint("LEFT", secondaryAction, "RIGHT", 12, 0)
+    f.tertiaryActionButton = tertiaryAction
+
     local back = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     back:SetSize(110, 28)
     back:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 24, 24)
@@ -181,17 +196,26 @@ function Onboarding:CreateFrame()
             return
         end
         if f.page == 4 then
-            local ready, message, confirmManual = CompanionStatus()
+            local ready, message, confirmManual, preview = SetupStatus()
             f.statusText:SetText((ready and "|cff55ff55" or "|cffff5555") .. message .. "|r")
             if not ready then return end
             if confirmManual then
-                if not StaticPopup_Show then return end
                 local popup = Offhand.isForever and "OFFHAND_CONFIRM_MANUAL_LAYOUT_FOREVER"
                     or "OFFHAND_CONFIRM_MANUAL_LAYOUT"
-                StaticPopup_Show(popup, nil, nil, function()
+                local dialog = Offhand:ShowPopup(popup, nil, nil, function()
                     if f.page ~= 4 then return end
+                    local method = Offhand.GetOnboardingSetupMethod
+                        and Offhand:GetOnboardingSetupMethod() or "MANUAL"
+                    local ok = Offhand.ManualCanvas
+                        and Offhand.ManualCanvas:RememberFromMetrics(preview, nil, method)
+                    if not ok then
+                        f.statusText:SetText("|cffff5555" .. L["ONBOARD_STATUS_NOT_SPANNED"] .. "|r")
+                        return
+                    end
+                    if Offhand.ApplyFullLayout then Offhand:ApplyFullLayout() end
                     f:SetPage(5)
                 end)
+                BringPopupForward(dialog)
                 return
             end
         end
@@ -232,21 +256,23 @@ function Onboarding:CreateFrame()
         self.statusText:SetText(self.page == 4 and L["ONBOARD_STATUS_CHECK_PROMPT"] or "")
         self.actionButton:Hide()
         self.secondaryActionButton:Hide()
+        self.tertiaryActionButton:Hide()
         self.actionButton:SetEnabled(true)
         self.actionButton:SetScript("OnClick", nil)
         if self.page == 2 then
             local method = Offhand.GetOnboardingSetupMethod
                 and Offhand:GetOnboardingSetupMethod() or nil
             self.actionButton:ClearAllPoints()
-            self.actionButton:SetPoint("BOTTOM", self, "BOTTOM", -101, 115)
-            self.actionButton:SetText(L["ONBOARD_USE_COMPANION"])
+            self.actionButton:SetPoint("BOTTOM", self, "BOTTOM", -202, 115)
+            self.actionButton:SetText(L["ONBOARD_USE_FANCYZONES"])
             self.actionButton:SetScript("OnClick", function()
                 if Offhand.SetOnboardingSetupMethod then
-                    Offhand:SetOnboardingSetupMethod("COMPANION")
+                    Offhand:SetOnboardingSetupMethod("FANCYZONES")
                 end
+                if Offhand.ManualCanvas then Offhand.ManualCanvas:SetGeometryPreference("MANUAL") end
                 resumeAfterDownload = self.page
                 self:Hide()
-                local dialog = StaticPopup_Show and StaticPopup_Show("OFFHAND_DOWNLOAD_LINK")
+                local dialog = Offhand:ShowPopup("OFFHAND_POWERTOYS_LINK")
                 if dialog and dialog.SetFrameStrata then dialog:SetFrameStrata("TOOLTIP") end
                 if not dialog then
                     resumeAfterDownload = nil
@@ -254,15 +280,34 @@ function Onboarding:CreateFrame()
                 end
             end)
             self.actionButton:Show()
-            self.secondaryActionButton:SetText(L["ONBOARD_USE_MANUAL"])
+            self.secondaryActionButton:SetText(L["ONBOARD_USE_COMPANION"])
             self.secondaryActionButton:SetScript("OnClick", function()
+                if Offhand.SetOnboardingSetupMethod then
+                    Offhand:SetOnboardingSetupMethod("COMPANION")
+                end
+                if Offhand.ManualCanvas then Offhand.ManualCanvas:SetGeometryPreference("AUTO") end
+                resumeAfterDownload = self.page
+                self:Hide()
+                local dialog = Offhand:ShowPopup("OFFHAND_DOWNLOAD_LINK")
+                if dialog and dialog.SetFrameStrata then dialog:SetFrameStrata("TOOLTIP") end
+                if not dialog then
+                    resumeAfterDownload = nil
+                    self:Show()
+                end
+            end)
+            self.secondaryActionButton:Show()
+            self.tertiaryActionButton:SetText(L["ONBOARD_USE_MANUAL"])
+            self.tertiaryActionButton:SetScript("OnClick", function()
                 if Offhand.SetOnboardingSetupMethod then
                     Offhand:SetOnboardingSetupMethod("MANUAL")
                 end
+                if Offhand.ManualCanvas then Offhand.ManualCanvas:SetGeometryPreference("MANUAL") end
                 self.statusText:SetText("|cff55ff55" .. L["ONBOARD_METHOD_MANUAL_SELECTED"] .. "|r")
             end)
-            self.secondaryActionButton:Show()
-            if method == "COMPANION" then
+            self.tertiaryActionButton:Show()
+            if method == "FANCYZONES" then
+                self.statusText:SetText("|cff55ff55" .. L["ONBOARD_METHOD_FANCYZONES_SELECTED"] .. "|r")
+            elseif method == "COMPANION" then
                 self.statusText:SetText("|cff55ff55" .. L["ONBOARD_METHOD_COMPANION_SELECTED"] .. "|r")
             elseif method == "MANUAL" then
                 self.statusText:SetText("|cff55ff55" .. L["ONBOARD_METHOD_MANUAL_SELECTED"] .. "|r")
