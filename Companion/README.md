@@ -42,6 +42,12 @@ Native Windows desktop companion application for the Offhand World of Warcraft a
   before spanning their main window, including an explicit `0`-second option
   for users who need the final multi-monitor canvas before login.
 
+The Companion does not have to remain open after a successful manual span.
+Selecting **Exit Companion** leaves the current WoW window spanned. Background
+operation is needed only for automatic spanning, active display-disconnect
+recovery, topology-file repair, the current-session exact Restore Window
+snapshot, and the optional Forever recovery bridge.
+
 ---
 
 ## Downloads & Distribution
@@ -151,6 +157,13 @@ path compatible with a future client-side fix. With multiple
 accounts or characters, the most recently written valid account snapshot and
 the most recently written valid character snapshot belonging to that account
 are selected.
+
+This bridge is a compatibility fallback for a SavedVariables loading defect
+reproduced on an earlier Forever 1.60.1 build. Its necessity on newer builds is
+being revalidated. Prefer a cold-launch test with the Companion fully exited;
+`/offhand diag` reports which persistence source actually initialized the
+session. Keep the Companion running through WoW shutdown only when that test
+shows the bridge is still required.
 
 ## Restore Window
 

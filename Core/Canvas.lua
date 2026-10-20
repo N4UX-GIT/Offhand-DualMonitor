@@ -8,7 +8,24 @@ local _, Offhand = ...
 local Canvas = {}
 Offhand.Canvas = Canvas
 
+-- Native Gamepad UI panel visibility, focus and geometry are owned by
+-- Blizzard's FrameControlsManager. Even an addon-only marker written onto a
+-- managed panel can put later protected focus work in the addon's execution
+-- chain. Keep every native panel completely untouched while this interface is
+-- active. Addon-owned Canvas controls remain available.
+local function CanManagePanelsFromAddon()
+    local mainhand = Offhand.Mainhand
+    if mainhand and type(mainhand.IsNativeGamepadInterface) == "function"
+        and mainhand:IsNativeGamepadInterface() then
+        return false
+    end
+    return not (type(Offhand.IsGamepadUIEnabled) == "function"
+        and Offhand:IsGamepadUIEnabled())
+end
+Canvas.CanManagePanelsFromAddon = CanManagePanelsFromAddon
+
 local rootCanvas
+local foreverPanelMotionStatus = setmetatable({}, { __mode = "k" })
 
 -- Never store Offhand bookkeeping on Forever's native World Map object. The
 -- shareable user-waypoint pin enters restricted Blizzard code on Shift-click;
@@ -283,6 +300,8 @@ local nonMovableSystemPanels
 local knownPanelLoadAddons = {
     PlayerSpellsFrame = "Blizzard_PlayerSpells",
     SpellBookFrame = "Blizzard_SpellBook",
+    ProfessionsFrame = "Blizzard_Professions",
+    ProfessionsBookFrame = "Blizzard_Professions",
     MacroFrame = "Blizzard_MacroUI",
     CollectionsJournal = "Blizzard_Collections",
     CollectionsJournalFrame = "Blizzard_Collections",
@@ -354,6 +373,15 @@ end
 local function ShouldYieldForeverProfessionsPanel(frame, suppliedName)
     return IsForeverProfessionsPanel(frame, suppliedName)
         and not IsExperimentalForeverProfessionsMovementEnabled()
+end
+
+-- Only the standalone Professions books are meaningful after reload. Forever
+-- currently registers the same window as ProfessionsFrame, while older builds
+-- used ProfessionsBookFrame. Crafting, trainer and trade-skill windows depend
+-- on interaction context and must keep their native visibility lifecycle.
+local function IsPersistentForeverProfessionsPanelName(name)
+    return IsExperimentalForeverProfessionsMovementEnabled()
+        and (name == "ProfessionsFrame" or name == "ProfessionsBookFrame")
 end
 
 -- Forever exposes Edit Mode through a load-on-demand addon.  The absence of
@@ -469,9 +497,18 @@ end
 local function GetWorldMapExternalOwner()
     if HasMoveAny() then return "MoveAny" end
     if HasClassicUIForever() then return "ClassicUIForever" end
+    if HasLeatrixMaps() then return "LeatrixMaps" end
     return nil
 end
 
+local function IsLeatrixWorldMap(frameOrName)
+    if GetWorldMapExternalOwner() ~= "LeatrixMaps" then return false end
+    if type(frameOrName) == "string" then return frameOrName == "WorldMapFrame" end
+    return frameOrName == _G.WorldMapFrame
+end
+
+-- Historical name retained because this predicate is used throughout the
+-- panel code. It now means that another addon owns World Map geometry.
 local function ShouldYieldWorldMapToMoveAny(frameOrName)
     if not GetWorldMapExternalOwner() then return false end
     if type(frameOrName) == "string" then return frameOrName == "WorldMapFrame" end
@@ -528,6 +565,26 @@ local function IsUnsafeForDirectMutation(frame)
     return false
 end
 
+-- Forever exposes the Friends surface through more than one protected root
+-- name depending on which Social module loaded it. Blizzard provides no Edit
+-- Mode system for these roots, but the Gamepad adapter already permits the
+-- same out-of-combat, root-anchor-only movement. Keep this exception local to
+-- position restoration so protected children and scripts remain untouched.
+local foreverSocialPositionRootNames = {
+    FriendsFrame = true,
+    FriendsListFrame = true,
+    SocialFrame = true,
+    SocialUIFrame = true,
+}
+
+local function IsForeverSocialPositionRoot(frame, suppliedName)
+    if not Offhand.isForever or not frame then return false end
+    local name = suppliedName or (frame.GetName and frame:GetName())
+    if not (name and foreverSocialPositionRootNames[name]) then return false end
+    if frame.IsForbidden and frame:IsForbidden() then return false end
+    return frame.IsProtected and frame:IsProtected() or false
+end
+
 -- Forever marks several ordinary, load-on-demand UIPanels as protected even
 -- while they are only usable out of combat.  They may still be repositioned
 -- from a hardware drag while out of combat. Keep the exception restricted to
@@ -554,7 +611,8 @@ end
 local function IsPersistentPanelLoadCandidate(name)
     return type(name) == "string" and name:match("^[%w_]+$") ~= nil
         and not contextBoundPanelNames[name]
-        and not IsForeverProfessionsPanel(nil, name)
+        and (not IsForeverProfessionsPanel(nil, name)
+            or IsPersistentForeverProfessionsPanelName(name))
         and not IsForeverEditModeFrame(nil, name)
         and not (nonMovableSystemPanels and nonMovableSystemPanels[name])
 end
@@ -619,7 +677,8 @@ function Canvas:GetPersistentPanelAddon(name)
 end
 
 function Canvas:RequestPersistentPanelLoad(name, delaySeconds)
-    if not Offhand.isForever or not IsPersistentPanelLoadCandidate(name)
+    if not CanManagePanelsFromAddon()
+        or not Offhand.isForever or not IsPersistentPanelLoadCandidate(name)
         or not Offhand.db or not Offhand.db.openWorkspacePanels
         or not Offhand.db.openWorkspacePanels[name]
         or not Offhand.db.savedWorkspacePositions
@@ -673,6 +732,7 @@ end
 
 local function RegisterSpecialFrame(name)
     if not name or not UISpecialFrames then return end
+    if not CanManagePanelsFromAddon() then return end
     for _, n in ipairs(UISpecialFrames) do
         if n == name then return end
     end
@@ -681,6 +741,7 @@ end
 
 local function UnregisterSpecialFrame(name)
     if not name or not UISpecialFrames then return end
+    if not CanManagePanelsFromAddon() then return end
     for i = #UISpecialFrames, 1, -1 do
         if UISpecialFrames[i] == name then
             table.remove(UISpecialFrames, i)
@@ -701,6 +762,17 @@ local function IsSecondaryBlizzardChatFrame(frame, suppliedName)
     local name = suppliedName or (frame and frame.GetName and frame:GetName())
     local index = name and tonumber(name:match("^ChatFrame(%d+)$"))
     return index and index > 1 or false
+end
+
+-- Forever rebuilds its native multi-frame chat dock after Offhand's generic
+-- panel restoration can begin. Never let those generic paths show, resize or
+-- reanchor a secondary Blizzard chat frame from a stale workspace record.
+-- Only the tracked-chat path may continue after dock settlement has positively
+-- identified a detached window.
+function Canvas:ShouldRouteForeverSecondaryChatRestore(frame, suppliedName)
+    if not Offhand.isForever or not frame
+        or frame._OffhandApplyingTrackedChatPosition then return false end
+    return IsSecondaryBlizzardChatFrame(frame, suppliedName)
 end
 
 local function IsForeverCombatLog(frame, suppliedName)
@@ -1277,7 +1349,7 @@ function Canvas:SetWorkspacePanelOpen(frameOrName, isOpen)
     if not name then return false end
     -- MoveAny owns the live map geometry, but Offhand still owns the user's
     -- explicit request to reopen a saved workspace map after /reload.
-    if ShouldYieldWorldMapToMoveAny(name)
+    if ShouldYieldWorldMapToMoveAny(name) and not IsLeatrixWorldMap(name)
         and (name ~= "WorldMapFrame" or Offhand.isForever) then return false end
     if IsBackpackRoot(name) and not IsSpannedLayoutActive() then return false end
     if HasBlizzardEditMode() and IsForeverEditModeFrame(frameOrName, name) then
@@ -1287,6 +1359,12 @@ function Canvas:SetWorkspacePanelOpen(frameOrName, isOpen)
     Offhand.db.openWorkspacePanels = Offhand.db.openWorkspacePanels or {}
     local hasWorkspacePosition = Offhand.db.savedWorkspacePositions
         and Offhand.db.savedWorkspacePositions[name]
+    if not hasWorkspacePosition and IsLeatrixWorldMap(name)
+        and type(frameOrName) ~= "string" and IsFrameOnWorkspace(frameOrName) then
+        -- Leatrix owns the anchor, so Offhand stores only the independent open
+        -- intent. Its geometry remains entirely in Leatrix's saved variables.
+        hasWorkspacePosition = true
+    end
     if IsBackpackRoot(name) then
         local exactPosition = Offhand.db.savedWorkspacePositions
             and Offhand.db.savedWorkspacePositions[name]
@@ -1304,6 +1382,28 @@ function Canvas:SetWorkspacePanelOpen(frameOrName, isOpen)
     end
     SaveOpenWorkspacePanels()
     return Offhand.db.openWorkspacePanels[name] == true
+end
+
+function Canvas:PreserveLeatrixWorldMapOpenState(map)
+    if not IsLeatrixWorldMap(map) or not map.IsShown or not map:IsShown() then return false end
+    if not IsFrameOnWorkspace(map) then
+        self:SetWorkspacePanelOpen(map, false)
+        RegisterSpecialFrame("WorldMapFrame")
+        return false
+    end
+    self:SetWorkspacePanelOpen(map, true)
+    if Offhand.db and Offhand.db.persistentWorkspacePanels ~= false then
+        if PlayerMovementFrameFader and PlayerMovementFrameFader.RemoveFrame then
+            pcall(function() PlayerMovementFrameFader.RemoveFrame(map) end)
+        end
+        -- Keep Offhand's Escape and simultaneous-panel behavior, but let
+        -- Leatrix's own OnShow/layout hooks remain the sole geometry writer.
+        UnregisterSpecialFrame("WorldMapFrame")
+        EvictWorkspacePanelSlot(map)
+    else
+        RegisterSpecialFrame("WorldMapFrame")
+    end
+    return true
 end
 
 function Canvas:UpdateMapMovementBehavior()
@@ -1688,9 +1788,11 @@ function Canvas:QueuePersistentPanelRestore(frame, name, delaySeconds)
         if ShouldYieldForeverProfessionsPanel(frame, name) then
             self:RelinquishForeverProfessionsPanels(name)
         end
-        -- Even opted-in Professions panels are never opened automatically.
-        -- Their saved anchor is restored only after a native manual opening.
-        return false
+        local db = Offhand.db
+        local canRestoreBook = IsPersistentForeverProfessionsPanelName(name)
+            and db and db.openWorkspacePanels and db.openWorkspacePanels[name]
+            and db.savedWorkspacePositions and db.savedWorkspacePositions[name]
+        if not canRestoreBook then return false end
     end
     if GetPanelMarker(frame, "persistentRestoreQueued") then return true end
 
@@ -1716,21 +1818,53 @@ function Canvas:QueuePersistentPanelRestore(frame, name, delaySeconds)
 
         if frame.IsShown and frame:IsShown() then
             RestoreWorkspacePosition(frame)
+            if IsPersistentForeverProfessionsPanelName(name) then
+                Canvas:QueueExperimentalForeverProfessionsMovement(frame, name)
+            end
             return
         end
 
         if contextBoundPanelNames[name] then return end
+        if not CanManagePanelsFromAddon() then return end
 
-        if ShowUIPanel and UIPanelWindows and UIPanelWindows[name] then
+        local retailCharacter = Offhand.isRetail and not Offhand.isForever
+            and name == "CharacterFrame" and frame == _G.CharacterFrame
+        if retailCharacter and db.independentWorkspacePanels then
+            -- CharacterFrame expands its PaperDoll child from OnShow and
+            -- collapses it from OnHide. Detach the hidden frame from Blizzard's
+            -- left UIPanel slot before opening it so RestoreWorkspacePosition's
+            -- OnShow pass never has to evict it with a nested Hide/Show cycle.
+            -- Re-entering that lifecycle during the first reload open can leave
+            -- CharacterFrameInsetRight (and therefore CharacterStatsPane)
+            -- anchored outside the expanded frame until the next clean reopen.
+            DemodalizePanel(frame)
+        end
+
+        local opened = false
+        if retailCharacter and ToggleCharacter then
+            local ok = pcall(ToggleCharacter, "PaperDollFrame", true)
+            opened = ok and frame.IsShown and frame:IsShown()
+        end
+        if not opened and ShowUIPanel and UIPanelWindows and UIPanelWindows[name] then
             pcall(ShowUIPanel, frame)
-        elseif frame.Show then
+        elseif not opened and frame.Show then
             pcall(frame.Show, frame)
+        end
+        if frame.IsShown and frame:IsShown()
+            and IsPersistentForeverProfessionsPanelName(name) then
+            Canvas:QueueExperimentalForeverProfessionsMovement(frame, name)
         end
 
         -- OnShow normally restores the position. Retain a final deferred pass
         -- for panels whose native layout writes its anchor after OnShow.
         C_Timer.After(0, function()
             if frame.IsShown and frame:IsShown() then
+                if retailCharacter and frame.RefreshDisplay then
+                    -- Use Blizzard's own width/inset refresh after PaperDoll's
+                    -- expansion has settled; never take ownership of its child
+                    -- stat-pane anchors.
+                    pcall(frame.RefreshDisplay, frame)
+                end
                 RestoreWorkspacePosition(frame)
             end
         end)
@@ -1738,8 +1872,10 @@ function Canvas:QueuePersistentPanelRestore(frame, name, delaySeconds)
     return true
 end
 
-function Canvas:RestorePersistentFrames()
+function Canvas:RestorePersistentFrames(mode)
+    local activeLockRestore = mode == "lock"
     if not Offhand.db or not Offhand.db.enabled then return end
+    if Offhand.isForever and not CanManagePanelsFromAddon() then return end
     self:RelinquishForeverEditModeFrames()
     self:RelinquishForeverNativeBags()
     if not IsSpannedLayoutActive() then return end
@@ -1770,6 +1906,7 @@ function Canvas:RestorePersistentFrames()
     
     local hasBag = false
     local openPanels = Offhand.db.openWorkspacePanels or {}
+    local canOpenPanels = CanManagePanelsFromAddon()
     local nativeBackpackOnMainhand = Offhand.db.savedMainPositions
         and (Offhand.db.savedMainPositions.ContainerFrameCombinedBags
             or Offhand.db.savedMainPositions.ContainerFrame1)
@@ -1789,15 +1926,27 @@ function Canvas:RestorePersistentFrames()
     end
     
     local savedNames = {}
+    local savedNameSet = {}
     for name in pairs(Offhand.db.savedWorkspacePositions) do
         savedNames[#savedNames + 1] = name
+        savedNameSet[name] = true
+    end
+    if openPanels.WorldMapFrame and IsLeatrixWorldMap("WorldMapFrame")
+        and not savedNameSet.WorldMapFrame then
+        savedNames[#savedNames + 1] = "WorldMapFrame"
     end
     table.sort(savedNames)
     local genericRestoreIndex = 0
     for _, name in ipairs(savedNames) do
         local frame = _G[name]
         if frame and ShouldYieldWorldMapToMoveAny(name) then
-            if name == "WorldMapFrame" and not Offhand.isForever and openPanels[name]
+            if canOpenPanels and name == "WorldMapFrame" and IsLeatrixWorldMap(name)
+                and openPanels[name] and not contextBoundPanelNames[name] then
+                if not frame:IsShown() then
+                    if ToggleWorldMap then ToggleWorldMap() else frame:Show() end
+                end
+                if frame:IsShown() then self:PreserveLeatrixWorldMapOpenState(frame) end
+            elseif canOpenPanels and name == "WorldMapFrame" and not Offhand.isForever and openPanels[name]
                 and not contextBoundPanelNames[name] then
                 if not frame:IsShown() then
                     if ToggleWorldMap then ToggleWorldMap() else frame:Show() end
@@ -1805,11 +1954,13 @@ function Canvas:RestorePersistentFrames()
                 if frame:IsShown() then Canvas:RepairYieldedWorldMapAnchor(frame) end
             end
         elseif frame
+            and not self:ShouldRouteForeverSecondaryChatRestore(frame, name)
             and not IsForeverEditModeFrame(frame, name)
-            and not IsForeverProfessionsPanel(frame, name) then
+            and (not IsForeverProfessionsPanel(frame, name)
+                or IsPersistentForeverProfessionsPanelName(name)) then
             if frame:IsShown() then
                 RestoreWorkspacePosition(frame)
-            elseif openPanels[name] and not contextBoundPanelNames[name] then
+            elseif canOpenPanels and openPanels[name] and not contextBoundPanelNames[name] then
                 if name == "WorldMapFrame" then
                     if ToggleWorldMap then
                         ToggleWorldMap()
@@ -1833,17 +1984,19 @@ function Canvas:RestorePersistentFrames()
                     -- one before Offhand can detach it from the active slot. Only
                     -- an accepted restore consumes a slot: old addon child-frame
                     -- snapshots must not push valid panels several seconds back.
-                    local delay = 0.75 + genericRestoreIndex * 0.20
+                    local delay = activeLockRestore and 0.10
+                        or (0.75 + genericRestoreIndex * 0.20)
                     if Canvas:QueuePersistentPanelRestore(frame, name, delay) then
                         genericRestoreIndex = genericRestoreIndex + 1
                     end
                 end
             end
-        elseif not frame and openPanels[name] then
+        elseif canOpenPanels and not frame and openPanels[name] then
             -- Load-on-demand Blizzard frames (Spellbook, Macros, Collections,
             -- and similar panels) do not exist yet after /reload. Load only the
             -- owner of a panel the user explicitly left open on the workspace.
-            local delay = 0.75 + genericRestoreIndex * 0.20
+            local delay = activeLockRestore and 0.10
+                or (0.75 + genericRestoreIndex * 0.20)
             if Canvas:RequestPersistentPanelLoad(name, delay) then
                 genericRestoreIndex = genericRestoreIndex + 1
             end
@@ -1856,8 +2009,13 @@ function Canvas:RestorePersistentFrames()
     -- backpack on Forever. Only the explicit mode-independent native marker is
     -- authoritative there.
     if Offhand.isForever then hasBag = IsNativeBackpackTrackedOpen() end
-    if hasBag and not (Baganator and Offhand.BagPersistence) then
-        C_Timer.After(1.5, function()
+    if canOpenPanels and hasBag and not (Baganator and Offhand.BagPersistence)
+        and (not activeLockRestore or not self.activeLockBagRestoreQueued) then
+        if activeLockRestore then self.activeLockBagRestoreQueued = true end
+        C_Timer.After(activeLockRestore and 0.10 or 1.5, function()
+            if activeLockRestore then Canvas.activeLockBagRestoreQueued = nil end
+            -- The player can change interface style during the delay.
+            if not CanManagePanelsFromAddon() then return end
             -- Combined Backpack mode may never create ContainerFrame1 during
             -- startup, which makes the general compatibility heuristic report
             -- a false custom-bag positive. An explicit saved native root wins.
@@ -1915,7 +2073,7 @@ function Canvas:RestorePersistentFrames()
     -- Blizzard and Edit Mode can finish their initial layout after the first
     -- restore pass. Reapply only already-visible saved workspace frames so chat
     -- dimensions and panel-slot detachment win the final startup race.
-    if C_Timer and C_Timer.After then
+    if not activeLockRestore and C_Timer and C_Timer.After then
         C_Timer.After(2, function()
             if Offhand.db and Offhand.db.enabled then
                 Canvas:RepairShownWorkspacePanels()
@@ -2162,7 +2320,18 @@ local originalAreas = {}
 EvictWorkspacePanelSlot = function(frame)
     if not frame or not GetUIPanel or not HideUIPanel or IsPanelEvicting(frame)
         or (InCombatLockdown and InCombatLockdown()) then return false end
+    if not CanManagePanelsFromAddon() then return false end
     local name = frame.GetName and frame:GetName()
+    -- NPC and world-interaction panels must remain in Blizzard's active
+    -- UIPanel slot. Evicting one uses a native HideUIPanel followed by a direct
+    -- frame:Show(), which is safe for ordinary menus but severs the interaction
+    -- lifecycle of panels such as AuctionHouseFrame. The frame can look open
+    -- after the drag while Blizzard considers the interaction closed; after
+    -- its X button is used, the next NPC click then plays the native sound but
+    -- has no valid panel transaction to display. These panels still keep their
+    -- saved Offhand anchor and restore it from OnShow, while Escape and native
+    -- close behavior remain Blizzard-owned.
+    if name and contextBoundPanelNames[name] then return false end
     -- Native bag frames own pooled item buttons whose lifecycle is driven by
     -- Blizzard's bag APIs. A HideUIPanel + direct Show cycle can reveal only the
     -- shell and leave UpdateNewItemList with missing item buttons.
@@ -2424,15 +2593,15 @@ OnPanelDragStop = function(frame)
         local factor = parentScale / frameScale
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
         
-        if not restrictedProfessionsMovement and wasShown
-            and (Offhand.db.independentWorkspacePanels or frame == WorldMapFrame) then
+        if wasShown and (Offhand.db.independentWorkspacePanels or frame == WorldMapFrame)
+            and not restrictedProfessionsMovement then
             -- Escape closes active UIPanel slots even when UISpecialFrames no
             -- longer contains this workspace panel.
             EvictWorkspacePanelSlot(frame)
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
             if frame.IsShown and not frame:IsShown() and frame.Show then frame:Show() end
-            DemodalizePanel(frame)
+            if not restrictedProfessionsMovement then DemodalizePanel(frame) end
         end
 
         if wasShown and string.match(name, "^ContainerFrame") then
@@ -2466,11 +2635,12 @@ OnPanelDragStop = function(frame)
             end
         end
 
-        if not restrictedProfessionsMovement and Offhand.db.persistentWorkspacePanels ~= false then
+        if Offhand.db.persistentWorkspacePanels ~= false then
             UnregisterSpecialFrame(name)
         end
         if restrictedProfessionsMovement then
-            Canvas:SetWorkspacePanelOpen(name, false)
+            Canvas:SetWorkspacePanelOpen(name,
+                IsPersistentForeverProfessionsPanelName(name) and wasShown)
         elseif wasShown then
             Canvas:SetWorkspacePanelOpen(name, true)
         end
@@ -2590,6 +2760,8 @@ OnPanelDragStop = function(frame)
             }
             if not restrictedProfessionsMovement then
                 RemodalizePanel(frame)
+                RegisterSpecialFrame(name)
+            else
                 RegisterSpecialFrame(name)
             end
             if UpdateUIPanelPositions and not Offhand.isForever then
@@ -2736,6 +2908,7 @@ function Canvas:PlacePanelOnMainhand(frame, metrics, position, preserveContained
     if ShouldYieldWorldMapToMoveAny(name or frame) then return false end
     local recoverySafePanel = recoveryAction and name and (
         IsBackpackRoot(name) or (UIPanelWindows and UIPanelWindows[name])
+            or IsForeverSocialPositionRoot(frame, name)
     )
     if not name or (nonMovableSystemPanels and nonMovableSystemPanels[name])
         or IsForeverEditModeFrame(frame, name)
@@ -2906,7 +3079,10 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         ClearTrackedChatState(name)
         return
     end
-    if IsForeverEditModeFrame(frame, name) or IsUnsafeForPanelMutation(frame, name) then return end
+    if Canvas:ShouldRouteForeverSecondaryChatRestore(frame, name) then return end
+    if IsForeverEditModeFrame(frame, name)
+        or (IsUnsafeForPanelMutation(frame, name)
+            and not IsForeverSocialPositionRoot(frame, name)) then return end
     local restrictedProfessionsMovement = IsForeverProfessionsPanel(frame, name)
         and IsExperimentalForeverProfessionsMovementEnabled()
     if IsRetailChatEditModeActive(frame) then return end
@@ -2920,9 +3096,9 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
 
     local wPos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
     if type(wPos) == "table" and wPos.x and wPos.y then
-        if not restrictedProfessionsMovement
-            and (Offhand.db.independentWorkspacePanels or frame == WorldMapFrame) then
-            DemodalizePanel(frame)
+        if restrictedProfessionsMovement
+            or Offhand.db.independentWorkspacePanels or frame == WorldMapFrame then
+            if not restrictedProfessionsMovement then DemodalizePanel(frame) end
             EvictWorkspacePanelSlot(frame)
         end
         if frame == WorldMapFrame then
@@ -2981,7 +3157,7 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
                 Offhand.HUD:RepairChatButtons(frame)
             end
         end
-        if not restrictedProfessionsMovement and Offhand.db.persistentWorkspacePanels ~= false then
+        if Offhand.db.persistentWorkspacePanels ~= false then
             UnregisterSpecialFrame(name)
         end
         return
@@ -2992,6 +3168,7 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         if frame == WorldMapFrame then Canvas:ConfigureWorldMap() end
         RemodalizePanel(frame)
         Canvas:PlacePanelOnMainhand(frame, m, mPos, false)
+        if restrictedProfessionsMovement then RegisterSpecialFrame(name) end
         return
     end
 
@@ -3067,13 +3244,16 @@ function Canvas:QueueRetailEditModeChatPlacementCapture()
     return true
 end
 
-function Canvas:RepairShownWorkspacePanels(exceptFrame)
+local GetPanelPhysicalPlacement
+local PlacementMatchesPosition
+
+function Canvas:RepairShownWorkspacePanels(exceptFrame, skipBagCapture)
     if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
     -- Addon-owned bag roots can be moved by their own Edit Mode without
     -- dispatching Offhand's drag callbacks. Reconcile their physical monitor
     -- before consuming general workspace records so map toggles cannot apply a
     -- stale Offhand anchor over a newly chosen Mainhand position.
-    if Offhand.BagPersistence and Offhand.BagPersistence.Capture then
+    if not skipBagCapture and Offhand.BagPersistence and Offhand.BagPersistence.Capture then
         Offhand.BagPersistence:Capture()
     end
     local repaired = {}
@@ -3086,7 +3266,13 @@ function Canvas:RepairShownWorkspacePanels(exceptFrame)
             and not IsForeverProfessionsPanel(frame, name)
             and not (isMainhand and IsBackpackRoot(name))
             and not IsUnsafeForPanelMutation(frame, name) then
-            RestoreWorkspacePosition(frame)
+            local position = isMainhand
+                and Offhand.db.savedMainPositions[name]
+                or Offhand.db.savedWorkspacePositions[name]
+            local placement = GetPanelPhysicalPlacement(frame)
+            if not PlacementMatchesPosition(placement, position) then
+                RestoreWorkspacePosition(frame)
+            end
         end
     end
     for name in pairs(Offhand.db.savedWorkspacePositions or {}) do
@@ -3096,6 +3282,163 @@ function Canvas:RepairShownWorkspacePanels(exceptFrame)
         if not (Offhand.db.savedWorkspacePositions
             and Offhand.db.savedWorkspacePositions[name]) then
             Repair(name, true)
+        end
+    end
+end
+
+local socialMainhandSessionPositions = setmetatable({}, { __mode = "k" })
+local socialAnchorRepairState = setmetatable({}, { __mode = "k" })
+
+GetPanelPhysicalPlacement = function(frame)
+    if not frame then return nil end
+    local ok, placement = pcall(function()
+        local metrics = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
+        if not metrics or not metrics.isSpanned then return nil end
+        local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
+        local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
+        if frameScale <= 0 or parentScale <= 0 then return nil end
+        local factor = frameScale / parentScale
+        local width = ((frame.GetWidth and frame:GetWidth()) or 0) * factor
+        local height = ((frame.GetHeight and frame:GetHeight()) or 0) * factor
+        local left = frame.GetLeft and frame:GetLeft()
+        local top = frame.GetTop and frame:GetTop()
+        local centerX, centerY
+        if frame.GetCenter then centerX, centerY = frame:GetCenter() end
+        if left then left = left * factor end
+        if top then top = top * factor end
+        if centerX then centerX = centerX * factor end
+        if centerY then centerY = centerY * factor end
+        if not centerX and left and width > 0 then centerX = left + width / 2 end
+        if not centerY and top and height > 0 then centerY = top - height / 2 end
+        if not left and centerX and width > 0 then left = centerX - width / 2 end
+        if not top and centerY and height > 0 then top = centerY + height / 2 end
+        if not centerX or not centerY then return nil end
+        return {
+            x = left,
+            y = top,
+            onWorkspace = centerX >= metrics.workspaceLeft
+                and centerX <= metrics.workspaceRight
+                and centerY >= metrics.workspaceBottom
+                and centerY <= metrics.workspaceTop,
+        }
+    end)
+    return ok and placement or nil
+end
+
+PlacementMatchesPosition = function(placement, position)
+    return placement and position and position.x and position.y
+        and math.abs(placement.x - position.x) < 0.5
+        and math.abs(placement.y - position.y) < 0.5
+end
+
+local function RepairShownSocialPanel(frame, suppliedName)
+    if not frame or not frame.IsShown or not frame:IsShown()
+        or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return false end
+    local name = (frame.GetName and frame:GetName()) or suppliedName
+    if not name then return false end
+    local positionOnlyRoot = IsForeverSocialPositionRoot(frame, name)
+        or IsForeverSocialPositionRoot(frame, suppliedName)
+    if not positionOnlyRoot and IsUnsafeForPanelMutation(frame, name) then return false end
+
+    local state = socialAnchorRepairState[frame]
+    if not state then
+        state = {}
+        socialAnchorRepairState[frame] = state
+    end
+    if state.repairing then return false end
+
+    local workspacePosition = Offhand.db.savedWorkspacePositions
+        and (Offhand.db.savedWorkspacePositions[name]
+            or (suppliedName and Offhand.db.savedWorkspacePositions[suppliedName]))
+    local mainPosition = Offhand.db.savedMainPositions
+        and (Offhand.db.savedMainPositions[name]
+            or (suppliedName and Offhand.db.savedMainPositions[suppliedName]))
+    local placement = GetPanelPhysicalPlacement(frame)
+    state.repairing = true
+    if workspacePosition or mainPosition then
+        local savedPosition = workspacePosition or mainPosition
+        if not PlacementMatchesPosition(placement, savedPosition) then
+            RestoreWorkspacePosition(frame)
+        end
+    else
+        local sessionPosition = socialMainhandSessionPositions[frame]
+        if sessionPosition then
+            if not PlacementMatchesPosition(placement, sessionPosition) then
+                Canvas:PlacePanelOnMainhand(frame, nil,
+                    sessionPosition, false, true)
+            end
+        elseif placement and not placement.onWorkspace and placement.x and placement.y then
+            -- Capture the panel's native Mainhand anchor before another member
+            -- of Blizzard's shared UIPanel stack recalculates it.
+            socialMainhandSessionPositions[frame] = {
+                x = placement.x,
+                y = placement.y,
+            }
+        elseif placement and placement.onWorkspace then
+            -- An unsaved Friends frame has no intentional Offhand ownership.
+            -- Restore the last native Mainhand anchor, or center it safely when
+            -- this session first discovered the frame after displacement.
+            Canvas:PlacePanelOnMainhand(frame, nil,
+                socialMainhandSessionPositions[frame], false, true)
+            local restored = GetPanelPhysicalPlacement(frame)
+            if restored and not restored.onWorkspace and restored.x and restored.y then
+                socialMainhandSessionPositions[frame] = {
+                    x = restored.x,
+                    y = restored.y,
+                }
+            end
+        end
+    end
+    state.repairing = nil
+    return true
+end
+
+local function HookSocialPanelAnchorResets(frame, suppliedName)
+    if not frame or not hooksecurefunc then return false end
+    local state = socialAnchorRepairState[frame]
+    if not state then
+        state = {}
+        socialAnchorRepairState[frame] = state
+    end
+    if state.hooked then return true end
+    state.hooked = true
+    hooksecurefunc(frame, "SetPoint", function()
+        if state.repairing or IsPanelDragging(frame) or not Offhand.db
+            or not Offhand.db.enabled or not frame.IsShown or not frame:IsShown() then return end
+        state.generation = (state.generation or 0) + 1
+        local generation = state.generation
+        -- Root SetPoint hooks run after Blizzard's write but before the next
+        -- render. Repair immediately so the native intermediate anchor is not
+        -- visible, then retain one bounded next-frame pass for layout work that
+        -- continues asynchronously.
+        RepairShownSocialPanel(frame, suppliedName)
+        local function RepairAfterNativeLayout()
+            if generation ~= state.generation or state.repairing
+                or not frame.IsShown or not frame:IsShown() then return end
+            RepairShownSocialPanel(frame, suppliedName)
+        end
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0, RepairAfterNativeLayout)
+        else
+            RepairAfterNativeLayout()
+        end
+    end)
+    return true
+end
+
+function Canvas:RepairShownSocialCommunityPanels()
+    if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+    local repaired = setmetatable({}, { __mode = "k" })
+    local names = {
+        "FriendsFrame", "FriendsListFrame", "SocialFrame", "SocialUIFrame",
+        "CommunitiesFrame",
+    }
+    for _, name in ipairs(names) do
+        local frame = _G[name]
+        if frame and not repaired[frame] and frame.IsShown and frame:IsShown() then
+            repaired[frame] = true
+            HookSocialPanelAnchorResets(frame, name)
+            RepairShownSocialPanel(frame, name)
         end
     end
 end
@@ -3204,6 +3547,7 @@ end
 
 local function RestoreSavedPositionAfterShow(frame)
     if not frame or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+    if Offhand.isForever and not CanManagePanelsFromAddon() then return end
     local frameName = frame.GetName and frame:GetName()
     if ShouldYieldFrameToClassicUIForever(frame, frameName) then return end
     if ShouldYieldWorldMapToMoveAny(frameName or frame) then return end
@@ -3340,7 +3684,7 @@ end
 -- anchorless state; once the frame has geometry, MoveAny remains its sole
 -- scale, drag, and persistence owner.
 function Canvas:RepairYieldedWorldMapAnchor(frame, metrics)
-    if not frame or not ShouldYieldWorldMapToMoveAny(frame)
+    if not frame or GetWorldMapExternalOwner() ~= "MoveAny"
         or IsWorldMapMaximized(frame)
         or (InCombatLockdown and InCombatLockdown())
         or not Offhand.db or not Offhand.db.enabled
@@ -3753,6 +4097,7 @@ end
 local function OpenForeverNativeBackpackThroughBlizzard()
     local shownBag = GetShownNativeBackpackRoot()
     if shownBag then return shownBag end
+    if not CanManagePanelsFromAddon() then return nil end
 
     Canvas._foreverNativeBagRestoreInProgress = true
     if OpenAllBags then
@@ -3785,6 +4130,13 @@ local foreverNativeBagPreservingPanelNames = {
     "EditModeManagerFrame",
 }
 
+local foreverSystemPanelNames = {
+    "SettingsPanel",
+    "InterfaceOptionsFrame",
+    "VideoOptionsFrame",
+    "AudioOptionsFrame",
+}
+
 local function IsForeverNativeBagPreservingPanelShown()
     for _, name in ipairs(foreverNativeBagPreservingPanelNames) do
         local panel = _G[name]
@@ -3794,7 +4146,38 @@ local function IsForeverNativeBagPreservingPanelShown()
         local ok, shown = pcall(IsOptionFrameOpen)
         if ok and shown then return true end
     end
+    -- Professions temporarily hides Blizzard's native backpack while it takes
+    -- the UIPanel slot. That is a panel transition, not an explicit bag close.
+    -- Discover the load-on-demand frame from the native panel registry instead
+    -- of depending on one client-build-specific Professions root name.
+    if UIPanelWindows then
+        for name in pairs(UIPanelWindows) do
+            local panel = _G[name]
+            if panel and IsForeverProfessionsPanel(panel, name)
+                and panel.IsShown and panel:IsShown() then
+                return true
+            end
+        end
+    end
     return false
+end
+
+-- Third-party backpack adapters need the same transition classification as
+-- the native backpack controller, but must remain outside Blizzard and addon
+-- frame trees. Expose read-only predicates so BagPersistence can defer its own
+-- visibility sample and use the replacement addon's public root manager.
+function Canvas:IsForeverBagPreservingPanel(frame)
+    if not Offhand.isForever or not frame then return false end
+    local name = frame.GetName and frame:GetName()
+    if not name then return false end
+    for _, panelName in ipairs(foreverNativeBagPreservingPanelNames) do
+        if name == panelName then return true end
+    end
+    return IsForeverProfessionsPanel(frame, name)
+end
+
+function Canvas:IsForeverBagPreservingPanelShown()
+    return IsForeverNativeBagPreservingPanelShown()
 end
 
 -- Forever's Options button can close the backpack through ToggleAllBags before
@@ -3807,6 +4190,19 @@ local function InstallForeverOptionsOpeningObservers()
     if not hooksecurefunc then return end
     local function ObserveOptionsOpening()
         Canvas._foreverOptionsOpeningObserved = true
+        local function SettleSystemPanel()
+            if Canvas.PlaceShownSystemPanelsOnMainhand then
+                Canvas:PlaceShownSystemPanelsOnMainhand()
+            end
+        end
+        -- Run outside Blizzard's gamepad-navigation call chain. This moves only
+        -- the unprotected settings root and never annotates or hooks that frame.
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0, SettleSystemPanel)
+            C_Timer.After(0.10, SettleSystemPanel)
+        else
+            SettleSystemPanel()
+        end
     end
     if Settings and type(Settings.OpenToCategory) == "function"
         and not Canvas._foreverSettingsOpenToCategoryObserved then
@@ -3899,6 +4295,23 @@ function Canvas:EnableForeverNativeBagProxy()
         local enabled = Offhand.db and Offhand.db.enabled
             and IsSpannedLayoutActive()
             and not (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon())
+        local nativeGamepad = Offhand.Mainhand
+            and type(Offhand.Mainhand.IsNativeGamepadInterface) == "function"
+            and Offhand.Mainhand:IsNativeGamepadInterface()
+        if nativeGamepad then
+            -- Mainhand's Gamepad adapter owns the root-only placement and its
+            -- independent drag grips in this mode. Retire the older backpack
+            -- proxy without interpreting Blizzard's visibility as a close.
+            for _, state in pairs(foreverNativeBagState) do
+                if state.handle and state.handle.Hide then state.handle:Hide() end
+                state.dragging = false
+            end
+            Canvas._foreverNativeBagCloseObserved = nil
+            Canvas._foreverNativeBagExplicitCloseObserved = nil
+            Canvas._foreverNativeGameMenuToggleObserved = nil
+            Canvas._foreverOptionsOpeningObserved = nil
+            return
+        end
         local inCombat = InCombatLockdown and InCombatLockdown()
         local gameMenuShown = GameMenuFrame and GameMenuFrame.IsShown
             and GameMenuFrame:IsShown() or false
@@ -3911,6 +4324,10 @@ function Canvas:EnableForeverNativeBagProxy()
             and Offhand:IsBlizzardInputReserved() or false
         local preservingPanelShown = IsForeverNativeBagPreservingPanelShown()
         local preservingPanelChanged = preservingPanelShown ~= lastPreservingPanelShown
+        if preservingPanelShown and preservingPanelChanged
+            and Canvas.PlaceShownSystemPanelsOnMainhand then
+            Canvas:PlaceShownSystemPanelsOnMainhand()
+        end
         local leavingGameMenu = lastGameMenuShown and not gameMenuShown
         -- A direct ToggleGameMenu observation means Escape dismissed the menu;
         -- no delayed system-panel cleanup is coming, so do not hold the bag in
@@ -3949,6 +4366,13 @@ function Canvas:EnableForeverNativeBagProxy()
                     if gameMenuToggleObserved and not gameMenuChanged then
                         state.pendingGameMenuToggle = true
                     end
+                end
+                if state.pendingOpenRestore and not CanManagePanelsFromAddon() then
+                    -- Let the Gamepad UI close stand. The saved position remains
+                    -- available when the player opens the bag again.
+                    state.pendingOpenRestore = nil
+                    state.pendingOpenAttempts = nil
+                    state.pendingGameMenuToggle = nil
                 end
                 if not shown and state.pendingOpenRestore and not inCombat
                     and not inputReserved then
@@ -4022,9 +4446,12 @@ end
 -- drag affordance from an independent UIParent child and follow the map by
 -- reading geometry only. The handle never becomes a child or anchor dependent
 -- of WorldMapFrame and no script is installed on any native map object.
-local function QueueForeverWorldMapSettlement(map, state, shown)
+local function QueueForeverWorldMapSettlement(map, state, shown, forcePanelTransaction)
     if not Offhand.isForever or not map or not state then return end
-    if state.observedShown == nil then
+    if forcePanelTransaction then
+        if not shown then return end
+        state.observedShown = true
+    elseif state.observedShown == nil then
         state.observedShown = shown
         -- The map begins hidden during login even when the previous session
         -- persisted it as open. Do not reinterpret that construction state as
@@ -4038,6 +4465,15 @@ local function QueueForeverWorldMapSettlement(map, state, shown)
 
     if not shown then
         Canvas:SetWorkspacePanelOpen(map, false)
+        if IsLeatrixWorldMap(map) and (not Offhand.db or not Offhand.db.enabled
+            or Offhand.db.persistentWorkspacePanels == false) then
+            RegisterSpecialFrame("WorldMapFrame")
+        end
+        return
+    end
+
+    if IsLeatrixWorldMap(map) then
+        Canvas:PreserveLeatrixWorldMapOpenState(map)
         return
     end
 
@@ -4060,12 +4496,22 @@ local function QueueForeverWorldMapSettlement(map, state, shown)
         local mainPosition = Offhand.db.savedMainPositions
             and Offhand.db.savedMainPositions.WorldMapFrame
         if workspacePosition then Canvas:SetWorkspacePanelOpen(map, true) end
-        if workspacePosition or mainPosition then
-            RestoreSavedPositionAfterShow(map)
+        local savedPosition = workspacePosition or mainPosition
+        if savedPosition then
+            local placement = GetPanelPhysicalPlacement(map)
+            if not PlacementMatchesPosition(placement, savedPosition) then
+                RestoreSavedPositionAfterShow(map)
+            end
         elseif not (map.IsMaximized and map:IsMaximized()) then
             Canvas:RescuePanelFromVoid(map)
         end
         Canvas:RepairShownWorkspacePanels(map)
+        if workspacePosition and Offhand.db.persistentWorkspacePanels ~= false then
+            -- ShowUIPanel can reclaim the center slot after the first geometry
+            -- restore. Reassert Escape ownership on every delayed settlement.
+            UnregisterSpecialFrame("WorldMapFrame")
+            EvictWorkspacePanelSlot(map)
+        end
     end
 
     -- Never alter WorldMapFrame from ToggleWorldMap/ToggleQuestLog's protected
@@ -4073,16 +4519,30 @@ local function QueueForeverWorldMapSettlement(map, state, shown)
     -- edge on a later frame and settles geometry only after Blizzard returns.
     Settle()
     if C_Timer and C_Timer.After then
-        C_Timer.After(0, function()
-            Settle()
-            C_Timer.After(0.10, Settle)
-        end)
+        -- UIPanel transactions on Forever can enqueue another layout from a
+        -- timer which itself was created by the first layout pass. Scheduling
+        -- every repair from this stack only covers the first timer generation
+        -- and lets that nested write move the map afterwards. Chain a bounded
+        -- series instead, so each pass is able to observe work queued by the
+        -- preceding pass without installing a permanent poller.
+        local delays = forcePanelTransaction and { 0, 0.10, 0.20, 0.30 }
+            or { 0, 0.10 }
+        local function Schedule(index)
+            local delay = delays[index]
+            if delay == nil then return end
+            C_Timer.After(delay, function()
+                if generation ~= state.settlementGeneration then return end
+                Settle()
+                Schedule(index + 1)
+            end)
+        end
+        Schedule(1)
     end
 end
 
 local function AttachForeverWorldMapDragHandle(map)
     if not IsForeverWorldMap(map) or not CreateFrame or not UIParent then return false end
-    if ShouldYieldWorldMapToMoveAny(map) then return false end
+    if ShouldYieldWorldMapToMoveAny(map) and not IsLeatrixWorldMap(map) then return false end
     local state = GetForeverWorldMapState(map)
     if state.handle then return true end
 
@@ -4281,10 +4741,14 @@ local function AttachGuardedForeverPanelMotion(frame, name)
         or IsForeverWorldMap(frame) or IsUnsafeForPanelMutation(frame, name) then
         return false
     end
+    if not CanManagePanelsFromAddon() then
+        foreverPanelMotionStatus[frame] = "native_gamepad"
+        return true
+    end
 
     local motion = Offhand.PanelMotion
     if not motion or not motion.AttachGuardedTitleGrip then
-        frame._OffhandPanelMotionStatus = "module_unavailable"
+        foreverPanelMotionStatus[frame] = "module_unavailable"
         return true
     end
 
@@ -4306,7 +4770,7 @@ local function AttachGuardedForeverPanelMotion(frame, name)
             end
         end,
     })
-    frame._OffhandPanelMotionStatus = status
+    foreverPanelMotionStatus[frame] = status
     if not grip then
         if status == "combat_deferred" and Offhand.RunOrQueueCombat then
             Offhand:RunOrQueueCombat(function()
@@ -4327,16 +4791,44 @@ local function AttachGuardedForeverPanelMotion(frame, name)
         frame._OffhandGuardedPanelShowHooked = true
         frame:HookScript("OnShow", function(self)
             if not Offhand.db or not Offhand.db.enabled then return end
-            RestoreSavedPositionAfterShow(self)
-            if Offhand.db.savedWorkspacePositions
-                and Offhand.db.savedWorkspacePositions[name] then
+            local workspacePosition = Offhand.db.savedWorkspacePositions
+                and Offhand.db.savedWorkspacePositions[name]
+            local mainPosition = Offhand.db.savedMainPositions
+                and Offhand.db.savedMainPositions[name]
+            if name == "FlightMapFrame" and not workspacePosition and not mainPosition then
+                Canvas:PlacePanelOnMainhand(self, nil, nil, false)
+            else
+                RestoreSavedPositionAfterShow(self)
+            end
+            if workspacePosition then
                 Canvas:SetWorkspacePanelOpen(self, true)
+            end
+            if name == "FlightMapFrame" and C_Timer and C_Timer.After then
+                local function SettleFlightMap()
+                    if not self.IsShown or not self:IsShown() or not Offhand.db
+                        or not Offhand.db.enabled then return end
+                    local savedWorkspace = Offhand.db.savedWorkspacePositions
+                        and Offhand.db.savedWorkspacePositions[name]
+                    local savedMain = Offhand.db.savedMainPositions
+                        and Offhand.db.savedMainPositions[name]
+                    if savedWorkspace or savedMain then
+                        RestoreSavedPositionAfterShow(self)
+                    else
+                        Canvas:PlacePanelOnMainhand(self, nil, nil, false)
+                    end
+                end
+                C_Timer.After(0, SettleFlightMap)
+                C_Timer.After(0.10, SettleFlightMap)
             end
         end)
     end
 
     frame._OffhandMovable = true
     return true
+end
+
+function Canvas:GetPanelMotionStatus(frame)
+    return frame and foreverPanelMotionStatus[frame] or nil
 end
 
 local function MakePanelDraggable(frame)
@@ -4528,12 +5020,13 @@ Canvas.IsForeverProfessionsPanel = IsForeverProfessionsPanel
 Canvas.ShouldYieldForeverProfessionsPanel = ShouldYieldForeverProfessionsPanel
 
 -- Experimental Forever Professions support is intentionally isolated from the
--- universal panel lifecycle. It never opens the panel, changes its Escape/UI
--- panel registration, or participates in login/reload restoration. Blizzard
--- must first finish a native manual opening; only then is an Offhand drag
--- surface attached. Existing saved anchors are restored, while the first
--- opted-in opening is centered on Mainhand so its title cannot remain trapped
--- in a non-physical part of a mixed-height UIParent.
+-- universal panel lifecycle. Blizzard must first finish a native manual
+-- opening before an Offhand drag surface is attached. After the player moves
+-- the standalone Professions book into Offhand, that explicit open position
+-- may participate in the narrow reload-restoration path above. Other
+-- Professions windows retain native visibility. Existing saved anchors are
+-- restored, while the first opted-in opening is centered on Mainhand so its
+-- title cannot remain trapped in a non-physical part of a mixed-height UIParent.
 function Canvas:QueueExperimentalForeverProfessionsMovement(frame, suppliedName)
     local name = suppliedName or (frame and frame.GetName and frame:GetName())
     if not frame or not name or not IsForeverProfessionsPanel(frame, name)
@@ -4541,12 +5034,41 @@ function Canvas:QueueExperimentalForeverProfessionsMovement(frame, suppliedName)
         or not C_Timer or not C_Timer.After then return false end
     if frame._OffhandExperimentalProfessionsQueued then return true end
 
+    local function RestoreSavedProfessionsPosition()
+        if not CanManagePanelsFromAddon() or not Offhand.db or not Offhand.db.enabled
+            or Offhand.db.persistentWorkspacePanels == false
+            or IsPanelDragging(frame)
+            or not frame.IsShown or not frame:IsShown() then return end
+        local workspacePosition = Offhand.db.savedWorkspacePositions
+            and Offhand.db.savedWorkspacePositions[name]
+        if not workspacePosition then return end
+
+        -- Keep Blizzard's native visibility and Escape lifecycle intact. The
+        -- former hide/show slot eviction produced several audible open/close
+        -- cycles and visible flicker for one key press. Only reassert the saved
+        -- anchor from this external observer.
+        UnregisterSpecialFrame(name)
+        frame._OffhandExperimentalProfessionsRestoreAllowed = true
+        RestoreSavedPositionAfterShow(frame)
+        frame._OffhandExperimentalProfessionsRestoreAllowed = nil
+    end
+
     -- Once the handle is attached and cold-start initialization has settled,
     -- subsequent openings can restore their saved placement immediately instead
     -- of waiting 1.0 second at Blizzard's native spanned top-left anchor.
     if frame._OffhandExperimentalProfessionsAttached then
         HookKnownPanelAnchorResets(frame, name)
-        Canvas:SetWorkspacePanelOpen(name, false)
+        local savedOnWorkspace = Offhand.db and Offhand.db.savedWorkspacePositions
+            and Offhand.db.savedWorkspacePositions[name]
+        if frame.IsShown and frame:IsShown() then
+            Canvas:SetWorkspacePanelOpen(name,
+                IsPersistentForeverProfessionsPanelName(name) and savedOnWorkspace or false)
+        end
+        -- The external watcher runs every 0.5 seconds because Professions can
+        -- reclaim its UIPanel slot without emitting a stable public event. Do
+        -- not let that repair path compete with Blizzard's native drag gesture;
+        -- the completed drag will save the new anchor through OnPanelDragStop.
+        if IsPanelDragging(frame) then return true end
         local hasSavedPosition = Offhand.db and
             ((Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name])
                 or (Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name]))
@@ -4562,6 +5084,7 @@ function Canvas:QueueExperimentalForeverProfessionsMovement(frame, suppliedName)
             local _, status = Offhand.PanelMotion:SetTitleGripActive(frame, true)
             frame._OffhandExperimentalProfessionsMotionStatus = status
         end
+        RestoreSavedProfessionsPosition()
         return true
     end
 
@@ -4569,11 +5092,18 @@ function Canvas:QueueExperimentalForeverProfessionsMovement(frame, suppliedName)
     frame._OffhandExperimentalProfessionsGeneration =
         (frame._OffhandExperimentalProfessionsGeneration or 0) + 1
     local generation = frame._OffhandExperimentalProfessionsGeneration
-    C_Timer.After(1.0, function()
+    local hasSavedPosition = Offhand.db and
+        ((Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name])
+            or (Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name]))
+    -- A load-on-demand frame with a saved position can be prepared while it is
+    -- still hidden. That installs the anchor observer before the first visible
+    -- native layout pass and prevents the login/reload top-left flash.
+    local attachDelay = hasSavedPosition and 0 or 1.0
+    C_Timer.After(attachDelay, function()
         frame._OffhandExperimentalProfessionsQueued = nil
         if frame._OffhandExperimentalProfessionsGeneration ~= generation
             or not IsExperimentalForeverProfessionsMovementEnabled()
-            or (frame.IsShown and not frame:IsShown()) then return end
+            or (frame.IsShown and not frame:IsShown() and not hasSavedPosition) then return end
         if InCombatLockdown() then
             if Offhand.RunOrQueueCombat then
                 Offhand:RunOrQueueCombat(function()
@@ -4625,8 +5155,13 @@ function Canvas:QueueExperimentalForeverProfessionsMovement(frame, suppliedName)
             local _, status = Offhand.PanelMotion:SetTitleGripActive(frame, true)
             frame._OffhandExperimentalProfessionsMotionStatus = status
         end
-        Canvas:SetWorkspacePanelOpen(name, false)
-        local hasSavedPosition = Offhand.db and
+        local savedOnWorkspace = Offhand.db and Offhand.db.savedWorkspacePositions
+            and Offhand.db.savedWorkspacePositions[name]
+        if frame.IsShown and frame:IsShown() then
+            Canvas:SetWorkspacePanelOpen(name,
+                IsPersistentForeverProfessionsPanelName(name) and savedOnWorkspace or false)
+        end
+        hasSavedPosition = Offhand.db and
             ((Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name])
                 or (Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name]))
         if hasSavedPosition then
@@ -4643,6 +5178,7 @@ function Canvas:QueueExperimentalForeverProfessionsMovement(frame, suppliedName)
             -- demodalize, persist or otherwise join the generic panel lifecycle.
             Canvas:PlacePanelOnMainhand(frame, nil, nil, false)
         end
+        RestoreSavedProfessionsPosition()
     end)
     return true
 end
@@ -4670,8 +5206,31 @@ function Canvas:GetExperimentalProfessionsMotionDiagnostics()
         #entries > 0 and table.concat(entries, ",") or "not loaded", allMotion)
 end
 
+-- A saved Professions position can be restored before PanelMotion is allowed
+-- to attach its title grip. This happens most often while Forever is still
+-- changing interface styles, because native Gamepad safely rejects child
+-- controls on Blizzard panels. Retry only visible, still-unattached roots;
+-- once a grip exists this observer becomes a no-op and cannot compete with a
+-- live drag or with the panel's saved-position settlement.
+function Canvas:RetryMissingExperimentalForeverProfessionsMovement()
+    if not IsExperimentalForeverProfessionsMovementEnabled()
+        or not CanManagePanelsFromAddon() or not UIPanelWindows then return false end
+    local queued = false
+    for name in pairs(UIPanelWindows) do
+        local frame = _G[name]
+        if frame and IsForeverProfessionsPanel(frame, name)
+            and not frame._OffhandExperimentalProfessionsAttached
+            and frame.IsShown and frame:IsShown() then
+            self:QueueExperimentalForeverProfessionsMovement(frame, name)
+            queued = true
+        end
+    end
+    return queued
+end
+
 function Canvas:EnableExperimentalForeverProfessionsMovement()
     if not IsExperimentalForeverProfessionsMovementEnabled() then return false end
+    self:RetryMissingExperimentalForeverProfessionsMovement()
     if UIPanelWindows then
         for name in pairs(UIPanelWindows) do
             local frame = _G[name]
@@ -4686,26 +5245,6 @@ function Canvas:EnableExperimentalForeverProfessionsMovement()
                 end
             end
         end
-    end
-    if C_Timer and C_Timer.NewTicker and not self.experimentalProfessionsWatcher then
-        self.experimentalProfessionsWatcher = C_Timer.NewTicker(0.5, function()
-            if not IsExperimentalForeverProfessionsMovementEnabled() then
-                if Canvas.experimentalProfessionsWatcher.Cancel then
-                    Canvas.experimentalProfessionsWatcher:Cancel()
-                end
-                Canvas.experimentalProfessionsWatcher = nil
-                return
-            end
-            if not UIPanelWindows then return end
-            for name in pairs(UIPanelWindows) do
-                local frame = _G[name]
-                if frame and IsForeverProfessionsPanel(frame, name)
-                    and frame.IsShown and frame:IsShown()
-                    and not frame._OffhandExperimentalProfessionsAttached then
-                    Canvas:QueueExperimentalForeverProfessionsMovement(frame, name)
-                end
-            end
-        end)
     end
     return true
 end
@@ -4782,13 +5321,6 @@ function Canvas:RelinquishForeverProfessionsPanels(onlyName)
     return cleared
 end
 
-local foreverSystemPanelNames = {
-    "SettingsPanel",
-    "InterfaceOptionsFrame",
-    "VideoOptionsFrame",
-    "AudioOptionsFrame",
-}
-
 -- System settings must always open on Mainhand.  Generic void rescue is a
 -- fallback and can miss a panel whose geometry is not final on its first show.
 function Canvas:PlaceSystemPanelOnMainhand(frame)
@@ -4812,6 +5344,20 @@ function Canvas:PlaceSystemPanelOnMainhand(frame)
     return ok
 end
 
+function Canvas:PlaceShownSystemPanelsOnMainhand()
+    if not Offhand.isForever or not Offhand.db or not Offhand.db.enabled
+        or (InCombatLockdown and InCombatLockdown()) then return 0 end
+    local moved = 0
+    for _, name in ipairs(foreverSystemPanelNames) do
+        local panel = _G[name]
+        if panel and panel.IsShown and panel:IsShown()
+            and self:PlaceSystemPanelOnMainhand(panel) then
+            moved = moved + 1
+        end
+    end
+    return moved
+end
+
 -- Opening Blizzard Settings closes native bags as part of its panel cleanup.
 -- A workspace backpack marked open is independent workspace content, so reopen
 -- only that tracked bag after Settings finishes its transition.
@@ -4820,6 +5366,7 @@ function Canvas:RestoreTrackedWorkspaceBag()
         or not Offhand.db or not Offhand.db.enabled
         or Offhand.db.persistentWorkspacePanels == false
         or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved())
+        or not CanManagePanelsFromAddon()
         or not IsSpannedLayoutActive() then return false end
     local saved = GetNativeBackpackWorkspacePosition()
     local trackedOpen = IsNativeBackpackTrackedOpen()
@@ -4901,6 +5448,7 @@ end
 
 function Canvas:TryMakeFrameDraggable(frame)
     if not frame or not frame.GetName then return end
+    if Offhand.isForever and not CanManagePanelsFromAddon() then return end
     if ShouldYieldFrameToClassicUIForever(frame) then return end
     if ShouldYieldWorldMapToMoveAny(frame) then return end
     if IsForeverWorldMap(frame) then
@@ -4941,6 +5489,7 @@ end
 -- for every spell book, profession, collection, guild or future panel.
 function Canvas:DiscoverUIPanels()
     if not UIPanelWindows or not Offhand.db or not Offhand.db.enabled then return end
+    if Offhand.isForever and not CanManagePanelsFromAddon() then return end
     for name in pairs(UIPanelWindows) do
         local frame = _G[name]
         if frame then
@@ -4964,6 +5513,8 @@ end
 
 function Canvas:EnableFreeDragging()
     if not Offhand.db or not Offhand.db.enabled then return end
+    if Offhand.isForever then InstallForeverOptionsOpeningObservers() end
+    if Offhand.isForever and not CanManagePanelsFromAddon() then return end
     self:InitializePanelLoadTracking()
     self:RelinquishClassicUIForeverFrames()
     self:RelinquishForeverEditModeFrames()
@@ -5051,6 +5602,110 @@ function Canvas:EnableFreeDragging()
     if Offhand.isForever and not hasCustomBags then
         self:EnableForeverNativeBagProxy()
     end
+    if Offhand.isForever and IsLeatrixWorldMap(_G.WorldMapFrame) then
+        -- The addon-owned handle remains hidden while Leatrix owns geometry;
+        -- its read-only observer still preserves Escape and reload open state.
+        AttachForeverWorldMapDragHandle(_G.WorldMapFrame)
+    end
+
+    local function HookSocialCommunityPanelToggles()
+        if not hooksecurefunc or not Canvas._syncExplicitPanelToggle then return end
+        local socialNames = {
+            "FriendsFrame", "FriendsListFrame", "SocialFrame", "SocialUIFrame",
+        }
+        for _, frameName in ipairs(socialNames) do
+            local frame = _G[frameName]
+            if frame then HookSocialPanelAnchorResets(frame, frameName) end
+        end
+        local toggles = {
+            ToggleFriendsFrame = {
+                "FriendsFrame", "FriendsListFrame", "SocialFrame", "SocialUIFrame",
+            },
+            ToggleCommunitiesFrame = {
+                "CommunitiesFrame", "FriendsFrame", "FriendsListFrame",
+                "SocialFrame", "SocialUIFrame",
+            },
+            ToggleGuildFrame = {
+                "CommunitiesFrame", "FriendsFrame", "FriendsListFrame",
+                "SocialFrame", "SocialUIFrame",
+            },
+        }
+        Canvas._socialCommunityToggleHooks = Canvas._socialCommunityToggleHooks or {}
+        for functionName, frameNames in pairs(toggles) do
+            if type(_G[functionName]) == "function"
+                and not Canvas._socialCommunityToggleHooks[functionName] then
+                Canvas._socialCommunityToggleHooks[functionName] = true
+                hooksecurefunc(functionName, function()
+                    for _, frameName in ipairs(frameNames) do
+                        local frame = _G[frameName]
+                        if frame then Canvas._syncExplicitPanelToggle(frame) end
+                    end
+                end)
+            end
+        end
+        if ShowUIPanel and not Canvas._socialPanelTransactionHooked then
+            Canvas._socialPanelTransactionHooked = true
+            hooksecurefunc("ShowUIPanel", function(openedFrame)
+                if openedFrame and IsPanelEvicting(openedFrame) then return end
+                local function Repair()
+                    -- Opening any UIPanel can reflow every other panel in
+                    -- Blizzard's shared slots, including an already-visible
+                    -- Offhand World Map. Restore all saved peers, but do not
+                    -- sample replacement-bag visibility from inside this panel
+                    -- transaction because Settings may have hidden it only
+                    -- temporarily.
+                    Canvas:RepairShownWorkspacePanels(openedFrame, true)
+                    Canvas:RepairShownSocialCommunityPanels()
+                end
+                local map = _G.WorldMapFrame
+                if IsForeverWorldMap(map) and map.IsShown and map:IsShown() then
+                    QueueForeverWorldMapSettlement(
+                        map, GetForeverWorldMapState(map), true, true)
+                end
+                -- The post-hook catches the usual synchronous left-slot reflow.
+                -- Two bounded passes cover panels which finish layout from a
+                -- zero-delay continuation without introducing a polling loop.
+                Repair()
+                if C_Timer and C_Timer.After then
+                    C_Timer.After(0, Repair)
+                    C_Timer.After(0.10, Repair)
+                end
+            end)
+        end
+        if HideUIPanel and not Canvas._socialPanelHideTransactionHooked then
+            Canvas._socialPanelHideTransactionHooked = true
+            hooksecurefunc("HideUIPanel", function(closedFrame)
+                if closedFrame and IsPanelEvicting(closedFrame) then return end
+                local function Repair()
+                    Canvas:RepairShownWorkspacePanels(closedFrame, true)
+                    Canvas:RepairShownSocialCommunityPanels()
+                end
+                local map = _G.WorldMapFrame
+                if IsForeverWorldMap(map) and map.IsShown and map:IsShown() then
+                    QueueForeverWorldMapSettlement(
+                        map, GetForeverWorldMapState(map), true, true)
+                end
+                Repair()
+                if C_Timer and C_Timer.After then
+                    C_Timer.After(0, Repair)
+                    C_Timer.After(0.10, Repair)
+                end
+            end)
+        end
+        if type(_G.UpdateUIPanelPositions) == "function"
+            and not Canvas._socialPanelLayoutHooked then
+            Canvas._socialPanelLayoutHooked = true
+            hooksecurefunc("UpdateUIPanelPositions", function()
+                -- This is the authoritative completion point for Blizzard's
+                -- shared left/center/right panel arrangement. Restore every
+                -- saved visible peer plus Social after the manager has written
+                -- every native anchor, including close routes and paths which
+                -- bypass ShowUIPanel.
+                Canvas:RepairShownWorkspacePanels(nil, true)
+                Canvas:RepairShownSocialCommunityPanels()
+            end)
+        end
+    end
 
     if hooksecurefunc and not Canvas._explicitPanelToggleHooks then
         Canvas._explicitPanelToggleHooks = true
@@ -5111,6 +5766,7 @@ function Canvas:EnableFreeDragging()
             -- one frame, then repeat after deferred native layout settles.
             SyncPass(true)
             C_Timer.After(0, function() SyncPass(true) end)
+            C_Timer.After(0.10, function() SyncPass(true) end)
         end
         Canvas._syncExplicitPanelToggle = SyncExplicitToggle
         local function SyncNativeBags()
@@ -5128,6 +5784,11 @@ function Canvas:EnableFreeDragging()
             hooksecurefunc("ToggleCharacter", function() SyncExplicitToggle(_G.CharacterFrame) end)
         end
     end
+    -- Friends and Communities are load-on-demand on some Forever builds.
+    -- Re-run this idempotent hook installer after every addon load so opening
+    -- either panel repairs the other panel's saved Mainhand/Offhand anchor in
+    -- the same UI turn, before Blizzard's shared left-slot reflow is rendered.
+    HookSocialCommunityPanelToggles()
 
     if not Offhand.isForever and hooksecurefunc and ToggleQuestLog and Canvas._syncExplicitPanelToggle
         and not Canvas._toggleQuestLogPersistenceHooked then
@@ -5250,6 +5911,7 @@ function Canvas:EnableFreeDragging()
         "TalentFrame",
         "PlayerTalentFrame",
         "FriendsFrame",
+        "SocialUIFrame",
         "TradeFrame",
         "MerchantFrame",
         "MailFrame",
@@ -5625,6 +6287,7 @@ function Offhand:InitializeCanvas()
     if Offhand.isForever and C_Timer and C_Timer.NewTicker and not Canvas.foreverPositionTicker then
         Canvas.foreverPositionTicker = C_Timer.NewTicker(0.5, function()
             if Offhand._displayGeometryTransitionActive then return end
+            Canvas:RetryMissingExperimentalForeverProfessionsMovement()
             Canvas:MonitorDetachedChatSettingsPresentation()
             local editModeShown = EditModeManagerFrame and EditModeManagerFrame.IsShown
                 and EditModeManagerFrame:IsShown()

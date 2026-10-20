@@ -59,6 +59,17 @@ assert(not seamSource:find("UIPanelWindows.EditModeManagerFrame.centerFrameSkipA
     "Forever must not write EditModeManagerFrame panel metadata")
 assert(seamSource:find("not self.anchorsHooked and not UsesForeverEditMode()", 1, true),
     "Forever must preserve native UpdateContainerFrameAnchors")
+
+local mainhandFile = assert(io.open("Core/Mainhand.lua", "r"))
+local mainhandSource = mainhandFile:read("*a")
+mainhandFile:close()
+assert(not mainhandSource:find("presetLayoutInfo", 1, true)
+        and not mainhandSource:find("UpdateLayoutInfo", 1, true),
+    "Forever must not mutate or refresh Blizzard's Gamepad preset manager")
+assert(mainhandSource:find("GAMEPAD_INTERFACE_SETTLE_SECONDS", 1, true)
+        and mainhandSource:find("GAMEPAD_ACTIVE_PANEL_INTERVAL", 1, true)
+        and mainhandSource:find('"native-visible"', 1, true),
+    "Forever Gamepad transitions must settle before protected anchor work resumes")
 local bagProxySource = canvasSource:match(
     "local function GetForeverNativeBagSavedPosition(.-)%-%- Forever's map%-pin sharing path")
 assert(bagProxySource and bagProxySource:find("EnableForeverNativeBagProxy", 1, true),

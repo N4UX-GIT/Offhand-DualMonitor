@@ -49,6 +49,16 @@ local function SupportsGeneratedMainhandLayout()
         and type(Offhand.Options.CreateMainhandHUDLayout) == "function"
 end
 
+local function UsesControllerLayout()
+    return Offhand.Mainhand and Offhand.Mainhand.IsControllerLayout
+        and Offhand.Mainhand:IsControllerLayout() or false
+end
+
+local function CanCreateControllerLayout()
+    return Offhand.Mainhand and Offhand.Mainhand.CanCreateControllerLayout
+        and Offhand.Mainhand:CanCreateControllerLayout() or false
+end
+
 local function ReadinessSummary(hudState)
     local m = Offhand.Viewport and Offhand.Viewport.GetMetrics
         and Offhand.Viewport:GetMetrics() or nil
@@ -899,8 +909,7 @@ function Wizard:CreateFrame()
     end
 
     skipLayoutBtn:SetScript("OnClick", function()
-        if not StaticPopup_Show then return end
-        StaticPopup_Show("OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT", nil, nil, function()
+        Offhand:ShowPopup("OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT", nil, nil, function()
             CompleteSetup(true)
         end)
     end)
@@ -918,7 +927,12 @@ function Wizard:CreateFrame()
             return
         end
 
-        local ok, value, moved = Offhand.Options:CreateMainhandHUDLayout()
+        if UsesControllerLayout() and not CanCreateControllerLayout() then
+            CompleteSetup(true)
+            return
+        end
+
+        local ok, value, moved, activation = Offhand.Options:CreateMainhandHUDLayout()
         if not ok and value == "already" and Offhand.Mainhand
             and type(Offhand.Mainhand.GetLayoutStatus) == "function" then
             local existing = Offhand.Mainhand:GetLayoutStatus()
@@ -937,8 +951,12 @@ function Wizard:CreateFrame()
             Offhand:Print(L["MAINHAND_LAYOUT_CREATED"], tostring(value), moved or 0)
         end
         CompleteSetup(false)
-        if Offhand.Mainhand and Offhand.Mainhand.PromptReload then
-            Offhand.Mainhand:PromptReload()
+        if Offhand.Mainhand then
+            if activation == "select" and Offhand.Mainhand.PromptManualLayoutSelection then
+                Offhand.Mainhand:PromptManualLayoutSelection(value)
+            elseif Offhand.Mainhand.PromptReload then
+                Offhand.Mainhand:PromptReload()
+            end
         end
     end)
 
@@ -976,9 +994,12 @@ function Wizard:CreateFrame()
         welcomeText:SetText(L[helpKey])
         backBtn:SetEnabled(self.step > 1)
         SetShown(advBtn, self.step ~= 5)
-        SetShown(skipLayoutBtn, self.step == 5)
+        local controllerLayout = self.step == 5 and UsesControllerLayout()
+        local canCreateController = controllerLayout and CanCreateControllerLayout()
+        SetShown(skipLayoutBtn, self.step == 5 and not controllerLayout)
         finishBtn:SetText(self.step == 5
-            and L["MAINHAND_LAYOUT_CREATE"]
+            and (controllerLayout and canCreateController and L["WIZARD_GAMEPAD_FINISH"]
+                or controllerLayout and L["BTN_FINISH"] or L["MAINHAND_LAYOUT_CREATE"])
             or (self.step == self.totalSteps and L["BTN_FINISH"] or L["BTN_NEXT"]))
         finishBtn:SetSize(self.step == 5 and 230 or 170, 28)
         if self.step == 5 then
@@ -991,9 +1012,15 @@ function Wizard:CreateFrame()
                 and not state.currentGeometry then
                 name = string.format(L["MAINHAND_LAYOUT_STALE"], tostring(name))
             end
-            layoutStatus:SetText(string.format(L["MAINHAND_LAYOUT_STATUS"], tostring(name)))
-            layoutHelp:SetText(L["WIZARD_STEP_5_BODY"] .. "\n\n" ..
-                ReadinessSummary(state and state.configured and not state.deferred
+            layoutStatus:SetText(controllerLayout and (canCreateController
+                    and L["MAINHAND_LAYOUT_GAMEPAD_STATUS"] or L["MAINHAND_LAYOUT_GAMEPAD_FAILED"])
+                or string.format(L["MAINHAND_LAYOUT_STATUS"], tostring(name)))
+            layoutHelp:SetText((controllerLayout and (canCreateController
+                    and L["WIZARD_GAMEPAD_LAYOUT_BODY"] or L["MAINHAND_LAYOUT_GAMEPAD_FAILED"])
+                or L["WIZARD_STEP_5_BODY"]) .. "\n\n" ..
+                ReadinessSummary(controllerLayout and (canCreateController
+                        and L["MAINHAND_LAYOUT_GAMEPAD_STATUS"] or L["MAINHAND_LAYOUT_GAMEPAD_FAILED"])
+                    or state and state.configured and not state.deferred
                     and L["READINESS_HUD_READY"] or L["READINESS_HUD_PENDING"]))
         end
         if self.step == 3 then

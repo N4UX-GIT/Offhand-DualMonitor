@@ -257,6 +257,49 @@ pressEscapeCloseSpecialFrames()
 assert(WorldMapFrame:IsShown(),
     "Escape must not close a Forever map with a saved workspace position")
 
+-- Native Gamepad UI announces addon-originated panel lifecycle changes to its
+-- protected FrameControlsManager. Restore may position a player-opened map, but
+-- must not open it, evict it from a UIPanel slot, or rewrite UISpecialFrames.
+WorldMapFrame:Hide()
+addon.db.openWorkspacePanels.WorldMapFrame = true
+local gamepadUI = true
+addon.IsGamepadUIEnabled = function() return gamepadUI end
+local gamepadMapToggles = 0
+local previousToggleWorldMap = ToggleWorldMap
+ToggleWorldMap = function()
+    gamepadMapToggles = gamepadMapToggles + 1
+    WorldMapFrame:Show()
+end
+addon.Canvas:RestorePersistentFrames()
+assert(gamepadMapToggles == 0 and not WorldMapFrame:IsShown()
+        and addon.db.openWorkspacePanels.WorldMapFrame == true,
+    "Gamepad UI reload restoration must not open panels from addon code")
+
+local gamepadHides = 0
+local previousHideUIPanel = HideUIPanel
+HideUIPanel = function(frame, ...)
+    gamepadHides = gamepadHides + 1
+    return previousHideUIPanel(frame, ...)
+end
+table.insert(UISpecialFrames, "WorldMapFrame")
+local specialBefore = table.concat(UISpecialFrames, ",")
+WorldMapFrame:Show()
+activePanels.left = WorldMapFrame
+addon.Canvas:RestoreWorkspacePosition(WorldMapFrame)
+assert(gamepadHides == 0 and GetUIPanel("left") == WorldMapFrame
+        and WorldMapFrame:IsShown(),
+    "Gamepad UI must not evict a player-opened panel from its UIPanel slot")
+assert(table.concat(UISpecialFrames, ",") == specialBefore,
+    "Gamepad UI must not mutate UISpecialFrames")
+HideUIPanel = previousHideUIPanel
+activePanels.left = nil
+for i = #UISpecialFrames, 1, -1 do
+    if UISpecialFrames[i] == "WorldMapFrame" then table.remove(UISpecialFrames, i) end
+end
+WorldMapFrame:Hide()
+ToggleWorldMap = previousToggleWorldMap
+gamepadUI = false
+
 -- Reload restoration must reopen the saved workspace map without replacing
 -- Blizzard's protected scripts.
 WorldMapFrame:Hide()
@@ -387,6 +430,11 @@ OpenAllBags = function()
     nativeBagOpens = nativeBagOpens + 1
     ContainerFrameCombinedBags:Show()
 end
+gamepadUI = true
+addon.Canvas:RestorePersistentFrames()
+assert(nativeBagOpens == 0 and addon.db.openWorkspacePanels.ContainerFrameCombinedBags == true,
+    "Gamepad UI reload restoration must not open bags from addon code")
+gamepadUI = false
 addon.Canvas:RestorePersistentFrames()
 assert(nativeBagOpens > 0 and ContainerFrameCombinedBags:IsShown()
         and addon.db.savedWorkspacePositions.ContainerFrameCombinedBags ~= nil

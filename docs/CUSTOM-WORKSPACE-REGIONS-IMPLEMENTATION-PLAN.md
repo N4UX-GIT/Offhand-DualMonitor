@@ -140,6 +140,11 @@ Per-category destinations may be considered later, but are not required for the 
 
 ### 5.0 Transitional manual-mode diagnostics
 
+The remembered manual-canvas matcher, tolerant validation, alignment limits,
+and addon-only recovery experience are specified in
+`docs/COMPANION-INDEPENDENCE.md`. Complete that foundation before custom
+workspace regions add more geometry states.
+
 Before custom sizing ships, make the existing manual path diagnosable:
 
 - When a generated Companion topology does not match the live WoW window, stop

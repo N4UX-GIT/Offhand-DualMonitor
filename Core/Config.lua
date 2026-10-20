@@ -36,6 +36,8 @@ local defaultSettings = {
     speechBubbleCompensation = true, -- Replace enlarged bubbles only on affected mixed-height spans
     speechBubbleScale = 1.00,       -- Fine tuning for Offhand's replacement bubble
     groupLootPosition = {},         -- Optional normalized Mainhand position for the first group-loot roll
+    groupLootStackDirection = "UP", -- Preserve Blizzard's upward stack unless the user selects downward
+    antiShimmer = false,            -- Stabilize ground textures by disabling FSR edge sharpening and using bicubic resampling
     chatPosition = "GAME",          -- "GAME" (bottom-left of 3D curved monitor) or "DECK" (bottom bay of vertical monitor)
     dockChat = true,                -- Enable managed chat positioning
 
@@ -46,6 +48,10 @@ local defaultSettings = {
     persistentWorkspacePanels = true,  -- Keep workspace panels and maps open when pressing Escape
     hideWorkspaceCloseButtons = false, -- Hide supported X buttons only while their windows are on the workspace
     hideWorkspaceMapMaximizeButton = false, -- Hide the windowed World Map enlarge button on the workspace
+    showGamepadPanelDragHandles = true, -- Show addon-owned mouse movers for supported Forever Gamepad panels
+    lockWorkspaceWindows = false, -- Keep selected supported workspace windows open until this is disabled
+    lockedWorkspaceWindowTypes = { map = true, bags = true, character = true },
+    characterWorkspaceScale = 1.00, -- Multiplier relative to Blizzard's native CharacterFrame scale
     savedWorkspacePositions = {},   -- Persisted coordinates for frames placed on the secondary workspace
     savedMainPositions = {},        -- Persisted coordinates for movable frames on the main screen
     workspacePanelLoadAddons = {},  -- Learned Blizzard load-on-demand owner for persistent panels
@@ -65,6 +71,7 @@ local function CopyDefaults(src, dst)
 end
 
 local FOREVER_EDIT_MODE_MIGRATION_VERSION = 1
+local FOREVER_PROFESSIONS_MOVEMENT_MIGRATION_VERSION = 1
 
 local function StageForeverEditModeMigration()
     if not Offhand.isForever or type(OffhandCharDB) ~= "table"
@@ -103,17 +110,15 @@ local function EnsureCompatibilitySettings()
     return OffhandDB.compatibility
 end
 
--- This consent is deliberately account-wide rather than profile-scoped. It is
--- a client-safety override, not part of a monitor layout, and therefore must
--- not be enabled accidentally by copying or switching profiles.
+-- This compatibility policy is deliberately account-wide rather than
+-- profile-scoped. It is a client-safety override, not part of a monitor layout,
+-- and therefore must not change accidentally when profiles are copied.
 function Offhand:IsExperimentalForeverProfessionsMovementEnabled()
     if not self.isForever or type(OffhandDB) ~= "table"
         or type(OffhandDB.compatibility) ~= "table" then return false end
     local compatibility = OffhandDB.compatibility
     local buildKey = CurrentClientBuildKey()
-    return buildKey ~= nil
-        and compatibility.foreverProfessionsMovement == true
-        and compatibility.foreverProfessionsMovementBuild == buildKey
+    return buildKey ~= nil and compatibility.foreverProfessionsMovement == true
 end
 
 function Offhand:SetExperimentalForeverProfessionsMovement(enabled)
@@ -324,6 +329,31 @@ local function SnapshotAccountState(accountDB)
     return copy
 end
 
+-- Forever's custom CVars are account-global, while OffhandCharDB is scoped to
+-- one character. Tag complete snapshots with a stable character identity so a
+-- newer /reload fallback written by one character cannot replace another
+-- character's Edit Mode preferences. The account portion is still safe to
+-- recover across characters.
+local function CurrentCharacterSnapshotKey()
+    local name, realm
+    if UnitFullName then
+        local ok, fullName, fullRealm = pcall(UnitFullName, "player")
+        if ok then name, realm = fullName, fullRealm end
+    end
+    if (type(name) ~= "string" or name == "") and UnitName then
+        local ok, unitName = pcall(UnitName, "player")
+        if ok then name = unitName end
+    end
+    if (type(realm) ~= "string" or realm == "") and GetNormalizedRealmName then
+        local ok, normalizedRealm = pcall(GetNormalizedRealmName)
+        if ok then realm = normalizedRealm end
+    end
+    if type(name) ~= "string" or name == "" then return nil end
+    name = string.lower(name)
+    realm = type(realm) == "string" and string.lower(realm) or ""
+    return realm ~= "" and (name .. "@" .. realm) or name
+end
+
 local function EncodeLengthValue(tag, value)
     value = tostring(value)
     return tag .. tostring(#value) .. ":" .. value
@@ -422,6 +452,7 @@ function ForeverPersistence:SaveProfileSnapshot(incrementRevision)
         revision = revision,
         account = account,
         character = character,
+        characterKey = CurrentCharacterSnapshotKey(),
     })
     if not encoded or #encoded > FOREVER_PROFILE_MAX_BYTES then return false end
 
@@ -472,8 +503,19 @@ function ForeverPersistence:RestoreProfileSnapshot(accountDB, characterDB)
     if standardRevision >= revision then return "standard" end
     for key in pairs(accountDB) do accountDB[key] = nil end
     for key, value in pairs(snapshot.account) do accountDB[key] = value end
-    for key in pairs(characterDB) do characterDB[key] = nil end
-    for key, value in pairs(snapshot.character) do characterDB[key] = value end
+    local snapshotCharacterKey = type(snapshot.characterKey) == "string"
+        and snapshot.characterKey or nil
+    local currentCharacterKey = CurrentCharacterSnapshotKey()
+    -- Tests and very early loading environments can lack a resolvable player;
+    -- retain legacy same-session recovery only when neither side has identity.
+    -- A legacy untagged snapshot must never overwrite an identified character.
+    local restoreCharacter = snapshotCharacterKey ~= nil and currentCharacterKey ~= nil
+        and snapshotCharacterKey == currentCharacterKey
+        or snapshotCharacterKey == nil and currentCharacterKey == nil
+    if restoreCharacter then
+        for key in pairs(characterDB) do characterDB[key] = nil end
+        for key, value in pairs(snapshot.character) do characterDB[key] = value end
+    end
     return "fallback"
 end
 
@@ -618,7 +660,8 @@ function ForeverPersistence:SaveOnboarding(onboarding)
     if not self:IsAvailable() or type(onboarding) ~= "table" then return end
     local function Flag(value) return value and "1" or "0" end
     local method = onboarding.setupMethod == "COMPANION" and "C"
-        or (onboarding.setupMethod == "MANUAL" and "M" or "0")
+        or (onboarding.setupMethod == "FANCYZONES" and "F"
+        or (onboarding.setupMethod == "MANUAL" and "M" or "0"))
     WritePersistentCVar(FOREVER_ONBOARDING_CVAR, table.concat({
         "V3", Flag(onboarding.welcomeDismissed), Flag(onboarding.setupComplete),
         Flag(onboarding.suppressCompanionWarning),
@@ -651,7 +694,7 @@ function ForeverPersistence:RestoreOnboarding(onboarding)
     RegisterPersistentCVar(FOREVER_ONBOARDING_CVAR)
     local value = tostring(ReadPersistentCVar(FOREVER_ONBOARDING_CVAR) or "")
     local welcome, setup, suppress, resume, method = value:match(
-        "^V3|([01])|([01])|([01])|([0-6])|([CM0])$")
+        "^V3|([01])|([01])|([01])|([0-6])|([CFM0])$")
     if not welcome then
         welcome, setup, suppress, resume = value:match(
             "^V2|([01])|([01])|([01])|([0-6])$")
@@ -666,7 +709,8 @@ function ForeverPersistence:RestoreOnboarding(onboarding)
     local resumeStep = tonumber(resume)
     onboarding.resumeStep = resumeStep and resumeStep > 0 and resumeStep or nil
     onboarding.setupMethod = method == "C" and "COMPANION"
-        or (method == "M" and "MANUAL" or onboarding.setupMethod)
+        or (method == "F" and "FANCYZONES"
+        or (method == "M" and "MANUAL" or onboarding.setupMethod))
     return true
 end
 
@@ -724,6 +768,52 @@ function Offhand:SetRawMouseInput(enabled)
     end
 end
 
+function Offhand:IsAntiShimmerEnabled()
+    return Offhand.db and Offhand.db.antiShimmer == true or false
+end
+
+function Offhand:SetAntiShimmer(enabled)
+    if not Offhand.db then return end
+    enabled = enabled == true
+    local get = GetCVar or (C_CVar and C_CVar.GetCVar)
+    local set = SetCVar or (C_CVar and C_CVar.SetCVar)
+    if enabled then
+        if not Offhand.db.originalAntiShimmerSettings then
+            local alwaysSharpen = get and get("ResampleAlwaysSharpen") or "1"
+            local sharpness = get and get("ResampleSharpness") or "0.2"
+            local quality = get and get("ResampleQuality") or "3"
+            Offhand.db.originalAntiShimmerSettings = {
+                alwaysSharpen = tostring(alwaysSharpen),
+                sharpness = tostring(sharpness),
+                quality = tostring(quality),
+            }
+        end
+        if set then
+            pcall(set, "ResampleAlwaysSharpen", "0")
+            pcall(set, "ResampleSharpness", "0")
+            pcall(set, "ResampleQuality", "2")
+        end
+        Offhand.db.antiShimmer = true
+    else
+        if Offhand.db.originalAntiShimmerSettings then
+            local s = Offhand.db.originalAntiShimmerSettings
+            if set then
+                if s.alwaysSharpen then pcall(set, "ResampleAlwaysSharpen", tostring(s.alwaysSharpen)) end
+                if s.sharpness then pcall(set, "ResampleSharpness", tostring(s.sharpness)) end
+                if s.quality then pcall(set, "ResampleQuality", tostring(s.quality)) end
+            end
+            Offhand.db.originalAntiShimmerSettings = nil
+        else
+            if set then
+                pcall(set, "ResampleAlwaysSharpen", "1")
+                pcall(set, "ResampleSharpness", "0.2")
+                pcall(set, "ResampleQuality", "3")
+            end
+        end
+        Offhand.db.antiShimmer = false
+    end
+end
+
 local function EnsureOnboarding()
     if type(OffhandDB) ~= "table" then OffhandDB = {} end
     if type(OffhandDB.onboarding) ~= "table" then OffhandDB.onboarding = {} end
@@ -771,12 +861,16 @@ end
 
 function Offhand:GetOnboardingSetupMethod()
     local method = EnsureOnboarding().setupMethod
-    if method == "COMPANION" or method == "MANUAL" then return method end
+    if method == "COMPANION" or method == "FANCYZONES" or method == "MANUAL" then
+        return method
+    end
     return nil
 end
 
 function Offhand:SetOnboardingSetupMethod(method)
-    if method ~= "COMPANION" and method ~= "MANUAL" then return false end
+    if method ~= "COMPANION" and method ~= "FANCYZONES" and method ~= "MANUAL" then
+        return false
+    end
     EnsureOnboarding().setupMethod = method
     SaveOnboarding()
     return true
@@ -812,8 +906,15 @@ function Offhand:InitializeConfig()
     -- ForeverState.lua is loaded immediately before this module. A new bridge
     -- version is authoritative once after a cold launch; an already-consumed
     -- version must yield to the fresher SavedVariables captured by Init.lua.
+    local bridgeVersion = type(_G.OffhandForeverStateBridgeVersion) == "string"
+        and _G.OffhandForeverStateBridgeVersion or ""
     local useForeverBridge = ForeverPersistence:BeginRecoverySnapshot()
     local diskState = Offhand.foreverDiskSavedVariables
+    local initialAccount = type(diskState) == "table" and type(diskState.account) == "table"
+        and diskState.account or OffhandDB
+    local diskHadState = type(initialAccount) == "table" and next(initialAccount) ~= nil
+    local diskRevision = type(initialAccount) == "table"
+        and tonumber(initialAccount.foreverPersistenceRevision) or nil
     if Offhand.isForever and not useForeverBridge and type(diskState) == "table" then
         if type(diskState.account) == "table" then OffhandDB = diskState.account end
         if type(diskState.character) == "table" then OffhandCharDB = diskState.character end
@@ -836,13 +937,23 @@ function Offhand:InitializeConfig()
 
     local compatibility = EnsureCompatibilitySettings()
     local currentBuildKey = CurrentClientBuildKey()
-    if compatibility.foreverProfessionsMovement == true
-        and compatibility.foreverProfessionsMovementBuild ~= currentBuildKey then
-        -- Forever is a beta client. Requiring consent again after every client
-        -- build change prevents an old opt-in from silently carrying into a UI
-        -- implementation whose Professions crash behavior may have changed.
-        compatibility.foreverProfessionsMovement = false
-        compatibility.foreverProfessionsMovementBuild = nil
+    if Offhand.isForever then
+        -- Professions movement has been stable across the current Forever beta
+        -- cycle. The former Advanced Compatibility card is no longer visible,
+        -- so migrate every existing installation once instead of leaving an
+        -- old explicit false value with no in-game way to enable the adapter.
+        -- Later API-level opt-outs remain sticky because the migration marker
+        -- is written before normal configuration continues.
+        local professionsMigration = tonumber(
+            compatibility.foreverProfessionsMovementMigrationVersion) or 0
+        if professionsMigration < FOREVER_PROFESSIONS_MOVEMENT_MIGRATION_VERSION then
+            compatibility.foreverProfessionsMovement = true
+            compatibility.foreverProfessionsMovementMigrationVersion =
+                FOREVER_PROFESSIONS_MOVEMENT_MIGRATION_VERSION
+        end
+        if compatibility.foreverProfessionsMovement == true then
+            compatibility.foreverProfessionsMovementBuild = currentBuildKey
+        end
     end
 
     local profileSnapshotState = "none"
@@ -853,6 +964,25 @@ function Offhand:InitializeConfig()
         -- a fresh bridge so the newest complete state wins before seeding the
         -- field-specific session fallbacks.
         profileSnapshotState = ForeverPersistence:RestoreProfileSnapshot(OffhandDB, OffhandCharDB)
+    end
+
+    if Offhand.isForever then
+        local source = "defaults-or-legacy"
+        if profileSnapshotState == "fallback" then
+            source = "session-fallback"
+        elseif useForeverBridge then
+            source = "companion-bridge"
+        elseif profileSnapshotState == "standard" or diskHadState then
+            source = "savedvariables"
+        end
+        Offhand.foreverPersistenceDiagnostics = {
+            source = source,
+            bridge = useForeverBridge and "used"
+                or (bridgeVersion ~= "" and "present-consumed" or "absent"),
+            sessionFallback = profileSnapshotState,
+            diskRevision = diskRevision,
+            activeRevision = tonumber(OffhandDB.foreverPersistenceRevision),
+        }
     end
 
         -- Scrub any rogue hijacked Focused frames so native placement takes back control

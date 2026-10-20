@@ -1,4 +1,4 @@
-## Interface: 121500, 121000, 120100, 120007, 120005, 16001
+## Interface: 120105, 120100, 120007, 120005, 16001
 ## AllowLoadGameType: standard, camelot
 ## Title: |cffffbd0aOffhand|r |cffffffff[Multi-Monitor Setup]|r
 ## Notes: Equip your Offhand. Dual wield your monitors. Multi-Monitor Setup UI.
@@ -23,14 +23,17 @@ Core\CompanionTopology.lua
 Core\Init.lua
 Core\ForeverState.lua
 Core\Config.lua
+Core\ManualCanvas.lua
 Core\Viewport.lua
 Core\PopupBounds.lua
 Core\Mainhand.lua
 Core\RetailFullscreen.lua
+Core\DialogueUICompat.lua
 Core\ChatBubbles.lua
 Core\SeamRedirect.lua
 Core\PanelMotion.lua
 Core\Canvas.lua
+Core\WorkspaceBehavior.lua
 Core\WorkspaceChrome.lua
 Core\BagPersistence.lua
 
