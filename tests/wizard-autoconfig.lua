@@ -685,8 +685,10 @@ addon.Viewport.GetMetrics = function()
 end
 wizardFrame:SetStep(4)
 wizardFrame.finishBtn.scripts.OnClick()
-assert(wizardFrame.step == 1 and not addon:IsSetupComplete(),
-    "a known Companion mismatch must block completion and return to preflight")
+assert(wizardFrame.step == 4 and not addon:IsSetupComplete()
+        and wizardFrame.validationStatus:GetText():find(
+            "2.1.2-beta.12", 1, true),
+    "a known Companion mismatch must block completion and explain the problem on the current step")
 addon.Viewport.GetMetrics = function()
     return {
         companionTopology=false, topologyStatus="MISMATCH", isSpanned=false,
@@ -694,10 +696,35 @@ addon.Viewport.GetMetrics = function()
 end
 wizardFrame:SetStep(4)
 wizardFrame.finishBtn.scripts.OnClick()
-assert(wizardFrame.step == 1 and not addon:IsSetupComplete()
+assert(wizardFrame.step == 4 and not addon:IsSetupComplete()
+        and wizardFrame.validationStatus:GetText():find(
+            addon.L["MAINHAND_LAYOUT_SPAN_MISMATCH"], 1, true)
         and wizardFrame.statusText:GetText():find(
             addon.L["MAINHAND_LAYOUT_SPAN_MISMATCH"], 1, true),
-    "a stale topology must block wizard preflight with actionable recovery guidance")
+    "a stale topology must block wizard completion with actionable guidance on the current step")
+
+-- FancyZones targets the Windows work area and sizes the decorated outer
+-- window, while WoW reports the smaller render client area. A confirmed
+-- manual canvas must therefore remain valid
+-- even when a stale Companion bridge still describes the same display union
+-- as a larger borderless 4000x2560 window.
+addon.Viewport.GetMetrics = function()
+    return {
+        companionTopology=false, topologyStatus="MISMATCH", isSpanned=true,
+        manualCanvas=true, manualCanvasState="MATCH", manualCanvasSource="FANCYZONES",
+        physicalWidth=3998, physicalHeight=2480,
+        screenWidth=1200, screenHeight=744,
+        gamePixelLeft=1439, gamePixelBottom=0,
+        gamePixelWidth=2559, gamePixelHeight=1440,
+        workspacePixelLeft=0, workspacePixelBottom=0,
+        workspacePixelWidth=1439, workspacePixelHeight=2480,
+    }
+end
+wizardFrame:SetStep(4)
+wizardFrame.finishBtn.scripts.OnClick()
+assert(wizardFrame.step == 5 and not addon:IsSetupComplete()
+        and wizardFrame.validationStatus:GetText() == "",
+    "a remembered FancyZones canvas must override stale Companion topology during wizard validation")
 addon.Viewport.GetMetrics = wizardMetrics
 
 createMainhandLayoutResult = { false, "combat" }

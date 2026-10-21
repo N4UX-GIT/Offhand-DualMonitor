@@ -215,6 +215,11 @@ function Themes:ApplyCanvasTheme(canvasFrame)
     if canvasFrame.SetBackdropBorderColor then
         canvasFrame:SetBackdropBorderColor(br[1], br[2], br[3], br[4] or 1.0)
     end
+
+    if (canvasFrame == Offhand.canvas or canvasFrame == _G["OffhandCanvasFrame"])
+        and Offhand.UserMedia and Offhand.UserMedia.ApplyToCanvas then
+        Offhand.UserMedia:ApplyToCanvas(canvasFrame)
+    end
 end
 
 function Themes:ApplyBackdrop(frame, themeKey, customAlpha)

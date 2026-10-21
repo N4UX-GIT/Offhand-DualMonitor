@@ -867,18 +867,22 @@ function Wizard:CreateFrame()
     skipLayoutBtn:SetText(L["WIZARD_SKIP_HUD_LAYOUT"])
     skipLayoutBtn:Hide()
 
+    local validationStatus
+
     local function ValidateTopology()
+        validationStatus:SetText("")
         local currentInfo = Wizard:DetectTopology()
         if currentInfo.topologyStatus == "MISMATCH" then
-            statusText:SetText("|cffff5555" ..
-                Offhand.Options:GetMainhandLayoutFailureText("span") .. "|r")
-            f:SetStep(1)
+            local message = Offhand.Options:GetMainhandLayoutFailureText("span")
+            statusText:SetText("|cffff5555" .. message .. "|r")
+            validationStatus:SetText("|cffff5555" .. message .. "|r")
             return false
         end
         if currentInfo.exactTopology and currentInfo.companionVersionStatus == "MISMATCH" then
-            statusText:SetText("|cffff5555" .. string.format(L["WIZARD_STATUS_COMPANION_MISMATCH"],
-                currentInfo.companionVersion or "?", currentInfo.expectedCompanionVersion or "?") .. "|r")
-            f:SetStep(1)
+            local message = string.format(L["WIZARD_STATUS_COMPANION_MISMATCH"],
+                currentInfo.companionVersion or "?", currentInfo.expectedCompanionVersion or "?")
+            statusText:SetText("|cffff5555" .. message .. "|r")
+            validationStatus:SetText("|cffff5555" .. message .. "|r")
             return false
         end
         return true
@@ -969,6 +973,16 @@ function Wizard:CreateFrame()
     f.backBtn = backBtn
     local progress = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     progress:SetPoint("TOPLEFT", 18, -116)
+
+    validationStatus = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    validationStatus:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 190, 54)
+    validationStatus:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -18, 54)
+    if validationStatus.SetHeight then validationStatus:SetHeight(54) end
+    if validationStatus.SetJustifyH then validationStatus:SetJustifyH("CENTER") end
+    if validationStatus.SetJustifyV then validationStatus:SetJustifyV("MIDDLE") end
+    if validationStatus.SetWordWrap then validationStatus:SetWordWrap(true) end
+    f.validationStatus = validationStatus
+
     f.totalSteps = SupportsGeneratedMainhandLayout() and 5 or 4
     f.pages = {card1, card2, card3, card4}
     if f.totalSteps == 5 then
@@ -985,6 +999,7 @@ function Wizard:CreateFrame()
     end
     function f:SetStep(step)
         self.step = math.max(1, math.min(self.totalSteps, step))
+        validationStatus:SetText("")
         for i, card in ipairs(self.pages) do SetShown(card, i == self.step) end
         progress:SetText(string.format(L["STEP_PROGRESS"], self.step, self.totalSteps))
         local helpKey = self.step == 5 and "STEP_5_HELP"

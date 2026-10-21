@@ -10,7 +10,7 @@
     <meta property="og:title" content="Offhand | Dual-Wield Your Monitors">
     <meta property="og:description" content="Equip your Offhand. Dual wield your monitors. Lock 3D gameplay to your gaming display while turning your secondary screen into a persistent utility Offhand Monitor.">
     <meta property="og:image" content="assets/offhand-banner.png">
-    <link rel="stylesheet" href="style.css?v=20261016-9">
+    <link rel="stylesheet" href="style.css?v=20261022-2">
 </head>
 <body class="home-page">
 
@@ -26,7 +26,8 @@
             </a>
             <nav class="nav-primary" aria-label="Primary navigation">
                 <a href="manual-spanning.html">Window Setup</a>
-                <a href="background-studio.html">Background Studio</a>
+                <a href="in-game-setup.html">In-Game Setup</a>
+                <a href="background-studio.html">Studio</a>
                 <a href="companion.html">Companion</a>
             </nav>
             <div class="nav-controls">
@@ -36,7 +37,9 @@
                         <div class="site-menu-group">
                             <span class="site-menu-label">Pages</span>
                             <a href="index.html" aria-current="page">Home</a>
+                            <a href="demonstration.html">Demonstration</a>
                             <a href="manual-spanning.html">Window Setup</a>
+                            <a href="in-game-setup.html">In-Game Setup</a>
                             <a href="background-studio.html">Background Studio</a>
                             <a href="companion.html">Companion</a>
                         </div>
@@ -88,27 +91,34 @@
             </p>
 
             <div class="hero-actions">
-                <a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" class="btn btn-wow-red btn-lg">
+                <a href="#setup" class="btn btn-wow-red btn-lg">Get Started</a>
+                <a href="demonstration.html" class="btn btn-wow-stone btn-lg btn-demo-watch">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"/></svg>
+                    Watch Offhand in action
+                </a>
+            </div>
+            <div class="hero-actions">
+                <a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener" class="btn btn-wow-stone btn-sm">
                     <svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>CurseForge</title><path d="M18.326 9.2145S23.2261 8.4418 24 6.1882h-7.5066V4.4H0l2.0318 2.3576V9.173s5.1267-.2665 7.1098 1.2372c2.7146 2.516-3.053 5.917-3.053 5.917L5.0995 19.6c1.5465-1.4726 4.494-3.3775 9.8983-3.2857-2.0565.65-4.1245 1.6651-5.7344 3.2857h10.9248l-1.0288-3.2726s-7.918-4.6688-.8336-7.1127z"/></svg>
                     Get on CurseForge
                 </a>
-                <a href="companion.html" class="btn btn-wow-stone btn-lg">
+                <a href="companion.html" class="btn btn-wow-stone btn-sm">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     Window setup options
                 </a>
-                <a href="background-studio.html" class="btn btn-wow-stone btn-lg">
+                <a href="background-studio.html" class="btn btn-wow-stone btn-sm">
                     Create a custom background
                 </a>
             </div>
             <div class="hero-download-note" style="margin-top: 12px; font-size: 0.88rem; color: #8a92a6;">
-                On Windows, start with <a href="manual-spanning.html" style="color: var(--rio-gold);">FancyZones or manual placement</a>. The optional Companion is available from the <a href="https://apps.microsoft.com/detail/9PL4PW84Q90W" target="_blank" rel="noopener" style="color: var(--rio-gold);">Microsoft Store</a> for exact topology and borderless spanning, with <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.20/Offhand-Companion.zip" target="_blank" rel="noopener" style="color: var(--rio-gold);">portable Beta 20</a> for Linux/Wine.
+                On Windows, use <a href="manual-spanning.html" style="color: var(--rio-gold);">FancyZones or manual placement</a> without an Offhand executable. Choose the optional <a href="https://apps.microsoft.com/detail/9PL4PW84Q90W" target="_blank" rel="noopener" style="color: var(--rio-gold);">Microsoft Store Companion</a> for exact topology, borderless spanning, and active recovery, or use the <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.20/Offhand-Companion.zip" target="_blank" rel="noopener" style="color: var(--rio-gold);">portable 2.1.2 Beta 20 build</a> for Linux/Wine.
             </div>
 
             <div class="hero-stats-bar">
                 <div><svg class="stat-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> 1:1 Camera Viewport</div>
                 <div><svg class="stat-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Persistent Offhand Monitor</div>
-                <div><svg class="stat-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> 1-Click Auto-Configuration</div>
-                <div><svg class="stat-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Combat Safe &amp; Taint Free</div>
+                <div><svg class="stat-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Guided Auto-Configuration</div>
+                <div><svg class="stat-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Combat-Aware Layout Handling</div>
                 <div><svg class="stat-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Local Background Studio</div>
             </div>
         </div>
@@ -206,7 +216,7 @@
                         </div>
                         <h3 class="wow-card-title">Guided Auto-Configuration</h3>
                         <p class="wow-card-desc">
-                            Type <code>/offhand</code> in-game. The setup wizard validates your remembered canvas or exact Companion topology, guides seam and Mainhand placement, and finishes the required HUD layout on Forever and Retail.
+                            Type <code>/offhand</code> in-game. The setup wizard validates your remembered canvas or exact Companion topology, guides seam and Mainhand placement, and creates a protected Mainhand HUD layout on clients with supported Blizzard Edit Mode APIs.
                         </p>
                     </div>
 
@@ -214,9 +224,9 @@
                         <div class="wow-card-icon">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                         </div>
-                        <h3 class="wow-card-title">Combat Safe &amp; Taint Free</h3>
+                        <h3 class="wow-card-title">Combat-Aware UI Management</h3>
                         <p class="wow-card-desc">
-                            Built strictly within Blizzard's secure execution environment. Layout transitions and frame repositioning are deferred safely during combat, ensuring zero Lua taints or UI errors.
+                            Uses Blizzard UI APIs, defers restricted layout changes until combat ends, and keeps protected HUD placement under Blizzard Edit Mode where the client requires it.
                         </p>
                     </div>
 
@@ -250,20 +260,20 @@
                     <div class="companion-preview-copy">
                         <h2 class="wow-card-title" id="companion-preview-title">Three ways to place your window</h2>
                         <p class="wow-card-desc">Use FancyZones on Windows, resize WoW manually, or let the optional Companion apply exact borderless geometry. After a successful Companion span, you may exit it and continue playing. Leave it in the tray only for automatic spanning and active recovery features.</p>
-                        <p class="wow-card-desc">WoW Forever's legacy recovery bridge remains available while current client builds are tested for reliable normal SavedVariables cold loading.</p>
+                        <p class="wow-card-desc">Offhand's normal SavedVariables and in-client recovery handle ordinary persistence. The Forever recovery bridge is an optional compatibility fallback for installations where <code>/offhand diag</code> reports a stale persistence source.</p>
                         <div style="margin-top: 24px; display:flex; flex-wrap:wrap; gap:10px;">
                             <a href="https://apps.microsoft.com/detail/9PL4PW84Q90W" target="_blank" rel="noopener" class="btn btn-wow-red btn-sm">
                                 Get from Microsoft Store
                             </a>
                             <a href="companion.html" class="btn btn-wow-stone btn-sm">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                                Review Companion options
+                                Open Companion Setup
                             </a>
                         </div>
                     </div>
                     <figure class="companion-preview-figure">
-                        <a href="assets/offhand-companion-v2.1.2.png" aria-label="View the full-size Offhand Companion screenshot">
-                            <img src="assets/offhand-companion-v2.1.2.png" alt="Offhand Companion v2.1.2 showing WoW and addon status, display selection, spanning controls, update checking, and an activity log." width="520" height="756" loading="lazy" decoding="async">
+                        <a href="assets/offhand-companion-v2.1.2-beta20.png" aria-label="View the full-size Offhand Companion screenshot">
+                            <img src="assets/offhand-companion-v2.1.2-beta20.png" alt="Offhand Companion v2.1.2 Beta 20 showing WoW and addon status, display selection, spanning controls, update checking, and an activity log." width="526" height="851" loading="lazy" decoding="async">
                         </a>
                         <figcaption>Offhand Companion for Windows. Select the image to view it full size.</figcaption>
                     </figure>
@@ -277,8 +287,8 @@
                     <div class="background-promo-copy">
                         <div class="hero-badge">LOCAL BROWSER TOOL</div>
                         <h2 class="wow-card-title" id="background-promo-title">Make the Offhand canvas yours</h2>
-                        <p class="wow-card-desc">Choose a PNG, JPEG, or WebP image, preview fill and fit behavior, and download a ready-to-install <code>Offhand_UserMedia</code> package.</p>
-                        <p class="wow-card-desc">The image is processed in your browser. It is not uploaded, retained, or sent to Offhand. The media package remains separate from the CurseForge-managed addon so normal updates cannot replace your background.</p>
+                        <p class="wow-card-desc">Choose a PNG, JPEG, or WebP image, preview fill and fit behavior, and download a ready-to-install <code>Offhand_UserMedia</code> package. After installation and a full client restart, enable it from Offhand's Themes page.</p>
+                        <p class="wow-card-desc">The image is processed in your browser. It is not uploaded, retained, or sent to Offhand. The generated package contains a texture and declarative metadata, with no Lua or executable program code. It remains separate from the CurseForge-managed addon so normal updates cannot replace your background.</p>
                         <div class="hero-actions promo-actions"><a href="background-studio.html" class="btn btn-wow-red btn-lg">Open Background Studio</a></div>
                     </div>
                     <div class="media-package-diagram" aria-label="Offhand and Offhand User Media folders installed side by side">
@@ -321,10 +331,10 @@
                         </p>
                         <div style="margin-top: 14px; display:flex; flex-wrap:wrap; gap:10px;">
                             <a href="manual-spanning.html" class="btn btn-wow-red btn-sm" style="white-space: nowrap;">
-                                FancyZones &amp; manual guide
+                                FancyZones &amp; Manual Setup
                             </a>
-                            <a href="companion.html#companion" class="btn btn-wow-stone btn-sm" style="white-space: nowrap;">
-                                Companion options
+                            <a href="companion.html#first-setup" class="btn btn-wow-stone btn-sm" style="white-space: nowrap;">
+                                Companion Setup
                             </a>
                         </div>
                         <img src="assets/setup-step2.png" alt="Span Window" style="width:100%; border-radius:6px; margin-top:12px; border:1px solid rgba(255,255,255,0.1);">
@@ -337,6 +347,7 @@
                             Type <code>/offhand guide</code> and choose FancyZones, Companion, or manual placement. FancyZones and manual users visually confirm the window and select <strong>Remember Current Window</strong>. Companion users reload once after spanning so Offhand can read the exact topology. Then complete every calibration step.
                         </p>
                         <img src="assets/setup-step3.png" alt="Run Wizard" style="width:100%; border-radius:6px; margin-top:12px; border:1px solid rgba(255,255,255,0.1);">
+                        <p style="margin-top: 14px;"><a href="in-game-setup.html">Open the complete in-game setup guide</a></p>
                     </div>
 
                     <div class="quest-step-card">
@@ -402,7 +413,7 @@
                         </summary>
                         <div class="faq-body">
                             <p>
-                                On Forever and Retail, press <strong>Create Mainhand HUD Layout</strong> on the setup wizard's final step. It clones the active Blizzard layout instead of directly moving protected frames, translates default anchors into Mainhand, aligns XP with the Action Button 1/backpack boundaries, and arranges stance, pet, possess, vehicle-exit, encounter, and extra-ability controls above it. Reload when prompted, then use Blizzard Edit Mode only for personal adjustments. <strong>Recovery &amp; Preview</strong> can rebuild the generated layout later. Classic clients without Blizzard Edit Mode use Offhand's direct compatibility layout; custom action-bar addons retain ownership of their own frames.
+                                On clients with supported Blizzard Edit Mode APIs, press <strong>Create Mainhand HUD Layout</strong> on the setup wizard's final step. It clones the active Blizzard layout instead of directly moving protected frames, translates default anchors into Mainhand, aligns XP with the Action Button 1/backpack boundaries, and arranges stance, pet, possess, vehicle-exit, encounter, and extra-ability controls above it. Reload when prompted, then use Blizzard Edit Mode only for personal adjustments. <strong>Recovery &amp; Preview</strong> can rebuild the generated layout later. Clients without those APIs use Offhand's direct compatibility layout; custom action-bar addons retain ownership of their own frames.
                             </p>
                         </div>
                     </details>
@@ -426,7 +437,7 @@
                         </summary>
                         <div class="faq-body">
                             <p>
-                                No. Microsoft PowerToys FancyZones is the recommended Windows assistant, and ordinary manual resizing works without another application. Offhand remembers and validates the resulting canvas. The optional Companion provides exact borderless geometry and active recovery features, but it may be exited after applying the span. An earlier Forever 1.60.1 build had an intermittent SavedVariables loading defect; its compatibility bridge remains available while newer builds are revalidated through repeated cold launches.
+                                No. Microsoft PowerToys FancyZones and ordinary manual resizing are complete standalone setup paths. Offhand remembers and validates the resulting canvas without communicating with another application. The optional Companion provides exact topology, borderless geometry, automatic spanning, and active recovery, but it may be exited after applying the span. Its Forever recovery bridge is only a compatibility fallback when <code>/offhand diag</code> reports that normal persistence is stale.
                             </p>
                             <p><a href="manual-spanning.html">Read the FancyZones and manual setup guide</a>.</p>
                         </div>
@@ -438,7 +449,7 @@
                             <svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                         </summary>
                         <div class="faq-body">
-                            <p>Yes. The <a href="background-studio.html">Background Studio</a> converts PNG, JPEG, or WebP images locally in your browser and creates a separate <code>Offhand_UserMedia</code> addon folder. Your image is not uploaded. Keeping that folder separate also prevents CurseForge updates from replacing your personal background.</p>
+                            <p>Yes. Offhand includes built-in support for packages created by the <a href="background-studio.html">Background Studio</a>. The studio converts PNG, JPEG, or WebP images locally in your browser and creates a separate, code-free <code>Offhand_UserMedia</code> addon folder. Your image is not uploaded. Install both folders side by side, then enable <strong>Use installed custom background</strong> from the in-game Themes tab. Keeping the media folder separate also prevents CurseForge updates from replacing your personal background.</p>
                         </div>
                     </details>
 
@@ -449,7 +460,7 @@
                         </summary>
                         <div class="faq-body">
                             <p>
-                                Yes. The Companion passes the exact Windows rectangle for the explicit Mainhand and workspace displays. Mixed resolutions and heights, portrait/landscape pairs, stacked screens, negative desktop coordinates, ultrawide or 32:9 Mainhand displays, and unequal alignment therefore use native geometry instead of a guessed combined-resolution preset.
+                                Yes. FancyZones and manual placement use the canvas you confirm during setup, including portrait, landscape, mixed-resolution, stacked, and ultrawide arrangements. The optional Companion additionally passes the exact Windows rectangles for the selected Mainhand and workspace displays, including negative coordinates and unequal alignment.
                             </p>
                         </div>
                     </details>
@@ -473,25 +484,28 @@
                         </summary>
                         <div class="faq-body">
                             <p>
-                                Offhand fails safely. The Companion remembers displays by Windows identity and refuses to collapse a two-display profile onto the remaining screen. The addon rejects the stale geometry and restores a full-window viewport. Use <strong>Restore Window</strong>, reconnect the display, or review the saved selection.
+                                Offhand rejects mismatched saved geometry and restores a safe full-window viewport. With FancyZones or manual placement, restore the intended window before reapplying the remembered canvas. The Companion also remembers displays by Windows identity, refuses to collapse a two-display profile onto the remaining screen, and can restore a bordered Mainhand window while active.
                             </p>
                         </div>
                     </details>
 
                     <details class="faq-card">
                         <summary class="faq-summary">
-                            <h4>Is Offhand safe and compliant with Blizzard's Terms of Service?</h4>
+                            <h4>How do Offhand, Companion, and FancyZones relate to Blizzard's rules?</h4>
                             <svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                         </summary>
                         <div class="faq-body">
                             <p>
-                                Yes. The in-game addon uses standard Blizzard UI APIs. The open-source Companion does not inspect game memory or automate gameplay. It resizes the WoW desktop window and, while WoW is closed, refreshes only Offhand's own recovery bridge file for Forever cold-launch restoration.
+                                The in-game addon uses standard Blizzard UI APIs. Companion and FancyZones perform a comparable desktop-window-management role for this workflow: they resize or reposition ordinary Windowed WoW and are designed not to automate gameplay, send game input, inspect game memory, inject code, or modify game files. Companion can also refresh Offhand's guarded Forever recovery bridge while WoW is fully closed when that compatibility path is needed.
                             </p>
                             <p>
                                 For Windows, install it from the official <a href="https://apps.microsoft.com/detail/9PL4PW84Q90W" target="_blank" rel="noopener">Microsoft Store listing</a>. Microsoft reviewed and signs the Store package, and Microsoft Store manages its updates. Linux/Wine users and anyone who prefers a direct portable download can use the official GitHub release, compare its SHA-256 hash with <code>checksums-sha256.txt</code>, and verify its GitHub artifact attestation. The Companion does not require administrator access, install a service, inject into WoW, collect telemetry, or read browser data or credentials. Store installations open Microsoft Store for updates; portable installations query GitHub only when you select <strong>Check for Updates</strong>. Full behavior, build, and verification details are published in the <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md" target="_blank">security guide</a>.
                             </p>
                             <p>
                                 The Store package passed Microsoft certification and is signed by Microsoft. Microsoft Security Intelligence also reviewed exact earlier portable hashes without retaining a malware detection. Some VirusTotal engines may still assign the separate unsigned GitHub Companion generic machine-learning or heuristic labels; each vendor controls its own verdict. An Edge “isn't commonly downloaded” message is a separate SmartScreen reputation notice. VirusTotal and vendor reviews are useful evidence, but neither a small detection count nor a clean result proves safety. Review the open source and documented behavior, and verify the official checksum and GitHub build provenance before running a portable copy.
+                            </p>
+                            <p>
+                                None of this guarantees Blizzard approval or account safety. Microsoft authorship, Store availability, open-source code, and security scans do not constitute Blizzard authorization. Blizzard alone interprets and enforces its agreements, and its EULA states that the platform may monitor for unauthorized third-party programs. Review the <a href="https://www.blizzard.com/en-us/legal/bfbbb648-bcc6-4b78-a5c7-e2fe20c135df/blizzard-end-user-license-agreement" target="_blank" rel="noopener">current Blizzard EULA</a> and the <a href="https://www.blizzard.com/legal/cd5930c0-2784-420c-a23d-1e0d6ff8599b/anti-cheating-vereinbarung" target="_blank" rel="noopener">anti-cheating agreement</a>, use any desktop utility at your own discretion, and stop using it if Blizzard guidance changes.
                             </p>
                         </div>
                     </details>
@@ -520,6 +534,11 @@
                         </div>
                     </details>
                 </div>
+                <aside class="community-support-card" aria-labelledby="community-support-title">
+                    <div class="community-support-icon"><img src="assets/discord-symbol.svg" alt="" aria-hidden="true"></div>
+                    <div class="community-support-copy"><div class="hero-badge">COMMUNITY &amp; SUPPORT</div><h3 id="community-support-title">Get help from the Offhand community</h3><p>Join the Discord for setup help, troubleshooting, testing builds, and advice from users running a variety of monitor layouts and WoW clients. Community testing and detailed reports have directly contributed to Offhand's compatibility and stability.</p></div>
+                    <div class="community-support-actions"><a href="https://discord.gg/3BAVSXBXH" target="_blank" rel="noopener noreferrer" class="btn btn-wow-red"><img src="assets/discord-symbol.svg" alt="" aria-hidden="true">Join Discord</a><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/issues" target="_blank" rel="noopener" class="btn btn-wow-stone">Report on GitHub</a></div>
+                </aside>
             </div>
         </section>
 
@@ -535,11 +554,11 @@
                     <span class="footer-subtitle">Dual-Wield Your Monitors</span>
                 </div>
             </div>
-        <nav class="footer-nav" aria-label="Footer navigation"><div class="footer-nav-row"><a href="index.html">Home</a><a href="manual-spanning.html">Window Setup</a><a href="background-studio.html">Background Studio</a><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub</a></div><div class="footer-nav-row"><a href="index.html#faq">FAQ</a><a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge</a><a href="companion.html">Companion</a><span class="footer-community-actions"><a class="footer-discord" href="https://discord.gg/3BAVSXBXH" target="_blank" rel="noopener noreferrer" aria-label="Join the Offhand Discord" title="Join the Offhand Discord"><img src="assets/discord-symbol.svg" alt="" aria-hidden="true"></a><a class="footer-support" href="https://ko-fi.com/n4uxaddons" target="_blank" rel="noopener noreferrer" aria-label="Support N4UX on Ko-fi"><img src="assets/ko-fi-symbol.png" alt="" aria-hidden="true">Support N4UX</a></span></div></nav>
+        <nav class="footer-nav" aria-label="Footer navigation"><div class="footer-nav-row"><a href="index.html">Home</a><a href="manual-spanning.html">Window Setup</a><a href="in-game-setup.html">In-Game Setup</a><a href="background-studio.html">Background Studio</a><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub</a></div><div class="footer-nav-row"><a href="index.html#faq">FAQ</a><a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge</a><a href="companion.html">Companion</a><span class="footer-community-actions"><a class="footer-discord" href="https://discord.gg/3BAVSXBXH" target="_blank" rel="noopener noreferrer" aria-label="Join the Offhand Discord" title="Join the Offhand Discord"><img src="assets/discord-symbol.svg" alt="" aria-hidden="true">Join Discord</a><a class="footer-support" href="https://ko-fi.com/n4uxaddons" target="_blank" rel="noopener noreferrer" aria-label="Support N4UX on Ko-fi"><img src="assets/ko-fi-symbol.png" alt="" aria-hidden="true">Support N4UX</a></span></div></nav>
         </div>
         <div class="footer-legal">
             <p>In-game Addon: Copyright &copy; 2026 Offhand Project (All Rights Reserved). &bull; Desktop Companion: Open Source under the <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/Companion/LICENSE" target="_blank">MIT License</a>.</p>
-            <p class="footer-disclaimer">World of Warcraft&trade; and Blizzard Entertainment&trade; are trademarks or registered trademarks of Blizzard Entertainment, Inc. Offhand is an independent open-source project and is not affiliated with, endorsed by, or sponsored by Blizzard Entertainment.</p>
+            <p class="footer-disclaimer">World of Warcraft&trade; and Blizzard Entertainment&trade; are trademarks or registered trademarks of Blizzard Entertainment, Inc. Offhand is not affiliated with, endorsed by, or sponsored by Blizzard Entertainment.</p>
         </div>
     </footer>
 

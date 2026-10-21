@@ -147,7 +147,8 @@ function Options:GetMainhandLayoutFailureText(reason)
     if reason == "span" then
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
             and Offhand.Viewport:GetMetrics() or nil
-        if metrics and metrics.topologyStatus == "MISMATCH" then
+        if metrics and metrics.topologyStatus == "MISMATCH"
+            and not metrics.manualCanvas then
             return L["MAINHAND_LAYOUT_SPAN_MISMATCH"]
         end
         return L["MAINHAND_LAYOUT_SPAN_UNCONFIRMED"]
@@ -340,7 +341,8 @@ function Options:DetectTopology()
     -- report 3818x2104 while the Companion is spanning it. That single
     -- landscape surface otherwise satisfies the broad mixed-monitor heuristic
     -- below and makes the wizard save a false portrait + landscape layout.
-    if metrics and metrics.topologyStatus == "MISMATCH" then
+    if metrics and metrics.topologyStatus == "MISMATCH"
+        and not metrics.manualCanvas then
         info.topologyStatus = metrics.topologyStatus
         info.description = "Companion topology does not match the current WoW window"
         return info
@@ -2687,6 +2689,112 @@ function Options:CreateFloatingPanel()
     themeNote:SetPoint("TOPLEFT", 12, -188)
     themeNote:SetText(L["BTN_CANVAS_PREVIEW_TIP_DESC"])
 
+    local card3_4 = CreateCard(tab3, L["CARD_USER_MEDIA"], 176)
+
+    local userMediaStatus = card3_4:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    userMediaStatus:SetPoint("TOPLEFT", 14, -30)
+    userMediaStatus:SetPoint("TOPRIGHT", -14, -30)
+    userMediaStatus:SetJustifyH("LEFT")
+    userMediaStatus:SetWordWrap(true)
+
+    local userMediaEnableCheck = CreateNativeCheckbox(card3_4, L["USER_MEDIA_ENABLE"],
+        function() return Offhand.db and Offhand.db.userMediaEnabled == true end,
+        function(value)
+            local enabled = Offhand.UserMedia and Offhand.UserMedia.SetEnabled
+                and Offhand.UserMedia:SetEnabled(value)
+            if value and not enabled then
+                local status, reason = "MISSING", nil
+                if Offhand.UserMedia and Offhand.UserMedia.GetStatus then
+                    status, reason = Offhand.UserMedia:GetStatus()
+                end
+                Offhand:Print(status == "INVALID" and reason == "LEGACY_OR_UNSUPPORTED_SCHEMA"
+                    and L["USER_MEDIA_STATUS_LEGACY"]
+                    or status == "INVALID" and L["USER_MEDIA_STATUS_INVALID"]
+                    or status == "DISABLED" and L["USER_MEDIA_STATUS_DISABLED"]
+                    or L["USER_MEDIA_STATUS_MISSING"])
+            end
+            if Options.UpdateUserMediaControls then Options:UpdateUserMediaControls() end
+        end,
+        L["USER_MEDIA_ENABLE_TIP_TITLE"], L["USER_MEDIA_ENABLE_TIP_DESC"])
+    userMediaEnableCheck:SetPoint("TOPLEFT", 12, -70)
+
+    local function SelectUserMediaFit(mode)
+        if Offhand.UserMedia and Offhand.UserMedia.SetFitMode then
+            Offhand.UserMedia:SetFitMode(mode)
+        elseif Offhand.db then
+            Offhand.db.userMediaFitMode = mode
+        end
+    end
+
+    local userMediaPackageFit = CreateNativeRadioButton(card3_4, L["USER_MEDIA_FIT_PACKAGE"],
+        function() return Offhand.db and Offhand.db.userMediaFitMode == "PACKAGE" end,
+        function() SelectUserMediaFit("PACKAGE") end,
+        L["USER_MEDIA_FIT_TIP_TITLE"], L["USER_MEDIA_FIT_TIP_DESC"])
+    userMediaPackageFit:SetPoint("TOPLEFT", 12, -104)
+
+    local userMediaFillFit = CreateNativeRadioButton(card3_4, L["USER_MEDIA_FIT_FILL"],
+        function() return Offhand.db and Offhand.db.userMediaFitMode == "FILL" end,
+        function() SelectUserMediaFit("FILL") end,
+        L["USER_MEDIA_FIT_TIP_TITLE"], L["USER_MEDIA_FIT_TIP_DESC"])
+    userMediaFillFit:SetPoint("TOPLEFT", 220, -104)
+
+    local userMediaContainFit = CreateNativeRadioButton(card3_4, L["USER_MEDIA_FIT_FIT"],
+        function() return Offhand.db and Offhand.db.userMediaFitMode == "FIT" end,
+        function() SelectUserMediaFit("FIT") end,
+        L["USER_MEDIA_FIT_TIP_TITLE"], L["USER_MEDIA_FIT_TIP_DESC"])
+    userMediaContainFit:SetPoint("TOPLEFT", 330, -104)
+
+    local userMediaStretchFit = CreateNativeRadioButton(card3_4, L["USER_MEDIA_FIT_STRETCH"],
+        function() return Offhand.db and Offhand.db.userMediaFitMode == "STRETCH" end,
+        function() SelectUserMediaFit("STRETCH") end,
+        L["USER_MEDIA_FIT_TIP_TITLE"], L["USER_MEDIA_FIT_TIP_DESC"])
+    userMediaStretchFit:SetPoint("TOPLEFT", 430, -104)
+
+    local userMediaRestartNote = card3_4:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    userMediaRestartNote:SetPoint("TOPLEFT", 14, -138)
+    userMediaRestartNote:SetPoint("TOPRIGHT", -14, -138)
+    userMediaRestartNote:SetJustifyH("LEFT")
+    userMediaRestartNote:SetText(L["USER_MEDIA_RESTART_NOTE"])
+
+    local userMediaFitControls = {
+        userMediaPackageFit, userMediaFillFit, userMediaContainFit, userMediaStretchFit,
+    }
+
+    function Options:UpdateUserMediaControls()
+        local status, reason, metadata = "MISSING", nil, nil
+        if Offhand.UserMedia and Offhand.UserMedia.GetStatus then
+            status, reason, metadata = Offhand.UserMedia:GetStatus()
+        end
+        if status == "AVAILABLE" and metadata then
+            userMediaStatus:SetText(string.format(L["USER_MEDIA_STATUS_AVAILABLE"],
+                metadata.imageWidth, metadata.imageHeight,
+                metadata.textureWidth, metadata.textureHeight, metadata.schema))
+        elseif status == "DISABLED" then
+            userMediaStatus:SetText(L["USER_MEDIA_STATUS_DISABLED"])
+        elseif status == "INVALID" then
+            userMediaStatus:SetText(reason == "LEGACY_OR_UNSUPPORTED_SCHEMA"
+                and L["USER_MEDIA_STATUS_LEGACY"] or L["USER_MEDIA_STATUS_INVALID"])
+        else
+            userMediaStatus:SetText(L["USER_MEDIA_STATUS_MISSING"])
+        end
+
+        userMediaEnableCheck:SetChecked(Offhand.db and Offhand.db.userMediaEnabled == true or false)
+        local configuredFit = Offhand.db and Offhand.db.userMediaFitMode or "PACKAGE"
+        userMediaPackageFit:SetChecked(configuredFit == "PACKAGE")
+        userMediaFillFit:SetChecked(configuredFit == "FILL")
+        userMediaContainFit:SetChecked(configuredFit == "FIT")
+        userMediaStretchFit:SetChecked(configuredFit == "STRETCH")
+        local available = status == "AVAILABLE"
+        for _, control in ipairs(userMediaFitControls) do
+            if control.SetEnabled then control:SetEnabled(available) end
+            if control.SetAlpha then control:SetAlpha(available and 1 or 0.55) end
+            if control.Text and control.Text.SetTextColor then
+                control.Text:SetTextColor(available and 1 or 0.55,
+                    available and 1 or 0.55, available and 1 or 0.55)
+            end
+        end
+    end
+
     -- ========================================================================
     -- TAB 4: PROFILES
     -- ========================================================================
@@ -2946,7 +3054,7 @@ function Options:CreateFloatingPanel()
     if advancedCard then offhandCards[#offhandCards + 1] = advancedCard end
     offhandCards[#offhandCards + 1] = recoveryCard
     Options:StackCards(tab2, offhandCards)
-    Options:StackCards(tab3, {card3_1, card3_2, card3_3})
+    Options:StackCards(tab3, {card3_1, card3_2, card3_3, card3_4})
     Options:StackCards(tab4, {card4_1})
     Options:StackCards(tab5, helpCards)
 
@@ -3143,6 +3251,10 @@ function Options:CreateFloatingPanel()
         rTinker:SetChecked(curTheme == "GNOMISH_TINKER")
         rObsidian:SetChecked(curTheme == "OBSIDIAN")
         rPitchBlack:SetChecked(curTheme == "PITCH_BLACK")
+
+        if Options.UpdateUserMediaControls then
+            Options:UpdateUserMediaControls()
+        end
 
         bezelSlider:UpdateText()
         alphaSlider:UpdateText()

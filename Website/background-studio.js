@@ -1,7 +1,8 @@
 import {
     PACKAGE_LIMITS,
-    PACKAGE_PATHS,
+    PACKAGE_FILES,
     GENERATOR_VERSION,
+    LEGACY_MEDIA_SCHEMA,
     MEDIA_SCHEMA,
     buildStoredZip,
     calculateFillCrop,
@@ -14,7 +15,7 @@ import {
     formatBytes,
     inspectGeneratedZip,
     inspectImageHeader,
-} from "./background-studio-core.mjs?v=20261016-5";
+} from "./background-studio-core.mjs?v=20261020-2";
 
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 const MAX_IMAGE_PIXELS = 40 * 1000 * 1000;
@@ -328,7 +329,9 @@ async function loadImageFile(file) {
 }
 
 function validateRecipe(recipe, tga) {
-    if (!recipe || Number(recipe.schema) !== MEDIA_SCHEMA) throw new Error("The package recipe schema is unsupported.");
+    if (!recipe || ![LEGACY_MEDIA_SCHEMA, MEDIA_SCHEMA].includes(Number(recipe.schema))) {
+        throw new Error("The package recipe schema is unsupported.");
+    }
     const contentWidth = Number(recipe.imageWidth);
     const contentHeight = Number(recipe.imageHeight);
     if (!Number.isInteger(contentWidth) || !Number.isInteger(contentHeight) || contentWidth < 1 || contentHeight < 1
@@ -344,8 +347,8 @@ async function loadExistingPackage(file) {
         if (!file || file.size < 1 || file.size > PACKAGE_LIMITS.maxCompressedBytes) throw new Error("Choose a package no larger than 12 MiB.");
         setStatus("Inspecting the package locally…", "working");
         const entries = inspectGeneratedZip(new Uint8Array(await file.arrayBuffer()));
-        const recipe = decodeJson(entries.get(PACKAGE_PATHS[2]));
-        const tga = decodeTga32(entries.get(PACKAGE_PATHS[4]));
+        const recipe = decodeJson(entries.get(PACKAGE_FILES.recipe));
+        const tga = decodeTga32(entries.get(PACKAGE_FILES.texture));
         const { contentWidth, contentHeight } = validateRecipe(recipe, tga);
         const textureCanvas = document.createElement("canvas");
         textureCanvas.width = tga.width;
@@ -365,7 +368,11 @@ async function loadExistingPackage(file) {
         elements.sourceFact.textContent = `${contentWidth}×${contentHeight} packaged image`;
         elements.textureFact.textContent = `${tga.width}×${tga.height} TGA`;
         elements.packageFact.textContent = formatBytes(file.size);
-        setStatus("Package passed structural, path, size, and CRC checks. You can repair or regenerate it.", "success");
+        if (Number(recipe.schema) === LEGACY_MEDIA_SCHEMA) {
+            setStatus("Legacy package passed local safety checks. Generate a replacement to convert it to the current code-free format.", "success");
+        } else {
+            setStatus("Package passed structural, path, size, and CRC checks. You can repair or regenerate it.", "success");
+        }
         setBusy(false);
         drawPreview();
     } catch (error) {
@@ -377,10 +384,9 @@ async function loadExistingPackage(file) {
 }
 
 function createPackageText(recipe) {
-    const toc = createMediaToc();
-    const lua = `-- Generated locally by the Offhand Background Studio.\r\n-- This file contains only display metadata and user-selected presentation values.\r\nOffhandUserBackground = {\r\n  schema = ${MEDIA_SCHEMA},\r\n  generatorVersion = ${GENERATOR_VERSION},\r\n  texture = "Interface\\\\AddOns\\\\Offhand_UserMedia\\\\Textures\\\\Background.tga",\r\n  imageWidth = ${recipe.imageWidth}, imageHeight = ${recipe.imageHeight},\r\n  textureWidth = ${recipe.textureWidth}, textureHeight = ${recipe.textureHeight},\r\n  suggestedFit = "${recipe.suggestedFit}", zoom = ${recipe.zoom.toFixed(4)},\r\n  focalX = ${recipe.focalX.toFixed(4)}, focalY = ${recipe.focalY.toFixed(4)},\r\n  opacity = ${recipe.opacity.toFixed(4)}, dim = ${recipe.dim.toFixed(4)},\r\n  matte = "${recipe.matte}",\r\n}\r\n`;
-    const readme = `OFFHAND USER MEDIA\r\n==================\r\n\r\nThis package was generated locally in your browser by the Offhand Background Studio.\r\nYour source image was not uploaded.\r\n\r\nINSTALL\r\n1. Close World of Warcraft completely.\r\n2. Extract Offhand_UserMedia beside Offhand in the client's Interface\\AddOns folder.\r\n3. Start WoW and verify both Offhand and Offhand User Media are enabled.\r\n4. Open /offhand and enable the custom canvas background.\r\n\r\nUPDATE\r\nReturn to the Background Studio and choose Update package, or create a new package.\r\nClose WoW before replacing this folder.\r\n\r\nREMOVE\r\nDisable the custom background, close WoW, then delete only Offhand_UserMedia.\r\n`;
-    return { toc, lua, readme };
+    const toc = createMediaToc(recipe);
+    const readme = `OFFHAND USER MEDIA\r\n==================\r\n\r\nThis package was generated locally in your browser by the Offhand Background Studio.\r\nYour source image was not uploaded.\r\n\r\nSECURITY\r\nThis package contains one TGA texture, declarative TOC metadata, a JSON recipe, and this text file.\r\nIt contains no Lua, executable, DLL, macro, installer, or network code.\r\nDo not install media packages received from other people directly. Open an existing package with the official Background Studio and generate a clean replacement instead.\r\n\r\nINSTALL\r\n1. Close World of Warcraft completely.\r\n2. Extract Offhand_UserMedia beside Offhand in the client's Interface\\AddOns folder.\r\n3. Start WoW and verify both Offhand and Offhand User Media are enabled.\r\n4. Open /offhand, select Themes, scroll to 4. Background Studio, and enable Use installed custom background.\r\n\r\nUPDATE\r\nReturn to the Background Studio and choose Update package, or create a new package.\r\nClose WoW before replacing this folder.\r\n\r\nREMOVE\r\nDisable the custom background, close WoW, then delete only Offhand_UserMedia.\r\n`;
+    return { toc, readme };
 }
 
 async function generatePackage() {
@@ -405,11 +411,10 @@ async function generatePackage() {
         const recipeText = `${JSON.stringify(recipe, null, 2)}\n`;
         const text = createPackageText(recipe);
         const zip = buildStoredZip([
-            { name: PACKAGE_PATHS[0], data: text.toc },
-            { name: PACKAGE_PATHS[1], data: text.lua },
-            { name: PACKAGE_PATHS[2], data: recipeText },
-            { name: PACKAGE_PATHS[3], data: text.readme },
-            { name: PACKAGE_PATHS[4], data: tga },
+            { name: PACKAGE_FILES.toc, data: text.toc },
+            { name: PACKAGE_FILES.recipe, data: recipeText },
+            { name: PACKAGE_FILES.readme, data: text.readme },
+            { name: PACKAGE_FILES.texture, data: tga },
         ]);
         const blob = new Blob([zip], { type: "application/zip" });
         const url = URL.createObjectURL(blob);

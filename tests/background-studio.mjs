@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
     GENERATOR_VERSION,
+    LEGACY_MEDIA_SCHEMA,
+    LEGACY_PACKAGE_PATHS,
     MEDIA_SCHEMA,
+    PACKAGE_FILES,
     PACKAGE_PATHS,
     buildStoredZip,
     calculateFillCrop,
@@ -19,18 +23,41 @@ import {
     nextPowerOfTwo,
 } from "../Website/background-studio-core.mjs";
 
-const mediaToc = createMediaToc();
+const tocRecipe = {
+    schema: MEDIA_SCHEMA,
+    generatorVersion: GENERATOR_VERSION,
+    imageWidth: 1440,
+    imageHeight: 2560,
+    textureWidth: 2048,
+    textureHeight: 4096,
+    suggestedFit: "FILL",
+    zoom: 1.25,
+    focalX: 0.4,
+    focalY: 0.6,
+    opacity: 0.9,
+    dim: 0.15,
+    matte: "#161922",
+};
+const mediaToc = createMediaToc(tocRecipe);
 assert.match(mediaToc, /^## Interface: 30300, .*120105.*11509\r\n/);
 assert.match(mediaToc, /## Title: \|cffffbd0aOffhand\|r \|cffffffff\[User Media\]\|r/);
-assert.match(mediaToc, /## Notes: Your custom Offhand canvas background, generated locally by the Offhand Background Studio\./);
+assert.match(mediaToc, /## Notes: Your code-free custom Offhand canvas background, generated locally by the Offhand Background Studio\./);
 assert.match(mediaToc, /## Author: Offhand Background Studio/);
 assert.match(mediaToc, new RegExp(`## Version: ${MEDIA_SCHEMA}\\r\\n`));
 assert.match(mediaToc, new RegExp(`## X-Offhand-Media-Schema: ${MEDIA_SCHEMA}\\r\\n`));
 assert.match(mediaToc, new RegExp(`## X-Offhand-Generator-Version: ${GENERATOR_VERSION}\\r\\n`));
+assert.match(mediaToc, /## X-Offhand-Image-Width: 1440\r\n/);
+assert.match(mediaToc, /## X-Offhand-Texture-Height: 4096\r\n/);
+assert.match(mediaToc, /## X-Offhand-Suggested-Fit: FILL\r\n/);
+assert.match(mediaToc, /## X-Offhand-Zoom: 1\.2500\r\n/);
+assert.match(mediaToc, /## X-Offhand-Matte: #161922\r\n/);
 assert.match(mediaToc, /## X-Website: https:\/\/offhand-wow\.onrender\.com\/background-studio\.html/);
 assert.match(mediaToc, /## IconTexture: Interface\\AddOns\\Offhand\\Media\\OffhandLogo64x64\.blp/);
-assert.match(mediaToc, /## LoadOnDemand: 1\r\n## Dependencies: Offhand\r\n\r\nBackground\.lua\r\n$/);
-assert.doesNotMatch(mediaToc, /SavedVariables|Companion|X-Offhand-Release/);
+assert.match(mediaToc, /## LoadOnDemand: 1\r\n## Dependencies: Offhand\r\n\r\n$/);
+assert.doesNotMatch(mediaToc, /\.lua|SavedVariables|Companion|X-Offhand-Release/);
+assert.equal(PACKAGE_PATHS.includes("Offhand_UserMedia/Background.lua"), false);
+assert.throws(() => createMediaToc({ ...tocRecipe, suggestedFit: "FILL\nBackground.lua" }), /suggestedFit/);
+assert.throws(() => createMediaToc({ ...tocRecipe, matte: "#161922\nBackground.lua" }), /matte/i);
 
 assert.equal(nextPowerOfTwo(1), 1);
 assert.equal(nextPowerOfTwo(1025), 2048);
@@ -93,20 +120,45 @@ assert.equal(decoded.width, 2);
 assert.equal(decoded.height, 2);
 assert.deepEqual(Array.from(decoded.rgba), Array.from(rgba));
 
-const recipe = { schema: 1, textureWidth: 2, textureHeight: 2, imageWidth: 2, imageHeight: 2, zoom: 1.5 };
+const recipe = {
+    schema: MEDIA_SCHEMA,
+    generatorVersion: GENERATOR_VERSION,
+    textureWidth: 2,
+    textureHeight: 2,
+    imageWidth: 2,
+    imageHeight: 2,
+    suggestedFit: "FIT",
+    zoom: 1.5,
+    focalX: 0.5,
+    focalY: 0.5,
+    opacity: 1,
+    dim: 0.15,
+    matte: "#161922",
+};
 const entries = [
-    { name: PACKAGE_PATHS[0], data: mediaToc },
-    { name: PACKAGE_PATHS[1], data: "OffhandUserBackground = {}\n" },
-    { name: PACKAGE_PATHS[2], data: `${JSON.stringify(recipe)}\n` },
-    { name: PACKAGE_PATHS[3], data: "README\n" },
-    { name: PACKAGE_PATHS[4], data: tga },
+    { name: PACKAGE_FILES.toc, data: createMediaToc(recipe) },
+    { name: PACKAGE_FILES.recipe, data: `${JSON.stringify(recipe)}\n` },
+    { name: PACKAGE_FILES.readme, data: "README\n" },
+    { name: PACKAGE_FILES.texture, data: tga },
 ];
 const zip = buildStoredZip(entries);
 const inspected = inspectGeneratedZip(zip);
-assert.equal(new TextDecoder().decode(inspected.get(PACKAGE_PATHS[0])), mediaToc);
-assert.deepEqual(decodeJson(inspected.get(PACKAGE_PATHS[2])), recipe);
-assert.deepEqual(Array.from(inspected.get(PACKAGE_PATHS[4])), Array.from(tga));
-assert.equal(crc32(inspected.get(PACKAGE_PATHS[4])), crc32(tga));
+assert.deepEqual(decodeJson(inspected.get(PACKAGE_FILES.recipe)), recipe);
+assert.deepEqual(Array.from(inspected.get(PACKAGE_FILES.texture)), Array.from(tga));
+assert.equal(crc32(inspected.get(PACKAGE_FILES.texture)), crc32(tga));
+assert.equal(inspected.has("Offhand_UserMedia/Background.lua"), false);
+
+const legacyRecipe = { ...recipe, schema: LEGACY_MEDIA_SCHEMA, generatorVersion: 2 };
+const legacyZip = buildStoredZip([
+    { name: LEGACY_PACKAGE_PATHS[0], data: "## X-Offhand-Media-Schema: 1\nBackground.lua\n" },
+    { name: LEGACY_PACKAGE_PATHS[1], data: "OffhandUserBackground = {}\n" },
+    { name: LEGACY_PACKAGE_PATHS[2], data: `${JSON.stringify(legacyRecipe)}\n` },
+    { name: LEGACY_PACKAGE_PATHS[3], data: "README\n" },
+    { name: LEGACY_PACKAGE_PATHS[4], data: tga },
+]);
+const inspectedLegacy = inspectGeneratedZip(legacyZip);
+assert.equal(inspectedLegacy.has("Offhand_UserMedia/Background.lua"), true,
+    "legacy packages should be accepted only for safe local regeneration");
 
 assert.equal(isSafePackagePath("Offhand_UserMedia/Textures/Background.tga"), true);
 assert.equal(isSafePackagePath("../Background.tga"), false);
@@ -134,5 +186,42 @@ const mismatchedLocalHeader = zip.slice();
 const localNameOffset = 30;
 mismatchedLocalHeader[localNameOffset] ^= 0x01;
 assert.throws(() => inspectGeneratedZip(mismatchedLocalHeader), /local header does not match/i);
+
+function centralOffset(bytes) {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    return view.getUint32(bytes.length - 22 + 16, true);
+}
+
+const encrypted = zip.slice();
+new DataView(encrypted.buffer).setUint16(centralOffset(encrypted) + 8, 0x0801, true);
+assert.throws(() => inspectGeneratedZip(encrypted), /unsupported|encrypted/i);
+
+const compressed = zip.slice();
+new DataView(compressed.buffer).setUint16(centralOffset(compressed) + 10, 8, true);
+assert.throws(() => inspectGeneratedZip(compressed), /unsupported|compressed/i);
+
+const linked = zip.slice();
+new DataView(linked.buffer).setUint32(centralOffset(linked) + 38, 0xa0000000, true);
+assert.throws(() => inspectGeneratedZip(linked), /unsupported|linked/i);
+
+const oldCentralOffset = centralOffset(zip);
+const hiddenLocalData = new Uint8Array(zip.length + 1);
+hiddenLocalData.set(zip.subarray(0, oldCentralOffset), 0);
+hiddenLocalData[oldCentralOffset] = 0x41;
+hiddenLocalData.set(zip.subarray(oldCentralOffset), oldCentralOffset + 1);
+new DataView(hiddenLocalData.buffer).setUint32(hiddenLocalData.length - 22 + 16, oldCentralOffset + 1, true);
+assert.throws(() => inspectGeneratedZip(hiddenLocalData), /hidden|unreferenced|incomplete/i);
+
+const studioHtml = readFileSync(new URL("../Website/background-studio.html", import.meta.url), "utf8");
+assert.match(studioHtml, /connect-src 'none'/);
+assert.match(studioHtml, /contains no Lua, EXE, DLL, installer, macro, or network code/);
+assert.match(studioHtml, /Do not install a media ZIP received from another person directly/);
+const renderBlueprint = readFileSync(new URL("../render.yaml", import.meta.url), "utf8");
+assert.match(renderBlueprint, /path: \/background-studio\.html[\s\S]*name: Content-Security-Policy/);
+assert.match(renderBlueprint, /name: X-Content-Type-Options\s+value: nosniff/);
+assert.match(renderBlueprint, /name: X-Frame-Options\s+value: DENY/);
+const securityContact = readFileSync(new URL("../Website/.well-known/security.txt", import.meta.url), "utf8");
+assert.match(securityContact, /^Contact: https:\/\/github\.com\/N4UX-GIT\/Offhand-DualMonitor\/security\/advisories\/new$/m);
+assert.match(securityContact, /^Expires: 2027-10-20T23:59:59Z$/m);
 
 console.log("PASS: Background Studio texture normalization, TGA, ZIP, CRC, and path safety verified.");

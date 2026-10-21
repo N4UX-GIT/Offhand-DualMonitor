@@ -21,6 +21,7 @@
 *   **Mix & Match Monitors:** Got a 4K main screen and a 1080p vertical monitor on the side? Offhand handles asymmetrical layouts, mixed resolutions, and different refresh rates naturally.
 *   **Hide the Bezel:** Offhand calculates the physical plastic gap between your monitors so the game world flows behind it instead of warping. Streaming? The included OBS guide shows you how to broadcast a clean, gap-free feed.
 *   **Optional Companion App:** A small, open-source setup utility that removes the Windows title bar and applies exact display geometry. The span remains after the Companion exits; background monitoring, automatic spanning, hotplug recovery, and the legacy Forever recovery bridge are optional services.
+*   **Custom Canvas Backgrounds:** The website's Background Studio converts a PNG, JPEG, or WebP locally in the browser and produces a separate, code-free `Offhand_UserMedia` addon. Offhand reads validated declarative metadata without loading executable media-addon code and safely falls back to the selected theme if the package is absent or invalid.
 *   **Reliable Camera Input:** While spanned, Offhand enables WoW's raw mouse input so repeated right-button camera movement cannot exhaust the hidden cursor against a mixed-height window edge. The player's previous setting is restored outside the span.
 
 ---
@@ -117,6 +118,19 @@ See the complete [manual spanning guide](https://offhand-wow.onrender.com/manual
 
 **Note:** Manual spanning leaves the Windows title bar visible and may need to be repeated after launch. The addon cannot query native monitor rectangles, so manual calibration asks the player to confirm the Mainhand side, seam, and aspect. On a Forever build that fails the cold-launch test above, the Companion bridge remains an optional recovery workaround.
 
+### Custom Backgrounds
+
+Use the [Background Studio](https://offhand-wow.onrender.com/background-studio.html) to create a custom Offhand canvas background. Processing and ZIP generation happen locally in the browser; the source image is not uploaded.
+
+1. Close World of Warcraft completely.
+2. Extract the generated `Offhand_UserMedia` folder beside `Offhand` in the same `Interface/AddOns` directory. Do not place either addon inside the other.
+3. Start WoW and confirm both **Offhand** and **Offhand User Media** are enabled in the AddOns list.
+4. Open `/offhand`, select **Themes**, and enable **Use installed custom background**.
+
+The **Studio recommendation** uses the fit mode stored in the generated package. Fill, Fit, and Stretch can also be selected in-game without regenerating the image. Crop focus, zoom, opacity, darkening, and matte color remain controlled by the Background Studio package. Replacing its texture requires a full client restart; `/reload` alone does not reload interface texture files reliably. Normal Offhand updates do not modify the separate user-owned media folder.
+
+Current media packages contain only `Offhand_UserMedia.toc`, `BackgroundRecipe.json`, `README.txt`, and `Textures/Background.tga`. They contain no Lua or native executable. Do not install a media ZIP received from another person directly, because any archive can be modified after generation. Open it through the official Studio's **Update package** path and generate a clean replacement. The importer reads archives in memory without extracting or executing them, accepts only the current or legacy Studio file layout, applies strict path and size limits, and discards the legacy `Background.lua` file when producing the current code-free format.
+
 ---
 
 ## ⚙️ Configuration & Commands
@@ -125,7 +139,7 @@ Type /offhand (or /oh) to open the main configuration dashboard.
 
 *   **Display:** Swap which monitor is your Mainhand/Offhand, adjust aspect ratio, tweak the seam boundary, and configure global UI scale.
 *   **Offhand Monitor:** Customize the map size, toggle independent panel persistence, and set up automatic routing for bags and UI frames.
-*   **Themes:** Choose from various Warcraft-style presets and custom colors for your Offhand Monitor background and border accents.
+*   **Themes:** Choose from various Warcraft-style presets and custom colors for your Offhand Monitor background and border accents. An installed Background Studio package can be enabled here and displayed with its recommended fit or a Fill, Fit, or Stretch override.
 *   **Profiles:** Create, load, and copy settings profiles across your characters.
 
 ### Forever Beta: Action Bars and Combat Frames

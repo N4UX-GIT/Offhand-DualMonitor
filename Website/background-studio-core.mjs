@@ -8,20 +8,65 @@ export const PACKAGE_LIMITS = Object.freeze({
     maxEntryBytes: 10 * 1024 * 1024,
 });
 
-export const MEDIA_SCHEMA = 1;
-export const GENERATOR_VERSION = 2;
+export const MEDIA_SCHEMA = 2;
+export const LEGACY_MEDIA_SCHEMA = 1;
+export const GENERATOR_VERSION = 3;
 export const SUPPORTED_INTERFACES = "30300, 120105, 120100, 120007, 120005, 16001, 50504, 40402, 30405, 38000, 20506, 11508, 11509";
 
-export const PACKAGE_PATHS = Object.freeze([
-    "Offhand_UserMedia/Offhand_UserMedia.toc",
+export const PACKAGE_FILES = Object.freeze({
+    toc: "Offhand_UserMedia/Offhand_UserMedia.toc",
+    recipe: "Offhand_UserMedia/BackgroundRecipe.json",
+    readme: "Offhand_UserMedia/README.txt",
+    texture: "Offhand_UserMedia/Textures/Background.tga",
+});
+
+export const PACKAGE_PATHS = Object.freeze(Object.values(PACKAGE_FILES));
+export const LEGACY_PACKAGE_PATHS = Object.freeze([
+    PACKAGE_FILES.toc,
     "Offhand_UserMedia/Background.lua",
-    "Offhand_UserMedia/BackgroundRecipe.json",
-    "Offhand_UserMedia/README.txt",
-    "Offhand_UserMedia/Textures/Background.tga",
+    PACKAGE_FILES.recipe,
+    PACKAGE_FILES.readme,
+    PACKAGE_FILES.texture,
 ]);
 
-export function createMediaToc() {
-    return `## Interface: ${SUPPORTED_INTERFACES}\r\n## Title: |cffffbd0aOffhand|r |cffffffff[User Media]|r\r\n## Notes: Your custom Offhand canvas background, generated locally by the Offhand Background Studio.\r\n## Author: Offhand Background Studio\r\n## Version: ${MEDIA_SCHEMA}\r\n## X-Offhand-Media-Schema: ${MEDIA_SCHEMA}\r\n## X-Offhand-Generator-Version: ${GENERATOR_VERSION}\r\n## X-Website: https://offhand-wow.onrender.com/background-studio.html\r\n## IconTexture: Interface\\AddOns\\Offhand\\Media\\OffhandLogo64x64.blp\r\n## LoadOnDemand: 1\r\n## Dependencies: Offhand\r\n\r\nBackground.lua\r\n`;
+function validatedMediaRecipe(recipe) {
+    const integer = (name, maximum) => {
+        const value = Number(recipe?.[name]);
+        if (!Number.isInteger(value) || value < 1 || value > maximum) throw new Error(`Invalid ${name}.`);
+        return value;
+    };
+    const decimal = (name, minimum, maximum) => {
+        const value = Number(recipe?.[name]);
+        if (!Number.isFinite(value) || value < minimum || value > maximum) throw new Error(`Invalid ${name}.`);
+        return value;
+    };
+    const imageWidth = integer("imageWidth", 4096);
+    const imageHeight = integer("imageHeight", 4096);
+    const textureWidth = integer("textureWidth", 4096);
+    const textureHeight = integer("textureHeight", 4096);
+    if (imageWidth > textureWidth || imageHeight > textureHeight) throw new Error("Image dimensions exceed the texture.");
+    const suggestedFit = String(recipe?.suggestedFit || "").toUpperCase();
+    if (!["FILL", "FIT", "STRETCH"].includes(suggestedFit)) throw new Error("Invalid suggestedFit.");
+    const matte = String(recipe?.matte || "").toUpperCase();
+    if (!/^#[0-9A-F]{6}$/.test(matte)) throw new Error("Invalid matte colour.");
+    return {
+        imageWidth,
+        imageHeight,
+        textureWidth,
+        textureHeight,
+        suggestedFit,
+        zoom: decimal("zoom", 1, 2),
+        focalX: decimal("focalX", 0, 1),
+        focalY: decimal("focalY", 0, 1),
+        opacity: decimal("opacity", 0.1, 1),
+        dim: decimal("dim", 0, 0.8),
+        matte,
+    };
+}
+
+export function createMediaToc(recipe) {
+    const media = validatedMediaRecipe(recipe);
+    return `## Interface: ${SUPPORTED_INTERFACES}\r\n## Title: |cffffbd0aOffhand|r |cffffffff[User Media]|r\r\n## Notes: Your code-free custom Offhand canvas background, generated locally by the Offhand Background Studio.\r\n## Author: Offhand Background Studio\r\n## Version: ${MEDIA_SCHEMA}\r\n## X-Offhand-Media-Schema: ${MEDIA_SCHEMA}\r\n## X-Offhand-Generator-Version: ${GENERATOR_VERSION}\r\n## X-Offhand-Image-Width: ${media.imageWidth}\r\n## X-Offhand-Image-Height: ${media.imageHeight}\r\n## X-Offhand-Texture-Width: ${media.textureWidth}\r\n## X-Offhand-Texture-Height: ${media.textureHeight}\r\n## X-Offhand-Suggested-Fit: ${media.suggestedFit}\r\n## X-Offhand-Zoom: ${media.zoom.toFixed(4)}\r\n## X-Offhand-Focal-X: ${media.focalX.toFixed(4)}\r\n## X-Offhand-Focal-Y: ${media.focalY.toFixed(4)}\r\n## X-Offhand-Opacity: ${media.opacity.toFixed(4)}\r\n## X-Offhand-Dim: ${media.dim.toFixed(4)}\r\n## X-Offhand-Matte: ${media.matte}\r\n## X-Website: https://offhand-wow.onrender.com/background-studio.html\r\n## IconTexture: Interface\\AddOns\\Offhand\\Media\\OffhandLogo64x64.blp\r\n## LoadOnDemand: 1\r\n## Dependencies: Offhand\r\n\r\n`;
 }
 
 const CRC_TABLE = (() => {
@@ -380,8 +425,10 @@ export function inspectGeneratedZip(bytes, limits = PACKAGE_LIMITS) {
         throw new Error("Unsupported or malformed ZIP structure.");
     }
 
-    const allowed = new Set(PACKAGE_PATHS);
+    const acceptedPathSets = [PACKAGE_PATHS, LEGACY_PACKAGE_PATHS];
+    const allowed = new Set(acceptedPathSets.flat());
     const entries = new Map();
+    const localRanges = [];
     let totalUncompressed = 0;
     let cursor = centralOffset;
     for (let index = 0; index < entryCount; index += 1) {
@@ -394,12 +441,14 @@ export function inspectGeneratedZip(bytes, limits = PACKAGE_LIMITS) {
         const nameLength = view.getUint16(cursor + 28, true);
         const extraLength = view.getUint16(cursor + 30, true);
         const entryCommentLength = view.getUint16(cursor + 32, true);
+        const diskNumberStart = view.getUint16(cursor + 34, true);
         const externalAttributes = view.getUint32(cursor + 38, true);
         const localHeaderOffset = view.getUint32(cursor + 42, true);
         const nameStart = cursor + 46;
         const next = nameStart + nameLength + extraLength + entryCommentLength;
         if (next > endOffset || method !== 0 || flags !== 0x0800 || compressedSize !== uncompressedSize
-            || uncompressedSize > limits.maxEntryBytes || (externalAttributes & 0xf0000000) === 0xa0000000) {
+            || extraLength !== 0 || entryCommentLength !== 0 || diskNumberStart !== 0
+            || uncompressedSize > limits.maxEntryBytes || (externalAttributes >>> 28) === 0x0a) {
             throw new Error("The ZIP contains an unsupported, encrypted, compressed, oversized, or linked entry.");
         }
         const name = TEXT_DECODER.decode(bytes.subarray(nameStart, nameStart + nameLength));
@@ -424,14 +473,26 @@ export function inspectGeneratedZip(bytes, limits = PACKAGE_LIMITS) {
         const localName = TEXT_DECODER.decode(bytes.subarray(localNameStart, localNameStart + localNameLength));
         if (localFlags !== flags || localMethod !== method || localCrc !== expectedCrc
             || localCompressedSize !== compressedSize || localUncompressedSize !== uncompressedSize
-            || localName !== name) throw new Error("The ZIP local header does not match its directory entry.");
+            || localExtraLength !== 0 || localName !== name) {
+            throw new Error("The ZIP local header does not match its directory entry.");
+        }
         const data = bytes.slice(dataStart, dataEnd);
         if (crc32(data) !== expectedCrc) throw new Error(`CRC check failed for ${name}.`);
         entries.set(name, data);
+        localRanges.push({ start: localHeaderOffset, end: dataEnd });
         cursor = next;
     }
-    if (cursor !== endOffset || entries.size !== allowed.size
-        || PACKAGE_PATHS.some((path) => !entries.has(path))) {
+    localRanges.sort((left, right) => left.start - right.start);
+    let expectedLocalOffset = 0;
+    for (const range of localRanges) {
+        if (range.start !== expectedLocalOffset || range.end < range.start) {
+            throw new Error("The ZIP contains hidden, overlapping, or unreferenced local data.");
+        }
+        expectedLocalOffset = range.end;
+    }
+    const matchesAcceptedLayout = acceptedPathSets.some((paths) =>
+        entries.size === paths.length && paths.every((path) => entries.has(path)));
+    if (cursor !== endOffset || expectedLocalOffset !== centralOffset || !matchesAcceptedLayout) {
         throw new Error("The ZIP is incomplete.");
     }
     return entries;

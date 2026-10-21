@@ -18,7 +18,8 @@ local metrics = {
 
 local ok, id, record = manager:RememberFromMetrics(metrics, "FancyZones desk", "FANCYZONES")
 assert(ok and id == "manual-1" and record.source == "FANCYZONES")
-assert(OffhandDB.manualCanvasSchema == 1 and OffhandDB.preferredGeometrySource == "AUTO")
+assert(OffhandDB.manualCanvasSchema == 1 and OffhandDB.preferredGeometrySource == "MANUAL",
+    "remembering a manual or FancyZones canvas must keep stale exact topology from retaking priority")
 
 local exact = manager:Match(3998, 2480, 3048 / 1890, addon.db)
 assert(exact.state == "MATCH" and exact.id == id)

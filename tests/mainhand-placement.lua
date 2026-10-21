@@ -150,7 +150,7 @@ Enum = {
         ActionBar = 10, StatusTrackingBar = 20,
         ExtraAbilities = 30, VehicleLeaveButton = 40,
         EncounterBar = 50, LossOfControl = 60,
-        Minimap = 70,
+        Minimap = 70, BuffFrame = 71, DamageMeter = 72,
     },
     EditModeActionBarSystemIndices = {
         MainBar = 1, StanceBar = 8, PetActionBar = 9,
@@ -198,7 +198,7 @@ Constants = { EditModeConsts = { EditModeMaxLayoutsPerType = 10 } }
 local preset = {
     layoutName = "Modern", layoutIndex = 1, layoutType = 1, interfaceStyle = 1,
     systems = {
-        { isInDefaultPosition = true,
+        { system = 72, systemIndex = 1, isInDefaultPosition = true,
           anchorInfo = { point = "CENTER", relativeTo = "UIParent", relativePoint = "CENTER", offsetX = 0, offsetY = 0 } },
         { system = 20, systemIndex = 1, isInDefaultPosition = true,
           anchorInfo = { point = "TOPRIGHT", relativeTo = "UIParent", relativePoint = "TOPRIGHT", offsetX = -20, offsetY = -30 } },
@@ -224,6 +224,8 @@ local preset = {
           anchorInfo = { point = "CENTER", relativeTo = "UIParent", relativePoint = "CENTER", offsetX = 0, offsetY = 0 } },
         { system = 70, systemIndex = 1, isInDefaultPosition = true,
           anchorInfo = { point = "TOPRIGHT", relativeTo = "UIParent", relativePoint = "TOPRIGHT", offsetX = 0, offsetY = 0 } },
+        { system = 71, systemIndex = 1, isInDefaultPosition = true,
+          anchorInfo = { point = "TOPRIGHT", relativeTo = "MinimapCluster", relativePoint = "TOPLEFT", offsetX = -8, offsetY = 0 } },
     },
 }
 local function copyTable(value, seen)
@@ -276,8 +278,8 @@ assert(layoutAdded == 4 and activated == nil and #saved.layouts == 1 and saveCou
     "generated custom layout did not use Blizzard's one-save layout-added transaction")
 local generated = saved.layouts[1]
 assert(generated.systems[1].anchorInfo.offsetX == 720
-        and generated.systems[1].anchorInfo.offsetY == -560,
-    "center anchor was not translated to the Mainhand center")
+        and generated.systems[1].anchorInfo.offsetY == -656,
+    "the default Damage Meter was not translated and inset below Mainhand's top region")
 assert(generated.systems[2].anchorInfo.point == "BOTTOM"
         and generated.systems[2].anchorInfo.offsetX == 820
         and generated.systems[2].anchorInfo.offsetY == 43,
@@ -318,6 +320,10 @@ assert(generated.systems[12].anchorInfo.offsetX == 0
 assert(generated.systems[13].anchorInfo.offsetX == 0
         and generated.systems[13].anchorInfo.offsetY == -1184,
     "the default Minimap and its system-relative Buff row were not inset from Mainhand's top edge")
+assert(generated.systems[14].anchorInfo.relativeTo == "MinimapCluster"
+        and generated.systems[14].anchorInfo.offsetX == -8
+        and generated.systems[14].anchorInfo.offsetY == -96,
+    "the default keyboard Buff Frame was not inset further without breaking its native relationship")
 assert(preset.systems[1].anchorInfo.offsetX == 0 and preset.systems[1].anchorInfo.offsetY == 0,
     "the source preset was mutated")
 assert(OffhandCharDB.mainhandLayout.sourcePreset
@@ -349,7 +355,7 @@ assert(saveCount == 3,
     "layout updates must save once and must not resubmit the payload after activation")
 generated = saved.layouts[1]
 assert(generated.systems[1].anchorInfo.offsetX == -720
-        and generated.systems[1].anchorInfo.offsetY == -560,
+        and generated.systems[1].anchorInfo.offsetY == -656,
     "layout update drifted instead of rebuilding from its source")
 
 -- Forever may expose the native post-save layout-added transaction without a
@@ -873,6 +879,9 @@ assert(OffhandCharDB.mainhandLayout.controllerLayout == true
     "the Gamepad custom layout retained stale keyboard-preset provenance")
 assert(layoutData.activeLayout == 4 and OffhandCharDB.foreverEditModeLayoutID == 4,
     "the native Gamepad path did not record its selected custom layout")
+assert(saved.layouts[1].systems[1].anchorInfo.offsetY == -560
+        and saved.layouts[1].systems[14].anchorInfo.offsetY == 0,
+    "keyboard-only Damage Meter or Buff Frame insets leaked into the Gamepad layout")
 ok, localName, moved = addon.Mainhand:CreateOrUpdateEditModeLayout()
 assert(ok and localName == "Offhand - Mainhand - Gamepad - Tester"
         and #layoutData.layouts == 1 and saveCount == 2

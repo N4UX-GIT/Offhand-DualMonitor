@@ -403,9 +403,12 @@ CharacterFrame:Show()
 WorldMapFrame.left, WorldMapFrame.bottom = 200, 400
 CharacterFrame.left, CharacterFrame.bottom = 300, 330
 addon.Canvas:RepairShownWorkspacePanels()
-assert(WorldMapFrame:GetLeft() >= metrics.gameLeft
+assert(WorldMapFrame:GetLeft() == 200
         and CharacterFrame:GetLeft() >= metrics.gameLeft,
-    "Mainhand UIPanel peers must survive Blizzard's opening-order reflow")
+    "generic peer repair must restore ordinary Mainhand panels without writing the dedicated World Map anchor")
+assert(addon.Canvas:GetPanelController("WorldMapFrame") == "forever-world-map"
+        and addon.Canvas:GetPanelController("CharacterFrame") == "generic",
+    "Forever World Map and ordinary UIPanels must use separate position controllers")
 addon.db.savedMainPositions.WorldMapFrame = nil
 addon.db.savedMainPositions.CharacterFrame = nil
 addon.db.savedWorkspacePositions.WorldMapFrame = savedWorkspaceMap

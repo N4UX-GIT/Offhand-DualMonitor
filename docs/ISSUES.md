@@ -20,6 +20,7 @@ The detailed issue section below remains authoritative.
 | OH-FOR-004 | Forever and Companion | Implemented on `main` | Automated passed | Companion repair passed | In-game reload confirmation |
 | OH-FOR-005 | Forever | Boundary implemented on `main` | Automated boundary passed | Pending | Combat and taint-log QA |
 | OH-FOR-006 | Forever | Resolved on `main` | Automated passed | Passed | Retain regression coverage |
+| OH-FOR-009 | Forever Gamepad UI | Investigation on `addon/develop` working candidate | Existing automated checks pass; no reproduction yet | One reported protected-call block during layout configuration | Fresh taint trace identifying the first Offhand contamination |
 | OH-UI-004 | Forever | Base fix on `main` | Automated passed | Base fix passed | Optional movement QA |
 | OH-COMP-001 | Shared Companion contract | Implemented on `main` | Automated passed | Pending | Newer Companion pairing QA |
 | OH-UI-001 | Forever | Resolved on `main` | Automated passed | Passed | Retain regression coverage |
@@ -287,6 +288,39 @@ issue changes branch, evidence level, candidate, or released version.
   Bagnon's own controls. Confirm no protected-call attribution and no automatic
   bag reopen. If the error remains with this candidate, repeat once with Offhand
   disabled to distinguish a native Bagnon/Forever incompatibility.
+
+## OH-FOR-009: Gamepad layout configuration blocks preferred interact target
+
+- Status: Reported on 2026-10-22; unresolved, with no reliable reproduction.
+- Client: Forever, native Gamepad UI, current Beta 21 working candidate on
+  `addon/develop`. The exact client build was not included in this report.
+- Symptom: While configuring the Gamepad layout, possibly in Edit Mode or
+  while moving panels, BugGrabber recorded one `ADDON_ACTION_FORBIDDEN` naming
+  Offhand and `SetPreferredGamepadInteractTarget()`.
+- Supplied stack: Blizzard's `Blizzard_GamepadActionBars/MainActionBarFrame.lua`
+  calls the protected function at line 325 from a function beginning at line
+  307, followed by a tail call. No Offhand function appears in the supplied
+  stack. Attribution confirms the block, but does not identify the earlier
+  taint source or the exact triggering gesture.
+- Source review: Offhand contains no direct call to the protected function.
+  Earlier popup and bag focus violations reached the same protected API, so
+  the function name alone does not establish recurrence of one of those paths.
+  Native Gamepad panel positioning still writes allowlisted root anchors from
+  the external adapter; that remains an unconfirmed candidate, not a proven
+  cause. No speculative runtime change was made for this report.
+- Evidence boundary: The 34 Lua suites and six-manifest validator passed during
+  the preceding candidate review. Those checks do not establish live Gamepad
+  taint safety and do not reproduce this report.
+- Next evidence: Enable `/console taintLog 2`, then `/reload` before a short
+  layout-configuration session. Record the exact last action if the block
+  recurs, capture the complete error and `/offhand diag`, and retain the fresh
+  `Logs/taint.log` for the first Offhand-attributed contamination. Turn logging
+  off afterward with `/console taintLog 0`. If reproducible, compare the same
+  action after a reload with Offhand disabled.
+- Related observation: The reporter also saw intermittent World Map anchoring
+  to other panels before a reload. It could no longer be reproduced afterward,
+  and panel behavior was reported stable. This is current-session evidence,
+  not a completed interaction-matrix pass or evidence that the taint is fixed.
 
 ## OH-UI-004 — Group loot rolls centered on the monitor seam
 

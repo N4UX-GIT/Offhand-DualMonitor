@@ -23,6 +23,7 @@ Core\CompanionTopology.lua
 Core\Init.lua
 Core\ForeverState.lua
 Core\Config.lua
+Core\UserMedia.lua
 Core\ManualCanvas.lua
 Core\Viewport.lua
 Core\PopupBounds.lua

@@ -1298,6 +1298,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
     if event == "ADDON_LOADED" and arg1 == addonName then
         Offhand:InitializePopups()
         Offhand:InitializeConfig()
+        if Offhand.InitializeUserMedia then Offhand:InitializeUserMedia() end
         if Offhand.InitializeThemes then Offhand:InitializeThemes() end
         if Offhand.InitializeCanvas then Offhand:InitializeCanvas() end
         if Offhand.InitializeWorkspaceBehavior then Offhand:InitializeWorkspaceBehavior() end
@@ -1310,6 +1311,13 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             if module.Initialize then
                 module:Initialize()
             end
+        end
+
+    elseif event == "ADDON_LOADED" and arg1 == "Offhand_UserMedia" then
+        if Offhand.UserMedia and Offhand.UserMedia.Refresh then
+            Offhand.UserMedia:Refresh(false)
+            if Offhand.UpdateTheme then Offhand:UpdateTheme() end
+            if Offhand.Options and Offhand.Options.RefreshPanel then Offhand.Options:RefreshPanel() end
         end
 
     elseif event == "PLAYER_LOGIN" then
@@ -1769,9 +1777,23 @@ SlashCmdList["OFFHAND"] = function(msg)
                 Offhand:Print("Compatibility diagnostics: %s.", compatibility)
             end
         end
+        if Offhand.Canvas and Offhand.Canvas.GetPanelControllerDiagnostics then
+            Offhand:Print("Panel controller diagnostics: %s.",
+                Offhand.Canvas:GetPanelControllerDiagnostics())
+        end
         if Offhand.DialogueUICompat and Offhand.DialogueUICompat.GetDiagnostics then
             Offhand:Print("Dialogue UI diagnostics: %s.",
                 Offhand.DialogueUICompat:GetDiagnostics())
+        end
+        if Offhand.UserMedia and Offhand.UserMedia.GetDiagnostics then
+            local media = Offhand.UserMedia:GetDiagnostics()
+            Offhand:Print("User media diagnostics: status=%s | installed=%s | enabled=%s | schema=%s | generator=%s | image=%sx%s | texture=%sx%s | fit=%s | reason=%s.",
+                tostring(media.status), media.installed and "yes" or "no",
+                media.enabled and "yes" or "no", tostring(media.schema or "none"),
+                tostring(media.generatorVersion or "none"),
+                tostring(media.imageWidth or "unknown"), tostring(media.imageHeight or "unknown"),
+                tostring(media.textureWidth or "unknown"), tostring(media.textureHeight or "unknown"),
+                tostring(media.fit or "none"), tostring(media.reason or "none"))
         end
     elseif cmd == "remember" then
         local preview = Offhand.Viewport and Offhand.Viewport.GetManualPreviewMetrics

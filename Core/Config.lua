@@ -24,6 +24,8 @@ local defaultSettings = {
     canvasColor = "CHARCOAL",       -- "CHARCOAL", "WARM_NIGHT", "PURE_BLACK", "DEEP_BLUE", "CUSTOM"
     customCanvasColor = { r = 0.12, g = 0.22, b = 0.35 }, -- User-selected custom workspace background
     canvasAlpha = 0.95,             -- Alpha of the secondary monitor background
+    userMediaEnabled = false,       -- Optional Offhand_UserMedia background, explicitly enabled by the player
+    userMediaFitMode = "PACKAGE",  -- "PACKAGE", "FILL", "FIT", or "STRETCH"
     workspaceMapScale = "AUTO",     -- "AUTO" (fits deck width) or number (0.50 to 1.50)
     mainMapScale = 1.0,             -- Map scale when placed on the main gaming monitor
     showMinimapIcon = true,

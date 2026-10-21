@@ -2035,15 +2035,27 @@ addon.db.savedWorkspacePositions.WorldMapFrame = {
 }
 addon.Canvas:RestoreWorkspacePosition(WorldMapFrame)
 local savedMapLeft, savedMapTop = WorldMapFrame:GetLeft(), WorldMapFrame:GetTop()
+assert(addon.Canvas:GetPanelController("WorldMapFrame") == "forever-world-map"
+        and addon.Canvas:GetPanelController("FriendsFrame") == "forever-social-community"
+        and addon.Canvas:GetPanelController("CommunitiesFrame") == "forever-social-community"
+        and addon.Canvas:GetPanelController("UnrelatedLeftPanel") == "generic",
+    "Forever high-risk panels must have one explicit position controller")
 FriendsFrame:ClearAllPoints()
 FriendsFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 20, 2480)
 WorldMapFrame:ClearAllPoints()
 WorldMapFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 12, 2050)
+addon.Canvas:RepairShownWorkspacePanels(nil, true)
+assert(WorldMapFrame:GetLeft() == 12 and WorldMapFrame:GetTop() == 2050,
+    "the generic peer repair must not write the dedicated World Map anchor")
 ShowUIPanel(unrelatedPanel)
 assert(FriendsFrame:GetLeft() == 1860 and FriendsFrame:GetTop() == 1160,
     "opening an unrelated UIPanel did not restore the displaced Social frame")
 assert(WorldMapFrame:GetLeft() == savedMapLeft and WorldMapFrame:GetTop() == savedMapTop,
     "opening another UIPanel did not restore the displaced Offhand World Map")
+local controllerDiagnostics = addon.Canvas:GetPanelControllerDiagnostics()
+assert(controllerDiagnostics:find("WorldMapFrame=forever-world-map/settlement#", 1, true)
+        and controllerDiagnostics:find("FriendsFrame=forever-social-community/", 1, true),
+    "panel diagnostics must expose the dedicated controller and its last activity")
 addon.db.savedWorkspacePositions.WorldMapFrame = nil
 
 -- Forever currently exposes the visible Friends panel as SocialUIFrame. It is
@@ -2506,22 +2518,51 @@ professionsGrip.scripts.OnDragStop(professionsGrip)
 flushTimers()
 assert(activeLeftPanel == optedInProfessions and professionsPanelEvictions == 0
         and optedInProfessions:IsShown(),
-    "Professions position settlement must not hide and reopen the native panel")
+    "a completed Offhand Professions drag must not cycle the native UIPanel slot")
+flushTimers()
+assert(professionsPanelEvictions == 0 and optedInProfessions:IsShown(),
+    "Professions watcher settlement must not attempt native slot eviction")
 
 optedInProfessions:ClearAllPoints()
 optedInProfessions:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 2100, 1100)
 optedInProfessions:Hide()
+activeLeftPanel = optedInProfessions
 optedInProfessions:Show()
 assert(addon.Canvas.IsFrameOnWorkspace(optedInProfessions),
     "a later manual Professions opening must restore its saved position immediately without waiting for timers")
+assert(activeLeftPanel == optedInProfessions and professionsPanelEvictions == 0
+        and optedInProfessions:IsShown(),
+    "a reopened Offhand Professions panel must leave native slot ownership untouched")
 -- Simulate Blizzard's native UpdateUIPanelPositions attempting to re-anchor to spanned TOPLEFT
 optedInProfessions:ClearAllPoints()
 optedInProfessions:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, -104)
 assert(addon.Canvas.IsFrameOnWorkspace(optedInProfessions),
     "Blizzard UIPanel anchor resets on Professions must be caught synchronously without jumping to top-left")
 flushTimers()
-assert(addon.Canvas.IsFrameOnWorkspace(optedInProfessions),
+assert(addon.Canvas.IsFrameOnWorkspace(optedInProfessions)
+        and professionsPanelEvictions == 0,
     "a later manual Professions opening must restore its saved position after settling")
+
+-- Forever closes active UIPanels through HideUIPanel immediately before the
+-- same Escape transaction toggles its Game Menu. Reopen only that paired hide;
+-- an explicit X/close with no ToggleGameMenu must remain closed.
+activeLeftPanel = optedInProfessions
+HideUIPanel(optedInProfessions)
+addon.Canvas:ObserveForeverProfessionsPanelHide(optedInProfessions)
+ToggleGameMenu()
+flushTimers()
+assert(optedInProfessions:IsShown()
+        and addon.Canvas.IsFrameOnWorkspace(optedInProfessions)
+        and addon.db.openWorkspacePanels.ProfessionsBookFrame,
+    "Escape must restore an explicitly open Offhand Professions book and its saved anchor")
+
+HideUIPanel(optedInProfessions)
+addon.Canvas:ObserveForeverProfessionsPanelHide(optedInProfessions)
+flushTimers()
+assert(not optedInProfessions:IsShown()
+        and addon.Canvas._foreverProfessionsEscapePending == nil
+        and not addon.db.openWorkspacePanels.ProfessionsBookFrame,
+    "an unpaired native Professions close must remain closed instead of auto-reopening")
 
 experimentalProfessionsMovement = false
 addon.Canvas:DisableExperimentalForeverProfessionsMovement()

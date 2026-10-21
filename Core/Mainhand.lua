@@ -507,7 +507,7 @@ end
 -- position. Explicitly customized source entries remain untouched. Enum lookup
 -- keeps this capability-based across Forever and Retail without assuming that
 -- numeric system identifiers are identical between client versions.
-local function RefineStandardHUDLayout(layout, rect, sourceDefaults)
+local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerLayout)
     local systems = Enum and Enum.EditModeSystem
     local indices = Enum and Enum.EditModeActionBarSystemIndices
     if type(systems) ~= "table" or type(indices) ~= "table" then return 0 end
@@ -518,6 +518,10 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults)
     local encounterSystem = systems.EncounterBar
     local lossOfControlSystem = systems.LossOfControl or systems.LossOfControlFrame
     local minimapSystem = systems.Minimap
+    local buffSystem = FirstEnumValue(systems,
+        { "BuffFrame", "BuffsAndDebuffs", "AuraFrame" })
+    local damageMeterSystem = FirstEnumValue(systems,
+        { "DamageMeter", "DamageMeterFrame" })
     local mainIndex = indices.MainBar
     -- ClassBar is not a safe stance fallback on Forever: it can identify the
     -- empty MultiCast/Totem preview, whose native tooltip rejects a nil spell.
@@ -620,6 +624,19 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults)
                     locBottom + locHeight + 8) then
                     refined = refined + 1
                 end
+            elseif not controllerLayout
+                and ((buffSystem ~= nil and entry.system == buffSystem)
+                    or (damageMeterSystem ~= nil and entry.system == damageMeterSystem))
+                and type(entry.anchorInfo) == "table"
+                and type(entry.anchorInfo.offsetY) == "number" then
+                -- Keyboard presets otherwise leave these two tall top-edge
+                -- systems pressed against Mainhand's upper boundary. Keep the
+                -- native relationship (BuffFrame is commonly Minimap-relative)
+                -- and add only a vertical inset. Gamepad has its own compact
+                -- arrangement and must retain the native preset spacing.
+                entry.anchorInfo.offsetY = entry.anchorInfo.offsetY - 96
+                entry.isInDefaultPosition = false
+                refined = refined + 1
             elseif minimapSystem ~= nil and entry.system == minimapSystem
                 and type(entry.anchorInfo) == "table"
                 and entry.anchorInfo.relativeTo == "UIParent"
@@ -1788,7 +1805,7 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
         return Offhand.isForever and foreverActionSystem ~= nil and foreverClassBar ~= nil
             and entry.system == foreverActionSystem and entry.systemIndex == foreverClassBar
     end)
-    RefineStandardHUDLayout(layout, rect, sourceDefaults)
+    RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerLayout)
     local groupMoved, groupRepaired = RefineGroupHUDLayout(layout, rect, sourceDefaults,
         transformed, repairFrameName)
     moved = moved + groupMoved

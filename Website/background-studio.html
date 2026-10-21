@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Offhand Background Studio | Create a custom canvas background</title>
     <meta name="description" content="Prepare a custom Offhand canvas background locally in your browser and download a ready-to-install World of Warcraft media addon.">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' blob: data:">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; frame-src 'none'; worker-src 'none'; media-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' blob: data:">
     <link rel="icon" type="image/png" href="assets/offhand-icon.png">
-    <link rel="stylesheet" href="style.css?v=20261016-9">
-    <link rel="stylesheet" href="background-studio.css?v=20261016-5">
+    <link rel="stylesheet" href="style.css?v=20261022-2">
+    <link rel="stylesheet" href="background-studio.css?v=20261020-3">
 </head>
 <body class="studio-page">
     <header class="navbar">
@@ -20,7 +20,7 @@
                     <span class="brand-subtitle">Dual-Wield Your Monitors</span>
                 </div>
             </a>
-            <nav class="nav-primary" aria-label="Primary navigation"><a href="manual-spanning.html">Window Setup</a><a href="background-studio.html" aria-current="page">Background Studio</a><a href="companion.html">Companion</a></nav>
+            <nav class="nav-primary" aria-label="Primary navigation"><a href="manual-spanning.html">Window Setup</a><a href="in-game-setup.html">In-Game Setup</a><a href="background-studio.html" aria-current="page">Studio</a><a href="companion.html">Companion</a></nav>
             <div class="nav-controls">
                 <details class="site-menu">
                     <summary>Menu <span aria-hidden="true">▾</span></summary>
@@ -28,7 +28,9 @@
                         <div class="site-menu-group">
                             <span class="site-menu-label">Pages</span>
                             <a href="index.html">Home</a>
+                            <a href="demonstration.html">Demonstration</a>
                             <a href="manual-spanning.html">Window Setup</a>
+                            <a href="in-game-setup.html">In-Game Setup</a>
                             <a href="background-studio.html" aria-current="page">Background Studio</a>
                             <a href="companion.html">Companion</a>
                         </div>
@@ -55,10 +57,10 @@
             <div class="deck-intro-banner">
                 <div class="hero-badge">LOCAL BROWSER TOOL</div>
                 <h1>Create your Offhand background</h1>
-                <p class="deck-intro-text">Choose an image, preview how it will fit your workspace, and download a ready-to-install <code>Offhand_UserMedia.zip</code>.</p>
+                <p class="deck-intro-text">Choose an image, preview how it will fit your workspace, and download a ready-to-install <code>Offhand_UserMedia.zip</code>. Offhand includes built-in support for the generated package.</p>
                 <div class="privacy-banner" role="note">
                     <strong>Your image stays on this device.</strong>
-                    <span>This page has no upload endpoint. A restrictive browser policy also blocks network submissions from the studio.</span>
+                    <span>The file is decoded in browser memory and is never included in a network request. A restrictive browser policy also blocks script-initiated network connections from the studio.</span>
                 </div>
             </div>
         </section>
@@ -193,6 +195,39 @@
             </div>
         </section>
 
+        <section class="content-section" id="security">
+            <div class="section-header">
+                <div class="hero-badge">SECURITY BY DESIGN</div>
+                <h2 class="section-title studio-section-title">A code-free media package</h2>
+                <p class="section-subtitle">The studio converts your image into a narrow, predictable addon package. It does not create or include executable program code.</p>
+            </div>
+            <div class="grid-3 security-assurance-grid">
+                <article class="wow-card">
+                    <h3 class="wow-card-title">Processed locally</h3>
+                    <p class="wow-card-desc">Your image is decoded, resized, previewed, and packaged by your browser. It is not uploaded to Offhand, retained by the site, or embedded in analytics.</p>
+                </article>
+                <article class="wow-card">
+                    <h3 class="wow-card-title">Four known files</h3>
+                    <p class="wow-card-desc">The generated ZIP contains a TGA texture, declarative TOC metadata, a JSON recipe, and a plain-text README. It contains no Lua, EXE, DLL, installer, macro, or network code.</p>
+                </article>
+                <article class="wow-card">
+                    <h3 class="wow-card-title">Strict package inspection</h3>
+                    <p class="wow-card-desc">Update package reads the ZIP in memory without extracting or executing it. It accepts only known paths and rejects traversal paths, links, encryption, compression, unexpected files, oversized data, malformed headers, and failed CRC checks.</p>
+                </article>
+            </div>
+            <div class="security-package-list" aria-label="Files included in a generated media package">
+                <strong>Generated package contents</strong>
+                <code>Offhand_UserMedia.toc</code>
+                <code>BackgroundRecipe.json</code>
+                <code>README.txt</code>
+                <code>Textures/Background.tga</code>
+            </div>
+            <div class="security-warning" role="note">
+                <strong>Do not install a media ZIP received from another person directly.</strong>
+                <span>Any addon folder can be modified after generation. Open the ZIP with <strong>Update package</strong> on this official studio page, review the preview, and generate a new code-free package before installing it. Older Studio packages containing <code>Background.lua</code> are accepted for this local conversion but are never carried into the replacement ZIP. Review the project’s <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer">complete security policy</a> for reporting and verification guidance.</span>
+            </div>
+        </section>
+
         <section class="content-section" id="install">
             <div class="section-header">
                 <div class="hero-badge">INSTALLATION</div>
@@ -209,9 +244,35 @@
                 </article>
                 <article class="wow-card">
                     <h3 class="wow-card-title">3. Start and enable</h3>
-                    <p class="wow-card-desc">Start WoW, verify <strong>Offhand User Media</strong> is enabled, then select the custom background in <code>/offhand</code>. Offhand falls back to its normal theme if the package is unavailable.</p>
+                    <p class="wow-card-desc">Start WoW, verify <strong>Offhand User Media</strong> is enabled, then open <code>/offhand</code>, select <strong>Themes</strong>, and enable <strong>Use installed custom background</strong>. Offhand falls back to its normal theme if the package is unavailable.</p>
                 </article>
             </div>
+            <article class="wow-card ingame-settings-guide" aria-labelledby="ingame-settings-title">
+                <div class="ingame-settings-intro">
+                    <div class="ingame-settings-heading">
+                        <div class="hero-badge">IN-GAME SETTINGS</div>
+                        <h3 class="wow-card-title" id="ingame-settings-title">Enable and adjust your background in Offhand</h3>
+                    </div>
+                    <p class="wow-card-desc">The generated package supplies the image and its presentation settings. Offhand’s Themes page controls whether it is shown and lets you override its fit mode.</p>
+                </div>
+                <ol class="ingame-settings-steps">
+                    <li><strong>Open Offhand</strong><span>Type <code>/offhand</code> or <code>/oh</code>.</span></li>
+                    <li><strong>Select Themes</strong><span>Scroll to <strong>4. Background Studio</strong>.</span></li>
+                    <li><strong>Check the package status</strong><span>A usable package reports <strong>Ready</strong> with its image and texture dimensions.</span></li>
+                    <li><strong>Enable the background</strong><span>Select <strong>Use installed custom background</strong>. Changes apply automatically.</span></li>
+                </ol>
+                <div class="ingame-fit-guide">
+                    <strong>Choose how it fits</strong>
+                    <dl>
+                        <div><dt>Studio recommendation</dt><dd>Uses the Fill, Fit, or Stretch choice saved when you generated the package.</dd></div>
+                        <div><dt>Fill</dt><dd>Covers the complete workspace. Cropping, focus, and zoom come from the Studio preview.</dd></div>
+                        <div><dt>Fit</dt><dd>Shows the complete image without distortion and uses the selected matte colour around it.</dd></div>
+                        <div><dt>Stretch</dt><dd>Fills the complete workspace by stretching the image to its shape.</dd></div>
+                    </dl>
+                    <p>To change crop focus, zoom, opacity, darkening, or matte colour, update the package in this studio and fully restart WoW after replacing the folder.</p>
+                </div>
+                <p class="settings-card-action"><a href="in-game-setup.html#settings">Open the complete Offhand settings guide</a></p>
+            </article>
             <details class="addon-folder-help">
                 <summary>
                     <span class="addon-folder-help-icon" aria-hidden="true">?</span>
@@ -248,7 +309,7 @@
                     <h3 class="wow-card-title">Expected folder structure</h3>
                     <p class="wow-card-desc">Keep both addon folders side by side inside <code>Interface/AddOns</code>.</p>
                     <div class="install-tree" aria-label="Expected addon folder structure">
-                        <code>Interface/AddOns/<br>├── Offhand/<br>└── Offhand_UserMedia/<br>&nbsp;&nbsp;&nbsp;&nbsp;├── Offhand_UserMedia.toc<br>&nbsp;&nbsp;&nbsp;&nbsp;├── Background.lua<br>&nbsp;&nbsp;&nbsp;&nbsp;├── BackgroundRecipe.json<br>&nbsp;&nbsp;&nbsp;&nbsp;├── README.txt<br>&nbsp;&nbsp;&nbsp;&nbsp;└── Textures/Background.tga</code>
+                        <code>Interface/AddOns/<br>├── Offhand/<br>└── Offhand_UserMedia/<br>&nbsp;&nbsp;&nbsp;&nbsp;├── Offhand_UserMedia.toc<br>&nbsp;&nbsp;&nbsp;&nbsp;├── BackgroundRecipe.json<br>&nbsp;&nbsp;&nbsp;&nbsp;├── README.txt<br>&nbsp;&nbsp;&nbsp;&nbsp;└── Textures/Background.tga</code>
                     </div>
                 </article>
             </div>
@@ -258,11 +319,11 @@
     <footer class="footer">
         <div class="footer-container">
             <div class="footer-brand"><img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="footer-logo"><div class="footer-info"><span class="footer-title">OFFHAND</span><span class="footer-subtitle">Dual-Wield Your Monitors</span></div></div>
-        <nav class="footer-nav" aria-label="Footer navigation"><div class="footer-nav-row"><a href="index.html">Home</a><a href="manual-spanning.html">Window Setup</a><a href="background-studio.html">Background Studio</a><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub</a></div><div class="footer-nav-row"><a href="index.html#faq">FAQ</a><a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge</a><a href="companion.html">Companion</a><span class="footer-community-actions"><a class="footer-discord" href="https://discord.gg/3BAVSXBXH" target="_blank" rel="noopener noreferrer" aria-label="Join the Offhand Discord" title="Join the Offhand Discord"><img src="assets/discord-symbol.svg" alt="" aria-hidden="true"></a><a class="footer-support" href="https://ko-fi.com/n4uxaddons" target="_blank" rel="noopener noreferrer" aria-label="Support N4UX on Ko-fi"><img src="assets/ko-fi-symbol.png" alt="" aria-hidden="true">Support N4UX</a></span></div></nav>
+        <nav class="footer-nav" aria-label="Footer navigation"><div class="footer-nav-row"><a href="index.html">Home</a><a href="manual-spanning.html">Window Setup</a><a href="in-game-setup.html">In-Game Setup</a><a href="background-studio.html">Background Studio</a><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub</a></div><div class="footer-nav-row"><a href="index.html#faq">FAQ</a><a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge</a><a href="companion.html">Companion</a><span class="footer-community-actions"><a class="footer-discord" href="https://discord.gg/3BAVSXBXH" target="_blank" rel="noopener noreferrer" aria-label="Join the Offhand Discord" title="Join the Offhand Discord"><img src="assets/discord-symbol.svg" alt="" aria-hidden="true">Join Discord</a><a class="footer-support" href="https://ko-fi.com/n4uxaddons" target="_blank" rel="noopener noreferrer" aria-label="Support N4UX on Ko-fi"><img src="assets/ko-fi-symbol.png" alt="" aria-hidden="true">Support N4UX</a></span></div></nav>
         </div>
         <div class="footer-legal"><p>The Background Studio processes selected files locally. It does not upload, retain, or transmit them.</p></div>
     </footer>
 
-    <script type="module" src="background-studio.js?v=20261016-6"></script>
+    <script type="module" src="background-studio.js?v=20261020-2"></script>
 </body>
 </html>

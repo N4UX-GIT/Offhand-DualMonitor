@@ -233,7 +233,11 @@ function ManualCanvas:RememberFromMetrics(metrics, name, source)
     }
     if not self:Validate(record) then return false, "invalid" end
     canvases[id] = record
-    OffhandDB.preferredGeometrySource = "AUTO"
+    -- Remembering the current window explicitly hands geometry ownership from
+    -- any loaded Companion bridge to the confirmed manual canvas. Keep that
+    -- choice active so stale exact topology cannot retake priority on the next
+    -- metrics read. Selecting Companion changes the preference back to AUTO.
+    OffhandDB.preferredGeometrySource = "MANUAL"
     self.lastMatch = nil
     return true, id, record
 end
