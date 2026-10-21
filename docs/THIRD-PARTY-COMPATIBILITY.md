@@ -22,6 +22,20 @@ exposed at runtime by other installed addons:
 - `EllesmereUIRaidFrames` is used only as an addon-presence identifier so
   Offhand can direct users to the correct frame owner instead of moving those
   frames itself.
+- `DUIQuestFrame`, `DUIBookFrame`, and `DUIDialogSettings` identify Dialogue
+  UI's public named roots. While a span is active, Offhand translates only
+  UIParent-relative anchors on those roots and Dialogue UI-owned direct helper
+  frames to its addon-owned Mainhand region. The three presentation roots
+  receive the physical-height correction needed to render against Mainhand
+  instead of the complete span. After a quest frame-size rebuild, Offhand may
+  complete the root height at Dialogue UI's own `frameHeight` target if its
+  Unfold animation left the intermediate half-height active. Dialogue UI
+  retains ownership of frame size preferences, animation, camera behavior,
+  input, and saved settings. The anonymous custom reward tooltip is identified
+  only by its distinctive public frame methods and passed to Offhand's existing
+  transient-frame bounds clamp after Dialogue UI completes its own layout.
+  Offhand does not read or alter the tooltip's item data, comparison state,
+  appearance, or owner. Protected or forbidden frames are never adopted.
 
 These names remain the property of their respective owners and are referenced
 solely for interoperability. Compatibility is best-effort because third-party

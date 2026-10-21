@@ -266,6 +266,51 @@ end
 assert(not inSpecial("CharacterFrame"), "CharacterFrame on workspace must NOT be in UISpecialFrames")
 assert(inSpecial("AddonList"), "AddonList must be registered in UISpecialFrames")
 
+-- Retail reload restoration must detach CharacterFrame before its native show
+-- begins. Evicting it from the UIPanel slot inside OnShow re-enters Blizzard's
+-- PaperDoll collapse/expand lifecycle and can strand CharacterStatsPane outside
+-- the expanded frame until the player closes and reopens it.
+addon.isRetail = true
+addon.db.persistentWorkspacePanels = true
+addon.db.restoreWorkspaceOnReload = true
+addon.db.openWorkspacePanels = { CharacterFrame = true }
+CharacterFrame:Hide()
+CharacterFrame.points = {}
+UIPanelWindows.CharacterFrame.area = "left"
+SetUIPanelAttribute(CharacterFrame, "area", "left")
+delegate.left = nil
+local characterHideCalls, characterToggleCalls, characterRefreshCalls = 0, 0, 0
+local originalHideUIPanel = HideUIPanel
+HideUIPanel = function(frame, ...)
+    if frame == CharacterFrame then characterHideCalls = characterHideCalls + 1 end
+    return originalHideUIPanel(frame, ...)
+end
+CharacterFrame.RefreshDisplay = function()
+    characterRefreshCalls = characterRefreshCalls + 1
+end
+ToggleCharacter = function(tab, onlyShow)
+    characterToggleCalls = characterToggleCalls + 1
+    assert(tab == "PaperDollFrame" and onlyShow == true,
+        "Retail reload restoration must request the native PaperDoll view without toggling it closed")
+    CharacterFrame:Show()
+    CharacterFrame:RefreshDisplay()
+end
+assert(addon.Canvas:QueuePersistentPanelRestore(CharacterFrame, "CharacterFrame", 0),
+    "Retail CharacterFrame reload restoration was not queued")
+flushTimers()
+flushTimers()
+assert(CharacterFrame:IsShown() and delegate.left == nil,
+    "Retail CharacterFrame must reopen independently at its saved workspace position")
+assert(characterToggleCalls == 1 and characterHideCalls == 0,
+    "Retail CharacterFrame reload restoration must not hide/show inside its native opening transaction")
+assert(characterRefreshCalls >= 2,
+    "Retail CharacterFrame must receive Blizzard's native display refresh after PaperDoll expansion settles")
+HideUIPanel = originalHideUIPanel
+ToggleCharacter = nil
+CharacterFrame.RefreshDisplay = nil
+CharacterFrame:Hide()
+addon.isRetail = nil
+
 -- TEST 2: Pressing Escape on clean state opens Game Menu centered on gaming monitor
 ToggleGameMenu()
 flushTimers()
@@ -577,6 +622,11 @@ assert(not addon.Canvas:ShouldYieldWorldMap(WorldMapFrame),
 -- A live UIParent scale transition must refresh those three known labels
 -- without changing Leatrix's map geometry or unrelated map text.
 loadedCompatibilityAddons.Leatrix_Maps = true
+assert(addon.Canvas:ShouldYieldWorldMap(WorldMapFrame),
+    "Offhand must yield World Map geometry to Leatrix Maps")
+assert(addon.Canvas:GetCompatibilityDiagnostics():find(
+        "WorldMapOwner=LeatrixMaps", 1, true),
+    "compatibility diagnostics must identify Leatrix as the map owner")
 local refreshedLabels = 0
 local function coordinateRegion(text)
     return {
@@ -608,6 +658,42 @@ assert(WorldMapFrame.scale == originalScale and WorldMapFrame.points[1] == origi
 assert(addon.Canvas:GetCompatibilityDiagnostics():find(
         "LeatrixMaps=loaded | CoordinateFontRefresh=3", 1, true),
     "compatibility diagnostics did not report the Leatrix font refresh")
+
+-- Geometry ownership and visibility ownership are deliberately separate.
+-- Leatrix keeps its exact anchor/scale while Offhand detaches a workspace map
+-- from Escape and the active UIPanel slot, then reopens it after a reload.
+local dormantMapPosition = addon.db.savedWorkspacePositions.WorldMapFrame
+addon.db.savedWorkspacePositions.WorldMapFrame = nil
+addon.db.openWorkspacePanels = addon.db.openWorkspacePanels or {}
+WorldMapFrame.points = { { "TOPLEFT", UIParent, "BOTTOMLEFT", 200, 1180 } }
+WorldMapFrame.scale = 0.83
+WorldMapFrame:Show()
+delegate.left = WorldMapFrame
+table.insert(UISpecialFrames, "WorldMapFrame")
+local leatrixPoint = WorldMapFrame.points[1]
+assert(addon.Canvas:PreserveLeatrixWorldMapOpenState(WorldMapFrame),
+    "a Leatrix-owned workspace map must retain Offhand open-state handling")
+assert(WorldMapFrame.points[1] == leatrixPoint and WorldMapFrame.scale == 0.83,
+    "Offhand changed Leatrix-owned map geometry while preserving visibility")
+assert(addon.db.openWorkspacePanels.WorldMapFrame and delegate.left == nil
+        and not inSpecial("WorldMapFrame"),
+    "Leatrix map persistence must detach both Escape and the active panel slot")
+addon.Canvas:ConfigureWorldMap()
+addon.Canvas:RestoreWorkspacePosition(WorldMapFrame)
+addon.Canvas.OnPanelDragStop(WorldMapFrame)
+assert(WorldMapFrame.points[1] == leatrixPoint and WorldMapFrame.scale == 0.83,
+    "a generic Offhand path rewrote Leatrix-owned map geometry")
+WorldMapFrame:Hide()
+addon.Canvas:RestorePersistentFrames()
+flushTimers()
+assert(WorldMapFrame:IsShown() and addon.db.openWorkspacePanels.WorldMapFrame
+        and WorldMapFrame.points[1] == leatrixPoint and WorldMapFrame.scale == 0.83,
+    "a Leatrix-owned map did not preserve its open state across restoration")
+WorldMapFrame.points = { { "TOPLEFT", UIParent, "BOTTOMLEFT", 1900, 1180 } }
+addon.Canvas:PreserveLeatrixWorldMapOpenState(WorldMapFrame)
+assert(not addon.db.openWorkspacePanels.WorldMapFrame and inSpecial("WorldMapFrame"),
+    "moving a Leatrix-owned map to Mainhand must restore native Escape behavior")
+addon.db.savedWorkspacePositions.WorldMapFrame = dormantMapPosition
 WorldMapFrame.overlayFrames = nil
 loadedCompatibilityAddons.Leatrix_Maps = nil
 C_AddOns = nil

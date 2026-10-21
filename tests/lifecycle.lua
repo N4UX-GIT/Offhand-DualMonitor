@@ -14,6 +14,136 @@ end
 InCombatLockdown = function() return combat end
 SlashCmdList = {}
 assert(loadfile("Core/Init.lua"))("Offhand", addon)
+
+-- The live interface-style API is authoritative when available, with
+-- InputUtil retained only for builds/load orders that do not expose it yet.
+Enum = { InputDeviceInterfaceType = { Mkb = 1, Gamepad = 2 } }
+C_InputInterfaceStyle = { GetCurrentStyle = function() return 2 end }
+InputUtil = { IsGamepadUIEnabled = function() return false end }
+assert(addon:IsGamepadUIEnabled(),
+    "native Gamepad UI detection must prefer the live interface style")
+C_InputInterfaceStyle.GetCurrentStyle = function() return 1 end
+InputUtil.IsGamepadUIEnabled = function() return true end
+assert(not addon:IsGamepadUIEnabled(),
+    "a live keyboard/mouse style must not be overridden by a stale utility result")
+C_InputInterfaceStyle = nil
+assert(addon:IsGamepadUIEnabled(),
+    "Gamepad UI detection must fall back to InputUtil when the style API is unavailable")
+
+-- Native Gamepad UI must not use a Blizzard StaticPopup for Edit Mode recovery.
+-- Closing that popup asks FrameControlsManager to restore its previous focus,
+-- which can be a stale LootFrame control. The addon-owned card keeps the same
+-- hardware-click boundary without entering Blizzard's popup focus stack.
+local originalCreateFrame = CreateFrame
+local originalUIParent = UIParent
+local originalStaticPopupShow = StaticPopup_Show
+local originalStaticPopupHide = StaticPopup_Hide
+local createdFrames = {}
+local function makePromptFrame(name)
+    local frame = { name = name, shown = false, scripts = {}, points = {} }
+    function frame:SetSize(width, height) self.width, self.height = width, height end
+    function frame:SetFrameStrata(value) self.strata = value end
+    function frame:SetClampedToScreen(value) self.clamped = value end
+    function frame:EnableMouse(value) self.mouse = value end
+    function frame:SetBackdrop(value) self.backdrop = value end
+    function frame:ClearAllPoints() self.points = {} end
+    function frame:SetPoint(...) self.points[#self.points + 1] = { ... } end
+    function frame:SetText(value) self.text = value end
+    function frame:SetScript(event, callback) self.scripts[event] = callback end
+    function frame:Show()
+        self.shown = true
+        if self.scripts.OnShow then self.scripts.OnShow(self) end
+    end
+    function frame:Hide()
+        local wasShown = self.shown
+        self.shown = false
+        if wasShown and self.scripts.OnHide then self.scripts.OnHide(self) end
+    end
+    function frame:SetAutoFocus(value) self.autoFocus = value end
+    function frame:SetCursorPosition(value) self.cursorPosition = value end
+    function frame:ClearFocus() self.focused = false end
+    function frame:CreateFontString()
+        local text = { points = {} }
+        function text:SetPoint(...) self.points[#self.points + 1] = { ... } end
+        function text:SetHeight(value) self.height = value end
+        function text:SetJustifyH(value) self.justifyH = value end
+        function text:SetJustifyV(value) self.justifyV = value end
+        function text:SetWordWrap(value) self.wordWrap = value end
+        function text:SetText(value) self.text = value end
+        return text
+    end
+    createdFrames[#createdFrames + 1] = frame
+    return frame
+end
+CreateFrame = function(_, name) return makePromptFrame(name) end
+UIParent = {
+    GetEffectiveScale = function() return 1 end,
+}
+local mainhand = makePromptFrame("Mainhand")
+addon.API = { GetMainhandFrame = function() return mainhand end }
+local accepted, declined = 0, 0
+addon.HUD = {
+    BringForeverEditModeControlsToMainhand = function() accepted = accepted + 1 end,
+    DismissForeverEditModeControlsPrompt = function() declined = declined + 1 end,
+}
+local staticShows, staticHides = 0, 0
+StaticPopup_Show = function() staticShows = staticShows + 1 end
+StaticPopup_Hide = function() staticHides = staticHides + 1 end
+addon:ShowForeverEditModeControlsPrompt()
+local gamepadPrompt = addon._foreverGamepadEditModeControlsPrompt
+assert(gamepadPrompt and gamepadPrompt.shown and staticShows == 0,
+    "native Gamepad Edit Mode recovery must bypass Blizzard StaticPopup focus")
+assert(gamepadPrompt.points[1] and gamepadPrompt.points[1][1] == "CENTER"
+        and gamepadPrompt.points[1][2] == mainhand
+        and gamepadPrompt.points[1][3] == "CENTER",
+    "native Gamepad Edit Mode recovery card must be centered on Mainhand")
+gamepadPrompt.accept.scripts.OnClick()
+assert(accepted == 1 and not gamepadPrompt.shown and staticHides == 0,
+    "Gamepad recovery click must move controls without closing a Blizzard popup")
+addon:ShowForeverEditModeControlsPrompt()
+gamepadPrompt.cancel.scripts.OnClick()
+assert(declined == 1 and not gamepadPrompt.shown and staticHides == 0,
+    "Gamepad recovery dismissal must remain outside Blizzard's popup stack")
+
+local safeAccepted, safeCancelled, safeHidden = 0, 0, 0
+StaticPopupDialogs.OFFHAND_GAMEPAD_SAFE_TEST = {
+    text = "Safe %s",
+    button1 = "Accept",
+    button2 = "Cancel",
+    gamepadEditBoxText = function() return "https://example.invalid" end,
+    OnAccept = function(_, callback) safeAccepted = safeAccepted + 1; callback() end,
+    OnCancel = function() safeCancelled = safeCancelled + 1 end,
+    OnHide = function() safeHidden = safeHidden + 1 end,
+}
+local dataCalled = 0
+local safePrompt = addon:ShowPopup("OFFHAND_GAMEPAD_SAFE_TEST", "Gamepad", nil,
+    function() dataCalled = dataCalled + 1 end)
+assert(safePrompt and safePrompt.shown and staticShows == 0
+        and safePrompt.text.text == "Safe Gamepad"
+        and safePrompt.EditBox.text == "https://example.invalid"
+        and safePrompt.points[1][1] == "CENTER"
+        and safePrompt.points[1][2] == mainhand,
+    "native Gamepad dialogs must render through the addon-owned popup card")
+safePrompt.accept.scripts.OnClick()
+assert(safeAccepted == 1 and dataCalled == 1 and safeHidden == 1
+        and not safePrompt.shown and staticHides == 0,
+    "accepting a Gamepad-safe dialog must preserve callback data without Blizzard popup calls")
+addon:ShowPopup("OFFHAND_GAMEPAD_SAFE_TEST", "Gamepad")
+safePrompt.cancel.scripts.OnClick()
+assert(safeCancelled == 1 and safeHidden == 2 and staticHides == 0,
+    "cancelling a Gamepad-safe dialog must remain outside Blizzard's focus stack")
+StaticPopupDialogs.OFFHAND_GAMEPAD_SAFE_TEST = nil
+
+CreateFrame = originalCreateFrame
+UIParent = originalUIParent
+StaticPopup_Show = originalStaticPopupShow
+StaticPopup_Hide = originalStaticPopupHide
+addon._foreverGamepadEditModeControlsPrompt = nil
+addon._gamepadSafePopup = nil
+addon.API = nil
+addon.HUD = nil
+InputUtil, Enum = nil, nil
+
 local initSource = assert(io.open("Core/Init.lua", "rb")):read("*a")
 for _, obsolete in ipairs({
     "Performance diagnostics:", "AA diagnostics:", "Scaling diagnostics:",
@@ -28,7 +158,7 @@ for _, obsolete in ipairs({
 end
 for _, current in ipairs({
     "Topology diagnostics:", "Combat text diagnostics:",
-    "Speech bubble diagnostics:", "Group loot diagnostics:",
+    "Speech bubble diagnostics:", "Group loot diagnostics:", "Pet battle diagnostics:",
     "Edit Mode layout diagnostics:",
 }) do
     assert(initSource:find(current, 1, true),

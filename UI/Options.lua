@@ -14,6 +14,11 @@ local L = Offhand.L or setmetatable({}, {
 
 local tinsert = table.insert
 local COMPANION_DOWNLOAD_URL = Offhand.companionDownloadUrl
+local POWERTOYS_DOWNLOAD_URL = Offhand.powerToysDownloadUrl
+-- Professions movement now defaults on and has completed its compatibility
+-- burn-in. Keep the reversible control implementation available for a future
+-- client regression without presenting the experimental card to players.
+local SHOW_FOREVER_PROFESSIONS_COMPATIBILITY_UI = false
 
 local function BackdropTemplate()
     return not Offhand.isLegacyWrath and "BackdropTemplate" or nil
@@ -50,6 +55,7 @@ StaticPopupDialogs["OFFHAND_DOWNLOAD_LINK"] = {
             eb:SetFocus()
         end
     end,
+    gamepadEditBoxText = function() return COMPANION_DOWNLOAD_URL end,
     EditBoxOnTextChanged = function(self)
         if self._OffhandSettingDownloadUrl or self:GetText() == COMPANION_DOWNLOAD_URL then return end
         self._OffhandSettingDownloadUrl = true
@@ -60,6 +66,41 @@ StaticPopupDialogs["OFFHAND_DOWNLOAD_LINK"] = {
     EditBoxOnEscapePressed = function(self)
         self:GetParent():Hide()
     end,
+    OnHide = function()
+        if Offhand.Onboarding and Offhand.Onboarding.ResumeAfterDownload then
+            Offhand.Onboarding:ResumeAfterDownload()
+        end
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
+StaticPopupDialogs["OFFHAND_POWERTOYS_LINK"] = {
+    text = L["POWERTOYS_LINK_TEXT"],
+    button1 = L["BTN_CLOSE"],
+    hasEditBox = true,
+    editBoxWidth = 300,
+    OnShow = function(self)
+        local eb = self.EditBox or _G[self:GetName().."EditBox"]
+        if eb then
+            eb._OffhandSettingDownloadUrl = true
+            eb:SetText(POWERTOYS_DOWNLOAD_URL)
+            eb._OffhandSettingDownloadUrl = nil
+            eb:HighlightText()
+            eb:SetFocus()
+        end
+    end,
+    gamepadEditBoxText = function() return POWERTOYS_DOWNLOAD_URL end,
+    EditBoxOnTextChanged = function(self)
+        if self._OffhandSettingDownloadUrl or self:GetText() == POWERTOYS_DOWNLOAD_URL then return end
+        self._OffhandSettingDownloadUrl = true
+        self:SetText(POWERTOYS_DOWNLOAD_URL)
+        self._OffhandSettingDownloadUrl = nil
+        self:HighlightText()
+    end,
+    EditBoxOnEscapePressed = function(self) self:GetParent():Hide() end,
     OnHide = function()
         if Offhand.Onboarding and Offhand.Onboarding.ResumeAfterDownload then
             Offhand.Onboarding:ResumeAfterDownload()
@@ -87,6 +128,12 @@ StaticPopupDialogs["OFFHAND_ENABLE_FOREVER_PROFESSIONS_MOVEMENT"] = {
 local Options = {}
 Offhand.Options = Options
 
+_G.BINDING_HEADER_OFFHAND = L["BINDING_HEADER_OFFHAND"]
+_G.HEADER_OFFHAND = L["BINDING_HEADER_OFFHAND"]
+_G.BINDING_NAME_OFFHAND_TOGGLE_SETTINGS = L["BINDING_NAME_OFFHAND_TOGGLE_SETTINGS"]
+_G.BINDING_NAME_OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS =
+    L["BINDING_NAME_OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS"]
+
 function Options:CreateMainhandHUDLayout()
     if Offhand.Mainhand and Offhand.Mainhand.CreateOrUpdateEditModeLayout then
         return Offhand.Mainhand:CreateOrUpdateEditModeLayout()
@@ -96,10 +143,12 @@ end
 
 function Options:GetMainhandLayoutFailureText(reason)
     if reason == "maximum" then return L["MAINHAND_LAYOUT_MAXIMUM"] end
+    if reason == "gamepad" then return L["MAINHAND_LAYOUT_GAMEPAD_FAILED"] end
     if reason == "span" then
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
             and Offhand.Viewport:GetMetrics() or nil
-        if metrics and metrics.topologyStatus == "MISMATCH" then
+        if metrics and metrics.topologyStatus == "MISMATCH"
+            and not metrics.manualCanvas then
             return L["MAINHAND_LAYOUT_SPAN_MISMATCH"]
         end
         return L["MAINHAND_LAYOUT_SPAN_UNCONFIRMED"]
@@ -138,10 +187,81 @@ function Options:Confirm(message, callback)
         OnAccept = function(_, data) data() end,
         timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
     }
-    StaticPopup_Show("OFFHAND_CONFIRM_PROFILE", message, nil, callback)
+    Offhand:ShowPopup("OFFHAND_CONFIRM_PROFILE", message, nil, callback)
 end
 
 local configFrame
+
+function Options:OpenGamepadFocusKeybindings()
+    local settings = _G.Settings
+    if not settings or type(settings.OpenToCategory) ~= "function" then
+        local load = C_AddOns and C_AddOns.LoadAddOn or _G.LoadAddOn
+        if type(load) == "function" then load("Blizzard_Settings") end
+        settings = _G.Settings
+    end
+    if not settings or type(settings.OpenToCategory) ~= "function" then
+        return false, "unavailable"
+    end
+
+    local gamepadCategoryID
+    local categoryNames = {
+        ["gamepad"] = true,
+        ["gamepad (alpha)"] = true,
+    }
+    local localizedName = string.lower(tostring(_G.GAMEPAD_LABEL or ""))
+    if localizedName ~= "" then categoryNames[localizedName] = true end
+    if _G.SettingsPanel and type(_G.SettingsPanel.GetAllCategories) == "function" then
+        local ok, categories = pcall(_G.SettingsPanel.GetAllCategories, _G.SettingsPanel)
+        if ok and type(categories) == "table" then
+            for _, category in pairs(categories) do
+                local name = type(category) == "table" and category.name or nil
+                if type(name) ~= "string" and type(category) == "table"
+                    and type(category.GetName) == "function" then
+                    local nameOK, resolvedName = pcall(category.GetName, category)
+                    if nameOK then name = resolvedName end
+                end
+                if type(name) == "string" and categoryNames[string.lower(name)] then
+                    local id = type(category) == "table" and category.ID or nil
+                    if type(category) == "table" and type(category.GetID) == "function" then
+                        local idOK, resolvedID = pcall(category.GetID, category)
+                        if idOK then id = resolvedID end
+                    end
+                    if id ~= nil then
+                        gamepadCategoryID = id
+                        break
+                    end
+                end
+            end
+        end
+    end
+    gamepadCategoryID = gamepadCategoryID
+        or settings.GAMEPAD_CATEGORY_ID or _G.GAMEPAD_SETTINGS_CATEGORY_ID
+    if gamepadCategoryID == nil then return false, "category" end
+
+    if configFrame and configFrame.Hide then configFrame:Hide() end
+    settings.OpenToCategory(gamepadCategoryID)
+    return true
+end
+
+local function GamepadFocusBindingStatusText()
+    local first, second
+    if type(GetBindingKey) == "function" then
+        first, second = GetBindingKey("OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS")
+    end
+    if not first then return L["GAMEPAD_FOCUS_CONTROL_UNBOUND"] end
+
+    local function DisplayKey(key)
+        if type(GetBindingText) == "function" then
+            local text = GetBindingText(key, "KEY_", 1)
+            if type(text) == "string" and text ~= "" then return text end
+        end
+        return tostring(key)
+    end
+
+    local keys = DisplayKey(first)
+    if second then keys = keys .. ", " .. DisplayKey(second) end
+    return string.format(L["GAMEPAD_FOCUS_CONTROL_BOUND"], keys)
+end
 local setupFrame
 local seamGuideLine
 local seamGuideRevision = 0
@@ -221,7 +341,8 @@ function Options:DetectTopology()
     -- report 3818x2104 while the Companion is spanning it. That single
     -- landscape surface otherwise satisfies the broad mixed-monitor heuristic
     -- below and makes the wizard save a false portrait + landscape layout.
-    if metrics and metrics.topologyStatus == "MISMATCH" then
+    if metrics and metrics.topologyStatus == "MISMATCH"
+        and not metrics.manualCanvas then
         info.topologyStatus = metrics.topologyStatus
         info.description = "Companion topology does not match the current WoW window"
         return info
@@ -558,6 +679,22 @@ local function CreateNativeCheckbox(parent, text, getVal, setVal, tooltipTitle, 
     return check
 end
 
+local function SetCheckboxEnabled(check, enabled)
+    if not check then return end
+    if check.SetEnabled then check:SetEnabled(enabled) end
+    if check.labelButton and check.labelButton.SetEnabled then
+        check.labelButton:SetEnabled(enabled)
+    end
+    if check.SetAlpha then check:SetAlpha(enabled and 1 or 0.55) end
+    if check.Text and check.Text.SetTextColor then
+        if enabled then
+            check.Text:SetTextColor(1, 1, 1)
+        else
+            check.Text:SetTextColor(0.55, 0.55, 0.55)
+        end
+    end
+end
+
 local function CreateNativeRadioButton(parent, text, getVal, setVal, tooltipTitle, tooltipText)
     local radio = CreateFrame("CheckButton", nil, parent, "UIRadioButtonTemplate")
     radio:SetSize(18, 18)
@@ -827,6 +964,16 @@ local function CreateNativeSlider(parent, text, minVal, maxVal, step, getVal, se
             self._dragStartX = nil
             self._dragStartVal = nil
             self:SetScript("OnUpdate", nil)
+            -- Native slider handling can move the thumb after the last custom
+            -- OnUpdate. Commit that final displayed value before applying the
+            -- layout so a quick drag does not require a step-button click.
+            local finalValue = math.max(minVal, math.min(maxVal, self:GetValue() or getVal()))
+            finalValue = math.floor(((finalValue - minVal) / step) + 0.5) * step + minVal
+            finalValue = math.floor(finalValue * 10000 + 0.5) / 10000
+            if editBox and not (editBox.HasFocus and editBox:HasFocus()) then
+                editBox:SetText(FormatValue(finalValue))
+            end
+            setVal(finalValue)
             Offhand:ApplyFullLayout()
         end
     end)
@@ -1056,9 +1203,9 @@ function Options:CreateFloatingPanel()
     local compAppBtn = CreateFrame("Button", nil, configFrame, "UIPanelButtonTemplate")
     compAppBtn:SetSize(155, 22)
     compAppBtn:SetPoint("RIGHT", autoWizardBtn, "LEFT", -10, 0)
-    compAppBtn:SetText(L["POPUP_BTN_GET_APP"])
+    compAppBtn:SetText(L["POPUP_BTN_SETUP_GUIDE"])
     compAppBtn:SetScript("OnClick", function()
-        StaticPopup_Show("OFFHAND_DOWNLOAD_LINK")
+        if Offhand.Onboarding and Offhand.Onboarding.Open then Offhand.Onboarding:Open() end
     end)
 
     if Offhand.SetTooltip then
@@ -1365,6 +1512,44 @@ function Options:CreateFloatingPanel()
     card1_1.autoDetectBtn = autoDetectBtn
 
 
+    local manualCanvasCard = CreateCard(tab1, L["CARD_MANUAL_CANVAS"], 96)
+    local manualCanvasStatus = manualCanvasCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    manualCanvasStatus:SetPoint("TOPLEFT", 14, -30)
+    manualCanvasStatus:SetPoint("RIGHT", manualCanvasCard, "RIGHT", -226, 0)
+    manualCanvasStatus:SetJustifyH("LEFT")
+    manualCanvasStatus:SetText(L["MANUAL_CANVAS_UNREMEMBERED"])
+    configFrame.manualCanvasStatus = manualCanvasStatus
+
+    local rememberCanvasBtn = CreateFrame("Button", nil, manualCanvasCard, "UIPanelButtonTemplate")
+    rememberCanvasBtn:SetSize(200, 24)
+    rememberCanvasBtn:SetPoint("TOPRIGHT", manualCanvasCard, "TOPRIGHT", -14, -28)
+    rememberCanvasBtn:SetText(L["BTN_REMEMBER_CURRENT_WINDOW"])
+    rememberCanvasBtn:SetScript("OnClick", function()
+        local preview = Offhand.Viewport and Offhand.Viewport.GetManualPreviewMetrics
+            and Offhand.Viewport:GetManualPreviewMetrics() or nil
+        local method = Offhand.GetOnboardingSetupMethod
+            and Offhand:GetOnboardingSetupMethod() or "MANUAL"
+        local source = method == "FANCYZONES" and "FANCYZONES" or "MANUAL"
+        local ok, reason, record
+        if Offhand.ManualCanvas then
+            ok, reason, record = Offhand.ManualCanvas:RememberFromMetrics(preview, nil, source)
+        end
+        if ok then
+            if Offhand.ApplyFullLayout then Offhand:ApplyFullLayout() end
+            Offhand:Print(L["MSG_MANUAL_CANVAS_REMEMBERED"], record.name,
+                record.referenceWidth, record.referenceHeight)
+        else
+            Offhand:Print(L["MSG_MANUAL_CANVAS_REMEMBER_FAILED"], tostring(reason or "unavailable"))
+        end
+        Options:RefreshPanel()
+    end)
+    if Offhand.SetTooltip then
+        Offhand:SetTooltip(rememberCanvasBtn, L["BTN_REMEMBER_CURRENT_WINDOW_TIP_TITLE"],
+            L["BTN_REMEMBER_CURRENT_WINDOW_TIP_DESC"])
+    end
+    configFrame.rememberCanvasBtn = rememberCanvasBtn
+
+
     local card1_2 = CreateCard(tab1, L["CARD_VIEWPORT_AR"], 120)
 
     local r169 = CreateNativeRadioButton(card1_2, L["AR_16_9"],
@@ -1422,6 +1607,28 @@ function Options:CreateFloatingPanel()
     p55Btn:SetScript("OnClick", function() seamSlider:SetValue(0.55) end)
     if Offhand.SetTooltip then Offhand:SetTooltip(p55Btn, L["WIZARD_PRESET_SEAM_55_TIP_TITLE"], L["WIZARD_PRESET_SEAM_55_TIP_DESC"]) end
 
+    local motionCard = CreateCard(tab1, L["CARD_MOTION_CLARITY"], 88)
+
+    local motionDesc = motionCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    motionDesc:SetPoint("TOPLEFT", 14, -30)
+    motionDesc:SetPoint("TOPRIGHT", -14, -30)
+    motionDesc:SetJustifyH("LEFT")
+    motionDesc:SetText(L["MOTION_CLARITY_DESC"])
+
+    local motionCheck = CreateNativeCheckbox(motionCard, L["CHECK_ANTI_SHIMMER"],
+        function()
+            return Offhand.IsAntiShimmerEnabled and Offhand:IsAntiShimmerEnabled() or false
+        end,
+        function(val)
+            if Offhand.SetAntiShimmer then
+                Offhand:SetAntiShimmer(val)
+            elseif Offhand.db then
+                Offhand.db.antiShimmer = val
+            end
+        end,
+        L["CHECK_ANTI_SHIMMER_TIP_TITLE"], L["CHECK_ANTI_SHIMMER_TIP_DESC"])
+    motionCheck:SetPoint("TOPLEFT", 12, -54)
+    motionCheck.Text:SetWidth(500)
 
     local card1_3 = CreateCard(tab1, L["CARD_SCALE_ALIGNMENT"], 156)
 
@@ -1508,7 +1715,7 @@ function Options:CreateFloatingPanel()
     speechBubbleSlider:SetPoint("TOPLEFT", 336, -114)
     speechBubbleSlider:SetWidth(200)
 
-    local groupLootCard = CreateCard(tab1, L["CARD_GROUP_LOOT"], 94)
+    local groupLootCard = CreateCard(tab1, L["CARD_GROUP_LOOT"], 126)
 
     local groupLootDescription = groupLootCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     groupLootDescription:SetPoint("TOPLEFT", 14, -32)
@@ -1545,6 +1752,21 @@ function Options:CreateFloatingPanel()
         Offhand:SetTooltip(groupLootResetButton,
             L["GROUP_LOOT_RESET_TIP_TITLE"], L["GROUP_LOOT_RESET_TIP_DESC"])
     end
+
+    local groupLootDirectionCheck = CreateNativeCheckbox(groupLootCard, L["GROUP_LOOT_STACK_DOWN"],
+        function()
+            return Offhand.db and Offhand.db.groupLootStackDirection == "DOWN"
+        end,
+        function(value)
+            if Offhand.HUD and Offhand.HUD.SetGroupLootStackDirection then
+                Offhand.HUD:SetGroupLootStackDirection(value and "DOWN" or "UP")
+            elseif Offhand.db then
+                Offhand.db.groupLootStackDirection = value and "DOWN" or "UP"
+            end
+        end,
+        L["GROUP_LOOT_STACK_DOWN_TIP_TITLE"], L["GROUP_LOOT_STACK_DOWN_TIP_DESC"])
+    groupLootDirectionCheck:SetPoint("TOPLEFT", 12, -82)
+    groupLootDirectionCheck.Text:SetWidth(500)
 
     local card1_5 = CreateCard(tab1, L["OBS_SETUP"], 110)
     
@@ -1689,7 +1911,8 @@ function Options:CreateFloatingPanel()
     end
 
 
-    local card2_2 = CreateCard(tab2, L["CARD_PERSISTENCE"], 374)
+    local card2_2 = CreateCard(tab2, L["CARD_PERSISTENCE"],
+        Offhand.isForever and 558 or 374)
     local supportsMainhandLayout = type(Offhand.HasBlizzardEditMode) == "function"
         and Offhand:HasBlizzardEditMode()
     -- Forever has two layout-status rows plus wrapped Edit Mode guidance.
@@ -1700,6 +1923,9 @@ function Options:CreateFloatingPanel()
     local advancedCheck
     local foreverLayoutStatus
     local mainhandLayoutStatus
+    local createLayout
+    local gamepadDragHandlesCheck
+    local gamepadFocusBindingStatus
     local offhandCards
 
     local function CreateRecoveryCaption(text, leftColumn, top)
@@ -1717,7 +1943,7 @@ function Options:CreateFloatingPanel()
         return caption
     end
 
-    if Offhand.isForever then
+    if Offhand.isForever and SHOW_FOREVER_PROFESSIONS_COMPATIBILITY_UI then
         advancedCard = CreateCard(tab2, L["CARD_ADVANCED_COMPAT"], 52)
         local expanded = false
         local advancedControls = {}
@@ -1751,7 +1977,7 @@ function Options:CreateFloatingPanel()
                 -- The native checkbox reflects committed consent only. Keep it
                 -- off while the warning dialog is awaiting a decision.
                 advancedCheck:SetChecked(false)
-                StaticPopup_Show("OFFHAND_ENABLE_FOREVER_PROFESSIONS_MOVEMENT", nil, nil, function()
+                Offhand:ShowPopup("OFFHAND_ENABLE_FOREVER_PROFESSIONS_MOVEMENT", nil, nil, function()
                     if Offhand.SetExperimentalForeverProfessionsMovement then
                         Offhand:SetExperimentalForeverProfessionsMovement(true)
                     end
@@ -1815,15 +2041,19 @@ function Options:CreateFloatingPanel()
     CreateRecoveryCaption(L["RECOVERY_GATHER_LABEL"], false, -60)
 
     if supportsMainhandLayout then
-        local createLayout = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
+        createLayout = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
         createLayout:SetSize(220, 26)
         createLayout:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 12, -104)
         createLayout:SetText(L["MAINHAND_LAYOUT_CREATE"])
         createLayout:SetScript("OnClick", function()
-            local ok, value, moved = Options:CreateMainhandHUDLayout()
+            local ok, value, moved, activation = Options:CreateMainhandHUDLayout()
             if ok then
                 Offhand:Print(L["MAINHAND_LAYOUT_CREATED"], tostring(value), moved or 0)
-                Offhand.Mainhand:PromptReload()
+                if activation == "select" and Offhand.Mainhand.PromptManualLayoutSelection then
+                    Offhand.Mainhand:PromptManualLayoutSelection(value)
+                else
+                    Offhand.Mainhand:PromptReload()
+                end
             else
                 Offhand:Print(Options:GetMainhandLayoutFailureText(value))
             end
@@ -1894,6 +2124,8 @@ function Options:CreateFloatingPanel()
     panelDesc:SetWidth(530)
     panelDesc:SetWordWrap(true)
 
+    local escapePersistenceDesc = Offhand.isForever
+        and L["CHECK_ESC_PERSIST_TIP_DESC_FOREVER"] or L["CHECK_ESC_PERSIST_TIP_DESC"]
     local escapeCheck = CreateNativeCheckbox(card2_2, L["CHECK_ESC_PERSIST"],
         function() return Offhand.db and Offhand.db.persistentWorkspacePanels ~= false end,
         function(val)
@@ -1902,13 +2134,13 @@ function Options:CreateFloatingPanel()
                 Offhand.Canvas:UpdatePersistenceBehavior()
             end
         end,
-        L["CHECK_ESC_PERSIST_TIP_TITLE"], L["CHECK_ESC_PERSIST_TIP_DESC"]
+        L["CHECK_ESC_PERSIST_TIP_TITLE"], escapePersistenceDesc
     )
     escapeCheck:SetPoint("TOPLEFT", 10, -110)
 
     local escapeDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     escapeDesc:SetPoint("TOPLEFT", 32, -132)
-    escapeDesc:SetText(L["CHECK_ESC_PERSIST_TIP_DESC"])
+    escapeDesc:SetText(escapePersistenceDesc)
     escapeDesc:SetJustifyH("LEFT")
     escapeDesc:SetWidth(530)
     escapeDesc:SetWordWrap(true)
@@ -1967,6 +2199,65 @@ function Options:CreateFloatingPanel()
     hideMapMaximizeDesc:SetWordWrap(true)
     hideMapMaximizeDesc:SetText(L["HIDE_WORKSPACE_MAP_MAXIMIZE_DESC"])
 
+    if Offhand.isForever then
+        gamepadDragHandlesCheck = CreateNativeCheckbox(card2_2,
+            L["SHOW_GAMEPAD_DRAG_HANDLES"],
+            function()
+                if Offhand.Mainhand and Offhand.Mainhand.AreForeverGamepadDragHandlesShown then
+                    return Offhand.Mainhand:AreForeverGamepadDragHandlesShown()
+                end
+                return true
+            end,
+            function(val)
+                if Offhand.Mainhand and Offhand.Mainhand.SetForeverGamepadDragHandlesShown then
+                    Offhand.Mainhand:SetForeverGamepadDragHandlesShown(val)
+                elseif Offhand.db then
+                    Offhand.db.showGamepadPanelDragHandles = val == true
+                end
+            end,
+            L["SHOW_GAMEPAD_DRAG_HANDLES"], L["SHOW_GAMEPAD_DRAG_HANDLES_DESC"]
+        )
+        gamepadDragHandlesCheck:SetPoint("TOPLEFT", 10, -330)
+
+        local gamepadDragHandlesDesc = card2_2:CreateFontString(nil,
+            "ARTWORK", "GameFontHighlightSmall")
+        gamepadDragHandlesDesc:SetPoint("TOPLEFT", 32, -352)
+        gamepadDragHandlesDesc:SetWidth(530)
+        gamepadDragHandlesDesc:SetJustifyH("LEFT")
+        gamepadDragHandlesDesc:SetWordWrap(true)
+        gamepadDragHandlesDesc:SetText(L["SHOW_GAMEPAD_DRAG_HANDLES_DESC"])
+
+        local gamepadFocusTitle = card2_2:CreateFontString(nil,
+            "ARTWORK", "GameFontNormal")
+        gamepadFocusTitle:SetPoint("TOPLEFT", card2_2, "TOPLEFT", 14, -396)
+        gamepadFocusTitle:SetText(L["GAMEPAD_FOCUS_CONTROL_TITLE"])
+
+        local gamepadFocusButton = CreateFrame("Button", nil, card2_2,
+            "UIPanelButtonTemplate")
+        gamepadFocusButton:SetSize(210, 24)
+        gamepadFocusButton:SetPoint("TOPRIGHT", card2_2, "TOPRIGHT", -14, -386)
+        gamepadFocusButton:SetText(L["GAMEPAD_FOCUS_CONTROL_BUTTON"])
+        gamepadFocusButton:SetScript("OnClick", function()
+            local ok = Options:OpenGamepadFocusKeybindings()
+            if not ok then Offhand:Print(L["GAMEPAD_FOCUS_CONTROL_UNAVAILABLE"]) end
+        end)
+
+        local gamepadFocusDesc = card2_2:CreateFontString(nil,
+            "ARTWORK", "GameFontHighlightSmall")
+        gamepadFocusDesc:SetPoint("TOPLEFT", card2_2, "TOPLEFT", 32, -426)
+        gamepadFocusDesc:SetWidth(530)
+        gamepadFocusDesc:SetJustifyH("LEFT")
+        gamepadFocusDesc:SetWordWrap(true)
+        gamepadFocusDesc:SetText(L["GAMEPAD_FOCUS_CONTROL_DESC"])
+
+        gamepadFocusBindingStatus = card2_2:CreateFontString(nil,
+            "ARTWORK", "GameFontHighlightSmall")
+        gamepadFocusBindingStatus:SetPoint("TOPLEFT", card2_2, "TOPLEFT", 32, -478)
+        gamepadFocusBindingStatus:SetWidth(530)
+        gamepadFocusBindingStatus:SetJustifyH("LEFT")
+        gamepadFocusBindingStatus:SetText(GamepadFocusBindingStatusText())
+    end
+
     local forceCheck = CreateNativeCheckbox(recoveryCard, L["PREVIEW_DUAL"],
         function() return (Offhand.db and Offhand.db.forceDualOnSingle) or false end,
         function(val) Offhand.db.forceDualOnSingle = val end,
@@ -1976,11 +2267,75 @@ function Options:CreateFloatingPanel()
         Offhand.isForever and -304 or (supportsMainhandLayout and -230 or -112))
 
     local compatDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    compatDesc:SetPoint("TOPLEFT", 32, -344)
+    compatDesc:SetPoint("TOPLEFT", 32, Offhand.isForever and -528 or -344)
     compatDesc:SetWidth(530)
     compatDesc:SetJustifyH("LEFT")
     compatDesc:SetWordWrap(true)
     card2_2.compatDesc = compatDesc
+
+    local windowControlCard = CreateCard(tab2, L["CARD_WORKSPACE_WINDOW_CONTROL"], 274)
+
+    local characterScaleSlider = CreateNativeSlider(windowControlCard, L["CHARACTER_WORKSPACE_SCALE"],
+        0.75, 1.50, 0.05,
+        function()
+            return Offhand.WorkspaceBehavior and Offhand.WorkspaceBehavior:GetCharacterScale() or 1
+        end,
+        function(value)
+            if Offhand.WorkspaceBehavior then
+                Offhand.WorkspaceBehavior:SetCharacterScale(value)
+            elseif Offhand.db then
+                Offhand.db.characterWorkspaceScale = value
+            end
+        end,
+        "%.0f%%", L["CHARACTER_WORKSPACE_SCALE_TIP_TITLE"],
+        L["CHARACTER_WORKSPACE_SCALE_TIP_DESC"])
+    characterScaleSlider:SetPoint("TOPLEFT", windowControlCard, "TOPLEFT", 14, -58)
+    characterScaleSlider:SetWidth(260)
+
+    local lockCheck = CreateNativeCheckbox(windowControlCard, L["LOCK_WORKSPACE_WINDOWS"],
+        function() return Offhand.db and Offhand.db.lockWorkspaceWindows == true end,
+        function(value)
+            if Offhand.WorkspaceBehavior then
+                Offhand.WorkspaceBehavior:SetLockEnabled(value)
+            elseif Offhand.db then
+                Offhand.db.lockWorkspaceWindows = value == true
+            end
+            if C_Timer and C_Timer.After then
+                C_Timer.After(0, function()
+                    if Options.RefreshPanel then Options:RefreshPanel() end
+                end)
+            end
+        end,
+        L["LOCK_WORKSPACE_WINDOWS_TIP_TITLE"], L["LOCK_WORKSPACE_WINDOWS_TIP_DESC"])
+    lockCheck:SetPoint("TOPLEFT", 12, -104)
+
+    local lockDesc = windowControlCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    lockDesc:SetPoint("TOPLEFT", 34, -128)
+    lockDesc:SetPoint("TOPRIGHT", -14, -128)
+    lockDesc:SetJustifyH("LEFT")
+    lockDesc:SetWordWrap(true)
+    lockDesc:SetText(Offhand.isForever
+        and L["LOCK_WORKSPACE_WINDOWS_FOREVER"] or L["LOCK_WORKSPACE_WINDOWS_DESC"])
+
+    local function CreateLockTypeCheck(label, kind, top)
+        local check = CreateNativeCheckbox(windowControlCard, label,
+            function()
+                local types = Offhand.db and Offhand.db.lockedWorkspaceWindowTypes
+                return not types or types[kind] ~= false
+            end,
+            function(value)
+                if Offhand.WorkspaceBehavior then
+                    Offhand.WorkspaceBehavior:SetWindowTypeLocked(kind, value)
+                end
+            end,
+            L["LOCK_WORKSPACE_WINDOWS_TIP_TITLE"], L["LOCK_WORKSPACE_WINDOWS_TIP_DESC"])
+        check:SetPoint("TOPLEFT", 34, top)
+        return check
+    end
+
+    local lockMapCheck = CreateLockTypeCheck(L["LOCK_WORKSPACE_MAP"], "map", -180)
+    local lockBagsCheck = CreateLockTypeCheck(L["LOCK_WORKSPACE_BAGS"], "bags", -206)
+    local lockCharacterCheck = CreateLockTypeCheck(L["LOCK_WORKSPACE_CHARACTER"], "character", -232)
 
 
     local card2_3 = CreateCard(tab1, L["CARD_BEZEL"], 116)
@@ -2334,6 +2689,112 @@ function Options:CreateFloatingPanel()
     themeNote:SetPoint("TOPLEFT", 12, -188)
     themeNote:SetText(L["BTN_CANVAS_PREVIEW_TIP_DESC"])
 
+    local card3_4 = CreateCard(tab3, L["CARD_USER_MEDIA"], 176)
+
+    local userMediaStatus = card3_4:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    userMediaStatus:SetPoint("TOPLEFT", 14, -30)
+    userMediaStatus:SetPoint("TOPRIGHT", -14, -30)
+    userMediaStatus:SetJustifyH("LEFT")
+    userMediaStatus:SetWordWrap(true)
+
+    local userMediaEnableCheck = CreateNativeCheckbox(card3_4, L["USER_MEDIA_ENABLE"],
+        function() return Offhand.db and Offhand.db.userMediaEnabled == true end,
+        function(value)
+            local enabled = Offhand.UserMedia and Offhand.UserMedia.SetEnabled
+                and Offhand.UserMedia:SetEnabled(value)
+            if value and not enabled then
+                local status, reason = "MISSING", nil
+                if Offhand.UserMedia and Offhand.UserMedia.GetStatus then
+                    status, reason = Offhand.UserMedia:GetStatus()
+                end
+                Offhand:Print(status == "INVALID" and reason == "LEGACY_OR_UNSUPPORTED_SCHEMA"
+                    and L["USER_MEDIA_STATUS_LEGACY"]
+                    or status == "INVALID" and L["USER_MEDIA_STATUS_INVALID"]
+                    or status == "DISABLED" and L["USER_MEDIA_STATUS_DISABLED"]
+                    or L["USER_MEDIA_STATUS_MISSING"])
+            end
+            if Options.UpdateUserMediaControls then Options:UpdateUserMediaControls() end
+        end,
+        L["USER_MEDIA_ENABLE_TIP_TITLE"], L["USER_MEDIA_ENABLE_TIP_DESC"])
+    userMediaEnableCheck:SetPoint("TOPLEFT", 12, -70)
+
+    local function SelectUserMediaFit(mode)
+        if Offhand.UserMedia and Offhand.UserMedia.SetFitMode then
+            Offhand.UserMedia:SetFitMode(mode)
+        elseif Offhand.db then
+            Offhand.db.userMediaFitMode = mode
+        end
+    end
+
+    local userMediaPackageFit = CreateNativeRadioButton(card3_4, L["USER_MEDIA_FIT_PACKAGE"],
+        function() return Offhand.db and Offhand.db.userMediaFitMode == "PACKAGE" end,
+        function() SelectUserMediaFit("PACKAGE") end,
+        L["USER_MEDIA_FIT_TIP_TITLE"], L["USER_MEDIA_FIT_TIP_DESC"])
+    userMediaPackageFit:SetPoint("TOPLEFT", 12, -104)
+
+    local userMediaFillFit = CreateNativeRadioButton(card3_4, L["USER_MEDIA_FIT_FILL"],
+        function() return Offhand.db and Offhand.db.userMediaFitMode == "FILL" end,
+        function() SelectUserMediaFit("FILL") end,
+        L["USER_MEDIA_FIT_TIP_TITLE"], L["USER_MEDIA_FIT_TIP_DESC"])
+    userMediaFillFit:SetPoint("TOPLEFT", 220, -104)
+
+    local userMediaContainFit = CreateNativeRadioButton(card3_4, L["USER_MEDIA_FIT_FIT"],
+        function() return Offhand.db and Offhand.db.userMediaFitMode == "FIT" end,
+        function() SelectUserMediaFit("FIT") end,
+        L["USER_MEDIA_FIT_TIP_TITLE"], L["USER_MEDIA_FIT_TIP_DESC"])
+    userMediaContainFit:SetPoint("TOPLEFT", 330, -104)
+
+    local userMediaStretchFit = CreateNativeRadioButton(card3_4, L["USER_MEDIA_FIT_STRETCH"],
+        function() return Offhand.db and Offhand.db.userMediaFitMode == "STRETCH" end,
+        function() SelectUserMediaFit("STRETCH") end,
+        L["USER_MEDIA_FIT_TIP_TITLE"], L["USER_MEDIA_FIT_TIP_DESC"])
+    userMediaStretchFit:SetPoint("TOPLEFT", 430, -104)
+
+    local userMediaRestartNote = card3_4:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    userMediaRestartNote:SetPoint("TOPLEFT", 14, -138)
+    userMediaRestartNote:SetPoint("TOPRIGHT", -14, -138)
+    userMediaRestartNote:SetJustifyH("LEFT")
+    userMediaRestartNote:SetText(L["USER_MEDIA_RESTART_NOTE"])
+
+    local userMediaFitControls = {
+        userMediaPackageFit, userMediaFillFit, userMediaContainFit, userMediaStretchFit,
+    }
+
+    function Options:UpdateUserMediaControls()
+        local status, reason, metadata = "MISSING", nil, nil
+        if Offhand.UserMedia and Offhand.UserMedia.GetStatus then
+            status, reason, metadata = Offhand.UserMedia:GetStatus()
+        end
+        if status == "AVAILABLE" and metadata then
+            userMediaStatus:SetText(string.format(L["USER_MEDIA_STATUS_AVAILABLE"],
+                metadata.imageWidth, metadata.imageHeight,
+                metadata.textureWidth, metadata.textureHeight, metadata.schema))
+        elseif status == "DISABLED" then
+            userMediaStatus:SetText(L["USER_MEDIA_STATUS_DISABLED"])
+        elseif status == "INVALID" then
+            userMediaStatus:SetText(reason == "LEGACY_OR_UNSUPPORTED_SCHEMA"
+                and L["USER_MEDIA_STATUS_LEGACY"] or L["USER_MEDIA_STATUS_INVALID"])
+        else
+            userMediaStatus:SetText(L["USER_MEDIA_STATUS_MISSING"])
+        end
+
+        userMediaEnableCheck:SetChecked(Offhand.db and Offhand.db.userMediaEnabled == true or false)
+        local configuredFit = Offhand.db and Offhand.db.userMediaFitMode or "PACKAGE"
+        userMediaPackageFit:SetChecked(configuredFit == "PACKAGE")
+        userMediaFillFit:SetChecked(configuredFit == "FILL")
+        userMediaContainFit:SetChecked(configuredFit == "FIT")
+        userMediaStretchFit:SetChecked(configuredFit == "STRETCH")
+        local available = status == "AVAILABLE"
+        for _, control in ipairs(userMediaFitControls) do
+            if control.SetEnabled then control:SetEnabled(available) end
+            if control.SetAlpha then control:SetAlpha(available and 1 or 0.55) end
+            if control.Text and control.Text.SetTextColor then
+                control.Text:SetTextColor(available and 1 or 0.55,
+                    available and 1 or 0.55, available and 1 or 0.55)
+            end
+        end
+    end
+
     -- ========================================================================
     -- TAB 4: PROFILES
     -- ========================================================================
@@ -2566,9 +3027,9 @@ function Options:CreateFloatingPanel()
     local companionHelpBtn = CreateFrame("Button", nil, helpOverview, "UIPanelButtonTemplate")
     companionHelpBtn:SetSize(145, 26)
     companionHelpBtn:SetPoint("LEFT", gatherHelpBtn, "RIGHT", 10, 0)
-    companionHelpBtn:SetText(L["POPUP_BTN_GET_APP"])
+    companionHelpBtn:SetText(L["POPUP_BTN_SETUP_GUIDE"])
     companionHelpBtn:SetScript("OnClick", function()
-        StaticPopup_Show("OFFHAND_DOWNLOAD_LINK")
+        if Offhand.Onboarding and Offhand.Onboarding.Open then Offhand.Onboarding:Open() end
     end)
 
     local helpCards = { helpOverview }
@@ -2587,12 +3048,13 @@ function Options:CreateFloatingPanel()
         helpCards[#helpCards + 1] = card
     end
 
-    Options:StackCards(tab1, {card1_1, card1_2, card1_3, card2_3, card1_4, groupLootCard, card1_5})
-    offhandCards = {card2_1, card2_2}
+    Options:StackCards(tab1, {card1_1, manualCanvasCard, card1_2, motionCard,
+        card1_3, card2_3, card1_4, groupLootCard, card1_5})
+    offhandCards = {card2_1, card2_2, windowControlCard}
     if advancedCard then offhandCards[#offhandCards + 1] = advancedCard end
     offhandCards[#offhandCards + 1] = recoveryCard
     Options:StackCards(tab2, offhandCards)
-    Options:StackCards(tab3, {card3_1, card3_2, card3_3})
+    Options:StackCards(tab3, {card3_1, card3_2, card3_3, card3_4})
     Options:StackCards(tab4, {card4_1})
     Options:StackCards(tab5, helpCards)
 
@@ -2635,19 +3097,45 @@ function Options:CreateFloatingPanel()
                 info.gamePixelWidth, info.gamePixelHeight,
                 info.workspacePixelWidth, info.workspacePixelHeight)
                 .. "\n|cffaaaaaa" .. L["EXACT_TOPOLOGY_LOCKED"] .. "|r"
-            compAppBtn:Hide()
         else
             bannerText = string.format(L["TAB_DISPLAY"] .. ": %s (%dx%d)",
                 info.description, info.physWidth, info.physHeight)
-            compAppBtn:Show()
         end
+        compAppBtn:Show()
         banner:ClearAllPoints()
         banner:SetPoint("TOPLEFT", 18, -130)
-        banner:SetPoint("TOPRIGHT", info.exactTopology and autoWizardBtn or compAppBtn, "TOPLEFT", -8, 0)
+        banner:SetPoint("TOPRIGHT", compAppBtn, "TOPLEFT", -8, 0)
         banner:SetText(bannerText)
         optionsScrollFrame:ClearAllPoints()
         optionsScrollFrame:SetPoint("TOPLEFT", 16, info.exactTopology and -180 or -156)
         optionsScrollFrame:SetPoint("BOTTOMRIGHT", -42, 52)
+
+        local manualMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
+            and Offhand.Viewport:GetMetrics() or nil
+        local manualDiag = Offhand.ManualCanvas and Offhand.ManualCanvas.GetDiagnostics
+            and Offhand.ManualCanvas:GetDiagnostics() or nil
+        if configFrame.manualCanvasStatus then
+            if manualMetrics and manualMetrics.manualCanvas then
+                configFrame.manualCanvasStatus:SetText(string.format(
+                    L["MANUAL_CANVAS_MATCHED"],
+                    tostring(manualMetrics.manualCanvasName or L["MANUAL_CANVAS_DEFAULT_NAME"]),
+                    tostring(manualMetrics.manualCanvasState or "MATCH"),
+                    manualMetrics.physicalWidth or 0, manualMetrics.physicalHeight or 0))
+            elseif manualDiag and manualDiag.count > 0 then
+                configFrame.manualCanvasStatus:SetText(string.format(
+                    L["MANUAL_CANVAS_MISMATCH"],
+                    manualMetrics and manualMetrics.physicalWidth or 0,
+                    manualMetrics and manualMetrics.physicalHeight or 0))
+            else
+                configFrame.manualCanvasStatus:SetText(L["MANUAL_CANVAS_UNREMEMBERED"])
+            end
+        end
+        if configFrame.rememberCanvasBtn then
+            configFrame.rememberCanvasBtn:SetEnabled(not info.exactTopology)
+            if configFrame.rememberCanvasBtn.SetAlpha then
+                configFrame.rememberCanvasBtn:SetAlpha(info.exactTopology and 0.55 or 1)
+            end
+        end
 
         local curSeam = (Offhand.db and Offhand.db.deckWidthRatio) or 0.36
         seamSlider:SetValue(curSeam)
@@ -2681,11 +3169,44 @@ function Options:CreateFloatingPanel()
         seamCheck:SetChecked((Offhand.db and Offhand.db.seamRedirect) or false)
         hideCloseCheck:SetChecked((Offhand.db and Offhand.db.hideWorkspaceCloseButtons == true) or false)
         hideMapMaximizeCheck:SetChecked((Offhand.db and Offhand.db.hideWorkspaceMapMaximizeButton == true) or false)
+        if gamepadDragHandlesCheck then
+            local showGamepadDragHandles = true
+            if Offhand.Mainhand and Offhand.Mainhand.AreForeverGamepadDragHandlesShown then
+                showGamepadDragHandles = Offhand.Mainhand:AreForeverGamepadDragHandlesShown()
+            end
+            gamepadDragHandlesCheck:SetChecked(showGamepadDragHandles)
+        end
+        if gamepadFocusBindingStatus then
+            gamepadFocusBindingStatus:SetText(GamepadFocusBindingStatusText())
+        end
         mapMoveCheck:SetChecked((Offhand.db and Offhand.db.preventMapCloseOnMove) or false)
         panelCheck:SetChecked((Offhand.db and Offhand.db.independentWorkspacePanels) or false)
         escapeCheck:SetChecked((Offhand.db and Offhand.db.persistentWorkspacePanels ~= false) or false)
         reloadCheck:SetChecked((Offhand.db and Offhand.db.restoreWorkspaceOnReload ~= false) or false)
         forceCheck:SetChecked((Offhand.db and Offhand.db.forceDualOnSingle) or false)
+        characterScaleSlider:SetValue(Offhand.WorkspaceBehavior
+            and Offhand.WorkspaceBehavior:GetCharacterScale() or 1)
+        characterScaleSlider:UpdateText()
+        local lockSupported = Offhand.WorkspaceBehavior
+            and Offhand.WorkspaceBehavior:IsLockSupported() or not Offhand.isForever
+        lockCheck:SetChecked(lockSupported
+            and (Offhand.db and Offhand.db.lockWorkspaceWindows == true) or false)
+        local lockTypes = Offhand.db and Offhand.db.lockedWorkspaceWindowTypes or nil
+        lockMapCheck:SetChecked(not lockTypes or lockTypes.map ~= false)
+        lockBagsCheck:SetChecked(not lockTypes or lockTypes.bags ~= false)
+        lockCharacterCheck:SetChecked(not lockTypes or lockTypes.character ~= false)
+        SetCheckboxEnabled(lockCheck, lockSupported)
+        local lockChildrenEnabled = lockSupported
+            and Offhand.db and Offhand.db.lockWorkspaceWindows == true
+        SetCheckboxEnabled(lockMapCheck, lockChildrenEnabled)
+        SetCheckboxEnabled(lockBagsCheck, lockChildrenEnabled)
+        SetCheckboxEnabled(lockCharacterCheck, lockChildrenEnabled)
+        if motionCheck then
+            motionCheck:SetChecked(Offhand.IsAntiShimmerEnabled and Offhand:IsAntiShimmerEnabled() or false)
+        end
+        if groupLootDirectionCheck then
+            groupLootDirectionCheck:SetChecked(Offhand.db and Offhand.db.groupLootStackDirection == "DOWN" or false)
+        end
         if advancedCheck then
             advancedCheck:SetChecked(Offhand.IsExperimentalForeverProfessionsMovementEnabled
                 and Offhand:IsExperimentalForeverProfessionsMovementEnabled() or false)
@@ -2700,12 +3221,24 @@ function Options:CreateFloatingPanel()
             foreverLayoutStatus:SetText(string.format(L["FOREVER_EDIT_MODE_LAYOUT_LABEL"], name))
         end
         if mainhandLayoutStatus then
+            local controllerLayout = Offhand.Mainhand and Offhand.Mainhand.IsControllerLayout
+                and Offhand.Mainhand:IsControllerLayout()
+            local canCreateController = controllerLayout and Offhand.Mainhand
+                and Offhand.Mainhand.CanCreateControllerLayout
+                and Offhand.Mainhand:CanCreateControllerLayout()
+            if createLayout then
+                local enabled = not controllerLayout or canCreateController
+                createLayout:SetEnabled(enabled)
+                createLayout:SetAlpha(enabled and 1 or 0.55)
+            end
             local status = Offhand.Mainhand and Offhand.Mainhand.GetLayoutStatus
                 and Offhand.Mainhand:GetLayoutStatus() or nil
-            local name = status and status.deferred and L["MAINHAND_LAYOUT_DEFERRED"]
+            local name = controllerLayout and (canCreateController
+                    and L["MAINHAND_LAYOUT_GAMEPAD_STATUS"] or L["MAINHAND_LAYOUT_GAMEPAD_FAILED"])
+                or status and status.deferred and L["MAINHAND_LAYOUT_DEFERRED"]
                 or (status and status.configured and status.generatedName
                     or L["MAINHAND_LAYOUT_UNSET"])
-            if status and status.configured and not status.deferred
+            if not controllerLayout and status and status.configured and not status.deferred
                 and not status.currentGeometry then
                 name = string.format(L["MAINHAND_LAYOUT_STALE"], tostring(name))
             end
@@ -2718,6 +3251,10 @@ function Options:CreateFloatingPanel()
         rTinker:SetChecked(curTheme == "GNOMISH_TINKER")
         rObsidian:SetChecked(curTheme == "OBSIDIAN")
         rPitchBlack:SetChecked(curTheme == "PITCH_BLACK")
+
+        if Options.UpdateUserMediaControls then
+            Options:UpdateUserMediaControls()
+        end
 
         bezelSlider:UpdateText()
         alphaSlider:UpdateText()

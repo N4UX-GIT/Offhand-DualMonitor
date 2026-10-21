@@ -101,6 +101,18 @@ local function HasBlizzardEditMode()
         or C_EditMode ~= nil or EditModeManagerFrame ~= nil
 end
 
+local function UsesNativeGamepadInterface()
+    local mainhand = Offhand.Mainhand
+    return mainhand and type(mainhand.IsNativeGamepadInterface) == "function"
+        and mainhand:IsNativeGamepadInterface() or false
+end
+
+local function UsesControllerInterface()
+    local mainhand = Offhand.Mainhand
+    return mainhand and type(mainhand.IsControllerLayout) == "function"
+        and mainhand:IsControllerLayout() or false
+end
+
 local function HasChattynator()
     return IsAddonPresent("Chattynator")
 end
@@ -362,6 +374,12 @@ function HUD:UseCurrentForeverEditModeLayout()
 
     OffhandCharDB.foreverEditModeLayoutName = layout.layoutName
     OffhandCharDB.foreverEditModeLayoutID = activeID
+    local generated = OffhandCharDB.mainhandLayout
+    if type(generated) == "table"
+        and EditModeLayoutNamesMatch(generated.generatedName, layout.layoutName) then
+        generated.generatedID = activeID
+        generated.activationPending = nil
+    end
     OffhandCharDB.foreverEditModeLegacyRecovery = nil
     OffhandCharDB.foreverEditModeRecovery = nil
     self.foreverRecoveryPromptShown = nil
@@ -769,7 +787,7 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
 end
 
 -- Supported Blizzard clients accept these unprotected control-surface anchor
--- changes from the recovery popup's hardware click. Do not move Edit Mode
+-- changes from the recovery control's hardware click. Do not move Edit Mode
 -- systems, attach handlers, or alter Blizzard's panel metadata from this path.
 function HUD:BringForeverEditModeControlsToMainhand()
     if not HasBlizzardEditMode() or InCombatLockdown() then return false end
@@ -907,6 +925,20 @@ local unreliableProtectedHUDRecoveryNames = {
 -- recovery once per occurrence.
 function HUD:UpdateForeverPartyFrameRecovery(metrics)
     if not HasBlizzardEditMode() or not Offhand.db or not Offhand.db.enabled then return end
+    -- Blizzard's Gamepad UI owns these protected HUD systems and its Edit Mode
+    -- preset. Inspecting the native frame tree during that focus/layout
+    -- transaction can taint secret unit-frame values, and Offhand cannot repair
+    -- the controller preset. Clear stale keyboard-mode recovery state instead.
+    if UsesControllerInterface() then
+        if self.foreverPartyFrameOutsideDisplays and Offhand.HideForeverPartyFrameRecoveryPrompt then
+            Offhand:HideForeverPartyFrameRecoveryPrompt()
+        end
+        self.foreverPartyFrameOutsideDisplays = nil
+        self.foreverProtectedHUDDetectedInEditMode = nil
+        self.foreverPartyFrameRecoveryPromptShown = nil
+        self.foreverPartyFrameRecoveryPromptDeclined = nil
+        return
+    end
     metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics
         and Offhand.Viewport:GetMetrics())
     if not metrics or not metrics.isSpanned then
@@ -991,6 +1023,10 @@ function HUD:RepairProtectedHUDLayout()
         self.foreverPartyFrameRecoveryPromptShown = nil
         return false, "combat"
     end
+    if UsesControllerInterface() then
+        self:DismissForeverPartyFrameRecoveryPrompt()
+        return false, "gamepad"
+    end
     local manager = _G.EditModeManagerFrame
     if manager and ((manager.IsShown and manager:IsShown()) or manager.editModeActive) then
         self.foreverPartyFrameRecoveryPromptShown = nil
@@ -1002,7 +1038,10 @@ function HUD:RepairProtectedHUDLayout()
         return false, "unavailable"
     end
 
-    local ok, value, moved = mainhand:CreateOrUpdateEditModeLayout()
+    local candidate = self.foreverPartyFrameOutsideDisplays
+    local ok, value, moved = mainhand:CreateOrUpdateEditModeLayout({
+        repairFrameName = candidate,
+    })
     if not ok then
         if value == "combat" or value == "open" then
             self.foreverPartyFrameRecoveryPromptShown = nil
@@ -1151,6 +1190,11 @@ local mainhandTransientFrames = {
         allowAnyUIParentAnchor = true, allowUnanchored = true,
         groupLootRows = true,
     },
+    -- PetBattleFrame is a full-screen layout root. Its top art, unit panels,
+    -- weather display and bottom action tray all inherit this rectangle, so
+    -- bounding the root preserves Blizzard's internal layout while moving the
+    -- complete pet-battle presentation off the monitor seam.
+    { name = "PetBattleFrame", secure = true, petBattleBounds = true },
     -- These overlays opt out of UIParent scaling on some client builds. That
     -- makes Blizzard's text roughly 1/UIParentScale times too large after a
     -- mixed-resolution span. Rejoin the normal scale hierarchy while Offhand
@@ -1209,6 +1253,8 @@ local transientHooks = {}
 local secureTransientOwned = setmetatable({}, { __mode = "k" })
 local secureTransientPositioner
 local groupLootPreloadAttempted = false
+local petBattlePreloadAttempted = false
+local petBattleConflict
 local groupLootRowsOwned = setmetatable({}, { __mode = "k" })
 local groupLootRowMover = {
     active = false,
@@ -1246,7 +1292,20 @@ function HUD:GetGroupLootDiagnostics()
         moverShown = groupLootMoverFrame and groupLootMoverFrame.IsShown
             and groupLootMoverFrame:IsShown() or false,
         moverDragging = groupLootMoverDragging,
+        stackDirection = Offhand.db and Offhand.db.groupLootStackDirection == "DOWN"
+            and "DOWN" or "UP",
         triggerCount = triggerCount,
+        inCombat = InCombatLockdown and InCombatLockdown() or false,
+    }
+end
+
+function HUD:GetPetBattleDiagnostics()
+    local frame = _G.PetBattleFrame
+    return {
+        loaded = frame ~= nil,
+        preloadAttempted = petBattlePreloadAttempted,
+        boundsPrepared = frame and secureTransientOwned[frame] == true or false,
+        conflict = petBattleConflict,
         inCombat = InCombatLockdown and InCombatLockdown() or false,
     }
 end
@@ -1264,6 +1323,21 @@ local function PreloadGroupLootForSecurePositioning()
     -- container fallback anchor and the native roll-update hook exist before
     -- the first in-combat roll of the session.
     pcall(load, "Blizzard_GroupLoot")
+end
+
+local function PreloadPetBattleForSecurePositioning()
+    if petBattlePreloadAttempted or _G.PetBattleFrame or InCombatLockdown()
+        or not Offhand.db or not Offhand.db.enabled or not Offhand.db.seamRedirect then return end
+    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
+        and Offhand.Viewport:GetMetrics() or nil
+    if not metrics or not metrics.isSpanned then return end
+    local load = C_AddOns and C_AddOns.LoadAddOn or _G.LoadAddOn
+    if type(load) ~= "function" then return end
+    petBattlePreloadAttempted = true
+    -- Wild pet battles enter combat lockdown. Load Blizzard's LoD module and
+    -- establish its root bounds beforehand so no protected anchor write is
+    -- needed when the battle starts.
+    pcall(load, "Blizzard_PetBattleUI")
 end
 
 local function EnsureSecureTransientPositioner()
@@ -1289,6 +1363,10 @@ local function PositionForeverGameMenu()
         and Offhand.Viewport:GetMetrics() or nil
     if not frame or not m or not m.isSpanned or not frame.ClearAllPoints
         or not frame.SetPoint or (frame.IsForbidden and frame:IsForbidden()) then return false end
+    if frame.IsProtected then
+        local ok, protected = pcall(frame.IsProtected, frame)
+        if not ok or protected then return false end
+    end
     local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
     local cx = (m.gameLeft + m.gameRight) / 2
     local cy = (m.gameBottom + m.gameTop) / 2
@@ -1332,6 +1410,7 @@ local function SecureScreenPoint(frame, point, x, y)
         positioner:SetAttribute("offhandPoint", point)
         positioner:SetAttribute("offhandX", x)
         positioner:SetAttribute("offhandY", y)
+        positioner:SetAttribute("offhandBounds", false)
         positioner:Execute([[
             local frame = self:GetFrameRef("offhandTransient")
             if frame then
@@ -1340,6 +1419,71 @@ local function SecureScreenPoint(frame, point, x, y)
                     self:GetAttribute("offhandPoint"),
                     self:GetParent(), "BOTTOMLEFT",
                     self:GetAttribute("offhandX"), self:GetAttribute("offhandY"))
+            end
+        ]])
+    end)
+    return ok
+end
+
+local function PointMatches(point, relativeTo, relativePoint, x, y,
+        expectedPoint, expectedRelativePoint, expectedX, expectedY)
+    local tolerance = 0.5
+    return point == expectedPoint
+        and (relativeTo == nil or relativeTo == UIParent)
+        and (relativePoint or point) == expectedRelativePoint
+        and math.abs((tonumber(x) or 0) - expectedX) <= tolerance
+        and math.abs((tonumber(y) or 0) - expectedY) <= tolerance
+end
+
+local function IsNativePetBattleBounds(frame, metrics)
+    if frame.IsUserPlaced and frame:IsUserPlaced() then return false end
+    if not frame.GetNumPoints or not frame.GetPoint or frame:GetNumPoints() ~= 2 then return false end
+
+    local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
+    local expected = {
+        stockTopLeft = { "TOPLEFT", "TOPLEFT", 0, 0 },
+        stockBottomRight = { "BOTTOMRIGHT", "BOTTOMRIGHT", 0, 0 },
+        mainBottomLeft = {
+            "BOTTOMLEFT", "BOTTOMLEFT", metrics.gameLeft * factor, metrics.gameBottom * factor,
+        },
+        mainTopRight = {
+            "TOPRIGHT", "BOTTOMLEFT", metrics.gameRight * factor, metrics.gameTop * factor,
+        },
+    }
+    local matches = {}
+    for index = 1, 2 do
+        local point, relativeTo, relativePoint, x, y = frame:GetPoint(index)
+        for key, value in pairs(expected) do
+            if PointMatches(point, relativeTo, relativePoint, x, y,
+                    value[1], value[2], value[3], value[4]) then
+                matches[key] = true
+            end
+        end
+    end
+    return (matches.stockTopLeft and matches.stockBottomRight)
+        or (matches.mainBottomLeft and matches.mainTopRight)
+end
+
+local function SecureScreenBounds(frame, metrics)
+    if InCombatLockdown() then return false end
+    local positioner = EnsureSecureTransientPositioner()
+    if not positioner then return false end
+    local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
+    local ok = pcall(function()
+        positioner:SetFrameRef("offhandTransient", frame)
+        positioner:SetAttribute("offhandLeft", metrics.gameLeft * factor)
+        positioner:SetAttribute("offhandBottom", metrics.gameBottom * factor)
+        positioner:SetAttribute("offhandRight", metrics.gameRight * factor)
+        positioner:SetAttribute("offhandTop", metrics.gameTop * factor)
+        positioner:SetAttribute("offhandBounds", true)
+        positioner:Execute([[
+            local frame = self:GetFrameRef("offhandTransient")
+            if frame then
+                frame:ClearAllPoints()
+                frame:SetPoint("BOTTOMLEFT", self:GetParent(), "BOTTOMLEFT",
+                    self:GetAttribute("offhandLeft"), self:GetAttribute("offhandBottom"))
+                frame:SetPoint("TOPRIGHT", self:GetParent(), "BOTTOMLEFT",
+                    self:GetAttribute("offhandRight"), self:GetAttribute("offhandTop"))
             end
         ]])
     end)
@@ -1399,6 +1543,11 @@ local function GetGroupLootCenter(metrics, container)
     return x, y, false
 end
 
+local function GetGroupLootStackDirection()
+    return Offhand.db and Offhand.db.groupLootStackDirection == "DOWN"
+        and "DOWN" or "UP"
+end
+
 local function PositionGroupLootRows(container)
     if not groupLootRowMover.active or container ~= groupLootRowMover.container
         or not Offhand.db or not Offhand.db.enabled or not Offhand.db.seamRedirect then return false end
@@ -1410,7 +1559,8 @@ local function PositionGroupLootRows(container)
     if type(rows) ~= "table" then return false end
     local maxIndex = tonumber(container.maxIndex) or 0
     local reservedSize = tonumber(container.reservedSize) or 100
-    local savedCenterX, savedCenterY = GetSavedGroupLootCenter(metrics)
+    local centerX, centerY = GetGroupLootCenter(metrics, container)
+    local stackStep = GetGroupLootStackDirection() == "DOWN" and -reservedSize or reservedSize
 
     -- Validate the complete native set before moving anything. This makes an
     -- addon-owned mover (a row relative to its own anchor) an explicit conflict
@@ -1437,15 +1587,9 @@ local function PositionGroupLootRows(container)
             local parentScale = UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
             local factor = parentScale / math.max(tonumber(rowScale) or 1, 0.0001)
             row:ClearAllPoints()
-            if savedCenterX and savedCenterY then
-                row:SetPoint("CENTER", UIParent, "BOTTOMLEFT",
-                    savedCenterX * factor,
-                    savedCenterY * factor + reservedSize * (index - 1))
-            else
-                row:SetPoint("CENTER", UIParent, "BOTTOMLEFT",
-                    groupLootRowMover.physicalX * factor,
-                    groupLootRowMover.physicalY * factor + reservedSize * (index - 0.5))
-            end
+            row:SetPoint("CENTER", UIParent, "BOTTOMLEFT",
+                centerX * factor,
+                centerY * factor + stackStep * (index - 1))
             groupLootRowsOwned[row] = true
             moved = moved + 1
         end
@@ -1616,7 +1760,29 @@ function HUD:ResetGroupLootPosition()
     return true
 end
 
+function HUD:SetGroupLootStackDirection(direction)
+    if not Offhand.db then return false end
+    Offhand.db.groupLootStackDirection = direction == "DOWN" and "DOWN" or "UP"
+    if groupLootRowMover.active and groupLootRowMover.container then
+        PositionGroupLootRows(groupLootRowMover.container)
+    end
+    return true
+end
+
 local function PositionSecureMainhandTransient(frame, spec, m)
+    if spec.petBattleBounds then
+        if not IsNativePetBattleBounds(frame, m) then
+            secureTransientOwned[frame] = nil
+            petBattleConflict = "custom-anchor"
+            return false
+        end
+        if SecureScreenBounds(frame, m) then
+            secureTransientOwned[frame] = true
+            petBattleConflict = nil
+            return true
+        end
+        return false
+    end
     if not IsStockSecureTransientAnchor(frame, spec) then return false end
     local px = spec.point:find("LEFT") and m.gameLeft or spec.point:find("RIGHT") and m.gameRight
         or (m.gameLeft + m.gameRight) / 2
@@ -1745,6 +1911,7 @@ end
 
 function HUD:HookMainhandTransientFrames()
     PreloadGroupLootForSecurePositioning()
+    PreloadPetBattleForSecurePositioning()
     -- Housing controls and the full-screen House Editor are load-on-demand.
     -- Install the hook as soon as Blizzard creates either module so an already
     -- shown child (notably HouseEditorFrame.ModeBar) is positioned before the
@@ -1763,7 +1930,8 @@ function HUD:HookMainhandTransientFrames()
                     and addonName ~= "Blizzard_PVPMatch"
                     and addonName ~= "Blizzard_GroupLoot"
                     and addonName ~= "Blizzard_LootUI"
-                    and addonName ~= "Blizzard_CombatText" then return end
+                    and addonName ~= "Blizzard_CombatText"
+                    and addonName ~= "Blizzard_PetBattleUI" then return end
                 HUD:HookMainhandTransientFrames()
                 HUD:PositionMainhandTransientFrames()
                 if C_Timer and C_Timer.After then
@@ -2345,6 +2513,10 @@ function HUD:HookFrames()
     -- and redirects popups that anchor to the bezel seam center.
     local function RedirectExternalPopups()
         if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+        -- Forever's native gamepad navigator owns the structure and focus of
+        -- visible windows. The broad rescue pass must not enumerate and
+        -- re-anchor those roots while SmartNavigation is rebuilding them.
+        if UsesNativeGamepadInterface() then return end
         
         local m = Offhand.Viewport:GetMetrics()
         if not m or not m.isSpanned then return end
@@ -2504,6 +2676,7 @@ function HUD:HookFrames()
 
     local function AutoLoadEditModeLayout()
         if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+        if UsesControllerInterface() then return end
         if not C_EditMode or not C_EditMode.GetLayouts then return end
         
         local layoutData = C_EditMode.GetLayouts()
@@ -2574,7 +2747,13 @@ function HUD:HookFrames()
             OffhandCharDB.editModeLayoutName = activeName
         end
 
-        local needsGuidance = forever and (not targetName or not found or needsSetup)
+        local designatedActive = false
+        if forever and targetName and found then
+            local status = self:GetForeverEditModeLayoutStatus()
+            designatedActive = status and status.activeMatches or false
+        end
+        local needsGuidance = forever
+            and (not targetName or not found or (needsSetup and not designatedActive))
             or (Offhand.isRetail and not activeName)
         if needsGuidance and not self.editModeGuidanceShown then
             self.editModeGuidanceShown = true

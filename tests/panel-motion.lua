@@ -1,7 +1,12 @@
 -- Guarded title grips must preserve Blizzard template behavior, avoid panel-body
 -- mouse ownership, and remain unavailable in combat.
 
-local addon = {}
+local nativeGamepad = false
+local addon = {
+    Mainhand = {
+        IsNativeGamepadInterface = function() return nativeGamepad end,
+    },
+}
 local inCombat = false
 InCombatLockdown = function() return inCombat end
 
@@ -68,6 +73,15 @@ local blockedGrip, blockedStatus = motion:AttachGuardedTitleGrip(blocked)
 assert(blockedGrip == nil and blockedStatus == "combat_deferred",
     "title grips must never be configured during combat")
 inCombat = false
+
+local gamepadPanel = makeFrame("NativeGamepadPanel")
+nativeGamepad = true
+local gamepadGrip, gamepadStatus = motion:AttachGuardedTitleGrip(gamepadPanel)
+assert(gamepadGrip == nil and gamepadStatus == "native_gamepad",
+    "native gamepad windows must not receive Offhand child controls")
+assert(not gamepadPanel.movable and gamepadPanel.mouseWrites == 0,
+    "native gamepad safety must leave the Blizzard panel structurally untouched")
+nativeGamepad = false
 
 local panel = makeFrame("ExperimentalPanel")
 local began, finished = 0, 0

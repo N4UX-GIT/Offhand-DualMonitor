@@ -192,7 +192,12 @@ end
 
 function Viewport:IsSingleScreenRecovery(metrics)
     return metrics and not metrics.isSpanned
-        and self:IsRecoveryTopologyStatus(metrics.topologyStatus) or false
+        and (self:IsRecoveryTopologyStatus(metrics.topologyStatus)
+            or metrics.manualCanvasState == "MISMATCH"
+            or metrics.manualCanvasState == "AMBIGUOUS"
+            or metrics.manualCanvasState == "UNVERIFIED"
+            or metrics.manualCanvasState == "UNREMEMBERED"
+            or metrics.manualCanvasState == "EXACT_REQUIRED") or false
 end
 
 local function NamePlateScaleFrame(namePlate)
@@ -262,11 +267,13 @@ local function WorldTextCompensationRatio(metrics)
     local heightRatio = gameHeight / physicalHeight
     local db = Offhand.db
     if not db or db.worldTextCompensation == false then return 1 end
-    -- Equal-height spans are the known unaffected Forever topology. Leave the
-    -- native CVar exactly alone there, regardless of the optional HUD scale.
-    if math.abs(heightRatio - 1) <= 0.01 then return 1 end
-    return math.max(0.05, DesiredHUDScale(metrics)
-        * Number(db.worldTextScale, 1, 0.50, 1.50))
+    local fineTune = Number(db.worldTextScale, 1, 0.50, 1.50)
+    -- Equal-height spans need no automatic topology correction, but the
+    -- explicit fine-tuning control must still remain effective. Returning a
+    -- hard-coded 1 here made every slider value a no-op on the most common
+    -- side-by-side layout.
+    if math.abs(heightRatio - 1) <= 0.01 then return fineTune end
+    return math.max(0.05, DesiredHUDScale(metrics) * fineTune)
 end
 
 function Viewport:RestoreNamePlateVisualScale()
@@ -400,22 +407,45 @@ function Viewport:SetPoint(frame, point, relativePoint, x, y)
     frame:SetPoint(point, UIParent, relativePoint, x * factor, y * factor)
 end
 
-function Viewport:GetMetrics()
+local function SafeSingleScreenMetrics(sw, sh, pw, ph, preset, topologyStatus, manualState)
+    return {
+        screenWidth = sw, screenHeight = sh, physicalWidth = pw, physicalHeight = ph,
+        deckWidth = 0, workspaceWidth = 0, workspaceHeight = 0,
+        workspaceLeft = 0, workspaceBottom = 0, workspaceRight = 0, workspaceTop = 0,
+        workspacePixelLeft = 0, workspacePixelBottom = 0,
+        workspacePixelWidth = 0, workspacePixelHeight = 0,
+        gameWidth = sw, gameHeight = sh, gameLeft = 0, gameBottom = 0,
+        gameRight = sw, gameTop = sh, gamePixelLeft = 0, gamePixelBottom = 0,
+        gamePixelWidth = pw, gamePixelHeight = ph, hudScale = 1, bezel = 0,
+        preset = preset, actualAR = pw / ph, arMode = "NATIVE", isSpanned = false,
+        companionTopology = false, topologyStatus = topologyStatus,
+        manualCanvasState = manualState,
+    }
+end
+
+function Viewport:GetMetrics(allowUnconfirmedManual)
     local sw, sh = UIParent:GetWidth(), UIParent:GetHeight()
     local pw, ph = GetPhysicalScreenSize()
     if not pw or pw <= 0 or not ph or ph <= 0 then pw, ph = sw, sh end
     local db = Offhand.db
     local preset = db.layoutPreset or "PORTRAIT_LEFT_LANDSCAPE_RIGHT"
     local topology, topologyStatus = self:GetCompanionTopology(pw, ph, sw, sh)
+    local manual = Offhand.ManualCanvas
+    local geometryPreference = manual and manual:GetGeometryPreference() or "AUTO"
+    if geometryPreference == "MANUAL" then topology = nil end
     if topology then
         local companionVersionStatus, companionVersion, expectedCompanionVersion = CompanionVersionStatus(topology)
         pw, ph = tonumber(topology.physicalWidth), tonumber(topology.physicalHeight)
         local ux, uy = sw / pw, sh / ph
         local game, workspace = topology.game, topology.workspace
-        local width, height = tonumber(game.width), tonumber(game.height)
-        local left, bottom = tonumber(game.x), tonumber(game.y)
-        local workspaceLeft, workspaceBottom = tonumber(workspace.x), tonumber(workspace.y)
-        local workspaceWidth, workspaceHeight = tonumber(workspace.width), tonumber(workspace.height)
+        local width = math.floor(tonumber(game.width) + 0.5)
+        local height = math.floor(tonumber(game.height) + 0.5)
+        local left = math.floor(tonumber(game.x) + 0.5)
+        local bottom = math.floor(tonumber(game.y) + 0.5)
+        local workspaceLeft = math.floor(tonumber(workspace.x) + 0.5)
+        local workspaceBottom = math.floor(tonumber(workspace.y) + 0.5)
+        local workspaceWidth = math.floor(tonumber(workspace.width) + 0.5)
+        local workspaceHeight = math.floor(tonumber(workspace.height) + 0.5)
         return {
             screenWidth = sw, screenHeight = sh, physicalWidth = pw, physicalHeight = ph,
             deckWidth = workspaceWidth * ux,
@@ -425,9 +455,9 @@ function Viewport:GetMetrics()
             workspaceTop = (workspaceBottom + workspaceHeight) * uy,
             workspacePixelLeft = workspaceLeft, workspacePixelBottom = workspaceBottom,
             workspacePixelWidth = workspaceWidth, workspacePixelHeight = workspaceHeight,
-            gameWidth = width * ux, gameHeight = height * uy,
-            gameLeft = left * ux, gameBottom = bottom * uy,
-            gameRight = (left + width) * ux, gameTop = (bottom + height) * uy,
+            gameWidth = width * uy, gameHeight = height * uy,
+            gameLeft = left * uy, gameBottom = bottom * uy,
+            gameRight = (left + width) * uy, gameTop = (bottom + height) * uy,
             gamePixelLeft = left, gamePixelBottom = bottom,
             gamePixelWidth = width, gamePixelHeight = height,
             hudScale = 1, bezel = 0, preset = preset,
@@ -437,17 +467,21 @@ function Viewport:GetMetrics()
             companionVersion = companionVersion,
             expectedCompanionVersion = expectedCompanionVersion,
         }
-    elseif self:IsRecoveryTopologyStatus(topologyStatus) then
-        return {
-            screenWidth = sw, screenHeight = sh, physicalWidth = pw, physicalHeight = ph,
-            deckWidth = 0, workspaceWidth = 0, workspaceHeight = 0,
-            workspaceLeft = 0, workspaceBottom = 0, workspaceRight = 0, workspaceTop = 0,
-            gameWidth = sw, gameHeight = sh, gameLeft = 0, gameBottom = 0,
-            gameRight = sw, gameTop = sh, gamePixelLeft = 0, gamePixelBottom = 0,
-            gamePixelWidth = pw, gamePixelHeight = ph, hudScale = 1, bezel = 0,
-            preset = preset, actualAR = pw / ph, arMode = "NATIVE", isSpanned = false,
-            companionTopology = false, topologyStatus = topologyStatus,
-        }
+    end
+
+
+    local manualMatch, acceptedManual
+    if manual and geometryPreference ~= "EXACT" then
+        manualMatch = manual:Match(pw, ph, sw / math.max(sh, 1), db)
+        manual.lastMatch = manualMatch
+        if manualMatch.state == "MATCH" or manualMatch.state == "CLOSE" then
+            acceptedManual = manualMatch
+        end
+    end
+    if not acceptedManual and not allowUnconfirmedManual then
+        local state = manualMatch and manualMatch.state
+            or (geometryPreference == "EXACT" and "EXACT_REQUIRED" or "UNREMEMBERED")
+        return SafeSingleScreenMetrics(sw, sh, pw, ph, preset, topologyStatus, state)
     end
 
     local ux, uy = sw / pw, sh / ph
@@ -497,21 +531,31 @@ function Viewport:GetMetrics()
     local hudScale = 1
     return {
         screenWidth = sw, screenHeight = sh, physicalWidth = pw, physicalHeight = ph,
-        deckWidth = isVertical and (deck * uy) or (deck * ux), gameWidth = width * ux, gameHeight = gameHeight,
+        deckWidth = isVertical and (deck * uy) or (deck * ux), gameWidth = width * uy, gameHeight = gameHeight,
         workspaceWidth = workspaceWidth * ux, workspaceHeight = workspaceHeight * uy,
         workspaceLeft = workspaceLeft * ux, workspaceBottom = workspaceBottom * uy,
         workspaceRight = (workspaceLeft + workspaceWidth) * ux,
         workspaceTop = (workspaceBottom + workspaceHeight) * uy,
         workspacePixelLeft = workspaceLeft, workspacePixelBottom = workspaceBottom,
         workspacePixelWidth = workspaceWidth, workspacePixelHeight = workspaceHeight,
-        gameLeft = left * ux, gameBottom = bottom * uy,
-        gameRight = (left + width) * ux, gameTop = (bottom + height) * uy,
+        gameLeft = left * uy, gameBottom = bottom * uy,
+        gameRight = (left + width) * uy, gameTop = (bottom + height) * uy,
         gamePixelLeft = left, gamePixelBottom = bottom,
         gamePixelWidth = width, gamePixelHeight = height,
         hudScale = hudScale, bezel = isVertical and (bezel * uy) or (bezel * ux), preset = preset,
         actualAR = width / height, arMode = db.aspectRatioMode or "16_9", isSpanned = true,
         companionTopology = false, topologyStatus = topologyStatus,
+        manualCanvas = acceptedManual ~= nil,
+        manualCanvasState = acceptedManual and acceptedManual.state or "UNCONFIRMED",
+        manualCanvasID = acceptedManual and acceptedManual.id or nil,
+        manualCanvasName = acceptedManual and acceptedManual.record.name or nil,
+        manualCanvasSource = acceptedManual and acceptedManual.record.source or nil,
     }
+end
+
+
+function Viewport:GetManualPreviewMetrics()
+    return self:GetMetrics(true)
 end
 
 -- This is the sole scale owner. Never call it from HUD/frame-position hooks.

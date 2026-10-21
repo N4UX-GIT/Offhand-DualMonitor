@@ -2176,7 +2176,7 @@ namespace Offhand.Companion
                 "",
                 "FIRST-TIME SETUP",
                 "1. In WoW, choose standard Windowed mode (not Windowed Fullscreen).",
-                "2. Start Offhand Companion before WoW.",
+                "2. Start WoW in standard Windowed mode. Start the Companion when you are ready to apply exact borderless geometry.",
                 "3. Select exactly two displays, then choose which one is Mainhand (game). The other becomes the Offhand workspace.",
                 "   For one 32:9/32:10 super-ultrawide, select only that display, enable Single-display 32:9 split, and choose the game side.",
                 "4. Leave Automatically span WoW window on game launch disabled for the first setup. Launch WoW, wait for its window, then click Span WoW Now.",
@@ -2184,10 +2184,10 @@ namespace Offhand.Companion
                 "6. On Forever and Retail, the Wizard ends with Create Mainhand HUD Layout. Outside combat with Edit Mode closed, press it and reload when prompted. Setup is not complete until layout creation succeeds.",
                 "7. Open Blizzard Edit Mode only if you want to fine-tune the generated Offhand - Mainhand layout. On Forever, use Recovery & Preview > Use Current Edit Mode Layout after saving personal changes.",
                 "8. Arrange the map, character frame, backpack, and chat on the Offhand workspace.",
-                "9. Exit WoW normally with the Companion still running. Relaunch once to verify a cold start.",
+                "9. For a standalone persistence test, use Exit Companion before exiting WoW, then cold-launch once and run /offhand diag. Leave the Companion running through shutdown only if Forever reports that its compatibility bridge is still needed.",
                 "",
                 "EVERYDAY USE",
-                "Start the Companion before WoW. With auto-span disabled, click Span WoW Now after the WoW window appears. If you later enable auto-span, each newly detected WoW window is spanned automatically. The title-bar X minimizes the Companion to the tray; Exit Companion stops it.",
+                "With auto-span disabled, click Span WoW Now after the WoW window appears. The span remains if you then select Exit Companion. Leave the Companion in the tray only for automatic spanning, active display-disconnect recovery, topology-file repair, exact Restore Window memory, or the Forever compatibility bridge. The title-bar X minimizes the Companion to the tray; Exit Companion stops it.",
                 "",
                 "CONTROLS",
                 "Automatically span on launch: Opt-in automatic spanning; disabled by default.",
@@ -2202,7 +2202,7 @@ namespace Offhand.Companion
                 CompanionDistribution.UpdateHelpText(isStorePackage),
                 "",
                 "FOREVER AND EDIT MODE",
-                "Forever's protected action bars, unit frames, minimap, and Edit Mode controls belong to Blizzard Edit Mode. The in-game Wizard's final Create Mainhand HUD Layout action safely clones the active Blizzard layout, preserves custom placements, moves default HUD anchors into Mainhand, selects the generated layout, and requests a reload. Offhand restores ordinary workspace panels separately. Recovery & Preview can rebuild the generated layout later. The Companion is required because WoW must already have the final multi-monitor window geometry when those protected frames initialize. When Companion topology is active, choose displays in the Companion; Offhand intentionally locks duplicate in-game geometry controls. It also works around Forever builds that write Offhand SavedVariables but do not reliably load them on the next cold launch.",
+                "Forever's protected action bars, unit frames, minimap, and Edit Mode controls belong to Blizzard Edit Mode. The in-game Wizard's final Create Mainhand HUD Layout action safely clones the active Blizzard layout, preserves custom placements, moves default HUD anchors into Mainhand, selects the generated layout, and requests a reload. Offhand restores ordinary workspace panels separately. Recovery & Preview can rebuild the generated layout later. Final multi-monitor geometry must exist before those protected frames initialize, but it may come from manual setup, another window manager, or the Companion. The legacy Companion bridge remains a compatibility fallback for Forever builds that do not reliably load newly written SavedVariables on a cold launch.",
                 "",
                 "RECOVERY",
                 "If ordinary UI is inaccessible, click Restore Window, enter WoW, and use Gather Off-Screen UI or Gather Safe UI to Mainhand. If the protected HUD layout is wrong, leave combat, close Edit Mode, and use Recovery & Preview > Create Mainhand HUD Layout; reload when prompted. Then click Span WoW Now again if the window was restored. If a saved workspace display disconnects while WoW is spanned, Companion restores a bordered WoW window that fills the surviving Mainhand and refuses another span until the topology is valid. On Forever, click Use Modern when Offhand prompts; after reconnecting and spanning the exact topology, click Restore Offhand. WoW must be fully closed before the Forever recovery snapshot can be refreshed.",
@@ -2966,8 +2966,8 @@ namespace Offhand.Companion
                         Bounds = new Rectangle(oldRect.Left, oldRect.Top, oldRect.Width, oldRect.Height) };
                 restoredPids.Remove(proc.Id);
                 spannedPids.Add(proc.Id);
-                AddLog(string.Format("Spanned {0}x{1}. If the character UI was already loaded, use /reload once, then run /offhand wizard.", bounds.Width, bounds.Height));
-                trayIcon.ShowBalloonTip(4000, "Offhand Spanned", "Exact display geometry saved. If already in game, use /reload once.", ToolTipIcon.Info);
+                AddLog(string.Format("Spanned {0}x{1}. The span remains if you exit the Companion. If the character UI was already loaded, use /reload once, then run /offhand wizard.", bounds.Width, bounds.Height));
+                trayIcon.ShowBalloonTip(4000, "Offhand Spanned", "Exact geometry saved. You may now exit the Companion, or leave it running for monitoring and recovery.", ToolTipIcon.Info);
                 return true;
             }
             catch (Exception ex)

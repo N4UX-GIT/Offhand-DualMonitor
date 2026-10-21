@@ -73,6 +73,44 @@ These determinations apply to the submitted file hashes. They do not transfer
 automatically to a rebuilt executable or newly generated archive, and they do
 not replace checksum verification or independent review of the source.
 
+## Background Studio media-package security
+
+The official [Background Studio](https://offhand-wow.onrender.com/background-studio.html)
+processes PNG, JPEG, and WebP files in browser memory. The selected image is
+not submitted to Offhand. The Studio page applies a restrictive Content
+Security Policy which blocks script-initiated network connections, form
+submissions, plugins, frames, workers, and media loads outside the narrow set
+needed by the page.
+
+Current schema 2 media ZIPs contain exactly four files:
+
+- `Offhand_UserMedia.toc`, containing declarative presentation metadata.
+- `BackgroundRecipe.json`, used only when reopening the package in the Studio.
+- `README.txt`.
+- `Textures/Background.tga`.
+
+They contain no Lua, EXE, DLL, installer, macro, service, update client, or
+network code. Offhand reads the TOC metadata without loading the media addon as
+executable code and rejects unsupported schemas, malformed dimensions,
+non-power-of-two textures, invalid fit values, and out-of-range presentation
+values.
+
+The Studio's **Update package** path reads ZIP data in memory and does not
+extract or execute it. It accepts only the current four-file layout or the
+older five-file Studio layout, enforces compressed, uncompressed, per-entry,
+and entry-count limits, and rejects unsafe paths, duplicate or unexpected
+files, encryption, compression, links, comments, extra fields, hidden local
+records, inconsistent headers, and CRC failures. An older schema 1
+`Background.lua` can be read only for conversion and is discarded when the
+replacement schema 2 package is generated.
+
+Do not install a media ZIP received from another person directly. Any archive
+can be modified after generation, including its TOC. Open it through the
+official Studio, review the preview, and generate a clean code-free replacement
+before installing it. Antivirus software may still scan or flag any archive;
+do not bypass a security warning merely because a filename resembles an
+Offhand package.
+
 ## Beta 19 review scope
 
 On 2026-10-07, the maintainer confirmed Microsoft Security Intelligence also
