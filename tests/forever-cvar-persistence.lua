@@ -2,6 +2,11 @@
 -- currently fail to reload normal SavedVariables.
 
 local cvars = {}
+local currentCharacterName = "Tester"
+local currentCharacterRealm = "TestRealm"
+UnitFullName = function() return currentCharacterName, currentCharacterRealm end
+UnitName = function() return currentCharacterName end
+GetNormalizedRealmName = function() return currentCharacterRealm end
 local function ClearProfileSnapshotCVars()
     local count = tonumber(tostring(cvars.offhandForeverProfileManifest or ""):match(
         "^V1|%d+|(%d+)|")) or 0
@@ -30,18 +35,39 @@ local function NewAddon(isForever, accountDB, characterDB, recoveryVersion, disk
 end
 
 local first = NewAddon(true)
-assert(not first:IsExperimentalForeverProfessionsMovementEnabled(),
-    "Forever Professions movement must default to the safe disabled state")
-assert(first:SetExperimentalForeverProfessionsMovement(true),
-    "explicit consent must enable experimental Professions movement")
+assert(first.db.showGamepadPanelDragHandles == true,
+    "Forever Gamepad drag handles must default to visible")
+first.db.showGamepadPanelDragHandles = false
+assert(first:IsExperimentalForeverProfessionsMovementEnabled(),
+    "Forever Professions movement must default to enabled")
 local compatibilityAccount = OffhandDB
+local legacyDisabledAccount = {
+    compatibility = { foreverProfessionsMovement = false },
+}
+local migratedProfessions = NewAddon(true, legacyDisabledAccount)
+assert(migratedProfessions:IsExperimentalForeverProfessionsMovementEnabled()
+        and OffhandDB.compatibility.foreverProfessionsMovementMigrationVersion == 1,
+    "hidden legacy Professions opt-outs must migrate once to the enabled default")
+assert(not migratedProfessions:SetExperimentalForeverProfessionsMovement(false),
+    "the internal Professions compatibility API must still support disabling movement")
+local migratedOptOutReload = NewAddon(true, OffhandDB)
+assert(not migratedOptOutReload:IsExperimentalForeverProfessionsMovementEnabled(),
+    "an API opt-out after migration must remain sticky")
 local consentReload = NewAddon(true, compatibilityAccount)
+assert(consentReload.db.showGamepadPanelDragHandles == false,
+    "the Gamepad drag-handle visibility setting must remain profile-scoped")
 assert(consentReload:IsExperimentalForeverProfessionsMovementEnabled(),
-    "experimental Professions consent must survive reload on the same client build")
+    "Professions movement must survive reload on the same client build")
 clientBuild = "70010"
 local changedBuild = NewAddon(true, compatibilityAccount)
-assert(not changedBuild:IsExperimentalForeverProfessionsMovementEnabled(),
-    "a Forever client build change must return Professions movement to the safe default")
+assert(changedBuild:IsExperimentalForeverProfessionsMovementEnabled(),
+    "a Forever client build change must retain enabled Professions movement")
+assert(not changedBuild:SetExperimentalForeverProfessionsMovement(false),
+    "the Advanced Compatibility option must support an explicit opt-out")
+clientBuild = "70011"
+local optedOutBuild = NewAddon(true, compatibilityAccount)
+assert(not optedOutBuild:IsExperimentalForeverProfessionsMovementEnabled(),
+    "an explicit Professions movement opt-out must remain sticky across builds")
 clientBuild = "70009"
 first:MarkWelcomeDismissed()
 assert(cvars.offhandForeverOnboarding == "V3|1|0|0|0|0",
@@ -56,6 +82,10 @@ assert(resumedOnboarding:ConsumeOnboardingResumeStep() == 4,
     "Forever onboarding must restore its Reload UI resume step")
 assert(resumedOnboarding:GetOnboardingSetupMethod() == "MANUAL",
     "Forever onboarding must restore the selected setup method")
+resumedOnboarding:SetOnboardingSetupMethod("FANCYZONES")
+local fancyZonesOnboarding = NewAddon(true)
+assert(fancyZonesOnboarding:GetOnboardingSetupMethod() == "FANCYZONES",
+    "Forever onboarding must preserve the FancyZones setup method")
 onboardingReload:MarkSetupComplete()
 local completedReload = NewAddon(true)
 assert(completedReload:IsWelcomeDismissed() and completedReload:IsSetupComplete(),
@@ -108,6 +138,9 @@ local coldAccountDB = { profiles = { Default = {
     firstRunComplete = true,
 } } }
 local coldLaunch = NewAddon(true, coldAccountDB)
+assert(coldLaunch.foreverPersistenceDiagnostics.source == "savedvariables"
+        and coldLaunch.foreverPersistenceDiagnostics.bridge == "absent",
+    "Cold-launch diagnostics must identify normal SavedVariables without a Companion bridge")
 assert(coldLaunch.db.openWorkspacePanels.CharacterFrame == true
     and coldLaunch.db.openWorkspacePanels.WorldMapFrame == true,
     "Cold launch must preserve disk-loaded panel visibility")
@@ -122,6 +155,9 @@ cvars.offhandForeverOpenPanels = "V1|"
 cvars.offhandForeverPositionIndex = ""
 cvars.offhandForeverRecoveryVersion = nil
 local recovered = NewAddon(true, coldAccountDB, nil, "snapshot-1")
+assert(recovered.foreverPersistenceDiagnostics.source == "companion-bridge"
+        and recovered.foreverPersistenceDiagnostics.bridge == "used",
+    "Fresh bridge diagnostics must identify the Companion recovery source")
 assert(recovered.db.openWorkspacePanels.CharacterFrame == true
     and recovered.db.openWorkspacePanels.WorldMapFrame == true,
     "Fresh bridge snapshot must beat stale empty visibility CVar")
@@ -251,6 +287,17 @@ assert(legacyCharacter.foreverEditModeLegacyRecovery
 
 local completeProfile = NewAddon(true, {
     onboarding = { welcomeDismissed = true, setupComplete = true },
+    manualCanvasSchema = 1,
+    preferredGeometrySource = "MANUAL",
+    manualCanvases = { ["manual-1"] = {
+        schema = 1, name = "FancyZones desk", source = "FANCYZONES",
+        referenceWidth = 3998, referenceHeight = 2480,
+        referenceAspect = 3998 / 2480, uiCanvasAspect = 3048 / 1890,
+        measurementMode = "PHYSICAL_CANVAS", arrangement = "SIDE_BY_SIDE",
+        primaryPosition = "RIGHT", confirmed = true,
+        game = { x = 1439 / 3998, y = 0, width = 2559 / 3998, height = 1439 / 2480 },
+        workspace = { x = 0, y = 0, width = 1439 / 3998, height = 1 },
+    } },
     profiles = {
         Raid = {
             enabled = true,
@@ -277,10 +324,17 @@ local brokenStandardLoad = NewAddon(true, {
     profiles = { Default = { enabled = false } },
     foreverPersistenceRevision = 0,
 }, { activeProfile = "Default" })
+assert(brokenStandardLoad.foreverPersistenceDiagnostics.source == "session-fallback"
+        and brokenStandardLoad.foreverPersistenceDiagnostics.sessionFallback == "fallback",
+    "Stale standard-load diagnostics must identify the in-client session fallback")
 assert(OffhandCharDB.activeProfile == "Raid" and brokenStandardLoad.db.enabled == true,
     "A newer session snapshot must restore the active profile after a stale Forever load")
 assert(OffhandDB.profiles.Default == nil and OffhandDB.onboarding.setupComplete == true,
     "The complete fallback must restore account-wide profile and onboarding state")
+assert(OffhandDB.manualCanvasSchema == 1
+        and OffhandDB.preferredGeometrySource == "MANUAL"
+        and OffhandDB.manualCanvases["manual-1"].referenceWidth == 3998,
+    "the bridge-free Forever session fallback must preserve remembered canvas signatures")
 assert(math.abs(brokenStandardLoad.db.deckWidthRatio - 0.4125) < 0.0001
         and brokenStandardLoad.db.theme == "OBSIDIAN"
         and brokenStandardLoad.db.customTrimColor.g == 0.4,
@@ -289,6 +343,25 @@ assert(brokenStandardLoad.db.savedMainPositions.ChatFrame1.x == 1777.5
         and brokenStandardLoad.db.foreverEditModeRecovery == nil
         and OffhandCharDB.foreverEditModeLegacyRecovery.restoreLayoutID == 6,
     "Forever migration must preserve main positions while staging legacy Edit Mode recovery per character")
+
+-- The complete session fallback lives in account-global CVars. Its account
+-- settings may recover on another character, but its per-character layout and
+-- profile selection must not cross that boundary.
+currentCharacterName = "OtherTester"
+local otherCharacter = { activeProfile = "Default", marker = "keep-other-character" }
+local crossCharacterFallback = NewAddon(true, {
+    profiles = { Default = { enabled = false } },
+    foreverPersistenceRevision = 0,
+}, otherCharacter)
+assert(crossCharacterFallback.foreverPersistenceDiagnostics.sessionFallback == "fallback"
+        and OffhandDB.profiles.Raid and OffhandDB.onboarding.setupComplete == true,
+    "a newer complete snapshot must still recover account state across characters")
+assert(OffhandCharDB == otherCharacter
+        and OffhandCharDB.activeProfile == "Default"
+        and OffhandCharDB.marker == "keep-other-character"
+        and OffhandCharDB.foreverEditModeLayoutName == nil,
+    "an account-global session snapshot leaked per-character state to another character")
+currentCharacterName = "Tester"
 
 local repairedStandardAccount = {
     profiles = { Raid = {
@@ -300,6 +373,9 @@ local repairedStandardAccount = {
     foreverPersistenceRevision = 1,
 }
 local repairedStandardLoad = NewAddon(true, repairedStandardAccount, { activeProfile = "Raid" })
+assert(repairedStandardLoad.foreverPersistenceDiagnostics.source == "savedvariables"
+        and repairedStandardLoad.foreverPersistenceDiagnostics.sessionFallback == "standard",
+    "Equal-revision diagnostics must identify normal SavedVariables as authoritative")
 assert(repairedStandardLoad.db.enabled == false
         and repairedStandardLoad.db.deckWidthRatio == 0.5
         and repairedStandardLoad.db.theme == "CLASSIC",

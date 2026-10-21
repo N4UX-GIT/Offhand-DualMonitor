@@ -20,7 +20,8 @@
 *   **Persistent Panels:** Keep your world map, bags, and character sheet open on your second screen without cluttering your game view. They stay open even while you're moving around.
 *   **Mix & Match Monitors:** Got a 4K main screen and a 1080p vertical monitor on the side? Offhand handles asymmetrical layouts, mixed resolutions, and different refresh rates naturally.
 *   **Hide the Bezel:** Offhand calculates the physical plastic gap between your monitors so the game world flows behind it instead of warping. Streaming? The included OBS guide shows you how to broadcast a clean, gap-free feed.
-*   **The Companion App:** A tiny, open-source tool that removes the Windows title bar, spans WoW across selected displays, and restores Forever layouts across cold launches.
+*   **Optional Companion App:** A small, open-source setup utility that removes the Windows title bar and applies exact display geometry. The span remains after the Companion exits; background monitoring, automatic spanning, hotplug recovery, and the legacy Forever recovery bridge are optional services.
+*   **Custom Canvas Backgrounds:** The website's Background Studio converts a PNG, JPEG, or WebP locally in the browser and produces a separate, code-free `Offhand_UserMedia` addon. Offhand reads validated declarative metadata without loading executable media-addon code and safely falls back to the selected theme if the package is absent or invalid.
 *   **Reliable Camera Input:** While spanned, Offhand enables WoW's raw mouse input so repeated right-button camera movement cannot exhaust the hidden cursor against a mixed-height window edge. The player's previous setting is restored outside the span.
 
 ---
@@ -28,12 +29,12 @@
 ## 🛠️ Installation & Setup
 
 1.  **Install the Addon:** Download the addon from [CurseForge](https://www.curseforge.com/wow/addons/offhand) or install it via your preferred addon manager. For a manual ZIP install, the TOC files must be directly inside `Interface/AddOns/Offhand`; `Interface/AddOns/Offhand/Offhand/Offhand_Forever.toc` is one folder too deep.
-2.  **Choose a spanning method:** For Windows, install the Companion from the [Microsoft Store](https://apps.microsoft.com/detail/9PL4PW84Q90W) for a Store-signed package and Microsoft-managed updates. Review the [Companion download and security status](https://offhand-wow.onrender.com/companion.html), or use the [v2.1.2 Beta 20 Companion ZIP from GitHub](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.20/Offhand-Companion.zip) as the portable and Linux/Wine alternative. Beta 20 adds distribution-aware updates: Microsoft Store installations open the Store product page, while portable installations retain the explicit GitHub release check. Microsoft Security Intelligence reviewed the exact canonical Beta 20 ZIP without finding a positive detection or telemetry indicators; the hash-specific record is documented in [SECURITY.md](SECURITY.md). The unsigned standalone EXE may still produce an Edge **"isn't commonly downloaded"** reputation notice; that notice is not a malware verdict. The [no-executable manual setup](https://offhand-wow.onrender.com/manual-spanning.html) remains available. Companion v2.1.2 Beta 20 remains compatible with protocol 1 and the Beta 19 minimum-version baseline.
+2.  **Choose a spanning method:** The [no-executable manual setup](https://offhand-wow.onrender.com/manual-spanning.html) is a first-class option on every supported client. On Windows, the optional Companion can apply an exact borderless span from the [Microsoft Store](https://apps.microsoft.com/detail/9PL4PW84Q90W), or from the [v2.1.2 Beta 20 portable ZIP](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.20/Offhand-Companion.zip). After **Span WoW Now** succeeds, you may select **Exit Companion**; the current WoW window remains spanned. Leave it running only when you want automatic spanning, display-disconnect recovery, topology-file repair, or the Forever compatibility bridge. Review [SECURITY.md](SECURITY.md) before choosing an executable path.
 
 Linux users should read [Companion/Linux.md](Companion/Linux.md). The current
 binary remains a Windows application; running it under Wine is an experimental
 compatibility path, while a native Linux window-control backend is future work.
-The Companion must be launched as the same user, in WoW's exact `WINEPREFIX`,
+When used under Wine, the Companion must be launched as the same user, in WoW's exact `WINEPREFIX`,
 and with the same Wine/Proton runner version as Battle.net/WoW. The Linux guide
 includes a Lutris pre-launch example and addon extraction troubleshooting.
 
@@ -56,17 +57,17 @@ error and `/offhand diag` output with any report. See the
 5.  **Finish the setup wizard:** The first-launch guide now records either **Use Companion** or **Configure Manually** and resumes that path across `/reload`. If WoW was already loaded when Companion changed the span, use the guide's **Reload UI** button; manual resizing offers the same button as an optional stabilization step. The guide waits for display geometry to settle before validation. Then complete calibration. On Forever and Retail, the final step is **Create Mainhand HUD Layout**; press it outside combat with Edit Mode closed. If Blizzard's layout limit or an unavailable Edit Mode API prevents creation, **Finish Without HUD Layout** completes onboarding only after an explicit warning and reports the result as a degraded setup. The 3D viewport and ordinary workspace windows still work, and **Recovery & Preview** remains available to repair the protected HUD later.
 6.  **Reload the protected HUD when available:** On any client that exposes the required Blizzard Edit Mode layout APIs—including Retail, Forever, and current Classic branches that ship a compatible Edit Mode—reload when prompted. Offhand clones the active Blizzard layout, moves default HUD anchors into the Mainhand rectangle, aligns XP with the Action Button 1/backpack boundaries, and arranges stance, pet, possess, vehicle-exit, encounter, and extra-ability controls above it. Custom-positioned source entries are preserved. **Recovery & Preview** can rebuild the layout later. Clients without those APIs finish after the four-step calibration wizard instead.
 7.  **Fine-tune protected HUD frames:** On Forever or Retail, open Blizzard Edit Mode after the reload, adjust the generated `Offhand - Mainhand - <Character>` layout if desired, and save it. On Forever, return to Recovery & Preview and click **Use Current Edit Mode Layout** so that character can recover it after display changes.
-8.  **Verify a cold launch:** Exit WoW normally, leave Companion running, and relaunch. Workspace panels, their open state, Blizzard HUD placement, and the Edit Mode options frame should return correctly. A Forever native backpack left open on the Offhand canvas should reopen; one explicitly closed with B or its close button should remain closed.
+8.  **Verify a cold launch:** First test with the Companion fully exited. Workspace panels, their open state, Blizzard HUD placement, and the Edit Mode options frame should return correctly. On Forever, run `/offhand diag` after the cold launch and check the persistence source. If the current client does not load the newest normal SavedVariables, use the Companion recovery bridge as a compatibility fallback and report the client build.
 
 The final wizard screen and completion message summarize the chosen topology source, Mainhand and workspace dimensions, Mainhand side, aspect/seam calibration, protected-HUD state, and recovery level. A generated Mainhand HUD is **fully ready**; choosing **Finish Without HUD Layout** is intentionally labelled **degraded** until repaired. The cold-launch check is recommended but does not block completion.
 
 The Display tab option **Use raw mouse input while Offhand is spanned** is enabled by default. Keep it enabled if vertical camera movement eventually stops while holding the right mouse button. Offhand remembers the previous `rawMouseEnable` value and restores it when the layout is no longer spanned, Offhand is disabled, or the client logs out.
 
-### Why Forever currently relies on Companion
+### Forever recovery bridge status
 
-WoW addon code cannot resize or borderlessly span the Windows game client. The Forever beta also currently writes Offhand's SavedVariables but may fail to restore them reliably on the next client launch. Companion v2.1.2+ solves both sides: it spans the selected displays, removes the window borders, waits until WoW has fully closed, snapshots the newest valid Offhand state, and restores that state before the next cold launch.
+WoW addon code cannot resize or remove borders from the native game window. That does not require a continuously running Companion: once a span is applied, Windows retains it for the current WoW process.
 
-This recovery bridge is specific to the current Forever client behavior. The addon remains usable with manual spanning or another window manager on all supported clients, including Forever, but manual Forever setups do not gain reliable cold-launch state recovery.
+An earlier Forever 1.60.1 build was live-confirmed to write Offhand's SavedVariables but sometimes load stale or default data on the next transition. The Companion recovery bridge was added for that reproduced client defect. Newer Forever builds must now be tested without the bridge before this workaround remains recommended. `/offhand diag` reports whether the current session came from normal SavedVariables, the in-client session fallback, or a Companion bridge.
 
 During a running Forever session, Offhand also keeps a versioned, data-only copy
 of its account and character state in registered CVars so `/reload` cannot revert options,
@@ -106,8 +107,8 @@ with the packaged placeholder. While WoW remains exactly spanned, Companion
 Beta 19 and later automatically repairs that handoff without moving the window
 and records that one `/reload` is required in its activity log.
 
-### Manual Fallback (No Companion App)
-Manual spanning remains available on Retail, Classic, and Forever clients, but it does not provide Forever's reliable cold-launch state recovery:
+### Manual Setup (No Companion App)
+Manual spanning is supported on Retail, Classic, and Forever clients:
 
 See the complete [manual spanning guide](https://offhand-wow.onrender.com/manual-spanning.html).
 
@@ -115,7 +116,20 @@ See the complete [manual spanning guide](https://offhand-wow.onrender.com/manual
 2. Grab the edges of the game window and manually drag them across both monitors. For one ultrawide, size WoW to that display instead.
 3. At onboarding Step 4, confirm that you deliberately prepared a dual-display or single-ultrawide layout. The calibration wizard then sets the Mainhand side, seam and aspect ratio.
 
-**Note:** Manual spanning leaves the Windows title bar visible and must be repeated after launch. On Forever, panel positions and open state may not survive a complete client restart without the Companion recovery bridge.
+**Note:** Manual spanning leaves the Windows title bar visible and may need to be repeated after launch. The addon cannot query native monitor rectangles, so manual calibration asks the player to confirm the Mainhand side, seam, and aspect. On a Forever build that fails the cold-launch test above, the Companion bridge remains an optional recovery workaround.
+
+### Custom Backgrounds
+
+Use the [Background Studio](https://offhand-wow.onrender.com/background-studio.html) to create a custom Offhand canvas background. Processing and ZIP generation happen locally in the browser; the source image is not uploaded.
+
+1. Close World of Warcraft completely.
+2. Extract the generated `Offhand_UserMedia` folder beside `Offhand` in the same `Interface/AddOns` directory. Do not place either addon inside the other.
+3. Start WoW and confirm both **Offhand** and **Offhand User Media** are enabled in the AddOns list.
+4. Open `/offhand`, select **Themes**, and enable **Use installed custom background**.
+
+The **Studio recommendation** uses the fit mode stored in the generated package. Fill, Fit, and Stretch can also be selected in-game without regenerating the image. Crop focus, zoom, opacity, darkening, and matte color remain controlled by the Background Studio package. Replacing its texture requires a full client restart; `/reload` alone does not reload interface texture files reliably. Normal Offhand updates do not modify the separate user-owned media folder.
+
+Current media packages contain only `Offhand_UserMedia.toc`, `BackgroundRecipe.json`, `README.txt`, and `Textures/Background.tga`. They contain no Lua or native executable. Do not install a media ZIP received from another person directly, because any archive can be modified after generation. Open it through the official Studio's **Update package** path and generate a clean replacement. The importer reads archives in memory without extracting or executing them, accepts only the current or legacy Studio file layout, applies strict path and size limits, and discards the legacy `Background.lua` file when producing the current code-free format.
 
 ---
 
@@ -125,7 +139,7 @@ Type /offhand (or /oh) to open the main configuration dashboard.
 
 *   **Display:** Swap which monitor is your Mainhand/Offhand, adjust aspect ratio, tweak the seam boundary, and configure global UI scale.
 *   **Offhand Monitor:** Customize the map size, toggle independent panel persistence, and set up automatic routing for bags and UI frames.
-*   **Themes:** Choose from various Warcraft-style presets and custom colors for your Offhand Monitor background and border accents.
+*   **Themes:** Choose from various Warcraft-style presets and custom colors for your Offhand Monitor background and border accents. An installed Background Studio package can be enabled here and displayed with its recommended fit or a Fill, Fit, or Stretch override.
 *   **Profiles:** Create, load, and copy settings profiles across your characters.
 
 ### Forever Beta: Action Bars and Combat Frames

@@ -353,6 +353,32 @@ assert(not GameMenuFrame:IsShown() and bag:IsShown(),
 assert(nativeToggleGameMenuCalls == 2,
     "bag observation must not add Game Menu toggles")
 
+-- Native Gamepad UI owns both bag visibility and Game Menu focus. Its Escape
+-- result must stand, while the saved position and workspace-open intent remain
+-- available for a later player-driven open.
+local gamepadUI = true
+addon.IsGamepadUIEnabled = function() return gamepadUI end
+local opensBeforeGamepadEscape = nativeOpenCalls
+ToggleGameMenu()
+controller.scripts.OnUpdate(controller, 0.001)
+controller.scripts.OnUpdate(controller, 0.001)
+assert(nativeOpenCalls == opensBeforeGamepadEscape and not bag:IsShown()
+        and not GameMenuFrame:IsShown(),
+    "Gamepad UI Escape must not reopen bags or toggle the Game Menu from addon code")
+local trackedBefore = addon.db.nativeBackpackWorkspaceOpen
+addon.db.nativeBackpackWorkspaceOpen = true
+assert(addon.Canvas:RestoreTrackedWorkspaceBag() == false
+        and nativeOpenCalls == opensBeforeGamepadEscape and not bag:IsShown()
+        and addon.db.nativeBackpackWorkspaceOpen == true,
+    "Gamepad UI must not restore a tracked bag from addon code or forget it")
+addon.db.nativeBackpackWorkspaceOpen = trackedBefore
+gamepadUI = false
+OpenAllBags()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown() and math.abs(bag:GetLeft() - 240) < 0.01,
+    "a player-opened bag must return to its saved workspace position")
+nativeOpenCalls = opensBeforeGamepadEscape
+
 -- Some Forever builds complete the second Escape natively: both the menu and
 -- bag are hidden before the observer runs. That dismissal must restore the bag
 -- without starting the three-second system-panel navigation grace period.
@@ -387,7 +413,21 @@ controller.scripts.OnUpdate(controller, 0.001)
 -- System panels may temporarily hide the bag, but the tracked workspace-open
 -- intent must survive and recovery must use Blizzard's bag APIs.
 SettingsPanel = makeFrame("SettingsPanel", 900, 700)
+SettingsPanel:SetPoint("CENTER", UIParent, "CENTER", 0, 500)
 SettingsPanel:Show()
+local settingsNativeHooks = SettingsPanel.nativeHookCalls
+addon.Mainhand = { IsNativeGamepadInterface = function() return true end }
+Settings:OpenToCategory()
+addon.Mainhand = nil
+local settingsPoint = SettingsPanel.points[1]
+assert(settingsPoint and settingsPoint[1] == "CENTER" and settingsPoint[2] == UIParent
+        and settingsPoint[3] == "CENTER"
+        and math.abs(settingsPoint[4] - 720) < 0.01
+        and math.abs(settingsPoint[5] + 560) < 0.01,
+    "native gamepad Settings must be centered on Mainhand through the external opening observer")
+assert(SettingsPanel.nativeHookCalls == settingsNativeHooks
+        and SettingsPanel._OffhandMainhandHooked == nil,
+    "native gamepad Settings recovery must not hook or annotate the Blizzard frame")
 nativeOpenerDeclinesHiddenLogicalState = true
 bag:Hide()
 controller.scripts.OnUpdate(controller, 0.001)
@@ -411,6 +451,20 @@ bag:Hide()
 controller.scripts.OnUpdate(controller, 0.001)
 assert(bag:IsShown(),
     "Edit Mode transition must restore the tracked workspace bag through Blizzard's API")
+
+ProfessionsBookFrame = makeFrame("ProfessionsBookFrame", 700, 800)
+UIPanelWindows.ProfessionsBookFrame = { area = "left", pushable = 0 }
+ProfessionsBookFrame:Show()
+controller.scripts.OnUpdate(controller, 0.001)
+bag:Hide()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown() and addon.db.nativeBackpackWorkspaceOpen == true,
+    "opening Professions must preserve and restore the tracked workspace bag")
+ProfessionsBookFrame:Hide()
+bag:Hide()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown() and addon.db.nativeBackpackWorkspaceOpen == true,
+    "closing Professions must preserve and restore the tracked workspace bag")
 
 nativeOpenerDeclinesHiddenLogicalState = false
 ToggleAllBags = function()

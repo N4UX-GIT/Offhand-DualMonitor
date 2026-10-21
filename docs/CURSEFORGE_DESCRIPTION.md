@@ -59,12 +59,12 @@ The portable ZIP is hosted on the official Offhand GitHub release, not by CurseF
 
 [View the Companion Beta 20 GitHub release and checksums](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.2-beta.20)
 
-You can also span the WoW window manually or use NVIDIA Surround, AMD Eyefinity, or a suitable operating-system window manager. The Companion is optional on most clients, but the current WoW Forever beta requires it for reliable layout recovery across complete client restarts.
+You can span the WoW window manually or use NVIDIA Surround, AMD Eyefinity, or a suitable operating-system window manager. The Companion is optional and may be exited after applying a span. Its Forever recovery bridge remains available for client builds that fail the standalone cold-launch persistence test.
 
 ### 3. Configure Offhand
 
 1. Set WoW to standard **Windowed** mode, not Windowed (Fullscreen).
-2. Start the Companion before WoW. For the initial setup, leave **Auto-span WoW on launch** disabled.
+2. Start WoW in standard **Windowed** mode. Start the optional Companion when you are ready to apply exact borderless geometry; for initial setup, leave **Auto-span WoW on launch** disabled.
 3. Launch WoW, select your character, and wait until that character has fully entered the game world. The **Welcome to Offhand** first-launch guide should open automatically. Do not span WoW from the login or character-selection screen because addons are not loaded there and the unadjusted interface can appear stretched or misplaced.
 4. Follow the numbered first-launch guide. In the Companion, select exactly two displays and choose the Mainhand display, then click **Span WoW Now**. For one 32:9/32:10 super-ultrawide, select that display and enable **Single-display 32:9 split** before spanning.
 5. Return to the first-launch guide in WoW and click **Reload UI**. After the reload, continue the guide. It verifies the Companion topology and then hands you directly into the display calibration wizard.
@@ -108,9 +108,9 @@ The Companion does not move your in-game frames itself. It gives the addon the r
 
 ### Is the Companion optional?
 
-For most supported WoW clients, yes. You can manually stretch the standard Windowed-mode WoW client or use NVIDIA Surround, AMD Eyefinity, or another suitable window manager. The addon can then manage the in-game viewport and supported panels.
+Yes. You can manually stretch the standard Windowed-mode WoW client or use NVIDIA Surround, AMD Eyefinity, or another suitable window manager. The addon then manages the in-game viewport and supported panels without a resident Offhand desktop process.
 
-The Companion is still the recommended method because it provides:
+The optional Companion provides:
 
 * One-click spanning and one-click window restoration.
 * Explicit Mainhand and workspace selection.
@@ -119,7 +119,7 @@ The Companion is still the recommended method because it provides:
 * A dedicated single-display 32:9/32:10 split mode.
 * Consistent topology for the setup guide, diagnostics, and recovery tools.
 
-The current WoW Forever beta can write Offhand SavedVariables without reliably restoring them after a full client restart. Companion v2.1.2 Beta 19 or later is therefore required for reliable Forever cold-launch recovery, even though manual spanning can still create a working layout during the current session.
+An earlier Forever 1.60.1 build was confirmed to write Offhand SavedVariables without reliably restoring them after a full client restart. Companion v2.1.2 Beta 19 or later includes a compatibility bridge for that defect. Newer Forever builds are being revalidated without the bridge; `/offhand diag` reports the persistence source used by the current session.
 
 ### How is the Companion designed to remain safe?
 
@@ -235,7 +235,7 @@ Rendering a wider WoW window may require more GPU processing than a single-scree
 
 **Is the Companion required?**
 
-Not on most clients. You may resize the WoW window manually or use Surround, Eyefinity, or another window manager. The Companion provides one-click borderless spanning, exact topology, display identification, and recovery. WoW Forever currently needs its recovery bridge for reliable full-restart persistence.
+No. You may resize the WoW window manually or use Surround, Eyefinity, or another window manager. The Companion provides one-click borderless spanning, exact topology, display identification, and recovery, and it may be exited after applying a span. Its Forever bridge remains available as a compatibility fallback while current builds undergo repeated cold-launch testing.
 
 **Is the Companion compliant with Blizzard's Terms of Service?**
 
@@ -243,28 +243,28 @@ The Companion is designed as an operating-system window-management utility. It c
 
 **Can I avoid running an executable?**
 
-Yes. Follow the [no-executable manual spanning guide](https://offhand-wow.onrender.com/manual-spanning.html). Manual spanning must be repeated when needed and does not provide WoW Forever's Companion-backed cold-launch recovery.
+Yes. Follow the [no-executable manual spanning guide](https://offhand-wow.onrender.com/manual-spanning.html). Manual spanning may need to be repeated after launch. On a Forever build that still fails normal cold-launch persistence, the Companion bridge remains an optional workaround.
 
 ***
 
 ## WoW Forever Beta
 
-The current WoW Forever beta does not consistently restore addon SavedVariables after a complete client restart. These variables normally contain workspace positions, panel state, and setup completion. The Companion waits until WoW has closed, refreshes Offhand's own recovery bridge, and makes the newest valid state available for the next cold launch.
+An earlier WoW Forever 1.60.1 build did not consistently restore addon SavedVariables after a complete client restart. These variables contain workspace positions, panel state, and setup completion. The Companion bridge remains available for affected builds, but the preferred validation path is now a cold launch with the Companion fully exited and the packaged bridge placeholder installed.
 
 ### First-time Forever setup
 
-1. Install Companion v2.1.2 Beta 19 or later, start it before WoW, and leave **Auto-span WoW on launch** disabled during the initial setup.
+1. Choose manual spanning, an existing window manager, or Companion v2.1.2 Beta 19 or later. Leave **Auto-span WoW on launch** disabled during initial Companion setup.
 2. Set WoW to standard **Windowed** mode, log into a character, and wait until the game world has fully loaded. The **Welcome to Offhand** guide should open automatically.
 3. Follow the guide to select the displays and Mainhand in the Companion. Click **Span WoW Now** only after entering the game world.
 4. Return to the guide and click **Reload UI**. Continue through the guide into the calibration wizard. If the guide was closed, reopen it with `/offhand guide`.
 5. On the calibration wizard's final step, make sure you are outside combat and Blizzard Edit Mode is closed. Press **Create Mainhand HUD Layout**, then reload when prompted.
 6. If desired, fine-tune the generated layout in Blizzard Edit Mode. After saving personal changes, open **Recovery & Preview** and click **Use Current Edit Mode Layout**.
 7. Arrange supported maps, bags, character panels, and chat windows on the Offhand workspace.
-8. Exit WoW normally while leaving the Companion running. Relaunch the client and verify that the span, workspace panels, and Mainhand HUD layout return correctly.
+8. For the standalone test, select **Exit Companion**, exit WoW normally, and cold-launch the client. Verify the workspace panels and Mainhand HUD layout, then run `/offhand diag`. Use the compatibility bridge only if normal SavedVariables did not initialize the session.
 
 ### Everyday Forever use
 
-Start the Companion before WoW and leave it running until the WoW process has fully stopped. For the clearest startup experience, log into the game world before clicking **Span WoW Now**. Automatic spanning is optional, but it can resize the login and character-selection screens before addons have loaded, so those screens may temporarily appear stretched or misplaced.
+After **Span WoW Now** succeeds, you may select **Exit Companion**. The current span and in-game addon continue without it. Leave it running only for automatic spanning, active monitor-disconnect recovery, topology-file repair, exact Restore Window memory, or the Forever compatibility bridge.
 
 After moving panels or changing the HUD layout, perform one normal exit and relaunch to confirm that the newest recovery state was captured.
 
@@ -272,7 +272,7 @@ After moving panels or changing the HUD layout, perform one normal exit and rela
 
 Offhand restores supported ordinary workspace frames such as the World Map, Character frame, backpacks, and chat. Blizzard Edit Mode remains responsible for action bars, player and target frames, stance and pet bars, party and raid frames, and other protected combat UI.
 
-If the layout works after `/reload` but not after restarting WoW, confirm that Companion v2.1.2 Beta 19 or later was running before launch and remained open until the WoW process fully stopped. Check the Companion activity log for confirmation that the Forever recovery snapshot was updated or is current.
+If the layout works after `/reload` but not after restarting WoW, capture `/offhand diag` and the client build. If it reports stale/default state instead of normal SavedVariables, run Companion v2.1.2 Beta 19 or later through one normal WoW shutdown so it can refresh the compatibility bridge.
 
 ***
 

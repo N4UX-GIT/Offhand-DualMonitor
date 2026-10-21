@@ -62,8 +62,12 @@ CharacterBag0Slot=frame(BagsBar)
 CharacterBag1Slot=frame(BagsBar)
 CharacterBag2Slot=frame(BagsBar)
 CharacterBag3Slot=frame(BagsBar)
+OffhandDB={}
+assert(loadfile("Core/ManualCanvas.lua"))("Offhand",addon)
 assert(loadfile("Core/Viewport.lua"))("Offhand",addon)
 assert(loadfile("Core/SeamRedirect.lua"))("Offhand",addon)
+local initialPreview=addon.Viewport:GetManualPreviewMetrics()
+assert(addon.ManualCanvas:RememberFromMetrics(initialPreview,"Geometry test","MANUAL"))
 local function worldPixels()
     local bl,tr=WorldFrame.points.BOTTOMLEFT,WorldFrame.points.TOPRIGHT
     local factor=WorldFrame:GetEffectiveScale()*ph/768
@@ -107,6 +111,9 @@ print("PASS: physical seam, cross-scale anchors, HUD fit, nested scale, left pri
 -- Companion topology is authoritative and preserves mixed monitor heights and
 -- offsets without guessing from the combined aspect ratio.
 pw,ph=5360,1440
+-- Model the explicit Companion selection, which hands geometry ownership back
+-- from a previously remembered manual canvas to the generated exact bridge.
+OffhandDB.preferredGeometrySource="AUTO"
 OffhandCompanionTopology={schema=1,companionVersion="2.1.2-beta.18",physicalWidth=5360,physicalHeight=1440,mode="DUAL_DISPLAY",
     workspace={x=0,y=360,width=1920,height=1080},game={x=1920,y=0,width=3440,height=1440}}
 local tm=addon.Viewport:GetMetrics()
@@ -227,6 +234,9 @@ UIParent.GetWidth, UIParent.GetHeight = originalGetWidth, originalGetHeight
 OffhandCompanionTopology=nil
 addon.isForever=true
 addon.db.aspectRatioMode="16_9"
+OffhandDB.manualCanvases={}
+local foreverPreview=addon.Viewport:GetManualPreviewMetrics()
+assert(addon.ManualCanvas:RememberFromMetrics(foreverPreview,"Forever manual","MANUAL"))
 tm=addon.Viewport:GetMetrics()
 assert(tm.isSpanned and tm.topologyStatus=="ABSENT"
         and tm.gamePixelLeft==922 and tm.gamePixelBottom==6
@@ -239,6 +249,17 @@ assert(topologyDiagnostics.status=="ABSENT" and not topologyDiagnostics.loaded
     and not topologyDiagnostics.accepted,
     "absent topology diagnostics must remain distinct from a mismatch")
 
+-- An absent generated topology is not proof of a manual span. The ordinary
+-- one-monitor Forever window observed during live testing must fail safely
+-- until the player explicitly remembers a matching independent canvas.
+OffhandDB.manualCanvases={}
+pw,ph=2114,1353
+tm=addon.Viewport:GetMetrics()
+assert(not tm.isSpanned and tm.topologyStatus=="ABSENT"
+        and tm.manualCanvasState=="MISMATCH"
+        and tm.gamePixelWidth==2114 and tm.workspacePixelWidth==0,
+    "an unremembered one-monitor window must use safe single-screen geometry")
+
 -- Match the reported equal-landscape manual span. Without a generated
 -- CompanionTopology.lua, a 50/50 preset must still confine WorldFrame to the
 -- left monitor instead of treating the full window as the game rectangle.
@@ -248,6 +269,9 @@ addon.db.primaryPosition="LEFT"
 addon.db.deckWidthRatio=0.50
 addon.db.aspectRatioMode="16_9"
 addon.db.gameBottomPixels=0
+OffhandDB.manualCanvases={}
+local landscapePreview=addon.Viewport:GetManualPreviewMetrics()
+assert(addon.ManualCanvas:RememberFromMetrics(landscapePreview,"Landscape manual","MANUAL"))
 tm=addon.Viewport:GetMetrics()
 assert(tm.isSpanned and tm.topologyStatus=="ABSENT"
         and tm.gamePixelLeft==0 and tm.gamePixelWidth==1917
@@ -358,6 +382,9 @@ print('PASS: immediate action/form anchors, native scale retained, combat deferr
 
 -- The viewport controls one global baseline; arbitrary addon children inherit it.
 addon.db.enabled=true;addon.db.deckWidthRatio=0.36;addon.db.aspectRatioMode="16_9"
+OffhandDB.manualCanvases={}
+local scalePreview=addon.Viewport:GetManualPreviewMetrics()
+assert(addon.ManualCanvas:RememberFromMetrics(scalePreview,"Scale test","MANUAL"))
 local writes=0
 local worldWrites=0
 function UIParent:GetScale() return uiScale end
@@ -554,9 +581,8 @@ assert(worldWrites==1,
     "native WorldFrame scale was unexpectedly changed before restore")
 
 -- World text follows the calculated Mainhand visual baseline only where the
--- physical canvas is taller than Mainhand. Equal-height spans are live-proven
--- native, and must remain unchanged. Preserve a custom player WorldTextScale
--- as a multiplier across every geometry and restoration.
+-- physical canvas is taller than Mainhand. Equal-height spans need no automatic
+-- correction, but the user fine-tune remains a multiplier in every topology.
 local universalMetrics = {
     {name="equal-height side-by-side report", physicalWidth=4480, physicalHeight=1440,
         gamePixelWidth=2560, gamePixelHeight=1440},
@@ -582,7 +608,7 @@ for _, sample in ipairs(universalMetrics) do
         sample.gamePixelWidth * 768 / (1100 * sample.physicalHeight))
         * addon.db.hudScale)
     local expectedWorld = math.abs(sample.gamePixelHeight / sample.physicalHeight - 1) <= 0.01
-        and 1 or calculated
+        and addon.db.worldTextScale or calculated * addon.db.worldTextScale
     sample.isSpanned = true
     addon.db.enabled = true
     addon.db.originalWorldTextScale = nil
@@ -598,6 +624,24 @@ for _, sample in ipairs(universalMetrics) do
     addon.Viewport:ApplyGlobalScale()
     near(worldTextScale, 1.25)
 end
+addon.Viewport.GetMetrics = nativeGetMetrics
+
+-- Regression: the reporter's equal-height 5120x1440 span previously returned
+-- early with ratio 1, so moving the visible slider to 50% changed no CVar.
+local equalHeightMetrics = universalMetrics[5]
+addon.db.enabled = true
+addon.db.originalWorldTextScale = nil
+addon.Viewport.originalScale = nil
+worldTextScale = 1
+addon.db.worldTextScale = 0.5
+addon.Viewport.GetMetrics = function() return equalHeightMetrics end
+addon.Viewport:ApplyGlobalScale()
+near(worldTextScale, 0.5)
+near(addon.Viewport:GetPerformanceDiagnostics(equalHeightMetrics).worldTextCompensationRatio, 0.5)
+addon.db.enabled = false
+addon.Viewport:ApplyGlobalScale()
+near(worldTextScale, 1)
+addon.db.worldTextScale = 1
 addon.Viewport.GetMetrics = nativeGetMetrics
 
 -- User controls are independent from the global HUD scale: the toggle restores

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="See how Offhand gives World of Warcraft windows their own workspace, with an illustrated layout tour and in-game dual-monitor footage.">
+    <title>Offhand | Layout demonstration</title>
+    <link rel="icon" href="assets/offhand-icon.png">
+    <link rel="stylesheet" href="style.css?v=20261022-2">
+    <link rel="stylesheet" href="demonstration.css?v=27">
+    <script src="demonstration.js?v=27" defer></script>
+</head>
+<body class="demonstration-page">
+    <header class="navbar">
+        <div class="nav-container">
+            <a class="brand" href="index.html" aria-label="Offhand home"><img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="brand-medallion"><div class="brand-text"><span class="brand-title">OFFHAND</span><span class="brand-subtitle">Dual-Wield Your Monitors</span></div></a>
+            <nav class="nav-primary" aria-label="Primary navigation"><a href="manual-spanning.html">Window Setup</a><a href="in-game-setup.html">In-Game Setup</a><a href="background-studio.html">Studio</a><a href="companion.html">Companion</a></nav>
+            <div class="nav-controls">
+                <details class="site-menu">
+                    <summary>Menu <span aria-hidden="true">▾</span></summary>
+                    <nav class="site-menu-panel" aria-label="Complete site navigation">
+                        <div class="site-menu-group"><span class="site-menu-label">Pages</span><a href="index.html">Home</a><a href="demonstration.html" aria-current="page">Demonstration</a><a href="manual-spanning.html">Window Setup</a><a href="in-game-setup.html">In-Game Setup</a><a href="background-studio.html">Background Studio</a><a href="companion.html">Companion</a></div>
+                        <div class="site-menu-group site-menu-sections"><span class="site-menu-label">On this page</span><a href="#layout-tour">Layout tour</a><a href="#in-game-footage">In-game footage</a><a href="#next-steps">Get started</a></div>
+                        <div class="site-menu-external"><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub <span aria-hidden="true">↗</span></a><a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge <span aria-hidden="true">↗</span></a></div>
+                    </nav>
+                </details>
+                <a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener" class="btn btn-wow-red btn-sm nav-download"><svg class="curseforge-mark" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M18.326 9.2145S23.2261 8.4418 24 6.1882h-7.5066V4.4H0l2.0318 2.3576V9.173s5.1267-.2665 7.1098 1.2372c2.7146 2.516-3.053 5.917-3.053 5.917L5.0995 19.6c1.5465-1.4726 4.494-3.3775 9.8983-3.2857-2.0565.65-4.1245 1.6651-5.7344 3.2857h10.9248l-1.0288-3.2726s-7.918-4.6688-.8336-7.1127z"/></svg>CurseForge</a>
+            </div>
+        </div>
+    </header>
+    <main class="content-deck setup-guide-deck demonstration-deck">
+        <div class="deck-intro-banner demo-intro"><div class="hero-badge">SEE OFFHAND IN ACTION</div><h1 class="guide-title">Your game. More room around it.</h1><p class="deck-intro-text">Keep World of Warcraft and its HUD on Mainhand, with your map, bags, Character panel, and chat in a workspace of their own on Offhand.</p><p class="demo-instructions">Play the full tour, or open Explore layouts to choose a scene. Expand the demo for a closer look. Press Escape to return.</p></div>
+        <section class="demo" id="layout-tour" aria-label="Animated Offhand display demonstration">
+            <div class="stage" id="stage">
+                <svg id="scene" viewBox="0 0 1600 1000" role="img" aria-labelledby="scene-title scene-description">
+                    <title id="scene-title">One crowded screen before Offhand</title>
+                    <desc id="scene-description">An abstract gaming desk with a keyboard, mouse, and speakers. Labelled geometric panels represent game and workspace windows.</desc>
+                    <defs>
+                        <radialGradient id="room"><stop stop-color="#34302b"/><stop offset="1" stop-color="#101216"/></radialGradient>
+                        <linearGradient id="desk" x2="0" y2="1"><stop stop-color="#463326"/><stop offset=".35" stop-color="#2d221c"/><stop offset="1" stop-color="#18191b"/></linearGradient>
+                        <linearGradient id="metal" x2=".7" y2="1"><stop stop-color="#383a3c"/><stop offset=".3" stop-color="#151719"/><stop offset="1" stop-color="#090b0e"/></linearGradient>
+                        <linearGradient id="game" x2="0" y2="1"><stop stop-color="#1f343e"/><stop offset="1" stop-color="#1c2c25"/></linearGradient>
+                        <radialGradient id="glow"><stop stop-color="#d6a54e" stop-opacity=".35"/><stop offset="1" stop-color="#d6a54e" stop-opacity="0"/></radialGradient>
+                        <radialGradient id="equipped-icon-glow"><stop stop-color="#ffd58a" stop-opacity=".65"/><stop offset=".4" stop-color="#eeb45a" stop-opacity=".4"/><stop offset=".72" stop-color="#cf8b35" stop-opacity=".16"/><stop offset="1" stop-color="#cf8b35" stop-opacity="0"/></radialGradient>
+                        <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="15" stdDeviation="16" flood-opacity=".6"/></filter>
+                    </defs>
+                    <g id="camera">
+                    <rect width="1600" height="1000" fill="url(#room)"/>
+                    <path d="M190 0V760M1410 0V760" stroke="#ffffff" stroke-opacity=".025" stroke-width="3"/>
+                    <ellipse cx="800" cy="690" rx="760" ry="250" fill="url(#glow)"/>
+                    <path d="M0 755H1600V1000H0Z" fill="url(#desk)"/>
+                    <path d="M0 756H1600" stroke="#ca9953" stroke-opacity=".35"/>
+                    <g stroke="#ac8654" stroke-opacity=".045"><path d="M0 794H1600M0 851H1600M0 923H1600M0 965H1600"/></g>
+                    <g id="stands"></g>
+                    <g id="monitors"></g>
+                    <g id="peripherals" filter="url(#shadow)">
+                        <path d="M320 814H1280L1375 948H225Z" fill="#15171b" stroke="#353333"/>
+                        <path d="M479 814H1062L1106 901H438Z" fill="url(#metal)" stroke="#484039"/>
+                        <g id="keys" fill="#24282a" stroke="#44433e" stroke-width=".8"></g>
+                        <path d="M1210 830C1171 830 1155 861 1167 882C1178 900 1233 900 1245 880C1255 859 1240 831 1210 830Z" fill="url(#metal)" stroke="#514b3e"/>
+                        <path d="M1208 834V857" stroke="#c9a96a" stroke-width="2"/>
+                        <g id="speaker-left" transform="translate(86 650)"><rect width="100" height="166" rx="9" fill="url(#metal)" stroke="#4d4538"/><circle cx="50" cy="43" r="22" fill="#090c10" stroke="#3d4246"/><circle cx="50" cy="108" r="35" fill="#101317" stroke="#41464a"/><circle cx="50" cy="108" r="17" fill="#1c2025"/><circle cx="50" cy="153" r="2" fill="#e7bc68"/></g>
+                        <use href="#speaker-left" transform="translate(1328 0)"/>
+                    </g>
+                    </g>
+                    <g class="scene-brand" id="scene-brand"><text x="70" y="69">OFFHAND</text><text x="1530" y="69" text-anchor="end" class="scene-note">A WORKSPACE BESIDE YOUR GAME</text></g>
+                    <g id="story-overlay"><rect x="350" y="92" width="900" height="46" rx="6" fill="#10151b" fill-opacity=".94" stroke="#665337"/><text id="story-beat" x="800" y="122" text-anchor="middle" font-size="20">Open the map. The world is covered.</text></g>
+                    <g id="ending-scene" opacity="0"></g>
+                    <g id="scene-caption"><text x="800" y="970" text-anchor="middle" id="stage-caption">One screen · Open, close, and reopen the UI</text></g>
+                </svg>
+                <a id="ending-setup" class="ending-setup" href="in-game-setup.html" hidden>Get started with Offhand</a>
+                <div id="tour-cover" class="tour-cover" hidden>
+                    <div id="tour-cover-art" aria-hidden="true"></div>
+                    <button id="tour-start" class="tour-start" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"/></svg>Play the tour</button>
+                </div>
+            </div>
+            <div class="playback"><button id="play" type="button" aria-label="Play layout tour">Play tour</button><button id="replay-intro" type="button">Replay intro</button><div class="progress" aria-hidden="true"><span id="progress"></span></div><span id="counter">01 / 11</span><button id="presentation" type="button" aria-pressed="false">Expand demo</button></div>
+            <details id="layout-explorer" class="layout-explorer">
+                <summary>Explore layouts</summary>
+                <nav id="layouts" class="layout-controls" aria-label="Choose a monitor arrangement"></nav>
+            </details>
+            <div class="explanation"><p class="eyebrow" id="layout-kicker">BEFORE OFFHAND · ONE DISPLAY</p><h2 id="layout-title">Open the map. Lose sight of the world.</h2><p id="layout-description">Watch the player open the map, return to the game, inspect Character and Bags, then reopen the map. Each window competes with the world for the same screen space.</p></div>
+        </section>
+        <p class="footnote">Illustrated layouts. Screen graphics explain the arrangement; actual controls and available features depend on your WoW client.</p>
+        <section class="gameplay-example" id="in-game-footage" aria-labelledby="gameplay-title">
+            <div class="gameplay-intro">
+                <p class="eyebrow">IN-GAME DUAL-MONITOR FOOTAGE</p>
+                <h2 id="gameplay-title">Your UI stays accessible. Your game stays clear.</h2>
+                <p>Move your map, Character panel, and bags to Offhand. Keep Mainhand clear.</p>
+            </div>
+            <figure class="gameplay-video">
+                <div class="gameplay-player">
+                <video id="gameplay-recording" controls playsinline preload="none" poster="assets/offhand-in-game-demo-poster.jpg?v=6" width="1920" height="1080" aria-label="30-second silent recording: One screen, shared space. Panels open on Mainhand, then move to Offhand. Your game on Mainhand; your UI within reach on Offhand." aria-describedby="gameplay-caption">
+                    <source src="assets/offhand-in-game-demo.mp4?v=6" type="video/mp4">
+                    Your browser cannot play this video. <a href="assets/offhand-in-game-demo.mp4">Download the in-game example</a>.
+                </video>
+                <button id="gameplay-watch" class="gameplay-watch" type="button" aria-controls="gameplay-recording" aria-label="Watch the 30-second in-game demonstration" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"/></svg><span>Watch · 30 seconds</span></button>
+                </div>
+                <figcaption id="gameplay-caption">Offhand workspace on the left; Mainhand game view on the right. Both regions are from the same recording. Screen positioning, fades, and text are edited for presentation, not automatic display rearrangement. Silent video, 30 seconds.</figcaption>
+            </figure>
+        </section>
+        <div class="hero-actions demo-next" id="next-steps"><a href="index.html#setup" class="btn btn-wow-red btn-lg">Get Started</a></div>
+        <noscript><p>This interactive demonstration needs JavaScript. <a href="in-game-setup.html">The setup guide works without it.</a></p></noscript>
+    </main>
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-brand"><img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="footer-logo"><div class="footer-info"><span class="footer-title">OFFHAND</span><span class="footer-subtitle">Dual-Wield Your Monitors</span></div></div>
+            <nav class="footer-nav" aria-label="Footer navigation"><div class="footer-nav-row"><a href="index.html">Home</a><a href="demonstration.html" aria-current="page">Demonstration</a><a href="manual-spanning.html">Window Setup</a><a href="in-game-setup.html">In-Game Setup</a><a href="background-studio.html">Background Studio</a><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub</a></div><div class="footer-nav-row"><a href="index.html#faq">FAQ</a><a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge</a><a href="companion.html">Companion</a><span class="footer-community-actions"><a class="footer-discord" href="https://discord.gg/3BAVSXBXH" target="_blank" rel="noopener noreferrer" aria-label="Join the Offhand Discord" title="Join the Offhand Discord"><img src="assets/discord-symbol.svg" alt="" aria-hidden="true">Join Discord</a><a class="footer-support" href="https://ko-fi.com/n4uxaddons" target="_blank" rel="noopener noreferrer" aria-label="Support N4UX on Ko-fi"><img src="assets/ko-fi-symbol.png" alt="" aria-hidden="true">Support N4UX</a></span></div></nav>
+        </div>
+        <div class="footer-legal"><p>In-game Addon: Copyright &copy; 2026 Offhand Project (All Rights Reserved). &bull; Desktop Companion: Open Source under the <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/Companion/LICENSE" target="_blank" rel="noopener">MIT License</a>.</p><p class="footer-disclaimer">World of Warcraft&trade; and Blizzard Entertainment&trade; are trademarks or registered trademarks of Blizzard Entertainment, Inc. Offhand is not affiliated with, endorsed by, or sponsored by Blizzard Entertainment.</p></div>
+    </footer>
+</body>
+</html>
