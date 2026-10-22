@@ -68,6 +68,58 @@ addon.Mainhand = { IsNativeGamepadInterface = function() return true end }
 assert(not Offhand_ToggleGamepadUIFocus(),
     "non-Forever clients must not forward the native Gamepad focus binding")
 addon.isForever = true
+local nativeContext = 9
+local focusAssignments = { PADBACK = "TOGGLEUIFOCUS", PAD2 = "JUMP" }
+local bindingSaves = 0
+C_KeyBindings = { GetBindingContextForAction = function(action)
+    assert(action == "TOGGLEUIFOCUS")
+    return nativeContext
+end }
+GetBindingKey = function(action, _, context)
+    assert(action == "TOGGLEUIFOCUS" and context == nativeContext,
+        "native focus status must read the Gamepad context")
+    return "PADBACK"
+end
+GetBindingAction = function(key, _, context)
+    assert(context == nativeContext, "focus configuration escaped the Gamepad context")
+    return focusAssignments[key] or ""
+end
+local rejectBinding = false
+SetBinding = function(key, action, context)
+    assert(context == nativeContext)
+    if rejectBinding then return false end
+    focusAssignments[key] = action
+    return true
+end
+GetCurrentBindingSet = function() return 2 end
+SaveBindings = function(set)
+    assert(set == 2, "focus assignment must preserve character binding scope")
+    bindingSaves = bindingSaves + 1
+end
+assert(behavior:GetGamepadFocusBindingKeys() == "PADBACK",
+    "the existing native focus button was not detected")
+local bindingOK, bindingReason, oldAction = behavior:AssignGamepadFocusBinding("PAD2")
+assert(not bindingOK and bindingReason == "conflict" and oldAction == "JUMP"
+        and focusAssignments.PAD2 == "JUMP" and bindingSaves == 0,
+    "a conflicting controller assignment changed without confirmation")
+assert(behavior:AssignGamepadFocusBinding("PAD2", true)
+        and focusAssignments.PAD2 == "TOGGLEUIFOCUS" and bindingSaves == 1
+        and focusAssignments.PADBACK == "TOGGLEUIFOCUS",
+    "confirmed assignment must target the native action and retain the existing focus button")
+inCombat = true
+assert(not behavior:AssignGamepadFocusBinding("PAD3") and bindingSaves == 1,
+    "focus configuration must not mutate bindings in combat")
+inCombat = false
+assert(not behavior:AssignGamepadFocusBinding("ESCAPE") and bindingSaves == 1,
+    "the controller picker must not replace Escape")
+rejectBinding = true
+assert(not behavior:AssignGamepadFocusBinding("PAD3") and bindingSaves == 1,
+    "a rejected assignment must not be persisted")
+rejectBinding = false
+nativeContext = nil
+assert(not behavior:AssignGamepadFocusBinding("PAD3") and bindingSaves == 1,
+    "missing native context must not fall back to global bindings")
+nativeContext = 9
 assert(Offhand_ToggleGamepadUIFocus(),
     "Forever Gamepad UI must forward the player-assigned focus binding")
 assert(#nativeBindingRuns == 1 and nativeBindingRuns[1] == "TOGGLEUIFOCUS",

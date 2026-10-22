@@ -21,6 +21,9 @@ The detailed issue section below remains authoritative.
 | OH-FOR-005 | Forever | Boundary implemented on `main` | Automated boundary passed | Pending | Combat and taint-log QA |
 | OH-FOR-006 | Forever | Resolved on `main` | Automated passed | Passed | Retain regression coverage |
 | OH-FOR-009 | Forever Gamepad UI | Investigation on `addon/develop` working candidate | Existing automated checks pass; no reproduction yet | One reported protected-call block during layout configuration | Fresh taint trace identifying the first Offhand contamination |
+| OH-FOR-010 | Forever Gamepad UI | Contextual B retained; Escape/menu adapter withdrawn after OH-FOR-012 | B and dispatcher-isolation regressions passed | Initial reporter acceptance followed by protected Game Menu regression | Verify clean reload; safe Escape-retention replacement pending |
+| OH-FOR-011 | Forever Gamepad Edit Mode | Investigation; native Loot preview focus mismatch identified | Source matches supplied line and locals; LootFrame excluded from destination adapter | Moving Loot preview triggers missing `GetSlotIndex` call | Repeat the same Edit Mode move with Offhand disabled after reload |
+| OH-FOR-012 | Forever, Gamepad and keyboard UI | Unsafe Escape registration removed in working candidate | Shared-dispatcher mutation rejected by regression | SpellStopCasting forbidden on Game Menu entry in both modes | Reload deployed candidate; verify radial menu and keyboard Escape |
 | OH-UI-004 | Forever | Base fix on `main` | Automated passed | Base fix passed | Optional movement QA |
 | OH-COMP-001 | Shared Companion contract | Implemented on `main` | Automated passed | Pending | Newer Companion pairing QA |
 | OH-UI-001 | Forever | Resolved on `main` | Automated passed | Passed | Retain regression coverage |
@@ -122,6 +125,11 @@ issue changes branch, evidence level, candidate, or released version.
   mixed-height span. **Bring to Mainhand** centers only shown, unprotected Edit
   Mode control surfaces (including the separate settings dialog) after the
   player's click; it does not move protected HUD systems or alter panel metadata.
+  The 2026-10-22 follow-up adds default automatic rescue of these same
+  unprotected controls after the existing 0.15-second native-layout settlement.
+  The Recovery & Preview preference can disable it and retain the manual
+  Bring to Mainhand prompt. Reachable user placement is left intact. This
+  automatic path is a new candidate awaiting live control/focus verification.
 - Live QA: Upgrade while a class-specific custom layout is active on an exact
   span, verify the Recovery card designation, `/reload` and relog, then exercise
   display disconnect/reconnect and both player-click recovery prompts. Repeat on
@@ -321,6 +329,108 @@ issue changes branch, evidence level, candidate, or released version.
   to other panels before a reload. It could no longer be reproduced afterward,
   and panel behavior was reported stable. This is current-session evidence,
   not a completed interaction-matrix pass or evidence that the taint is fixed.
+
+## OH-FOR-010: Gamepad Back/Escape closes workspace panels
+
+- Current scope after OH-FOR-012: Retain contextual B, but remove the Escape
+  callback and independent-menu adapter described below. Escape again follows
+  Blizzard's normal window-closing behavior. The earlier reporter acceptance
+  does not establish safety of the withdrawn approach. A clean reload is
+  required to clear the already-mutated native handler list.
+- Status: Revised preservation candidate implemented on 2026-10-22; live
+  reporter acceptance received later that day. The complete matrix and fresh
+  protected-action/taint evidence have not been supplied.
+- Client: Forever native Gamepad UI, Beta 21 working candidate.
+- Symptom: B and Escape close the panels left open on Offhand when the player
+  wants to return control to gameplay. The prior focus guidance directed the
+  player to Controller Configuration, which was absent from the shown settings.
+- Candidate: Offhand now reads Blizzard's native `TOGGLEUIFOCUS` binding in its
+  own binding context and offers direct button assignment with conflict
+  confirmation. It saves that native action instead of assigning the addon
+  delegate. This corrects the inaccessible configuration workflow.
+- Revised candidate: Outside combat, B is temporarily bound directly to
+  Blizzard's `TOGGLEUIFOCUS` action only when an actual shown Offhand destination
+  has focus. Gameplay B, Mainhand focus, temporary dismiss-on-unfocus frames,
+  and Game Menu navigation retain their native bindings. The override belongs
+  to an addon-owned secure controller and is cleared by its combat state driver.
+- Escape requirement: The player explicitly requested Game Menu opening while
+  keeping Offhand panels visible. A native addon-priority Escape handler runs
+  after dialogs, menus, casting and Edit Mode but before global panel cleanup.
+  It calls the native menu-show function. Because Game Menu's own center-slot
+  transaction also closes panels and bags, a restricted handler temporarily
+  detaches only its `UIPanelLayout-area` attribute while it is hidden. Native
+  ShowUIPanel/focus registration is retained. The original slot is restored
+  after the menu closes and ownership ends, unless another owner changed it.
+- Boundaries: No native function, panel script, focus-manager field or global
+  UIPanelWindows entry is replaced. No workspace frame is reopened. The policy
+  follows actual visible placement, not stale open markers. It yields to combat,
+  cinematics, ConsolePort, disabled persistence, and external menu ownership.
+  In combat, Blizzard's native dismissal behavior applies. Mock success does
+  not establish protected-action safety, including OH-FOR-009.
+- Live QA: Use the displayed focus button with World Map, Character, Social,
+  Communities and bags open on Offhand. Record retained/closed panels and fresh
+  errors, verify B returns gameplay control, then verify Escape opens and closes
+  Game Menu without hiding peers. Exercise menu navigation and refocus, explicit
+  close buttons, Mainhand panel Back, gameplay B, and reload. Check fresh
+  BugGrabber and taint evidence. See `tests/QA-notes.md` for the full boundary.
+
+## OH-FOR-011: Loot Edit Mode selection is mistaken for a loot item
+
+- Status: Fresh detailed report on 2026-10-22, matching earlier Loot focus
+  reports. The failing native assumption is identified; Offhand involvement
+  remains unisolated. No native focus workaround was installed.
+- Client: Forever native Gamepad UI, during movement of the Loot Edit Mode
+  preview. The supplied root has `isInEditMode=true`,
+  `editModeManuallyShown=true`, and `isOpen=false`.
+- Exact failure: `LootFrameMixin:FocusGamepad()` takes SmartNavigation's last
+  selected button, gets its parent, and calls that parent's `GetSlotIndex()` at
+  `Blizzard_UIPanels_Game/Mainline/LootFrame.lua:376`. The supplied last button
+  is the Edit Mode `Selection` overlay. Its parent is `LootFrame`, not a loot
+  row, so `GetSlotIndex` is nil. The stack and locals identify the mismatched
+  object type without establishing who first put it in navigation history.
+- Supporting source: The `forever` branch of
+  <https://github.com/Gethe/wow-ui-source/blob/forever/Interface/AddOns/Blizzard_UIPanels_Game/Mainline/LootFrame.lua#L364>
+  matches this sequence and line number when inspected for this report.
+- Offhand boundary: `LootFrame` remains outside the Gamepad destination list
+  and position-only protected allowlist. Existing regression verifies that its
+  native anchor is untouched by the destination adapter. This error is a nil
+  method call, distinct from OH-FOR-009's forbidden protected action.
+- Next live evidence: After a reload with Offhand disabled, enter native
+  Gamepad Edit Mode and move the Loot Window preview in the same way. Record
+  whether the same stack appears. Recurrence would show that Offhand is not
+  required for this failure. A non-recurrence alone would not establish a cause.
+  Compare with real loot outside Edit Mode separately when convenient.
+- Avoid replacing `FocusGamepad`, adding `GetSlotIndex` to the root, or editing
+  native SmartNavigation state merely to suppress the exception. Those changes
+  would mask the wrong-object condition and enter the protected focus path.
+
+## OH-FOR-012: Game Menu casting handler inherits Offhand taint
+
+- Report: On 2026-10-22, opening Game Menu from the controller radial and in
+  standard UI produced `ADDON_ACTION_FORBIDDEN` naming Offhand and
+  `SpellStopCasting()`. Both stacks enter the native casting callback at
+  `Blizzard_Game/Shared/Game.lua:7` through `Blizzard_GameMenuEsc` lines 101/110,
+  before the addon-priority Escape callback would run.
+- Attributable source hazard: Offhand registered its callback with
+  `RegisterGameMenuEscHandler` on the background Gamepad observer, before
+  checking whether Gamepad UI was active. The native function inserts into and
+  sorts a private shared handler table. Running that mutation in addon context
+  can contaminate dispatch of earlier native callbacks, matching the observed
+  cross-mode failure. A fresh taint trace has not independently identified the
+  first contaminated table cell.
+- Correction candidate: Remove registration entirely, along with the now-unused
+  Escape callback and temporary Game Menu panel-layout adapter. Keep contextual
+  B routing, reticle centering and XP generation. No native dispatcher function,
+  casting API, handler table or menu metadata is patched or bypassed.
+- Regression: Background refresh in both Gamepad and keyboard modes must pass
+  with registration, native menu invocation and menu-attribute writes set to
+  throw. Contextual B, gameplay/Mainhand yielding and secure combat release
+  remain covered. Mock success does not establish absence of all native taint.
+- Live gate: Reload after installing this correction, then open/close Game Menu
+  using the controller radial and keyboard Escape. Check newly timestamped
+  BugGrabber entries. Old errors and the already-tainted pre-reload session do
+  not validate the corrected candidate. Escape panel retention is intentionally
+  unavailable until a safer replacement exists.
 
 ## OH-UI-004 — Group loot rolls centered on the monitor seam
 

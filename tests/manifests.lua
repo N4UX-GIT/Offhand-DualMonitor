@@ -60,9 +60,9 @@ assert(initSource:find("HEADER_OFFHAND", 1, true)
         and initSource:find("BINDING_HEADER_OFFHAND", 1, true)
         and optionsSource:find("_G.HEADER_OFFHAND", 1, true),
     "Forever and standard binding-header globals must both be initialized")
-assert(optionsSource:find("GAMEPAD_CATEGORY_ID", 1, true)
-        and not optionsSource:find("settings.KEYBINDINGS_CATEGORY_ID,", 1, true),
-    "the controller focus helper must open Gamepad settings, not keyboard bindings")
+assert(optionsSource:find("AssignGamepadFocusBinding", 1, true)
+        and not optionsSource:find("settings.OpenToCategory(gamepadCategoryID)", 1, true),
+    "the controller focus helper must provide native binding capture instead of the unrelated settings page")
 local packageSource = assert(io.open("package.ps1", "rb")):read("*a")
 assert(packageSource:find('Join%-Path %$rootDir "Bindings%.xml"'),
     "release packaging must include the automatic Bindings.xml file")

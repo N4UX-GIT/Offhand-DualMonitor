@@ -952,3 +952,176 @@ pass. Live acceptance remains required for:
   reproduces the nested timer sequence. The 2026-10-20 live pass confirmed the
   World Map remains at its saved Offhand position while other panels open and
   close.
+
+## Forever Gamepad status bars and focus assignment: 2026-10-22
+
+- Candidate on `addon/develop`, Beta 21 working source. Live acceptance pending.
+- The reported generated Gamepad layout placed XP and the second status bar
+  off-center or partly below Mainhand. Gamepad status entries now use explicit
+  Mainhand bottom-center anchors, with a 12-unit bottom inset and a separate
+  secondary row. Keyboard status alignment remains unchanged. Only default
+  source entries are refined; custom source placements are retained. Existing
+  generated layouts change only when the player refreshes the generated HUD.
+- The Gamepad settings page has no reported Controller Configuration entry.
+  The Offhand focus control now displays Blizzard's native `TOGGLEUIFOCUS`
+  binding using its `GamepadModeInGameCore` context and offers an addon-owned
+  assignment dialog. Conflicts require a second matching press or Accept;
+  Escape cancels capture and combat entry releases it. The selected binding is
+  saved to the player's current account/character binding set. It executes
+  Blizzard's action directly rather than the old Offhand `RunBinding` delegate.
+- Reference source inspected: `Blizzard_Gamepad/Bindings.xml`,
+  `Blizzard_Settings_Shared/Blizzard_Keybindings.lua`, and
+  `Blizzard_GamepadSharedUtility/FrameControlsManager.lua` on the
+  `forever` branch of <https://github.com/Gethe/wow-ui-source>.
+- This is a usable focus-assignment candidate, not a fix for native B/Escape
+  dismissal. Those routes still close native panels. The native focus toggle
+  can also dismiss a frame marked `dismissOnUnfocus`. No focus-manager state,
+  native close handler, or panel visibility was patched to mask that behavior.
+- Live QA: Reload, refresh the generated Gamepad Mainhand HUD using its creation
+  action, then confirm both status bars are centered and fully visible. Confirm
+  the displayed native focus binding, assign an unused button, verify conflict
+  cancellation and confirmation, then reload and check persistence. With Map,
+  Character, Social and bags on Offhand, use that focus binding to return to
+  gameplay and record which panels remain visible. Compare B and Escape
+  separately. Capture fresh taint/error evidence for OH-FOR-009; a mock pass
+  does not prove protected-action safety or window retention.
+
+### Gamepad Merchant placement follow-up: 2026-10-22
+
+- Live report: The merchant opened at the spanned UIParent top-left inside
+  Offhand. The existing Gamepad destination list covered Quest and Gossip but
+  omitted `MerchantFrame`. It now includes the shown Merchant root through the
+  same external geometry observer. Native interaction, visibility, focus,
+  purchase/buyback handlers and scripts remain under Blizzard ownership.
+- No protected-frame exception was added. A protected or forbidden Merchant
+  root still fails closed. A hidden Merchant is never opened from saved offsets.
+- Simulated coverage verifies Mainhand centering, no repeated anchor write,
+  combat deferral, unchanged native scripts, mover hiding on close, saved-offset
+  restoration after a native reopening, keyboard-mode anchor restoration, and
+  refusal to move a protected Merchant root.
+- Source review: Both Mainline and Vanilla `MerchantFrame.xml` on the `forever`
+  branch of <https://github.com/Gethe/wow-ui-source> declare a standard
+  `ButtonFrameTemplate` Merchant root. This is supporting source evidence,
+  not a live protection or taint-safety result.
+- Next live check: After reload, reopen a vendor in Gamepad mode and confirm
+  Mainhand placement. Close and reopen it, move it deliberately if desired,
+  then check the position and fresh Lua/taint evidence. Normal merchant item
+  actions also need live safety verification. No client interaction or purchase
+  was automated for this change.
+- Other interaction roots absent from the destination list include Bank, Mail,
+  Trade and Class Trainer. They remain audit candidates, not confirmed defects;
+  no blanket protected allowlist or global panel scan was added.
+
+### Loot Edit Mode focus failure, detailed locals: 2026-10-22
+
+Tracked as OH-FOR-011. The fresh report identifies SmartNavigation's last button
+as `LootFrame.Selection`, an Edit Mode overlay. Native `FocusGamepad()` assumes
+its parent is a loot row and calls `GetSlotIndex()`; that parent is actually
+`LootFrame`, which has no such method. The native source line 376 matches the
+report. Offhand remains excluded from Loot destination placement. No runtime
+patch or client action was performed. Repeat the same preview move after a
+reload with Offhand disabled to isolate whether Offhand is required.
+
+### Contextual B/Escape retention and Gamepad reticle: 2026-10-22
+
+- Revised Beta 21 working candidate on `addon/develop`. LootFrame investigation
+  is deferred at the player's request; its runtime code remains unchanged.
+- The white dot is native `GamepadReticle`. Its `Recenter` uses UIParent's
+  horizontal center and `GetCursorCenterPosition` for full-canvas height. The
+  existing external Gamepad observer now positions its unprotected root at
+  physical Mainhand center with effective-scale conversion. It receives no
+  mover, script, visibility or targeting API changes. Combat defers geometry;
+  keyboard mode/disable restores only an anchor still owned by this adapter.
+- OH-FOR-010 now has a contextual B override and a native Escape-handler
+  candidate. B dispatches straight to `TOGGLEUIFOCUS` when a visible Offhand
+  destination has focus. Escape opens native Game Menu while bypassing generic
+  window cleanup and the menu's own center-slot close-all transaction. Only the
+  hidden menu's panel-layout attributes are prepared through a restricted
+  handler; native ShowUIPanel and focus registration still execute. The native
+  menu metadata is restored after ownership ends and the menu closes. No panel
+  is hidden/reopened, and native focus state is read without mutation.
+- Simulation: All 36 active Lua suites and six-manifest Lua 5.1 validation pass.
+  New coverage models both global cleanup and center-slot closure, verifies
+  retained visible peers, singleton registration, contextual B release, native
+  menu navigation yielding, combat-state override clearing, cinematic yielding,
+  visible-menu deferral and external menu ownership. Reticle regression checks
+  Mainhand center, effective scale, unchanged anchors, restoration, combat and
+  protected-root refusal. These checks do not prove native taint safety.
+- Source inspected on the `forever` branch of
+  <https://github.com/Gethe/wow-ui-source>: GamepadReticle.lua,
+  Blizzard_GameMenuEsc.lua, UIParentPanelManager.lua, GameMenuFrame.lua,
+  FrameControlsManager.lua and SmartNavigation.lua.
+- Live QA after reload: Wait for the interface to settle. Put Map, Character,
+  Social and a bag on Offhand. Focus an Offhand panel and press B: peers should
+  remain visible and gameplay control should return. Press Escape from both
+  panel focus and gameplay: Game Menu should open without closing peers, and
+  native menu navigation/closing should work. Repeat explicit panel closes,
+  Mainhand-focused Back and gameplay B. Check the dot at Mainhand center, then
+  repeat mode transition and reload. Capture fresh `/offhand diag`, BugGrabber
+  and taint evidence immediately on failure, especially OH-FOR-009. Combat uses
+  native dismissal and is not covered by the preservation claim.
+- Diagnostics now include `GamepadReticle` and `GamepadBack` policy state.
+
+### Reporter acceptance and native Gamepad XP generation: 2026-10-22
+
+- The reporter accepted the B/Escape and reticle candidate as a solid fix.
+  Preserve those paths. No complete per-panel matrix or fresh taint trace was
+  supplied with that acceptance, so it does not close OH-FOR-009 or establish
+  combat safety. The remaining reported defect is XP placement when creating
+  the Gamepad HUD layout.
+- Exact generation gap: The native Gamepad preset uses the separate
+  `GamepadMainActionBar` system. It has no keyboard `ActionBar/MainBar` entry.
+  The common refinement routine returned before processing the status bars,
+  whose native anchors are relative to `StatusTrackingBarManager`, so generic
+  UIParent translation also skipped them. The previous test fixture retained a
+  keyboard main-bar entry and did not characterize this native preset shape.
+- Gamepad status refinement now runs before keyboard-bar prerequisites. It
+  updates XP and the secondary status row in the generated layout payload,
+  independently of the keyboard action bar. Native presets and customized
+  source entries remain unchanged; no runtime status-frame hooks were added.
+- A regression using the native separate action system and manager-relative
+  status anchors failed before this change and passes afterward. Live check:
+  reload, close Edit Mode, click Create Mainhand HUD Layout, then confirm XP
+  is centered on Mainhand and fully above the bottom edge without manual drag.
+
+### Protected casting regression and Escape rollback: 2026-10-22
+
+The later Game Menu report supersedes the Escape safety claim in the earlier
+acceptance. Both Gamepad radial entry and standard UI reached protected
+`SpellStopCasting` under Offhand attribution before the addon-priority callback.
+The callback registration inserted and sorted the native shared handler table
+even while Gamepad mode was inactive. That source hazard is removed entirely;
+the independent-menu layout adapter and unused callback are also removed.
+Contextual B, the reticle and XP generation remain. Escape reverts to native
+window-closing behavior. New regression guards reject registration, native menu
+invocation and menu metadata writes in both modes while preserving B coverage.
+Reload is required to discard the previous session's handler-list taint. Retest
+fresh radial-menu and keyboard-Escape Game Menu entry for OH-FOR-012. A safe
+Escape-retention replacement remains pending; do not re-register a callback as
+a workaround or infer native taint safety from the earlier simulated pass.
+
+### Automatic Edit Mode control rescue: 2026-10-22
+
+- The reporter requested smoother recovery of the Edit Mode control window
+  that opens in the mixed-height void. The settled recovery candidate now uses
+  the existing centering helper automatically for a shown, unreachable,
+  unprotected manager or element-settings dialog. Its existing 0.15-second
+  settlement and generation invalidation are retained. No native-frame hooks,
+  Escape callbacks, panel metadata or protected HUD anchors are added/changed.
+- `autoRecoverEditModeControls` defaults to true and merges through existing
+  profile defaults. Recovery & Preview exposes Automatically recover off-screen
+  Edit Mode controls. Turning it off retains the existing manual prompt.
+  Reachable placements on either physical display remain untouched.
+- Coverage exercises the Gamepad manager and separate settings dialog, delayed
+  application, no repeated anchor write/prompt, protected-root refusal, combat
+  deferral and opt-out. The historical manual-recovery matrix remains covered.
+- Live gate: Reload and open Edit Mode in the exact span; the control window
+  should move into Mainhand after native positioning settles, without a recovery
+  popup. Select a HUD element and verify its settings dialog too. Manually move
+  controls within a physical display and confirm they stay placed. Disable the
+  preference and verify Bring to Mainhand is offered for unreachable controls.
+  Check native dragging, save/cancel, controller focus and fresh Lua/taint
+  evidence. Simulated geometry success does not establish native focus safety.
+- Reporter follow-up: Automatic Edit Mode control rescue was accepted live
+  on 2026-10-22. This confirms the reported recovery workflow; the broader
+  focus, combat and topology matrix remains separate.

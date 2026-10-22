@@ -219,8 +219,100 @@ function Offhand:InitializeWorkspaceBehavior()
     end
 end
 
+-- Keep contextual B independent of Blizzard's shared Escape dispatcher.
+-- Registering an addon callback sorts that private handler list in addon
+-- context and can contaminate even its earlier native casting handler.
+local function EnsureGamepadBackOwner(self)
+    local owner = self.gamepadBackOwner
+    if not owner then
+        if not CreateFrame or not RegisterStateDriver then return nil end
+        owner = CreateFrame("Frame", "OffhandGamepadWorkspaceBack", UIParent, "SecureHandlerStateTemplate")
+        if not owner or not owner.SetAttribute then return nil end
+        owner:SetAttribute("_onstate-combat", [[
+            if newstate == "combat" then self:ClearBindings() end
+        ]])
+        RegisterStateDriver(owner, "combat", "[combat] combat; nocombat")
+        self.gamepadBackOwner = owner
+    end
+    return owner
+end
+
+function Behavior:RefreshGamepadWorkspaceBack()
+    if not Offhand.isForever then return false end
+    if InCombat() then return false end
+    local mainhand = Offhand.Mainhand
+    local active = Offhand.db and Offhand.db.enabled
+        and Offhand.db.persistentWorkspacePanels ~= false
+        and not _G.ConsolePort and mainhand and mainhand:IsNativeGamepadInterface()
+        and mainhand:GetRect().isSpanned
+        and not (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved())
+    local panels = active and mainhand:GetShownForeverGamepadWorkspacePanels() or {}
+    active = active and #panels > 0 or false
+    local menuShown = GameMenuFrame and GameMenuFrame.IsShown and GameMenuFrame:IsShown()
+
+    local focused = GamepadMode and GamepadMode.FrameControlsManager
+    local focusedFrame = focused and focused.isUIFocused and focused.focusedFrame
+    local bindBack = false
+    if active and not menuShown then
+        for _, panel in ipairs(panels) do
+            if panel == focusedFrame and not panel.dismissOnUnfocus then bindBack = true; break end
+        end
+    end
+    local owner = self.gamepadBackOwner or (bindBack and EnsureGamepadBackOwner(self))
+    if not owner or not SetOverrideBinding or not ClearOverrideBindings then return active end
+    local key = GAMEPAD_FACE_RIGHT or "PAD2"
+    if bindBack then
+        local current = GetBindingAction and GetBindingAction(key, true)
+        if not self.gamepadBackBound or current ~= "TOGGLEUIFOCUS" then
+            -- Dispatch the original hardware input straight to Blizzard's
+            -- binding. Do not run a native focus method from addon Lua.
+            SetOverrideBinding(owner, true, key, "TOGGLEUIFOCUS")
+            self.gamepadBackBound = true
+        end
+    elseif self.gamepadBackBound then
+        ClearOverrideBindings(owner)
+        self.gamepadBackBound = nil
+    end
+    return active
+end
+
+function Behavior:GetGamepadWorkspaceBackDiagnostics()
+    return string.format("escape:native,back:%s,menu:native",
+        self.gamepadBackBound and "focus" or "native")
+end
+
 -- A normal Blizzard binding allows keyboard and PAD assignments without
 -- reserving or rewriting any of the player's existing controller buttons.
+function Behavior:GetGamepadFocusBindingContext()
+    if not Offhand.isForever or not C_KeyBindings
+        or type(C_KeyBindings.GetBindingContextForAction) ~= "function" then return nil end
+    return C_KeyBindings.GetBindingContextForAction("TOGGLEUIFOCUS")
+end
+
+function Behavior:GetGamepadFocusBindingKeys()
+    local context = self:GetGamepadFocusBindingContext()
+    if context == nil or type(GetBindingKey) ~= "function" then return end
+    return GetBindingKey("TOGGLEUIFOCUS", nil, context)
+end
+
+-- Configure Blizzard's own contextual action. The eventual press must execute
+-- the native binding directly, without RunBinding from an addon Lua callback.
+function Behavior:AssignGamepadFocusBinding(key, replaceConflict)
+    if InCombat() then return false, "combat" end
+    local context = self:GetGamepadFocusBindingContext()
+    if context == nil or type(SetBinding) ~= "function"
+        or type(GetBindingAction) ~= "function" or type(SaveBindings) ~= "function"
+        or type(GetCurrentBindingSet) ~= "function" then return false, "unavailable" end
+    if type(key) ~= "string" or not key:match("^[%w%-]+$")
+        or not key:match("PAD%w+$") then return false, "key" end
+    local previous = GetBindingAction(key, nil, context)
+    if previous and previous ~= "" and previous ~= "TOGGLEUIFOCUS"
+        and not replaceConflict then return false, "conflict", previous end
+    if not SetBinding(key, "TOGGLEUIFOCUS", context) then return false, "binding" end
+    SaveBindings(GetCurrentBindingSet())
+    return true
+end
+
 function Offhand_ToggleSettings()
     if not Offhand.Options then return end
     -- Options:Open already toggles the existing panel when it is visible.

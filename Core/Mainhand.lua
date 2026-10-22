@@ -18,6 +18,7 @@ local gamepadMainMenuController
 local gamepadMainMenuFrame
 local gamepadMainMenuState = setmetatable({}, { __mode = "k" })
 local gamepadMainMenuStatus = "unavailable"
+local gamepadReticleStatus = "unavailable"
 local gamepadDestinationPanelState = setmetatable({}, { __mode = "k" })
 local gamepadDestinationPanelStatus = {}
 local gamepadDestinationDragHandles = setmetatable({}, { __mode = "k" })
@@ -507,10 +508,41 @@ end
 -- position. Explicitly customized source entries remain untouched. Enum lookup
 -- keeps this capability-based across Forever and Retail without assuming that
 -- numeric system identifiers are identical between client versions.
+local function RefineGamepadStatusBars(layout, rect, sourceDefaults)
+    local systems = Enum and Enum.EditModeSystem
+    local statusSystem = systems and systems.StatusTrackingBar
+    if statusSystem == nil then return 0 end
+    local statusIndices = Enum.EditModeStatusTrackingBarSystemIndices
+    local secondary = statusIndices and statusIndices.StatusTrackingBar2
+    local _, primaryHeight = FrameSize(_G.MainStatusTrackingBarContainer, 400, 14)
+    local screen = { left = 0, bottom = 0,
+        right = UIParent:GetWidth(), top = UIParent:GetHeight() }
+    local sx, sy = PointBase("BOTTOM", screen)
+    local gx, gy = PointBase("BOTTOM", rect)
+    local refined = 0
+    for index, entry in ipairs(layout.systems or {}) do
+        if sourceDefaults[index] and entry.system == statusSystem then
+            local isSecondary = secondary ~= nil and entry.systemIndex == secondary
+            entry.anchorInfo = {
+                point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOM",
+                offsetX = gx - sx,
+                offsetY = gy - sy + 12 + (isSecondary and (primaryHeight + 4) or 0),
+            }
+            entry.isInDefaultPosition = false
+            refined = refined + 1
+        end
+    end
+    return refined
+end
+
 local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerLayout)
+    -- The native Gamepad preset has GamepadMainActionBar instead of keyboard
+    -- ActionBar MainBar. Its manager-relative status bars must be handled
+    -- before any keyboard-action-bar prerequisites or early returns.
+    local refined = controllerLayout and RefineGamepadStatusBars(layout, rect, sourceDefaults) or 0
     local systems = Enum and Enum.EditModeSystem
     local indices = Enum and Enum.EditModeActionBarSystemIndices
-    if type(systems) ~= "table" or type(indices) ~= "table" then return 0 end
+    if type(systems) ~= "table" or type(indices) ~= "table" then return refined end
     local actionSystem = systems.ActionBar
     local statusSystem = systems.StatusTrackingBar
     local extraSystem = systems.ExtraAbilities or systems.ExtraAbility
@@ -528,7 +560,7 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerL
     local stanceIndex = indices.StanceBar or indices.Stance
     local petIndex = indices.PetActionBar or indices.PetBar
     local possessIndex = indices.PossessActionBar or indices.PossessBar
-    if actionSystem == nil or mainIndex == nil then return 0 end
+    if actionSystem == nil or mainIndex == nil then return refined end
 
     local mainAnchor, lossOfControlAnchor
     for index, entry in ipairs(layout.systems or {}) do
@@ -540,7 +572,7 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerL
             lossOfControlAnchor = entry.anchorInfo
         end
     end
-    if not mainAnchor then return 0 end
+    if not mainAnchor then return refined end
 
     local mainFrame = _G.MainActionBar or _G.MainMenuBar
     local mainWidth, mainHeight = FrameSize(mainFrame, 1390, 50)
@@ -572,12 +604,11 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerL
     local encounterFrame = _G.EncounterBar or _G.UIWidgetPowerBarContainerFrame
     local stanceBottom = mainTop + statusHeight + 8
 
-    local refined = 0
     for index, entry in ipairs(layout.systems or {}) do
         if sourceDefaults[index] then
-            if statusSystem ~= nil and entry.system == statusSystem then
-                -- Align the complete XP/reputation bar's right edge with the
-                -- complete Blizzard main/bag bar, not merely Action Button 1.
+            if not controllerLayout and statusSystem ~= nil and entry.system == statusSystem then
+                -- Keyboard layouts align the complete XP/reputation bar
+                -- with the main/bag bar, not merely Action Button 1.
                 if PlaceFromMainAnchor(entry, mainAnchor, statusFrame,
                     mainWidth, 14, hudRight - statusWidth, mainTop + 3) then
                     refined = refined + 1
@@ -1041,6 +1072,7 @@ local gamepadDestinationPanelNames = {
     "ChannelFrame",
     "QuestFrame",
     "GossipFrame",
+    "MerchantFrame",
     "ContainerFrameCombinedBags",
     "ContainerFrame1",
     "LegacySystemFrame",
@@ -1516,6 +1548,43 @@ function Mainhand:GetForeverGamepadDestinationPanelDiagnostics()
     return #entries > 0 and table.concat(entries, ",") or "none"
 end
 
+local function ReticleResult(moved, status)
+    gamepadReticleStatus = status or "inactive"
+    return moved, status
+end
+
+function Mainhand:CenterForeverGamepadReticle()
+    if not Offhand.isForever then return ReticleResult(false, "client") end
+    local frame = _G.GamepadReticle
+    if not frame then return ReticleResult(false, "unavailable") end
+    if IsPlayerCombatRestricted() then return ReticleResult(false, "combat") end
+    local active = not _G.ConsolePort and Offhand.db and Offhand.db.enabled
+        and NativeGamepadInterface() and self:GetRect().isSpanned
+    if not active then
+        return ReticleResult(RestoreDestinationPanel(frame, gamepadDestinationPanelState[frame], "GamepadReticle"))
+    end
+    if not frame.IsShown or not frame:IsShown() then return ReticleResult(false, "hidden") end
+    -- The native reticle's Recenter uses UIParent's horizontal center and a
+    -- full-canvas cursor height. Reuse only the root geometry adapter, without
+    -- adding it to movable/persistent destinations or changing targeting APIs.
+    return ReticleResult(CenterDestinationPanel(frame, "GamepadReticle"))
+end
+
+function Mainhand:GetShownForeverGamepadWorkspacePanels()
+    local panels, seen = {}, {}
+    local canvas = Offhand.Canvas
+    if not canvas or type(canvas.IsFrameOnWorkspace) ~= "function" then return panels end
+    for _, name in ipairs(gamepadDestinationPanelNames) do
+        local frame = ResolveGamepadDestinationPanel(name)
+        if frame and not seen[frame] and frame.IsShown and frame:IsShown() then
+            seen[frame] = true
+            local ok, onWorkspace = pcall(canvas.IsFrameOnWorkspace, frame)
+            if ok and onWorkspace then panels[#panels + 1] = frame end
+        end
+    end
+    return panels
+end
+
 function Mainhand:EnableForeverGamepadMainMenuAdapter()
     if not Offhand.isForever or not CreateFrame or not UIParent then return false end
     if gamepadMainMenuController then return true end
@@ -1546,6 +1615,10 @@ function Mainhand:EnableForeverGamepadMainMenuAdapter()
             radialElapsed = 0
             panelElapsed = 0
             HideDestinationPanelDragHandles()
+            if not currentGamepadMode and Offhand.WorkspaceBehavior
+                and Offhand.WorkspaceBehavior.RefreshGamepadWorkspaceBack then
+                Offhand.WorkspaceBehavior:RefreshGamepadWorkspaceBack()
+            end
             gamepadMainMenuStatus = "interface-settling"
             return
         end
@@ -1568,6 +1641,10 @@ function Mainhand:EnableForeverGamepadMainMenuAdapter()
         if panelElapsed >= panelInterval then
             panelElapsed = 0
             Mainhand:CenterForeverGamepadDestinationPanels()
+            Mainhand:CenterForeverGamepadReticle()
+            if Offhand.WorkspaceBehavior and Offhand.WorkspaceBehavior.RefreshGamepadWorkspaceBack then
+                Offhand.WorkspaceBehavior:RefreshGamepadWorkspaceBack()
+            end
         end
     end)
     return true
@@ -1659,7 +1736,7 @@ function Mainhand:GetEditModeDiagnostics()
     local data = EditModeData()
     local active = data and data.activeLayout or "unavailable"
     return string.format(
-        "Supported=%s | API=%s/%s | Active=%s | Generated=%s | Geometry=%s | Attention=%s/%s | Repair=%s/%s | GamepadMenu=%s | GamepadPanels=%s",
+        "Supported=%s | API=%s/%s | Active=%s | Generated=%s | Geometry=%s | Attention=%s/%s | Repair=%s/%s | GamepadMenu=%s | GamepadPanels=%s | GamepadReticle=%s | GamepadBack=%s",
         type(Offhand.HasBlizzardEditMode) == "function"
             and Offhand:HasBlizzardEditMode() and "yes" or "no",
         C_EditMode and type(C_EditMode.GetLayouts) == "function" and "read" or "none",
@@ -1671,7 +1748,9 @@ function Mainhand:GetEditModeDiagnostics()
         tostring(status.protectedRepairCandidate or "none"),
         tostring(status.protectedRepairSystems or 0),
         tostring(gamepadMainMenuStatus),
-        self:GetForeverGamepadDestinationPanelDiagnostics())
+        self:GetForeverGamepadDestinationPanelDiagnostics(), tostring(gamepadReticleStatus),
+        Offhand.WorkspaceBehavior and Offhand.WorkspaceBehavior.GetGamepadWorkspaceBackDiagnostics
+            and Offhand.WorkspaceBehavior:GetGamepadWorkspaceBackDiagnostics() or "unavailable")
 end
 
 function Mainhand:CreateOrUpdateEditModeLayout(options)

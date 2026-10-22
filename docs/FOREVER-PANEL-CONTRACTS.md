@@ -35,6 +35,18 @@ position repair for World Map, Social, Communities, and Professions roots.
 - An explicit Professions close without that paired Game Menu transaction
   remains closed.
 - Offhand must not broadly reopen every saved panel after Escape.
+- In native Gamepad mode outside combat, a focused Offhand destination uses
+  Blizzard's `TOGGLEUIFOCUS` binding for B. Gameplay B and Mainhand-focused
+  windows keep their native action. Temporary dismiss-on-unfocus frames yield.
+- Escape and Game Menu retain their native dispatcher and panel layout. The
+  prior addon-priority registration is withdrawn after OH-FOR-012: sorting the
+  shared native handler list from addon context can contaminate earlier
+  protected casting callbacks in both Gamepad and keyboard mode. Offhand must
+  not register a replacement callback or invoke protected casting to hide it.
+- Gamepad B retention remains a candidate with reporter acceptance. Combat
+  releases its override. Escape workspace retention is pending a replacement
+  that does not mutate the shared dispatcher or native menu metadata. Native
+  focus and protected-action safety still require live evidence.
 
 ## Drag contract
 

@@ -51,6 +51,9 @@ const elements = {
     matte: document.querySelector("#matte-color"),
     matteValue: document.querySelector("#matte-color-value"),
     canvas: document.querySelector("#preview-canvas"),
+    overviewCanvas: document.querySelector("#overview-canvas"),
+    overviewScreen: document.querySelector("#overview-offhand-screen"),
+    overviewEmpty: document.querySelector("#overview-empty"),
     previewEmpty: document.querySelector("#preview-empty"),
     previewViewport: document.querySelector("#preview-viewport"),
     stage: document.querySelector(".workspace-stage"),
@@ -166,11 +169,11 @@ function updateFocusControls(width, height) {
     } else if (horizontal && vertical) {
         elements.focusGuidance.textContent = "Zoom crops both axes. Use both focus controls to choose the area that stays visible.";
     } else if (horizontal) {
-        elements.focusGuidance.textContent = "This image is wider than the workspace. Horizontal focus chooses which left-to-right area stays visible.";
+        elements.focusGuidance.textContent = "This image is wider than the Offhand background. Horizontal focus chooses which left-to-right area stays visible.";
     } else if (vertical) {
-        elements.focusGuidance.textContent = "This image is taller than the workspace. Vertical focus chooses which top-to-bottom area stays visible.";
+        elements.focusGuidance.textContent = "This image is taller than the Offhand background. Vertical focus chooses which top-to-bottom area stays visible.";
     } else {
-        elements.focusGuidance.textContent = "The image and workspace have the same shape, so Fill does not crop either axis.";
+        elements.focusGuidance.textContent = "The image and Offhand background have the same shape, so Fill does not crop either axis.";
     }
 }
 
@@ -198,6 +201,16 @@ function fitPreviewStage(width, height) {
     elements.previewViewport.style.height = `${contained.height + 16}px`;
 }
 
+function updateMonitorOverview(width, height) {
+    const size = containDimensions(width, height, 180, 148);
+    elements.overviewScreen.style.width = `${size.width}px`;
+    elements.overviewScreen.style.height = `${size.height}px`;
+    elements.overviewCanvas.width = elements.canvas.width;
+    elements.overviewCanvas.height = elements.canvas.height;
+    elements.overviewCanvas.getContext("2d").drawImage(elements.canvas, 0, 0);
+    elements.overviewEmpty.hidden = Boolean(state.sourceCanvas);
+}
+
 function drawPreview() {
     updateOutputs();
     const { width, height } = workspaceDimensions();
@@ -216,6 +229,7 @@ function drawPreview() {
 
     if (!state.sourceCanvas) {
         elements.previewEmpty.hidden = false;
+        updateMonitorOverview(width, height);
         return;
     }
     elements.previewEmpty.hidden = true;
@@ -256,6 +270,7 @@ function drawPreview() {
         context.fillStyle = `rgba(0, 0, 0, ${dim})`;
         context.fillRect(0, 0, previewWidth, previewHeight);
     }
+    updateMonitorOverview(width, height);
 }
 
 function applyRecipe(recipe) {

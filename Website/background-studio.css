@@ -42,6 +42,7 @@
 }
 
 .studio-preview-panel { position: sticky; top: 88px; }
+.studio-panel[id] { scroll-margin-top: 110px; }
 
 .studio-panel-heading {
     display: flex;
@@ -284,22 +285,53 @@ input[type="range"] { width: 100%; accent-color: var(--rio-gold); }
     background: radial-gradient(circle at 50% 30%, rgba(255, 189, 10, 0.06), transparent 42%);
 }
 
+.monitor-overview {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 16px;
+    padding: 18px 10px 12px;
+    background: #101419;
+    border: 1px solid var(--rio-border-subtle);
+    border-radius: 8px;
+}
+
+.overview-monitor { min-width: 0; text-align: center; }
+.overview-offhand { max-width: 48%; }
+.overview-mainhand { width: 180px; max-width: 48%; }
+.overview-screen {
+    position: relative;
+    max-width: 100%;
+    overflow: hidden;
+    border: 3px solid #535348;
+    border-radius: 4px;
+    background: #161922;
+    margin: 0 auto;
+}
+.overview-mainhand .overview-screen { aspect-ratio: 16 / 9; }
+.overview-screen canvas, .overview-screen svg { display: block; width: 100%; height: 100%; }
+#overview-empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 5px; color: var(--text-muted); font-size: 0.7rem; }
+#overview-empty[hidden], .preview-empty[hidden] { display: none; }
+.overview-label { display: block; margin-top: 8px; color: var(--rio-gold); font-size: 0.8rem; }
+.overview-label small { display: block; color: var(--text-muted); font-size: 0.7rem; }
+.overview-note { margin: 10px 0 18px; color: var(--text-muted); font-size: 0.75rem; line-height: 1.5; }
+.background-preview-title { margin: 0 0 10px; color: var(--text-secondary); font-size: 0.9rem; }
+
 .workspace-window-demo {
     position: absolute;
     display: grid;
     place-items: center;
-    color: #d7d9df;
+    color: #e0dbc9;
     font-size: 0.72rem;
-    letter-spacing: 0.04em;
-    background: rgba(22, 24, 31, 0.84);
+    text-align: center;
+    background: rgba(22, 24, 31, 0.38);
     border: 1px solid rgba(255, 189, 10, 0.45);
-    border-radius: 4px;
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
+    border-radius: 3px;
     pointer-events: none;
 }
-
 .window-one { left: 8%; top: 8%; width: 72%; height: 30%; }
 .window-two { right: 8%; bottom: 8%; width: 52%; height: 25%; }
+.overview-screen .workspace-window-demo { font-size: 8px; line-height: 1.15; border-radius: 1px; }
 
 .package-facts {
     display: grid;
