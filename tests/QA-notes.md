@@ -1125,3 +1125,45 @@ a workaround or infer native taint safety from the earlier simulated pass.
 - Reporter follow-up: Automatic Edit Mode control rescue was accepted live
   on 2026-10-22. This confirms the reported recovery workflow; the broader
   focus, combat and topology matrix remains separate.
+
+## OpenMap geometry ownership candidate (2026-10-22)
+
+- Inspect OH-FOR-013 for the supplied versions and confirmed competing writers.
+- Automated: OpenMap alone and with Leatrix must report WorldMapOwner=OpenMap.
+  Configure, drag-stop and restore must preserve external anchor/scale and
+  dormant Offhand coordinates. Forever must retire its map handle while keeping
+  workspace open intent and reopening without applying dormant coordinates.
+  New Forever regression fails against committed Discord baseline a484baf.
+- Live setup: OpenMap 0.7.2-beta, with Leatrix 1.60.25 Unlock map frame and
+  Scale the map disabled, Use simple map frame disabled, then reload. Also test
+  OpenMap alone. Do not delete SavedVariables or reset existing map settings.
+- In the actual span, use OpenMap's title handle to move the windowed map to
+  Offhand. Verify native map toggle, another UIPanel opening, maximize/minimize,
+  reload and normal logout/cold login preserve the placement. Test span after
+  login and restore to a single screen separately, including equal-height
+  displays and Offhand on either side. Capture diagnostics at any position jump.
+- Repeat map-pin hover, shift-click links and combat transitions with fresh
+  BugGrabber/taint evidence. Automated tests do not establish runtime taint safety.
+- Candidate source only: no installed addon files changed and no new ZIP built.
+
+## Support diagnostic cleanup (2026-10-22)
+
+- `/offhand diag` (also metrics/info) keeps version/pairing, operating state,
+  display geometry, Forever persistence and Edit Mode, plus map ownership even
+  without another loaded-addon marker. A healthy READY topology omits the
+  repeated dimensions; mismatched topology and active manual canvases retain
+  their recovery evidence. Installed/invalid user media gets a short status.
+- `/offhand diag full` retains feature-level world-text, speech-bubble, loot,
+  pet-battle, group/protected HUD, panel-controller, Gamepad and Dialogue UI
+  evidence. These getters are not called by the default command. World-text
+  collection uses a focused getter rather than enumerating nameplates and
+  reading unrelated renderer CVars through the performance collector.
+- Automated coverage: real slash dispatch, aliases, full opt-in, skipped
+  collectors, OpenMap-only output, healthy/mismatched topology, manual geometry
+  and invalid installed media. Focused world-text fields match the previous
+  collector without sampling framerate or nameplates. All 37 Lua suites and
+  six-manifest Lua/XML validation pass.
+- Deployment: updated Init, Canvas, Mainhand, Viewport and package documentation
+  in the Forever Beta Offhand directory, with a backup and per-file hashes.
+  Existing generated bridge files and SavedVariables remain unchanged. Live
+  chat readability and copy/paste checks remain pending after `/reload`.

@@ -1730,11 +1730,19 @@ function Mainhand:NeedsEditModeLayoutAttention()
     return false, "ready"
 end
 
-function Mainhand:GetEditModeDiagnostics()
+function Mainhand:GetEditModeDiagnostics(compact)
     local needsAttention, reason = self:NeedsEditModeLayoutAttention()
     local status = self:GetLayoutStatus()
     local data = EditModeData()
     local active = data and data.activeLayout or "unavailable"
+    if compact then
+        return string.format("Active=%s | Generated=%s | Geometry=%s | Attention=%s/%s | Gamepad=%s",
+            tostring(active),
+            status.configured and tostring(status.generatedName or "recorded") or "none",
+            status.configured and (status.currentGeometry and "current" or "stale") or "none",
+            needsAttention and "yes" or "no", tostring(reason or "unknown"),
+            NativeGamepadInterface() and "yes" or "no")
+    end
     return string.format(
         "Supported=%s | API=%s/%s | Active=%s | Generated=%s | Geometry=%s | Attention=%s/%s | Repair=%s/%s | GamepadMenu=%s | GamepadPanels=%s | GamepadReticle=%s | GamepadBack=%s",
         type(Offhand.HasBlizzardEditMode) == "function"

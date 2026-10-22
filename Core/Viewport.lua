@@ -721,6 +721,24 @@ local function DiagnosticCVarFallback(primary, fallback)
     return value
 end
 
+-- The support command only needs world-text compensation. Do not collect the
+-- renderer CVars and enumerate nameplates from GetPerformanceDiagnostics for it.
+function Viewport:GetWorldTextDiagnostics(metrics)
+    local m = metrics or self:GetMetrics()
+    local scale, cvar = ReadWorldTextScale()
+    return {
+        worldTextScale = scale and tostring(scale) or "unavailable",
+        originalWorldTextScale = Offhand.db and Offhand.db.originalWorldTextScale or nil,
+        worldTextScaleCVar = cvar or "unavailable",
+        worldTextMethod = scale and "CVAR" or "UNMANAGED",
+        worldTextCompensationEnabled = Offhand.db and Offhand.db.worldTextCompensation ~= false or false,
+        worldTextFineTune = Number(Offhand.db and Offhand.db.worldTextScale, 1, 0.50, 1.50),
+        worldTextHeightRatio = math.max(0, tonumber(m.gamePixelHeight) or 0)
+            / math.max(1, tonumber(m.physicalHeight) or 1),
+        worldTextCompensationRatio = WorldTextCompensationRatio(m),
+    }
+end
+
 -- Read-only renderer evidence for performance reports. The physical dimensions
 -- describe the bounding surface Windows gives the one spanned WoW window; they
 -- do not claim that every pixel receives the same 3D workload. In particular,

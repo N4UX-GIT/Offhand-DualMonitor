@@ -198,6 +198,16 @@ cvars.DynamicRenderScale="0"
 cvars.ResampleAlwaysSharpen="0"
 cvars.ResampleSharpness="0.2"
 local performance=addon.Viewport:GetPerformanceDiagnostics(addon.Viewport:GetMetrics())
+local originalNamePlateAPI, originalFramerate = C_NamePlate, GetFramerate
+C_NamePlate = {GetNamePlates = function() error("support text diagnostics enumerated nameplates") end}
+GetFramerate = function() error("support text diagnostics sampled renderer performance") end
+local textDiagnostics = addon.Viewport:GetWorldTextDiagnostics(addon.Viewport:GetMetrics())
+for _, field in ipairs({"worldTextScale", "originalWorldTextScale", "worldTextScaleCVar",
+    "worldTextMethod", "worldTextCompensationEnabled", "worldTextFineTune",
+    "worldTextHeightRatio", "worldTextCompensationRatio"}) do
+    assert(textDiagnostics[field] == performance[field], "world-text support evidence drifted: " .. field)
+end
+C_NamePlate, GetFramerate = originalNamePlateAPI, originalFramerate
 near(performance.fps,73.5)
 near(performance.spanPixels,4480*1440)
 near(performance.mainhandPixels,2560*1440)

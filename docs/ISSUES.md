@@ -670,6 +670,44 @@ issue changes branch, evidence level, candidate, or released version.
   Change Large to Medium and back to Large while a quest is open, confirming
   the parchment recovers its original dimensions without `/reload`.
 
+## OH-FOR-013: OpenMap and Leatrix world-map position ownership
+
+- Status: Resolved for the ongoing test package by user acceptance. Local
+  Forever Beta checks did not reproduce the issue with neither addon, Leatrix
+  alone, OpenMap alone, or both enabled. The user accepted the ownership change
+  together with the original testers' workarounds. Exact reporter failure order
+  and broader protected-action safety were not established by those checks.
+- Scope: Forever, Discord candidate `a484baf`; two testers report map snap-back
+  or placement on the wrong display after restart. Supplied versions are
+  Leatrix Maps 1.60.25 and OpenMap 0.7.2-beta. Supplied Leatrix settings enable
+  Unlock map frame and Scale the map; Use simple map frame is disabled.
+- Source evidence: Installed OpenMap `Map/Window.lua` saves its own window
+  anchor from its own drag handle. It reapplies that anchor and scale after
+  SetPoint/SetScale and native panel layouts. Its drag suppression only covers
+  its own handle. Installed Leatrix `Leatrix_Maps.lua` independently saves
+  MapPos/MaxMapPos from its drag handler and reapplies them on display-state
+  and size changes. OpenMap `Map/Compat.lua` explicitly warns to disable
+  Leatrix UnlockMap, ScaleWorldMap and SimpleMapFrame when enabled.
+- Offhand defect: OpenMap was absent from geometry ownership detection, so
+  Offhand's drag/restore/settlement paths could compete with OpenMap. With
+  Leatrix loaded Offhand yielded to Leatrix, while OpenMap still enforced a
+  different saved position. Source evidence establishes competing writers;
+  it does not establish the exact order of each tester's restart failure.
+- Candidate: Detect OpenMap as an external geometry owner, ahead of Leatrix
+  but below existing MoveAny/ClassicUIForever ownership. Retain external-map
+  open intent and reopening, hide Offhand's map mover and leave map position,
+  scale and content refresh to the external owner. Preserve dormant Offhand
+  coordinates and third-party settings without changing installed addons.
+- Configuration: With OpenMap, disable Leatrix Unlock map frame and Scale the
+  map, then reload. Keep Use simple map frame disabled. Move the map using
+  OpenMap's title handle so OpenMap saves the new position. Coordinate overlays
+  are a separate compatibility setting, not the geometry fix.
+- Evidence: New Forever regression fails against `a484baf` and passes against
+  the candidate. All 36 Lua suites and six-manifest Lua/XML validation pass.
+  Live drag, close/reopen, reload, cold restart, span/restore and protected
+  map-pin actions remain pending, both with OpenMap alone and with Leatrix's
+  competing options disabled. Magic's diagnostics were unavailable.
+
 ### Single-screen retest boundary
 
 The missing-monitor prompt and unavailable detached windows observed while WoW
