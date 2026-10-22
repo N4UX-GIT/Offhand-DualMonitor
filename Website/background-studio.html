@@ -8,7 +8,7 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; frame-src 'none'; worker-src 'none'; media-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' blob: data:">
     <link rel="icon" type="image/png" href="assets/offhand-icon.png">
     <link rel="stylesheet" href="style.css?v=20261022-2">
-    <link rel="stylesheet" href="background-studio.css?v=20261020-3">
+    <link rel="stylesheet" href="background-studio.css?v=20261022-2">
 </head>
 <body class="studio-page">
     <header class="navbar">
@@ -57,7 +57,7 @@
             <div class="deck-intro-banner">
                 <div class="hero-badge">LOCAL BROWSER TOOL</div>
                 <h1>Create your Offhand background</h1>
-                <p class="deck-intro-text">Choose an image, preview how it will fit your workspace, and download a ready-to-install <code>Offhand_UserMedia.zip</code>. Offhand includes built-in support for the generated package.</p>
+                <p class="deck-intro-text">Create a background for your Offhand monitor, not the whole spanned WoW window. Choose an image, adjust its fit, and download a ready-to-install <code>Offhand_UserMedia.zip</code>.</p>
                 <div class="privacy-banner" role="note">
                     <strong>Your image stays on this device.</strong>
                     <span>The file is decoded in browser memory and is never included in a network request. A restrictive browser policy also blocks script-initiated network connections from the studio.</span>
@@ -103,13 +103,12 @@
 
                 <div class="studio-panel-heading compact-heading">
                     <span class="step-number">2</span>
-                    <div><h2>Workspace and fit</h2><p>These settings are saved as recommendations in the media package.</p></div>
+                    <div><h2>Offhand background and fit</h2><p>Choose the shape of your Offhand area only. These settings are saved as recommendations in the media package.</p></div>
                 </div>
 
-                <fieldset class="control-group" id="studio-controls" disabled>
-                    <legend class="visually-hidden">Background settings</legend>
+                <div class="control-group">
 
-                    <label for="workspace-preset">Workspace shape</label>
+                    <label for="workspace-preset">Offhand background shape</label>
                     <select id="workspace-preset">
                         <option value="portrait">Portrait monitor, 9:16</option>
                         <option value="landscape">Landscape monitor, 16:9</option>
@@ -123,6 +122,10 @@
                         <label>Height <input id="workspace-height" type="number" min="320" max="8192" value="2560" inputmode="numeric"></label>
                     </div>
 
+                </div>
+
+                <fieldset class="control-group" id="studio-controls" disabled>
+                    <legend class="visually-hidden">Image fit and appearance</legend>
                     <div class="field-label">Fit mode</div>
                     <div class="segmented-control" role="radiogroup" aria-label="Fit mode">
                         <label><input type="radio" name="fit-mode" value="FILL" checked><span>Fill</span></label>
@@ -133,7 +136,7 @@
                     <div class="focus-control" id="zoom-control">
                         <label for="image-zoom">Zoom <output id="image-zoom-value">100%</output></label>
                         <input id="image-zoom" type="range" min="100" max="200" step="1" value="100" aria-describedby="zoom-help">
-                        <small id="zoom-help">Available in Fill mode. 100% is the closest view that completely covers the workspace.</small>
+                        <small id="zoom-help">Available in Fill mode. 100% is the closest view that completely covers the Offhand background.</small>
                     </div>
 
                     <div class="crop-focus-heading">
@@ -170,15 +173,42 @@
             <div class="studio-panel studio-preview-panel" id="preview">
                 <div class="studio-panel-heading">
                     <span class="step-number">3</span>
-                    <div><h2>Preview</h2><p>The frame represents the Offhand workspace, not the complete WoW window.</p></div>
+                    <div><h2>Preview</h2><p>Your image appears on Offhand. The game stays on Mainhand.</p></div>
                 </div>
 
+                <div class="monitor-overview" role="group" aria-label="Illustrative Mainhand and Offhand setup">
+                    <div class="overview-monitor overview-offhand">
+                        <div class="overview-screen" id="overview-offhand-screen">
+                            <canvas id="overview-canvas" width="90" height="160" aria-label="Your background on Offhand"></canvas>
+                            <span id="overview-empty">Your background</span>
+                            <span class="workspace-window-demo window-one">World Map</span>
+                            <span class="workspace-window-demo window-two">Bags</span>
+                        </div>
+                        <span class="overview-label">Offhand <small>Your background</small></span>
+                    </div>
+                    <div class="overview-monitor overview-mainhand">
+                        <div class="overview-screen">
+                            <svg viewBox="0 0 320 180" role="img" aria-label="Illustrated game on Mainhand">
+                                <path fill="#20353c" d="M0 0h320v180H0z"/>
+                                <path fill="#3e4c38" d="m0 109 65-39 69 28 81-45 105 64v63H0z"/>
+                                <path fill="#283b30" d="m0 147 96-39 101 47 123-33v58H0z"/>
+                                <path fill="#72654a" d="m43 119 128-18 149 37v13l-151-39z"/>
+                                <g fill="#ac9d66"><circle cx="21" cy="20" r="8"/><rect x="33" y="14" width="39" height="5" rx="2"/><circle cx="295" cy="24" r="15" fill="none" stroke="#ac9d66"/><rect x="112" y="165" width="96" height="5" rx="2"/></g>
+                                <text x="160" y="96" fill="#ead5a0" text-anchor="middle" font-family="sans-serif" font-size="17">GAME</text>
+                            </svg>
+                        </div>
+                        <span class="overview-label">Mainhand <small>Game</small></span>
+                    </div>
+                </div>
+                <p class="overview-note">Illustrative arrangement. World Map and Bags are reference guides only and are not included in your background. This tool does not change monitor placement or UI panel positions.</p>
+
+                <h3 class="background-preview-title">Offhand background detail</h3>
                 <div class="workspace-preview-viewport" id="preview-viewport">
                     <div class="workspace-stage">
                         <canvas id="preview-canvas" width="720" height="1280" aria-label="Custom Offhand background preview"></canvas>
                         <div class="preview-empty" id="preview-empty">Choose an image to begin.</div>
-                        <div class="workspace-window-demo window-one"><span>World Map</span></div>
-                        <div class="workspace-window-demo window-two"><span>Bags</span></div>
+                        <span class="workspace-window-demo window-one">World Map</span>
+                        <span class="workspace-window-demo window-two">Bags</span>
                     </div>
                 </div>
 
@@ -265,9 +295,9 @@
                     <strong>Choose how it fits</strong>
                     <dl>
                         <div><dt>Studio recommendation</dt><dd>Uses the Fill, Fit, or Stretch choice saved when you generated the package.</dd></div>
-                        <div><dt>Fill</dt><dd>Covers the complete workspace. Cropping, focus, and zoom come from the Studio preview.</dd></div>
+                        <div><dt>Fill</dt><dd>Covers the complete Offhand background area. Cropping, focus, and zoom come from the Studio preview.</dd></div>
                         <div><dt>Fit</dt><dd>Shows the complete image without distortion and uses the selected matte colour around it.</dd></div>
-                        <div><dt>Stretch</dt><dd>Fills the complete workspace by stretching the image to its shape.</dd></div>
+                        <div><dt>Stretch</dt><dd>Fills the complete Offhand background area by stretching the image to its shape.</dd></div>
                     </dl>
                     <p>To change crop focus, zoom, opacity, darkening, or matte colour, update the package in this studio and fully restart WoW after replacing the folder.</p>
                 </div>
@@ -324,6 +354,6 @@
         <div class="footer-legal"><p>The Background Studio processes selected files locally. It does not upload, retain, or transmit them.</p></div>
     </footer>
 
-    <script type="module" src="background-studio.js?v=20261020-2"></script>
+    <script type="module" src="background-studio.js?v=20261022-1"></script>
 </body>
 </html>
