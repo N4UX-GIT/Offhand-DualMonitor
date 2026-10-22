@@ -24,6 +24,28 @@ with matching source hashes. Companion-generated `CompanionTopology.lua` and
 pass; the running client still requires `/reload` before this deployment can
 produce live evidence.
 
+## 2026-10-22: Forever Beta 21 false topology mismatch (OH-FOR-014)
+
+- Source branch: `addon/forever/topology-canvas-match`; intended release: next addon beta after Beta 21. Discord candidate `Offhand-v2.1.2-beta.21-discord.topology-test1.zip` packaged on 2026-10-22; no public release. SHA-256 `D5B62B0F00B917E7474903ED6566F0200421641F11D36F86C6ABA0946D3878B1`. All 48 archive files verified against staging and all runtime assets against source; extracted six-manifest validation passed. Test identity is `2.1.2-beta.21-discord.topology-test1`. Existing Store Companion Beta 20 is retained; source and frozen Companion bytes are unchanged by packaging. Issue ID corrected to OH-FOR-014 because OH-FOR-013 already identifies OpenMap ownership.
+- Reporter: Forever 1.60.1 build 70450, Interface 16001, Offhand 2.1.2-beta.21, Windows Store Companion (writer version not recorded).
+- Later screenshots identify Companion Beta 20 and show portrait Display 2 (`1080x1816`) selected as Mainhand, with landscape primary Display 1 (`2560x1440`) as workspace. The physical report matches workspace, not Mainhand. Windows shows portrait-left/landscape-right alignment with a vertical offset; exact offset pixels are unknown. Regression covers these reversed roles with several representative offsets.
+- Observed: Companion bounds `3640x1816`, physical API `2560x1440`, UI canvas `2287x1141`. The canvas aspect matches the span, but Forever was explicitly excluded from the existing one-monitor physical-report fallback, forcing recovery and blocking the wizard.
+- Implemented: apply the existing two-signal check to Forever too. Both a selected display's dimensions and the complete span's canvas aspect must match. Retain rectangle validation and single-screen recovery on disagreement.
+- Audit follow-up: exact physical bounds also require agreement with the UI canvas; stale selected-display reports cannot authorize arrangements whose full aspect is indistinguishable from that display. Wizard sizes and workspace percentages now use accepted Companion bounds, including stacked layouts.
+- Reporter live acceptance, 2026-10-22: Discord topology-test1 resolves the span issue. Restore, cold-launch, exact post-fix diagnostics and detailed geometry remain separate pending checks. The reporter subsequently describes main-display pixelation and identifies ASUS GlideX as the tablet-display provider. No image of the rendered game or render-setting evidence accompanies this report. Establish physical-monitor versus tablet output, current Mainhand selection, 3D-only versus UI degradation, and the same stationary scene restored versus spanned before attributing it to streaming or the existing renderer-resize hypothesis. The addon-only candidate did not update Store Companion Beta 20.
+- Pixelation follow-up: physical Mainhand is affected in both UI and 3D; tablet remains sharp; Restore Window restores Mainhand sharpness. Default diagnostics show viewport PASS and exact Mainhand `(1080,0 2560x1440)`, workspace `(0,8 1080x1816)`, span `3640x1824`, screen `2773x1389`, effective scale `0.553`, Companion writer Beta 20 and matching/current generated Edit Mode layout. This verifies the landscape is now Mainhand, superseding the earlier portrait selection. It does not verify native render-buffer dimensions. Compare Windows scaling percentages, a cold launch with both displays temporarily at the same scaling, and span before login versus span after login. Collect renderer CVars separately because neither default nor full support diagnostics currently outputs GetPerformanceDiagnostics. Frozen Beta 20 lacks the experimental resize handshake in current Companion source; no candidate Companion was built or deployed in response to this report.
+- Automated validated: all 38 Lua suites passed, including the reported dimensions, preservation of raw diagnostic dimensions, stale reports from either display, pixel tolerance, stacked offsets, one-display splits, malformed data, ambiguous aspects, and rejection after single-monitor restore. Wizard regressions verify side-by-side and stacked workspace percentages. All six manifests passed paths, XML references and Lua 5.1 syntax validation; Companion preference/layout/topology checks passed.
+- Live pending: with the affected display pair, span and reload; confirm topology `READY`, wizard progression and correct Mainhand/workspace bounds. Restore Window and confirm recovery; span again and repeat reload and cold launch. Recheck the saved Edit Mode layout after topology recovery. No live-client, protected-action or packaged-build acceptance is claimed.
+
+- Subsequent Windows screenshots: both displays use 100% scale and recommended resolutions (`1080x1816` portrait flipped, `2560x1440` landscape). Mixed Windows scale percentages are not evidenced. A cold-launch/pre-login span versus a span after UI initialization remains a useful comparison for the unverified render-resize hypothesis; application/driver scaling remains possible. No new executable or addon candidate was generated for this evidence-only update.
+- Pre-login test returned: login is sharp but entering the world makes Mainhand grainy. Connection is GlideX over Wi-Fi. This rejects pre-login spanning as a workaround, without establishing whether the trigger is the client's gameplay transition or Offhand's layout application. Next test keeps the window spanned and disables only Offhand via the addon list plus reload, comparing the same scene; re-enable/reload after recording. The unbounded world covering both displays is expected while the addon is disabled. Follow with a cold launch in the disabled condition if needed. No new runtime change or package was produced from this report alone.
+
+- Further reporter isolation: USB has the same result as Wi-Fi; disabling/re-enabling Offhand does not affect sharpness; a full restart with Offhand disabled also returns no change. Latest Beta 20 Companion screenshot confirms landscape Display 1 as Mainhand, portrait Display 2 as workspace and `3640x1824` span. Auto-span and single-display split are off. Next compare a manually resized bordered window with Companion fully exited and the addon disabled against the Companion's borderless span; no candidate Companion or claimed renderer fix yet.
+
+- Latest comparison: reporter says manual bordered spanning did not appear grainy. Companion border/style/region/resize handling is therefore the next investigation area; exact equivalence of the manual and Companion window bounds was not measured. The alternate landscape-tablet arrangement produced scrunching without fresh geometry evidence. FancyZones was not configured to a known test layout and the reporter abandoned the attempt; record no pass or fail. No further reporter data is available, so image quality remains open and any Companion experiment remains live-unverified. No additional runtime change or package was made for this status update.
+
+- A separate Companion candidate is now prepared on `companion/graininess-test` from `companion/develop` `4ae9d386`: `Offhand-Companion-v2.1.2-beta.20-graininess.test1.zip`, SHA-256 `A22FE893456B87BE362334E5F941CFA6D0637219DC5E863E1247A1AC493701A4`. Four modes isolate the extra resize, clipping and border removal with equal measured client dimensions. Existing Companion regressions and synthetic hidden-window tests passed, and eight ZIP entries were byte-verified. Preferences are isolated and auto-span is disabled. The public binary and existing addon test package are untouched. Reporter should compare the same scene/configuration across modes, restoring and restarting between modes, then submit the mode logs. No mode is yet live accepted.
+
 ## Ordered execution plan
 
 1. Preserve the accepted 4000x2560 Forever baseline and run the remaining
@@ -952,3 +974,218 @@ pass. Live acceptance remains required for:
   reproduces the nested timer sequence. The 2026-10-20 live pass confirmed the
   World Map remains at its saved Offhand position while other panels open and
   close.
+
+## Forever Gamepad status bars and focus assignment: 2026-10-22
+
+- Candidate on `addon/develop`, Beta 21 working source. Live acceptance pending.
+- The reported generated Gamepad layout placed XP and the second status bar
+  off-center or partly below Mainhand. Gamepad status entries now use explicit
+  Mainhand bottom-center anchors, with a 12-unit bottom inset and a separate
+  secondary row. Keyboard status alignment remains unchanged. Only default
+  source entries are refined; custom source placements are retained. Existing
+  generated layouts change only when the player refreshes the generated HUD.
+- The Gamepad settings page has no reported Controller Configuration entry.
+  The Offhand focus control now displays Blizzard's native `TOGGLEUIFOCUS`
+  binding using its `GamepadModeInGameCore` context and offers an addon-owned
+  assignment dialog. Conflicts require a second matching press or Accept;
+  Escape cancels capture and combat entry releases it. The selected binding is
+  saved to the player's current account/character binding set. It executes
+  Blizzard's action directly rather than the old Offhand `RunBinding` delegate.
+- Reference source inspected: `Blizzard_Gamepad/Bindings.xml`,
+  `Blizzard_Settings_Shared/Blizzard_Keybindings.lua`, and
+  `Blizzard_GamepadSharedUtility/FrameControlsManager.lua` on the
+  `forever` branch of <https://github.com/Gethe/wow-ui-source>.
+- This is a usable focus-assignment candidate, not a fix for native B/Escape
+  dismissal. Those routes still close native panels. The native focus toggle
+  can also dismiss a frame marked `dismissOnUnfocus`. No focus-manager state,
+  native close handler, or panel visibility was patched to mask that behavior.
+- Live QA: Reload, refresh the generated Gamepad Mainhand HUD using its creation
+  action, then confirm both status bars are centered and fully visible. Confirm
+  the displayed native focus binding, assign an unused button, verify conflict
+  cancellation and confirmation, then reload and check persistence. With Map,
+  Character, Social and bags on Offhand, use that focus binding to return to
+  gameplay and record which panels remain visible. Compare B and Escape
+  separately. Capture fresh taint/error evidence for OH-FOR-009; a mock pass
+  does not prove protected-action safety or window retention.
+
+### Gamepad Merchant placement follow-up: 2026-10-22
+
+- Live report: The merchant opened at the spanned UIParent top-left inside
+  Offhand. The existing Gamepad destination list covered Quest and Gossip but
+  omitted `MerchantFrame`. It now includes the shown Merchant root through the
+  same external geometry observer. Native interaction, visibility, focus,
+  purchase/buyback handlers and scripts remain under Blizzard ownership.
+- No protected-frame exception was added. A protected or forbidden Merchant
+  root still fails closed. A hidden Merchant is never opened from saved offsets.
+- Simulated coverage verifies Mainhand centering, no repeated anchor write,
+  combat deferral, unchanged native scripts, mover hiding on close, saved-offset
+  restoration after a native reopening, keyboard-mode anchor restoration, and
+  refusal to move a protected Merchant root.
+- Source review: Both Mainline and Vanilla `MerchantFrame.xml` on the `forever`
+  branch of <https://github.com/Gethe/wow-ui-source> declare a standard
+  `ButtonFrameTemplate` Merchant root. This is supporting source evidence,
+  not a live protection or taint-safety result.
+- Next live check: After reload, reopen a vendor in Gamepad mode and confirm
+  Mainhand placement. Close and reopen it, move it deliberately if desired,
+  then check the position and fresh Lua/taint evidence. Normal merchant item
+  actions also need live safety verification. No client interaction or purchase
+  was automated for this change.
+- Other interaction roots absent from the destination list include Bank, Mail,
+  Trade and Class Trainer. They remain audit candidates, not confirmed defects;
+  no blanket protected allowlist or global panel scan was added.
+
+### Loot Edit Mode focus failure, detailed locals: 2026-10-22
+
+Tracked as OH-FOR-011. The fresh report identifies SmartNavigation's last button
+as `LootFrame.Selection`, an Edit Mode overlay. Native `FocusGamepad()` assumes
+its parent is a loot row and calls `GetSlotIndex()`; that parent is actually
+`LootFrame`, which has no such method. The native source line 376 matches the
+report. Offhand remains excluded from Loot destination placement. No runtime
+patch or client action was performed. Repeat the same preview move after a
+reload with Offhand disabled to isolate whether Offhand is required.
+
+### Contextual B/Escape retention and Gamepad reticle: 2026-10-22
+
+- Revised Beta 21 working candidate on `addon/develop`. LootFrame investigation
+  is deferred at the player's request; its runtime code remains unchanged.
+- The white dot is native `GamepadReticle`. Its `Recenter` uses UIParent's
+  horizontal center and `GetCursorCenterPosition` for full-canvas height. The
+  existing external Gamepad observer now positions its unprotected root at
+  physical Mainhand center with effective-scale conversion. It receives no
+  mover, script, visibility or targeting API changes. Combat defers geometry;
+  keyboard mode/disable restores only an anchor still owned by this adapter.
+- OH-FOR-010 now has a contextual B override and a native Escape-handler
+  candidate. B dispatches straight to `TOGGLEUIFOCUS` when a visible Offhand
+  destination has focus. Escape opens native Game Menu while bypassing generic
+  window cleanup and the menu's own center-slot close-all transaction. Only the
+  hidden menu's panel-layout attributes are prepared through a restricted
+  handler; native ShowUIPanel and focus registration still execute. The native
+  menu metadata is restored after ownership ends and the menu closes. No panel
+  is hidden/reopened, and native focus state is read without mutation.
+- Simulation: All 36 active Lua suites and six-manifest Lua 5.1 validation pass.
+  New coverage models both global cleanup and center-slot closure, verifies
+  retained visible peers, singleton registration, contextual B release, native
+  menu navigation yielding, combat-state override clearing, cinematic yielding,
+  visible-menu deferral and external menu ownership. Reticle regression checks
+  Mainhand center, effective scale, unchanged anchors, restoration, combat and
+  protected-root refusal. These checks do not prove native taint safety.
+- Source inspected on the `forever` branch of
+  <https://github.com/Gethe/wow-ui-source>: GamepadReticle.lua,
+  Blizzard_GameMenuEsc.lua, UIParentPanelManager.lua, GameMenuFrame.lua,
+  FrameControlsManager.lua and SmartNavigation.lua.
+- Live QA after reload: Wait for the interface to settle. Put Map, Character,
+  Social and a bag on Offhand. Focus an Offhand panel and press B: peers should
+  remain visible and gameplay control should return. Press Escape from both
+  panel focus and gameplay: Game Menu should open without closing peers, and
+  native menu navigation/closing should work. Repeat explicit panel closes,
+  Mainhand-focused Back and gameplay B. Check the dot at Mainhand center, then
+  repeat mode transition and reload. Capture fresh `/offhand diag`, BugGrabber
+  and taint evidence immediately on failure, especially OH-FOR-009. Combat uses
+  native dismissal and is not covered by the preservation claim.
+- Diagnostics now include `GamepadReticle` and `GamepadBack` policy state.
+
+### Reporter acceptance and native Gamepad XP generation: 2026-10-22
+
+- The reporter accepted the B/Escape and reticle candidate as a solid fix.
+  Preserve those paths. No complete per-panel matrix or fresh taint trace was
+  supplied with that acceptance, so it does not close OH-FOR-009 or establish
+  combat safety. The remaining reported defect is XP placement when creating
+  the Gamepad HUD layout.
+- Exact generation gap: The native Gamepad preset uses the separate
+  `GamepadMainActionBar` system. It has no keyboard `ActionBar/MainBar` entry.
+  The common refinement routine returned before processing the status bars,
+  whose native anchors are relative to `StatusTrackingBarManager`, so generic
+  UIParent translation also skipped them. The previous test fixture retained a
+  keyboard main-bar entry and did not characterize this native preset shape.
+- Gamepad status refinement now runs before keyboard-bar prerequisites. It
+  updates XP and the secondary status row in the generated layout payload,
+  independently of the keyboard action bar. Native presets and customized
+  source entries remain unchanged; no runtime status-frame hooks were added.
+- A regression using the native separate action system and manager-relative
+  status anchors failed before this change and passes afterward. Live check:
+  reload, close Edit Mode, click Create Mainhand HUD Layout, then confirm XP
+  is centered on Mainhand and fully above the bottom edge without manual drag.
+
+### Protected casting regression and Escape rollback: 2026-10-22
+
+The later Game Menu report supersedes the Escape safety claim in the earlier
+acceptance. Both Gamepad radial entry and standard UI reached protected
+`SpellStopCasting` under Offhand attribution before the addon-priority callback.
+The callback registration inserted and sorted the native shared handler table
+even while Gamepad mode was inactive. That source hazard is removed entirely;
+the independent-menu layout adapter and unused callback are also removed.
+Contextual B, the reticle and XP generation remain. Escape reverts to native
+window-closing behavior. New regression guards reject registration, native menu
+invocation and menu metadata writes in both modes while preserving B coverage.
+Reload is required to discard the previous session's handler-list taint. Retest
+fresh radial-menu and keyboard-Escape Game Menu entry for OH-FOR-012. A safe
+Escape-retention replacement remains pending; do not re-register a callback as
+a workaround or infer native taint safety from the earlier simulated pass.
+
+### Automatic Edit Mode control rescue: 2026-10-22
+
+- The reporter requested smoother recovery of the Edit Mode control window
+  that opens in the mixed-height void. The settled recovery candidate now uses
+  the existing centering helper automatically for a shown, unreachable,
+  unprotected manager or element-settings dialog. Its existing 0.15-second
+  settlement and generation invalidation are retained. No native-frame hooks,
+  Escape callbacks, panel metadata or protected HUD anchors are added/changed.
+- `autoRecoverEditModeControls` defaults to true and merges through existing
+  profile defaults. Recovery & Preview exposes Automatically recover off-screen
+  Edit Mode controls. Turning it off retains the existing manual prompt.
+  Reachable placements on either physical display remain untouched.
+- Coverage exercises the Gamepad manager and separate settings dialog, delayed
+  application, no repeated anchor write/prompt, protected-root refusal, combat
+  deferral and opt-out. The historical manual-recovery matrix remains covered.
+- Live gate: Reload and open Edit Mode in the exact span; the control window
+  should move into Mainhand after native positioning settles, without a recovery
+  popup. Select a HUD element and verify its settings dialog too. Manually move
+  controls within a physical display and confirm they stay placed. Disable the
+  preference and verify Bring to Mainhand is offered for unreachable controls.
+  Check native dragging, save/cancel, controller focus and fresh Lua/taint
+  evidence. Simulated geometry success does not establish native focus safety.
+- Reporter follow-up: Automatic Edit Mode control rescue was accepted live
+  on 2026-10-22. This confirms the reported recovery workflow; the broader
+  focus, combat and topology matrix remains separate.
+
+## OpenMap geometry ownership candidate (2026-10-22)
+
+- Inspect OH-FOR-013 for the supplied versions and confirmed competing writers.
+- Automated: OpenMap alone and with Leatrix must report WorldMapOwner=OpenMap.
+  Configure, drag-stop and restore must preserve external anchor/scale and
+  dormant Offhand coordinates. Forever must retire its map handle while keeping
+  workspace open intent and reopening without applying dormant coordinates.
+  New Forever regression fails against committed Discord baseline a484baf.
+- Live setup: OpenMap 0.7.2-beta, with Leatrix 1.60.25 Unlock map frame and
+  Scale the map disabled, Use simple map frame disabled, then reload. Also test
+  OpenMap alone. Do not delete SavedVariables or reset existing map settings.
+- In the actual span, use OpenMap's title handle to move the windowed map to
+  Offhand. Verify native map toggle, another UIPanel opening, maximize/minimize,
+  reload and normal logout/cold login preserve the placement. Test span after
+  login and restore to a single screen separately, including equal-height
+  displays and Offhand on either side. Capture diagnostics at any position jump.
+- Repeat map-pin hover, shift-click links and combat transitions with fresh
+  BugGrabber/taint evidence. Automated tests do not establish runtime taint safety.
+- Candidate source only: no installed addon files changed and no new ZIP built.
+
+## Support diagnostic cleanup (2026-10-22)
+
+- `/offhand diag` (also metrics/info) keeps version/pairing, operating state,
+  display geometry, Forever persistence and Edit Mode, plus map ownership even
+  without another loaded-addon marker. A healthy READY topology omits the
+  repeated dimensions; mismatched topology and active manual canvases retain
+  their recovery evidence. Installed/invalid user media gets a short status.
+- `/offhand diag full` retains feature-level world-text, speech-bubble, loot,
+  pet-battle, group/protected HUD, panel-controller, Gamepad and Dialogue UI
+  evidence. These getters are not called by the default command. World-text
+  collection uses a focused getter rather than enumerating nameplates and
+  reading unrelated renderer CVars through the performance collector.
+- Automated coverage: real slash dispatch, aliases, full opt-in, skipped
+  collectors, OpenMap-only output, healthy/mismatched topology, manual geometry
+  and invalid installed media. Focused world-text fields match the previous
+  collector without sampling framerate or nameplates. All 37 Lua suites and
+  six-manifest Lua/XML validation pass.
+- Deployment: updated Init, Canvas, Mainhand, Viewport and package documentation
+  in the Forever Beta Offhand directory, with a backup and per-file hashes.
+  Existing generated bridge files and SavedVariables remain unchanged. Live
+  chat readability and copy/paste checks remain pending after `/reload`.

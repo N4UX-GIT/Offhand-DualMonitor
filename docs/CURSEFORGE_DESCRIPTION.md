@@ -1,4 +1,4 @@
-**Offhand - Dual-Screen and Multi-Monitor UI | v2.1.2 PRE-RELEASE (BETA 21)**
+**Offhand - Dual-Screen and Multi-Monitor UI | v2.1.2 PRE-RELEASE (BETA 22)**
 
 ![Offhand Logo](https://raw.githubusercontent.com/N4UX-GIT/Offhand-DualMonitor/main/Website/assets/offhand-logo.png)
 
@@ -31,7 +31,7 @@ _The complete Offhand setup on a real desk: unobstructed gameplay on Mainhand, w
 
 _What WoW actually renders across the combined play surface. The 3D world remains centered on Mainhand while the extended UI canvas uses both displays. Black padding may appear in screenshots when displays have different heights, but that area sits outside the visible physical screens during play._
 
-**Beta 21 is the current public addon release.** It is published as a beta while testing continues across different display arrangements, Windows scaling settings, WoW clients, and third-party UI addons.
+**Beta 22 is a public testing build.** It is published as a beta while testing continues across different display arrangements, Windows scaling settings, WoW clients, and third-party UI addons.
 
 ***
 

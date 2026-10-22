@@ -497,12 +497,17 @@ end
 local function GetWorldMapExternalOwner()
     if HasMoveAny() then return "MoveAny" end
     if HasClassicUIForever() then return "ClassicUIForever" end
+    -- OpenMap Window.lua enforces its saved anchor and scale after every native
+    -- SetPoint/SetScale. Yield before Leatrix so this owner is visible when both
+    -- addons are loaded; their conflicting window options must be disabled.
+    if IsAddonLoadedCompat("OpenMap") then return "OpenMap" end
     if HasLeatrixMaps() then return "LeatrixMaps" end
     return nil
 end
 
-local function IsLeatrixWorldMap(frameOrName)
-    if GetWorldMapExternalOwner() ~= "LeatrixMaps" then return false end
+local function IsExternallyPositionedWorldMap(frameOrName)
+    local owner = GetWorldMapExternalOwner()
+    if owner ~= "LeatrixMaps" and owner ~= "OpenMap" then return false end
     if type(frameOrName) == "string" then return frameOrName == "WorldMapFrame" end
     return frameOrName == _G.WorldMapFrame
 end
@@ -519,8 +524,13 @@ function Canvas:ShouldYieldWorldMap(frameOrName)
     return ShouldYieldWorldMapToMoveAny(frameOrName)
 end
 
-function Canvas:GetCompatibilityDiagnostics()
+function Canvas:GetCompatibilityDiagnostics(compact)
     local mapOwner = GetWorldMapExternalOwner() or "Offhand"
+    if compact then
+        return string.format("WorldMapOwner=%s | LeatrixMaps=%s | OpenMap=%s",
+            mapOwner, HasLeatrixMaps() and "loaded" or "absent",
+            IsAddonLoadedCompat("OpenMap") and "loaded" or "absent")
+    end
     local leatrixStatus = HasLeatrixMaps() and string.format(
         " | LeatrixMaps=loaded | CoordinateFontRefresh=%s",
         tostring(self._lastLeatrixCoordinateFontRefreshCount or "pending")) or ""
@@ -1417,7 +1427,7 @@ function Canvas:SetWorkspacePanelOpen(frameOrName, isOpen)
     if not name then return false end
     -- MoveAny owns the live map geometry, but Offhand still owns the user's
     -- explicit request to reopen a saved workspace map after /reload.
-    if ShouldYieldWorldMapToMoveAny(name) and not IsLeatrixWorldMap(name)
+    if ShouldYieldWorldMapToMoveAny(name) and not IsExternallyPositionedWorldMap(name)
         and (name ~= "WorldMapFrame" or Offhand.isForever) then return false end
     if IsBackpackRoot(name) and not IsSpannedLayoutActive() then return false end
     if HasBlizzardEditMode() and IsForeverEditModeFrame(frameOrName, name) then
@@ -1427,10 +1437,10 @@ function Canvas:SetWorkspacePanelOpen(frameOrName, isOpen)
     Offhand.db.openWorkspacePanels = Offhand.db.openWorkspacePanels or {}
     local hasWorkspacePosition = Offhand.db.savedWorkspacePositions
         and Offhand.db.savedWorkspacePositions[name]
-    if not hasWorkspacePosition and IsLeatrixWorldMap(name)
+    if not hasWorkspacePosition and IsExternallyPositionedWorldMap(name)
         and type(frameOrName) ~= "string" and IsFrameOnWorkspace(frameOrName) then
-        -- Leatrix owns the anchor, so Offhand stores only the independent open
-        -- intent. Its geometry remains entirely in Leatrix's saved variables.
+        -- The external addon owns the anchor; Offhand stores only independent open
+        -- intent. Geometry remains entirely in the external addon's saved variables.
         hasWorkspacePosition = true
     end
     if IsBackpackRoot(name) then
@@ -1452,8 +1462,8 @@ function Canvas:SetWorkspacePanelOpen(frameOrName, isOpen)
     return Offhand.db.openWorkspacePanels[name] == true
 end
 
-function Canvas:PreserveLeatrixWorldMapOpenState(map)
-    if not IsLeatrixWorldMap(map) or not map.IsShown or not map:IsShown() then return false end
+function Canvas:PreserveExternalWorldMapOpenState(map)
+    if not IsExternallyPositionedWorldMap(map) or not map.IsShown or not map:IsShown() then return false end
     if not IsFrameOnWorkspace(map) then
         self:SetWorkspacePanelOpen(map, false)
         RegisterSpecialFrame("WorldMapFrame")
@@ -1465,7 +1475,7 @@ function Canvas:PreserveLeatrixWorldMapOpenState(map)
             pcall(function() PlayerMovementFrameFader.RemoveFrame(map) end)
         end
         -- Keep Offhand's Escape and simultaneous-panel behavior, but let
-        -- Leatrix's own OnShow/layout hooks remain the sole geometry writer.
+        -- the external addon's OnShow/layout hooks remain the geometry writer.
         UnregisterSpecialFrame("WorldMapFrame")
         EvictWorkspacePanelSlot(map)
     else
@@ -1474,10 +1484,12 @@ function Canvas:PreserveLeatrixWorldMapOpenState(map)
     return true
 end
 
+Canvas.PreserveLeatrixWorldMapOpenState = Canvas.PreserveExternalWorldMapOpenState
+
 function Canvas:UpdateMapMovementBehavior()
     local map = WorldMapFrame
     if not map then return end
-    if HasLeatrixMaps() then return end
+    if ShouldYieldWorldMapToMoveAny(map) then return end
     -- Forever routes map-pin mouse actions through restricted Blizzard code.
     -- Do not change the native map event registration on that client; even an
     -- unrelated movement-event mutation can taint the shared map frame before
@@ -1508,7 +1520,7 @@ function Canvas:RefocusPersistentWorldMap()
     -- frame remains open. Forever keeps its stricter protected-map boundary.
     if ShouldYieldWorldMapToMoveAny(map) and Offhand.isForever then return false end
     if InCombatLockdown() or not map or not map.IsShown or not map:IsShown()
-        or HasLeatrixMaps() or not Offhand.db or not Offhand.db.enabled
+        or IsExternallyPositionedWorldMap(map) or not Offhand.db or not Offhand.db.enabled
         or Offhand.db.persistentWorkspacePanels == false then
         return false
     end
@@ -1999,7 +2011,7 @@ function Canvas:RestorePersistentFrames(mode)
         savedNames[#savedNames + 1] = name
         savedNameSet[name] = true
     end
-    if openPanels.WorldMapFrame and IsLeatrixWorldMap("WorldMapFrame")
+    if openPanels.WorldMapFrame and IsExternallyPositionedWorldMap("WorldMapFrame")
         and not savedNameSet.WorldMapFrame then
         savedNames[#savedNames + 1] = "WorldMapFrame"
     end
@@ -2008,12 +2020,12 @@ function Canvas:RestorePersistentFrames(mode)
     for _, name in ipairs(savedNames) do
         local frame = _G[name]
         if frame and ShouldYieldWorldMapToMoveAny(name) then
-            if canOpenPanels and name == "WorldMapFrame" and IsLeatrixWorldMap(name)
+            if canOpenPanels and name == "WorldMapFrame" and IsExternallyPositionedWorldMap(name)
                 and openPanels[name] and not contextBoundPanelNames[name] then
                 if not frame:IsShown() then
                     if ToggleWorldMap then ToggleWorldMap() else frame:Show() end
                 end
-                if frame:IsShown() then self:PreserveLeatrixWorldMapOpenState(frame) end
+                if frame:IsShown() then self:PreserveExternalWorldMapOpenState(frame) end
             elseif canOpenPanels and name == "WorldMapFrame" and not Offhand.isForever and openPanels[name]
                 and not contextBoundPanelNames[name] then
                 if not frame:IsShown() then
@@ -4536,15 +4548,15 @@ local function QueueForeverWorldMapSettlement(map, state, shown, forcePanelTrans
 
     if not shown then
         Canvas:SetWorkspacePanelOpen(map, false)
-        if IsLeatrixWorldMap(map) and (not Offhand.db or not Offhand.db.enabled
+        if IsExternallyPositionedWorldMap(map) and (not Offhand.db or not Offhand.db.enabled
             or Offhand.db.persistentWorkspacePanels == false) then
             RegisterSpecialFrame("WorldMapFrame")
         end
         return
     end
 
-    if IsLeatrixWorldMap(map) then
-        Canvas:PreserveLeatrixWorldMapOpenState(map)
+    if IsExternallyPositionedWorldMap(map) then
+        Canvas:PreserveExternalWorldMapOpenState(map)
         return
     end
 
@@ -4628,7 +4640,7 @@ end
 
 local function AttachForeverWorldMapDragHandle(map)
     if not IsForeverWorldMap(map) or not CreateFrame or not UIParent then return false end
-    if ShouldYieldWorldMapToMoveAny(map) and not IsLeatrixWorldMap(map) then return false end
+    if ShouldYieldWorldMapToMoveAny(map) and not IsExternallyPositionedWorldMap(map) then return false end
     local state = GetForeverWorldMapState(map)
     if state.handle then return true end
 
@@ -5791,8 +5803,8 @@ function Canvas:EnableFreeDragging()
     if Offhand.isForever and not hasCustomBags then
         self:EnableForeverNativeBagProxy()
     end
-    if Offhand.isForever and IsLeatrixWorldMap(_G.WorldMapFrame) then
-        -- The addon-owned handle remains hidden while Leatrix owns geometry;
+    if Offhand.isForever and IsExternallyPositionedWorldMap(_G.WorldMapFrame) then
+        -- The addon-owned handle stays hidden while the external addon owns geometry;
         -- its read-only observer still preserves Escape and reload open state.
         AttachForeverWorldMapDragHandle(_G.WorldMapFrame)
     end

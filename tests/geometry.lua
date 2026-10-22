@@ -198,6 +198,16 @@ cvars.DynamicRenderScale="0"
 cvars.ResampleAlwaysSharpen="0"
 cvars.ResampleSharpness="0.2"
 local performance=addon.Viewport:GetPerformanceDiagnostics(addon.Viewport:GetMetrics())
+local originalNamePlateAPI, originalFramerate = C_NamePlate, GetFramerate
+C_NamePlate = {GetNamePlates = function() error("support text diagnostics enumerated nameplates") end}
+GetFramerate = function() error("support text diagnostics sampled renderer performance") end
+local textDiagnostics = addon.Viewport:GetWorldTextDiagnostics(addon.Viewport:GetMetrics())
+for _, field in ipairs({"worldTextScale", "originalWorldTextScale", "worldTextScaleCVar",
+    "worldTextMethod", "worldTextCompensationEnabled", "worldTextFineTune",
+    "worldTextHeightRatio", "worldTextCompensationRatio"}) do
+    assert(textDiagnostics[field] == performance[field], "world-text support evidence drifted: " .. field)
+end
+C_NamePlate, GetFramerate = originalNamePlateAPI, originalFramerate
 near(performance.fps,73.5)
 near(performance.spanPixels,4480*1440)
 near(performance.mainhandPixels,2560*1440)
@@ -221,12 +231,41 @@ OffhandCompanionTopology={schema=1,physicalWidth=4000,physicalHeight=2560,mode="
 addon.isForever=true
 UIParent.GetWidth=function() return (4000/2560)*768/uiScale end
 tm=addon.Viewport:GetMetrics()
+assert(tm.isSpanned and tm.companionTopology and tm.topologyStatus=="READY",
+    "Forever must accept a matching canvas with a stale Mainhand-sized physical report")
+
+-- Beta 21 report: Forever 1.60.1 build 70450 reports 2560x1440 while
+-- the spanned canvas is 2287x1141 and the Companion bounds are 3640x1816.
+OffhandCompanionTopology={schema=1,physicalWidth=3640,physicalHeight=1816,mode="DUAL_DISPLAY",
+    workspace={x=0,y=0,width=1080,height=1816},game={x=1080,y=0,width=2560,height=1440}}
+UIParent.GetWidth=function() return 2287 end
+UIParent.GetHeight=function() return 1141 end
+tm=addon.Viewport:GetMetrics()
+assert(tm.isSpanned and tm.companionTopology and tm.topologyStatus=="READY"
+        and tm.physicalWidth==3640 and tm.physicalHeight==1816
+        and tm.gamePixelWidth==2560 and tm.gamePixelHeight==1440
+        and tm.workspacePixelWidth==1080,
+    "reported Forever canvas must accept the Companion span without guessing monitor geometry")
+topologyDiagnostics=addon.Viewport:GetTopologyDiagnostics()
+assert(topologyDiagnostics.accepted and topologyDiagnostics.status=="READY"
+        and topologyDiagnostics.liveWidth==2560 and topologyDiagnostics.liveHeight==1440
+        and topologyDiagnostics.canvasWidth==2287 and topologyDiagnostics.canvasHeight==1141,
+    "accepted topology diagnostics must preserve the raw stale physical report")
+
+-- Matching aspect alone cannot authorize unrelated physical dimensions.
+pw,ph=1920,1080
+tm=addon.Viewport:GetMetrics()
 assert(not tm.isSpanned and tm.topologyStatus=="MISMATCH",
-    "Forever must retain strict exact-size topology validation")
+    "Forever must reject physical reports that match neither selected display")
+pw,ph=2560,1440
+UIParent.GetWidth=function() return (2560/1440)*1141 end
+tm=addon.Viewport:GetMetrics()
+assert(not tm.isSpanned and tm.topologyStatus=="MISMATCH",
+    "Forever must reject stale topology after restoring a single-monitor canvas")
 topologyDiagnostics=addon.Viewport:GetTopologyDiagnostics()
 assert(topologyDiagnostics.status=="MISMATCH" and topologyDiagnostics.loaded
-    and not topologyDiagnostics.accepted and topologyDiagnostics.expectedWidth==4000
-    and topologyDiagnostics.expectedHeight==2560 and topologyDiagnostics.liveWidth==2560
+    and not topologyDiagnostics.accepted and topologyDiagnostics.expectedWidth==3640
+    and topologyDiagnostics.expectedHeight==1816 and topologyDiagnostics.liveWidth==2560
     and topologyDiagnostics.liveHeight==1440,
     "mismatch diagnostics must preserve both expected topology and live dimensions")
 addon.isForever=false

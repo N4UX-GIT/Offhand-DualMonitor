@@ -1646,10 +1646,11 @@ SlashCmdList["OFFHAND"] = function(msg)
     local cmd, arg = strsplit(" ", msg, 2)
 
     if cmd == "diag" or cmd == "metrics" or cmd == "info" then
+        local fullDiagnostics = strtrim(arg or "") == "full"
         local snapshot = Offhand.Viewport:CaptureDiagnostics()
         local vpStatus = snapshot.viewportMatches and L["MSG_DIAG_PASS"] or L["MSG_DIAG_MISMATCH"]
         Offhand:Print(L["MSG_DIAG_VIEWPORT"], vpStatus)
-        local m = Offhand.Viewport and Offhand.Viewport:GetMetrics() or {}
+        local m = snapshot.metrics or (Offhand.Viewport and Offhand.Viewport:GetMetrics()) or {}
         local versions = Offhand:GetVersionDiagnostics(m)
         Offhand:Print("Versions: WoW=%s | Build=%s | Interface=%s | Client=%s | Offhand=%s.",
             versions.clientVersion, versions.clientBuild, versions.interfaceVersion,
@@ -1682,15 +1683,18 @@ SlashCmdList["OFFHAND"] = function(msg)
                 tostring(Offhand.legacyPhysicalSizeSource or "unavailable"))
         end
         local topologyDiag = Offhand.Viewport:GetTopologyDiagnostics()
-        Offhand:Print("Topology diagnostics: state=%s | loaded=%s | schema=%s | expected=%sx%s | live=%dx%d | canvas=%.0fx%.0f.",
-            tostring(topologyDiag.status or "UNKNOWN"),
-            topologyDiag.loaded and "yes" or "no",
-            tostring(topologyDiag.schema or "none"),
-            tostring(topologyDiag.expectedWidth or "unknown"),
-            tostring(topologyDiag.expectedHeight or "unknown"),
-            topologyDiag.liveWidth, topologyDiag.liveHeight,
-            topologyDiag.canvasWidth, topologyDiag.canvasHeight)
-        if Offhand.ManualCanvas and Offhand.ManualCanvas.GetDiagnostics then
+        if fullDiagnostics or topologyDiag.status ~= "READY" then
+            Offhand:Print("Topology diagnostics: state=%s | loaded=%s | schema=%s | expected=%sx%s | live=%dx%d | canvas=%.0fx%.0f.",
+                tostring(topologyDiag.status or "UNKNOWN"),
+                topologyDiag.loaded and "yes" or "no",
+                tostring(topologyDiag.schema or "none"),
+                tostring(topologyDiag.expectedWidth or "unknown"),
+                tostring(topologyDiag.expectedHeight or "unknown"),
+                topologyDiag.liveWidth, topologyDiag.liveHeight,
+                topologyDiag.canvasWidth, topologyDiag.canvasHeight)
+        end
+        if (fullDiagnostics or (m.isSpanned and not m.companionTopology))
+            and Offhand.ManualCanvas and Offhand.ManualCanvas.GetDiagnostics then
             local manual = Offhand.ManualCanvas:GetDiagnostics()
             Offhand:Print("Manual canvas diagnostics: state=%s | preference=%s | remembered=%d | selected=%s | source=%s | candidates=%d.",
                 tostring(manual.state), tostring(manual.preference), manual.count or 0,
@@ -1699,12 +1703,19 @@ SlashCmdList["OFFHAND"] = function(msg)
         end
         if Offhand.isForever then
             local persistence = Offhand.foreverPersistenceDiagnostics or {}
-            Offhand:Print("Forever persistence diagnostics: source=%s | bridge=%s | session=%s | diskRevision=%s | activeRevision=%s.",
-                tostring(persistence.source or "unknown"),
-                tostring(persistence.bridge or "unknown"),
-                tostring(persistence.sessionFallback or "unknown"),
-                tostring(persistence.diskRevision or "none"),
-                tostring(persistence.activeRevision or "none"))
+            if fullDiagnostics then
+                Offhand:Print("Forever persistence diagnostics: source=%s | bridge=%s | session=%s | diskRevision=%s | activeRevision=%s.",
+                    tostring(persistence.source or "unknown"),
+                    tostring(persistence.bridge or "unknown"),
+                    tostring(persistence.sessionFallback or "unknown"),
+                    tostring(persistence.diskRevision or "none"),
+                    tostring(persistence.activeRevision or "none"))
+            else
+                Offhand:Print("Forever persistence diagnostics: source=%s | bridge=%s | session=%s.",
+                    tostring(persistence.source or "unknown"),
+                    tostring(persistence.bridge or "unknown"),
+                    tostring(persistence.sessionFallback or "unknown"))
+            end
         end
         if Offhand.isForever and Offhand.HUD and Offhand.HUD.GetForeverEditModeLayoutStatus then
             local editMode = Offhand.HUD:GetForeverEditModeLayoutStatus()
@@ -1717,84 +1728,95 @@ SlashCmdList["OFFHAND"] = function(msg)
                 editMode.activeMatches and "yes" or "no",
                 editMode.recoveryPending and "pending" or "none")
         end
-        local perf = Offhand.Viewport:GetPerformanceDiagnostics(m)
-        Offhand:Print("Combat text diagnostics: Current=%s | Original=%s | CVar=%s | Method=%s | Enabled=%s | FineTune=%.2f | HeightRatio=%.4f | AppliedRatio=%.4f.",
-            perf.worldTextScale, tostring(perf.originalWorldTextScale or "unmanaged"),
-            perf.worldTextScaleCVar,
-            perf.worldTextMethod, perf.worldTextCompensationEnabled and "yes" or "no",
-            perf.worldTextFineTune, perf.worldTextHeightRatio,
-            perf.worldTextCompensationRatio)
-        if Offhand.modules.ChatBubbles and Offhand.modules.ChatBubbles.GetDiagnostics then
-            local bubbles = Offhand.modules.ChatBubbles:GetDiagnostics()
-            Offhand:Print("Speech bubble diagnostics: Supported=%s | Visible=%d | Enabled=%s | FineTune=%.2f | Mode=%s | Conflict=%s | Replacements=%d.",
-                bubbles.supported and "yes" or "no", bubbles.visible or 0,
-                bubbles.foreverEnabled and "yes" or "no",
-                bubbles.foreverFineTune or 1,
-                tostring(bubbles.replacementMode or "native"),
-                tostring(bubbles.replacementConflict or "none"),
-                bubbles.visualManaged or 0)
-        end
-        if Offhand.HUD and Offhand.HUD.GetGroupLootDiagnostics then
-            local loot = Offhand.HUD:GetGroupLootDiagnostics()
-            Offhand:Print("Group loot diagnostics: Loaded=%s | Preload=%s | SecureAnchor=%s | RowMover=%s/%s | Rows=%d | Position=%s | Stack=%s | Preview=%s | Conflict=%s | Triggers=%d | Combat=%s.",
-                loot.loaded and "yes" or "no",
-                loot.preloadAttempted and "yes" or "no",
-                loot.anchorPrepared and "yes" or "no",
-                loot.rowMoverPrepared and "yes" or "no",
-                loot.rowMoverActive and "active" or "inactive",
-                loot.rowsMoved or 0,
-                loot.customPosition and "custom" or "default",
-                tostring(loot.stackDirection or "UP"),
-                loot.moverShown and "shown" or "hidden",
-                tostring(loot.conflict or "none"),
-                loot.triggerCount or 0,
-                loot.inCombat and "yes" or "no")
-        end
-        if Offhand.HUD and Offhand.HUD.GetPetBattleDiagnostics then
-            local petBattle = Offhand.HUD:GetPetBattleDiagnostics()
-            Offhand:Print("Pet battle diagnostics: Loaded=%s | Preload=%s | Bounds=%s | Conflict=%s | Combat=%s.",
-                petBattle.loaded and "yes" or "no",
-                petBattle.preloadAttempted and "yes" or "no",
-                petBattle.boundsPrepared and "prepared" or "unmanaged",
-                tostring(petBattle.conflict or "none"),
-                petBattle.inCombat and "yes" or "no")
-        end
-        if Offhand.HUD and Offhand.HUD.GetForeverGroupFrameDiagnostics then
-            local groupFrames = Offhand.HUD:GetForeverGroupFrameDiagnostics()
-            if groupFrames then Offhand:Print("Group frame diagnostics: %s.", groupFrames) end
-        end
-        if Offhand.HUD and Offhand.HUD.GetForeverProtectedHUDDiagnostics then
-            local protectedHUD = Offhand.HUD:GetForeverProtectedHUDDiagnostics(m)
-            if protectedHUD then Offhand:Print("Protected HUD diagnostics: %s.", protectedHUD) end
+        -- Keep historical feature probes available on demand. Default reports
+        -- must not enumerate native HUD trees or collect animation/debug state.
+        if fullDiagnostics then
+            local perf = Offhand.Viewport:GetWorldTextDiagnostics(m)
+            Offhand:Print("Combat text diagnostics: Current=%s | Original=%s | CVar=%s | Method=%s | Enabled=%s | FineTune=%.2f | HeightRatio=%.4f | AppliedRatio=%.4f.",
+                perf.worldTextScale, tostring(perf.originalWorldTextScale or "unmanaged"),
+                perf.worldTextScaleCVar,
+                perf.worldTextMethod, perf.worldTextCompensationEnabled and "yes" or "no",
+                perf.worldTextFineTune, perf.worldTextHeightRatio,
+                perf.worldTextCompensationRatio)
+            if Offhand.modules.ChatBubbles and Offhand.modules.ChatBubbles.GetDiagnostics then
+                local bubbles = Offhand.modules.ChatBubbles:GetDiagnostics()
+                Offhand:Print("Speech bubble diagnostics: Supported=%s | Visible=%d | Enabled=%s | FineTune=%.2f | Mode=%s | Conflict=%s | Replacements=%d.",
+                    bubbles.supported and "yes" or "no", bubbles.visible or 0,
+                    bubbles.foreverEnabled and "yes" or "no",
+                    bubbles.foreverFineTune or 1,
+                    tostring(bubbles.replacementMode or "native"),
+                    tostring(bubbles.replacementConflict or "none"),
+                    bubbles.visualManaged or 0)
+            end
+            if Offhand.HUD and Offhand.HUD.GetGroupLootDiagnostics then
+                local loot = Offhand.HUD:GetGroupLootDiagnostics()
+                Offhand:Print("Group loot diagnostics: Loaded=%s | Preload=%s | SecureAnchor=%s | RowMover=%s/%s | Rows=%d | Position=%s | Stack=%s | Preview=%s | Conflict=%s | Triggers=%d | Combat=%s.",
+                    loot.loaded and "yes" or "no",
+                    loot.preloadAttempted and "yes" or "no",
+                    loot.anchorPrepared and "yes" or "no",
+                    loot.rowMoverPrepared and "yes" or "no",
+                    loot.rowMoverActive and "active" or "inactive",
+                    loot.rowsMoved or 0,
+                    loot.customPosition and "custom" or "default",
+                    tostring(loot.stackDirection or "UP"),
+                    loot.moverShown and "shown" or "hidden",
+                    tostring(loot.conflict or "none"),
+                    loot.triggerCount or 0,
+                    loot.inCombat and "yes" or "no")
+            end
+            if Offhand.HUD and Offhand.HUD.GetPetBattleDiagnostics then
+                local petBattle = Offhand.HUD:GetPetBattleDiagnostics()
+                Offhand:Print("Pet battle diagnostics: Loaded=%s | Preload=%s | Bounds=%s | Conflict=%s | Combat=%s.",
+                    petBattle.loaded and "yes" or "no",
+                    petBattle.preloadAttempted and "yes" or "no",
+                    petBattle.boundsPrepared and "prepared" or "unmanaged",
+                    tostring(petBattle.conflict or "none"),
+                    petBattle.inCombat and "yes" or "no")
+            end
+            if Offhand.HUD and Offhand.HUD.GetForeverGroupFrameDiagnostics then
+                local groupFrames = Offhand.HUD:GetForeverGroupFrameDiagnostics()
+                if groupFrames then Offhand:Print("Group frame diagnostics: %s.", groupFrames) end
+            end
+            if Offhand.HUD and Offhand.HUD.GetForeverProtectedHUDDiagnostics then
+                local protectedHUD = Offhand.HUD:GetForeverProtectedHUDDiagnostics(m)
+                if protectedHUD then Offhand:Print("Protected HUD diagnostics: %s.", protectedHUD) end
+            end
         end
         if Offhand.Mainhand and Offhand.Mainhand.GetEditModeDiagnostics then
             Offhand:Print("Edit Mode layout diagnostics: %s.",
-                Offhand.Mainhand:GetEditModeDiagnostics())
+                Offhand.Mainhand:GetEditModeDiagnostics(not fullDiagnostics))
         end
         if Offhand.Canvas and Offhand.Canvas.GetCompatibilityDiagnostics then
-            local compatibility = Offhand.Canvas:GetCompatibilityDiagnostics()
-            if compatibility and compatibility:find("loaded", 1, true) then
+            local compatibility = Offhand.Canvas:GetCompatibilityDiagnostics(not fullDiagnostics)
+            if compatibility then
                 Offhand:Print("Compatibility diagnostics: %s.", compatibility)
             end
         end
-        if Offhand.Canvas and Offhand.Canvas.GetPanelControllerDiagnostics then
+        if fullDiagnostics and Offhand.Canvas and Offhand.Canvas.GetPanelControllerDiagnostics then
             Offhand:Print("Panel controller diagnostics: %s.",
                 Offhand.Canvas:GetPanelControllerDiagnostics())
         end
-        if Offhand.DialogueUICompat and Offhand.DialogueUICompat.GetDiagnostics then
+        if fullDiagnostics and Offhand.DialogueUICompat and Offhand.DialogueUICompat.GetDiagnostics then
             Offhand:Print("Dialogue UI diagnostics: %s.",
                 Offhand.DialogueUICompat:GetDiagnostics())
         end
         if Offhand.UserMedia and Offhand.UserMedia.GetDiagnostics then
             local media = Offhand.UserMedia:GetDiagnostics()
-            Offhand:Print("User media diagnostics: status=%s | installed=%s | enabled=%s | schema=%s | generator=%s | image=%sx%s | texture=%sx%s | fit=%s | reason=%s.",
-                tostring(media.status), media.installed and "yes" or "no",
-                media.enabled and "yes" or "no", tostring(media.schema or "none"),
-                tostring(media.generatorVersion or "none"),
-                tostring(media.imageWidth or "unknown"), tostring(media.imageHeight or "unknown"),
-                tostring(media.textureWidth or "unknown"), tostring(media.textureHeight or "unknown"),
-                tostring(media.fit or "none"), tostring(media.reason or "none"))
+            if fullDiagnostics then
+                Offhand:Print("User media diagnostics: status=%s | installed=%s | enabled=%s | schema=%s | generator=%s | image=%sx%s | texture=%sx%s | fit=%s | reason=%s.",
+                    tostring(media.status), media.installed and "yes" or "no",
+                    media.enabled and "yes" or "no", tostring(media.schema or "none"),
+                    tostring(media.generatorVersion or "none"),
+                    tostring(media.imageWidth or "unknown"), tostring(media.imageHeight or "unknown"),
+                    tostring(media.textureWidth or "unknown"), tostring(media.textureHeight or "unknown"),
+                    tostring(media.fit or "none"), tostring(media.reason or "none"))
+            elseif media.installed or media.status == "INVALID" then
+                Offhand:Print("User media diagnostics: status=%s | enabled=%s | fit=%s | reason=%s.",
+                    tostring(media.status), media.enabled and "yes" or "no",
+                    tostring(media.fit or "none"), tostring(media.reason or "none"))
+            end
         end
+        if not fullDiagnostics then Offhand:Print("More detail: /offhand diag full.") end
     elseif cmd == "remember" then
         local preview = Offhand.Viewport and Offhand.Viewport.GetManualPreviewMetrics
             and Offhand.Viewport:GetManualPreviewMetrics() or nil

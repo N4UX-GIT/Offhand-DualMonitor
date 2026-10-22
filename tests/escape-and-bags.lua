@@ -696,6 +696,32 @@ assert(not addon.db.openWorkspacePanels.WorldMapFrame and inSpecial("WorldMapFra
 addon.db.savedWorkspacePositions.WorldMapFrame = dormantMapPosition
 WorldMapFrame.overlayFrames = nil
 loadedCompatibilityAddons.Leatrix_Maps = nil
+-- OpenMap 0.7.2 has its own drag handle and restores its private saved anchor
+-- after SetPoint/SetScale. Offhand must yield with or without Leatrix present.
+loadedCompatibilityAddons.OpenMap = true
+for _, withLeatrix in ipairs({false, true}) do
+    loadedCompatibilityAddons.Leatrix_Maps = withLeatrix or nil
+    assert(addon.Canvas:ShouldYieldWorldMap(WorldMapFrame),
+        "OpenMap must own World Map geometry")
+    assert(addon.Canvas:GetCompatibilityDiagnostics():find("WorldMapOwner=OpenMap", 1, true),
+        "diagnostics must expose OpenMap even when Leatrix is also loaded")
+    WorldMapFrame.points = {{"TOPLEFT", UIParent, "BOTTOMLEFT", 200, 1180}}
+    WorldMapFrame.scale = 0.83
+    WorldMapFrame:Show()
+    local openMapPoint = WorldMapFrame.points[1]
+    assert(addon.Canvas:PreserveExternalWorldMapOpenState(WorldMapFrame))
+    addon.Canvas:ConfigureWorldMap()
+    addon.Canvas:RestoreWorkspacePosition(WorldMapFrame)
+    addon.Canvas.OnPanelDragStop(WorldMapFrame)
+    WorldMapFrame:Hide()
+    addon.Canvas:RestorePersistentFrames()
+    flushTimers()
+    assert(WorldMapFrame:IsShown() and addon.db.openWorkspacePanels.WorldMapFrame
+        and WorldMapFrame.points[1] == openMapPoint and WorldMapFrame.scale == 0.83,
+        "Offhand must preserve open intent without replacing OpenMap geometry")
+end
+loadedCompatibilityAddons.Leatrix_Maps = nil
+loadedCompatibilityAddons.OpenMap = nil
 C_AddOns = nil
 addon.isRetail = nil
 print("PASS: Retail MoveAny and ClassicUI Forever ownership handoff")

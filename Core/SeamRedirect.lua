@@ -670,8 +670,9 @@ end
 
 -- Blizzard can anchor its Edit Mode manager outside the physical displays on a
 -- mixed-height span. This occurs on Retail as well as Forever. Detection stays
--- read-only; the control-window anchor write below is reserved for an explicit
--- player click and never runs from this scan.
+-- read-only until a candidate survives native layout settlement. Only known
+-- unprotected controls can then be rescued; the preference retains the manual
+-- recovery prompt for players who disable automatic recovery.
 function HUD:UpdateForeverEditModeControlsRecovery(metrics)
     if not HasBlizzardEditMode() or not Offhand.db or not Offhand.db.enabled then return end
     local manager = _G.EditModeManagerFrame
@@ -698,8 +699,8 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
     metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics())
     -- A stale spanned layout can strand the manager or its settings dialog
     -- after the Companion restores WoW to one display. That recovery state is
-    -- as actionable as the mixed-height span: the scan remains read-only and
-    -- the player must still accept the popup before any anchor is changed.
+    -- as actionable as the mixed-height span. Controls still pass the same
+    -- physical-display, settlement and protected-frame checks before rescue.
     if not CanRecoverForeverEditModeControls(metrics) then
         ClearForeverEditModeControlsCandidate(self)
         return
@@ -708,8 +709,8 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
 
     -- The manager toolbar can be fully visible while the separate settings
     -- dialog opened for a selected HUD element is mostly in the mixed-height
-    -- void. This prompt scan remains read-only; transactional dialogs were
-    -- handled separately above and protected HUD systems are never moved.
+    -- void. Transactional dialogs were handled separately above; protected
+    -- HUD systems are never moved by control recovery.
     local outsideControl
     local visibleDialog
     for _, name in ipairs(foreverEditModeControlNames) do
@@ -779,6 +780,19 @@ function HUD:UpdateForeverEditModeControlsRecovery(metrics)
         self.foreverEditModeControlsCandidateConfirmed = outsideControl
     end
     if self.foreverEditModeControlsCandidateConfirmed ~= outsideControl then return end
+    if Offhand.db.autoRecoverEditModeControls ~= false then
+        local ok, moved = pcall(CenterUnprotectedEditModeControl, outsideControl, metrics)
+        if ok and moved then
+            if Offhand.HideForeverEditModeControlsPrompt then
+                Offhand:HideForeverEditModeControlsPrompt()
+            end
+            self.foreverEditModeControlsPromptShown = nil
+            self.foreverEditModeControlsPromptDeclined = nil
+            self.foreverEditModeOutsideControl = nil
+            ClearForeverEditModeControlsCandidate(self)
+            return
+        end
+    end
     ClearForeverEditModeControlsCandidate(self)
     self.foreverEditModeControlsPromptShown = true
     if Offhand.ShowForeverEditModeControlsPrompt then

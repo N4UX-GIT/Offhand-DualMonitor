@@ -21,6 +21,10 @@ The detailed issue section below remains authoritative.
 | OH-FOR-005 | Forever | Boundary implemented on `main` | Automated boundary passed | Pending | Combat and taint-log QA |
 | OH-FOR-006 | Forever | Resolved on `main` | Automated passed | Passed | Retain regression coverage |
 | OH-FOR-009 | Forever Gamepad UI | Investigation on `addon/develop` working candidate | Existing automated checks pass; no reproduction yet | One reported protected-call block during layout configuration | Fresh taint trace identifying the first Offhand contamination |
+| OH-FOR-010 | Forever Gamepad UI | Contextual B retained; Escape/menu adapter withdrawn after OH-FOR-012 | B and dispatcher-isolation regressions passed | Initial reporter acceptance followed by protected Game Menu regression | Verify clean reload; safe Escape-retention replacement pending |
+| OH-FOR-011 | Forever Gamepad Edit Mode | Investigation; native Loot preview focus mismatch identified | Source matches supplied line and locals; LootFrame excluded from destination adapter | Moving Loot preview triggers missing `GetSlotIndex` call | Repeat the same Edit Mode move with Offhand disabled after reload |
+| OH-FOR-012 | Forever, Gamepad and keyboard UI | Unsafe Escape registration removed in working candidate | Shared-dispatcher mutation rejected by regression | SpellStopCasting forbidden on Game Menu entry in both modes | Reload deployed candidate; verify radial menu and keyboard Escape |
+| OH-FOR-014 | Forever 1.60.1 build 70450; shared topology guards | Implemented on `addon/forever/topology-canvas-match`; Discord topology-test1 packaged | 38 Lua suites, six manifest validations, Companion checks and 48-file package verification passed | Reporter confirms candidate resolves span block | Restore/cold-launch checks pending; separate image-quality report under investigation |
 | OH-UI-004 | Forever | Base fix on `main` | Automated passed | Base fix passed | Optional movement QA |
 | OH-COMP-001 | Shared Companion contract | Implemented on `main` | Automated passed | Pending | Newer Companion pairing QA |
 | OH-UI-001 | Forever | Resolved on `main` | Automated passed | Passed | Retain regression coverage |
@@ -31,6 +35,27 @@ The detailed issue section below remains authoritative.
 Use the evidence vocabulary and branch policy in
 [`ADDON-DEVELOPMENT.md`](ADDON-DEVELOPMENT.md). Update this summary whenever an
 issue changes branch, evidence level, candidate, or released version.
+
+## OH-FOR-014: Beta 21 rejects a matching Forever span
+
+- Scope: reported on Forever 1.60.1 build 70450, Interface 16001, addon Beta 21 and Windows Store Companion. The later Companion screenshot identifies Beta 20. The surrounding acceptance and wizard logic is shared by supported clients.
+- Source: `addon/forever/topology-canvas-match`; intended release is the next addon beta after Beta 21. Discord candidate `Offhand-v2.1.2-beta.21-discord.topology-test1.zip` built on 2026-10-22 from base `54694e1` plus working changes; no public publication. SHA-256: `D5B62B0F00B917E7474903ED6566F0200421641F11D36F86C6ABA0946D3878B1`. All 48 packaged files matched staging, runtime assets matched source, and all six extracted manifests passed validation. Distinct test metadata is stamped only in staging. The addon-only archive includes test instructions and inert bridge placeholders; it contains no Companion binary or personal state.
+- Evidence: expected span `3640x1816`, physical API `2560x1440`, UI canvas `2287x1141`. The UI aspect agrees with the span. Later screenshots show portrait Display 2 (`1080x1816`, left) selected as Mainhand and landscape primary Display 1 (`2560x1440`, right) as workspace; the physical report therefore matches workspace, correcting the initial Mainhand assumption. The Windows alignment has a vertical offset, whose exact pixel value is not established by the image. Forever was explicitly excluded from the existing stale-physical-report fallback.
+- Implemented: allow Forever through the same two-signal fallback. Require UI aspect agreement even when physical bounds match exactly. When a selected display and the complete span have indistinguishable aspects, require exact physical bounds rather than treating a possibly restored window as spanned.
+- Related defect: wizard detection used raw single-monitor dimensions even after Companion acceptance, producing an incorrect workspace percentage. It now uses the accepted full bounds for both side-by-side and stacked arrangements.
+- Automated validated: 38 Lua suites; all six manifest/path/XML/Lua 5.1 validations; Companion preference, topology bridge, restore and scaled-layout checks. New coverage exercises stale reports from either display, restored canvases, exact physical reports with disagreeing canvases, pixel tolerance, offsets, stacked layouts, one-display splits, ambiguous aspects and malformed data.
+- Live evidence, 2026-10-22: reporter confirms the Discord candidate resolves the span issue. This accepts the reported span block only; exact post-fix diagnostics, wizard percentages, restore, cold-launch and other-client coverage remain unconfirmed. A subsequent report describes pixelation on the main display and identifies ASUS GlideX as the tablet-display provider. The exact affected display, current Mainhand selection, render settings and baseline comparison are not yet supplied. Treat image quality as a separate investigation; neither the unusual resolution nor GlideX is an established cause. Existing spanned-render softness history is relevant but does not prove the same defect here.
+- Follow-up evidence: tablet output is sharp; physical Mainhand UI and 3D world are pixelated only while spanned; Restore Window returns sharpness. Supplied default diagnostics identify topology-test1 and Companion writer Beta 20 with viewport PASS, Mainhand `(1080,0 2560x1440)`, workspace `(0,8 1080x1816)`, full bounds `3640x1824`, screen `2773x1389`, effective scale `0.553`, matching generated Edit Mode layout and current geometry. This supersedes the earlier Mainhand selection and unknown-display state. These logical geometry checks do not measure the actual swap-chain buffer or Windows composition scale. Windows scaling percentages and renderer data remain unknown. The approved Beta 20 Companion tag and executable lack the experimental render-resize handshake present in current source. That experiment is a test candidate, not a verified remedy; do not rebuild the frozen Companion on this addon branch. Distinguish mixed-DPI composition from stale render-surface sizing with controlled scaling and cold-launch comparisons before attributing cause.
+- Live pending: span and reload on the reported pair, confirm `READY`, wizard sizes/percentages and correct visible Mainhand/workspace bounds. Restore and confirm recovery, then re-span, reload and cold launch. Repeat the shared resize/restore checks on Classic and Retail. Inspect the selected Edit Mode layout after recovery. If an ambiguous arrangement retains a stale physical API, this guard intentionally remains in recovery because the available signals cannot prove a span.
+
+- Scaling evidence: subsequent Windows settings screenshots show both the tablet (`1080x1816`, portrait flipped) and physical monitor (`2560x1440`, landscape) at 100% scale and their recommended resolutions. Different per-display Windows scale percentages are therefore not supported as the explanation. This does not measure WoW's backbuffer or rule out application/driver scaling. Next comparison: cold-launch with GlideX connected, span at login/character selection before entering the world, then compare with spanning after UI initialization. Record UI and world sharpness separately; no renderer-resize remedy is yet live verified.
+- Pre-login span result: reporter says login remains sharp but the physical Mainhand becomes grainy on entering the world. GlideX uses Wi-Fi. A gameplay screenshot accompanies the report; the conversation display resizes it, so do not infer native buffer dimensions or quantify pixelation from the rendered attachment. Spanning before login is not an accepted workaround. This timing does not distinguish world-entry rendering initialization from Offhand's viewport/UI-scale application. Next isolation: retain the native span and GlideX connection, disable only Offhand through the addon list and reload, then compare UI/world sharpness in the same scene; re-enable and reload afterwards. The world filling both displays while Offhand is disabled is expected. If the defect persists, confirm with a cold launch while the addon remains disabled before attributing it to Companion or the client. No Companion handshake fix is established.
+
+- Additional isolation results: reporter says USB and Wi-Fi produce the same graininess; disabling/re-enabling Offhand does not change it, and the requested full restart with Offhand disabled returns no change. This reproduces without active addon layout code and weakens a transport-mode cause; it does not establish that GlideX's display driver or Companion window management is uninvolved. Latest Companion screenshot confirms Beta 20, Mainhand Display 1 `2560x1440`, workspace Display 2 `1080x1816`, successful `3640x1824` spans, auto-span off and single-display split off. Display roles are now correct. Next isolation is an ordinary manually resized bordered WoW window across both displays with Companion exited and addon disabled, compared with Companion's borderless span. This separates a general cross-display/window-size failure from the Companion style/region/resize sequence. The resize handshake remains an unverified experiment.
+
+- Latest reporter evidence: manually resizing the ordinary bordered WoW window across the displays did not appear grainy. This strengthens the association with Companion's span operation, without distinguishing border removal, clipping, resize timing or exact window dimensions. A changed Windows arrangement also produced a reported scrunched layout and persistent graininess, but no corresponding fresh diagnostics establish that arrangement's geometry. The FancyZones comparison was abandoned without a known configured layout or reliable sharpness result and is inconclusive. No further reporter evidence is available. Keep image quality open; do not claim FancyZones failed, a confirmed renderer root cause, or acceptance of the experimental resize handshake. Any future Companion candidate must use its own development/candidate lane and preserve the approved public binary.
+
+- Targeted Companion candidate prepared on isolated `companion/graininess-test` from `companion/develop` `4ae9d386`, without rebuilding the frozen binary on this addon branch. `Offhand-Companion-v2.1.2-beta.20-graininess.test1.zip` offers baseline, extra resize, no clipping and keep-borders modes, all targeting the same measured client area. It logs outer/client bounds and DPI, isolates preferences and disables auto-span. Existing Companion checks, candidate synthetic hidden-window tests and eight-file archive hash verification passed. ZIP SHA-256 `A22FE893456B87BE362334E5F941CFA6D0637219DC5E863E1247A1AC493701A4`; EXE SHA-256 `C8A361E3F4FAA76492D61E7F91E211A10F7992CB65097F4D4BF2DFEE26843087`. Native WoW/GlideX tests remain pending. Border removal is a plausible presentation/client-size trigger, not an established root cause or inherent resolution reduction.
 
 ## OH-PERF-001 — Periodic global bag-frame discovery causes micro-stutter
 
@@ -122,6 +147,11 @@ issue changes branch, evidence level, candidate, or released version.
   mixed-height span. **Bring to Mainhand** centers only shown, unprotected Edit
   Mode control surfaces (including the separate settings dialog) after the
   player's click; it does not move protected HUD systems or alter panel metadata.
+  The 2026-10-22 follow-up adds default automatic rescue of these same
+  unprotected controls after the existing 0.15-second native-layout settlement.
+  The Recovery & Preview preference can disable it and retain the manual
+  Bring to Mainhand prompt. Reachable user placement is left intact. This
+  automatic path is a new candidate awaiting live control/focus verification.
 - Live QA: Upgrade while a class-specific custom layout is active on an exact
   span, verify the Recovery card designation, `/reload` and relog, then exercise
   display disconnect/reconnect and both player-click recovery prompts. Repeat on
@@ -321,6 +351,108 @@ issue changes branch, evidence level, candidate, or released version.
   to other panels before a reload. It could no longer be reproduced afterward,
   and panel behavior was reported stable. This is current-session evidence,
   not a completed interaction-matrix pass or evidence that the taint is fixed.
+
+## OH-FOR-010: Gamepad Back/Escape closes workspace panels
+
+- Current scope after OH-FOR-012: Retain contextual B, but remove the Escape
+  callback and independent-menu adapter described below. Escape again follows
+  Blizzard's normal window-closing behavior. The earlier reporter acceptance
+  does not establish safety of the withdrawn approach. A clean reload is
+  required to clear the already-mutated native handler list.
+- Status: Revised preservation candidate implemented on 2026-10-22; live
+  reporter acceptance received later that day. The complete matrix and fresh
+  protected-action/taint evidence have not been supplied.
+- Client: Forever native Gamepad UI, Beta 21 working candidate.
+- Symptom: B and Escape close the panels left open on Offhand when the player
+  wants to return control to gameplay. The prior focus guidance directed the
+  player to Controller Configuration, which was absent from the shown settings.
+- Candidate: Offhand now reads Blizzard's native `TOGGLEUIFOCUS` binding in its
+  own binding context and offers direct button assignment with conflict
+  confirmation. It saves that native action instead of assigning the addon
+  delegate. This corrects the inaccessible configuration workflow.
+- Revised candidate: Outside combat, B is temporarily bound directly to
+  Blizzard's `TOGGLEUIFOCUS` action only when an actual shown Offhand destination
+  has focus. Gameplay B, Mainhand focus, temporary dismiss-on-unfocus frames,
+  and Game Menu navigation retain their native bindings. The override belongs
+  to an addon-owned secure controller and is cleared by its combat state driver.
+- Escape requirement: The player explicitly requested Game Menu opening while
+  keeping Offhand panels visible. A native addon-priority Escape handler runs
+  after dialogs, menus, casting and Edit Mode but before global panel cleanup.
+  It calls the native menu-show function. Because Game Menu's own center-slot
+  transaction also closes panels and bags, a restricted handler temporarily
+  detaches only its `UIPanelLayout-area` attribute while it is hidden. Native
+  ShowUIPanel/focus registration is retained. The original slot is restored
+  after the menu closes and ownership ends, unless another owner changed it.
+- Boundaries: No native function, panel script, focus-manager field or global
+  UIPanelWindows entry is replaced. No workspace frame is reopened. The policy
+  follows actual visible placement, not stale open markers. It yields to combat,
+  cinematics, ConsolePort, disabled persistence, and external menu ownership.
+  In combat, Blizzard's native dismissal behavior applies. Mock success does
+  not establish protected-action safety, including OH-FOR-009.
+- Live QA: Use the displayed focus button with World Map, Character, Social,
+  Communities and bags open on Offhand. Record retained/closed panels and fresh
+  errors, verify B returns gameplay control, then verify Escape opens and closes
+  Game Menu without hiding peers. Exercise menu navigation and refocus, explicit
+  close buttons, Mainhand panel Back, gameplay B, and reload. Check fresh
+  BugGrabber and taint evidence. See `tests/QA-notes.md` for the full boundary.
+
+## OH-FOR-011: Loot Edit Mode selection is mistaken for a loot item
+
+- Status: Fresh detailed report on 2026-10-22, matching earlier Loot focus
+  reports. The failing native assumption is identified; Offhand involvement
+  remains unisolated. No native focus workaround was installed.
+- Client: Forever native Gamepad UI, during movement of the Loot Edit Mode
+  preview. The supplied root has `isInEditMode=true`,
+  `editModeManuallyShown=true`, and `isOpen=false`.
+- Exact failure: `LootFrameMixin:FocusGamepad()` takes SmartNavigation's last
+  selected button, gets its parent, and calls that parent's `GetSlotIndex()` at
+  `Blizzard_UIPanels_Game/Mainline/LootFrame.lua:376`. The supplied last button
+  is the Edit Mode `Selection` overlay. Its parent is `LootFrame`, not a loot
+  row, so `GetSlotIndex` is nil. The stack and locals identify the mismatched
+  object type without establishing who first put it in navigation history.
+- Supporting source: The `forever` branch of
+  <https://github.com/Gethe/wow-ui-source/blob/forever/Interface/AddOns/Blizzard_UIPanels_Game/Mainline/LootFrame.lua#L364>
+  matches this sequence and line number when inspected for this report.
+- Offhand boundary: `LootFrame` remains outside the Gamepad destination list
+  and position-only protected allowlist. Existing regression verifies that its
+  native anchor is untouched by the destination adapter. This error is a nil
+  method call, distinct from OH-FOR-009's forbidden protected action.
+- Next live evidence: After a reload with Offhand disabled, enter native
+  Gamepad Edit Mode and move the Loot Window preview in the same way. Record
+  whether the same stack appears. Recurrence would show that Offhand is not
+  required for this failure. A non-recurrence alone would not establish a cause.
+  Compare with real loot outside Edit Mode separately when convenient.
+- Avoid replacing `FocusGamepad`, adding `GetSlotIndex` to the root, or editing
+  native SmartNavigation state merely to suppress the exception. Those changes
+  would mask the wrong-object condition and enter the protected focus path.
+
+## OH-FOR-012: Game Menu casting handler inherits Offhand taint
+
+- Report: On 2026-10-22, opening Game Menu from the controller radial and in
+  standard UI produced `ADDON_ACTION_FORBIDDEN` naming Offhand and
+  `SpellStopCasting()`. Both stacks enter the native casting callback at
+  `Blizzard_Game/Shared/Game.lua:7` through `Blizzard_GameMenuEsc` lines 101/110,
+  before the addon-priority Escape callback would run.
+- Attributable source hazard: Offhand registered its callback with
+  `RegisterGameMenuEscHandler` on the background Gamepad observer, before
+  checking whether Gamepad UI was active. The native function inserts into and
+  sorts a private shared handler table. Running that mutation in addon context
+  can contaminate dispatch of earlier native callbacks, matching the observed
+  cross-mode failure. A fresh taint trace has not independently identified the
+  first contaminated table cell.
+- Correction candidate: Remove registration entirely, along with the now-unused
+  Escape callback and temporary Game Menu panel-layout adapter. Keep contextual
+  B routing, reticle centering and XP generation. No native dispatcher function,
+  casting API, handler table or menu metadata is patched or bypassed.
+- Regression: Background refresh in both Gamepad and keyboard modes must pass
+  with registration, native menu invocation and menu-attribute writes set to
+  throw. Contextual B, gameplay/Mainhand yielding and secure combat release
+  remain covered. Mock success does not establish absence of all native taint.
+- Live gate: Reload after installing this correction, then open/close Game Menu
+  using the controller radial and keyboard Escape. Check newly timestamped
+  BugGrabber entries. Old errors and the already-tainted pre-reload session do
+  not validate the corrected candidate. Escape panel retention is intentionally
+  unavailable until a safer replacement exists.
 
 ## OH-UI-004 — Group loot rolls centered on the monitor seam
 
@@ -559,6 +691,44 @@ issue changes branch, evidence level, candidate, or released version.
   Shift for item comparisons, and verify the tooltip remains inside Mainhand.
   Change Large to Medium and back to Large while a quest is open, confirming
   the parchment recovers its original dimensions without `/reload`.
+
+## OH-FOR-013: OpenMap and Leatrix world-map position ownership
+
+- Status: Resolved for the ongoing test package by user acceptance. Local
+  Forever Beta checks did not reproduce the issue with neither addon, Leatrix
+  alone, OpenMap alone, or both enabled. The user accepted the ownership change
+  together with the original testers' workarounds. Exact reporter failure order
+  and broader protected-action safety were not established by those checks.
+- Scope: Forever, Discord candidate `a484baf`; two testers report map snap-back
+  or placement on the wrong display after restart. Supplied versions are
+  Leatrix Maps 1.60.25 and OpenMap 0.7.2-beta. Supplied Leatrix settings enable
+  Unlock map frame and Scale the map; Use simple map frame is disabled.
+- Source evidence: Installed OpenMap `Map/Window.lua` saves its own window
+  anchor from its own drag handle. It reapplies that anchor and scale after
+  SetPoint/SetScale and native panel layouts. Its drag suppression only covers
+  its own handle. Installed Leatrix `Leatrix_Maps.lua` independently saves
+  MapPos/MaxMapPos from its drag handler and reapplies them on display-state
+  and size changes. OpenMap `Map/Compat.lua` explicitly warns to disable
+  Leatrix UnlockMap, ScaleWorldMap and SimpleMapFrame when enabled.
+- Offhand defect: OpenMap was absent from geometry ownership detection, so
+  Offhand's drag/restore/settlement paths could compete with OpenMap. With
+  Leatrix loaded Offhand yielded to Leatrix, while OpenMap still enforced a
+  different saved position. Source evidence establishes competing writers;
+  it does not establish the exact order of each tester's restart failure.
+- Candidate: Detect OpenMap as an external geometry owner, ahead of Leatrix
+  but below existing MoveAny/ClassicUIForever ownership. Retain external-map
+  open intent and reopening, hide Offhand's map mover and leave map position,
+  scale and content refresh to the external owner. Preserve dormant Offhand
+  coordinates and third-party settings without changing installed addons.
+- Configuration: With OpenMap, disable Leatrix Unlock map frame and Scale the
+  map, then reload. Keep Use simple map frame disabled. Move the map using
+  OpenMap's title handle so OpenMap saves the new position. Coordinate overlays
+  are a separate compatibility setting, not the geometry fix.
+- Evidence: New Forever regression fails against `a484baf` and passes against
+  the candidate. All 36 Lua suites and six-manifest Lua/XML validation pass.
+  Live drag, close/reopen, reload, cold restart, span/restore and protected
+  map-pin actions remain pending, both with OpenMap alone and with Leatrix's
+  competing options disabled. Magic's diagnostics were unavailable.
 
 ### Single-screen retest boundary
 
