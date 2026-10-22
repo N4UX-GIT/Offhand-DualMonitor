@@ -3,8 +3,8 @@
 ## Notes: Experimental original Wrath 3.3.5a compatibility test build.
 ## Author: N4UX (Noggaholic)
 ## Version: 2.1.2
-## X-Offhand-Release: beta.21
-## X-Offhand-Addon-Release: beta.21
+## X-Offhand-Release: beta.22
+## X-Offhand-Addon-Release: beta.22
 ## X-Offhand-Companion-Version: 2.1.2
 ## X-Offhand-Companion-Release: beta.20
 ## X-Offhand-Companion-Protocol: 1

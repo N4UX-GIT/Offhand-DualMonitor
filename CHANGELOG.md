@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.2-beta.22] - 2026-10-22
+
 ### Added
 - `/offhand diag full` provides detailed feature probes on request. The default
   report keeps versions, display geometry, persistence, Edit Mode and map
@@ -33,6 +35,10 @@ All notable changes to this project will be documented in this file.
   upward direction remains the default for all existing and new profiles.
 
 ### Fixed
+- Forever now accepts a Companion span when the physical-size API still
+  reports one selected monitor and the live UI canvas independently matches
+  the full span. Restored and ambiguous canvases retain mismatch protection.
+  Setup detection uses the accepted full-span dimensions for workspace sizes.
 - World-map geometry now yields to OpenMap's own saved position and scale,
   while Offhand retains workspace reopening. This prevents Offhand's mover
   and restore paths from competing with OpenMap's window management.

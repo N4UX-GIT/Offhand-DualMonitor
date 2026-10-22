@@ -432,6 +432,30 @@ assert(infoExactMixed.exactTopology and infoExactMixed.recommendedPreset == "POR
     "Exact portrait workspace plus landscape game must not be reported as dual landscape")
 assert(infoExactMixed.recommendedPosition == "RIGHT" and math.abs(infoExactMixed.recommendedDeckRatio - 0.36) < 0.001,
     "Exact mixed topology must retain its physical side and workspace ratio")
+
+local originalPhysicalScreenSize = GetPhysicalScreenSize
+GetPhysicalScreenSize = function() return 2560, 1440 end
+local stalePhysicalMixed = addon.Options:DetectTopology()
+assert(stalePhysicalMixed.physWidth == 4000 and stalePhysicalMixed.physHeight == 2560
+        and math.abs(stalePhysicalMixed.aspectRatio - 4000 / 2560) < 0.001
+        and math.abs(stalePhysicalMixed.recommendedDeckRatio - 0.36) < 0.001,
+    "accepted mixed span must use Companion dimensions for wizard size and workspace percentage")
+addon.Viewport.GetMetrics = function()
+    return {
+        companionTopology = true, physicalWidth = 2560, physicalHeight = 2520,
+        gamePixelWidth = 2560, gamePixelHeight = 1440,
+        workspacePixelWidth = 1920, workspacePixelHeight = 1080,
+        gameLeft = 0, gameRight = 2560, gameBottom = 0, gameTop = 1440,
+        workspaceLeft = 200, workspaceRight = 2120, workspaceBottom = 1440, workspaceTop = 2520,
+    }
+end
+local stalePhysicalStacked = addon.Options:DetectTopology()
+assert(stalePhysicalStacked.recommendedPreset == "STACKED_VERTICAL"
+        and stalePhysicalStacked.recommendedPosition == "BOTTOM"
+        and stalePhysicalStacked.physHeight == 2520
+        and math.abs(stalePhysicalStacked.recommendedDeckRatio - 1080 / 2520) < 0.001,
+    "accepted stacked span must divide workspace height by full Companion height")
+GetPhysicalScreenSize = originalPhysicalScreenSize
 addon.Viewport.GetMetrics = originalGetMetrics
 
 -- A valid Companion handoff can briefly disagree with Forever's stale

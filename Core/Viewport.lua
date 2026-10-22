@@ -20,6 +20,14 @@ local function Near(value, expected)
     return math.abs((tonumber(value) or -1) - expected) <= 2
 end
 
+local function CanvasAspect(width, height)
+    width, height = tonumber(width), tonumber(height)
+    if not width or not height or width <= 0 or height <= 0
+        or width ~= width or height ~= height
+        or width == math.huge or height == math.huge then return nil end
+    return width / height
+end
+
 function Viewport:GetCompanionTopology(pw, ph, sw, sh)
     local topology = _G.OffhandCompanionTopology
     if type(topology) ~= "table" or tonumber(topology.schema) ~= 1 then return nil, "ABSENT" end
@@ -31,22 +39,31 @@ function Viewport:GetCompanionTopology(pw, ph, sw, sh)
         return nil, "MISMATCH"
     end
 
+    -- Either native API can lag an external resize. Even an exact physical
+    -- report must agree with the current UI canvas before applying the span.
+    local canvasAspect = CanvasAspect(sw, sh)
+    local topologyAspect = topologyWidth / topologyHeight
+    if not canvasAspect or math.abs(canvasAspect - topologyAspect) > 0.01 then
+        return nil, "MISMATCH"
+    end
     if Near(topologyWidth, pw) and Near(topologyHeight, ph) then
         return topology, "READY"
     end
 
-    -- Classic Era and Anniversary clients can keep reporting the native size
+    -- Classic Era, Anniversary and Forever clients can keep reporting the native size
     -- of one monitor after an external borderless window resize. Their UIParent
     -- aspect ratio still reflects the complete spanned canvas. Accept the
     -- Companion rectangle only when both signals agree; after Restore Window,
     -- the canvas aspect returns to the single-monitor ratio and this safely
-    -- becomes MISMATCH again. Forever retains the stricter exact-size guard.
+    -- becomes MISMATCH again.
     local reportedDisplay = (Near(topology.game.width, pw) and Near(topology.game.height, ph))
         or (Near(topology.workspace.width, pw) and Near(topology.workspace.height, ph))
-    local canvasAspect = tonumber(sw) and tonumber(sh) and sh > 0 and (sw / sh) or nil
-    local topologyAspect = topologyWidth / topologyHeight
-    if not Offhand.isForever and reportedDisplay and canvasAspect
-        and math.abs(canvasAspect - topologyAspect) <= 0.01 then
+    -- Some offset arrangements share one display's aspect. In that case the
+    -- canvas cannot distinguish a span from a restored window; require the
+    -- exact physical bounds instead of accepting ambiguous stale dimensions.
+    local reportedAspect = CanvasAspect(pw, ph)
+    if reportedDisplay and reportedAspect
+        and math.abs(reportedAspect - topologyAspect) > 0.01 then
         return topology, "READY"
     end
     return nil, "MISMATCH"

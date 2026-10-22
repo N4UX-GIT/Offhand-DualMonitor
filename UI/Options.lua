@@ -335,6 +335,12 @@ function Options:DetectTopology()
 
     local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
     if metrics and metrics.companionTopology then
+        -- Accepted Companion bounds are authoritative when the physical API
+        -- still reports a single display. Use the full span for wizard sizes
+        -- and saved workspace percentages, including stacked arrangements.
+        physW, physH = metrics.physicalWidth or physW, metrics.physicalHeight or physH
+        info.physWidth, info.physHeight = physW, physH
+        info.aspectRatio = physW / math.max(physH, 1)
         local gameAR = metrics.gamePixelWidth / math.max(metrics.gamePixelHeight, 1)
         local stacked = metrics.workspaceTop <= metrics.gameBottom + 2
             or metrics.gameTop <= metrics.workspaceBottom + 2
