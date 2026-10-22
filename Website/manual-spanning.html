@@ -6,7 +6,7 @@
     <title>Offhand Window Setup | FancyZones and manual placement</title>
     <meta name="description" content="Position World of Warcraft for Offhand with Microsoft PowerToys FancyZones or ordinary manual resizing, then remember and validate the canvas in-game.">
     <link rel="icon" type="image/png" href="assets/offhand-icon.png">
-    <link rel="stylesheet" href="style.css?v=20261022-2">
+    <link rel="stylesheet" href="style.css?v=20261022-3">
 </head>
 <body class="companion-page">
     <header class="navbar">
@@ -109,17 +109,24 @@
             <div class="steps-container compact-steps">
                 <article class="quest-step-card">
                     <div class="step-seal">1</div>
-                    <h3>Install and enable PowerToys</h3>
-                    <p>Install PowerToys from Microsoft Store or another official Microsoft source, then enable <strong>FancyZones</strong>.</p>
+                    <h3>Install and open PowerToys</h3>
+                    <p>Install PowerToys from Microsoft Store or another official Microsoft source, then open <strong>PowerToys Settings</strong> from the Start menu or its system-tray icon. FancyZones is included with PowerToys; no separate installation is needed.</p>
                     <p><a href="https://learn.microsoft.com/en-us/windows/powertoys/install" target="_blank" rel="noopener">Official PowerToys installation guide</a></p>
                 </article>
                 <article class="quest-step-card">
                     <div class="step-seal">2</div>
-                    <h3>Build one combined Canvas zone</h3>
-                    <p>Enable <strong>Allow zones to span across monitors</strong>. Open the layout editor with <kbd>Win</kbd> + <kbd>Shift</kbd> + <kbd>`</kbd>, create a <strong>Canvas</strong> layout, and size one zone over the complete area that WoW should occupy.</p>
+                    <h3>Enable and configure FancyZones</h3>
+                    <p>In PowerToys Settings, select <strong>FancyZones</strong> and turn on <strong>Enable FancyZones</strong>. Enable <strong>Allow zones to span across monitors</strong> and <strong>Hold Shift key to activate zones while dragging</strong>, then select <strong>Open layout editor</strong> (called <strong>Launch layout editor</strong> in some versions).</p>
+                    <p>Keep PowerToys running while using the zone. The monitors must use the same Windows display scaling percentage.</p>
                 </article>
                 <article class="quest-step-card">
                     <div class="step-seal">3</div>
+                    <h3>Build one combined Canvas zone</h3>
+                    <p>In the layout editor, select <strong>Create new layout</strong>, choose <strong>Canvas</strong>, and name it something like <strong>Offhand</strong>. Keep one zone and resize it over the complete area that WoW should occupy, then save and apply the layout.</p>
+                    <p>To reopen the editor later, use its button in PowerToys Settings or the default shortcut <kbd>Win</kbd> + <kbd>Shift</kbd> + <kbd>`</kbd>.</p>
+                </article>
+                <article class="quest-step-card">
+                    <div class="step-seal">4</div>
                     <h3>Snap Windowed WoW into place</h3>
                     <p>In WoW, choose standard <strong>Windowed</strong> mode. Hold <kbd>Shift</kbd> while dragging the title bar, then drop WoW into the combined zone.</p>
                 </article>

@@ -850,6 +850,108 @@ assert(centeredPanels == 0 and FriendsFrame.points[1][1] == "TOPLEFT"
 OffhandCharDB.mainhandLayout = nil
 currentInterfaceStyle = Enum.InputDeviceInterfaceType.Gamepad
 
+-- The Merchant opens through an NPC interaction, not the radial menu. It must
+-- use the same shown-root geometry path without acquiring visibility or item
+-- action handlers, and a saved offset must never synthesize an interaction.
+MerchantFrame = frame("MerchantFrame")
+MerchantFrame.w, MerchantFrame.h, MerchantFrame.parent = 336, 444, UIParent
+MerchantFrame.shown = false
+MerchantFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, -104)
+local nativeMerchantShow, nativeMerchantHide = function() end, function() end
+MerchantFrame.OnShow, MerchantFrame.OnHide = nativeMerchantShow, nativeMerchantHide
+MerchantFrame.Show = function() error("Offhand must not open an NPC interaction") end
+MerchantFrame.Hide = function() error("Offhand must not close an NPC interaction") end
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+assert(MerchantFrame.points[1][1] == "TOPLEFT"
+        and not _G.OffhandForeverGamepadPanelMover_MerchantFrame,
+    "a hidden merchant must remain native and must not acquire a visible mover")
+unitCombat, MerchantFrame.shown = true, true
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+assert(MerchantFrame.points[1][1] == "TOPLEFT",
+    "Merchant placement must remain unchanged while the player is in combat")
+unitCombat = false
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+local merchantAnchor = MerchantFrame.points[1]
+assert(merchantAnchor[1] == "CENTER" and merchantAnchor[2] == UIParent
+        and merchantAnchor[4] == 720 and merchantAnchor[5] == -560,
+    "the player-opened Gamepad Merchant must center inside physical Mainhand")
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+assert(MerchantFrame.points[1] == merchantAnchor,
+    "an unchanged Merchant anchor must not be rewritten by every observer pass")
+assert(MerchantFrame.OnShow == nativeMerchantShow and MerchantFrame.OnHide == nativeMerchantHide
+        and MerchantFrame.OnUpdate == nil and MerchantFrame._OffhandMovable == nil
+        and not MerchantFrame.movable and MerchantFrame.startMovingCalls == nil,
+    "Merchant positioning must preserve native scripts, bookkeeping and drag ownership")
+OffhandCharDB.foreverGamepadPanelOffsets.MerchantFrame = { x = 80, y = -20 }
+MerchantFrame.shown = false
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+assert(not MerchantFrame.shown and not _G.OffhandForeverGamepadPanelMover_MerchantFrame.shown,
+    "closing the merchant must hide its independent mover without reopening it")
+MerchantFrame.shown = true
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+assert(MerchantFrame.points[1][4] == 800 and MerchantFrame.points[1][5] == -580,
+    "a later native Merchant opening must retain the saved Gamepad offset")
+currentInterfaceStyle = 1
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+assert(MerchantFrame.points[1][1] == "TOPLEFT" and MerchantFrame.points[1][5] == -104,
+    "keyboard mode must restore the captured native Merchant anchor")
+MerchantFrame.protected = true
+currentInterfaceStyle = Enum.InputDeviceInterfaceType.Gamepad
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+assert(MerchantFrame.points[1][1] == "TOPLEFT",
+    "Merchant support must not silently expand the protected-position allowlist")
+MerchantFrame.shown = false
+
+GamepadReticle = frame("GamepadReticle")
+GamepadReticle:SetPoint("CENTER", UIParent, "BOTTOM", 0, 1280)
+local nativeReticleUpdate = function() end
+GamepadReticle.OnUpdate = nativeReticleUpdate
+assert(addon.Mainhand:CenterForeverGamepadReticle())
+assert(GamepadReticle.points[1][4] == 720 and GamepadReticle.points[1][5] == -560,
+    "the Gamepad reticle must use physical Mainhand center, not span center")
+local reticleAnchor = GamepadReticle.points[1]
+assert(addon.Mainhand:CenterForeverGamepadReticle()
+        and GamepadReticle.points[1] == reticleAnchor,
+    "an already-centered reticle must not receive repeated writes")
+assert(GamepadReticle.OnUpdate == nativeReticleUpdate and not GamepadReticle.movable
+        and not _G.OffhandForeverGamepadPanelMover_GamepadReticle,
+    "reticle placement must not acquire scripts, a mover or targeting ownership")
+currentInterfaceStyle = 1
+assert(addon.Mainhand:CenterForeverGamepadReticle())
+assert(GamepadReticle.points[1][3] == "BOTTOM" and GamepadReticle.points[1][5] == 1280,
+    "keyboard mode must restore the reticle's captured native anchor")
+currentInterfaceStyle = Enum.InputDeviceInterfaceType.Gamepad
+GamepadReticle.scale = 0.5
+assert(addon.Mainhand:CenterForeverGamepadReticle())
+assert(GamepadReticle.points[1][4] == 1440 and GamepadReticle.points[1][5] == -1120,
+    "reticle placement must convert the root's effective scale")
+unitCombat = true
+GamepadReticle:ClearAllPoints()
+GamepadReticle:SetPoint("CENTER", UIParent, "BOTTOM", 0, 1280)
+assert(not addon.Mainhand:CenterForeverGamepadReticle()
+        and GamepadReticle.points[1][5] == 1280,
+    "the reticle adapter must defer during combat")
+unitCombat = false
+GamepadReticle.protected = true
+assert(not addon.Mainhand:CenterForeverGamepadReticle(),
+    "the cosmetic reticle must not gain a protected-frame exception")
+GamepadReticle = nil
+
+addon.Canvas = { IsFrameOnWorkspace = function(frame)
+    return frame == CharacterFrame or frame == FriendsFrame
+end }
+local shownWorkspacePanels = addon.Mainhand:GetShownForeverGamepadWorkspacePanels()
+assert(#shownWorkspacePanels == 2,
+    "Back/Escape policy must discover actual visible workspace placement rather than saved intent")
+addon.Canvas = nil
+
+Enum.EditModeStatusTrackingBarSystemIndices = { StatusTrackingBar1 = 1, StatusTrackingBar2 = 2 }
+local gamepadPresetSystems = EditModePresetLayoutManager.presetLayoutInfo[1].systems
+gamepadPresetSystems[#gamepadPresetSystems + 1] = {
+    system = Enum.EditModeSystem.StatusTrackingBar, systemIndex = 2, isInDefaultPosition = true,
+    anchorInfo = { point = "BOTTOMLEFT", relativeTo = "MainActionBar",
+        relativePoint = "BOTTOMRIGHT", offsetX = 40, offsetY = 0 },
+}
 layoutData = { activeLayout = 1, layouts = {} }
 saved, activated, layoutAdded, saveCount = nil, nil, nil, 0
 OffhandCharDB.mainhandLayout = {
@@ -882,11 +984,68 @@ assert(layoutData.activeLayout == 4 and OffhandCharDB.foreverEditModeLayoutID ==
 assert(saved.layouts[1].systems[1].anchorInfo.offsetY == -560
         and saved.layouts[1].systems[14].anchorInfo.offsetY == 0,
     "keyboard-only Damage Meter or Buff Frame insets leaked into the Gamepad layout")
+local gamepadXP = saved.layouts[1].systems[2].anchorInfo
+local gamepadStatus = saved.layouts[1].systems[#gamepadPresetSystems].anchorInfo
+assert(gamepadXP.point == "BOTTOM" and gamepadXP.relativePoint == "BOTTOM"
+        and gamepadXP.relativeTo == "UIParent" and gamepadXP.offsetX == 720
+        and gamepadXP.offsetY == 12,
+    "Gamepad XP must be centered within Mainhand and raised above its bottom edge")
+assert(gamepadStatus.point == "BOTTOM" and gamepadStatus.relativeTo == "UIParent"
+        and gamepadStatus.offsetX == 720 and gamepadStatus.offsetY == 30,
+    "the secondary Gamepad status bar must be centered and stacked above XP")
 ok, localName, moved = addon.Mainhand:CreateOrUpdateEditModeLayout()
 assert(ok and localName == "Offhand - Mainhand - Gamepad - Tester"
         and #layoutData.layouts == 1 and saveCount == 2
         and EditModePresetLayoutManager.presetLayoutInfo[1].systems[5].anchorInfo.offsetX == 0,
     "repeating the Gamepad action duplicated a layout or mutated the preset")
+
+local originalGamepadRect = addon.Mainhand.rect
+addon.Mainhand.rect = { left = 0, right = 2560, bottom = 1120, top = 2560,
+    width = 2560, height = 1440, isSpanned = true }
+assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+assert(saved.layouts[1].systems[2].anchorInfo.offsetX == -720
+        and saved.layouts[1].systems[2].anchorInfo.offsetY == 1132
+        and saved.layouts[1].systems[#gamepadPresetSystems].anchorInfo.offsetX == -720
+        and saved.layouts[1].systems[#gamepadPresetSystems].anchorInfo.offsetY == 1150,
+    "both Gamepad status bars must follow an upper-left Mainhand viewport")
+addon.Mainhand.rect = originalGamepadRect
+local secondarySource = gamepadPresetSystems[#gamepadPresetSystems]
+secondarySource.isInDefaultPosition = false
+assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+assert(saved.layouts[1].systems[#gamepadPresetSystems].anchorInfo.relativeTo == "MainActionBar"
+        and saved.layouts[1].systems[#gamepadPresetSystems].anchorInfo.offsetX == 40,
+    "an explicitly customized source status anchor must remain untouched")
+secondarySource.isInDefaultPosition = true
+
+-- Native Forever Gamepad has a dedicated main-action system, not ActionBar
+-- MainBar. Its status entries are manager-relative, so neither the generic
+-- UIParent transform nor keyboard-bar refinement can position them.
+local syntheticGamepadSystems = gamepadPresetSystems
+local nativeGamepadSystems = copyTable(syntheticGamepadSystems)
+Enum.EditModeSystem.GamepadMainActionBar = 81
+nativeGamepadSystems[5].system = Enum.EditModeSystem.GamepadMainActionBar
+nativeGamepadSystems[5].systemIndex = nil
+nativeGamepadSystems[5].anchorInfo = {
+    point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOM", offsetX = 0, offsetY = 110,
+}
+for _, systemIndex in ipairs({ 2, #nativeGamepadSystems }) do
+    nativeGamepadSystems[systemIndex].anchorInfo = {
+        point = "BOTTOMLEFT", relativeTo = "StatusTrackingBarManager",
+        relativePoint = "BOTTOMLEFT", offsetX = 0, offsetY = 0,
+    }
+end
+EditModePresetLayoutManager.presetLayoutInfo[1].systems = nativeGamepadSystems
+assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+assert(saved.layouts[1].systems[2].anchorInfo.relativeTo == "UIParent"
+        and saved.layouts[1].systems[2].anchorInfo.offsetX == 720
+        and saved.layouts[1].systems[2].anchorInfo.offsetY == 12
+        and saved.layouts[1].systems[#nativeGamepadSystems].anchorInfo.offsetX == 720
+        and saved.layouts[1].systems[#nativeGamepadSystems].anchorInfo.offsetY == 30,
+    "native Gamepad status bars must update without a keyboard ActionBar MainBar entry")
+assert(nativeGamepadSystems[2].anchorInfo.relativeTo == "StatusTrackingBarManager"
+        and nativeGamepadSystems[5].anchorInfo.offsetX == 0,
+    "native Gamepad source preset must remain unchanged")
+EditModePresetLayoutManager.presetLayoutInfo[1].systems = syntheticGamepadSystems
 
 -- A customized Forever Party entry can be relative to another Edit Mode
 -- system and is therefore intentionally skipped by the generic translation.

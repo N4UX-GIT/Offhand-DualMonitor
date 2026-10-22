@@ -32,6 +32,7 @@ local defaultSettings = {
     rawMouseInput = true,           -- Prevent hidden cursor exhaustion during camera look across shaped spans
     debugMode = false,
     forceDualOnSingle = false,      -- For testing
+    autoRecoverEditModeControls = true, -- Rescue only unreachable, unprotected Edit Mode controls
     hudScale = 0.70,                -- Global UI size multiplier relative to the game viewport (default 70%)
     worldTextCompensation = true,   -- Correct engine-owned combat/XP text on mixed-height spans
     worldTextScale = 1.00,          -- Fine tuning applied after the automatic topology correction

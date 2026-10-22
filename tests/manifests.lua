@@ -15,12 +15,12 @@ for _, toc in ipairs(tocs) do
     local text = assert(io.open(toc, "rb")):read("*a")
     assert(text:match("## LoadSavedVariablesFirst:%s*1"), "Missing early SavedVariables load: " .. toc)
     assert(text:match("## X%-Offhand%-Manifest:%s*%S+"), "Missing manifest diagnostic marker: " .. toc)
-    assert(text:match("## X%-Offhand%-Release:%s*beta%.21"), "Beta 21 addon release marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Release:%s*beta%.22"), "Beta 22 addon release marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Version:%s*2%.1%.2"), "Frozen Companion version marker changed: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Release:%s*beta%.20"), "Beta 20 Companion release marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Protocol:%s*1"), "Companion protocol marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Min%-Version:%s*2%.1%.2%-beta%.19"), "Companion minimum version marker missing: " .. toc)
-    assert(text:match("## X%-Offhand%-Addon%-Release:%s*beta%.21"), "Beta 21 addon release marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Addon%-Release:%s*beta%.22"), "Beta 22 addon release marker missing: " .. toc)
 end
 local genericText = assert(io.open("Offhand.toc", "rb")):read("*a")
 local mainlineText = assert(io.open("Offhand_Mainline.toc", "rb")):read("*a")
@@ -60,9 +60,9 @@ assert(initSource:find("HEADER_OFFHAND", 1, true)
         and initSource:find("BINDING_HEADER_OFFHAND", 1, true)
         and optionsSource:find("_G.HEADER_OFFHAND", 1, true),
     "Forever and standard binding-header globals must both be initialized")
-assert(optionsSource:find("GAMEPAD_CATEGORY_ID", 1, true)
-        and not optionsSource:find("settings.KEYBINDINGS_CATEGORY_ID,", 1, true),
-    "the controller focus helper must open Gamepad settings, not keyboard bindings")
+assert(optionsSource:find("AssignGamepadFocusBinding", 1, true)
+        and not optionsSource:find("settings.OpenToCategory(gamepadCategoryID)", 1, true),
+    "the controller focus helper must provide native binding capture instead of the unrelated settings page")
 local packageSource = assert(io.open("package.ps1", "rb")):read("*a")
 assert(packageSource:find('Join%-Path %$rootDir "Bindings%.xml"'),
     "release packaging must include the automatic Bindings.xml file")

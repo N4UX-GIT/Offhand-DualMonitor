@@ -157,7 +157,8 @@ Offhand leaves the Edit Mode manager and protected HUD frames entirely under Bli
 | /offhand or /oh | Opens the configuration dashboard. |
 | /offhand wizard | Launches the interactive setup wizard. |
 | /offhand gather | Rescues any off-screen windows and pulls them back to your Mainhand Monitor. |
-| /offhand diag | Prints a concise support snapshot for topology, combat text, speech bubbles, group loot, Edit Mode, and loaded compatibility addons. |
+| /offhand diag | Prints a support snapshot for versions, display geometry, persistence, Edit Mode, and map ownership. |
+| /offhand diag full | Adds detailed feature probes, HUD bounds, panel controllers, and compatibility debugging when requested. |
 
 ---
 

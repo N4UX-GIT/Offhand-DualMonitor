@@ -735,6 +735,25 @@ assert(addon.db.savedWorkspacePositions.WorldMapFrame == moveAnyWorkspacePositio
     "yielding to MoveAny must preserve the user's dormant Offhand map position")
 
 MoveAny = nil
+local originalAddOns = C_AddOns
+C_AddOns = { IsAddOnLoaded = function(name) return name == "OpenMap" end }
+WorldMapFrame:Hide()
+createdHandles[1].scripts.OnUpdate(nil, 1)
+WorldMapFrame.left, WorldMapFrame.bottom, WorldMapFrame.scale = 200, 1300, 0.83
+WorldMapFrame:Show()
+createdHandles[1].scripts.OnUpdate(nil, 1)
+flushTimers()
+assert(createdHandles[1].shown == false and createdHandles[1].mouseEnabled == false,
+    "OpenMap's native drag handle must be the only active map mover")
+assert(addon.db.openWorkspacePanels.WorldMapFrame,
+    "Forever's external observer must retain OpenMap workspace open intent")
+WorldMapFrame:Hide()
+addon.Canvas:RestorePersistentFrames()
+flushTimers()
+assert(WorldMapFrame:IsShown() and WorldMapFrame.left == 200
+    and WorldMapFrame.bottom == 1300 and WorldMapFrame.scale == 0.83,
+    "Forever reload must reopen OpenMap without applying dormant Offhand geometry")
+C_AddOns = originalAddOns
 addon.db.openWorkspacePanels.WorldMapFrame = moveAnyOpenState
 assert(not addon.Canvas:ShouldYieldWorldMap(WorldMapFrame),
     "Offhand must resume Forever map ownership when MoveAny is absent")

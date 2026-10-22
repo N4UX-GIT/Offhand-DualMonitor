@@ -1204,6 +1204,8 @@ assert(addon.HUD.editModeGuidanceShown,
     "Forever must guide the player to configure an unpositioned Offhand Edit Mode layout")
 
 -- A mixed-height span can place the Edit Mode manager in the physical void.
+-- Keep the opt-out manual path covered before exercising automatic recovery.
+addon.db.autoRecoverEditModeControls = false
 -- Detection and acknowledgement must not attach handlers or mutate Blizzard
 -- state: moving the manager breaks native drag behavior for Party Frames.
 WorldFrame = makeMockFrame("WorldFrame", 2560, 1440)
@@ -1951,6 +1953,59 @@ assert(gamepadDialogPoint and gamepadDialogPoint[1] == "CENTER"
 EditModeLayoutDialog:Hide()
 
 local gamepadOverlay = makeMockFrame("GamepadNavigationOverlay", 300, 180)
+-- Automatic control rescue uses the same bounded settlement and narrowly
+-- allowed unprotected roots as manual recovery. It must not repeat prompts,
+-- disturb reachable user placement, or move protected HUD previews.
+addon.db.autoRecoverEditModeControls = true
+local autoRecoveryPromptCount = editModePromptCount
+local partyPointsBeforeAuto = #PartyFrame.points
+EditModeManagerFrame:ClearAllPoints()
+EditModeManagerFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1268, 1586)
+addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+assert(EditModeManagerFrame.points[1][1] == "BOTTOMLEFT",
+    "automatic control rescue must wait for native anchor settlement")
+flushTimers()
+assert(EditModeManagerFrame.points[1][1] == "CENTER"
+        and editModePromptCount == autoRecoveryPromptCount
+        and #PartyFrame.points == partyPointsBeforeAuto,
+    "automatic recovery must center only the unreachable control without a prompt")
+local autoRecoveredManagerPoint = EditModeManagerFrame.points[1]
+addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+flushTimers()
+assert(EditModeManagerFrame.points[1] == autoRecoveredManagerPoint,
+    "reachable Edit Mode controls must not receive repeated anchor writes")
+EditModeSystemSettingsDialog:ClearAllPoints()
+EditModeSystemSettingsDialog:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1268, 1586)
+EditModeSystemSettingsDialog:Show()
+addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+flushTimers()
+assert(EditModeSystemSettingsDialog.points[1][1] == "CENTER"
+        and editModePromptCount == autoRecoveryPromptCount,
+    "the element-settings window must receive the same automatic recovery")
+EditModeSystemSettingsDialog:Hide()
+EditModeManagerFrame:ClearAllPoints()
+EditModeManagerFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1268, 1586)
+combatLocked = true
+addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+assert(EditModeManagerFrame.points[1][1] == "BOTTOMLEFT",
+    "automatic control rescue must not run in combat")
+combatLocked = false
+local nativeManagerProtected = EditModeManagerFrame.IsProtected
+EditModeManagerFrame.IsProtected = function() return true end
+addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+flushTimers()
+assert(EditModeManagerFrame.points[1][1] == "BOTTOMLEFT",
+    "automatic control rescue must refuse a protected manager root")
+EditModeManagerFrame.IsProtected = nativeManagerProtected
+addon.HUD:BringForeverEditModeControlsToMainhand()
+addon.db.autoRecoverEditModeControls = false
+EditModeManagerFrame:ClearAllPoints()
+EditModeManagerFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1268, 1586)
+addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+flushTimers()
+assert(EditModeManagerFrame.points[1][1] == "BOTTOMLEFT",
+    "disabling automatic rescue must retain the manual recovery workflow")
+addon.HUD:BringForeverEditModeControlsToMainhand()
 gamepadOverlay:ClearAllPoints()
 gamepadOverlay:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 table.insert(UIParent.children, gamepadOverlay)

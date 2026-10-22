@@ -191,62 +191,94 @@ function Options:Confirm(message, callback)
 end
 
 local configFrame
+local GamepadFocusBindingStatusText
 
 function Options:OpenGamepadFocusKeybindings()
-    local settings = _G.Settings
-    if not settings or type(settings.OpenToCategory) ~= "function" then
-        local load = C_AddOns and C_AddOns.LoadAddOn or _G.LoadAddOn
-        if type(load) == "function" then load("Blizzard_Settings") end
-        settings = _G.Settings
-    end
-    if not settings or type(settings.OpenToCategory) ~= "function" then
+    local behavior = Offhand.WorkspaceBehavior
+    if not behavior or behavior:GetGamepadFocusBindingContext() == nil
+        or (InCombatLockdown and InCombatLockdown()) then
         return false, "unavailable"
     end
-
-    local gamepadCategoryID
-    local categoryNames = {
-        ["gamepad"] = true,
-        ["gamepad (alpha)"] = true,
-    }
-    local localizedName = string.lower(tostring(_G.GAMEPAD_LABEL or ""))
-    if localizedName ~= "" then categoryNames[localizedName] = true end
-    if _G.SettingsPanel and type(_G.SettingsPanel.GetAllCategories) == "function" then
-        local ok, categories = pcall(_G.SettingsPanel.GetAllCategories, _G.SettingsPanel)
-        if ok and type(categories) == "table" then
-            for _, category in pairs(categories) do
-                local name = type(category) == "table" and category.name or nil
-                if type(name) ~= "string" and type(category) == "table"
-                    and type(category.GetName) == "function" then
-                    local nameOK, resolvedName = pcall(category.GetName, category)
-                    if nameOK then name = resolvedName end
-                end
-                if type(name) == "string" and categoryNames[string.lower(name)] then
-                    local id = type(category) == "table" and category.ID or nil
-                    if type(category) == "table" and type(category.GetID) == "function" then
-                        local idOK, resolvedID = pcall(category.GetID, category)
-                        if idOK then id = resolvedID end
-                    end
-                    if id ~= nil then
-                        gamepadCategoryID = id
-                        break
-                    end
-                end
-            end
+    local frame = self.gamepadFocusCapture
+    if not frame then
+        frame = CreateFrame("Frame", "OffhandGamepadFocusCapture", UIParent, BackdropTemplate())
+        if not frame.EnableGamePadButton then return false, "unavailable" end
+        self.gamepadFocusCapture = frame
+        frame:SetSize(520, 210)
+        frame:SetFrameStrata("FULLSCREEN_DIALOG")
+        frame:EnableMouse(true)
+        frame:SetBackdrop({ bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border", edgeSize = 32,
+            insets = { left = 11, right = 12, top = 12, bottom = 11 } })
+        local text = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        text:SetPoint("TOPLEFT", 28, -28)
+        text:SetPoint("TOPRIGHT", -28, -28)
+        text:SetHeight(110)
+        text:SetWordWrap(true)
+        frame.text = text
+        local accept = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+        accept:SetSize(210, 24)
+        accept:SetPoint("BOTTOMLEFT", 32, 28)
+        accept:SetText(ACCEPT or L["BTN_CONFIRM"])
+        frame.accept = accept
+        local cancel = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+        cancel:SetSize(210, 24)
+        cancel:SetPoint("BOTTOMRIGHT", -32, 28)
+        cancel:SetText(CANCEL or L["BTN_CANCEL"])
+        cancel:SetScript("OnClick", function() frame:Hide() end)
+        local function ConfirmAssignment()
+            if not frame.key then return end
+            local ok = behavior:AssignGamepadFocusBinding(frame.key, true)
+            if ok then frame:Hide()
+            else frame.text:SetText(L["GAMEPAD_FOCUS_CONTROL_UNAVAILABLE"]) end
         end
+        accept:SetScript("OnClick", ConfirmAssignment)
+        frame:SetScript("OnGamePadButtonDown", function(_, key)
+            if IsKeyPressIgnoredForBinding and IsKeyPressIgnoredForBinding(key) then return end
+            if CreateKeyChordStringUsingMetaKeyState then key = CreateKeyChordStringUsingMetaKeyState(key) end
+            if frame.key then
+                if key == frame.key then ConfirmAssignment() end
+                return
+            end
+            local ok, reason, previous = behavior:AssignGamepadFocusBinding(key)
+            if ok then frame:Hide()
+            elseif reason == "conflict" then
+                frame.key = key
+                frame.text:SetText(string.format(L["GAMEPAD_FOCUS_CONTROL_CONFLICT"], key,
+                    _G["BINDING_NAME_" .. previous] or previous))
+                accept:Show()
+            else frame.text:SetText(L["GAMEPAD_FOCUS_CONTROL_UNAVAILABLE"]) end
+        end)
+        frame:SetScript("OnKeyDown", function(_, key)
+            if key == "ESCAPE" then frame:Hide() end
+        end)
+        frame:SetScript("OnHide", function()
+            frame:EnableGamePadButton(false)
+            frame:EnableKeyboard(false)
+            frame.key = nil
+            if Options.gamepadFocusBindingStatus then
+                Options.gamepadFocusBindingStatus:SetText(GamepadFocusBindingStatusText())
+            end
+        end)
+        frame:RegisterEvent("PLAYER_REGEN_DISABLED")
+        frame:SetScript("OnEvent", function() frame:Hide() end)
     end
-    gamepadCategoryID = gamepadCategoryID
-        or settings.GAMEPAD_CATEGORY_ID or _G.GAMEPAD_SETTINGS_CATEGORY_ID
-    if gamepadCategoryID == nil then return false, "category" end
-
-    if configFrame and configFrame.Hide then configFrame:Hide() end
-    settings.OpenToCategory(gamepadCategoryID)
+    frame.key = nil
+    frame.text:SetText(L["GAMEPAD_FOCUS_CONTROL_CAPTURE"])
+    frame.accept:Hide()
+    frame:ClearAllPoints()
+    local anchor = Offhand.API and Offhand.API.GetMainhandFrame and Offhand.API.GetMainhandFrame()
+    frame:SetPoint("CENTER", anchor or UIParent, "CENTER")
+    frame:Show()
+    frame:EnableGamePadButton(true)
+    frame:EnableKeyboard(true)
     return true
 end
 
-local function GamepadFocusBindingStatusText()
+GamepadFocusBindingStatusText = function()
     local first, second
-    if type(GetBindingKey) == "function" then
-        first, second = GetBindingKey("OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS")
+    if Offhand.WorkspaceBehavior then
+        first, second = Offhand.WorkspaceBehavior:GetGamepadFocusBindingKeys()
     end
     if not first then return L["GAMEPAD_FOCUS_CONTROL_UNBOUND"] end
 
@@ -303,6 +335,12 @@ function Options:DetectTopology()
 
     local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
     if metrics and metrics.companionTopology then
+        -- Accepted Companion bounds are authoritative when the physical API
+        -- still reports a single display. Use the full span for wizard sizes
+        -- and saved workspace percentages, including stacked arrangements.
+        physW, physH = metrics.physicalWidth or physW, metrics.physicalHeight or physH
+        info.physWidth, info.physHeight = physW, physH
+        info.aspectRatio = physW / math.max(physH, 1)
         local gameAR = metrics.gamePixelWidth / math.max(metrics.gamePixelHeight, 1)
         local stacked = metrics.workspaceTop <= metrics.gameBottom + 2
             or metrics.gameTop <= metrics.workspaceBottom + 2
@@ -1172,6 +1210,7 @@ function Options:CreateFloatingPanel()
 
     configFrame:SetScript("OnHide", function()
         Options:HideSeamGuide()
+        if Options.gamepadFocusCapture then Options.gamepadFocusCapture:Hide() end
         if Offhand.HUD and Offhand.HUD.SetGroupLootMoverShown then
             Offhand.HUD:SetGroupLootMoverShown(false)
         end
@@ -1917,7 +1956,7 @@ function Options:CreateFloatingPanel()
         and Offhand:HasBlizzardEditMode()
     -- Forever has two layout-status rows plus wrapped Edit Mode guidance.
     -- Keep the preview checkbox below that text instead of sharing its line.
-    local recoveryHeight = Offhand.isForever and 342 or (supportsMainhandLayout and 270 or 152)
+    local recoveryHeight = Offhand.isForever and 374 or (supportsMainhandLayout and 302 or 152)
     local recoveryCard = CreateCard(tab2, L["CARD_RECOVERY"], recoveryHeight)
     local advancedCard
     local advancedCheck
@@ -2256,6 +2295,7 @@ function Options:CreateFloatingPanel()
         gamepadFocusBindingStatus:SetWidth(530)
         gamepadFocusBindingStatus:SetJustifyH("LEFT")
         gamepadFocusBindingStatus:SetText(GamepadFocusBindingStatusText())
+        Options.gamepadFocusBindingStatus = gamepadFocusBindingStatus
     end
 
     local forceCheck = CreateNativeCheckbox(recoveryCard, L["PREVIEW_DUAL"],
@@ -2265,6 +2305,14 @@ function Options:CreateFloatingPanel()
     )
     forceCheck:SetPoint("TOPLEFT", 12,
         Offhand.isForever and -304 or (supportsMainhandLayout and -230 or -112))
+
+    if supportsMainhandLayout then
+        local autoEditModeControls = CreateNativeCheckbox(recoveryCard, L["AUTO_RECOVER_EDIT_MODE_CONTROLS"],
+            function() return Offhand.db and Offhand.db.autoRecoverEditModeControls ~= false end,
+            function(value) Offhand.db.autoRecoverEditModeControls = value == true end,
+            L["AUTO_RECOVER_EDIT_MODE_CONTROLS"], L["AUTO_RECOVER_EDIT_MODE_CONTROLS_DESC"])
+        autoEditModeControls:SetPoint("TOPLEFT", forceCheck, "BOTTOMLEFT", 0, -6)
+    end
 
     local compatDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     compatDesc:SetPoint("TOPLEFT", 32, Offhand.isForever and -528 or -344)
