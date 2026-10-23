@@ -61,6 +61,7 @@ local canvasPersistenceIndex
 local canvasBackpackStateIndex
 local canvasForeverBagsIndex
 local canvasForeverMapIndex
+local canvasChatIndex
 local canvasIndex
 local controlsIndex
 local optionsIndex
@@ -83,6 +84,7 @@ for index, file in ipairs(main) do
     if file == "Core/CanvasBackpackState.lua" then canvasBackpackStateIndex = index end
     if file == "Core/CanvasForeverBags.lua" then canvasForeverBagsIndex = index end
     if file == "Core/CanvasForeverMap.lua" then canvasForeverMapIndex = index end
+    if file == "Core/CanvasChat.lua" then canvasChatIndex = index end
     if file == "Core/Canvas.lua" then canvasIndex = index end
     if file == "UI/Controls.lua" then controlsIndex = index end
     if file == "UI/Options.lua" then optionsIndex = index end
@@ -103,14 +105,16 @@ assert(hudCompatibilityIndex and hudTransientPolicyIndex and seamRedirectIndex
         and hudTransientPolicyIndex + 1 == seamRedirectIndex,
     "HUD support services must load together immediately before SeamRedirect")
 assert(compatibilityIndex and frameStateIndex and panelRegistryIndex and canvasPersistenceIndex
-        and canvasBackpackStateIndex and canvasForeverBagsIndex and canvasForeverMapIndex and canvasIndex
+        and canvasBackpackStateIndex and canvasForeverBagsIndex and canvasForeverMapIndex
+        and canvasChatIndex and canvasIndex
         and compatibilityIndex + 1 == frameStateIndex
         and frameStateIndex + 1 == panelRegistryIndex
         and panelRegistryIndex + 1 == canvasPersistenceIndex
         and canvasPersistenceIndex + 1 == canvasBackpackStateIndex
         and canvasBackpackStateIndex + 1 == canvasForeverBagsIndex
         and canvasForeverBagsIndex + 1 == canvasForeverMapIndex
-        and canvasForeverMapIndex + 1 == canvasIndex,
+        and canvasForeverMapIndex + 1 == canvasChatIndex
+        and canvasChatIndex + 1 == canvasIndex,
     "Canvas support services must load together immediately before Canvas")
 assert(controlsIndex and optionsIndex and controlsIndex + 1 == optionsIndex,
     "shared UI controls must load immediately before Options")

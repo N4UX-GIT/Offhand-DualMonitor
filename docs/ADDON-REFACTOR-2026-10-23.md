@@ -170,6 +170,10 @@ The nineteenth extraction moves Forever World Map visibility observation, bounde
 
 The twentieth extraction moves topology recommendations from Options into `Core/TopologyDetection.lua`. The existing `Options:DetectTopology` entry point delegates to the service. Exact Companion geometry, mismatch recovery, physical-resolution fallbacks, monitor presets, and aspect-ratio heuristics retain their current behavior. Existing wizard regressions cover these cases through the public settings method.
 
+## Twenty-first increment
+
+The twenty-first extraction moves chat dock ownership, two-observation dock settlement, detached-window presentation, Combat Log reconciliation, and stale chat-position cleanup into `Core/CanvasChat.lua`. The adapter installs the existing Canvas methods and returns the helpers used by drag and restore orchestration. Timer delays, native chat operations, SavedVariables keys, and Chattynator handoff retain their original behavior. Existing chat regressions exercise the extracted implementation.
+
 ## Refactor candidate smoke status
 
 Candidate commit `10453d0941213916f1d7b060b64fc3eeb705bcc2` completed the structural boundary pass on 2026-10-23.

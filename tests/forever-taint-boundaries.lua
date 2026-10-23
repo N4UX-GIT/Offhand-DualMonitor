@@ -24,6 +24,7 @@ assert(loadfile("Core/CanvasPersistence.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasBackpackState.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasForeverMap.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasChat.lua"))("Offhand", addon)
 local canvasChunk = assert(loadfile("Core/Canvas.lua"))
 canvasChunk("Offhand", addon)
 
