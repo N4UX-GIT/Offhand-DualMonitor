@@ -158,6 +158,10 @@ The sixteenth extraction moves the complete settings slider implementation into 
 
 The seventeenth extraction moves the complete native Gamepad presentation adapter and its weak-key state into `Core/MainhandGamepad.lua`. The module installs the existing public Mainhand methods before Mainhand creates its event controller. Polling, interface settlement, native anchor restoration, destination drag handles, saved offsets, and ownership checks retain their original sequence. Mainhand diagnostics now obtain menu and reticle status through adapter getters. Existing placement and taint-boundary regressions cover both modules together.
 
+## Eighteenth increment
+
+The eighteenth extraction moves the complete Forever native-bag proxy into `Core/CanvasForeverBags.lua`. Its installer receives explicit Canvas services and installs the existing public methods at the original definition point. The adapter owns its weak-key state, external drag handles, native close observers, bounded reopen attempts, transition reconciliation, and diagnostics. Canvas retains shared geometry, position storage, and generic panel orchestration. Dedicated bag and taint regressions exercise the extracted implementation.
+
 ## Refactor candidate smoke status
 
 Candidate commit `10453d0941213916f1d7b060b64fc3eeb705bcc2` completed the structural boundary pass on 2026-10-23.

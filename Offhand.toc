@@ -43,6 +43,7 @@ Core\CanvasFrameState.lua
 Core\CanvasPanelRegistry.lua
 Core\CanvasPersistence.lua
 Core\CanvasBackpackState.lua
+Core\CanvasForeverBags.lua
 Core\Canvas.lua
 Core\WorkspaceBehavior.lua
 Core\WorkspaceChrome.lua

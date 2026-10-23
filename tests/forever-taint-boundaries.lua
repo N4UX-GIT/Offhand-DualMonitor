@@ -22,6 +22,7 @@ assert(loadfile("Core/CanvasFrameState.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasPanelRegistry.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasPersistence.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasBackpackState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand", addon)
 local canvasChunk = assert(loadfile("Core/Canvas.lua"))
 canvasChunk("Offhand", addon)
 
@@ -78,8 +79,9 @@ assert(mainhandSource:find("GAMEPAD_INTERFACE_SETTLE_SECONDS", 1, true)
         and mainhandSource:find("GAMEPAD_ACTIVE_PANEL_INTERVAL", 1, true)
         and mainhandSource:find('"native-visible"', 1, true),
     "Forever Gamepad transitions must settle before protected anchor work resumes")
-local bagProxySource = canvasSource:match(
-    "local function GetForeverNativeBagSavedPosition(.-)%-%- Forever's map%-pin sharing path")
+local bagProxyFile = assert(io.open("Core/CanvasForeverBags.lua", "r"))
+local bagProxySource = bagProxyFile:read("*a")
+bagProxyFile:close()
 assert(bagProxySource and bagProxySource:find("EnableForeverNativeBagProxy", 1, true),
     "Forever native bags must use the isolated proxy adapter")
 assert(bagProxySource:find('CreateFrame("Frame", nil, UIParent)', 1, true),
@@ -88,9 +90,9 @@ assert(not bagProxySource:find("HookScript", 1, true)
         and not bagProxySource:find("SetPassThroughButtons", 1, true)
         and not bagProxySource:find(":SetUserPlaced", 1, true),
     "Forever bag proxy must not hook native controls or mutate protected ownership state")
-local bagProxyEntry = canvasSource:match(
+local bagProxyEntry = bagProxySource:match(
     "function Canvas:EnableForeverNativeBagProxy%(%)"
-        .. "(.-)%-%- Forever's map%-pin sharing path")
+        .. "(.-)return {")
 assert(bagProxyEntry and bagProxyEntry:find("OpenForeverNativeBackpackThroughBlizzard", 1, true)
         and bagProxyEntry:find("InstallForeverNativeBagCloseObservers", 1, true)
         and bagProxyEntry:find("InstallForeverOptionsOpeningObservers", 1, true)
