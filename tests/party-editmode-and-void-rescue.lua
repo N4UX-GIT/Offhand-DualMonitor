@@ -430,6 +430,7 @@ frameStateChunk("Offhand", addon)
 
 assert(loadfile("Core/CanvasPanelRegistry.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasPersistence.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasBackpackState.lua"))("Offhand", addon)
 
 local canvasChunk = loadfile("Core/Canvas.lua")
 assert(canvasChunk, "Core/Canvas.lua must compile cleanly")

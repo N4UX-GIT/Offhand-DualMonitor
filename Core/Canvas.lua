@@ -53,6 +53,11 @@ local Persistence = assert(
     "Offhand Canvas persistence must load before Canvas"
 )
 
+local BackpackState = assert(
+    Offhand.CanvasBackpackState,
+    "Offhand Canvas backpack state must load before Canvas"
+)
+
 -- Native Gamepad UI panel visibility, focus and geometry are owned by
 -- Blizzard's FrameControlsManager. Even an addon-only marker written onto a
 -- managed panel can put later protected focus work in the addon's execution
@@ -852,37 +857,21 @@ local function SaveForeverPanelOwnership()
     return false
 end
 
-local backpackRootNames = {
-    "ContainerFrame1",
-    "ContainerFrameCombinedBags",
-}
+local backpackRootNames = BackpackState.RootNames
 
 local function IsForeverNativeContainerName(name)
-    return Offhand.isForever and type(name) == "string"
-        and name:match("^ContainerFrame") ~= nil
+    return BackpackState.IsForeverContainerName(name)
 end
 
 local function IsBackpackRoot(name)
-    return name == "ContainerFrame1" or name == "ContainerFrameCombinedBags"
+    return BackpackState.IsRoot(name)
 end
 
 -- Only actual bag roots may request that bags reopen during persistent restore.
 -- Baganator exposes many named child regions; treating its entire namespace as
 -- a bag root lets stale child snapshots reopen Blizzard's backpack on login.
 local function IsRestorableBagRootName(name)
-    if type(name) ~= "string" then return false end
-    return name:match("^ContainerFrame%d+$") ~= nil
-        or name == "ContainerFrameCombinedBags"
-        or name == "EUI_MainBagFrame"
-        or name:match("^Baganator_SingleViewBackpackViewFrame") ~= nil
-        or name:match("^Baganator_CategoryViewBackpackViewFrame") ~= nil
-        or name:match("^Baginator") ~= nil
-        or name:match("^BGR") ~= nil
-        or name:match("^Bagnon") ~= nil
-        or name:match("^AdiBags") ~= nil
-        or name:match("^BetterBags") ~= nil
-        or name:match("^ArkInventory") ~= nil
-        or name == "CustomBagRestorer"
+    return BackpackState.IsRestorableRootName(name)
 end
 
 local function IsSpannedLayoutActive()
@@ -897,19 +886,9 @@ end
 -- inactive root can pull the newly opened presentation back off Mainhand.
 local function ClearOtherBackpackRootState(keepName)
     if not Offhand.db then return end
-    local changedOpenState = false
+    local changedOpenState = BackpackState.ClearOtherRoots(Offhand.db, keepName)
     for _, rootName in ipairs(backpackRootNames) do
         if rootName ~= keepName then
-            if Offhand.db.savedWorkspacePositions then
-                Offhand.db.savedWorkspacePositions[rootName] = nil
-            end
-            if Offhand.db.savedMainPositions then
-                Offhand.db.savedMainPositions[rootName] = nil
-            end
-            if Offhand.db.openWorkspacePanels and Offhand.db.openWorkspacePanels[rootName] then
-                Offhand.db.openWorkspacePanels[rootName] = nil
-                changedOpenState = true
-            end
             if Offhand.ForeverPersistence and Offhand.ForeverPersistence.ClearPosition then
                 Offhand.ForeverPersistence:ClearPosition(rootName)
             end
@@ -922,63 +901,25 @@ end
 -- Keep one mode-independent position so that retiring the inactive frame does
 -- not also forget where the backpack family belongs.
 local function GetNativeBackpackWorkspacePosition()
-    if not Offhand.db then return nil end
-    local position = Offhand.db.nativeBackpackWorkspacePosition
-    if type(position) == "table" and position.x and position.y then
-        return position
-    end
-    local saved = Offhand.db.savedWorkspacePositions
-    if type(saved) ~= "table" then return nil end
-    for _, rootName in ipairs(backpackRootNames) do
-        position = saved[rootName]
-        if type(position) == "table" and position.x and position.y then
-            Offhand.db.nativeBackpackWorkspacePosition = position
-            return position
-        end
-    end
-    return nil
+    return BackpackState.GetWorkspacePosition(Offhand.db)
 end
 
 local function IsNativeBackpackTrackedOpen()
-    if not Offhand.db then return false end
-    if Offhand.db.nativeBackpackWorkspaceOpen == true then return true end
-    local openPanels = Offhand.db.openWorkspacePanels
-    if type(openPanels) ~= "table" then return false end
-    for _, rootName in ipairs(backpackRootNames) do
-        if openPanels[rootName] then
-            Offhand.db.nativeBackpackWorkspaceOpen = true
-            return true
-        end
-    end
-    return false
+    return BackpackState.IsTrackedOpen(Offhand.db)
 end
 
 local function ClearNativeBackpackOpenState()
     if not Offhand.db then return end
-    local changed = Offhand.db.nativeBackpackWorkspaceOpen ~= nil
-    Offhand.db.nativeBackpackWorkspaceOpen = nil
-    Offhand.db.openWorkspacePanels = Offhand.db.openWorkspacePanels or {}
-    for _, rootName in ipairs(backpackRootNames) do
-        if Offhand.db.openWorkspacePanels[rootName] ~= nil then changed = true end
-        Offhand.db.openWorkspacePanels[rootName] = nil
-    end
+    local changed = BackpackState.ClearOpenState(Offhand.db)
     if changed then SaveOpenWorkspacePanels() end
 end
 
 local function GetShownNativeBackpackRoot()
-    local combined = _G.ContainerFrameCombinedBags
-    if combined and combined.IsShown and combined:IsShown() then return combined end
-    local individual = _G.ContainerFrame1
-    if individual and individual.IsShown and individual:IsShown() then return individual end
-    return nil
+    return BackpackState.GetShownRoot()
 end
 
 local function GetPreferredNativeBackpackRoot()
-    local saved = Offhand.db and Offhand.db.savedWorkspacePositions
-    if saved and saved.ContainerFrameCombinedBags then return _G.ContainerFrameCombinedBags end
-    if saved and saved.ContainerFrame1 then return _G.ContainerFrame1 end
-    local prefersCombined = GetCVarBool and GetCVarBool("combinedBags")
-    return prefersCombined and _G.ContainerFrameCombinedBags or _G.ContainerFrame1
+    return BackpackState.GetPreferredRoot(Offhand.db)
 end
 
 function Canvas:GetNativeBackpackWorkspacePosition()

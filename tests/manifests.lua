@@ -53,6 +53,7 @@ local compatibilityIndex
 local frameStateIndex
 local panelRegistryIndex
 local canvasPersistenceIndex
+local canvasBackpackStateIndex
 local canvasIndex
 local controlsIndex
 local optionsIndex
@@ -67,6 +68,7 @@ for index, file in ipairs(main) do
     if file == "Core/CanvasFrameState.lua" then frameStateIndex = index end
     if file == "Core/CanvasPanelRegistry.lua" then panelRegistryIndex = index end
     if file == "Core/CanvasPersistence.lua" then canvasPersistenceIndex = index end
+    if file == "Core/CanvasBackpackState.lua" then canvasBackpackStateIndex = index end
     if file == "Core/Canvas.lua" then canvasIndex = index end
     if file == "UI/Controls.lua" then controlsIndex = index end
     if file == "UI/Options.lua" then optionsIndex = index end
@@ -79,11 +81,13 @@ assert(mainhandGeometryIndex and mainhandIndex
 assert(hudCompatibilityIndex and seamRedirectIndex
         and hudCompatibilityIndex + 1 == seamRedirectIndex,
     "HUD compatibility policy must load immediately before SeamRedirect")
-assert(compatibilityIndex and frameStateIndex and panelRegistryIndex and canvasPersistenceIndex and canvasIndex
+assert(compatibilityIndex and frameStateIndex and panelRegistryIndex and canvasPersistenceIndex
+        and canvasBackpackStateIndex and canvasIndex
         and compatibilityIndex + 1 == frameStateIndex
         and frameStateIndex + 1 == panelRegistryIndex
         and panelRegistryIndex + 1 == canvasPersistenceIndex
-        and canvasPersistenceIndex + 1 == canvasIndex,
+        and canvasPersistenceIndex + 1 == canvasBackpackStateIndex
+        and canvasBackpackStateIndex + 1 == canvasIndex,
     "Canvas support services must load together immediately before Canvas")
 assert(controlsIndex and optionsIndex and controlsIndex + 1 == optionsIndex,
     "shared UI controls must load immediately before Options")

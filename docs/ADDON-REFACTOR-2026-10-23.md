@@ -130,6 +130,10 @@ The ninth extraction consolidates Forever Professions and Edit Mode ownership pr
 
 The tenth extraction moves saved Canvas position validation, creation, relative scaling, and boundary clamping into `Core/CanvasPersistence.lua`. `Core/Canvas.lua` retains drag lifecycle, frame mutation, panel ownership, open-state policy, and client adapters. SavedVariables field names and coordinate semantics remain unchanged, while the deterministic persistence calculations now have focused characterization coverage.
 
+## Eleventh increment
+
+The eleventh extraction moves native backpack root identity, mode-independent position lookup, root ownership transfer, open-state normalization, and preferred-root selection into `Core/CanvasBackpackState.lua`. `Core/Canvas.lua` retains all native frame hooks, movement, proxy controls, persistence callbacks, and protected interaction boundaries.
+
 ## Refactor candidate smoke status
 
 Candidate commit `10453d0941213916f1d7b060b64fc3eeb705bcc2` completed the structural boundary pass on 2026-10-23.
