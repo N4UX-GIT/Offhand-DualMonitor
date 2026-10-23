@@ -1,6 +1,6 @@
 # Combined refactor and visual UI manual smoke test
 
-Current installed runtime checkpoint: `76f78d0` on `codex/addon-ui-overhaul`, draft PR #35. This includes the completed structural refactor from PR #34 plus the separately committed [visual UI candidate](UI-OVERHAUL-2026-10-23.md), interaction/geometry-input hardening, decimal-comma entry, localized bottom-offset actions, profile usability, measured text layouts, and setup/calibration spacing. The independently preserved structural runtime checkpoint is `8335480`. Documentation commits may follow without changing the runtime.
+Current installed runtime checkpoint: `3fe93da` on `codex/addon-ui-overhaul`, draft PR #35. This includes the completed structural refactor from PR #34 plus the separately committed [visual UI candidate](UI-OVERHAUL-2026-10-23.md), interaction/geometry-input hardening, decimal-comma entry, localized bottom-offset actions, profile control synchronization, measured text layouts, and setup/calibration spacing. The independently preserved structural runtime checkpoint is `8335480`. Documentation commits may follow without changing the runtime.
 
 Run on Retail and Forever if available. Use the same normal spanned topology and compatibility addons you ordinarily use. Actual results remain pending.
 
@@ -30,7 +30,7 @@ Run on Retail and Forever if available. Use the same normal spanned topology and
 - Test a brief combat entry/exit with the normal UI. Check for protected-action errors, lost controls, unexpected movement, and failed actions after leaving combat.
 - If you use native Forever Gamepad UI, test switching between keyboard and Gamepad, the radial menu, destination panels, Back/focus behavior, and drag handles. Verify ordinary gameplay controls after switching back.
 - If practical, restore to one monitor and span again using your normal workflow. Confirm reachable settings, safe single-screen presentation, and return of saved workspace placements.
-- If you use profile switching, select another existing profile and return. Confirm displayed controls and window behavior follow the active profile.
+- If you use profile switching, select another existing profile and return. Confirm displayed numbers, slider thumbs, bottom-offset value, and window behavior follow the active profile. If the profiles have different scale values, check that the first step-button click starts from the newly displayed value, then undo that step and return to the original profile. Do not alter a profile just to force this test.
 
 Restore temporary settings when finished. Do not delete SavedVariables to obtain a passing result.
 

@@ -1,3 +1,11 @@
+# Profile-control synchronization candidate, source checkpoint 3fe93da
+
+- Source: `codex/addon-ui-overhaul`, draft PR #35. Shared slider refresh updates thumb and number without invoking its setter or layout, cancels drag work when the source changes, and ensures the next step uses the refreshed value. Settings refresh also resynchronizes bottom offset. No profile storage, saved-variable schema, workspace ownership or Companion change.
+- Automated: all 48 Lua suites passed. New regressions cover read-only refresh, disabled refresh, stale drag cancellation, first step after refresh, and Settings refresh of scale and bottom offset without hide/show. Six manifests passed paths, XML, load order and Lua 5.1 syntax validation. Companion preference and release-metadata checks passed; frozen executable hash unchanged.
+- Package: all 72 unpacked files matched source SHA-256 and unpacked validation passed. Audit ZIP SHA-256: `971F235A82C521C5569977ABCC2BCAFC156187E4A88AD125D9EB36EFC45267B0`. Existing Beta 22 metadata is for local audit only, not a release.
+- Deployment: Retail and Forever Beta each match 70 copied files; both generated bridges were preserved and hash-verified unchanged. Package and recoverable pre-update installs: `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-3fe93da`. Pre-update installs contain `76f78d0`.
+- Live: pending. No actual profile-switch rendering, taint or persistence pass is claimed. The [combined checklist](../docs/REFACTOR-SMOKE-TEST.md) includes thumb/field agreement after switching existing profiles.
+
 # Bottom-offset presentation candidate, source checkpoint 76f78d0
 
 - Source: `codex/addon-ui-overhaul`, draft PR #35. Localized Apply across eleven dictionaries, reserved button width within the existing column, bounded wrapping label, measured action/row heights and containing card heights in Settings and Calibration. No offset calculation, input action, saved-variable schema, topology ownership or Companion change.

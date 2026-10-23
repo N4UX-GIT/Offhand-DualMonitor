@@ -1,6 +1,6 @@
 # Visual UI overhaul candidate
 
-Current runtime checkpoint: `76f78d0` on `codex/addon-ui-overhaul`, draft PR #35,
+Current runtime checkpoint: `3fe93da` on `codex/addon-ui-overhaul`, draft PR #35,
 based on the completed structural branch at `b7508d5`. The initial visual pass
 was `e480af9`; subsequent increments harden its interaction lifecycle and improve
 profile usability, translated text layout, and setup/calibration spacing. The visual work is a separate branch so
@@ -34,6 +34,10 @@ user-resizable layout.
 
 ## Interaction hardening
 
+- Shared slider refresh synchronizes both the number and thumb from the current
+  profile without invoking a setting setter or applying layout. A changed source
+  cancels stale drag work; the next step starts from the refreshed value.
+  Settings also refreshes the bottom-offset field without requiring hide/show.
 - Bottom-offset Apply uses all eleven locale dictionaries. Its wider button
   stays within the existing column. The label wraps at a bounded width, action
   height follows button text, and the containing Settings/Calibration cards
@@ -122,15 +126,15 @@ a consistent dark presentation with the selected accent and OLED treatment.
 - An isolated addon-only audit package passed. All 72 unpacked files matched
   source by SHA-256, and the unpacked addon passed validation.
 - Current audit ZIP SHA-256:
-  `55A998A863BE5F2AE042F7970230F980F944E17B9C22844FEC624D829472067C`.
+  `971F235A82C521C5569977ABCC2BCAFC156187E4A88AD125D9EB36EFC45267B0`.
 - Retail and Forever Beta installs match the 70 copied package files. Their two
   generated topology/state bridge files were preserved and verified unchanged.
 - Audit package, unpacked verification copy, and recoverable pre-update installs:
-  `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-76f78d0`.
+  `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-3fe93da`.
 
 Earlier visual audit directories and their installed backups remain available
-separately. The current pre-update backups contain `87d1938`, the decimal-comma
-entry candidate, not the structural-only candidate.
+separately. The current pre-update backups contain `76f78d0`, the bottom-offset
+presentation candidate, not the structural-only candidate.
 
 Existing Beta 22 metadata was retained for local audit purposes only. The archive
 is not a published release and must not be mistaken for the stable checkpoint.
