@@ -68,6 +68,7 @@ local canvasChatIndex
 local canvasProfessionsIndex
 local canvasPanelMotionIndex
 local canvasMapPresentationIndex
+local canvasPanelLifecycleIndex
 local canvasIndex
 local controlsIndex
 local optionsActionsIndex
@@ -98,6 +99,7 @@ for index, file in ipairs(main) do
     if file == "Core/CanvasProfessions.lua" then canvasProfessionsIndex = index end
     if file == "Core/CanvasPanelMotion.lua" then canvasPanelMotionIndex = index end
     if file == "Core/CanvasMapPresentation.lua" then canvasMapPresentationIndex = index end
+    if file == "Core/CanvasPanelLifecycle.lua" then canvasPanelLifecycleIndex = index end
     if file == "Core/Canvas.lua" then canvasIndex = index end
     if file == "UI/Controls.lua" then controlsIndex = index end
     if file == "UI/OptionsActions.lua" then optionsActionsIndex = index end
@@ -126,7 +128,7 @@ assert(hudCompatibilityIndex and hudTransientPolicyIndex and hudRecoveryIndex
 assert(compatibilityIndex and frameStateIndex and panelRegistryIndex and canvasPersistenceIndex
         and canvasBackpackStateIndex and canvasForeverBagsIndex and canvasForeverMapIndex
         and canvasChatIndex and canvasProfessionsIndex and canvasPanelMotionIndex
-        and canvasMapPresentationIndex and canvasIndex
+        and canvasMapPresentationIndex and canvasPanelLifecycleIndex and canvasIndex
         and compatibilityIndex + 1 == frameStateIndex
         and frameStateIndex + 1 == panelRegistryIndex
         and panelRegistryIndex + 1 == canvasPersistenceIndex
@@ -137,7 +139,8 @@ assert(compatibilityIndex and frameStateIndex and panelRegistryIndex and canvasP
         and canvasChatIndex + 1 == canvasProfessionsIndex
         and canvasProfessionsIndex + 1 == canvasPanelMotionIndex
         and canvasPanelMotionIndex + 1 == canvasMapPresentationIndex
-        and canvasMapPresentationIndex + 1 == canvasIndex,
+        and canvasMapPresentationIndex + 1 == canvasPanelLifecycleIndex
+        and canvasPanelLifecycleIndex + 1 == canvasIndex,
     "Canvas support services must load together immediately before Canvas")
 assert(controlsIndex and optionsActionsIndex and optionsIndex
         and controlsIndex + 1 == optionsActionsIndex
