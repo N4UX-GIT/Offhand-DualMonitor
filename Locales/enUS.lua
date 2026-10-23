@@ -13,6 +13,7 @@ local L = Offhand.L or setmetatable({}, {
 })
 
 Offhand.L = L
+L["BTN_APPLY_SHORT"] = "Apply"
 L["TAB_HELP"] = "Help & recovery"
 L["UI_SECTIONS"] = "On this page"
 

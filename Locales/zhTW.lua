@@ -1,6 +1,7 @@
 local _, Offhand = ...
 if GetLocale() ~= "zhTW" then return end
 local L = Offhand.L
+L["BTN_APPLY_SHORT"] = "套用"
 L["TAB_HELP"] = "說明與復原"
 L["UI_SECTIONS"] = "本頁內容"
 L["CARD_GROUP_LOOT"] = "Group loot rolls"

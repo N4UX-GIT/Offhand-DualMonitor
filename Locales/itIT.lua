@@ -1,6 +1,7 @@
 local _, Offhand = ...
 if GetLocale() ~= "itIT" then return end
 local L = Offhand.L
+L["BTN_APPLY_SHORT"] = "Applica"
 L["TAB_HELP"] = "Aiuto e ripristino"
 L["UI_SECTIONS"] = "In questa pagina"
 L["CARD_GROUP_LOOT"] = "Group loot rolls"

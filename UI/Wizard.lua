@@ -1020,6 +1020,7 @@ function Wizard:CreateFrame()
     card3:SetHeight(208)
     local bottomControl = Offhand.Options:CreateBottomControl(card3)
     bottomControl:SetPoint("TOPLEFT", 14, -148)
+    card3:SetHeight(math.max(208, 148 + bottomControl:GetHeight() + 14))
     for _, card in ipairs(f.pages) do
         card:ClearAllPoints()
         card:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -140)

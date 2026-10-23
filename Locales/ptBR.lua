@@ -1,6 +1,7 @@
 local _, Offhand = ...
 if GetLocale() ~= "ptBR" then return end
 local L = Offhand.L
+L["BTN_APPLY_SHORT"] = "Aplicar"
 L["TAB_HELP"] = "Ajuda e recuperação"
 L["UI_SECTIONS"] = "Nesta página"
 L["CARD_GROUP_LOOT"] = "Group loot rolls"

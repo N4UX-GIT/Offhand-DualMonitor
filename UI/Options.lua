@@ -787,6 +787,7 @@ function Options:CreateFloatingPanel()
 
     local bottomControl = Options:CreateBottomControl(card1_3)
     bottomControl:SetPoint("TOPLEFT", 12, -26)
+    card1_3:SetHeight(math.max(156, 26 + bottomControl:GetHeight() + 12))
 
     local hudSlider = CreateNativeSlider(card1_3, L["SLIDER_HUD_SCALE"], 0.25, 1.25, 0.01,
         function() return (Offhand.db and Offhand.db.hudScale) or 0.70 end,

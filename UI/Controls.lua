@@ -807,9 +807,12 @@ function Controls.CreateBottomControl(parent)
     local label = row:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     label:SetPoint("TOPLEFT", 0, 0)
     label:SetText(labels["LABEL_BOTTOM_OFFSET_SHORT"])
+    label:SetWidth(280)
+    if label.SetWordWrap then label:SetWordWrap(true) end
+    local labelHeight = Controls.MeasureWrappedText(label, labels["LABEL_BOTTOM_OFFSET_SHORT"], 280)
     local input = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
     input:SetSize(55, 22)
-    input:SetPoint("TOPLEFT", 4, -20)
+    input:SetPoint("TOPLEFT", 4, -(labelHeight + 6))
     input:SetAutoFocus(false)
     input:SetNumeric(true)
     input:SetMaxLetters(5)
@@ -826,15 +829,23 @@ function Controls.CreateBottomControl(parent)
         Offhand:ApplyFullLayout()
     end
     local previous = input
-    for _, item in ipairs({ { "-1 px", -1 }, { "+1 px", 1 }, { "Apply", 0 } }) do
+    local actionHeight = 22
+    for _, item in ipairs({ { "-1 px", -1 }, { "+1 px", 1 }, { labels["BTN_APPLY_SHORT"], 0 } }) do
         local button = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-        button:SetSize(54, 22)
+        local width = item[2] == 0 and 94 or 54
+        button:SetSize(width, 22)
         button:SetPoint("LEFT", previous, "RIGHT", 6, 0)
         button:SetText(item[1])
+        local height = math.max(22, Controls.MeasureWrappedText(
+            button.GetFontString and button:GetFontString(), item[1], width - 10, 14) + 8)
+        button:SetHeight(height)
+        actionHeight = math.max(actionHeight, height)
         local delta = item[2]
         button:SetScript("OnClick", function() Apply(delta) end)
         previous = button
     end
+    input:SetHeight(actionHeight)
+    row:SetHeight(labelHeight + 6 + actionHeight)
     input:SetScript("OnEnterPressed", function(self) Apply(0); self:ClearFocus() end)
     input:SetScript("OnEscapePressed", function(self) Refresh(); self:ClearFocus() end)
     row.Refresh = Refresh
