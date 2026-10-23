@@ -1,6 +1,6 @@
 # Visual UI overhaul candidate
 
-Current runtime checkpoint: `87d1938` on `codex/addon-ui-overhaul`, draft PR #35,
+Current runtime checkpoint: `76f78d0` on `codex/addon-ui-overhaul`, draft PR #35,
 based on the completed structural branch at `b7508d5`. The initial visual pass
 was `e480af9`; subsequent increments harden its interaction lifecycle and improve
 profile usability, translated text layout, and setup/calibration spacing. The visual work is a separate branch so
@@ -34,6 +34,11 @@ user-resizable layout.
 
 ## Interaction hardening
 
+- Bottom-offset Apply uses all eleven locale dictionaries. Its wider button
+  stays within the existing column. The label wraps at a bounded width, action
+  height follows button text, and the containing Settings/Calibration cards
+  reserve the resulting row height. Offset calculations and explicit Apply,
+  Enter, Escape, and one-pixel step actions are unchanged.
 - Slider fields accept a decimal comma or dot in both Settings and Calibration.
   For example, `50,5%` no longer becomes `505%` and clamps to the maximum.
   Mixed or repeated separators are rejected and the current value is restored.
@@ -83,7 +88,7 @@ helper with a conservative fallback when font metrics are unavailable. Tests
 cover measured expansion and fallback layout for all eleven locale dictionaries;
 this does not establish actual rendering in those locales.
 
-The latest usability increment adds clickable radio labels, with disabled-state
+The choice usability increment adds clickable radio labels, with disabled-state
 guards for radio and checkbox label clicks. Disabled media-fit choices keep their
 label and control state synchronized.
 
@@ -117,15 +122,15 @@ a consistent dark presentation with the selected accent and OLED treatment.
 - An isolated addon-only audit package passed. All 72 unpacked files matched
   source by SHA-256, and the unpacked addon passed validation.
 - Current audit ZIP SHA-256:
-  `A8AF365D65E161C5E3211697B27825696CF5FD87285768004505934DABDB4F1F`.
+  `55A998A863BE5F2AE042F7970230F980F944E17B9C22844FEC624D829472067C`.
 - Retail and Forever Beta installs match the 70 copied package files. Their two
   generated topology/state bridge files were preserved and verified unchanged.
 - Audit package, unpacked verification copy, and recoverable pre-update installs:
-  `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-87d1938`.
+  `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-76f78d0`.
 
 Earlier visual audit directories and their installed backups remain available
-separately. The current pre-update backups contain `92b07a7`, the geometry-input
-locking candidate, not the structural-only candidate.
+separately. The current pre-update backups contain `87d1938`, the decimal-comma
+entry candidate, not the structural-only candidate.
 
 Existing Beta 22 metadata was retained for local audit purposes only. The archive
 is not a published release and must not be mistaken for the stable checkpoint.

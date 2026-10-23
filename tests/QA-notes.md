@@ -1,3 +1,11 @@
+# Bottom-offset presentation candidate, source checkpoint 76f78d0
+
+- Source: `codex/addon-ui-overhaul`, draft PR #35. Localized Apply across eleven dictionaries, reserved button width within the existing column, bounded wrapping label, measured action/row heights and containing card heights in Settings and Calibration. No offset calculation, input action, saved-variable schema, topology ownership or Companion change.
+- Automated: all 48 Lua suites passed. Bottom-control tests cover dictionary use, bounded labels, action containment and expanded-label height without changing calibration on creation. Six manifests passed paths, XML, load order and Lua 5.1 syntax validation. Companion preference and release-metadata checks passed; frozen executable hash unchanged.
+- Package: all 72 unpacked files matched source SHA-256 and unpacked validation passed. Audit ZIP SHA-256: `55A998A863BE5F2AE042F7970230F980F944E17B9C22844FEC624D829472067C`. Existing Beta 22 metadata is for local audit only, not a release.
+- Deployment: Retail and Forever Beta each match 70 copied files, with both generated bridges preserved and hash-verified unchanged. Package and recoverable pre-update installs: `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-76f78d0`. Pre-update installs contain `87d1938`.
+- Live: pending. Dictionary and layout arithmetic checks do not establish actual font rendering, taint safety or persistence. The [combined checklist](../docs/REFACTOR-SMOKE-TEST.md) includes read-only bottom-row inspection.
+
 # Decimal-comma entry candidate, source checkpoint 87d1938
 
 - Source: `codex/addon-ui-overhaul`, draft PR #35. Shared slider parsing now accepts a single comma or dot decimal separator. Mixed or repeated separators restore the current value without mutation. Existing bounds, stepping, percent interpretation and display formatting are unchanged. No saved-variable schema, topology ownership, workspace lock or Companion changes.
