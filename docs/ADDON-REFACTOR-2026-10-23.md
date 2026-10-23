@@ -174,6 +174,10 @@ The twentieth extraction moves topology recommendations from Options into `Core/
 
 The twenty-first extraction moves chat dock ownership, two-observation dock settlement, detached-window presentation, Combat Log reconciliation, and stale chat-position cleanup into `Core/CanvasChat.lua`. The adapter installs the existing Canvas methods and returns the helpers used by drag and restore orchestration. Timer delays, native chat operations, SavedVariables keys, and Chattynator handoff retain their original behavior. Existing chat regressions exercise the extracted implementation.
 
+## Twenty-second increment
+
+The twenty-second extraction moves Edit Mode layout generation, serialized layout transforms, per-character layout records, diagnostics, and user prompts into `Core/MainhandEditMode.lua`. Mainhand retains safe gathering and event coordination. The new module installs the existing public methods before Mainhand registers its event handler, and preserves the layout transaction and persistence sequence. Existing Mainhand placement and taint-boundary regressions cover the module.
+
 ## Refactor candidate smoke status
 
 Candidate commit `10453d0941213916f1d7b060b64fc3eeb705bcc2` completed the structural boundary pass on 2026-10-23.

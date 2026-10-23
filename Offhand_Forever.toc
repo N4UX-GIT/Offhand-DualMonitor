@@ -32,6 +32,7 @@ Core\PopupBounds.lua
 Core\MainhandGeometry.lua
 Core\MainhandCompatibility.lua
 Core\MainhandGamepad.lua
+Core\MainhandEditMode.lua
 Core\Mainhand.lua
 Core\RetailFullscreen.lua
 Core\DialogueUICompat.lua
