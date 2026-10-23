@@ -1,11 +1,11 @@
 --[[
     Offhand: Multi-Monitor Setup Addon
-    UI/Wizard.lua: Visual 1-Click Auto-Configuration Wizard & Display Calibration
-    Provides an authentic Classic WoW dialog for 1-click display setup, physical seam calibration,
-    and fine continuous Global UI Scale adjustment.
+    UI/Wizard.lua: Guided setup and display calibration with shared UI controls.
 --]]
 
 local _, Offhand = ...
+local Controls = assert(Offhand.UIControls, "Offhand UI controls must load before Wizard")
+local CreateFrame = Controls.CreateFrame
 
 local L = Offhand.L or setmetatable({}, {
     __index = function(t, key)
@@ -107,19 +107,13 @@ local function CreateWizardCard(parent, titleText, yOffset, height)
         edgeSize = 12,
         insets = { left = 3, right = 3, top = 3, bottom = 3 },
     })
-    local themeKey = (Offhand.db and Offhand.db.theme) or "CLASSIC"
-    if themeKey == "CLASSIC" then
-        card:SetBackdropColor(1.0, 1.0, 1.0, 0.85)
-        card:SetBackdropBorderColor(0.55, 0.50, 0.35, 0.85)
-    else
-        card:SetBackdropColor(0.04, 0.04, 0.05, 0.75)
-        card:SetBackdropBorderColor(0.40, 0.40, 0.45, 0.85)
-    end
+    Controls.StyleSurface(card, "card")
 
     local title = card:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     title:SetPoint("TOPLEFT", card, "TOPLEFT", 12, -8)
     title:SetText(titleText)
     card.title = title
+    card.sectionLabel = titleText
 
     return card
 end
@@ -130,6 +124,7 @@ function Wizard:CreateFrame()
 
     local f = CreateFrame("Frame", "OffhandSetupWizardFrame", UIParent, BackdropTemplate())
     f:SetSize(668, 454)
+    Controls.RegisterDialog(f)
     f:SetFrameStrata("FULLSCREEN_DIALOG")
     f:EnableMouse(true)
     f:SetMovable(true)
@@ -437,14 +432,21 @@ function Wizard:CreateFrame()
     end
     seamSlider:SetThumbTexture(thumb)
     seamSlider.thumb = thumb
+    Controls.StyleSlider(seamSlider)
 
     seamSlider.SetValueDirect = function(self, val)
+        if not Controls.IsSliderEnabled(self) then return end
         self._isDirect = true
         self:SetValue(val)
         self._isDirect = nil
     end
 
     local function CommitSeamEditBox()
+        if not Controls.IsSliderEnabled(seamSlider) then
+            seamEditBox:SetText(string.format("%.1f%%", ((Offhand.db and Offhand.db.deckWidthRatio) or 0.36) * 100))
+            if seamEditBox.ClearFocus then seamEditBox:ClearFocus() end
+            return
+        end
         local txt = seamEditBox:GetText()
         local parsed = Offhand.ParseSliderInput and Offhand:ParseSliderInput(txt, 0.15, 0.80, 0.005, "%.1f%%")
         if parsed then
@@ -465,11 +467,11 @@ function Wizard:CreateFrame()
     end)
     seamEditBox:SetScript("OnEditFocusLost", function(s)
         CommitSeamEditBox()
-        if s.SetBackdropBorderColor then s:SetBackdropBorderColor(0.35, 0.33, 0.28, 0.9) end
+        Controls.SetInputFocused(s, false)
     end)
     seamEditBox:SetScript("OnEditFocusGained", function(s)
         if s.HighlightText then s:HighlightText() end
-        if s.SetBackdropBorderColor then s:SetBackdropBorderColor(1.0, 0.82, 0.0, 1.0) end
+        Controls.SetInputFocused(s, true)
     end)
 
     local btnMinus = CreateFrame("Button", nil, card3, "UIPanelButtonTemplate")
@@ -489,13 +491,16 @@ function Wizard:CreateFrame()
     btnLaser:SetPoint("LEFT", btnPlus, "RIGHT", 12, 0)
     btnLaser:SetText(L["BTN_LASER_TOGGLE"])
     f.laserButton = btnLaser
+    seamSlider.btnMinus, seamSlider.btnPlus, seamSlider.editBox = btnMinus, btnPlus, seamEditBox
     if Offhand.SetTooltip then Offhand:SetTooltip(btnLaser, L["BTN_LASER_TOGGLE_TIP_TITLE"], L["BTN_LASER_TOGGLE_TIP_DESC"]) end
 
     seamSlider:SetScript("OnMouseDown", function(self, button)
+        if not Controls.IsSliderEnabled(self) then return end
         if button == "LeftButton" then self.isDragging = true end
     end)
 
     seamSlider:SetScript("OnMouseUp", function(self, button)
+        if button ~= "LeftButton" then return end
         self.isDragging = false
         if self._pendingApply then
             self._pendingApply = false
@@ -505,7 +510,12 @@ function Wizard:CreateFrame()
         end
     end)
 
+    seamSlider:SetScript("OnHide", function(self)
+        if Controls.EndSliderInteraction(self) then Offhand:ApplyFullLayout() end
+    end)
+
     seamSlider:SetScript("OnValueChanged", function(self, val, userInput)
+        if not Controls.IsSliderEnabled(self) then return end
         val = math.floor((val / 0.005) + 0.5) * 0.005
         Offhand.db.deckWidthRatio = val
         seamValText:SetText(string.format(L["WIZARD_SEAM_VAL_FMT"], val * 100))
@@ -665,6 +675,7 @@ function Wizard:CreateFrame()
     end
     scaleSlider:SetThumbTexture(scaleThumb)
     scaleSlider.thumb = scaleThumb
+    Controls.StyleSlider(scaleSlider)
 
     scaleSlider.SetValueDirect = function(self, val)
         self._isDirect = true
@@ -693,11 +704,11 @@ function Wizard:CreateFrame()
     end)
     scaleEditBox:SetScript("OnEditFocusLost", function(s)
         CommitScaleEditBox()
-        if s.SetBackdropBorderColor then s:SetBackdropBorderColor(0.35, 0.33, 0.28, 0.9) end
+        Controls.SetInputFocused(s, false)
     end)
     scaleEditBox:SetScript("OnEditFocusGained", function(s)
         if s.HighlightText then s:HighlightText() end
-        if s.SetBackdropBorderColor then s:SetBackdropBorderColor(1.0, 0.82, 0.0, 1.0) end
+        Controls.SetInputFocused(s, true)
     end)
 
     local btnScaleMinus = CreateFrame("Button", nil, card4, "UIPanelButtonTemplate")
@@ -747,13 +758,19 @@ function Wizard:CreateFrame()
     end)
 
     scaleSlider:SetScript("OnMouseUp", function(self, button)
-        if button == "LeftButton" then
-            self._isCustomDrag = false
-            self._dragStartX = nil
-            self._dragStartVal = nil
-            self:SetScript("OnUpdate", nil)
+        if button == "LeftButton" and self._isCustomDrag then
+            Controls.EndSliderInteraction(self)
+            local finalValue = math.max(0.25, math.min(1.25, self:GetValue() or Offhand.db.hudScale or 0.70))
+            finalValue = math.floor(finalValue / 0.01 + 0.5) * 0.01
+            Offhand.db.hudScale = finalValue
+            scaleValText:SetText(string.format(L["WIZARD_SCALE_VAL_FMT"], finalValue * 100))
+            scaleEditBox:SetText(string.format("%.0f%%", finalValue * 100))
             Offhand:ApplyFullLayout()
         end
+    end)
+
+    scaleSlider:SetScript("OnHide", function(self)
+        if Controls.EndSliderInteraction(self) then Offhand:ApplyFullLayout() end
     end)
 
     scaleSlider:SetScript("OnValueChanged", function(self, val, userInput)
@@ -868,21 +885,25 @@ function Wizard:CreateFrame()
     skipLayoutBtn:Hide()
 
     local validationStatus
+    local function SetValidationText(message)
+        validationStatus:SetText(message)
+        if f.LayoutStep and f.step then f:LayoutStep() end
+    end
 
     local function ValidateTopology()
-        validationStatus:SetText("")
+        SetValidationText("")
         local currentInfo = Wizard:DetectTopology()
         if currentInfo.topologyStatus == "MISMATCH" then
             local message = Offhand.Options:GetMainhandLayoutFailureText("span")
             statusText:SetText("|cffff5555" .. message .. "|r")
-            validationStatus:SetText("|cffff5555" .. message .. "|r")
+            SetValidationText("|cffff5555" .. message .. "|r")
             return false
         end
         if currentInfo.exactTopology and currentInfo.companionVersionStatus == "MISMATCH" then
             local message = string.format(L["WIZARD_STATUS_COMPANION_MISMATCH"],
                 currentInfo.companionVersion or "?", currentInfo.expectedCompanionVersion or "?")
             statusText:SetText("|cffff5555" .. message .. "|r")
-            validationStatus:SetText("|cffff5555" .. message .. "|r")
+            SetValidationText("|cffff5555" .. message .. "|r")
             return false
         end
         return true
@@ -949,6 +970,7 @@ function Wizard:CreateFrame()
         if not ok then
             local failure = Offhand.Options:GetMainhandLayoutFailureText(value)
             layoutStatus:SetText("|cffff5555" .. failure .. "|r")
+            f:LayoutStep()
             return
         end
         if Offhand.Print then
@@ -972,6 +994,7 @@ function Wizard:CreateFrame()
     backBtn:SetScript("OnClick", function() f:SetStep(f.step - 1) end)
     f.backBtn = backBtn
     local progress = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    f.progressText = progress
     progress:SetPoint("TOPLEFT", 18, -116)
 
     validationStatus = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
@@ -982,6 +1005,10 @@ function Wizard:CreateFrame()
     if validationStatus.SetJustifyV then validationStatus:SetJustifyV("MIDDLE") end
     if validationStatus.SetWordWrap then validationStatus:SetWordWrap(true) end
     f.validationStatus = validationStatus
+    for _, text in ipairs({ welcomeText, progress, topoText, recomText, statusText,
+        layoutHelp, layoutStatus, validationStatus }) do
+        if text.SetWordWrap then text:SetWordWrap(true) end
+    end
 
     f.totalSteps = SupportsGeneratedMainhandLayout() and 5 or 4
     f.pages = {card1, card2, card3, card4}
@@ -993,9 +1020,80 @@ function Wizard:CreateFrame()
     card3:SetHeight(208)
     local bottomControl = Offhand.Options:CreateBottomControl(card3)
     bottomControl:SetPoint("TOPLEFT", 14, -148)
+    card3:SetHeight(math.max(208, 148 + bottomControl:GetHeight() + 14))
     for _, card in ipairs(f.pages) do
         card:ClearAllPoints()
         card:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -140)
+    end
+
+    function f:LayoutStep()
+        local card = self.pages[self.step or 1]
+        if not card then return end
+        if self.step == 1 then
+            local top = Controls.GetCardContentTop(card1, 28)
+            local width = card1:GetWidth() - textLeft - 14
+            if topoText.ClearAllPoints then topoText:ClearAllPoints() end
+            topoText:SetPoint("TOPLEFT", card1, "TOPLEFT", textLeft, -top)
+            topoText:SetPoint("TOPRIGHT", card1, "TOPRIGHT", -14, -top)
+            if card1.logoIcon then
+                if card1.logoIcon.ClearAllPoints then card1.logoIcon:ClearAllPoints() end
+                card1.logoIcon:SetPoint("TOPLEFT", card1, "TOPLEFT", 14, -top)
+            end
+            top = top + Controls.MeasureWrappedText(topoText, topoText:GetText(), width) + 8
+            if recomText.ClearAllPoints then recomText:ClearAllPoints() end
+            recomText:SetPoint("TOPLEFT", card1, "TOPLEFT", textLeft, -top)
+            recomText:SetPoint("TOPRIGHT", card1, "TOPRIGHT", -14, -top)
+            top = top + Controls.MeasureWrappedText(recomText, recomText:GetText(), width) + 12
+            local actionHeight = math.max(28,
+                Controls.MeasureWrappedText(autoBtn:GetFontString(), autoBtn:GetText(), 590, 14) + 8)
+            autoBtn:ClearAllPoints()
+            autoBtn:SetPoint("TOPLEFT", card1, "TOPLEFT", 14, -top)
+            autoBtn:SetSize(600, actionHeight)
+            top = top + actionHeight + 12
+            if statusText.ClearAllPoints then statusText:ClearAllPoints() end
+            statusText:SetPoint("TOPLEFT", card1, "TOPLEFT", 14, -top)
+            statusText:SetPoint("TOPRIGHT", card1, "TOPRIGHT", -14, -top)
+            card1:SetHeight(top + Controls.MeasureWrappedText(statusText, statusText:GetText(), 600) + 14)
+        elseif self.step == 5 then
+            local top = Controls.GetCardContentTop(card5, 32)
+            local helpHeight = Controls.MeasureWrappedText(layoutHelp, layoutHelp:GetText(), 600)
+            if layoutHelp.ClearAllPoints then layoutHelp:ClearAllPoints() end
+            layoutHelp:SetPoint("TOPLEFT", card5, "TOPLEFT", 14, -top)
+            layoutHelp:SetPoint("TOPRIGHT", card5, "TOPRIGHT", -14, -top)
+            if layoutHelp.SetHeight then layoutHelp:SetHeight(helpHeight) end
+            top = top + helpHeight + 14
+            if layoutStatus.ClearAllPoints then layoutStatus:ClearAllPoints() end
+            layoutStatus:SetPoint("TOPLEFT", card5, "TOPLEFT", 14, -top)
+            layoutStatus:SetPoint("TOPRIGHT", card5, "TOPRIGHT", -14, -top)
+            card5:SetHeight(top + Controls.MeasureWrappedText(layoutStatus, layoutStatus:GetText(), 600) + 16)
+        end
+        local footerHeight = 28
+        for _, button in ipairs({ advBtn, skipLayoutBtn, backBtn, finishBtn }) do
+            if button:IsShown() then
+                footerHeight = math.max(footerHeight,
+                    Controls.MeasureWrappedText(button:GetFontString(), button:GetText(), button:GetWidth() - 10, 14) + 8)
+            end
+        end
+        local message = validationStatus:GetText() or ""
+        local validationHeight = message ~= "" and Controls.MeasureWrappedText(validationStatus, message, 632) or 1
+        local layout = Controls.GetWizardLayout(
+            Controls.MeasureWrappedText(welcomeText, welcomeText:GetText(), 632),
+            Controls.MeasureWrappedText(progress, progress:GetText(), 632),
+            card:GetHeight(), validationHeight, footerHeight)
+        self:SetHeight(layout.height)
+        if progress.ClearAllPoints then progress:ClearAllPoints() end
+        progress:SetPoint("TOPLEFT", self, "TOPLEFT", 18, -layout.progressTop)
+        progress:SetWidth(632)
+        card:ClearAllPoints()
+        card:SetPoint("TOPLEFT", self, "TOPLEFT", 16, -layout.cardTop)
+        if validationStatus.ClearAllPoints then validationStatus:ClearAllPoints() end
+        validationStatus:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", 18, layout.validationBottom)
+        validationStatus:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -18, layout.validationBottom)
+        validationStatus:SetHeight(layout.validationHeight)
+        for _, button in ipairs({ advBtn, skipLayoutBtn, backBtn, finishBtn }) do
+            button:SetHeight(layout.footerHeight)
+        end
+        Controls.FitDialog(self, Offhand.Viewport and Offhand.Viewport:GetMetrics())
     end
     function f:SetStep(step)
         self.step = math.max(1, math.min(self.totalSteps, step))
@@ -1044,6 +1142,7 @@ function Wizard:CreateFrame()
             Offhand.Options:HideSeamGuide()
         end
         self:UpdateLaserButton()
+        self:LayoutStep()
     end
 
     function f:UpdateLaserButton()
@@ -1067,7 +1166,8 @@ function Wizard:CreateFrame()
             or L["WIZARD_STEP3_OPTIONS_LOCKED"])
         for _, control in ipairs({btnPl, btnPr, btnDual, btnVt, btnVb, btn169, btn219,
             btnFill, seamSlider, seamEditBox, btnMinus, btnPlus, btnSeam36, btnSeam50, btnSeam55}) do
-            if control and control.SetEnabled then control:SetEnabled(manualGeometryEnabled) end
+            if control == seamSlider then Controls.SetSliderEnabled(control, manualGeometryEnabled)
+            elseif control and control.SetEnabled then control:SetEnabled(manualGeometryEnabled) end
             if control and control.SetAlpha then control:SetAlpha(manualGeometryEnabled and 1 or 0.55) end
         end
 
@@ -1125,6 +1225,7 @@ function Wizard:CreateFrame()
 
         self:UpdateLaserButton()
         self._updatingState = nil
+        if self.step then self:LayoutStep() end
     end
 
     f.seamSlider = seamSlider
@@ -1188,11 +1289,13 @@ function Wizard:Open()
 
     -- Center over the 3D game screen if spanned
     local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+    local panelScale = Controls.FitDialog(f, m)
+    Controls.RefreshStyles()
     if m and m.gameWidth and m.gameWidth > 0 then
         local cx = (m.gameLeft + m.gameRight) / 2
         local cy = (m.gameBottom + m.gameTop) / 2
         f:ClearAllPoints()
-        f:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx, cy)
+        f:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx / panelScale, cy / panelScale)
     else
         f:ClearAllPoints()
         f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)

@@ -1,3 +1,91 @@
+# Combined candidate source-readiness recheck, runtime checkpoint 3fe93da
+
+- No runtime code or installed files changed. All 48 Lua suites, six-manifest Lua 5.1 validation, Companion preference checks, and release-metadata checks passed again.
+- All 72 unpacked files still match source; Retail and Forever Beta each still match the 70 deployed package files. Both generated bridges in each install match its pre-update backup. Audit ZIP and frozen Companion hashes remain as recorded below.
+- Git fetch completed with the UI branch clean and synchronized. GitHub confirmed both PR #34 and PR #35 are open drafts, with the UI PR stacked on the structural branch. Existing CI does not trigger for that stacked base; no remote CI pass is inferred.
+- The bounded source pass is ready for the [combined manual smoke test](../docs/REFACTOR-SMOKE-TEST.md). Actual visual, protected-action, lock/reload and persistence acceptance remain pending. Any unavailable Forever cases must be marked untested. No merge, version bump or release occurred.
+
+# Profile-control synchronization candidate, source checkpoint 3fe93da
+
+- Source: `codex/addon-ui-overhaul`, draft PR #35. Shared slider refresh updates thumb and number without invoking its setter or layout, cancels drag work when the source changes, and ensures the next step uses the refreshed value. Settings refresh also resynchronizes bottom offset. No profile storage, saved-variable schema, workspace ownership or Companion change.
+- Automated: all 48 Lua suites passed. New regressions cover read-only refresh, disabled refresh, stale drag cancellation, first step after refresh, and Settings refresh of scale and bottom offset without hide/show. Six manifests passed paths, XML, load order and Lua 5.1 syntax validation. Companion preference and release-metadata checks passed; frozen executable hash unchanged.
+- Package: all 72 unpacked files matched source SHA-256 and unpacked validation passed. Audit ZIP SHA-256: `971F235A82C521C5569977ABCC2BCAFC156187E4A88AD125D9EB36EFC45267B0`. Existing Beta 22 metadata is for local audit only, not a release.
+- Deployment: Retail and Forever Beta each match 70 copied files; both generated bridges were preserved and hash-verified unchanged. Package and recoverable pre-update installs: `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-3fe93da`. Pre-update installs contain `76f78d0`.
+- Live: pending. No actual profile-switch rendering, taint or persistence pass is claimed. The [combined checklist](../docs/REFACTOR-SMOKE-TEST.md) includes thumb/field agreement after switching existing profiles.
+
+# Bottom-offset presentation candidate, source checkpoint 76f78d0
+
+- Source: `codex/addon-ui-overhaul`, draft PR #35. Localized Apply across eleven dictionaries, reserved button width within the existing column, bounded wrapping label, measured action/row heights and containing card heights in Settings and Calibration. No offset calculation, input action, saved-variable schema, topology ownership or Companion change.
+- Automated: all 48 Lua suites passed. Bottom-control tests cover dictionary use, bounded labels, action containment and expanded-label height without changing calibration on creation. Six manifests passed paths, XML, load order and Lua 5.1 syntax validation. Companion preference and release-metadata checks passed; frozen executable hash unchanged.
+- Package: all 72 unpacked files matched source SHA-256 and unpacked validation passed. Audit ZIP SHA-256: `55A998A863BE5F2AE042F7970230F980F944E17B9C22844FEC624D829472067C`. Existing Beta 22 metadata is for local audit only, not a release.
+- Deployment: Retail and Forever Beta each match 70 copied files, with both generated bridges preserved and hash-verified unchanged. Package and recoverable pre-update installs: `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-76f78d0`. Pre-update installs contain `87d1938`.
+- Live: pending. Dictionary and layout arithmetic checks do not establish actual font rendering, taint safety or persistence. The [combined checklist](../docs/REFACTOR-SMOKE-TEST.md) includes read-only bottom-row inspection.
+
+# Decimal-comma entry candidate, source checkpoint 87d1938
+
+- Source: `codex/addon-ui-overhaul`, draft PR #35. Shared slider parsing now accepts a single comma or dot decimal separator. Mixed or repeated separators restore the current value without mutation. Existing bounds, stepping, percent interpretation and display formatting are unchanged. No saved-variable schema, topology ownership, workspace lock or Companion changes.
+- Automated: all 48 Lua suites passed, including direct parser cases and Settings/Calibration field commit and rejection paths. Six manifests passed paths, XML, load order and Lua 5.1 syntax validation. Companion preference and release-metadata checks passed; the frozen executable hash is unchanged.
+- Package: all 72 unpacked files matched source SHA-256 and unpacked validation passed. Audit ZIP SHA-256: `A8AF365D65E161C5E3211697B27825696CF5FD87285768004505934DABDB4F1F`. Existing Beta 22 metadata is retained for local audit only, not a release.
+- Deployment: Retail and Forever Beta each match 70 copied files; both generated bridges were preserved and verified unchanged. Package and recoverable pre-update installs: `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-87d1938`. The pre-update installs contain `92b07a7`.
+- Live: pending. No appearance, taint, timing or persistence pass is inferred. The [combined checklist](../docs/REFACTOR-SMOKE-TEST.md) includes optional decimal-comma input verification.
+
+# Geometry-input locking candidate, source checkpoint 92b07a7
+
+- Source: `codex/addon-ui-overhaul`, draft PR #35. A seam geometry lock now covers the rail, separate input and steppers in Settings and Calibration. It cancels pending drag work before focus release, rejects late field commits/direct steps, and restores controls when manual geometry is available. No topology calculation or workspace-window locking code was changed.
+- Automated: all 48 Lua suites passed. Added coverage for all slider child states, interrupted drag cancellation without applying a stale value, rejected disabled field/step callbacks, manual re-enable, numeric disabled states, and exact-topology settings refresh. Six manifests passed paths, XML, load order and Lua 5.1 syntax validation. Companion preference and release-metadata checks passed; the frozen executable hash is unchanged.
+- Package: all 72 unpacked files matched source SHA-256 and unpacked validation passed. Audit ZIP SHA-256: `5D8369665EECFD3B6C96BEF4A09FB196EA8114BCF3D30101C114A10291B42E4C`. Retained Beta 22 metadata is for local audit, not a release.
+- Deployment: Retail and Forever Beta each match 70 copied files, preserving their two generated bridges unchanged. Current package and recoverable pre-update installs: `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-92b07a7`. Earlier candidates remain available.
+- Live: pending. No live visual, taint, persistence or workspace-lock pass is inferred. The [combined checklist](../docs/REFACTOR-SMOKE-TEST.md) distinguishes geometry-input locking from workspace window locking.
+
+# Calibration layout candidate, source checkpoint f766a58
+
+- Source: `codex/addon-ui-overhaul`, draft PR #35. Calibration measures introduction/progress, topology recommendations, final HUD guidance/status, validation and footer spacing. Failure messages reflow the active page; longer footer labels reserve height. Topology checks, four/five-step policy, completion/skip confirmation, layout creation and reload actions remain unchanged.
+- Automated: all 48 Lua suites passed. New coverage checks page/card/validation/footer separation, expanded final readiness text and non-accumulating relayout. Existing setup, topology mismatch and layout-creation failure regressions still pass. Six manifests passed paths, XML, load order and Lua 5.1 syntax validation. Companion preference and release-metadata checks passed; the frozen executable hash is unchanged.
+- Package: all 72 unpacked files matched source SHA-256 and unpacked validation passed. Audit ZIP SHA-256: `E08F6727622BCE4A4A980B44F7933CF8EE42DC65EDF01FCE1F116032EECFFE68`. Retained Beta 22 metadata is for local audit, not a release.
+- Deployment: Retail and Forever Beta each match 70 copied files; both generated bridges remain unchanged. Current package and recoverable pre-update installs: `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-f766a58`. Earlier candidates remain available.
+- Live: pending. No in-game text rendering or protected-action pass is claimed. The [combined checklist](../docs/REFACTOR-SMOKE-TEST.md) includes read-only calibration inspection without completing or replacing a layout just to check appearance.
+
+# Setup-guide spacing candidate, source checkpoint 70e2d4f
+
+- Source: `codex/addon-ui-overhaul`, draft PR #35. Window Setup measures its title/body/status and action text, reserves non-overlapping body/action/status/footer regions, reflows status updates, and recenters a single action after the three-choice page. No setup actions, confirmations, saved-variable schema or release metadata were changed.
+- Automated: all 48 Lua suites passed. Coverage includes guide-region arithmetic, all six page layouts, expanded status text, method download/reload/resume paths, and multilingual fallback calculations. All six manifests passed paths, load order, XML and Lua 5.1 syntax validation. Companion preference and release-metadata checks passed; the frozen executable hash is unchanged.
+- Package: all 72 unpacked files matched source SHA-256 and unpacked validation passed. Audit ZIP SHA-256: `9923632DF6B8C7D053F2E31A603E0405D452740C8F7FAA14A0F094BAAE573ABA`. Retained Beta 22 metadata is not a new release.
+- Deployment: Retail and Forever Beta each match 70 copied files, preserving their two generated bridges unchanged. Current package and recoverable pre-update installs: `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-70e2d4f`. Earlier candidates remain available.
+- Live: pending. No in-game appearance, protected-action or lifecycle pass is inferred from these mocks. The [combined checklist](../docs/REFACTOR-SMOKE-TEST.md) includes guide-region inspection without resetting setup.
+
+# Translated text layout candidate, source checkpoint 9db21e3
+
+- Source: `codex/addon-ui-overhaul`, draft PR #35. Theme choices use bounded columns and measured row heights; wrapped Help headings reserve body space. Shared text measurement prefers client metrics and falls back conservatively when unavailable. No setting actions, storage, native frame ownership, Companion binary or release metadata changed.
+- Automated: all 48 Lua suites passed. Presentation tests cover measured title/description expansion, row boundaries, repeat layout and fallback geometry using all eleven locale dictionaries. All six manifests passed paths, XML, load order and Lua 5.1 syntax validation. Companion preference and release-metadata checks passed; the frozen executable remains unchanged.
+- Package: all 72 unpacked files matched source SHA-256 and the unpacked addon passed validation. Audit ZIP SHA-256: `53ADF94AC9ACCE3E16FB727E36A60797E89C35D026D3D3DDA5971DAE49D24E0B`. Existing Beta 22 metadata is retained only for local audit.
+- Deployment: Retail and Forever Beta each match 70 copied package files, with both generated bridges unchanged. Current package and recoverable pre-update installs are under `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-9db21e3`. Earlier candidates remain available.
+- Live: pending. Locale arithmetic tests are not visual rendering evidence. The [combined checklist](../docs/REFACTOR-SMOKE-TEST.md) now includes Themes and Help text boundaries.
+
+# Profile and choice usability candidate, source checkpoint 025b6dc
+
+- Source: `codex/addon-ui-overhaul`, draft PR #35. Shared profile-row styling, separate name/active labels, full-name tooltips, Enter/Escape name entry, automatic reveal of new profiles, stale-selection cleanup and scroll clamping. Radio labels are clickable; disabled radio/checkbox label clicks cannot bypass the parent state. Existing profile storage and destructive-action confirmations are unchanged.
+- Automated: all 48 Lua suites passed, including expanded profile and choice-label regressions. Six manifests passed paths, load order, XML and Lua 5.1 syntax validation. The profile-only controls are block-scoped to respect Lua 5.1's local-variable limit. Companion preference and release-metadata checks passed; the frozen executable SHA-256 is unchanged.
+- Package: all 72 unpacked files matched source SHA-256 and the unpacked addon passed validation. Audit ZIP SHA-256: `134D114D0987789EB473F7E55E300E1A67BF7740CDA6E24E7DF902F033A3221F`. Retained Beta 22 metadata is not a new release.
+- Deployment: Retail and Forever Beta each match 70 copied files. Two generated bridge files per install remain unchanged. Current package and pre-update backups: `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-025b6dc`. Earlier candidates remain recoverable.
+- Live: pending, with no new game session or assumed pass. The [combined checklist](../docs/REFACTOR-SMOKE-TEST.md) includes label clicks and an optional disposable-profile check.
+
+# UI interaction hardening candidate, source checkpoint ad036fe
+
+- Source: `codex/addon-ui-overhaul`, draft PR #35 stacked on structural PR #34. Adds interrupted-drag cleanup, final Wizard scale-release commit, semantic button/focus colors, a legacy selection-marker fallback, and event-driven visible-dialog fitting.
+- Automated: all 48 Lua suites passed with expanded lifecycle and presentation coverage. Six manifests passed paths, XML, load order and Lua 5.1 syntax validation. Companion preference and release-metadata checks passed; the frozen executable SHA-256 is unchanged.
+- Package: all 72 unpacked files match source SHA-256 and the unpacked addon passed validation. Current audit ZIP SHA-256: `E8769D8786C99FB977F376D88A00B9C2BFFCC2221E1BD8969E85B090A49F3D4D`. Retained Beta 22 metadata is for local audit only, not a release.
+- Deployment: Retail and Forever Beta each match 70 copied files; their two generated bridge files are unchanged. Current package, verification copy and pre-update installs: `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-ad036fe`. Earlier structural-only and initial visual backups were retained.
+- Live: still pending. No visual, lifecycle, taint, or combat result was inferred from mocks or the user's instruction to continue. Use the updated [combined checklist](../docs/REFACTOR-SMOKE-TEST.md).
+
+# Initial visual overhaul candidate, source checkpoint e480af9
+
+- Source: `codex/addon-ui-overhaul`, based on the completed structural branch at `b7508d5`. Visual implementation is a separate commit; structural PR #34 is unchanged.
+- Automated: all 48 Lua suites passed. Six manifests passed paths, load order, XML, and Lua 5.1 syntax validation. Companion preference and release-metadata checks passed; the frozen executable is unchanged.
+- Package: all 72 unpacked files matched source SHA-256 and the unpacked addon passed validation. Audit ZIP SHA-256: `9921173BF779715E07B26B1167ACBA9340A1FE831AF2E2EF81A080899C7D27F6`. Retained Beta 22 metadata does not make this a release.
+- Deployment: Retail and Forever Beta each match 70 copied package files. Two generated bridge files per install were preserved unchanged. Pre-update installs and the package are recoverable under `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-e480af9`.
+- Live: pending. No new game session, visual pass, protected-action pass, or persistence pass was performed. The user is away from the home computer.
+- Handoff: [combined test checklist](../docs/REFACTOR-SMOKE-TEST.md) and [visual scope/evidence](../docs/UI-OVERHAUL-2026-10-23.md). Existing structural observations below remain historical.
+
 # Final structural candidate, source checkpoint 8335480
 
 - Source implementation: complete through increment 33 of the planned structural pass. PR #34 remains a draft into `addon/develop`.

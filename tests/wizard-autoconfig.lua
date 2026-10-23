@@ -48,6 +48,8 @@ function CreateFrame(kind, name, parent, template)
     function f:GetParent() return self.parent end
     function f:SetScrollChild(c) self.scrollChild = c end
     function f:SetVerticalScroll(v) self.verticalScroll = v end
+    function f:GetVerticalScroll() return self.verticalScroll or 0 end
+    function f:EnableMouseWheel(enabled) self.mouseWheel = enabled end
     function f:SetPoint(point, rel, relPoint, x, y)
         self.points[point] = { point = point, rel = rel, relPoint = relPoint, x = x, y = y }
         self.firstPoint = self.points[point]
@@ -112,7 +114,8 @@ function CreateFrame(kind, name, parent, template)
             points = {},
             SetText = function(s, t) s.text = t end,
             SetWidth = function() end,
-            SetHeight = function() end,
+            SetHeight = function(s, height) s.height = height end,
+            GetHeight = function(s) return s.height or 0 end,
             SetWordWrap = function() end,
             SetTextColor = function() end,
             GetText = function(s) return s.text end,
@@ -693,6 +696,47 @@ assert(wizardFrame.welcomeText:GetText() == addon.L["STEP_5_HELP"]
     "wizard step 5 must separate its purpose from its detailed action and recovery guidance")
 assert(wizardFrame.skipLayoutBtn:IsShown() and not wizardFrame.advBtn:IsShown(),
     "the final HUD step must replace All Settings with an explicit finish-without-layout path")
+do
+    local function CheckWizardBounds()
+        local card = wizardFrame.pages[wizardFrame.step]
+        local top = -select(5, card:GetPoint(1))
+        local validationTop = wizardFrame:GetHeight() - wizardFrame.validationStatus.points.BOTTOMLEFT.y
+            - wizardFrame.validationStatus:GetHeight()
+        assert(top + card:GetHeight() + 12 <= validationTop,
+            "wizard card must clear the validation region on step " .. wizardFrame.step)
+        local progressTop = -wizardFrame.progressText.points.TOPLEFT.y
+        assert(progressTop >= 54 + addon.UIControls.MeasureWrappedText(
+                wizardFrame.welcomeText, wizardFrame.welcomeText:GetText(), 632) + 12,
+            "wizard progress must follow its wrapped introduction")
+        assert(top >= progressTop + addon.UIControls.MeasureWrappedText(
+                wizardFrame.progressText, wizardFrame.progressText:GetText(), 632) + 12,
+            "wizard card must follow its progress text")
+        assert(wizardFrame.validationStatus.points.BOTTOMLEFT.y
+                >= 14 + wizardFrame.finishBtn:GetHeight() + 12,
+            "wizard validation must stay above the complete footer")
+    end
+    for step = 1, wizardFrame.totalSteps do wizardFrame:SetStep(step); CheckWizardBounds() end
+    local originalHelp = wizardFrame.mainhandLayoutHelp:GetText()
+    local originalStatus = wizardFrame.mainhandLayoutStatus:GetText()
+    local originalFinish = wizardFrame.finishBtn:GetText()
+    local originalHeight = wizardFrame:GetHeight()
+    wizardFrame.mainhandLayoutHelp:SetText(string.rep("Expanded readiness guidance ", 120))
+    wizardFrame.mainhandLayoutStatus:SetText(string.rep("Long layout status ", 20))
+    wizardFrame.finishBtn:SetText(string.rep("Translated finish action ", 5))
+    wizardFrame:LayoutStep()
+    CheckWizardBounds()
+    assert(wizardFrame:GetHeight() > originalHeight,
+        "the final readiness card must expand instead of clipping its detailed guidance")
+    local bodyBottom = -wizardFrame.mainhandLayoutHelp.points.TOPLEFT.y
+        + wizardFrame.mainhandLayoutHelp:GetHeight()
+    assert(bodyBottom + 14 <= -wizardFrame.mainhandLayoutStatus.points.TOPLEFT.y,
+        "final layout status must stay below the full guidance text")
+    wizardFrame.mainhandLayoutHelp:SetText(originalHelp)
+    wizardFrame.mainhandLayoutStatus:SetText(originalStatus)
+    wizardFrame.finishBtn:SetText(originalFinish)
+    wizardFrame:LayoutStep()
+    assert(wizardFrame:GetHeight() == originalHeight, "wizard relayout must not accumulate height")
+end
 wizardFrame:SetStep(1)
 assert(not wizardFrame.skipLayoutBtn:IsShown() and wizardFrame.advBtn:IsShown(),
     "the HUD skip action must remain isolated to the final wizard step")
@@ -950,6 +994,30 @@ addon.Onboarding:Open()
 local onboardingFrame = OffhandFirstLaunchFrame
 assert(onboardingFrame and onboardingFrame:IsShown() and onboardingFrame.page == 1,
     "first-time onboarding must open at its introduction")
+do
+    local function CheckGuideBounds()
+        local bodyBottom = -onboardingFrame.pageBody.points.TOPLEFT.y + onboardingFrame.pageBody:GetHeight()
+        local statusTop = onboardingFrame:GetHeight() - onboardingFrame.statusText.points.BOTTOMLEFT.y
+            - onboardingFrame.statusText:GetHeight()
+        local contentBottom = statusTop
+        if onboardingFrame.actionButton:IsShown() then
+            contentBottom = onboardingFrame:GetHeight() - onboardingFrame.actionButton.points.BOTTOM.y
+                - onboardingFrame.actionButton:GetHeight()
+            assert(onboardingFrame:GetHeight() - onboardingFrame.actionButton.points.BOTTOM.y + 12 <= statusTop,
+                "setup status must not overlap the action row")
+        end
+        assert(bodyBottom + 16 <= contentBottom, "setup body must not overlap actions or status")
+    end
+    for page = 1, 6 do onboardingFrame:SetPage(page); CheckGuideBounds() end
+    onboardingFrame:SetPage(2)
+    onboardingFrame:SetStatusText(string.rep("Expanded setup status ", 60))
+    CheckGuideBounds()
+    assert(onboardingFrame:GetHeight() > 430, "long setup status must expand rather than overlap the content")
+    onboardingFrame:SetPage(5)
+    assert(onboardingFrame.actionButton.points.BOTTOM.x == 0,
+        "a single action must be recentered after the three-method page")
+    onboardingFrame:SetPage(1)
+end
 local originalStaticPopupShow = StaticPopup_Show
 local downloadDialog = { SetFrameStrata = function(self, strata) self.strata = strata end }
 StaticPopup_Show = function(key)
@@ -1180,6 +1248,30 @@ for tabIndex = 1, 5 do
     assert(#cards > 0, "Each tab must contain cards")
 end
 assert(optPanel.autoWizardBtn ~= nil, "Options dashboard must have autoWizardBtn in top banner")
+assert(#optPanel.tabButtons == 5 and optPanel.tabButtons[1].selected,
+    "settings must expose all five pages with a persistent selected navigation state")
+optPanel.scrollFrame:SetHeight(400) -- anchored viewport height in the real client
+optPanel.scrollFrame.scripts.OnMouseWheel(optPanel.scrollFrame, -10)
+assert(optPanel.scrollFrame:GetVerticalScroll() == 400)
+optPanel.tabButtons[2].scripts.OnClick()
+assert(optPanel.scrollFrame:GetVerticalScroll() == 0 and optPanel.tabButtons[2].selected
+        and not optPanel.tabButtons[1].selected,
+    "a newly visited settings page must begin at its top")
+optPanel.tabButtons[1].scripts.OnClick()
+assert(optPanel.scrollFrame:GetVerticalScroll() == 400,
+    "returning to a page must restore that page's session scroll position")
+local lastSection = optPanel.sectionButtons[9]
+assert(lastSection and lastSection:IsShown(), "Display must expose all nine section shortcuts")
+assert(-lastSection.points.TOPLEFT.y + lastSection:GetHeight() < optPanel:GetHeight() - 52,
+    "section shortcuts must not overlap the fixed footer")
+lastSection.scripts.OnClick()
+assert(optPanel.scrollFrame:GetVerticalScroll() > 400,
+    "section shortcuts must jump to their actual stacked card offset")
+optPanel.tabButtons[4].scripts.OnClick()
+assert(not lastSection:IsShown() and optPanel.sectionButtons[1]:IsShown(),
+    "shorter pages must hide stale section shortcuts")
+optPanel.tabButtons[1].scripts.OnClick()
+addon.UIControls.SetScrollOffset(optPanel.scrollFrame, 0)
 assert(optPanel.companionAppBtn ~= nil, "Options dashboard must expose its Companion App button")
 
 -- An active Companion plan owns exact monitor geometry. The settings header
@@ -1202,15 +1294,26 @@ assert(optPanel.banner:GetText():find("Companion active: Game 2560x1440 | Worksp
     "Exact Companion status must use a concise game/workspace summary")
 assert(optPanel.companionAppBtn:IsShown(),
     "Window Setup must remain available when Companion is actively supplying geometry")
-assert(optPanel.banner.points["TOPRIGHT"].rel == optPanel.companionAppBtn,
-    "Exact Companion status must leave room for the neutral Window Setup action")
+local lockedSeamSlider
+for _, frame in ipairs(frames) do
+    if frame.title and frame.title.GetText and frame.title:GetText() == addon.L.SLIDER_SEAM_WIDTH
+        and frame.btnPlus then lockedSeamSlider = frame; break end
+end
+assert(lockedSeamSlider and not lockedSeamSlider.enabled and not lockedSeamSlider.btnPlus.enabled
+        and not lockedSeamSlider.editBox.enabled,
+    "exact topology must lock the complete settings seam control, not just its rail")
+assert(optPanel.banner.points["TOPRIGHT"].rel == -24
+        and optPanel.banner.points["TOPLEFT"].rel == 218,
+    "Exact Companion status must have a dedicated full-width row above setup actions")
 
 addon.Viewport.GetMetrics = panelGetMetrics
 addon.Options:RefreshPanel()
+assert(lockedSeamSlider.enabled and lockedSeamSlider.btnPlus.enabled and lockedSeamSlider.editBox.enabled,
+    "returning to manual geometry must re-enable the complete seam control")
 assert(optPanel.companionAppBtn:IsShown(),
     "Window Setup must remain available when exact Companion geometry is absent")
-assert(optPanel.banner.points["TOPRIGHT"].rel == optPanel.companionAppBtn,
-    "Manual display status must end before the Companion download button")
+assert(optPanel.banner.points["TOPRIGHT"].rel == -24,
+    "Manual display status must retain the dedicated status row")
 
 -- Test Window Overlap Prevention:
 -- When Options is shown and Auto-Setup Wizard is clicked, Options must hide and Wizard must open
@@ -1314,4 +1417,57 @@ previewTimeout()
 assert(addon.Options:IsSeamGuideShown(), "Old auto-setup timeout must not hide a manually enabled guide")
 addon.Options:HideSeamGuide()
 C_Timer.After = oldAfter
+
+-- Profile presentation must retain selection, keyboard and scroll contracts
+-- without changing the profile storage/mutation implementation.
+do
+    local controls = assert(optPanel.profileControls)
+    local originalGet, originalCreate = addon.GetProfiles, addon.CreateProfile
+    local originalCharacterDB = OffhandCharDB
+    OffhandCharDB = OffhandCharDB or {}
+    local originalActive = OffhandCharDB.activeProfile
+    local profileNames = { "Default" }
+    for i = 1, 20 do profileNames[#profileNames + 1] = string.format("Profile %02d", i) end
+    addon.GetProfiles = function() return profileNames end
+    OffhandCharDB.activeProfile = "Default"
+    addon.Options:UpdateProfileList()
+    assert(#controls.rows == 21 and controls.rows[1].activeText:GetText() == addon.L.PROFILE_ACTIVE)
+    assert(controls.rows[1].text:GetText() == "Default",
+        "profile names and active-state labels must use separate text regions")
+    controls.rows[2].scripts.OnClick(controls.rows[2])
+    assert(controls.rows[2].selected and controls.load.enabled and controls.copy.enabled
+        and controls.delete.enabled, "selecting an inactive profile must enable its existing actions")
+    addon.UIControls.SetScrollOffset(controls.scroll, 10000)
+    profileNames = { "Default" }
+    addon.Options:UpdateProfileList()
+    assert(not controls.load.enabled and not controls.copy.enabled and not controls.delete.enabled,
+        "removing a selected profile must clear its stale action state")
+    assert(controls.scroll:GetVerticalScroll() == 0 and not controls.rows[2]:IsShown(),
+        "shrinking the list must clamp scrolling and hide obsolete rows")
+    local creations = 0
+    addon.CreateProfile = function(_, name)
+        creations = creations + 1
+        profileNames[#profileNames + 1] = name
+        OffhandCharDB.activeProfile = name
+        return true
+    end
+    controls.input:SetText("   ")
+    controls.input.scripts.OnEnterPressed(controls.input)
+    assert(creations == 0, "Enter on an empty profile name must do nothing")
+    controls.input:SetText("Keyboard profile")
+    controls.input.scripts.OnEscapePressed(controls.input)
+    assert(creations == 0 and controls.input:GetText() == "Keyboard profile",
+        "Escape must only leave the profile field, not create or discard a name")
+    for i = 1, 20 do profileNames[#profileNames + 1] = string.format("Profile %02d", i) end
+    controls.input:SetText("  Keyboard profile  ")
+    controls.input.scripts.OnEnterPressed(controls.input)
+    assert(creations == 1 and profileNames[#profileNames] == "Keyboard profile"
+        and controls.input:GetText() == "", "Enter must use the same trimmed creation path as the button")
+    assert(controls.rows[#profileNames].selected and controls.scroll:GetVerticalScroll() > 0,
+        "newly created profiles must be selected and revealed even in a long list")
+    addon.GetProfiles, addon.CreateProfile = originalGet, originalCreate
+    OffhandCharDB.activeProfile = originalActive
+    OffhandCharDB = originalCharacterDB
+    addon.Options:UpdateProfileList()
+end
 

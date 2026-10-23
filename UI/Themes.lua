@@ -229,6 +229,13 @@ function Themes:ApplyBackdrop(frame, themeKey, customAlpha)
         return
     end
 
+    local windowName = frame.GetName and frame:GetName()
+    if Offhand.UIControls and (windowName == "OffhandFloatingConfigFrame"
+        or windowName == "OffhandSetupWizardFrame" or windowName == "OffhandFirstLaunchFrame") then
+        Offhand.UIControls.StyleSurface(frame, "window")
+        return
+    end
+
     local currentThemeKey = themeKey or (Offhand.db and Offhand.db.theme) or "CLASSIC"
     local theme = self:GetThemeInfo(currentThemeKey)
     local isClassic = (currentThemeKey == "CLASSIC")
@@ -366,6 +373,7 @@ function Themes:UpdateHeader(header, titleText)
         if titleText then header.title:SetText(titleText) end
         header.title:SetTextColor(textCol[1], textCol[2], textCol[3], textCol[4] or 1.0)
     end
+    if Offhand.UIControls then Offhand.UIControls.StyleSurface(header, "header") end
 end
 
 function Offhand:UpdateTheme()

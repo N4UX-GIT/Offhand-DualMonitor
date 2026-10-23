@@ -1,5 +1,6 @@
 -- Settings actions shared with onboarding and the setup wizard.
 local _, Offhand = ...
+local CreateFrame = assert(Offhand.UIControls, "Offhand UI controls must load before settings actions").CreateFrame
 local Actions = {}
 Offhand.OptionsActions = Actions
 

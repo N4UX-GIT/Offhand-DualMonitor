@@ -1,6 +1,9 @@
 local _, Offhand = ...
 if GetLocale() ~= "ruRU" then return end
 local L = Offhand.L
+L["BTN_APPLY_SHORT"] = "Применить"
+L["TAB_HELP"] = "Помощь и восстановление"
+L["UI_SECTIONS"] = "На этой странице"
 L["CARD_GROUP_LOOT"] = "Group loot rolls"
 L["GROUP_LOOT_MOVE_DESC"] = "Choose where the first Need/Greed roll appears in Mainhand. Additional rolls stack in the selected direction."
 L["GROUP_LOOT_MOVE"] = "Move position"

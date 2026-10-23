@@ -8,6 +8,259 @@ local _, Offhand = ...
 local Controls = {}
 Offhand.UIControls = Controls
 
+-- Only addon-owned settings controls opt into this presentation layer. Never
+-- skin Blizzard windows or modify the global CreateFrame function.
+local styledFrames = setmetatable({}, { __mode = "k" })
+local fittedDialogs = setmetatable({}, { __mode = "k" })
+local layoutFitInstalled = false
+local FLAT_BACKDROP = {
+    bgFile = "Interface\\Buttons\\WHITE8X8",
+    edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1,
+    insets = { left = 1, right = 1, top = 1, bottom = 1 },
+}
+
+function Controls.GetAccent()
+    local db = Offhand.db or {}
+    local palettes = Offhand.Themes and Offhand.Themes:GetColorPalettes() or {}
+    local color = db.trimColor == "CUSTOM" and db.customTrimColor or palettes[db.trimColor or "GOLD"]
+    return (color and color.r) or 1, (color and color.g) or 0.82, (color and color.b) or 0.12
+end
+
+function Controls.StyleSurface(frame, kind)
+    if not frame or not frame.SetBackdrop or not frame.SetBackdropColor
+        or not frame.SetBackdropBorderColor then return end
+    kind = kind or "card"
+    styledFrames[frame] = kind
+    frame:SetBackdrop(FLAT_BACKDROP)
+    local black = Offhand.db and Offhand.db.theme == "PITCH_BLACK"
+    local shade = black and 0 or (kind == "window" and 0.035 or 0.065)
+    if kind == "input" then shade = black and 0 or 0.025 end
+    local enabled = not frame.IsEnabled or frame:IsEnabled()
+    local selected = frame.selected or frame.uiPrimary
+    local active = selected or frame.uiHover or frame.uiFocus
+    local r, g, b = Controls.GetAccent()
+    if kind == "button" then
+        shade = enabled and (frame.uiPressed and 0.055 or (active and 0.14 or 0.09)) or 0.045
+    end
+    frame:SetBackdropColor(shade, shade, black and shade or shade + 0.014, 1)
+    if active and enabled then
+        frame:SetBackdropBorderColor(r * 0.85, g * 0.85, b * 0.85, 1)
+    else
+        frame:SetBackdropBorderColor(0.20, 0.22, 0.26, 1)
+    end
+    if kind == "button" then
+        local text = frame.GetFontString and frame:GetFontString()
+        if text and text.SetTextColor then
+            if not enabled then text:SetTextColor(0.45, 0.48, 0.53)
+            elseif frame.uiTextColor then text:SetTextColor(unpack(frame.uiTextColor))
+            else text:SetTextColor(0.93, 0.94, 0.96) end
+        end
+        if frame.selectionMark then
+            if frame.selected then frame.selectionMark:Show() else frame.selectionMark:Hide() end
+        end
+    end
+    if (kind == "card" or kind == "header") and frame.title and frame.title.SetTextColor then
+        frame.title:SetTextColor(r, g, b, 1)
+    end
+end
+
+function Controls.SetButtonTextColor(button, r, g, b, a)
+    if not button then return end
+    button.uiTextColor = { r, g, b, a or 1 }
+    Controls.StyleSurface(button, "button")
+end
+
+function Controls.SetInputFocused(input, focused)
+    input.uiFocus = focused and true or nil
+    Controls.StyleSurface(input, "input")
+end
+
+function Controls.RefreshStyles()
+    for frame, kind in pairs(styledFrames) do Controls.StyleSurface(frame, kind) end
+end
+
+-- Use native Button state/font handling with addon-owned flat artwork. Small
+-- steppers retain their explicit size; labels wrap inside the available bounds.
+function Controls.CreateFrame(kind, name, parent, template, ...)
+    local button = kind == "Button" and template == "UIPanelButtonTemplate"
+    local input = kind == "EditBox" and template == "InputBoxTemplate"
+    if button or input then template = not Offhand.isLegacyWrath and "BackdropTemplate" or nil end
+    local frame = _G.CreateFrame(kind, name, parent, template, ...)
+    if button then
+        if frame.SetFontString then
+            local text = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            text:SetPoint("TOPLEFT", frame, "TOPLEFT", 5, -2)
+            text:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -5, 2)
+            text:SetJustifyH("CENTER")
+            text:SetWordWrap(true)
+            frame:SetFontString(text)
+            frame:SetNormalFontObject("GameFontHighlightSmall")
+            frame:SetHighlightFontObject("GameFontHighlightSmall")
+            frame:SetDisabledFontObject("GameFontDisableSmall")
+            if frame.SetPushedTextOffset then frame:SetPushedTextOffset(0, -1) end
+        end
+        local mark = frame.CreateTexture and frame:CreateTexture(nil, "OVERLAY")
+        if mark and mark.SetTexture and mark.Show and mark.Hide then
+            mark:SetTexture("Interface\\Buttons\\WHITE8X8")
+            if mark.SetVertexColor then mark:SetVertexColor(0.93, 0.94, 0.96, 1) end
+            mark:SetSize(2, 12)
+            mark:SetPoint("LEFT", frame, "LEFT", 2, 0)
+            frame.selectionMark = mark
+        end
+        Controls.StyleSurface(frame, "button")
+        if frame.HookScript then
+            frame:HookScript("OnEnter", function(self) self.uiHover = true; Controls.StyleSurface(self, "button") end)
+            frame:HookScript("OnLeave", function(self) self.uiHover = nil; self.uiPressed = nil; Controls.StyleSurface(self, "button") end)
+            frame:HookScript("OnEnable", function(self) Controls.StyleSurface(self, "button") end)
+            frame:HookScript("OnDisable", function(self) Controls.StyleSurface(self, "button") end)
+            frame:HookScript("OnMouseDown", function(self) self.uiPressed = true; Controls.StyleSurface(self, "button") end)
+            frame:HookScript("OnMouseUp", function(self) self.uiPressed = nil; Controls.StyleSurface(self, "button") end)
+            frame:HookScript("OnHide", function(self) self.uiHover = nil; self.uiPressed = nil; Controls.StyleSurface(self, "button") end)
+        end
+    elseif input then
+        frame:SetAutoFocus(false)
+        if frame.SetFontObject then frame:SetFontObject("GameFontHighlightSmall") end
+        if frame.SetTextInsets then frame:SetTextInsets(8, 8, 0, 0) end
+        Controls.StyleSurface(frame, "input")
+        if frame.HookScript then
+            frame:HookScript("OnEditFocusGained", function(self) Controls.SetInputFocused(self, true) end)
+            frame:HookScript("OnEditFocusLost", function(self) Controls.SetInputFocused(self, false) end)
+        end
+    end
+    return frame
+end
+
+local CreateFrame = Controls.CreateFrame
+
+function Controls.StyleSlider(slider)
+    Controls.StyleSurface(slider, "input")
+    local thumb = slider.thumb or (slider.GetThumbTexture and slider:GetThumbTexture())
+    if thumb then
+        if thumb.SetTexture then thumb:SetTexture("Interface\\Buttons\\WHITE8X8") end
+        if thumb.SetSize then thumb:SetSize(10, 20) end
+        if thumb.SetVertexColor then thumb:SetVertexColor(Controls.GetAccent()) end
+    end
+    if slider.editBox then Controls.StyleSurface(slider.editBox, "input") end
+end
+
+-- Fit a logical canvas rather than compressing individual columns. Metrics are
+-- UIParent units, so compensate for our local scale when centering in callers.
+function Controls.FitDialog(frame, metrics)
+    if not frame or not frame.SetScale then return 1 end
+    local width = metrics and metrics.gameWidth or (UIParent.GetWidth and UIParent:GetWidth())
+    local height = metrics and metrics.gameHeight or (UIParent.GetHeight and UIParent:GetHeight())
+    width, height = tonumber(width) or 1920, tonumber(height) or 1080
+    if width <= 0 or height <= 0 then return 1 end
+    local scale = math.min(1, math.max(1, width - 32) / frame:GetWidth(),
+        math.max(1, height - 32) / frame:GetHeight())
+    local previous = frame.GetScale and frame:GetScale() or 1
+    if math.abs(previous - scale) > 0.0001 then
+        local cx, cy
+        if frame.GetCenter then cx, cy = frame:GetCenter() end
+        frame:SetScale(scale)
+        -- GetCenter is in frame-local units. Keep its UIParent-space center
+        -- stable when changing only this dialog's local scale.
+        if cx and cy then
+            frame:ClearAllPoints()
+            frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * previous / scale, cy * previous / scale)
+        end
+    end
+    return scale
+end
+
+function Controls.RefreshDialogFits()
+    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+    for frame in pairs(fittedDialogs) do
+        if frame:IsShown() then Controls.FitDialog(frame, metrics) end
+    end
+end
+
+function Controls.RegisterDialog(frame)
+    fittedDialogs[frame] = true
+    -- The hook belongs to the addon, not UIParent or a Blizzard frame. It is
+    -- installed once and only revisits our three dialogs after layout changes.
+    if not layoutFitInstalled and hooksecurefunc and type(Offhand.ApplyFullLayout) == "function" then
+        hooksecurefunc(Offhand, "ApplyFullLayout", Controls.RefreshDialogFits)
+        layoutFitInstalled = true
+    end
+end
+
+function Controls.EndSliderInteraction(slider)
+    local active = slider._isCustomDrag or slider.isDragging or slider._pendingApply
+    slider._isCustomDrag = false
+    slider.isDragging = false
+    slider._pendingApply = false
+    slider._dragStartX = nil
+    slider._dragStartVal = nil
+    slider:SetScript("OnUpdate", nil)
+    return active and true or false
+end
+
+function Controls.IsSliderEnabled(slider)
+    if slider.uiEnabled == false then return false end
+    if slider.IsEnabled then
+        local enabled = slider:IsEnabled()
+        return enabled and enabled ~= 0
+    end
+    return true
+end
+
+function Controls.SetSliderEnabled(slider, enabled)
+    enabled = enabled and true or false
+    slider.uiEnabled = enabled
+    -- Cancel first: clearing a focused field may emit OnEditFocusLost. Its
+    -- commit handler must see the locked state and reject the pending edit.
+    if not enabled then Controls.EndSliderInteraction(slider) end
+    for _, widget in pairs({ rail = slider, minus = slider.btnMinus,
+        plus = slider.btnPlus, input = slider.editBox }) do
+        if widget.SetEnabled then widget:SetEnabled(enabled)
+        elseif enabled and widget.Enable then widget:Enable()
+        elseif not enabled and widget.Disable then widget:Disable() end
+        if widget.EnableMouse then widget:EnableMouse(enabled) end
+    end
+    local input = slider.editBox
+    if input and input.EnableKeyboard then input:EnableKeyboard(enabled) end
+    if not enabled and input and input.ClearFocus then input:ClearFocus() end
+    if slider.SetAlpha then slider:SetAlpha(enabled and 1 or 0.55) end
+end
+
+function Controls.SetScrollOffset(scroll, offset)
+    local child = scroll.GetScrollChild and scroll:GetScrollChild() or scroll.scrollChild
+    local range = child and math.max(0, child:GetHeight() - scroll:GetHeight()) or 0
+    offset = math.max(0, math.min(range, tonumber(offset) or 0))
+    scroll:SetVerticalScroll(offset)
+    local name = scroll.GetName and scroll:GetName()
+    local bar = scroll.ScrollBar or (name and _G[name .. "ScrollBar"])
+    if bar and bar.SetMinMaxValues then bar:SetMinMaxValues(0, range) end
+    if bar and bar.SetValue then bar:SetValue(offset) end
+    return offset
+end
+
+function Controls.EnableWheelScroll(scroll)
+    local name = scroll.GetName and scroll:GetName()
+    local bar = scroll.ScrollBar or (name and _G[name .. "ScrollBar"])
+    if bar and bar.SetThumbTexture and bar.GetThumbTexture then
+        bar:SetThumbTexture("Interface\\Buttons\\WHITE8X8")
+        local thumb = bar:GetThumbTexture()
+        if thumb then thumb:SetVertexColor(0.42, 0.46, 0.53, 1); thumb:SetWidth(8) end
+    end
+    if not scroll.EnableMouseWheel then return end
+    scroll:EnableMouseWheel(true)
+    scroll:SetScript("OnMouseWheel", function(self, delta)
+        Controls.SetScrollOffset(self, (self:GetVerticalScroll() or 0) - delta * 40)
+    end)
+end
+
+function Controls.EnsureScrollVisible(scroll, top, height)
+    local offset = scroll.GetVerticalScroll and scroll:GetVerticalScroll() or 0
+    if top < offset then
+        offset = top
+    elseif top + height > offset + scroll:GetHeight() then
+        offset = top + height - scroll:GetHeight()
+    end
+    return Controls.SetScrollOffset(scroll, offset)
+end
+
 function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal, setVal, formatStr, tooltipTitle, tooltipText)
     local L = Offhand.L or setmetatable({}, { __index = function(_, key) return key end })
     local function BackdropTemplate()
@@ -114,12 +367,18 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
     slider.valueText = valueText
 
     slider.SetValueDirect = function(self, val)
+        if not Controls.IsSliderEnabled(self) then return end
         self._isDirect = true
         self:SetValue(val)
         self._isDirect = nil
     end
 
     local function CommitEditBox()
+        if not Controls.IsSliderEnabled(slider) then
+            editBox:SetText(FormatValue(getVal()))
+            if editBox.ClearFocus then editBox:ClearFocus() end
+            return
+        end
         local txt = editBox:GetText()
         local parsed = Controls.ParseSliderInput(txt, minVal, maxVal, step, formatStr)
         if parsed then
@@ -144,16 +403,12 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
 
     editBox:SetScript("OnEditFocusLost", function(self)
         CommitEditBox()
-        if self.SetBackdropBorderColor then
-            self:SetBackdropBorderColor(0.35, 0.33, 0.28, 0.9)
-        end
+        Controls.SetInputFocused(self, false)
     end)
 
     editBox:SetScript("OnEditFocusGained", function(self)
         if self.HighlightText then self:HighlightText() end
-        if self.SetBackdropBorderColor then
-            self:SetBackdropBorderColor(1.0, 0.82, 0.0, 1.0)
-        end
+        Controls.SetInputFocused(self, true)
     end)
 
     btnMinus:SetScript("OnClick", function()
@@ -190,8 +445,8 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
         self._dragStartVal = self:GetValue()
         self._isCustomDrag = true
         self:SetScript("OnUpdate", function(s)
-            if not s._isCustomDrag then
-                s:SetScript("OnUpdate", nil)
+            if not s._isCustomDrag or not Controls.IsSliderEnabled(s) then
+                Controls.EndSliderInteraction(s)
                 return
             end
             local curX = GetCursorPosition and select(1, GetCursorPosition()) or s._dragStartX
@@ -211,6 +466,7 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
     end
 
     slider:SetScript("OnMouseDown", function(self, button)
+        if not Controls.IsSliderEnabled(self) then return end
         if editBox and editBox.ClearFocus then editBox:ClearFocus() end
         if button == "LeftButton" then
             StartCustomDrag(self)
@@ -218,11 +474,9 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
     end)
 
     slider:SetScript("OnMouseUp", function(self, button)
-        if button == "LeftButton" then
-            self._isCustomDrag = false
-            self._dragStartX = nil
-            self._dragStartVal = nil
-            self:SetScript("OnUpdate", nil)
+        if not Controls.IsSliderEnabled(self) then Controls.EndSliderInteraction(self); return end
+        if button == "LeftButton" and self._isCustomDrag then
+            Controls.EndSliderInteraction(self)
             -- Native slider handling can move the thumb after the last custom
             -- OnUpdate. Commit that final displayed value before applying the
             -- layout so a quick drag does not require a step-button click.
@@ -237,7 +491,16 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
         end
     end)
 
+    slider:SetScript("OnHide", function(self)
+        if Controls.EndSliderInteraction(self) then Offhand:ApplyFullLayout() end
+    end)
+
     slider:SetScript("OnValueChanged", function(self, val, userInput)
+        if self._isRefreshing then return end
+        if not Controls.IsSliderEnabled(self) then
+            editBox:SetText(FormatValue(getVal()))
+            return
+        end
         -- During custom drag, OnUpdate drives value + display; skip here
         if self._isCustomDrag then return end
 
@@ -263,7 +526,16 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
     end)
 
     slider.UpdateText = function(self)
-        local formatted = FormatValue(getVal())
+        local value = getVal()
+        -- Profile refresh is read-only. Keep the thumb and step-button origin
+        -- aligned with the source without invoking its setter or layout work.
+        if self:GetValue() ~= value then
+            Controls.EndSliderInteraction(self)
+            self._isRefreshing = true
+            self:SetValue(value)
+            self._isRefreshing = nil
+        end
+        local formatted = FormatValue(value)
         if editBox and not (editBox.HasFocus and editBox:HasFocus()) then
             editBox:SetText(formatted)
         end
@@ -283,8 +555,23 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
         elseif self.thumb and self.thumb.SetVertexColor then
             self.thumb:SetVertexColor(1.0, 0.82, 0.0, 1.0)
         end
+        Controls.StyleSlider(self)
     end
     slider:UpdateTheme()
+
+    -- Compact right-column fields have no room for a title beside the input.
+    -- Put the input beside the rail and give the title its full column width.
+    slider.LayoutCompact = function(self)
+        btnMinus:ClearAllPoints()
+        btnMinus:SetPoint("LEFT", self, "RIGHT", 8, 0)
+        editBox:ClearAllPoints()
+        editBox:SetPoint("LEFT", btnMinus, "RIGHT", 2, 0)
+        btnPlus:ClearAllPoints()
+        btnPlus:SetPoint("LEFT", editBox, "RIGHT", 2, 0)
+        if title.ClearAllPoints then title:ClearAllPoints() end
+        title:SetPoint("BOTTOMLEFT", self, "TOPLEFT", 0, 5)
+        title:SetPoint("BOTTOMRIGHT", self, "TOPRIGHT", 116, 5)
+    end
 
     if (tooltipTitle or tooltipText) and Offhand.SetTooltip then
         Offhand:SetTooltip(slider, tooltipTitle, tooltipText)
@@ -308,6 +595,7 @@ function Controls.CreateNativeCheckbox(parent, text, getVal, setVal, tooltipTitl
     labelButton:SetPoint("TOPLEFT", label, "TOPLEFT", -4, 5)
     labelButton:SetPoint("BOTTOMRIGHT", label, "BOTTOMRIGHT", 4, -5)
     labelButton:SetScript("OnClick", function()
+        if check.IsEnabled and not check:IsEnabled() then return end
         check:SetChecked(not check:GetChecked())
         setVal(check:GetChecked())
         Offhand:ApplyFullLayout()
@@ -351,6 +639,7 @@ function Controls.SetChoiceSelected(button, selected)
     elseif button.UnlockHighlight then
         button:UnlockHighlight()
     end
+    if styledFrames[button] then Controls.StyleSurface(button, "button") end
     return true
 end
 
@@ -367,6 +656,96 @@ function Controls.StackCards(parent, cards, spacing)
     return height
 end
 
+function Controls.MeasureWrappedText(fontString, text, width, lineHeight)
+    if fontString and fontString.GetStringHeight then
+        local ok, height = pcall(fontString.GetStringHeight, fontString)
+        if ok and type(height) == "number" and height > 0 then return math.ceil(height) end
+    end
+    -- Conservative byte-based fallback for headless tests and clients that do
+    -- not expose font metrics. UTF-8 expansion may add space, never truncate data.
+    local columns = math.max(1, math.floor((tonumber(width) or 630) / 7))
+    local lines = 0
+    local plain = tostring(text or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    for line in (plain .. "\n"):gmatch("(.-)\n") do
+        lines = lines + math.max(1, math.ceil(#line / columns))
+    end
+    return math.max(1, lines) * (lineHeight or 15)
+end
+
+function Controls.GetCardContentTop(card, minimum)
+    local width = math.max(1, card:GetWidth() - 24)
+    card.title:SetWidth(width)
+    if card.title.SetWordWrap then card.title:SetWordWrap(true) end
+    return math.max(minimum or 32,
+        Controls.MeasureWrappedText(card.title, card.sectionLabel, width) + 20)
+end
+
+function Controls.GetGuideLayout(titleHeight, bodyHeight, statusHeight, actionHeight)
+    local bodyTop = 88 + math.max(18, titleHeight or 0) + 12
+    bodyHeight = math.max(15, bodyHeight or 0)
+    statusHeight = math.max(42, statusHeight or 0)
+    actionHeight = (actionHeight or 0) > 0 and math.max(26, actionHeight) or 0
+    local statusBottom = 68
+    local actionBottom = statusBottom + statusHeight + 12
+    local reserved = statusBottom + statusHeight
+        + (actionHeight > 0 and (12 + actionHeight) or 0)
+    return {
+        bodyTop = bodyTop, bodyHeight = bodyHeight,
+        statusBottom = statusBottom, statusHeight = statusHeight,
+        actionBottom = actionBottom, actionHeight = actionHeight,
+        height = math.max(430, bodyTop + bodyHeight + 16 + reserved),
+    }
+end
+
+function Controls.GetWizardLayout(introHeight, progressHeight, cardHeight, validationHeight, footerHeight)
+    local progressTop = 54 + math.max(15, introHeight or 0) + 12
+    local cardTop = progressTop + math.max(15, progressHeight or 0) + 12
+    footerHeight = math.max(28, footerHeight or 0)
+    validationHeight = math.max(1, validationHeight or 0)
+    local validationBottom = 14 + footerHeight + 12
+    return {
+        progressTop = progressTop, cardTop = cardTop,
+        footerHeight = footerHeight, validationHeight = validationHeight,
+        validationBottom = validationBottom,
+        height = math.max(454, cardTop + cardHeight + 12 + validationHeight + validationBottom),
+    }
+end
+
+function Controls.LayoutChoiceDescriptions(parent, choices, columns)
+    columns = math.max(1, math.floor(tonumber(columns) or 2))
+    local padding, gap = 12, 16
+    local cellWidth = (parent:GetWidth() - padding * 2 - gap * (columns - 1)) / columns
+    local textWidth = math.max(1, cellWidth - 24)
+    local top = Controls.GetCardContentTop(parent, 32)
+    for first = 1, #choices, columns do
+        local rowHeight = 0
+        for column = 0, columns - 1 do
+            local item = choices[first + column]
+            if item then
+                local radio, body = item.radio, item.body
+                local label = radio.Text
+                radio:ClearAllPoints()
+                radio:SetPoint("TOPLEFT", parent, "TOPLEFT", padding + column * (cellWidth + gap), -top)
+                if label.ClearAllPoints then label:ClearAllPoints() end
+                label:SetPoint("TOPLEFT", radio, "TOPRIGHT", 6, 0)
+                label:SetWidth(textWidth)
+                if label.SetWordWrap then label:SetWordWrap(true) end
+                local labelHeight = math.max(18,
+                    Controls.MeasureWrappedText(label, radio.labelText, textWidth))
+                if body.ClearAllPoints then body:ClearAllPoints() end
+                body:SetPoint("TOPLEFT", radio, "TOPRIGHT", 6, -(labelHeight + 6))
+                body:SetWidth(textWidth)
+                if body.SetWordWrap then body:SetWordWrap(true) end
+                local bodyHeight = Controls.MeasureWrappedText(body, item.text, textWidth)
+                rowHeight = math.max(rowHeight, labelHeight + 6 + bodyHeight + 14)
+            end
+        end
+        top = top + rowHeight
+    end
+    parent:SetHeight(top + padding)
+    return top + padding
+end
+
 function Controls.CreateNativeRadioButton(parent, text, getVal, setVal, tooltipTitle, tooltipText)
     local radio = CreateFrame("CheckButton", nil, parent, "UIRadioButtonTemplate")
     radio:SetSize(18, 18)
@@ -375,14 +754,23 @@ function Controls.CreateNativeRadioButton(parent, text, getVal, setVal, tooltipT
     label:SetPoint("LEFT", radio, "RIGHT", 6, 1)
     label:SetText(text)
     radio.Text = label
+    radio.labelText = text
 
     radio:SetChecked(getVal())
-    radio:SetScript("OnClick", function()
+    local function Select()
+        if radio.IsEnabled and not radio:IsEnabled() then return end
         setVal()
         Offhand.Options:RefreshPanel()
-    end)
+    end
+    radio:SetScript("OnClick", Select)
+    local labelButton = CreateFrame("Button", nil, radio)
+    labelButton:SetPoint("TOPLEFT", label, "TOPLEFT", -2, 3)
+    labelButton:SetPoint("BOTTOMRIGHT", label, "BOTTOMRIGHT", 2, -3)
+    labelButton:SetScript("OnClick", Select)
+    radio.labelButton = labelButton
     if (tooltipTitle or tooltipText) and Offhand.SetTooltip then
         Offhand:SetTooltip(radio, tooltipTitle, tooltipText)
+        Offhand:SetTooltip(labelButton, tooltipTitle, tooltipText)
     end
     return radio
 end
@@ -390,7 +778,13 @@ end
 function Controls.ParseSliderInput(inputStr, minVal, maxVal, step, formatStr)
     if not inputStr then return nil end
     local hasExplicitPercent = tostring(inputStr):find("%%") ~= nil
-    local cleaned = tostring(inputStr):gsub("%%", ""):gsub("[^%d%.%-]", "")
+    -- Accept decimal commas without silently turning 50,5% into 505%.
+    -- These fields are ungrouped values, so mixed/repeated separators are
+    -- ambiguous input rather than thousands separators to discard.
+    local cleaned = tostring(inputStr):gsub("%%", ""):gsub("[^%d%.,%-]", "")
+    local _, separators = cleaned:gsub("[%.,]", "")
+    if separators > 1 then return nil end
+    cleaned = cleaned:gsub(",", ".")
     local num = tonumber(cleaned)
     if not num then return nil end
     local isPercent = formatStr and formatStr:find("%%%%")
@@ -423,9 +817,13 @@ function Controls.CreateBottomControl(parent)
     local label = row:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     label:SetPoint("TOPLEFT", 0, 0)
     label:SetText(labels["LABEL_BOTTOM_OFFSET_SHORT"])
+    label:SetWidth(280)
+    if label.SetWordWrap then label:SetWordWrap(true) end
+    local labelHeight = Controls.MeasureWrappedText(label, labels["LABEL_BOTTOM_OFFSET_SHORT"], 280)
     local input = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
+    row.editBox = input
     input:SetSize(55, 22)
-    input:SetPoint("TOPLEFT", 4, -20)
+    input:SetPoint("TOPLEFT", 4, -(labelHeight + 6))
     input:SetAutoFocus(false)
     input:SetNumeric(true)
     input:SetMaxLetters(5)
@@ -442,15 +840,23 @@ function Controls.CreateBottomControl(parent)
         Offhand:ApplyFullLayout()
     end
     local previous = input
-    for _, item in ipairs({ { "-1 px", -1 }, { "+1 px", 1 }, { "Apply", 0 } }) do
+    local actionHeight = 22
+    for _, item in ipairs({ { "-1 px", -1 }, { "+1 px", 1 }, { labels["BTN_APPLY_SHORT"], 0 } }) do
         local button = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-        button:SetSize(54, 22)
+        local width = item[2] == 0 and 94 or 54
+        button:SetSize(width, 22)
         button:SetPoint("LEFT", previous, "RIGHT", 6, 0)
         button:SetText(item[1])
+        local height = math.max(22, Controls.MeasureWrappedText(
+            button.GetFontString and button:GetFontString(), item[1], width - 10, 14) + 8)
+        button:SetHeight(height)
+        actionHeight = math.max(actionHeight, height)
         local delta = item[2]
         button:SetScript("OnClick", function() Apply(delta) end)
         previous = button
     end
+    input:SetHeight(actionHeight)
+    row:SetHeight(labelHeight + 6 + actionHeight)
     input:SetScript("OnEnterPressed", function(self) Apply(0); self:ClearFocus() end)
     input:SetScript("OnEscapePressed", function(self) Refresh(); self:ClearFocus() end)
     row.Refresh = Refresh

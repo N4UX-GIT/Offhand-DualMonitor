@@ -1,6 +1,9 @@
 local _, Offhand = ...
 if GetLocale() ~= "koKR" then return end
 local L = Offhand.L
+L["BTN_APPLY_SHORT"] = "적용"
+L["TAB_HELP"] = "도움말 및 복구"
+L["UI_SECTIONS"] = "이 페이지의 항목"
 L["CARD_GROUP_LOOT"] = "Group loot rolls"
 L["GROUP_LOOT_MOVE_DESC"] = "Choose where the first Need/Greed roll appears in Mainhand. Additional rolls stack in the selected direction."
 L["GROUP_LOOT_MOVE"] = "Move position"

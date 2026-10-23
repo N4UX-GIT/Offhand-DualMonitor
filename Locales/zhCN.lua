@@ -1,6 +1,9 @@
 local _, Offhand = ...
 if GetLocale() ~= "zhCN" then return end
 local L = Offhand.L
+L["BTN_APPLY_SHORT"] = "应用"
+L["TAB_HELP"] = "帮助与恢复"
+L["UI_SECTIONS"] = "本页内容"
 L["CARD_GROUP_LOOT"] = "Group loot rolls"
 L["GROUP_LOOT_MOVE_DESC"] = "Choose where the first Need/Greed roll appears in Mainhand. Additional rolls stack in the selected direction."
 L["GROUP_LOOT_MOVE"] = "Move position"

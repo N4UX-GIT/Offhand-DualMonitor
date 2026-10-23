@@ -239,7 +239,7 @@ Run the [final manual smoke checklist](REFACTOR-SMOKE-TEST.md) against the deplo
 
 ### Separate follow-ups
 
-- Visual redesign, library evaluation, navigation changes, and revised control styling remain a separate project after structural acceptance.
+- Visual redesign, library evaluation, navigation changes, and revised control styling were implemented separately in draft PR #35 at the user's request before live acceptance. The [visual candidate](UI-OVERHAUL-2026-10-23.md) and structural candidate now share one combined smoke checklist; neither has been promoted on an assumed live pass.
 - The preserved legacy `CloseAllWindows` path reads `hasCustomBags` after the block containing its local declaration. The scope issue predates this refactor and needs a separate behavioral regression and fix; the extraction deliberately preserves that implementation.
 - No runtime performance improvement is claimed. Existing polling and retry cadences were retained and require profiling before optimization.
 - Bootstrap/command decomposition can be evaluated independently. It does not gate testing this structural candidate.
