@@ -29,7 +29,7 @@ The refactor begins from the released Beta v22 source checkpoint.
 - No SavedVariables schema migration unless it is separately justified, reviewed, and tested.
 - No removal of compatibility paths based only on mocked tests.
 
-## Current pressure points
+## Baseline pressure points
 
 | File | Approximate size | Responsibilities currently combined |
 | --- | ---: | --- |
@@ -194,7 +194,57 @@ The twenty-fifth extraction moves Forever Professions movement attachment, Escap
 
 The twenty-sixth extraction moves guarded title-motion attachment, anchor-reset observation, and weak-key motion status into `Core/CanvasPanelMotion.lua`. Canvas retains generic dragging and supplies its existing restore and drag-completion callbacks. Professions uses the same anchor observer through the returned interface. Native title templates, combat deferral, Flight Map settlement, and public diagnostics retain their behavior.
 
-## Refactor candidate smoke status
+## Final source increments
+
+| Increment | Commit | Boundary |
+| --- | --- | --- |
+| 27 | `a8fdeb5` | Settings setup, seam-guide state, and controller binding capture in `UI/OptionsActions.lua` |
+| 28 | `496955c` | Shared map scale/fit, coordinate refresh, refocusing, and anchor bootstrap in `Core/CanvasMapPresentation.lua` |
+| 29 | `b8f8c98` | Escape closure, explicit bag close intent, and reversible UIPanel registration in `Core/CanvasPanelLifecycle.lua` |
+| 30 | `eddf887` | Placement measurements and Social/Communities anchor repair in `Core/CanvasPanelPlacement.lua` |
+| 31 | `09cd180` | Drag-result saving and position restoration in `Core/CanvasPersistence.lua` |
+| 32 | `12375e3` | Generic drag registration in `Core/CanvasPanelMotion.lua` |
+| 33 | `8335480` | Mainhand placement, single-screen recovery, explicit gathering, and void rescue in `Core/CanvasPanelPlacement.lua` |
+
+The last extraction uses a live getter for the excluded system-panel table because Canvas initializes that table later in its established load sequence. Settings actions likewise receive a getter for the settings frame. Other final extraction bodies match their previous implementations after indentation.
+
+## Architecture reassessment
+
+The planned structural source pass is complete through increment 33. Automated and packaging gates pass. Live acceptance and integration/release promotion remain pending.
+
+| Area | Result and remaining central responsibility |
+| --- | --- |
+| Shared UI | Controls owns sliders, checkboxes, radio buttons, choice styling, and card spacing. OptionsActions owns setup and binding workflows. Options owns screen composition, navigation, profile controls, and refresh policy. |
+| Canvas compatibility and ownership | Compatibility, frame state, load registry, backpack family state, and panel lifecycle have explicit services. Canvas retains shared policy and coordinates registration and restore requests. |
+| Canvas adapters and persistence | Map presentation, Forever bags/map, chat, Professions, panel motion, save/restore transactions, and placement/recovery are isolated. Existing public Canvas methods remain available. |
+| Protected and transient HUD | HUDRecovery owns Edit Mode and protected recovery. HUDTransientFrames owns secure transient positioning, group loot, and Pet Battles. SeamRedirect retains HUD alignment and event/hook coordination. |
+| Mainhand | Geometry/API, capability policy, Gamepad presentation, and Edit Mode generation are separate. Mainhand retains safe gathering and event coordination. |
+| Bootstrap | ClientRuntime owns capability diagnostics. Init retains bootstrap, saved-state initialization, notices, popups, and command/event routing. Further bootstrap extraction is a separate follow-up requiring characterization of those paths. |
+
+Current central-file sizes are Canvas 2,542 lines, Options 2,496, SeamRedirect 1,323, and Mainhand 132. These are ownership boundaries, not size targets. Further splitting of screen composition or event wiring is not required to finish this pass.
+
+### Final evidence
+
+- Runtime source checkpoint: `8335480`, branch `codex/addon-architecture-refactor`, PR #34 into `addon/develop`.
+- All 47 Lua suites passed.
+- All six manifests passed matching load order, paths, XML, and Lua 5.1 syntax checks: 61 runtime files, comprising 60 Lua files and one XML file.
+- Companion preference and release-metadata tests passed. The frozen executable hash remains `81EECE9430885CEAC178A44A42429854524279072305F9F94EE62E7CCD620CCB`.
+- Isolated addon-only packaging succeeded. All 72 files in the unpacked archive matched source by SHA-256 and the unpacked addon passed validation. Audit archive SHA-256: `9B6F6FD03F66857EF69F38AC932F12B17CACE81FCB05B8B59FB0808CA10F7A01`.
+- The package is a local validation artifact with existing Beta 22 metadata, not a new release. Published artifacts and the frozen Companion were not replaced.
+- The user's assumed successful smoke result was used to continue source work. It is not recorded as observed live evidence.
+
+### Remaining acceptance work
+
+Run the [final manual smoke checklist](REFACTOR-SMOKE-TEST.md) against the deployed candidate. Record actual client builds, topology, compatibility addons, and errors before reviewing integration or release promotion. PR #34 remains a draft during this acceptance stage.
+
+### Separate follow-ups
+
+- Visual redesign, library evaluation, navigation changes, and revised control styling remain a separate project after structural acceptance.
+- The preserved legacy `CloseAllWindows` path reads `hasCustomBags` after the block containing its local declaration. The scope issue predates this refactor and needs a separate behavioral regression and fix; the extraction deliberately preserves that implementation.
+- No runtime performance improvement is claimed. Existing polling and retry cadences were retained and require profiling before optimization.
+- Bootstrap/command decomposition can be evaluated independently. It does not gate testing this structural candidate.
+
+## Historical candidate smoke status
 
 Candidate commit `10453d0941213916f1d7b060b64fc3eeb705bcc2` completed the structural boundary pass on 2026-10-23.
 

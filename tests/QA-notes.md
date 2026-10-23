@@ -1,4 +1,12 @@
-# Addon architecture refactor smoke ledger, 2026-10-23
+# Final structural candidate, source checkpoint 8335480
+
+- Source implementation: complete through increment 33 of the planned structural pass. PR #34 remains a draft into `addon/develop`.
+- Automated: all 47 Lua suites passed. All six manifests passed load order, paths, XML, and Lua 5.1 syntax validation with 61 runtime files (60 Lua, one XML). Companion preference and release-metadata checks passed; the frozen executable hash is unchanged.
+- Package: an isolated addon-only build passed. All 72 unpacked package files matched source by SHA-256, and the unpacked addon passed validation. The local audit archive has SHA-256 `9B6F6FD03F66857EF69F38AC932F12B17CACE81FCB05B8B59FB0808CA10F7A01`. Existing Beta 22 metadata was retained; this was not a release.
+- Live: no new observed live result has been recorded for the final candidate. The user will test manually. Their instruction to assume success enabled continued source work only.
+- Instructions: [final smoke checklist](../docs/REFACTOR-SMOKE-TEST.md). The earlier client observations below remain historical evidence for their original checkpoint.
+
+# Historical addon architecture refactor smoke ledger, 2026-10-23
 
 - Candidate: `codex/addon-architecture-refactor` at `10453d0941213916f1d7b060b64fc3eeb705bcc2`, draft PR #34 into `addon/develop`.
 - Static and simulated result: PASS. All 42 Lua suites passed. All six manifests passed path, XML, and Lua 5.1 syntax validation with 43 runtime files. Companion preference and release-metadata tests passed without changing the frozen Companion.
