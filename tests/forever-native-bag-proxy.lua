@@ -194,6 +194,7 @@ assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasForeverMap.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasChat.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasProfessions.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelMotion.lua"))("Offhand", addon)
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 assert(addon.Canvas:EnableForeverNativeBagProxy(),
     "Forever bag proxy controller was not created")

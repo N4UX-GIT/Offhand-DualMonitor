@@ -190,6 +190,10 @@ The twenty-fourth extraction moves transient-frame preload, secure positioning, 
 
 The twenty-fifth extraction moves Forever Professions movement attachment, Escape observation and recovery, deferred retries, diagnostics, disablement, and historical ownership cleanup into `Core/CanvasProfessions.lua`. The installer receives explicit shared Canvas services at the original definition point. Existing public methods, timer delays, generation checks, profile records, and native visibility policy retain their behavior. Existing Professions and panel-motion integration regressions cover the extracted adapter.
 
+## Twenty-sixth increment
+
+The twenty-sixth extraction moves guarded title-motion attachment, anchor-reset observation, and weak-key motion status into `Core/CanvasPanelMotion.lua`. Canvas retains generic dragging and supplies its existing restore and drag-completion callbacks. Professions uses the same anchor observer through the returned interface. Native title templates, combat deferral, Flight Map settlement, and public diagnostics retain their behavior.
+
 ## Refactor candidate smoke status
 
 Candidate commit `10453d0941213916f1d7b060b64fc3eeb705bcc2` completed the structural boundary pass on 2026-10-23.

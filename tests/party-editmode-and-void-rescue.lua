@@ -438,6 +438,7 @@ assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasForeverMap.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasChat.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasProfessions.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelMotion.lua"))("Offhand", addon)
 
 local canvasChunk = loadfile("Core/Canvas.lua")
 assert(canvasChunk, "Core/Canvas.lua must compile cleanly")
