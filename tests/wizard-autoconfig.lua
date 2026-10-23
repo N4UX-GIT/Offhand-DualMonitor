@@ -1342,3 +1342,56 @@ assert(addon.Options:IsSeamGuideShown(), "Old auto-setup timeout must not hide a
 addon.Options:HideSeamGuide()
 C_Timer.After = oldAfter
 
+-- Profile presentation must retain selection, keyboard and scroll contracts
+-- without changing the profile storage/mutation implementation.
+do
+    local controls = assert(optPanel.profileControls)
+    local originalGet, originalCreate = addon.GetProfiles, addon.CreateProfile
+    local originalCharacterDB = OffhandCharDB
+    OffhandCharDB = OffhandCharDB or {}
+    local originalActive = OffhandCharDB.activeProfile
+    local profileNames = { "Default" }
+    for i = 1, 20 do profileNames[#profileNames + 1] = string.format("Profile %02d", i) end
+    addon.GetProfiles = function() return profileNames end
+    OffhandCharDB.activeProfile = "Default"
+    addon.Options:UpdateProfileList()
+    assert(#controls.rows == 21 and controls.rows[1].activeText:GetText() == addon.L.PROFILE_ACTIVE)
+    assert(controls.rows[1].text:GetText() == "Default",
+        "profile names and active-state labels must use separate text regions")
+    controls.rows[2].scripts.OnClick(controls.rows[2])
+    assert(controls.rows[2].selected and controls.load.enabled and controls.copy.enabled
+        and controls.delete.enabled, "selecting an inactive profile must enable its existing actions")
+    addon.UIControls.SetScrollOffset(controls.scroll, 10000)
+    profileNames = { "Default" }
+    addon.Options:UpdateProfileList()
+    assert(not controls.load.enabled and not controls.copy.enabled and not controls.delete.enabled,
+        "removing a selected profile must clear its stale action state")
+    assert(controls.scroll:GetVerticalScroll() == 0 and not controls.rows[2]:IsShown(),
+        "shrinking the list must clamp scrolling and hide obsolete rows")
+    local creations = 0
+    addon.CreateProfile = function(_, name)
+        creations = creations + 1
+        profileNames[#profileNames + 1] = name
+        OffhandCharDB.activeProfile = name
+        return true
+    end
+    controls.input:SetText("   ")
+    controls.input.scripts.OnEnterPressed(controls.input)
+    assert(creations == 0, "Enter on an empty profile name must do nothing")
+    controls.input:SetText("Keyboard profile")
+    controls.input.scripts.OnEscapePressed(controls.input)
+    assert(creations == 0 and controls.input:GetText() == "Keyboard profile",
+        "Escape must only leave the profile field, not create or discard a name")
+    for i = 1, 20 do profileNames[#profileNames + 1] = string.format("Profile %02d", i) end
+    controls.input:SetText("  Keyboard profile  ")
+    controls.input.scripts.OnEnterPressed(controls.input)
+    assert(creations == 1 and profileNames[#profileNames] == "Keyboard profile"
+        and controls.input:GetText() == "", "Enter must use the same trimmed creation path as the button")
+    assert(controls.rows[#profileNames].selected and controls.scroll:GetVerticalScroll() > 0,
+        "newly created profiles must be selected and revealed even in a long list")
+    addon.GetProfiles, addon.CreateProfile = originalGet, originalCreate
+    OffhandCharDB.activeProfile = originalActive
+    OffhandCharDB = originalCharacterDB
+    addon.Options:UpdateProfileList()
+end
+

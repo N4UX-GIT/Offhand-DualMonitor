@@ -1945,180 +1945,203 @@ function Options:CreateFloatingPanel()
         userMediaStretchFit:SetChecked(configuredFit == "STRETCH")
         local available = status == "AVAILABLE"
         for _, control in ipairs(userMediaFitControls) do
-            if control.SetEnabled then control:SetEnabled(available) end
-            if control.SetAlpha then control:SetAlpha(available and 1 or 0.55) end
-            if control.Text and control.Text.SetTextColor then
-                control.Text:SetTextColor(available and 1 or 0.55,
-                    available and 1 or 0.55, available and 1 or 0.55)
-            end
+            SetCheckboxEnabled(control, available)
         end
     end
 
     -- ========================================================================
     -- TAB 4: PROFILES
     -- ========================================================================
-    local card4_1 = CreateCard(tab4, L["PROFILES_LIST_TITLE"], 390)
+    local card4_1
+    do -- Keep profile-only locals below Lua 5.1's per-function local limit.
+        card4_1 = CreateCard(tab4, L["PROFILES_LIST_TITLE"], 390)
     
-    local activeProfileLabel = card4_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightLarge")
-    activeProfileLabel:SetPoint("TOPLEFT", 16, -24)
-    activeProfileLabel:SetText(L["PROFILES_CURRENT_LABEL"] .. " |cff00ff00" .. tostring((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") .. "|r")
-
-    local profileScroll = CreateFrame("ScrollFrame", "OffhandProfileScrollFrame", card4_1, "UIPanelScrollFrameTemplate")
-    profileScroll:SetPoint("TOPLEFT", 16, -56)
-    profileScroll:SetSize(280, 220)
-    Controls.EnableWheelScroll(profileScroll)
-    
-    local profileScrollBG = CreateFrame("Frame", nil, profileScroll, BackdropTemplate())
-    profileScrollBG:SetPoint("TOPLEFT", -4, 4)
-    profileScrollBG:SetPoint("BOTTOMRIGHT", 24, -4)
-    if profileScrollBG.SetFrameLevel then
-        profileScrollBG:SetFrameLevel(profileScroll.GetFrameLevel and (profileScroll:GetFrameLevel() - 1) or 1)
-    end
-    Controls.StyleSurface(profileScrollBG, "input")
-
-    local profileScrollContent = CreateFrame("Frame", nil, profileScroll)
-    profileScrollContent:SetSize(280, 420)
-    if profileScroll.SetScrollChild then profileScroll:SetScrollChild(profileScrollContent) end
-
-    local selectedProfileName = nil
-    local profileButtons = {}
-    
-    local loadBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
-    loadBtn:SetSize(160, 26)
-    loadBtn:SetPoint("TOPLEFT", profileScroll, "TOPRIGHT", 40, 0)
-    loadBtn:SetText(L["PROFILES_BTN_LOAD"])
-    
-    local copyBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
-    copyBtn:SetSize(160, 26)
-    copyBtn:SetPoint("TOPLEFT", loadBtn, "BOTTOMLEFT", 0, -8)
-    copyBtn:SetText(L["PROFILE_COPY_INTO_CURRENT"])
-    
-    local deleteBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
-    deleteBtn:SetSize(160, 26)
-    deleteBtn:SetPoint("TOPLEFT", copyBtn, "BOTTOMLEFT", 0, -8)
-    deleteBtn:SetText(L["PROFILES_BTN_DELETE"])
-    
-    local resetBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
-    resetBtn:SetSize(160, 26)
-    resetBtn:SetPoint("TOPLEFT", deleteBtn, "BOTTOMLEFT", 0, -24)
-    resetBtn:SetText(L["PROFILES_BTN_RESET"])
-    
-    local createEditBox = CreateFrame("EditBox", nil, card4_1, "InputBoxTemplate")
-    createEditBox:SetSize(200, 26)
-    createEditBox:SetPoint("TOPLEFT", profileScroll, "BOTTOMLEFT", 6, -34)
-    createEditBox:SetAutoFocus(false)
-    createEditBox:SetMaxLetters(40)
-    local nameLabel = card4_1:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    nameLabel:SetPoint("TOPLEFT", profileScroll, "BOTTOMLEFT", 0, -14)
-    nameLabel:SetText(L["PROFILE_NEW_NAME"])
-    
-    local createBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
-    createBtn:SetSize(80, 26)
-    createBtn:SetPoint("LEFT", createEditBox, "RIGHT", 4, 0)
-    createBtn:SetText(L["PROFILES_BTN_CREATE"])
-
-    local autoSaveNote = card4_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    autoSaveNote:SetPoint("TOPLEFT", profileScroll, "BOTTOMLEFT", 0, -72)
-    autoSaveNote:SetWidth(620)
-    autoSaveNote:SetJustifyH("LEFT")
-    autoSaveNote:SetText(L["SETTINGS_AUTOSAVE"])
-
-    function Options:UpdateProfileList()
-        local profiles = Offhand.GetProfiles and Offhand:GetProfiles() or {"Default"}
+        local activeProfileLabel = card4_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightLarge")
+        activeProfileLabel:SetPoint("TOPLEFT", 16, -24)
+        activeProfileLabel:SetWidth(630)
+        if activeProfileLabel.SetWordWrap then activeProfileLabel:SetWordWrap(false) end
         activeProfileLabel:SetText(L["PROFILES_CURRENT_LABEL"] .. " |cff00ff00" .. tostring((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") .. "|r")
-        
-        -- Hide old buttons
-        for _, btn in ipairs(profileButtons) do btn:Hide() end
-        
-        local yOffset = -4
-        for i, pName in ipairs(profiles) do
-            local btn = profileButtons[i]
-            if not btn then
-                btn = CreateFrame("Button", nil, profileScrollContent)
-                btn:SetSize(270, 20)
-                local fs = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-                fs:SetPoint("LEFT", btn, "LEFT", 8, 0)
-                fs:SetWidth(250)
-                fs:SetJustifyH("LEFT")
-                btn.text = fs
-                local tex = btn:CreateTexture(nil, "BACKGROUND")
-                tex:SetAllPoints()
-                SetSolidColor(tex, 1, 0.82, 0, 0.3)
-                tex:Hide()
-                btn.highlight = tex
-                
-                btn:SetScript("OnClick", function(self)
-                    selectedProfileName = self.profileName
-                    Options:UpdateProfileList()
-                end)
-                profileButtons[i] = btn
-            end
-            btn.profileName = pName
-            btn:SetPoint("TOPLEFT", profileScrollContent, "TOPLEFT", 4, yOffset)
-            btn.text:SetText(pName .. (pName == ((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") and ("  |cffffd100" .. L["PROFILE_ACTIVE"] .. "|r") or ""))
-            if pName == selectedProfileName then
-                btn.highlight:Show()
-            else
-                btn.highlight:Hide()
-            end
-            btn:Show()
-            yOffset = yOffset - 22
-        end
-        
-        profileScrollContent:SetHeight(math.max(220, #profiles * 22 + 8))
-        loadBtn:SetEnabled(selectedProfileName ~= nil and selectedProfileName ~= (OffhandCharDB and OffhandCharDB.activeProfile))
-        copyBtn:SetEnabled(selectedProfileName ~= nil and selectedProfileName ~= (OffhandCharDB and OffhandCharDB.activeProfile))
-        deleteBtn:SetEnabled(selectedProfileName ~= nil and selectedProfileName ~= (OffhandCharDB and OffhandCharDB.activeProfile) and selectedProfileName ~= "Default")
-    end
 
-    loadBtn:SetScript("OnClick", function()
-        if selectedProfileName and Offhand.SetProfile then
-            Offhand:SetProfile(selectedProfileName)
+        local profileScroll = CreateFrame("ScrollFrame", "OffhandProfileScrollFrame", card4_1, "UIPanelScrollFrameTemplate")
+        profileScroll:SetPoint("TOPLEFT", 16, -56)
+        profileScroll:SetSize(280, 220)
+        Controls.EnableWheelScroll(profileScroll)
+    
+        local profileScrollBG = CreateFrame("Frame", nil, profileScroll, BackdropTemplate())
+        profileScrollBG:SetPoint("TOPLEFT", -4, 4)
+        profileScrollBG:SetPoint("BOTTOMRIGHT", 24, -4)
+        if profileScrollBG.SetFrameLevel then
+            profileScrollBG:SetFrameLevel(profileScroll.GetFrameLevel and (profileScroll:GetFrameLevel() - 1) or 1)
         end
-    end)
-    copyBtn:SetScript("OnClick", function()
-        if selectedProfileName and Offhand.CopyProfile then
-            local source = selectedProfileName
-            local destination = (OffhandCharDB and OffhandCharDB.activeProfile) or "Default"
-            Options:Confirm(string.format(L["PROFILE_COPY_CONFIRM"], destination, source), function()
-                if ((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") == destination then
-                    Offhand:CopyProfile(source)
+        Controls.StyleSurface(profileScrollBG, "input")
+
+        local profileScrollContent = CreateFrame("Frame", nil, profileScroll)
+        profileScrollContent:SetSize(280, 420)
+        if profileScroll.SetScrollChild then profileScroll:SetScrollChild(profileScrollContent) end
+
+        local selectedProfileName = nil
+        local profileButtons = {}
+        local profileRowHeight = 30
+    
+        local loadBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
+        loadBtn:SetSize(160, 26)
+        loadBtn:SetPoint("TOPLEFT", profileScroll, "TOPRIGHT", 40, 0)
+        loadBtn:SetText(L["PROFILES_BTN_LOAD"])
+    
+        local copyBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
+        copyBtn:SetSize(160, 26)
+        copyBtn:SetPoint("TOPLEFT", loadBtn, "BOTTOMLEFT", 0, -8)
+        copyBtn:SetText(L["PROFILE_COPY_INTO_CURRENT"])
+    
+        local deleteBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
+        deleteBtn:SetSize(160, 26)
+        deleteBtn:SetPoint("TOPLEFT", copyBtn, "BOTTOMLEFT", 0, -8)
+        deleteBtn:SetText(L["PROFILES_BTN_DELETE"])
+    
+        local resetBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
+        resetBtn:SetSize(160, 26)
+        resetBtn:SetPoint("TOPLEFT", deleteBtn, "BOTTOMLEFT", 0, -24)
+        resetBtn:SetText(L["PROFILES_BTN_RESET"])
+    
+        local createEditBox = CreateFrame("EditBox", nil, card4_1, "InputBoxTemplate")
+        createEditBox:SetSize(200, 26)
+        createEditBox:SetPoint("TOPLEFT", profileScroll, "BOTTOMLEFT", 6, -34)
+        createEditBox:SetAutoFocus(false)
+        createEditBox:SetMaxLetters(40)
+        local nameLabel = card4_1:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+        nameLabel:SetPoint("TOPLEFT", profileScroll, "BOTTOMLEFT", 0, -14)
+        nameLabel:SetText(L["PROFILE_NEW_NAME"])
+    
+        local createBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
+        createBtn:SetSize(80, 26)
+        createBtn:SetPoint("LEFT", createEditBox, "RIGHT", 4, 0)
+        createBtn:SetText(L["PROFILES_BTN_CREATE"])
+        configFrame.profileControls = {
+            rows = profileButtons, scroll = profileScroll, input = createEditBox,
+            create = createBtn, load = loadBtn, copy = copyBtn, delete = deleteBtn,
+        }
+
+        local autoSaveNote = card4_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        autoSaveNote:SetPoint("TOPLEFT", profileScroll, "BOTTOMLEFT", 0, -72)
+        autoSaveNote:SetWidth(620)
+        autoSaveNote:SetJustifyH("LEFT")
+        autoSaveNote:SetText(L["SETTINGS_AUTOSAVE"])
+
+        function Options:UpdateProfileList()
+            local profiles = Offhand.GetProfiles and Offhand:GetProfiles() or {"Default"}
+            activeProfileLabel:SetText(L["PROFILES_CURRENT_LABEL"] .. " |cff00ff00" .. tostring((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") .. "|r")
+        
+            -- Hide old buttons
+            for _, btn in ipairs(profileButtons) do btn:Hide() end
+            local selectionExists = false
+            for _, name in ipairs(profiles) do
+                if name == selectedProfileName then selectionExists = true; break end
+            end
+            if not selectionExists then selectedProfileName = nil end
+        
+            local yOffset = -4
+            for i, pName in ipairs(profiles) do
+                local btn = profileButtons[i]
+                if not btn then
+                    btn = CreateFrame("Button", nil, profileScrollContent, "UIPanelButtonTemplate")
+                    btn:SetSize(270, 28)
+                    local fs = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+                    fs:SetPoint("LEFT", btn, "LEFT", 8, 0)
+                    fs:SetWidth(154)
+                    fs:SetJustifyH("LEFT")
+                    if fs.SetWordWrap then fs:SetWordWrap(false) end
+                    btn.text = fs
+                    local active = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+                    active:SetPoint("RIGHT", btn, "RIGHT", -8, 0)
+                    active:SetWidth(90)
+                    active:SetJustifyH("RIGHT")
+                    if active.SetWordWrap then active:SetWordWrap(false) end
+                    btn.activeText = active
+                
+                    btn:SetScript("OnClick", function(self)
+                        selectedProfileName = self.profileName
+                        Options:UpdateProfileList()
+                    end)
+                    profileButtons[i] = btn
                 end
-            end)
+                btn.profileName = pName
+                btn:ClearAllPoints()
+                btn:SetPoint("TOPLEFT", profileScrollContent, "TOPLEFT", 4, yOffset)
+                btn.text:SetText(pName)
+                btn.activeText:SetText(pName == ((OffhandCharDB and OffhandCharDB.activeProfile) or "Default")
+                    and L["PROFILE_ACTIVE"] or "")
+                Controls.SetChoiceSelected(btn, pName == selectedProfileName)
+                if Offhand.SetTooltip then Offhand:SetTooltip(btn, pName) end
+                btn:Show()
+                yOffset = yOffset - profileRowHeight
+            end
+        
+            profileScrollContent:SetHeight(math.max(220, #profiles * profileRowHeight + 8))
+            Controls.SetScrollOffset(profileScroll,
+                profileScroll.GetVerticalScroll and profileScroll:GetVerticalScroll() or 0)
+            loadBtn:SetEnabled(selectedProfileName ~= nil and selectedProfileName ~= (OffhandCharDB and OffhandCharDB.activeProfile))
+            copyBtn:SetEnabled(selectedProfileName ~= nil and selectedProfileName ~= (OffhandCharDB and OffhandCharDB.activeProfile))
+            deleteBtn:SetEnabled(selectedProfileName ~= nil and selectedProfileName ~= (OffhandCharDB and OffhandCharDB.activeProfile) and selectedProfileName ~= "Default")
         end
-    end)
-    deleteBtn:SetScript("OnClick", function()
-        if selectedProfileName and Offhand.DeleteProfile then
-            local name = selectedProfileName
-            Options:Confirm(string.format(L["PROFILE_DELETE_CONFIRM"], name), function()
-                Offhand:DeleteProfile(name)
-                selectedProfileName = nil
-                Options:UpdateProfileList()
-            end)
-        end
-    end)
-    resetBtn:SetScript("OnClick", function()
-        local name = (OffhandCharDB and OffhandCharDB.activeProfile) or "Default"
-        Options:Confirm(string.format(L["PROFILE_RESET_CONFIRM"], name), function()
-            if ((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") == name then
-                if Offhand.ResetConfig then Offhand:ResetConfig() end
+
+        loadBtn:SetScript("OnClick", function()
+            if selectedProfileName and Offhand.SetProfile then
+                Offhand:SetProfile(selectedProfileName)
             end
         end)
-    end)
-    createBtn:SetScript("OnClick", function()
-        local t = strtrim(createEditBox:GetText() or "")
-        if t ~= "" and Offhand.CreateProfile then
-            local success, err = Offhand:CreateProfile(t)
-            if success then
-                createEditBox:SetText("")
-                createEditBox:ClearFocus()
-                selectedProfileName = t
-                Options:UpdateProfileList()
-            else
-                Offhand:Print("|cffff3333" .. tostring(err) .. "|r")
+        copyBtn:SetScript("OnClick", function()
+            if selectedProfileName and Offhand.CopyProfile then
+                local source = selectedProfileName
+                local destination = (OffhandCharDB and OffhandCharDB.activeProfile) or "Default"
+                Options:Confirm(string.format(L["PROFILE_COPY_CONFIRM"], destination, source), function()
+                    if ((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") == destination then
+                        Offhand:CopyProfile(source)
+                    end
+                end)
+            end
+        end)
+        deleteBtn:SetScript("OnClick", function()
+            if selectedProfileName and Offhand.DeleteProfile then
+                local name = selectedProfileName
+                Options:Confirm(string.format(L["PROFILE_DELETE_CONFIRM"], name), function()
+                    Offhand:DeleteProfile(name)
+                    selectedProfileName = nil
+                    Options:UpdateProfileList()
+                end)
+            end
+        end)
+        resetBtn:SetScript("OnClick", function()
+            local name = (OffhandCharDB and OffhandCharDB.activeProfile) or "Default"
+            Options:Confirm(string.format(L["PROFILE_RESET_CONFIRM"], name), function()
+                if ((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") == name then
+                    if Offhand.ResetConfig then Offhand:ResetConfig() end
+                end
+            end)
+        end)
+        local function CreateProfileFromInput()
+            local t = strtrim(createEditBox:GetText() or "")
+            if t ~= "" and Offhand.CreateProfile then
+                local success, err = Offhand:CreateProfile(t)
+                if success then
+                    createEditBox:SetText("")
+                    createEditBox:ClearFocus()
+                    selectedProfileName = t
+                    Options:UpdateProfileList()
+                    for index, name in ipairs(Offhand:GetProfiles()) do
+                        if name == t then
+                            Controls.EnsureScrollVisible(profileScroll, (index - 1) * profileRowHeight + 4, 28)
+                            break
+                        end
+                    end
+                else
+                    Offhand:Print("|cffff3333" .. tostring(err) .. "|r")
+                end
             end
         end
-    end)
+        createBtn:SetScript("OnClick", CreateProfileFromInput)
+        createEditBox:SetScript("OnEnterPressed", CreateProfileFromInput)
+        createEditBox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    end
 
     -- ========================================================================
     -- TAB 5: FAQ & HELP

@@ -33,6 +33,8 @@ local function Frame(kind, name, parent, template)
     end
     function frame:SetEnabled(enabled) self.enabled = enabled; self:Fire(enabled and "OnEnable" or "OnDisable") end
     function frame:IsEnabled() return self.enabled end
+    function frame:SetChecked(checked) self.checked = checked end
+    function frame:GetChecked() return self.checked end
     function frame:CreateFontString() return Region() end
     function frame:CreateTexture() return Region() end
     function frame:SetFontString(text) self.label = text end
@@ -164,6 +166,12 @@ assert(scroll.offset == 760 and scroll.ScrollBar.value == 760)
 scroll:Fire("OnMouseWheel", -100)
 assert(scroll.offset == 800)
 assert(ui.SetScrollOffset(scroll, -20) == 0)
+assert(ui.EnsureScrollVisible(scroll, 700, 28) == 328,
+    "a new selection below the viewport must be revealed with minimal scrolling")
+assert(ui.EnsureScrollVisible(scroll, 100, 28) == 100,
+    "a new selection above the viewport must be revealed")
+assert(ui.EnsureScrollVisible(scroll, 200, 28) == 100,
+    "an already visible selection must not move the viewport")
 scroll.child:SetSize(662, 200)
 assert(ui.SetScrollOffset(scroll, 300) == 0, "short pages must not scroll beyond content")
 local dialog = Frame("Frame"); dialog:SetSize(922, 732)
@@ -174,6 +182,27 @@ assert(ui.FitDialog(dialog, { gameWidth = 2560, gameHeight = 1440 }) == 1,
     "fitting must reset a previous reduction and never enlarge a dialog")
 assert(dialog.scale == 1, "resetting fit must write the full scale back to the dialog")
 assert(ui.FitDialog(dialog, nil) == 1, "single-screen recovery must use UIParent dimensions")
+local choiceWrites, choiceLayouts, choiceRefreshes = 0, 0, 0
+addon.ApplyFullLayout = function() choiceLayouts = choiceLayouts + 1 end
+addon.Options = { RefreshPanel = function() choiceRefreshes = choiceRefreshes + 1 end }
+local radio = ui.CreateNativeRadioButton(UIParent, "Choice", function() return false end,
+    function() choiceWrites = choiceWrites + 1 end)
+assert(radio.labelButton, "radio labels must be clickable like checkbox labels")
+radio.labelButton:Fire("OnClick")
+assert(choiceWrites == 1 and choiceRefreshes == 1)
+radio:SetEnabled(false)
+radio.labelButton:Fire("OnClick")
+assert(choiceWrites == 1, "a disabled radio must reject label clicks even when disabled directly")
+ui.SetCheckboxEnabled(radio, false)
+assert(not radio.labelButton:IsEnabled(), "disabled radio labels must share their control state")
+local checkbox = ui.CreateNativeCheckbox(UIParent, "Toggle", function() return false end,
+    function(value) assert(value == true); choiceWrites = choiceWrites + 1 end)
+checkbox:SetEnabled(false)
+checkbox.labelButton:Fire("OnClick")
+assert(choiceWrites == 1 and choiceLayouts == 0, "disabled checkbox labels must not mutate a setting")
+checkbox:SetEnabled(true)
+checkbox.labelButton:Fire("OnClick")
+assert(choiceWrites == 2 and choiceLayouts == 1 and checkbox:GetChecked())
 local fitHooks, layouts = 0, 0
 addon.ApplyFullLayout = function() layouts = layouts + 1 end
 hooksecurefunc = function(owner, method, callback)

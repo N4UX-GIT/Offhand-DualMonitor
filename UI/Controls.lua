@@ -223,6 +223,16 @@ function Controls.EnableWheelScroll(scroll)
     end)
 end
 
+function Controls.EnsureScrollVisible(scroll, top, height)
+    local offset = scroll.GetVerticalScroll and scroll:GetVerticalScroll() or 0
+    if top < offset then
+        offset = top
+    elseif top + height > offset + scroll:GetHeight() then
+        offset = top + height - scroll:GetHeight()
+    end
+    return Controls.SetScrollOffset(scroll, offset)
+end
+
 function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal, setVal, formatStr, tooltipTitle, tooltipText)
     local L = Offhand.L or setmetatable({}, { __index = function(_, key) return key end })
     local function BackdropTemplate()
@@ -535,6 +545,7 @@ function Controls.CreateNativeCheckbox(parent, text, getVal, setVal, tooltipTitl
     labelButton:SetPoint("TOPLEFT", label, "TOPLEFT", -4, 5)
     labelButton:SetPoint("BOTTOMRIGHT", label, "BOTTOMRIGHT", 4, -5)
     labelButton:SetScript("OnClick", function()
+        if check.IsEnabled and not check:IsEnabled() then return end
         check:SetChecked(not check:GetChecked())
         setVal(check:GetChecked())
         Offhand:ApplyFullLayout()
@@ -605,12 +616,20 @@ function Controls.CreateNativeRadioButton(parent, text, getVal, setVal, tooltipT
     radio.Text = label
 
     radio:SetChecked(getVal())
-    radio:SetScript("OnClick", function()
+    local function Select()
+        if radio.IsEnabled and not radio:IsEnabled() then return end
         setVal()
         Offhand.Options:RefreshPanel()
-    end)
+    end
+    radio:SetScript("OnClick", Select)
+    local labelButton = CreateFrame("Button", nil, radio)
+    labelButton:SetPoint("TOPLEFT", label, "TOPLEFT", -2, 3)
+    labelButton:SetPoint("BOTTOMRIGHT", label, "BOTTOMRIGHT", 2, -3)
+    labelButton:SetScript("OnClick", Select)
+    radio.labelButton = labelButton
     if (tooltipTitle or tooltipText) and Offhand.SetTooltip then
         Offhand:SetTooltip(radio, tooltipTitle, tooltipText)
+        Offhand:SetTooltip(labelButton, tooltipTitle, tooltipText)
     end
     return radio
 end
