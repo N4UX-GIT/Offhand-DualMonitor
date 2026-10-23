@@ -13,6 +13,8 @@ local L = Offhand.L or setmetatable({}, {
 })
 
 Offhand.L = L
+L["TAB_HELP"] = "Help & recovery"
+L["UI_SECTIONS"] = "On this page"
 
 -- Settings and guided setup
 L["CARD_SCALE_ALIGNMENT"] = "Game alignment & UI scale"

@@ -48,6 +48,8 @@ function CreateFrame(kind, name, parent, template)
     function f:GetParent() return self.parent end
     function f:SetScrollChild(c) self.scrollChild = c end
     function f:SetVerticalScroll(v) self.verticalScroll = v end
+    function f:GetVerticalScroll() return self.verticalScroll or 0 end
+    function f:EnableMouseWheel(enabled) self.mouseWheel = enabled end
     function f:SetPoint(point, rel, relPoint, x, y)
         self.points[point] = { point = point, rel = rel, relPoint = relPoint, x = x, y = y }
         self.firstPoint = self.points[point]
@@ -1180,6 +1182,30 @@ for tabIndex = 1, 5 do
     assert(#cards > 0, "Each tab must contain cards")
 end
 assert(optPanel.autoWizardBtn ~= nil, "Options dashboard must have autoWizardBtn in top banner")
+assert(#optPanel.tabButtons == 5 and optPanel.tabButtons[1].selected,
+    "settings must expose all five pages with a persistent selected navigation state")
+optPanel.scrollFrame:SetHeight(400) -- anchored viewport height in the real client
+optPanel.scrollFrame.scripts.OnMouseWheel(optPanel.scrollFrame, -10)
+assert(optPanel.scrollFrame:GetVerticalScroll() == 400)
+optPanel.tabButtons[2].scripts.OnClick()
+assert(optPanel.scrollFrame:GetVerticalScroll() == 0 and optPanel.tabButtons[2].selected
+        and not optPanel.tabButtons[1].selected,
+    "a newly visited settings page must begin at its top")
+optPanel.tabButtons[1].scripts.OnClick()
+assert(optPanel.scrollFrame:GetVerticalScroll() == 400,
+    "returning to a page must restore that page's session scroll position")
+local lastSection = optPanel.sectionButtons[9]
+assert(lastSection and lastSection:IsShown(), "Display must expose all nine section shortcuts")
+assert(-lastSection.points.TOPLEFT.y + lastSection:GetHeight() < optPanel:GetHeight() - 52,
+    "section shortcuts must not overlap the fixed footer")
+lastSection.scripts.OnClick()
+assert(optPanel.scrollFrame:GetVerticalScroll() > 400,
+    "section shortcuts must jump to their actual stacked card offset")
+optPanel.tabButtons[4].scripts.OnClick()
+assert(not lastSection:IsShown() and optPanel.sectionButtons[1]:IsShown(),
+    "shorter pages must hide stale section shortcuts")
+optPanel.tabButtons[1].scripts.OnClick()
+addon.UIControls.SetScrollOffset(optPanel.scrollFrame, 0)
 assert(optPanel.companionAppBtn ~= nil, "Options dashboard must expose its Companion App button")
 
 -- An active Companion plan owns exact monitor geometry. The settings header
@@ -1202,15 +1228,16 @@ assert(optPanel.banner:GetText():find("Companion active: Game 2560x1440 | Worksp
     "Exact Companion status must use a concise game/workspace summary")
 assert(optPanel.companionAppBtn:IsShown(),
     "Window Setup must remain available when Companion is actively supplying geometry")
-assert(optPanel.banner.points["TOPRIGHT"].rel == optPanel.companionAppBtn,
-    "Exact Companion status must leave room for the neutral Window Setup action")
+assert(optPanel.banner.points["TOPRIGHT"].rel == -24
+        and optPanel.banner.points["TOPLEFT"].rel == 218,
+    "Exact Companion status must have a dedicated full-width row above setup actions")
 
 addon.Viewport.GetMetrics = panelGetMetrics
 addon.Options:RefreshPanel()
 assert(optPanel.companionAppBtn:IsShown(),
     "Window Setup must remain available when exact Companion geometry is absent")
-assert(optPanel.banner.points["TOPRIGHT"].rel == optPanel.companionAppBtn,
-    "Manual display status must end before the Companion download button")
+assert(optPanel.banner.points["TOPRIGHT"].rel == -24,
+    "Manual display status must retain the dedicated status row")
 
 -- Test Window Overlap Prevention:
 -- When Options is shown and Auto-Setup Wizard is clicked, Options must hide and Wizard must open

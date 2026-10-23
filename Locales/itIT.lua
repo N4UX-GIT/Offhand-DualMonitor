@@ -1,6 +1,8 @@
 local _, Offhand = ...
 if GetLocale() ~= "itIT" then return end
 local L = Offhand.L
+L["TAB_HELP"] = "Aiuto e ripristino"
+L["UI_SECTIONS"] = "In questa pagina"
 L["CARD_GROUP_LOOT"] = "Group loot rolls"
 L["GROUP_LOOT_MOVE_DESC"] = "Choose where the first Need/Greed roll appears in Mainhand. Additional rolls stack in the selected direction."
 L["GROUP_LOOT_MOVE"] = "Move position"

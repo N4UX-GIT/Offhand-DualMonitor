@@ -1,11 +1,11 @@
 --[[
     Offhand: Multi-Monitor Setup Addon
-    UI/Wizard.lua: Visual 1-Click Auto-Configuration Wizard & Display Calibration
-    Provides an authentic Classic WoW dialog for 1-click display setup, physical seam calibration,
-    and fine continuous Global UI Scale adjustment.
+    UI/Wizard.lua: Guided setup and display calibration with shared UI controls.
 --]]
 
 local _, Offhand = ...
+local Controls = assert(Offhand.UIControls, "Offhand UI controls must load before Wizard")
+local CreateFrame = Controls.CreateFrame
 
 local L = Offhand.L or setmetatable({}, {
     __index = function(t, key)
@@ -107,14 +107,7 @@ local function CreateWizardCard(parent, titleText, yOffset, height)
         edgeSize = 12,
         insets = { left = 3, right = 3, top = 3, bottom = 3 },
     })
-    local themeKey = (Offhand.db and Offhand.db.theme) or "CLASSIC"
-    if themeKey == "CLASSIC" then
-        card:SetBackdropColor(1.0, 1.0, 1.0, 0.85)
-        card:SetBackdropBorderColor(0.55, 0.50, 0.35, 0.85)
-    else
-        card:SetBackdropColor(0.04, 0.04, 0.05, 0.75)
-        card:SetBackdropBorderColor(0.40, 0.40, 0.45, 0.85)
-    end
+    Controls.StyleSurface(card, "card")
 
     local title = card:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     title:SetPoint("TOPLEFT", card, "TOPLEFT", 12, -8)
@@ -437,6 +430,7 @@ function Wizard:CreateFrame()
     end
     seamSlider:SetThumbTexture(thumb)
     seamSlider.thumb = thumb
+    Controls.StyleSlider(seamSlider)
 
     seamSlider.SetValueDirect = function(self, val)
         self._isDirect = true
@@ -665,6 +659,7 @@ function Wizard:CreateFrame()
     end
     scaleSlider:SetThumbTexture(scaleThumb)
     scaleSlider.thumb = scaleThumb
+    Controls.StyleSlider(scaleSlider)
 
     scaleSlider.SetValueDirect = function(self, val)
         self._isDirect = true
@@ -1188,11 +1183,13 @@ function Wizard:Open()
 
     -- Center over the 3D game screen if spanned
     local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+    local panelScale = Controls.FitDialog(f, m)
+    Controls.RefreshStyles()
     if m and m.gameWidth and m.gameWidth > 0 then
         local cx = (m.gameLeft + m.gameRight) / 2
         local cy = (m.gameBottom + m.gameTop) / 2
         f:ClearAllPoints()
-        f:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx, cy)
+        f:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx / panelScale, cy / panelScale)
     else
         f:ClearAllPoints()
         f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)

@@ -8,6 +8,167 @@ local _, Offhand = ...
 local Controls = {}
 Offhand.UIControls = Controls
 
+-- Only addon-owned settings controls opt into this presentation layer. Never
+-- skin Blizzard windows or modify the global CreateFrame function.
+local styledFrames = setmetatable({}, { __mode = "k" })
+local FLAT_BACKDROP = {
+    bgFile = "Interface\\Buttons\\WHITE8X8",
+    edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1,
+    insets = { left = 1, right = 1, top = 1, bottom = 1 },
+}
+
+function Controls.GetAccent()
+    local db = Offhand.db or {}
+    local palettes = Offhand.Themes and Offhand.Themes:GetColorPalettes() or {}
+    local color = db.trimColor == "CUSTOM" and db.customTrimColor or palettes[db.trimColor or "GOLD"]
+    return (color and color.r) or 1, (color and color.g) or 0.82, (color and color.b) or 0.12
+end
+
+function Controls.StyleSurface(frame, kind)
+    if not frame or not frame.SetBackdrop or not frame.SetBackdropColor
+        or not frame.SetBackdropBorderColor then return end
+    kind = kind or "card"
+    styledFrames[frame] = kind
+    frame:SetBackdrop(FLAT_BACKDROP)
+    local black = Offhand.db and Offhand.db.theme == "PITCH_BLACK"
+    local shade = black and 0 or (kind == "window" and 0.035 or 0.065)
+    if kind == "input" then shade = black and 0 or 0.025 end
+    local enabled = not frame.IsEnabled or frame:IsEnabled()
+    local selected = frame.selected or frame.uiPrimary
+    local active = selected or frame.uiHover or frame.uiFocus
+    local r, g, b = Controls.GetAccent()
+    if kind == "button" then
+        shade = enabled and (frame.uiPressed and 0.055 or (active and 0.14 or 0.09)) or 0.045
+    end
+    frame:SetBackdropColor(shade, shade, black and shade or shade + 0.014, 1)
+    if active and enabled then
+        frame:SetBackdropBorderColor(r * 0.85, g * 0.85, b * 0.85, 1)
+    else
+        frame:SetBackdropBorderColor(0.20, 0.22, 0.26, 1)
+    end
+    if kind == "button" then
+        local text = frame.GetFontString and frame:GetFontString()
+        if text and text.SetTextColor then
+            if not enabled then text:SetTextColor(0.45, 0.48, 0.53)
+            else text:SetTextColor(0.93, 0.94, 0.96) end
+        end
+        if frame.selectionMark then
+            if frame.selected then frame.selectionMark:Show() else frame.selectionMark:Hide() end
+        end
+    end
+    if (kind == "card" or kind == "header") and frame.title and frame.title.SetTextColor then
+        frame.title:SetTextColor(r, g, b, 1)
+    end
+end
+
+function Controls.RefreshStyles()
+    for frame, kind in pairs(styledFrames) do Controls.StyleSurface(frame, kind) end
+end
+
+-- Use native Button state/font handling with addon-owned flat artwork. Small
+-- steppers retain their explicit size; labels wrap inside the available bounds.
+function Controls.CreateFrame(kind, name, parent, template, ...)
+    local button = kind == "Button" and template == "UIPanelButtonTemplate"
+    local input = kind == "EditBox" and template == "InputBoxTemplate"
+    if button or input then template = not Offhand.isLegacyWrath and "BackdropTemplate" or nil end
+    local frame = _G.CreateFrame(kind, name, parent, template, ...)
+    if button then
+        if frame.SetFontString then
+            local text = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            text:SetPoint("TOPLEFT", frame, "TOPLEFT", 5, -2)
+            text:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -5, 2)
+            text:SetJustifyH("CENTER")
+            text:SetWordWrap(true)
+            frame:SetFontString(text)
+            frame:SetNormalFontObject("GameFontHighlightSmall")
+            frame:SetHighlightFontObject("GameFontHighlightSmall")
+            frame:SetDisabledFontObject("GameFontDisableSmall")
+            if frame.SetPushedTextOffset then frame:SetPushedTextOffset(0, -1) end
+        end
+        local mark = frame.CreateTexture and frame:CreateTexture(nil, "OVERLAY")
+        if mark and mark.SetColorTexture and mark.Show and mark.Hide then
+            mark:SetColorTexture(0.93, 0.94, 0.96, 1)
+            mark:SetSize(2, 12)
+            mark:SetPoint("LEFT", frame, "LEFT", 2, 0)
+            frame.selectionMark = mark
+        end
+        Controls.StyleSurface(frame, "button")
+        if frame.HookScript then
+            frame:HookScript("OnEnter", function(self) self.uiHover = true; Controls.StyleSurface(self, "button") end)
+            frame:HookScript("OnLeave", function(self) self.uiHover = nil; self.uiPressed = nil; Controls.StyleSurface(self, "button") end)
+            frame:HookScript("OnEnable", function(self) Controls.StyleSurface(self, "button") end)
+            frame:HookScript("OnDisable", function(self) Controls.StyleSurface(self, "button") end)
+            frame:HookScript("OnMouseDown", function(self) self.uiPressed = true; Controls.StyleSurface(self, "button") end)
+            frame:HookScript("OnMouseUp", function(self) self.uiPressed = nil; Controls.StyleSurface(self, "button") end)
+            frame:HookScript("OnHide", function(self) self.uiHover = nil; self.uiPressed = nil; Controls.StyleSurface(self, "button") end)
+        end
+    elseif input then
+        frame:SetAutoFocus(false)
+        if frame.SetFontObject then frame:SetFontObject("GameFontHighlightSmall") end
+        if frame.SetTextInsets then frame:SetTextInsets(8, 8, 0, 0) end
+        Controls.StyleSurface(frame, "input")
+        if frame.HookScript then
+            frame:HookScript("OnEditFocusGained", function(self) self.uiFocus = true; Controls.StyleSurface(self, "input") end)
+            frame:HookScript("OnEditFocusLost", function(self) self.uiFocus = nil; Controls.StyleSurface(self, "input") end)
+        end
+    end
+    return frame
+end
+
+local CreateFrame = Controls.CreateFrame
+
+function Controls.StyleSlider(slider)
+    Controls.StyleSurface(slider, "input")
+    local thumb = slider.thumb or (slider.GetThumbTexture and slider:GetThumbTexture())
+    if thumb then
+        if thumb.SetTexture then thumb:SetTexture("Interface\\Buttons\\WHITE8X8") end
+        if thumb.SetSize then thumb:SetSize(10, 20) end
+        if thumb.SetVertexColor then thumb:SetVertexColor(Controls.GetAccent()) end
+    end
+    if slider.editBox then Controls.StyleSurface(slider.editBox, "input") end
+end
+
+-- Fit a logical canvas rather than compressing individual columns. Metrics are
+-- UIParent units, so compensate for our local scale when centering in callers.
+function Controls.FitDialog(frame, metrics)
+    if not frame or not frame.SetScale then return 1 end
+    local width = metrics and metrics.gameWidth or (UIParent.GetWidth and UIParent:GetWidth())
+    local height = metrics and metrics.gameHeight or (UIParent.GetHeight and UIParent:GetHeight())
+    width, height = tonumber(width) or 1920, tonumber(height) or 1080
+    if width <= 0 or height <= 0 then return 1 end
+    local scale = math.min(1, math.max(1, width - 32) / frame:GetWidth(),
+        math.max(1, height - 32) / frame:GetHeight())
+    frame:SetScale(scale)
+    return scale
+end
+
+function Controls.SetScrollOffset(scroll, offset)
+    local child = scroll.GetScrollChild and scroll:GetScrollChild() or scroll.scrollChild
+    local range = child and math.max(0, child:GetHeight() - scroll:GetHeight()) or 0
+    offset = math.max(0, math.min(range, tonumber(offset) or 0))
+    scroll:SetVerticalScroll(offset)
+    local name = scroll.GetName and scroll:GetName()
+    local bar = scroll.ScrollBar or (name and _G[name .. "ScrollBar"])
+    if bar and bar.SetMinMaxValues then bar:SetMinMaxValues(0, range) end
+    if bar and bar.SetValue then bar:SetValue(offset) end
+    return offset
+end
+
+function Controls.EnableWheelScroll(scroll)
+    local name = scroll.GetName and scroll:GetName()
+    local bar = scroll.ScrollBar or (name and _G[name .. "ScrollBar"])
+    if bar and bar.SetThumbTexture and bar.GetThumbTexture then
+        bar:SetThumbTexture("Interface\\Buttons\\WHITE8X8")
+        local thumb = bar:GetThumbTexture()
+        if thumb then thumb:SetVertexColor(0.42, 0.46, 0.53, 1); thumb:SetWidth(8) end
+    end
+    if not scroll.EnableMouseWheel then return end
+    scroll:EnableMouseWheel(true)
+    scroll:SetScript("OnMouseWheel", function(self, delta)
+        Controls.SetScrollOffset(self, (self:GetVerticalScroll() or 0) - delta * 40)
+    end)
+end
+
 function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal, setVal, formatStr, tooltipTitle, tooltipText)
     local L = Offhand.L or setmetatable({}, { __index = function(_, key) return key end })
     local function BackdropTemplate()
@@ -283,8 +444,23 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
         elseif self.thumb and self.thumb.SetVertexColor then
             self.thumb:SetVertexColor(1.0, 0.82, 0.0, 1.0)
         end
+        Controls.StyleSlider(self)
     end
     slider:UpdateTheme()
+
+    -- Compact right-column fields have no room for a title beside the input.
+    -- Put the input beside the rail and give the title its full column width.
+    slider.LayoutCompact = function(self)
+        btnMinus:ClearAllPoints()
+        btnMinus:SetPoint("LEFT", self, "RIGHT", 8, 0)
+        editBox:ClearAllPoints()
+        editBox:SetPoint("LEFT", btnMinus, "RIGHT", 2, 0)
+        btnPlus:ClearAllPoints()
+        btnPlus:SetPoint("LEFT", editBox, "RIGHT", 2, 0)
+        if title.ClearAllPoints then title:ClearAllPoints() end
+        title:SetPoint("BOTTOMLEFT", self, "TOPLEFT", 0, 5)
+        title:SetPoint("BOTTOMRIGHT", self, "TOPRIGHT", 116, 5)
+    end
 
     if (tooltipTitle or tooltipText) and Offhand.SetTooltip then
         Offhand:SetTooltip(slider, tooltipTitle, tooltipText)
@@ -351,6 +527,7 @@ function Controls.SetChoiceSelected(button, selected)
     elseif button.UnlockHighlight then
         button:UnlockHighlight()
     end
+    if styledFrames[button] then Controls.StyleSurface(button, "button") end
     return true
 end
 

@@ -8,6 +8,8 @@
 --]]
 
 local _, Offhand = ...
+local Controls = assert(Offhand.UIControls, "Offhand UI controls must load before Onboarding")
+local CreateFrame = Controls.CreateFrame
 local L = Offhand.L
 
 local Onboarding = {}
@@ -347,6 +349,8 @@ function Onboarding:Open()
     if Offhand.Wizard and Offhand.Wizard.Close then Offhand.Wizard:Close() end
 
     local m = Metrics()
+    local panelScale = Controls.FitDialog(f, m)
+    Controls.RefreshStyles()
     if Offhand.GetOnboardingSetupMethod and not Offhand:GetOnboardingSetupMethod()
         and m and m.companionTopology and Offhand.SetOnboardingSetupMethod then
         Offhand:SetOnboardingSetupMethod("COMPANION")
@@ -354,7 +358,7 @@ function Onboarding:Open()
     f:ClearAllPoints()
     if m and m.isSpanned and m.gameWidth and m.gameWidth > 0 then
         f:SetPoint("CENTER", UIParent, "BOTTOMLEFT",
-            (m.gameLeft + m.gameRight) / 2, (m.gameBottom + m.gameTop) / 2)
+            (m.gameLeft + m.gameRight) / (2 * panelScale), (m.gameBottom + m.gameTop) / (2 * panelScale))
     else
         f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     end

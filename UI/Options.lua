@@ -1,7 +1,7 @@
 --[[
     Offhand: Multi-Monitor Setup Addon
     UI/Options.lua: Clean Tabbed Settings, Calibration Dashboard & Setup Guide
-    (Pure ASCII, sleek tabbed interface, zero clutter, bulletproof native widgets)
+    Task-oriented settings with shared addon-owned controls.
 --]]
 
 local _, Offhand = ...
@@ -16,6 +16,7 @@ local tinsert = table.insert
 local COMPANION_DOWNLOAD_URL = Offhand.companionDownloadUrl
 local POWERTOYS_DOWNLOAD_URL = Offhand.powerToysDownloadUrl
 local Controls = assert(Offhand.UIControls, "Offhand UI controls must load before Options")
+local CreateFrame = Controls.CreateFrame
 local TopologyDetection = assert(Offhand.TopologyDetection, "Offhand topology detection must load before Options")
 local CreateNativeCheckbox = Controls.CreateNativeCheckbox
 local SetCheckboxEnabled = Controls.SetCheckboxEnabled
@@ -228,7 +229,7 @@ function Options:CreateFloatingPanel()
     if configFrame then return configFrame end
 
     configFrame = CreateFrame("Frame", "OffhandFloatingConfigFrame", UIParent, BackdropTemplate())
-    configFrame:SetSize(720, 732)
+    configFrame:SetSize(922, 732)
     configFrame:SetFrameStrata("DIALOG")
     configFrame:EnableMouse(true)
     configFrame:SetMovable(true)
@@ -317,12 +318,12 @@ function Options:CreateFloatingPanel()
         end
     end)
 
-    -- Divider Line Below Tabs
+    -- Sidebar divider, kept outside the scrolling content.
     local divider = configFrame:CreateTexture(nil, "ARTWORK")
-    if divider.SetHeight then divider:SetHeight(1) end
+    if divider.SetWidth then divider:SetWidth(1) end
     if divider.SetPoint then
-        divider:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 4, -36)
-        divider:SetPoint("TOPRIGHT", header, "BOTTOMRIGHT", -4, -36)
+        divider:SetPoint("TOPLEFT", configFrame, "TOPLEFT", 202, -88)
+        divider:SetPoint("BOTTOMLEFT", configFrame, "BOTTOMLEFT", 202, 52)
     end
     SetSolidColor(divider, 1, 1, 1, 0.15)
     configFrame.divider = divider
@@ -330,7 +331,7 @@ function Options:CreateFloatingPanel()
     -- Auto-Setup Wizard Button
     local autoWizardBtn = CreateFrame("Button", nil, configFrame, "UIPanelButtonTemplate")
     autoWizardBtn:SetSize(155, 22)
-    autoWizardBtn:SetPoint("TOPRIGHT", -18, -126)
+    autoWizardBtn:SetPoint("TOPRIGHT", -24, -126)
     autoWizardBtn:SetText(L["BTN_AUTO_WIZARD"])
     autoWizardBtn:SetScript("OnClick", function()
         if Offhand.Wizard and Offhand.Wizard.Open then
@@ -356,8 +357,8 @@ function Options:CreateFloatingPanel()
 
     -- Status & Topology Detection Banner
     local banner = configFrame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    banner:SetPoint("TOPLEFT", 18, -130)
-    banner:SetPoint("TOPRIGHT", compAppBtn, "TOPLEFT", -8, 0)
+    banner:SetPoint("TOPLEFT", 218, -94)
+    banner:SetPoint("TOPRIGHT", -24, -94)
     banner:SetJustifyH("LEFT")
     configFrame.banner = banner
 
@@ -365,9 +366,10 @@ function Options:CreateFloatingPanel()
 
     -- Master ScrollFrame for all Tab Content
     local optionsScrollFrame = CreateFrame("ScrollFrame", "OffhandOptionsScrollFrame", configFrame, "UIPanelScrollFrameTemplate")
-    optionsScrollFrame:SetPoint("TOPLEFT", 16, -156)
+    optionsScrollFrame:SetPoint("TOPLEFT", 218, -164)
     optionsScrollFrame:SetPoint("BOTTOMRIGHT", -42, 52)
     configFrame.scrollFrame = optionsScrollFrame
+    Controls.EnableWheelScroll(optionsScrollFrame)
 
     local optionsScrollChild = CreateFrame("Frame", nil, optionsScrollFrame)
     optionsScrollChild:SetSize(662, 10)
@@ -412,21 +414,14 @@ function Options:CreateFloatingPanel()
         card:SetSize(662, height)
         card:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
 
-        card:SetBackdrop({
-            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
-            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-            tile = true,
-            tileSize = 16,
-            edgeSize = 12,
-            insets = { left = 3, right = 3, top = 3, bottom = 3 },
-        })
-        card:SetBackdropColor(1.0, 1.0, 1.0, 0.85)
-        card:SetBackdropBorderColor(0.55, 0.50, 0.35, 0.85)
+        Controls.StyleSurface(card, "card")
 
         local title = card:CreateFontString(nil, "ARTWORK", "GameFontNormal")
         title:SetPoint("TOPLEFT", card, "TOPLEFT", 12, -8)
         title:SetText(titleText)
         card.title = title
+        card.settingsTab = parent
+        card.sectionLabel = titleText
 
         tinsert(registeredCards, card)
         return card
@@ -434,7 +429,6 @@ function Options:CreateFloatingPanel()
 
     function Options:UpdateCardThemes()
         local trimKey = (Offhand.db and Offhand.db.trimColor) or "GOLD"
-        local themeKey = (Offhand.db and Offhand.db.theme) or "CLASSIC"
         local c
         if trimKey == "CUSTOM" and Offhand.db and Offhand.db.customTrimColor then
             c = Offhand.db.customTrimColor
@@ -442,21 +436,10 @@ function Options:CreateFloatingPanel()
             local pals = Offhand.Themes and Offhand.Themes.GetColorPalettes and Offhand.Themes:GetColorPalettes()
             c = pals and pals[trimKey]
         end
-        local br = c and { c.r * 0.75, c.g * 0.75, c.b * 0.75, 0.85 } or { 0.55, 0.50, 0.35, 0.85 }
         local textR, textG, textB = (c and c.r) or 1.0, (c and c.g) or 0.82, (c and c.b) or 0.0
 
         for _, card in ipairs(registeredCards) do
-            if themeKey == "CLASSIC" then
-                card:SetBackdropColor(1.0, 1.0, 1.0, 1.0)
-                if trimKey == "GOLD" then
-                    card:SetBackdropBorderColor(0.55, 0.50, 0.35, 0.85)
-                else
-                    card:SetBackdropBorderColor(br[1], br[2], br[3], br[4])
-                end
-            else
-                card:SetBackdropColor(0.04, 0.04, 0.05, 1.0)
-                card:SetBackdropBorderColor(br[1], br[2], br[3], br[4])
-            end
+            Controls.StyleSurface(card, "card")
             if card.title then
                 card.title:SetTextColor(textR, textG, textB, 1.0)
             end
@@ -467,6 +450,7 @@ function Options:CreateFloatingPanel()
                 slider:UpdateTheme(trimKey)
             end
         end
+        Controls.RefreshStyles()
 
         if Options.UpdateTrimHighlights then
             Options:UpdateTrimHighlights()
@@ -477,30 +461,37 @@ function Options:CreateFloatingPanel()
     end
 
     local tabConfig = {
-        { id = 1, frame = tab1, label = "Display" },
-        { id = 2, frame = tab2, label = "Offhand Monitor" },
-        { id = 3, frame = tab3, label = "Themes" },
+        { id = 1, frame = tab1, label = L["TAB_DISPLAY"] },
+        { id = 2, frame = tab2, label = L["TAB_WORKSPACE"] },
+        { id = 3, frame = tab3, label = L["TAB_THEMES"] },
         { id = 4, frame = tab4, label = L["TAB_PROFILES"] },
-        { id = 5, frame = tab5, label = "FAQ & Help" }
+        { id = 5, frame = tab5, label = L["TAB_HELP"] }
     }
     
     local tabButtons = {}
+    local sectionButtons = {}
+    local sectionTitle = configFrame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    sectionTitle:SetPoint("TOPLEFT", configFrame, "TOPLEFT", 24, -360)
+    sectionTitle:SetText(L["UI_SECTIONS"])
     configFrame.cards = registeredCards
+    configFrame.tabButtons = tabButtons
+    configFrame.sectionButtons = sectionButtons
+    local tabScrollOffsets = {}
+    local displayedTab
 
     local function SwitchTab(tabIndex)
+        if displayedTab and optionsScrollFrame.GetVerticalScroll then
+            tabScrollOffsets[displayedTab] = optionsScrollFrame:GetVerticalScroll()
+        end
         currentTab = tabIndex
-        local normalColor = {0.8, 0.8, 0.8}
-        local activeColor = {1.0, 0.82, 0.0}
 
         for i, t in ipairs(tabConfig) do
             local isActive = (tabIndex == t.id)
             SetShown(t.frame, isActive)
             
-            local c = isActive and activeColor or normalColor
             local btn = tabButtons[i]
             if btn then
-                local fs = btn.GetFontString and btn:GetFontString()
-                if fs then fs:SetTextColor(c[1], c[2], c[3]) end
+                Controls.SetChoiceSelected(btn, isActive)
             end
             
             if isActive then
@@ -508,7 +499,37 @@ function Options:CreateFloatingPanel()
             end
         end
 
-        optionsScrollFrame:SetVerticalScroll(0)
+        displayedTab = tabIndex
+        Controls.SetScrollOffset(optionsScrollFrame, tabScrollOffsets[tabIndex] or 0)
+
+        local pageCards = {}
+        for _, card in ipairs(registeredCards) do
+            if card.settingsTab == tabConfig[tabIndex].frame then
+                pageCards[#pageCards + 1] = card
+            end
+        end
+        table.sort(pageCards, function(a, b)
+            return (select(5, a:GetPoint(1)) or 0) > (select(5, b:GetPoint(1)) or 0)
+        end)
+        for index, card in ipairs(pageCards) do
+            local button = sectionButtons[index]
+            if not button then
+                button = CreateFrame("Button", nil, configFrame, "UIPanelButtonTemplate")
+                button:SetSize(166, 28)
+                sectionButtons[index] = button
+            end
+            button:ClearAllPoints()
+            button:SetPoint("TOPLEFT", configFrame, "TOPLEFT", 20, -380 - (index - 1) * 32)
+            button:SetText(card.sectionLabel)
+            local target = card
+            button:SetScript("OnClick", function()
+                local _, _, _, _, y = target:GetPoint(1)
+                Controls.SetScrollOffset(optionsScrollFrame, -(y or 0))
+            end)
+            if Offhand.SetTooltip then Offhand:SetTooltip(button, card.sectionLabel) end
+            button:Show()
+        end
+        for i = #pageCards + 1, #sectionButtons do sectionButtons[i]:Hide() end
 
         if Options.UpdateTrimHighlights then
             Options:UpdateTrimHighlights()
@@ -519,19 +540,10 @@ function Options:CreateFloatingPanel()
     end
 
     -- Dynamically generate the tab buttons
-    local btnGap = 12
-    local totalAvailableWidth = 684
-    local btnWidth = (totalAvailableWidth - (btnGap * (#tabConfig - 1))) / #tabConfig
-    local startX = (configFrame:GetWidth() - totalAvailableWidth) / 2
-
     for i, t in ipairs(tabConfig) do
         local btn = CreateFrame("Button", nil, configFrame, "UIPanelButtonTemplate")
-        btn:SetSize(btnWidth, 26)
-        if i == 1 then
-            btn:SetPoint("TOPLEFT", startX, -84)
-        else
-            btn:SetPoint("LEFT", tabButtons[i - 1], "RIGHT", btnGap, 0)
-        end
+        btn:SetSize(166, 44)
+        btn:SetPoint("TOPLEFT", configFrame, "TOPLEFT", 20, -94 - (i - 1) * 52)
         btn:SetText(t.label)
         btn:SetScript("OnClick", function() SwitchTab(t.id) end)
         table.insert(tabButtons, btn)
@@ -575,7 +587,7 @@ function Options:CreateFloatingPanel()
         L["BTN_LASER_TOGGLE_TIP_TITLE"], L["BTN_LASER_TOGGLE_TIP_DESC"]
     )
     laserCheck:SetPoint("TOPLEFT", 330, -122)
-    laserCheck.Text:SetWidth(360)
+    laserCheck.Text:SetWidth(290)
     configFrame.laserCheck = laserCheck
 
     local rawMouseCheck = CreateNativeCheckbox(card1_1, L["RAW_MOUSE_INPUT"],
@@ -783,6 +795,7 @@ function Options:CreateFloatingPanel()
     )
     hudSlider:SetPoint("TOPLEFT", 336, -46)
     hudSlider:SetWidth(200)
+    hudSlider:LayoutCompact()
 
     local p56Btn = CreateFrame("Button", nil, card1_3, "UIPanelButtonTemplate")
     p56Btn:SetSize(56, 22)
@@ -840,6 +853,7 @@ function Options:CreateFloatingPanel()
         "%.0f%%", L["WORLD_TEXT_SCALE_TIP_TITLE"], L["WORLD_TEXT_SCALE_TIP_DESC"])
     worldTextSlider:SetPoint("TOPLEFT", 336, -50)
     worldTextSlider:SetWidth(200)
+    worldTextSlider:LayoutCompact()
 
     local speechBubbleCheck = CreateNativeCheckbox(card1_4, L["SPEECH_BUBBLE_COMPENSATION"],
         function() return Offhand.db and Offhand.db.speechBubbleCompensation ~= false end,
@@ -854,6 +868,7 @@ function Options:CreateFloatingPanel()
         "%.0f%%", L["SPEECH_BUBBLE_SCALE_TIP_TITLE"], L["SPEECH_BUBBLE_SCALE_TIP_DESC"])
     speechBubbleSlider:SetPoint("TOPLEFT", 336, -114)
     speechBubbleSlider:SetWidth(200)
+    speechBubbleSlider:LayoutCompact()
 
     local groupLootCard = CreateCard(tab1, L["CARD_GROUP_LOOT"], 126)
 
@@ -1677,6 +1692,7 @@ function Options:CreateFloatingPanel()
         end
         if customTrimBtn then
             local isCustom = (curTrim == "CUSTOM")
+            Options:SetChoiceSelected(customTrimBtn, isCustom)
             local c = (Offhand.db and Offhand.db.customTrimColor) or { r = 1.0, g = 0.82, b = 0.0 }
             if isCustom then
                 customTrimBtn:SetText(string.format(L["BTN_TRIM_CUSTOM_ACTIVE_FMT"], math.floor(c.r*255+0.5), math.floor(c.g*255+0.5), math.floor(c.b*255+0.5)))
@@ -1791,6 +1807,7 @@ function Options:CreateFloatingPanel()
         end
         if customCanvasBtn then
             local isCustom = (curColor == "CUSTOM")
+            Options:SetChoiceSelected(customCanvasBtn, isCustom)
             local c = (Offhand.db and Offhand.db.customCanvasColor) or { r = 0.12, g = 0.22, b = 0.35 }
             if isCustom then
                 customCanvasBtn:SetText(string.format(L["BTN_CANVAS_CUSTOM_ACTIVE_FMT"], math.floor(c.r*255+0.5), math.floor(c.g*255+0.5), math.floor(c.b*255+0.5)))
@@ -1956,6 +1973,7 @@ function Options:CreateFloatingPanel()
     local profileScroll = CreateFrame("ScrollFrame", "OffhandProfileScrollFrame", card4_1, "UIPanelScrollFrameTemplate")
     profileScroll:SetPoint("TOPLEFT", 16, -56)
     profileScroll:SetSize(280, 220)
+    Controls.EnableWheelScroll(profileScroll)
     
     local profileScrollBG = CreateFrame("Frame", nil, profileScroll, BackdropTemplate())
     profileScrollBG:SetPoint("TOPLEFT", -4, 4)
@@ -1963,12 +1981,7 @@ function Options:CreateFloatingPanel()
     if profileScrollBG.SetFrameLevel then
         profileScrollBG:SetFrameLevel(profileScroll.GetFrameLevel and (profileScroll:GetFrameLevel() - 1) or 1)
     end
-    profileScrollBG:SetBackdrop({
-        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        edgeSize = 16, insets = { left = 4, right = 4, top = 4, bottom = 4 }
-    })
-    profileScrollBG:SetBackdropColor(0, 0, 0, 0.8)
+    Controls.StyleSurface(profileScrollBG, "input")
 
     local profileScrollContent = CreateFrame("Frame", nil, profileScroll)
     profileScrollContent:SetSize(280, 420)
@@ -2214,6 +2227,7 @@ function Options:CreateFloatingPanel()
     applyBtn:SetSize(150, 28)
     applyBtn:SetPoint("BOTTOMLEFT", 20, 14)
     applyBtn:SetText(L["BTN_REAPPLY"])
+    applyBtn.uiPrimary = true
     applyBtn:SetScript("OnClick", function()
         Offhand:ApplyFullLayout()
         Offhand:Print(L["MSG_LAYOUT_APPLIED"])
@@ -2224,6 +2238,8 @@ function Options:CreateFloatingPanel()
 
     local saveStatus = configFrame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     saveStatus:SetPoint("BOTTOM", configFrame, "BOTTOM", 0, 23)
+    saveStatus:SetWidth(540)
+    saveStatus:SetJustifyH("CENTER")
     saveStatus:SetText(L["SETTINGS_SAVED_LIVE"])
 
     local closePanelBtn = CreateFrame("Button", nil, configFrame, "UIPanelButtonTemplate")
@@ -2252,11 +2268,15 @@ function Options:CreateFloatingPanel()
         end
         compAppBtn:Show()
         banner:ClearAllPoints()
-        banner:SetPoint("TOPLEFT", 18, -130)
-        banner:SetPoint("TOPRIGHT", compAppBtn, "TOPLEFT", -8, 0)
+        banner:SetPoint("TOPLEFT", 218, -94)
+        banner:SetPoint("TOPRIGHT", -24, -94)
         banner:SetText(bannerText)
+        local bannerHeight = math.max(24, banner.GetStringHeight and banner:GetStringHeight() or 24)
+        local actionTop = 94 + bannerHeight + 8
+        autoWizardBtn:ClearAllPoints()
+        autoWizardBtn:SetPoint("TOPRIGHT", configFrame, "TOPRIGHT", -24, -actionTop)
         optionsScrollFrame:ClearAllPoints()
-        optionsScrollFrame:SetPoint("TOPLEFT", 16, info.exactTopology and -180 or -156)
+        optionsScrollFrame:SetPoint("TOPLEFT", 218, -(actionTop + 38))
         optionsScrollFrame:SetPoint("BOTTOMRIGHT", -42, 52)
 
         local manualMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
@@ -2438,6 +2458,7 @@ function Options:CreateFloatingPanel()
     -- bypassing Options:Open(). Always resync checkbox/radio state from the
     -- live profile so a stale construction-time checkbox cannot invert a click.
     configFrame:SetScript("OnShow", function()
+        Controls.FitDialog(configFrame, Offhand.Viewport and Offhand.Viewport:GetMetrics())
         Options:RefreshPanel()
     end)
 
@@ -2458,11 +2479,12 @@ function Options:Open(showSeamGuide)
     end
 
     local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+    local panelScale = Controls.FitDialog(panel, m)
     if m and m.gameWidth and m.gameWidth > 0 then
         local cx = (m.gameLeft + m.gameRight) / 2
         local cy = (m.gameBottom + m.gameTop) / 2
         panel:ClearAllPoints()
-        panel:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx, cy)
+        panel:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx / panelScale, cy / panelScale)
     else
         panel:ClearAllPoints()
         panel:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
