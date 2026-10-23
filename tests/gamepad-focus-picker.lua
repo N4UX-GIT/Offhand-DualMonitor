@@ -37,6 +37,9 @@ UIParent = frame()
 CreateFrame = function() return frame() end
 assert(loadfile("Core/WorkspaceBehavior.lua"))("Offhand", addon)
 assert(loadfile("Locales/enUS.lua"))("Offhand", addon)
+assert(loadfile("UI/Controls.lua"))("Offhand", addon)
+assert(loadfile("Core/TopologyDetection.lua"))("Offhand", addon)
+assert(loadfile("UI/OptionsActions.lua"))("Offhand", addon)
 assert(loadfile("UI/Options.lua"))("Offhand", addon)
 local options = addon.Options
 options.gamepadFocusBindingStatus = frame()

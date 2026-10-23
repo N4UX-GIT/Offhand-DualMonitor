@@ -413,6 +413,10 @@ SetUIPanelAttribute = function(frame, name, value)
 end
 
 -- Load Offhand core scripts
+assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDTransientPolicy.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDRecovery.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDTransientFrames.lua"))("Offhand", addon)
 local seamChunk = loadfile("Core/SeamRedirect.lua")
 assert(seamChunk, "Core/SeamRedirect.lua must compile cleanly")
 seamChunk("Offhand", addon)
@@ -420,6 +424,24 @@ seamChunk("Offhand", addon)
 local panelMotionChunk = loadfile("Core/PanelMotion.lua")
 assert(panelMotionChunk, "Core/PanelMotion.lua must compile cleanly")
 panelMotionChunk("Offhand", addon)
+
+local compatibilityChunk = assert(loadfile("Core/CanvasCompatibility.lua"))
+compatibilityChunk("Offhand", addon)
+
+local frameStateChunk = assert(loadfile("Core/CanvasFrameState.lua"))
+frameStateChunk("Offhand", addon)
+
+assert(loadfile("Core/CanvasPanelRegistry.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPersistence.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasBackpackState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverMap.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasChat.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasProfessions.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelMotion.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasMapPresentation.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelLifecycle.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
 
 local canvasChunk = loadfile("Core/Canvas.lua")
 assert(canvasChunk, "Core/Canvas.lua must compile cleanly")
