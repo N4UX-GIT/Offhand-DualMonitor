@@ -1,3 +1,11 @@
+# Decimal-comma entry candidate, source checkpoint 87d1938
+
+- Source: `codex/addon-ui-overhaul`, draft PR #35. Shared slider parsing now accepts a single comma or dot decimal separator. Mixed or repeated separators restore the current value without mutation. Existing bounds, stepping, percent interpretation and display formatting are unchanged. No saved-variable schema, topology ownership, workspace lock or Companion changes.
+- Automated: all 48 Lua suites passed, including direct parser cases and Settings/Calibration field commit and rejection paths. Six manifests passed paths, XML, load order and Lua 5.1 syntax validation. Companion preference and release-metadata checks passed; the frozen executable hash is unchanged.
+- Package: all 72 unpacked files matched source SHA-256 and unpacked validation passed. Audit ZIP SHA-256: `A8AF365D65E161C5E3211697B27825696CF5FD87285768004505934DABDB4F1F`. Existing Beta 22 metadata is retained for local audit only, not a release.
+- Deployment: Retail and Forever Beta each match 70 copied files; both generated bridges were preserved and verified unchanged. Package and recoverable pre-update installs: `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-87d1938`. The pre-update installs contain `92b07a7`.
+- Live: pending. No appearance, taint, timing or persistence pass is inferred. The [combined checklist](../docs/REFACTOR-SMOKE-TEST.md) includes optional decimal-comma input verification.
+
 # Geometry-input locking candidate, source checkpoint 92b07a7
 
 - Source: `codex/addon-ui-overhaul`, draft PR #35. A seam geometry lock now covers the rail, separate input and steppers in Settings and Calibration. It cancels pending drag work before focus release, rejects late field commits/direct steps, and restores controls when manual geometry is available. No topology calculation or workspace-window locking code was changed.

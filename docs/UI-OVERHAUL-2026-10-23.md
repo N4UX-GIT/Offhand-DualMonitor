@@ -1,6 +1,6 @@
 # Visual UI overhaul candidate
 
-Current runtime checkpoint: `92b07a7` on `codex/addon-ui-overhaul`, draft PR #35,
+Current runtime checkpoint: `87d1938` on `codex/addon-ui-overhaul`, draft PR #35,
 based on the completed structural branch at `b7508d5`. The initial visual pass
 was `e480af9`; subsequent increments harden its interaction lifecycle and improve
 profile usability, translated text layout, and setup/calibration spacing. The visual work is a separate branch so
@@ -34,6 +34,10 @@ user-resizable layout.
 
 ## Interaction hardening
 
+- Slider fields accept a decimal comma or dot in both Settings and Calibration.
+  For example, `50,5%` no longer becomes `505%` and clamps to the maximum.
+  Mixed or repeated separators are rejected and the current value is restored.
+  Existing percentage interpretation, bounds, steps, and display format remain.
 - Hiding a slider during a drag clears the update handler, cursor origin, and
   deferred-apply state. The last sampled setting is applied once; reopening the
   page cannot resume that old drag. Repeated hide or stale release does not
@@ -113,15 +117,15 @@ a consistent dark presentation with the selected accent and OLED treatment.
 - An isolated addon-only audit package passed. All 72 unpacked files matched
   source by SHA-256, and the unpacked addon passed validation.
 - Current audit ZIP SHA-256:
-  `5D8369665EECFD3B6C96BEF4A09FB196EA8114BCF3D30101C114A10291B42E4C`.
+  `A8AF365D65E161C5E3211697B27825696CF5FD87285768004505934DABDB4F1F`.
 - Retail and Forever Beta installs match the 70 copied package files. Their two
   generated topology/state bridge files were preserved and verified unchanged.
 - Audit package, unpacked verification copy, and recoverable pre-update installs:
-  `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-92b07a7`.
+  `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-87d1938`.
 
 Earlier visual audit directories and their installed backups remain available
-separately. The current pre-update backups contain `f766a58`, the calibration
-layout candidate, not the structural-only candidate.
+separately. The current pre-update backups contain `92b07a7`, the geometry-input
+locking candidate, not the structural-only candidate.
 
 Existing Beta 22 metadata was retained for local audit purposes only. The archive
 is not a published release and must not be mistaken for the stable checkpoint.
