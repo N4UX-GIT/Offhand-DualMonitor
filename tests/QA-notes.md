@@ -1,3 +1,10 @@
+# Combined candidate source-readiness recheck, runtime checkpoint 3fe93da
+
+- No runtime code or installed files changed. All 48 Lua suites, six-manifest Lua 5.1 validation, Companion preference checks, and release-metadata checks passed again.
+- All 72 unpacked files still match source; Retail and Forever Beta each still match the 70 deployed package files. Both generated bridges in each install match its pre-update backup. Audit ZIP and frozen Companion hashes remain as recorded below.
+- Git fetch completed with the UI branch clean and synchronized. GitHub confirmed both PR #34 and PR #35 are open drafts, with the UI PR stacked on the structural branch. Existing CI does not trigger for that stacked base; no remote CI pass is inferred.
+- The bounded source pass is ready for the [combined manual smoke test](../docs/REFACTOR-SMOKE-TEST.md). Actual visual, protected-action, lock/reload and persistence acceptance remain pending. Any unavailable Forever cases must be marked untested. No merge, version bump or release occurred.
+
 # Profile-control synchronization candidate, source checkpoint 3fe93da
 
 - Source: `codex/addon-ui-overhaul`, draft PR #35. Shared slider refresh updates thumb and number without invoking its setter or layout, cancels drag work when the source changes, and ensures the next step uses the refreshed value. Settings refresh also resynchronizes bottom offset. No profile storage, saved-variable schema, workspace ownership or Companion change.

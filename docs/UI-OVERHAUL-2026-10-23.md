@@ -141,6 +141,36 @@ is not a published release and must not be mistaken for the stable checkpoint.
 
 ## Remaining acceptance
 
+### Source-readiness review
+
+The current bounded UI source pass is ready for the combined manual smoke test
+at runtime checkpoint `3fe93da`. A readiness recheck reran all 48 Lua suites,
+six-manifest Lua 5.1 validation, Companion preference checks, and release-metadata
+checks successfully. All 72 unpacked files still match source; both client
+installs still match the 70 copied package files, and their generated bridges
+match the preserved pre-update copies. No runtime code or install was changed
+during this review.
+
+The UI branch diff from structural checkpoint `b7508d5` is confined to UI,
+locales, tests, and candidate documentation. Core modules, Companion artifacts,
+TOCs, bindings, package script, and workflow definitions are unchanged by the
+visual pass. GitHub confirms PR #34 remains a draft into `addon/develop` and
+PR #35 remains a draft stacked on `codex/addon-architecture-refactor`.
+The existing CI triggers do not include the stacked UI base, so local checks
+must not be described as a GitHub CI pass for PR #35.
+
+No additional implementation increment is identified for this candidate before
+manual acceptance. This is not a claim that every fixed control row has become
+fluid, all locale text has been visually accepted, performance has improved, or
+all previously recorded defects are resolved. Native picker/menu replacement,
+fully resizable layouts, profiling, bootstrap extraction, and the separately
+recorded legacy `CloseAllWindows` scope issue are outside this UI pass.
+
+Next, record the actual combined smoke results and address any candidate
+regressions. Review integration and release promotion afterward as separate
+actions. No merge, version bump, release, or assumed live pass is part of this
+source-readiness checkpoint.
+
 No in-game visual, taint, or lifecycle pass is claimed for this candidate. Mocks
 establish control contracts and calculated boundaries, not actual font rendering,
 translated label clipping, client timing, or protected-action safety.
