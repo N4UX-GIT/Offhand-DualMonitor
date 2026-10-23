@@ -193,6 +193,17 @@ for _, heights in ipairs({ { 18, 190, 42, 26 }, { 45, 450, 90, 50 }, { 18, 40, 4
         assert(bodyBottom + 16 <= statusTop, "pages without actions must still clear the status area")
     end
 end
+for _, heights in ipairs({ { 30, 15, 208, 0, 28 }, { 150, 30, 600, 120, 50 } }) do
+    local wizard = ui.GetWizardLayout(unpack(heights))
+    assert(wizard.progressTop >= 54 + heights[1] + 12
+            and wizard.cardTop >= wizard.progressTop + heights[2] + 12,
+        "wizard progress and card must clear the introductory text")
+    assert(wizard.cardTop + heights[3] + 12
+            <= wizard.height - wizard.validationBottom - wizard.validationHeight,
+        "wizard validation must not overlap the active card")
+    assert(wizard.validationBottom >= 14 + wizard.footerHeight + 12,
+        "wizard validation must reserve the full translated footer-button height")
+end
 local choiceCard = Frame("Frame"); choiceCard:SetSize(662, 1)
 choiceCard.title = Region()
 choiceCard.title.GetStringHeight = function() return 45 end
@@ -234,6 +245,15 @@ for _, locale in ipairs({ "enUS", "deDE", "esES", "esMX", "frFR", "itIT", "koKR"
         assert(guide.bodyTop + guide.bodyHeight + 16
                 <= guide.height - guide.actionBottom - guide.actionHeight,
             locale .. ": setup instructions must clear the actions on page " .. page)
+    end
+    for step = 1, 5 do
+        local wizard = ui.GetWizardLayout(
+            ui.MeasureWrappedText(nil, localized.L["STEP_" .. step .. "_HELP"], 632), 15,
+            ui.MeasureWrappedText(nil, localized.L.WIZARD_STEP_5_BODY, 600) + 100,
+            ui.MeasureWrappedText(nil, localized.L.MAINHAND_LAYOUT_SPAN_MISMATCH, 632), 36)
+        assert(wizard.cardTop + ui.MeasureWrappedText(nil, localized.L.WIZARD_STEP_5_BODY, 600) + 112
+                <= wizard.height - wizard.validationBottom - wizard.validationHeight,
+            locale .. ": wizard card and validation regions must remain separated")
     end
     local card = Frame("Frame"); card:SetSize(662, 1)
     card.title, card.sectionLabel = Region(), localized.L.CARD_THEMES

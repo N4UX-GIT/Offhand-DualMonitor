@@ -647,6 +647,20 @@ function Controls.GetGuideLayout(titleHeight, bodyHeight, statusHeight, actionHe
     }
 end
 
+function Controls.GetWizardLayout(introHeight, progressHeight, cardHeight, validationHeight, footerHeight)
+    local progressTop = 54 + math.max(15, introHeight or 0) + 12
+    local cardTop = progressTop + math.max(15, progressHeight or 0) + 12
+    footerHeight = math.max(28, footerHeight or 0)
+    validationHeight = math.max(1, validationHeight or 0)
+    local validationBottom = 14 + footerHeight + 12
+    return {
+        progressTop = progressTop, cardTop = cardTop,
+        footerHeight = footerHeight, validationHeight = validationHeight,
+        validationBottom = validationBottom,
+        height = math.max(454, cardTop + cardHeight + 12 + validationHeight + validationBottom),
+    }
+end
+
 function Controls.LayoutChoiceDescriptions(parent, choices, columns)
     columns = math.max(1, math.floor(tonumber(columns) or 2))
     local padding, gap = 12, 16

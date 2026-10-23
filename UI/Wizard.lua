@@ -113,6 +113,7 @@ local function CreateWizardCard(parent, titleText, yOffset, height)
     title:SetPoint("TOPLEFT", card, "TOPLEFT", 12, -8)
     title:SetText(titleText)
     card.title = title
+    card.sectionLabel = titleText
 
     return card
 end
@@ -875,21 +876,25 @@ function Wizard:CreateFrame()
     skipLayoutBtn:Hide()
 
     local validationStatus
+    local function SetValidationText(message)
+        validationStatus:SetText(message)
+        if f.LayoutStep and f.step then f:LayoutStep() end
+    end
 
     local function ValidateTopology()
-        validationStatus:SetText("")
+        SetValidationText("")
         local currentInfo = Wizard:DetectTopology()
         if currentInfo.topologyStatus == "MISMATCH" then
             local message = Offhand.Options:GetMainhandLayoutFailureText("span")
             statusText:SetText("|cffff5555" .. message .. "|r")
-            validationStatus:SetText("|cffff5555" .. message .. "|r")
+            SetValidationText("|cffff5555" .. message .. "|r")
             return false
         end
         if currentInfo.exactTopology and currentInfo.companionVersionStatus == "MISMATCH" then
             local message = string.format(L["WIZARD_STATUS_COMPANION_MISMATCH"],
                 currentInfo.companionVersion or "?", currentInfo.expectedCompanionVersion or "?")
             statusText:SetText("|cffff5555" .. message .. "|r")
-            validationStatus:SetText("|cffff5555" .. message .. "|r")
+            SetValidationText("|cffff5555" .. message .. "|r")
             return false
         end
         return true
@@ -956,6 +961,7 @@ function Wizard:CreateFrame()
         if not ok then
             local failure = Offhand.Options:GetMainhandLayoutFailureText(value)
             layoutStatus:SetText("|cffff5555" .. failure .. "|r")
+            f:LayoutStep()
             return
         end
         if Offhand.Print then
@@ -979,6 +985,7 @@ function Wizard:CreateFrame()
     backBtn:SetScript("OnClick", function() f:SetStep(f.step - 1) end)
     f.backBtn = backBtn
     local progress = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    f.progressText = progress
     progress:SetPoint("TOPLEFT", 18, -116)
 
     validationStatus = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
@@ -989,6 +996,10 @@ function Wizard:CreateFrame()
     if validationStatus.SetJustifyV then validationStatus:SetJustifyV("MIDDLE") end
     if validationStatus.SetWordWrap then validationStatus:SetWordWrap(true) end
     f.validationStatus = validationStatus
+    for _, text in ipairs({ welcomeText, progress, topoText, recomText, statusText,
+        layoutHelp, layoutStatus, validationStatus }) do
+        if text.SetWordWrap then text:SetWordWrap(true) end
+    end
 
     f.totalSteps = SupportsGeneratedMainhandLayout() and 5 or 4
     f.pages = {card1, card2, card3, card4}
@@ -1003,6 +1014,76 @@ function Wizard:CreateFrame()
     for _, card in ipairs(f.pages) do
         card:ClearAllPoints()
         card:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -140)
+    end
+
+    function f:LayoutStep()
+        local card = self.pages[self.step or 1]
+        if not card then return end
+        if self.step == 1 then
+            local top = Controls.GetCardContentTop(card1, 28)
+            local width = card1:GetWidth() - textLeft - 14
+            if topoText.ClearAllPoints then topoText:ClearAllPoints() end
+            topoText:SetPoint("TOPLEFT", card1, "TOPLEFT", textLeft, -top)
+            topoText:SetPoint("TOPRIGHT", card1, "TOPRIGHT", -14, -top)
+            if card1.logoIcon then
+                if card1.logoIcon.ClearAllPoints then card1.logoIcon:ClearAllPoints() end
+                card1.logoIcon:SetPoint("TOPLEFT", card1, "TOPLEFT", 14, -top)
+            end
+            top = top + Controls.MeasureWrappedText(topoText, topoText:GetText(), width) + 8
+            if recomText.ClearAllPoints then recomText:ClearAllPoints() end
+            recomText:SetPoint("TOPLEFT", card1, "TOPLEFT", textLeft, -top)
+            recomText:SetPoint("TOPRIGHT", card1, "TOPRIGHT", -14, -top)
+            top = top + Controls.MeasureWrappedText(recomText, recomText:GetText(), width) + 12
+            local actionHeight = math.max(28,
+                Controls.MeasureWrappedText(autoBtn:GetFontString(), autoBtn:GetText(), 590, 14) + 8)
+            autoBtn:ClearAllPoints()
+            autoBtn:SetPoint("TOPLEFT", card1, "TOPLEFT", 14, -top)
+            autoBtn:SetSize(600, actionHeight)
+            top = top + actionHeight + 12
+            if statusText.ClearAllPoints then statusText:ClearAllPoints() end
+            statusText:SetPoint("TOPLEFT", card1, "TOPLEFT", 14, -top)
+            statusText:SetPoint("TOPRIGHT", card1, "TOPRIGHT", -14, -top)
+            card1:SetHeight(top + Controls.MeasureWrappedText(statusText, statusText:GetText(), 600) + 14)
+        elseif self.step == 5 then
+            local top = Controls.GetCardContentTop(card5, 32)
+            local helpHeight = Controls.MeasureWrappedText(layoutHelp, layoutHelp:GetText(), 600)
+            if layoutHelp.ClearAllPoints then layoutHelp:ClearAllPoints() end
+            layoutHelp:SetPoint("TOPLEFT", card5, "TOPLEFT", 14, -top)
+            layoutHelp:SetPoint("TOPRIGHT", card5, "TOPRIGHT", -14, -top)
+            if layoutHelp.SetHeight then layoutHelp:SetHeight(helpHeight) end
+            top = top + helpHeight + 14
+            if layoutStatus.ClearAllPoints then layoutStatus:ClearAllPoints() end
+            layoutStatus:SetPoint("TOPLEFT", card5, "TOPLEFT", 14, -top)
+            layoutStatus:SetPoint("TOPRIGHT", card5, "TOPRIGHT", -14, -top)
+            card5:SetHeight(top + Controls.MeasureWrappedText(layoutStatus, layoutStatus:GetText(), 600) + 16)
+        end
+        local footerHeight = 28
+        for _, button in ipairs({ advBtn, skipLayoutBtn, backBtn, finishBtn }) do
+            if button:IsShown() then
+                footerHeight = math.max(footerHeight,
+                    Controls.MeasureWrappedText(button:GetFontString(), button:GetText(), button:GetWidth() - 10, 14) + 8)
+            end
+        end
+        local message = validationStatus:GetText() or ""
+        local validationHeight = message ~= "" and Controls.MeasureWrappedText(validationStatus, message, 632) or 1
+        local layout = Controls.GetWizardLayout(
+            Controls.MeasureWrappedText(welcomeText, welcomeText:GetText(), 632),
+            Controls.MeasureWrappedText(progress, progress:GetText(), 632),
+            card:GetHeight(), validationHeight, footerHeight)
+        self:SetHeight(layout.height)
+        if progress.ClearAllPoints then progress:ClearAllPoints() end
+        progress:SetPoint("TOPLEFT", self, "TOPLEFT", 18, -layout.progressTop)
+        progress:SetWidth(632)
+        card:ClearAllPoints()
+        card:SetPoint("TOPLEFT", self, "TOPLEFT", 16, -layout.cardTop)
+        if validationStatus.ClearAllPoints then validationStatus:ClearAllPoints() end
+        validationStatus:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", 18, layout.validationBottom)
+        validationStatus:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -18, layout.validationBottom)
+        validationStatus:SetHeight(layout.validationHeight)
+        for _, button in ipairs({ advBtn, skipLayoutBtn, backBtn, finishBtn }) do
+            button:SetHeight(layout.footerHeight)
+        end
+        Controls.FitDialog(self, Offhand.Viewport and Offhand.Viewport:GetMetrics())
     end
     function f:SetStep(step)
         self.step = math.max(1, math.min(self.totalSteps, step))
@@ -1051,6 +1132,7 @@ function Wizard:CreateFrame()
             Offhand.Options:HideSeamGuide()
         end
         self:UpdateLaserButton()
+        self:LayoutStep()
     end
 
     function f:UpdateLaserButton()
@@ -1132,6 +1214,7 @@ function Wizard:CreateFrame()
 
         self:UpdateLaserButton()
         self._updatingState = nil
+        if self.step then self:LayoutStep() end
     end
 
     f.seamSlider = seamSlider

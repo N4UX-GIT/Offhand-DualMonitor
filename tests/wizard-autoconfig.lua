@@ -696,6 +696,47 @@ assert(wizardFrame.welcomeText:GetText() == addon.L["STEP_5_HELP"]
     "wizard step 5 must separate its purpose from its detailed action and recovery guidance")
 assert(wizardFrame.skipLayoutBtn:IsShown() and not wizardFrame.advBtn:IsShown(),
     "the final HUD step must replace All Settings with an explicit finish-without-layout path")
+do
+    local function CheckWizardBounds()
+        local card = wizardFrame.pages[wizardFrame.step]
+        local top = -select(5, card:GetPoint(1))
+        local validationTop = wizardFrame:GetHeight() - wizardFrame.validationStatus.points.BOTTOMLEFT.y
+            - wizardFrame.validationStatus:GetHeight()
+        assert(top + card:GetHeight() + 12 <= validationTop,
+            "wizard card must clear the validation region on step " .. wizardFrame.step)
+        local progressTop = -wizardFrame.progressText.points.TOPLEFT.y
+        assert(progressTop >= 54 + addon.UIControls.MeasureWrappedText(
+                wizardFrame.welcomeText, wizardFrame.welcomeText:GetText(), 632) + 12,
+            "wizard progress must follow its wrapped introduction")
+        assert(top >= progressTop + addon.UIControls.MeasureWrappedText(
+                wizardFrame.progressText, wizardFrame.progressText:GetText(), 632) + 12,
+            "wizard card must follow its progress text")
+        assert(wizardFrame.validationStatus.points.BOTTOMLEFT.y
+                >= 14 + wizardFrame.finishBtn:GetHeight() + 12,
+            "wizard validation must stay above the complete footer")
+    end
+    for step = 1, wizardFrame.totalSteps do wizardFrame:SetStep(step); CheckWizardBounds() end
+    local originalHelp = wizardFrame.mainhandLayoutHelp:GetText()
+    local originalStatus = wizardFrame.mainhandLayoutStatus:GetText()
+    local originalFinish = wizardFrame.finishBtn:GetText()
+    local originalHeight = wizardFrame:GetHeight()
+    wizardFrame.mainhandLayoutHelp:SetText(string.rep("Expanded readiness guidance ", 120))
+    wizardFrame.mainhandLayoutStatus:SetText(string.rep("Long layout status ", 20))
+    wizardFrame.finishBtn:SetText(string.rep("Translated finish action ", 5))
+    wizardFrame:LayoutStep()
+    CheckWizardBounds()
+    assert(wizardFrame:GetHeight() > originalHeight,
+        "the final readiness card must expand instead of clipping its detailed guidance")
+    local bodyBottom = -wizardFrame.mainhandLayoutHelp.points.TOPLEFT.y
+        + wizardFrame.mainhandLayoutHelp:GetHeight()
+    assert(bodyBottom + 14 <= -wizardFrame.mainhandLayoutStatus.points.TOPLEFT.y,
+        "final layout status must stay below the full guidance text")
+    wizardFrame.mainhandLayoutHelp:SetText(originalHelp)
+    wizardFrame.mainhandLayoutStatus:SetText(originalStatus)
+    wizardFrame.finishBtn:SetText(originalFinish)
+    wizardFrame:LayoutStep()
+    assert(wizardFrame:GetHeight() == originalHeight, "wizard relayout must not accumulate height")
+end
 wizardFrame:SetStep(1)
 assert(not wizardFrame.skipLayoutBtn:IsShown() and wizardFrame.advBtn:IsShown(),
     "the HUD skip action must remain isolated to the final wizard step")
