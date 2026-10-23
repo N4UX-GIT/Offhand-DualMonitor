@@ -1,9 +1,9 @@
 # Visual UI overhaul candidate
 
-Current runtime checkpoint: `025b6dc` on `codex/addon-ui-overhaul`, draft PR #35,
+Current runtime checkpoint: `9db21e3` on `codex/addon-ui-overhaul`, draft PR #35,
 based on the completed structural branch at `b7508d5`. The initial visual pass
 was `e480af9`; subsequent increments harden its interaction lifecycle and improve
-profile usability. The visual work is a separate branch so
+profile usability and translated text layout. The visual work is a separate branch so
 it can be reviewed or rolled back without undoing the structural refactor.
 
 ## Implemented
@@ -50,6 +50,14 @@ user-resizable layout.
 
 ## Boundaries and library decision
 
+Theme choices now use bounded two-column rows sized from the title and
+description heights. Each following row clears the tallest item in the previous
+row, and card stacking uses the resulting card height. Wrapped Help headings
+also reserve space before their body text. Both paths share a text-measurement
+helper with a conservative fallback when font metrics are unavailable. Tests
+cover measured expansion and fallback layout for all eleven locale dictionaries;
+this does not establish actual rendering in those locales.
+
 The latest usability increment adds clickable radio labels, with disabled-state
 guards for radio and checkbox label clicks. Disabled media-fit choices keep their
 label and control state synchronized.
@@ -84,15 +92,15 @@ a consistent dark presentation with the selected accent and OLED treatment.
 - An isolated addon-only audit package passed. All 72 unpacked files matched
   source by SHA-256, and the unpacked addon passed validation.
 - Current audit ZIP SHA-256:
-  `134D114D0987789EB473F7E55E300E1A67BF7740CDA6E24E7DF902F033A3221F`.
+  `53ADF94AC9ACCE3E16FB727E36A60797E89C35D026D3D3DDA5971DAE49D24E0B`.
 - Retail and Forever Beta installs match the 70 copied package files. Their two
   generated topology/state bridge files were preserved and verified unchanged.
 - Audit package, unpacked verification copy, and recoverable pre-update installs:
-  `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-025b6dc`.
+  `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-9db21e3`.
 
-The earlier `ui-overhaul-e480af9` and `ui-overhaul-ad036fe` audit directories and
-their installed backups remain available separately. The current pre-update
-backups contain the interaction-hardening candidate, not the structural-only candidate.
+Earlier visual audit directories and their installed backups remain available
+separately. The current pre-update backups contain `025b6dc`, the profile and
+choice-label candidate, not the structural-only candidate.
 
 Existing Beta 22 metadata was retained for local audit purposes only. The archive
 is not a published release and must not be mistaken for the stable checkpoint.

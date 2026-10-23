@@ -1,3 +1,11 @@
+# Translated text layout candidate, source checkpoint 9db21e3
+
+- Source: `codex/addon-ui-overhaul`, draft PR #35. Theme choices use bounded columns and measured row heights; wrapped Help headings reserve body space. Shared text measurement prefers client metrics and falls back conservatively when unavailable. No setting actions, storage, native frame ownership, Companion binary or release metadata changed.
+- Automated: all 48 Lua suites passed. Presentation tests cover measured title/description expansion, row boundaries, repeat layout and fallback geometry using all eleven locale dictionaries. All six manifests passed paths, XML, load order and Lua 5.1 syntax validation. Companion preference and release-metadata checks passed; the frozen executable remains unchanged.
+- Package: all 72 unpacked files matched source SHA-256 and the unpacked addon passed validation. Audit ZIP SHA-256: `53ADF94AC9ACCE3E16FB727E36A60797E89C35D026D3D3DDA5971DAE49D24E0B`. Existing Beta 22 metadata is retained only for local audit.
+- Deployment: Retail and Forever Beta each match 70 copied package files, with both generated bridges unchanged. Current package and recoverable pre-update installs are under `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-9db21e3`. Earlier candidates remain available.
+- Live: pending. Locale arithmetic tests are not visual rendering evidence. The [combined checklist](../docs/REFACTOR-SMOKE-TEST.md) now includes Themes and Help text boundaries.
+
 # Profile and choice usability candidate, source checkpoint 025b6dc
 
 - Source: `codex/addon-ui-overhaul`, draft PR #35. Shared profile-row styling, separate name/active labels, full-name tooltips, Enter/Escape name entry, automatic reveal of new profiles, stale-selection cleanup and scroll clamping. Radio labels are clickable; disabled radio/checkbox label clicks cannot bypass the parent state. Existing profile storage and destructive-action confirmations are unchanged.
