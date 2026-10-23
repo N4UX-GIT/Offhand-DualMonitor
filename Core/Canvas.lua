@@ -1769,185 +1769,23 @@ local PanelMotion = assert(
 local HookKnownPanelAnchorResets = PanelMotion.HookKnownPanelAnchorResets
 local AttachGuardedForeverPanelMotion = PanelMotion.AttachGuardedForeverPanelMotion
 
-local function MakePanelDraggable(frame)
-    if not frame then return end
-    if ShouldYieldFrameToClassicUIForever(frame) then return end
-    if ShouldYieldWorldMapToMoveAny(frame) then return end
-    if IsForeverWorldMap(frame) then
-        AttachForeverWorldMapDragHandle(frame)
-        return
-    end
-    if frame._OffhandMovable then
-        local existingHandle = frame._OffhandHandle
-        if existingHandle and existingHandle._OffhandSyntheticPanelDragHandle
-            and existingHandle.Show then
-            existingHandle:Show()
-        end
-        return
-    end
-    local name = frame.GetName and frame:GetName()
-    if IsForeverNativeContainerName(name) then return end
-    if IsForeverEditModeFrame(frame, name) or IsUnsafeForPanelMutation(frame, name) then return end
-
-    if name == "MinimapCluster" and Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon() then
-        return
-    end
-
-    if name and string.match(name, "^ContainerFrame") and Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon() then
-        return
-    end
-
-    -- Registered Forever UIPanels fail closed through the guarded title adapter.
-    -- Do not fall back to the legacy whole-panel mouse/drag hooks if the secure
-    -- grip cannot be established.
-    if AttachGuardedForeverPanelMotion(frame, name) then return end
-
-    local movableOK = pcall(function()
-        frame:SetMovable(true)
-        frame:SetClampedToScreen(false)
-    end)
-    if not movableOK or (frame.IsMovable and not frame:IsMovable()) then return end
-
-    local function HookPanelDragSurface(surface)
-        if not surface or surface._OffhandPanelDragTarget == frame
-            or (surface.IsForbidden and surface:IsForbidden()) then return false end
-
-        local hooked = pcall(function()
-            surface:EnableMouse(true)
-            surface:RegisterForDrag("LeftButton")
-            surface:HookScript("OnDragStart", function()
-                if InCombatLockdown() or not Offhand.db.enabled
-                    or ShouldYieldFrameToClassicUIForever(frame, name) then return end
-                local started = pcall(function() frame:StartMoving() end)
-                frame._OffhandDragging = started and true or false
-            end)
-            surface:HookScript("OnDragStop", function()
-                if ShouldYieldFrameToClassicUIForever(frame, name) then
-                    SetPanelDragging(frame, false)
-                    return
-                end
-                OnPanelDragStop(frame)
-            end)
-        end)
-        if not hooked then return false end
-        surface._OffhandPanelDragTarget = frame
-        return true
-    end
-
-    -- Modern Blizzard panel templates place TitleContainer at frame level 510.
-    -- Use that native title region directly: a child overlay at the parent's
-    -- ordinary frame level sits underneath it and never receives drag input.
-    -- Fall back to an elevated overlay only for older panels without a title
-    -- container.
-    -- MinimapCluster uses MinimapZoneTextButton as its natural drag handle and must not have an overlaid handle
-    -- Unit frames (PartyMemberFrame, CompactPartyFrame) and FocusedRosterFrame must NOT have an overlaid handle
-    -- to prevent blocking unit targeting, healing, right-click context menus, and roster row selection
-    local isUnitFrame = name and (string.match(name, "^PartyMemberFrame") or string.match(name, "^CompactPartyFrame") or name == "PlayerFrame" or name == "TargetFrame")
-    if frame ~= MinimapCluster and not isUnitFrame  then
-        local titleContainer = frame.TitleContainer or (name and _G[name .. "TitleContainer"])
-        if titleContainer and HookPanelDragSurface(titleContainer) then
-            frame._OffhandHandle = titleContainer
-        elseif not frame._OffhandHandle and CreateFrame then
-            local handle
-            handle = CreateFrame("Frame", nil, frame)
-            handle._OffhandSyntheticPanelDragHandle = true
-            handle:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, 0)
-            handle:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -36, 0)
-            handle:SetHeight(32)
-            local lvl = (frame.GetFrameLevel and frame:GetFrameLevel()) or 1
-            if handle.SetFrameLevel then handle:SetFrameLevel(math.max(lvl + 25, 520)) end
-            HookPanelDragSurface(handle)
-            frame._OffhandHandle = handle
-        end
-    end
-
-    local frameIsProtected = frame.IsProtected and frame:IsProtected()
-    if not frameIsProtected then
-        frame:EnableMouse(true)
-        frame:RegisterForDrag("LeftButton")
-
-        frame:HookScript("OnDragStart", function(self)
-            if InCombatLockdown() or not Offhand.db.enabled
-                or ShouldYieldFrameToClassicUIForever(frame, name) then return end
-            frame._OffhandDragging = true
-            frame:StartMoving()
-        end)
-
-        frame:HookScript("OnDragStop", function(self)
-            if ShouldYieldFrameToClassicUIForever(frame, name) then
-                SetPanelDragging(frame, false)
-                return
-            end
-            OnPanelDragStop(frame)
-        end)
-    end
-
-    -- Modern/Forever combined bags are dragged by their native TitleContainer,
-    -- which may not exist yet when the parent frame is first discovered.
-    HookContainerTitlePersistence(frame, name)
-    HookCombinedBagCloseButton(frame, name)
-    HookPanelCloseButton(frame, name)
-    HookKnownPanelAnchorResets(frame, name)
-
-    pcall(function()
-        frame:HookScript("OnShow", function(self)
-            HookContainerTitlePersistence(frame, name)
-            HookCombinedBagCloseButton(frame, name)
-            HookPanelCloseButton(frame, name)
-            RestoreSavedPositionAfterShow(frame)
-            if Offhand.db and Offhand.db.savedWorkspacePositions
-                and Offhand.db.savedWorkspacePositions[name] then
-                Canvas:SetWorkspacePanelOpen(frame, true)
-            end
-        end)
-    end)
-
-    if frame == MinimapCluster then
-        local function HookMinimapDragHandle(handleFrame)
-            if handleFrame and not handleFrame._OffhandHooked then
-                handleFrame._OffhandHooked = true
-                handleFrame:EnableMouse(true)
-                handleFrame:RegisterForDrag("LeftButton")
-                handleFrame:HookScript("OnDragStart", function(self)
-                    if InCombatLockdown() or not Offhand.db.enabled then return end
-                    frame:SetMovable(true)
-                    frame._OffhandDragging = true
-                    frame:StartMoving()
-                end)
-                handleFrame:HookScript("OnDragStop", function(self)
-                    OnPanelDragStop(frame)
-                end)
-            end
-        end
-
-        HookMinimapDragHandle(MinimapZoneTextButton)
-        HookMinimapDragHandle(_G["MinimapBorderTop"])
-        HookMinimapDragHandle(MinimapCluster)
-    end
-
-    if frame == WorldMapFrame and not Offhand.isForever then
-        if WorldMapTitleButton and not WorldMapTitleButton._OffhandHooked then
-            WorldMapTitleButton._OffhandHooked = true
-            WorldMapTitleButton:RegisterForDrag("LeftButton")
-            WorldMapTitleButton:HookScript("OnDragStart", function(self)
-                if InCombatLockdown() or not Offhand.db.enabled
-                    or ShouldYieldFrameToClassicUIForever(frame) then return end
-                frame._OffhandDragging = true
-            end)
-            WorldMapTitleButton:HookScript("OnDragStop", function(self)
-                OnPanelDragStop(frame)
-            end)
-        end
-        if WorldMapTitleButton_OnDragStop and not Canvas._titleButtonHooked then
-            Canvas._titleButtonHooked = true
-            hooksecurefunc("WorldMapTitleButton_OnDragStop", function()
-                OnPanelDragStop(frame)
-            end)
-        end
-    end
-
-    frame._OffhandMovable = true
-end
+local MakePanelDraggable = Offhand.CanvasPanelMotion.InstallGenericDragging(Canvas, {
+    ShouldYieldFrameToClassicUIForever = ShouldYieldFrameToClassicUIForever,
+    ShouldYieldWorldMapToMoveAny = ShouldYieldWorldMapToMoveAny,
+    IsForeverEditModeFrame = IsForeverEditModeFrame,
+    IsForeverWorldMap = IsForeverWorldMap,
+    SetPanelDragging = SetPanelDragging,
+    IsUnsafeForPanelMutation = IsUnsafeForPanelMutation,
+    IsForeverNativeContainerName = IsForeverNativeContainerName,
+    HookCombinedBagCloseButton = HookCombinedBagCloseButton,
+    RestoreSavedPositionAfterShow = RestoreSavedPositionAfterShow,
+    HookContainerTitlePersistence = HookContainerTitlePersistence,
+    HookPanelCloseButton = HookPanelCloseButton,
+    AttachForeverWorldMapDragHandle = AttachForeverWorldMapDragHandle,
+    HookKnownPanelAnchorResets = HookKnownPanelAnchorResets,
+    AttachGuardedForeverPanelMotion = AttachGuardedForeverPanelMotion,
+    OnPanelDragStop = OnPanelDragStop,
+})
 
 Canvas.RestoreWorkspacePosition = RestoreWorkspacePosition
 Canvas.MakePanelDraggable = MakePanelDraggable
