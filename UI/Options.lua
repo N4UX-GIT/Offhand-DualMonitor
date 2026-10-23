@@ -980,47 +980,8 @@ local function CreateNativeSlider(parent, text, minVal, maxVal, step, getVal, se
     return slider
 end
 
--- Shared bottom control tested by regression tests
 function Options:CreateBottomControl(parent)
-    local row = CreateFrame("Frame", nil, parent)
-    row:SetSize(280, 46)
-    local label = row:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-    label:SetPoint("TOPLEFT", 0, 0)
-    label:SetText(L["LABEL_BOTTOM_OFFSET_SHORT"])
-    local input = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
-    input:SetSize(55, 22)
-    input:SetPoint("TOPLEFT", 4, -20)
-    input:SetAutoFocus(false)
-    input:SetNumeric(true)
-    input:SetMaxLetters(5)
-    local function Refresh()
-        input:SetText(tostring(math.floor(Offhand.db.gameBottomPixels or 0)))
-    end
-    local function Apply(delta)
-        local value = tonumber(input:GetText())
-        if not value then Refresh(); return end
-        local _, height = GetPhysicalScreenSize()
-        Offhand.db.gameBottomPixels = math.max(0, math.min(height - 1,
-            math.floor(value + (delta or 0) + 0.5)))
-        Refresh()
-        Offhand:ApplyFullLayout()
-    end
-    local previous = input
-    for _, item in ipairs({{"-1 px", -1}, {"+1 px", 1}, {"Apply", 0}}) do
-        local button = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-        button:SetSize(54, 22)
-        button:SetPoint("LEFT", previous, "RIGHT", 6, 0)
-        button:SetText(item[1])
-        local delta = item[2]
-        button:SetScript("OnClick", function() Apply(delta) end)
-        previous = button
-    end
-    input:SetScript("OnEnterPressed", function(self) Apply(0); self:ClearFocus() end)
-    input:SetScript("OnEscapePressed", function(self) Refresh(); self:ClearFocus() end)
-    row.Refresh = Refresh
-    row:SetScript("OnShow", Refresh)
-    Refresh()
-    return row
+    return Controls.CreateBottomControl(parent)
 end
 
 function Options:GetConfigFrame()

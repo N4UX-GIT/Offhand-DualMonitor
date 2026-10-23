@@ -134,6 +134,10 @@ The tenth extraction moves saved Canvas position validation, creation, relative 
 
 The eleventh extraction moves native backpack root identity, mode-independent position lookup, root ownership transfer, open-state normalization, and preferred-root selection into `Core/CanvasBackpackState.lua`. `Core/Canvas.lua` retains all native frame hooks, movement, proxy controls, persistence callbacks, and protected interaction boundaries.
 
+## Twelfth increment
+
+The twelfth extraction moves the reusable bottom-offset calibration control into `UI/Controls.lua`. `UI/Options.lua` retains its public method as a compatibility delegate, while the shared module now owns the input, pixel-step buttons, physical-height clamp, refresh behavior, and layout application callback.
+
 ## Refactor candidate smoke status
 
 Candidate commit `10453d0941213916f1d7b060b64fc3eeb705bcc2` completed the structural boundary pass on 2026-10-23.
