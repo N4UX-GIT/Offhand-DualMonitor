@@ -195,12 +195,12 @@ function Onboarding:CreateFrame()
     nextButton:SetScript("OnClick", function()
         if f.page == 2 and (not Offhand.GetOnboardingSetupMethod
             or not Offhand:GetOnboardingSetupMethod()) then
-            f.statusText:SetText("|cffff5555" .. L["ONBOARD_STATUS_METHOD_REQUIRED"] .. "|r")
+            f:SetStatusText("|cffff5555" .. L["ONBOARD_STATUS_METHOD_REQUIRED"] .. "|r")
             return
         end
         if f.page == 4 then
             local ready, message, confirmManual, preview = SetupStatus()
-            f.statusText:SetText((ready and "|cff55ff55" or "|cffff5555") .. message .. "|r")
+            f:SetStatusText((ready and "|cff55ff55" or "|cffff5555") .. message .. "|r")
             if not ready then return end
             if confirmManual then
                 local popup = Offhand.isForever and "OFFHAND_CONFIRM_MANUAL_LAYOUT_FOREVER"
@@ -212,7 +212,7 @@ function Onboarding:CreateFrame()
                     local ok = Offhand.ManualCanvas
                         and Offhand.ManualCanvas:RememberFromMetrics(preview, nil, method)
                     if not ok then
-                        f.statusText:SetText("|cffff5555" .. L["ONBOARD_STATUS_NOT_SPANNED"] .. "|r")
+                        f:SetStatusText("|cffff5555" .. L["ONBOARD_STATUS_NOT_SPANNED"] .. "|r")
                         return
                     end
                     if Offhand.ApplyFullLayout then Offhand:ApplyFullLayout() end
@@ -231,6 +231,42 @@ function Onboarding:CreateFrame()
         if Offhand.Wizard and Offhand.Wizard.Open then Offhand.Wizard:Open() end
     end)
     f.nextButton = nextButton
+
+    function f:LayoutPage()
+        local actionHeight = 0
+        for _, button in ipairs({ self.actionButton, self.secondaryActionButton, self.tertiaryActionButton }) do
+            if button:IsShown() then
+                actionHeight = math.max(actionHeight, 26,
+                    Controls.MeasureWrappedText(button:GetFontString(), button:GetText(), 180, 14) + 8)
+            end
+        end
+        local layout = Controls.GetGuideLayout(
+            Controls.MeasureWrappedText(self.pageTitle, self.pageTitle:GetText(), 612),
+            Controls.MeasureWrappedText(self.pageBody, self.pageBody:GetText(), 612),
+            Controls.MeasureWrappedText(self.statusText, self.statusText:GetText(), 612),
+            actionHeight)
+        self:SetHeight(layout.height)
+        self.pageBody:ClearAllPoints()
+        self.pageBody:SetPoint("TOPLEFT", self, "TOPLEFT", 24, -layout.bodyTop)
+        self.pageBody:SetPoint("TOPRIGHT", self, "TOPRIGHT", -24, -layout.bodyTop)
+        self.pageBody:SetHeight(layout.bodyHeight)
+        self.statusText:ClearAllPoints()
+        self.statusText:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", 24, layout.statusBottom)
+        self.statusText:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -24, layout.statusBottom)
+        self.statusText:SetHeight(layout.statusHeight)
+        local multiple = self.secondaryActionButton:IsShown() or self.tertiaryActionButton:IsShown()
+        self.actionButton:ClearAllPoints()
+        self.actionButton:SetPoint("BOTTOM", self, "BOTTOM", multiple and -202 or 0, layout.actionBottom)
+        for _, button in ipairs({ self.actionButton, self.secondaryActionButton, self.tertiaryActionButton }) do
+            button:SetHeight(math.max(26, layout.actionHeight))
+        end
+        Controls.FitDialog(self, Metrics())
+    end
+
+    function f:SetStatusText(message)
+        self.statusText:SetText(message)
+        self:LayoutPage()
+    end
 
     function f:SetPage(page)
         self.page = math.max(1, math.min(PAGE_COUNT, page or 1))
@@ -265,8 +301,6 @@ function Onboarding:CreateFrame()
         if self.page == 2 then
             local method = Offhand.GetOnboardingSetupMethod
                 and Offhand:GetOnboardingSetupMethod() or nil
-            self.actionButton:ClearAllPoints()
-            self.actionButton:SetPoint("BOTTOM", self, "BOTTOM", -202, 115)
             self.actionButton:SetText(L["ONBOARD_USE_FANCYZONES"])
             self.actionButton:SetScript("OnClick", function()
                 if Offhand.SetOnboardingSetupMethod then
@@ -305,7 +339,7 @@ function Onboarding:CreateFrame()
                     Offhand:SetOnboardingSetupMethod("MANUAL")
                 end
                 if Offhand.ManualCanvas then Offhand.ManualCanvas:SetGeometryPreference("MANUAL") end
-                self.statusText:SetText("|cff55ff55" .. L["ONBOARD_METHOD_MANUAL_SELECTED"] .. "|r")
+                self:SetStatusText("|cff55ff55" .. L["ONBOARD_METHOD_MANUAL_SELECTED"] .. "|r")
             end)
             self.tertiaryActionButton:Show()
             if method == "FANCYZONES" then
@@ -316,12 +350,10 @@ function Onboarding:CreateFrame()
                 self.statusText:SetText("|cff55ff55" .. L["ONBOARD_METHOD_MANUAL_SELECTED"] .. "|r")
             end
         elseif self.page == 4 then
-            self.actionButton:ClearAllPoints()
-            self.actionButton:SetPoint("BOTTOM", self, "BOTTOM", 0, 115)
             self.actionButton:SetText(L["ONBOARD_RELOAD_UI"])
             self.actionButton:SetScript("OnClick", function()
                 if InCombatLockdown and InCombatLockdown() then
-                    self.statusText:SetText("|cffff5555" .. L["ONBOARD_RELOAD_COMBAT"] .. "|r")
+                    self:SetStatusText("|cffff5555" .. L["ONBOARD_RELOAD_COMBAT"] .. "|r")
                     return
                 end
                 if Offhand.SetOnboardingResumeStep then Offhand:SetOnboardingResumeStep(4) end
@@ -334,6 +366,7 @@ function Onboarding:CreateFrame()
             self.statusText:SetText(L["RECOVERY_CREATE_LABEL"])
             self.actionButton:Show()
         end
+        self:LayoutPage()
     end
 
     guideFrame = f

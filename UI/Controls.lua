@@ -630,6 +630,23 @@ function Controls.GetCardContentTop(card, minimum)
         Controls.MeasureWrappedText(card.title, card.sectionLabel, width) + 20)
 end
 
+function Controls.GetGuideLayout(titleHeight, bodyHeight, statusHeight, actionHeight)
+    local bodyTop = 88 + math.max(18, titleHeight or 0) + 12
+    bodyHeight = math.max(15, bodyHeight or 0)
+    statusHeight = math.max(42, statusHeight or 0)
+    actionHeight = (actionHeight or 0) > 0 and math.max(26, actionHeight) or 0
+    local statusBottom = 68
+    local actionBottom = statusBottom + statusHeight + 12
+    local reserved = statusBottom + statusHeight
+        + (actionHeight > 0 and (12 + actionHeight) or 0)
+    return {
+        bodyTop = bodyTop, bodyHeight = bodyHeight,
+        statusBottom = statusBottom, statusHeight = statusHeight,
+        actionBottom = actionBottom, actionHeight = actionHeight,
+        height = math.max(430, bodyTop + bodyHeight + 16 + reserved),
+    }
+end
+
 function Controls.LayoutChoiceDescriptions(parent, choices, columns)
     columns = math.max(1, math.floor(tonumber(columns) or 2))
     local padding, gap = 12, 16

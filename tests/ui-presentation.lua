@@ -179,6 +179,20 @@ assert(ui.MeasureWrappedText({ GetStringHeight = function() error("unavailable")
     "unavailable metrics must retain explicit line breaks in the fallback")
 assert(ui.MeasureWrappedText(nil, "|cffff0000hello|r", 35) == 15,
     "fallback measurement must not count color markup as visible text")
+for _, heights in ipairs({ { 18, 190, 42, 26 }, { 45, 450, 90, 50 }, { 18, 40, 42, 0 } }) do
+    local guide = ui.GetGuideLayout(unpack(heights))
+    local statusTop = guide.height - guide.statusBottom - guide.statusHeight
+    local bodyBottom = guide.bodyTop + guide.bodyHeight
+    assert(guide.height >= 430 and guide.statusBottom >= 68,
+        "setup guide must retain its minimum size and footer separation")
+    if guide.actionHeight > 0 then
+        local actionTop = guide.height - guide.actionBottom - guide.actionHeight
+        assert(bodyBottom + 16 <= actionTop and guide.height - guide.actionBottom + 12 <= statusTop,
+            "setup instructions, actions and status text must have explicit non-overlapping gaps")
+    else
+        assert(bodyBottom + 16 <= statusTop, "pages without actions must still clear the status area")
+    end
+end
 local choiceCard = Frame("Frame"); choiceCard:SetSize(662, 1)
 choiceCard.title = Region()
 choiceCard.title.GetStringHeight = function() return 45 end
@@ -212,6 +226,15 @@ for _, locale in ipairs({ "enUS", "deDE", "esES", "esMX", "frFR", "itIT", "koKR"
     GetLocale = function() return locale end
     local localized = { L = {} }
     assert(loadfile("Locales/" .. locale .. ".lua"))("Offhand", localized)
+    for page = 1, 6 do
+        local guide = ui.GetGuideLayout(
+            ui.MeasureWrappedText(nil, localized.L["ONBOARD_STEP_" .. page .. "_TITLE"], 612),
+            ui.MeasureWrappedText(nil, localized.L["ONBOARD_STEP_" .. page .. "_BODY"], 612),
+            ui.MeasureWrappedText(nil, localized.L.ONBOARD_STATUS_MANUAL_CONFIRM, 612), 36)
+        assert(guide.bodyTop + guide.bodyHeight + 16
+                <= guide.height - guide.actionBottom - guide.actionHeight,
+            locale .. ": setup instructions must clear the actions on page " .. page)
+    end
     local card = Frame("Frame"); card:SetSize(662, 1)
     card.title, card.sectionLabel = Region(), localized.L.CARD_THEMES
     local entries = {}

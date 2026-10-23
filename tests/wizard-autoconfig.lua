@@ -114,7 +114,8 @@ function CreateFrame(kind, name, parent, template)
             points = {},
             SetText = function(s, t) s.text = t end,
             SetWidth = function() end,
-            SetHeight = function() end,
+            SetHeight = function(s, height) s.height = height end,
+            GetHeight = function(s) return s.height or 0 end,
             SetWordWrap = function() end,
             SetTextColor = function() end,
             GetText = function(s) return s.text end,
@@ -952,6 +953,30 @@ addon.Onboarding:Open()
 local onboardingFrame = OffhandFirstLaunchFrame
 assert(onboardingFrame and onboardingFrame:IsShown() and onboardingFrame.page == 1,
     "first-time onboarding must open at its introduction")
+do
+    local function CheckGuideBounds()
+        local bodyBottom = -onboardingFrame.pageBody.points.TOPLEFT.y + onboardingFrame.pageBody:GetHeight()
+        local statusTop = onboardingFrame:GetHeight() - onboardingFrame.statusText.points.BOTTOMLEFT.y
+            - onboardingFrame.statusText:GetHeight()
+        local contentBottom = statusTop
+        if onboardingFrame.actionButton:IsShown() then
+            contentBottom = onboardingFrame:GetHeight() - onboardingFrame.actionButton.points.BOTTOM.y
+                - onboardingFrame.actionButton:GetHeight()
+            assert(onboardingFrame:GetHeight() - onboardingFrame.actionButton.points.BOTTOM.y + 12 <= statusTop,
+                "setup status must not overlap the action row")
+        end
+        assert(bodyBottom + 16 <= contentBottom, "setup body must not overlap actions or status")
+    end
+    for page = 1, 6 do onboardingFrame:SetPage(page); CheckGuideBounds() end
+    onboardingFrame:SetPage(2)
+    onboardingFrame:SetStatusText(string.rep("Expanded setup status ", 60))
+    CheckGuideBounds()
+    assert(onboardingFrame:GetHeight() > 430, "long setup status must expand rather than overlap the content")
+    onboardingFrame:SetPage(5)
+    assert(onboardingFrame.actionButton.points.BOTTOM.x == 0,
+        "a single action must be recentered after the three-method page")
+    onboardingFrame:SetPage(1)
+end
 local originalStaticPopupShow = StaticPopup_Show
 local downloadDialog = { SetFrameStrata = function(self, strata) self.strata = strata end }
 StaticPopup_Show = function(key)
