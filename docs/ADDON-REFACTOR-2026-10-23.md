@@ -186,6 +186,10 @@ The twenty-third extraction moves Edit Mode layout identity, per-character selec
 
 The twenty-fourth extraction moves transient-frame preload, secure positioning, Pet Battle bounds, group-loot row layout and mover state, Game Menu centering, and transient lifecycle hooks into `Core/HUDTransientFrames.lua`. The installer receives the shared anchor helpers at the original definition point. Secure snippets, frame-reference names, preload timing, combat deferral, saved group-loot offsets, and native visibility ownership retain their current behavior. Existing transient-frame and protected-action boundary regressions exercise the extracted subsystem.
 
+## Twenty-fifth increment
+
+The twenty-fifth extraction moves Forever Professions movement attachment, Escape observation and recovery, deferred retries, diagnostics, disablement, and historical ownership cleanup into `Core/CanvasProfessions.lua`. The installer receives explicit shared Canvas services at the original definition point. Existing public methods, timer delays, generation checks, profile records, and native visibility policy retain their behavior. Existing Professions and panel-motion integration regressions cover the extracted adapter.
+
 ## Refactor candidate smoke status
 
 Candidate commit `10453d0941213916f1d7b060b64fc3eeb705bcc2` completed the structural boundary pass on 2026-10-23.

@@ -25,6 +25,7 @@ assert(loadfile("Core/CanvasBackpackState.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasForeverMap.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasChat.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasProfessions.lua"))("Offhand", addon)
 local canvasChunk = assert(loadfile("Core/Canvas.lua"))
 canvasChunk("Offhand", addon)
 
@@ -53,6 +54,9 @@ assert(_G.Offhand_OriginalCloseAllWindows == nil
 local canvasFile = assert(io.open("Core/Canvas.lua", "r"))
 local canvasSource = canvasFile:read("*a")
 canvasFile:close()
+local professionsFile = assert(io.open("Core/CanvasProfessions.lua", "r"))
+canvasSource = canvasSource .. "\n" .. professionsFile:read("*a")
+professionsFile:close()
 assert(not canvasSource:find('frame:SetScript("OnHide", nil)', 1, true)
         and not canvasSource:find('frame:SetScript("OnShow", nil)', 1, true),
     "Forever persistence must not replace Blizzard panel scripts")
