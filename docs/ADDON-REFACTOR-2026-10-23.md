@@ -94,6 +94,10 @@ Mocked tests prove deterministic logic only. They do not prove protected frame b
 
 The first extraction moves slider input parsing from `UI/Options.lua` into `UI/Controls.lua`. It preserves `Offhand.ParseSliderInput`, adds an explicit manifest dependency, and uses the existing slider characterization coverage. This provides a narrow load-order seam for later control extraction without changing layout or appearance.
 
+## Second increment
+
+The second extraction moves external World Map ownership detection into `Core/CanvasCompatibility.lua`. The module owns capability detection and priority for MoveAny, ClassicUIForever, OpenMap, and Leatrix Maps. `Core/Canvas.lua` retains all frame movement, persistence, hooks, coordinate refresh, and protected-frame decisions. Existing public Canvas methods remain stable, and focused characterization covers ownership priority, diagnostics, modern and legacy addon APIs, and fail-closed API errors.
+
 ## Branch policy
 
 Structural refactor work targets `addon/develop`. Visual redesign work begins only after the structural phases are accepted and live-client checkpoints are clear. Companion work remains isolated on `companion/develop` and must not be merged into this branch as an incidental dependency.

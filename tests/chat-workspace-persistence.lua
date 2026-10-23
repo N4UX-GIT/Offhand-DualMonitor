@@ -245,6 +245,7 @@ addon.db.savedMainPositions.ChatFrame2 = {
 
 -- Load Offhand modules
 assert(loadfile("UI/Themes.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 assert(loadfile("Core/SeamRedirect.lua"))("Offhand", addon)
 

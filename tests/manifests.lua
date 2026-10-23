@@ -43,12 +43,18 @@ assert(classicText:match("## Interface:%s*30300"),
 assert(wrathText:match("## Interface:%s*30300%s*\r?\n"),
     "dedicated Wrath test manifest must target only interface 30300")
 local main = entries(tocs[1])
+local compatibilityIndex
+local canvasIndex
 local controlsIndex
 local optionsIndex
 for index, file in ipairs(main) do
+    if file == "Core/CanvasCompatibility.lua" then compatibilityIndex = index end
+    if file == "Core/Canvas.lua" then canvasIndex = index end
     if file == "UI/Controls.lua" then controlsIndex = index end
     if file == "UI/Options.lua" then optionsIndex = index end
 end
+assert(compatibilityIndex and canvasIndex and compatibilityIndex + 1 == canvasIndex,
+    "Canvas compatibility policy must load immediately before Canvas")
 assert(controlsIndex and optionsIndex and controlsIndex + 1 == optionsIndex,
     "shared UI controls must load immediately before Options")
 for i=2,#tocs do

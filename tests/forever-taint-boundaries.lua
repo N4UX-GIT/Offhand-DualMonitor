@@ -17,6 +17,7 @@ CloseAllWindows = nativeCloseAllWindows
 CloseAllBags = nativeCloseAllBags
 C_Container = { CloseAllBags = nativeContainerCloseAllBags }
 
+assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
 local canvasChunk = assert(loadfile("Core/Canvas.lua"))
 canvasChunk("Offhand", addon)
 

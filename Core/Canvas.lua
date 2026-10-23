@@ -8,6 +8,18 @@ local _, Offhand = ...
 local Canvas = {}
 Offhand.Canvas = Canvas
 
+local Compatibility = assert(
+    Offhand.CanvasCompatibility,
+    "Offhand Canvas compatibility must load before Canvas"
+)
+local HasLeatrixMaps = Compatibility.HasLeatrixMaps
+local HasMoveAny = Compatibility.HasMoveAny
+local HasClassicUIForever = Compatibility.HasClassicUIForever
+local ShouldYieldFrameToClassicUIForever = Compatibility.ShouldYieldFrameToClassicUIForever
+local GetWorldMapExternalOwner = Compatibility.GetWorldMapExternalOwner
+local IsExternallyPositionedWorldMap = Compatibility.IsExternallyPositionedWorldMap
+local ShouldYieldWorldMapToMoveAny = Compatibility.ShouldYieldWorldMap
+
 -- Native Gamepad UI panel visibility, focus and geometry are owned by
 -- Blizzard's FrameControlsManager. Even an addon-only marker written onto a
 -- managed panel can put later protected focus work in the addon's execution
@@ -173,15 +185,6 @@ function Canvas:UpdateLayout()
     -- Enable free dragging for standard Blizzard frames so the player can move them anywhere on the workspace
     self:EnableFreeDragging()
     self:UpdateMapMovementBehavior()
-end
-
-local function HasLeatrixMaps()
-    if C_AddOns and C_AddOns.IsAddOnLoaded then
-        return C_AddOns.IsAddOnLoaded("Leatrix_Maps")
-    elseif IsAddOnLoaded then
-        return IsAddOnLoaded("Leatrix_Maps")
-    end
-    return false
 end
 
 -- Leatrix Maps configures Blizzard's player, cursor, and crosshair coordinate
@@ -456,91 +459,17 @@ local function HasBlizzardEditMode()
         or C_EditMode ~= nil or EditModeManagerFrame ~= nil
 end
 
-local function IsAddonLoadedCompat(addonName)
-    if C_AddOns and C_AddOns.IsAddOnLoaded then
-        local ok, loaded = pcall(C_AddOns.IsAddOnLoaded, addonName)
-        if ok and loaded then return true end
-    elseif IsAddOnLoaded then
-        local ok, loaded = pcall(IsAddOnLoaded, addonName)
-        if ok and loaded then return true end
-    end
-    return false
-end
-
--- MoveAny registers and manages WorldMapFrame on every supported modern client.
--- Running Offhand's scale, anchor, persistence, drag, or post-toggle paths at
--- the same time gives the map two owners and can leave the M/L result outside
--- the visible canvas. Leave the live map wholly to MoveAny while retaining
--- Offhand's saved coordinates for a future session where MoveAny is disabled.
-local function HasMoveAny()
-    return _G.MoveAny ~= nil or _G.MoveAnything ~= nil
-        or IsAddonLoadedCompat("MoveAny") or IsAddonLoadedCompat("MoveAnything")
-end
-
-local function HasClassicUIForever()
-    return IsAddonLoadedCompat("ClassicUIForever")
-end
-
--- ClassicUI Forever ships on Retail as well as the Forever client and has its
--- own persistent window-drag system for these two native frames. Its name must
--- not be confused with Offhand.isForever, which describes the client branch.
--- Leave geometry and panel registration to one owner while retaining dormant
--- Offhand coordinates for a later session where the addon is disabled.
-local function ShouldYieldFrameToClassicUIForever(frameOrName, suppliedName)
-    if not HasClassicUIForever() then return false end
-    local name = suppliedName
-        or (type(frameOrName) == "string" and frameOrName)
-        or (frameOrName and frameOrName.GetName and frameOrName:GetName())
-    return name == "WorldMapFrame" or name == "CharacterFrame"
-end
-
-local function GetWorldMapExternalOwner()
-    if HasMoveAny() then return "MoveAny" end
-    if HasClassicUIForever() then return "ClassicUIForever" end
-    -- OpenMap Window.lua enforces its saved anchor and scale after every native
-    -- SetPoint/SetScale. Yield before Leatrix so this owner is visible when both
-    -- addons are loaded; their conflicting window options must be disabled.
-    if IsAddonLoadedCompat("OpenMap") then return "OpenMap" end
-    if HasLeatrixMaps() then return "LeatrixMaps" end
-    return nil
-end
-
-local function IsExternallyPositionedWorldMap(frameOrName)
-    local owner = GetWorldMapExternalOwner()
-    if owner ~= "LeatrixMaps" and owner ~= "OpenMap" then return false end
-    if type(frameOrName) == "string" then return frameOrName == "WorldMapFrame" end
-    return frameOrName == _G.WorldMapFrame
-end
-
--- Historical name retained because this predicate is used throughout the
--- panel code. It now means that another addon owns World Map geometry.
-local function ShouldYieldWorldMapToMoveAny(frameOrName)
-    if not GetWorldMapExternalOwner() then return false end
-    if type(frameOrName) == "string" then return frameOrName == "WorldMapFrame" end
-    return frameOrName == _G.WorldMapFrame
-end
-
+-- Preserve the established Canvas API while the ownership policy lives in its
+-- dedicated compatibility module.
 function Canvas:ShouldYieldWorldMap(frameOrName)
     return ShouldYieldWorldMapToMoveAny(frameOrName)
 end
 
 function Canvas:GetCompatibilityDiagnostics(compact)
-    local mapOwner = GetWorldMapExternalOwner() or "Offhand"
-    if compact then
-        return string.format("WorldMapOwner=%s | LeatrixMaps=%s | OpenMap=%s",
-            mapOwner, HasLeatrixMaps() and "loaded" or "absent",
-            IsAddonLoadedCompat("OpenMap") and "loaded" or "absent")
-    end
-    local leatrixStatus = HasLeatrixMaps() and string.format(
-        " | LeatrixMaps=loaded | CoordinateFontRefresh=%s",
-        tostring(self._lastLeatrixCoordinateFontRefreshCount or "pending")) or ""
-    if HasClassicUIForever() then
-        return string.format(
-            "MoveAny=%s | ClassicUIForever=loaded | WorldMapOwner=%s | CharacterFrameOwner=ClassicUIForever",
-            HasMoveAny() and "loaded" or "absent", mapOwner) .. leatrixStatus
-    end
-    return string.format("MoveAny=%s | WorldMapOwner=%s",
-        HasMoveAny() and "loaded" or "absent", mapOwner) .. leatrixStatus
+    return Compatibility.GetDiagnostics(
+        compact,
+        self._lastLeatrixCoordinateFontRefreshCount
+    )
 end
 
 local function IsForeverEditModeFrame(frame, suppliedName)
@@ -725,7 +654,7 @@ function Canvas:RecordLoadedPanelAddon(addonName)
     self.panelsRegisteredSinceAddonEvent = {}
 end
 
-local function IsAddonLoadedCompat(addonName)
+local function IsPanelAddonLoaded(addonName)
     if C_AddOns and C_AddOns.IsAddOnLoaded then
         local ok, loaded = pcall(C_AddOns.IsAddOnLoaded, addonName)
         if ok then return loaded == true end
@@ -769,10 +698,10 @@ function Canvas:RequestPersistentPanelLoad(name, delaySeconds)
     self.panelLoadRequests[name] = "requested:" .. addonName
 
     local callOK, loadResult = true, true
-    if not IsAddonLoadedCompat(addonName) then
+    if not IsPanelAddonLoaded(addonName) then
         callOK, loadResult = LoadAddonCompat(addonName)
     end
-    local loaded = IsAddonLoadedCompat(addonName)
+    local loaded = IsPanelAddonLoaded(addonName)
         or (callOK and loadResult ~= false and loadResult ~= nil)
     self.panelLoadRequests[name] = loaded and "loaded:" .. addonName
         or "failed:" .. addonName
