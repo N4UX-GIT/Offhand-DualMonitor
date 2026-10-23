@@ -173,20 +173,11 @@ end
 
 -- Shared presentation rules for settings and the wizard. Selection is not disability.
 function Options:SetChoiceSelected(button, selected)
-    button:SetEnabled(true)
-    button.selected = selected
-    if selected and button.LockHighlight then button:LockHighlight()
-    elseif button.UnlockHighlight then button:UnlockHighlight() end
+    return Controls.SetChoiceSelected(button, selected)
 end
 
 function Options:StackCards(parent, cards)
-    local height = 0
-    for _, card in ipairs(cards) do
-        card:ClearAllPoints()
-        card:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -height)
-        height = height + card:GetHeight() + 12
-    end
-    parent:SetHeight(height)
+    return Controls.StackCards(parent, cards)
 end
 
 function Options:Confirm(message, callback)

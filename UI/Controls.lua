@@ -57,6 +57,31 @@ function Controls.SetCheckboxEnabled(check, enabled)
     end
 end
 
+function Controls.SetChoiceSelected(button, selected)
+    if not button then return false end
+    button:SetEnabled(true)
+    button.selected = selected and true or false
+    if selected and button.LockHighlight then
+        button:LockHighlight()
+    elseif button.UnlockHighlight then
+        button:UnlockHighlight()
+    end
+    return true
+end
+
+function Controls.StackCards(parent, cards, spacing)
+    if not parent or type(cards) ~= "table" then return 0 end
+    spacing = tonumber(spacing) or 12
+    local height = 0
+    for _, card in ipairs(cards) do
+        card:ClearAllPoints()
+        card:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -height)
+        height = height + card:GetHeight() + spacing
+    end
+    parent:SetHeight(height)
+    return height
+end
+
 function Controls.CreateNativeRadioButton(parent, text, getVal, setVal, tooltipTitle, tooltipText)
     local radio = CreateFrame("CheckButton", nil, parent, "UIRadioButtonTemplate")
     radio:SetSize(18, 18)

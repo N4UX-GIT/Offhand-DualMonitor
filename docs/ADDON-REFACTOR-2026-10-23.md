@@ -146,6 +146,10 @@ The thirteenth extraction moves native Gamepad interface and controller-layout c
 
 The fourteenth extraction moves the Mainhand transient-frame registry, nested-frame resolution, protected eligibility policy, and owned scale normalization into `Core/HUDTransientPolicy.lua`. `Core/SeamRedirect.lua` retains secure handlers, preload timing, event hooks, frame positioning, group-loot layout, Pet Battle bounds, and combat deferral. Protected roots remain opt-in through reviewed registry entries.
 
+## Fifteenth increment
+
+The fifteenth extraction moves selected-choice presentation and vertical card stacking into `UI/Controls.lua`. `UI/Options.lua` retains both public methods as compatibility delegates. Selection remains actionable rather than disabled, and card spacing retains the established twelve-unit default while allowing future screens to supply an explicit spacing rule.
+
 ## Refactor candidate smoke status
 
 Candidate commit `10453d0941213916f1d7b060b64fc3eeb705bcc2` completed the structural boundary pass on 2026-10-23.
