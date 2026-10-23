@@ -46,6 +46,7 @@ local main = entries(tocs[1])
 local initIndex
 local clientRuntimeIndex
 local mainhandGeometryIndex
+local mainhandCompatibilityIndex
 local mainhandIndex
 local hudCompatibilityIndex
 local seamRedirectIndex
@@ -61,6 +62,7 @@ for index, file in ipairs(main) do
     if file == "Core/Init.lua" then initIndex = index end
     if file == "Core/ClientRuntime.lua" then clientRuntimeIndex = index end
     if file == "Core/MainhandGeometry.lua" then mainhandGeometryIndex = index end
+    if file == "Core/MainhandCompatibility.lua" then mainhandCompatibilityIndex = index end
     if file == "Core/Mainhand.lua" then mainhandIndex = index end
     if file == "Core/HUDCompatibility.lua" then hudCompatibilityIndex = index end
     if file == "Core/SeamRedirect.lua" then seamRedirectIndex = index end
@@ -75,9 +77,10 @@ for index, file in ipairs(main) do
 end
 assert(initIndex and clientRuntimeIndex and initIndex + 1 == clientRuntimeIndex,
     "client runtime capabilities must load immediately after Init")
-assert(mainhandGeometryIndex and mainhandIndex
-        and mainhandGeometryIndex + 1 == mainhandIndex,
-    "Mainhand geometry must load immediately before Mainhand")
+assert(mainhandGeometryIndex and mainhandCompatibilityIndex and mainhandIndex
+        and mainhandGeometryIndex + 1 == mainhandCompatibilityIndex
+        and mainhandCompatibilityIndex + 1 == mainhandIndex,
+    "Mainhand support services must load together immediately before Mainhand")
 assert(hudCompatibilityIndex and seamRedirectIndex
         and hudCompatibilityIndex + 1 == seamRedirectIndex,
     "HUD compatibility policy must load immediately before SeamRedirect")

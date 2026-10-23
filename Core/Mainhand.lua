@@ -13,6 +13,12 @@ local Geometry = assert(
 local Number = Geometry.Number
 local IsPlayerCombatRestricted = Geometry.IsPlayerCombatRestricted
 local CurrentRect = Geometry.GetCurrentRect
+local Compatibility = assert(
+    Offhand.MainhandCompatibility,
+    "Offhand Mainhand compatibility must load before Mainhand"
+)
+local NativeGamepadInterface = Compatibility.IsNativeGamepadInterface
+local ControllerMode = Compatibility.IsControllerMode
 local gamepadMainMenuController
 local gamepadMainMenuFrame
 local gamepadMainMenuState = setmetatable({}, { __mode = "k" })
@@ -553,18 +559,6 @@ local function UniqueLayoutName(data, controllerLayout)
         if not names[string.lower(candidate)] then return candidate end
     end
     return base .. " - " .. tostring(time and time() or Geometry.GetRevision())
-end
-
-local function NativeGamepadInterface()
-    if type(Offhand.IsGamepadUIEnabled) == "function" then
-        return Offhand:IsGamepadUIEnabled()
-    end
-    local gamepad = Enum and Enum.InputDeviceInterfaceType
-        and Enum.InputDeviceInterfaceType.Gamepad
-    local getStyle = C_InputInterfaceStyle and C_InputInterfaceStyle.GetCurrentStyle
-    if gamepad == nil or type(getStyle) ~= "function" then return false end
-    local ok, current = pcall(getStyle)
-    return ok and current == gamepad
 end
 
 -- Forever's native radial Main Menu is not part of Edit Mode. It is also a
@@ -1487,14 +1481,6 @@ function Mainhand:EnableForeverGamepadMainMenuAdapter()
         end
     end)
     return true
-end
-
-local function ControllerMode(presets)
-    if _G.ConsolePort or NativeGamepadInterface() then return true end
-    local gamepad = Enum and Enum.InputDeviceInterfaceType
-        and Enum.InputDeviceInterfaceType.Gamepad
-    return gamepad ~= nil and type(presets[1]) == "table"
-        and presets[1].interfaceStyle == gamepad
 end
 
 local function EnsureEditModeLoaded()

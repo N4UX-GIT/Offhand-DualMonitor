@@ -28,6 +28,7 @@ Core\ManualCanvas.lua
 Core\Viewport.lua
 Core\PopupBounds.lua
 Core\MainhandGeometry.lua
+Core\MainhandCompatibility.lua
 Core\Mainhand.lua
 Core\RetailFullscreen.lua
 Core\DialogueUICompat.lua

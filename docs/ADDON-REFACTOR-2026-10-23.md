@@ -138,6 +138,10 @@ The eleventh extraction moves native backpack root identity, mode-independent po
 
 The twelfth extraction moves the reusable bottom-offset calibration control into `UI/Controls.lua`. `UI/Options.lua` retains its public method as a compatibility delegate, while the shared module now owns the input, pixel-step buttons, physical-height clamp, refresh behavior, and layout application callback.
 
+## Thirteenth increment
+
+The thirteenth extraction moves native Gamepad interface and controller-layout capability detection into `Core/MainhandCompatibility.lua`. `Core/Mainhand.lua` retains every focus adapter, frame mutation, Edit Mode transaction, binding decision, and public Mainhand method. The new service is read-only, fails closed when APIs are absent or restricted, and preserves the existing `Offhand.IsGamepadUIEnabled` override priority.
+
 ## Refactor candidate smoke status
 
 Candidate commit `10453d0941213916f1d7b060b64fc3eeb705bcc2` completed the structural boundary pass on 2026-10-23.
