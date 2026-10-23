@@ -29,6 +29,7 @@ assert(loadfile("Core/CanvasProfessions.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasPanelMotion.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasMapPresentation.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasPanelLifecycle.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
 local canvasChunk = assert(loadfile("Core/Canvas.lua"))
 canvasChunk("Offhand", addon)
 

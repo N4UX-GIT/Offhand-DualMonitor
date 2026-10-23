@@ -55,6 +55,7 @@ Core\CanvasProfessions.lua
 Core\CanvasPanelMotion.lua
 Core\CanvasMapPresentation.lua
 Core\CanvasPanelLifecycle.lua
+Core\CanvasPanelPlacement.lua
 Core\Canvas.lua
 Core\WorkspaceBehavior.lua
 Core\WorkspaceChrome.lua
