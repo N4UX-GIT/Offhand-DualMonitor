@@ -1621,6 +1621,14 @@ function Options:CreateFloatingPanel()
     subPitchBlack:SetPoint("TOPLEFT", 342, -104)
     subPitchBlack:SetText(L["THEME_PITCH_BLACK_DESC"])
 
+    Controls.LayoutChoiceDescriptions(card3_1, {
+        { radio = rClassic, body = subClassic, text = L["THEME_CLASSIC_DESC"] },
+        { radio = rSlate, body = subSlate, text = L["THEME_SLATE_DESC"] },
+        { radio = rObsidian, body = subObsidian, text = L["THEME_OBSIDIAN_DESC"] },
+        { radio = rPitchBlack, body = subPitchBlack, text = L["THEME_PITCH_BLACK_DESC"] },
+        { radio = rTinker, body = subTinker, text = L["THEME_TINKER_DESC"] },
+    }, 2)
+
 
     local card3_2 = CreateCard(tab3, L["CARD_TRIM_COLOR"], 94)
 
@@ -2147,21 +2155,7 @@ function Options:CreateFloatingPanel()
     -- TAB 5: FAQ & HELP
     -- ========================================================================
     local function MeasureHelpText(fontString, text)
-        if fontString.GetStringHeight then
-            local ok, measured = pcall(fontString.GetStringHeight, fontString)
-            if ok and type(measured) == "number" and measured > 0 then
-                return math.ceil(measured)
-            end
-        end
-
-        -- Headless tests and a few older clients do not expose measured font
-        -- metrics. Prefer a conservative fallback so translated text expands
-        -- instead of being clipped.
-        local lines = 0
-        for line in (tostring(text or "") .. "\n"):gmatch("(.-)\n") do
-            lines = lines + math.max(1, math.ceil(#line / 92))
-        end
-        return math.max(1, lines) * 15
+        return Controls.MeasureWrappedText(fontString, text, 630)
     end
 
     local function FitHelpCard(card, body, text, reservedHeight, minimumHeight)
@@ -2170,13 +2164,14 @@ function Options:CreateFloatingPanel()
     end
 
     local helpOverview = CreateCard(tab5, L["HELP_OVERVIEW_TITLE"], 1)
+    local overviewTop = Controls.GetCardContentTop(helpOverview, 32)
     local overviewBody = helpOverview:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    overviewBody:SetPoint("TOPLEFT", helpOverview, "TOPLEFT", 14, -32)
+    overviewBody:SetPoint("TOPLEFT", helpOverview, "TOPLEFT", 14, -overviewTop)
     overviewBody:SetWidth(634)
     if overviewBody.SetWordWrap then overviewBody:SetWordWrap(true) end
     overviewBody:SetJustifyH("LEFT")
     overviewBody:SetText(L["HELP_OVERVIEW_BODY"])
-    FitHelpCard(helpOverview, overviewBody, L["HELP_OVERVIEW_BODY"], 88, 132)
+    FitHelpCard(helpOverview, overviewBody, L["HELP_OVERVIEW_BODY"], overviewTop + 56, 132)
 
     local onboardingHelpBtn = CreateFrame("Button", nil, helpOverview, "UIPanelButtonTemplate")
     onboardingHelpBtn:SetSize(145, 26)
@@ -2216,13 +2211,14 @@ function Options:CreateFloatingPanel()
         local title = string.format("%d. %s", index, L["HELP_" .. topic .. "_TITLE"])
         local text = L["HELP_" .. topic .. "_BODY"]
         local card = CreateCard(tab5, title, 1)
+        local contentTop = Controls.GetCardContentTop(card, 34)
         local body = card:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        body:SetPoint("TOPLEFT", card, "TOPLEFT", 16, -34)
+        body:SetPoint("TOPLEFT", card, "TOPLEFT", 16, -contentTop)
         body:SetWidth(630)
         if body.SetWordWrap then body:SetWordWrap(true) end
         body:SetJustifyH("LEFT")
         body:SetText(text)
-        FitHelpCard(card, body, text, 50, 88)
+        FitHelpCard(card, body, text, contentTop + 16, 88)
         helpCards[#helpCards + 1] = card
     end
 

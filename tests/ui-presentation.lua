@@ -6,6 +6,7 @@ local function Region()
     function region:ClearAllPoints() self.point = nil end
     function region:SetSize(w, h) self.width, self.height = w, h end
     function region:SetWidth(w) self.width = w end
+    function region:SetHeight(h) self.height = h end
     function region:SetWordWrap(wrap) self.wrap = wrap end
     function region:SetJustifyH(value) self.justify = value end
     function region:SetTextColor(...) self.color = { ... } end
@@ -172,6 +173,67 @@ assert(ui.EnsureScrollVisible(scroll, 100, 28) == 100,
     "a new selection above the viewport must be revealed")
 assert(ui.EnsureScrollVisible(scroll, 200, 28) == 100,
     "an already visible selection must not move the viewport")
+assert(ui.MeasureWrappedText({ GetStringHeight = function() return 37.2 end }, "short", 200) == 38,
+    "text layout must prefer measured client metrics and round height upward")
+assert(ui.MeasureWrappedText({ GetStringHeight = function() error("unavailable") end }, "one\ntwo", 100) == 30,
+    "unavailable metrics must retain explicit line breaks in the fallback")
+assert(ui.MeasureWrappedText(nil, "|cffff0000hello|r", 35) == 15,
+    "fallback measurement must not count color markup as visible text")
+local choiceCard = Frame("Frame"); choiceCard:SetSize(662, 1)
+choiceCard.title = Region()
+choiceCard.title.GetStringHeight = function() return 45 end
+choiceCard.sectionLabel = "A wrapped theme heading"
+local function Choice(labelHeight, bodyHeight)
+    local control = Frame("CheckButton"); control:SetSize(18, 18)
+    control.Text = Region()
+    control.Text.GetStringHeight = function() return labelHeight end
+    control.labelText = "Long translated choice"
+    local body = Region()
+    body.GetStringHeight = function() return bodyHeight end
+    return { radio = control, body = body, text = "Long translated description" }
+end
+local choices = { Choice(30, 60), Choice(15, 15), Choice(15, 30) }
+local measuredHeight = ui.LayoutChoiceDescriptions(choiceCard, choices, 2)
+assert(choices[1].radio.point[5] == -65,
+    "choice content must begin below a wrapped card heading")
+assert(choices[1].body.point[5] == -36 and choices[1].radio.Text.width == 287,
+    "description and label widths must follow the bounded column and measured title")
+assert(choices[3].radio.point[5] == -(65 + 30 + 6 + 60 + 14),
+    "the next row must clear the tallest description in either previous column")
+assert(measuredHeight == choiceCard:GetHeight() and measuredHeight == 65 + 110 + 68 + 12,
+    "card height must include all expanded rows and bottom padding")
+choices[1].radio.Text.GetStringHeight = function() return 15 end
+choices[1].body.GetStringHeight = function() return 15 end
+assert(ui.LayoutChoiceDescriptions(choiceCard, choices, 2) < measuredHeight,
+    "relayout must derive height anew rather than accumulating padding")
+-- Exercise every shipped locale dictionary with metric-free controls as well.
+-- This establishes bounded columns and row arithmetic, not actual font rendering.
+for _, locale in ipairs({ "enUS", "deDE", "esES", "esMX", "frFR", "itIT", "koKR", "ptBR", "ruRU", "zhCN", "zhTW" }) do
+    GetLocale = function() return locale end
+    local localized = { L = {} }
+    assert(loadfile("Locales/" .. locale .. ".lua"))("Offhand", localized)
+    local card = Frame("Frame"); card:SetSize(662, 1)
+    card.title, card.sectionLabel = Region(), localized.L.CARD_THEMES
+    local entries = {}
+    for _, key in ipairs({ "CLASSIC", "SLATE", "OBSIDIAN", "PITCH_BLACK", "TINKER" }) do
+        local control = Frame("CheckButton"); control:SetSize(18, 18)
+        control.Text, control.labelText = Region(),
+            key == "PITCH_BLACK" and localized.L.CANVAS_BLACK or localized.L["THEME_" .. key]
+        entries[#entries + 1] = { radio = control, body = Region(), text = localized.L["THEME_" .. key .. "_DESC"] }
+    end
+    ui.LayoutChoiceDescriptions(card, entries, 2)
+    for i, entry in ipairs(entries) do
+        local top = -entry.radio.point[5]
+        local bottom = top - entry.body.point[5]
+            + ui.MeasureWrappedText(entry.body, entry.text, entry.body.width)
+        assert(entry.radio.point[4] + 24 + entry.body.width <= 650,
+            locale .. ": translated choices must stay in their assigned columns")
+        assert(bottom < card:GetHeight(), locale .. ": expanded descriptions must fit the card")
+        if entries[i + 2] then
+            assert(bottom < -entries[i + 2].radio.point[5], locale .. ": translated rows must not overlap")
+        end
+    end
+end
 scroll.child:SetSize(662, 200)
 assert(ui.SetScrollOffset(scroll, 300) == 0, "short pages must not scroll beyond content")
 local dialog = Frame("Frame"); dialog:SetSize(922, 732)

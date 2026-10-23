@@ -606,6 +606,65 @@ function Controls.StackCards(parent, cards, spacing)
     return height
 end
 
+function Controls.MeasureWrappedText(fontString, text, width, lineHeight)
+    if fontString and fontString.GetStringHeight then
+        local ok, height = pcall(fontString.GetStringHeight, fontString)
+        if ok and type(height) == "number" and height > 0 then return math.ceil(height) end
+    end
+    -- Conservative byte-based fallback for headless tests and clients that do
+    -- not expose font metrics. UTF-8 expansion may add space, never truncate data.
+    local columns = math.max(1, math.floor((tonumber(width) or 630) / 7))
+    local lines = 0
+    local plain = tostring(text or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    for line in (plain .. "\n"):gmatch("(.-)\n") do
+        lines = lines + math.max(1, math.ceil(#line / columns))
+    end
+    return math.max(1, lines) * (lineHeight or 15)
+end
+
+function Controls.GetCardContentTop(card, minimum)
+    local width = math.max(1, card:GetWidth() - 24)
+    card.title:SetWidth(width)
+    if card.title.SetWordWrap then card.title:SetWordWrap(true) end
+    return math.max(minimum or 32,
+        Controls.MeasureWrappedText(card.title, card.sectionLabel, width) + 20)
+end
+
+function Controls.LayoutChoiceDescriptions(parent, choices, columns)
+    columns = math.max(1, math.floor(tonumber(columns) or 2))
+    local padding, gap = 12, 16
+    local cellWidth = (parent:GetWidth() - padding * 2 - gap * (columns - 1)) / columns
+    local textWidth = math.max(1, cellWidth - 24)
+    local top = Controls.GetCardContentTop(parent, 32)
+    for first = 1, #choices, columns do
+        local rowHeight = 0
+        for column = 0, columns - 1 do
+            local item = choices[first + column]
+            if item then
+                local radio, body = item.radio, item.body
+                local label = radio.Text
+                radio:ClearAllPoints()
+                radio:SetPoint("TOPLEFT", parent, "TOPLEFT", padding + column * (cellWidth + gap), -top)
+                if label.ClearAllPoints then label:ClearAllPoints() end
+                label:SetPoint("TOPLEFT", radio, "TOPRIGHT", 6, 0)
+                label:SetWidth(textWidth)
+                if label.SetWordWrap then label:SetWordWrap(true) end
+                local labelHeight = math.max(18,
+                    Controls.MeasureWrappedText(label, radio.labelText, textWidth))
+                if body.ClearAllPoints then body:ClearAllPoints() end
+                body:SetPoint("TOPLEFT", radio, "TOPRIGHT", 6, -(labelHeight + 6))
+                body:SetWidth(textWidth)
+                if body.SetWordWrap then body:SetWordWrap(true) end
+                local bodyHeight = Controls.MeasureWrappedText(body, item.text, textWidth)
+                rowHeight = math.max(rowHeight, labelHeight + 6 + bodyHeight + 14)
+            end
+        end
+        top = top + rowHeight
+    end
+    parent:SetHeight(top + padding)
+    return top + padding
+end
+
 function Controls.CreateNativeRadioButton(parent, text, getVal, setVal, tooltipTitle, tooltipText)
     local radio = CreateFrame("CheckButton", nil, parent, "UIRadioButtonTemplate")
     radio:SetSize(18, 18)
@@ -614,6 +673,7 @@ function Controls.CreateNativeRadioButton(parent, text, getVal, setVal, tooltipT
     label:SetPoint("LEFT", radio, "RIGHT", 6, 1)
     label:SetText(text)
     radio.Text = label
+    radio.labelText = text
 
     radio:SetChecked(getVal())
     local function Select()
