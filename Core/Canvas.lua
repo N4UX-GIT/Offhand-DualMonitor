@@ -19,6 +19,15 @@ local ShouldYieldFrameToClassicUIForever = Compatibility.ShouldYieldFrameToClass
 local GetWorldMapExternalOwner = Compatibility.GetWorldMapExternalOwner
 local IsExternallyPositionedWorldMap = Compatibility.IsExternallyPositionedWorldMap
 local ShouldYieldWorldMapToMoveAny = Compatibility.ShouldYieldWorldMap
+local IsForeverProfessionsPanel = Compatibility.IsForeverProfessionsPanel
+local IsExperimentalForeverProfessionsMovementEnabled =
+    Compatibility.IsExperimentalForeverProfessionsMovementEnabled
+local ShouldYieldForeverProfessionsPanel = Compatibility.ShouldYieldForeverProfessionsPanel
+local IsPersistentForeverProfessionsPanelName =
+    Compatibility.IsPersistentForeverProfessionsPanelName
+local IsBlizzardEditModeOwnedFrame = Compatibility.IsBlizzardEditModeOwnedFrame
+local HasBlizzardEditMode = Compatibility.HasBlizzardEditMode
+local IsForeverEditModeFrame = Compatibility.IsForeverEditModeFrame
 
 local FrameState = assert(
     Offhand.CanvasFrameState,
@@ -249,112 +258,6 @@ local DemodalizePanel, RemodalizePanel, OnPanelDragStop, RestoreWorkspacePositio
 local EvictWorkspacePanelSlot
 local nonMovableSystemPanels
 
--- Forever's load-on-demand Professions UI has produced repeatable client
--- crashes while Offhand participates in its registration, drag, or restore
--- lifecycle. Treat the complete Professions family as Blizzard-owned by
--- default. A separately consented experimental path supports delayed movement
--- without reconnecting it to the generic panel lifecycle.
-local function IsForeverProfessionsPanel(frame, suppliedName)
-    if not Offhand.isForever then return false end
-    local name = suppliedName or (frame and frame.GetName and frame:GetName())
-    if not name then return false end
-    return name == "TradeSkillFrame" or name == "CraftFrame"
-        or name:match("^Professions") ~= nil
-        or name:match("^Profession") ~= nil
-        or name:match("TradeSkill") ~= nil
-end
-
-local function IsExperimentalForeverProfessionsMovementEnabled()
-    return Offhand.isForever
-        and Offhand.IsExperimentalForeverProfessionsMovementEnabled
-        and Offhand:IsExperimentalForeverProfessionsMovementEnabled() or false
-end
-
-local function ShouldYieldForeverProfessionsPanel(frame, suppliedName)
-    return IsForeverProfessionsPanel(frame, suppliedName)
-        and not IsExperimentalForeverProfessionsMovementEnabled()
-end
-
--- Only the standalone Professions books are meaningful after reload. Forever
--- currently registers the same window as ProfessionsFrame, while older builds
--- used ProfessionsBookFrame. Crafting, trainer and trade-skill windows depend
--- on interaction context and must keep their native visibility lifecycle.
-local function IsPersistentForeverProfessionsPanelName(name)
-    return IsExperimentalForeverProfessionsMovementEnabled()
-        and (name == "ProfessionsFrame" or name == "ProfessionsBookFrame")
-end
-
--- Forever exposes Edit Mode through a load-on-demand addon.  The absence of
--- EditModeManagerFrame during early login therefore does not mean these frames
--- are safe for addons to move or make draggable.
-local foreverEditModeFrameNames = {
-    EditModeManagerFrame = true,
-    EditModeSystemSettingsDialog = true,
-    EditModeUnsavedChangesDialog = true,
-    EditModeDialog = true,
-    MainMenuBar = true,
-    MainActionBar = true,
-    StatusTrackingBarManager = true,
-    MainMenuExpBar = true,
-    MultiBarBottomLeft = true,
-    MultiBarBottomRight = true,
-    MultiBarLeft = true,
-    MultiBarRight = true,
-    StanceBar = true,
-    PetActionBar = true,
-    PossessActionBar = true,
-    MinimapCluster = true,
-    PlayerFrame = true,
-    TargetFrame = true,
-    FocusFrame = true,
-    PetFrame = true,
-    BossTargetFrameContainer = true,
-    PartyFrame = true,
-    PartyMemberFrame1 = true,
-    CompactPartyFrame = true,
-    CompactRaidFrameContainer = true,
-    BuffFrame = true,
-    BuffCluster = true,
-    CastingBarFrame = true,
-    PlayerCastingBarFrame = true,
-    ExtraAbilityContainer = true,
-    ExtraActionBarFrame = true,
-    ZoneAbilityFrame = true,
-    EncounterBar = true,
-    UIWidgetPowerBarContainerFrame = true,
-    LossOfControlFrame = true,
-    MainMenuBarVehicleLeaveButton = true,
-    VehicleExitButton = true,
-    TotemFrame = true,
-    MultiCastActionBarFrame = true,
-    PersonalResourceDisplayFrame = true,
-    DurabilityFrame = true,
-    DamageMeter = true,
-    UIErrorsFrame = true,
-    RaidWarningFrame = true,
-    EssentialCooldownViewer = true,
-    UtilityCooldownViewer = true,
-    BuffIconCooldownViewer = true,
-    BottomManagedFrameContainer = true,
-}
-
--- Edit Mode systems are Blizzard-owned on every client that exposes them.
--- Treat the new native Damage Meter as part of the same family even during
--- load-on-demand initialization, when its protection flags can be incomplete.
-local function IsBlizzardEditModeOwnedFrame(frame, suppliedName)
-    local name = suppliedName or (frame and frame.GetName and frame:GetName())
-    if frame and frame.isManagedFrame == true then return true end
-    return name and (name:match("^EditMode") ~= nil
-        or name:match("^DamageMeter") ~= nil) or false
-end
-
-local function HasBlizzardEditMode()
-    if type(Offhand.HasBlizzardEditMode) == "function" then
-        return Offhand:HasBlizzardEditMode()
-    end
-    return Offhand.isRetail or Offhand.isForever
-        or C_EditMode ~= nil or EditModeManagerFrame ~= nil
-end
 
 -- Preserve the established Canvas API while the ownership policy lives in its
 -- dedicated compatibility module.
@@ -367,28 +270,6 @@ function Canvas:GetCompatibilityDiagnostics(compact)
         compact,
         self._lastLeatrixCoordinateFontRefreshCount
     )
-end
-
-local function IsForeverEditModeFrame(frame, suppliedName)
-    if not HasBlizzardEditMode() then return false end
-    local name = suppliedName or (frame and frame.GetName and frame:GetName())
-    if IsBlizzardEditModeOwnedFrame(frame, name) then return true end
-    -- Forever's primary chat is a Blizzard Edit Mode system on newer builds,
-    -- but older builds do not expose it that way. Feature-detect the native
-    -- contract so legacy chat persistence remains available where appropriate.
-    if name == "ChatFrame1" and Offhand.isForever and frame
-        and type(frame.OnEditModeEnter) == "function"
-        and type(frame.OnEditModeExit) == "function" then
-        return true
-    end
-    if not name then return false end
-    return foreverEditModeFrameNames[name]
-        or name:match("^EditMode") ~= nil
-        or name:match("CooldownViewer") ~= nil
-        or name:match("ManagedFrameContainer") ~= nil
-        or name:match("^PartyMemberFrame") ~= nil
-        or name:match("^CompactPartyFrame") ~= nil
-        or name:match("^CompactRaidFrame") ~= nil
 end
 
 local function IsUnsafeForDirectMutation(frame)

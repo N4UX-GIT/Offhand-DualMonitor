@@ -63,4 +63,16 @@ end
 assert(not compatibility.IsAddonLoaded("MoveAnything"),
     "addon API failures must fail closed")
 
+addon.isForever = true
+addon.HasBlizzardEditMode = function() return true end
+addon.IsExperimentalForeverProfessionsMovementEnabled = function() return false end
+assert(compatibility.IsForeverProfessionsPanel(nil, "ProfessionsFrame"),
+    "Forever Professions ownership was not detected")
+assert(compatibility.ShouldYieldForeverProfessionsPanel(nil, "TradeSkillFrame"),
+    "context-bound Forever Professions panels must remain Blizzard-owned")
+assert(compatibility.IsForeverEditModeFrame(nil, "PartyMemberFrame1"),
+    "Forever Edit Mode frame ownership was not detected")
+assert(compatibility.IsBlizzardEditModeOwnedFrame(nil, "DamageMeterFrame"),
+    "native Damage Meter ownership was not detected")
+
 print("PASS: Canvas external ownership priority, yielding, diagnostics and API fallback")

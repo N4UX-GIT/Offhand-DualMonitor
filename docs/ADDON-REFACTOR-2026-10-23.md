@@ -122,6 +122,10 @@ The seventh extraction moves the Mainhand rectangle, anchor, geometry revision, 
 
 The eighth extraction moves client capability detection and support diagnostic assembly into `Core/ClientRuntime.lua`. `Core/Init.lua` retains metadata initialization, SavedVariables capture, event dispatch, popups, notices, commands, and layout orchestration. The runtime module loads immediately after Init, once client identity and release metadata are available.
 
+## Ninth increment
+
+The ninth extraction consolidates Forever Professions and Edit Mode ownership predicates into `Core/CanvasCompatibility.lua`. Canvas continues to own every movement, restore, registration, and protected-frame operation. The compatibility service now provides one client-policy boundary for external map owners and Blizzard-owned panel families.
+
 ## Branch policy
 
 Structural refactor work targets `addon/develop`. Visual redesign work begins only after the structural phases are accepted and live-client checkpoints are clear. Companion work remains isolated on `companion/develop` and must not be merged into this branch as an incidental dependency.

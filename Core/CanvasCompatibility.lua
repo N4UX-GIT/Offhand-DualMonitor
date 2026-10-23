@@ -8,6 +8,57 @@ local _, Offhand = ...
 local Compatibility = {}
 Offhand.CanvasCompatibility = Compatibility
 
+local foreverEditModeFrameNames = {
+    EditModeManagerFrame = true,
+    EditModeSystemSettingsDialog = true,
+    EditModeUnsavedChangesDialog = true,
+    EditModeDialog = true,
+    MainMenuBar = true,
+    MainActionBar = true,
+    StatusTrackingBarManager = true,
+    MainMenuExpBar = true,
+    MultiBarBottomLeft = true,
+    MultiBarBottomRight = true,
+    MultiBarLeft = true,
+    MultiBarRight = true,
+    StanceBar = true,
+    PetActionBar = true,
+    PossessActionBar = true,
+    MinimapCluster = true,
+    PlayerFrame = true,
+    TargetFrame = true,
+    FocusFrame = true,
+    PetFrame = true,
+    BossTargetFrameContainer = true,
+    PartyFrame = true,
+    PartyMemberFrame1 = true,
+    CompactPartyFrame = true,
+    CompactRaidFrameContainer = true,
+    BuffFrame = true,
+    BuffCluster = true,
+    CastingBarFrame = true,
+    PlayerCastingBarFrame = true,
+    ExtraAbilityContainer = true,
+    ExtraActionBarFrame = true,
+    ZoneAbilityFrame = true,
+    EncounterBar = true,
+    UIWidgetPowerBarContainerFrame = true,
+    LossOfControlFrame = true,
+    MainMenuBarVehicleLeaveButton = true,
+    VehicleExitButton = true,
+    TotemFrame = true,
+    MultiCastActionBarFrame = true,
+    PersonalResourceDisplayFrame = true,
+    DurabilityFrame = true,
+    DamageMeter = true,
+    UIErrorsFrame = true,
+    RaidWarningFrame = true,
+    EssentialCooldownViewer = true,
+    UtilityCooldownViewer = true,
+    BuffIconCooldownViewer = true,
+    BottomManagedFrameContainer = true,
+}
+
 function Compatibility.IsAddonLoaded(addonName)
     if C_AddOns and C_AddOns.IsAddOnLoaded then
         local ok, loaded = pcall(C_AddOns.IsAddOnLoaded, addonName)
@@ -93,4 +144,64 @@ function Compatibility.GetDiagnostics(compact, coordinateFontRefreshCount)
     end
     return string.format("MoveAny=%s | WorldMapOwner=%s",
         Compatibility.HasMoveAny() and "loaded" or "absent", mapOwner) .. leatrixStatus
+end
+
+function Compatibility.IsForeverProfessionsPanel(frame, suppliedName)
+    if not Offhand.isForever then return false end
+    local name = suppliedName or (frame and frame.GetName and frame:GetName())
+    if not name then return false end
+    return name == "TradeSkillFrame" or name == "CraftFrame"
+        or name:match("^Professions") ~= nil
+        or name:match("^Profession") ~= nil
+        or name:match("TradeSkill") ~= nil
+end
+
+function Compatibility.IsExperimentalForeverProfessionsMovementEnabled()
+    return Offhand.isForever
+        and Offhand.IsExperimentalForeverProfessionsMovementEnabled
+        and Offhand:IsExperimentalForeverProfessionsMovementEnabled() or false
+end
+
+function Compatibility.ShouldYieldForeverProfessionsPanel(frame, suppliedName)
+    return Compatibility.IsForeverProfessionsPanel(frame, suppliedName)
+        and not Compatibility.IsExperimentalForeverProfessionsMovementEnabled()
+end
+
+function Compatibility.IsPersistentForeverProfessionsPanelName(name)
+    return Compatibility.IsExperimentalForeverProfessionsMovementEnabled()
+        and (name == "ProfessionsFrame" or name == "ProfessionsBookFrame")
+end
+
+function Compatibility.IsBlizzardEditModeOwnedFrame(frame, suppliedName)
+    local name = suppliedName or (frame and frame.GetName and frame:GetName())
+    if frame and frame.isManagedFrame == true then return true end
+    return name and (name:match("^EditMode") ~= nil
+        or name:match("^DamageMeter") ~= nil) or false
+end
+
+function Compatibility.HasBlizzardEditMode()
+    if type(Offhand.HasBlizzardEditMode) == "function" then
+        return Offhand:HasBlizzardEditMode()
+    end
+    return Offhand.isRetail or Offhand.isForever
+        or C_EditMode ~= nil or EditModeManagerFrame ~= nil
+end
+
+function Compatibility.IsForeverEditModeFrame(frame, suppliedName)
+    if not Compatibility.HasBlizzardEditMode() then return false end
+    local name = suppliedName or (frame and frame.GetName and frame:GetName())
+    if Compatibility.IsBlizzardEditModeOwnedFrame(frame, name) then return true end
+    if name == "ChatFrame1" and Offhand.isForever and frame
+        and type(frame.OnEditModeEnter) == "function"
+        and type(frame.OnEditModeExit) == "function" then
+        return true
+    end
+    if not name then return false end
+    return foreverEditModeFrameNames[name]
+        or name:match("^EditMode") ~= nil
+        or name:match("CooldownViewer") ~= nil
+        or name:match("ManagedFrameContainer") ~= nil
+        or name:match("^PartyMemberFrame") ~= nil
+        or name:match("^CompactPartyFrame") ~= nil
+        or name:match("^CompactRaidFrame") ~= nil
 end
