@@ -48,6 +48,11 @@ local PanelRegistry = assert(
 )
 local IsContextBoundPanel = PanelRegistry.IsContextBoundPanel
 
+local Persistence = assert(
+    Offhand.CanvasPersistence,
+    "Offhand Canvas persistence must load before Canvas"
+)
+
 -- Native Gamepad UI panel visibility, focus and geometry are owned by
 -- Blizzard's FrameControlsManager. Even an addon-only marker written onto a
 -- managed panel can put later protected focus work in the addon's execution
@@ -2249,8 +2254,7 @@ OnPanelDragStop = function(frame)
     local restrictedProfessionsMovement = IsForeverProfessionsPanel(frame, name)
         and IsExperimentalForeverProfessionsMovementEnabled()
 
-    Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
-    Offhand.db.savedMainPositions = Offhand.db.savedMainPositions or {}
+    Persistence.EnsurePositionTables(Offhand.db)
 
     local m = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
     if not m then
@@ -2285,25 +2289,14 @@ OnPanelDragStop = function(frame)
         local yInParent = dragTopInParent
         local frameWidth = (frame:GetWidth() or 0) * (frame.GetScale and frame:GetScale() or 1)
         local frameHeight = (frame:GetHeight() or 0) * (frame.GetScale and frame:GetScale() or 1)
-        if frameWidth <= 0 then frameWidth = 192 end
-        if frameHeight <= 0 then frameHeight = 192 end
+        local fallbackHeight = (UIParent.GetHeight and UIParent:GetHeight()) or 1080
+        local position = Persistence.CreateWorkspacePosition(
+            m, xInParent, yInParent, frameWidth, frameHeight,
+            string.match(name, "^ChatFrame") ~= nil, fallbackHeight
+        )
+        local clampedX, clampedY = position.x, position.y
 
-        -- Clamp strictly within the workspace boundaries so panels never bleed across the seam
-        local inset = string.match(name, "^ChatFrame") and 48 or 12
-        local minX = m.workspaceLeft + inset
-        local maxX = math.max(minX, m.workspaceRight - frameWidth - 12)
-        local clampedX = math.max(minX, math.min(xInParent, maxX))
-
-        local screenHeight = m.workspaceHeight or m.screenHeight or (UIParent.GetHeight and UIParent:GetHeight()) or 1080
-        local minY = m.workspaceBottom + frameHeight + 12
-        local maxY = math.max(minY, m.workspaceTop - 12)
-        local clampedY = math.max(minY, math.min(yInParent, maxY))
-
-        Offhand.db.savedWorkspacePositions[name] = {
-            x = clampedX, y = clampedY,
-            canvasWidth = m.workspaceWidth, canvasHeight = screenHeight,
-            canvasLeft = m.workspaceLeft, canvasBottom = m.workspaceBottom,
-        }
+        Offhand.db.savedWorkspacePositions[name] = position
         if IsBackpackRoot(name) then
             Offhand.db.nativeBackpackWorkspacePosition = Offhand.db.savedWorkspacePositions[name]
             ClearOtherBackpackRootState(name)
@@ -2824,7 +2817,7 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
     end
 
     local wPos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
-    if type(wPos) == "table" and wPos.x and wPos.y then
+    if Persistence.IsPosition(wPos) then
         if not restrictedProfessionsMovement
             and (Offhand.db.independentWorkspacePanels or frame == WorldMapFrame) then
             DemodalizePanel(frame)
@@ -2842,31 +2835,11 @@ RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
         local frameWidth = (frame:GetWidth() or 0) * (frame.GetScale and frame:GetScale() or 1)
         local frameHeight = (frame:GetHeight() or 0) * (frame.GetScale and frame:GetScale() or 1)
-        if frameWidth <= 0 then frameWidth = 192 end
-        if frameHeight <= 0 then frameHeight = 192 end
-
-        -- Sanitize/clamp in case DB had bad coordinates (like y = -4.2 or x = 493.6)
-        local inset = string.match(name, "^ChatFrame") and 48 or 12
-        local minX = m.workspaceLeft + inset
-        local maxX = math.max(minX, m.workspaceRight - frameWidth - 12)
-        local targetX = wPos.x
-        local savedCanvasWidth = tonumber(wPos.canvasWidth)
-        local savedCanvasLeft = tonumber(wPos.canvasLeft) or 0
-        if savedCanvasWidth and savedCanvasWidth > 0 and m.workspaceWidth > 0 then
-            targetX = m.workspaceLeft + (targetX - savedCanvasLeft) * m.workspaceWidth / savedCanvasWidth
-        end
-        local clampedX = math.max(minX, math.min(targetX, maxX))
-
-        local screenHeight = m.workspaceHeight or m.screenHeight or (UIParent.GetHeight and UIParent:GetHeight()) or 1080
-        local minY = m.workspaceBottom + frameHeight + 12
-        local maxY = math.max(minY, m.workspaceTop - 12)
-        local savedCanvasHeight = tonumber(wPos.canvasHeight)
-        local savedCanvasBottom = tonumber(wPos.canvasBottom) or 0
-        local targetY = wPos.y
-        if savedCanvasHeight and savedCanvasHeight > 0 and screenHeight > 0 then
-            targetY = m.workspaceBottom + (targetY - savedCanvasBottom) * screenHeight / savedCanvasHeight
-        end
-        local clampedY = math.max(minY, math.min(targetY, maxY))
+        local fallbackHeight = (UIParent.GetHeight and UIParent:GetHeight()) or 1080
+        local clampedX, clampedY = Persistence.ResolveWorkspacePosition(
+            m, wPos, frameWidth, frameHeight,
+            string.match(name, "^ChatFrame") ~= nil, fallbackHeight
+        )
 
         local factor = parentScale / frameScale
         if frame.SetClampedToScreen then

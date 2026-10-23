@@ -126,6 +126,10 @@ The eighth extraction moves client capability detection and support diagnostic a
 
 The ninth extraction consolidates Forever Professions and Edit Mode ownership predicates into `Core/CanvasCompatibility.lua`. Canvas continues to own every movement, restore, registration, and protected-frame operation. The compatibility service now provides one client-policy boundary for external map owners and Blizzard-owned panel families.
 
+## Tenth increment
+
+The tenth extraction moves saved Canvas position validation, creation, relative scaling, and boundary clamping into `Core/CanvasPersistence.lua`. `Core/Canvas.lua` retains drag lifecycle, frame mutation, panel ownership, open-state policy, and client adapters. SavedVariables field names and coordinate semantics remain unchanged, while the deterministic persistence calculations now have focused characterization coverage.
+
 ## Refactor candidate smoke status
 
 Candidate commit `10453d0941213916f1d7b060b64fc3eeb705bcc2` completed the structural boundary pass on 2026-10-23.

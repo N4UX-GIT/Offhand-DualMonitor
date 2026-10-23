@@ -10,6 +10,7 @@ NUM_CONTAINER_FRAMES=1
 assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand",addon)
 assert(loadfile("Core/CanvasFrameState.lua"))("Offhand",addon)
 assert(loadfile("Core/CanvasPanelRegistry.lua"))("Offhand",addon)
+assert(loadfile("Core/CanvasPersistence.lua"))("Offhand",addon)
 assert(loadfile("Core/Canvas.lua"))("Offhand",addon)
 local value,origin=CloseAllBags("combat")
 assert(nativeCalls==1 and value=="combat" and origin=="native", "Combat lost native arguments/results")

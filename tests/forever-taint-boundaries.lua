@@ -20,6 +20,7 @@ C_Container = { CloseAllBags = nativeContainerCloseAllBags }
 assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasFrameState.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasPanelRegistry.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPersistence.lua"))("Offhand", addon)
 local canvasChunk = assert(loadfile("Core/Canvas.lua"))
 canvasChunk("Offhand", addon)
 
