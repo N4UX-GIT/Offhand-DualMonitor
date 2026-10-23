@@ -6,146 +6,26 @@ Offhand.HUD = HUD
 local aligning, pending = false, false
 local hooks = {}
 local desiredFrames = {}
-local function IsAddonPresent(name)
-    if C_AddOns and C_AddOns.IsAddOnLoaded then
-        if C_AddOns.IsAddOnLoaded(name) then return true end
-    elseif IsAddOnLoaded then
-        if IsAddOnLoaded(name) then return true end
-    end
-    if _G and _G[name] ~= nil then return true end
-    return false
-end
-
-local function HasCustomActionBarAddon()
-    -- Action bar addons generally hide or unregister the native MainMenuBar.
-    if _G.Bartender4 or _G.Dominos or _G.ElvUI or _G.Tukui or _G.ConsolePort then return true end
-    local main = _G.MainMenuBar or _G.MainActionBar
-    if not main then return true end
-    return false
-end
-
-local function HasCustomBagAddon()
-    if _G.Baganator or _G.Baginator or _G.Bagnon or _G.AdiBags or _G.ArkInventory or _G.BetterBags or _G.Inventorian or _G.ElvUI or _G.Tukui then return true end
-
-    local c1 = _G.ContainerFrame1
-    if not c1 then return true end
-
-    return false
-end
-
-local function HasCustomMinimapAddon()
-    -- Heuristic check for minimap overrides.
-    if _G.SexyMap or _G.Carbonite or _G.ElvUI then return true end
-
-    local mm = _G.MinimapCluster
-    if not mm then return true end
-
-    -- If another addon has forcibly moved or unanchored the Minimap natively without Offhand's permission
-    if mm.IsUserPlaced and mm:IsUserPlaced() then return true end
-
-    return false
-end
-
-local function HasEllesmerePartyFrames()
-    -- EllesmereUI ships Party/Raid Frames as this child addon in both its full
-    -- suite and standalone package. Its replacement frames are positioned with
-    -- EllesmereUI Unlock Mode, not Blizzard Edit Mode.
-    return IsAddonPresent("EllesmereUIRaidFrames")
-end
-
-Offhand.HasCustomActionBarAddon = HasCustomActionBarAddon
-Offhand.HasCustomBagAddon = HasCustomBagAddon
-Offhand.HasCustomMinimapAddon = HasCustomMinimapAddon
-Offhand.HasEllesmerePartyFrames = HasEllesmerePartyFrames
+local Compatibility = assert(
+    Offhand.HUDCompatibility,
+    "Offhand HUD compatibility must load before SeamRedirect"
+)
+local HasCustomActionBarAddon = Compatibility.HasCustomActionBarAddon
+local HasCustomBagAddon = Compatibility.HasCustomBagAddon
+local HasCustomMinimapAddon = Compatibility.HasCustomMinimapAddon
+local HasEllesmerePartyFrames = Compatibility.HasEllesmerePartyFrames
+local IsBlizzardEditModeOwnedFrame = Compatibility.IsBlizzardEditModeOwnedFrame
+local HasBlizzardEditMode = Compatibility.HasBlizzardEditMode
+local UsesNativeGamepadInterface = Compatibility.UsesNativeGamepadInterface
+local UsesControllerInterface = Compatibility.UsesControllerInterface
+local HasChattynator = Compatibility.HasChattynator
+local UsesForeverEditMode = Compatibility.UsesForeverEditMode
+local IsForeverEditModeFrame = Compatibility.IsForeverEditModeFrame
+local RetailEditModeOwnsPrimaryChat = Compatibility.RetailEditModeOwnsPrimaryChat
 
 local actionNames = {"MainMenuBar", "MainActionBar", "StatusTrackingBarManager", "MainMenuExpBar",
     "MultiBarBottomLeft", "MultiBarBottomRight", "MultiBarLeft", "MultiBarRight",
     }
-local foreverEditModeFrameNames = {
-    MainMenuBar = true, MainActionBar = true, StatusTrackingBarManager = true, MainMenuExpBar = true,
-    MultiBarBottomLeft = true, MultiBarBottomRight = true, MultiBarLeft = true, MultiBarRight = true,
-    StanceBar = true, PetActionBar = true, PossessActionBar = true,
-    MinimapCluster = true, PlayerFrame = true, TargetFrame = true, FocusFrame = true, PetFrame = true,
-    BossTargetFrameContainer = true,
-    PartyFrame = true, PartyMemberFrame1 = true, CompactPartyFrame = true,
-    CompactRaidFrameContainer = true,
-    BuffFrame = true, BuffCluster = true, CastingBarFrame = true, PlayerCastingBarFrame = true,
-    ExtraAbilityContainer = true, ExtraActionBarFrame = true, ZoneAbilityFrame = true,
-    EncounterBar = true, UIWidgetPowerBarContainerFrame = true, LossOfControlFrame = true,
-    MainMenuBarVehicleLeaveButton = true, VehicleExitButton = true,
-    TotemFrame = true, MultiCastActionBarFrame = true, PersonalResourceDisplayFrame = true,
-    DurabilityFrame = true, DamageMeter = true,
-    UIErrorsFrame = true, RaidWarningFrame = true,
-    EssentialCooldownViewer = true, UtilityCooldownViewer = true,
-    BuffIconCooldownViewer = true, BottomManagedFrameContainer = true,
-}
-
--- Every modern Blizzard client owns these frames through Edit Mode. They may
--- be unprotected at the instant a load-on-demand module initializes, but that
--- does not make them safe for the generic popup rescue or UIPanel centering
--- paths. In particular, the native Damage Meter rebuilds secure ScrollBox
--- entries while Edit Mode opens; changing its frame tree during that lifecycle
--- can leave Blizzard's element initializer incomplete.
-local function IsBlizzardEditModeOwnedFrame(frame, name)
-    name = name or (frame and frame.GetName and frame:GetName())
-    if frame and frame.isManagedFrame == true then return true end
-    return name and (name:match("^EditMode") ~= nil
-        or name:match("^DamageMeter") ~= nil) or false
-end
-
-local function HasBlizzardEditMode()
-    if type(Offhand.HasBlizzardEditMode) == "function" then
-        return Offhand:HasBlizzardEditMode()
-    end
-    return Offhand.isRetail or Offhand.isForever
-        or C_EditMode ~= nil or EditModeManagerFrame ~= nil
-end
-
-local function UsesNativeGamepadInterface()
-    local mainhand = Offhand.Mainhand
-    return mainhand and type(mainhand.IsNativeGamepadInterface) == "function"
-        and mainhand:IsNativeGamepadInterface() or false
-end
-
-local function UsesControllerInterface()
-    local mainhand = Offhand.Mainhand
-    return mainhand and type(mainhand.IsControllerLayout) == "function"
-        and mainhand:IsControllerLayout() or false
-end
-
-local function HasChattynator()
-    return IsAddonPresent("Chattynator")
-end
-
-local function UsesForeverEditMode()
-    if Offhand.isForever ~= nil then return Offhand.isForever end
-    local version = tonumber(Offhand.tocVersion)
-    return version and version >= 16000 and version < 17000 or false
-end
-local function IsForeverEditModeFrame(frame, name)
-    if not HasBlizzardEditMode() then return false end
-    name = name or (frame and frame.GetName and frame:GetName())
-    if IsBlizzardEditModeOwnedFrame(frame, name) then return true end
-    if name == "ChatFrame1" and UsesForeverEditMode() and frame
-        and type(frame.OnEditModeEnter) == "function"
-        and type(frame.OnEditModeExit) == "function" then
-        return true
-    end
-    return name and (foreverEditModeFrameNames[name]
-        or name:match("^EditMode")
-        or name:match("CooldownViewer")
-        or name:match("ManagedFrameContainer")
-        or name:match("^PartyMemberFrame")
-        or name:match("^CompactPartyFrame")
-        or name:match("^CompactRaidFrame")) or false
-end
-
-local function RetailEditModeOwnsPrimaryChat(frame)
-    return not UsesForeverEditMode() and frame and frame == _G.ChatFrame1
-        and frame.isStaticDocked == true
-        and type(frame.OnEditModeEnter) == "function"
-        and type(frame.OnEditModeExit) == "function"
-end
 
 local function GetEditModeLayouts()
     if not C_EditMode or not C_EditMode.GetLayouts then return nil end

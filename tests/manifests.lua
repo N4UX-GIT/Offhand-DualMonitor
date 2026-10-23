@@ -43,6 +43,8 @@ assert(classicText:match("## Interface:%s*30300"),
 assert(wrathText:match("## Interface:%s*30300%s*\r?\n"),
     "dedicated Wrath test manifest must target only interface 30300")
 local main = entries(tocs[1])
+local hudCompatibilityIndex
+local seamRedirectIndex
 local compatibilityIndex
 local frameStateIndex
 local panelRegistryIndex
@@ -50,6 +52,8 @@ local canvasIndex
 local controlsIndex
 local optionsIndex
 for index, file in ipairs(main) do
+    if file == "Core/HUDCompatibility.lua" then hudCompatibilityIndex = index end
+    if file == "Core/SeamRedirect.lua" then seamRedirectIndex = index end
     if file == "Core/CanvasCompatibility.lua" then compatibilityIndex = index end
     if file == "Core/CanvasFrameState.lua" then frameStateIndex = index end
     if file == "Core/CanvasPanelRegistry.lua" then panelRegistryIndex = index end
@@ -57,6 +61,9 @@ for index, file in ipairs(main) do
     if file == "UI/Controls.lua" then controlsIndex = index end
     if file == "UI/Options.lua" then optionsIndex = index end
 end
+assert(hudCompatibilityIndex and seamRedirectIndex
+        and hudCompatibilityIndex + 1 == seamRedirectIndex,
+    "HUD compatibility policy must load immediately before SeamRedirect")
 assert(compatibilityIndex and frameStateIndex and panelRegistryIndex and canvasIndex
         and compatibilityIndex + 1 == frameStateIndex
         and frameStateIndex + 1 == panelRegistryIndex

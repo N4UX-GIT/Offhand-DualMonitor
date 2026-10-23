@@ -227,6 +227,7 @@ assert(StaticPopupDialogs["OFFHAND_COMPANION_VERSION_WARNING"].text
 assert(loadfile("Core/Config.lua"))("Offhand", addon)
 assert(loadfile("Core/ManualCanvas.lua"))("Offhand", addon)
 assert(loadfile("Core/Viewport.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
 assert(loadfile("Core/SeamRedirect.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasFrameState.lua"))("Offhand", addon)

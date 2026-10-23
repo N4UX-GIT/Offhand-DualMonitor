@@ -65,6 +65,7 @@ CharacterBag3Slot=frame(BagsBar)
 OffhandDB={}
 assert(loadfile("Core/ManualCanvas.lua"))("Offhand",addon)
 assert(loadfile("Core/Viewport.lua"))("Offhand",addon)
+assert(loadfile("Core/HUDCompatibility.lua"))("Offhand",addon)
 assert(loadfile("Core/SeamRedirect.lua"))("Offhand",addon)
 local initialPreview=addon.Viewport:GetManualPreviewMetrics()
 assert(addon.ManualCanvas:RememberFromMetrics(initialPreview,"Geometry test","MANUAL"))

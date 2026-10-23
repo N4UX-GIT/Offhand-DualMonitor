@@ -30,6 +30,7 @@ Core\Mainhand.lua
 Core\RetailFullscreen.lua
 Core\DialogueUICompat.lua
 Core\ChatBubbles.lua
+Core\HUDCompatibility.lua
 Core\SeamRedirect.lua
 Core\PanelMotion.lua
 Core\CanvasCompatibility.lua

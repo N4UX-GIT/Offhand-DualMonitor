@@ -110,6 +110,10 @@ The fourth extraction moves load-on-demand panel ownership and tracking into `Co
 
 The fifth extraction moves native checkbox and radio-button construction into `UI/Controls.lua`. Settings composition and refresh policy remain in `UI/Options.lua`, while click behavior, tooltip wiring, label targets, and enabled styling retain their existing contracts.
 
+## Sixth increment
+
+The sixth extraction moves HUD ownership and client capability predicates into `Core/HUDCompatibility.lua`. Third-party action bar, bag, Minimap, chat, and party-frame detection now share one boundary with Retail and Forever Edit Mode ownership policy. `Core/SeamRedirect.lua` retains all protected-frame positioning, recovery, hooks, and scheduling.
+
 ## Branch policy
 
 Structural refactor work targets `addon/develop`. Visual redesign work begins only after the structural phases are accepted and live-client checkpoints are clear. Companion work remains isolated on `companion/develop` and must not be merged into this branch as an incidental dependency.
