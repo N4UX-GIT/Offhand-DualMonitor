@@ -126,6 +126,19 @@ The eighth extraction moves client capability detection and support diagnostic a
 
 The ninth extraction consolidates Forever Professions and Edit Mode ownership predicates into `Core/CanvasCompatibility.lua`. Canvas continues to own every movement, restore, registration, and protected-frame operation. The compatibility service now provides one client-policy boundary for external map owners and Blizzard-owned panel families.
 
+## Refactor candidate smoke status
+
+Candidate commit `10453d0941213916f1d7b060b64fc3eeb705bcc2` completed the structural boundary pass on 2026-10-23.
+
+- All 42 Lua suites passed.
+- All six manifests passed path, XML, and Lua 5.1 syntax validation with 43 runtime files, including 42 Lua files and one XML file.
+- Companion preference and release-metadata tests passed. The frozen Companion remained SHA-256 `81EECE9430885CEAC178A44A42429854524279072305F9F94EE62E7CCD620CCB`.
+- Retail and Forever installations were synchronized across 52 packaged files with no hash differences. Their generated `CompanionTopology.lua` and `ForeverState.lua` files were preserved.
+- Forever 1.60.1 build 70532 loaded the candidate, completed `/reload`, rendered the Offhand settings panel, and opened Map, bags, and Character. The run used safe single-screen recovery because the window was not spanned, so workspace placement and scaling remain unverified. The only fresh BugGrabber record was attributed to the client's `*** ForceTaint_Strong ***` sentinel rather than Offhand.
+- Retail 12.1.5 build 70529 could not reach character selection. Battle.net reported that its configured folder did not contain the correct game version. The direct client remained unauthenticated, so the live-testing workflow stopped without entering credentials. Retail lock, close-reopen timing, Character scaling, and lock-enabled `/reload` remain pending.
+
+The candidate is not ready for promotion until the Retail launcher is repaired and the remaining spanned Retail smoke passes. A spanned Forever placement pass is also still required if the Forever Beta remains available.
+
 ## Branch policy
 
 Structural refactor work targets `addon/develop`. Visual redesign work begins only after the structural phases are accepted and live-client checkpoints are clear. Companion work remains isolated on `companion/develop` and must not be merged into this branch as an incidental dependency.
