@@ -1,3 +1,11 @@
+# Profile and choice usability candidate, source checkpoint 025b6dc
+
+- Source: `codex/addon-ui-overhaul`, draft PR #35. Shared profile-row styling, separate name/active labels, full-name tooltips, Enter/Escape name entry, automatic reveal of new profiles, stale-selection cleanup and scroll clamping. Radio labels are clickable; disabled radio/checkbox label clicks cannot bypass the parent state. Existing profile storage and destructive-action confirmations are unchanged.
+- Automated: all 48 Lua suites passed, including expanded profile and choice-label regressions. Six manifests passed paths, load order, XML and Lua 5.1 syntax validation. The profile-only controls are block-scoped to respect Lua 5.1's local-variable limit. Companion preference and release-metadata checks passed; the frozen executable SHA-256 is unchanged.
+- Package: all 72 unpacked files matched source SHA-256 and the unpacked addon passed validation. Audit ZIP SHA-256: `134D114D0987789EB473F7E55E300E1A67BF7740CDA6E24E7DF902F033A3221F`. Retained Beta 22 metadata is not a new release.
+- Deployment: Retail and Forever Beta each match 70 copied files. Two generated bridge files per install remain unchanged. Current package and pre-update backups: `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-025b6dc`. Earlier candidates remain recoverable.
+- Live: pending, with no new game session or assumed pass. The [combined checklist](../docs/REFACTOR-SMOKE-TEST.md) includes label clicks and an optional disposable-profile check.
+
 # UI interaction hardening candidate, source checkpoint ad036fe
 
 - Source: `codex/addon-ui-overhaul`, draft PR #35 stacked on structural PR #34. Adds interrupted-drag cleanup, final Wizard scale-release commit, semantic button/focus colors, a legacy selection-marker fallback, and event-driven visible-dialog fitting.
