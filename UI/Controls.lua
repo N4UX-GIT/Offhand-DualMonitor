@@ -768,7 +768,13 @@ end
 function Controls.ParseSliderInput(inputStr, minVal, maxVal, step, formatStr)
     if not inputStr then return nil end
     local hasExplicitPercent = tostring(inputStr):find("%%") ~= nil
-    local cleaned = tostring(inputStr):gsub("%%", ""):gsub("[^%d%.%-]", "")
+    -- Accept decimal commas without silently turning 50,5% into 505%.
+    -- These fields are ungrouped values, so mixed/repeated separators are
+    -- ambiguous input rather than thousands separators to discard.
+    local cleaned = tostring(inputStr):gsub("%%", ""):gsub("[^%d%.,%-]", "")
+    local _, separators = cleaned:gsub("[%.,]", "")
+    if separators > 1 then return nil end
+    cleaned = cleaned:gsub(",", ".")
     local num = tonumber(cleaned)
     if not num then return nil end
     local isPercent = formatStr and formatStr:find("%%%%")

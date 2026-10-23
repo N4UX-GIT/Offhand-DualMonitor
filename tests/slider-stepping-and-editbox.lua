@@ -232,6 +232,14 @@ assert(math.abs(addon:ParseSliderInput("36%", 0.15, 0.80, 0.005, "%.1f%%") - 0.3
 assert(math.abs(addon:ParseSliderInput("36", 0.15, 0.80, 0.005, "%.1f%%") - 0.36) < 0.0001, "36 must parse to 0.36")
 assert(math.abs(addon:ParseSliderInput("0.36", 0.15, 0.80, 0.005, "%.1f%%") - 0.36) < 0.0001, "0.36 must parse to 0.36")
 assert(math.abs(addon:ParseSliderInput("50.5%", 0.15, 0.80, 0.005, "%.1f%%") - 0.505) < 0.0001, "50.5% must parse to 0.505")
+assert(math.abs(addon:ParseSliderInput("50,5%", 0.15, 0.80, 0.005, "%.1f%%") - 0.505) < 0.0001, "decimal-comma percent must not concatenate digits")
+assert(math.abs(addon:ParseSliderInput(" 0,505 ", 0.15, 0.80, 0.005, "%.1f%%") - 0.505) < 0.0001, "decimal-comma ratio must retain its scale")
+assert(math.abs(addon:ParseSliderInput("1,5", 0.50, 2.50, 0.05, "%.0f%%") - 1.50) < 0.0001, "decimal-comma scale must match a dot decimal")
+assert(math.abs(addon:ParseSliderInput("20,5 px", 0, 100, 0.5, "%.1f px") - 20.5) < 0.0001, "decimal-comma non-percent input must preserve units and stepping")
+for _, ambiguous in ipairs({ "1,234.5", "1.234,5", "50,,5%", "50..5%" }) do
+    assert(addon:ParseSliderInput(ambiguous, 0, 100, 0.5, "%.1f") == nil,
+        "ambiguous decimal separators must not mutate a setting: " .. ambiguous)
+end
 
 -- Map Scale parsing (min 0.50, max 2.50, step 0.05, format "%.0f%%")
 assert(math.abs(addon:ParseSliderInput("150%", 0.50, 2.50, 0.05, "%.0f%%") - 1.50) < 0.0001, "150% must parse to 1.50")
@@ -302,6 +310,15 @@ hudSlider.editBox:SetText("65")
 hudSlider.editBox.scripts["OnEnterPressed"](hudSlider.editBox)
 assert(math.abs(addon.db.hudScale - 0.65) < 0.001, "Typing 65 into EditBox must set hudScale to 0.65")
 assert(hudSlider.editBox:GetText():find("65%%"), "editBox must format to 65%")
+
+hudSlider.editBox:SetText("0,65")
+hudSlider.editBox.scripts.OnEnterPressed(hudSlider.editBox)
+assert(math.abs(addon.db.hudScale - 0.65) < 0.001 and hudSlider.editBox:GetText() == "65%",
+    "Settings must commit comma decimals through the normal field path")
+hudSlider.editBox:SetText("0,6.5")
+hudSlider.editBox.scripts.OnEditFocusLost(hudSlider.editBox)
+assert(math.abs(addon.db.hudScale - 0.65) < 0.001 and hudSlider.editBox:GetText() == "65%",
+    "ambiguous entry must restore the displayed value without changing Settings")
 
 hudSlider.editBox:SetText("0.75")
 hudSlider.editBox.scripts["OnEnterPressed"](hudSlider.editBox)
@@ -408,6 +425,15 @@ wiz.seamEditBox:SetText("45%")
 wiz.seamEditBox.scripts["OnEnterPressed"](wiz.seamEditBox)
 assert(math.abs(addon.db.deckWidthRatio - 0.45) < 0.001, "Wizard seamEditBox must set deckWidthRatio to 0.45")
 assert(wiz.seamValText:GetText():find("45%.0%%"), "seamValText must reflect 45.0%")
+
+wiz.seamEditBox:SetText("50,5%")
+wiz.seamEditBox.scripts.OnEnterPressed(wiz.seamEditBox)
+assert(math.abs(addon.db.deckWidthRatio - 0.505) < 0.001 and wiz.seamEditBox:GetText() == "50.5%",
+    "Calibration must commit decimal-comma seam entry without clamping to the maximum")
+wiz.seamEditBox:SetText("50,5.0%")
+wiz.seamEditBox.scripts.OnEditFocusLost(wiz.seamEditBox)
+assert(math.abs(addon.db.deckWidthRatio - 0.505) < 0.001 and wiz.seamEditBox:GetText() == "50.5%",
+    "Calibration must restore invalid mixed-separator entry without changing the seam")
 
 wiz.scaleEditBox:SetText("70%")
 wiz.scaleEditBox.scripts["OnEnterPressed"](wiz.scaleEditBox)
