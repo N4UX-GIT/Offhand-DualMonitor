@@ -170,6 +170,7 @@ C_AddOns = {
 -- Load Offhand modules
 local addon = { modules = {} }
 assert(loadfile("Core/Init.lua"))("Offhand", addon)
+assert(loadfile("Core/ClientRuntime.lua"))("Offhand", addon)
 local versionDiagnostics = addon:GetVersionDiagnostics({
     companionVersion = "2.1.2-beta.18",
     companionVersionStatus = "MATCH",

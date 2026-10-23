@@ -154,6 +154,7 @@ GetCursorPosition = function() return cursorX, 0 end
 -- Load Offhand modules
 local addon = { modules = {} }
 assert(loadfile("Core/Init.lua"))("Offhand", addon)
+assert(loadfile("Core/ClientRuntime.lua"))("Offhand", addon)
 assert(loadfile("Core/Config.lua"))("Offhand", addon)
 assert(loadfile("Core/Viewport.lua"))("Offhand", addon)
 assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)

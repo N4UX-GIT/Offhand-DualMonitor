@@ -118,6 +118,10 @@ The sixth extraction moves HUD ownership and client capability predicates into `
 
 The seventh extraction moves the Mainhand rectangle, anchor, geometry revision, callback registry, and public `Offhand.API` geometry contract into `Core/MainhandGeometry.lua`. `Core/Mainhand.lua` retains safe gathering, Edit Mode generation, and gamepad adapters. Combat deferral and callback removal semantics remain unchanged.
 
+## Eighth increment
+
+The eighth extraction moves client capability detection and support diagnostic assembly into `Core/ClientRuntime.lua`. `Core/Init.lua` retains metadata initialization, SavedVariables capture, event dispatch, popups, notices, commands, and layout orchestration. The runtime module loads immediately after Init, once client identity and release metadata are available.
+
 ## Branch policy
 
 Structural refactor work targets `addon/develop`. Visual redesign work begins only after the structural phases are accepted and live-client checkpoints are clear. Companion work remains isolated on `companion/develop` and must not be merged into this branch as an incidental dependency.

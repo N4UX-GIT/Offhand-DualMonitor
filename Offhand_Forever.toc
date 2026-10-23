@@ -21,6 +21,7 @@
 Core\LegacyWrathCompat.lua
 Core\CompanionTopology.lua
 Core\Init.lua
+Core\ClientRuntime.lua
 Core\ForeverState.lua
 Core\Config.lua
 Core\UserMedia.lua

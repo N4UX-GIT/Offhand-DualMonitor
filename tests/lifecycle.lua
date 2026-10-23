@@ -14,6 +14,7 @@ end
 InCombatLockdown = function() return combat end
 SlashCmdList = {}
 assert(loadfile("Core/Init.lua"))("Offhand", addon)
+assert(loadfile("Core/ClientRuntime.lua"))("Offhand", addon)
 
 -- The live interface-style API is authoritative when available, with
 -- InputUtil retained only for builds/load orders that do not expose it yet.
