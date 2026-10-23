@@ -1077,63 +1077,11 @@ OnPanelDragStop = Persistence.InstallDrag(Canvas, {
     IsFrameOnWorkspace = function(...) return IsFrameOnWorkspace(...) end,
 })
 
--- A missing saved display leaves no workspace rectangle. Close only panels
--- that were visible on that workspace so they do not get clamped into a pile
--- on Mainhand. Their saved geometry and open-state snapshot are intentionally
--- retained; reconnecting and reloading restores them. Panels opened manually
--- after recovery remain usable with Blizzard's native single-screen anchors.
-local function IsSingleScreenRecovery(metrics)
-    if Offhand.Viewport and Offhand.Viewport.IsSingleScreenRecovery then
-        return Offhand.Viewport:IsSingleScreenRecovery(metrics)
-    end
-    return metrics and not metrics.isSpanned
-        and metrics.topologyStatus == "MISMATCH" or false
-end
-
-function Canvas:PrepareSingleScreenRecovery(metrics)
-    if not IsSingleScreenRecovery(metrics) or not Offhand.db
-        or not Offhand.db.savedWorkspacePositions then return end
-    for name in pairs(Offhand.db.savedWorkspacePositions) do
-        if not tostring(name):match("^ChatFrame%d+$")
-            and not IsForeverEditModeFrame(_G[name], name)
-            and not IsForeverProfessionsPanel(_G[name], name) then
-            local frame = _G[name]
-            if frame and frame.IsShown and frame:IsShown() and frame.Hide then
-                pcall(frame.Hide, frame)
-            end
-        end
-    end
-end
-
-function Canvas:PlaceForSingleScreenRecovery(frame, metrics)
-    if not frame or not Offhand.db or not Offhand.db.savedWorkspacePositions then return false end
-    metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics())
-    if not IsSingleScreenRecovery(metrics) then return false end
-    local name = frame.GetName and frame:GetName()
-    if not name or not Offhand.db.savedWorkspacePositions[name]
-        or IsForeverEditModeFrame(frame, name) or IsUnsafeForPanelMutation(frame, name) then return false end
-
-    -- Blizzard Edit Mode's Modern fallback already places chat correctly and
-    -- may also restore its preferred size. Do not override it with panel logic.
-    if tostring(name):match("^ChatFrame%d+$") then return false end
-
-    if frame.SetClampedToScreen then pcall(frame.SetClampedToScreen, frame, true) end
-    if frame.ClearAllPoints and frame.SetPoint then
-        pcall(function()
-            frame:ClearAllPoints()
-            if name == "CharacterFrame" then
-                frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 24, -80)
-            elseif name == "ContainerFrameCombinedBags" or tostring(name):match("^ContainerFrame%d+$")
-                or tostring(name):match("Baganator") or tostring(name):match("Baginator")
-                or tostring(name):match("Bagnon") or tostring(name):match("BetterBags") then
-                frame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -32, 140)
-            else
-                frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-            end
-        end)
-    end
-    return true
-end
+Offhand.CanvasPanelPlacement.InstallSingleScreen(Canvas, {
+    IsForeverProfessionsPanel = function(...) return IsForeverProfessionsPanel(...) end,
+    IsForeverEditModeFrame = function(...) return IsForeverEditModeFrame(...) end,
+    IsUnsafeForPanelMutation = function(...) return IsUnsafeForPanelMutation(...) end,
+})
 
 -- Forever's Edit Mode can move and resize non-secure utility frames without
 -- dispatching their normal drag callbacks. Mirror explicit Combined Backpack
@@ -1194,177 +1142,23 @@ function Canvas:CaptureForeverFramePosition(frame)
     return false
 end
 
--- Blizzard UIPanels anchor against the full UIParent. In an Offhand topology
--- that native origin may be the workspace, so an unsaved Spellbook,
--- Professions or Collections panel can open on the wrong monitor. Mainhand
--- placements use physical UIParent coordinates and are clamped on every
--- restore so display changes cannot strand a panel off screen.
-function Canvas:PlacePanelOnMainhand(frame, metrics, position, preserveContained, recoveryAction)
-    if not frame or (InCombatLockdown and InCombatLockdown()) or not Offhand.db
-        or not Offhand.db.enabled then return false end
-    if IsWorldMapMaximized(frame) then return false end
-    local name = frame.GetName and frame:GetName()
-    if ShouldYieldFrameToClassicUIForever(frame, name) then return false end
-    if ShouldYieldWorldMapToMoveAny(name or frame) then return false end
-    local recoverySafePanel = recoveryAction and name and (
-        IsBackpackRoot(name) or (UIPanelWindows and UIPanelWindows[name])
-            or IsForeverSocialPositionRoot(frame, name)
-    )
-    if not name or (nonMovableSystemPanels and nonMovableSystemPanels[name])
-        or IsForeverEditModeFrame(frame, name)
-        or (IsUnsafeForPanelMutation(frame, name) and not recoverySafePanel) then return false end
-
-    metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics
-        and WithWorkspace(Offhand.Viewport:GetMetrics()))
-    if not metrics or not metrics.isSpanned then return false end
-
-    local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
-    local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or parentScale
-    if parentScale <= 0 or frameScale <= 0 then return false end
-    local scaleFactor = frameScale / parentScale
-    local width = ((frame.GetWidth and frame:GetWidth()) or 0) * scaleFactor
-    local height = ((frame.GetHeight and frame:GetHeight()) or 0) * scaleFactor
-    if width <= 0 then width = 192 * scaleFactor end
-    if height <= 0 then height = 192 * scaleFactor end
-
-    local inset = 12
-    local minX = metrics.gameLeft + inset
-    local maxX = math.max(minX, metrics.gameRight - width - inset)
-    local minY = metrics.gameBottom + height + inset
-    local maxY = math.max(minY, metrics.gameTop - inset)
-
-    if preserveContained and not position then
-        local left = frame.GetLeft and frame:GetLeft()
-        local top = frame.GetTop and frame:GetTop()
-        if left and top then
-            left, top = left * scaleFactor, top * scaleFactor
-            if left >= minX and left + width <= metrics.gameRight - inset
-                and top <= maxY and top - height >= metrics.gameBottom + inset then
-                return false
-            end
-        end
-    end
-
-    local targetX = position and tonumber(position.x)
-    local targetY = position and tonumber(position.y)
-    if not targetX then
-        targetX = metrics.gameLeft + (metrics.gameRight - metrics.gameLeft - width) / 2
-    end
-    if not targetY then
-        targetY = metrics.gameBottom + (metrics.gameTop - metrics.gameBottom + height) / 2
-    end
-    local clampedX = math.max(minX, math.min(targetX, maxX))
-    local clampedY = math.max(minY, math.min(targetY, maxY))
-    local pointFactor = parentScale / frameScale
-
-    local ok = pcall(function()
-        if frame.SetClampedToScreen then frame:SetClampedToScreen(false) end
-        frame:ClearAllPoints()
-        frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT",
-            clampedX * pointFactor, clampedY * pointFactor)
-    end)
-    if ok and not IsForeverProfessionsPanel(frame, name) then RegisterSpecialFrame(name) end
-    return ok
-end
-
--- Recovery is an explicit out-of-combat hardware action. Unlike a generic
--- re-anchor, it must also retire Offhand's workspace ownership or the next
--- OnShow/restore pass will put the panel back on the secondary display.
-function Canvas:GatherSafeUIToMainhand()
-    local playerInCombat = InCombatLockdown and InCombatLockdown() or false
-    if not playerInCombat and UnitAffectingCombat then
-        local ok, active = pcall(UnitAffectingCombat, "player")
-        playerInCombat = ok and active == true or false
-    end
-    if playerInCombat then return false, "combat", 0, 0 end
-    if not Offhand.db or not Offhand.db.enabled then return false, "disabled", 0, 0 end
-    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
-        and WithWorkspace(Offhand.Viewport:GetMetrics())
-    if not metrics or not metrics.isSpanned then return false, "span", 0, 0 end
-    Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
-    Offhand.db.openWorkspacePanels = Offhand.db.openWorkspacePanels or {}
-    Offhand.db.savedMainPositions = Offhand.db.savedMainPositions or {}
-
-    local candidates = {}
-    local function Add(frame)
-        if frame then candidates[frame] = true end
-    end
-    for name in pairs(Offhand.db.savedWorkspacePositions or {}) do Add(_G[name]) end
-    for name in pairs(UIPanelWindows or {}) do Add(_G[name]) end
-    if Offhand.BagPersistence and type(Offhand.BagPersistence.frames) == "table" then
-        for _, frame in pairs(Offhand.BagPersistence.frames) do Add(frame) end
-    end
-    Add(_G.WorldMapFrame)
-    Add(_G.CharacterFrame)
-    Add(_G.ContainerFrameCombinedBags)
-    Add(_G.ContainerFrame1)
-
-    local moved, skipped = 0, 0
-    for frame in pairs(candidates) do
-        -- A registered Blizzard panel can become forbidden after it enters a
-        -- restricted state. Never call even basic frame methods until the
-        -- complete inspection is behind a guarded boundary.
-        local inspected, name, shown, tracked, onWorkspace = pcall(function()
-            if frame.IsForbidden and frame:IsForbidden() then return nil, false, false, false end
-            local frameName = frame.GetName and frame:GetName()
-            local frameShown = frame.IsShown and frame:IsShown() or false
-            local frameTracked = frameName and Offhand.db.savedWorkspacePositions[frameName]
-            local frameOnWorkspace = frameShown and IsFrameOnWorkspace(frame) or false
-            return frameName, frameShown, frameTracked, frameOnWorkspace
-        end)
-        if inspected and shown and name and (tracked or onWorkspace)
-            and frame ~= UIParent and frame ~= WorldFrame and frame ~= Offhand.canvas
-            and not IsForeverEditModeFrame(frame, name)
-            and not ShouldYieldFrameToClassicUIForever(frame, name)
-            and not ShouldYieldWorldMapToMoveAny(name) then
-            if frame == _G.WorldMapFrame and frame.SetScale then
-                pcall(frame.SetScale, frame, 1)
-            end
-            local called, placed = pcall(self.PlacePanelOnMainhand,
-                self, frame, metrics, nil, false, true)
-            placed = called and placed
-            if placed then
-                moved = moved + 1
-                Offhand.db.savedWorkspacePositions[name] = nil
-                Offhand.db.openWorkspacePanels[name] = nil
-                if Offhand.db.baganatorWorkspacePanels then
-                    Offhand.db.baganatorWorkspacePanels[name] = nil
-                end
-
-                if IsBackpackRoot(name) then
-                    ClearOtherBackpackRootState(nil)
-                    Offhand.db.nativeBackpackWorkspacePosition = nil
-                    Offhand.db.nativeBackpackWorkspaceOpen = nil
-                elseif Offhand.ForeverPersistence and Offhand.ForeverPersistence.ClearPosition then
-                    Offhand.ForeverPersistence:ClearPosition(name)
-                end
-
-                local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
-                local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
-                local left = frame.GetLeft and frame:GetLeft()
-                local top = frame.GetTop and frame:GetTop()
-                if left and top and parentScale > 0 then
-                    local factor = frameScale / parentScale
-                    Offhand.db.savedMainPositions[name] = { x = left * factor, y = top * factor }
-                end
-            else
-                skipped = skipped + 1
-            end
-        elseif not inspected then
-            skipped = skipped + 1
-        end
-    end
-
-    SaveOpenWorkspacePanels()
-    if Offhand.BagPersistence then
-        if Offhand.BagPersistence.ForgetOpenSnapshot then
-            Offhand.BagPersistence:ForgetOpenSnapshot()
-        end
-        if Offhand.BagPersistence.Capture then Offhand.BagPersistence:Capture() end
-    end
-    if moved > 0 then SaveForeverPanelOwnership() end
-    return true, nil, moved, skipped
-end
+Offhand.CanvasPanelPlacement.InstallMainhand(Canvas, {
+    ShouldYieldFrameToClassicUIForever = function(...) return ShouldYieldFrameToClassicUIForever(...) end,
+    ShouldYieldWorldMapToMoveAny = function(...) return ShouldYieldWorldMapToMoveAny(...) end,
+    IsForeverProfessionsPanel = function(...) return IsForeverProfessionsPanel(...) end,
+    IsForeverEditModeFrame = function(...) return IsForeverEditModeFrame(...) end,
+    IsWorldMapMaximized = function(...) return IsWorldMapMaximized(...) end,
+    WithWorkspace = function(...) return WithWorkspace(...) end,
+    IsForeverSocialPositionRoot = function(...) return IsForeverSocialPositionRoot(...) end,
+    IsUnsafeForPanelMutation = function(...) return IsUnsafeForPanelMutation(...) end,
+    RegisterSpecialFrame = function(...) return RegisterSpecialFrame(...) end,
+    SaveOpenWorkspacePanels = function(...) return SaveOpenWorkspacePanels(...) end,
+    SaveForeverPanelOwnership = function(...) return SaveForeverPanelOwnership(...) end,
+    IsBackpackRoot = function(...) return IsBackpackRoot(...) end,
+    ClearOtherBackpackRootState = function(...) return ClearOtherBackpackRootState(...) end,
+    IsFrameOnWorkspace = function(...) return IsFrameOnWorkspace(...) end,
+    GetNonMovablePanels = function() return nonMovableSystemPanels end,
+})
 
 RestoreWorkspacePosition = Persistence.InstallRestore(Canvas, {
     ShouldYieldFrameToClassicUIForever = function(...) return ShouldYieldFrameToClassicUIForever(...) end,
@@ -1519,78 +1313,12 @@ nonMovableSystemPanels = {
     HouseEditorFrame = true,
 }
 
--- A normal Blizzard panel can be reachable by its left edge while its close
--- button and most of its title bar sit in the mixed-height monitor void. Keep
--- the complete window inside whichever visible monitor currently contains the
--- greatest portion of it. Saved user placements are restored separately and
--- therefore always take precedence over this default-position rescue.
-function Canvas:RescuePanelFromVoid(frame, metrics)
-    if not frame or (InCombatLockdown and InCombatLockdown()) or not Offhand.db
-        or not Offhand.db.enabled then return false end
-    local name = frame.GetName and frame:GetName()
-    if not name or nonMovableSystemPanels[name] or IsForeverEditModeFrame(frame, name)
-        or IsUnsafeForPanelMutation(frame, name) then return false end
-    if not UIPanelWindows or not UIPanelWindows[name] then return false end
-    if frame.IsShown and not frame:IsShown() then return false end
-
-    metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics
-        and WithWorkspace(Offhand.Viewport:GetMetrics()))
-    if not metrics or not metrics.isSpanned or metrics.workspaceLeft == nil then return false end
-
-    local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
-    local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or parentScale
-    if parentScale <= 0 or frameScale <= 0 then return false end
-    local scaleFactor = frameScale / parentScale
-    local left = frame.GetLeft and frame:GetLeft()
-    local top = frame.GetTop and frame:GetTop()
-    local width = frame.GetWidth and frame:GetWidth()
-    local height = frame.GetHeight and frame:GetHeight()
-    if not left or not top or not width or not height or width <= 0 or height <= 0 then return false end
-
-    left, top = left * scaleFactor, top * scaleFactor
-    width, height = width * scaleFactor, height * scaleFactor
-    local right, bottom = left + width, top - height
-    local inset = 12
-    local areas = {
-        {
-            left = metrics.workspaceLeft, right = metrics.workspaceRight,
-            bottom = metrics.workspaceBottom, top = metrics.workspaceTop,
-        },
-        {
-            left = metrics.gameLeft, right = metrics.gameRight,
-            bottom = metrics.gameBottom, top = metrics.gameTop,
-        },
-    }
-
-    local function IsContained(area)
-        return left >= area.left + inset and right <= area.right - inset
-            and bottom >= area.bottom + inset and top <= area.top - inset
-    end
-    if IsContained(areas[1]) or IsContained(areas[2]) then return false end
-
-    local function Overlap(area)
-        local overlapWidth = math.max(0, math.min(right, area.right) - math.max(left, area.left))
-        local overlapHeight = math.max(0, math.min(top, area.top) - math.max(bottom, area.bottom))
-        return overlapWidth * overlapHeight
-    end
-    local target = Overlap(areas[1]) >= Overlap(areas[2]) and areas[1] or areas[2]
-    local availableWidth = math.max(0, target.right - target.left - inset * 2)
-    local availableHeight = math.max(0, target.top - target.bottom - inset * 2)
-    local targetLeft = width <= availableWidth
-        and math.max(target.left + inset, math.min(left, target.right - width - inset))
-        or target.left + inset
-    local targetTop = height <= availableHeight
-        and math.max(target.bottom + height + inset, math.min(top, target.top - inset))
-        or target.top - inset
-    local pointFactor = parentScale / frameScale
-    local ok = pcall(function()
-        if frame.SetClampedToScreen then frame:SetClampedToScreen(false) end
-        frame:ClearAllPoints()
-        frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT",
-            targetLeft * pointFactor, targetTop * pointFactor)
-    end)
-    return ok
-end
+Offhand.CanvasPanelPlacement.InstallVoid(Canvas, {
+    IsForeverEditModeFrame = function(...) return IsForeverEditModeFrame(...) end,
+    WithWorkspace = function(...) return WithWorkspace(...) end,
+    IsUnsafeForPanelMutation = function(...) return IsUnsafeForPanelMutation(...) end,
+    NonMovablePanels = nonMovableSystemPanels,
+})
 
 local function RestoreSavedPositionAfterShow(frame)
     if not frame or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
