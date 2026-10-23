@@ -114,6 +114,10 @@ The fifth extraction moves native checkbox and radio-button construction into `U
 
 The sixth extraction moves HUD ownership and client capability predicates into `Core/HUDCompatibility.lua`. Third-party action bar, bag, Minimap, chat, and party-frame detection now share one boundary with Retail and Forever Edit Mode ownership policy. `Core/SeamRedirect.lua` retains all protected-frame positioning, recovery, hooks, and scheduling.
 
+## Seventh increment
+
+The seventh extraction moves the Mainhand rectangle, anchor, geometry revision, callback registry, and public `Offhand.API` geometry contract into `Core/MainhandGeometry.lua`. `Core/Mainhand.lua` retains safe gathering, Edit Mode generation, and gamepad adapters. Combat deferral and callback removal semantics remain unchanged.
+
 ## Branch policy
 
 Structural refactor work targets `addon/develop`. Visual redesign work begins only after the structural phases are accepted and live-client checkpoints are clear. Companion work remains isolated on `companion/develop` and must not be merged into this branch as an incidental dependency.

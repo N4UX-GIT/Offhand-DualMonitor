@@ -5,15 +5,14 @@
 
 local _, Offhand = ...
 
-local Mainhand = {}
-Offhand.Mainhand = Mainhand
-Offhand.API = Offhand.API or {}
-
-local anchor
-local geometrySignature
-local geometryRevision = 0
-local geometryCallbacks = {}
-local updatePending = false
+local Mainhand = assert(Offhand.Mainhand, "Offhand Mainhand geometry must load before Mainhand")
+local Geometry = assert(
+    Offhand.MainhandGeometry,
+    "Offhand Mainhand geometry must load before Mainhand"
+)
+local Number = Geometry.Number
+local IsPlayerCombatRestricted = Geometry.IsPlayerCombatRestricted
+local CurrentRect = Geometry.GetCurrentRect
 local gamepadMainMenuController
 local gamepadMainMenuFrame
 local gamepadMainMenuState = setmetatable({}, { __mode = "k" })
@@ -25,166 +24,6 @@ local gamepadDestinationDragHandles = setmetatable({}, { __mode = "k" })
 local GAMEPAD_INTERFACE_SETTLE_SECONDS = 1.0
 local GAMEPAD_ACTIVE_PANEL_INTERVAL = 0.05
 local GAMEPAD_INACTIVE_PANEL_INTERVAL = 0.20
-
-local function Number(value)
-    value = tonumber(value)
-    if not value or value ~= value then return nil end
-    return value
-end
-
-local function IsPlayerCombatRestricted()
-    if InCombatLockdown and InCombatLockdown() then return true end
-    if UnitAffectingCombat then
-        local ok, active = pcall(UnitAffectingCombat, "player")
-        if ok and active then return true end
-    end
-    return false
-end
-
-local function ValidMetrics(metrics)
-    return type(metrics) == "table"
-        and Number(metrics.gameLeft) and Number(metrics.gameBottom)
-        and Number(metrics.gameRight) and Number(metrics.gameTop)
-        and metrics.gameRight > metrics.gameLeft
-        and metrics.gameTop > metrics.gameBottom
-end
-
-local function CurrentRect()
-    local width = UIParent and UIParent.GetWidth and UIParent:GetWidth() or 0
-    local height = UIParent and UIParent.GetHeight and UIParent:GetHeight() or 0
-    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
-        and Offhand.Viewport:GetMetrics() or nil
-    local active = Offhand.db and Offhand.db.enabled and metrics and metrics.isSpanned
-        and ValidMetrics(metrics) or false
-    if active then
-        return {
-            left = metrics.gameLeft, bottom = metrics.gameBottom,
-            right = metrics.gameRight, top = metrics.gameTop,
-            width = metrics.gameRight - metrics.gameLeft,
-            height = metrics.gameTop - metrics.gameBottom,
-            screenWidth = width, screenHeight = height,
-            isSpanned = true,
-        }
-    end
-    return {
-        left = 0, bottom = 0, right = width, top = height,
-        width = width, height = height,
-        screenWidth = width, screenHeight = height,
-        isSpanned = false,
-    }
-end
-
-local function Signature(rect)
-    return string.format("%.1f:%.1f:%.1f:%.1f:%.1f:%.1f:%s",
-        rect.left, rect.bottom, rect.right, rect.top,
-        UIParent:GetWidth(), UIParent:GetHeight(), rect.isSpanned and "1" or "0")
-end
-
-local function CopyRect(rect)
-    local copy = {}
-    for key, value in pairs(rect or {}) do copy[key] = value end
-    return copy
-end
-
-function Mainhand:CreateAnchor()
-    if anchor or not CreateFrame or not UIParent then return anchor end
-    anchor = CreateFrame("Frame", "OffhandMainhandFrame", UIParent)
-    anchor:SetFrameStrata("BACKGROUND")
-    anchor:SetFrameLevel(0)
-    if anchor.EnableMouse then anchor:EnableMouse(false) end
-    anchor:SetAllPoints(UIParent)
-    Offhand.mainhandFrame = anchor
-    return anchor
-end
-
-local function NotifyGeometry(rect, reason)
-    for owner, callback in pairs(geometryCallbacks) do
-        local ok, keep = pcall(callback, CopyRect(rect), reason or "update", geometryRevision)
-        if not ok or keep == false then geometryCallbacks[owner] = nil end
-    end
-end
-
-function Mainhand:Update(reason)
-    local region = self:CreateAnchor()
-    if not region then return false end
-    local rect = CurrentRect()
-    local signature = Signature(rect)
-    if signature == geometrySignature then return false end
-
-    if InCombatLockdown and InCombatLockdown() then
-        if not updatePending then
-            updatePending = true
-            local apply = function()
-                updatePending = false
-                Mainhand:Update("combat-ended")
-            end
-            if Offhand.RunOrQueueCombat then Offhand:RunOrQueueCombat(apply) end
-        end
-        return false
-    end
-    updatePending = false
-
-    region:ClearAllPoints()
-    region:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", rect.left, rect.bottom)
-    region:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", rect.right, rect.top)
-    geometrySignature = signature
-    geometryRevision = geometryRevision + 1
-    self.rect = rect
-    NotifyGeometry(rect, reason)
-    return true
-end
-
-function Mainhand:GetRect()
-    if not self.rect then self:Update("read") end
-    return CopyRect(self.rect or CurrentRect())
-end
-
-function Mainhand:GetGeometrySignature()
-    local rect = self:GetRect()
-    return Signature(rect)
-end
-
-function Mainhand:GetGeometryRevision()
-    return geometryRevision
-end
-
-function Offhand.API.GetMainhandFrame()
-    return Mainhand:CreateAnchor()
-end
-
-function Offhand.API.GetMainhandRect()
-    return Mainhand:GetRect()
-end
-
-function Offhand.API.GetGeometryRevision()
-    return Mainhand:GetGeometryRevision()
-end
-
-function Offhand.API.RegisterGeometryCallback(owner, callback)
-    if owner == nil or type(callback) ~= "function" then return false end
-    geometryCallbacks[owner] = callback
-    return true
-end
-
-function Offhand.API.UnregisterGeometryCallback(owner)
-    geometryCallbacks[owner] = nil
-end
-
--- Anchor an explicitly cooperating, unprotected frame to Mainhand. Offhand
--- never discovers or registers third-party frames automatically.
-function Offhand.API.AnchorToMainhand(frame, point, relativePoint, x, y)
-    if not frame or not frame.ClearAllPoints or not frame.SetPoint then return false, "frame" end
-    if frame.IsForbidden and frame:IsForbidden() then return false, "forbidden" end
-    if frame.IsProtected and frame:IsProtected() then return false, "protected" end
-    if InCombatLockdown and InCombatLockdown() then return false, "combat" end
-    local region = Mainhand:CreateAnchor()
-    if not region then return false, "unavailable" end
-    point = point or "CENTER"
-    relativePoint = relativePoint or point
-    frame:ClearAllPoints()
-    frame:SetPoint(point, region, relativePoint, x or 0, y or 0)
-    return true
-end
 
 local editModeNames = {
     MainMenuBar = true, MainActionBar = true, StatusTrackingBarManager = true,
@@ -218,7 +57,7 @@ local function IsEditModeOwned(frame, name)
 end
 
 local function SafeGatherCandidate(frame)
-    if not frame or frame == UIParent or frame == WorldFrame or frame == anchor
+    if not frame or frame == UIParent or frame == WorldFrame or Geometry.IsAnchor(frame)
         or frame == Offhand.canvas then return false end
     if frame.IsForbidden and frame:IsForbidden() then return false end
     if frame.IsProtected and frame:IsProtected() then return false end
@@ -713,7 +552,7 @@ local function UniqueLayoutName(data, controllerLayout)
         local candidate = base .. " (" .. number .. ")"
         if not names[string.lower(candidate)] then return candidate end
     end
-    return base .. " - " .. tostring(time and time() or geometryRevision)
+    return base .. " - " .. tostring(time and time() or Geometry.GetRevision())
 end
 
 local function NativeGamepadInterface()
