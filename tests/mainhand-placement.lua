@@ -86,6 +86,7 @@ addon.HasCustomBagAddon = function() return customBagAddon end
 OffhandCharDB = {}
 assert(loadfile("Core/MainhandGeometry.lua"))("Offhand", addon)
 assert(loadfile("Core/MainhandCompatibility.lua"))("Offhand", addon)
+assert(loadfile("Core/MainhandGamepad.lua"))("Offhand", addon)
 assert(loadfile("Core/Mainhand.lua"))("Offhand", addon)
 
 local callbackRect, callbackRevision

@@ -68,6 +68,9 @@ assert(seamSource:find("not self.anchorsHooked and not UsesForeverEditMode()", 1
 local mainhandFile = assert(io.open("Core/Mainhand.lua", "r"))
 local mainhandSource = mainhandFile:read("*a")
 mainhandFile:close()
+local gamepadFile = assert(io.open("Core/MainhandGamepad.lua", "r"))
+mainhandSource = mainhandSource .. "\n" .. gamepadFile:read("*a")
+gamepadFile:close()
 assert(not mainhandSource:find("presetLayoutInfo", 1, true)
         and not mainhandSource:find("UpdateLayoutInfo", 1, true),
     "Forever must not mutate or refresh Blizzard's Gamepad preset manager")

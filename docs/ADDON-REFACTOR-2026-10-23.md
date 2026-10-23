@@ -154,6 +154,10 @@ The fifteenth extraction moves selected-choice presentation and vertical card st
 
 The sixteenth extraction moves the complete settings slider implementation into `UI/Controls.lua`, including typed values, step buttons, physical-pixel dragging, release-time commits, tooltips, and theme refresh. Options retains its local slider registry and construction delegate so settings refresh ownership stays with the screen. Existing slider and theme regressions exercise the extracted implementation.
 
+## Seventeenth increment
+
+The seventeenth extraction moves the complete native Gamepad presentation adapter and its weak-key state into `Core/MainhandGamepad.lua`. The module installs the existing public Mainhand methods before Mainhand creates its event controller. Polling, interface settlement, native anchor restoration, destination drag handles, saved offsets, and ownership checks retain their original sequence. Mainhand diagnostics now obtain menu and reticle status through adapter getters. Existing placement and taint-boundary regressions cover both modules together.
+
 ## Refactor candidate smoke status
 
 Candidate commit `10453d0941213916f1d7b060b64fc3eeb705bcc2` completed the structural boundary pass on 2026-10-23.

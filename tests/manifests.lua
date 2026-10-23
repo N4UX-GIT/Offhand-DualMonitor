@@ -47,6 +47,7 @@ local initIndex
 local clientRuntimeIndex
 local mainhandGeometryIndex
 local mainhandCompatibilityIndex
+local mainhandGamepadIndex
 local mainhandIndex
 local hudCompatibilityIndex
 local hudTransientPolicyIndex
@@ -64,6 +65,7 @@ for index, file in ipairs(main) do
     if file == "Core/ClientRuntime.lua" then clientRuntimeIndex = index end
     if file == "Core/MainhandGeometry.lua" then mainhandGeometryIndex = index end
     if file == "Core/MainhandCompatibility.lua" then mainhandCompatibilityIndex = index end
+    if file == "Core/MainhandGamepad.lua" then mainhandGamepadIndex = index end
     if file == "Core/Mainhand.lua" then mainhandIndex = index end
     if file == "Core/HUDCompatibility.lua" then hudCompatibilityIndex = index end
     if file == "Core/HUDTransientPolicy.lua" then hudTransientPolicyIndex = index end
@@ -79,9 +81,10 @@ for index, file in ipairs(main) do
 end
 assert(initIndex and clientRuntimeIndex and initIndex + 1 == clientRuntimeIndex,
     "client runtime capabilities must load immediately after Init")
-assert(mainhandGeometryIndex and mainhandCompatibilityIndex and mainhandIndex
+assert(mainhandGeometryIndex and mainhandCompatibilityIndex and mainhandGamepadIndex and mainhandIndex
         and mainhandGeometryIndex + 1 == mainhandCompatibilityIndex
-        and mainhandCompatibilityIndex + 1 == mainhandIndex,
+        and mainhandCompatibilityIndex + 1 == mainhandGamepadIndex
+        and mainhandGamepadIndex + 1 == mainhandIndex,
     "Mainhand support services must load together immediately before Mainhand")
 assert(hudCompatibilityIndex and hudTransientPolicyIndex and seamRedirectIndex
         and hudCompatibilityIndex + 1 == hudTransientPolicyIndex
