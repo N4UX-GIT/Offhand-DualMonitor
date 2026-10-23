@@ -182,6 +182,10 @@ The twenty-second extraction moves Edit Mode layout generation, serialized layou
 
 The twenty-third extraction moves Edit Mode layout identity, per-character selection observation, missing-monitor recovery, transactional control recovery, and protected HUD repair into `Core/HUDRecovery.lua`. The service installs the existing HUD methods at their original definition point and returns the layout helpers used by SeamRedirect's event wiring. Timer delays, prompts, hardware-event requirements, saved state, and frame ownership checks retain their original sequence. Existing lifecycle and protected-HUD integration suites exercise the extracted service.
 
+## Twenty-fourth increment
+
+The twenty-fourth extraction moves transient-frame preload, secure positioning, Pet Battle bounds, group-loot row layout and mover state, Game Menu centering, and transient lifecycle hooks into `Core/HUDTransientFrames.lua`. The installer receives the shared anchor helpers at the original definition point. Secure snippets, frame-reference names, preload timing, combat deferral, saved group-loot offsets, and native visibility ownership retain their current behavior. Existing transient-frame and protected-action boundary regressions exercise the extracted subsystem.
+
 ## Refactor candidate smoke status
 
 Candidate commit `10453d0941213916f1d7b060b64fc3eeb705bcc2` completed the structural boundary pass on 2026-10-23.

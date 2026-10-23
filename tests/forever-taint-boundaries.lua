@@ -63,6 +63,9 @@ seamFile:close()
 local recoveryFile = assert(io.open("Core/HUDRecovery.lua", "r"))
 seamSource = seamSource .. "\n" .. recoveryFile:read("*a")
 recoveryFile:close()
+local transientFile = assert(io.open("Core/HUDTransientFrames.lua", "r"))
+seamSource = seamSource .. "\n" .. transientFile:read("*a")
+transientFile:close()
 
 assert(not seamSource:find('SetUIPanelAttribute, frame, "centerFrameSkipAnchoring"', 1, true),
     "Forever must not write EditModeManagerFrame panel attributes")

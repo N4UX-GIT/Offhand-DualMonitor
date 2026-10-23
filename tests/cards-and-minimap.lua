@@ -163,6 +163,7 @@ assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
 assert(loadfile("Core/HUDTransientPolicy.lua"))("Offhand", addon)
 assert(loadfile("Core/HUDRecovery.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDTransientFrames.lua"))("Offhand", addon)
 assert(loadfile("Core/SeamRedirect.lua"))("Offhand", addon)
 
 -- 1. Test Canvas draggability setup and HUD hooks
