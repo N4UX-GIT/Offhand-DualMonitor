@@ -1,9 +1,9 @@
 # Visual UI overhaul candidate
 
-Current runtime checkpoint: `70e2d4f` on `codex/addon-ui-overhaul`, draft PR #35,
+Current runtime checkpoint: `f766a58` on `codex/addon-ui-overhaul`, draft PR #35,
 based on the completed structural branch at `b7508d5`. The initial visual pass
 was `e480af9`; subsequent increments harden its interaction lifecycle and improve
-profile usability, translated text layout, and setup-guide spacing. The visual work is a separate branch so
+profile usability, translated text layout, and setup/calibration spacing. The visual work is a separate branch so
 it can be reviewed or rolled back without undoing the structural refactor.
 
 ## Implemented
@@ -49,6 +49,14 @@ user-resizable layout.
   have simulated coverage; actual in-game positioning still needs acceptance.
 
 ## Boundaries and library decision
+
+Calibration now stacks the introduction, progress indicator, active card,
+validation message, and footer with measured spacing. Topology recommendations
+and the final HUD readiness card expand to their text instead of retaining small
+fixed text regions. Validation/layout-creation failures reflow the active page,
+and longer footer labels reserve their full button height. The existing topology
+checks, four/five-step selection, layout creation, completion, skip confirmation,
+and reload workflow are unchanged. Repeated layout derives heights afresh.
 
 Window Setup now derives its body, action-row, status, and window heights from
 the current text. It reserves explicit gaps above the footer and between those
@@ -100,15 +108,15 @@ a consistent dark presentation with the selected accent and OLED treatment.
 - An isolated addon-only audit package passed. All 72 unpacked files matched
   source by SHA-256, and the unpacked addon passed validation.
 - Current audit ZIP SHA-256:
-  `9923632DF6B8C7D053F2E31A603E0405D452740C8F7FAA14A0F094BAAE573ABA`.
+  `E08F6727622BCE4A4A980B44F7933CF8EE42DC65EDF01FCE1F116032EECFFE68`.
 - Retail and Forever Beta installs match the 70 copied package files. Their two
   generated topology/state bridge files were preserved and verified unchanged.
 - Audit package, unpacked verification copy, and recoverable pre-update installs:
-  `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-70e2d4f`.
+  `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-f766a58`.
 
 Earlier visual audit directories and their installed backups remain available
-separately. The current pre-update backups contain `9db21e3`, the measured
-Themes/Help text candidate, not the structural-only candidate.
+separately. The current pre-update backups contain `70e2d4f`, the setup-guide
+spacing candidate, not the structural-only candidate.
 
 Existing Beta 22 metadata was retained for local audit purposes only. The archive
 is not a published release and must not be mistaken for the stable checkpoint.

@@ -1,3 +1,11 @@
+# Calibration layout candidate, source checkpoint f766a58
+
+- Source: `codex/addon-ui-overhaul`, draft PR #35. Calibration measures introduction/progress, topology recommendations, final HUD guidance/status, validation and footer spacing. Failure messages reflow the active page; longer footer labels reserve height. Topology checks, four/five-step policy, completion/skip confirmation, layout creation and reload actions remain unchanged.
+- Automated: all 48 Lua suites passed. New coverage checks page/card/validation/footer separation, expanded final readiness text and non-accumulating relayout. Existing setup, topology mismatch and layout-creation failure regressions still pass. Six manifests passed paths, XML, load order and Lua 5.1 syntax validation. Companion preference and release-metadata checks passed; the frozen executable hash is unchanged.
+- Package: all 72 unpacked files matched source SHA-256 and unpacked validation passed. Audit ZIP SHA-256: `E08F6727622BCE4A4A980B44F7933CF8EE42DC65EDF01FCE1F116032EECFFE68`. Retained Beta 22 metadata is for local audit, not a release.
+- Deployment: Retail and Forever Beta each match 70 copied files; both generated bridges remain unchanged. Current package and recoverable pre-update installs: `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-f766a58`. Earlier candidates remain available.
+- Live: pending. No in-game text rendering or protected-action pass is claimed. The [combined checklist](../docs/REFACTOR-SMOKE-TEST.md) includes read-only calibration inspection without completing or replacing a layout just to check appearance.
+
 # Setup-guide spacing candidate, source checkpoint 70e2d4f
 
 - Source: `codex/addon-ui-overhaul`, draft PR #35. Window Setup measures its title/body/status and action text, reserves non-overlapping body/action/status/footer regions, reflows status updates, and recenters a single action after the three-choice page. No setup actions, confirmations, saved-variable schema or release metadata were changed.
