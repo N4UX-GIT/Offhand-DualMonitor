@@ -786,6 +786,7 @@ function Options:CreateFloatingPanel()
     local card1_3 = CreateCard(tab1, L["CARD_SCALE_ALIGNMENT"], 156)
 
     local bottomControl = Options:CreateBottomControl(card1_3)
+    configFrame.bottomControl = bottomControl
     bottomControl:SetPoint("TOPLEFT", 12, -26)
     card1_3:SetHeight(math.max(156, 26 + bottomControl:GetHeight() + 12))
 
@@ -2319,9 +2320,8 @@ function Options:CreateFloatingPanel()
             end
         end
 
-        local curSeam = (Offhand.db and Offhand.db.deckWidthRatio) or 0.36
-        seamSlider:SetValue(curSeam)
-        if seamSlider.UpdateText then seamSlider:UpdateText() end
+        seamSlider:UpdateText()
+        configFrame.bottomControl:Refresh()
 
         local manualGeometryEnabled = not info.exactTopology
         for _, control in ipairs({rPortraitLeft, rPortraitRight, rDual, rVerticalBottom,
@@ -2336,8 +2336,8 @@ function Options:CreateFloatingPanel()
         rawMouseCheck:SetChecked((Offhand.db and Offhand.db.rawMouseInput ~= false) or false)
         worldTextCheck:SetChecked((Offhand.db and Offhand.db.worldTextCompensation ~= false) or false)
         speechBubbleCheck:SetChecked((Offhand.db and Offhand.db.speechBubbleCompensation ~= false) or false)
-        worldTextSlider:SetValue((Offhand.db and Offhand.db.worldTextScale) or 1)
-        speechBubbleSlider:SetValue((Offhand.db and Offhand.db.speechBubbleScale) or 1)
+        worldTextSlider:UpdateText()
+        speechBubbleSlider:UpdateText()
 
         rPortraitLeft:SetChecked(Offhand.db and Offhand.db.layoutPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and Offhand.db.primaryPosition == "RIGHT")
         rPortraitRight:SetChecked(Offhand.db and Offhand.db.layoutPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and Offhand.db.primaryPosition == "LEFT")
@@ -2367,8 +2367,6 @@ function Options:CreateFloatingPanel()
         escapeCheck:SetChecked((Offhand.db and Offhand.db.persistentWorkspacePanels ~= false) or false)
         reloadCheck:SetChecked((Offhand.db and Offhand.db.restoreWorkspaceOnReload ~= false) or false)
         forceCheck:SetChecked((Offhand.db and Offhand.db.forceDualOnSingle) or false)
-        characterScaleSlider:SetValue(Offhand.WorkspaceBehavior
-            and Offhand.WorkspaceBehavior:GetCharacterScale() or 1)
         characterScaleSlider:UpdateText()
         local lockSupported = Offhand.WorkspaceBehavior
             and Offhand.WorkspaceBehavior:IsLockSupported() or not Offhand.isForever

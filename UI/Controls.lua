@@ -496,6 +496,7 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
     end)
 
     slider:SetScript("OnValueChanged", function(self, val, userInput)
+        if self._isRefreshing then return end
         if not Controls.IsSliderEnabled(self) then
             editBox:SetText(FormatValue(getVal()))
             return
@@ -525,7 +526,16 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
     end)
 
     slider.UpdateText = function(self)
-        local formatted = FormatValue(getVal())
+        local value = getVal()
+        -- Profile refresh is read-only. Keep the thumb and step-button origin
+        -- aligned with the source without invoking its setter or layout work.
+        if self:GetValue() ~= value then
+            Controls.EndSliderInteraction(self)
+            self._isRefreshing = true
+            self:SetValue(value)
+            self._isRefreshing = nil
+        end
+        local formatted = FormatValue(value)
         if editBox and not (editBox.HasFocus and editBox:HasFocus()) then
             editBox:SetText(formatted)
         end
@@ -811,6 +821,7 @@ function Controls.CreateBottomControl(parent)
     if label.SetWordWrap then label:SetWordWrap(true) end
     local labelHeight = Controls.MeasureWrappedText(label, labels["LABEL_BOTTOM_OFFSET_SHORT"], 280)
     local input = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
+    row.editBox = input
     input:SetSize(55, 22)
     input:SetPoint("TOPLEFT", 4, -(labelHeight + 6))
     input:SetAutoFocus(false)

@@ -87,6 +87,7 @@ local function makeMockFrame(name, w, h)
         return {
             points = {},
             text = "",
+            ClearAllPoints = function(s) s.points = {} end,
             SetPoint = function(s, pt, rel, relPt, x, y) table.insert(s.points, { point = pt, rel = rel, relPt = relPt, x = x, y = y }) end,
             SetText = function(self, t) self.text = t end,
             SetWidth = function() end,
@@ -282,6 +283,38 @@ assert(hudSlider ~= nil, "hudSlider must be found")
 assert(hudSlider.btnMinus ~= nil, "hudSlider must have btnMinus")
 assert(hudSlider.btnPlus ~= nil, "hudSlider must have btnPlus")
 assert(hudSlider.editBox ~= nil, "hudSlider must have editBox")
+
+-- Profile changes must refresh the thumb as well as the displayed number.
+do
+    local value, writes = 0.70, 0
+    local control = addon.UIControls.CreateNativeSlider({}, "Refresh", 0.25, 1.25, 0.01,
+        function() return value end, function(v) value = v; writes = writes + 1 end, "%.0f%%")
+    value = 0.90
+    layoutAppliedCount = 0
+    control._isCustomDrag, control._pendingApply = true, true
+    control:SetScript("OnUpdate", function() error("stale profile drag resumed") end)
+    control:UpdateText()
+    assert(control:GetValue() == 0.90 and control.editBox:GetText() == "90%"
+            and writes == 0 and layoutAppliedCount == 0,
+        "source refresh must align rail and field without setters or layout")
+    assert(not control._isCustomDrag and not control._pendingApply and not control.scripts.OnUpdate,
+        "changed source must cancel old drag state before synchronizing the thumb")
+    control.btnPlus.scripts.OnClick()
+    assert(math.abs(value - 0.91) < 0.0001, "first step after refresh must use the new profile value")
+    addon.UIControls.SetSliderEnabled(control, false)
+    value, writes, layoutAppliedCount = 0.55, 0, 0
+    control:UpdateText()
+    assert(control:GetValue() == 0.55 and control.editBox:GetText() == "55%"
+            and writes == 0 and layoutAppliedCount == 0,
+        "read-only refresh must also synchronize disabled controls")
+end
+addon.db.hudScale, addon.db.gameBottomPixels = 0.90, 12
+addon.Options:RefreshPanel()
+assert(hudSlider:GetValue() == 0.90 and hudSlider.editBox:GetText() == "90%",
+    "Settings refresh must synchronize a changed profile's slider")
+assert(configFrame.bottomControl.editBox:GetText() == "12",
+    "Settings refresh must synchronize the bottom-offset field without a hide/show")
+addon.db.gameBottomPixels = 0
 
 hudSlider:SetValue(0.70)
 assert(math.abs(addon.db.hudScale - 0.70) < 0.001, "Initial hudScale must be 0.70")
