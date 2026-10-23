@@ -175,6 +175,7 @@ addon.ApplyFullLayout = function() end
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 assert(loadfile("Core/SeamRedirect.lua"))("Offhand", addon)
 assert(loadfile("UI/Themes.lua"))("Offhand", addon)
+assert(loadfile("UI/Controls.lua"))("Offhand", addon)
 assert(loadfile("UI/Options.lua"))("Offhand", addon)
 addon.SeamRedirect:HookFrames()
 

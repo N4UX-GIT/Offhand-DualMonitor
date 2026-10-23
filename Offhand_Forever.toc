@@ -53,6 +53,7 @@ Locales\zhTW.lua
 
 # UI & Themes
 UI\Themes.lua
+UI\Controls.lua
 UI\Options.lua
 UI\Minimap.lua
 UI\Onboarding.lua

@@ -43,6 +43,14 @@ assert(classicText:match("## Interface:%s*30300"),
 assert(wrathText:match("## Interface:%s*30300%s*\r?\n"),
     "dedicated Wrath test manifest must target only interface 30300")
 local main = entries(tocs[1])
+local controlsIndex
+local optionsIndex
+for index, file in ipairs(main) do
+    if file == "UI/Controls.lua" then controlsIndex = index end
+    if file == "UI/Options.lua" then optionsIndex = index end
+end
+assert(controlsIndex and optionsIndex and controlsIndex + 1 == optionsIndex,
+    "shared UI controls must load immediately before Options")
 for i=2,#tocs do
     local flavor = entries(tocs[i])
     assert(#main==#flavor, "Client TOCs load different numbers of files: " .. tocs[i])
