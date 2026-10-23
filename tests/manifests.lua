@@ -45,20 +45,23 @@ assert(wrathText:match("## Interface:%s*30300%s*\r?\n"),
 local main = entries(tocs[1])
 local compatibilityIndex
 local frameStateIndex
+local panelRegistryIndex
 local canvasIndex
 local controlsIndex
 local optionsIndex
 for index, file in ipairs(main) do
     if file == "Core/CanvasCompatibility.lua" then compatibilityIndex = index end
     if file == "Core/CanvasFrameState.lua" then frameStateIndex = index end
+    if file == "Core/CanvasPanelRegistry.lua" then panelRegistryIndex = index end
     if file == "Core/Canvas.lua" then canvasIndex = index end
     if file == "UI/Controls.lua" then controlsIndex = index end
     if file == "UI/Options.lua" then optionsIndex = index end
 end
-assert(compatibilityIndex and frameStateIndex and canvasIndex
+assert(compatibilityIndex and frameStateIndex and panelRegistryIndex and canvasIndex
         and compatibilityIndex + 1 == frameStateIndex
-        and frameStateIndex + 1 == canvasIndex,
-    "Canvas compatibility and frame-state services must load immediately before Canvas")
+        and frameStateIndex + 1 == panelRegistryIndex
+        and panelRegistryIndex + 1 == canvasIndex,
+    "Canvas support services must load together immediately before Canvas")
 assert(controlsIndex and optionsIndex and controlsIndex + 1 == optionsIndex,
     "shared UI controls must load immediately before Options")
 for i=2,#tocs do

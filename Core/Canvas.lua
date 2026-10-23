@@ -33,6 +33,12 @@ local IsPanelDragging = FrameState.IsDragging
 local IsPanelEvicting = FrameState.IsEvicting
 local SetPanelEvicting = FrameState.SetEvicting
 
+local PanelRegistry = assert(
+    Offhand.CanvasPanelRegistry,
+    "Offhand Canvas panel registry must load before Canvas"
+)
+local IsContextBoundPanel = PanelRegistry.IsContextBoundPanel
+
 -- Native Gamepad UI panel visibility, focus and geometry are owned by
 -- Blizzard's FrameControlsManager. Even an addon-only marker written onto a
 -- managed panel can put later protected focus work in the addon's execution
@@ -242,62 +248,6 @@ end
 local DemodalizePanel, RemodalizePanel, OnPanelDragStop, RestoreWorkspacePosition, IsFrameOnWorkspace
 local EvictWorkspacePanelSlot
 local nonMovableSystemPanels
-
--- These panels live in Blizzard load-on-demand addons and therefore do not
--- exist during the first PLAYER_ENTERING_WORLD persistence pass. The table is
--- only a bootstrap for established Blizzard frames; subsequent registrations
--- are learned at runtime and saved with the active Offhand profile.
-local knownPanelLoadAddons = {
-    PlayerSpellsFrame = "Blizzard_PlayerSpells",
-    SpellBookFrame = "Blizzard_SpellBook",
-    ProfessionsFrame = "Blizzard_Professions",
-    ProfessionsBookFrame = "Blizzard_Professions",
-    MacroFrame = "Blizzard_MacroUI",
-    CollectionsJournal = "Blizzard_Collections",
-    CollectionsJournalFrame = "Blizzard_Collections",
-    WardrobeFrame = "Blizzard_Collections",
-    AchievementFrame = "Blizzard_AchievementUI",
-    AlliedRacesFrame = "Blizzard_AlliedRacesUI",
-    ArchaeologyFrame = "Blizzard_ArchaeologyUI",
-    CalendarFrame = "Blizzard_Calendar",
-    CalendarViewEventFrame = "Blizzard_Calendar",
-    ClassTalentFrame = "Blizzard_ClassTalentUI",
-    EncounterJournal = "Blizzard_EncounterJournal",
-    ExpansionLandingPage = "Blizzard_ExpansionLandingPage",
-    MajorFactionRenownFrame = "Blizzard_MajorFactions",
-    PVEFrame = "Blizzard_GroupFinder",
-    PVPUIFrame = "Blizzard_PVPUI",
-    CommunitiesFrame = "Blizzard_Communities",
-    GuildFrame = "Blizzard_GuildUI",
-    WeeklyRewardsFrame = "Blizzard_WeeklyRewards",
-}
-
--- Position can still be remembered for these panels, but their visibility is
--- tied to a unit, NPC, bank, mailbox, taxi node, or other interaction that no
--- longer exists after /reload. Loading and showing their shell would create a
--- broken or misleading UI, so they deliberately retain native reload behavior.
-local contextBoundPanelNames = {
-    AuctionHouseFrame = true,
-    BankFrame = true,
-    BlackMarketFrame = true,
-    ClassTrainerFrame = true,
-    FlightMapFrame = true,
-    GuildBankFrame = true,
-    GuildControlUI = true,
-    GuildRegistrarFrame = true,
-    InspectFrame = true,
-    ItemInteractionFrame = true,
-    ItemSocketingFrame = true,
-    ItemUpgradeFrame = true,
-    MailFrame = true,
-    MerchantFrame = true,
-    OpenMailFrame = true,
-    ScrappingMachineFrame = true,
-    StableFrame = true,
-    TabardFrame = true,
-    TradeFrame = true,
-    TransmogFrame = true,
-}
 
 -- Forever's load-on-demand Professions UI has produced repeatable client
 -- crashes while Offhand participates in its registration, drag, or restore
@@ -558,13 +508,8 @@ local function IsUnsafeForPanelMutation(frame, name)
     return false
 end
 
-local function IsBlizzardLoadAddonName(name)
-    return type(name) == "string" and name:match("^Blizzard_[%w_]+$") ~= nil
-end
-
 local function IsPersistentPanelLoadCandidate(name)
-    return type(name) == "string" and name:match("^[%w_]+$") ~= nil
-        and not contextBoundPanelNames[name]
+    return PanelRegistry.IsBasePersistentCandidate(name)
         and (not IsForeverProfessionsPanel(nil, name)
             or IsPersistentForeverProfessionsPanelName(name))
         and not IsForeverEditModeFrame(nil, name)
@@ -572,62 +517,22 @@ local function IsPersistentPanelLoadCandidate(name)
 end
 
 function Canvas:InitializePanelLoadTracking()
-    if self.knownUIPanelNames then return end
-    self.knownUIPanelNames = {}
-    self.panelsRegisteredSinceAddonEvent = {}
-    self.panelLoadRequests = {}
-    if UIPanelWindows then
-        for name in pairs(UIPanelWindows) do self.knownUIPanelNames[name] = true end
-    end
+    PanelRegistry.InitializeTracking(self)
 end
 
 -- Associate UIPanels created during a Blizzard ADDON_LOADED turn with their
 -- owner. This lets later client builds add new load-on-demand panels without
 -- requiring another hard-coded Offhand release for reload persistence.
 function Canvas:RecordLoadedPanelAddon(addonName)
-    self:InitializePanelLoadTracking()
-    local canRemember = IsBlizzardLoadAddonName(addonName)
-    Offhand.db.workspacePanelLoadAddons = Offhand.db.workspacePanelLoadAddons or {}
-    if UIPanelWindows then
-        for name in pairs(UIPanelWindows) do
-            local newlySeen = not self.knownUIPanelNames[name]
-                or self.panelsRegisteredSinceAddonEvent[name]
-            if canRemember and newlySeen and IsPersistentPanelLoadCandidate(name) then
-                Offhand.db.workspacePanelLoadAddons[name] = addonName
-            end
-            self.knownUIPanelNames[name] = true
-        end
-    end
-    self.panelsRegisteredSinceAddonEvent = {}
-end
-
-local function IsPanelAddonLoaded(addonName)
-    if C_AddOns and C_AddOns.IsAddOnLoaded then
-        local ok, loaded = pcall(C_AddOns.IsAddOnLoaded, addonName)
-        if ok then return loaded == true end
-    elseif IsAddOnLoaded then
-        local ok, loaded = pcall(IsAddOnLoaded, addonName)
-        if ok then return loaded == true end
-    end
-    return false
-end
-
-local function LoadAddonCompat(addonName)
-    if C_AddOns and C_AddOns.LoadAddOn then
-        return pcall(C_AddOns.LoadAddOn, addonName)
-    elseif LoadAddOn then
-        return pcall(LoadAddOn, addonName)
-    end
-    return false, "api_unavailable"
+    PanelRegistry.RecordLoadedPanelAddon(
+        self,
+        addonName,
+        IsPersistentPanelLoadCandidate
+    )
 end
 
 function Canvas:GetPersistentPanelAddon(name)
-    local learned = Offhand.db and Offhand.db.workspacePanelLoadAddons
-    local addonName = type(learned) == "table" and learned[name] or nil
-    if IsBlizzardLoadAddonName(addonName) then return addonName, "learned" end
-    addonName = knownPanelLoadAddons[name]
-    if IsBlizzardLoadAddonName(addonName) then return addonName, "known" end
-    return nil, "unknown"
+    return PanelRegistry.GetPersistentPanelAddon(name)
 end
 
 function Canvas:RequestPersistentPanelLoad(name, delaySeconds)
@@ -645,10 +550,10 @@ function Canvas:RequestPersistentPanelLoad(name, delaySeconds)
     self.panelLoadRequests[name] = "requested:" .. addonName
 
     local callOK, loadResult = true, true
-    if not IsPanelAddonLoaded(addonName) then
-        callOK, loadResult = LoadAddonCompat(addonName)
+    if not PanelRegistry.IsAddonLoaded(addonName) then
+        callOK, loadResult = PanelRegistry.LoadAddon(addonName)
     end
-    local loaded = IsPanelAddonLoaded(addonName)
+    local loaded = PanelRegistry.IsAddonLoaded(addonName)
         or (callOK and loadResult ~= false and loadResult ~= nil)
     self.panelLoadRequests[name] = loaded and "loaded:" .. addonName
         or "failed:" .. addonName
@@ -668,20 +573,7 @@ function Canvas:RequestPersistentPanelLoad(name, delaySeconds)
 end
 
 function Canvas:GetPersistentPanelLoadDiagnostics()
-    local learnedCount = 0
-    local learned = Offhand.db and Offhand.db.workspacePanelLoadAddons
-    if type(learned) == "table" then
-        for _, addonName in pairs(learned) do
-            if IsBlizzardLoadAddonName(addonName) then learnedCount = learnedCount + 1 end
-        end
-    end
-    local requests = {}
-    for name, status in pairs(self.panelLoadRequests or {}) do
-        requests[#requests + 1] = name .. "=" .. status
-    end
-    table.sort(requests)
-    return string.format("Learned=%d | Requests=%s", learnedCount,
-        #requests > 0 and table.concat(requests, ",") or "none")
+    return PanelRegistry.GetDiagnostics(self)
 end
 
 local function RegisterSpecialFrame(name)
@@ -1780,7 +1672,7 @@ function Canvas:QueuePersistentPanelRestore(frame, name, delaySeconds)
             return
         end
 
-        if contextBoundPanelNames[name] then return end
+        if IsContextBoundPanel(name) then return end
         if not CanManagePanelsFromAddon() then return end
 
         local retailCharacter = Offhand.isRetail and not Offhand.isForever
@@ -1897,13 +1789,13 @@ function Canvas:RestorePersistentFrames(mode)
         local frame = _G[name]
         if frame and ShouldYieldWorldMapToMoveAny(name) then
             if canOpenPanels and name == "WorldMapFrame" and IsExternallyPositionedWorldMap(name)
-                and openPanels[name] and not contextBoundPanelNames[name] then
+                and openPanels[name] and not IsContextBoundPanel(name) then
                 if not frame:IsShown() then
                     if ToggleWorldMap then ToggleWorldMap() else frame:Show() end
                 end
                 if frame:IsShown() then self:PreserveExternalWorldMapOpenState(frame) end
             elseif canOpenPanels and name == "WorldMapFrame" and not Offhand.isForever and openPanels[name]
-                and not contextBoundPanelNames[name] then
+                and not IsContextBoundPanel(name) then
                 if not frame:IsShown() then
                     if ToggleWorldMap then ToggleWorldMap() else frame:Show() end
                 end
@@ -1916,7 +1808,7 @@ function Canvas:RestorePersistentFrames(mode)
                 or IsPersistentForeverProfessionsPanelName(name)) then
             if frame:IsShown() then
                 RestoreWorkspacePosition(frame)
-            elseif canOpenPanels and openPanels[name] and not contextBoundPanelNames[name] then
+            elseif canOpenPanels and openPanels[name] and not IsContextBoundPanel(name) then
                 if name == "WorldMapFrame" then
                     if ToggleWorldMap then
                         ToggleWorldMap()
@@ -2287,7 +2179,7 @@ EvictWorkspacePanelSlot = function(frame)
     -- has no valid panel transaction to display. These panels still keep their
     -- saved Offhand anchor and restore it from OnShow, while Escape and native
     -- close behavior remain Blizzard-owned.
-    if name and contextBoundPanelNames[name] then return false end
+    if name and IsContextBoundPanel(name) then return false end
     -- Native bag frames own pooled item buttons whose lifecycle is driven by
     -- Blizzard's bag APIs. A HideUIPanel + direct Show cycle can reveal only the
     -- shell and leave UpdateNewItemList with missing item buttons.

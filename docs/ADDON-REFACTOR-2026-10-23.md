@@ -102,6 +102,10 @@ The second extraction moves external World Map ownership detection into `Core/Ca
 
 The third extraction moves Canvas frame bookkeeping into `Core/CanvasFrameState.lua`. The module preserves weak-key side-table storage for Forever's native World Map so Offhand markers never enter its protected descendant chain. Ordinary Canvas-managed frames retain their existing marker fields and clearing semantics. Movement, hooks, scheduling, and persistence remain in `Core/Canvas.lua`.
 
+## Fourth increment
+
+The fourth extraction moves load-on-demand panel ownership and tracking into `Core/CanvasPanelRegistry.lua`. The module owns seed mappings, context-bound exclusions, learned Blizzard addon ownership, modern and legacy load APIs, and request diagnostics. `Core/Canvas.lua` retains final client policy, delayed restoration, movement, combat, and topology checks. The existing Canvas methods and profile-owned `workspacePanelLoadAddons` data remain unchanged.
+
 ## Branch policy
 
 Structural refactor work targets `addon/develop`. Visual redesign work begins only after the structural phases are accepted and live-client checkpoints are clear. Companion work remains isolated on `companion/develop` and must not be merged into this branch as an incidental dependency.
