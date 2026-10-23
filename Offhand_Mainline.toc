@@ -35,6 +35,7 @@ Core\RetailFullscreen.lua
 Core\DialogueUICompat.lua
 Core\ChatBubbles.lua
 Core\HUDCompatibility.lua
+Core\HUDTransientPolicy.lua
 Core\SeamRedirect.lua
 Core\PanelMotion.lua
 Core\CanvasCompatibility.lua

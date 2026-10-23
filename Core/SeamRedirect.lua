@@ -22,6 +22,14 @@ local HasChattynator = Compatibility.HasChattynator
 local UsesForeverEditMode = Compatibility.UsesForeverEditMode
 local IsForeverEditModeFrame = Compatibility.IsForeverEditModeFrame
 local RetailEditModeOwnsPrimaryChat = Compatibility.RetailEditModeOwnsPrimaryChat
+local TransientPolicy = assert(
+    Offhand.HUDTransientPolicy,
+    "Offhand HUD transient policy must load before SeamRedirect"
+)
+local mainhandTransientFrames = TransientPolicy.GetSpecs()
+local ResolveMainhandTransient = TransientPolicy.Resolve
+local CanPositionMainhandTransient = TransientPolicy.CanPosition
+local NormalizeMainhandTransientScale = TransientPolicy.NormalizeScale
 
 local actionNames = {"MainMenuBar", "MainActionBar", "StatusTrackingBarManager", "MainMenuExpBar",
     "MultiBarBottomLeft", "MultiBarBottomRight", "MultiBarLeft", "MultiBarRight",
@@ -1069,80 +1077,6 @@ end
 -- UIParent. Keep only their presentation anchor relative to Mainhand. In
 -- particular, do not register them as workspace panels, remember visibility,
 -- or add Escape-key protection.
-local mainhandTransientFrames = {
-    { name = "ZoneTextFrame", point = "TOP", x = 0, y = -128 },
-    { name = "SubZoneTextFrame", point = "BOTTOM", x = 0, y = 512 },
-    { name = "BossBanner", point = "TOP", x = 0, y = -120 },
-    { name = "EventToastManagerFrame", point = "TOP", x = 0, y = -190 },
-    { name = "AlertFrame", point = "BOTTOM", x = 0, y = 128 },
-    { name = "RolePollPopup", point = "TOP", x = 0, y = -15 },
-    { name = "ReadyCheckFrame", point = "CENTER", x = 0, y = -10 },
-    { name = "LFGDungeonReadyPopup", point = "CENTER", x = 0, y = -10, hookEvent = true },
-    {
-        name = "GroupLootContainer", point = "BOTTOM", x = 0, y = 190,
-        secure = true, stockPoint = "BOTTOM", stockRelativePoint = "BOTTOM", stockX = 0, stockY = 190,
-        allowAnyUIParentAnchor = true, allowUnanchored = true,
-        groupLootRows = true,
-    },
-    -- PetBattleFrame is a full-screen layout root. Its top art, unit panels,
-    -- weather display and bottom action tray all inherit this rectangle, so
-    -- bounding the root preserves Blizzard's internal layout while moving the
-    -- complete pet-battle presentation off the monitor seam.
-    { name = "PetBattleFrame", secure = true, petBattleBounds = true },
-    -- These overlays opt out of UIParent scaling on some client builds. That
-    -- makes Blizzard's text roughly 1/UIParentScale times too large after a
-    -- mixed-resolution span. Rejoin the normal scale hierarchy while Offhand
-    -- owns their Mainhand presentation rectangle.
-    { name = "CombatText", point = "CENTER", x = 0, y = 0, normalizeScale = true },
-    { name = "TimerTracker", bounds = true, normalizeScale = true, hookEvent = true },
-    -- Battleground objective widgets and score windows are anchored to the
-    -- complete UIParent, which puts them on the monitor seam while spanned.
-    -- Their widget/score trees can consume secret values in instanced combat,
-    -- so adopt only Blizzard's stock anchor and write the replacement through
-    -- a restricted secure handler. Never fall back to an insecure SetPoint.
-    {
-        name = "UIWidgetTopCenterContainerFrame", point = "TOP", x = 0, y = -15,
-        secure = true, stockPoint = "TOP", stockRelativePoint = "TOP", stockX = 0, stockY = -15,
-    },
-    {
-        name = "PVPMatchScoreboard", point = "CENTER", x = 0, y = 0,
-        secure = true, stockPoint = "CENTER", stockRelativePoint = "CENTER", stockX = 0, stockY = 0,
-    },
-    {
-        name = "PVPMatchResults", point = "CENTER", x = 0, y = 0,
-        secure = true, stockPoint = "CENTER", stockRelativePoint = "CENTER", stockX = 0, stockY = 0,
-    },
-    { name = "HousingControlsFrame", point = "TOP", x = 0, y = -30 },
-    {
-        name = "HouseEditorFrame.ModeBar",
-        point = "BOTTOM", x = 0, y = 0,
-        resolve = function()
-            return _G.HouseEditorFrame and _G.HouseEditorFrame.ModeBar
-        end,
-    },
-    {
-        name = "HouseEditorFrame.StorageButton",
-        point = "LEFT", x = 24, y = 150,
-        resolve = function()
-            return _G.HouseEditorFrame and _G.HouseEditorFrame.StorageButton
-        end,
-    },
-    {
-        name = "HouseEditorFrame.StoragePanel",
-        point = "LEFT", x = 24, y = 150,
-        resolve = function()
-            return _G.HouseEditorFrame and _G.HouseEditorFrame.StoragePanel
-        end,
-    },
-    {
-        name = "HouseEditorFrame.MarketShoppingCartFrame",
-        point = "BOTTOMRIGHT", x = -30, y = 20,
-        resolve = function()
-            return _G.HouseEditorFrame and _G.HouseEditorFrame.MarketShoppingCartFrame
-        end,
-    },
-}
-
 local transientHooks = {}
 local secureTransientOwned = setmetatable({}, { __mode = "k" })
 local secureTransientPositioner
@@ -1696,28 +1630,6 @@ local function PositionSecureMainhandTransient(frame, spec, m)
         return true
     end
     return false
-end
-
-local function ResolveMainhandTransient(spec)
-    if spec.resolve then return spec.resolve() end
-    return _G[spec.name]
-end
-
-local function CanPositionMainhandTransient(frame, spec)
-    if not frame or not frame.ClearAllPoints or not frame.SetPoint then return false end
-    if frame.IsForbidden and frame:IsForbidden() then return false end
-    -- Protected HUD/action frames remain Blizzard/Edit Mode owned. This keeps
-    -- OverrideActionBar and any future secure replacements out of this path.
-    if frame.IsProtected and frame:IsProtected() and not (spec and spec.secure) then return false end
-    return true
-end
-
-local function NormalizeMainhandTransientScale(frame)
-    if not frame or not frame.SetIgnoreParentScale or not frame.IsIgnoringParentScale then return end
-    local ok, ignoresParent = pcall(frame.IsIgnoringParentScale, frame)
-    if ok and ignoresParent then
-        frame:SetIgnoreParentScale(false)
-    end
 end
 
 local function PositionTimerTracker(frame, m)

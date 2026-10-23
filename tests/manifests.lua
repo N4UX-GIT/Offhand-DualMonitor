@@ -49,6 +49,7 @@ local mainhandGeometryIndex
 local mainhandCompatibilityIndex
 local mainhandIndex
 local hudCompatibilityIndex
+local hudTransientPolicyIndex
 local seamRedirectIndex
 local compatibilityIndex
 local frameStateIndex
@@ -65,6 +66,7 @@ for index, file in ipairs(main) do
     if file == "Core/MainhandCompatibility.lua" then mainhandCompatibilityIndex = index end
     if file == "Core/Mainhand.lua" then mainhandIndex = index end
     if file == "Core/HUDCompatibility.lua" then hudCompatibilityIndex = index end
+    if file == "Core/HUDTransientPolicy.lua" then hudTransientPolicyIndex = index end
     if file == "Core/SeamRedirect.lua" then seamRedirectIndex = index end
     if file == "Core/CanvasCompatibility.lua" then compatibilityIndex = index end
     if file == "Core/CanvasFrameState.lua" then frameStateIndex = index end
@@ -81,9 +83,10 @@ assert(mainhandGeometryIndex and mainhandCompatibilityIndex and mainhandIndex
         and mainhandGeometryIndex + 1 == mainhandCompatibilityIndex
         and mainhandCompatibilityIndex + 1 == mainhandIndex,
     "Mainhand support services must load together immediately before Mainhand")
-assert(hudCompatibilityIndex and seamRedirectIndex
-        and hudCompatibilityIndex + 1 == seamRedirectIndex,
-    "HUD compatibility policy must load immediately before SeamRedirect")
+assert(hudCompatibilityIndex and hudTransientPolicyIndex and seamRedirectIndex
+        and hudCompatibilityIndex + 1 == hudTransientPolicyIndex
+        and hudTransientPolicyIndex + 1 == seamRedirectIndex,
+    "HUD support services must load together immediately before SeamRedirect")
 assert(compatibilityIndex and frameStateIndex and panelRegistryIndex and canvasPersistenceIndex
         and canvasBackpackStateIndex and canvasIndex
         and compatibilityIndex + 1 == frameStateIndex

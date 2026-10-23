@@ -142,6 +142,10 @@ The twelfth extraction moves the reusable bottom-offset calibration control into
 
 The thirteenth extraction moves native Gamepad interface and controller-layout capability detection into `Core/MainhandCompatibility.lua`. `Core/Mainhand.lua` retains every focus adapter, frame mutation, Edit Mode transaction, binding decision, and public Mainhand method. The new service is read-only, fails closed when APIs are absent or restricted, and preserves the existing `Offhand.IsGamepadUIEnabled` override priority.
 
+## Fourteenth increment
+
+The fourteenth extraction moves the Mainhand transient-frame registry, nested-frame resolution, protected eligibility policy, and owned scale normalization into `Core/HUDTransientPolicy.lua`. `Core/SeamRedirect.lua` retains secure handlers, preload timing, event hooks, frame positioning, group-loot layout, Pet Battle bounds, and combat deferral. Protected roots remain opt-in through reviewed registry entries.
+
 ## Refactor candidate smoke status
 
 Candidate commit `10453d0941213916f1d7b060b64fc3eeb705bcc2` completed the structural boundary pass on 2026-10-23.
