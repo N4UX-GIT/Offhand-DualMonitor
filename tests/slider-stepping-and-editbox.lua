@@ -171,6 +171,7 @@ assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 assert(loadfile("Locales/enUS.lua"))("Offhand", addon)
 assert(loadfile("UI/Themes.lua"))("Offhand", addon)
 assert(loadfile("UI/Controls.lua"))("Offhand", addon)
+assert(loadfile("Core/TopologyDetection.lua"))("Offhand", addon)
 assert(loadfile("UI/Options.lua"))("Offhand", addon)
 assert(loadfile("UI/Wizard.lua"))("Offhand", addon)
 

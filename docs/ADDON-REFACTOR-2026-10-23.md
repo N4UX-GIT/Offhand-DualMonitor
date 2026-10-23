@@ -166,6 +166,10 @@ The eighteenth extraction moves the complete Forever native-bag proxy into `Core
 
 The nineteenth extraction moves Forever World Map visibility observation, bounded position settlement, external drag and minimize controls, and UIPanel transaction dispatch into `Core/CanvasForeverMap.lua`. The adapter installs at the original definition point with explicit Canvas callbacks. It retains the existing timer sequence, generation cancellation, frame-state service, and external map ownership policy. The map and panel integration suites exercise the extracted implementation.
 
+## Twentieth increment
+
+The twentieth extraction moves topology recommendations from Options into `Core/TopologyDetection.lua`. The existing `Options:DetectTopology` entry point delegates to the service. Exact Companion geometry, mismatch recovery, physical-resolution fallbacks, monitor presets, and aspect-ratio heuristics retain their current behavior. Existing wizard regressions cover these cases through the public settings method.
+
 ## Refactor candidate smoke status
 
 Candidate commit `10453d0941213916f1d7b060b64fc3eeb705bcc2` completed the structural boundary pass on 2026-10-23.

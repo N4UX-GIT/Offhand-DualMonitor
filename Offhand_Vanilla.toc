@@ -26,6 +26,7 @@ Core\Config.lua
 Core\UserMedia.lua
 Core\ManualCanvas.lua
 Core\Viewport.lua
+Core\TopologyDetection.lua
 Core\PopupBounds.lua
 Core\MainhandGeometry.lua
 Core\MainhandCompatibility.lua

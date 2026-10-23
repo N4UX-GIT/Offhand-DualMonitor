@@ -44,6 +44,8 @@ assert(wrathText:match("## Interface:%s*30300%s*\r?\n"),
     "dedicated Wrath test manifest must target only interface 30300")
 local main = entries(tocs[1])
 local initIndex
+local viewportIndex
+local topologyDetectionIndex
 local clientRuntimeIndex
 local mainhandGeometryIndex
 local mainhandCompatibilityIndex
@@ -64,6 +66,8 @@ local controlsIndex
 local optionsIndex
 for index, file in ipairs(main) do
     if file == "Core/Init.lua" then initIndex = index end
+    if file == "Core/Viewport.lua" then viewportIndex = index end
+    if file == "Core/TopologyDetection.lua" then topologyDetectionIndex = index end
     if file == "Core/ClientRuntime.lua" then clientRuntimeIndex = index end
     if file == "Core/MainhandGeometry.lua" then mainhandGeometryIndex = index end
     if file == "Core/MainhandCompatibility.lua" then mainhandCompatibilityIndex = index end
@@ -85,6 +89,10 @@ for index, file in ipairs(main) do
 end
 assert(initIndex and clientRuntimeIndex and initIndex + 1 == clientRuntimeIndex,
     "client runtime capabilities must load immediately after Init")
+assert(viewportIndex and topologyDetectionIndex and optionsIndex
+        and viewportIndex + 1 == topologyDetectionIndex
+        and topologyDetectionIndex < optionsIndex,
+    "topology detection must load after Viewport and before settings")
 assert(mainhandGeometryIndex and mainhandCompatibilityIndex and mainhandGamepadIndex and mainhandIndex
         and mainhandGeometryIndex + 1 == mainhandCompatibilityIndex
         and mainhandCompatibilityIndex + 1 == mainhandGamepadIndex
