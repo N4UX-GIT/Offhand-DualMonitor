@@ -178,6 +178,10 @@ The twenty-first extraction moves chat dock ownership, two-observation dock sett
 
 The twenty-second extraction moves Edit Mode layout generation, serialized layout transforms, per-character layout records, diagnostics, and user prompts into `Core/MainhandEditMode.lua`. Mainhand retains safe gathering and event coordination. The new module installs the existing public methods before Mainhand registers its event handler, and preserves the layout transaction and persistence sequence. Existing Mainhand placement and taint-boundary regressions cover the module.
 
+## Twenty-third increment
+
+The twenty-third extraction moves Edit Mode layout identity, per-character selection observation, missing-monitor recovery, transactional control recovery, and protected HUD repair into `Core/HUDRecovery.lua`. The service installs the existing HUD methods at their original definition point and returns the layout helpers used by SeamRedirect's event wiring. Timer delays, prompts, hardware-event requirements, saved state, and frame ownership checks retain their original sequence. Existing lifecycle and protected-HUD integration suites exercise the extracted service.
+
 ## Refactor candidate smoke status
 
 Candidate commit `10453d0941213916f1d7b060b64fc3eeb705bcc2` completed the structural boundary pass on 2026-10-23.

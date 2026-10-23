@@ -38,6 +38,7 @@ Core\DialogueUICompat.lua
 Core\ChatBubbles.lua
 Core\HUDCompatibility.lua
 Core\HUDTransientPolicy.lua
+Core\HUDRecovery.lua
 Core\SeamRedirect.lua
 Core\PanelMotion.lua
 Core\CanvasCompatibility.lua

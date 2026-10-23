@@ -60,6 +60,9 @@ assert(not canvasSource:find('frame:SetScript("OnHide", nil)', 1, true)
 local seamFile = assert(io.open("Core/SeamRedirect.lua", "r"))
 local seamSource = seamFile:read("*a")
 seamFile:close()
+local recoveryFile = assert(io.open("Core/HUDRecovery.lua", "r"))
+seamSource = seamSource .. "\n" .. recoveryFile:read("*a")
+recoveryFile:close()
 
 assert(not seamSource:find('SetUIPanelAttribute, frame, "centerFrameSkipAnchoring"', 1, true),
     "Forever must not write EditModeManagerFrame panel attributes")
