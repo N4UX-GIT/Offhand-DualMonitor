@@ -40,7 +40,18 @@ local function Frame(kind, name, parent, template)
     function frame:SetBackdrop(backdrop) self.backdrop = backdrop end
     function frame:SetBackdropColor(...) self.background = { ... } end
     function frame:SetBackdropBorderColor(...) self.border = { ... } end
-    function frame:SetScale(scale) self.scale = scale end
+    function frame:SetScale(scale) self.scale = scale; self.scaleWrites = (self.scaleWrites or 0) + 1 end
+    function frame:GetScale() return self.scale or 1 end
+    function frame:IsShown() return self.shown end
+    function frame:GetCenter()
+        if self.centerX then return self.centerX / self:GetScale(), self.centerY / self:GetScale() end
+    end
+    function frame:SetPoint(...)
+        self.point = { ... }
+        if self.point[1] == "CENTER" and self.point[3] == "BOTTOMLEFT" then
+            self.centerX, self.centerY = self.point[4] * self:GetScale(), self.point[5] * self:GetScale()
+        end
+    end
     function frame:GetWidth() return self.width or 0 end
     function frame:GetHeight() return self.height or 0 end
     function frame:GetScrollChild() return self.child end
@@ -86,6 +97,15 @@ assert(button:GetFontString().color[1] < 0.5 and button.border[1] == 0.2,
     "disabled actions must lose their active styling")
 button:Fire("OnHide")
 assert(not button.uiHover and not button.uiPressed, "hidden controls must discard transient state")
+ui.SetButtonTextColor(button, 0.2, 0.8, 0.4)
+assert(button:GetFontString().color[1] < 0.5, "semantic text colors must not override disabled styling")
+button:SetEnabled(true)
+button:Fire("OnEnter")
+button:Fire("OnMouseDown")
+button:Fire("OnMouseUp")
+button:Fire("OnLeave")
+assert(button:GetFontString().color[1] == 0.2 and button:GetFontString().color[2] == 0.8,
+    "hover and press states must retain a palette or custom-color cue")
 local close = ui.CreateFrame("Button", nil, UIParent, "UIPanelCloseButton")
 assert(close.template == "UIPanelCloseButton" and not close.backdrop,
     "native close controls and unrequested templates must remain untouched")
@@ -98,9 +118,22 @@ assert(focusEvents == 1 and input.uiFocus and input.border[1] > 0.8)
 input:Fire("OnEditFocusLost")
 assert(not input.uiFocus and input.border[1] == 0.2)
 addon.isLegacyWrath = true
+CreateFrame = function(...)
+    local legacyFrame = Frame(...)
+    function legacyFrame:CreateTexture()
+        local texture = Region()
+        texture.SetColorTexture = nil
+        return texture
+    end
+    return legacyFrame
+end
 local legacy = ui.CreateFrame("Button", nil, UIParent, "UIPanelButtonTemplate")
 assert(legacy.template == nil and legacy.backdrop,
     "legacy clients must not require BackdropTemplate")
+ui.SetChoiceSelected(legacy, true)
+assert(legacy.selectionMark and legacy.selectionMark.shown,
+    "legacy selection must retain its non-color cue without SetColorTexture")
+CreateFrame = nativeFactory
 addon.db.theme = "PITCH_BLACK"
 ui.StyleSurface(input, "input")
 assert(input.background[1] == 0 and input.background[2] == 0 and input.background[3] == 0)
@@ -108,6 +141,12 @@ addon.db.trimColor, addon.db.customTrimColor = "CUSTOM", { r = 0.2, g = 0.8, b =
 ui.SetChoiceSelected(button, true)
 ui.RefreshStyles()
 assert(math.abs(button.border[2] - 0.68) < 0.001, "custom accents must refresh existing widgets")
+ui.SetInputFocused(input, true)
+ui.RefreshStyles()
+assert(input.uiFocus and math.abs(input.border[2] - 0.68) < 0.001,
+    "numeric focus borders must follow custom accents and survive theme refresh")
+ui.SetInputFocused(input, false)
+assert(input.border[1] == 0.2)
 local slider = Frame("Slider")
 slider.thumb = Region()
 ui.StyleSlider(slider)
@@ -133,5 +172,35 @@ assert(scale < 1 and 922 * scale <= 768 and 732 * scale <= 568,
     "dialog must fit within the game viewport with an edge margin")
 assert(ui.FitDialog(dialog, { gameWidth = 2560, gameHeight = 1440 }) == 1,
     "fitting must reset a previous reduction and never enlarge a dialog")
+assert(dialog.scale == 1, "resetting fit must write the full scale back to the dialog")
 assert(ui.FitDialog(dialog, nil) == 1, "single-screen recovery must use UIParent dimensions")
+local fitHooks, layouts = 0, 0
+addon.ApplyFullLayout = function() layouts = layouts + 1 end
+hooksecurefunc = function(owner, method, callback)
+    assert(owner == addon and method == "ApplyFullLayout", "only addon layout may be hooked")
+    fitHooks = fitHooks + 1
+    local original = owner[method]
+    owner[method] = function(...) original(...); callback(...) end
+end
+local fitMetrics = { gameWidth = 800, gameHeight = 600 }
+addon.Viewport = { GetMetrics = function() return fitMetrics end }
+dialog.centerX, dialog.centerY = 700, 400
+local hidden = Frame("Frame"); hidden:SetSize(922, 732); hidden:Hide()
+ui.RegisterDialog(dialog)
+ui.RegisterDialog(dialog)
+ui.RegisterDialog(hidden)
+assert(fitHooks == 1, "registering dialogs must never multiply the layout hook")
+addon:ApplyFullLayout()
+assert(layouts == 1 and dialog.scale < 1 and hidden.scaleWrites == nil,
+    "layout changes must refit only visible registered dialogs")
+assert(math.abs(dialog.centerX - 700) < 0.001 and math.abs(dialog.centerY - 400) < 0.001,
+    "refitting must preserve the dialog's UIParent-space center")
+local scaleWrites = dialog.scaleWrites
+addon:ApplyFullLayout()
+assert(dialog.scaleWrites == scaleWrites and dialog.scripts.OnUpdate == nil,
+    "unchanged fits must not rewrite scale or install polling")
+fitMetrics = { gameWidth = 1920, gameHeight = 1080 }
+addon:ApplyFullLayout()
+assert(dialog.scale == 1 and math.abs(dialog.centerX - 700) < 0.001,
+    "restoring the viewport must recover full dialog scale without center drift")
 print("PASS: addon-owned UI styling, interaction states, wheel limits, scrollbar sync and viewport fitting")

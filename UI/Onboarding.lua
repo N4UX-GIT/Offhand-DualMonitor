@@ -117,6 +117,7 @@ function Onboarding:CreateFrame()
     local f = CreateFrame("Frame", "OffhandFirstLaunchFrame", UIParent,
         not Offhand.isLegacyWrath and "BackdropTemplate" or nil)
     f:SetSize(660, 430)
+    Controls.RegisterDialog(f)
     f:SetFrameStrata("FULLSCREEN_DIALOG")
     f:EnableMouse(true)
     f:SetMovable(true)

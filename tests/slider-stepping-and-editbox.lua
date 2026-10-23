@@ -344,6 +344,24 @@ assert(math.abs(addon.db.hudScale - 0.90) < 0.001,
     "Mouse up must commit the slider thumb's final displayed value")
 assert(layoutAppliedCount == 1, "Mouse up must apply layout exactly once")
 
+-- Closing the window or changing pages during a drag must not leave an OnUpdate
+-- controller that resumes from a stale cursor origin when the slider reappears.
+cursorX = 100
+hudSlider.scripts.OnMouseDown(hudSlider, "LeftButton")
+cursorX = 130
+hudSlider.scripts.OnUpdate(hudSlider)
+local lastSample = addon.db.hudScale
+layoutAppliedCount = 0
+hudSlider.scripts.OnHide(hudSlider)
+assert(not hudSlider._isCustomDrag and not hudSlider.scripts.OnUpdate
+        and hudSlider._dragStartX == nil and hudSlider._dragStartVal == nil,
+    "hidden settings sliders must discard their drag controller")
+assert(addon.db.hudScale == lastSample and layoutAppliedCount == 1,
+    "interrupted drag must apply the last sampled setting exactly once")
+hudSlider.scripts.OnHide(hudSlider)
+hudSlider.scripts.OnMouseUp(hudSlider, "LeftButton")
+assert(layoutAppliedCount == 1, "repeated hide or a stale mouse-up must not apply again")
+
 -- ============================================================================
 -- 3. Test Wizard Sliders (Seam & Scale EditBoxes and Stepping)
 -- ============================================================================
@@ -375,9 +393,30 @@ wiz.scaleSlider.scripts["OnValueChanged"](wiz.scaleSlider, 0.72)
 wiz.scaleSlider.scripts["OnValueChanged"](wiz.scaleSlider, 0.73)
 assert(layoutAppliedCount == 0, "Wizard slider drag must not apply layout until mouse up")
 
+wiz.scaleSlider.val = 0.91
 wiz.scaleSlider.scripts["OnMouseUp"](wiz.scaleSlider, "LeftButton")
 assert(wiz.scaleSlider._isCustomDrag == false or wiz.scaleSlider._isCustomDrag == nil, "Wizard scaleSlider mouse up must clear _isCustomDrag")
 assert(layoutAppliedCount == 1, "Wizard scaleSlider mouse up must apply layout")
+assert(math.abs(addon.db.hudScale - 0.91) < 0.001 and wiz.scaleEditBox:GetText() == "91%",
+    "Wizard release must commit and display the final native thumb value")
+wiz.scaleSlider.scripts.OnMouseDown(wiz.scaleSlider, "LeftButton")
+layoutAppliedCount = 0
+wiz.scaleSlider.scripts.OnHide(wiz.scaleSlider)
+assert(not wiz.scaleSlider._isCustomDrag and not wiz.scaleSlider.scripts.OnUpdate
+        and layoutAppliedCount == 1,
+    "hiding a Wizard scale step must cancel its drag and apply once")
+wiz.scaleSlider.scripts.OnMouseUp(wiz.scaleSlider, "LeftButton")
+assert(layoutAppliedCount == 1)
+wiz.seamSlider.scripts.OnMouseDown(wiz.seamSlider, "LeftButton")
+wiz.seamSlider.scripts.OnValueChanged(wiz.seamSlider, 0.45, true)
+assert(wiz.seamSlider._pendingApply and wiz.seamSlider.scripts.OnUpdate)
+layoutAppliedCount = 0
+wiz.seamSlider.scripts.OnHide(wiz.seamSlider)
+assert(not wiz.seamSlider.isDragging and not wiz.seamSlider._pendingApply
+        and not wiz.seamSlider.scripts.OnUpdate and layoutAppliedCount == 1,
+    "hiding a Wizard seam step must cancel its deferred apply controller")
+wiz.seamSlider.scripts.OnHide(wiz.seamSlider)
+assert(layoutAppliedCount == 1)
 
 print("PASS: Universal slider manual stepping ([-]/[+]), normalized text entry, gentler drag curve, smart parser, and drag debounce verified!")
 

@@ -11,6 +11,8 @@ Offhand.UIControls = Controls
 -- Only addon-owned settings controls opt into this presentation layer. Never
 -- skin Blizzard windows or modify the global CreateFrame function.
 local styledFrames = setmetatable({}, { __mode = "k" })
+local fittedDialogs = setmetatable({}, { __mode = "k" })
+local layoutFitInstalled = false
 local FLAT_BACKDROP = {
     bgFile = "Interface\\Buttons\\WHITE8X8",
     edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1,
@@ -50,6 +52,7 @@ function Controls.StyleSurface(frame, kind)
         local text = frame.GetFontString and frame:GetFontString()
         if text and text.SetTextColor then
             if not enabled then text:SetTextColor(0.45, 0.48, 0.53)
+            elseif frame.uiTextColor then text:SetTextColor(unpack(frame.uiTextColor))
             else text:SetTextColor(0.93, 0.94, 0.96) end
         end
         if frame.selectionMark then
@@ -59,6 +62,17 @@ function Controls.StyleSurface(frame, kind)
     if (kind == "card" or kind == "header") and frame.title and frame.title.SetTextColor then
         frame.title:SetTextColor(r, g, b, 1)
     end
+end
+
+function Controls.SetButtonTextColor(button, r, g, b, a)
+    if not button then return end
+    button.uiTextColor = { r, g, b, a or 1 }
+    Controls.StyleSurface(button, "button")
+end
+
+function Controls.SetInputFocused(input, focused)
+    input.uiFocus = focused and true or nil
+    Controls.StyleSurface(input, "input")
 end
 
 function Controls.RefreshStyles()
@@ -86,8 +100,9 @@ function Controls.CreateFrame(kind, name, parent, template, ...)
             if frame.SetPushedTextOffset then frame:SetPushedTextOffset(0, -1) end
         end
         local mark = frame.CreateTexture and frame:CreateTexture(nil, "OVERLAY")
-        if mark and mark.SetColorTexture and mark.Show and mark.Hide then
-            mark:SetColorTexture(0.93, 0.94, 0.96, 1)
+        if mark and mark.SetTexture and mark.Show and mark.Hide then
+            mark:SetTexture("Interface\\Buttons\\WHITE8X8")
+            if mark.SetVertexColor then mark:SetVertexColor(0.93, 0.94, 0.96, 1) end
             mark:SetSize(2, 12)
             mark:SetPoint("LEFT", frame, "LEFT", 2, 0)
             frame.selectionMark = mark
@@ -108,8 +123,8 @@ function Controls.CreateFrame(kind, name, parent, template, ...)
         if frame.SetTextInsets then frame:SetTextInsets(8, 8, 0, 0) end
         Controls.StyleSurface(frame, "input")
         if frame.HookScript then
-            frame:HookScript("OnEditFocusGained", function(self) self.uiFocus = true; Controls.StyleSurface(self, "input") end)
-            frame:HookScript("OnEditFocusLost", function(self) self.uiFocus = nil; Controls.StyleSurface(self, "input") end)
+            frame:HookScript("OnEditFocusGained", function(self) Controls.SetInputFocused(self, true) end)
+            frame:HookScript("OnEditFocusLost", function(self) Controls.SetInputFocused(self, false) end)
         end
     end
     return frame
@@ -138,8 +153,47 @@ function Controls.FitDialog(frame, metrics)
     if width <= 0 or height <= 0 then return 1 end
     local scale = math.min(1, math.max(1, width - 32) / frame:GetWidth(),
         math.max(1, height - 32) / frame:GetHeight())
-    frame:SetScale(scale)
+    local previous = frame.GetScale and frame:GetScale() or 1
+    if math.abs(previous - scale) > 0.0001 then
+        local cx, cy
+        if frame.GetCenter then cx, cy = frame:GetCenter() end
+        frame:SetScale(scale)
+        -- GetCenter is in frame-local units. Keep its UIParent-space center
+        -- stable when changing only this dialog's local scale.
+        if cx and cy then
+            frame:ClearAllPoints()
+            frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * previous / scale, cy * previous / scale)
+        end
+    end
     return scale
+end
+
+function Controls.RefreshDialogFits()
+    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+    for frame in pairs(fittedDialogs) do
+        if frame:IsShown() then Controls.FitDialog(frame, metrics) end
+    end
+end
+
+function Controls.RegisterDialog(frame)
+    fittedDialogs[frame] = true
+    -- The hook belongs to the addon, not UIParent or a Blizzard frame. It is
+    -- installed once and only revisits our three dialogs after layout changes.
+    if not layoutFitInstalled and hooksecurefunc and type(Offhand.ApplyFullLayout) == "function" then
+        hooksecurefunc(Offhand, "ApplyFullLayout", Controls.RefreshDialogFits)
+        layoutFitInstalled = true
+    end
+end
+
+function Controls.EndSliderInteraction(slider)
+    local active = slider._isCustomDrag or slider.isDragging or slider._pendingApply
+    slider._isCustomDrag = false
+    slider.isDragging = false
+    slider._pendingApply = false
+    slider._dragStartX = nil
+    slider._dragStartVal = nil
+    slider:SetScript("OnUpdate", nil)
+    return active and true or false
 end
 
 function Controls.SetScrollOffset(scroll, offset)
@@ -305,16 +359,12 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
 
     editBox:SetScript("OnEditFocusLost", function(self)
         CommitEditBox()
-        if self.SetBackdropBorderColor then
-            self:SetBackdropBorderColor(0.35, 0.33, 0.28, 0.9)
-        end
+        Controls.SetInputFocused(self, false)
     end)
 
     editBox:SetScript("OnEditFocusGained", function(self)
         if self.HighlightText then self:HighlightText() end
-        if self.SetBackdropBorderColor then
-            self:SetBackdropBorderColor(1.0, 0.82, 0.0, 1.0)
-        end
+        Controls.SetInputFocused(self, true)
     end)
 
     btnMinus:SetScript("OnClick", function()
@@ -379,11 +429,8 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
     end)
 
     slider:SetScript("OnMouseUp", function(self, button)
-        if button == "LeftButton" then
-            self._isCustomDrag = false
-            self._dragStartX = nil
-            self._dragStartVal = nil
-            self:SetScript("OnUpdate", nil)
+        if button == "LeftButton" and self._isCustomDrag then
+            Controls.EndSliderInteraction(self)
             -- Native slider handling can move the thumb after the last custom
             -- OnUpdate. Commit that final displayed value before applying the
             -- layout so a quick drag does not require a step-button click.
@@ -396,6 +443,10 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
             setVal(finalValue)
             Offhand:ApplyFullLayout()
         end
+    end)
+
+    slider:SetScript("OnHide", function(self)
+        if Controls.EndSliderInteraction(self) then Offhand:ApplyFullLayout() end
     end)
 
     slider:SetScript("OnValueChanged", function(self, val, userInput)

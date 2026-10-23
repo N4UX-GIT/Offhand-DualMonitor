@@ -230,6 +230,7 @@ function Options:CreateFloatingPanel()
 
     configFrame = CreateFrame("Frame", "OffhandFloatingConfigFrame", UIParent, BackdropTemplate())
     configFrame:SetSize(922, 732)
+    Controls.RegisterDialog(configFrame)
     configFrame:SetFrameStrata("DIALOG")
     configFrame:EnableMouse(true)
     configFrame:SetMovable(true)
@@ -1682,12 +1683,10 @@ function Options:CreateFloatingPanel()
             Options:SetChoiceSelected(btn, isSelected)
             if isSelected then
                 if btn.LockHighlight then btn:LockHighlight() end
-                local fs = btn.GetFontString and btn:GetFontString()
-                if fs and fs.SetTextColor then fs:SetTextColor(1.0, 0.95, 0.60, 1.0) end
+                Controls.SetButtonTextColor(btn, 1.0, 0.95, 0.60, 1.0)
             else
                 if btn.UnlockHighlight then btn:UnlockHighlight() end
-                local fs = btn.GetFontString and btn:GetFontString()
-                if fs and fs.SetTextColor then fs:SetTextColor(t[3], t[4], t[5], 1.0) end
+                Controls.SetButtonTextColor(btn, t[3], t[4], t[5], 1.0)
             end
         end
         if customTrimBtn then
@@ -1697,13 +1696,11 @@ function Options:CreateFloatingPanel()
             if isCustom then
                 customTrimBtn:SetText(string.format(L["BTN_TRIM_CUSTOM_ACTIVE_FMT"], math.floor(c.r*255+0.5), math.floor(c.g*255+0.5), math.floor(c.b*255+0.5)))
                 if customTrimBtn.LockHighlight then customTrimBtn:LockHighlight() end
-                local fs = customTrimBtn.GetFontString and customTrimBtn:GetFontString()
-                if fs and fs.SetTextColor then fs:SetTextColor(0.2, 1.0, 0.4, 1.0) end
+                Controls.SetButtonTextColor(customTrimBtn, 0.2, 1.0, 0.4, 1.0)
             else
                 customTrimBtn:SetText(L["BTN_TRIM_CUSTOM"])
                 if customTrimBtn.UnlockHighlight then customTrimBtn:UnlockHighlight() end
-                local fs = customTrimBtn.GetFontString and customTrimBtn:GetFontString()
-                if fs and fs.SetTextColor then fs:SetTextColor(1.0, 0.82, 0.0, 1.0) end
+                Controls.SetButtonTextColor(customTrimBtn, 1.0, 0.82, 0.0, 1.0)
             end
         end
     end
@@ -1797,12 +1794,10 @@ function Options:CreateFloatingPanel()
             Options:SetChoiceSelected(btn, isSelected)
             if isSelected then
                 if btn.LockHighlight then btn:LockHighlight() end
-                local fs = btn.GetFontString and btn:GetFontString()
-                if fs and fs.SetTextColor then fs:SetTextColor(1.0, 0.95, 0.60, 1.0) end
+                Controls.SetButtonTextColor(btn, 1.0, 0.95, 0.60, 1.0)
             else
                 if btn.UnlockHighlight then btn:UnlockHighlight() end
-                local fs = btn.GetFontString and btn:GetFontString()
-                if fs and fs.SetTextColor then fs:SetTextColor(1.0, 0.82, 0.0, 1.0) end
+                Controls.SetButtonTextColor(btn, 1.0, 0.82, 0.0, 1.0)
             end
         end
         if customCanvasBtn then
@@ -1812,13 +1807,11 @@ function Options:CreateFloatingPanel()
             if isCustom then
                 customCanvasBtn:SetText(string.format(L["BTN_CANVAS_CUSTOM_ACTIVE_FMT"], math.floor(c.r*255+0.5), math.floor(c.g*255+0.5), math.floor(c.b*255+0.5)))
                 if customCanvasBtn.LockHighlight then customCanvasBtn:LockHighlight() end
-                local fs = customCanvasBtn.GetFontString and customCanvasBtn:GetFontString()
-                if fs and fs.SetTextColor then fs:SetTextColor(0.2, 1.0, 0.4, 1.0) end
+                Controls.SetButtonTextColor(customCanvasBtn, 0.2, 1.0, 0.4, 1.0)
             else
                 customCanvasBtn:SetText(L["BTN_CANVAS_CUSTOM"])
                 if customCanvasBtn.UnlockHighlight then customCanvasBtn:UnlockHighlight() end
-                local fs = customCanvasBtn.GetFontString and customCanvasBtn:GetFontString()
-                if fs and fs.SetTextColor then fs:SetTextColor(1.0, 0.82, 0.0, 1.0) end
+                Controls.SetButtonTextColor(customCanvasBtn, 1.0, 0.82, 0.0, 1.0)
             end
         end
 

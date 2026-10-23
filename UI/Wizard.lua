@@ -123,6 +123,7 @@ function Wizard:CreateFrame()
 
     local f = CreateFrame("Frame", "OffhandSetupWizardFrame", UIParent, BackdropTemplate())
     f:SetSize(668, 454)
+    Controls.RegisterDialog(f)
     f:SetFrameStrata("FULLSCREEN_DIALOG")
     f:EnableMouse(true)
     f:SetMovable(true)
@@ -459,11 +460,11 @@ function Wizard:CreateFrame()
     end)
     seamEditBox:SetScript("OnEditFocusLost", function(s)
         CommitSeamEditBox()
-        if s.SetBackdropBorderColor then s:SetBackdropBorderColor(0.35, 0.33, 0.28, 0.9) end
+        Controls.SetInputFocused(s, false)
     end)
     seamEditBox:SetScript("OnEditFocusGained", function(s)
         if s.HighlightText then s:HighlightText() end
-        if s.SetBackdropBorderColor then s:SetBackdropBorderColor(1.0, 0.82, 0.0, 1.0) end
+        Controls.SetInputFocused(s, true)
     end)
 
     local btnMinus = CreateFrame("Button", nil, card3, "UIPanelButtonTemplate")
@@ -490,6 +491,7 @@ function Wizard:CreateFrame()
     end)
 
     seamSlider:SetScript("OnMouseUp", function(self, button)
+        if button ~= "LeftButton" then return end
         self.isDragging = false
         if self._pendingApply then
             self._pendingApply = false
@@ -497,6 +499,10 @@ function Wizard:CreateFrame()
             Offhand:ApplyFullLayout()
             if f.UpdateState then f:UpdateState() end
         end
+    end)
+
+    seamSlider:SetScript("OnHide", function(self)
+        if Controls.EndSliderInteraction(self) then Offhand:ApplyFullLayout() end
     end)
 
     seamSlider:SetScript("OnValueChanged", function(self, val, userInput)
@@ -688,11 +694,11 @@ function Wizard:CreateFrame()
     end)
     scaleEditBox:SetScript("OnEditFocusLost", function(s)
         CommitScaleEditBox()
-        if s.SetBackdropBorderColor then s:SetBackdropBorderColor(0.35, 0.33, 0.28, 0.9) end
+        Controls.SetInputFocused(s, false)
     end)
     scaleEditBox:SetScript("OnEditFocusGained", function(s)
         if s.HighlightText then s:HighlightText() end
-        if s.SetBackdropBorderColor then s:SetBackdropBorderColor(1.0, 0.82, 0.0, 1.0) end
+        Controls.SetInputFocused(s, true)
     end)
 
     local btnScaleMinus = CreateFrame("Button", nil, card4, "UIPanelButtonTemplate")
@@ -742,13 +748,19 @@ function Wizard:CreateFrame()
     end)
 
     scaleSlider:SetScript("OnMouseUp", function(self, button)
-        if button == "LeftButton" then
-            self._isCustomDrag = false
-            self._dragStartX = nil
-            self._dragStartVal = nil
-            self:SetScript("OnUpdate", nil)
+        if button == "LeftButton" and self._isCustomDrag then
+            Controls.EndSliderInteraction(self)
+            local finalValue = math.max(0.25, math.min(1.25, self:GetValue() or Offhand.db.hudScale or 0.70))
+            finalValue = math.floor(finalValue / 0.01 + 0.5) * 0.01
+            Offhand.db.hudScale = finalValue
+            scaleValText:SetText(string.format(L["WIZARD_SCALE_VAL_FMT"], finalValue * 100))
+            scaleEditBox:SetText(string.format("%.0f%%", finalValue * 100))
             Offhand:ApplyFullLayout()
         end
+    end)
+
+    scaleSlider:SetScript("OnHide", function(self)
+        if Controls.EndSliderInteraction(self) then Offhand:ApplyFullLayout() end
     end)
 
     scaleSlider:SetScript("OnValueChanged", function(self, val, userInput)
