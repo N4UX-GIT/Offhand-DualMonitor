@@ -1,3 +1,12 @@
+# Visual overhaul candidate, source checkpoint e480af9
+
+- Source: `codex/addon-ui-overhaul`, based on the completed structural branch at `b7508d5`. Visual implementation is a separate commit; structural PR #34 is unchanged.
+- Automated: all 48 Lua suites passed. Six manifests passed paths, load order, XML, and Lua 5.1 syntax validation. Companion preference and release-metadata checks passed; the frozen executable is unchanged.
+- Package: all 72 unpacked files matched source SHA-256 and the unpacked addon passed validation. Audit ZIP SHA-256: `9921173BF779715E07B26B1167ACBA9340A1FE831AF2E2EF81A080899C7D27F6`. Retained Beta 22 metadata does not make this a release.
+- Deployment: Retail and Forever Beta each match 70 copied package files. Two generated bridge files per install were preserved unchanged. Pre-update installs and the package are recoverable under `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-e480af9`.
+- Live: pending. No new game session, visual pass, protected-action pass, or persistence pass was performed. The user is away from the home computer.
+- Handoff: [combined test checklist](../docs/REFACTOR-SMOKE-TEST.md) and [visual scope/evidence](../docs/UI-OVERHAUL-2026-10-23.md). Existing structural observations below remain historical.
+
 # Final structural candidate, source checkpoint 8335480
 
 - Source implementation: complete through increment 33 of the planned structural pass. PR #34 remains a draft into `addon/develop`.
