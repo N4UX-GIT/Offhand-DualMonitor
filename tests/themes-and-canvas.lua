@@ -137,6 +137,7 @@ local controlsChunk = assert(loadfile("UI/Controls.lua"))
 controlsChunk("Offhand", addon)
 
 assert(loadfile("Core/TopologyDetection.lua"))("Offhand", addon)
+assert(loadfile("UI/OptionsActions.lua"))("Offhand", addon)
 local optionsChunk = assert(loadfile("UI/Options.lua"))
 optionsChunk("Offhand", addon)
 

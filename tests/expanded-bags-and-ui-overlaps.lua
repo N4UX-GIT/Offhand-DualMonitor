@@ -191,6 +191,7 @@ assert(loadfile("Core/SeamRedirect.lua"))("Offhand", addon)
 assert(loadfile("UI/Themes.lua"))("Offhand", addon)
 assert(loadfile("UI/Controls.lua"))("Offhand", addon)
 assert(loadfile("Core/TopologyDetection.lua"))("Offhand", addon)
+assert(loadfile("UI/OptionsActions.lua"))("Offhand", addon)
 assert(loadfile("UI/Options.lua"))("Offhand", addon)
 addon.SeamRedirect:HookFrames()
 

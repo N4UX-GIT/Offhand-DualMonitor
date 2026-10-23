@@ -23,6 +23,7 @@ local addon={db={gameBottomPixels=6}, applied=0}
 function addon:ApplyFullLayout() self.applied=self.applied+1 end
 assert(loadfile("UI/Controls.lua"))("Offhand",addon)
 assert(loadfile("Core/TopologyDetection.lua"))("Offhand",addon)
+assert(loadfile("UI/OptionsActions.lua"))("Offhand",addon)
 assert(loadfile("UI/Options.lua"))("Offhand",addon)
 local row=addon.Options:CreateBottomControl({})
 local input,buttons=nil,{}

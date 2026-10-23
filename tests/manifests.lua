@@ -69,6 +69,7 @@ local canvasProfessionsIndex
 local canvasPanelMotionIndex
 local canvasIndex
 local controlsIndex
+local optionsActionsIndex
 local optionsIndex
 for index, file in ipairs(main) do
     if file == "Core/Init.lua" then initIndex = index end
@@ -97,6 +98,7 @@ for index, file in ipairs(main) do
     if file == "Core/CanvasPanelMotion.lua" then canvasPanelMotionIndex = index end
     if file == "Core/Canvas.lua" then canvasIndex = index end
     if file == "UI/Controls.lua" then controlsIndex = index end
+    if file == "UI/OptionsActions.lua" then optionsActionsIndex = index end
     if file == "UI/Options.lua" then optionsIndex = index end
 end
 assert(initIndex and clientRuntimeIndex and initIndex + 1 == clientRuntimeIndex,
@@ -133,8 +135,10 @@ assert(compatibilityIndex and frameStateIndex and panelRegistryIndex and canvasP
         and canvasProfessionsIndex + 1 == canvasPanelMotionIndex
         and canvasPanelMotionIndex + 1 == canvasIndex,
     "Canvas support services must load together immediately before Canvas")
-assert(controlsIndex and optionsIndex and controlsIndex + 1 == optionsIndex,
-    "shared UI controls must load immediately before Options")
+assert(controlsIndex and optionsActionsIndex and optionsIndex
+        and controlsIndex + 1 == optionsActionsIndex
+        and optionsActionsIndex + 1 == optionsIndex,
+    "shared controls and settings actions must load immediately before Options")
 for i=2,#tocs do
     local flavor = entries(tocs[i])
     assert(#main==#flavor, "Client TOCs load different numbers of files: " .. tocs[i])
@@ -156,7 +160,8 @@ assert(initSource:find("HEADER_OFFHAND", 1, true)
         and initSource:find("BINDING_HEADER_OFFHAND", 1, true)
         and optionsSource:find("_G.HEADER_OFFHAND", 1, true),
     "Forever and standard binding-header globals must both be initialized")
-assert(optionsSource:find("AssignGamepadFocusBinding", 1, true)
+local optionsActionsSource = assert(io.open("UI/OptionsActions.lua", "rb")):read("*a")
+assert(optionsActionsSource:find("AssignGamepadFocusBinding", 1, true)
         and not optionsSource:find("settings.OpenToCategory(gamepadCategoryID)", 1, true),
     "the controller focus helper must provide native binding capture instead of the unrelated settings page")
 local packageSource = assert(io.open("package.ps1", "rb")):read("*a")
