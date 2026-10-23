@@ -1,6 +1,6 @@
 # Combined refactor and visual UI manual smoke test
 
-Current installed runtime checkpoint: `e480af9` on `codex/addon-ui-overhaul`. This includes the completed structural refactor from PR #34 plus the separately committed [visual UI candidate](UI-OVERHAUL-2026-10-23.md). The independently preserved structural runtime checkpoint is `8335480`. Documentation commits may follow without changing the runtime.
+Current installed runtime checkpoint: `ad036fe` on `codex/addon-ui-overhaul`, draft PR #35. This includes the completed structural refactor from PR #34 plus the separately committed [visual UI candidate](UI-OVERHAUL-2026-10-23.md) and interaction hardening. The independently preserved structural runtime checkpoint is `8335480`. Documentation commits may follow without changing the runtime.
 
 Run on Retail and Forever if available. Use the same normal spanned topology and compatibility addons you ordinarily use. Actual results remain pending.
 
@@ -37,6 +37,7 @@ Restore temporary settings when finished. Do not delete SavedVariables to obtain
 ## Visual checks during the same session
 
 - At your normal UI scale and a smaller game viewport if practical, reopen settings and confirm the complete dialog fits Mainhand. Check narrow slider titles, typed values, section labels, the topology banner, and the fixed footer for clipping or overlap. Restore your original scale.
+- Adjust Global UI Size while settings stays open. Confirm the dialog continues to fit rather than requiring a close/reopen. Start another slider drag, switch pages before releasing, then return and move the mouse without pressing. The old drag must not resume. Restore the original value.
 - Hover, press, and select buttons. Confirm disabled actions look disabled and cannot be invoked. Selected choices should remain clickable and show a selection marker.
 - In Themes, choose a trim and cancel a custom color change. Confirm cancellation restores the previous value. Check the OLED option if you use it, then restore your original theme and colors.
 - Open calibration and go forward/back without applying a new setup. Close it and reopen settings. If you use Window Setup, open and close that guide too. Check fit, readable labels, and expected return navigation without resetting your existing setup.

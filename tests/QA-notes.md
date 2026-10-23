@@ -1,4 +1,12 @@
-# Visual overhaul candidate, source checkpoint e480af9
+# UI interaction hardening candidate, source checkpoint ad036fe
+
+- Source: `codex/addon-ui-overhaul`, draft PR #35 stacked on structural PR #34. Adds interrupted-drag cleanup, final Wizard scale-release commit, semantic button/focus colors, a legacy selection-marker fallback, and event-driven visible-dialog fitting.
+- Automated: all 48 Lua suites passed with expanded lifecycle and presentation coverage. Six manifests passed paths, XML, load order and Lua 5.1 syntax validation. Companion preference and release-metadata checks passed; the frozen executable SHA-256 is unchanged.
+- Package: all 72 unpacked files match source SHA-256 and the unpacked addon passed validation. Current audit ZIP SHA-256: `E8769D8786C99FB977F376D88A00B9C2BFFCC2221E1BD8969E85B090A49F3D4D`. Retained Beta 22 metadata is for local audit only, not a release.
+- Deployment: Retail and Forever Beta each match 70 copied files; their two generated bridge files are unchanged. Current package, verification copy and pre-update installs: `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-ad036fe`. Earlier structural-only and initial visual backups were retained.
+- Live: still pending. No visual, lifecycle, taint, or combat result was inferred from mocks or the user's instruction to continue. Use the updated [combined checklist](../docs/REFACTOR-SMOKE-TEST.md).
+
+# Initial visual overhaul candidate, source checkpoint e480af9
 
 - Source: `codex/addon-ui-overhaul`, based on the completed structural branch at `b7508d5`. Visual implementation is a separate commit; structural PR #34 is unchanged.
 - Automated: all 48 Lua suites passed. Six manifests passed paths, load order, XML, and Lua 5.1 syntax validation. Companion preference and release-metadata checks passed; the frozen executable is unchanged.
