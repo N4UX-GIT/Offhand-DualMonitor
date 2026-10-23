@@ -162,6 +162,10 @@ The seventeenth extraction moves the complete native Gamepad presentation adapte
 
 The eighteenth extraction moves the complete Forever native-bag proxy into `Core/CanvasForeverBags.lua`. Its installer receives explicit Canvas services and installs the existing public methods at the original definition point. The adapter owns its weak-key state, external drag handles, native close observers, bounded reopen attempts, transition reconciliation, and diagnostics. Canvas retains shared geometry, position storage, and generic panel orchestration. Dedicated bag and taint regressions exercise the extracted implementation.
 
+## Nineteenth increment
+
+The nineteenth extraction moves Forever World Map visibility observation, bounded position settlement, external drag and minimize controls, and UIPanel transaction dispatch into `Core/CanvasForeverMap.lua`. The adapter installs at the original definition point with explicit Canvas callbacks. It retains the existing timer sequence, generation cancellation, frame-state service, and external map ownership policy. The map and panel integration suites exercise the extracted implementation.
+
 ## Refactor candidate smoke status
 
 Candidate commit `10453d0941213916f1d7b060b64fc3eeb705bcc2` completed the structural boundary pass on 2026-10-23.
