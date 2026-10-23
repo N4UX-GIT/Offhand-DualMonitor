@@ -150,6 +150,10 @@ The fourteenth extraction moves the Mainhand transient-frame registry, nested-fr
 
 The fifteenth extraction moves selected-choice presentation and vertical card stacking into `UI/Controls.lua`. `UI/Options.lua` retains both public methods as compatibility delegates. Selection remains actionable rather than disabled, and card spacing retains the established twelve-unit default while allowing future screens to supply an explicit spacing rule.
 
+## Sixteenth increment
+
+The sixteenth extraction moves the complete settings slider implementation into `UI/Controls.lua`, including typed values, step buttons, physical-pixel dragging, release-time commits, tooltips, and theme refresh. Options retains its local slider registry and construction delegate so settings refresh ownership stays with the screen. Existing slider and theme regressions exercise the extracted implementation.
+
 ## Refactor candidate smoke status
 
 Candidate commit `10453d0941213916f1d7b060b64fc3eeb705bcc2` completed the structural boundary pass on 2026-10-23.
