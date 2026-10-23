@@ -1,3 +1,11 @@
+# Geometry-input locking candidate, source checkpoint 92b07a7
+
+- Source: `codex/addon-ui-overhaul`, draft PR #35. A seam geometry lock now covers the rail, separate input and steppers in Settings and Calibration. It cancels pending drag work before focus release, rejects late field commits/direct steps, and restores controls when manual geometry is available. No topology calculation or workspace-window locking code was changed.
+- Automated: all 48 Lua suites passed. Added coverage for all slider child states, interrupted drag cancellation without applying a stale value, rejected disabled field/step callbacks, manual re-enable, numeric disabled states, and exact-topology settings refresh. Six manifests passed paths, XML, load order and Lua 5.1 syntax validation. Companion preference and release-metadata checks passed; the frozen executable hash is unchanged.
+- Package: all 72 unpacked files matched source SHA-256 and unpacked validation passed. Audit ZIP SHA-256: `5D8369665EECFD3B6C96BEF4A09FB196EA8114BCF3D30101C114A10291B42E4C`. Retained Beta 22 metadata is for local audit, not a release.
+- Deployment: Retail and Forever Beta each match 70 copied files, preserving their two generated bridges unchanged. Current package and recoverable pre-update installs: `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-92b07a7`. Earlier candidates remain available.
+- Live: pending. No live visual, taint, persistence or workspace-lock pass is inferred. The [combined checklist](../docs/REFACTOR-SMOKE-TEST.md) distinguishes geometry-input locking from workspace window locking.
+
 # Calibration layout candidate, source checkpoint f766a58
 
 - Source: `codex/addon-ui-overhaul`, draft PR #35. Calibration measures introduction/progress, topology recommendations, final HUD guidance/status, validation and footer spacing. Failure messages reflow the active page; longer footer labels reserve height. Topology checks, four/five-step policy, completion/skip confirmation, layout creation and reload actions remain unchanged.

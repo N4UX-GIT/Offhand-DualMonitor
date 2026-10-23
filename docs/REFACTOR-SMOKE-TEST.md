@@ -1,6 +1,6 @@
 # Combined refactor and visual UI manual smoke test
 
-Current installed runtime checkpoint: `f766a58` on `codex/addon-ui-overhaul`, draft PR #35. This includes the completed structural refactor from PR #34 plus the separately committed [visual UI candidate](UI-OVERHAUL-2026-10-23.md), interaction hardening, profile usability, measured text layouts, and setup/calibration spacing. The independently preserved structural runtime checkpoint is `8335480`. Documentation commits may follow without changing the runtime.
+Current installed runtime checkpoint: `92b07a7` on `codex/addon-ui-overhaul`, draft PR #35. This includes the completed structural refactor from PR #34 plus the separately committed [visual UI candidate](UI-OVERHAUL-2026-10-23.md), interaction/geometry-input hardening, profile usability, measured text layouts, and setup/calibration spacing. The independently preserved structural runtime checkpoint is `8335480`. Documentation commits may follow without changing the runtime.
 
 Run on Retail and Forever if available. Use the same normal spanned topology and compatibility addons you ordinarily use. Actual results remain pending.
 
@@ -40,6 +40,7 @@ Restore temporary settings when finished. Do not delete SavedVariables to obtain
 - Adjust Global UI Size while settings stays open. Confirm the dialog continues to fit rather than requiring a close/reopen. Start another slider drag, switch pages before releasing, then return and move the mouse without pressing. The old drag must not resume. Restore the original value.
 - Hover, press, and select buttons. Confirm disabled actions look disabled and cannot be invoked. Selected choices should remain clickable and show a selection marker.
 - Click a radio label rather than its circle. Confirm it selects the same setting. An unavailable choice must remain unchanged when its label is clicked.
+- If Companion is already supplying exact geometry, confirm the seam rail, typed value field, step buttons, and seam presets are all unavailable in Settings and Calibration. Do not change topology ownership just to force this case. This is a geometry-input lock, separate from the workspace window lock tested above.
 - In Themes, choose a trim and cancel a custom color change. Confirm cancellation restores the previous value. Check the OLED option if you use it, then restore your original theme and colors.
 - On Themes and Help, check wrapped headings and descriptions. Theme choices must remain within their columns, following rows must clear the longer description, and the next card must start below the expanded content. Help bodies must start below their headings.
 - Open calibration and go forward/back without applying a new setup. Close it and reopen settings. If you use Window Setup, inspect its introduction and method-choice page without changing your method, then close the guide. Check that instructions, method buttons, status, and footer do not overlap, and the whole guide remains reachable. Do not reset your existing setup to obtain a visual pass.
