@@ -196,6 +196,34 @@ function Controls.EndSliderInteraction(slider)
     return active and true or false
 end
 
+function Controls.IsSliderEnabled(slider)
+    if slider.uiEnabled == false then return false end
+    if slider.IsEnabled then
+        local enabled = slider:IsEnabled()
+        return enabled and enabled ~= 0
+    end
+    return true
+end
+
+function Controls.SetSliderEnabled(slider, enabled)
+    enabled = enabled and true or false
+    slider.uiEnabled = enabled
+    -- Cancel first: clearing a focused field may emit OnEditFocusLost. Its
+    -- commit handler must see the locked state and reject the pending edit.
+    if not enabled then Controls.EndSliderInteraction(slider) end
+    for _, widget in pairs({ rail = slider, minus = slider.btnMinus,
+        plus = slider.btnPlus, input = slider.editBox }) do
+        if widget.SetEnabled then widget:SetEnabled(enabled)
+        elseif enabled and widget.Enable then widget:Enable()
+        elseif not enabled and widget.Disable then widget:Disable() end
+        if widget.EnableMouse then widget:EnableMouse(enabled) end
+    end
+    local input = slider.editBox
+    if input and input.EnableKeyboard then input:EnableKeyboard(enabled) end
+    if not enabled and input and input.ClearFocus then input:ClearFocus() end
+    if slider.SetAlpha then slider:SetAlpha(enabled and 1 or 0.55) end
+end
+
 function Controls.SetScrollOffset(scroll, offset)
     local child = scroll.GetScrollChild and scroll:GetScrollChild() or scroll.scrollChild
     local range = child and math.max(0, child:GetHeight() - scroll:GetHeight()) or 0
@@ -339,12 +367,18 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
     slider.valueText = valueText
 
     slider.SetValueDirect = function(self, val)
+        if not Controls.IsSliderEnabled(self) then return end
         self._isDirect = true
         self:SetValue(val)
         self._isDirect = nil
     end
 
     local function CommitEditBox()
+        if not Controls.IsSliderEnabled(slider) then
+            editBox:SetText(FormatValue(getVal()))
+            if editBox.ClearFocus then editBox:ClearFocus() end
+            return
+        end
         local txt = editBox:GetText()
         local parsed = Controls.ParseSliderInput(txt, minVal, maxVal, step, formatStr)
         if parsed then
@@ -411,8 +445,8 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
         self._dragStartVal = self:GetValue()
         self._isCustomDrag = true
         self:SetScript("OnUpdate", function(s)
-            if not s._isCustomDrag then
-                s:SetScript("OnUpdate", nil)
+            if not s._isCustomDrag or not Controls.IsSliderEnabled(s) then
+                Controls.EndSliderInteraction(s)
                 return
             end
             local curX = GetCursorPosition and select(1, GetCursorPosition()) or s._dragStartX
@@ -432,6 +466,7 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
     end
 
     slider:SetScript("OnMouseDown", function(self, button)
+        if not Controls.IsSliderEnabled(self) then return end
         if editBox and editBox.ClearFocus then editBox:ClearFocus() end
         if button == "LeftButton" then
             StartCustomDrag(self)
@@ -439,6 +474,7 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
     end)
 
     slider:SetScript("OnMouseUp", function(self, button)
+        if not Controls.IsSliderEnabled(self) then Controls.EndSliderInteraction(self); return end
         if button == "LeftButton" and self._isCustomDrag then
             Controls.EndSliderInteraction(self)
             -- Native slider handling can move the thumb after the last custom
@@ -460,6 +496,10 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
     end)
 
     slider:SetScript("OnValueChanged", function(self, val, userInput)
+        if not Controls.IsSliderEnabled(self) then
+            editBox:SetText(FormatValue(getVal()))
+            return
+        end
         -- During custom drag, OnUpdate drives value + display; skip here
         if self._isCustomDrag then return end
 

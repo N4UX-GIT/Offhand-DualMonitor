@@ -61,6 +61,9 @@ local function Frame(kind, name, parent, template)
     function frame:SetVerticalScroll(offset) self.offset = offset end
     function frame:GetVerticalScroll() return self.offset or 0 end
     function frame:SetValue(value) self.value = value end
+    function frame:ClearFocus() self.clearedFocus = true end
+    function frame:EnableMouse(enabled) self.mouseEnabled = enabled end
+    function frame:EnableKeyboard(enabled) self.keyboardEnabled = enabled end
     function frame:SetMinMaxValues(low, high) self.low, self.high = low, high end
     function frame:EnableMouseWheel(enabled) self.wheel = enabled end
     function frame:SetThumbTexture(texture) self.thumbPath = texture end
@@ -160,6 +163,20 @@ scroll.child = Frame("Frame"); scroll.child:SetSize(662, 1200)
 scroll.ScrollBar = Frame("Slider"); scroll.ScrollBar.thumb = Region()
 ui.EnableWheelScroll(scroll)
 assert(scroll.wheel and scroll.ScrollBar.thumb.width == 8)
+do
+    local rail = Frame("Slider")
+    rail.btnMinus, rail.btnPlus, rail.editBox = Frame("Button"), Frame("Button"), Frame("EditBox")
+    rail._isCustomDrag, rail._pendingApply = true, true
+    rail:SetScript("OnUpdate", function() error("cancelled drag resumed") end)
+    ui.SetSliderEnabled(rail, false)
+    assert(not ui.IsSliderEnabled(rail) and not rail.btnPlus:IsEnabled()
+            and rail.editBox.clearedFocus and not rail.editBox.keyboardEnabled
+            and not rail.scripts.OnUpdate, "slider lock must cover keyboard, mouse and pending work")
+    ui.SetSliderEnabled(rail, true)
+    assert(ui.IsSliderEnabled(rail) and rail.btnPlus:IsEnabled() and rail.editBox.keyboardEnabled)
+    rail.IsEnabled = function() return 0 end
+    assert(not ui.IsSliderEnabled(rail), "legacy zero-valued disabled states must not count as enabled")
+end
 assert(ui.SetScrollOffset(scroll, 10000) == 800 and scroll.ScrollBar.value == 800)
 assert(scroll.ScrollBar.high == 800, "restored offsets must not use a previous page's scrollbar range")
 scroll:Fire("OnMouseWheel", 1)

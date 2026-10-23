@@ -362,6 +362,35 @@ hudSlider.scripts.OnHide(hudSlider)
 hudSlider.scripts.OnMouseUp(hudSlider, "LeftButton")
 assert(layoutAppliedCount == 1, "repeated hide or a stale mouse-up must not apply again")
 
+-- A locked rail must also lock its separate children and reject late input.
+do
+    local stored = addon.db.hudScale
+    hudSlider.scripts.OnMouseDown(hudSlider, "LeftButton")
+    layoutAppliedCount = 0
+    addon.UIControls.SetSliderEnabled(hudSlider, false)
+    assert(not hudSlider.enabled and not hudSlider.btnMinus.enabled
+            and not hudSlider.btnPlus.enabled and not hudSlider.editBox.enabled,
+        "disabling a slider must disable its rail, field and both steppers")
+    assert(not hudSlider._isCustomDrag and not hudSlider.scripts.OnUpdate,
+        "locking a slider must cancel any active drag")
+    hudSlider.btnPlus.scripts.OnClick()
+    hudSlider.btnMinus.scripts.OnClick()
+    hudSlider.editBox:SetText("45%")
+    hudSlider.editBox.scripts.OnEnterPressed(hudSlider.editBox)
+    hudSlider.editBox.scripts.OnEditFocusLost(hudSlider.editBox)
+    hudSlider.scripts.OnMouseDown(hudSlider, "LeftButton")
+    hudSlider.scripts.OnMouseUp(hudSlider, "LeftButton")
+    hudSlider:SetValueDirect(0.45)
+    assert(addon.db.hudScale == stored and layoutAppliedCount == 0
+            and hudSlider.editBox:GetText() == string.format("%.0f%%", stored * 100),
+        "late clicks and field commits must not bypass a locked slider")
+    addon.UIControls.SetSliderEnabled(hudSlider, true)
+    assert(hudSlider.enabled and hudSlider.btnPlus.enabled and hudSlider.editBox.enabled)
+    hudSlider.btnPlus.scripts.OnClick()
+    assert(addon.db.hudScale > stored and layoutAppliedCount == 1,
+        "unlocking must restore normal step-button interaction")
+end
+
 -- ============================================================================
 -- 3. Test Wizard Sliders (Seam & Scale EditBoxes and Stepping)
 -- ============================================================================
@@ -407,6 +436,23 @@ assert(not wiz.scaleSlider._isCustomDrag and not wiz.scaleSlider.scripts.OnUpdat
     "hiding a Wizard scale step must cancel its drag and apply once")
 wiz.scaleSlider.scripts.OnMouseUp(wiz.scaleSlider, "LeftButton")
 assert(layoutAppliedCount == 1)
+
+do
+    local stored = addon.db.deckWidthRatio
+    addon.UIControls.SetSliderEnabled(wiz.seamSlider, false)
+    layoutAppliedCount = 0
+    wiz.seamSlider.btnPlus.scripts.OnClick()
+    wiz.seamSlider.btnMinus.scripts.OnClick()
+    wiz.seamEditBox:SetText("60%")
+    wiz.seamEditBox.scripts.OnEnterPressed(wiz.seamEditBox)
+    wiz.seamEditBox.scripts.OnEditFocusLost(wiz.seamEditBox)
+    wiz.seamSlider.scripts.OnValueChanged(wiz.seamSlider, 0.60, true)
+    wiz.seamSlider.scripts.OnMouseDown(wiz.seamSlider, "LeftButton")
+    assert(addon.db.deckWidthRatio == stored and layoutAppliedCount == 0
+            and not wiz.seamSlider.isDragging and not wiz.seamSlider.scripts.OnUpdate,
+        "Wizard seam fields and steppers must not bypass Companion geometry ownership")
+    addon.UIControls.SetSliderEnabled(wiz.seamSlider, true)
+end
 wiz.seamSlider.scripts.OnMouseDown(wiz.seamSlider, "LeftButton")
 wiz.seamSlider.scripts.OnValueChanged(wiz.seamSlider, 0.45, true)
 assert(wiz.seamSlider._pendingApply and wiz.seamSlider.scripts.OnUpdate)

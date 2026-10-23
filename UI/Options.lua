@@ -2325,7 +2325,8 @@ function Options:CreateFloatingPanel()
         local manualGeometryEnabled = not info.exactTopology
         for _, control in ipairs({rPortraitLeft, rPortraitRight, rDual, rVerticalBottom,
             rVerticalTop, r169, r219, rFill, seamSlider, p36Btn, p50Btn, p55Btn}) do
-            if control and control.SetEnabled then control:SetEnabled(manualGeometryEnabled) end
+            if control == seamSlider then Offhand.UIControls.SetSliderEnabled(control, manualGeometryEnabled)
+            elseif control and control.SetEnabled then control:SetEnabled(manualGeometryEnabled) end
             if control and control.SetAlpha then control:SetAlpha(manualGeometryEnabled and 1 or 0.55) end
         end
 

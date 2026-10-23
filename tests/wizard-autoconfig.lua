@@ -1294,12 +1294,22 @@ assert(optPanel.banner:GetText():find("Companion active: Game 2560x1440 | Worksp
     "Exact Companion status must use a concise game/workspace summary")
 assert(optPanel.companionAppBtn:IsShown(),
     "Window Setup must remain available when Companion is actively supplying geometry")
+local lockedSeamSlider
+for _, frame in ipairs(frames) do
+    if frame.title and frame.title.GetText and frame.title:GetText() == addon.L.SLIDER_SEAM_WIDTH
+        and frame.btnPlus then lockedSeamSlider = frame; break end
+end
+assert(lockedSeamSlider and not lockedSeamSlider.enabled and not lockedSeamSlider.btnPlus.enabled
+        and not lockedSeamSlider.editBox.enabled,
+    "exact topology must lock the complete settings seam control, not just its rail")
 assert(optPanel.banner.points["TOPRIGHT"].rel == -24
         and optPanel.banner.points["TOPLEFT"].rel == 218,
     "Exact Companion status must have a dedicated full-width row above setup actions")
 
 addon.Viewport.GetMetrics = panelGetMetrics
 addon.Options:RefreshPanel()
+assert(lockedSeamSlider.enabled and lockedSeamSlider.btnPlus.enabled and lockedSeamSlider.editBox.enabled,
+    "returning to manual geometry must re-enable the complete seam control")
 assert(optPanel.companionAppBtn:IsShown(),
     "Window Setup must remain available when exact Companion geometry is absent")
 assert(optPanel.banner.points["TOPRIGHT"].rel == -24,

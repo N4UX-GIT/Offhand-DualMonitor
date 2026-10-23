@@ -435,12 +435,18 @@ function Wizard:CreateFrame()
     Controls.StyleSlider(seamSlider)
 
     seamSlider.SetValueDirect = function(self, val)
+        if not Controls.IsSliderEnabled(self) then return end
         self._isDirect = true
         self:SetValue(val)
         self._isDirect = nil
     end
 
     local function CommitSeamEditBox()
+        if not Controls.IsSliderEnabled(seamSlider) then
+            seamEditBox:SetText(string.format("%.1f%%", ((Offhand.db and Offhand.db.deckWidthRatio) or 0.36) * 100))
+            if seamEditBox.ClearFocus then seamEditBox:ClearFocus() end
+            return
+        end
         local txt = seamEditBox:GetText()
         local parsed = Offhand.ParseSliderInput and Offhand:ParseSliderInput(txt, 0.15, 0.80, 0.005, "%.1f%%")
         if parsed then
@@ -485,9 +491,11 @@ function Wizard:CreateFrame()
     btnLaser:SetPoint("LEFT", btnPlus, "RIGHT", 12, 0)
     btnLaser:SetText(L["BTN_LASER_TOGGLE"])
     f.laserButton = btnLaser
+    seamSlider.btnMinus, seamSlider.btnPlus, seamSlider.editBox = btnMinus, btnPlus, seamEditBox
     if Offhand.SetTooltip then Offhand:SetTooltip(btnLaser, L["BTN_LASER_TOGGLE_TIP_TITLE"], L["BTN_LASER_TOGGLE_TIP_DESC"]) end
 
     seamSlider:SetScript("OnMouseDown", function(self, button)
+        if not Controls.IsSliderEnabled(self) then return end
         if button == "LeftButton" then self.isDragging = true end
     end)
 
@@ -507,6 +515,7 @@ function Wizard:CreateFrame()
     end)
 
     seamSlider:SetScript("OnValueChanged", function(self, val, userInput)
+        if not Controls.IsSliderEnabled(self) then return end
         val = math.floor((val / 0.005) + 0.5) * 0.005
         Offhand.db.deckWidthRatio = val
         seamValText:SetText(string.format(L["WIZARD_SEAM_VAL_FMT"], val * 100))
@@ -1156,7 +1165,8 @@ function Wizard:CreateFrame()
             or L["WIZARD_STEP3_OPTIONS_LOCKED"])
         for _, control in ipairs({btnPl, btnPr, btnDual, btnVt, btnVb, btn169, btn219,
             btnFill, seamSlider, seamEditBox, btnMinus, btnPlus, btnSeam36, btnSeam50, btnSeam55}) do
-            if control and control.SetEnabled then control:SetEnabled(manualGeometryEnabled) end
+            if control == seamSlider then Controls.SetSliderEnabled(control, manualGeometryEnabled)
+            elseif control and control.SetEnabled then control:SetEnabled(manualGeometryEnabled) end
             if control and control.SetAlpha then control:SetAlpha(manualGeometryEnabled and 1 or 0.55) end
         end
 
