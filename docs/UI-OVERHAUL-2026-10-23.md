@@ -1,9 +1,9 @@
 # Visual UI overhaul candidate
 
-Current runtime checkpoint: `9db21e3` on `codex/addon-ui-overhaul`, draft PR #35,
+Current runtime checkpoint: `70e2d4f` on `codex/addon-ui-overhaul`, draft PR #35,
 based on the completed structural branch at `b7508d5`. The initial visual pass
 was `e480af9`; subsequent increments harden its interaction lifecycle and improve
-profile usability and translated text layout. The visual work is a separate branch so
+profile usability, translated text layout, and setup-guide spacing. The visual work is a separate branch so
 it can be reviewed or rolled back without undoing the structural refactor.
 
 ## Implemented
@@ -50,6 +50,14 @@ user-resizable layout.
 
 ## Boundaries and library decision
 
+Window Setup now derives its body, action-row, status, and window heights from
+the current text. It reserves explicit gaps above the footer and between those
+regions, refits to the viewport, and reflows when a status message changes.
+Single actions are recentered after visiting the three-method page. This replaces
+the fixed body/action bounds that could overlap in the original 430-unit dialog.
+Page selection, setup-method writes, confirmation, reload, and completion rules
+are unchanged. Tests cover all six pages and expanded status text.
+
 Theme choices now use bounded two-column rows sized from the title and
 description heights. Each following row clears the tallest item in the previous
 row, and card stacking uses the resulting card height. Wrapped Help headings
@@ -92,15 +100,15 @@ a consistent dark presentation with the selected accent and OLED treatment.
 - An isolated addon-only audit package passed. All 72 unpacked files matched
   source by SHA-256, and the unpacked addon passed validation.
 - Current audit ZIP SHA-256:
-  `53ADF94AC9ACCE3E16FB727E36A60797E89C35D026D3D3DDA5971DAE49D24E0B`.
+  `9923632DF6B8C7D053F2E31A603E0405D452740C8F7FAA14A0F094BAAE573ABA`.
 - Retail and Forever Beta installs match the 70 copied package files. Their two
   generated topology/state bridge files were preserved and verified unchanged.
 - Audit package, unpacked verification copy, and recoverable pre-update installs:
-  `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-9db21e3`.
+  `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-70e2d4f`.
 
 Earlier visual audit directories and their installed backups remain available
-separately. The current pre-update backups contain `025b6dc`, the profile and
-choice-label candidate, not the structural-only candidate.
+separately. The current pre-update backups contain `9db21e3`, the measured
+Themes/Help text candidate, not the structural-only candidate.
 
 Existing Beta 22 metadata was retained for local audit purposes only. The archive
 is not a published release and must not be mistaken for the stable checkpoint.

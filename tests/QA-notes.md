@@ -1,3 +1,11 @@
+# Setup-guide spacing candidate, source checkpoint 70e2d4f
+
+- Source: `codex/addon-ui-overhaul`, draft PR #35. Window Setup measures its title/body/status and action text, reserves non-overlapping body/action/status/footer regions, reflows status updates, and recenters a single action after the three-choice page. No setup actions, confirmations, saved-variable schema or release metadata were changed.
+- Automated: all 48 Lua suites passed. Coverage includes guide-region arithmetic, all six page layouts, expanded status text, method download/reload/resume paths, and multilingual fallback calculations. All six manifests passed paths, load order, XML and Lua 5.1 syntax validation. Companion preference and release-metadata checks passed; the frozen executable hash is unchanged.
+- Package: all 72 unpacked files matched source SHA-256 and unpacked validation passed. Audit ZIP SHA-256: `9923632DF6B8C7D053F2E31A603E0405D452740C8F7FAA14A0F094BAAE573ABA`. Retained Beta 22 metadata is not a new release.
+- Deployment: Retail and Forever Beta each match 70 copied files, preserving their two generated bridges unchanged. Current package and recoverable pre-update installs: `D:\Games\World of Warcraft\_offhand_deploy_backups\ui-overhaul-70e2d4f`. Earlier candidates remain available.
+- Live: pending. No in-game appearance, protected-action or lifecycle pass is inferred from these mocks. The [combined checklist](../docs/REFACTOR-SMOKE-TEST.md) includes guide-region inspection without resetting setup.
+
 # Translated text layout candidate, source checkpoint 9db21e3
 
 - Source: `codex/addon-ui-overhaul`, draft PR #35. Theme choices use bounded columns and measured row heights; wrapped Help headings reserve body space. Shared text measurement prefers client metrics and falls back conservatively when unavailable. No setting actions, storage, native frame ownership, Companion binary or release metadata changed.

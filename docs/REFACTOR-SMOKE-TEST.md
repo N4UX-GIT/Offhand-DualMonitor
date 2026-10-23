@@ -1,6 +1,6 @@
 # Combined refactor and visual UI manual smoke test
 
-Current installed runtime checkpoint: `9db21e3` on `codex/addon-ui-overhaul`, draft PR #35. This includes the completed structural refactor from PR #34 plus the separately committed [visual UI candidate](UI-OVERHAUL-2026-10-23.md), interaction hardening, profile usability, and measured text layouts. The independently preserved structural runtime checkpoint is `8335480`. Documentation commits may follow without changing the runtime.
+Current installed runtime checkpoint: `70e2d4f` on `codex/addon-ui-overhaul`, draft PR #35. This includes the completed structural refactor from PR #34 plus the separately committed [visual UI candidate](UI-OVERHAUL-2026-10-23.md), interaction hardening, profile usability, measured text layouts, and setup-guide spacing. The independently preserved structural runtime checkpoint is `8335480`. Documentation commits may follow without changing the runtime.
 
 Run on Retail and Forever if available. Use the same normal spanned topology and compatibility addons you ordinarily use. Actual results remain pending.
 
@@ -42,7 +42,7 @@ Restore temporary settings when finished. Do not delete SavedVariables to obtain
 - Click a radio label rather than its circle. Confirm it selects the same setting. An unavailable choice must remain unchanged when its label is clicked.
 - In Themes, choose a trim and cancel a custom color change. Confirm cancellation restores the previous value. Check the OLED option if you use it, then restore your original theme and colors.
 - On Themes and Help, check wrapped headings and descriptions. Theme choices must remain within their columns, following rows must clear the longer description, and the next card must start below the expanded content. Help bodies must start below their headings.
-- Open calibration and go forward/back without applying a new setup. Close it and reopen settings. If you use Window Setup, open and close that guide too. Check fit, readable labels, and expected return navigation without resetting your existing setup.
+- Open calibration and go forward/back without applying a new setup. Close it and reopen settings. If you use Window Setup, inspect its introduction and method-choice page without changing your method, then close the guide. Check that instructions, method buttons, status, and footer do not overlap, and the whole guide remains reachable. Do not reset your existing setup to obtain a visual pass.
 
 For a longer profile check, note the original active profile. Type a unique new
 test name in Profiles, press Escape, and confirm no profile is created. Refocus
