@@ -30,8 +30,12 @@ assert(genericText:match("## Interface:%s*30300"),
     "generic manifest must lead with 30300 for the original single-value TOC parser")
 assert(genericText:match("120105"),
     "generic manifest must support Retail 12.1.5 interface 120105")
-assert(mainlineText:match("## Interface:%s*120105"),
-    "Mainline manifest must lead with Retail 12.1.5 interface 120105")
+assert(genericText:match("120107"),
+    "generic manifest must support Retail 12.1.7 interface 120107")
+assert(mainlineText:match("## Interface:%s*120107"),
+    "Mainline manifest must lead with Retail 12.1.7 interface 120107")
+assert(mainlineText:match("120105"),
+    "Mainline manifest must retain Retail 12.1.5 interface 120105")
 assert(not genericText:match("121500") and not mainlineText:match("121500"),
     "12.1.5 must use interface 120105, not 121500")
 assert(classicText:match("## Interface:%s*30300"),

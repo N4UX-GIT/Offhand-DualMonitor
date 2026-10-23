@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ## [2.1.2-beta.22] - 2026-10-22
 
+### Compatibility
+- Added Retail 12.1.7 interface `120107` to the generic and Mainline manifests,
+  retaining Retail 12.1.5 and all previously declared client targets. This is
+  package metadata compatibility; live 12.1.7 runtime testing remains pending.
+
 ### Added
 - `/offhand diag full` provides detailed feature probes on request. The default
   report keeps versions, display geometry, persistence, Edit Mode and map
