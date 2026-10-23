@@ -20,6 +20,19 @@ local GetWorldMapExternalOwner = Compatibility.GetWorldMapExternalOwner
 local IsExternallyPositionedWorldMap = Compatibility.IsExternallyPositionedWorldMap
 local ShouldYieldWorldMapToMoveAny = Compatibility.ShouldYieldWorldMap
 
+local FrameState = assert(
+    Offhand.CanvasFrameState,
+    "Offhand Canvas frame state must load before Canvas"
+)
+local IsForeverWorldMap = FrameState.IsForeverWorldMap
+local GetForeverWorldMapState = FrameState.GetForeverWorldMapState
+local GetPanelMarker = FrameState.GetMarker
+local SetPanelMarker = FrameState.SetMarker
+local SetPanelDragging = FrameState.SetDragging
+local IsPanelDragging = FrameState.IsDragging
+local IsPanelEvicting = FrameState.IsEvicting
+local SetPanelEvicting = FrameState.SetEvicting
+
 -- Native Gamepad UI panel visibility, focus and geometry are owned by
 -- Blizzard's FrameControlsManager. Even an addon-only marker written onto a
 -- managed panel can put later protected focus work in the addon's execution
@@ -39,13 +52,6 @@ Canvas.CanManagePanelsFromAddon = CanManagePanelsFromAddon
 local rootCanvas
 local foreverPanelMotionStatus = setmetatable({}, { __mode = "k" })
 
--- Never store Offhand bookkeeping on Forever's native World Map object. The
--- shareable user-waypoint pin enters restricted Blizzard code on Shift-click;
--- addon fields or handlers anywhere in that native map tree can taint the
--- protected chat-link action. Keep all of our state in an addon-owned weak
--- table instead.
-local foreverWorldMapState = setmetatable({}, { __mode = "k" })
-
 -- Forever's native bag item buttons enter protected UseContainerItem paths.
 -- Keep all Offhand state and input handlers outside the ContainerFrame tree so
 -- moving the bag root does not also install addon code on an item-action
@@ -54,69 +60,10 @@ local foreverWorldMapState = setmetatable({}, { __mode = "k" })
 local foreverNativeBagState = setmetatable({}, { __mode = "k" })
 local foreverNativeBagController
 
-local function IsForeverWorldMap(frame)
-    return Offhand.isForever and frame and frame == _G.WorldMapFrame
-end
-
 local function IsWorldMapMaximized(frame)
     if not frame or frame ~= _G.WorldMapFrame or not frame.IsMaximized then return false end
     local ok, maximized = pcall(frame.IsMaximized, frame)
     return ok and maximized == true
-end
-
-local function GetForeverWorldMapState(frame)
-    if not IsForeverWorldMap(frame) then return nil end
-    local state = foreverWorldMapState[frame]
-    if not state then
-        state = {}
-        foreverWorldMapState[frame] = state
-    end
-    return state
-end
-
-local function GetPanelMarker(frame, key)
-    local state = GetForeverWorldMapState(frame)
-    if state then return state[key] end
-    return frame and frame[key] or nil
-end
-
-local function SetPanelMarker(frame, key, value)
-    local state = GetForeverWorldMapState(frame)
-    if state then
-        state[key] = value
-    elseif frame then
-        frame[key] = value
-    end
-end
-
-local function SetPanelDragging(frame, dragging)
-    local state = GetForeverWorldMapState(frame)
-    if state then
-        state.dragging = dragging and true or false
-    else
-        frame._OffhandDragging = dragging and true or false
-    end
-end
-
-local function IsPanelDragging(frame)
-    local state = GetForeverWorldMapState(frame)
-    if state then return state.dragging == true end
-    return frame and frame._OffhandDragging == true or false
-end
-
-local function IsPanelEvicting(frame)
-    local state = GetForeverWorldMapState(frame)
-    if state then return state.evicting == true end
-    return frame._OffhandEvictingPanelSlot
-end
-
-local function SetPanelEvicting(frame, evicting)
-    local state = GetForeverWorldMapState(frame)
-    if state then
-        state.evicting = evicting and true or false
-    else
-        frame._OffhandEvictingPanelSlot = evicting and true or nil
-    end
 end
 
 -- Accept metrics from older modules/tests while all live Viewport metrics now

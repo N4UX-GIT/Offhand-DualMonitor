@@ -162,6 +162,7 @@ PlayerMovementFrameFader = {
 }
 
 assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasFrameState.lua"))("Offhand", addon)
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 addon.Canvas:ConfigureWorldMap()
 addon.Canvas.MakePanelDraggable(WorldMapFrame)

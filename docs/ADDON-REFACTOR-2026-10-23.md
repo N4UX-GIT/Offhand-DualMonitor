@@ -98,6 +98,10 @@ The first extraction moves slider input parsing from `UI/Options.lua` into `UI/C
 
 The second extraction moves external World Map ownership detection into `Core/CanvasCompatibility.lua`. The module owns capability detection and priority for MoveAny, ClassicUIForever, OpenMap, and Leatrix Maps. `Core/Canvas.lua` retains all frame movement, persistence, hooks, coordinate refresh, and protected-frame decisions. Existing public Canvas methods remain stable, and focused characterization covers ownership priority, diagnostics, modern and legacy addon APIs, and fail-closed API errors.
 
+## Third increment
+
+The third extraction moves Canvas frame bookkeeping into `Core/CanvasFrameState.lua`. The module preserves weak-key side-table storage for Forever's native World Map so Offhand markers never enter its protected descendant chain. Ordinary Canvas-managed frames retain their existing marker fields and clearing semantics. Movement, hooks, scheduling, and persistence remain in `Core/Canvas.lua`.
+
 ## Branch policy
 
 Structural refactor work targets `addon/develop`. Visual redesign work begins only after the structural phases are accepted and live-client checkpoints are clear. Companion work remains isolated on `companion/develop` and must not be merged into this branch as an incidental dependency.

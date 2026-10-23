@@ -289,6 +289,7 @@ local function makeMockFrame()
 end
 CreateFrame = function() return makeMockFrame() end
 assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasFrameState.lua"))("Offhand", addon)
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 assert(loadfile("Core/SeamRedirect.lua"))("Offhand", addon)
 C_Timer = {After=function() end}

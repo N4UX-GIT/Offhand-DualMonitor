@@ -33,6 +33,7 @@ Core\ChatBubbles.lua
 Core\SeamRedirect.lua
 Core\PanelMotion.lua
 Core\CanvasCompatibility.lua
+Core\CanvasFrameState.lua
 Core\Canvas.lua
 Core\WorkspaceBehavior.lua
 Core\WorkspaceChrome.lua

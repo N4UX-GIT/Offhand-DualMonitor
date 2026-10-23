@@ -424,6 +424,9 @@ panelMotionChunk("Offhand", addon)
 local compatibilityChunk = assert(loadfile("Core/CanvasCompatibility.lua"))
 compatibilityChunk("Offhand", addon)
 
+local frameStateChunk = assert(loadfile("Core/CanvasFrameState.lua"))
+frameStateChunk("Offhand", addon)
+
 local canvasChunk = loadfile("Core/Canvas.lua")
 assert(canvasChunk, "Core/Canvas.lua must compile cleanly")
 canvasChunk("Offhand", addon)
