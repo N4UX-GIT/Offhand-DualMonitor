@@ -106,6 +106,10 @@ The third extraction moves Canvas frame bookkeeping into `Core/CanvasFrameState.
 
 The fourth extraction moves load-on-demand panel ownership and tracking into `Core/CanvasPanelRegistry.lua`. The module owns seed mappings, context-bound exclusions, learned Blizzard addon ownership, modern and legacy load APIs, and request diagnostics. `Core/Canvas.lua` retains final client policy, delayed restoration, movement, combat, and topology checks. The existing Canvas methods and profile-owned `workspacePanelLoadAddons` data remain unchanged.
 
+## Fifth increment
+
+The fifth extraction moves native checkbox and radio-button construction into `UI/Controls.lua`. Settings composition and refresh policy remain in `UI/Options.lua`, while click behavior, tooltip wiring, label targets, and enabled styling retain their existing contracts.
+
 ## Branch policy
 
 Structural refactor work targets `addon/develop`. Visual redesign work begins only after the structural phases are accepted and live-client checkpoints are clear. Companion work remains isolated on `companion/develop` and must not be merged into this branch as an incidental dependency.
