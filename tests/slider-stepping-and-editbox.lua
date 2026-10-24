@@ -34,6 +34,10 @@ local function makeMockFrame(name, w, h)
         table.insert(self.points, { point = pt, relTo = relTo, relPt = relPt, x = x, y = y })
     end
     function f:ClearAllPoints() self.points = {} end
+    function f:GetPoint(index)
+        local p = self.points[index or 1]
+        if p then return p.point, p.relTo, p.relPt, p.x, p.y end
+    end
     function f:Show() self.shown = true end
     function f:Hide() self.shown = false end
     function f:IsShown() return self.shown end
@@ -83,6 +87,7 @@ local function makeMockFrame(name, w, h)
         return {
             points = {},
             text = "",
+            ClearAllPoints = function(s) s.points = {} end,
             SetPoint = function(s, pt, rel, relPt, x, y) table.insert(s.points, { point = pt, rel = rel, relPt = relPt, x = x, y = y }) end,
             SetText = function(self, t) self.text = t end,
             SetWidth = function() end,
@@ -228,6 +233,14 @@ assert(math.abs(addon:ParseSliderInput("36%", 0.15, 0.80, 0.005, "%.1f%%") - 0.3
 assert(math.abs(addon:ParseSliderInput("36", 0.15, 0.80, 0.005, "%.1f%%") - 0.36) < 0.0001, "36 must parse to 0.36")
 assert(math.abs(addon:ParseSliderInput("0.36", 0.15, 0.80, 0.005, "%.1f%%") - 0.36) < 0.0001, "0.36 must parse to 0.36")
 assert(math.abs(addon:ParseSliderInput("50.5%", 0.15, 0.80, 0.005, "%.1f%%") - 0.505) < 0.0001, "50.5% must parse to 0.505")
+assert(math.abs(addon:ParseSliderInput("50,5%", 0.15, 0.80, 0.005, "%.1f%%") - 0.505) < 0.0001, "decimal-comma percent must not concatenate digits")
+assert(math.abs(addon:ParseSliderInput(" 0,505 ", 0.15, 0.80, 0.005, "%.1f%%") - 0.505) < 0.0001, "decimal-comma ratio must retain its scale")
+assert(math.abs(addon:ParseSliderInput("1,5", 0.50, 2.50, 0.05, "%.0f%%") - 1.50) < 0.0001, "decimal-comma scale must match a dot decimal")
+assert(math.abs(addon:ParseSliderInput("20,5 px", 0, 100, 0.5, "%.1f px") - 20.5) < 0.0001, "decimal-comma non-percent input must preserve units and stepping")
+for _, ambiguous in ipairs({ "1,234.5", "1.234,5", "50,,5%", "50..5%" }) do
+    assert(addon:ParseSliderInput(ambiguous, 0, 100, 0.5, "%.1f") == nil,
+        "ambiguous decimal separators must not mutate a setting: " .. ambiguous)
+end
 
 -- Map Scale parsing (min 0.50, max 2.50, step 0.05, format "%.0f%%")
 assert(math.abs(addon:ParseSliderInput("150%", 0.50, 2.50, 0.05, "%.0f%%") - 1.50) < 0.0001, "150% must parse to 1.50")
@@ -271,6 +284,38 @@ assert(hudSlider.btnMinus ~= nil, "hudSlider must have btnMinus")
 assert(hudSlider.btnPlus ~= nil, "hudSlider must have btnPlus")
 assert(hudSlider.editBox ~= nil, "hudSlider must have editBox")
 
+-- Profile changes must refresh the thumb as well as the displayed number.
+do
+    local value, writes = 0.70, 0
+    local control = addon.UIControls.CreateNativeSlider({}, "Refresh", 0.25, 1.25, 0.01,
+        function() return value end, function(v) value = v; writes = writes + 1 end, "%.0f%%")
+    value = 0.90
+    layoutAppliedCount = 0
+    control._isCustomDrag, control._pendingApply = true, true
+    control:SetScript("OnUpdate", function() error("stale profile drag resumed") end)
+    control:UpdateText()
+    assert(control:GetValue() == 0.90 and control.editBox:GetText() == "90%"
+            and writes == 0 and layoutAppliedCount == 0,
+        "source refresh must align rail and field without setters or layout")
+    assert(not control._isCustomDrag and not control._pendingApply and not control.scripts.OnUpdate,
+        "changed source must cancel old drag state before synchronizing the thumb")
+    control.btnPlus.scripts.OnClick()
+    assert(math.abs(value - 0.91) < 0.0001, "first step after refresh must use the new profile value")
+    addon.UIControls.SetSliderEnabled(control, false)
+    value, writes, layoutAppliedCount = 0.55, 0, 0
+    control:UpdateText()
+    assert(control:GetValue() == 0.55 and control.editBox:GetText() == "55%"
+            and writes == 0 and layoutAppliedCount == 0,
+        "read-only refresh must also synchronize disabled controls")
+end
+addon.db.hudScale, addon.db.gameBottomPixels = 0.90, 12
+addon.Options:RefreshPanel()
+assert(hudSlider:GetValue() == 0.90 and hudSlider.editBox:GetText() == "90%",
+    "Settings refresh must synchronize a changed profile's slider")
+assert(configFrame.bottomControl.editBox:GetText() == "12",
+    "Settings refresh must synchronize the bottom-offset field without a hide/show")
+addon.db.gameBottomPixels = 0
+
 hudSlider:SetValue(0.70)
 assert(math.abs(addon.db.hudScale - 0.70) < 0.001, "Initial hudScale must be 0.70")
 assert(hudSlider.editBox:GetText():find("70%%"), "editBox must show 70%")
@@ -298,6 +343,15 @@ hudSlider.editBox:SetText("65")
 hudSlider.editBox.scripts["OnEnterPressed"](hudSlider.editBox)
 assert(math.abs(addon.db.hudScale - 0.65) < 0.001, "Typing 65 into EditBox must set hudScale to 0.65")
 assert(hudSlider.editBox:GetText():find("65%%"), "editBox must format to 65%")
+
+hudSlider.editBox:SetText("0,65")
+hudSlider.editBox.scripts.OnEnterPressed(hudSlider.editBox)
+assert(math.abs(addon.db.hudScale - 0.65) < 0.001 and hudSlider.editBox:GetText() == "65%",
+    "Settings must commit comma decimals through the normal field path")
+hudSlider.editBox:SetText("0,6.5")
+hudSlider.editBox.scripts.OnEditFocusLost(hudSlider.editBox)
+assert(math.abs(addon.db.hudScale - 0.65) < 0.001 and hudSlider.editBox:GetText() == "65%",
+    "ambiguous entry must restore the displayed value without changing Settings")
 
 hudSlider.editBox:SetText("0.75")
 hudSlider.editBox.scripts["OnEnterPressed"](hudSlider.editBox)
@@ -340,6 +394,53 @@ assert(math.abs(addon.db.hudScale - 0.90) < 0.001,
     "Mouse up must commit the slider thumb's final displayed value")
 assert(layoutAppliedCount == 1, "Mouse up must apply layout exactly once")
 
+-- Closing the window or changing pages during a drag must not leave an OnUpdate
+-- controller that resumes from a stale cursor origin when the slider reappears.
+cursorX = 100
+hudSlider.scripts.OnMouseDown(hudSlider, "LeftButton")
+cursorX = 130
+hudSlider.scripts.OnUpdate(hudSlider)
+local lastSample = addon.db.hudScale
+layoutAppliedCount = 0
+hudSlider.scripts.OnHide(hudSlider)
+assert(not hudSlider._isCustomDrag and not hudSlider.scripts.OnUpdate
+        and hudSlider._dragStartX == nil and hudSlider._dragStartVal == nil,
+    "hidden settings sliders must discard their drag controller")
+assert(addon.db.hudScale == lastSample and layoutAppliedCount == 1,
+    "interrupted drag must apply the last sampled setting exactly once")
+hudSlider.scripts.OnHide(hudSlider)
+hudSlider.scripts.OnMouseUp(hudSlider, "LeftButton")
+assert(layoutAppliedCount == 1, "repeated hide or a stale mouse-up must not apply again")
+
+-- A locked rail must also lock its separate children and reject late input.
+do
+    local stored = addon.db.hudScale
+    hudSlider.scripts.OnMouseDown(hudSlider, "LeftButton")
+    layoutAppliedCount = 0
+    addon.UIControls.SetSliderEnabled(hudSlider, false)
+    assert(not hudSlider.enabled and not hudSlider.btnMinus.enabled
+            and not hudSlider.btnPlus.enabled and not hudSlider.editBox.enabled,
+        "disabling a slider must disable its rail, field and both steppers")
+    assert(not hudSlider._isCustomDrag and not hudSlider.scripts.OnUpdate,
+        "locking a slider must cancel any active drag")
+    hudSlider.btnPlus.scripts.OnClick()
+    hudSlider.btnMinus.scripts.OnClick()
+    hudSlider.editBox:SetText("45%")
+    hudSlider.editBox.scripts.OnEnterPressed(hudSlider.editBox)
+    hudSlider.editBox.scripts.OnEditFocusLost(hudSlider.editBox)
+    hudSlider.scripts.OnMouseDown(hudSlider, "LeftButton")
+    hudSlider.scripts.OnMouseUp(hudSlider, "LeftButton")
+    hudSlider:SetValueDirect(0.45)
+    assert(addon.db.hudScale == stored and layoutAppliedCount == 0
+            and hudSlider.editBox:GetText() == string.format("%.0f%%", stored * 100),
+        "late clicks and field commits must not bypass a locked slider")
+    addon.UIControls.SetSliderEnabled(hudSlider, true)
+    assert(hudSlider.enabled and hudSlider.btnPlus.enabled and hudSlider.editBox.enabled)
+    hudSlider.btnPlus.scripts.OnClick()
+    assert(addon.db.hudScale > stored and layoutAppliedCount == 1,
+        "unlocking must restore normal step-button interaction")
+end
+
 -- ============================================================================
 -- 3. Test Wizard Sliders (Seam & Scale EditBoxes and Stepping)
 -- ============================================================================
@@ -358,6 +459,15 @@ wiz.seamEditBox.scripts["OnEnterPressed"](wiz.seamEditBox)
 assert(math.abs(addon.db.deckWidthRatio - 0.45) < 0.001, "Wizard seamEditBox must set deckWidthRatio to 0.45")
 assert(wiz.seamValText:GetText():find("45%.0%%"), "seamValText must reflect 45.0%")
 
+wiz.seamEditBox:SetText("50,5%")
+wiz.seamEditBox.scripts.OnEnterPressed(wiz.seamEditBox)
+assert(math.abs(addon.db.deckWidthRatio - 0.505) < 0.001 and wiz.seamEditBox:GetText() == "50.5%",
+    "Calibration must commit decimal-comma seam entry without clamping to the maximum")
+wiz.seamEditBox:SetText("50,5.0%")
+wiz.seamEditBox.scripts.OnEditFocusLost(wiz.seamEditBox)
+assert(math.abs(addon.db.deckWidthRatio - 0.505) < 0.001 and wiz.seamEditBox:GetText() == "50.5%",
+    "Calibration must restore invalid mixed-separator entry without changing the seam")
+
 wiz.scaleEditBox:SetText("70%")
 wiz.scaleEditBox.scripts["OnEnterPressed"](wiz.scaleEditBox)
 assert(math.abs(addon.db.hudScale - 0.70) < 0.001, "Wizard scaleEditBox must set hudScale to 0.70")
@@ -371,9 +481,47 @@ wiz.scaleSlider.scripts["OnValueChanged"](wiz.scaleSlider, 0.72)
 wiz.scaleSlider.scripts["OnValueChanged"](wiz.scaleSlider, 0.73)
 assert(layoutAppliedCount == 0, "Wizard slider drag must not apply layout until mouse up")
 
+wiz.scaleSlider.val = 0.91
 wiz.scaleSlider.scripts["OnMouseUp"](wiz.scaleSlider, "LeftButton")
 assert(wiz.scaleSlider._isCustomDrag == false or wiz.scaleSlider._isCustomDrag == nil, "Wizard scaleSlider mouse up must clear _isCustomDrag")
 assert(layoutAppliedCount == 1, "Wizard scaleSlider mouse up must apply layout")
+assert(math.abs(addon.db.hudScale - 0.91) < 0.001 and wiz.scaleEditBox:GetText() == "91%",
+    "Wizard release must commit and display the final native thumb value")
+wiz.scaleSlider.scripts.OnMouseDown(wiz.scaleSlider, "LeftButton")
+layoutAppliedCount = 0
+wiz.scaleSlider.scripts.OnHide(wiz.scaleSlider)
+assert(not wiz.scaleSlider._isCustomDrag and not wiz.scaleSlider.scripts.OnUpdate
+        and layoutAppliedCount == 1,
+    "hiding a Wizard scale step must cancel its drag and apply once")
+wiz.scaleSlider.scripts.OnMouseUp(wiz.scaleSlider, "LeftButton")
+assert(layoutAppliedCount == 1)
+
+do
+    local stored = addon.db.deckWidthRatio
+    addon.UIControls.SetSliderEnabled(wiz.seamSlider, false)
+    layoutAppliedCount = 0
+    wiz.seamSlider.btnPlus.scripts.OnClick()
+    wiz.seamSlider.btnMinus.scripts.OnClick()
+    wiz.seamEditBox:SetText("60%")
+    wiz.seamEditBox.scripts.OnEnterPressed(wiz.seamEditBox)
+    wiz.seamEditBox.scripts.OnEditFocusLost(wiz.seamEditBox)
+    wiz.seamSlider.scripts.OnValueChanged(wiz.seamSlider, 0.60, true)
+    wiz.seamSlider.scripts.OnMouseDown(wiz.seamSlider, "LeftButton")
+    assert(addon.db.deckWidthRatio == stored and layoutAppliedCount == 0
+            and not wiz.seamSlider.isDragging and not wiz.seamSlider.scripts.OnUpdate,
+        "Wizard seam fields and steppers must not bypass Companion geometry ownership")
+    addon.UIControls.SetSliderEnabled(wiz.seamSlider, true)
+end
+wiz.seamSlider.scripts.OnMouseDown(wiz.seamSlider, "LeftButton")
+wiz.seamSlider.scripts.OnValueChanged(wiz.seamSlider, 0.45, true)
+assert(wiz.seamSlider._pendingApply and wiz.seamSlider.scripts.OnUpdate)
+layoutAppliedCount = 0
+wiz.seamSlider.scripts.OnHide(wiz.seamSlider)
+assert(not wiz.seamSlider.isDragging and not wiz.seamSlider._pendingApply
+        and not wiz.seamSlider.scripts.OnUpdate and layoutAppliedCount == 1,
+    "hiding a Wizard seam step must cancel its deferred apply controller")
+wiz.seamSlider.scripts.OnHide(wiz.seamSlider)
+assert(layoutAppliedCount == 1)
 
 print("PASS: Universal slider manual stepping ([-]/[+]), normalized text entry, gentler drag curve, smart parser, and drag debounce verified!")
 

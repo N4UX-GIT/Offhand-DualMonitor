@@ -2,6 +2,25 @@
 
 Stable IDs for reports that require follow-up across test sessions.
 
+## Current acceptance, 25 October 2026
+
+The user explicitly accepts the following as fixed and resolved: addon structural
+refactor and UI overhaul; first-time setup; HUD/window restore and menu placement;
+Forever Gamepad; Bagnon compatibility; Party-frame recovery; Dialogue UI; pet
+battles; and the recorded source defect. This resolution supersedes historical
+pending labels for that scope. It is user acceptance, not a claim that every old
+QA checklist was performed or that every possible client/topology is verified.
+
+The legacy CloseAllWindows bag-provider scope defect was still present during
+source review. It is now corrected with one local decision covering the complete
+transaction, plus a regression that failed before the correction and passes now.
+
+Linux/Wine is assumed fixed per user direction, with direct Linux-user
+verification still outstanding. Performance is the active investigation. The
+original hang/error/chat report and battleground-specific checks are not closed
+by this acceptance. Experimental Companion integration and Forever testing remain
+under COMPANION-ONGOING-BUILD.md and deferred as instructed.
+
 ## Validation summary
 
 This table answers three separate questions: whether source contains a change,
@@ -740,3 +759,254 @@ for their monitor-placement checks. The Beta 19 Companion/addon pairing was
 accepted in the reported single-screen session, but OH-COMP-001's newer-than-
 minimum comparison still requires a deliberately newer Companion build. The
 Forever Edit Mode observation belongs to OH-FOR-003; OH-EM-001 is Retail-only.
+
+
+## OH-RET-001: Midnight hang, addon-error warning and missing chat
+
+- Report received 2026-10-24. Reporter uses CurseForge addon v2.1.2 Beta 22 and
+  Microsoft Store Companion Beta 20. Exact WoW build and other addons unknown.
+- User clarified that WoW stopped responding; no Windows restart or blue screen
+  was reported. Treat this as an application hang, not a confirmed PC crash.
+- Screenshots show Windows reporting WoW unresponsive, followed after restart by
+  Blizzard's excessive-addon-errors warning. Reporter says that warning could not
+  be clicked/dismissed and chat subsequently disappeared. No first Lua error,
+  stack, hang dump or Companion activity log is available.
+- These symptoms may be related, but the screenshots do not establish a common
+  root cause, Offhand attribution, a GPU/resource cause or a protected-action block.
+  Silvermoon location and PC performance are context only.
+- Investigation targets: earliest fresh error before the warning; native popup
+  ownership and input behavior; ChatFrame1 and third-party chat ownership; actual
+  native-window bounds versus UI-canvas geometry after restart.
+- Minimal evidence request: exact build, first BugSack/BugGrabber stack (before
+  secondary errors), other enabled UI/chat addons, Companion activity log around
+  the event, and whether the issue occurs with Offhand alone. Preserve settings.
+- No speculative crash/chat fix or Companion binary replacement made. Existing
+  local development onboarding fixes are not evidence against the public build.
+- Next gate: controlled reproduction on the reported client with fresh errors.
+
+## OH-COMP-002: VSync graphics change reportedly resets an active span
+
+- Same reporter/pairing as OH-RET-001. Changing VSync reportedly returns the
+  entire setup to default. Need to establish whether this means native window
+  size/style, the game viewport, HUD layout selection or saved addon configuration.
+- Verified from the Beta 20 tag: monitoring remembers successfully spanned process
+  IDs; launch auto-span skips those IDs. Display-disconnect restoration and bridge
+  repair exist, but a later bounds mismatch on the same already-spanned process
+  does not trigger automatic re-span. This is a recovery gap consistent with the
+  report, not proof that VSync changed the native window in this case.
+- Addon v22 debounces display/scale events and safely rejects mismatching canvas
+  geometry. It cannot resize the native window or promise that graphics settings
+  leave the window untouched. Do not loosen topology validation to hide a mismatch.
+- Separate verified source race: an older display callback can already be queued
+  behind combat before a newer graphics/display event increments its generation.
+  The local candidate rechecks generation inside the queued callback. Regression
+  proves superseded work performs no layout apply/restore and does not end the
+  newer transition; only the latest queued callback runs.
+- Evidence level: source and simulated regression only. This guard is not claimed
+  to fix the native-window reset, application hang or disappearing chat.
+- Repro plan: record Windowed mode, exact monitor selection and bounds; establish
+  a working span; change only VSync and Apply; record window bounds, addon metrics,
+  active HUD layout, chat visibility and Companion log. If it changes, use the
+  same selected displays and Span WoW Now, then /reload, and record restoration.
+  Compare changing VSync before spanning. Avoid simultaneous addon updates/resets.
+- Potential Companion recovery design must retain the last explicitly confirmed
+  display identities, respect Restore Window/manual moves, skip unresponsive WoW,
+  settle graphics changes, bound retries/cooldowns and offer an explicit opt-out.
+  Do not repeatedly force a window size or silently select different monitors.
+- Native Companion artifacts remain frozen on this addon branch. Implementation
+  and packaging require the separate Companion candidate lane and live QA.
+
+
+### OH-COMP-002: local VSync reproduction, 2026-10-24
+
+- User supplied a working baseline screenshot and a second screenshot immediately
+  after changing Vertical Sync from Enabled to Disabled.
+- Baseline shows the map, character and bags on portrait Offhand and game/HUD on
+  landscape Mainhand. After the change, Offhand exposes another desktop app and
+  WoW occupies a smaller region on Mainhand with desktop visible around it.
+  Offhand displays its topology-mismatch warning. This establishes loss of the
+  combined native-window span, rather than merely a misplaced viewport/HUD.
+- Chat is visible in the smaller game window in the second screenshot. This run
+  does not reproduce the original reporter's missing-chat symptom or application
+  hang. No evidence yet establishes erasure of the saved addon layout.
+- The visible warning includes the latest local highlighted-action copy, so this
+  evidence must not be labeled an isolated public-v22 reproduction. Exact local
+  addon/Companion pairing and client build still need confirmation.
+- Next test: keep VSync Disabled and the same monitor selections; click Span WoW
+  Now once without reloading first; inspect native span, viewport and workspace.
+  Then /reload once and inspect again. This separates native-window recovery from
+  addon bridge reload/state recovery. Do not recalibrate or reset the profile.
+
+
+### OH-COMP-002: re-span and reload results, 2026-10-24
+
+- User reports the post-VSync state is partially transparent, with Options anchored
+  at bottom right. Screenshot shows portions of the desktop app visible through/
+  alongside the damaged game presentation. Treat the earlier smaller-window
+  description as incomplete: this is a window/rendering/UI placement disruption,
+  and native bounds/style/render-target details have not yet been measured.
+- Clicking Span WoW Now restores the UI before /reload. Supplied second screenshot
+  shows the portrait workspace panels and Mainhand game view restored, with VSync
+  Disabled and the graphics panel reporting a custom 4000x2560 render area.
+- After /reload, the span and workspace remain restored. The displayed popup is
+  OFFHAND_HUD_SETUP_REMINDER (display saved, HUD setup pending), not the topology-
+  mismatch warning. Prior explicit Finish Anyway testing can explain this saved
+  reminder. No evidence shows that VSync erased or newly deferred the HUD record.
+- Chat is visible in the restored screenshots. This run still does not reproduce
+  the original Midnight reporter's application hang/excessive Lua errors.
+- Manual recovery is demonstrated for this local candidate/session. Automatic
+  recovery remains unimplemented. Need native bounds/style and Companion log for
+  the transition, exact client build and loaded Companion version, and an isolated
+  comparison with the addon disabled before assigning the initiating cause.
+- Next controlled comparison: with a stable saved setup, disable Offhand through
+  the addon list and reload, retain Companion's existing span, then toggle VSync
+  once. Record whether the same transparency/window disruption occurs and whether
+  Span WoW Now repairs it. Re-enable Offhand afterwards. Preserve saved settings.
+
+
+### OH-COMP-002: console VSync comparison with addon disabled
+
+- Without Offhand, the Graphics Options panel was inaccessible in the unused
+  display-canvas area, preventing repetition of the original GUI interaction.
+- Read-only CVar query returned vsync="0"; gxVSync had no returned value.
+- User followed console-based enable/span/disable instructions and reported no
+  visible change after toggling while spanned. Final screenshot confirms vsync="0"
+  and a stable addon-disabled spanning presentation. Intermediate value "1" was
+  not captured, so confirm both states in the next controlled comparison.
+- This is a negative result for the console path, not a matched GUI reproduction:
+  original failing case had addon enabled and used Graphics Options. Do not claim
+  addon exoneration or attribution from these differing conditions.
+- Next comparison keeps the console method and verifies both states, with Offhand
+  enabled. If both console paths are stable, focus investigation on Graphics
+  Options apply/window-reset behavior; if only enabled fails, inspect addon event
+  handling around the observed transition. No further runtime change made here.
+
+
+### OH-COMP-002: verified console toggle with Offhand enabled
+
+- User separately queried vsync="1", then changed it to "0" and verified the
+  latter value. With Offhand enabled, no corruption was observed: span, viewport,
+  map, character panel, bags and chat remained visibly intact in the screenshot.
+- Current comparison: Graphics Options Enabled-to-Disabled with addon enabled
+  reproduces disruption; console toggle with addon enabled does not; console
+  toggle with addon disabled also produced no observed disruption (its enabled
+  intermediate state was not captured). Graphics Options with addon disabled
+  remains untested because its panel is outside accessible physical regions.
+- This narrows the reproduced trigger to the Graphics Options interaction/apply
+  path, not merely changing the vsync CVar. It does not prove a particular native
+  graphics API cause or clear addon event handling invoked only by that path.
+- No further console repeats needed. Next investigation should compare native
+  window bounds/style/clipping and relevant graphics CVars before/after the GUI
+  action, then design bounded Companion recovery respecting explicit restores.
+  Do not infer that the separate application hang or excessive-error warning is
+  resolved or reproduced by this result.
+
+
+### OH-COMP-002: temporary matched capture prepared
+
+- tools/display-capture contains a separate optional probe addon and read-only
+  Windows observer. This avoids replacing public Companion or the addon under
+  test solely to add diagnostics. README defines the single-GUI-toggle protocol.
+- Logs correlate UTC graphics CVar/canvas events with native window/client bounds,
+  style, clipping-region count/bounds, layered attributes and hung state.
+- One-second observer validation succeeded against the currently running
+  WowClassic process. This is not the original reporter's exact Midnight build.
+- Temporary probe is not yet installed because WoW is running. Native logs flush
+  independently; addon SavedVariables require normal exit and may be unavailable
+  after a hang. No claim that these logs diagnose the original hang without it
+  being reproduced. Companion executable and window behavior remain unchanged.
+
+
+### OH-COMP-002: matched native/addon capture confirms stale clipping after GUI reset
+
+- Capture completed on Anniversary 2.5.6 build 70006, interface 20506, WowClassic
+  PID 44808, with the local addon candidate. This is not a Midnight reproduction.
+- At 18:42:22 UTC the native window and client are 4000x2560 with a complex
+  3-rectangle clipping region covering the same 4000x2560 bounds.
+- At 18:42:50-51 UTC, the GUI VSync change returns the client to 2114x1353,
+  exactly its pre-span size. Window styles gain resize-frame/window-edge bits,
+  and the window recenters on Mainhand. The same HWND retains the OLD 4000x2560,
+  3-rectangle clipping region. This mismatch persists until capture ends.
+- Addon log correlates vsync 1 -> 0 with display/scale events, physical canvas
+  4000x2560 -> 2114x1353 and READY -> MISMATCH fallback. hudDeferred remains false.
+  No sampled native hung flag. No evidence of saved layout erasure or original
+  reporter's hang/excessive errors. No reported layered attributes is not proof
+  against renderer/compositor transparency.
+- This narrows the confirmed failure to graphics-apply native window/style reset
+  retaining obsolete clipping. It does not establish which native call initiates
+  the reset or that clipping explains every artifact. Console-only changes were
+  stable. The topology guard is behaving as intended.
+- Preserved native and addon copies plus detailed analysis are under
+  dist/display-captures/analysis-20261024.md. Native SHA-256:
+  CB6BCEF5D08A33CB5D380DF9DE621BF901D11EAA51A8183EA2823BC067AB453C.
+  Addon log SHA-256:
+  60FD296A715B79539841CC9F54E9E027E212E6F6F2C77B913BB5C5253CA25157.
+- Next: separate Companion candidate that reconciles confirmed bounds, borderless
+  style and clipping together, with bounded recovery and explicit restore/manual
+  movement/display-disconnect safeguards. No public binary changed here.
+
+### 2026-10-24: Open Options panel retains span offset after Restore Window
+
+- Retail screenshot shows Graphics Options partly offscreen at the bottom right
+  after Companion restores the ordinary window. Treat menu placement separately
+  from native span recovery and the original reported client hang.
+- Source inspection: menu show hooks center panels on Mainhand, but full layout
+  skips SeamRedirect on an unspanned canvas. An already-open menu can retain its
+  former CENTER offset after the canvas shrinks.
+- Local addon candidate adds MenuPlacement, a side-table owner for ordinary menu
+  anchors. Settled layout refreshes those anchors on single-window transitions.
+  Hidden menus remain hidden; combat, protected/forbidden frames, invalid geometry
+  and external re-anchoring prevent writes. No new native scripts or attributes.
+- Automated evidence: 53 Lua suites pass, all six manifests and Lua 5.1 syntax
+  validate, and git diff --check passes. Runtime placement and taint verification
+  remain pending. Installed Retail release-tag v22 baseline is unchanged.
+
+### 2026-10-25: Retail menu-placement candidate installed for live QA
+
+- User confirms the prior Retail Companion Test 4 steps 1-4 passed, including
+  repeat recovery and Pause/Resume/Restore priority. Release-tag baseline testing
+  is complete for that sequence and the tested display arrangement.
+- With WoW closed, installed the current local development addon (including the
+  menu-placement fix) into Retail. All 72 copied files hash verified; both
+  generated bridge files preserved; SavedVariables untouched. Other clients and
+  Companion binaries unchanged. This installation includes existing pending
+  onboarding/HUD development changes, not only the isolated menu fix.
+- Prior addon backup: D:/Games/World of Warcraft/_offhand_deploy_backups/
+  onboarding-identify-20261025-000349-712-Retail/Offhand.
+- Next live check: keep Graphics Options open during Restore Window and manual
+  re-span, verify centering and usability after settling, close/reopen Options and
+  Escape menu, and inspect new BugSack/protected-action errors.
+
+### 2026-10-25: Retail menu placement live checks passed
+
+- User confirms all five requested checks on the installed development candidate:
+  normal span, Graphics Options open during Restore Window, centered/usable
+  Options in the restored window, manual re-span with Options open, Options and
+  Escape menu close/reopen, and no new BugSack errors reported.
+- This accepts visible menu placement for the tested Retail configuration.
+  Combat deferral, third-party ownership and broader taint checks remain covered
+  only by automated guards or pending live testing; no broader safety claim.
+- Companion repeat recovery and cancellation checks were previously confirmed.
+  Original tester's client hang/excessive errors remain unreproduced. No public
+  addon or Companion release has been published from these candidates.
+
+## Client coverage follow-up
+
+The user's 4 November Forever release milestone now takes priority. See
+COMPANION-CLIENT-MATRIX.md for all client families and FOREVER-GRAPHICS-TEST.md
+for the next isolated candidate. The previously generated review bundle remains
+an immutable earlier snapshot; it does not contain Test 5 or the newer scope
+source changes. Do not distribute that snapshot as the final unified rebuild.
+Retail and Anniversary live results are retained; Forever Test 5 and Era live
+acceptance remain pending. Current three client-scope policy builds pass 104
+assertions each. No public binaries or website/download versions changed.
+
+### 2026-10-25: Companion work consolidated in planning; Forever testing deferred
+
+User requests Forever live testing wait until the November 4 release and treats
+this recovery work plus the experimental work in Investigate v21 Forever Beta
+issue as one ongoing Companion build. Shared record: docs/COMPANION-ONGOING-BUILD.md
+in D:/Tools/Code/Offhand. Separate worktrees and accepted artifacts are preserved;
+no source merge or publication implied. Reconcile the graininess resize mitigation
+with the recovery candidate's deliberate omission of that handshake before making
+one final candidate. Other work may proceed meanwhile. No automation scheduled.

@@ -44,7 +44,9 @@ local function ResolveActiveLayout(data, presets)
         return data.layouts[customIndex], active, customIndex, false
     end
     for index, layout in ipairs(presets) do
-        if tonumber(layout.layoutIndex) == active or index == active then
+        -- Preset layoutIndex is a zero-based enum used for default anchors.
+        -- activeLayout and SetActiveLayout use the one-based combined list.
+        if index == active then
             return layout, active, index, true
         end
     end
@@ -67,7 +69,7 @@ local function FindNamedLayout(data, presets, wanted)
     end
     for index, layout in ipairs(presets) do
         if string.lower(LayoutName(layout, "")) == lower then
-            return layout, tonumber(layout.layoutIndex) or index, index, true
+            return layout, index, index, true
         end
     end
 end
@@ -255,6 +257,51 @@ local function RefineGamepadStatusBars(layout, rect, sourceDefaults)
     return refined
 end
 
+local function ParentScale(frame)
+    if not frame or not frame.GetEffectiveScale or not UIParent.GetEffectiveScale then return 1 end
+    local ok, scale = pcall(frame.GetEffectiveScale, frame)
+    local parent = UIParent:GetEffectiveScale()
+    if ok and type(scale) == "number" and scale > 0 and parent and parent > 0 then return scale / parent end
+    return 1
+end
+
+local function PlaceRetailStatus(entry, mainAnchor, mainFrame, rect)
+    if not mainFrame or mainAnchor.relativeTo ~= "UIParent" then return false end
+    local indices = Enum and Enum.EditModeStatusTrackingBarSystemIndices
+    local secondaryIndex = indices and indices.StatusTrackingBar2
+    local secondary = secondaryIndex ~= nil and entry.systemIndex == secondaryIndex
+    if indices and indices.StatusTrackingBar1 ~= nil and entry.systemIndex ~= indices.StatusTrackingBar1
+        and not secondary then return false end
+    local target = secondary and _G.SecondaryStatusTrackingBarContainer or _G.MainStatusTrackingBarContainer
+    if secondary and (not _G.SecondaryStatusTrackingBarContainer or not _G.MainStatusTrackingBarContainer) then return false end
+    if not target then return false end
+    local mw, mh = FrameSize(mainFrame, 570, 40)
+    local ms, ts = ParentScale(mainFrame), ParentScale(target)
+    local width, height = FrameSize(target, 571, 17)
+    local _, primaryHeight = FrameSize(_G.MainStatusTrackingBarContainer, 571, 17)
+    local primaryScale = ParentScale(_G.MainStatusTrackingBarContainer)
+    local mx, my = PointFractions(mainAnchor.point)
+    local screen = {left=0, bottom=0, right=UIParent:GetWidth(), top=UIParent:GetHeight()}
+    local bx, by = PointBase(mainAnchor.relativePoint or mainAnchor.point, screen)
+    local ax = bx + (tonumber(mainAnchor.offsetX) or 0) * ms
+    local ay = by + (tonumber(mainAnchor.offsetY) or 0) * ms
+    local center = ax + (0.5 - mx) * mw * ms
+    local bottom = ay + (1 - my) * mh * ms + 3
+        + (secondary and (primaryHeight * primaryScale + 4) or 0)
+    local half = width * ts / 2
+    -- Never shrink native frames to fit. Unsupported/oversized source sizes
+    -- retain their existing serialized anchor for explicit user adjustment.
+    if half * 2 > rect.width - 16 or bottom < rect.bottom or bottom + height * ts > rect.top then return false end
+    center = math.max(rect.left + half + 8, math.min(rect.right - half - 8, center))
+    local point = FramePoint(target, entry.anchorInfo and entry.anchorInfo.point)
+    local px, py = PointFractions(point)
+    entry.anchorInfo = {point=point, relativeTo="UIParent", relativePoint="BOTTOMLEFT",
+        offsetX=(center + (px - 0.5) * width * ts) / ts,
+        offsetY=(bottom + py * height * ts) / ts}
+    entry.isInDefaultPosition = false
+    return true
+end
+
 local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerLayout)
     -- The native Gamepad preset has GamepadMainActionBar instead of keyboard
     -- ActionBar MainBar. Its manager-relative status bars must be handled
@@ -312,6 +359,11 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerL
     end
     local hudLeft = mainReferenceX and actionLeft and (actionLeft - mainReferenceX) or mainLeft
     local hudRight = mainReferenceX and bagRight and (bagRight - mainReferenceX) or mainRight
+    if Offhand.isRetail then
+        -- Retail's bags are a separate corner system. Use serialized main-bar
+        -- geometry for default siblings, not stale live button or bag edges.
+        hudLeft, hudRight = mainLeft, mainRight
+    end
     local statusFrame = _G.StatusTrackingBarManager or _G.MainMenuExpBar
     local statusWidth, statusHeight = FrameSize(statusFrame, mainWidth, 14)
     local stanceFrame = _G.StanceBar or _G.ShapeshiftBarFrame
@@ -327,9 +379,16 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerL
     for index, entry in ipairs(layout.systems or {}) do
         if sourceDefaults[index] then
             if not controllerLayout and statusSystem ~= nil and entry.system == statusSystem then
+                -- Classic default bars move together with the native artwork
+                -- root. Preserve the source XP-to-manager relationship instead
+                -- of deriving a child offset from the action-bar/manager sizes.
+                local nativeClassic = not Offhand.isRetail and not Offhand.isForever
+                    and mainAnchor.relativeTo == "MainMenuBarArtFrame"
                 -- Keyboard layouts align the complete XP/reputation bar
                 -- with the main/bag bar, not merely Action Button 1.
-                if PlaceFromMainAnchor(entry, mainAnchor, statusFrame,
+                if Offhand.isRetail then
+                    if PlaceRetailStatus(entry, mainAnchor, mainFrame, rect) then refined = refined + 1 end
+                elseif not nativeClassic and PlaceFromMainAnchor(entry, mainAnchor, statusFrame,
                     mainWidth, 14, hudRight - statusWidth, mainTop + 3) then
                     refined = refined + 1
                 end
@@ -475,6 +534,80 @@ function Mainhand:CanCreateControllerLayout()
         and #Presets() > 0
 end
 
+-- Switch existing layouts, never regenerate or edit them during a window-mode
+-- transition. The return ticket is character-scoped and survives /reload.
+local selectingWindowLayout = false
+function Mainhand:UpdateWindowModeLayout(metrics)
+    if Offhand.isForever or Offhand.isLegacyWrath or _G.ConsolePort or NativeGamepadInterface()
+        or type(OffhandCharDB) ~= "table" then return false, "unsupported" end
+    local record = OffhandCharDB.mainhandLayout
+    if type(record) ~= "table" or record.controllerLayout or record.activationPending
+        or not IsCurrentCharacterLayoutName(record.generatedName, false) then return false, "unmanaged" end
+    if not metrics or type(metrics.isSpanned) ~= "boolean" then return true, "metrics" end
+    if selectingWindowLayout or Geometry.IsPlayerCombatRestricted() then return true, "combat" end
+    if Offhand.IsCinematicOrMovieActive and Offhand:IsCinematicOrMovieActive() then return true, "cinematic" end
+    local manager = _G.EditModeManagerFrame
+    if manager and manager.IsShown and manager:IsShown() then return true, "edit-mode" end
+    local data, presets = EditModeData(), Presets()
+    if not data or #presets == 0 or not C_EditMode or not C_EditMode.SetActiveLayout then return true, "api" end
+    if ControllerMode(presets) then return false, "gamepad" end
+    local active, activeID, _, activePreset = ResolveActiveLayout(data, presets)
+    if not active then return true, "active" end
+    local activeName = LayoutName(active)
+    local windowed = not Offhand.db or not Offhand.db.enabled or not metrics.isSpanned
+    local ticket = OffhandCharDB.mainhandWindowedLayout
+    if type(ticket) ~= "table" or ticket.generatedName ~= record.generatedName then ticket = nil end
+    local target, targetID, _, targetPreset
+    if windowed then
+        if activeName ~= record.generatedName or activePreset then
+            if ticket and (activeName ~= ticket.windowedName or activePreset ~= ticket.windowedPreset) then
+                OffhandCharDB.mainhandWindowedLayout = nil
+            end
+            return true, "windowed"
+        end
+        if OffhandCharDB.mainhandWindowedManualLayout == activeName then return true, "manual" end
+        target, targetID, _, targetPreset = FindNamedLayout(data, presets, record.sourceName)
+        if not target or targetID == activeID or targetPreset ~= (record.sourcePreset == true)
+            or LayoutName(target):find("Offhand - Mainhand", 1, true) == 1 then return true, "source-missing" end
+    else
+        OffhandCharDB.mainhandWindowedManualLayout = nil
+        if not ticket then return false, "spanned" end
+        if activeName == record.generatedName and not activePreset then
+            OffhandCharDB.mainhandWindowedLayout = nil
+            return true, "spanned"
+        end
+        if activeName ~= ticket.windowedName or activePreset ~= ticket.windowedPreset then
+            OffhandCharDB.mainhandWindowedLayout = nil
+            return true, "manual"
+        end
+        if record.geometrySignature ~= self:GetGeometrySignature() then return true, "stale" end
+        target, targetID, _, targetPreset = FindNamedLayout(data, presets, record.generatedName)
+        if not target or targetPreset then return true, "generated-missing" end
+    end
+    selectingWindowLayout = true
+    local ok, result = pcall(C_EditMode.SetActiveLayout, targetID)
+    selectingWindowLayout = false
+    local confirmed = EditModeData()
+    if not ok or result == false or not confirmed or tonumber(confirmed.activeLayout) ~= targetID then
+        return true, "select-failed"
+    end
+    if windowed then
+        OffhandCharDB.mainhandWindowedLayout = {generatedName=record.generatedName,
+            windowedName=LayoutName(target),windowedPreset=targetPreset == true}
+    else
+        OffhandCharDB.mainhandWindowedLayout = nil
+    end
+    OffhandCharDB.editModeLayoutName = LayoutName(target)
+    return true, windowed and "restored" or "resumed"
+end
+
+function Mainhand:RememberWindowModeLayoutSelection(name)
+    if type(OffhandCharDB) ~= "table" or type(name) ~= "string" then return end
+    OffhandCharDB.mainhandWindowedLayout = nil
+    local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+    OffhandCharDB.mainhandWindowedManualLayout = metrics and not metrics.isSpanned and name or nil
+end
+
 -- Profiles completed before generated Mainhand layouts were introduced can be
 -- fully spanned while Blizzard's protected HUD still uses the complete
 -- UIParent. The ordinary wizard no longer reopens for those users, so expose a
@@ -589,7 +722,7 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
             if (gamepadStyle ~= nil and candidate.interfaceStyle == gamepadStyle)
                 or string.lower(name):find("gamepad", 1, true) then
                 source = candidate
-                sourceID = tonumber(candidate.layoutIndex) or index
+                sourceID = index
                 sourceIndex = index
                 sourcePreset = true
                 break
@@ -609,8 +742,13 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
         -- This rebuilds the current character from Modern/Classic rather than
         -- copying the other character's custom layout.
         local wanted = tonumber(modeRecord.sourceID)
+        local named, namedID, namedIndex, namedPreset =
+            FindNamedLayout(data, presets, modeRecord.sourceName)
+        if named and namedPreset then
+            source, sourceID, sourceIndex, sourcePreset = named, namedID, namedIndex, true
+        end
         for index, layout in ipairs(presets) do
-            if tonumber(layout.layoutIndex) == wanted or index == wanted then
+            if not source and index == wanted then
                 source, sourceID, sourceIndex, sourcePreset = layout, wanted, index, true
                 break
             end
@@ -740,6 +878,10 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
         activationPending = activationPending and true or nil,
     }
     OffhandCharDB.mainhandLayoutDeferred = nil
+    OffhandCharDB.hudSetupReminder = nil
+    OffhandCharDB.hudSetupReminderDeclined = nil
+    OffhandCharDB.mainhandWindowedLayout = nil
+    OffhandCharDB.mainhandWindowedManualLayout = nil
     if Offhand.isForever then
         if active then
             OffhandCharDB.foreverEditModeLayoutName = generatedName
@@ -786,6 +928,10 @@ end
 function Mainhand:SetEditModeLayoutDeferred(deferred)
     if type(OffhandCharDB) ~= "table" then return false end
     local wanted = deferred and true or false
+    if not wanted then
+        OffhandCharDB.hudSetupReminder = nil
+        OffhandCharDB.hudSetupReminderDeclined = nil
+    end
     if (OffhandCharDB.mainhandLayoutDeferred == true) == wanted then return true end
     OffhandCharDB.mainhandLayoutDeferred = wanted and true or nil
     if Offhand.isForever and Offhand.ForeverPersistence

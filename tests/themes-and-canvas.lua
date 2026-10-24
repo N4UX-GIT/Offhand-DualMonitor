@@ -62,6 +62,10 @@ local function makeMockFrame(name, w, h)
         table.insert(self.points, { point = pt, relTo = relTo, relPt = relPt, x = x, y = y })
     end
     function f:ClearAllPoints() self.points = {} end
+    function f:GetPoint(index)
+        local p = self.points[index or 1]
+        if p then return p.point, p.relTo, p.relPt, p.x, p.y end
+    end
     function f:Show() self.shown = true end
     function f:Hide() self.shown = false end
     function f:IsShown() return self.shown end

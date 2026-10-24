@@ -239,7 +239,7 @@ Run the [final manual smoke checklist](REFACTOR-SMOKE-TEST.md) against the deplo
 
 ### Separate follow-ups
 
-- Visual redesign, library evaluation, navigation changes, and revised control styling remain a separate project after structural acceptance.
+- Visual redesign, library evaluation, navigation changes, and revised control styling were implemented separately in draft PR #35 at the user's request before live acceptance. The [visual candidate](UI-OVERHAUL-2026-10-23.md) and structural candidate now share one combined smoke checklist; neither has been promoted on an assumed live pass.
 - The preserved legacy `CloseAllWindows` path reads `hasCustomBags` after the block containing its local declaration. The scope issue predates this refactor and needs a separate behavioral regression and fix; the extraction deliberately preserves that implementation.
 - No runtime performance improvement is claimed. Existing polling and retry cadences were retained and require profiling before optimization.
 - Bootstrap/command decomposition can be evaluated independently. It does not gate testing this structural candidate.
@@ -260,3 +260,12 @@ The candidate is not ready for promotion until the Retail launcher is repaired a
 ## Branch policy
 
 Structural refactor work targets `addon/develop`. Visual redesign work begins only after the structural phases are accepted and live-client checkpoints are clear. Companion work remains isolated on `companion/develop` and must not be merged into this branch as an incidental dependency.
+
+## User acceptance, 25 October 2026
+
+The user considers the structural/UI refactor, first-time setup, HUD/window
+restore/menu placement, Forever Gamepad, Bagnon, Party-frame recovery, Dialogue UI,
+pet battles and recorded source defect fixed and resolved. Prior pending checklists
+for this scope remain historical rather than new release blockers. No additional
+live tests are implied. Linux/Wine is assumed fixed with direct reporter
+verification outstanding. Performance investigation is the next active work.

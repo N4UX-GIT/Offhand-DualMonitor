@@ -1,0 +1,7 @@
+## Interface: 30300, 120107, 120105, 120100, 120007, 120005, 16001, 50504, 40402, 30405, 38000, 20506, 11508, 11509
+## Title: Offhand Display Probe (temporary)
+## Notes: Opt-in, read-only display-reset diagnostics. Use /ohcapture start or stop.
+## Version: 0.1.0
+## OptionalDeps: Offhand
+## SavedVariables: OffhandDisplayProbeDB
+Probe.lua

@@ -37,6 +37,7 @@ Core\Mainhand.lua
 Core\RetailFullscreen.lua
 Core\DialogueUICompat.lua
 Core\ChatBubbles.lua
+Core\MenuPlacement.lua
 Core\HUDCompatibility.lua
 Core\HUDTransientPolicy.lua
 Core\HUDRecovery.lua
@@ -79,6 +80,7 @@ UI\Themes.lua
 UI\Controls.lua
 UI\OptionsActions.lua
 UI\Options.lua
+UI\DisplayIdentify.lua
 UI\Minimap.lua
 UI\Onboarding.lua
 UI\Wizard.lua
