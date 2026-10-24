@@ -1,3 +1,22 @@
+# Final structural candidate, source checkpoint 8335480
+
+- Source implementation: complete through increment 33 of the planned structural pass. PR #34 remains a draft into `addon/develop`.
+- Automated: all 47 Lua suites passed. All six manifests passed load order, paths, XML, and Lua 5.1 syntax validation with 61 runtime files (60 Lua, one XML). Companion preference and release-metadata checks passed; the frozen executable hash is unchanged.
+- Package: an isolated addon-only build passed. All 72 unpacked package files matched source by SHA-256, and the unpacked addon passed validation. The local audit archive has SHA-256 `9B6F6FD03F66857EF69F38AC932F12B17CACE81FCB05B8B59FB0808CA10F7A01`. Existing Beta 22 metadata was retained; this was not a release.
+- Live: no new observed live result has been recorded for the final candidate. The user will test manually. Their instruction to assume success enabled continued source work only.
+- Instructions: [final smoke checklist](../docs/REFACTOR-SMOKE-TEST.md). The earlier client observations below remain historical evidence for their original checkpoint.
+
+# Historical addon architecture refactor smoke ledger, 2026-10-23
+
+- Candidate: `codex/addon-architecture-refactor` at `10453d0941213916f1d7b060b64fc3eeb705bcc2`, draft PR #34 into `addon/develop`.
+- Static and simulated result: PASS. All 42 Lua suites passed. All six manifests passed path, XML, and Lua 5.1 syntax validation with 43 runtime files. Companion preference and release-metadata tests passed without changing the frozen Companion.
+- Deployment result: PASS. Retail and Forever installs match 52 packaged source files by SHA-256. Client-generated topology and Forever-state bridges were preserved. Recoverable pre-deployment copies are under `D:\Games\World of Warcraft\_offhand_deploy_backups\20261023-080833-*`.
+- Forever 1.60.1 build 70532: PARTIAL. The candidate loaded, `/reload` completed without a client crash, settings rendered, and Map, bags, and Character opened. Character scale commands executed and the saved value was restored to `1.00`. The client ran in safe single-screen recovery because its window did not match the generated span, so workspace placement and visual scale change were not accepted as verified. The fresh BugGrabber record at 08:15:25 was a Blizzard `TextStatusBar.lua:110` secret-number error attributed to `*** ForceTaint_Strong ***`, not Offhand. Historical BugGrabber records were excluded from this run.
+- Retail 12.1.5 build 70529: BLOCKED BEFORE ADDON LOAD. Battle.net reported `This folder doesn't contain the correct version of this game` and error `BLZBNTAGT00000AF0`. Direct `Wow.exe` launch remained unauthenticated. No credential or security input was attempted. Retail lock, close-reopen consistency, Character scaling, and lock-enabled `/reload` remain pending.
+- Evidence: screenshots and Companion log moved outside the repository to `D:\Games\World of Warcraft\_offhand_deploy_backups\20261023-refactor-smoke-evidence`.
+- Cleanup: both test clients closed. The frozen Companion started for the Retail attempt was stopped. Battle.net was left open. Source working tree was clean before this ledger update.
+- Harness follow-up: the live runner now recognizes `Wow.exe`, `WowClassic.exe`, and Forever `WowB.exe`, and it no longer falls back to a WoW process outside the requested client root.
+
 # Forever v2.1.2 release-candidate ledger -- 2026-09-23
 
 This section is the authoritative current ledger. Earlier dated sections are

@@ -17,6 +17,19 @@ CloseAllWindows = nativeCloseAllWindows
 CloseAllBags = nativeCloseAllBags
 C_Container = { CloseAllBags = nativeContainerCloseAllBags }
 
+assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasFrameState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelRegistry.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPersistence.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasBackpackState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverMap.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasChat.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasProfessions.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelMotion.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasMapPresentation.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelLifecycle.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
 local canvasChunk = assert(loadfile("Core/Canvas.lua"))
 canvasChunk("Offhand", addon)
 
@@ -45,6 +58,24 @@ assert(_G.Offhand_OriginalCloseAllWindows == nil
 local canvasFile = assert(io.open("Core/Canvas.lua", "r"))
 local canvasSource = canvasFile:read("*a")
 canvasFile:close()
+local professionsFile = assert(io.open("Core/CanvasProfessions.lua", "r"))
+canvasSource = canvasSource .. "\n" .. professionsFile:read("*a")
+professionsFile:close()
+local canvasMotionFile = assert(io.open("Core/CanvasPanelMotion.lua", "r"))
+canvasSource = canvasSource .. "\n" .. canvasMotionFile:read("*a")
+canvasMotionFile:close()
+local mapPresentationFile = assert(io.open("Core/CanvasMapPresentation.lua", "r"))
+canvasSource = canvasSource .. "\n" .. mapPresentationFile:read("*a")
+mapPresentationFile:close()
+local lifecycleFile = assert(io.open("Core/CanvasPanelLifecycle.lua", "r"))
+canvasSource = canvasSource .. "\n" .. lifecycleFile:read("*a")
+lifecycleFile:close()
+local persistenceFile = assert(io.open("Core/CanvasPersistence.lua", "r"))
+canvasSource = canvasSource .. "\n" .. persistenceFile:read("*a")
+persistenceFile:close()
+local placementFile = assert(io.open("Core/CanvasPanelPlacement.lua", "r"))
+canvasSource = canvasSource .. "\n" .. placementFile:read("*a")
+placementFile:close()
 assert(not canvasSource:find('frame:SetScript("OnHide", nil)', 1, true)
         and not canvasSource:find('frame:SetScript("OnShow", nil)', 1, true),
     "Forever persistence must not replace Blizzard panel scripts")
@@ -52,6 +83,12 @@ assert(not canvasSource:find('frame:SetScript("OnHide", nil)', 1, true)
 local seamFile = assert(io.open("Core/SeamRedirect.lua", "r"))
 local seamSource = seamFile:read("*a")
 seamFile:close()
+local recoveryFile = assert(io.open("Core/HUDRecovery.lua", "r"))
+seamSource = seamSource .. "\n" .. recoveryFile:read("*a")
+recoveryFile:close()
+local transientFile = assert(io.open("Core/HUDTransientFrames.lua", "r"))
+seamSource = seamSource .. "\n" .. transientFile:read("*a")
+transientFile:close()
 
 assert(not seamSource:find('SetUIPanelAttribute, frame, "centerFrameSkipAnchoring"', 1, true),
     "Forever must not write EditModeManagerFrame panel attributes")
@@ -63,6 +100,12 @@ assert(seamSource:find("not self.anchorsHooked and not UsesForeverEditMode()", 1
 local mainhandFile = assert(io.open("Core/Mainhand.lua", "r"))
 local mainhandSource = mainhandFile:read("*a")
 mainhandFile:close()
+local gamepadFile = assert(io.open("Core/MainhandGamepad.lua", "r"))
+mainhandSource = mainhandSource .. "\n" .. gamepadFile:read("*a")
+gamepadFile:close()
+local editModeFile = assert(io.open("Core/MainhandEditMode.lua", "r"))
+mainhandSource = mainhandSource .. "\n" .. editModeFile:read("*a")
+editModeFile:close()
 assert(not mainhandSource:find("presetLayoutInfo", 1, true)
         and not mainhandSource:find("UpdateLayoutInfo", 1, true),
     "Forever must not mutate or refresh Blizzard's Gamepad preset manager")
@@ -70,8 +113,9 @@ assert(mainhandSource:find("GAMEPAD_INTERFACE_SETTLE_SECONDS", 1, true)
         and mainhandSource:find("GAMEPAD_ACTIVE_PANEL_INTERVAL", 1, true)
         and mainhandSource:find('"native-visible"', 1, true),
     "Forever Gamepad transitions must settle before protected anchor work resumes")
-local bagProxySource = canvasSource:match(
-    "local function GetForeverNativeBagSavedPosition(.-)%-%- Forever's map%-pin sharing path")
+local bagProxyFile = assert(io.open("Core/CanvasForeverBags.lua", "r"))
+local bagProxySource = bagProxyFile:read("*a")
+bagProxyFile:close()
 assert(bagProxySource and bagProxySource:find("EnableForeverNativeBagProxy", 1, true),
     "Forever native bags must use the isolated proxy adapter")
 assert(bagProxySource:find('CreateFrame("Frame", nil, UIParent)', 1, true),
@@ -80,9 +124,9 @@ assert(not bagProxySource:find("HookScript", 1, true)
         and not bagProxySource:find("SetPassThroughButtons", 1, true)
         and not bagProxySource:find(":SetUserPlaced", 1, true),
     "Forever bag proxy must not hook native controls or mutate protected ownership state")
-local bagProxyEntry = canvasSource:match(
+local bagProxyEntry = bagProxySource:match(
     "function Canvas:EnableForeverNativeBagProxy%(%)"
-        .. "(.-)%-%- Forever's map%-pin sharing path")
+        .. "(.-)return {")
 assert(bagProxyEntry and bagProxyEntry:find("OpenForeverNativeBackpackThroughBlizzard", 1, true)
         and bagProxyEntry:find("InstallForeverNativeBagCloseObservers", 1, true)
         and bagProxyEntry:find("InstallForeverOptionsOpeningObservers", 1, true)
