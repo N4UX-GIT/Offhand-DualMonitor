@@ -1,3 +1,365 @@
+# Temporary display-reset capture tooling
+
+- Separate OffhandDisplayProbe addon under tools/display-capture. Optional Offhand
+  dependency supports isolated tests without changing the installed addon build.
+- Explicit /ohcapture start/stop; no CVar writes, native/UI hooks, recovery or
+  layout/profile changes. Dedicated SavedVariables, two captures, 360 records,
+  filtered graphics events and a 180-second lifetime. Logout stops capture.
+- Standalone PowerShell Windows observer records native bounds, style, clipping
+  region, layered attributes, hung state and monitor bounds. No input, window
+  moves, screenshots or Companion rebuild. Own-process DPI awareness only.
+- Automated: 52 Lua suites passed, including probe opt-in/stop, sampling/coalescing,
+  unrelated-event filtering, unsupported APIs, retention and storm/time bounds.
+  Standalone probe manifest and Lua 5.1 validation passed. Interop self-test created,
+  inspected and released only an owned GDI region. Whitespace checks passed.
+- Read-only one-second live observer check succeeded on WowClassic PID 54088:
+  window/client 4000x2560, native origin (-1440,-1114), complex window region with
+  three rectangles. Not hung at sample. This is observer evidence, not addon
+  runtime, VSync reproduction or recovery acceptance.
+- Probe installation blocked because WoW remains open. No installed files,
+  operational settings, Companion binaries or generated bridges changed.
+- Next: close WoW normally, install separate probe, launch the chosen client and
+  capture one GUI VSync toggle following tools/display-capture/README.md.
+
+# Display reset investigation, local source safeguard
+
+- OH-RET-001 records the Midnight WoW hang, unclickable excessive-error warning and
+  missing chat report. No root cause established without a fresh error trace.
+- OH-COMP-002 records the reported VSync reset and Beta 20 active-span recovery gap.
+- Core/Init now rechecks the display generation after a combat-queued callback
+  starts. This prevents older settled geometry work from running after a newer
+  display event. Lifecycle regression covers both queued callbacks and transition
+  ownership. No native-window changes, graphics CVar writes or state reset added.
+- Live validation and confirmation of the reporter's actual failure remain pending.
+
+# Setup recovery copy and HUD-skip chat follow-up, local candidate
+
+- Stale Companion layout warning highlights Companion, Span WoW Now and /reload.
+- HUD-skip confirmation uses Offhand as the actor, rather than we.
+- Finish Anyway emits two action-led messages: display setup saved with HUD still
+  pending, then the exact recovery path and next-entry reminder behavior.
+- The skip branch no longer prints the old welcome, technical readiness summary,
+  degraded-setup label or restart check claiming HUD restoration before creation.
+- Ordinary successful completion retains readiness and cold-start verification.
+- Regression checks the exact two-message skip output; live review pending.
+
+# Setup message readability follow-up, local candidate
+
+- Unconfirmed region labels now explain the selected Companion path with explicit
+  highlighted Span WoW Now, Reload UI and Confirm placement actions. Other methods
+  return to the placement guide; Windows Identify remains a separate instruction.
+- The unconfirmed-placement card uses measured content height and Back to setup.
+  Instructions stay until closed or geometry invalidates them. Actual region labels
+  retain their twelve-second timeout.
+- Final onboarding task highlights the exact current Start/Continue calibration
+  label and the subsequent HUD creation action, combat and Edit Mode requirements.
+- Addon-owned popups now use a solid, fully opaque background. Popup-specific
+  sizing reserves full paragraph/word-wrap space even when native font metrics
+  report an already-truncated line. Ordinary dialog measurement is unchanged.
+- HUD deferral and reminder copy names exact actions and distinguishes completing
+  setup now, accepting a reminder and declining future reminders.
+- Automated regressions cover opaque backgrounds, clipped font metrics, narrow
+  wrapping, color markup, unconfirmed instruction lifetime and current action text.
+- Live verification pending: full text without ellipses on skip/reminder cards,
+  opacity over wizard text, region help, translated text expansion and UI scales.
+
+# Setup recovery and navigation follow-ups, local candidate
+
+- Companion handoff, stale-layout and version warnings offer Setup Guide,
+  Calibration and Not now. Gamepad-owned cards support the same third action.
+- Companion placement instructions highlight Span WoW Now, Reload UI and Confirm
+  placement. Display/scale changes recenter the visible guide on Mainhand, with
+  two bounded retries after viewport listeners settle; hidden sessions cancel them.
+- First-time All Settings remembers the wizard step. Closing Settings resumes it.
+  Combat/cinematic deferrals resume on the corresponding safe lifecycle events.
+  Explicit guide or wizard navigation cancels the pending Settings return.
+- HUD skip text gives a complete recovery path. Owned popup text clears its old
+  height before measuring, preventing reuse from clipping a longer confirmation.
+- Confirmed HUD skips remain saved as pending per-character repair. On the next
+  entry check they offer Resume HUD setup or Don't remind me. Existing deferred
+  HUD records also qualify. Decline persists, while closing without a button does
+  not count as a permanent decline. Creating the layout clears reminder state.
+- Automated regression covers recovery actions, Settings return, display-change
+  recentering, popup sizing, reminder persistence, explicit decline and HUD resume.
+- Live review pending: Mainhand centering after actual span, full confirmation
+  visibility, native three-button warnings, controller cards, Settings return,
+  and login/reload HUD reminders across supported clients.
+
+# Guidance prototype removed and final guide Back navigation corrected
+
+- Retained Having trouble? and removed the optional dim/highlight module, launchers,
+  preference, locale keys and manifest references after user review.
+- The final displayed step uses internal page 6. Back now returns directly to page
+  4, skipping retired page 5, whose saved-resume alias correctly remains page 6.
+- Regression covers backward navigation and legacy page-5 resume compatibility.
+- Live verification pending; no setup state or saved-variable reset required.
+
+# Detected-mode guidance and unknown-mode confirmation, local source candidate
+
+- Windowed mode controls now reflect readback: detected Windowed shows Already
+  Windowed as a disabled result, a matching title/body and the Place WoW action.
+  A known non-Windowed mode enables Set to Windowed and disables progression;
+  unknown or partial/failed CVar reads are never reported as Already Windowed.
+- Mode controls refresh from addon-owned CVAR_UPDATE, display-size and combat
+  events and on reopening/return from native settings. Unrelated CVar events and
+  hidden guides do no work. Intermediate mode writes/rollback suppress refresh;
+  the completed request refreshes once without claiming native window placement.
+  No new recurring polling or mode writes are introduced by detection.
+- Unknown mode exposes Open display settings immediately. Place WoW requires a
+  player confirmation of selecting and applying standard Windowed, and rechecks
+  mode, geometry transition and combat before continuing. This confirmation is
+  explicitly user-reported, not physical display detection or setup completion.
+- Automated: all 51 Lua suites and six-manifest path/XML/Lua 5.1 syntax checks
+  pass. New cases cover Already Windowed action state, external mode changes,
+  case-insensitive CVar names, hidden/unrelated event isolation, combat disable/
+  re-enable, partial reads and manual confirmation/rejection after a mode change.
+  New text uses all eleven dictionaries with English fallback pending translation.
+- Source only; Retail remains running. No installed files, saved profiles,
+  Companion bridges or native game settings changed during this pass. Live
+  rendering, actual native mode switching and taint behavior remain unverified.
+
+# Action-led onboarding and software handoff, local source candidate
+
+- Five displayed tasks now lead from introduction, through method selection,
+  Windowed mode and placement confirmation, into calibration. The former
+  disabled HUD-preview page is removed from the normal flow. Persisted page IDs
+  are unchanged: old page 5 aliases calibration handoff 6, displayed as task 5/5.
+- Selecting FancyZones or Companion no longer opens a download. A separate
+  Already installed / Get PowerToys or Get Companion handoff follows selection.
+  Only explicit Get actions open software information. Closing the download
+  returns to that handoff, Back returns to choices, and manual placement skips
+  the software question. Installation is user-confirmed, not auto-detected.
+- Windowed mode has one primary action, a code-drawn illustration explicitly
+  marked as an illustration, and concise copy. Having trouble? expands selected-
+  method instructions and the manual display-settings shortcut. A failed one-click
+  request reveals that shortcut automatically. Placement has concise, selected-
+  method actions and Confirm placement; independent methods no longer show the
+  irrelevant Companion Reload UI action. Full details remain available on demand.
+- Existing safe confirmation, native mode request, calibration completion,
+  persistence and Escape contracts are retained. Closing/opening the guide
+  cancels pending software-return state so an old download closure cannot reopen
+  an abandoned guide. No settings reset, schema migration or Companion mutation.
+- Automated: all 51 Lua suites pass and all six manifests pass XML/path and Lua
+  5.1 syntax validation. Expanded tests cover no automatic downloads, explicit
+  Get counts, already-installed paths, manual bypass, method switching, selected-
+  method help, collapsed/expanded geometry, illustration clearance, automatic
+  failure fallback and old-page-ID compatibility. New locale keys have English
+  fallback in all eleven dictionaries pending translation.
+- Deployment/live: source only. Retail is still running, so installed files were
+  not replaced and no client was controlled or closed. Real rendering, settings
+  transitions, native Windowed application and taint checks are still pending.
+  Before filming, install after a normal exit, then verify all five tasks and
+  software handoffs on the intended recording client. No recording/publication.
+
+# Pre-video onboarding hardening, local source candidate
+
+- Window preparation and confirmation now show only the selected FancyZones,
+  Companion or manual path. The guide separates display-mode state, explicit
+  independent canvas confirmation / Companion validation, and pending calibration.
+  A known non-Windowed mode blocks preparation/verification advancement; unknown
+  client mode remains explicitly unknown rather than being reported as verified.
+- Unfinished guide pages retain the existing resume marker across reload/login.
+  Calibration handoff keeps marker 6 until the wizard completes. Older dismissed
+  welcomes with incomplete setup return to the calibration handoff when geometry
+  is valid, placement verification when it is not, preparation if the display
+  mode is wrong, or method selection when no method/topology is available.
+  No profile/layout reset or SavedVariables schema change. Completed users remain
+  completed when inspecting the guide; deliberately disabled profiles stay quiet.
+- Settings shows Continue setup for incomplete installations and returns them to
+  the guide; completed installations retain the calibration shortcut. Region-label
+  buttons now say Show Mainhand / Offhand, not Identify displays. Physical-screen
+  identification remains explicitly a Windows Display Settings action. One/two/
+  three-action rows are centered according to their visible button count.
+- Automated evidence: all 51 Lua suites pass; all six manifests pass paths/XML
+  and Lua 5.1 syntax. Added regressions cover entry-notice resumption, no repeated
+  zone-transition prompts, disabled/completed users, method-specific pages,
+  wrong-mode blocking, saved calibration handoff, stale geometry, legacy incomplete
+  state, method absence, settings routing and two-action centering. Locale keys
+  are present in all eleven dictionaries with English fallback pending translation.
+- Deployment/live status: not installed during this pass because Retail is
+  running. Existing installed candidates are unchanged. No WoW input, profile
+  changes, recording, commit, publication or Companion binary changes occurred.
+  Native mode switching, actual guide/settings rendering and taint behavior still
+  require live verification; automated checks are not evidence of those outcomes.
+
+## Before recording: targeted live acceptance
+
+1. Close WoW normally, install the candidate with verified addon backups and
+   generated-bridge preservation, then launch the intended client normally.
+2. On a completed setup, open `/offhand guide` without resetting anything. Escape
+   must leave the guide open; its close button must work. Merely reviewing it must
+   not change the completed state or force a new setup on subsequent login.
+3. Inspect each method's preparation and confirmation pages; only that method's
+   actions should appear. Return to the original method before ending the test.
+4. Outside combat, confirm actual mode in game Graphics settings. Test Set to
+   Windowed from Windowed (Fullscreen); verify a movable native window and actual
+   Windowed selection afterwards. An already-Windowed span must not be reapplied.
+   Restore the player's original window placement with their existing method.
+5. Check Open display settings, return-to-guide, all action labels, and Show
+   Mainhand / Offhand at normal/small viewport sizes. Labels must describe configured
+   regions, expire correctly, and not be presented as Windows monitor numbers.
+6. On a genuine incomplete test installation (not by deleting a user's settings),
+   close/reload during preparation and calibration. It must resume the unfinished
+   stage, recheck changed geometry, expose Continue setup, and only mark completion
+   through the wizard's existing supported finish/defer path.
+7. Repeat the relevant mode and rendering checks separately on Retail, Era and
+   Anniversary. Capture fresh errors/taint evidence, preserve existing settings,
+   and mark unavailable cases untested. Do not begin publication footage until
+   the actual one-click result and intended recorded path have passed.
+
+# Retail and Anniversary restore/span HUD handoff, local candidate
+
+- Follow-up acceptance: reporter confirms the requested remaining checks pass after both clients' visual acceptance: reload in each mode, full client restart, and combat/error checks. Record this as user-reported Retail and Anniversary acceptance of this restore/span correction. No agent-run taint-log capture is claimed, and this confirmation does not cover unrelated source-only onboarding/guide changes or the unavailable Forever matrix.
+
+- Anniversary visual retest after preset-index correction: reporter confirms the client looks good, with paired restored-window and spanned screenshots. Minimap is at the top right in both modes, native action-bar artwork remains intact, and spanned map/chat/bags occupy the workspace. Retail and Anniversary visual restore/span handoff are now reporter-accepted. This does not establish cold-login/reload persistence or combat/taint safety; those checks remain pending.
+
+- Retail visual retest after preset-index correction: reporter says restore/span now looks good and otherwise clean, with paired restored-window/spanned screenshots. Minimap is back at the top right and the Mainhand HUD is reachable. Reporter notes differing action-bar count/arrangement between modes; retain as a separate observation because the transition selects two existing layouts and does not synchronize their settings. This accepts the reported Retail visual handoff only. Anniversary retest, cold-login/reload persistence and combat/taint checks remain pending.
+
+- Follow-up live failure (24 October): Retail windowed reports `Span false Handoff true select-failed`, with active layout 4 and two presets. Source is Modern. Blizzard's `EditModePresetLayouts` enum is zero-based (Modern=0, Classic=1), while `SetActiveLayout` takes a one-based combined-list position. Our preset lookup incorrectly passed the enum. Corrected named lookup and active-preset resolution to list positions; generation provenance prefers the stored source name and uses list positions consistently. Primary references: https://github.com/Gethe/wow-ui-source/blob/live/Interface/AddOns/Blizzard_APIDocumentationGenerated/EditModeManagerConstantsDocumentation.lua and https://github.com/Gethe/wow-ui-source/blob/live/Interface/AddOns/Blizzard_EditMode/Shared/EditModePresetLayoutsManager.lua .
+- Corrective candidate: all 51 Lua suites pass, including Modern and Classic restore/resume using actual zero-based preset enum fixtures; workspace and both installs pass six-manifest Lua 5.1 validation. Isolated archive SHA256 `1A26F81B6966A4A97C53D6CFB1507D9F36646B01E88850A7D655D168750C9B92` under `D:\Games\World of Warcraft\_offhand_deploy_backups\preset-selection-20261024-030258-304\dist`. All 73 unpacked files match the workspace snapshot. Only Core/MainhandEditMode.lua was updated in each client; full pre-update backups are in that root. Each install matches 57 package files, with 14 pre-existing differences preserved (Init, eleven locales, Onboarding and Options). Generated bridges are preserved byte-for-byte. This archive is a workspace snapshot, not a claim that all installed files match that snapshot. Retail/Anniversary visual handoff, combat/taint and cold-login persistence remain unverified after this correction.
+
+- Reporter evidence: both clients retain generated Mainhand offsets after Companion Restore Window, pulling the minimap down; Retail also crowds the bar at the right edge. Re-spanning restores the intended positions. Source review confirms the absence of a non-Forever source/generated layout handoff; ordinary full-layout application skips the spanned HUD pass on a single-screen canvas, leaving the active generated Edit Mode layout unchanged.
+- Added selection-only handoff in the existing Mainhand Edit Mode service. Restore/disable selects the recorded original source layout only while the active layout is this character's generated Mainhand layout. A character-scoped return ticket survives reload. Re-span selects the generated layout by name only while that ticket still matches the active windowed source, the generated layout still exists and geometry is current. Custom/preset namespace offsets use the live preset count (tested with Anniversary's two and Retail's three rows). No SaveLayouts, layout regeneration/deletion, new native frame writes, artwork or Companion changes are added for this transition.
+- The existing post-resize debounce and combat queue own transition timing. Edit Mode and cinematics defer selection; close-without-selection-change reconciles the deferred transition. Genuine manual selections cancel the return ticket, including an explicit generated-layout choice while windowed. The existing login selector yields while the handoff owns the windowed/return path so its delayed login callback cannot force Mainhand back into a restored window. Source-missing, stale geometry, failed/unconfirmed activation and unrelated-character records fail closed. Forever, legacy Wrath and controller paths retain their prior policies. Explicit layout generation clears obsolete tickets.
+- Automated: all 51 Lua suites, six-manifest Lua 5.1 validation (62 runtime files), Companion preferences, release metadata and diff checks pass. New tests cover both client namespace counts, complete restore/span cycles, reload persistence, no repeated selection calls, custom-source layouts, reordered/deleted custom rows, missing source/preset data, stale geometry, disabled profiles, combat, cinematics, Edit Mode deferral/manual selection, owner/client exclusions, failed/unconfirmed selection and refusal to call SaveLayouts. Existing observer integration tests distinguish an unchanged Edit Mode close from a genuine layout selection. Visible behavior, native activation timing, taint/protected actions and cold-client persistence remain pending.
+- Both installs updated from isolated archive `D:\Games\World of Warcraft\_offhand_deploy_backups\window-layout-handoff-20261024-022248-183\dist\Offhand-v2.1.2-beta.22.zip`, SHA256 `E0AF8E53749CFA4BA68731DF7E3B21A28655486BACDABB6A1F6E1D048D635A6F`. All 73 unpacked files match source and all 71 non-generated package files match each installed copy. Installed six-manifest validation passes for Retail and Anniversary. Four files copied to each: Core/HUDRecovery.lua, Core/Init.lua, Core/MainhandEditMode.lua, Core/SeamRedirect.lua. Full pre-update backups are that root's `installed-before-retail` and `installed-before-anniversary`. Generated bridges, SavedVariables and frozen Companion are unchanged. No game control, commit, merge or publication; unrelated dirty work preserved.
+- Retest on both clients: close Edit Mode and reload changed Lua once. Outside combat, Restore Window and wait for the resize transition to settle; confirm original single-window HUD/minimap positions. Span WoW Now and confirm the prior Mainhand HUD returns. Repeat, including reload while restored followed by re-span. No wizard rebuild is normally required on the characters with existing provenance/source layouts. Also test a deliberate alternate layout selection (must not be overwritten), then select Mainhand explicitly to resume that workflow; exercise combat entry/exit and current error/taint checks before acceptance. Native spanned artwork and prior XP corrections remain in place.
+
+# Retail generated status-bar placement, local candidate
+
+- Reporter accepts the Classic fixed UI layout for now. The separate new-Classic-character full-span report was explained by Offhand not being enabled, not a confirmed initialization regression. Do not reopen Classic artwork reconstruction or generalize acceptance to unreported client/character/combat cases.
+- Retail evidence: new character's generated HUD puts XP at the bag/menu corner, far right of the main action bar. The installed generation path aligns status using the live backpack/bag right edge and measures StatusTrackingBarManager rather than each actual Edit Mode status container. Retail source declares separate MainStatusTrackingBarContainer and SecondaryStatusTrackingBarContainer systems (571x17 default), with a 571x34 manager: https://github.com/Gethe/wow-ui-source/blob/live/Interface/AddOns/Blizzard_ActionBar/Mainline/StatusTrackingBar.xml . Default main-bar preset anchor is UIParent-relative: https://github.com/Gethe/wow-ui-source/blob/live/Interface/AddOns/Blizzard_EditMode/Mainline/EditModePresetLayouts.lua .
+- Retail-only generation correction: default XP/reputation entries use the main action bar's serialized anchor and dimensions, their own native container dimensions/self point/effective scale and a UIParent-relative output anchor. Primary is centered above the action bar; secondary stacks above the primary. Horizontal placement is bounded within Mainhand without resizing native frames. Missing/oversized capabilities keep the source relationship instead of falling back to bags. Customized source entries remain untouched. Default Retail stance/pet/vehicle alignment now uses local main-bar bounds, not stale live action-button edges. Other reviewed systems retain existing translation/system-relative policies; no additional rendered defects are claimed fixed.
+- No native frame writes, artwork replacement, hooks, polling, schema reset or ordinary-login layout overwrite was introduced by the Retail correction. Classic/Forever placement branches are unchanged by this increment. Existing generated Retail layouts require explicit rebuilding to obtain the new anchors.
+- Automated: all 50 Lua suites, six manifests with Lua 5.1 validation (62 runtime files), Companion preferences, release metadata and diff checks pass. Expanded generation regressions cover separate scaled status containers, distinct self points, secondary stacking, customized anchors, stale bag/action edges, repeat rebuild, source immutability, missing/oversized status geometry and rejection of native point/scale mutations. Live alignment, status visibility, combat/taint and persistence remain pending.
+- Retail deployment: current candidate was packaged in isolation at `D:\Games\World of Warcraft\_offhand_deploy_backups\retail-status-anchor-20261024-014925-690\dist\Offhand-v2.1.2-beta.22.zip`, SHA256 `85E91F461F29F135DCFEC5B412692847CE85221B747A03A1BB16FE7BCBB6D843`. All 73 unpacked files match workspace. Five differing files were copied to Retail (Core/Init.lua, Core/MainhandCompatibility.lua, Core/MainhandEditMode.lua, Core/SeamRedirect.lua, UI/Controls.lua), bringing the prior shared wizard/dialog and Classic-gated code into the coherent Retail candidate as announced. All 71 installed non-generated package files match; installed validation passes. Both generated bridges and frozen Companion are unchanged; SavedVariables untouched. Full pre-update install backup under that root's `installed-before-retail`. Anniversary was not synced; its MainhandEditMode SHA256 remains `3233C25CB0EB4725B05B1C048D6062F5524127C0FC21B1FF4AF9EFF77119FBB1`. No commit, merge, release or game control; unrelated dirty work preserved.
+- Retest: close Edit Mode, reload changed Lua, run `/offhand wizard` while spanned and explicitly update the existing character's Mainhand layout, then reload when prompted. Inspect XP above the main action bar, secondary tracking bar if enabled, stance/pet placement and separation from bags/menu. Capture a full HUD screenshot, then check action use, combat errors, reload persistence and restore/span. No layout deletion or full client restart is required.
+
+# Anniversary Mainhand HUD and setup-dialog correction, local candidate
+
+- Native-root candidate after fresh runtime anchor evidence: reporter shows MainMenuBar protected at BOTTOM/UIParent/BOTTOM (0,0), MainActionBar protected at its native artwork-relative (8,4) inset, StatusTrackingBarManager unprotected at its top-of-bar relationship and the XP child with an independent approximately (431,43) offset. The intact bar remains full-span centered. This supports correcting root placement separately from restoring the XP source relationship, not recreating native artwork. It does not establish when the original issue began or prove a refactor-only regression.
+- Implementation: MainhandCompatibility.UpdateClassicNativeBar relocates only MainMenuBar's anchor outside combat, retaining its native controls, artwork, visibility, scale, ancestry, scripts and default-position flags. State is kept in a local side table. It acquires only the exact untouched native bottom-center anchor on Classic Edit Mode clients with visible default MainActionBar, enough width and no custom-bar/controller ownership. Retail, Forever, legacy Wrath, native gamepad and ConsolePort yield. Identical anchors are not rewritten. External anchor edits cause relinquishment; disable, restore/single-screen, replacement-bar takeover or hidden native root restore only the anchor still owned by this candidate. Combat performs no acquisition/restoration writes; ApplyFullLayout's existing combat queue owns the later pass. Edit Mode defers acquisition. No ticker or native handler hook is added.
+- XP correction is limited to explicit generation from an artwork-relative default Classic main bar: preserve the original status-container anchor instead of recalculating it from action-bar and manager geometry. Customized entries and other clients keep their existing policies. Existing saved XP offsets need one explicit rebuild through the wizard and the subsequent reload; source layouts remain untouched. No automatic saved-layout rewrite is added on login.
+- Automated: all 50 Lua suites, six-manifest Lua 5.1 validation (62 runtime files), Companion preferences, release metadata and diff checks pass. New mocked root test covers protected-root behavior, child-write prohibitions, scale conversion, combat deferral, idempotence, native-edit-mode gating, client/owner exclusions, custom anchors, hidden-root handling, narrow-view restoration and disable/restore. Mainhand generation tests verify native XP-manager anchor preservation and prior experiment recovery. These checks do not establish in-game alignment, taint/protected-action safety, cold-login persistence or native reanchoring behavior.
+- Anniversary-only deployment: four files copied (Core/Init.lua, Core/MainhandCompatibility.lua, Core/MainhandEditMode.lua, Core/SeamRedirect.lua). Isolated archive `D:\Games\World of Warcraft\_offhand_deploy_backups\classic-native-anchor-20261024-001204-156\dist\Offhand-v2.1.2-beta.22.zip`, SHA256 `66E842CE08B0FBE171FD5641457C19837E8424E42AB020940722B5B4070D0378`; all 73 unpacked files match source. All 71 installed non-generated package files match; installed validation passes. Full pre-update install backup in that root's `installed-before-anniversary`; generated bridges preserved, SavedVariables untouched and frozen Companion hash unchanged. No client control, commit, merge or publication. Unrelated pending work preserved.
+- Next live acceptance: reload, inspect root placement while spanned, explicitly rebuild the existing Mainhand layout via `/offhand wizard`, then reload when prompted. Verify the complete native assembly is centered in Mainhand, XP is aligned on its original manager and artwork/buttons remain intact. Exercise action buttons and hotkeys before/during/after combat, inspect current errors/taint, and test restore/span plus disable/enable. Do not equate out-of-combat root movement or mocked success with secure-client acceptance. No layout deletion or new Lua-file discovery restart is needed.
+- Artwork experiment withdrawn at the reporter's request. The latest native-geometry screenshot still failed alignment acceptance, and the reporter confirmed no custom artwork was needed before this work. Removed UI/ClassicHUDArtwork.lua and its TOC entries, removed the dedicated experiment test, and restored Core/MainhandEditMode.lua exactly to the committed refactor baseline. This removes artwork-relative rebasing, independent strip packing, HideBarArt mutation, replacement gryphons and all three experiment provenance flags from new builds. Separate wizard/dialog and onboarding changes remain intact. The preceding experimental candidates below are historical failed attempts, not current recommendations.
+- Baseline comparison: TransformLayout and RefineStandardHUDLayout match the released v2.1.2-beta.22 functions exactly after normalization; HUD:AlignHUDFrames also matches the release. The original span/HUD failure is NOT diagnosed or accepted as fixed. Source review confirms Edit Mode clients bypass the legacy direct-root alignment path, and Beta 22's transformation leaves MainMenuBarArtFrame-relative anchors untouched. These policies predate the refactor, so they do not by themselves prove a refactor regression or a client-version change. A clean native-artwork retest is needed before changing ownership policy.
+- Recovery is explicit, not an automatic SavedVariables rewrite: regression simulates the experiment's generated slot with HideBarArt=1 and translated controls, then verifies rebuilding from the recorded original source restores native artwork-relative anchors, default-position flags and HideBarArt=0, removes experiment flags, preserves source data and reuses the same generated slot. This assumes the recorded original source still exists. No layouts are deleted and no active-layout writes are added to ordinary login. The on-disk game layout remains experimental until the player completes that rebuild and reload.
+- Validation: all 49 remaining Lua suites, six manifests (62 runtime files, 61 Lua plus one XML), Lua 5.1 syntax, Companion preferences, release metadata and diff checks pass. The removed experiment was backed up under `D:\Games\World of Warcraft\_offhand_deploy_backups\remove-classic-artwork-20261023-234134-235\experimental-source`. Isolated rollback archive under that root's `candidate\dist\Offhand-v2.1.2-beta.22.zip`, SHA256 `F5B34C979E226CAE005DBD0F6D0857F0BCEDE4E39F89DB37024063D240B0636F`; all 73 unpacked files match source. Anniversary's 71 non-generated package files match; both bridges and frozen Companion are unchanged. Full pre-update install backup: that root's `installed-before-anniversary`. Removed the installed experimental UI file after backup. Source/test removals and installed removal are recoverable from this audit folder.
+- Native baseline retest: fully exit/relaunch Anniversary, run `/offhand wizard` while spanned, explicitly update the existing generated Mainhand layout, then reload when prompted. Inspect native artwork and all controls. If the intact native bar remains centered on the full span, stop and capture that result plus `/offhand diag`; do not start another artwork-adjustment loop or delete layouts. Native alignment, protected-action safety and persistence acceptance are pending. No client control, SavedVariables edit, commit, merge or publication occurred; unrelated dirty work preserved.
+- Latest reporter evidence: outer gryphons are mostly correct, but background/control alignment and XP placement are not accepted. Root cause in the candidate is independent packing of controls across a hull narrower than the native artwork, equal-quarter stretching of the authored panels and an unrelated XP baseline. The unextended Classic source defines a 1024x53 artwork root, four 256x43 background panels, full-strip cap centers 32 units outside either edge and the status manager bottom at root top minus 13. References: https://github.com/Gethe/wow-ui-source/blob/classic_anniversary/Interface/AddOns/Blizzard_ActionBar/Classic/MainMenuBar.xml and https://github.com/Gethe/wow-ui-source/blob/classic_anniversary/Interface/AddOns/Blizzard_ActionBar/Classic/StatusTrackingBar.xml . The source preset keeps separate artwork-relative control anchors: https://github.com/Gethe/wow-ui-source/blob/classic_anniversary/Interface/AddOns/Blizzard_EditMode/Classic/EditModePresetLayouts.lua .
+- Native-geometry candidate: for supported unextended 1024x53 default artwork sources with default menu/bags, available full-strip cap textures and sufficient Mainhand width, retain the translated original control anchors rather than repacking. A new explicit-build provenance flag draws the unscaled 1024x43 canvas at Mainhand bottom, uses full-strip native cap assets/UVs at their original baseline and overlap, and serializes default XP at bottom +40 with 13-unit height accounting and the native secondary offset. Extended artwork and unsupported/customized sources retain the previous fallback. No live protected frame writes, native handler hooks, layout deletion or login-time layout overwrite were added.
+- Validation/deployment: all 50 Lua suites, six-manifest Lua 5.1 checks, Companion preference and release metadata checks pass. New cases verify original control offsets, 256-unit panel seams, shared XP width/baseline, full-strip versus compact cap sources, repeat rebuild and extended-artwork exclusion. Isolated archive `D:\Games\World of Warcraft\_offhand_deploy_backups\classic-native-geometry-20261023-231726-328\dist\Offhand-v2.1.2-beta.22.zip`, SHA256 `6122BCB63F012622E945C43968B0778354EE1B87696A5DB7675739059855E6D2`; all 74 files match source. Anniversary's 72 non-generated package files match, installed validation passes and both generated bridges are unchanged. Full pre-update backup is in that root's `installed-before-anniversary`. Only Core/MainhandEditMode.lua and UI/ClassicHUDArtwork.lua recopied; SavedVariables and frozen Companion unchanged. No commit, merge or publication; unrelated dirty work preserved.
+- Retest: reload to load Lua, explicitly update the existing layout through `/offhand wizard` while spanned, then reload when prompted. Inspect original background borders/separators against action/menu/bag controls, both gryphons and XP endpoints/height. Actual clicks, combat/taint, layout switching and persistence remain pending. This replaces the previous packed-strip geometry only after explicit rebuild; automated tests do not prove rendered alignment.
+- Outer-gryphon correction, authorized after the reporter confirmed the background and supplied a default full-strip reference: the previous native compact right cap belongs to MainActionBar, not the full action/menu/bags strip. The copied generated layout now sets its existing HideBarArt setting to 1 only for visible source art with both texture capabilities, default menu/bags placement and adequate width. The source layout, unrelated settings and native frame trees remain untouched. A new character provenance flag enables addon-owned mirrored gryphon textures at the full strip's outer edges; the former interior right-cap clearance moves after the bags. An explicit rebuild is required; existing background-only records keep their prior policy.
+- Ownership and limits: the decoration copies native assets, UVs and dimensions, converts cap scale into UIParent units, disables mouse input and yields if native caps become visible or the player changes HideBarArt. It does not hook native functions or mutate protected frames. HideBarArt is saved in the generated layout, so selecting the original source layout is the rollback for native artwork; disabling Offhand does not silently rewrite the player's selected layout. Narrow layouts, custom source art choices and unsupported capabilities retain the prior native-art policy. Native button-art changes caused by HideBarArt, layering, combat/taint and persistence still require live acceptance.
+- Validation/deployment: all 50 Lua suites, six-manifest Lua 5.1 checks, Companion preference and release metadata checks pass. Expanded regressions cover outer-edge anchoring, mirrored UVs, scale conversion, no duplicate caps, missing textures, source preservation, custom-menu yielding and repeated rebuild. Isolated archive: `D:\Games\World of Warcraft\_offhand_deploy_backups\classic-outer-gryphons-20261023-230347-256\dist\Offhand-v2.1.2-beta.22.zip`, SHA256 `77539A44438DE18F33981F354CA0E530E70FFC183F45E51E6E0BD31A284E864C`; all 74 unpacked files match source. Anniversary's 72 non-generated files match the package and installed validation passes. Both bridges and frozen Companion are unchanged; SavedVariables were not edited. Full install backup is in that audit root's `installed-before-anniversary`. Only Core/MainhandEditMode.lua and UI/ClassicHUDArtwork.lua were recopied. No client control, commit, merge or publication; unrelated pending work preserved.
+- Retest this correction: reload to load changed Lua, run `/offhand wizard` while spanned and update the existing Mainhand HUD layout, then reload when prompted. Verify the right gryphon is after bags/menu, the left remains before actions, the background remains visible and every button group is clickable. Check native button borders, XP containment, combat actions/errors and layout-switch/restore lifecycle. No new TOC file or layout deletion is needed for this increment. User-visible background confirmation does not establish acceptance of the new gryphon correction.
+- Authorized experimental Classic background is now installed in Anniversary, including the gryphon-clearance increment described below. The new addon-owned layer copies four native texture assets and UVs behind the generated strip, disables mouse input, and never changes native protected frame visibility, points or parenting. Explicit regeneration opts the layout into this presentation; selected-layout, geometry, replacement-addon and native visibility checks gate it. Event-driven updates and teardown cancellation replace continuous polling. Native gryphons remain native. Visual fidelity and both gryphons remain unaccepted until live retest.
+- Latest automated evidence: all 50 Lua suites, six-manifest Lua 5.1 validation, Companion preferences and release metadata checks pass. The manifests contain 63 runtime files. Isolated package: `D:\Games\World of Warcraft\_offhand_deploy_backups\classic-hud-artwork-20261023-223804-876\dist\Offhand-v2.1.2-beta.22.zip`, SHA256 `B060EBA0E334B25FD08693F7B21171C2DD2660B635D974371AA5FF8875531731`; all 74 unpacked files match source. Anniversary's 72 non-generated package files match the package; both generated bridges were preserved, SavedVariables untouched and frozen Companion unchanged. Full pre-update install is under the same backup root in `installed-before-anniversary`. No commit, merge or publication; unrelated dirty work remains preserved.
+- Next live acceptance: fully exit and relaunch WoW so the new Lua file is discovered, explicitly update the existing Mainhand HUD layout while spanned, then reload when prompted. Check background, both gryphons, action/bag/menu clicks and XP containment, followed by combat, restore/span and layout-switch lifecycle checks. No layout deletion is required. Automated mocks and package checks do not establish rendering, taint or persistence acceptance. The older source-only spacing status below is superseded by this deployment.
+- Artwork remains unaccepted: latest reporter screenshot identifies the missing right gryphon and full Classic background. Anniversary native MainActionBarOverrides.lua intentionally hides MainMenuBar and uses compact EndCaps when the action bar is no longer default-positioned. Reference: https://github.com/Gethe/wow-ui-source/blob/classic_anniversary/Interface/AddOns/Blizzard_ActionBar/Classic/MainActionBarOverrides.lua . The Classic MainActionBar.xml defines two 128x128 end-cap textures extending outside the interactive frame: https://github.com/Gethe/wow-ui-source/blob/classic_anniversary/Interface/AddOns/Blizzard_ActionBar/Classic/MainActionBar.xml . A 12-unit interactive-control gap did not reserve their decorative extent.
+- Source-only end-cap spacing change: reserve each live texture's measured width (128-unit fallback) beside the active bar, include that extent in strip centering and narrow-layout row placement, and leave native artwork visibility untouched. All 49 suites and six-manifest Lua 5.1 checks pass, including expanded strip/gryphon clearance assertions. This spacing increment has NOT been deployed; the Anniversary install still has the strip candidate from the backup/deployment entry below. Full Classic background restoration is unresolved and must not be described as fixed or accepted. A separate addon-owned decorative solution would be a presentation change, not a native visibility override.
+- Follow-up live result after bags/menu correction: buttons are visible, but the compact action group is left of Mainhand center and XP extends across the seam. Topology/viewport remain READY/PASS with the generated layout selected. This is partial progress, not HUD acceptance.
+- Strip correction: for a default artwork-relative main-bar source with a live MainActionBar, measure the active bar, actual MicroMenu and BagsBar rather than preserving the obsolete artwork's 1024-unit offsets. Serialize a centered, spaced strip (separate centered rows if the combined strip exceeds available width) and center the default XP/status row above it. Do not use current action-button or bag edges to position XP on this path. Customized rows and other source families retain their previous policy; no protected frame visibility, parenting or state drivers are changed.
+- Automated: all 49 Lua suites and six-manifest Lua 5.1 checks pass. Regression fixture distinguishes 454-unit active bar from 1024-unit artwork, verifies default row spacing and centering, XP containment in the reported-size Mainhand, native self-point handling, and repeated repair independent of stale live edges. These calculations do not prove native rendering or taint safety.
+- Deployment: only Core/MainhandEditMode.lua was recopied to Anniversary and hash-verified. Installed validation passed, generated bridge hashes were unchanged, SavedVariables were untouched, and the frozen Companion hash is unchanged. Full pre-update install: `D:\Games\World of Warcraft\_offhand_deploy_backups\anniversary-hud-strip-20261023-221343-617\Offhand`. Source remains a local working-tree candidate with unrelated pending setup work preserved. Live acceptance requires loading this Lua, explicitly updating the existing generated layout, then reloading and checking all three button groups plus XP. No merge or release.
+- Follow-up failed live acceptance: the reporter clarified that action buttons, bag buttons and micro menu are the affected UI. Readouts show MainActionBar and ActionButton1 shown; hidden MainMenuBar alone is not a visibility defect. The legacy MicroButtonAndBagsBar readout changed from bottom approximately -34 to 6 and does not establish the actual BagsBar/MicroMenu positions. The initial MainBar-only correction is not accepted as a complete HUD fix.
+- Source-confirmed omission: Anniversary's Classic preset defines MicroMenu and Bags with MainMenuBarArtFrame-relative anchors too. Reference: https://github.com/Gethe/wow-ui-source/blob/classic_anniversary/Interface/AddOns/Blizzard_EditMode/Classic/EditModePresetLayouts.lua . Its BagsBar is a separate Edit Mode root: https://github.com/Gethe/wow-ui-source/blob/classic_anniversary/Interface/AddOns/Blizzard_MainMenuBarBagButtons/Classic/MainMenuBarBagButtons.xml . Extended the same default-only serialized rebase to those two capability-detected system types; customized entries remain unchanged. No live protected frame, artwork visibility, button visibility or state-driver override is added.
+- Follow-up evidence: all 49 Lua suites and six-manifest Lua 5.1 validation pass. Added menu/bags translation and customized-bags preservation cases, including repeated repair without accumulated offsets. Only Core/MainhandEditMode.lua was recopied to Anniversary and hash-verified; installed validation passed. Generated bridges were hash-preserved; SavedVariables were not edited. Full pre-update backup: `D:\Games\World of Warcraft\_offhand_deploy_backups\anniversary-bags-menu-20261023-220718-999\Offhand`. The agent did not reload or control the client. Live acceptance remains pending after reload, explicit update of the existing generated layout and the subsequent reload; no deletion of layouts is required by the test.
+- Reporter evidence: Anniversary 2.5.6 build 70006, interface 20506. Diagnostics show enabled/spanned, Companion READY/MATCH, 4000x2560 bounds and viewport PASS. Mainhand is 2560x1440 at (1440,6), workspace 1440x2560 at (0,0). The generated Offhand layout is selected in Edit Mode. ID 3 alone is not evidence of incorrect activation on this client. Reported failures are wizard placement, confirmation hidden behind the wizard, and the main action bar remaining outside Mainhand after repair/reload. These supersede the earlier disabled-profile hypothesis for the later failure.
+- Implemented locally: translate the default MainBar anchor relative to MainMenuBarArtFrame into a UIParent-relative Mainhand anchor when artwork dimensions are available. Customized artwork-relative rows and preset source data remain untouched; no protected live-frame ancestry is changed. Other unknown relative anchors remain outside this targeted correction.
+- Setup link and HUD-deferral popups use the existing addon-owned card above the fullscreen wizard, measured text height and Mainhand geometry. Other keyboard popups remain native. Shared dialog fitting now constrains refitted dialogs to the accepted Mainhand rectangle instead of merely the full spanned canvas.
+- Automated: all 49 Lua suites pass, plus six-manifest Lua 5.1 validation, Companion preference and release-metadata tests. Added coverage for default artwork-relative translation, customized row preservation, repeat repair without slot/offset accumulation, owned confirmation callback/layer/position, and physical-void dialog recovery. The frozen Companion hash is unchanged.
+- Anniversary deployment: only Core/Init.lua, Core/MainhandEditMode.lua and UI/Controls.lua were copied and hash-verified. The installed addon passed six-manifest validation; both generated bridge hashes were preserved and SavedVariables were not edited. Full pre-update install: `D:\Games\World of Warcraft\_offhand_deploy_backups\anniversary-hud-dialog-20261023-215058-381\Offhand`. The running client was not controlled or reloaded by the agent. Existing uncommitted onboarding/identification work was preserved; this is a local working-tree candidate, not a new release or promoted PR checkpoint.
+- Live pending: close Edit Mode, reload to load the updated Lua, verify reachable wizard/confirmation, rebuild the existing character's Mainhand layout without deleting another layout, reload again and inspect actual MainMenuBar placement and actions. Retest combat/taint and other clients before broader promotion. No in-game fix acceptance is claimed from the automated checks.
+
+# First-login dismissal and display identification, local candidate
+
+- One-click mode candidate: Step 3 now leads with **Set to Windowed**, retaining
+  **Open display settings** and **Identify displays**. The player-clicked action
+  requests `gxWindow=1` where present and `gxMaximize=0` where present, then uses
+  native `UpdateWindow` or the legacy `RestartGx` fallback. It does not position
+  or span the window and does not change resolution or monitor selection.
+  Already-Windowed mode is a no-op. Combat, pending native settings, restricted
+  CVar metadata, absent APIs and rejected writes use an explicit manual fallback.
+  Partial writes/native apply failures attempt to restore original mode CVars;
+  neither native placement nor rollback of the actual window is inferred from
+  readback. The guide remains on preparation and setup is not marked complete.
+- Evidence: Blizzard's current Graphics definition maps `gxMaximize=false` to
+  Windowed; its SettingsPanel commits window changes through `UpdateWindow`.
+  Source references:
+  https://github.com/Gethe/wow-ui-source/blob/live/Interface/AddOns/Blizzard_SettingsDefinitions_Shared/Graphics.lua
+  https://github.com/Gethe/wow-ui-source/blob/live/Interface/AddOns/Blizzard_Settings_Shared/Blizzard_SettingsPanel.lua
+  Automated mode tests cover modern/legacy flags, no-op spans, forbidden/read-only
+  settings, partial failure, rollback, unavailable apply APIs and combat. All 49
+  Lua suites and six manifests pass. Actual mode switching, restrictions, native
+  window visibility and taint safety remain pending in Retail, Era and Anniversary.
+- Latest mode-button deployment: all three installs match 71 copied files;
+  generated bridges were hash-preserved and SavedVariables untouched. Backups:
+  `D:\Games\World of Warcraft\_offhand_deploy_backups\onboarding-identify-20261023-210038-847-Retail\Offhand`,
+  `D:\Games\World of Warcraft\_offhand_deploy_backups\onboarding-identify-20261023-210040-003-ClassicEra\Offhand`, and
+  `D:\Games\World of Warcraft\_offhand_deploy_backups\onboarding-identify-20261023-210041-255-ClassicAnniversary\Offhand`.
+- Follow-up display-settings shortcut: guide Step 3 now includes **Open display
+  settings**. Modern clients resolve the Graphics category through Blizzard's
+  localized category name, without hard-coded category IDs; legacy clients use
+  their Video options panel. If the category is unavailable, modern settings
+  opens generally. Missing/rejected APIs leave manual instructions visible.
+  No display CVars are changed. Combat blocks the action. An addon-owned,
+  bounded visibility observer returns to the same guide page when settings
+  closes; the handoff step survives reload and world-transition cleanup cancels
+  the observer without hooking Blizzard frame scripts.
+- Follow-up automated checks: all 49 Lua suites and six-manifest Lua 5.1
+  validation pass. The expanded onboarding suite covers localized category
+  lookup, general/legacy fallback, native-call failure, no-show timeout, combat,
+  return-to-guide, abandoned-session timeout and cleanup. Actual native settings
+  navigation and return behavior still require live verification on each client.
+- Latest installs on 2026-10-23: Retail, Era and Anniversary each match all 71
+  copied files; both generated bridges in each remain hash-identical and
+  SavedVariables were untouched. Fresh pre-update backups under
+  `D:\Games\World of Warcraft\_offhand_deploy_backups` are:
+  `onboarding-identify-20261023-205656-177-Retail\Offhand`,
+  `onboarding-identify-20261023-205657-310-ClassicEra\Offhand`, and
+  `onboarding-identify-20261023-205658-639-ClassicAnniversary\Offhand`.
+- Deployment on 2026-10-23: Retail at
+  `D:\Games\World of Warcraft\_retail_\Interface\AddOns\Offhand` now matches
+  all 71 copied candidate files. Both generated bridges were preserved and
+  hash-verified; SavedVariables were untouched. Verified pre-update backup:
+  `D:\Games\World of Warcraft\_offhand_deploy_backups\onboarding-identify-20261023-201842-042-Retail\Offhand`.
+  Classic Era (`C:\Games\World of Warcraft\_classic_era_`) and Anniversary
+  (`C:\Games\World of Warcraft\_anniversary_`) were then updated at the user's
+  request. Each matches all 71 copied candidate files, with both generated
+  bridges preserved and hash-verified and SavedVariables untouched. Their
+  pre-update backups are under the same backup root:
+  `onboarding-identify-20261023-201957-184-ClassicEra\Offhand` and
+  `onboarding-identify-20261023-201958-728-ClassicAnniversary\Offhand`.
+  The `_forever_` and ended `_classic_beta_` clients were not updated.
+  No client was launched and no live behavior was verified.
+- Initial guide is no longer registered in `UISpecialFrames`. Escape keeps it
+  open without consuming the key globally. The explicit close button remains
+  available and does not mark setup complete. Normal reload/world-transition
+  cleanup and button-driven handoffs are unchanged.
+- `Identify displays` is available on guide pages 1, 3 and 4 and in Display
+  settings. Temporary addon-owned cards label the current Mainhand and Offhand
+  regions, distinguish Companion geometry from configured/manual regions, and
+  never claim to enumerate physical screens outside WoW. An unspanned or
+  settling window instead directs the player to Windows Display Settings >
+  Identify. No saved geometry, native window settings or Companion files change.
+- Cards expire after 12 seconds and hide on manual close, display/UI-scale
+  changes, leaving the world or entering combat. Repeated use reuses frames.
+  New text uses locale keys in all eleven dictionaries, with English fallback
+  pending translation.
+- Automated: all 49 Lua suites pass, including identification coordinate,
+  invalid-data, combat, timeout, repeat-use, invalidation, guide-button and
+  explicit-close checks. All six manifests pass paths, XML and Lua 5.1 syntax.
+- Live verification pending: clean login, Escape and close-button behavior,
+  guide/settings labels at supported UI scales, portrait and stacked spans,
+  unequal heights/offsets, intentional single-ultrawide split, missing/stale
+  topology, resize, combat transition and reload. Confirm labels remain within
+  the configured regions and that Windows Identify is required before spanning.
+  No live, taint or packaged-build acceptance is claimed. No publication.
+
 # Combined candidate source-readiness recheck, runtime checkpoint 3fe93da
 
 - No runtime code or installed files changed. All 48 Lua suites, six-manifest Lua 5.1 validation, Companion preference checks, and release-metadata checks passed again.
@@ -1296,3 +1658,25 @@ a workaround or infer native taint safety from the earlier simulated pass.
   in the Forever Beta Offhand directory, with a backup and per-file hashes.
   Existing generated bridge files and SavedVariables remain unchanged. Live
   chat readability and copy/paste checks remain pending after `/reload`.
+
+## Open menu during span / ordinary-window transition (local candidate)
+
+- Open Graphics Options on Mainhand while spanned. Restore Window in Companion.
+  After resize settles, Options must be centered and usable in the normal window.
+- Re-span with Options open; verify Mainhand centering, then close/reopen Options
+  and Escape menu. Check BugSack for errors and protected-action warnings.
+- Verify hidden panels stay hidden, an externally moved panel is not reclaimed by
+  resize refresh, and combat defers repositioning until a safe layout update.
+- Automated coverage is tests/menu-placement.lua plus lifecycle and escape suites.
+  Retail visible placement and menu close/reopen checks passed on 2026-10-25,
+  with no new BugSack errors reported. External ownership and combat deferral
+  remain live pending. Companion control checks completed before installation.
+
+## User acceptance, 25 October 2026
+
+The user considers the structural/UI refactor, first-time setup, HUD/window
+restore/menu placement, Forever Gamepad, Bagnon, Party-frame recovery, Dialogue UI,
+pet battles and recorded source defect fixed and resolved. Prior pending checklists
+for this scope remain historical rather than new release blockers. No additional
+live tests are implied. Linux/Wine is assumed fixed with direct reporter
+verification outstanding. Performance investigation is the next active work.

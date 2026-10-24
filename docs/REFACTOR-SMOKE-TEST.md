@@ -64,3 +64,12 @@ treating them as passed.
 ## Report
 
 Send the client/build, tested topology, relevant addons, and any failed step. Include the exact action sequence, expected and observed behavior, and a fresh error stack or screenshot when available. Mark unavailable cases as not tested. A result from one client or topology does not establish a pass for another.
+
+## User acceptance, 25 October 2026
+
+The user considers the structural/UI refactor, first-time setup, HUD/window
+restore/menu placement, Forever Gamepad, Bagnon, Party-frame recovery, Dialogue UI,
+pet battles and recorded source defect fixed and resolved. Prior pending checklists
+for this scope remain historical rather than new release blockers. No additional
+live tests are implied. Linux/Wine is assumed fixed with direct reporter
+verification outstanding. Performance investigation is the next active work.

@@ -183,3 +183,12 @@ Do not merge or release on the basis of an assumed runtime pass.
 
 Rollback requires restoring the pre-update addon files, not deleting SavedVariables.
 The structural candidate remains independently reviewable in PR #34.
+
+## User acceptance, 25 October 2026
+
+The user considers the structural/UI refactor, first-time setup, HUD/window
+restore/menu placement, Forever Gamepad, Bagnon, Party-frame recovery, Dialogue UI,
+pet battles and recorded source defect fixed and resolved. Prior pending checklists
+for this scope remain historical rather than new release blockers. No additional
+live tests are implied. Linux/Wine is assumed fixed with direct reporter
+verification outstanding. Performance investigation is the next active work.

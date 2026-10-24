@@ -317,6 +317,9 @@ function Options:CreateFloatingPanel()
         if Offhand.HUD and Offhand.HUD.SetGroupLootMoverShown then
             Offhand.HUD:SetGroupLootMoverShown(false)
         end
+        if Offhand.Wizard and Offhand.Wizard.ResumeFromSettings then
+            Offhand.Wizard:ResumeFromSettings()
+        end
     end)
 
     -- Sidebar divider, kept outside the scrolling content.
@@ -335,7 +338,11 @@ function Options:CreateFloatingPanel()
     autoWizardBtn:SetPoint("TOPRIGHT", -24, -126)
     autoWizardBtn:SetText(L["BTN_AUTO_WIZARD"])
     autoWizardBtn:SetScript("OnClick", function()
-        if Offhand.Wizard and Offhand.Wizard.Open then
+        if Offhand.IsSetupComplete and not Offhand:IsSetupComplete()
+            and Offhand.Onboarding and Offhand.Onboarding.Open then
+            configFrame:Hide()
+            Offhand.Onboarding:Open()
+        elseif Offhand.Wizard and Offhand.Wizard.Open then
             Offhand.Wizard.openedFromOptions = true
             configFrame:Hide()
             Offhand.Wizard:Open()
@@ -553,7 +560,7 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 1: DISPLAY & VIEWPORT CALIBRATION
     -- ========================================================================
-    local card1_1 = CreateCard(tab1, L["CARD_LAYOUT_PRESETS"], 184)
+    local card1_1 = CreateCard(tab1, L["CARD_LAYOUT_PRESETS"], 216)
 
     local enableCheck = CreateNativeCheckbox(card1_1, L["ENABLE_OFFHAND"],
         function() return Offhand.db and Offhand.db.enabled end,
@@ -663,6 +670,19 @@ function Options:CreateFloatingPanel()
         Offhand:SetTooltip(autoDetectBtn, L["BTN_1CLICK_AUTOCONFIG_TIP_TITLE"], L["BTN_1CLICK_AUTOCONFIG_TIP_DESC"])
     end
     card1_1.autoDetectBtn = autoDetectBtn
+
+    local identifyDisplays = CreateFrame("Button", nil, card1_1, "UIPanelButtonTemplate")
+    identifyDisplays:SetSize(240, 26)
+    identifyDisplays:SetPoint("TOPLEFT", 12, -174)
+    identifyDisplays:SetText(L["IDENTIFY_DISPLAYS"])
+    identifyDisplays:SetScript("OnClick", function()
+        if Offhand.DisplayIdentify then Offhand.DisplayIdentify:Show() end
+    end)
+    if Offhand.SetTooltip then
+        Offhand:SetTooltip(identifyDisplays, L["IDENTIFY_DISPLAYS"], L["IDENTIFY_TIP"])
+    end
+    configFrame.identifyDisplaysButton = identifyDisplays
+
 
 
     local manualCanvasCard = CreateCard(tab1, L["CARD_MANUAL_CANVAS"], 96)
@@ -2268,6 +2288,8 @@ function Options:CreateFloatingPanel()
     end
 
     function Options:RefreshPanel()
+        local incomplete = Offhand.IsSetupComplete and not Offhand:IsSetupComplete()
+        autoWizardBtn:SetText(L[incomplete and "ONBOARD_CONTINUE_SETUP" or "BTN_AUTO_WIZARD"])
         if not configFrame then return end
         local info = Options:DetectTopology()
         local bannerText

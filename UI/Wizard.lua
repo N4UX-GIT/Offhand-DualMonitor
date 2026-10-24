@@ -863,6 +863,9 @@ function Wizard:CreateFrame()
     advBtn:SetPoint("BOTTOMLEFT", 18, 14)
     advBtn:SetText(L["BTN_SETTINGS"])
     advBtn:SetScript("OnClick", function()
+        if Offhand.IsSetupComplete and not Offhand:IsSetupComplete() then
+            Wizard.settingsResumeStep = f.step
+        end
         Wizard.openedFromOptions = false
         Wizard:Close()
         if Offhand.Options and Offhand.Options.Open then
@@ -910,6 +913,10 @@ function Wizard:CreateFrame()
     end
 
     local function CompleteSetup(deferMainhandLayout)
+        if type(OffhandCharDB) == "table" then
+            OffhandCharDB.hudSetupReminder = deferMainhandLayout == true or nil
+            OffhandCharDB.hudSetupReminderDeclined = nil
+        end
         if f.totalSteps > 4 and Offhand.Mainhand
             and type(Offhand.Mainhand.SetEditModeLayoutDeferred) == "function" then
             Offhand.Mainhand:SetEditModeLayoutDeferred(deferMainhandLayout == true)
@@ -923,13 +930,14 @@ function Wizard:CreateFrame()
         Wizard:Close()
         Offhand:ApplyFullLayout()
         if Offhand.Print then
-            Offhand:Print(L["CONFIG_SAVED"])
             if deferMainhandLayout then
                 Offhand:Print(L["WIZARD_SKIP_HUD_COMPLETE"])
+                Offhand:Print(L["WIZARD_SKIP_HUD_NEXT"])
+            else
+                Offhand:Print(L["CONFIG_SAVED"])
+                Offhand:Print(ReadinessSummary(L["READINESS_HUD_READY"]))
+                Offhand:Print(L["READINESS_COLD_START"])
             end
-            Offhand:Print(ReadinessSummary(deferMainhandLayout
-                and L["READINESS_HUD_DEFERRED"] or L["READINESS_HUD_READY"]))
-            Offhand:Print(L["READINESS_COLD_START"])
         end
     end
 
@@ -1236,10 +1244,15 @@ function Wizard:CreateFrame()
     f.scaleEditBox = scaleEditBox
 
     wizardFrame = f
+    f:RegisterEvent("PLAYER_REGEN_ENABLED")
+    f:RegisterEvent("PLAYER_CONTROL_GAINED")
+    f:RegisterEvent("CINEMATIC_STOP")
+    f:SetScript("OnEvent", function() Wizard:ResumeFromSettings() end)
     return f
 end
 
 function Wizard:Open()
+    self.settingsResumeStep = nil
     -- Hide Options dashboard if it is currently open to prevent overlapping windows
     if Offhand.Options and Offhand.Options.GetConfigFrame then
         local cfg = Offhand.Options:GetConfigFrame()
@@ -1304,6 +1317,23 @@ function Wizard:Open()
     f:SetStep(1)
 
     f:Show()
+end
+
+function Wizard:ResumeFromSettings()
+    local step = self.settingsResumeStep
+    if not step then return end
+    if InCombatLockdown and InCombatLockdown() then return end
+    if Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved() then return end
+    local options = Offhand.Options and Offhand.Options.GetConfigFrame and Offhand.Options:GetConfigFrame()
+    if options and options:IsShown() then return end
+    self.settingsResumeStep = nil
+    self:Open()
+    if wizardFrame then wizardFrame:SetStep(step) end
+end
+
+function Wizard:OpenHUDSetup()
+    self:Open()
+    if wizardFrame then wizardFrame:SetStep(wizardFrame.totalSteps) end
 end
 
 function Wizard:Close()

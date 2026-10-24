@@ -104,18 +104,28 @@ function Recovery.Install(HUD)
         HUD.characterEditModeSelectionHooked = true
         _G.EditModeManagerFrame:HookScript("OnShow", function()
             HUD.characterEditModeManagerWasShown = true
+            HUD.characterEditModeStartLayoutName = GetActiveEditModeLayoutName()
         end)
         _G.EditModeManagerFrame:HookScript("OnHide", function()
             if not HUD.characterEditModeManagerWasShown then return end
             HUD.characterEditModeManagerWasShown = nil
+            local startName = HUD.characterEditModeStartLayoutName
+            HUD.characterEditModeStartLayoutName = nil
             -- Read after Blizzard finishes its close/save transaction. Observing
             -- the manager avoids treating login-time API activity as a deliberate
             -- player choice.
-            if C_Timer and C_Timer.After then
-                C_Timer.After(0, function() RememberCharacterEditModeLayout() end)
-            else
-                RememberCharacterEditModeLayout()
+            local function SettledSelection()
+                local name = RememberCharacterEditModeLayout()
+                if name and name ~= startName and Offhand.Mainhand
+                    and Offhand.Mainhand.RememberWindowModeLayoutSelection then
+                    Offhand.Mainhand:RememberWindowModeLayoutSelection(name)
+                end
+                if Offhand.Mainhand and Offhand.Mainhand.UpdateWindowModeLayout and Offhand.ApplyFullLayout then
+                    Offhand:ApplyFullLayout()
+                end
             end
+            if C_Timer and C_Timer.After then C_Timer.After(0, SettledSelection)
+            else SettledSelection() end
         end)
     end
 

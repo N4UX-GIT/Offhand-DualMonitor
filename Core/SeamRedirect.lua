@@ -240,6 +240,9 @@ function HUD:AlignHUDFrames(m)
     aligning = true
     local ok, err = pcall(function()
         m = m or Offhand.Viewport:GetMetrics()
+        if Offhand.MainhandCompatibility and Offhand.MainhandCompatibility.UpdateClassicNativeBar then
+            Offhand.MainhandCompatibility.UpdateClassicNativeBar(m)
+        end
         if not HasBlizzardEditMode() and not HasCustomActionBarAddon() then
             local main = MainMenuBar or MainActionBar
 
@@ -572,13 +575,7 @@ function HUD:HookFrames()
             local frame = _G[name]
             if frame and frame:IsShown() and not InCombatLockdown() and Offhand.db and Offhand.db.enabled then
                 local m = Offhand.Viewport:GetMetrics()
-                frame:ClearAllPoints()
-                local cx = (m.gameLeft + m.gameRight) / 2
-                local cy = (m.gameBottom + m.gameTop) / 2
-                local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
-                local offsetX = cx - (UIParent:GetWidth() / 2)
-                local offsetY = cy - (UIParent:GetHeight() / 2)
-                frame:SetPoint("CENTER", UIParent, "CENTER", offsetX * factor, offsetY * factor)
+                if Offhand.MenuPlacement then Offhand.MenuPlacement:Center(frame, m) end
             end
         end
     end
@@ -813,6 +810,13 @@ function HUD:HookFrames()
         if not layoutData or not layoutData.layouts then return end
 
         local forever = UsesForeverEditMode()
+        if not forever and Offhand.Mainhand and Offhand.Mainhand.UpdateWindowModeLayout then
+            local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+            local managed = Offhand.Mainhand:UpdateWindowModeLayout(metrics)
+            -- Generated-layout transitions own both window modes. The legacy
+            -- login selector must not reselect Mainhand after a window restore.
+            if managed then return end
+        end
         if forever then
             local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
                 and Offhand.Viewport:GetMetrics() or nil

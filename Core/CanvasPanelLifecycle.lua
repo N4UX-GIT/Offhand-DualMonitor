@@ -63,6 +63,7 @@ function Lifecycle.InstallClosePolicy(Canvas, services)
         CloseAllWindows = function(ignoreCenter)
             local activeWorkspaceFrames = {}
             local closedBags = false
+            local hasCustomBags = Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()
             
             local function TrackFrame(f)
                 if not f or not f.IsShown or not f:IsShown() then return end
@@ -80,7 +81,6 @@ function Lifecycle.InstallClosePolicy(Canvas, services)
             
             if not ignoreCenter and not InCombatLockdown() and Offhand.db and Offhand.db.enabled and Offhand.db.persistentWorkspacePanels ~= false then
                 -- 1. Track standard bags ONLY if no custom bag addon is controlling them
-                local hasCustomBags = Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()
                 if not hasCustomBags then
                     local standardBags = {}
                     for i = 1, NUM_CONTAINER_FRAMES or 13 do table.insert(standardBags, _G["ContainerFrame"..i]) end
@@ -160,7 +160,6 @@ function Lifecycle.InstallClosePolicy(Canvas, services)
                         if f and f.IsShown and f:IsShown() then statesBefore[name] = true end
                     end
                 end
-                local hasCustomBags = Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()
                 if not hasCustomBags then
                     for i = 1, NUM_CONTAINER_FRAMES or 13 do
                         local f = _G["ContainerFrame"..i]

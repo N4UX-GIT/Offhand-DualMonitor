@@ -165,6 +165,24 @@ function Controls.FitDialog(frame, metrics)
             frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * previous / scale, cy * previous / scale)
         end
     end
+    -- Screen clamping sees the entire spanned canvas, including physical voids.
+    -- Keep our dialog inside the accepted game rectangle after every reflow.
+    if metrics and metrics.isSpanned and frame.GetCenter then
+        local cx, cy = frame:GetCenter()
+        if cx and cy and metrics.gameLeft and metrics.gameRight
+            and metrics.gameBottom and metrics.gameTop then
+            cx, cy = cx * scale, cy * scale
+            local halfW, halfH = frame:GetWidth() * scale / 2, frame:GetHeight() * scale / 2
+            local x = math.max(metrics.gameLeft + halfW,
+                math.min(cx, metrics.gameRight - halfW))
+            local y = math.max(metrics.gameBottom + halfH,
+                math.min(cy, metrics.gameTop - halfH))
+            if math.abs(x - cx) > 0.01 or math.abs(y - cy) > 0.01 then
+                frame:ClearAllPoints()
+                frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x / scale, y / scale)
+            end
+        end
+    end
     return scale
 end
 
@@ -670,6 +688,29 @@ function Controls.MeasureWrappedText(fontString, text, width, lineHeight)
         lines = lines + math.max(1, math.ceil(#line / columns))
     end
     return math.max(1, lines) * (lineHeight or 15)
+end
+
+-- Popup FontStrings can report only the rendered (already truncated) height.
+-- Reserve space for all paragraphs even when native metrics still describe
+-- the previous card. This affects addon-owned popup text only.
+function Controls.MeasurePopupText(fontString, text, width)
+    local measured = Controls.MeasureWrappedText(fontString, text, width)
+    local plain = tostring(text or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    local columns = math.max(1, math.floor((tonumber(width) or 464) / 8))
+    local lines = 0
+    for paragraph in (plain .. "\n"):gmatch("(.-)\n") do
+        local used = 0
+        lines = lines + 1
+        for word in paragraph:gmatch("%S+") do
+            if used > 0 and used + 1 + #word > columns then
+                lines, used = lines + 1, 0
+            end
+            if used > 0 then used = used + 1 end
+            used = used + #word
+            while used > columns do lines, used = lines + 1, used - columns end
+        end
+    end
+    return math.max(measured, lines * 18 + 8)
 end
 
 function Controls.GetCardContentTop(card, minimum)

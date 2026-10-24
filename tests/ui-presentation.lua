@@ -196,6 +196,14 @@ assert(ui.MeasureWrappedText({ GetStringHeight = function() error("unavailable")
     "unavailable metrics must retain explicit line breaks in the fallback")
 assert(ui.MeasureWrappedText(nil, "|cffff0000hello|r", 35) == 15,
     "fallback measurement must not count color markup as visible text")
+local clippedPopup = { GetStringHeight = function() return 16 end }
+local popupCopy = "Title\n\n" .. string.rep("A complete recovery instruction. ", 20)
+assert(ui.MeasurePopupText(clippedPopup, popupCopy, 464) > 180,
+    "popup sizing must reserve full copy when native metrics report only a clipped line")
+assert(ui.MeasurePopupText(nil, "|cffffd100Resume|r", 464) == ui.MeasurePopupText(nil, "Resume", 464),
+    "highlight markup must not inflate popup layout")
+assert(ui.MeasurePopupText(clippedPopup, popupCopy, 200) > ui.MeasurePopupText(clippedPopup, popupCopy, 464),
+    "narrow popup text must reserve more wrapped lines")
 for _, heights in ipairs({ { 18, 190, 42, 26 }, { 45, 450, 90, 50 }, { 18, 40, 42, 0 } }) do
     local guide = ui.GetGuideLayout(unpack(heights))
     local statusTop = guide.height - guide.statusBottom - guide.statusHeight
@@ -355,3 +363,9 @@ addon:ApplyFullLayout()
 assert(dialog.scale == 1 and math.abs(dialog.centerX - 700) < 0.001,
     "restoring the viewport must recover full dialog scale without center drift")
 print("PASS: addon-owned UI styling, interaction states, wheel limits, scrollbar sync and viewport fitting")
+dialog.centerX, dialog.centerY = 800, 1300
+ui.FitDialog(dialog, { isSpanned = true, gameWidth = 1950, gameHeight = 1097,
+    gameLeft = 1097, gameRight = 3047, gameBottom = 4, gameTop = 1101 })
+assert(dialog.centerX - dialog:GetWidth() * dialog:GetScale() / 2 >= 1097
+        and dialog.centerY + dialog:GetHeight() * dialog:GetScale() / 2 <= 1101,
+    'reflow must recover a dialog from the seam or physical void into Mainhand')

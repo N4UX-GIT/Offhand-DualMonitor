@@ -260,3 +260,12 @@ The candidate is not ready for promotion until the Retail launcher is repaired a
 ## Branch policy
 
 Structural refactor work targets `addon/develop`. Visual redesign work begins only after the structural phases are accepted and live-client checkpoints are clear. Companion work remains isolated on `companion/develop` and must not be merged into this branch as an incidental dependency.
+
+## User acceptance, 25 October 2026
+
+The user considers the structural/UI refactor, first-time setup, HUD/window
+restore/menu placement, Forever Gamepad, Bagnon, Party-frame recovery, Dialogue UI,
+pet battles and recorded source defect fixed and resolved. Prior pending checklists
+for this scope remain historical rather than new release blockers. No additional
+live tests are implied. Linux/Wine is assumed fixed with direct reporter
+verification outstanding. Performance investigation is the next active work.
