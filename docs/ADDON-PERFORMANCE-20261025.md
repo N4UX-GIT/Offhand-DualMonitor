@@ -11,7 +11,7 @@ other addon fixes does not establish performance.
 | BagPersistence capture | 0.2 s | Replaced an empty saved-state table on every resumed idle poll; candidate now retains an already-empty table and clears stale intent once |
 | Chat bubble replacement | 0.1 s, plus chat events | Candidate for real profiling in busy scenes; do not remove the sweep without testing bubble lifecycle and fading |
 | Edit Mode recovery | 0.25 s, also called by 2 s popup pass | Possible redundant work; pending actual inclusive CPU/call counts |
-| Forever bag observer | OnUpdate with internal cadence | Required visibility/input reconciliation; profile while bags closed/open and in Gamepad before altering |
+| Forever bag observer | Every rendered frame, no elapsed-time throttle in this callback | Geometry checks and addon-owned proxy layout repeat even for a settled visible bag; preserve first-frame correction while evaluating redundant work |
 | Workspace behavior | 0.5 s | Character scale and lock recovery; compare feature-off and feature-on cases |
 | Workspace chrome | 1 s | Known bounded registry, no recurring global scan; opted-in hidden buttons still receive writes each refresh |
 | Transient panels/popups | 2 s | Discovery/positioning/recovery; investigate cost with many loaded UI addons |
@@ -75,3 +75,70 @@ No live capture was performed as part of this source audit. Forever live testing
 remains deferred under the user's release plan; Retail/Anniversary can provide an
 earlier baseline when the user is ready. No diagnostic addon was installed into
 a game client by this change.
+
+## Deeper review, 25 October
+
+Reproducible characterization: run `tools/performance/Measure-MockedWork.ps1` from
+PowerShell with Lua 5.1 available. It appends counters to the existing functional
+mocks in temporary files and exercises the actual module code. It does not hook
+the live client, modify production source or treat mocked time as measured CPU.
+
+| Steady-state scenario | Measured mocked work | Interpretation |
+| --- | --- | --- |
+| One native Forever bag shown, 600 observer frames | 1,200 viewport metric reads, 1,800 addon proxy layout writes, zero native bag anchor writes | Two geometry calculations per frame and three proxy layout writes per frame; prioritize idempotent proxy updates and callback-local geometry reuse |
+| One already-hidden map close button, 600 chrome refreshes | 600 SetAlpha calls and 600 EnableMouse calls for that button | Reassertion protects against native/skin refreshes, but property comparison may avoid unchanged writes without removing enforcement |
+
+The native bag root already has a coordinate-tolerance no-op check. The redundant
+writes are on the addon-owned drag proxy, not evidence of repeated protected bag
+reanchoring. Preserve that ownership distinction. The native bag observer is truly
+per-frame; the previous inventory incorrectly described an internal cadence.
+The Gamepad observer does throttle substantial panel work, although interface
+mode detection still happens each frame.
+
+Viewport GetMetrics constructs a new metrics table and validates current geometry
+on each call. Cross-callback caching is risky because resizing, UI scale, profile,
+manual calibration and Companion topology can all change. Begin with reuse inside
+one synchronous observer pass, with no change in stale-state lifetime.
+
+### Recommended coverage order
+
+1. **Inactive versus active work:** disabled addon, single-screen fallback, no
+   bag addon, native bags hidden/shown, custom bag provider, settings closed/open,
+   Gamepad off/on and no speech bubbles versus a busy chat scene. Assert fixtures
+   reach the active callback; the original paused-bag test demonstrated why this
+   matters.
+2. **Redundant writes:** count proxy SetPoint/SetSize, visibility changes, button
+   alpha/mouse writes and repeated scale application in settled scenes. After
+   optimization, disturb geometry/skin state and ensure one prompt repair still
+   occurs. Preserve immediate bag opening correction and drag responsiveness.
+3. **Lifecycle and scheduling:** repeated initialization and show/hide, event
+   bursts, reload/profile changes, combat entry/exit, cancelled/superseded timers,
+   retry ceilings and display-transition guards. Detect duplicated tickers and
+   cumulative callbacks, not just whether the final UI position is correct.
+4. **Allocation and persistence:** closed versus visible bag capture, saved-state
+   writes when unchanged, bubble creation/fading/pooling, geometry objects and
+   repeated serialization. Inspect operation/allocation counts separately from
+   end-of-session memory, which can conceal GC churn.
+5. **Representative live profiling:** stable 15-minute idle pairs, busy chat,
+   repeated panel actions and a combat/group scene on available clients. Compare
+   Offhand CPU per second and client frame intervals with identical profiling,
+   render settings, display geometry and scene. Use function-level profiler
+   evidence to prioritize any larger rewrite. Final Forever-client runs remain
+   deferred as instructed.
+
+### What to change first, and what to leave alone
+
+- Keep the small empty-snapshot allocation candidate; it has a targeted regression
+  and does not alter observation cadence.
+- Next low-scope candidate: skip unchanged addon-owned proxy layout writes while
+  still detecting size, scale and position changes. Add characterization before
+  editing the controller. No additional runtime optimization was made in this pass.
+- Consider guarded chrome writes and synchronous geometry reuse after verifying
+  property reads do not cross secret/protected boundaries on target clients.
+- Do not blanket-throttle every OnUpdate, introduce long-lived geometry caches,
+  force garbage collection, disable recovery, or claim performance from timer
+  counts alone. Source frequency and mocked counts are prioritization evidence;
+  they do not establish a live bottleneck or explain the historical 1 Hz spike.
+
+Recommendation: proceed with deeper targeted performance coverage. It is distinct
+from reopening the accepted functional fixes or conducting another broad refactor.
