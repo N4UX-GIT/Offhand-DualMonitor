@@ -54,6 +54,26 @@ candidates, Companion, other clients and SavedVariables were not deployed.
 
 ## Matched repeat
 
+### Repeat result: no improvement
+
+The `maintenance-fixed` capture lasts 113.789 seconds on the same Retail build.
+It records 57 maintenance cycles and 57 new >1 ms ticks. Party recovery averages
+1.586653 ms, maximum 3.963800 ms, with all 57 calls over 1 ms. There are no new
+>5 ms ticks and no increase in the historical peak. The two deployed source files
+still match the candidate hashes. This repeat does not validate the preset-copy
+explanation or demonstrate improvement. The optimization remains a draft
+candidate, not a resolved performance fix.
+
+The capture is preserved in
+`dist/performance-maintenance-fixed-20261025/OffhandPerformanceProbe.lua`, SHA256
+`FF38A34E45DBC027C8C5D6A09A9190EF7A86B764DB674095A7D0F78334CB7C1F`.
+
+Next diagnostic: record the runtime capability shape once at capture start,
+without invoking native layout getters. This distinguishes missing enum/table
+fallbacks from the scalar path. Only the standalone collector changes; no further
+production behavior change is justified by this result. A short `controller-path`
+capture is sufficient. Forever's native table remains uninspected.
+
 Use the same Retail character, ordinary window and scene. Enable Offhand and
 Offhand Performance Probe, leaving the old Display Probe disabled. After 30
 seconds, run `/ohperf start maintenance-fixed` and confirm maintenance timing is

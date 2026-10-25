@@ -61,6 +61,20 @@ local function StartMaintenanceTiming(result)
         return
     end
     result.maintenanceTimingStatus='active'
+    -- Capture capability shape once, without calling native layout getters or
+    -- retaining any native tables. This distinguishes the scalar and copy paths.
+    local inputTypes=Enum and Enum.InputDeviceInterfaceType
+    local presetManager=_G.EditModePresetLayoutManager
+    local presetTable=not owner.isForever and presetManager and presetManager.presetLayoutInfo
+    local firstPreset=type(presetTable)=='table' and presetTable[1]
+    result.controllerDetection={
+        isForever=owner.isForever==true,
+        gamepadEnumAvailable=inputTypes~=nil and inputTypes.Gamepad~=nil,
+        presetTableType=type(presetTable),firstPresetType=type(firstPreset),
+        copyMethodAvailable=presetManager~=nil and type(presetManager.GetCopyOfPresetLayouts)=='function',
+        scalarAdapterAvailable=owner.MainhandCompatibility~=nil
+            and type(owner.MainhandCompatibility.ReadControllerPresetMode)=='function',
+    }
     result.maintenancePhases={}
     maintenanceOwner=owner
     maintenanceProvider={Run=function(_,name,fn,receiver)

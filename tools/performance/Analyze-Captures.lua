@@ -49,6 +49,13 @@ for index,result in ipairs(captures) do
     end
     print('Observed intervals between sampled >1ms counter increments: '..Stats(periods,'seconds'))
     print('Maintenance timing status: '..tostring(result.maintenanceTimingStatus or 'not captured'))
+    local detection=result.controllerDetection
+    if detection then
+        for _,key in ipairs({'isForever','gamepadEnumAvailable','presetTableType','firstPresetType',
+            'copyMethodAvailable','scalarAdapterAvailable'}) do
+            print('Controller detection '..key..': '..tostring(detection[key]))
+        end
+    end
     local names={}
     for name in pairs(result.maintenancePhases or {}) do names[#names+1]=name end
     table.sort(names)

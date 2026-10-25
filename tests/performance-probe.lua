@@ -66,9 +66,27 @@ for _=1,100 do recorder:Run('discovery',function() calls=calls+1;phaseClock=phas
 clock=clock+60;command('stop')
 result=OffhandPerformanceProbeDB[#OffhandPerformanceProbeDB]
 assert(result.maintenanceTimingStatus=='active' and calls==101)
+assert(result.controllerDetection.gamepadEnumAvailable==false
+    and result.controllerDetection.scalarAdapterAvailable==false,
+    'missing controller capabilities must be explicit in diagnostic metadata')
 assert(result.maintenancePhases.discovery.calls==101 and result.maintenancePhases.discovery.over1Ms==1)
 assert(#result.maintenancePhases.discovery.samples==64,'phase sample retention must be bounded')
 assert(not Offhand.PerformanceMaintenanceProbe,'capture stop must remove its own recorder')
+Enum.InputDeviceInterfaceType={Gamepad=2}
+Offhand.MainhandCompatibility={ReadControllerPresetMode=function() error('must not invoke adapter') end}
+EditModePresetLayoutManager={presetLayoutInfo={{interfaceStyle=1}},
+    GetCopyOfPresetLayouts=function() error('must not copy native presets') end}
+command('start capabilities');command('stop')
+local shape=OffhandPerformanceProbeDB[#OffhandPerformanceProbeDB].controllerDetection
+assert(shape.gamepadEnumAvailable and shape.scalarAdapterAvailable and shape.copyMethodAvailable
+    and shape.presetTableType=='table' and shape.firstPresetType=='table')
+Offhand.isForever=true
+EditModePresetLayoutManager=setmetatable({}, {__index=function(_,key)
+    assert(key~='presetLayoutInfo','Forever diagnostics must not inspect native preset table')
+end})
+command('start forever-capabilities');command('stop')
+Offhand.isForever=false
+EditModePresetLayoutManager=nil
 command('start ownership');local other={};Offhand.PerformanceMaintenanceProbe=other;command('stop')
 assert(Offhand.PerformanceMaintenanceProbe==other,'stop must not remove another owner')
 print('PASS: opt-in performance observer, CPU availability/reset, frame intervals and bounded capture')
