@@ -518,6 +518,11 @@ end
 function Mainhand:IsControllerLayout()
     if _G.ConsolePort or NativeGamepadInterface() then return true end
     EnsureEditModeLoaded()
+    -- Periodic recovery needs only the input-style scalar, not full copies of
+    -- every system/settings tree. The client adapter preserves Forever's stricter
+    -- ownership boundary and reports nil where the existing fallback is needed.
+    local controllerMode = Compatibility.ReadControllerPresetMode()
+    if controllerMode ~= nil then return controllerMode end
     return ControllerMode(Presets())
 end
 

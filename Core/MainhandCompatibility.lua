@@ -103,3 +103,16 @@ function Compatibility.IsControllerMode(presets)
         and presets[1].interfaceStyle == gamepad
 end
 
+function Compatibility.ReadControllerPresetMode()
+    -- Forever's native preset manager has a stricter ownership boundary. Keep
+    -- its existing copy-based compatibility path until that client is retested.
+    if Offhand.isForever then return nil end
+    local gamepad = Enum and Enum.InputDeviceInterfaceType
+        and Enum.InputDeviceInterfaceType.Gamepad
+    local manager = _G.EditModePresetLayoutManager
+    local presets = manager and manager.presetLayoutInfo
+    if gamepad == nil or type(presets) ~= "table" or type(presets[1]) ~= "table" then return nil end
+    -- Read only this scalar; never retain, copy, modify or traverse systems.
+    return presets[1].interfaceStyle == gamepad
+end
+

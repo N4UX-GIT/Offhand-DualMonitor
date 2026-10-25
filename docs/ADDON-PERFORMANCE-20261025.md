@@ -177,7 +177,9 @@ Counter-increment spacing has a 2.000-second median. Both disabled runs report
 zero recent Offhand time and no new >1 ms ticks. Historical peak and >5 ms counts
 were already present before recording and did not increase.
 
-This narrows investigation to periodic work, led by the two-second maintenance
-pass. Individual phases remain unmeasured. Application-time distributions and run
-lengths differ, so no FPS causation is inferred. Next is phase-level timing in a
-private diagnostic candidate, preserving order and recovery behavior.
+The subsequent maintenance capture attributes all 35 new >1 ms ticks to the
+party-recovery phase (mean 1.483729 ms, maximum 2.818300 ms). The other five phases
+each average below 0.06 ms. See PERFORMANCE-PARTY-RECOVERY-RESULTS-20261025.md for
+the narrow controller-detection optimization and pending matched repeat capture.
+Application-time distributions and run lengths differ, so no FPS causation is
+inferred.

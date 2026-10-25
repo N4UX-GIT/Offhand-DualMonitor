@@ -1238,3 +1238,35 @@ ok=addon.Mainhand:CreateOrUpdateEditModeLayout(); assert(ok)
 assert(saved.layouts[1].systems[2].anchorInfo.relativeTo=='StatusTrackingBarManager',
     'missing Retail container must retain source relationship, not fall back to the bags')
 print('PASS: Retail status centering, separate containers, scaled points, secondary stacking and stale-edge isolation')
+
+-- Read-only controller detection must not deep-copy every preset/system tree.
+currentInterfaceStyle=1
+addon.isForever=false
+local originalPresetManager=EditModePresetLayoutManager
+local detectionPreset={interfaceStyle=1,systems={}}
+local copies=0
+EditModePresetLayoutManager={presetLayoutInfo={detectionPreset},GetCopyOfPresetLayouts=function()
+    copies=copies+1
+    return {{interfaceStyle=detectionPreset.interfaceStyle}}
+end}
+for _=1,450 do assert(not addon.Mainhand:IsControllerLayout()) end
+assert(copies==0,'periodic controller checks must not copy complete preset layouts')
+detectionPreset.interfaceStyle=Enum.InputDeviceInterfaceType.Gamepad
+assert(addon.Mainhand:IsControllerLayout(),'read-only detection must notice live preset changes immediately')
+detectionPreset.interfaceStyle=1
+assert(not addon.Mainhand:IsControllerLayout(),'keyboard mode must not be stuck in a cached Gamepad result')
+EditModePresetLayoutManager.presetLayoutInfo=nil
+detectionPreset.interfaceStyle=Enum.InputDeviceInterfaceType.Gamepad
+assert(addon.Mainhand:IsControllerLayout() and copies==1,
+    'clients without the preset table must retain the copy-based compatibility fallback')
+addon.isForever=true
+EditModePresetLayoutManager=setmetatable({GetCopyOfPresetLayouts=function()
+    copies=copies+1;return {{interfaceStyle=detectionPreset.interfaceStyle}}
+end},{__index=function(_,key)
+    assert(key~='presetLayoutInfo','Forever must not read the native preset table')
+end})
+assert(addon.Mainhand:IsControllerLayout() and copies==2,
+    'Forever must retain its existing compatibility path without native table access')
+addon.isForever=false
+EditModePresetLayoutManager=originalPresetManager
+print('PASS: controller detection reads preset style without copying layouts and preserves fallback')
