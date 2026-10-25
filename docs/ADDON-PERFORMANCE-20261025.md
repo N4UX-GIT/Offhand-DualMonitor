@@ -47,13 +47,15 @@ in the shipped Offhand package. Copy that folder beside Offhand in AddOns when
 ready to test, and remove it afterwards. It writes only its own SavedVariables,
 keeps six results, and does nothing per-frame until `/ohperf start LABEL`.
 
-It reads existing aggregate CPU/memory APIs when available and never enables
-profiling, resets global CPU counters, hooks Blizzard frames or mutates Offhand.
-For CPU evidence, manually enable `/console scriptProfile 1`, reload, and retain
-the same profiling setting for every paired comparison. If unavailable, CPU is
-reported unavailable rather than zero. Profiling and the observer add overhead;
-results apply to the instrumented session. Restore the original profiling setting
-afterwards and reload.
+It prefers C_AddOnProfiler when available, recording Offhand-specific raw
+milliseconds, slow-tick counters, all-addon/application recent metrics and the old
+display probe separately at half-second intervals. It never enables profiling,
+resets global CPU counters, hooks Blizzard frames or mutates Offhand. Modern
+captures do not require scriptProfile. Legacy aggregate CPU counters remain a
+fallback only when the client provides them and scriptProfile is already enabled.
+If unavailable, CPU is reported unavailable rather than zero. The observer adds
+overhead; compare identical instrumented sessions. Do not change scriptProfile
+for this Retail capture.
 
 1. Record actual build, topology, addon commit and enabled compatibility addons.
    Fix render scale, VSync, foreground state, camera and scene for each pair.

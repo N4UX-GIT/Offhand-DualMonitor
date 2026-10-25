@@ -2,6 +2,48 @@
 -- Offhand runtime mutation. Frame intervals describe the whole client.
 local controller = CreateFrame('Frame')
 local active
+local function Number(value)
+    return type(value)=='number' and value==value and value>=0 and value<math.huge
+end
+local function ModernMetrics()
+    local profiler=C_AddOnProfiler
+    local metrics=Enum and Enum.AddOnProfilerMetric
+    if not profiler or not metrics or type(profiler.GetAddOnMetric)~='function' then return nil end
+    if type(profiler.IsEnabled)=='function' then
+        local ok,enabled=pcall(profiler.IsEnabled)
+        if not ok or not enabled then return nil end
+    end
+    local result={}
+    local function ReadMetric(method,metric,addon)
+        local fn=profiler[method]
+        if type(fn)~='function' or metric==nil then return nil end
+        local ok,value
+        if addon then ok,value=pcall(fn,addon,metric) else ok,value=pcall(fn,metric) end
+        if ok and Number(value) then return value end
+    end
+    result.offhandRecentMs=ReadMetric('GetAddOnMetric',metrics.RecentAverageTime,'Offhand')
+    result.offhandLastMs=ReadMetric('GetAddOnMetric',metrics.LastTime,'Offhand')
+    result.offhandPeakMs=ReadMetric('GetAddOnMetric',metrics.PeakTime,'Offhand')
+    result.offhandSessionAverageMs=ReadMetric('GetAddOnMetric',metrics.SessionAverageTime,'Offhand')
+    result.offhandOver1Ms=ReadMetric('GetAddOnMetric',metrics.CountTimeOver1Ms,'Offhand')
+    result.offhandOver5Ms=ReadMetric('GetAddOnMetric',metrics.CountTimeOver5Ms,'Offhand')
+    result.displayProbeRecentMs=ReadMetric('GetAddOnMetric',metrics.RecentAverageTime,'OffhandDisplayProbe')
+    result.overallRecentMs=ReadMetric('GetOverallMetric',metrics.RecentAverageTime)
+    result.applicationRecentMs=ReadMetric('GetApplicationMetric',metrics.RecentAverageTime)
+    if result.overallRecentMs and result.applicationRecentMs and result.applicationRecentMs>0 then
+        result.addonListCurrentPercent=100*result.overallRecentMs/result.applicationRecentMs
+    end
+    if result.offhandRecentMs==nil and result.overallRecentMs==nil then return nil end
+    return result
+end
+local function SampleModern(result)
+    local sample=ModernMetrics()
+    if not sample then return end
+    sample.elapsedSeconds=math.max(0,GetTime()-result.started)
+    result.profilerSamples=result.profilerSamples or {}
+    if #result.profilerSamples<1802 then result.profilerSamples[#result.profilerSamples+1]=sample end
+    result.modernEnd=sample
+end
 local function Message(text)
     if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage('[Offhand performance] '..text) end
 end
@@ -31,13 +73,15 @@ local function Stop(reason)
     controller:SetScript('OnUpdate',nil)
     local result=active
     active=nil
+    SampleModern(result)
     result.durationSeconds=math.max(0,GetTime()-result.started)
     result.cpuEndMs=CPU()
     result.memoryEndKiB=Memory()
     if result.cpuStartMs and result.cpuEndMs and result.cpuEndMs>=result.cpuStartMs then
         result.cpuDeltaMs=result.cpuEndMs-result.cpuStartMs
         if result.durationSeconds>0 then result.cpuMsPerSecond=result.cpuDeltaMs/result.durationSeconds end
-    else result.cpuUnavailable=true end
+    else result.legacyCpuUnavailable=true end
+    result.cpuUnavailable=result.legacyCpuUnavailable and not result.modernEnd or nil
     result.reason=reason
     OffhandPerformanceProbeDB=type(OffhandPerformanceProbeDB)=='table' and OffhandPerformanceProbeDB or {}
     local saved=OffhandPerformanceProbeDB
@@ -45,7 +89,9 @@ local function Stop(reason)
     while #saved>6 do table.remove(saved,1) end
     Message(string.format('%s: %.1fs; Offhand CPU %s; whole-client max frame %.1fms, >50ms frames %d. Exit normally to save.',
         result.label,result.durationSeconds,
-        result.cpuMsPerSecond and string.format('%.3f ms/s',result.cpuMsPerSecond) or 'unavailable',
+        result.modernEnd and result.modernEnd.offhandRecentMs
+            and string.format('recent %.4f ms/profiler tick',result.modernEnd.offhandRecentMs)
+            or result.cpuMsPerSecond and string.format('%.3f ms/s',result.cpuMsPerSecond) or 'unavailable',
         result.maxFrameMs,result.over50ms))
 end
 local function Start(label)
@@ -56,6 +102,9 @@ local function Start(label)
         clientVersion=version,clientBuild=build,interface=interface,
         cpuStartMs=CPU(),memoryStartKiB=Memory(),frames=0,maxFrameMs=0,
         over16ms=0,over33ms=0,over50ms=0,over100ms=0}
+    SampleModern(active)
+    active.modernStart=active.modernEnd
+    local sampleElapsed=0
     controller:SetScript('OnUpdate',function(_,elapsed)
         if type(elapsed)~='number' or elapsed<0 or elapsed~=elapsed then return end
         local r=active
@@ -67,10 +116,13 @@ local function Start(label)
         if ms>1000/30 then r.over33ms=r.over33ms+1 end
         if ms>50 then r.over50ms=r.over50ms+1 end
         if ms>100 then r.over100ms=r.over100ms+1 end
+        sampleElapsed=sampleElapsed+elapsed
+        if sampleElapsed>=0.5 then sampleElapsed=0;SampleModern(r) end
         if GetTime()-r.started>=900 then Stop('15 minute limit') end
     end)
     Message('Capturing '..active.label..' for up to 15 minutes. /ohperf stop ends it. CPU '..
-        (active.cpuStartMs and 'available.' or 'unavailable; enable scriptProfile manually before a reload if supported.'))
+        (active.modernStart and 'available through C_AddOnProfiler; no scriptProfile change needed.'
+            or active.cpuStartMs and 'available.' or 'unavailable on this client; check supported profiler APIs.'))
 end
 SLASH_OFFHANDPERFORMANCEPROBE1='/ohperf'
 SlashCmdList.OFFHANDPERFORMANCEPROBE=function(message)
