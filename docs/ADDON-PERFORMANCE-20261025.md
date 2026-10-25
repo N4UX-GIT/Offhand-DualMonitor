@@ -142,3 +142,25 @@ one synchronous observer pass, with no change in stale-state lifetime.
 
 Recommendation: proceed with deeper targeted performance coverage. It is distinct
 from reopening the accepted functional fixes or conducting another broad refactor.
+
+## Drag-proxy layout optimization candidate
+
+The next targeted candidate is now implemented in Core/CanvasForeverBags.lua.
+The addon-owned grip compares its actual anchor and dimensions against the desired
+geometry before writing. It still checks each rendered frame; no timing, native
+bag ownership, protected tree, recovery or persistent-state contract changed.
+No per-frame helper closure or long-lived geometry cache was introduced.
+
+Mocked steady-state measurement over 600 frames:
+
+- Proxy ClearAllPoints/SetPoint/SetSize writes: 1,800 before, zero after.
+- Native bag anchor writes: zero before and after.
+- Viewport metrics reads: 1,200 before and after; geometry reuse remains separate.
+
+The regression first failed on the old implementation. It now verifies zero
+settled writes, immediate drag movement, size-only resizing, effective-scale
+updates, recovery from displaced anchors and changed dimensions, and reopening a
+hidden grip. All 55 Lua suites, six manifests and Lua 5.1 syntax checks pass.
+These are automated/mock results. Live CPU/FPS/taint behavior is not inferred;
+Forever runtime checks remain deferred until the release as instructed. No game
+installation or public package was changed. This stays in draft performance PR #36.
