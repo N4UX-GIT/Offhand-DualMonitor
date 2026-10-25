@@ -4,6 +4,46 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.2-beta.23] - 2026-10-26
+
+### Improved
+- Reorganized addon services for clearer ownership of workspace panels,
+  persistence, client compatibility, HUD recovery and Edit Mode integration.
+- Refreshed settings with five-page navigation, section shortcuts, remembered
+  page scrolling, consistent control styling and better dialog fitting.
+- Improved slider dragging, typed values, decimal-comma entry, step buttons and
+  synchronization when switching profiles. Companion-owned geometry controls
+  consistently reflect their locked state.
+- Reworked first-time setup with method-specific instructions, detected Windowed
+  state, resumable calibration and Mainhand/Offhand region labels.
+- Improved translated-text spacing, theme/help presentation and calibration
+  validation messages without changing existing saved profiles.
+
+### Fixed
+- Restoring an ordinary window now selects the recorded source HUD layout;
+  spanning again restores the character's Mainhand layout. Manual layout choices
+  remain respected, and preset selection uses the correct layout-list index.
+- Corrected Anniversary native action-bar placement while preserving Blizzard's
+  artwork, controls and relative anchors.
+- Corrected default Retail XP/reputation bar placement above the main action bar.
+- Kept setup dialogs and confirmations reachable and correctly layered.
+- Recentered already-open menus and Graphics Options after restoring the window.
+- Corrected the legacy close-all-windows bag-provider decision scope.
+- Removed the verified recurring Retail controller-detection CPU spike when the
+  client lacks the Gamepad enum, avoiding unnecessary copies of preset trees.
+- Reduced empty bag-snapshot allocations and unchanged addon-owned drag-handle
+  layout writes; controller detection uses a guarded scalar fast path where
+  supported. These additional changes have automated coverage, not an FPS claim.
+
+### Companion and compatibility
+- This is an addon-only update. Complete/portable downloads retain the unchanged
+  Companion `2.1.2-beta.20`, with the existing protocol and minimum version.
+- Experimental Companion VSync/graphics-reset recovery and graininess changes
+  are not included. They remain separate integration work awaiting final-artifact
+  testing. Beta 23 does not claim to fix the native graphics-reset issue.
+- Existing client interface declarations are retained. Linux/Wine and original
+  Wrath 3.3.5a support retain their existing experimental limitations.
+
 ## [2.1.2-beta.22] - 2026-10-22
 
 ### Compatibility
