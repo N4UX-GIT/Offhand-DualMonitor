@@ -3,6 +3,9 @@ local _, Offhand = ...
 local HUD = {}
 Offhand.SeamRedirect = HUD
 Offhand.HUD = HUD
+-- Private diagnostic capability. No timing work runs without the temporary QA
+-- collector explicitly registering its addon-owned recorder during a capture.
+HUD.PerformanceMaintenanceVersion = 1
 local aligning, pending = false, false
 local hooks = {}
 local desiredFrames = {}
@@ -792,6 +795,16 @@ function HUD:HookFrames()
 
     if C_Timer and C_Timer.NewTicker and not self.popupTicker then
         self.popupTicker = C_Timer.NewTicker(2, function()
+            local probe = Offhand.PerformanceMaintenanceProbe
+            if probe and type(probe.Run) == "function" then
+                probe:Run("popup-rescue", RedirectExternalPopups)
+                probe:Run("transient-discovery", HUD.HookMainhandTransientFrames, HUD)
+                probe:Run("transient-placement", HUD.PositionMainhandTransientFrames, HUD)
+                probe:Run("editmode-hooks", CheckEditModeHooks)
+                probe:Run("editmode-recovery", HUD.UpdateForeverEditModeControlsRecovery, HUD)
+                probe:Run("party-recovery", HUD.UpdateForeverPartyFrameRecovery, HUD)
+                return
+            end
             RedirectExternalPopups()
             HUD:HookMainhandTransientFrames()
             HUD:PositionMainhandTransientFrames()

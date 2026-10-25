@@ -3,6 +3,10 @@ local _, Offhand = ...
 local Adapter = {}
 Offhand.CanvasForeverBags = Adapter
 
+local function Near(a, b)
+    return type(a) == "number" and math.abs(a - b) < 0.001
+end
+
 function Adapter.Install(Canvas, services)
     local WithWorkspace = assert(services.WithWorkspace, "Missing Forever bag service: WithWorkspace")
     local IsBackpackRoot = assert(services.IsBackpackRoot, "Missing Forever bag service: IsBackpackRoot")
@@ -201,12 +205,24 @@ function Adapter.Install(Canvas, services)
         if frameScale <= 0 or parentScale <= 0 then return false end
         local factor = frameScale / parentScale
         local width = math.max(40, (((frame.GetWidth and frame:GetWidth()) or 180) - 96) * factor)
-        if handle.ClearAllPoints then handle:ClearAllPoints() end
-        if handle.SetPoint then
-            handle:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT",
-                (left + 44) * factor, (top - 2) * factor)
+        local x, y, height = (left + 44) * factor, (top - 2) * factor, 24 * factor
+        -- This is our UIParent-owned grip, not the protected bag root. Compare
+        -- actual geometry so a displaced grip still repairs in the first frame,
+        -- without reapplying identical anchors and size every rendered frame.
+        local samePoint = false
+        if handle.GetNumPoints and handle.GetPoint and handle:GetNumPoints() == 1 then
+            local point, relative, relativePoint, currentX, currentY = handle:GetPoint(1)
+            samePoint = point == "TOPLEFT" and relative == UIParent and relativePoint == "BOTTOMLEFT"
+                and Near(currentX, x) and Near(currentY, y)
         end
-        if handle.SetSize then handle:SetSize(width, 24 * factor) end
+        if not samePoint then
+            if handle.ClearAllPoints then handle:ClearAllPoints() end
+            if handle.SetPoint then handle:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, y) end
+        end
+        if handle.SetSize and (not handle.GetWidth or not handle.GetHeight
+            or not Near(handle:GetWidth(), width) or not Near(handle:GetHeight(), height)) then
+            handle:SetSize(width, height)
+        end
         return true
     end
 

@@ -1010,3 +1010,19 @@ in D:/Tools/Code/Offhand. Separate worktrees and accepted artifacts are preserve
 no source merge or publication implied. Reconcile the graininess resize mitigation
 with the recovery candidate's deliberate omission of that handshake before making
 one final candidate. Other work may proceed meanwhile. No automation scheduled.
+
+### 2026-10-25: Accepted addon work integrated; performance investigation isolated
+
+- PR #34 (structural refactor) and PR #35 (UI/setup/HUD/menu stabilization) are
+  merged into origin/addon/develop. GitHub required checks passed. The known
+  CloseAllWindows local bag-provider defect is included with a red/green regression.
+- Integration commit: d197f8ded46ef1022c219d47d3748c116b9b36eb.
+- User acceptance closes the listed Gamepad/Bagnon/Party/Dialogue UI/pet-battle
+  items; historical incomplete QA notes remain evidence history, not reopened work.
+- Linux/Wine is assumed fixed with direct Linux-user verification outstanding.
+  Native experimental source remains isolated under the combined Companion plan.
+- Performance branch codex/addon-performance-audit contains the small idle bag
+  allocation candidate, expanded regression, temporary standalone observer and
+  docs/ADDON-PERFORMANCE-20261025.md. 55 Lua suites and six manifests pass.
+  Synthetic allocation savings do not establish a live CPU/FPS or stutter fix.
+- Main/public release, website, game installations and frozen Companion unchanged.

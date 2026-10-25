@@ -1,0 +1,92 @@
+local scripts,clock,cpu,profile={},0,10,'1'
+CreateFrame=function() return {
+    SetScript=function(_,event,callback) scripts[event]=callback end,
+    RegisterEvent=function() end} end
+DEFAULT_CHAT_FRAME={AddMessage=function() end}
+SlashCmdList={}
+GetTime=function() return clock end
+GetCVar=function() return profile end
+GetBuildInfo=function() return 'test','123',nil,120107 end
+UpdateAddOnCPUUsage=function() end
+GetAddOnCPUUsage=function(name) assert(name=='Offhand');return cpu end
+UpdateAddOnMemoryUsage=function() end
+GetAddOnMemoryUsage=function() return 500 end
+assert(loadfile('tools/performance/OffhandPerformanceProbe/Probe.lua'))()
+local command=SlashCmdList.OFFHANDPERFORMANCEPROBE
+assert(not scripts.OnUpdate,'observer must be inactive by default')
+command('start baseline')
+local tick=scripts.OnUpdate
+clock=10;cpu=30;tick(nil,0.06)
+command('stop')
+local result=OffhandPerformanceProbeDB[1]
+assert(result.cpuDeltaMs==20 and result.cpuMsPerSecond==2)
+assert(result.frames==1 and result.over50ms==1 and result.maxFrameMs==60)
+assert(not scripts.OnUpdate,'stop must remove the per-frame callback')
+profile='0';command('start no-profile');clock=20;command('stop')
+assert(OffhandPerformanceProbeDB[2].cpuUnavailable,'missing CPU data must not be reported as zero')
+profile='1';command('start reset');cpu=1;clock=30;command('stop')
+assert(OffhandPerformanceProbeDB[3].cpuUnavailable,'counter reset must invalidate the delta')
+for i=1,8 do command('start limit');clock=clock+901;scripts.OnUpdate(nil,0.01) end
+assert(#OffhandPerformanceProbeDB==6 and not scripts.OnUpdate,'bounded retention and duration')
+-- Modern retail metrics are available without enabling legacy scriptProfile.
+profile='0'
+Enum={AddOnProfilerMetric={RecentAverageTime=1,LastTime=3,PeakTime=4,SessionAverageTime=0,CountTimeOver1Ms=5,CountTimeOver5Ms=6}}
+C_AddOnProfiler={IsEnabled=function() return true end,
+    GetAddOnMetric=function(name,metric)
+        if name=='OffhandDisplayProbe' then return 0.001 end
+        if metric==1 then return 0.08 end
+        if metric==4 then return 1.2 end
+        return 0
+    end,
+    GetOverallMetric=function() return 0.1 end,
+    GetApplicationMetric=function() return 20 end}
+command('start modern')
+clock=clock+1;scripts.OnUpdate(nil,0.5);command('stop')
+result=OffhandPerformanceProbeDB[#OffhandPerformanceProbeDB]
+assert(result.modernStart and not result.cpuUnavailable and result.legacyCpuUnavailable)
+assert(#result.profilerSamples==3 and result.modernEnd.offhandRecentMs==0.08)
+assert(math.abs(result.modernEnd.addonListCurrentPercent-0.5)<0.00001,
+    'Addon List percentage must compare all-addon recent metric with application metric')
+assert(result.modernEnd.displayProbeRecentMs==0.001,'diagnostic addon must be measured separately')
+C_AddOnProfiler.GetAddOnMetric=function() error('unavailable') end
+C_AddOnProfiler.GetOverallMetric=function() error('unavailable') end
+command('start unavailable');clock=clock+1;command('stop')
+assert(OffhandPerformanceProbeDB[#OffhandPerformanceProbeDB].cpuUnavailable,
+    'failed modern metrics must remain unavailable, not zero')
+local phaseClock=0
+debugprofilestop=function() return phaseClock end
+Offhand={SeamRedirect={PerformanceMaintenanceVersion=1}}
+command('start phases')
+local recorder=Offhand.PerformanceMaintenanceProbe
+local calls=0
+recorder:Run('discovery',function(receiver) assert(receiver==Offhand);calls=calls+1;phaseClock=phaseClock+1.25 end,Offhand)
+local ok=pcall(function() recorder:Run('error',function() error('test-error') end) end)
+assert(not ok,'phase timing must not suppress operation errors')
+for _=1,100 do recorder:Run('discovery',function() calls=calls+1;phaseClock=phaseClock+0.1 end) end
+clock=clock+60;command('stop')
+result=OffhandPerformanceProbeDB[#OffhandPerformanceProbeDB]
+assert(result.maintenanceTimingStatus=='active' and calls==101)
+assert(result.controllerDetection.gamepadEnumAvailable==false
+    and result.controllerDetection.scalarAdapterAvailable==false,
+    'missing controller capabilities must be explicit in diagnostic metadata')
+assert(result.maintenancePhases.discovery.calls==101 and result.maintenancePhases.discovery.over1Ms==1)
+assert(#result.maintenancePhases.discovery.samples==64,'phase sample retention must be bounded')
+assert(not Offhand.PerformanceMaintenanceProbe,'capture stop must remove its own recorder')
+Enum.InputDeviceInterfaceType={Gamepad=2}
+Offhand.MainhandCompatibility={ReadControllerPresetMode=function() error('must not invoke adapter') end}
+EditModePresetLayoutManager={presetLayoutInfo={{interfaceStyle=1}},
+    GetCopyOfPresetLayouts=function() error('must not copy native presets') end}
+command('start capabilities');command('stop')
+local shape=OffhandPerformanceProbeDB[#OffhandPerformanceProbeDB].controllerDetection
+assert(shape.gamepadEnumAvailable and shape.scalarAdapterAvailable and shape.copyMethodAvailable
+    and shape.presetTableType=='table' and shape.firstPresetType=='table')
+Offhand.isForever=true
+EditModePresetLayoutManager=setmetatable({}, {__index=function(_,key)
+    assert(key~='presetLayoutInfo','Forever diagnostics must not inspect native preset table')
+end})
+command('start forever-capabilities');command('stop')
+Offhand.isForever=false
+EditModePresetLayoutManager=nil
+command('start ownership');local other={};Offhand.PerformanceMaintenanceProbe=other;command('stop')
+assert(Offhand.PerformanceMaintenanceProbe==other,'stop must not remove another owner')
+print('PASS: opt-in performance observer, CPU availability/reset, frame intervals and bounded capture')

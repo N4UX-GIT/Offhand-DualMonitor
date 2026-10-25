@@ -522,6 +522,11 @@ function Mainhand:IsControllerLayout()
     if not (Enum and Enum.InputDeviceInterfaceType
         and Enum.InputDeviceInterfaceType.Gamepad ~= nil) then return false end
     EnsureEditModeLoaded()
+    -- Periodic recovery needs only the input-style scalar, not full copies of
+    -- every system/settings tree. The client adapter preserves Forever's stricter
+    -- ownership boundary and reports nil where the existing fallback is needed.
+    local controllerMode = Compatibility.ReadControllerPresetMode()
+    if controllerMode ~= nil then return controllerMode end
     return ControllerMode(Presets())
 end
 

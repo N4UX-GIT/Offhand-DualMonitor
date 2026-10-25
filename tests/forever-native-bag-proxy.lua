@@ -542,4 +542,55 @@ assert(rawget(bag, "_OffhandDragging") == nil
         and rawget(bag, "_OffhandHandle") == nil,
     "proxy adapter must not store Offhand bookkeeping on the native bag")
 
+-- Settled proxy geometry must not generate layout writes on every render frame.
+local proxyWrites=0
+local originalClear,originalPoint,originalSize=handle.ClearAllPoints,handle.SetPoint,handle.SetSize
+handle.ClearAllPoints=function(...) proxyWrites=proxyWrites+1;return originalClear(...) end
+handle.SetPoint=function(...) proxyWrites=proxyWrites+1;return originalPoint(...) end
+handle.SetSize=function(...) proxyWrites=proxyWrites+1;return originalSize(...) end
+for _=1,600 do controller.scripts.OnUpdate(controller,1/60) end
+assert(proxyWrites==0,'settled native-bag proxy must not rewrite layout every frame')
+
+handle.scripts.OnDragStart(handle)
+bag:SetPoint('TOPLEFT',UIParent,'BOTTOMLEFT',300,850)
+controller.scripts.OnUpdate(controller,0.001)
+assert(proxyWrites==2 and math.abs(handle:GetLeft()-344)<0.001,
+    'dragging must move the proxy immediately without rewriting unchanged size')
+handle.scripts.OnDragStop(handle)
+controller.scripts.OnUpdate(controller,0.001)
+proxyWrites=0
+bag.width=bag.width+40
+controller.scripts.OnUpdate(controller,0.001)
+assert(proxyWrites==1 and math.abs(handle:GetWidth()-(bag:GetWidth()-96))<0.001,
+    'bag resize must immediately update only the changed proxy size')
+
+local originalBagScale,originalParentScale=bag.GetEffectiveScale,UIParent.GetEffectiveScale
+bag.GetEffectiveScale=function() return 1.25 end
+UIParent.GetEffectiveScale=function() return 0.8 end
+proxyWrites=0
+controller.scripts.OnUpdate(controller,0.001)
+assert(proxyWrites>0 and math.abs(handle:GetHeight()-24*1.25/0.8)<0.001,
+    'effective-scale changes must update the proxy in the first observer frame')
+bag.GetEffectiveScale,UIParent.GetEffectiveScale=originalBagScale,originalParentScale
+controller.scripts.OnUpdate(controller,0.001)
+
+-- Inspect actual addon-owned geometry rather than trusting cached last inputs.
+handle:SetPoint('TOPLEFT',UIParent,'BOTTOMLEFT',1,1)
+proxyWrites=0
+controller.scripts.OnUpdate(controller,0.001)
+assert(proxyWrites==2,'displaced proxy must be repaired without rewriting its size')
+handle:SetSize(1,1)
+proxyWrites=0
+controller.scripts.OnUpdate(controller,0.001)
+assert(proxyWrites==1,'changed proxy dimensions must be repaired without reanchoring')
+proxyWrites=0
+controller.scripts.OnUpdate(controller,0.001)
+assert(proxyWrites==0,'a repaired proxy must return immediately to zero layout writes')
+handle:Hide();bag:Hide()
+controller.scripts.OnUpdate(controller,0.001)
+bag:Show()
+controller.scripts.OnUpdate(controller,0.001)
+assert(handle:IsShown(),'reopening a bag must show its grip even when geometry is unchanged')
+handle.ClearAllPoints,handle.SetPoint,handle.SetSize=originalClear,originalPoint,originalSize
 print("PASS: Forever native bags use an isolated sibling proxy and persist movement")
+print('PASS: proxy no-op layout, immediate drag/resize/scale updates and disturbed geometry repair')
