@@ -517,6 +517,10 @@ end
 
 function Mainhand:IsControllerLayout()
     if _G.ConsolePort or NativeGamepadInterface() then return true end
+    -- Without the Gamepad enum, ControllerMode always returns false. Avoid
+    -- copying every preset/system tree for a result the copies cannot change.
+    if not (Enum and Enum.InputDeviceInterfaceType
+        and Enum.InputDeviceInterfaceType.Gamepad ~= nil) then return false end
     EnsureEditModeLoaded()
     return ControllerMode(Presets())
 end

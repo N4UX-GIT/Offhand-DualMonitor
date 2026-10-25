@@ -1238,3 +1238,27 @@ ok=addon.Mainhand:CreateOrUpdateEditModeLayout(); assert(ok)
 assert(saved.layouts[1].systems[2].anchorInfo.relativeTo=='StatusTrackingBarManager',
     'missing Retail container must retain source relationship, not fall back to the bags')
 print('PASS: Retail status centering, separate containers, scaled points, secondary stacking and stale-edge isolation')
+
+-- Retail can expose preset layouts without the input-style Gamepad enum.
+-- The existing result is false; no full layout copies are needed to decide it.
+currentInterfaceStyle=1
+local originalPresetManager=EditModePresetLayoutManager
+local originalInputTypes=Enum.InputDeviceInterfaceType
+local controllerCopies=0
+EditModePresetLayoutManager={GetCopyOfPresetLayouts=function()
+    controllerCopies=controllerCopies+1
+    return {{interfaceStyle=originalInputTypes.Gamepad}}
+end}
+Enum.InputDeviceInterfaceType=nil
+for _=1,450 do assert(not addon.Mainhand:IsControllerLayout()) end
+Enum.InputDeviceInterfaceType={}
+assert(not addon.Mainhand:IsControllerLayout())
+assert(controllerCopies==0,'missing Gamepad enum must not copy unused preset trees')
+ConsolePort={}
+assert(addon.Mainhand:IsControllerLayout(),'ConsolePort detection must remain first')
+ConsolePort=nil
+Enum.InputDeviceInterfaceType=originalInputTypes
+assert(addon.Mainhand:IsControllerLayout() and controllerCopies==1,
+    'available enum must preserve the existing preset-copy compatibility path')
+EditModePresetLayoutManager=originalPresetManager
+print('PASS: missing controller enum avoids preset copies and preserves compatibility fallbacks')
