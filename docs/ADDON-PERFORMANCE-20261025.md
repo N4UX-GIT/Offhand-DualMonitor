@@ -166,3 +166,17 @@ hidden grip. All 55 Lua suites, six manifests and Lua 5.1 syntax checks pass.
 These are automated/mock results. Live CPU/FPS/taint behavior is not inferred;
 Forever runtime checks remain deferred until the release as instructed. No game
 installation or public package was changed. This stays in draft performance PR #36.
+
+## First live Retail capture result
+
+The user's saved paired captures are analyzed in
+PERFORMANCE-CAPTURE-RESULTS-20261025.md. Offhand's sampled recent mean is about
+0.043453 ms, with 75 new >1 ms ticks in 150.446 seconds and no new >5 ms ticks.
+Counter-increment spacing has a 2.000-second median. Both disabled runs report
+zero recent Offhand time and no new >1 ms ticks. Historical peak and >5 ms counts
+were already present before recording and did not increase.
+
+This narrows investigation to periodic work, led by the two-second maintenance
+pass. Individual phases remain unmeasured. Application-time distributions and run
+lengths differ, so no FPS causation is inferred. Next is phase-level timing in a
+private diagnostic candidate, preserving order and recovery behavior.
