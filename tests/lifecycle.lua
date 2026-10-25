@@ -14,6 +14,7 @@ end
 InCombatLockdown = function() return combat end
 SlashCmdList = {}
 assert(loadfile("Core/Init.lua"))("Offhand", addon)
+assert(loadfile("Core/ClientRuntime.lua"))("Offhand", addon)
 
 -- The live interface-style API is authoritative when available, with
 -- InputUtil retained only for builds/load orders that do not expose it yet.
@@ -42,10 +43,13 @@ local createdFrames = {}
 local function makePromptFrame(name)
     local frame = { name = name, shown = false, scripts = {}, points = {} }
     function frame:SetSize(width, height) self.width, self.height = width, height end
+    function frame:SetHeight(value) self.height = value end
+    function frame:SetWidth(value) self.width = value end
     function frame:SetFrameStrata(value) self.strata = value end
     function frame:SetClampedToScreen(value) self.clamped = value end
     function frame:EnableMouse(value) self.mouse = value end
     function frame:SetBackdrop(value) self.backdrop = value end
+    function frame:SetBackdropColor(...) self.backdropColor = {...} end
     function frame:ClearAllPoints() self.points = {} end
     function frame:SetPoint(...) self.points[#self.points + 1] = { ... } end
     function frame:SetText(value) self.text = value end
@@ -70,6 +74,7 @@ local function makePromptFrame(name)
         function text:SetJustifyV(value) self.justifyV = value end
         function text:SetWordWrap(value) self.wordWrap = value end
         function text:SetText(value) self.text = value end
+        function text:GetText() return self.text end
         return text
     end
     createdFrames[#createdFrames + 1] = frame
@@ -124,6 +129,9 @@ assert(safePrompt and safePrompt.shown and staticShows == 0
         and safePrompt.points[1][1] == "CENTER"
         and safePrompt.points[1][2] == mainhand,
     "native Gamepad dialogs must render through the addon-owned popup card")
+assert(safePrompt.backdrop.bgFile == "Interface\\Buttons\\WHITE8X8"
+        and safePrompt.backdropColor[4] == 1,
+    "owned popup background must be opaque over underlying wizard text")
 safePrompt.accept.scripts.OnClick()
 assert(safeAccepted == 1 and dataCalled == 1 and safeHidden == 1
         and not safePrompt.shown and staticHides == 0,
@@ -133,6 +141,55 @@ safePrompt.cancel.scripts.OnClick()
 assert(safeCancelled == 1 and safeHidden == 2 and staticHides == 0,
     "cancelling a Gamepad-safe dialog must remain outside Blizzard's focus stack")
 StaticPopupDialogs.OFFHAND_GAMEPAD_SAFE_TEST = nil
+
+-- Keyboard setup confirmations must sit above the fullscreen wizard, inside
+-- Mainhand, without changing any native popup's strata or point handlers.
+InputUtil.IsGamepadUIEnabled = function() return false end
+addon.Viewport = { GetMetrics = function() return {
+    isSpanned = true, gameWidth = 1950, gameLeft = 1097, gameRight = 3047,
+    gameBottom = 4, gameTop = 1101,
+} end }
+addon.UIControls = {
+    FitDialog = function() return 0.8 end,
+    MeasureWrappedText = function(text)
+        assert(text.height == 0, "popup text must clear its previous height before measuring")
+        return 150
+    end,
+}
+StaticPopupDialogs.OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT = {
+    text = 'Confirm', button1 = 'Finish', button2 = 'Back',
+    OnAccept = function(_, callback) callback() end,
+}
+local confirmed = 0
+local prompt = addon:ShowPopup('OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT', nil, nil,
+    function() confirmed = confirmed + 1 end)
+assert(prompt.strata == 'TOOLTIP' and staticShows == 0 and prompt.height >= 226)
+assert(prompt.points[1][2] == UIParent and prompt.points[1][4] == 2072 / 0.8,
+    'setup confirmation must use Mainhand geometry, not a stale anchor')
+prompt.accept.scripts.OnClick()
+assert(confirmed == 1 and not prompt.shown, 'owned setup confirmation must preserve callback data')
+local reminderCharacter = OffhandCharDB
+local reminderEditMode = addon.HasBlizzardEditMode
+OffhandCharDB = {mainhandLayoutDeferred = true}
+addon.HasBlizzardEditMode = function() return true end
+assert(addon:RefreshMainhandLayoutAttention() and prompt.popupKey == "OFFHAND_HUD_SETUP_REMINDER",
+    "previously skipped HUD setup must offer recovery at the next entry check")
+assert(not addon:RefreshMainhandLayoutAttention(), "HUD reminders must not repeat in one UI session")
+prompt.cancel.scripts.OnClick()
+assert(OffhandCharDB.hudSetupReminderDeclined, "explicit decline must persist per character")
+addon._hudSetupReminderShown = nil
+assert(not addon:RefreshMainhandLayoutAttention(), "declined reminders must stay suppressed across sessions")
+OffhandCharDB.hudSetupReminderDeclined = nil
+local resumed = 0
+addon.Wizard = {OpenHUDSetup = function() resumed = resumed + 1 end}
+assert(addon:RefreshMainhandLayoutAttention())
+prompt.accept.scripts.OnClick()
+assert(resumed == 1 and OffhandCharDB.mainhandLayoutDeferred,
+    "resuming must open HUD setup without claiming the layout is repaired")
+addon.Wizard, addon.HasBlizzardEditMode, addon._hudSetupReminderShown = nil, reminderEditMode, nil
+OffhandCharDB = reminderCharacter
+StaticPopupDialogs.OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT = nil
+addon.Viewport, addon.UIControls = nil, nil
 
 CreateFrame = originalCreateFrame
 UIParent = originalUIParent
@@ -251,6 +308,15 @@ addon.UpdateCanvas = function() addon:ApplyFullLayout() end
 addon:ApplyFullLayout()
 assert(calls == 3, "layout guard did not recover or prevent recursion")
 
+local menuRefreshes = 0
+local previousViewport, previousMenus = addon.Viewport, addon.MenuPlacement
+addon.Viewport = {GetMetrics=function() return {isSpanned=false} end}
+addon.MenuPlacement = {Refresh=function() menuRefreshes=menuRefreshes+1 end}
+addon.UpdateCanvas = function() end
+addon:ApplyFullLayout()
+assert(menuRefreshes==1,"single-window fallback must refresh owned open menus, not only spanned HUD")
+addon.Viewport,addon.MenuPlacement=previousViewport,previousMenus
+
 -- Verify ADDON_LOADED initializes Canvas and SeamRedirect without recursion / stack overflow
 UIParent = {
     GetEffectiveScale = function() return 1 end,
@@ -288,7 +354,24 @@ local function makeMockFrame()
     return f
 end
 CreateFrame = function() return makeMockFrame() end
+assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasFrameState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelRegistry.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPersistence.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasBackpackState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverMap.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasChat.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasProfessions.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelMotion.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasMapPresentation.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelLifecycle.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDTransientPolicy.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDRecovery.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDTransientFrames.lua"))("Offhand", addon)
 assert(loadfile("Core/SeamRedirect.lua"))("Offhand", addon)
 C_Timer = {After=function() end}
 local initOk, initErr = pcall(function()
@@ -324,6 +407,27 @@ assert(displayApplies == 1 and displayRestores == 1,
     "settled display geometry did not apply and restore exactly once")
 assert(addon._displayGeometryTransitionActive == false,
     "display transition remained active after settled layout restore")
+
+-- A graphics reset can settle while combat still blocks layout writes. A later
+-- reset must invalidate work already queued by the older debounce callback.
+local originalRunOrQueueCombat = addon.RunOrQueueCombat
+local queuedDisplayWork = {}
+addon.RunOrQueueCombat = function(_, callback) queuedDisplayWork[#queuedDisplayWork + 1] = callback end
+local appliesBeforeQueue, restoresBeforeQueue = displayApplies, displayRestores
+initOnEvent(nil, "DISPLAY_SIZE_CHANGED")
+displayTimers[#displayTimers].fn()
+initOnEvent(nil, "DISPLAY_SIZE_CHANGED")
+displayTimers[#displayTimers].fn()
+assert(#queuedDisplayWork == 2)
+queuedDisplayWork[1]()
+assert(displayApplies == appliesBeforeQueue and displayRestores == restoresBeforeQueue
+        and addon._displayGeometryTransitionActive,
+    "a superseded combat-queued resize must not restore layout or end the newer transition")
+queuedDisplayWork[2]()
+assert(displayApplies == appliesBeforeQueue + 1 and displayRestores == restoresBeforeQueue + 1
+        and not addon._displayGeometryTransitionActive,
+    "only the latest combat-queued display reset may restore the settled layout")
+addon.RunOrQueueCombat = originalRunOrQueueCombat
 
 -- In-engine cinematics can restore WorldFrame across the entire spanned
 -- window. Start/stop transitions must reassert only the viewport after
@@ -507,5 +611,49 @@ initOnEvent(nil, "PLAYER_LOGOUT")
 assert(capturedOpenPanels == nil and addon.db.openWorkspacePanels.TestWorkspaceFrame == true,
     "Forever absent-topology recovery must preserve the last workspace visibility snapshot")
 
-print("PASS: config preservation, defaults, combat coalescing, cinematic recovery, error recovery, reentrancy, ADDON_LOADED stack safety, disabled login isolation")
+-- A welcome acknowledgement is not calibration completion. Entry notices must
+-- resume enabled incomplete setups, but leave completed/disabled users alone.
+do
+    local queue, opened = {}, 0
+    C_Timer.After = function(_, callback) queue[#queue + 1] = callback end
+    addon.IsBlizzardInputReserved = function() return false end
+    addon.HideCompanionNotices = function() end
+    addon.HideResolvedSpanPrompts = function() end
+    addon.RefreshCompanionNoticeState = function() return false end
+    addon.RefreshMainhandLayoutAttention = function() end
+    addon.ApplyFullLayout = function() end
+    addon.RawMouse = nil
+    addon.Canvas = {}
+    addon.Viewport.GetMetrics = function() return {isSpanned = false} end
+    addon.Onboarding = {Open = function() opened = opened + 1 end}
+    addon.IsWelcomeDismissed = function() return true end
+    addon.GetOnboardingResumeStep = function() return nil end
+    local complete = false
+    addon.IsSetupComplete = function() return complete end
+    addon.db.firstRunComplete = false
+    addon.db.enabled = true
+    addon._displayGeometryTransitionActive = false
+    local function Enter(first)
+        if first then addon._hasEnteredWorld = nil end
+        initOnEvent(nil, "PLAYER_ENTERING_WORLD")
+        local count = 0
+        while #queue > 0 do
+            count = count + 1
+            assert(count < 10, "entry notices must not poll indefinitely")
+            table.remove(queue, 1)()
+        end
+    end
+    Enter(true)
+    assert(opened == 1, "login must resume a dismissed welcome whose calibration is incomplete")
+    Enter(false)
+    assert(opened == 1, "zone transitions must not repeatedly reopen onboarding")
+    complete = true
+    Enter(true)
+    assert(opened == 1, "completed users must not be forced through setup again")
+    complete, addon.db.enabled = false, false
+    addon.GetOnboardingResumeStep = function() return 6 end
+    Enter(true)
+    assert(opened == 1, "a deliberately disabled profile must not receive incomplete-setup prompts")
+end
+print("PASS: lifecycle, entry notice resumption, disabled isolation and completed-setup preservation")
 

@@ -74,122 +74,6 @@ Offhand.isRetail = hasProjectIdentity and WOW_PROJECT_MAINLINE ~= nil
 -- different subsets and load timing.
 Offhand.isForever = tocVersion >= 16000 and tocVersion < 17000
 
--- Edit Mode is load-on-demand on several Blizzard clients. Checking only
--- C_EditMode during early login misclassifies its protected HUD frames on
--- Classic-family branches until Blizzard_EditMode happens to be loaded.
--- Detect the shipped module without loading it; callers that need to write a
--- layout still feature-check the concrete APIs after an explicit load.
-local function BlizzardEditModeAddonExists()
-    if C_AddOns and type(C_AddOns.DoesAddOnExist) == "function" then
-        local ok, exists = pcall(C_AddOns.DoesAddOnExist, "Blizzard_EditMode")
-        if ok and exists then return true end
-    end
-    if C_AddOns and type(C_AddOns.GetAddOnInfo) == "function" then
-        local ok, info = pcall(C_AddOns.GetAddOnInfo, "Blizzard_EditMode")
-        if ok and info ~= nil then return true end
-    end
-    if type(GetAddOnInfo) == "function" then
-        local ok, name = pcall(GetAddOnInfo, "Blizzard_EditMode")
-        if ok and name ~= nil then return true end
-    end
-    return false
-end
-
-function Offhand:HasBlizzardEditMode()
-    if self.isRetail or self.isForever then return true end
-    if C_EditMode ~= nil or EditModeManagerFrame ~= nil then return true end
-    return BlizzardEditModeAddonExists()
-end
-
--- Forever's native Gamepad UI gives Blizzard's FrameControlsManager ownership
--- of panel visibility and focus routing. Prefer the live interface-style API;
--- InputUtil is a compatibility fallback for builds that expose the setting but
--- not C_InputInterfaceStyle during early addon initialization.
-function Offhand:IsGamepadUIEnabled()
-    local gamepad = Enum and Enum.InputDeviceInterfaceType
-        and Enum.InputDeviceInterfaceType.Gamepad
-    local getStyle = C_InputInterfaceStyle and C_InputInterfaceStyle.GetCurrentStyle
-    if gamepad ~= nil and type(getStyle) == "function" then
-        local ok, current = pcall(getStyle)
-        if ok then return current == gamepad end
-    end
-    if InputUtil and type(InputUtil.IsGamepadUIEnabled) == "function" then
-        local ok, enabled = pcall(InputUtil.IsGamepadUIEnabled)
-        if ok then return enabled == true end
-    end
-    return false
-end
-
-local function ClientProjectLabel()
-    if Offhand.isForever then return "Forever" end
-    if Offhand.isLegacyWrath then return "Wrath 3.3.5a" end
-    if Offhand.isRetail then return "Retail" end
-    if Offhand.isClassicEra then return "Classic Era" end
-    if WOW_PROJECT_ID ~= nil then return "Project " .. tostring(WOW_PROJECT_ID) end
-    return "unknown"
-end
-
-function Offhand:GetVersionDiagnostics(metrics)
-    metrics = metrics or {}
-    return {
-        clientVersion = Offhand.clientVersion or "unknown",
-        clientBuild = Offhand.clientBuild or "unknown",
-        interfaceVersion = tostring(Offhand.tocVersion or "unknown"),
-        clientProject = ClientProjectLabel(),
-        addonVersion = Offhand.fullVersion or Offhand.version or "unknown",
-        companionWriter = metrics.companionVersion or "not recorded",
-        companionPaired = Offhand.companionFullVersion or "unknown",
-        companionMinimum = Offhand.companionMinVersion ~= ""
-            and Offhand.companionMinVersion or "not specified",
-        companionProtocol = Offhand.companionProtocol or "not specified",
-        companionStatus = metrics.companionVersionStatus or "unavailable",
-    }
-end
-
-function Offhand:GetOperatingDiagnostics(metrics)
-    metrics = metrics or {}
-    local db = Offhand.db or {}
-    local setupComplete = db.firstRunComplete == true
-    if Offhand.IsSetupComplete then
-        local ok, value = pcall(Offhand.IsSetupComplete, Offhand)
-        if ok then setupComplete = value == true end
-    end
-
-    local topologySource
-    if metrics.companionTopology then
-        topologySource = "Companion"
-    elseif metrics.manualCanvas then
-        topologySource = metrics.manualCanvasSource == "FANCYZONES"
-            and "FancyZones" or "Remembered manual"
-    elseif metrics.isSpanned then
-        topologySource = "Manual"
-    elseif metrics.topologyStatus == "MISMATCH"
-        or metrics.topologyStatus == "INVALID"
-        or metrics.topologyStatus == "STALE" then
-        topologySource = "Recovery"
-    else
-        topologySource = "Single-screen"
-    end
-
-    return {
-        enabled = db.enabled == true,
-        spanned = metrics.isSpanned == true,
-        topologySource = topologySource,
-        layoutPreset = metrics.preset or db.layoutPreset or "unknown",
-        mainhandPosition = db.primaryPosition or "unknown",
-        inCombat = InCombatLockdown and InCombatLockdown() or false,
-        setupComplete = setupComplete,
-        mainhandLeft = tonumber(metrics.gamePixelLeft) or 0,
-        mainhandBottom = tonumber(metrics.gamePixelBottom) or 0,
-        mainhandWidth = tonumber(metrics.gamePixelWidth) or 0,
-        mainhandHeight = tonumber(metrics.gamePixelHeight) or 0,
-        workspaceLeft = tonumber(metrics.workspacePixelLeft) or 0,
-        workspaceBottom = tonumber(metrics.workspacePixelBottom) or 0,
-        workspaceWidth = tonumber(metrics.workspacePixelWidth) or 0,
-        workspaceHeight = tonumber(metrics.workspacePixelHeight) or 0,
-    }
-end
-
 -- SavedVariables are available before addon files execute. Preserve the exact
 -- tables the client loaded before ForeverState.lua runs: older Companion
 -- snapshots assigned their bridge tables unconditionally, which could replace
@@ -605,7 +489,40 @@ StaticPopupDialogs["OFFHAND_MAINHAND_LAYOUT_ATTENTION"] = {
     preferredIndex = 3,
 }
 
+StaticPopupDialogs["OFFHAND_HUD_SETUP_REMINDER"] = {
+    text = Offhand.L["HUD_SETUP_REMINDER_TEXT"],
+    button1 = Offhand.L["HUD_SETUP_RESUME"],
+    button2 = Offhand.L["HUD_SETUP_DECLINE"],
+    OnAccept = function()
+        Offhand._hudSetupReminderShown = true
+        if Offhand.Wizard and Offhand.Wizard.OpenHUDSetup then Offhand.Wizard:OpenHUDSetup() end
+    end,
+    OnCancel = function(_, _, reason)
+        Offhand._hudSetupReminderShown = true
+        if reason ~= "clicked" then return end
+        if type(OffhandCharDB) == "table" then
+            OffhandCharDB.hudSetupReminder = nil
+            OffhandCharDB.hudSetupReminderDeclined = true
+            if Offhand.isForever and Offhand.ForeverPersistence and Offhand.ForeverPersistence.SaveProfileSnapshot then
+                Offhand.ForeverPersistence:SaveProfileSnapshot(true)
+            end
+        end
+    end,
+    timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
+}
+
 local function PositionGamepadSafeFrame(frame)
+    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
+        and Offhand.Viewport:GetMetrics() or nil
+    if metrics and metrics.isSpanned and metrics.gameWidth and metrics.gameWidth > 0
+        and Offhand.UIControls and Offhand.UIControls.FitDialog then
+        local scale = Offhand.UIControls.FitDialog(frame, metrics)
+        frame:ClearAllPoints()
+        frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT",
+            (metrics.gameLeft + metrics.gameRight) / (2 * scale),
+            (metrics.gameBottom + metrics.gameTop) / (2 * scale))
+        return
+    end
     local mainhand = Offhand.API and Offhand.API.GetMainhandFrame
         and Offhand.API.GetMainhandFrame() or nil
     frame:ClearAllPoints()
@@ -655,14 +572,15 @@ local function GetGamepadSafePopup()
     frame:EnableMouse(true)
     if frame.SetBackdrop then
         frame:SetBackdrop({
-            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+            bgFile = "Interface\\Buttons\\WHITE8X8",
             edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-            tile = true, tileSize = 32, edgeSize = 32,
+            tile = false, tileSize = 32, edgeSize = 32,
             insets = { left = 11, right = 12, top = 12, bottom = 11 },
         })
     end
 
     local text = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    if frame.SetBackdropColor then frame:SetBackdropColor(0.035, 0.035, 0.045, 1) end
     text:SetPoint("TOPLEFT", frame, "TOPLEFT", 28, -26)
     text:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -28, -26)
     text:SetHeight(112)
@@ -689,16 +607,21 @@ local function GetGamepadSafePopup()
     cancel:SetSize(210, 24)
     cancel:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -42, 22)
     frame.cancel = cancel
+    local alternate = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    alternate:SetSize(145, 24)
+    alternate:SetPoint("BOTTOM", frame, "BOTTOM", 0, 22)
+    frame.alternate = alternate
 
     local function Finish(handler)
         local definition, data = frame.definition, frame.data
         frame:Hide()
         if definition and type(definition[handler]) == "function" then
-            definition[handler](frame, data)
+            definition[handler](frame, data, "clicked")
         end
     end
     accept:SetScript("OnClick", function() Finish("OnAccept") end)
     cancel:SetScript("OnClick", function() Finish("OnCancel") end)
+    alternate:SetScript("OnClick", function() Finish("OnAlt") end)
     frame:SetScript("OnHide", function(self)
         local definition = self.definition
         self.popupKey, self.definition, self.data = nil, nil, nil
@@ -712,7 +635,10 @@ local function GetGamepadSafePopup()
 end
 
 function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
-    if not self:IsGamepadUIEnabled() then
+    local setupPopup = popupKey == "OFFHAND_DOWNLOAD_LINK" or popupKey == "OFFHAND_POWERTOYS_LINK"
+        or popupKey == "OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT"
+        or popupKey == "OFFHAND_HUD_SETUP_REMINDER"
+    if not self:IsGamepadUIEnabled() and not setupPopup then
         if StaticPopup_Show then return StaticPopup_Show(popupKey, textArg1, textArg2, data) end
         return nil
     end
@@ -723,6 +649,17 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     if frame.popupKey then frame:Hide() end
     frame.popupKey, frame.definition, frame.data = popupKey, definition, data
     frame.text:SetText(FormatPopupText(definition.text, textArg1, textArg2))
+    -- Remove the previous card's height before measuring, avoiding truncated
+    -- GetStringHeight results when a longer message reuses this FontString.
+    -- Only our owned card changes strata. Native popup frames are untouched.
+    frame:SetFrameStrata(setupPopup and "TOOLTIP" or "FULLSCREEN_DIALOG")
+    if self.UIControls and self.UIControls.MeasureWrappedText then
+        frame.text:SetHeight(0)
+        local measure = self.UIControls.MeasurePopupText or self.UIControls.MeasureWrappedText
+        local height = measure(frame.text, frame.text:GetText(), 464) + 8
+        frame.text:SetHeight(height)
+        frame:SetHeight(math.max(210, height + (definition.hasEditBox and 118 or 76)))
+    end
 
     local editValue = definition.gamepadEditBoxText
     if type(editValue) == "function" then editValue = editValue() end
@@ -736,6 +673,13 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     end
 
     frame.accept:SetText(definition.button1 or OKAY or "OK")
+    frame.accept:SetWidth(definition.button3 and 145 or 210)
+    frame.cancel:SetWidth(definition.button3 and 145 or 210)
+    frame.alternate:Hide()
+    if definition.button3 then
+        frame.alternate:SetText(definition.button3)
+        frame.alternate:Show()
+    end
     if definition.button2 then
         frame.accept:ClearAllPoints()
         frame.accept:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 42, 22)
@@ -748,6 +692,10 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     end
     PositionGamepadSafeFrame(frame)
     frame:Show()
+    if setupPopup and not self:IsGamepadUIEnabled() and editValue ~= nil then
+        if frame.EditBox.HighlightText then frame.EditBox:HighlightText() end
+        if frame.EditBox.SetFocus then frame.EditBox:SetFocus() end
+    end
     return frame
 end
 
@@ -775,6 +723,21 @@ function Offhand:InitializePopups()
     local version = StaticPopupDialogs["OFFHAND_COMPANION_VERSION_WARNING"]
     version.text = CompanionPopupLocale("POPUP_COMPANION_VERSION_TEXT")
     version.button1 = CompanionPopupLocale("POPUP_BTN_GOT_IT")
+    for _, notice in ipairs({handoff, topology, version}) do
+        notice.button1 = Offhand.L["POPUP_BTN_SETUP_GUIDE"]
+        notice.button2 = Offhand.L["FOREVER_EDIT_MODE_NOT_NOW"]
+        notice.button3 = Offhand.L["HUD_SETUP_CALIBRATE"]
+        notice.OnAccept = function()
+            if Offhand.Onboarding then Offhand.Onboarding:Open() end
+        end
+        notice.OnAlt = function()
+            if Offhand.Wizard then Offhand.Wizard:Open() end
+        end
+    end
+    local reminder = StaticPopupDialogs["OFFHAND_HUD_SETUP_REMINDER"]
+    reminder.text = Offhand.L["HUD_SETUP_REMINDER_TEXT"]
+    reminder.button1 = Offhand.L["HUD_SETUP_RESUME"]
+    reminder.button2 = Offhand.L["HUD_SETUP_DECLINE"]
     
     StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"].text = Offhand.L["POPUP_WELCOME_WARNING_TEXT"]
     StaticPopupDialogs["OFFHAND_WELCOME_SPAN_WARNING"].button1 = Offhand.L["POPUP_BTN_SETUP_GUIDE"]
@@ -921,6 +884,16 @@ function Offhand:HideCompanionNotices(exceptKind)
 end
 
 function Offhand:RefreshMainhandLayoutAttention()
+    if InCombatLockdown and InCombatLockdown() then return false end
+    local pendingHUD = type(OffhandCharDB) == "table"
+        and (OffhandCharDB.hudSetupReminder or OffhandCharDB.mainhandLayoutDeferred)
+        and not OffhandCharDB.hudSetupReminderDeclined
+    if pendingHUD
+        and not self._hudSetupReminderShown and self.HasBlizzardEditMode and self:HasBlizzardEditMode() then
+        self._hudSetupReminderShown = true
+        self:ShowPopup("OFFHAND_HUD_SETUP_REMINDER")
+        return true
+    end
     if Offhand.isForever or Offhand._mainhandLayoutAttentionDismissed
         or not Offhand.Mainhand or not Offhand.Mainhand.NeedsEditModeLayoutAttention then
         return false
@@ -1256,12 +1229,13 @@ local function EvaluateEntryNotices(attempt)
         or Offhand.db.firstRunComplete
     local onboardingResumeStep = Offhand.GetOnboardingResumeStep
         and Offhand:GetOnboardingResumeStep() or nil
-    if onboardingResumeStep or not welcomeDismissed then
+    if Offhand.db.enabled and (onboardingResumeStep or not welcomeDismissed or not setupComplete) then
         Offhand:HideCompanionNotices()
         Offhand:HideResolvedSpanPrompts(viewportMetrics)
         -- Installation onboarding is deliberately independent from display
         -- calibration. A saved reload handoff takes priority over an older
-        -- welcome acknowledgement so Step 4 can resume for existing users.
+        -- welcome acknowledgement. Acknowledging the welcome never substitutes
+        -- for completing calibration; deliberately disabled profiles stay quiet.
         if Offhand.Onboarding and Offhand.Onboarding.Open then
             Offhand.Onboarding:Open()
         elseif not isSpanned then
@@ -1553,6 +1527,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             if generation ~= Offhand._displayGeometryGeneration then return end
             Offhand._displayDebounceTimer = nil
             Offhand:RunOrQueueCombat(function()
+                -- Combat may delay this callback beyond another display reset.
+                -- Only the newest settled generation may restore geometry.
+                if generation ~= Offhand._displayGeometryGeneration then return end
                 Offhand:ApplyFullLayout()
                 local displayMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
                 if Offhand.RawMouse and Offhand.RawMouse.Refresh then
@@ -1607,6 +1584,12 @@ function Offhand:ApplyFullLayout()
             Offhand:UpdateCanvas()
         end
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+        if Offhand.Mainhand and Offhand.Mainhand.UpdateWindowModeLayout then
+            Offhand.Mainhand:UpdateWindowModeLayout(metrics)
+        end
+        if Offhand.MainhandCompatibility and Offhand.MainhandCompatibility.UpdateClassicNativeBar then
+            Offhand.MainhandCompatibility.UpdateClassicNativeBar(metrics)
+        end
         if Offhand.RawMouse and Offhand.RawMouse.Update then
             Offhand.RawMouse:Update(metrics)
         end
@@ -1616,6 +1599,9 @@ function Offhand:ApplyFullLayout()
         if Offhand.Canvas and Offhand.Canvas.PrepareSingleScreenRecovery then
             Offhand.Canvas:PrepareSingleScreenRecovery(metrics)
         end
+        -- An open Options/Game Menu can still carry our old spanned offset.
+        -- Refresh owned menu anchors even when the current canvas is unspanned.
+        if Offhand.MenuPlacement then Offhand.MenuPlacement:Refresh() end
         if not metrics or metrics.isSpanned then
             if Offhand.UpdateSeamRedirect then
                 Offhand:UpdateSeamRedirect()

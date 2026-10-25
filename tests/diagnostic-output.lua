@@ -10,6 +10,7 @@ GetScreenHeight = function() return 1097 end
 UIParent = { GetEffectiveScale = function() return 0.7 end }
 local addon = {}
 assert(loadfile("Core/Init.lua"))("Offhand", addon)
+assert(loadfile("Core/ClientRuntime.lua"))("Offhand", addon)
 addon.db = { enabled = true, firstRunComplete = true }
 local lines, probes = {}, {}
 addon.Print = function(_, fmt, ...) lines[#lines + 1] = string.format(fmt, ...) end

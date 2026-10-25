@@ -114,7 +114,15 @@ try {
         throw 'Release metadata must preserve UTF-8 changelog text and keep generated test-focus text encoding-safe.'
     }
 
-    Write-Output 'PASS: standardized beta, release-candidate, stable, and invalid release metadata'
+    $beta23Notes = Join-Path $temp 'beta23.md'
+    & $script -Tag 'v2.1.2-beta.23' -ChangelogPath $projectChangelog -OutputPath $beta23Notes | Out-Null
+    $beta23Body = Get-Content -LiteralPath $beta23Notes -Raw -Encoding utf8
+    foreach ($required in @('Restore Window', 'Span WoW Now', 'Experimental native VSync/graphics-reset recovery and graininess handling are not included.', 'byte-identical 2.1.2-beta.20', 'Reorganized addon services')) {
+        if (-not $beta23Body.Contains($required)) { throw "Beta 23 release scope missing: $required" }
+    }
+    if ($beta23Body.Contains([char]0x2014)) { throw 'Beta 23 presented release notes must not contain em dashes.' }
+
+    Write-Output 'PASS: standardized beta, release-candidate, stable, invalid and Beta 23 addon-only release metadata'
 } finally {
     if (Test-Path -LiteralPath $temp) {
         Remove-Item -LiteralPath $temp -Recurse -Force

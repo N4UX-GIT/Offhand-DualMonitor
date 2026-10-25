@@ -84,6 +84,10 @@ local addon = {
 local customBagAddon = false
 addon.HasCustomBagAddon = function() return customBagAddon end
 OffhandCharDB = {}
+assert(loadfile("Core/MainhandGeometry.lua"))("Offhand", addon)
+assert(loadfile("Core/MainhandCompatibility.lua"))("Offhand", addon)
+assert(loadfile("Core/MainhandGamepad.lua"))("Offhand", addon)
+assert(loadfile("Core/MainhandEditMode.lua"))("Offhand", addon)
 assert(loadfile("Core/Mainhand.lua"))("Offhand", addon)
 
 local callbackRect, callbackRevision
@@ -196,7 +200,7 @@ EncounterBar.w, EncounterBar.h = 280, 40
 EncounterBar:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 Constants = { EditModeConsts = { EditModeMaxLayoutsPerType = 10 } }
 local preset = {
-    layoutName = "Modern", layoutIndex = 1, layoutType = 1, interfaceStyle = 1,
+    layoutName = "Modern", layoutIndex = 0, layoutType = 1, interfaceStyle = 1,
     systems = {
         { system = 72, systemIndex = 1, isInDefaultPosition = true,
           anchorInfo = { point = "CENTER", relativeTo = "UIParent", relativePoint = "CENTER", offsetX = 0, offsetY = 0 } },
@@ -239,8 +243,8 @@ local function copyTable(value, seen)
 end
 local presetLayouts = {
     preset,
-    { layoutName = "Classic", layoutIndex = 2, systems = {} },
-    { layoutName = "Internal", layoutIndex = 3, systems = {} },
+    { layoutName = "Classic", layoutIndex = 1, systems = {} },
+    { layoutName = "Internal", layoutIndex = 2, systems = {} },
 }
 EditModePresetLayoutManager = {
     presetLayoutInfo = presetLayouts,
@@ -379,6 +383,9 @@ assert(ok and layoutData.activeLayout == 4 and #saved.layouts == 1,
 
 -- The Options action must preserve every return value from Mainhand. Wrapping
 -- this call in an `and` expression collapses the layout name and moved count.
+assert(loadfile("UI/Controls.lua"))("Offhand", addon)
+assert(loadfile("Core/TopologyDetection.lua"))("Offhand", addon)
+assert(loadfile("UI/OptionsActions.lua"))("Offhand", addon)
 assert(loadfile("UI/Options.lua"))("Offhand", addon)
 local createLayout = addon.Mainhand.CreateOrUpdateEditModeLayout
 addon.Mainhand.CreateOrUpdateEditModeLayout = function()
@@ -1106,3 +1113,195 @@ assert(not ok and why == "save-api",
     "missing Edit Mode save capability must report its exact failure")
 
 print("PASS: Mainhand anchor, public API, safe gather, layout transform, and provenance")
+
+-- Returning from the discarded Classic artwork experiment must rebuild the
+-- same generated slot from its recorded source, including native art settings.
+addon.isForever = false
+OffhandCharDB = {}
+Enum.EditModeActionBarSetting = { HideBarArt = 9001 }
+Enum.EditModeSystem.MicroMenu, Enum.EditModeSystem.Bags = 1001, 1002
+local classicSource = copyTable(preset)
+classicSource.systems = {
+    {system=Enum.EditModeSystem.ActionBar, systemIndex=Enum.EditModeActionBarSystemIndices.MainBar,
+        isInDefaultPosition=true, settings={{setting=9001,value=0}},
+        anchorInfo={point='BOTTOMLEFT',relativeTo='MainMenuBarArtFrame',relativePoint='BOTTOMLEFT',offsetX=8,offsetY=4}},
+    {system=1001,isInDefaultPosition=true,
+        anchorInfo={point='BOTTOMLEFT',relativeTo='MainMenuBarArtFrame',relativePoint='BOTTOM',offsetX=40,offsetY=2}},
+    {system=1002,isInDefaultPosition=true,
+        anchorInfo={point='BOTTOMRIGHT',relativeTo='MainMenuBarArtFrame',relativePoint='BOTTOMRIGHT',offsetX=-9,offsetY=2}},
+    {system=9999,isInDefaultPosition=true,
+        anchorInfo={point='CENTER',relativeTo='UIParent',relativePoint='CENTER',offsetX=0,offsetY=0}},
+    {system=Enum.EditModeSystem.StatusTrackingBar,systemIndex=1,isInDefaultPosition=true,
+        anchorInfo={point='BOTTOM',relativeTo='StatusTrackingBarManager',relativePoint='BOTTOM',offsetX=0,offsetY=0}},
+}
+presetLayouts={classicSource,{layoutName='Classic',layoutIndex=1,systems={}}}
+layoutData={activeLayout=1,layouts={}}
+C_EditMode.SaveLayouts=function(data) saved=data; layoutData=data end
+ok = addon.Mainhand:CreateOrUpdateEditModeLayout()
+assert(ok)
+local generatedName=OffhandCharDB.mainhandLayout.generatedName
+local damaged=saved.layouts[1].systems
+damaged[1].settings[1].value=1
+for index=1,3 do damaged[index].anchorInfo.relativeTo='UIParent'; damaged[index].isInDefaultPosition=false end
+OffhandCharDB.mainhandLayout.classicArtwork=true
+OffhandCharDB.mainhandLayout.classicEndCaps=true
+OffhandCharDB.mainhandLayout.classicNativeArtwork=true
+ok = addon.Mainhand:CreateOrUpdateEditModeLayout()
+assert(ok and #saved.layouts==1 and OffhandCharDB.mainhandLayout.generatedName==generatedName,
+    'explicit rebuild must repair the existing generated slot, not consume a new one')
+for index=1,3 do
+    local entry=saved.layouts[1].systems[index]
+    assert(entry.anchorInfo.relativeTo=='MainMenuBarArtFrame' and entry.isInDefaultPosition==true,
+        'Beta 22 preserves native artwork-relative relationships and default-position flags')
+end
+assert(saved.layouts[1].systems[1].settings[1].value==0
+    and classicSource.systems[1].settings[1].value==0,
+    'source artwork choice must restore the generated Hide Bar Art setting without changing the source')
+local classicXP=saved.layouts[1].systems[5]
+assert(classicXP.anchorInfo.relativeTo=='StatusTrackingBarManager'
+    and classicXP.anchorInfo.relativePoint=='BOTTOM' and classicXP.anchorInfo.offsetX==0
+    and classicXP.anchorInfo.offsetY==0 and classicXP.isInDefaultPosition==true,
+    'native Classic XP must retain its original manager anchor, not inherit action-bar geometry')
+assert(not OffhandCharDB.mainhandLayout.classicArtwork and not OffhandCharDB.mainhandLayout.classicEndCaps
+    and not OffhandCharDB.mainhandLayout.classicNativeArtwork,
+    'successful explicit rebuild must discard experimental provenance')
+ok = addon.Mainhand:CreateOrUpdateEditModeLayout()
+assert(ok and #saved.layouts==1 and saved.layouts[1].systems[1].settings[1].value==0)
+print('PASS: Beta 22 native Classic anchors and explicit artwork-experiment recovery')
+
+-- Retail status systems use their own containers, not the legacy manager or
+-- independently docked bags. Their generated anchors must ignore stale edges.
+addon.isRetail=true; addon.isForever=false
+OffhandCharDB={}
+metrics={gameLeft=1097,gameRight=3047,gameBottom=5,gameTop=1102,isSpanned=true}
+addon.Mainhand:Update('retail-status-test')
+Enum.EditModeStatusTrackingBarSystemIndices={StatusTrackingBar1=1,StatusTrackingBar2=2}
+MainActionBar=frame('MainActionBar'); MainActionBar:SetSize(570,40)
+MainActionBar:SetPoint('BOTTOM',UIParent,'BOTTOM',0,32)
+MainActionBar.left,MainActionBar.right=-9000,9000
+MainStatusTrackingBarContainer=frame('MainStatusTrackingBarContainer')
+MainStatusTrackingBarContainer:SetSize(571,17); MainStatusTrackingBarContainer.scale=0.8
+MainStatusTrackingBarContainer:SetPoint('BOTTOM',UIParent,'BOTTOM',5000,0)
+SecondaryStatusTrackingBarContainer=frame('SecondaryStatusTrackingBarContainer')
+SecondaryStatusTrackingBarContainer:SetSize(500,19); SecondaryStatusTrackingBarContainer.scale=1.1
+SecondaryStatusTrackingBarContainer:SetPoint('TOPLEFT',UIParent,'BOTTOM',-9000,0)
+for _,native in ipairs({MainActionBar,MainStatusTrackingBarContainer,SecondaryStatusTrackingBarContainer}) do
+    native.SetPoint=function() error('Retail generation must not mutate native points') end
+    native.ClearAllPoints=function() error('Retail generation must not mutate native points') end
+    native.SetScale=function() error('Retail generation must not mutate native scale') end
+end
+StatusTrackingBarManager=frame('StatusTrackingBarManager'); StatusTrackingBarManager:SetSize(9999,900)
+MainMenuBarBackpackButton=frame('MainMenuBarBackpackButton'); MainMenuBarBackpackButton.right=99999
+ActionButton1=frame('ActionButton1'); ActionButton1.left=-99999
+local retailSource=copyTable(preset)
+retailSource.systems={
+    {system=Enum.EditModeSystem.ActionBar,systemIndex=Enum.EditModeActionBarSystemIndices.MainBar,isInDefaultPosition=true,
+        anchorInfo={point='BOTTOM',relativeTo='UIParent',relativePoint='BOTTOM',offsetX=0,offsetY=32}},
+    {system=Enum.EditModeSystem.StatusTrackingBar,systemIndex=1,isInDefaultPosition=true,
+        anchorInfo={point='BOTTOM',relativeTo='StatusTrackingBarManager',relativePoint='BOTTOM',offsetX=0,offsetY=0}},
+    {system=Enum.EditModeSystem.StatusTrackingBar,systemIndex=2,isInDefaultPosition=true,
+        anchorInfo={point='BOTTOM',relativeTo='StatusTrackingBarManager',relativePoint='BOTTOM',offsetX=0,offsetY=10}},
+    {system=Enum.EditModeSystem.StatusTrackingBar,systemIndex=1,isInDefaultPosition=false,
+        anchorInfo={point='LEFT',relativeTo='OtherSystem',relativePoint='RIGHT',offsetX=77,offsetY=88}},
+    {system=Enum.EditModeSystem.ActionBar,systemIndex=Enum.EditModeActionBarSystemIndices.StanceBar,isInDefaultPosition=true,
+        anchorInfo={point='BOTTOM',relativeTo='UIParent',relativePoint='BOTTOM',offsetX=0,offsetY=32}},
+}
+presetLayouts={retailSource,{layoutName='Classic',layoutIndex=1,systems={}}}
+layoutData={activeLayout=1,layouts={}}
+ok=addon.Mainhand:CreateOrUpdateEditModeLayout(); assert(ok)
+local rows=saved.layouts[1].systems
+local function near(a,b) assert(math.abs(a-b)<0.01,tostring(a)..' ~= '..tostring(b)) end
+near(rows[2].anchorInfo.offsetX*0.8,2072)
+near(rows[2].anchorInfo.offsetY*0.8,80)
+near(rows[3].anchorInfo.offsetX*1.1+500*1.1/2,2072)
+near(rows[3].anchorInfo.offsetY*1.1-19*1.1,80+17*0.8+4)
+assert(rows[2].anchorInfo.relativeTo=='UIParent' and rows[2].anchorInfo.relativePoint=='BOTTOMLEFT'
+    and rows[3].anchorInfo.point=='TOPLEFT','use each status container self point and scaled dimensions')
+assert(rows[4].anchorInfo.relativeTo=='OtherSystem' and rows[4].anchorInfo.offsetX==77
+    and rows[4].anchorInfo.offsetY==88,'customized source status anchors must remain untouched')
+local xpX,xpY,stanceX=rows[2].anchorInfo.offsetX,rows[2].anchorInfo.offsetY,rows[5].anchorInfo.offsetX
+MainActionBar.left,MainActionBar.right=123456,234567
+MainMenuBarBackpackButton.right=-99999; ActionButton1.left=99999
+ok=addon.Mainhand:CreateOrUpdateEditModeLayout(); assert(ok and #saved.layouts==1)
+near(saved.layouts[1].systems[2].anchorInfo.offsetX,xpX)
+near(saved.layouts[1].systems[2].anchorInfo.offsetY,xpY)
+near(saved.layouts[1].systems[5].anchorInfo.offsetX,stanceX)
+assert(retailSource.systems[2].anchorInfo.relativeTo=='StatusTrackingBarManager'
+    and retailSource.systems[2].anchorInfo.offsetX==0,'source presets must not be mutated')
+MainStatusTrackingBarContainer.w=4000
+ok=addon.Mainhand:CreateOrUpdateEditModeLayout(); assert(ok)
+assert(saved.layouts[1].systems[2].anchorInfo.relativeTo=='StatusTrackingBarManager',
+    'oversized status bar must retain its source anchor rather than overflow or be shrunk')
+MainStatusTrackingBarContainer.w=571
+MainStatusTrackingBarContainer=nil
+ok=addon.Mainhand:CreateOrUpdateEditModeLayout(); assert(ok)
+assert(saved.layouts[1].systems[2].anchorInfo.relativeTo=='StatusTrackingBarManager',
+    'missing Retail container must retain source relationship, not fall back to the bags')
+print('PASS: Retail status centering, separate containers, scaled points, secondary stacking and stale-edge isolation')
+
+do
+-- Retail can expose preset layouts without the input-style Gamepad enum.
+-- The existing result is false; no full layout copies are needed to decide it.
+currentInterfaceStyle=1
+local originalPresetManager=EditModePresetLayoutManager
+local originalInputTypes=Enum.InputDeviceInterfaceType
+local controllerCopies=0
+EditModePresetLayoutManager={GetCopyOfPresetLayouts=function()
+    controllerCopies=controllerCopies+1
+    return {{interfaceStyle=originalInputTypes.Gamepad}}
+end}
+Enum.InputDeviceInterfaceType=nil
+for _=1,450 do assert(not addon.Mainhand:IsControllerLayout()) end
+Enum.InputDeviceInterfaceType={}
+assert(not addon.Mainhand:IsControllerLayout())
+assert(controllerCopies==0,'missing Gamepad enum must not copy unused preset trees')
+ConsolePort={}
+assert(addon.Mainhand:IsControllerLayout(),'ConsolePort detection must remain first')
+ConsolePort=nil
+Enum.InputDeviceInterfaceType=originalInputTypes
+assert(addon.Mainhand:IsControllerLayout() and controllerCopies==1,
+    'available enum must preserve the existing preset-copy compatibility path')
+EditModePresetLayoutManager=originalPresetManager
+print('PASS: missing controller enum avoids preset copies and preserves compatibility fallbacks')
+end
+do
+-- Read-only controller detection must not deep-copy every preset/system tree.
+currentInterfaceStyle=1
+addon.isForever=false
+local originalPresetManager=EditModePresetLayoutManager
+local detectionPreset={interfaceStyle=1,systems={}}
+local copies=0
+EditModePresetLayoutManager={presetLayoutInfo={detectionPreset},GetCopyOfPresetLayouts=function()
+    copies=copies+1
+    return {{interfaceStyle=detectionPreset.interfaceStyle}}
+end}
+local inputTypes=Enum.InputDeviceInterfaceType
+Enum.InputDeviceInterfaceType=nil
+for _=1,450 do assert(not addon.Mainhand:IsControllerLayout()) end
+assert(copies==0,'missing input enum must not copy presets that cannot affect the result')
+Enum.InputDeviceInterfaceType={}
+assert(not addon.Mainhand:IsControllerLayout() and copies==0,
+    'missing Gamepad member must retain the false result without copying')
+Enum.InputDeviceInterfaceType=inputTypes
+for _=1,450 do assert(not addon.Mainhand:IsControllerLayout()) end
+assert(copies==0,'periodic controller checks must not copy complete preset layouts')
+detectionPreset.interfaceStyle=Enum.InputDeviceInterfaceType.Gamepad
+assert(addon.Mainhand:IsControllerLayout(),'read-only detection must notice live preset changes immediately')
+detectionPreset.interfaceStyle=1
+assert(not addon.Mainhand:IsControllerLayout(),'keyboard mode must not be stuck in a cached Gamepad result')
+EditModePresetLayoutManager.presetLayoutInfo=nil
+detectionPreset.interfaceStyle=Enum.InputDeviceInterfaceType.Gamepad
+assert(addon.Mainhand:IsControllerLayout() and copies==1,
+    'clients without the preset table must retain the copy-based compatibility fallback')
+addon.isForever=true
+EditModePresetLayoutManager=setmetatable({GetCopyOfPresetLayouts=function()
+    copies=copies+1;return {{interfaceStyle=detectionPreset.interfaceStyle}}
+end},{__index=function(_,key)
+    assert(key~='presetLayoutInfo','Forever must not read the native preset table')
+end})
+assert(addon.Mainhand:IsControllerLayout() and copies==2,
+    'Forever must retain its existing compatibility path without native table access')
+addon.isForever=false
+EditModePresetLayoutManager=originalPresetManager
+print('PASS: controller detection reads preset style without copying layouts and preserves fallback')
+end
