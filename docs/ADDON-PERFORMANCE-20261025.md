@@ -50,7 +50,8 @@ keeps six results, and does nothing per-frame until `/ohperf start LABEL`.
 It prefers C_AddOnProfiler when available, recording Offhand-specific raw
 milliseconds, slow-tick counters, all-addon/application recent metrics and the old
 display probe separately at half-second intervals. It never enables profiling,
-resets global CPU counters, hooks Blizzard frames or mutates Offhand. Modern
+resets global CPU counters or hooks Blizzard frames. The diagnostic maintenance
+candidate provides an addon-owned timing recorder only during captures. Modern
 captures do not require scriptProfile. Legacy aggregate CPU counters remain a
 fallback only when the client provides them and scriptProfile is already enabled.
 If unavailable, CPU is reported unavailable rather than zero. The observer adds

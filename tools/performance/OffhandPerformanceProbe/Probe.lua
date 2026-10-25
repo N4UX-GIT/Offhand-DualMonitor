@@ -1,7 +1,9 @@
 -- Standalone opt-in QA observer. No hooks, CVar writes, global CPU reset or
--- Offhand runtime mutation. Frame intervals describe the whole client.
+-- protected-frame changes. Optional timing uses an explicit addon-owned recorder.
+-- Frame intervals describe the whole client.
 local controller = CreateFrame('Frame')
 local active
+local maintenanceOwner,maintenanceProvider
 local function Number(value)
     return type(value)=='number' and value==value and value>=0 and value<math.huge
 end
@@ -47,6 +49,49 @@ end
 local function Message(text)
     if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage('[Offhand performance] '..text) end
 end
+local function StartMaintenanceTiming(result)
+    local owner=_G.Offhand
+    if type(debugprofilestop)~='function' or not owner or not owner.SeamRedirect
+        or owner.SeamRedirect.PerformanceMaintenanceVersion~=1 then
+        result.maintenanceTimingStatus='candidate timing capability unavailable'
+        return
+    end
+    if owner.PerformanceMaintenanceProbe then
+        result.maintenanceTimingStatus='another recorder owns maintenance timing'
+        return
+    end
+    result.maintenanceTimingStatus='active'
+    result.maintenancePhases={}
+    maintenanceOwner=owner
+    maintenanceProvider={Run=function(_,name,fn,receiver)
+        -- Do not catch/suppress errors or execute the operation twice. These
+        -- maintenance operations have no consumed return values.
+        if active~=result then fn(receiver);return end
+        local before=debugprofilestop()
+        fn(receiver)
+        local elapsed=debugprofilestop()-before
+        if not Number(elapsed) then return end
+        local phase=result.maintenancePhases[name]
+        if not phase then
+            phase={calls=0,totalMs=0,maxMs=0,over1Ms=0,samples={}}
+            result.maintenancePhases[name]=phase
+        end
+        phase.calls=phase.calls+1
+        phase.totalMs=phase.totalMs+elapsed
+        phase.maxMs=math.max(phase.maxMs,elapsed)
+        if elapsed>1 then phase.over1Ms=phase.over1Ms+1 end
+        if #phase.samples<64 then
+            phase.samples[#phase.samples+1]={elapsedSeconds=GetTime()-result.started,callMs=elapsed}
+        end
+    end}
+    owner.PerformanceMaintenanceProbe=maintenanceProvider
+end
+local function StopMaintenanceTiming()
+    if maintenanceOwner and maintenanceOwner.PerformanceMaintenanceProbe==maintenanceProvider then
+        maintenanceOwner.PerformanceMaintenanceProbe=nil
+    end
+    maintenanceOwner,maintenanceProvider=nil,nil
+end
 local function API(name)
     return _G[name] or C_AddOns and C_AddOns[name]
 end
@@ -71,6 +116,7 @@ end
 local function Stop(reason)
     if not active then Message('No capture running.'); return end
     controller:SetScript('OnUpdate',nil)
+    StopMaintenanceTiming()
     local result=active
     active=nil
     SampleModern(result)
@@ -104,6 +150,7 @@ local function Start(label)
         over16ms=0,over33ms=0,over50ms=0,over100ms=0}
     SampleModern(active)
     active.modernStart=active.modernEnd
+    StartMaintenanceTiming(active)
     local sampleElapsed=0
     controller:SetScript('OnUpdate',function(_,elapsed)
         if type(elapsed)~='number' or elapsed<0 or elapsed~=elapsed then return end
@@ -123,6 +170,7 @@ local function Start(label)
     Message('Capturing '..active.label..' for up to 15 minutes. /ohperf stop ends it. CPU '..
         (active.modernStart and 'available through C_AddOnProfiler; no scriptProfile change needed.'
             or active.cpuStartMs and 'available.' or 'unavailable on this client; check supported profiler APIs.'))
+    Message('Maintenance timing: '..active.maintenanceTimingStatus..'.')
 end
 SLASH_OFFHANDPERFORMANCEPROBE1='/ohperf'
 SlashCmdList.OFFHANDPERFORMANCEPROBE=function(message)

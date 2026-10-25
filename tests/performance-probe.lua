@@ -53,4 +53,22 @@ C_AddOnProfiler.GetOverallMetric=function() error('unavailable') end
 command('start unavailable');clock=clock+1;command('stop')
 assert(OffhandPerformanceProbeDB[#OffhandPerformanceProbeDB].cpuUnavailable,
     'failed modern metrics must remain unavailable, not zero')
+local phaseClock=0
+debugprofilestop=function() return phaseClock end
+Offhand={SeamRedirect={PerformanceMaintenanceVersion=1}}
+command('start phases')
+local recorder=Offhand.PerformanceMaintenanceProbe
+local calls=0
+recorder:Run('discovery',function(receiver) assert(receiver==Offhand);calls=calls+1;phaseClock=phaseClock+1.25 end,Offhand)
+local ok=pcall(function() recorder:Run('error',function() error('test-error') end) end)
+assert(not ok,'phase timing must not suppress operation errors')
+for _=1,100 do recorder:Run('discovery',function() calls=calls+1;phaseClock=phaseClock+0.1 end) end
+clock=clock+60;command('stop')
+result=OffhandPerformanceProbeDB[#OffhandPerformanceProbeDB]
+assert(result.maintenanceTimingStatus=='active' and calls==101)
+assert(result.maintenancePhases.discovery.calls==101 and result.maintenancePhases.discovery.over1Ms==1)
+assert(#result.maintenancePhases.discovery.samples==64,'phase sample retention must be bounded')
+assert(not Offhand.PerformanceMaintenanceProbe,'capture stop must remove its own recorder')
+command('start ownership');local other={};Offhand.PerformanceMaintenanceProbe=other;command('stop')
+assert(Offhand.PerformanceMaintenanceProbe==other,'stop must not remove another owner')
 print('PASS: opt-in performance observer, CPU availability/reset, frame intervals and bounded capture')

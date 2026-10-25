@@ -48,5 +48,15 @@ for index,result in ipairs(captures) do
         previousCount=count
     end
     print('Observed intervals between sampled >1ms counter increments: '..Stats(periods,'seconds'))
+    print('Maintenance timing status: '..tostring(result.maintenanceTimingStatus or 'not captured'))
+    local names={}
+    for name in pairs(result.maintenancePhases or {}) do names[#names+1]=name end
+    table.sort(names)
+    for _,name in ipairs(names) do
+        local phase=result.maintenancePhases[name]
+        print(string.format('Phase %s: calls=%d mean=%.6fms max=%.6fms over1=%d',
+            name,phase.calls,phase.calls>0 and phase.totalMs/phase.calls or 0,phase.maxMs,phase.over1Ms))
+        print('  bounded phase samples: '..Stats(phase.samples,'callMs'))
+    end
 end
 print('Rolling sample means are not exact whole-run CPU totals. Frame timings are client-wide; unmatched runs do not prove FPS causation.')
