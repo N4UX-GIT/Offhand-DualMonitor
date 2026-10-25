@@ -183,3 +183,10 @@ each average below 0.06 ms. See PERFORMANCE-PARTY-RECOVERY-RESULTS-20261025.md f
 the narrow controller-detection optimization and pending matched repeat capture.
 Application-time distributions and run lengths differ, so no FPS causation is
 inferred.
+
+The final matched Retail `enum-fixed` run verifies the missing-enum correction:
+party recovery averages 0.022810 ms across 40 calls, down from 1.483729 ms, with
+zero party-recovery calls over 1 ms. Only one new Offhand >1 ms tick appears in
+79.251 seconds, replacing the previous every-two-second pattern. No new >5 ms
+tick appears. This confirms the targeted recurring cost is removed in the tested
+Retail scenario; it does not imply a measured FPS gain or universal client result.

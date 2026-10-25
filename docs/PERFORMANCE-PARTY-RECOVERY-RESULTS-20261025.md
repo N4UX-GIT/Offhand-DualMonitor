@@ -54,6 +54,27 @@ candidates, Companion, other clients and SavedVariables were not deployed.
 
 ## Matched repeat
 
+### Verified Retail result: recurring party-recovery spike removed
+
+The final `enum-fixed` capture lasts 79.251 seconds on Retail 12.1.5 build
+70575. It contains 40 maintenance cycles. Party recovery averages 0.022810 ms,
+maximum 0.057000 ms, with zero calls over 1 ms. Compared with the initial
+1.483729 ms mean, this is a 98.46% reduction in that measured phase. The previous
+two-second pattern is absent: only one new Offhand tick exceeds 1 ms during the
+entire capture, with no new >5 ms ticks or increase in the historical peak.
+That single tick is not attributed to the timed maintenance phases.
+
+Offhand's sampled recent-average mean is 0.009444 ms, compared with 0.018003 ms
+in the original maintenance run. Rolling sample means and differing application
+timings do not establish whole-run CPU totals or FPS improvement. The verified
+claim is removal of the recurring party-recovery cost in this ordinary-window
+Retail scenario, without reducing recovery cadence.
+
+Preserved capture: `dist/performance-enum-fixed-20261025/OffhandPerformanceProbe.lua`.
+SHA256: `711580A865D7B770A7654A69B10FD62534842CA28D56294954F5D33E79190DB3`.
+The standalone diagnostic can now be disabled for ordinary play. Broader live
+controller/client coverage, including release Forever, remains separate.
+
 ### Repeat result: no improvement
 
 The `maintenance-fixed` capture lasts 113.789 seconds on the same Retail build.
