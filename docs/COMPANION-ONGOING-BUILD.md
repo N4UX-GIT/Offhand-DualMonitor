@@ -1,5 +1,31 @@
 # Ongoing Companion build
 
+## Source integration, 25 October 2026
+
+The user authorized committing and merging all post-v22 work, including VSync
+and performance handling. Both previously uncommitted Companion experiments are
+now preserved in source commits and reconciled on `companion/develop`.
+The earlier uncommitted-work descriptions below are historical.
+
+- Graphics recovery source: `0c41626`, including its client-specific candidates,
+  policy tests and existing Retail/Anniversary reporter acceptance.
+- Graininess source: `ed0f189`, including all comparison modes, packaging tools
+  and reporter evidence. Original accepted artifacts remain unchanged.
+- Merge resolution preserves each candidate's isolated preferences and logging.
+  Recovery builds omit the resize handshake; graininess resize mode keeps it.
+  Incompatible experiment defines now fail compilation rather than producing an
+  ambiguous executable. Ordinary builds still leave automatic recovery disabled.
+- The merged-source recovery policies pass for Classic, Retail and Forever;
+  graininess mode/package and standard Companion regressions also pass. These
+  are source integration checks, not new live acceptance of a combined product.
+- Frozen `Companion/Offhand.exe` remains byte-for-byte unchanged. No installed
+  client, Store package, release tag, public download or version was changed.
+
+Final production configuration, startup arming and a unified release artifact
+still need review and testing. Forever live testing remains deferred until the
+user's November 4 milestone. Historical passes do not establish acceptance of
+the newly merged executable.
+
 Updated 25 October 2026. User direction: treat graphics-reset recovery and the
 experimental Companion work in **Investigate v21 Forever Beta issue** as one
 ongoing Companion build. Defer Forever live testing until its November 4 release

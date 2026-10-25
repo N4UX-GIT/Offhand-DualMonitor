@@ -16,6 +16,12 @@ namespace Offhand.Companion
         [STAThread]
         public static void Main()
         {
+            Check(!CompanionForm.GraphicsRecoveryEnabled,
+                "graininess mode must not arm graphics recovery or suppress its resize comparison");
+            string config = (string)typeof(CompanionForm).GetField("configPath",
+                BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
+            Check(config == SpanPresentationTest.ConfigPath,
+                "graininess candidate must retain its own preference path after source integration");
             // Exercise the actual candidate assembly's version gate, not only
             // the parser in isolation. This caught the test1 launch blocker.
             string fixture = Path.Combine(Path.GetTempPath(), "Offhand-graininess-gate-" + Guid.NewGuid().ToString("N"));
