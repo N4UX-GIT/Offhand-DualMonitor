@@ -17,8 +17,15 @@ using System.Windows.Forms;
 [assembly: AssemblyProduct("Offhand Companion")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
 [assembly: AssemblyVersion("2.1.2.0")]
+#if GRAININESS_TEST
+[assembly: AssemblyFileVersion("2.1.2.2002")]
+// Keep the public compatibility/writer identity parseable. Experimental
+// identity belongs in FileVersion, the title, logs and package filename.
+[assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
+#else
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
+#endif
 
 namespace Offhand.Companion
 {
@@ -1397,7 +1404,11 @@ namespace Offhand.Companion
         private static Dictionary<string, string> appSettings = new Dictionary<string, string>();
         private static readonly string configPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+#if GRAININESS_TEST
+            "Offhand", "GraininessTest2", "OffhandConfig.ini");
+#else
             "Offhand", "OffhandConfig.ini");
+#endif
         private string configWarning;
 
         private void LoadConfig()
@@ -1442,6 +1453,9 @@ namespace Offhand.Companion
         private bool updateCheckInProgress = false;
         private readonly bool isStorePackage = CompanionDistribution.IsStorePackage();
         private readonly HashSet<int> spannedPids = new HashSet<int>();
+#if GRAININESS_TEST
+        private int spanTestGeneration;
+#endif
         private readonly HashSet<int> restoredPids = new HashSet<int>();
         private sealed class WindowSnapshot
         {
@@ -1535,9 +1549,19 @@ namespace Offhand.Companion
         public CompanionForm()
         {
             LoadConfig();
+#if GRAININESS_TEST
+            // Candidate preferences are isolated; never auto-span during this experiment.
+            appSettings["AutoSpan"] = "False";
+#endif
             InitializeUI();
             InitializeTray();
             InitializeTimer();
+#if GRAININESS_TEST
+            chkAutoSpan.Enabled = false;
+            itemAuto.Enabled = false;
+            this.Text = "Offhand Graininess Test2: " + SpanPresentationTest.Mode;
+            AddLog("TEST MODE: " + SpanPresentationTest.Mode + "; manual Span only. Logs: " + SpanPresentationTest.LogPath);
+#endif
             if (configWarning != null) AddLog(configWarning);
             AddLog("Offhand Companion v" + FullVersion + " initialized.");
             if (isStorePackage) AddLog("Updates are managed by Microsoft Store.");
@@ -2373,6 +2397,9 @@ namespace Offhand.Companion
 
         private void AddLog(string message)
         {
+#if GRAININESS_TEST
+            SpanPresentationTest.Log(message);
+#endif
             if (logBox == null) { configWarning = message; return; }
             string time = DateTime.Now.ToString("HH:mm:ss");
             activityLogEntries.Insert(0, string.Format("[{0}] {1}", time, message));
@@ -2874,6 +2901,13 @@ namespace Offhand.Companion
 
                 int oldStyle = NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE);
                 int newStyle = oldStyle & ~(NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME);
+#if GRAININESS_TEST
+                AddLog(SpanPresentationTest.Describe(handle, "Before span"));
+                if (SpanPresentationTest.KeepBorders)
+                    newStyle = oldStyle | NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME;
+                bounds = SpanPresentationTest.OuterBounds(handle, plannedBounds, newStyle);
+                AddLog("Target client=" + plannedBounds + "; target outer=" + bounds);
+#endif
                 if (newStyle != oldStyle)
                 {
                     NativeMethods.SetLastError(0);
@@ -2888,6 +2922,15 @@ namespace Offhand.Companion
 
                 try
                 {
+#if GRAININESS_TEST
+                    if (!SpanPresentationTest.Clip)
+                    {
+                        if (NativeMethods.SetWindowRgn(handle, IntPtr.Zero, true) == 0)
+                            throw new Exception("Could not clear WoW clipping region.");
+                    }
+                    else
+                    {
+#endif
                     IntPtr combinedRgn = IntPtr.Zero;
                     IntPtr previousDpi = NativeMethods.SetThreadDpiAwarenessContext((IntPtr)(-4));
                     try
@@ -2913,6 +2956,9 @@ namespace Offhand.Companion
                         if (combinedRgn != IntPtr.Zero) NativeMethods.DeleteObject(combinedRgn);
                         if (previousDpi != IntPtr.Zero) NativeMethods.SetThreadDpiAwarenessContext(previousDpi);
                     }
+#if GRAININESS_TEST
+                    }
+#endif
 
                     uint flags = NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_FRAMECHANGED | NativeMethods.SWP_SHOWWINDOW;
                     if (!NativeMethods.SetWindowPos(handle, IntPtr.Zero, bounds.X, bounds.Y, bounds.Width, bounds.Height, flags))
@@ -2930,6 +2976,9 @@ namespace Offhand.Companion
                     // path while preserving the final topology byte-for-byte.
                     Rectangle intermediate = RenderResizeHandshake.IntermediateBounds(bounds);
                     bool renderResizeHandshake = intermediate != bounds
+#if GRAININESS_TEST
+                        && SpanPresentationTest.Resize
+#endif
                         && NativeMethods.SetWindowPos(handle, IntPtr.Zero,
                             intermediate.X, intermediate.Y,
                             intermediate.Width, intermediate.Height, flags);
@@ -2951,6 +3000,14 @@ namespace Offhand.Companion
                     {
                         throw new Exception("WoW did not accept the requested bounds. Select Windowed mode and retry.");
                     }
+#if GRAININESS_TEST
+                    // Bordered and borderless modes compare the same drawable area.
+                    // No backbuffer or process memory is inspected or changed.
+                    Rectangle measuredClient = SpanPresentationTest.ClientBounds(handle);
+                    AddLog(SpanPresentationTest.Describe(handle, "After span"));
+                    if (measuredClient != plannedBounds)
+                        throw new Exception("Drawable client bounds differ from the plan. Test is invalid; window restored. See log.");
+#endif
                 }
                 catch
                 {
@@ -2966,6 +3023,23 @@ namespace Offhand.Companion
                         Bounds = new Rectangle(oldRect.Left, oldRect.Top, oldRect.Width, oldRect.Height) };
                 restoredPids.Remove(proc.Id);
                 spannedPids.Add(proc.Id);
+#if GRAININESS_TEST
+                // Bound read-only sampling to one minute and cancel superseded runs.
+                int generation = ++spanTestGeneration;
+                int samplePid = proc.Id;
+                int remaining = 30;
+                Timer evidenceTimer = new Timer { Interval = 2000 };
+                evidenceTimer.Tick += (sender, args) =>
+                {
+                    if (IsDisposed || generation != spanTestGeneration || !spannedPids.Contains(samplePid)
+                        || remaining-- <= 0)
+                    {
+                        evidenceTimer.Stop(); evidenceTimer.Dispose(); return;
+                    }
+                    AddLog(SpanPresentationTest.Describe(handle, "Settled sample"));
+                };
+                evidenceTimer.Start();
+#endif
                 AddLog(string.Format("Spanned {0}x{1}. If the character UI was already loaded, use /reload once, then run /offhand wizard.", bounds.Width, bounds.Height));
                 trayIcon.ShowBalloonTip(4000, "Offhand Spanned", "Exact display geometry saved. If already in game, use /reload once.", ToolTipIcon.Info);
                 return true;
@@ -2988,6 +3062,19 @@ namespace Offhand.Companion
         [STAThread]
         public static void Main()
         {
+#if GRAININESS_TEST
+            try
+            {
+                SpanPresentationTest.Initialize(Environment.GetCommandLineArgs().Length > 1
+                    ? new System.Collections.Generic.List<string>(Environment.GetCommandLineArgs()).GetRange(1,
+                        Environment.GetCommandLineArgs().Length - 1).ToArray() : new string[0]);
+                SpanPresentationTest.ImportConfig();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Offhand Graininess Test2"); return;
+            }
+#endif
             bool ownsInstance = false;
             System.Threading.Mutex instanceMutex = null;
             try

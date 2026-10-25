@@ -1,0 +1,86 @@
+OFFHAND COMPANION: GRAININESS TEST1
+22 October 2026. Experimental portable candidate, not a public update.
+Keep the existing topology-test1 addon. Do not replace your Store installation.
+
+WHY THIS TEST
+Manual bordered spanning was reported sharp. Beta 20 Companion spanning was
+reported grainy in both UI and world, including with Offhand disabled and after
+a cold restart. USB versus Wi-Fi and 100% Windows scale did not resolve it.
+This test compares the style/region/resize sequence; it is not a confirmed fix.
+
+SETUP
+1. Extract the entire ZIP to a new folder.
+2. Restore Window in your existing Companion, then Exit Companion. Its X button
+   only minimizes it to the tray. Close WoW fully before each mode comparison.
+3. Keep the same Windows display arrangement, recommended resolutions, 100%
+   scaling, GlideX connection, game settings and addon state throughout.
+4. Launch one numbered CMD file. The title bar and log identify its test mode.
+   Double-clicking Offhand.exe alone starts the baseline mode.
+5. Confirm landscape Display 1 (2560x1440) is Mainhand and the tablet is workspace.
+   Test settings are isolated under %LOCALAPPDATA%\Offhand\GraininessTest1.
+   Existing desktop Companion preferences are imported once, when available.
+   Store settings may not be available there; verify every display selection.
+   Auto-span is disabled for the candidate.
+6. Launch WoW in ordinary Windowed mode. Enter the same scene, then click
+   Span WoW Now. Compare both game world and UI, stationary and moving.
+   Do not change addon state between modes. Prefer Offhand disabled for the
+   first pass because the defect was reproduced without it.
+7. The candidate logs actual client/outer bounds and window DPI immediately and
+   every two seconds for one minute. Allow a few samples after world entry.
+   Client bounds must match the display plan. If not, it restores the window
+   and reports an invalid test; send that log rather than changing calibration.
+8. Record sharp or grainy, both immediately and after 10 seconds. Then click
+   Restore Window, Exit Companion and close WoW before starting the next mode.
+   Repeat the baseline last if a later mode appears to help.
+
+MODES (all target the same drawable client area)
+01-Baseline.cmd
+  Beta 20-style border removal, monitor clipping, one final resize.
+  This reproduces the sequence, not every byte of the published Beta 20 source.
+02-Extra-Resize.cmd
+  Baseline plus a one-pixel height nudge and exact return after 50 ms.
+  Sharpness here suggests resize notification/order matters; it is not proof
+  of actual backbuffer dimensions.
+03-No-Clipping.cmd
+  Borderless and one resize, with the monitor-shaped region removed.
+  Desktop voids between unequal monitors are deliberately not clipped.
+04-Keep-Borders.cmd
+  Borders retained, no clipping and no extra resize. Outer window bounds are
+  expanded for the caption/borders so the drawable area matches the other tests.
+  The caption can be partly outside the visible desktop; use Restore Window.
+
+READING THE COMPARISON
+Baseline grainy and extra-resize sharp: prioritize the resize sequence.
+Baseline grainy and no-clipping sharp: prioritize region/clipping interaction.
+No-clipping grainy and keep-borders sharp: prioritize borderless presentation.
+All grainy: compare exact client sizes, renderer settings and the virtual display.
+Any invalid client-bounds test is inconclusive, not a graininess pass/fail.
+Preserving borders can change presentation behavior even with equal dimensions;
+these are diagnostic comparisons, not conclusive proof of a rendering mechanism.
+
+WHAT TO SEND BACK
+The mode-by-mode results, unchanged Windows arrangement screenshot, one matching
+scene screenshot per mode, and the corresponding logs from:
+%LOCALAPPDATA%\Offhand\GraininessTest1
+Use the physical Mainhand screen for the sharpness judgment. Do not send your
+WTF folder or SavedVariables. Logs include normal Companion activity and paths.
+If a mode helps with Offhand disabled, repeat that mode with the topology-test1
+addon enabled and /reload, then verify game/workspace placement and sharpness.
+The generated topology writer identifies this experimental build; an UNKNOWN
+Companion version notice in the addon can occur because its suffix is not a
+public beta version. It does not by itself indicate a geometry failure.
+
+RESTORE
+Click Restore Window before exiting the candidate. Then exit it and launch your
+existing Store Companion. Span WoW Now and /reload regenerates its topology.
+No Store files, addon files, SavedVariables or public Companion binary are replaced.
+The candidate writes the usual generated topology and uses the existing guarded
+Forever recovery bridge. Keep your normal backup. Test settings and logs remain
+in the isolated folder until you choose to remove them.
+
+VALIDATION LIMITS
+Compiled and packaged from companion/graininess-test based on companion/develop
+4ae9d386. Synthetic hidden-window tests verify equal drawable geometry and the
+resize return. No WoW process was operated during build validation. Logs measure
+window/client bounds, not DirectX buffers. Native WoW, GlideX and sharpness results
+remain pending. BUILD.txt records source and executable hashes.
