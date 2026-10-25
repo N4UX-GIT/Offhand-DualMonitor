@@ -1,5 +1,11 @@
 # Verified Retail controller-detection CPU fix
 
+Integration follow-up, 25 October: PR #37 is merged into `addon/develop`.
+The remaining PR #36 source was subsequently merged at `4a7b200`, retaining the
+accepted early return and both regression sets. The separation described below
+records the original narrow promotion; it no longer means those other sources
+are missing from the integration branch. Their live evidence remains separate.
+
 Source branch: `codex/retail-controller-cpu-fix`, targeting `addon/develop`.
 This promotes only the missing-Gamepad-enum short circuit from draft performance
 PR #36. The bag allocation/proxy optimizations, direct native-preset-table read,

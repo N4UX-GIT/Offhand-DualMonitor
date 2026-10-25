@@ -1239,6 +1239,7 @@ assert(saved.layouts[1].systems[2].anchorInfo.relativeTo=='StatusTrackingBarMana
     'missing Retail container must retain source relationship, not fall back to the bags')
 print('PASS: Retail status centering, separate containers, scaled points, secondary stacking and stale-edge isolation')
 
+do
 -- Retail can expose preset layouts without the input-style Gamepad enum.
 -- The existing result is false; no full layout copies are needed to decide it.
 currentInterfaceStyle=1
@@ -1262,3 +1263,45 @@ assert(addon.Mainhand:IsControllerLayout() and controllerCopies==1,
     'available enum must preserve the existing preset-copy compatibility path')
 EditModePresetLayoutManager=originalPresetManager
 print('PASS: missing controller enum avoids preset copies and preserves compatibility fallbacks')
+end
+do
+-- Read-only controller detection must not deep-copy every preset/system tree.
+currentInterfaceStyle=1
+addon.isForever=false
+local originalPresetManager=EditModePresetLayoutManager
+local detectionPreset={interfaceStyle=1,systems={}}
+local copies=0
+EditModePresetLayoutManager={presetLayoutInfo={detectionPreset},GetCopyOfPresetLayouts=function()
+    copies=copies+1
+    return {{interfaceStyle=detectionPreset.interfaceStyle}}
+end}
+local inputTypes=Enum.InputDeviceInterfaceType
+Enum.InputDeviceInterfaceType=nil
+for _=1,450 do assert(not addon.Mainhand:IsControllerLayout()) end
+assert(copies==0,'missing input enum must not copy presets that cannot affect the result')
+Enum.InputDeviceInterfaceType={}
+assert(not addon.Mainhand:IsControllerLayout() and copies==0,
+    'missing Gamepad member must retain the false result without copying')
+Enum.InputDeviceInterfaceType=inputTypes
+for _=1,450 do assert(not addon.Mainhand:IsControllerLayout()) end
+assert(copies==0,'periodic controller checks must not copy complete preset layouts')
+detectionPreset.interfaceStyle=Enum.InputDeviceInterfaceType.Gamepad
+assert(addon.Mainhand:IsControllerLayout(),'read-only detection must notice live preset changes immediately')
+detectionPreset.interfaceStyle=1
+assert(not addon.Mainhand:IsControllerLayout(),'keyboard mode must not be stuck in a cached Gamepad result')
+EditModePresetLayoutManager.presetLayoutInfo=nil
+detectionPreset.interfaceStyle=Enum.InputDeviceInterfaceType.Gamepad
+assert(addon.Mainhand:IsControllerLayout() and copies==1,
+    'clients without the preset table must retain the copy-based compatibility fallback')
+addon.isForever=true
+EditModePresetLayoutManager=setmetatable({GetCopyOfPresetLayouts=function()
+    copies=copies+1;return {{interfaceStyle=detectionPreset.interfaceStyle}}
+end},{__index=function(_,key)
+    assert(key~='presetLayoutInfo','Forever must not read the native preset table')
+end})
+assert(addon.Mainhand:IsControllerLayout() and copies==2,
+    'Forever must retain its existing compatibility path without native table access')
+addon.isForever=false
+EditModePresetLayoutManager=originalPresetManager
+print('PASS: controller detection reads preset style without copying layouts and preserves fallback')
+end

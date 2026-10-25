@@ -2839,3 +2839,16 @@ for i = 1, 3 do flushTimers() end
 assert(#guide.points == guidePoints and guide.points[1][1] == "TOPLEFT",
     "Popup recovery must preserve the seam guide's full-height anchors")
 
+-- Diagnostic timing must preserve the established maintenance order/cadence.
+assert(addon.HUD.PerformanceMaintenanceVersion==1 and addon.HUD.popupTicker.interval==2)
+local phaseOrder={}
+addon.PerformanceMaintenanceProbe={Run=function(_,name,fn,receiver)
+    phaseOrder[#phaseOrder+1]=name
+    fn(receiver)
+end}
+addon.HUD.popupTicker.callback()
+addon.PerformanceMaintenanceProbe=nil
+assert(table.concat(phaseOrder,',')==
+    'popup-rescue,transient-discovery,transient-placement,editmode-hooks,editmode-recovery,party-recovery',
+    'phase timing must execute the same six operations once in their original order')
+

@@ -350,7 +350,7 @@ function Bags:Capture()
     if self.paused or self.restoring or self.escapePending or not Offhand.db
         or not CanOpenBagsFromAddon() then return end
     self:Discover(false)
-    local snapshot = {}
+    local snapshot
     if TrackEnabled() then
         for name, frame in pairs(self.frames) do
             if not (frame.IsForbidden and frame:IsForbidden()) and frame:IsVisible() then
@@ -371,6 +371,7 @@ function Bags:Capture()
                             canvasLeft = metrics and metrics.workspaceLeft or nil,
                             canvasBottom = metrics and metrics.workspaceBottom or nil,
                         }
+                        snapshot = snapshot or {}
                         snapshot[name] = position
                         Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
                         Offhand.db.savedWorkspacePositions[name] = position
@@ -393,7 +394,14 @@ function Bags:Capture()
             end
         end
     end
-    Offhand.db.baganatorWorkspacePanels = snapshot
+    if snapshot then
+        Offhand.db.baganatorWorkspacePanels = snapshot
+    elseif type(Offhand.db.baganatorWorkspacePanels) ~= "table"
+        or next(Offhand.db.baganatorWorkspacePanels) then
+        -- Five polls per second should not allocate a new empty saved-state
+        -- table while no replacement bag is open. Clear old intent once.
+        Offhand.db.baganatorWorkspacePanels = {}
+    end
 end
 
 function Bags:RestoreAfterEscape(pending)
