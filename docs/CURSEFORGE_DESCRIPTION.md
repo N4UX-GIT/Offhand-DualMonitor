@@ -288,6 +288,31 @@ Useful reports include the WoW client, Offhand version, display resolutions and 
 
 ***
 
+## 💖 Special Thanks to the Forever Beta Testers
+
+Offhand was shaped, battle-tested, and refined through dozens of beta iterations thanks to our dedicated Discord testing community. Massive gratitude goes out to the players who shared bug captures, /offhand diag logs, display configurations, and real-world desk setups throughout the **WoW Forever Beta**:
+
+### 🌟 Core Contributors & Active Testers
+
+* **@who.am_i.**: Outstanding bug hunting and combat error isolation, capturing Lua stacks across combat lockdown, quest combining errors, Error Auras, and Beta 21 Party Frame placement.
+* **@ivellos**: Invaluable early testing, continuous multi-monitor configuration checks, and active community showcase participation.
+* **@alex_292**: Dedicated daily beta testing, configuration feedback, and hands-on community troubleshooting.
+* **@.kukaracha**: Thorough Companion app window scaling testing, text scaling feedback, and dual-display layout verification.
+* **@bludrunk**: Tireless beta testing across successive builds, fast feedback loops, and support triage.
+* **@jarmen4u**: Critical testing on multi-window chat behavior and helping isolate the secondary chat window reset defect across /reload.
+* **@baddino72**: Leading Linux & Wine compatibility testing, window manager focus handling, and multi-screen UI rearrangement verification.
+* **@luthia.**: Druid form shifting and stance bar layout testing, helping identify stance-change profile reapplication issues.
+* **@moshtradamus**: Identifying and documenting mixed-height monitor dead space and edge alignment challenges.
+* **@monky9938** & **@rich18144**: Reliable long-term beta testing, regression verification, and bug tracking across early releases.
+* **@magic815**: Addon compatibility testing (Better Forever Chat), text scale feedback, and setup reports.
+* **@_spada**: Profile persistence feedback, dual-monitor showcases, and workflow suggestions.
+* **@.loomi**: Battleground score frame placement reports and UI resizing feedback.
+
+### 📸 Showcase & Community Testers
+
+Special thanks also to **@meilu87**, **@lodenk**, **@kaylipso**, **@_valand**, **@tpkruse**, **@trapscallion**, **@fungdark**, **@g4nsk1**, **@.darocketeer**, **@flipmyswitch**, **@wallaweegie**, **@jimmythegent**, **@felo7474**, **@kustos**, **@.meggie.**, and all members of the N4UX ADDONS Discord who shared diagnostics, screenshots, and logs!
+***
+
 ## Disclaimer
 
 AI tools and language models were used for development and coding assistance. Project direction, features, testing decisions, and published releases remain the responsibility of the project author.
