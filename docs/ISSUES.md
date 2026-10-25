@@ -4,6 +4,14 @@ Stable IDs for reports that require follow-up across test sessions.
 
 ## Current acceptance, 25 October 2026
 
+Integration update: all post-v22 addon performance sources are merged into
+`addon/develop` (`4a7b200`), including the separately accepted PR #37 CPU fix.
+Companion VSync/graphics recovery and graininess sources are committed and
+reconciled on `companion/develop` (`8e9b925`). See
+`POST-V22-INTEGRATION-20261025.md` for the inventory and evidence boundaries.
+This supersedes earlier source-missing/draft-only descriptions without changing
+the recorded live acceptance or deferred Forever testing.
+
 The user explicitly accepts the following as fixed and resolved: addon structural
 refactor and UI overhaul; first-time setup; HUD/window restore and menu placement;
 Forever Gamepad; Bagnon compatibility; Party-frame recovery; Dialogue UI; pet

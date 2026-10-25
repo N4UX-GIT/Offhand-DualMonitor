@@ -1,5 +1,24 @@
 # Ongoing Companion build
 
+## Source integration, 25 October 2026
+
+The user authorized committing and merging all post-v22 work. Graphics-reset
+recovery (`0c41626`) and the graininess experiment (`ed0f189`) are committed and
+reconciled on `companion/develop` at `8e9b925`. The descriptions of uncommitted
+work below are historical. The original source branches and artifacts are kept.
+
+Merge resolution preserves isolated preferences and logs, disables the resize
+handshake in recovery builds and retains it only in the graininess resize mode.
+Conflicting experiment defines fail compilation. Each of the three recovery
+configurations passes 105 policy assertions; graininess package/mode checks and
+ordinary Companion regressions pass. These are merged-source checks, not new
+live acceptance of a combined product. Public automatic recovery remains off
+in an ordinary build, and the frozen public executable has not changed.
+
+Final production configuration, startup arming and unified-artifact acceptance
+remain separate release work. Forever live testing stays deferred until the
+user's November 4 milestone. Existing historical passes remain intact.
+
 Updated 25 October 2026. User direction: treat graphics-reset recovery and the
 experimental Companion work in **Investigate v21 Forever Beta issue** as one
 ongoing Companion build. Defer Forever live testing until its November 4 release

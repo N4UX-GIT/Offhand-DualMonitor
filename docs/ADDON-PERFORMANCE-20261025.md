@@ -1,5 +1,19 @@
 # Addon performance investigation
 
+## Integration status, 25 October 2026
+
+The user authorized merging all post-v22 performance work. The complete source
+branch is now integrated into `addon/develop` at `4a7b200`, including the lazy
+bag snapshot, unchanged grip-write avoidance, controller scalar fast path and
+opt-in diagnostic collector. The independently accepted missing-enum CPU fix
+was already integrated through PR #37. All 55 Lua suites and six manifests pass
+on the merged source, together with Companion preference and metadata checks.
+
+The measured Retail improvement below applies to the missing-enum path.
+The other optimizations retain their narrower mock/source evidence; no new FPS,
+Forever live or universal performance claim is implied by integration.
+The initial status and draft-candidate language below describe earlier stages.
+
 Status: source audit and first synthetic allocation comparison complete. Live CPU,
 frame-time and periodic-stutter attribution remain unmeasured. User acceptance of
 other addon fixes does not establish performance.
