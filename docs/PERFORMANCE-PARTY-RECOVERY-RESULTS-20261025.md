@@ -74,6 +74,31 @@ fallbacks from the scalar path. Only the standalone collector changes; no furthe
 production behavior change is justified by this result. A short `controller-path`
 capture is sufficient. Forever's native table remains uninspected.
 
+### Runtime fallback identified
+
+The `controller-path` capture lasts 23.412 seconds, with 12 cycles and 12 new
+>1 ms ticks. Party recovery averages 1.417067 ms. Runtime metadata confirms
+`isForever=false`, native preset table and first entry present, copy method and
+scalar adapter present, but `gamepadEnumAvailable=false`. Thus the previous
+optimization fell back to full copies because the Gamepad enum was missing.
+
+`Compatibility.IsControllerMode` already returns false when that enum is missing,
+regardless of the copied layouts. The adapter now returns the same false result
+before copying or touching native tables. ConsolePort and native Gamepad checks
+still run first. With an available enum, Forever retains the existing fallback.
+There is no cache, recovery throttle or native frame write.
+
+All 55 Lua suites and six manifests pass. Added regression covers 450 checks with
+the input enum absent and a separate missing Gamepad-member case, asserting no
+copies and the unchanged false result. Only `Core/MainhandCompatibility.lua` was
+installed into closed Retail with verified baseline, backup and destination hash.
+The next live capture is `enum-fixed`; improvement remains unverified until then.
+Backup:
+`D:/Games/World of Warcraft/_offhand_deploy_backups/controller-enum-perf-20261025-154815-418`.
+Preserved runtime capture:
+`dist/performance-controller-path-20261025/OffhandPerformanceProbe.lua`, SHA256
+`46BEE6BE540054D496DE10F3566710A526A148E517C56822AA46858A04223935`.
+
 Use the same Retail character, ordinary window and scene. Enable Offhand and
 Offhand Performance Probe, leaving the old Display Probe disabled. After 30
 seconds, run `/ohperf start maintenance-fixed` and confirm maintenance timing is

@@ -1249,6 +1249,14 @@ EditModePresetLayoutManager={presetLayoutInfo={detectionPreset},GetCopyOfPresetL
     copies=copies+1
     return {{interfaceStyle=detectionPreset.interfaceStyle}}
 end}
+local inputTypes=Enum.InputDeviceInterfaceType
+Enum.InputDeviceInterfaceType=nil
+for _=1,450 do assert(not addon.Mainhand:IsControllerLayout()) end
+assert(copies==0,'missing input enum must not copy presets that cannot affect the result')
+Enum.InputDeviceInterfaceType={}
+assert(not addon.Mainhand:IsControllerLayout() and copies==0,
+    'missing Gamepad member must retain the false result without copying')
+Enum.InputDeviceInterfaceType=inputTypes
 for _=1,450 do assert(not addon.Mainhand:IsControllerLayout()) end
 assert(copies==0,'periodic controller checks must not copy complete preset layouts')
 detectionPreset.interfaceStyle=Enum.InputDeviceInterfaceType.Gamepad
