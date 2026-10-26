@@ -17,6 +17,17 @@ local Wizard = {}
 Offhand.Wizard = Wizard
 
 local wizardFrame = nil
+local editModeReturnWatcher
+
+local function PlacementFailure()
+    local m = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+    local method = Offhand.GetOnboardingSetupMethod and Offhand:GetOnboardingSetupMethod()
+    if Offhand._displayGeometryTransitionActive then return "span" end
+    if not m or not m.isSpanned then return "span" end
+    if method == "COMPANION" and not m.companionTopology then return "span" end
+    -- A deliberately confirmed manual canvas can supersede an old bridge.
+    if m.topologyStatus == "MISMATCH" and not m.manualCanvas then return "span" end
+end
 
 StaticPopupDialogs["OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT"] = {
     text = L["WIZARD_SKIP_HUD_CONFIRM_TEXT"],
@@ -895,6 +906,10 @@ function Wizard:CreateFrame()
 
     local function ValidateTopology()
         SetValidationText("")
+        if PlacementFailure() then
+            f:ShowRecovery("span")
+            return false
+        end
         local currentInfo = Wizard:DetectTopology()
         if currentInfo.topologyStatus == "MISMATCH" then
             local message = Offhand.Options:GetMainhandLayoutFailureText("span")
@@ -913,7 +928,9 @@ function Wizard:CreateFrame()
     end
 
     local function CompleteSetup(deferMainhandLayout)
+        if not ValidateTopology() then return end
         if type(OffhandCharDB) == "table" then
+            OffhandCharDB.wizardRecoveryStep = nil
             OffhandCharDB.hudSetupReminder = deferMainhandLayout == true or nil
             OffhandCharDB.hudSetupReminderDeclined = nil
         end
@@ -942,6 +959,7 @@ function Wizard:CreateFrame()
     end
 
     skipLayoutBtn:SetScript("OnClick", function()
+        if not ValidateTopology() then return end
         Offhand:ShowPopup("OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT", nil, nil, function()
             CompleteSetup(true)
         end)
@@ -949,9 +967,14 @@ function Wizard:CreateFrame()
     f.advBtn = advBtn
 
     finishBtn:SetScript("OnClick", function()
+        if f.recoveryReason then
+            if f.recoveryReason == "maximum" then Wizard:OpenLayoutManagement()
+            else Wizard:ReloadPlacement() end
+            return
+        end
+        if not ValidateTopology() then return end
         if f.step < 4 then f:SetStep(f.step + 1); return end
         if f.step == 4 then
-            if not ValidateTopology() then return end
             if f.totalSteps > 4 then
                 f:SetStep(5)
                 return
@@ -976,6 +999,10 @@ function Wizard:CreateFrame()
             end
         end
         if not ok then
+            if value == "span" or value == "maximum" then
+                f:ShowRecovery(value)
+                return
+            end
             local failure = Offhand.Options:GetMainhandLayoutFailureText(value)
             layoutStatus:SetText("|cffff5555" .. failure .. "|r")
             f:LayoutStep()
@@ -1034,10 +1061,53 @@ function Wizard:CreateFrame()
         card:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -140)
     end
 
+    local recoveryCard = CreateWizardCard(f, L["WIZARD_RECOVERY_SPAN_TITLE"], -140, 230)
+    recoveryCard.title:SetWidth(600)
+    recoveryCard.title:SetWordWrap(true)
+    local recoveryBody = recoveryCard:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    recoveryBody:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 14, -36)
+    recoveryBody:SetPoint("TOPRIGHT", recoveryCard, "TOPRIGHT", -14, -36)
+    recoveryBody:SetJustifyH("LEFT")
+    recoveryBody:SetWordWrap(true)
+    recoveryCard:Hide()
+    local recoveryBack = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    recoveryBack:SetSize(260, 28)
+    recoveryBack:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 18, 14)
+    recoveryBack:Hide()
+    f.recoveryCard, f.recoveryBody, f.recoveryBackButton = recoveryCard, recoveryBody, recoveryBack
+    recoveryBack:SetScript("OnClick", function()
+        if f.recoveryReason == "maximum" then f:SetStep(5); return end
+        Wizard:ReturnToWindowSetup()
+    end)
+
+    function f:ShowRecovery(reason)
+        self.recoveryReason = reason
+        welcomeText:SetText(L["WIZARD_RECOVERY_INTRO"])
+        if Offhand.Options.HideSeamGuide then Offhand.Options:HideSeamGuide() end
+        for _, card in ipairs(self.pages) do card:Hide() end
+        advBtn:Hide(); skipLayoutBtn:Hide(); backBtn:Hide()
+        recoveryBack:SetText(L[reason == "maximum" and "WIZARD_RECOVERY_RETRY" or "WIZARD_RECOVERY_WINDOW_SETUP"])
+        recoveryBack:Show()
+        finishBtn:SetSize(260, 28)
+        finishBtn:SetText("|cffffd100" .. L[reason == "maximum" and "WIZARD_RECOVERY_OPEN_EDITMODE" or "ONBOARD_RELOAD_UI"] .. "|r")
+        recoveryCard.sectionLabel = L[reason == "maximum" and "WIZARD_RECOVERY_MAX_TITLE" or "WIZARD_RECOVERY_SPAN_TITLE"]
+        recoveryCard.title:SetText(recoveryCard.sectionLabel)
+        recoveryBody:SetText(L[reason == "maximum" and "WIZARD_RECOVERY_MAX_BODY" or "WIZARD_RECOVERY_SPAN_BODY"])
+        validationStatus:SetText("")
+        recoveryCard:Show()
+        self:LayoutStep()
+    end
+
     function f:LayoutStep()
-        local card = self.pages[self.step or 1]
+        local card = self.recoveryReason and recoveryCard or self.pages[self.step or 1]
         if not card then return end
-        if self.step == 1 then
+        if self.recoveryReason then
+            local top = Controls.GetCardContentTop(card, 36)
+            recoveryBody:ClearAllPoints()
+            recoveryBody:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -top)
+            recoveryBody:SetPoint("TOPRIGHT", card, "TOPRIGHT", -14, -top)
+            card:SetHeight(top + 12 + Controls.MeasureWrappedText(recoveryBody, recoveryBody:GetText(), 600))
+        elseif self.step == 1 then
             local top = Controls.GetCardContentTop(card1, 28)
             local width = card1:GetWidth() - textLeft - 14
             if topoText.ClearAllPoints then topoText:ClearAllPoints() end
@@ -1076,7 +1146,7 @@ function Wizard:CreateFrame()
             card5:SetHeight(top + Controls.MeasureWrappedText(layoutStatus, layoutStatus:GetText(), 600) + 16)
         end
         local footerHeight = 28
-        for _, button in ipairs({ advBtn, skipLayoutBtn, backBtn, finishBtn }) do
+        for _, button in ipairs({ advBtn, skipLayoutBtn, backBtn, finishBtn, recoveryBack }) do
             if button:IsShown() then
                 footerHeight = math.max(footerHeight,
                     Controls.MeasureWrappedText(button:GetFontString(), button:GetText(), button:GetWidth() - 10, 14) + 8)
@@ -1098,14 +1168,18 @@ function Wizard:CreateFrame()
         validationStatus:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", 18, layout.validationBottom)
         validationStatus:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -18, layout.validationBottom)
         validationStatus:SetHeight(layout.validationHeight)
-        for _, button in ipairs({ advBtn, skipLayoutBtn, backBtn, finishBtn }) do
+        for _, button in ipairs({ advBtn, skipLayoutBtn, backBtn, finishBtn, recoveryBack }) do
             button:SetHeight(layout.footerHeight)
         end
         Controls.FitDialog(self, Offhand.Viewport and Offhand.Viewport:GetMetrics())
     end
     function f:SetStep(step)
         self.step = math.max(1, math.min(self.totalSteps, step))
+        self.recoveryReason = nil
+        recoveryCard:Hide()
+        recoveryBack:Hide()
         validationStatus:SetText("")
+        if PlacementFailure() then self:ShowRecovery("span"); return end
         for i, card in ipairs(self.pages) do SetShown(card, i == self.step) end
         progress:SetText(string.format(L["STEP_PROGRESS"], self.step, self.totalSteps))
         local helpKey = self.step == 5 and "STEP_5_HELP"
@@ -1251,7 +1325,96 @@ function Wizard:CreateFrame()
     return f
 end
 
-function Wizard:Open()
+function Wizard:CancelEditModeReturn()
+    self.editModeReturnStep = nil
+    if editModeReturnWatcher then editModeReturnWatcher:SetScript("OnUpdate", nil) end
+end
+
+function Wizard:ReturnToWindowSetup()
+    self:CancelEditModeReturn()
+    if type(OffhandCharDB) == "table" then OffhandCharDB.wizardRecoveryStep = nil end
+    if Offhand.SetOnboardingResumeStep then Offhand:SetOnboardingResumeStep(4) end
+    self:Close()
+    if Offhand.Onboarding then Offhand.Onboarding:Open() end
+end
+
+function Wizard:ReloadPlacement()
+    if not wizardFrame or (InCombatLockdown and InCombatLockdown()) then
+        if wizardFrame then
+            wizardFrame.recoveryBody:SetText(L["ONBOARD_RELOAD_COMBAT"])
+            wizardFrame:LayoutStep()
+        end
+        return false
+    end
+    if type(ReloadUI) ~= "function" or type(OffhandCharDB) ~= "table" then return false end
+    OffhandCharDB.wizardRecoveryStep = wizardFrame.step
+    -- Existing login handoff opens Onboarding even for previously completed users.
+    if Offhand.SetOnboardingResumeStep then Offhand:SetOnboardingResumeStep(6) end
+    ReloadUI()
+    return true
+end
+
+function Wizard:ResumeAfterReload()
+    local step = type(OffhandCharDB) == "table" and tonumber(OffhandCharDB.wizardRecoveryStep)
+    if not step or step ~= step or step < 1 or step > 5 then
+        if type(OffhandCharDB) == "table" then OffhandCharDB.wizardRecoveryStep = nil end
+        return false
+    end
+    if InCombatLockdown and InCombatLockdown() then return false end
+    OffhandCharDB.wizardRecoveryStep = nil
+    if Offhand.SetOnboardingResumeStep then Offhand:SetOnboardingResumeStep(nil) end
+    self:Open(math.floor(step))
+    return true
+end
+
+function Wizard:OpenLayoutManagement()
+    if not wizardFrame then return false end
+    if InCombatLockdown and InCombatLockdown() then
+        wizardFrame.recoveryBody:SetText(L["WIZARD_RECOVERY_EDITMODE_COMBAT"])
+        wizardFrame:LayoutStep()
+        return false
+    end
+    local manager = _G.EditModeManagerFrame
+    if not manager or type(ShowUIPanel) ~= "function"
+        or (type(manager.CanEnterEditMode) == "function" and not manager:CanEnterEditMode()) then
+        wizardFrame.recoveryBody:SetText(L["WIZARD_RECOVERY_MAX_BODY"] .. "\n\n" .. L["WIZARD_RECOVERY_EDITMODE_MANUAL"])
+        wizardFrame:LayoutStep()
+        return false
+    end
+    self:Close()
+    -- Same player-click entry as Blizzard's game menu, without hooks or fields
+    -- on the native manager or its protected descendants.
+    local ok = pcall(ShowUIPanel, manager)
+    if not ok then
+        wizardFrame:Show()
+        wizardFrame.recoveryBody:SetText(L["WIZARD_RECOVERY_MAX_BODY"] .. "\n\n" .. L["WIZARD_RECOVERY_EDITMODE_MANUAL"])
+        wizardFrame:LayoutStep()
+        return false
+    end
+    self.editModeReturnStep = wizardFrame.step
+    if not editModeReturnWatcher then editModeReturnWatcher = CreateFrame("Frame") end
+    local elapsed, interval, seen = 0, 0, manager:IsShown()
+    editModeReturnWatcher:SetScript("OnUpdate", function(watcher, delta)
+        elapsed, interval = elapsed + delta, interval + delta
+        if interval < 0.2 then return end
+        interval = 0
+        seen = seen or manager:IsShown()
+        if not seen and elapsed < 3 then return end
+        if manager:IsShown() or (InCombatLockdown and InCombatLockdown())
+            or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved()) then return end
+        local step = Wizard.editModeReturnStep
+        watcher:SetScript("OnUpdate", nil)
+        Wizard.editModeReturnStep = nil
+        if not step then return end
+        Wizard:Open(step)
+        wizardFrame.validationStatus:SetText(L[seen and "WIZARD_RECOVERY_RETURNED" or "WIZARD_RECOVERY_EDITMODE_MANUAL"])
+        wizardFrame:LayoutStep()
+    end)
+    return true
+end
+
+function Wizard:Open(resumeStep)
+    self:CancelEditModeReturn()
     self.settingsResumeStep = nil
     -- Hide Options dashboard if it is currently open to prevent overlapping windows
     if Offhand.Options and Offhand.Options.GetConfigFrame then
@@ -1314,7 +1477,7 @@ function Wizard:Open()
         f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     end
 
-    f:SetStep(1)
+    f:SetStep(resumeStep or 1)
 
     f:Show()
 end
@@ -1337,6 +1500,7 @@ function Wizard:OpenHUDSetup()
 end
 
 function Wizard:Close()
+    self:CancelEditModeReturn()
     if Offhand.Options and Offhand.Options.HideSeamGuide then
         Offhand.Options:HideSeamGuide()
     end

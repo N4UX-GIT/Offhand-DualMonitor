@@ -148,7 +148,7 @@ function Options:CreateMainhandHUDLayout()
 end
 
 function Options:GetMainhandLayoutFailureText(reason)
-    if reason == "maximum" then return L["MAINHAND_LAYOUT_MAXIMUM"] end
+    if reason == "maximum" then return L["WIZARD_RECOVERY_MAX_BODY"] end
     if reason == "gamepad" then return L["MAINHAND_LAYOUT_GAMEPAD_FAILED"] end
     if reason == "span" then
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
@@ -157,7 +157,7 @@ function Options:GetMainhandLayoutFailureText(reason)
             and not metrics.manualCanvas then
             return L["MAINHAND_LAYOUT_SPAN_MISMATCH"]
         end
-        return L["MAINHAND_LAYOUT_SPAN_UNCONFIRMED"]
+        return L["MAINHAND_LAYOUT_SPAN_ACTIONS"]
     end
     return string.format(L["MAINHAND_LAYOUT_FAILED"], tostring(reason or "unavailable"))
 end

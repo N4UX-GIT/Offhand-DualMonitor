@@ -516,8 +516,8 @@ assert(addon.Options:GetMainhandLayoutFailureText("span")
     "a stale Companion layout must produce actionable manual and Companion recovery guidance")
 addon.Viewport.GetMetrics = originalGetMetrics
 assert(addon.Options:GetMainhandLayoutFailureText("span")
-        == addon.L["MAINHAND_LAYOUT_SPAN_UNCONFIRMED"],
-    "an unconfirmed span without stale topology must produce actionable diagnostics guidance")
+        == addon.L["MAINHAND_LAYOUT_SPAN_ACTIONS"],
+    "an unconfirmed span must explain spanning/reload rather than suggest diagnostics as a repair")
 
 -- Test 3840x1080 (dual landscape side by side)
 GetPhysicalScreenSize = function() return 3840, 1080 end
@@ -642,6 +642,12 @@ assert(layoutAppliedCount >= 1, "AutoConfigure must trigger ApplyFullLayout")
 -- 3. Test Wizard Dialog Frame & Interactive Controls
 -- ============================================================================
 assert(addon.Wizard ~= nil, "Offhand.Wizard must exist")
+local interactiveMetrics = addon.Viewport.GetMetrics
+addon.Viewport.GetMetrics = function()
+    local m = interactiveMetrics(addon.Viewport)
+    m.isSpanned = true
+    return m
+end
 addon.Wizard:Open()
 
 local wizardFrame = _G["OffhandSetupWizardFrame"]
@@ -762,7 +768,7 @@ assert(wizardFrame.step == 1, "Back must return to the previous step")
 local wizardMetrics = addon.Viewport.GetMetrics
 addon.isForever = true
 addon.Viewport.GetMetrics = function()
-    return { companionTopology=false, topologyStatus="ABSENT", isSpanned=false }
+    return { companionTopology=false, topologyStatus="ABSENT", isSpanned=true }
 end
 OffhandDB.onboarding.setupComplete = false
 wizardFrame:SetStep(4)
@@ -797,12 +803,9 @@ addon.Viewport.GetMetrics = function()
     }
 end
 wizardFrame:SetStep(4)
-wizardFrame.finishBtn.scripts.OnClick()
 assert(wizardFrame.step == 4 and not addon:IsSetupComplete()
-        and wizardFrame.validationStatus:GetText():find(
-            addon.L["MAINHAND_LAYOUT_SPAN_MISMATCH"], 1, true)
-        and wizardFrame.statusText:GetText():find(
-            addon.L["MAINHAND_LAYOUT_SPAN_MISMATCH"], 1, true),
+        and wizardFrame.recoveryReason == "span"
+        and wizardFrame.recoveryBody:GetText():find("Reload UI", 1, true),
     "a stale topology must block wizard completion with actionable guidance on the current step")
 
 -- FancyZones targets the Windows work area and sizes the decorated outer
@@ -841,8 +844,8 @@ addon.Viewport.GetMetrics = function()
     return { companionTopology=false, topologyStatus="MISMATCH", isSpanned=false }
 end
 wizardFrame.finishBtn.scripts.OnClick()
-assert(wizardFrame.mainhandLayoutStatus:GetText():find(
-        addon.L["MAINHAND_LAYOUT_SPAN_MISMATCH"], 1, true),
+assert(wizardFrame.recoveryReason == "span"
+        and wizardFrame.recoveryBackButton:IsShown(),
     "the final HUD action must replace the cryptic span token with recovery guidance")
 addon.Viewport.GetMetrics = wizardMetrics
 createMainhandLayoutResult = { true, "Offhand - Mainhand - Test", 52 }
@@ -1500,7 +1503,11 @@ for _, method in ipairs({"FANCYZONES", "COMPANION", "MANUAL"}) do
     addon:SetOnboardingSetupMethod(method)
     for _, page in ipairs({3, 4}) do
         onboardingFrame:SetPage(page)
-        assert(onboardingFrame.pageBody:GetText() == addon.L[page == 3 and "ONBOARD_MODE_READY_BODY" or "ONBOARD_PLACE_" .. method],
+        local expectedBody = addon.L[page == 3 and "ONBOARD_MODE_READY_BODY" or "ONBOARD_PLACE_" .. method]
+        if page == 4 and method == "COMPANION" then
+            expectedBody = expectedBody .. "\n\n" .. addon.L["ONBOARD_SPAN_NOT_MAXIMIZE"]
+        end
+        assert(onboardingFrame.pageBody:GetText() == expectedBody,
             "preparation must be one task and placement must describe only the selected method")
         onboardingFrame.helpButton.scripts.OnClick()
         assert(onboardingFrame.pageBody:GetText():find(addon.L["ONBOARD_PATH_" .. method .. "_" .. page], 1, true),
@@ -1749,6 +1756,94 @@ assert(addon.L["CHECK_CANVAS_ENABLED_TIP_DESC"] ~= nil, "Localization must have 
 assert(addon.SetTooltip ~= nil, "Offhand:SetTooltip must be defined")
 
 print("PASS: 1-click auto-configuration, topology heuristics, wizard frame, UI scale slider, overlap prevention, and tooltips verified!")
+
+-- Discord v23 regression: a directly opened/resumed wizard must not reach HUD
+-- creation with missing Companion geometry, or strand a player at a full list.
+do
+    local savedMetrics, savedMethod = addon.Viewport.GetMetrics, addon:GetOnboardingSetupMethod()
+    local savedCharDB=OffhandCharDB
+    OffhandCharDB={}
+    local savedReload, savedEditMode, savedShow, savedCombat = ReloadUI, EditModeManagerFrame, ShowUIPanel, InCombatLockdown
+    local ready = false
+    addon:SetOnboardingSetupMethod("COMPANION")
+    addon.Viewport.GetMetrics = function()
+        if not ready then return {isSpanned=false, topologyStatus="ABSENT"} end
+        return {isSpanned=true, companionTopology=true, topologyStatus="READY",
+            companionVersionStatus="MATCH", physicalWidth=4000, physicalHeight=2560,
+            gamePixelWidth=2560, gamePixelHeight=1440, workspacePixelWidth=1440, workspacePixelHeight=2560,
+            gameLeft=1440, gameRight=4000, gameBottom=0, gameTop=1440,
+            workspaceLeft=0, workspaceTop=2560, workspaceBottom=0, topologyMode="DUAL_DISPLAY"}
+    end
+    InCombatLockdown=function() return false end
+    addon.Wizard:Open()
+    assert(wizardFrame.recoveryReason=='span' and wizardFrame.recoveryCard:IsShown())
+    for _,card in ipairs(wizardFrame.pages) do assert(not card:IsShown()) end
+    assert(not wizardFrame.skipLayoutBtn:IsShown() and not wizardFrame.backBtn:IsShown(),
+        'missing placement must not offer navigation/finish paths around its recovery')
+    local initialCreates=createMainhandLayoutCount
+    wizardFrame:SetStep(5)
+    local reloads=0
+    ReloadUI=function() reloads=reloads+1 end
+    InCombatLockdown=function() return true end
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(reloads==0 and not OffhandCharDB.wizardRecoveryStep,'combat must not persist a reload request')
+    InCombatLockdown=function() return false end
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(reloads==1 and OffhandCharDB.wizardRecoveryStep==5 and addon:GetOnboardingResumeStep()==6)
+    assert(createMainhandLayoutCount==initialCreates,'missing placement must not call HUD generation')
+    -- Simulate the persisted handoff in a newly opened guide after /reload.
+    addon.Onboarding:Open()
+    assert(wizardFrame.step==5 and wizardFrame.recoveryReason=='span'
+        and not OffhandCharDB.wizardRecoveryStep,'failed reload must remain recoverable at the saved step')
+    wizardFrame.finishBtn.scripts.OnClick()
+    ready=true
+    addon.Onboarding:Open()
+    assert(wizardFrame.step==5 and not wizardFrame.recoveryReason and wizardFrame.pages[5]:IsShown(),
+        'loaded geometry must resume the same step without automatically creating a layout')
+    ready=false
+    wizardFrame:SetStep(2)
+    wizardFrame.recoveryBackButton.scripts.OnClick()
+    assert(onboardingFrame:IsShown() and onboardingFrame.page==4 and not wizardFrame:IsShown())
+    ready=true
+    addon.Wizard:OpenHUDSetup()
+    createMainhandLayoutResult={false,'maximum'}
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(wizardFrame.recoveryReason=='maximum' and wizardFrame.recoveryBody:GetText():find('layout dropdown',1,true))
+    assert(not wizardFrame.recoveryBody:GetText():find('Limit is 5',1,true))
+    assert(wizardFrame:GetHeight() >= wizardFrame.recoveryCard:GetHeight()+100,
+        'recovery text must participate in the measured layout')
+    local manager={shown=false,IsShown=function(self) return self.shown end,CanEnterEditMode=function() return true end}
+    EditModeManagerFrame=manager
+    ShowUIPanel=function(frame) assert(frame==manager);frame.shown=true end
+    InCombatLockdown=function() return true end
+    assert(not addon.Wizard:OpenLayoutManagement() and not manager.shown)
+    InCombatLockdown=function() return false end
+    assert(addon.Wizard:OpenLayoutManagement() and not wizardFrame:IsShown() and manager.shown)
+    local watcher
+    for _,frame in ipairs(frames) do
+        if frame.scripts.OnUpdate and frame~=wizardFrame and frame~=onboardingFrame then watcher=frame end
+    end
+    assert(watcher,'Edit Mode return must have an addon-owned observer')
+    watcher.scripts.OnUpdate(watcher,0.25)
+    assert(not wizardFrame:IsShown(),'opening Edit Mode must keep calibration out of the way')
+    manager.shown=false
+    watcher.scripts.OnUpdate(watcher,0.25)
+    assert(wizardFrame:IsShown() and wizardFrame.step==5 and not watcher.scripts.OnUpdate,
+        'closing Edit Mode must resume HUD setup and stop observing')
+    assert(createMainhandLayoutCount==initialCreates+1,'return must not automatically retry or delete a layout')
+    -- Repeated visits reuse the watcher, and explicit guide navigation cancels it.
+    wizardFrame:ShowRecovery('maximum')
+    assert(addon.Wizard:OpenLayoutManagement())
+    addon.Onboarding:Open()
+    assert(not watcher.scripts.OnUpdate and not addon.Wizard.editModeReturnStep)
+    manager.shown=false
+    assert(not manager.scripts and not manager.hooks,'native Edit Mode manager must not receive addon hooks/fields')
+    addon.Viewport.GetMetrics=savedMetrics
+    if savedMethod then addon:SetOnboardingSetupMethod(savedMethod) end
+    ReloadUI,EditModeManagerFrame,ShowUIPanel,InCombatLockdown=savedReload,savedEditMode,savedShow,savedCombat
+    OffhandCharDB=savedCharDB
+    print('PASS: missing-span reload handoff and Edit Mode capacity recovery without native hooks')
+end
 
 local oldAfter = C_Timer.After
 local previewTimeout

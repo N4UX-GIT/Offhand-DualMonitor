@@ -829,3 +829,18 @@ L["IDENTIFY_UNSPANNED_COMPANION"] = "Companion placement has not been confirmed 
 L["IDENTIFY_BACK_TO_SETUP"] = "Back to setup"
 
 L["WIZARD_SKIP_HUD_NEXT"] = "To finish, open |cffffd100Offhand settings > Recovery & Preview > Create Mainhand HUD Layout|r while outside combat with Edit Mode closed. Offhand will offer to resume after your next login or |cffffd100/reload|r; you can decline that reminder."
+
+-- Setup recovery actions (English fallback until translated).
+L["WIZARD_RECOVERY_SPAN_TITLE"] = "Load your window placement before calibration"
+L["WIZARD_RECOVERY_INTRO"] = "Setup is paused. Follow the steps below, then continue from this calibration step."
+L["WIZARD_RECOVERY_SPAN_BODY"] = "Offhand has not confirmed the game window's placement. Windowed mode alone does not complete this step.\n\n|cffffd100Using Companion?|r\n1. In Companion, select your screens and Mainhand, then click |cffffd100Span WoW Now|r while logged into the game world.\n2. Return here and click |cffffd100Reload UI|r below to load the display geometry. This wizard will resume at the same step.\n\n|cffffd100Using FancyZones or manual placement?|r\nClick |cffffd100Return to window setup|r, place WoW across the intended screens, then confirm the placement in the guide.\n\nMaximizing normally fills one monitor; it does not replace spanning."
+L["WIZARD_RECOVERY_WINDOW_SETUP"] = "Return to window setup"
+L["WIZARD_RECOVERY_MAX_TITLE"] = "Make room in Blizzard Edit Mode"
+L["WIZARD_RECOVERY_MAX_BODY"] = "Blizzard's custom layout list is full. Offhand needs space to create your Mainhand HUD layout. Your display calibration is still saved.\n\n1. Click |cffffd100Open Blizzard Edit Mode|r below. You can also reach it through |cffffd100Escape > Edit Mode|r.\n2. Open the |cffffd100layout dropdown|r at the top of Edit Mode. Choose an unused custom layout, then its |cffffd100Delete|r option and confirm. Export it first if you may want it later. Delete only a layout you no longer need.\n3. Close Edit Mode. Offhand returns to this step automatically. Click |cffffd100Create Mainhand HUD Layout|r again.\n\nOffhand will not delete a layout for you."
+L["WIZARD_RECOVERY_OPEN_EDITMODE"] = "Open Blizzard Edit Mode"
+L["WIZARD_RECOVERY_RETRY"] = "Back to HUD setup"
+L["WIZARD_RECOVERY_EDITMODE_COMBAT"] = "Leave combat before opening Blizzard Edit Mode. Then click Open Blizzard Edit Mode again."
+L["WIZARD_RECOVERY_EDITMODE_MANUAL"] = "Edit Mode could not be opened here. Press Escape, choose Edit Mode, then use its layout dropdown. Return with /offhand wizard if needed."
+L["WIZARD_RECOVERY_RETURNED"] = "Back in HUD setup. Click Create Mainhand HUD Layout to try again. No layout was deleted by Offhand."
+L["MAINHAND_LAYOUT_SPAN_ACTIONS"] = "Window placement is not confirmed. In Companion, click |cffffd100Span WoW Now|r, return to WoW and |cffffd100Reload UI|r. For FancyZones or manual placement, open |cffffd100/offhand guide|r to confirm the window before calibration."
+L["ONBOARD_SPAN_NOT_MAXIMIZE"] = "Maximizing normally fills one screen. Use |cffffd100Span WoW Now|r to place WoW across the selected screens, then |cffffd100Reload UI|r here."

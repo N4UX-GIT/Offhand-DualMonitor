@@ -642,6 +642,9 @@ function Onboarding:CreateFrame()
             self.pageTitle:SetText(L["ONBOARD_PLACE_TITLE"])
         end
         local bodyText = L[bodyKey]
+        if self.page == 4 and method == "COMPANION" then
+            bodyText = bodyText .. "\n\n" .. L["ONBOARD_SPAN_NOT_MAXIMIZE"]
+        end
         if self.helpExpanded and method and (self.page == 3 or self.page == 4) then
             bodyText = bodyText .. "\n\n" .. L["ONBOARD_PATH_" .. method .. "_" .. self.page]
         end
@@ -791,6 +794,9 @@ function Onboarding:CreateFrame()
 end
 
 function Onboarding:Open()
+    if Offhand.Wizard and Offhand.Wizard.ResumeAfterReload
+        and Offhand.Wizard:ResumeAfterReload() then return end
+    if Offhand.Wizard and Offhand.Wizard.CancelEditModeReturn then Offhand.Wizard:CancelEditModeReturn() end
     if Offhand.Wizard then Offhand.Wizard.settingsResumeStep = nil end
     resumeAfterDownload = nil
     if settingsReturnWatcher then settingsReturnWatcher:SetScript("OnUpdate", nil) end
