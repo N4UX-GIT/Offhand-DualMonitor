@@ -224,3 +224,10 @@ installed hashes and a reverse check confirm the entire guidance patch is now
 present. A deployment manifest and backup were saved alongside prior local
 deployment evidence. Retail is now ready to repeat native acceptance; package
 version metadata remains v23 because this is an unreleased test candidate.
+
+The user confirmed the Retail retest fixed after the complete candidate was
+installed. This records live acceptance of the reported full-slot Repair HUD
+handoff in Retail alongside Anniversary. The tooltip secret-value guard is
+installed; this brief confirmation does not separately establish broad tooltip,
+combat/taint, long-translation or narrow-Mainhand coverage. Those checks remain
+distinct from the confirmed capacity-recovery behavior.
