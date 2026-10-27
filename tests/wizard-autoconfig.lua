@@ -2133,4 +2133,3 @@ do
     wizardFrame.testScale = nil
 end
 print("PASS: wizard centers across span, restore, scale and delayed geometry without task changes")
-
