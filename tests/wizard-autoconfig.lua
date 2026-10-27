@@ -1827,6 +1827,10 @@ do
     assert(onboardingFrame:IsShown() and onboardingFrame.page==4 and not wizardFrame:IsShown())
     ready=true
     addon.Wizard:OpenHUDSetup()
+    addon.Wizard:OpenLayoutCapacityRecovery()
+    assert(wizardFrame.step == wizardFrame.totalSteps and wizardFrame.recoveryReason == 'maximum',
+        'Repair HUD capacity failure must enter actionable wizard recovery')
+    addon.Wizard:OpenHUDSetup()
     createMainhandLayoutResult={false,'maximum'}
     wizardFrame.finishBtn.scripts.OnClick()
     assert(wizardFrame.recoveryReason=='maximum' and wizardFrame.recoveryBody:GetText():find('layout dropdown',1,true))

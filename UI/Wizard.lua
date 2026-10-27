@@ -1605,6 +1605,11 @@ function Wizard:OpenHUDSetup()
     if wizardFrame then wizardFrame:SetStep(wizardFrame.totalSteps) end
 end
 
+function Wizard:OpenLayoutCapacityRecovery()
+    self:OpenHUDSetup()
+    if wizardFrame and not PlacementFailure() then wizardFrame:ShowRecovery("maximum") end
+end
+
 function Wizard:Close()
     self:CancelEditModeReturn()
     if Offhand.Options and Offhand.Options.HideSeamGuide then

@@ -154,3 +154,25 @@ validation-message checks, including text containment and centering across
 span/restore, and reported no new errors in that confirmation. Remaining live
 acceptance includes native Edit Mode capacity recovery, Retail repetition and
 long-translation/narrow-Mainhand coverage.
+
+## Full-list live follow-up
+
+The user filled Anniversary's custom layout list after removing earlier test
+layouts. A protected PlayerFrame repair warning appeared after closing native
+Edit Mode. Repair did not change the layout while the list was full. After a
+slot was freed and the wizard completed, the generated layout was created but
+both the reload prompt and the earlier repair warning were visible together.
+
+The Repair HUD maximum-capacity failure now opens the wizard's actionable
+capacity recovery (or placement recovery if geometry is not ready), in addition
+to the existing chat report. Successful layout creation/update clears the old
+repair candidate and hides its warning. Protected-frame detection waits until
+reload rather than interpreting old native preview bounds as another failure.
+Failed creation does not retire recovery state through this success path.
+
+All 55 Lua suites and six manifest validations pass. Coverage verifies the
+capacity handoff, success-path prompt retirement and no stale-bounds inspection
+while reload is pending. Native acceptance is pending: retry Repair HUD with a
+full list, free one unwanted test slot through the recovery action, complete
+the wizard and verify only the reload/selection action remains. Reload and
+verify the final HUD, then check BugSack.

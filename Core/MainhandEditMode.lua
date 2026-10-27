@@ -909,6 +909,9 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
         -- remembered layout is auto-selected again.
         OffhandCharDB.editModeLayoutName = generatedName
     end
+    if Offhand.HUD and Offhand.HUD.CompleteProtectedHUDLayoutRecovery then
+        Offhand.HUD:CompleteProtectedHUDLayoutRecovery()
+    end
     return true, generatedName, moved, activationPending and "select" or "active"
 end
 
