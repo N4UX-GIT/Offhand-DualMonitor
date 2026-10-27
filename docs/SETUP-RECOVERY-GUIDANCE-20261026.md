@@ -185,3 +185,12 @@ did not test the corrected source. Staging was rebuilt outside any repository;
 all four files must differ from their installed baselines, pass Lua syntax and
 pass a reverse patch check before deployment. Installed verification must also
 confirm the patch is present, rather than only comparing copied-file hashes.
+
+After the corrected patch was installed and verified, the user supplied
+screenshots confirming Repair HUD opens step 5's capacity recovery card. They
+then confirmed the remaining recovery sequence fixed: freeing one test slot,
+returning from native Edit Mode, generating/selecting the Mainhand layout and
+following the reload workflow without the obsolete repair warning. The final
+screenshot shows the generated Mainhand layout selected in native Edit Mode.
+This records Anniversary live acceptance of that flow; Retail repetition and
+long-translation/narrow-Mainhand coverage remain pending.
