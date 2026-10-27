@@ -542,12 +542,12 @@ function Onboarding:CreateFrame()
                     Controls.MeasureWrappedText(button:GetFontString(), button:GetText(), 180, 14) + 8)
             end
         end
-        local bodyHeight = Controls.MeasureWrappedText(self.pageBody, self.pageBody:GetText(), 612)
+        local bodyHeight = Controls.FitParagraphText(self.pageBody, self.pageBody:GetText(), 612)
         local illustrated = self.modeIllustration:IsShown()
         local layout = Controls.GetGuideLayout(
             Controls.MeasureWrappedText(self.pageTitle, self.pageTitle:GetText(), 612),
             bodyHeight + (illustrated and 100 or 0),
-            Controls.MeasureWrappedText(self.statusText, self.statusText:GetText(), 612),
+            Controls.FitParagraphText(self.statusText, self.statusText:GetText(), 612),
             actionHeight)
         self:SetHeight(layout.height)
         self.pageBody:ClearAllPoints()
@@ -757,6 +757,7 @@ function Onboarding:CreateFrame()
     -- a request suppresses intermediate CVar events until rollback/apply ends.
     function f:CenterInMainhand()
         if not self:IsShown() then return end
+        self:LayoutPage()
         local m = Metrics()
         local scale = Controls.FitDialog(self, m)
         self:ClearAllPoints()

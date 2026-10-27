@@ -2036,6 +2036,17 @@ addon.Options:Close()
 assert(not wizardFrame:IsShown(), "completed users must retain ordinary Settings close behavior")
 
 -- Display changes recenter the visible guide without changing its task.
+do
+    local body, status = onboardingFrame.pageBody, onboardingFrame.statusText
+    local bodyMeasure, statusMeasure = body.GetStringHeight, status.GetStringHeight
+    body.GetStringHeight = function() return 12 end
+    status.GetStringHeight = function() return 12 end
+    onboardingFrame:SetPage(4)
+    onboardingFrame:SetStatusText(string.rep("Full status instructions. ", 40))
+    assert(body.height > 15 and status.height > 42,
+        "guide paragraphs and status must grow past stale truncated measurements")
+    body.GetStringHeight, status.GetStringHeight = bodyMeasure, statusMeasure
+end
 local metricsGetter = addon.Viewport.GetMetrics
 addon.Viewport.GetMetrics = function() return {
     isSpanned = true, gameWidth = 1600, gameLeft = 1000, gameRight = 2600,

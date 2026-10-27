@@ -1080,6 +1080,7 @@ function Wizard:CreateFrame()
     recoveryBody:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 14, -36)
     recoveryBody:SetPoint("TOPRIGHT", recoveryCard, "TOPRIGHT", -14, -36)
     recoveryBody:SetJustifyH("LEFT")
+    if recoveryBody.SetJustifyV then recoveryBody:SetJustifyV("TOP") end
     recoveryBody:SetWordWrap(true)
     recoveryCard:Hide()
     local recoveryBack = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
@@ -1140,9 +1141,7 @@ function Wizard:CreateFrame()
             -- A previous constrained height can make native metrics describe
             -- ellipsized text. Clear it before measuring, then reserve every
             -- paragraph even while font metrics settle after a display change.
-            recoveryBody:SetHeight(0)
-            local height = Controls.MeasurePopupText(recoveryBody, recoveryBody:GetText(), width)
-            recoveryBody:SetHeight(height)
+            local height = Controls.FitParagraphText(recoveryBody, recoveryBody:GetText(), width)
             card:SetHeight(top + height + 12)
         elseif self.step == 1 then
             local top = Controls.GetCardContentTop(card1, 28)
@@ -1171,7 +1170,7 @@ function Wizard:CreateFrame()
             card1:SetHeight(top + Controls.MeasureWrappedText(statusText, statusText:GetText(), 600) + 14)
         elseif self.step == 5 then
             local top = Controls.GetCardContentTop(card5, 32)
-            local helpHeight = Controls.MeasureWrappedText(layoutHelp, layoutHelp:GetText(), 600)
+            local helpHeight = Controls.FitParagraphText(layoutHelp, layoutHelp:GetText(), 600)
             if layoutHelp.ClearAllPoints then layoutHelp:ClearAllPoints() end
             layoutHelp:SetPoint("TOPLEFT", card5, "TOPLEFT", 14, -top)
             layoutHelp:SetPoint("TOPRIGHT", card5, "TOPRIGHT", -14, -top)
@@ -1190,7 +1189,7 @@ function Wizard:CreateFrame()
             end
         end
         local message = validationStatus:GetText() or ""
-        local validationHeight = message ~= "" and Controls.MeasureWrappedText(validationStatus, message, 632) or 1
+        local validationHeight = message ~= "" and Controls.FitParagraphText(validationStatus, message, 632) or 1
         local progressWidth = restartBtn:IsShown() and 434 or 632
         progress:SetWidth(progressWidth)
         local restartHeight = Controls.MeasureWrappedText(restartBtn:GetFontString(), restartBtn:GetText(), 170) + 8

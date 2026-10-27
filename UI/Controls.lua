@@ -713,6 +713,15 @@ function Controls.MeasurePopupText(fontString, text, width)
     return math.max(measured, lines * 18 + 8)
 end
 
+-- For addon-owned paragraph blocks that are assigned an explicit height.
+-- Measure unconstrained content, not the previously visible/truncated lines.
+function Controls.FitParagraphText(fontString, text, width)
+    fontString:SetHeight(0)
+    local height = Controls.MeasurePopupText(fontString, text, width)
+    fontString:SetHeight(height)
+    return height
+end
+
 function Controls.GetCardContentTop(card, minimum)
     local width = math.max(1, card:GetWidth() - 24)
     card.title:SetWidth(width)

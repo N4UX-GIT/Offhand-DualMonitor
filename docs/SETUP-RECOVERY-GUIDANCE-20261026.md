@@ -114,3 +114,35 @@ reserves all paragraphs using the existing conservative popup measurement and
 sets both body and card heights. Display settling checks reflow before fitting
 and centering. Regression coverage simulates truncated metrics and increased
 font height after a display event. Native text containment remains pending.
+
+The user subsequently confirmed recovery text containment before/after spanning
+with screenshots. Wizard positioning and that recovery card are live verified
+in Anniversary. This does not establish every locale or client combination.
+
+## Follow-up text truncation review, 2026-10-27
+
+Reviewed paragraph sizing in Wizard, Onboarding, Options, shared Controls,
+DisplayIdentify and the addon-owned setup popup path in Core/Init.
+
+- Found the same prior-height measurement risk in the guide body/status, wizard
+  HUD help and wizard validation area. A shared FitParagraphText helper clears
+  the constraint, reserves complete paragraphs and applies the measured height.
+  These blocks now use it; the guide reflows during existing display settling
+  callbacks. The recovery card uses the same helper and explicitly top-aligns
+  text so conservative extra space does not vertically center the instructions.
+- Setup popups and display-identification cards already clear old constraints
+  and use conservative paragraph measurement. No additional change needed.
+- Options help and theme descriptions use width-constrained, naturally tall text
+  rather than the explicit prior-height pattern. Fixed settings captions/buttons
+  still require visual checks with long translations; absence of this pattern
+  does not prove that every translated label fits or that adjacent controls never
+  overlap.
+- Profile names intentionally use a single-line list and expose their full names
+  through the existing hover tooltip. Kept that behavior.
+
+All 55 Lua suites and six manifest validations pass. New coverage simulates
+clipped native heights, long guide status text and long-to-short paragraph
+replacement. The follow-up source candidate is not yet installed. Live checks:
+expand placement help, change guide pages/status, read HUD help and validation,
+then span/restore with each visible. Check the longest supported translations
+and narrow Mainhand geometry before claiming broad visual acceptance.
