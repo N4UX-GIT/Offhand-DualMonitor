@@ -657,15 +657,15 @@ function Mainhand:GetEditModeDiagnostics(compact)
     local data = EditModeData()
     local active = data and data.activeLayout or "unavailable"
     if compact then
-        return string.format("Active=%s | Generated=%s | Geometry=%s | Attention=%s/%s | Gamepad=%s",
+        return string.format("Active=%s | Generated=%s | Geometry=%s | Attention=%s/%s | Gamepad=%s | LastFailure=%s",
             tostring(active),
             status.configured and tostring(status.generatedName or "recorded") or "none",
             status.configured and (status.currentGeometry and "current" or "stale") or "none",
             needsAttention and "yes" or "no", tostring(reason or "unknown"),
-            NativeGamepadInterface() and "yes" or "no")
+            NativeGamepadInterface() and "yes" or "no", tostring(self.lastLayoutFailure or "none"))
     end
     return string.format(
-        "Supported=%s | API=%s/%s | Active=%s | Generated=%s | Geometry=%s | Attention=%s/%s | Repair=%s/%s | GamepadMenu=%s | GamepadPanels=%s | GamepadReticle=%s | GamepadBack=%s",
+        "Supported=%s | API=%s/%s | Active=%s | Generated=%s | Geometry=%s | Attention=%s/%s | Repair=%s/%s | GamepadMenu=%s | GamepadPanels=%s | GamepadReticle=%s | GamepadBack=%s | LastFailure=%s",
         type(Offhand.HasBlizzardEditMode) == "function"
             and Offhand:HasBlizzardEditMode() and "yes" or "no",
         C_EditMode and type(C_EditMode.GetLayouts) == "function" and "read" or "none",
@@ -679,7 +679,8 @@ function Mainhand:GetEditModeDiagnostics(compact)
         tostring(self:GetForeverGamepadMainMenuDiagnostics()),
         self:GetForeverGamepadDestinationPanelDiagnostics(), tostring(self:GetForeverGamepadReticleDiagnostics()),
         Offhand.WorkspaceBehavior and Offhand.WorkspaceBehavior.GetGamepadWorkspaceBackDiagnostics
-            and Offhand.WorkspaceBehavior:GetGamepadWorkspaceBackDiagnostics() or "unavailable")
+            and Offhand.WorkspaceBehavior:GetGamepadWorkspaceBackDiagnostics() or "unavailable",
+        tostring(self.lastLayoutFailure or "none"))
 end
 
 function Mainhand:CreateOrUpdateEditModeLayout(options)

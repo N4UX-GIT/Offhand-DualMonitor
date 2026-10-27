@@ -597,6 +597,13 @@ function Onboarding:CreateFrame()
     end
 
     function f:SelectMethod(method)
+        local previous = Offhand.GetOnboardingSetupMethod and Offhand:GetOnboardingSetupMethod()
+        if previous ~= method and type(OffhandCharDB) == "table" then
+            -- A different placement workflow needs a fresh calibration review,
+            -- not a jump to the previous method's final task. Keep all values.
+            OffhandCharDB.wizardProgressStep = nil
+            OffhandCharDB.wizardRecoveryStep = nil
+        end
         if Offhand.SetOnboardingSetupMethod then Offhand:SetOnboardingSetupMethod(method) end
         if Offhand.ManualCanvas then
             Offhand.ManualCanvas:SetGeometryPreference(method == "COMPANION" and "AUTO" or "MANUAL")

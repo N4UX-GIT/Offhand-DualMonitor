@@ -408,6 +408,7 @@ addon.Mainhand = {
         return true
     end,
 }
+local trackedHUDCreation=addon.Options.CreateMainhandHUDLayout
 addon.Options.CreateMainhandHUDLayout = function()
     createMainhandLayoutCount = createMainhandLayoutCount + 1
     return unpack(createMainhandLayoutResult)
@@ -805,7 +806,7 @@ end
 wizardFrame:SetStep(4)
 assert(wizardFrame.step == 4 and not addon:IsSetupComplete()
         and wizardFrame.recoveryReason == "span"
-        and wizardFrame.recoveryBody:GetText():find("Reload UI", 1, true),
+        and wizardFrame.recoveryBody:GetText():find("Choose placement method", 1, true),
     "a stale topology must block wizard completion with actionable guidance on the current step")
 
 -- FancyZones targets the Windows work area and sizes the decorated outer
@@ -845,7 +846,7 @@ addon.Viewport.GetMetrics = function()
 end
 wizardFrame.finishBtn.scripts.OnClick()
 assert(wizardFrame.recoveryReason == "span"
-        and wizardFrame.recoveryBackButton:IsShown(),
+        and wizardFrame.finishBtn:GetText():find("Choose placement method", 1, true),
     "the final HUD action must replace the cryptic span token with recovery guidance")
 addon.Viewport.GetMetrics = wizardMetrics
 createMainhandLayoutResult = { true, "Offhand - Mainhand - Test", 52 }
@@ -1770,9 +1771,10 @@ do
         if not ready then return {isSpanned=false, topologyStatus="ABSENT"} end
         return {isSpanned=true, companionTopology=true, topologyStatus="READY",
             companionVersionStatus="MATCH", physicalWidth=4000, physicalHeight=2560,
+            screenWidth=4000,screenHeight=2560,
             gamePixelWidth=2560, gamePixelHeight=1440, workspacePixelWidth=1440, workspacePixelHeight=2560,
             gameLeft=1440, gameRight=4000, gameBottom=0, gameTop=1440,
-            workspaceLeft=0, workspaceTop=2560, workspaceBottom=0, topologyMode="DUAL_DISPLAY"}
+            workspaceLeft=0, workspaceRight=1440, workspaceTop=2560, workspaceBottom=0, topologyMode="DUAL_DISPLAY"}
     end
     InCombatLockdown=function() return false end
     addon.Wizard:Open()
@@ -1800,6 +1802,7 @@ do
     addon.Onboarding:Open()
     assert(wizardFrame.step==5 and not wizardFrame.recoveryReason and wizardFrame.pages[5]:IsShown(),
         'loaded geometry must resume the same step without automatically creating a layout')
+    assert(wizardFrame.backBtn:IsShown(),'normal Back must reappear after span recovery')
     ready=false
     wizardFrame:SetStep(2)
     wizardFrame.recoveryBackButton.scripts.OnClick()
@@ -1830,6 +1833,7 @@ do
     watcher.scripts.OnUpdate(watcher,0.25)
     assert(wizardFrame:IsShown() and wizardFrame.step==5 and not watcher.scripts.OnUpdate,
         'closing Edit Mode must resume HUD setup and stop observing')
+    assert(wizardFrame.backBtn:IsShown(),'normal Back must reappear after Edit Mode recovery')
     assert(createMainhandLayoutCount==initialCreates+1,'return must not automatically retry or delete a layout')
     -- Repeated visits reuse the watcher, and explicit guide navigation cancels it.
     wizardFrame:ShowRecovery('maximum')
@@ -1838,6 +1842,81 @@ do
     assert(not watcher.scripts.OnUpdate and not addon.Wizard.editModeReturnStep)
     manager.shown=false
     assert(not manager.scripts and not manager.hooks,'native Edit Mode manager must not receive addon hooks/fields')
+    -- Each placement method must lead with an action that can resolve its state.
+    ready=false
+    for _,method in ipairs({'MANUAL','FANCYZONES'}) do
+        addon:SetOnboardingSetupMethod(method)
+        wizardFrame:SetStep(3)
+        assert(wizardFrame.finishBtn:GetText():find('Return to window setup',1,true))
+        assert(not wizardFrame.recoveryBody:GetText():find('Span WoW Now',1,true))
+        assert(wizardFrame.recoveryBody:GetText():find('Confirm placement',1,true))
+        wizardFrame.recoveryBackButton.scripts.OnClick()
+        assert(wizardFrame.recoveryReason=='span','rechecking must not confirm a missing placement')
+        wizardFrame.finishBtn.scripts.OnClick()
+        assert(onboardingFrame:IsShown() and onboardingFrame.page==4)
+    end
+    OffhandDB.onboarding.setupMethod=nil
+    wizardFrame:SetStep(3)
+    assert(wizardFrame.finishBtn:GetText():find('Choose placement method',1,true))
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(onboardingFrame.page==2,'unknown method must return to method selection')
+    addon:SetOnboardingSetupMethod('COMPANION')
+    ready=true
+    OffhandDB.onboarding.setupComplete=false
+    addon.Wizard:Open(3)
+    local ratio=addon.db.deckWidthRatio
+    addon.Wizard:Close()
+    addon.Wizard:Open()
+    assert(wizardFrame.step==3 and wizardFrame.restartButton:IsShown() and wizardFrame.backBtn:IsShown(),
+        'ordinary close/reopen must resume the incomplete task with navigation intact')
+    assert(wizardFrame.validationStatus:GetText():find('Continuing calibration',1,true))
+    addon.Wizard:Close()
+    addon.Onboarding:Open()
+    assert(wizardFrame:IsShown() and wizardFrame.step==3 and not onboardingFrame:IsShown(),
+        'login guide handoff must resume incomplete calibration without overlapping dialogs')
+    wizardFrame.restartButton.scripts.OnClick()
+    assert(wizardFrame.step==1 and addon.db.deckWidthRatio==ratio and not wizardFrame.restartButton:IsShown(),
+        'restart must reset navigation only, not saved calibration values')
+    for _,bad in ipairs({0,6,'invalid'}) do
+        OffhandCharDB.wizardProgressStep=bad
+        assert(not addon.Wizard:GetSavedStep(),'invalid saved task must not become an actionable step')
+    end
+    OffhandCharDB.wizardProgressStep=3
+    createMainhandLayoutResult={true,'Offhand - Mainhand - Test',52}
+    wizardFrame:SetStep(5)
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(not OffhandCharDB.wizardProgressStep and not OffhandCharDB.wizardRecoveryStep,
+        'successful setup must clear pending calibration markers')
+    addon.Wizard:Open()
+    assert(wizardFrame.step==1,'completed users must start fresh when intentionally reopening calibration')
+    local reasons={combat='HUD_FAILURE_COMBAT',open='HUD_FAILURE_EDITMODE_OPEN',
+        disabled='HUD_FAILURE_DISABLED',['read-api']='HUD_FAILURE_API',['save-api']='HUD_FAILURE_API',
+        api='HUD_FAILURE_API',unsupported='HUD_FAILURE_API',unavailable='HUD_FAILURE_UNAVAILABLE',
+        presets='HUD_FAILURE_UNAVAILABLE',state='HUD_FAILURE_STATE',source='HUD_FAILURE_SOURCE',
+        ['repair-system']='HUD_FAILURE_REPAIR',already='HUD_FAILURE_ALREADY',save='HUD_FAILURE_SAVE',
+        ['activate-api']='HUD_FAILURE_ACTIVATE',gamepad='HUD_FAILURE_CONTROLLER'}
+    for reason,key in pairs(reasons) do
+        local message=addon.Options:GetMainhandLayoutFailureText(reason)
+        assert(message==addon.L[key] and not message:find('('..reason..')',1,true),
+            'HUD failure must have actionable localized guidance: '..reason)
+    end
+    assert(addon.Options:GetMainhandLayoutFailureText('future-api-reason')==addon.L.HUD_FAILURE_UNKNOWN)
+    local originalCreate=addon.Mainhand.CreateOrUpdateEditModeLayout
+    addon.Mainhand.CreateOrUpdateEditModeLayout=function() return false,'save' end
+    assert(not trackedHUDCreation(addon.Options) and addon.Mainhand.lastLayoutFailure=='save',
+        'the technical failure reason must remain available on the addon namespace')
+    addon.Mainhand.CreateOrUpdateEditModeLayout=function() return true,'layout',3,'select' end
+    local success,name,moved,activation=trackedHUDCreation(addon.Options)
+    assert(success and name=='layout' and moved==3 and activation=='select' and not addon.Mainhand.lastLayoutFailure,
+        'successful HUD creation must preserve results and clear the stale technical failure')
+    addon.Mainhand.CreateOrUpdateEditModeLayout=originalCreate
+    local preference=addon.ManualCanvas:GetGeometryPreference()
+    OffhandCharDB.wizardProgressStep=5
+    OffhandCharDB.wizardRecoveryStep=5
+    onboardingFrame:SelectMethod('MANUAL')
+    assert(not OffhandCharDB.wizardProgressStep and not OffhandCharDB.wizardRecoveryStep and addon.db.deckWidthRatio==ratio,
+        'changing placement methods must restart review without resetting calibration values')
+    addon.ManualCanvas:SetGeometryPreference(preference)
     addon.Viewport.GetMetrics=savedMetrics
     if savedMethod then addon:SetOnboardingSetupMethod(savedMethod) end
     ReloadUI,EditModeManagerFrame,ShowUIPanel,InCombatLockdown=savedReload,savedEditMode,savedShow,savedCombat

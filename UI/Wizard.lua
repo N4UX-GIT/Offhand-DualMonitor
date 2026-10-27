@@ -19,6 +19,15 @@ Offhand.Wizard = Wizard
 local wizardFrame = nil
 local editModeReturnWatcher
 
+function Wizard:GetSavedStep()
+    local step = type(OffhandCharDB) == "table" and tonumber(OffhandCharDB.wizardProgressStep)
+    if not step or step ~= step or step < 1 or step > 5 then
+        if type(OffhandCharDB) == "table" then OffhandCharDB.wizardProgressStep = nil end
+        return nil
+    end
+    return math.floor(step)
+end
+
 local function PlacementFailure()
     local m = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
     local method = Offhand.GetOnboardingSetupMethod and Offhand:GetOnboardingSetupMethod()
@@ -931,6 +940,7 @@ function Wizard:CreateFrame()
         if not ValidateTopology() then return end
         if type(OffhandCharDB) == "table" then
             OffhandCharDB.wizardRecoveryStep = nil
+            OffhandCharDB.wizardProgressStep = nil
             OffhandCharDB.hudSetupReminder = deferMainhandLayout == true or nil
             OffhandCharDB.hudSetupReminderDeclined = nil
         end
@@ -969,7 +979,8 @@ function Wizard:CreateFrame()
     finishBtn:SetScript("OnClick", function()
         if f.recoveryReason then
             if f.recoveryReason == "maximum" then Wizard:OpenLayoutManagement()
-            else Wizard:ReloadPlacement() end
+            elseif f.recoveryAction == "reload" then Wizard:ReloadPlacement()
+            else Wizard:ReturnToWindowSetup(f.recoveryMethod and 4 or 2) end
             return
         end
         if not ValidateTopology() then return end
@@ -1077,8 +1088,15 @@ function Wizard:CreateFrame()
     f.recoveryCard, f.recoveryBody, f.recoveryBackButton = recoveryCard, recoveryBody, recoveryBack
     recoveryBack:SetScript("OnClick", function()
         if f.recoveryReason == "maximum" then f:SetStep(5); return end
-        Wizard:ReturnToWindowSetup()
+        if f.recoveryMethod == "COMPANION" then Wizard:ReturnToWindowSetup()
+        else f:SetStep(f.step) end
     end)
+    local restartBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    restartBtn:SetSize(180, 24)
+    restartBtn:SetText(L["WIZARD_RESTART"])
+    restartBtn:Hide()
+    restartBtn:SetScript("OnClick", function() Wizard:RestartCalibration() end)
+    f.restartButton = restartBtn
 
     function f:ShowRecovery(reason)
         self.recoveryReason = reason
@@ -1086,13 +1104,24 @@ function Wizard:CreateFrame()
         if Offhand.Options.HideSeamGuide then Offhand.Options:HideSeamGuide() end
         for _, card in ipairs(self.pages) do card:Hide() end
         advBtn:Hide(); skipLayoutBtn:Hide(); backBtn:Hide()
-        recoveryBack:SetText(L[reason == "maximum" and "WIZARD_RECOVERY_RETRY" or "WIZARD_RECOVERY_WINDOW_SETUP"])
-        recoveryBack:Show()
+        restartBtn:Hide()
+        local method = Offhand.GetOnboardingSetupMethod and Offhand:GetOnboardingSetupMethod()
+        self.recoveryMethod = method
+        self.recoveryAction = method == "COMPANION" and "reload" or "placement"
+        local primaryKey = reason == "maximum" and "WIZARD_RECOVERY_OPEN_EDITMODE"
+            or method == "COMPANION" and "ONBOARD_RELOAD_UI"
+            or method and "WIZARD_RECOVERY_WINDOW_SETUP" or "WIZARD_RECOVERY_CHOOSE_METHOD"
+        recoveryBack:SetText(L[reason == "maximum" and "WIZARD_RECOVERY_RETRY"
+            or method == "COMPANION" and "WIZARD_RECOVERY_WINDOW_SETUP" or "WIZARD_RECOVERY_RECHECK"])
+        SetShown(recoveryBack, reason == "maximum" or method ~= nil)
         finishBtn:SetSize(260, 28)
-        finishBtn:SetText("|cffffd100" .. L[reason == "maximum" and "WIZARD_RECOVERY_OPEN_EDITMODE" or "ONBOARD_RELOAD_UI"] .. "|r")
+        finishBtn:SetText("|cffffd100" .. L[primaryKey] .. "|r")
         recoveryCard.sectionLabel = L[reason == "maximum" and "WIZARD_RECOVERY_MAX_TITLE" or "WIZARD_RECOVERY_SPAN_TITLE"]
         recoveryCard.title:SetText(recoveryCard.sectionLabel)
-        recoveryBody:SetText(L[reason == "maximum" and "WIZARD_RECOVERY_MAX_BODY" or "WIZARD_RECOVERY_SPAN_BODY"])
+        recoveryBody:SetText(L[reason == "maximum" and "WIZARD_RECOVERY_MAX_BODY"
+            or method == "COMPANION" and "WIZARD_RECOVERY_COMPANION_BODY"
+            or method == "FANCYZONES" and "WIZARD_RECOVERY_FANCYZONES_BODY"
+            or method == "MANUAL" and "WIZARD_RECOVERY_MANUAL_BODY" or "WIZARD_RECOVERY_CHOOSE_BODY"])
         validationStatus:SetText("")
         recoveryCard:Show()
         self:LayoutStep()
@@ -1154,14 +1183,21 @@ function Wizard:CreateFrame()
         end
         local message = validationStatus:GetText() or ""
         local validationHeight = message ~= "" and Controls.MeasureWrappedText(validationStatus, message, 632) or 1
+        local progressWidth = restartBtn:IsShown() and 434 or 632
+        progress:SetWidth(progressWidth)
+        local restartHeight = Controls.MeasureWrappedText(restartBtn:GetFontString(), restartBtn:GetText(), 170) + 8
+        restartBtn:SetHeight(math.max(24, restartHeight))
         local layout = Controls.GetWizardLayout(
             Controls.MeasureWrappedText(welcomeText, welcomeText:GetText(), 632),
-            Controls.MeasureWrappedText(progress, progress:GetText(), 632),
+            math.max(Controls.MeasureWrappedText(progress, progress:GetText(), progressWidth),
+                restartBtn:IsShown() and restartBtn:GetHeight() or 0),
             card:GetHeight(), validationHeight, footerHeight)
         self:SetHeight(layout.height)
         if progress.ClearAllPoints then progress:ClearAllPoints() end
-        progress:SetPoint("TOPLEFT", self, "TOPLEFT", 18, -layout.progressTop)
-        progress:SetWidth(632)
+        progress:SetPoint("TOPLEFT", self, "TOPLEFT", restartBtn:IsShown() and 216 or 18, -layout.progressTop)
+        progress:SetWidth(progressWidth)
+        restartBtn:ClearAllPoints()
+        restartBtn:SetPoint("TOPLEFT", self, "TOPLEFT", 18, -layout.progressTop)
         card:ClearAllPoints()
         card:SetPoint("TOPLEFT", self, "TOPLEFT", 16, -layout.cardTop)
         if validationStatus.ClearAllPoints then validationStatus:ClearAllPoints() end
@@ -1175,19 +1211,26 @@ function Wizard:CreateFrame()
     end
     function f:SetStep(step)
         self.step = math.max(1, math.min(self.totalSteps, step))
+        if type(OffhandCharDB) == "table" then OffhandCharDB.wizardProgressStep = self.step end
+        if Offhand.SetOnboardingResumeStep and Offhand.IsSetupComplete and not Offhand:IsSetupComplete() then
+            Offhand:SetOnboardingResumeStep(6)
+        end
         self.recoveryReason = nil
         recoveryCard:Hide()
         recoveryBack:Hide()
+        restartBtn:Hide()
+        progress:SetText(string.format(L["STEP_PROGRESS"], self.step, self.totalSteps))
         validationStatus:SetText("")
         if PlacementFailure() then self:ShowRecovery("span"); return end
         for i, card in ipairs(self.pages) do SetShown(card, i == self.step) end
-        progress:SetText(string.format(L["STEP_PROGRESS"], self.step, self.totalSteps))
         local helpKey = self.step == 5 and "STEP_5_HELP"
             or (self.step == 4 and self.totalSteps == 4 and "STEP_4_HELP_NO_EDITMODE")
             or (self.step == 4 and "STEP_4_HELP_EDITMODE")
             or ("STEP_" .. self.step .. "_HELP")
         welcomeText:SetText(L[helpKey])
+        backBtn:Show()
         backBtn:SetEnabled(self.step > 1)
+        SetShown(restartBtn, self.step > 1)
         SetShown(advBtn, self.step ~= 5)
         local controllerLayout = self.step == 5 and UsesControllerLayout()
         local canCreateController = controllerLayout and CanCreateControllerLayout()
@@ -1330,10 +1373,10 @@ function Wizard:CancelEditModeReturn()
     if editModeReturnWatcher then editModeReturnWatcher:SetScript("OnUpdate", nil) end
 end
 
-function Wizard:ReturnToWindowSetup()
+function Wizard:ReturnToWindowSetup(page)
     self:CancelEditModeReturn()
     if type(OffhandCharDB) == "table" then OffhandCharDB.wizardRecoveryStep = nil end
-    if Offhand.SetOnboardingResumeStep then Offhand:SetOnboardingResumeStep(4) end
+    if Offhand.SetOnboardingResumeStep then Offhand:SetOnboardingResumeStep(page == 2 and 2 or 4) end
     self:Close()
     if Offhand.Onboarding then Offhand.Onboarding:Open() end
 end
@@ -1356,6 +1399,10 @@ end
 
 function Wizard:ResumeAfterReload()
     local step = type(OffhandCharDB) == "table" and tonumber(OffhandCharDB.wizardRecoveryStep)
+    if not step and Offhand.GetOnboardingResumeStep and Offhand:GetOnboardingResumeStep() == 6
+        and Offhand.IsSetupComplete and not Offhand:IsSetupComplete() then
+        step = self:GetSavedStep()
+    end
     if not step or step ~= step or step < 1 or step > 5 then
         if type(OffhandCharDB) == "table" then OffhandCharDB.wizardRecoveryStep = nil end
         return false
@@ -1365,6 +1412,19 @@ function Wizard:ResumeAfterReload()
     if Offhand.SetOnboardingResumeStep then Offhand:SetOnboardingResumeStep(nil) end
     self:Open(math.floor(step))
     return true
+end
+
+function Wizard:RestartCalibration()
+    -- Restart navigation only. Existing calibration and layouts stay available.
+    if type(OffhandCharDB) == "table" then
+        OffhandCharDB.wizardProgressStep = nil
+        OffhandCharDB.wizardRecoveryStep = nil
+    end
+    self:Open(1)
+    if wizardFrame and not wizardFrame.recoveryReason then
+        wizardFrame.validationStatus:SetText(L["WIZARD_RESTART_NOTICE"])
+        wizardFrame:LayoutStep()
+    end
 end
 
 function Wizard:OpenLayoutManagement()
@@ -1414,8 +1474,11 @@ function Wizard:OpenLayoutManagement()
 end
 
 function Wizard:Open(resumeStep)
+    local savedStep = not resumeStep and self:GetSavedStep() or nil
+    resumeStep = resumeStep or savedStep
     self:CancelEditModeReturn()
     self.settingsResumeStep = nil
+    if Offhand.Onboarding and Offhand.Onboarding.Close then Offhand.Onboarding:Close() end
     -- Hide Options dashboard if it is currently open to prevent overlapping windows
     if Offhand.Options and Offhand.Options.GetConfigFrame then
         local cfg = Offhand.Options:GetConfigFrame()
@@ -1478,6 +1541,10 @@ function Wizard:Open(resumeStep)
     end
 
     f:SetStep(resumeStep or 1)
+    if savedStep and savedStep > 1 and not f.recoveryReason then
+        f.validationStatus:SetText(string.format(L["WIZARD_RESUMED"], f.step, f.totalSteps))
+        f:LayoutStep()
+    end
 
     f:Show()
 end
