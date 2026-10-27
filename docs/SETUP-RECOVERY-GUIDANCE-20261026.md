@@ -57,8 +57,10 @@ https://github.com/Gethe/wow-ui-source/blob/live/Interface/AddOns/Blizzard_GameM
 
 ## Pending live acceptance
 
-This candidate is source/mock validated, not yet installed or released. Before
-recording the installation video, verify in Retail with Companion Beta 20:
+The candidate is installed for Anniversary testing and remains unreleased.
+The user confirmed the missing-geometry recovery screen and span/reload handoff.
+Retail and the remaining native acceptance checks are still pending. Before
+recording the installation video, verify with Companion Beta 20:
 
 1. Open `/offhand wizard` before spanning/reloading. Confirm the placement recovery
    card appears immediately, including when opening HUD setup directly.
@@ -77,3 +79,22 @@ recording the installation video, verify in Retail with Companion Beta 20:
 
 Other clients retain capability-based paths, but native Edit Mode execution and
 visual/taint safety require their relevant live coverage before a release claim.
+
+## Wizard centering follow-up, 2026-10-27
+
+Anniversary testing exposed wizard position drift when Companion spans or
+restores the client while calibration is open. The wizard previously centered
+only when opened, so its old absolute anchor survived changes to the canvas.
+
+The wizard now recomputes its center on show, display-size and UI-scale events.
+It uses accepted Mainhand geometry when spanned and the current client center
+when restored. Two generation-guarded callbacks allow geometry to settle after
+the existing display debounce. Hiding cancels pending work. No continuous
+polling or native frame changes were added; calibration/recovery state is kept.
+
+All 55 Lua suites and six manifest validations pass. Regression coverage checks
+repeated span/restore without accumulating offsets, local fitting scale, delayed
+geometry acceptance, cancellation of stale/hidden callbacks and unchanged task
+state. Native visual acceptance remains pending: keep the wizard open through
+Span WoW Now, Restore Window and a repeated cycle, then verify centering after
+Reload UI as well.

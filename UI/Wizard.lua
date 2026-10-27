@@ -184,7 +184,8 @@ function Wizard:CreateFrame()
         Offhand:SetTooltip(closeBtn, L["WIZARD_BTN_CLOSE_TIP_TITLE"], L["WIZARD_BTN_CLOSE_TIP_DESC"])
     end
 
-    f:SetScript("OnHide", function()
+    f:SetScript("OnHide", function(self)
+        self.recenterGeneration = (self.recenterGeneration or 0) + 1
         if Offhand.Options and Offhand.Options.HideSeamGuide then
             Offhand.Options:HideSeamGuide()
         end
@@ -1360,11 +1361,52 @@ function Wizard:CreateFrame()
     f.scaleValText = scaleValText
     f.scaleEditBox = scaleEditBox
 
+    function f:CenterInMainhand()
+        if not self:IsShown() then return end
+        local m = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+        local scale = Controls.FitDialog(self, m)
+        self:ClearAllPoints()
+        if m and m.isSpanned and m.gameLeft and m.gameRight and m.gameBottom and m.gameTop then
+            -- Metrics are UIParent units; offsets on this scaled dialog are
+            -- local units. Recompute from the rectangle, never the old anchor.
+            self:SetPoint("CENTER", UIParent, "BOTTOMLEFT",
+                (m.gameLeft + m.gameRight) / (2 * scale),
+                (m.gameBottom + m.gameTop) / (2 * scale))
+        else
+            self:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+        end
+    end
+
+    function f:RecenterForDisplayChange()
+        if not self:IsShown() then return end
+        self.recenterGeneration = (self.recenterGeneration or 0) + 1
+        local generation = self.recenterGeneration
+        self:CenterInMainhand()
+        -- UIParent and accepted topology can settle after the initial event.
+        -- Follow the existing 0.75-second display debounce without polling.
+        if C_Timer and C_Timer.After then
+            for _, delay in ipairs({0.15, 0.9}) do
+                C_Timer.After(delay, function()
+                    if self.recenterGeneration == generation then self:CenterInMainhand() end
+                end)
+            end
+        end
+    end
+
     wizardFrame = f
     f:RegisterEvent("PLAYER_REGEN_ENABLED")
     f:RegisterEvent("PLAYER_CONTROL_GAINED")
     f:RegisterEvent("CINEMATIC_STOP")
-    f:SetScript("OnEvent", function() Wizard:ResumeFromSettings() end)
+    f:RegisterEvent("DISPLAY_SIZE_CHANGED")
+    f:RegisterEvent("UI_SCALE_CHANGED")
+    f:SetScript("OnEvent", function(self, event)
+        if event == "DISPLAY_SIZE_CHANGED" or event == "UI_SCALE_CHANGED" then
+            self:RecenterForDisplayChange()
+        else
+            Wizard:ResumeFromSettings()
+        end
+    end)
+    f:SetScript("OnShow", function(self) self:RecenterForDisplayChange() end)
     return f
 end
 
@@ -1526,19 +1568,7 @@ function Wizard:Open(resumeStep)
 
     f:UpdateState()
 
-    -- Center over the 3D game screen if spanned
-    local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
-    local panelScale = Controls.FitDialog(f, m)
     Controls.RefreshStyles()
-    if m and m.gameWidth and m.gameWidth > 0 then
-        local cx = (m.gameLeft + m.gameRight) / 2
-        local cy = (m.gameBottom + m.gameTop) / 2
-        f:ClearAllPoints()
-        f:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx / panelScale, cy / panelScale)
-    else
-        f:ClearAllPoints()
-        f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-    end
 
     f:SetStep(resumeStep or 1)
     if savedStep and savedStep > 1 and not f.recoveryReason then

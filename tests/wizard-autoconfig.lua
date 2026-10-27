@@ -2045,3 +2045,73 @@ do
     assert(guides == 3 and calibrations == 3, "warning actions must launch their named recovery flow")
     addon.Onboarding, addon.Wizard = guideModule, wizardModule
 end
+
+-- Recompute the wizard center from current geometry across native window
+-- changes, including delayed topology acceptance and local dialog scaling.
+do
+    local oldGetter, oldTimer = addon.Viewport.GetMetrics, C_Timer.After
+    local oldSetScale, oldGetScale = wizardFrame.SetScale, wizardFrame.GetScale
+    local pending, reads = {}, 0
+    local metrics = {isSpanned = false, gameWidth = 1920, gameHeight = 1080}
+    C_Timer.After = function(delay, callback)
+        pending[#pending + 1] = {delay = delay, callback = callback}
+    end
+    addon.Viewport.GetMetrics = function() reads = reads + 1; return metrics end
+    wizardFrame.SetScale = function(self, scale) self.testScale = scale end
+    wizardFrame.GetScale = function(self) return self.testScale or 1 end
+    wizardFrame:Show()
+    local step, reason = wizardFrame.step, wizardFrame.recoveryReason
+    local function centered(x, y)
+        local point = wizardFrame.points.CENTER
+        local scale = wizardFrame:GetScale()
+        assert(point.relPoint == "BOTTOMLEFT"
+            and math.abs(point.x * scale - x) < 0.001
+            and math.abs(point.y * scale - y) < 0.001,
+            "wizard center must match Mainhand in UIParent units")
+    end
+    local function resize(event)
+        pending = {}
+        wizardFrame.scripts.OnEvent(wizardFrame, event or "DISPLAY_SIZE_CHANGED")
+        assert(#pending == 2 and pending[2].delay > 0.75,
+            "resize must use bounded settling checks after the geometry debounce")
+    end
+    -- The immediate event can still see the ordinary client rectangle.
+    resize()
+    local stale = pending
+    metrics = {isSpanned = true, gameWidth = 1600, gameHeight = 900,
+        gameLeft = 1440, gameRight = 3040, gameBottom = 0, gameTop = 900}
+    pending[2].callback()
+    centered(2240, 450)
+    -- Repeat span/restore without accumulating the old absolute anchor.
+    for i = 1, 3 do
+        metrics = {isSpanned = false, gameWidth = 1920, gameHeight = 1080}
+        resize()
+        local point = wizardFrame.points.CENTER
+        assert(point.relPoint == "CENTER" and point.x == 0 and point.y == 0,
+            "restored wizard must center on the ordinary client")
+        metrics = {isSpanned = true, gameWidth = 1600, gameHeight = 900,
+            gameLeft = 1440, gameRight = 3040, gameBottom = 0, gameTop = 900}
+        resize()
+        centered(2240, 450)
+    end
+    local previousReads = reads
+    for _, timer in ipairs(stale) do timer.callback() end
+    assert(reads == previousReads, "superseded resize callbacks must do no work")
+    metrics = {isSpanned = true, gameWidth = 400, gameHeight = 600,
+        gameLeft = 1600, gameRight = 2000, gameBottom = 120, gameTop = 720}
+    resize("UI_SCALE_CHANGED")
+    assert(wizardFrame:GetScale() < 1, "small Mainhand must fit the dialog")
+    centered(1800, 420)
+    assert(wizardFrame.step == step and wizardFrame.recoveryReason == reason,
+        "repositioning must preserve the calibration step and recovery state")
+    wizardFrame:Hide()
+    previousReads = reads
+    for _, timer in ipairs(pending) do timer.callback() end
+    wizardFrame.scripts.OnEvent(wizardFrame, "DISPLAY_SIZE_CHANGED")
+    assert(reads == previousReads, "hidden wizard must cancel queued geometry work")
+    assert(not wizardFrame.scripts.OnUpdate, "centering must not add continuous polling")
+    addon.Viewport.GetMetrics, C_Timer.After = oldGetter, oldTimer
+    wizardFrame.SetScale, wizardFrame.GetScale = oldSetScale, oldGetScale
+    wizardFrame.testScale = nil
+end
+print("PASS: wizard centers across span, restore, scale and delayed geometry without task changes")
