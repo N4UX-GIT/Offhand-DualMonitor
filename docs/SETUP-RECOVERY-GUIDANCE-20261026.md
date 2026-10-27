@@ -176,3 +176,12 @@ while reload is pending. Native acceptance is pending: retry Repair HUD with a
 full list, free one unwanted test slot through the recovery action, complete
 the wizard and verify only the reload/selection action remains. Reload and
 verify the final HUD, then check BugSack.
+
+The next live attempt printed the full-list chat message but did not open the
+wizard. Inspection found a deployment error: git apply was run from an ignored
+staging subdirectory inside another repository and skipped the patch. Copy hash
+checks passed because the staged files were unchanged. This attempt therefore
+did not test the corrected source. Staging was rebuilt outside any repository;
+all four files must differ from their installed baselines, pass Lua syntax and
+pass a reverse patch check before deployment. Installed verification must also
+confirm the patch is present, rather than only comparing copied-file hashes.
