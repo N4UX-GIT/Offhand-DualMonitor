@@ -21,6 +21,16 @@ Public pages read during this audit:
 
 ## Findings requiring attention before recording
 
+Follow-up implementation on this branch addresses A01 through A05: Back is
+restored on normal steps, HUD failures map to action-led text while preserving
+technical reasons in diagnostics, placement recovery uses the selected method,
+calibration progress persists with an explicit navigation-only restart, and
+website instructions/labels are aligned locally. These changes remain pending
+native UI/taint acceptance and are not yet published. A06's complete v23
+CurseForge Markdown was supplied separately with the user's exact closing
+sections; live CurseForge editing remains under the user's control. A07 and A08
+remain optional completion-design and translation work, not claimed as resolved.
+
 ### A01, P2: Back stays hidden after recovery
 
 Confirmed regression in the draft candidate. `ShowRecovery` hides `backBtn`;
