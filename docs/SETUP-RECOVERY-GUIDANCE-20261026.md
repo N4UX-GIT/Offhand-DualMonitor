@@ -146,3 +146,11 @@ replacement. The follow-up source candidate is not yet installed. Live checks:
 expand placement help, change guide pages/status, read HUD help and validation,
 then span/restore with each visible. Check the longest supported translations
 and narrow Mainhand geometry before claiming broad visual acceptance.
+
+The follow-up candidate at f9de91d was installed in Anniversary with backups and
+hash verification for UI/Controls.lua, UI/Onboarding.lua and UI/Wizard.lua.
+The user confirmed the requested guide-page/expanded-help, HUD instruction and
+validation-message checks, including text containment and centering across
+span/restore, and reported no new errors in that confirmation. Remaining live
+acceptance includes native Edit Mode capacity recovery, Retail repetition and
+long-translation/narrow-Mainhand coverage.
