@@ -90,3 +90,30 @@ assert(registry.GetDiagnostics(owner)
     "panel registry diagnostics must preserve learned counts and sorted requests")
 
 print("PASS: Canvas panel registry learning, exclusions, loading and diagnostics")
+
+do
+    local root = {}
+    _G.SafeRestoreRoot = root
+    UIPanelWindows.SafeRestoreRoot = {}
+    assert(registry.CanAutoOpen(root, "SafeRestoreRoot"), "ordinary registered roots must remain restorable")
+    root.IsKeyboardEnabled = function() return true end
+    assert(not registry.CanAutoOpen(root, "SafeRestoreRoot"), "keyboard capture must override registration")
+    root.IsKeyboardEnabled = function() return false end
+    root.IsObjectType = function(_, kind) return kind == "EditBox" end
+    assert(not registry.CanAutoOpen(root, "SafeRestoreRoot"), "EditBox roots must never auto-open")
+    root.IsObjectType = nil
+    UIPanelWindows.SafeRestoreRoot = nil
+    assert(not registry.CanAutoOpen(root, "SafeRestoreRoot"), "unknown saved children must fail closed")
+    root._OffhandMovable = true
+    assert(registry.CanAutoOpen(root, "SafeRestoreRoot"), "Offhand-managed addon windows must remain restorable")
+    root.IsForbidden = function() return true end
+    root.IsKeyboardEnabled = function() error("forbidden frame inspected") end
+    assert(not registry.CanAutoOpen(root, "SafeRestoreRoot"), "forbidden frames must be rejected before inspection")
+    root.IsForbidden = function() return false end
+    assert(not registry.CanAutoOpen(root, "SafeRestoreRoot"), "uninspectable roots must fail closed")
+    assert(registry.IsInputWidget(nil, "ChatFrame1EditBox"))
+    assert(registry.IsInputWidget(nil, "ChatFrame1ButtonFrame"))
+    assert(not registry.IsInputWidget(nil, "ChatFrame1"), "chat roots must use exact numeric names")
+    _G.SafeRestoreRoot = nil
+end
+print("PASS: automatic panel opening excludes keyboard capture, controls and unknown roots")

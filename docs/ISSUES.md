@@ -2,6 +2,71 @@
 
 Stable IDs for reports that require follow-up across test sessions.
 
+## OH-UI-008: Saved input/control frames can reopen during login restoration
+
+- Status: Prevention implemented on `codex/login-input-restoration`; simulated
+  regression and static validation passed. Exact reported cause and live client
+  behavior remain unconfirmed. No release or installed-client change made.
+- Report: One character lost gameplay keyboard input immediately after login.
+  Clicking chat still permitted typing. Other characters were unaffected. The
+  player recovered after Gather Safe UI to Mainhand, Gather Off-Screen UI, and
+  Companion Restore Window followed by spanning again. These actions were not
+  tested individually, so none is established as the decisive recovery step.
+  Follow-up identifies Retail 12.1.5 build 70575. The player reports Beta 22,
+  an unsuccessful rollback to Beta 21, and then returning to Beta 22. A later
+  logout/login did not reproduce the problem. Original SavedVariables from the
+  failing state were not supplied.
+- Recovered-state screenshot: `/offhand diag` reports WoW 12.1.5, build 70575,
+  interface 120105, Retail, and Offhand `2.1.2-beta.23`. That addon version
+  differs from the player's written Beta 22 report; the screenshot does not
+  establish which build was running when input failed. Companion writer/paired
+  versions are `2.1.2-beta.20`, minimum `2.1.2-beta.19`, protocol 1, status MATCH.
+  Viewport check PASS; enabled, spanned, setup complete, out of combat, Companion
+  topology, LANDSCAPE_DUAL, Mainhand LEFT. Physical rectangles are Mainhand
+  `(0,0 1920x1080)` and workspace `(1920,0 1920x1080)`, with a 3840x1080 physical
+  canvas. The 3900x1097 Screen and 1950x1097 GameArea diagnostics use UI units,
+  so their difference from physical pixels alone is not a geometry failure.
+  Effective scale is 0.700. Edit Mode active layout 5 is
+  `Offhand - Mainhand - Kyokoun`, geometry current, attention no/ready, Gamepad no.
+  WorldMapOwner is LeatrixMaps (loaded); OpenMap is absent. Startup lines also
+  show Bartender4ModernGlowEffects, KelaGraphics and City Guide. Their presence
+  is context only, not evidence that any caused the input failure. The image is
+  a post-recovery snapshot and contains no failing-state focus-frame evidence.
+- Confirmed source gap: `RestorePersistentFrames` trusted historical frame names
+  in `savedWorkspacePositions` plus `openWorkspacePanels`. Its broad `^ChatFrame`
+  branch directly showed `ChatFrame1EditBox`. Other existing arbitrary frames
+  could reach the delayed generic `Show` fallback without a panel-root or
+  keyboard-capture check. A synthetic stale chat-edit-box record reproduced that
+  unwanted open before the prevention change. This does not establish that the
+  player's profile contained that record, nor that this produces their exact
+  input symptoms in a native client.
+- Scope: Offhand selects the active profile per character; coordinates and open
+  state live in that profile. A character-only symptom does not by itself prove
+  that the offending frame record was per-character. Current workspace position
+  restoration already clamps recognized panels against the workspace rectangle.
+  No new native-window or physical-display geometry defect was established.
+- Prevention: Automatic opening now requires a recognized registered, seeded, or
+  Offhand-managed panel root (or an exact numeric chat-window name). Input edit
+  boxes, chat child/control names, keyboard-enabled roots and excluded system
+  panels cannot reopen from saved intent. The delayed path repeats eligibility
+  checks and yields to Blizzard input reservation, retaining the existing native
+  control-gained retry. Saved coordinates remain intact, and the normal position
+  restore no longer applies child snapshots to a shown chat input. No global
+  focus clearing, keyboard flag changes or Blizzard input hooks were added.
+- Automated evidence: The regression first failed because login showed
+  `ChatFrame1EditBox`. It now passes for that stale record, an unknown child, a
+  registered keyboard-capture root, an excluded system panel, and capture/input
+  reservation beginning during a delayed restore. Existing ordinary panels,
+  Macro UI load-on-demand, chat, bag and Professions restoration still pass.
+- Live QA: With backed-up settings and the affected client's exact build, test
+  cold login, reload, character swap and profile selection. Check movement,
+  action keys, Escape and chat focus before and after saved panels reopen, with
+  Offhand alone and the player's usual addons. Include changed span geometry
+  and a missing display. Check protected actions and fresh taint/error logs.
+  If the report recurs, capture the original settings and visible/keyboard-focus
+  frame names before gathering; test each recovery action separately. Do not
+  delete SavedVariables as a troubleshooting prerequisite.
+
 ## Current acceptance, 25 October 2026
 
 Integration update: all post-v22 addon performance sources are merged into

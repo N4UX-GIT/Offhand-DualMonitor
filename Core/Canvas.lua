@@ -318,6 +318,10 @@ local function IsPersistentPanelLoadCandidate(name)
         and not (nonMovableSystemPanels and nonMovableSystemPanels[name])
 end
 
+local function CanAutoOpenSavedPanel(frame, name)
+    return IsPersistentPanelLoadCandidate(name) and PanelRegistry.CanAutoOpen(frame, name)
+end
+
 function Canvas:InitializePanelLoadTracking()
     PanelRegistry.InitializeTracking(self)
 end
@@ -706,6 +710,7 @@ function Canvas:QueuePersistentPanelRestore(frame, name, delaySeconds)
         self:RelinquishForeverEditModeFrames(name)
         return false
     end
+    if not CanAutoOpenSavedPanel(frame, name) then return false end
     if IsForeverProfessionsPanel(frame, name) then
         if ShouldYieldForeverProfessionsPanel(frame, name) then
             self:RelinquishForeverProfessionsPanels(name)
@@ -729,6 +734,11 @@ function Canvas:QueuePersistentPanelRestore(frame, name, delaySeconds)
             and db.openWorkspacePanels and db.openWorkspacePanels[name]
             and db.savedWorkspacePositions and db.savedWorkspacePositions[name]
         if not shouldRestore then return end
+        if not CanAutoOpenSavedPanel(frame, name) then return end
+        if Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved() then
+            Canvas.persistentRestorePendingForInput = true
+            return
+        end
         if InCombatLockdown() then
             if Offhand.RunOrQueueCombat then
                 Offhand:RunOrQueueCombat(function()
@@ -882,7 +892,7 @@ function Canvas:RestorePersistentFrames(mode)
                 or IsPersistentForeverProfessionsPanelName(name)) then
             if frame:IsShown() then
                 RestoreWorkspacePosition(frame)
-            elseif canOpenPanels and openPanels[name] and not IsContextBoundPanel(name) then
+            elseif canOpenPanels and openPanels[name] and CanAutoOpenSavedPanel(frame, name) then
                 if name == "WorldMapFrame" then
                     if ToggleWorldMap then
                         ToggleWorldMap()
@@ -895,7 +905,7 @@ function Canvas:RestorePersistentFrames(mode)
                     if not nativeBackpackOnMainhand or IsBackpackRoot(name) then
                         hasBag = true
                     end
-                elseif name:match("^ChatFrame") then
+                elseif name:match("^ChatFrame%d+$") then
                     frame:Show()
                     RestoreWorkspacePosition(frame)
                 else

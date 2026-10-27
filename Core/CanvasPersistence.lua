@@ -390,6 +390,8 @@ function Persistence.InstallRestore(Canvas, services)
         if IsForeverEditModeFrame(frame, name)
             or (IsUnsafeForPanelMutation(frame, name)
                 and not IsForeverSocialPositionRoot(frame, name)) then return end
+        local registry = Offhand.CanvasPanelRegistry
+        if registry and registry.IsInputWidget(frame, name) then return end
         local restrictedProfessionsMovement = IsForeverProfessionsPanel(frame, name)
             and IsExperimentalForeverProfessionsMovementEnabled()
         if IsRetailChatEditModeActive(frame) then return end
