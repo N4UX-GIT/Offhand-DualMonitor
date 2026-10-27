@@ -1240,6 +1240,39 @@ assert(saved.layouts[1].systems[2].anchorInfo.relativeTo=='StatusTrackingBarMana
 print('PASS: Retail status centering, separate containers, scaled points, secondary stacking and stale-edge isolation')
 
 do
+-- A custom Retail source can attach Action Bar 1 to the XP bar while the XP bar
+-- keeps its default StatusTrackingBarManager anchor at the bottom of the span.
+-- Repair must bring the default status bars into Mainhand so the chain follows.
+MainStatusTrackingBarContainer=frame('MainStatusTrackingBarContainer')
+MainStatusTrackingBarContainer:SetSize(571,17); MainStatusTrackingBarContainer.scale=0.8
+local customSource=copyTable(preset)
+customSource.systems={
+    {system=Enum.EditModeSystem.ActionBar,systemIndex=Enum.EditModeActionBarSystemIndices.MainBar,isInDefaultPosition=false,
+        anchorInfo={point='BOTTOMLEFT',relativeTo='MainStatusTrackingBarContainer',relativePoint='TOPLEFT',offsetX=0,offsetY=4}},
+    {system=Enum.EditModeSystem.StatusTrackingBar,systemIndex=1,isInDefaultPosition=true,
+        anchorInfo={point='BOTTOM',relativeTo='StatusTrackingBarManager',relativePoint='BOTTOM',offsetX=0,offsetY=0}},
+    {system=Enum.EditModeSystem.StatusTrackingBar,systemIndex=2,isInDefaultPosition=true,
+        anchorInfo={point='BOTTOM',relativeTo='StatusTrackingBarManager',relativePoint='BOTTOM',offsetX=0,offsetY=17}},
+    {system=Enum.EditModeSystem.ActionBar,systemIndex=Enum.EditModeActionBarSystemIndices.StanceBar,isInDefaultPosition=false,
+        anchorInfo={point='BOTTOM',relativeTo='UIParent',relativePoint='BOTTOM',offsetX=0,offsetY=200}},
+}
+presetLayouts={customSource,{layoutName='Classic',layoutIndex=1,systems={}}}
+layoutData={activeLayout=1,layouts={}}
+ok=addon.Mainhand:CreateOrUpdateEditModeLayout(); assert(ok)
+local rect=addon.Mainhand:GetRect()
+local rows=saved.layouts[1].systems
+assert(rows[1].anchorInfo.relativeTo=='MainStatusTrackingBarContainer' and rows[1].anchorInfo.offsetY==4,
+    'the player-attached main bar keeps its relationship and follows the status bar')
+assert(rows[2].anchorInfo.relativeTo=='UIParent' and rows[2].anchorInfo.point=='BOTTOM'
+    and rows[2].isInDefaultPosition==false,'default XP bar must be rebased out of the span bottom')
+near(rows[2].anchorInfo.offsetX*0.8,(rect.left+rect.right)/2-UIParent:GetWidth()/2)
+near(rows[2].anchorInfo.offsetY*0.8,rect.bottom+8)
+near(rows[3].anchorInfo.offsetY*1.1,rect.bottom+8+17*0.8+4)
+assert(customSource.systems[2].anchorInfo.relativeTo=='StatusTrackingBarManager','source layout must not be mutated')
+print('PASS: Retail custom main bar attached to a default XP bar is brought into Mainhand')
+end
+
+do
 -- Retail can expose preset layouts without the input-style Gamepad enum.
 -- The existing result is false; no full layout copies are needed to decide it.
 currentInterfaceStyle=1
