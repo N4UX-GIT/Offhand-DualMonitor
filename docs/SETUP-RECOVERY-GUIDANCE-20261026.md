@@ -214,3 +214,13 @@ Retail execution, protected-action safety and the full-list flow require retry.
 The running Retail path for this report is D:/Games/World of Warcraft/_retail_.
 Its PopupBounds file contains other installed compatibility changes, so deploy
 only this patch over that file with backup, syntax and reverse-patch checks.
+
+The user correctly identified that Retail still lacked the guidance/Repair HUD
+candidate: the earlier Retail deployment covered only PopupBounds. With Retail
+closed, the complete v23-to-69d70cc runtime guidance delta was applied over its
+installed files (18 files), preserving existing compatibility changes and the
+already verified tooltip patch. All staged files changed and passed Lua syntax;
+installed hashes and a reverse check confirm the entire guidance patch is now
+present. A deployment manifest and backup were saved alongside prior local
+deployment evidence. Retail is now ready to repeat native acceptance; package
+version metadata remains v23 because this is an unreleased test candidate.
