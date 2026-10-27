@@ -1135,8 +1135,15 @@ function Wizard:CreateFrame()
             local top = Controls.GetCardContentTop(card, 36)
             recoveryBody:ClearAllPoints()
             recoveryBody:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -top)
-            recoveryBody:SetPoint("TOPRIGHT", card, "TOPRIGHT", -14, -top)
-            card:SetHeight(top + 12 + Controls.MeasureWrappedText(recoveryBody, recoveryBody:GetText(), 600))
+            local width = card:GetWidth() - 28
+            recoveryBody:SetWidth(width)
+            -- A previous constrained height can make native metrics describe
+            -- ellipsized text. Clear it before measuring, then reserve every
+            -- paragraph even while font metrics settle after a display change.
+            recoveryBody:SetHeight(0)
+            local height = Controls.MeasurePopupText(recoveryBody, recoveryBody:GetText(), width)
+            recoveryBody:SetHeight(height)
+            card:SetHeight(top + height + 12)
         elseif self.step == 1 then
             local top = Controls.GetCardContentTop(card1, 28)
             local width = card1:GetWidth() - textLeft - 14
@@ -1362,6 +1369,7 @@ function Wizard:CreateFrame()
     f.scaleEditBox = scaleEditBox
 
     function f:CenterInMainhand()
+        if self.step then self:LayoutStep() end
         local m = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
         local scale = Controls.FitDialog(self, m)
         self:ClearAllPoints()

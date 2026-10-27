@@ -97,7 +97,7 @@ function CreateFrame(kind, name, parent, template)
     function f:IsShown() return self.shown end
     function f:SetText(t) self.text = t end
     function f:GetFontString()
-        if not f._fontString then f._fontString = { SetWidth = function() end, SetWordWrap = function() end, SetTextColor = function() end } end
+        if not f._fontString then f._fontString = { SetWidth = function(s, width) s.width = width end, SetWordWrap = function() end, SetTextColor = function() end } end
         return f._fontString
     end
     function f:GetText() return self.text end
@@ -130,7 +130,7 @@ function CreateFrame(kind, name, parent, template)
             text = "",
             points = {},
             SetText = function(s, t) s.text = t end,
-            SetWidth = function() end,
+            SetWidth = function(s, width) s.width = width end,
             SetHeight = function(s, height) s.height = height end,
             GetHeight = function(s) return s.height or 0 end,
             SetWordWrap = function() end,
@@ -141,7 +141,7 @@ function CreateFrame(kind, name, parent, template)
             SetJustifyH = function() end,
             SetJustifyV = function() end,
             SetTextColor = function() end,
-            SetWidth = function() end,
+            SetWidth = function(s, width) s.width = width end,
         }
         return fs
     end
@@ -1783,6 +1783,20 @@ do
     InCombatLockdown=function() return false end
     addon.Wizard:Open()
     assert(wizardFrame.recoveryReason=='span' and wizardFrame.recoveryCard:IsShown())
+    local body = wizardFrame.recoveryBody
+    local originalHeight = body.GetStringHeight
+    body.GetStringHeight = function() return 12 end -- stale ellipsized native metrics
+    wizardFrame:LayoutStep()
+    assert(body.height > 100 and body.width == wizardFrame.recoveryCard:GetWidth() - 28,
+        'recovery must reserve full paragraphs despite truncated native metrics')
+    local reserved = body.height
+    body.GetStringHeight = function() return reserved + 40 end
+    wizardFrame.scripts.OnEvent(wizardFrame, 'DISPLAY_SIZE_CHANGED')
+    assert(body.height >= reserved + 40
+        and wizardFrame.recoveryCard:GetHeight() >= body.height + 36 + 12,
+        'display changes must remeasure and contain the full recovery text')
+    body.GetStringHeight = originalHeight
+    wizardFrame:LayoutStep()
     for _,card in ipairs(wizardFrame.pages) do assert(not card:IsShown()) end
     assert(not wizardFrame.skipLayoutBtn:IsShown() and not wizardFrame.backBtn:IsShown(),
         'missing placement must not offer navigation/finish paths around its recovery')
@@ -2119,3 +2133,4 @@ do
     wizardFrame.testScale = nil
 end
 print("PASS: wizard centers across span, restore, scale and delayed geometry without task changes")
+

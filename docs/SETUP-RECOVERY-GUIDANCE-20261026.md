@@ -106,3 +106,11 @@ anchors after final layout, before Show, while retaining bounded resize handling
 The frame mock now rejects showing the wizard without an anchor so this ordering
 regression is covered. All 55 suites pass again; live entry and centering require
 a repeat check.
+
+The user confirmed correct positioning with the anchored candidate. Recovery
+text then ellipsized before spanning and overflowed its card afterward. Recovery
+layout now sets an explicit wrapping width, clears the previous text height,
+reserves all paragraphs using the existing conservative popup measurement and
+sets both body and card heights. Display settling checks reflow before fitting
+and centering. Regression coverage simulates truncated metrics and increased
+font height after a display event. Native text containment remains pending.
