@@ -194,3 +194,23 @@ following the reload workflow without the obsolete repair warning. The final
 screenshot shows the generated Mainhand layout selected in native Edit Mode.
 This records Anniversary live acceptance of that flow; Retail repetition and
 long-translation/narrow-Mainhand coverage remain pending.
+
+## Retail tooltip secret-coordinate failure
+
+During the full-list Retail test, opening Edit Mode exposed an arithmetic error
+in PopupBounds.FrameBounds, reached by the Encounter Warnings tooltip SetOwner
+hook. The warning frame supplied secret left/right/top/bottom values outside
+the combat guard. This blocks Retail acceptance independently of the confirmed
+Anniversary capacity recovery.
+
+FrameBounds now rejects secret, missing and nonfinite coordinates/scales before
+comparisons or arithmetic. Constrain uses the same guarded reader. A tooltip
+comparison group is left untouched if any visible comparison has unreadable
+bounds. Public geometry retains existing routing; no secret value is converted,
+logged or used to position a frame. Tests cover each coordinate, both scales and
+an unreadable comparison card. All 55 Lua suites and six manifests pass; native
+Retail execution, protected-action safety and the full-list flow require retry.
+
+The running Retail path for this report is D:/Games/World of Warcraft/_retail_.
+Its PopupBounds file contains other installed compatibility changes, so deploy
+only this patch over that file with backup, syntax and reverse-patch checks.
