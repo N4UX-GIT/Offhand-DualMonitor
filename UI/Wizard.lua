@@ -1362,7 +1362,6 @@ function Wizard:CreateFrame()
     f.scaleEditBox = scaleEditBox
 
     function f:CenterInMainhand()
-        if not self:IsShown() then return end
         local m = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
         local scale = Controls.FitDialog(self, m)
         self:ClearAllPoints()
@@ -1576,6 +1575,9 @@ function Wizard:Open(resumeStep)
         f:LayoutStep()
     end
 
+    -- An unanchored native frame cannot become visible, so OnShow alone
+    -- cannot establish the first anchor. Fit and position after final layout.
+    f:CenterInMainhand()
     f:Show()
 end
 

@@ -80,6 +80,10 @@ function CreateFrame(kind, name, parent, template)
         table.insert(self.hooks[event], callback)
     end
     function f:Show()
+        if self.name == "OffhandSetupWizardFrame" then
+            assert(next(self.points),
+                "wizard must be anchored before Show; OnShow cannot position an unanchored native frame")
+        end
         self.shown = true
         if self.scripts["OnShow"] then self.scripts["OnShow"](self) end
         for _, callback in ipairs(self.hooks.OnShow or {}) do callback(self) end

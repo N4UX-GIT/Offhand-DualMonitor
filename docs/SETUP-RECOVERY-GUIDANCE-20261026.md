@@ -98,3 +98,11 @@ geometry acceptance, cancellation of stale/hidden callbacks and unchanged task
 state. Native visual acceptance remains pending: keep the wizard open through
 Span WoW Now, Restore Window and a repeated cycle, then verify centering after
 Reload UI as well.
+
+The first centering candidate failed live entry: both Calibration and the wizard
+command left the dialog invisible without a BugSack error. Initial anchoring had
+been moved entirely into OnShow. The corrected candidate explicitly fits and
+anchors after final layout, before Show, while retaining bounded resize handling.
+The frame mock now rejects showing the wizard without an anchor so this ordering
+regression is covered. All 55 suites pass again; live entry and centering require
+a repeat check.
