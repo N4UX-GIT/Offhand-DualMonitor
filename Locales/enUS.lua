@@ -359,7 +359,7 @@ L["COMPAT_ELLESMERE_PARTY"] = "EllesmereUI Raid Frames detected. Position its re
 -- Core & General Strings
 -- ============================================================================
 L["ADDON_TITLE"] = "Offhand: Multi-Monitor Setup"
-L["ADDON_DESC"] = "Dual Monitor Offhand Monitor and Seamless Display Topology Manager"
+L["ADDON_DESC"] = "Dual-wield your monitors."
 L["CMD_HELP_TITLE"] = "Offhand Slash Commands"
 L["LAYOUT_REAPPLIED"] = "Layout reapplied!"
 L["CONFIG_SAVED"] = "Offhand configuration saved."
