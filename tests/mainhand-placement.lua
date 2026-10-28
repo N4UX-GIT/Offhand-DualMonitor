@@ -275,7 +275,12 @@ EditModeManagerFrame = {
 }
 EditModeManagerFrame:UpdateLayoutInfo(layoutData)
 
+local previousRecoveryHUD = addon.HUD
+local completedRecoveries = 0
+addon.HUD = {CompleteProtectedHUDLayoutRecovery = function() completedRecoveries = completedRecoveries + 1 end}
 ok, localName, moved = addon.Mainhand:CreateOrUpdateEditModeLayout()
+assert(completedRecoveries == 1, 'successful layout creation must retire stale HUD recovery prompts')
+addon.HUD = previousRecoveryHUD
 assert(ok and localName == "Offhand - Mainhand - Tester" and moved == 11,
     "Mainhand Edit Mode layout was not generated from the active preset")
 assert(layoutAdded == 4 and activated == nil and #saved.layouts == 1 and saveCount == 1,

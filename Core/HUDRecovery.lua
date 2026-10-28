@@ -812,6 +812,9 @@ function Recovery.Install(HUD)
     -- recovery once per occurrence.
     function HUD:UpdateForeverPartyFrameRecovery(metrics)
         if not HasBlizzardEditMode() or not Offhand.db or not Offhand.db.enabled then return end
+        -- A successful layout transaction still needs Blizzard's reload to
+        -- apply protected anchors. Old preview bounds are not a new failure.
+        if self.protectedHUDReloadPending then return end
         -- Blizzard's Gamepad UI owns these protected HUD systems and its Edit Mode
         -- preset. Inspecting the native frame tree during that focus/layout
         -- transaction can taint secret unit-frame values, and Offhand cannot repair
@@ -900,6 +903,17 @@ function Recovery.Install(HUD)
         self.foreverPartyFrameRecoveryPromptShown = nil
         self.foreverPartyFrameRecoveryPromptDeclined = true
         self.foreverProtectedHUDDetectedInEditMode = nil
+    end
+
+    function HUD:CompleteProtectedHUDLayoutRecovery()
+        self.protectedHUDReloadPending = true
+        self.foreverPartyFrameOutsideDisplays = nil
+        self.foreverProtectedHUDDetectedInEditMode = nil
+        self.foreverPartyFrameRecoveryPromptShown = nil
+        self.foreverPartyFrameRecoveryPromptDeclined = nil
+        if Offhand.HideForeverPartyFrameRecoveryPrompt then
+            Offhand:HideForeverPartyFrameRecoveryPrompt()
+        end
     end
 
     -- Protected HUD frames cannot be reanchored safely. The recovery popup is a

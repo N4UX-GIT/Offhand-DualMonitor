@@ -1,6 +1,6 @@
 ## Interface: 30300
 ## Title: |cffffbd0aOffhand|r |cffffffff[Multi-Monitor Setup - WotLK 3.3.5a Test]|r
-## Notes: Experimental original Wrath 3.3.5a compatibility test build.
+## Notes: Keep gameplay on one screen and move maps, bags, chat, and other supported UI panels to another. Experimental original Wrath 3.3.5a compatibility test build.
 ## Author: N4UX (Noggaholic)
 ## Version: 2.1.2
 ## X-Offhand-Release: beta.22

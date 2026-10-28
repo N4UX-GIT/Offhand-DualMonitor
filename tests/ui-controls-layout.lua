@@ -38,3 +38,25 @@ assert(controls.StackCards(nil, {}) == 0,
     "missing card parents must fail closed")
 
 print("PASS: shared choice selection and card stacking presentation")
+
+-- Paragraph sizing must not reuse a native height constrained by the last
+-- message. It must also shrink again when a short message replaces a long one.
+do
+    local text = {height = 12, naturalHeight = 240}
+    function text:SetHeight(height) self.height = height end
+    function text:GetStringHeight()
+        return self.height > 0 and math.min(self.height, self.naturalHeight) or self.naturalHeight
+    end
+    local height = controls.FitParagraphText(text, "Full instructions", 600)
+    assert(height == 240 and text.height == 240,
+        "previous clipped text height must not constrain the next measurement")
+    text.naturalHeight = 18
+    height = controls.FitParagraphText(text, "Short", 600)
+    assert(height < 240 and text.height == height,
+        "paragraphs must release old reserved height when their content shrinks")
+    text.GetStringHeight = function() return 12 end
+    height = controls.FitParagraphText(text, "First step\n\nSecond step\n\nThird step", 600)
+    assert(height > 5 * 18,
+        "stale native metrics must not discard paragraphs or blank lines")
+end
+print("PASS: paragraph sizing clears old constraints and retains complete messages")
