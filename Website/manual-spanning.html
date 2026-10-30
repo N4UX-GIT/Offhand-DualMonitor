@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Offhand Window Setup | FancyZones and manual placement</title>
+    <title>Offhand Alternative Setup | FancyZones and manual placement</title>
     <meta name="description" content="Position World of Warcraft for Offhand with Microsoft PowerToys FancyZones or ordinary manual resizing, then remember and validate the canvas in-game.">
     <link rel="icon" type="image/png" href="assets/offhand-icon.png">
     <link rel="stylesheet" href="style.css?v=20261022-3">
@@ -15,7 +15,7 @@
                 <img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="brand-medallion">
                 <div class="brand-text"><span class="brand-title">OFFHAND</span><span class="brand-subtitle">Dual-Wield Your Monitors</span></div>
             </a>
-            <nav class="nav-primary" aria-label="Primary navigation"><a href="manual-spanning.html" aria-current="page">Window Setup</a><a href="in-game-setup.html">In-Game Setup</a><a href="background-studio.html">Studio</a><a href="companion.html">Companion</a></nav>
+            <nav class="nav-primary" aria-label="Primary navigation"><a href="companion.html">Window Setup</a><a href="in-game-setup.html">In-Game Setup</a><a href="background-studio.html">Studio</a><a href="manual-spanning.html" aria-current="page">Alternative Setup</a></nav>
             <div class="nav-controls">
                 <details class="site-menu">
                     <summary>Menu <span aria-hidden="true">▾</span></summary>
@@ -24,10 +24,10 @@
                             <span class="site-menu-label">Pages</span>
                             <a href="index.html">Home</a>
                             <a href="demonstration.html">Demonstration</a>
-                            <a href="manual-spanning.html" aria-current="page">Window Setup</a>
+                            <a href="companion.html">Window Setup</a>
                             <a href="in-game-setup.html">In-Game Setup</a>
                             <a href="background-studio.html">Background Studio</a>
-                            <a href="companion.html">Companion</a>
+                            <a href="manual-spanning.html" aria-current="page">Alternative Setup</a>
                         </div>
                         <div class="site-menu-group site-menu-sections">
                             <span class="site-menu-label">On this page</span>
@@ -51,15 +51,15 @@
     <main class="content-deck setup-guide-deck">
         <section class="content-section">
             <div class="deck-intro-banner">
-                <div class="hero-badge">NO OFFHAND EXECUTABLE REQUIRED</div>
-                <h1 class="guide-title">Place WoW, then let Offhand remember it</h1>
+                <div class="hero-badge">ALTERNATIVE WINDOW SETUP</div>
+                <h1 class="guide-title">FancyZones and manual placement alternatives</h1>
                 <p class="deck-intro-text">A WoW addon cannot move or resize the native game window. For the simplest Windows setup, use the <a href="https://apps.microsoft.com/detail/9PL4PW84Q90W" target="_blank" rel="noopener">Microsoft Store Companion</a> for exact borderless geometry. This guide covers the alternative FancyZones and manual paths.</p>
                 <p class="deck-intro-text">Before spanning, save a copy of your Blizzard Edit Mode layout and back up your UI addon profiles. The changed UI canvas can require repositioning custom interfaces.</p>
                 <p class="deck-intro-text">Offhand validates the resulting game canvas. It does not connect to PowerToys or inspect another application.</p>
                 <div class="hero-actions">
-                    <a href="#fancyzones" class="btn btn-wow-red btn-lg">Set up FancyZones</a>
+                    <a href="companion.html" class="btn btn-wow-red btn-lg">Use Companion (recommended)</a>
+                    <a href="#fancyzones" class="btn btn-wow-stone btn-lg">Use FancyZones instead</a>
                     <a href="#manual" class="btn btn-wow-stone btn-lg">Resize WoW manually</a>
-                    <a href="companion.html" class="btn btn-wow-stone btn-lg">Set up Companion</a>
                 </div>
             </div>
             <nav class="page-jump-nav" aria-label="Window setup guide sections"><span>On this page</span><a href="#choose-method">Choose method</a><a href="#fancyzones">FancyZones</a><a href="#manual">Manual placement</a><a href="#remember">In-game setup</a><a href="#relaunch">Relaunch check</a></nav>
@@ -68,11 +68,17 @@
         <section class="content-section" id="choose-method" aria-labelledby="choose-method-title">
             <div class="section-header">
                 <h2 class="section-title" id="choose-method-title">Choose a window-placement method</h2>
-                <p class="section-subtitle">Both independent paths use the same in-game confirmation and remembered-canvas protection.</p>
+                <p class="section-subtitle">Companion is the recommended Windows starting point. FancyZones and manual placement use independent canvas confirmation and remain available without an Offhand executable.</p>
             </div>
             <div class="grid-3 setup-method-grid">
                 <article class="wow-card method-card recommended-method">
                     <div class="method-label">RECOMMENDED ON WINDOWS</div>
+                    <h3 class="wow-card-title">Offhand Companion</h3>
+                    <p class="wow-card-desc">Start here for exact display rectangles, a borderless span and active display recovery. Install from Microsoft Store on Windows; the portable build offers an experimental Linux/Wine path.</p>
+                    <p><a href="companion.html">Start Companion setup</a></p>
+                </article>
+                <article class="wow-card method-card">
+                    <div class="method-label">INDEPENDENT WINDOWS OPTION</div>
                     <h3 class="wow-card-title">PowerToys FancyZones</h3>
                     <p class="wow-card-desc">Create one reusable Canvas zone for the complete WoW window. FancyZones can place WoW at the same size again after a launch.</p>
                     <p><a href="https://learn.microsoft.com/en-us/windows/powertoys/fancyzones" target="_blank" rel="noopener">Official FancyZones guide</a></p>
@@ -82,12 +88,6 @@
                     <h3 class="wow-card-title">Manual placement</h3>
                     <p class="wow-card-desc">Drag and resize standard Windowed WoW across your intended displays or ultrawide region. Reapply the size after launch when necessary.</p>
                     <p><a href="#manual">Read the manual steps</a></p>
-                </article>
-                <article class="wow-card method-card">
-                    <div class="method-label">EXACT TOPOLOGY</div>
-                    <h3 class="wow-card-title">Offhand Companion</h3>
-                    <p class="wow-card-desc">Use the optional Companion when you want exact display rectangles, a borderless span, Linux/Wine support, or active recovery features.</p>
-                    <p><a href="companion.html">Review Companion options</a></p>
                 </article>
             </div>
         </section>
@@ -244,7 +244,7 @@
     <footer class="footer">
         <div class="footer-container">
             <div class="footer-brand"><img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="footer-logo"><div class="footer-info"><span class="footer-title">OFFHAND</span><span class="footer-subtitle">Dual-Wield Your Monitors</span></div></div>
-        <nav class="footer-nav" aria-label="Footer navigation"><div class="footer-nav-row"><a href="index.html">Home</a><a href="manual-spanning.html">Window Setup</a><a href="in-game-setup.html">In-Game Setup</a><a href="background-studio.html">Background Studio</a><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub</a></div><div class="footer-nav-row"><a href="index.html#faq">FAQ</a><a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge</a><a href="companion.html">Companion</a><span class="footer-community-actions"><a class="footer-discord" href="https://discord.gg/J2P3SM6pAY" target="_blank" rel="noopener noreferrer" aria-label="Join the Offhand Discord" title="Join the Offhand Discord"><img src="assets/discord-symbol.svg" alt="" aria-hidden="true">Join Discord</a><a class="footer-support" href="https://ko-fi.com/n4uxaddons" target="_blank" rel="noopener noreferrer" aria-label="Support N4UX on Ko-fi"><img src="assets/ko-fi-symbol.png" alt="" aria-hidden="true">Support N4UX</a></span></div></nav>
+        <nav class="footer-nav" aria-label="Footer navigation"><div class="footer-nav-row"><a href="index.html">Home</a><a href="companion.html">Window Setup</a><a href="in-game-setup.html">In-Game Setup</a><a href="background-studio.html">Background Studio</a><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub</a></div><div class="footer-nav-row"><a href="index.html#faq">FAQ</a><a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge</a><a href="manual-spanning.html" aria-current="page">Alternative Setup</a><span class="footer-community-actions"><a class="footer-discord" href="https://discord.gg/J2P3SM6pAY" target="_blank" rel="noopener noreferrer" aria-label="Join the Offhand Discord" title="Join the Offhand Discord"><img src="assets/discord-symbol.svg" alt="" aria-hidden="true">Join Discord</a><a class="footer-support" href="https://ko-fi.com/n4uxaddons" target="_blank" rel="noopener noreferrer" aria-label="Support N4UX on Ko-fi"><img src="assets/ko-fi-symbol.png" alt="" aria-hidden="true">Support N4UX</a></span></div></nav>
         </div>
         <div class="footer-legal"><p>Use FancyZones, manual placement, or the optional Companion to position World of Warcraft for Offhand.</p></div>
     </footer>
