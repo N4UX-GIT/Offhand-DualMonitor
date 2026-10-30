@@ -36,6 +36,38 @@ assert(compatibility.HasCustomBagAddon(),
 assert(compatibility.HasCustomMinimapAddon(),
     "SexyMap ownership was not detected")
 Bartender4, Bagnon, SexyMap = nil, nil, nil
+loaded.EllesmereUIActionBars, loaded.EllesmereUIMinimap, loaded.EllesmereUIChat = true, true, true
+assert(compatibility.HasCustomActionBarAddon() and compatibility.HasCustomMinimapAddon()
+        and compatibility.HasCustomChatAddon(), "Ellesmere modules must own their actual frame families")
+loaded.EllesmereUIActionBars, loaded.EllesmereUIMinimap, loaded.EllesmereUIChat = nil, nil, nil
+loaded.EllesmereUIBags = true
+assert(compatibility.HasCustomBagAddon(),
+    "Ellesmere bags must own native bag layout even when ContainerFrame1 still exists")
+loaded.EllesmereUIBags = nil
+local previousEnum = Enum
+Enum = { EditModeSystem = {ActionBar=1, StatusTrackingBar=2} }
+loaded.EllesmereUIDataBars = true
+assert(not compatibility.IsExternallyOwnedEditModeSystem({system=2})
+        and not compatibility.IsExternallyOwnedEditModeSystem({system=1}),
+    "standalone Ellesmere DataBars must not claim native XP/Rep or action bars")
+loaded.EllesmereUIDataBars = nil
+loaded.EllesmereUIActionBars = true
+local blizzardDataBars = false
+EllesmereUI = {Lite={GetAddon=function(name, silent)
+    assert(name == "EllesmereUIActionBars" and silent)
+    return {db={profile={useBlizzardDataBars=blizzardDataBars}}}
+end}}
+assert(compatibility.IsExternallyOwnedEditModeSystem({system=2}),
+    "Ellesmere custom XP/Rep bars must retain ownership")
+blizzardDataBars = true
+assert(not compatibility.IsExternallyOwnedEditModeSystem({system=2})
+    and compatibility.IsExternallyOwnedEditModeSystem({system=1}),
+    "Blizzard XP/Rep override must yield status systems without yielding action bars")
+EllesmereUI.Lite.GetAddon = function() error("unavailable") end
+assert(compatibility.IsExternallyOwnedEditModeSystem({system=2}),
+    "unknown Ellesmere profile state must conservatively preserve external ownership")
+EllesmereUI, loaded.EllesmereUIActionBars = nil, nil
+Enum = previousEnum
 
 loaded.EllesmereUIRaidFrames = true
 loaded.Chattynator = true

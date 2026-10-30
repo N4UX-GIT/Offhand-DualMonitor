@@ -276,7 +276,7 @@ EditModeManagerFrame = {
 EditModeManagerFrame:UpdateLayoutInfo(layoutData)
 
 ok, localName, moved = addon.Mainhand:CreateOrUpdateEditModeLayout()
-assert(ok and localName == "Offhand - Mainhand - Tester" and moved == 11,
+assert(ok and localName == "Offhand" and moved == 11,
     "Mainhand Edit Mode layout was not generated from the active preset")
 assert(layoutAdded == 4 and activated == nil and #saved.layouts == 1 and saveCount == 1,
     "generated custom layout did not use Blizzard's one-save layout-added transaction")
@@ -336,28 +336,55 @@ assert(OffhandCharDB.mainhandLayout.sourcePreset
     "per-character layout provenance was not recorded")
 
 -- Retail/Anniversary login restores a character's layout by name. Repairing
+-- A second character adopts the existing account layout at capacity without
+-- rewriting customizations or using the first character's rollback source.
+local firstCharacterRecord = OffhandCharDB
+local originalUnitName = UnitName
+local priorMaximum = Constants.EditModeConsts.EditModeMaxLayoutsPerType
+Constants.EditModeConsts.EditModeMaxLayoutsPerType = 1
+UnitName = function() return "SecondCharacter" end
+OffhandCharDB = copyTable(firstCharacterRecord) -- Stale cross-character fallback must not steal rollback provenance.
+layoutData.activeLayout = 2
+generated.systems[1].anchorInfo.offsetX = 731
+local savesBeforeAdoption = saveCount
+local adopted, adoptedName = addon.Mainhand:CreateOrUpdateEditModeLayout()
+assert(adopted and adoptedName == "Offhand" and #layoutData.layouts == 1
+        and saveCount == savesBeforeAdoption and layoutData.activeLayout == 4
+        and layoutData.layouts[1].systems[1].anchorInfo.offsetX == 731,
+    "second-character setup must select the shared layout at capacity without rewriting its edits")
+assert(OffhandCharDB.mainhandLayout.sourceName == "Classic"
+        and OffhandCharDB.mainhandLayout.sourceID == 2
+        and OffhandCharDB.mainhandLayout.ownerName == "SecondCharacter",
+    "shared-layout adoption must keep the adopting character's rollback source")
+generated.systems[1].anchorInfo.offsetX = 720
+Constants.EditModeConsts.EditModeMaxLayoutsPerType = priorMaximum
+OffhandCharDB, UnitName = firstCharacterRecord, originalUnitName
+
+-- Retail/Anniversary login restores a character's layout by name. Repairing
 -- the HUD must replace any stale remembered layout in the same successful
 -- transaction, otherwise /reload immediately undoes the repair.
 addon.isForever = false
 addon.isRetail = true
+OffhandDB.sharedMainhandLayouts.Offhand.client = "retail" -- Same layout fixture, different client adapter.
 OffhandCharDB.editModeLayoutName = "1234"
 ok, localName, moved = addon.Mainhand:CreateOrUpdateEditModeLayout()
 assert(ok and OffhandCharDB.editModeLayoutName == localName
-        and localName == "Offhand - Mainhand - Tester",
+        and localName == "Offhand",
     "Retail HUD repair did not persist the generated layout as the character preference")
 addon.isForever = true
 addon.isRetail = false
+OffhandDB.sharedMainhandLayouts.Offhand.client = "forever"
 
 -- Updating for another topology must rebuild from the original preset, not
 -- translate the generated layout a second time.
 metrics = { gameLeft = 0, gameBottom = 0, gameRight = 2560, gameTop = 1440, isSpanned = true }
 addon.Mainhand:Update("topology")
 ok, localName, moved = addon.Mainhand:CreateOrUpdateEditModeLayout()
-assert(ok and #saved.layouts == 1 and layoutData.activeLayout == 4 and moved == 11,
-    "layout update duplicated the generated layout")
+assert(ok and #saved.layouts == 2 and layoutData.activeLayout == 5 and moved == 11,
+    "different geometry must preserve the original shared layout and create a compatible variant")
 assert(saveCount == 3,
     "layout updates must save once and must not resubmit the payload after activation")
-generated = saved.layouts[1]
+generated = saved.layouts[2]
 assert(generated.systems[1].anchorInfo.offsetX == -720
         and generated.systems[1].anchorInfo.offsetY == -656,
     "layout update drifted instead of rebuilding from its source")
@@ -453,9 +480,9 @@ OffhandCharDB = {
 }
 saved, activated = nil, nil
 ok, localName, moved = addon.Mainhand:CreateOrUpdateEditModeLayout()
-assert(ok and localName == "Offhand - Mainhand - Tester"
+assert(ok and localName == "Offhand"
         and #saved.layouts == 2 and saved.layouts[1].layoutName == foreignLayout.layoutName
-        and saved.layouts[2].layoutName == "Offhand - Mainhand - Tester",
+        and saved.layouts[2].layoutName == "Offhand",
     "foreign character layout provenance was reused as this character's target")
 assert(saved.layouts[2].systems[1].anchorInfo.offsetX == 720
         and OffhandCharDB.mainhandLayout.sourcePreset
@@ -1304,4 +1331,131 @@ assert(addon.Mainhand:IsControllerLayout() and copies==2,
 addon.isForever=false
 EditModePresetLayoutManager=originalPresetManager
 print('PASS: controller detection reads preset style without copying layouts and preserves fallback')
+end
+
+do
+-- Explicit extra-action recovery must replace custom system-relative anchors
+-- and preserve the other already-generated systems without translating twice.
+addon.isForever, addon.isRetail = false, true
+currentInterfaceStyle = 1
+OffhandCharDB = {}
+layoutData = {activeLayout=1, layouts={}}
+EditModePresetLayoutManager.presetLayoutInfo = {copyTable(retailSource), {layoutName='Classic',systems={}}}
+table.insert(EditModePresetLayoutManager.presetLayoutInfo[1].systems, {
+    system=Enum.EditModeSystem.ExtraAbilities, systemIndex=1, isInDefaultPosition=true,
+    anchorInfo={point='CENTER',relativeTo='UIParent',relativePoint='CENTER',offsetX=0,offsetY=0},
+})
+EditModePresetLayoutManager.GetCopyOfPresetLayouts = function(self) return copyTable(self.presetLayoutInfo) end
+C_EditMode.SaveLayouts = function(data) saved=data; layoutData=data; saveCount=(saveCount or 0)+1 end
+EditModeManagerFrame.editModeActive = false
+EditModeManagerFrame.IsShown = function() return false end
+assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+local generatedBefore = copyTable(saved.layouts[1])
+local extraIndex
+for index, entry in ipairs(saved.layouts[1].systems) do
+    if entry.system == Enum.EditModeSystem.ExtraAbilities then extraIndex = index end
+end
+assert(extraIndex, 'test source has no Extra Abilities system')
+local custom = {point='LEFT',relativeTo='OtherSystem',relativePoint='RIGHT',offsetX=9000,offsetY=9000}
+saved.layouts[1].systems[extraIndex].anchorInfo = copyTable(custom)
+saved.layouts[1].systems[extraIndex].isInDefaultPosition = false
+saved.layouts[1].systems[1].anchorInfo.offsetX = 4321
+assert(addon.Mainhand:CreateOrUpdateEditModeLayout({repairFrameName='ExtraAbilityContainer'}))
+local repaired = saved.layouts[1].systems[extraIndex]
+assert(repaired.anchorInfo.relativeTo == 'UIParent' and repaired.anchorInfo.point == 'BOTTOM'
+    and repaired.anchorInfo.offsetX == (metrics.gameLeft + metrics.gameRight) / 2
+    and repaired.anchorInfo.offsetY > metrics.gameBottom
+    and repaired.anchorInfo.offsetY < metrics.gameTop,
+    'targeted recovery did not replace the custom extra-ability relationship')
+assert(saved.layouts[1].systems[1].anchorInfo.offsetX == 4321,
+    'targeted extra-ability recovery overwrote another customized generated system')
+for index, entry in ipairs(generatedBefore.systems) do
+    if index ~= 1 and index ~= extraIndex then
+        local actual = saved.layouts[1].systems[index].anchorInfo
+        for key, value in pairs(entry.anchorInfo or {}) do
+            assert(actual[key] == value, 'targeted repair changed an unrelated system')
+        end
+    end
+end
+assert(addon.Mainhand:CreateOrUpdateEditModeLayout({repairFrameName='ExtraActionBarFrame'}))
+assert(saved.layouts[1].systems[1].anchorInfo.offsetX == 4321, 'repeated repair drifted another system')
+local selectiveRequest = {system=Enum.EditModeSystem.ExtraAbilities,
+    anchorInfo={point='BOTTOM',relativeTo='UIParent',relativePoint='BOTTOMLEFT',offsetX=2000,offsetY=150}}
+assert(addon.Mainhand:CreateOrUpdateEditModeLayout({repairSystems={selectiveRequest}}))
+assert(saved.layouts[1].systems[1].anchorInfo.offsetX == 4321
+    and saved.layouts[1].systems[extraIndex].anchorInfo.offsetX == 2000,
+    'missing-only repair must copy the current layout and change just the requested system')
+table.remove(saved.layouts[1].systems, extraIndex)
+local writes = saveCount
+local success, why = addon.Mainhand:CreateOrUpdateEditModeLayout({repairFrameName='ZoneAbilityFrame'})
+assert(not success and why == 'repair-system' and saveCount == writes,
+    'missing extra-ability system must fail without writing a layout')
+print('PASS: targeted Extra Abilities recovery repairs custom anchors and preserves unrelated layout edits')
+end
+
+do
+-- Shared layouts retain source provenance and frame-owner boundaries through
+-- topology changes and retries, including a full native custom-layout list.
+addon.isForever, addon.isRetail = false, true
+GetCVar = function() return "Keyboard" end
+C_CVar, ConsolePort = nil, nil
+local owners = {EllesmereUIActionBars=true,EllesmereUIMinimap=true,EllesmereUIChat=true}
+C_AddOns = {IsAddOnLoaded=function(name) return owners[name] == true end}
+assert(loadfile("Core/HUDCompatibility.lua"))("Offhand",addon)
+OffhandCharDB, OffhandDB = {}, {}
+presetLayouts = {copyTable(preset), {layoutName="Classic",layoutIndex=1,systems={}}}
+EditModePresetLayoutManager = {GetCopyOfPresetLayouts=function() return copyTable(presetLayouts) end}
+layoutData = {activeLayout=1,layouts={}}
+local writes = 0
+C_EditMode.SaveLayouts = function(data) writes=writes+1; saved=data; layoutData=data end
+C_EditMode.OnLayoutAdded = function(index) layoutData.activeLayout=index end
+C_EditMode.SetActiveLayout = function(index) layoutData.activeLayout=index end
+Constants.EditModeConsts.EditModeMaxLayoutsPerType = 5
+local success, name = addon.Mainhand:CreateOrUpdateEditModeLayout()
+assert(success and name == "Offhand")
+local ownedCount = 0
+for index, entry in ipairs(presetLayouts[1].systems) do
+    if addon.HUDCompatibility.IsExternallyOwnedEditModeSystem(entry) then
+        ownedCount = ownedCount + 1
+        local result = saved.layouts[1].systems[index]
+        assert(result.isInDefaultPosition == entry.isInDefaultPosition)
+        for key,value in pairs(entry.anchorInfo) do
+            assert(result.anchorInfo[key] == value, "HUD generation changed an external owner's source anchor")
+        end
+    end
+end
+assert(ownedCount > 0, "fixture must contain externally owned systems")
+saved.layouts[1].systems[1].anchorInfo.offsetX = 99
+metrics = {gameLeft=100,gameBottom=0,gameRight=2500,gameTop=1400,isSpanned=true}
+addon.Mainhand:Update("shared-geometry")
+OffhandCharDB = {}
+success, name = addon.Mainhand:CreateOrUpdateEditModeLayout()
+assert(success and name == "Offhand (2)" and #saved.layouts == 2
+        and saved.layouts[1].systems[1].anchorInfo.offsetX == 99
+        and OffhandCharDB.mainhandLayout.sourceName == presetLayouts[1].layoutName
+        and OffhandCharDB.mainhandLayout.sourcePreset,
+    "a fresh character on incompatible shared geometry must rebuild from the original source without overwriting it")
+-- A saved row whose activation failed is still owned. Retry selects it, even
+-- at capacity, without another SaveLayouts call or another generated row.
+OffhandCharDB, OffhandDB = {}, {}
+layoutData = {activeLayout=1,layouts={}}
+C_EditMode.OnLayoutAdded = function() return false end
+C_EditMode.SetActiveLayout = function() return false end
+success, name = addon.Mainhand:CreateOrUpdateEditModeLayout()
+assert(not success and name == "activate-api" and #layoutData.layouts == 1)
+local writesAfterFailure = writes
+Constants.EditModeConsts.EditModeMaxLayoutsPerType = 1
+C_EditMode.SetActiveLayout = function(index) layoutData.activeLayout=index end
+success, name = addon.Mainhand:CreateOrUpdateEditModeLayout()
+assert(success and name == "Offhand" and writes == writesAfterFailure
+        and #layoutData.layouts == 1, "activation retry must adopt the previously saved account row at capacity")
+-- A coincidentally named user row has no ownership metadata and must survive.
+OffhandCharDB, OffhandDB = {}, {}
+layoutData.activeLayout = 1
+local protectedOffset = layoutData.layouts[1].systems[1].anchorInfo.offsetX
+success, name = addon.Mainhand:CreateOrUpdateEditModeLayout()
+assert(not success and name == "maximum" and writes == writesAfterFailure
+        and layoutData.layouts[1].systems[1].anchorInfo.offsetX == protectedOffset,
+    "an unknown row named Offhand must not be overwritten or adopted on name alone")
+print("PASS: shared HUD ownership, source provenance, geometry variants, capacity and activation retries")
 end

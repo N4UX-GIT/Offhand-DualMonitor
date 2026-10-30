@@ -4,6 +4,46 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.2-beta.24] - 2026-10-30
+
+### Fixed and improved
+- Improved workspace chat position restoration and docked-tab visibility handling,
+  including ownership detection for Ellesmere UI. Real incoming multi-tab traffic
+  and the reported top-left position through zoning still need user verification.
+- Restored Retail Spellbook availability, retained the selected Spellbook/Talents
+  tab across reloads, and fitted wider Talents content inside the workspace.
+  Panels closed before reload now stay closed.
+- Preserved Retail World Map native panel registration and lifecycle when moved
+  to Offhand, fixing the invisible map observed with OpenMap installed. This
+  Offhand compatibility fix is included in Beta 24 and does not require changes
+  to OpenMap.
+- Added compatible shared Mainhand HUD layout reuse across characters while
+  preserving character-specific rollback sources and external-addon anchors.
+- Improved Mainhand bounds for world tooltips and supported speech bubbles.
+- Improved Ellesmere bags, chat and status-bar ownership handling.
+- Made Recover Missing UI clearer, with readable paragraphs, smaller body text,
+  an opaque background and confirmation sizing that fits Mainhand.
+- Added 0.1 percentage-point manual seam adjustments and decimal input.
+- Updated setup guidance to recommend Companion first, explain UI repositioning,
+  and recommend backing up Blizzard layouts and addon profiles before setup.
+
+### Verified on Retail
+- Tested packaged Offhand Beta 24 with an unmodified CurseForge installation of
+  OpenMap v0.7.1-beta on Retail 12.1.5. After restarting, the map remained visible
+  through repeated opening/closing, zooming and zone hovering, with no fresh
+  errors reported. No local OpenMap patches were used for this retest.
+
+### Known limitations and test focus
+- Native loading artwork still uses the entire spanned WoW window and can crop
+  across unequal or offset displays. Use Companion's Restore Window before
+  loading, then Span WoW Now after returning to the world, as a manual workaround.
+- Real incoming chat across tabs, exact top-left chat persistence through zoning,
+  two-character shared-layout reuse/rollback and the reported mixed-landscape
+  border need further live verification. Combat/taint and physical stacked-display
+  tooltip/bubble checks remain outstanding. Other clients need targeted retesting.
+- This is an addon-only beta. Companion remains 2.1.2-beta.20; no native loading
+  resize, graphics-reset recovery or Companion binary changes are included.
+
 ## [2.1.2-beta.23] - 2026-10-26
 
 ### Improved

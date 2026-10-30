@@ -12,6 +12,46 @@ assert(loadfile("Core/CanvasPanelRegistry.lua"))("Offhand", addon)
 local registry = assert(addon.CanvasPanelRegistry)
 local owner = {}
 
+addon.isRetail = true
+assert(registry.RequiresNativePanelRegistration("WorldMapFrame")
+    and not registry.IsContextBoundPanel("WorldMapFrame"),
+    "Retail MapCanvas must retain native panel registration and provider lifecycle")
+PlayerSpellsFrame = {GetName = function() return "PlayerSpellsFrame" end}
+SpellBookFrame = {GetParent = function() return PlayerSpellsFrame end}
+assert(registry.GetPositionRoot(SpellBookFrame) == PlayerSpellsFrame
+        and not registry.IsBasePersistentCandidate("SpellBookFrame"),
+    "Retail spellbook content must never be restored as an independent window")
+PlayerSpellsFrame, SpellBookFrame, addon.isRetail = nil, nil, nil
+
+assert(registry.IsContextBoundPanel("ProfessionsFrame")
+    and registry.IsContextBoundPanel("TradeSkillFrame")
+    and registry.IsContextBoundPanel("CraftFrame"), "crafting sessions must retain native visibility ownership")
+assert(not registry.IsBasePersistentCandidate("ProfessionsFrame"), "Retail crafting must not load from saved open intent")
+addon.isForever = true
+assert(not registry.IsContextBoundPanel("ProfessionsFrame")
+    and registry.IsBasePersistentCandidate("ProfessionsFrame"), "Forever standalone book persistence must remain available")
+assert(registry.IsContextBoundPanel("TradeSkillFrame"), "Forever context-bound crafting remains native")
+addon.isForever = nil
+addon.isRetail = true
+assert(registry.RequiresNativePanelRegistration("PlayerSpellsFrame")
+    and not registry.IsContextBoundPanel("PlayerSpellsFrame")
+    and registry.IsBasePersistentCandidate("PlayerSpellsFrame"),
+    "Retail spellbook must keep native registration without losing standalone reload support")
+assert(not registry.IsContextBoundPanel("ProfessionsBookFrame"), "standalone Retail book must permit reload restoration")
+assert(registry.RequiresNativePanelRegistration("FriendsFrame")
+    and not registry.IsContextBoundPanel("FriendsFrame"),
+    "Retail Contacts must retain native registration without becoming an interaction-bound panel")
+assert(registry.GetPersistentPanelAddon("ProfessionsBookFrame") == "Blizzard_ProfessionsBook",
+    "Retail standalone book must load its own addon")
+addon.db.workspacePanelLoadAddons.ProfessionsBookFrame = "Blizzard_Professions"
+assert(registry.GetPersistentPanelAddon("ProfessionsBookFrame") == "Blizzard_ProfessionsBook",
+    "historical crafting owner must not prevent Retail book restoration")
+addon.isRetail, addon.isForever = false, true
+assert(registry.GetPersistentPanelAddon("ProfessionsBookFrame") == "Blizzard_Professions",
+    "Forever owner routing must remain unchanged")
+addon.isRetail, addon.isForever = nil, nil
+addon.db.workspacePanelLoadAddons.ProfessionsBookFrame = nil
+
 registry.InitializeTracking(owner)
 assert(owner.knownUIPanelNames.ExistingFrame == true,
     "panel tracking must snapshot existing UIPanel registrations")

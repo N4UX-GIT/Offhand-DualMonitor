@@ -103,7 +103,20 @@ $companionDownloads = if ($CompanionChanged) {
 "@
 }
 
-$testFocus = if ($Tag -eq 'v2.1.2-beta.23') {
+$testFocus = if ($Tag -eq 'v2.1.2-beta.24') {
+@'
+1. Back up Offhand SavedVariables, Blizzard Edit Mode layouts and UI addon profiles before upgrading. Keep existing settings for the upgrade test.
+2. Move chat to the workspace, switch tabs with real incoming messages, then check placement and message separation after /reload, zoning and a normal restart. Include Ellesmere UI where used.
+3. Open Spellbook and Talents on Offhand, reload with either tab open, then close them and reload again. Check the selected tab, fit and closed state.
+4. Check World Map reopen, zoom and hover behavior with your normal map addon. Separate local OpenMap grain/hover patches are not included.
+5. Test shared Mainhand HUD layout reuse and rollback on two characters. Check tooltips and speech bubbles near each viewport edge, particularly on stacked monitors.
+6. Report fresh Lua/protected-action errors before, during and after combat, with client/build, monitor geometry, UI addons and /offhand diag output. These checks remain outstanding.
+
+Loading artwork still uses the spanned window. Manual workaround: Restore Window before loading, then Span WoW Now after returning to the world. This is not a spanned loading-art fix.
+
+Companion remains 2.1.2-beta.20. No Companion binary or graphics-reset recovery changes are included.
+'@
+} elseif ($Tag -eq 'v2.1.2-beta.23') {
 @'
 1. Upgrade without deleting `WTF` or Offhand SavedVariables; keep a backup for rollback.
 2. Visit all five settings pages and check scrolling, sliders, typed values, profile changes and dialog fitting at your normal UI scale.

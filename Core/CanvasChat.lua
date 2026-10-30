@@ -4,11 +4,14 @@ local Chat = {}
 Offhand.CanvasChat = Chat
 
 function Chat.Install(Canvas)
-    local function HasChattynator()
+    local function HasCustomChatAddon()
+        if Offhand.HUDCompatibility and Offhand.HUDCompatibility.HasCustomChatAddon then
+            return Offhand.HUDCompatibility.HasCustomChatAddon()
+        end
         if C_AddOns and C_AddOns.IsAddOnLoaded then
-            return C_AddOns.IsAddOnLoaded("Chattynator")
+            return C_AddOns.IsAddOnLoaded("Chattynator") or C_AddOns.IsAddOnLoaded("EllesmereUIChat")
         elseif IsAddOnLoaded then
-            return IsAddOnLoaded("Chattynator")
+            return IsAddOnLoaded("Chattynator") or IsAddOnLoaded("EllesmereUIChat")
         end
         return false
     end
@@ -17,17 +20,6 @@ function Chat.Install(Canvas)
         local name = suppliedName or (frame and frame.GetName and frame:GetName())
         local index = name and tonumber(name:match("^ChatFrame(%d+)$"))
         return index and index > 1 or false
-    end
-
-    -- Forever rebuilds its native multi-frame chat dock after Offhand's generic
-    -- panel restoration can begin. Never let those generic paths show, resize or
-    -- reanchor a secondary Blizzard chat frame from a stale workspace record.
-    -- Only the tracked-chat path may continue after dock settlement has positively
-    -- identified a detached window.
-    function Canvas:ShouldRouteForeverSecondaryChatRestore(frame, suppliedName)
-        if not Offhand.isForever or not frame
-            or frame._OffhandApplyingTrackedChatPosition then return false end
-        return IsSecondaryBlizzardChatFrame(frame, suppliedName)
     end
 
     local function IsForeverCombatLog(frame, suppliedName)
@@ -77,6 +69,31 @@ function Chat.Install(Canvas)
         return false
     end
 
+    -- Native docking owns secondary-window visibility, size and anchors on all
+    -- clients. A stale detached record must never show an inactive docked tab.
+    -- Forever also defers apparently detached windows until its dock settles;
+    -- only the tracked-chat path may apply those positions after settlement.
+    function Canvas:ShouldDeferSecondaryChatRestore(frame, suppliedName)
+        if not frame or frame._OffhandApplyingTrackedChatPosition then return false end
+        local name = suppliedName or (frame.GetName and frame:GetName())
+        if name and name:match("^ChatFrame%d+$") and HasCustomChatAddon() then return true end
+        return IsSecondaryBlizzardChatFrame(frame, suppliedName)
+            and (Offhand.isForever or IsBlizzardChatFrameDocked(frame, suppliedName))
+            or false
+    end
+
+    function Canvas:IsInactiveNativeChatWindow(frame)
+        local dock = GENERAL_CHAT_DOCK or GeneralDockManager
+        if not frame or not dock or not FCFDock_GetSelectedWindow then return false end
+        -- The primary frame anchors the dock even while another tab is active.
+        -- Its saved position may restore, but its hidden message area must not
+        -- be shown over the selected tab during reload or a zone transition.
+        if frame ~= _G.ChatFrame1 and frame ~= dock.primary
+            and not IsBlizzardChatFrameDocked(frame) then return false end
+        local ok, selected = pcall(FCFDock_GetSelectedWindow, dock)
+        return ok and selected and selected ~= frame or false
+    end
+
     local ClearTrackedChatState
 
     -- Forever rebuilds the chat dock over several frames during login, reload and
@@ -120,7 +137,7 @@ function Chat.Install(Canvas)
 
     local function RefreshDetachedChatPresentation(frame, suppliedName)
         local name = suppliedName or (frame and frame.GetName and frame:GetName())
-        if not IsSecondaryBlizzardChatFrame(frame, name) or HasChattynator()
+        if not IsSecondaryBlizzardChatFrame(frame, name) or HasCustomChatAddon()
             or IsForeverCombatLog(frame, name)
             or GetBlizzardChatDockMembership(frame) ~= false
             or frame._OffhandRefreshingChatPresentation then return false end
@@ -181,7 +198,7 @@ function Chat.Install(Canvas)
     -- dock positively owns it, return saved docking and visibility entirely to
     -- Blizzard and remove only Offhand's stale position record.
     function Canvas:ReconcileForeverCombatLogOwnership()
-        if not Offhand.isForever or HasChattynator() or not Offhand.db
+        if not Offhand.isForever or HasCustomChatAddon() or not Offhand.db
             or not Offhand.db.enabled then return false end
         local frame = _G.ChatFrame2
         if not frame then return false end
@@ -236,7 +253,7 @@ function Chat.Install(Canvas)
 
     local function QueueDetachedChatPresentationRefresh(frame)
         if not frame or frame._OffhandChatAppearanceRefreshPending
-            or frame._OffhandRefreshingChatPresentation or HasChattynator()
+            or frame._OffhandRefreshingChatPresentation or HasCustomChatAddon()
             or not Offhand.db or not Offhand.db.enabled then return end
         local name = frame.GetName and frame:GetName()
         if not IsSecondaryBlizzardChatFrame(frame, name)
@@ -271,7 +288,7 @@ function Chat.Install(Canvas)
     -- from Offhand's own ticker instead of hooking the Blizzard panel into our call
     -- chain, then replay only the saved presentation of tracked detached windows.
     function Canvas:MonitorDetachedChatSettingsPresentation()
-        if HasChattynator() or not Offhand.db or not Offhand.db.enabled then return end
+        if HasCustomChatAddon() or not Offhand.db or not Offhand.db.enabled then return end
         local settingsShown = ChatConfigFrame and ChatConfigFrame.IsShown
             and ChatConfigFrame:IsShown() or false
         local transitioned = settingsShown ~= self._detachedChatSettingsWasShown
@@ -314,7 +331,7 @@ function Chat.Install(Canvas)
         -- Chattynator reparents the native Combat Log (ChatFrame2), anchors it on
         -- two sides inside its custom holder, and hides Blizzard's chrome. Never
         -- resize or reanchor that borrowed native frame.
-        if HasChattynator() then return true end
+        if HasCustomChatAddon() then return true end
 
         local dock = GENERAL_CHAT_DOCK or GeneralDockManager
         local primary = dock and dock.primary or _G.ChatFrame1
@@ -343,11 +360,11 @@ function Chat.Install(Canvas)
     -- it to an unnamed Chattynator window.  Reattaching that edit box to the hidden
     -- ChatFrame1 makes Enter focus a valid but invisible input field.
     local function ShouldManageBlizzardChatEditBox(frame)
-        return frame == ChatFrame1 and not HasChattynator()
+        return frame == ChatFrame1 and not HasCustomChatAddon()
     end
 
     return {
-        HasChattynator = HasChattynator,
+        HasCustomChatAddon = HasCustomChatAddon,
         IsSecondaryBlizzardChatFrame = IsSecondaryBlizzardChatFrame,
         IsForeverCombatLog = IsForeverCombatLog,
         GetBlizzardChatDockMembership = GetBlizzardChatDockMembership,

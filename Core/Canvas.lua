@@ -132,6 +132,7 @@ function Canvas:UpdateLayout()
     local metrics = WithWorkspace(Offhand.Viewport:GetMetrics())
 
     if not metrics.isSpanned or not Offhand.db.enabled then
+        Persistence.FitPlayerSpellsToWorkspace(_G.PlayerSpellsFrame, metrics, false)
         rootCanvas:Hide()
         return
     end
@@ -288,7 +289,8 @@ function Canvas:GetPanelControllerDiagnostics()
             activity and activity.action or "idle",
             activity and tostring(activity.sequence) or "0")
     end
-    return table.concat(entries, ",")
+    return table.concat(entries, ",") .. (self.GetRecoveryPolicyDiagnostics
+        and (" | Recovery=" .. self:GetRecoveryPolicyDiagnostics()) or "")
 end
 
 -- Forever marks several ordinary, load-on-demand UIPanels as protected even
@@ -338,8 +340,10 @@ function Canvas:GetPersistentPanelAddon(name)
 end
 
 function Canvas:RequestPersistentPanelLoad(name, delaySeconds)
+    local retailStandalone = Offhand.isRetail and not Offhand.isForever
+        and (name == "PlayerSpellsFrame" or name == "ProfessionsBookFrame")
     if not CanManagePanelsFromAddon()
-        or not Offhand.isForever or not IsPersistentPanelLoadCandidate(name)
+        or (not Offhand.isForever and not retailStandalone) or not IsPersistentPanelLoadCandidate(name)
         or not Offhand.db or not Offhand.db.openWorkspacePanels
         or not Offhand.db.openWorkspacePanels[name]
         or not Offhand.db.savedWorkspacePositions
@@ -401,7 +405,7 @@ local Chat = assert(
     Offhand.CanvasChat,
     "Offhand chat adapter must load before Canvas"
 ).Install(Canvas)
-local HasChattynator = Chat.HasChattynator
+local HasCustomChatAddon = Chat.HasCustomChatAddon
 local IsSecondaryBlizzardChatFrame = Chat.IsSecondaryBlizzardChatFrame
 local IsForeverCombatLog = Chat.IsForeverCombatLog
 local GetBlizzardChatDockMembership = Chat.GetBlizzardChatDockMembership
@@ -420,7 +424,8 @@ end
 
 local function IsRetailChatEditModeActive(frame)
     return IsRetailEditModePrimaryChat(frame) and ((frame and frame.isInEditMode == true)
-        or (EditModeManagerFrame and EditModeManagerFrame.IsShown and EditModeManagerFrame:IsShown()))
+        or (EditModeManagerFrame and EditModeManagerFrame.IsShown and EditModeManagerFrame:IsShown())
+        or (Canvas.IsRetailEditModeChatSettlementActive and Canvas:IsRetailEditModeChatSettlementActive(frame)))
 end
 
 local function SaveOpenWorkspacePanels()
@@ -639,6 +644,9 @@ function Canvas:SetWorkspacePanelOpen(frameOrName, isOpen)
         Offhand.db.openWorkspacePanels[name] = nil
     end
     SaveOpenWorkspacePanels()
+    if isOpen and name == "PlayerSpellsFrame" then
+        Persistence.CapturePlayerSpellsTab(_G[name])
+    end
     return Offhand.db.openWorkspacePanels[name] == true
 end
 
@@ -700,6 +708,8 @@ local HookCombinedBagCloseButton = assert(
 -- the frame is fully initialized.
 function Canvas:QueuePersistentPanelRestore(frame, name, delaySeconds)
     if not frame or not name or not C_Timer or not C_Timer.After then return false end
+    if PanelRegistry.GetPositionRoot(frame) ~= frame then return false end
+    if IsContextBoundPanel(name) then return false end
     if ShouldYieldFrameToClassicUIForever(frame, name) then return false end
     if ShouldYieldWorldMapToMoveAny(name) then return false end
     if IsForeverEditModeFrame(frame, name) then
@@ -751,6 +761,8 @@ function Canvas:QueuePersistentPanelRestore(frame, name, delaySeconds)
 
         local retailCharacter = Offhand.isRetail and not Offhand.isForever
             and name == "CharacterFrame" and frame == _G.CharacterFrame
+        local retailStandalone = Offhand.isRetail and not Offhand.isForever
+            and (name == "PlayerSpellsFrame" or name == "ProfessionsBookFrame")
         if retailCharacter and db.independentWorkspacePanels then
             -- CharacterFrame expands its PaperDoll child from OnShow and
             -- collapses it from OnHide. Detach the hidden frame from Blizzard's
@@ -763,11 +775,21 @@ function Canvas:QueuePersistentPanelRestore(frame, name, delaySeconds)
         end
 
         local opened = false
+        if retailStandalone and name == "PlayerSpellsFrame" then
+            Persistence.RestorePlayerSpellsTab(frame)
+        end
         if retailCharacter and ToggleCharacter then
             local ok = pcall(ToggleCharacter, "PaperDollFrame", true)
             opened = ok and frame.IsShown and frame:IsShown()
         end
-        if not opened and ShowUIPanel and UIPanelWindows and UIPanelWindows[name] then
+        if not opened and retailStandalone and db.independentWorkspacePanels and frame.Show then
+            -- These standalone menus finish initialization when their addon loads.
+            -- Open the saved workspace menu without allocating a shared native
+            -- panel slot, which would close a previously restored workspace peer.
+            -- Keep native registration and OnShow/OnHide scripts intact. Crafting
+            -- interaction roots never enter this path.
+            pcall(frame.Show, frame)
+        elseif not opened and ShowUIPanel and UIPanelWindows and UIPanelWindows[name] then
             pcall(ShowUIPanel, frame)
         elseif not opened and frame.Show then
             pcall(frame.Show, frame)
@@ -876,7 +898,7 @@ function Canvas:RestorePersistentFrames(mode)
                 if frame:IsShown() then Canvas:RepairYieldedWorldMapAnchor(frame) end
             end
         elseif frame
-            and not self:ShouldRouteForeverSecondaryChatRestore(frame, name)
+            and not self:ShouldDeferSecondaryChatRestore(frame, name)
             and not IsForeverEditModeFrame(frame, name)
             and (not IsForeverProfessionsPanel(frame, name)
                 or IsPersistentForeverProfessionsPanelName(name)) then
@@ -896,7 +918,7 @@ function Canvas:RestorePersistentFrames(mode)
                         hasBag = true
                     end
                 elseif name:match("^ChatFrame") then
-                    frame:Show()
+                    if not self:IsInactiveNativeChatWindow(frame) then frame:Show() end
                     RestoreWorkspacePosition(frame)
                 else
                     -- Generic UIPanels (Character, Quest, Guild, etc.)
@@ -1065,7 +1087,7 @@ OnPanelDragStop = Persistence.InstallDrag(Canvas, {
     IsUnsafeForPanelMutation = function(...) return IsUnsafeForPanelMutation(...) end,
     RegisterSpecialFrame = function(...) return RegisterSpecialFrame(...) end,
     UnregisterSpecialFrame = function(...) return UnregisterSpecialFrame(...) end,
-    HasChattynator = function(...) return HasChattynator(...) end,
+    HasCustomChatAddon = function(...) return HasCustomChatAddon(...) end,
     ClearTrackedChatState = function(...) return ClearTrackedChatState(...) end,
     RelinquishDockedChatPosition = function(...) return RelinquishDockedChatPosition(...) end,
     ShouldManageBlizzardChatEditBox = function(...) return ShouldManageBlizzardChatEditBox(...) end,
@@ -1091,7 +1113,7 @@ function Canvas:CaptureForeverFramePosition(frame)
         or not Offhand.db.enabled or not Offhand.ForeverPersistence then return false end
     local name = frame.GetName and frame:GetName()
     if name ~= "ContainerFrameCombinedBags" and not (name and name:match("^ChatFrame%d+$")) then return false end
-    if name and name:match("^ChatFrame%d+$") and HasChattynator() then
+    if name and name:match("^ChatFrame%d+$") and HasCustomChatAddon() then
         ClearTrackedChatState(name)
         return false
     end
@@ -1143,6 +1165,7 @@ function Canvas:CaptureForeverFramePosition(frame)
 end
 
 Offhand.CanvasPanelPlacement.InstallMainhand(Canvas, {
+    RemodalizePanel = function(...) return RemodalizePanel(...) end,
     ShouldYieldFrameToClassicUIForever = function(...) return ShouldYieldFrameToClassicUIForever(...) end,
     ShouldYieldWorldMapToMoveAny = function(...) return ShouldYieldWorldMapToMoveAny(...) end,
     IsForeverProfessionsPanel = function(...) return IsForeverProfessionsPanel(...) end,
@@ -1174,7 +1197,7 @@ RestoreWorkspacePosition = Persistence.InstallRestore(Canvas, {
     IsUnsafeForPanelMutation = function(...) return IsUnsafeForPanelMutation(...) end,
     RegisterSpecialFrame = function(...) return RegisterSpecialFrame(...) end,
     UnregisterSpecialFrame = function(...) return UnregisterSpecialFrame(...) end,
-    HasChattynator = function(...) return HasChattynator(...) end,
+    HasCustomChatAddon = function(...) return HasCustomChatAddon(...) end,
     ClearTrackedChatState = function(...) return ClearTrackedChatState(...) end,
     ShouldManageBlizzardChatEditBox = function(...) return ShouldManageBlizzardChatEditBox(...) end,
     IsRetailChatEditModeActive = function(...) return IsRetailChatEditModeActive(...) end,
@@ -1322,6 +1345,7 @@ Offhand.CanvasPanelPlacement.InstallVoid(Canvas, {
 
 local function RestoreSavedPositionAfterShow(frame)
     if not frame or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+    if PanelRegistry.GetPositionRoot(frame) ~= frame then return end
     if Offhand.isForever and not CanManagePanelsFromAddon() then return end
     local frameName = frame.GetName and frame:GetName()
     if ShouldYieldFrameToClassicUIForever(frame, frameName) then return end
@@ -1664,6 +1688,7 @@ end
 
 function Canvas:TryMakeFrameDraggable(frame)
     if not frame or not frame.GetName then return end
+    if PanelRegistry.GetPositionRoot(frame) ~= frame then return end
     if Offhand.isForever and not CanManagePanelsFromAddon() then return end
     if ShouldYieldFrameToClassicUIForever(frame) then return end
     if ShouldYieldWorldMapToMoveAny(frame) then return end
@@ -1729,6 +1754,7 @@ end
 
 function Canvas:EnableFreeDragging()
     if not Offhand.db or not Offhand.db.enabled then return end
+    Persistence.InstallPlayerSpellsCloseObserver(self)
     if Offhand.isForever then InstallForeverOptionsOpeningObservers() end
     if Offhand.isForever and not CanManagePanelsFromAddon() then return end
     self:InitializePanelLoadTracking()
@@ -1914,6 +1940,7 @@ function Canvas:EnableFreeDragging()
         Canvas._explicitPanelToggleHooks = true
         local function SyncExplicitToggle(frame)
             if not frame or not C_Timer or not C_Timer.After then return end
+            if PanelRegistry.GetPositionRoot(frame) ~= frame then return end
             if ShouldYieldWorldMapToMoveAny(frame) then
                 if Offhand.isForever then return end
                 Canvas:SetWorkspacePanelOpen(frame,
@@ -2194,6 +2221,7 @@ function Canvas:EnableFreeDragging()
 
     -- Hook Chat Frames and Tabs for workspace dragging and persistence
     local function ApplyTrackedChatPosition(chatFrame)
+        if HasCustomChatAddon() or IsBlizzardChatFrameDocked(chatFrame) then return false end
         chatFrame._OffhandApplyingTrackedChatPosition = true
         local ok = pcall(RestoreWorkspacePosition, chatFrame)
         chatFrame._OffhandApplyingTrackedChatPosition = nil
@@ -2203,7 +2231,7 @@ function Canvas:EnableFreeDragging()
     local function RestoreTrackedChatPosition(chatFrame)
         if not chatFrame or not Offhand.db or not Offhand.db.enabled
             or InCombatLockdown() or chatFrame._OffhandDragging
-            or MOVING_CHATFRAME == chatFrame then return end
+            or MOVING_CHATFRAME == chatFrame or IsRetailChatEditModeActive(chatFrame) then return end
         local chatName = chatFrame.GetName and chatFrame:GetName()
         if not chatName then return end
         local workspacePosition = Offhand.db.savedWorkspacePositions
@@ -2215,6 +2243,7 @@ function Canvas:EnableFreeDragging()
         local function applyDetachedPosition()
             if not Offhand.db or not Offhand.db.enabled or InCombatLockdown()
                 or chatFrame._OffhandDragging or MOVING_CHATFRAME == chatFrame
+                or IsRetailChatEditModeActive(chatFrame)
                 or (Offhand.isForever
                     and GetBlizzardChatDockMembership(chatFrame) ~= false) then return end
             -- ChatFrame2 is Blizzard's built-in Combat Log. Never turn it on,
@@ -2276,7 +2305,7 @@ function Canvas:EnableFreeDragging()
     local function RegisterChatFrame(chatFrame)
         if not chatFrame then return end
         local chatName = chatFrame.GetName and chatFrame:GetName()
-        if chatName and HasChattynator() then
+        if chatName and HasCustomChatAddon() then
             ClearTrackedChatState(chatName)
             return
         end
@@ -2325,11 +2354,11 @@ function Canvas:EnableFreeDragging()
         end
     end
 
-    if not HasChattynator() and FCF_StopDragging and not Canvas._fcfHooked then
+    if not HasCustomChatAddon() and FCF_StopDragging and not Canvas._fcfHooked then
         Canvas._fcfHooked = true
         hooksecurefunc("FCF_StopDragging", function(chatFrame)
             if chatFrame and Offhand.db and Offhand.db.enabled
-                and not HasChattynator() then
+                and not HasCustomChatAddon() then
                 if chatFrame.SetClampedToScreen then
                     pcall(function() chatFrame:SetClampedToScreen(false) end)
                 end
@@ -2341,7 +2370,7 @@ function Canvas:EnableFreeDragging()
         end)
     end
 
-    if not HasChattynator() and FCF_DockFrame and not Canvas._fcfDockHooked then
+    if not HasCustomChatAddon() and FCF_DockFrame and not Canvas._fcfDockHooked then
         Canvas._fcfDockHooked = true
         hooksecurefunc("FCF_DockFrame", function(chatFrame)
             -- Forever calls FCF_DockFrame while rebuilding chat windows during
@@ -2355,7 +2384,7 @@ function Canvas:EnableFreeDragging()
         end)
     end
 
-    if not HasChattynator() and FCF_PopInWindow and not Canvas._fcfPopInHooked then
+    if not HasCustomChatAddon() and FCF_PopInWindow and not Canvas._fcfPopInHooked then
         Canvas._fcfPopInHooked = true
         hooksecurefunc("FCF_PopInWindow", function(frame, fallback)
             -- "Close Window" routes through FCF_PopInWindow for ordinary
@@ -2385,7 +2414,7 @@ function Canvas:EnableFreeDragging()
         end)
     end
 
-    if not HasChattynator() and FCF_SavePositionAndDimensions and not Canvas._fcfSaveHooked then
+    if not HasCustomChatAddon() and FCF_SavePositionAndDimensions and not Canvas._fcfSaveHooked then
         Canvas._fcfSaveHooked = true
         hooksecurefunc("FCF_SavePositionAndDimensions", function(chatFrame)
             local name = chatFrame and chatFrame.GetName and chatFrame:GetName()
@@ -2415,20 +2444,20 @@ function Canvas:EnableFreeDragging()
     -- detached frame. Reassert the newly saved Blizzard values on the next
     -- frame. Native Settings initialization may use doNotSave=true, so observe
     -- both forms; Offhand's own replay is excluded by the per-frame guard.
-    if not HasChattynator() and FCF_SetWindowColor and not Canvas._fcfColorHooked then
+    if not HasCustomChatAddon() and FCF_SetWindowColor and not Canvas._fcfColorHooked then
         Canvas._fcfColorHooked = true
         hooksecurefunc("FCF_SetWindowColor", function(chatFrame)
             QueueDetachedChatPresentationRefresh(chatFrame)
         end)
     end
-    if not HasChattynator() and FCF_SetWindowAlpha and not Canvas._fcfAlphaHooked then
+    if not HasCustomChatAddon() and FCF_SetWindowAlpha and not Canvas._fcfAlphaHooked then
         Canvas._fcfAlphaHooked = true
         hooksecurefunc("FCF_SetWindowAlpha", function(chatFrame)
             QueueDetachedChatPresentationRefresh(chatFrame)
         end)
     end
 
-    if not HasChattynator() and FCF_OpenNewWindow and not Canvas._fcfNewHooked then
+    if not HasCustomChatAddon() and FCF_OpenNewWindow and not Canvas._fcfNewHooked then
         Canvas._fcfNewHooked = true
         hooksecurefunc("FCF_OpenNewWindow", function(...)
             for i = 1, (NUM_CHAT_WINDOWS or 10) do
