@@ -9,6 +9,102 @@ function Lifecycle.InstallClosePolicy(Canvas, services)
     local IsForeverNativeContainerName = Offhand.CanvasBackpackState.IsForeverContainerName
     local explicitCombinedBagClose = false
 
+    -- Do not register in the shared Escape dispatcher, even via securecallfunction:
+    -- live Retail tests produced SpellStopCasting taint with both registrations.
+    -- The captured native CloseAllWindows still looks up CloseWindows dynamically.
+    -- Filter only that later cleanup boundary, without ending/reopening sessions.
+    if Offhand.isRetail and not Offhand.isForever and type(CloseWindows) == "function"
+        and type(GetUIPanel) == "function" and type(HideUIPanel) == "function"
+        and not Canvas.workspaceCloseWindowsInstalled then
+        local nativeCloseWindows = CloseWindows
+        Canvas.workspaceCloseWindowsInstalled = true
+        CloseWindows = function(ignoreCenter, frameToIgnore, context)
+            if context ~= nil or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
+                or Offhand.db.persistentWorkspacePanels == false
+                or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved())
+                or (Offhand.Mainhand and Offhand.Mainhand.IsControllerLayout and Offhand.Mainhand:IsControllerLayout()) then
+                return nativeCloseWindows(ignoreCenter, frameToIgnore, context)
+            end
+            local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+            if not metrics or not metrics.isSpanned then
+                return nativeCloseWindows(ignoreCenter, frameToIgnore, context)
+            end
+            local registry = Offhand.CanvasPanelRegistry
+            local function Keep(frame)
+                if not frame then return false end
+                local ok, keep = pcall(function()
+                    frame = registry.GetPositionRoot(frame)
+                    if frame.IsForbidden and frame:IsForbidden() then return false end
+                    return frame.IsShown and frame:IsShown()
+                        and (not frame.IsVisible or frame:IsVisible())
+                        and not ShouldYieldFrameToClassicUIForever(frame) and IsFrameOnWorkspace(frame)
+                end)
+                return ok and keep
+            end
+            local slots, hasWorkspace = {}, false
+            for _, slot in ipairs({"left", "center", "right", "doublewide", "fullscreen"}) do
+                local frame = GetUIPanel(slot)
+                slots[#slots + 1] = {slot=slot, frame=frame}
+                if Keep(frame) then hasWorkspace = true end
+            end
+            if not hasWorkspace then return nativeCloseWindows(ignoreCenter, frameToIgnore, context) end
+            local closed, visited = false, {}
+            for _, entry in ipairs(slots) do
+                local frame = entry.frame
+                local nativeIgnore = frame == frameToIgnore and entry.slot ~= "doublewide" and entry.slot ~= "fullscreen"
+                if frame and not visited[frame] and not nativeIgnore and not Keep(frame) then
+                    visited[frame] = true
+                    local ignore = entry.slot == "center" and ignoreCenter and GetUIPanelAttribute
+                        and GetUIPanelAttribute(frame, "area") == "center"
+                    if not ignore and frame.IsShown and frame:IsShown() then
+                        HideUIPanel(frame, UIPANEL_SKIP_SET_POINT, UIPANEL_SKIP_SHOWN_CHECK)
+                        closed = true
+                    end
+                end
+            end
+            -- Preserve special workspace roots too, without editing the native list.
+            for _, name in ipairs(UISpecialFrames or {}) do
+                local frame = _G[name]
+                if frame and not visited[frame] and not Keep(frame)
+                    and not (frame.IsForbidden and frame:IsForbidden()) and frame.IsShown and frame:IsShown() then
+                    visited[frame] = true
+                    frame:Hide()
+                    closed = true
+                end
+            end
+            if closed and UpdateUIPanelPositions then UpdateUIPanelPositions() end
+            return closed
+        end
+    end
+
+    function Canvas:GetRecoveryPolicyDiagnostics()
+        if InCombatLockdown() then return "deferred:combat" end
+        local registry = Offhand.CanvasPanelRegistry
+        local entries = {"EscapeRoute=" .. (self.workspaceCloseWindowsInstalled and "panel-cleanup-filter"
+            or (Offhand.isRetail and "native-unavailable" or "legacy"))}
+        for _, name in ipairs({"PVEFrame", "GroupFinderFrame", "LFDParentFrame", "PlayerSpellsFrame",
+            "ProfessionsBookFrame", "ProfessionsFrame"}) do
+            local ok, status = pcall(function()
+                local frame = _G[name]
+                if not frame then return "absent" end
+                if frame.IsForbidden and frame:IsForbidden() then return "forbidden" end
+                local root = registry.GetPositionRoot(frame)
+                if root ~= frame then return "child-of:" .. tostring(root:GetName()) end
+                local visible = frame.IsShown and frame:IsShown() and (not frame.IsVisible or frame:IsVisible())
+                local where = visible and (IsFrameOnWorkspace(frame) and "workspace" or "mainhand-or-outside") or "hidden"
+                local registered = UIPanelWindows and UIPanelWindows[name] ~= nil
+                return where .. ",registered:" .. tostring(registered)
+                    .. ",reload:" .. (registry.IsContextBoundPanel(name) and "native-interaction" or "eligible")
+                    .. ",escape:" .. (registry.RequiresNativePanelRegistration(name) and Offhand.isRetail
+                        and not self.workspaceCloseWindowsInstalled and "native-lifecycle"
+                        or (Offhand.db and Offhand.db.persistentWorkspacePanels ~= false and "independent-panels" or "disabled"))
+            end)
+            entries[#entries + 1] = name .. "=" .. (ok and status or "unavailable")
+        end
+        if self.lastGatherReport then entries[#entries + 1] = "LastGather=" .. table.concat(self.lastGatherReport, ",") end
+        return table.concat(entries, " | ")
+    end
+
     local function HandleCustomCloseAllBags(originalFunc, ...)
         if explicitCombinedBagClose then return originalFunc(...) end
         if InCombatLockdown() then return originalFunc(...) end
@@ -60,7 +156,8 @@ function Lifecycle.InstallClosePolicy(Canvas, services)
 
     if not Offhand.isForever and CloseAllWindows and not _G.Offhand_OriginalCloseAllWindows then
         _G.Offhand_OriginalCloseAllWindows = CloseAllWindows
-        CloseAllWindows = function(ignoreCenter)
+        CloseAllWindows = function(ignoreCenter, context)
+            if context ~= nil then return _G.Offhand_OriginalCloseAllWindows(ignoreCenter, context) end
             local activeWorkspaceFrames = {}
             local closedBags = false
             local hasCustomBags = Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()
@@ -68,6 +165,8 @@ function Lifecycle.InstallClosePolicy(Canvas, services)
             local function TrackFrame(f)
                 if not f or not f.IsShown or not f:IsShown() then return end
                 if ShouldYieldFrameToClassicUIForever(f) then return end
+                local name = f.GetName and f:GetName()
+                if name and Offhand.CanvasPanelRegistry.IsContextBoundPanel(name) then return end
                 for _, existing in ipairs(activeWorkspaceFrames) do
                     if existing == f then return end
                 end
@@ -282,6 +381,7 @@ function Lifecycle.InstallModality(Canvas, services)
     local UnregisterSpecialFrame = services.UnregisterSpecialFrame
     local IsBackpackRoot = Offhand.CanvasBackpackState.IsRoot
     local IsContextBoundPanel = Offhand.CanvasPanelRegistry.IsContextBoundPanel
+    local RequiresNativePanelRegistration = Offhand.CanvasPanelRegistry.RequiresNativePanelRegistration
     local HasClassicUIForever = Offhand.CanvasCompatibility.HasClassicUIForever
     local State = Offhand.CanvasFrameState
     local IsPanelEvicting = State.IsEvicting
@@ -308,7 +408,7 @@ function Lifecycle.InstallModality(Canvas, services)
         -- has no valid panel transaction to display. These panels still keep their
         -- saved Offhand anchor and restore it from OnShow, while Escape and native
         -- close behavior remain Blizzard-owned.
-        if name and IsContextBoundPanel(name) then return false end
+        if name and RequiresNativePanelRegistration(name) then return false end
         -- Native bag frames own pooled item buttons whose lifecycle is driven by
         -- Blizzard's bag APIs. A HideUIPanel + direct Show cycle can reveal only the
         -- shell and leave UpdateNewItemList with missing item buttons.
@@ -333,6 +433,9 @@ function Lifecycle.InstallModality(Canvas, services)
           if not frame then return end
           local name = frame:GetName()
           if not name then return end
+          -- Positioning an interaction panel must preserve its native registry
+          -- and layout attributes as well as avoiding the hide/show eviction.
+          if RequiresNativePanelRegistration(name) then return end
 
           -- Removing the workspace map from Blizzard's movement fader prevents the
           -- intended always-open map from becoming subdued while the player runs.
@@ -382,6 +485,7 @@ function Lifecycle.InstallModality(Canvas, services)
           if not frame then return end
           local name = frame:GetName()
           if not name then return end
+          if IsContextBoundPanel(name) then return end
 
           if frame == WorldMapFrame and PlayerMovementFrameFader and PlayerMovementFrameFader.AddDeferredFrame then
               pcall(function()

@@ -19,8 +19,27 @@ function Motion.InstallGenericDragging(Canvas, services)
     local HookKnownPanelAnchorResets = services.HookKnownPanelAnchorResets
     local AttachGuardedForeverPanelMotion = services.AttachGuardedForeverPanelMotion
     local OnPanelDragStop = services.OnPanelDragStop
+    local activeInteractionDrags = setmetatable({}, { __mode = "k" })
+    local releaseWatcher
+    local function WatchInteractionRelease(frame, name)
+        if not Offhand.isRetail or not Offhand.CanvasPanelRegistry
+            or not Offhand.CanvasPanelRegistry.RequiresNativePanelRegistration(name)
+            or not CreateFrame or not IsMouseButtonDown then return end
+        activeInteractionDrags[frame] = true
+        if not releaseWatcher then releaseWatcher = CreateFrame("Frame", nil, UIParent) end
+        releaseWatcher:SetScript("OnUpdate", function()
+            if InCombatLockdown() then return end
+            if IsMouseButtonDown("LeftButton") then return end
+            for target in pairs(activeInteractionDrags) do
+                activeInteractionDrags[target] = nil
+                if target._OffhandDragging then OnPanelDragStop(target) end
+            end
+            releaseWatcher:SetScript("OnUpdate", nil)
+        end)
+    end
     local function MakePanelDraggable(frame)
         if not frame then return end
+        if Offhand.CanvasPanelRegistry.GetPositionRoot(frame) ~= frame then return end
         if ShouldYieldFrameToClassicUIForever(frame) then return end
         if ShouldYieldWorldMapToMoveAny(frame) then return end
         if IsForeverWorldMap(frame) then
@@ -70,6 +89,7 @@ function Motion.InstallGenericDragging(Canvas, services)
                         or ShouldYieldFrameToClassicUIForever(frame, name) then return end
                     local started = pcall(function() frame:StartMoving() end)
                     frame._OffhandDragging = started and true or false
+                    if started then WatchInteractionRelease(frame, name) end
                 end)
                 surface:HookScript("OnDragStop", function()
                     if ShouldYieldFrameToClassicUIForever(frame, name) then
@@ -119,8 +139,9 @@ function Motion.InstallGenericDragging(Canvas, services)
             frame:HookScript("OnDragStart", function(self)
                 if InCombatLockdown() or not Offhand.db.enabled
                     or ShouldYieldFrameToClassicUIForever(frame, name) then return end
-                frame._OffhandDragging = true
-                frame:StartMoving()
+                local started = pcall(frame.StartMoving, frame)
+                frame._OffhandDragging = started and true or false
+                if started then WatchInteractionRelease(frame, name) end
             end)
 
             frame:HookScript("OnDragStop", function(self)
@@ -218,6 +239,7 @@ function Motion.Install(Canvas, services)
     local CanManagePanelsFromAddon = assert(services.CanManagePanelsFromAddon, "Missing panel motion service: CanManagePanelsFromAddon")
     local OnPanelDragStop = assert(services.OnPanelDragStop, "Missing panel motion service: OnPanelDragStop")
     local HookPanelCloseButton = assert(services.HookPanelCloseButton, "Missing panel motion service: HookPanelCloseButton")
+    local interactionAnchorState = setmetatable({}, { __mode = "k" })
 
     -- Communities changes its own root anchor when switching between Chat, Roster,
     -- Info and recruitment/settings views. Preserve an explicit Offhand placement
@@ -227,6 +249,59 @@ function Motion.Install(Canvas, services)
         local panelName = name or (frame and frame.GetName and frame:GetName())
         local isCommunities = (panelName == "CommunitiesFrame")
         local isProfessions = IsForeverProfessionsPanel(frame, panelName) and IsExperimentalForeverProfessionsMovementEnabled()
+        local isInteraction = Offhand.isRetail and Offhand.CanvasPanelRegistry
+            and Offhand.CanvasPanelRegistry.RequiresNativePanelRegistration(panelName)
+        if isInteraction then
+            if interactionAnchorState[frame] or not hooksecurefunc or not C_Timer or not C_Timer.After then return end
+            local state = {}
+            interactionAnchorState[frame] = state
+            local function RepairAnchor()
+                if state.repairing or frame._OffhandDragging or InCombatLockdown() or not Offhand.db
+                    or not Offhand.db.enabled or (frame.IsShown and not frame:IsShown()) then return end
+                local workspace = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[panelName]
+                local mainhand = Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[panelName]
+                if not workspace and not mainhand then return end
+                state.pending = nil
+                state.repairing = true
+                RestoreWorkspacePosition(frame)
+                state.repairing = nil
+            end
+            local function QueueRepair()
+                if state.repairing or state.pending or frame._OffhandDragging
+                    or not Offhand.db or not Offhand.db.enabled then return end
+                local workspace = Offhand.db.savedWorkspacePositions
+                    and Offhand.db.savedWorkspacePositions[panelName]
+                local mainhand = Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[panelName]
+                if not workspace and not mainhand then return end
+                local pending = {}
+                state.pending = pending
+                C_Timer.After(0, function()
+                    if state.pending ~= pending then return end
+                    state.pending = nil
+                    RepairAnchor()
+                end)
+            end
+            hooksecurefunc(frame, "SetPoint", QueueRepair)
+            if panelName == "PlayerSpellsFrame" then
+                -- Tab and minimize changes resize the native root without always
+                -- changing its anchor. Fit after that transaction has settled.
+                if frame.SetTab then
+                    hooksecurefunc(frame, "SetTab", function()
+                        Offhand.CanvasPersistence.CapturePlayerSpellsTab(frame)
+                        QueueRepair()
+                    end)
+                end
+                if frame.HookScript then frame:HookScript("OnSizeChanged", QueueRepair) end
+            end
+            if panelName == "PVEFrame" then
+                -- Group Finder reflows when another native panel opens. Repair
+                -- after the entire transaction, before the next render, instead
+                -- of letting its parent/child chain fight a next-frame restore.
+                if type(UpdateUIPanelPositions) == "function" then hooksecurefunc("UpdateUIPanelPositions", RepairAnchor) end
+                if type(ShowUIPanel) == "function" then hooksecurefunc("ShowUIPanel", RepairAnchor) end
+            end
+            return
+        end
         if (not isCommunities and not isProfessions) or frame._OffhandAnchorResetHooked
             or not hooksecurefunc or not C_Timer or not C_Timer.After then return end
         frame._OffhandAnchorResetHooked = true

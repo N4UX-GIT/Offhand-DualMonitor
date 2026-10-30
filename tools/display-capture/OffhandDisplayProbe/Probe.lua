@@ -5,10 +5,12 @@ OffhandDisplayProbe = Probe
 local frame = CreateFrame("Frame")
 local active, elapsed, pollElapsed, heartbeat = nil, 0, 0, 0
 local lastSignature
+local mapCallbacks = {}
+local mapEvents = {"WorldMapOnShow", "WorldMapOnHide", "WorldMapMinimized", "WorldMapMaximized"}
 local LIMIT, DURATION = 360, 180
 local cvars = {"vsync", "gxVSync", "gxWindow", "gxMaximize", "gxResolution",
     "gxMonitor", "gxApi", "gxRefresh", "useUiScale", "uiScale", "renderScale",
-    "gxTripleBuffer", "maxFPS", "maxFPSBk", "lowLatencyMode", "graphicsQuality"}
+    "gxTripleBuffer", "maxFPS", "maxFPSBk", "lowLatencyMode", "graphicsQuality", "miniWorldMap"}
 local watched = {}
 for _, name in ipairs(cvars) do watched[name:lower()] = true end
 local function Read(fn, ...)
@@ -66,6 +68,18 @@ local function Snapshot(reason)
         end
     end
     Put(state.metrics, "hudDeferred", type(OffhandCharDB) == "table" and OffhandCharDB.mainhandLayoutDeferred == true)
+    state.frames = {}
+    for _, name in ipairs({"UIParent", "WorldFrame", "WorldMapFrame"}) do
+        local target = _G[name]
+        if target and not Read(target.IsForbidden, target) then
+            local values = {}
+            for key, method in pairs({shown="IsShown", left="GetLeft", bottom="GetBottom",
+                width="GetWidth", height="GetHeight", scale="GetEffectiveScale"}) do
+                Put(values, key, Read(target[method], target))
+            end
+            state.frames[name] = values
+        end
+    end
     return state, table.concat(signature, "|")
 end
 local function Append(reason, force)
@@ -84,6 +98,10 @@ function Probe:Stop(reason)
     active = nil
     frame:SetScript("OnUpdate", nil)
     frame:UnregisterAllEvents()
+    if EventRegistry and type(EventRegistry.UnregisterCallback) == "function" then
+        for name in pairs(mapCallbacks) do pcall(EventRegistry.UnregisterCallback, EventRegistry, name, Probe) end
+    end
+    mapCallbacks = {}
     if reason ~= "logout" then Say("stopped. Exit WoW normally after taking the result screenshot to save the log.") end
 end
 function Probe:Start()
@@ -104,6 +122,16 @@ function Probe:Start()
         frame:RegisterEvent(event)
     end
     Append("start", true)
+    -- Use the native callback registry, not hooks/fields on the protected map.
+    if EventRegistry and type(EventRegistry.RegisterCallback) == "function"
+        and type(EventRegistry.UnregisterCallback) == "function" then
+        for _, name in ipairs(mapEvents) do
+            local observed = name
+            local ok = pcall(EventRegistry.RegisterCallback, EventRegistry, observed,
+                function() Append(observed, true) end, Probe)
+            if ok then mapCallbacks[observed] = true end
+        end
+    end
     frame:SetScript("OnUpdate", function(_, delta)
         elapsed, pollElapsed, heartbeat = elapsed + delta, pollElapsed + delta, heartbeat + delta
         if elapsed >= DURATION then Append("timeout", true); Probe:Stop("timeout"); return end
@@ -113,7 +141,7 @@ function Probe:Start()
             if heartbeat >= 5 then heartbeat = 0 end
         end
     end)
-    Say("recording for up to 3 minutes. Make one Graphics Options change, then /ohcapture stop BEFORE re-spanning.")
+    Say("recording for up to 3 minutes. Open the map once OR make one Graphics Options change, then /ohcapture stop BEFORE re-spanning.")
 end
 frame:SetScript("OnEvent", function(_, event, name)
     if event == "PLAYER_LOGOUT" then Append("logout", true); Probe:Stop("logout"); return end

@@ -678,8 +678,8 @@ assert(addon.Canvas:GetCompatibilityDiagnostics():find(
     "compatibility diagnostics did not report the Leatrix font refresh")
 
 -- Geometry ownership and visibility ownership are deliberately separate.
--- Leatrix keeps its exact anchor/scale while Offhand detaches a workspace map
--- from Escape and the active UIPanel slot, then reopens it after a reload.
+-- Leatrix keeps its exact anchor/scale. Retail map providers retain their native
+-- panel slot; workspace Escape filtering and saved open intent remain separate.
 local dormantMapPosition = addon.db.savedWorkspacePositions.WorldMapFrame
 addon.db.savedWorkspacePositions.WorldMapFrame = nil
 addon.db.openWorkspacePanels = addon.db.openWorkspacePanels or {}
@@ -693,9 +693,9 @@ assert(addon.Canvas:PreserveLeatrixWorldMapOpenState(WorldMapFrame),
     "a Leatrix-owned workspace map must retain Offhand open-state handling")
 assert(WorldMapFrame.points[1] == leatrixPoint and WorldMapFrame.scale == 0.83,
     "Offhand changed Leatrix-owned map geometry while preserving visibility")
-assert(addon.db.openWorkspacePanels.WorldMapFrame and delegate.left == nil
+assert(addon.db.openWorkspacePanels.WorldMapFrame and delegate.left == WorldMapFrame
         and not inSpecial("WorldMapFrame"),
-    "Leatrix map persistence must detach both Escape and the active panel slot")
+    "Retail Leatrix map must preserve native panel lifecycle and workspace open intent")
 addon.Canvas:ConfigureWorldMap()
 addon.Canvas:RestoreWorkspacePosition(WorldMapFrame)
 addon.Canvas.OnPanelDragStop(WorldMapFrame)

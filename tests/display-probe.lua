@@ -24,6 +24,11 @@ local spanned = true
 Offhand = {db={enabled=true}, Viewport={GetMetrics=function() return {isSpanned=spanned,topologyStatus="READY"} end}}
 OffhandCharDB = {mainhandLayoutDeferred=true}
 SlashCmdList = {}
+local mapCallbacks = {}
+EventRegistry = {
+    RegisterCallback=function(_,key,fn,owner) assert(owner==OffhandDisplayProbe); mapCallbacks[key]=fn end,
+    UnregisterCallback=function(_,key,owner) assert(owner==OffhandDisplayProbe); mapCallbacks[key]=nil end,
+}
 assert(loadfile("tools/display-capture/OffhandDisplayProbe/Probe.lua"))()
 local frame = frames[1]
 assert(not frame.scripts.OnUpdate and next(frame.events) == nil and not OffhandDisplayProbeDB,
@@ -43,6 +48,16 @@ frame.scripts.OnEvent(frame,"DISPLAY_SIZE_CHANGED")
 assert(capture.records[3].metrics.isSpanned == false)
 SlashCmdList.OFFHANDDISPLAYPROBE("stop")
 assert(not frame.scripts.OnUpdate and next(frame.events) == nil and capture.stopReason == "manual")
+assert(next(mapCallbacks)==nil, 'stopping must remove map callbacks')
+SlashCmdList.OFFHANDDISPLAYPROBE('start')
+local mapCapture = OffhandDisplayProbeDB.captures[#OffhandDisplayProbeDB.captures]
+mapCallbacks.WorldMapOnShow()
+assert(mapCapture.records[#mapCapture.records].reason=='WorldMapOnShow'
+    and mapCapture.records[#mapCapture.records].frames.UIParent.width==4000,
+    'map lifecycle capture must include read-only frame geometry')
+mapCallbacks.WorldMapOnHide()
+SlashCmdList.OFFHANDDISPLAYPROBE('stop')
+assert(next(mapCallbacks)==nil)
 assert(OffhandCharDB.mainhandLayoutDeferred and Offhand.db.enabled,
     "diagnostics must not alter setup/profile state")
 for _=1,3 do

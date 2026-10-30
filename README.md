@@ -28,8 +28,12 @@
 
 ## 🛠️ Installation & Setup
 
+Before spanning, save a copy of your Blizzard Edit Mode layout and back up your
+UI addon profiles. The larger UI canvas can shift custom interfaces, including
+Ellesmere and Naowh setups, so some panels may need repositioning.
+
 1.  **Install the Addon:** Download the addon from [CurseForge](https://www.curseforge.com/wow/addons/offhand) or install it via your preferred addon manager. For a manual ZIP install, the TOC files must be directly inside `Interface/AddOns/Offhand`; `Interface/AddOns/Offhand/Offhand/Offhand_Forever.toc` is one folder too deep.
-2.  **Choose a spanning method:** The [no-executable manual setup](https://offhand-wow.onrender.com/manual-spanning.html) is a first-class option on every supported client. On Windows, the optional Companion can apply an exact borderless span from the [Microsoft Store](https://apps.microsoft.com/detail/9PL4PW84Q90W), or from the [v2.1.2 Beta 20 portable ZIP](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.20/Offhand-Companion.zip). After **Span WoW Now** succeeds, you may select **Exit Companion**; the current WoW window remains spanned. Leave it running only when you want automatic spanning, display-disconnect recovery, topology-file repair, or the Forever compatibility bridge. Review [SECURITY.md](SECURITY.md) before choosing an executable path.
+2.  **Choose a spanning method:** On Windows, we recommend the [Microsoft Store Companion](https://apps.microsoft.com/detail/9PL4PW84Q90W) for exact monitor geometry and borderless placement, especially with mixed resolutions or stacked displays. The [manual/FancyZones guide](https://offhand-wow.onrender.com/manual-spanning.html) remains available without an Offhand executable. A [v2.1.2 Beta 20 portable ZIP](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.20/Offhand-Companion.zip) is also available. After **Span WoW Now** succeeds, you may select **Exit Companion**; the current WoW window remains spanned. Leave it running only when you want automatic spanning, display-disconnect recovery, topology-file repair, or the Forever compatibility bridge. Review [SECURITY.md](SECURITY.md) before choosing an executable path.
 
 Linux users should read [Companion/Linux.md](Companion/Linux.md). The current
 binary remains a Windows application; running it under Wine is an experimental
@@ -56,7 +60,7 @@ error and `/offhand diag` output with any report. See the
 4.  **Choose displays and span:** In Companion, select exactly two displays and choose the **Mainhand (game)** display. The other becomes the workspace. Use **Identify Displays** if the Windows display numbers are unclear. For one 32:9/32:10 screen, select only it and explicitly enable **Single-display 32:9 split**. Automatic spanning is disabled by default; launch WoW and click **Span WoW Now** after it starts.
 5.  **Finish the setup wizard:** The first-launch guide now records either **Use Companion** or **Configure Manually** and resumes that path across `/reload`. If WoW was already loaded when Companion changed the span, use the guide's **Reload UI** button; manual resizing offers the same button as an optional stabilization step. The guide waits for display geometry to settle before validation. Then complete calibration. On Forever and Retail, the final step is **Create Mainhand HUD Layout**; press it outside combat with Edit Mode closed. If Blizzard's layout limit or an unavailable Edit Mode API prevents creation, **Finish Without HUD Layout** completes onboarding only after an explicit warning and reports the result as a degraded setup. The 3D viewport and ordinary workspace windows still work, and **Recovery & Preview** remains available to repair the protected HUD later.
 6.  **Reload the protected HUD when available:** On any client that exposes the required Blizzard Edit Mode layout APIs—including Retail, Forever, and current Classic branches that ship a compatible Edit Mode—reload when prompted. Offhand clones the active Blizzard layout, moves default HUD anchors into the Mainhand rectangle, aligns XP with the Action Button 1/backpack boundaries, and arranges stance, pet, possess, vehicle-exit, encounter, and extra-ability controls above it. Custom-positioned source entries are preserved. **Recovery & Preview** can rebuild the layout later. Clients without those APIs finish after the four-step calibration wizard instead.
-7.  **Fine-tune protected HUD frames:** On Forever or Retail, open Blizzard Edit Mode after the reload, adjust the generated `Offhand - Mainhand - <Character>` layout if desired, and save it. On Forever, return to Recovery & Preview and click **Use Current Edit Mode Layout** so that character can recover it after display changes.
+7.  **Fine-tune protected HUD frames:** On Forever or Retail, open Blizzard Edit Mode after the reload and adjust the generated `Offhand` layout. Setup reuses a compatible account layout on other characters without rewriting its edits. Different monitor geometry uses a separate numbered layout; native Gamepad layouts use `Offhand - Gamepad`. Existing character-named layouts remain intact. On Forever, return to Recovery & Preview and click **Use Current Edit Mode Layout** so that character can recover it after display changes.
 8.  **Verify a cold launch:** First test with the Companion fully exited. Workspace panels, their open state, Blizzard HUD placement, and the Edit Mode options frame should return correctly. On Forever, run `/offhand diag` after the cold launch and check the persistence source. If the current client does not load the newest normal SavedVariables, use the Companion recovery bridge as a compatibility fallback and report the client build.
 
 The final wizard screen and completion message summarize the chosen topology source, Mainhand and workspace dimensions, Mainhand side, aspect/seam calibration, protected-HUD state, and recovery level. A generated Mainhand HUD is **fully ready**; choosing **Finish Without HUD Layout** is intentionally labelled **degraded** until repaired. The cold-launch check is recommended but does not block completion.
@@ -85,6 +89,17 @@ Windows display arrangement determines any vertical offset or unused part of the
 combined canvas. The explicit one-screen 32:9/32:10 mode is currently an equal
 50/50 split. While exact Companion topology is active, the in-game seam control
 is disabled and cannot resize that split.
+
+In manual mode, the seam accepts 10%-90% with 0.1 percentage-point steps, including
+typed values such as `50.1%`. Exact Companion topology owns the physical seam.
+Do not adjust that manual ratio to compensate for Windows borders or an offset
+monitor. Recheck window placement, Windows display arrangement and bezel settings.
+WoW's native loading screen can still span or crop across unequal displays:
+no supported loading-screen rectangle control has been demonstrated in this
+investigation. Its presentation is separate from Offhand's in-world viewport.
+For a manual workaround, use Companion's **Restore Window** before loading,
+then **Span WoW Now** once back in the world. This restored visible artwork in
+the tested mixed-display setup; it does not repair artwork while spanned.
 
 A single 21:9 display can use the manual path. Size Windowed WoW to the display,
 confirm that the split is intentional at onboarding Step 4, and calibrate the
