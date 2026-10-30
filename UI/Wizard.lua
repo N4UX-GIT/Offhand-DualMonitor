@@ -408,8 +408,8 @@ function Wizard:CreateFrame()
     seamSlider:SetOrientation("HORIZONTAL")
     seamSlider:SetSize(280, 16)
     seamSlider:SetPoint("TOPLEFT", 14, -80)
-    seamSlider:SetMinMaxValues(0.15, 0.80)
-    seamSlider:SetValueStep(0.005)
+    seamSlider:SetMinMaxValues(0.10, 0.90)
+    seamSlider:SetValueStep(0.001)
     seamSlider:SetObeyStepOnDrag(true)
     seamSlider:EnableMouse(true)
     seamSlider:SetBackdrop({
@@ -448,7 +448,7 @@ function Wizard:CreateFrame()
             return
         end
         local txt = seamEditBox:GetText()
-        local parsed = Offhand.ParseSliderInput and Offhand:ParseSliderInput(txt, 0.15, 0.80, 0.005, "%.1f%%")
+        local parsed = Offhand.ParseSliderInput and Offhand:ParseSliderInput(txt, 0.10, 0.90, 0.001, "%.1f%%")
         if parsed then
             seamSlider:SetValueDirect(parsed)
             seamEditBox:SetText(string.format("%.1f%%", parsed * 100))
@@ -516,7 +516,7 @@ function Wizard:CreateFrame()
 
     seamSlider:SetScript("OnValueChanged", function(self, val, userInput)
         if not Controls.IsSliderEnabled(self) then return end
-        val = math.floor((val / 0.005) + 0.5) * 0.005
+        val = math.max(0.10, math.min(0.90, math.floor((val / 0.001) + 0.5) * 0.001))
         Offhand.db.deckWidthRatio = val
         seamValText:SetText(string.format(L["WIZARD_SEAM_VAL_FMT"], val * 100))
         if seamEditBox and not (seamEditBox.HasFocus and seamEditBox:HasFocus()) then
@@ -559,12 +559,12 @@ function Wizard:CreateFrame()
 
     btnMinus:SetScript("OnClick", function()
         local current = seamSlider:GetValue() or 0.36
-        seamSlider:SetValueDirect(math.max(0.15, current - 0.01))
+        seamSlider:SetValueDirect(math.max(0.10, current - 0.001))
     end)
 
     btnPlus:SetScript("OnClick", function()
         local current = seamSlider:GetValue() or 0.36
-        seamSlider:SetValueDirect(math.min(0.80, current + 0.01))
+        seamSlider:SetValueDirect(math.min(0.90, current + 0.001))
     end)
 
     btnLaser:SetScript("OnClick", function()

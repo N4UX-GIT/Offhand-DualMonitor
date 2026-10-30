@@ -129,3 +129,22 @@ for _,callback in ipairs(queued) do callback() end
 assert(not OffhandCharDB.mainhandWindowedLayout and data.activeLayout==2)
 update(true); assert(data.activeLayout==2,'manual choice observed at close must survive re-span')
 print('PASS: Retail/Anniversary restore-span layout selection, persistence, ownership, combat and API failures')
+
+reset(2)
+name = 'Offhand'
+addon.isRetail = false
+data.layouts[1].layoutName = name
+OffhandCharDB.mainhandLayout.generatedName = name
+OffhandCharDB.editModeLayoutName = name
+OffhandDB = {sharedMainhandLayouts={[name]={version=1,client='classic',ownershipSignature='',
+    geometrySignature='geometry'}}}
+-- Current geometry necessarily changes when the native window is restored.
+signature = 'single-window'
+local sharedManaged, sharedWhy = update(false)
+assert(sharedManaged and sharedWhy == 'restored' and data.activeLayout == 1,
+    'shared layout ownership must use saved span geometry when restoring the native window')
+signature = 'geometry'
+update(true)
+assert(data.activeLayout == 3 and not OffhandCharDB.mainhandWindowedLayout,
+    'the shared account layout must resume by name on the matching span')
+print('PASS: shared layout restore/span round trip across geometry changes')

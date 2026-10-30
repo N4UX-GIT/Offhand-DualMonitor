@@ -1,0 +1,6 @@
+# Preserve the reviewed Beta 24 package bytes across Git checkout.
+# These source files intentionally retain their existing LF or mixed endings.
+/Core/ChatBubbles.lua -text
+/Core/LegacyWrathCompat.lua -text
+/Core/PopupBounds.lua -text whitespace=cr-at-eol
+/Core/Recovery.lua -text

@@ -4,6 +4,86 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.2-beta.24] - 2026-10-30
+
+### Fixed and improved
+- Improved workspace chat position restoration and docked-tab visibility handling,
+  including ownership detection for Ellesmere UI. Real incoming multi-tab traffic
+  and the reported top-left position through zoning still need user verification.
+- Restored Retail Spellbook availability, retained the selected Spellbook/Talents
+  tab across reloads, and fitted wider Talents content inside the workspace.
+  Panels closed before reload now stay closed.
+- Preserved Retail World Map native panel registration and lifecycle when moved
+  to Offhand, fixing the invisible map observed with OpenMap installed. This
+  Offhand compatibility fix is included in Beta 24 and does not require changes
+  to OpenMap.
+- Added compatible shared Mainhand HUD layout reuse across characters while
+  preserving character-specific rollback sources and external-addon anchors.
+- Improved Mainhand bounds for world tooltips and supported speech bubbles.
+- Improved Ellesmere bags, chat and status-bar ownership handling.
+- Made Recover Missing UI clearer, with readable paragraphs, smaller body text,
+  an opaque background and confirmation sizing that fits Mainhand.
+- Added 0.1 percentage-point manual seam adjustments and decimal input.
+- Updated setup guidance to recommend Companion first, explain UI repositioning,
+  and recommend backing up Blizzard layouts and addon profiles before setup.
+
+### Verified on Retail
+- Tested packaged Offhand Beta 24 with an unmodified CurseForge installation of
+  OpenMap v0.7.1-beta on Retail 12.1.5. After restarting, the map remained visible
+  through repeated opening/closing, zooming and zone hovering, with no fresh
+  errors reported. No local OpenMap patches were used for this retest.
+
+### Known limitations and test focus
+- Native loading artwork still uses the entire spanned WoW window and can crop
+  across unequal or offset displays. Use Companion's Restore Window before
+  loading, then Span WoW Now after returning to the world, as a manual workaround.
+- Real incoming chat across tabs, exact top-left chat persistence through zoning,
+  two-character shared-layout reuse/rollback and the reported mixed-landscape
+  border need further live verification. Combat/taint and physical stacked-display
+  tooltip/bubble checks remain outstanding. Other clients need targeted retesting.
+- This is an addon-only beta. Companion remains 2.1.2-beta.20; no native loading
+  resize, graphics-reset recovery or Companion binary changes are included.
+
+## [2.1.2-beta.23] - 2026-10-26
+
+### Improved
+- Reorganized addon services for clearer ownership of workspace panels,
+  persistence, client compatibility, HUD recovery and Edit Mode integration.
+- Refreshed settings with five-page navigation, section shortcuts, remembered
+  page scrolling, consistent control styling and better dialog fitting.
+- Improved slider dragging, typed values, decimal-comma entry, step buttons and
+  synchronization when switching profiles. Companion-owned geometry controls
+  consistently reflect their locked state.
+- Reworked first-time setup with method-specific instructions, detected Windowed
+  state, resumable calibration and Mainhand/Offhand region labels.
+- Improved translated-text spacing, theme/help presentation and calibration
+  validation messages without changing existing saved profiles.
+
+### Fixed
+- Restoring an ordinary window now selects the recorded source HUD layout;
+  spanning again restores the character's Mainhand layout. Manual layout choices
+  remain respected, and preset selection uses the correct layout-list index.
+- Corrected Anniversary native action-bar placement while preserving Blizzard's
+  artwork, controls and relative anchors.
+- Corrected default Retail XP/reputation bar placement above the main action bar.
+- Kept setup dialogs and confirmations reachable and correctly layered.
+- Recentered already-open menus and Graphics Options after restoring the window.
+- Corrected the legacy close-all-windows bag-provider decision scope.
+- Removed the verified recurring Retail controller-detection CPU spike when the
+  client lacks the Gamepad enum, avoiding unnecessary copies of preset trees.
+- Reduced empty bag-snapshot allocations and unchanged addon-owned drag-handle
+  layout writes; controller detection uses a guarded scalar fast path where
+  supported. These additional changes have automated coverage, not an FPS claim.
+
+### Companion and compatibility
+- This is an addon-only update. Complete/portable downloads retain the unchanged
+  Companion `2.1.2-beta.20`, with the existing protocol and minimum version.
+- Experimental Companion VSync/graphics-reset recovery and graininess changes
+  are not included. They remain separate integration work awaiting final-artifact
+  testing. Beta 23 does not claim to fix the native graphics-reset issue.
+- Existing client interface declarations are retained. Linux/Wine and original
+  Wrath 3.3.5a support retain their existing experimental limitations.
+
 ## [2.1.2-beta.22] - 2026-10-22
 
 ### Compatibility

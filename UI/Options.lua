@@ -140,11 +140,27 @@ _G.BINDING_NAME_OFFHAND_TOGGLE_SETTINGS = L["BINDING_NAME_OFFHAND_TOGGLE_SETTING
 _G.BINDING_NAME_OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS =
     L["BINDING_NAME_OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS"]
 
-function Options:CreateMainhandHUDLayout()
+function Options:CreateMainhandHUDLayout(options)
     if Offhand.Mainhand and Offhand.Mainhand.CreateOrUpdateEditModeLayout then
-        return Offhand.Mainhand:CreateOrUpdateEditModeLayout()
+        return Offhand.Mainhand:CreateOrUpdateEditModeLayout(options)
     end
     return false, "unavailable"
+end
+
+function Options:ConfirmRecovery(key, callback)
+    Offhand.OptionsActions.ConfirmRecovery(L[key], callback)
+end
+
+function Options:RecoverMissingUI()
+    local ok, why, moved, skipped, hud, activation, layout = Offhand.Recovery:Run()
+    Offhand:Print(L["RECOVERY_MISSING_RESULT"], moved or 0, hud or 0, skipped or 0)
+    if not ok then
+        if why == "open" then Offhand:Print(Options:GetMainhandLayoutFailureText(why))
+        else Offhand:Print(L[why == "combat" and "GATHER_COMBAT" or "GATHER_MAINHAND_UNAVAILABLE"]) end
+    elseif (hud or 0) > 0 then
+        if activation == "select" then Offhand.Mainhand:PromptManualLayoutSelection(layout)
+        else Offhand.Mainhand:PromptReload() end
+    end
 end
 
 function Options:GetMainhandLayoutFailureText(reason)
@@ -746,7 +762,7 @@ function Options:CreateFloatingPanel()
     )
     rFill:SetPoint("TOPLEFT", 380, -26)
 
-    local seamSlider = CreateNativeSlider(card1_2, L["SLIDER_SEAM_WIDTH"], 0.15, 0.80, 0.005,
+    local seamSlider = CreateNativeSlider(card1_2, L["SLIDER_SEAM_WIDTH"], 0.10, 0.90, 0.001,
         function() return (Offhand.db and Offhand.db.deckWidthRatio) or 0.36 end,
         function(val)
             Offhand.db.deckWidthRatio = val
@@ -1194,11 +1210,13 @@ function Options:CreateFloatingPanel()
     local gatherBtn = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
     gatherBtn:SetSize(160, 26)
     gatherBtn:SetPoint("TOPLEFT", 12, -30)
-    gatherBtn:SetText(L["GATHER_UI"])
-    gatherBtn:SetScript("OnClick", function() if Offhand.GatherOffScreenUI then Offhand:GatherOffScreenUI() end end)
-    CreateRecoveryCaption(L["RECOVERY_RESCUE_LABEL"], true, -60)
+    gatherBtn:SetText(L["RECOVERY_MISSING"])
+    gatherBtn:SetScript("OnClick", function()
+        Options:ConfirmRecovery("RECOVERY_MISSING_CONFIRM", function() Options:RecoverMissingUI() end)
+    end)
+    CreateRecoveryCaption(L["RECOVERY_MISSING_LABEL"], true, -60)
     if Offhand.SetTooltip then
-        Offhand:SetTooltip(gatherBtn, L["GATHER_UI"], L["RECOVERY_RESCUE_LABEL"])
+        Offhand:SetTooltip(gatherBtn, L["RECOVERY_MISSING"], L["RECOVERY_MISSING_CONFIRM"])
     end
 
     local gatherMainhand = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
@@ -1206,12 +1224,14 @@ function Options:CreateFloatingPanel()
     gatherMainhand:SetPoint("TOPRIGHT", recoveryCard, "TOPRIGHT", -12, -30)
     gatherMainhand:SetText(L["GATHER_MAINHAND_UI"])
     gatherMainhand:SetScript("OnClick", function()
-        local ok, why, moved, skipped = Options:GatherSafeUIToMainhand()
-        if ok then
-            Offhand:Print(L["GATHER_MAINHAND_RESULT"], moved or 0, skipped or 0)
-        else
-            Offhand:Print(L[why == "combat" and "GATHER_COMBAT" or "GATHER_MAINHAND_UNAVAILABLE"])
-        end
+        Options:ConfirmRecovery("RECOVERY_GATHER_CONFIRM", function()
+            local ok, why, moved, skipped = Options:GatherSafeUIToMainhand()
+            if ok then
+                Offhand:Print(L["GATHER_MAINHAND_RESULT"], moved or 0, skipped or 0)
+            else
+                Offhand:Print(L[why == "combat" and "GATHER_COMBAT" or "GATHER_MAINHAND_UNAVAILABLE"])
+            end
+        end)
     end)
     if Offhand.SetTooltip then
         Offhand:SetTooltip(gatherMainhand, L["GATHER_MAINHAND_UI"], L["GATHER_MAINHAND_UI_DESC"])
@@ -1224,23 +1244,54 @@ function Options:CreateFloatingPanel()
         createLayout:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 12, -104)
         createLayout:SetText(L["MAINHAND_LAYOUT_CREATE"])
         createLayout:SetScript("OnClick", function()
-            local ok, value, moved, activation = Options:CreateMainhandHUDLayout()
-            if ok then
-                Offhand:Print(L["MAINHAND_LAYOUT_CREATED"], tostring(value), moved or 0)
-                if activation == "select" and Offhand.Mainhand.PromptManualLayoutSelection then
-                    Offhand.Mainhand:PromptManualLayoutSelection(value)
+            Options:ConfirmRecovery("RECOVERY_LAYOUT_CONFIRM", function()
+                local ok, value, moved, activation = Options:CreateMainhandHUDLayout()
+                if ok then
+                    Offhand:Print(L["MAINHAND_LAYOUT_CREATED"], tostring(value), moved or 0)
+                    if activation == "select" and Offhand.Mainhand.PromptManualLayoutSelection then
+                        Offhand.Mainhand:PromptManualLayoutSelection(value)
+                    else
+                        Offhand.Mainhand:PromptReload()
+                    end
                 else
-                    Offhand.Mainhand:PromptReload()
+                    Offhand:Print(Options:GetMainhandLayoutFailureText(value))
                 end
-            else
-                Offhand:Print(Options:GetMainhandLayoutFailureText(value))
-            end
-            if Options.RefreshPanel then Options:RefreshPanel() end
+                if Options.RefreshPanel then Options:RefreshPanel() end
+            end)
         end)
         if Offhand.SetTooltip then
             Offhand:SetTooltip(createLayout, L["MAINHAND_LAYOUT_CREATE"], L["MAINHAND_LAYOUT_CREATE_DESC"])
         end
         CreateRecoveryCaption(L["RECOVERY_CREATE_LABEL"], true, -134)
+
+        if Offhand.isRetail then
+            local recoverExtra = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
+            recoverExtra:SetSize(220, 26)
+            recoverExtra:SetPoint("TOPRIGHT", recoveryCard, "TOPRIGHT", -12, -104)
+            recoverExtra:SetText(L["RECOVERY_EXTRA_ABILITIES"])
+            recoverExtra:SetScript("OnClick", function()
+                Options:ConfirmRecovery("RECOVERY_EXTRA_CONFIRM", function()
+                    local ok, value, moved, activation = Options:CreateMainhandHUDLayout({
+                        repairFrameName = "ExtraAbilityContainer",
+                    })
+                    if ok then
+                        Offhand:Print(L["MAINHAND_LAYOUT_CREATED"], tostring(value), moved or 0)
+                        if activation == "select" and Offhand.Mainhand.PromptManualLayoutSelection then
+                            Offhand.Mainhand:PromptManualLayoutSelection(value)
+                        else
+                            Offhand.Mainhand:PromptReload()
+                        end
+                    else
+                        Offhand:Print(Options:GetMainhandLayoutFailureText(value))
+                    end
+                    if Options.RefreshPanel then Options:RefreshPanel() end
+                end)
+            end)
+            if Offhand.SetTooltip then
+                Offhand:SetTooltip(recoverExtra, L["RECOVERY_EXTRA_ABILITIES"], L["RECOVERY_EXTRA_ABILITIES_DESC"])
+            end
+            CreateRecoveryCaption(L["RECOVERY_EXTRA_ABILITIES_LABEL"], false, -134)
+        end
 
         mainhandLayoutStatus = recoveryCard:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
         mainhandLayoutStatus:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 14, -190)
@@ -1304,6 +1355,9 @@ function Options:CreateFloatingPanel()
 
     local escapePersistenceDesc = Offhand.isForever
         and L["CHECK_ESC_PERSIST_TIP_DESC_FOREVER"] or L["CHECK_ESC_PERSIST_TIP_DESC"]
+    if Offhand.isRetail then
+        escapePersistenceDesc = L["CHECK_ESC_PERSIST_LIMITED_DESC"]
+    end
     local escapeCheck = CreateNativeCheckbox(card2_2, L["CHECK_ESC_PERSIST"],
         function() return Offhand.db and Offhand.db.persistentWorkspacePanels ~= false end,
         function(val)
@@ -2214,9 +2268,9 @@ function Options:CreateFloatingPanel()
     local gatherHelpBtn = CreateFrame("Button", nil, helpOverview, "UIPanelButtonTemplate")
     gatherHelpBtn:SetSize(145, 26)
     gatherHelpBtn:SetPoint("LEFT", wizardHelpBtn, "RIGHT", 10, 0)
-    gatherHelpBtn:SetText(L["GATHER_UI"])
+    gatherHelpBtn:SetText(L["RECOVERY_MISSING"])
     gatherHelpBtn:SetScript("OnClick", function()
-        if Offhand.GatherOffScreenUI then Offhand:GatherOffScreenUI() end
+        Options:ConfirmRecovery("RECOVERY_MISSING_CONFIRM", function() Options:RecoverMissingUI() end)
     end)
 
     local companionHelpBtn = CreateFrame("Button", nil, helpOverview, "UIPanelButtonTemplate")

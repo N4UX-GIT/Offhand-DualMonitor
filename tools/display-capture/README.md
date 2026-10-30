@@ -41,3 +41,12 @@ No existing Offhand files or saved settings are replaced.
 
 No claim of native runtime, taint safety, or graphics-reset correctness follows
 from parser, mock or interop self-tests. Captures can miss sub-250ms transitions.
+
+## Map-opening variant
+
+For a map-related reset, leave graphics settings unchanged and open the map once
+in step 4. The updated probe source records native map lifecycle callbacks and
+map/world/UIParent rectangles only during an active capture. These callbacks are
+removed when recording stops. Retain `Logs/gx.log` before another launch replaces
+it. See `docs/MAP-SPAN-RESET-20261028.md` for the established device-recovery
+evidence and the remaining trigger question.
