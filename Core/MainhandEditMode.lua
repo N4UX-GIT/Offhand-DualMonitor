@@ -330,6 +330,39 @@ local function PlaceRetailStatus(entry, mainAnchor, mainFrame, rect)
     return true
 end
 
+-- A custom Retail source layout can attach Action Bar 1 to the XP/reputation
+-- bar while that bar keeps Blizzard's default anchor to StatusTrackingBarManager.
+-- The manager sits at the bottom of the complete span, which has no physical
+-- monitor behind it on mixed-height spans, so the whole chain stays unreachable
+-- and every Repair HUD rebuild reproduces it. Move only those default status
+-- entries to the bottom of Mainhand; systems the player attached to them follow.
+local function RebaseDetachedRetailStatus(layout, rect, sourceDefaults)
+    local systems = Enum and Enum.EditModeSystem
+    local statusSystem = systems and systems.StatusTrackingBar
+    if statusSystem == nil then return 0 end
+    local indices = Enum.EditModeStatusTrackingBarSystemIndices
+    local secondaryIndex = indices and indices.StatusTrackingBar2
+    local primary = _G.MainStatusTrackingBarContainer
+    local _, primaryHeight = FrameSize(primary, 571, 17)
+    local primaryScale = ParentScale(primary)
+    local offsetX = (rect.left + rect.right) / 2 - UIParent:GetWidth() / 2
+    local refined = 0
+    for index, entry in ipairs(layout.systems or {}) do
+        local info = entry.anchorInfo
+        if sourceDefaults[index] and entry.system == statusSystem and type(info) == "table"
+            and info.relativeTo == "StatusTrackingBarManager" then
+            local secondary = secondaryIndex ~= nil and entry.systemIndex == secondaryIndex
+            local scale = ParentScale(secondary and _G.SecondaryStatusTrackingBarContainer or primary)
+            local bottom = rect.bottom + 8 + (secondary and (primaryHeight * primaryScale + 4) or 0)
+            entry.anchorInfo = { point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOM",
+                offsetX = offsetX / scale, offsetY = bottom / scale }
+            entry.isInDefaultPosition = false
+            refined = refined + 1
+        end
+    end
+    return refined
+end
+
 local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerLayout)
     -- The native Gamepad preset has GamepadMainActionBar instead of keyboard
     -- ActionBar MainBar. Its manager-relative status bars must be handled
@@ -367,7 +400,12 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerL
             lossOfControlAnchor = entry.anchorInfo
         end
     end
-    if not mainAnchor then return refined end
+    if not mainAnchor then
+        if Offhand.isRetail and not controllerLayout then
+            refined = refined + RebaseDetachedRetailStatus(layout, rect, sourceDefaults)
+        end
+        return refined
+    end
 
     local mainFrame = _G.MainActionBar or _G.MainMenuBar
     local mainWidth, mainHeight = FrameSize(mainFrame, 1390, 50)
