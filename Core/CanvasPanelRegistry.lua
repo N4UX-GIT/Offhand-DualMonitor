@@ -84,6 +84,12 @@ function PanelRegistry.IsContextBoundPanel(name)
 end
 
 function PanelRegistry.RequiresNativePanelRegistration(name)
+    -- Anniversary 2.5.x uses MapCanvas plus native ShowUIPanel,
+    -- MaximizeUIPanel and RestoreUIPanelArea transactions. Detaching its area
+    -- bypasses the layout that gives a newly opened map its native anchor.
+    local tocVersion = tonumber(Offhand.tocVersion) or 0
+    if name == "WorldMapFrame" and not Offhand.isForever
+        and tocVersion >= 20500 and tocVersion < 20600 then return true end
     -- Retail MapCanvas providers, standalone books and Group Finder need native
     -- panel transactions even though they can reopen after reload. Preserve lifecycle
     -- independently from the interaction-bound visibility policy.

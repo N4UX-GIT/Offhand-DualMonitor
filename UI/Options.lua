@@ -1599,6 +1599,7 @@ function Options:CreateFloatingPanel()
         L["SLIDER_BEZEL_GAP_TIP_TITLE"], L["SLIDER_BEZEL_GAP_TIP_DESC"]
     )
     bezelSlider:SetPoint("TOPLEFT", 12, -54)
+    bezelSlider.coalesceGeometryLayout = true
     bezelSlider:SetWidth(290)
 
 

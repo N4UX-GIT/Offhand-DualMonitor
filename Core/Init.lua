@@ -1655,7 +1655,27 @@ SlashCmdList["OFFHAND"] = function(msg)
     msg = strtrim(msg or ""):lower()
     local cmd, arg = strsplit(" ", msg, 2)
 
-    if cmd == "diag" or cmd == "metrics" or cmd == "info" then
+    if cmd == "notifycapture" then
+        local hud = Offhand.HUD
+        if not hud or not hud.ArmNotificationCapture then return end
+        local action = strtrim(arg or "")
+        if action == "stop" then
+            hud:StopNotificationCapture()
+            Offhand:Print("Notification capture stopped. Read it with /offhand notifycapture show before /reload.")
+        elseif action == "show" then
+            for _, report in ipairs(hud:GetNotificationCaptureReports() or { "not-armed" }) do
+                Offhand:Print("Notification capture: %s.", report)
+            end
+        elseif action == "" or action == "start" then
+            if hud:ArmNotificationCapture() then
+                Offhand:Print("Notification capture armed for one hour (64 recent changes). After the popup, use /offhand notifycapture stop and /offhand notifycapture show before /reload.")
+            else
+                Offhand:Print("Notification capture requires Retail, timers and being out of combat.")
+            end
+        else
+            Offhand:Print("Use /offhand notifycapture start, stop or show.")
+        end
+    elseif cmd == "diag" or cmd == "metrics" or cmd == "info" then
         local fullDiagnostics = strtrim(arg or "") == "full"
         local snapshot = Offhand.Viewport:CaptureDiagnostics()
         local vpStatus = snapshot.viewportMatches and L["MSG_DIAG_PASS"] or L["MSG_DIAG_MISMATCH"]
@@ -1741,6 +1761,11 @@ SlashCmdList["OFFHAND"] = function(msg)
         -- Keep historical feature probes available on demand. Default reports
         -- must not enumerate native HUD trees or collect animation/debug state.
         if fullDiagnostics then
+            if Offhand.HUD and Offhand.HUD.GetNotificationCaptureReports then
+                for _, report in ipairs(Offhand.HUD:GetNotificationCaptureReports() or {}) do
+                    Offhand:Print("Notification capture: %s.", report)
+                end
+            end
             Offhand:Print("Cinematic skip-dialog diagnostics: %s.",
                 tostring(Offhand._cinematicSkipDialogStatus or "not-attached"))
             if Offhand.MainhandCompatibility and Offhand.MainhandCompatibility.GetClassicRightContainerDiagnostics then

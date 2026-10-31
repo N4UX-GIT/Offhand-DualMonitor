@@ -4,6 +4,12 @@ Stable IDs for reports that require follow-up across test sessions.
 
 ## OH-RET-001: Cutscene skip and contextual UI placement report
 
+- Test.3 reporter split result: party-portrait completion banner works; a visually
+  similar brief popup immediately before it still spans the center. Identity of
+  the failing popup is unconfirmed. A separate native challenge-mode event toast
+  is a source-backed candidate. Test.4 preserves movement and adds opt-in bounded
+  capture, avoiding another /fstack race or speculative root correction. Frozen
+  snapshot 70-suite and extracted-package validation pass; live capture pending.
 - Reporter confirms the Mythic+ completion panel is misplaced on test.2, with an
   image consistent with ChallengeModeCompleteBanner (no /fstack). Verified ZIP
   comparison: test.2 lacks that policy, test.3 includes it and native-method
@@ -90,6 +96,53 @@ Stable IDs for reports that require follow-up across test sessions.
 
 ## OH-TBC-001: Reported out-of-memory crash during manual monitor spanning
 
+- Coalescing source candidate prepared: bezel and bottom controls share a 250 ms
+  quiet-period layout apply, with immediate value updates and one reusable frame.
+  Unchanged limits skip requests; drag/hide/disable, current profile/topology and
+  combat final state have regressions. All 73 Lua suites and six-manifest Lua 5.1
+  validation pass. Two-file developer overlay is prepared, not installed/released.
+  Viewport-write protection remains a separate experiment; live DSV recovery
+  mitigation and the reporter OOM remain unverified.
+- New local failure captured: rapid bezel adjustments preceded the reported
+  freeze/reset; Anniversary 2.5.6.70577 gx.log records a D3D12 DSV descriptor
+  allocation failure at 23:47:41, followed by DeviceRecovery and device recreation.
+  Local RTX 2080 Ti, 8x MSAA; this is not yet the reporter's RTX 4060 OOM signature.
+  Current bezel +/- calls apply full layout immediately on each click. Log and
+  installed-source evidence preserved; no product/settings changes made.
+  [Native failure evidence](TBC-BEZEL-DEVICE-RECOVERY-20261031.md).
+- Reporter identifies GPU as RTX 4060. Variant, dedicated-memory capacity,
+  driver, system RAM and failure-time memory use remain unknown. GPU model
+  alone does not identify the exhausted resource or clear the rendering path.
+- Developer confirms FPS recovers after releasing the resizing edge. The local
+  disabled-Offhand result is transient resize-time slowdown, not reproduction
+  of the reporter's OOM. No memory trend measured; original crash evidence and
+  the separate in-game bottom-adjustment trigger remain the crash priorities.
+- Local isolation update: title-bar movement keeps FPS stable; edge resizing
+  lowers FPS similarly with Offhand disabled. Offhand is not required for this
+  local performance symptom; no local OOM reproduction. Remaining addons and
+  disable method unspecified. Keep native resize slowdown separate from the
+  reporter's confirmed in-game bottom-button OOM trigger. No justified addon fix
+  or confirmed resource diagnosis yet.
+- Working Companion screenshots now identify Anniversary 2.5.6 build 70577,
+  addon Beta 24, Companion Beta 20 MATCH, viewport PASS, canvas 3200x1083,
+  Mainhand=(1280,3 1920x1080), workspace=(0,0 1280x1024), preference=AUTO.
+  Developer also sees substantial FPS loss during manual window movement,
+  without a local crash. Keep that performance observation distinct from OOM.
+- Regression expanded for the supplied geometry: manual bottom 3 to 4 reduces
+  game height 1080 to 1079 and changes UI scale; accepted Companion topology
+  avoids that change. 2,000 alternating boundary adjustments pass in simulation.
+  This identifies a measurable candidate trigger, not a native failure cause.
+- Follow-up: developer could not reproduce locally; reporter has no further
+  occurrences after switching to Companion. Status is mitigated, cause unresolved.
+  Keep the working setup intact and prioritize the original crash report plus
+  current working diagnostics over requesting another disruptive reproduction.
+- Source comparison confirms Companion AUTO geometry bypasses the manual bottom
+  offset, while both paths share layout/WorldFrame application. New isolated
+  regression exercises 10,000 bottom adjustments through the real dispatcher and
+  viewport, with bounded geometry, stable frame/storage counts and effectively
+  flat retained Lua state after collection. All 73 current Lua suites pass.
+  Native rendering, display-event feedback and optional modules remain untested
+  by this fixture. No product source change or confirmed crash fix.
 - Report received 31 October 2026 via the developer, from a Discord user on TBC
   Anniversary. Exact build, addon release, exception text and hardware are pending.
 - Reporter initially confirmed the crash occurs during window dragging. This

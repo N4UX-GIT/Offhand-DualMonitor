@@ -50,3 +50,18 @@ until the Beta 25 candidate is accepted and publication is requested.
 Consulted the shared knowledge README and research skill, ran wowkb status and
 the package-transformation study with checked source bytes. This supports
 separate source/package verification, not native-client or taint claims.
+
+## Updated candidate, 1 November 2026
+
+Merged primary follow-up bba3088 over the integrated Beta 25 source. Includes
+TBC map registration/cursor scaling, bounded opt-in Retail notification capture
+and quiet-period coalescing for bezel and bottom controls. The latest current
+settings are applied after 0.25 seconds; unchanged boundary values skip work.
+Existing wizard measurement and centering changes are retained.
+
+The four new Lua suites raise the source/extracted-runtime suite count to 73.
+TBC map opening has a reporter-observed partial pass. Cursor navigation,
+geometry stall/device recovery and notification native-action acceptance remain
+pending according to the targeted ledgers. No OOM fix is claimed. Original
+prepared packages remain preserved in their 31 October output directories;
+the updated package receives its own 1 November directory and verification record.

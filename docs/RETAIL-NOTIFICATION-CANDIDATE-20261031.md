@@ -74,6 +74,28 @@ Build snapshot, extracted package and per-file hashes:
 
 ## Live acceptance checklist
 
+Subsequent test.3 result: reporter confirms two sequential popups at the end of
+the key. The party-portrait completion banner works; an earlier visually similar
+brief popup still appears at full-span center. No failing-first-popup image or
+/fstack identity exists. Record the banner pass separately from the unresolved
+earlier notification. This is not evidence of a start-of-key problem.
+
+Pinned EventToastManager.lua/.xml has a distinct challenge-mode toast template
+and Setup method, with title/subtitle/medal art. It is a plausible first-popup
+candidate, but not established by appearance/timing alone. The objective-tracker
+scenario sources and native TopBannerManager were also inspected; native root
+capture is preferred to another speculative placement change.
+
+Test.4 is a diagnostic candidate retaining test.3's movement behavior. Opt-in
+/offhand notifycapture start records known roots, active event-toast type/anchors
+and active TopBannerMgr frame before/after native placement and around end-run
+events. It retains 64 changed lines in memory for up to one hour, coalesces timer
+windows and skips native frame reads in combat. It reads no notification text,
+party names or chat. Stop/show commands and requested full diag retrieve history
+after transient frames disappear. Copy it before reload/logout; no SavedVariables
+capture is added. Live activation/identity and first-popup correction remain pending.
+Test.4 artifact/provenance and validation are recorded in tests/QA-notes.md.
+
 New baseline evidence: reporter explicitly identifies test.2 and supplies the
 end-of-Mythic+ panel (dungeon title, timer result, keystone upgrade and party
 portraits) remaining at the full-span center. Appearance is consistent with

@@ -1,5 +1,29 @@
 # Retail expanded notification candidate, awaiting live verification
 
+- Reporter explicitly confirms this follow-up is on test.3: party-portrait
+  completion popup works, but a similar brief popup immediately before it remains
+  centered across both displays. No /fstack or image of the failing first popup.
+  Record split result: ChallengeModeCompleteBanner placement passes by reporter
+  observation; preceding popup remains unclassified. Do not call it the keystone
+  start window or assume the two visuals are one frame.
+- Pinned EventToastManager.lua/.xml defines a distinct
+  EventToastChallengeModeToastTemplate/Setup path with title/subtitle/medal art,
+  separate from the party banner. This is a plausible candidate, not confirmed
+  identity. No new speculative placement rewrite was made.
+- Test.4 adds opt-in /offhand notifycapture start|stop|show. Memory-only, one-hour
+  expiry, 64 changed records, bounded/coalesced event samples; no default capture
+  work or native reads in combat. Records known roots, current pooled event toast
+  and TopBannerMgr frame, ownership/anchors/bounds and pre/post placement. No
+  titles/chat/party names. Capture history is included only in requested full diag.
+- Frozen snapshot passes 70 suites, including capture privacy, disappearing-frame
+  retention, bounds/expiry/rearm/combat and real slash dispatch. All 76 extracted
+  files hash-match; six-manifest Lua 5.1/path/XML checks pass. Test.4 ZIP 771266 bytes,
+  SHA256 `0ACB01C39E2FB801743DAB081501DB31AA8534CDBBAFFE009005FA1D1C518BCE`.
+  Snapshot/extracted verification/inventory:
+  `D:/Games/World of Warcraft/_offhand_deploy_backups/retail-reporter-test4-20261031-221018-737`.
+  Reporter instructions beside ZIP. Earlier packages preserved; source metadata
+  and local installed addon were not changed by test.4 packaging. Capture was not
+  activated on a live client in this session.
 - Reporter follow-up explicitly on beta.24-retail-test.2: the end-of-Mythic+
   completion panel remains centered across both screens. Supplied image shows
   dungeon name, timer result, keystone upgrade and party portraits, consistent
