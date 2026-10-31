@@ -49,6 +49,37 @@ input:SetText(""); input.scripts.OnEnterPressed(input)
 assert(input.text=="0")
 addon.db.gameBottomPixels=6; row.scripts.OnShow()
 assert(input.text=="6")
+local function tick(elapsed)
+    for _,frame in ipairs(frames) do
+        if frame.scripts.OnUpdate then frame.scripts.OnUpdate(frame,elapsed) end
+    end
+end
+tick(0.3)
+local appliedBeforeBurst=addon.applied
+local allocatedFrames=#frames
+for _=1,1000 do
+    buttons['+1 px'].scripts.OnClick()
+    buttons['-1 px'].scripts.OnClick()
+end
+assert(addon.applied==appliedBeforeBurst and input.text=='6'
+    and #frames==allocatedFrames,'bottom burst must update text without extra frames or layout')
+tick(0.24)
+assert(addon.applied==appliedBeforeBurst)
+buttons['+1 px'].scripts.OnClick()
+assert(input.text=='7' and addon.db.gameBottomPixels==7)
+tick(0.24)
+assert(addon.applied==appliedBeforeBurst,'bottom adjustment must restart the quiet period')
+tick(0.02)
+assert(addon.applied==appliedBeforeBurst+1)
+tick(1)
+assert(addon.applied==appliedBeforeBurst+1,'bottom controller must stop after applying')
+input:SetText('0'); buttons.Apply.scripts.OnClick(); tick(0.3)
+local noOpCount=addon.applied
+buttons['-1 px'].scripts.OnClick()
+buttons.Apply.scripts.OnClick()
+tick(1)
+assert(addon.applied==noOpCount,'clamped/unchanged bottom value must not request layout')
+addon.db.gameBottomPixels=6; row:Refresh()
 local before=addon.applied
 for _,locale in ipairs({'enUS','deDE','esES','esMX','frFR','itIT','koKR','ptBR','ruRU','zhCN','zhTW'}) do
     GetLocale=function() return locale end

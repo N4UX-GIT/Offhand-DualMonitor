@@ -4,7 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [2.1.2-beta.25] - 2026-10-31
+## [2.1.2-beta.25] - 2026-11-01
+
+### Additional fixes in the updated package
+- Preserved TBC Anniversary World Map native panel registration for map opening
+  and lifecycle. Added a native cursor-scale adapter for inward map navigation,
+  isolated from Retail, Forever and custom map owners. Opening has a partial
+  reporter pass; cursor navigation and broader lifecycle acceptance remain pending.
+- Coalesced rapid bezel-gap and game-bottom adjustments into one final layout
+  after a short pause, retaining immediate value updates and current-state combat
+  deferral. This is a candidate mitigation for adjustment stalls, not a confirmed
+  graphics-device recovery or memory-crash fix.
+- Added opt-in Retail notification capture for support: /offhand notifycapture
+  start, stop and show. Collection is bounded to one hour and 64 recent changes;
+  captures remain session-only and normal diagnostics stay compact.
 
 ### Setup and recovery
 - Calibration now pauses with actionable instructions when Companion geometry is
@@ -36,7 +49,7 @@ All notable changes to this project will be documented in this file.
 ### Evidence and remaining checks
 - Setup/full-slot Repair HUD recovery was accepted on Anniversary and Retail.
   Shared selection and tuned placement were accepted on the reported Retail setup.
-- All 69 Lua 5.1 suites pass on the integrated source. These are simulated tests,
+- All 73 Lua 5.1 suites pass on the integrated source. These are simulated tests,
   not proof of combat/taint safety or native action correctness.
 - Expanded Retail notification, cinematic and vehicle candidates still require
   targeted live acceptance, including real native actions and current taint logs.

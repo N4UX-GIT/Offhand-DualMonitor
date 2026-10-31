@@ -538,5 +538,103 @@ assert(not wiz.seamSlider.isDragging and not wiz.seamSlider._pendingApply
 wiz.seamSlider.scripts.OnHide(wiz.seamSlider)
 assert(layoutAppliedCount == 1)
 
-print("PASS: Universal slider manual stepping ([-]/[+]), normalized text entry, gentler drag curve, smart parser, and drag debounce verified!")
+-- The actual Options bezel slider opts into one shared geometry countdown.
+-- All other slider timing assertions above must remain unchanged.
+do
+    local bezel
+    for _,s in ipairs(sliders) do
+        if s.title:GetText()==addon.L.SLIDER_BEZEL_GAP then bezel=s end
+    end
+    assert(bezel and bezel.coalesceGeometryLayout,'Options bezel did not opt into coalescing')
+    local function tick(elapsed)
+        for _,f in ipairs(frames) do
+            if f.scripts.OnUpdate then f.scripts.OnUpdate(f,elapsed) end
+        end
+    end
+    local plus,minus
+    for _,f in ipairs(frames) do
+        if f.parent==configFrame.bottomControl then
+            if f.text=='+1 px' then plus=f end
+            if f.text=='-1 px' then minus=f end
+        end
+    end
+    assert(plus and minus,'actual bottom controls missing')
+    bezel:SetValueDirect(20); tick(0.3)
+    layoutAppliedCount=0
+    plus.scripts.OnClick()
+    local finalBottom=addon.db.gameBottomPixels
+    local frameCount=#frames
+    for _=1,1000 do
+        bezel.btnPlus.scripts.OnClick()
+        bezel.btnMinus.scripts.OnClick()
+    end
+    assert(#frames==frameCount,'rapid adjustments allocated extra scheduler frames')
+    assert(addon.db.bezelGap==20 and bezel.editBox:GetText()=='20 px'
+        and addon.db.gameBottomPixels==finalBottom and layoutAppliedCount==0,
+        'burst must retain immediate display/state without synchronous layout')
+    tick(0.24)
+    assert(layoutAppliedCount==0,'geometry applied before the quiet period')
+    bezel.btnPlus.scripts.OnClick()
+    tick(0.24)
+    assert(layoutAppliedCount==0,'new edit did not restart quiet period')
+    tick(0.02)
+    assert(layoutAppliedCount==1 and addon.db.bezelGap==22,
+        'mixed geometry burst must apply final state once')
+    tick(1)
+    assert(layoutAppliedCount==1,'settled scheduler kept polling/applying')
+
+    -- Repeated upper-limit clicks and focus-loss commits of the same value
+    -- must not request another expensive layout.
+    bezel:SetValueDirect(100); tick(0.3); layoutAppliedCount=0
+    for _=1,20 do bezel.btnPlus.scripts.OnClick() end
+    bezel.editBox.scripts.OnEditFocusLost(bezel.editBox)
+    tick(1)
+    assert(layoutAppliedCount==0,'unchanged/clamped bezel value requested layout')
+    bezel.editBox:SetText('26 px')
+    bezel.editBox.scripts.OnEnterPressed(bezel.editBox)
+    bezel.editBox.scripts.OnEditFocusLost(bezel.editBox)
+    bezel.scripts.OnHide(bezel)
+    assert(addon.db.bezelGap==26 and layoutAppliedCount==0)
+    tick(0.3)
+    assert(layoutAppliedCount==1,'typed commit must survive panel hide and apply once')
+
+    -- A step followed by a drag must not fire its old pending layout during
+    -- the drag. Release, hide and disabling each preserve its final value.
+    layoutAppliedCount=0
+    bezel.btnPlus.scripts.OnClick()
+    cursorX=0
+    bezel.scripts.OnMouseDown(bezel,'LeftButton')
+    cursorX=60; tick(1)
+    assert(layoutAppliedCount==0,'pending step applied in the middle of bezel drag')
+    local dragged=addon.db.bezelGap
+    bezel.scripts.OnMouseUp(bezel,'LeftButton')
+    bezel.scripts.OnHide(bezel)
+    tick(0.3)
+    assert(layoutAppliedCount==1 and addon.db.bezelGap==dragged,
+        'release/hide lost the final bezel drag value or applied twice')
+    layoutAppliedCount=0
+    bezel.scripts.OnMouseDown(bezel,'LeftButton')
+    cursorX=120; tick(0.1)
+    addon.UIControls.SetSliderEnabled(bezel,false)
+    tick(0.3)
+    assert(layoutAppliedCount==1 and not bezel._isCustomDrag,
+        'disabled drag lost its pending geometry')
+    addon.UIControls.SetSliderEnabled(bezel,true)
+
+    -- Dispatcher sees latest current state, not a snapshot owned by an old
+    -- profile. Topology/profile changes need not cancel the settings countdown.
+    layoutAppliedCount=0
+    bezel.btnPlus.scripts.OnClick()
+    local previousDB=addon.db
+    addon.db={bezelGap=72,gameBottomPixels=3}
+    local appliedDB
+    local oldApply=addon.ApplyFullLayout
+    addon.ApplyFullLayout=function(self) appliedDB=self.db; oldApply(self) end
+    tick(0.3)
+    assert(layoutAppliedCount==1 and appliedDB==addon.db and addon.db.bezelGap==72,
+        'queued geometry replayed the old profile')
+    addon.ApplyFullLayout=oldApply
+    addon.db=previousDB
+end
+print("PASS: sliders, text entry, drag behavior and bounded geometry coalescing verified")
 

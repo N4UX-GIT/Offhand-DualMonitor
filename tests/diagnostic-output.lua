@@ -91,4 +91,13 @@ media.installed, media.status, media.enabled = true, "INVALID", true
 local invalid = run("diag")
 assert(invalid:find("User media diagnostics: status=INVALID", 1, true)
     and not invalid:find("texture=", 1, true), "invalid installed media must remain visible and concise")
+local armed,stopped=0,0
+addon.HUD.ArmNotificationCapture=function() armed=armed+1;return true end
+addon.HUD.StopNotificationCapture=function() stopped=stopped+1 end
+addon.HUD.GetNotificationCaptureReports=function() return {"retained-frame-evidence"} end
+assert(run('notifycapture start'):find('Notification capture armed',1,true) and armed==1)
+assert(run('notifycapture stop'):find('Notification capture stopped',1,true) and stopped==1)
+assert(run('notifycapture show'):find('retained-frame-evidence',1,true))
+assert(run('diag full'):find('Notification capture: retained-frame-evidence',1,true))
+assert(not run('diag'):find('retained-frame-evidence',1,true),'compact diagnostics must not dump capture history')
 print("PASS: compact support snapshot, conditional recovery evidence and opt-in full diagnostics")

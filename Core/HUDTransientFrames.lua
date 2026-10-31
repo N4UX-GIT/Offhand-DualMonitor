@@ -107,6 +107,134 @@ function Transient.Install(HUD, services)
     local notificationSpecs = Policy.GetRetailNotificationSpecs()
     local notificationState = setmetatable({}, { __mode = "k" })
     local notificationHooks = setmetatable({}, { __mode = "k" })
+    local notificationCaptureFrame
+    local captureRootNames = { "ChallengeModeCompleteBanner", "EventToastManagerFrame",
+        "EventToastManagerSideDisplay", "BossBanner", "AlertFrame", "ScenarioObjectiveTracker" }
+    local function CaptureFrameName(frame)
+        if not frame then return "nil" end
+        if frame.IsForbidden and frame:IsForbidden() then return "forbidden" end
+        if frame == UIParent then return "UIParent" end
+        return (frame.GetName and frame:GetName()) or "unnamed"
+    end
+    local function DescribeCapturedFrame(frame)
+        if not frame then return "absent" end
+        if frame.IsForbidden and frame:IsForbidden() then return "forbidden" end
+        local shown = frame.IsShown and frame:IsShown()
+        local detail = (shown and "shown" or "hidden") .. ",parent="
+            .. CaptureFrameName(frame.GetParent and frame:GetParent())
+            .. ",protected=" .. tostring(frame.IsProtected and frame:IsProtected() or false)
+            .. ",managed=" .. tostring(frame.isManagedFrame == true)
+            .. ",user=" .. tostring(frame.IsUserPlaced and frame:IsUserPlaced() or false)
+        if shown and frame.GetEffectiveAlpha then
+            detail = detail .. string.format(",alpha=%.2f", frame:GetEffectiveAlpha())
+        end
+        if frame.GetNumPoints and frame.GetPoint then
+            local count = frame:GetNumPoints()
+            detail = detail .. ",points=" .. tostring(count)
+            for i = 1, math.min(count, 2) do
+                local point, relative, relativePoint, x, y = frame:GetPoint(i)
+                detail = detail .. string.format(",p%d=%s/%s/%s/%.1f/%.1f", i,
+                    tostring(point), CaptureFrameName(relative), tostring(relativePoint), x or 0, y or 0)
+            end
+        end
+        if shown and frame.GetLeft and frame.GetBottom and frame.GetWidth
+            and frame.GetHeight and frame.GetEffectiveScale then
+            local left, bottom = frame:GetLeft(), frame:GetBottom()
+            if left and bottom then
+                local factor = frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
+                detail = detail .. string.format(",uiRect=%.0f/%.0f/%.0f/%.0f",
+                    left * factor, bottom * factor, frame:GetWidth() * factor, frame:GetHeight() * factor)
+            end
+        end
+        return detail
+    end
+
+    function HUD:RecordNotificationCapture(phase)
+        local capture = self.notificationCapture
+        if not capture or not capture.active then return end
+        local function Add(name, detail)
+            if capture.last[name] == detail then return end
+            capture.last[name] = detail
+            if #capture.lines >= 64 then table.remove(capture.lines, 1); capture.trimmed = capture.trimmed + 1 end
+            capture.lines[#capture.lines + 1] = string.format("+%.2fs %s %s=%s",
+                (GetTime and GetTime() or 0) - capture.started, phase, name, detail)
+        end
+        if InCombatLockdown and InCombatLockdown() then Add("capture", "deferred:combat"); return end
+        for _, name in ipairs(captureRootNames) do
+            local ok, detail = pcall(DescribeCapturedFrame, _G[name])
+            Add(name, ok and detail or "unavailable")
+        end
+        -- This native pooled toast can disappear before the tester opens /fstack.
+        -- Read its structure only; never record titles, party members or chat.
+        local ok, detail = pcall(function()
+            local manager = _G.EventToastManagerFrame
+            if not manager then return "absent" end
+            if manager.IsForbidden and manager:IsForbidden() then return "forbidden" end
+            local toast = manager.currentDisplayingToast
+            if not toast then return "absent" end
+            if toast.IsForbidden and toast:IsForbidden() then return "forbidden" end
+            return DescribeCapturedFrame(toast) .. ",displayType="
+                .. tostring(toast.toastInfo and toast.toastInfo.displayType or "unknown")
+        end)
+        Add("active-event-toast", ok and detail or "unavailable")
+        ok, detail = pcall(function()
+            local banner = _G.TopBannerMgr and _G.TopBannerMgr.currentBanner
+            local frame = banner and banner.frame
+            if not frame then return "absent" end
+            return "name=" .. CaptureFrameName(frame) .. "," .. DescribeCapturedFrame(frame)
+        end)
+        Add("active-top-banner", ok and detail or "unavailable")
+    end
+
+    function HUD:StopNotificationCapture()
+        local capture = self.notificationCapture
+        if not capture then return end
+        capture.active = false
+        if notificationCaptureFrame and notificationCaptureFrame.UnregisterAllEvents then
+            notificationCaptureFrame:UnregisterAllEvents()
+        end
+    end
+
+    function HUD:ArmNotificationCapture()
+        if not Offhand.isRetail or (InCombatLockdown and InCombatLockdown())
+            or not CreateFrame or not C_Timer or not C_Timer.After then return false end
+        self:StopNotificationCapture()
+        local capture = { active = true, last = {}, lines = {}, trimmed = 0,
+            started = GetTime and GetTime() or 0 }
+        self.notificationCapture = capture
+        if not notificationCaptureFrame then notificationCaptureFrame = CreateFrame("Frame") end
+        notificationCaptureFrame:SetScript("OnEvent", function(_, event)
+            if HUD.notificationCapture ~= capture or not capture.active then return end
+            HUD:RecordNotificationCapture(event)
+            if capture.queued then return end
+            capture.queued = true
+            for _, delay in ipairs({0, 0.15, 0.6, 1.5, 4}) do
+                C_Timer.After(delay, function()
+                    if HUD.notificationCapture ~= capture or not capture.active then return end
+                    HUD:RecordNotificationCapture(event .. ":settled")
+                    if delay == 4 then capture.queued = false end
+                end)
+            end
+        end)
+        for _, event in ipairs({ "DISPLAY_EVENT_TOASTS", "CHALLENGE_MODE_COMPLETED",
+            "CHALLENGE_MODE_COMPLETED_REWARDS", "SCENARIO_COMPLETED" }) do
+            pcall(notificationCaptureFrame.RegisterEvent, notificationCaptureFrame, event)
+        end
+        C_Timer.After(3600, function()
+            if HUD.notificationCapture == capture then HUD:StopNotificationCapture() end
+        end)
+        self:RecordNotificationCapture("armed")
+        return true
+    end
+
+    function HUD:GetNotificationCaptureReports()
+        local capture = self.notificationCapture
+        if not capture then return nil end
+        local reports = { string.format("%s,records=%d,trimmed=%d,rect-units=UIParent",
+            capture.active and "armed" or "stopped", #capture.lines, capture.trimmed) }
+        for _, line in ipairs(capture.lines) do reports[#reports + 1] = line end
+        return reports
+    end
     local function CaptureNotificationPoints(frame)
         if not frame.GetNumPoints or not frame.GetPoint then return nil end
         local count = frame:GetNumPoints()
@@ -182,7 +310,10 @@ function Transient.Install(HUD, services)
                 and not notificationHooks[frame] then
                 notificationHooks[frame] = true
                 hooksecurefunc(frame, spec.method, function()
+                    local capturing = HUD.notificationCapture and HUD.notificationCapture.active
+                    if capturing then HUD:RecordNotificationCapture("native:" .. spec.name .. ":" .. spec.method) end
                     HUD:PositionRetailNotifications(nil, spec.nativeOffsets and frame or nil)
+                    if capturing then HUD:RecordNotificationCapture("placed:" .. spec.name) end
                 end)
             end
         end
