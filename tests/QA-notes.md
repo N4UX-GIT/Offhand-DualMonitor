@@ -1,3 +1,194 @@
+# Retail expanded notification candidate, awaiting live verification
+
+- Reporter follow-up explicitly on beta.24-retail-test.2: the end-of-Mythic+
+  completion panel remains centered across both screens. Supplied image shows
+  dungeon name, timer result, keystone upgrade and party portraits, consistent
+  with ChallengeModeCompleteBanner; /fstack was not captured. This is a live
+  test.2 completion-placement failure matching the audited candidate. Test.3
+  includes that root and its native PlayBanner post-hook. Do not treat this as
+  a test.3 failure or claim the test.3 handling is live confirmed yet.
+- Extended Retail shared-popup root handling to ordinary StaticPopup1..4 and
+  reviewed role/ready/invite confirmations, preserving linked stacks and hidden
+  roots. Removed competing Retail per-popup anchor writers. Other clients retain
+  prior policy. New standalone adapter covers keystone/start, completion banner,
+  main event toast final UpdateAnchor and independent level-up side display.
+- All 69 Lua suites pass on source/frozen snapshot; source, local installed and
+  extracted package six-manifest Lua 5.1/path/XML checks pass. Five modules updated
+  locally with hash verification; generated state and Companion preserved.
+  Deployment backup: `D:/Games/World of Warcraft/_offhand_deploy_backups/retail-notifications-20261031-192908-379`.
+- Test.3 ZIP: 769355 bytes, SHA256
+  `67ED31AAC15D4DBE576492CC8C3949F7E9F29CE1E12D5853EF3252F8FFE7C31A`.
+  All 76 package files match snapshot; no executable, tests, caches or account
+  data. Earlier test packages preserved. Build/inventory:
+  `D:/Games/World of Warcraft/_offhand_deploy_backups/retail-reporter-test3-20261031-192944-624`.
+- New candidate live geometry/action/taint checks are pending. No real or fake
+  notification, queue, timed key or completion event was activated by the agent.
+  Full acceptance matrix: docs/RETAIL-NOTIFICATION-CANDIDATE-20261031.md.
+
+# Retail notification coverage audit and reporter confirmation
+
+- Reporter confirms Premade Groups working. Exact confirming package/build not
+  supplied; do not infer a byte-identical installed package from the report alone.
+- Source audit retrieved 39 pinned files and reviewed selected root/lifecycle
+  contexts against current Offhand coverage. Source 12.1.5.70575 differs from
+  reporter 70688. Highest follow-ups: Mythic+ keystone/completion roots, distinct
+  LFG role/ready confirmations, independent level-up side display and event-toast
+  UpdateAnchor timing. Additional PvP/pet-battle ready dialogs merit review.
+- Several apparent gaps are inherited or owned elsewhere: pooled StaticPopup1..4,
+  AlertFrame reward subsystems, ghost button linked to top-center widget, native
+  Edit Mode Talking Head/timer/seat indicator, queue panel following its button.
+  Their lifecycle/ownership still needs QA; name absence alone is not a defect.
+- Audit only: no runtime, installed files, settings or reporter package changes;
+  no live queue/keystone/notification tests. Matrix, priorities and limitations:
+  docs/RETAIL-NOTIFICATION-AUDIT-20261031.md.
+
+# Retail active override-bar correction, local candidate
+
+- Developer confirms fixed and reports finding unit-frame previews in Advanced
+  Options. Record local vehicle placement and native configuration follow-up
+  resolved. This does not establish an exhaustive action/combat/taint pass.
+- Reporter test package 2 prepared:
+  `dist/Offhand-v2.1.2-beta.24-retail-test.2.zip` (767985 bytes), SHA256
+  `5325DA2E9CB04B188C52132316271274012BDF9C4327DB3DF16F6D60ECC447AF`.
+  Includes cinematic, Premade Groups, override-bar fixes and diagnostic extensions.
+  Frozen snapshot passes all 68 Lua suites. All 76 extracted files hash-match;
+  all six manifests pass paths/XML/Lua 5.1 validation. Test labels changed only
+  in the isolated snapshot; canonical source and installed metadata unchanged.
+  Portable bridge placeholders, no Companion executable or personal/generated state.
+  Instructions/checksum alongside ZIP; previous test.1 preserved.
+  Snapshot/extracted verification and per-file inventory:
+  `D:/Games/World of Warcraft/_offhand_deploy_backups/retail-reporter-test2-20261031-184739-380`.
+- Developer post-deployment visual retest: override bar appears fixed in the
+  supplied screenshots, now bottom-centered in Mainhand. Record user-reported
+  placement PASS only; ability/exit actions and taint evidence remain unrecorded.
+  Follow-up: a vehicle/player unit frame remains in an unwanted position and
+  native Edit Mode is unavailable from the menu while in the vehicle.
+- Pinned Mainline PlayerFrame.lua explicitly swaps PlayerFrame to unit vehicle
+  and PetFrame to unit player, reversing this on exit. PetFrame.xml inherits the
+  native Edit Mode pet system; EditModeManager.lua exposes ShowPetFrame preview.
+  Thus the visible Salvaged Chopper frame should be checked as PlayerFrame,
+  independently of PetFrame entries in /fstack (selected overlay is TimerTracker).
+  First test native configuration out of vehicle: open Edit Mode, show Pet Frame
+  preview, position player/pet frames, save and re-enter. Do not bypass the vehicle
+  Edit Mode restriction or add generic drag scripts to secure unit buttons.
+- Developer reproduced with a Salvaged Chopper in Ulduar: Retail 12.1.5 build
+  70688, Beta 24, combat=0, 4000x2560 span, right gameplay 2560x1440 at 1440,6.
+  Diag OverrideActionBar=shown, rect1059/0/930/100, overlap=both; screenshot shows
+  the native bar across the seam. /fstack selected TimerTracker, with override
+  and exit frames also listed. This establishes an active bar placement defect.
+- Candidate adopts only the stock Retail override root with the existing secure
+  anchor writer outside combat, at Mainhand bottom center. No native scripts,
+  fields, visibility, children, art or action changes. Hidden preparation,
+  conditional restoration, custom/provider/controller exclusions and coalesced
+  combat work are covered. Vehicle/actionbar events and viewport apply/reset
+  reconcile the anchor. Full diag adds RetailOverridePlacement status.
+- All 68 Lua suites and six-manifest Lua 5.1/path/XML validation pass. Three
+  candidate modules deployed to local Retail and hash verified; installed checks
+  pass. Full backup/inventory:
+  `D:/Games/World of Warcraft/_offhand_deploy_backups/retail-override-bar-20261031-182810-376`.
+  Generated state, SavedVariables, Companion and other installs preserved.
+- Local visual/action/taint retest pending after /reload. Exit/re-enter, verify
+  vehicle ability/exit controls and normal-bar restoration, then compare Siege
+  Engine/Demolisher and combat transitions. Reporter test.1 ZIP is unchanged.
+
+# Retail contextual-action inventory and read-only diagnostics
+
+- Source audit distinguishes skinned OverrideActionBar from unskinned vehicle
+  MainActionBar page changes, vehicle-leave, possession and Extra Abilities/zone
+  controls. OverrideActionBar's stock UIParent BOTTOM 0/0 anchor has no dedicated
+  Offhand placement rule: candidate gap, not a reproduced active vehicle defect.
+- Full interaction diagnostics now include main/possess/exit/override ownership
+  while hidden, protected/managed state and separate vehicle/override/temporary
+  native capabilities. No frame writes or synthetic native visibility. All 67
+  Lua suites pass. Reporter test.1 ZIP unchanged.
+- Existing local Retail process was inspected read-only. Initial screen showed
+  Trading Post; later capture returned inconsistent window content. No input,
+  vehicle activation, character change or client launch/closure was performed.
+  Active geometry, protected actions and taint remain unverified.
+- Frame/source inventory and local matrix:
+  docs/RETAIL-CONTEXT-UI-AUDIT-20261031.md.
+
+# Retail Premade Groups application and invitation dialogs, local candidate
+
+- Additional reporter evidence predates the test package: /fstack explicitly
+  names LFGListApplicationDialog and its Border; displayed source is
+  Interface/AddOns/Blizzard_GroupFinder/Mainline/LFGList.xml:1945. Reporter says
+  the problem occurs under Premade Groups > Dungeons when signing up for Mythic
+  groups, while regular Dungeon Finder appears correct. This independently
+  confirms the implemented root identity. No post-test visual/action pass yet.
+- Reporter package prepared: `dist/Offhand-v2.1.2-beta.24-retail-test.1.zip`
+  (766885 bytes), SHA256
+  `0CA547E8BF360471E6E128327BBAE78B0D41BE56A57170009181632CC85EEA5E`.
+  Frozen source snapshot passes all 67 Lua suites; all 76 extracted package files
+  hash-match that snapshot, and extracted six-manifest Lua 5.1/path/XML checks pass.
+  Only the snapshot's TOC release labels were changed for identification; canonical
+  source metadata and installed versions were not changed. Portable generated-state
+  placeholders are used; no Companion executable, tests, caches or account data.
+  Testing/install/rollback notes and checksum are beside the ZIP. Build snapshot,
+  extracted verification and per-file hashes:
+  `D:/Games/World of Warcraft/_offhand_deploy_backups/retail-reporter-test-20261031-173028-395`.
+- Reporter photos show LFGListApplicationDialog (Choose Your Roles/Sign Up) and
+  LFGListInviteDialog (Accept/Decline) across the seam. Retail 12.1.5 build 70688,
+  Interface 120105, addon Beta 24, Companion Beta 20/MATCH, 3840x1080, equal
+  1920x1080 displays, Mainhand RIGHT, effective scale 0.700, combat=0.
+- External native setup/show/hide post-hooks translate only a known UIParent TOP
+  stack root, retaining local offsets, frame scale, dependent links and hidden
+  roots still referenced by visible dialogs. No native scripts/fields, note-entry
+  changes, visibility or button ownership. Protected/forbidden/alternate parents
+  yield; owned points restore on end/disable/unspan. Generic dragging excludes
+  these roots; full interaction diagnostics now include them.
+- Pinned source study: Blizzard_GroupFinder/Mainline/LFGList.lua/.xml and
+  Blizzard_StaticPopup/StaticPopup.lua, revision 15881d522c44cd106d3d8660106ec9f9d2f44167,
+  source build 70575 (different from reporter). Native popup collapse can leave
+  a visible dialog anchored to a hidden root; regression preserves that dependency.
+- All 67 Lua suites and six-manifest Lua 5.1/path/XML checks pass. Four modules
+  deployed to local Retail: HUDTransientPolicy, HUDTransientFrames, HUDRecovery,
+  Canvas. Hash verification and installed validation pass. Full backup/inventory:
+  `D:/Games/World of Warcraft/_offhand_deploy_backups/retail-premade-dialogs-20261031-170648-665`.
+  Other clients, generated bridges, SavedVariables, Companion and unrelated
+  pending source changes were preserved.
+- Live retest pending: /reload, select roles, type a note, sign up, receive an
+  invitation, accept/decline, repeat with both dialogs present and close either
+  first. Check native Escape/cancel, disable/unspan, combat deferral and fresh
+  Lua/taint evidence. Diag PVEFrame hidden means it is not the open-photo state;
+  inactive Extra Action/hidden override roots do not reproduce the vehicle issue.
+
+# Retail cinematic, movie and subtitle confinement, local candidate
+
+- Local visual retest, 31 October 2026: developer reports "Appears to be resolved"
+  after the Retail deployment. Two supplied 4000x2560 dwarf-intro screenshots show
+  the cinematic picture and one-/two-line subtitles with their backgrounds within
+  Mainhand; the second shows Blizzard's Yes/No skip confirmation centered there.
+  Record as user-reported visual PASS for this new-character intro and confirmation
+  placement. The images do not independently demonstrate clicking Yes/No, a
+  standalone movie, playback-end restoration or combat/taint safety. Those broader
+  checks and the original dungeon/vehicle report remain pending.
+- Authorized Retail deployment: updated
+  `D:/Games/World of Warcraft/_retail_/Interface/AddOns/Offhand`.
+  Ten differing files copied (CinematicPresentation, Init, Viewport, six manifests
+  and CHANGELOG); all 74 non-generated addon files match source by SHA256.
+  Both generated bridges retain their original hashes. Full pre-update backup
+  and deployment hash inventory:
+  `D:/Games/World of Warcraft/_offhand_deploy_backups/retail-cinematic-20261031-162624-141`.
+  Installed six-manifest path/XML/Lua 5.1 validation passes. Other client installs,
+  SavedVariables and Companion unchanged. Live candidate retest remains pending.
+- User reproduced new-character cutscene skipping failure on the local setup.
+  The 4000x2560 dwarf-intro screenshot also shows subtitles outside Mainhand.
+- Native skip-dialog recovery now includes Retail and PLAY_MOVIE. The Retail-only
+  CinematicPresentation adapter confines cinematic/movie/subtitle roots to Mainhand,
+  corrects native camera aspect bounds and limits subtitle text/background width.
+  Native playback, visibility, input, confirmation, subtitle text and CVars remain
+  Blizzard-owned. Owned anchors/dimensions restore on end/disable/unspan;
+  later external changes are preserved. Combat work defers and coalesces.
+- All 65 Lua 5.1 suites and six-manifest path/XML/Lua syntax checks pass.
+  Simulation covers mixed-height/portrait/wide geometry, camera ratios, subtitle
+  refitting, native refresh, restore/ownership and stale/combat lifecycle work.
+- Live candidate retest and current taint evidence remain required. Test the same
+  new-character intro and a standalone movie, including long subtitles, native
+  Escape/Yes/No, playback end, disable/unspan, resizing and combat deferral.
+  The Retail addon was subsequently updated as recorded above; Companion unchanged.
+- Detailed evidence: docs/RETAIL-CUTSCENES-AND-CONTEXT-UI-20261031.md.
+
 # Temporary display-reset capture tooling
 
 - Separate OffhandDisplayProbe addon under tools/display-capture. Optional Offhand
@@ -2120,3 +2311,78 @@ current combination fails. No universal error-free, combat/taint or other-client
 claim. Full deployment evidence is in ignored local-deployments/
 20261030-retail-clean-openmap-beta24/deployment.json. No package/source runtime
 changes, commit, upload or publication made during this acceptance.
+
+## Shared HUD and recreated-character candidate, 31 October 2026
+
+Retail 12.1.5 build 70575 report: shared Offhand and old individual rows both
+visible; shared placement differs; Noggtester remembers Nearlytwenty's layout;
+recreating a same-name character does not repeat the first-character setup flow.
+Screenshots compare shared and individual layouts. Native account layouts are
+account-wide, so old individual rows being listed alone is not a defect.
+
+Read-only saved-state evidence: sharedMainhandLayouts incorrectly contains an
+Offhand - Mainhand - Nearlytwenty entry created by a one-system repair. The
+Noggtester HUD record names Offhand and owner Noggtester, but editModeLayoutName
+names Nearlytwenty's individual row. Shared Offhand metadata describes 47 moved
+systems and Chattynator ownership; legacy one-system metadata alone is not proof
+that the complete legacy payload is invalid or compatible with another owner.
+
+Candidate:
+- Only canonical shared names (Offhand / Offhand - Gamepad, numeric variants)
+  qualify for registry adoption. Character-named rows are not shareable even if
+  an older build registered them. New Retail setup no longer adopts same-name
+  orphan legacy rows without current-character provenance.
+- Login/selection memory rejects another character's generated layout. A stale
+  preference uses the valid current HUD target, otherwise requests HUD setup.
+  Unknown active legacy rows cannot become a new character's rollback source.
+- Explicit Retail full setup can promote a proven current-character legacy
+  payload on matching geometry into the shared row without translating it twice.
+  Old individual row retained; previous shared payload backed up in account state.
+  Ordinary second-character adoption never rewrites the shared layout.
+- Store characterGUID and generated-record ownerGUID. A changed GUID invalidates
+  HUD selections/recovery tickets, keeps old provenance for recovery and requests
+  HUD setup. Account onboarding, calibration and selected Offhand profile remain.
+  A first upgrade with no historical GUID cannot retrospectively distinguish a
+  same-name recreation; it seeds identity without inventing that evidence.
+
+Knowledge README/skill/status consulted. EditMode search index stale; direct
+source/saved-state evidence used. Structured Retail UnitGUID lookup documented
+with no variant conflict; declarations do not establish live lifecycle or taint.
+All 66 Lua suites pass, including new shared-layout-identity test plus native
+login-selector regression. All six source and installed manifests pass Lua 5.1,
+XML/path validation. No combat or live acceptance claimed.
+
+Five candidate runtime files deployed only to Retail. Backups, private native
+layout/SavedVariables snapshots and hashes are under ignored
+ dist/local-deployments/20261031-shared-layout-identity/.
+No saved layouts/profiles were edited by deployment and OpenMap was untouched.
+Manual Noggtester selection and Nearlytwenty-to-shared promotion retest pending.
+Prepared Beta24 ZIP has not been rebuilt and does not include this candidate.
+Hold publication until this report is accepted. Other pending cinematic/viewport
+work in the shared tree was preserved, not part of this deployment.
+## Shared HUD live acceptance and package refresh, 31 October 2026
+
+User reports "Shared selection and placement correct" for the requested
+Noggtester reload, Nearlytwenty explicit legacy-to-shared update and return to
+Noggtester. This accepts selection and tuned placement in that Retail setup.
+GUID-based recreation and shared-layout rollback remain simulated, not live-tested.
+
+Updated Beta24 changelog and rebuilt the held addon-only ZIP. It includes only
+five accepted runtime file changes and CHANGELOG.md relative to the previous
+validated archive. Init.lua receives only EnsureCharacterIdentity at PLAYER_LOGIN;
+separate pending cinematic/viewport work remains outside this package and stays
+untouched in the working tree and test installation. Four other changed runtime
+files match accepted current source. All 75 archive entries match reviewed staged
+bytes; CRC, portable paths and the six-entry change audit pass. All 66 current-tree
+Lua suites passed; 63 applicable suites passed against extracted packaged runtime
+with development test helpers provided outside ZIP. Three suites for separate
+pending cutscene behavior are excluded from that package scope. Six extracted
+manifests pass Lua 5.1/XML/path validation; release metadata regression passes.
+
+Current ZIP SHA256:
+C3B16558AC8DD95F10C606E061FC9C7FC6B5FB6276BC93A702FFEBD8C8A761B3
+Artifact remains dist/curseforge-beta24-20261030/dist/Offhand-v2.1.2-beta.24.zip.
+Manifest and upload notes refreshed. No OpenMap files, native Companion binaries,
+SavedVariables or native layouts were edited by packaging. No publication/tag/
+commit made. Existing source and runtime test install retain separate pending
+cinematic work, so the final archive is not an all-current-working-tree snapshot.

@@ -71,6 +71,9 @@ for _, absent in ipairs({"Topology diagnostics:", "Manual canvas", "Group frame"
     assert(not compact:find(absent, 1, true), "unnecessary default output: " .. absent)
 end
 local full = run("diag full")
+assert(not compact:find("Cinematic skip-dialog diagnostics:", 1, true)
+    and full:find("Cinematic skip-dialog diagnostics: not-attached", 1, true),
+    "active cutscene investigation state belongs only in requested full diagnostics")
 for _, name in ipairs({"tooltip", "interaction", "text", "loot", "pets", "groups", "protected", "manual", "bubbles", "panels", "dialogue"}) do
     assert(probes[name] == 1, "full diagnostics lost requested evidence: " .. name)
 end

@@ -852,6 +852,15 @@ function HUD:HookFrames()
             RememberCharacterEditModeLayout()
         end
 
+        if not forever and Offhand.Mainhand and Offhand.Mainhand.IsCharacterEditModeLayoutAllowed
+            and not Offhand.Mainhand:IsCharacterEditModeLayoutAllowed(targetName) then
+            local record = type(OffhandCharDB) == "table" and OffhandCharDB.mainhandLayout
+            local status = Offhand.Mainhand:GetLayoutStatus()
+            targetName = status.configured and record.generatedName or nil
+            OffhandCharDB.editModeLayoutName = targetName
+            if not targetName then OffhandCharDB.hudSetupReminder = true end
+        end
+
         local found = false
         local needsSetup = false
         for index, layout in ipairs(layoutData.layouts) do
@@ -892,7 +901,9 @@ function HUD:HookFrames()
             end
         end
 
-        if not forever and not found and activeName and type(OffhandCharDB) == "table" then
+        if not forever and not found and activeName and type(OffhandCharDB) == "table"
+            and (not Offhand.Mainhand or not Offhand.Mainhand.IsCharacterEditModeLayoutAllowed
+                or Offhand.Mainhand:IsCharacterEditModeLayoutAllowed(activeName)) then
             -- The remembered layout was renamed or deleted. The currently
             -- active Blizzard choice is the safest replacement; never select
             -- an unrelated layout that inherited the old numeric slot.

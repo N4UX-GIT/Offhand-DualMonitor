@@ -1714,6 +1714,30 @@ addon.HUD:HookFrames()
 flushTimers()
 assert(selectedLayout == 6 and managerSelection == nil,
     "Retail must restore the character's newly selected layout by global ID")
+-- A stale remembered preference must not override the shared layout with a
+-- generated row belonging to another character.
+do
+local previousMainhand = addon.Mainhand
+local foreignName = "Offhand - Mainhand - OtherCharacter"
+local previousRowName = layoutData.layouts[4].layoutName
+layoutData.layouts[4].layoutName = foreignName
+OffhandCharDB.editModeLayoutName = foreignName
+local previousLayoutRecord = OffhandCharDB.mainhandLayout
+OffhandCharDB.mainhandLayout = {generatedName="Offhand"}
+addon.Mainhand = {
+    IsCharacterEditModeLayoutAllowed=function(_, name) return name ~= foreignName end,
+    GetLayoutStatus=function() return {configured=true} end,
+}
+selectedLayout = nil
+addon.HUD.editModeLoadScheduled = nil
+addon.HUD:HookFrames()
+flushTimers()
+assert(selectedLayout == 6 and OffhandCharDB.editModeLayoutName == "Offhand",
+    "login must replace a foreign-character preference with the configured shared target")
+addon.Mainhand = previousMainhand
+OffhandCharDB.mainhandLayout = previousLayoutRecord
+layoutData.layouts[4].layoutName = previousRowName
+end
 addon.isForever = true
 EditModePresetLayoutManager = nil
 layoutData.activeLayout = 6
@@ -3069,6 +3093,29 @@ addon.PerformanceMaintenanceProbe=nil
 assert(table.concat(phaseOrder,',')==
     'popup-rescue,transient-discovery,transient-placement,editmode-hooks,editmode-recovery,party-recovery',
     'phase timing must execute the same six operations once in their original order')
+
+-- A successful wizard/repair transaction needs reload, not another repair
+-- based on stale protected preview bounds from the previous native layout.
+do
+    local hides = 0
+    local oldHide = addon.HideForeverPartyFrameRecoveryPrompt
+    addon.HideForeverPartyFrameRecoveryPrompt = function() hides = hides + 1 end
+    addon.HUD.foreverPartyFrameOutsideDisplays = 'PlayerFrame'
+    addon.HUD.foreverProtectedHUDDetectedInEditMode = true
+    addon.HUD.foreverPartyFrameRecoveryPromptShown = true
+    addon.HUD:CompleteProtectedHUDLayoutRecovery()
+    assert(hides == 1 and addon.HUD.protectedHUDReloadPending
+        and not addon.HUD.foreverPartyFrameOutsideDisplays
+        and not addon.HUD.foreverProtectedHUDDetectedInEditMode
+        and not addon.HUD.foreverPartyFrameRecoveryPromptShown,
+        'successful layout creation must hide and clear the old repair prompt')
+    local oldMetrics = addon.Viewport.GetMetrics
+    addon.Viewport.GetMetrics = function() error('must not inspect stale bounds while reload is pending') end
+    addon.HUD:UpdateForeverPartyFrameRecovery()
+    addon.Viewport.GetMetrics = oldMetrics
+    addon.HideForeverPartyFrameRecoveryPrompt = oldHide
+    addon.HUD.protectedHUDReloadPending = nil
+end
 
 
 -- Retail Contacts must ignore both immediate and queued social repair while a
