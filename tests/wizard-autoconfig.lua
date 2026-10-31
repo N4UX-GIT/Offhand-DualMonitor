@@ -1292,7 +1292,9 @@ StaticPopup_Show = function(key)
     return downloadDialog
 end
 onboardingFrame:SetPage(2)
-onboardingFrame.actionButton.scripts.OnClick()
+assert(onboardingFrame.actionButton:GetText() == addon.L["ONBOARD_USE_COMPANION"],
+    "Companion must be the first placement choice")
+onboardingFrame.secondaryActionButton.scripts.OnClick()
 assert(onboardingFrame:IsShown() and onboardingFrame.methodDetails == "FANCYZONES"
         and not onboardingFrame.nextButton:IsShown() and guidePopupCalls == 0,
     "choosing FancyZones must show Already installed / Get, without opening a download")
@@ -1317,7 +1319,7 @@ StaticPopup_Show = function(key)
     assert(key == "OFFHAND_DOWNLOAD_LINK", "the Companion path must open its download dialog")
     return downloadDialog
 end
-onboardingFrame.secondaryActionButton.scripts.OnClick()
+onboardingFrame.actionButton.scripts.OnClick()
 assert(onboardingFrame:IsShown() and onboardingFrame.methodDetails == "COMPANION" and guidePopupCalls == 1,
     "choosing Companion must not automatically open its download")
 onboardingFrame.secondaryActionButton.scripts.OnClick()
@@ -1331,7 +1333,7 @@ onboardingFrame.tertiaryActionButton.scripts.OnClick()
 assert(onboardingFrame.page == 3 and addon:GetOnboardingSetupMethod() == "MANUAL",
     "manual placement needs no software installation handoff")
 onboardingFrame.backButton.scripts.OnClick()
-onboardingFrame.secondaryActionButton.scripts.OnClick()
+onboardingFrame.actionButton.scripts.OnClick()
 onboardingFrame.actionButton.scripts.OnClick()
 assert(onboardingFrame.page == 3 and addon:GetOnboardingSetupMethod() == "COMPANION",
     "already-installed Companion must continue without opening a download")
@@ -1487,7 +1489,7 @@ onboardingFrame:SetPage(1)
 local calibrationOpened = false
 addon.Wizard.Open = function() calibrationOpened = true end
 onboardingFrame.nextButton.scripts.OnClick()
-onboardingFrame.secondaryActionButton.scripts.OnClick() -- choose Companion
+onboardingFrame.actionButton.scripts.OnClick() -- choose Companion
 onboardingFrame.actionButton.scripts.OnClick() -- Already installed
 for _ = 1, 4 do onboardingFrame.nextButton.scripts.OnClick() end
 assert(addon:IsWelcomeDismissed(),

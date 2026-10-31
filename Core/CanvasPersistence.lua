@@ -8,6 +8,103 @@ local _, Offhand = ...
 local Persistence = {}
 Offhand.CanvasPersistence = Persistence
 
+-- Observe outside the protected frame tree: native toggles and skinned close
+-- buttons do not all pass through our close-button observer. A deferred check
+-- ignores transient minimize hide/show and preserves world-transition snapshots.
+function Persistence.InstallPlayerSpellsCloseObserver(Canvas)
+    if not Offhand.isRetail or Offhand.isForever or Canvas._playerSpellsCloseObserver
+        or not EventRegistry or not EventRegistry.RegisterCallback
+        or not C_Timer or not C_Timer.After then return false end
+    EventRegistry:RegisterCallback("PlayerSpellsFrame.CloseFrame", function()
+        if Canvas._playerSpellsCloseCheckPending then return end
+        Canvas._playerSpellsCloseCheckPending = true
+        C_Timer.After(0, function()
+            Canvas._playerSpellsCloseCheckPending = nil
+            if Offhand._openPanelsCapturedForTransition or not Offhand.db
+                or not Offhand.db.enabled then return end
+            local frame = _G.PlayerSpellsFrame
+            if not frame or (frame.IsForbidden and frame:IsForbidden())
+                or not frame.IsShown or frame:IsShown() then return end
+            Canvas:SetWorkspacePanelOpen("PlayerSpellsFrame", false)
+        end)
+    end, Canvas)
+    Canvas._playerSpellsCloseObserver = true
+    return true
+end
+
+-- PlayerSpells defaults to Talents when shown without a selected tab. Keep the
+-- semantic choice outside Blizzard's frame tree and resolve its IDs per load.
+local playerSpellsScales = setmetatable({}, { __mode = "k" })
+local playerSpellsTabs = { spellbook = "spellBookTabID", talents = "talentTabID", specialization = "specTabID" }
+local function IsRetailPlayerSpells(frame)
+    return Offhand.isRetail and not Offhand.isForever and frame and frame == _G.PlayerSpellsFrame
+        and not (frame.IsForbidden and frame:IsForbidden())
+end
+
+function Persistence.CapturePlayerSpellsTab(frame)
+    local db = Offhand.db
+    if not IsRetailPlayerSpells(frame) or not db or not db.enabled
+        or not db.savedWorkspacePositions or not db.savedWorkspacePositions.PlayerSpellsFrame
+        or not frame.GetTab or not frame.IsShown or not frame:IsShown()
+        or (frame.IsInspecting and frame:IsInspecting()) then return end
+    local tab = frame:GetTab()
+    for key, field in pairs(playerSpellsTabs) do
+        if tab and tab == frame[field] then db.workspacePlayerSpellsTab = key; return end
+    end
+end
+
+function Persistence.RestorePlayerSpellsTab(frame)
+    local db = Offhand.db
+    if not IsRetailPlayerSpells(frame) or InCombatLockdown() or not db or not db.enabled
+        or not db.savedWorkspacePositions or not db.savedWorkspacePositions.PlayerSpellsFrame
+        or not frame.SetTab or not frame.IsTabAvailable
+        or (frame.IsInspecting and frame:IsInspecting()) then return false end
+    local field = playerSpellsTabs[db.workspacePlayerSpellsTab]
+    local tab = field and frame[field]
+    if not tab or not frame:IsTabAvailable(tab) then return false end
+    -- Run before Show: UpdateTabs will retain this available tab instead of
+    -- choosing Talents. Do not replay it over an already-open user selection.
+    if frame.IsShown and frame:IsShown() then return false end
+    frame:SetTab(tab)
+    return true
+end
+
+function Persistence.FitPlayerSpellsToWorkspace(frame, metrics, ownsWorkspace)
+    if not IsRetailPlayerSpells(frame) or InCombatLockdown()
+        or not frame.GetScale or not frame.SetScale or not frame.GetEffectiveScale then return end
+    local state = playerSpellsScales[frame]
+    local scale = frame:GetScale()
+    if not scale or scale <= 0 then return end
+    if state and math.abs(scale - state.applied) > 0.0001 then
+        -- Another owner changed scale. Never restore our old value over it.
+        playerSpellsScales[frame] = nil
+        return
+    end
+    if not ownsWorkspace or not metrics or not metrics.isSpanned then
+        if state then
+            frame:SetScale(state.original)
+            playerSpellsScales[frame] = nil
+        end
+        return
+    end
+    local parentScale = UIParent:GetEffectiveScale()
+    local effective = frame:GetEffectiveScale()
+    local width, height = frame:GetWidth(), frame:GetHeight()
+    if parentScale <= 0 or effective <= 0 or width <= 0 or height <= 0 then return end
+    local original = state and state.original or scale
+    local factor = effective / parentScale / scale
+    local availableWidth = metrics.workspaceRight - metrics.workspaceLeft - 24
+    local availableHeight = metrics.workspaceTop - metrics.workspaceBottom - 24
+    if availableWidth <= 0 or availableHeight <= 0 then return end
+    local desired = math.min(original, availableWidth / (width * factor), availableHeight / (height * factor))
+    if math.abs(scale - desired) > 0.0001 then frame:SetScale(desired) end
+    if desired < original then
+        playerSpellsScales[frame] = { original = original, applied = desired }
+    else
+        playerSpellsScales[frame] = nil
+    end
+end
+
 function Persistence.InstallDrag(Canvas, services)
     local ShouldYieldFrameToClassicUIForever = services.ShouldYieldFrameToClassicUIForever
     local ShouldYieldWorldMapToMoveAny = services.ShouldYieldWorldMapToMoveAny
@@ -23,7 +120,7 @@ function Persistence.InstallDrag(Canvas, services)
     local IsUnsafeForPanelMutation = services.IsUnsafeForPanelMutation
     local RegisterSpecialFrame = services.RegisterSpecialFrame
     local UnregisterSpecialFrame = services.UnregisterSpecialFrame
-    local HasChattynator = services.HasChattynator
+    local HasCustomChatAddon = services.HasCustomChatAddon
     local ClearTrackedChatState = services.ClearTrackedChatState
     local RelinquishDockedChatPosition = services.RelinquishDockedChatPosition
     local ShouldManageBlizzardChatEditBox = services.ShouldManageBlizzardChatEditBox
@@ -36,6 +133,13 @@ function Persistence.InstallDrag(Canvas, services)
     local OnPanelDragStop
     OnPanelDragStop = function(frame)
         if not frame then return end
+        if Offhand.CanvasPanelRegistry.GetPositionRoot(frame) ~= frame then return end
+        -- End a gesture we started before any policy early return. A native
+        -- panel can change protection/ownership during the gesture; skipping
+        -- StopMoving in that case leaves it following the cursor indefinitely.
+        if frame._OffhandDragging and not InCombatLockdown() and frame.StopMovingOrSizing then
+            pcall(frame.StopMovingOrSizing, frame)
+        end
         if IsWorldMapMaximized(frame) then
             SetPanelDragging(frame, false)
             return
@@ -50,7 +154,7 @@ function Persistence.InstallDrag(Canvas, services)
         end
         if InCombatLockdown() then SetPanelDragging(frame, false); return end
         local dragName = frame.GetName and frame:GetName()
-        if dragName and dragName:match("^ChatFrame%d+$") and HasChattynator() then
+        if dragName and dragName:match("^ChatFrame%d+$") and HasCustomChatAddon() then
             ClearTrackedChatState(dragName)
             SetPanelDragging(frame, false)
             return
@@ -220,6 +324,7 @@ function Persistence.InstallDrag(Canvas, services)
             end
         else
             Offhand.db.savedWorkspacePositions[name] = nil
+            Persistence.FitPlayerSpellsToWorkspace(frame, m, false)
             Canvas:SetWorkspacePanelOpen(name, false)
             if Offhand.ForeverPersistence then
                 Offhand.ForeverPersistence:ClearPosition(name)
@@ -367,7 +472,7 @@ function Persistence.InstallRestore(Canvas, services)
     local IsUnsafeForPanelMutation = services.IsUnsafeForPanelMutation
     local RegisterSpecialFrame = services.RegisterSpecialFrame
     local UnregisterSpecialFrame = services.UnregisterSpecialFrame
-    local HasChattynator = services.HasChattynator
+    local HasCustomChatAddon = services.HasCustomChatAddon
     local ClearTrackedChatState = services.ClearTrackedChatState
     local ShouldManageBlizzardChatEditBox = services.ShouldManageBlizzardChatEditBox
     local IsRetailChatEditModeActive = services.IsRetailChatEditModeActive
@@ -375,18 +480,20 @@ function Persistence.InstallRestore(Canvas, services)
     local RestoreWorkspacePosition
     RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         local frame = (selfOrFrame == Canvas and maybeFrame) or maybeFrame or selfOrFrame
+        if frame and Offhand.CanvasPanelRegistry.GetPositionRoot(frame) ~= frame then return end
         if InCombatLockdown() or not frame or type(frame) ~= "table" or not frame.GetName then return end
         if IsWorldMapMaximized(frame) then return end
         if not Offhand.db or not Offhand.db.enabled then return end
         local name = frame:GetName()
         if not name then return end
+        if frame._OffhandDragging then return end
         if ShouldYieldFrameToClassicUIForever(frame, name) then return end
         if ShouldYieldWorldMapToMoveAny(name) then return end
-        if name:match("^ChatFrame%d+$") and HasChattynator() then
+        if name:match("^ChatFrame%d+$") and HasCustomChatAddon() then
             ClearTrackedChatState(name)
             return
         end
-        if Canvas:ShouldRouteForeverSecondaryChatRestore(frame, name) then return end
+        if Canvas:ShouldDeferSecondaryChatRestore(frame, name) then return end
         if IsForeverEditModeFrame(frame, name)
             or (IsUnsafeForPanelMutation(frame, name)
                 and not IsForeverSocialPositionRoot(frame, name)) then return end
@@ -397,11 +504,13 @@ function Persistence.InstallRestore(Canvas, services)
         local m = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
         if not m then return end
         if not m.isSpanned then
+            Persistence.FitPlayerSpellsToWorkspace(frame, m, false)
             Canvas:PlaceForSingleScreenRecovery(frame, m)
             return
         end
 
         local wPos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
+        Persistence.FitPlayerSpellsToWorkspace(frame, m, Persistence.IsPosition(wPos))
         if Persistence.IsPosition(wPos) then
             if not restrictedProfessionsMovement
                 and (Offhand.db.independentWorkspacePanels or frame == WorldMapFrame) then
@@ -418,8 +527,8 @@ function Persistence.InstallRestore(Canvas, services)
 
             local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
             local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
-            local frameWidth = (frame:GetWidth() or 0) * (frame.GetScale and frame:GetScale() or 1)
-            local frameHeight = (frame:GetHeight() or 0) * (frame.GetScale and frame:GetScale() or 1)
+            local frameWidth = (frame:GetWidth() or 0) * frameScale / parentScale
+            local frameHeight = (frame:GetHeight() or 0) * frameScale / parentScale
             local fallbackHeight = (UIParent.GetHeight and UIParent:GetHeight()) or 1080
             local clampedX, clampedY = Persistence.ResolveWorkspacePosition(
                 m, wPos, frameWidth, frameHeight,

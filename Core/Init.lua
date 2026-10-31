@@ -638,10 +638,11 @@ local function GetGamepadSafePopup()
 end
 
 function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
+    local recoveryPopup = popupKey == "OFFHAND_CONFIRM_RECOVERY"
     local setupPopup = popupKey == "OFFHAND_DOWNLOAD_LINK" or popupKey == "OFFHAND_POWERTOYS_LINK"
         or popupKey == "OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT"
         or popupKey == "OFFHAND_HUD_SETUP_REMINDER"
-    if not self:IsGamepadUIEnabled() and not setupPopup then
+    if not self:IsGamepadUIEnabled() and not setupPopup and not recoveryPopup then
         if StaticPopup_Show then return StaticPopup_Show(popupKey, textArg1, textArg2, data) end
         return nil
     end
@@ -651,11 +652,15 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     local frame = GetGamepadSafePopup()
     if frame.popupKey then frame:Hide() end
     frame.popupKey, frame.definition, frame.data = popupKey, definition, data
+    frame.text:SetJustifyH(recoveryPopup and "LEFT" or "CENTER")
+    if frame.text.SetFontObject then
+        frame.text:SetFontObject(GameFontHighlight)
+    end
     frame.text:SetText(FormatPopupText(definition.text, textArg1, textArg2))
     -- Remove the previous card's height before measuring, avoiding truncated
     -- GetStringHeight results when a longer message reuses this FontString.
     -- Only our owned card changes strata. Native popup frames are untouched.
-    frame:SetFrameStrata(setupPopup and "TOOLTIP" or "FULLSCREEN_DIALOG")
+    frame:SetFrameStrata((setupPopup or recoveryPopup) and "TOOLTIP" or "FULLSCREEN_DIALOG")
     if self.UIControls and self.UIControls.MeasureWrappedText then
         frame.text:SetHeight(0)
         local measure = self.UIControls.MeasurePopupText or self.UIControls.MeasureWrappedText
@@ -1593,6 +1598,9 @@ function Offhand:ApplyFullLayout()
         if Offhand.MainhandCompatibility and Offhand.MainhandCompatibility.UpdateClassicNativeBar then
             Offhand.MainhandCompatibility.UpdateClassicNativeBar(metrics)
         end
+        if Offhand.MainhandCompatibility and Offhand.MainhandCompatibility.UpdateClassicRightContainer then
+            Offhand.MainhandCompatibility.UpdateClassicRightContainer(metrics)
+        end
         if Offhand.RawMouse and Offhand.RawMouse.Update then
             Offhand.RawMouse:Update(metrics)
         end
@@ -1720,6 +1728,23 @@ SlashCmdList["OFFHAND"] = function(msg)
         -- Keep historical feature probes available on demand. Default reports
         -- must not enumerate native HUD trees or collect animation/debug state.
         if fullDiagnostics then
+            if Offhand.MainhandCompatibility and Offhand.MainhandCompatibility.GetClassicRightContainerDiagnostics then
+                Offhand:Print("Classic tracker placement: %s.", Offhand.MainhandCompatibility.GetClassicRightContainerDiagnostics())
+            end
+            if Offhand.PopupBounds and Offhand.PopupBounds.GetTooltipPresentationDiagnostics then
+                for _, report in ipairs(Offhand.PopupBounds:GetTooltipPresentationDiagnostics()) do
+                    Offhand:Print("Tooltip presentation: %s.", report)
+                end
+                if Offhand.PopupBounds.ArmTooltipPresentationCapture
+                    and Offhand.PopupBounds:ArmTooltipPresentationCapture() then
+                    Offhand:Print("Tooltip capture armed for 30 seconds: hover an item to capture its visible backdrop.")
+                end
+            end
+            if Offhand.HUD and Offhand.HUD.GetInteractionVisibilityDiagnostics then
+                for _, report in ipairs(Offhand.HUD:GetInteractionVisibilityDiagnostics(m)) do
+                    Offhand:Print("Interaction visibility: %s.", report)
+                end
+            end
             local perf = Offhand.Viewport:GetWorldTextDiagnostics(m)
             Offhand:Print("Combat text diagnostics: Current=%s | Original=%s | CVar=%s | Method=%s | Enabled=%s | FineTune=%.2f | HeightRatio=%.4f | AppliedRatio=%.4f.",
                 perf.worldTextScale, tostring(perf.originalWorldTextScale or "unmanaged"),
@@ -2044,6 +2069,7 @@ frame:SetScript("OnEvent", function()
     end
 
     local function EnforceTooltipScale(self)
+        if not Offhand.isRetail and not Offhand.isForever then return end
         if (InCombatLockdown and InCombatLockdown()) or not UIParent or not HasActiveSpannedLayout() then return end
         if self.SetIgnoreParentScale and self.IsIgnoringParentScale and self:IsIgnoringParentScale() then
             self:SetIgnoreParentScale(false)
@@ -2062,7 +2088,7 @@ frame:SetScript("OnEvent", function()
         end
     end
     
-    if SharedTooltip_SetBackdropStyle then
+    if (Offhand.isRetail or Offhand.isForever) and SharedTooltip_SetBackdropStyle then
         hooksecurefunc("SharedTooltip_SetBackdropStyle", EnforceTooltipScale)
     end
     
@@ -2072,14 +2098,14 @@ frame:SetScript("OnEvent", function()
             if Offhand.PopupBounds and Offhand.PopupBounds.ObserveTooltip then
                 Offhand.PopupBounds:ObserveTooltip(tt)
             end
-            if tt.HookScript then
+            if (Offhand.isRetail or Offhand.isForever) and tt.HookScript then
                 tt:HookScript("OnShow", EnforceTooltipScale)
                 tt:HookScript("OnSizeChanged", EnforceTooltipScale)
             end
-            if tt.SetOwner then
+            if (Offhand.isRetail or Offhand.isForever) and tt.SetOwner then
                 hooksecurefunc(tt, "SetOwner", EnforceTooltipScale)
             end
-            if tt.SetIgnoreParentScale then
+            if (Offhand.isRetail or Offhand.isForever) and tt.SetIgnoreParentScale then
                 if (not InCombatLockdown or not InCombatLockdown()) and HasActiveSpannedLayout() then tt:SetIgnoreParentScale(false) end
                 hooksecurefunc(tt, "SetIgnoreParentScale", function(self, ignore)
                     if InCombatLockdown and InCombatLockdown() then return end

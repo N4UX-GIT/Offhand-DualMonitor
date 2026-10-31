@@ -91,16 +91,49 @@ $statusText = if ($isPrerelease) {
 
 $companionDownloads = if ($CompanionChanged) {
 @"
-- **Companion package:** ``$companionArchiveName`` — minimal portable package containing the reviewed executable, quick-start/security README, and license.
-- **Standalone Companion:** ``Offhand.exe`` — updated Windows executable only.
+- **Companion package:** ``$companionArchiveName``: minimal portable package containing the reviewed executable, quick-start/security README, and license.
+- **Standalone Companion:** ``Offhand.exe``: updated Windows executable only.
 - **Source:** review the tagged repository or GitHub's automatic source archive; development files are intentionally excluded from the end-user Companion ZIP.
 "@
 } else {
 @"
-- **Companion package:** ``$companionArchiveName`` — unchanged, byte-identical $companionVersion archive, named for the Companion build rather than the addon release that carries it.
-- **Standalone Companion:** ``Offhand.exe`` — unchanged, byte-identical $companionVersion executable.
+- **Companion package:** ``$companionArchiveName``: unchanged, byte-identical $companionVersion archive, named for the Companion build rather than the addon release that carries it.
+- **Standalone Companion:** ``Offhand.exe``: unchanged, byte-identical $companionVersion executable.
 - **Companion source release:** [$CompanionReleaseTag](https://github.com/$Repository/releases/tag/$CompanionReleaseTag).
 "@
+}
+
+$testFocus = if ($Tag -eq 'v2.1.2-beta.24') {
+@'
+1. Back up Offhand SavedVariables, Blizzard Edit Mode layouts and UI addon profiles before upgrading. Keep existing settings for the upgrade test.
+2. Move chat to the workspace, switch tabs with real incoming messages, then check placement and message separation after /reload, zoning and a normal restart. Include Ellesmere UI where used.
+3. Open Spellbook and Talents on Offhand, reload with either tab open, then close them and reload again. Check the selected tab, fit and closed state.
+4. Check World Map reopen, zoom and hover behavior with your normal map addon. Separate local OpenMap grain/hover patches are not included.
+5. Test shared Mainhand HUD layout reuse and rollback on two characters. Check tooltips and speech bubbles near each viewport edge, particularly on stacked monitors.
+6. Report fresh Lua/protected-action errors before, during and after combat, with client/build, monitor geometry, UI addons and /offhand diag output. These checks remain outstanding.
+
+Loading artwork still uses the spanned window. Manual workaround: Restore Window before loading, then Span WoW Now after returning to the world. This is not a spanned loading-art fix.
+
+Companion remains 2.1.2-beta.20. No Companion binary or graphics-reset recovery changes are included.
+'@
+} elseif ($Tag -eq 'v2.1.2-beta.23') {
+@'
+1. Upgrade without deleting `WTF` or Offhand SavedVariables; keep a backup for rollback.
+2. Visit all five settings pages and check scrolling, sliders, typed values, profile changes and dialog fitting at your normal UI scale.
+3. Check existing workspace map, bags, Character and chat placement, scaling and persistence after `/reload`.
+4. Use Restore Window and Span WoW Now. Check HUD and minimap positions, XP/reputation bars, and open Options/menu usability in both modes, including after a normal restart.
+5. Check normal actions before, during and after combat. Report fresh Lua/protected-action errors with the client/build, display arrangement, relevant addons and `/offhand diag` output.
+
+This addon release retains Companion 2.1.2-beta.20. Experimental native VSync/graphics-reset recovery and graininess handling are not included.
+'@
+} else {
+@'
+1. Upgrade without deleting `WTF` or Offhand SavedVariables.
+2. Trigger several simultaneous group-loot rolls before and during combat and confirm they remain visible inside Mainhand without protected-action or secret-value errors.
+3. Verify floating combat, healing, damage, and XP text at the automatic scale and with the 50-150% fine-tuning control, including after `/reload` and after disabling the span.
+4. Verify speech bubbles on equal-height and mixed-height layouts, including the first bubble after spanning, consecutive bubbles, the 50-150% replacement-size control, and ownership yielding when EllesmereUI customization is enabled.
+5. Report the WoW client and build, display arrangement, selected Mainhand/workspace, enabled UI addons, exact Lua error, `/offhand diag` output, and before/after screenshots.
+'@
 }
 
 $notes = @"
@@ -118,17 +151,13 @@ $changes
 
 - **Recommended Windows Companion:** [Install from Microsoft Store]($storeUrl) for a Store-signed package and Microsoft-managed updates.
 - **Portable / Linux / Wine Companion:** download ``$companionArchiveName`` from the [official GitHub release]($companionReleaseUrl).
-- **Complete package:** ``Offhand-Complete-v$packageVersion.zip`` — addon and Companion together.
-- **Addon only:** ``Offhand-v$packageVersion.zip`` — install the contained ``Offhand`` folder in ``Interface/AddOns``.
+- **Complete package:** ``Offhand-Complete-v$packageVersion.zip``: addon and Companion together.
+- **Addon only:** ``Offhand-v$packageVersion.zip``: install the contained ``Offhand`` folder in ``Interface/AddOns``.
 $companionDownloads
 
 ## Test focus
 
-1. Upgrade without deleting ``WTF`` or Offhand SavedVariables.
-2. Trigger several simultaneous group-loot rolls before and during combat and confirm they remain visible inside Mainhand without protected-action or secret-value errors.
-3. Verify floating combat, healing, damage, and XP text at the automatic scale and with the 50-150% fine-tuning control, including after ``/reload`` and after disabling the span.
-4. Verify speech bubbles on equal-height and mixed-height layouts, including the first bubble after spanning, consecutive bubbles, the 50-150% replacement-size control, and ownership yielding when EllesmereUI customization is enabled.
-5. Report the WoW client and build, display arrangement, selected Mainhand/workspace, enabled UI addons, exact Lua error, ``/offhand diag`` output, and before/after screenshots.
+$testFocus
 
 ## Linux and Wine status
 
@@ -140,7 +169,7 @@ Use the [GitHub issue tracker](https://github.com/$Repository/issues) and includ
 
 ## Verification
 
-The Companion is unsigned. Download it only from the official release linked above. GitHub Actions publishes build-provenance attestations and SHA-256 checksums for newly packaged release artifacts.
+The Companion is unsigned. Download it only from the official release linked above. Use the attached SHA-256 checksums to verify the downloads. Locally prepared draft assets do not carry GitHub Actions build-provenance attestations; those are produced by the tagged release workflow.
 
 [Full changelog](https://github.com/$Repository/blob/$Tag/CHANGELOG.md)
 "@

@@ -39,11 +39,28 @@ end
 
 function Compatibility.HasCustomActionBarAddon()
     if _G.Bartender4 or _G.Dominos or _G.ElvUI or _G.Tukui or _G.ConsolePort then return true end
+    if Compatibility.IsAddonPresent("EllesmereUIActionBars") then return true end
     local main = _G.MainMenuBar or _G.MainActionBar
     return not main
 end
 
+function Compatibility.HasCustomStatusBarAddon()
+    if _G.Bartender4 or _G.Dominos or _G.ElvUI or _G.Tukui or _G.ConsolePort then return true end
+    if not Compatibility.IsAddonPresent("EllesmereUIActionBars") then return false end
+    -- DataBars is a separate information-panel module, not the native XP/Rep
+    -- replacement. ActionBars owns that replacement unless the player opts back
+    -- into Blizzard's bars. Read its cross-addon accessor without changing state.
+    local lite = _G.EllesmereUI and _G.EllesmereUI.Lite
+    if lite and type(lite.GetAddon) == "function" then
+        local ok, addon = pcall(lite.GetAddon, "EllesmereUIActionBars", true)
+        local profile = ok and addon and addon.db and addon.db.profile
+        if profile and profile.useBlizzardDataBars == true then return false end
+    end
+    return true
+end
+
 function Compatibility.HasCustomBagAddon()
+    if Compatibility.IsAddonPresent("EllesmereUIBags") then return true end
     if _G.Baganator or _G.Baginator or _G.Bagnon or _G.AdiBags
         or _G.ArkInventory or _G.BetterBags or _G.Inventorian
         or _G.ElvUI or _G.Tukui then return true end
@@ -52,6 +69,7 @@ end
 
 function Compatibility.HasCustomMinimapAddon()
     if _G.SexyMap or _G.Carbonite or _G.ElvUI then return true end
+    if Compatibility.IsAddonPresent("EllesmereUIMinimap") then return true end
     local minimap = _G.MinimapCluster
     if not minimap then return true end
     return minimap.IsUserPlaced and minimap:IsUserPlaced() or false
@@ -90,6 +108,40 @@ end
 
 function Compatibility.HasChattynator()
     return Compatibility.IsAddonPresent("Chattynator")
+end
+
+function Compatibility.HasCustomChatAddon()
+    return Compatibility.HasChattynator() or Compatibility.IsAddonPresent("EllesmereUIChat")
+end
+
+-- Serialized HUD generation must respect the same owners as runtime movement.
+-- Profile bundles such as Naowh use their actual installed frame providers.
+function Compatibility.IsExternallyOwnedEditModeSystem(entry)
+    local systems = Enum and Enum.EditModeSystem
+    if not systems or type(entry) ~= "table" then return false end
+    local system = entry.system
+    if system == nil then return false end
+    if system == systems.ActionBar then
+        return Compatibility.HasCustomActionBarAddon()
+    elseif system == systems.StatusTrackingBar then
+        return Compatibility.HasCustomStatusBarAddon()
+    elseif system == systems.Minimap then
+        return Compatibility.HasCustomMinimapAddon()
+    elseif system == systems.ChatFrame then
+        return Compatibility.HasCustomChatAddon()
+    elseif system == systems.CooldownViewer then
+        return Compatibility.IsAddonPresent("EllesmereUICooldownManager")
+    elseif system == systems.ObjectiveTracker then
+        return Compatibility.IsAddonPresent("EllesmereUIQuestTracker")
+    elseif system == systems.UnitFrame then
+        local indices = Enum.EditModeUnitFrameSystemIndices or {}
+        if (indices.Party ~= nil and entry.systemIndex == indices.Party)
+            or (indices.Raid ~= nil and entry.systemIndex == indices.Raid) then
+            return Compatibility.HasEllesmerePartyFrames() or _G.ElvUI ~= nil
+        end
+        return Compatibility.IsAddonPresent("EllesmereUIUnitFrames") or _G.ElvUI ~= nil
+    end
+    return false
 end
 
 function Compatibility.UsesForeverEditMode()

@@ -464,6 +464,117 @@ function Recovery.Install(HUD)
             or Fits(metrics.workspaceLeft, metrics.workspaceBottom, metrics.workspaceRight, metrics.workspaceTop)
     end
 
+    -- Opt-in support snapshot only. Never show, move or alter protected action
+    -- controls to diagnose a missing quest button, and avoid secret combat data.
+    function HUD:GetInteractionVisibilityDiagnostics(metrics)
+        if InCombatLockdown() then return { "deferred:combat" } end
+        local reports = {}
+        for _, name in ipairs({ "PVEFrame", "GroupFinderFrame", "LFDParentFrame", "PlayerSpellsFrame", "SpellBookFrame", "ProfessionsFrame", "ProfessionsBookFrame", "TradeSkillFrame", "CraftFrame",
+            "ExtraAbilityContainer", "ExtraActionBarFrame", "ExtraActionButton1", "ZoneAbilityFrame",
+            "OverrideActionBar", "OverrideActionBarButton1", "ObjectiveTrackerFrame", "QuestWatchFrame", "WatchFrame",
+            "UIParentRightManagedFrameContainer" }) do
+            local frame = _G[name]
+            local ok, status = pcall(function()
+                if not frame then return "absent" end
+                if frame.IsForbidden and frame:IsForbidden() then return "forbidden" end
+                if not frame.IsShown or not frame:IsShown() then return "hidden" end
+                if frame.IsVisible and not frame:IsVisible() then return "shown,parent-hidden" end
+                local alpha = frame.GetEffectiveAlpha and frame:GetEffectiveAlpha() or nil
+                local prefix = "shown,alpha=" .. (alpha and string.format("%.2f", alpha) or "unknown")
+                if not frame.GetLeft or not frame.GetBottom or not frame.GetWidth or not frame.GetHeight then
+                    return prefix .. ",bounds=unknown"
+                end
+                local left, bottom = frame:GetLeft(), frame:GetBottom()
+                if not left or not bottom then return prefix .. ",bounds=unresolved" end
+                local factor = (frame.GetEffectiveScale and frame:GetEffectiveScale() or 1)
+                    / (UIParent:GetEffectiveScale() or 1)
+                local width, height = frame:GetWidth() * factor, frame:GetHeight() * factor
+                left, bottom = left * factor, bottom * factor
+                local location = "unknown"
+                if metrics and metrics.gameLeft and metrics.workspaceLeft then
+                    local function Overlaps(l, b, r, t)
+                        return l and b and r and t and width > 0 and height > 0
+                            and left < r and left + width > l and bottom < t and bottom + height > b
+                    end
+                    local game = Overlaps(metrics.gameLeft, metrics.gameBottom, metrics.gameRight, metrics.gameTop)
+                    local workspace = Overlaps(metrics.workspaceLeft, metrics.workspaceBottom,
+                        metrics.workspaceRight, metrics.workspaceTop)
+                    location = game and (workspace and "both" or "mainhand")
+                        or (workspace and "workspace" or "outside")
+                end
+                return string.format("%s,rect=%.0f/%.0f/%.0f/%.0f,overlap=%s",
+                    prefix, left, bottom, width, height, location)
+            end)
+            reports[#reports + 1] = name .. "=" .. (ok and status or "unavailable")
+        end
+        if Offhand.isRetail then
+            -- A hidden container can retain a valid anchor while no quest action
+            -- exists. Read native availability and ownership separately from the
+            -- visible rectangles above; never force-show the protected button.
+            local function Probe(label, read)
+                local ok, value = pcall(read)
+                reports[#reports + 1] = label .. "=" .. (ok and value or "unavailable")
+            end
+            Probe("RetailExtraAction", function()
+                local available = C_ActionBar and C_ActionBar.HasExtraActionBar
+                return type(available) == "function"
+                    and (available() and "available" or "inactive") or "unsupported"
+            end)
+            local function FrameName(frame)
+                if not frame then return "none" end
+                if frame.IsForbidden and frame:IsForbidden() then return "forbidden" end
+                return frame.GetName and frame:GetName() or "unnamed"
+            end
+            for _, name in ipairs({ "ExtraAbilityContainer", "ExtraActionBarFrame", "ExtraActionButton1" }) do
+                Probe(name .. ".ownership", function()
+                    local frame = _G[name]
+                    if not frame then return "absent" end
+                    if frame.IsForbidden and frame:IsForbidden() then return "forbidden" end
+                    local parent = frame.GetParent and frame:GetParent()
+                    local value = "parent:" .. FrameName(parent)
+                    if frame.GetNumPoints and frame.GetPoint then
+                        local count = frame:GetNumPoints()
+                        value = value .. ",points:" .. tostring(count)
+                        if count > 0 then
+                            local point, relative, relativePoint, x, y = frame:GetPoint(1)
+                            value = value .. string.format(",anchor:%s/%s/%s/%.1f/%.1f",
+                                tostring(point), FrameName(relative), tostring(relativePoint), x or 0, y or 0)
+                        end
+                    end
+                    if name == "ExtraActionButton1" then
+                        local icon = frame.icon or frame.Icon
+                        if icon and not (icon.IsForbidden and icon:IsForbidden())
+                            and icon.GetEffectiveAlpha then
+                            value = value .. string.format(",iconAlpha:%.2f", icon:GetEffectiveAlpha())
+                        end
+                    end
+                    return value
+                end)
+            end
+            Probe("RetailExtraAbilitiesLayout", function()
+                local manager = _G.EditModeManagerFrame
+                if not manager or type(manager.GetActiveLayoutInfo) ~= "function" then return "unavailable" end
+                local layout = manager:GetActiveLayoutInfo()
+                local systems = Enum and Enum.EditModeSystem
+                local extra = systems and (systems.ExtraAbilities or systems.ExtraAbility)
+                if not layout or extra == nil then return "unavailable" end
+                for index, entry in ipairs(layout.systems or {}) do
+                    if index > 100 then break end
+                    if entry.system == extra then
+                        local anchor = entry.anchorInfo
+                        if type(anchor) ~= "table" then return "anchor-missing" end
+                        return string.format("default:%s,anchor:%s/%s/%s/%s/%s",
+                            tostring(entry.isInDefaultPosition), tostring(anchor.point),
+                            tostring(anchor.relativeTo), tostring(anchor.relativePoint),
+                            tostring(anchor.offsetX), tostring(anchor.offsetY))
+                    end
+                end
+                return "system-missing"
+            end)
+        end
+        return reports
+    end
+
     local foreverEditModeControlNames = {
         "EditModeSystemSettingsDialog",
         "EditModeLayoutDialog",

@@ -84,6 +84,169 @@ local comparisonTooltipNames = {
     "ShoppingTooltip1", "ShoppingTooltip2", "ShoppingTooltip3",
 }
 
+local classicClampState = setmetatable({}, { __mode = "k" })
+local classicClampUpdating
+local function SameInsets(a, b)
+    if not a or not b then return false end
+    for i = 1, 4 do if math.abs(a[i] - b[i]) > 0.01 then return false end end
+    return true
+end
+function PopupBounds:RestoreClassicTooltipClamp(frame)
+    local state = classicClampState[frame]
+    if not state then return false end
+    if InCombatLockdown and InCombatLockdown() then
+        if Offhand.RunOrQueueCombat and not state.restoreQueued then
+            state.restoreQueued = true
+            Offhand:RunOrQueueCombat(function()
+                state.restoreQueued = nil
+                if classicClampState[frame] ~= state then return end
+                if frame.IsShown and frame:IsShown() then PopupBounds:UpdateClassicTooltipClamp(frame)
+                else PopupBounds:RestoreClassicTooltipClamp(frame) end
+            end)
+        end
+        return false
+    end
+    if (frame.IsForbidden and frame:IsForbidden())
+        or (frame.IsProtected and frame:IsProtected()) then return false end
+    classicClampState[frame] = nil
+    if SameInsets({ frame:GetClampRectInsets() }, state.applied) then
+        frame:SetClampRectInsets(unpack(state.original))
+        if state.changedClamped and frame:IsClampedToScreen() then frame:SetClampedToScreen(false) end
+    end
+    return true
+end
+function PopupBounds:UpdateClassicTooltipClamp(frame, preparing)
+    if classicClampUpdating
+        or (InCombatLockdown and InCombatLockdown()) or not frame
+        or not frame.GetClampRectInsets or not frame.SetClampRectInsets
+        or not frame.IsClampedToScreen or not frame.SetClampedToScreen then return false end
+    if (frame.IsForbidden and frame:IsForbidden())
+        or (frame.IsProtected and frame:IsProtected()) then return false end
+    local metrics = Active()
+    local _, owner = TooltipRootAndOwner(frame)
+    local worldOwner = owner and (owner == UIParent or owner == _G.WorldFrame)
+    local external = _G.TipTac or _G.TinyTooltip or _G.TinyTooltipReforged
+    if not metrics or not owner or frame.IsEmbedded or external
+        or (not worldOwner and (Offhand.isRetail or Offhand.isForever
+            or not FrameCenterInside(owner, metrics.workspaceLeft, metrics.workspaceBottom,
+                metrics.workspaceRight, metrics.workspaceTop))) then
+        return self:RestoreClassicTooltipClamp(frame)
+    end
+    local left = worldOwner and metrics.gameLeft or metrics.workspaceLeft
+    local right = worldOwner and metrics.gameRight or metrics.workspaceRight
+    local bottom = worldOwner and metrics.gameBottom or metrics.workspaceBottom
+    local top = worldOwner and metrics.gameTop or metrics.workspaceTop
+    if type(left) ~= "number" or type(right) ~= "number"
+        or type(bottom) ~= "number" or type(top) ~= "number" then return false end
+    -- SetOwner runs before native item sizing/show. Prepare the policy there,
+    -- without using the hidden tooltip's stale or unresolved rectangle.
+    local uiScale = UIParent:GetEffectiveScale()
+    local frameScale = frame.GetEffectiveScale and frame:GetEffectiveScale()
+    if not uiScale or uiScale <= 0 or not frameScale or frameScale <= 0 then return false end
+    local margin = 12 * (metrics.hudScale or 1)
+    local minX, maxX = left + margin, right - margin
+    local minY, maxY = bottom + margin, top - margin
+    if not preparing and (not frame.IsShown or frame:IsShown()) then
+        local left, right, top, bottom = FrameBounds(frame)
+        if not left or right <= left or top <= bottom then return false end
+        if right - left > maxX - minX or top - bottom > maxY - minY then
+            return self:RestoreClassicTooltipClamp(frame)
+        end
+    end
+    local current = { frame:GetClampRectInsets() }
+    local state = classicClampState[frame]
+    if state and not SameInsets(current, state.applied) then
+        -- A native refresh or another owner supplied a new baseline.
+        classicClampState[frame] = nil
+        return false
+    end
+    state = state or { original = current, changedClamped = not frame:IsClampedToScreen() }
+    local factor = uiScale / frameScale
+    local desired = {
+        math.min(state.original[1], -minX * factor),
+        math.max(state.original[2], (UIParent:GetWidth() - maxX) * factor),
+        math.max(state.original[3], (UIParent:GetHeight() - maxY) * factor),
+        math.min(state.original[4], -minY * factor),
+    }
+    classicClampUpdating = true
+    local ok = pcall(function()
+        if not SameInsets(current, desired) then frame:SetClampRectInsets(unpack(desired)) end
+        if not frame:IsClampedToScreen() then frame:SetClampedToScreen(true) end
+    end)
+    classicClampUpdating = nil
+    if not ok then return false end
+    state.applied = desired
+    classicClampState[frame] = state
+    return true
+end
+
+local tooltipCapture
+function PopupBounds:ArmTooltipPresentationCapture()
+    if InCombatLockdown and InCombatLockdown() then return false end
+    local token = {}
+    tooltipCapture = token
+    if C_Timer and C_Timer.After then
+        C_Timer.After(30, function() if tooltipCapture == token then tooltipCapture = nil end end)
+    end
+    return true
+end
+
+function PopupBounds:GetTooltipPresentationDiagnostics()
+    if InCombatLockdown and InCombatLockdown() then return { "deferred:combat" } end
+    local reports = {}
+    local function Describe(frame)
+        if not frame then return "absent" end
+        if frame.IsForbidden and frame:IsForbidden() then return "forbidden" end
+        local shown = frame.IsShown and frame:IsShown()
+        local alpha = frame.GetEffectiveAlpha and frame:GetEffectiveAlpha()
+        local left, right, top, bottom = FrameBounds(frame)
+        local bounds = left and string.format("%.0f/%.0f/%.0f/%.0f", left, bottom, right - left, top - bottom)
+            or "unresolved"
+        return string.format("%s,alpha=%s,strata=%s,level=%s,scale=%s,rect=%s", shown and "shown" or "hidden",
+            alpha and string.format("%.2f", alpha) or "unknown",
+            frame.GetFrameStrata and frame:GetFrameStrata() or "unknown",
+            frame.GetFrameLevel and tostring(frame:GetFrameLevel()) or "unknown",
+            frame.GetEffectiveScale and string.format("%.3f", frame:GetEffectiveScale()) or "unknown", bounds)
+    end
+    for _, name in ipairs({ "GameTooltip", "ItemRefTooltip", "ShoppingTooltip1", "ShoppingTooltip2" }) do
+        local ok, detail = pcall(function()
+            local frame = _G[name]
+            if not frame then return "absent" end
+            if frame.IsForbidden and frame:IsForbidden() then return "forbidden" end
+            local slice = frame.NineSlice
+            if slice and slice.IsForbidden and slice:IsForbidden() then
+                return Describe(frame) .. ";backdrop=forbidden"
+            end
+            local _, _, _, centerAlpha
+            if slice and slice.GetCenterColor then _, _, _, centerAlpha = slice:GetCenterColor() end
+            local clamp = frame.GetClampRectInsets
+                and string.format("%.1f/%.1f/%.1f/%.1f", frame:GetClampRectInsets()) or "unavailable"
+            return string.format("%s;embedded=%s;backdrop=%s;centerAlpha=%s;clamp=%s",
+                Describe(frame), frame.IsEmbedded and "yes" or "no", Describe(slice),
+                centerAlpha and string.format("%.2f", centerAlpha) or "unknown", clamp)
+        end)
+        reports[#reports + 1] = name .. "=" .. (ok and detail or "unavailable")
+    end
+    return reports
+end
+
+local function CaptureVisibleTooltip(frame)
+    local token = tooltipCapture
+    if not token then return end
+    local function Capture()
+        if tooltipCapture ~= token or (InCombatLockdown and InCombatLockdown())
+            or not frame.IsShown or not frame:IsShown() then return end
+        tooltipCapture = nil
+        if Offhand.Print then
+            for _, report in ipairs(PopupBounds:GetTooltipPresentationDiagnostics()) do
+                Offhand:Print("Hovered tooltip presentation: %s.", report)
+            end
+        end
+    end
+    -- Let the native item content and NineSlice finish the current show turn.
+    if C_Timer and C_Timer.After then C_Timer.After(0, Capture) else Capture() end
+end
+
 function PopupBounds:ClearManagedTooltip(frame)
     if not frame then return end
     frame._OffhandManagedOwner = nil
@@ -114,6 +277,7 @@ end
 -- Offhand item opens toward the middle of that physical display. The later
 -- group constraint remains responsible for long text and comparison cards.
 function PopupBounds:RedirectTooltipOwner(frame, owner, anchor)
+    if not Offhand.isRetail and not Offhand.isForever then return false end
     if self.redirectingTooltipOwner or (InCombatLockdown and InCombatLockdown()) then return false end
     local metrics = Active()
     if not metrics or not Positionable(frame) or not owner or owner == UIParent then
@@ -161,10 +325,23 @@ end
 -- after the completed comparison transaction, which translates the intact
 -- graph as one unit and leaves a small physical margin at the seam.
 function PopupBounds:ArrangeTooltipComparisons(frame)
+    if not Offhand.isRetail and not Offhand.isForever then return false end
     if InCombatLockdown and InCombatLockdown() then return false end
     local metrics = Active()
     if not metrics then return false end
     local root, owner = TooltipRootAndOwner(frame)
+    if root and owner and (owner == UIParent or owner == _G.WorldFrame) then
+        -- Apply native bounds only after the comparison manager has completed
+        -- its anchor graph. Do not install intermediate shopping-card observers.
+        local changed = self:UpdateClassicTooltipClamp(root)
+        for _, name in ipairs(comparisonTooltipNames) do
+            local comparison = _G[name]
+            if comparison and comparison.IsShown and comparison:IsShown() then
+                changed = self:UpdateClassicTooltipClamp(comparison) or changed
+            end
+        end
+        return changed
+    end
     if not root or not owner or root._OffhandManagedOwner ~= owner
         or not root._OffhandOwnerDirection then return false end
 
@@ -223,13 +400,28 @@ function PopupBounds:ObserveTooltip(tooltip)
         -- completed comparison transactions are handled below.
         if tooltip == _G.GameTooltip or tooltip == _G.ItemRefTooltip then
             tooltip:HookScript("OnShow", function(self)
+                PopupBounds:UpdateClassicTooltipClamp(self)
                 PopupBounds:ArrangeTooltipComparisons(self)
+                CaptureVisibleTooltip(self)
             end)
+        elseif not Offhand.isRetail and not Offhand.isForever then
+            tooltip:HookScript("OnShow", function(self) PopupBounds:UpdateClassicTooltipClamp(self) end)
         end
-        tooltip:HookScript("OnHide", function(self) PopupBounds:ClearManagedTooltip(self) end)
+        tooltip:HookScript("OnHide", function(self)
+            PopupBounds:RestoreClassicTooltipClamp(self)
+            PopupBounds:ClearManagedTooltip(self)
+        end)
+        if tooltip == _G.GameTooltip or tooltip == _G.ItemRefTooltip
+            or (not Offhand.isRetail and not Offhand.isForever) then
+            tooltip:HookScript("OnSizeChanged", function(self) PopupBounds:UpdateClassicTooltipClamp(self) end)
+        end
     end
     if tooltip.SetOwner and hooksecurefunc then
         hooksecurefunc(tooltip, "SetOwner", function(self, owner, anchor)
+            PopupBounds:UpdateClassicTooltipClamp(self, true)
+            if not Offhand.isRetail and not Offhand.isForever then
+                return
+            end
             if not PopupBounds.redirectingTooltipOwner then
                 PopupBounds:RedirectTooltipOwner(self, owner, anchor)
             end
@@ -322,7 +514,7 @@ function PopupBounds:Initialize()
     -- Retail anchors all comparison cards before returning from this function.
     -- A post-hook therefore corrects the completed layout in the same UI
     -- transaction, without a timer or a visible native/corrected alternation.
-    if GameTooltip_ShowCompareItem and hooksecurefunc then
+    if (Offhand.isRetail or Offhand.isForever) and GameTooltip_ShowCompareItem and hooksecurefunc then
         hooksecurefunc("GameTooltip_ShowCompareItem", function(tooltip)
             PopupBounds:ArrangeTooltipComparisons(tooltip or _G.GameTooltip)
         end)
@@ -332,7 +524,7 @@ function PopupBounds:Initialize()
     -- TooltipComparisonManager after the individual ShoppingTooltip OnShow
     -- scripts have fired. Constrain the completed group synchronously by moving
     -- only its root; never rewrite the manager-owned comparison dependencies.
-    if TooltipComparisonManager
+    if (Offhand.isRetail or Offhand.isForever) and TooltipComparisonManager
         and type(TooltipComparisonManager.AnchorShoppingTooltips) == "function"
         and hooksecurefunc then
         hooksecurefunc(TooltipComparisonManager, "AnchorShoppingTooltips",
@@ -347,7 +539,7 @@ function PopupBounds:Initialize()
     -- full-screen BOTTOMRIGHT point, so correcting only SetOwner is overwritten
     -- later in the same function. Reapply the physical-workspace direction
     -- after the complete helper transaction, before the tooltip is shown.
-    if GameTooltip_SetDefaultAnchor and hooksecurefunc then
+    if (Offhand.isRetail or Offhand.isForever) and GameTooltip_SetDefaultAnchor and hooksecurefunc then
         hooksecurefunc("GameTooltip_SetDefaultAnchor", function(tooltip, owner)
             PopupBounds:RedirectTooltipOwner(tooltip, owner, "ANCHOR_NONE")
         end)

@@ -76,3 +76,54 @@ assert(persistence.ResolveWorkspacePosition(metrics, { x = 1 }, 100, 100, false)
     "incomplete saved positions must not resolve")
 
 print("PASS: Canvas saved-position creation, scaling and clamping")
+
+-- Native P/talent toggles and skinned close buttons must clear reload intent,
+-- without adding hide hooks to Blizzard frames or treating a zone hide as close.
+addon.isRetail = true
+addon.db = {enabled=true, openWorkspacePanels={PlayerSpellsFrame=true},
+    savedWorkspacePositions={PlayerSpellsFrame={x=100,y=800}}, workspacePlayerSpellsTab="talents"}
+local callbacks, timers, registrations = {}, {}, 0
+EventRegistry = {RegisterCallback=function(_,name,callback,owner)
+    registrations=registrations+1; callbacks[name]=function() callback(owner) end
+end}
+C_Timer = {After=function(_,callback) timers[#timers+1]=callback end}
+local canvas = {SetWorkspacePanelOpen=function(_,name,open)
+    addon.db.openWorkspacePanels[name]=open and true or nil
+end}
+PlayerSpellsFrame = {shown=false, IsShown=function(self) return self.shown end}
+local function flush()
+    local pending=timers; timers={}
+    for _,callback in ipairs(pending) do callback() end
+end
+assert(persistence.InstallPlayerSpellsCloseObserver(canvas))
+assert(not persistence.InstallPlayerSpellsCloseObserver(canvas) and registrations==1)
+callbacks["PlayerSpellsFrame.CloseFrame"]()
+callbacks["PlayerSpellsFrame.CloseFrame"]()
+assert(#timers==1, "repeated close notifications must coalesce")
+flush()
+assert(not addon.db.openWorkspacePanels.PlayerSpellsFrame,
+    "native close must clear stale reopen intent")
+assert(addon.db.savedWorkspacePositions.PlayerSpellsFrame.x==100
+    and addon.db.workspacePlayerSpellsTab=="talents", "close must preserve anchor and tab")
+addon.db.openWorkspacePanels.PlayerSpellsFrame=true
+callbacks["PlayerSpellsFrame.CloseFrame"]()
+PlayerSpellsFrame.shown=true
+flush()
+assert(addon.db.openWorkspacePanels.PlayerSpellsFrame,
+    "a minimize hide/show must preserve open intent")
+PlayerSpellsFrame.shown=false
+callbacks["PlayerSpellsFrame.CloseFrame"]()
+addon._openPanelsCapturedForTransition=true
+flush()
+assert(addon.db.openWorkspacePanels.PlayerSpellsFrame,
+    "transition hide must preserve the last active snapshot regardless of event order")
+addon._openPanelsCapturedForTransition=false
+callbacks["PlayerSpellsFrame.CloseFrame"]()
+flush()
+assert(not addon.db.openWorkspacePanels.PlayerSpellsFrame,
+    "a later explicit close must still clear intent")
+addon.isRetail=false
+assert(not persistence.InstallPlayerSpellsCloseObserver({}))
+addon.isRetail=true; addon.isForever=true
+assert(not persistence.InstallPlayerSpellsCloseObserver({}))
+print("PASS: native PlayerSpells close intent, transient visibility and transition preservation")

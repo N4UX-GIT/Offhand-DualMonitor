@@ -3,8 +3,8 @@
 ## Notes: Keep gameplay on one screen and move maps, bags, chat, and other supported UI panels to another.
 ## Author: N4UX (Noggaholic)
 ## Version: 2.1.2
-## X-Offhand-Release: beta.22
-## X-Offhand-Addon-Release: beta.22
+## X-Offhand-Release: beta.24
+## X-Offhand-Addon-Release: beta.24
 ## X-Offhand-Companion-Version: 2.1.2
 ## X-Offhand-Companion-Release: beta.20
 ## X-Offhand-Companion-Protocol: 1
@@ -60,6 +60,7 @@ Core\Canvas.lua
 Core\WorkspaceBehavior.lua
 Core\WorkspaceChrome.lua
 Core\BagPersistence.lua
+Core\Recovery.lua
 
 # Locales
 Locales\enUS.lua

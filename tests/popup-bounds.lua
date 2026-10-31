@@ -1,4 +1,5 @@
 local addon = {
+    isRetail = true,
     modules = {},
     db = { enabled = true, seamRedirect = true },
 }
@@ -268,4 +269,23 @@ local combat = menuFrame()
 assert(not addon.PopupBounds:Constrain(combat) and #combat.points == 0,
     "context menu was mutated during combat")
 
+-- Classic must retain the native owner's direction on both workspace halves.
+-- Do not apply either inward-direction or manual point corrections there.
+InCombatLockdown = function() return false end
+addon.isRetail = false
+local originalTooltipPoint = addon.PopupBounds.SetTooltipPoint
+addon.PopupBounds.SetTooltipPoint = function() error("Classic tooltip entered manual point placement") end
+for _, owner in ipairs({ itemOwner, leftOwner }) do
+    local before = GameTooltip.setOwnerCalls
+    GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+    assert(GameTooltip.anchor == "ANCHOR_RIGHT" and GameTooltip.setOwnerCalls == before + 1,
+        "Classic must not reset tooltip ownership or reverse direction on either workspace half")
+    before = GameTooltip.setOwnerCalls
+    GameTooltip_SetDefaultAnchor(GameTooltip, owner)
+    assert(GameTooltip.anchor == "ANCHOR_NONE" and GameTooltip.setOwnerCalls == before + 1,
+        "Classic's completed native default-anchor transaction must remain untouched")
+end
+assert(not addon.PopupBounds:ArrangeTooltipComparisons(GameTooltip),
+    "Classic comparison groups must remain native rather than moving only the backdrop root")
+addon.PopupBounds.SetTooltipPoint = originalTooltipPoint
 print("PASS: modern and legacy unit context menus stay inside the physical Mainhand bounds")
