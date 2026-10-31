@@ -1714,6 +1714,30 @@ addon.HUD:HookFrames()
 flushTimers()
 assert(selectedLayout == 6 and managerSelection == nil,
     "Retail must restore the character's newly selected layout by global ID")
+-- A stale remembered preference must not override the shared layout with a
+-- generated row belonging to another character.
+do
+local previousMainhand = addon.Mainhand
+local foreignName = "Offhand - Mainhand - OtherCharacter"
+local previousRowName = layoutData.layouts[4].layoutName
+layoutData.layouts[4].layoutName = foreignName
+OffhandCharDB.editModeLayoutName = foreignName
+local previousLayoutRecord = OffhandCharDB.mainhandLayout
+OffhandCharDB.mainhandLayout = {generatedName="Offhand"}
+addon.Mainhand = {
+    IsCharacterEditModeLayoutAllowed=function(_, name) return name ~= foreignName end,
+    GetLayoutStatus=function() return {configured=true} end,
+}
+selectedLayout = nil
+addon.HUD.editModeLoadScheduled = nil
+addon.HUD:HookFrames()
+flushTimers()
+assert(selectedLayout == 6 and OffhandCharDB.editModeLayoutName == "Offhand",
+    "login must replace a foreign-character preference with the configured shared target")
+addon.Mainhand = previousMainhand
+OffhandCharDB.mainhandLayout = previousLayoutRecord
+layoutData.layouts[4].layoutName = previousRowName
+end
 addon.isForever = true
 EditModePresetLayoutManager = nil
 layoutData.activeLayout = 6

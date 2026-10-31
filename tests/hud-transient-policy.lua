@@ -6,6 +6,8 @@ local specs = policy.GetSpecs()
 
 local byName = {}
 for _, spec in ipairs(specs) do byName[spec.name] = spec end
+assert(byName.LFGListApplicationDialog.specialPopup and byName.LFGListInviteDialog.specialPopup,
+    "premade-group dialogs must use the external native-stack placement policy")
 assert(byName.GroupLootContainer and byName.GroupLootContainer.secure
         and byName.GroupLootContainer.groupLootRows
         and byName.PetBattleFrame and byName.PetBattleFrame.petBattleBounds,

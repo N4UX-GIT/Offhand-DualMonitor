@@ -15,11 +15,16 @@ local specs = {
     { name = "ZoneTextFrame", point = "TOP", x = 0, y = -128 },
     { name = "SubZoneTextFrame", point = "BOTTOM", x = 0, y = 512 },
     { name = "BossBanner", point = "TOP", x = 0, y = -120 },
-    { name = "EventToastManagerFrame", point = "TOP", x = 0, y = -190 },
+    { name = "EventToastManagerFrame", point = "TOP", x = 0, y = -190, retailNotification = true },
     { name = "AlertFrame", point = "BOTTOM", x = 0, y = 128 },
-    { name = "RolePollPopup", point = "TOP", x = 0, y = -15 },
+    { name = "RolePollPopup", point = "TOP", x = 0, y = -15, retailSpecialPopup = true },
     { name = "ReadyCheckFrame", point = "CENTER", x = 0, y = -10 },
-    { name = "LFGDungeonReadyPopup", point = "CENTER", x = 0, y = -10, hookEvent = true },
+    { name = "LFGDungeonReadyPopup", point = "CENTER", x = 0, y = -10, hookEvent = true, retailSpecialPopup = true },
+    -- These use Blizzard's shared special-popup stack, including a restricted
+    -- application-note edit box. Observe the external placement transaction;
+    -- never install scripts or bookkeeping on their native ancestry.
+    { name = "LFGListApplicationDialog", specialPopup = true, retailOnly = true },
+    { name = "LFGListInviteDialog", specialPopup = true, retailOnly = true },
     {
         name = "GroupLootContainer", point = "BOTTOM", x = 0, y = 190,
         secure = true, stockPoint = "BOTTOM", stockRelativePoint = "BOTTOM",
@@ -74,6 +79,28 @@ local specs = {
 
 function Policy.GetSpecs()
     return specs
+end
+
+-- Native StaticPopup_SetUpPosition owns this entire shared stack. Ordinary and
+-- special dialogs must use the same root translation on Retail.
+function Policy.GetRetailSpecialPopupNames()
+    return { "StaticPopup1", "StaticPopup2", "StaticPopup3", "StaticPopup4",
+        "LFGListApplicationDialog", "LFGListInviteDialog", "LFGInvitePopup", "LFDRoleCheckPopup",
+        "LFGReadyCheckPopup", "PVPReadyPopup", "PetBattleQueueReadyFrame",
+        "RolePollPopup", "LFGDungeonReadyPopup" }
+end
+
+function Policy.GetRetailNotificationSpecs()
+    return {
+        { name = "ChallengesKeystoneFrame", point = "CENTER", relativePoint = "CENTER", x = 0, y = 40,
+            method = "ShowKeystoneFrame" },
+        { name = "ChallengeModeCompleteBanner", point = "TOP", relativePoint = "TOP", x = 0, y = -120,
+            method = "PlayBanner" },
+        { name = "EventToastManagerFrame", point = "TOP", relativePoint = "TOP", x = 0, y = -190,
+            method = "UpdateAnchor", nativeOffsets = true },
+        { name = "EventToastManagerSideDisplay", point = "TOPRIGHT", relativePoint = "TOP", x = -189, y = -170,
+            method = "DisplayToastsByLevel" },
+    }
 end
 
 function Policy.Resolve(spec)
