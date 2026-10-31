@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+- Coalesced rapid bezel-gap and game-bottom adjustments so the final layout
+  applies after a short pause, while the displayed value updates immediately.
+  This is a candidate mitigation for adjustment stalls; live graphics recovery
+  and crash verification remain pending.
+
 ## [2.1.2-beta.24] - 2026-10-31
 
 ### Fixed and improved
