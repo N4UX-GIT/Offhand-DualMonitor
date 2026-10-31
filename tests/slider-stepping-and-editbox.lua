@@ -463,6 +463,21 @@ wiz.seamEditBox:SetText("50,5%")
 wiz.seamEditBox.scripts.OnEnterPressed(wiz.seamEditBox)
 assert(math.abs(addon.db.deckWidthRatio - 0.505) < 0.001 and wiz.seamEditBox:GetText() == "50.5%",
     "Calibration must commit decimal-comma seam entry without clamping to the maximum")
+wiz.seamEditBox:SetText("50,1%")
+wiz.seamEditBox.scripts.OnEnterPressed(wiz.seamEditBox)
+assert(math.abs(addon.db.deckWidthRatio - 0.501) < 0.00001,
+    "seam calibration must accept 0.1 percentage-point precision")
+wiz.seamSlider.btnPlus.scripts.OnClick()
+assert(math.abs(addon.db.deckWidthRatio - 0.502) < 0.00001,
+    "seam step buttons must match typed precision")
+for _, value in ipairs({"10%", "90%"}) do
+    wiz.seamEditBox:SetText(value)
+    wiz.seamEditBox.scripts.OnEnterPressed(wiz.seamEditBox)
+    assert(math.abs(addon.db.deckWidthRatio - tonumber(value:sub(1,-2))/100) < 0.00001,
+        "seam calibration must cover the full 10%-90% range")
+end
+wiz.seamEditBox:SetText("50,5%")
+wiz.seamEditBox.scripts.OnEnterPressed(wiz.seamEditBox)
 wiz.seamEditBox:SetText("50,5.0%")
 wiz.seamEditBox.scripts.OnEditFocusLost(wiz.seamEditBox)
 assert(math.abs(addon.db.deckWidthRatio - 0.505) < 0.001 and wiz.seamEditBox:GetText() == "50.5%",

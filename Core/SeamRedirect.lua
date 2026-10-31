@@ -21,7 +21,7 @@ local IsBlizzardEditModeOwnedFrame = Compatibility.IsBlizzardEditModeOwnedFrame
 local HasBlizzardEditMode = Compatibility.HasBlizzardEditMode
 local UsesNativeGamepadInterface = Compatibility.UsesNativeGamepadInterface
 local UsesControllerInterface = Compatibility.UsesControllerInterface
-local HasChattynator = Compatibility.HasChattynator
+local HasCustomChatAddon = Compatibility.HasCustomChatAddon
 local UsesForeverEditMode = Compatibility.UsesForeverEditMode
 local IsForeverEditModeFrame = Compatibility.IsForeverEditModeFrame
 local RetailEditModeOwnsPrimaryChat = Compatibility.RetailEditModeOwnsPrimaryChat
@@ -123,7 +123,7 @@ function HUD:AlignChatFrame(m)
     -- Chattynator owns the complete chat layout, including Blizzard's shared
     -- ChatFrame1EditBox.  Touching either its custom windows or that edit box
     -- can leave the visible input without mouse/focus handling.
-    if HasChattynator() then return end
+    if HasCustomChatAddon() then return end
     local chat = ChatFrame1
     if IsRetailChatSettlementActive(chat) then return end
     if IsForeverEditModeFrame(chat, "ChatFrame1") then return end
@@ -388,6 +388,10 @@ function HUD:AlignHUDFrames(m)
             end
         end
 
+        -- Read Minimap bounds after its own native/default placement has settled.
+        if Offhand.MainhandCompatibility and Offhand.MainhandCompatibility.UpdateClassicRightContainer then
+            Offhand.MainhandCompatibility.UpdateClassicRightContainer(m)
+        end
         self:AlignChatFrame(m)
         if Offhand.db.seamRedirect then
             for _, item in ipairs({{"UIErrorsFrame", -60}, {"RaidWarningFrame", -100}}) do
@@ -450,7 +454,8 @@ end
 -- Do not run a full HUD layout (or resize chat) from a SetPoint callback.
 function HUD:RepairChatAnchor(frame)
     if aligning or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
-        or Offhand.db.dockChat == false or HasChattynator() then return end
+        or (Offhand.db.dockChat == false and not (Offhand.db.savedWorkspacePositions
+            and Offhand.db.savedWorkspacePositions.ChatFrame1)) or HasCustomChatAddon() then return end
     if IsRetailChatSettlementActive(frame) then return end
     if frame._OffhandDragging or frame._OffhandApplyingTrackedChatPosition
         or MOVING_CHATFRAME == frame then return end
@@ -470,7 +475,7 @@ function HUD:RepairChatAnchor(frame)
         C_Timer.After(0, function()
             self.chatWorkspaceRepairPending = nil
             if aligning or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
-                or Offhand.db.dockChat == false or HasChattynator()
+                or HasCustomChatAddon()
                 or IsRetailChatSettlementActive(frame)
                 or frame._OffhandDragging or MOVING_CHATFRAME == frame
                 or (RetailEditModeOwnsPrimaryChat(frame)
@@ -847,6 +852,15 @@ function HUD:HookFrames()
             RememberCharacterEditModeLayout()
         end
 
+        if not forever and Offhand.Mainhand and Offhand.Mainhand.IsCharacterEditModeLayoutAllowed
+            and not Offhand.Mainhand:IsCharacterEditModeLayoutAllowed(targetName) then
+            local record = type(OffhandCharDB) == "table" and OffhandCharDB.mainhandLayout
+            local status = Offhand.Mainhand:GetLayoutStatus()
+            targetName = status.configured and record.generatedName or nil
+            OffhandCharDB.editModeLayoutName = targetName
+            if not targetName then OffhandCharDB.hudSetupReminder = true end
+        end
+
         local found = false
         local needsSetup = false
         for index, layout in ipairs(layoutData.layouts) do
@@ -887,7 +901,9 @@ function HUD:HookFrames()
             end
         end
 
-        if not forever and not found and activeName and type(OffhandCharDB) == "table" then
+        if not forever and not found and activeName and type(OffhandCharDB) == "table"
+            and (not Offhand.Mainhand or not Offhand.Mainhand.IsCharacterEditModeLayoutAllowed
+                or Offhand.Mainhand:IsCharacterEditModeLayoutAllowed(activeName)) then
             -- The remembered layout was renamed or deleted. The currently
             -- active Blizzard choice is the safest replacement; never select
             -- an unrelated layout that inherited the old numeric slot.

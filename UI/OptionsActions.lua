@@ -4,6 +4,19 @@ local CreateFrame = assert(Offhand.UIControls, "Offhand UI controls must load be
 local Actions = {}
 Offhand.OptionsActions = Actions
 
+function Actions.ConfirmRecovery(message, callback)
+    StaticPopupDialogs.OFFHAND_CONFIRM_RECOVERY = {
+        text="%s", button1=ACCEPT, button2=CANCEL, timeout=0,
+        whileDead=true, hideOnEscape=true, preferredIndex=3,
+        OnAccept=function(_, data)
+            if not data or data.used then return end
+            data.used = true
+            data.action()
+        end,
+    }
+    Offhand:ShowPopup("OFFHAND_CONFIRM_RECOVERY", message, nil, {action=callback})
+end
+
 function Actions.Install(Options, services)
     local L = Offhand.L or setmetatable({}, { __index = function(_, key) return key end })
     local SetSolidColor = services.SetSolidColor

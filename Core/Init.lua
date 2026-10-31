@@ -635,10 +635,11 @@ local function GetGamepadSafePopup()
 end
 
 function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
+    local recoveryPopup = popupKey == "OFFHAND_CONFIRM_RECOVERY"
     local setupPopup = popupKey == "OFFHAND_DOWNLOAD_LINK" or popupKey == "OFFHAND_POWERTOYS_LINK"
         or popupKey == "OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT"
         or popupKey == "OFFHAND_HUD_SETUP_REMINDER"
-    if not self:IsGamepadUIEnabled() and not setupPopup then
+    if not self:IsGamepadUIEnabled() and not setupPopup and not recoveryPopup then
         if StaticPopup_Show then return StaticPopup_Show(popupKey, textArg1, textArg2, data) end
         return nil
     end
@@ -648,11 +649,15 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     local frame = GetGamepadSafePopup()
     if frame.popupKey then frame:Hide() end
     frame.popupKey, frame.definition, frame.data = popupKey, definition, data
+    frame.text:SetJustifyH(recoveryPopup and "LEFT" or "CENTER")
+    if frame.text.SetFontObject then
+        frame.text:SetFontObject(GameFontHighlight)
+    end
     frame.text:SetText(FormatPopupText(definition.text, textArg1, textArg2))
     -- Remove the previous card's height before measuring, avoiding truncated
     -- GetStringHeight results when a longer message reuses this FontString.
     -- Only our owned card changes strata. Native popup frames are untouched.
-    frame:SetFrameStrata(setupPopup and "TOOLTIP" or "FULLSCREEN_DIALOG")
+    frame:SetFrameStrata((setupPopup or recoveryPopup) and "TOOLTIP" or "FULLSCREEN_DIALOG")
     if self.UIControls and self.UIControls.MeasureWrappedText then
         frame.text:SetHeight(0)
         local measure = self.UIControls.MeasurePopupText or self.UIControls.MeasureWrappedText
@@ -799,10 +804,9 @@ function Offhand:IsBlizzardInputReserved()
     return self._playerControlLost == true or self:IsCinematicOrMovieActive()
 end
 
--- Forever receives Escape during a mixed-height Companion span (the cursor is
--- released), but anchors its native skip-confirmation dialog against the full
--- bounding canvas.  The dialog can therefore be shown outside the rendered
--- Mainhand cinematic.  Observe only the dialog's native OnShow and move that
+-- Retail and Forever anchor their native skip-confirmation dialogs against the
+-- full bounding canvas. The dialog can be outside the visible Mainhand area.
+-- Observe only the dialog's native OnShow and move that
 -- already-open window into Mainhand; never consume a key or invoke Skip/Confirm.
 local cinematicSkipDialogsHooked = setmetatable({}, { __mode = "k" })
 
@@ -823,7 +827,8 @@ local function ResolveCinematicSkipDialogs()
 end
 
 function Offhand:CenterCinematicSkipDialog(dialog, source)
-    if not self.isForever or not dialog or not FrameIsShown(dialog)
+    if not (self.isForever or self.isRetail) or not self.db or not self.db.enabled
+        or not dialog or not FrameIsShown(dialog)
         or not self.Viewport or not self.Viewport.GetMetrics then return false end
     if dialog.IsForbidden and dialog:IsForbidden() then return false end
     if dialog.IsProtected and dialog:IsProtected() then return false end
@@ -849,23 +854,35 @@ function Offhand:CenterCinematicSkipDialog(dialog, source)
 end
 
 function Offhand:AttachCinematicSkipDialogRecovery()
-    if not self.isForever then return false end
+    if not (self.isForever or self.isRetail) or not self.db or not self.db.enabled then return false end
     local attached = false
     for _, candidate in ipairs(ResolveCinematicSkipDialogs()) do
         local dialog, source = candidate.frame, candidate.source
-        if dialog.HookScript and not cinematicSkipDialogsHooked[dialog] then
+        local accessible = not (dialog.IsForbidden and dialog:IsForbidden())
+            and not (dialog.IsProtected and dialog:IsProtected())
+        if accessible and dialog.HookScript and not cinematicSkipDialogsHooked[dialog] then
             cinematicSkipDialogsHooked[dialog] = true
             dialog:HookScript("OnShow", function(frame)
                 Offhand:CenterCinematicSkipDialog(frame, source)
             end)
             attached = true
         end
-        if FrameIsShown(dialog) then
+        if accessible and FrameIsShown(dialog) then
             self:CenterCinematicSkipDialog(dialog, source)
         end
     end
-    if attached then self._cinematicSkipDialogStatus = "attached" end
+    if attached and not self._cinematicSkipDialogStatus then self._cinematicSkipDialogStatus = "attached" end
     return attached
+end
+
+local function ScheduleCinematicSkipDialogRecovery()
+    Offhand:AttachCinematicSkipDialogRecovery()
+    if C_Timer and C_Timer.After then
+        -- Native playback handlers may create/show their UI later in this event.
+        -- Every retry checks current enabled, span and visibility state.
+        C_Timer.After(0, function() Offhand:AttachCinematicSkipDialogRecovery() end)
+        C_Timer.After(0.25, function() Offhand:AttachCinematicSkipDialogRecovery() end)
+    end
 end
 
 function Offhand:DeferAutomaticUIForCinematic()
@@ -1265,6 +1282,7 @@ eventFrame:RegisterEvent("UI_SCALE_CHANGED")
 eventFrame:RegisterEvent("DISPLAY_SIZE_CHANGED")
 eventFrame:RegisterEvent("CINEMATIC_START")
 eventFrame:RegisterEvent("CINEMATIC_STOP")
+if Offhand.isRetail or Offhand.isForever then eventFrame:RegisterEvent("PLAY_MOVIE") end
 eventFrame:RegisterEvent("PLAYER_CONTROL_LOST")
 eventFrame:RegisterEvent("PLAYER_CONTROL_GAINED")
 
@@ -1295,6 +1313,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         end
 
     elseif event == "PLAYER_LOGIN" then
+        if Offhand.EnsureCharacterIdentity then Offhand:EnsureCharacterIdentity() end
         if Offhand.db and Offhand.db.antiShimmer and Offhand.SetAntiShimmer then
             Offhand:SetAntiShimmer(true)
         end
@@ -1452,14 +1471,13 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             C_Timer.After(0.5, function() EvaluateEntryNotices(1) end)
         end
 
+    elseif event == "PLAY_MOVIE" then
+        ScheduleCinematicSkipDialogRecovery()
+
     elseif event == "CINEMATIC_START" or event == "CINEMATIC_STOP" then
         if event == "CINEMATIC_START" then
             Offhand._cinematicEventActive = true
-            Offhand:AttachCinematicSkipDialogRecovery()
-            if C_Timer and C_Timer.After then
-                C_Timer.After(0, function() Offhand:AttachCinematicSkipDialogRecovery() end)
-                C_Timer.After(0.25, function() Offhand:AttachCinematicSkipDialogRecovery() end)
-            end
+            ScheduleCinematicSkipDialogRecovery()
             local welcomePending = not (Offhand.IsWelcomeDismissed and Offhand:IsWelcomeDismissed())
                 or (Offhand.GetOnboardingResumeStep and Offhand:GetOnboardingResumeStep() ~= nil)
             if welcomePending or (Offhand._companionNoticesShown and next(Offhand._companionNoticesShown))
@@ -1590,6 +1608,9 @@ function Offhand:ApplyFullLayout()
         if Offhand.MainhandCompatibility and Offhand.MainhandCompatibility.UpdateClassicNativeBar then
             Offhand.MainhandCompatibility.UpdateClassicNativeBar(metrics)
         end
+        if Offhand.MainhandCompatibility and Offhand.MainhandCompatibility.UpdateClassicRightContainer then
+            Offhand.MainhandCompatibility.UpdateClassicRightContainer(metrics)
+        end
         if Offhand.RawMouse and Offhand.RawMouse.Update then
             Offhand.RawMouse:Update(metrics)
         end
@@ -1717,6 +1738,25 @@ SlashCmdList["OFFHAND"] = function(msg)
         -- Keep historical feature probes available on demand. Default reports
         -- must not enumerate native HUD trees or collect animation/debug state.
         if fullDiagnostics then
+            Offhand:Print("Cinematic skip-dialog diagnostics: %s.",
+                tostring(Offhand._cinematicSkipDialogStatus or "not-attached"))
+            if Offhand.MainhandCompatibility and Offhand.MainhandCompatibility.GetClassicRightContainerDiagnostics then
+                Offhand:Print("Classic tracker placement: %s.", Offhand.MainhandCompatibility.GetClassicRightContainerDiagnostics())
+            end
+            if Offhand.PopupBounds and Offhand.PopupBounds.GetTooltipPresentationDiagnostics then
+                for _, report in ipairs(Offhand.PopupBounds:GetTooltipPresentationDiagnostics()) do
+                    Offhand:Print("Tooltip presentation: %s.", report)
+                end
+                if Offhand.PopupBounds.ArmTooltipPresentationCapture
+                    and Offhand.PopupBounds:ArmTooltipPresentationCapture() then
+                    Offhand:Print("Tooltip capture armed for 30 seconds: hover an item to capture its visible backdrop.")
+                end
+            end
+            if Offhand.HUD and Offhand.HUD.GetInteractionVisibilityDiagnostics then
+                for _, report in ipairs(Offhand.HUD:GetInteractionVisibilityDiagnostics(m)) do
+                    Offhand:Print("Interaction visibility: %s.", report)
+                end
+            end
             local perf = Offhand.Viewport:GetWorldTextDiagnostics(m)
             Offhand:Print("Combat text diagnostics: Current=%s | Original=%s | CVar=%s | Method=%s | Enabled=%s | FineTune=%.2f | HeightRatio=%.4f | AppliedRatio=%.4f.",
                 perf.worldTextScale, tostring(perf.originalWorldTextScale or "unmanaged"),
@@ -2041,6 +2081,7 @@ frame:SetScript("OnEvent", function()
     end
 
     local function EnforceTooltipScale(self)
+        if not Offhand.isRetail and not Offhand.isForever then return end
         if (InCombatLockdown and InCombatLockdown()) or not UIParent or not HasActiveSpannedLayout() then return end
         if self.SetIgnoreParentScale and self.IsIgnoringParentScale and self:IsIgnoringParentScale() then
             self:SetIgnoreParentScale(false)
@@ -2059,7 +2100,7 @@ frame:SetScript("OnEvent", function()
         end
     end
     
-    if SharedTooltip_SetBackdropStyle then
+    if (Offhand.isRetail or Offhand.isForever) and SharedTooltip_SetBackdropStyle then
         hooksecurefunc("SharedTooltip_SetBackdropStyle", EnforceTooltipScale)
     end
     
@@ -2069,14 +2110,14 @@ frame:SetScript("OnEvent", function()
             if Offhand.PopupBounds and Offhand.PopupBounds.ObserveTooltip then
                 Offhand.PopupBounds:ObserveTooltip(tt)
             end
-            if tt.HookScript then
+            if (Offhand.isRetail or Offhand.isForever) and tt.HookScript then
                 tt:HookScript("OnShow", EnforceTooltipScale)
                 tt:HookScript("OnSizeChanged", EnforceTooltipScale)
             end
-            if tt.SetOwner then
+            if (Offhand.isRetail or Offhand.isForever) and tt.SetOwner then
                 hooksecurefunc(tt, "SetOwner", EnforceTooltipScale)
             end
-            if tt.SetIgnoreParentScale then
+            if (Offhand.isRetail or Offhand.isForever) and tt.SetIgnoreParentScale then
                 if (not InCombatLockdown or not InCombatLockdown()) and HasActiveSpannedLayout() then tt:SetIgnoreParentScale(false) end
                 hooksecurefunc(tt, "SetIgnoreParentScale", function(self, ignore)
                     if InCombatLockdown and InCombatLockdown() then return end

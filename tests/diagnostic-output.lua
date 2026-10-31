@@ -34,12 +34,14 @@ addon.Viewport = {
     GetPerformanceDiagnostics = function() error("obsolete renderer/nameplate collection") end,
 }
 addon.HUD = {
+    GetInteractionVisibilityDiagnostics = probe("interaction", { "ProfessionsFrame=hidden" }),
     GetForeverEditModeLayoutStatus = function() return {} end,
     GetGroupLootDiagnostics = probe("loot", {}),
     GetPetBattleDiagnostics = probe("pets", {}),
     GetForeverGroupFrameDiagnostics = probe("groups", "bounds"),
     GetForeverProtectedHUDDiagnostics = probe("protected", "bounds"),
 }
+addon.PopupBounds = { GetTooltipPresentationDiagnostics = probe("tooltip", { "GameTooltip=hidden" }) }
 addon.Mainhand = { GetEditModeDiagnostics = function(_, compact)
     return compact and "Active=7 | Geometry=current" or "Active=7 | GamepadPanels=details"
 end }
@@ -69,9 +71,14 @@ for _, absent in ipairs({"Topology diagnostics:", "Manual canvas", "Group frame"
     assert(not compact:find(absent, 1, true), "unnecessary default output: " .. absent)
 end
 local full = run("diag full")
-for _, name in ipairs({"text", "loot", "pets", "groups", "protected", "manual", "bubbles", "panels", "dialogue"}) do
+assert(not compact:find("Cinematic skip-dialog diagnostics:", 1, true)
+    and full:find("Cinematic skip-dialog diagnostics: not-attached", 1, true),
+    "active cutscene investigation state belongs only in requested full diagnostics")
+for _, name in ipairs({"tooltip", "interaction", "text", "loot", "pets", "groups", "protected", "manual", "bubbles", "panels", "dialogue"}) do
     assert(probes[name] == 1, "full diagnostics lost requested evidence: " .. name)
 end
+assert(full:find("Interaction visibility: ProfessionsFrame=hidden", 1, true),
+    "full support reports must include the requested missing-frame evidence")
 assert(full:find("diskRevision", 1, true) and full:find("GamepadPanels", 1, true)
     and full:find("User media", 1, true), "full report omitted detailed state")
 topology.status = "MISMATCH"

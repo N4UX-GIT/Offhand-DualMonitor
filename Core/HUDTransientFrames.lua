@@ -20,6 +20,173 @@ function Transient.Install(HUD, services)
     -- particular, do not register them as workspace panels, remember visibility,
     -- or add Escape-key protection.
     local transientHooks = {}
+    local specialPopupPoints = setmetatable({}, { __mode = "k" })
+    local specialPopupHooks = {}
+    local specialPopupNames = Policy.GetRetailSpecialPopupNames()
+
+    local function SamePopupPoint(a, b)
+        return a and b and a[1] == b[1] and a[2] == b[2] and a[3] == b[3]
+            and math.abs((a[4] or 0) - (b[4] or 0)) < 0.001
+            and math.abs((a[5] or 0) - (b[5] or 0)) < 0.001
+    end
+
+    function HUD:PositionPremadeGroupDialogs(m, preparing)
+        if not Offhand.isRetail or (InCombatLockdown and InCombatLockdown()) then return end
+        m = m or (Offhand.Viewport and Offhand.Viewport:GetMetrics())
+        local active = Offhand.db and Offhand.db.enabled and Offhand.db.seamRedirect
+            and m and m.isSpanned
+        local needed = {}
+        local known = {}
+        for _, name in ipairs(specialPopupNames) do
+            if _G[name] then known[_G[name]] = true end
+        end
+        -- Native collapse removes hidden dialogs from its list without
+        -- necessarily rebuilding the remaining anchor chain. A visible dialog
+        -- can still depend on a hidden root; keep that root in place until the
+        -- visible chain ends. Never change native visibility to maintain it.
+        for _, name in ipairs(specialPopupNames) do
+            local frame = _G[name]
+            if CanPositionMainhandTransient(frame) and (frame == preparing or (frame.IsShown and frame:IsShown())) then
+                for _ = 1, #specialPopupNames do
+                    if not CanPositionMainhandTransient(frame) or needed[frame] then break end
+                    needed[frame] = true
+                    if not frame.GetNumPoints or not frame.GetPoint or frame:GetNumPoints() ~= 1 then break end
+                    local _, relative = frame:GetPoint(1)
+                    if not known[relative] then break end
+                    frame = relative
+                end
+            end
+        end
+        for _, name in ipairs(specialPopupNames) do
+            local frame = _G[name]
+            if CanPositionMainhandTransient(frame) and frame.GetNumPoints and frame.GetPoint then
+                local state = specialPopupPoints[frame]
+                local current = frame:GetNumPoints() == 1 and { frame:GetPoint(1) } or nil
+                local owned = state and SamePopupPoint(current, state.applied)
+                if not active or not needed[frame] then
+                    if owned then Points(frame, state.original) end
+                    specialPopupPoints[frame] = nil
+                else
+                    local original = owned and state.original or current
+                    -- Keep Blizzard's dialog-to-dialog stack graph intact. Only
+                    -- its top root is relative to the full-screen parent.
+                    if original and original[2] == UIParent
+                        and original[1] == "TOP" and original[3] == "TOP"
+                        and frame.GetEffectiveScale then
+                        local scale = frame:GetEffectiveScale()
+                        local parentScale = UIParent:GetEffectiveScale()
+                        if scale and scale > 0 and parentScale and parentScale > 0 then
+                            local factor = parentScale / scale
+                            local desired = { "TOP", UIParent, "BOTTOMLEFT",
+                                (m.gameLeft + m.gameRight) / 2 * factor + (original[4] or 0),
+                                m.gameTop * factor + (original[5] or 0) }
+                            specialPopupPoints[frame] = { original = original, applied = desired }
+                            Points(frame, desired)
+                        end
+                    else
+                        specialPopupPoints[frame] = nil
+                    end
+                end
+            end
+        end
+    end
+
+    local function HookPremadeGroupPlacement()
+        if not Offhand.isRetail or not hooksecurefunc then return end
+        for _, name in ipairs({ "StaticPopup_SetUpPosition", "StaticPopupSpecial_Show", "StaticPopupSpecial_Hide", "StaticPopup_Hide" }) do
+            if type(_G[name]) == "function" and not specialPopupHooks[name] then
+                specialPopupHooks[name] = true
+                hooksecurefunc(name, function(dialog)
+                    -- SetUpPosition runs before Show; include that pending root.
+                    HUD:PositionPremadeGroupDialogs(nil, name == "StaticPopup_SetUpPosition" and dialog or nil)
+                end)
+            end
+        end
+    end
+
+    local notificationSpecs = Policy.GetRetailNotificationSpecs()
+    local notificationState = setmetatable({}, { __mode = "k" })
+    local notificationHooks = setmetatable({}, { __mode = "k" })
+    local function CaptureNotificationPoints(frame)
+        if not frame.GetNumPoints or not frame.GetPoint then return nil end
+        local count = frame:GetNumPoints()
+        if count < 1 or count > 2 then return nil end
+        local points = {}
+        for i = 1, count do points[i] = { frame:GetPoint(i) } end
+        return points
+    end
+    local function SameNotificationPoints(a, b)
+        if not a or not b or #a ~= #b then return false end
+        for i = 1, #a do if not SamePopupPoint(a[i], b[i]) then return false end end
+        return true
+    end
+    local function TranslateNotificationPoints(points, frame, m)
+        local scale, parentScale = frame:GetEffectiveScale(), UIParent:GetEffectiveScale()
+        if not scale or scale <= 0 or not parentScale or parentScale <= 0 then return nil end
+        local factor, result = parentScale / scale, {}
+        for _, point in ipairs(points) do
+            local relativePoint = point[3] or point[1]
+            if point[2] ~= UIParent or type(relativePoint) ~= "string" then return nil end
+            local x = relativePoint:find("LEFT") and m.gameLeft
+                or relativePoint:find("RIGHT") and m.gameRight or (m.gameLeft + m.gameRight) / 2
+            local y = relativePoint:find("TOP") and m.gameTop
+                or relativePoint:find("BOTTOM") and m.gameBottom or (m.gameBottom + m.gameTop) / 2
+            result[#result + 1] = { point[1], UIParent, "BOTTOMLEFT",
+                x * factor + (point[4] or 0), y * factor + (point[5] or 0) }
+        end
+        return result
+    end
+
+    function HUD:PositionRetailNotifications(m, nativeRefresh)
+        if not Offhand.isRetail or (InCombatLockdown and InCombatLockdown()) then return end
+        m = m or (Offhand.Viewport and Offhand.Viewport:GetMetrics())
+        local active = Offhand.db and Offhand.db.enabled and Offhand.db.seamRedirect and m and m.isSpanned
+        for _, spec in ipairs(notificationSpecs) do
+            local frame = _G[spec.name]
+            if CanPositionMainhandTransient(frame) and frame.GetEffectiveScale then
+                local current = CaptureNotificationPoints(frame)
+                local state = notificationState[frame]
+                local owned = state and SameNotificationPoints(current, state.applied)
+                if not active or not (frame == nativeRefresh or (frame.IsShown and frame:IsShown())) then
+                    if owned then Points(frame, unpack(state.original)) end
+                    notificationState[frame] = nil
+                elseif (frame.GetParent and frame:GetParent() ~= UIParent)
+                    or (frame.IsUserPlaced and frame:IsUserPlaced()) or frame.isManagedFrame then
+                    notificationState[frame] = nil
+                else
+                    local original = owned and state.original or current
+                    local stock = original and #original == 1 and SamePopupPoint(original[1],
+                        { spec.point, UIParent, spec.relativePoint, spec.x, spec.y })
+                    -- Native toast setup may supply two anchors and texture-kit
+                    -- offsets. Trust that completed transaction only; a later
+                    -- external/custom placement must cause periodic recovery to yield.
+                    if owned or stock or (spec.nativeOffsets and frame == nativeRefresh) then
+                        local desired = original and TranslateNotificationPoints(original, frame, m)
+                        if desired then
+                            notificationState[frame] = { original = original, applied = desired }
+                            Points(frame, unpack(desired))
+                        end
+                    else
+                        notificationState[frame] = nil
+                    end
+                end
+            end
+        end
+    end
+
+    function HUD:HookRetailNotifications()
+        if not Offhand.isRetail or not hooksecurefunc then return end
+        for _, spec in ipairs(notificationSpecs) do
+            local frame = _G[spec.name]
+            if CanPositionMainhandTransient(frame) and type(frame[spec.method]) == "function"
+                and not notificationHooks[frame] then
+                notificationHooks[frame] = true
+                hooksecurefunc(frame, spec.method, function()
+                    HUD:PositionRetailNotifications(nil, spec.nativeOffsets and frame or nil)
+                end)
+            end
+        end
+    end
     local secureTransientOwned = setmetatable({}, { __mode = "k" })
     local secureTransientPositioner
     local groupLootPreloadAttempted = false
@@ -171,13 +338,14 @@ function Transient.Install(HUD, services)
             and math.abs((tonumber(y) or 0) - spec.stockY) <= tolerance
     end
 
-    local function SecureScreenPoint(frame, point, x, y)
+    local function SecureScreenPoint(frame, point, x, y, relativePoint)
         if InCombatLockdown() then return false end
         local positioner = EnsureSecureTransientPositioner()
         if not positioner then return false end
         local ok = pcall(function()
             positioner:SetFrameRef("offhandTransient", frame)
             positioner:SetAttribute("offhandPoint", point)
+            positioner:SetAttribute("offhandRelativePoint", relativePoint or "BOTTOMLEFT")
             positioner:SetAttribute("offhandX", x)
             positioner:SetAttribute("offhandY", y)
             positioner:SetAttribute("offhandBounds", false)
@@ -187,12 +355,84 @@ function Transient.Install(HUD, services)
                     frame:ClearAllPoints()
                     frame:SetPoint(
                         self:GetAttribute("offhandPoint"),
-                        self:GetParent(), "BOTTOMLEFT",
+                        self:GetParent(), self:GetAttribute("offhandRelativePoint"),
                         self:GetAttribute("offhandX"), self:GetAttribute("offhandY"))
                 end
             ]])
         end)
         return ok
+    end
+
+    local overridePoints = setmetatable({}, { __mode = "k" })
+    local overrideCombatPending = false
+    function HUD:PositionRetailOverrideBar(m)
+        if not Offhand.isRetail then return end
+        local frame = _G.OverrideActionBar
+        if not frame then self.retailOverrideStatus = "absent"; return end
+        if InCombatLockdown() then
+            self.retailOverrideStatus = "deferred:combat"
+            if not overrideCombatPending and Offhand.RunOrQueueCombat then
+                overrideCombatPending = true
+                Offhand:RunOrQueueCombat(function()
+                    overrideCombatPending = false
+                    HUD:PositionRetailOverrideBar()
+                end)
+            end
+            return
+        end
+        if (frame.IsForbidden and frame:IsForbidden()) or not frame.GetNumPoints
+            or not frame.GetPoint or not frame.GetEffectiveScale then
+            self.retailOverrideStatus = "unavailable"; return
+        end
+        if not frame.GetParent or frame:GetParent() ~= UIParent then
+            overridePoints[frame] = nil
+            self.retailOverrideStatus = "yield:parent"; return
+        end
+        local state = overridePoints[frame]
+        local current = frame:GetNumPoints() == 1 and { frame:GetPoint(1) } or nil
+        local owned = state and SamePopupPoint(current, state.applied)
+        m = m or (Offhand.Viewport and Offhand.Viewport:GetMetrics())
+        local compatibility = Offhand.HUDCompatibility
+        local external = compatibility.HasCustomActionBarAddon and compatibility.HasCustomActionBarAddon()
+        local controller = compatibility.UsesControllerInterface and compatibility.UsesControllerInterface()
+        local active = Offhand.db and Offhand.db.enabled and Offhand.db.seamRedirect
+            and m and m.isSpanned and not external and not controller
+        if not active then
+            if owned then
+                if not SecureScreenPoint(frame, state.original[1], state.original[4] or 0,
+                    state.original[5] or 0, state.original[3]) then
+                    self.retailOverrideStatus = "restore-pending"; return
+                end
+            end
+            overridePoints[frame] = nil
+            self.retailOverrideStatus = external and "yield:external-actionbars"
+                or controller and "yield:controller" or owned and "restored" or "inactive"
+            return
+        end
+        if not owned then
+            overridePoints[frame] = nil
+            -- Adopt only the reviewed stock XML root. Never rewrite user or
+            -- replacement-addon placement, Edit Mode systems or native children.
+            if (frame.IsUserPlaced and frame:IsUserPlaced()) or frame.isManagedFrame
+                or not SamePopupPoint(current, { "BOTTOM", UIParent, "BOTTOM", 0, 0 }) then
+                self.retailOverrideStatus = "yield:custom-anchor"; return
+            end
+            state = { original = current }
+        end
+        local scale, parentScale = frame:GetEffectiveScale(), UIParent:GetEffectiveScale()
+        if not scale or scale <= 0 or not parentScale or parentScale <= 0 then return end
+        local factor = parentScale / scale
+        -- Native skin/art/width and slide animations remain untouched.
+        local desired = { "BOTTOM", UIParent, "BOTTOMLEFT",
+            (m.gameLeft + m.gameRight) / 2 * factor, m.gameBottom * factor }
+        if not SamePopupPoint(current, desired) then
+            if not SecureScreenPoint(frame, desired[1], desired[4], desired[5]) then
+                self.retailOverrideStatus = "placement-pending"; return
+            end
+        end
+        state.applied = desired
+        overridePoints[frame] = state
+        self.retailOverrideStatus = "mainhand"
     end
 
     local function PointMatches(point, relativeTo, relativePoint, x, y,
@@ -608,6 +848,9 @@ function Transient.Install(HUD, services)
     end
 
     function HUD:PositionMainhandTransientFrames(m)
+        self:PositionRetailOverrideBar(m)
+        self:PositionPremadeGroupDialogs(m)
+        self:PositionRetailNotifications(m)
         if not Offhand.db or not Offhand.db.enabled
             or not Offhand.db.seamRedirect then return end
         if InCombatLockdown() then
@@ -625,7 +868,9 @@ function Transient.Install(HUD, services)
 
         for _, spec in ipairs(mainhandTransientFrames) do
             local frame = ResolveMainhandTransient(spec)
-            if CanPositionMainhandTransient(frame, spec) then
+            if not spec.specialPopup
+                and not (Offhand.isRetail and (spec.retailSpecialPopup or spec.retailNotification))
+                and CanPositionMainhandTransient(frame, spec) then
                 pcall(function()
                     if spec.secure then
                         PositionSecureMainhandTransient(frame, spec, m)
@@ -645,7 +890,7 @@ function Transient.Install(HUD, services)
         -- Static popups are pooled and Blizzard may restore their stock CENTER
         -- point after OnShow. Reapplying the same desired point is a no-op, while a
         -- later native reset is repaired on the next layout/ticker pass.
-        for i = 1, 4 do
+        for i = 1, Offhand.isRetail and 0 or 4 do
             local frame = _G["StaticPopup" .. i]
             if CanPositionMainhandTransient(frame) then
                 pcall(function()
@@ -658,6 +903,8 @@ function Transient.Install(HUD, services)
     end
 
     function HUD:HookMainhandTransientFrames()
+        HookPremadeGroupPlacement()
+        self:HookRetailNotifications()
         PreloadGroupLootForSecurePositioning()
         PreloadPetBattleForSecurePositioning()
         -- Housing controls and the full-screen House Editor are load-on-demand.
@@ -671,15 +918,26 @@ function Transient.Install(HUD, services)
             if loader and loader.RegisterEvent and loader.SetScript then
                 self.mainhandTransientLoader = loader
                 loader:RegisterEvent("ADDON_LOADED")
-                loader:SetScript("OnEvent", function(_, _, addonName)
-                    if addonName ~= "Blizzard_HousingControls"
+                if Offhand.isRetail then
+                    for _, event in ipairs({ "UPDATE_OVERRIDE_ACTIONBAR", "UPDATE_VEHICLE_ACTIONBAR",
+                        "UNIT_ENTERED_VEHICLE", "UNIT_EXITED_VEHICLE" }) do loader:RegisterEvent(event) end
+                end
+                loader:SetScript("OnEvent", function(_, event, addonName)
+                    if (event == "UNIT_ENTERED_VEHICLE" or event == "UNIT_EXITED_VEHICLE")
+                        and addonName ~= "player" then return end
+                    if event == "ADDON_LOADED" and addonName ~= "Blizzard_HousingControls"
                         and addonName ~= "Blizzard_HouseEditor"
                         and addonName ~= "Blizzard_UIWidgets"
                         and addonName ~= "Blizzard_PVPMatch"
                         and addonName ~= "Blizzard_GroupLoot"
                         and addonName ~= "Blizzard_LootUI"
                         and addonName ~= "Blizzard_CombatText"
-                        and addonName ~= "Blizzard_PetBattleUI" then return end
+                        and addonName ~= "Blizzard_PetBattleUI"
+                        and addonName ~= "Blizzard_GroupFinder"
+                        and addonName ~= "Blizzard_StaticPopup"
+                        and addonName ~= "Blizzard_OverrideActionBar"
+                        and addonName ~= "Blizzard_ChallengesUI"
+                        and addonName ~= "Blizzard_StaticPopup_Game" then return end
                     HUD:HookMainhandTransientFrames()
                     HUD:PositionMainhandTransientFrames()
                     if C_Timer and C_Timer.After then
@@ -697,7 +955,9 @@ function Transient.Install(HUD, services)
             -- Do not attach addon scripts to secret-sensitive widget/score trees.
             -- Their stock anchors are adopted before combat and repaired by the
             -- existing layout/ticker pass after combat.
-            if not spec.secure and CanPositionMainhandTransient(frame, spec)
+            if not spec.secure and not spec.specialPopup
+                and not (Offhand.isRetail and (spec.retailSpecialPopup or spec.retailNotification))
+                and CanPositionMainhandTransient(frame, spec)
                 and not transientHooks[frame] and frame.HookScript then
                 transientHooks[frame] = true
                 frame:HookScript("OnShow", function()

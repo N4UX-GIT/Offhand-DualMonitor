@@ -1,3 +1,194 @@
+# Retail expanded notification candidate, awaiting live verification
+
+- Reporter follow-up explicitly on beta.24-retail-test.2: the end-of-Mythic+
+  completion panel remains centered across both screens. Supplied image shows
+  dungeon name, timer result, keystone upgrade and party portraits, consistent
+  with ChallengeModeCompleteBanner; /fstack was not captured. This is a live
+  test.2 completion-placement failure matching the audited candidate. Test.3
+  includes that root and its native PlayBanner post-hook. Do not treat this as
+  a test.3 failure or claim the test.3 handling is live confirmed yet.
+- Extended Retail shared-popup root handling to ordinary StaticPopup1..4 and
+  reviewed role/ready/invite confirmations, preserving linked stacks and hidden
+  roots. Removed competing Retail per-popup anchor writers. Other clients retain
+  prior policy. New standalone adapter covers keystone/start, completion banner,
+  main event toast final UpdateAnchor and independent level-up side display.
+- All 69 Lua suites pass on source/frozen snapshot; source, local installed and
+  extracted package six-manifest Lua 5.1/path/XML checks pass. Five modules updated
+  locally with hash verification; generated state and Companion preserved.
+  Deployment backup: `D:/Games/World of Warcraft/_offhand_deploy_backups/retail-notifications-20261031-192908-379`.
+- Test.3 ZIP: 769355 bytes, SHA256
+  `67ED31AAC15D4DBE576492CC8C3949F7E9F29CE1E12D5853EF3252F8FFE7C31A`.
+  All 76 package files match snapshot; no executable, tests, caches or account
+  data. Earlier test packages preserved. Build/inventory:
+  `D:/Games/World of Warcraft/_offhand_deploy_backups/retail-reporter-test3-20261031-192944-624`.
+- New candidate live geometry/action/taint checks are pending. No real or fake
+  notification, queue, timed key or completion event was activated by the agent.
+  Full acceptance matrix: docs/RETAIL-NOTIFICATION-CANDIDATE-20261031.md.
+
+# Retail notification coverage audit and reporter confirmation
+
+- Reporter confirms Premade Groups working. Exact confirming package/build not
+  supplied; do not infer a byte-identical installed package from the report alone.
+- Source audit retrieved 39 pinned files and reviewed selected root/lifecycle
+  contexts against current Offhand coverage. Source 12.1.5.70575 differs from
+  reporter 70688. Highest follow-ups: Mythic+ keystone/completion roots, distinct
+  LFG role/ready confirmations, independent level-up side display and event-toast
+  UpdateAnchor timing. Additional PvP/pet-battle ready dialogs merit review.
+- Several apparent gaps are inherited or owned elsewhere: pooled StaticPopup1..4,
+  AlertFrame reward subsystems, ghost button linked to top-center widget, native
+  Edit Mode Talking Head/timer/seat indicator, queue panel following its button.
+  Their lifecycle/ownership still needs QA; name absence alone is not a defect.
+- Audit only: no runtime, installed files, settings or reporter package changes;
+  no live queue/keystone/notification tests. Matrix, priorities and limitations:
+  docs/RETAIL-NOTIFICATION-AUDIT-20261031.md.
+
+# Retail active override-bar correction, local candidate
+
+- Developer confirms fixed and reports finding unit-frame previews in Advanced
+  Options. Record local vehicle placement and native configuration follow-up
+  resolved. This does not establish an exhaustive action/combat/taint pass.
+- Reporter test package 2 prepared:
+  `dist/Offhand-v2.1.2-beta.24-retail-test.2.zip` (767985 bytes), SHA256
+  `5325DA2E9CB04B188C52132316271274012BDF9C4327DB3DF16F6D60ECC447AF`.
+  Includes cinematic, Premade Groups, override-bar fixes and diagnostic extensions.
+  Frozen snapshot passes all 68 Lua suites. All 76 extracted files hash-match;
+  all six manifests pass paths/XML/Lua 5.1 validation. Test labels changed only
+  in the isolated snapshot; canonical source and installed metadata unchanged.
+  Portable bridge placeholders, no Companion executable or personal/generated state.
+  Instructions/checksum alongside ZIP; previous test.1 preserved.
+  Snapshot/extracted verification and per-file inventory:
+  `D:/Games/World of Warcraft/_offhand_deploy_backups/retail-reporter-test2-20261031-184739-380`.
+- Developer post-deployment visual retest: override bar appears fixed in the
+  supplied screenshots, now bottom-centered in Mainhand. Record user-reported
+  placement PASS only; ability/exit actions and taint evidence remain unrecorded.
+  Follow-up: a vehicle/player unit frame remains in an unwanted position and
+  native Edit Mode is unavailable from the menu while in the vehicle.
+- Pinned Mainline PlayerFrame.lua explicitly swaps PlayerFrame to unit vehicle
+  and PetFrame to unit player, reversing this on exit. PetFrame.xml inherits the
+  native Edit Mode pet system; EditModeManager.lua exposes ShowPetFrame preview.
+  Thus the visible Salvaged Chopper frame should be checked as PlayerFrame,
+  independently of PetFrame entries in /fstack (selected overlay is TimerTracker).
+  First test native configuration out of vehicle: open Edit Mode, show Pet Frame
+  preview, position player/pet frames, save and re-enter. Do not bypass the vehicle
+  Edit Mode restriction or add generic drag scripts to secure unit buttons.
+- Developer reproduced with a Salvaged Chopper in Ulduar: Retail 12.1.5 build
+  70688, Beta 24, combat=0, 4000x2560 span, right gameplay 2560x1440 at 1440,6.
+  Diag OverrideActionBar=shown, rect1059/0/930/100, overlap=both; screenshot shows
+  the native bar across the seam. /fstack selected TimerTracker, with override
+  and exit frames also listed. This establishes an active bar placement defect.
+- Candidate adopts only the stock Retail override root with the existing secure
+  anchor writer outside combat, at Mainhand bottom center. No native scripts,
+  fields, visibility, children, art or action changes. Hidden preparation,
+  conditional restoration, custom/provider/controller exclusions and coalesced
+  combat work are covered. Vehicle/actionbar events and viewport apply/reset
+  reconcile the anchor. Full diag adds RetailOverridePlacement status.
+- All 68 Lua suites and six-manifest Lua 5.1/path/XML validation pass. Three
+  candidate modules deployed to local Retail and hash verified; installed checks
+  pass. Full backup/inventory:
+  `D:/Games/World of Warcraft/_offhand_deploy_backups/retail-override-bar-20261031-182810-376`.
+  Generated state, SavedVariables, Companion and other installs preserved.
+- Local visual/action/taint retest pending after /reload. Exit/re-enter, verify
+  vehicle ability/exit controls and normal-bar restoration, then compare Siege
+  Engine/Demolisher and combat transitions. Reporter test.1 ZIP is unchanged.
+
+# Retail contextual-action inventory and read-only diagnostics
+
+- Source audit distinguishes skinned OverrideActionBar from unskinned vehicle
+  MainActionBar page changes, vehicle-leave, possession and Extra Abilities/zone
+  controls. OverrideActionBar's stock UIParent BOTTOM 0/0 anchor has no dedicated
+  Offhand placement rule: candidate gap, not a reproduced active vehicle defect.
+- Full interaction diagnostics now include main/possess/exit/override ownership
+  while hidden, protected/managed state and separate vehicle/override/temporary
+  native capabilities. No frame writes or synthetic native visibility. All 67
+  Lua suites pass. Reporter test.1 ZIP unchanged.
+- Existing local Retail process was inspected read-only. Initial screen showed
+  Trading Post; later capture returned inconsistent window content. No input,
+  vehicle activation, character change or client launch/closure was performed.
+  Active geometry, protected actions and taint remain unverified.
+- Frame/source inventory and local matrix:
+  docs/RETAIL-CONTEXT-UI-AUDIT-20261031.md.
+
+# Retail Premade Groups application and invitation dialogs, local candidate
+
+- Additional reporter evidence predates the test package: /fstack explicitly
+  names LFGListApplicationDialog and its Border; displayed source is
+  Interface/AddOns/Blizzard_GroupFinder/Mainline/LFGList.xml:1945. Reporter says
+  the problem occurs under Premade Groups > Dungeons when signing up for Mythic
+  groups, while regular Dungeon Finder appears correct. This independently
+  confirms the implemented root identity. No post-test visual/action pass yet.
+- Reporter package prepared: `dist/Offhand-v2.1.2-beta.24-retail-test.1.zip`
+  (766885 bytes), SHA256
+  `0CA547E8BF360471E6E128327BBAE78B0D41BE56A57170009181632CC85EEA5E`.
+  Frozen source snapshot passes all 67 Lua suites; all 76 extracted package files
+  hash-match that snapshot, and extracted six-manifest Lua 5.1/path/XML checks pass.
+  Only the snapshot's TOC release labels were changed for identification; canonical
+  source metadata and installed versions were not changed. Portable generated-state
+  placeholders are used; no Companion executable, tests, caches or account data.
+  Testing/install/rollback notes and checksum are beside the ZIP. Build snapshot,
+  extracted verification and per-file hashes:
+  `D:/Games/World of Warcraft/_offhand_deploy_backups/retail-reporter-test-20261031-173028-395`.
+- Reporter photos show LFGListApplicationDialog (Choose Your Roles/Sign Up) and
+  LFGListInviteDialog (Accept/Decline) across the seam. Retail 12.1.5 build 70688,
+  Interface 120105, addon Beta 24, Companion Beta 20/MATCH, 3840x1080, equal
+  1920x1080 displays, Mainhand RIGHT, effective scale 0.700, combat=0.
+- External native setup/show/hide post-hooks translate only a known UIParent TOP
+  stack root, retaining local offsets, frame scale, dependent links and hidden
+  roots still referenced by visible dialogs. No native scripts/fields, note-entry
+  changes, visibility or button ownership. Protected/forbidden/alternate parents
+  yield; owned points restore on end/disable/unspan. Generic dragging excludes
+  these roots; full interaction diagnostics now include them.
+- Pinned source study: Blizzard_GroupFinder/Mainline/LFGList.lua/.xml and
+  Blizzard_StaticPopup/StaticPopup.lua, revision 15881d522c44cd106d3d8660106ec9f9d2f44167,
+  source build 70575 (different from reporter). Native popup collapse can leave
+  a visible dialog anchored to a hidden root; regression preserves that dependency.
+- All 67 Lua suites and six-manifest Lua 5.1/path/XML checks pass. Four modules
+  deployed to local Retail: HUDTransientPolicy, HUDTransientFrames, HUDRecovery,
+  Canvas. Hash verification and installed validation pass. Full backup/inventory:
+  `D:/Games/World of Warcraft/_offhand_deploy_backups/retail-premade-dialogs-20261031-170648-665`.
+  Other clients, generated bridges, SavedVariables, Companion and unrelated
+  pending source changes were preserved.
+- Live retest pending: /reload, select roles, type a note, sign up, receive an
+  invitation, accept/decline, repeat with both dialogs present and close either
+  first. Check native Escape/cancel, disable/unspan, combat deferral and fresh
+  Lua/taint evidence. Diag PVEFrame hidden means it is not the open-photo state;
+  inactive Extra Action/hidden override roots do not reproduce the vehicle issue.
+
+# Retail cinematic, movie and subtitle confinement, local candidate
+
+- Local visual retest, 31 October 2026: developer reports "Appears to be resolved"
+  after the Retail deployment. Two supplied 4000x2560 dwarf-intro screenshots show
+  the cinematic picture and one-/two-line subtitles with their backgrounds within
+  Mainhand; the second shows Blizzard's Yes/No skip confirmation centered there.
+  Record as user-reported visual PASS for this new-character intro and confirmation
+  placement. The images do not independently demonstrate clicking Yes/No, a
+  standalone movie, playback-end restoration or combat/taint safety. Those broader
+  checks and the original dungeon/vehicle report remain pending.
+- Authorized Retail deployment: updated
+  `D:/Games/World of Warcraft/_retail_/Interface/AddOns/Offhand`.
+  Ten differing files copied (CinematicPresentation, Init, Viewport, six manifests
+  and CHANGELOG); all 74 non-generated addon files match source by SHA256.
+  Both generated bridges retain their original hashes. Full pre-update backup
+  and deployment hash inventory:
+  `D:/Games/World of Warcraft/_offhand_deploy_backups/retail-cinematic-20261031-162624-141`.
+  Installed six-manifest path/XML/Lua 5.1 validation passes. Other client installs,
+  SavedVariables and Companion unchanged. Live candidate retest remains pending.
+- User reproduced new-character cutscene skipping failure on the local setup.
+  The 4000x2560 dwarf-intro screenshot also shows subtitles outside Mainhand.
+- Native skip-dialog recovery now includes Retail and PLAY_MOVIE. The Retail-only
+  CinematicPresentation adapter confines cinematic/movie/subtitle roots to Mainhand,
+  corrects native camera aspect bounds and limits subtitle text/background width.
+  Native playback, visibility, input, confirmation, subtitle text and CVars remain
+  Blizzard-owned. Owned anchors/dimensions restore on end/disable/unspan;
+  later external changes are preserved. Combat work defers and coalesces.
+- All 65 Lua 5.1 suites and six-manifest path/XML/Lua syntax checks pass.
+  Simulation covers mixed-height/portrait/wide geometry, camera ratios, subtitle
+  refitting, native refresh, restore/ownership and stale/combat lifecycle work.
+- Live candidate retest and current taint evidence remain required. Test the same
+  new-character intro and a standalone movie, including long subtitles, native
+  Escape/Yes/No, playback end, disable/unspan, resizing and combat deferral.
+  The Retail addon was subsequently updated as recorded above; Companion unchanged.
+- Detailed evidence: docs/RETAIL-CUTSCENES-AND-CONTEXT-UI-20261031.md.
+
 # Temporary display-reset capture tooling
 
 - Separate OffhandDisplayProbe addon under tools/display-capture. Optional Offhand
@@ -1680,3 +1871,518 @@ pet battles and recorded source defect fixed and resolved. Prior pending checkli
 for this scope remain historical rather than new release blockers. No additional
 live tests are implied. Linux/Wine is assumed fixed with direct reporter
 verification outstanding. Performance investigation is the next active work.
+
+# CurseForge fixes, 29 October 2026 local candidate
+
+Implemented the follow-up to OH-CF-20261029. No deployment or release promotion.
+
+- Chat regressions cover stale secondary records, hidden General while Combat Log
+  is selected, redocking during a queued restore, explicit workspace placement
+  with automatic docking disabled, and EllesmereUIChat ownership.
+- Shared HUD tests cover second-character adoption without rewriting edits at
+  capacity, separate rollback sources, stale foreign-character records, geometry
+  variants, unknown name collisions, activation retry and native-window round trips.
+  External-owner source entries retain their original anchors and default flags.
+- Spellbook ancestry regression excludes nested content from independent restore.
+- Stacked world-tooltip tests cover native scale-aware bounds, comparisons,
+  external ownership, protection, combat, idempotence and restoration. Bubble tests
+  cover native clamp bounds, protected roots, unchanged ticks and feature/window
+  restoration. Existing Forever replacement and Retail instance tests still pass.
+- Seam tests cover decimal-comma input at 50.1%, matching 0.1 percentage-point
+  step buttons and both 10%/90% endpoints. Setup tests cover Companion-first flow
+  and the existing deliberate software-download handoff.
+- All 62 Lua suites, six manifest/Lua 5.1 checks, Companion preference/layout tests
+  and release-metadata checks pass. Existing native binaries remain frozen.
+
+Live acceptance required: Retail default chat and Ellesmere modules on horizontal
+and stacked displays; reload, zoning and cold login; spellbook open/close, tabs,
+minimize and protected actions; two-character shared layout selection and rollback;
+world/cursor tooltips and comparisons at each Mainhand edge; outdoor speech bubbles;
+combat/taint evidence; translated onboarding and wizard wrapping at supported scales.
+Protected/forbidden and instance-only bubbles remain subject to native restrictions.
+Native loading-screen cropping and the reported mixed-resolution border need further
+client evidence; no loading-screen positioning API was found. See the issue ledger.
+
+## Retail deployment and initial live smoke, 29 October 2026
+
+- Active Retail installation is `D:\Games\World of Warcraft\_retail_`, confirmed
+  by the launcher registration, running Wow.exe and Companion verification.
+  The old `C:\Games\World of Warcraft\_retail_` folder is not the active client.
+- Deployed and hash-verified 24 changed files. Backups and deployment manifest:
+  `dist/local-deployments/20261029-curseforge-5ec76393/`. Sixteen Offhand/Edit Mode
+  state files were backed up privately. Generated topology/Forever state and the
+  installed Init capacity callback were preserved. The installed Controls.lua
+  paragraph helper was also preserved. No Companion rebuild or release promotion.
+- Runtime: Retail 12.1.5 build 70575. Used the launcher's existing account and
+  preselected idle test character; no credentials, gameplay, combat or public
+  chat messages were entered. An initial WOW51900319 disconnect interrupted the
+  first attempt. One ordinary reconnect succeeded; no cause is attributed to the
+  addon from that disconnection alone.
+- PASS, limited live smoke: addon loaded in-world, the expected stale-window
+  notice appeared while restored, the frozen Beta 20 Companion recognized the
+  candidate and applied the existing 4000x2560 topology (2560x1440 Mainhand plus
+  1440x2560 portrait workspace), and `/reload` returned to the idle character.
+  The native spellbook opened visibly on Mainhand after that reload.
+- Native WoW screenshots confirm the complete spanned canvas. The Computer Use
+  window capture reports only 2560x1440 and mis-maps pointer coordinates on this
+  span. Drag attempts were rejected by bounds/non-target-window checks. No drag
+  result is claimed. Pointer automation stopped; manual spellbook/chat placement
+  was requested before keyboard-driven reopen/reload checks continue.
+- Saved BugGrabber record count remains eight, latest error timestamp
+  2026-10-28 11:41:02 UTC, before this run. Session advanced through 255/256.
+  No new error record was observed after startup/reload. This is not combat/taint
+  acceptance. Ellesmere/Naowh/ElvUI/Chattynator modules are absent from this client.
+- Status: PARTIAL, awaiting manual placement. The test client and Companion remain
+  open for that requested handoff; no further unattended input is running. Close
+  the target test client and the test-launched Companion after evidence capture.
+  Workspace persistence, top-left chat placement, native tab overlap, stacked
+  physical displays, external UI modules and protected-action checks remain open.
+
+### Manual-placement continuation, 29 October 2026
+
+- User confirmed spellbook and chat placement on Offhand. Full native 4000x2560
+  screenshots confirmed the spellbook near the portrait workspace top and the
+  native chat tab strip below it. This was not a top-left chat placement test.
+- PASS: P closed the spellbook; P reopened it at the same workspace position with
+  the complete spell list visible. After a visually verified `/reload`, native
+  chat tabs and the edit box remained at their previous workspace positions.
+- FOLLOW-UP: reload restored PlayerSpells on Talents instead of the previously
+  open Spellbook tab. The larger Talents panel extended beyond the portrait
+  workspace. Pressing P selected Spellbook and returned it to the original visible
+  position. Spellbook availability/placement passes this path; selected-tab reload
+  persistence and oversized-tab placement do not pass.
+- No visible Lua-error dialog. After reload and normal client exit, BugGrabber
+  still contains eight records, latest timestamp 2026-10-28 11:41:02 UTC. No fresh
+  record appeared. Incoming multi-tab chat overlap, zone transitions, cold login,
+  external UI modules, stacked displays and combat/taint remain unverified.
+- Evidence: five native screenshots, 06:16:12 through 06:17:32 local time, copied
+  into the ignored deployment folder's private-screenshots directory. Updated
+  live-smoke.json records this limited acceptance and the Talents follow-up.
+- Cleanup: closed the target WoW window normally with Alt+F4 and verified Wow.exe
+  exited. Battle.net retained. Companion remains minimized in the notification
+  area; an ordinary launch returned its existing-instance notice, which was
+  dismissed. No process was force-killed. Nothing published.
+
+### PlayerSpells tab and portrait fit candidate, 29 October 2026
+
+- Cause: the standalone reload path called Show without selecting a tab. Native
+  PlayerSpells UpdateTabs chooses Talents when no available tab is selected.
+- Candidate retains the last visible non-inspect tab as a semantic profile value,
+  resolves current tab IDs and availability, and selects it before automatic
+  reload opening. Unknown/unavailable values yield to Blizzard. Ordinary opens
+  and already-visible selections are not replaced.
+- Native root size changes queue a bounded placement pass. A wider PlayerSpells
+  root scales down only as needed to fit the workspace rectangle with margins;
+  returning to a smaller tab restores the original scale and saved anchor.
+  Scale ownership uses weak side state and relinquishes a value changed by another
+  owner. No child anchors, tab scripts, native registry or minimize CVar changes.
+- Regression coverage: Spellbook and intentionally chosen Talents reload paths,
+  runtime tab IDs, fitting, original scale/anchor restoration, native registry,
+  combat deferral, foreign scale changes and unknown/unavailable saved tabs.
+  All 62 Lua suites and six manifests with Lua 5.1 syntax/path/XML validation pass.
+- Deployed three runtime files with hash verification to the active Retail root.
+  Previous files and private state are in ignored
+  `dist/local-deployments/20261029-playerspells-reload/`. Live retest in progress.
+- PASS, targeted live retest: Retail 12.1.5 build 70575, existing idle character,
+  same 4000x2560 span and portrait workspace. User applied the Companion span.
+  P opened Spellbook at the prior position. `/reload` restored Spellbook directly,
+  with the same visible contents, size and position. SavedVariables contained
+  `workspacePlayerSpellsTab = "spellbook"`.
+- Selected the native Talents tab with the local QA command
+  `/run PlayerSpellsFrame:SetTab(PlayerSpellsFrame.talentTabID)` because pointer
+  control mis-maps the spanned window. No talent points or loadouts were changed.
+  Talents fit completely inside the portrait workspace. A second `/reload`
+  retained Talents and the fitted geometry; the saved semantic value was talents.
+  P returned Spellbook to its original size/position. P close/reopen also passed.
+  Chat tab-strip/edit-box positions remained unchanged through both reloads.
+- Six native full-span screenshots from 06:25:27 through 06:28:28 local time are
+  retained privately in that deployment folder. No visible Lua error; after normal
+  client exit BugGrabber still has eight historical records, latest timestamp
+  2026-10-28 11:41:02 UTC. No fresh record appeared.
+- Result: PASS for selected-tab reload, portrait Talents containment and returning
+  to/reopening Spellbook on this Retail setup. Native minimize/maximize, talent
+  interaction, combat/taint, other clients and external UI modules remain outside
+  this acceptance. Closed the target client normally; Battle.net and the existing
+  Companion retained. No release publication or Companion binary changes.
+
+### CurseForge review and installed UI compatibility, 29 October 2026
+
+- User requested reviewable website/CurseForge changes and remaining validation.
+  User explicitly chose to keep the current display arrangement and skip combat.
+  Physically stacked display and combat/taint acceptance are therefore deferred.
+- Review source: `docs/CURSEFORGE_DESCRIPTION.md` and six Website HTML pages.
+  Local review `dist/review/20261029-curseforge/index.html` contains exact diffs,
+  links to page previews and the full revised description. Nothing published.
+  Companion is first in setup links/instructions; backup guidance precedes steps.
+  Shared layout, fine seam and native loading-screen limitations are explained.
+- Website integrity passed six pages and 282 local references. Browser preview
+  verified readable backup guidance before the setup cards. Screenshot retained
+  at `dist/review/20261029-curseforge/setup-preview.png`.
+- Retail installed EllesmereUI modules (Chat 9.6.9) and Naowh Smart Reminders
+  1.4.29. Completed Ellesmere's initial module picker using its selected defaults
+  and retained the default Ellesmere style. Existing profiles/state were backed
+  up privately before launch. This is not a Naowh full-profile installation.
+- Found and fixed missing EllesmereUIBags ownership detection when hidden native
+  ContainerFrame1 exists. Added separate EllesmereUIDataBars status-system
+  ownership, including when Ellesmere action bars are absent. Regression tests
+  cover both module combinations. Only HUDCompatibility.lua was newly deployed.
+- Temporary local-only `Offhand_LocalQA` records loaded modules and frame geometry,
+  never private chat text or network traffic. Startup snapshots confirm loaded
+  Ellesmere chat/bags/bars/minimap and Smart Reminders; all four ownership probes
+  yield to Ellesmere. Existing spellbook remains visible on the workspace.
+- Applied the existing Companion 4000x2560 span. The input tool did not produce
+  visible `/reload` text in Ellesmere's chat entry; no command was submitted
+  blindly. Requested manual `/reload` then `/offhandqa messages` for controlled
+  local green General/red Combat Log markers and tab selection. These markers
+  do not send chat messages. Live tab-overlap acceptance is pending this handoff.
+- BugGrabber still has eight historical records, latest 2026-10-28 11:41:02 UTC.
+  No new saved error record yet. All 62 Lua suites, six manifests, Companion
+  preferences/layout and release-metadata checks pass before live continuation.
+- Current test client and existing Companion remain open for the manual handoff.
+  Close the target client normally and remove the temporary diagnostic addon
+  after evidence capture. Backups/evidence are private under
+  `dist/local-deployments/20261029-compatibility/`.
+
+#### Manual handoff results and cleanup
+
+- User confirmed manual `/reload` and `/offhandqa messages`. Saved capture 6
+  selected ChatFrame2, with ChatFrame1 hidden and ChatFrame2 shown. Its 798x776
+  message area remained anchored to the unchanged 798x800 primary dock, as in
+  the preceding spanned capture. PlayerSpellsFrame was visible on the workspace.
+  Ellesmere chat/bags/bars/minimap and Smart Reminders remained loaded; all four
+  external ownership probes returned true.
+- General retained one local green marker, but Combat Log retained zero red
+  markers. This synthetic Combat Log test is not valid evidence of incoming
+  message separation. The native visibility result passes; the reported visual
+  overlap remains unverified. Do not infer complete reload/zoning position
+  acceptance for the reporter's top-left placement from these captures.
+- Cold relaunch entered the same idle character at the ordinary unspanned window
+  size, with the existing topology notice dismissed. The subsequent span/check
+  encountered server disconnect WOW51900319. Cold spanned persistence is therefore
+  inconclusive, rather than passed. No credentials, gameplay or combat used.
+- Closed the target client normally. Retained private diagnostic SavedVariables
+  and removed the temporary installed Offhand_LocalQA addon. Existing Companion,
+  launcher, addon profiles and Windows monitor arrangement were preserved.
+- Remaining acceptance: real incoming chat across tabs, exact top-left placement
+  through zoning/cold span, two-character shared-layout migration/rollback,
+  physical stacked tooltip/bubble rendering and combat/taint. The latter two were
+  explicitly deferred by the user. Original mixed-landscape border geometry
+  remains unreproduced; native loading artwork remains a documented limitation.
+
+### Ellesmere visible-panel continuation, 30 October 2026
+
+- Consulted the shared knowledge project's README, research skill, `status`,
+  client-scoped `FCFDock_SelectWindow` search and an ownership/rendering question
+  before engineering decisions. Retrieval had no exact docking evidence.
+  Recorded the gap and local installed-source interpretation in shared knowledge
+  `knowledge/offhand-ellesmere-chat-renderer-gap-20261030.md`. This is source
+  interpretation, not a combat/taint claim or proof of an upstream defect.
+- Ellesmere chat panels are UIParent children, separate from the native chat
+  frames. Expanded the temporary diagnostic addon to record those panels' actual
+  shown/visible states. It writes no third-party frame properties or hooks and
+  sends no network messages. It adds one local General marker after startup.
+- Retail GetBuildInfo: 12.1.5, 70575, Oct 22 2026, interface 120105. Cold launch
+  through the existing authenticated launcher, same selected idle test character.
+  Dismissed the expected unspanned topology notice; selected Combat Log by a real
+  pointer click on its visible tab before spanning. No programmatic dock select.
+- Captures 10/11: unspanned General native frame and Ellesmere panel visible;
+  Combat Log native frame and panel hidden. Capture 12 after actual tab click:
+  General native frame and panel hidden; Combat Log native frame and panel visible.
+- Applied the unchanged Companion span, 4000x2560, Mainhand 2560x1440 to the right
+  of the portrait workspace. Captures 13/14 at 80/120 seconds retain Combat Log
+  selection and exclusive native/panel visibility. Chat dimensions match the
+  previous run: primary 798x800, Combat Log 798x776. The full-span screenshot
+  shows no green General marker through the selected Combat Log panel.
+- Spellbook automatically restored visibly on the portrait workspace after span,
+  809x883 at scale 1. No disconnect this run. This accepts cold launch followed by
+  manual Companion spanning on this existing saved setup, not automatic spanning,
+  the reporter's exact top-left position, or zoning.
+- PASS for this visible General-to-Combat-Log transition and cold-launch/manual
+  span restoration. Incoming multi-tab traffic remains unverified. No descendant
+  ScrollingMessageFrame was returned by this panel enumeration, so no custom
+  message-buffer counts are claimed. A hidden parent panel still establishes
+  that its descendant renderers are hidden on these captured states.
+- Targeted chat persistence, Mainhand/shared-layout, window-mode layout and HUD
+  compatibility Lua suites pass. Existing deferred stacked/combat and two-character
+  live acceptance remain open. No runtime source or third-party addon changed.
+- BugGrabber contains eight historical errors, latest Unix 1793187662
+  (28 October 2026 11:41:02 UTC), unchanged from before this run. No new saved
+  error record. Combat/taint safety was not tested.
+- Closed the target client normally and removed the temporary installed QA addon.
+  Existing Companion/launcher, profiles and Windows arrangement preserved.
+  Private captures and native full-span screenshot retained in ignored
+  `dist/local-deployments/20261030-chat-renderer/`.
+
+### Closed PlayerSpells reload follow-up, 30 October 2026
+
+- User found a missing acceptance case: Spellbook/Talents closed before reload
+  still reopens. Previous live acceptance covered open-before-reload only.
+- Native PlayerSpellsFrame emits PlayerSpellsFrame.CloseFrame on hide and hides
+  itself on PLAYER_LEAVING_WORLD. Verified upstream at immutable Gethe UI source
+  15881d522c44cd106d3d8660106ec9f9d2f44167, Blizzard_PlayerSpellsFrame.lua,
+  OnHide lines 52-65 and OnEvent lines 67-73. Shared corpus query initially stale;
+  rebuilt its index and queried PLAYER_LOGOUT before choosing the observer design.
+- Added an idempotent Retail EventRegistry observer. Deferred close evaluation
+  preserves transient hide/show and pre-transition intent; an actual close clears
+  only openWorkspacePanels.PlayerSpellsFrame. No OnHide hook or native-field write.
+- Regression covers coalescing, native close, preserved anchor/semantic tab,
+  transient hide/show, transition ordering, later close and non-Retail exclusion.
+  All 62 Lua suites and six manifest/path/XML/Lua 5.1 checks pass. No new live
+  acceptance or combat/taint claim for this change.
+- Installed candidate's two base files exactly matched the previous source before
+  applying this fix. Backed up and deployed Canvas.lua and CanvasPersistence.lua
+  with hash checks. Evidence: ignored dist/local-deployments/20261030-closed-panel/.
+  Existing running WoW client was not controlled or closed during this follow-up.
+- Retest: reload once to load new code; open then explicitly close Spellbook;
+  reload again and verify it stays closed. Repeat with Talents. Finally leave each
+  tab open through reload to confirm selected-tab restoration still works.
+- User also confirmed loading cropping and OpenMap errors without Offhand.
+  See ISSUES.md and the focused OpenMap investigation. Third-party files unchanged.
+
+### Recovery dialog and status ownership, 30 October 2026
+
+- User screenshot shows dense centered recovery text over translucent native
+  popup chrome. Routed recovery confirmations through the existing opaque Offhand
+  card. Larger left-aligned body, paragraph breaks, native-layout consequence
+  retained, content-driven height, existing Mainhand fit/position behavior.
+  Shared card resets alignment/font for other dialog types; confirmation still
+  invokes the action once and Cancel performs no recovery.
+- Shared status/search consulted first. Search index was stale; rebuilt and
+  queried StatusTrackingBarManager. No local result, which is a coverage gap.
+  Inspected installed Ellesmere sources instead. ActionBars Secure.lua lines
+  313-319 hides/unregisters the native status manager when its Blizzard-data-bar
+  option is false. Retail default false is defined in EllesmereUIActionBars.lua
+  around line 724. Lite.GetAddon(name,true) is a read-only cross-addon accessor
+  in EllesmereUI_Lite.lua around lines 103-108.
+- Saved Ellesmere configuration has one inspected ActionBars profile, no explicit
+  Blizzard-data-bar override and XP barVisibility=always. This is saved config,
+  not a live renderer measurement. No account/profile names or chat recorded.
+- Removed false standalone DataBars ownership and added the explicit ActionBars
+  Blizzard-data-bar opt-in. Tests cover native ownership with DataBars alone,
+  custom status ownership, Blizzard status override retaining action-bar ownership,
+  and unavailable accessor fallback. All 62 Lua suites and six manifest/path/XML/
+  Lua 5.1 validation pass. Existing confirmation gate regression also passes.
+- Candidate deployed to active Retail, 13 files backed up and hash verified.
+  Init.lua merged only the popup changes, preserving the installed local
+  callback. Locale deployment changed only the recovery confirmation key.
+  No third-party code or profiles changed. Requested manual reload and open-only
+  preview for visual acceptance. XP replacement live bounds still unverified.
+- User completed reload and open-only preview. Native window observation confirmed
+  an opaque, correctly layered dialog, larger left-aligned paragraphs, complete
+  text and visible Accept/Cancel buttons without overlap or clipping. Captured
+  native screenshot privately as recovery-preview-private.jpg. Did not accept
+  recovery, move frames or close the user's existing client.
+- Further inspection of the current test character's AddOns.txt shows the
+  Ellesmere parent disabled despite child modules marked enabled. ActionBars
+  depends on the parent. Therefore its conditional native-bar suppression is not
+  established as the cause in this session. Requested read-only native status
+  container geometry, actual child-addon load state and UnitXPMax to resolve the
+  remaining XP diagnosis; earlier saved profiles are not current runtime evidence.
+- User's first live XP probe: StatusTrackingBarManager shown=true,
+  EllesmereUIActionBars actually loaded=false, UnitXPMax=12795. Both status
+  containers shown=false, width approximately 571 and height 17, at UIParent
+  x=1786.8811 and y=97.5714/118.5714. Their bounds are within the current Mainhand
+  region, so this observed absence is native visibility rather than off-screen
+  placement. Requested GameRules XP eligibility, XP-disabled state, level/cap
+  and selected bar indices before attributing the native hidden state.
+- The first eligibility probe included an unguarded optional helper and raised
+  a nil-function diagnostic error. Acknowledged and replaced the probe with a
+  guarded read. This diagnostic error is not an addon regression and prevents a
+  blanket no-new-error claim for this session.
+- Final guarded live output: XP disabled=true, level=12; selected bar indices
+  empty. Current XP report resolved as character XP gains disabled, not displaced
+  status containers or active Ellesmere suppression. No character settings,
+  frame visibility, XP gain state or addon profiles changed. User's existing
+  client remains open for their own testing. Recovery readability live acceptance
+  passed; separate ownership correction remains statically/simulated verified.
+
+### User acceptance and map/loading continuation, 30 October 2026
+
+- User confirms native XP bar visible on a character with XP gains enabled.
+  This accepts the earlier diagnosis without forcing native bar visibility.
+- User confirms Spellbook and Talents remain closed after reload when closed
+  beforehand. Closed-panel candidate now has explicit user live acceptance.
+- User finds revised recovery body oversized. Reduced the body from
+  GameFontHighlightLarge to normal GameFontHighlight while retaining opaque
+  background, paragraph spacing, left alignment and measured height. Merged the
+  one-line installed Init change without replacing other local additions.
+- Shared knowledge status/search consulted for loading events and texture UVs.
+  Rebuilt stale index. LoadingScreen documentation declares enable/disable events
+  and no functions. No runtime loading-frame or rectangle control demonstrated.
+  This is a source-contract finding, not proof that every client implementation
+  lacks an undiscovered control.
+- Continued OpenMap independently of Offhand. Linked upstream repository 404;
+  installed Retail v0.7.1-beta MIT license checked. Prepared and deployed only two
+  local OpenMap files with unchanged originals retained and exact patch/hash
+  evidence under ignored dist/local-deployments/20261030-openmap-candidate/.
+  Focused reviewed-function simulations pass for invalid/zero canvas geometry,
+  state preservation, bounded deferred recovery and phase-preserving grain UV
+  rebasing. Both complete files pass Lua 5.1 syntax. Manual live retest pending.
+- No Companion source/binary changes, no external publication, no profile edits,
+  no automatic window resize during loading and no loading-art fix claimed.
+
+### OpenMap candidate withdrawal and baseline comparison
+
+- User accepts smaller recovery text but reports map does not display. Withdrew
+  the candidate. Restored both original installed files after exact candidate-byte
+  checks; resulting hashes match preserved originals. No dialog rollback.
+- User reloaded original OpenMap and reports grain UV error plus native
+  WorldQuestDataProvider OnHide nil-ticker warning. Asked explicit original-map
+  visibility result because the supplied error report does not state it. The map
+  need not have been left open during the later screenshot. Do not infer invisible
+  original map, candidate causality or resolved initialization without that answer.
+- Current character differs from the earlier XP-disabled test character.
+  Saved OpenMap settings show no custom anchor/size, not live frame geometry.
+  Full native screenshots retained privately; no profile or geometry reset.
+
+## Final local retest, 30 October 2026
+
+Target: Retail 12.1.5 build 70575, installed OpenMap v0.7.1-beta.
+User confirmed the map remained invisible with original OpenMap files. Temporary
+read-only diagnostics showed zero map anchors, native area none, and a zero-size
+canvas. Offhand now preserves Retail WorldMapFrame native panel registration
+and avoids synthetic panel eviction. User reloaded and confirmed map appears.
+All 63 Offhand Lua suites and six-manifest syntax/path validation passed.
+
+WorldMap.lua remains byte-for-byte original. Close.lua contains only the local
+grain correction. A separately observed Extras.lua hover failure used a map ID
+without a stitched rectangle. The local guard skips unavailable/degenerate hover
+coordinates and labels, then resumes on valid input. Focused tests execute the
+actual candidate functions; missing rectangles, zero bounds, missing cursor and
+valid recovery pass. Extras.lua passes Lua 5.1 syntax validation.
+
+Installed SHA256:
+- WorldMap.lua: CEB4E17C79D086134A3230636BD0A408904D8762CEDEAC96B80EC392BF8C2D95
+- Close.lua: E41F860878177F010380A231477F092B58D2D1790F6729825C43581ACE2A6778
+- Extras.lua: F6818A2CDCF7D4A9832AE3C04C56915FA89D4B0819D5EF7C616E031B702AB237
+
+After reload, reopen/close twice, zoom and zone hovering, user explicitly reports:
+"Map visible; no new errors". This accepts this local out-of-combat workflow,
+not general compatibility or combat/taint safety. Historical error entries can
+remain. Temporary /offhandmapqa command removed; profiles unchanged. Third-party
+patches remain outside Offhand runtime/package and addon updates may replace them.
+Original backups and test drivers remain under ignored local-deployments folder.
+No release, publication or upstream message occurred.
+
+Loading comparison: user confirms artwork visible after Companion Restore Window
+on one monitor. Restored span afterward using Span WoW Now (4000x2560). Windows
+monitor arrangement unchanged. This verifies a manual workaround; spanned native
+loading-art cropping remains unresolved. No automatic loading resize or Companion
+binary change was implemented. Recovery dialog font and XP-enabled-character bar
+visibility are accepted by user; closed Spellbook/Talents survive reload.
+## CurseForge Beta 24 package prepared, 30 October 2026
+
+Prepared addon-only 2.1.2-beta.24 from the current working tree. All six TOCs
+identify addon beta.24 and retain Companion beta.20/protocol/minimum metadata.
+Companion binary untouched. Knowledge status consulted; packaging retrieval
+reported stale index, so packaging decisions use the live packager, manifests,
+local testing/release skill and direct archive evidence, not retrieval absence.
+
+All 63 Lua suites, release metadata regressions and source six-manifest Lua 5.1,
+XML/path validation pass. Extracted archive also passes six-manifest validation.
+Archive CRC passes and all 75 entries match the intended source bytes exactly.
+No diagnostics, OpenMap patches, generated topology, screenshots, executables,
+research cache or development tooling included.
+
+Artifact: dist/curseforge-beta24-20261030/dist/Offhand-v2.1.2-beta.24.zip
+Size: 760912 bytes.
+SHA256: 1582D795E1648A99406E85B93A9B0BF1BD3B15B85092ED62BA091512150FCAEA
+The same folder contains checksum, upload changelog and release-manifest evidence.
+Local source snapshot retained. No new packaged live-client run, combat/taint
+acceptance or other-client live acceptance claimed. Known gaps and user-report
+focus are explicit in the changelog. No commit, tag, upload or publication made.
+## Stock OpenMap with packaged Beta 24 accepted, 30 October 2026
+
+The previous no-error map test used local OpenMap patches and was not stock
+compatibility evidence. Backed up installed Offhand and OpenMap, removed local
+Close.lua/Extras.lua patches, and deployed exact packaged Beta 24 to Retail.
+User then reports reinstalling OpenMap through CurseForge, restarting Retail,
+reopening/closing twice, zooming and hovering: "Map visible; no fresh errors".
+Post-test hashes confirm WorldMap.lua, Close.lua and Extras.lua match preserved
+original v0.7.1-beta bytes; all 73 non-generated Offhand package files match Beta24.
+Generated bridges and profiles preserved. No local OpenMap patches remain.
+
+This accepts stock OpenMap v0.7.1-beta plus packaged Offhand Beta24 for the
+specified Retail 12.1.5 build 70575 workflow and current geometry. The downloaded
+CurseForge archive was not independently available; reinstall is user-reported
+and the three relevant original source hashes were independently verified.
+Earlier independent error reports remain historical evidence, not proof the
+current combination fails. No universal error-free, combat/taint or other-client
+claim. Full deployment evidence is in ignored local-deployments/
+20261030-retail-clean-openmap-beta24/deployment.json. No package/source runtime
+changes, commit, upload or publication made during this acceptance.
+
+## Shared HUD and recreated-character candidate, 31 October 2026
+
+Retail 12.1.5 build 70575 report: shared Offhand and old individual rows both
+visible; shared placement differs; Noggtester remembers Nearlytwenty's layout;
+recreating a same-name character does not repeat the first-character setup flow.
+Screenshots compare shared and individual layouts. Native account layouts are
+account-wide, so old individual rows being listed alone is not a defect.
+
+Read-only saved-state evidence: sharedMainhandLayouts incorrectly contains an
+Offhand - Mainhand - Nearlytwenty entry created by a one-system repair. The
+Noggtester HUD record names Offhand and owner Noggtester, but editModeLayoutName
+names Nearlytwenty's individual row. Shared Offhand metadata describes 47 moved
+systems and Chattynator ownership; legacy one-system metadata alone is not proof
+that the complete legacy payload is invalid or compatible with another owner.
+
+Candidate:
+- Only canonical shared names (Offhand / Offhand - Gamepad, numeric variants)
+  qualify for registry adoption. Character-named rows are not shareable even if
+  an older build registered them. New Retail setup no longer adopts same-name
+  orphan legacy rows without current-character provenance.
+- Login/selection memory rejects another character's generated layout. A stale
+  preference uses the valid current HUD target, otherwise requests HUD setup.
+  Unknown active legacy rows cannot become a new character's rollback source.
+- Explicit Retail full setup can promote a proven current-character legacy
+  payload on matching geometry into the shared row without translating it twice.
+  Old individual row retained; previous shared payload backed up in account state.
+  Ordinary second-character adoption never rewrites the shared layout.
+- Store characterGUID and generated-record ownerGUID. A changed GUID invalidates
+  HUD selections/recovery tickets, keeps old provenance for recovery and requests
+  HUD setup. Account onboarding, calibration and selected Offhand profile remain.
+  A first upgrade with no historical GUID cannot retrospectively distinguish a
+  same-name recreation; it seeds identity without inventing that evidence.
+
+Knowledge README/skill/status consulted. EditMode search index stale; direct
+source/saved-state evidence used. Structured Retail UnitGUID lookup documented
+with no variant conflict; declarations do not establish live lifecycle or taint.
+All 66 Lua suites pass, including new shared-layout-identity test plus native
+login-selector regression. All six source and installed manifests pass Lua 5.1,
+XML/path validation. No combat or live acceptance claimed.
+
+Five candidate runtime files deployed only to Retail. Backups, private native
+layout/SavedVariables snapshots and hashes are under ignored
+ dist/local-deployments/20261031-shared-layout-identity/.
+No saved layouts/profiles were edited by deployment and OpenMap was untouched.
+Manual Noggtester selection and Nearlytwenty-to-shared promotion retest pending.
+Prepared Beta24 ZIP has not been rebuilt and does not include this candidate.
+Hold publication until this report is accepted. Other pending cinematic/viewport
+work in the shared tree was preserved, not part of this deployment.
+## Shared HUD live acceptance and package refresh, 31 October 2026
+
+User reports "Shared selection and placement correct" for the requested
+Noggtester reload, Nearlytwenty explicit legacy-to-shared update and return to
+Noggtester. This accepts selection and tuned placement in that Retail setup.
+GUID-based recreation and shared-layout rollback remain simulated, not live-tested.
+
+Updated Beta24 changelog and rebuilt the held addon-only ZIP. It includes only
+five accepted runtime file changes and CHANGELOG.md relative to the previous
+validated archive. Init.lua receives only EnsureCharacterIdentity at PLAYER_LOGIN;
+separate pending cinematic/viewport work remains outside this package and stays
+untouched in the working tree and test installation. Four other changed runtime
+files match accepted current source. All 75 archive entries match reviewed staged
+bytes; CRC, portable paths and the six-entry change audit pass. All 66 current-tree
+Lua suites passed; 63 applicable suites passed against extracted packaged runtime
+with development test helpers provided outside ZIP. Three suites for separate
+pending cutscene behavior are excluded from that package scope. Six extracted
+manifests pass Lua 5.1/XML/path validation; release metadata regression passes.
+
+Current ZIP SHA256:
+C3B16558AC8DD95F10C606E061FC9C7FC6B5FB6276BC93A702FFEBD8C8A761B3
+Artifact remains dist/curseforge-beta24-20261030/dist/Offhand-v2.1.2-beta.24.zip.
+Manifest and upload notes refreshed. No OpenMap files, native Companion binaries,
+SavedVariables or native layouts were edited by packaging. No publication/tag/
+commit made. Existing source and runtime test install retain separate pending
+cinematic work, so the final archive is not an all-current-working-tree snapshot.

@@ -122,7 +122,15 @@ try {
     }
     if ($beta23Body.Contains([char]0x2014)) { throw 'Beta 23 presented release notes must not contain em dashes.' }
 
-    Write-Output 'PASS: standardized beta, release-candidate, stable, invalid and Beta 23 addon-only release metadata'
+    $beta24Notes = Join-Path $temp 'beta24.md'
+    & $script -Tag 'v2.1.2-beta.24' -ChangelogPath $projectChangelog -OutputPath $beta24Notes | Out-Null
+    $beta24Body = Get-Content -LiteralPath $beta24Notes -Raw -Encoding utf8
+    foreach ($required in @('Panels closed before reload now stay closed.', 'World Map native panel registration', 'Separate local OpenMap grain/hover patches are not included.', 'two characters', 'not a spanned loading-art fix', 'byte-identical 2.1.2-beta.20')) {
+        if (-not $beta24Body.Contains($required)) { throw "Beta 24 release scope missing: $required" }
+    }
+    if ($beta24Body.Contains([char]0x2014)) { throw 'Beta 24 presented release notes must not contain em dashes.' }
+
+    Write-Output 'PASS: standardized beta, release-candidate, stable, invalid and Beta 23/24 addon-only release metadata'
 } finally {
     if (Test-Path -LiteralPath $temp) {
         Remove-Item -LiteralPath $temp -Recurse -Force

@@ -45,6 +45,11 @@ The CurseForge addon contains Lua addon code only. It does **not** contain the s
 
 ### 2. Choose how to span WoW
 
+Before spanning, save a copy of your Blizzard Edit Mode layout and back up your
+UI addon profiles. The larger canvas can require repositioning custom interfaces,
+including Ellesmere and Naowh setups. Offhand yields to recognized frame owners;
+it does not automatically convert every UI addon profile.
+
 #### Recommended for Windows
 
 [![Get Offhand Companion from the Microsoft Store](https://img.shields.io/badge/Get_it_from-Microsoft_Store-0078D4?style=for-the-badge&logo=microsoft)](https://apps.microsoft.com/detail/9PL4PW84Q90W)
@@ -64,7 +69,7 @@ You can span the WoW window manually or use NVIDIA Surround, AMD Eyefinity, or a
 ### 3. Configure Offhand
 
 1. Set WoW to standard **Windowed** mode, not Windowed (Fullscreen).
-2. Start WoW in standard **Windowed** mode. Start the optional Companion when you are ready to apply exact borderless geometry; for initial setup, leave **Auto-span WoW on launch** disabled.
+2. Open Companion when you are ready to apply exact borderless geometry; for initial setup, leave **Auto-span WoW on launch** disabled.
 3. Launch WoW, select your character, and wait until that character has fully entered the game world. The **Welcome to Offhand** first-launch guide should open automatically. Do not span WoW from the login or character-selection screen because addons are not loaded there and the unadjusted interface can appear stretched or misplaced.
 4. Follow the numbered first-launch guide. In the Companion, select exactly two displays and choose the Mainhand display, then click **Span WoW Now**. For one 32:9/32:10 super-ultrawide, select that display and enable **Single-display 32:9 split** before spanning.
 5. Return to the first-launch guide in WoW and click **Reload UI**. After the reload, continue the guide. It verifies the Companion topology and then hands you directly into the display calibration wizard.
@@ -73,6 +78,22 @@ You can span the WoW window manually or use NVIDIA Surround, AMD Eyefinity, or a
 If the first-launch guide was closed or does not appear, type `/offhand guide` to reopen it. Use `/offhand wizard` only when you need to open the calibration wizard directly.
 
 On Forever and Retail, use the Wizard's player-initiated **Create Mainhand HUD Layout** action for protected Blizzard HUD frames. Press it outside combat with Blizzard Edit Mode closed, then reload when prompted.
+
+New keyboard layouts use **Offhand**. Setup can reuse a compatible account layout
+on another character without rewriting its edits. Different display geometry or
+frame owners may require a separate numbered layout. Native controller layouts
+use **Offhand - Gamepad**; existing character-named layouts remain intact.
+
+For manual geometry, **Physical Monitor Seam Alignment** supports 10% to 90%
+with 0.1 percentage-point precision. Exact Companion topology determines the
+physical seam automatically and disables manual seam adjustment while active.
+
+The in-world viewport is separate from WoW's native loading screen. Loading
+artwork may still span or crop across unequal displays. As a manual workaround,
+use Companion's **Restore Window** before loading, then **Span WoW Now** once
+back in the world. A visible border inside
+Mainhand needs window-placement, display-scaling and bezel checks; it is not
+necessarily corrected by changing the seam ratio.
 
 [Full Companion instructions, manual setup, source code, and troubleshooting](https://offhand-wow.onrender.com/companion.html)
 
@@ -280,7 +301,7 @@ If the layout works after `/reload` but not after restarting WoW, capture `/offh
 
 Report problems through the CurseForge comments or join the Offhand Discord:
 
-[https://discord.gg/3BAVSXBXH](https://discord.gg/3BAVSXBXH)
+[https://discord.gg/J2P3SM6pAY](https://discord.gg/J2P3SM6pAY)
 
 After joining, select **Offhand** in the **Start Here** channel to access the relevant channels.
 

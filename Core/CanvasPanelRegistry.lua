@@ -60,6 +60,9 @@ local contextBoundPanelNames = {
     TabardFrame = true,
     TradeFrame = true,
     TransmogFrame = true,
+    TradeSkillFrame = true,
+    CraftFrame = true,
+    ProfessionsCustomerOrdersFrame = true,
 }
 
 function PanelRegistry.IsBlizzardLoadAddonName(name)
@@ -68,11 +71,40 @@ end
 
 function PanelRegistry.IsBasePersistentCandidate(name)
     return type(name) == "string" and name:match("^[%w_]+$") ~= nil
-        and not contextBoundPanelNames[name]
+        and not PanelRegistry.IsContextBoundPanel(name)
+        and (not _G[name] or PanelRegistry.GetPositionRoot(_G[name]) == _G[name])
 end
 
 function PanelRegistry.IsContextBoundPanel(name)
+    -- Retail's crafting root closes the trade-skill interaction from OnHide.
+    -- Forever uses this same name for its standalone book, whose explicit
+    -- workspace-open persistence is handled by the isolated client adapter.
+    if name == "ProfessionsFrame" then return not Offhand.isForever end
     return contextBoundPanelNames[name] == true
+end
+
+function PanelRegistry.RequiresNativePanelRegistration(name)
+    -- Retail MapCanvas providers, standalone books and Group Finder need native
+    -- panel transactions even though they can reopen after reload. Preserve lifecycle
+    -- independently from the interaction-bound visibility policy.
+    return PanelRegistry.IsContextBoundPanel(name)
+        or (Offhand.isRetail and not Offhand.isForever
+            and (name == "WorldMapFrame" or name == "ProfessionsBookFrame" or name == "PlayerSpellsFrame" or name == "PVEFrame"
+                or name == "FriendsFrame"))
+end
+
+function PanelRegistry.GetPositionRoot(frame)
+    if not Offhand.isRetail or not frame then return frame end
+    local ok, root = pcall(function()
+        local current = frame
+        for _ = 1, 8 do
+            if current and (current == _G.PVEFrame or current == _G.FriendsFrame
+                or current == _G.PlayerSpellsFrame) then return current end
+            if not current or (current.IsForbidden and current:IsForbidden()) or not current.GetParent then break end
+            current = current:GetParent()
+        end
+    end)
+    return ok and root or frame
 end
 
 function PanelRegistry.InitializeTracking(owner)
@@ -125,6 +157,13 @@ end
 function PanelRegistry.GetPersistentPanelAddon(name)
     local learned = Offhand.db and Offhand.db.workspacePanelLoadAddons
     local addonName = type(learned) == "table" and learned[name] or nil
+    -- Retail's standalone profession list has its own load-on-demand addon.
+    -- Correct the historical seed/learned crafting owner without changing the
+    -- Forever client adapter or its differently packaged standalone book.
+    if Offhand.isRetail and not Offhand.isForever and name == "ProfessionsBookFrame"
+        and (not PanelRegistry.IsBlizzardLoadAddonName(addonName) or addonName == "Blizzard_Professions") then
+        return "Blizzard_ProfessionsBook", "known"
+    end
     if PanelRegistry.IsBlizzardLoadAddonName(addonName) then
         return addonName, "learned"
     end

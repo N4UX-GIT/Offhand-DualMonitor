@@ -90,10 +90,20 @@ function Placement.InstallMainhand(Canvas, services)
         local nonMovableSystemPanels = services.GetNonMovablePanels()
         if not frame or (InCombatLockdown and InCombatLockdown()) or not Offhand.db
             or not Offhand.db.enabled then return false end
+        local registry = Offhand.CanvasPanelRegistry
+        if registry and registry.GetPositionRoot(frame) ~= frame then return false end
         if IsWorldMapMaximized(frame) then return false end
         local name = frame.GetName and frame:GetName()
         if ShouldYieldFrameToClassicUIForever(frame, name) then return false end
         if ShouldYieldWorldMapToMoveAny(name or frame) then return false end
+        if recoveryAction and services.RemodalizePanel
+            and not (frame.IsForbidden and frame:IsForbidden())
+            and not IsForeverEditModeFrame(frame, name) then
+            -- A workspace menu may have been detached from UIPanelWindows.
+            -- Restore the registration we saved before testing protected-panel
+            -- eligibility or the native toggle's next anchor transaction.
+            services.RemodalizePanel(frame)
+        end
         local recoverySafePanel = recoveryAction and name and (
             IsBackpackRoot(name) or (UIPanelWindows and UIPanelWindows[name])
                 or IsForeverSocialPositionRoot(frame, name)
@@ -158,7 +168,7 @@ function Placement.InstallMainhand(Canvas, services)
     -- Recovery is an explicit out-of-combat hardware action. Unlike a generic
     -- re-anchor, it must also retire Offhand's workspace ownership or the next
     -- OnShow/restore pass will put the panel back on the secondary display.
-    function Canvas:GatherSafeUIToMainhand()
+    function Canvas:GatherSafeUIToMainhand(missingOnly)
         local playerInCombat = InCombatLockdown and InCombatLockdown() or false
         if not playerInCombat and UnitAffectingCombat then
             local ok, active = pcall(UnitAffectingCombat, "player")
@@ -175,10 +185,22 @@ function Placement.InstallMainhand(Canvas, services)
 
         local candidates = {}
         local function Add(frame)
-            if frame then candidates[frame] = true end
+            if frame then
+                local registry = Offhand.CanvasPanelRegistry
+                frame = registry and registry.GetPositionRoot and registry.GetPositionRoot(frame) or frame
+                candidates[frame] = true
+            end
         end
         for name in pairs(Offhand.db.savedWorkspacePositions or {}) do Add(_G[name]) end
         for name in pairs(UIPanelWindows or {}) do Add(_G[name]) end
+        if UIParent.GetChildren then
+            for _, child in ipairs({UIParent:GetChildren()}) do
+                pcall(function()
+                    if not (child.IsForbidden and child:IsForbidden())
+                        and child.IsMovable and child:IsMovable() then Add(child) end
+                end)
+            end
+        end
         if Offhand.BagPersistence and type(Offhand.BagPersistence.frames) == "table" then
             for _, frame in pairs(Offhand.BagPersistence.frames) do Add(frame) end
         end
@@ -188,6 +210,7 @@ function Placement.InstallMainhand(Canvas, services)
         Add(_G.ContainerFrame1)
 
         local moved, skipped = 0, 0
+        self.lastGatherReport = {}
         for frame in pairs(candidates) do
             -- A registered Blizzard panel can become forbidden after it enters a
             -- restricted state. Never call even basic frame methods until the
@@ -200,7 +223,26 @@ function Placement.InstallMainhand(Canvas, services)
                 local frameOnWorkspace = frameShown and IsFrameOnWorkspace(frame) or false
                 return frameName, frameShown, frameTracked, frameOnWorkspace
             end)
-            if inspected and shown and name and (tracked or onWorkspace)
+            local recover = shown and (tracked or onWorkspace)
+            local reopen = false
+            if missingOnly and inspected and name and Offhand.Recovery then
+                local state = Offhand.Recovery.Inspect(frame, metrics)
+                local registry = Offhand.CanvasPanelRegistry
+                reopen = state == "hidden" and tracked and Offhand.db.openWorkspacePanels[name] == true
+                    and registry and registry.IsBasePersistentCandidate(name)
+                    and not IsBackpackRoot(name) and UIPanelWindows and UIPanelWindows[name]
+                    and type(ShowUIPanel) == "function"
+                if reopen and GetUIPanel then
+                    -- Opening a native slot beside another panel can reflow or
+                    -- close that visible panel. Yield rather than disturb it.
+                    for _, slot in ipairs({"left", "center", "right", "doublewide"}) do
+                        local read, occupant = pcall(GetUIPanel, slot)
+                        if not read or (occupant and occupant ~= frame) then reopen = false; break end
+                    end
+                end
+                recover = state == "missing" or reopen
+            end
+            if inspected and recover and name
                 and frame ~= UIParent and frame ~= WorldFrame and frame ~= Offhand.canvas
                 and not IsForeverEditModeFrame(frame, name)
                 and not ShouldYieldFrameToClassicUIForever(frame, name)
@@ -212,6 +254,7 @@ function Placement.InstallMainhand(Canvas, services)
                     self, frame, metrics, nil, false, true)
                 placed = called and placed
                 if placed then
+                    self.lastGatherReport[#self.lastGatherReport + 1] = name .. "=moved"
                     moved = moved + 1
                     Offhand.db.savedWorkspacePositions[name] = nil
                     Offhand.db.openWorkspacePanels[name] = nil
@@ -235,16 +278,32 @@ function Placement.InstallMainhand(Canvas, services)
                         local factor = frameScale / parentScale
                         Offhand.db.savedMainPositions[name] = { x = left * factor, y = top * factor }
                     end
+                    if reopen and ShowUIPanel then
+                        local opened = pcall(ShowUIPanel, frame)
+                        if not opened or not (frame.IsShown and frame:IsShown()) then skipped = skipped + 1 end
+                    end
                 else
                     skipped = skipped + 1
+                    local reason = "placement-unavailable"
+                    pcall(function()
+                        if frame.IsProtected and frame:IsProtected() and not (UIPanelWindows and UIPanelWindows[name]) then
+                            reason = "protected-unregistered"
+                        elseif IsWorldMapMaximized(frame) then reason = "native-maximized-map" end
+                    end)
+                    self.lastGatherReport[#self.lastGatherReport + 1] = name .. "=" .. reason
                 end
             elseif not inspected then
                 skipped = skipped + 1
+                self.lastGatherReport[#self.lastGatherReport + 1] = "uninspectable=skipped"
+            elseif recover then
+                skipped = skipped + 1
+                local reason = IsForeverEditModeFrame(frame, name) and "native-HUD-or-EditMode" or "external-or-geometry-owner"
+                self.lastGatherReport[#self.lastGatherReport + 1] = tostring(name) .. "=" .. reason
             end
         end
 
         SaveOpenWorkspacePanels()
-        if Offhand.BagPersistence then
+        if Offhand.BagPersistence and not missingOnly then
             if Offhand.BagPersistence.ForgetOpenSnapshot then
                 Offhand.BagPersistence:ForgetOpenSnapshot()
             end
@@ -268,6 +327,8 @@ function Placement.InstallVoid(Canvas, services)
     function Canvas:RescuePanelFromVoid(frame, metrics)
         if not frame or (InCombatLockdown and InCombatLockdown()) or not Offhand.db
             or not Offhand.db.enabled then return false end
+        local registry = Offhand.CanvasPanelRegistry
+        if registry and registry.GetPositionRoot(frame) ~= frame then return false end
         local name = frame.GetName and frame:GetName()
         if not name or nonMovableSystemPanels[name] or IsForeverEditModeFrame(frame, name)
             or IsUnsafeForPanelMutation(frame, name) then return false end
@@ -391,7 +452,8 @@ function Placement.Install(Canvas, services)
 
     local function RepairShownSocialPanel(frame, suppliedName)
         if not frame or not frame.IsShown or not frame:IsShown()
-            or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return false end
+            or IsPanelDragging(frame) or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return false end
+        if Offhand.CanvasPanelRegistry.GetPositionRoot(frame) ~= frame then return false end
         local name = (frame.GetName and frame:GetName()) or suppliedName
         if not name then return false end
         local positionOnlyRoot = IsForeverSocialPositionRoot(frame, name)
@@ -456,6 +518,7 @@ function Placement.Install(Canvas, services)
 
     local function HookSocialPanelAnchorResets(frame, suppliedName)
         if not frame or not hooksecurefunc then return false end
+        if Offhand.CanvasPanelRegistry.GetPositionRoot(frame) ~= frame then return false end
         local state = socialAnchorRepairState[frame]
         if not state then
             state = {}

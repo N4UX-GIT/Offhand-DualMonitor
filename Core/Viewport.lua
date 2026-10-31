@@ -505,7 +505,7 @@ function Viewport:GetMetrics(allowUnconfirmedManual)
     
     local isVertical = (db.primaryPosition == "TOP" or db.primaryPosition == "BOTTOM")
     
-    local ratio = Number(db.deckWidthRatio, preset == "LANDSCAPE_DUAL" and 0.5 or 0.36, 0.15, 0.80)
+    local ratio = Number(db.deckWidthRatio, preset == "LANDSCAPE_DUAL" and 0.5 or 0.36, 0.10, 0.90)
     local deck = isVertical and math.floor(ph * ratio + 0.5) or math.floor(pw * ratio + 0.5)
     local bezel = isVertical and math.floor(Number(db.bezelGap, 0, 0, ph - deck - 1) + 0.5) or math.floor(Number(db.bezelGap, 0, 0, pw - deck - 1) + 0.5)
     
@@ -892,6 +892,12 @@ function Viewport:Apply()
     WorldFrame:ClearAllPoints()
     self:SetPoint(WorldFrame, "BOTTOMLEFT", "BOTTOMLEFT", m.gameLeft, m.gameBottom)
     self:SetPoint(WorldFrame, "TOPRIGHT", "BOTTOMLEFT", m.gameRight, m.gameTop)
+    if Offhand.CinematicPresentation then Offhand.CinematicPresentation:Apply(m) end
+    if Offhand.HUD and Offhand.HUD.PositionRetailOverrideBar then Offhand.HUD:PositionRetailOverrideBar(m) end
+    if Offhand.HUD and Offhand.HUD.PositionRetailNotifications then
+        Offhand.HUD:PositionRetailNotifications(m)
+        Offhand.HUD:PositionPremadeGroupDialogs(m)
+    end
     Offhand:Debug("Viewport: %dx%d pixels at (%d, %d).", m.gamePixelWidth,
         m.gamePixelHeight, m.gamePixelLeft, m.gamePixelBottom)
 end
@@ -903,6 +909,12 @@ function Viewport:Reset()
     end
     WorldFrame:ClearAllPoints()
     WorldFrame:SetAllPoints(UIParent)
+    if Offhand.CinematicPresentation then Offhand.CinematicPresentation:Apply() end
+    if Offhand.HUD and Offhand.HUD.PositionRetailOverrideBar then Offhand.HUD:PositionRetailOverrideBar() end
+    if Offhand.HUD and Offhand.HUD.PositionRetailNotifications then
+        Offhand.HUD:PositionRetailNotifications()
+        Offhand.HUD:PositionPremadeGroupDialogs()
+    end
 end
 
 function Offhand:InitializeViewport()

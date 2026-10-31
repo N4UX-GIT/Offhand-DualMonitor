@@ -6,6 +6,11 @@ local Compatibility = assert(Offhand.MainhandCompatibility, "Offhand Mainhand co
 local NativeGamepadInterface = Compatibility.IsNativeGamepadInterface
 local ControllerMode = Compatibility.IsControllerMode
 
+local function ExternallyOwnedSystem(entry)
+    return Offhand.HUDCompatibility and Offhand.HUDCompatibility.IsExternallyOwnedEditModeSystem
+        and Offhand.HUDCompatibility.IsExternallyOwnedEditModeSystem(entry) or false
+end
+
 local function DeepCopy(value, seen)
     if type(value) ~= "table" then return value end
     seen = seen or {}
@@ -152,7 +157,7 @@ local function RefineGroupHUDLayout(layout, rect, sourceDefaults, transformed, r
         local info = groupEntry and entry.anchorInfo or nil
         local systemRelative = type(info) == "table"
             and info.relativeTo ~= nil and info.relativeTo ~= "UIParent"
-        if groupEntry and type(info) == "table"
+        if groupEntry and not ExternallyOwnedSystem(entry) and type(info) == "table"
             and (repairEntry or (sourceDefaults[index] and systemRelative)) then
             info.point = "TOPLEFT"
             info.relativeTo = "UIParent"
@@ -174,6 +179,29 @@ local function PointFractions(point)
     local y = point:find("BOTTOM", 1, true) and 0
         or point:find("TOP", 1, true) and 1 or 0.5
     return x, y
+end
+
+local function IsExtraAbilityRecovery(name)
+    return name == "ExtraAbilityContainer" or name == "ExtraActionBarFrame" or name == "ZoneAbilityFrame"
+end
+
+local function RefineExtraAbilityRecovery(layout, rect, transformed, repairFrameName)
+    if not IsExtraAbilityRecovery(repairFrameName) then return 0, 0 end
+    local systems = Enum and Enum.EditModeSystem
+    local extra = systems and (systems.ExtraAbilities or systems.ExtraAbility)
+    if extra == nil then return 0, 0 end
+    for index, entry in ipairs(layout.systems or {}) do
+        if entry.system == extra then
+            -- Explicit Repair HUD consent covers this one system's custom
+            -- relationship too. Let Blizzard apply the serialized anchor.
+            entry.anchorInfo = { point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT",
+                offsetX = (rect.left + rect.right) / 2,
+                offsetY = rect.bottom + math.min(180, rect.height * 0.25) }
+            entry.isInDefaultPosition = false
+            return transformed[index] and 0 or 1, 1
+        end
+    end
+    return 0, 0
 end
 
 local function FrameSize(frame, fallbackWidth, fallbackHeight)
@@ -465,15 +493,67 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerL
 end
 
 local function GeneratedLayoutBaseName(controllerLayout)
-    local player = UnitName and UnitName("player") or nil
-    return "Offhand - Mainhand"
-        .. (controllerLayout and " - Gamepad" or "")
-        .. (player and (" - " .. player) or "")
+    return controllerLayout and "Offhand - Gamepad" or "Offhand"
 end
 
-local function IsCurrentCharacterLayoutName(name, controllerLayout)
+local function IsSharedLayoutName(name, controllerLayout)
     if type(name) ~= "string" then return false end
-    local expected = string.lower(GeneratedLayoutBaseName(controllerLayout))
+    local base, actual = string.lower(GeneratedLayoutBaseName(controllerLayout)), string.lower(name)
+    return actual == base or (actual:sub(1, #base) == base
+        and actual:sub(#base + 1):match("^ %(%d+%)$") ~= nil)
+end
+
+function Mainhand:IsCharacterEditModeLayoutAllowed(name)
+    if type(name) ~= "string" then return true end
+    local lower = string.lower(name)
+    if lower:sub(1, #"offhand - mainhand - ") ~= "offhand - mainhand - " then return true end
+    local player = UnitName and UnitName("player")
+    if not player then return false end
+    for _, controller in ipairs({false, true}) do
+        local expected = string.lower("Offhand - Mainhand" .. (controller and " - Gamepad" or "") .. " - " .. player)
+        if lower == expected or (lower:sub(1, #expected) == expected
+            and lower:sub(#expected + 1):match("^ %(%d+%)$") ~= nil) then return true end
+    end
+    return false
+end
+
+local function SharedLayoutClient()
+    return Offhand.isForever and "forever" or Offhand.isRetail and "retail"
+        or tostring(WOW_PROJECT_ID or Offhand.tocVersion or "classic")
+end
+
+local function LayoutOwnershipSignature()
+    local policy = Offhand.HUDCompatibility
+    if not policy or not policy.IsAddonPresent then return "" end
+    local owners = {}
+    for _, name in ipairs({"EllesmereUIActionBars", "EllesmereUIMinimap", "EllesmereUIChat",
+        "EllesmereUICooldownManager", "EllesmereUIQuestTracker", "EllesmereUIUnitFrames",
+        "EllesmereUIRaidFrames", "Bartender4", "Dominos", "ElvUI", "Tukui", "Chattynator"}) do
+        if policy.IsAddonPresent(name) then owners[#owners + 1] = name end
+    end
+    return table.concat(owners, ":")
+end
+
+local function SharedLayoutRecord(name, controllerLayout, geometrySignature)
+    -- Old targeted repairs incorrectly registered character-named rows here.
+    -- Metadata alone must never make another character's layout shareable.
+    if not IsSharedLayoutName(name, controllerLayout) then return nil end
+    local registry = type(OffhandDB) == "table" and OffhandDB.sharedMainhandLayouts
+    local record = type(registry) == "table" and registry[name]
+    if type(record) == "table" and record.version == 1
+        and record.client == SharedLayoutClient()
+        and record.ownershipSignature == LayoutOwnershipSignature()
+        and (record.controllerLayout == true) == (controllerLayout == true)
+        and record.geometrySignature == (geometrySignature or Mainhand:GetGeometrySignature()) then return record end
+end
+
+local function IsCurrentCharacterLayoutName(name, controllerLayout, geometrySignature)
+    if type(name) ~= "string" then return false end
+    if SharedLayoutRecord(name, controllerLayout, geometrySignature) then return true end
+    -- Preserve existing character-specific layouts and their rollback tickets.
+    local player = UnitName and UnitName("player") or nil
+    local expected = string.lower("Offhand - Mainhand"
+        .. (controllerLayout and " - Gamepad" or "") .. (player and (" - " .. player) or ""))
     local actual = string.lower(name)
     if actual == expected then return true end
     -- UniqueLayoutName appends only a numeric collision suffix. Accept those
@@ -551,7 +631,9 @@ function Mainhand:UpdateWindowModeLayout(metrics)
         or type(OffhandCharDB) ~= "table" then return false, "unsupported" end
     local record = OffhandCharDB.mainhandLayout
     if type(record) ~= "table" or record.controllerLayout or record.activationPending
-        or not IsCurrentCharacterLayoutName(record.generatedName, false) then return false, "unmanaged" end
+        or not IsCurrentCharacterLayoutName(record.generatedName, false, record.geometrySignature)
+        or (record.ownerName and UnitName and record.ownerName ~= UnitName("player"))
+        or (record.ownerGUID and UnitGUID and UnitGUID("player") and record.ownerGUID ~= UnitGUID("player")) then return false, "unmanaged" end
     if not metrics or type(metrics.isSpanned) ~= "boolean" then return true, "metrics" end
     if selectingWindowLayout or Geometry.IsPlayerCombatRestricted() then return true, "combat" end
     if Offhand.IsCinematicOrMovieActive and Offhand:IsCinematicOrMovieActive() then return true, "cinematic" end
@@ -685,6 +767,7 @@ end
 function Mainhand:CreateOrUpdateEditModeLayout(options)
     options = type(options) == "table" and options or nil
     local repairFrameName = options and options.repairFrameName or nil
+    local repairSystems = options and options.repairSystems
     if InCombatLockdown and InCombatLockdown() then return false, "combat" end
     if not Offhand.db or not Offhand.db.enabled then return false, "disabled" end
     local rect = self:GetRect()
@@ -715,6 +798,14 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
     local record = OffhandCharDB.mainhandLayout
     local modeRecord = type(record) == "table"
         and (record.controllerLayout == true) == controllerLayout and record or nil
+    local playerName = UnitName and UnitName("player") or nil
+    if modeRecord and modeRecord.ownerName and playerName and modeRecord.ownerName ~= playerName then
+        modeRecord = nil
+    end
+    local playerGUID = UnitGUID and UnitGUID("player")
+    if modeRecord and modeRecord.ownerGUID and playerGUID and modeRecord.ownerGUID ~= playerGUID then
+        modeRecord = nil
+    end
     local matchingRecord = modeRecord
         and IsCurrentCharacterLayoutName(modeRecord.generatedName, controllerLayout)
         and modeRecord or nil
@@ -768,13 +859,47 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
     end
     if not source then source, sourceID, sourceIndex, sourcePreset = ResolveActiveLayout(data, presets) end
     if not source then return false, "source" end
+    -- A fresh character may start on an account layout made for another span.
+    -- Rebuild from its original source, never translate an already moved HUD.
+    if not modeRecord then
+        local registry = type(OffhandDB) == "table" and OffhandDB.sharedMainhandLayouts
+        local prior = type(registry) == "table" and registry[LayoutName(source, "")]
+        if type(prior) == "table" and prior.version == 1 and prior.client == SharedLayoutClient() then
+            local original, originalID, originalIndex, originalPreset = FindNamedLayout(data, presets, prior.sourceName)
+            if not original or original == source then return false, "source" end
+            source, sourceID, sourceIndex, sourcePreset = original, originalID, originalIndex, originalPreset
+        elseif string.lower(LayoutName(source, "")):find("offhand - mainhand - ", 1, true) == 1 then
+            -- A legacy account row may have no provenance at all. Never use
+            -- another incarnation/character's already-translated HUD as source.
+            source, sourceID, sourceIndex, sourcePreset = presets[1], 1, 1, true
+        end
+    end
     local generatedName = matchingRecord and matchingRecord.generatedName or nil
     local generated, _, generatedIndex = FindNamedLayout(data, presets, generatedName)
+    -- Explicit full setup can promote this character's already-positioned legacy
+    -- layout. Preserve its actual anchors instead of rebuilding from Modern and
+    -- losing the adjustments that made the individual layout accurate.
+    local legacyLayout
+    if Offhand.isRetail and not Offhand.isForever and generated and matchingRecord
+        and matchingRecord.geometrySignature == self:GetGeometrySignature()
+        and not IsSharedLayoutName(generatedName, controllerLayout)
+        and not repairFrameName and not repairSystems then
+        legacyLayout = generated
+        generatedName, generated, generatedIndex = nil, nil, nil
+        for index, candidate in ipairs(data.layouts) do
+            if SharedLayoutRecord(LayoutName(candidate), controllerLayout) then
+                generatedName, generated, generatedIndex = LayoutName(candidate), candidate, index
+                break
+            end
+        end
+    end
     -- SaveLayouts can succeed before a later activation step fails. Recover
     -- that exact Offhand-owned row on retry so an interrupted transaction does
     -- not create a suffixed duplicate or consume another custom-layout slot.
-    if not generated and not matchingRecord then
-        local expectedName = GeneratedLayoutBaseName(controllerLayout)
+    if not generated and not matchingRecord and (not Offhand.isRetail or Offhand.isForever) then
+        local player = UnitName and UnitName("player") or nil
+        local expectedName = "Offhand - Mainhand" .. (controllerLayout and " - Gamepad" or "")
+            .. (player and (" - " .. player) or "")
         local orphan, _, orphanIndex = FindNamedLayout(data, presets, expectedName)
         if orphan and orphanIndex then
             generatedName = expectedName
@@ -790,7 +915,7 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
     if not generated and Offhand.isForever and not controllerLayout
         and not (type(record) == "table" and record.controllerLayout == true) then
         local preferredName = OffhandCharDB.foreverEditModeLayoutName
-        if IsCurrentCharacterLayoutName(preferredName, false) then
+        if IsCurrentCharacterLayoutName(preferredName, false) and not SharedLayoutRecord(preferredName, false) then
             local preferred, _, preferredIndex = FindNamedLayout(data, presets, preferredName)
             if preferred and preferredIndex then
                 generatedName = preferredName
@@ -799,32 +924,120 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
             end
         end
     end
+    -- Setup is an explicit player action. Adopt an existing compatible account
+    -- layout without rewriting it, preserving edits made by another character.
+    -- A name alone is not proof of ownership or compatible monitor geometry.
+    if not generated and not legacyLayout and not repairFrameName and not repairSystems then
+        for index, candidate in ipairs(data.layouts) do
+            local name = LayoutName(candidate, "")
+            local shared = SharedLayoutRecord(name, controllerLayout)
+            if shared then
+                local targetID = (Offhand.isForever and 3 or #presets) + index
+                local active = tonumber(data.activeLayout) == targetID
+                if not active and type(C_EditMode.SetActiveLayout) == "function" then
+                    local called, result = pcall(C_EditMode.SetActiveLayout, targetID)
+                    local current = EditModeData()
+                    active = called and result ~= false and current
+                        and tonumber(current.activeLayout) == targetID or false
+                end
+                if not active and not Offhand.isForever then return false, "activate-api" end
+                OffhandCharDB.mainhandLayout = {
+                    version = 1, generatedName = name, generatedID = targetID,
+                    sourceName = source == candidate and shared.sourceName or LayoutName(source),
+                    sourceID = source == candidate and shared.sourceID or sourceID,
+                    sourcePreset = source == candidate and shared.sourcePreset or sourcePreset == true,
+                    geometrySignature = self:GetGeometrySignature(),
+                    movedSystems = shared.movedSystems, controllerLayout = controllerLayout and true or nil,
+                    ownerName = UnitName and UnitName("player") or nil,
+                    ownerGUID = playerGUID,
+                    activationPending = not active and true or nil,
+                }
+                OffhandCharDB.mainhandLayoutDeferred = nil
+                OffhandCharDB.hudSetupReminder = nil
+                OffhandCharDB.hudSetupReminderDeclined = nil
+                OffhandCharDB.mainhandWindowedLayout = nil
+                OffhandCharDB.mainhandWindowedManualLayout = nil
+                if Offhand.isForever then
+                    if active then
+                        OffhandCharDB.foreverEditModeLayoutName = name
+                        OffhandCharDB.foreverEditModeLayoutID = targetID
+                        OffhandCharDB.foreverEditModeLegacyRecovery = nil
+                        OffhandCharDB.foreverEditModeRecovery = nil
+                    end
+                    if Offhand.ForeverPersistence and Offhand.ForeverPersistence.SaveProfileSnapshot then
+                        Offhand.ForeverPersistence:SaveProfileSnapshot(true)
+                    end
+                else
+                    OffhandCharDB.editModeLayoutName = name
+                end
+                return true, name, shared.movedSystems or 0, active and "active" or "select"
+            end
+        end
+    end
     if not generatedName then generatedName = UniqueLayoutName(data, controllerLayout) end
 
-    local layout = DeepCopy(source)
+    local repairExtra = IsExtraAbilityRecovery(repairFrameName)
+    local selective = type(repairSystems) == "table" and #repairSystems > 0
+    -- Targeted recovery preserves the other systems in the existing generated
+    -- layout, including edits made since it was first created.
+    local selectiveSource = selective and ResolveActiveLayout(data, presets) or nil
+    local layout = DeepCopy(legacyLayout or selectiveSource or (repairExtra and (generated or source) or source))
     local sourceDefaults = {}
+    local externallyOwned = {}
     for index, entry in ipairs(layout.systems or {}) do
-        sourceDefaults[index] = entry.isInDefaultPosition ~= false
+        sourceDefaults[index] = entry.isInDefaultPosition ~= false and not ExternallyOwnedSystem(entry)
+        if ExternallyOwnedSystem(entry) then externallyOwned[index] = DeepCopy(entry) end
     end
     local editModeSystems = Enum and Enum.EditModeSystem
     local actionIndices = Enum and Enum.EditModeActionBarSystemIndices
     local foreverActionSystem = editModeSystems and editModeSystems.ActionBar
     local foreverClassBar = actionIndices and actionIndices.ClassBar
-    local moved, transformed = TransformLayout(layout, rect, function(entry)
-        -- Forever's empty MultiCast/Totem Edit Mode preview can call
-        -- C_TooltipInfo.GetSpellByID(nil) after an addon-generated relocation.
-        -- Leave this ambiguous ClassBar entry exactly where the source layout
-        -- put it; stance, pet and possess have their own unambiguous indices.
-        return Offhand.isForever and foreverActionSystem ~= nil and foreverClassBar ~= nil
-            and entry.system == foreverActionSystem and entry.systemIndex == foreverClassBar
-    end)
-    RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerLayout)
-    local groupMoved, groupRepaired = RefineGroupHUDLayout(layout, rect, sourceDefaults,
-        transformed, repairFrameName)
+    local moved, transformed = 0, {}
+    if legacyLayout then moved = matchingRecord.movedSystems or #(layout.systems or {}) end
+    if not legacyLayout and not repairExtra and not selective then
+        moved, transformed = TransformLayout(layout, rect, function(entry)
+            -- Forever's empty MultiCast/Totem Edit Mode preview can call
+            -- C_TooltipInfo.GetSpellByID(nil) after an addon-generated relocation.
+            -- Leave this ambiguous ClassBar entry exactly where the source layout
+            -- put it; stance, pet and possess have their own unambiguous indices.
+            return ExternallyOwnedSystem(entry) or (Offhand.isForever and foreverActionSystem ~= nil and foreverClassBar ~= nil
+                and entry.system == foreverActionSystem and entry.systemIndex == foreverClassBar)
+        end)
+        RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerLayout)
+    end
+    local groupMoved, groupRepaired = 0, 0
+    if not legacyLayout and not repairExtra and not selective then
+        groupMoved, groupRepaired = RefineGroupHUDLayout(layout, rect, sourceDefaults,
+            transformed, repairFrameName)
+    end
     moved = moved + groupMoved
+    local extraMoved, extraRepaired = RefineExtraAbilityRecovery(layout, rect, transformed, repairFrameName)
+    moved = moved + extraMoved
+    if selective then
+        for _, request in ipairs(repairSystems) do
+            local found
+            for _, entry in ipairs(layout.systems or {}) do
+                if entry.system == request.system
+                    and (request.systemIndex == nil or entry.systemIndex == request.systemIndex) then
+                    if ExternallyOwnedSystem(entry) then return false, "external" end
+                    entry.anchorInfo = DeepCopy(request.anchorInfo)
+                    entry.isInDefaultPosition = false
+                    moved, found = moved + 1, true
+                    break
+                end
+            end
+            if not found then return false, "repair-system", LayoutName(source, "layout"), 0 end
+        end
+    end
+    if repairExtra and extraRepaired == 0 then
+        return false, "repair-system", LayoutName(source, "layout"), moved
+    end
     if IsGroupRecoveryFrame(repairFrameName) and groupRepaired == 0 then
         return false, "repair-system", LayoutName(source, "layout"), moved
     end
+    -- Refinement can inspect neighbouring native systems. Restore external
+    -- entries byte-for-byte even if a requested repair traversed that group.
+    for index, entry in pairs(externallyOwned) do layout.systems[index] = entry end
     if moved == 0 then return false, "already", LayoutName(source, "layout"), 0 end
 
     layout.layoutName = generatedName
@@ -869,6 +1082,22 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
     -- layout remains valid; Blizzard Edit Mode must own the final selection.
     -- Other clients continue to treat failed activation as an API failure.
     local activationPending = not active
+    -- Keep ownership metadata even if native activation fails after SaveLayouts.
+    -- The next setup attempt can adopt this exact row without consuming a slot.
+    if type(OffhandDB) ~= "table" then OffhandDB = {} end
+    if type(OffhandDB.sharedMainhandLayouts) ~= "table" then OffhandDB.sharedMainhandLayouts = {} end
+    if legacyLayout and generated then
+        OffhandDB.sharedMainhandLayoutBackups = OffhandDB.sharedMainhandLayoutBackups or {}
+        OffhandDB.sharedMainhandLayoutBackups[generatedName] = DeepCopy(generated)
+    end
+    if IsSharedLayoutName(generatedName, controllerLayout) then
+        OffhandDB.sharedMainhandLayouts[generatedName] = {
+            version = 1, client = SharedLayoutClient(), geometrySignature = self:GetGeometrySignature(),
+            ownershipSignature = LayoutOwnershipSignature(),
+            controllerLayout = controllerLayout and true or nil, movedSystems = moved,
+            sourceName = LayoutName(source), sourceID = sourceID, sourcePreset = sourcePreset == true,
+        }
+    end
     if activationPending and not Offhand.isForever then return false, "activate-api" end
 
     OffhandCharDB.mainhandLayout = {
@@ -881,9 +1110,10 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
         geometrySignature = self:GetGeometrySignature(),
         movedSystems = moved,
         protectedRepairCandidate = repairFrameName,
-        protectedRepairSystems = groupRepaired > 0 and groupRepaired or nil,
+        protectedRepairSystems = groupRepaired + extraRepaired > 0 and groupRepaired + extraRepaired or nil,
         controllerLayout = controllerLayout and true or nil,
         ownerName = UnitName and UnitName("player") or nil,
+        ownerGUID = playerGUID,
         activationPending = activationPending and true or nil,
     }
     OffhandCharDB.mainhandLayoutDeferred = nil
@@ -915,7 +1145,10 @@ function Mainhand:GetLayoutStatus()
     local record = type(OffhandCharDB) == "table" and OffhandCharDB.mainhandLayout or nil
     local deferred = type(OffhandCharDB) == "table"
         and OffhandCharDB.mainhandLayoutDeferred == true or false
-    if type(record) ~= "table" then
+    local guid = UnitGUID and UnitGUID("player")
+    if type(record) ~= "table" or not self:IsCharacterEditModeLayoutAllowed(record.generatedName)
+        or (record.ownerName and UnitName and record.ownerName ~= UnitName("player"))
+        or (record.ownerGUID and guid and record.ownerGUID ~= guid) then
         return { configured = false, deferred = deferred }
     end
     return {
