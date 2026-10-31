@@ -1,341 +1,230 @@
-**Offhand - Dual-Screen and Multi-Monitor UI | v2.1.2 PRE-RELEASE (BETA 22)**
+**Offhand**
 
 ![Offhand Logo](https://raw.githubusercontent.com/N4UX-GIT/Offhand-DualMonitor/main/Website/assets/offhand-logo.png)
 
-## Equip Your Offhand. Dual-Wield Your Monitors.
+## Dual-wield your monitors.
 
-**Have you ever wanted to keep your bags, map, character screen, chat, and meters open without burying the world underneath your UI?**
+Keep your map, bags, Character panel, chat, and meters accessible without burying the game underneath your UI.
 
-World of Warcraft was designed around one centered screen. Stretch the game across two monitors and the normal result is a character divided by the bezel, a distorted view, and interface panels that still open in the wrong place. Keep WoW on one monitor instead, and the second display becomes little more than a place for a browser.
+Stretching World of Warcraft across two monitors normally leaves the camera centered on the bezel. Offhand separates the game viewport from the extended UI canvas: your **Mainhand** holds the game world and combat HUD, while your **Offhand** becomes a workspace for supported interface panels.
 
-Blizzard's native UI tools can move frames, but they cannot move the 3D rendering viewport away from the center of a spanned game window.
+![A real Offhand desk setup with portrait UI workspace and landscape gameplay](https://raw.githubusercontent.com/N4UX-GIT/Offhand-DualMonitor/main/Website/assets/offhand-irl.jpg)
 
-**Offhand was built to solve that exact frustration.**
+*A real desk setup: gameplay on Mainhand, with maps and other panels available on Offhand.*
 
-Offhand turns your displays into a coordinated play surface. Your **Mainhand** is where the action stays: the 3D world, your character, and your targeting reticle remain properly centered. Your **Offhand** becomes a dedicated workspace for the map, bags, character panels, chat, meters, and other supported interface elements.
+## See Offhand in action
 
-The result is not simply a wider game window. It is a dual-screen World of Warcraft layout designed around how two monitors are actually used:
+[![Animated Offhand preview: crowded screen, conventional span, portrait workspace, landscape pair, and stacked displays. Select to explore the full interactive tour.](https://i.imgur.com/p4WYjqJ.gif)](https://offhand-wow.onrender.com/demonstration.html)
 
-* Keep the game world clean and unobstructed on Mainhand.
-* Leave useful panels open on Offhand without covering combat or exploration.
-* Avoid placing your character or camera across the physical bezel.
-* Use two separate displays or divide one 32:9/32:10 super-ultrawide into game and workspace halves.
+**[Explore the interactive tour](https://offhand-wow.onrender.com/demonstration.html)** for more layouts. Illustrated screen arrangements; available features depend on your WoW client.
 
-**Equip your Offhand. Dual-Wield Your Monitors.**
+---
 
-![Offhand Desk Setup](https://raw.githubusercontent.com/N4UX-GIT/Offhand-DualMonitor/main/Website/assets/offhand-irl.jpg)
+## Start here: the Offhand website
 
-_The complete Offhand setup on a real desk: unobstructed gameplay on Mainhand, with maps, bags, character panels, and other UI safely available on the Offhand display._
+[![Visit the official Offhand website for Window Setup, In-Game Setup, Background Studio, and Companion guides](https://i.imgur.com/jNES0Kq.png)](https://offhand-wow.onrender.com/)
 
-![Offhand In-Game Screenshot](https://raw.githubusercontent.com/N4UX-GIT/Offhand-DualMonitor/main/Website/assets/offhand-screenshot.jpg)
+The official website brings the interactive demo, illustrated setup guides, and Background Studio together in one place.
 
-_What WoW actually renders across the combined play surface. The 3D world remains centered on Mainhand while the extended UI canvas uses both displays. Black padding may appear in screenshots when displays have different heights, but that area sits outside the visible physical screens during play._
+**[Visit website](https://offhand-wow.onrender.com/)**
 
-**Beta 22 is a public testing build.** It is published as a beta while testing continues across different display arrangements, Windows scaling settings, WoW clients, and third-party UI addons.
+[Explore the demo](https://offhand-wow.onrender.com/demonstration.html)   |   [Follow the setup guides](https://offhand-wow.onrender.com/index.html#setup)   |   [Open Background Studio](https://offhand-wow.onrender.com/background-studio.html)
 
-***
+---
 
 ## Download and Quick Start
 
-### 1. Install the in-game addon
+### 1. Install Offhand for your WoW client
 
-Install Offhand through CurseForge, WowUp, or manually place the `Offhand` folder in `Interface\AddOns`.
+Close WoW, install Offhand through CurseForge or WowUp, and check that you selected the intended WoW installation. For manual installation, place the `Offhand` folder in that client's `Interface\AddOns` folder. Launch WoW and enter the game world.
 
-The CurseForge addon contains Lua addon code only. It does **not** contain the separate Windows Companion application.
+The addon and the optional Companion are separate components. Installing the addon does not install Companion.
 
-### 2. Choose how to span WoW
+### 2. Back up your layout and follow the welcome guide
 
-Before spanning, save a copy of your Blizzard Edit Mode layout and back up your
-UI addon profiles. The larger canvas can require repositioning custom interfaces,
-including Ellesmere and Naowh setups. Offhand yields to recognized frame owners;
-it does not automatically convert every UI addon profile.
+Before spanning, save a copy of your Blizzard Edit Mode layout and back up your UI addon profiles. A larger canvas can shift custom interfaces, including Ellesmere and Naowh setups. Some panels may need repositioning; Offhand does not automatically convert every third-party UI profile.
 
-#### Recommended for Windows
+Open the welcome guide, or type `/offhand guide`. Choose how to place WoW across your screens:
 
-[![Get Offhand Companion from the Microsoft Store](https://img.shields.io/badge/Get_it_from-Microsoft_Store-0078D4?style=for-the-badge&logo=microsoft)](https://apps.microsoft.com/detail/9PL4PW84Q90W)
+- **[Companion, recommended on Windows:](https://offhand-wow.onrender.com/companion.html)** use the optional Microsoft Store app for borderless spanning, display selection, and exact monitor geometry, especially with mixed resolutions or stacked displays. Keep **Auto-span WoW on launch** off during initial setup.
+- **[FancyZones:](https://offhand-wow.onrender.com/manual-spanning.html#fancyzones)** use Microsoft's PowerToys to create a reusable combined Canvas zone on Windows. Spanning monitors must use the same Windows display scaling percentage.
+- **[Manual placement:](https://offhand-wow.onrender.com/manual-spanning.html#manual)** resize and position the ordinary WoW window yourself. No Offhand executable is required for this path or FancyZones.
 
-The Microsoft Store provides a signed, managed installation and handles future Companion updates. The certified Beta 20 Companion is now available through the Store.
+At the display-mode step, click **Set to Windowed**. If WoW is already Windowed, continue with **Place WoW**. If your client cannot apply the change automatically, use **Open display settings**, select **Windowed**, and apply it. Windowed (Fullscreen) is a different mode.
 
-#### Portable, Linux/Wine, or direct download
+### 3. Place the window, then confirm it
 
-[![Download the reviewed Beta 20 Companion ZIP](https://img.shields.io/badge/Download-Beta_20_Companion_ZIP-2EA44F?style=for-the-badge&logo=github)](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.20/Offhand-Companion.zip)
+**Companion:** after your character has entered the game world, select your displays and **Mainhand (game)** in Companion, then click **Span WoW Now**. Return to the guide in WoW, click **Reload UI**, then **Confirm placement**. Maximizing WoW onto one monitor does not replace spanning.
 
-The portable ZIP is hosted on the official Offhand GitHub release, not by CurseForge. Only obtain the Companion from the Microsoft Store or the official Offhand GitHub repository.
+**FancyZones or manual:** place the window across the intended screens, visually check its position, then click **Confirm placement** and **Remember Window** when prompted. This confirms your chosen canvas; it does not automatically detect physical monitor boundaries.
 
-[View the Companion Beta 20 GitHub release and checksums](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.2-beta.20)
+![World of Warcraft rendered across the combined Offhand and Mainhand canvas](https://raw.githubusercontent.com/N4UX-GIT/Offhand-DualMonitor/main/Website/assets/offhand-screenshot.jpg)
 
-You can span the WoW window manually or use NVIDIA Surround, AMD Eyefinity, or a suitable operating-system window manager. The Companion is optional and may be exited after applying a span. Its Forever recovery bridge remains available for client builds that fail the standalone cold-launch persistence test.
+*The combined WoW canvas. Unequal display heights can leave unused padding in the screenshot; calibrate to the screens you actually see.*
 
-### 3. Configure Offhand
+### 4. Calibrate Mainhand and finish HUD setup
 
-1. Set WoW to standard **Windowed** mode, not Windowed (Fullscreen).
-2. Open Companion when you are ready to apply exact borderless geometry; for initial setup, leave **Auto-span WoW on launch** disabled.
-3. Launch WoW, select your character, and wait until that character has fully entered the game world. The **Welcome to Offhand** first-launch guide should open automatically. Do not span WoW from the login or character-selection screen because addons are not loaded there and the unadjusted interface can appear stretched or misplaced.
-4. Follow the numbered first-launch guide. In the Companion, select exactly two displays and choose the Mainhand display, then click **Span WoW Now**. For one 32:9/32:10 super-ultrawide, select that display and enable **Single-display 32:9 split** before spanning.
-5. Return to the first-launch guide in WoW and click **Reload UI**. After the reload, continue the guide. It verifies the Companion topology and then hands you directly into the display calibration wizard.
-6. Complete the calibration wizard and move supported maps, bags, character panels, and chat windows onto the Offhand workspace.
+Click **Start Calibration**, apply the detected recommendation, then check Mainhand, the seam, and UI size. Where supported Blizzard Edit Mode APIs are available, finish with **Create Mainhand HUD Layout** outside combat with Edit Mode closed, then reload when prompted. On clients without that step, choose **Finish Setup**.
 
-If the first-launch guide was closed or does not appear, type `/offhand guide` to reopen it. Use `/offhand wizard` only when you need to open the calibration wizard directly.
+If Blizzard's custom-layout list is full, open **Escape > Edit Mode** and its layout dropdown. Export an unwanted custom layout if you may need it later, then delete only a layout you no longer need. Close Edit Mode, reopen `/offhand wizard`, and retry HUD creation. Offhand does not delete layouts for you.
 
-On Forever and Retail, use the Wizard's player-initiated **Create Mainhand HUD Layout** action for protected Blizzard HUD frames. Press it outside combat with Blizzard Edit Mode closed, then reload when prompted.
+### 5. Arrange your panels and check the result
 
-New keyboard layouts use **Offhand**. Setup can reuse a compatible account layout
-on another character without rewriting its edits. Different display geometry or
-frame owners may require a separate numbered layout. Native controller layouts
-use **Offhand - Gamepad**; existing character-named layouts remain intact.
+Move supported maps, bags, Character panels, chat, Spellbook, and Talents onto Offhand, where available on your client. Use Blizzard Edit Mode or your HUD addon's own controls for protected action bars and unit frames.
 
-For manual geometry, **Physical Monitor Seam Alignment** supports 10% to 90%
-with 0.1 percentage-point precision. Exact Companion topology determines the
-physical seam automatically and disables manual seam adjustment while active.
+Exit WoW normally, relaunch, restore the intended span, and verify that your workspace and HUD return. FancyZones/manual users may need to reapply their zone or window placement. Companion removes the title bar when it applies a borderless span.
 
-The in-world viewport is separate from WoW's native loading screen. Loading
-artwork may still span or crop across unequal displays. As a manual workaround,
-use Companion's **Restore Window** before loading, then **Span WoW Now** once
-back in the world. A visible border inside
-Mainhand needs window-placement, display-scaling and bezel checks; it is not
-necessarily corrected by changing the seam ratio.
+[Follow the illustrated setup and settings guide](https://offhand-wow.onrender.com/in-game-setup.html).
 
-[Full Companion instructions, manual setup, source code, and troubleshooting](https://offhand-wow.onrender.com/companion.html)
+---
 
-***
+## Main features
 
-## Understanding the Companion App
+- **Mainhand-focused gameplay:** keeps the game camera away from the bezel, with supported HUD placement on your game display.
+- **Accessible UI workspace:** places supported maps, bags, Character panels, chat, and meters beside the game. Remembers eligible panel positions and open state, subject to native closing behavior and combat restrictions.
+- **World Map controls:** adjust the supported map's scale and keep it open while moving. External map addons retain their own placement and scale controls.
+- **Flexible arrangements:** portrait/landscape pairs, stacked displays, unequal resolutions, and offsets through exact Companion topology. The single-display 32:9/32:10 mode provides an equal game/workspace split.
+- **Guided setup and settings:** Windowed-mode setup, Mainhand/Offhand identification, calibration, and a five-page settings interface with help and recovery controls.
+- **Profiles and appearance:** saved profiles, themes, accents, custom backgrounds, and adjustments for supported world text, speech bubbles, and group-loot placement.
+- **Native Forever controller workflow:** supported panel drag handles and a bindable gameplay/UI-focus action.
+- **Recovery tools:** Recover Missing UI targets fully off-screen supported windows and HUD elements while preserving visible elements. Broader gather and HUD rebuild actions are separate and can change existing placements. Companion additionally provides window restoration and missing-monitor protection.
+- **Localization:** English, German, French, Spanish, Portuguese, Italian, Russian, Korean, Simplified Chinese, and Traditional Chinese.
 
-![Offhand Companion App](https://i.imgur.com/FfxY8yO.png)
+---
 
-### Why does Offhand have a separate application?
+## Create a custom Offhand background
 
-World of Warcraft addons run inside Blizzard's restricted Lua environment. An addon can arrange the in-game interface, but it cannot resize the Windows game window, remove its ordinary title bar and borders, identify the physical monitors behind a combined game window, or restore the desktop window after a display changes.
+[![Background Studio with a custom gold Offhand background, Mainhand game preview, and World Map and Bags reference guides](https://i.imgur.com/87mRyI0.png)](https://offhand-wow.onrender.com/background-studio.html)
 
-The Companion handles those Windows-level tasks. The addon then uses the display topology supplied by the Companion to keep the 3D game view on Mainhand and place supported interface panels on the Offhand workspace.
+[Background Studio](https://offhand-wow.onrender.com/background-studio.html) previews your image beside an illustrated Mainhand display and lets you adjust its crop, fit, opacity, and darkening. World Map and Bags outlines are reference guides only; they are not exported.
 
-The two parts have deliberately separate responsibilities:
+Processing stays in your browser. The generated `Offhand_UserMedia` package contains a texture, declarative metadata, a recipe, and installation instructions. It contains no Lua or executable program code. Install it beside Offhand, fully restart WoW, then enable **Use installed custom background** in **Themes & Colors**. Normal addon updates leave this separate package alone.
 
-* **The Companion manages the Windows game window and display geometry.**
-* **The addon manages the World of Warcraft viewport and supported UI panels.**
+---
 
-### What happens when the Companion runs?
+## Optional Offhand Companion
 
-The Companion:
+![Offhand Companion application](https://i.imgur.com/i2CdATA.png)
 
-1. Looks only for allowlisted World of Warcraft processes and identifies the visible top-level WoW window.
-2. Reads the display rectangles reported by Windows and uses the displays and Mainhand selected by the user.
-3. Removes the ordinary Windows border and positions the WoW window across the selected desktop area when the user clicks **Span WoW Now**.
-4. Writes Offhand-owned topology data containing the selected Mainhand and workspace coordinates. The addon reads that data after `/reload` and adjusts the in-game viewport.
-5. Can restore WoW to a normal bordered window, identify displays, pause monitoring, and remain available in the Windows notification area.
-6. On WoW Forever, waits until WoW has fully closed before refreshing Offhand's own recovery snapshot for the next cold launch.
+Companion is optional. Once **Span WoW Now** succeeds, you can exit Companion and the current window stays spanned. Leave it running when you want automatic spanning, active display recovery, or the Forever compatibility bridge.
 
-The Companion does not move your in-game frames itself. It gives the addon the reliable physical geometry needed to place them correctly.
+Companion manages the desktop window: borderless spanning, display selection, exact monitor rectangles, restoration, and missing-monitor recovery. The addon manages the in-game viewport and supported UI panels. FancyZones and manual placement remain alternatives that do not require an Offhand executable.
 
-### Is the Companion optional?
+[![Get Offhand Companion from Microsoft Store](https://img.shields.io/badge/Get_it_from-Microsoft_Store-0078D4?style=for-the-badge&logo=microsoft)](https://apps.microsoft.com/detail/9PL4PW84Q90W)
 
-Yes. You can manually stretch the standard Windowed-mode WoW client or use NVIDIA Surround, AMD Eyefinity, or another suitable window manager. The addon then manages the in-game viewport and supported panels without a resident Offhand desktop process.
+Microsoft Store provides a signed installation and managed updates. For a portable download, use the [official Companion Beta 20 release and checksums](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.2-beta.20). The addon and Companion have independent version numbers.
 
-The optional Companion provides:
+[Read the Companion installation, Linux/Wine, and recovery guide](https://offhand-wow.onrender.com/companion.html).
 
-* One-click spanning and one-click window restoration.
-* Explicit Mainhand and workspace selection.
-* Exact support for mixed resolutions, display heights, orientations, stacked arrangements, and negative Windows coordinates.
-* Display identification and missing-monitor protection.
-* A dedicated single-display 32:9/32:10 split mode.
-* Consistent topology for the setup guide, diagnostics, and recovery tools.
+### Security and policy
 
-An earlier Forever 1.60.1 build was confirmed to write Offhand SavedVariables without reliably restoring them after a full client restart. Companion v2.1.2 Beta 19 or later includes a compatibility bridge for that defect. Newer Forever builds are being revalidated without the bridge; `/offhand diag` reports the persistence source used by the current session.
+Companion uses desktop window-management APIs. It does not inject code, read WoW process memory, simulate game input, automate gameplay, install a service or driver, or collect telemetry. Obtain it only from Microsoft Store or the official GitHub release; do not disable security protections or override a named malware detection to install it. [Security documentation and download verification](https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md).
 
-### How is the Companion designed to remain safe?
+These design choices, Store availability, and security reviews do not constitute Blizzard approval or guarantee account safety. Blizzard alone interprets and enforces its agreements; review its current terms before using any desktop utility.
 
-The Companion is open source and uses normal Windows window-management and display APIs. It changes only the top-level WoW window's border, position, and dimensions and writes Offhand-owned topology and recovery data.
-
-It does **not**:
-
-* Request administrator access.
-* Install a service or driver.
-* Inject code into WoW or another process.
-* Read or modify WoW process memory.
-* Simulate keyboard or mouse input.
-* Automate gameplay.
-* Download and execute programs.
-* Collect telemetry.
-* Read browser data, passwords, Discord tokens, or account credentials.
-* Register global hotkeys or create a legacy Windows Run-key startup entry.
-
-Microsoft Store installations are certified and signed through the Store and receive updates through Microsoft. The Store package can expose an optional Windows-managed startup task, but it is disabled by default and remains under the user's control in **Windows Settings > Apps > Startup**.
-
-Portable installations check the official GitHub Releases API only when the user clicks **Check for Updates**. Complete source code, build instructions, exact release hashes, and Microsoft submission results are publicly available for independent inspection.
-
-No software description can provide an absolute security guarantee. Users should install Offhand only from the Microsoft Store or the official GitHub repository, verify portable-file hashes, keep Windows Security enabled, and report any named detection rather than overriding it.
-
-***
-
-## Public Service Announcement: Companion Security Status
-
-Earlier unsigned Companion builds received browser warnings and generic antivirus machine-learning detections. Those reports were taken seriously and prompted an audit, removal of nonessential behavior, simplified release packaging, hash-specific submissions to security vendors, and publication through the Microsoft Store.
-
-**Current status (October 9, 2026):** Microsoft Security Intelligence reviewed the exact Beta 20 portable ZIP in [submission `ee73ae7c-cd58-4824-bfe5-647ff24c8251`](https://www.microsoft.com/en-us/wdsi/submission/ee73ae7c-cd58-4824-bfe5-647ff24c8251). Its analyst reported no positive detection or telemetry indicators and stated that the submission would be closed with no further action. Both cloud and client protection report **No malware detected**.
-
-The Microsoft Store remains the recommended Windows installation because it is signed and managed through Microsoft's delivery system.
-
-Canonical Beta 20 hashes:
-
-* `Offhand.exe` SHA-256: `81EECE9430885CEAC178A44A42429854524279072305F9F94EE62E7CCD620CCB`
-* `Offhand-Companion.zip` SHA-256: `C726444612DD740BE3F923B83704D155E21BC017F7C5FE245379B19DBECC76E3`
-
-Security results apply to exact file hashes. Older VirusTotal results, locally rebuilt files, or differently generated archives do not describe the current frozen Beta 20 artifacts. Independent antivirus vendors may also retain their own cached or heuristic verdicts.
-
-Do not disable Windows Security or override a named malware detection to install Offhand. If a warning names a threat, stop and report the complete warning, download URL, filename, SHA-256, browser, security product, and definition version.
-
-[Read the complete security history, application behavior, verification instructions, and source-build guidance](https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md)
-
-***
-
-## What Offhand Does
-
-### Main features
-
-* **Mainhand-centered gameplay:** Keeps your character, targeting reticle, and game camera away from the bezel.
-* **Dedicated UI workspace:** Move supported maps, bags, character panels, chat windows, and meters away from the main game view.
-* **Persistent panel placement:** Remembers supported panel positions and open/closed state.
-* **Mixed-display support:** Handles unequal resolutions, different display heights, portrait/landscape pairs, stacked displays, and negative Windows coordinates through exact Companion topology.
-* **Super-ultrawide support:** Divides one 32:9/32:10 display into equal game and workspace halves.
-* **Bag-addon integration:** Supports Baganator, Bagnon, AdiBags, ArkInventory, BetterBags, and ElvUI without replacing their internal opening logic.
-* **Recovery tools:** Gathers eligible off-screen panels, restores the WoW window, and protects saved dual-display layouts when a monitor disconnects.
-* **Native localization:** English, German, French, Spanish, Portuguese, Italian, Russian, Korean, Simplified Chinese, and Traditional Chinese.
-
-***
-
-## Commands
-
-* `/offhand` or `/oh`: Open the configuration dashboard.
-* `/offhand guide`: Reopen the first-launch setup guide.
-* `/offhand wizard`: Start the guided display and viewport setup.
-* `/offhand gather`: Gather eligible off-screen panels onto Mainhand.
-* `/offhand diag`: Print display and viewport diagnostics for troubleshooting.
-
-***
+---
 
 ## Compatibility and Limitations
 
-### Supported clients
+### Clients and platforms
 
-* **WoW Classic Era / Hardcore / Season of Discovery:** Supported.
-* **Burning Crusade Classic Anniversary:** Supported.
-* **Wrath of the Lich King Classic:** Supported on declared official client interfaces.
-* **Original Wrath 3.3.5a (`30300`):** Experimental; further real-client testing is required.
-* **Cataclysm Classic:** Supported.
-* **Mists of Pandaria Classic:** Supported.
-* **Retail / Mainline:** Supported.
-* **WoW Forever:** Supported with the additional recovery guidance below.
+Client targets include Retail, WoW Forever, Classic Era / Hardcore / Season of Discovery, Burning Crusade Classic Anniversary, and Mists of Pandaria Classic, on their declared interfaces. Available HUD and panel features depend on the APIs exposed by your client. Interface declarations do not establish that every feature has been live-tested on every client build.
 
-### Windowed mode is required
-
-WoW must run in standard **Windowed** mode for desktop spanning. If the client cannot leave Fullscreen, open `WTF\Config.wtf` and ensure it contains:
-
-`SET gxWindow "1"`
-
-### Mac and Linux
-
-The in-game addon can be used on Mac and Linux with manual spanning or a suitable window manager. The Companion is currently a Windows WinForms application.
-
-Wine support is experimental. WoW and Companion must run as the same user, in the same `WINEPREFIX`, and with the same Wine or Proton runner. Native macOS, X11, and general Wayland Companion support is not currently claimed.
+The in-game addon can be used on Mac and Linux with manual placement or a suitable window manager. Companion is a Windows application; Wine support is experimental and requires WoW and Companion to use the same user, `WINEPREFIX`, and Wine/Proton runner. Native macOS, X11, and general Wayland Companion support is not claimed.
 
 ### Third-party UI addons
 
-Many UI addons work normally, but complete compatibility cannot be guaranteed. Offhand includes specific support for several bag and chat addons and deliberately leaves protected or addon-owned frames alone where appropriate. Report conflicts with the addon name, WoW client, reproduction steps, and Lua error.
+Offhand yields to external frame owners where appropriate. Compatibility varies by client and addon version:
 
-***
+- **OpenMap:** use OpenMap's own title handle and controls for placement and scale. Offhand supports its map in the workspace on compatible Retail versions.
+- **Leatrix Maps:** retains its own map controls. If you combine map addons, avoid enabling competing movement and scale controls in more than one addon.
+- **Bag addons:** integration paths include Baganator, Bagnon, AdiBags, ArkInventory, BetterBags, and ElvUI. The bag addon owns its contents and opening logic; native gamepad focus can impose additional restrictions.
+- **Chattynator and Ellesmere UI:** Offhand respects recognized ownership of chat and other supported UI elements. Arrange externally owned chat windows through their addon's own controls.
+- **Bartender, Dominos, ElvUI, Tukui, and ConsolePort:** retain their protected HUD elements. Position them through their own tools; native Forever gamepad handling does not establish complete ConsolePort compatibility.
+- **Dialogue UI:** includes a Mainhand placement adapter. As with other UI replacements, use a matching supported addon/client version and report any placement or interaction problems.
 
-## Frequently Asked Questions
+### Native Forever Gamepad UI
 
-**Does this work on one ultrawide monitor?**
+Bind **Toggle gameplay and window focus** in controller configuration to switch between gameplay and UI interaction. Back and Escape retain Blizzard's native window-closing behavior in protected UI modes. On supported keyboard workflows, the out-of-combat Escape-persistence option can keep eligible workspace windows open; close buttons and interaction endings still work normally.
 
-Yes. **Single-display 32:9 split** divides a 32:9/32:10 display into equal game and workspace halves.
+### WoW Forever persistence
 
-**Will this lower my FPS?**
+If your settings return after `/reload` but not after a full restart, see the [Companion recovery guide](https://offhand-wow.onrender.com/companion.html#recovery) or contact us on [Discord](https://discord.gg/J2P3SM6pAY). The recovery bridge is a fallback, not a requirement for every installation.
 
-Rendering a wider WoW window may require more GPU processing than a single-screen window. The addon itself is designed to keep Lua work bounded and lightweight.
+### Performance
 
-**Is the Companion required?**
+A larger WoW render canvas may increase GPU load compared with a single-screen window. Performance depends on the client, resolution, graphics settings, and other addons.
 
-No. You may resize the WoW window manually or use Surround, Eyefinity, or another window manager. The Companion provides one-click borderless spanning, exact topology, display identification, and recovery, and it may be exited after applying a span. Its Forever bridge remains available as a compatibility fallback while current builds undergo repeated cold-launch testing.
+### Loading screens and graphics changes
 
-**Is the Companion compliant with Blizzard's Terms of Service?**
+WoW's native loading artwork still uses the full spanned window and can crop across unequal or offset displays. As a manual workaround, select **Restore Window** in Companion before loading, then **Span WoW Now** after returning to the game world. Offhand's in-world viewport does not control the loading artwork.
 
-The Companion is designed as an operating-system window-management utility. It changes only the top-level WoW window's border, position, and dimensions and writes Offhand-owned topology and recovery files. It does not inject code, read game memory, alter game files, simulate input, or automate gameplay. No third party can guarantee how Blizzard will interpret or enforce its agreements, so users should review the public source and Blizzard's current terms and decide accordingly.
+If a border remains inside Mainhand after loading, check window placement, Windows scaling, and bezel settings, then include those details in your report.
 
-**Can I avoid running an executable?**
+---
 
-Yes. Follow the [no-executable manual spanning guide](https://offhand-wow.onrender.com/manual-spanning.html). Manual spanning may need to be repeated after launch. On a Forever build that still fails normal cold-launch persistence, the Companion bridge remains an optional workaround.
+## Recovery: choose the smallest action needed
 
-***
+- **A supported window or HUD element is missing:** open `/offhand`, find **Recovery & Preview**, and choose **Recover Missing UI**. It targets fully off-screen supported elements; visible elements on either display stay where they are. Inactive abilities and interaction windows stay closed. Recovered elements may need adjustment, and HUD repairs may require a reload.
+- **You want workspace panels back on Mainhand:** **Gather Off-Screen UI** is a broader gather action. Read its confirmation: it can move supported visible workspace windows and update their saved placements, including windows that were already reachable.
+- **The protected HUD needs rebuilding:** leave combat and close Blizzard Edit Mode, then use **Create Mainhand HUD Layout**. This can replace edits in the generated Offhand layout and reposition visible HUD systems. Back up your layout first; use missing-only recovery when you want to preserve visible elements.
+- **Blizzard's custom-layout list is full:** open **Escape > Edit Mode**, use the layout dropdown to export a layout if needed, then delete only an unwanted custom layout. Close Edit Mode, reopen `/offhand wizard`, and retry. Offhand does not delete layouts for you.
 
-## WoW Forever Beta
+If the split or window size is wrong, correct the native window placement before rebuilding your HUD or saved panel positions. See the [illustrated recovery guide](https://offhand-wow.onrender.com/in-game-setup.html#recovery).
 
-An earlier WoW Forever 1.60.1 build did not consistently restore addon SavedVariables after a complete client restart. These variables contain workspace positions, panel state, and setup completion. The Companion bridge remains available for affected builds, but the preferred validation path is now a cold launch with the Companion fully exited and the packaged bridge placeholder installed.
+---
 
-### First-time Forever setup
+## Commands
 
-1. Choose manual spanning, an existing window manager, or Companion v2.1.2 Beta 19 or later. Leave **Auto-span WoW on launch** disabled during initial Companion setup.
-2. Set WoW to standard **Windowed** mode, log into a character, and wait until the game world has fully loaded. The **Welcome to Offhand** guide should open automatically.
-3. Follow the guide to select the displays and Mainhand in the Companion. Click **Span WoW Now** only after entering the game world.
-4. Return to the guide and click **Reload UI**. Continue through the guide into the calibration wizard. If the guide was closed, reopen it with `/offhand guide`.
-5. On the calibration wizard's final step, make sure you are outside combat and Blizzard Edit Mode is closed. Press **Create Mainhand HUD Layout**, then reload when prompted.
-6. If desired, fine-tune the generated layout in Blizzard Edit Mode. After saving personal changes, open **Recovery & Preview** and click **Use Current Edit Mode Layout**.
-7. Arrange supported maps, bags, character panels, and chat windows on the Offhand workspace.
-8. For the standalone test, select **Exit Companion**, exit WoW normally, and cold-launch the client. Verify the workspace panels and Mainhand HUD layout, then run `/offhand diag`. Use the compatibility bridge only if normal SavedVariables did not initialize the session.
+- `/offhand` or `/oh`: open settings.
+- `/offhand guide`: reopen the setup guide.
+- `/offhand wizard`: open display calibration.
+- `/offhand gather`: open the broader gather action; review its confirmation before moving workspace panels.
+- `/offhand diag`: show troubleshooting diagnostics.
 
-### Everyday Forever use
-
-After **Span WoW Now** succeeds, you may select **Exit Companion**. The current span and in-game addon continue without it. Leave it running only for automatic spanning, active monitor-disconnect recovery, topology-file repair, exact Restore Window memory, or the Forever compatibility bridge.
-
-After moving panels or changing the HUD layout, perform one normal exit and relaunch to confirm that the newest recovery state was captured.
-
-### What Offhand restores
-
-Offhand restores supported ordinary workspace frames such as the World Map, Character frame, backpacks, and chat. Blizzard Edit Mode remains responsible for action bars, player and target frames, stance and pet bars, party and raid frames, and other protected combat UI.
-
-If the layout works after `/reload` but not after restarting WoW, capture `/offhand diag` and the client build. If it reports stale/default state instead of normal SavedVariables, run Companion v2.1.2 Beta 19 or later through one normal WoW shutdown so it can refresh the compatibility bridge.
-
-***
+---
 
 ## Support and Feedback
 
-Report problems through the CurseForge comments or join the Offhand Discord:
+Start with the [illustrated setup and settings guide](https://offhand-wow.onrender.com/in-game-setup.html). For further help, use the CurseForge comments or [join the Offhand Discord](https://discord.gg/J2P3SM6pAY). Select **Offhand** in the **Start Here** channel to access its channels.
 
-[https://discord.gg/J2P3SM6pAY](https://discord.gg/J2P3SM6pAY)
-
-After joining, select **Offhand** in the **Start Here** channel to access the relevant channels.
-
-Useful reports include the WoW client, Offhand version, display resolutions and arrangement, Windows scaling percentage, Companion version, reproduction steps, Lua errors, and screenshots.
+Include your WoW client/build, addon and Companion versions, display arrangement and resolutions, Windows scaling percentage, reproduction steps, screenshots, and any Lua errors.
 
 ***
 
 ## 💖 Special Thanks to the Forever Beta Testers
 
-Offhand was shaped, battle-tested, and refined through dozens of beta iterations thanks to our dedicated Discord testing community. Massive gratitude goes out to the players who shared bug captures, /offhand diag logs, display configurations, and real-world desk setups throughout the **WoW Forever Beta**:
+Offhand was shaped, battle-tested, and refined through dozens of beta iterations thanks to our dedicated Discord testing community. Offhand simply would not have recovered from the initial Reddit release without the help of these people and the time they invested to get Offhand back on the road. Massive gratitude goes out to the players who shared bug captures, "/offhand diag" logs, display configurations, and real-world desk setups throughout the **WoW Forever Beta**:
 
-### 🌟 Core Contributors & Active Testers
+### Core Contributors & Active Testers
 
-* **@who.am_i.**: Outstanding bug hunting and combat error isolation, capturing Lua stacks across combat lockdown, quest combining errors, Error Auras, and Beta 21 Party Frame placement.
-* **@ivellos**: Invaluable early testing, continuous multi-monitor configuration checks, and active community showcase participation.
-* **@alex_292**: Dedicated daily beta testing, configuration feedback, and hands-on community troubleshooting.
-* **@.kukaracha**: Thorough Companion app window scaling testing, text scaling feedback, and dual-display layout verification.
-* **@bludrunk**: Tireless beta testing across successive builds, fast feedback loops, and support triage.
-* **@jarmen4u**: Critical testing on multi-window chat behavior and helping isolate the secondary chat window reset defect across /reload.
-* **@baddino72**: Leading Linux & Wine compatibility testing, window manager focus handling, and multi-screen UI rearrangement verification.
-* **@luthia.**: Druid form shifting and stance bar layout testing, helping identify stance-change profile reapplication issues.
-* **@moshtradamus**: Identifying and documenting mixed-height monitor dead space and edge alignment challenges.
-* **@monky9938** & **@rich18144**: Reliable long-term beta testing, regression verification, and bug tracking across early releases.
-* **@magic815**: Addon compatibility testing (Better Forever Chat), text scale feedback, and setup reports.
-* **@_spada**: Profile persistence feedback, dual-monitor showcases, and workflow suggestions.
-* **@.loomi**: Battleground score frame placement reports and UI resizing feedback.
+*   **@who.am\_i.** — Outstanding bug hunting and combat error isolation, capturing Lua stacks across combat lockdown, quest combining errors, Error Auras, and Beta 21 Party Frame placement.
+*   **@ivellos** — Invaluable early testing, continuous multi-monitor configuration checks, and active community showcase participation.
+*   **@bludrunk** — Tireless beta testing across successive builds, fast feedback loops, and support triage, supportive ear and bit of a badass.
+*   **@alex\_292** — Dedicated daily beta testing, configuration feedback, and hands-on community troubleshooting.
+*   **@.kukaracha** — Thorough Companion app window scaling testing, text scaling feedback, and dual-display layout verification.
+*   **@jarmen4u** — Critical testing on multi-window chat behavior and helping isolate the secondary chat window reset defect across /reload.
+*   **@baddino72** — Leading Linux & Wine compatibility testing, window manager focus handling, and multi-screen UI rearrangement verification.
+*   **@luthia.** — Druid form shifting and stance bar layout testing, helping identify stance-change profile reapplication issues. Cutscene issues and more!
+*   **@moshtradamus** — Identifying and documenting mixed-height monitor dead space and edge alignment challenges.
+*   **@rich18144** — Reliable long-term beta testing, regression verification, and bug tracking across early releases.
+*   **@magic815** — Addon compatibility testing (Better Forever Chat) and chat related issues, map issues, text scale feedback, nameplate scaling and setup reports.
+*   **@\_spada** — Profile persistence feedback, dual-monitor showcases, and workflow suggestions.
+*   **@.loomi** — Battleground score frame placement reports and UI resizing feedback.
+*   **@meilu87** — Investigating and identifying Forever client rendering engine issues with AA/MSAA sharpness and tearing.
+*   **@kustos** — Windows desktop DPI scaling and issues around 3-monitor setups.
+*   **@paayog** — The first person to reach out and offer a helping hand after the Reddit debacle. Thank you!
+*   **@monky9938** — The OG Linux tester, provided compatibility, companion and general testing from day 1 of the discord!
+*   **@trapscallion** — UI frames and companion tester, security & packaging, all-round support!
 
-### 📸 Showcase & Community Testers
+### Showcase & Community Testers
 
-Special thanks also to **@meilu87**, **@lodenk**, **@kaylipso**, **@_valand**, **@tpkruse**, **@trapscallion**, **@fungdark**, **@g4nsk1**, **@.darocketeer**, **@flipmyswitch**, **@wallaweegie**, **@jimmythegent**, **@felo7474**, **@kustos**, **@.meggie.**, and all members of the N4UX ADDONS Discord who shared diagnostics, screenshots, and logs!
+Special thanks also to **@lodenk**, **@kaylipso**, **@\_valand**, **@tpkruse**, **@fungdark**, **@g4nsk1**, **@.darocketeer**, **@flipmyswitch**, **@wallaweegie**, **@jimmythegent**, **@felo7474**, **@.meggie.**, and all members of the N4UX ADDONS Discord who shared diagnostics, screenshots, feedback and logs and simply downloaded Offhand and took a leap of faith to trust the process and project!
+
 ***
 
 ## Disclaimer
 
-AI tools and language models were used for development and coding assistance. Project direction, features, testing decisions, and published releases remain the responsibility of the project author.
+AI tools assisted development and coding. Project direction, testing decisions, and published releases remain the author's responsibility.
 
 World of Warcraft is a trademark of Blizzard Entertainment, Inc. Offhand is an independent community project and is not affiliated with or endorsed by Blizzard Entertainment.

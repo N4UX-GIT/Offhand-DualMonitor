@@ -4,7 +4,7 @@
     intentional Companion update is explicitly requested.
 #>
 param(
-    [string]$Version = "2.1.2-beta.24",
+    [string]$Version = "2.1.2-beta.25",
     [switch]$AddonOnly,
     [switch]$CompanionChanged,
     [switch]$UseExistingCompanion,

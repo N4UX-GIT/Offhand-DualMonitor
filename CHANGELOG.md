@@ -4,6 +4,48 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.2-beta.25] - 2026-10-31
+
+### Setup and recovery
+- Calibration now pauses with actionable instructions when Companion geometry is
+  missing or does not match the window. Apply Span WoW Now in the game world,
+  then Reload UI to resume the same step. Maximizing one monitor is not spanning.
+- A full Blizzard Edit Mode layout list now opens guided recovery: export or
+  delete an unused layout yourself, close Edit Mode, then retry HUD creation.
+  Offhand never deletes a layout automatically.
+- Repair HUD uses the same capacity recovery and retires obsolete repair prompts
+  after successful layout creation, leaving the reload prompt as the next action.
+- Kept the wizard centered through span/restore and reflowed guidance paragraphs
+  to prevent truncation or overflow. Added clearer failure-specific HUD guidance.
+- Shortened the settings tagline to "Dual-wield your monitors." and clarified
+  the addon-list description.
+- Guarded Retail tooltip bounds against secret, missing and nonfinite coordinates
+  before arithmetic, including Encounter Warnings tooltips in Edit Mode.
+
+### Retail compatibility candidates
+- Added Mainhand presentation for cinematic/movie playback and the native skip
+  confirmation, preserving Blizzard input, playback and visibility ownership.
+- Expanded native group-confirmation stack handling and added Mainhand placement
+  for keystone insertion, completion banners and event toasts. Native links,
+  offsets, handlers and external ownership are preserved.
+- Added a native-anchor adapter for Retail override/vehicle presentation.
+- Hardened shared HUD layout identity: character-named layouts cannot be adopted
+  by another character; explicit setup can preserve a tuned legacy layout;
+  GUID tracking distinguishes future same-name character recreations.
+
+### Evidence and remaining checks
+- Setup/full-slot Repair HUD recovery was accepted on Anniversary and Retail.
+  Shared selection and tuned placement were accepted on the reported Retail setup.
+- All 69 Lua 5.1 suites pass on the integrated source. These are simulated tests,
+  not proof of combat/taint safety or native action correctness.
+- Expanded Retail notification, cinematic and vehicle candidates still require
+  targeted live acceptance, including real native actions and current taint logs.
+  Translation expansion, narrow Mainhand layouts and other clients need retesting.
+- The Anniversary manual-span memory-crash report remains unresolved; this build
+  does not claim an out-of-memory fix. Forever release-client testing is pending.
+- Companion remains 2.1.2-beta.20. Experimental HDR/dashboard, native graphics-reset
+  recovery and loading-art changes are not included in the release executable.
+
 ## [2.1.2-beta.24] - 2026-10-30
 
 ### Fixed and improved
