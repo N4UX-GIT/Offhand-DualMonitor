@@ -98,6 +98,44 @@ release page opens only after an update is found and the user confirms.
 
 ## Display selection and topology
 
+### Display diagnostics (development source)
+
+The dashboard uses the window width and sizes its status text to fit. Each
+section has a keyboard-accessible **Show/Hide** control; collapsed state is
+remembered in Companion settings. **Activity Log** starts collapsed. Span,
+Restore and Pause remain outside collapsible sections, and the footer controls
+stay outside the scrolling content. The window can be resized or maximized.
+
+The **Display Diagnostics** card shows the selected Mainhand and Offhand displays'
+active Windows color modes and scale percentages. An HDR-capable display operating in SDR is shown
+as **SDR, HDR available**. A selected HDR/SDR pair gets an advisory about possible
+excessive brightness or washed-out colors. The advisory does not block spanning.
+
+Different Windows scales, such as 100% and 150%, are shown as informational.
+Equal scales above 100% are also displayed. These are supported configurations;
+they do not by themselves indicate blur or a geometry problem. Windows scaling
+is distinct from physical monitor pixel density and WoW's UI/render scale.
+
+**Display Troubleshooting** explains comparisons with Auto HDR or RTX HDR disabled
+for WoW, followed by a Windows HDR-off comparison if needed. The dialog can open
+Windows Display Settings. **Copy Display Diagnostics** copies the current modes,
+selected output identities, bounds, scale percentages and query details for a
+support report. Scaling guidance covers native resolution, Restore/Span
+comparisons and an optional temporary equal-scale comparison.
+
+Detection refreshes with the existing monitor poll, display-selection changes,
+before spanning, and when diagnostics are copied. It reads Windows output state;
+it does not detect game HDR conversion, measure brightness, perform tone mapping,
+or change Windows/game/driver HDR or scaling settings. If an output cannot be matched or an
+API is unavailable, its mode is reported as unavailable. Legacy advanced color
+queries that cannot distinguish HDR from wide color also remain unavailable.
+Failed scale queries remain unavailable rather than assuming 100%.
+One-display split mode never triggers a mixed-output or mixed-scale advisory.
+
+This is a source feature awaiting a new Companion candidate and mixed HDR/SDR
+and mixed-scale hardware validation. The frozen public Beta 20 download does not include it.
+See [implementation and QA notes](../docs/COMPANION-HDR-DETECTION.md).
+
 Normal Offhand operation uses exactly two checked displays. Select the display
 that should contain the 3D world and Blizzard combat UI in **Mainhand (game)**;
 the other selected display becomes the Offhand workspace. Monitor choices are

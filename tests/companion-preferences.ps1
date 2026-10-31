@@ -75,7 +75,7 @@ try {
     }
     if ($source -notmatch 'AutoScaleDimensions = new SizeF\(96F, 96F\)' -or
         $source -notmatch 'AutoScaleMode = AutoScaleMode\.Dpi' -or
-        $source -notmatch 'ClientSize = new Size\(524, 824\)' -or
+        $source -notmatch 'FitDashboardToWorkingArea\(Screen.FromControl\(this\).WorkingArea\)' -or
         $source -notmatch 'AutoScroll = true') {
         throw 'Companion must scale its 96-DPI dashboard geometry linearly and remain scrollable at enlarged display scales.'
     }

@@ -11,6 +11,9 @@ using System.Text.RegularExpressions;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
+#if HDR_DPI_DIAGNOSTICS_TEST && (GRAININESS_TEST || FOREVER_GRAPHICS_RECOVERY_TEST || RETAIL_GRAPHICS_RECOVERY_TEST || CLASSIC_GRAPHICS_RECOVERY_TEST)
+#error Diagnostics and rendering/recovery experiments require separate builds.
+#endif
 #if GRAININESS_TEST && (FOREVER_GRAPHICS_RECOVERY_TEST || RETAIL_GRAPHICS_RECOVERY_TEST || CLASSIC_GRAPHICS_RECOVERY_TEST)
 #error Graininess and graphics recovery are separate experimental configurations.
 #endif
@@ -18,7 +21,9 @@ using System.Windows.Forms;
 #error Select exactly one graphics recovery client scope.
 #endif
 
-#if FOREVER_GRAPHICS_RECOVERY_TEST
+#if HDR_DPI_DIAGNOSTICS_TEST
+[assembly: AssemblyTitle("Offhand Companion HDR DPI DIAGNOSTICS TEST 3")]
+#elif FOREVER_GRAPHICS_RECOVERY_TEST
 [assembly: AssemblyTitle("Offhand Companion FOREVER GRAPHICS TEST 5")]
 #elif RETAIL_GRAPHICS_RECOVERY_TEST
 [assembly: AssemblyTitle("Offhand Companion RETAIL GRAPHICS TEST 4")]
@@ -32,7 +37,10 @@ using System.Windows.Forms;
 [assembly: AssemblyProduct("Offhand Companion")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
 [assembly: AssemblyVersion("2.1.2.0")]
-#if GRAININESS_TEST
+#if HDR_DPI_DIAGNOSTICS_TEST
+[assembly: AssemblyFileVersion("2.1.2.2005")]
+[assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
+#elif GRAININESS_TEST
 [assembly: AssemblyFileVersion("2.1.2.2002")]
 // Keep the public compatibility/writer identity parseable. Experimental
 // identity belongs in FileVersion, the title, logs and package filename.
@@ -213,6 +221,251 @@ namespace Offhand.Companion
             return new Rectangle(
                 Math.Max(workArea.Left, Math.Min(desired.Left, workArea.Right - width)),
                 Math.Max(workArea.Top, Math.Min(desired.Top, workArea.Bottom - height)), width, height);
+        }
+    }
+
+    // Read-only Windows display state. This describes desktop outputs, not WoW's
+    // swap chain or whether Auto HDR / a driver filter is active for the game.
+    internal static class DisplayColor
+    {
+        internal enum Mode { Unknown, Sdr, Wcg, Hdr }
+        internal sealed class State
+        {
+            internal Mode Active;
+            internal bool? HdrSupported;
+            internal string Detail;
+            internal string Label
+            {
+                get
+                {
+                    if (Active == Mode.Hdr) return "HDR on";
+                    if (Active == Mode.Wcg) return "SDR (wide color)";
+                    if (Active == Mode.Sdr) return HdrSupported == true ? "SDR, HDR available" : "SDR";
+                    return "Color mode unavailable";
+                }
+            }
+        }
+
+        internal const string Guidance =
+            "Offhand spans one WoW window across the selected displays. Mixed HDR/SDR output may cause excessive brightness or washed-out colors. " +
+            "This message identifies a possible compatibility issue, not a confirmed rendering problem. Spanning remains available.\r\n\r\n" +
+            "1. If you use Windows Auto HDR or NVIDIA RTX HDR for WoW, disable that game HDR feature and restart WoW. Leave Windows HDR on for this first comparison.\r\n\r\n" +
+            "2. If brightness remains incorrect, compare with Windows HDR disabled on the HDR display. Restore your preferred settings after testing.\r\n\r\n" +
+            "3. Include the copied display diagnostics, WoW version, Windows version, GPU/driver and monitor models when reporting the result.\r\n\r\n" +
+            "Detection reads Windows display modes. It cannot tell whether WoW, Auto HDR or a driver filter is producing HDR, measure image brightness, or correct colors. " +
+            "No HDR, driver or game settings are changed by the Companion. Older Windows versions, drivers and Wine may not provide an unambiguous HDR mode.";
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct Luid { internal uint Low; internal int High; }
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct Header { internal uint Type, Size; internal Luid Adapter; internal uint Id; }
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        internal struct SourceName
+        {
+            internal Header Header;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] internal string Name;
+        }
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct ColorInfo
+        {
+            internal Header Header;
+            internal uint Flags, Encoding, Bits, ActiveMode;
+        }
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct Source { internal Luid Adapter; internal uint Id, ModeIndex, Status; }
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct Target
+        {
+            internal Luid Adapter;
+            internal uint Id, ModeIndex, Technology, Rotation, Scaling, RefreshNumerator, RefreshDenominator, Scanline;
+            internal int Available;
+            internal uint Status;
+        }
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct Path { internal Source Source; internal Target Target; internal uint Flags; }
+        [StructLayout(LayoutKind.Explicit, Size = 64)]
+        internal struct ModeInfo { [FieldOffset(0)] internal uint Type; }
+
+        [DllImport("user32.dll")]
+        private static extern int GetDisplayConfigBufferSizes(uint flags, out uint paths, out uint modes);
+        [DllImport("user32.dll")]
+        private static extern int QueryDisplayConfig(uint flags, ref uint pathCount, [Out] Path[] paths,
+            ref uint modeCount, [Out] ModeInfo[] modes, IntPtr topology);
+        [DllImport("user32.dll", EntryPoint = "DisplayConfigGetDeviceInfo", CharSet = CharSet.Unicode)]
+        private static extern int GetSourceName(ref SourceName name);
+        [DllImport("user32.dll", EntryPoint = "DisplayConfigGetDeviceInfo")]
+        private static extern int GetColorInfo(ref ColorInfo info);
+
+        internal static State DecodeModern(uint flags, uint mode)
+        {
+            return new State { Active = mode == 2 ? Mode.Hdr : mode == 1 ? Mode.Wcg : mode == 0 ? Mode.Sdr : Mode.Unknown,
+                HdrSupported = (flags & 16) != 0, Detail = "Windows active color mode=" + mode + "; flags=" + flags };
+        }
+
+        internal static State DecodeLegacy(uint flags)
+        {
+            // Legacy AdvancedColorEnabled can also mean WCG on newer Windows.
+            // Never advertise it as confirmed HDR, or infer HDR capability from
+            // AdvancedColorSupported. A successful modern query resolves both.
+            return new State { Active = (flags & 2) == 0 ? Mode.Sdr : Mode.Unknown,
+                Detail = "Legacy advanced color flags=" + flags + "; HDR-specific state unavailable" };
+        }
+
+        private static State ReadTarget(Target target)
+        {
+            ColorInfo info = new ColorInfo();
+            info.Header = new Header { Type = 15, Size = (uint)Marshal.SizeOf(typeof(ColorInfo)), Adapter = target.Adapter, Id = target.Id };
+            int modern = GetColorInfo(ref info);
+            if (modern == 0) return DecodeModern(info.Flags, info.ActiveMode);
+            // The legacy structure ends before ActiveMode (32 bytes).
+            info = new ColorInfo();
+            info.Header = new Header { Type = 9, Size = 32, Adapter = target.Adapter, Id = target.Id };
+            int legacy = GetColorInfo(ref info);
+            if (legacy == 0) return DecodeLegacy(info.Flags);
+            return new State { Detail = "Windows color query failed: modern=" + modern + ", legacy=" + legacy };
+        }
+
+        internal static void Merge(Dictionary<string, State> states, string device, State value)
+        {
+            // A cloned source can drive multiple physical targets. Conflicting
+            // target modes must not silently become whichever target came last.
+            State previous;
+            if (states.TryGetValue(device, out previous))
+                states[device] = new State { Detail = "Multiple active targets share this display source; color mode is ambiguous" };
+            else states[device] = value;
+        }
+
+        internal static Dictionary<string, State> Read(out string failure)
+        {
+            failure = null;
+            var states = new Dictionary<string, State>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                // Retry only a bounded number of times if hotplug changes the
+                // required buffer sizes between enumeration calls.
+                for (int attempt = 0; attempt < 3; attempt++)
+                {
+                    uint pathCount, modeCount;
+                    int result = GetDisplayConfigBufferSizes(2, out pathCount, out modeCount);
+                    if (result != 0) { failure = "Windows display enumeration failed: " + result; return states; }
+                    if (pathCount > 256 || modeCount > 1024) { failure = "Windows display enumeration exceeded safe limits"; return states; }
+                    var paths = new Path[pathCount];
+                    var modes = new ModeInfo[modeCount];
+                    result = QueryDisplayConfig(2, ref pathCount, paths, ref modeCount, modes, IntPtr.Zero);
+                    if (result == 122) continue;
+                    if (result != 0) { failure = "Windows display query failed: " + result; return states; }
+                    for (int i = 0; i < pathCount; i++)
+                    {
+                        SourceName name = new SourceName();
+                        name.Header = new Header { Type = 1, Size = (uint)Marshal.SizeOf(typeof(SourceName)),
+                            Adapter = paths[i].Source.Adapter, Id = paths[i].Source.Id };
+                        if (GetSourceName(ref name) != 0 || string.IsNullOrEmpty(name.Name)) continue;
+                        Merge(states, name.Name, ReadTarget(paths[i].Target));
+                    }
+                    return states;
+                }
+                failure = "Display configuration kept changing; color mode unavailable";
+            }
+            catch (DllNotFoundException) { failure = "Windows color detection is unavailable on this system"; }
+            catch (EntryPointNotFoundException) { failure = "Windows color detection is unavailable on this system"; }
+            catch (NotSupportedException) { failure = "Windows color detection is unsupported on this system"; }
+            return states;
+        }
+
+        internal static State Lookup(Dictionary<string, State> states, string device, string failure)
+        {
+            State state;
+            return device != null && states.TryGetValue(device, out state) ? state :
+                new State { Detail = failure ?? "No unambiguous active Windows output matched this display" };
+        }
+
+        internal static bool IsMixed(State mainhand, State workspace, bool singleSplit)
+        {
+            return !singleSplit && ((mainhand.Active == Mode.Hdr && (workspace.Active == Mode.Sdr || workspace.Active == Mode.Wcg))
+                || (workspace.Active == Mode.Hdr && (mainhand.Active == Mode.Sdr || mainhand.Active == Mode.Wcg)));
+        }
+    }
+
+    internal static class DisplayScaling
+    {
+        internal sealed class State
+        {
+            internal int? Percent;
+            internal string Detail;
+            internal string Label { get { return Percent.HasValue ? Percent.Value + "% scale" : "Scale unavailable"; } }
+        }
+
+        internal const string Guidance =
+            "WINDOWS DISPLAY SCALING\r\n\r\n" +
+            "The display percentages describe Windows scaling, not the monitor's physical pixel density, WoW's UI scale or its render resolution. " +
+            "Different scales, or scales above 100%, are supported configurations and do not by themselves indicate a problem.\r\n\r\n" +
+            "If WoW looks blurry or its size changes unexpectedly while spanned:\r\n\r\n" +
+            "1. Confirm each monitor uses its recommended native resolution in Windows Display Settings. Record each display's Scale setting.\r\n\r\n" +
+            "2. Compare Restore Window with the same scene after Span WoW Now. Include the copied display diagnostics and /offhand diag in your report.\r\n\r\n" +
+            "3. If needed, temporarily compare both monitors at the same Windows scale, then restart WoW and span again. " +
+            "Restore your preferred scales after testing. Follow any Windows sign-out prompt before comparing results.\r\n\r\n" +
+            "The Companion does not change Windows scaling, compatibility overrides, WoW UI scale or render scale. " +
+            "Detected percentages do not prove that Windows is stretching WoW or identify the cause of blur.";
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        internal struct MonitorInfo
+        {
+            internal uint Size;
+            internal NativeMethods.RECT Bounds, WorkArea;
+            internal uint Flags;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] internal string Device;
+        }
+        [DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromRect(ref NativeMethods.RECT rect, uint flags);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetMonitorInfoW")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
+        [DllImport("shcore.dll")]
+        private static extern int GetScaleFactorForMonitor(IntPtr monitor, out int scale);
+
+        internal static State FromResult(int result, int percent)
+        {
+            // Windows can return a default factor even on failure. Never turn
+            // that fallback into an observed 100% scale.
+            return result == 0 && percent > 0 && percent <= 1000
+                ? new State { Percent = percent, Detail = "Windows GetScaleFactorForMonitor=" + percent + "%" }
+                : new State { Detail = "Windows scale query unavailable: result=" + result + "; value=" + percent };
+        }
+
+        internal static State Read(MonitorSelection.Display display)
+        {
+            if (display == null) return new State { Detail = "No selected display to query" };
+            try
+            {
+                var rect = new NativeMethods.RECT { Left = display.Bounds.Left, Top = display.Bounds.Top,
+                    Right = display.Bounds.Right, Bottom = display.Bounds.Bottom };
+                IntPtr monitor = MonitorFromRect(ref rect, 0); // No primary/nearest fallback.
+                var info = new MonitorInfo { Size = (uint)Marshal.SizeOf(typeof(MonitorInfo)) };
+                if (monitor == IntPtr.Zero || !GetMonitorInfo(monitor, ref info)
+                    || !string.Equals(info.Device, display.DeviceName, StringComparison.OrdinalIgnoreCase))
+                    return new State { Detail = "Selected display no longer matches a Windows monitor" };
+                int percent;
+                int result = GetScaleFactorForMonitor(monitor, out percent);
+                return FromResult(result, percent);
+            }
+            catch (DllNotFoundException) { return new State { Detail = "Windows scale detection is unavailable on this system" }; }
+            catch (EntryPointNotFoundException) { return new State { Detail = "Windows scale detection is unavailable on this system" }; }
+            catch (NotSupportedException) { return new State { Detail = "Windows scale detection is unsupported on this system" }; }
+        }
+
+        internal static bool IsMixed(State game, State work, bool singleSplit)
+        {
+            return !singleSplit && game.Percent.HasValue && work.Percent.HasValue && game.Percent != work.Percent;
+        }
+
+        internal static string Summary(State game, State work, bool singleSplit)
+        {
+            if (!game.Percent.HasValue || (!singleSplit && !work.Percent.HasValue))
+                return "Windows scale unavailable for one or more selected displays.";
+            if (IsMixed(game, work, singleSplit))
+                return "Different Windows scales detected. This is supported; see troubleshooting if WoW looks blurry.";
+            return singleSplit ? "One physical display uses " + game.Percent + "% Windows scaling."
+                : "Both selected displays use " + game.Percent + "% Windows scaling.";
         }
     }
 
@@ -1233,7 +1486,12 @@ namespace Offhand.Companion
     public class CompanionForm : Form
     {
         internal const string BaseVersion = "2.1.2";
-#if FOREVER_GRAPHICS_RECOVERY_TEST
+#if HDR_DPI_DIAGNOSTICS_TEST
+        internal const string ReleaseLabel = "Beta 20 HDR / DPI DIAGNOSTICS TEST 3";
+        internal static readonly bool GraphicsRecoveryEnabled = false;
+        internal static readonly bool RetailGraphicsRecoveryEnabled = false;
+        internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
+#elif FOREVER_GRAPHICS_RECOVERY_TEST
         internal const string ReleaseLabel = "Beta 20 FOREVER GRAPHICS TEST 5";
         internal static readonly bool GraphicsRecoveryEnabled = true;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
@@ -1284,6 +1542,25 @@ namespace Offhand.Companion
         private Label lblWowStatus;
         private Label lblAddonStatus;
         private Label lblDisplayInfo;
+        private Label lblColorModes;
+        private Label lblColorWarning;
+        private Label lblScaleInfo;
+        private sealed class DashboardSection
+        {
+            internal Panel Panel;
+            internal Label Heading;
+            internal Button Toggle;
+            internal string Key;
+            internal bool Expanded = true;
+        }
+        private readonly Dictionary<Panel, DashboardSection> dashboardSections = new Dictionary<Panel, DashboardSection>();
+        private TableLayoutPanel dashboardStack;
+        private Panel dashboardScroll;
+        private TableLayoutPanel dashboardFooter;
+        private Panel dashboardHeader;
+        private bool layingOutDashboard;
+        private string colorDiagnostics = "Select a valid display plan to inspect color modes.";
+        private string lastColorDiagnostic;
         private Label lblAddonReason;
         private string lastAddonDiagnostic;
         private CheckBox chkAutoSpan;
@@ -1545,6 +1822,7 @@ namespace Offhand.Companion
             if (cmbSingleSide != null && cmbSingleSide.SelectedItem != null)
                 appSettings["SingleGameSide"] = cmbSingleSide.SelectedItem.ToString().ToUpperInvariant();
             SaveConfig();
+            if (lblColorModes != null) RefreshSelectedColorStatus();
         }
 
         private void ConfirmStableDisplayIdentity(bool manual)
@@ -1574,7 +1852,9 @@ namespace Offhand.Companion
         private static readonly string publicConfigPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Offhand", "OffhandConfig.ini");
-#if GRAININESS_TEST
+#if HDR_DPI_DIAGNOSTICS_TEST
+        private static readonly string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DiagnosticsTestConfig.ini");
+#elif GRAININESS_TEST
         private static readonly string configPath = SpanPresentationTest.ConfigPath;
 #else
         private static readonly string configPath = GraphicsRecoveryEnabled
@@ -1587,9 +1867,13 @@ namespace Offhand.Companion
             try
             {
                 // Import portable settings once; future launches are independent of CWD.
+#if HDR_DPI_DIAGNOSTICS_TEST
+                string source = File.Exists(configPath) ? configPath : publicConfigPath;
+#else
                 string source = File.Exists(configPath) ? configPath :
                     GraphicsRecoveryEnabled && File.Exists(publicConfigPath) ? publicConfigPath :
                     Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "OffhandConfig.ini");
+#endif
                 appSettings = PreferenceFile.Read(source);
             }
             catch (IOException ex) { configWarning = "Cannot read settings: " + ex.Message; }
@@ -1723,6 +2007,11 @@ namespace Offhand.Companion
         public CompanionForm()
         {
             LoadConfig();
+#if HDR_DPI_DIAGNOSTICS_TEST
+            // Import display choices in memory, but never arm automatic spanning
+            // from the public user's settings in a diagnostics candidate.
+            appSettings["AutoSpan"] = "False";
+#endif
 #if GRAININESS_TEST
             // Candidate preferences are isolated; never auto-span during this experiment.
             appSettings["AutoSpan"] = "False";
@@ -1738,6 +2027,12 @@ namespace Offhand.Companion
 #endif
             if (configWarning != null) AddLog(configWarning);
             AddLog("Offhand Companion v" + FullVersion + " initialized.");
+#if HDR_DPI_DIAGNOSTICS_TEST
+            this.Text = "Offhand Companion - HDR / DPI DIAGNOSTICS TEST 3";
+            chkAutoSpan.Enabled = false;
+            itemAuto.Enabled = false;
+            AddLog("DIAGNOSTICS TEST 3: manual Span only; settings saved beside this test executable. Public settings are read once as defaults and never overwritten.");
+#endif
             if (GraphicsRecoveryEnabled)
                 AddLog(RecoveryScope + " TEST ONLY: launch auto-span disabled; test settings isolated. Click Span WoW Now, then wait for stable-span confirmation.");
             if (isStorePackage) AddLog("Updates are managed by Microsoft Store.");
@@ -1812,6 +2107,28 @@ namespace Offhand.Companion
             });
         }
 
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+            FitDashboardToWorkingArea(Screen.FromControl(this).WorkingArea);
+        }
+
+        internal void FitDashboardToWorkingArea(Rectangle workArea)
+        {
+            if (dashboardStack == null) return;
+            LayoutDashboardCards();
+            float scale = btnSpanNow.Height / 36f;
+            Size desired = SizeFromClientSize(new Size((int)Math.Ceiling(524 * scale),
+                dashboardStack.GetPreferredSize(new Size(dashboardStack.Width, 0)).Height
+                    + dashboardScroll.Padding.Vertical + dashboardFooter.Height));
+            Size fitted = new Size(Math.Min(desired.Width, workArea.Width), Math.Min(desired.Height, workArea.Height));
+            Bounds = new Rectangle(workArea.Left + (workArea.Width - fitted.Width) / 2,
+                workArea.Top + (workArea.Height - fitted.Height) / 2, fitted.Width, fitted.Height);
+            dashboardScroll.AutoScrollPosition = Point.Empty;
+            PerformLayout();
+            LayoutDashboardCards();
+        }
+
         private void CompleteUpdateCheck(Action completion)
         {
             if (IsDisposed || Disposing || !IsHandleCreated) return;
@@ -1838,10 +2155,11 @@ namespace Offhand.Companion
             this.Font = new Font("Segoe UI", 9F);
             this.Text = GraphicsRecoveryEnabled ? "Offhand Companion - " + (ForeverGraphicsRecoveryEnabled ? "FOREVER TEST 5" : RetailGraphicsRecoveryEnabled ? "RETAIL TEST 4" : "CLASSIC TEST 3") : "Offhand Companion";
             this.ClientSize = new Size(524, 824);
+            this.MinimumSize = new Size(500, 400);
             this.StartPosition = FormStartPosition.CenterScreen;
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.AutoScroll = true;
+            this.FormBorderStyle = FormBorderStyle.Sizable;
+            this.MaximizeBox = true;
+            this.AutoScroll = false;
             this.BackColor = cBg;
             this.ForeColor = cText;
             uiToolTips = new ToolTip
@@ -1939,7 +2257,7 @@ namespace Offhand.Companion
             Label verLabel = new Label();
             verLabel.Text = "v" + FullVersion;
             verLabel.Location = new Point(98, 66);
-            verLabel.Size = new Size(150, 14);
+            verLabel.Size = new Size(365, 14);
             verLabel.Font = new Font("Segoe UI", 7.5f, FontStyle.Italic);
             verLabel.ForeColor = cMuted;
             verLabel.BackColor = Color.Transparent;
@@ -2268,8 +2586,27 @@ namespace Offhand.Companion
             this.Controls.Add(btnToggleWatch);
             uiToolTips.SetToolTip(btnToggleWatch, "Pause or resume background detection of WoW launches. Manual Span and Restore controls remain available while monitoring is paused.");
 
+            // Color status is advisory and never gates Span or auto-spanning.
+            Panel colorPanel = CreateCardPanel(16, 570, 490, 206, "Display Diagnostics");
+            this.Controls.Add(colorPanel);
+            lblColorModes = new Label { Text = "Color mode: Checking...", Location = new Point(10, 28),
+                Size = new Size(470, 38), Font = new Font("Segoe UI", 8.5f), ForeColor = cText, UseMnemonic = false };
+            colorPanel.Controls.Add(lblColorModes);
+            lblColorWarning = new Label { Text = "", Location = new Point(10, 68), Size = new Size(470, 44),
+                Font = new Font("Segoe UI", 8.5f), ForeColor = cMuted, UseMnemonic = false };
+            colorPanel.Controls.Add(lblColorWarning);
+            lblScaleInfo = new Label { Text = "", Location = new Point(10, 116), Size = new Size(470, 34),
+                Font = new Font("Segoe UI", 8.5f), ForeColor = cMuted, UseMnemonic = false };
+            colorPanel.Controls.Add(lblScaleInfo);
+            Button colorHelp = CreateButton("Display Troubleshooting", 10, 160, 224, 30, cBtnBg, cText, cBorderDim);
+            colorHelp.Click += (s, e) => { ShowHelpDialog("Display Troubleshooting", DisplayColor.Guidance + "\r\n\r\n" + DisplayScaling.Guidance); };
+            colorPanel.Controls.Add(colorHelp);
+            Button colorCopy = CreateButton("Copy Display Diagnostics", 244, 160, 236, 30, cBtnBg, cText, cBorderDim);
+            colorCopy.Click += (s, e) => { CopyColorDiagnostics(); };
+            colorPanel.Controls.Add(colorCopy);
+
             // Activity Log Card
-            Panel logPanel = CreateCardPanel(16, 570, 490, 200, "Activity Log");
+            Panel logPanel = CreateCardPanel(16, 788, 490, 200, "Activity Log");
             this.Controls.Add(logPanel);
 
             logBox = new RichTextBox
@@ -2289,7 +2626,7 @@ namespace Offhand.Companion
             logPanel.Controls.Add(logBox);
 
             // Footer Buttons
-            Button btnMinimize = CreateButton("Minimize to Tray", 16, 782, 152, 30, cBtnBg, cMuted, cBorderDim);
+            Button btnMinimize = CreateButton("Minimize to Tray", 16, 1000, 152, 30, cBtnBg, cMuted, cBorderDim);
             btnMinimize.Click += (s, e) =>
             {
                 this.ShowInTaskbar = false;
@@ -2299,17 +2636,21 @@ namespace Offhand.Companion
             this.Controls.Add(btnMinimize);
             uiToolTips.SetToolTip(btnMinimize, "Hide the dashboard while keeping the Companion and launch monitor running in the Windows notification tray.");
 
-            btnCheckUpdates = CreateButton(CompanionDistribution.UpdateButtonText(isStorePackage), 182, 782, 158, 30, cBtnBg, cText, cBorder);
+            btnCheckUpdates = CreateButton(CompanionDistribution.UpdateButtonText(isStorePackage), 182, 1000, 158, 30, cBtnBg, cText, cBorder);
             btnCheckUpdates.Click += (s, e) => { CheckForUpdates(); };
             this.Controls.Add(btnCheckUpdates);
             uiToolTips.SetToolTip(btnCheckUpdates, isStorePackage
                 ? "Open the official Microsoft Store product page. Microsoft Store manages updates for this installation."
                 : "Contact the official GitHub Releases API once to compare versions. The Companion never checks for updates automatically.");
 
-            Button btnExit = CreateButton("Exit Companion", 356, 782, 152, 30, cBtnDanger, Color.FromArgb(235, 130, 130), Color.FromArgb(140, 45, 45));
+            Button btnExit = CreateButton("Exit Companion", 356, 1000, 152, 30, cBtnDanger, Color.FromArgb(235, 130, 130), Color.FromArgb(140, 45, 45));
             btnExit.Click += (s, e) => { ExitApplication(); };
             this.Controls.Add(btnExit);
             uiToolTips.SetToolTip(btnExit, "Stop monitoring and fully exit the Companion. Closing the title-bar X only minimizes it to the tray.");
+
+            ArrangeDashboard(headerPanel, statusPanel, configPanel, colorPanel, logPanel,
+                new Control[] { btnSpanNow, btnRestoreNow, btnToggleWatch },
+                new Control[] { btnMinimize, btnCheckUpdates, btnExit });
 
             this.FormClosing += (s, e) =>
             {
@@ -2322,6 +2663,181 @@ namespace Offhand.Companion
                 }
             };
             this.ResumeLayout(false);
+        }
+
+        private TableLayoutPanel DashboardButtonRow(Control[] buttons, int height)
+        {
+            var row = new TableLayoutPanel { Height = height, ColumnCount = buttons.Length, RowCount = 1,
+                Dock = DockStyle.Top, Margin = Padding.Empty, Padding = Padding.Empty, BackColor = cBg };
+            row.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / buttons.Length));
+                buttons[i].Dock = DockStyle.Fill;
+                buttons[i].Margin = new Padding(0, 0, i + 1 == buttons.Length ? 0 : 8, 0);
+                row.Controls.Add(buttons[i], i, 0);
+            }
+            return row;
+        }
+
+        private void ArrangeDashboard(Panel header, Panel status, Panel config, Panel diagnostics, Panel log,
+            Control[] actions, Control[] footer)
+        {
+            SuspendLayout();
+            dashboardHeader = header;
+            dashboardScroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(12, 8, 12, 8), BackColor = cBg };
+            dashboardStack = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 1, RowCount = 0,
+                Margin = Padding.Empty, Padding = Padding.Empty, BackColor = cBg };
+            dashboardStack.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            var actionRow = DashboardButtonRow(actions, 36);
+            foreach (Control item in new Control[] { header, status, config, actionRow, diagnostics, log })
+            {
+                item.Dock = DockStyle.Top;
+                item.Margin = new Padding(0, 0, 0, 8);
+                dashboardStack.RowCount++;
+                dashboardStack.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                dashboardStack.Controls.Add(item, 0, dashboardStack.RowCount - 1);
+            }
+            foreach (Control child in header.Controls)
+            {
+                if (child is Button) child.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+                else if (child is Label) child.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            }
+            dashboardFooter = DashboardButtonRow(footer, 54);
+            dashboardFooter.Dock = DockStyle.Bottom;
+            dashboardFooter.Padding = new Padding(12, 10, 12, 10);
+            dashboardScroll.Controls.Add(dashboardStack);
+            Controls.Add(dashboardScroll);
+            Controls.Add(dashboardFooter);
+            dashboardFooter.BringToFront();
+            dashboardScroll.BringToFront();
+            foreach (var section in dashboardSections.Values)
+            {
+                bool collapsed = section.Panel == log;
+                string saved;
+                bool parsed;
+                if (appSettings.TryGetValue(section.Key, out saved) && bool.TryParse(saved, out parsed)) collapsed = parsed;
+                SetDashboardSectionExpanded(section.Panel, !collapsed, false);
+                section.Panel.SizeChanged += (s, e) => { LayoutDashboardCards(); };
+            }
+            foreach (Label label in new[] { lblWowStatus, lblAddonStatus, lblDisplayInfo, lblAddonReason,
+                lblColorModes, lblColorWarning, lblScaleInfo })
+                label.TextChanged += (s, e) => { LayoutDashboardCards(); };
+            dashboardStack.Layout += (s, e) => { LayoutDashboardCards(); };
+            ResumeLayout(true);
+            LayoutDashboardCards();
+        }
+
+        internal void SetDashboardSectionExpanded(Panel panel, bool expanded, bool persist)
+        {
+            DashboardSection section;
+            if (!dashboardSections.TryGetValue(panel, out section)) return;
+            section.Expanded = expanded;
+            section.Toggle.Text = expanded ? "Hide" : "Show";
+            section.Toggle.AccessibleName = (expanded ? "Collapse " : "Expand ") + section.Heading.Text.Trim();
+            foreach (Control child in panel.Controls)
+                if (child != section.Heading && child != section.Toggle) child.Visible = expanded;
+            LayoutDashboardCards();
+            if (persist)
+            {
+                appSettings[section.Key] = (!expanded).ToString();
+                SaveConfig();
+                if (IsHandleCreated && WindowState == FormWindowState.Normal)
+                {
+                    Point previous = Location;
+                    Rectangle workArea = Screen.FromControl(this).WorkingArea;
+                    FitDashboardToWorkingArea(workArea);
+                    Location = new Point(Math.Max(workArea.Left, Math.Min(previous.X, workArea.Right - Width)),
+                        Math.Max(workArea.Top, Math.Min(previous.Y, workArea.Bottom - Height)));
+                }
+            }
+        }
+
+        private int LayoutDashboardLabels(Panel panel, Label[] labels, float scale)
+        {
+            int y = (int)Math.Ceiling(32 * scale);
+            int inset = (int)Math.Ceiling(10 * scale);
+            foreach (var label in labels)
+            {
+                label.Visible = !string.IsNullOrEmpty(label.Text);
+                int height = string.IsNullOrEmpty(label.Text) ? 0 : TextRenderer.MeasureText(label.Text, label.Font,
+                    new Size(Math.Max(1, panel.Width - 2 * inset), int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix).Height;
+                label.SetBounds(inset, y, Math.Max(1, panel.Width - 2 * inset), height);
+                if (height > 0) y += height + (int)Math.Ceiling(4 * scale);
+            }
+            return y;
+        }
+
+        private void LayoutDashboardCards()
+        {
+            if (dashboardStack == null || layingOutDashboard) return;
+            layingOutDashboard = true;
+            dashboardStack.SuspendLayout();
+            try
+            {
+                float scale = btnSpanNow.Height / 36f;
+                int inset = (int)Math.Ceiling(10 * scale);
+                foreach (Control child in dashboardHeader.Controls)
+                {
+                    if (child is Button) child.Left = dashboardHeader.Width - child.Width - inset;
+                    else if (child is Label) child.Width = Math.Max(1, dashboardHeader.Width - child.Left - inset
+                        - (child.Top < (int)Math.Ceiling(40 * scale) ? (int)Math.Ceiling(44 * scale) : 0));
+                }
+                foreach (var section in dashboardSections.Values)
+                {
+                    Panel panel = section.Panel;
+                    section.Heading.Width = Math.Max(1, panel.Width - section.Toggle.Width - inset);
+                    section.Toggle.Left = panel.Width - section.Toggle.Width - (int)Math.Ceiling(6 * scale);
+                    if (!section.Expanded) { panel.Height = (int)Math.Ceiling(28 * scale); continue; }
+                    if (panel.Controls.Contains(lblWowStatus))
+                    {
+                        int bottom = LayoutDashboardLabels(panel, new[] { lblWowStatus, lblAddonStatus, lblDisplayInfo, lblAddonReason }, scale);
+                        panel.Height = Math.Max((int)Math.Ceiling(130 * scale), bottom + inset);
+                    }
+                    else if (panel.Controls.Contains(lblColorModes))
+                    {
+                        int bottom = LayoutDashboardLabels(panel, new[] { lblColorModes, lblColorWarning, lblScaleInfo }, scale);
+                        var buttons = new List<Button>();
+                        foreach (Control child in panel.Controls) if (child is Button && child != section.Toggle) buttons.Add((Button)child);
+                        buttons.Sort((a, b) => a.Left.CompareTo(b.Left));
+                        int gap = (int)Math.Ceiling(8 * scale);
+                        int width = Math.Max(1, (panel.Width - 2 * inset - gap) / 2);
+                        int y = Math.Max(bottom + gap, (int)Math.Ceiling(108 * scale));
+                        for (int i = 0; i < buttons.Count; i++) buttons[i].SetBounds(inset + i * (width + gap), y, width, (int)Math.Ceiling(30 * scale));
+                        panel.Height = y + (int)Math.Ceiling(30 * scale) + inset;
+                    }
+                    else if (panel.Controls.Contains(logBox))
+                    {
+                        panel.Height = (int)Math.Ceiling(168 * scale);
+                        logBox.SetBounds(inset, (int)Math.Ceiling(32 * scale), panel.Width - 2 * inset,
+                            panel.Height - (int)Math.Ceiling(32 * scale) - inset);
+                    }
+                    else
+                    {
+                        foreach (Control child in panel.Controls)
+                        {
+                            var table = child as TableLayoutPanel;
+                            if (table == null) continue;
+                            table.SetBounds(inset, (int)Math.Ceiling(30 * scale), panel.Width - 2 * inset, table.Height);
+                            foreach (ColumnStyle column in table.ColumnStyles) { column.SizeType = SizeType.Percent; column.Width = 50; }
+                            table.PerformLayout();
+                            int height = 0;
+                            foreach (Control column in table.Controls)
+                            {
+                                foreach (Control item in column.Controls) if (!item.AutoSize) item.Width = Math.Max(1, column.ClientSize.Width - (int)Math.Ceiling(6 * scale));
+                                column.PerformLayout();
+                                int columnHeight = 0;
+                                foreach (Control item in column.Controls) columnHeight = Math.Max(columnHeight, item.Bottom + item.Margin.Bottom);
+                                height = Math.Max(height, columnHeight);
+                            }
+                            table.Height = height;
+                            panel.Height = table.Bottom + inset;
+                        }
+                    }
+                }
+            }
+            finally { dashboardStack.ResumeLayout(true); layingOutDashboard = false; }
         }
 
         private Panel CreateCardPanel(int x, int y, int w, int h, string title)
@@ -2342,6 +2858,16 @@ namespace Offhand.Companion
                 ForeColor = cGold
             };
             panel.Controls.Add(lblTitle);
+            var toggle = CreateButton("Hide", w - 70, 2, 64, 21, cCard, cGold, cBorderDim);
+            toggle.Font = new Font("Segoe UI", 8, FontStyle.Bold);
+            toggle.AccessibleName = "Collapse " + title;
+            toggle.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            panel.Controls.Add(toggle);
+            var section = new DashboardSection { Panel = panel, Heading = lblTitle, Toggle = toggle,
+                Key = "DashboardCollapsed." + title.Replace(" ", "") };
+            dashboardSections.Add(panel, section);
+            toggle.Click += (s, e) => { SetDashboardSectionExpanded(panel, !section.Expanded, true); };
+            lblTitle.Click += (s, e) => { SetDashboardSectionExpanded(panel, !section.Expanded, true); };
 
             panel.Paint += (s, e) =>
             {
@@ -2351,7 +2877,7 @@ namespace Offhand.Companion
                 }
                 using (Pen penDim = new Pen(cBorderDim, 1))
                 {
-                    e.Graphics.DrawLine(penDim, 1, 24, panel.ClientSize.Width - 2, 24);
+                    e.Graphics.DrawLine(penDim, 1, lblTitle.Bottom, panel.ClientSize.Width - 2, lblTitle.Bottom);
                 }
             };
 
@@ -2416,6 +2942,7 @@ namespace Offhand.Companion
                 "If ordinary UI is inaccessible, click Restore Window, enter WoW, and use Gather Off-Screen UI or Gather Safe UI to Mainhand. If the protected HUD layout is wrong, leave combat, close Edit Mode, and use Recovery & Preview > Create Mainhand HUD Layout; reload when prompted. Then click Span WoW Now again if the window was restored. If a saved workspace display disconnects while WoW is spanned, Companion restores a bordered WoW window that fills the surviving Mainhand and refuses another span until the topology is valid. On Forever, click Use Modern when Offhand prompts; after reconnecting and spanning the exact topology, click Restore Offhand. WoW must be fully closed before the Forever recovery snapshot can be refreshed.",
                 "",
                 "TROUBLESHOOTING",
+                "The Display Diagnostics card shows the selected outputs' active Windows color modes and scale percentages. Mixed HDR/SDR output can cause brightness or color differences. Different Windows scales are supported. Open Display Troubleshooting for comparisons and Copy Display Diagnostics for a support report. These advisories never block spanning or change HDR or scaling settings.",
                 "Select exactly two displays and a connected Mainhand, or explicitly enable the one-display super-ultrawide split. The status card names the running WoW client and the exact addon path it verifies; installs for another client, nested folders, and version-suffixed addon folders are reported explicitly. If Windows reports error 5, close both programs and run Battle.net, WoW, and Offhand at the same privilege level. If Span is refused because topology could not be written, fix that path or file-permission error first. If WoW spans but the 3D world still fills both displays after /reload, confirm the in-game addon is enabled and that its version matches this Companion. Mixed resolutions, ultrawide Mainhand displays, portrait screens, negative desktop coordinates, and stacked arrangements use Windows' exact display rectangles; make sure Windows Display Settings matches the physical arrangement. Hover any dashboard control for a concise explanation.",
                 "",
                 "PRIVACY & VERIFICATION",
@@ -2423,14 +2950,14 @@ namespace Offhand.Companion
             });
         }
 
-        private void ShowHelpDialog()
+        private void ShowHelpDialog(string guideTitle = null, string guideText = null)
         {
             SuspendUiPolling();
             try
             {
                 using (Form help = new Form())
                 {
-                    help.Text = "Offhand Companion Help";
+                    help.Text = guideTitle ?? "Offhand Companion Help";
                 help.StartPosition = FormStartPosition.CenterParent;
                 help.Size = new Size(720, 680);
                 help.MinimumSize = new Size(600, 520);
@@ -2443,7 +2970,7 @@ namespace Offhand.Companion
 
                 Label heading = new Label
                 {
-                    Text = "OFFHAND COMPANION — SETUP & HELP",
+                    Text = guideTitle ?? "OFFHAND COMPANION — SETUP & HELP",
                     Dock = DockStyle.Top,
                     Height = 52,
                     Padding = new Padding(16, 14, 10, 0),
@@ -2458,6 +2985,20 @@ namespace Offhand.Companion
                 footer.Resize += (s, e) => { close.Left = footer.ClientSize.Width - close.Width - 16; };
                 close.Click += (s, e) => { help.Close(); };
                 footer.Controls.Add(close);
+                if (guideText != null)
+                {
+                    Button settings = CreateButton("Windows Display Settings", 16, 12, 200, 30, cBtnBg, cText, cBorderDim);
+                    settings.Click += (s, e) =>
+                    {
+                        try { Process.Start(new ProcessStartInfo("ms-settings:display") { UseShellExecute = true }); }
+                        catch (Exception ex) { MessageBox.Show(help, "Could not open Windows Display Settings. Open Settings > System > Display manually.\r\n" + ex.Message,
+                            "Display Settings", MessageBoxButtons.OK, MessageBoxIcon.Information); }
+                    };
+                    footer.Controls.Add(settings);
+                    Button copy = CreateButton("Copy Diagnostics", 226, 12, 170, 30, cBtnBg, cText, cBorderDim);
+                    copy.Click += (s, e) => { CopyColorDiagnostics(); };
+                    footer.Controls.Add(copy);
+                }
 
                 RichTextBox guide = new RichTextBox
                 {
@@ -2468,7 +3009,7 @@ namespace Offhand.Companion
                     BackColor = cBg,
                     ForeColor = cText,
                     Font = new Font("Segoe UI", 10),
-                    Text = GetHelpText(),
+                    Text = guideText ?? GetHelpText(),
                     ScrollBars = RichTextBoxScrollBars.Vertical,
                     TabStop = true,
                     WordWrap = true
@@ -2671,6 +3212,80 @@ namespace Offhand.Companion
             AddLog(message);
         }
 
+        private void RefreshSelectedColorStatus()
+        {
+            var displays = ReadDisplays();
+            MonitorSelection.Plan plan = null;
+            try { plan = GetMonitorPlan(displays); }
+            catch (Exception) { /* Invalid or incomplete selection is shown above. */ }
+            RefreshColorStatus(displays, plan);
+        }
+
+        private void CopyColorDiagnostics()
+        {
+            RefreshSelectedColorStatus();
+            try
+            {
+                Clipboard.SetText("Offhand Companion " + FullVersion + "\r\nCaptured UTC: " + DateTime.UtcNow.ToString("u")
+                    + "\r\n" + colorDiagnostics + "\r\nWindows display state only; game HDR conversion, WoW UI/render scale and image brightness are not measured.");
+                AddLog("Display diagnostics copied to clipboard.");
+            }
+            catch (ExternalException) { MessageBox.Show(this, "The clipboard is busy. Try copying the diagnostics again.", "Display Diagnostics"); }
+            catch (System.Threading.ThreadStateException) { MessageBox.Show(this, "Clipboard access is unavailable in this session.", "Display Diagnostics"); }
+        }
+
+        private void RefreshColorStatus(List<MonitorSelection.Display> displays, MonitorSelection.Plan plan)
+        {
+            if (lblColorModes == null) return;
+            if (plan == null)
+            {
+                lblColorModes.Text = "Color mode unavailable: select a valid display plan.";
+                lblColorWarning.Text = "HDR status is advisory. Spanning uses the display selection above.";
+                lblColorWarning.ForeColor = cMuted;
+                lblScaleInfo.Text = "Windows scale unavailable: select a valid display plan.";
+                colorDiagnostics = lblColorModes.Text;
+                lastColorDiagnostic = null;
+                return;
+            }
+            string failure;
+            var states = DisplayColor.Read(out failure);
+            var mainhand = displays.Find(display => display.Index == plan.MainhandIndex);
+            var workspace = displays.Find(display => display.Index == plan.WorkspaceIndex);
+            var game = DisplayColor.Lookup(states, mainhand == null ? null : mainhand.DeviceName, failure);
+            var work = DisplayColor.Lookup(states, workspace == null ? null : workspace.DeviceName, failure);
+            var gameScale = DisplayScaling.Read(mainhand);
+            var workScale = plan.SplitSingle ? gameScale : DisplayScaling.Read(workspace);
+            bool mixed = DisplayColor.IsMixed(game, work, plan.SplitSingle);
+            lblColorModes.Text = string.Format("Mainhand (Display {0}): {1}, {2}\r\nOffhand (Display {3}): {4}, {5}{6}",
+                plan.MainhandIndex + 1, game.Label, gameScale.Label, plan.WorkspaceIndex + 1, work.Label,
+                workScale.Label, plan.SplitSingle ? " (same display)" : "");
+            lblColorWarning.Text = mixed ? "Mixed HDR/SDR displays: WoW may appear too bright or washed out. See Display Troubleshooting."
+                : game.Active == DisplayColor.Mode.Unknown || work.Active == DisplayColor.Mode.Unknown
+                    ? "Windows could not confirm every color mode. See Display Troubleshooting for guidance."
+                    : "Windows display modes detected. Game HDR conversion is not measured.";
+            lblColorWarning.ForeColor = mixed ? cYellow : cMuted;
+            lblScaleInfo.Text = DisplayScaling.Summary(gameScale, workScale, plan.SplitSingle);
+            var detail = new StringBuilder();
+            detail.AppendLine(lblColorModes.Text);
+            detail.AppendLine(lblColorWarning.Text);
+            detail.AppendLine(lblScaleInfo.Text);
+            foreach (int index in plan.Indices)
+            {
+                var display = displays.Find(item => item.Index == index);
+                if (display == null) continue;
+                var state = DisplayColor.Lookup(states, display.DeviceName, failure);
+                var scale = index == plan.MainhandIndex ? gameScale : workScale;
+                detail.AppendFormat("Display {0}: {1}; identity={2}; bounds={3}; {4}; {5}; {6}; {7}\r\n",
+                    index + 1, display.DeviceName, display.StableId, display.Bounds, state.Label, state.Detail, scale.Label, scale.Detail);
+            }
+            colorDiagnostics = detail.ToString();
+            if (!string.Equals(lastColorDiagnostic, colorDiagnostics, StringComparison.Ordinal))
+            {
+                lastColorDiagnostic = colorDiagnostics;
+                AddLog("Display diagnostics: " + colorDiagnostics.Trim());
+            }
+        }
+
         private void OnTimerTick()
         {
             if (uiInteractionPaused) return;
@@ -2697,6 +3312,8 @@ namespace Offhand.Companion
                 savedDisplayDisconnected = MonitorSelection.HasDisconnectedSavedDisplay(
                     HasStableIdentitySettings() ? savedIdentities : null, savedDevices, currentDisplays);
             }
+
+            RefreshColorStatus(currentDisplays, currentDisplayPlan);
 
             bool anyWoWProcess;
             Process proc = GetWoWProcess(out anyWoWProcess);
@@ -3164,6 +3781,7 @@ namespace Offhand.Companion
                         throw new Exception(RecoveryScope + " recovery cancelled because the window or confirmed displays changed.");
                 }
                 string alignmentWarning = MonitorSelection.AlignmentWarning(plan);
+                RefreshColorStatus(displays, plan);
                 if (alignmentWarning != null) AddLog("Display alignment warning: " + alignmentWarning);
                 Rectangle plannedBounds = plan.Bounds;
                 Rectangle bounds = plannedBounds;
