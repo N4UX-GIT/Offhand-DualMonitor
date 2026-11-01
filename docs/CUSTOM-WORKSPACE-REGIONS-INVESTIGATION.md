@@ -18,7 +18,7 @@ tested main when the plan's entry criteria are met.
 | `MonitorSelection.CreatePlan`, Program.cs | One or two displays; one-display plan always divides the entire display equally | Add validated occupied width/edge, workspace width and game side, preserving existing defaults |
 | `CompanionTopologyBridge.TryWrite` / `IsCurrent` | Writes schema 1 and normalizes rectangles to plan bounds, including Windows top-origin to Lua bottom-origin conversion | Reuse for contiguous partial span; test both edges, both game sides and negative monitor origins |
 | `InvokeSpanWoW` | Native clipping is built from complete selected display rectangles | Construct clipping from actual game/workspace rectangles before partial plans can be applied |
-| Span failure path | Clears explicit region and restores old style/bounds; previously written topology is not restored | Snapshot and roll back topology bytes and exact previous window region as one transaction |
+| Span failure path | Candidate continuation now captures file bytes, native bounds/style, placement and a copy of the prior region before mutation | Validate rollback on actual WoW clients, including minimized/maximized states, asynchronous changes and application-sharing layouts |
 | `Viewport:GetCompanionTopology` | Accepts only schema 1 and requires physical/canvas agreement | Keep strict matching; establish actual partial-window reporting per client before enabling the feature |
 | Viewport/canvas placement | Singular workspace bounds and canvas remain central | General regions need collection helpers, primary aliases, per-region canvases and persistence migration |
 | Preferences | Current `SaveConfig` uses direct `WriteAllLines` | Versioned region/partial settings need validated atomic persistence and last-good recovery |
@@ -26,6 +26,13 @@ tested main when the plan's entry criteria are met.
 The rollback requirement is not already met merely because generated-file writes
 use a temporary file and replacement. File atomicity and native-window rollback
 are separate responsibilities.
+
+Same-day continuation implements an operation-level rollback snapshot in the
+ordinary Companion span path. x64/x86 synthetic windows pass 113 assertions each
+for failures after file writing, style, clipping, resize and verification, with
+both absent and complex preexisting regions. Raw file bytes are restored and
+detected external file changes are preserved. This advances a shared stability
+prerequisite; custom sizing is still absent and WoW rollback acceptance is pending.
 
 ## Schema 1 characterization result
 

@@ -40,6 +40,7 @@ comparison remains exclusive to graininess builds. No custom regions are enabled
 
 ```powershell
 ./tests/companion-preferences.ps1
+./tests/companion-span-rollback.ps1
 ./tests/companion-graphics-recovery.ps1 -Production
 ./tests/companion-graphics-recovery.ps1
 ./tests/companion-graphics-recovery.ps1 -Retail
@@ -57,6 +58,16 @@ Diagnostics configurations retain 232 assertions each. Preferences, topology,
 new-version/future-minimum rejection, layout and release metadata checks pass.
 The graininess comparison still compiles, passes its synthetic native-window
 checks and verifies all eight ZIP entries. These tests do not operate WoW.
+
+The next candidate iteration adds span rollback coverage: 113 assertions per
+x64/x86 synthetic-window build. The span operation captures prior topology bytes,
+style, bounds, placement and clipping before writing or moving anything. Failed
+operations restore those snapshots; failure to restore is reported separately.
+A detected external topology edit is preserved, and rollback does not target a
+window now belonging to a different process. Hidden tests verify no prior region
+and exact complex-region restoration, file absence, raw bytes, commit, repeated
+rollback and locked-file failures. Real client timing and show-state acceptance
+remain live gates.
 
 ## Live procedure, pending
 

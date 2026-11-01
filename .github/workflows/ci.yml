@@ -50,6 +50,10 @@ jobs:
           ./tests/companion-graphics-recovery.ps1 -Retail
           ./tests/companion-graphics-recovery.ps1 -Forever
 
+      - name: Test Companion span rollback with synthetic windows
+        shell: powershell
+        run: ./tests/companion-span-rollback.ps1
+
       - name: Test Companion display diagnostics and dashboard
         shell: powershell
         run: |

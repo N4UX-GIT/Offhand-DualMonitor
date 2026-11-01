@@ -18,6 +18,9 @@ release numbering. Protocol 1 and the existing addon minimum stay unchanged.
 - Wine process-path fallback diagnostics, guarded display-selection persistence
   and suspension of auto-span after a failed window operation.
 - Updated guidance for using the span after exiting Companion.
+- Failure rollback now restores prior topology bytes and native window state,
+  including its clipping region, with diagnostics for incomplete restoration.
+  Synthetic-window verification passed; actual WoW rollback acceptance is pending.
 
 The experimental resize sequence remains disabled in this candidate. It is not
 a confirmed sharpness fix. Automatic graphics recovery is not enabled for Era,

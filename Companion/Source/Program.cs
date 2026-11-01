@@ -1115,6 +1115,14 @@ namespace Offhand.Companion
         internal static bool TryWrite(string wowDir, MonitorSelection.Plan plan,
             IList<MonitorSelection.Display> displays, out string message)
         {
+            byte[] written;
+            return TryWrite(wowDir, plan, displays, out message, out written);
+        }
+
+        internal static bool TryWrite(string wowDir, MonitorSelection.Plan plan,
+            IList<MonitorSelection.Display> displays, out string message, out byte[] written)
+        {
+            written = null;
             message = "Display topology was not written.";
             if (string.IsNullOrEmpty(wowDir) || plan == null) return false;
             string core = Path.Combine(wowDir, "Interface", "AddOns", "Offhand", "Core");
@@ -1141,9 +1149,11 @@ namespace Offhand.Companion
                 "}\r\n";
             try
             {
-                File.WriteAllText(temporary, text, new UTF8Encoding(false));
+                byte[] bytes = new UTF8Encoding(false).GetBytes(text);
+                File.WriteAllBytes(temporary, bytes);
                 if (File.Exists(target)) File.Replace(temporary, target, null);
                 else File.Move(temporary, target);
+                written = bytes;
                 message = string.Format("Display topology updated: game {0}x{1}, workspace {2}x{3}.",
                     plan.MainhandBounds.Width, plan.MainhandBounds.Height,
                     plan.WorkspaceBounds.Width, plan.WorkspaceBounds.Height);
@@ -1155,6 +1165,107 @@ namespace Offhand.Companion
                 message = "Display topology update failed: " + ex.Message;
                 return false;
             }
+        }
+    }
+
+    // One synchronous span operation owns this snapshot. Rollback failures are
+    // reported separately so the original operation failure remains visible.
+    internal sealed class SpanRollback : IDisposable
+    {
+        private readonly string path;
+        private readonly byte[] original;
+        private byte[] written;
+        private readonly IntPtr handle;
+        private readonly uint processId;
+        private readonly int style;
+        private readonly NativeMethods.RECT bounds;
+        private NativeMethods.WINDOWPLACEMENT placement;
+        private IntPtr region;
+        internal bool WindowChanged;
+        private bool completed;
+
+        internal SpanRollback(string path, IntPtr handle)
+        {
+            this.path = path;
+            this.handle = handle;
+            try { original = File.ReadAllBytes(path); }
+            catch (FileNotFoundException) { original = null; }
+            NativeMethods.GetWindowThreadProcessId(handle, out processId);
+            placement.length = Marshal.SizeOf(typeof(NativeMethods.WINDOWPLACEMENT));
+            if (processId == 0 || !NativeMethods.GetWindowRect(handle, out bounds)
+                || !NativeMethods.GetWindowPlacement(handle, ref placement))
+                throw new IOException("Could not capture the pre-span window for rollback.");
+            if (!NativeMethods.IsWindowVisible(handle)) placement.showCmd = 0;
+            style = NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE);
+            region = NativeMethods.CreateRectRgn(0, 0, 0, 0);
+            if (region == IntPtr.Zero) throw new IOException("Could not capture the pre-span clipping region.");
+            NativeMethods.SetLastError(0);
+            if (NativeMethods.GetWindowRgn(handle, region) == 0)
+            {
+                // ERROR also denotes an ordinary window with no explicit region.
+                int error = Marshal.GetLastWin32Error();
+                NativeMethods.DeleteObject(region); region = IntPtr.Zero;
+                if (error != 0) throw new IOException("Could not read the pre-span clipping region (Windows error " + error + ").");
+            }
+        }
+
+        internal void TopologyWritten(byte[] bytes) { written = bytes; }
+        internal void Commit() { completed = true; }
+
+        internal static bool SameBytes(byte[] left, byte[] right)
+        {
+            if (left == null || right == null || left.Length != right.Length) return false;
+            for (int i = 0; i < left.Length; i++) if (left[i] != right[i]) return false;
+            return true;
+        }
+
+        internal string Rollback()
+        {
+            if (completed) return null;
+            completed = true;
+            var failures = new List<string>();
+            if (WindowChanged)
+            {
+                try
+                {
+                    uint currentPid;
+                    NativeMethods.GetWindowThreadProcessId(handle, out currentPid);
+                    if (currentPid != processId) throw new IOException("Window ownership changed; native rollback skipped.");
+                    NativeMethods.SetLastError(0);
+                    int previous = NativeMethods.SetWindowLong(handle, NativeMethods.GWL_STYLE, style);
+                    if (previous == 0 && Marshal.GetLastWin32Error() != 0) failures.Add("window style");
+                    if (!NativeMethods.SetWindowPos(handle, IntPtr.Zero, bounds.Left, bounds.Top, bounds.Width, bounds.Height,
+                        NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_FRAMECHANGED)) failures.Add("window bounds");
+                    if (!NativeMethods.SetWindowPlacement(handle, ref placement)) failures.Add("window placement");
+                    if (NativeMethods.SetWindowRgn(handle, region, true) == 0) failures.Add("window clipping");
+                    else region = IntPtr.Zero; // Ownership transferred to Windows.
+                }
+                catch (Exception ex) { failures.Add(ex.Message); }
+            }
+            if (written != null)
+            {
+                string temporary = path + ".rollback-" + Guid.NewGuid().ToString("N");
+                try
+                {
+                    // Preserve an addon manager's or another writer's newer file.
+                    if (!SameBytes(File.ReadAllBytes(path), written))
+                        throw new IOException("Topology changed externally; previous bytes were not restored.");
+                    if (original == null) File.Delete(path);
+                    else
+                    {
+                        File.WriteAllBytes(temporary, original);
+                        File.Replace(temporary, path, null);
+                    }
+                }
+                catch (Exception ex) { failures.Add("topology: " + ex.Message); }
+                finally { try { if (File.Exists(temporary)) File.Delete(temporary); } catch (IOException) { } }
+            }
+            return failures.Count == 0 ? null : "Span rollback incomplete: " + string.Join("; ", failures.ToArray());
+        }
+
+        public void Dispose()
+        {
+            if (region != IntPtr.Zero) { NativeMethods.DeleteObject(region); region = IntPtr.Zero; }
         }
     }
 
@@ -1436,6 +1547,20 @@ namespace Offhand.Companion
             public int Height { get { return Bottom - Top; } }
         }
 
+        [StructLayout(LayoutKind.Sequential)]
+        public struct WINDOWPLACEMENT
+        {
+            public int length, flags, showCmd;
+            public Point ptMinPosition, ptMaxPosition;
+            public RECT rcNormalPosition;
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT placement);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool SetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT placement);
+
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
         public struct DISPLAY_DEVICE
         {
@@ -1495,7 +1620,7 @@ namespace Offhand.Companion
         [DllImport("user32.dll")]
         public static extern int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool bRedraw);
 
-        [DllImport("user32.dll")]
+        [DllImport("user32.dll", SetLastError = true)]
         public static extern int GetWindowRgn(IntPtr hWnd, IntPtr hRgn);
 
         [DllImport("user32.dll")]
@@ -3882,6 +4007,7 @@ namespace Offhand.Companion
         private bool InvokeSpanWindow(bool manual, bool graphicsRecovery)
         {
             Process proc = null;
+            SpanRollback rollback = null;
             try
             {
                 proc = GetWoWProcess();
@@ -3929,10 +4055,14 @@ namespace Offhand.Companion
                 if (bounds.Width <= 0 || bounds.Height <= 0) throw new Exception("Invalid virtual desktop dimensions.");
 
                 string topologyMessage;
-                if (!CompanionTopologyBridge.TryWrite(status.WowDir, plan, displays, out topologyMessage))
+                rollback = new SpanRollback(Path.Combine(status.WowDir, "Interface", "AddOns", "Offhand", "Core", "CompanionTopology.lua"), handle);
+                byte[] writtenTopology;
+                if (!CompanionTopologyBridge.TryWrite(status.WowDir, plan, displays, out topologyMessage, out writtenTopology))
                     throw new IOException(topologyMessage + " WoW was not spanned because Offhand cannot safely receive the selected display geometry.");
+                rollback.TopologyWritten(writtenTopology);
                 AddLog(topologyMessage);
 
+                rollback.WindowChanged = true;
                 if (NativeMethods.IsZoomed(handle) || NativeMethods.IsIconic(handle))
                 {
                     NativeMethods.ShowWindow(handle, NativeMethods.SW_RESTORE);
@@ -4070,9 +4200,8 @@ namespace Offhand.Companion
                 }
                 catch
                 {
-                    NativeMethods.SetWindowRgn(handle, IntPtr.Zero, true);
-                    NativeMethods.SetWindowLong(handle, NativeMethods.GWL_STYLE, oldStyle);
-                    NativeMethods.SetWindowPos(handle, IntPtr.Zero, oldRect.Left, oldRect.Top, oldRect.Width, oldRect.Height, 0x0074);
+                    // The operation-level snapshot restores the exact prior
+                    // file, clipping region, style, bounds and show state.
                     throw;
                 }
 
@@ -4117,10 +4246,16 @@ namespace Offhand.Companion
                 trayIcon.ShowBalloonTip(4000, GraphicsRecoveryTestBuild ? RecoveryScope + " span requested" : "Offhand Spanned",
                     GraphicsRecoveryTestBuild ? "Wait for stable-span confirmation in the activity log before the VSync test."
                     : "Exact geometry saved. You may now exit the Companion, or leave it running for monitoring and recovery.", ToolTipIcon.Info);
+                rollback.Commit();
                 return true;
             }
             catch (Exception ex)
             {
+                if (rollback != null)
+                {
+                    string rollbackFailure = rollback.Rollback();
+                    if (rollbackFailure != null) AddLog(rollbackFailure);
+                }
                 AddLog(ex.Message);
                 if (manual)
                 {
@@ -4130,6 +4265,7 @@ namespace Offhand.Companion
             }
             finally
             {
+                if (rollback != null) rollback.Dispose();
                 if (proc != null) proc.Dispose();
             }
         }

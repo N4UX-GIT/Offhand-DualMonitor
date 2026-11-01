@@ -246,7 +246,9 @@ namespace Offhand.Companion {
                 bridge = File.ReadAllText(Path.Combine(core, "ForeverState.lua"));
                 Check(bridge != priorBridge && bridge.Contains("\"Other\""));
                 string topologyMessage;
-                Check(CompanionTopologyBridge.TryWrite(wow, plan, displays, out topologyMessage));
+                byte[] writtenTopology;
+                Check(CompanionTopologyBridge.TryWrite(wow, plan, displays, out topologyMessage, out writtenTopology));
+                Check(SpanRollback.SameBytes(writtenTopology, File.ReadAllBytes(Path.Combine(core, "CompanionTopology.lua"))));
                 string topology = File.ReadAllText(Path.Combine(core, "CompanionTopology.lua"));
                 Check(topology.Contains("mode = \"DUAL_DISPLAY\"") && topology.Contains("companionVersion = \"2.1.3-beta.1\"") && topology.Contains("width = 3440") &&
                     topology.Contains("height = 1080") && topology.Contains("y = 0"));

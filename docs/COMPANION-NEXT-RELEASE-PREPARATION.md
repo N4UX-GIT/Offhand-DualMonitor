@@ -5,6 +5,15 @@ prepared; production behavior and live acceptance remain open.
 
 ## Continuation: combined runtime candidate
 
+Further continuation adds operation-level span rollback before generated-file
+and native-window changes. Previous topology bytes, exact clipping, style,
+bounds and placement are restored on failure; detected external file edits are
+preserved and rollback failures are surfaced. x64/x86 synthetic failure tests
+each pass 113 assertions. This is a shared stabilization prerequisite for
+future custom sizing. It does not establish actual WoW rollback acceptance.
+The next local package is `dist/companion-2.1.3-beta.1-rc2`; retain rc1 as the
+earlier comparison and use rc2 for further acceptance.
+
 The new ordinary runtime is now `2.1.3-beta.1` (file/manifest `2.1.3.1`), with
 bounded recovery integrated for Retail and Anniversary. Test-only settings,
 titles and startup restrictions are separated from production recovery.
