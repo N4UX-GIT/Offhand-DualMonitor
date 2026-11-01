@@ -20,6 +20,10 @@ All notable changes to this project will be documented in this file.
   captures remain session-only and normal diagnostics stay compact.
 
 ### Setup and recovery
+- Aligned the in-game handbook and expanded placement help with Companion-first
+  setup, current confirmation buttons and missing-only recovery. Revised locale
+  overrides use English fallback until translated; new help-card captures follow
+  live wrapping/scrolling review.
 - Calibration now pauses with actionable instructions when Companion geometry is
   missing or does not match the window. Apply Span WoW Now in the game world,
   then Reload UI to resume the same step. Maximizing one monitor is not spanning.
