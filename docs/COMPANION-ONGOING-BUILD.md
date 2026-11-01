@@ -1,5 +1,16 @@
 # Ongoing Companion build
 
+## Release preparation, 1 November 2026
+
+The candidate branch `codex/companion-next-candidate` reconciles current Companion
+integration, the released main baseline, and preserved Wine/auto-span fixes.
+See [the preparation record](COMPANION-NEXT-RELEASE-PREPARATION.md) for source
+inventory, local builds, validation and remaining production gates. The resize
+handshake is now exclusive to the graininess experiment. Custom-region source
+investigation has started; no schema 2 runtime implementation is included.
+The older records below remain historical. Forever live testing is still
+deferred until November 4, and public Beta 20 bytes are unchanged.
+
 ## Source integration, 25 October 2026
 
 The user authorized committing and merging all post-v22 work. Graphics-reset

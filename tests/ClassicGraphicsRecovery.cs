@@ -49,7 +49,7 @@ namespace Offhand.Companion {
             Check(!ClassicGraphicsRecovery.IsSupportedClient(@"C:\Games\_forever_",ClassicGraphicsRecovery.ClientScope.Classic),"Classic scope excludes Forever");
             Check(!ClassicGraphicsRecovery.IsSupportedClient(@"C:\Games\_retail_",(ClassicGraphicsRecovery.ClientScope)99),"unknown scope cannot opt in");
             Check(!RenderResizeHandshake.Allowed(true) && !RenderResizeHandshake.Allowed(false),
-                "Classic candidate must exclude the inherited experimental nudge without changing normal builds");
+                "Recovery and ordinary builds must exclude the experimental resize nudge");
             Check(ClassicGraphicsRecovery.IsClassicClient(@"C:\Games\_anniversary_"),"Anniversary scope");
             Check(ClassicGraphicsRecovery.IsClassicClient(@"C:\Games\_classic_era_\"),"Era scope");
             foreach (var path in new string[] {@"C:\Games\_retail_",@"C:\Games\_forever_",@"C:\Games\_classic_beta_",null})

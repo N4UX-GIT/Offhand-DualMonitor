@@ -1,5 +1,10 @@
 # Custom Workspace Regions Implementation Plan
 
+Investigation started 1 November 2026 at the user's request. See
+[the initial source study](CUSTOM-WORKSPACE-REGIONS-INVESTIGATION.md) for
+characterization results and implementation gaps. Runtime implementation and
+the stabilization/feature-branch entry criteria below remain pending.
+
 Status: **Approved for future development; deliberately deferred until the current single-workspace architecture is stable and its known bugs are resolved.**
 
 This document records the intended design, implementation sequence, compatibility requirements, risk assessment, validation matrix, and release gates for partial-monitor and multi-monitor Offhand workspace regions. It is not authorization to begin implementation on the current stabilization branch.
