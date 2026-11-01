@@ -4,6 +4,50 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.2-beta.26] - 2026-11-01
+
+### Anniversary panels and bags
+- Improved native panel coexistence, Spellbook lifecycle and remembered standalone
+  open/closed intent. Context-bound NPC interactions retain native closure.
+- Restricted standalone Macro loading to its known native owner and rechecked
+  current persistence, combat and window state before restoring it.
+- Improved default bag identity, open/closed restoration and native bag layout
+  during opening and closing. Replacement bag addons retain ownership.
+- Retained the Anniversary map registration and cursor-scale corrections and
+  earlier geometry-adjustment coalescing work from the Beta 25 candidate.
+
+### Retail UI
+- Corrected the generic popup-rescue interaction that made pet-battle controls
+  disappear on mixed-height layouts, preserving native pet-battle visibility.
+- Improved transient ownership across topology changes, feature disable and
+  external mover takeover. Still-owned native anchors restore; custom owners yield.
+- Improved Trading Post anchor/scale restoration independently and made generic
+  popup callbacks read current geometry and honor the redirect option.
+- Improved scenario/challenge toast placement after native layout transactions,
+  including coalesced combat-deferred handling and expiration checks.
+
+### Guidance and retained changes
+- Includes the earlier Beta 25 setup recovery, handbook alignment and current
+  confirmation button names. Non-English revised guidance uses labelled English
+  fallback pending translation. Screenshot and capture guidance remains separate
+  from runtime acceptance.
+- This is an addon release candidate. Companion remains 2.1.2-beta.20; experimental
+  HDR/dashboard, native graphics-reset and loading-art work is not shipped.
+
+### Evidence and remaining checks
+- The reported Retail pet-battle failure has user-confirmed acceptance.
+- Anniversary test.11 default/replacement bag cases and reported Baganator/Bagnon
+  open-before-reload, closed-before-reload and Escape behavior have user acceptance.
+  Exact replacement versions were not recorded; this is not a full matrix pass.
+- Six Retail ownership audit findings were accepted by assumption at the user's
+  request, not by a newly recorded live session. Native timing, protected actions,
+  combat/taint, cold login and broader topology/compatibility checks remain pending.
+- All 82 Lua regression suites pass on the integrated candidate. Static and
+  simulated checks do not establish native client or anti-taint correctness.
+- The separate Anniversary memory-crash report remains unresolved. Geometry
+  coalescing is a mitigation candidate. Forever release-client and direct Linux/
+  Wine verification remain pending.
+
 ## [2.1.2-beta.25] - 2026-11-01
 
 ### Additional fixes in the updated package
