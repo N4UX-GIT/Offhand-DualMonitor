@@ -151,6 +151,36 @@ namespace Offhand.Companion {
                 Check(PreferenceFile.Delay("garbage") == 15);
                 Check(PreferenceFile.Delay("99999999999999999999999999999999999999") == 15);
                 Check(PreferenceFile.Delay("30") == 30);
+                settings["UnknownFutureKey"] = "kept=with=equals";
+                settings["DisplayName"] = "ø漢字";
+                PreferenceFile.Write(file, settings);
+                Check(PreferenceFile.Read(file)["UnknownFutureKey"] == "kept=with=equals"
+                    && PreferenceFile.Read(file)["DisplayName"] == "ø漢字");
+                byte[] lastGood = File.ReadAllBytes(file);
+                settings["DelaySpan"] = "17";
+                bool interrupted = false;
+                try { PreferenceFile.Write(file, settings, staged => { File.WriteAllText(staged, "partial"); throw new IOException("interrupted write"); }); }
+                catch (IOException) { interrupted = true; }
+                Check(interrupted && SpanRollback.SameBytes(lastGood, File.ReadAllBytes(file)));
+                bool lockedWrite = false;
+                using (var locked = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.None))
+                {
+                    try { PreferenceFile.Write(file, settings); }
+                    catch (IOException) { lockedWrite = true; }
+                }
+                Check(lockedWrite && SpanRollback.SameBytes(lastGood, File.ReadAllBytes(file)));
+                settings["Invalid"] = "line1\nline2";
+                bool invalidWrite = false;
+                try { PreferenceFile.Write(file, settings); }
+                catch (InvalidDataException) { invalidWrite = true; }
+                Check(invalidWrite && SpanRollback.SameBytes(lastGood, File.ReadAllBytes(file)));
+                settings.Remove("Invalid");
+                PreferenceFile.Write(file, settings);
+                Check(PreferenceFile.Read(file)["DelaySpan"] == "17");
+                string created = Path.Combine(root, "nested", "new.ini");
+                PreferenceFile.Write(created, settings);
+                Check(PreferenceFile.Read(created)["UnknownFutureKey"] == "kept=with=equals");
+                Check(Directory.GetFiles(root, "*.pending-*", SearchOption.AllDirectories).Length == 0);
                 var leftMonitor = new System.Drawing.Rectangle(-1440, -1120, 1440, 2520);
                 var fit = RestoreGeometry.Fit(new System.Drawing.Rectangle(-1800, -1500, 1920, 3000), leftMonitor);
                 Check(leftMonitor.Contains(fit) && fit.Width == 1440 && fit.Height == 2520);
@@ -258,7 +288,7 @@ namespace Offhand.Companion {
                 Check(!CompanionTopologyBridge.IsCurrent(wow, plan, displays));
                 Check(CompanionTopologyBridge.TryWrite(wow, plan, displays, out topologyMessage)
                     && CompanionTopologyBridge.IsCurrent(wow, plan, displays));
-                Console.WriteLine("PASS: safe display identities, addon layout diagnosis, missing-monitor guard, topology bridge, settings validation, restore geometry and atomic Forever state generation");
+                Console.WriteLine("PASS: safe display identities, addon layout diagnosis, missing-monitor guard, topology bridge, atomic settings with failure preservation, restore geometry and atomic Forever state generation");
             } finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }
     }

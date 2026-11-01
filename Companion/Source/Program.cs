@@ -1271,6 +1271,40 @@ namespace Offhand.Companion
 
     internal static class PreferenceFile
     {
+        internal static void Write(string path, IDictionary<string, string> settings)
+        { Write(path, settings, null); }
+
+        internal static void Write(string path, IDictionary<string, string> settings, Action<string> beforePublish)
+        {
+            var keys = new List<string>(settings.Keys);
+            keys.Sort(StringComparer.Ordinal);
+            var lines = new List<string>();
+            foreach (string key in keys)
+            {
+                string value = settings[key] ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(key) || key != key.Trim()
+                    || key.IndexOfAny(new char[] { '=', '\r', '\n' }) >= 0
+                    || value.IndexOfAny(new char[] { '\r', '\n' }) >= 0)
+                    throw new InvalidDataException("Settings contain an invalid key or multiline value.");
+                lines.Add(key + "=" + value);
+            }
+            string target = Path.GetFullPath(path);
+            Directory.CreateDirectory(Path.GetDirectoryName(target));
+            string temporary = target + ".pending-" + Guid.NewGuid().ToString("N");
+            try
+            {
+                byte[] bytes = new UTF8Encoding(false).GetBytes(string.Join(Environment.NewLine, lines.ToArray()) + Environment.NewLine);
+                using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                { stream.Write(bytes, 0, bytes.Length); stream.Flush(true); }
+                if (beforePublish != null) beforePublish(temporary);
+                // Never fall back to truncating a live settings file if atomic
+                // replacement is unavailable or rejected by the filesystem.
+                if (File.Exists(target)) File.Replace(temporary, target, null);
+                else File.Move(temporary, target);
+            }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
+        }
+
         internal static Dictionary<string, string> Read(string path)
         {
             var settings = new Dictionary<string, string>();
@@ -2129,10 +2163,7 @@ namespace Offhand.Companion
         {
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(configPath));
-                var lines = new System.Collections.Generic.List<string>();
-                foreach(var kv in appSettings) lines.Add(kv.Key + "=" + kv.Value);
-                File.WriteAllLines(configPath, lines);
+                PreferenceFile.Write(configPath, appSettings);
             }
             catch (IOException ex) { AddLog("Cannot save settings: " + ex.Message); }
             catch (UnauthorizedAccessException ex) { AddLog("Cannot save settings: " + ex.Message); }
