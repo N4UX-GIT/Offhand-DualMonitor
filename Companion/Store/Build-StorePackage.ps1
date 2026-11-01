@@ -191,6 +191,12 @@ try {
     Write-Output $outputPath
 } finally {
     if (Test-Path -LiteralPath $stagingDir) {
+        $resolvedStaging = [IO.Path]::GetFullPath($stagingDir)
+        $expectedTempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+        if (-not $resolvedStaging.StartsWith($expectedTempRoot, [StringComparison]::OrdinalIgnoreCase) -or
+            [IO.Path]::GetFileName($resolvedStaging) -notmatch '^Offhand-MSIX-[a-f0-9]{32}$') {
+            throw 'Refusing to remove an unexpected Store staging path.'
+        }
         Remove-Item -LiteralPath $stagingDir -Recurse -Force
     }
 }
