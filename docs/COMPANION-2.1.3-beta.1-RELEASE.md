@@ -1,7 +1,8 @@
 # Offhand Companion 2.1.3 Beta 1
 
-Draft candidate notes, 1 November 2026. Unpublished; combined-artifact live QA
-and Store parity are pending. This is a Companion update, separate from addon
+Draft candidate notes, updated 2 November 2026. Unpublished; targeted Retail and
+Anniversary native checks passed. Broader live QA and Store delivery acceptance
+are pending; unsigned MSIX executable parity passed locally. This is a Companion update, separate from addon
 release numbering. Protocol 1 and the existing addon minimum stay unchanged.
 
 <!-- offhand-companion-version: 2.1.3-beta.1 -->

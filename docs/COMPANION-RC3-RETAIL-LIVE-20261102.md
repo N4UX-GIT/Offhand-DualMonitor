@@ -52,3 +52,43 @@ Shared knowledge status was consulted on 2 November: pinned sources remained
 within review windows. The scoped evidence question returned no routed source;
 the logs and observed target client above are the runtime evidence, without any
 API, renderer or taint-safety inference.
+
+## Follow-up: reload and geometry, 2 November 00:08-00:19 CET
+
+The same candidate/client/addon pairing was relaunched through Battle.net on the
+same selected idle character, with fresh prelaunch config/topology backups.
+Manual span at 00:11:20 was followed by `/reload`; the loading screen completed
+and the addon offered Mainhand HUD layout creation. Not Now was selected, so no
+Edit Mode layout was generated or selected. The Companion logged stable recovery
+arming at 00:11:23 and no automatic recovery/failure during the reload.
+
+A further manual span at 00:16:12 armed at 00:16:17. The built-in
+`/offhand diag full` command ran at 00:16:59. Its `lastGeometryCheck` snapshot was
+read from the normal saved file after shutdown, without executing that file:
+
+| Diagnostic | Recorded value |
+| --- | --- |
+| `viewportMatches` | `true` |
+| Physical surface | `4000x2560` |
+| WorldFrame | `(1440,0)`, `2560x1440`, scale `1` |
+| Workspace | `(0,0)`, `1440x2560` |
+| `topologyStatus` | `READY` |
+| `manualCanvas` / source | `true` / `FANCYZONES` |
+| `companionTopology` | `false` |
+
+This passes the spanned reload smoke check and viewport match under the user's
+existing manual-canvas profile. It does **not** establish direct generated
+Companion topology acceptance. `READY` alone is insufficient to identify the
+geometry source. A separate run should temporarily select Companion geometry
+through the supported settings UI, preserve/restore the manual profile, and
+require `companionTopology=true` before accepting that path. This run did not
+alter the manual-canvas preference. It also does not validate a partial window
+on a 5120-wide display.
+
+Restore at 00:18:01 returned the bordered window and its expected mismatch
+notice. The client and candidate exited normally; shutdown was logged 00:19:10.
+Original Companion INI, Retail Config.wtf and generated topology were restored
+and hash-checked. Normal SavedVariables and the generated shutdown bridge refresh
+were retained. No graphics settings were changed. Private evidence is ignored at
+`dist/live-qa-rc3-retail-reload-20261102`. No visible Lua dialog appeared, but no
+fresh taint or error-log audit was performed.

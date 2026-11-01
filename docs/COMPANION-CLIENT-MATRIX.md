@@ -8,6 +8,10 @@ both test processes closed. See [the Retail live record](COMPANION-RC3-RETAIL-LI
 for hashes, timing, evidence limits and remaining cases. This is targeted native
 window acceptance, not full addon layout, persistence or taint acceptance.
 
+A follow-up spanned `/reload` completed and saved a matching viewport diagnostic.
+The existing FancyZones manual-canvas profile supplied geometry; generated
+Companion topology was not active. Keep direct Companion-layout acceptance open.
+
 ## 1 November: combined revision 3 Anniversary result
 
 The exact `2.1.3-beta.1` rc3 executable passed targeted native recovery and control

@@ -3,6 +3,13 @@
 1 November 2026. Evidence: local source and simulated regression cases only.
 No native WoW partial-span result or schema 2 implementation is claimed.
 
+2 November follow-up: Retail `12.1.5.70688` reported a matching `4000x2560`
+surface after spanned reload, but its geometry diagnostic selected the existing
+FancyZones manual canvas (`companionTopology=false`). This establishes neither
+direct Companion-topology consumption nor the motivating `4080x1440` partial
+window. See [the exact live evidence](COMPANION-RC3-RETAIL-LIVE-20261102.md).
+Future acceptance must record geometry source as well as READY/dimensions.
+
 ## Recommended implementation order
 
 Prepare and validate the existing Companion changes first. Then pursue the

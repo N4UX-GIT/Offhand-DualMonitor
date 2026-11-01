@@ -1,15 +1,18 @@
 # Next Companion release preparation
 
-Started 1 November 2026. State: source consolidated and local review builds
-prepared; production behavior and live acceptance remain open.
+Started 1 November 2026; status reconciled 2 November. Source is consolidated,
+bounded production recovery is integrated, and revision 3 has targeted Retail
+and Anniversary native passes. Full release acceptance remains open.
 
 ## Continuation: combined runtime candidate
 
 On 2 November, the same revision 3 also passed targeted Retail `12.1.5.70688`
 manual span, two consecutive VSync reset recoveries and Restore priority. See
 [the Retail live record](COMPANION-RC3-RETAIL-LIVE-20261102.md). Original settings
-were restored and both test processes closed. Reload, full addon layout,
-persistence and the remaining live matrix cases are still open.
+were restored and both test processes closed. A follow-up spanned reload and
+viewport diagnostic passed under the existing FancyZones manual-canvas profile.
+Direct Companion-topology layout acceptance, persistence and the remaining live
+matrix cases are still open.
 
 Revision 3 now has a targeted Anniversary `2.5.6.70577` live pass for native
 spanning, repeated graphics-reset recovery, Restore/Pause/Resume priority,
@@ -38,8 +41,8 @@ bounds and placement are restored on failure; detected external file edits are
 preserved and rollback failures are surfaced. x64/x86 synthetic failure tests
 each pass 113 assertions. This is a shared stabilization prerequisite for
 future custom sizing. It does not establish actual WoW rollback acceptance.
-The next local package is `dist/companion-2.1.3-beta.1-rc2`; retain rc1 as the
-earlier comparison and use rc2 for further acceptance.
+Rollback first shipped locally in rc2; rc3 is the current acceptance artifact.
+Retain rc1 and rc2 as historical comparisons.
 
 The new ordinary runtime is now `2.1.3-beta.1` (file/manifest `2.1.3.1`), with
 bounded recovery integrated for Retail and Anniversary. Test-only settings,
@@ -53,7 +56,7 @@ contract, automated checks and pending combined-artifact live procedure.
 Build with `scripts/New-CompanionReleaseCandidate.ps1` into a fresh directory.
 Earlier Beta 20 source-review builds below are historical comparison artifacts.
 The historical version-selection and production-integration tasks below are now
-implemented locally. Live acceptance, Store delivery version/parity and public
+implemented locally. Live acceptance, Store delivery version/acceptance and public
 promotion remain pending. Custom-region runtime work remains deferred.
 
 ## Source scope
@@ -76,9 +79,9 @@ not promotion of all unreleased addon or website branches.
 
 Conflict resolution keeps recovery client scopes, isolated experiment settings,
 the graininess sampler and current independent-use guidance. CI retains both
-addon and Companion integration branches. No public version or Store version is
-reserved yet: the default build still identifies as Beta 20 for source review.
-These newly compiled bytes must never replace the canonical public Beta 20 bytes.
+addon and Companion integration branches. The candidate public identifier is now
+`2.1.3-beta.1`; no Store delivery version is reserved. These newly compiled bytes
+must never replace the canonical public Beta 20 bytes.
 
 ## Changes made during preparation
 
@@ -93,7 +96,12 @@ These newly compiled bytes must never replace the canonical public Beta 20 bytes
   stable-identity settings fall back to legacy display settings.
 - Added simulation cases for the plan's 4080x1440 schema 1 partial window.
 
-## Local verification and artifacts
+## Historical source-review verification and artifacts
+
+The counts and comparison builds in this section predate ordinary-runtime
+integration. Current policy/color/rollback counts are recorded in
+[production recovery QA](COMPANION-PRODUCTION-RECOVERY-QA.md); rc3 persistence and
+MSIX checks are recorded in the evidence linked above.
 
 All 63 Lua suites and six TOC manifests passed; Lua 5.1 syntax and XML/path
 validation passed. Companion preferences, topology/bridge generation, restore,
@@ -112,7 +120,8 @@ Review builds are under `dist/companion-preparation-20261101`:
 - `preparation-manifest.json`: source hashes, artifact hashes and evidence limits.
 
 These are comparison builds from one source baseline, not a combined production
-executable. No WoW client was launched or modified. Forever native acceptance
+executable. No WoW client was launched during that source-review stage. Later
+revision 3 live runs are recorded above. Forever native acceptance
 remains deferred until the user's November 4 milestone; record the actual build
 then. Historical Retail and Anniversary acceptance applies to the named old
 artifacts, not automatically to these rebuilds.
@@ -123,20 +132,19 @@ The checked-in public ZIP is also unchanged.
 
 ## Required next release work
 
-1. Integrate bounded recovery into the ordinary runtime with explicit client
-   eligibility. Current builds enable it only through mutually exclusive test
-   defines. Review manual span, startup auto-span, restart ownership and re-arm
-   together; preserve Restore, Pause, rate limits and failure latches.
+1. Complete direct Companion-topology layout and persistence acceptance. The
+   Retail reload run used the existing manual-canvas profile, so READY and
+   matching viewport dimensions alone do not close this gate. Preserve and
+   restore that profile when testing the generated topology path.
 2. Keep the resize comparison experimental until matched logs and repeatable
    sharpness/stability evidence resolve its conflict with recovery.
 3. Test the combined artifact across Retail, Anniversary, Era and the final
    Forever build, including cold launch, reload, disconnect, repeated graphics
    resets, cancellation and persistence. Keep unresolved hang/error reports open.
-4. Set a new Companion public version and unique assembly/manifest identity only
-   after the production behavior is selected. Update version-dependent tests,
-   build metadata, release notes and compatibility declarations together. Do not
-   raise the addon minimum merely because Companion has advanced.
-5. Build once, verify portable ZIP bytes and Store parity, choose an unused
+4. Review the already selected `2.1.3-beta.1` metadata, source scope and release
+   notes before promotion. Protocol 1 and the addon minimum remain unchanged.
+5. Preserve rc3 provenance and hashes. Local portable ZIP checks and unsigned
+   MSIX executable parity passed. Verify Store delivery history, choose an unused
    increasing Store package version, then complete packaged and rollback QA.
    Follow COMPANION-RELEASE-RUNBOOK.md for publication gates.
 

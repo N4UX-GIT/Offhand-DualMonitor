@@ -8,6 +8,12 @@ That record supersedes the generic pending status only for its listed cases and
 exact artifact/client/addon pairing. Remaining procedure items below still need
 acceptance before release.
 
+Update, 2 November: [Retail revision 3 evidence](COMPANION-RC3-RETAIL-LIVE-20261102.md)
+adds two VSync recoveries, Restore priority and a spanned reload smoke pass.
+The saved geometry check matched under an existing FancyZones manual-canvas
+profile (`companionTopology=false`). Direct Companion-topology layout acceptance
+remains pending; require both matching dimensions and the intended geometry source.
+
 ## Runtime contract
 
 The ordinary runtime now includes bounded graphics-reset recovery, enabled only
@@ -53,7 +59,8 @@ comparison remains exclusive to graininess builds. No custom regions are enabled
 ./tests/companion-color.ps1
 ./tests/companion-color.ps1 -DiagnosticsTest
 ./tests/release-metadata.ps1
-./scripts/New-CompanionReleaseCandidate.ps1 -OutputDirectory ./dist/companion-2.1.3-beta.1-rc1
+# Use a fresh output directory; do not overwrite an accepted candidate.
+./scripts/New-CompanionReleaseCandidate.ps1 -OutputDirectory ./dist/companion-2.1.3-beta.1-review
 ```
 
 The production configuration passes 121 policy assertions; each scoped
