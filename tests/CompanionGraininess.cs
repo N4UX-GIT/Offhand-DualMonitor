@@ -18,6 +18,8 @@ namespace Offhand.Companion
         {
             Check(!CompanionForm.GraphicsRecoveryEnabled,
                 "graininess mode must not arm graphics recovery or suppress its resize comparison");
+            Check(RenderResizeHandshake.Allowed(false) && !RenderResizeHandshake.Allowed(true),
+                "Only the graininess experiment may enable the resize comparison");
             string config = (string)typeof(CompanionForm).GetField("configPath",
                 BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
             Check(config == SpanPresentationTest.ConfigPath,

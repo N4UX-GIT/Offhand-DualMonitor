@@ -785,7 +785,16 @@ namespace Offhand.Companion
 
     internal static class RenderResizeHandshake
     {
-        internal static bool Allowed(bool classicGraphicsCandidate) { return !classicGraphicsCandidate; }
+        internal static bool Allowed(bool classicGraphicsCandidate)
+        {
+#if GRAININESS_TEST
+            return !classicGraphicsCandidate;
+#else
+            // The resize comparison has conflicting live evidence. Keep it
+            // exclusive to the explicit graininess experiment until accepted.
+            return false;
+#endif
+        }
         internal static Rectangle IntermediateBounds(Rectangle target)
         {
             // Keep the origin and width stable so mixed-width/negative-origin
@@ -3871,14 +3880,9 @@ namespace Offhand.Companion
                         throw new Exception("Windows rejected the requested span.");
                     }
 
-                    // WoW owns its DirectX swap chain, so the Companion must not
-                    // inspect, hook or resize renderer resources directly. Some
-                    // clients can retain a soft/stretched render surface when the
-                    // borderless style and the only resize arrive together. Once
-                    // the final style is active, perform a harmless one-pixel
-                    // SetWindowPos nudge and return to the exact requested bounds.
-                    // These ordinary window resizes let WoW handle its own WM_SIZE
-                    // path while preserving the final topology byte-for-byte.
+                    // Experimental graininess comparison only. Ordinary and
+                    // recovery builds omit this sequence because its presentation
+                    // benefit and initial-span stability remain unverified together.
                     Rectangle intermediate = RenderResizeHandshake.IntermediateBounds(bounds);
                     bool renderResizeHandshake = RenderResizeHandshake.Allowed(GraphicsRecoveryEnabled) && intermediate != bounds
 #if GRAININESS_TEST

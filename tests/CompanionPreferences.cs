@@ -50,6 +50,8 @@ namespace Offhand.Companion {
             Check(WindowInteropDiagnostics.StyleFailure("Could not remove WoW window borders", 87)
                 .Contains("Windows error 87"));
             var renderTarget = new Rectangle(-440, -1080, 3440, 2520);
+            Check(!RenderResizeHandshake.Allowed(false));
+            Check(!RenderResizeHandshake.Allowed(true));
             var renderIntermediate = RenderResizeHandshake.IntermediateBounds(renderTarget);
             Check(renderIntermediate == new Rectangle(-440, -1080, 3440, 2519));
             Check(RenderResizeHandshake.IntermediateBounds(new Rectangle(2, 3, 10, 1))
