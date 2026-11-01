@@ -9,8 +9,11 @@ for hashes, timing, evidence limits and remaining cases. This is targeted native
 window acceptance, not full addon layout, persistence or taint acceptance.
 
 A follow-up spanned `/reload` completed and saved a matching viewport diagnostic.
-The existing FancyZones manual-canvas profile supplied geometry; generated
-Companion topology was not active. Keep direct Companion-layout acceptance open.
+The existing FancyZones manual-canvas profile supplied geometry in that run.
+A later temporary selection of Companion through Window Setup confirmed direct
+schema 1 consumption and a matching viewport after cold relaunch. Direct-mode
+reload was interrupted by an unexplained disconnect; full layout and lifecycle
+acceptance remain open. The original profile was restored exactly.
 
 ## 1 November: combined revision 3 Anniversary result
 

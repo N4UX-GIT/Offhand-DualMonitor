@@ -11,8 +11,10 @@ manual span, two consecutive VSync reset recoveries and Restore priority. See
 [the Retail live record](COMPANION-RC3-RETAIL-LIVE-20261102.md). Original settings
 were restored and both test processes closed. A follow-up spanned reload and
 viewport diagnostic passed under the existing FancyZones manual-canvas profile.
-Direct Companion-topology layout acceptance, persistence and the remaining live
-matrix cases are still open.
+Subsequent temporary Companion selection confirmed direct schema 1 consumption
+and viewport matching after cold relaunch. An unexplained disconnect interrupted
+direct-mode reload. Full layout, persistence and remaining live matrix cases
+are still open; all original profile/config files were restored exactly.
 
 Revision 3 now has a targeted Anniversary `2.5.6.70577` live pass for native
 spanning, repeated graphics-reset recovery, Restore/Pause/Resume priority,
@@ -132,10 +134,10 @@ The checked-in public ZIP is also unchanged.
 
 ## Required next release work
 
-1. Complete direct Companion-topology layout and persistence acceptance. The
-   Retail reload run used the existing manual-canvas profile, so READY and
-   matching viewport dimensions alone do not close this gate. Preserve and
-   restore that profile when testing the generated topology path.
+1. Complete direct Companion-topology layout and persistence acceptance beyond
+   the confirmed schema 1/viewport check. Repeat direct-mode reload after the
+   unexplained disconnect and audit fresh errors. Preserve and restore the
+   existing manual profile when testing generated topology.
 2. Keep the resize comparison experimental until matched logs and repeatable
    sharpness/stability evidence resolve its conflict with recovery.
 3. Test the combined artifact across Retail, Anniversary, Era and the final

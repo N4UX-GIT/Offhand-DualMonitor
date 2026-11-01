@@ -11,8 +11,11 @@ acceptance before release.
 Update, 2 November: [Retail revision 3 evidence](COMPANION-RC3-RETAIL-LIVE-20261102.md)
 adds two VSync recoveries, Restore priority and a spanned reload smoke pass.
 The saved geometry check matched under an existing FancyZones manual-canvas
-profile (`companionTopology=false`). Direct Companion-topology layout acceptance
-remains pending; require both matching dimensions and the intended geometry source.
+profile (`companionTopology=false`). A subsequent supported-UI selection confirmed
+direct Companion topology and viewport matching after cold relaunch. One
+direct-mode reload attempt disconnected without an established cause. Full layout
+and lifecycle acceptance remain pending; require both matching dimensions and
+the intended geometry source.
 
 ## Runtime contract
 

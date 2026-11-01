@@ -92,3 +92,51 @@ and hash-checked. Normal SavedVariables and the generated shutdown bridge refres
 were retained. No graphics settings were changed. Private evidence is ignored at
 `dist/live-qa-rc3-retail-reload-20261102`. No visible Lua dialog appeared, but no
 fresh taint or error-log audit was performed.
+
+## Follow-up: direct Companion geometry, 2 November 00:27-00:44 CET
+
+The same candidate and installed addon were tested again on the same idle
+character. The supported Window Setup UI was used to select Use Companion,
+which selects automatic geometry without deleting the remembered manual canvas.
+The original account SavedVariables, config, Companion preferences and both
+generated bridge files were backed up before this temporary change.
+
+The first session spanned at 00:32:17 and armed at 00:32:20. Submitting the
+visibly prepared `/reload` command led to a Reconnect screen, rather than a
+completed reload. The preceding UI showed increased latency. No disconnect code
+or causal error was captured; network, server and addon causes remain unproven.
+The client was restored and closed normally at 00:34:12. This attempt is
+inconclusive, not a direct-mode reload pass.
+
+One retry was launched through Battle.net. The Companion selection persisted
+through that cold process launch. The preexisting generated bridge was loaded
+before spanning; no second reload was needed for the following diagnostic.
+Manual span at 00:40:45 armed at 00:40:50. At 00:41:55,
+`/offhand diag full` captured:
+
+| Diagnostic | Recorded value |
+| --- | --- |
+| `viewportMatches` | `true` |
+| `companionTopology` / `topologyStatus` | `true` / `READY` |
+| Writer / compatibility | `2.1.3-beta.1` / `MATCH` |
+| Topology mode | `DUAL_DISPLAY` |
+| Physical surface | `4000x2560` |
+| WorldFrame | `(1440,6)`, `2560x1440`, scale `1` |
+| Workspace | `(0,0)`, `1440x2560` |
+
+The six-pixel game bottom is consistent with the actual offset display union:
+its desktop bottom is 1446 while Mainhand ends at 1440. The previous manual
+profile used bottom zero. The result confirms direct schema 1 consumption and
+viewport placement for this pairing and geometry. It does not accept all panel
+placement, protected HUD actions, direct-mode reload, graphics recovery while
+using this source, or the partial-monitor feature.
+
+Restore was logged at 00:43:17, normal game shutdown at 00:44:19. The candidate
+also exited normally. All five backed-up files, including the full account
+SavedVariables and original generated recovery bridge, were restored exactly and
+hash-checked after both processes exited. Thus the temporary Companion selection
+and diagnostic snapshot were not left in the user's active profile. Private
+after-copies and native logs remain ignored at
+`dist/live-qa-rc3-retail-topology-20261102`. No addon source or Edit Mode layout
+creation was performed, no fresh error/taint audit was collected, and no visible
+Lua error dialog appeared. Battle.net remains open.

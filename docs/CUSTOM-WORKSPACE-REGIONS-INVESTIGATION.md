@@ -10,6 +10,13 @@ direct Companion-topology consumption nor the motivating `4080x1440` partial
 window. See [the exact live evidence](COMPANION-RC3-RETAIL-LIVE-20261102.md).
 Future acceptance must record geometry source as well as READY/dimensions.
 
+A later Retail run selected Companion through supported Window Setup and
+confirmed `companionTopology=true`, writer `2.1.3-beta.1`, READY and a matching
+viewport on the existing full two-display surface after cold relaunch. This
+closes the geometry-source ambiguity for that baseline only. Direct-mode reload
+was interrupted by an unexplained disconnect, and the `4080x1440` partial-window
+reporting gate remains untested. The original manual profile was restored.
+
 ## Recommended implementation order
 
 Prepare and validate the existing Companion changes first. Then pursue the
