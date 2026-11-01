@@ -21,7 +21,7 @@ tested main when the plan's entry criteria are met.
 | Span failure path | Candidate continuation now captures file bytes, native bounds/style, placement and a copy of the prior region before mutation | Validate rollback on actual WoW clients, including minimized/maximized states, asynchronous changes and application-sharing layouts |
 | `Viewport:GetCompanionTopology` | Accepts only schema 1 and requires physical/canvas agreement | Keep strict matching; establish actual partial-window reporting per client before enabling the feature |
 | Viewport/canvas placement | Singular workspace bounds and canvas remain central | General regions need collection helpers, primary aliases, per-region canvases and persistence migration |
-| Preferences | Current `SaveConfig` uses direct `WriteAllLines` | Versioned region/partial settings need validated atomic persistence and last-good recovery |
+| Preferences | Candidate now stages and flushes UTF-8 settings, then atomically replaces the destination without a truncating fallback | New region/partial records still need a versioned schema, validation and migration |
 
 The rollback requirement is not already met merely because generated-file writes
 use a temporary file and replacement. File atomicity and native-window rollback

@@ -21,6 +21,8 @@ release numbering. Protocol 1 and the existing addon minimum stay unchanged.
 - Failure rollback now restores prior topology bytes and native window state,
   including its clipping region, with diagnostics for incomplete restoration.
   Synthetic-window verification passed; actual WoW rollback acceptance is pending.
+- Settings saves now publish atomically, preserving the previous file on
+  interrupted or rejected writes and retaining unknown settings keys.
 
 The experimental resize sequence remains disabled in this candidate. It is not
 a confirmed sharpness fix. Automatic graphics recovery is not enabled for Era,

@@ -5,6 +5,20 @@ prepared; production behavior and live acceptance remain open.
 
 ## Continuation: combined runtime candidate
 
+Latest local artifact: `dist/companion-2.1.3-beta.1-rc3`, source build revision
+`f7d33ae`. Settings writes are now staged, flushed and atomically published;
+interrupted or locked-file saves retain the previous file. Unknown settings and
+Unicode values round-trip. This supersedes rc2 for further candidate acceptance.
+
+An unsigned MSIX structural test uses the separate identity
+`N4UX.OffhandCompanion.Validation`, package `1.0.0.0`. Its executable exactly
+matches the rc3 portable candidate, and file boundaries, desktop target,
+capabilities and opt-in startup were verified. This package is neither a Store
+submission nor an install/update candidate. Installed production Store version
+was read as `2.1.20.0`; that does not establish the latest Partner Center state.
+No production Store delivery version is reserved. See
+[persistence and package evidence](COMPANION-PERSISTENCE-AND-PACKAGE-EVIDENCE.md).
+
 Further continuation adds operation-level span rollback before generated-file
 and native-window changes. Previous topology bytes, exact clipping, style,
 bounds and placement are restored on failure; detected external file edits are

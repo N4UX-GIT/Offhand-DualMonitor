@@ -63,3 +63,11 @@ jobs:
       - name: Build Companion release executable
         shell: cmd
         run: Companion\build.bat
+
+      - name: Validate unsigned Store package structure and executable parity
+        shell: powershell
+        run: |
+          $expectedHash = (Get-FileHash ./Companion/Offhand.exe -Algorithm SHA256).Hash
+          $validationOutput = Join-Path $env:RUNNER_TEMP 'Offhand-StoreValidation'
+          ./Companion/Store/Build-StorePackage.ps1 -PackageVersion 1.0.0.0 -IdentityName N4UX.OffhandCompanion.Validation -OutputDirectory $validationOutput -CompanionPath ./Companion/Offhand.exe -ExpectedCompanionSha256 $expectedHash
+          ./tests/companion-store-package.ps1 -PackagePath (Join-Path $validationOutput 'Offhand-Companion_1_0_0_0_x64.msix') -ExpectedCompanionSha256 $expectedHash -ExpectedPackageVersion 1.0.0.0 -ExpectedIdentityName N4UX.OffhandCompanion.Validation
