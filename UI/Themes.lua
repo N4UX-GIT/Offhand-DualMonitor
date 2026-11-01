@@ -215,12 +215,24 @@ function Themes:ApplyCanvasTheme(canvasFrame)
     if canvasFrame.SetBackdropBorderColor then
         canvasFrame:SetBackdropBorderColor(br[1], br[2], br[3], br[4] or 1.0)
     end
+
+    if (canvasFrame == Offhand.canvas or canvasFrame == _G["OffhandCanvasFrame"])
+        and Offhand.UserMedia and Offhand.UserMedia.ApplyToCanvas then
+        Offhand.UserMedia:ApplyToCanvas(canvasFrame)
+    end
 end
 
 function Themes:ApplyBackdrop(frame, themeKey, customAlpha)
     if not frame then return end
     if frame == _G["OffhandCanvasFrame"] or frame == Offhand.canvas then
         self:ApplyCanvasTheme(frame)
+        return
+    end
+
+    local windowName = frame.GetName and frame:GetName()
+    if Offhand.UIControls and (windowName == "OffhandFloatingConfigFrame"
+        or windowName == "OffhandSetupWizardFrame" or windowName == "OffhandFirstLaunchFrame") then
+        Offhand.UIControls.StyleSurface(frame, "window")
         return
     end
 
@@ -361,6 +373,7 @@ function Themes:UpdateHeader(header, titleText)
         if titleText then header.title:SetText(titleText) end
         header.title:SetTextColor(textCol[1], textCol[2], textCol[3], textCol[4] or 1.0)
     end
+    if Offhand.UIControls then Offhand.UIControls.StyleSurface(header, "header") end
 end
 
 function Offhand:UpdateTheme()

@@ -319,3 +319,42 @@ diagnostics = module:GetDiagnostics()
 assert(not diagnostics.supported and diagnostics.visible == 0)
 
 print("PASS: native client scaling, Retail font fallback, immediate topology-scoped Forever replacement, classic assets, pooling, ownership yielding, diagnostics and restoration")
+
+-- Accessible native bubbles clamp against Mainhand rather than the full stacked
+-- window. No world-space anchor, child, font or text mutation is needed.
+addon.isForever, addon.isRetail = false, true
+inInstance, uiScale = false, 0.5
+addon.db.speechBubbleCompensation = true
+EllesmereUI = nil
+UIParent.GetWidth = function() return 1000 end
+UIParent.GetHeight = function() return 800 end
+metrics = {isSpanned=true, gameLeft=0,gameRight=1000,gameBottom=0,gameTop=400}
+local bounded = Bubble(1)
+local bubbleInsets, clampWrites, bubbleClamped = {0,0,0,0}, 0, false
+bounded.GetClampRectInsets = function() return unpack(bubbleInsets) end
+bounded.SetClampRectInsets = function(_, ...) bubbleInsets={...}; clampWrites=clampWrites+1 end
+bounded.IsClampedToScreen = function() return bubbleClamped end
+bounded.SetClampedToScreen = function(_, value) bubbleClamped=value end
+bounded.SetPoint = function() error("native bubble anchor must remain engine-owned") end
+C_ChatBubbles = {GetAllChatBubbles=function() return {bounded} end}
+module:ApplyLayout()
+assert(bubbleClamped and bubbleInsets[3] == 400,
+    "stacked bubbles must reserve the upper workspace with physical-scale-aware clamp bounds")
+local unchanged = clampWrites
+module:ApplyLayout()
+assert(clampWrites == unchanged, "unchanged bubble bounds must not churn")
+bounded.protected = true
+metrics.gameTop = 350
+module:ApplyLayout()
+assert(clampWrites == unchanged, "protected bubbles must receive no clamp writes")
+bounded.protected = false
+addon.db.speechBubbleCompensation = false
+module:ApplyLayout()
+assert(not bubbleClamped and bubbleInsets[3] == 0,
+    "turning off compensation must restore the original native clamp")
+addon.db.speechBubbleCompensation = true
+module:ApplyLayout()
+metrics.isSpanned = false
+module:ApplyLayout()
+assert(not bubbleClamped and bubbleInsets[3] == 0, "restored windows must restore native bubble bounds")
+print("PASS: stacked native bubble clamping, protection, idempotence and restoration")

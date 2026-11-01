@@ -205,7 +205,9 @@ namespace Offhand.Companion {
                 File.WriteAllText(account, "\r\nOffhandDB = { [\"profiles\"] = { [\"Default\"] = {} } }\n");
                 File.WriteAllText(character, "OffhandCharDB = { [\"activeProfile\"] = \"Default\" }\n");
                 string bridgeMessage;
-                Check(ForeverStateBridge.TryRefresh(wow, out bridgeMessage));
+                bool bridgeRefreshed = ForeverStateBridge.TryRefresh(wow, out bridgeMessage);
+                if (!bridgeRefreshed) throw new Exception("Forever bridge fixture failed: " + bridgeMessage);
+                Check(bridgeRefreshed);
                 string bridge = File.ReadAllText(Path.Combine(core, "ForeverState.lua"));
                 Check(bridge.Contains("OffhandForeverStateBridgeVersion = \"") &&
                     bridge.Contains("OffhandDB = {") && bridge.Contains("OffhandCharDB = {") &&

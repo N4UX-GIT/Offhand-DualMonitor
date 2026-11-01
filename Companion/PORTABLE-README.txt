@@ -7,13 +7,16 @@ Offhand.exe SHA-256: {{EXE_SHA256}}
 INSTALLATION
 ------------
 1. Extract all files from Offhand-Companion.zip to a folder you control.
-2. Start Offhand.exe before launching World of Warcraft.
+2. Start World of Warcraft in standard Windowed mode, then start Offhand.exe.
 3. Review the selected displays and use Identify Displays before enabling
    automatic spanning.
 4. Click Span WoW Now. If WoW already reached the character UI, type /reload.
 5. In WoW, open /oh and complete the setup wizard. On Forever and Retail,
    press Create Mainhand HUD Layout on the final step outside combat with
    Edit Mode closed, then reload when prompted.
+6. After the span is applied, you may select Exit Companion. Leave it running
+   only for automatic spanning, active monitor recovery, topology repair, or
+   the optional Forever compatibility bridge.
 
 No installer is required. Offhand Companion uses the .NET Framework included
 with supported Windows installations. Preferences are stored under

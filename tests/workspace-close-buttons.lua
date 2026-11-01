@@ -22,6 +22,12 @@ addon.Viewport = { GetMetrics = function() return metrics end }
 addon.Canvas = {
     IsFrameOnWorkspace = function(frame) return frame.onWorkspace == true end,
 }
+addon.WorkspaceBehavior = {
+    IsFrameLocked = function(_, frame, name)
+        return addon.db.lockWorkspaceWindows == true and name == "WorldMapFrame"
+            and frame.onWorkspace == true
+    end,
+}
 
 local inCombat = false
 InCombatLockdown = function() return inCombat end
@@ -158,6 +164,15 @@ assert(mapMaximize.alpha == 0 and not mapMaximize.mouse,
 chrome:SetMapMaximizeEnabled(false)
 assert(mapMaximize.alpha == 1 and mapMaximize.mouse,
     "disabling the map option must restore its original state")
+
+addon.db.lockWorkspaceWindows = true
+chrome:Refresh()
+assert(mapClose.alpha == 0 and not mapClose.mouse,
+    "a locked workspace map must hide its close button without the global chrome option")
+addon.db.lockWorkspaceWindows = false
+chrome:Refresh()
+assert(mapClose.alpha == 0.75 and mapClose.mouse,
+    "unlocking the workspace map must restore its close button")
 
 metrics.isSpanned = false
 addon.db.hideWorkspaceCloseButtons = true

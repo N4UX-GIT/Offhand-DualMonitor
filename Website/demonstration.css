@@ -1,0 +1,102 @@
+.demonstration-page { color-scheme: dark; --gold: var(--rio-gold); --muted: var(--text-muted); }
+.demonstration-page button { font: inherit; cursor: pointer; }
+.demonstration-page button:focus-visible, .demonstration-page a:focus-visible { outline: 2px solid var(--gold); outline-offset: 5px; }
+.demo-intro .deck-intro-text { max-width: 760px; }
+.demo-intro .guide-title { text-wrap: balance; }
+.demo-instructions { font-size: .85rem; }
+.demo-next { margin: 30px 0 0; }
+.gameplay-example { margin-top: 48px; padding-top: 36px; border-top: 1px solid var(--rio-border-mid); scroll-margin-top: 100px; }
+.gameplay-intro { max-width: 780px; margin: 0 auto 24px; text-align: center; }
+.gameplay-intro h2 { font-size: clamp(1.35rem, 3vw, 1.9rem); text-wrap: balance; }
+.gameplay-intro > p:last-child { color: var(--muted); line-height: 1.7; }
+.gameplay-video { margin: 0; }
+.gameplay-player { position: relative; }
+.gameplay-watch { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 10px; padding: 12px 18px; border: 1px solid #9b804d; border-radius: 999px; color: #ead5a5; background: #15191ef2; box-shadow: 0 4px 18px #0007; white-space: nowrap; font-size: .9rem; }
+.gameplay-watch[hidden] { display: none; }
+.gameplay-watch svg { color: var(--gold); flex-shrink: 0; }
+.gameplay-watch:hover { background: #26251f; border-color: var(--gold); }
+.gameplay-video video { display: block; width: 100%; height: auto; border: 1px solid var(--rio-border-mid); border-radius: var(--radius-md); background: #101215; }
+.gameplay-video figcaption { max-width: 800px; margin: 14px auto 0; color: var(--muted); font-size: .78rem; line-height: 1.7; text-align: center; }
+.presentation .gameplay-example { display: none; }
+.eyebrow { color: var(--gold); letter-spacing: .16em; font-size: .68rem; font-weight: 700; }
+.demo { overflow: hidden; border: 1px solid var(--rio-border-mid); border-radius: var(--radius-md); background: var(--rio-surface-card); box-shadow: 0 16px 40px #0009; }
+.stage { position: relative; width: 100%; background: #17191c; }
+.tour-cover { position: absolute; inset: 0; background: #17191c; opacity: 1; transition: opacity .35s ease, visibility .35s; }
+.tour-cover[hidden] { display: none; }
+.tour-cover.is-dismissed { opacity: 0; visibility: hidden; pointer-events: none; }
+#tour-cover-art, #tour-cover-art > svg { display: block; width: 100%; height: 100%; }
+.tour-start { position: absolute; left: 50%; top: 72%; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 10px; border: 1px solid #9b804d; border-radius: 999px; padding: 12px 20px; color: #ead5a5; background: #15191ef2; box-shadow: 0 4px 18px #0007; white-space: nowrap; }
+.tour-start:hover { background: #26251f; border-color: var(--gold); }
+.tour-start svg { color: var(--gold); }
+#tour-cover-art text { font-family: "Segoe UI", sans-serif; fill: #eac473; }
+#scene { --gold: #eac473; display: block; width: 100%; height: auto; }
+#scene text { font-family: "Segoe UI", sans-serif; fill: var(--gold); }
+.scene-brand text { font-family: Georgia, serif !important; font-size: 22px; letter-spacing: 5px; }
+.scene-brand .scene-note { font-family: "Segoe UI", sans-serif !important; font-size: 12px; letter-spacing: 3px; fill: #9a9588 !important; }
+#stage-caption { font-size: 16px; letter-spacing: 2px; fill: #c3b8a0 !important; }
+.playback { display: flex; align-items: center; gap: 18px; padding: 18px 26px; background: #101216; border-top: 1px solid #34312a; }
+.playback button { border: 1px solid #675233; background: #242018; color: var(--gold); padding: 9px 14px; border-radius: 5px; white-space: nowrap; font-size: .8rem; }
+.playback button:hover { background: #383021; }
+.progress { height: 3px; background: #34312c; flex: 1; overflow: hidden; }
+.progress span { display: block; width: 0; height: 100%; background: var(--gold); }
+#counter { color: #a49c8c; font-variant-numeric: tabular-nums; font-size: .75rem; white-space: nowrap; }
+.layout-controls { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 24px 26px 0; gap: 8px; }
+.layout-explorer { margin: 20px 26px 0; }
+.layout-explorer summary { width: fit-content; margin: auto; padding: 9px 14px; color: var(--muted); cursor: pointer; font-size: .82rem; border: 1px solid var(--rio-border-mid); border-radius: 5px; }
+.layout-explorer summary:hover { color: var(--gold); border-color: #a58140; }
+.layout-explorer summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 5px; }
+.layout-explorer .layout-controls { padding: 18px 0 0; }
+.presentation .layout-explorer { display: none; }
+.layout-controls button { background: #1b1e24; color: #aeb0b7; border: 1px solid #35363b; border-radius: 5px; padding: 14px 7px; font-size: .77rem; line-height: 1.4; }
+.layout-controls button[aria-pressed="true"] { color: var(--gold); border-color: #a58140; background: #2b261e; }
+.layout-controls button:hover { border-color: #a58140; }
+.layout-controls button[data-comparison="true"] { border-style: dashed; }
+.layout-controls button[data-ending="true"] { grid-column: 1 / -1; color: var(--gold); }
+.ending-cta { outline: none; }
+.ending-cta rect { fill: #d9b66b; stroke: #f2d99c; stroke-width: 2; }
+#scene .ending-cta text { fill: #17191c; font-weight: 700; }
+.ending-cta:hover rect, .ending-cta:focus-visible rect { fill: #f2d99c; stroke: #fff2cf; stroke-width: 4; }
+.ending-setup { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.ending-setup:focus-visible { width: auto; height: auto; overflow: visible; clip-path: none; padding: 12px 20px; background: #d9b66b; color: #17191c; border-radius: 5px; }
+.explanation { padding: 20px 32px 30px; min-height: 155px; text-align: center; }
+.explanation h2 { margin: 10px 0; font-size: 1.6rem; }
+.explanation > p:last-child { color: var(--muted); font-size: .9rem; line-height: 1.65; max-width: 720px; margin: auto; }
+.footnote { color: #81858e; font-size: .75rem; line-height: 1.7; max-width: 900px; margin: 22px auto 0; text-align: center; }
+body.presentation { overflow: hidden; }
+.presentation .navbar, .presentation .demo-intro, .presentation .layout-controls, .presentation .explanation, .presentation .footnote, .presentation .demo-next, .presentation .footer, .presentation noscript { display: none; }
+.presentation .demonstration-deck { max-width: none; margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+.presentation .demo { border: 0; border-radius: 0; background: #0c0e12; }
+.presentation .stage { height: 100dvh; display: grid; place-items: center; background: #0c0e12; }
+.presentation #scene { max-height: 100dvh; width: 100%; }
+.presentation .playback { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); border: 1px solid #675233; border-radius: 7px; opacity: 0; transition: opacity .2s; z-index: 2; }
+.presentation .playback:hover, .presentation .playback:focus-within { opacity: 1; }
+.presentation .progress, .presentation #counter { display: none; }
+@media (max-width: 700px) {
+    .demo-intro { padding-bottom: 24px; margin-bottom: 24px; }
+    .layout-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 16px 14px 0; }
+    .playback { padding: 12px; gap: 10px; }
+    .playback { flex-wrap: wrap; }
+    .progress { min-width: 45px; }
+    .playback button { font-size: .72rem; padding: 9px; }
+    .explanation { padding: 18px 18px 24px; }
+}
+[data-equipped-item-frame="offhand"] {
+    animation: equipped-item-pulse calc(2.8s / var(--tour-speed, 1)) ease-in-out infinite;
+}
+[data-equipped-glow="true"] {
+    animation: equipped-glow-pulse calc(2.8s / var(--tour-speed, 1)) ease-in-out infinite;
+}
+@keyframes equipped-item-pulse {
+    0%, 100% { filter: brightness(1) drop-shadow(0 0 0 transparent); }
+    50% { filter: brightness(1.18) drop-shadow(0 0 3px #dfaa58); }
+}
+@keyframes equipped-glow-pulse {
+    0%, 100% { opacity: .55; }
+    50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .tour-cover { transition: none; }
+    [data-equipped-item-frame="offhand"], [data-equipped-glow="true"] {
+        animation: none;
+    }
+}

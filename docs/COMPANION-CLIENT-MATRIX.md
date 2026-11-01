@@ -64,3 +64,13 @@ not establish Wine support; preserve Wine behavior and test its matching prefix
 separately if included in the release.
 
 The original tester's hang and excessive addon errors remain a separate defect.
+
+### 2026-10-25: Companion work consolidated in planning; Forever testing deferred
+
+User requests Forever live testing wait until the November 4 release and treats
+this recovery work plus the experimental work in Investigate v21 Forever Beta
+issue as one ongoing Companion build. Shared record: docs/COMPANION-ONGOING-BUILD.md
+in D:/Tools/Code/Offhand. Separate worktrees and accepted artifacts are preserved;
+no source merge or publication implied. Reconcile the graininess resize mitigation
+with the recovery candidate's deliberate omission of that handshake before making
+one final candidate. Other work may proceed meanwhile. No automation scheduled.

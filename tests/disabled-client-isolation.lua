@@ -54,6 +54,7 @@ WorldFrame = { ClearAllPoints = function() end, SetAllPoints = function() end }
 
 local addon = {}
 assert(loadfile("Core/Init.lua"))("Offhand", addon)
+assert(loadfile("Core/ClientRuntime.lua"))("Offhand", addon)
 addon.db = { enabled = false }
 addon.Viewport = {
     GetMetrics = function() return { isSpanned = true } end,

@@ -1,114 +1,82 @@
-# Offhand v2.1.2 — Forever Missing-Monitor Recovery
+<!-- offhand-companion-version: 2.1.2-beta.20 -->
 
-Offhand 2.1 replaces combined-resolution guessing with exact display rectangles
-provided by Companion 2.1.2. Select exactly two screens and choose the Mainhand,
-or explicitly split one 32:9/32:10 super-ultrawide. Mixed resolutions and
-heights, stacked screens, portrait/landscape pairs, negative desktop
-coordinates, and ultrawide Mainhand displays now retain native geometry.
+# Offhand v2.1.2 Beta 24
 
-If a saved workspace display disconnects while WoW is spanned, Companion now
-restores a bordered WoW window that fills the surviving Mainhand work area and
-refuses to reuse the stale span. The addon rejects the stale topology and keeps
-ordinary workspace panels reachable without erasing their saved dual-screen
-positions.
+> This is a public testing build. Back up your existing Offhand SavedVariables before installing and report regressions with the requested diagnostics.
 
-Forever only accepts protected Edit Mode layout changes from a player action.
-Offhand therefore offers a **Use Modern** recovery prompt when the workspace
-disappears and a **Restore Offhand** prompt when the exact topology returns.
-Manual layout choices take precedence. A consumed Forever recovery bridge also
-no longer overwrites newer SavedVariables during `/reload`.
-Offhand's account and character state now have a versioned, data-only session fallback for
-Forever's reported SavedVariables reload fault. A matching or newer revision in
-the ordinary SavedVariables table always wins, allowing Blizzard's eventual fix
-to take effect without removing or reversing Offhand's recovery code.
-Fresh profiles remain inert until the setup wizard is completed. Existing
-Forever recovery, workspace persistence, and Blizzard Edit Mode ownership are
-preserved.
+## Changes in this build
 
-This beta also tightens Forever's secure-UI boundary after user reports from
-Beta 1. Offhand no longer replaces Blizzard's global close functions or changes
-secure panel-manager metadata, and it excludes the Game Menu, Cooldown Viewer
-and other Blizzard-managed Edit Mode frames from generic dragging and recovery.
-This targets the reported `CompactUnitFrame`, `TextStatusBar` and Cooldown
-Viewer taint errors.
+### Fixed and improved
+- Improved workspace chat position restoration and docked-tab visibility handling,
+  including ownership detection for Ellesmere UI. Real incoming multi-tab traffic
+  and the reported top-left position through zoning still need user verification.
+- Restored Retail Spellbook availability, retained the selected Spellbook/Talents
+  tab across reloads, and fitted wider Talents content inside the workspace.
+  Panels closed before reload now stay closed.
+- Preserved Retail World Map native panel registration and lifecycle when moved
+  to Offhand, fixing the invisible map observed with OpenMap installed. This
+  Offhand compatibility fix is included in Beta 24 and does not require changes
+  to OpenMap.
+- Added compatible shared Mainhand HUD layout reuse across characters while
+  preserving character-specific rollback sources and external-addon anchors.
+- Improved Mainhand bounds for world tooltips and supported speech bubbles.
+- Improved Ellesmere bags, chat and status-bar ownership handling.
+- Made Recover Missing UI clearer, with readable paragraphs, smaller body text,
+  an opaque background and confirmation sizing that fits Mainhand.
+- Added 0.1 percentage-point manual seam adjustments and decimal input.
+- Updated setup guidance to recommend Companion first, explain UI repositioning,
+  and recommend backing up Blizzard layouts and addon profiles before setup.
 
-The dedicated World Map path now detaches a saved workspace map from both of
-Blizzard's Escape-close mechanisms: `UISpecialFrames` and the active UI-panel
-slot. The map therefore remains open while the first Escape opens the Game Menu
-and the second closes only that menu, including after reopening the map or using
-Edit Mode. This does not replace Blizzard's global close functions or mutate
-secure panel metadata. Character and other native UI panels can still close
-when Blizzard owns their active panel slot; native bags use a separate bag-close
-path. Saved Offhand positions remain available when those panels reopen.
+### Verified on Retail
+- Tested packaged Offhand Beta 24 with an unmodified CurseForge installation of
+  OpenMap v0.7.1-beta on Retail 12.1.5. After restarting, the map remained visible
+  through repeated opening/closing, zooming and zone hovering, with no fresh
+  errors reported. No local OpenMap patches were used for this retest.
 
-If Forever places the unprotected Edit Mode control window in mixed-height
-black void, Offhand now displays a player-click recovery prompt. **Bring to
-Mainhand** moves only that control window to the game view. It does not move
-action bars, unit frames or other protected HUD elements. Live acceptance
-confirmed clean Edit Mode entry and exit, persistent workspace map behavior,
-native Game Menu access and no Lua error.
+### Known limitations and test focus
+- Native loading artwork still uses the entire spanned WoW window and can crop
+  across unequal or offset displays. Use Companion's Restore Window before
+  loading, then Span WoW Now after returning to the world, as a manual workaround.
+- Real incoming chat across tabs, exact top-left chat persistence through zoning,
+  two-character shared-layout reuse/rollback and the reported mixed-landscape
+  border need further live verification. Combat/taint and physical stacked-display
+  tooltip/bubble checks remain outstanding. Other clients need targeted retesting.
+- This is an addon-only beta. Companion remains 2.1.2-beta.20; no native loading
+  resize, graphics-reset recovery or Companion binary changes are included.
 
-Use standard Windowed mode. Start Companion 2.1.2 before WoW, select the displays
-and Mainhand, then click **Span WoW Now**. If WoW already loaded the character
-UI, use `/reload` once before completing `/offhand wizard`.
+## Downloads
 
-The post-Beta-3 candidate also corrects a critical display-identity migration.
-Windows can reassign `DISPLAY1` and `DISPLAY2` after topology changes, so
-Companion now remembers each physical monitor instead. Existing installations
-pause automatic spanning once and ask the player to verify Mainhand before the
-new identity is saved. The in-game settings panel also refreshes its master
-checkbox whenever restored, and exact portrait-plus-landscape geometry is no
-longer described as dual landscape.
+- **Recommended Windows Companion:** [Install from Microsoft Store](https://apps.microsoft.com/detail/9PL4PW84Q90W) for a Store-signed package and Microsoft-managed updates.
+- **Portable / Linux / Wine Companion:** download `Offhand-Companion-v2.1.2-beta.20.zip` from the [official GitHub release](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.2-beta.24).
+- **Complete package:** `Offhand-Complete-v2.1.2-beta.24.zip`: addon and Companion together.
+- **Addon only:** `Offhand-v2.1.2-beta.24.zip`: install the contained `Offhand` folder in `Interface/AddOns`.
+- **Companion package:** `Offhand-Companion-v2.1.2-beta.20.zip`: unchanged, byte-identical 2.1.2-beta.20 archive, named for the Companion build rather than the addon release that carries it.
+- **Standalone Companion:** `Offhand.exe`: unchanged, byte-identical 2.1.2-beta.20 executable.
+- **Companion source release:** [v2.1.2-beta.20](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.2-beta.20).
 
----
+## Test focus
 
-# Offhand v1.0.0 ? Multi-Monitor Workspace for World of Warcraft
+1. Back up Offhand SavedVariables, Blizzard Edit Mode layouts and UI addon profiles before upgrading. Keep existing settings for the upgrade test.
+2. Move chat to the workspace, switch tabs with real incoming messages, then check placement and message separation after /reload, zoning and a normal restart. Include Ellesmere UI where used.
+3. Open Spellbook and Talents on Offhand, reload with either tab open, then close them and reload again. Check the selected tab, fit and closed state.
+4. Check World Map reopen, zoom and hover behavior with your normal map addon. Separate local OpenMap grain/hover patches are not included.
+5. Test shared Mainhand HUD layout reuse and rollback on two characters. Check tooltips and speech bubbles near each viewport edge, particularly on stacked monitors.
+6. Report fresh Lua/protected-action errors before, during and after combat, with client/build, monitor geometry, UI addons and /offhand diag output. These checks remain outstanding.
 
-**Equip your Offhand. Dual wield your monitors.**
+Loading artwork still uses the spanned window. Manual workaround: Restore Window before loading, then Span WoW Now after returning to the world. This is not a spanned loading-art fix.
 
-Offhand transforms dual displays into an expansive, calibrated gaming workstation for World of Warcraft. It locks your 3D world and combat HUD natively to your primary gaming screen while converting your secondary screen into a persistent workspace for your bags, map, quest log, and interface panels.
+Companion remains 2.1.2-beta.20. No Companion binary or graphics-reset recovery changes are included.
 
----
+## Linux and Wine status
 
-### What's New in v1.0.0
+The Companion is still a Windows WinForms application. Wine support is experimental: run WoW and the Companion as the same user in the same `WINEPREFIX` and with the same Wine/Proton runner version. See `Companion/Linux.md` in the complete package for a Lutris example and extraction checks. Native Linux, X11, and general Wayland support are not claimed by this release.
 
-#### ?? 3D Viewport Geometry & Aspect Ratio Lock
-* Constrain 3D camera rendering strictly to your primary monitor's pixel bounds (16:9 Standard, 21:9 Ultrawide, or Fit Window Height).
-* Zero fisheye distortion or camera stretching across monitor bezels.
-* 1-Click Auto-Configuration wizard detects display resolution and anchors viewport automatically.
+## Reporting issues
 
-#### ??? Persistent Secondary Display Workspace
-* Keep your World Map, bags, Character frame, Quest Log, Spellbook, and Talent panels open simultaneously on your secondary monitor.
-* Demodalized panels stay open while moving?zero mutual exclusion or auto-closing when you walk.
-* **Chat Frame Persistence**: Drag and dock `ChatFrame1` anywhere on your secondary workspace; coordinates are preserved across `/reload` and client restarts.
+Use the [GitHub issue tracker](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues) and include reproduction steps plus the diagnostics listed above.
 
-#### ?? OBS Streamer Capture Setup
-* Dedicated Streamer Setup card in Options calculates exact physical pixel crop values (`Left`, `Right`) for OBS Studio in real time based on your display resolution and bezel seam.
-* Easily broadcast dual displays without the black bezel gap appearing on stream.
+## Verification
 
-#### ??? External Addon Compatibility & Combat Guards
-* Generic popup recentering aligns third-party addon alerts and dialogs to the center of your 3D gaming monitor without maintaining hardcoded addon lists.
-* Layout operations use combat guards; protected-frame and taint behavior still require live-client verification.
+The Companion is unsigned. Download it only from the official release linked above. Use the attached SHA-256 checksums to verify the downloads. Locally prepared draft assets do not carry GitHub Actions build-provenance attestations; those are produced by the tagged release workflow.
 
-#### ??? Native Windows Companion (`Offhand.exe`)
-* Standalone Win32 executable compiled with C# and DPI-awareness.
-* Borderless-spans your World of Warcraft window across your virtual desktop in a single click.
-* Minimizes silently to the Windows notification tray with quick actions and auto-launch detection.
-* Fully open-source and audit-friendly using the Windows .NET Framework.
-
----
-
-### Downloads & Assets
-
-| Asset | Description |
-| --- | --- |
-| **`Offhand.exe`** | Standalone Windows desktop companion (Recommended) |
-| **`Offhand-Companion-v1.0.0.zip`** | Companion bundle with `.exe`, batch scripts, and PowerShell alternatives |
-| **`Offhand-v1.0.0.zip`** | In-game add-on package for manual installation |
-| **`checksums-sha256.txt`** | SHA-256 verification hashes for all release artifacts |
-
-### Installation Quick-Start
-1. Extract `Offhand-v1.0.0.zip` into `World of Warcraft\_classic_era_\Interface\AddOns\`.
-2. Set World of Warcraft Display Mode to **Windowed** (<kbd>Alt</kbd> + <kbd>Enter</kbd>).
-3. Run **`Offhand.exe`** and click **Span WoW Window Now**.
-4. In-game, type `/offhand` to open the configuration wizard.
+[Full changelog](https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/v2.1.2-beta.24/CHANGELOG.md)

@@ -4,6 +4,25 @@
     env: static
     buildCommand: ""
     staticPublishPath: ./Website
+    headers:
+      - path: /background-studio.html
+        name: Content-Security-Policy
+        value: "default-src 'self'; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; frame-src 'none'; worker-src 'none'; media-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' blob: data:"
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: no-referrer
+      - path: /*
+        name: Permissions-Policy
+        value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+      - path: /*
+        name: Strict-Transport-Security
+        value: "max-age=63072000; includeSubDomains"
     routes:
       - type: rewrite
         source: /*

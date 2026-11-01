@@ -185,6 +185,19 @@ ToggleGameMenu = function()
     end
 end
 
+assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasFrameState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelRegistry.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPersistence.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasBackpackState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverMap.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasChat.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasProfessions.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelMotion.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasMapPresentation.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelLifecycle.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 assert(addon.Canvas:EnableForeverNativeBagProxy(),
     "Forever bag proxy controller was not created")
@@ -353,6 +366,32 @@ assert(not GameMenuFrame:IsShown() and bag:IsShown(),
 assert(nativeToggleGameMenuCalls == 2,
     "bag observation must not add Game Menu toggles")
 
+-- Native Gamepad UI owns both bag visibility and Game Menu focus. Its Escape
+-- result must stand, while the saved position and workspace-open intent remain
+-- available for a later player-driven open.
+local gamepadUI = true
+addon.IsGamepadUIEnabled = function() return gamepadUI end
+local opensBeforeGamepadEscape = nativeOpenCalls
+ToggleGameMenu()
+controller.scripts.OnUpdate(controller, 0.001)
+controller.scripts.OnUpdate(controller, 0.001)
+assert(nativeOpenCalls == opensBeforeGamepadEscape and not bag:IsShown()
+        and not GameMenuFrame:IsShown(),
+    "Gamepad UI Escape must not reopen bags or toggle the Game Menu from addon code")
+local trackedBefore = addon.db.nativeBackpackWorkspaceOpen
+addon.db.nativeBackpackWorkspaceOpen = true
+assert(addon.Canvas:RestoreTrackedWorkspaceBag() == false
+        and nativeOpenCalls == opensBeforeGamepadEscape and not bag:IsShown()
+        and addon.db.nativeBackpackWorkspaceOpen == true,
+    "Gamepad UI must not restore a tracked bag from addon code or forget it")
+addon.db.nativeBackpackWorkspaceOpen = trackedBefore
+gamepadUI = false
+OpenAllBags()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown() and math.abs(bag:GetLeft() - 240) < 0.01,
+    "a player-opened bag must return to its saved workspace position")
+nativeOpenCalls = opensBeforeGamepadEscape
+
 -- Some Forever builds complete the second Escape natively: both the menu and
 -- bag are hidden before the observer runs. That dismissal must restore the bag
 -- without starting the three-second system-panel navigation grace period.
@@ -387,7 +426,21 @@ controller.scripts.OnUpdate(controller, 0.001)
 -- System panels may temporarily hide the bag, but the tracked workspace-open
 -- intent must survive and recovery must use Blizzard's bag APIs.
 SettingsPanel = makeFrame("SettingsPanel", 900, 700)
+SettingsPanel:SetPoint("CENTER", UIParent, "CENTER", 0, 500)
 SettingsPanel:Show()
+local settingsNativeHooks = SettingsPanel.nativeHookCalls
+addon.Mainhand = { IsNativeGamepadInterface = function() return true end }
+Settings:OpenToCategory()
+addon.Mainhand = nil
+local settingsPoint = SettingsPanel.points[1]
+assert(settingsPoint and settingsPoint[1] == "CENTER" and settingsPoint[2] == UIParent
+        and settingsPoint[3] == "CENTER"
+        and math.abs(settingsPoint[4] - 720) < 0.01
+        and math.abs(settingsPoint[5] + 560) < 0.01,
+    "native gamepad Settings must be centered on Mainhand through the external opening observer")
+assert(SettingsPanel.nativeHookCalls == settingsNativeHooks
+        and SettingsPanel._OffhandMainhandHooked == nil,
+    "native gamepad Settings recovery must not hook or annotate the Blizzard frame")
 nativeOpenerDeclinesHiddenLogicalState = true
 bag:Hide()
 controller.scripts.OnUpdate(controller, 0.001)
@@ -411,6 +464,20 @@ bag:Hide()
 controller.scripts.OnUpdate(controller, 0.001)
 assert(bag:IsShown(),
     "Edit Mode transition must restore the tracked workspace bag through Blizzard's API")
+
+ProfessionsBookFrame = makeFrame("ProfessionsBookFrame", 700, 800)
+UIPanelWindows.ProfessionsBookFrame = { area = "left", pushable = 0 }
+ProfessionsBookFrame:Show()
+controller.scripts.OnUpdate(controller, 0.001)
+bag:Hide()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown() and addon.db.nativeBackpackWorkspaceOpen == true,
+    "opening Professions must preserve and restore the tracked workspace bag")
+ProfessionsBookFrame:Hide()
+bag:Hide()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown() and addon.db.nativeBackpackWorkspaceOpen == true,
+    "closing Professions must preserve and restore the tracked workspace bag")
 
 nativeOpenerDeclinesHiddenLogicalState = false
 ToggleAllBags = function()
@@ -475,4 +542,55 @@ assert(rawget(bag, "_OffhandDragging") == nil
         and rawget(bag, "_OffhandHandle") == nil,
     "proxy adapter must not store Offhand bookkeeping on the native bag")
 
+-- Settled proxy geometry must not generate layout writes on every render frame.
+local proxyWrites=0
+local originalClear,originalPoint,originalSize=handle.ClearAllPoints,handle.SetPoint,handle.SetSize
+handle.ClearAllPoints=function(...) proxyWrites=proxyWrites+1;return originalClear(...) end
+handle.SetPoint=function(...) proxyWrites=proxyWrites+1;return originalPoint(...) end
+handle.SetSize=function(...) proxyWrites=proxyWrites+1;return originalSize(...) end
+for _=1,600 do controller.scripts.OnUpdate(controller,1/60) end
+assert(proxyWrites==0,'settled native-bag proxy must not rewrite layout every frame')
+
+handle.scripts.OnDragStart(handle)
+bag:SetPoint('TOPLEFT',UIParent,'BOTTOMLEFT',300,850)
+controller.scripts.OnUpdate(controller,0.001)
+assert(proxyWrites==2 and math.abs(handle:GetLeft()-344)<0.001,
+    'dragging must move the proxy immediately without rewriting unchanged size')
+handle.scripts.OnDragStop(handle)
+controller.scripts.OnUpdate(controller,0.001)
+proxyWrites=0
+bag.width=bag.width+40
+controller.scripts.OnUpdate(controller,0.001)
+assert(proxyWrites==1 and math.abs(handle:GetWidth()-(bag:GetWidth()-96))<0.001,
+    'bag resize must immediately update only the changed proxy size')
+
+local originalBagScale,originalParentScale=bag.GetEffectiveScale,UIParent.GetEffectiveScale
+bag.GetEffectiveScale=function() return 1.25 end
+UIParent.GetEffectiveScale=function() return 0.8 end
+proxyWrites=0
+controller.scripts.OnUpdate(controller,0.001)
+assert(proxyWrites>0 and math.abs(handle:GetHeight()-24*1.25/0.8)<0.001,
+    'effective-scale changes must update the proxy in the first observer frame')
+bag.GetEffectiveScale,UIParent.GetEffectiveScale=originalBagScale,originalParentScale
+controller.scripts.OnUpdate(controller,0.001)
+
+-- Inspect actual addon-owned geometry rather than trusting cached last inputs.
+handle:SetPoint('TOPLEFT',UIParent,'BOTTOMLEFT',1,1)
+proxyWrites=0
+controller.scripts.OnUpdate(controller,0.001)
+assert(proxyWrites==2,'displaced proxy must be repaired without rewriting its size')
+handle:SetSize(1,1)
+proxyWrites=0
+controller.scripts.OnUpdate(controller,0.001)
+assert(proxyWrites==1,'changed proxy dimensions must be repaired without reanchoring')
+proxyWrites=0
+controller.scripts.OnUpdate(controller,0.001)
+assert(proxyWrites==0,'a repaired proxy must return immediately to zero layout writes')
+handle:Hide();bag:Hide()
+controller.scripts.OnUpdate(controller,0.001)
+bag:Show()
+controller.scripts.OnUpdate(controller,0.001)
+assert(handle:IsShown(),'reopening a bag must show its grip even when geometry is unchanged')
+handle.ClearAllPoints,handle.SetPoint,handle.SetSize=originalClear,originalPoint,originalSize
 print("PASS: Forever native bags use an isolated sibling proxy and persist movement")
+print('PASS: proxy no-op layout, immediate drag/resize/scale updates and disturbed geometry repair')

@@ -18,6 +18,12 @@ local function IsInCombat()
     return InCombatLockdown and InCombatLockdown() or false
 end
 
+local function NativeGamepadInterface()
+    local mainhand = Offhand.Mainhand
+    return mainhand and type(mainhand.IsNativeGamepadInterface) == "function"
+        and mainhand:IsNativeGamepadInterface() or false
+end
+
 local function IsUsableFrame(frame)
     return frame and not (frame.IsForbidden and frame:IsForbidden())
 end
@@ -60,6 +66,10 @@ end
 function PanelMotion:SetTitleGripActive(frame, active)
     local record = self.records[frame]
     if not record then return false, "not_attached" end
+    if active == true and NativeGamepadInterface() then
+        record.status = "native_gamepad"
+        return false, record.status
+    end
     if IsInCombat() then
         record.status = "combat_deferred"
         return false, record.status
@@ -89,6 +99,12 @@ end
 function PanelMotion:AttachGuardedTitleGrip(frame, options)
     options = options or {}
     if not IsUsableFrame(frame) then return nil, "invalid_frame" end
+    -- Forever's native SmartNavigation enumerates a window's controls while
+    -- that window is created and focused. Adding a child to a Blizzard panel
+    -- during reload can make its protected navigation transaction run in
+    -- Offhand's execution context. Leave those windows structurally untouched;
+    -- UIParent-owned map and bag handles use separate paths in Canvas.
+    if NativeGamepadInterface() then return nil, "native_gamepad" end
     if IsInCombat() then return nil, "combat_deferred" end
 
     local existing = self.records[frame]

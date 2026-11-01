@@ -161,6 +161,19 @@ PlayerMovementFrameFader = {
     end,
 }
 
+assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasFrameState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelRegistry.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPersistence.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasBackpackState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverMap.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasChat.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasProfessions.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelMotion.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasMapPresentation.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelLifecycle.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 addon.Canvas:ConfigureWorldMap()
 addon.Canvas.MakePanelDraggable(WorldMapFrame)
@@ -256,6 +269,49 @@ assert(PlayerMovementFrameFader.removed > 0 and PlayerMovementFrameFader.added =
 pressEscapeCloseSpecialFrames()
 assert(WorldMapFrame:IsShown(),
     "Escape must not close a Forever map with a saved workspace position")
+
+-- Native Gamepad UI announces addon-originated panel lifecycle changes to its
+-- protected FrameControlsManager. Restore may position a player-opened map, but
+-- must not open it, evict it from a UIPanel slot, or rewrite UISpecialFrames.
+WorldMapFrame:Hide()
+addon.db.openWorkspacePanels.WorldMapFrame = true
+local gamepadUI = true
+addon.IsGamepadUIEnabled = function() return gamepadUI end
+local gamepadMapToggles = 0
+local previousToggleWorldMap = ToggleWorldMap
+ToggleWorldMap = function()
+    gamepadMapToggles = gamepadMapToggles + 1
+    WorldMapFrame:Show()
+end
+addon.Canvas:RestorePersistentFrames()
+assert(gamepadMapToggles == 0 and not WorldMapFrame:IsShown()
+        and addon.db.openWorkspacePanels.WorldMapFrame == true,
+    "Gamepad UI reload restoration must not open panels from addon code")
+
+local gamepadHides = 0
+local previousHideUIPanel = HideUIPanel
+HideUIPanel = function(frame, ...)
+    gamepadHides = gamepadHides + 1
+    return previousHideUIPanel(frame, ...)
+end
+table.insert(UISpecialFrames, "WorldMapFrame")
+local specialBefore = table.concat(UISpecialFrames, ",")
+WorldMapFrame:Show()
+activePanels.left = WorldMapFrame
+addon.Canvas:RestoreWorkspacePosition(WorldMapFrame)
+assert(gamepadHides == 0 and GetUIPanel("left") == WorldMapFrame
+        and WorldMapFrame:IsShown(),
+    "Gamepad UI must not evict a player-opened panel from its UIPanel slot")
+assert(table.concat(UISpecialFrames, ",") == specialBefore,
+    "Gamepad UI must not mutate UISpecialFrames")
+HideUIPanel = previousHideUIPanel
+activePanels.left = nil
+for i = #UISpecialFrames, 1, -1 do
+    if UISpecialFrames[i] == "WorldMapFrame" then table.remove(UISpecialFrames, i) end
+end
+WorldMapFrame:Hide()
+ToggleWorldMap = previousToggleWorldMap
+gamepadUI = false
 
 -- Reload restoration must reopen the saved workspace map without replacing
 -- Blizzard's protected scripts.
@@ -360,9 +416,12 @@ CharacterFrame:Show()
 WorldMapFrame.left, WorldMapFrame.bottom = 200, 400
 CharacterFrame.left, CharacterFrame.bottom = 300, 330
 addon.Canvas:RepairShownWorkspacePanels()
-assert(WorldMapFrame:GetLeft() >= metrics.gameLeft
+assert(WorldMapFrame:GetLeft() == 200
         and CharacterFrame:GetLeft() >= metrics.gameLeft,
-    "Mainhand UIPanel peers must survive Blizzard's opening-order reflow")
+    "generic peer repair must restore ordinary Mainhand panels without writing the dedicated World Map anchor")
+assert(addon.Canvas:GetPanelController("WorldMapFrame") == "forever-world-map"
+        and addon.Canvas:GetPanelController("CharacterFrame") == "generic",
+    "Forever World Map and ordinary UIPanels must use separate position controllers")
 addon.db.savedMainPositions.WorldMapFrame = nil
 addon.db.savedMainPositions.CharacterFrame = nil
 addon.db.savedWorkspacePositions.WorldMapFrame = savedWorkspaceMap
@@ -387,6 +446,11 @@ OpenAllBags = function()
     nativeBagOpens = nativeBagOpens + 1
     ContainerFrameCombinedBags:Show()
 end
+gamepadUI = true
+addon.Canvas:RestorePersistentFrames()
+assert(nativeBagOpens == 0 and addon.db.openWorkspacePanels.ContainerFrameCombinedBags == true,
+    "Gamepad UI reload restoration must not open bags from addon code")
+gamepadUI = false
 addon.Canvas:RestorePersistentFrames()
 assert(nativeBagOpens > 0 and ContainerFrameCombinedBags:IsShown()
         and addon.db.savedWorkspacePositions.ContainerFrameCombinedBags ~= nil
@@ -684,6 +748,25 @@ assert(addon.db.savedWorkspacePositions.WorldMapFrame == moveAnyWorkspacePositio
     "yielding to MoveAny must preserve the user's dormant Offhand map position")
 
 MoveAny = nil
+local originalAddOns = C_AddOns
+C_AddOns = { IsAddOnLoaded = function(name) return name == "OpenMap" end }
+WorldMapFrame:Hide()
+createdHandles[1].scripts.OnUpdate(nil, 1)
+WorldMapFrame.left, WorldMapFrame.bottom, WorldMapFrame.scale = 200, 1300, 0.83
+WorldMapFrame:Show()
+createdHandles[1].scripts.OnUpdate(nil, 1)
+flushTimers()
+assert(createdHandles[1].shown == false and createdHandles[1].mouseEnabled == false,
+    "OpenMap's native drag handle must be the only active map mover")
+assert(addon.db.openWorkspacePanels.WorldMapFrame,
+    "Forever's external observer must retain OpenMap workspace open intent")
+WorldMapFrame:Hide()
+addon.Canvas:RestorePersistentFrames()
+flushTimers()
+assert(WorldMapFrame:IsShown() and WorldMapFrame.left == 200
+    and WorldMapFrame.bottom == 1300 and WorldMapFrame.scale == 0.83,
+    "Forever reload must reopen OpenMap without applying dormant Offhand geometry")
+C_AddOns = originalAddOns
 addon.db.openWorkspacePanels.WorldMapFrame = moveAnyOpenState
 assert(not addon.Canvas:ShouldYieldWorldMap(WorldMapFrame),
     "Offhand must resume Forever map ownership when MoveAny is absent")
