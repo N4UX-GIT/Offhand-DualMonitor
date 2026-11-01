@@ -10,6 +10,34 @@ local IsExternallyPositionedWorldMap = Compatibility.IsExternallyPositionedWorld
 local ShouldYieldWorldMapToMoveAny = Compatibility.ShouldYieldWorldMap
 local IsPanelEvicting = Offhand.CanvasFrameState.IsEvicting
 
+-- TBC's native scroll controller returns physical cursor pixels, then compares
+-- them with canvas-local bounds. Offhand's window scaling requires conversion
+-- at that boundary. Keep this isolated from Retail/Forever and custom handlers.
+local tbcCursorAdapters = setmetatable({}, { __mode = "k" })
+function Map.InstallTBCCursorAdapter(map)
+    local toc = tonumber(Offhand.tocVersion) or 0
+    if Offhand.isForever or toc < 20500 or toc >= 20600
+        or not map or not map.ScrollContainer
+        or not Offhand.db or not Offhand.db.enabled
+        or HasLeatrixMaps() or ShouldYieldWorldMapToMoveAny(map)
+        or (InCombatLockdown and InCombatLockdown()) then return false end
+    local scroll = map.ScrollContainer
+    local native = MapCanvasScrollControllerMixin and MapCanvasScrollControllerMixin.GetCursorPosition
+    if type(native) ~= "function" or scroll.GetCursorPosition ~= native
+        or type(scroll.GetEffectiveScale) ~= "function" or tbcCursorAdapters[scroll] then return false end
+    local function GetScaledCursor(self)
+        local x, y = native(self)
+        if not Offhand.db or not Offhand.db.enabled or HasLeatrixMaps()
+            or ShouldYieldWorldMapToMoveAny(map) then return x, y end
+        local scale = self:GetEffectiveScale()
+        if type(scale) ~= "number" or scale ~= scale or scale <= 0 or scale >= math.huge then return x, y end
+        return x / scale, y / scale
+    end
+    tbcCursorAdapters[scroll] = GetScaledCursor
+    scroll.GetCursorPosition = GetScaledCursor
+    return true
+end
+
 function Map.InstallFonts(Canvas, services)
 
     local function IsCoordinateLabelText(text)
@@ -254,6 +282,9 @@ function Map.InstallConfiguration(Canvas, services)
 
     function Canvas:ConfigureWorldMap()
         local map = WorldMapFrame
+        if Offhand.CanvasPanelLifecycle and Offhand.CanvasPanelLifecycle.UpdateTBCWorkspacePanelSlots then
+            Offhand.CanvasPanelLifecycle.UpdateTBCWorkspacePanelSlots()
+        end
         if InCombatLockdown() or not map or HasLeatrixMaps() or not Offhand.db or not Offhand.db.enabled then return end
         -- Maximized WorldMapFrame is a separate Blizzard-owned layout on every
         -- modern client. Never apply Offhand's windowed scale, anchor, UIPanel
@@ -266,6 +297,8 @@ function Map.InstallConfiguration(Canvas, services)
 
         local m = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
         if not m or not m.isSpanned then return end
+
+        Map.InstallTBCCursorAdapter(map)
 
         -- Enable proper parent scaling so the map scales consistently with UIParent
         if not Offhand.isForever and map.SetIgnoreParentScale then

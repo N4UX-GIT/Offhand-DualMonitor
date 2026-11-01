@@ -92,6 +92,8 @@ function Recovery.Install(HUD)
             name = GetActiveEditModeLayoutName()
         end
 
+        if name and Offhand.Mainhand and Offhand.Mainhand.IsCharacterEditModeLayoutAllowed
+            and not Offhand.Mainhand:IsCharacterEditModeLayoutAllowed(name) then return nil end
         if name then OffhandCharDB.editModeLayoutName = name end
         return name
     end
@@ -469,9 +471,14 @@ function Recovery.Install(HUD)
     function HUD:GetInteractionVisibilityDiagnostics(metrics)
         if InCombatLockdown() then return { "deferred:combat" } end
         local reports = {}
-        for _, name in ipairs({ "PVEFrame", "GroupFinderFrame", "LFDParentFrame", "PlayerSpellsFrame", "SpellBookFrame", "ProfessionsFrame", "ProfessionsBookFrame", "TradeSkillFrame", "CraftFrame",
+        for _, name in ipairs({ "PVEFrame", "GroupFinderFrame", "LFDParentFrame",
+            "LFGListApplicationDialog", "LFGListInviteDialog", "LFGDungeonReadyPopup", "RolePollPopup",
+            "LFDRoleCheckPopup", "LFGReadyCheckPopup", "LFGInvitePopup", "PVPReadyPopup", "PetBattleQueueReadyFrame",
+            "ChallengesKeystoneFrame", "ChallengeModeCompleteBanner", "EventToastManagerFrame", "EventToastManagerSideDisplay",
+            "PlayerSpellsFrame", "SpellBookFrame", "ProfessionsFrame", "ProfessionsBookFrame", "TradeSkillFrame", "CraftFrame",
             "ExtraAbilityContainer", "ExtraActionBarFrame", "ExtraActionButton1", "ZoneAbilityFrame",
-            "OverrideActionBar", "OverrideActionBarButton1", "ObjectiveTrackerFrame", "QuestWatchFrame", "WatchFrame",
+            "MainActionBar", "PossessActionBar", "MainMenuBarVehicleLeaveButton", "VehicleExitButton",
+            "OverrideActionBar", "OverrideActionBarButton1", "OverrideActionBarLeaveFrame", "ObjectiveTrackerFrame", "QuestWatchFrame", "WatchFrame",
             "UIParentRightManagedFrameContainer" }) do
             local frame = _G[name]
             local ok, status = pcall(function()
@@ -520,12 +527,28 @@ function Recovery.Install(HUD)
                 return type(available) == "function"
                     and (available() and "available" or "inactive") or "unsupported"
             end)
+            for _, capability in ipairs({
+                { "RetailVehicleAction", "HasVehicleActionBar" },
+                { "RetailOverrideAction", "HasOverrideActionBar" },
+                { "RetailTemporaryAction", "HasTempShapeshiftActionBar" },
+            }) do
+                Probe(capability[1], function()
+                    local available = C_ActionBar and C_ActionBar[capability[2]]
+                    return type(available) == "function"
+                        and (available() and "available" or "inactive") or "unsupported"
+                end)
+            end
+            if HUD.PositionRetailOverrideBar then
+                Probe("RetailOverridePlacement", function() return HUD.retailOverrideStatus or "not-prepared" end)
+            end
             local function FrameName(frame)
                 if not frame then return "none" end
                 if frame.IsForbidden and frame:IsForbidden() then return "forbidden" end
                 return frame.GetName and frame:GetName() or "unnamed"
             end
-            for _, name in ipairs({ "ExtraAbilityContainer", "ExtraActionBarFrame", "ExtraActionButton1" }) do
+            for _, name in ipairs({ "ExtraAbilityContainer", "ExtraActionBarFrame", "ExtraActionButton1",
+                "ZoneAbilityFrame", "MainActionBar", "PossessActionBar", "MainMenuBarVehicleLeaveButton",
+                "VehicleExitButton", "OverrideActionBar", "OverrideActionBarButton1", "OverrideActionBarLeaveFrame" }) do
                 Probe(name .. ".ownership", function()
                     local frame = _G[name]
                     if not frame then return "absent" end
@@ -548,6 +571,8 @@ function Recovery.Install(HUD)
                             value = value .. string.format(",iconAlpha:%.2f", icon:GetEffectiveAlpha())
                         end
                     end
+                    value = value .. ",protected:" .. tostring(frame.IsProtected and frame:IsProtected() or false)
+                        .. ",managed:" .. tostring(frame.isManagedFrame == true)
                     return value
                 end)
             end
@@ -923,6 +948,9 @@ function Recovery.Install(HUD)
     -- recovery once per occurrence.
     function HUD:UpdateForeverPartyFrameRecovery(metrics)
         if not HasBlizzardEditMode() or not Offhand.db or not Offhand.db.enabled then return end
+        -- A successful layout transaction still needs Blizzard's reload to
+        -- apply protected anchors. Old preview bounds are not a new failure.
+        if self.protectedHUDReloadPending then return end
         -- Blizzard's Gamepad UI owns these protected HUD systems and its Edit Mode
         -- preset. Inspecting the native frame tree during that focus/layout
         -- transaction can taint secret unit-frame values, and Offhand cannot repair
@@ -1011,6 +1039,17 @@ function Recovery.Install(HUD)
         self.foreverPartyFrameRecoveryPromptShown = nil
         self.foreverPartyFrameRecoveryPromptDeclined = true
         self.foreverProtectedHUDDetectedInEditMode = nil
+    end
+
+    function HUD:CompleteProtectedHUDLayoutRecovery()
+        self.protectedHUDReloadPending = true
+        self.foreverPartyFrameOutsideDisplays = nil
+        self.foreverProtectedHUDDetectedInEditMode = nil
+        self.foreverPartyFrameRecoveryPromptShown = nil
+        self.foreverPartyFrameRecoveryPromptDeclined = nil
+        if Offhand.HideForeverPartyFrameRecoveryPrompt then
+            Offhand:HideForeverPartyFrameRecoveryPrompt()
+        end
     end
 
     -- Protected HUD frames cannot be reanchored safely. The recovery popup is a

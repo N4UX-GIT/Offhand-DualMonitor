@@ -25,6 +25,8 @@ local function root(left, bottom, width, height)
     }
 end
 ProfessionsFrame = root(550, 450, 100, 100) -- scaled into the physical void above Mainhand
+LFGListApplicationDialog = root(850, 150, 150, 150)
+LFGListInviteDialog = root(850, 320, 150, 150)
 ExtraActionBarFrame = root(600, 40, 100, 100)
 ExtraActionButton1 = root(600, 40, 100, 100)
 ExtraActionButton1.IsVisible = function() return false end
@@ -45,6 +47,10 @@ assert(report:find("ZoneAbilityFrame=forbidden", 1, true))
 assert(report:find("WatchFrame=shown,alpha=1.00,bounds=unresolved", 1, true))
 assert(not report:find("RetailExtra", 1, true), "Retail probes ran on another client")
 addon.isRetail = true
+local groupReport = table.concat(hud:GetInteractionVisibilityDiagnostics(metrics), "\n")
+assert(groupReport:find("LFGListApplicationDialog=shown",1,true)
+    and groupReport:find("LFGListInviteDialog=shown",1,true),
+    "full diagnostics must include the reported Premade Groups dialogs")
 Enum = { EditModeSystem = { ExtraAbilities = 7 } }
 local available = true
 C_ActionBar = { HasExtraActionBar = function() return available end }
@@ -69,6 +75,21 @@ assert(report:find("ExtraAbilityContainer.ownership=parent:UIParent,points:1,anc
 assert(report:find("ExtraActionBarFrame.ownership=parent:ExtraAbilityContainer", 1, true))
 assert(report:find("iconAlpha:0.00", 1, true))
 assert(report:find("RetailExtraAbilitiesLayout=default:false,anchor:CENTER/OtherSystem/TOP/5/20", 1, true))
+C_ActionBar.HasVehicleActionBar = function() return false end
+C_ActionBar.HasOverrideActionBar = function() return true end
+OverrideActionBar.GetNumPoints = function() return 1 end
+OverrideActionBar.GetPoint = function() return "BOTTOM", UIParent, "BOTTOM", 0, 0 end
+OverrideActionBar.GetParent = function() return UIParent end
+OverrideActionBar.IsProtected = function() return true end
+report = table.concat(hud:GetInteractionVisibilityDiagnostics(metrics), "\n")
+assert(report:find("RetailVehicleAction=inactive",1,true)
+    and report:find("RetailOverrideAction=available",1,true)
+    and report:find("RetailTemporaryAction=unsupported",1,true))
+assert(report:find("OverrideActionBar=hidden",1,true)
+    and report:find("OverrideActionBar.ownership=parent:UIParent,points:1,anchor:BOTTOM/UIParent/BOTTOM/0.0/0.0,protected:true,managed:false",1,true),
+    "inactive protected controls must expose read-only native anchor evidence without force-showing")
+C_ActionBar.HasOverrideActionBar = function() error('unavailable native capability') end
+assert(table.concat(hud:GetInteractionVisibilityDiagnostics(metrics)):find("RetailOverrideAction=unavailable",1,true))
 available = false
 assert(table.concat(hud:GetInteractionVisibilityDiagnostics(metrics)):find("RetailExtraAction=inactive", 1, true))
 C_ActionBar.HasExtraActionBar = function() error("API unavailable") end

@@ -232,6 +232,38 @@ inside.left, inside.right, inside.top, inside.bottom = 1500, 1700, 600, 400
 assert(not addon.PopupBounds:Constrain(inside) and #inside.points == 0,
     "already visible context menu was unnecessarily reanchored")
 
+-- Model Retail secret numbers through the capability API. Every coordinate
+-- and both scale inputs must be rejected before arithmetic or native writes.
+do
+    local previousSecret, previousScale = issecretvalue, UIParent.GetEffectiveScale
+    local secretNumber = 147852
+    issecretvalue = function(value) return value == secretNumber end
+    for _, field in ipairs({'left', 'right', 'top', 'bottom', 'frameScale', 'uiScale'}) do
+        local owner = menuFrame()
+        owner.left, owner.right, owner.top, owner.bottom = 850, 950, 700, 600
+        if field == 'frameScale' then
+            owner.GetEffectiveScale = function() return secretNumber end
+        elseif field == 'uiScale' then
+            UIParent.GetEffectiveScale = function() return secretNumber end
+        else owner[field] = secretNumber end
+        local tooltip = tooltipFrame(900, 1250, 720, 300, owner)
+        assert(not addon.PopupBounds:RedirectTooltipOwner(tooltip, owner, 'ANCHOR_RIGHT')
+            and not tooltip.setOwnerCalls and #tooltip.points == 0,
+            'secret '..field..' must preserve Blizzard tooltip ownership and anchors')
+        assert(not addon.PopupBounds:Constrain(owner) and #owner.points == 0,
+            'secret '..field..' must prevent menu arithmetic and repositioning')
+        UIParent.GetEffectiveScale = previousScale
+    end
+    local root = tooltipFrame(900, 1250, 720, 300, itemOwner)
+    root._OffhandManagedOwner, root._OffhandOwnerDirection = itemOwner, 'ANCHOR_LEFT'
+    local oldLeft = ShoppingTooltip1.left
+    ShoppingTooltip1.left = secretNumber
+    assert(not addon.PopupBounds:ArrangeTooltipComparisons(root) and #root.points == 0,
+        'unknown comparison bounds must leave the complete tooltip group native')
+    ShoppingTooltip1.left = oldLeft
+    issecretvalue, UIParent.GetEffectiveScale = previousSecret, previousScale
+end
+
 InCombatLockdown = function() return true end
 local combat = menuFrame()
 assert(not addon.PopupBounds:Constrain(combat) and #combat.points == 0,

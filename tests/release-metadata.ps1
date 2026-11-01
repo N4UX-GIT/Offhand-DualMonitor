@@ -130,6 +130,22 @@ try {
     }
     if ($beta24Body.Contains([char]0x2014)) { throw 'Beta 24 presented release notes must not contain em dashes.' }
 
+    $beta25Notes = Join-Path $temp 'beta25.md'
+    & $script -Tag 'v2.1.2-beta.25' -ChangelogPath $projectChangelog -OutputPath $beta25Notes | Out-Null
+    $beta25Body = Get-Content -LiteralPath $beta25Notes -Raw -Encoding utf8
+    foreach ($required in @('full', 'Repair HUD', 'Reload UI', 'Expanded candidates still require live acceptance.', 'byte-identical 2.1.2-beta.20', 'memory-crash report remains unresolved')) {
+        if (-not $beta25Body.Contains($required)) { throw "Beta 25 release scope missing: $required" }
+    }
+    if ($beta25Body.Contains([char]0x2014)) { throw 'Beta 25 release notes must not contain em dashes.' }
+
+    $beta26Notes = Join-Path $temp 'beta26.md'
+    & $script -Tag 'v2.1.2-beta.26' -ChangelogPath $projectChangelog -OutputPath $beta26Notes | Out-Null
+    $beta26Body = Get-Content -LiteralPath $beta26Notes -Raw -Encoding utf8
+    foreach ($required in @('Anniversary panels and bags', 'pet-battle controls', 'assumption-based acceptance', 'memory-crash report remains unresolved', 'byte-identical 2.1.2-beta.20')) {
+        if (-not $beta26Body.Contains($required)) { throw "Beta 26 release scope missing: $required" }
+    }
+    if ($beta26Body.Contains([char]0x2014)) { throw 'Beta 26 release notes must not contain em dashes.' }
+
     Write-Output 'PASS: standardized beta, release-candidate, stable, invalid and Beta 23/24 addon-only release metadata'
 } finally {
     if (Test-Path -LiteralPath $temp) {
