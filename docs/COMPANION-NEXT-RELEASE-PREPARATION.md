@@ -5,6 +5,13 @@ prepared; production behavior and live acceptance remain open.
 
 ## Continuation: combined runtime candidate
 
+Revision 3 now has a targeted Anniversary `2.5.6.70577` live pass for native
+spanning, repeated graphics-reset recovery, Restore/Pause/Resume priority,
+manual re-arm and delayed auto-span. The exact artifact is unchanged. See
+[the live acceptance record](COMPANION-RC3-ANNIVERSARY-LIVE-20261101.md) for scope
+and remaining gates. The test client/candidate are closed, original preferences
+and topology are restored, and no publication or Store change occurred.
+
 Latest local artifact: `dist/companion-2.1.3-beta.1-rc3`, source build revision
 `f7d33ae`. Settings writes are now staged, flushed and atomically published;
 interrupted or locked-file saves retain the previous file. Unknown settings and

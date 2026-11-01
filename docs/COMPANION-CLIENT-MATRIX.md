@@ -1,5 +1,16 @@
 # Companion client coverage and release gate
 
+## 1 November: combined revision 3 Anniversary result
+
+The exact `2.1.3-beta.1` rc3 executable passed targeted native recovery and control
+testing on Anniversary `2.5.6.70577`: initial manual span, two consecutive VSync
+recoveries, Restore priority, Pause/Resume cancellation, manual re-arm and delayed
+auto-span on a fresh process. Companion restart adoption was observed separately.
+See [the live record](COMPANION-RC3-ANNIVERSARY-LIVE-20261101.md) for exact hashes,
+installed addon version, event times, cleanup and untested gates. This does not
+promote the artifact or imply cross-client, addon persistence or taint acceptance.
+The table and older results below remain historical evidence for their named builds.
+
 Updated 25 October 2026. Forever is the priority for the user's planned
 4 November release. This date is a project milestone supplied by the user.
 

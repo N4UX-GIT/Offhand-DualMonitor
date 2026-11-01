@@ -3,6 +3,11 @@
 Local release candidate. No public promotion or client acceptance is implied.
 Candidate branch: `codex/companion-next-candidate`.
 
+Update, 1 November: [revision 3 passed a targeted Anniversary live sequence](COMPANION-RC3-ANNIVERSARY-LIVE-20261101.md).
+That record supersedes the generic pending status only for its listed cases and
+exact artifact/client/addon pairing. Remaining procedure items below still need
+acceptance before release.
+
 ## Runtime contract
 
 The ordinary runtime now includes bounded graphics-reset recovery, enabled only
