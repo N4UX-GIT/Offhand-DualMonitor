@@ -2,6 +2,36 @@
 
 Stable IDs for reports that require follow-up across test sessions.
 
+## OH-UI-OPTIONS-TOOLTIP-SCALE: oversized game-options tooltips
+
+- Reported by the user after the 1 November 2026 Companion rc3 Anniversary QA;
+  track separately from the Companion native-window release work.
+- Observed pairing: Anniversary `2.5.6.70577`, installed addon
+  `2.1.2-beta.24-tbc-test.11`, Companion `2.1.3-beta.1` rc3, 4000x2560 span,
+  2560x1440 Mainhand plus vertically offset 1440x2560 workspace, both displays
+  at 100% Windows scale. Graphics Options showed 70% WoW UI scale.
+- Large Settings tooltips were visible for Interact On Left Click and
+  Image-Based Techniques, with text substantially larger than the underlying
+  options labels. No native text-size measurement was collected.
+- This observation does not identify Companion, the addon or Blizzard as the
+  cause. Do not treat successful span/recovery as tooltip acceptance.
+- Source starting points: tooltip initialization in `Core/Init.lua`
+  (`EnforceTooltipScale` and SettingsTooltip hooks), `Core/PopupBounds.lua`, and
+  the installed addon source. Existing scale-normalization code is guarded by
+  client flags; actual runtime flags, tooltip identity/owner and effective scales
+  must be measured before deciding whether that path applies here.
+- Separate reproduction: compare the same options tooltip in ordinary window
+  and active span, with Offhand enabled/disabled; record tooltip identity,
+  parent chain, local/effective scale, font and wrapping width, UIParent scale
+  and exact client flags. Preserve user settings between comparisons. Compare
+  installed test.11 against the intended addon integration source before fixing.
+- Verify native/world/item/comparison and Offhand-owned tooltips separately;
+  retain protected/external ownership and account for translated text expansion.
+  Do not globally force every tooltip to scale 1 or modify protected ancestry.
+- Status: separate addon/UI triage, root cause unresolved. No tooltip code or
+  user tooltip setting changed during Companion preparation.
+
+
 Local deployment, 27 October 2026: The working candidate on
 `codex/professions-quest-ui` was copied into Offhand under
 `C:/Games/World of Warcraft/_anniversary_/Interface/AddOns` and

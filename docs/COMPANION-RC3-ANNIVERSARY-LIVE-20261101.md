@@ -64,6 +64,10 @@ No SavedVariables deletion, source deployment, Store change or publication occur
 ## Remaining release gates
 
 - This exact artifact on Retail; no launchable Retail executable was found in the inspected installation.
+- Routing correction from follow-up source review: Retail is installed at
+  `D:/Games/World of Warcraft/_retail_`, executable `12.1.5.70688`, addon Beta 24.
+  The earlier unsuccessful search covered the C: installation. Retail has not
+  yet been launched with this candidate; its preflight backups are prepared.
 - Era and final Forever acceptance; Forever remains deferred until the November 4 milestone and actual build confirmation.
 - Reset recovery after an auto-applied span, explicit display-edit cancellation, hotplug, mixed DPI and Wine.
 - `/reload`, character-swap and map/bag/chat/HUD persistence under the intended addon release.
@@ -74,3 +78,7 @@ Minor observation: production diagnostics repeat the word in messages such as
 "Graphics graphics reset detected". This is cosmetic and was not changed in the
 accepted artifact. Synthetic rollback/persistence/package checks retain their
 existing evidence level; this test did not force a failed native span.
+
+User follow-up: oversized game-options tooltips are tracked independently as
+`OH-UI-OPTIONS-TOOLTIP-SCALE` in ISSUES.md. Companion acceptance here does not
+claim tooltip correctness, and no tooltip behavior is changed in this artifact.
