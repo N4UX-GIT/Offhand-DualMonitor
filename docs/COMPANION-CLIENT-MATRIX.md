@@ -1,5 +1,13 @@
 # Companion client coverage and release gate
 
+## 2 November: combined revision 3 Retail result
+
+The same rc3 executable passed manual span, two consecutive VSync reset recoveries
+and Restore priority on Retail `12.1.5.70688`. Original settings were restored and
+both test processes closed. See [the Retail live record](COMPANION-RC3-RETAIL-LIVE-20261102.md)
+for hashes, timing, evidence limits and remaining cases. This is targeted native
+window acceptance, not full addon layout, persistence or taint acceptance.
+
 ## 1 November: combined revision 3 Anniversary result
 
 The exact `2.1.3-beta.1` rc3 executable passed targeted native recovery and control

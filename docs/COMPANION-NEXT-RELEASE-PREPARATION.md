@@ -5,6 +5,12 @@ prepared; production behavior and live acceptance remain open.
 
 ## Continuation: combined runtime candidate
 
+On 2 November, the same revision 3 also passed targeted Retail `12.1.5.70688`
+manual span, two consecutive VSync reset recoveries and Restore priority. See
+[the Retail live record](COMPANION-RC3-RETAIL-LIVE-20261102.md). Original settings
+were restored and both test processes closed. Reload, full addon layout,
+persistence and the remaining live matrix cases are still open.
+
 Revision 3 now has a targeted Anniversary `2.5.6.70577` live pass for native
 spanning, repeated graphics-reset recovery, Restore/Pause/Resume priority,
 manual re-arm and delayed auto-span. The exact artifact is unchanged. See
