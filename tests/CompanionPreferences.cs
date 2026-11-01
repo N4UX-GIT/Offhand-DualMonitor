@@ -45,6 +45,14 @@ namespace Offhand.Companion {
             CompanionUpdateRelease legacyUpdate = CompanionUpdatePolicy.SelectLatest(legacyFeed, beta19);
             Check(legacyUpdate.Version.Display == "v2.1.2 Beta 18" && legacyUpdate.Url.EndsWith("legacy-18"));
             Check(!CompanionDefaults.AutoSpanOnLaunch);
+            Check(AutoSpanAttemptPolicy.ShouldAttempt(true, true, true, true,
+                false, false, false));
+            Check(!AutoSpanAttemptPolicy.ShouldAttempt(true, true, true, true,
+                false, false, true));
+            Check(!AutoSpanAttemptPolicy.ShouldAttempt(true, true, false, true,
+                false, false, false));
+            Check(!AutoSpanAttemptPolicy.ShouldAttempt(true, true, true, false,
+                false, false, false));
             Check(WindowInteropDiagnostics.StyleFailure("Could not remove WoW window borders", 5)
                 .Contains("same privilege level"));
             Check(WindowInteropDiagnostics.StyleFailure("Could not remove WoW window borders", 87)
@@ -60,6 +68,14 @@ namespace Offhand.Companion {
                 == new Rectangle(2, 3, 1, 1));
             Check(ProcessPathResolver.Get(null) == null);
             Check(!string.IsNullOrEmpty(ProcessPathResolver.Get(Process.GetCurrentProcess())));
+            var stableSettings = new Dictionary<string, string> {
+                { "DisplayIdentityVersion", "1" },
+                { "MonitorIdentities", "MONITOR\\MAIN\\A|MONITOR\\WORK\\B" },
+                { "MainhandIdentity", "MONITOR\\MAIN\\A" }
+            };
+            Check(MonitorSelection.HasStableIdentitySettings(stableSettings));
+            stableSettings["MonitorIdentities"] = "";
+            Check(!MonitorSelection.HasStableIdentitySettings(stableSettings));
             var displays = new List<MonitorSelection.Display> {
                 new MonitorSelection.Display { Index = 0, DeviceName = @"\\.\DISPLAY1", StableId = @"MONITOR\MAIN\A", Bounds = new Rectangle(0, 0, 3440, 1440), WorkArea = new Rectangle(0, 0, 3440, 1400), Primary = true },
                 new MonitorSelection.Display { Index = 1, DeviceName = @"\\.\DISPLAY2", StableId = @"MONITOR\WORK\B", Bounds = new Rectangle(-1920, 360, 1920, 1080), WorkArea = new Rectangle(-1920, 360, 1920, 1040), Primary = false }
