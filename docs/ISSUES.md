@@ -1094,7 +1094,24 @@ issue changes branch, evidence level, candidate, or released version.
 
 ## OH-UI-005: Pet battle panels split across the monitor seam
 
-- Status: Fix implemented and automated validation passed; live QA pending.
+- 2026-11-01 acceptance: after updating the local Retail addon, the user
+  explicitly confirmed the reported disappearing-controls issue fixed.
+  Broader topology, compatibility and taint coverage is not implied.
+  The [follow-up audit](RETAIL-TRANSIENT-AUDIT-20261101.md) identifies six
+  additional source/model gaps. All six now have source corrections and
+  regression coverage (78 Lua suites and six manifest/syntax checks pass).
+  The user subsequently instructed "Assume fixed": all six are accepted on
+  that basis. Live QA is unrecorded; no follow-up deployment is recorded.
+- 2026-11-01 Retail follow-up: CurseForge reports top and bottom controls
+  initially appear, then disappear and prevent play. A simulated regression
+  exposed generic popup rescue replacing the unprotected full-screen root's
+  two bounds with a CENTER anchor before its dedicated mover runs. Candidate
+  excludes the root from generic HUD/Canvas handling and avoids unchanged
+  bounds writes. All 75 Lua suites and six manifest/Lua 5.1 checks pass.
+  Reporter build/trigger and live action/taint verification remain pending.
+  See [investigation and QA](RETAIL-PET-BATTLE-20261101.md).
+- Status: Original Retail failure confirmed fixed by the user; all six follow-up
+  findings accepted as fixed by explicit assumption. Broader live QA is unrecorded.
 - Client: Reported on a spanned installation; applicable to clients that expose
   Blizzard's load-on-demand `PetBattleFrame`.
 - Symptom: The top opponent panel and bottom pet-action panel remain centered

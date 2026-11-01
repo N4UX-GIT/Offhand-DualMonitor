@@ -1391,6 +1391,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 end
             end
             
+            if Offhand.CanvasPanelLifecycle and Offhand.CanvasPanelLifecycle.CaptureTBCPanelOpenState then
+                Offhand.CanvasPanelLifecycle.CaptureTBCPanelOpenState(Offhand.Canvas)
+            end
             for key, val in pairs(_G) do
                 if type(key) == "string" and type(val) == "table" and type(rawget(val, 0)) == "userdata" and val.IsShown then
                     local okShow, isShown = pcall(function() return val:IsShown() end)

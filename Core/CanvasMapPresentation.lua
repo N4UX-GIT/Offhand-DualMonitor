@@ -282,6 +282,9 @@ function Map.InstallConfiguration(Canvas, services)
 
     function Canvas:ConfigureWorldMap()
         local map = WorldMapFrame
+        if Offhand.CanvasPanelLifecycle and Offhand.CanvasPanelLifecycle.UpdateTBCWorkspacePanelSlots then
+            Offhand.CanvasPanelLifecycle.UpdateTBCWorkspacePanelSlots()
+        end
         if InCombatLockdown() or not map or HasLeatrixMaps() or not Offhand.db or not Offhand.db.enabled then return end
         -- Maximized WorldMapFrame is a separate Blizzard-owned layout on every
         -- modern client. Never apply Offhand's windowed scale, anchor, UIPanel
