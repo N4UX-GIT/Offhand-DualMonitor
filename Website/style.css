@@ -2013,3 +2013,13 @@ kbd {
     .first-run-steps article { grid-template-columns: 36px minmax(0, 1fr); padding: 14px; }
     .first-run-steps .step-seal { width: 34px; height: 34px; }
 }
+
+/* Updated setup capture references. Keep long screenshot sequences optional. */
+.setup-screen-references { margin: 22px 0; }
+.screenshot-reference-note { margin-top: 20px; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; }
+
+@media (min-width: 901px) {
+    .in-game-setup-page .in-game-path { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .in-game-setup-page .in-game-path > article { grid-column: span 2; }
+    .in-game-setup-page .in-game-path > article:nth-child(n+4) { grid-column: span 3; }
+}
