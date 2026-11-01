@@ -40,11 +40,15 @@ local knownPanelLoadAddons = {
 -- unit, mailbox, taxi node, bank, or another interaction that does not survive
 -- reload. Loading only their shell would create a broken or misleading UI.
 local contextBoundPanelNames = {
+    AuctionFrame = true,
     AuctionHouseFrame = true,
     BankFrame = true,
     BlackMarketFrame = true,
     ClassTrainerFrame = true,
     FlightMapFrame = true,
+    TaxiFrame = true,
+    GossipFrame = true,
+    QuestFrame = true,
     GuildBankFrame = true,
     GuildControlUI = true,
     GuildRegistrarFrame = true,
@@ -57,6 +61,7 @@ local contextBoundPanelNames = {
     OpenMailFrame = true,
     ScrappingMachineFrame = true,
     StableFrame = true,
+    PetStableFrame = true,
     TabardFrame = true,
     TradeFrame = true,
     TransmogFrame = true,
@@ -83,12 +88,19 @@ function PanelRegistry.IsContextBoundPanel(name)
     return contextBoundPanelNames[name] == true
 end
 
+function PanelRegistry.IsTBCPanelRuntime()
+    local toc = tonumber(Offhand.tocVersion) or 0
+    return not Offhand.isForever and toc >= 20500 and toc < 20600
+end
+
 function PanelRegistry.RequiresNativePanelRegistration(name)
     -- Anniversary 2.5.x uses MapCanvas plus native ShowUIPanel,
     -- MaximizeUIPanel and RestoreUIPanelArea transactions. Detaching its area
     -- bypasses the layout that gives a newly opened map its native anchor.
     local tocVersion = tonumber(Offhand.tocVersion) or 0
-    if name == "WorldMapFrame" and not Offhand.isForever
+    -- SpellBookFrame owns secure spell buttons. Removing its registry entry
+    -- also makes the protected-root placement guard reject subsequent restores.
+    if (name == "WorldMapFrame" or name == "SpellBookFrame") and not Offhand.isForever
         and tocVersion >= 20500 and tocVersion < 20600 then return true end
     -- Retail MapCanvas providers, standalone books and Group Finder need native
     -- panel transactions even though they can reopen after reload. Preserve lifecycle
@@ -178,6 +190,18 @@ function PanelRegistry.GetPersistentPanelAddon(name)
         return addonName, "known"
     end
     return nil, "unknown"
+end
+
+-- Start Anniversary load-on-demand restoration with the standalone owner
+-- verified in 2.5.6.70577. Learned names must not expand this allowlist.
+function PanelRegistry.CanLoadPersistentPanel(name, addonName)
+    if Offhand.isForever then return true end
+    if Offhand.isRetail then
+        return name == "PlayerSpellsFrame" or name == "ProfessionsBookFrame"
+    end
+    local toc = tonumber(Offhand.tocVersion) or 0
+    return toc >= 20500 and toc < 20600 and name == "MacroFrame"
+        and (addonName == nil or addonName == "Blizzard_MacroUI")
 end
 
 function PanelRegistry.GetDiagnostics(owner)

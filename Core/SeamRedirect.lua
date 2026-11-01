@@ -647,7 +647,8 @@ function HUD:HookFrames()
     -- Rescues frames anchoring into the unrendered black space above the 3D Game Viewport,
     -- and redirects popups that anchor to the bezel seam center.
     local function RedirectExternalPopups()
-        if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+        if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
+            or not Offhand.db.seamRedirect then return end
         -- Forever's native gamepad navigator owns the structure and focus of
         -- visible windows. The broad rescue pass must not enumerate and
         -- re-anchor those roots while SmartNavigation is rebuilding them.
@@ -675,17 +676,28 @@ function HUD:HookFrames()
             for _, name in ipairs(UISpecialFrames) do
                 local frame = _G[name]
                 if frame and type(frame) == "table" and frame.GetPoint
+                    and not TransientPolicy.IsSecureRoot(frame)
                     and not IsBlizzardEditModeOwnedFrame(frame, name)
                     and not hooks[frame] and frame.IsProtected and not frame:IsProtected() then
                     hooks[frame] = true
                     frame:HookScript("OnShow", function(self)
-                        if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
-                        local pt, rel = self:GetPoint(1)
-                        if (rel == UIParent or rel == nil) and (pt == "CENTER") then
+                        if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
+                            or not Offhand.db.seamRedirect or UsesNativeGamepadInterface()
+                            or (self.IsForbidden and self:IsForbidden())
+                            or (self.IsProtected and self:IsProtected())
+                            or (self.IsUserPlaced and self:IsUserPlaced()) then return end
+                        local current = Offhand.Viewport:GetMetrics()
+                        if not current or not current.isSpanned or self:GetNumPoints() ~= 1 then return end
+                        local pt, rel, relPt, x, y = self:GetPoint(1)
+                        if (rel == UIParent or rel == nil) and pt == "CENTER"
+                            and relPt == "CENTER" and (x or 0) == 0 and (y or 0) == 0 then
+                            local scale = self:GetEffectiveScale()
+                            local parentScale = UIParent:GetEffectiveScale()
+                            if not scale or scale <= 0 or not parentScale or parentScale <= 0 then return end
                             self:ClearAllPoints()
-                            local factor = UIParent:GetEffectiveScale() / self:GetEffectiveScale()
-                            local offsetX = cx - (UIParent:GetWidth() / 2)
-                            local offsetY = cy - (UIParent:GetHeight() / 2)
+                            local factor = parentScale / scale
+                            local offsetX = (current.gameLeft + current.gameRight) / 2 - UIParent:GetWidth() / 2
+                            local offsetY = (current.gameBottom + current.gameTop) / 2 - UIParent:GetHeight() / 2
                             self:SetPoint("CENTER", UIParent, "CENTER", offsetX * factor, offsetY * factor)
                         end
                     end)
@@ -726,7 +738,11 @@ function HUD:HookFrames()
 
         -- 3. Scan active children of UIParent for rogue centered popup frames or frames in the void
         for _, child in ipairs({UIParent:GetChildren()}) do
-            if type(child) == "table" and child ~= WorldFrame and child ~= Offhand.canvas then
+            if type(child) == "table" and child ~= WorldFrame and child ~= Offhand.canvas
+                -- Dedicated transient roots arbitrate native/custom ownership.
+                -- Generic rescue must not bypass that decision or collapse a
+                -- bounded root, even if it does not report IsProtected().
+                and not TransientPolicy.IsSecureRoot(child) then
                 pcall(function()
                     if child.IsForbidden and child:IsForbidden() then return end
                     if not child.IsShown or not child:IsShown() then return end
@@ -1214,9 +1230,21 @@ function HUD:HookFrames()
         isArrangingBags = false
     end
 
+    -- Anniversary has Edit Mode APIs but still uses the Classic container
+    -- manager. Its OnHide runs the native anchor pass even when no bag toggle
+    -- follows (for example the close button). Correct that pass inline so the
+    -- surviving bags cannot render at native anchors until a deferred retry.
+    local tbcBagRuntime = Offhand.CanvasPanelRegistry
+        and Offhand.CanvasPanelRegistry.IsTBCPanelRuntime()
+    if tbcBagRuntime and _G.UpdateContainerFrameAnchors
+        and hooksecurefunc and not self.tbcBagAnchorsHooked then
+        self.tbcBagAnchorsHooked = true
+        hooksecurefunc("UpdateContainerFrameAnchors", function() HUD:LayoutBags() end)
+    end
+
     -- Legacy clients use the custom bag anchor pass to avoid anchor-family
     -- cycles. Forever keeps Blizzard's function identity to preserve taint safety.
-    if _G.UpdateContainerFrameAnchors and not self.anchorsHooked and not UsesForeverEditMode() and not HasBlizzardEditMode() then
+    if _G.UpdateContainerFrameAnchors and not tbcBagRuntime and not self.anchorsHooked and not UsesForeverEditMode() and not HasBlizzardEditMode() then
         self.anchorsHooked = true
         HUD.origUpdateContainerFrameAnchors = _G.UpdateContainerFrameAnchors
         _G.UpdateContainerFrameAnchors = function(...)

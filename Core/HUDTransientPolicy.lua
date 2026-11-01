@@ -97,7 +97,7 @@ function Policy.GetRetailNotificationSpecs()
         { name = "ChallengeModeCompleteBanner", point = "TOP", relativePoint = "TOP", x = 0, y = -120,
             method = "PlayBanner" },
         { name = "EventToastManagerFrame", point = "TOP", relativePoint = "TOP", x = 0, y = -190,
-            method = "UpdateAnchor", nativeOffsets = true },
+            method = "UpdateAnchor", finalMethod = "DisplayToast", nativeOffsets = true },
         { name = "EventToastManagerSideDisplay", point = "TOPRIGHT", relativePoint = "TOP", x = -189, y = -170,
             method = "DisplayToastsByLevel" },
     }
@@ -107,6 +107,14 @@ function Policy.Resolve(spec)
     if type(spec) ~= "table" then return nil end
     if spec.resolve then return spec.resolve() end
     return _G[spec.name]
+end
+
+function Policy.IsSecureRoot(frame)
+    if not frame then return false end
+    for _, spec in ipairs(specs) do
+        if spec.secure and Policy.Resolve(spec) == frame then return true end
+    end
+    return false
 end
 
 function Policy.CanPosition(frame, spec)

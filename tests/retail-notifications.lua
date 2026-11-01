@@ -1,5 +1,11 @@
 local addon={isRetail=true,db={enabled=true,seamRedirect=true},HUDCompatibility={UsesForeverEditMode=function() return false end}}
 local combat=false
+local queued={}
+function addon:RunOrQueueCombat(fn) if combat then queued[#queued+1]=fn else fn() end end
+local function LeaveCombat()
+    combat=false;local pending=queued;queued={}
+    for _,fn in ipairs(pending) do fn() end
+end
 InCombatLockdown=function() return combat end
 UIParent={GetEffectiveScale=function() return 0.5 end}
 local m={isSpanned=true,gameLeft=1440,gameRight=4000,gameBottom=6,gameTop=1446}
@@ -36,10 +42,19 @@ key.ShowKeystoneFrame=function(self) self.shown=true;return 'native-key' end
 banner.PlayBanner=function(self) self.shown=true;return 'native-banner' end
 side.DisplayToastsByLevel=function(self) self.shown=not self.shown;return 'native-side' end
 toast.UpdateAnchor=function(self,x,y)
-    self:ClearAllPoints()
-    if x then self:SetPoint('LEFT',UIParent,'LEFT',x,0) end
-    self:SetPoint('TOP',UIParent,'TOP',0,y or -190)
+    -- Native writes are allowed in the simulation, addon writers still assert
+    -- out of combat in ClearAllPoints/SetPoint.
+    self.points={}
+    if x then self.points[#self.points+1]={'LEFT',UIParent,'LEFT',x,0} end
+    self.points[#self.points+1]={'TOP',UIParent,'TOP',0,y or -190}
     return 'native-toast'
+end
+toast.DisplayToast=function(self,hidden)
+    self:UpdateAnchor()
+    -- Captured test.4 sequence: the early post-hook places the root, then
+    -- the remainder of display resets it to TOP/UIParent/TOP/0/0.
+    self.points={{'TOP',UIParent,'TOP',0,0}};self.shown=not hidden
+    return 'native-display'
 end
 local nativeAction=function() end;key.StartButton={OnClick=nativeAction}
 assert(loadfile('Core/HUDTransientPolicy.lua'))('Offhand',addon)
@@ -52,7 +67,7 @@ local function Points(frame,...)
 end
 local hud={}
 addon.HUDTransientFrames.Install(hud,{Points=Points,Anchor=function() error('must translate native offsets') end,Prepare=function() end})
-hud:HookRetailNotifications();hud:HookRetailNotifications();assert(hookCount==4)
+hud:HookRetailNotifications();hud:HookRetailNotifications();assert(hookCount==5)
 local function at(frame,i,point,x,y)
     local p=frame.points[i]
     assert(p[1]==point and p[2]==UIParent and p[3]=='BOTTOMLEFT')
@@ -64,6 +79,19 @@ assert(banner:PlayBanner()=='native-banner');at(banner,1,'TOP',1360,603)
 assert(side:DisplayToastsByLevel()=='native-side');at(side,1,'TOPRIGHT',1171,553)
 side:DisplayToastsByLevel();assert(side.points[1][3]=='TOP','closing side display restores native anchor')
 assert(toast:UpdateAnchor()=='native-toast');at(toast,1,'TOP',1360,533)
+assert(toast:DisplayToast()=='native-display');at(toast,1,'TOP',1360,723)
+combat=true;local combatWrites=toast.writes
+toast:DisplayToast();toast:DisplayToast()
+assert(toast.writes==combatWrites and #queued==1,'coalesce replay without addon writes in combat')
+LeaveCombat();at(toast,1,'TOP',1360,723)
+combat=true;toast:DisplayToast();toast.shown=false;LeaveCombat()
+assert(toast.points[1][3]=='TOP','expired toast must not be adopted')
+combat=true;toast:DisplayToast();toast.points={{'TOP',UIParent,'TOP',99,-77}};LeaveCombat()
+assert(toast.points[1][4]==99,'deferred replay must yield to a custom anchor')
+combat=true;toast:DisplayToast();addon.db.enabled=false;LeaveCombat()
+assert(toast.points[1][3]=='TOP','disabled during combat must not be recentered')
+addon.db.enabled=true;toast:DisplayToast();toast:DisplayToast(true)
+assert(toast.points[1][3]=='TOP','closing DisplayToast must release placement')
 -- Native setup before Show and every later refresh must preserve both anchors/custom offsets.
 toast.shown=true;toast:UpdateAnchor(55,-210)
 at(toast,1,'LEFT',775,363);at(toast,2,'TOP',1360,513)

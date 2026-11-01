@@ -103,7 +103,19 @@ $companionDownloads = if ($CompanionChanged) {
 "@
 }
 
-$testFocus = if ($Tag -eq 'v2.1.2-beta.25') {
+$testFocus = if ($Tag -eq 'v2.1.2-beta.26') {
+@'
+1. Back up SavedVariables, native Edit Mode layouts and UI addon profiles. Upgrade without deleting settings.
+2. On Anniversary, check World Map, Spellbook, Macro and bags individually and together. Verify open-before-reload restoration and closed-before-reload intent, Escape, native NPC interactions and normal restart behavior.
+3. Test default bags and each installed replacement separately. Check individual bag IDs, opening/closing layout, scale, bank and native item actions, with fresh errors and taint evidence. Recorded replacement acceptance has no exact version inventory.
+4. On Retail, check normal pet-battle controls and release after topology/feature changes. Check Trading Post, native popup/toast behavior, external mover takeover and combat transitions during intended gameplay.
+5. Retest setup recovery and Help & recovery for readable wrapping and scrolling. Expanded English fallback remains pending translation. Include client/build, addon/Companion versions, geometry, normal UI owners and /offhand diag.
+
+Six Retail audit findings have assumption-based acceptance, not newly recorded live verification. Static and simulated tests do not establish taint safety. The Anniversary memory-crash report remains unresolved. Forever release-client and direct Linux/Wine checks remain pending.
+
+Companion remains 2.1.2-beta.20. No experimental HDR/dashboard, native graphics-reset recovery or loading-art executable changes are included.
+'@
+} elseif ($Tag -eq 'v2.1.2-beta.25') {
 @'
 1. Back up SavedVariables, Blizzard Edit Mode layouts and UI addon profiles. Upgrade without deleting settings.
 2. Test missing Companion geometry: apply Span WoW Now in the game world, Reload UI, then resume calibration. Check wizard centering and all text after span and restore.
