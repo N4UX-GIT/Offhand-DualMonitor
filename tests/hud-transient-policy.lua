@@ -27,6 +27,9 @@ HouseEditorFrame = { ModeBar = ordinary }
 assert(policy.Resolve(byName["HouseEditorFrame.ModeBar"]) == ordinary,
     "nested transient resolution changed during extraction")
 assert(policy.Resolve(nil) == nil, "invalid transient specifications must fail closed")
+PetBattleFrame = ordinary
+assert(policy.IsSecureRoot(PetBattleFrame) and not policy.IsSecureRoot({})
+    and not policy.IsSecureRoot(nil), "dedicated roots must be excluded from generic rescue")
 
 assert(policy.CanPosition(ordinary), "ordinary mutable transient frame was rejected")
 local forbidden = {

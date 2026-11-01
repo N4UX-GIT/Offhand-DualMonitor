@@ -22,6 +22,17 @@ local function CapturePoints(frame)
     return points
 end
 
+local function SamePoints(a, b)
+    if not a or not b or #a ~= #b then return false end
+    for index, point in ipairs(a) do
+        local other = b[index]
+        if point[1] ~= other[1] or point[2] ~= other[2] or point[3] ~= other[3]
+            or not Near(point[4] or 0, other[4] or 0)
+            or not Near(point[5] or 0, other[5] or 0) then return false end
+    end
+    return true
+end
+
 local function HasPoint(frame, point, relativePoint, x, y)
     if not frame.GetNumPoints or not frame.GetPoint then return false end
     for index = 1, frame:GetNumPoints() do
@@ -57,22 +68,29 @@ function RetailFullscreen:Restore()
     local frame = self.frame or _G.PerksProgramFrame
     if not frame or not self.modified then return end
     if InCombatLockdown and InCombatLockdown() then
-        self:QueueAfterCombat(function() RetailFullscreen:Restore() end)
+        self:QueueAfterCombat(function() RetailFullscreen:Apply() end)
         return
     end
 
-    if self.nativeScale and frame.SetScale then
-        frame:SetScale(self.nativeScale)
-    end
-    self.appliedScale = nil
-    frame:ClearAllPoints()
-    if self.nativePoints and #self.nativePoints > 0 then
-        for _, point in ipairs(self.nativePoints) do
-            frame:SetPoint(unpack(point))
+    -- Anchor and scale ownership are independent. A later mover may change
+    -- either property while leaving the other one at our applied value.
+    if self.appliedPoints and SamePoints(CapturePoints(frame), self.appliedPoints) then
+        frame:ClearAllPoints()
+        if self.nativePoints and #self.nativePoints > 0 then
+            for _, point in ipairs(self.nativePoints) do frame:SetPoint(unpack(point)) end
+        else
+            frame:SetAllPoints(UIParent)
         end
-    else
-        frame:SetAllPoints(UIParent)
+    elseif self.appliedPoints then
+        self.anchorYielded = not SamePoints(CapturePoints(frame), self.nativePoints)
     end
+    if self.nativeScale and self.appliedScale and frame.SetScale
+        and Near(frame:GetScale(), self.appliedScale) then
+        frame:SetScale(self.nativeScale)
+    elseif self.appliedScale then
+        self.scaleYielded = not Near(frame:GetScale(), self.nativeScale)
+    end
+    self.appliedPoints, self.appliedScale = nil, nil
     self.modified = false
 end
 
@@ -96,7 +114,18 @@ function RetailFullscreen:Apply()
     -- Mainhand monitor by itself. This is a no-op for side-by-side displays
     -- with equal heights and compensates mixed-height or stacked canvases.
     local currentScale = frame.GetScale and frame:GetScale() or nil
-    if currentScale and currentScale > 0
+    local currentPoints = CapturePoints(frame)
+    local nativeReset = SamePoints(currentPoints, self.nativePoints)
+    if nativeReset and (self.appliedPoints or Near(currentScale, self.nativeScale)) then
+        self.scaleYielded = nil
+    end
+    if self.appliedPoints and not SamePoints(currentPoints, self.appliedPoints) then
+        self.anchorYielded = not nativeReset
+    elseif nativeReset then self.anchorYielded = nil end
+    if self.appliedScale and not Near(currentScale, self.appliedScale) then
+        self.scaleYielded = not (nativeReset or Near(currentScale, self.nativeScale))
+    end
+    if not self.scaleYielded and currentScale and currentScale > 0
         and (not self.appliedScale or not Near(currentScale, self.appliedScale)) then
         self.nativeScale = currentScale
     end
@@ -106,11 +135,11 @@ function RetailFullscreen:Apply()
         and gamePixelHeight and gamePixelHeight > 0
         and gamePixelHeight / canvasPixelHeight or 1
     local desiredScale = self.nativeScale and self.nativeScale * heightRatio or currentScale
-    if desiredScale and desiredScale > 0 and frame.SetScale
+    if not self.scaleYielded and desiredScale and desiredScale > 0 and frame.SetScale
         and not Near(currentScale, desiredScale) then
         frame:SetScale(desiredScale)
     end
-    self.appliedScale = desiredScale
+    if not self.scaleYielded then self.appliedScale = desiredScale end
 
     local frameScale = frame:GetEffectiveScale()
     local parentScale = UIParent:GetEffectiveScale()
@@ -121,15 +150,16 @@ function RetailFullscreen:Apply()
     local left, bottom = metrics.gameLeft * factor, metrics.gameBottom * factor
     local right, top = metrics.gameRight * factor, metrics.gameTop * factor
 
-    if frame:GetNumPoints() ~= 2
+    if not self.anchorYielded and (frame:GetNumPoints() ~= 2
         or not HasPoint(frame, "BOTTOMLEFT", "BOTTOMLEFT", left, bottom)
-        or not HasPoint(frame, "TOPRIGHT", "BOTTOMLEFT", right, top) then
+        or not HasPoint(frame, "TOPRIGHT", "BOTTOMLEFT", right, top)) then
         frame:ClearAllPoints()
         Offhand.Viewport:SetPoint(frame, "BOTTOMLEFT", "BOTTOMLEFT",
             metrics.gameLeft, metrics.gameBottom)
         Offhand.Viewport:SetPoint(frame, "TOPRIGHT", "BOTTOMLEFT",
             metrics.gameRight, metrics.gameTop)
     end
+    if not self.anchorYielded then self.appliedPoints = CapturePoints(frame) end
     self.modified = true
     return true
 end

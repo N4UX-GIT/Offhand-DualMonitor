@@ -217,20 +217,12 @@ CreateFrame = function(frameType, name, parent, template)
         function f:SetFrameRef(key, value) self.frameRefs[key] = value end
         function f:GetFrameRef(key) return self.frameRefs[key] end
         function f:SetAttribute(key, value) self.attributes[key] = value end
-        function f:Execute()
-            local target = self:GetFrameRef("offhandTransient")
-            if target then
-                target:ClearAllPoints()
-                if self:GetAttribute("offhandBounds") then
-                    target:SetPoint("BOTTOMLEFT", self:GetParent(), "BOTTOMLEFT",
-                        self:GetAttribute("offhandLeft"), self:GetAttribute("offhandBottom"))
-                    target:SetPoint("TOPRIGHT", self:GetParent(), "BOTTOMLEFT",
-                        self:GetAttribute("offhandRight"), self:GetAttribute("offhandTop"))
-                else
-                    target:SetPoint(self:GetAttribute("offhandPoint"), self:GetParent(), "BOTTOMLEFT",
-                        self:GetAttribute("offhandX"), self:GetAttribute("offhandY"))
-                end
-            end
+        function f:Execute(script)
+            -- Execute only the local addon's snippet against synthetic frames.
+            -- This models its writes, not WoW's restricted environment or taint.
+            local run = assert(loadstring(script))
+            setfenv(run, setmetatable({ self = self }, { __index = _G }))
+            run()
         end
         function f:WrapScript(trigger, script)
             trigger:HookScript(script, function()
@@ -353,7 +345,8 @@ C_AddOns = {
             PetBattleFrame:ClearAllPoints()
             PetBattleFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, 0)
             PetBattleFrame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", 0, 0)
-            PetBattleFrame.IsProtected = function() return true end
+            -- Blizzard declares an ordinary full-screen root, not a secure
+            -- template. Do not hide generic-scanner bugs behind IsProtected.
             PetBattleFrame:Hide()
             return true
         end
@@ -498,6 +491,12 @@ assert(petBattleDiagnostics.loaded and petBattleDiagnostics.preloadAttempted
     "pet-battle diagnostics must report preloaded Mainhand bounds")
 assert(not PetBattleFrame:IsShown(),
     "preparing pet-battle bounds must not change Blizzard visibility")
+do
+    local petBoundsWrites = PetBattleFrame.setPointCalls
+    addon.HUD:PositionMainhandTransientFrames(metrics)
+    assert(PetBattleFrame.setPointCalls == petBoundsWrites,
+        "unchanged pet-battle bounds must not be cleared and rebuilt on maintenance")
+end
 assertMainhandAnchor(CombatText, "CENTER", 2720, 726, "Floating combat text")
 assert(CombatText:IsIgnoringParentScale() == false,
     "floating combat text must inherit Offhand's UIParent scale")
@@ -1818,6 +1817,49 @@ print("PASS: Forever centers GameMenuFrame before render and it dismisses cleanl
 -- ============================================================================
 -- TEST 7: Universal Void Rescue Engine (Focused Roster Frame & Rogue Frames)
 -- ============================================================================
+-- A native full-screen reset can precede the maintenance pass. On this
+-- mixed-height canvas its top is above Mainhand. The generic popup scanner runs
+-- first and must leave both bounds intact for the dedicated battle mover.
+do
+local wasRetailForPetBattle = addon.isRetail
+addon.isRetail = true
+local petGetLeft = PetBattleFrame.GetLeft
+PetBattleFrame.GetLeft = function(self)
+    -- The generic mock only resolves single-point widths. SetAllPoints has
+    -- left=0, not -width from its BOTTOMRIGHT point.
+    if self.points[1] and self.points[1][1] == "TOPLEFT" then return 0 end
+    return petGetLeft(self)
+end
+PetBattleFrame:ClearAllPoints()
+PetBattleFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, 0)
+PetBattleFrame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", 0, 0)
+PetBattleFrame:Show()
+local petRootListed = false
+for _, child in ipairs(UIParent.children) do
+    if child == PetBattleFrame then petRootListed = true end
+end
+if not petRootListed then table.insert(UIParent.children, PetBattleFrame) end
+assert(not PetBattleFrame:IsProtected() and PetBattleFrame:GetTop() > metrics.gameTop,
+    "pet-battle regression must exercise an unprotected root above Mainhand")
+addon.HUD.popupTicker.callback()
+assert(PetBattleFrame:GetNumPoints() == 2
+        and select(1, PetBattleFrame:GetPoint(1)) == "BOTTOMLEFT"
+        and select(1, PetBattleFrame:GetPoint(2)) == "TOPRIGHT"
+        and not addon.HUD:GetPetBattleDiagnostics().conflict,
+    "popup rescue must preserve pet-battle bounds for dedicated Mainhand placement")
+assert(PetBattleFrame:IsShown(), "maintenance must leave native battle visibility alone")
+local previousPetPanel = UIPanelWindows.PetBattleFrame
+UIPanelWindows.PetBattleFrame = { area = "center" }
+addon.Canvas:TryMakeFrameDraggable(PetBattleFrame)
+assert(not PetBattleFrame._OffhandMovable, "pet battles must never become workspace panels")
+assert(not addon.Canvas:RescuePanelFromVoid(PetBattleFrame, metrics),
+    "generic panel rescue must also yield the full-screen battle root")
+UIPanelWindows.PetBattleFrame = previousPetPanel
+PetBattleFrame:Hide()
+PetBattleFrame.GetLeft = petGetLeft
+addon.isRetail = wasRetailForPetBattle
+end
+
 -- Place ExampleAddonWindow high up in the black void (e.g. x = 2000, top = 2500, where gameTop is 1446)
 ExampleAddonWindow:ClearAllPoints()
 ExampleAddonWindow:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 2000, -50) -- y = 2510 in the void!
