@@ -3,6 +3,23 @@
 Started 1 November 2026. State: source consolidated and local review builds
 prepared; production behavior and live acceptance remain open.
 
+## Continuation: combined runtime candidate
+
+The new ordinary runtime is now `2.1.3-beta.1` (file/manifest `2.1.3.1`), with
+bounded recovery integrated for Retail and Anniversary. Test-only settings,
+titles and startup restrictions are separated from production recovery.
+Manual and delayed automatic spans can arm after stable verification; adopted
+spans after restart cannot. Restore, Pause and display edits cancel ownership.
+Unaccepted clients retain normal span/restore without automatic graphics recovery.
+
+See [production recovery QA](COMPANION-PRODUCTION-RECOVERY-QA.md) for the current
+contract, automated checks and pending combined-artifact live procedure.
+Build with `scripts/New-CompanionReleaseCandidate.ps1` into a fresh directory.
+Earlier Beta 20 source-review builds below are historical comparison artifacts.
+The historical version-selection and production-integration tasks below are now
+implemented locally. Live acceptance, Store delivery version/parity and public
+promotion remain pending. Custom-region runtime work remains deferred.
+
 ## Source scope
 
 Candidate branch: `codex/companion-next-candidate`, in

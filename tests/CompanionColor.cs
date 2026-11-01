@@ -29,6 +29,16 @@ namespace Offhand.Companion
         {
             using (var form = new CompanionForm())
             {
+#if !HDR_DPI_DIAGNOSTICS_TEST
+                Check(CompanionForm.GraphicsRecoveryEnabled && !CompanionForm.GraphicsRecoveryTestBuild,
+                    "ordinary dashboard includes production recovery");
+                var autoSpan = (CheckBox)typeof(CompanionForm).GetField("chkAutoSpan",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(form);
+                var trayAuto = (ToolStripMenuItem)typeof(CompanionForm).GetField("itemAuto",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(form);
+                Check(autoSpan.Enabled && trayAuto.Enabled, "production recovery preserves optional startup auto-span controls");
+                Check(!form.Text.Contains("TEST"), "ordinary dashboard must not acquire experiment title");
+#endif
 #if HDR_DPI_DIAGNOSTICS_TEST
                 Check(form.Text.Contains("HDR / DPI DIAGNOSTICS TEST 3"), "Test candidate title is distinct");
                 Check(!CompanionForm.GraphicsRecoveryEnabled, "Diagnostics candidate must not enable recovery experiments");

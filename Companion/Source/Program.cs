@@ -36,7 +36,11 @@ using System.Windows.Forms;
 [assembly: AssemblyCompany("Offhand Project")]
 [assembly: AssemblyProduct("Offhand Companion")]
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
+#if HDR_DPI_DIAGNOSTICS_TEST || GRAININESS_TEST || FOREVER_GRAPHICS_RECOVERY_TEST || RETAIL_GRAPHICS_RECOVERY_TEST || CLASSIC_GRAPHICS_RECOVERY_TEST
 [assembly: AssemblyVersion("2.1.2.0")]
+#else
+[assembly: AssemblyVersion("2.1.3.0")]
+#endif
 #if HDR_DPI_DIAGNOSTICS_TEST
 [assembly: AssemblyFileVersion("2.1.2.2005")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
@@ -45,9 +49,12 @@ using System.Windows.Forms;
 // Keep the public compatibility/writer identity parseable. Experimental
 // identity belongs in FileVersion, the title, logs and package filename.
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
-#else
+#elif FOREVER_GRAPHICS_RECOVERY_TEST || RETAIL_GRAPHICS_RECOVERY_TEST || CLASSIC_GRAPHICS_RECOVERY_TEST
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
+#else
+[assembly: AssemblyFileVersion("2.1.3.1")]
+[assembly: AssemblyInformationalVersion("2.1.3-beta.1")]
 #endif
 
 namespace Offhand.Companion
@@ -677,8 +684,8 @@ namespace Offhand.Companion
         }
     }
 
-    // Pure decision logic for the captured Classic graphics-reset signature.
-    // A manual span establishes ownership; ordinary moves/resizes are not a trigger.
+    // Pure decision logic for the captured graphics-reset signature.
+    // A Companion-applied span establishes ownership; ordinary resizes do not.
     internal sealed class ClassicGraphicsRecovery
     {
         internal sealed class Observation
@@ -711,6 +718,15 @@ namespace Offhand.Companion
             string leaf = Path.GetFileName(wowDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
             return string.Equals(leaf, "_anniversary_", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(leaf, "_classic_era_", StringComparison.OrdinalIgnoreCase);
+        }
+        internal static bool IsProductionClient(string wowDir)
+        {
+            // Prior live acceptance covers Anniversary and Retail only. Normal
+            // spanning remains available for clients without recovery acceptance.
+            if (string.IsNullOrEmpty(wowDir)) return false;
+            string leaf = Path.GetFileName(wowDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            return string.Equals(leaf, "_anniversary_", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(leaf, "_retail_", StringComparison.OrdinalIgnoreCase);
         }
         internal enum ClientScope { Classic, Retail, Forever }
         internal static bool IsSupportedClient(string wowDir, bool retailTest)
@@ -1550,7 +1566,11 @@ namespace Offhand.Companion
 
     public class CompanionForm : Form
     {
+#if HDR_DPI_DIAGNOSTICS_TEST || GRAININESS_TEST || FOREVER_GRAPHICS_RECOVERY_TEST || RETAIL_GRAPHICS_RECOVERY_TEST || CLASSIC_GRAPHICS_RECOVERY_TEST
         internal const string BaseVersion = "2.1.2";
+#else
+        internal const string BaseVersion = "2.1.3";
+#endif
 #if HDR_DPI_DIAGNOSTICS_TEST
         internal const string ReleaseLabel = "Beta 20 HDR / DPI DIAGNOSTICS TEST 3";
         internal static readonly bool GraphicsRecoveryEnabled = false;
@@ -1571,13 +1591,37 @@ namespace Offhand.Companion
         internal static readonly bool GraphicsRecoveryEnabled = true;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
-#else
+#elif GRAININESS_TEST
         internal const string ReleaseLabel = "Beta 20";
         internal static readonly bool GraphicsRecoveryEnabled = false;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
+#else
+        internal const string ReleaseLabel = "Beta 1";
+        internal static readonly bool GraphicsRecoveryEnabled = true;
+        internal static readonly bool RetailGraphicsRecoveryEnabled = false;
+        internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
 #endif
-        private static string RecoveryScope { get { return ForeverGraphicsRecoveryEnabled ? "Forever" : RetailGraphicsRecoveryEnabled ? "Retail" : "Classic"; } }
+        internal static readonly bool GraphicsRecoveryTestBuild =
+#if FOREVER_GRAPHICS_RECOVERY_TEST || RETAIL_GRAPHICS_RECOVERY_TEST || CLASSIC_GRAPHICS_RECOVERY_TEST
+            true;
+#else
+            false;
+#endif
+        internal static bool IsRecoveryClient(string wowDir)
+        {
+            return GraphicsRecoveryEnabled && (GraphicsRecoveryTestBuild
+                ? ClassicGraphicsRecovery.IsSupportedClient(wowDir, RecoveryClientScope)
+                : ClassicGraphicsRecovery.IsProductionClient(wowDir));
+        }
+        internal static bool CanArmRecovery(string wowDir, bool monitoring, bool recoveryOperation,
+            IntPtr handle, Size originalClient, Size target)
+        {
+            return IsRecoveryClient(wowDir) && monitoring && !recoveryOperation
+                && handle != IntPtr.Zero && originalClient.Width > 0 && originalClient.Height > 0
+                && target.Width > 0 && target.Height > 0 && originalClient != target;
+        }
+        private static string RecoveryScope { get { return !GraphicsRecoveryTestBuild ? "Graphics" : ForeverGraphicsRecoveryEnabled ? "Forever" : RetailGraphicsRecoveryEnabled ? "Retail" : "Classic"; } }
         private static ClassicGraphicsRecovery.ClientScope RecoveryClientScope { get {
             return ForeverGraphicsRecoveryEnabled ? ClassicGraphicsRecovery.ClientScope.Forever :
                 RetailGraphicsRecoveryEnabled ? ClassicGraphicsRecovery.ClientScope.Retail : ClassicGraphicsRecovery.ClientScope.Classic;
@@ -1864,6 +1908,9 @@ namespace Offhand.Companion
         private void SaveDisplaySettingsFromControls()
         {
             if (refreshingDisplayControls || clbMonitors == null || uiDisplays == null) return;
+            // A user's display edit cancels ownership immediately, even if the
+            // selection is changed back before the next monitoring poll.
+            classicRecovery.Clear();
             var devices = new List<string>();
             var identities = new List<string>();
             var legacy = new List<string>();
@@ -1930,7 +1977,7 @@ namespace Offhand.Companion
 #elif GRAININESS_TEST
         private static readonly string configPath = SpanPresentationTest.ConfigPath;
 #else
-        private static readonly string configPath = GraphicsRecoveryEnabled
+        private static readonly string configPath = GraphicsRecoveryTestBuild
             ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, RecoveryScope + "TestConfig.ini") : publicConfigPath;
 #endif
         private string configWarning;
@@ -1944,7 +1991,7 @@ namespace Offhand.Companion
                 string source = File.Exists(configPath) ? configPath : publicConfigPath;
 #else
                 string source = File.Exists(configPath) ? configPath :
-                    GraphicsRecoveryEnabled && File.Exists(publicConfigPath) ? publicConfigPath :
+                    GraphicsRecoveryTestBuild && File.Exists(publicConfigPath) ? publicConfigPath :
                     Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "OffhandConfig.ini");
 #endif
                 appSettings = PreferenceFile.Read(source);
@@ -2107,7 +2154,7 @@ namespace Offhand.Companion
             itemAuto.Enabled = false;
             AddLog("DIAGNOSTICS TEST 3: manual Span only; settings saved beside this test executable. Public settings are read once as defaults and never overwritten.");
 #endif
-            if (GraphicsRecoveryEnabled)
+            if (GraphicsRecoveryTestBuild)
                 AddLog(RecoveryScope + " TEST ONLY: launch auto-span disabled; test settings isolated. Click Span WoW Now, then wait for stable-span confirmation.");
             if (isStorePackage) AddLog("Updates are managed by Microsoft Store.");
             AddLog("Monitoring active. Enable Offhand in WoW; calibrate with /offhand wizard.");
@@ -2227,7 +2274,7 @@ namespace Offhand.Companion
             this.AutoScaleDimensions = new SizeF(96F, 96F);
             this.AutoScaleMode = AutoScaleMode.Dpi;
             this.Font = new Font("Segoe UI", 9F);
-            this.Text = GraphicsRecoveryEnabled ? "Offhand Companion - " + (ForeverGraphicsRecoveryEnabled ? "FOREVER TEST 5" : RetailGraphicsRecoveryEnabled ? "RETAIL TEST 4" : "CLASSIC TEST 3") : "Offhand Companion";
+            this.Text = GraphicsRecoveryTestBuild ? "Offhand Companion - " + (ForeverGraphicsRecoveryEnabled ? "FOREVER TEST 5" : RetailGraphicsRecoveryEnabled ? "RETAIL TEST 4" : "CLASSIC TEST 3") : "Offhand Companion " + FullVersion;
             this.ClientSize = new Size(524, 824);
             this.MinimumSize = new Size(500, 400);
             this.StartPosition = FormStartPosition.CenterScreen;
@@ -2598,7 +2645,7 @@ namespace Offhand.Companion
             cmbSingleSide.Enabled = chkSingleSplit.Checked;
 
             if (appSettings.ContainsKey("AutoSpan")) chkAutoSpan.Checked = appSettings["AutoSpan"] == "True";
-            if (GraphicsRecoveryEnabled)
+            if (GraphicsRecoveryTestBuild)
             {
                 // Candidate must not auto-span a launch before its scope is reviewed.
                 // Do not overwrite the user's saved public Companion preference.
@@ -3164,7 +3211,7 @@ namespace Offhand.Companion
             itemAuto = new ToolStripMenuItem("Automatically Span on Launch")
             {
                 Checked = chkAutoSpan.Checked,
-                Enabled = !GraphicsRecoveryEnabled
+                Enabled = !GraphicsRecoveryTestBuild
             };
             itemAuto.Click += (s, e) =>
             {
@@ -3205,7 +3252,7 @@ namespace Offhand.Companion
 #if GRAININESS_TEST
             SpanPresentationTest.Log(message);
 #endif
-            if (GraphicsRecoveryEnabled)
+            if (GraphicsRecoveryTestBuild)
             {
                 try { File.AppendAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, RecoveryScope.ToLowerInvariant() + "-recovery.log"),
                     DateTime.UtcNow.ToString("o") + " " + message + Environment.NewLine); }
@@ -3480,7 +3527,7 @@ namespace Offhand.Companion
                         AddLog("Missing-monitor recovery filled the surviving Mainhand display. Reconnect the workspace display before spanning again.");
                 }
 
-                if (!GraphicsRecoveryEnabled && AutoSpanAttemptPolicy.ShouldAttempt(isMonitoring, chkAutoSpan.Checked,
+                if (!GraphicsRecoveryTestBuild && AutoSpanAttemptPolicy.ShouldAttempt(isMonitoring, chkAutoSpan.Checked,
                     status.Installed, currentDisplayPlan != null,
                     spannedPids.Contains(proc.Id), restoredPids.Contains(proc.Id),
                     failedAutoSpanPids.Contains(proc.Id)))
@@ -3692,7 +3739,7 @@ namespace Offhand.Companion
             if (!GraphicsRecoveryEnabled) return;
             ClassicGraphicsRecovery recovery;
             if (!classicRecovery.TryGetValue(process.Id, out recovery) || recovery.Spent) return;
-            if (!isMonitoring || !status.Installed || !ClassicGraphicsRecovery.IsSupportedClient(status.WowDir, RecoveryClientScope)
+            if (!isMonitoring || !status.Installed || !IsRecoveryClient(status.WowDir)
                 || restoredPids.Contains(process.Id) || !spannedPids.Contains(process.Id) || plan == null)
             { classicRecovery.Remove(process.Id); return; }
             try {
@@ -3845,8 +3892,10 @@ namespace Offhand.Companion
 
                 AddonStatus status = TestOffhandAddonStatus(proc);
                 if (!status.Installed) throw new Exception(status.Reason);
-                if (GraphicsRecoveryEnabled && !ClassicGraphicsRecovery.IsSupportedClient(status.WowDir, RecoveryClientScope))
+                if (GraphicsRecoveryTestBuild && !IsRecoveryClient(status.WowDir))
                     throw new Exception("This test candidate spans only " + (RecoveryClientScope == ClassicGraphicsRecovery.ClientScope.Classic ? "Classic Era and Anniversary" : RecoveryScope) + ". Use the matching candidate for this client.");
+                if (graphicsRecovery && !IsRecoveryClient(status.WowDir))
+                    throw new Exception("Automatic recovery is not enabled for this client.");
 
                 IntPtr handle = GetWoWWindowHandle(proc);
                 if (handle == IntPtr.Zero) throw new Exception("WoW window is not ready. Retry after it opens.");
@@ -4031,16 +4080,16 @@ namespace Offhand.Companion
                 if (!originalWindows.TryGetValue(proc.Id, out original) || original.Handle != handle)
                     originalWindows[proc.Id] = new WindowSnapshot { Handle = handle, Style = oldStyle, ClientSize = oldClientSize,
                         Bounds = new Rectangle(oldRect.Left, oldRect.Top, oldRect.Width, oldRect.Height) };
-                if (GraphicsRecoveryEnabled && manual)
+                if (!graphicsRecovery && IsRecoveryClient(status.WowDir))
                 {
                     WindowSnapshot first = originalWindows[proc.Id];
-                    if (first.ClientSize.Width > 0 && first.ClientSize.Height > 0 && first.ClientSize != bounds.Size)
+                    if (CanArmRecovery(status.WowDir, isMonitoring, graphicsRecovery, handle, first.ClientSize, bounds.Size))
                     {
                         classicRecovery[proc.Id] = new ClassicGraphicsRecovery(handle, bounds, first.ClientSize,
                             RecoveryPlanKey(plan, displays));
                         AddLog(RecoveryScope + " span requested. Waiting for stable bounds, client size, borderless style and clipping before arming recovery.");
                     }
-                    else AddLog(RecoveryScope + " recovery not armed: no smaller pre-span client size was recorded. Restore Window, then manually span again.");
+                    else AddLog(RecoveryScope + " recovery not armed: monitoring is paused or no distinct pre-span client size was recorded. Resume monitoring, Restore Window, then span again.");
                 }
                 restoredPids.Remove(proc.Id);
                 failedAutoSpanPids.Remove(proc.Id);
@@ -4062,11 +4111,11 @@ namespace Offhand.Companion
                 };
                 evidenceTimer.Start();
 #endif
-                AddLog(GraphicsRecoveryEnabled
+                AddLog(GraphicsRecoveryTestBuild
                     ? string.Format(RecoveryScope + " span request applied at {0}x{1}; stable-window verification remains separate.", bounds.Width, bounds.Height)
                     : string.Format("Spanned {0}x{1}. The span remains if you exit the Companion. If the character UI was already loaded, use /reload once, then run /offhand wizard.", bounds.Width, bounds.Height));
-                trayIcon.ShowBalloonTip(4000, GraphicsRecoveryEnabled ? RecoveryScope + " span requested" : "Offhand Spanned",
-                    GraphicsRecoveryEnabled ? "Wait for stable-span confirmation in the activity log before the VSync test."
+                trayIcon.ShowBalloonTip(4000, GraphicsRecoveryTestBuild ? RecoveryScope + " span requested" : "Offhand Spanned",
+                    GraphicsRecoveryTestBuild ? "Wait for stable-span confirmation in the activity log before the VSync test."
                     : "Exact geometry saved. You may now exit the Companion, or leave it running for monitoring and recovery.", ToolTipIcon.Info);
                 return true;
             }

@@ -2,6 +2,13 @@
 
 ## Release preparation, 1 November 2026
 
+Continuation: the ordinary combined candidate now identifies as `2.1.3-beta.1`.
+Bounded recovery is integrated for Retail and Anniversary, with manual/auto-span
+arming, unchanged production preferences and immediate cancellation on display
+edits. Experimental configurations remain separate. See
+[production recovery QA](COMPANION-PRODUCTION-RECOVERY-QA.md) for the current
+contract and pending final-artifact live acceptance. Public Beta 20 remains frozen.
+
 The candidate branch `codex/companion-next-candidate` reconciles current Companion
 integration, the released main baseline, and preserved Wine/auto-span fixes.
 See [the preparation record](COMPANION-NEXT-RELEASE-PREPARATION.md) for source

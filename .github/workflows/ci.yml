@@ -42,6 +42,20 @@ jobs:
         shell: powershell
         run: ./tests/companion-preferences.ps1
 
+      - name: Test production and experimental Companion recovery policies
+        shell: powershell
+        run: |
+          ./tests/companion-graphics-recovery.ps1 -Production
+          ./tests/companion-graphics-recovery.ps1
+          ./tests/companion-graphics-recovery.ps1 -Retail
+          ./tests/companion-graphics-recovery.ps1 -Forever
+
+      - name: Test Companion display diagnostics and dashboard
+        shell: powershell
+        run: |
+          ./tests/companion-color.ps1
+          ./tests/companion-color.ps1 -DiagnosticsTest
+
       - name: Build Companion release executable
         shell: cmd
         run: Companion\build.bat

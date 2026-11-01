@@ -1,0 +1,84 @@
+param([Parameter(Mandatory = $true)][string]$OutputDirectory)
+$ErrorActionPreference = 'Stop'
+$root = Split-Path -Parent $PSScriptRoot
+$output = [IO.Path]::GetFullPath($OutputDirectory)
+if (Test-Path -LiteralPath $output) { throw 'Choose a fresh candidate directory.' }
+# A candidate must never replace canonical public artifacts.
+$companionRoot = [IO.Path]::GetFullPath((Join-Path $root 'Companion'))
+if ($output.Equals($companionRoot, [StringComparison]::OrdinalIgnoreCase) -or
+    $output.StartsWith($companionRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Candidate output must be outside the public Companion directory.'
+}
+$publicBinary = Join-Path $companionRoot 'Offhand.exe'
+$publicArchive = Join-Path $companionRoot 'Offhand-Companion.zip'
+$publicHash = (Get-FileHash -LiteralPath $publicBinary).Hash
+$publicArchiveHash = (Get-FileHash -LiteralPath $publicArchive).Hash
+$compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+$source = Join-Path $companionRoot 'Source\Program.cs'
+$appManifest = Join-Path $companionRoot 'Source\app.manifest'
+New-Item -ItemType Directory -Path $output | Out-Null
+$binary = Join-Path $output 'Offhand.exe'
+& $compiler /nologo /target:winexe /optimize+ /platform:anycpu "/out:$binary" "/win32icon:$root\Media\offhand-logo.ico" "/win32manifest:$appManifest" "/resource:$root\Media\offhand-logo-small.png,Offhand.Companion.Resources.offhand-logo.png" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll $source
+if ($LASTEXITCODE -ne 0) { throw 'Candidate compilation failed.' }
+$identity = [Diagnostics.FileVersionInfo]::GetVersionInfo($binary)
+if ($identity.FileVersion -ne '2.1.3.1' -or $identity.ProductVersion -ne '2.1.3-beta.1') {
+    throw 'Candidate executable version does not match the planned release.'
+}
+$archive = Join-Path $output 'Offhand-Companion-v2.1.3-beta.1.zip'
+& (Join-Path $PSScriptRoot 'New-CompanionTestPackage.ps1') -BinaryPath $binary -OutputPath $archive -Version '2.1.3-beta.1' | Out-Null
+$readme = @'
+Offhand Companion 2.1.3 Beta 1: local release candidate, live QA pending.
+
+Exit any other Companion through its tray menu before testing this build.
+This ordinary runtime uses your existing Companion preferences. Preserve your
+known-good public installation and configuration for rollback. Nothing in this
+build has been published to GitHub or the Microsoft Store.
+
+Graphics-reset recovery is enabled only for Retail and Anniversary directories.
+A manual or delayed automatic span must first remain stable to arm it. Restore
+Window, Pause Monitor and display edits cancel recovery. Restarting Companion
+does not infer a recovery arm from an existing span. Three attempts per five
+minutes are allowed; failure or unstable recovery stops automatic retries.
+Other clients retain ordinary Span/Restore without graphics-reset recovery.
+The graininess resize sequence is disabled. Custom regions are not included.
+
+After spanning with a loaded character UI, use /reload once. Test initial span,
+graphics Apply, repeated recovery, Restore, Pause/Resume, display changes and
+cold launch using the source checkout's COMPANION-PRODUCTION-RECOVERY-QA.md.
+Forever graphics-recovery testing stays deferred until November 4.
+'@
+# Replace only the generated README, retaining the same verified executable.
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zip = [IO.Compression.ZipFile]::Open($archive, [IO.Compression.ZipArchiveMode]::Update)
+try {
+    $zip.GetEntry('README.txt').Delete()
+    $entry = $zip.CreateEntry('README.txt')
+    $writer = [IO.StreamWriter]::new($entry.Open(), [Text.UTF8Encoding]::new($false))
+    try { $writer.Write($readme) } finally { $writer.Dispose() }
+} finally { $zip.Dispose() }
+$zip = [IO.Compression.ZipFile]::OpenRead($archive)
+try {
+    if ((@($zip.Entries.FullName | Sort-Object) -join '|') -ne 'LICENSE|Offhand.exe|README.txt') { throw 'Unexpected runtime archive entries.' }
+    $stream = $zip.GetEntry('Offhand.exe').Open()
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { $embeddedHash = [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '') }
+    finally { $stream.Dispose(); $sha.Dispose() }
+    if ($embeddedHash -ne (Get-FileHash -LiteralPath $binary).Hash) { throw 'Archived candidate executable mismatch.' }
+} finally { $zip.Dispose() }
+if ((Get-FileHash -LiteralPath $publicBinary).Hash -ne $publicHash -or
+    (Get-FileHash -LiteralPath $publicArchive).Hash -ne $publicArchiveHash) { throw 'Canonical public artifacts changed.' }
+$dirty = @(& git -C $root status --porcelain --untracked-files=no)
+$record = [ordered]@{
+    version='2.1.3-beta.1'; fileVersion=$identity.FileVersion
+    sourceRevision=(& git -C $root rev-parse HEAD).Trim(); trackedChanges=[bool]$dirty.Count
+    programSha256=(Get-FileHash -LiteralPath $source).Hash
+    appManifestSha256=(Get-FileHash -LiteralPath $appManifest).Hash
+    binarySha256=(Get-FileHash -LiteralPath $binary).Hash
+    archiveSha256=(Get-FileHash -LiteralPath $archive).Hash
+    frozenPublicSha256=$publicHash; frozenArchiveSha256=$publicArchiveHash
+    recoveryClients=@('_retail_', '_anniversary_'); liveVerification='pending'
+}
+$record | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $output 'candidate.json') -Encoding UTF8
+@("$($record.binarySha256)  Offhand.exe", "$($record.archiveSha256)  $([IO.Path]::GetFileName($archive))") |
+    Set-Content -LiteralPath (Join-Path $output 'checksums-sha256.txt') -Encoding ASCII
+Write-Output "Built and verified: $archive"
