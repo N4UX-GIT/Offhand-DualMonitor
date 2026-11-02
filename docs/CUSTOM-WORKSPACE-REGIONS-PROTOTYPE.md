@@ -10,6 +10,16 @@ contract. This is separate from multiple independent workspace regions.
 
 ## Save validation follow-up (prototype 5)
 
+Unpublished portable package: `dist/custom-workspace-regions-prototype-5/Offhand.exe`
+and adjacent `Offhand-Companion-v2.1.3-beta.1.zip`, built from clean tracked source
+`0df1f29ce7240f6e791ace6bd9b652db61037818`.
+
+- EXE SHA-256: `150F56776371E779083D4891D126E8BFF6DBC5BF6A2C48CC3C3EB32D1A8E8898`
+- ZIP SHA-256: `4B4252C732953CD8127C24DB3F26B8DA2065889B759E5B20DAA51E7E90D25A9E`
+
+Packaging verified executable parity, archive contents and unchanged frozen
+public artifacts. This build has no new packaged desktop or game acceptance claim.
+
 Custom-region Save now reads the current display list immediately before atomic
 preferences publication and validates enabled custom plans against that snapshot.
 The editor still validates pending inputs, and Span retains its separate current-
