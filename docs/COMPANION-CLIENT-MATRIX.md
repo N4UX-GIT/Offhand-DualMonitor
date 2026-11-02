@@ -8,9 +8,19 @@ freely positioned 782x1290 workspace on an offset portrait monitor. Evidence
 covers native apply and complex clipping, schema 1 `READY`/`MATCH`, matching
 WorldFrame before and after UI reload, Character panel placement, exact native
 Restore, and no fresh BugGrabber records. Both test apps closed normally; nine
-original files were restored and hash-verified. Mixed-DPI, live hotplug, HUD,
-protected actions, cold restart and other clients remain outside this new mode's
-live acceptance. See [the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md).
+original files were restored and hash-verified. A subsequent Retail cold restart
+passed saved-plan loading, manual-only apply, actual native clipping point checks,
+Character panel restoration, viewport matching and exact Restore, with the same
+cleanup and no fresh BugGrabber records.
+
+A targeted Anniversary `2.5.6.70577` run with unchanged installed
+`2.1.2-beta.24-tbc-test.11` passed apply, a matching pre-reload viewport diagnostic,
+Character panel reload persistence, retained native clipping and exact native
+Restore. Fourteen originals were restored and hash-verified. Its error stores
+were unchanged but BugGrabber/BugSack were disabled, so no fresh runtime error
+audit is claimed. Mixed-DPI, live hotplug, HUD generation, protected actions and
+other clients remain outside this new mode's live acceptance.
+See [the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md).
 
 ## 2 November: custom workspace prototype
 

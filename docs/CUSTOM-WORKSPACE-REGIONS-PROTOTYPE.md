@@ -100,11 +100,51 @@ native before/apply/reload/Restore snapshots, applied bridge bytes, full game
 screenshots and before/after SavedVariables. This establishes the initial
 two-monitor viewport and reload path on this physical 100%/100% SDR setup.
 
+### Cold restart and Anniversary follow-up, 2 November 2026
+
+The same immutable prototype 3 executable passed a further Retail cold-start run
+using the saved test preferences and AUTO account/character state from the prior
+run. Companion reopened with both monitor selections, the 782x1290 workspace and
+auto-span disabled. A newly launched Retail process stayed at its ordinary
+`(208,0) 2144x1392` window until the explicit Span action. Manual apply recreated
+`(-940,-200) 3500x1640` with complex clipping. Seven point checks read from the
+actual WoW window region included game/workspace points and excluded unused
+secondary areas and the internal gap. These are region-membership checks, not a
+separate desktop click-through test.
+
+The Character panel returned within the workspace on cold entry. A newly executed
+private diagnostic, flushed by UI reload, again recorded `READY`, version `MATCH`
+and `viewportMatches=true` with WorldFrame approximately `(940,0) 2560x1440`.
+Native bounds and clipping survived reload. Restore recovered the exact ordinary
+window bounds/style and removed the region. Both apps exited normally, nine
+original files were restored and hash-verified, and BugGrabber changed only its
+session counter from 342 to 344. No fresh error record was stored.
+Private evidence: `dist/live-qa-secondary-cold-retail-20261102-124544`.
+
+A separate targeted run passed on Anniversary `2.5.6.70577`, with the unchanged
+installed `2.1.2-beta.24-tbc-test.11` addon, protocol 1, and the selected idle
+character on Spineshatter. Its existing geometry preference was already AUTO.
+The same secondary rectangle produced native `(-940,-200) 3500x1640`, style
+`140B0000`, and a complex region. The pre-reload diagnostic flushed by reload
+reported `READY`, version `MATCH`, and `viewportMatches=true` with the expected
+game/workspace rectangles and WorldFrame. Native clipping survived reload; full
+game screenshots show the Character panel in the workspace before and after it.
+No fresh post-reload viewport diagnostic or panel drag was performed in this run.
+
+Anniversary Restore exactly recovered `(215,0) 2130x1392`, style `14CF0000`, and no
+region. This is native window restoration evidence; the installed addon still
+displayed its old viewport until subsequent refresh/reload. Both apps exited
+normally, and fourteen original files were restored and hash-verified. Both
+backed-up BugGrabber stores were unchanged, but BugGrabber/BugSack were disabled
+for this client, so this is not a fresh runtime error audit. HUD generation and
+protected actions were not exercised.
+Private evidence: `dist/live-qa-secondary-anniversary-20261102-125732`.
+
 Shared knowledge routing reported a gap. The local `GetCompanionTopology`,
 `GetMetrics`, persistence and production native planner/clipping source, plus
 the fixture and targeted live results above, support the data-contract decision.
-Mixed-DPI desktop selection, live hotplug, HUD generation, protected actions,
-secondary-area cold restart and other game clients remain unverified for this
+Mixed-DPI desktop selection, live hotplug, HUD generation, protected actions and
+clients beyond the targeted Retail/Anniversary runs remain unverified for this
 new mode. Oversized game-options tooltips remain a separate reported issue.
 
 2 November 2026. Explicitly authorized initial runtime implementation on
