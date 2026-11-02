@@ -49,6 +49,7 @@ namespace Offhand.Companion
             foreach (Point origin in new Point[] { Point.Empty, new Point(-5120, -1440) })
             foreach (string edge in new string[] { "LEFT", "RIGHT" })
             foreach (string side in new string[] { "LEFT", "RIGHT" })
+            foreach (bool secondary in new bool[] {false,true})
             for (int clipped = 0; clipped < 2; clipped++)
             for (int stage = 0; stage < 5; stage++)
             using (var window = new Form())
@@ -64,6 +65,15 @@ namespace Offhand.Companion
                     {"PartialWidth","1920"}, {"PartialWorkspaceWidth","640"},
                     {"PartialEdge",edge}, {"PartialGameSide",side}
                 };
+                if(secondary) {
+                    displays.Add(new MonitorSelection.Display {Index=1,StableId="secondary",DeviceName="secondary",
+                        Bounds=new Rectangle(origin.X-1440,origin.Y-1114,1440,2560)});
+                    settings["PartialSpanEnabled"]="False";settings["SecondaryAreaEnabled"]="True";
+                    settings["MonitorIdentities"]="custom|secondary";settings["SecondaryAreaIdentity"]="secondary";
+                    settings["SecondaryMonitorWidth"]="1440";settings["SecondaryMonitorHeight"]="2560";
+                    settings["SecondaryAreaX"]="800";settings["SecondaryAreaY"]="1114";
+                    settings["SecondaryAreaWidth"]="640";settings["SecondaryAreaHeight"]="1440";
+                }
                 var plan = MonitorSelection.CreatePlan(settings, displays);
                 IntPtr handle = window.Handle;
                 IntPtr expected = clipped == 1 ? Shape() : IntPtr.Zero;
@@ -107,7 +117,7 @@ namespace Offhand.Companion
                     Verify(handle, prior, style, expected);
                 } finally { if (expected != IntPtr.Zero) NativeMethods.DeleteObject(expected); }
             }
-            Console.WriteLine("PASS: 80 custom native rollback cases, both edges/sides/origins, prior clipping or none, five failure stages");
+            Console.WriteLine("PASS: 160 single/secondary custom native rollback cases, both origins, prior clipping or none, five failure stages");
         }
 
         [STAThread]

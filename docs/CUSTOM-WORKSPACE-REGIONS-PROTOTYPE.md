@@ -4,6 +4,59 @@ Update, 2 November: prototype 2 adds a visual desktop selection overlay to the
 same single-monitor geometry. Prototype 1 and its live game evidence below remain
 immutable. See the visual-editor section for the new workflow and evidence.
 
+Update: prototype 3 adds a full game monitor plus a freely positioned rectangular
+workspace on a second monitor, still using the existing schema 1 single-workspace
+contract. This is separate from multiple independent workspace regions.
+
+## Two-monitor custom workspace (prototype 3)
+
+Open **Custom region... > Two-monitor workspace...**. Choose distinct game and
+workspace monitors. The game uses its full monitor. Define the workspace by
+monitor-local physical left/top offsets, width and height, or use **Select
+workspace on monitor...** to move the rectangle and resize its edges/corners.
+Arrow keys move it by 10 pixels, Enter accepts, and Escape cancels. **Use
+selection** changes pending fields; **Save plan** validates and atomically saves
+both monitor selections. **Span WoW Now** remains manual. Disabling this mode
+returns to ordinary monitor planning; saving a single-monitor custom layout
+replaces it. The two custom modes cannot be active together.
+
+The existing schema 1 `DUAL_DISPLAY` bridge already accepts one full game
+rectangle and one arbitrary workspace rectangle. No addon runtime change is
+needed for this data contract. The native bounds are their outer union; clipping
+contains only those two rectangles, excluding unused secondary pixels and
+physical voids. The editor reports the backing dimensions and pixel count because
+clipping does not remove the underlying bounding-surface cost.
+
+Guards require two selected connected monitors, matching workspace identity and
+saved resolution, a workspace contained within its monitor with at least
+480x600 pixels, no game/workspace overlap and a union no larger than 32768 pixels
+per axis. These are physical guardrails, not universal panel-readability claims.
+Custom secondary plans disable auto-span and automatic graphics-reset recovery.
+Three or more selected monitors and multiple workspace regions are not supported.
+
+Automated evidence includes four secondary layouts (offset portrait, internal
+gap, right and above), actual GDI point membership excluding unused pixels/voids,
+malformed and overflowing preferences, disconnected/changed displays, overlap,
+conflicting modes and return to ordinary full-monitor planning. Actual generated
+C# bridges pass Lua viewport and saved-position round trips at two UI scales.
+The dialog passes 100/125/150/200% layout checks. Native rollback now covers
+160 single/secondary custom cases and 2157 assertions per x64/x86 build. The
+existing recovery-policy suite passes 112 assertions.
+
+Desktop QA on the physical 1440x2560 monitor at `(-1440,-1114)`, 100% scale,
+passed overlay placement, a free drag from local `(800,1114)` to `(500,914)`,
+corner resizing from 640x1440 to 782x1290, Enter acceptance, preview of a
+3500x1640 backing surface, and Save selecting both monitors with custom recovery
+disabled. No game was launched during this editor test. Companion exited
+normally; the exact original preferences were restored and hash-verified.
+Private evidence is under ignored `dist/live-qa-secondary-editor-*`.
+
+Shared knowledge routing reported a gap. The local `GetCompanionTopology`,
+`GetMetrics`, persistence and production native planner/clipping source, plus
+the fixture results above, support the data-contract decision. This does not yet
+establish live game, mixed-DPI, hotplug, HUD or protected-action acceptance for
+the new secondary-area mode.
+
 2 November 2026. Explicitly authorized initial runtime implementation on
 `codex/custom-workspace-regions`, based on prepared Companion source `a4684a1`.
 This overrides the previous deferral for stage 0 only. Unpublished; schema 2,

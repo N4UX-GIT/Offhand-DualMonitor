@@ -53,6 +53,77 @@ namespace Offhand.Companion
             string root = args[0];
             string core = Path.Combine(root, "Interface", "AddOns", "Offhand", "Core");
             Directory.CreateDirectory(core);
+            Rectangle[] secondaryMonitors = {
+                new Rectangle(-1440,-1114,1440,2560), new Rectangle(-1440,-1114,1440,2560),
+                new Rectangle(2560,0,1920,1080), new Rectangle(0,-1440,2560,1440)
+            };
+            Rectangle[] localAreas = {new Rectangle(800,1114,640,1440),new Rectangle(100,200,640,1200),
+                new Rectangle(200,100,800,800),new Rectangle(100,200,1000,800)};
+            for(int fixture=0;fixture<secondaryMonitors.Length;fixture++) {
+                var game=new Rectangle(0,0,2560,1440);var monitor=secondaryMonitors[fixture];var area=localAreas[fixture];
+                var displays=new List<MonitorSelection.Display> {
+                    new MonitorSelection.Display {Index=0,StableId="game",DeviceName="game",Bounds=game},
+                    new MonitorSelection.Display {Index=1,StableId="workspace",DeviceName="workspace",Bounds=monitor}
+                };
+                var settings=new Dictionary<string,string> {
+                    {"DisplayIdentityVersion","1"},{"MonitorIdentities","game|workspace"},{"MainhandIdentity","game"},
+                    {"SecondaryAreaEnabled","True"},{"SecondaryAreaIdentity","workspace"},
+                    {"SecondaryMonitorWidth",monitor.Width.ToString()},{"SecondaryMonitorHeight",monitor.Height.ToString()},
+                    {"SecondaryAreaX",area.X.ToString()},{"SecondaryAreaY",area.Y.ToString()},
+                    {"SecondaryAreaWidth",area.Width.ToString()},{"SecondaryAreaHeight",area.Height.ToString()}
+                };
+                var plan=MonitorSelection.CreatePlan(settings,displays);
+                var world=new Rectangle(monitor.X+area.X,monitor.Y+area.Y,area.Width,area.Height);
+                if(!plan.IsCustom||!plan.PartialSecondary||plan.PartialSingle||plan.SplitSingle
+                    ||plan.MainhandBounds!=game||plan.WorkspaceBounds!=world||plan.Bounds!=Rectangle.Union(game,world))
+                    throw new Exception("Secondary custom workspace geometry mismatch.");
+                IntPtr clip=SpanClipRegion.Create(plan,plan.Bounds);
+                try {
+                    for(int px=plan.Bounds.Left;px<plan.Bounds.Right;px+=113)
+                    for(int py=plan.Bounds.Top;py<plan.Bounds.Bottom;py+=127)
+                        if(PtInRegion(clip,px-plan.Bounds.X,py-plan.Bounds.Y)!=(game.Contains(px,py)||world.Contains(px,py)))
+                            throw new Exception("Native clipping included reserved secondary pixels or a physical void.");
+                } finally {NativeMethods.DeleteObject(clip);}
+                foreach(string key in new string[] {"SecondaryAreaX","SecondaryAreaY","SecondaryAreaWidth","SecondaryAreaHeight","SecondaryMonitorWidth","SecondaryMonitorHeight","SecondaryAreaIdentity"}) {
+                    var bad=new Dictionary<string,string>(settings);bad[key]="invalid";bool rejected=false;
+                    try{MonitorSelection.CreatePlan(bad,displays);}catch(InvalidOperationException){rejected=true;}
+                    if(!rejected)throw new Exception("Invalid secondary preference accepted: "+key);
+                }
+                foreach(string key in new string[] {"SecondaryAreaX","SecondaryAreaY","SecondaryAreaWidth","SecondaryAreaHeight"}) {
+                    var bad=new Dictionary<string,string>(settings);bad[key]="2147483647";bool rejected=false;
+                    try{MonitorSelection.CreatePlan(bad,displays);}catch(InvalidOperationException){rejected=true;}
+                    if(!rejected)throw new Exception("Secondary rectangle overflow accepted: "+key);
+                }
+                var conflicting=new Dictionary<string,string>(settings);conflicting["PartialSpanEnabled"]="True";
+                bool conflictRejected=false;try{MonitorSelection.CreatePlan(conflicting,displays);}catch(InvalidOperationException){conflictRejected=true;}
+                if(!conflictRejected)throw new Exception("Conflicting custom modes accepted.");
+                var stale=new Dictionary<string,string>(settings);stale["SecondaryMonitorWidth"]=(monitor.Width+1).ToString();
+                bool staleRejected=false;try{MonitorSelection.CreatePlan(stale,displays);}catch(InvalidOperationException){staleRejected=true;}
+                if(!staleRejected)throw new Exception("Changed secondary monitor resolution accepted.");
+                var missing=new List<MonitorSelection.Display> {displays[0]};
+                bool missingRejected=false;try{MonitorSelection.CreatePlan(settings,missing);}catch(InvalidOperationException){missingRejected=true;}
+                if(!missingRejected)throw new Exception("Disconnected secondary monitor accepted.");
+                var clone=new List<MonitorSelection.Display> {displays[0],new MonitorSelection.Display {
+                    Index=1,StableId="workspace",DeviceName="clone",Bounds=game}};
+                var overlap=new Dictionary<string,string>(settings);overlap["SecondaryMonitorWidth"]="2560";overlap["SecondaryMonitorHeight"]="1440";
+                overlap["SecondaryAreaX"]="0";overlap["SecondaryAreaY"]="0";
+                bool overlapRejected=false;try{MonitorSelection.CreatePlan(overlap,clone);}catch(InvalidOperationException){overlapRejected=true;}
+                if(!overlapRejected)throw new Exception("Overlapping game/workspace accepted.");
+                var ordinary=new Dictionary<string,string>(settings);ordinary["SecondaryAreaEnabled"]="False";
+                var normal=MonitorSelection.CreatePlan(ordinary,displays);
+                if(normal.IsCustom||normal.WorkspaceBounds!=monitor)throw new Exception("Disabling secondary custom area changed ordinary display planning.");
+                var selection=new WorkspaceAreaSelection(monitor.Size,area);
+                selection.Drag(area,new Point(-20000,20000),0);
+                if(selection.Area.Left!=0||selection.Area.Bottom!=monitor.Height)throw new Exception("Workspace move did not clamp to monitor.");
+                selection.Drag(area,new Point(20000,20000),5);
+                if(selection.Area.Width!=480||selection.Area.Height!=600)throw new Exception("Workspace corner resize lost minimum dimensions.");
+                string message;byte[] bytes;
+                if(!CompanionTopologyBridge.TryWrite(root,plan,displays,out message,out bytes))throw new Exception(message);
+                File.WriteAllBytes(Path.Combine(root,"secondary"+(fixture+1)+".lua"),bytes);
+                string expected=string.Format("return {{width={0},height={1},x={2},y={3},w={4},h={5}}}",plan.Bounds.Width,plan.Bounds.Height,world.Left-plan.Bounds.Left,plan.Bounds.Bottom-world.Bottom,area.Width,area.Height);
+                File.WriteAllText(Path.Combine(root,"secondary"+(fixture+1)+"-expected.lua"),expected);
+            }
+            Console.WriteLine("PASS: four secondary area layouts, native reserved-pixel/void clipping, invalid settings, mode transition and rectangle gestures");
             int count = 0;
             foreach (Point origin in new Point[] { Point.Empty, new Point(-5120, -1440) })
             foreach (bool occupiedRight in new bool[] { false, true })

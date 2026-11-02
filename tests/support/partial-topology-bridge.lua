@@ -61,3 +61,31 @@ for index = 1, 8 do
 end
 print("PASS: " .. checks .. " generated C# to Lua partial-topology acceptance/rejection cases")
 print("PASS: " .. positions .. " partial-workspace metric and saved-position round trips")
+for index=1,4 do
+    assert(loadfile(root .. "/secondary" .. index .. ".lua"))()
+    local expected=assert(loadfile(root .. "/secondary" .. index .. "-expected.lua"))()
+    local topology=OffhandCompanionTopology
+    assert(topology.mode=="DUAL_DISPLAY" and topology.schema==1)
+    assert(topology.workspace.x==expected.x and topology.workspace.y==expected.y)
+    assert(topology.workspace.width==expected.w and topology.workspace.height==expected.h)
+    for _,scale in ipairs({1,0.5}) do
+        UIParent={GetWidth=function()return expected.width*scale end,GetHeight=function()return expected.height*scale end}
+        GetPhysicalScreenSize=function()return expected.width,expected.height end
+        local metrics=addon.Viewport:GetMetrics()
+        assert(metrics.companionTopology and metrics.topologyStatus=="READY")
+        assert(math.abs(metrics.workspaceLeft-expected.x*scale)<0.001)
+        assert(math.abs(metrics.workspaceBottom-expected.y*scale)<0.001)
+        assert(math.abs(metrics.workspaceWidth-expected.w*scale)<0.001)
+        assert(math.abs(metrics.workspaceHeight-expected.h*scale)<0.001)
+        local persistence=addon.CanvasPersistence
+        local x,y=persistence.ResolveWorkspacePosition(metrics,{x=1500,y=1200,canvasLeft=0,canvasBottom=0,canvasWidth=1440,canvasHeight=2560},200*scale,250*scale,false)
+        assert(x>=metrics.workspaceLeft and x+200*scale<=metrics.workspaceRight)
+        assert(y-250*scale>=metrics.workspaceBottom and y<=metrics.workspaceTop)
+        local saved=assert(persistence.CreateWorkspacePosition(metrics,x,y,200*scale,250*scale,false))
+        local rx,ry=persistence.ResolveWorkspacePosition(metrics,saved,200*scale,250*scale,false)
+        assert(math.abs(rx-x)<0.001 and math.abs(ry-y)<0.001)
+        local accepted,status=addon.Viewport:GetCompanionTopology(expected.width,expected.height,expected.width*scale*0.75,expected.height*scale)
+        assert(not accepted and status=="MISMATCH")
+    end
+end
+print("PASS: secondary workspace C# to Lua metrics, offset persistence and stale-canvas rejection at two UI scales")

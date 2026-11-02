@@ -50,12 +50,16 @@ Forever graphics-recovery testing stays deferred until November 4.
 if ($CustomRegionsPrototype) {
     $readme = $readme.Replace('local release candidate, live QA pending.', 'CUSTOM WORKSPACE REGIONS PROTOTYPE, unpublished.')
     $readme = $readme.Replace('Custom regions are not included.', @'
-Custom region opens an experimental single-display partial-span editor.
+Custom region opens an experimental custom-layout editor.
 Save plan changes settings only; Span WoW Now applies it. Set occupied width,
 workspace width, monitor edge and game side. Reserved pixels remain outside WoW.
 Select area on monitor opens a visual overlay. Drag its dividers to resize,
 drag the occupied area to snap between monitor edges, or swap the two sides.
 Use selection returns to the editor; Save plan commits settings. Escape cancels.
+Two-monitor workspace keeps the full game monitor and selects one rectangular
+workspace on a second monitor. Move or resize its overlay, or enter its offsets
+and dimensions. Unused secondary pixels and physical gaps are clipped. The
+preview reports the backing surface, which can include clipped pixels.
 Custom regions are manual-only; graphics-reset recovery is not armed for them.
 Use Restore Window to return to the ordinary window. Disable Use custom region
 in the editor to return to the existing two-display or equal-half modes.

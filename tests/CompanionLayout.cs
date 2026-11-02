@@ -204,6 +204,33 @@ namespace Offhand.Companion
                 if (overlay.DialogResult != (finish == Keys.Enter ? DialogResult.OK : DialogResult.Cancel))
                     throw new Exception("Overlay keyboard completion depends on focused button.");
             }
+            foreach(float factor in new float[] {1f,1.25f,1.5f,2f})
+            using(var dialog=new SecondaryAreaDialog(new List<MonitorSelection.Display> {
+                new MonitorSelection.Display {Index=0,StableId="game",DeviceName="game",Bounds=new Rectangle(0,0,2560,1440)},
+                new MonitorSelection.Display {Index=1,StableId="work",DeviceName="work",Bounds=new Rectangle(-1440,-1114,1440,2560)}
+            },new Dictionary<string,string>())) {
+                dialog.CreateControl();dialog.Scale(new SizeF(factor,factor));LayoutAll(dialog);
+                var scroll=dialog.Controls.OfType<Panel>().Single(p=>p.AutoScroll);
+                foreach(Control c in Descendants(dialog).Where(c=>c is NumericUpDown || c is ComboBox || c is CheckBox || (c is Button && c.Text.StartsWith("Select workspace")))) {
+                    Rectangle b=BoundsInside(c,scroll);
+                    if(b.Left<0||b.Right>scroll.ClientSize.Width)throw new Exception("Secondary area editor clipped at "+factor+"x: "+c.Text);
+                }
+                if(dialog.Settings!=null)throw new Exception("Opening secondary editor committed settings.");
+                string preview=Environment.GetEnvironmentVariable("OFFHAND_LAYOUT_PREVIEW");
+                if(factor==1f&&!string.IsNullOrEmpty(preview))using(var bitmap=new Bitmap(dialog.ClientSize.Width,dialog.ClientSize.Height)) {
+                    using(var graphics=Graphics.FromImage(bitmap))graphics.Clear(dialog.BackColor);
+                    RenderChildren(dialog,bitmap,Point.Empty);bitmap.Save(preview+".secondary.png",System.Drawing.Imaging.ImageFormat.Png);
+                }
+            }
+            foreach(Keys finish in new Keys[] {Keys.Enter,Keys.Escape})
+            using(var overlay=new WorkspaceAreaOverlay(new Rectangle(-1440,-1114,1440,2560),
+                new WorkspaceAreaSelection(new Size(1440,2560),new Rectangle(100,200,640,1440)))) {
+                var handler=typeof(WorkspaceAreaOverlay).GetMethod("ProcessCmdKey",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic);
+                handler.Invoke(overlay,new object[] {new Message(),Keys.Right});handler.Invoke(overlay,new object[] {new Message(),Keys.Down});
+                if(overlay.Selection.Area.Location!=new Point(110,210))throw new Exception("Secondary overlay arrow movement failed.");
+                handler.Invoke(overlay,new object[] {new Message(),finish});
+                if(overlay.DialogResult!=(finish==Keys.Enter?DialogResult.OK:DialogResult.Cancel))throw new Exception("Secondary overlay keyboard completion failed.");
+            }
             Console.WriteLine("PASS: complete dashboard fits working areas, avoids horizontal overflow and retains separated selectors at 100%, 125%, 150%, and 200% scaling");
         }
     }
