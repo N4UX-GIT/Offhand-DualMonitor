@@ -61,6 +61,32 @@ namespace Offhand.Companion
                 }
                 var equal = new Dictionary<string,string>(settings); equal["PartialSpanEnabled"] = "False"; equal["SingleDisplaySplit"] = "True";
                 if (MonitorSelection.CreatePlan(equal, displays).Bounds != monitor) throw new Exception("Equal-half fallback changed.");
+                var equalPlan = MonitorSelection.CreatePlan(equal, displays);
+                if (equalPlan.PartialSingle || equalPlan.WorkspaceBounds.Width != 2560 || equalPlan.MainhandBounds.Width != 2560)
+                    throw new Exception("Leaving custom mode retained partial geometry in the equal-half plan.");
+                var dualDisplays = new List<MonitorSelection.Display>(displays) {
+                    new MonitorSelection.Display { Index=1, StableId="second", DeviceName="second", Bounds=new Rectangle(origin.X-1920, origin.Y, 1920, 1440) }
+                };
+                var dual = new Dictionary<string,string>(settings);
+                dual["MonitorIdentities"] = "fixture|second";
+                bool multipleRejected = false;
+                try { MonitorSelection.CreatePlan(dual, dualDisplays); } catch (InvalidOperationException) { multipleRejected = true; }
+                if (!multipleRejected) throw new Exception("Custom mode accepted multiple selected physical displays.");
+                dual["PartialSpanEnabled"] = "False";
+                var dualPlan = MonitorSelection.CreatePlan(dual, dualDisplays);
+                if (dualPlan.PartialSingle || dualPlan.Bounds != Rectangle.Union(monitor, dualDisplays[1].Bounds)
+                    || dualPlan.MainhandBounds != monitor || dualPlan.WorkspaceBounds != dualDisplays[1].Bounds)
+                    throw new Exception("Leaving custom mode retained partial geometry in the two-display plan.");
+                if (MonitorSelection.CreatePlan(settings, displays).Bounds != occupied)
+                    throw new Exception("Returning to custom mode lost its saved geometry.");
+                foreach (Size changedSize in new Size[] {new Size(5121,1440), new Size(5120,1441)}) {
+                    var changedDisplays = new List<MonitorSelection.Display> {
+                        new MonitorSelection.Display { Index=0, StableId="fixture", DeviceName="partial-fixture", Bounds=new Rectangle(origin, changedSize) }
+                    };
+                    bool changedRejected = false;
+                    try { MonitorSelection.CreatePlan(settings, changedDisplays); } catch (InvalidOperationException) { changedRejected = true; }
+                    if (!changedRejected) throw new Exception("Custom plan accepted a changed physical monitor resolution.");
+                }
                 var renamed = new List<MonitorSelection.Display> {new MonitorSelection.Display { Index=0, StableId="fixture", DeviceName="renumbered", Bounds=monitor }};
                 if (MonitorSelection.CreatePlan(settings, renamed).Bounds != occupied) throw new Exception("Stable identity did not survive renumbering.");
                 foreach (string badWorkspace in new string[] {"0", "479", "4080", "3440", "-2147483648", "2147483647"}) {

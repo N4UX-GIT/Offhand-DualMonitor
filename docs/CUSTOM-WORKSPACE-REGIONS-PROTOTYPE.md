@@ -112,11 +112,49 @@ Battle.net remains open. Private native JSON, activity logs, before/after files
 and cleanup evidence are ignored under
 `dist/live-qa-custom-regions-20261102-023329`.
 
+## Follow-up live QA, 2026-11-02 07:28 to 07:43 CET
+
+Same immutable prototype executable, Retail build and installed addon pairing as
+above. The original nine configuration/profile/bridge files were backed up before
+replaying the earlier QA geometry. No addon source was deployed.
+
+- Character-frame diagnostics reported movable and Offhand-hooked. Dragging from
+  physical `(280,510)` to `(340,280)` moved the panel from approximately `(56,492)`
+  to `(116,262)`, entirely within the 640-pixel workspace. The earlier attempt
+  started higher on the title bar. This successful gesture resolves the focused
+  drag follow-up without a runtime code change; it does not prove every title-bar
+  pixel is a drag surface.
+- The moved position survived `/reload` at 07:38. Before/after screenshots and
+  the closed-session saved workspace position were retained as private evidence.
+- Restore, disable custom, select the existing equal-half split, and manual Apply
+  at 07:40:27 produced native `(0,0) 2560x1440`, style `140B0000`, region type 2,
+  with game/workspace widths 1280/1280. Ordinary graphics recovery armed after
+  stable verification. Disabling custom alone requires selecting a valid ordinary
+  plan, as documented above.
+- Restore, reopen the editor, and re-enable custom retained the saved 1920/640
+  dimensions. Saving did not resize WoW. Manual Apply at 07:42:02 returned native
+  `(0,0) 1920x1440`, style `140B0000`, region type 2; custom mode again reported
+  automatic graphics recovery disabled.
+- Final Restore returned `(215,0) 2130x1392`, style `14CF0000`, no clipping.
+  Both processes exited normally. All nine original files were restored and
+  hash-verified after zero QA processes remained. BugGrabber differs only in its
+  session counter, 337 to 339, with no new error records or counter changes.
+
+Private evidence: `dist/live-qa-custom-drag-20261102-072815`. Optional native HUD
+regeneration was not invoked; its acceptance limitation remains unchanged.
+
+The production topology regression suite now also checks custom to equal-half,
+custom to two-display, return to custom, rejection of multiple selected displays
+while custom is enabled, and rejection of changed physical monitor resolutions,
+across both edges/sides and negative origins. It passed together with the existing
+64 C# to Lua acceptance/rejection cases and 32 persistence/metric round trips.
+
 ## Initial implementation confidence and remaining release scope
 
 The initial contiguous single-display workflow works on this Retail pairing:
 editor, validated settings, native apply with reserved app space, direct schema 1
-viewport, reload, fitting-panel reopen, process restart and Restore. The existing
+viewport, panel dragging and persisted placement, reload, fitting-panel reopen,
+process restart, switching to/from the ordinary equal-half mode and Restore. The existing
 addon required no runtime changes for this path.
 
 Broader release acceptance still includes other clients, the physical 5120-wide
@@ -128,7 +166,7 @@ Use the existing HUD setup/recovery flow when adopting new geometry. Do not
 claim all HUD controls fit based solely on the WorldFrame PASS.
 
 The 640-pixel example does not accept arbitrary oversized panels or talents
-readability. The title-drag attempt also remains a focused follow-up. Schema 2,
+readability. Schema 2,
 multiple regions and automatic custom-region recovery are future work.
 
 ## Evidence routing
