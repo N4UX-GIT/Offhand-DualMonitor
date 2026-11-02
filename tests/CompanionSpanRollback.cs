@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -40,6 +41,75 @@ namespace Offhand.Companion
             finally { NativeMethods.DeleteObject(read); }
         }
 
+        private static void CheckCustomRollback(string root)
+        {
+            string core = Path.Combine(root, "Interface", "AddOns", "Offhand", "Core");
+            Directory.CreateDirectory(core);
+            string path = Path.Combine(core, "CompanionTopology.lua");
+            foreach (Point origin in new Point[] { Point.Empty, new Point(-5120, -1440) })
+            foreach (string edge in new string[] { "LEFT", "RIGHT" })
+            foreach (string side in new string[] { "LEFT", "RIGHT" })
+            for (int clipped = 0; clipped < 2; clipped++)
+            for (int stage = 0; stage < 5; stage++)
+            using (var window = new Form())
+            {
+                var displays = new List<MonitorSelection.Display> {
+                    new MonitorSelection.Display { Index=0, StableId="custom", DeviceName="custom",
+                        Bounds=new Rectangle(origin, new Size(2560,1440)), Primary=true }
+                };
+                var settings = new Dictionary<string,string> {
+                    {"DisplayIdentityVersion","1"}, {"MonitorIdentities","custom"}, {"MainhandIdentity","custom"},
+                    {"PartialSpanEnabled","True"}, {"PartialDisplayIdentity","custom"},
+                    {"PartialMonitorWidth","2560"}, {"PartialMonitorHeight","1440"},
+                    {"PartialWidth","1920"}, {"PartialWorkspaceWidth","640"},
+                    {"PartialEdge",edge}, {"PartialGameSide",side}
+                };
+                var plan = MonitorSelection.CreatePlan(settings, displays);
+                IntPtr handle = window.Handle;
+                IntPtr expected = clipped == 1 ? Shape() : IntPtr.Zero;
+                try {
+                    if (clipped == 1) Check(NativeMethods.SetWindowRgn(handle, Shape(), false) != 0, "custom prior clipping");
+                    NativeMethods.RECT prior;
+                    Check(NativeMethods.GetWindowRect(handle, out prior), "custom prior bounds");
+                    int style = NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE);
+                    byte[] original = new byte[] { 255,254,0,16,200 };
+                    File.WriteAllBytes(path, original);
+                    using (var rollback = new SpanRollback(path, handle)) {
+                        string message; byte[] written;
+                        Check(CompanionTopologyBridge.TryWrite(root, plan, displays, out message, out written), "custom production topology write: " + message);
+                        rollback.TopologyWritten(written);
+                        if (stage > 0) {
+                            rollback.WindowChanged = true;
+                            NativeMethods.SetWindowLong(handle, NativeMethods.GWL_STYLE, style & ~(NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME));
+                        }
+                        if (stage > 1) {
+                            IntPtr region = SpanClipRegion.Create(plan, plan.Bounds);
+                            if (NativeMethods.SetWindowRgn(handle, region, false) == 0) {
+                                NativeMethods.DeleteObject(region);
+                                throw new Exception("Could not install production custom clipping.");
+                            }
+                        }
+                        if (stage > 2)
+                            Check(NativeMethods.SetWindowPos(handle, IntPtr.Zero, plan.Bounds.X, plan.Bounds.Y,
+                                plan.Bounds.Width, plan.Bounds.Height, 0x0034), "custom native resize");
+                        if (stage > 3) {
+                            NativeMethods.RECT actual;
+                            Check(NativeMethods.GetWindowRect(handle, out actual) && actual.Left == plan.Bounds.X
+                                && actual.Top == plan.Bounds.Y && actual.Width == plan.Bounds.Width
+                                && actual.Height == plan.Bounds.Height, "custom applied bounds before verification failure: "
+                                + actual.Left + "," + actual.Top + " " + actual.Width + "x" + actual.Height + " expected " + plan.Bounds);
+                        }
+                        // Fail at file, style, clipping, bounds or readback verification.
+                        Check(rollback.Rollback() == null, "custom rollback after stage " + stage);
+                        Check(rollback.Rollback() == null, "custom rollback remains idempotent");
+                    }
+                    Check(SpanRollback.SameBytes(File.ReadAllBytes(path), original), "custom raw topology bytes restored");
+                    Verify(handle, prior, style, expected);
+                } finally { if (expected != IntPtr.Zero) NativeMethods.DeleteObject(expected); }
+            }
+            Console.WriteLine("PASS: 80 custom native rollback cases, both edges/sides/origins, prior clipping or none, five failure stages");
+        }
+
         [STAThread]
         public static void Main()
         {
@@ -48,6 +118,7 @@ namespace Offhand.Companion
             Directory.CreateDirectory(root);
             try
             {
+                CheckCustomRollback(root);
                 for (int clipped = 0; clipped < 2; clipped++)
                 for (int stage = 0; stage < 5; stage++)
                 using (var window = new Form())

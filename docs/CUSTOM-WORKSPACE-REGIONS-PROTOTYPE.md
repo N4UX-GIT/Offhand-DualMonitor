@@ -151,6 +151,23 @@ across both edges/sides and negative origins. It passed together with the existi
 
 ## Initial implementation confidence and remaining release scope
 
+Follow-up native failure coverage: `tests/companion-span-rollback.ps1` now uses
+the production custom planner, topology writer and clipping-region builder in
+80 synthetic hidden-window rollback cases per architecture. Each combination of
+occupied edge, game side, zero/negative origin and prior clipping/no clipping is
+rolled back after topology write, style change, clipping change, resize or final
+bounds readback. Exact original file bytes, bounds, style and clipping must be
+restored; repeated rollback must remain harmless. Both x64 and x86 passed 1,269
+total assertions each, including the existing ordinary rollback cases.
+
+These native fixtures use a 2560x1440 monitor model with a 1920/640 occupied and
+workspace width, matching the live geometry. An initial 4080-wide hidden
+WinForms fixture was constrained to 4020 by this desktop's native maximum tracking
+size. It was replaced with the smaller fixture rather than treating that
+WinForms behavior as WoW evidence. The 5120/4080/640 planner, generated topology
+and clipping coverage remains in the separate partial-topology suite. These
+synthetic tests do not inject a failure into a running WoW client.
+
 The initial contiguous single-display workflow works on this Retail pairing:
 editor, validated settings, native apply with reserved app space, direct schema 1
 viewport, panel dragging and persisted placement, reload, fitting-panel reopen,
