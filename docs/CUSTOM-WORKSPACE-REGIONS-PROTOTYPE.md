@@ -47,8 +47,44 @@ offsets `(500,914)` and dimensions `782x1290`. Changing the left offset to 510 a
 cancelling left the preferences file byte-for-byte unchanged. Companion exited
 normally and the exact original preferences were restored and hash-verified.
 Private evidence is under ignored `dist/live-qa-layout-chooser-*`. No WoW client
-was launched for this UI-only revision, so earlier game evidence is not promoted
-to an exact-artifact live claim for this build.
+was launched during that initial desktop test. The subsequent exact-artifact
+Retail run is recorded below.
+
+### Revision 2 packaged Retail workflow, 2 November 2026
+
+The exact revision 2 executable identified above passed a targeted Retail
+`12.1.5.70688` run with unchanged installed addon `2.1.2-beta.24`, protocol 1,
+on the same 100%/100% SDR monitor setup. The chooser focused the saved two-monitor
+mode; Enter opened its editor. Changing the workspace left offset from 500 to
+510 and clicking Save plan persisted `SecondaryAreaEnabled=True`,
+`PartialSpanEnabled=False`, `AutoSpan=False` and the intended rectangle.
+
+The first Retail launch disconnected before any Span action. It was closed
+normally and relaunched through Battle.net. Per the user's instruction, this
+network disconnect is excluded from feature acceptance; its cause was not
+independently established.
+
+The retry retained the original native `(208,0) 2144x1392` window until manual
+Span. Apply produced `(-930,-200) 3490x1640`, style `140B0000`, and a complex
+window region. The actual bridge contained game `(930,0) 2560x1440` and workspace
+`(0,350) 782x1290` in bottom-origin backing coordinates. A newly executed private
+viewport diagnostic, flushed by UI reload, recorded `READY`, version `MATCH`,
+and `viewportMatches=true`, with WorldFrame approximately `(930,0) 2560x1440`.
+Native bounds/clipping survived reload, and full game screenshots show the
+Character panel within the workspace before and after it. No panel drag or new
+post-reload viewport diagnostic was performed in this run.
+
+Manual Restore exactly recovered `(208,0) 2144x1392`, style `14CF0000`, and no
+region. The installed addon showed its expected saved-layout mismatch prompt;
+no recalibration or HUD generation was accepted. Both test apps exited normally,
+nine original files were restored and hash-verified, and BugGrabber changed only
+its session counter from 344 to 346, with no new stored errors. Battle.net was
+left open. Private evidence: `dist/live-qa-chooser-retail-20261102-134140`.
+
+This extends targeted Retail acceptance to the exact chooser revision 2 package.
+Other exact-artifact client runs, mixed-DPI, live hotplug, HUD generation and
+protected-action acceptance remain pending. Prototype 3's Anniversary and cold
+restart evidence remains separate.
 
 ## Two-monitor custom workspace (prototype 3)
 

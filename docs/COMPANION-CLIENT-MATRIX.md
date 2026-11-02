@@ -1,5 +1,17 @@
 # Companion client coverage and release gate
 
+## 2 November: layout chooser prototype 4 revision 2
+
+The exact unpublished revision 2 package passed a targeted Retail `12.1.5.70688`
+workflow: saved-mode keyboard selection, revised secondary-offset Save, manual
+Span to `(-930,-200) 3490x1640`, matching schema 1 viewport diagnostic, native
+clipping and Character panel persistence through reload, and exact native Restore.
+Both test apps closed normally; nine original files were restored and
+hash-verified. BugGrabber recorded no new errors. A pre-Span network disconnect
+was excluded per user instruction; a normal launcher retry completed the run.
+Broader exact-artifact acceptance remains pending. See
+[the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md).
+
 ## 2 November: two-monitor partial workspace prototype 3
 
 The exact unpublished prototype 3 package passed targeted Retail `12.1.5.70688`
