@@ -86,6 +86,48 @@ namespace Offhand.Companion
                     if (expected != IntPtr.Zero) NativeMethods.DeleteObject(expected);
                 }
 
+                // Exercise the same native restore transaction used by the UI,
+                // including failure after clipping has already been removed.
+                for (int clipped = 0; clipped < 2; clipped++)
+                foreach (string stage in new string[] { "style", "clipping", "bounds", "verification" })
+                using (var window = new Form())
+                {
+                    IntPtr handle = window.Handle;
+                    int borderless = NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE)
+                        & ~(NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME);
+                    NativeMethods.SetWindowLong(handle, NativeMethods.GWL_STYLE, borderless);
+                    IntPtr expected = clipped == 1 ? Shape() : IntPtr.Zero;
+                    if (clipped == 1) Check(NativeMethods.SetWindowRgn(handle, Shape(), false) != 0, "prior restore clipping");
+                    NativeMethods.RECT prior;
+                    Check(NativeMethods.GetWindowRect(handle, out prior), "prior restore bounds");
+                    bool failed = false;
+                    try
+                    {
+                        WindowRestore.Apply(handle, new Rectangle(100, 120, 400, 300),
+                            borderless | NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME,
+                            delegate(string current) { if (current == stage) throw new IOException("injected restore " + stage); });
+                    }
+                    catch (IOException ex) { failed = ex.Message == "injected restore " + stage; }
+                    Check(failed, "original restore failure retained after " + stage);
+                    Verify(handle, prior, borderless, expected);
+                    if (expected != IntPtr.Zero) NativeMethods.DeleteObject(expected);
+                }
+
+                using (var window = new Form())
+                {
+                    IntPtr handle = window.Handle;
+                    Check(NativeMethods.SetWindowRgn(handle, Shape(), false) != 0, "successful restore prior clipping");
+                    int style = NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE)
+                        | NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME;
+                    Rectangle target = new Rectangle(100, 120, 400, 300);
+                    WindowRestore.Apply(handle, target, style | NativeMethods.WS_MINIMIZE | NativeMethods.WS_MAXIMIZE);
+                    NativeMethods.RECT restored;
+                    Check(NativeMethods.GetWindowRect(handle, out restored), "successful restore readback");
+                    Check(restored.Left == target.X && restored.Top == target.Y
+                        && restored.Width == target.Width && restored.Height == target.Height, "successful restore exact bounds");
+                    Verify(handle, restored, style, IntPtr.Zero);
+                }
+
                 using (var window = new Form())
                 {
                     string path = Path.Combine(root, "new-topology.lua");

@@ -1188,13 +1188,16 @@ namespace Offhand.Companion
         {
             this.path = path;
             this.handle = handle;
-            try { original = File.ReadAllBytes(path); }
-            catch (FileNotFoundException) { original = null; }
+            if (path != null)
+            {
+                try { original = File.ReadAllBytes(path); }
+                catch (FileNotFoundException) { original = null; }
+            }
             NativeMethods.GetWindowThreadProcessId(handle, out processId);
             placement.length = Marshal.SizeOf(typeof(NativeMethods.WINDOWPLACEMENT));
             if (processId == 0 || !NativeMethods.GetWindowRect(handle, out bounds)
                 || !NativeMethods.GetWindowPlacement(handle, ref placement))
-                throw new IOException("Could not capture the pre-span window for rollback.");
+                throw new IOException("Could not capture the previous window for rollback.");
             if (!NativeMethods.IsWindowVisible(handle)) placement.showCmd = 0;
             style = NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE);
             region = NativeMethods.CreateRectRgn(0, 0, 0, 0);
@@ -1209,7 +1212,11 @@ namespace Offhand.Companion
             }
         }
 
-        internal void TopologyWritten(byte[] bytes) { written = bytes; }
+        internal void TopologyWritten(byte[] bytes)
+        {
+            if (path == null) throw new InvalidOperationException("This snapshot owns only native window state.");
+            written = bytes;
+        }
         internal void Commit() { completed = true; }
 
         internal static bool SameBytes(byte[] left, byte[] right)
@@ -1266,6 +1273,60 @@ namespace Offhand.Companion
         public void Dispose()
         {
             if (region != IntPtr.Zero) { NativeMethods.DeleteObject(region); region = IntPtr.Zero; }
+        }
+    }
+
+    internal static class WindowRestore
+    {
+        internal static void Apply(IntPtr handle, Rectangle target, int style)
+        { Apply(handle, target, style, null); }
+
+        // The callback is used only by failure-injection tests of this exact path.
+        internal static void Apply(IntPtr handle, Rectangle target, int style, Action<string> afterStage)
+        {
+            // Restore always requests normal placement, including when no
+            // remembered pre-span style exists for an adopted/minimized window.
+            style &= ~(NativeMethods.WS_MINIMIZE | NativeMethods.WS_MAXIMIZE);
+            using (var rollback = new SpanRollback(null, handle))
+            {
+                try
+                {
+                    bool visible = NativeMethods.IsWindowVisible(handle);
+                    rollback.WindowChanged = true;
+                    if (NativeMethods.IsZoomed(handle) || NativeMethods.IsIconic(handle))
+                        NativeMethods.ShowWindow(handle, NativeMethods.SW_RESTORE);
+                    NativeMethods.SetLastError(0);
+                    int previous = NativeMethods.SetWindowLong(handle, NativeMethods.GWL_STYLE, style);
+                    int error = Marshal.GetLastWin32Error();
+                    if (previous == 0 && error != 0)
+                        throw new IOException(WindowInteropDiagnostics.StyleFailure(
+                            "Windows rejected restoring the WoW window borders", error));
+                    if (afterStage != null) afterStage("style");
+                    if (NativeMethods.SetWindowRgn(handle, IntPtr.Zero, true) == 0)
+                        throw new IOException("Windows rejected clearing the window clipping region.");
+                    if (afterStage != null) afterStage("clipping");
+                    uint flags = NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_FRAMECHANGED;
+                    if (visible) flags |= NativeMethods.SWP_SHOWWINDOW;
+                    if (!NativeMethods.SetWindowPos(handle, IntPtr.Zero, target.X, target.Y, target.Width, target.Height, flags))
+                        throw new IOException("Windows rejected restoring the window bounds.");
+                    if (afterStage != null) afterStage("bounds");
+                    NativeMethods.RECT actual;
+                    int borderMask = NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME;
+                    if (!NativeMethods.GetWindowRect(handle, out actual)
+                        || actual.Left != target.X || actual.Top != target.Y
+                        || actual.Width != target.Width || actual.Height != target.Height
+                        || (NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE) & borderMask) != (style & borderMask))
+                        throw new IOException("WoW did not accept the restore. Select Windowed mode and retry.");
+                    if (afterStage != null) afterStage("verification");
+                    rollback.Commit();
+                }
+                catch (Exception ex)
+                {
+                    string failure = rollback.Rollback();
+                    if (failure != null) throw new IOException(ex.Message + Environment.NewLine + failure, ex);
+                    throw;
+                }
+            }
         }
     }
 
@@ -1691,6 +1752,8 @@ namespace Offhand.Companion
         public const int GWL_STYLE = -16;
         public const int WS_CAPTION = 0x00C00000;
         public const int WS_THICKFRAME = 0x00040000;
+        public const int WS_MINIMIZE = 0x20000000;
+        public const int WS_MAXIMIZE = 0x01000000;
         public const uint SWP_NOZORDER = 0x0004;
         public const uint SWP_NOACTIVATE = 0x0010;
         public const uint SWP_FRAMECHANGED = 0x0020;
@@ -3951,14 +4014,7 @@ namespace Offhand.Companion
                 IntPtr handle = GetWoWWindowHandle(proc);
                 if (handle == IntPtr.Zero) throw new Exception("WoW window is not ready.");
 
-                if (NativeMethods.IsZoomed(handle) || NativeMethods.IsIconic(handle))
-                {
-                    NativeMethods.ShowWindow(handle, NativeMethods.SW_RESTORE);
-                }
-
                 int oldStyle = NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE);
-                NativeMethods.RECT oldRect;
-                if (!NativeMethods.GetWindowRect(handle, out oldRect)) throw new Exception("Could not read WoW window bounds.");
                 WindowSnapshot snapshot;
                 bool known = originalWindows.TryGetValue(proc.Id, out snapshot) && snapshot.Handle == handle;
                 int newStyle = (known ? snapshot.Style : oldStyle) | NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME;
@@ -3984,30 +4040,7 @@ namespace Offhand.Companion
                 }
                 Rectangle target = RestoreGeometry.Fit(desired, workArea);
                 
-                NativeMethods.SetLastError(0);
-                int previousStyle = NativeMethods.SetWindowLong(handle, NativeMethods.GWL_STYLE, newStyle);
-                int styleError = Marshal.GetLastWin32Error();
-                if (previousStyle == 0 && styleError != 0)
-                    throw new Exception(WindowInteropDiagnostics.StyleFailure(
-                        "Windows rejected restoring the WoW window borders", styleError));
-                
-                uint flags = NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_FRAMECHANGED | NativeMethods.SWP_SHOWWINDOW;
-                try
-                {
-                    NativeMethods.SetWindowRgn(handle, IntPtr.Zero, true);
-                    if (!NativeMethods.SetWindowPos(handle, IntPtr.Zero, target.X, target.Y, target.Width, target.Height, flags))
-                        throw new Exception("Windows rejected restoring the window bounds.");
-                    NativeMethods.RECT actual;
-                    if (!NativeMethods.GetWindowRect(handle, out actual) || actual.Left != target.X || actual.Top != target.Y || actual.Width != target.Width || actual.Height != target.Height)
-                        throw new Exception("WoW did not accept the restore. Select Windowed mode and retry.");
-                }
-                catch
-                {
-                    NativeMethods.SetWindowRgn(handle, IntPtr.Zero, true);
-                    NativeMethods.SetWindowLong(handle, NativeMethods.GWL_STYLE, oldStyle);
-                    NativeMethods.SetWindowPos(handle, IntPtr.Zero, oldRect.Left, oldRect.Top, oldRect.Width, oldRect.Height, flags);
-                    throw;
-                }
+                WindowRestore.Apply(handle, target, newStyle);
                 
                 spannedPids.Remove(proc.Id);
                 restoredPids.Add(proc.Id);
