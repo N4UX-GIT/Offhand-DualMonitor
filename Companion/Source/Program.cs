@@ -53,7 +53,7 @@ using System.Windows.Forms;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.3.1")]
+[assembly: AssemblyFileVersion("2.1.3.2")]
 [assembly: AssemblyInformationalVersion("2.1.3-beta.1")]
 #endif
 
@@ -2146,6 +2146,58 @@ namespace Offhand.Companion
             }
             catch (IOException ex) { message = "Forever recovery cannot update addon state: " + ex.Message; return false; }
             catch (UnauthorizedAccessException ex) { message = "Forever recovery cannot update addon state: " + ex.Message; return false; }
+        }
+    }
+
+    // Tell the Shell about the real WoW HWND rather than changing global
+    // taskbar preferences, hiding Explorer windows, or making WoW topmost.
+    // The Shell owns focus-dependent taskbar ordering and removes the marking
+    // when the HWND is destroyed. It can outlive the Companion, like the span.
+    internal static class TaskbarPresentation
+    {
+        [ComImport, Guid("602D4995-B13A-429B-A66E-1935E44F4317"),
+            InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface ITaskbarList2
+        {
+            [PreserveSig] int HrInit();
+            [PreserveSig] int AddTab(IntPtr window);
+            [PreserveSig] int DeleteTab(IntPtr window);
+            [PreserveSig] int ActivateTab(IntPtr window);
+            [PreserveSig] int SetActiveAlt(IntPtr window);
+            [PreserveSig] int MarkFullscreenWindow(IntPtr window, [MarshalAs(UnmanagedType.Bool)] bool fullscreen);
+        }
+
+        internal static bool TrySetFullscreen(IntPtr window, bool fullscreen, out string failure)
+        {
+            failure = null;
+            uint owner;
+            if (window == IntPtr.Zero || NativeMethods.GetWindowThreadProcessId(window, out owner) == 0)
+            {
+                failure = "The target window is no longer available.";
+                return false;
+            }
+            object instance = null;
+            try
+            {
+                instance = Activator.CreateInstance(Type.GetTypeFromCLSID(
+                    new Guid("56FDF344-FD6D-11D0-958A-006097C9A090"), true));
+                var taskbar = (ITaskbarList2)instance;
+                Marshal.ThrowExceptionForHR(taskbar.HrInit());
+                Marshal.ThrowExceptionForHR(taskbar.MarkFullscreenWindow(window, fullscreen));
+                return true;
+            }
+            catch (Exception ex)
+            {
+                // Unsupported shells (including some Wine environments) must
+                // retain the existing span/Restore behavior without a modal.
+                failure = ex.Message;
+                return false;
+            }
+            finally
+            {
+                if (instance != null && Marshal.IsComObject(instance))
+                    try { Marshal.FinalReleaseComObject(instance); } catch { }
+            }
         }
     }
 
@@ -4612,6 +4664,7 @@ namespace Offhand.Companion
                 Rectangle target = RestoreGeometry.Fit(desired, workArea);
                 
                 WindowRestore.Apply(handle, target, newStyle);
+                SetTaskbarFullscreen(handle, false);
                 
                 spannedPids.Remove(proc.Id);
                 restoredPids.Add(proc.Id);
@@ -4871,6 +4924,7 @@ namespace Offhand.Companion
                     GraphicsRecoveryTestBuild ? "Wait for stable-span confirmation in the activity log before the VSync test."
                     : "Exact geometry saved. You may now exit the Companion, or leave it running for monitoring and recovery.", ToolTipIcon.Info);
                 rollback.Commit();
+                SetTaskbarFullscreen(handle, true);
                 return true;
             }
             catch (Exception ex)
@@ -4892,6 +4946,13 @@ namespace Offhand.Companion
                 if (rollback != null) rollback.Dispose();
                 if (proc != null) proc.Dispose();
             }
+        }
+
+        private void SetTaskbarFullscreen(IntPtr handle, bool fullscreen)
+        {
+            string failure;
+            if (!TaskbarPresentation.TrySetFullscreen(handle, fullscreen, out failure))
+                AddLog("Windows taskbar fullscreen notification was unavailable: " + failure);
         }
 
         [STAThread]
