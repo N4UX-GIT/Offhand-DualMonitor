@@ -8,7 +8,9 @@ release numbering. Protocol 1 and the existing addon minimum stay unchanged.
 <!-- offhand-companion-version: 2.1.3-beta.1 -->
 
 Revision 4 adds restore-failure rollback and passes local synthetic/package
-checks. Its live QA is pending; targeted passes above apply to revision 3.
+checks plus targeted Retail normal restore/repeated recovery. Broader QA remains
+pending, including an unresolved server disconnect. Earlier targeted passes
+apply to revision 3; use the exact revision 4 live record for its scope.
 
 ## Changes prepared for testing
 

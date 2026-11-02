@@ -1,7 +1,9 @@
 # Revision 4: restore failure rollback
 
 2 November 2026. Source-reviewed fix with synthetic native-window verification;
-actual WoW acceptance of this executable is pending.
+actual WoW failure rollback acceptance remains pending. A later
+[targeted Retail run](COMPANION-RC4-RETAIL-LIVE-20261102.md) passed ordinary
+restore and repeated recovery, with a separately recorded server disconnect.
 
 ## Problem and change
 

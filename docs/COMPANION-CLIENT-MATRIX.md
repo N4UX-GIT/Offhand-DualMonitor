@@ -1,5 +1,13 @@
 # Companion client coverage and release gate
 
+## 2 November: revision 4 Retail follow-up
+
+The changed restore path passed connected normal restore and two consecutive
+VSync recoveries on Retail `12.1.5.70688`. A server disconnect was logged about
+84 seconds before final Restore, ruling out that call as its trigger but leaving
+the incident unresolved. See [the revision 4 record](COMPANION-RC4-RETAIL-LIVE-20261102.md).
+Broader release acceptance remains partial; original settings were restored.
+
 ## 2 November: combined revision 3 Retail result
 
 The same rc3 executable passed manual span, two consecutive VSync reset recoveries

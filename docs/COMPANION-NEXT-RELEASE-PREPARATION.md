@@ -11,7 +11,10 @@ that a failed Restore Window could discard the prior native clipping shape.
 Restore now uses the same complete native snapshot rollback as span; 181
 synthetic assertions pass on each architecture. Portable ZIP and unsigned MSIX
 parity checks pass. See [revision 4 evidence](COMPANION-RC4-RESTORE-EVIDENCE.md).
-Its live acceptance is pending. Revision 3 results below remain attached to
+Its [targeted Retail run](COMPANION-RC4-RETAIL-LIVE-20261102.md) passed ordinary
+restore, two reset recoveries and native restore priority. A server disconnect
+preceded final restore by about 84 seconds; cause remains unresolved. Broader
+live acceptance is pending. Revision 3 results below remain attached to
 revision 3; neither its bytes nor public Beta 20 bytes were replaced.
 
 On 2 November, the same revision 3 also passed targeted Retail `12.1.5.70688`
