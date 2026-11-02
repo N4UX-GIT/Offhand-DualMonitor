@@ -544,7 +544,9 @@ code {
     margin: 8px 0 28px;
 }
 .landing-intro-copy { text-align: left; min-width: 0; }
-.landing-intro-copy .deck-intro-text { margin: 0 0 24px; }
+.landing-intro-copy .deck-intro-text { margin: 0; }
+.landing-actions { align-items: stretch; gap: 12px; }
+.landing-actions .btn { min-height: 42px; height: auto; padding: 10px 16px; }
 .demo-preview {
     display: block;
     min-width: 0;
@@ -612,7 +614,6 @@ code {
     .home-page #features .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 600px) {
-    .landing-intro-copy .btn { width: 100%; white-space: normal; }
     .home-page #features .grid-3 { grid-template-columns: minmax(0, 1fr); }
     .demo-preview-caption { padding: 14px 10px; }
     .demo-preview-caption strong { font-size: 0.9rem; }
