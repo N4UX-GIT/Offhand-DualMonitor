@@ -595,6 +595,16 @@ code {
 }
 .feature-shot svg, .feature-shot img { display: block; width: 100%; height: 100%; }
 .feature-shot img { object-fit: cover; }
+.feature-credit {
+    position: absolute;
+    inset: auto 0 0;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.82);
+    color: #fff;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    text-align: right;
+}
 @media (max-width: 960px) {
     .landing-intro { grid-template-columns: minmax(0, 1fr); gap: 24px; }
     .landing-intro-copy { text-align: center; }
