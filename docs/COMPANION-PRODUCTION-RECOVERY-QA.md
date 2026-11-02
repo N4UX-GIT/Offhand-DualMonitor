@@ -3,6 +3,13 @@
 Local release candidate. No public promotion or client acceptance is implied.
 Candidate branch: `codex/companion-next-candidate`.
 
+Current candidate is revision 4. Its restore failure path now retains exact
+prior native clipping and placement; synthetic coverage is 181 assertions per
+architecture. See [revision 4 evidence](COMPANION-RC4-RESTORE-EVIDENCE.md).
+Revision 3 live results below do not accept the changed executable. Verify normal
+span/restore and recovery cancellation with revision 4 before promotion; retain
+real-client rollback and show-state cases as explicit gates.
+
 Update, 1 November: [revision 3 passed a targeted Anniversary live sequence](COMPANION-RC3-ANNIVERSARY-LIVE-20261101.md).
 That record supersedes the generic pending status only for its listed cases and
 exact artifact/client/addon pairing. Remaining procedure items below still need

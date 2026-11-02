@@ -6,6 +6,14 @@ and Anniversary native passes. Full release acceptance remains open.
 
 ## Continuation: combined runtime candidate
 
+Current candidate is **revision 4**, built from `44f1c16`. Source review found
+that a failed Restore Window could discard the prior native clipping shape.
+Restore now uses the same complete native snapshot rollback as span; 181
+synthetic assertions pass on each architecture. Portable ZIP and unsigned MSIX
+parity checks pass. See [revision 4 evidence](COMPANION-RC4-RESTORE-EVIDENCE.md).
+Its live acceptance is pending. Revision 3 results below remain attached to
+revision 3; neither its bytes nor public Beta 20 bytes were replaced.
+
 On 2 November, the same revision 3 also passed targeted Retail `12.1.5.70688`
 manual span, two consecutive VSync reset recoveries and Restore priority. See
 [the Retail live record](COMPANION-RC3-RETAIL-LIVE-20261102.md). Original settings
@@ -23,7 +31,7 @@ manual re-arm and delayed auto-span. The exact artifact is unchanged. See
 and remaining gates. The test client/candidate are closed, original preferences
 and topology are restored, and no publication or Store change occurred.
 
-Latest local artifact: `dist/companion-2.1.3-beta.1-rc3`, source build revision
+Revision 3 artifact: `dist/companion-2.1.3-beta.1-rc3`, source build revision
 `f7d33ae`. Settings writes are now staged, flushed and atomically published;
 interrupted or locked-file saves retain the previous file. Unknown settings and
 Unicode values round-trip. This supersedes rc2 for further candidate acceptance.

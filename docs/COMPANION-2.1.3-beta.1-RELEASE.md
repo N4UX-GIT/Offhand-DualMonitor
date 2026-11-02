@@ -7,6 +7,9 @@ release numbering. Protocol 1 and the existing addon minimum stay unchanged.
 
 <!-- offhand-companion-version: 2.1.3-beta.1 -->
 
+Revision 4 adds restore-failure rollback and passes local synthetic/package
+checks. Its live QA is pending; targeted passes above apply to revision 3.
+
 ## Changes prepared for testing
 
 - Automatic recovery after the captured Graphics Options reset on Retail and
@@ -24,6 +27,8 @@ release numbering. Protocol 1 and the existing addon minimum stay unchanged.
   Synthetic-window verification passed; actual WoW rollback acceptance is pending.
 - Settings saves now publish atomically, preserving the previous file on
   interrupted or rejected writes and retaining unknown settings keys.
+- Failed Restore Window operations now retain prior clipping and placement as
+  well as style and bounds. Region-clear failures are reported.
 
 The experimental resize sequence remains disabled in this candidate. It is not
 a confirmed sharpness fix. Automatic graphics recovery is not enabled for Era,
