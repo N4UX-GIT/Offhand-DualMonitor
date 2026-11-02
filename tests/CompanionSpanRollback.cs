@@ -129,6 +129,7 @@ namespace Offhand.Companion
             try
             {
                 CheckCustomRollback(root);
+                CheckCustomRestore();
                 for (int clipped = 0; clipped < 2; clipped++)
                 for (int stage = 0; stage < 5; stage++)
                 using (var window = new Form())
@@ -289,6 +290,113 @@ namespace Offhand.Companion
                 Console.WriteLine("PASS: {0} span rollback assertions on synthetic native windows ({1} bit)", assertions, IntPtr.Size * 8);
             }
             finally { Directory.Delete(root, true); }
+        }
+
+        private static void CheckCustomRestore()
+        {
+            int cases = 0;
+            foreach (Point origin in new Point[] { Point.Empty, new Point(-2560, -1440) })
+            foreach (bool secondary in new bool[] { false, true })
+            foreach (FormWindowState state in new FormWindowState[] {
+                FormWindowState.Normal, FormWindowState.Minimized, FormWindowState.Maximized })
+            foreach (string failureStage in new string[] { "style", "clipping", "bounds", "verification", null })
+            using (var window = new Form())
+            {
+                var displays = new List<MonitorSelection.Display> {
+                    new MonitorSelection.Display { Index=0, StableId="game", DeviceName="game",
+                        Bounds=new Rectangle(origin, new Size(2560,1440)), Primary=true },
+                    new MonitorSelection.Display { Index=1, StableId="work", DeviceName="work",
+                        Bounds=new Rectangle(origin.X-1440,origin.Y-1114,1440,2560) }
+                };
+                var settings = new Dictionary<string,string> {
+                    {"DisplayIdentityVersion","1"}, {"MainhandIdentity","game"},
+                    {"MonitorIdentities",secondary ? "game|work" : "game"},
+                    {"PartialSpanEnabled",(!secondary).ToString()}, {"PartialDisplayIdentity","game"},
+                    {"PartialMonitorWidth","2560"}, {"PartialMonitorHeight","1440"},
+                    {"PartialWidth","1920"}, {"PartialWorkspaceWidth","640"},
+                    {"PartialEdge","LEFT"}, {"PartialGameSide","RIGHT"},
+                    {"SecondaryAreaEnabled",secondary.ToString()}, {"SecondaryAreaIdentity","work"},
+                    {"SecondaryMonitorWidth","1440"}, {"SecondaryMonitorHeight","2560"},
+                    {"SecondaryAreaX","500"}, {"SecondaryAreaY","914"},
+                    {"SecondaryAreaWidth","782"}, {"SecondaryAreaHeight","1290"}
+                };
+                var plan = MonitorSelection.CreatePlan(settings, displays);
+                window.FormBorderStyle = FormBorderStyle.None;
+                window.ShowInTaskbar = false;
+                window.StartPosition = FormStartPosition.Manual;
+                window.Bounds = plan.Bounds;
+                window.WindowState = state;
+                IntPtr handle = window.Handle;
+                Check(NativeMethods.IsIconic(handle) == (state == FormWindowState.Minimized)
+                    && NativeMethods.IsZoomed(handle) == (state == FormWindowState.Maximized),
+                    "custom restore fixture show state: " + state);
+                IntPtr expected = SpanClipRegion.Create(plan, plan.Bounds);
+                IntPtr installed = SpanClipRegion.Create(plan, plan.Bounds);
+                try
+                {
+                    if (NativeMethods.SetWindowRgn(handle, installed, false) == 0)
+                        throw new IOException("Custom restore fixture clipping failed.");
+                    installed = IntPtr.Zero; // Window owns the successful region.
+                    NativeMethods.RECT prior;
+                    Check(NativeMethods.GetWindowRect(handle, out prior), "custom restore prior bounds");
+                    int style = NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE);
+                    var placement = new NativeMethods.WINDOWPLACEMENT();
+                    placement.length = Marshal.SizeOf(typeof(NativeMethods.WINDOWPLACEMENT));
+                    Check(NativeMethods.GetWindowPlacement(handle, ref placement), "custom restore prior placement");
+                    Verify(handle, prior, style, expected);
+                    var target = new Rectangle(100, 120, 400, 300);
+                    int restoredStyle = (style | NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME)
+                        & ~(NativeMethods.WS_MINIMIZE | NativeMethods.WS_MAXIMIZE);
+                    bool injected = false;
+                    try
+                    {
+                        WindowRestore.Apply(handle, target, restoredStyle, delegate(string stage) {
+                            if (stage == failureStage) throw new IOException("custom restore injected " + stage);
+                        });
+                    }
+                    catch (IOException ex)
+                    {
+                        if (failureStage == null || ex.Message != "custom restore injected " + failureStage) throw;
+                        injected = true;
+                    }
+                    Check(injected == (failureStage != null), "custom restore expected outcome");
+                    if (injected)
+                    {
+                        Verify(handle, prior, style, expected);
+                        Check(NativeMethods.IsIconic(handle) == (state == FormWindowState.Minimized)
+                            && NativeMethods.IsZoomed(handle) == (state == FormWindowState.Maximized),
+                            "custom restore failure retains show state");
+                        var actual = new NativeMethods.WINDOWPLACEMENT(); actual.length = placement.length;
+                        Check(NativeMethods.GetWindowPlacement(handle, ref actual), "custom restore rollback placement");
+                        Check(actual.showCmd == placement.showCmd
+                            && actual.ptMinPosition == placement.ptMinPosition
+                            && actual.ptMaxPosition == placement.ptMaxPosition
+                            && actual.rcNormalPosition.Left == placement.rcNormalPosition.Left
+                            && actual.rcNormalPosition.Top == placement.rcNormalPosition.Top
+                            && actual.rcNormalPosition.Right == placement.rcNormalPosition.Right
+                            && actual.rcNormalPosition.Bottom == placement.rcNormalPosition.Bottom,
+                            "custom restore failure retains normal/minimum/maximum placement");
+                    }
+                    else
+                    {
+                        NativeMethods.RECT restored;
+                        Check(NativeMethods.GetWindowRect(handle, out restored), "custom successful restore readback");
+                        Check(restored.Left == target.X && restored.Top == target.Y
+                            && restored.Width == target.Width && restored.Height == target.Height,
+                            "custom successful restore exact target");
+                        Verify(handle, restored, restoredStyle, IntPtr.Zero);
+                        Check(!NativeMethods.IsIconic(handle) && !NativeMethods.IsZoomed(handle),
+                            "custom successful restore returns normal state");
+                    }
+                    cases++;
+                }
+                finally
+                {
+                    if (installed != IntPtr.Zero) NativeMethods.DeleteObject(installed);
+                    NativeMethods.DeleteObject(expected);
+                }
+            }
+            Console.WriteLine("PASS: {0} production custom-clipping Restore cases, normal/minimized/maximized, two origins, four failure stages and success", cases);
         }
     }
 }

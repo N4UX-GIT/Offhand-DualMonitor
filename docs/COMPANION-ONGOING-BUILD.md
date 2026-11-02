@@ -26,6 +26,13 @@ Temporarily enabled error capture recorded no new errors. Both apps closed;
 18 originals and two original profile absences were restored. No combat
 acceptance is claimed.
 
+Follow-up automated native coverage passed 60 production-custom-clipping Restore
+cases on normal/minimized/maximized hidden windows per architecture, including
+four injected failure stages and success. The rollback suite now passes 3,057
+assertions each on x64 and x86. Production source and prototype 5 bytes are
+unchanged. These are native fixture results, not additional WoW lifecycle or
+failure-injection acceptance.
+
 An unsigned MSIX structural validation package embeds the exact prototype 5
 portable executable. File boundaries, identity, capabilities, opt-in startup and
 executable parity passed. It was not installed or submitted. See

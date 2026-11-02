@@ -660,14 +660,23 @@ the exact installed source and live diagnostic supply this limited acceptance.
 
 ## Initial implementation confidence and remaining release scope
 
-Follow-up native failure coverage: `tests/companion-span-rollback.ps1` now uses
-the production custom planner, topology writer and clipping-region builder in
-80 synthetic hidden-window rollback cases per architecture. Each combination of
-occupied edge, game side, zero/negative origin and prior clipping/no clipping is
-rolled back after topology write, style change, clipping change, resize or final
-bounds readback. Exact original file bytes, bounds, style and clipping must be
-restored; repeated rollback must remain harmless. Both x64 and x86 passed 1,269
-total assertions each, including the existing ordinary rollback cases.
+Current native failure coverage: `tests/companion-span-rollback.ps1` uses the
+production custom planner, topology writer and clipping-region builder in 160
+single/secondary hidden-window span rollback cases per architecture. Each
+combination of occupied edge, game side, zero/negative origin and prior clipping
+or no clipping is rolled back after topology write, style change, clipping
+change, resize or final bounds readback. Exact original file bytes, bounds,
+style and clipping must be restored; repeated rollback must remain harmless.
+
+A further 60 custom Restore cases per architecture use production single-monitor
+and secondary-workspace clipping, zero/negative origins, and normal, minimized
+and maximized hidden windows. Failures after border changes, clearing clipping,
+resizing and final verification must retain the exact prior GDI region, bounds,
+style, show state and normal/minimum/maximum placement. Successful cases must
+clear clipping and return the requested ordinary bounds with normal placement.
+Both x64 and x86 passed 3,057 total assertions each, including the existing
+ordinary cases. No production source or executable changed for these new cases.
+Private output: `dist/custom-restore-native-validation-20261102-172336/rollback.txt`.
 
 These native fixtures use a 2560x1440 monitor model with a 1920/640 occupied and
 workspace width, matching the live geometry. An initial 4080-wide hidden
@@ -675,7 +684,11 @@ WinForms fixture was constrained to 4020 by this desktop's native maximum tracki
 size. It was replaced with the smaller fixture rather than treating that
 WinForms behavior as WoW evidence. The 5120/4080/640 planner, generated topology
 and clipping coverage remains in the separate partial-topology suite. These
-synthetic tests do not inject a failure into a running WoW client.
+synthetic tests do not inject a failure into a running WoW client. The newer
+custom Restore fixtures also use the live secondary shape, local `(500,914)
+782x1290 with a 3500x1640 backing surface. These checks establish native
+transaction behavior on hidden windows; live custom-span minimization/maximization
+and actual WoW failure rollback remain unaccepted.
 
 The initial contiguous single-display workflow works on the recorded Retail pairing:
 editor, validated settings, native apply with reserved app space, direct schema 1
