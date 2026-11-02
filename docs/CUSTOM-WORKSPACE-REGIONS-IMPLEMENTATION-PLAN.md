@@ -238,6 +238,34 @@ Refuse to save or apply when:
 - The addon installation does not advertise support for the required topology schema.
 - The generated topology cannot be written atomically.
 
+### 5.3.1 Narrow-panel fit gate
+
+The motivating 640-pixel workspace is a layout example, not a promise that every
+supported panel fits at every UI scale. The existing generic position clamp
+does not resize oversized frames. The Retail PlayerSpells adapter can shrink
+its native root, but has no readability floor: in a synthetic 640-unit-wide
+workspace, a representative 2120-unit talents panel fits at about 29% scale.
+
+For the first partial-span slice, before exposing Save and Apply:
+
+- Evaluate panel dimensions in UIParent units using effective frame scale and
+  the current physical-to-UI conversion. Do not compare physical monitor width
+  directly with frame-local width. Re-evaluate after UI-scale changes.
+- Distinguish panels with a reviewed fit adapter from generic movable panels.
+  Do not extend PlayerSpells scaling to arbitrary or protected frame trees.
+- Establish and live-review readable minimums per supported fit adapter before
+  treating a scaled fit as accepted. Mathematical containment is insufficient.
+- Keep Mainhand available for panels without an accepted fit. Preserve their
+  existing saved placement until an explicit relocation succeeds, and provide
+  a reachable recovery action instead of silently saving an overflowing drop.
+- Exercise both game sides, inherited scale, tab/size changes, oversized width
+  and height, cold launch/reload, combat deferral and an external scale owner.
+
+These are future acceptance requirements. Current runtime placement and scaling
+are unchanged. No universal minimum workspace width or readability threshold is
+accepted by the source study alone. See the narrow-fit evidence in
+[the investigation](CUSTOM-WORKSPACE-REGIONS-INVESTIGATION.md).
+
 ### 5.4 Native window region
 
 Continue using one native WoW window. Set its outer bounds to the combined bounding rectangle and construct its visible region from the union of:

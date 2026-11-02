@@ -91,6 +91,35 @@ schema 2 remain unchanged. Revision 4 does not require rebuilding for this
 test-only addition. Shared knowledge routing had no matching source for this
 Companion contract; the local writer and reader are the evidence used.
 
+## Narrow-workspace fit characterization, 2 November
+
+`tests/narrow-workspace-fit.lua` adds 16 synthetic cases through the existing
+Retail `FitPlayerSpellsToWorkspace` adapter. Representative fixture widths of
+1060 and 2120 units fit a 640-pixel workspace at full and half-size UI canvases,
+on both sides and with inherited scale factors of 1 and 1.25. Adapter-owned
+scale restores on departure; combat defers writes; a later external scale
+change is preserved. These dimensions are test inputs, not fresh live panel
+measurements. Canvas persistence and the existing panel/void-rescue suite pass.
+
+For full-size UI canvas and inherited factor 1, available width is 616 UI units
+after margins. The adapter reduces a 1060-unit panel to about 58% scale and a
+2120-unit panel to about 29%. At a half-size canvas, the latter drops to about
+14%. The adapter has no readability floor. These are calculated synthetic
+fits, not user acceptance or a measured rendering result.
+
+A separate case confirms the generic clamp leaves a 900x1600 panel outside a
+640x1440 workspace. Its anchor is clamped, but neither its width nor height is
+reduced. `CanvasPanelPlacement.RescuePanelFromVoid` keeps oversized titles near
+the selected area's top edge, which also does not prove full containment.
+Do not treat a valid native rectangle or a successful saved-position round trip
+as proof that every panel fits.
+
+Section 5.3.1 of the plan now requires physical/UI conversion, reviewed
+panel-specific fitting, live readability minimums, Mainhand recovery and
+preservation of saved state before accepting narrow regions. No arbitrary
+universal minimum or new scaling policy has been implemented. Tooltip sizing
+remains the separate `OH-UI-OPTIONS-TOOLTIP-SCALE` issue.
+
 ## First implementation slice and acceptance
 
 ### Persistence source boundary, 2 November
