@@ -23,6 +23,33 @@ scaling. The settings suite passes. Native planning, clipping, protocol and addo
 runtime are unchanged; prototype 3's live evidence below remains tied to that
 immutable executable. New build and desktop evidence are recorded separately.
 
+The first prototype 4 build exposed a native keyboard-focus issue during desktop
+QA: the first button received focus despite a different default button. Revision
+2 explicitly focuses the saved mode and adds a regression check for that state.
+The first build is superseded and has no acceptance claim.
+
+Use `dist/custom-workspace-regions-prototype-4-revision-2/Offhand.exe` or its
+adjacent `Offhand-Companion-v2.1.3-beta.1.zip`. This unpublished package was built
+from clean tracked source `f9a8621a371c6e05a2efa6ec22c41a976f85f6db`.
+
+- EXE SHA-256: `3863CAF187833D45B1CEACAFCF35AE0A178C3193DFE489FDC5FF528DDB971621`
+- ZIP SHA-256: `354B08855918D6C5E4FCEFA7EDBCD45015E1C6B41C386E5B1F80774E0011F6FA`
+
+Packaging verified executable parity, archive contents and unchanged frozen
+public binaries. The preferences/layout suite passes, including the chooser at
+four scales, both explicit choices, the saved-mode default and initial focus.
+The topology suite also passed its native clipping and C# to Lua fixtures before
+the focus-only correction; no planner or protocol code changed.
+
+Desktop QA of revision 2 at 100% scale confirmed the saved two-monitor label,
+initial focus on that mode, and actual Enter opening the two-monitor editor with
+offsets `(500,914)` and dimensions `782x1290`. Changing the left offset to 510 and
+cancelling left the preferences file byte-for-byte unchanged. Companion exited
+normally and the exact original preferences were restored and hash-verified.
+Private evidence is under ignored `dist/live-qa-layout-chooser-*`. No WoW client
+was launched for this UI-only revision, so earlier game evidence is not promoted
+to an exact-artifact live claim for this build.
+
 ## Two-monitor custom workspace (prototype 3)
 
 Local unpublished portable artifact: `dist/custom-workspace-regions-prototype-3/Offhand.exe`,
