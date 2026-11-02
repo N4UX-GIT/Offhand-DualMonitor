@@ -93,6 +93,29 @@ Companion contract; the local writer and reader are the evidence used.
 
 ## First implementation slice and acceptance
 
+### Persistence source boundary, 2 November
+
+The generated-file harness now also calls the actual `Viewport:GetMetrics`,
+`CanvasPersistence.ResolveWorkspacePosition` and `CreateWorkspacePosition`.
+All 32 round trips pass for fitting panels/chat, both workspace sides, full and
+half-size UI canvases, and a saved wider/offset canvas. Resolution preserves the
+old record and writes the existing canvas-relative fields without a region ID.
+Existing Canvas and Forever CVar persistence suites also pass.
+
+| Boundary | Local evidence | Future work |
+| --- | --- | --- |
+| Schema 1 positions | `Core/CanvasPersistence.lua`, `CreateWorkspacePosition` and `ResolveWorkspacePosition`, retain `canvasLeft`, `canvasBottom`, `canvasWidth`, `canvasHeight` | Reuse for the contiguous partial slice; no schema 2 migration |
+| Panel ownership | Drag-stop clears the mutually exclusive Mainhand position; restore selects workspace or Mainhand records | Preserve ownership when adding region IDs; do not merge conflicting owners |
+| Forever position fallback | `Core/Config.lua`, `SaveWorkspacePosition` writes W4; `RestorePositions` reads W/W2/W3/W4 and yields to durable Mainhand ownership | W5 must coexist with old readers and complete revisioned profile snapshots; a new field in SavedVariables alone is insufficient |
+| Panel-specific paths | `Core/BagPersistence.lua` and `Core/CanvasPanelPlacement.lua` also write/read position ownership | Include these paths in region-aware migration and recovery acceptance |
+| Narrow workspace fit | Current clamps choose one workspace rectangle and cannot guarantee containment for a panel wider/taller than it | Define fit/scale behavior and usable minimums before the editor; 640 pixels is an example, not accepted universal panel fit |
+
+These checks cover pure position conversion for fitting rectangles. They do not
+prove actual panel reopening, protected actions, native-window behavior, live
+Forever recovery or usability at 640 pixels. Stage ordering in the plan now
+explicitly places the schema 1 fast path before schema 2 foundation work, after
+the unchanged stabilization entry criteria.
+
 1. Add a pure partial-plan builder and validation tests for minimum widths,
    oversize/invalid values, edge/side combinations and monitor identity changes.
    Choose and document usable minimums before wiring the editor.

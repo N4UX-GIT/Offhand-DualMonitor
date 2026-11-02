@@ -574,6 +574,16 @@ The feature must remain ordinary external Win32 window management. It must not i
 
 ## 13. Implementation stages
 
+### Stage 0: contiguous schema 1 partial span
+
+After the entry criteria in section 2 are met, deliver the single-display fast
+path from sections 4.2 and 5.0.1 first. Validate actual partial-window reporting,
+native clipping/rollback, fitting-panel persistence and application sharing
+before enabling it. Keep the existing canvas-relative position records and
+schema 1 contract. No schema 2 parsing, region IDs or migration is required for
+this contiguous one-workspace slice. If its live reporting gate fails, follow
+the documented fallback instead of weakening dimension checks.
+
 ### Stage 1: compatibility foundation
 
 - Add schema 2 parsing and validation.
@@ -585,9 +595,6 @@ The feature must remain ordinary external Win32 window management. It must not i
 
 ### Stage 2: one custom region
 
-- First deliver the schema 1 contiguous single-display partial-span fast path
-  when its acceptance matrix passes. This covers the `5120x1440` shared-screen
-  case without introducing multi-region persistence.
 - Implement one partial region on one Offhand monitor.
 - Add the visual editor and presets.
 - Add native exact-region clipping and rollback.

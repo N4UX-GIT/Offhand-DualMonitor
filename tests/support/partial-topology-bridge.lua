@@ -1,8 +1,10 @@
 -- Consume bytes emitted by the actual Companion writer in a temporary fixture.
-local addon = {}
+local addon = { db = {} }
 assert(loadfile("Core/Viewport.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPersistence.lua"))("Offhand", addon)
 local root = assert(arg[1], "fixture directory required")
 local checks = 0
+local positions = 0
 for index = 1, 8 do
     assert(loadfile(root .. "/" .. index .. ".lua"))()
     local topology = assert(OffhandCompanionTopology)
@@ -13,6 +15,35 @@ for index = 1, 8 do
     assert(topology.game.width == 3440 and topology.game.height == 1440)
     assert(topology.workspace.x == (gameLeft and 3440 or 0) and topology.workspace.y == 0)
     assert(topology.workspace.width == 640 and topology.workspace.height == 1440)
+    for _, scale in ipairs({1, 0.5}) do
+        UIParent = { GetWidth = function() return 4080 * scale end,
+            GetHeight = function() return 1440 * scale end }
+        GetPhysicalScreenSize = function() return 4080, 1440 end
+        local metrics = addon.Viewport:GetMetrics()
+        assert(metrics.companionTopology and metrics.topologyStatus == "READY")
+        assert(metrics.workspaceWidth == 640 * scale and metrics.workspaceHeight == 1440 * scale)
+        local persistence = addon.CanvasPersistence
+        for _, chat in ipairs({false, true}) do
+            -- A fitting panel saved on the old wider workspace must remain
+            -- reachable after shrinking and moving the workspace to either side.
+            local previous = { x = 1500, y = 1200, canvasLeft = 1000,
+                canvasBottom = 100, canvasWidth = 1440, canvasHeight = 2560 }
+            local x, y = persistence.ResolveWorkspacePosition(metrics, previous,
+                200 * scale, 250 * scale, chat)
+            assert(x >= metrics.workspaceLeft + (chat and 48 or 12))
+            assert(x + 200 * scale <= metrics.workspaceRight - 12)
+            assert(y - 250 * scale >= metrics.workspaceBottom + 12
+                and y <= metrics.workspaceTop - 12)
+            local saved = assert(persistence.CreateWorkspacePosition(metrics, x, y,
+                200 * scale, 250 * scale, chat))
+            local restoredX, restoredY = persistence.ResolveWorkspacePosition(metrics,
+                saved, 200 * scale, 250 * scale, chat)
+            assert(math.abs(x - restoredX) < 0.000001 and math.abs(y - restoredY) < 0.000001)
+            assert(saved.regionId == nil and previous.canvasWidth == 1440
+                and previous.canvasLeft == 1000 and previous.x == 1500)
+            positions = positions + 1
+        end
+    end
     for _, forever in ipairs({false, true}) do
         addon.isForever = forever
         for _, case in ipairs({
@@ -29,3 +60,4 @@ for index = 1, 8 do
     end
 end
 print("PASS: " .. checks .. " generated C# to Lua partial-topology acceptance/rejection cases")
+print("PASS: " .. positions .. " partial-workspace metric and saved-position round trips")

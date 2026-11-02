@@ -61,3 +61,21 @@ and ForeverState.lua were restored exactly and hash-checked after shutdown.
 VSync was returned to Enabled through the UI before the second recovery.
 Battle.net remains open. Candidate bytes are unchanged. Nothing was installed,
 submitted or published.
+
+## Direct-geometry follow-up, 01:48-01:52 CET
+
+Revision 4 and the same Retail build were launched through the authenticated
+launcher, using the already selected idle level-one Hunter. Original settings,
+account and character profiles, and generated bridges were backed up first.
+Window Setup opened, but the client disconnected at 01:50:31.852 before
+Companion geometry selection, span or reload acceptance. No new acceptance
+result is claimed. Per the user's Starlink report, the network disconnect is
+excluded from release blockers; this does not complete the missing test.
+
+The test game exited normally (`GxShutdown` 01:51:02.733), then Companion exited.
+All six backed-up files were restored exactly and hash-checked after process
+exit. Battle.net remains open. Private evidence is ignored under
+`dist/live-qa-rc4-retail-direct-20261102-014829`.
+BugGrabber's before/after content differs only in its session counter, from 332
+to 333; no new captured error record or existing-error counter changed. This
+short idle attempt establishes no combat/taint acceptance.
