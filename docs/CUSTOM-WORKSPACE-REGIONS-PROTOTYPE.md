@@ -8,6 +8,27 @@ Update: prototype 3 adds a full game monitor plus a freely positioned rectangula
 workspace on a second monitor, still using the existing schema 1 single-workspace
 contract. This is separate from multiple independent workspace regions.
 
+## Trying the current local prototype
+
+Prototype 5 is the latest local build. Prototype 4 revision 2 remains the most
+recent exact package with a completed Retail game workflow. Evidence and hashes
+for both are kept below; neither is a public release.
+
+1. Close any other Companion normally, then launch the chosen prototype's
+   `Offhand.exe`. It uses the existing Companion preferences.
+2. Open **Custom region...**, choose the one-monitor or two-monitor layout, and
+   use its visual selector or numeric fields. Two-monitor mode keeps the full
+   game monitor and one rectangular workspace on the other monitor.
+3. **Use selection** accepts the overlay into the pending editor. **Save plan**
+   saves settings. **Span WoW Now** applies them to a running Windowed WoW client.
+   If the character UI was already loaded, use `/reload` once afterward.
+4. Use **Use Companion** in the addon's setup guide when an older manual-canvas
+   preference is active. That selection restores AUTO geometry; a manual canvas
+   can otherwise override the newly generated Companion plan.
+5. **Restore Window** returns the remembered native window. Disable the custom
+   mode in its editor and save to return to ordinary display planning. Custom
+   plans remain manual-only.
+
 ## Save validation follow-up (prototype 5)
 
 Unpublished portable package: `dist/custom-workspace-regions-prototype-5/Offhand.exe`
@@ -18,7 +39,8 @@ and adjacent `Offhand-Companion-v2.1.3-beta.1.zip`, built from clean tracked sou
 - ZIP SHA-256: `4B4252C732953CD8127C24DB3F26B8DA2065889B759E5B20DAA51E7E90D25A9E`
 
 Packaging verified executable parity, archive contents and unchanged frozen
-public artifacts. This build has no new packaged desktop or game acceptance claim.
+public artifacts. Packaged desktop Save/restart evidence is recorded below;
+this build has no new in-game acceptance claim.
 
 Custom-region Save now reads the current display list immediately before atomic
 preferences publication and validates enabled custom plans against that snapshot.
@@ -38,6 +60,16 @@ hotplug and mixed-DPI testing remain pending. The shared knowledge query reporte
 a gap; the local editor, planner and atomic preferences writer are the source
 evidence for this change. Earlier packaged live results remain tied to their
 original executables.
+
+Desktop QA of the exact prototype 5 executable at 100%/100% scale passed saved-
+mode keyboard selection, editing the secondary left offset from 500 to 520, and
+Save through the new publication guard. The resulting file retained two-monitor
+custom mode with auto-span disabled and left no pending preferences file.
+After normal exit and a fresh Companion launch, the editor showed offset 520,
+the saved 782x1290 dimensions, and the expected 3480x1640 backing surface.
+Companion exited normally again; the exact original preferences were restored
+and hash-verified. No game was launched or monitor disconnected during this
+desktop check. Private evidence: `dist/live-qa-save-guard-20261102-145002`.
 
 ## Layout chooser follow-up (prototype 4)
 
