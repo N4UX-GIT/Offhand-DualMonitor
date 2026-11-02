@@ -12,6 +12,10 @@ span/restore and repeated recovery. A server disconnect preceded final restore.
 Broader controls/lifecycle, failure rollback, show-state and cross-client cases
 remain explicit gates.
 
+User disposition, 2 November: ignore the observed network disconnects given
+their poor Starlink connection. They are excluded from acceptance blockers;
+historical logs remain evidence without an independently established cause.
+
 Update, 1 November: [revision 3 passed a targeted Anniversary live sequence](COMPANION-RC3-ANNIVERSARY-LIVE-20261101.md).
 That record supersedes the generic pending status only for its listed cases and
 exact artifact/client/addon pairing. Remaining procedure items below still need

@@ -13,7 +13,9 @@ synthetic assertions pass on each architecture. Portable ZIP and unsigned MSIX
 parity checks pass. See [revision 4 evidence](COMPANION-RC4-RESTORE-EVIDENCE.md).
 Its [targeted Retail run](COMPANION-RC4-RETAIL-LIVE-20261102.md) passed ordinary
 restore, two reset recoveries and native restore priority. A server disconnect
-preceded final restore by about 84 seconds; cause remains unresolved. Broader
+preceded final restore by about 84 seconds. The user attributes the disconnects
+to their poor Starlink connection and asked to ignore them; they are excluded
+from release blockers. This is user disposition, not a proven root cause. Broader
 live acceptance is pending. Revision 3 results below remain attached to
 revision 3; neither its bytes nor public Beta 20 bytes were replaced.
 
@@ -146,8 +148,9 @@ The checked-in public ZIP is also unchanged.
 ## Required next release work
 
 1. Complete direct Companion-topology layout and persistence acceptance beyond
-   the confirmed schema 1/viewport check. Repeat direct-mode reload after the
-   unexplained disconnect and audit fresh errors. Preserve and restore the
+   the confirmed schema 1/viewport check. Complete direct-mode reload and audit
+   fresh addon errors. Network disconnects themselves are excluded from blockers.
+   Preserve and restore the
    existing manual profile when testing generated topology.
 2. Keep the resize comparison experimental until matched logs and repeatable
    sharpness/stability evidence resolve its conflict with recovery.
@@ -156,7 +159,7 @@ The checked-in public ZIP is also unchanged.
    resets, cancellation and persistence. Keep unresolved hang/error reports open.
 4. Review the already selected `2.1.3-beta.1` metadata, source scope and release
    notes before promotion. Protocol 1 and the addon minimum remain unchanged.
-5. Preserve rc3 provenance and hashes. Local portable ZIP checks and unsigned
+5. Preserve rc4 provenance and hashes, retaining rc3 as historical evidence. Local portable ZIP checks and unsigned
    MSIX executable parity passed. Verify Store delivery history, choose an unused
    increasing Store package version, then complete packaged and rollback QA.
    Follow COMPANION-RELEASE-RUNBOOK.md for publication gates.
@@ -166,6 +169,8 @@ The checked-in public ZIP is also unchanged.
 See [CUSTOM-WORKSPACE-REGIONS-INVESTIGATION.md](CUSTOM-WORKSPACE-REGIONS-INVESTIGATION.md).
 Investigation is active; runtime feature implementation has not begun. Preserve
 the plan's stabilized-main entry criteria and dedicated feature branch.
+Eight generated C# plans and 64 Lua consumption cases now pass for hypothetical
+partial schema 1 windows. Actual partial-window reporting remains untested.
 
 ## Research evidence
 

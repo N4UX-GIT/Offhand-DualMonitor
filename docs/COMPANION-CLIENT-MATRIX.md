@@ -4,8 +4,10 @@
 
 The changed restore path passed connected normal restore and two consecutive
 VSync recoveries on Retail `12.1.5.70688`. A server disconnect was logged about
-84 seconds before final Restore, ruling out that call as its trigger but leaving
-the incident unresolved. See [the revision 4 record](COMPANION-RC4-RETAIL-LIVE-20261102.md).
+84 seconds before final Restore, ruling out that call as its trigger. The user
+reports poor Starlink connectivity and asked to ignore these disconnects, so
+they are excluded from acceptance blockers. The cause was not independently
+proven. See [the revision 4 record](COMPANION-RC4-RETAIL-LIVE-20261102.md).
 Broader release acceptance remains partial; original settings were restored.
 
 ## 2 November: combined revision 3 Retail result

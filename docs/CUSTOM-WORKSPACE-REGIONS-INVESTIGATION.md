@@ -68,6 +68,29 @@ The example uses 5,875,200 backing pixels instead of 7,372,800 for the full
 or frame-rate improvement. Excluded pixels must remain available to Windows
 applications in live testing.
 
+## Generated writer-to-reader characterization, 2 November
+
+`tests/companion-partial-topology.ps1` compiles the actual Companion source with
+a test-only entry point. It supplies eight hypothetical partial plans to
+`CompanionTopologyBridge.TryWrite`: both occupied monitor edges, both game sides
+and origins `(0,0)` and `(-5120,-1440)`. Each plan occupies `4080x1440` of a
+`5120x1440` display, with a `3440x1440` game and `640x1440` workspace.
+The writer's byte parity and `IsCurrent` checks pass for every plan.
+
+The actual Lua viewport reader consumes those generated files. All 64 cases
+pass across ordinary/Forever flags, matching dimensions, a half-size UI canvas,
+stale full-monitor physical dimensions and a restored game-only surface. The
+generated rectangles exclude the reserved 1040 pixels, independent of desktop
+origin and occupied edge. CI now runs this harness; temporary files are isolated
+and removed after testing.
+
+These are cross-language synthetic results. They bypass the production planner
+and neither resize a native window nor establish live client reporting or
+reserved-application interaction. Runtime controls, production planning and
+schema 2 remain unchanged. Revision 4 does not require rebuilding for this
+test-only addition. Shared knowledge routing had no matching source for this
+Companion contract; the local writer and reader are the evidence used.
+
 ## First implementation slice and acceptance
 
 1. Add a pure partial-plan builder and validation tests for minimum widths,

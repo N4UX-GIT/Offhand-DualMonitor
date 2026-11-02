@@ -42,6 +42,10 @@ jobs:
         shell: powershell
         run: ./tests/companion-preferences.ps1
 
+      - name: Characterize partial topology writer and Lua consumer
+        shell: powershell
+        run: ./tests/companion-partial-topology.ps1
+
       - name: Test production and experimental Companion recovery policies
         shell: powershell
         run: |

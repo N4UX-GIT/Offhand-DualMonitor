@@ -9,7 +9,8 @@ release numbering. Protocol 1 and the existing addon minimum stay unchanged.
 
 Revision 4 adds restore-failure rollback and passes local synthetic/package
 checks plus targeted Retail normal restore/repeated recovery. Broader QA remains
-pending, including an unresolved server disconnect. Earlier targeted passes
+pending. Network disconnects are excluded from acceptance blockers at the user's
+request following their report of poor Starlink connectivity. Earlier targeted passes
 apply to revision 3; use the exact revision 4 live record for its scope.
 
 ## Changes prepared for testing

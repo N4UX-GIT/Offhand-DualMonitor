@@ -64,7 +64,9 @@ documents clipping behavior, return-value checks and region ownership transfer.
 The local Windows SDK `10.0.19041.0/um/WinUser.h` defines WS_MINIMIZE and
 WS_MAXIMIZE at lines 2789 and 2794. These are Win32 evidence, not WoW runtime proof.
 
-The Retail disconnect remains unresolved. Current connection/graphics logs start
+The Retail disconnect cause was not established. The user subsequently reported
+poor Starlink connectivity and requested that network disconnects be ignored;
+they are excluded from acceptance blockers. Current connection/graphics logs start
 at approximately 00:35:49, after the failed reload session, so they cannot explain
 that earlier event. The retry's graphics log records resize to `4000x2560`, return
 to `2114x1353`, and successful device destruction during normal shutdown. Private
