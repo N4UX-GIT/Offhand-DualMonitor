@@ -8,6 +8,21 @@ Update: prototype 3 adds a full game monitor plus a freely positioned rectangula
 workspace on a second monitor, still using the existing schema 1 single-workspace
 contract. This is separate from multiple independent workspace regions.
 
+## Layout chooser follow-up (prototype 4)
+
+**Custom region...** now opens an explicit layout chooser showing the saved mode.
+Choose **One monitor: game and workspace...** or **Two monitors: full game and
+custom workspace...**. Enter defaults to the saved custom mode; Cancel leaves
+preferences unchanged. Each editor retains its own explicit Save plan action.
+This removes the previous path through the single-monitor editor to reach an
+active two-monitor plan, where saving the first dialog would replace that mode.
+The single-monitor editor warns when its Save would replace a two-monitor plan.
+
+The chooser and both explicit choices pass automated checks at 100/125/150/200%
+scaling. The settings suite passes. Native planning, clipping, protocol and addon
+runtime are unchanged; prototype 3's live evidence below remains tied to that
+immutable executable. New build and desktop evidence are recorded separately.
+
 ## Two-monitor custom workspace (prototype 3)
 
 Local unpublished portable artifact: `dist/custom-workspace-regions-prototype-3/Offhand.exe`,
@@ -22,7 +37,7 @@ artifacts. The build manifest's `liveVerification: pending` describes build time
 the subsequent targeted Retail run is recorded below. No Store submission or
 release promotion was performed.
 
-Open **Custom region... > Two-monitor workspace...**. Choose distinct game and
+In prototype 3, open **Custom region... > Two-monitor workspace...**. Choose distinct game and
 workspace monitors. The game uses its full monitor. Define the workspace by
 monitor-local physical left/top offsets, width and height, or use **Select
 workspace on monitor...** to move the rectangle and resize its edges/corners.

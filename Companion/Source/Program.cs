@@ -985,6 +985,41 @@ namespace Offhand.Companion
         protected override void OnMouseCaptureChanged(EventArgs e) {base.OnMouseCaptureChanged(e);if(!Capture)dragging=false;}
     }
 
+    internal sealed class CustomRegionModeDialog : Form
+    {
+        internal bool Secondary;
+        internal readonly Button SingleButton, SecondaryButton;
+
+        internal CustomRegionModeDialog(IDictionary<string,string> settings)
+        {
+            Text = "Choose custom workspace layout";
+            ClientSize = new Size(540, 240);
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MinimizeBox = false; MaximizeBox = false;
+            StartPosition = FormStartPosition.CenterParent;
+            AutoScaleMode = AutoScaleMode.Dpi; Font = new Font("Segoe UI", 10);
+            string value;
+            bool secondary = settings.TryGetValue("SecondaryAreaEnabled", out value)
+                && string.Equals(value, "True", StringComparison.OrdinalIgnoreCase);
+            bool single = settings.TryGetValue("PartialSpanEnabled", out value)
+                && string.Equals(value, "True", StringComparison.OrdinalIgnoreCase);
+            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(16), ColumnCount = 1 };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            var current = new Label { AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 0, 0, 12),
+                Text = "Current plan: " + (secondary ? "two-monitor custom workspace." : single ? "single-monitor custom region." : "standard display layout.")
+                    + "\nChoose a layout to edit. Changes are saved only with Save plan in its editor." };
+            SingleButton = new Button { Text = "One monitor: game and workspace...", AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 4, 0, 4) };
+            SecondaryButton = new Button { Text = "Two monitors: full game and custom workspace...", AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 4, 0, 4) };
+            var cancel = new Button { Text = "Cancel", AutoSize = true, Anchor = AnchorStyles.Right, DialogResult = DialogResult.Cancel, Margin = new Padding(0, 12, 0, 0) };
+            foreach (Control control in new Control[] { current, SingleButton, SecondaryButton, cancel }) {
+                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); layout.Controls.Add(control, 0, layout.RowCount++);
+            }
+            SingleButton.Click += (s,e) => { Secondary = false; DialogResult = DialogResult.OK; Close(); };
+            SecondaryButton.Click += (s,e) => { Secondary = true; DialogResult = DialogResult.OK; Close(); };
+            Controls.Add(layout); CancelButton = cancel; AcceptButton = secondary ? SecondaryButton : SingleButton;
+        }
+    }
+
     internal sealed class SecondaryAreaDialog : Form
     {
         internal Dictionary<string,string> Settings;
@@ -1072,14 +1107,6 @@ namespace Offhand.Companion
             row("Workspace width (px)", WorkspaceWidth); row("Occupied monitor edge", edge); row("Game side inside WoW", side);
             var visual = new Button { Text = "Select area on monitor...", AutoSize = true, Dock = DockStyle.Fill };
             row("Visual selection", visual);
-            var secondary = new Button { Text = "Two-monitor workspace...", AutoSize = true, Dock = DockStyle.Fill };
-            row("Other layout", secondary);
-            secondary.Click += (s,e) => {
-                using(var dialog=new SecondaryAreaDialog(displays,settings)) {
-                    if(dialog.ShowDialog(this)!=DialogResult.OK)return;
-                    Settings=dialog.Settings;DialogResult=DialogResult.OK;Close();
-                }
-            };
             visual.Click += (s,e) => {
                 if (DisplaySelector.SelectedIndex < 0) return;
                 var monitor = displays[DisplaySelector.SelectedIndex].Bounds;
@@ -1113,7 +1140,7 @@ namespace Offhand.Companion
                 if (DisplaySelector.SelectedIndex < 0) { preview.Text = "No connected display."; return; }
                 int total = (int)OccupiedWidth.Value, work = (int)WorkspaceWidth.Value;
                 preview.Text = (settings.ContainsKey("SecondaryAreaEnabled") && settings["SecondaryAreaEnabled"] == "True"
-                    ? "A two-monitor custom workspace is saved. Open Two-monitor workspace to edit it. Saving here replaces that mode.\n\n" : "")
+                    ? "A two-monitor custom workspace is saved. Saving this single-monitor plan replaces that mode. Cancel to keep it.\n\n" : "")
                     + string.Format("WoW {0} = workspace {1} + game {2}; free {3}px.\n\nSave changes the plan only. Click Span WoW Now to apply. Custom regions are manual-only in this prototype.\n\nUse Mainhand for panels that do not fit. Narrow workspaces can make scaled panels hard to read. Restore Window returns the ordinary window.", total, work, total - work, displays[DisplaySelector.SelectedIndex].Bounds.Width - total);
             };
             table.Controls.Add(preview, 0, table.RowCount++); table.SetColumnSpan(preview, 2);
@@ -2613,18 +2640,30 @@ namespace Offhand.Companion
             SuspendUiPolling();
             try
             {
-                using (var dialog = new PartialSpanDialog(ReadDisplays(), appSettings))
+                Dictionary<string,string> proposed;
+                using (var choice = new CustomRegionModeDialog(appSettings))
                 {
-                    if (dialog.ShowDialog(this) != DialogResult.OK) return;
-                    // Publish the complete validated copy before adopting it.
-                    PreferenceFile.Write(configPath, dialog.Settings);
-                    appSettings = dialog.Settings;
-                    classicRecovery.Clear(); displaySelectionGeneration++;
-                    RefreshDisplayControls(ReadDisplays(), true);
-                    chkAutoSpan.Checked = appSettings.ContainsKey("AutoSpan") && appSettings["AutoSpan"] == "True";
-                    UpdatePartialControls(); RefreshSelectedColorStatus();
-                    AddLog("Custom region plan saved. No window was resized. Click Span WoW Now to apply, or Restore Window to return to the ordinary window.");
+                    if (choice.ShowDialog(this) != DialogResult.OK) return;
+                    if (choice.Secondary) {
+                        using (var dialog = new SecondaryAreaDialog(ReadDisplays(), appSettings)) {
+                            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                            proposed = dialog.Settings;
+                        }
+                    } else {
+                        using (var dialog = new PartialSpanDialog(ReadDisplays(), appSettings)) {
+                            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                            proposed = dialog.Settings;
+                        }
+                    }
                 }
+                // Publish the complete validated copy before adopting it.
+                PreferenceFile.Write(configPath, proposed);
+                appSettings = proposed;
+                classicRecovery.Clear(); displaySelectionGeneration++;
+                RefreshDisplayControls(ReadDisplays(), true);
+                chkAutoSpan.Checked = appSettings.ContainsKey("AutoSpan") && appSettings["AutoSpan"] == "True";
+                UpdatePartialControls(); RefreshSelectedColorStatus();
+                AddLog("Custom region plan saved. No window was resized. Click Span WoW Now to apply, or Restore Window to return to the ordinary window.");
             }
             catch (Exception ex) { AddLog("Custom region was not saved: " + ex.Message); MessageBox.Show(this, ex.Message, "Custom region", MessageBoxButtons.OK, MessageBoxIcon.Information); }
             finally { ResumeUiPolling(); }

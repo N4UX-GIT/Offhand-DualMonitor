@@ -169,6 +169,34 @@ namespace Offhand.Companion
             CheckScale(1.5f);
             CheckScale(2.0f);
             foreach (float factor in new float[] { 1f, 1.25f, 1.5f, 2f })
+            foreach (string mode in new string[] { "standard", "single", "secondary" })
+            using (var choice = new CustomRegionModeDialog(new Dictionary<string,string> {
+                {"PartialSpanEnabled", mode == "single" ? "True" : "False"},
+                {"SecondaryAreaEnabled", mode == "secondary" ? "true" : "False"}
+            })) {
+                choice.CreateControl(); choice.Scale(new SizeF(factor, factor)); LayoutAll(choice);
+                if (choice.AcceptButton != (mode == "secondary" ? choice.SecondaryButton : choice.SingleButton))
+                    throw new Exception("Layout chooser does not default to the saved custom mode.");
+                foreach (Control c in Descendants(choice).Where(c => c is Button || c is Label)) {
+                    Rectangle bounds = BoundsInside(c, choice);
+                    if (bounds.Left < 0 || bounds.Top < 0 || bounds.Right > choice.ClientSize.Width || bounds.Bottom > choice.ClientSize.Height)
+                        throw new Exception("Layout chooser clipped at " + factor + "x: " + c.Text);
+                }
+                string preview = Environment.GetEnvironmentVariable("OFFHAND_LAYOUT_PREVIEW");
+                if (factor == 1f && mode == "secondary" && !string.IsNullOrEmpty(preview))
+                    using (var bitmap = new Bitmap(choice.ClientSize.Width, choice.ClientSize.Height)) {
+                        using (var graphics = Graphics.FromImage(bitmap)) graphics.Clear(choice.BackColor);
+                        RenderChildren(choice, bitmap, Point.Empty);
+                        bitmap.Save(preview + ".mode.png", System.Drawing.Imaging.ImageFormat.Png);
+                    }
+                // Exercise both explicit choices, including a change from the saved mode.
+                bool secondary = mode != "secondary";
+                typeof(Button).GetMethod("OnClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(secondary ? choice.SecondaryButton : choice.SingleButton, new object[] { EventArgs.Empty });
+                if (choice.DialogResult != DialogResult.OK || choice.Secondary != secondary)
+                    throw new Exception("Layout chooser returned the wrong editor selection.");
+            }
+            foreach (float factor in new float[] { 1f, 1.25f, 1.5f, 2f })
             using (var dialog = new PartialSpanDialog(new List<MonitorSelection.Display> {
                 new MonitorSelection.Display {Index=0, DeviceName="fixture", StableId="fixture", Bounds=new Rectangle(0,0,5120,1440)}
             }, new Dictionary<string,string>()))
