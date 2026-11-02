@@ -21,6 +21,11 @@ from release blockers. This is user disposition, not a proven root cause. Broade
 live acceptance is pending. Revision 3 results below remain attached to
 revision 3; neither its bytes nor public Beta 20 bytes were replaced.
 
+Revision 4 also passed successful Restore from minimized/maximized ordinary
+Retail windows at character selection, verified against exact native readbacks
+of the remembered original geometry. This advances native show-state coverage
+without accepting in-world layout, clipped-span minimization or failure rollback.
+
 On 2 November, the same revision 3 also passed targeted Retail `12.1.5.70688`
 manual span, two consecutive VSync reset recoveries and Restore priority. See
 [the Retail live record](COMPANION-RC3-RETAIL-LIVE-20261102.md). Original settings

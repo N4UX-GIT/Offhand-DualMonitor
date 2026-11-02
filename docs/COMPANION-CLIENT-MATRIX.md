@@ -10,6 +10,13 @@ they are excluded from acceptance blockers. The cause was not independently
 proven. See [the revision 4 record](COMPANION-RC4-RETAIL-LIVE-20261102.md).
 Broader release acceptance remains partial; original settings were restored.
 
+A later revision 4 character-selection run passed successful Restore from native
+minimized and maximized ordinary windows, retaining remembered original bounds,
+client dimensions and style. Native readbacks and cleanup are recorded in the
+same live record. This accepts that specific successful native path; in-world
+show-state behavior, clipped-span minimization and actual failure rollback remain
+open.
+
 ## 2 November: combined revision 3 Retail result
 
 The same rc3 executable passed manual span, two consecutive VSync reset recoveries

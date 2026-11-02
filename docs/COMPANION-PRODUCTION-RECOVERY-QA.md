@@ -17,6 +17,13 @@ all restore failure stages, exact normal/minimum/maximum placement readbacks and
 both absent/complex clipping. This does not accept visible WoW show-state timing
 or successful restore from those states. Revision 4 executable bytes are unchanged.
 
+Subsequent [Retail character-selection testing](COMPANION-RC4-RETAIL-LIVE-20261102.md)
+passes successful Restore from minimized and maximized ordinary windows using
+the remembered original geometry. Exact native outer/client/style and normal
+show-state readbacks match the original. This advances the visible native path
+only; in-world behavior, still-clipped span minimization and WoW failure rollback
+remain unaccepted.
+
 User disposition, 2 November: ignore the observed network disconnects given
 their poor Starlink connection. They are excluded from acceptance blockers;
 historical logs remain evidence without an independently established cause.

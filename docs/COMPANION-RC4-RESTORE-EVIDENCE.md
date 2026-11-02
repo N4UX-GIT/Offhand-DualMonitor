@@ -65,6 +65,12 @@ actual local readbacks, rather than assuming exact placement from an API return
 value alone. Shared WoW knowledge routing returned no native rollback evidence;
 these Win32 contracts, local source and controlled native tests are the basis.
 
+Later [Retail character-selection testing](COMPANION-RC4-RETAIL-LIVE-20261102.md)
+passed successful Restore from actual minimized and maximized ordinary windows,
+with exact remembered outer/client/style readbacks and normal placement. That
+result applies to the visible successful path only. Still-clipped span
+minimization, in-world behavior and actual WoW failure rollback remain open.
+
 ## Exact artifact
 
 - Source build revision: `44f1c166c645537bb9553dec70c267a889ed9b00`, clean tracked source at build time.
