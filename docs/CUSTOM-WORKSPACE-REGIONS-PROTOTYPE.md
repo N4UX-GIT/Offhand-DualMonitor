@@ -23,6 +23,14 @@ at the five-layout cap. The run used the newer installed addon, preserved all
 original layout rows, and restored 18 backed-up files. Actual setup-button input,
 custom-area panel dragging and protected actions remain open.
 
+The subsequent [Retail lifecycle run](CUSTOM-WORKSPACE-REGIONS-RETAIL-LIFECYCLE-QA.md)
+adds exact Prototype 5 cold restart/manual apply, Character reopen persistence,
+right-edge/left-game coverage and apply from maximized/minimized ordinary windows.
+Restore intentionally returns normal placement. Actual HUD setup-button input
+safely refused creation at the cap without changing existing rows. Character
+title dragging did not respond and remains unresolved. All 18 originals were
+restored; no new captured errors or production changes were found.
+
 1. Close any other Companion normally, then launch the chosen prototype's
    `Offhand.exe`. It uses the existing Companion preferences.
 2. Open **Custom region...**, choose the one-monitor or two-monitor layout, and

@@ -50,6 +50,15 @@ were found. The tested installed addon is newer than the worktree addon; see
 [Retail HUD QA](CUSTOM-WORKSPACE-REGIONS-RETAIL-HUD-QA.md) for exact source hashes
 and the deliberately prepared fixture boundary.
 
+The subsequent [Retail lifecycle run](CUSTOM-WORKSPACE-REGIONS-RETAIL-LIFECYCLE-QA.md)
+adds exact Prototype 5 cold restart/manual apply and Character reopen persistence,
+right-edge/left-game geometry, and apply/normal Restore from maximized or minimized
+ordinary windows. The actual HUD setup button safely refused creation at the cap,
+leaving all five layouts and active selection unchanged. No fresh captured errors
+were found; all 18 originals were restored. Two Character title drags did not
+move the panel and remain unresolved. Production source and candidate bytes are
+unchanged.
+
 The initial schema 1 implementation works on the recorded setup. Physical
 hotplug, mixed DPI, broader exact-artifact client coverage, fresh HUD creation,
 protected actions and Store runtime acceptance remain open. Schema 2 and multiple

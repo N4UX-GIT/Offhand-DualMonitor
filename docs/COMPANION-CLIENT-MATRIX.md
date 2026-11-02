@@ -25,6 +25,16 @@ custom-area panel dragging, protected actions and warning-free ordinary-window
 reconciliation remain open. The installed addon differs from the worktree;
 see [Retail HUD QA](CUSTOM-WORKSPACE-REGIONS-RETAIL-HUD-QA.md) for exact provenance.
 
+The subsequent [Retail lifecycle QA](CUSTOM-WORKSPACE-REGIONS-RETAIL-LIFECYCLE-QA.md)
+adds exact Prototype 5 Companion/client cold restart, manual apply and Character
+reopen persistence. Right-edge/left-game geometry and apply/normal Restore from
+maximized/minimized ordinary windows passed. The actual setup button safely
+refused creation at the cap and all five rows plus active preset remained equal.
+Two Character title drags did not move the panel; dragging remains unresolved.
+No new captured errors were found, all 18 originals were restored and both apps
+closed. Already-applied-span show-state changes, failure injection and combat
+remain unverified. Manual Restore intentionally requests normal placement.
+
 An exact prototype 5 Anniversary `2.5.6.70577` attempt passed native two-monitor
 custom apply and exact native Restore. Another player attacked the selected
 character after world entry, so the run ended before diagnostics/reload. It is a

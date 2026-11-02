@@ -10,6 +10,10 @@ See [the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md) for current sc
 The [Retail HUD follow-up](CUSTOM-WORKSPACE-REGIONS-RETAIL-HUD-QA.md) adds bounded
 regeneration and panel acceptance. Fresh row creation at the layout cap,
 protected actions, panel dragging and external-owner fit remain explicit gaps.
+The later [Retail lifecycle follow-up](CUSTOM-WORKSPACE-REGIONS-RETAIL-LIFECYCLE-QA.md)
+accepts exact Prototype 5 cold restart/manual apply, opposite edge/game-side
+selection, and ordinary-window maximized/minimized entry. Actual setup-button
+input safely refused fresh creation at the cap; Character dragging remains open.
 
 Investigation started 1 November 2026 at the user's request. See
 [the initial source study](CUSTOM-WORKSPACE-REGIONS-INVESTIGATION.md) for
