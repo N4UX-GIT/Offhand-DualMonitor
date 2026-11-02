@@ -8,6 +8,27 @@ Update: prototype 3 adds a full game monitor plus a freely positioned rectangula
 workspace on a second monitor, still using the existing schema 1 single-workspace
 contract. This is separate from multiple independent workspace regions.
 
+## Save validation follow-up (prototype 5)
+
+Custom-region Save now reads the current display list immediately before atomic
+preferences publication and validates enabled custom plans against that snapshot.
+The editor still validates pending inputs, and Span retains its separate current-
+topology guard. This closes a persistence gap where an editor opened before a
+disconnect or resolution change could otherwise save its stale plan.
+
+The production save path's filesystem fixtures cover valid single/secondary
+custom saves, missing displays, replacement identity and changed resolution.
+Rejected saves preserve existing preferences, do not create an absent target and
+remove their pending files. Disabling custom mode remains possible with a display
+missing. The dashboard adopts the returned display snapshot only after successful
+publication. The topology and preference/layout suites pass.
+
+These are controlled display-snapshot and actual filesystem tests. Physical live
+hotplug and mixed-DPI testing remain pending. The shared knowledge query reported
+a gap; the local editor, planner and atomic preferences writer are the source
+evidence for this change. Earlier packaged live results remain tied to their
+original executables.
+
 ## Layout chooser follow-up (prototype 4)
 
 **Custom region...** now opens an explicit layout chooser showing the saved mode.

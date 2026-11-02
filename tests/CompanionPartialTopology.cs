@@ -10,6 +10,18 @@ namespace Offhand.Companion
     internal static class PartialTopologyTest
     {
         [DllImport("gdi32.dll")] private static extern bool PtInRegion(IntPtr region, int x, int y);
+        private static void RejectSave(string path, IDictionary<string,string> settings, List<MonitorSelection.Display> current)
+        {
+            byte[] before = File.Exists(path) ? File.ReadAllBytes(path) : null;
+            bool rejected = false;
+            try { CustomRegionPreferences.Write(path, settings, () => current); }
+            catch (InvalidOperationException) { rejected = true; }
+            if (!rejected) throw new Exception("Stale editor plan was published against changed displays.");
+            if (before == null ? File.Exists(path) : !SpanRollback.SameBytes(before, File.ReadAllBytes(path)))
+                throw new Exception("Rejected custom save changed the previous preferences.");
+            if (Directory.GetFiles(Path.GetDirectoryName(path), Path.GetFileName(path) + ".pending-*").Length != 0)
+                throw new Exception("Rejected custom save leaked a pending preferences file.");
+        }
         public static void Main(string[] args)
         {
             // Gesture sequences must produce layouts accepted by the production
@@ -103,6 +115,22 @@ namespace Offhand.Companion
                 var missing=new List<MonitorSelection.Display> {displays[0]};
                 bool missingRejected=false;try{MonitorSelection.CreatePlan(settings,missing);}catch(InvalidOperationException){missingRejected=true;}
                 if(!missingRejected)throw new Exception("Disconnected secondary monitor accepted.");
+                string savedPlan = Path.Combine(root, "secondary-save" + fixture + ".ini");
+                if (!object.ReferenceEquals(CustomRegionPreferences.Write(savedPlan, settings, () => displays), displays))
+                    throw new Exception("Custom save did not return its validated current display snapshot.");
+                RejectSave(savedPlan, settings, missing);
+                RejectSave(savedPlan + ".absent", settings, missing);
+                var resized = new List<MonitorSelection.Display> { displays[0], new MonitorSelection.Display {
+                    Index=1, StableId="workspace", DeviceName="workspace",
+                    Bounds=new Rectangle(monitor.X, monitor.Y, monitor.Width + 1, monitor.Height) }};
+                RejectSave(savedPlan, settings, resized);
+                var replaced = new List<MonitorSelection.Display> { displays[0], new MonitorSelection.Display {
+                    Index=1, StableId="replacement", DeviceName="workspace", Bounds=monitor }};
+                RejectSave(savedPlan, settings, replaced);
+                var disabled = new Dictionary<string,string>(settings); disabled["SecondaryAreaEnabled"] = "False";
+                CustomRegionPreferences.Write(savedPlan, disabled, () => missing);
+                if (!File.ReadAllText(savedPlan).Contains("SecondaryAreaEnabled=False"))
+                    throw new Exception("Missing display prevented disabling custom mode.");
                 var clone=new List<MonitorSelection.Display> {displays[0],new MonitorSelection.Display {
                     Index=1,StableId="workspace",DeviceName="clone",Bounds=game}};
                 var overlap=new Dictionary<string,string>(settings);overlap["SecondaryMonitorWidth"]="2560";overlap["SecondaryMonitorHeight"]="1440";
@@ -143,6 +171,9 @@ namespace Offhand.Companion
                     {"PartialEdge",occupiedRight ? "RIGHT" : "LEFT"}, {"PartialGameSide",gameLeft ? "LEFT" : "RIGHT"}
                 };
                 var plan = MonitorSelection.CreatePlan(settings, displays);
+                string singleSave = Path.Combine(root, "single-save.ini");
+                CustomRegionPreferences.Write(singleSave, settings, () => displays);
+                RejectSave(singleSave, settings, new List<MonitorSelection.Display>());
                 if (!plan.PartialSingle || plan.Bounds != occupied
                     || plan.MainhandBounds.Width != 3440 || plan.WorkspaceBounds.Width != 640)
                     throw new Exception("Partial production plan bounds mismatch.");
@@ -192,6 +223,7 @@ namespace Offhand.Companion
                     var changedDisplays = new List<MonitorSelection.Display> {
                         new MonitorSelection.Display { Index=0, StableId="fixture", DeviceName="partial-fixture", Bounds=new Rectangle(origin, changedSize) }
                     };
+                    RejectSave(singleSave, settings, changedDisplays);
                     bool changedRejected = false;
                     try { MonitorSelection.CreatePlan(settings, changedDisplays); } catch (InvalidOperationException) { changedRejected = true; }
                     if (!changedRejected) throw new Exception("Custom plan accepted a changed physical monitor resolution.");
@@ -213,6 +245,7 @@ namespace Offhand.Companion
                 File.WriteAllBytes(Path.Combine(root, (++count).ToString() + ".lua"), written);
             }
             Console.WriteLine("PASS: {0} generated schema 1 partial-plan fixtures, both edges/sides and negative origins", count);
+            Console.WriteLine("PASS: custom preference publication rejects changed display snapshots, preserves existing files, cleans pending files and permits disabling with missing displays");
         }
     }
 }

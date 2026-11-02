@@ -1830,6 +1830,28 @@ namespace Offhand.Companion
         }
     }
 
+    internal static class CustomRegionPreferences
+    {
+        // Editors hold a snapshot while open. Re-enumerate at publication so a
+        // stale custom plan cannot replace the last saved preferences.
+        internal static List<MonitorSelection.Display> Write(string path,
+            IDictionary<string,string> settings, Func<List<MonitorSelection.Display>> readDisplays)
+        {
+            List<MonitorSelection.Display> current = null;
+            PreferenceFile.Write(path, settings, temporary => {
+                current = readDisplays();
+                string value;
+                bool custom = (settings.TryGetValue("PartialSpanEnabled", out value)
+                        && string.Equals(value, "True", StringComparison.OrdinalIgnoreCase))
+                    || (settings.TryGetValue("SecondaryAreaEnabled", out value)
+                        && string.Equals(value, "True", StringComparison.OrdinalIgnoreCase));
+                // Disabling custom mode remains available with a display missing.
+                if (custom) MonitorSelection.CreatePlan(settings, current);
+            });
+            return current;
+        }
+    }
+
     internal static class PreferenceFile
     {
         internal static void Write(string path, IDictionary<string, string> settings)
@@ -2658,10 +2680,10 @@ namespace Offhand.Companion
                     }
                 }
                 // Publish the complete validated copy before adopting it.
-                PreferenceFile.Write(configPath, proposed);
+                var currentDisplays = CustomRegionPreferences.Write(configPath, proposed, ReadDisplays);
                 appSettings = proposed;
                 classicRecovery.Clear(); displaySelectionGeneration++;
-                RefreshDisplayControls(ReadDisplays(), true);
+                RefreshDisplayControls(currentDisplays, true);
                 chkAutoSpan.Checked = appSettings.ContainsKey("AutoSpan") && appSettings["AutoSpan"] == "True";
                 UpdatePartialControls(); RefreshSelectedColorStatus();
                 AddLog("Custom region plan saved. No window was resized. Click Span WoW Now to apply, or Restore Window to return to the ordinary window.");
