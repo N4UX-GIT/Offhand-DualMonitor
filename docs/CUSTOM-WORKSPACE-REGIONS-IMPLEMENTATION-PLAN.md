@@ -22,8 +22,8 @@ apply/reload/Restore evidence. Prototype 5 adds current-display validation at
 Save and has targeted Retail two-monitor to single-monitor transition, reload
 and exact native Restore evidence, plus Anniversary secondary-workspace reload,
 fresh error-capture and Restore evidence on a level-1 character. The initial
-schema 1 implementation is working on the recorded setup. General schema 2 region development remains
-deferred behind the stabilization gates.**
+schema 1 implementation is working on the recorded setup. General schema 2
+region development remains deferred behind the stabilization gates.**
 
 This document records the intended design, implementation sequence, compatibility requirements, risk assessment, validation matrix, and release gates for partial-monitor and multi-monitor Offhand workspace regions. It is not authorization to begin implementation on the current stabilization branch.
 
@@ -120,9 +120,11 @@ The first implementation should let the user choose:
 When game and workspace are contiguous and rectangular, Companion may emit a
 schema 1 topology whose `physicalWidth` and native window bounds describe only
 the `4080x1440` WoW region. This preserves the current addon's one-Mainhand,
-one-workspace contract and avoids delaying this case on schema 2. Schema 2
-remains required when regions are discontiguous, multiple, or need native
-window-region clipping.
+one-workspace contract and avoids delaying this case on schema 2. Implementation
+evidence also permits one rectangular workspace on a second monitor under schema
+1, with Companion clipping the native window to the game/workspace union. Physical
+gaps or native clipping alone do not require a new addon topology schema. Multiple
+independent workspaces and per-region frame destinations remain schema 2 work.
 
 ### 4.3 Partial-monitor workspace
 
