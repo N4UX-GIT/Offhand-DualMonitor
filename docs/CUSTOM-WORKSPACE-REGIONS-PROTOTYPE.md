@@ -11,6 +11,18 @@ multiple workspaces and general discontiguous regions remain outside this slice.
 
 ## Visual desktop editor (prototype 2)
 
+Local unpublished portable artifact:
+`dist/custom-workspace-regions-prototype-2/Offhand.exe`, also packaged in
+`Offhand-Companion-v2.1.3-beta.1.zip` in that directory. Built from clean tracked
+source `822fee854757d2cb5187968f399bf595d8157788`.
+
+- EXE SHA-256: `598815690C7940F3784C69670EB03E77ABF0118440B797D1296B02BB81BA6440`
+- ZIP SHA-256: `06795660AB01B3FB4C2B1930296F8C40FAA0E817F92921F6305B0E4512554CA5`
+
+Packaging verified exact executable parity, archive contents and unchanged frozen
+public artifacts. Prototype 2 has desktop editor and automated evidence below;
+live WoW and Store package acceptance are not inherited from prototype 1.
+
 `Custom region...` now includes **Select area on monitor...**. The selected
 monitor receives a translucent, full-monitor Companion overlay showing workspace,
 game and free desktop areas in physical pixels. Drag the internal divider to
