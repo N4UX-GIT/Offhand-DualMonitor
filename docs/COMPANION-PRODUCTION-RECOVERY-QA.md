@@ -4,13 +4,18 @@ Local release candidate. No public promotion or client acceptance is implied.
 Candidate branch: `codex/companion-next-candidate`.
 
 Current candidate is revision 4. Its restore failure path now retains exact
-prior native clipping and placement; synthetic coverage is 181 assertions per
+prior native clipping and placement; synthetic coverage is now 381 assertions per
 architecture. See [revision 4 evidence](COMPANION-RC4-RESTORE-EVIDENCE.md).
 Revision 3 live results below do not accept the changed executable. A separate
 [revision 4 Retail run](COMPANION-RC4-RETAIL-LIVE-20261102.md) passed normal
 span/restore and repeated recovery. A server disconnect preceded final restore.
 Broader controls/lifecycle, failure rollback, show-state and cross-client cases
 remain explicit gates.
+
+The expanded local suite includes actual minimized/maximized synthetic states,
+all restore failure stages, exact normal/minimum/maximum placement readbacks and
+both absent/complex clipping. This does not accept visible WoW show-state timing
+or successful restore from those states. Revision 4 executable bytes are unchanged.
 
 User disposition, 2 November: ignore the observed network disconnects given
 their poor Starlink connection. They are excluded from acceptance blockers;

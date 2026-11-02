@@ -162,6 +162,49 @@ namespace Offhand.Companion
                     Check(rejected, "invalid window aborts before mutation");
                     Check(Directory.GetFiles(root, "*.rollback-*").Length == 0, "temporary rollback files cleaned up");
                 }
+                foreach (FormWindowState state in new FormWindowState[] { FormWindowState.Minimized, FormWindowState.Maximized })
+                foreach (string failureStage in new string[] { "style", "clipping", "bounds", "verification" })
+                for (int clipped = 0; clipped < 2; clipped++)
+                using (var window = new Form())
+                {
+                    window.ShowInTaskbar = false;
+                    window.WindowState = state;
+                    IntPtr handle = window.Handle;
+                    Check(state == FormWindowState.Minimized ? NativeMethods.IsIconic(handle) : NativeMethods.IsZoomed(handle),
+                        "native show-state fixture established: " + state);
+                    NativeMethods.RECT prior;
+                    Check(NativeMethods.GetWindowRect(handle, out prior), "show-state prior bounds");
+                    var placement = new NativeMethods.WINDOWPLACEMENT();
+                    placement.length = Marshal.SizeOf(typeof(NativeMethods.WINDOWPLACEMENT));
+                    Check(NativeMethods.GetWindowPlacement(handle, ref placement), "show-state prior placement");
+                    int style = NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE);
+                    IntPtr expected = clipped == 1 ? Shape() : IntPtr.Zero;
+                    if (clipped == 1) Check(NativeMethods.SetWindowRgn(handle, Shape(), false) != 0,
+                        "show-state prior complex clipping");
+                    bool injected = false;
+                    try
+                    {
+                        WindowRestore.Apply(handle, new Rectangle(100, 120, 400, 300), style,
+                            delegate(string stage) { if (stage == failureStage) throw new IOException("show-state injected"); });
+                    }
+                    catch (IOException ex) { injected = ex.Message == "show-state injected"; }
+                    Check(injected, "original failure retained for " + state);
+                    Verify(handle, prior, style, expected);
+                    Check(state == FormWindowState.Minimized ? NativeMethods.IsIconic(handle) : NativeMethods.IsZoomed(handle),
+                        "native show-state restored: " + state);
+                    var restored = new NativeMethods.WINDOWPLACEMENT();
+                    restored.length = placement.length;
+                    Check(NativeMethods.GetWindowPlacement(handle, ref restored), "show-state restored placement");
+                    Check(restored.showCmd == placement.showCmd
+                        && restored.ptMinPosition == placement.ptMinPosition
+                        && restored.ptMaxPosition == placement.ptMaxPosition
+                        && restored.rcNormalPosition.Left == placement.rcNormalPosition.Left
+                        && restored.rcNormalPosition.Top == placement.rcNormalPosition.Top
+                        && restored.rcNormalPosition.Right == placement.rcNormalPosition.Right
+                        && restored.rcNormalPosition.Bottom == placement.rcNormalPosition.Bottom,
+                        "normal/minimum/maximum placement retained after " + failureStage);
+                    if (expected != IntPtr.Zero) NativeMethods.DeleteObject(expected);
+                }
                 Console.WriteLine("PASS: {0} span rollback assertions on synthetic native windows ({1} bit)", assertions, IntPtr.Size * 8);
             }
             finally { Directory.Delete(root, true); }

@@ -9,7 +9,9 @@ and Anniversary native passes. Full release acceptance remains open.
 Current candidate is **revision 4**, built from `44f1c16`. Source review found
 that a failed Restore Window could discard the prior native clipping shape.
 Restore now uses the same complete native snapshot rollback as span; 181
-synthetic assertions pass on each architecture. Portable ZIP and unsigned MSIX
+synthetic assertions passed on each architecture at build time. Follow-up
+minimized/maximized failure tests raise coverage to 381 assertions per
+architecture against unchanged production source. Portable ZIP and unsigned MSIX
 parity checks pass. See [revision 4 evidence](COMPANION-RC4-RESTORE-EVIDENCE.md).
 Its [targeted Retail run](COMPANION-RC4-RETAIL-LIVE-20261102.md) passed ordinary
 restore, two reset recoveries and native restore priority. A server disconnect

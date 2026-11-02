@@ -39,6 +39,32 @@ No Lua runtime sources changed, so the prior Lua evidence remains separate.
 Real WoW failure timing, minimized/maximized behavior, display loss, Wine and
 mixed-DPI rollback remain live acceptance gates.
 
+## Minimized/maximized failure continuation, 2 November
+
+The unchanged production helper now passes **381 assertions per architecture**
+on x64 and x86. Added fixtures create hidden native windows whose `IsIconic`
+or `IsZoomed` state is verified before the operation. This differs from the
+earlier success test that only supplied minimized/maximized flags in the target
+style argument.
+
+For both actual native states, every failure stage (style, clipping, bounds and
+verification) is exercised with absent and complex original clipping. Rollback
+retains the original exception and restores exact bounds/style/region, hidden
+visibility, native minimized/maximized state, normal placement rectangle and
+minimum/maximum placement points. All 16 added failure scenarios pass on each
+architecture. This is synthetic native evidence; asynchronous WoW window
+handling, visible-client show-state acceptance and a successful restore from
+those states remain untested here.
+
+No production source or artifact changed, so revision 4 does not require a
+rebuild. Microsoft's [GetWindowPlacement contract](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindowplacement)
+defines the returned show state and placement; the
+[SetWindowPlacement contract](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowplacement)
+also documents possible screen-boundary adjustment. The checks above compare
+actual local readbacks, rather than assuming exact placement from an API return
+value alone. Shared WoW knowledge routing returned no native rollback evidence;
+these Win32 contracts, local source and controlled native tests are the basis.
+
 ## Exact artifact
 
 - Source build revision: `44f1c166c645537bb9553dec70c267a889ed9b00`, clean tracked source at build time.
