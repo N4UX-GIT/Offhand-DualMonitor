@@ -10,10 +10,11 @@ See [the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md) for current sc
 
 Investigation started 1 November 2026 at the user's request. See
 [the initial source study](CUSTOM-WORKSPACE-REGIONS-INVESTIGATION.md) for
-characterization results and implementation gaps. Runtime implementation and
-the stabilization/feature-branch entry criteria below remain pending.
+characterization results and implementation gaps. The initial contiguous
+prototype is now implemented; broader region work retains the entry criteria
+below, subject to the explicit stage 0 authorization above.
 
-Status: **Approved for future development; deliberately deferred until the current single-workspace architecture is stable and its known bugs are resolved.**
+Status: **Initial contiguous schema 1 prototype implemented and tested on Retail. General schema 2 region development remains deferred behind the stabilization gates.**
 
 This document records the intended design, implementation sequence, compatibility requirements, risk assessment, validation matrix, and release gates for partial-monitor and multi-monitor Offhand workspace regions. It is not authorization to begin implementation on the current stabilization branch.
 

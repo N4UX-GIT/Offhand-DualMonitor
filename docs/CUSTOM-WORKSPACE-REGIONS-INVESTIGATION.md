@@ -1,5 +1,11 @@
 # Custom workspace regions: initial source study
 
+Implementation update, 2 November: the user explicitly authorized work through
+an initial working implementation. The contiguous schema 1 prototype is now
+implemented on `codex/custom-workspace-regions` and has a targeted Retail live
+pass. See [the implementation and exact evidence](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md).
+The source studies below remain historical evidence and limitations.
+
 1 November 2026. Evidence: local source and simulated regression cases only.
 No native WoW partial-span result or schema 2 implementation is claimed.
 
