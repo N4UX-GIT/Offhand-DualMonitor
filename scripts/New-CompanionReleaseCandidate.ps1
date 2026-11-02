@@ -1,4 +1,4 @@
-param([Parameter(Mandatory = $true)][string]$OutputDirectory)
+param([Parameter(Mandatory = $true)][string]$OutputDirectory, [switch]$CustomRegionsPrototype)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $output = [IO.Path]::GetFullPath($OutputDirectory)
@@ -47,6 +47,19 @@ graphics Apply, repeated recovery, Restore, Pause/Resume, display changes and
 cold launch using the source checkout's COMPANION-PRODUCTION-RECOVERY-QA.md.
 Forever graphics-recovery testing stays deferred until November 4.
 '@
+if ($CustomRegionsPrototype) {
+    $readme = $readme.Replace('local release candidate, live QA pending.', 'CUSTOM WORKSPACE REGIONS PROTOTYPE, unpublished.')
+    $readme = $readme.Replace('Custom regions are not included.', @'
+Custom region opens an experimental single-display partial-span editor.
+Save plan changes settings only; Span WoW Now applies it. Set occupied width,
+workspace width, monitor edge and game side. Reserved pixels remain outside WoW.
+Custom regions are manual-only; graphics-reset recovery is not armed for them.
+Use Restore Window to return to the ordinary window. Disable Use custom region
+in the editor to return to the existing two-display or equal-half modes.
+Narrow panels may not fit or remain readable; use Mainhand for those panels.
+This prototype supports one contiguous workspace, not multiple schema 2 regions.
+'@)
+}
 # Replace only the generated README, retaining the same verified executable.
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = [IO.Compression.ZipFile]::Open($archive, [IO.Compression.ZipArchiveMode]::Update)
@@ -77,6 +90,7 @@ $record = [ordered]@{
     archiveSha256=(Get-FileHash -LiteralPath $archive).Hash
     frozenPublicSha256=$publicHash; frozenArchiveSha256=$publicArchiveHash
     recoveryClients=@('_retail_', '_anniversary_'); liveVerification='pending'
+    customRegionsPrototype=[bool]$CustomRegionsPrototype
 }
 $record | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $output 'candidate.json') -Encoding UTF8
 @("$($record.binarySha256)  Offhand.exe", "$($record.archiveSha256)  $([IO.Path]::GetFileName($archive))") |

@@ -495,6 +495,7 @@ namespace Offhand.Companion
             internal int WorkspaceIndex;
             internal bool SplitSingle;
             internal bool GameOnLeft;
+            internal bool PartialSingle;
             internal Rectangle Bounds;
             internal Rectangle MainhandBounds;
             internal Rectangle WorkspaceBounds;
@@ -670,6 +671,144 @@ namespace Offhand.Companion
                 WorkspaceIndex = workspaceIndex, SplitSingle = selected.Count == 1,
                 GameOnLeft = gameOnLeft, Bounds = union, MainhandBounds = game,
                 WorkspaceBounds = workspace };
+        }
+
+        internal static Plan CreatePlan(IDictionary<string, string> settings, IList<Display> displays)
+        {
+            Func<string, string> read = key => settings.ContainsKey(key) ? settings[key] : null;
+            bool partial = string.Equals(read("PartialSpanEnabled"), "True", StringComparison.OrdinalIgnoreCase);
+            bool stable = HasStableIdentitySettings(settings);
+            Plan plan = CreatePlan(stable ? read("MonitorIdentities") : null, read("MonitorDevices"), read("Monitors"),
+                stable ? read("MainhandIdentity") : null, read("MainhandDevice"),
+                partial || string.Equals(read("SingleDisplaySplit"), "True", StringComparison.OrdinalIgnoreCase),
+                string.Equals(read("SingleGameSide"), "LEFT", StringComparison.OrdinalIgnoreCase), displays);
+            if (!partial) return plan;
+            if (plan.Indices.Length != 1)
+                throw new InvalidOperationException("Custom region requires exactly one selected display. Open Custom region to review it.");
+            Display display = displays[plan.MainhandIndex];
+            if (string.IsNullOrEmpty(display.StableId) || !string.Equals(display.StableId, read("PartialDisplayIdentity"), StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("The custom region belongs to a different display. Open Custom region and save it for this monitor.");
+            int width, workspace, monitorWidth, monitorHeight;
+            if (!int.TryParse(read("PartialWidth"), out width) || !int.TryParse(read("PartialWorkspaceWidth"), out workspace)
+                || !int.TryParse(read("PartialMonitorWidth"), out monitorWidth) || !int.TryParse(read("PartialMonitorHeight"), out monitorHeight))
+                throw new InvalidOperationException("Custom region dimensions are incomplete. Open Custom region and save a valid layout.");
+            if (display.Bounds.Width != monitorWidth || display.Bounds.Height != monitorHeight)
+                throw new InvalidOperationException("The custom display resolution changed. Review and save Custom region before spanning.");
+            string edge = read("PartialEdge"), side = read("PartialGameSide");
+            if ((edge != "LEFT" && edge != "RIGHT") || (side != "LEFT" && side != "RIGHT"))
+                throw new InvalidOperationException("Choose a valid occupied edge and game side in Custom region.");
+            // Physical-pixel guardrails, not a promise that all panels are readable.
+            if (display.Bounds.Width > 32768 || display.Bounds.Height > 32768 || display.Bounds.Height < 600
+                || width < 1440 || width > display.Bounds.Width || workspace < 480 || workspace >= width || width - workspace < 960)
+                throw new InvalidOperationException("Custom region needs at least 480px workspace, 960px game and 600px height, within the selected display (maximum 32768px).");
+            plan.PartialSingle = true;
+            plan.GameOnLeft = side == "LEFT";
+            plan.Bounds = new Rectangle(display.Bounds.Left + (edge == "RIGHT" ? display.Bounds.Width - width : 0), display.Bounds.Top, width, display.Bounds.Height);
+            plan.MainhandBounds = new Rectangle(plan.Bounds.Left + (plan.GameOnLeft ? 0 : workspace), plan.Bounds.Top, width - workspace, plan.Bounds.Height);
+            plan.WorkspaceBounds = new Rectangle(plan.Bounds.Left + (plan.GameOnLeft ? width - workspace : 0), plan.Bounds.Top, workspace, plan.Bounds.Height);
+            return plan;
+        }
+
+        internal static Rectangle[] VisibleRectangles(Plan plan)
+        { return new Rectangle[] { plan.MainhandBounds, plan.WorkspaceBounds }; }
+    }
+
+    internal static class SpanClipRegion
+    {
+        // Caller owns the handle until SetWindowRgn succeeds.
+        internal static IntPtr Create(MonitorSelection.Plan plan, Rectangle bounds)
+        {
+            IntPtr combined = IntPtr.Zero;
+            try
+            {
+                foreach (Rectangle b in MonitorSelection.VisibleRectangles(plan))
+                {
+                    IntPtr next = NativeMethods.CreateRectRgn(b.Left - bounds.X, b.Top - bounds.Y, b.Right - bounds.X, b.Bottom - bounds.Y);
+                    if (next == IntPtr.Zero) throw new IOException("Could not create window clipping region.");
+                    if (combined == IntPtr.Zero) combined = next;
+                    else {
+                        try { if (NativeMethods.CombineRgn(combined, combined, next, 2) == 0) throw new IOException("Could not combine window clipping regions."); }
+                        finally { NativeMethods.DeleteObject(next); }
+                    }
+                }
+                IntPtr result = combined; combined = IntPtr.Zero; return result;
+            }
+            finally { if (combined != IntPtr.Zero) NativeMethods.DeleteObject(combined); }
+        }
+    }
+
+    // Editing this dialog changes only a pending settings copy. The owner saves
+    // atomically on OK; native window changes remain an explicit Span action.
+    internal sealed class PartialSpanDialog : Form
+    {
+        internal Dictionary<string, string> Settings;
+        internal readonly ComboBox DisplaySelector = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
+        internal readonly NumericUpDown OccupiedWidth = new NumericUpDown { Minimum = 1, Maximum = 32768, Dock = DockStyle.Fill };
+        internal readonly NumericUpDown WorkspaceWidth = new NumericUpDown { Minimum = 1, Maximum = 32768, Dock = DockStyle.Fill };
+        private readonly CheckBox enabled = new CheckBox { Text = "Use custom region (experimental)", AutoSize = true };
+        private readonly ComboBox edge = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
+        private readonly ComboBox side = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
+        private readonly Label preview = new Label { AutoSize = true, MaximumSize = new Size(530, 0), Padding = new Padding(0, 8, 0, 8) };
+        internal PartialSpanDialog(IList<MonitorSelection.Display> displays, IDictionary<string, string> settings)
+        {
+            Text = "Custom workspace region"; AutoScaleMode = AutoScaleMode.Dpi;
+            ClientSize = new Size(580, 480); MinimumSize = new Size(440, 400); StartPosition = FormStartPosition.CenterParent;
+            MinimizeBox = false; MaximizeBox = false; Font = new Font("Segoe UI", 10);
+            var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(16) };
+            var table = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2 };
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45)); table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
+            Action<string, Control> row = (label, control) => {
+                int index = table.RowCount++; table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                table.Controls.Add(new Label { Text = label, AutoSize = true, Padding = new Padding(0, 5, 8, 5) }, 0, index);
+                control.Margin = new Padding(0, 4, 0, 4); table.Controls.Add(control, 1, index);
+            };
+            table.RowCount = 0;
+            row("Mode", enabled); row("Display", DisplaySelector); row("WoW occupied width (px)", OccupiedWidth);
+            row("Workspace width (px)", WorkspaceWidth); row("Occupied monitor edge", edge); row("Game side inside WoW", side);
+            edge.Items.AddRange(new object[] { "Left", "Right" }); side.Items.AddRange(new object[] { "Right", "Left" });
+            edge.SelectedIndex = settings.ContainsKey("PartialEdge") && settings["PartialEdge"] == "RIGHT" ? 1 : 0;
+            side.SelectedIndex = settings.ContainsKey("PartialGameSide") && settings["PartialGameSide"] == "LEFT" ? 1 : 0;
+            enabled.Checked = settings.ContainsKey("PartialSpanEnabled") && settings["PartialSpanEnabled"] == "True";
+            for (int i = 0; i < displays.Count; i++) {
+                var d = displays[i]; DisplaySelector.Items.Add(string.Format("Display {0}: {1}x{2}", i + 1, d.Bounds.Width, d.Bounds.Height));
+                if (settings.ContainsKey("PartialDisplayIdentity") && d.StableId == settings["PartialDisplayIdentity"]) DisplaySelector.SelectedIndex = i;
+            }
+            if (DisplaySelector.SelectedIndex < 0 && displays.Count > 0) DisplaySelector.SelectedIndex = 0;
+            int value;
+            OccupiedWidth.Value = settings.ContainsKey("PartialWidth") && int.TryParse(settings["PartialWidth"], out value)
+                ? Math.Max(1, Math.Min(32768, value)) : Math.Max(1440, displays.Count > 0 ? Math.Min(4080, displays[DisplaySelector.SelectedIndex].Bounds.Width - 320) : 1440);
+            WorkspaceWidth.Value = settings.ContainsKey("PartialWorkspaceWidth") && int.TryParse(settings["PartialWorkspaceWidth"], out value)
+                ? Math.Max(1, Math.Min(32768, value)) : 640;
+            Action update = () => {
+                if (DisplaySelector.SelectedIndex < 0) { preview.Text = "No connected display."; return; }
+                int total = (int)OccupiedWidth.Value, work = (int)WorkspaceWidth.Value;
+                preview.Text = string.Format("WoW {0} = workspace {1} + game {2}; free {3}px.\n\nSave changes the plan only. Click Span WoW Now to apply. Custom regions are manual-only in this prototype.\n\nUse Mainhand for panels that do not fit. Narrow workspaces can make scaled panels hard to read. Restore Window returns the ordinary window.", total, work, total - work, displays[DisplaySelector.SelectedIndex].Bounds.Width - total);
+            };
+            table.Controls.Add(preview, 0, table.RowCount++); table.SetColumnSpan(preview, 2);
+            DisplaySelector.SelectedIndexChanged += (s,e) => update(); OccupiedWidth.ValueChanged += (s,e) => update(); WorkspaceWidth.ValueChanged += (s,e) => update(); update();
+            scroll.Controls.Add(table);
+            var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 52, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(8) };
+            var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, AutoSize = true };
+            var save = new Button { Text = "Save plan", AutoSize = true };
+            buttons.Controls.Add(cancel); buttons.Controls.Add(save); CancelButton = cancel; AcceptButton = save;
+            save.Click += (s,e) => {
+                var proposed = new Dictionary<string,string>(settings);
+                proposed["PartialSpanEnabled"] = enabled.Checked.ToString();
+                if (enabled.Checked) {
+                    if (DisplaySelector.SelectedIndex < 0) return;
+                    var d = displays[DisplaySelector.SelectedIndex];
+                    proposed["PartialDisplayIdentity"] = d.StableId; proposed["PartialMonitorWidth"] = d.Bounds.Width.ToString(); proposed["PartialMonitorHeight"] = d.Bounds.Height.ToString();
+                    proposed["PartialWidth"] = OccupiedWidth.Value.ToString(); proposed["PartialWorkspaceWidth"] = WorkspaceWidth.Value.ToString();
+                    proposed["PartialEdge"] = edge.SelectedIndex == 0 ? "LEFT" : "RIGHT"; proposed["PartialGameSide"] = side.SelectedIndex == 0 ? "RIGHT" : "LEFT";
+                    proposed["MonitorIdentities"] = d.StableId; proposed["MonitorDevices"] = d.DeviceName; proposed["Monitors"] = d.Index.ToString();
+                    proposed["MainhandIdentity"] = d.StableId; proposed["MainhandDevice"] = d.DeviceName; proposed["DisplayIdentityVersion"] = "1";
+                    proposed["AutoSpan"] = "False";
+                    try { MonitorSelection.CreatePlan(proposed, displays); }
+                    catch (Exception ex) { MessageBox.Show(this, ex.Message, Text, MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+                }
+                Settings = proposed; DialogResult = DialogResult.OK; Close();
+            };
+            Controls.Add(scroll); Controls.Add(buttons);
         }
     }
 
@@ -1901,6 +2040,7 @@ namespace Offhand.Companion
         private ComboBox cmbMainhand;
         private CheckBox chkSingleSplit;
         private ComboBox cmbSingleSide;
+        private Button btnPartialSpan;
         private List<MonitorSelection.Display> uiDisplays;
         private bool refreshingDisplayControls;
         private int displaySelectionGeneration;
@@ -2044,10 +2184,10 @@ namespace Offhand.Companion
             return MonitorSelection.HasStableIdentitySettings(appSettings);
         }
 
-        private void RefreshDisplayControls(List<MonitorSelection.Display> displays)
+        private void RefreshDisplayControls(List<MonitorSelection.Display> displays, bool force = false)
         {
             if (clbMonitors == null || cmbMainhand == null || displays == null
-                || MonitorSelection.SameDisplays(uiDisplays, displays)) return;
+                || (!force && MonitorSelection.SameDisplays(uiDisplays, displays))) return;
 
             string savedDevices, savedIdentities;
             appSettings.TryGetValue("MonitorDevices", out savedDevices);
@@ -2122,9 +2262,38 @@ namespace Offhand.Companion
             appSettings.TryGetValue("SingleGameSide", out side);
             if (!HasStableIdentitySettings())
                 throw new InvalidOperationException("Display identity upgrade required. Verify the selected displays and Mainhand, then click Span WoW Now.");
-            return MonitorSelection.CreatePlan(identities, devices, legacy, mainhandIdentity, mainhand,
-                string.Equals(split, "True", StringComparison.OrdinalIgnoreCase),
-                string.Equals(side, "LEFT", StringComparison.OrdinalIgnoreCase), displays);
+            return MonitorSelection.CreatePlan(appSettings, displays);
+        }
+
+        private void UpdatePartialControls()
+        {
+            bool partial = appSettings.ContainsKey("PartialSpanEnabled") && appSettings["PartialSpanEnabled"] == "True";
+            if (btnPartialSpan != null) btnPartialSpan.Text = partial ? "Custom region: on..." : "Custom region...";
+            chkSingleSplit.Enabled = !partial;
+            cmbSingleSide.Enabled = !partial && chkSingleSplit.Checked;
+            chkAutoSpan.Enabled = !partial && !GraphicsRecoveryTestBuild;
+        }
+
+        private void EditPartialSpan()
+        {
+            SuspendUiPolling();
+            try
+            {
+                using (var dialog = new PartialSpanDialog(ReadDisplays(), appSettings))
+                {
+                    if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                    // Publish the complete validated copy before adopting it.
+                    PreferenceFile.Write(configPath, dialog.Settings);
+                    appSettings = dialog.Settings;
+                    classicRecovery.Clear(); displaySelectionGeneration++;
+                    RefreshDisplayControls(ReadDisplays(), true);
+                    chkAutoSpan.Checked = appSettings.ContainsKey("AutoSpan") && appSettings["AutoSpan"] == "True";
+                    UpdatePartialControls(); RefreshSelectedColorStatus();
+                    AddLog("Custom region plan saved. No window was resized. Click Span WoW Now to apply, or Restore Window to return to the ordinary window.");
+                }
+            }
+            catch (Exception ex) { AddLog("Custom region was not saved: " + ex.Message); MessageBox.Show(this, ex.Message, "Custom region", MessageBoxButtons.OK, MessageBoxIcon.Information); }
+            finally { ResumeUiPolling(); }
         }
 
         private void SaveDisplaySettingsFromControls()
@@ -2793,6 +2962,11 @@ namespace Offhand.Companion
             sideRow.Controls.Add(cmbSingleSide);
             configLeft.Controls.Add(sideRow);
 
+            btnPartialSpan = CreateButton("Custom region...", 0, 0, 220, 27, cBtnBg, cText, cBorder);
+            btnPartialSpan.Margin = new Padding(0, 6, 0, 0);
+            btnPartialSpan.Click += (s, e) => EditPartialSpan();
+            configRight.Controls.Add(btnPartialSpan);
+
             uiToolTips.SetToolTip(chkAutoSpan,
                 "Disabled by default. When enabled, Offhand spans each newly detected WoW window across the selected displays. Manual Span WoW Now remains available when disabled.");
             uiToolTips.SetToolTip(lblDelay,
@@ -2862,6 +3036,7 @@ namespace Offhand.Companion
                 }));
             };
             cmbSingleSide.Enabled = chkSingleSplit.Checked;
+            UpdatePartialControls();
 
             if (appSettings.ContainsKey("AutoSpan")) chkAutoSpan.Checked = appSettings["AutoSpan"] == "True";
             if (GraphicsRecoveryTestBuild)
@@ -4099,10 +4274,9 @@ namespace Offhand.Companion
                 appSettings.TryGetValue("MainhandDevice", out mainhand);
                 appSettings.TryGetValue("SingleDisplaySplit", out split);
                 appSettings.TryGetValue("SingleGameSide", out side);
-                MonitorSelection.Plan plan = MonitorSelection.CreatePlan(identities, devices, legacy,
-                    mainhandIdentity, mainhand,
-                    string.Equals(split, "True", StringComparison.OrdinalIgnoreCase),
-                    string.Equals(side, "LEFT", StringComparison.OrdinalIgnoreCase), displays);
+                MonitorSelection.Plan plan = MonitorSelection.CreatePlan(appSettings, displays);
+                if (plan.PartialSingle && !manual)
+                    throw new InvalidOperationException("Custom regions are manual-only in this prototype. Click Span WoW Now.");
                 if (graphicsRecovery)
                 {
                     ClassicGraphicsRecovery expected;
@@ -4175,19 +4349,7 @@ namespace Offhand.Companion
                     IntPtr previousDpi = NativeMethods.SetThreadDpiAwarenessContext((IntPtr)(-4));
                     try
                     {
-                        var screens = Screen.AllScreens;
-                        foreach (int index in plan.Indices)
-                        {
-                            Rectangle b = screens[index].Bounds;
-                            IntPtr rgn = NativeMethods.CreateRectRgn(b.Left - bounds.X, b.Top - bounds.Y, b.Right - bounds.X, b.Bottom - bounds.Y);
-                            if (rgn == IntPtr.Zero) throw new Exception("Could not create monitor clipping region.");
-                            if (combinedRgn == IntPtr.Zero) combinedRgn = rgn;
-                            else
-                            {
-                                try { if (NativeMethods.CombineRgn(combinedRgn, combinedRgn, rgn, 2) == 0) throw new Exception("Could not combine monitor regions."); }
-                                finally { NativeMethods.DeleteObject(rgn); }
-                            }
-                        }
+                        combinedRgn = SpanClipRegion.Create(plan, bounds);
                         if (NativeMethods.SetWindowRgn(handle, combinedRgn, true) == 0) throw new Exception("Could not apply monitor clipping region.");
                         combinedRgn = IntPtr.Zero; // Windows owns the region after success.
                     }
@@ -4273,7 +4435,7 @@ namespace Offhand.Companion
                 if (!originalWindows.TryGetValue(proc.Id, out original) || original.Handle != handle)
                     originalWindows[proc.Id] = new WindowSnapshot { Handle = handle, Style = oldStyle, ClientSize = oldClientSize,
                         Bounds = new Rectangle(oldRect.Left, oldRect.Top, oldRect.Width, oldRect.Height) };
-                if (!graphicsRecovery && IsRecoveryClient(status.WowDir))
+                if (!plan.PartialSingle && !graphicsRecovery && IsRecoveryClient(status.WowDir))
                 {
                     WindowSnapshot first = originalWindows[proc.Id];
                     if (CanArmRecovery(status.WowDir, isMonitoring, graphicsRecovery, handle, first.ClientSize, bounds.Size))
@@ -4307,6 +4469,8 @@ namespace Offhand.Companion
                 AddLog(GraphicsRecoveryTestBuild
                     ? string.Format(RecoveryScope + " span request applied at {0}x{1}; stable-window verification remains separate.", bounds.Width, bounds.Height)
                     : string.Format("Spanned {0}x{1}. The span remains if you exit the Companion. If the character UI was already loaded, use /reload once, then run /offhand wizard.", bounds.Width, bounds.Height));
+                if (plan.PartialSingle)
+                    AddLog("Custom region applied. In Offhand Window Setup choose Use Companion, then /reload if needed. Automatic graphics-reset recovery is disabled for this prototype; use Span WoW Now after a graphics reset.");
                 trayIcon.ShowBalloonTip(4000, GraphicsRecoveryTestBuild ? RecoveryScope + " span requested" : "Offhand Spanned",
                     GraphicsRecoveryTestBuild ? "Wait for stable-span confirmation in the activity log before the VSync test."
                     : "Exact geometry saved. You may now exit the Companion, or leave it running for monitoring and recovery.", ToolTipIcon.Info);

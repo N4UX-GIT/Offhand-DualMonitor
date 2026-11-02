@@ -1,5 +1,13 @@
 # Custom Workspace Regions Implementation Plan
 
+2 November 2026 implementation authorization: the user explicitly requested all
+remaining work through an initial working implementation. This supersedes the
+earlier deferral for the contiguous schema 1 slice. Work is isolated on
+`codex/custom-workspace-regions`, branched from the tested Companion preparation
+commit `a4684a1` so its fixes are retained. No promotion to `main` or publication
+is implied. The original gates below continue to govern broader schema 2 work.
+See [the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md) for current scope.
+
 Investigation started 1 November 2026 at the user's request. See
 [the initial source study](CUSTOM-WORKSPACE-REGIONS-INVESTIGATION.md) for
 characterization results and implementation gaps. Runtime implementation and

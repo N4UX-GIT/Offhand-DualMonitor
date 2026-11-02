@@ -76,7 +76,8 @@ namespace Offhand.Companion
                 ComboBox gameSide = combos.OrderBy(control => control.Width).First();
                 Button identify = One<Button>(config, control => control.Text == "Identify Displays");
 
-                foreach (Control control in new Control[] { delay, displays, mainhand, gameSide, identify })
+                Button custom = One<Button>(config, control => control.Text.StartsWith("Custom region"));
+                foreach (Control control in new Control[] { delay, displays, mainhand, gameSide, identify, custom })
                 {
                     Rectangle bounds = BoundsInside(control, config);
                     if (bounds.Left < 0 || bounds.Top < 24 || bounds.Right > config.ClientSize.Width
@@ -167,6 +168,27 @@ namespace Offhand.Companion
             CheckScale(1.25f);
             CheckScale(1.5f);
             CheckScale(2.0f);
+            foreach (float factor in new float[] { 1f, 1.25f, 1.5f, 2f })
+            using (var dialog = new PartialSpanDialog(new List<MonitorSelection.Display> {
+                new MonitorSelection.Display {Index=0, DeviceName="fixture", StableId="fixture", Bounds=new Rectangle(0,0,5120,1440)}
+            }, new Dictionary<string,string>()))
+            {
+                dialog.CreateControl(); dialog.Scale(new SizeF(factor, factor)); LayoutAll(dialog);
+                var scroll = dialog.Controls.OfType<Panel>().Single(p => p.AutoScroll);
+                foreach (Control c in new Control[] {dialog.DisplaySelector, dialog.OccupiedWidth, dialog.WorkspaceWidth}) {
+                    Rectangle b = BoundsInside(c, scroll);
+                    if (b.Left < 0 || b.Right > scroll.ClientSize.Width)
+                        throw new Exception("Custom region control clipped at " + factor + "x: " + b);
+                }
+                if (dialog.Settings != null) throw new Exception("Opening editor must not commit settings.");
+                string preview = Environment.GetEnvironmentVariable("OFFHAND_LAYOUT_PREVIEW");
+                if (factor == 1f && !string.IsNullOrEmpty(preview))
+                    using (var bitmap = new Bitmap(dialog.ClientSize.Width, dialog.ClientSize.Height)) {
+                        using (var graphics = Graphics.FromImage(bitmap)) graphics.Clear(dialog.BackColor);
+                        RenderChildren(dialog, bitmap, Point.Empty);
+                        bitmap.Save(preview + ".custom.png", System.Drawing.Imaging.ImageFormat.Png);
+                    }
+            }
             Console.WriteLine("PASS: complete dashboard fits working areas, avoids horizontal overflow and retains separated selectors at 100%, 125%, 150%, and 200% scaling");
         }
     }
