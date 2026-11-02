@@ -10,6 +10,18 @@ contract. This is separate from multiple independent workspace regions.
 
 ## Two-monitor custom workspace (prototype 3)
 
+Local unpublished portable artifact: `dist/custom-workspace-regions-prototype-3/Offhand.exe`,
+also packaged as `Offhand-Companion-v2.1.3-beta.1.zip` in that directory.
+Built from clean tracked source `c5ef54b09c335b7b60ae1d958e2ca63d4c7609c6`.
+
+- EXE SHA-256: `F49BFFC8FC9E76F1350EB7B9A46C8E0326833ABE860E0E78098DAFCCC7048D66`
+- ZIP SHA-256: `481D46C73A34C36E0686F21CE2F209BF43EA97E15F5D3088012C5ABA1EEA6BEF`
+
+Packaging verified executable parity, archive contents and unchanged frozen public
+artifacts. The build manifest's `liveVerification: pending` describes build time;
+the subsequent targeted Retail run is recorded below. No Store submission or
+release promotion was performed.
+
 Open **Custom region... > Two-monitor workspace...**. Choose distinct game and
 workspace monitors. The game uses its full monitor. Define the workspace by
 monitor-local physical left/top offsets, width and height, or use **Select
@@ -51,11 +63,49 @@ disabled. No game was launched during this editor test. Companion exited
 normally; the exact original preferences were restored and hash-verified.
 Private evidence is under ignored `dist/live-qa-secondary-editor-*`.
 
+### Packaged Retail verification, 2 November 2026
+
+The exact prototype 3 executable above passed a targeted run on Retail
+`12.1.5.70688`, with the unchanged installed `2.1.2-beta.24` addon and protocol 1.
+The game used the full primary 2560x1440 monitor; the workspace used the editor's
+782x1290 rectangle at local `(500,914)` on the offset portrait monitor.
+
+- Manual apply produced native outer/client bounds `(-940,-200) 3500x1640`,
+  borderless style `140B0000` and a complex window region (type 3).
+- The actual bridge reported game `(940,0) 2560x1440` and workspace
+  `(0,350) 782x1290` in bottom-origin backing coordinates, mode `DUAL_DISPLAY`.
+- The existing profile had a manual canvas override. Temporarily selecting
+  Companion/AUTO geometry yielded `READY`, version `MATCH` and
+  `viewportMatches=true`. The actual WorldFrame was approximately
+  `(940,0) 2560x1440`, within subpixel rounding tolerance.
+- A private diagnostic command followed by `ReloadUI()` wrote the first snapshot.
+  A second private diagnostic after reload, saved on normal exit, again reported
+  `READY`, `MATCH`, and `viewportMatches=true` with the same physical rectangles.
+  Native bounds and complex clipping remained intact after reload.
+- Full screenshots taken with WoW's screenshot key showed the Character panel
+  inside the secondary workspace before and after reload. No panel drag was
+  performed in this run. The desktop automation capture cropped the spanned
+  surface, so it was not used to infer game click coordinates.
+- Manual Restore exactly recovered the original native bounds
+  `(208,0) 2144x1392`, style `14CF0000`, with no clipping region. The installed
+  addon then showed its saved-layout mismatch prompt, as expected for the old
+  bridge after restoring the ordinary window; no recalibration was accepted.
+- Both test apps exited normally. Nine original preferences, client configuration,
+  bridge and SavedVariables files, including prior backups, were restored and
+  hash-verified. BugGrabber changed only its session counter from 340 to 342;
+  no new stored error was recorded.
+
+Private evidence: ignored `dist/live-qa-secondary-retail-20261102-101055`, including
+native before/apply/reload/Restore snapshots, applied bridge bytes, full game
+screenshots and before/after SavedVariables. This establishes the initial
+two-monitor viewport and reload path on this physical 100%/100% SDR setup.
+
 Shared knowledge routing reported a gap. The local `GetCompanionTopology`,
 `GetMetrics`, persistence and production native planner/clipping source, plus
-the fixture results above, support the data-contract decision. This does not yet
-establish live game, mixed-DPI, hotplug, HUD or protected-action acceptance for
-the new secondary-area mode.
+the fixture and targeted live results above, support the data-contract decision.
+Mixed-DPI desktop selection, live hotplug, HUD generation, protected actions,
+secondary-area cold restart and other game clients remain unverified for this
+new mode. Oversized game-options tooltips remain a separate reported issue.
 
 2 November 2026. Explicitly authorized initial runtime implementation on
 `codex/custom-workspace-regions`, based on prepared Companion source `a4684a1`.

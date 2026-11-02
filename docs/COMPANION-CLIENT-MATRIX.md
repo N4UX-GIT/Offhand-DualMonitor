@@ -1,5 +1,17 @@
 # Companion client coverage and release gate
 
+## 2 November: two-monitor partial workspace prototype 3
+
+The exact unpublished prototype 3 package passed targeted Retail `12.1.5.70688`
+testing with installed addon `2.1.2-beta.24`: a full 2560x1440 game monitor and a
+freely positioned 782x1290 workspace on an offset portrait monitor. Evidence
+covers native apply and complex clipping, schema 1 `READY`/`MATCH`, matching
+WorldFrame before and after UI reload, Character panel placement, exact native
+Restore, and no fresh BugGrabber records. Both test apps closed normally; nine
+original files were restored and hash-verified. Mixed-DPI, live hotplug, HUD,
+protected actions, cold restart and other clients remain outside this new mode's
+live acceptance. See [the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md).
+
 ## 2 November: custom workspace prototype
 
 The separate custom-region prototype 1 passed its initial Retail workflow and a

@@ -14,7 +14,11 @@ characterization results and implementation gaps. The initial contiguous
 prototype is now implemented; broader region work retains the entry criteria
 below, subject to the explicit stage 0 authorization above.
 
-Status: **Initial contiguous schema 1 prototype implemented, with Retail workflow and targeted Anniversary acceptance. General schema 2 region development remains deferred behind the stabilization gates.**
+Status: **Initial schema 1 prototypes implemented: single-monitor custom layouts,
+visual selection overlays, and a full game monitor with a partial workspace on a
+second monitor. Prototype 1 has Retail and targeted Anniversary evidence;
+prototype 3 has targeted Retail apply/reload/Restore evidence. General schema 2
+region development remains deferred behind the stabilization gates.**
 
 This document records the intended design, implementation sequence, compatibility requirements, risk assessment, validation matrix, and release gates for partial-monitor and multi-monitor Offhand workspace regions. It is not authorization to begin implementation on the current stabilization branch.
 
