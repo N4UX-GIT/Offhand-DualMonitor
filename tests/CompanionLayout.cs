@@ -177,6 +177,8 @@ namespace Offhand.Companion
                 choice.CreateControl(); choice.Scale(new SizeF(factor, factor)); LayoutAll(choice);
                 if (choice.AcceptButton != (mode == "secondary" ? choice.SecondaryButton : choice.SingleButton))
                     throw new Exception("Layout chooser does not default to the saved custom mode.");
+                if (choice.ActiveControl != choice.AcceptButton)
+                    throw new Exception("Layout chooser focuses a different mode than its default Enter action.");
                 foreach (Control c in Descendants(choice).Where(c => c is Button || c is Label)) {
                     Rectangle bounds = BoundsInside(c, choice);
                     if (bounds.Left < 0 || bounds.Top < 0 || bounds.Right > choice.ClientSize.Width || bounds.Bottom > choice.ClientSize.Height)

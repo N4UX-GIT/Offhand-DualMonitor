@@ -1017,6 +1017,7 @@ namespace Offhand.Companion
             SingleButton.Click += (s,e) => { Secondary = false; DialogResult = DialogResult.OK; Close(); };
             SecondaryButton.Click += (s,e) => { Secondary = true; DialogResult = DialogResult.OK; Close(); };
             Controls.Add(layout); CancelButton = cancel; AcceptButton = secondary ? SecondaryButton : SingleButton;
+            ActiveControl = secondary ? SecondaryButton : SingleButton;
         }
     }
 
