@@ -7,6 +7,9 @@ earlier deferral for the contiguous schema 1 slice. Work is isolated on
 commit `a4684a1` so its fixes are retained. No promotion to `main` or publication
 is implied. The original gates below continue to govern broader schema 2 work.
 See [the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md) for current scope.
+The [Retail HUD follow-up](CUSTOM-WORKSPACE-REGIONS-RETAIL-HUD-QA.md) adds bounded
+regeneration and panel acceptance. Fresh row creation at the layout cap,
+protected actions, panel dragging and external-owner fit remain explicit gaps.
 
 Investigation started 1 November 2026 at the user's request. See
 [the initial source study](CUSTOM-WORKSPACE-REGIONS-INVESTIGATION.md) for

@@ -39,8 +39,19 @@ executable parity passed. It was not installed or submitted. See
 [the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md) for artifact hashes,
 evidence limits and remaining release gates.
 
+Targeted Retail HUD follow-up regenerated 47 systems in a prepared legacy-row
+fixture and retained them after reload. Fresh row creation was refused at the
+account's five-layout cap. Character/bags/spellbook and the Offhand-owned default
+map fit the workspace; OpenMap retained its existing oversized external layout.
+Native Restore automatically returned to Modern and a fresh full-client viewport
+match, with the existing stale-layout notice still visible. All five original
+Edit Mode rows and 18 backed-up files were restored. No fresh captured errors
+were found. The tested installed addon is newer than the worktree addon; see
+[Retail HUD QA](CUSTOM-WORKSPACE-REGIONS-RETAIL-HUD-QA.md) for exact source hashes
+and the deliberately prepared fixture boundary.
+
 The initial schema 1 implementation works on the recorded setup. Physical
-hotplug, mixed DPI, broader exact-artifact client coverage, HUD generation,
+hotplug, mixed DPI, broader exact-artifact client coverage, fresh HUD creation,
 protected actions and Store runtime acceptance remain open. Schema 2 and multiple
 independent regions remain deferred. Forever live testing remains deferred until
 November 4. Public Beta 20 is unchanged; no promotion or publication occurred.

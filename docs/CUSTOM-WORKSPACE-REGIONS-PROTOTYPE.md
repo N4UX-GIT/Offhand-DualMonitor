@@ -15,6 +15,14 @@ two-monitor to single-monitor transition and Restore workflow, and an Anniversar
 secondary-workspace apply/reload/Restore check with fresh error capture. Evidence
 and hashes are kept below. It remains an unpublished prototype.
 
+A later [Retail HUD and panel run](CUSTOM-WORKSPACE-REGIONS-RETAIL-HUD-QA.md)
+accepted prepared legacy-row regeneration, reload persistence, default-map AUTO
+fit, Character/bags/spellbook placement, automatic Modern HUD return and matching
+full-client viewport after native Restore. Fresh row creation was safely refused
+at the five-layout cap. The run used the newer installed addon, preserved all
+original layout rows, and restored 18 backed-up files. Actual setup-button input,
+custom-area panel dragging and protected actions remain open.
+
 1. Close any other Companion normally, then launch the chosen prototype's
    `Offhand.exe`. It uses the existing Companion preferences.
 2. Open **Custom region...**, choose the one-monitor or two-monitor layout, and

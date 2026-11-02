@@ -50,6 +50,7 @@ account paths or knowledge caches belong in the review bundle.
 | --- | --- |
 | Exact prototype 5 Retail | Two-monitor custom apply/reload; single-monitor replacement Save/apply/reload; matching viewport diagnostics; Character panel persistence; exact native Restore; no new captured errors |
 | Exact prototype 5 Anniversary | Level-1 Paladin in Coldridge Valley; apply, reload, separately captured post-reload viewport match, Character panel persistence, exact native Restore; enabled BugGrabber recorded no new errors |
+| Exact prototype 5 Retail HUD follow-up | Prepared legacy-row regeneration moved 47 systems and survived reload; Character/bags/spellbook placement and default-map AUTO fit; automatic Modern HUD return and full-client viewport after Restore; original Edit Mode rows restored. Fresh creation was safely refused at the five-layout cap |
 | Earlier prototype 3 | Broader Retail cold-start and targeted Anniversary evidence, retained under its original executable hash |
 | Preferences/topology | Atomic file publication, stale/missing/replaced displays, invalid geometry, gesture bounds, bridge consumption and metric/persistence fixtures |
 | Native rollback | 160 custom span rollback cases and 60 custom Restore cases per architecture; normal/minimized/maximized hidden windows; 3,057 total assertions each on x64/x86 |
@@ -59,6 +60,9 @@ Live runs restored all backed-up file states and closed both test apps. Native
 fixtures do not establish live WoW failure injection or protected-action safety.
 Detailed provenance and evidence limits are in
 [the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md).
+The HUD follow-up uses the newer installed addon, not the worktree addon. Its
+fixture, external OpenMap fit limitation, restoration and acceptance boundaries
+are recorded in [Retail HUD QA](CUSTOM-WORKSPACE-REGIONS-RETAIL-HUD-QA.md).
 
 ## Remaining promotion gates
 
@@ -66,9 +70,11 @@ Detailed provenance and evidence limits are in
   monitor and broader edge/side combinations.
 - Broader exact-artifact client coverage; Forever live testing remains deferred
   until the user's November 4 milestone.
-- Fresh HUD generation, protected actions/taint, the wider panel matrix, live
+- Fresh HUD creation with a free slot, setup-button input, panel dragging,
+  protected actions/taint, the wider panel matrix, live
   custom-span minimized/maximized behavior, actual WoW failure rollback and fresh
-  ordinary-window addon reconciliation after Restore.
+  warning-free ordinary-window reconciliation after Restore. The tested safe
+  full-client fallback still displays the existing stale-layout notice.
 - Wine and installed Store runtime/rollback; production Store delivery-version
   selection, signing and certification.
 - Explicit release promotion and external publication under

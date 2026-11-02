@@ -9,8 +9,21 @@ validation guard, manual apply without an intervening Restore, a matching fresh
 single-monitor viewport diagnostic after reload, and exact original native
 Restore. Both test apps exited normally; nine original files were restored and
 hash-verified. BugGrabber recorded no new errors. Physical hotplug, mixed DPI,
-HUD generation, protected actions and other exact-artifact clients remain pending.
+Fresh HUD creation, protected actions and other exact-artifact clients remained
+pending at that point; the bounded HUD follow-up below adds regeneration evidence.
 See [the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md).
+
+A later same-artifact Retail run passed prepared legacy-row HUD regeneration
+(47 systems), reload persistence, Character/bags/spellbook placement, default-map
+AUTO fit with OpenMap temporarily disabled, automatic Modern HUD selection after
+Restore, and a fresh full-client viewport match. Fresh row creation was refused
+at the existing five-layout cap. The external OpenMap layout remained oversized
+when its owner was enabled. All five original Edit Mode rows were restored and
+resampled after reload; 18 original files were restored and hash-verified, and
+all 13 historical BugGrabber records were unchanged. Actual setup-button input,
+custom-area panel dragging, protected actions and warning-free ordinary-window
+reconciliation remain open. The installed addon differs from the worktree;
+see [Retail HUD QA](CUSTOM-WORKSPACE-REGIONS-RETAIL-HUD-QA.md) for exact provenance.
 
 An exact prototype 5 Anniversary `2.5.6.70577` attempt passed native two-monitor
 custom apply and exact native Restore. Another player attacked the selected
