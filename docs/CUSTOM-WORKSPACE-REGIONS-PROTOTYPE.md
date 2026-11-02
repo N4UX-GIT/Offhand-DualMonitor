@@ -102,6 +102,28 @@ other exact-prototype-5 clients. Optional HUD setup was dismissed. Native Restor
 is accepted; a fresh ordinary-window addon viewport after Restore was not tested.
 Earlier cross-client and cold-start results retain their original artifact hashes.
 
+### Prototype 5 MSIX structural validation
+
+The existing Store builder packaged the exact live-tested portable executable
+without recompilation. The unsigned validation-only package uses identity
+`N4UX.OffhandCompanion.Validation`, version `1.0.0.0`, and x64 architecture.
+It was not installed, signed, uploaded or submitted, and reserves no production
+delivery version.
+
+- MSIX SHA-256: `9ED19EAF30603C2A5054A78B1D3AB7F2D993AB68EE5268A2583539FCB44C7C56`
+- Embedded EXE SHA-256: `150F56776371E779083D4891D126E8BFF6DBC5BF6A2C48CC3C3EB32D1A8E8898`
+- Evidence: `dist/custom-workspace-regions-prototype-5-store-validation-20261102-154620`, including the package, validator output and `store-validation.json`.
+
+`tests/companion-store-package.ps1` passed exact file boundaries, manifest
+identity/version/publisher, desktop target, entry point, expected capabilities,
+disabled Windows-managed startup and embedded executable parity. Separate checks
+confirmed rejection of an incorrect executable hash and a production identity
+expectation against this validation package. Frozen public executable and archive
+hashes were unchanged. No game, installed package or preferences were modified.
+
+This advances package structure and payload parity only. Installed Store runtime,
+signing/certification, delivery-version selection and rollback remain release gates.
+
 ## Layout chooser follow-up (prototype 4)
 
 **Custom region...** now opens an explicit layout chooser showing the saved mode.

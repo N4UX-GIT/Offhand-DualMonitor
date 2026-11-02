@@ -4,6 +4,14 @@ Started 1 November 2026; status reconciled 2 November. Source is consolidated,
 bounded production recovery is integrated, and revision 3 has targeted Retail
 and Anniversary native passes. Full release acceptance remains open.
 
+Subsequent custom-region work is isolated on `codex/custom-workspace-regions`,
+retaining this prepared baseline. Its current prototype 5 has targeted Retail
+schema 1 two-monitor/single-monitor transition and Restore evidence, and unsigned
+MSIX structural parity with its exact portable executable. See
+[the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md). The ordinary rc4
+and earlier acceptance records below keep their original artifacts and scope.
+Neither candidate has been promoted or published.
+
 ## Continuation: combined runtime candidate
 
 Current candidate is **revision 4**, built from `44f1c16`. Source review found
@@ -79,7 +87,8 @@ Build with `scripts/New-CompanionReleaseCandidate.ps1` into a fresh directory.
 Earlier Beta 20 source-review builds below are historical comparison artifacts.
 The historical version-selection and production-integration tasks below are now
 implemented locally. Live acceptance, Store delivery version/acceptance and public
-promotion remain pending. Custom-region runtime work remains deferred.
+promotion remain pending. Custom-region schema 1 work subsequently proceeded on
+the separate feature branch described above; schema 2 remains deferred.
 
 ## Source scope
 
@@ -171,13 +180,15 @@ The checked-in public ZIP is also unchanged.
    increasing Store package version, then complete packaged and rollback QA.
    Follow COMPANION-RELEASE-RUNBOOK.md for publication gates.
 
-## Workspace-regions investigation
+## Workspace-regions implementation continuation
 
 See [CUSTOM-WORKSPACE-REGIONS-INVESTIGATION.md](CUSTOM-WORKSPACE-REGIONS-INVESTIGATION.md).
-Investigation is active; runtime feature implementation has not begun. Preserve
-the plan's stabilized-main entry criteria and dedicated feature branch.
-Eight generated C# plans and 64 Lua consumption cases now pass for hypothetical
-partial schema 1 windows. Actual partial-window reporting remains untested.
+The user subsequently authorized an initial implementation on the dedicated
+feature branch. Schema 1 single-monitor partial windows, visual selectors and
+two-monitor partial workspaces are implemented, with automated and exact-artifact
+live evidence in [the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md).
+The initial source-study fixtures remain historical evidence. General schema 2
+and multiple independent regions retain the plan's stabilization/release gates.
 
 ## Research evidence
 

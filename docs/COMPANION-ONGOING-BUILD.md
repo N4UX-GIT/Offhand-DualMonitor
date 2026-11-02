@@ -1,5 +1,34 @@
 # Ongoing Companion build
 
+## Custom-region continuation, 2 November 2026
+
+The user subsequently authorized an initial working custom-region implementation.
+The active feature branch is `codex/custom-workspace-regions` in
+`C:/Users/NAUX/.codex/worktrees/classic-graphics-recovery/Offhand`, retaining the
+prepared Companion baseline and its fixes. Prototype 5 is the current unpublished
+portable artifact, built from `0df1f29ce7240f6e791ace6bd9b652db61037818`.
+
+It supports a contiguous single-monitor split and a full game monitor with one
+movable/resizable rectangular workspace on a second monitor. Visual selectors,
+exclusive-mode Save, current-display save validation, manual Span and native
+Restore are implemented using schema 1. Exact prototype 5 Retail evidence covers
+two-monitor apply/reload, replacement single-monitor Save/apply/reload, matching
+viewport diagnostics and exact original native Restore. Earlier Retail cold-start
+and Anniversary results retain their original prototype hashes.
+
+An unsigned MSIX structural validation package embeds the exact prototype 5
+portable executable. File boundaries, identity, capabilities, opt-in startup and
+executable parity passed. It was not installed or submitted. See
+[the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md) for artifact hashes,
+evidence limits and remaining release gates.
+
+The initial schema 1 implementation works on the recorded setup. Physical
+hotplug, mixed DPI, broader exact-artifact client coverage, HUD generation,
+protected actions and Store runtime acceptance remain open. Schema 2 and multiple
+independent regions remain deferred. Forever live testing remains deferred until
+November 4. Public Beta 20 is unchanged; no promotion or publication occurred.
+The release-preparation and historical records below retain their original scope.
+
 ## Release preparation, 1 November 2026
 
 Continuation: the ordinary combined candidate now identifies as `2.1.3-beta.1`.
@@ -13,8 +42,8 @@ The candidate branch `codex/companion-next-candidate` reconciles current Compani
 integration, the released main baseline, and preserved Wine/auto-span fixes.
 See [the preparation record](COMPANION-NEXT-RELEASE-PREPARATION.md) for source
 inventory, local builds, validation and remaining production gates. The resize
-handshake is now exclusive to the graininess experiment. Custom-region source
-investigation has started; no schema 2 runtime implementation is included.
+handshake is now exclusive to the graininess experiment. The later custom-region
+continuation above adds schema 1 support; no schema 2 runtime is included.
 The older records below remain historical. Forever live testing is still
 deferred until November 4, and public Beta 20 bytes are unchanged.
 
