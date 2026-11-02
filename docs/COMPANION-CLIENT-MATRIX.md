@@ -1,5 +1,17 @@
 # Companion client coverage and release gate
 
+## 2 November: custom workspace prototype
+
+The separate custom-region prototype 1 passed its initial Retail workflow and a
+targeted Anniversary `2.5.6.70577` run with the unchanged installed
+`2.1.2-beta.24-tbc-test.11` addon. Anniversary evidence covers custom native apply,
+direct schema 1 viewport matching, Character-panel drag and reload persistence,
+and exact native Restore. Fourteen original files were restored and hash-checked.
+No native HUD regeneration, protected actions or fresh error-store audit was
+performed. See [the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md) for
+the exact artifact, geometry, cleanup and remaining limits. This does not promote
+the ordinary release candidate or accept all supported clients.
+
 ## 2 November: revision 4 Retail follow-up
 
 The changed restore path passed connected normal restore and two consecutive

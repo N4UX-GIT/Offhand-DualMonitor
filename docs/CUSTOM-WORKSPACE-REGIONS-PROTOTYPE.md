@@ -149,6 +149,44 @@ while custom is enabled, and rejection of changed physical monitor resolutions,
 across both edges/sides and negative origins. It passed together with the existing
 64 C# to Lua acceptance/rejection cases and 32 persistence/metric round trips.
 
+## Anniversary live QA, 2026-11-02 08:44 to 08:59 CET
+
+Same immutable prototype 1 executable (`D6ADE042...6112628`), Anniversary
+`2.5.6.70577`, installed addon `2.1.2-beta.24-tbc-test.11`, protocol 1. No addon
+deployment. Launcher-selected existing level-69 Druid on Spineshatter, idle in
+Terokkar Forest; no gameplay or graphics-option changes. Display remained
+2560x1440 at `(0,0)`, SDR and 100% Windows scaling.
+
+The user's current custom plan was already 2240 occupied, 640 workspace,
+1600 game, occupied left edge and game right, leaving 320 monitor pixels free.
+It was backed up and used as-is. No manual geometry preference override was
+needed for the installed Anniversary profile.
+
+| Case | Result |
+| --- | --- |
+| Before apply | Native ordinary `(215,0) 2130x1392`, style `14CF0000`, no region |
+| Manual apply at 08:51:31, before world entry | Pass: Companion and independent read-only observer agree on native outer/client `2240x1440` at `(0,0)`, style `140B0000`, rectangular region type 2. Automatic custom recovery remains disabled |
+| World entry | Pass: workspace and game seam visible; optional stale HUD regeneration prompt dismissed |
+| `/offhand diag`, persisted by reload | Pass: `companionTopology=true`, `topologyStatus=READY`, version status `MATCH`, `viewportMatches=true`; physical `2240x1440`; WorldFrame approximately `(640,0) 1600x1440` within floating-point tolerance |
+| Character panel | Pass: opened entirely within workspace; drag from `(430,573)` to `(270,330)` moved it approximately 160 pixels left and 243 pixels up |
+| `/reload` at approximately 08:53 | Pass: returned in-world, panel reopened at the moved position. Saved position references the new canvas dimensions |
+| Final native Restore | Pass: exact original `(215,0) 2130x1392`, style `14CF0000`, no clipping |
+| Cleanup | Pass: normal game/Companion exits; 14 original config/profile/bridge/error-store files restored and hash-verified after zero test processes remained; Battle.net left open |
+
+No visible Lua error appeared. Both backed-up BugGrabber stores were unchanged,
+but BugGrabber and BugSack are disabled for this character, so this run does not
+provide a fresh error-store audit. Protected actions, combat/taint safety, native
+HUD regeneration, cold relaunch and graphics-reset behavior were not exercised.
+After native Restore the loaded addon still needed geometry reconciliation;
+this run accepts the native restoration, not a fresh ordinary-window viewport.
+The original profiles were restored after exit.
+
+Private evidence: `dist/live-qa-custom-anniversary-20261102-084438`, including
+native readbacks, exact generated bridge, Companion log, drag/reload screenshots
+and before/after profile files. These contain private account/chat metadata and
+remain ignored. Shared knowledge routing returned a runtime-verification gap;
+the exact installed source and live diagnostic supply this limited acceptance.
+
 ## Initial implementation confidence and remaining release scope
 
 Follow-up native failure coverage: `tests/companion-span-rollback.ps1` now uses
@@ -168,11 +206,15 @@ WinForms behavior as WoW evidence. The 5120/4080/640 planner, generated topology
 and clipping coverage remains in the separate partial-topology suite. These
 synthetic tests do not inject a failure into a running WoW client.
 
-The initial contiguous single-display workflow works on this Retail pairing:
+The initial contiguous single-display workflow works on the recorded Retail pairing:
 editor, validated settings, native apply with reserved app space, direct schema 1
 viewport, panel dragging and persisted placement, reload, fitting-panel reopen,
 process restart, switching to/from the ordinary equal-half mode and Restore. The existing
 addon required no runtime changes for this path.
+
+The same artifact also passed the targeted Anniversary apply, direct viewport,
+panel drag/reload persistence and native Restore sequence above. Retail retains
+the broader process-restart and mode-transition evidence.
 
 Broader release acceptance still includes other clients, the physical 5120-wide
 monitor, live both-edge/game-side combinations, mixed DPI, hotplug, actual WoW
