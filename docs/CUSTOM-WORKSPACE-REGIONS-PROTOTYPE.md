@@ -102,6 +102,35 @@ other exact-prototype-5 clients. Optional HUD setup was dismissed. Native Restor
 is accepted; a fresh ordinary-window addon viewport after Restore was not tested.
 Earlier cross-client and cold-start results retain their original artifact hashes.
 
+### Exact prototype 5 Anniversary attempt, 2026-11-02
+
+Anniversary `2.5.6.70577`, unchanged installed addon
+`2.1.2-beta.24-tbc-test.11`, protocol 1. The previously selected level-69 Druid
+on Spineshatter entered Terokkar Forest. A temporary backed-up AUTO profile and
+the existing secondary workspace plan were used, with both displays at 100% scale
+and auto-span disabled.
+
+Native manual apply passed: `(-940,-200) 3500x1640`, style `140B0000`, complex
+region type 3. The generated schema 1 bridge reported game `(940,0) 2560x1440`
+and workspace `(0,350) 782x1290`. After world entry and dismissal of the optional
+HUD setup prompt, another player visibly attacked the character. The run ended
+before any diagnostic or reload command was entered. No gameplay input was used.
+This is a partial native result, not in-world reload, persistence or combat-safety
+acceptance.
+
+Native Restore passed exact original `(215,0) 2130x1392`, style `14CF0000`, no
+region. Anniversary and Companion closed normally; fourteen original files were
+restored and hash-verified after both processes exited. Both error stores were
+unchanged, but their disabled state supplies no fresh runtime error audit.
+Battle.net was left open. Any further Anniversary world check needs a safely
+staged character; do not repeat world entry on this character without that change.
+
+Private evidence: `dist/live-qa-prototype5-anniversary-20261102-161443`, including
+native before/apply/Restore readbacks, generated bridge, file backups and
+`result.json`. Shared knowledge routing returned a gap. Exact installed source
+and observed native behavior are the evidence for this limited result. Earlier
+prototype 3 Anniversary acceptance remains attached to its original executable.
+
 ### Prototype 5 MSIX structural validation
 
 The existing Store builder packaged the exact live-tested portable executable

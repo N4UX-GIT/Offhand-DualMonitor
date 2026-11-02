@@ -12,6 +12,13 @@ hash-verified. BugGrabber recorded no new errors. Physical hotplug, mixed DPI,
 HUD generation, protected actions and other exact-artifact clients remain pending.
 See [the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md).
 
+An exact prototype 5 Anniversary `2.5.6.70577` attempt passed native two-monitor
+custom apply and exact native Restore. Another player attacked the selected
+character after world entry, so the run ended before diagnostics/reload. It is a
+partial result with no combat-safety claim. Both apps closed normally; fourteen
+original files were restored and hash-verified. Error stores were unchanged but
+disabled. Further world QA requires a safely staged character.
+
 ## 2 November: layout chooser prototype 4 revision 2
 
 The exact unpublished revision 2 package passed a targeted Retail `12.1.5.70688`
