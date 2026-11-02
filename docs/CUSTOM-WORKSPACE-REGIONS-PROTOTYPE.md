@@ -10,9 +10,10 @@ contract. This is separate from multiple independent workspace regions.
 
 ## Trying the current local prototype
 
-Prototype 5 is the latest local build and has completed a targeted Retail
-two-monitor to single-monitor transition and Restore workflow. Evidence and
-hashes are kept below. It remains an unpublished prototype.
+Prototype 5 is the latest local build. It has completed a targeted Retail
+two-monitor to single-monitor transition and Restore workflow, and an Anniversary
+secondary-workspace apply/reload/Restore check with fresh error capture. Evidence
+and hashes are kept below. It remains an unpublished prototype.
 
 1. Close any other Companion normally, then launch the chosen prototype's
    `Offhand.exe`. It uses the existing Companion preferences.
@@ -122,14 +123,55 @@ Native Restore passed exact original `(215,0) 2130x1392`, style `14CF0000`, no
 region. Anniversary and Companion closed normally; fourteen original files were
 restored and hash-verified after both processes exited. Both error stores were
 unchanged, but their disabled state supplies no fresh runtime error audit.
-Battle.net was left open. Any further Anniversary world check needs a safely
-staged character; do not repeat world entry on this character without that change.
+Battle.net was left open. The subsequent authorized level-1 run below resolves
+this attempt's safe-character staging gap. Do not repeat world entry on the
+level-69 character without a safe location.
 
 Private evidence: `dist/live-qa-prototype5-anniversary-20261102-161443`, including
 native before/apply/Restore readbacks, generated bridge, file backups and
 `result.json`. Shared knowledge routing returned a gap. Exact installed source
 and observed native behavior are the evidence for this limited result. Earlier
 prototype 3 Anniversary acceptance remains attached to its original executable.
+
+### Exact prototype 5 Anniversary level-1 QA, 2026-11-02
+
+Following the user's authorization to use any available level 1, selected the
+existing Stackonme, level-1 Paladin on Spineshatter, idle in Coldridge Valley.
+Client `2.5.6.70577`, unchanged installed addon `2.1.2-beta.24-tbc-test.11`,
+protocol 1, exact prototype 5 executable hash above. No addon deployment,
+gameplay or graphics-option changes. Both physical displays used 100% scale.
+
+Offhand, BugGrabber and BugSack were initially disabled for this character.
+Enabled those three using the character-specific AddOn List, leaving other
+characters' addon selections intact. All affected file states were backed up,
+including the original absence of this character's Offhand profile. Used a
+temporary existing account AUTO profile and the saved secondary plan, auto-span
+off. Optional HUD setup remained deferred.
+
+| Case | Result |
+| --- | --- |
+| Manual apply before world entry | Pass: native outer/client `(-940,-200) 3500x1640`, style `140B0000`, complex region type 3; generated bridge game `(940,0) 2560x1440`, workspace `(0,350) 782x1290` |
+| Initial diagnostic | Pass: `READY`, `MATCH`, `viewportMatches=true`, WorldFrame approximately `(940,0) 2560x1440`; persisted by UI reload |
+| Reload persistence | Pass: native bounds/clipping retained; full built-in screenshot showed Character panel reopened inside workspace |
+| Fresh post-reload diagnostic | Pass: a separate capture after reload again reported `READY`, `MATCH`, `viewportMatches=true`, matching WorldFrame. Flushed by normal exit |
+| Native Restore | Pass: exact original `(215,0) 2130x1392`, style `14CF0000`, no region |
+| Fresh errors | Pass: enabled BugGrabber store differed only by session counter 550 to 552; no new error records |
+| Cleanup | Pass: both test apps exited normally; 18 original files restored and hash-verified, two original profile absences restored by moving newly created QA profiles into private evidence. Character-specific addon selection and error-capture preferences restored. Battle.net left open |
+
+The first private diagnostic used `StaticPopup_Hide` for the optional reminder;
+that did not close Offhand's own popup. The post-reload command used the installed
+`Offhand:HidePopup` implementation, which dismissed it. HUD generation was not
+invoked. Both command prefixes were verified with full built-in screenshots
+before execution; no public chat messages were sent.
+
+Private evidence: `dist/live-qa-prototype5-anniversary-level1-20261102-164355`,
+including native readbacks, generated bridge, enabled-addon inventory, full
+screenshots, diagnostics, before/after error stores, restoration manifest and
+`result.json`. Shared knowledge query returned a routing gap; installed source
+and this live run supply the stated acceptance. This closes the targeted exact-
+prototype-5 Anniversary reload/error-audit gap. Mixed DPI, physical hotplug,
+HUD generation, protected actions, other clients and a fresh ordinary-window
+addon viewport after Restore remain outside this run's acceptance.
 
 ### Prototype 5 MSIX structural validation
 

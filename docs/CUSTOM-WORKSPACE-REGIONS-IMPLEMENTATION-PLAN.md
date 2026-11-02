@@ -20,8 +20,9 @@ second monitor. Prototype 1 has Retail and targeted Anniversary evidence;
 prototype 3 has Retail apply/reload/cold-restart/Restore and targeted Anniversary
 apply/reload/Restore evidence. Prototype 5 adds current-display validation at
 Save and has targeted Retail two-monitor to single-monitor transition, reload
-and exact native Restore evidence. The initial schema 1 implementation is
-working on the recorded setup. General schema 2 region development remains
+and exact native Restore evidence, plus Anniversary secondary-workspace reload,
+fresh error-capture and Restore evidence on a level-1 character. The initial
+schema 1 implementation is working on the recorded setup. General schema 2 region development remains
 deferred behind the stabilization gates.**
 
 This document records the intended design, implementation sequence, compatibility requirements, risk assessment, validation matrix, and release gates for partial-monitor and multi-monitor Offhand workspace regions. It is not authorization to begin implementation on the current stabilization branch.

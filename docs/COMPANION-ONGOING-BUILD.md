@@ -19,8 +19,12 @@ and Anniversary results retain their original prototype hashes.
 An exact prototype 5 Anniversary attempt subsequently passed native custom apply
 and exact native Restore, but world QA stopped when another player attacked the
 selected character. Diagnostics/reload were not run. Both apps closed normally
-and fourteen original files were restored and hash-verified. Further Anniversary
-world checks require a safe character or location; no combat acceptance is claimed.
+and fourteen original files were restored and hash-verified. A subsequent run on
+an authorized existing level-1 Paladin passed apply, reload, a fresh matching
+viewport diagnostic, Character panel persistence and exact native Restore.
+Temporarily enabled error capture recorded no new errors. Both apps closed;
+18 originals and two original profile absences were restored. No combat
+acceptance is claimed.
 
 An unsigned MSIX structural validation package embeds the exact prototype 5
 portable executable. File boundaries, identity, capabilities, opt-in startup and

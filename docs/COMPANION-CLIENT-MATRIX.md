@@ -17,7 +17,17 @@ custom apply and exact native Restore. Another player attacked the selected
 character after world entry, so the run ended before diagnostics/reload. It is a
 partial result with no combat-safety claim. Both apps closed normally; fourteen
 original files were restored and hash-verified. Error stores were unchanged but
-disabled. Further world QA requires a safely staged character.
+disabled. That attempt's safe-character staging gap was resolved by a subsequent
+user-authorized level-1 run.
+
+The same exact prototype 5 then passed Anniversary apply, a matching initial
+diagnostic, reload with retained native clipping and Character panel placement,
+a separately captured fresh post-reload viewport diagnostic, and exact native
+Restore on Stackonme, level-1 Paladin in Coldridge Valley. BugGrabber/BugSack were
+temporarily enabled for this character; the store changed only by its session
+counter and contained no new errors. Both apps exited normally; 18 original files
+and two original profile absences were restored, including addon selection.
+Broader release limitations above remain open.
 
 ## 2 November: layout chooser prototype 4 revision 2
 
