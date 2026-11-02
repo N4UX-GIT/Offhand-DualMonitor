@@ -1,9 +1,60 @@
 # Initial custom workspace region prototype
 
+Update, 2 November: prototype 2 adds a visual desktop selection overlay to the
+same single-monitor geometry. Prototype 1 and its live game evidence below remain
+immutable. See the visual-editor section for the new workflow and evidence.
+
 2 November 2026. Explicitly authorized initial runtime implementation on
 `codex/custom-workspace-regions`, based on prepared Companion source `a4684a1`.
 This overrides the previous deferral for stage 0 only. Unpublished; schema 2,
 multiple workspaces and general discontiguous regions remain outside this slice.
+
+## Visual desktop editor (prototype 2)
+
+`Custom region...` now includes **Select area on monitor...**. The selected
+monitor receives a translucent, full-monitor Companion overlay showing workspace,
+game and free desktop areas in physical pixels. Drag the internal divider to
+resize the workspace, or the outer divider to resize the occupied width while
+retaining the workspace width. Drag the occupied area to snap between the left
+and right monitor edges. **Swap game and workspace** reverses their order.
+Left/Right keys select the occupied monitor edge. Enter accepts the selection;
+Escape or Cancel discards it. The overlay remains reachable through Alt+Tab.
+
+**Use selection** updates only the numeric editor's pending values and enables
+custom mode. **Save plan** performs the existing validated atomic preference
+write. **Span WoW Now** remains the separate native apply action. Cancelling the
+numeric editor also discards a previously accepted visual selection.
+
+This is a visual editor for the already-tested schema 1 slice, not arbitrary
+rectangles or multi-monitor regions. It retains full monitor height, edge
+anchoring, one selected display, minimum physical widths and manual-only apply.
+The native span, clipping, addon protocol and saved-frame formats are unchanged.
+The overlay never reads screenshots, manipulates WoW or saves preferences itself.
+
+Desktop QA on the 2560x1440 primary monitor at 100% scaling passed workspace
+divider drag (640 to 800), Escape cancellation retaining 640 in the numeric
+editor, occupied-width drag (2240 to 2080), drag to the right monitor edge,
+game/workspace swap, accept back to numeric values, and Save plan. The persisted
+result was occupied 2080, workspace 640, edge RIGHT and game LEFT. Before Save,
+disk preferences remained at the original 2240/640/LEFT/RIGHT values. No game was
+launched. Companion exited normally and the original INI was restored exactly
+and hash-verified. Private evidence and before/after preferences remain under
+the ignored `dist/live-qa-overlay-editor-*` directory.
+
+An initial borderless overlay was omitted from desktop window discovery. Giving
+it its own taskbar/Alt+Tab entry made it independently selectable; Escape was
+then verified on that window. Enter/Left/Right/Escape handling is explicitly
+tested in the in-process overlay fixture, including acceptance independent of
+focused buttons. The final Enter override has automated evidence; it was added
+after the desktop gesture run.
+
+Production model gesture tests cover both edges/sides, minimum workspace/game
+widths, monitor-boundary clamping, drag-back behavior and round trips through the
+actual topology planner. Preference/layout checks pass at 100/125/150/200% scale,
+including the new visual-selection action. The partial topology, native rollback
+(1269 assertions per x64/x86 build) and recovery suites pass. Live mixed-DPI and
+offset-secondary overlay placement, hotplug during editing and final packaged
+game smoke testing remain open. The earlier live game runs used prototype 1.
 
 ## Implemented workflow
 

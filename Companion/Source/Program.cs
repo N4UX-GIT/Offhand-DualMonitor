@@ -737,6 +737,135 @@ namespace Offhand.Companion
         }
     }
 
+    // Physical-pixel selection model. Editing never changes a native game window.
+    internal sealed class PartialRegionSelection
+    {
+        internal readonly int MonitorWidth;
+        internal int Width, WorkspaceWidth;
+        internal bool OccupiedRight, GameLeft;
+        internal PartialRegionSelection(int monitorWidth, int width, int workspace, bool right, bool gameLeft)
+        {
+            if (monitorWidth < 1440 || monitorWidth > 32768) throw new ArgumentOutOfRangeException("monitorWidth");
+            MonitorWidth = monitorWidth; Width = Math.Max(1440, Math.Min(monitorWidth, width));
+            WorkspaceWidth = Math.Max(480, Math.Min(Width - 960, workspace));
+            OccupiedRight = right; GameLeft = gameLeft;
+        }
+        internal int Left { get { return OccupiedRight ? MonitorWidth - Width : 0; } }
+        internal int OuterDivider { get { return OccupiedRight ? Left : Width; } }
+        internal int WorkspaceDivider { get { return Left + (GameLeft ? Width - WorkspaceWidth : WorkspaceWidth); } }
+        internal void ResizeOccupied(int x)
+        {
+            Width = Math.Max(WorkspaceWidth + 960, Math.Min(MonitorWidth, OccupiedRight ? MonitorWidth - x : x));
+        }
+        internal void ResizeWorkspace(int x)
+        {
+            WorkspaceWidth = Math.Max(480, Math.Min(Width - 960, GameLeft ? Left + Width - x : x - Left));
+        }
+        internal void Move(int delta, bool startedRight)
+        {
+            // This first editor supports the two validated monitor-edge anchors.
+            long centerTwice = (startedRight ? 2L * MonitorWidth - Width : Width) + 2L * delta;
+            OccupiedRight = centerTwice == MonitorWidth ? startedRight : centerTwice > MonitorWidth;
+        }
+    }
+
+    internal sealed class PartialRegionOverlay : Form
+    {
+        internal readonly PartialRegionSelection Selection;
+        private int drag, startX;
+        private bool startRight;
+        internal PartialRegionOverlay(Rectangle monitor, PartialRegionSelection selection)
+        {
+            if (monitor.Height < 600 || monitor.Height > 32768 || monitor.Width != selection.MonitorWidth)
+                throw new ArgumentException("The selected monitor cannot use this custom layout.");
+            Selection = selection; Text = "Select custom workspace area";
+            FormBorderStyle = FormBorderStyle.None; StartPosition = FormStartPosition.Manual;
+            AutoScaleMode = AutoScaleMode.None; Bounds = monitor; TopMost = true;
+            // Keep the borderless modal reachable through Alt+Tab and accessible
+            // as its own desktop window, including when its owner is elsewhere.
+            ShowInTaskbar = true; KeyPreview = true; DoubleBuffered = true;
+            BackColor = Color.FromArgb(20, 23, 28); Opacity = 0.93;
+            var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true,
+                FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(16), BackColor = BackColor };
+            var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, AutoSize = true };
+            var use = new Button { Text = "Use selection", DialogResult = DialogResult.OK, AutoSize = true };
+            var flip = new Button { Text = "Swap game and workspace", AutoSize = true };
+            foreach (Button button in new Button[] { cancel, use, flip }) {
+                button.Font = new Font("Segoe UI", 11); button.Padding = new Padding(12, 6, 12, 6);
+                button.UseVisualStyleBackColor = true; buttons.Controls.Add(button);
+            }
+            flip.Click += (s,e) => { Selection.GameLeft = !Selection.GameLeft; Invalidate(); };
+            CancelButton = cancel; AcceptButton = use; Controls.Add(buttons);
+        }
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (keyData == Keys.Enter || keyData == Keys.Escape) {
+                DialogResult = keyData == Keys.Enter ? DialogResult.OK : DialogResult.Cancel;
+                Close(); return true;
+            }
+            if (keyData == Keys.Left || keyData == Keys.Right) {
+                Selection.OccupiedRight = keyData == Keys.Right; Invalidate(); return true;
+            }
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            var s = Selection; int gameWidth = s.Width - s.WorkspaceWidth;
+            Rectangle workspace = new Rectangle(s.Left + (s.GameLeft ? gameWidth : 0), 0, s.WorkspaceWidth, ClientSize.Height);
+            Rectangle game = new Rectangle(s.Left + (s.GameLeft ? 0 : s.WorkspaceWidth), 0, gameWidth, ClientSize.Height);
+            using (var brush = new SolidBrush(Color.FromArgb(46, 83, 98))) e.Graphics.FillRectangle(brush, workspace);
+            using (var brush = new SolidBrush(Color.FromArgb(48, 67, 46))) e.Graphics.FillRectangle(brush, game);
+            using (var font = new Font("Segoe UI", 15))
+            using (var white = new SolidBrush(Color.White))
+            using (var center = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center }) {
+                e.Graphics.DrawString("Drag a divider to resize. Drag the occupied area to snap it left or right.\nFull height only. Left/Right: monitor edge. Enter: use selection. Esc: cancel.",
+                    font, white, new RectangleF(20, 20, ClientSize.Width - 40, 130));
+                e.Graphics.DrawString("Workspace\n" + s.WorkspaceWidth + " x " + ClientSize.Height, font, white,
+                    new RectangleF(workspace.X, ClientSize.Height / 2 - 100, workspace.Width, 120), center);
+                e.Graphics.DrawString("Game\n" + gameWidth + " x " + ClientSize.Height, font, white,
+                    new RectangleF(game.X, ClientSize.Height / 2 - 100, game.Width, 120), center);
+                int free = s.MonitorWidth - s.Width;
+                if (free > 0) e.Graphics.DrawString("Free desktop\n" + free + " px", font, white,
+                    new RectangleF(s.OccupiedRight ? 0 : s.Width, ClientSize.Height / 2 - 100, free, 120), center);
+            }
+            using (var pen = new Pen(Color.White, 3)) {
+                e.Graphics.DrawLine(pen, s.OuterDivider, 160, s.OuterDivider, ClientSize.Height - 110);
+                e.Graphics.DrawLine(pen, s.WorkspaceDivider, 160, s.WorkspaceDivider, ClientSize.Height - 110);
+            }
+            using (var brush = new SolidBrush(Color.White)) {
+                e.Graphics.FillRectangle(brush, s.OuterDivider - 4, ClientSize.Height / 2 + 50, 8, 70);
+                e.Graphics.FillRectangle(brush, s.WorkspaceDivider - 4, ClientSize.Height / 2 + 50, 8, 70);
+            }
+        }
+        private int Hit(int x)
+        {
+            if (Math.Abs(x - Selection.OuterDivider) <= 14) return 1;
+            if (Math.Abs(x - Selection.WorkspaceDivider) <= 14) return 2;
+            return x >= Selection.Left && x <= Selection.Left + Selection.Width ? 3 : 0;
+        }
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            base.OnMouseDown(e);
+            if (e.Button != MouseButtons.Left || e.Y < 160 || e.Y > ClientSize.Height - 110) return;
+            drag = Hit(e.X); startX = e.X; startRight = Selection.OccupiedRight;
+            if (drag != 0) Capture = true;
+        }
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
+            if (drag == 1) Selection.ResizeOccupied(e.X);
+            else if (drag == 2) Selection.ResizeWorkspace(e.X);
+            else if (drag == 3) Selection.Move(e.X - startX, startRight);
+            Cursor = (drag == 0 ? Hit(e.X) : drag) == 3 ? Cursors.SizeAll : Cursors.SizeWE;
+            if (drag != 0) Invalidate();
+        }
+        protected override void OnMouseUp(MouseEventArgs e)
+        { base.OnMouseUp(e); if (e.Button == MouseButtons.Left) { drag = 0; Capture = false; } }
+        protected override void OnMouseCaptureChanged(EventArgs e)
+        { base.OnMouseCaptureChanged(e); if (!Capture) drag = 0; }
+    }
+
     // Editing this dialog changes only a pending settings copy. The owner saves
     // atomically on OK; native window changes remain an explicit Span action.
     internal sealed class PartialSpanDialog : Form
@@ -765,6 +894,23 @@ namespace Offhand.Companion
             table.RowCount = 0;
             row("Mode", enabled); row("Display", DisplaySelector); row("WoW occupied width (px)", OccupiedWidth);
             row("Workspace width (px)", WorkspaceWidth); row("Occupied monitor edge", edge); row("Game side inside WoW", side);
+            var visual = new Button { Text = "Select area on monitor...", AutoSize = true, Dock = DockStyle.Fill };
+            row("Visual selection", visual);
+            visual.Click += (s,e) => {
+                if (DisplaySelector.SelectedIndex < 0) return;
+                var monitor = displays[DisplaySelector.SelectedIndex].Bounds;
+                try {
+                    var selection = new PartialRegionSelection(monitor.Width, (int)OccupiedWidth.Value,
+                        (int)WorkspaceWidth.Value, edge.SelectedIndex == 1, side.SelectedIndex == 1);
+                    using (var overlay = new PartialRegionOverlay(monitor, selection)) {
+                        if (overlay.ShowDialog(this) != DialogResult.OK) return;
+                        OccupiedWidth.Value = selection.Width; WorkspaceWidth.Value = selection.WorkspaceWidth;
+                        edge.SelectedIndex = selection.OccupiedRight ? 1 : 0;
+                        side.SelectedIndex = selection.GameLeft ? 1 : 0;
+                        enabled.Checked = true;
+                    }
+                } catch (ArgumentException ex) { MessageBox.Show(this, ex.Message, Text, MessageBoxButtons.OK, MessageBoxIcon.Information); }
+            };
             edge.Items.AddRange(new object[] { "Left", "Right" }); side.Items.AddRange(new object[] { "Right", "Left" });
             edge.SelectedIndex = settings.ContainsKey("PartialEdge") && settings["PartialEdge"] == "RIGHT" ? 1 : 0;
             side.SelectedIndex = settings.ContainsKey("PartialGameSide") && settings["PartialGameSide"] == "LEFT" ? 1 : 0;

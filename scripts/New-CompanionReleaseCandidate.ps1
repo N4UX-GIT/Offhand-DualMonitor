@@ -53,6 +53,9 @@ if ($CustomRegionsPrototype) {
 Custom region opens an experimental single-display partial-span editor.
 Save plan changes settings only; Span WoW Now applies it. Set occupied width,
 workspace width, monitor edge and game side. Reserved pixels remain outside WoW.
+Select area on monitor opens a visual overlay. Drag its dividers to resize,
+drag the occupied area to snap between monitor edges, or swap the two sides.
+Use selection returns to the editor; Save plan commits settings. Escape cancels.
 Custom regions are manual-only; graphics-reset recovery is not armed for them.
 Use Restore Window to return to the ordinary window. Disable Use custom region
 in the editor to return to the existing two-display or equal-half modes.

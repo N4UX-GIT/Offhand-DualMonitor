@@ -12,6 +12,44 @@ namespace Offhand.Companion
         [DllImport("gdi32.dll")] private static extern bool PtInRegion(IntPtr region, int x, int y);
         public static void Main(string[] args)
         {
+            // Gesture sequences must produce layouts accepted by the production
+            // planner, including edge snapping and the physical minimums.
+            foreach (bool right in new bool[] { false, true })
+            foreach (bool gameLeft in new bool[] { false, true }) {
+                var selection = new PartialRegionSelection(2560, 2240, 640, right, gameLeft);
+                selection.ResizeOccupied(right ? 960 : 1600);
+                if (selection.Width != 1600 || selection.WorkspaceWidth != 640)
+                    throw new Exception("Occupied divider did not retain workspace and minimum game width.");
+                selection.ResizeWorkspace(gameLeft ? selection.Left + selection.Width : selection.Left);
+                if (selection.WorkspaceWidth != 480) throw new Exception("Workspace divider lost minimum width.");
+                selection.ResizeOccupied(right ? -100 : 3000);
+                if (selection.Width != 2560) throw new Exception("Occupied divider escaped the monitor.");
+                selection.ResizeWorkspace(gameLeft ? -100 : 3000);
+                if (selection.WorkspaceWidth != 1600) throw new Exception("Workspace divider lost minimum game width.");
+                selection.Move(right ? -4000 : 4000, right);
+                if (selection.OccupiedRight == right) throw new Exception("Moving occupied area did not snap to opposite edge.");
+                var monitor = new Rectangle(-2560,-1440,2560,1440);
+                var overlaySettings = new Dictionary<string,string> {
+                    {"DisplayIdentityVersion","1"}, {"MonitorIdentities","editor"}, {"MainhandIdentity","editor"},
+                    {"PartialSpanEnabled","True"}, {"PartialDisplayIdentity","editor"},
+                    {"PartialMonitorWidth","2560"}, {"PartialMonitorHeight","1440"},
+                    {"PartialWidth",selection.Width.ToString()}, {"PartialWorkspaceWidth",selection.WorkspaceWidth.ToString()},
+                    {"PartialEdge",selection.OccupiedRight ? "RIGHT" : "LEFT"}, {"PartialGameSide",gameLeft ? "LEFT" : "RIGHT"}
+                };
+                var result = MonitorSelection.CreatePlan(overlaySettings, new List<MonitorSelection.Display> {
+                    new MonitorSelection.Display { Index=0, StableId="editor", DeviceName="editor", Bounds=monitor }
+                });
+                if (result.Bounds != monitor || result.MainhandBounds.Width != 960 || result.WorkspaceBounds.Width != 1600)
+                    throw new Exception("Visual selection did not round-trip through production planning.");
+            }
+            var move = new PartialRegionSelection(2560,1920,640,false,false);
+            move.Move(0,false);
+            if (move.OccupiedRight) throw new Exception("Stationary drag changed the monitor edge.");
+            move.Move(400,false);
+            if (!move.OccupiedRight || move.Left != 640) throw new Exception("Partial occupied rectangle did not snap right.");
+            move.Move(0,false);
+            if (move.OccupiedRight || move.Left != 0) throw new Exception("Dragging back did not restore the initial edge.");
+            Console.WriteLine("PASS: visual selection gestures, size guardrails, edge snapping and production planner round trips");
             string root = args[0];
             string core = Path.Combine(root, "Interface", "AddOns", "Offhand", "Core");
             Directory.CreateDirectory(core);

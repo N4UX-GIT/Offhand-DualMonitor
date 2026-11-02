@@ -175,7 +175,8 @@ namespace Offhand.Companion
             {
                 dialog.CreateControl(); dialog.Scale(new SizeF(factor, factor)); LayoutAll(dialog);
                 var scroll = dialog.Controls.OfType<Panel>().Single(p => p.AutoScroll);
-                foreach (Control c in new Control[] {dialog.DisplaySelector, dialog.OccupiedWidth, dialog.WorkspaceWidth}) {
+                foreach (Control c in new Control[] {dialog.DisplaySelector, dialog.OccupiedWidth, dialog.WorkspaceWidth,
+                    Descendants(dialog).OfType<Button>().Single(b => b.Text == "Select area on monitor...")}) {
                     Rectangle b = BoundsInside(c, scroll);
                     if (b.Left < 0 || b.Right > scroll.ClientSize.Width)
                         throw new Exception("Custom region control clipped at " + factor + "x: " + b);
@@ -188,6 +189,20 @@ namespace Offhand.Companion
                         RenderChildren(dialog, bitmap, Point.Empty);
                         bitmap.Save(preview + ".custom.png", System.Drawing.Imaging.ImageFormat.Png);
                     }
+            }
+            foreach (Keys finish in new Keys[] { Keys.Enter, Keys.Escape })
+            using (var overlay = new PartialRegionOverlay(new Rectangle(-2560,0,2560,1440),
+                new PartialRegionSelection(2560,1920,640,false,false))) {
+                var keyHandler = typeof(PartialRegionOverlay).GetMethod("ProcessCmdKey",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                var message = new Message();
+                keyHandler.Invoke(overlay, new object[] {message, Keys.Right});
+                if (!overlay.Selection.OccupiedRight) throw new Exception("Overlay Right key did not select right monitor edge.");
+                keyHandler.Invoke(overlay, new object[] {message, Keys.Left});
+                if (overlay.Selection.OccupiedRight) throw new Exception("Overlay Left key did not select left monitor edge.");
+                keyHandler.Invoke(overlay, new object[] {message, finish});
+                if (overlay.DialogResult != (finish == Keys.Enter ? DialogResult.OK : DialogResult.Cancel))
+                    throw new Exception("Overlay keyboard completion depends on focused button.");
             }
             Console.WriteLine("PASS: complete dashboard fits working areas, avoids horizontal overflow and retains separated selectors at 100%, 125%, 150%, and 200% scaling");
         }
