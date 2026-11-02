@@ -581,7 +581,7 @@ code {
 .demo-preview-caption > span { font-size: 0.8rem; color: var(--text-muted); }
 .demo-preview:hover { border-color: var(--rio-gold); box-shadow: 0 10px 30px rgba(255, 189, 10, 0.12); }
 .demo-preview:hover .demo-preview-play { background: var(--rio-gold); color: #14161d; }
-.demo-preview:focus-visible, .feature-shot:focus-visible { outline: 3px solid var(--rio-gold); outline-offset: 5px; }
+.demo-preview:focus-visible { outline: 3px solid var(--rio-gold); outline-offset: 5px; }
 .home-page #features .wow-card { min-width: 0; }
 .feature-shot {
     display: block;
@@ -593,19 +593,8 @@ code {
     border-radius: var(--radius-sm);
     background: #08090b;
 }
-.feature-shot svg { display: block; width: 100%; height: 100%; }
-.feature-shot-hint {
-    position: absolute;
-    inset: auto 0 0;
-    display: flex;
-    justify-content: space-between;
-    padding: 20px 10px 7px;
-    background: linear-gradient(transparent, rgba(0, 0, 0, 0.9));
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: #fff;
-}
-.feature-shot:hover { border-color: var(--rio-gold); }
+.feature-shot svg, .feature-shot img { display: block; width: 100%; height: 100%; }
+.feature-shot img { object-fit: cover; }
 @media (max-width: 960px) {
     .landing-intro { grid-template-columns: minmax(0, 1fr); gap: 24px; }
     .landing-intro-copy { text-align: center; }
@@ -882,7 +871,7 @@ code {
     transition: all 0.25s ease;
 }
 
-.wow-card:hover {
+.wow-card:not(.feature-card):hover {
     border-color: var(--rio-gold);
     background: var(--rio-surface-elevated);
     transform: translateY(-3px);
