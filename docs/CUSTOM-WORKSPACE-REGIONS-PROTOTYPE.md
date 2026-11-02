@@ -10,9 +10,9 @@ contract. This is separate from multiple independent workspace regions.
 
 ## Trying the current local prototype
 
-Prototype 5 is the latest local build. Prototype 4 revision 2 remains the most
-recent exact package with a completed Retail game workflow. Evidence and hashes
-for both are kept below; neither is a public release.
+Prototype 5 is the latest local build and has completed a targeted Retail
+two-monitor to single-monitor transition and Restore workflow. Evidence and
+hashes are kept below. It remains an unpublished prototype.
 
 1. Close any other Companion normally, then launch the chosen prototype's
    `Offhand.exe`. It uses the existing Companion preferences.
@@ -39,8 +39,8 @@ and adjacent `Offhand-Companion-v2.1.3-beta.1.zip`, built from clean tracked sou
 - ZIP SHA-256: `4B4252C732953CD8127C24DB3F26B8DA2065889B759E5B20DAA51E7E90D25A9E`
 
 Packaging verified executable parity, archive contents and unchanged frozen
-public artifacts. Packaged desktop Save/restart evidence is recorded below;
-this build has no new in-game acceptance claim.
+public artifacts. Packaged desktop Save/restart and targeted Retail evidence
+are recorded below.
 
 Custom-region Save now reads the current display list immediately before atomic
 preferences publication and validates enabled custom plans against that snapshot.
@@ -70,6 +70,37 @@ the saved 782x1290 dimensions, and the expected 3480x1640 backing surface.
 Companion exited normally again; the exact original preferences were restored
 and hash-verified. No game was launched or monitor disconnected during this
 desktop check. Private evidence: `dist/live-qa-save-guard-20261102-145002`.
+
+### Exact prototype 5 Retail transition QA, 2026-11-02
+
+Retail `12.1.5.70688`, unchanged installed addon `2.1.2-beta.24`, protocol 1,
+selected level-1 Hunter idle in Coldridge Valley. Both physical displays used
+100% Windows scaling. A backed-up temporary AUTO profile supplied the existing
+two-monitor plan, with auto-span disabled. No addon deployment, gameplay or
+graphics-option changes were made.
+
+| Case | Result |
+| --- | --- |
+| Two-monitor manual apply | Pass: full 2560x1440 game display, workspace local `(500,914) 782x1290` on the offset portrait display; native outer/client `(-940,-200) 3500x1640`, style `140B0000`, complex region type 3 |
+| Two-monitor diagnostic and reload | Pass: pre-reload diagnostic flushed by reload reported `READY`, `MATCH`, `viewportMatches=true`, WorldFrame approximately `(940,0) 2560x1440`; native bounds/clipping retained after reload and full built-in screenshot showed Character panel restored inside the workspace |
+| Save replacement mode while spanned | Pass: chooser opened the single-monitor editor; enabling and saving its retained 2240/640 plan published `PartialSpanEnabled=True`, `SecondaryAreaEnabled=False`, auto-span off, primary display only |
+| Apply without intervening Restore | Pass: native outer/client `(0,0) 2240x1440`, rectangular region type 2; schema 1 game `(640,0) 1600x1440`, workspace `(0,0) 640x1440`. The loaded addon showed the expected stale-layout notice until `/reload` |
+| Fresh single-monitor diagnostic | Pass after that reload: `READY`, `MATCH`, `viewportMatches=true`, WorldFrame approximately `(640,0) 1600x1440`; Character panel reopened within the workspace. Diagnostic was captured after reload and flushed by normal exit |
+| Final native Restore | Pass: exact original `(208,0) 2144x1392`, style `14CF0000`, no clipping, despite changing custom modes while ownership was active |
+| Cleanup and errors | Pass: Companion and Retail exited normally; nine original config/profile/bridge files restored and hash-verified after both processes closed. BugGrabber differed only by session counter 346 to 349, with no new error records. Battle.net left open |
+
+Private evidence: `dist/live-qa-prototype5-retail-20261102-151451`, including
+native readbacks, both generated bridges, screenshots, diagnostic/profile copies
+and original-file hashes. It contains private account/chat metadata and stays
+ignored. The shared knowledge query returned a routing gap; exact installed
+source and these live observations supply this limited acceptance.
+
+This is an initial working schema 1 implementation on the tested setup. It does
+not expand acceptance to physical hotplug, mixed DPI, three or more monitors,
+multiple independent workspaces, native HUD generation, protected actions or
+other exact-prototype-5 clients. Optional HUD setup was dismissed. Native Restore
+is accepted; a fresh ordinary-window addon viewport after Restore was not tested.
+Earlier cross-client and cold-start results retain their original artifact hashes.
 
 ## Layout chooser follow-up (prototype 4)
 

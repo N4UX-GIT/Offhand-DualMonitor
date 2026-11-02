@@ -1,5 +1,17 @@
 # Companion client coverage and release gate
 
+## 2 November: save-validation prototype 5
+
+The exact unpublished prototype 5 package passed targeted Retail `12.1.5.70688`
+testing with unchanged installed addon `2.1.2-beta.24`: two-monitor custom apply
+and reload persistence, single-monitor replacement Save through the new display
+validation guard, manual apply without an intervening Restore, a matching fresh
+single-monitor viewport diagnostic after reload, and exact original native
+Restore. Both test apps exited normally; nine original files were restored and
+hash-verified. BugGrabber recorded no new errors. Physical hotplug, mixed DPI,
+HUD generation, protected actions and other exact-artifact clients remain pending.
+See [the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md).
+
 ## 2 November: layout chooser prototype 4 revision 2
 
 The exact unpublished revision 2 package passed a targeted Retail `12.1.5.70688`
