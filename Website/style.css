@@ -557,7 +557,6 @@ code {
     line-height: 1.45;
     text-wrap: balance;
 }
-.landing-actions .landing-mobile-only { display: none; }
 .landing-actions { align-items: stretch; gap: 12px; }
 .landing-actions .btn { min-height: 42px; height: auto; padding: 10px 16px; }
 .landing-actions .btn-companion-suggested {
@@ -580,6 +579,10 @@ code {
     transition: none;
 }
 .landing-actions .landing-curseforge-mark { color: var(--rio-gold); flex-shrink: 0; }
+.landing-help { margin: 14px 0 0; color: var(--text-muted); font-size: 0.88rem; }
+.landing-help a { display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; color: var(--rio-gold); text-underline-offset: 3px; }
+.landing-help a:hover { color: var(--rio-gold-bright); text-decoration: underline; }
+.landing-help img { width: 16px; height: 16px; }
 
 .demo-preview {
     display: block;
@@ -658,8 +661,6 @@ code {
     .landing-desktop-copy { display: none; }
     .landing-intro-heading { display: block; font-size: 1.2rem; }
     .home-page .landing-actions { gap: 10px; }
-    .landing-actions .landing-mobile-only { display: inline-flex; }
-    .landing-actions .landing-desktop-only { display: none; }
     .landing-actions .landing-curseforge-action { margin-top: 10px; }
     .home-page #features .grid-3 { grid-template-columns: minmax(0, 1fr); }
     .demo-preview-caption { padding: 14px 10px; }
