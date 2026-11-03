@@ -1,5 +1,12 @@
 # Custom workspace regions: local review handoff
 
+3 November update: [Prototype 6](CUSTOM-WORKSPACE-REGIONS-TASKBAR.md) is the latest
+local candidate, with explicit Windows fullscreen taskbar notification, file
+version `2.1.3.2` and a targeted Retail character-selection check. Its native
+window/taskbar results do not inherit the full in-world acceptance of Prototype
+5. The remainder of this handoff and its existing review ZIP describe the
+immutable Prototype 5 snapshot.
+
 Prepared 2 November 2026. The initial schema 1 implementation is working on the
 recorded Retail and Anniversary setup. Prototype 5 remains an unpublished local
 candidate, version `2.1.3-beta.1`, file version `2.1.3.1`, protocol 1.

@@ -1,5 +1,16 @@
 # Companion client coverage and release gate
 
+## 3 November: fullscreen taskbar prototype 6
+
+Exact Prototype 6 (`2.1.3-beta.1`, file/manifest `2.1.3.2`, source `4a27ed0`)
+passed a Retail `12.1.5.70688` native-window check at character selection using
+the user's partial portrait workspace. Both taskbar sample positions hit WoW
+after Span and Companion exit; both hit Shell taskbars after restarted-Companion
+Restore. Bounds/style/clipping matched the plan. No world entry occurred.
+All 18 backups were restored; both test apps closed; error records unchanged.
+This does not transfer Prototype 5's in-world/client evidence to the new binary.
+See [taskbar QA](CUSTOM-WORKSPACE-REGIONS-TASKBAR.md) for exact scope and hashes.
+
 ## 2 November: save-validation prototype 5
 
 The exact unpublished prototype 5 package passed targeted Retail `12.1.5.70688`

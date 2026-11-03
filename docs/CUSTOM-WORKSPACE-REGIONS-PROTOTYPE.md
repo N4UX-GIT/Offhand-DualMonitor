@@ -10,7 +10,12 @@ contract. This is separate from multiple independent workspace regions.
 
 ## Trying the current local prototype
 
-Prototype 5 is the latest local build. It has completed a targeted Retail
+Prototype 6 is the latest local build. It adds an explicit fullscreen taskbar
+notification and passed a targeted Retail native-window check at character
+selection. See [taskbar behavior and exact hashes](CUSTOM-WORKSPACE-REGIONS-TASKBAR.md).
+It retains the existing region geometry and requires separate in-world acceptance.
+
+Prototype 5 completed a targeted Retail
 two-monitor to single-monitor transition and Restore workflow, and an Anniversary
 secondary-workspace apply/reload/Restore check with fresh error capture. Evidence
 and hashes are kept below. It remains an unpublished prototype.

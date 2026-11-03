@@ -1,11 +1,25 @@
 # Ongoing Companion build
 
+## Taskbar presentation, 3 November 2026
+
+The user requested fullscreen taskbar behavior for custom regions. Prototype 6
+adds explicit Shell fullscreen notification after successful span and clears it
+after successful Restore, without changing global taskbar preferences. It is
+`2.1.3-beta.1`, file/application manifest `2.1.3.2`, source `4a27ed0`.
+The exact build passed targeted Retail native-window QA at character selection:
+both sampled taskbar positions were covered by WoW, including after Companion
+exit, and returned after restarted-Companion Restore. Eighteen original files
+were restored, both apps closed, and no new captured errors appeared. In-world
+and other-client acceptance is still separate. See
+[the taskbar record](CUSTOM-WORKSPACE-REGIONS-TASKBAR.md) for hashes and limits.
+The historical Prototype 5 and public Beta 20 artifacts remain unchanged.
+
 ## Custom-region continuation, 2 November 2026
 
 The user subsequently authorized an initial working custom-region implementation.
 The active feature branch is `codex/custom-workspace-regions` in
 `C:/Users/NAUX/.codex/worktrees/classic-graphics-recovery/Offhand`, retaining the
-prepared Companion baseline and its fixes. Prototype 5 is the current unpublished
+prepared Companion baseline and its fixes. Prototype 5 was the unpublished
 portable artifact, built from `0df1f29ce7240f6e791ace6bd9b652db61037818`.
 
 It supports a contiguous single-monitor split and a full game monitor with one
