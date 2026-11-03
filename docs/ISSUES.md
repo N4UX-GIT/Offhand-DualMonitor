@@ -2,6 +2,16 @@
 
 Stable IDs for reports that require follow-up across test sessions.
 
+## OH-CUSTOM-REGION-DISABLE-MISSING: editor refuses disable after monitor loss
+
+- P7 multi-workspace editor required every custom display before accepting a
+  disabled plan. New production fixture reproduced the exception with missing B.
+- P8 source `73f2b9e` allows disable/save without required displays while preserving
+  region definitions. Re-enable remains fail-closed, and inactive controls are
+  disabled. Safe standard-pair selection does not substitute an absent custom B.
+- Status: source/native fixture/package verified, actual monitor-loss UI and P8
+  live WoW acceptance pending. See [P8 recovery report](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE8-RECOVERY.md).
+
 ## OH-CUSTOM-REGION-PASSIVE-FALLBACK: unavailable region overwritten by bag tracking
 
 - P7 source review reproduced passive replacement-bag capture replacing an

@@ -1,5 +1,11 @@
 # Custom workspace regions: local review handoff
 
+Latest Companion follow-up: [Prototype 8 editor recovery](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE8-RECOVERY.md),
+`2.1.3-beta.3` / file `2.1.3.4`, fixes disabling custom mode after monitor loss
+and inactive control states. Automated native/editor/package checks pass; new
+P8 live WoW acceptance remains pending. It pairs the unchanged 85-suite verified
+persistence addon with a distinct Companion and preserves the P7 rollback.
+
 Latest addon follow-up, 3 November: [persistence recovery fix and bounded
 Anniversary check](CUSTOM-WORKSPACE-REGIONS-PERSISTENCE-FOLLOWUP.md). The original
 P7 package could let passive replacement-bag tracking overwrite an unavailable
