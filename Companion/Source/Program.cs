@@ -53,8 +53,8 @@ using System.Windows.Forms;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.3.3")]
-[assembly: AssemblyInformationalVersion("2.1.3-beta.2")]
+[assembly: AssemblyFileVersion("2.1.3.4")]
+[assembly: AssemblyInformationalVersion("2.1.3-beta.3")]
 #endif
 
 namespace Offhand.Companion
@@ -1137,6 +1137,7 @@ namespace Offhand.Companion
         internal readonly CheckBox Second=new CheckBox{Text="Use Workspace B",Checked=true,AutoSize=true};
         internal readonly ComboBox[] Monitors=new ComboBox[2];
         internal readonly NumericUpDown[,] Areas=new NumericUpDown[2,4];
+        internal readonly Button[] SelectAreas=new Button[2];
         private readonly IList<MonitorSelection.Display> displays;
         private readonly IDictionary<string,string> original;
         private readonly string[] ids=new string[2];
@@ -1170,7 +1171,7 @@ namespace Offhand.Companion
                 row(i==0?"Workspace A monitor":"Workspace B monitor",Monitors[i]);
                 string[] labels={"Left offset (px)","Top offset (px)","Width (px)","Height (px)"};
                 for(int n=0;n<4;n++){Areas[i,n]=new NumericUpDown{Minimum=0,Maximum=32768,Dock=DockStyle.Fill};row(labels[n],Areas[i,n]);}
-                var visual=new Button{Text="Select area on monitor...",AutoSize=true,Dock=DockStyle.Fill};row("Visual selection",visual);
+                var visual=new Button{Text="Select area on monitor...",AutoSize=true,Dock=DockStyle.Fill};SelectAreas[i]=visual;row("Visual selection",visual);
                 visual.Click+=(s,e)=>EditArea(slot);
                 Monitors[i].SelectedIndexChanged+=(s,e)=> {if(!loading){LoadArea(slot);UpdatePreview();}};
                 for(int n=0;n<4;n++)Areas[i,n].ValueChanged+=(s,e)=>{if(!loading)UpdatePreview();};
@@ -1184,7 +1185,8 @@ namespace Offhand.Companion
                 if(preview.MaximumSize.Width!=width)preview.MaximumSize=new Size(width,0);};
             Game.SelectedIndexChanged+=(s,e)=>UpdatePreview();Primary.SelectedIndexChanged+=(s,e)=>UpdatePreview();UseRegions.CheckedChanged+=(s,e)=>UpdatePreview();
             Second.CheckedChanged+=(s,e)=> {
-                if(!Second.Checked&&MonitorSelection.MultiEnabled(original)) {
+                string savedCount;
+                if(!Second.Checked&&MonitorSelection.MultiEnabled(original)&&original.TryGetValue("WorkspaceRegionCount",out savedCount)&&savedCount=="2") {
                     if(MessageBox.Show(this,"Remove Workspace B from the next plan? Its saved frames will fall back to Workspace A when applied. Existing positions are retained for recovery.",Text,MessageBoxButtons.OKCancel,MessageBoxIcon.Question)!=DialogResult.OK){Second.Checked=true;return;}
                 }
                 if(!Second.Checked)Primary.SelectedIndex=0;UpdatePreview();
@@ -1227,6 +1229,21 @@ namespace Offhand.Companion
         }
         internal Dictionary<string,string> Proposed()
         {
+            if(!UseRegions.Checked) {
+                // Turning the feature off must remain possible after a required
+                // display disappears. Retain all saved region definitions.
+                var disabled=new Dictionary<string,string>(original);
+                disabled["WorkspaceRegionsEnabled"]="False";disabled["PartialSpanEnabled"]="False";
+                disabled["SecondaryAreaEnabled"]="False";disabled["SingleDisplaySplit"]="False";disabled["AutoSpan"]="False";
+                int game=Game.SelectedIndex,workspace=Monitors[0].SelectedIndex;
+                if(game>=0&&workspace>=0&&game!=workspace) {
+                    var g=displays[game];var w=displays[workspace];
+                    disabled["DisplayIdentityVersion"]="1";disabled["MainhandIdentity"]=g.StableId;disabled["MainhandDevice"]=g.DeviceName;
+                    disabled["MonitorIdentities"]=g.StableId+"|"+w.StableId;disabled["MonitorDevices"]=g.DeviceName+"|"+w.DeviceName;
+                    disabled["Monitors"]=game+","+workspace;
+                }
+                return disabled;
+            }
             if(Game.SelectedIndex<0||Monitors[0].SelectedIndex<0||(Second.Checked&&Monitors[1].SelectedIndex<0))throw new InvalidOperationException("Choose connected monitors for the game and each workspace.");
             var result=new Dictionary<string,string>(original);int count=UseRegions.Checked&&Second.Checked?2:1;
             result["WorkspaceRegionsEnabled"]=UseRegions.Checked.ToString();result["WorkspaceRegionVersion"]="2";result["WorkspaceRegionCount"]=count.ToString();
@@ -1245,7 +1262,16 @@ namespace Offhand.Companion
         private void UpdatePreview()
         {
             if(loading||preview==null)return;
-            try{var settings=Proposed();if(!UseRegions.Checked){preview.Text="Multiple workspaces disabled. Save returns to a standard two-monitor plan.";return;}
+            bool enabled=UseRegions.Checked;
+            Second.Enabled=enabled;Primary.Enabled=enabled&&Second.Checked;
+            if(!Second.Checked&&Primary.SelectedIndex!=0)Primary.SelectedIndex=0;
+            for(int i=0;i<2;i++) {
+                bool active=enabled&&(i==0||Second.Checked);
+                if(i==1)Monitors[i].Enabled=active;
+                for(int n=0;n<4;n++)Areas[i,n].Enabled=active;
+                SelectAreas[i].Enabled=active&&Monitors[i].SelectedIndex>=0;
+            }
+            try{var settings=Proposed();if(!enabled){preview.Text="Multiple workspaces disabled. Saved areas are retained. Choose connected span displays in the main window before applying a standard layout.";return;}
                 var plan=MonitorSelection.CreatePlan(settings,displays);long visible=0;foreach(var area in MonitorSelection.VisibleRectangles(plan))visible+=(long)area.Width*area.Height;
                 double ratio=(double)plan.Bounds.Width*plan.Bounds.Height/((long)plan.MainhandBounds.Width*plan.MainhandBounds.Height);
                 preview.Text=string.Format("Visible areas: {0:0.00} million pixels. Outer surface: {1} x {2}, {3:0.00} times the game area.{4}\n\nUse selection returns here. Save plan changes settings only; Span WoW Now applies this plan. Reload the game UI once after applying.",visible/1000000.0,plan.Bounds.Width,plan.Bounds.Height,ratio,ratio>=3?" Large surface: higher rendering cost is possible.":ratio>=2?" Extra outer-surface pixels may increase rendering cost.":"");}
@@ -2656,7 +2682,7 @@ namespace Offhand.Companion
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
 #else
-        internal const string ReleaseLabel = "Beta 2";
+        internal const string ReleaseLabel = "Beta 3";
         internal static readonly bool GraphicsRecoveryEnabled = true;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;

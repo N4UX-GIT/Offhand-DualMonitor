@@ -123,14 +123,32 @@ namespace Offhand.Companion
                 Check(MonitorSelection.CreatePlan(editor.Proposed(),displays).PrimaryWorkspaceId=="right","Editor lost primary selection");
                 editor.Second.Checked=false;
                 Check(MonitorSelection.CreatePlan(editor.Proposed(),displays).Workspaces.Length==1,"Editor failed to remove the pending second workspace");
+                Check(!editor.Monitors[1].Enabled&&!editor.Areas[1,0].Enabled&&!editor.SelectAreas[1].Enabled&&!editor.Primary.Enabled,"Inactive workspace B controls still offered actions");
                 Check(editorSettings["WorkspaceRegionCount"]=="2"&&editorSettings["WorkspaceRegionsEnabled"]=="False","Editor mutated original settings before Save");
                 editor.UseRegions.Checked=false;
                 Check(!MonitorSelection.MultiEnabled(editor.Proposed())&&MonitorSelection.CreatePlan(editor.Proposed(),displays).Indices.Length==2,"Disabling multi-region mode did not restore a two-display plan");
+                Check(!editor.Areas[0,0].Enabled&&!editor.SelectAreas[0].Enabled&&!editor.Second.Enabled,"Disabled region mode still offered area-edit actions");
             }
             using(var missing=new WorkspaceRegionsDialog(new List<MonitorSelection.Display>{displays[0],displays[1]},Settings())) {
                 Check(missing.Monitors[1].SelectedIndex==-1,"Missing saved monitor silently substituted another display");
                 bool missingRejected=false;try{missing.Proposed();}catch(InvalidOperationException){missingRejected=true;}
                 Check(missingRejected&&missing.Second.Checked,"Missing second workspace silently collapsed the plan");
+                missing.UseRegions.Checked=false;
+                var disabled=missing.Proposed();
+                Check(!MonitorSelection.MultiEnabled(disabled),"Missing monitor prevented disabling custom mode");
+                Check(disabled["WorkspaceRegionCount"]=="2"&&disabled["WorkspaceRegion2Identity"]=="right","Disabling custom mode discarded saved workspace B");
+                Check(disabled["WorkspaceRegion2Width"]=="1920"&&Settings()["WorkspaceRegionsEnabled"]=="True","Disable discarded the saved area or mutated the input");
+                Check(MonitorSelection.CreatePlan(disabled,new List<MonitorSelection.Display>{displays[0],displays[1]}).Indices.Length==2,"Disabling custom mode failed to select the connected ordinary pair");
+                CustomRegionPreferences.Write(prefs,disabled,()=>new List<MonitorSelection.Display>{displays[0]});
+                Check(!MonitorSelection.MultiEnabled(PreferenceFile.Read(prefs)),"Display loss during disable prevented publishing the disabled state");
+                missing.UseRegions.Checked=true;
+                bool reenableRejected=false;try{missing.Proposed();}catch(InvalidOperationException){reenableRejected=true;}
+                Check(reenableRejected&&missing.Second.Checked&&missing.Monitors[1].SelectedIndex==-1,"Re-enabling a missing region substituted or discarded its monitor");
+            }
+            using(var missingAll=new WorkspaceRegionsDialog(new List<MonitorSelection.Display>(),Settings())) {
+                missingAll.UseRegions.Checked=false;
+                var disabled=missingAll.Proposed();
+                Check(!MonitorSelection.MultiEnabled(disabled)&&disabled["MonitorIdentities"]=="game|left|right","Disabling without connected displays changed saved identities");
             }
             using(var chooser=new CustomRegionModeDialog(Settings()))Check(chooser.AcceptButton==chooser.MultipleButton,"Layout chooser did not retain multi-region mode");
             var small=new List<MonitorSelection.Display>{

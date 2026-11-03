@@ -21,13 +21,13 @@ $binary = Join-Path $output 'Offhand.exe'
 & $compiler /nologo /target:winexe /optimize+ /platform:anycpu "/out:$binary" "/win32icon:$root\Media\offhand-logo.ico" "/win32manifest:$appManifest" "/resource:$root\Media\offhand-logo-small.png,Offhand.Companion.Resources.offhand-logo.png" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll $source
 if ($LASTEXITCODE -ne 0) { throw 'Candidate compilation failed.' }
 $identity = [Diagnostics.FileVersionInfo]::GetVersionInfo($binary)
-if ($identity.FileVersion -ne '2.1.3.3' -or $identity.ProductVersion -ne '2.1.3-beta.2') {
+if ($identity.FileVersion -ne '2.1.3.4' -or $identity.ProductVersion -ne '2.1.3-beta.3') {
     throw 'Candidate executable version does not match the planned release.'
 }
-$archive = Join-Path $output 'Offhand-Companion-v2.1.3-beta.2.zip'
-& (Join-Path $PSScriptRoot 'New-CompanionTestPackage.ps1') -BinaryPath $binary -OutputPath $archive -Version '2.1.3-beta.2' | Out-Null
+$archive = Join-Path $output 'Offhand-Companion-v2.1.3-beta.3.zip'
+& (Join-Path $PSScriptRoot 'New-CompanionTestPackage.ps1') -BinaryPath $binary -OutputPath $archive -Version '2.1.3-beta.3' | Out-Null
 $readme = @'
-Offhand Companion 2.1.3 Beta 2: local release candidate, live QA pending.
+Offhand Companion 2.1.3 Beta 3: local release candidate, live QA pending.
 
 Exit any other Companion through its tray menu before testing this build.
 This ordinary runtime uses your existing Companion preferences. Preserve your
@@ -73,6 +73,10 @@ two-monitor custom modes retain schema 1. Multiple workspaces requires the new
 addon's declared topology capability and uses schema 2. Missing or ambiguous
 selected displays refuse apply. The initial outer-surface budget is 16384 pixels
 per axis and four times the game area; this is not a renderer support guarantee.
+Multiple workspaces can be disabled even when a required display is missing.
+Saved region definitions are retained. Choose connected span displays in the
+main window before applying a standard layout. Re-enabling a saved custom plan
+still requires every configured display. Inactive area controls are disabled.
 Physical three-display, combat and mixed-DPI acceptance remain pending.
 After a successful span, Companion notifies the Windows Shell that the actual
 WoW window is fullscreen. Restore clears that notification. Shell notification
@@ -101,7 +105,7 @@ if ((Get-FileHash -LiteralPath $publicBinary).Hash -ne $publicHash -or
     (Get-FileHash -LiteralPath $publicArchive).Hash -ne $publicArchiveHash) { throw 'Canonical public artifacts changed.' }
 $dirty = @(& git -C $root status --porcelain --untracked-files=no)
 $record = [ordered]@{
-    version='2.1.3-beta.2'; fileVersion=$identity.FileVersion
+    version='2.1.3-beta.3'; fileVersion=$identity.FileVersion
     sourceRevision=(& git -C $root rev-parse HEAD).Trim(); trackedChanges=[bool]$dirty.Count
     programSha256=(Get-FileHash -LiteralPath $source).Hash
     appManifestSha256=(Get-FileHash -LiteralPath $appManifest).Hash
