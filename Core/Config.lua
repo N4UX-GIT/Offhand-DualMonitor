@@ -569,6 +569,12 @@ function ForeverPersistence:SaveWorkspacePosition(name, position, width, height)
     local value = table.concat({ "W4", tostring(x), tostring(y), tostring(tonumber(width) or 0),
         tostring(tonumber(height) or 0), tostring(canvasWidth), tostring(canvasHeight),
         tostring(canvasLeft), tostring(canvasBottom) }, "|")
+    if type(position.regionId)=="string" then
+        if #position.regionId<1 or #position.regionId>32 or not position.regionId:match("^[%w_-]+$") then return false end
+        value="W5"..value:sub(3).."|"..position.regionId
+        -- A bounded persistence format; this is not an assumed client CVar limit.
+        if #value>240 then return false end
+    end
     WritePersistentCVar(PositionCVar(name), value)
 end
 
@@ -585,8 +591,13 @@ function ForeverPersistence:RestorePositions()
     for _, name in ipairs(names) do
         RegisterPersistentCVar(PositionCVar(name))
         local value = ReadPersistentCVar(PositionCVar(name))
-        local kind, x, y, width, height, canvasWidth, canvasHeight, canvasLeft, canvasBottom = tostring(value or ""):match(
+        local kind, x, y, width, height, canvasWidth, canvasHeight, canvasLeft, canvasBottom,regionId = tostring(value or ""):match(
+            "^(W5)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%w_-]+)$")
+        if regionId and #regionId>32 then kind=nil end
+        if not kind then
+            kind, x, y, width, height, canvasWidth, canvasHeight, canvasLeft, canvasBottom = tostring(value or ""):match(
             "^(W4)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)$")
+        end
         if not kind then
             kind, x, y, width, height, canvasHeight, canvasBottom = tostring(value or ""):match(
             "^(W3)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)$")
@@ -609,8 +620,9 @@ function ForeverPersistence:RestorePositions()
             -- fallback. A durable Mainhand record is an explicit, mutually
             -- exclusive owner and must not be combined with a stale W* value.
             Offhand.db.savedWorkspacePositions[name] = nil
-        elseif (kind == "W" or kind == "W2" or kind == "W3" or kind == "W4") and x and y then
+        elseif (kind == "W" or kind == "W2" or kind == "W3" or kind == "W4" or kind=="W5") and x and y then
             Offhand.db.savedWorkspacePositions[name] = {
+                regionId=kind=="W5" and regionId or nil,
                 x = x,
                 y = y,
                 width = width and width > 0 and width or nil,

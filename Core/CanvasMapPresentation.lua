@@ -296,6 +296,10 @@ function Map.InstallConfiguration(Canvas, services)
         end
 
         local m = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
+        if Offhand.WorkspaceRegions then
+            local saved=Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions.WorldMapFrame
+            m=Offhand.WorkspaceRegions:ForFrame(m,map,saved)
+        end
         if not m or not m.isSpanned then return end
 
         Map.InstallTBCCursorAdapter(map)
@@ -487,6 +491,7 @@ function Map.InstallBootstrap(Canvas, services)
         metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics
             and WithWorkspace(Offhand.Viewport:GetMetrics()))
         if not metrics or not metrics.isSpanned or not UIParent then return false end
+        if Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,frame,workspacePosition) end
 
         local mainPosition = Offhand.db.savedMainPositions
             and Offhand.db.savedMainPositions.WorldMapFrame

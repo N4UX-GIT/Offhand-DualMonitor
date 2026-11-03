@@ -363,6 +363,7 @@ function Bags:Capture()
                     end
                     if x and y then
                         local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+                        if Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,frame) end
                         local position = {
                             x = x * factor, y = y * factor,
                             coordinateVersion = 2,
@@ -371,6 +372,7 @@ function Bags:Capture()
                             canvasLeft = metrics and metrics.workspaceLeft or nil,
                             canvasBottom = metrics and metrics.workspaceBottom or nil,
                         }
+                        if Offhand.WorkspaceRegions and metrics then Offhand.WorkspaceRegions:SavePosition(position,metrics) end
                         snapshot = snapshot or {}
                         snapshot[name] = position
                         Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}

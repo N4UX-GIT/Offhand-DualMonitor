@@ -57,6 +57,7 @@ function Adapter.Install(Canvas, services)
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
             and WithWorkspace(Offhand.Viewport:GetMetrics())
         if not metrics or not metrics.isSpanned or not frame then return nil end
+        if onWorkspace and Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,frame,position) end
 
         local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
         local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
@@ -139,6 +140,7 @@ function Adapter.Install(Canvas, services)
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
             and WithWorkspace(Offhand.Viewport:GetMetrics())
         if not metrics or not metrics.isSpanned then return false end
+        if Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,frame) end
 
         local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
         local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
@@ -165,6 +167,7 @@ function Adapter.Install(Canvas, services)
                 canvasLeft = metrics.workspaceLeft,
                 canvasBottom = metrics.workspaceBottom,
             }
+            if Offhand.WorkspaceRegions then Offhand.WorkspaceRegions:SavePosition(position,metrics) end
             ClearOtherBackpackRootState(name)
             Offhand.db.savedWorkspacePositions[name] = position
             Offhand.db.savedMainPositions[name] = nil

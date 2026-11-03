@@ -8,6 +8,7 @@
 ## X-Offhand-Companion-Version: 2.1.2
 ## X-Offhand-Companion-Release: beta.20
 ## X-Offhand-Companion-Protocol: 1
+## X-Offhand-Topology-Schemas: 1,2
 ## X-Offhand-Companion-Min-Version: 2.1.2-beta.19
 ## X-Offhand-Manifest: Generic
 ## X-Website: https://offhand-wow.onrender.com/
@@ -25,6 +26,7 @@ Core\ForeverState.lua
 Core\Config.lua
 Core\UserMedia.lua
 Core\ManualCanvas.lua
+Core\WorkspaceRegions.lua
 Core\Viewport.lua
 Core\TopologyDetection.lua
 Core\PopupBounds.lua

@@ -846,3 +846,7 @@ L["RECOVERY_EXTRA_CONFIRM"] = "Reset Extra Abilities to Mainhand? This changes i
 
 -- Native workspace Escape support (English fallback until translated).
 L["CHECK_ESC_PERSIST_LIMITED_DESC"] = "Keeps supported Offhand windows open on Escape while out of combat. Close buttons and interaction endings still work normally. Protected UI modes retain native behavior."
+
+L["COMPANION_WORKSPACES_SUMMARY"] = "Companion attivo: Gioco %dx%d | %d aree di lavoro"
+L["COMPANION_WORKSPACE_REGION_LINE"] = "Area di lavoro %d: %dx%d"
+L["COMPANION_PRIMARY_WORKSPACE"] = " (principale)"

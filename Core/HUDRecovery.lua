@@ -464,6 +464,7 @@ function Recovery.Install(HUD)
         end
         return Fits(metrics.gameLeft, metrics.gameBottom, metrics.gameRight, metrics.gameTop)
             or Fits(metrics.workspaceLeft, metrics.workspaceBottom, metrics.workspaceRight, metrics.workspaceTop)
+            or (Offhand.WorkspaceRegions and metrics.workspaceRegions and Offhand.WorkspaceRegions:ContainsFrame(metrics,frame,true))
     end
 
     -- Opt-in support snapshot only. Never show, move or alter protected action
@@ -506,6 +507,7 @@ function Recovery.Install(HUD)
                     local game = Overlaps(metrics.gameLeft, metrics.gameBottom, metrics.gameRight, metrics.gameTop)
                     local workspace = Overlaps(metrics.workspaceLeft, metrics.workspaceBottom,
                         metrics.workspaceRight, metrics.workspaceTop)
+                    for _,r in ipairs(metrics.workspaceRegions or {}) do workspace=workspace or Overlaps(r.x,r.y,r.x+r.width,r.y+r.height) end
                     location = game and (workspace and "both" or "mainhand")
                         or (workspace and "workspace" or "outside")
                 end

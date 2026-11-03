@@ -110,6 +110,7 @@ function PopupBounds:UpdateClassicTooltipClamp(frame, preparing)
         or (frame.IsProtected and frame:IsProtected()) then return false end
     local metrics = Active()
     local _, owner = TooltipRootAndOwner(frame)
+    if metrics and Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,owner or frame) end
     local worldOwner = owner and (owner == UIParent or owner == _G.WorldFrame)
     local external = _G.TipTac or _G.TinyTooltip or _G.TinyTooltipReforged
     if not metrics or not owner or frame.IsEmbedded or external
@@ -266,6 +267,7 @@ function PopupBounds:RedirectTooltipOwner(frame, owner, anchor)
     if not Offhand.isRetail and not Offhand.isForever then return false end
     if self.redirectingTooltipOwner or (InCombatLockdown and InCombatLockdown()) then return false end
     local metrics = Active()
+    if metrics and Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,owner or frame) end
     if not metrics or not Positionable(frame) or not owner or owner == UIParent then
         self:ClearManagedTooltip(frame)
         return false
@@ -316,6 +318,7 @@ function PopupBounds:ArrangeTooltipComparisons(frame)
     local metrics = Active()
     if not metrics then return false end
     local root, owner = TooltipRootAndOwner(frame)
+    if Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,owner or frame) end
     if root and owner and (owner == UIParent or owner == _G.WorldFrame) then
         -- Apply native bounds only after the comparison manager has completed
         -- its anchor graph. Do not install intermediate shopping-card observers.

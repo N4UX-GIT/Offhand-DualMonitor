@@ -53,8 +53,8 @@ using System.Windows.Forms;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.3.2")]
-[assembly: AssemblyInformationalVersion("2.1.3-beta.1")]
+[assembly: AssemblyFileVersion("2.1.3.3")]
+[assembly: AssemblyInformationalVersion("2.1.3-beta.2")]
 #endif
 
 namespace Offhand.Companion
@@ -474,6 +474,16 @@ namespace Offhand.Companion
             return singleSplit ? "One physical display uses " + game.Percent + "% Windows scaling."
                 : "Both selected displays use " + game.Percent + "% Windows scaling.";
         }
+
+        internal static string Summary(IList<State> selected)
+        {
+            if(selected==null||selected.Count==0)return "Windows scale unavailable for one or more selected displays.";
+            int? first=null;bool mixed=false;
+            foreach(var state in selected){if(state==null||!state.Percent.HasValue)return "Windows scale unavailable for one or more selected displays.";
+                if(first.HasValue&&first.Value!=state.Percent.Value)mixed=true;first=state.Percent;}
+            return mixed?"Different Windows scales detected. Physical multi-monitor DPI testing remains pending. See Display Troubleshooting."
+                : "All "+selected.Count+" selected displays use "+first+"% Windows scaling.";
+        }
     }
 
     internal static class MonitorSelection
@@ -497,10 +507,93 @@ namespace Offhand.Companion
             internal bool GameOnLeft;
             internal bool PartialSingle;
             internal bool PartialSecondary;
-            internal bool IsCustom { get { return PartialSingle || PartialSecondary; } }
+            internal WorkspaceRegion[] Workspaces;
+            internal string PrimaryWorkspaceId;
+            internal bool MultiRegion { get { return Workspaces != null; } }
+            internal bool IsCustom { get { return PartialSingle || PartialSecondary || MultiRegion; } }
             internal Rectangle Bounds;
             internal Rectangle MainhandBounds;
             internal Rectangle WorkspaceBounds;
+        }
+
+        internal sealed class WorkspaceRegion
+        {
+            internal string Id;
+            internal int DisplayIndex;
+            internal Rectangle Bounds;
+        }
+
+        internal static bool MultiEnabled(IDictionary<string,string> settings)
+        {
+            string value;
+            return settings.TryGetValue("WorkspaceRegionsEnabled",out value)
+                && string.Equals(value,"True",StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static Plan CreateMultiPlan(IDictionary<string,string> settings,IList<Display> displays)
+        {
+            if(displays==null||displays.Count==0)throw new InvalidOperationException("Windows reports no connected displays.");
+            Func<string,string> read=key=>settings.ContainsKey(key)?settings[key]:null;
+            Func<string,int> number=key=> {int value;if(!int.TryParse(read(key),out value))
+                throw new InvalidOperationException("Workspace dimensions are incomplete. Review Workspaces.");return value;};
+            if(read("WorkspaceRegionVersion")!="2") throw new InvalidOperationException("Unsupported workspace plan. Review Workspaces.");
+            int count=number("WorkspaceRegionCount");
+            if(count<1||count>2)throw new InvalidOperationException("Select one or two workspaces.");
+            Func<string,int> display=id=> {
+                int found=-1;
+                if(string.IsNullOrWhiteSpace(id))throw new InvalidOperationException("A workspace display identity is missing.");
+                for(int i=0;i<displays.Count;i++)if(string.Equals(displays[i].StableId,id,StringComparison.OrdinalIgnoreCase)) {
+                    if(found>=0)throw new InvalidOperationException("A display identity is ambiguous. Review the connected monitors.");found=i;
+                }
+                if(found<0)throw new InvalidOperationException("A required workspace display is disconnected. Restore WoW or reconnect it.");
+                return found;
+            };
+            int main=display(read("MainhandIdentity"));
+            Rectangle game=displays[main].Bounds, bounds=game;
+            if(game.Width<960||game.Height<600)throw new InvalidOperationException("The game display must be at least 960 x 600 pixels.");
+            var indices=new List<int>{main};var workspaces=new List<WorkspaceRegion>();
+            var ids=new HashSet<string>(StringComparer.Ordinal);
+            var deviceNames=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if(string.IsNullOrWhiteSpace(displays[main].DeviceName))throw new InvalidOperationException("The game display device is unavailable.");
+            deviceNames.Add(displays[main].DeviceName);
+            string primary=read("WorkspacePrimary");Rectangle primaryBounds=Rectangle.Empty;int primaryIndex=-1;
+            for(int n=1;n<=count;n++) {
+                string prefix="WorkspaceRegion"+n, id=read(prefix+"Id");
+                if(string.IsNullOrEmpty(id)||id.Length>32||!Regex.IsMatch(id,@"^[A-Za-z0-9_-]+$")||!ids.Add(id))
+                    throw new InvalidOperationException("Workspace IDs must be unique. Review Workspaces.");
+                int index=display(read(prefix+"Identity"));
+                if(indices.Contains(index))throw new InvalidOperationException("Choose a different monitor for each workspace and the game.");
+                if(string.IsNullOrWhiteSpace(displays[index].DeviceName)||!deviceNames.Add(displays[index].DeviceName))
+                    throw new InvalidOperationException("Selected display devices are ambiguous. Review the connected monitors.");
+                Rectangle monitor=displays[index].Bounds;
+                if(number(prefix+"MonitorWidth")!=monitor.Width||number(prefix+"MonitorHeight")!=monitor.Height)
+                    throw new InvalidOperationException("A workspace display resolution changed. Review and save its area.");
+                int x=number(prefix+"X"),y=number(prefix+"Y"),w=number(prefix+"Width"),h=number(prefix+"Height");
+                if(x<0||y<0||w<480||h<600||(long)x+w>monitor.Width||(long)y+h>monitor.Height)
+                    throw new InvalidOperationException("Each workspace must fit its monitor and be at least 480 x 600 pixels.");
+                Rectangle area;
+                try {area=new Rectangle(checked(monitor.Left+x),checked(monitor.Top+y),w,h);}
+                catch(OverflowException){throw new InvalidOperationException("Workspace coordinates exceed the supported desktop range.");}
+                if(area.IntersectsWith(game))throw new InvalidOperationException("A workspace overlaps the game display.");
+                foreach(var previous in workspaces)if(area.IntersectsWith(previous.Bounds))
+                    throw new InvalidOperationException("Workspace areas must not overlap.");
+                indices.Add(index);workspaces.Add(new WorkspaceRegion{Id=id,DisplayIndex=index,Bounds=area});
+                bounds=Rectangle.Union(bounds,area);
+                if(id==primary){primaryBounds=area;primaryIndex=index;}
+            }
+            if(primaryIndex<0)throw new InvalidOperationException("Choose a primary workspace.");
+            if(bounds.Width<=0||bounds.Height<=0||bounds.Width>16384||bounds.Height>16384
+                || (long)bounds.Width*bounds.Height>(long)game.Width*game.Height*4)
+                throw new InvalidOperationException("This workspace plan exceeds the prototype surface budget (16384 pixels per axis and four times the game area). Move or reduce the workspace areas.");
+            // Preserve all identities in preferences. Older Companions reject a
+            // three-selected-display plan rather than silently dropping a region.
+            var selected=new HashSet<string>((read("MonitorIdentities")??"").Split('|'),StringComparer.OrdinalIgnoreCase);
+            if(selected.Count!=indices.Count)throw new InvalidOperationException("Selected monitors differ from the workspace plan. Review Workspaces.");
+            foreach(int index in indices)if(!selected.Contains(displays[index].StableId))
+                throw new InvalidOperationException("Selected monitors differ from the workspace plan. Review Workspaces.");
+            return new Plan{Indices=indices.ToArray(),MainhandIndex=main,WorkspaceIndex=primaryIndex,
+                MainhandBounds=game,WorkspaceBounds=primaryBounds,Bounds=bounds,
+                Workspaces=workspaces.ToArray(),PrimaryWorkspaceId=primary};
         }
 
         internal static string AlignmentWarning(Plan plan)
@@ -680,6 +773,10 @@ namespace Offhand.Companion
             Func<string, string> read = key => settings.ContainsKey(key) ? settings[key] : null;
             bool partial = string.Equals(read("PartialSpanEnabled"), "True", StringComparison.OrdinalIgnoreCase);
             bool secondary = string.Equals(read("SecondaryAreaEnabled"), "True", StringComparison.OrdinalIgnoreCase);
+            if(MultiEnabled(settings)) {
+                if(partial||secondary)throw new InvalidOperationException("Choose one custom workspace mode before spanning.");
+                return CreateMultiPlan(settings,displays);
+            }
             if (partial && secondary) throw new InvalidOperationException("Choose one custom layout mode before spanning.");
             bool stable = HasStableIdentitySettings(settings);
             Plan plan = CreatePlan(stable ? read("MonitorIdentities") : null, read("MonitorDevices"), read("Monitors"),
@@ -736,7 +833,12 @@ namespace Offhand.Companion
         }
 
         internal static Rectangle[] VisibleRectangles(Plan plan)
-        { return new Rectangle[] { plan.MainhandBounds, plan.WorkspaceBounds }; }
+        {
+            if(!plan.MultiRegion)return new Rectangle[] { plan.MainhandBounds, plan.WorkspaceBounds };
+            var result=new List<Rectangle>{plan.MainhandBounds};
+            foreach(var workspace in plan.Workspaces)result.Add(workspace.Bounds);
+            return result.ToArray();
+        }
     }
 
     internal static class SpanClipRegion
@@ -988,12 +1090,13 @@ namespace Offhand.Companion
     internal sealed class CustomRegionModeDialog : Form
     {
         internal bool Secondary;
-        internal readonly Button SingleButton, SecondaryButton;
+        internal bool Multiple;
+        internal readonly Button SingleButton, SecondaryButton, MultipleButton;
 
         internal CustomRegionModeDialog(IDictionary<string,string> settings)
         {
             Text = "Choose custom workspace layout";
-            ClientSize = new Size(540, 240);
+            ClientSize = new Size(540, 290);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MinimizeBox = false; MaximizeBox = false;
             StartPosition = FormStartPosition.CenterParent;
@@ -1006,18 +1109,135 @@ namespace Offhand.Companion
             var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(16), ColumnCount = 1 };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             var current = new Label { AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 0, 0, 12),
-                Text = "Current plan: " + (secondary ? "two-monitor custom workspace." : single ? "single-monitor custom region." : "standard display layout.")
+                Text = "Current plan: " + (MonitorSelection.MultiEnabled(settings) ? "multiple workspaces." : secondary ? "two-monitor custom workspace." : single ? "single-monitor custom region." : "standard display layout.")
                     + "\nChoose a layout to edit. Changes are saved only with Save plan in its editor." };
             SingleButton = new Button { Text = "One monitor: game and workspace...", AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 4, 0, 4) };
             SecondaryButton = new Button { Text = "Two monitors: full game and custom workspace...", AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 4, 0, 4) };
+            MultipleButton = new Button { Text = "Multiple workspaces: up to three monitors...", AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0,4,0,4) };
             var cancel = new Button { Text = "Cancel", AutoSize = true, Anchor = AnchorStyles.Right, DialogResult = DialogResult.Cancel, Margin = new Padding(0, 12, 0, 0) };
-            foreach (Control control in new Control[] { current, SingleButton, SecondaryButton, cancel }) {
+            foreach (Control control in new Control[] { current, SingleButton, SecondaryButton, MultipleButton, cancel }) {
                 layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); layout.Controls.Add(control, 0, layout.RowCount++);
             }
-            SingleButton.Click += (s,e) => { Secondary = false; DialogResult = DialogResult.OK; Close(); };
-            SecondaryButton.Click += (s,e) => { Secondary = true; DialogResult = DialogResult.OK; Close(); };
+            SingleButton.Click += (s,e) => { Secondary = false; Multiple=false; DialogResult = DialogResult.OK; Close(); };
+            SecondaryButton.Click += (s,e) => { Secondary = true; Multiple=false; DialogResult = DialogResult.OK; Close(); };
+            MultipleButton.Click += (s,e) => { Multiple = true; Secondary=false; DialogResult = DialogResult.OK; Close(); };
             Controls.Add(layout); CancelButton = cancel; AcceptButton = secondary ? SecondaryButton : SingleButton;
+            if(MonitorSelection.MultiEnabled(settings))AcceptButton=MultipleButton;
             ActiveControl = secondary ? SecondaryButton : SingleButton;
+            if(MonitorSelection.MultiEnabled(settings))ActiveControl=MultipleButton;
+        }
+    }
+
+    internal sealed class WorkspaceRegionsDialog : Form
+    {
+        internal Dictionary<string,string> Settings;
+        internal readonly ComboBox Game=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Dock=DockStyle.Fill};
+        internal readonly ComboBox Primary=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Dock=DockStyle.Fill};
+        internal readonly CheckBox UseRegions=new CheckBox{Text="Use multiple workspaces (experimental)",Checked=true,AutoSize=true};
+        internal readonly CheckBox Second=new CheckBox{Text="Use Workspace B",Checked=true,AutoSize=true};
+        internal readonly ComboBox[] Monitors=new ComboBox[2];
+        internal readonly NumericUpDown[,] Areas=new NumericUpDown[2,4];
+        private readonly IList<MonitorSelection.Display> displays;
+        private readonly IDictionary<string,string> original;
+        private readonly string[] ids=new string[2];
+        private bool loading;
+        private Label preview;
+        internal WorkspaceRegionsDialog(IList<MonitorSelection.Display> connected,IDictionary<string,string> settings)
+        {
+            displays=connected;original=settings;Text="Multiple workspaces";ClientSize=new Size(650,740);MinimumSize=new Size(520,440);
+            AutoScaleMode=AutoScaleMode.Dpi;Font=new Font("Segoe UI",10);StartPosition=FormStartPosition.CenterParent;
+            MinimizeBox=false;MaximizeBox=false;
+            var scroll=new Panel{Dock=DockStyle.Fill,AutoScroll=true,Padding=new Padding(12)};
+            var table=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,ColumnCount=2};
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,190));table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+            Action<string,Control> row=(name,control)=> {int n=table.RowCount++;table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                table.Controls.Add(new Label{Text=name,AutoSize=true,MaximumSize=new Size(180,0),Margin=new Padding(0,7,8,7)},0,n);
+                control.Margin=new Padding(0,4,0,4);table.Controls.Add(control,1,n);};
+            foreach(var display in displays)Game.Items.Add(display.DeviceName+"  "+display.Bounds.Width+" x "+display.Bounds.Height);
+            string main;settings.TryGetValue("MainhandIdentity",out main);
+            Game.SelectedIndex=Find(main,0);Primary.Items.AddRange(new object[]{"Workspace A","Workspace B"});Primary.SelectedIndex=0;
+            string count;Second.Checked=settings.TryGetValue("WorkspaceRegionCount",out count)?count!="1":displays.Count>=3;
+            row("Mode",UseRegions);row("Game monitor (full)",Game);row("Primary workspace",Primary);row("Second workspace",Second);
+            loading=true;
+            for(int i=0;i<2;i++) {
+                int slot=i;string p="WorkspaceRegion"+(i+1),id,identity;
+                ids[i]=settings.TryGetValue(p+"Id",out id)?id:(i==0?"workspace-a":"workspace-b");
+                settings.TryGetValue(p+"Identity",out identity);
+                Monitors[i]=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Dock=DockStyle.Fill};
+                foreach(var display in displays)Monitors[i].Items.Add(display.DeviceName+"  "+display.Bounds.Width+" x "+display.Bounds.Height);
+                int fallback=0;for(int j=0;j<displays.Count;j++)if(j!=Game.SelectedIndex&&(i==0||j!=Monitors[0].SelectedIndex)){fallback=j;break;}
+                Monitors[i].SelectedIndex=Find(identity,fallback);
+                row(i==0?"Workspace A monitor":"Workspace B monitor",Monitors[i]);
+                string[] labels={"Left offset (px)","Top offset (px)","Width (px)","Height (px)"};
+                for(int n=0;n<4;n++){Areas[i,n]=new NumericUpDown{Minimum=0,Maximum=32768,Dock=DockStyle.Fill};row(labels[n],Areas[i,n]);}
+                var visual=new Button{Text="Select area on monitor...",AutoSize=true,Dock=DockStyle.Fill};row("Visual selection",visual);
+                visual.Click+=(s,e)=>EditArea(slot);
+                Monitors[i].SelectedIndexChanged+=(s,e)=> {if(!loading){LoadArea(slot);UpdatePreview();}};
+                for(int n=0;n<4;n++)Areas[i,n].ValueChanged+=(s,e)=>{if(!loading)UpdatePreview();};
+                LoadArea(i);
+            }
+            string primary;if(settings.TryGetValue("WorkspacePrimary",out primary)&&primary==ids[1])Primary.SelectedIndex=1;
+            loading=false;
+            preview=new Label{AutoSize=true,Dock=DockStyle.Fill,MaximumSize=new Size(400,0),Margin=new Padding(0,10,0,10)};
+            row("Plan",preview);
+            Game.SelectedIndexChanged+=(s,e)=>UpdatePreview();Primary.SelectedIndexChanged+=(s,e)=>UpdatePreview();UseRegions.CheckedChanged+=(s,e)=>UpdatePreview();
+            Second.CheckedChanged+=(s,e)=> {
+                if(!Second.Checked&&MonitorSelection.MultiEnabled(original)) {
+                    if(MessageBox.Show(this,"Remove Workspace B from the next plan? Its saved frames will fall back to Workspace A when applied. Existing positions are retained for recovery.",Text,MessageBoxButtons.OKCancel,MessageBoxIcon.Question)!=DialogResult.OK){Second.Checked=true;return;}
+                }
+                if(!Second.Checked)Primary.SelectedIndex=0;UpdatePreview();
+            };
+            var buttons=new FlowLayoutPanel{Dock=DockStyle.Bottom,Height=58,FlowDirection=FlowDirection.RightToLeft,Padding=new Padding(8)};
+            var cancel=new Button{Text="Cancel",AutoSize=true,DialogResult=DialogResult.Cancel};var save=new Button{Text="Save plan",AutoSize=true};
+            buttons.Controls.Add(cancel);buttons.Controls.Add(save);CancelButton=cancel;AcceptButton=save;
+            save.Click+=(s,e)=> {try{var proposed=Proposed();if(UseRegions.Checked)MonitorSelection.CreatePlan(proposed,displays);Settings=proposed;DialogResult=DialogResult.OK;Close();}catch(Exception ex){MessageBox.Show(this,ex.Message,Text,MessageBoxButtons.OK,MessageBoxIcon.Information);}};
+            scroll.Controls.Add(table);Controls.Add(scroll);Controls.Add(buttons);UpdatePreview();
+        }
+        private int Find(string identity,int fallback){for(int i=0;i<displays.Count;i++)if(string.Equals(displays[i].StableId,identity,StringComparison.OrdinalIgnoreCase))return i;return !string.IsNullOrEmpty(identity)?-1:displays.Count>fallback?fallback:-1;}
+        private void LoadArea(int slot)
+        {
+            if(Monitors[slot].SelectedIndex<0)return;
+            bool prior=loading;loading=true;
+            var monitor=displays[Monitors[slot].SelectedIndex];string p="WorkspaceRegion"+(slot+1),identity;
+            bool saved=original.TryGetValue(p+"Identity",out identity)&&string.Equals(identity,monitor.StableId,StringComparison.OrdinalIgnoreCase);
+            string[] keys={"X","Y","Width","Height"};int[] defaults={0,0,Math.Min(800,monitor.Bounds.Width),Math.Min(1080,monitor.Bounds.Height)};
+            for(int n=0;n<4;n++){string value;int parsed;Areas[slot,n].Value=saved&&original.TryGetValue(p+keys[n],out value)&&int.TryParse(value,out parsed)?Math.Max(0,Math.Min(32768,parsed)):defaults[n];}
+            loading=prior;
+        }
+        private void EditArea(int slot)
+        {
+            if(Monitors[slot].SelectedIndex<0)return;
+            try{var monitor=displays[Monitors[slot].SelectedIndex].Bounds;
+                var selection=new WorkspaceAreaSelection(monitor.Size,new Rectangle((int)Areas[slot,0].Value,(int)Areas[slot,1].Value,(int)Areas[slot,2].Value,(int)Areas[slot,3].Value));
+                using(var overlay=new WorkspaceAreaOverlay(monitor,selection)){if(overlay.ShowDialog(this)!=DialogResult.OK)return;
+                    loading=true;int[] values={selection.Area.X,selection.Area.Y,selection.Area.Width,selection.Area.Height};for(int n=0;n<4;n++)Areas[slot,n].Value=values[n];loading=false;UpdatePreview();}}
+            catch(ArgumentException ex){loading=false;MessageBox.Show(this,ex.Message,Text);}
+        }
+        internal Dictionary<string,string> Proposed()
+        {
+            if(Game.SelectedIndex<0||Monitors[0].SelectedIndex<0||(Second.Checked&&Monitors[1].SelectedIndex<0))throw new InvalidOperationException("Choose connected monitors for the game and each workspace.");
+            var result=new Dictionary<string,string>(original);int count=UseRegions.Checked&&Second.Checked?2:1;
+            result["WorkspaceRegionsEnabled"]=UseRegions.Checked.ToString();result["WorkspaceRegionVersion"]="2";result["WorkspaceRegionCount"]=count.ToString();
+            result["PartialSpanEnabled"]="False";result["SecondaryAreaEnabled"]="False";result["SingleDisplaySplit"]="False";result["AutoSpan"]="False";
+            result["DisplayIdentityVersion"]="1";result["MainhandIdentity"]=displays[Game.SelectedIndex].StableId;result["MainhandDevice"]=displays[Game.SelectedIndex].DeviceName;
+            result["WorkspacePrimary"]=ids[Primary.SelectedIndex==1&&count==2?1:0];
+            var identities=new List<string>{displays[Game.SelectedIndex].StableId};var devices=new List<string>{displays[Game.SelectedIndex].DeviceName};var legacy=new List<string>{Game.SelectedIndex.ToString()};
+            for(int i=0;i<count;i++) {
+                var monitor=displays[Monitors[i].SelectedIndex];string p="WorkspaceRegion"+(i+1);result[p+"Id"]=ids[i];result[p+"Identity"]=monitor.StableId;
+                result[p+"MonitorWidth"]=monitor.Bounds.Width.ToString();result[p+"MonitorHeight"]=monitor.Bounds.Height.ToString();
+                string[] keys={"X","Y","Width","Height"};for(int n=0;n<4;n++)result[p+keys[n]]=Areas[i,n].Value.ToString();
+                identities.Add(monitor.StableId);devices.Add(monitor.DeviceName);legacy.Add(Monitors[i].SelectedIndex.ToString());
+            }
+            result["MonitorIdentities"]=string.Join("|",identities.ToArray());result["MonitorDevices"]=string.Join("|",devices.ToArray());result["Monitors"]=string.Join(",",legacy.ToArray());return result;
+        }
+        private void UpdatePreview()
+        {
+            if(loading||preview==null)return;
+            try{var settings=Proposed();if(!UseRegions.Checked){preview.Text="Multiple workspaces disabled. Save returns to a standard two-monitor plan.";return;}
+                var plan=MonitorSelection.CreatePlan(settings,displays);long visible=0;foreach(var area in MonitorSelection.VisibleRectangles(plan))visible+=(long)area.Width*area.Height;
+                double ratio=(double)plan.Bounds.Width*plan.Bounds.Height/((long)plan.MainhandBounds.Width*plan.MainhandBounds.Height);
+                preview.Text=string.Format("Visible areas: {0:0.00} million pixels. Outer surface: {1} x {2}, {3:0.00} times the game area.{4}\n\nUse selection returns here. Save plan changes settings only; Span WoW Now applies and requires the matching addon. Reload once after apply. Physical three-monitor QA is pending.",visible/1000000.0,plan.Bounds.Width,plan.Bounds.Height,ratio,ratio>=3?" Large surface: higher rendering cost is possible.":ratio>=2?" Extra outer-surface pixels may increase rendering cost.":"");}
+            catch(Exception ex){preview.Text=ex.Message;}
         }
     }
 
@@ -1050,7 +1270,7 @@ namespace Offhand.Companion
             var preview=new Label {AutoSize=true,MaximumSize=new Size(550,0),Padding=new Padding(0,12,0,12)};
             table.Controls.Add(preview,0,table.RowCount++);table.SetColumnSpan(preview,2);
             Func<Dictionary<string,string>> proposed=()=> {
-                var result=new Dictionary<string,string>(settings);result["SecondaryAreaEnabled"]=enabled.Checked.ToString();result["PartialSpanEnabled"]="False";
+                var result=new Dictionary<string,string>(settings);result["SecondaryAreaEnabled"]=enabled.Checked.ToString();result["PartialSpanEnabled"]="False";result["WorkspaceRegionsEnabled"]="False";
                 if(!enabled.Checked)return result;
                 if(game.SelectedIndex<0||work.SelectedIndex<0||game.SelectedIndex==work.SelectedIndex)throw new InvalidOperationException("Choose two different connected monitors.");
                 var g=displays[game.SelectedIndex];var w=displays[work.SelectedIndex];
@@ -1155,6 +1375,7 @@ namespace Offhand.Companion
                 var proposed = new Dictionary<string,string>(settings);
                 proposed["PartialSpanEnabled"] = enabled.Checked.ToString();
                 proposed["SecondaryAreaEnabled"] = "False";
+                proposed["WorkspaceRegionsEnabled"] = "False";
                 if (enabled.Checked) {
                     if (DisplaySelector.SelectedIndex < 0) return;
                     var d = displays[DisplaySelector.SelectedIndex];
@@ -1420,6 +1641,18 @@ namespace Offhand.Companion
                 ? version : null;
         }
 
+        internal static bool SupportsTopologySchema(string wowDir,int schema)
+        {
+            var install=Inspect(wowDir);
+            if(!install.Installed)return false;
+            if(schema==1)return true;
+            string value=ReadMetadata(install.AddonDir,"X-Offhand-Topology-Schemas");
+            foreach(string token in (value??"").Split(',')) {
+                int supported;if(int.TryParse(token.Trim(),out supported)&&supported==schema)return true;
+            }
+            return false;
+        }
+
         private static string FindVersionedOffhandFolder(string addOnsDir)
         {
             if (string.IsNullOrEmpty(addOnsDir) || !Directory.Exists(addOnsDir)) return null;
@@ -1582,6 +1815,18 @@ namespace Offhand.Companion
                 .InformationalVersion;
         }
 
+        private static string WorkspaceFields(MonitorSelection.Plan plan,IList<MonitorSelection.Display> displays)
+        {
+            string primary="workspace = "+RectLua(plan.WorkspaceBounds,plan.Bounds);
+            if(!plan.MultiRegion)return primary;
+            var result=new StringBuilder(primary+",\r\n  primaryWorkspace = "+LuaString(plan.PrimaryWorkspaceId)+",\r\n  workspaces = {\r\n");
+            foreach(var r in plan.Workspaces) {
+                string rectangle=RectLua(r.Bounds,plan.Bounds);
+                result.Append("    { id = "+LuaString(r.Id)+", device = "+LuaString(displays[r.DisplayIndex].DeviceName)+", "+rectangle.Substring(2)+",\r\n");
+            }
+            result.Append("  }");return result.ToString();
+        }
+
         internal static bool IsCurrent(string wowDir, MonitorSelection.Plan plan,
             IList<MonitorSelection.Display> displays)
         {
@@ -1600,12 +1845,13 @@ namespace Offhand.Companion
             }
             string[] expected = {
                 "companionVersion = " + LuaString(CurrentVersion()),
-                "mode = " + LuaString(plan.SplitSingle ? "SPLIT_ULTRAWIDE" : "DUAL_DISPLAY"),
+                "schema = "+(plan.MultiRegion?"2":"1"),
+                "mode = " + LuaString(plan.MultiRegion ? "CUSTOM_REGIONS" : plan.SplitSingle ? "SPLIT_ULTRAWIDE" : "DUAL_DISPLAY"),
                 "physicalWidth = " + plan.Bounds.Width + ", physicalHeight = " + plan.Bounds.Height,
                 "mainhandDevice = " + LuaString(displays[plan.MainhandIndex].DeviceName),
                 "selectedDevices = { " + selected + " }",
                 "game = " + RectLua(plan.MainhandBounds, plan.Bounds),
-                "workspace = " + RectLua(plan.WorkspaceBounds, plan.Bounds),
+                WorkspaceFields(plan,displays),
             };
             foreach (string fragment in expected)
                 if (text.IndexOf(fragment, StringComparison.Ordinal) < 0) return false;
@@ -1625,6 +1871,10 @@ namespace Offhand.Companion
             written = null;
             message = "Display topology was not written.";
             if (string.IsNullOrEmpty(wowDir) || plan == null) return false;
+            if(plan.MultiRegion && !AddonInstallation.SupportsTopologySchema(wowDir,2)) {
+                message="The installed addon does not support multiple workspaces. Update it before applying this plan.";
+                return false;
+            }
             string core = Path.Combine(wowDir, "Interface", "AddOns", "Offhand", "Core");
             if (!Directory.Exists(core)) return false;
             string target = Path.Combine(core, "CompanionTopology.lua");
@@ -1638,14 +1888,14 @@ namespace Offhand.Companion
             string text =
                 "-- Generated by Offhand Companion. Do not edit while the Companion is running.\r\n" +
                 "OffhandCompanionTopology = {\r\n" +
-                "  schema = 1, generatedAt = " + LuaString(DateTime.UtcNow.ToString("o")) + ",\r\n" +
+                "  schema = "+(plan.MultiRegion?"2":"1")+", generatedAt = " + LuaString(DateTime.UtcNow.ToString("o")) + ",\r\n" +
                 "  companionVersion = " + LuaString(CurrentVersion()) + ",\r\n" +
-                "  mode = " + LuaString(plan.SplitSingle ? "SPLIT_ULTRAWIDE" : "DUAL_DISPLAY") + ",\r\n" +
+                "  mode = " + LuaString(plan.MultiRegion ? "CUSTOM_REGIONS" : plan.SplitSingle ? "SPLIT_ULTRAWIDE" : "DUAL_DISPLAY") + ",\r\n" +
                 "  physicalWidth = " + plan.Bounds.Width + ", physicalHeight = " + plan.Bounds.Height + ",\r\n" +
                 "  mainhandDevice = " + LuaString(displays[plan.MainhandIndex].DeviceName) + ",\r\n" +
                 "  selectedDevices = { " + selected + " },\r\n" +
                 "  game = " + RectLua(plan.MainhandBounds, plan.Bounds) + ",\r\n" +
-                "  workspace = " + RectLua(plan.WorkspaceBounds, plan.Bounds) + ",\r\n" +
+                "  " + WorkspaceFields(plan,displays) + ",\r\n" +
                 "}\r\n";
             try
             {
@@ -1844,7 +2094,8 @@ namespace Offhand.Companion
                 bool custom = (settings.TryGetValue("PartialSpanEnabled", out value)
                         && string.Equals(value, "True", StringComparison.OrdinalIgnoreCase))
                     || (settings.TryGetValue("SecondaryAreaEnabled", out value)
-                        && string.Equals(value, "True", StringComparison.OrdinalIgnoreCase));
+                        && string.Equals(value, "True", StringComparison.OrdinalIgnoreCase))
+                    || MonitorSelection.MultiEnabled(settings);
                 // Disabling custom mode remains available with a display missing.
                 if (custom) MonitorSelection.CreatePlan(settings, current);
             });
@@ -2393,7 +2644,7 @@ namespace Offhand.Companion
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
 #else
-        internal const string ReleaseLabel = "Beta 1";
+        internal const string ReleaseLabel = "Beta 2";
         internal static readonly bool GraphicsRecoveryEnabled = true;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
@@ -2703,7 +2954,8 @@ namespace Offhand.Companion
         private void UpdatePartialControls()
         {
             bool partial = (appSettings.ContainsKey("PartialSpanEnabled") && appSettings["PartialSpanEnabled"] == "True")
-                || (appSettings.ContainsKey("SecondaryAreaEnabled") && appSettings["SecondaryAreaEnabled"] == "True");
+                || (appSettings.ContainsKey("SecondaryAreaEnabled") && appSettings["SecondaryAreaEnabled"] == "True")
+                || MonitorSelection.MultiEnabled(appSettings);
             if (btnPartialSpan != null) btnPartialSpan.Text = partial ? "Custom region: on..." : "Custom region...";
             chkSingleSplit.Enabled = !partial;
             cmbSingleSide.Enabled = !partial && chkSingleSplit.Checked;
@@ -2719,7 +2971,12 @@ namespace Offhand.Companion
                 using (var choice = new CustomRegionModeDialog(appSettings))
                 {
                     if (choice.ShowDialog(this) != DialogResult.OK) return;
-                    if (choice.Secondary) {
+                    if (choice.Multiple) {
+                        using(var dialog=new WorkspaceRegionsDialog(ReadDisplays(),appSettings)) {
+                            if(dialog.ShowDialog(this)!=DialogResult.OK)return;
+                            proposed=dialog.Settings;
+                        }
+                    } else if (choice.Secondary) {
                         using (var dialog = new SecondaryAreaDialog(ReadDisplays(), appSettings)) {
                             if (dialog.ShowDialog(this) != DialogResult.OK) return;
                             proposed = dialog.Settings;
@@ -4233,6 +4490,25 @@ namespace Offhand.Companion
                     : "Windows display modes detected. Game HDR conversion is not measured.";
             lblColorWarning.ForeColor = mixed ? cYellow : cMuted;
             lblScaleInfo.Text = DisplayScaling.Summary(gameScale, workScale, plan.SplitSingle);
+            var scaleByIndex=new Dictionary<int,DisplayScaling.State>{{plan.MainhandIndex,gameScale}};
+            scaleByIndex[plan.WorkspaceIndex]=workScale;
+            if(plan.MultiRegion) {
+                var lines=new List<string>{string.Format("Mainhand (Display {0}): {1}, {2}",plan.MainhandIndex+1,game.Label,gameScale.Label)};
+                var scales=new List<DisplayScaling.State>{gameScale};
+                bool unknown=game.Active==DisplayColor.Mode.Unknown;var colors=new List<DisplayColor.State>{game};
+                for(int i=0;i<plan.Workspaces.Length;i++) {
+                    var region=plan.Workspaces[i];var display=displays[region.DisplayIndex];
+                    var color=DisplayColor.Lookup(states,display.DeviceName,failure);var scale=DisplayScaling.Read(display);
+                    scaleByIndex[region.DisplayIndex]=scale;scales.Add(scale);colors.Add(color);unknown|=color.Active==DisplayColor.Mode.Unknown;
+                    lines.Add(string.Format("Workspace {0} (Display {1}): {2}, {3}",i+1,region.DisplayIndex+1,color.Label,scale.Label));
+                }
+                mixed=false;foreach(var a in colors)foreach(var b in colors)mixed|=DisplayColor.IsMixed(a,b,false);
+                lblColorModes.Text=string.Join("\r\n",lines.ToArray());
+                lblColorWarning.Text=mixed?"Mixed HDR/SDR displays: WoW may appear too bright or washed out. See Display Troubleshooting."
+                    :unknown?"Windows could not confirm every color mode. See Display Troubleshooting for guidance."
+                    :"Windows display modes detected. Game HDR conversion is not measured.";
+                lblColorWarning.ForeColor=mixed?cYellow:cMuted;lblScaleInfo.Text=DisplayScaling.Summary(scales);
+            }
             var detail = new StringBuilder();
             detail.AppendLine(lblColorModes.Text);
             detail.AppendLine(lblColorWarning.Text);
@@ -4242,7 +4518,7 @@ namespace Offhand.Companion
                 var display = displays.Find(item => item.Index == index);
                 if (display == null) continue;
                 var state = DisplayColor.Lookup(states, display.DeviceName, failure);
-                var scale = index == plan.MainhandIndex ? gameScale : workScale;
+                DisplayScaling.State scale;if(!scaleByIndex.TryGetValue(index,out scale))scale=DisplayScaling.Read(display);
                 detail.AppendFormat("Display {0}: {1}; identity={2}; bounds={3}; {4}; {5}; {6}; {7}\r\n",
                     index + 1, display.DeviceName, display.StableId, display.Bounds, state.Label, state.Detail, scale.Label, scale.Detail);
             }

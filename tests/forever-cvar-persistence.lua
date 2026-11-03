@@ -469,3 +469,20 @@ assert(cvars.rawMouseEnable == "1" and not mouseAddon.db.rawMouseManaged,
     "a cancelled raw-mouse refresh overrode the restored player preference")
 
 print("PASS: Forever CVar persistence and reversible spanned raw-mouse management")
+
+ClearProfileSnapshotCVars()
+cvars.offhandForeverPositionIndex=nil
+local regionAddon=NewAddon(true)
+regionAddon.ForeverPersistence:SaveWorkspacePosition('CharacterFrame',{
+ x=4200,y=900,canvasWidth=1920,canvasHeight=1080,canvasLeft=4000,canvasBottom=360,regionId='workspace-b'},430,600)
+assert(cvars.offhandForeverPosition_CharacterFrame:match('^W5|'))
+local reloadedRegions=NewAddon(true)
+local regionPosition=reloadedRegions.db.savedWorkspacePositions.CharacterFrame
+assert(regionPosition.regionId=='workspace-b' and regionPosition.x==4200 and regionPosition.canvasBottom==360)
+local beforeRegion=cvars.offhandForeverPosition_CharacterFrame
+regionAddon.ForeverPersistence:SaveWorkspacePosition('CharacterFrame',{x=1,y=2,regionId='bad|id'},3,4)
+assert(cvars.offhandForeverPosition_CharacterFrame==beforeRegion,'Invalid region overwrote the last CVar')
+cvars.offhandForeverPosition_CharacterFrame='W5|1|2|3|4|5|6|7|8|'..string.rep('a',33)
+local invalidRegion=NewAddon(true)
+assert(not invalidRegion.db.savedWorkspacePositions.CharacterFrame,'Overlong W5 region accepted')
+print('PASS: bounded W5 workspace identity persistence, reload and malformed-record preservation')

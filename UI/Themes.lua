@@ -120,6 +120,10 @@ function Themes:GetThemeInfo(themeKey)
 end
 
 function Themes:ApplyCanvasTheme(canvasFrame)
+    if not canvasFrame and Offhand.canvases then
+        for _,canvas in pairs(Offhand.canvases) do self:ApplyCanvasTheme(canvas) end
+        return
+    end
     if not canvasFrame then
         canvasFrame = _G["OffhandCanvasFrame"] or Offhand.canvas
     end
@@ -216,7 +220,8 @@ function Themes:ApplyCanvasTheme(canvasFrame)
         canvasFrame:SetBackdropBorderColor(br[1], br[2], br[3], br[4] or 1.0)
     end
 
-    if (canvasFrame == Offhand.canvas or canvasFrame == _G["OffhandCanvasFrame"])
+    if (canvasFrame == Offhand.canvas or canvasFrame == _G["OffhandCanvasFrame"]
+        or (Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:IsCanvas(canvasFrame)))
         and Offhand.UserMedia and Offhand.UserMedia.ApplyToCanvas then
         Offhand.UserMedia:ApplyToCanvas(canvasFrame)
     end

@@ -30,16 +30,16 @@ try {
         $source -notmatch 'CompanionUpdatePolicy\.SelectLatest') {
         throw 'Companion update checks must use the official repository release list and channel policy.'
     }
-    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.3-beta\.1"\)' -or
-        $source -notmatch 'AssemblyFileVersion\("2\.1\.3\.2"\)') {
+    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.3-beta\.2"\)' -or
+        $source -notmatch 'AssemblyFileVersion\("2\.1\.3\.3"\)') {
         throw 'Companion binary metadata must identify the exact beta build.'
     }
     $appManifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Source\app.manifest') -Raw
-    if ($appManifest -notmatch '<assemblyIdentity version="2\.1\.3\.2" name="Offhand\.Companion\.App"/>') {
+    if ($appManifest -notmatch '<assemblyIdentity version="2\.1\.3\.3" name="Offhand\.Companion\.App"/>') {
         throw 'Companion application manifest must identify the exact beta build.'
     }
     $candidateBuilder = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\scripts\New-CompanionReleaseCandidate.ps1') -Raw
-    if ($candidateBuilder -notmatch "FileVersion -ne '2\.1\.3\.2'") {
+    if ($candidateBuilder -notmatch "FileVersion -ne '2\.1\.3\.3'") {
         throw 'Candidate packaging must accept the current reviewed file version.'
     }
     if ($source -match 'Process\.GetProcesses\(\)' -or

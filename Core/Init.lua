@@ -2031,6 +2031,9 @@ function Offhand:IsWindowReachable(left, top, width, m)
     end
     if not m.isSpanned then return InArea(0, 0, m.screenWidth, m.screenHeight) end
     if InArea(m.gameLeft, m.gameBottom, m.gameRight, m.gameTop) then return true end
+    for _,r in ipairs(m.workspaceRegions or {}) do
+        if InArea(r.x,r.y,r.x+r.width,r.y+r.height) then return true end
+    end
     if m.workspaceLeft ~= nil then
         return InArea(m.workspaceLeft, m.workspaceBottom, m.workspaceRight, m.workspaceTop)
     end

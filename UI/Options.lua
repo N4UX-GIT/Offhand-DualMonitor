@@ -2353,6 +2353,14 @@ function Options:CreateFloatingPanel()
                 info.gamePixelWidth, info.gamePixelHeight,
                 info.workspacePixelWidth, info.workspacePixelHeight)
                 .. "\n|cffaaaaaa" .. L["EXACT_TOPOLOGY_LOCKED"] .. "|r"
+            if info.workspaceRegions then
+                local parts={string.format(L["COMPANION_WORKSPACES_SUMMARY"],info.gamePixelWidth,info.gamePixelHeight,#info.workspaceRegions)}
+                for i,r in ipairs(info.workspaceRegions) do
+                    parts[#parts+1]=string.format(L["COMPANION_WORKSPACE_REGION_LINE"],i,r.pixelWidth,r.pixelHeight)
+                        ..(r.id==info.primaryWorkspaceRegion and L["COMPANION_PRIMARY_WORKSPACE"] or "")
+                end
+                bannerText=table.concat(parts,"\n").."\n|cffaaaaaa"..L["EXACT_TOPOLOGY_LOCKED"].."|r"
+            end
         else
             bannerText = string.format(L["TAB_DISPLAY"] .. ": %s (%dx%d)",
                 info.description, info.physWidth, info.physHeight)

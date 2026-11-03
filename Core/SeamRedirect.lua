@@ -725,6 +725,7 @@ function HUD:HookFrames()
                     local onGameSide = centerX >= m.gameLeft and centerX <= m.gameRight
                     local onWorkspace = CenterIsInside(left, top, width, height,
                         m.workspaceLeft, m.workspaceBottom, m.workspaceRight, m.workspaceTop)
+                    if m.workspaceRegions and Offhand.WorkspaceRegions then onWorkspace=Offhand.WorkspaceRegions:ContainsPoint(m,left+width/2,top-height/2) end
                     if onGameSide and not onWorkspace and top > (m.gameTop + 2) then
                         frame:ClearAllPoints()
                         local invFactor = parentScale / fScale
@@ -753,7 +754,8 @@ function HUD:HookFrames()
                         local okName, name = pcall(child.GetName, child)
                         if okName then cName = name end
                     end
-                    if cName == "OffhandCanvasFrame" or cName == "OffhandSeamGuideLine" then return end
+                    if cName == "OffhandCanvasFrame" or cName == "OffhandSeamGuideLine"
+                        or (Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:IsCanvas(child)) then return end
                     if IsBlizzardEditModeOwnedFrame(child, cName)
                         or IsForeverEditModeFrame(child, cName) then return end
                     -- Native chat owns these linked frames. Moving a dock or tab
@@ -773,6 +775,7 @@ function HUD:HookFrames()
                     local onGameSide = centerX >= m.gameLeft and centerX <= m.gameRight
                     local onWorkspace = CenterIsInside(left, top, width, height,
                         m.workspaceLeft, m.workspaceBottom, m.workspaceRight, m.workspaceTop)
+                    if m.workspaceRegions and Offhand.WorkspaceRegions then onWorkspace=Offhand.WorkspaceRegions:ContainsPoint(m,left+width/2,top-height/2) end
                     if onGameSide and not onWorkspace and top > (m.gameTop + 2) then
                         if child.GetPoint and child.ClearAllPoints and child.SetPoint then
                             child:ClearAllPoints()
@@ -1067,6 +1070,11 @@ function HUD:HookFrames()
         local bagsOnWorkspace = false
         if bpPos and bpPos.x and bpPos.y then
             bagsOnWorkspace = true
+            if Offhand.WorkspaceRegions and m.workspaceRegions then
+                m=Offhand.WorkspaceRegions:ForRegion(m,bpPos.regionId)
+                deckMinX,deckMaxX=m.workspaceLeft+12,m.workspaceRight-12
+                deckMinY,deckMaxY=m.workspaceBottom+12,math.max(m.workspaceBottom+12,m.workspaceTop-30)
+            end
         end
 
         local bagSpacing = 4

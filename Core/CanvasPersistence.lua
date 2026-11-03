@@ -245,6 +245,10 @@ function Persistence.InstallDrag(Canvas, services)
             local yInParent = dragTopInParent
             local frameWidth = (frame:GetWidth() or 0) * (frame.GetScale and frame:GetScale() or 1)
             local frameHeight = (frame:GetHeight() or 0) * (frame.GetScale and frame:GetScale() or 1)
+            if m.workspaceRegions then
+                frameWidth=(frame:GetWidth() or 0)*scaleFactor
+                frameHeight=(frame:GetHeight() or 0)*scaleFactor
+            end
             local fallbackHeight = (UIParent.GetHeight and UIParent:GetHeight()) or 1080
             local position = Persistence.CreateWorkspacePosition(
                 m, xInParent, yInParent, frameWidth, frameHeight,
@@ -510,6 +514,7 @@ function Persistence.InstallRestore(Canvas, services)
         end
 
         local wPos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
+        if Offhand.WorkspaceRegions then m=Offhand.WorkspaceRegions:ForFrame(m,frame,wPos) end
         Persistence.FitPlayerSpellsToWorkspace(frame, m, Persistence.IsPosition(wPos))
         if Persistence.IsPosition(wPos) then
             if not restrictedProfessionsMovement
@@ -541,6 +546,22 @@ function Persistence.InstallRestore(Canvas, services)
             end
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+            if m.workspaceRegions and not wPos.regionId then
+                -- Activation is explicit. Preserve the legacy record until its
+                -- new anchor succeeds, then publish an independent region record.
+                local backups=Offhand.db.savedWorkspaceRegionLegacyPositions or {}
+                Offhand.db.savedWorkspaceRegionLegacyPositions=backups
+                if not backups[name] then
+                    local old={};for key,value in pairs(wPos) do old[key]=value end
+                    backups[name]=old
+                end
+                local migrated={};for key,value in pairs(wPos) do migrated[key]=value end
+                migrated.x,migrated.y=clampedX,clampedY
+                migrated.canvasLeft,migrated.canvasBottom=m.workspaceLeft,m.workspaceBottom
+                migrated.canvasWidth,migrated.canvasHeight=m.workspaceWidth,m.workspaceHeight
+                Offhand.WorkspaceRegions:SavePosition(migrated,m)
+                Offhand.db.savedWorkspacePositions[name]=migrated
+            end
             if string.match(name, "^ChatFrame") and ChatFrame1EditBox
                 and ShouldManageBlizzardChatEditBox(frame) then
                 if ChatFrame1EditBox.ClearAllPoints and ChatFrame1EditBox.SetPoint then
@@ -630,13 +651,17 @@ end
 
 function Persistence.CreateWorkspacePosition(metrics, x, y, frameWidth, frameHeight, isChat,
         fallbackHeight)
+    if metrics and metrics.workspaceRegions and Offhand.WorkspaceRegions then
+        local id=Offhand.WorkspaceRegions:Destination(metrics,x,y,frameWidth or 192,frameHeight or 192)
+        metrics=Offhand.WorkspaceRegions:ForRegion(metrics,id ~= "MAINHAND" and id or nil)
+    end
     local clampedX, clampedY = Persistence.ClampWorkspacePoint(
         metrics, x, y, frameWidth, frameHeight, isChat
     )
     if not clampedX then return nil end
     local canvasHeight = PositiveDimension(metrics.workspaceHeight,
         PositiveDimension(metrics.screenHeight, fallbackHeight or 1080))
-    return {
+    local position = {
         x = clampedX,
         y = clampedY,
         canvasWidth = metrics.workspaceWidth,
@@ -644,11 +669,15 @@ function Persistence.CreateWorkspacePosition(metrics, x, y, frameWidth, frameHei
         canvasLeft = metrics.workspaceLeft,
         canvasBottom = metrics.workspaceBottom,
     }
+    return Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:SavePosition(position,metrics) or position
 end
 
 function Persistence.ResolveWorkspacePosition(metrics, position, frameWidth, frameHeight, isChat,
         fallbackHeight)
     if type(metrics) ~= "table" or not Persistence.IsPosition(position) then return nil end
+    if metrics.workspaceRegions and Offhand.WorkspaceRegions then
+        metrics=Offhand.WorkspaceRegions:ForPosition(metrics,position,frameWidth,frameHeight)
+    end
 
     local targetX = tonumber(position.x)
     local savedCanvasWidth = tonumber(position.canvasWidth)
@@ -666,6 +695,12 @@ function Persistence.ResolveWorkspacePosition(metrics, position, frameWidth, fra
     if savedCanvasHeight and savedCanvasHeight > 0 and canvasHeight > 0 then
         targetY = metrics.workspaceBottom
             + (targetY - savedCanvasBottom) * canvasHeight / savedCanvasHeight
+    end
+    if metrics.workspaceRegions and type(position.regionX)=="number" and type(position.regionY)=="number"
+        and position.regionX==position.regionX and position.regionY==position.regionY
+        and math.abs(position.regionX)<math.huge and math.abs(position.regionY)<math.huge then
+        targetX=metrics.workspaceLeft+position.regionX*metrics.workspaceWidth
+        targetY=metrics.workspaceBottom+position.regionY*metrics.workspaceHeight
     end
 
     return Persistence.ClampWorkspacePoint(
