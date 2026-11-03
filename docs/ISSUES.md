@@ -2,6 +2,21 @@
 
 Stable IDs for reports that require follow-up across test sessions.
 
+## OH-CUSTOM-REGION-PASSIVE-FALLBACK: unavailable region overwritten by bag tracking
+
+- P7 source review reproduced passive replacement-bag capture replacing an
+  unavailable region record after a primary-workspace fallback. Capture during
+  full-client fallback could also retire saved ownership/open intent.
+- Source `7146cc4` preserves the restored fallback's original destination through
+  addon-owned weak-key state. Actual movement still supersedes it; explicit close
+  clears open intent while retaining placement. No frame bookkeeping fields added.
+- Production restore/tracker lifecycle fixture fails before the fix and passes
+  afterward. All 85 Lua suites and six-TOC Lua 5.1/path/XML validation pass.
+- Status: source/simulation verified. The revised package has a bounded
+  Anniversary geometry/reload/Restore pass, which does not exercise replacement
+  bags or physical missing-monitor recovery. Those acceptance gates remain open.
+  See [the follow-up report](CUSTOM-WORKSPACE-REGIONS-PERSISTENCE-FOLLOWUP.md).
+
 ## OH-UI-OPTIONS-TOOLTIP-SCALE: oversized game-options tooltips
 
 - Reported by the user after the 1 November 2026 Companion rc3 Anniversary QA;

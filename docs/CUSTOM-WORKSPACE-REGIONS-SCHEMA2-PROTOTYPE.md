@@ -1,5 +1,11 @@
 # Experimental independent workspaces, Prototype 7
 
+Later addon update: [the persistence follow-up](CUSTOM-WORKSPACE-REGIONS-PERSISTENCE-FOLLOWUP.md)
+fixes passive replacement-bag capture after a missing-region fallback. Use its
+distinct revised addon package for that fix. It keeps this exact Companion and
+adds bounded Anniversary geometry evidence. The original hashes and Retail
+results below remain attached to their original bytes.
+
 3 November 2026. The user authorized implementation after the third-monitor study
 and requested autonomous work while remote until Friday. No question prompts,
 physical display changes, combat automation or public promotion are part of this

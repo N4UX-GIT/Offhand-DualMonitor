@@ -1,5 +1,13 @@
 # Custom workspace regions: local review handoff
 
+Latest addon follow-up, 3 November: [persistence recovery fix and bounded
+Anniversary check](CUSTOM-WORKSPACE-REGIONS-PERSISTENCE-FOLLOWUP.md). The original
+P7 package could let passive replacement-bag tracking overwrite an unavailable
+region after fallback. Source `7146cc4` fixes that lifecycle gap and passes 85
+Lua suites. The unchanged P7 Companion is paired with a distinct revised addon
+package; its Anniversary geometry/reload/Restore check passed. Physical
+missing-monitor recovery and fresh Anniversary error capture remain pending.
+
 Latest experimental follow-up, 3 November: [Prototype 7](CUSTOM-WORKSPACE-REGIONS-SCHEMA2-PROTOTYPE.md)
 adds one game plus up to two independent workspaces and a visual selector for
 each. Companion `2.1.3-beta.2`, file `2.1.3.3`, and the new schema 2 addon have
