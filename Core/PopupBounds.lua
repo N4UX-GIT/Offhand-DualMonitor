@@ -170,6 +170,7 @@ end
 local tooltipCapture
 local settingsTooltipScales=setmetatable({}, {__mode='k'})
 local settingsTooltipYielded=setmetatable({}, {__mode='k'})
+local settingsTooltipPending=setmetatable({}, {__mode='k'})
 function PopupBounds:UpdateSettingsTooltipScale(frame,restoreOnly)
     -- Anniversary 2.5.6.70577's SettingsTooltip is a parentless root at scale 1.
     -- Its text otherwise ignores the scaled Options UI. Other tooltip/client
@@ -216,6 +217,17 @@ function PopupBounds:UpdateSettingsTooltipScale(frame,restoreOnly)
     state.applying=false
     if not ok then settingsTooltipScales[frame]=nil end
     return ok
+end
+
+function PopupBounds:QueueSettingsTooltipScale(frame)
+    if not frame or settingsTooltipPending[frame] then return end
+    if not C_Timer or not C_Timer.After then return self:UpdateSettingsTooltipScale(frame) end
+    local token={};settingsTooltipPending[frame]=token
+    C_Timer.After(0,function()
+        if settingsTooltipPending[frame]~=token then return end
+        settingsTooltipPending[frame]=nil
+        if frame.IsShown and frame:IsShown() then PopupBounds:UpdateSettingsTooltipScale(frame) end
+    end)
 end
 
 function PopupBounds:ArmTooltipPresentationCapture()
@@ -456,10 +468,10 @@ function PopupBounds:ObserveTooltip(tooltip)
     if tooltip.HookScript then
         if tooltip == _G.SettingsTooltip then
             tooltip:HookScript('OnShow',function(self)
-                PopupBounds:UpdateSettingsTooltipScale(self)
+                PopupBounds:QueueSettingsTooltipScale(self)
                 CaptureVisibleTooltip(self)
             end)
-            tooltip:HookScript('OnSizeChanged',function(self)PopupBounds:UpdateSettingsTooltipScale(self)end)
+            tooltip:HookScript('OnSizeChanged',function(self)PopupBounds:QueueSettingsTooltipScale(self)end)
         end
         -- Shopping-tooltip OnShow fires while Retail's comparison manager is
         -- still constructing its layout. Reanchoring from that intermediate
@@ -477,6 +489,7 @@ function PopupBounds:ObserveTooltip(tooltip)
         end
         tooltip:HookScript("OnHide", function(self)
             if self==_G.SettingsTooltip then
+                settingsTooltipPending[self]=nil
                 PopupBounds:UpdateSettingsTooltipScale(self,true)
                 settingsTooltipYielded[self]=nil
             end

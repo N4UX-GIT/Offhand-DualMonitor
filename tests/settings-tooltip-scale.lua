@@ -43,4 +43,13 @@ local f=fresh();assert(p:UpdateSettingsTooltipScale(f));addon.db.enabled=false
 assert(p:UpdateSettingsTooltipScale(f) and f.scale==1,'Feature-off update did not restore native scale')
 local unrelated=fresh();SettingsTooltip={}
 assert(not p:UpdateSettingsTooltipScale(unrelated),'Unrelated tooltip normalized')
+addon.db.enabled=true
+local queued=fresh();queued.IsShown=function()return true end
+local timers={};C_Timer={After=function(_,callback)timers[#timers+1]=callback end}
+p:QueueSettingsTooltipScale(queued);p:QueueSettingsTooltipScale(queued)
+assert(#timers==1 and queued.writes==0,'Native layout was interrupted or work was duplicated')
+timers[1]();assert(queued.scale==0.7)
+queued.IsShown=function()return false end
+p:QueueSettingsTooltipScale(queued);timers[2]()
+assert(queued.writes==1,'Hidden tooltip was scaled by delayed work')
 print('PASS: Anniversary SettingsTooltip scale is bounded, reversible, idempotent and ownership/combat guarded')
