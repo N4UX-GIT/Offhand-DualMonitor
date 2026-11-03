@@ -563,26 +563,8 @@ code {
 }
 .landing-actions { align-items: stretch; gap: 12px; }
 .landing-actions .btn { min-height: 42px; height: auto; padding: 10px 16px; }
-.landing-actions .btn-companion-suggested {
-    background: linear-gradient(180deg, #302a1a, #1d1d19);
-    border-color: var(--rio-border-gold-bright);
-    color: var(--rio-gold-bright);
-    box-shadow: 0 4px 12px rgba(255, 189, 10, 0.1), inset 0 1px 0 rgba(255, 215, 80, 0.08);
-}
-.landing-actions .btn-companion-suggested:hover,
-.landing-actions .btn-companion-suggested:focus-visible {
-    background: linear-gradient(180deg, #3b321b, #252217);
-    border-color: var(--rio-gold);
-    color: var(--rio-gold-bright);
-}
-.landing-actions .btn-companion-suggested:focus-visible {
-    border-color: transparent;
-    outline: 2px solid var(--rio-gold);
-    outline-offset: -2px;
-    box-shadow: none;
-    transition: none;
-}
-.landing-actions .landing-curseforge-mark { color: var(--rio-gold); flex-shrink: 0; }
+.landing-actions .landing-curseforge-mark,
+.landing-actions .landing-companion-mark { color: var(--rio-gold); flex-shrink: 0; }
 
 .demo-preview {
     display: block;
