@@ -1,5 +1,12 @@
 # Custom Workspace Regions Implementation Plan
 
+3 November follow-up: [consolidated P6 package QA](CUSTOM-WORKSPACE-REGIONS-CONSOLIDATED-QA.md)
+records the integrated addon source, Retail/Anniversary evidence and the user's
+manual Character drag pass. [Third-monitor investigation](CUSTOM-WORKSPACE-REGIONS-THIRD-MONITOR-STUDY.md)
+distinguishes three connected displays from three participating displays, adds
+bounded characterization evidence and recommends the next schema 2 slice. It
+does not enable that slice or waive its existing stabilization gates.
+
 2 November 2026 implementation authorization: the user explicitly requested all
 remaining work through an initial working implementation. This supersedes the
 earlier deferral for the contiguous schema 1 slice. Work is isolated on
