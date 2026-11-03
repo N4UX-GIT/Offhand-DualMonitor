@@ -538,23 +538,26 @@ code {
 /* Landing-page demo and feature captures. Source screenshots remain unchanged. */
 .landing-intro {
     display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    grid-template-areas: "badge badge" "copy video";
     align-items: center;
-    gap: 32px;
-    margin: 8px 0 28px;
+    column-gap: 32px;
+    row-gap: 8px;
+    margin: 0 0 28px;
 }
-.landing-intro-copy { text-align: left; min-width: 0; }
-.landing-intro-copy .hero-badge { margin-bottom: 12px; }
+.landing-intro > .demo-preview { grid-area: video; }
+.landing-intro-copy { display: contents; }
+.landing-intro-copy .hero-badge { grid-area: badge; justify-self: center; margin-bottom: 16px; }
+.landing-desktop-copy { grid-area: copy; margin: 0; text-align: left; }
 .landing-intro-heading {
+    display: none;
     margin: 0;
     color: var(--text-primary);
     font-family: var(--font-warcraft);
-    font-size: clamp(1.35rem, 2.2vw, 1.9rem);
     line-height: 1.45;
     text-wrap: balance;
 }
-.landing-intro-copy .landing-primary-actions { justify-content: flex-start; margin: 20px 0 0; }
-.landing-actions.landing-secondary-actions { margin-bottom: 16px; }
+.landing-actions .landing-mobile-only { display: none; }
 .landing-actions { align-items: stretch; gap: 12px; }
 .landing-actions .btn { min-height: 42px; height: auto; padding: 10px 16px; }
 .landing-actions .btn-companion-suggested {
@@ -637,9 +640,8 @@ code {
     text-align: right;
 }
 @media (max-width: 960px) {
-    .landing-intro { grid-template-columns: minmax(0, 1fr); gap: 24px; }
-    .landing-intro-copy { width: 100%; max-width: 620px; justify-self: center; text-align: center; }
-    .landing-intro-copy .landing-primary-actions { justify-content: center; }
+    .landing-intro { grid-template-columns: minmax(0, 1fr); grid-template-areas: "badge" "copy" "video"; gap: 24px; }
+    .landing-desktop-copy { max-width: 650px; justify-self: center; text-align: center; }
     .demo-preview { width: 100%; max-width: 620px; justify-self: center; }
     .home-page #features .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -650,9 +652,15 @@ code {
     .home-page .hero-title { font-size: 1.9rem; margin: 4px 0; }
     .home-page .hero-subtitle { max-width: 330px; margin: 0 auto 8px; font-size: 0.8rem; line-height: 1.45; letter-spacing: 0.04em; }
     .home-page .content-deck { margin-top: 6px; padding: 16px 16px 32px; }
-    .landing-intro { margin: 0 0 20px; gap: 20px; }
-    .landing-intro-heading { font-size: 1.2rem; }
-    .landing-intro-copy .landing-primary-actions { gap: 10px; margin-top: 16px; }
+    .landing-intro { grid-template-areas: "video" "copy"; margin: 0 0 16px; gap: 20px; }
+    .landing-intro-copy { display: block; grid-area: copy; text-align: center; }
+    .landing-intro-copy .hero-badge { margin-bottom: 12px; }
+    .landing-desktop-copy { display: none; }
+    .landing-intro-heading { display: block; font-size: 1.2rem; }
+    .home-page .landing-actions { gap: 10px; }
+    .landing-actions .landing-mobile-only { display: inline-flex; }
+    .landing-actions .landing-desktop-only { display: none; }
+    .landing-actions .landing-curseforge-action { margin-top: 10px; }
     .home-page #features .grid-3 { grid-template-columns: minmax(0, 1fr); }
     .demo-preview-caption { padding: 14px 10px; }
     .demo-preview-caption strong { font-size: 0.9rem; }
