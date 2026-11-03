@@ -559,7 +559,13 @@ code {
     border-color: var(--rio-gold);
     color: var(--rio-gold-bright);
 }
-.landing-actions .btn-companion-suggested:focus-visible { outline: 2px solid var(--rio-gold); outline-offset: 4px; }
+.landing-actions .btn-companion-suggested:focus-visible {
+    border-color: transparent;
+    outline: 2px solid var(--rio-gold);
+    outline-offset: -2px;
+    box-shadow: none;
+    transition: none;
+}
 .landing-actions .landing-curseforge-mark { color: var(--rio-gold); flex-shrink: 0; }
 
 .demo-preview {
