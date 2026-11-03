@@ -349,6 +349,10 @@ end
 function Bags:Capture()
     if self.paused or self.restoring or self.escapePending or not Offhand.db
         or not CanOpenBagsFromAddon() then return end
+    local currentMetrics=Offhand.Viewport and Offhand.Viewport:GetMetrics()
+    -- Single-screen recovery is a temporary loss of usable workspace geometry.
+    -- Visible bags there do not revoke saved workspace ownership or open intent.
+    if currentMetrics and currentMetrics.isSpanned==false then return end
     self:Discover(false)
     local snapshot
     if TrackEnabled() then
@@ -362,9 +366,11 @@ function Bags:Capture()
                         y = frame:GetBottom() + frame:GetHeight()
                     end
                     if x and y then
-                        local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+                        local metrics = currentMetrics
                         if Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,frame) end
-                        local position = {
+                        local previous=Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
+                        local position=Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:PreservedFallbackPosition(frame,metrics,previous)
+                        if not position then position = {
                             x = x * factor, y = y * factor,
                             coordinateVersion = 2,
                             canvasWidth = metrics and metrics.workspaceWidth or nil,
@@ -373,6 +379,7 @@ function Bags:Capture()
                             canvasBottom = metrics and metrics.workspaceBottom or nil,
                         }
                         if Offhand.WorkspaceRegions and metrics then Offhand.WorkspaceRegions:SavePosition(position,metrics) end
+                        end
                         snapshot = snapshot or {}
                         snapshot[name] = position
                         Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}

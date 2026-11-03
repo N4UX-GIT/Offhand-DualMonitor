@@ -546,6 +546,9 @@ function Persistence.InstallRestore(Canvas, services)
             end
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+            if Offhand.WorkspaceRegions then
+                Offhand.WorkspaceRegions:RememberRestoredPosition(frame,m,wPos)
+            end
             if m.workspaceRegions and not wPos.regionId then
                 -- Activation is explicit. Preserve the legacy record until its
                 -- new anchor succeeds, then publish an independent region record.

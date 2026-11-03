@@ -175,6 +175,34 @@ function Regions:SavePosition(position,metrics)
     return position
 end
 
+-- Passive replacement-bag observers must not adopt an automatic missing-region
+-- fallback as a player move. Keep this evidence outside the owned frame tree.
+local restoredFallbacks=setmetatable({}, {__mode='k'})
+function Regions:RememberRestoredPosition(frame,metrics,position)
+    restoredFallbacks[frame]=nil
+    if not metrics or not metrics.workspaceRegions or not position or not position.regionId
+        or self:Get(metrics,position.regionId) then return end
+    local x,y=self:FrameRect(frame)
+    if x and y then restoredFallbacks[frame]={position=position,x=x,y=y} end
+end
+
+function Regions:PreservedFallbackPosition(frame,metrics,position)
+    local state=restoredFallbacks[frame]
+    if not state then return nil end
+    if state.position~=position or not metrics or not metrics.workspaceRegions
+        or self:Get(metrics,position.regionId) then
+        restoredFallbacks[frame]=nil;return nil
+    end
+    local x,y=self:FrameRect(frame)
+    local tolerance=1.5*(metrics.screenWidth or 1)/math.max(1,metrics.physicalWidth or 1)
+    if x and y and math.abs(x-state.x)<=tolerance and math.abs(y-state.y)<=tolerance then
+        return position
+    end
+    -- Movement away from the restored anchor is new intent from the user or
+    -- owning addon. Its normal capture may now replace the old destination.
+    restoredFallbacks[frame]=nil
+end
+
 function Regions:Seams(metrics)
     local seams={}
     for _,r in ipairs(metrics.workspaceRegions or {}) do
