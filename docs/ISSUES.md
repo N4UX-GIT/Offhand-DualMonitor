@@ -9,8 +9,11 @@ Stable IDs for reports that require follow-up across test sessions.
 - Revised schema 2 restore/drop paths use guarded Mainhand fallback and preserve
   saved workspace intent through passive bag capture. Tall titles stay reachable.
   Custom PlayerSpells retains native size; schema 1 behavior remains unchanged.
-- Status: reproduced before fix, source and 85-suite simulation verified; revised
-  addon live verification pending. See [fit recovery](CUSTOM-WORKSPACE-REGIONS-NARROW-RECOVERY.md).
+- Status: reproduced before fix, source and combined 86-suite simulation verified.
+  An actual Anniversary 480x600 schema 2 workspace passed an addon-owned live
+  restore/retry probe with preserved saved intent. Native-panel readability,
+  explicit drops and passive bag capture remain live gates. See
+  [fit recovery](CUSTOM-WORKSPACE-REGIONS-NARROW-RECOVERY.md).
 
 ## OH-CUSTOM-REGION-DISABLE-MISSING: editor refuses disable after monitor loss
 
@@ -46,7 +49,11 @@ Stable IDs for reports that require follow-up across test sessions.
   and1.000 versus0.700 with Offhand's feature off. Companion was not running.
   The existing Retail/Forever normalizer excludes this client by its live flags.
 - A separate scoped Anniversary SettingsTooltip adapter is source/86-suite
-  verified, with target-client correction acceptance pending. See
+  verified. Exact packaged `862d32b` passed ordinary-window short/long Settings
+  tooltip wrapping, effective-scale match and hide-release on Anniversary70577.
+  Scaling must occur after SetOwner and before native text construction; live
+  show-time and deferred variants were rejected for text overflow. Spanned hover,
+  other clients and protected/combat acceptance remain pending. See
   [measurements and ownership boundaries](OPTIONS-TOOLTIP-SCALE-INVESTIGATION.md).
 
 - Reported by the user after the 1 November 2026 Companion rc3 Anniversary QA;
