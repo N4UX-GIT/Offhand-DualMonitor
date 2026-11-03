@@ -6,7 +6,7 @@
     <title>Offhand In-Game Setup | Wizard, Edit Mode, and settings</title>
     <meta name="description" content="Complete Offhand setup inside World of Warcraft, create the Mainhand HUD layout, understand each settings tab, and recover a multi-monitor workspace.">
     <link rel="icon" type="image/png" href="assets/offhand-icon.png">
-    <link rel="stylesheet" href="style.css?v=20261101-screenshots">
+    <link rel="stylesheet" href="style.css?v=20261103-12">
 </head>
 <body class="companion-page in-game-setup-page">
     <header class="navbar">
@@ -30,7 +30,6 @@
     <main class="content-deck setup-guide-deck">
         <section class="content-section">
             <div class="deck-intro-banner">
-                <div class="hero-badge">IN-GAME GUIDE</div>
                 <h1 class="guide-title">Finish setting up Offhand in WoW</h1>
                 <p class="deck-intro-text">Once your Windowed WoW client covers the intended displays, Offhand guides you through the seam, Mainhand viewport, interface scale, and protected HUD layout.</p>
                 <p class="deck-intro-text">Most users only need the guided setup below. The remaining sections explain Edit Mode, the settings dashboard, everyday use, and recovery.</p>
@@ -40,7 +39,7 @@
         </section>
 
         <section class="content-section" id="guided-setup">
-            <div class="section-header"><div class="hero-badge">FIRST RUN</div><h2 class="section-title guide-section-title">Follow the guide once</h2><p class="section-subtitle">Open the guide with <code>/offhand guide</code>. It remains available later from <strong>Help &amp; recovery</strong>.</p></div>
+            <div class="section-header"><h2 class="section-title guide-section-title">Follow the guide once</h2><p class="section-subtitle">Open the guide with <code>/offhand guide</code>. It remains available later from <strong>Help &amp; recovery</strong>.</p></div>
             <div class="guide-callout"><strong>Before setup:</strong> save a copy of your Blizzard Edit Mode layout and back up your UI addon profiles. Spanning changes the canvas and can require repositioning custom interfaces. On Windows, the <a href="https://apps.microsoft.com/detail/9PL4PW84Q90W" target="_blank" rel="noopener">Microsoft Store Companion</a> is the recommended placement method.</div>
             <div class="in-game-path">
                 <article class="quest-step-card"><div class="step-seal">1</div><h3>Start setup</h3><p>Back up your Blizzard Edit Mode layout and UI addon profiles, then click <strong>Start setup</strong> in the welcome guide.</p></article>
@@ -57,10 +56,10 @@
         </section>
 
         <section class="content-section" id="edit-mode">
-            <div class="section-header"><div class="hero-badge">BLIZZARD EDIT MODE</div><h2 class="section-title guide-section-title">Let each system own the right frames</h2><p class="section-subtitle">Offhand manages ordinary workspace windows. Blizzard Edit Mode remains responsible for protected combat controls.</p></div>
+            <div class="section-header"><h2 class="section-title guide-section-title">Let each system own the right frames</h2><p class="section-subtitle">Offhand manages ordinary workspace windows. Blizzard Edit Mode remains responsible for protected combat controls.</p></div>
             <div class="ownership-grid">
-                <article class="faq-card guide-panel ownership-card"><span class="ownership-label ownership-offhand">OFFHAND MANAGES</span><h3>Workspace windows</h3><p>World Map, Character panel, combined backpack, chat, and supported addon panels can live on the Offhand Monitor. Drag supported frames by their headers and let Offhand remember their positions.</p></article>
-                <article class="faq-card guide-panel ownership-card"><span class="ownership-label ownership-blizzard">EDIT MODE MANAGES</span><h3>Protected HUD controls</h3><p>Action bars, unit frames, stance and pet bars, party and raid frames, and other protected combat UI remain under Blizzard ownership. Customize these through Edit Mode after Offhand creates the Mainhand-safe layout.</p></article>
+                <article class="faq-card guide-panel"><h3>Offhand manages workspace windows</h3><p>World Map, Character panel, combined backpack, chat, and supported addon panels can live on the Offhand Monitor. Drag supported frames by their headers and let Offhand remember their positions.</p></article>
+                <article class="faq-card guide-panel"><h3>Edit Mode manages protected HUD controls</h3><p>Action bars, unit frames, stance and pet bars, party and raid frames, and other protected combat UI remain under Blizzard ownership. Customize these through Edit Mode after Offhand creates the Mainhand-safe layout.</p></article>
             </div>
             <div class="edit-mode-sequence">
                 <article><span>1</span><div><h3>Create</h3><p>Outside combat with Edit Mode closed, select <strong>Create Mainhand HUD Layout</strong>. Offhand clones the active Blizzard layout and moves default HUD anchors into Mainhand while preserving custom-positioned source entries.</p></div></article>
@@ -77,7 +76,7 @@
         </section>
 
         <section class="content-section" id="settings">
-            <div class="section-header"><div class="hero-badge">SETTINGS TOUR</div><h2 class="section-title guide-section-title">Know where to make each change</h2><p class="section-subtitle">Type <code>/offhand</code> or <code>/oh</code>. Changes update the active profile immediately and WoW writes them to disk on logout or <code>/reload</code>.</p></div>
+            <div class="section-header"><h2 class="section-title guide-section-title">Know where to make each change</h2><p class="section-subtitle">Type <code>/offhand</code> or <code>/oh</code>. Changes update the active profile immediately and WoW writes them to disk on logout or <code>/reload</code>.</p></div>
             <div class="settings-tour-grid">
                 <article class="wow-card settings-tour-card"><div class="settings-tab-heading"><span>1</span><h3>Display</h3></div><p>Use this tab for monitor orientation, Mainhand geometry, the remembered independent window, camera and UI scale, world text, group-loot placement, and advanced bezel compensation.</p><ul><li>Start with the Auto-Setup Wizard.</li><li>Keep raw mouse input enabled if vertical camera movement stops at the canvas boundary.</li><li>Only remember a FancyZones or manual window after visually confirming its placement.</li></ul></article>
                 <article class="wow-card settings-tour-card settings-tour-primary"><div class="settings-tab-heading"><span>2</span><h3>Offhand Monitor &amp; Map</h3></div><p>Use this tab for the World Map, ordinary workspace windows, persistence, recovery, and supported window behavior.</p><ul><li>Start with <strong>Recover Missing UI</strong> when a supported window or HUD element is fully off-screen. Visible elements stay in place.</li><li>Use <strong>Recovery &amp; Preview</strong> to rebuild or designate the protected HUD layout.</li><li>Use <strong>Reapply Layout</strong> after correcting the window or changing workspace settings.</li></ul></article>
@@ -90,7 +89,7 @@
                 <div class="faq-body"><ol class="faq-steps-list"><li>Complete the wizard before changing individual geometry controls.</li><li>On <strong>Offhand Monitor &amp; Map</strong>, decide whether ordinary panels should redirect to the workspace and remain independently open.</li><li>Open the map, bags, Character panel, and chat, then arrange the supported windows where you want them.</li><li>Use <strong>Themes &amp; Colors</strong> only after the functional layout is comfortable.</li><li>Perform one full logout and cold relaunch before building additional profiles.</li></ol></div>
             </details>
             <div class="settings-visual-reference">
-                <div class="section-header settings-visual-header"><div class="hero-badge">SCREEN REFERENCE</div><h3>See each settings tab</h3><p>Open only the tab you need. Each image links to the full-size capture so labels and controls remain readable.</p></div>
+                <div class="section-header settings-visual-header"><h3>See each settings tab</h3><p>Open only the tab you need. Each image links to the full-size capture so labels and controls remain readable.</p></div>
                 <details class="faq-card settings-screenshot-details">
                     <summary class="faq-summary"><h3>Display</h3><span>Canvas, geometry, text, loot, and OBS controls</span><svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></summary>
                     <div class="faq-body settings-screenshot-gallery">
@@ -127,7 +126,7 @@
         </section>
 
         <section class="content-section" id="everyday">
-            <div class="section-header"><div class="hero-badge">EVERYDAY USE</div><h2 class="section-title guide-section-title">Restore the window before the workspace</h2><p class="section-subtitle">Offhand validates the game canvas first, then restores panels and applies the saved layout.</p></div>
+            <div class="section-header"><h2 class="section-title guide-section-title">Restore the window before the workspace</h2><p class="section-subtitle">Offhand validates the game canvas first, then restores panels and applies the saved layout.</p></div>
             <div class="grid-3 everyday-methods">
                 <article class="wow-card"><h3 class="wow-card-title">FancyZones</h3><p class="wow-card-desc">Launch WoW, place it into the saved Canvas zone if Windows did not restore it automatically, and let Offhand validate the remembered dimensions.</p></article>
                 <article class="wow-card"><h3 class="wow-card-title">Companion</h3><p class="wow-card-desc">Apply the saved span before opening workspace panels. Companion may be closed afterward unless you want automatic spanning or active display recovery.</p></article>
@@ -137,7 +136,7 @@
         </section>
 
         <section class="content-section" id="recovery">
-            <div class="section-header"><div class="hero-badge">RECOVERY</div><h2 class="section-title guide-section-title">Start with the symptom</h2><p class="section-subtitle">Correct the window before rebuilding in-game placement. Offhand keeps saved panel positions when it falls back to safe single-screen geometry.</p></div>
+            <div class="section-header"><h2 class="section-title guide-section-title">Start with the symptom</h2><p class="section-subtitle">Correct the window before rebuilding in-game placement. Offhand keeps saved panel positions when it falls back to safe single-screen geometry.</p></div>
             <div class="recovery-grid">
                 <article class="faq-card guide-panel"><h3>Window size or split is wrong</h3><p>Reapply the FancyZones zone, Companion span, or manual size. Reload after a corrected Companion span. For an independent setup, remember the current window only after its placement is visibly correct.</p></article>
                 <article class="faq-card guide-panel"><h3>The seam needs finer adjustment</h3><p>Manual Physical Monitor Seam Alignment supports 10% to 90% with 0.1 percentage-point precision. Exact Companion topology sets the physical seam automatically, so manual adjustment is disabled while it is active.</p></article>
@@ -153,7 +152,7 @@
             <div class="guide-callout warning-callout"><strong>A safe fallback is not data loss.</strong> If the current window materially differs from the remembered canvas or exact topology, Offhand uses single-screen geometry rather than applying the split to the wrong window. Restore the intended window before changing saved placements.</div>
             <aside class="community-support-card" aria-labelledby="recovery-community-title">
                 <div class="community-support-icon"><img src="assets/discord-symbol.svg" alt="" aria-hidden="true"></div>
-                <div class="community-support-copy"><div class="hero-badge">COMMUNITY &amp; SUPPORT</div><h3 id="recovery-community-title">Still need help?</h3><p>Join the Offhand Discord for guided troubleshooting, configuration advice, and testing support. Before asking, run <code>/offhand diag</code> and note your WoW client, window-placement method, monitor layout, and the exact symptom. Select <strong>Offhand</strong> in the <strong>Start Here</strong> channel to access its channels.</p></div>
+                <div class="community-support-copy"><h3 id="recovery-community-title">Still need help?</h3><p>Join the Offhand Discord for guided troubleshooting, configuration advice, and testing support. Before asking, run <code>/offhand diag</code> and note your WoW client, window-placement method, monitor layout, and the exact symptom. Select <strong>Offhand</strong> in the <strong>Start Here</strong> channel to access its channels.</p></div>
                 <div class="community-support-actions"><a href="https://discord.gg/J2P3SM6pAY" target="_blank" rel="noopener noreferrer" class="btn btn-wow-red"><img src="assets/discord-symbol.svg" alt="" aria-hidden="true">Join Discord</a><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/issues" target="_blank" rel="noopener" class="btn btn-wow-stone">Report on GitHub</a></div>
             </aside>
         </section>
