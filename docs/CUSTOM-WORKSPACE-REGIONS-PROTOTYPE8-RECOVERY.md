@@ -1,5 +1,9 @@
 # Prototype 8 editor recovery
 
+Later same-day update: [exact Prototype 8 live QA](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE8-LIVE-QA.md)
+passes bounded Retail and Anniversary span/reload/cold-start/Restore with fresh
+error capture. The evidence below records the original pre-live checkpoint.
+
 3 November 2026. Unpublished Companion `2.1.3-beta.3`, file/application
 `2.1.3.4`, protocol 1. Clean source and build:
 `73f2b9e69a3d8ef938b4d247d79ee26f5bb9c30f`. This follows the

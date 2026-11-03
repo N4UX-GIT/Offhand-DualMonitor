@@ -1,5 +1,12 @@
 # Custom workspace regions: local review handoff
 
+Latest acceptance, 3 November: [exact Prototype 8 live QA and adapter review](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE8-LIVE-QA.md).
+Retail and Anniversary pass bounded schema 2 span, reload, both-app cold restart,
+foreground taskbar coverage and exact native Restore with fresh error capture.
+Original files are restored and hash-verified. Physical three-display, mixed-DPI,
+disconnect/reconnect, narrow readability and protected-action gates remain open.
+Historical checkpoint statements below retain their original artifact scope.
+
 Latest Companion follow-up: [Prototype 8 editor recovery](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE8-RECOVERY.md),
 `2.1.3-beta.3` / file `2.1.3.4`, fixes disabling custom mode after monitor loss
 and inactive control states. Automated native/editor/package checks pass; new

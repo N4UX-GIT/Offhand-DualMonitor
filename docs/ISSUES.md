@@ -9,8 +9,10 @@ Stable IDs for reports that require follow-up across test sessions.
 - P8 source `73f2b9e` allows disable/save without required displays while preserving
   region definitions. Re-enable remains fail-closed, and inactive controls are
   disabled. Safe standard-pair selection does not substitute an absent custom B.
-- Status: source/native fixture/package verified, actual monitor-loss UI and P8
-  live WoW acceptance pending. See [P8 recovery report](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE8-RECOVERY.md).
+- Status: source/native fixture/package verified. P8's bounded Retail/Anniversary
+  span/reload/cold-start/Restore acceptance passes with fresh error capture;
+  actual monitor-loss UI remains pending. See [P8 recovery report](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE8-RECOVERY.md)
+  and [exact live QA](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE8-LIVE-QA.md).
 
 ## OH-CUSTOM-REGION-PASSIVE-FALLBACK: unavailable region overwritten by bag tracking
 
