@@ -38,6 +38,10 @@ try {
     if ($appManifest -notmatch '<assemblyIdentity version="2\.1\.3\.2" name="Offhand\.Companion\.App"/>') {
         throw 'Companion application manifest must identify the exact beta build.'
     }
+    $candidateBuilder = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\scripts\New-CompanionReleaseCandidate.ps1') -Raw
+    if ($candidateBuilder -notmatch "FileVersion -ne '2\.1\.3\.2'") {
+        throw 'Candidate packaging must accept the current reviewed file version.'
+    }
     if ($source -match 'Process\.GetProcesses\(\)' -or
         $source -notmatch 'foreach \(string processName in wowProcessNames\)(?s:.*?)Process\.GetProcessesByName\(processName\)') {
         throw 'Companion polling must query only the allowlisted WoW process names, not enumerate the full process table.'

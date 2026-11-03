@@ -45,6 +45,14 @@ Companion runtime source and P6 executable bytes did not change. The previous
 architecture remain attached to those same bytes and their original evidence.
 They were not relabeled as fresh live-client or combat tests.
 
+Final preparation review found the candidate builder still checking file version
+`2.1.3.1`. Its guard now accepts current `2.1.3.2`, its custom-region README
+describes the fullscreen notification, and the preferences suite checks that
+version agreement. A separate fresh build passed compilation, runtime ZIP parity
+and frozen public-artifact preservation. The full preferences/dashboard suite
+passed again. That build is tool validation only; it does not replace the exact
+live-tested P6 bytes in this packet or inherit their live acceptance.
+
 ## Exact package live checks
 
 Both clients temporarily received the clean 76-file addon, hash-verified against

@@ -21,7 +21,7 @@ $binary = Join-Path $output 'Offhand.exe'
 & $compiler /nologo /target:winexe /optimize+ /platform:anycpu "/out:$binary" "/win32icon:$root\Media\offhand-logo.ico" "/win32manifest:$appManifest" "/resource:$root\Media\offhand-logo-small.png,Offhand.Companion.Resources.offhand-logo.png" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll $source
 if ($LASTEXITCODE -ne 0) { throw 'Candidate compilation failed.' }
 $identity = [Diagnostics.FileVersionInfo]::GetVersionInfo($binary)
-if ($identity.FileVersion -ne '2.1.3.1' -or $identity.ProductVersion -ne '2.1.3-beta.1') {
+if ($identity.FileVersion -ne '2.1.3.2' -or $identity.ProductVersion -ne '2.1.3-beta.1') {
     throw 'Candidate executable version does not match the planned release.'
 }
 $archive = Join-Path $output 'Offhand-Companion-v2.1.3-beta.1.zip'
@@ -67,6 +67,9 @@ Use Restore Window to return to the ordinary window. Disable the custom mode's
 checkbox in its editor to return to the existing two-display or equal-half modes.
 Narrow panels may not fit or remain readable; use Mainhand for those panels.
 This prototype supports one contiguous workspace, not multiple schema 2 regions.
+After a successful span, Companion notifies the Windows Shell that the actual
+WoW window is fullscreen. Restore clears that notification. Shell notification
+failure is nonfatal and logged. Global taskbar preferences are unchanged.
 '@)
 }
 # Replace only the generated README, retaining the same verified executable.
