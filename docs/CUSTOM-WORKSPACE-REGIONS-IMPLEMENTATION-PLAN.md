@@ -1,5 +1,15 @@
 # Custom Workspace Regions Implementation Plan
 
+3 November schema 2 follow-up: the user authorized the recommended extension and
+autonomous work while remote. [Experimental Prototype 7](CUSTOM-WORKSPACE-REGIONS-SCHEMA2-PROTOTYPE.md)
+now implements one game display plus one or two independent workspace areas,
+per-monitor visual selectors, region-aware persistence and explicit capability
+gating. Automated checks and a bounded one-real-workspace Retail package run
+passed. Physical three-display, cross-workspace input/persistence, combat and
+mixed-DPI gates remain open. Earlier deferral language below records the original
+staging decision; it does not describe the current experimental source or waive
+release gates. P6 remains the immutable previous review/rollback candidate.
+
 3 November follow-up: [consolidated P6 package QA](CUSTOM-WORKSPACE-REGIONS-CONSOLIDATED-QA.md)
 records the integrated addon source, Retail/Anniversary evidence and the user's
 manual Character drag pass. [Third-monitor investigation](CUSTOM-WORKSPACE-REGIONS-THIRD-MONITOR-STUDY.md)

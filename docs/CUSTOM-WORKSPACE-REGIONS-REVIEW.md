@@ -1,5 +1,13 @@
 # Custom workspace regions: local review handoff
 
+Latest experimental follow-up, 3 November: [Prototype 7](CUSTOM-WORKSPACE-REGIONS-SCHEMA2-PROTOTYPE.md)
+adds one game plus up to two independent workspaces and a visual selector for
+each. Companion `2.1.3-beta.2`, file `2.1.3.3`, and the new schema 2 addon have
+automated evidence and bounded Retail apply/reload/Restore/migration evidence
+using one real workspace. Physical three-display acceptance remains pending.
+The separate schema 2 packet and hashes must be used for this implementation;
+the following P6/P5 records describe their preserved historical bytes.
+
 Latest, 3 November: the new consolidated review packet pairs exact P6 with all
 preserved addon fixes at integration commit `2898270`. Its own
 [QA and remaining gates](CUSTOM-WORKSPACE-REGIONS-CONSOLIDATED-QA.md) cover bounded

@@ -1,5 +1,11 @@
 # Third-monitor support study
 
+Implementation follow-up: [experimental Prototype 7](CUSTOM-WORKSPACE-REGIONS-SCHEMA2-PROTOTYPE.md)
+implements the bounded recommendation below, with source/fixture evidence and a
+one-real-workspace Retail check. This study preserves the pre-implementation P6
+analysis; its two-display source limits are historical. Physical three-monitor
+rendering, interaction and recovery remain unverified.
+
 3 November 2026. Investigated at the user's request after the consolidated P6
 Retail/Anniversary checks. Scope is source analysis and characterization tests.
 No third workspace, schema 2 reader/writer or new editor is enabled by this work.
