@@ -1,4 +1,6 @@
+param([string]$PreviewDirectory)
 $ErrorActionPreference='Stop'
+if($PreviewDirectory){New-Item -ItemType Directory -Path $PreviewDirectory -Force|Out-Null}
 $root=Split-Path -Parent $PSScriptRoot
 $temporaryBase=[IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $fixtureRoot=Join-Path $temporaryBase ('Offhand-workspace-regions-'+[guid]::NewGuid().ToString('N'))
@@ -12,7 +14,7 @@ try {
   $exe=Join-Path $out fixture.exe
   & $compiler /nologo /target:exe "/platform:$arch" /main:Offhand.Companion.WorkspaceRegionsTest "/out:$exe" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $root 'Companion\Source\Program.cs') (Join-Path $PSScriptRoot CompanionWorkspaceRegions.cs)
   if($LASTEXITCODE -ne 0){throw 'Multi-region fixture compilation failed'}
-  & $exe $out
+  if($PreviewDirectory){& $exe $out (Join-Path ([IO.Path]::GetFullPath($PreviewDirectory)) ('editor-'+$arch+'.png'))}else{& $exe $out}
   if($LASTEXITCODE -ne 0){throw 'Multi-region native fixture failed'}
   Push-Location $root
   try {& lua (Join-Path $PSScriptRoot 'support\workspace-regions-bridge.lua') (Join-Path $out schema2.lua);if($LASTEXITCODE -ne 0){throw 'Generated schema 2 Lua rejected'}}finally{Pop-Location}

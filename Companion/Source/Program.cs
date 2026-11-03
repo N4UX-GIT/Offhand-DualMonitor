@@ -1149,7 +1149,7 @@ namespace Offhand.Companion
             MinimizeBox=false;MaximizeBox=false;
             var scroll=new Panel{Dock=DockStyle.Fill,AutoScroll=true,Padding=new Padding(12)};
             var table=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,ColumnCount=2};
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,190));table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,35));table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,65));
             Action<string,Control> row=(name,control)=> {int n=table.RowCount++;table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
                 table.Controls.Add(new Label{Text=name,AutoSize=true,MaximumSize=new Size(180,0),Margin=new Padding(0,7,8,7)},0,n);
                 control.Margin=new Padding(0,4,0,4);table.Controls.Add(control,1,n);};
@@ -1178,8 +1178,10 @@ namespace Offhand.Companion
             }
             string primary;if(settings.TryGetValue("WorkspacePrimary",out primary)&&primary==ids[1])Primary.SelectedIndex=1;
             loading=false;
-            preview=new Label{AutoSize=true,Dock=DockStyle.Fill,MaximumSize=new Size(400,0),Margin=new Padding(0,10,0,10)};
-            row("Plan",preview);
+            preview=new Label{AutoSize=true,Dock=DockStyle.Fill,Margin=new Padding(0,10,0,10)};
+            table.Controls.Add(preview,0,table.RowCount++);table.SetColumnSpan(preview,2);
+            table.SizeChanged+=(s,e)=> {int width=Math.Max(1,table.ClientSize.Width-preview.Margin.Horizontal);
+                if(preview.MaximumSize.Width!=width)preview.MaximumSize=new Size(width,0);};
             Game.SelectedIndexChanged+=(s,e)=>UpdatePreview();Primary.SelectedIndexChanged+=(s,e)=>UpdatePreview();UseRegions.CheckedChanged+=(s,e)=>UpdatePreview();
             Second.CheckedChanged+=(s,e)=> {
                 if(!Second.Checked&&MonitorSelection.MultiEnabled(original)) {
@@ -1192,6 +1194,16 @@ namespace Offhand.Companion
             buttons.Controls.Add(cancel);buttons.Controls.Add(save);CancelButton=cancel;AcceptButton=save;
             save.Click+=(s,e)=> {try{var proposed=Proposed();if(UseRegions.Checked)MonitorSelection.CreatePlan(proposed,displays);Settings=proposed;DialogResult=DialogResult.OK;Close();}catch(Exception ex){MessageBox.Show(this,ex.Message,Text,MessageBoxButtons.OK,MessageBoxIcon.Information);}};
             scroll.Controls.Add(table);Controls.Add(scroll);Controls.Add(buttons);UpdatePreview();
+        }
+        protected override void OnShown(EventArgs e)
+        {
+            FitToWorkingArea(Screen.FromControl(this).WorkingArea);base.OnShown(e);
+        }
+        internal void FitToWorkingArea(Rectangle workArea)
+        {
+            MinimumSize=new Size(Math.Min(MinimumSize.Width,workArea.Width),Math.Min(MinimumSize.Height,workArea.Height));
+            Size=new Size(Math.Min(Width,workArea.Width),Math.Min(Height,workArea.Height));
+            Location=new Point(Math.Max(workArea.Left,Math.Min(Left,workArea.Right-Width)),Math.Max(workArea.Top,Math.Min(Top,workArea.Bottom-Height)));
         }
         private int Find(string identity,int fallback){for(int i=0;i<displays.Count;i++)if(string.Equals(displays[i].StableId,identity,StringComparison.OrdinalIgnoreCase))return i;return !string.IsNullOrEmpty(identity)?-1:displays.Count>fallback?fallback:-1;}
         private void LoadArea(int slot)
@@ -1236,7 +1248,7 @@ namespace Offhand.Companion
             try{var settings=Proposed();if(!UseRegions.Checked){preview.Text="Multiple workspaces disabled. Save returns to a standard two-monitor plan.";return;}
                 var plan=MonitorSelection.CreatePlan(settings,displays);long visible=0;foreach(var area in MonitorSelection.VisibleRectangles(plan))visible+=(long)area.Width*area.Height;
                 double ratio=(double)plan.Bounds.Width*plan.Bounds.Height/((long)plan.MainhandBounds.Width*plan.MainhandBounds.Height);
-                preview.Text=string.Format("Visible areas: {0:0.00} million pixels. Outer surface: {1} x {2}, {3:0.00} times the game area.{4}\n\nUse selection returns here. Save plan changes settings only; Span WoW Now applies and requires the matching addon. Reload once after apply. Physical three-monitor QA is pending.",visible/1000000.0,plan.Bounds.Width,plan.Bounds.Height,ratio,ratio>=3?" Large surface: higher rendering cost is possible.":ratio>=2?" Extra outer-surface pixels may increase rendering cost.":"");}
+                preview.Text=string.Format("Visible areas: {0:0.00} million pixels. Outer surface: {1} x {2}, {3:0.00} times the game area.{4}\n\nUse selection returns here. Save plan changes settings only; Span WoW Now applies this plan. Reload the game UI once after applying.",visible/1000000.0,plan.Bounds.Width,plan.Bounds.Height,ratio,ratio>=3?" Large surface: higher rendering cost is possible.":ratio>=2?" Extra outer-surface pixels may increase rendering cost.":"");}
             catch(Exception ex){preview.Text=ex.Message;}
         }
     }

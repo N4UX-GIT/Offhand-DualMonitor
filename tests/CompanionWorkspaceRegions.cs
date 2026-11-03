@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 namespace Offhand.Companion
@@ -26,8 +27,29 @@ namespace Offhand.Companion
             }
             return s;
         }
+        private static void CheckLayout(WorkspaceRegionsDialog editor,float scale)
+        {
+            editor.ClientSize=new Size((int)(500*scale),(int)(420*scale));editor.PerformLayout();
+            var scroll=editor.Controls.OfType<Panel>().Single(control=>control.AutoScroll);
+            var table=scroll.Controls.OfType<TableLayoutPanel>().Single();table.PerformLayout();
+            Check(!scroll.HorizontalScroll.Visible,"Editor requires horizontal scrolling at "+scale);
+            foreach(Control control in table.Controls) {
+                Check(control.Left>=0&&control.Right<=table.ClientSize.Width,"Editor field escapes content width at "+scale+": "+control.Text);
+                var label=control as Label;
+                if(label!=null){var measured=TextRenderer.MeasureText(label.Text,label.Font,new Size(label.ClientSize.Width,int.MaxValue),TextFormatFlags.WordBreak|TextFormatFlags.NoPrefix);
+                    Check(measured.Height<=label.Height,"Editor label clips at "+scale+": "+label.Text);}
+            }
+            var buttons=editor.Controls.OfType<FlowLayoutPanel>().Single();
+            Check(buttons.Top>=0&&buttons.Bottom<=editor.ClientSize.Height,"Editor actions leave short window at "+scale);
+            foreach(Control button in buttons.Controls)Check(button.Bounds.Left>=0&&button.Right<=buttons.ClientSize.Width&&button.Top>=0&&button.Bottom<=buttons.ClientSize.Height,"Editor action clips at "+scale);
+            var work=new Rectangle(-100,20,(int)(700*scale),(int)(480*scale));
+            editor.Location=new Point(-200,0);editor.FitToWorkingArea(work);
+            Check(work.Contains(editor.Bounds),"Editor extends beyond available desktop at "+scale);
+        }
+        [STAThread]
         public static void Main(string[] args)
         {
+            Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
             var displays=new List<MonitorSelection.Display>{
                 new MonitorSelection.Display{StableId="game",DeviceName="game",Bounds=new Rectangle(0,0,2560,1440),Primary=true},
                 new MonitorSelection.Display{StableId="left",DeviceName="left",Bounds=new Rectangle(-1440,0,1440,1440)},
@@ -88,6 +110,15 @@ namespace Offhand.Companion
                 editor.CreateControl();editor.Scale(new SizeF(scale,scale));editor.PerformLayout();
                 var pending=editor.Proposed();var edited=MonitorSelection.CreatePlan(pending,displays);
                 Check(edited.Workspaces.Length==2&&edited.Bounds==plan.Bounds,"Editor changed the saved pending geometry");
+                CheckLayout(editor,scale);
+                if(scale==1&&args.Length>1) {
+                    var table=editor.Controls.OfType<Panel>().Single(control=>control.AutoScroll).Controls.OfType<TableLayoutPanel>().Single();
+                    using(var bitmap=new Bitmap(table.Width,table.Height)) {
+                        table.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));
+                        foreach(Control control in table.Controls)control.DrawToBitmap(bitmap,control.Bounds);
+                        bitmap.Save(args[1],System.Drawing.Imaging.ImageFormat.Png);
+                    }
+                }
                 editor.Primary.SelectedIndex=1;
                 Check(MonitorSelection.CreatePlan(editor.Proposed(),displays).PrimaryWorkspaceId=="right","Editor lost primary selection");
                 editor.Second.Checked=false;

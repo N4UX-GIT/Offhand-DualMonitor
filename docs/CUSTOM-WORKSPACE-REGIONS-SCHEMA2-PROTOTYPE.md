@@ -78,11 +78,12 @@ actual game/workspace adjacency, avoiding invented boundaries across gaps.
 - Canvas tests cover independent bounds, shared themes, primary switches and
   hiding every canvas on fallback. W5 tests cover identity reload and invalid
   record preservation. Existing protected-ownership simulations remain green.
-- `tests/companion-workspace-regions.ps1`: 89 assertions each on x64/x86, plus
+- `tests/companion-workspace-regions.ps1`: 309 assertions each on x64/x86, plus
   exact production C# bridge consumption by Lua on each architecture. Covers
   planner rejection, identity reorder, excluded native points, capability/version
   skew, Save preservation, editor settings at 100/125/150/200% fixture scaling,
-  missing-display editor refusal and four native rollback stages on hidden
+  missing-display editor refusal, wrapped labels, scrollable content and reachable
+  actions at small window sizes, fitting to the available desktop, and four native rollback stages on hidden
   windows. These are not physical three-monitor or live-client tests.
 - Existing partial-topology fixtures pass: 64 acceptance/rejection cases,
   32 persistence round trips and secondary metrics at two UI scales.
