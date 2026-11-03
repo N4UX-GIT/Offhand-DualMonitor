@@ -564,6 +564,7 @@ code {
     outline: 2px solid var(--rio-gold);
     outline-offset: -2px;
     box-shadow: none;
+    transition: none;
 }
 .landing-actions .landing-curseforge-mark { color: var(--rio-gold); flex-shrink: 0; }
 
