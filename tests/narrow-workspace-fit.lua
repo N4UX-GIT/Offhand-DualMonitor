@@ -56,3 +56,28 @@ local x, y = persistence.ClampWorkspacePoint(metrics, 100, 1000, 900, 1600, fals
 assert(x == 12 and x + 900 > metrics.workspaceRight)
 assert(y - 1600 >= metrics.workspaceBottom and y > metrics.workspaceTop)
 print("CHARACTERIZED GAP: generic position clamp does not contain oversized panels")
+
+-- Custom regions keep native spell/talent size until a readable scale has live
+-- acceptance. The legacy schema 1 fit above remains intentionally unchanged.
+UIParent={GetEffectiveScale=function()return 0.8 end}
+local region={isSpanned=true,workspaceRegions={{id='left'}},workspaceLeft=0,
+    workspaceRight=640,workspaceBottom=0,workspaceTop=1440}
+local native={scale=1,writes=0,GetWidth=function()return 2120 end,GetHeight=function()return 700 end}
+function native:GetScale()return self.scale end
+function native:SetScale(v)self.scale=v;self.writes=self.writes+1 end
+function native:GetEffectiveScale()return self.scale*0.8 end
+PlayerSpellsFrame=native
+assert(persistence.FitPlayerSpellsToWorkspace(native,region,true)==false)
+assert(native.scale==1 and native.writes==0,'Custom talents silently shrank below native size')
+local legacy={isSpanned=true,workspaceLeft=0,workspaceRight=640,workspaceBottom=0,workspaceTop=1440}
+persistence.FitPlayerSpellsToWorkspace(native,legacy,true)
+assert(native.scale<0.3)
+persistence.FitPlayerSpellsToWorkspace(native,region,true)
+assert(native.scale==1,'Legacy adapter scale was not released before custom fallback')
+assert(not persistence.FitsWorkspace(region,900,1600))
+assert(persistence.FitsWorkspace(region,616,1416))
+assert(not persistence.FitsWorkspace(region,617,700))
+assert(not persistence.FitsWorkspace(region,600,1417))
+assert(not persistence.FitsWorkspace(region,0/0,700))
+assert(not persistence.FitsWorkspace(region,600,math.huge))
+print('PASS: custom regions retain native PlayerSpells scale and reject oversized/invalid bounds')

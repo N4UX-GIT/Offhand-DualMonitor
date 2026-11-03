@@ -1,6 +1,7 @@
 local _, Offhand = ...
 if GetLocale() ~= "koKR" then return end
 local L = Offhand.L
+L["WORKSPACE_PANEL_TOO_LARGE"] = "이 창은 작업 영역에 맞지 않습니다. Mainhand 또는 더 큰 작업 영역을 사용하세요."
 -- Display identification (English fallback until translated).
 L["IDENTIFY_DISPLAYS"] = "Show Mainhand / Offhand"
 L["ONBOARD_INTRO_BRIEF"] = "Keep the game on Mainhand and supported panels on Offhand.\n\nBefore setup, save a copy of your Blizzard Edit Mode layout and back up your UI addon profiles. Spanning changes the canvas, so custom interfaces may need repositioning.\n\nChoose a placement method, then calibrate. Closing this guide pauses setup."

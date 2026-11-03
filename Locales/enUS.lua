@@ -13,6 +13,7 @@ local L = Offhand.L or setmetatable({}, {
 })
 
 Offhand.L = L
+L["WORKSPACE_PANEL_TOO_LARGE"] = "This panel does not fit this workspace. Use Mainhand or a larger workspace."
 -- Display identification (English fallback until translated).
 L["IDENTIFY_DISPLAYS"] = "Show Mainhand / Offhand"
 L["ONBOARD_INTRO_BRIEF"] = "Keep the game on Mainhand and supported panels on Offhand.\n\nBefore setup, save a copy of your Blizzard Edit Mode layout and back up your UI addon profiles. Spanning changes the canvas, so custom interfaces may need repositioning.\n\nChoose a placement method, then calibrate. Closing this guide pauses setup."

@@ -1,6 +1,7 @@
 local _, Offhand = ...
 if GetLocale() ~= "ruRU" then return end
 local L = Offhand.L
+L["WORKSPACE_PANEL_TOO_LARGE"] = "Эта панель не помещается в рабочую область. Используйте Mainhand или увеличьте рабочую область."
 -- Display identification (English fallback until translated).
 L["IDENTIFY_DISPLAYS"] = "Show Mainhand / Offhand"
 L["ONBOARD_INTRO_BRIEF"] = "Keep the game on Mainhand and supported panels on Offhand.\n\nBefore setup, save a copy of your Blizzard Edit Mode layout and back up your UI addon profiles. Spanning changes the canvas, so custom interfaces may need repositioning.\n\nChoose a placement method, then calibrate. Closing this guide pauses setup."

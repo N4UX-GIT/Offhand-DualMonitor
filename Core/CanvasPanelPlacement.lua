@@ -130,6 +130,11 @@ function Placement.InstallMainhand(Canvas, services)
         local maxX = math.max(minX, metrics.gameRight - width - inset)
         local minY = metrics.gameBottom + height + inset
         local maxY = math.max(minY, metrics.gameTop - inset)
+        if metrics.workspaceRegions and height > metrics.gameTop-metrics.gameBottom-2*inset then
+            -- An oversized fallback cannot be fully contained. Keep its title
+            -- reachable instead of placing it above the physical game monitor.
+            minY,maxY=metrics.gameTop-inset,metrics.gameTop-inset
+        end
 
         if preserveContained and not position then
             local left = frame.GetLeft and frame:GetLeft()

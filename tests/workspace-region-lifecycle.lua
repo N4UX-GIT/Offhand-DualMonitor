@@ -27,7 +27,7 @@ local function boot(db,topology)
     env.GetPhysicalScreenSize=function()return topology.physicalWidth,topology.physicalHeight end
     env.OffhandCompanionTopology=copy(topology)
     local function load(path)local chunk=assert(loadfile(path));setfenv(chunk,env);chunk('Offhand',addon)end
-    load('Core/WorkspaceRegions.lua');load('Core/Viewport.lua');load('Core/CanvasPersistence.lua')
+    load('Core/WorkspaceRegions.lua');load('Core/Viewport.lua');load('Core/CanvasPersistence.lua');load('Core/CanvasPanelPlacement.lua')
     local frame={x=1000,y=300,w=200,h=100,writes=0,shown=true}
     function frame:GetName()return name end
     function frame:GetLeft()return self.x end
@@ -47,9 +47,12 @@ local function boot(db,topology)
     canvas.PlaceForSingleScreenRecovery=function()end
     canvas.IsFrameOnWorkspace=function(f)return addon.WorkspaceRegions:ContainsFrame(addon.Viewport:GetMetrics(),f,false)end
     local services=setmetatable({WithWorkspace=function(m)return m end,
+        IsFrameOnWorkspace=canvas.IsFrameOnWorkspace,
         ShouldYieldFrameToClassicUIForever=function()return env.externalOwner==true end},
         {__index=function()return function()return false end end})
+    addon.CanvasPanelPlacement.InstallMainhand(canvas,services)
     canvas.RestoreWorkspacePosition=addon.CanvasPersistence.InstallRestore(canvas,services)
+    canvas.OnPanelDragStop=addon.CanvasPersistence.InstallDrag(canvas,services)
     load('Core/BagPersistence.lua');addon.BagPersistence.frames[name]=frame;addon.BagPersistence.paused=false
     return addon,frame,env
 end
@@ -104,3 +107,41 @@ assert(not addon.db.savedWorkspacePositions[name].regionId and not addon.db.save
 frame.failAnchor=false;addon.Canvas:RestoreWorkspacePosition(frame)
 assert(addon.db.savedWorkspacePositions[name].regionId=='right' and equal(addon.db.savedWorkspaceRegionLegacyPositions[name],legacy.savedWorkspacePositions[name]),'Successful migration did not preserve legacy record')
 print('PASS: independent region restore, cold fixture state, primary change, missing/reconnected region, passive bags, safe fallback and ownership guards')
+
+-- A narrow region cannot contain an oversized root. Automatic Mainhand fallback
+-- must retain saved intent through passive replacement-bag capture and fresh boot.
+local oversized=copy(initial)
+addon,frame=boot(oversized,full);frame.w=1000
+addon.Canvas:RestoreWorkspacePosition(frame)
+assert(frame.x>=720 and frame.x+frame.w<=2000,'Oversized panel did not recover inside Mainhand')
+for i=1,10 do addon.BagPersistence:Capture() end
+assert(equal(addon.db.savedWorkspacePositions[name],saved),'Passive capture erased oversized fallback intent')
+assert(equal(addon.db.baganatorWorkspacePanels[name],saved),'Passive capture erased oversized fallback open state')
+local recovered=copy(addon.db)
+local cold,root=boot(recovered,full);root.w=1000;cold.Canvas:RestoreWorkspacePosition(root)
+assert(root.x>=720 and equal(cold.db.savedWorkspacePositions[name],saved),'Cold oversized recovery lost saved region')
+root.w=200;cold.Canvas:RestoreWorkspacePosition(root)
+assert(root.x==2100 and root.y==300,'Fitting panel did not return to saved region')
+cold.BagPersistence:Capture()
+assert(cold.db.savedWorkspacePositions[name].regionId=='right')
+print('PASS: oversized region restore keeps Mainhand reachable and preserves passive/cold recovery intent')
+
+addon,frame=boot(initial,full);frame.w=1000;frame.x=2000
+addon.Canvas.OnPanelDragStop(frame)
+assert(equal(addon.db.savedWorkspacePositions[name],saved),'Rejected oversized drop replaced saved placement')
+assert(frame.x>=720 and frame.x+frame.w<=2000,'Rejected drop did not recover to Mainhand')
+addon.BagPersistence:Capture()
+assert(equal(addon.db.savedWorkspacePositions[name],saved),'Rejected drop fallback was treated as explicit Mainhand move')
+frame.x=frame.x+40;addon.BagPersistence:Capture()
+assert(not addon.db.savedWorkspacePositions[name],'Genuine external move did not supersede fit fallback')
+print('PASS: oversized drop preserves prior intent until a genuine external move')
+addon,frame=boot(initial,full);frame.h=1000
+addon.Canvas:RestoreWorkspacePosition(frame)
+assert(frame.y<=720-12 and frame.y>=12,'Oversized fallback title is outside the physical Mainhand')
+assert(equal(addon.db.savedWorkspacePositions[name],saved),'Tall fallback replaced original intent')
+for _,guard in ipairs({'combat','externalOwner'})do
+    local guarded,root,env=boot(initial,full);root.w=1000;env[guard]=true
+    guarded.Canvas:RestoreWorkspacePosition(root)
+    assert(root.writes==0,'Oversized recovery ignored '..guard)
+end
+print('PASS: tall fallback keeps title reachable and respects ownership guards')

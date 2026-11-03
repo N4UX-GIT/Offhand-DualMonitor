@@ -358,7 +358,12 @@ function Bags:Capture()
     if TrackEnabled() then
         for name, frame in pairs(self.frames) do
             if not (frame.IsForbidden and frame:IsForbidden()) and frame:IsVisible() then
-                if Offhand.Canvas.IsFrameOnWorkspace(frame) then
+                local previous=Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
+                local fitFallback=Offhand.CanvasPersistence and Offhand.CanvasPersistence.PreservedFitFallback
+                    and Offhand.CanvasPersistence.PreservedFitFallback(frame,currentMetrics,previous)
+                if fitFallback then
+                    snapshot=snapshot or {};snapshot[name]=fitFallback
+                elseif Offhand.Canvas.IsFrameOnWorkspace(frame) then
                     local factor = frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
                     local x = frame:GetLeft()
                     local y = frame.GetTop and frame:GetTop() or nil

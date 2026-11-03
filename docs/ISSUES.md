@@ -2,6 +2,16 @@
 
 Stable IDs for reports that require follow-up across test sessions.
 
+## OH-CUSTOM-REGION-NARROW-FIT: oversized panels overflow or become unreadable
+
+- The old generic clamp allowed oversized panels to extend outside the workspace;
+  the Retail PlayerSpells fit could shrink arbitrarily without a readability floor.
+- Revised schema 2 restore/drop paths use guarded Mainhand fallback and preserve
+  saved workspace intent through passive bag capture. Tall titles stay reachable.
+  Custom PlayerSpells retains native size; schema 1 behavior remains unchanged.
+- Status: reproduced before fix, source and 85-suite simulation verified; revised
+  addon live verification pending. See [fit recovery](CUSTOM-WORKSPACE-REGIONS-NARROW-RECOVERY.md).
+
 ## OH-CUSTOM-REGION-DISABLE-MISSING: editor refuses disable after monitor loss
 
 - P7 multi-workspace editor required every custom display before accepting a

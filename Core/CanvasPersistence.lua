@@ -97,12 +97,45 @@ function Persistence.FitPlayerSpellsToWorkspace(frame, metrics, ownsWorkspace)
     local availableHeight = metrics.workspaceTop - metrics.workspaceBottom - 24
     if availableWidth <= 0 or availableHeight <= 0 then return end
     local desired = math.min(original, availableWidth / (width * factor), availableHeight / (height * factor))
+    -- Custom regions have no live-accepted readability floor. Retain the native
+    -- size and use Mainhand recovery instead of making talents arbitrarily tiny.
+    -- Legacy schema 1 fitting retains its established contract.
+    if metrics.workspaceRegions and desired < original - 0.0001 then
+        if state then frame:SetScale(state.original);playerSpellsScales[frame]=nil end
+        return false
+    end
     if math.abs(scale - desired) > 0.0001 then frame:SetScale(desired) end
     if desired < original then
         playerSpellsScales[frame] = { original = original, applied = desired }
     else
         playerSpellsScales[frame] = nil
     end
+end
+
+local workspaceFitFallbacks=setmetatable({}, {__mode='k'})
+function Persistence.FitsWorkspace(metrics,width,height)
+    if not metrics or not metrics.workspaceRegions then return true end
+    local function valid(v)return type(v)=='number' and v==v and v>0 and v<math.huge end
+    local availableWidth=(metrics.workspaceRight or 0)-(metrics.workspaceLeft or 0)-24
+    local availableHeight=(metrics.workspaceTop or 0)-(metrics.workspaceBottom or 0)-24
+    return valid(width) and valid(height) and width<=availableWidth+0.01 and height<=availableHeight+0.01
+end
+function Persistence.RememberFitFallback(frame,position)
+    workspaceFitFallbacks[frame]=nil
+    if not frame or not position or not Offhand.WorkspaceRegions then return end
+    local x,y=Offhand.WorkspaceRegions:FrameRect(frame)
+    if x and y then workspaceFitFallbacks[frame]={position=position,x=x,y=y} end
+end
+function Persistence.PreservedFitFallback(frame,metrics,position)
+    local state=workspaceFitFallbacks[frame]
+    if not state then return nil end
+    if state.position~=position or not metrics or not metrics.workspaceRegions then
+        workspaceFitFallbacks[frame]=nil;return nil
+    end
+    local x,y=Offhand.WorkspaceRegions:FrameRect(frame)
+    local tolerance=1.5*(metrics.screenWidth or 1)/math.max(1,metrics.physicalWidth or 1)
+    if x and y and math.abs(x-state.x)<=tolerance and math.abs(y-state.y)<=tolerance then return position end
+    workspaceFitFallbacks[frame]=nil
 end
 
 function Persistence.InstallDrag(Canvas, services)
@@ -233,10 +266,12 @@ function Persistence.InstallDrag(Canvas, services)
         end
 
         if onDeck then
+            local previousMainPosition=Offhand.db.savedMainPositions[name]
             if frame == WorldMapFrame then
                 Offhand.db.savedMainPositions.WorldMapFrame = nil
                 Canvas:ConfigureWorldMap()
             end
+            if m.workspaceRegions then Persistence.FitPlayerSpellsToWorkspace(frame,m,false) end
 
             local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
             local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
@@ -250,6 +285,22 @@ function Persistence.InstallDrag(Canvas, services)
                 frameHeight=(frame:GetHeight() or 0)*scaleFactor
             end
             local fallbackHeight = (UIParent.GetHeight and UIParent:GetHeight()) or 1080
+            local destination=m
+            if m.workspaceRegions and Offhand.WorkspaceRegions then
+                local id=Offhand.WorkspaceRegions:Destination(m,xInParent,yInParent,frameWidth,frameHeight)
+                destination=Offhand.WorkspaceRegions:ForRegion(m,id~='MAINHAND' and id or nil)
+            end
+            if not Persistence.FitsWorkspace(destination,frameWidth,frameHeight) then
+                local previous=Offhand.db.savedWorkspacePositions[name]
+                Offhand.db.savedMainPositions[name]=previousMainPosition
+                Persistence.FitPlayerSpellsToWorkspace(frame,m,false)
+                if Canvas.PlacePanelOnMainhand and Canvas:PlacePanelOnMainhand(frame,m) then
+                    Persistence.RememberFitFallback(frame,previous)
+                end
+                if Offhand.Print and Offhand.L then Offhand:Print(Offhand.L['WORKSPACE_PANEL_TOO_LARGE']) end
+                SetPanelDragging(frame,false)
+                return
+            end
             local position = Persistence.CreateWorkspacePosition(
                 m, xInParent, yInParent, frameWidth, frameHeight,
                 string.match(name, "^ChatFrame") ~= nil, fallbackHeight
@@ -534,6 +585,14 @@ function Persistence.InstallRestore(Canvas, services)
             local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
             local frameWidth = (frame:GetWidth() or 0) * frameScale / parentScale
             local frameHeight = (frame:GetHeight() or 0) * frameScale / parentScale
+            if not Persistence.FitsWorkspace(m,frameWidth,frameHeight) then
+                Persistence.FitPlayerSpellsToWorkspace(frame,m,false)
+                if Canvas.PlacePanelOnMainhand and Canvas:PlacePanelOnMainhand(frame,m) then
+                    Persistence.RememberFitFallback(frame,wPos)
+                end
+                return
+            end
+            Persistence.RememberFitFallback(frame,nil)
             local fallbackHeight = (UIParent.GetHeight and UIParent:GetHeight()) or 1080
             local clampedX, clampedY = Persistence.ResolveWorkspacePosition(
                 m, wPos, frameWidth, frameHeight,
