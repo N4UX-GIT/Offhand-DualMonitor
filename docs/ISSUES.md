@@ -41,6 +41,14 @@ Stable IDs for reports that require follow-up across test sessions.
 
 ## OH-UI-OPTIONS-TOOLTIP-SCALE: oversized game-options tooltips
 
+- 3 November investigation reproduced a SettingsTooltip/UIParent effective-scale
+  mismatch on Anniversary70577: 1.000 versus0.394 with the calibrated canvas,
+  and1.000 versus0.700 with Offhand's feature off. Companion was not running.
+  The existing Retail/Forever normalizer excludes this client by its live flags.
+- A separate scoped Anniversary SettingsTooltip adapter is source/86-suite
+  verified, with target-client correction acceptance pending. See
+  [measurements and ownership boundaries](OPTIONS-TOOLTIP-SCALE-INVESTIGATION.md).
+
 - Reported by the user after the 1 November 2026 Companion rc3 Anniversary QA;
   track separately from the Companion native-window release work.
 - Observed pairing: Anniversary `2.5.6.70577`, installed addon

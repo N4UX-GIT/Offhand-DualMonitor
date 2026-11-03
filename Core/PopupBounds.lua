@@ -168,6 +168,56 @@ function PopupBounds:UpdateClassicTooltipClamp(frame, preparing)
 end
 
 local tooltipCapture
+local settingsTooltipScales=setmetatable({}, {__mode='k'})
+local settingsTooltipYielded=setmetatable({}, {__mode='k'})
+function PopupBounds:UpdateSettingsTooltipScale(frame,restoreOnly)
+    -- Anniversary 2.5.6.70577's SettingsTooltip is a parentless root at scale 1.
+    -- Its text otherwise ignores the scaled Options UI. Other tooltip/client
+    -- normalization retains its existing contract.
+    local toc=tonumber(Offhand.tocVersion) or 0
+    if frame~=_G.SettingsTooltip or not frame or toc<20500 or toc>=20600
+        or Offhand.isRetail or Offhand.isForever
+        or (InCombatLockdown and InCombatLockdown())
+        or (frame.IsForbidden and frame:IsForbidden())
+        or (frame.IsProtected and frame:IsProtected())
+        or not frame.GetScale or not frame.SetScale then return false end
+    local state=settingsTooltipScales[frame]
+    if state and state.applying then return false end
+    local scale=frame:GetScale()
+    if type(scale)~='number' or scale<=0 or scale~=scale or scale==math.huge then return false end
+    if state and math.abs(scale-state.applied)>0.0001 then
+        settingsTooltipScales[frame]=nil;settingsTooltipYielded[frame]=true;return false
+    end
+    local external=_G.TipTac or _G.TinyTooltip or _G.TinyTooltipReforged
+    local metrics=not restoreOnly and not external and Offhand.db and Offhand.db.enabled
+        and Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+    if not metrics or not metrics.isSpanned then
+        if state then
+            state.applying=true
+            local ok=pcall(frame.SetScale,frame,state.original)
+            settingsTooltipScales[frame]=nil
+            return ok
+        end
+        return false
+    end
+    if settingsTooltipYielded[frame] or (not state and math.abs(scale-1)>0.0001) then return false end
+    local parent=frame.GetParent and frame:GetParent()
+    if parent and parent~=UIParent then return false end
+    local desired=UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()
+    local ignores=frame.IsIgnoringParentScale and frame:IsIgnoringParentScale()
+    local parentScale=not ignores and parent and parent.GetEffectiveScale and parent:GetEffectiveScale() or 1
+    if type(desired)~='number' or desired<=0 or desired~=desired or desired==math.huge
+        or type(parentScale)~='number' or parentScale<=0 then return false end
+    desired=desired/parentScale
+    if math.abs(scale-desired)<=0.0001 then return false end
+    state=state or {original=scale}
+    state.applied,state.applying=desired,true;settingsTooltipScales[frame]=state
+    local ok=pcall(frame.SetScale,frame,desired)
+    state.applying=false
+    if not ok then settingsTooltipScales[frame]=nil end
+    return ok
+end
+
 function PopupBounds:ArmTooltipPresentationCapture()
     if InCombatLockdown and InCombatLockdown() then return false end
     local token = {}
@@ -405,7 +455,11 @@ function PopupBounds:ObserveTooltip(tooltip)
     tooltip._OffhandBoundsObserved = true
     if tooltip.HookScript then
         if tooltip == _G.SettingsTooltip then
-            tooltip:HookScript('OnShow',CaptureVisibleTooltip)
+            tooltip:HookScript('OnShow',function(self)
+                PopupBounds:UpdateSettingsTooltipScale(self)
+                CaptureVisibleTooltip(self)
+            end)
+            tooltip:HookScript('OnSizeChanged',function(self)PopupBounds:UpdateSettingsTooltipScale(self)end)
         end
         -- Shopping-tooltip OnShow fires while Retail's comparison manager is
         -- still constructing its layout. Reanchoring from that intermediate
@@ -422,6 +476,10 @@ function PopupBounds:ObserveTooltip(tooltip)
             tooltip:HookScript("OnShow", function(self) PopupBounds:UpdateClassicTooltipClamp(self) end)
         end
         tooltip:HookScript("OnHide", function(self)
+            if self==_G.SettingsTooltip then
+                PopupBounds:UpdateSettingsTooltipScale(self,true)
+                settingsTooltipYielded[self]=nil
+            end
             PopupBounds:RestoreClassicTooltipClamp(self)
             PopupBounds:ClearManagedTooltip(self)
         end)
