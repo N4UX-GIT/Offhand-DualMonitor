@@ -195,7 +195,28 @@ function PopupBounds:GetTooltipPresentationDiagnostics()
             frame.GetFrameLevel and tostring(frame:GetFrameLevel()) or "unknown",
             frame.GetEffectiveScale and string.format("%.3f", frame:GetEffectiveScale()) or "unknown", bounds)
     end
-    for _, name in ipairs({ "GameTooltip", "ItemRefTooltip", "ShoppingTooltip1", "ShoppingTooltip2" }) do
+    local function ScaleDetails(frame)
+        local function Number(v)return type(v)=='number' and v==v and math.abs(v)<math.huge and string.format('%.3f',v) or 'unknown' end
+        local parent=frame.GetParent and frame:GetParent()
+        local parentAllowed=parent and not (parent.IsForbidden and parent:IsForbidden())
+        local parentName=parentAllowed and parent.GetName and parent:GetName() or 'unknown'
+        local fontHeight
+        if frame.GetRegions then
+            local regions={frame:GetRegions()}
+            for i=1,math.min(32,#regions) do
+                local region=regions[i]
+                if region and not (region.IsForbidden and region:IsForbidden()) and region.GetFont then
+                    local _,height=region:GetFont();fontHeight=height;break
+                end
+            end
+        end
+        return string.format('localScale=%s;parent=%s;parentScale=%s;uiScale=%s;ignoreParentScale=%s;fontHeight=%s',
+            Number(frame.GetScale and frame:GetScale()),tostring(parentName),
+            Number(parentAllowed and parent.GetEffectiveScale and parent:GetEffectiveScale()),
+            Number(UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()),
+            frame.IsIgnoringParentScale and tostring(frame:IsIgnoringParentScale()) or 'unknown',Number(fontHeight))
+    end
+    for _, name in ipairs({ "GameTooltip", "ItemRefTooltip", "ShoppingTooltip1", "ShoppingTooltip2", "SettingsTooltip" }) do
         local ok, detail = pcall(function()
             local frame = _G[name]
             if not frame then return "absent" end
@@ -208,9 +229,9 @@ function PopupBounds:GetTooltipPresentationDiagnostics()
             if slice and slice.GetCenterColor then _, _, _, centerAlpha = slice:GetCenterColor() end
             local clamp = frame.GetClampRectInsets
                 and string.format("%.1f/%.1f/%.1f/%.1f", frame:GetClampRectInsets()) or "unavailable"
-            return string.format("%s;embedded=%s;backdrop=%s;centerAlpha=%s;clamp=%s",
+            return string.format("%s;embedded=%s;backdrop=%s;centerAlpha=%s;clamp=%s;%s",
                 Describe(frame), frame.IsEmbedded and "yes" or "no", Describe(slice),
-                centerAlpha and string.format("%.2f", centerAlpha) or "unknown", clamp)
+                centerAlpha and string.format("%.2f", centerAlpha) or "unknown", clamp,ScaleDetails(frame))
         end)
         reports[#reports + 1] = name .. "=" .. (ok and detail or "unavailable")
     end
@@ -383,6 +404,9 @@ function PopupBounds:ObserveTooltip(tooltip)
     if not tooltip or tooltip._OffhandBoundsObserved then return false end
     tooltip._OffhandBoundsObserved = true
     if tooltip.HookScript then
+        if tooltip == _G.SettingsTooltip then
+            tooltip:HookScript('OnShow',CaptureVisibleTooltip)
+        end
         -- Shopping-tooltip OnShow fires while Retail's comparison manager is
         -- still constructing its layout. Reanchoring from that intermediate
         -- callback makes the manager and Offhand visibly alternate. Root
