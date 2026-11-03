@@ -44,12 +44,28 @@ assert(p:UpdateSettingsTooltipScale(f) and f.scale==1,'Feature-off update did no
 local unrelated=fresh();SettingsTooltip={}
 assert(not p:UpdateSettingsTooltipScale(unrelated),'Unrelated tooltip normalized')
 addon.db.enabled=true
-local queued=fresh();queued.IsShown=function()return true end
-local timers={};C_Timer={After=function(_,callback)timers[#timers+1]=callback end}
-p:QueueSettingsTooltipScale(queued);p:QueueSettingsTooltipScale(queued)
-assert(#timers==1 and queued.writes==0,'Native layout was interrupted or work was duplicated')
-timers[1]();assert(queued.scale==0.7)
-queued.IsShown=function()return false end
-p:QueueSettingsTooltipScale(queued);timers[2]()
-assert(queued.writes==1,'Hidden tooltip was scaled by delayed work')
+local prepared=fresh();prepared.scripts={}
+function prepared:HookScript(name,callback)
+ self.scripts[name]=self.scripts[name] or {};table.insert(self.scripts[name],callback)
+end
+function prepared:SetOwner()end
+local ownerHook
+hooksecurefunc=function(target,method,callback)
+ assert(target==prepared and method=='SetOwner');ownerHook=callback
+end
+assert(p:ObserveTooltip(prepared))
+assert(prepared.writes==0,'Observation changed native scale before ownership')
+ownerHook(prepared,{},'ANCHOR_RIGHT')
+assert(prepared.scale==0.7,'Native text construction would start at the wrong scale')
+-- Native SetText/AddLine/Show happens here. Later callbacks must not alter
+-- its finished wrapping geometry, including when UIParent changes mid-hover.
+UIParent.GetEffectiveScale=function()return 0.4 end
+for _,name in ipairs({'OnShow','OnSizeChanged'})do
+ for _,callback in ipairs(prepared.scripts[name] or {})do callback(prepared)end
+end
+assert(prepared.scale==0.7 and prepared.writes==1,'Finished native text layout was rescaled')
+for _,callback in ipairs(prepared.scripts.OnHide)do callback(prepared)end
+assert(prepared.scale==1,'Hide did not release prepared scale')
+ownerHook(prepared,{},'ANCHOR_RIGHT')
+assert(prepared.scale==0.4,'Next presentation did not adopt the new UI scale')
 print('PASS: Anniversary SettingsTooltip scale is bounded, reversible, idempotent and ownership/combat guarded')
