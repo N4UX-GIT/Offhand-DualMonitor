@@ -4,7 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [2.1.2-beta.24] - 2026-10-30
+- Coalesced rapid bezel-gap and game-bottom adjustments so the final layout
+  applies after a short pause, while the displayed value updates immediately.
+  This is a candidate mitigation for adjustment stalls; live graphics recovery
+  and crash verification remain pending.
+
+## [2.1.2-beta.24] - 2026-10-31
 
 ### Fixed and improved
 - Improved workspace chat position restoration and docked-tab visibility handling,
@@ -19,6 +24,14 @@ All notable changes to this project will be documented in this file.
   to OpenMap.
 - Added compatible shared Mainhand HUD layout reuse across characters while
   preserving character-specific rollback sources and external-addon anchors.
+- Prevented old character-named HUD layouts from being adopted as shared layouts
+  or automatically selected for another character.
+- Explicit Mainhand HUD setup can preserve the current character's tuned legacy
+  layout when updating the shared layout. The individual layout is retained and
+  the previous shared layout is backed up.
+- Added character GUID tracking so future same-name recreations receive a fresh
+  HUD setup check. Existing data without a GUID cannot retrospectively identify
+  a recreated character; account-wide installation setup remains preserved.
 - Improved Mainhand bounds for world tooltips and supported speech bubbles.
 - Improved Ellesmere bags, chat and status-bar ownership handling.
 - Made Recover Missing UI clearer, with readable paragraphs, smaller body text,
@@ -28,6 +41,8 @@ All notable changes to this project will be documented in this file.
   and recommend backing up Blizzard layouts and addon profiles before setup.
 
 ### Verified on Retail
+- Shared layout selection and placement passed the two-character retest after
+  updating the shared layout from the tuned individual layout.
 - Tested packaged Offhand Beta 24 with an unmodified CurseForge installation of
   OpenMap v0.7.1-beta on Retail 12.1.5. After restarting, the map remained visible
   through repeated opening/closing, zooming and zone hovering, with no fresh
@@ -38,7 +53,7 @@ All notable changes to this project will be documented in this file.
   across unequal or offset displays. Use Companion's Restore Window before
   loading, then Span WoW Now after returning to the world, as a manual workaround.
 - Real incoming chat across tabs, exact top-left chat persistence through zoning,
-  two-character shared-layout reuse/rollback and the reported mixed-landscape
+  shared-layout rollback, recreated-character setup and the reported mixed-landscape
   border need further live verification. Combat/taint and physical stacked-display
   tooltip/bubble checks remain outstanding. Other clients need targeted retesting.
 - This is an addon-only beta. Companion remains 2.1.2-beta.20; no native loading
