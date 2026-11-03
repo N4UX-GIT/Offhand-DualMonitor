@@ -1,5 +1,12 @@
 # Retail expanded notification candidate, awaiting live verification
 
+3 November custom-region follow-up: reconciled addon source and exact P6 passed
+the bounded Retail/Anniversary package checks in
+[consolidated QA](../docs/CUSTOM-WORKSPACE-REGIONS-CONSOLIDATED-QA.md).
+The user manually verified Character-panel dragging and requested no repeat.
+All 83 Lua suites passed. Combat, physical display changes and fresh HUD-row
+creation remain separate gates. This does not accept the notification report below.
+
 - Reporter explicitly confirms this follow-up is on test.3: party-portrait
   completion popup works, but a similar brief popup immediately before it remains
   centered across both displays. No /fstack or image of the failing first popup.

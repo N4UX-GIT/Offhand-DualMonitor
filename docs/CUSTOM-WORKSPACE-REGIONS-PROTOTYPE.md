@@ -11,9 +11,10 @@ contract. This is separate from multiple independent workspace regions.
 ## Trying the current local prototype
 
 Prototype 6 is the latest local build. It adds an explicit fullscreen taskbar
-notification and passed a targeted Retail native-window check at character
-selection. See [taskbar behavior and exact hashes](CUSTOM-WORKSPACE-REGIONS-TASKBAR.md).
-It retains the existing region geometry and requires separate in-world acceptance.
+notification. It now has bounded Retail and Anniversary in-world acceptance with
+the reconciled addon source, fresh viewport diagnostics and exact native Restore.
+See [consolidated evidence and remaining gates](CUSTOM-WORKSPACE-REGIONS-CONSOLIDATED-QA.md)
+and [taskbar behavior and exact hashes](CUSTOM-WORKSPACE-REGIONS-TASKBAR.md).
 
 Prototype 5 completed a targeted Retail
 two-monitor to single-monitor transition and Restore workflow, and an Anniversary

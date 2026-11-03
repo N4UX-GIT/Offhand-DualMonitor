@@ -1,5 +1,13 @@
 # Custom workspace regions: local review handoff
 
+Latest, 3 November: the new consolidated review packet pairs exact P6 with all
+preserved addon fixes at integration commit `2898270`. Its own
+[QA and remaining gates](CUSTOM-WORKSPACE-REGIONS-CONSOLIDATED-QA.md) cover bounded
+Retail/Anniversary in-world checks, unchanged captured errors and verified
+cleanup. The [third-monitor study](CUSTOM-WORKSPACE-REGIONS-THIRD-MONITOR-STUDY.md)
+adds source/fixture evidence and a schema 2 recommendation. The older P5 packet
+below remains immutable and must not be mistaken for this new package.
+
 3 November update: [Prototype 6](CUSTOM-WORKSPACE-REGIONS-TASKBAR.md) is the latest
 local candidate, with explicit Windows fullscreen taskbar notification, file
 version `2.1.3.2` and a targeted Retail character-selection check. Its native

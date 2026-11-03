@@ -1,5 +1,9 @@
 # Prototype 6 fullscreen taskbar presentation
 
+Follow-up: [the consolidated package QA](CUSTOM-WORKSPACE-REGIONS-CONSOLIDATED-QA.md)
+adds exact P6 in-world taskbar/viewport/Restore checks on Retail and Anniversary.
+The character-selection test below remains historical evidence from its own run.
+
 3 November 2026. The user requested that custom spanning hide the taskbar where
 possible, matching the expected fullscreen experience. Prototype 6 adds an
 explicit Windows Shell fullscreen notification for the actual WoW window.
@@ -94,7 +98,8 @@ Source declarations, native fixtures and actual Retail observations remain
 distinct. Successful notification alone is not a visibility guarantee on every
 Windows/shell configuration.
 
-Confirmation in the user's original in-world scene, other clients, Explorer
-restart, auto-hide variants, mixed DPI and physical hotplug remain unverified.
+Confirmation in the user's original in-world scene, clients beyond the later
+Retail/Anniversary checks, Explorer restart, auto-hide variants, mixed DPI and
+physical hotplug remain unverified.
 Earlier Prototype 5 acceptance stays attached to its original bytes. The wider
 custom-region release gates and separate oversized-tooltip issue remain open.
