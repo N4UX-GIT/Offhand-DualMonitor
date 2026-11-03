@@ -547,7 +547,6 @@ code {
 }
 .landing-intro > .demo-preview { grid-area: video; }
 .landing-intro-copy { grid-area: copy; min-width: 0; text-align: left; }
-.landing-intro-copy .hero-badge { margin-bottom: 16px; }
 .landing-desktop-copy { margin: 0; text-align: left; }
 .landing-intro-copy .landing-primary-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 20px 0 0; }
 .landing-primary-actions .btn { min-height: 44px; }
@@ -640,42 +639,12 @@ code {
     .home-page .content-deck { margin-top: 6px; padding: 16px 16px 32px; }
     .landing-intro { grid-template-areas: "video" "copy"; margin: 0 0 16px; gap: 20px; }
     .landing-intro-copy { display: block; grid-area: copy; text-align: center; }
-    .landing-intro-copy .hero-badge { margin-bottom: 12px; }
     .landing-desktop-copy { display: none; }
     .landing-intro-heading { display: block; font-size: 1.2rem; }
     .home-page .landing-actions { gap: 10px; }
     .home-page #features .grid-3 { grid-template-columns: minmax(0, 1fr); }
     .demo-preview-caption { padding: 14px 10px; }
     .demo-preview-caption strong { font-size: 0.9rem; }
-}
-
-/* Raider.IO Style Chip / Badge */
-.hero-badge,
-.rio-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(255, 189, 10, 0.08);
-    border: 1px solid var(--rio-border-gold);
-    padding: 6px 18px;
-    border-radius: 20px;
-    font-family: var(--font-body);
-    font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    color: var(--rio-gold);
-    margin-bottom: 16px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6), 0 0 12px rgba(255, 189, 10, 0.15);
-}
-
-.hero-badge::before,
-.rio-chip::before {
-    content: '';
-    width: 7px;
-    height: 7px;
-    background: var(--rio-gold);
-    border-radius: 50%;
-    box-shadow: 0 0 8px var(--rio-gold);
 }
 
 .hero-actions {
@@ -769,7 +738,7 @@ code {
     display: block;
 }
 
-/* Dual Display Overlay Badges */
+/* Dual-display descriptions */
 .showcase-annotations {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -805,27 +774,6 @@ code {
     font-size: 1rem;
     font-weight: 700;
     color: var(--text-primary);
-}
-
-.annotation-badge {
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    padding: 2px 8px;
-    border-radius: 4px;
-    text-transform: uppercase;
-}
-
-.badge-portrait {
-    background: rgba(255, 189, 10, 0.12);
-    color: var(--rio-gold);
-    border: 1px solid var(--rio-border-gold);
-}
-
-.badge-landscape {
-    background: rgba(255, 215, 80, 0.12);
-    color: var(--rio-gold-bright);
-    border: 1px solid rgba(255, 215, 80, 0.3);
 }
 
 .annotation-desc {
@@ -1278,7 +1226,6 @@ kbd {
 }
 
 .community-support-icon img { width: 38px; height: 38px; }
-.community-support-copy .hero-badge { margin: 0 0 10px; }
 .community-support-copy h3 { margin-bottom: 7px; color: var(--rio-gold-bright); font-size: 1.22rem; }
 .community-support-copy p { color: var(--text-secondary); }
 .community-support-actions { display: flex; flex-direction: column; gap: 10px; }
@@ -1452,7 +1399,6 @@ kbd {
     .footer-nav a { text-align: center; }
     .community-support-card { grid-template-columns: 1fr; text-align: center; padding: 20px 16px; }
     .community-support-icon { margin: 0 auto; }
-    .community-support-copy .hero-badge { margin-left: auto; margin-right: auto; }
     .community-support-actions { grid-column: auto; flex-direction: column; }
     .community-support-actions .btn { width: 100%; }
 }
@@ -1483,27 +1429,15 @@ kbd {
 .setup-guide-deck { margin-top: 48px; }
 
 .guide-title {
-    margin: 18px 0 12px;
+    margin: 0 0 12px;
     color: var(--rio-gold);
     font-size: clamp(2rem, 5vw, 3.2rem);
 }
 
-.guide-section-title { margin-top: 18px; }
+.guide-section-title { margin-top: 0; }
 .method-card { position: relative; overflow: hidden; }
 .recommended-method { border-color: rgba(255, 189, 10, 0.66); }
 
-.method-label {
-    display: inline-flex;
-    margin-bottom: 14px;
-    padding: 5px 9px;
-    color: #f8d872;
-    background: rgba(255, 189, 10, 0.09);
-    border: 1px solid rgba(255, 189, 10, 0.32);
-    border-radius: 999px;
-    font-size: 0.68rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-}
 
 .compact-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
@@ -1549,6 +1483,7 @@ kbd {
 }
 
 .fancyzones-settings-card { min-width: 0; }
+.fancyzones-settings-card h4 { margin: 0 0 14px; color: var(--rio-gold); }
 
 .settings-checklist {
     display: grid;
@@ -1577,21 +1512,18 @@ kbd {
     min-height: 26px;
     align-items: center;
     justify-content: center;
-    padding: 4px 7px;
+    padding: 4px 0;
     color: #f8d872;
-    background: rgba(255, 189, 10, 0.08);
-    border: 1px solid rgba(255, 189, 10, 0.38);
-    border-radius: 999px;
     font-size: 0.68rem;
     font-weight: 900;
     letter-spacing: 0.05em;
     text-align: center;
 }
 
-.setting-off { color: #c7ccd8; background: rgba(138, 146, 166, 0.08); border-color: rgba(138, 146, 166, 0.34); }
+.setting-off { color: #c7ccd8; }
 .setting-zero,
-.setting-match { color: #a9ead8; background: rgba(21, 166, 131, 0.08); border-color: rgba(21, 166, 131, 0.36); }
-.setting-choice { color: #b9c9ef; background: rgba(103, 133, 190, 0.09); border-color: rgba(103, 133, 190, 0.38); }
+.setting-match { color: #a9ead8; }
+.setting-choice { color: #b9c9ef; }
 .fancyzones-canvas-callout { max-width: none; }
 
 .page-jump-nav {
@@ -1861,22 +1793,6 @@ kbd {
     gap: 20px;
 }
 
-.ownership-card { position: relative; padding-top: 58px; }
-.ownership-label {
-    position: absolute;
-    top: 20px;
-    left: 24px;
-    display: inline-flex;
-    padding: 5px 9px;
-    border: 1px solid;
-    border-radius: 999px;
-    font-size: 0.68rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-}
-.ownership-offhand { color: #8ee7cd; background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.38); }
-.ownership-blizzard { color: var(--rio-gold-bright); background: var(--rio-gold-dim); border-color: var(--rio-border-gold-bright); }
-
 .edit-mode-sequence {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2049,7 +1965,7 @@ kbd {
 }
 
 .background-promo-copy .wow-card-title {
-    margin-top: 18px;
+    margin-top: 0;
     font-size: clamp(1.7rem, 4vw, 2.6rem);
 }
 
