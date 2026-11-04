@@ -481,6 +481,7 @@ namespace Offhand.Companion
             int? first=null;bool mixed=false;
             foreach(var state in selected){if(state==null||!state.Percent.HasValue)return "Windows scale unavailable for one or more selected displays.";
                 if(first.HasValue&&first.Value!=state.Percent.Value)mixed=true;first=state.Percent;}
+            if(selected.Count==1)return "Selected display uses "+first+"% Windows scaling.";
             return mixed?"Different Windows scales detected. Physical multi-monitor DPI testing remains pending. See Display Troubleshooting."
                 : "All "+selected.Count+" selected displays use "+first+"% Windows scaling.";
         }
@@ -4914,7 +4915,8 @@ namespace Offhand.Companion
                 for(int i=0;i<plan.Workspaces.Length;i++) {
                     var region=plan.Workspaces[i];var display=displays[region.DisplayIndex];
                     var color=DisplayColor.Lookup(states,display.DeviceName,failure);var scale=DisplayScaling.Read(display);
-                    scaleByIndex[region.DisplayIndex]=scale;scales.Add(scale);colors.Add(color);unknown|=color.Active==DisplayColor.Mode.Unknown;
+                    if(!scaleByIndex.ContainsKey(region.DisplayIndex))scales.Add(scale);
+                    scaleByIndex[region.DisplayIndex]=scale;colors.Add(color);unknown|=color.Active==DisplayColor.Mode.Unknown;
                     lines.Add(string.Format("Workspace {0} (Display {1}): {2}, {3}",i+1,region.DisplayIndex+1,color.Label,scale.Label));
                 }
                 mixed=false;foreach(var a in colors)foreach(var b in colors)mixed|=DisplayColor.IsMixed(a,b,false);
@@ -4956,7 +4958,12 @@ namespace Offhand.Companion
             {
                 currentDisplayPlan = GetMonitorPlan(currentDisplays);
                 string alignmentWarning = MonitorSelection.AlignmentWarning(currentDisplayPlan);
-                lblDisplayInfo.Text = string.Format("  Game: {0}x{1}  Workspace: {2}x{3}  ({4})",
+                lblDisplayInfo.Text = currentDisplayPlan.FlexibleLayout
+                    ? string.Format("  Game: {0}x{1}  |  {2} workspace{3} on {4} display{5}",
+                        currentDisplayPlan.MainhandBounds.Width,currentDisplayPlan.MainhandBounds.Height,
+                        currentDisplayPlan.Workspaces.Length,currentDisplayPlan.Workspaces.Length==1?"":"s",
+                        currentDisplayPlan.Indices.Length,currentDisplayPlan.Indices.Length==1?"":"s")
+                    : string.Format("  Game: {0}x{1}  Workspace: {2}x{3}  ({4})",
                     currentDisplayPlan.MainhandBounds.Width, currentDisplayPlan.MainhandBounds.Height,
                     currentDisplayPlan.WorkspaceBounds.Width, currentDisplayPlan.WorkspaceBounds.Height,
                     currentDisplayPlan.SplitSingle ? "one-screen split"

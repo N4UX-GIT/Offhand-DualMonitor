@@ -34,7 +34,7 @@ namespace Offhand.Companion
                 // Change the fixture process's in-memory dictionary; never save it.
                 var pending=(Dictionary<string,string>)typeof(CompanionForm).GetField("appSettings",
                     System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic).GetValue(null);
-                pending["PartialSpanEnabled"]="False";pending["SecondaryAreaEnabled"]="False";pending["WorkspaceRegionsEnabled"]="False";
+                pending["PartialSpanEnabled"]="False";pending["SecondaryAreaEnabled"]="False";pending["WorkspaceRegionsEnabled"]="False";pending[WorkspaceLayoutSettings.EnabledKey]="False";
                 typeof(CompanionForm).GetMethod("UpdatePartialControls",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).Invoke(form,null);
                 Check(CompanionForm.GraphicsRecoveryEnabled && !CompanionForm.GraphicsRecoveryTestBuild,
                     "ordinary dashboard includes production recovery");
