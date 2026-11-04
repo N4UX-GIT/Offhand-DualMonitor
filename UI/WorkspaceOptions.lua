@@ -96,16 +96,26 @@ function UI.Build(tabs,card,options)
     end
     Text(routing,L.WORKSPACE_ROUTING_SCOPE,12,-315,628)
 
-    local themeCard=card(tabs.themes,L.WORKSPACE_THEMES_TITLE,224)
+    local themeCard=card(tabs.themes,L.WORKSPACE_THEMES_TITLE,342)
     local themeHelp=Text(themeCard,L.WORKSPACE_THEMES_HELP,12,-34,628)
     local themeChoices={{id="INHERIT",label=L.WORKSPACE_THEME_INHERIT},
         {id="CLASSIC",label=L.THEME_CLASSIC},{id="BLIZZARD_SLATE",label=L.THEME_SLATE},
         {id="OBSIDIAN",label=L.THEME_OBSIDIAN},{id="PITCH_BLACK",label=L.THEME_PITCH_BLACK},
         {id="GNOMISH_TINKER",label=L.THEME_TINKER}}
     local regionRows={}
+    local mediaChoices={{id="INHERIT",label=L.WORKSPACE_MEDIA_INHERIT},
+        {id="THEME",label=L.WORKSPACE_MEDIA_THEME},{id="IMAGE",label=L.WORKSPACE_MEDIA_IMAGE}}
+    local fitChoices={{id="INHERIT",label=L.WORKSPACE_MEDIA_FIT_INHERIT},
+        {id="PACKAGE",label=L.USER_MEDIA_FIT_PACKAGE},{id="FILL",label=L.USER_MEDIA_FIT_FILL},
+        {id="FIT",label=L.USER_MEDIA_FIT_FIT},{id="STRETCH",label=L.USER_MEDIA_FIT_STRETCH}}
+    local function RegionSetting(i,key)
+        local r=Regions()[i];local all=Offhand.db and Offhand.db.workspaceRegionThemes
+        local settings=r and type(all)=="table" and all[r.id]
+        return type(settings)=="table" and settings[key] or "INHERIT"
+    end
     for index=1,2 do
-        local i=index;local label=Text(themeCard,"",12,-95-(i-1)*44,190)
-        local button=Choice(themeCard,208,-90-(i-1)*44,438,themeChoices,
+        local i=index;local y=-90-(i-1)*104;local label=Text(themeCard,"",12,y-5,190)
+        local button=Choice(themeCard,208,y,438,themeChoices,
             function()
                 local r=Regions()[i];local all=Offhand.db and Offhand.db.workspaceRegionThemes
                 local settings=r and type(all)=="table" and all[r.id]
@@ -115,15 +125,29 @@ function UI.Build(tabs,card,options)
                 local r=Regions()[i];if not r then return false,"WORKSPACE_CUSTOM_REQUIRED" end
                 return Offhand.Themes:SetRegionTheme(r.id,value~="INHERIT" and value or nil)
             end)
-        regionRows[i]={label=label,button=button}
+        local media=Choice(themeCard,12,y-34,310,mediaChoices,
+            function()return RegionSetting(i,"userMediaMode")end,
+            function(value)
+                local r=Regions()[i];if not r then return false,"WORKSPACE_CUSTOM_REQUIRED" end
+                return Offhand.Themes:SetRegionMediaMode(r.id,value~="INHERIT" and value or nil)
+            end)
+        local fit=Choice(themeCard,332,y-34,314,fitChoices,
+            function()return RegionSetting(i,"userMediaFitMode")end,
+            function(value)
+                local r=Regions()[i];if not r then return false,"WORKSPACE_CUSTOM_REQUIRED" end
+                return Offhand.Themes:SetRegionMediaFit(r.id,value~="INHERIT" and value or nil)
+            end)
+        regionRows[i]={label=label,button=button,media=media,fit=fit}
     end
     refreshers[#refreshers+1]=function()
         local regions=Regions();themeHelp:SetText(#regions>0 and L.WORKSPACE_THEMES_HELP or L.WORKSPACE_CUSTOM_REQUIRED)
         for i,row in ipairs(regionRows) do
             row.label:SetText(string.format(L.WORKSPACE_REGION_NUMBER,i))
             row.label:SetAlpha(regions[i] and 1 or 0.45);row.button:SetEnabled(regions[i]~=nil)
+            row.media:SetEnabled(regions[i]~=nil);row.fit:SetEnabled(regions[i]~=nil)
         end
     end
+    Text(themeCard,L.WORKSPACE_MEDIA_HELP,12,-286,628)
     UI.refreshers=refreshers
     -- Resolve profile selection before its choice label is first rendered.
     local _,current=Offhand.WorkspaceProfiles:List();selected=current

@@ -129,6 +129,10 @@ function Themes:GetRegionSettings(regionID)
     if COLOR_PALETTES[override.trimColor] then result.trimColor=override.trimColor end
     local alpha=override.canvasAlpha
     if type(alpha)=="number" and alpha==alpha and alpha>=0 and alpha<=1 then result.canvasAlpha=alpha end
+    if override.userMediaMode=="THEME" then result.userMediaEnabled=false
+    elseif override.userMediaMode=="IMAGE" then result.userMediaEnabled=true end
+    local fit=override.userMediaFitMode
+    if fit=="PACKAGE" or fit=="FILL" or fit=="FIT" or fit=="STRETCH" then result.userMediaFitMode=fit end
     return result
 end
 
@@ -138,8 +142,13 @@ function Themes:SetRegionTheme(regionID,themeKey)
         or not regionID:match("^[%w_-]+$") or themeKey~=nil and not THEME_DATA[themeKey] then return false,"WORKSPACE_PROFILE_INVALID" end
     if Offhand.db.workspaceRegionThemes~=nil and type(Offhand.db.workspaceRegionThemes)~="table" then return false,"WORKSPACE_PROFILE_INVALID" end
     Offhand.db.workspaceRegionThemes=Offhand.db.workspaceRegionThemes or {}
-    -- Clearing a region returns all of its appearance choices to inheritance.
-    if not themeKey then Offhand.db.workspaceRegionThemes[regionID]=nil
+    -- Theme inheritance is independent from the region's image preferences.
+    if not themeKey then
+        local settings=Offhand.db.workspaceRegionThemes[regionID]
+        if type(settings)=="table" then
+            settings.theme,settings.trimColor,settings.canvasColor,settings.canvasAlpha=nil,nil,nil,nil
+            if not next(settings) then Offhand.db.workspaceRegionThemes[regionID]=nil end
+        end
     else
         local settings=type(Offhand.db.workspaceRegionThemes[regionID])=="table"
             and Offhand.db.workspaceRegionThemes[regionID] or {}
@@ -151,6 +160,27 @@ function Themes:SetRegionTheme(regionID,themeKey)
     end
     self:ApplyCanvasTheme()
     return true
+end
+
+local function SetRegionMedia(regionID,key,value)
+    if InCombatLockdown and InCombatLockdown() then return false,"WORKSPACE_COMBAT" end
+    local db=Offhand.db
+    if not db or type(regionID)~="string" or #regionID>32 or not regionID:match("^[%w_-]+$")
+        or db.workspaceRegionThemes~=nil and type(db.workspaceRegionThemes)~="table" then return false,"WORKSPACE_PROFILE_INVALID" end
+    db.workspaceRegionThemes=db.workspaceRegionThemes or {}
+    local settings=type(db.workspaceRegionThemes[regionID])=="table" and db.workspaceRegionThemes[regionID] or {}
+    settings[key]=value
+    db.workspaceRegionThemes[regionID]=next(settings) and settings or nil
+    Themes:ApplyCanvasTheme()
+    return true
+end
+function Themes:SetRegionMediaMode(regionID,mode)
+    if mode~=nil and mode~="IMAGE" and mode~="THEME" then return false,"WORKSPACE_PROFILE_INVALID" end
+    return SetRegionMedia(regionID,"userMediaMode",mode)
+end
+function Themes:SetRegionMediaFit(regionID,fit)
+    if fit~=nil and fit~="PACKAGE" and fit~="FILL" and fit~="FIT" and fit~="STRETCH" then return false,"WORKSPACE_PROFILE_INVALID" end
+    return SetRegionMedia(regionID,"userMediaFitMode",fit)
 end
 
 function Themes:ApplyCanvasTheme(canvasFrame,regionID)
@@ -261,7 +291,11 @@ function Themes:ApplyCanvasTheme(canvasFrame,regionID)
     if (canvasFrame == Offhand.canvas or canvasFrame == _G["OffhandCanvasFrame"]
         or (Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:IsCanvas(canvasFrame)))
         and Offhand.UserMedia and Offhand.UserMedia.ApplyToCanvas then
-        Offhand.UserMedia:ApplyToCanvas(canvasFrame)
+        if Offhand.UserMedia:ApplyToCanvas(canvasFrame,settings) and canvasFrame.SetBackdropColor then
+            -- BackdropTemplate draws its fill above the custom BACKGROUND textures.
+            -- The media matte supplies the fill; retain the independently styled border.
+            canvasFrame:SetBackdropColor(0,0,0,0)
+        end
     end
 end
 

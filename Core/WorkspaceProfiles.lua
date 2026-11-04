@@ -9,7 +9,9 @@ local fields = {
     "workspacePanelLoadAddons", "workspaceRegionThemes", "workspacePanelRoutes",
     "nativeBackpackWorkspacePosition", "nativeBackpackWorkspaceOpen",
     "workspacePlayerSpellsTab", "workspaceMapScale", "mainMapScale",
+    "userMediaEnabled", "userMediaFitMode",
 }
+local mediaFields={userMediaEnabled=true,userMediaFitMode=true}
 local function Copy(value, depth)
     if type(value) ~= "table" then
         if type(value) == "string" or type(value) == "boolean"
@@ -26,12 +28,17 @@ end
 local function Snapshot()
     local result = {}
     for _, key in ipairs(fields) do result[key] = Copy(Offhand.db[key]) end
+    result.mediaSettingsVersion=1
     return result
 end
 local tableFields={savedWorkspacePositions=true,savedMainPositions=true,openWorkspacePanels=true,
     workspacePanelLoadAddons=true,workspaceRegionThemes=true,workspacePanelRoutes=true,nativeBackpackWorkspacePosition=true}
 local function ValidState(state)
     if type(state)~="table" then return false end
+    if state.mediaSettingsVersion~=nil and state.mediaSettingsVersion~=1 then return false end
+    if state.userMediaEnabled~=nil and type(state.userMediaEnabled)~="boolean" then return false end
+    local fit=state.userMediaFitMode
+    if fit~=nil and fit~="PACKAGE" and fit~="FILL" and fit~="FIT" and fit~="STRETCH" then return false end
     for key in pairs(tableFields) do if state[key]~=nil and type(state[key])~="table" then return false end end
     for _,key in ipairs({"savedWorkspacePositions","savedMainPositions"}) do
         for name,position in pairs(state[key] or {}) do
@@ -109,7 +116,10 @@ function Profiles:Activate(id, deferLayout)
         for name in pairs(Offhand.db.savedMainPositions or {}) do previous[name]=true end
         store.items[store.active].state=Snapshot()
         local state=Copy(item.state)
-        for _,key in ipairs(fields) do Offhand.db[key]=state[key] end
+        for _,key in ipairs(fields) do
+            -- Older workspace snapshots did not own global media preferences.
+            if not mediaFields[key] or state.mediaSettingsVersion==1 then Offhand.db[key]=state[key] end
+        end
         Offhand.db.savedWorkspacePositions=Offhand.db.savedWorkspacePositions or {}
         Offhand.db.savedMainPositions=Offhand.db.savedMainPositions or {}
         Offhand.db.openWorkspacePanels=Offhand.db.openWorkspacePanels or {}

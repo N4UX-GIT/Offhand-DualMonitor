@@ -19,6 +19,22 @@ assert(themes:SetRegionTheme('a','GNOMISH_TINKER'));assert(a.color[3]==.64 and b
 combat=true;assert(not themes:SetRegionTheme('b','OBSIDIAN'));assert(b.color[1]==0)
 combat=false
 assert(themes:SetRegionTheme('b',nil));assert(b.color[1]==.72)
+addon.db.userMediaEnabled=true;addon.db.userMediaFitMode='PACKAGE'
+assert(themes:SetRegionMediaMode('a','THEME'))
+assert(themes:SetRegionMediaMode('b','IMAGE'))
+assert(themes:SetRegionMediaFit('b','FIT'))
+assert(not themes:GetRegionSettings('a').userMediaEnabled)
+assert(themes:GetRegionSettings('b').userMediaEnabled and themes:GetRegionSettings('b').userMediaFitMode=='FIT')
+assert(addon.db.userMediaEnabled and addon.db.userMediaFitMode=='PACKAGE','Region media changed global preferences')
+assert(themes:SetRegionTheme('b','OBSIDIAN') and themes:SetRegionTheme('b',nil))
+assert(addon.db.workspaceRegionThemes.b.userMediaMode=='IMAGE' and addon.db.workspaceRegionThemes.b.userMediaFitMode=='FIT',
+    'Theme inheritance erased independent image preferences')
+addon.db.userMediaEnabled=false
+assert(themes:GetRegionSettings('b').userMediaEnabled,'Explicit image must work while global image is disabled')
+assert(not themes:SetRegionMediaMode('b','unknown') and not themes:SetRegionMediaFit('b','unknown'))
+combat=true;assert(not themes:SetRegionMediaFit('b','STRETCH') and not themes:SetRegionMediaMode('b',nil));combat=false
+assert(themes:SetRegionMediaMode('b',nil) and themes:SetRegionMediaFit('b',nil))
+assert(not addon.db.workspaceRegionThemes.b and not themes:GetRegionSettings('b').userMediaEnabled)
 addon.db.workspaceRegionThemes.b={theme='UNKNOWN',canvasAlpha=0/0,trimColor='UNKNOWN'}
 local settings=themes:GetRegionSettings('b');assert(settings.theme=='CLASSIC' and settings.canvasAlpha==.8)
 addon.canvases=nil;addon.canvas=a;OffhandCanvasFrame=a

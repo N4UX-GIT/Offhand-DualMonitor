@@ -15,7 +15,8 @@ import {
     formatBytes,
     inspectGeneratedZip,
     inspectImageHeader,
-} from "./background-studio-core.mjs?v=20261020-2";
+    recipeControlValues,
+} from "./background-studio-core.mjs?v=20261104-1";
 
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 const MAX_IMAGE_PIXELS = 40 * 1000 * 1000;
@@ -274,16 +275,16 @@ function drawPreview() {
 }
 
 function applyRecipe(recipe) {
-    const fit = ["FILL", "FIT", "STRETCH"].includes(recipe.suggestedFit) ? recipe.suggestedFit : "FILL";
+    const restored = recipeControlValues(recipe);
+    const fit = restored.fit;
     const radio = document.querySelector(`input[name="fit-mode"][value="${fit}"]`);
     if (radio) radio.checked = true;
-    const zoom = Number(recipe.zoom);
-    elements.zoom.value = String(Math.round(Math.min(2, Math.max(1, Number.isFinite(zoom) ? zoom : 1)) * 100));
-    elements.focusX.value = String(Math.round(Math.min(1, Math.max(0, Number(recipe.focalX) || 0.5)) * 100));
-    elements.focusY.value = String(Math.round(Math.min(1, Math.max(0, Number(recipe.focalY) || 0.5)) * 100));
-    elements.opacity.value = String(Math.round(Math.min(1, Math.max(0.1, Number(recipe.opacity) || 1)) * 100));
-    elements.dim.value = String(Math.round(Math.min(0.8, Math.max(0, Number(recipe.dim) || 0)) * 100));
-    if (/^#[0-9A-Fa-f]{6}$/.test(recipe.matte || "")) elements.matte.value = recipe.matte;
+    elements.zoom.value = String(Math.round(restored.zoom * 100));
+    elements.focusX.value = String(Math.round(restored.focalX * 100));
+    elements.focusY.value = String(Math.round(restored.focalY * 100));
+    elements.opacity.value = String(Math.round(restored.opacity * 100));
+    elements.dim.value = String(Math.round(restored.dim * 100));
+    elements.matte.value = restored.matte;
     const width = Number(recipe.previewWorkspaceWidth);
     const height = Number(recipe.previewWorkspaceHeight);
     if (width >= 320 && height >= 320 && width <= 8192 && height <= 8192) {
@@ -400,7 +401,7 @@ async function loadExistingPackage(file) {
 
 function createPackageText(recipe) {
     const toc = createMediaToc(recipe);
-    const readme = `OFFHAND USER MEDIA\r\n==================\r\n\r\nThis package was generated locally in your browser by the Offhand Background Studio.\r\nYour source image was not uploaded.\r\n\r\nSECURITY\r\nThis package contains one TGA texture, declarative TOC metadata, a JSON recipe, and this text file.\r\nIt contains no Lua, executable, DLL, macro, installer, or network code.\r\nDo not install media packages received from other people directly. Open an existing package with the official Background Studio and generate a clean replacement instead.\r\n\r\nINSTALL\r\n1. Close World of Warcraft completely.\r\n2. Extract Offhand_UserMedia beside Offhand in the client's Interface\\AddOns folder.\r\n3. Start WoW and verify both Offhand and Offhand User Media are enabled.\r\n4. Open /offhand, select Themes, scroll to 4. Background Studio, and enable Use installed custom background.\r\n\r\nUPDATE\r\nReturn to the Background Studio and choose Update package, or create a new package.\r\nClose WoW before replacing this folder.\r\n\r\nREMOVE\r\nDisable the custom background, close WoW, then delete only Offhand_UserMedia.\r\n`;
+    const readme = `OFFHAND USER MEDIA\r\n==================\r\n\r\nThis package was generated locally in your browser by the Offhand Background Studio.\r\nYour source image was not uploaded.\r\n\r\nSECURITY\r\nThis package contains one TGA texture, declarative TOC metadata, a JSON recipe, and this text file.\r\nIt contains no Lua, executable, DLL, macro, installer, or network code.\r\nDo not install media packages received from other people directly. Open an existing package with the official Background Studio and generate a clean replacement instead.\r\n\r\nINSTALL\r\n1. Close World of Warcraft completely.\r\n2. Extract Offhand_UserMedia beside Offhand in the client's Interface\\AddOns folder.\r\n3. Start WoW and verify both Offhand and Offhand User Media are enabled.\r\n4. Open /offhand, select Themes, open Background Studio, and enable Use installed custom background.\r\n\r\nCUSTOM WORKSPACE REGIONS\r\nPreview using each region width and height from Companion. One installed image is fitted independently inside each region.\r\nIn builds with region background controls, choose inherit, theme only, or installed image and set its fit per region.\r\nWorkspace profiles retain these choices. Different image files for individual regions are not yet supported.\r\n\r\nUPDATE\r\nReturn to the Background Studio and choose Update package, or create a new package.\r\nClose WoW before replacing this folder.\r\n\r\nREMOVE\r\nDisable the custom background, close WoW, then delete only Offhand_UserMedia.\r\n`;
     return { toc, readme };
 }
 

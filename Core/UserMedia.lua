@@ -153,8 +153,9 @@ function UserMedia:GetStatus()
     return self.status or "MISSING", self.reason, self.metadata
 end
 
-function UserMedia:GetFitMode()
-    local configured = Offhand.db and tostring(Offhand.db.userMediaFitMode or "PACKAGE"):upper() or "PACKAGE"
+function UserMedia:GetFitMode(settings)
+    settings=type(settings)=="table" and settings or Offhand.db
+    local configured = settings and tostring(settings.userMediaFitMode or "PACKAGE"):upper() or "PACKAGE"
     if configured ~= "PACKAGE" and VALID_FITS[configured] then return configured end
     return self.metadata and self.metadata.suggestedFit or "FILL"
 end
@@ -185,8 +186,9 @@ function UserMedia:HideOnCanvas(canvas)
     if canvas.userMediaDimTexture and canvas.userMediaDimTexture.Hide then canvas.userMediaDimTexture:Hide() end
 end
 
-function UserMedia:ApplyToCanvas(canvas)
-    if not canvas or not Offhand.db or Offhand.db.userMediaEnabled ~= true or not self:IsAvailable() then
+function UserMedia:ApplyToCanvas(canvas,settings)
+    settings=type(settings)=="table" and settings or Offhand.db
+    if not canvas or not settings or settings.userMediaEnabled ~= true or not self:IsAvailable() then
         self:HideOnCanvas(canvas)
         return false
     end
@@ -210,7 +212,7 @@ function UserMedia:ApplyToCanvas(canvas)
 
     local contentU = media.imageWidth / media.textureWidth
     local contentV = media.imageHeight / media.textureHeight
-    local fit = self:GetFitMode()
+    local fit = self:GetFitMode(settings)
     local canvasWidth = canvas.GetWidth and tonumber(canvas:GetWidth()) or 0
     local canvasHeight = canvas.GetHeight and tonumber(canvas:GetHeight()) or 0
 

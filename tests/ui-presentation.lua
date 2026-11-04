@@ -409,8 +409,15 @@ print("PASS: addon-owned UI styling, interaction states, wheel limits, scrollbar
     assert(confirm,'Reset did not require its explicit confirmation');confirm()
     ui.controls.regions[1].button:Fire('OnClick')
     assert(addon.db.workspaceRegionThemes.a.theme=='CLASSIC' and not addon.db.workspaceRegionThemes.b,'Region theme choice leaked')
+    ui.controls.regions[1].media:Fire('OnClick')
+    ui.controls.regions[2].media:Fire('OnClick');ui.controls.regions[2].media:Fire('OnClick')
+    ui.controls.regions[2].fit:Fire('OnClick')
+    assert(addon.db.workspaceRegionThemes.a.userMediaMode=='THEME'
+        and addon.db.workspaceRegionThemes.b.userMediaMode=='IMAGE'
+        and addon.db.workspaceRegionThemes.b.userMediaFitMode=='PACKAGE','Region background controls failed')
     m.workspaceRegions={};ui:Refresh()
     assert(not ui.controls.regions[1].button:IsEnabled() and not ui.controls.regions[2].button:IsEnabled(),'Unavailable regions remained editable')
+    assert(not ui.controls.regions[1].media:IsEnabled() and not ui.controls.regions[2].fit:IsEnabled(),'Unavailable region image controls remained editable')
     addon.db.workspaceProfiles.version=99;ui:Refresh();ui.controls.picker:Fire('OnClick')
     assert(addon.db.workspaceProfiles.version==99,'Malformed/future picker overwrote data')
     addon.UIControls.CreateFrame=factory

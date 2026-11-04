@@ -9,6 +9,11 @@ routing and per-region themes now have an initial source implementation. All 89
 Lua suites, six-TOC Lua 5.1 checks and the relevant native x64/x86 regressions
 pass. This remains an unpublished candidate; see
 [feature contracts and acceptance](CUSTOM-WORKSPACE-PROFILES.md).
+Background Studio now has independent per-region image/theme and fit choices,
+retained by workspace layouts. A live rendering defect that let the theme fill
+darken the image was reproduced and corrected. The oversized Collections
+fallback passed opening, reopening and post-reload checks on Retail 12.1.5.70783.
+Physical third-monitor, mixed-DPI, hotplug and combat acceptance remain open.
 The exact Test 1 baseline has additional bounded Anniversary/Retail evidence in
 [the baseline checkpoint](WORKSPACE-FEATURES-BASELINE-QA-20261104.md), including
 the remaining tooltip, Collections lifecycle and hardware gaps.

@@ -21,6 +21,7 @@ import {
     inspectImageHeader,
     isSafePackagePath,
     nextPowerOfTwo,
+    recipeControlValues,
 } from "../Website/background-studio-core.mjs";
 
 const tocRecipe = {
@@ -38,6 +39,12 @@ const tocRecipe = {
     dim: 0.15,
     matte: "#161922",
 };
+assert.deepEqual(recipeControlValues({focalX:0,focalY:0,dim:0,zoom:1,opacity:1,suggestedFit:'FIT',matte:'#000000'}),
+    {fit:'FIT',zoom:1,focalX:0,focalY:0,opacity:1,dim:0,matte:'#000000'});
+const bounded = recipeControlValues({focalX:NaN,focalY:5,dim:-1,zoom:99,opacity:null,suggestedFit:'invalid',matte:'bad'});
+assert.equal(bounded.focalX,.5);assert.equal(bounded.focalY,1);assert.equal(bounded.dim,0);
+assert.equal(bounded.zoom,2);assert.equal(bounded.opacity,1);assert.equal(bounded.fit,'FILL');
+assert.equal(bounded.matte,'#161922');
 const mediaToc = createMediaToc(tocRecipe);
 assert.match(mediaToc, /^## Interface: 30300, .*120105.*11509\r\n/);
 assert.match(mediaToc, /## Title: \|cffffbd0aOffhand\|r \|cffffffff\[User Media\]\|r/);

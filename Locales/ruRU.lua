@@ -3,6 +3,13 @@ if GetLocale() ~= "ruRU" then return end
 local L = Offhand.L
 L["WORKSPACE_PANEL_TOO_LARGE"] = "Эта панель не помещается в рабочую область. Используйте Mainhand или увеличьте рабочую область."
 
+-- Custom region media (English fallback pending translation).
+L["WORKSPACE_MEDIA_INHERIT"] = "Background: inherit global"
+L["WORKSPACE_MEDIA_THEME"] = "Background: theme only"
+L["WORKSPACE_MEDIA_IMAGE"] = "Background: installed image"
+L["WORKSPACE_MEDIA_FIT_INHERIT"] = "Image fit: inherit global"
+L["WORKSPACE_MEDIA_HELP"] = "One installed image is fitted independently inside each region. Image choices fall back to the theme when the package is unavailable. Workspace profiles retain these choices."
+
 -- Workspace profiles and routing (English fallback pending translation).
 L["WORKSPACE_PROFILES_TITLE"] = "Workspace profiles"
 L["WORKSPACE_PROFILES_HELP"] = "Save panel positions, routing and region themes. Companion display plans select matching layouts after Apply and /reload. These presets leave calibration and Blizzard HUD layouts unchanged."

@@ -37,6 +37,22 @@ style the Offhand canvas and trim; they do not reskin native Blizzard panels.
 Inactive regions cannot be edited. Current custom topology supports one full
 game monitor plus up to two workspace regions on other monitors.
 
+Each region also has independent **Background** and **Image fit** choices.
+Background can inherit the global setting, show only the selected theme, or use
+the installed Background Studio image even when the global image is disabled.
+Fit can inherit the global choice, follow the package recommendation, Fill, Fit
+or Stretch. One installed image is fitted separately to each region's dimensions;
+it is not stretched across the bounding rectangle or the gaps between displays.
+Different image files, crop focus or opacity for individual regions are outside
+the current package format. Missing or invalid media falls back to the region's
+theme while retaining its image preferences.
+
+In Background Studio, select Custom dimensions and enter the region width and
+height from Companion. Preview each different shape separately. Those dimensions
+are preview settings; Companion still controls the actual game and region areas.
+The website and generated package instructions now explain this workflow. Images
+remain local and packages remain schema 2 with no executable addon code.
+
 ## Persistence and recovery contracts
 
 Companion stores at most 20 named plans in versioned, bounded JSON encoded in
@@ -59,12 +75,16 @@ addon layout.
 
 Addon workspace stores are version 1, limited to 24 layouts per general profile.
 Only panel positions/open intent, panel loader hints, native backpack position,
-map scales, spellbook tab, routing and region themes are copied. Existing
+map scales, spellbook tab, routing, region themes and image preferences are copied. Existing
 calibration, onboarding/HUD preferences and unrelated addon settings are outside
 the snapshot. Loading copies records, rather than aliasing saved profiles.
 Persistent panel state is a restore hint. Loading does not forcibly close native
 panels absent from the incoming open-state record. Third-party bag addons retain
 their own layout/snapshot lifecycle and are not a new routing category.
+New snapshots include `mediaSettingsVersion=1` and the global image enable/fit
+choices. Older snapshots without that marker preserve the current global media
+preferences when first loaded. The next ordinary save upgrades the snapshot.
+Future media snapshot versions refuse edits while preserving the original data.
 
 Automatically generated positions carry `autoRoute` and `routeTarget` markers.
 A genuine drag produces the existing manual record shape, so edits to routing
@@ -130,10 +150,16 @@ standalone spellbook. The fixture fails before the change and passes afterward,
 including protected-root restore, oversize recovery, destination retention and
 late native SetPoint repair. No global protected-frame guard was relaxed.
 
-A cold live retest deployed all 80 final review addon files and the unchanged
-Beta 4 candidate. Network disconnection prevented completing the Collections
-retest; it remains a specific live acceptance gate. Disconnects are excluded as
-instructed, rather than attributed to addon errors. Both smoke sessions retained
+A subsequent cold live retest deployed all 80 feature review addon files and the
+unchanged Beta 4 candidate, with matching geometry preloaded in the generated
+bridge before launch. Collections opened and reopened at native scale 1 with
+its native UIPanel registration intact. Its final rectangle was
+`(1714.024,245.571) 703x606` in UIParent coordinates, wholly inside Mainhand.
+After `/reload` and opening Collections again, the same rectangle, scale and
+registration were retained. Its `workspace-a` routing intent remained saved.
+This accepts the specific oversized Collections recovery on Retail 12.1.5.70783;
+it does not establish protected descendant or combat safety. Disconnects are
+excluded as instructed, rather than attributed to addon errors. The smoke sessions retained
 all 13 historical BugGrabber records without new captured errors. No combat or
 protected descendant action was attempted. No HUD setup prompt was accepted or
 modified, and no Character drag was repeated.
@@ -144,3 +170,39 @@ private cleanup receipts. These bounded checks do not accept three physical
 monitors, mixed DPI, hotplug, replacement bags, all routed panel groups or all
 clients. Full feature release approval remains separate from this initial
 implementation.
+
+## Background Studio integration, 4 November
+
+Production Lua fixtures cover independent image/theme choices on two canvases,
+separate Fit/Fill/Stretch calculations after resize, package loss/recovery,
+global-setting isolation, image preference profile migration, combat refusal and
+real option callbacks. The website test compares 96 generated TOC/recipe cases
+against the actual Lua texture consumer across portrait, landscape and square
+regions, including zero/one crop focus and padded TGA textures. Studio import
+now preserves zero-percent crop focus rather than replacing it with the center.
+
+A real code-free color-quadrant test package exposed the theme backdrop drawing
+above the image and dimming it. Successful image application now makes only the
+backdrop fill transparent, preserving the border; theme-only and unavailable
+media restore the original fill. A cold Retail launch visually confirmed the
+corrected brightness and retained Fit selection in a 480x600 custom region.
+The new Themes controls fit without overlap and disable the absent second region.
+Live theme-only mode hid the image. A new workspace retained changed global
+enable/fit preferences; switching back restored `false/FILL` while the explicit
+region image retained Fit. Native Fit geometry was approximately
+`365.714x182.857` inside the `365.714x457.143` logical region. Texture coordinates
+excluded the power-of-two padding and the backdrop fill alpha was zero.
+The restored workspace's region image was visibly retained after `/reload`.
+No new BugGrabber records were captured across the media test sessions; all 13
+historical records remained identical. Final native Restore again matched
+`(0,215) 2560x961`, style `14CF0000`, without a clipping region. The test image
+folder was removed from the client by moving it to private evidence storage;
+all 18 backed-up file states and 78 original addon files were restored and hash
+verified. The target WoW and Companion exited normally; Battle.net was left open.
+The static website integrity and package tests pass. Local file browser preview
+was rejected by browser policy, so browser visual/export interaction remains a
+separate verification gap. The website has not been deployed.
+The shared static locale audit reports two pre-existing undefined fallback keys
+in OptionsActions (`BTN_CONFIRM`/`BTN_CANCEL`, after Blizzard's `ACCEPT`/`CANCEL`).
+The executable locale suite passes all eleven dictionaries and format arguments;
+the new media keys have no audit findings. This existing audit gap is unchanged.

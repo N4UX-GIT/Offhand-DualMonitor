@@ -10,7 +10,7 @@ export const PACKAGE_LIMITS = Object.freeze({
 
 export const MEDIA_SCHEMA = 2;
 export const LEGACY_MEDIA_SCHEMA = 1;
-export const GENERATOR_VERSION = 3;
+export const GENERATOR_VERSION = 4;
 export const SUPPORTED_INTERFACES = "30300, 120105, 120100, 120007, 120005, 16001, 50504, 40402, 30405, 38000, 20506, 11508, 11509";
 
 export const PACKAGE_FILES = Object.freeze({
@@ -67,6 +67,24 @@ function validatedMediaRecipe(recipe) {
 export function createMediaToc(recipe) {
     const media = validatedMediaRecipe(recipe);
     return `## Interface: ${SUPPORTED_INTERFACES}\r\n## Title: |cffffbd0aOffhand|r |cffffffff[User Media]|r\r\n## Notes: Your code-free custom Offhand canvas background, generated locally by the Offhand Background Studio.\r\n## Author: Offhand Background Studio\r\n## Version: ${MEDIA_SCHEMA}\r\n## X-Offhand-Media-Schema: ${MEDIA_SCHEMA}\r\n## X-Offhand-Generator-Version: ${GENERATOR_VERSION}\r\n## X-Offhand-Image-Width: ${media.imageWidth}\r\n## X-Offhand-Image-Height: ${media.imageHeight}\r\n## X-Offhand-Texture-Width: ${media.textureWidth}\r\n## X-Offhand-Texture-Height: ${media.textureHeight}\r\n## X-Offhand-Suggested-Fit: ${media.suggestedFit}\r\n## X-Offhand-Zoom: ${media.zoom.toFixed(4)}\r\n## X-Offhand-Focal-X: ${media.focalX.toFixed(4)}\r\n## X-Offhand-Focal-Y: ${media.focalY.toFixed(4)}\r\n## X-Offhand-Opacity: ${media.opacity.toFixed(4)}\r\n## X-Offhand-Dim: ${media.dim.toFixed(4)}\r\n## X-Offhand-Matte: ${media.matte}\r\n## X-Website: https://offhand-wow.onrender.com/background-studio.html\r\n## IconTexture: Interface\\AddOns\\Offhand\\Media\\OffhandLogo64x64.blp\r\n## LoadOnDemand: 1\r\n## Dependencies: Offhand\r\n\r\n`;
+}
+
+// Restore UI controls without turning a valid zero-percent crop focus into 50%.
+export function recipeControlValues(recipe = {}) {
+    const number = (key, min, max, fallback) => {
+        const raw = recipe[key];
+        const value = raw == null || raw === "" ? NaN : Number(raw);
+        return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+    };
+    return {
+        fit: ["FILL", "FIT", "STRETCH"].includes(recipe.suggestedFit) ? recipe.suggestedFit : "FILL",
+        zoom: number("zoom", 1, 2, 1),
+        focalX: number("focalX", 0, 1, 0.5),
+        focalY: number("focalY", 0, 1, 0.5),
+        opacity: number("opacity", 0.1, 1, 1),
+        dim: number("dim", 0, 0.8, 0),
+        matte: /^#[0-9A-Fa-f]{6}$/.test(recipe.matte || "") ? recipe.matte : "#161922",
+    };
 }
 
 const CRC_TABLE = (() => {
