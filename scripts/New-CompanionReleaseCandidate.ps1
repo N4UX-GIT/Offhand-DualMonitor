@@ -17,6 +17,8 @@ $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 $source = Join-Path $companionRoot 'Source\Program.cs'
 $appManifest = Join-Path $companionRoot 'Source\app.manifest'
 New-Item -ItemType Directory -Path $output | Out-Null
+$interactionAudit = Join-Path $output 'interaction-audit.json'
+& (Join-Path $PSScriptRoot 'Test-CompanionInteractionBoundary.ps1') -OutputPath $interactionAudit
 $binary = Join-Path $output 'Offhand.exe'
 & $compiler /nologo /target:winexe /optimize+ /platform:anycpu "/out:$binary" "/win32icon:$root\Media\offhand-logo.ico" "/win32manifest:$appManifest" "/resource:$root\Media\offhand-logo-small.png,Offhand.Companion.Resources.offhand-logo.png" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll $source
 if ($LASTEXITCODE -ne 0) { throw 'Candidate compilation failed.' }
@@ -129,6 +131,7 @@ $record = [ordered]@{
     version='2.1.3-beta.5'; fileVersion=$identity.FileVersion
     sourceRevision=(& git -C $root rev-parse HEAD).Trim(); trackedChanges=[bool]$dirty.Count
     programSha256=(Get-FileHash -LiteralPath $source).Hash
+    interactionAuditSha256=(Get-FileHash -LiteralPath $interactionAudit).Hash
     appManifestSha256=(Get-FileHash -LiteralPath $appManifest).Hash
     binarySha256=(Get-FileHash -LiteralPath $binary).Hash
     archiveSha256=(Get-FileHash -LiteralPath $archive).Hash
