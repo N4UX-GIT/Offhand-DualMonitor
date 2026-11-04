@@ -2,6 +2,16 @@
 
 Stable IDs for reports that require follow-up across test sessions.
 
+## FancyZones layout gap analysis, 4 November 2026
+
+The [gap analysis and phased implementation plan](FANCYZONES-GAP-ANALYSIS-AND-IMPLEMENTATION-PLAN.md)
+compares Workspace Test 2 with the relevant FancyZones workflows. The proposed
+first milestone is a shared layout model, compatible topology negotiation,
+multiple regions on one ultrawide and a unified editor with presets. Hotkeys,
+sharing, proportional adaptation and lifecycle automation follow explicit
+ownership, reload, combat, DPI and rendering-budget gates. This is planning
+work; the published package and runtime behavior are unchanged.
+
 ## Companion UX checkpoint, 4 November 2026
 
 The unpublished Beta 5 candidate unifies dashboard/editor controls, adds a
