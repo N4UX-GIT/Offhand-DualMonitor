@@ -77,7 +77,8 @@ namespace Offhand.Companion
                 Button identify = One<Button>(config, control => control.Text == "Identify Displays");
 
                 Button custom = One<Button>(config, control => control.Text.StartsWith("Custom region"));
-                foreach (Control control in new Control[] { delay, displays, mainhand, gameSide, identify, custom })
+                Button profiles = One<Button>(config, control => control.Text == "Workspace profiles...");
+                foreach (Control control in new Control[] { delay, displays, mainhand, gameSide, identify, custom, profiles })
                 {
                     Rectangle bounds = BoundsInside(control, config);
                     if (bounds.Left < 0 || bounds.Top < 24 || bounds.Right > config.ClientSize.Width

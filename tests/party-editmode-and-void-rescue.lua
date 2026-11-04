@@ -3334,3 +3334,46 @@ print('PASS: PlayerSpells semantic tab reload and reversible portrait workspace 
     addon.isForever,addon.isRetail,FriendsFrame,FriendsListFrame=oldForever,oldRetail,oldFriends,oldList
 end)()
 print('PASS: Retail Contacts content remains attached to its native outer window')
+
+-- Exercise the initial OnShow path, where no saved position exists yet.
+;(function()
+    assert(loadfile('Core/WorkspaceRegions.lua'))('Offhand',addon)
+    assert(loadfile('Core/WorkspaceRouting.lua'))('Offhand',addon)
+    addon.isForever,addon.isRetail=false,true
+    metrics.workspaceRegions={{id='left',x=0,y=0,width=1440,height=2560},{id='right',x=4000,y=0,width=1920,height=1440}}
+    metrics.primaryWorkspaceRegion='left';metrics.topologySchema=2;metrics.isSpanned=true
+    addon.db.enabled=true;addon.db.workspacePanelRoutes={achievements='right'}
+    addon.db.savedWorkspacePositions.AchievementFrame=nil;addon.db.savedMainPositions.AchievementFrame=nil
+    local root=makeMockFrame('AchievementFrame',400,600);AchievementFrame=root
+    UIPanelWindows.AchievementFrame={area='left',pushable=1}
+    addon.Canvas:TryMakeFrameDraggable(root)
+    root:Hide();root:Show();flushTimers();flushTimers()
+    local record=addon.db.savedWorkspacePositions.AchievementFrame
+    assert(record and record.autoRoute=='achievements' and record.regionId=='right','Initial native OnShow skipped an unsaved routing rule')
+    assert(root:GetLeft()>=4012,'Deferred native show stack lost the routed anchor')
+    root:Hide()
+end)()
+print('PASS: initial native OnShow routes an unsaved panel after the native show stack')
+
+-- Collections must retain its native registration, like the standalone spellbook.
+;(function()
+    metrics.workspaceRegions={{id='left',x=0,y=644,width=365,height=457}}
+    metrics.primaryWorkspaceRegion='left';metrics.topologySchema=2;metrics.isSpanned=true
+    addon.db.workspacePanelRoutes={collections='left'}
+    addon.db.savedWorkspacePositions.CollectionsJournal={x=12,y=1089,regionId='left',regionX=.02,regionY=.98,autoRoute='collections',routeTarget='left'}
+    addon.db.savedMainPositions.CollectionsJournal=nil
+    local root=makeMockFrame('CollectionsJournal',703,606);CollectionsJournal=root
+    root.IsProtected=function()return true end
+    local registration={area='left',pushable=1};UIPanelWindows.CollectionsJournal=registration
+    addon.Canvas:TryMakeFrameDraggable(root)
+    assert(UIPanelWindows.CollectionsJournal==registration,'Collections lost native registration before its guarded restore')
+    root:Hide();root:Show();flushTimers();flushTimers()
+    assert(root:GetLeft()>=metrics.gameLeft+12,'Oversized protected Collections failed Mainhand recovery')
+    assert(root:GetScale()==1 and addon.db.savedWorkspacePositions.CollectionsJournal.regionId=='left','Collections recovery changed native scale or destination intent')
+    root:ClearAllPoints();root:SetPoint('TOPLEFT',UIParent,'BOTTOMLEFT',16,985)
+    flushTimers();flushTimers()
+    assert(root:GetLeft()>=metrics.gameLeft+12,'Late native Collections anchor reset defeated recovery')
+    assert(UIPanelWindows.CollectionsJournal==registration,'Collections lifecycle registration changed')
+    root:Hide()
+end)()
+print('PASS: protected native Collections registration, oversized routing, original intent and late anchor repair')

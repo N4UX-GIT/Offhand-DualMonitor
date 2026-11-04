@@ -16,7 +16,8 @@ local full={schema=2,mode='CUSTOM_REGIONS',physicalWidth=5920,physicalHeight=144
     workspaces={{id='left',device='left-monitor',x=0,y=0,width=1440,height=1440},
         {id='right',device='right-monitor',x=4000,y=0,width=1920,height=1080}}}
 local name='EUI_MainBagFrame'
-local function boot(db,topology)
+local function boot(db,topology,frameName)
+    local name=frameName or name
     local env=setmetatable({}, {__index=_G});env._G=env
     local addon={db=copy(db),Canvas={},CanvasPanelRegistry={GetPositionRoot=function(frame)return frame end}}
     local canvas=addon.Canvas
@@ -27,7 +28,7 @@ local function boot(db,topology)
     env.GetPhysicalScreenSize=function()return topology.physicalWidth,topology.physicalHeight end
     env.OffhandCompanionTopology=copy(topology)
     local function load(path)local chunk=assert(loadfile(path));setfenv(chunk,env);chunk('Offhand',addon)end
-    load('Core/WorkspaceRegions.lua');load('Core/Viewport.lua');load('Core/CanvasPersistence.lua');load('Core/CanvasPanelPlacement.lua')
+    load('Core/WorkspaceRegions.lua');load('Core/Viewport.lua');load('Core/CanvasPersistence.lua');load('Core/CanvasPanelPlacement.lua');load('Core/WorkspaceRouting.lua')
     local frame={x=1000,y=300,w=200,h=100,writes=0,shown=true}
     function frame:GetName()return name end
     function frame:GetLeft()return self.x end
@@ -44,10 +45,12 @@ local function boot(db,topology)
         self.x,self.y=x,y;self.writes=self.writes+1
     end
     canvas.ShouldDeferSecondaryChatRestore=function()return false end
+    canvas.SetWorkspacePanelOpen=function()end
     canvas.PlaceForSingleScreenRecovery=function()end
     canvas.IsFrameOnWorkspace=function(f)return addon.WorkspaceRegions:ContainsFrame(addon.Viewport:GetMetrics(),f,false)end
     local services=setmetatable({WithWorkspace=function(m)return m end,
         IsFrameOnWorkspace=canvas.IsFrameOnWorkspace,
+        IsUnsafeForPanelMutation=function()return env.unsafe==true end,
         ShouldYieldFrameToClassicUIForever=function()return env.externalOwner==true end},
         {__index=function()return function()return false end end})
     addon.CanvasPanelPlacement.InstallMainhand(canvas,services)
@@ -145,3 +148,30 @@ for _,guard in ipairs({'combat','externalOwner'})do
     assert(root.writes==0,'Oversized recovery ignored '..guard)
 end
 print('PASS: tall fallback keeps title reachable and respects ownership guards')
+
+-- Rules must pass the production restore guards before generating any record.
+local routedDB={enabled=true,savedWorkspacePositions={},savedMainPositions={},workspacePanelRoutes={achievements='right'}}
+for _,guard in ipairs({'combat','externalOwner','unsafe'})do
+    local guarded,root,env=boot(routedDB,full,'AchievementFrame');env[guard]=true
+    guarded.Canvas:RestoreWorkspacePosition(root)
+    assert(root.writes==0 and not next(guarded.db.savedWorkspacePositions),'Routing bypassed '..guard)
+end
+local routed,root=boot(routedDB,full,'AchievementFrame')
+routed.Canvas:RestoreWorkspacePosition(root)
+assert(root.x>=2012 and routed.db.savedWorkspacePositions.AchievementFrame.autoRoute=='achievements','First routed restore did not use the target region')
+local routedSaved=copy(routed.db)
+local fallback,fallbackRoot=boot(routedSaved,missing,'AchievementFrame')
+fallback.Canvas:RestoreWorkspacePosition(fallbackRoot)
+assert(fallbackRoot.x<720 and fallback.db.savedWorkspacePositions.AchievementFrame.regionId=='right','Missing routed region lost intent or was unreachable')
+local returned,returnedRoot=boot(fallback.db,full,'AchievementFrame')
+returned.Canvas:RestoreWorkspacePosition(returnedRoot)
+assert(returnedRoot.x>=2012,'Routed region reconnect did not restore its destination')
+returnedRoot.x=100;returnedRoot.y=500;returned.Canvas.OnPanelDragStop(returnedRoot)
+local manual=returned.db.savedWorkspacePositions.AchievementFrame
+assert(manual.regionId=='left' and not manual.autoRoute,'Real drag did not supersede automatic routing')
+returned.WorkspaceRouting:SetRule('achievements','right');returned.Canvas:RestoreWorkspacePosition(returnedRoot)
+assert(returned.db.savedWorkspacePositions.AchievementFrame==manual and returnedRoot.x<720,'A rule change overrode manual placement')
+local large,largeRoot=boot(routedDB,full,'AchievementFrame');largeRoot.w=2000
+large.Canvas:RestoreWorkspacePosition(largeRoot)
+assert(largeRoot.x>=720 and large.db.savedWorkspacePositions.AchievementFrame.regionId=='right','Oversized routed panel did not retain intent during Mainhand recovery')
+print('PASS: production routing guards, first restore, missing/reconnected regions, real manual drag and oversized Mainhand recovery')

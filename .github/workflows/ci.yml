@@ -46,6 +46,18 @@ jobs:
         shell: powershell
         run: ./tests/companion-partial-topology.ps1
 
+      - name: Test multiple regions and named workspace plans
+        shell: powershell
+        run: |
+          ./tests/companion-workspace-regions.ps1
+          ./tests/companion-workspace-profiles.ps1
+
+      - name: Test third monitor and taskbar presentation policies
+        shell: powershell
+        run: |
+          ./tests/companion-third-monitor.ps1
+          ./tests/companion-taskbar-presentation.ps1
+
       - name: Test production and experimental Companion recovery policies
         shell: powershell
         run: |

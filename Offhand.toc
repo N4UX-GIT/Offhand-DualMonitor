@@ -27,6 +27,8 @@ Core\Config.lua
 Core\UserMedia.lua
 Core\ManualCanvas.lua
 Core\WorkspaceRegions.lua
+Core\WorkspaceProfiles.lua
+Core\WorkspaceRouting.lua
 Core\Viewport.lua
 Core\TopologyDetection.lua
 Core\PopupBounds.lua
@@ -82,6 +84,7 @@ Locales\zhTW.lua
 UI\Themes.lua
 UI\Controls.lua
 UI\OptionsActions.lua
+UI\WorkspaceOptions.lua
 UI\Options.lua
 UI\DisplayIdentify.lua
 UI\Minimap.lua

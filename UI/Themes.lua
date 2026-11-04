@@ -119,9 +119,43 @@ function Themes:GetThemeInfo(themeKey)
     return THEME_DATA[themeKey] or THEME_DATA.CLASSIC
 end
 
-function Themes:ApplyCanvasTheme(canvasFrame)
+function Themes:GetRegionSettings(regionID)
+    local db=Offhand.db or {}
+    local override=regionID and type(db.workspaceRegionThemes)=="table" and db.workspaceRegionThemes[regionID]
+    if type(override)~="table" then return db end
+    local result={}; for key,value in pairs(db) do result[key]=value end
+    if THEME_DATA[override.theme] then result.theme=override.theme end
+    if CANVAS_PALETTES[override.canvasColor] then result.canvasColor=override.canvasColor end
+    if COLOR_PALETTES[override.trimColor] then result.trimColor=override.trimColor end
+    local alpha=override.canvasAlpha
+    if type(alpha)=="number" and alpha==alpha and alpha>=0 and alpha<=1 then result.canvasAlpha=alpha end
+    return result
+end
+
+function Themes:SetRegionTheme(regionID,themeKey)
+    if InCombatLockdown and InCombatLockdown() then return false,"WORKSPACE_COMBAT" end
+    if not Offhand.db or type(regionID)~="string" or #regionID>32
+        or not regionID:match("^[%w_-]+$") or themeKey~=nil and not THEME_DATA[themeKey] then return false,"WORKSPACE_PROFILE_INVALID" end
+    if Offhand.db.workspaceRegionThemes~=nil and type(Offhand.db.workspaceRegionThemes)~="table" then return false,"WORKSPACE_PROFILE_INVALID" end
+    Offhand.db.workspaceRegionThemes=Offhand.db.workspaceRegionThemes or {}
+    -- Clearing a region returns all of its appearance choices to inheritance.
+    if not themeKey then Offhand.db.workspaceRegionThemes[regionID]=nil
+    else
+        local settings=type(Offhand.db.workspaceRegionThemes[regionID])=="table"
+            and Offhand.db.workspaceRegionThemes[regionID] or {}
+        settings.theme=themeKey
+        local presets={CLASSIC={"GOLD","CLASSIC_STONE"},BLIZZARD_SLATE={"SILVER","CHARCOAL"},
+            OBSIDIAN={"SILVER","CHARCOAL"},PITCH_BLACK={"SILVER","PURE_BLACK"},GNOMISH_TINKER={"TINKER_BRASS","TINKER_SLATE"}}
+        settings.trimColor,settings.canvasColor=unpack(presets[themeKey])
+        Offhand.db.workspaceRegionThemes[regionID]=settings
+    end
+    self:ApplyCanvasTheme()
+    return true
+end
+
+function Themes:ApplyCanvasTheme(canvasFrame,regionID)
     if not canvasFrame and Offhand.canvases then
-        for _,canvas in pairs(Offhand.canvases) do self:ApplyCanvasTheme(canvas) end
+        for id,canvas in pairs(Offhand.canvases) do self:ApplyCanvasTheme(canvas,id) end
         return
     end
     if not canvasFrame then
@@ -133,21 +167,25 @@ function Themes:ApplyCanvasTheme(canvasFrame)
     end
     if not canvasFrame then return end
 
-    local currentThemeKey = (Offhand.db and Offhand.db.theme) or "CLASSIC"
+    if not regionID then
+        for id,canvas in pairs(Offhand.canvases or {}) do if canvas==canvasFrame then regionID=id; break end end
+    end
+    local settings=self:GetRegionSettings(regionID)
+    local currentThemeKey = settings.theme or "CLASSIC"
     local theme = self:GetThemeInfo(currentThemeKey)
     local isClassic = (currentThemeKey == "CLASSIC")
     local isPureBlackTheme = (currentThemeKey == "PITCH_BLACK")
 
-    local colorKey = (Offhand.db and Offhand.db.canvasColor) or "CHARCOAL"
-    local alpha = (Offhand.db and Offhand.db.canvasAlpha)
+    local colorKey = settings.canvasColor or "CHARCOAL"
+    local alpha = settings.canvasAlpha
     if alpha == nil then alpha = 0.95 end
 
     local r, g, b
     local bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark"
     local isPureBlackBg = (colorKey == "PURE_BLACK") or isPureBlackTheme
 
-    if not isPureBlackTheme and colorKey == "CUSTOM" and Offhand.db and Offhand.db.customCanvasColor then
-        local c = Offhand.db.customCanvasColor
+    if not isPureBlackTheme and colorKey == "CUSTOM" and settings.customCanvasColor then
+        local c = settings.customCanvasColor
         r, g, b = c.r or 0.22, c.g or 0.42, c.b or 0.64
     elseif isPureBlackBg then
         r, g, b = 0.0, 0.0, 0.0
@@ -201,16 +239,16 @@ function Themes:ApplyCanvasTheme(canvasFrame)
     local br = theme.borderColor or { 1.0, 1.0, 1.0, 1.0 }
     if isPureBlackTheme then
         br = { 0.18, 0.18, 0.18, 1.0 }
-    elseif Offhand.db and Offhand.db.trimColor then
-        if Offhand.db.trimColor == "CUSTOM" and Offhand.db.customTrimColor then
-            local c = Offhand.db.customTrimColor
+    elseif settings.trimColor then
+        if settings.trimColor == "CUSTOM" and settings.customTrimColor then
+            local c = settings.customTrimColor
             br = { c.r, c.g, c.b, c.a or 1.0 }
-        elseif COLOR_PALETTES[Offhand.db.trimColor] then
-            if isClassic and Offhand.db.trimColor == "GOLD" then
+        elseif COLOR_PALETTES[settings.trimColor] then
+            if isClassic and settings.trimColor == "GOLD" then
                 -- Classic Blizzard gold on UI-DialogBox-Border is pre-rendered; keep untainted
                 br = { 1.0, 1.0, 1.0, 1.0 }
             else
-                local c = COLOR_PALETTES[Offhand.db.trimColor]
+                local c = COLOR_PALETTES[settings.trimColor]
                 br = { c.r, c.g, c.b, c.a or 1.0 }
             end
         end

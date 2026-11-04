@@ -2,6 +2,17 @@
 
 Stable IDs for reports that require follow-up across test sessions.
 
+## Workspace feature checkpoint, 4 November 2026
+
+Named Companion display plans, separate addon workspace layouts, opt-in panel
+routing and per-region themes now have an initial source implementation. All 89
+Lua suites, six-TOC Lua 5.1 checks and the relevant native x64/x86 regressions
+pass. This remains an unpublished candidate; see
+[feature contracts and acceptance](CUSTOM-WORKSPACE-PROFILES.md).
+The exact Test 1 baseline has additional bounded Anniversary/Retail evidence in
+[the baseline checkpoint](WORKSPACE-FEATURES-BASELINE-QA-20261104.md), including
+the remaining tooltip, Collections lifecycle and hardware gaps.
+
 ## OH-CUSTOM-REGION-NARROW-FIT: oversized panels overflow or become unreadable
 
 - The old generic clamp allowed oversized panels to extend outside the workspace;

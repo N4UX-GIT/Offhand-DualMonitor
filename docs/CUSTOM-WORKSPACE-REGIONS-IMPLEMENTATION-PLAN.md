@@ -768,4 +768,11 @@ Do not merge to `main` until:
 
 The feature is worth pursuing because it addresses a direct user request: reserving specific screen space for Offhand while allowing other applications to share a monitor, and distributing Offhand workspace areas across multiple monitors. It may also reduce presentation cost for layouts where partial regions shrink the WoW window's outer bounds.
 
-Development is intentionally postponed until the current architecture and bug backlog are stable. The approved direction is to preserve the existing experience as schema 1, introduce custom regions as an opt-in schema 2 capability, and implement the feature on a new branch created from the future stabilized `main`.
+The original proposal postponed development until the architecture and bug
+backlog were stable. The user subsequently authorized development and testing on
+`codex/custom-workspace-regions`, followed by named workspace profiles, automatic
+panel routing and per-region themes. The existing experience remains schema 1;
+multiple workspaces is opt-in schema 2. The initial feature implementation and
+its remaining acceptance gates are documented in
+[workspace profiles](CUSTOM-WORKSPACE-PROFILES.md). This authorization does not
+waive the merge/release gates above.

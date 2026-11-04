@@ -363,6 +363,59 @@ addon:ApplyFullLayout()
 assert(dialog.scale == 1 and math.abs(dialog.centerX - 700) < 0.001,
     "restoring the viewport must recover full dialog scale without center drift")
 print("PASS: addon-owned UI styling, interaction states, wheel limits, scrollbar sync and viewport fitting")
+-- Exercise the real workspace option callbacks against the real data modules.
+;(function()
+    local factory=addon.UIControls.CreateFrame
+    local controls={}
+    addon.UIControls.CreateFrame=function(...)
+        local frame=factory(...);controls[#controls+1]=frame
+        frame.SetMaxLetters=function(self,n)self.maxLetters=n end
+        return frame
+    end
+    local region=Region
+    local originalFont=UIParent.CreateFontString
+    local function font()local f=region();f.SetAlpha=function(self,a)self.alpha=a end;return f end
+    local tabs={profiles=Frame('Frame'),workspace=Frame('Frame'),themes=Frame('Frame')}
+    local cards={}
+    local function card(parent,title,height)
+        local frame=Frame('Frame',nil,parent);frame.CreateFontString=font
+        cards[#cards+1]=frame;return frame
+    end
+    addon.L={};assert(loadfile('Locales/enUS.lua'))('Offhand',addon)
+    addon.db={enabled=true,savedWorkspacePositions={},savedMainPositions={}}
+    local m={isSpanned=true,workspaceRegions={{id='a'},{id='b'}}}
+    addon.Viewport={GetMetrics=function()return m end}
+    InCombatLockdown=function()return false end
+    assert(loadfile('Core/WorkspaceProfiles.lua'))('Offhand',addon)
+    assert(loadfile('Core/WorkspaceRouting.lua'))('Offhand',addon)
+    assert(loadfile('UI/WorkspaceOptions.lua'))('Offhand',addon)
+    local confirm
+    addon.WorkspaceOptions.Build(tabs,card,{Confirm=function(_,_,fn)confirm=fn end})
+    local ui=addon.WorkspaceOptions
+    assert(#cards==3 and ui.controls.picker:GetText():find('Default',1,true),'Workspace cards failed initial refresh')
+    local function click(text,parent)
+        for _,f in ipairs(controls)do
+            if f:GetText()==text and (not parent or f.parent==parent)then f:Fire('OnClick');return f end
+        end
+        error('Missing action '..text)
+    end
+    ui.controls.name:SetText('Raid');click(addon.L.WORKSPACE_PROFILE_NEW)
+    assert(select(2,addon.WorkspaceProfiles:List())~='default' and ui.controls.picker:GetText():find('Raid',1,true),'Save as new did not select the new profile')
+    ui.controls.picker:Fire('OnClick');click(addon.L.PROFILES_BTN_LOAD)
+    assert(select(2,addon.WorkspaceProfiles:List())=='default','Profile picker load failed')
+    click(addon.L.WORKSPACE_ROUTE_AUTO..'  >',ui.controls.routing)
+    assert(addon.db.workspacePanelRoutes.map=='MAINHAND','Route choice failed')
+    click(addon.L.WORKSPACE_ROUTE_RESET,ui.controls.routing)
+    assert(confirm,'Reset did not require its explicit confirmation');confirm()
+    ui.controls.regions[1].button:Fire('OnClick')
+    assert(addon.db.workspaceRegionThemes.a.theme=='CLASSIC' and not addon.db.workspaceRegionThemes.b,'Region theme choice leaked')
+    m.workspaceRegions={};ui:Refresh()
+    assert(not ui.controls.regions[1].button:IsEnabled() and not ui.controls.regions[2].button:IsEnabled(),'Unavailable regions remained editable')
+    addon.db.workspaceProfiles.version=99;ui:Refresh();ui.controls.picker:Fire('OnClick')
+    assert(addon.db.workspaceProfiles.version==99,'Malformed/future picker overwrote data')
+    addon.UIControls.CreateFrame=factory
+end)()
+print('PASS: workspace option profile creation/loading, routing/reset confirmation, independent themes, inactive regions and future-data refusal')
 dialog.centerX, dialog.centerY = 800, 1300
 ui.FitDialog(dialog, { isSpanned = true, gameWidth = 1950, gameHeight = 1097,
     gameLeft = 1097, gameRight = 3047, gameBottom = 4, gameTop = 1101 })

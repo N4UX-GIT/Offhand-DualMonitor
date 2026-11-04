@@ -145,9 +145,12 @@ assert(compatibilityIndex and frameStateIndex and panelRegistryIndex and canvasP
         and canvasPanelLifecycleIndex + 1 == canvasPanelPlacementIndex
         and canvasPanelPlacementIndex + 1 == canvasIndex,
     "Canvas support services must load together immediately before Canvas")
-assert(controlsIndex and optionsActionsIndex and optionsIndex
+local workspaceOptionsIndex
+for i,file in ipairs(main) do if file=="UI/WorkspaceOptions.lua" then workspaceOptionsIndex=i end end
+assert(controlsIndex and optionsActionsIndex and workspaceOptionsIndex and optionsIndex
         and controlsIndex + 1 == optionsActionsIndex
-        and optionsActionsIndex + 1 == optionsIndex,
+        and optionsActionsIndex + 1 == workspaceOptionsIndex
+        and workspaceOptionsIndex + 1 == optionsIndex,
     "shared controls and settings actions must load immediately before Options")
 for i=2,#tocs do
     local flavor = entries(tocs[i])

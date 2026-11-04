@@ -53,8 +53,8 @@ using System.Windows.Forms;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.3.4")]
-[assembly: AssemblyInformationalVersion("2.1.3-beta.3")]
+[assembly: AssemblyFileVersion("2.1.3.5")]
+[assembly: AssemblyInformationalVersion("2.1.3-beta.4")]
 #endif
 
 namespace Offhand.Companion
@@ -509,6 +509,8 @@ namespace Offhand.Companion
             internal bool PartialSecondary;
             internal WorkspaceRegion[] Workspaces;
             internal string PrimaryWorkspaceId;
+            internal string WorkspaceProfileID;
+            internal string WorkspaceProfileName;
             internal bool MultiRegion { get { return Workspaces != null; } }
             internal bool IsCustom { get { return PartialSingle || PartialSecondary || MultiRegion; } }
             internal Rectangle Bounds;
@@ -591,9 +593,12 @@ namespace Offhand.Companion
             if(selected.Count!=indices.Count)throw new InvalidOperationException("Selected monitors differ from the workspace plan. Review Workspaces.");
             foreach(int index in indices)if(!selected.Contains(displays[index].StableId))
                 throw new InvalidOperationException("Selected monitors differ from the workspace plan. Review Workspaces.");
+            string profileID=read("WorkspaceProfileID"),profileName=read("WorkspaceProfileName");
+            if(profileID!=null&&(!Regex.IsMatch(profileID,"^[a-f0-9]{32}$")||WorkspacePlanProfiles.Name(profileName)!=profileName))
+                throw new InvalidOperationException("The workspace profile identity is invalid. Review Workspace profiles.");
             return new Plan{Indices=indices.ToArray(),MainhandIndex=main,WorkspaceIndex=primaryIndex,
                 MainhandBounds=game,WorkspaceBounds=primaryBounds,Bounds=bounds,
-                Workspaces=workspaces.ToArray(),PrimaryWorkspaceId=primary};
+                Workspaces=workspaces.ToArray(),PrimaryWorkspaceId=primary,WorkspaceProfileID=profileID,WorkspaceProfileName=profileName};
         }
 
         internal static string AlignmentWarning(Plan plan)
@@ -1125,6 +1130,140 @@ namespace Offhand.Companion
             if(MonitorSelection.MultiEnabled(settings))AcceptButton=MultipleButton;
             ActiveControl = secondary ? SecondaryButton : SingleButton;
             if(MonitorSelection.MultiEnabled(settings))ActiveControl=MultipleButton;
+        }
+    }
+
+    // Named plans store only display geometry. Launcher, update, graphics and
+    // window recovery preferences never travel with a workspace profile.
+    internal static class WorkspacePlanProfiles
+    {
+        internal const string Key="WorkspaceProfilesV1";
+        public sealed class Record { public string ID; public string Name; public int MainWidth; public int MainHeight; public Dictionary<string,string> Settings; public override string ToString(){return Name;} }
+        public sealed class Store { public int Version=1; public List<Record> Items=new List<Record>(); }
+        internal static bool PlanKey(string key)
+        {
+            return Regex.IsMatch(key,@"^WorkspaceRegion(?:sEnabled|Version|Count|[12](?:Id|Identity|MonitorWidth|MonitorHeight|X|Y|Width|Height))$")
+                || Array.IndexOf(new[]{"WorkspacePrimary","MainhandIdentity","MainhandDevice","DisplayIdentityVersion","MonitorIdentities","MonitorDevices","Monitors","SingleDisplaySplit","PartialSpanEnabled","SecondaryAreaEnabled"},key)>=0;
+        }
+        internal static string Name(string name)
+        {
+            name=(name??"").Trim();
+            if(name.Length<1||name.Length>48||name.IndexOf('|')>=0)throw new InvalidOperationException("Use a profile name with 1 to 48 characters, without vertical bars or control characters.");
+            foreach(char c in name)if(char.IsControl(c))throw new InvalidOperationException("Profile names cannot contain control characters.");
+            return name;
+        }
+        internal static Store Read(IDictionary<string,string> settings)
+        {
+            string raw;if(!settings.TryGetValue(Key,out raw))return new Store();
+            try {
+                if(raw.Length>196608)throw new FormatException();
+                byte[] bytes=Convert.FromBase64String(raw);if(bytes.Length>131072)throw new FormatException();
+                var store=new JavaScriptSerializer{MaxJsonLength=131072,RecursionLimit=8}.Deserialize<Store>(Encoding.UTF8.GetString(bytes));
+                if(store==null||store.Version!=1||store.Items==null||store.Items.Count>20)throw new FormatException();
+                var ids=new HashSet<string>(StringComparer.Ordinal);var names=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach(var item in store.Items) {
+                    if(item==null||item.ID==null||!Regex.IsMatch(item.ID,"^[a-f0-9]{32}$")||!ids.Add(item.ID)
+                        ||Name(item.Name)!=item.Name||!names.Add(item.Name)||item.Settings==null||item.Settings.Count>40
+                        ||item.MainWidth<960||item.MainHeight<600)throw new FormatException();
+                    foreach(var pair in item.Settings)if(!PlanKey(pair.Key)||pair.Value==null||pair.Value.Length>4096)throw new FormatException();
+                }
+                return store;
+            } catch(Exception ex) {
+                if(!(ex is FormatException||ex is ArgumentException||ex is InvalidOperationException))throw;
+                throw new InvalidOperationException("Saved workspace profiles could not be read. Existing preferences were retained.");
+            }
+        }
+        private static Dictionary<string,string> Write(IDictionary<string,string> current,Store store)
+        {
+            var result=new Dictionary<string,string>(current);
+            string json=new JavaScriptSerializer{MaxJsonLength=131072,RecursionLimit=8}.Serialize(store);
+            result[Key]=Convert.ToBase64String(Encoding.UTF8.GetBytes(json));return result;
+        }
+        private static Record Find(Store store,string id)
+        {
+            var record=store.Items.Find(item=>item.ID==id);
+            if(record==null)throw new InvalidOperationException("Select an existing workspace profile.");return record;
+        }
+        internal static Dictionary<string,string> Save(IDictionary<string,string> current,string name,string replaceID,IList<MonitorSelection.Display> displays)
+        {
+            name=Name(name);var store=Read(current);
+            if(!MonitorSelection.MultiEnabled(current))throw new InvalidOperationException("Configure Multiple workspaces before saving a workspace profile.");
+            var plan=MonitorSelection.CreatePlan(current,displays);
+            var item=replaceID==null?null:Find(store,replaceID);
+            if(store.Items.Exists(other=>other!=item&&string.Equals(other.Name,name,StringComparison.OrdinalIgnoreCase)))throw new InvalidOperationException("A workspace profile already has that name.");
+            if(item==null){if(store.Items.Count>=20)throw new InvalidOperationException("Keep at most 20 workspace profiles.");item=new Record{ID=Guid.NewGuid().ToString("N")};store.Items.Add(item);}
+            item.Name=name;item.MainWidth=plan.MainhandBounds.Width;item.MainHeight=plan.MainhandBounds.Height;item.Settings=new Dictionary<string,string>();
+            foreach(var pair in current)if(PlanKey(pair.Key))item.Settings[pair.Key]=pair.Value;
+            var result=Write(current,store);result["WorkspaceProfileID"]=item.ID;result["WorkspaceProfileName"]=item.Name;return result;
+        }
+        internal static Dictionary<string,string> Load(IDictionary<string,string> current,string id,IList<MonitorSelection.Display> displays)
+        {
+            var item=Find(Read(current),id);var result=new Dictionary<string,string>(current);
+            foreach(string key in new List<string>(result.Keys))if(PlanKey(key))result.Remove(key);
+            foreach(var pair in item.Settings)result[pair.Key]=pair.Value;
+            result["AutoSpan"]="False";
+            var plan=MonitorSelection.CreatePlan(result,displays);
+            if(!plan.MultiRegion||plan.MainhandBounds.Width!=item.MainWidth||plan.MainhandBounds.Height!=item.MainHeight)
+                throw new InvalidOperationException("A profile display resolution changed. Review the connected monitors and save an updated plan.");
+            result["WorkspaceProfileID"]=item.ID;result["WorkspaceProfileName"]=item.Name;return result;
+        }
+        internal static Dictionary<string,string> Rename(IDictionary<string,string> current,string id,string name)
+        {
+            name=Name(name);var store=Read(current);var item=Find(store,id);
+            if(store.Items.Exists(other=>other!=item&&string.Equals(other.Name,name,StringComparison.OrdinalIgnoreCase)))throw new InvalidOperationException("A workspace profile already has that name.");
+            item.Name=name;var result=Write(current,store);string active;
+            if(result.TryGetValue("WorkspaceProfileID",out active)&&active==id)result["WorkspaceProfileName"]=name;
+            return result;
+        }
+        internal static Dictionary<string,string> Delete(IDictionary<string,string> current,string id)
+        {
+            var store=Read(current);store.Items.Remove(Find(store,id));var result=Write(current,store);string active;
+            if(result.TryGetValue("WorkspaceProfileID",out active)&&active==id){result.Remove("WorkspaceProfileID");result.Remove("WorkspaceProfileName");}
+            return result;
+        }
+    }
+
+    internal sealed class WorkspaceProfilesDialog : Form
+    {
+        internal Dictionary<string,string> Settings;
+        internal bool LoadedPlan;
+        private readonly ComboBox selection=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Dock=DockStyle.Fill,DisplayMember="Name"};
+        private readonly TextBox name=new TextBox{Dock=DockStyle.Fill,MaxLength=48};
+        private readonly Func<List<MonitorSelection.Display>> readDisplays;
+        internal WorkspaceProfilesDialog(IDictionary<string,string> current,Func<List<MonitorSelection.Display>> displays)
+        {
+            Settings=new Dictionary<string,string>(current);readDisplays=displays;Text="Workspace profiles";ClientSize=new Size(590,345);MinimumSize=new Size(510,345);
+            AutoScaleMode=AutoScaleMode.Dpi;Font=new Font("Segoe UI",10);StartPosition=FormStartPosition.CenterParent;MinimizeBox=false;MaximizeBox=false;
+            var layout=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(16),ColumnCount=1,AutoScroll=true};
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+            layout.Controls.Add(new Label{Text="Save monitor areas as named plans. Loading selects a plan without resizing WoW. Click Span WoW Now to apply, then reload the addon to switch its matching panel layout.",AutoSize=true,MaximumSize=new Size(540,0),Margin=new Padding(0,0,0,12)});
+            layout.Controls.Add(selection);layout.Controls.Add(new Label{Text="Profile name",AutoSize=true,Margin=new Padding(0,12,0,4)});layout.Controls.Add(name);
+            var actions=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,WrapContents=true,Margin=new Padding(0,12,0,0)};
+            Action<string,Action> button=(text,action)=>{var b=new Button{Text=text,AutoSize=true};b.Click+=(s,e)=>{try{action();RefreshProfiles();}catch(Exception ex){MessageBox.Show(this,ex.Message,Text,MessageBoxButtons.OK,MessageBoxIcon.Information);}};actions.Controls.Add(b);};
+            button("Save as new",()=>{Settings=WorkspacePlanProfiles.Save(Settings,name.Text,null,readDisplays());selection.SelectedIndex=-1;});
+            button("Update selected",()=>{var item=Selected();Settings=WorkspacePlanProfiles.Save(Settings,item.Name,item.ID,readDisplays());});
+            button("Load selected",()=>{Settings=WorkspacePlanProfiles.Load(Settings,Selected().ID,readDisplays());LoadedPlan=true;});
+            button("Rename",()=>Settings=WorkspacePlanProfiles.Rename(Settings,Selected().ID,name.Text));
+            button("Delete",()=>{var item=Selected();if(MessageBox.Show(this,"Delete the saved profile '"+item.Name+"'? The current display areas and addon layouts are retained.",Text,MessageBoxButtons.OKCancel,MessageBoxIcon.Question)==DialogResult.OK)Settings=WorkspacePlanProfiles.Delete(Settings,item.ID);});
+            layout.Controls.Add(actions);
+            var done=new Button{Text="Save changes",AutoSize=true,DialogResult=DialogResult.OK};var cancel=new Button{Text="Cancel",AutoSize=true,DialogResult=DialogResult.Cancel};
+            var footer=new FlowLayoutPanel{Dock=DockStyle.Bottom,AutoSize=true,FlowDirection=FlowDirection.RightToLeft,Padding=new Padding(12)};footer.Controls.Add(done);footer.Controls.Add(cancel);
+            Controls.Add(layout);Controls.Add(footer);AcceptButton=done;CancelButton=cancel;
+            selection.SelectedIndexChanged+=(s,e)=>{var item=selection.SelectedItem as WorkspacePlanProfiles.Record;if(item!=null)name.Text=item.Name;};
+            RefreshProfiles();
+        }
+        private WorkspacePlanProfiles.Record Selected()
+        {
+            var item=selection.SelectedItem as WorkspacePlanProfiles.Record;
+            if(item==null)throw new InvalidOperationException("Select a saved workspace profile.");return item;
+        }
+        private void RefreshProfiles()
+        {
+            var selected=selection.SelectedItem as WorkspacePlanProfiles.Record;string id=selected==null?null:selected.ID;
+            var items=WorkspacePlanProfiles.Read(Settings).Items;items.Sort((a,b)=>string.Compare(a.Name,b.Name,StringComparison.CurrentCultureIgnoreCase));
+            selection.Items.Clear();foreach(var item in items)selection.Items.Add(item);
+            if(id==null)Settings.TryGetValue("WorkspaceProfileID",out id);
+            int index=items.FindIndex(item=>item.ID==id);selection.SelectedIndex=index>=0?index:(items.Count>0?0:-1);
         }
     }
 
@@ -1853,6 +1992,12 @@ namespace Offhand.Companion
                 .InformationalVersion;
         }
 
+        private static string ProfileFields(MonitorSelection.Plan plan)
+        {
+            return "workspaceProfileID = "+(plan.MultiRegion&&plan.WorkspaceProfileID!=null?LuaString(plan.WorkspaceProfileID):"nil")
+                +", workspaceProfileName = "+(plan.MultiRegion&&plan.WorkspaceProfileID!=null?LuaString(plan.WorkspaceProfileName):"nil");
+        }
+
         private static string WorkspaceFields(MonitorSelection.Plan plan,IList<MonitorSelection.Display> displays)
         {
             string primary="workspace = "+RectLua(plan.WorkspaceBounds,plan.Bounds);
@@ -1890,6 +2035,7 @@ namespace Offhand.Companion
                 "selectedDevices = { " + selected + " }",
                 "game = " + RectLua(plan.MainhandBounds, plan.Bounds),
                 WorkspaceFields(plan,displays),
+                ProfileFields(plan),
             };
             foreach (string fragment in expected)
                 if (text.IndexOf(fragment, StringComparison.Ordinal) < 0) return false;
@@ -1934,6 +2080,7 @@ namespace Offhand.Companion
                 "  selectedDevices = { " + selected + " },\r\n" +
                 "  game = " + RectLua(plan.MainhandBounds, plan.Bounds) + ",\r\n" +
                 "  " + WorkspaceFields(plan,displays) + ",\r\n" +
+                "  " + ProfileFields(plan) + ",\r\n" +
                 "}\r\n";
             try
             {
@@ -2682,7 +2829,7 @@ namespace Offhand.Companion
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
 #else
-        internal const string ReleaseLabel = "Beta 3";
+        internal const string ReleaseLabel = "Beta 4";
         internal static readonly bool GraphicsRecoveryEnabled = true;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
@@ -2998,6 +3145,25 @@ namespace Offhand.Companion
             chkSingleSplit.Enabled = !partial;
             cmbSingleSide.Enabled = !partial && chkSingleSplit.Checked;
             chkAutoSpan.Enabled = !partial && !GraphicsRecoveryTestBuild;
+        }
+
+        private void EditWorkspaceProfiles()
+        {
+            SuspendUiPolling();
+            try {
+                using(var dialog=new WorkspaceProfilesDialog(appSettings,ReadDisplays)) {
+                    if(dialog.ShowDialog(this)!=DialogResult.OK)return;
+                    if(dialog.LoadedPlan)CustomRegionPreferences.Write(configPath,dialog.Settings,ReadDisplays);
+                    else PreferenceFile.Write(configPath,dialog.Settings);
+                    appSettings=dialog.Settings;
+                }
+                classicRecovery.Clear();displaySelectionGeneration++;
+                RefreshDisplayControls(ReadDisplays(),true);
+                chkAutoSpan.Checked=appSettings.ContainsKey("AutoSpan")&&appSettings["AutoSpan"]=="True";
+                UpdatePartialControls();RefreshSelectedColorStatus();
+                AddLog("Workspace profiles saved. Click Span WoW Now to apply the selected display plan, then reload the addon for its matching panel layout.");
+            } catch(Exception ex) {AddLog("Workspace profiles were not saved: "+ex.Message);MessageBox.Show(this,ex.Message,"Workspace profiles",MessageBoxButtons.OK,MessageBoxIcon.Information);}
+            finally {ResumeUiPolling();}
         }
 
         private void EditPartialSpan()
@@ -3704,6 +3870,11 @@ namespace Offhand.Companion
             cmbSingleSide.SelectedIndex = 0;
             sideRow.Controls.Add(cmbSingleSide);
             configLeft.Controls.Add(sideRow);
+
+            var profilesButton=CreateButton("Workspace profiles...",0,0,220,27,cBtnBg,cText,cBorder);
+            profilesButton.Margin=new Padding(0,6,0,0);
+            profilesButton.Click+=(s,e)=>EditWorkspaceProfiles();
+            configLeft.Controls.Add(profilesButton);
 
             btnPartialSpan = CreateButton("Custom region...", 0, 0, 220, 27, cBtnBg, cText, cBorder);
             btnPartialSpan.Margin = new Padding(0, 6, 0, 0);

@@ -576,6 +576,10 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 1: DISPLAY & VIEWPORT CALIBRATION
     -- ========================================================================
+    local workspaceCards
+    if Offhand.WorkspaceOptions then
+        workspaceCards=Offhand.WorkspaceOptions.Build({workspace=tab2,themes=tab3,profiles=tab4},CreateCard,Options)
+    end
     local card1_1 = CreateCard(tab1, L["CARD_LAYOUT_PRESETS"], 216)
 
     local enableCheck = CreateNativeCheckbox(card1_1, L["ENABLE_OFFHAND"],
@@ -2304,9 +2308,16 @@ function Options:CreateFloatingPanel()
     offhandCards = {card2_1, card2_2, windowControlCard}
     if advancedCard then offhandCards[#offhandCards + 1] = advancedCard end
     offhandCards[#offhandCards + 1] = recoveryCard
+    if workspaceCards then tinsert(offhandCards,1,workspaceCards.routing) end
     Options:StackCards(tab2, offhandCards)
-    Options:StackCards(tab3, {card3_1, card3_2, card3_3, card3_4})
-    Options:StackCards(tab4, {card4_1})
+    local themeCards={card3_1,card3_2,card3_3,card3_4}
+    local profileCards={card4_1}
+    if workspaceCards then
+        tinsert(themeCards,1,workspaceCards.themes)
+        tinsert(profileCards,1,workspaceCards.profiles)
+    end
+    Options:StackCards(tab3,themeCards)
+    Options:StackCards(tab4,profileCards)
     Options:StackCards(tab5, helpCards)
 
     -- ========================================================================
@@ -2530,6 +2541,8 @@ function Options:CreateFloatingPanel()
         if Options.UpdateProfileList then
             Options:UpdateProfileList()
         end
+
+        if Offhand.WorkspaceOptions then Offhand.WorkspaceOptions:Refresh() end
 
         local bagAddon = Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()
         local mmAddon = Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon()

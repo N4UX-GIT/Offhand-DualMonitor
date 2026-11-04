@@ -145,8 +145,9 @@ function Canvas:UpdateLayout()
     rootCanvas:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", metrics.workspaceRight, metrics.workspaceTop)
 
     -- Apply clean, dark backdrop theme to the workspace
+    Offhand.canvases = nil
     if Offhand.Themes and Offhand.Themes.ApplyCanvasTheme then
-        Offhand.Themes:ApplyCanvasTheme(rootCanvas)
+        Offhand.Themes:ApplyCanvasTheme(rootCanvas,metrics.primaryWorkspaceRegion)
     end
     for _,canvas in pairs(regionCanvases) do canvas:Hide() end
     Offhand.canvases = nil
@@ -166,7 +167,7 @@ function Canvas:UpdateLayout()
                 canvas:SetPoint("BOTTOMLEFT",UIParent,"BOTTOMLEFT",r.x,r.y)
                 canvas:SetPoint("TOPRIGHT",UIParent,"BOTTOMLEFT",r.x+r.width,r.y+r.height)
                 Offhand.canvases[r.id]=canvas
-                if Offhand.Themes and Offhand.Themes.ApplyCanvasTheme then Offhand.Themes:ApplyCanvasTheme(canvas) end
+                if Offhand.Themes and Offhand.Themes.ApplyCanvasTheme then Offhand.Themes:ApplyCanvasTheme(canvas,r.id) end
                 canvas:Show()
             end
         end
@@ -1457,7 +1458,8 @@ local function RestoreSavedPositionAfterShow(frame)
     local name = frameName
     local workspacePosition = name and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
     local mainPosition = name and Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name]
-    if not workspacePosition and not mainPosition then
+    local routed=Offhand.WorkspaceRouting and Offhand.WorkspaceRouting:HasRule(name,metrics)
+    if not workspacePosition and not mainPosition and not routed then
         local isNativePanel = name and UIPanelWindows and UIPanelWindows[name]
             and not nonMovableSystemPanels[name]
         if isNativePanel then

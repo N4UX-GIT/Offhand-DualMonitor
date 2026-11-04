@@ -564,7 +564,15 @@ function Persistence.InstallRestore(Canvas, services)
             return
         end
 
+        local route = Offhand.WorkspaceRouting and Offhand.WorkspaceRouting:Resolve(frame,m)
+        if route=="MAINHAND" then
+            Persistence.FitPlayerSpellsToWorkspace(frame,m,false)
+            RemodalizePanel(frame)
+            Canvas:PlacePanelOnMainhand(frame,m)
+            return
+        end
         local wPos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
+        if type(wPos)=="table" and wPos.autoRoute and not m.workspaceRegions then wPos=nil end
         if Offhand.WorkspaceRegions then m=Offhand.WorkspaceRegions:ForFrame(m,frame,wPos) end
         Persistence.FitPlayerSpellsToWorkspace(frame, m, Persistence.IsPosition(wPos))
         if Persistence.IsPosition(wPos) then
@@ -643,7 +651,8 @@ function Persistence.InstallRestore(Canvas, services)
         end
 
         local mPos = Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name]
-        if type(mPos) == "table" and mPos.x and mPos.y then
+        if type(mPos)=="table" and mPos.autoRoute and not m.workspaceRegions then mPos=nil end
+        if type(mPos) == "table" and (mPos.autoRoute or mPos.x and mPos.y) then
             if frame == WorldMapFrame then Canvas:ConfigureWorldMap() end
             RemodalizePanel(frame)
             Canvas:PlacePanelOnMainhand(frame, m, mPos, false)

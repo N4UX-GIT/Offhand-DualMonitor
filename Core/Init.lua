@@ -1591,6 +1591,9 @@ function Offhand:ApplyFullLayout()
     isApplyingLayout = true
 
     local success, err = pcall(function()
+        if Offhand.WorkspaceProfiles and Offhand.Viewport then
+            Offhand.WorkspaceProfiles:SyncCompanion(Offhand.Viewport:GetMetrics())
+        end
         if Offhand.Viewport and Offhand.Viewport.ApplyGlobalScale then Offhand.Viewport:ApplyGlobalScale() end
         if Offhand.UpdateViewport then
             Offhand:UpdateViewport()
@@ -1638,6 +1641,9 @@ function Offhand:ApplyFullLayout()
         end
     end)
 
+    if success and Offhand.WorkspaceProfiles then
+        success,err=pcall(Offhand.WorkspaceProfiles.Refresh,Offhand.WorkspaceProfiles)
+    end
     isApplyingLayout = false
     if not success then
         Offhand:Print(L["MSG_LAYOUT_ERROR"], tostring(err))

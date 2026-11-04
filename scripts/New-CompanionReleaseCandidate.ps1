@@ -21,13 +21,13 @@ $binary = Join-Path $output 'Offhand.exe'
 & $compiler /nologo /target:winexe /optimize+ /platform:anycpu "/out:$binary" "/win32icon:$root\Media\offhand-logo.ico" "/win32manifest:$appManifest" "/resource:$root\Media\offhand-logo-small.png,Offhand.Companion.Resources.offhand-logo.png" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll $source
 if ($LASTEXITCODE -ne 0) { throw 'Candidate compilation failed.' }
 $identity = [Diagnostics.FileVersionInfo]::GetVersionInfo($binary)
-if ($identity.FileVersion -ne '2.1.3.4' -or $identity.ProductVersion -ne '2.1.3-beta.3') {
+if ($identity.FileVersion -ne '2.1.3.5' -or $identity.ProductVersion -ne '2.1.3-beta.4') {
     throw 'Candidate executable version does not match the planned release.'
 }
-$archive = Join-Path $output 'Offhand-Companion-v2.1.3-beta.3.zip'
-& (Join-Path $PSScriptRoot 'New-CompanionTestPackage.ps1') -BinaryPath $binary -OutputPath $archive -Version '2.1.3-beta.3' | Out-Null
+$archive = Join-Path $output 'Offhand-Companion-v2.1.3-beta.4.zip'
+& (Join-Path $PSScriptRoot 'New-CompanionTestPackage.ps1') -BinaryPath $binary -OutputPath $archive -Version '2.1.3-beta.4' | Out-Null
 $readme = @'
-Offhand Companion 2.1.3 Beta 3: local release candidate, live QA pending.
+Offhand Companion 2.1.3 Beta 4: local release candidate, live QA pending.
 
 Exit any other Companion through its tray menu before testing this build.
 This ordinary runtime uses your existing Companion preferences. Preserve your
@@ -78,6 +78,15 @@ Saved region definitions are retained. Choose connected span displays in the
 main window before applying a standard layout. Re-enabling a saved custom plan
 still requires every configured display. Inactive area controls are disabled.
 Physical three-display, combat and mixed-DPI acceptance remain pending.
+Workspace profiles saves named Multiple workspaces plans, with stable identities.
+Loading selects settings only. Span WoW Now applies the plan; /reload selects its
+matching addon workspace layout. Missing monitors or changed resolutions refuse
+loading. Save, update, rename and delete leave launcher/update preferences intact.
+Addon Profiles offers independent workspace layout presets. Workspace offers
+opt-in routing for Map, Character, Spells, Collections, Achievements and Journal.
+Manual moves take precedence; Use routing again explicitly clears those moves.
+Themes offers a separate preset per custom region, or global theme inheritance.
+These new addon features have automated coverage; live acceptance remains pending.
 After a successful span, Companion notifies the Windows Shell that the actual
 WoW window is fullscreen. Restore clears that notification. Shell notification
 failure is nonfatal and logged. Global taskbar preferences are unchanged.
@@ -105,7 +114,7 @@ if ((Get-FileHash -LiteralPath $publicBinary).Hash -ne $publicHash -or
     (Get-FileHash -LiteralPath $publicArchive).Hash -ne $publicArchiveHash) { throw 'Canonical public artifacts changed.' }
 $dirty = @(& git -C $root status --porcelain --untracked-files=no)
 $record = [ordered]@{
-    version='2.1.3-beta.3'; fileVersion=$identity.FileVersion
+    version='2.1.3-beta.4'; fileVersion=$identity.FileVersion
     sourceRevision=(& git -C $root rev-parse HEAD).Trim(); trackedChanges=[bool]$dirty.Count
     programSha256=(Get-FileHash -LiteralPath $source).Hash
     appManifestSha256=(Get-FileHash -LiteralPath $appManifest).Hash
