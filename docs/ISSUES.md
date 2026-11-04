@@ -9,7 +9,9 @@ workspace diagram and persistent validation feedback, keeps invalid plans from
 being saved, improves profile action states and supports keyboard overlay
 resize/fine movement. The optional second workspace is hidden when unused.
 See [scope, native UI evidence and remaining gates](COMPANION-UX-QUALITY-PASS-20261104.md).
-Separate region image files remain a [planned, isolated enhancement](WORKSPACE-MEDIA-LIBRARY-PLAN.md).
+Separate region images now have an [optional two-image library implementation](WORKSPACE-MEDIA-LIBRARY-PLAN.md).
+See the [updated unofficial Test 2 scope](CUSTOM-WORKSPACE-DISCORD-TEST-2.md) and
+[precise local acceptance and cleanup](WORKSPACE-TEST-2-QA-20261104.md).
 
 ## Workspace feature checkpoint, 4 November 2026
 

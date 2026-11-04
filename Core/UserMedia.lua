@@ -10,6 +10,8 @@ Offhand.UserMedia = UserMedia
 
 local ADDON_NAME = "Offhand_UserMedia"
 local SUPPORTED_SCHEMA = 2
+local LIBRARY_SCHEMA = 3
+local SECOND_TEXTURE = "Interface\\AddOns\\Offhand_UserMedia\\Textures\\Background2.tga"
 local EXPECTED_TEXTURE = "Interface\\AddOns\\Offhand_UserMedia\\Textures\\Background.tga"
 local VALID_FITS = { FILL = true, FIT = true, STRETCH = true }
 
@@ -42,32 +44,42 @@ local function GetMetadata(field)
     return value
 end
 
+local function ReadAsset(schema, prefix, texture)
+    local function Get(suffix) return GetMetadata(prefix .. suffix) end
+    return {
+        schema = schema, generatorVersion = GetMetadata("X-Offhand-Generator-Version"), texture = texture,
+        id = Get("ID"), name = Get("Name"),
+        imageWidth = Get("Image-Width"), imageHeight = Get("Image-Height"),
+        textureWidth = Get("Texture-Width"), textureHeight = Get("Texture-Height"),
+        suggestedFit = Get("Suggested-Fit"), zoom = Get("Zoom"),
+        focalX = Get("Focal-X"), focalY = Get("Focal-Y"),
+        opacity = Get("Opacity"), dim = Get("Dim"), matte = Get("Matte"),
+    }
+end
+
 local function ReadPackageMetadata()
     local schema = GetMetadata("X-Offhand-Media-Schema")
     if schema == nil then return nil, "METADATA_NOT_FOUND" end
-    if tonumber(schema) ~= SUPPORTED_SCHEMA then return nil, "LEGACY_OR_UNSUPPORTED_SCHEMA" end
-    return {
-        schema = schema,
-        generatorVersion = GetMetadata("X-Offhand-Generator-Version"),
-        texture = EXPECTED_TEXTURE,
-        imageWidth = GetMetadata("X-Offhand-Image-Width"),
-        imageHeight = GetMetadata("X-Offhand-Image-Height"),
-        textureWidth = GetMetadata("X-Offhand-Texture-Width"),
-        textureHeight = GetMetadata("X-Offhand-Texture-Height"),
-        suggestedFit = GetMetadata("X-Offhand-Suggested-Fit"),
-        zoom = GetMetadata("X-Offhand-Zoom"),
-        focalX = GetMetadata("X-Offhand-Focal-X"),
-        focalY = GetMetadata("X-Offhand-Focal-Y"),
-        opacity = GetMetadata("X-Offhand-Opacity"),
-        dim = GetMetadata("X-Offhand-Dim"),
-        matte = GetMetadata("X-Offhand-Matte"),
-    }
+    schema = tonumber(schema)
+    if schema ~= SUPPORTED_SCHEMA and schema ~= LIBRARY_SCHEMA then return nil, "LEGACY_OR_UNSUPPORTED_SCHEMA" end
+    if schema == SUPPORTED_SCHEMA then return {ReadAsset(schema, "X-Offhand-", EXPECTED_TEXTURE)} end
+    local count = PositiveInteger(GetMetadata("X-Offhand-Asset-Count"), 2)
+    if not count then return {}, "ASSET_COUNT" end
+    local assets = {}
+    for index = 1, count do
+        assets[index] = ReadAsset(schema, "X-Offhand-Asset-" .. index .. "-",
+            index == 1 and EXPECTED_TEXTURE or SECOND_TEXTURE)
+    end
+    return assets
 end
 
 local function ValidatePackage(source)
     if type(source) ~= "table" then return nil, "NO_METADATA" end
-    if tonumber(source.schema) ~= SUPPORTED_SCHEMA then return nil, "SCHEMA" end
-    if source.texture ~= EXPECTED_TEXTURE then return nil, "TEXTURE_PATH" end
+    if tonumber(source.schema) ~= SUPPORTED_SCHEMA and tonumber(source.schema) ~= LIBRARY_SCHEMA then return nil, "SCHEMA" end
+    if source.texture ~= EXPECTED_TEXTURE and source.texture ~= SECOND_TEXTURE then return nil, "TEXTURE_PATH" end
+    if source.schema == LIBRARY_SCHEMA and (type(source.id) ~= "string" or #source.id < 1 or #source.id > 40
+        or not source.id:match("^[%w_-]+$") or type(source.name) ~= "string" or #source.name < 1
+        or #source.name > 192 or source.name:find("[%c|]") or not source.name:find("%S")) then return nil,"ASSET_IDENTITY" end
 
     local imageWidth = PositiveInteger(source.imageWidth, 4096)
     local imageHeight = PositiveInteger(source.imageHeight, 4096)
@@ -94,9 +106,11 @@ local function ValidatePackage(source)
     end
 
     return {
-        schema = SUPPORTED_SCHEMA,
+        schema = tonumber(source.schema),
+        id = source.schema == LIBRARY_SCHEMA and source.id or "shared",
+        name = source.schema == LIBRARY_SCHEMA and source.name or "Shared background",
         generatorVersion = generatorVersion,
-        texture = EXPECTED_TEXTURE,
+        texture = source.texture,
         imageWidth = imageWidth,
         imageHeight = imageHeight,
         textureWidth = textureWidth,
@@ -129,20 +143,38 @@ local function HexColor(value)
 end
 
 function UserMedia:Refresh()
-    local source, readReason = ReadPackageMetadata()
-    self.installed = source ~= nil or readReason == "LEGACY_OR_UNSUPPORTED_SCHEMA"
-    if not source then
-        self.metadata = nil
-        self.status = self.installed and "INVALID" or "MISSING"
-        self.reason = readReason
-        return false, self.status
+    local sources, readReason = ReadPackageMetadata()
+    self.installed = sources ~= nil or readReason == "LEGACY_OR_UNSUPPORTED_SCHEMA"
+    self.metadata, self.assets, self.assetList = nil, {}, {}
+    local reason = readReason
+    local pixels = 0
+    if sources and #sources == 0 then reason = reason or "ASSET_COUNT" end
+    for _, source in ipairs(sources or {}) do
+        local media, invalid = ValidatePackage(source)
+        if not media then reason = invalid; break end
+        if self.assets[media.id] then reason = "DUPLICATE_ID"; break end
+        pixels = pixels + media.textureWidth * media.textureHeight
+        if media.schema == LIBRARY_SCHEMA and pixels > 2048 * 1024 then reason = "PIXEL_BUDGET"; break end
+        self.assets[media.id] = media
+        self.assetList[#self.assetList + 1] = media
     end
+    if not reason then self.metadata = self.assetList[1] end
+    if not self.metadata then self.assets, self.assetList = {}, {} end
+    self.reason = reason
+    self.status = self.metadata and "AVAILABLE" or self.installed and "INVALID" or "MISSING"
+    return self.metadata ~= nil, self.status
+end
 
-    local metadata, validationReason = ValidatePackage(source)
-    self.metadata = metadata
-    self.reason = validationReason
-    self.status = metadata and "AVAILABLE" or "INVALID"
-    return metadata ~= nil, self.status
+function UserMedia:GetAssets()
+    local result = {}
+    for _, asset in ipairs(self.assetList or {}) do result[#result+1] = {id=asset.id, name=asset.name} end
+    return result
+end
+
+function UserMedia:GetAsset(settings)
+    local id = type(settings) == "table" and settings.userMediaAssetID
+    if id ~= nil then return type(id) == "string" and self.assets and self.assets[id] or nil end
+    return self.metadata
 end
 
 function UserMedia:IsAvailable()
@@ -157,7 +189,8 @@ function UserMedia:GetFitMode(settings)
     settings=type(settings)=="table" and settings or Offhand.db
     local configured = settings and tostring(settings.userMediaFitMode or "PACKAGE"):upper() or "PACKAGE"
     if configured ~= "PACKAGE" and VALID_FITS[configured] then return configured end
-    return self.metadata and self.metadata.suggestedFit or "FILL"
+    local media = self:GetAsset(settings)
+    return media and media.suggestedFit or "FILL"
 end
 
 function UserMedia:SetFitMode(mode)
@@ -188,12 +221,12 @@ end
 
 function UserMedia:ApplyToCanvas(canvas,settings)
     settings=type(settings)=="table" and settings or Offhand.db
-    if not canvas or not settings or settings.userMediaEnabled ~= true or not self:IsAvailable() then
+    local media = self:GetAsset(settings)
+    if not canvas or not settings or settings.userMediaEnabled ~= true or not self:IsAvailable() or not media then
         self:HideOnCanvas(canvas)
         return false
     end
 
-    local media = self.metadata
     if not canvas.userMediaTexture and canvas.CreateTexture then
         canvas.userMediaTexture = canvas:CreateTexture(nil, "BACKGROUND", nil, -7)
     end
@@ -258,6 +291,7 @@ function UserMedia:GetDiagnostics()
         installed = self.installed == true,
         enabled = Offhand.db and Offhand.db.userMediaEnabled == true or false,
         schema = media and media.schema,
+        assetCount = #(self.assetList or {}),
         generatorVersion = media and media.generatorVersion,
         fit = media and self:GetFitMode() or nil,
         imageWidth = media and media.imageWidth,

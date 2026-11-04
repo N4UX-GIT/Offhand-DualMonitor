@@ -1,8 +1,10 @@
 # Optional workspace background library
 
-4 November 2026. Planned enhancement after the Companion UX pass. The current
-implementation continues to reuse one installed image independently per region.
-This document does not claim multi-image support in an existing package.
+4 November 2026. Implemented for the updated unofficial workspace test package.
+The single-image workflow remains schema 2. Adding a second background creates
+a code-free schema 3 library, limited to two images sharing a 2,097,152 texture
+pixel budget. The published website has not been deployed with this change.
+The test package includes a self-contained offline Studio HTML file.
 
 ## Player workflow
 
@@ -54,3 +56,39 @@ Source reference: Core/UserMedia.lua and Website/background-studio-core.mjs at
 651321d define the current schema 2 contract. The shared KB media query had no
 exact integration record; this plan follows that local contract and does not
 infer API support or taint safety from retrieval.
+
+## Implementation and current evidence
+
+Schema 3 carries one or two stable IDs and names in a JSON recipe and numbered
+TOC metadata fields. Only Background.tga and Background2.tga can be rendered.
+The addon never loads media Lua. The importer checks file/manifest parity,
+dimensions, duplicate IDs, presentation bounds and the aggregate pixel budget
+before regenerating a clean package. Existing byte, entry and CRC limits remain.
+Removing an image retains the surviving ID even when its numbered file changes;
+the package remains schema 3. Failed import leaves the existing editor intact.
+
+Themes offers global inheritance, theme only, shared image, or an installed
+image by name for each region. Assignments live in workspaceRegionThemes and
+are included in named layout snapshots. Missing IDs retain their saved value
+and restore the region theme fill. Global image preferences are unaffected.
+
+All 90 Lua suites, six manifests and Lua 5.1 syntax checks pass.
+The four Studio suites cover core safety, 96 website-to-Lua geometry comparisons,
+two-image TOC-to-Lua rendering/profile/fallback checks, and simulated editor
+events through exact offline download bytes. The offline file embeds reviewed
+source and styles, has no external code dependencies, uses a script hash CSP
+and blocks script network connections. Simulation does not establish visual
+browser acceptance. The browser tool rejected local-file access; no alternate
+browser route was used to bypass that restriction.
+
+Retail 12.1.5.70783 discovered both images, visibly rendered the warm landscape
+and cool portrait fixtures in the real 480x600 workspace, retained the cool
+assignment through reload, and recorded schema 2 spanned topology. The first
+fresh error comparison retained all 13 historical records unchanged. Final
+cleanup and follow-up acceptance are recorded in the Test 2 QA document.
+
+Two independent renderer canvases pass simulation. Simultaneous physical
+two-workspace rendering requires three monitors: each workspace and the game
+must use a different display. This two-monitor machine cannot accept that
+hardware case. Mixed DPI, physical hotplug, combat/protected actions and a
+fresh Anniversary library run remain unverified.

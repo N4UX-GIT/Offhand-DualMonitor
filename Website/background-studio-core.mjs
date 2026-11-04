@@ -9,6 +9,8 @@ export const PACKAGE_LIMITS = Object.freeze({
 });
 
 export const MEDIA_SCHEMA = 2;
+export const LIBRARY_MEDIA_SCHEMA = 3;
+export const MAX_LIBRARY_PIXELS = 2048 * 1024;
 export const LEGACY_MEDIA_SCHEMA = 1;
 export const GENERATOR_VERSION = 4;
 export const SUPPORTED_INTERFACES = "30300, 120105, 120100, 120007, 120005, 16001, 50504, 40402, 30405, 38000, 20506, 11508, 11509";
@@ -21,6 +23,8 @@ export const PACKAGE_FILES = Object.freeze({
 });
 
 export const PACKAGE_PATHS = Object.freeze(Object.values(PACKAGE_FILES));
+export const LIBRARY_TEXTURES = Object.freeze([PACKAGE_FILES.texture, "Offhand_UserMedia/Textures/Background2.tga"]);
+const LIBRARY_PACKAGE_PATHS = [...PACKAGE_PATHS, LIBRARY_TEXTURES[1]];
 export const LEGACY_PACKAGE_PATHS = Object.freeze([
     PACKAGE_FILES.toc,
     "Offhand_UserMedia/Background.lua",
@@ -67,6 +71,70 @@ function validatedMediaRecipe(recipe) {
 export function createMediaToc(recipe) {
     const media = validatedMediaRecipe(recipe);
     return `## Interface: ${SUPPORTED_INTERFACES}\r\n## Title: |cffffbd0aOffhand|r |cffffffff[User Media]|r\r\n## Notes: Your code-free custom Offhand canvas background, generated locally by the Offhand Background Studio.\r\n## Author: Offhand Background Studio\r\n## Version: ${MEDIA_SCHEMA}\r\n## X-Offhand-Media-Schema: ${MEDIA_SCHEMA}\r\n## X-Offhand-Generator-Version: ${GENERATOR_VERSION}\r\n## X-Offhand-Image-Width: ${media.imageWidth}\r\n## X-Offhand-Image-Height: ${media.imageHeight}\r\n## X-Offhand-Texture-Width: ${media.textureWidth}\r\n## X-Offhand-Texture-Height: ${media.textureHeight}\r\n## X-Offhand-Suggested-Fit: ${media.suggestedFit}\r\n## X-Offhand-Zoom: ${media.zoom.toFixed(4)}\r\n## X-Offhand-Focal-X: ${media.focalX.toFixed(4)}\r\n## X-Offhand-Focal-Y: ${media.focalY.toFixed(4)}\r\n## X-Offhand-Opacity: ${media.opacity.toFixed(4)}\r\n## X-Offhand-Dim: ${media.dim.toFixed(4)}\r\n## X-Offhand-Matte: ${media.matte}\r\n## X-Website: https://offhand-wow.onrender.com/background-studio.html\r\n## IconTexture: Interface\\AddOns\\Offhand\\Media\\OffhandLogo64x64.blp\r\n## LoadOnDemand: 1\r\n## Dependencies: Offhand\r\n\r\n`;
+}
+
+// IDs belong to images, never to their slot or filename. Keep them on re-export.
+export function validateLibraryRecipe(recipe) {
+    if (recipe?.schema !== LIBRARY_MEDIA_SCHEMA || !Array.isArray(recipe.assets)
+        || recipe.assets.length < 1 || recipe.assets.length > 2) throw new Error("Invalid background library.");
+    const ids = new Set();
+    let pixels = 0;
+    const assets = recipe.assets.map((asset) => {
+        if (typeof asset.id !== "string" || !/^[a-zA-Z0-9_-]{1,40}$/.test(asset.id) || ids.has(asset.id))
+            throw new Error("Invalid or duplicate background ID.");
+        ids.add(asset.id);
+        if (typeof asset.name !== "string" || !asset.name.trim() || asset.name.length > 48
+            || /[\x00-\x1f\x7f|]/.test(asset.name)) throw new Error("Invalid background name.");
+        const media = validatedMediaRecipe(asset);
+        for (const size of [media.textureWidth, media.textureHeight])
+            if ((size & (size - 1)) !== 0) throw new Error("Texture dimensions must be powers of two.");
+        pixels += media.textureWidth * media.textureHeight;
+        return { ...media, id: asset.id, name: asset.name,
+            previewWorkspaceWidth: asset.previewWorkspaceWidth, previewWorkspaceHeight: asset.previewWorkspaceHeight };
+    });
+    if (pixels > MAX_LIBRARY_PIXELS) throw new Error("The library exceeds the aggregate texture budget.");
+    return { schema: LIBRARY_MEDIA_SCHEMA, generatorVersion: GENERATOR_VERSION, assets };
+}
+
+export function createLibraryToc(recipe) {
+    const library = validateLibraryRecipe(recipe);
+    const base = createMediaToc(library.assets[0]);
+    const fields = { imageWidth: "Image-Width", imageHeight: "Image-Height", textureWidth: "Texture-Width",
+        textureHeight: "Texture-Height", suggestedFit: "Suggested-Fit", zoom: "Zoom", focalX: "Focal-X",
+        focalY: "Focal-Y", opacity: "Opacity", dim: "Dim", matte: "Matte", id: "ID", name: "Name" };
+    const lines = [`## X-Offhand-Asset-Count: ${library.assets.length}`];
+    library.assets.forEach((asset, index) => {
+        for (const [key, suffix] of Object.entries(fields))
+            lines.push(`## X-Offhand-Asset-${index + 1}-${suffix}: ${asset[key]}`);
+    });
+    return base.replace("## Version: 2\r\n", "## Version: 3\r\n")
+        .replace("## X-Offhand-Media-Schema: 2\r\n", "## X-Offhand-Media-Schema: 3\r\n")
+        .replace("## X-Website:", `${lines.join("\r\n")}\r\n## X-Website:`);
+}
+
+// Import treats TOC and legacy Lua as untrusted data, then regenerates metadata.
+export function readMediaPackage(entries) {
+    const recipe = decodeJson(entries.get(PACKAGE_FILES.recipe));
+    const library = recipe?.schema === LIBRARY_MEDIA_SCHEMA;
+    let assets;
+    if (library) assets = validateLibraryRecipe(recipe).assets;
+    else {
+        if (![LEGACY_MEDIA_SCHEMA, MEDIA_SCHEMA].includes(recipe?.schema)) throw new Error("Unsupported recipe schema.");
+        assets = [{ ...recipe, id: "shared", name: "Shared background" }];
+    }
+    const expected = library && assets.length === 2 ? LIBRARY_PACKAGE_PATHS
+        : recipe.schema === LEGACY_MEDIA_SCHEMA ? LEGACY_PACKAGE_PATHS : PACKAGE_PATHS;
+    if (entries.size !== expected.length || expected.some((path) => !entries.has(path)))
+        throw new Error("The library manifest does not match its files.");
+    const images = assets.map((asset, index) => {
+        const tga = decodeTga32(entries.get(LIBRARY_TEXTURES[index]));
+        if (!Number.isInteger(asset.imageWidth) || !Number.isInteger(asset.imageHeight)
+            || asset.imageWidth < 1 || asset.imageHeight < 1 || asset.imageWidth > tga.width
+            || asset.imageHeight > tga.height || asset.textureWidth !== tga.width || asset.textureHeight !== tga.height)
+            throw new Error("The package recipe does not match its texture.");
+        return { recipe: asset, tga };
+    });
+    return { recipe, library, images };
 }
 
 // Restore UI controls without turning a valid zero-percent crop focus into 50%.
@@ -443,7 +511,7 @@ export function inspectGeneratedZip(bytes, limits = PACKAGE_LIMITS) {
         throw new Error("Unsupported or malformed ZIP structure.");
     }
 
-    const acceptedPathSets = [PACKAGE_PATHS, LEGACY_PACKAGE_PATHS];
+    const acceptedPathSets = [PACKAGE_PATHS, LEGACY_PACKAGE_PATHS, LIBRARY_PACKAGE_PATHS];
     const allowed = new Set(acceptedPathSets.flat());
     const entries = new Map();
     const localRanges = [];

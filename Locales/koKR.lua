@@ -8,7 +8,8 @@ L["WORKSPACE_MEDIA_INHERIT"] = "Background: inherit global"
 L["WORKSPACE_MEDIA_THEME"] = "Background: theme only"
 L["WORKSPACE_MEDIA_IMAGE"] = "Background: installed image"
 L["WORKSPACE_MEDIA_FIT_INHERIT"] = "Image fit: inherit global"
-L["WORKSPACE_MEDIA_HELP"] = "One installed image is fitted independently inside each region. Image choices fall back to the theme when the package is unavailable. Workspace profiles retain these choices."
+L["WORKSPACE_MEDIA_MISSING"] = "Missing background (theme fallback)"
+L["WORKSPACE_MEDIA_HELP"] = "Choose a shared background or an installed library image for each region. Missing images fall back to the theme. Workspace profiles retain image and fit choices."
 
 -- Workspace profiles and routing (English fallback pending translation).
 L["WORKSPACE_PROFILES_TITLE"] = "Workspace profiles"

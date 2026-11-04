@@ -131,6 +131,7 @@ function Themes:GetRegionSettings(regionID)
     if type(alpha)=="number" and alpha==alpha and alpha>=0 and alpha<=1 then result.canvasAlpha=alpha end
     if override.userMediaMode=="THEME" then result.userMediaEnabled=false
     elseif override.userMediaMode=="IMAGE" then result.userMediaEnabled=true end
+    if override.userMediaMode=="IMAGE" then result.userMediaAssetID=override.userMediaAssetID end
     local fit=override.userMediaFitMode
     if fit=="PACKAGE" or fit=="FILL" or fit=="FIT" or fit=="STRETCH" then result.userMediaFitMode=fit end
     return result
@@ -177,6 +178,11 @@ end
 function Themes:SetRegionMediaMode(regionID,mode)
     if mode~=nil and mode~="IMAGE" and mode~="THEME" then return false,"WORKSPACE_PROFILE_INVALID" end
     return SetRegionMedia(regionID,"userMediaMode",mode)
+end
+function Themes:SetRegionMediaAsset(regionID,assetID)
+    if assetID~=nil and (type(assetID)~="string" or #assetID<1 or #assetID>40
+        or not assetID:match("^[%w_-]+$")) then return false,"WORKSPACE_PROFILE_INVALID" end
+    return SetRegionMedia(regionID,"userMediaAssetID",assetID)
 end
 function Themes:SetRegionMediaFit(regionID,fit)
     if fit~=nil and fit~="PACKAGE" and fit~="FILL" and fit~="FIT" and fit~="STRETCH" then return false,"WORKSPACE_PROFILE_INVALID" end

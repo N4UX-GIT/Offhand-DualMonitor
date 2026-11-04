@@ -21,13 +21,13 @@ function UI.Build(tabs,card,options)
         if not ok and err and Offhand.Print then Offhand:Print(L[err] or err) end
         UI:Refresh()
     end
-    local function Choice(parent,x,y,width,choices,get,set)
+    local function Choice(parent,x,y,width,choices,get,set,missingLabel)
         local b
         local function Values() return type(choices)=="function" and choices() or choices end
         local function Update()
             local value=get();local label
             for _,entry in ipairs(Values()) do if entry.id==value then label=entry.label or entry.name end end
-            b:SetText((label or string.format(L.WORKSPACE_MISSING_REGION,tostring(value))).."  >")
+            b:SetText((label or missingLabel or string.format(L.WORKSPACE_MISSING_REGION,tostring(value))).."  >")
             if Offhand.SetTooltip then Offhand:SetTooltip(b,L.WORKSPACE_NEXT_CHOICE,L.WORKSPACE_NEXT_CHOICE_HELP) end
         end
         b=Button(parent,"",x,y,width,function()
@@ -103,8 +103,15 @@ function UI.Build(tabs,card,options)
         {id="OBSIDIAN",label=L.THEME_OBSIDIAN},{id="PITCH_BLACK",label=L.THEME_PITCH_BLACK},
         {id="GNOMISH_TINKER",label=L.THEME_TINKER}}
     local regionRows={}
-    local mediaChoices={{id="INHERIT",label=L.WORKSPACE_MEDIA_INHERIT},
-        {id="THEME",label=L.WORKSPACE_MEDIA_THEME},{id="IMAGE",label=L.WORKSPACE_MEDIA_IMAGE}}
+    local function MediaChoices()
+        local choices={{id="INHERIT",label=L.WORKSPACE_MEDIA_INHERIT},
+            {id="THEME",label=L.WORKSPACE_MEDIA_THEME},{id="IMAGE",label=L.WORKSPACE_MEDIA_IMAGE}}
+        local assets=Offhand.UserMedia and Offhand.UserMedia:GetAssets() or {}
+        if #assets>1 or assets[1] and assets[1].id~="shared" then
+            for _,asset in ipairs(assets) do choices[#choices+1]={id="ASSET:"..asset.id,label=asset.name} end
+        end
+        return choices
+    end
     local fitChoices={{id="INHERIT",label=L.WORKSPACE_MEDIA_FIT_INHERIT},
         {id="PACKAGE",label=L.USER_MEDIA_FIT_PACKAGE},{id="FILL",label=L.USER_MEDIA_FIT_FILL},
         {id="FIT",label=L.USER_MEDIA_FIT_FIT},{id="STRETCH",label=L.USER_MEDIA_FIT_STRETCH}}
@@ -125,12 +132,21 @@ function UI.Build(tabs,card,options)
                 local r=Regions()[i];if not r then return false,"WORKSPACE_CUSTOM_REQUIRED" end
                 return Offhand.Themes:SetRegionTheme(r.id,value~="INHERIT" and value or nil)
             end)
-        local media=Choice(themeCard,12,y-34,310,mediaChoices,
-            function()return RegionSetting(i,"userMediaMode")end,
+        local media=Choice(themeCard,12,y-34,310,MediaChoices,
+            function()
+                local mode=RegionSetting(i,"userMediaMode");local asset=RegionSetting(i,"userMediaAssetID")
+                if mode=="IMAGE" and asset~="INHERIT" then
+                    return type(asset)=="string" and "ASSET:"..asset or "INVALID_ASSET"
+                end
+                return mode
+            end,
             function(value)
                 local r=Regions()[i];if not r then return false,"WORKSPACE_CUSTOM_REQUIRED" end
-                return Offhand.Themes:SetRegionMediaMode(r.id,value~="INHERIT" and value or nil)
-            end)
+                local assetID=value:match("^ASSET:(.+)$")
+                local ok,err=Offhand.Themes:SetRegionMediaMode(r.id,assetID and "IMAGE" or value~="INHERIT" and value or nil)
+                if not ok then return ok,err end
+                return Offhand.Themes:SetRegionMediaAsset(r.id,assetID)
+            end,L.WORKSPACE_MEDIA_MISSING)
         local fit=Choice(themeCard,332,y-34,314,fitChoices,
             function()return RegionSetting(i,"userMediaFitMode")end,
             function(value)
