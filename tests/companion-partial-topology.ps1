@@ -6,7 +6,7 @@ $fixtureRoot = [IO.Path]::GetFullPath((Join-Path $temporaryBase ('Offhand-partia
 New-Item -ItemType Directory -Path $fixtureRoot | Out-Null
 try {
     $executable = Join-Path $fixtureRoot 'fixture.exe'
-    & $compiler /nologo /target:exe /main:Offhand.Companion.PartialTopologyTest "/out:$executable" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $PSScriptRoot '..\Companion\Source\Program.cs') (Join-Path $PSScriptRoot 'CompanionPartialTopology.cs')
+    & $compiler /nologo /target:exe /main:Offhand.Companion.PartialTopologyTest "/out:$executable" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $PSScriptRoot '..\Companion\Source\Program.cs') (Join-Path $PSScriptRoot '..\Companion\Source\LayoutDocument.cs') (Join-Path $PSScriptRoot '..\Companion\Source\WorkspaceLayoutService.cs') (Join-Path $PSScriptRoot 'CompanionPartialTopology.cs') (Join-Path $PSScriptRoot '..\Companion\Source\FlexibleWorkspaceEditor.cs')
     if ($LASTEXITCODE -ne 0) { throw 'Partial topology fixture compilation failed.' }
     & $executable $fixtureRoot
     if ($LASTEXITCODE -ne 0) { throw 'Partial topology generation failed.' }

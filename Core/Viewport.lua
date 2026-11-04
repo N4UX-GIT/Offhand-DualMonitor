@@ -31,7 +31,10 @@ end
 function Viewport:GetCompanionTopology(pw, ph, sw, sh)
     local topology = _G.OffhandCompanionTopology
     if type(topology) ~= "table" then return nil, "ABSENT" end
-    if tonumber(topology.schema) == 2 then
+    if tonumber(topology.schema) == 3 then
+        topology = Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:ValidateFlexibleTopology(topology)
+        if not topology then return nil, "MISMATCH" end
+    elseif tonumber(topology.schema) == 2 then
         topology = Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:ValidateTopology(topology)
         if not topology then return nil, "MISMATCH" end
     elseif tonumber(topology.schema) ~= 1 then return nil, "ABSENT" end
@@ -62,9 +65,14 @@ function Viewport:GetCompanionTopology(pw, ph, sw, sh)
     -- becomes MISMATCH again.
     local reportedDisplay = (Near(topology.game.width, pw) and Near(topology.game.height, ph))
         or (Near(topology.workspace.width, pw) and Near(topology.workspace.height, ph))
-    if topology.schema == 2 then
+    if topology.schema == 2 or topology.schema == 3 then
         for _,r in ipairs(topology.workspaces) do
             reportedDisplay=reportedDisplay or (Near(r.width,pw) and Near(r.height,ph))
+        end
+    end
+    if topology.schema == 3 then
+        for _,display in ipairs(topology.displays) do
+            reportedDisplay=reportedDisplay or (Near(display.width,pw) and Near(display.height,ph))
         end
     end
     -- Some offset arrangements share one display's aspect. In that case the

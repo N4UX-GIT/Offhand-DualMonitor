@@ -53,8 +53,8 @@ using System.Windows.Forms;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.3.6")]
-[assembly: AssemblyInformationalVersion("2.1.3-beta.5")]
+[assembly: AssemblyFileVersion("2.1.3.7")]
+[assembly: AssemblyInformationalVersion("2.1.3-beta.6")]
 #endif
 
 namespace Offhand.Companion
@@ -507,6 +507,8 @@ namespace Offhand.Companion
             internal bool GameOnLeft;
             internal bool PartialSingle;
             internal bool PartialSecondary;
+            internal bool FlexibleLayout;
+            internal int TopologySchema { get { return FlexibleLayout ? 3 : MultiRegion ? 2 : 1; } }
             internal WorkspaceRegion[] Workspaces;
             internal string PrimaryWorkspaceId;
             internal string WorkspaceProfileID;
@@ -776,6 +778,7 @@ namespace Offhand.Companion
         internal static Plan CreatePlan(IDictionary<string, string> settings, IList<Display> displays)
         {
             Func<string, string> read = key => settings.ContainsKey(key) ? settings[key] : null;
+            if (WorkspaceLayoutSettings.Enabled(settings)) return WorkspaceLayoutSettings.CreatePlan(settings, displays);
             bool partial = string.Equals(read("PartialSpanEnabled"), "True", StringComparison.OrdinalIgnoreCase);
             bool secondary = string.Equals(read("SecondaryAreaEnabled"), "True", StringComparison.OrdinalIgnoreCase);
             if(MultiEnabled(settings)) {
@@ -1200,12 +1203,13 @@ namespace Offhand.Companion
     {
         internal bool Secondary;
         internal bool Multiple;
-        internal readonly Button SingleButton, SecondaryButton, MultipleButton;
+        internal bool Flexible;
+        internal readonly Button SingleButton, SecondaryButton, MultipleButton, FlexibleButton;
 
         internal CustomRegionModeDialog(IDictionary<string,string> settings)
         {
             Text = "Choose custom workspace layout";
-            ClientSize = new Size(540, 290);
+            ClientSize = new Size(540, 350);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MinimizeBox = false; MaximizeBox = false;
             StartPosition = FormStartPosition.CenterParent;
@@ -1218,22 +1222,25 @@ namespace Offhand.Companion
             var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(16), ColumnCount = 1, AutoScroll=true };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             var current = new Label { AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 0, 0, 12),
-                Text = "Current plan: " + (MonitorSelection.MultiEnabled(settings) ? "multiple workspaces." : secondary ? "two-monitor custom workspace." : single ? "single-monitor custom region." : "standard display layout.")
+                Text = "Current plan: " + (WorkspaceLayoutSettings.Enabled(settings) ? "flexible layout prototype." : MonitorSelection.MultiEnabled(settings) ? "multiple workspaces." : secondary ? "two-monitor custom workspace." : single ? "single-monitor custom region." : "standard display layout.")
                     + "\nChoose a layout to edit. Changes are saved only with Save plan in its editor." };
             SingleButton = new Button { Text = "One monitor: game and workspace...", AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 4, 0, 4) };
             SecondaryButton = new Button { Text = "Two monitors: full game and custom workspace...", AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 4, 0, 4) };
             MultipleButton = new Button { Text = "Multiple workspaces: up to three monitors...", AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0,4,0,4) };
+            FlexibleButton = new Button { Text = "Flexible layout prototype: one display, two workspaces...", AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0,4,0,4) };
             var cancel = new Button { Text = "Cancel", AutoSize = true, Anchor = AnchorStyles.Right, DialogResult = DialogResult.Cancel, Margin = new Padding(0, 12, 0, 0) };
-            foreach (Control control in new Control[] { current, SingleButton, SecondaryButton, MultipleButton, cancel }) {
+            foreach (Control control in new Control[] { current, SingleButton, SecondaryButton, MultipleButton, FlexibleButton, cancel }) {
                 layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); layout.Controls.Add(control, 0, layout.RowCount++);
             }
             SingleButton.Click += (s,e) => { Secondary = false; Multiple=false; DialogResult = DialogResult.OK; Close(); };
             SecondaryButton.Click += (s,e) => { Secondary = true; Multiple=false; DialogResult = DialogResult.OK; Close(); };
             MultipleButton.Click += (s,e) => { Multiple = true; Secondary=false; DialogResult = DialogResult.OK; Close(); };
+            FlexibleButton.Click += (s,e) => { Flexible = true; DialogResult = DialogResult.OK; Close(); };
             Controls.Add(layout); CancelButton = cancel; AcceptButton = secondary ? SecondaryButton : SingleButton;
             if(MonitorSelection.MultiEnabled(settings))AcceptButton=MultipleButton;
             ActiveControl = secondary ? SecondaryButton : SingleButton;
             if(MonitorSelection.MultiEnabled(settings))ActiveControl=MultipleButton;
+            if(WorkspaceLayoutSettings.Enabled(settings)){AcceptButton=FlexibleButton;ActiveControl=FlexibleButton;}
             CompanionUi.Apply(this);
         }
     }
@@ -1243,11 +1250,12 @@ namespace Offhand.Companion
     internal static class WorkspacePlanProfiles
     {
         internal const string Key="WorkspaceProfilesV1";
+        internal const string KeyV2="WorkspaceProfilesV2";
         public sealed class Record { public string ID; public string Name; public int MainWidth; public int MainHeight; public Dictionary<string,string> Settings; public override string ToString(){return Name;} }
         public sealed class Store { public int Version=1; public List<Record> Items=new List<Record>(); }
         internal static bool PlanKey(string key)
         {
-            return Regex.IsMatch(key,@"^WorkspaceRegion(?:sEnabled|Version|Count|[12](?:Id|Identity|MonitorWidth|MonitorHeight|X|Y|Width|Height))$")
+            return WorkspaceLayoutSettings.IsSetting(key) || Regex.IsMatch(key,@"^WorkspaceRegion(?:sEnabled|Version|Count|[12](?:Id|Identity|MonitorWidth|MonitorHeight|X|Y|Width|Height))$")
                 || Array.IndexOf(new[]{"WorkspacePrimary","MainhandIdentity","MainhandDevice","DisplayIdentityVersion","MonitorIdentities","MonitorDevices","Monitors","SingleDisplaySplit","PartialSpanEnabled","SecondaryAreaEnabled"},key)>=0;
         }
         internal static string Name(string name)
@@ -1257,7 +1265,7 @@ namespace Offhand.Companion
             foreach(char c in name)if(char.IsControl(c))throw new InvalidOperationException("Profile names cannot contain control characters.");
             return name;
         }
-        internal static Store Read(IDictionary<string,string> settings)
+        private static Store ReadLegacy(IDictionary<string,string> settings)
         {
             string raw;if(!settings.TryGetValue(Key,out raw))return new Store();
             try {
@@ -1270,7 +1278,7 @@ namespace Offhand.Companion
                     if(item==null||item.ID==null||!Regex.IsMatch(item.ID,"^[a-f0-9]{32}$")||!ids.Add(item.ID)
                         ||Name(item.Name)!=item.Name||!names.Add(item.Name)||item.Settings==null||item.Settings.Count>40
                         ||item.MainWidth<960||item.MainHeight<600)throw new FormatException();
-                    foreach(var pair in item.Settings)if(!PlanKey(pair.Key)||pair.Value==null||pair.Value.Length>4096)throw new FormatException();
+                    foreach(var pair in item.Settings)if(!PlanKey(pair.Key)||WorkspaceLayoutSettings.IsSetting(pair.Key)||pair.Value==null||pair.Value.Length>4096)throw new FormatException();
                 }
                 return store;
             } catch(Exception ex) {
@@ -1278,9 +1286,37 @@ namespace Offhand.Companion
                 throw new InvalidOperationException("Saved workspace profiles could not be read. Existing preferences were retained.");
             }
         }
+        internal static Store Read(IDictionary<string,string> settings)
+        {
+            string raw;if(!settings.TryGetValue(KeyV2,out raw))return ReadLegacy(settings);
+            try {
+                if(raw.Length>699052)throw new FormatException();
+                byte[] bytes=Convert.FromBase64String(raw);if(bytes.Length>524288)throw new FormatException();
+                var store=new JavaScriptSerializer{MaxJsonLength=524288,RecursionLimit=12}.Deserialize<Store>(new UTF8Encoding(false,true).GetString(bytes));
+                if(store==null||store.Version!=2||store.Items==null||store.Items.Count>20)throw new FormatException();
+                var ids=new HashSet<string>(StringComparer.Ordinal);var names=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach(var item in store.Items) {
+                    if(item==null||item.ID==null||!Regex.IsMatch(item.ID,@"\A[a-f0-9]{32}\z")||!ids.Add(item.ID)
+                        ||Name(item.Name)!=item.Name||!names.Add(item.Name)||item.Settings==null||item.Settings.Count>64
+                        ||item.MainWidth<960||item.MainHeight<600)throw new FormatException();
+                    foreach(var pair in item.Settings)if(!PlanKey(pair.Key)||pair.Value==null||pair.Value.Length>(WorkspaceLayoutSettings.IsSetting(pair.Key)?32768:4096))throw new FormatException();
+                    if(WorkspaceLayoutSettings.Enabled(item.Settings))WorkspaceLayoutSettings.Read(item.Settings);
+                }
+                return store;
+            } catch(Exception ex) {
+                if(!(ex is FormatException||ex is ArgumentException||ex is InvalidOperationException))throw;
+                throw new InvalidOperationException("Saved version 2 workspace profiles could not be read. Existing preferences were retained.");
+            }
+        }
         private static Dictionary<string,string> Write(IDictionary<string,string> current,Store store)
         {
             var result=new Dictionary<string,string>(current);
+            if(store.Version==2||current.ContainsKey(KeyV2)||WorkspaceLayoutSettings.Enabled(current)) {
+                store.Version=2;
+                string version2=new JavaScriptSerializer{MaxJsonLength=524288,RecursionLimit=12}.Serialize(store);
+                result[KeyV2]=Convert.ToBase64String(Encoding.UTF8.GetBytes(version2));
+                Read(result);return result;
+            }
             string json=new JavaScriptSerializer{MaxJsonLength=131072,RecursionLimit=8}.Serialize(store);
             result[Key]=Convert.ToBase64String(Encoding.UTF8.GetBytes(json));return result;
         }
@@ -1292,7 +1328,7 @@ namespace Offhand.Companion
         internal static Dictionary<string,string> Save(IDictionary<string,string> current,string name,string replaceID,IList<MonitorSelection.Display> displays)
         {
             name=Name(name);var store=Read(current);
-            if(!MonitorSelection.MultiEnabled(current))throw new InvalidOperationException("Configure Multiple workspaces before saving a workspace profile.");
+            if(!MonitorSelection.MultiEnabled(current)&&!WorkspaceLayoutSettings.Enabled(current))throw new InvalidOperationException("Configure custom workspaces before saving a workspace profile.");
             var plan=MonitorSelection.CreatePlan(current,displays);
             var item=replaceID==null?null:Find(store,replaceID);
             if(store.Items.Exists(other=>other!=item&&string.Equals(other.Name,name,StringComparison.OrdinalIgnoreCase)))throw new InvalidOperationException("A workspace profile already has that name.");
@@ -1365,7 +1401,7 @@ namespace Offhand.Companion
         {
             bool selected=selection.SelectedItem is WorkspacePlanProfiles.Record,validName=true;
             try{WorkspacePlanProfiles.Name(name.Text);}catch(InvalidOperationException){validName=false;}
-            bool plan=MonitorSelection.MultiEnabled(Settings);
+            bool plan=MonitorSelection.MultiEnabled(Settings)||WorkspaceLayoutSettings.Enabled(Settings);
             var store=WorkspacePlanProfiles.Read(Settings);bool fresh=!store.Items.Exists(item=>string.Equals(item.Name,name.Text.Trim(),StringComparison.OrdinalIgnoreCase));
             foreach(var pair in actionsByName)pair.Value.Enabled=pair.Key=="Save as new"?plan&&validName&&fresh&&store.Items.Count<20:
                 pair.Key=="Update selected"?selected&&plan:pair.Key=="Rename"?selected&&validName:selected;
@@ -1494,7 +1530,7 @@ namespace Offhand.Companion
                 // Turning the feature off must remain possible after a required
                 // display disappears. Retain all saved region definitions.
                 var disabled=new Dictionary<string,string>(original);
-                disabled["WorkspaceRegionsEnabled"]="False";disabled["PartialSpanEnabled"]="False";
+                disabled[WorkspaceLayoutSettings.EnabledKey]="False";disabled["WorkspaceRegionsEnabled"]="False";disabled["PartialSpanEnabled"]="False";
                 disabled["SecondaryAreaEnabled"]="False";disabled["SingleDisplaySplit"]="False";disabled["AutoSpan"]="False";
                 int game=Game.SelectedIndex,workspace=Monitors[0].SelectedIndex;
                 if(game>=0&&workspace>=0&&game!=workspace) {
@@ -1507,7 +1543,7 @@ namespace Offhand.Companion
             }
             if(Game.SelectedIndex<0||Monitors[0].SelectedIndex<0||(Second.Checked&&Monitors[1].SelectedIndex<0))throw new InvalidOperationException("Choose connected monitors for the game and each workspace.");
             var result=new Dictionary<string,string>(original);int count=UseRegions.Checked&&Second.Checked?2:1;
-            result["WorkspaceRegionsEnabled"]=UseRegions.Checked.ToString();result["WorkspaceRegionVersion"]="2";result["WorkspaceRegionCount"]=count.ToString();
+            result[WorkspaceLayoutSettings.EnabledKey]="False";result["WorkspaceRegionsEnabled"]=UseRegions.Checked.ToString();result["WorkspaceRegionVersion"]="2";result["WorkspaceRegionCount"]=count.ToString();
             result["PartialSpanEnabled"]="False";result["SecondaryAreaEnabled"]="False";result["SingleDisplaySplit"]="False";result["AutoSpan"]="False";
             result["DisplayIdentityVersion"]="1";result["MainhandIdentity"]=displays[Game.SelectedIndex].StableId;result["MainhandDevice"]=displays[Game.SelectedIndex].DeviceName;
             result["WorkspacePrimary"]=ids[Primary.SelectedIndex==1&&count==2?1:0];
@@ -1578,7 +1614,7 @@ namespace Offhand.Companion
             var preview=new Label {AutoSize=true,MaximumSize=new Size(550,0),Padding=new Padding(0,12,0,12)};
             table.Controls.Add(preview,0,table.RowCount++);table.SetColumnSpan(preview,2);
             Func<Dictionary<string,string>> proposed=()=> {
-                var result=new Dictionary<string,string>(settings);result["SecondaryAreaEnabled"]=enabled.Checked.ToString();result["PartialSpanEnabled"]="False";result["WorkspaceRegionsEnabled"]="False";
+                var result=new Dictionary<string,string>(settings);result[WorkspaceLayoutSettings.EnabledKey]="False";result["SecondaryAreaEnabled"]=enabled.Checked.ToString();result["PartialSpanEnabled"]="False";result["WorkspaceRegionsEnabled"]="False";
                 if(!enabled.Checked)return result;
                 if(game.SelectedIndex<0||work.SelectedIndex<0||game.SelectedIndex==work.SelectedIndex)throw new InvalidOperationException("Choose two different connected monitors.");
                 var g=displays[game.SelectedIndex];var w=displays[work.SelectedIndex];
@@ -1670,7 +1706,7 @@ namespace Offhand.Companion
                 ? Math.Max(1, Math.Min(32768, value)) : 640;
             Func<Dictionary<string,string>> proposed=()=>{
                 var result=new Dictionary<string,string>(settings);
-                result["PartialSpanEnabled"]=enabled.Checked.ToString();result["SecondaryAreaEnabled"]="False";result["WorkspaceRegionsEnabled"]="False";
+                result[WorkspaceLayoutSettings.EnabledKey]="False";result["PartialSpanEnabled"]=enabled.Checked.ToString();result["SecondaryAreaEnabled"]="False";result["WorkspaceRegionsEnabled"]="False";
                 if(!enabled.Checked)return result;
                 if(DisplaySelector.SelectedIndex<0)throw new InvalidOperationException("Choose a connected display.");
                 var display=displays[DisplaySelector.SelectedIndex];
@@ -2146,6 +2182,17 @@ namespace Offhand.Companion
             result.Append("  }");return result.ToString();
         }
 
+        private static string DisplayFields(MonitorSelection.Plan plan,IList<MonitorSelection.Display> displays)
+        {
+            if(!plan.FlexibleLayout)return "";
+            var result=new StringBuilder("coordinateSpace = \"BOTTOM_LEFT_PHYSICAL\",\r\n  displays = {\r\n");
+            foreach(int index in plan.Indices) {
+                string rectangle=RectLua(displays[index].Bounds,plan.Bounds);
+                result.Append("    { device = "+LuaString(displays[index].DeviceName)+", "+rectangle.Substring(2)+",\r\n");
+            }
+            result.Append("  },\r\n  ");return result.ToString();
+        }
+
         internal static bool IsCurrent(string wowDir, MonitorSelection.Plan plan,
             IList<MonitorSelection.Display> displays)
         {
@@ -2164,13 +2211,14 @@ namespace Offhand.Companion
             }
             string[] expected = {
                 "companionVersion = " + LuaString(CurrentVersion()),
-                "schema = "+(plan.MultiRegion?"2":"1"),
+                "schema = "+plan.TopologySchema,
                 "mode = " + LuaString(plan.MultiRegion ? "CUSTOM_REGIONS" : plan.SplitSingle ? "SPLIT_ULTRAWIDE" : "DUAL_DISPLAY"),
                 "physicalWidth = " + plan.Bounds.Width + ", physicalHeight = " + plan.Bounds.Height,
                 "mainhandDevice = " + LuaString(displays[plan.MainhandIndex].DeviceName),
                 "selectedDevices = { " + selected + " }",
                 "game = " + RectLua(plan.MainhandBounds, plan.Bounds),
                 WorkspaceFields(plan,displays),
+                DisplayFields(plan,displays),
                 ProfileFields(plan),
             };
             foreach (string fragment in expected)
@@ -2191,8 +2239,8 @@ namespace Offhand.Companion
             written = null;
             message = "Display topology was not written.";
             if (string.IsNullOrEmpty(wowDir) || plan == null) return false;
-            if(plan.MultiRegion && !AddonInstallation.SupportsTopologySchema(wowDir,2)) {
-                message="The installed addon does not support multiple workspaces. Update it before applying this plan.";
+            if(plan.MultiRegion && !AddonInstallation.SupportsTopologySchema(wowDir,plan.TopologySchema)) {
+                message="The installed addon does not support this workspace topology schema. Update it before applying this plan.";
                 return false;
             }
             string core = Path.Combine(wowDir, "Interface", "AddOns", "Offhand", "Core");
@@ -2208,7 +2256,7 @@ namespace Offhand.Companion
             string text =
                 "-- Generated by Offhand Companion. Do not edit while the Companion is running.\r\n" +
                 "OffhandCompanionTopology = {\r\n" +
-                "  schema = "+(plan.MultiRegion?"2":"1")+", generatedAt = " + LuaString(DateTime.UtcNow.ToString("o")) + ",\r\n" +
+                "  schema = "+plan.TopologySchema+", generatedAt = " + LuaString(DateTime.UtcNow.ToString("o")) + ",\r\n" +
                 "  companionVersion = " + LuaString(CurrentVersion()) + ",\r\n" +
                 "  mode = " + LuaString(plan.MultiRegion ? "CUSTOM_REGIONS" : plan.SplitSingle ? "SPLIT_ULTRAWIDE" : "DUAL_DISPLAY") + ",\r\n" +
                 "  physicalWidth = " + plan.Bounds.Width + ", physicalHeight = " + plan.Bounds.Height + ",\r\n" +
@@ -2216,7 +2264,7 @@ namespace Offhand.Companion
                 "  selectedDevices = { " + selected + " },\r\n" +
                 "  game = " + RectLua(plan.MainhandBounds, plan.Bounds) + ",\r\n" +
                 "  " + WorkspaceFields(plan,displays) + ",\r\n" +
-                "  " + ProfileFields(plan) + ",\r\n" +
+                "  " + DisplayFields(plan,displays) + ProfileFields(plan) + ",\r\n" +
                 "}\r\n";
             try
             {
@@ -2416,7 +2464,7 @@ namespace Offhand.Companion
                         && string.Equals(value, "True", StringComparison.OrdinalIgnoreCase))
                     || (settings.TryGetValue("SecondaryAreaEnabled", out value)
                         && string.Equals(value, "True", StringComparison.OrdinalIgnoreCase))
-                    || MonitorSelection.MultiEnabled(settings);
+                    || MonitorSelection.MultiEnabled(settings) || WorkspaceLayoutSettings.Enabled(settings);
                 // Disabling custom mode remains available with a display missing.
                 if (custom) MonitorSelection.CreatePlan(settings, current);
             });
@@ -2965,7 +3013,7 @@ namespace Offhand.Companion
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
 #else
-        internal const string ReleaseLabel = "Beta 5";
+        internal const string ReleaseLabel = "Beta 6";
         internal static readonly bool GraphicsRecoveryEnabled = true;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
@@ -3276,8 +3324,10 @@ namespace Offhand.Companion
         {
             bool partial = (appSettings.ContainsKey("PartialSpanEnabled") && appSettings["PartialSpanEnabled"] == "True")
                 || (appSettings.ContainsKey("SecondaryAreaEnabled") && appSettings["SecondaryAreaEnabled"] == "True")
-                || MonitorSelection.MultiEnabled(appSettings);
+                || MonitorSelection.MultiEnabled(appSettings) || WorkspaceLayoutSettings.Enabled(appSettings);
             if (btnPartialSpan != null) btnPartialSpan.Text = partial ? "Custom region: on..." : "Custom region...";
+            clbMonitors.Enabled = !WorkspaceLayoutSettings.Enabled(appSettings);
+            cmbMainhand.Enabled = !WorkspaceLayoutSettings.Enabled(appSettings);
             chkSingleSplit.Enabled = !partial;
             cmbSingleSide.Enabled = !partial && chkSingleSplit.Checked;
             chkAutoSpan.Enabled = !partial && !GraphicsRecoveryTestBuild;
@@ -3311,7 +3361,12 @@ namespace Offhand.Companion
                 using (var choice = new CustomRegionModeDialog(appSettings))
                 {
                     if (choice.ShowDialog(this) != DialogResult.OK) return;
-                    if (choice.Multiple) {
+                    if (choice.Flexible) {
+                        using(var dialog=new FlexibleWorkspaceEditor(ReadDisplays(),appSettings)) {
+                            if(dialog.ShowDialog(this)!=DialogResult.OK)return;
+                            proposed=dialog.Settings;
+                        }
+                    } else if (choice.Multiple) {
                         using(var dialog=new WorkspaceRegionsDialog(ReadDisplays(),appSettings)) {
                             if(dialog.ShowDialog(this)!=DialogResult.OK)return;
                             proposed=dialog.Settings;

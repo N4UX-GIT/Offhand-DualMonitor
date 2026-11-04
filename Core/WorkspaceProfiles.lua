@@ -184,7 +184,7 @@ end
 -- A manually selected Companion plan carries a stable ID. Renaming keeps that
 -- ID. Repeated layout passes and reloads never override a later in-game choice.
 function Profiles:SyncCompanion(metrics)
-    if not Editable() or not metrics or metrics.topologySchema~=2 or not metrics.isSpanned then return end
+    if not Editable() or not metrics or (metrics.topologySchema~=2 and metrics.topologySchema~=3) or not metrics.isSpanned then return end
     local raw=_G.OffhandCompanionTopology
     local id=type(raw)=="table" and raw.workspaceProfileID
     local name=type(raw)=="table" and Name(raw.workspaceProfileName)

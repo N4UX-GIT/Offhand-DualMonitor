@@ -9,7 +9,7 @@ try {
     if (-not $Production) {
         $define += if ($Forever) { '/define:FOREVER_GRAPHICS_RECOVERY_TEST' } elseif ($Retail) { '/define:RETAIL_GRAPHICS_RECOVERY_TEST' } else { '/define:CLASSIC_GRAPHICS_RECOVERY_TEST' }
     }
-    & $compiler /nologo /target:exe @define /main:Offhand.Companion.ClassicGraphicsRecoveryTest "/out:$output" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $root 'Companion\Source\Program.cs') (Join-Path $PSScriptRoot 'ClassicGraphicsRecovery.cs')
+    & $compiler /nologo /target:exe @define /main:Offhand.Companion.ClassicGraphicsRecoveryTest "/out:$output" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $root 'Companion\Source\Program.cs') (Join-Path $root 'Companion\Source\LayoutDocument.cs') (Join-Path $root 'Companion\Source\WorkspaceLayoutService.cs') (Join-Path $PSScriptRoot 'ClassicGraphicsRecovery.cs') (Join-Path $root 'Companion\Source\FlexibleWorkspaceEditor.cs')
     if ($LASTEXITCODE -ne 0) { throw 'Classic recovery test compilation failed' }
     & $output
     if ($LASTEXITCODE -ne 0) { throw 'Classic recovery regression failed' }

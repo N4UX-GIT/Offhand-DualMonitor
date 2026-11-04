@@ -124,6 +124,7 @@ namespace Offhand.Companion
                 "A layout needs one to three display roles.");
             Require(document.Game != null && document.Workspaces != null && document.Workspaces.Count >= 1
                 && document.Workspaces.Count <= MaximumWorkspaces, "Choose one game area and one or two workspaces.");
+            Require(document.Game.Id == "game", "The game region must retain its reserved ID.");
             var bindings = new Dictionary<string, WorkspaceLayoutBinding>(StringComparer.Ordinal);
             foreach (var binding in document.Displays)
             {
@@ -149,6 +150,10 @@ namespace Offhand.Companion
                 var display = displays[found];
                 Require(!string.IsNullOrWhiteSpace(display.DeviceName) && display.Bounds.Size == binding.Resolution,
                     "The display resolution or identity changed. Review the layout.");
+                Require(display.Bounds.Width<=32768 && display.Bounds.Height<=32768
+                    && (long)display.Bounds.X+display.Bounds.Width<=int.MaxValue
+                    && (long)display.Bounds.Y+display.Bounds.Height<=int.MaxValue,
+                    "The selected physical display exceeds the supported coordinate range.");
                 Require(Fits(region.Bounds, display.Bounds.Size), "Each region must fit wholly inside its display.");
                 Require(region.Bounds.Width >= (game ? 960 : 480) && region.Bounds.Height >= 600
                     && region.Bounds.Width <= MaximumAxis && region.Bounds.Height <= MaximumAxis,

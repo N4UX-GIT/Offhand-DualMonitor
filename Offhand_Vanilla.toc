@@ -8,7 +8,7 @@
 ## X-Offhand-Companion-Version: 2.1.2
 ## X-Offhand-Companion-Release: beta.20
 ## X-Offhand-Companion-Protocol: 1
-## X-Offhand-Topology-Schemas: 1,2
+## X-Offhand-Topology-Schemas: 1,2,3
 ## X-Offhand-Companion-Min-Version: 2.1.2-beta.19
 ## X-Offhand-Manifest: Vanilla
 ## X-Website: https://offhand-wow.onrender.com/

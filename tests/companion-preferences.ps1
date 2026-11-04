@@ -4,12 +4,12 @@ if (-not (Test-Path -LiteralPath $compiler)) { throw 'C# compiler unavailable' }
 $testExe = Join-Path ([IO.Path]::GetTempPath()) ('Offhand-preferences-' + [guid]::NewGuid().ToString() + '.exe')
 $layoutTestExe = Join-Path ([IO.Path]::GetTempPath()) ('Offhand-layout-' + [guid]::NewGuid().ToString() + '.exe')
 try {
-    & $compiler /nologo /target:exe /main:Offhand.Companion.PreferencesTest "/out:$testExe" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $PSScriptRoot '..\Companion\Source\Program.cs') (Join-Path $PSScriptRoot 'CompanionPreferences.cs')
+    & $compiler /nologo /target:exe /main:Offhand.Companion.PreferencesTest "/out:$testExe" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $PSScriptRoot '..\Companion\Source\Program.cs') (Join-Path $PSScriptRoot '..\Companion\Source\LayoutDocument.cs') (Join-Path $PSScriptRoot '..\Companion\Source\WorkspaceLayoutService.cs') (Join-Path $PSScriptRoot 'CompanionPreferences.cs') (Join-Path $PSScriptRoot '..\Companion\Source\FlexibleWorkspaceEditor.cs')
     if ($LASTEXITCODE -ne 0) { throw 'Companion test compilation failed' }
     & $testExe
     if ($LASTEXITCODE -ne 0) { throw 'Companion preference test failed' }
 
-    & $compiler /nologo /target:exe /main:Offhand.Companion.LayoutTest "/out:$layoutTestExe" /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $PSScriptRoot '..\Companion\Source\Program.cs') (Join-Path $PSScriptRoot 'CompanionLayout.cs')
+    & $compiler /nologo /target:exe /main:Offhand.Companion.LayoutTest "/out:$layoutTestExe" /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $PSScriptRoot '..\Companion\Source\Program.cs') (Join-Path $PSScriptRoot '..\Companion\Source\LayoutDocument.cs') (Join-Path $PSScriptRoot '..\Companion\Source\WorkspaceLayoutService.cs') (Join-Path $PSScriptRoot 'CompanionLayout.cs') (Join-Path $PSScriptRoot '..\Companion\Source\FlexibleWorkspaceEditor.cs')
     if ($LASTEXITCODE -ne 0) { throw 'Companion layout test compilation failed' }
     & $layoutTestExe
     if ($LASTEXITCODE -ne 0) { throw 'Companion scaled-layout test failed' }
@@ -30,16 +30,16 @@ try {
         $source -notmatch 'CompanionUpdatePolicy\.SelectLatest') {
         throw 'Companion update checks must use the official repository release list and channel policy.'
     }
-    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.3-beta\.5"\)' -or
-        $source -notmatch 'AssemblyFileVersion\("2\.1\.3\.6"\)') {
+    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.3-beta\.6"\)' -or
+        $source -notmatch 'AssemblyFileVersion\("2\.1\.3\.7"\)') {
         throw 'Companion binary metadata must identify the exact beta build.'
     }
     $appManifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Source\app.manifest') -Raw
-    if ($appManifest -notmatch '<assemblyIdentity version="2\.1\.3\.6" name="Offhand\.Companion\.App"/>') {
+    if ($appManifest -notmatch '<assemblyIdentity version="2\.1\.3\.7" name="Offhand\.Companion\.App"/>') {
         throw 'Companion application manifest must identify the exact beta build.'
     }
     $candidateBuilder = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\scripts\New-CompanionReleaseCandidate.ps1') -Raw
-    if ($candidateBuilder -notmatch "FileVersion -ne '2\.1\.3\.6'") {
+    if ($candidateBuilder -notmatch "FileVersion -ne '2\.1\.3\.7'") {
         throw 'Candidate packaging must accept the current reviewed file version.'
     }
     if ($source -match 'Process\.GetProcesses\(\)' -or

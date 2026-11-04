@@ -20,16 +20,16 @@ New-Item -ItemType Directory -Path $output | Out-Null
 $interactionAudit = Join-Path $output 'interaction-audit.json'
 & (Join-Path $PSScriptRoot 'Test-CompanionInteractionBoundary.ps1') -OutputPath $interactionAudit
 $binary = Join-Path $output 'Offhand.exe'
-& $compiler /nologo /target:winexe /optimize+ /platform:anycpu "/out:$binary" "/win32icon:$root\Media\offhand-logo.ico" "/win32manifest:$appManifest" "/resource:$root\Media\offhand-logo-small.png,Offhand.Companion.Resources.offhand-logo.png" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll $source
+& $compiler /nologo /target:winexe /optimize+ /platform:anycpu "/out:$binary" "/win32icon:$root\Media\offhand-logo.ico" "/win32manifest:$appManifest" "/resource:$root\Media\offhand-logo-small.png,Offhand.Companion.Resources.offhand-logo.png" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll $source (Join-Path (Split-Path -Parent $source) LayoutDocument.cs) (Join-Path (Split-Path -Parent $source) WorkspaceLayoutService.cs) (Join-Path (Split-Path -Parent $source) FlexibleWorkspaceEditor.cs)
 if ($LASTEXITCODE -ne 0) { throw 'Candidate compilation failed.' }
 $identity = [Diagnostics.FileVersionInfo]::GetVersionInfo($binary)
-if ($identity.FileVersion -ne '2.1.3.6' -or $identity.ProductVersion -ne '2.1.3-beta.5') {
+if ($identity.FileVersion -ne '2.1.3.7' -or $identity.ProductVersion -ne '2.1.3-beta.6') {
     throw 'Candidate executable version does not match the planned release.'
 }
-$archive = Join-Path $output 'Offhand-Companion-v2.1.3-beta.5.zip'
-& (Join-Path $PSScriptRoot 'New-CompanionTestPackage.ps1') -BinaryPath $binary -OutputPath $archive -Version '2.1.3-beta.5' | Out-Null
+$archive = Join-Path $output 'Offhand-Companion-v2.1.3-beta.6.zip'
+& (Join-Path $PSScriptRoot 'New-CompanionTestPackage.ps1') -BinaryPath $binary -OutputPath $archive -Version '2.1.3-beta.6' | Out-Null
 $readme = @'
-Offhand Companion 2.1.3 Beta 5: local release candidate, live QA pending.
+Offhand Companion 2.1.3 Beta 6: local release candidate, live QA pending.
 
 Exit any other Companion through its tray menu before testing this build.
 This ordinary runtime uses your existing Companion preferences. Preserve your
@@ -68,6 +68,15 @@ Custom regions are manual-only; graphics-reset recovery is not armed for them.
 Use Restore Window to return to the ordinary window. Disable the custom mode's
 checkbox in its editor to return to the existing two-display or equal-half modes.
 Narrow panels may not fit or remain readable; use Mainhand for those panels.
+Flexible layout prototype adds an explicit single-display editor with centered,
+stacked and one-side presets plus numeric rectangles. Enable its checkbox, review
+the preview and Save plan. Span WoW Now and a manual /reload apply the layout.
+The new topology schema 3 requires the matching addon. Schema 1/2 behavior stays
+available. Flexible plans use a version 2 profile store copied from version 1;
+the original version 1 store is retained. Disable flexible mode and save to
+restore the prior geometry settings before using an older Companion. Restore
+Window remains the native recovery action. Automatic apply/reload is disabled.
+This prototype is not the complete future grid/freeform editor.
 Multiple workspaces opens an experimental editor for one full game monitor and
 one or two workspaces on different monitors. Choose Workspace A/B and a primary,
 then move or resize each area's visual overlay. Existing one-monitor and
@@ -89,9 +98,8 @@ opt-in routing for Map, Character, Spells, Collections, Achievements and Journal
 Manual moves take precedence; Use routing again explicitly clears those moves.
 Themes offers a separate preset per custom region, or global theme inheritance.
 The current addon also supports independent image/theme and image-fit preferences
-per region using one installed Background Studio image. Different image files
-per region remain a separate planned enhancement.
-Beta 5 gives the layout editors consistent dark fields, readable disabled
+per region, with an optional two-image code-free Background Studio library.
+Beta 6 gives the layout editors consistent dark fields, readable disabled
 actions, display numbering, sticky validation feedback and a visual plan preview.
 Workspace B is hidden when unused. Save is disabled while a plan is invalid;
 disabling custom mode remains possible after monitor loss. Profile changes are
@@ -128,10 +136,13 @@ if ((Get-FileHash -LiteralPath $publicBinary).Hash -ne $publicHash -or
     (Get-FileHash -LiteralPath $publicArchive).Hash -ne $publicArchiveHash) { throw 'Canonical public artifacts changed.' }
 $dirty = @(& git -C $root status --porcelain --untracked-files=no)
 $record = [ordered]@{
-    version='2.1.3-beta.5'; fileVersion=$identity.FileVersion
+    version='2.1.3-beta.6'; fileVersion=$identity.FileVersion
     sourceRevision=(& git -C $root rev-parse HEAD).Trim(); trackedChanges=[bool]$dirty.Count
     programSha256=(Get-FileHash -LiteralPath $source).Hash
     interactionAuditSha256=(Get-FileHash -LiteralPath $interactionAudit).Hash
+    layoutDocumentSha256=(Get-FileHash -LiteralPath (Join-Path (Split-Path -Parent $source) LayoutDocument.cs)).Hash
+    flexibleEditorSha256=(Get-FileHash -LiteralPath (Join-Path (Split-Path -Parent $source) FlexibleWorkspaceEditor.cs)).Hash
+    layoutServiceSha256=(Get-FileHash -LiteralPath (Join-Path (Split-Path -Parent $source) WorkspaceLayoutService.cs)).Hash
     appManifestSha256=(Get-FileHash -LiteralPath $appManifest).Hash
     binarySha256=(Get-FileHash -LiteralPath $binary).Hash
     archiveSha256=(Get-FileHash -LiteralPath $archive).Hash

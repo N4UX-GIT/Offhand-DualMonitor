@@ -9,7 +9,7 @@ try {
         $output=Join-Path $fixtureRoot $architecture
         New-Item -ItemType Directory -Path $output|Out-Null
         $executable=Join-Path $output fixture.exe
-        & $compiler /nologo /target:exe "/platform:$architecture" /main:Offhand.Companion.ThirdMonitorTest "/out:$executable" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $PSScriptRoot '..\Companion\Source\Program.cs') (Join-Path $PSScriptRoot CompanionThirdMonitor.cs)
+        & $compiler /nologo /target:exe "/platform:$architecture" /main:Offhand.Companion.ThirdMonitorTest "/out:$executable" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $PSScriptRoot '..\Companion\Source\Program.cs') (Join-Path $PSScriptRoot '..\Companion\Source\LayoutDocument.cs') (Join-Path $PSScriptRoot '..\Companion\Source\WorkspaceLayoutService.cs') (Join-Path $PSScriptRoot CompanionThirdMonitor.cs) (Join-Path $PSScriptRoot '..\Companion\Source\FlexibleWorkspaceEditor.cs')
         if($LASTEXITCODE -ne 0){throw 'Third-monitor characterization compilation failed'}
         & $executable $output
         if($LASTEXITCODE -ne 0){throw 'Third-monitor characterization failed'}

@@ -12,7 +12,7 @@ $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 $binary = Join-Path $output 'Offhand.exe'
 if (Test-Path -LiteralPath $binary) { throw 'Use a fresh candidate directory; an existing candidate will not be overwritten.' }
 $define = if ($Forever) { 'FOREVER_GRAPHICS_RECOVERY_TEST' } elseif ($Retail) { 'RETAIL_GRAPHICS_RECOVERY_TEST' } else { 'CLASSIC_GRAPHICS_RECOVERY_TEST' }
-& $compiler /nologo /target:winexe /optimize+ /platform:anycpu "/define:$define" "/out:$binary" "/win32icon:$root\Media\offhand-logo.ico" "/win32manifest:$root\Companion\Source\app.manifest" "/resource:$root\Media\offhand-logo-small.png,Offhand.Companion.Resources.offhand-logo.png" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $root 'Companion\Source\Program.cs')
+& $compiler /nologo /target:winexe /optimize+ /platform:anycpu "/define:$define" "/out:$binary" "/win32icon:$root\Media\offhand-logo.ico" "/win32manifest:$root\Companion\Source\app.manifest" "/resource:$root\Media\offhand-logo-small.png,Offhand.Companion.Resources.offhand-logo.png" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $root 'Companion\Source\Program.cs') (Join-Path $root 'Companion\Source\LayoutDocument.cs') (Join-Path $root 'Companion\Source\WorkspaceLayoutService.cs') (Join-Path $root 'Companion\Source\FlexibleWorkspaceEditor.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Candidate compilation failed' }
 if ((Get-FileHash -LiteralPath $publicBinary).Hash -ne $publicHash) { throw 'Frozen Companion changed unexpectedly' }
 Copy-Item -LiteralPath (Join-Path $root 'Companion\LICENSE') -Destination (Join-Path $output 'LICENSE')

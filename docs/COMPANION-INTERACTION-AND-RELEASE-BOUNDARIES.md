@@ -156,3 +156,14 @@ using definitions 1.463.125.0. That EXE is unsigned and was not launched or
 published. It is build-workflow evidence, not native acceptance for the new
 model, and does not change Test 2's binary identity. Private receipts are under
 dist/layout-foundation-buildcheck-20261104-234114.
+
+## Private schema 3 increment, 5 November 2026
+
+The earlier model-only checkpoint above remains historical evidence. Beta 6
+now connects that model to an explicit opt-in single-display numeric editor,
+schema 3 capability negotiation, the existing manual native Apply/Restore path
+and a separate V2 profile store retaining the original V1 snapshot. Schemas 1/2
+and their compatibility tests retain their old contracts. No native declaration
+or game-input mechanism was added. Candidate-specific checks and outstanding
+acceptance gates are tracked in [the prototype ledger](FLEXIBLE-WORKSPACE-PROTOTYPE.md).
+The previous Defender scans apply only to their recorded files, not this build.

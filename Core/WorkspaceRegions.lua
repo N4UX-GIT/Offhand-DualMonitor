@@ -23,8 +23,8 @@ end
 
 -- Keep the one-game/two-workspace prototype bounded. These conservative limits
 -- are allocation guardrails, not a promise of a renderer's supported maximum.
-function Regions:ValidateTopology(raw)
-    if type(raw) ~= "table" or raw.schema ~= 2 or raw.mode ~= "CUSTOM_REGIONS" then return nil end
+local function ValidateRegions(raw, schema)
+    if type(raw) ~= "table" or raw.schema ~= schema or raw.mode ~= "CUSTOM_REGIONS" then return nil end
     local width, height = raw.physicalWidth, raw.physicalHeight
     if not Integer(width) or not Integer(height) or width < 1 or height < 1
         or width > 16384 or height > 16384 or not Rect(raw.game,width,height)
@@ -42,7 +42,8 @@ function Regions:ValidateTopology(raw)
     for _, r in ipairs(raw.workspaces) do
         if not Rect(r,width,height) or r.width < 480 or r.height < 600 or not ID(r.id)
             or ids[r.id] or type(r.device) ~= "string" or r.device == ""
-            or devices[r.device:lower()] or Overlap(r,raw.game)>0 then return nil end
+            or (schema == 2 and devices[r.device:lower()])
+            or (schema == 3 and r.id == "game") or Overlap(r,raw.game)>0 then return nil end
         for _, other in ipairs(ids) do if Overlap(r,other)>0 then return nil end end
         ids[r.id], ids[#ids+1], devices[r.device:lower()] = true, r, true
         if r.id == raw.primaryWorkspace then primary = r end
@@ -55,8 +56,63 @@ function Regions:ValidateTopology(raw)
     return result
 end
 
+function Regions:ValidateTopology(raw)
+    return ValidateRegions(raw, 2)
+end
+
+local function DenseList(value, maximum)
+    if type(value) ~= "table" then return false end
+    local count=0
+    for key in pairs(value) do
+        if not Integer(key) or key<1 or key>maximum then return false end
+        count=count+1
+    end
+    return count>0 and count==#value
+end
+local function SignedPixel(value)
+    return type(value)=="number" and value==value and value==math.floor(value)
+        and value>=-32768 and value<=32768
+end
+local function Contains(outer,inner)
+    return inner.x>=outer.x and inner.y>=outer.y
+        and inner.x+inner.width<=outer.x+outer.width and inner.y+inner.height<=outer.y+outer.height
+end
+
+-- Schema 3 permits multiple regions on a physical display. Full monitor
+-- rectangles may extend beyond the smaller backing window; all visible game
+-- and workspace rectangles must still fit both their monitor and that window.
+function Regions:ValidateFlexibleTopology(raw)
+    local result=ValidateRegions(raw,3)
+    if not result or raw.coordinateSpace~="BOTTOM_LEFT_PHYSICAL"
+        or not DenseList(raw.displays,3) or not DenseList(raw.selectedDevices,3)
+        or #raw.displays~=#raw.selectedDevices then return nil end
+    local devices,selected,used={},{},{}
+    for _,display in ipairs(raw.displays) do
+        if type(display)~="table" or type(display.device)~="string" or display.device==""
+            or devices[display.device:lower()] or not SignedPixel(display.x) or not SignedPixel(display.y)
+            or not Integer(display.width) or not Integer(display.height) or display.width<1 or display.height<1
+            or display.width>32768 or display.height>32768 then return nil end
+        for _,other in pairs(devices) do if Overlap(display,other)>0 then return nil end end
+        devices[display.device:lower()]=display
+    end
+    for _,device in ipairs(raw.selectedDevices) do
+        if type(device)~="string" or selected[device:lower()] or not devices[device:lower()] then return nil end
+        selected[device:lower()]=true
+    end
+    local gameDevice=raw.mainhandDevice:lower()
+    if not devices[gameDevice] or not Contains(devices[gameDevice],raw.game) then return nil end
+    used[gameDevice]=true
+    for _,region in ipairs(raw.workspaces) do
+        local device=region.device:lower()
+        if not devices[device] or not Contains(devices[device],region) then return nil end
+        used[device]=true
+    end
+    for device in pairs(devices) do if not used[device] then return nil end end
+    return result
+end
+
 function Regions:ApplyMetrics(metrics, topology)
-    if topology.schema ~= 2 then return metrics end
+    if topology.schema ~= 2 and topology.schema ~= 3 then return metrics end
     local ux, uy = metrics.screenWidth/metrics.physicalWidth, metrics.screenHeight/metrics.physicalHeight
     local regions = {}
     for _, raw in ipairs(topology.workspaces) do
@@ -65,7 +121,7 @@ function Regions:ApplyMetrics(metrics, topology)
             pixelX=raw.x, pixelY=raw.y, pixelWidth=raw.width, pixelHeight=raw.height}
         regions[#regions+1]=r
     end
-    metrics.topologySchema, metrics.workspaceRegions = 2, regions
+    metrics.topologySchema, metrics.workspaceRegions = topology.schema, regions
     metrics.primaryWorkspaceRegion = topology.primaryWorkspace
     return metrics
 end
