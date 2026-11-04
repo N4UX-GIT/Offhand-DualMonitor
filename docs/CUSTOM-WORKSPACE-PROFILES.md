@@ -5,6 +5,11 @@ Companion candidate `2.1.3-beta.4`, file `2.1.3.5`, protocol 1. This is an
 unpublished review build. The existing Discord Test 1 and frozen public
 Companion assets remain unchanged.
 
+The subsequent unpublished Companion Beta 5 UX pass retains these feature/data
+contracts. Its changes and evidence are recorded in
+[the UX checkpoint](COMPANION-UX-QUALITY-PASS-20261104.md). The Beta 4 native-client
+observations below retain their original binary scope.
+
 ## Using the features
 
 In Companion, configure **Multiple workspaces**, then open **Workspace

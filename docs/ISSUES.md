@@ -2,6 +2,15 @@
 
 Stable IDs for reports that require follow-up across test sessions.
 
+## Companion UX checkpoint, 4 November 2026
+
+The unpublished Beta 5 candidate unifies dashboard/editor controls, adds a
+workspace diagram and persistent validation feedback, keeps invalid plans from
+being saved, improves profile action states and supports keyboard overlay
+resize/fine movement. The optional second workspace is hidden when unused.
+See [scope, native UI evidence and remaining gates](COMPANION-UX-QUALITY-PASS-20261104.md).
+Separate region image files remain a [planned, isolated enhancement](WORKSPACE-MEDIA-LIBRARY-PLAN.md).
+
 ## Workspace feature checkpoint, 4 November 2026
 
 Named Companion display plans, separate addon workspace layouts, opt-in panel

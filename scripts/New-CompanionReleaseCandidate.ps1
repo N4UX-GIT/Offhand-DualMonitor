@@ -21,13 +21,13 @@ $binary = Join-Path $output 'Offhand.exe'
 & $compiler /nologo /target:winexe /optimize+ /platform:anycpu "/out:$binary" "/win32icon:$root\Media\offhand-logo.ico" "/win32manifest:$appManifest" "/resource:$root\Media\offhand-logo-small.png,Offhand.Companion.Resources.offhand-logo.png" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll $source
 if ($LASTEXITCODE -ne 0) { throw 'Candidate compilation failed.' }
 $identity = [Diagnostics.FileVersionInfo]::GetVersionInfo($binary)
-if ($identity.FileVersion -ne '2.1.3.5' -or $identity.ProductVersion -ne '2.1.3-beta.4') {
+if ($identity.FileVersion -ne '2.1.3.6' -or $identity.ProductVersion -ne '2.1.3-beta.5') {
     throw 'Candidate executable version does not match the planned release.'
 }
-$archive = Join-Path $output 'Offhand-Companion-v2.1.3-beta.4.zip'
-& (Join-Path $PSScriptRoot 'New-CompanionTestPackage.ps1') -BinaryPath $binary -OutputPath $archive -Version '2.1.3-beta.4' | Out-Null
+$archive = Join-Path $output 'Offhand-Companion-v2.1.3-beta.5.zip'
+& (Join-Path $PSScriptRoot 'New-CompanionTestPackage.ps1') -BinaryPath $binary -OutputPath $archive -Version '2.1.3-beta.5' | Out-Null
 $readme = @'
-Offhand Companion 2.1.3 Beta 4: local release candidate, live QA pending.
+Offhand Companion 2.1.3 Beta 5: local release candidate, live QA pending.
 
 Exit any other Companion through its tray menu before testing this build.
 This ordinary runtime uses your existing Companion preferences. Preserve your
@@ -45,7 +45,7 @@ The graininess resize sequence is disabled. Custom regions are not included.
 After spanning with a loaded character UI, use /reload once. Test initial span,
 graphics Apply, repeated recovery, Restore, Pause/Resume, display changes and
 cold launch using the source checkout's COMPANION-PRODUCTION-RECOVERY-QA.md.
-Forever graphics-recovery testing stays deferred until November 4.
+Forever graphics recovery remains outside this production candidate's scope.
 '@
 if ($CustomRegionsPrototype) {
     $readme = $readme.Replace('local release candidate, live QA pending.', 'CUSTOM WORKSPACE REGIONS PROTOTYPE, unpublished.')
@@ -86,7 +86,19 @@ Addon Profiles offers independent workspace layout presets. Workspace offers
 opt-in routing for Map, Character, Spells, Collections, Achievements and Journal.
 Manual moves take precedence; Use routing again explicitly clears those moves.
 Themes offers a separate preset per custom region, or global theme inheritance.
-These new addon features have automated coverage; live acceptance remains pending.
+The current addon also supports independent image/theme and image-fit preferences
+per region using one installed Background Studio image. Different image files
+per region remain a separate planned enhancement.
+Beta 5 gives the layout editors consistent dark fields, readable disabled
+actions, display numbering, sticky validation feedback and a visual plan preview.
+Workspace B is hidden when unused. Save is disabled while a plan is invalid;
+disabling custom mode remains possible after monitor loss. Profile changes are
+clearly staged until Save changes, and empty/duplicate actions are disabled.
+In the rectangular selection overlay, arrows move 10 pixels, Ctrl+arrows move
+one pixel, and Shift+arrows resize (Ctrl+Shift uses one-pixel steps). Enter uses
+the selection and Escape cancels it. Overlay edits do not save the plan directly.
+Native UI and regression checks do not replace physical mixed-DPI, third-monitor,
+hotplug, protected-action/combat or full supported-client acceptance.
 After a successful span, Companion notifies the Windows Shell that the actual
 WoW window is fullscreen. Restore clears that notification. Shell notification
 failure is nonfatal and logged. Global taskbar preferences are unchanged.
@@ -114,7 +126,7 @@ if ((Get-FileHash -LiteralPath $publicBinary).Hash -ne $publicHash -or
     (Get-FileHash -LiteralPath $publicArchive).Hash -ne $publicArchiveHash) { throw 'Canonical public artifacts changed.' }
 $dirty = @(& git -C $root status --porcelain --untracked-files=no)
 $record = [ordered]@{
-    version='2.1.3-beta.4'; fileVersion=$identity.FileVersion
+    version='2.1.3-beta.5'; fileVersion=$identity.FileVersion
     sourceRevision=(& git -C $root rev-parse HEAD).Trim(); trackedChanges=[bool]$dirty.Count
     programSha256=(Get-FileHash -LiteralPath $source).Hash
     appManifestSha256=(Get-FileHash -LiteralPath $appManifest).Hash

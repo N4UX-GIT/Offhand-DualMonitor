@@ -53,8 +53,8 @@ using System.Windows.Forms;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.3.5")]
-[assembly: AssemblyInformationalVersion("2.1.3-beta.4")]
+[assembly: AssemblyFileVersion("2.1.3.6")]
+[assembly: AssemblyInformationalVersion("2.1.3-beta.5")]
 #endif
 
 namespace Offhand.Companion
@@ -902,6 +902,109 @@ namespace Offhand.Companion
         }
     }
 
+    // Shared presentation for the dashboard's workspace editors. Geometry and
+    // preference publication remain owned by the existing planners and callers.
+    internal static class CompanionUi
+    {
+        internal static readonly Color Background=Color.FromArgb(12,12,14), Surface=Color.FromArgb(20,20,24),
+            Field=Color.FromArgb(28,28,34), Text=Color.FromArgb(235,230,215), Muted=Color.FromArgb(176,170,158),
+            Gold=Color.FromArgb(240,184,54), Border=Color.FromArgb(101,87,58), Warning=Color.FromArgb(255,205,104);
+        internal static string DisplayName(MonitorSelection.Display display,int index)
+        {return string.Format("Display {0}: {1} x {2}{3}",index+1,display.Bounds.Width,display.Bounds.Height,display.Primary?" (primary)":"");}
+        internal static void StyleButton(Button button,bool primary)
+        {
+            button.FlatStyle=FlatStyle.Flat;button.UseVisualStyleBackColor=false;
+            button.BackColor=primary?Color.FromArgb(44,35,20):Field;button.ForeColor=primary?Gold:Text;
+            button.FlatAppearance.BorderColor=primary?Gold:Border;button.FlatAppearance.BorderSize=1;
+            button.FlatAppearance.MouseOverBackColor=Color.FromArgb(53,48,37);
+            button.FlatAppearance.MouseDownBackColor=Color.FromArgb(69,57,32);
+            button.MinimumSize=new Size(button.MinimumSize.Width,32);button.Padding=new Padding(8,3,8,3);
+            button.Cursor=Cursors.Hand;StyleDisabledButton(button);
+        }
+        internal static void StyleDisabledButton(Button button)
+        {
+            button.Paint+=(s,e)=>{if(button.Enabled)return;e.Graphics.Clear(button.BackColor);
+                using(var border=new Pen(Border))e.Graphics.DrawRectangle(border,0,0,button.Width-1,button.Height-1);
+                TextRenderer.DrawText(e.Graphics,button.Text,button.Font,Rectangle.Inflate(button.ClientRectangle,-6,-2),Muted,
+                    TextFormatFlags.HorizontalCenter|TextFormatFlags.VerticalCenter|TextFormatFlags.WordBreak|TextFormatFlags.NoPrefix);};
+        }
+        internal static void Wrap(Label label)
+        {
+            int maximum=label.MaximumSize.Width,initialFontHeight=label.Font.Height;
+            Action fit=()=>{if(label.Parent==null)return;int width=Math.Max(1,label.Parent.ClientSize.Width-label.Margin.Horizontal);
+                if(maximum>0)width=Math.Min(width,(int)Math.Round(maximum*label.Font.Height/(double)initialFontHeight));
+                if(label.MaximumSize.Width!=width)label.MaximumSize=new Size(width,0);};
+            if(label.Parent!=null)label.Parent.SizeChanged+=(s,e)=>fit();fit();
+        }
+        internal static void StyleCombo(ComboBox combo)
+        {
+            combo.BackColor=Field;combo.ForeColor=Text;combo.FlatStyle=FlatStyle.Flat;combo.DrawMode=DrawMode.OwnerDrawFixed;
+            Action height=()=>combo.ItemHeight=Math.Max(20,combo.Font.Height+6);height();combo.FontChanged+=(s,e)=>height();
+            combo.DrawItem+=(s,e)=>{
+                bool selected=(e.State&DrawItemState.Selected)!=0;
+                using(var fill=new SolidBrush(selected?Color.FromArgb(59,49,30):Field))e.Graphics.FillRectangle(fill,e.Bounds);
+                string text=e.Index>=0&&e.Index<combo.Items.Count?combo.GetItemText(combo.Items[e.Index]):"Choose an option";
+                TextRenderer.DrawText(e.Graphics,text,combo.Font,Rectangle.Inflate(e.Bounds,-5,0),combo.Enabled?Text:Muted,
+                    TextFormatFlags.VerticalCenter|TextFormatFlags.EndEllipsis|TextFormatFlags.NoPrefix);
+                if((e.State&DrawItemState.Focus)!=0)e.DrawFocusRectangle();
+            };
+        }
+        private static void StyleChildren(Control parent,IButtonControl primary)
+        {
+            foreach(Control child in parent.Controls) {
+                child.ForeColor=Text;
+                var button=child as Button;
+                if(button!=null)StyleButton(button,ReferenceEquals(button,primary));
+                else if(child is TextBox || child is NumericUpDown || child is ComboBox || child is ListBox)child.BackColor=Field;
+                else child.BackColor=Background;
+                var combo=child as ComboBox;if(combo!=null)StyleCombo(combo);
+                var text=child as TextBox;if(text!=null)text.BorderStyle=BorderStyle.FixedSingle;
+                var number=child as NumericUpDown;if(number!=null){number.BorderStyle=BorderStyle.FixedSingle;number.ThousandsSeparator=true;}
+                var label=child as Label;if(label!=null){label.UseMnemonic=false;label.TabStop=false;if(label.AutoSize)Wrap(label);}
+                if(!(child is Label)&&string.IsNullOrEmpty(child.AccessibleName)&&!string.IsNullOrEmpty(child.Text))child.AccessibleName=child.Text.Replace("&","");
+                if(!(child is NumericUpDown)&&!(child is TextBox)&&!(child is ComboBox))StyleChildren(child,primary);
+            }
+        }
+        internal static void Apply(Form form)
+        {
+            form.BackColor=Background;form.ForeColor=Text;StyleChildren(form,form.AcceptButton);
+            form.Shown+=(s,e)=>Fit(form,Screen.FromControl(form).WorkingArea);
+        }
+        internal static void Fit(Form form,Rectangle work)
+        {
+            form.MinimumSize=new Size(Math.Min(form.MinimumSize.Width,work.Width),Math.Min(form.MinimumSize.Height,work.Height));
+            form.Size=new Size(Math.Min(form.Width,work.Width),Math.Min(form.Height,work.Height));
+            form.Location=new Point(Math.Max(work.Left,Math.Min(form.Left,work.Right-form.Width)),Math.Max(work.Top,Math.Min(form.Top,work.Bottom-form.Height)));
+        }
+    }
+
+    internal sealed class WorkspacePlanPreview : Control
+    {
+        internal MonitorSelection.Plan Plan;
+        internal IList<MonitorSelection.Display> Displays;
+        internal WorkspacePlanPreview(){Height=164;Dock=DockStyle.Fill;DoubleBuffered=true;TabStop=false;AccessibleName="Display layout preview";}
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);e.Graphics.Clear(CompanionUi.Surface);
+            if(Plan==null||Displays==null)return;
+            Rectangle all=Rectangle.Empty;
+            foreach(int index in Plan.Indices)all=all.IsEmpty?Displays[index].Bounds:Rectangle.Union(all,Displays[index].Bounds);
+            if(all.Width<=0||all.Height<=0)return;
+            int inset=Math.Max(8,Font.Height*3/4),legendHeight=Font.Height+inset;
+            float scale=Math.Min(Math.Max(1,Width-2*inset)/(float)all.Width,Math.Max(1,Height-legendHeight-2*inset)/(float)all.Height);
+            float x=(Width-all.Width*scale)/2,y=inset;
+            Func<Rectangle,RectangleF> map=r=>new RectangleF(x+(r.X-all.X)*scale,y+(r.Y-all.Y)*scale,r.Width*scale,r.Height*scale);
+            using(var edge=new Pen(CompanionUi.Border))foreach(int index in Plan.Indices){var r=map(Displays[index].Bounds);e.Graphics.DrawRectangle(edge,r.X,r.Y,r.Width,r.Height);}
+            using(var game=new SolidBrush(Color.FromArgb(55,105,74)))e.Graphics.FillRectangle(game,map(Plan.MainhandBounds));
+            using(var work=new SolidBrush(Color.FromArgb(175,130,44)))foreach(var r in MonitorSelection.VisibleRectangles(Plan))if(r!=Plan.MainhandBounds)e.Graphics.FillRectangle(work,map(r));
+            using(var brush=new SolidBrush(CompanionUi.Text))using(var font=new Font(Font,FontStyle.Regular)) {
+                var center=new StringFormat{Alignment=StringAlignment.Center,LineAlignment=StringAlignment.Center};
+                e.Graphics.DrawString("Game",font,brush,map(Plan.MainhandBounds),center);center.Dispose();
+                e.Graphics.DrawString("Green: game   Gold: workspace   Outline: free desktop",font,brush,new RectangleF(inset,Height-legendHeight,Width-2*inset,legendHeight));
+            }
+        }
+    }
+
     internal sealed class PartialRegionOverlay : Form
     {
         internal readonly PartialRegionSelection Selection;
@@ -925,7 +1028,7 @@ namespace Offhand.Companion
             var flip = new Button { Text = "Swap game and workspace", AutoSize = true };
             foreach (Button button in new Button[] { cancel, use, flip }) {
                 button.Font = new Font("Segoe UI", 11); button.Padding = new Padding(12, 6, 12, 6);
-                button.UseVisualStyleBackColor = true; buttons.Controls.Add(button);
+                CompanionUi.StyleButton(button,button==use); buttons.Controls.Add(button);
             }
             flip.Click += (s,e) => { Selection.GameLeft = !Selection.GameLeft; Invalidate(); };
             CancelButton = cancel; AcceptButton = use; Controls.Add(buttons);
@@ -1040,22 +1143,23 @@ namespace Offhand.Companion
             FormBorderStyle=FormBorderStyle.None; StartPosition=FormStartPosition.Manual;
             AutoScaleMode=AutoScaleMode.None; Bounds=monitor; TopMost=true; ShowInTaskbar=true;
             DoubleBuffered=true; BackColor=Color.FromArgb(20,23,28); Opacity=0.93;
-            var buttons=new FlowLayoutPanel { Location=new Point(monitor.Width-350,12), Size=new Size(334,64), FlowDirection=FlowDirection.RightToLeft };
+            var buttons=new FlowLayoutPanel { Dock=DockStyle.Bottom, Height=78, Padding=new Padding(12), FlowDirection=FlowDirection.RightToLeft, BackColor=CompanionUi.Background };
             var cancel=new Button {Text="Cancel",AutoSize=true,DialogResult=DialogResult.Cancel};
             var use=new Button {Text="Use selection",AutoSize=true,DialogResult=DialogResult.OK};
             foreach (Button button in new Button[] {cancel,use}) {
-                button.Font=new Font("Segoe UI",11); button.Padding=new Padding(8); button.UseVisualStyleBackColor=true; buttons.Controls.Add(button);
+                button.Font=new Font("Segoe UI",11); CompanionUi.StyleButton(button,button==use); buttons.Controls.Add(button);
             }
             Controls.Add(buttons); CancelButton=cancel; AcceptButton=use;
         }
         protected override bool ProcessCmdKey(ref Message msg, Keys key)
         {
             if (key==Keys.Enter || key==Keys.Escape) { DialogResult=key==Keys.Enter?DialogResult.OK:DialogResult.Cancel; Close(); return true; }
-            Point delta=Point.Empty;
-            if (key==Keys.Left) delta.X=-10; else if(key==Keys.Right) delta.X=10;
-            else if(key==Keys.Up) delta.Y=-10; else if(key==Keys.Down) delta.Y=10;
+            Point delta=Point.Empty;int step=(key&Keys.Control)==Keys.Control?1:10;Keys arrow=key&Keys.KeyCode;
+            if (arrow==Keys.Left) delta.X=-step; else if(arrow==Keys.Right) delta.X=step;
+            else if(arrow==Keys.Up) delta.Y=-step; else if(arrow==Keys.Down) delta.Y=step;
             else return base.ProcessCmdKey(ref msg,key);
-            Selection.Drag(Selection.Area,delta,0); Invalidate(); return true;
+            int resize=(key&Keys.Shift)==Keys.Shift?(delta.X!=0?2:8):0;
+            Selection.Drag(Selection.Area,delta,resize); Invalidate(); return true;
         }
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -1065,7 +1169,7 @@ namespace Offhand.Companion
             using(var white=new SolidBrush(Color.White))
             using(var font=new Font("Segoe UI",14))
             using(var center=new StringFormat {Alignment=StringAlignment.Center,LineAlignment=StringAlignment.Center}) {
-                e.Graphics.DrawString("Move the workspace or drag its edges/corners.\nArrow keys move 10 px. Enter accepts. Esc cancels.",font,white,new RectangleF(16,16,Math.Max(120,ClientSize.Width-390),120));
+                e.Graphics.DrawString("Drag to move; drag edges or corners to resize.\nArrows: move 10 px. Ctrl: 1 px. Shift: resize.\nEnter: use selection. Esc: cancel.",font,white,new RectangleF(16,16,Math.Max(120,ClientSize.Width-32),124));
                 e.Graphics.DrawString("Workspace\n"+a.Width+" x "+a.Height+"\nOffset "+a.X+", "+a.Y,font,white,a,center);
                 foreach(Point p in new Point[] {a.Location,new Point(a.Right-8,a.Top),new Point(a.Left,a.Bottom-8),new Point(a.Right-8,a.Bottom-8)})
                     e.Graphics.FillRectangle(white,p.X,p.Y,8,8);
@@ -1111,7 +1215,7 @@ namespace Offhand.Companion
                 && string.Equals(value, "True", StringComparison.OrdinalIgnoreCase);
             bool single = settings.TryGetValue("PartialSpanEnabled", out value)
                 && string.Equals(value, "True", StringComparison.OrdinalIgnoreCase);
-            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(16), ColumnCount = 1 };
+            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(16), ColumnCount = 1, AutoScroll=true };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             var current = new Label { AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 0, 0, 12),
                 Text = "Current plan: " + (MonitorSelection.MultiEnabled(settings) ? "multiple workspaces." : secondary ? "two-monitor custom workspace." : single ? "single-monitor custom region." : "standard display layout.")
@@ -1130,6 +1234,7 @@ namespace Offhand.Companion
             if(MonitorSelection.MultiEnabled(settings))AcceptButton=MultipleButton;
             ActiveControl = secondary ? SecondaryButton : SingleButton;
             if(MonitorSelection.MultiEnabled(settings))ActiveControl=MultipleButton;
+            CompanionUi.Apply(this);
         }
     }
 
@@ -1230,27 +1335,40 @@ namespace Offhand.Companion
         private readonly ComboBox selection=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Dock=DockStyle.Fill,DisplayMember="Name"};
         private readonly TextBox name=new TextBox{Dock=DockStyle.Fill,MaxLength=48};
         private readonly Func<List<MonitorSelection.Display>> readDisplays;
+        private readonly Dictionary<string,Button> actionsByName=new Dictionary<string,Button>();
+        private readonly Label feedback=new Label{AutoSize=true,Dock=DockStyle.Fill,Margin=new Padding(0,12,0,8),AccessibleName="Profile status"};
         internal WorkspaceProfilesDialog(IDictionary<string,string> current,Func<List<MonitorSelection.Display>> displays)
         {
-            Settings=new Dictionary<string,string>(current);readDisplays=displays;Text="Workspace profiles";ClientSize=new Size(590,345);MinimumSize=new Size(510,345);
+            Settings=new Dictionary<string,string>(current);readDisplays=displays;Text="Workspace profiles";ClientSize=new Size(620,400);MinimumSize=new Size(510,345);
             AutoScaleMode=AutoScaleMode.Dpi;Font=new Font("Segoe UI",10);StartPosition=FormStartPosition.CenterParent;MinimizeBox=false;MaximizeBox=false;
             var layout=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(16),ColumnCount=1,AutoScroll=true};
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
             layout.Controls.Add(new Label{Text="Save monitor areas as named plans. Loading selects a plan without resizing WoW. Click Span WoW Now to apply, then reload the addon to switch its matching panel layout.",AutoSize=true,MaximumSize=new Size(540,0),Margin=new Padding(0,0,0,12)});
-            layout.Controls.Add(selection);layout.Controls.Add(new Label{Text="Profile name",AutoSize=true,Margin=new Padding(0,12,0,4)});layout.Controls.Add(name);
+            selection.AccessibleName="Saved workspace profiles";name.AccessibleName="Profile name";
+            layout.Controls.Add(new Label{Text="Saved profiles",AutoSize=true});layout.Controls.Add(selection);layout.Controls.Add(new Label{Text="Profile name",AutoSize=true,Margin=new Padding(0,12,0,4)});layout.Controls.Add(name);
             var actions=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,WrapContents=true,Margin=new Padding(0,12,0,0)};
-            Action<string,Action> button=(text,action)=>{var b=new Button{Text=text,AutoSize=true};b.Click+=(s,e)=>{try{action();RefreshProfiles();}catch(Exception ex){MessageBox.Show(this,ex.Message,Text,MessageBoxButtons.OK,MessageBoxIcon.Information);}};actions.Controls.Add(b);};
+            Action<string,Action> button=(text,action)=>{var b=new Button{Text=text,AutoSize=true};actionsByName[text]=b;b.Click+=(s,e)=>{try{action();RefreshProfiles();feedback.ForeColor=CompanionUi.Text;feedback.Text="Changes are pending. Save changes keeps them; Cancel discards them. WoW has not been resized.";}catch(Exception ex){feedback.ForeColor=CompanionUi.Warning;feedback.Text=ex.Message;}};actions.Controls.Add(b);};
             button("Save as new",()=>{Settings=WorkspacePlanProfiles.Save(Settings,name.Text,null,readDisplays());selection.SelectedIndex=-1;});
             button("Update selected",()=>{var item=Selected();Settings=WorkspacePlanProfiles.Save(Settings,item.Name,item.ID,readDisplays());});
             button("Load selected",()=>{Settings=WorkspacePlanProfiles.Load(Settings,Selected().ID,readDisplays());LoadedPlan=true;});
             button("Rename",()=>Settings=WorkspacePlanProfiles.Rename(Settings,Selected().ID,name.Text));
             button("Delete",()=>{var item=Selected();if(MessageBox.Show(this,"Delete the saved profile '"+item.Name+"'? The current display areas and addon layouts are retained.",Text,MessageBoxButtons.OKCancel,MessageBoxIcon.Question)==DialogResult.OK)Settings=WorkspacePlanProfiles.Delete(Settings,item.ID);});
-            layout.Controls.Add(actions);
+            layout.Controls.Add(actions);layout.Controls.Add(feedback);
             var done=new Button{Text="Save changes",AutoSize=true,DialogResult=DialogResult.OK};var cancel=new Button{Text="Cancel",AutoSize=true,DialogResult=DialogResult.Cancel};
-            var footer=new FlowLayoutPanel{Dock=DockStyle.Bottom,AutoSize=true,FlowDirection=FlowDirection.RightToLeft,Padding=new Padding(12)};footer.Controls.Add(done);footer.Controls.Add(cancel);
+            var footer=new FlowLayoutPanel{Dock=DockStyle.Bottom,AutoSize=true,FlowDirection=FlowDirection.RightToLeft,Padding=new Padding(12)};footer.Controls.Add(cancel);footer.Controls.Add(done);
             Controls.Add(layout);Controls.Add(footer);AcceptButton=done;CancelButton=cancel;
-            selection.SelectedIndexChanged+=(s,e)=>{var item=selection.SelectedItem as WorkspacePlanProfiles.Record;if(item!=null)name.Text=item.Name;};
-            RefreshProfiles();
+            selection.SelectedIndexChanged+=(s,e)=>{var item=selection.SelectedItem as WorkspacePlanProfiles.Record;if(item!=null)name.Text=item.Name;UpdateActions();};
+            name.TextChanged+=(s,e)=>UpdateActions();RefreshProfiles();CompanionUi.Apply(this);
+            feedback.Text=selection.Items.Count==0?"No saved profiles yet. Configure Multiple workspaces, enter a name, then Save as new.":"Choose a profile to load or manage. Changes stay pending until Save changes.";
+        }
+        private void UpdateActions()
+        {
+            bool selected=selection.SelectedItem is WorkspacePlanProfiles.Record,validName=true;
+            try{WorkspacePlanProfiles.Name(name.Text);}catch(InvalidOperationException){validName=false;}
+            bool plan=MonitorSelection.MultiEnabled(Settings);
+            var store=WorkspacePlanProfiles.Read(Settings);bool fresh=!store.Items.Exists(item=>string.Equals(item.Name,name.Text.Trim(),StringComparison.OrdinalIgnoreCase));
+            foreach(var pair in actionsByName)pair.Value.Enabled=pair.Key=="Save as new"?plan&&validName&&fresh&&store.Items.Count<20:
+                pair.Key=="Update selected"?selected&&plan:pair.Key=="Rename"?selected&&validName:selected;
         }
         private WorkspacePlanProfiles.Record Selected()
         {
@@ -1264,6 +1382,7 @@ namespace Offhand.Companion
             selection.Items.Clear();foreach(var item in items)selection.Items.Add(item);
             if(id==null)Settings.TryGetValue("WorkspaceProfileID",out id);
             int index=items.FindIndex(item=>item.ID==id);selection.SelectedIndex=index>=0?index:(items.Count>0?0:-1);
+            UpdateActions();
         }
     }
 
@@ -1282,6 +1401,9 @@ namespace Offhand.Companion
         private readonly string[] ids=new string[2];
         private bool loading;
         private Label preview;
+        private Label secondHeading,reviewHeading;
+        internal readonly Button SavePlan=new Button{Text="Save plan",AutoSize=true};
+        internal readonly WorkspacePlanPreview Diagram=new WorkspacePlanPreview();
         internal WorkspaceRegionsDialog(IList<MonitorSelection.Display> connected,IDictionary<string,string> settings)
         {
             displays=connected;original=settings;Text="Multiple workspaces";ClientSize=new Size(650,740);MinimumSize=new Size(520,440);
@@ -1292,8 +1414,10 @@ namespace Offhand.Companion
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,35));table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,65));
             Action<string,Control> row=(name,control)=> {int n=table.RowCount++;table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
                 table.Controls.Add(new Label{Text=name,AutoSize=true,MaximumSize=new Size(180,0),Margin=new Padding(0,7,8,7)},0,n);
-                control.Margin=new Padding(0,4,0,4);table.Controls.Add(control,1,n);};
-            foreach(var display in displays)Game.Items.Add(display.DeviceName+"  "+display.Bounds.Width+" x "+display.Bounds.Height);
+                control.AccessibleName=control is CheckBox||control is Button?control.Text:name;control.Margin=new Padding(0,4,0,4);table.Controls.Add(control,1,n);};
+            Func<string,Label> heading=text=>{var label=new Label{Text=text,AutoSize=true,Dock=DockStyle.Fill,Margin=new Padding(0,14,0,7),Font=new Font(Font,FontStyle.Bold)};table.Controls.Add(label,0,table.RowCount++);table.SetColumnSpan(label,2);return label;};
+            heading("1. Choose displays");
+            for(int i=0;i<displays.Count;i++)Game.Items.Add(CompanionUi.DisplayName(displays[i],i));
             string main;settings.TryGetValue("MainhandIdentity",out main);
             Game.SelectedIndex=Find(main,0);Primary.Items.AddRange(new object[]{"Workspace A","Workspace B"});Primary.SelectedIndex=0;
             string count;Second.Checked=settings.TryGetValue("WorkspaceRegionCount",out count)?count!="1":displays.Count>=3;
@@ -1301,16 +1425,18 @@ namespace Offhand.Companion
             loading=true;
             for(int i=0;i<2;i++) {
                 int slot=i;string p="WorkspaceRegion"+(i+1),id,identity;
+                var areaHeading=heading(i==0?"2. Workspace A":"3. Workspace B (optional)");if(i==1)secondHeading=areaHeading;
                 ids[i]=settings.TryGetValue(p+"Id",out id)?id:(i==0?"workspace-a":"workspace-b");
                 settings.TryGetValue(p+"Identity",out identity);
                 Monitors[i]=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Dock=DockStyle.Fill};
-                foreach(var display in displays)Monitors[i].Items.Add(display.DeviceName+"  "+display.Bounds.Width+" x "+display.Bounds.Height);
+                for(int j=0;j<displays.Count;j++)Monitors[i].Items.Add(CompanionUi.DisplayName(displays[j],j));
                 int fallback=0;for(int j=0;j<displays.Count;j++)if(j!=Game.SelectedIndex&&(i==0||j!=Monitors[0].SelectedIndex)){fallback=j;break;}
                 Monitors[i].SelectedIndex=Find(identity,fallback);
                 row(i==0?"Workspace A monitor":"Workspace B monitor",Monitors[i]);
                 string[] labels={"Left offset (px)","Top offset (px)","Width (px)","Height (px)"};
-                for(int n=0;n<4;n++){Areas[i,n]=new NumericUpDown{Minimum=0,Maximum=32768,Dock=DockStyle.Fill};row(labels[n],Areas[i,n]);}
-                var visual=new Button{Text="Select area on monitor...",AutoSize=true,Dock=DockStyle.Fill};SelectAreas[i]=visual;row("Visual selection",visual);
+                for(int n=0;n<4;n++){Areas[i,n]=new NumericUpDown{Minimum=0,Maximum=32768,Dock=DockStyle.Fill};row(labels[n],Areas[i,n]);Areas[i,n].AccessibleName="Workspace "+(i==0?"A ":"B ")+labels[n];}
+                var visual=new Button{Text="Select area on monitor...",AutoSize=true,Dock=DockStyle.Fill,MaximumSize=new Size(0,36)};SelectAreas[i]=visual;row("Visual selection",visual);
+                visual.AccessibleName="Select Workspace "+(i==0?"A":"B")+" area on monitor";
                 visual.Click+=(s,e)=>EditArea(slot);
                 Monitors[i].SelectedIndexChanged+=(s,e)=> {if(!loading){LoadArea(slot);UpdatePreview();}};
                 for(int n=0;n<4;n++)Areas[i,n].ValueChanged+=(s,e)=>{if(!loading)UpdatePreview();};
@@ -1318,10 +1444,8 @@ namespace Offhand.Companion
             }
             string primary;if(settings.TryGetValue("WorkspacePrimary",out primary)&&primary==ids[1])Primary.SelectedIndex=1;
             loading=false;
-            preview=new Label{AutoSize=true,Dock=DockStyle.Fill,Margin=new Padding(0,10,0,10)};
-            table.Controls.Add(preview,0,table.RowCount++);table.SetColumnSpan(preview,2);
-            table.SizeChanged+=(s,e)=> {int width=Math.Max(1,table.ClientSize.Width-preview.Margin.Horizontal);
-                if(preview.MaximumSize.Width!=width)preview.MaximumSize=new Size(width,0);};
+            reviewHeading=heading("4. Review your plan");Diagram.Displays=displays;table.Controls.Add(Diagram,0,table.RowCount++);table.SetColumnSpan(Diagram,2);
+            preview=new Label{AutoSize=true,Dock=DockStyle.Bottom,Padding=new Padding(12,8,12,8),Font=new Font("Segoe UI",9),AccessibleName="Plan status"};
             Game.SelectedIndexChanged+=(s,e)=>UpdatePreview();Primary.SelectedIndexChanged+=(s,e)=>UpdatePreview();UseRegions.CheckedChanged+=(s,e)=>UpdatePreview();
             Second.CheckedChanged+=(s,e)=> {
                 string savedCount;
@@ -1331,10 +1455,10 @@ namespace Offhand.Companion
                 if(!Second.Checked)Primary.SelectedIndex=0;UpdatePreview();
             };
             var buttons=new FlowLayoutPanel{Dock=DockStyle.Bottom,Height=58,FlowDirection=FlowDirection.RightToLeft,Padding=new Padding(8)};
-            var cancel=new Button{Text="Cancel",AutoSize=true,DialogResult=DialogResult.Cancel};var save=new Button{Text="Save plan",AutoSize=true};
+            var cancel=new Button{Text="Cancel",AutoSize=true,DialogResult=DialogResult.Cancel};var save=SavePlan;
             buttons.Controls.Add(cancel);buttons.Controls.Add(save);CancelButton=cancel;AcceptButton=save;
             save.Click+=(s,e)=> {try{var proposed=Proposed();if(UseRegions.Checked)MonitorSelection.CreatePlan(proposed,displays);Settings=proposed;DialogResult=DialogResult.OK;Close();}catch(Exception ex){MessageBox.Show(this,ex.Message,Text,MessageBoxButtons.OK,MessageBoxIcon.Information);}};
-            scroll.Controls.Add(table);Controls.Add(scroll);Controls.Add(buttons);UpdatePreview();
+            scroll.Controls.Add(table);Controls.Add(scroll);Controls.Add(preview);Controls.Add(buttons);CompanionUi.Apply(this);UpdatePreview();
         }
         protected override void OnShown(EventArgs e)
         {
@@ -1342,9 +1466,7 @@ namespace Offhand.Companion
         }
         internal void FitToWorkingArea(Rectangle workArea)
         {
-            MinimumSize=new Size(Math.Min(MinimumSize.Width,workArea.Width),Math.Min(MinimumSize.Height,workArea.Height));
-            Size=new Size(Math.Min(Width,workArea.Width),Math.Min(Height,workArea.Height));
-            Location=new Point(Math.Max(workArea.Left,Math.Min(Left,workArea.Right-Width)),Math.Max(workArea.Top,Math.Min(Top,workArea.Bottom-Height)));
+            CompanionUi.Fit(this,workArea);
         }
         private int Find(string identity,int fallback){for(int i=0;i<displays.Count;i++)if(string.Equals(displays[i].StableId,identity,StringComparison.OrdinalIgnoreCase))return i;return !string.IsNullOrEmpty(identity)?-1:displays.Count>fallback?fallback:-1;}
         private void LoadArea(int slot)
@@ -1403,6 +1525,12 @@ namespace Offhand.Companion
             if(loading||preview==null)return;
             bool enabled=UseRegions.Checked;
             Second.Enabled=enabled;Primary.Enabled=enabled&&Second.Checked;
+            secondHeading.Visible=Second.Checked;reviewHeading.Text=Second.Checked?"4. Review your plan":"3. Review your plan";
+            var table=Monitors[1].Parent as TableLayoutPanel;
+            foreach(Control field in new Control[]{Monitors[1],Areas[1,0],Areas[1,1],Areas[1,2],Areas[1,3],SelectAreas[1]}) {
+                field.Visible=Second.Checked;
+                if(table!=null){var position=table.GetPositionFromControl(field);var label=table.GetControlFromPosition(0,position.Row);if(label!=null)label.Visible=Second.Checked;}
+            }
             if(!Second.Checked&&Primary.SelectedIndex!=0)Primary.SelectedIndex=0;
             for(int i=0;i<2;i++) {
                 bool active=enabled&&(i==0||Second.Checked);
@@ -1410,11 +1538,13 @@ namespace Offhand.Companion
                 for(int n=0;n<4;n++)Areas[i,n].Enabled=active;
                 SelectAreas[i].Enabled=active&&Monitors[i].SelectedIndex>=0;
             }
-            try{var settings=Proposed();if(!enabled){preview.Text="Multiple workspaces disabled. Saved areas are retained. Choose connected span displays in the main window before applying a standard layout.";return;}
-                var plan=MonitorSelection.CreatePlan(settings,displays);long visible=0;foreach(var area in MonitorSelection.VisibleRectangles(plan))visible+=(long)area.Width*area.Height;
+            Diagram.Plan=null;Diagram.Invalidate();SavePlan.Enabled=false;preview.ForeColor=CompanionUi.Warning;
+            try{var settings=Proposed();if(!enabled){SavePlan.Enabled=true;preview.ForeColor=CompanionUi.Text;preview.Text="Custom workspaces are disabled. Saved areas are retained. Save plan keeps this change; choose connected displays on the dashboard before applying a standard layout.";return;}
+                var plan=MonitorSelection.CreatePlan(settings,displays);Diagram.Plan=plan;Diagram.Invalidate();SavePlan.Enabled=true;preview.ForeColor=CompanionUi.Text;long visible=0;foreach(var area in MonitorSelection.VisibleRectangles(plan))visible+=(long)area.Width*area.Height;
                 double ratio=(double)plan.Bounds.Width*plan.Bounds.Height/((long)plan.MainhandBounds.Width*plan.MainhandBounds.Height);
-                preview.Text=string.Format("Visible areas: {0:0.00} million pixels. Outer surface: {1} x {2}, {3:0.00} times the game area.{4}\n\nUse selection returns here. Save plan changes settings only; Span WoW Now applies this plan. Reload the game UI once after applying.",visible/1000000.0,plan.Bounds.Width,plan.Bounds.Height,ratio,ratio>=3?" Large surface: higher rendering cost is possible.":ratio>=2?" Extra outer-surface pixels may increase rendering cost.":"");}
-            catch(Exception ex){preview.Text=ex.Message;}
+                preview.Text=string.Format("Ready: {0} workspace(s). WoW surface {1} x {2} ({3:0.00} times the game area).{4}\nSave plan keeps settings only. Span WoW Now applies them; then reload the game UI.",plan.Workspaces.Length,plan.Bounds.Width,plan.Bounds.Height,ratio,ratio>=2?" Extra pixels may increase rendering cost.":"");
+                Diagram.AccessibleDescription=string.Format("{0:0.00} million visible pixels. {1} times game surface.",visible/1000000.0,ratio);}
+            catch(Exception ex){preview.Text="Check your layout: "+ex.Message;}
         }
     }
 
@@ -1425,6 +1555,7 @@ namespace Offhand.Companion
         private readonly ComboBox work=new ComboBox {DropDownStyle=ComboBoxStyle.DropDownList,Dock=DockStyle.Fill};
         private readonly NumericUpDown x=new NumericUpDown(), y=new NumericUpDown(), width=new NumericUpDown(), height=new NumericUpDown();
         private readonly CheckBox enabled=new CheckBox {Text="Use partial secondary workspace",Checked=true,AutoSize=true};
+        internal readonly Button SavePlan=new Button{Text="Save plan",AutoSize=true};
         internal SecondaryAreaDialog(IList<MonitorSelection.Display> displays, IDictionary<string,string> settings)
         {
             Text="Two-monitor custom workspace"; ClientSize=new Size(600,560); MinimumSize=new Size(500,450);
@@ -1433,7 +1564,7 @@ namespace Offhand.Companion
             var scroll=new Panel {Dock=DockStyle.Fill,AutoScroll=true,Padding=new Padding(16)};
             var table=new TableLayoutPanel {Dock=DockStyle.Top,AutoSize=true,ColumnCount=2};
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,45));table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,55));
-            Action<string,Control> row=(label,c)=> {int n=table.RowCount++;table.RowStyles.Add(new RowStyle(SizeType.AutoSize));table.Controls.Add(new Label {Text=label,AutoSize=true,Padding=new Padding(0,6,8,6)},0,n);c.Margin=new Padding(0,4,0,4);table.Controls.Add(c,1,n);};
+            Action<string,Control> row=(label,c)=> {int n=table.RowCount++;table.RowStyles.Add(new RowStyle(SizeType.AutoSize));table.Controls.Add(new Label {Text=label,AutoSize=true,MaximumSize=new Size(220,0),Padding=new Padding(0,6,8,6)},0,n);c.AccessibleName=c is CheckBox||c is Button?c.Text:label;c.Margin=new Padding(0,4,0,4);table.Controls.Add(c,1,n);};
             foreach(var d in displays) {string text=string.Format("Display {0}: {1}x{2}",d.Index+1,d.Bounds.Width,d.Bounds.Height);game.Items.Add(text);work.Items.Add(text);}
             for(int i=0;i<displays.Count;i++) {
                 string id; if(settings.TryGetValue("MainhandIdentity",out id)&&id==displays[i].StableId)game.SelectedIndex=i;
@@ -1443,7 +1574,7 @@ namespace Offhand.Companion
             if(work.SelectedIndex<0&&displays.Count>1)work.SelectedIndex=game.SelectedIndex==0?1:0;
             foreach(var n in new NumericUpDown[] {x,y,width,height}) {n.Minimum=0;n.Maximum=32768;n.Dock=DockStyle.Fill;}
             row("Mode",enabled);row("Game monitor (full)",game);row("Workspace monitor",work);row("Left offset (px)",x);row("Top offset (px)",y);row("Workspace width (px)",width);row("Workspace height (px)",height);
-            var visual=new Button {Text="Select workspace on monitor...",AutoSize=true,Dock=DockStyle.Fill};row("Visual selection",visual);
+            var visual=new Button {Text="Select workspace on monitor...",AutoSize=true,Dock=DockStyle.Fill,MaximumSize=new Size(0,36)};row("Visual selection",visual);
             var preview=new Label {AutoSize=true,MaximumSize=new Size(550,0),Padding=new Padding(0,12,0,12)};
             table.Controls.Add(preview,0,table.RowCount++);table.SetColumnSpan(preview,2);
             Func<Dictionary<string,string>> proposed=()=> {
@@ -1457,7 +1588,9 @@ namespace Offhand.Companion
                 result["SecondaryAreaX"]=x.Value.ToString();result["SecondaryAreaY"]=y.Value.ToString();result["SecondaryAreaWidth"]=width.Value.ToString();result["SecondaryAreaHeight"]=height.Value.ToString();result["AutoSpan"]="False";result["SingleDisplaySplit"]="False";
                 return result;
             };
-            Action update=()=> {try {var p=proposed();if(!enabled.Checked){preview.Text="Custom workspace disabled. Save plan returns to the ordinary display modes.";return;}var plan=MonitorSelection.CreatePlan(p,displays);preview.Text=string.Format("Backing surface: {0} x {1} ({2:0.0} million pixels). Only the full game monitor and selected workspace are visible; other areas are clipped.\n\nUse selection returns here. Save plan changes settings only; Span WoW Now applies. Custom layouts are manual-only.",plan.Bounds.Width,plan.Bounds.Height,(double)plan.Bounds.Width*plan.Bounds.Height/1000000);}catch(Exception ex){preview.Text=ex.Message;}};
+            Action update=()=> {SavePlan.Enabled=false;preview.ForeColor=CompanionUi.Warning;visual.Enabled=enabled.Checked&&work.SelectedIndex>=0;
+                foreach(var field in new NumericUpDown[]{x,y,width,height})field.Enabled=enabled.Checked;
+                try {var p=proposed();if(!enabled.Checked){SavePlan.Enabled=true;preview.ForeColor=CompanionUi.Text;preview.Text="Custom workspace disabled. Save plan keeps this change; Span WoW Now applies your ordinary display layout.";return;}var plan=MonitorSelection.CreatePlan(p,displays);SavePlan.Enabled=true;preview.ForeColor=CompanionUi.Text;preview.Text=string.Format("Ready: game on Display {0}, workspace {1} x {2} on Display {3}.\nBacking surface: {4} x {5} ({6:0.0} million pixels).\n\nSave plan keeps these settings without resizing WoW. Span WoW Now applies them; reload the game UI once afterward.",game.SelectedIndex+1,width.Value,height.Value,work.SelectedIndex+1,plan.Bounds.Width,plan.Bounds.Height,(double)plan.Bounds.Width*plan.Bounds.Height/1000000);}catch(Exception ex){preview.Text="Check your layout: "+ex.Message;}};
             Action load=()=> {
                 if(work.SelectedIndex<0||game.SelectedIndex<0)return;var w=displays[work.SelectedIndex];var g=displays[game.SelectedIndex];
                 int dw=Math.Min(640,w.Bounds.Width),dh=Math.Min(g.Bounds.Height,w.Bounds.Height);
@@ -1469,9 +1602,9 @@ namespace Offhand.Companion
             game.SelectedIndexChanged+=(s,e)=>load();work.SelectedIndexChanged+=(s,e)=>load();foreach(var n in new NumericUpDown[] {x,y,width,height})n.ValueChanged+=(s,e)=>update();enabled.CheckedChanged+=(s,e)=>update();
             visual.Click+=(s,e)=> {if(work.SelectedIndex<0)return;try {var m=displays[work.SelectedIndex].Bounds;var selection=new WorkspaceAreaSelection(m.Size,new Rectangle((int)x.Value,(int)y.Value,(int)width.Value,(int)height.Value));using(var overlay=new WorkspaceAreaOverlay(m,selection)){if(overlay.ShowDialog(this)!=DialogResult.OK)return;x.Value=selection.Area.X;y.Value=selection.Area.Y;width.Value=selection.Area.Width;height.Value=selection.Area.Height;}}catch(ArgumentException ex){MessageBox.Show(this,ex.Message,Text);}};
             var buttons=new FlowLayoutPanel {Dock=DockStyle.Bottom,Height=56,FlowDirection=FlowDirection.RightToLeft,Padding=new Padding(8)};
-            var cancel=new Button {Text="Cancel",AutoSize=true,DialogResult=DialogResult.Cancel};var save=new Button {Text="Save plan",AutoSize=true};buttons.Controls.Add(cancel);buttons.Controls.Add(save);CancelButton=cancel;AcceptButton=save;
+            var cancel=new Button {Text="Cancel",AutoSize=true,DialogResult=DialogResult.Cancel};var save=SavePlan;buttons.Controls.Add(cancel);buttons.Controls.Add(save);CancelButton=cancel;AcceptButton=save;
             save.Click+=(s,e)=> {try {var p=proposed();if(enabled.Checked)MonitorSelection.CreatePlan(p,displays);Settings=p;DialogResult=DialogResult.OK;Close();}catch(Exception ex){MessageBox.Show(this,ex.Message,Text,MessageBoxButtons.OK,MessageBoxIcon.Information);}};
-            scroll.Controls.Add(table);Controls.Add(scroll);Controls.Add(buttons);load();update();
+            scroll.Controls.Add(table);Controls.Add(scroll);Controls.Add(buttons);CompanionUi.Apply(this);load();update();
         }
     }
 
@@ -1483,6 +1616,7 @@ namespace Offhand.Companion
         internal readonly ComboBox DisplaySelector = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
         internal readonly NumericUpDown OccupiedWidth = new NumericUpDown { Minimum = 1, Maximum = 32768, Dock = DockStyle.Fill };
         internal readonly NumericUpDown WorkspaceWidth = new NumericUpDown { Minimum = 1, Maximum = 32768, Dock = DockStyle.Fill };
+        internal readonly Button SavePlan=new Button{Text="Save plan",AutoSize=true};
         private readonly CheckBox enabled = new CheckBox { Text = "Use single-monitor custom region", AutoSize = true };
         private readonly ComboBox edge = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
         private readonly ComboBox side = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
@@ -1498,12 +1632,12 @@ namespace Offhand.Companion
             Action<string, Control> row = (label, control) => {
                 int index = table.RowCount++; table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
                 table.Controls.Add(new Label { Text = label, AutoSize = true, Padding = new Padding(0, 5, 8, 5) }, 0, index);
-                control.Margin = new Padding(0, 4, 0, 4); table.Controls.Add(control, 1, index);
+                control.AccessibleName=control is CheckBox||control is Button?control.Text:label;control.Margin = new Padding(0, 4, 0, 4); table.Controls.Add(control, 1, index);
             };
             table.RowCount = 0;
             row("Mode", enabled); row("Display", DisplaySelector); row("WoW occupied width (px)", OccupiedWidth);
             row("Workspace width (px)", WorkspaceWidth); row("Occupied monitor edge", edge); row("Game side inside WoW", side);
-            var visual = new Button { Text = "Select area on monitor...", AutoSize = true, Dock = DockStyle.Fill };
+            var visual = new Button { Text = "Select area on monitor...", AutoSize = true, Dock = DockStyle.Fill,MaximumSize=new Size(0,36) };
             row("Visual selection", visual);
             visual.Click += (s,e) => {
                 if (DisplaySelector.SelectedIndex < 0) return;
@@ -1534,40 +1668,42 @@ namespace Offhand.Companion
                 ? Math.Max(1, Math.Min(32768, value)) : Math.Max(1440, displays.Count > 0 ? Math.Min(4080, displays[DisplaySelector.SelectedIndex].Bounds.Width - 320) : 1440);
             WorkspaceWidth.Value = settings.ContainsKey("PartialWorkspaceWidth") && int.TryParse(settings["PartialWorkspaceWidth"], out value)
                 ? Math.Max(1, Math.Min(32768, value)) : 640;
+            Func<Dictionary<string,string>> proposed=()=>{
+                var result=new Dictionary<string,string>(settings);
+                result["PartialSpanEnabled"]=enabled.Checked.ToString();result["SecondaryAreaEnabled"]="False";result["WorkspaceRegionsEnabled"]="False";
+                if(!enabled.Checked)return result;
+                if(DisplaySelector.SelectedIndex<0)throw new InvalidOperationException("Choose a connected display.");
+                var display=displays[DisplaySelector.SelectedIndex];
+                result["PartialDisplayIdentity"]=display.StableId;result["PartialMonitorWidth"]=display.Bounds.Width.ToString();result["PartialMonitorHeight"]=display.Bounds.Height.ToString();
+                result["PartialWidth"]=OccupiedWidth.Value.ToString();result["PartialWorkspaceWidth"]=WorkspaceWidth.Value.ToString();
+                result["PartialEdge"]=edge.SelectedIndex==0?"LEFT":"RIGHT";result["PartialGameSide"]=side.SelectedIndex==0?"RIGHT":"LEFT";
+                result["MonitorIdentities"]=display.StableId;result["MonitorDevices"]=display.DeviceName;result["Monitors"]=display.Index.ToString();
+                result["MainhandIdentity"]=display.StableId;result["MainhandDevice"]=display.DeviceName;result["DisplayIdentityVersion"]="1";result["AutoSpan"]="False";
+                MonitorSelection.CreatePlan(result,displays);return result;
+            };
             Action update = () => {
-                if (DisplaySelector.SelectedIndex < 0) { preview.Text = "No connected display."; return; }
+                SavePlan.Enabled=false;preview.ForeColor=CompanionUi.Warning;
+                foreach(Control field in new Control[]{OccupiedWidth,WorkspaceWidth,edge,side,visual})field.Enabled=enabled.Checked;
+                try{proposed();SavePlan.Enabled=true;preview.ForeColor=CompanionUi.Text;}catch(Exception ex){preview.Text="Check your layout: "+ex.Message;return;}
+                if(!enabled.Checked){preview.Text="Custom region disabled. Save plan keeps this change; Span WoW Now applies your ordinary display layout.";return;}
                 int total = (int)OccupiedWidth.Value, work = (int)WorkspaceWidth.Value;
                 preview.Text = (settings.ContainsKey("SecondaryAreaEnabled") && settings["SecondaryAreaEnabled"] == "True"
                     ? "A two-monitor custom workspace is saved. Saving this single-monitor plan replaces that mode. Cancel to keep it.\n\n" : "")
                     + string.Format("WoW {0} = workspace {1} + game {2}; free {3}px.\n\nSave changes the plan only. Click Span WoW Now to apply. Custom regions are manual-only in this prototype.\n\nUse Mainhand for panels that do not fit. Narrow workspaces can make scaled panels hard to read. Restore Window returns the ordinary window.", total, work, total - work, displays[DisplaySelector.SelectedIndex].Bounds.Width - total);
             };
             table.Controls.Add(preview, 0, table.RowCount++); table.SetColumnSpan(preview, 2);
-            DisplaySelector.SelectedIndexChanged += (s,e) => update(); OccupiedWidth.ValueChanged += (s,e) => update(); WorkspaceWidth.ValueChanged += (s,e) => update(); update();
+            DisplaySelector.SelectedIndexChanged += (s,e) => update(); OccupiedWidth.ValueChanged += (s,e) => update(); WorkspaceWidth.ValueChanged += (s,e) => update();
+            enabled.CheckedChanged+=(s,e)=>update();edge.SelectedIndexChanged+=(s,e)=>update();side.SelectedIndexChanged+=(s,e)=>update();update();
             scroll.Controls.Add(table);
             var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 52, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(8) };
             var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, AutoSize = true };
-            var save = new Button { Text = "Save plan", AutoSize = true };
+            var save = SavePlan;
             buttons.Controls.Add(cancel); buttons.Controls.Add(save); CancelButton = cancel; AcceptButton = save;
             save.Click += (s,e) => {
-                var proposed = new Dictionary<string,string>(settings);
-                proposed["PartialSpanEnabled"] = enabled.Checked.ToString();
-                proposed["SecondaryAreaEnabled"] = "False";
-                proposed["WorkspaceRegionsEnabled"] = "False";
-                if (enabled.Checked) {
-                    if (DisplaySelector.SelectedIndex < 0) return;
-                    var d = displays[DisplaySelector.SelectedIndex];
-                    proposed["PartialDisplayIdentity"] = d.StableId; proposed["PartialMonitorWidth"] = d.Bounds.Width.ToString(); proposed["PartialMonitorHeight"] = d.Bounds.Height.ToString();
-                    proposed["PartialWidth"] = OccupiedWidth.Value.ToString(); proposed["PartialWorkspaceWidth"] = WorkspaceWidth.Value.ToString();
-                    proposed["PartialEdge"] = edge.SelectedIndex == 0 ? "LEFT" : "RIGHT"; proposed["PartialGameSide"] = side.SelectedIndex == 0 ? "RIGHT" : "LEFT";
-                    proposed["MonitorIdentities"] = d.StableId; proposed["MonitorDevices"] = d.DeviceName; proposed["Monitors"] = d.Index.ToString();
-                    proposed["MainhandIdentity"] = d.StableId; proposed["MainhandDevice"] = d.DeviceName; proposed["DisplayIdentityVersion"] = "1";
-                    proposed["AutoSpan"] = "False";
-                    try { MonitorSelection.CreatePlan(proposed, displays); }
-                    catch (Exception ex) { MessageBox.Show(this, ex.Message, Text, MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
-                }
-                Settings = proposed; DialogResult = DialogResult.OK; Close();
+                try{Settings=proposed();DialogResult=DialogResult.OK;Close();}
+                catch(Exception ex){preview.ForeColor=CompanionUi.Warning;preview.Text="Check your layout: "+ex.Message;}
             };
-            Controls.Add(scroll); Controls.Add(buttons);
+            Controls.Add(scroll); Controls.Add(buttons);CompanionUi.Apply(this);update();
         }
     }
 
@@ -2829,7 +2965,7 @@ namespace Offhand.Companion
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
 #else
-        internal const string ReleaseLabel = "Beta 4";
+        internal const string ReleaseLabel = "Beta 5";
         internal static readonly bool GraphicsRecoveryEnabled = true;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
@@ -3843,6 +3979,7 @@ namespace Offhand.Companion
             Label lblMainhand = new Label { Text = "Mainhand (game):", AutoSize = true, Margin = new Padding(0, 0, 0, 2), ForeColor = cText, BackColor = Color.Transparent };
             configRight.Controls.Add(lblMainhand);
             cmbMainhand = new ComboBox { Width = 220, Margin = Padding.Empty, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = cCard, ForeColor = cText };
+            CompanionUi.StyleCombo(cmbMainhand);cmbMainhand.AccessibleName="Mainhand game display";
             for (int i = 0; i < uiDisplays.Count; i++)
             {
                 Rectangle b = uiDisplays[i].Bounds;
@@ -3866,6 +4003,7 @@ namespace Offhand.Companion
             Label lblSingleSide = new Label { Text = "Game side:", Size = new Size(90, 22), Margin = Padding.Empty, ForeColor = cText, BackColor = Color.Transparent };
             sideRow.Controls.Add(lblSingleSide);
             cmbSingleSide = new ComboBox { Width = 100, Margin = Padding.Empty, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = cCard, ForeColor = cText };
+            CompanionUi.StyleCombo(cmbSingleSide);cmbSingleSide.AccessibleName="Game side on single display";
             cmbSingleSide.Items.AddRange(new object[] { "Right", "Left" });
             cmbSingleSide.SelectedIndex = 0;
             sideRow.Controls.Add(cmbSingleSide);
@@ -3880,6 +4018,8 @@ namespace Offhand.Companion
             btnPartialSpan.Margin = new Padding(0, 6, 0, 0);
             btnPartialSpan.Click += (s, e) => EditPartialSpan();
             configRight.Controls.Add(btnPartialSpan);
+            uiToolTips.SetToolTip(profilesButton,"Save and manage named Multiple workspaces plans. Loading selects settings; Span WoW Now applies them.");
+            uiToolTips.SetToolTip(btnPartialSpan,"Choose a custom layout, select workspace areas visually, and review the plan. Saving does not resize WoW.");
 
             uiToolTips.SetToolTip(chkAutoSpan,
                 "Disabled by default. When enabled, Offhand spans each newly detected WoW window across the selected displays. Manual Span WoW Now remains available when disabled.");
@@ -4328,11 +4468,16 @@ namespace Offhand.Companion
                 FlatStyle = FlatStyle.Flat,
                 BackColor = bg,
                 ForeColor = fg,
-                Font = new Font("Georgia", 9, FontStyle.Bold),
+                Font = new Font("Segoe UI", 9, FontStyle.Bold),
                 Cursor = Cursors.Hand
             };
             btn.FlatAppearance.BorderSize = 1;
             btn.FlatAppearance.BorderColor = border;
+            btn.UseVisualStyleBackColor=false;
+            btn.FlatAppearance.MouseOverBackColor=Color.FromArgb(53,48,37);
+            btn.FlatAppearance.MouseDownBackColor=Color.FromArgb(69,57,32);
+            btn.AccessibleName=text.Replace("&","");
+            CompanionUi.StyleDisabledButton(btn);
             return btn;
         }
 
@@ -4368,6 +4513,12 @@ namespace Offhand.Companion
                 "Restore Window: Return WoW to its remembered pre-span bordered bounds and pause auto-span for that process. Missing-display recovery still fills the surviving Mainhand.",
                 "Pause Monitor: Stop launch detection without disabling the manual controls.",
                 CompanionDistribution.UpdateHelpText(isStorePackage),
+                "",
+                "CUSTOM WORKSPACES AND PROFILES",
+                "Custom region opens the layout chooser. One monitor shares a full-height game/workspace strip; two-monitor custom workspace selects one rectangular secondary area; Multiple workspaces supports a full game display plus one or two regions on different displays.",
+                "Choose the game and workspace displays, then Select area on monitor. Drag to move or resize. Arrows move 10 pixels; Ctrl+arrows move one pixel; Shift+arrows resize. Enter uses the selection; Escape cancels it. Use Workspace B only when you need a second workspace display.",
+                "Review the diagram and plan status. Save plan keeps settings only; Span WoW Now applies them. Reload the game UI once after applying. Invalid plans cannot be saved, but custom mode can still be disabled when a saved monitor is missing.",
+                "Workspace profiles manages named Multiple workspaces plans. Profile actions remain pending until Save changes; Cancel discards them. Loading does not resize WoW. The addon Profiles tab separately stores matching panel layouts and region theme/image choices.",
                 "",
                 "FOREVER AND EDIT MODE",
                 "Forever's protected action bars, unit frames, minimap, and Edit Mode controls belong to Blizzard Edit Mode. The in-game Wizard's final Create Mainhand HUD Layout action safely clones the active Blizzard layout, preserves custom placements, moves default HUD anchors into Mainhand, selects the generated layout, and requests a reload. Offhand restores ordinary workspace panels separately. Recovery & Preview can rebuild the generated layout later. Final multi-monitor geometry must exist before those protected frames initialize, but it may come from manual setup, another window manager, or the Companion. The legacy Companion bridge remains a compatibility fallback for Forever builds that do not reliably load newly written SavedVariables on a cold launch.",
