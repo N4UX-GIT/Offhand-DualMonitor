@@ -1,6 +1,10 @@
 # Companion layout gap analysis and implementation plan
 
-4 November 2026. **Proposed work, not an implemented feature specification.**
+4 November 2026. **Approved for phased implementation, subject to the
+[interaction and release boundaries](COMPANION-INTERACTION-AND-RELEASE-BOUNDARIES.md).**
+Proposed capabilities below are not current runtime support. The first pure
+layout-model increment and its test evidence are recorded in that boundary
+document; native application and topology negotiation remain gated work.
 Baseline: source `3d68a2c6558c669da99c5e7c9ecb0bbec7201e1e`, Companion
 2.1.3 Beta 5 (file 2.1.3.6), unofficial Workspace Test 2. This plan extends the
 [original custom-region plan](CUSTOM-WORKSPACE-REGIONS-IMPLEMENTATION-PLAN.md)
@@ -19,10 +23,12 @@ Keep arbitrary desktop application management a separate product decision.
 Offhand owns one WoW native window plus addon-managed UI destinations. It does
 not turn WoW panels into independent Windows windows.
 
-Decisions in this document are recommendations. Research spikes and acceptance
-gates determine which proposed capabilities can be promoted to supported use.
-No new software launch, runtime change, website deployment, release or package
-replacement is part of preparing this plan.
+The user approved the recommended actions while explicitly requiring attention
+to WoW ToS/EULA, Warden compatibility and Defender false positives. Research
+spikes and acceptance gates determine which proposed capabilities can become
+supported use. Approval does not waive those boundaries, establish vendor
+authorization, or permit bypassing a protection. Published packages remain
+immutable; further implementation proceeds in separate reviewable increments.
 
 ## 2. Evidence and current capability
 

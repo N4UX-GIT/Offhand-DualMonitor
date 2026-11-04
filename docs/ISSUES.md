@@ -2,6 +2,16 @@
 
 Stable IDs for reports that require follow-up across test sessions.
 
+## Layout foundation and interaction boundaries, 4 November 2026
+
+The user approved the roadmap subject to WoW ToS/EULA, anti-cheat and antivirus
+considerations. The [boundary/evidence record](COMPANION-INTERACTION-AND-RELEASE-BOUNDARIES.md)
+defines the allowed interaction surface and release checks. A pure layout
+document/planner now has 239 x64/x86 checks per architecture; it does not enable
+new native layouts yet. Candidate creation runs a bounded native-source audit.
+Exact published Test 2 copies passed a local Defender scan with protection
+enabled. That does not establish vendor approval or a future-file guarantee.
+
 ## FancyZones layout gap analysis, 4 November 2026
 
 The [gap analysis and phased implementation plan](FANCYZONES-GAP-ANALYSIS-AND-IMPLEMENTATION-PLAN.md)
