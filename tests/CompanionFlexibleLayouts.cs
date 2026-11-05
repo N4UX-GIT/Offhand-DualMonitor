@@ -106,6 +106,19 @@ namespace Offhand.Companion
             offset.Game.Bounds=new Rectangle(1000,400,1920,1080);offset.Workspaces[0].Bounds=new Rectangle(0,0,800,600);offset.Workspaces[1].Bounds=new Rectangle(0,700,800,600);
             WriteBridge(root,"schema3-offset",WorkspaceLayoutSettings.Save(legacy,offset,offsetDisplays),offsetDisplays);
 
+            // The private editor is one-display only; exercise the backend's
+            // shared and distinct display roles through exact generated bridges.
+            var multi=WorkspaceLayoutPresets.SingleDisplay(displays[0],"centered",document.Id,"Mixed physical desk");
+            multi.Game.Bounds=new Rectangle(0,0,5120,1440);
+            multi.Displays.Add(new WorkspaceLayoutBinding{Role="left",StableId="left",Resolution=new Size(1440,2560)});
+            multi.Workspaces[0].DisplayRole="left";multi.Workspaces[0].Bounds=new Rectangle(0,0,1440,1200);
+            multi.Workspaces[1].DisplayRole="left";multi.Workspaces[1].Bounds=new Rectangle(0,1200,1440,1200);
+            WriteBridge(root,"schema3-two-displays",WorkspaceLayoutSettings.Save(legacy,multi,displays),displays);
+            var threeDisplays=Displays();threeDisplays.Add(new MonitorSelection.Display{StableId="right",DeviceName="right-device",Bounds=new Rectangle(5120,0,1920,1080)});
+            multi.Displays.Add(new WorkspaceLayoutBinding{Role="right",StableId="right",Resolution=new Size(1920,1080)});
+            multi.Workspaces[1].DisplayRole="right";multi.Workspaces[1].Bounds=new Rectangle(0,0,1920,1080);
+            WriteBridge(root,"schema3-three-displays",WorkspaceLayoutSettings.Save(legacy,multi,threeDisplays),threeDisplays);
+
             Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
             using(var editor=new FlexibleWorkspaceEditor(displays,renamed)) {
                 editor.CreateControl();editor.PerformLayout();

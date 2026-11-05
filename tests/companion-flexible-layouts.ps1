@@ -15,7 +15,7 @@ try {
   if($PreviewDirectory){New-Item -ItemType Directory -Path $PreviewDirectory -Force|Out-Null;& $exe $out (Join-Path ([IO.Path]::GetFullPath($PreviewDirectory)) ('flexible-'+$arch+'.png'))}else{& $exe $out}
   if($LASTEXITCODE -ne 0){throw ('Flexible layout fixture failed: '+$arch)}
   Push-Location $root
-  try {foreach($name in @('centered','stacked','offset')){& lua tests/support/flexible-workspace-bridge.lua (Join-Path $out ('schema3-'+$name+'.lua')) $name;if($LASTEXITCODE -ne 0){throw 'Generated flexible bridge rejected by addon'}}}finally{Pop-Location}
+  try {foreach($name in @('centered','stacked','offset','two-displays','three-displays')){& lua tests/support/flexible-workspace-bridge.lua (Join-Path $out ('schema3-'+$name+'.lua')) $name;if($LASTEXITCODE -ne 0){throw 'Generated flexible bridge rejected by addon'}}}finally{Pop-Location}
  }
 } finally {
  $resolved=[IO.Path]::GetFullPath($fixture)

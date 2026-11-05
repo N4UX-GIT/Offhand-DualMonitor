@@ -2,9 +2,12 @@
 
 4 November 2026. **Approved for phased implementation, subject to the
 [interaction and release boundaries](COMPANION-INTERACTION-AND-RELEASE-BOUNDARIES.md).**
-Proposed capabilities below are not current runtime support. The first pure
-layout-model increment and its test evidence are recorded in that boundary
-document; native application and topology negotiation remain gated work.
+Proposed capabilities below are not a claim of complete runtime support.
+The 5 November [private prototype checkpoint](FLEXIBLE-WORKSPACE-PROTOTYPE.md)
+connects schema 3, versioned migration and an opt-in numeric editor. A centered
+game/two-workspace layout has bounded Retail live evidence; panel fit and the
+remaining native/client acceptance matrix still gate promotion. The unified
+visual editor and later convenience work remain open.
 Baseline: source `3d68a2c6558c669da99c5e7c9ecb0bbec7201e1e`, Companion
 2.1.3 Beta 5 (file 2.1.3.6), unofficial Workspace Test 2. This plan extends the
 [original custom-region plan](CUSTOM-WORKSPACE-REGIONS-IMPLEMENTATION-PLAN.md)
