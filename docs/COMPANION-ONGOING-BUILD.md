@@ -1,5 +1,21 @@
 # Ongoing Companion build
 
+## Display identity integration, 5 November 2026
+
+The CurseForge two-selected-displays failure correction is integrated into the
+main `codex/custom-workspace-regions` source, including partial, schema 2/schema 3
+layouts and named profiles. It uses per-monitor interface IDs, uniqueness-aware
+resolution, reviewed legacy migration, preserved geometry/snapshots and guarded
+manual selection capture. This replaces the isolated Beta 20 correction as the
+implementation intended for the next custom-workspace candidate.
+
+154 targeted assertions per architecture, all 92 Lua suites and the existing
+workspace/profile, recovery, colour/DPI and native rollback fixtures pass.
+Native migration/dock/reconnect and exact-artifact acceptance remain pending.
+Existing public and private executable/package bytes remain unchanged.
+See [the integration record](COMPANION-DISPLAY-IDENTITY-HARDENING-20261105.md).
+Reporter hardware details are supplementary, not a dependency for this work.
+
 ## Taskbar presentation, 3 November 2026
 
 The user requested fullscreen taskbar behavior for custom regions. Prototype 6

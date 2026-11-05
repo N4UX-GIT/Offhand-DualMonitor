@@ -142,10 +142,8 @@ namespace Offhand.Companion
                 Require(region.DisplayRole != null && bindings.TryGetValue(region.DisplayRole, out binding),
                     "A region's display role is missing.");
                 binding = bindings[region.DisplayRole]; usedRoles.Add(binding.Role);
-                int found = -1;
-                for (int index = 0; index < displays.Count; index++)
-                    if (displays[index] != null && string.Equals(displays[index].StableId, binding.StableId, StringComparison.OrdinalIgnoreCase))
-                    { Require(found < 0, "A display identity is ambiguous."); found = index; }
+                int found = MonitorSelection.FindDisplay(displays,binding.StableId,null);
+                Require(found != -2,"A display identity is ambiguous.");
                 Require(found >= 0, "A required display is disconnected. Review the layout before applying.");
                 var display = displays[found];
                 Require(!string.IsNullOrWhiteSpace(display.DeviceName) && display.Bounds.Size == binding.Resolution,
@@ -176,6 +174,7 @@ namespace Offhand.Companion
                 primaryFound |= workspace.Id == document.PrimaryWorkspaceId;
             }
             Require(primaryFound && usedRoles.Count == bindings.Count, "Choose a primary workspace and remove unused display roles.");
+            MonitorSelection.ValidatePhysicalIdentities(displays,indices);
             for (int a = 0; a < indices.Count; a++) for (int b = a + 1; b < indices.Count; b++)
                 Require(!string.Equals(displays[indices[a]].DeviceName, displays[indices[b]].DeviceName, StringComparison.OrdinalIgnoreCase)
                     && !Overlaps(displays[indices[a]].Bounds, displays[indices[b]].Bounds),

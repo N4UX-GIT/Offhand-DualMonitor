@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+- Integrated Companion display identity hardening into the custom-workspace
+  candidate: distinct per-monitor interface IDs, explicit ambiguity errors,
+  reviewed migration and preserved workspace/profile geometry. Native dock,
+  reconnect and migration-dialog acceptance remain pending.
+
 - Coalesced rapid bezel-gap and game-bottom adjustments so the final layout
   applies after a short pause, while the displayed value updates immediately.
   This is a candidate mitigation for adjustment stalls; live graphics recovery

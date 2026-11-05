@@ -77,6 +77,9 @@ namespace Offhand.Companion {
                 { "MonitorIdentities", "MONITOR\\MAIN\\A|MONITOR\\WORK\\B" },
                 { "MainhandIdentity", "MONITOR\\MAIN\\A" }
             };
+            Check(MonitorSelection.HasSavedIdentitySettings(stableSettings));
+            Check(!MonitorSelection.HasStableIdentitySettings(stableSettings));
+            stableSettings["DisplayIdentityVersion"]="2";
             Check(MonitorSelection.HasStableIdentitySettings(stableSettings));
             stableSettings["MonitorIdentities"] = "";
             Check(!MonitorSelection.HasStableIdentitySettings(stableSettings));

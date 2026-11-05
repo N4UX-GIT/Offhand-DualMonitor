@@ -494,6 +494,7 @@ namespace Offhand.Companion
             internal int Index;
             internal string DeviceName;
             internal string StableId;
+            internal string LegacyStableId;
             internal Rectangle Bounds;
             internal Rectangle WorkArea;
             internal bool Primary;
@@ -545,11 +546,9 @@ namespace Offhand.Companion
             int count=number("WorkspaceRegionCount");
             if(count<1||count>2)throw new InvalidOperationException("Select one or two workspaces.");
             Func<string,int> display=id=> {
-                int found=-1;
                 if(string.IsNullOrWhiteSpace(id))throw new InvalidOperationException("A workspace display identity is missing.");
-                for(int i=0;i<displays.Count;i++)if(string.Equals(displays[i].StableId,id,StringComparison.OrdinalIgnoreCase)) {
-                    if(found>=0)throw new InvalidOperationException("A display identity is ambiguous. Review the connected monitors.");found=i;
-                }
+                int found=FindDisplay(displays,id,null);
+                if(found == -2)throw new InvalidOperationException("A display identity is ambiguous. Review the connected monitors.");
                 if(found<0)throw new InvalidOperationException("A required workspace display is disconnected. Restore WoW or reconnect it.");
                 return found;
             };
@@ -592,10 +591,14 @@ namespace Offhand.Companion
                 throw new InvalidOperationException("This workspace plan exceeds the prototype surface budget (16384 pixels per axis and four times the game area). Move or reduce the workspace areas.");
             // Preserve all identities in preferences. Older Companions reject a
             // three-selected-display plan rather than silently dropping a region.
-            var selected=new HashSet<string>((read("MonitorIdentities")??"").Split('|'),StringComparer.OrdinalIgnoreCase);
+            var selected=new HashSet<int>();
+            foreach(string identity in Tokens(read("MonitorIdentities"),'|')) {
+                int index=display(identity);
+                if(!selected.Add(index))throw new InvalidOperationException("Selected monitor identities are duplicated. Review Workspaces.");
+            }
             if(selected.Count!=indices.Count)throw new InvalidOperationException("Selected monitors differ from the workspace plan. Review Workspaces.");
-            foreach(int index in indices)if(!selected.Contains(displays[index].StableId))
-                throw new InvalidOperationException("Selected monitors differ from the workspace plan. Review Workspaces.");
+            foreach(int index in indices)if(!selected.Contains(index))throw new InvalidOperationException("Selected monitors differ from the workspace plan. Review Workspaces.");
+            ValidatePhysicalIdentities(displays,indices);
             string profileID=read("WorkspaceProfileID"),profileName=read("WorkspaceProfileName");
             if(profileID!=null&&(!Regex.IsMatch(profileID,"^[a-f0-9]{32}$")||WorkspacePlanProfiles.Name(profileName)!=profileName))
                 throw new InvalidOperationException("The workspace profile identity is invalid. Review Workspace profiles.");
@@ -626,25 +629,69 @@ namespace Offhand.Companion
 
         internal static bool HasStableIdentitySettings(IDictionary<string, string> settings)
         {
-            if (settings == null || !settings.ContainsKey("DisplayIdentityVersion")) return false;
-            string identities, mainhandIdentity;
-            return settings.TryGetValue("MonitorIdentities", out identities)
-                && !string.IsNullOrWhiteSpace(identities)
-                && settings.TryGetValue("MainhandIdentity", out mainhandIdentity)
-                && !string.IsNullOrWhiteSpace(mainhandIdentity);
+            string version;
+            if (settings == null || !settings.TryGetValue("DisplayIdentityVersion",out version) || version!="2") return false;
+            return HasSavedIdentitySettings(settings);
         }
 
-        private static int FindDisplay(IList<Display> displays, string stableId, string deviceName)
+        internal static bool HasSavedIdentitySettings(IDictionary<string,string> settings)
         {
-            if (!string.IsNullOrWhiteSpace(stableId))
-                for (int i = 0; i < displays.Count; i++)
-                    if (string.Equals(displays[i].StableId, stableId, StringComparison.OrdinalIgnoreCase))
-                        return i;
-            if (!string.IsNullOrWhiteSpace(deviceName))
-                for (int i = 0; i < displays.Count; i++)
-                    if (string.Equals(displays[i].DeviceName, deviceName, StringComparison.OrdinalIgnoreCase))
-                        return i;
-            return -1;
+            string version,identities,mainhand;
+            if(settings==null || !settings.TryGetValue("DisplayIdentityVersion",out version) || (version!="1" && version!="2")
+                || !settings.TryGetValue("MonitorIdentities",out identities) || !settings.TryGetValue("MainhandIdentity",out mainhand)
+                || string.IsNullOrWhiteSpace(mainhand))return false;
+            var unique=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach(string identity in (identities??"").Split('|'))if(string.IsNullOrWhiteSpace(identity)||identity!=identity.Trim()||!unique.Add(identity))return false;
+            return unique.Count>0 && unique.Contains(mainhand);
+        }
+
+        // Legacy IDs are read only for reviewed migration/profile recovery.
+        // Resolve over both namespaces together; never let an alias hide a collision.
+        internal static int FindDisplay(IList<Display> displays, string stableId, string deviceName)
+        {
+            if(displays==null)return -1;
+            int found=-1;
+            for(int i=0;i<displays.Count;i++) {
+                Display display=displays[i];if(display==null)continue;
+                bool match=!string.IsNullOrWhiteSpace(stableId)
+                    ? string.Equals(display.StableId,stableId,StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(display.LegacyStableId,stableId,StringComparison.OrdinalIgnoreCase)
+                    : !string.IsNullOrWhiteSpace(deviceName) && string.Equals(display.DeviceName,deviceName,StringComparison.OrdinalIgnoreCase);
+                if(!match)continue;if(found>=0)return -2;found=i;
+            }
+            return found;
+        }
+
+        internal static void ValidatePhysicalIdentities(IList<Display> displays,IEnumerable<int> indices)
+        {
+            var devices=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach(int index in indices) {
+                Display display=displays[index];
+                if(display==null || string.IsNullOrWhiteSpace(display.StableId))
+                    throw new InvalidOperationException("Windows did not provide a per-monitor interface identity. Reconnect the display or review the dock/adapter; no span was applied.");
+                if(FindDisplay(displays,display.StableId,null)!=index)
+                    throw new InvalidOperationException("Windows returned the same monitor identity for multiple displays. Offhand cannot safely distinguish their roles; no span was applied.");
+                if(string.IsNullOrWhiteSpace(display.DeviceName)||!devices.Add(display.DeviceName))
+                    throw new InvalidOperationException("Selected display devices are ambiguous. Review the connected monitors; no span was applied.");
+            }
+        }
+
+        internal static Dictionary<string,string> UpgradeIdentitySettings(IDictionary<string,string> settings,IList<Display> displays)
+        {
+            Plan plan=CreatePlan(settings,displays);
+            var result=new Dictionary<string,string>(settings);
+            var identities=new List<string>();var devices=new List<string>();var indices=new List<string>();
+            foreach(int index in plan.Indices){identities.Add(displays[index].StableId);devices.Add(displays[index].DeviceName);indices.Add(index.ToString());}
+            result["MonitorIdentities"]=string.Join("|",identities);result["MonitorDevices"]=string.Join("|",devices);result["Monitors"]=string.Join(",",indices);
+            result["MainhandIdentity"]=displays[plan.MainhandIndex].StableId;result["MainhandDevice"]=displays[plan.MainhandIndex].DeviceName;
+            if(plan.PartialSingle)result["PartialDisplayIdentity"]=displays[plan.MainhandIndex].StableId;
+            if(plan.PartialSecondary)result["SecondaryAreaIdentity"]=displays[plan.WorkspaceIndex].StableId;
+            if(plan.FlexibleLayout)result[WorkspaceLayoutSettings.DocumentKey]=WorkspaceLayoutSettings.Encode(WorkspaceLayoutSettings.Read(settings),displays);
+            else if(plan.MultiRegion)for(int n=1;n<=plan.Workspaces.Length;n++)
+                result["WorkspaceRegion"+n+"Identity"]=displays[plan.Workspaces[n-1].DisplayIndex].StableId;
+            result["DisplayIdentityVersion"]="2";
+            CreatePlan(result,displays);
+            return result;
         }
 
         internal static bool HasDisconnectedSavedDisplay(string savedIdentities, string savedDevices,
@@ -679,6 +726,7 @@ namespace Offhand.Companion
             {
                 if (!string.Equals(left[i].DeviceName, right[i].DeviceName, StringComparison.OrdinalIgnoreCase)
                     || !string.Equals(left[i].StableId, right[i].StableId, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(left[i].LegacyStableId, right[i].LegacyStableId, StringComparison.OrdinalIgnoreCase)
                     || left[i].Bounds != right[i].Bounds
                     || left[i].WorkArea != right[i].WorkArea
                     || left[i].Primary != right[i].Primary)
@@ -700,10 +748,13 @@ namespace Offhand.Companion
             bool useStableIdentities = savedIdentities != null;
             if (selectedValues != null)
             {
+                var requestedSet=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (string requested in devices)
                 {
+                    if(!requestedSet.Add(requested))throw new InvalidOperationException("The saved display selection contains duplicate identities. Review the checked displays and Mainhand.");
                     int match = FindDisplay(displays, useStableIdentities ? requested : null,
                         useStableIdentities ? null : requested);
+                    if(match == -2)throw new InvalidOperationException("Windows returned the same monitor identity for multiple displays. Offhand cannot safely distinguish their roles; no span was applied.");
                     if (match < 0)
                         throw new InvalidOperationException("A saved display is disconnected (" + requested + "). Restore the WoW window or reconnect it; Offhand will not collapse the span onto the remaining screen.");
                     if (!selected.Contains(match)) selected.Add(match);
@@ -730,17 +781,14 @@ namespace Offhand.Companion
                 throw new InvalidOperationException("Select exactly two displays, or enable Single-display 32:9 split for one super-ultrawide monitor.");
             if (selected.Count > 2)
                 throw new InvalidOperationException("Offhand currently supports exactly two displays, or one super-ultrawide in split mode. Select only the Mainhand and Offhand displays.");
+            if(useStableIdentities)ValidatePhysicalIdentities(displays,selected);
 
             int mainhand = -1;
             if (!string.IsNullOrWhiteSpace(mainhandIdentity) || !string.IsNullOrWhiteSpace(mainhandDevice))
             {
-                foreach (int index in selected)
-                    if ((!string.IsNullOrWhiteSpace(mainhandIdentity)
-                            && string.Equals(displays[index].StableId, mainhandIdentity, StringComparison.OrdinalIgnoreCase))
-                        || (string.IsNullOrWhiteSpace(mainhandIdentity)
-                            && string.Equals(displays[index].DeviceName, mainhandDevice, StringComparison.OrdinalIgnoreCase)))
-                        mainhand = index;
-                if (mainhand < 0)
+                mainhand=FindDisplay(displays,mainhandIdentity,string.IsNullOrWhiteSpace(mainhandIdentity)?mainhandDevice:null);
+                if(mainhand == -2)throw new InvalidOperationException("The Mainhand monitor identity is ambiguous. Review the display selection; no span was applied.");
+                if (mainhand < 0 || !selected.Contains(mainhand))
                     throw new InvalidOperationException("The saved Mainhand display is unavailable. Select the connected game-view display before spanning.");
             }
             if (mainhand < 0)
@@ -778,6 +826,9 @@ namespace Offhand.Companion
 
         internal static Plan CreatePlan(IDictionary<string, string> settings, IList<Display> displays)
         {
+            string identityVersion;
+            if(settings.TryGetValue("DisplayIdentityVersion",out identityVersion) && identityVersion!="1" && identityVersion!="2")
+                throw new InvalidOperationException("Unsupported display identity settings. Existing preferences were retained; review them before applying.");
             Func<string, string> read = key => settings.ContainsKey(key) ? settings[key] : null;
             if (WorkspaceLayoutSettings.Enabled(settings)) return WorkspaceLayoutSettings.CreatePlan(settings, displays);
             bool partial = string.Equals(read("PartialSpanEnabled"), "True", StringComparison.OrdinalIgnoreCase);
@@ -787,7 +838,9 @@ namespace Offhand.Companion
                 return CreateMultiPlan(settings,displays);
             }
             if (partial && secondary) throw new InvalidOperationException("Choose one custom layout mode before spanning.");
-            bool stable = HasStableIdentitySettings(settings);
+            bool stable = HasSavedIdentitySettings(settings);
+            if(settings.ContainsKey("MonitorIdentities") && !stable)
+                throw new InvalidOperationException("The saved monitor identities are incomplete or duplicated. Review the checked displays and Mainhand.");
             Plan plan = CreatePlan(stable ? read("MonitorIdentities") : null, read("MonitorDevices"), read("Monitors"),
                 stable ? read("MainhandIdentity") : null, read("MainhandDevice"),
                 partial || string.Equals(read("SingleDisplaySplit"), "True", StringComparison.OrdinalIgnoreCase),
@@ -795,7 +848,7 @@ namespace Offhand.Companion
             if (secondary) {
                 if (plan.Indices.Length != 2) throw new InvalidOperationException("A partial secondary workspace requires exactly two selected monitors.");
                 Display workDisplay = displays[plan.WorkspaceIndex];
-                if (string.IsNullOrEmpty(workDisplay.StableId) || !string.Equals(workDisplay.StableId, read("SecondaryAreaIdentity"), StringComparison.OrdinalIgnoreCase))
+                if (FindDisplay(displays,read("SecondaryAreaIdentity"),null)!=plan.WorkspaceIndex)
                     throw new InvalidOperationException("The custom workspace monitor changed. Review Secondary area before spanning.");
                 int x, y, w, h, mw, mh;
                 if (!int.TryParse(read("SecondaryAreaX"), out x) || !int.TryParse(read("SecondaryAreaY"), out y)
@@ -818,7 +871,7 @@ namespace Offhand.Companion
             if (plan.Indices.Length != 1)
                 throw new InvalidOperationException("Custom region requires exactly one selected display. Open Custom region to review it.");
             Display display = displays[plan.MainhandIndex];
-            if (string.IsNullOrEmpty(display.StableId) || !string.Equals(display.StableId, read("PartialDisplayIdentity"), StringComparison.OrdinalIgnoreCase))
+            if (FindDisplay(displays,read("PartialDisplayIdentity"),null)!=plan.MainhandIndex)
                 throw new InvalidOperationException("The custom region belongs to a different display. Open Custom region and save it for this monitor.");
             int width, workspace, monitorWidth, monitorHeight;
             if (!int.TryParse(read("PartialWidth"), out width) || !int.TryParse(read("PartialWorkspaceWidth"), out workspace)
@@ -1514,13 +1567,13 @@ namespace Offhand.Companion
         {
             CompanionUi.Fit(this,workArea);
         }
-        private int Find(string identity,int fallback){for(int i=0;i<displays.Count;i++)if(string.Equals(displays[i].StableId,identity,StringComparison.OrdinalIgnoreCase))return i;return !string.IsNullOrEmpty(identity)?-1:displays.Count>fallback?fallback:-1;}
+        private int Find(string identity,int fallback){return !string.IsNullOrEmpty(identity)?Math.Max(-1,MonitorSelection.FindDisplay(displays,identity,null)):displays.Count>fallback?fallback:-1;}
         private void LoadArea(int slot)
         {
             if(Monitors[slot].SelectedIndex<0)return;
             bool prior=loading;loading=true;
             var monitor=displays[Monitors[slot].SelectedIndex];string p="WorkspaceRegion"+(slot+1),identity;
-            bool saved=original.TryGetValue(p+"Identity",out identity)&&string.Equals(identity,monitor.StableId,StringComparison.OrdinalIgnoreCase);
+            bool saved=original.TryGetValue(p+"Identity",out identity)&&MonitorSelection.FindDisplay(displays,identity,null)==Monitors[slot].SelectedIndex;
             string[] keys={"X","Y","Width","Height"};int[] defaults={0,0,Math.Min(800,monitor.Bounds.Width),Math.Min(1080,monitor.Bounds.Height)};
             for(int n=0;n<4;n++){string value;int parsed;Areas[slot,n].Value=saved&&original.TryGetValue(p+keys[n],out value)&&int.TryParse(value,out parsed)?Math.Max(0,Math.Min(32768,parsed)):defaults[n];}
             loading=prior;
@@ -1545,7 +1598,7 @@ namespace Offhand.Companion
                 int game=Game.SelectedIndex,workspace=Monitors[0].SelectedIndex;
                 if(game>=0&&workspace>=0&&game!=workspace) {
                     var g=displays[game];var w=displays[workspace];
-                    disabled["DisplayIdentityVersion"]="1";disabled["MainhandIdentity"]=g.StableId;disabled["MainhandDevice"]=g.DeviceName;
+                    disabled["DisplayIdentityVersion"]="2";disabled["MainhandIdentity"]=g.StableId;disabled["MainhandDevice"]=g.DeviceName;
                     disabled["MonitorIdentities"]=g.StableId+"|"+w.StableId;disabled["MonitorDevices"]=g.DeviceName+"|"+w.DeviceName;
                     disabled["Monitors"]=game+","+workspace;
                 }
@@ -1555,7 +1608,7 @@ namespace Offhand.Companion
             var result=new Dictionary<string,string>(original);int count=UseRegions.Checked&&Second.Checked?2:1;
             result[WorkspaceLayoutSettings.EnabledKey]="False";result["WorkspaceRegionsEnabled"]=UseRegions.Checked.ToString();result["WorkspaceRegionVersion"]="2";result["WorkspaceRegionCount"]=count.ToString();
             result["PartialSpanEnabled"]="False";result["SecondaryAreaEnabled"]="False";result["SingleDisplaySplit"]="False";result["AutoSpan"]="False";
-            result["DisplayIdentityVersion"]="1";result["MainhandIdentity"]=displays[Game.SelectedIndex].StableId;result["MainhandDevice"]=displays[Game.SelectedIndex].DeviceName;
+            result["DisplayIdentityVersion"]="2";result["MainhandIdentity"]=displays[Game.SelectedIndex].StableId;result["MainhandDevice"]=displays[Game.SelectedIndex].DeviceName;
             result["WorkspacePrimary"]=ids[Primary.SelectedIndex==1&&count==2?1:0];
             var identities=new List<string>{displays[Game.SelectedIndex].StableId};var devices=new List<string>{displays[Game.SelectedIndex].DeviceName};var legacy=new List<string>{Game.SelectedIndex.ToString()};
             for(int i=0;i<count;i++) {
@@ -1613,11 +1666,11 @@ namespace Offhand.Companion
             Action<string,Control> row=(label,c)=> {int n=table.RowCount++;table.RowStyles.Add(new RowStyle(SizeType.AutoSize));table.Controls.Add(new Label {Text=label,AutoSize=true,MaximumSize=new Size(220,0),Padding=new Padding(0,6,8,6)},0,n);c.AccessibleName=c is CheckBox||c is Button?c.Text:label;c.Margin=new Padding(0,4,0,4);table.Controls.Add(c,1,n);};
             foreach(var d in displays) {string text=string.Format("Display {0}: {1}x{2}",d.Index+1,d.Bounds.Width,d.Bounds.Height);game.Items.Add(text);work.Items.Add(text);}
             for(int i=0;i<displays.Count;i++) {
-                string id; if(settings.TryGetValue("MainhandIdentity",out id)&&id==displays[i].StableId)game.SelectedIndex=i;
-                if(settings.TryGetValue("SecondaryAreaIdentity",out id)&&id==displays[i].StableId)work.SelectedIndex=i;
+                string id; if(settings.TryGetValue("MainhandIdentity",out id)&&MonitorSelection.FindDisplay(displays,id,null)==i)game.SelectedIndex=i;
+                if(settings.TryGetValue("SecondaryAreaIdentity",out id)&&MonitorSelection.FindDisplay(displays,id,null)==i)work.SelectedIndex=i;
             }
-            if(game.SelectedIndex<0&&displays.Count>0)game.SelectedIndex=0;
-            if(work.SelectedIndex<0&&displays.Count>1)work.SelectedIndex=game.SelectedIndex==0?1:0;
+            if(game.SelectedIndex<0&&displays.Count>0&&!settings.ContainsKey("MainhandIdentity"))game.SelectedIndex=0;
+            if(work.SelectedIndex<0&&displays.Count>1&&!settings.ContainsKey("SecondaryAreaIdentity"))work.SelectedIndex=game.SelectedIndex==0?1:0;
             foreach(var n in new NumericUpDown[] {x,y,width,height}) {n.Minimum=0;n.Maximum=32768;n.Dock=DockStyle.Fill;}
             row("Mode",enabled);row("Game monitor (full)",game);row("Workspace monitor",work);row("Left offset (px)",x);row("Top offset (px)",y);row("Workspace width (px)",width);row("Workspace height (px)",height);
             var visual=new Button {Text="Select workspace on monitor...",AutoSize=true,Dock=DockStyle.Fill,MaximumSize=new Size(0,36)};row("Visual selection",visual);
@@ -1628,7 +1681,7 @@ namespace Offhand.Companion
                 if(!enabled.Checked)return result;
                 if(game.SelectedIndex<0||work.SelectedIndex<0||game.SelectedIndex==work.SelectedIndex)throw new InvalidOperationException("Choose two different connected monitors.");
                 var g=displays[game.SelectedIndex];var w=displays[work.SelectedIndex];
-                result["DisplayIdentityVersion"]="1";result["MonitorIdentities"]=g.StableId+"|"+w.StableId;result["MonitorDevices"]=g.DeviceName+"|"+w.DeviceName;result["Monitors"]=g.Index+","+w.Index;
+                result["DisplayIdentityVersion"]="2";result["MonitorIdentities"]=g.StableId+"|"+w.StableId;result["MonitorDevices"]=g.DeviceName+"|"+w.DeviceName;result["Monitors"]=g.Index+","+w.Index;
                 result["MainhandIdentity"]=g.StableId;result["MainhandDevice"]=g.DeviceName;result["SecondaryAreaIdentity"]=w.StableId;
                 result["SecondaryMonitorWidth"]=w.Bounds.Width.ToString();result["SecondaryMonitorHeight"]=w.Bounds.Height.ToString();
                 result["SecondaryAreaX"]=x.Value.ToString();result["SecondaryAreaY"]=y.Value.ToString();result["SecondaryAreaWidth"]=width.Value.ToString();result["SecondaryAreaHeight"]=height.Value.ToString();result["AutoSpan"]="False";result["SingleDisplaySplit"]="False";
@@ -1641,7 +1694,7 @@ namespace Offhand.Companion
                 if(work.SelectedIndex<0||game.SelectedIndex<0)return;var w=displays[work.SelectedIndex];var g=displays[game.SelectedIndex];
                 int dw=Math.Min(640,w.Bounds.Width),dh=Math.Min(g.Bounds.Height,w.Bounds.Height);
                 int dx=w.Bounds.Left<g.Bounds.Left?w.Bounds.Width-dw:0,dy=Math.Max(0,Math.Min(w.Bounds.Height-dh,g.Bounds.Top-w.Bounds.Top));
-                string id;bool saved=settings.TryGetValue("SecondaryAreaIdentity",out id)&&id==w.StableId;
+                string id;bool saved=settings.TryGetValue("SecondaryAreaIdentity",out id)&&MonitorSelection.FindDisplay(displays,id,null)==work.SelectedIndex;
                 NumericUpDown[] controls={x,y,width,height};string[] keys={"SecondaryAreaX","SecondaryAreaY","SecondaryAreaWidth","SecondaryAreaHeight"};int[] values={dx,dy,dw,dh};
                 for(int i=0;i<4;i++){int v;string value;controls[i].Value=saved&&settings.TryGetValue(keys[i],out value)&&int.TryParse(value,out v)?Math.Max(0,Math.Min(32768,v)):values[i];}update();
             };
@@ -1706,9 +1759,9 @@ namespace Offhand.Companion
             enabled.Checked = settings.ContainsKey("PartialSpanEnabled") && settings["PartialSpanEnabled"] == "True";
             for (int i = 0; i < displays.Count; i++) {
                 var d = displays[i]; DisplaySelector.Items.Add(string.Format("Display {0}: {1}x{2}", i + 1, d.Bounds.Width, d.Bounds.Height));
-                if (settings.ContainsKey("PartialDisplayIdentity") && d.StableId == settings["PartialDisplayIdentity"]) DisplaySelector.SelectedIndex = i;
+                if (settings.ContainsKey("PartialDisplayIdentity") && MonitorSelection.FindDisplay(displays,settings["PartialDisplayIdentity"],null)==i) DisplaySelector.SelectedIndex = i;
             }
-            if (DisplaySelector.SelectedIndex < 0 && displays.Count > 0) DisplaySelector.SelectedIndex = 0;
+            if (DisplaySelector.SelectedIndex < 0 && displays.Count > 0 && !settings.ContainsKey("PartialDisplayIdentity")) DisplaySelector.SelectedIndex = 0;
             int value;
             OccupiedWidth.Value = settings.ContainsKey("PartialWidth") && int.TryParse(settings["PartialWidth"], out value)
                 ? Math.Max(1, Math.Min(32768, value)) : Math.Max(1440, displays.Count > 0 ? Math.Min(4080, displays[DisplaySelector.SelectedIndex].Bounds.Width - 320) : 1440);
@@ -1724,7 +1777,7 @@ namespace Offhand.Companion
                 result["PartialWidth"]=OccupiedWidth.Value.ToString();result["PartialWorkspaceWidth"]=WorkspaceWidth.Value.ToString();
                 result["PartialEdge"]=edge.SelectedIndex==0?"LEFT":"RIGHT";result["PartialGameSide"]=side.SelectedIndex==0?"RIGHT":"LEFT";
                 result["MonitorIdentities"]=display.StableId;result["MonitorDevices"]=display.DeviceName;result["Monitors"]=display.Index.ToString();
-                result["MainhandIdentity"]=display.StableId;result["MainhandDevice"]=display.DeviceName;result["DisplayIdentityVersion"]="1";result["AutoSpan"]="False";
+                result["MainhandIdentity"]=display.StableId;result["MainhandDevice"]=display.DeviceName;result["DisplayIdentityVersion"]="2";result["AutoSpan"]="False";
                 MonitorSelection.CreatePlan(result,displays);return result;
             };
             Action update = () => {
@@ -3223,13 +3276,13 @@ namespace Offhand.Companion
             }
         }
 
-        private static string ReadStableDisplayId(string deviceName)
+        private static string ReadStableDisplayId(string deviceName, bool legacy = false)
         {
             var monitor = new NativeMethods.DISPLAY_DEVICE();
             monitor.cb = Marshal.SizeOf(typeof(NativeMethods.DISPLAY_DEVICE));
-            if (!NativeMethods.EnumDisplayDevices(deviceName, 0, ref monitor, 0)) return null;
+            const uint EDD_GET_DEVICE_INTERFACE_NAME = 1;
+            if (!NativeMethods.EnumDisplayDevices(deviceName, 0, ref monitor, legacy ? 0 : EDD_GET_DEVICE_INTERFACE_NAME)) return null;
             if (!string.IsNullOrWhiteSpace(monitor.DeviceID)) return monitor.DeviceID.Trim();
-            if (!string.IsNullOrWhiteSpace(monitor.DeviceKey)) return monitor.DeviceKey.Trim();
             return null;
         }
 
@@ -3240,6 +3293,7 @@ namespace Offhand.Companion
             for (int i = 0; i < screens.Length; i++)
                 result.Add(new MonitorSelection.Display { Index = i, DeviceName = screens[i].DeviceName,
                     StableId = ReadStableDisplayId(screens[i].DeviceName),
+                    LegacyStableId = ReadStableDisplayId(screens[i].DeviceName,true),
                     Bounds = screens[i].Bounds, WorkArea = screens[i].WorkingArea, Primary = screens[i].Primary });
             return result;
         }
@@ -3247,6 +3301,19 @@ namespace Offhand.Companion
         private static bool HasStableIdentitySettings()
         {
             return MonitorSelection.HasStableIdentitySettings(appSettings);
+        }
+
+        private bool IsCustomSelection()
+        {
+            return WorkspaceLayoutSettings.Enabled(appSettings)||MonitorSelection.MultiEnabled(appSettings)
+                || (appSettings.ContainsKey("PartialSpanEnabled")&&appSettings["PartialSpanEnabled"]=="True")
+                || (appSettings.ContainsKey("SecondaryAreaEnabled")&&appSettings["SecondaryAreaEnabled"]=="True");
+        }
+
+        private static bool HasSelectedIdentity(HashSet<string> identities,IList<MonitorSelection.Display> displays,int index)
+        {
+            foreach(string identity in identities)if(MonitorSelection.FindDisplay(displays,identity,null)==index)return true;
+            return false;
         }
 
         private void RefreshDisplayControls(List<MonitorSelection.Display> displays, bool force = false)
@@ -3257,7 +3324,7 @@ namespace Offhand.Companion
             string savedDevices, savedIdentities;
             appSettings.TryGetValue("MonitorDevices", out savedDevices);
             appSettings.TryGetValue("MonitorIdentities", out savedIdentities);
-            bool useStableIdentities = HasStableIdentitySettings();
+            bool useStableIdentities = MonitorSelection.HasSavedIdentitySettings(appSettings);
             string wantedValues = useStableIdentities ? savedIdentities : savedDevices;
             bool hasSavedSelection = useStableIdentities
                 ? appSettings.ContainsKey("MonitorIdentities")
@@ -3270,6 +3337,7 @@ namespace Offhand.Companion
             appSettings.TryGetValue("MainhandDevice", out savedMainhand);
 
             refreshingDisplayControls = true;
+            displaySelectionEdited=false;
             clbMonitors.BeginUpdate();
             cmbMainhand.BeginUpdate();
             try
@@ -3281,7 +3349,8 @@ namespace Offhand.Companion
                 {
                     Rectangle b = uiDisplays[i].Bounds;
                     string selectionKey = useStableIdentities ? uiDisplays[i].StableId : uiDisplays[i].DeviceName;
-                    bool selected = !hasSavedSelection || wanted.Contains(selectionKey ?? "");
+                    bool selected = !hasSavedSelection || (useStableIdentities
+                        ? wanted.Count>0 && HasSelectedIdentity(wanted,uiDisplays,i) : wanted.Contains(selectionKey ?? ""));
                     clbMonitors.Items.Add(string.Format("Display {0}: {1}x{2}{3}", i + 1, b.Width, b.Height,
                         uiDisplays[i].Primary ? " (Primary)" : ""), selected);
                     cmbMainhand.Items.Add(new DisplayChoice { Index = i, DeviceName = uiDisplays[i].DeviceName,
@@ -3291,14 +3360,15 @@ namespace Offhand.Companion
                 for (int i = 0; i < cmbMainhand.Items.Count; i++)
                 {
                     var choice = (DisplayChoice)cmbMainhand.Items[i];
-                    if ((useStableIdentities && string.Equals(choice.StableId, savedMainhandIdentity, StringComparison.OrdinalIgnoreCase))
-                        || (!useStableIdentities && uiDisplays[i].Primary))
+                    if ((useStableIdentities && MonitorSelection.FindDisplay(uiDisplays,savedMainhandIdentity,null)==i)
+                        || (!useStableIdentities && string.Equals(choice.DeviceName,savedMainhand,StringComparison.OrdinalIgnoreCase)))
                     {
                         cmbMainhand.SelectedIndex = i;
                         break;
                     }
                 }
-                if (cmbMainhand.SelectedIndex < 0 && cmbMainhand.Items.Count > 0)
+                if (cmbMainhand.SelectedIndex < 0 && cmbMainhand.Items.Count > 0
+                    && string.IsNullOrWhiteSpace(savedMainhand) && string.IsNullOrWhiteSpace(savedMainhandIdentity))
                 {
                     for (int i = 0; i < uiDisplays.Count; i++)
                         if (uiDisplays[i].Primary) { cmbMainhand.SelectedIndex = i; break; }
@@ -3336,8 +3406,8 @@ namespace Offhand.Companion
                 || (appSettings.ContainsKey("SecondaryAreaEnabled") && appSettings["SecondaryAreaEnabled"] == "True")
                 || MonitorSelection.MultiEnabled(appSettings) || WorkspaceLayoutSettings.Enabled(appSettings);
             if (btnPartialSpan != null) btnPartialSpan.Text = partial ? "Custom region: on..." : "Custom region...";
-            clbMonitors.Enabled = !WorkspaceLayoutSettings.Enabled(appSettings);
-            cmbMainhand.Enabled = !WorkspaceLayoutSettings.Enabled(appSettings);
+            clbMonitors.Enabled = !partial;
+            cmbMainhand.Enabled = !partial;
             chkSingleSplit.Enabled = !partial;
             cmbSingleSide.Enabled = !partial && chkSingleSplit.Checked;
             chkAutoSpan.Enabled = !partial && !GraphicsRecoveryTestBuild;
@@ -3352,6 +3422,7 @@ namespace Offhand.Companion
                     if(dialog.LoadedPlan)CustomRegionPreferences.Write(configPath,dialog.Settings,ReadDisplays);
                     else PreferenceFile.Write(configPath,dialog.Settings);
                     appSettings=dialog.Settings;
+                    requiresDisplayIdentityConfirmation=!HasStableIdentitySettings();
                 }
                 classicRecovery.Clear();displaySelectionGeneration++;
                 RefreshDisplayControls(ReadDisplays(),true);
@@ -3396,6 +3467,7 @@ namespace Offhand.Companion
                 // Publish the complete validated copy before adopting it.
                 var currentDisplays = CustomRegionPreferences.Write(configPath, proposed, ReadDisplays);
                 appSettings = proposed;
+                requiresDisplayIdentityConfirmation=!HasStableIdentitySettings();
                 classicRecovery.Clear(); displaySelectionGeneration++;
                 RefreshDisplayControls(currentDisplays, true);
                 chkAutoSpan.Checked = appSettings.ContainsKey("AutoSpan") && appSettings["AutoSpan"] == "True";
@@ -3406,9 +3478,14 @@ namespace Offhand.Companion
             finally { ResumeUiPolling(); }
         }
 
-        private void SaveDisplaySettingsFromControls()
+        private void SaveDisplaySettingsFromControls(bool persist = true)
         {
             if (refreshingDisplayControls || clbMonitors == null || uiDisplays == null) return;
+            if(IsCustomSelection())return;
+            string identityVersion;
+            if(appSettings.TryGetValue("DisplayIdentityVersion",out identityVersion)&&identityVersion!="1"&&identityVersion!="2") {
+                AddLog("Unsupported display identity settings were retained. Review or restore compatible preferences before changing displays.");return;
+            }
             // A user's display edit cancels ownership immediately, even if the
             // selection is changed back before the next monitoring poll.
             classicRecovery.Clear();
@@ -3426,47 +3503,67 @@ namespace Offhand.Companion
             // selection while controls are rebuilt or identities temporarily
             // disappear instead of turning an empty transient state into the
             // next launch's implicit "select every display" default.
-            if (devices.Count == 0) return;
+            if (devices.Count == 0) {appSettings.Remove("DisplayIdentityVersion");if(persist)SaveConfig();return;}
             appSettings["MonitorDevices"] = string.Join("|", devices.ToArray());
             if (identities.Count == devices.Count)
                 appSettings["MonitorIdentities"] = string.Join("|", identities.ToArray());
+            else appSettings.Remove("MonitorIdentities");
             appSettings["Monitors"] = string.Join(",", legacy.ToArray());
             var choice = cmbMainhand == null ? null : cmbMainhand.SelectedItem as DisplayChoice;
             if (choice != null)
             {
                 appSettings["MainhandDevice"] = choice.DeviceName;
                 if (!string.IsNullOrWhiteSpace(choice.StableId)) appSettings["MainhandIdentity"] = choice.StableId;
+                else appSettings.Remove("MainhandIdentity");
             }
-            if (identities.Count == devices.Count && identities.Count > 0 && choice != null
-                && !string.IsNullOrWhiteSpace(choice.StableId)) appSettings["DisplayIdentityVersion"] = "1";
+            else appSettings.Remove("MainhandIdentity");
+            appSettings.Remove("DisplayIdentityVersion");
             if (chkSingleSplit != null) appSettings["SingleDisplaySplit"] = chkSingleSplit.Checked.ToString();
             if (cmbSingleSide != null && cmbSingleSide.SelectedItem != null)
                 appSettings["SingleGameSide"] = cmbSingleSide.SelectedItem.ToString().ToUpperInvariant();
-            SaveConfig();
-            if (lblColorModes != null) RefreshSelectedColorStatus();
+            if(identities.Count==devices.Count && identities.Count>0 && choice!=null && !string.IsNullOrWhiteSpace(choice.StableId)) {
+                try {
+                    MonitorSelection.CreatePlan(appSettings["MonitorIdentities"],null,null,choice.StableId,null,
+                        chkSingleSplit!=null&&chkSingleSplit.Checked,false,uiDisplays);
+                    if(!requiresDisplayIdentityConfirmation)appSettings["DisplayIdentityVersion"]="2";
+                }catch(InvalidOperationException){}
+            }
+            if(persist)SaveConfig();
+            if (persist && lblColorModes != null) RefreshSelectedColorStatus();
         }
 
-        private void ConfirmStableDisplayIdentity(bool manual)
+        private bool ConfirmStableDisplayIdentity(bool manual)
         {
-            if (HasStableIdentitySettings()) return;
+            if (HasStableIdentitySettings()) return false;
+            string identityVersion;
+            if(appSettings.TryGetValue("DisplayIdentityVersion",out identityVersion)&&identityVersion!="1"&&identityVersion!="2")
+                throw new InvalidOperationException("Unsupported display identity settings were retained. Use a compatible Companion before changing this plan.");
             if (!manual)
                 throw new InvalidOperationException("Display selection must be confirmed once before automatic spanning can resume.");
-            var choice = cmbMainhand == null ? null : cmbMainhand.SelectedItem as DisplayChoice;
-            if (choice == null || string.IsNullOrWhiteSpace(choice.StableId))
-                throw new InvalidOperationException("Windows did not provide a stable identity for the selected Mainhand display.");
-            for (int i = 0; i < clbMonitors.Items.Count; i++)
-                if (clbMonitors.GetItemChecked(i) && string.IsNullOrWhiteSpace(uiDisplays[i].StableId))
-                    throw new InvalidOperationException("Windows did not provide a stable identity for every selected display.");
+            // Work on a copy. Cancellation and incomplete/missing bindings leave
+            // the active plan, profile store and fallback snapshots intact.
+            var proposed=new Dictionary<string,string>(appSettings);
+            if(!IsCustomSelection()) {
+                if(!proposed.ContainsKey("MonitorIdentities")||!proposed.ContainsKey("MainhandIdentity"))
+                    throw new InvalidOperationException("Windows did not provide an identity for every selected display. Review the checked displays and Mainhand.");
+                proposed["DisplayIdentityVersion"]="1";
+            }
+            proposed=MonitorSelection.UpgradeIdentitySettings(proposed,uiDisplays);
+            var reviewed=MonitorSelection.CreatePlan(proposed,uiDisplays);
             DialogResult answer = MessageBox.Show(
-                "Offhand now identifies physical monitors independently of Windows DISPLAY numbers.\n\n" +
-                "Verify that " + choice.Label + " is the Mainhand game display. Continue and remember this physical display selection?",
+                "Offhand has updated monitor identification. Review the selected displays, using Identify Displays if needed.\n\n" +
+                "Verify that Display " + (reviewed.MainhandIndex+1) + " is the Mainhand game display. Continue and remember this physical display selection?",
                 "Confirm Offhand displays", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
             if (answer != DialogResult.Yes)
                 throw new InvalidOperationException("Span cancelled. Select the correct Mainhand display and try again.");
-            SaveDisplaySettingsFromControls();
+            // A failed preference write must block Apply, not merely log and
+            // continue with a migration that would be lost on restart.
+            PreferenceFile.Write(configPath,proposed);
+            appSettings=proposed;requiresDisplayIdentityConfirmation=false;
             if (!HasStableIdentitySettings())
                 throw new InvalidOperationException("The physical display selection could not be saved.");
             AddLog("Confirmed physical display identities; future Windows DISPLAY renumbering will not swap Mainhand and workspace.");
+            return true;
         }
 
         private static Dictionary<string, string> appSettings = new Dictionary<string, string>();
@@ -3482,6 +3579,8 @@ namespace Offhand.Companion
             ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, RecoveryScope + "TestConfig.ini") : publicConfigPath;
 #endif
         private string configWarning;
+        private bool requiresDisplayIdentityConfirmation;
+        private bool displaySelectionEdited;
 
         private void LoadConfig()
         {
@@ -3496,6 +3595,8 @@ namespace Offhand.Companion
                     Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "OffhandConfig.ini");
 #endif
                 appSettings = PreferenceFile.Read(source);
+                requiresDisplayIdentityConfirmation=!HasStableIdentitySettings()
+                    &&(appSettings.ContainsKey("MonitorIdentities")||appSettings.ContainsKey("MonitorDevices")||appSettings.ContainsKey("Monitors"));
             }
             catch (IOException ex) { configWarning = "Cannot read settings: " + ex.Message; }
             catch (UnauthorizedAccessException ex) { configWarning = "Cannot read settings: " + ex.Message; }
@@ -4106,14 +4207,14 @@ namespace Offhand.Companion
                 "Choose which half of a single super-ultrawide contains the game view.");
 
             string savedDevices, savedIdentities;
-            bool useStableIdentities = HasStableIdentitySettings();
+            bool useStableIdentities = MonitorSelection.HasSavedIdentitySettings(appSettings);
             appSettings.TryGetValue("MonitorIdentities", out savedIdentities);
             if (appSettings.TryGetValue("MonitorDevices", out savedDevices) || useStableIdentities)
             {
                 string wantedValues = useStableIdentities ? savedIdentities : savedDevices;
                 var wanted = new HashSet<string>((wantedValues ?? "").Split(new char[] { '|' }, StringSplitOptions.RemoveEmptyEntries), StringComparer.OrdinalIgnoreCase);
                 for (int i = 0; i < clbMonitors.Items.Count; i++)
-                    clbMonitors.SetItemChecked(i, wanted.Contains((useStableIdentities ? uiDisplays[i].StableId : uiDisplays[i].DeviceName) ?? ""));
+                    clbMonitors.SetItemChecked(i, useStableIdentities ? HasSelectedIdentity(wanted,uiDisplays,i) : wanted.Contains(uiDisplays[i].DeviceName ?? ""));
             }
             else if (appSettings.ContainsKey("Monitors"))
             {
@@ -4128,10 +4229,11 @@ namespace Offhand.Companion
             for (int i = 0; i < cmbMainhand.Items.Count; i++)
             {
                 var choice = (DisplayChoice)cmbMainhand.Items[i];
-                if ((useStableIdentities && string.Equals(choice.StableId, savedMainhandIdentity, StringComparison.OrdinalIgnoreCase))
-                    || (!useStableIdentities && uiDisplays[i].Primary)) { cmbMainhand.SelectedIndex = i; break; }
+                if ((useStableIdentities && MonitorSelection.FindDisplay(uiDisplays,savedMainhandIdentity,null)==i)
+                    || (!useStableIdentities && string.Equals(choice.DeviceName,savedMainhand,StringComparison.OrdinalIgnoreCase))) { cmbMainhand.SelectedIndex = i; break; }
             }
-            if (cmbMainhand.SelectedIndex < 0 && cmbMainhand.Items.Count > 0)
+            if (cmbMainhand.SelectedIndex < 0 && cmbMainhand.Items.Count > 0
+                && string.IsNullOrWhiteSpace(savedMainhand)&&string.IsNullOrWhiteSpace(savedMainhandIdentity))
             {
                 for (int i = 0; i < uiDisplays.Count; i++)
                     if (uiDisplays[i].Primary) { cmbMainhand.SelectedIndex = i; break; }
@@ -4140,17 +4242,18 @@ namespace Offhand.Companion
             chkSingleSplit.Checked = appSettings.ContainsKey("SingleDisplaySplit") && appSettings["SingleDisplaySplit"] == "True";
             if (appSettings.ContainsKey("SingleGameSide") && appSettings["SingleGameSide"].Equals("LEFT", StringComparison.OrdinalIgnoreCase)) cmbSingleSide.SelectedIndex = 1;
 
-            cmbMainhand.SelectedIndexChanged += (s, e) => { SaveDisplaySettingsFromControls(); };
-            chkSingleSplit.CheckedChanged += (s, e) => { cmbSingleSide.Enabled = chkSingleSplit.Checked; SaveDisplaySettingsFromControls(); };
-            cmbSingleSide.SelectedIndexChanged += (s, e) => { SaveDisplaySettingsFromControls(); };
+            cmbMainhand.SelectedIndexChanged += (s, e) => { if(!refreshingDisplayControls)displaySelectionEdited=true;SaveDisplaySettingsFromControls(); };
+            chkSingleSplit.CheckedChanged += (s, e) => { displaySelectionEdited=true;cmbSingleSide.Enabled = chkSingleSplit.Checked; SaveDisplaySettingsFromControls(); };
+            cmbSingleSide.SelectedIndexChanged += (s, e) => { displaySelectionEdited=true;SaveDisplaySettingsFromControls(); };
             clbMonitors.ItemCheck += (s, e) => {
-                if (!this.IsHandleCreated) return;
+                if (!this.IsHandleCreated||refreshingDisplayControls) return;
+                displaySelectionEdited=true;
                 int generation = displaySelectionGeneration;
                 this.BeginInvoke(new Action(() => {
                     // ItemCheck is raised for programmatic rebuilds as well as
                     // player clicks. A rebuild advances the generation before
                     // this deferred callback runs, so only real input is saved.
-                    if (generation == displaySelectionGeneration)
+                    if (!IsDisposed && generation == displaySelectionGeneration)
                         SaveDisplaySettingsFromControls();
                 }));
             };
@@ -5409,7 +5512,32 @@ namespace Offhand.Companion
                 if (proc == null) throw new Exception("Launch exactly one WoW client first.");
                 if (manual) classicRecovery.Remove(proc.Id);
 
-                ConfirmStableDisplayIdentity(manual);
+                List<MonitorSelection.Display> displays = ReadDisplays();
+                Dictionary<string,string> originalSelection=null;
+                if(manual) {
+                    if(!MonitorSelection.SameDisplays(uiDisplays,displays)) {
+                        RefreshDisplayControls(displays);
+                        throw new InvalidOperationException("Windows display arrangement changed. Review the selected displays and Mainhand, then click Span WoW Now again.");
+                    }
+                    if(!IsCustomSelection()) {
+                        string savedIdentities,savedDevices;
+                        appSettings.TryGetValue("MonitorIdentities",out savedIdentities);appSettings.TryGetValue("MonitorDevices",out savedDevices);
+                        if(!displaySelectionEdited&&MonitorSelection.HasDisconnectedSavedDisplay(
+                            MonitorSelection.HasSavedIdentitySettings(appSettings)?savedIdentities:null,savedDevices,displays))
+                            throw new InvalidOperationException("A saved display is disconnected or ambiguous. Reconnect it, or explicitly review and change the selected displays before spanning.");
+                        originalSelection=appSettings;
+                        appSettings=new Dictionary<string,string>(appSettings);
+                        SaveDisplaySettingsFromControls(false);
+                    }
+                }
+
+                try {
+                    bool committed=ConfirmStableDisplayIdentity(manual);
+                    if(originalSelection!=null && !committed)PreferenceFile.Write(configPath,appSettings);
+                }catch {
+                    if(originalSelection!=null)appSettings=originalSelection;
+                    throw;
+                }
 
                 AddonStatus status = TestOffhandAddonStatus(proc);
                 if (!status.Installed) throw new Exception(status.Reason);
@@ -5421,7 +5549,6 @@ namespace Offhand.Companion
                 IntPtr handle = GetWoWWindowHandle(proc);
                 if (handle == IntPtr.Zero) throw new Exception("WoW window is not ready. Retry after it opens.");
 
-                List<MonitorSelection.Display> displays = ReadDisplays();
                 string identities, devices, legacy, mainhandIdentity, mainhand, split, side;
                 appSettings.TryGetValue("MonitorIdentities", out identities);
                 appSettings.TryGetValue("MonitorDevices", out devices);

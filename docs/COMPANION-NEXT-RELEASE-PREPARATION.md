@@ -1,5 +1,10 @@
 # Next Companion release preparation
 
+The next custom-workspace build must include the
+[5 November display identity hardening](COMPANION-DISPLAY-IDENTITY-HARDENING-20261105.md).
+It is integrated into `codex/custom-workspace-regions`; existing candidate
+artifacts and their native acceptance records do not include it retroactively.
+
 Started 1 November 2026; status reconciled 2 November. Source is consolidated,
 bounded production recovery is integrated, and revision 3 has targeted Retail
 and Anniversary native passes. Full release acceptance remains open.

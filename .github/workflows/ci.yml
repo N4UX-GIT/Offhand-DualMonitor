@@ -42,6 +42,10 @@ jobs:
         shell: powershell
         run: ./tests/companion-preferences.ps1
 
+      - name: Test monitor identity ambiguity and workspace migration
+        shell: powershell
+        run: ./tests/companion-display-selection.ps1
+
       - name: Characterize partial topology writer and Lua consumer
         shell: powershell
         run: ./tests/companion-partial-topology.ps1
@@ -51,6 +55,8 @@ jobs:
         run: |
           ./tests/companion-workspace-regions.ps1
           ./tests/companion-workspace-profiles.ps1
+          ./tests/companion-layout-document.ps1
+          ./tests/companion-flexible-layouts.ps1
 
       - name: Test third monitor and taskbar presentation policies
         shell: powershell

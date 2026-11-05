@@ -2,6 +2,18 @@
 
 Stable IDs for reports that require follow-up across test sessions.
 
+## OH-COMP-003: Two selected displays rejected as one
+
+The Beta 20 planner reproduces the CurseForge failure when selected devices have
+duplicate stored identities. Owner working versions are Forever/addon Beta 26/
+Companion Beta 20; the reporter's hardware trigger remains unconfirmed.
+The main custom-workspace source now uses per-monitor interface IDs, rejects
+ambiguity, stages legacy migration and preserves profile geometry/fallbacks.
+154 targeted assertions per architecture and the existing workspace/rollback
+matrix pass. Native migration/dock/reconnect and exact-artifact acceptance remain
+pending. No replacement executable was published. Details and next-build gate:
+[integration record](COMPANION-DISPLAY-IDENTITY-HARDENING-20261105.md).
+
 ## Layout foundation and interaction boundaries, 4 November 2026
 
 The user approved the roadmap subject to WoW ToS/EULA, anti-cheat and antivirus

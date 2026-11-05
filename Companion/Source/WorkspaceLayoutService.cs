@@ -56,7 +56,7 @@ namespace Offhand.Companion
             WorkspaceLayoutPlanner.Resolve(document,displays);
             var regions=new List<object>();foreach(var region in document.Workspaces)regions.Add(RegionData(region));
             var monitors=new List<object>();foreach(var monitor in document.Displays)monitors.Add(new Dictionary<string,object>{
-                {"role",monitor.Role},{"stableId",monitor.StableId},{"width",monitor.Resolution.Width},{"height",monitor.Resolution.Height}});
+                {"role",monitor.Role},{"stableId",displays[MonitorSelection.FindDisplay(displays,monitor.StableId,null)].StableId},{"width",monitor.Resolution.Width},{"height",monitor.Resolution.Height}});
             string text=Json.Serialize(new Dictionary<string,object>{{"version",document.Version},{"id",document.Id},{"name",document.Name},
                 {"primaryWorkspaceId",document.PrimaryWorkspaceId},{"game",RegionData(document.Game)},{"workspaces",regions},{"displays",monitors}});
             Require(Encoding.UTF8.GetByteCount(text)<=MaximumDocumentBytes,"The layout document is too large.");return text;
@@ -108,7 +108,7 @@ namespace Offhand.Companion
             result["WorkspaceRegionsEnabled"]="False";result["PartialSpanEnabled"]="False";result["SecondaryAreaEnabled"]="False";result["SingleDisplaySplit"]="False";
             var identities=new List<string>();var devices=new List<string>();var indices=new List<string>();
             foreach(int index in resolved.DisplayIndices){identities.Add(displays[index].StableId);devices.Add(displays[index].DeviceName);indices.Add(index.ToString());}
-            result["DisplayIdentityVersion"]="1";result["MainhandIdentity"]=displays[resolved.Game.DisplayIndex].StableId;result["MainhandDevice"]=displays[resolved.Game.DisplayIndex].DeviceName;
+            result["DisplayIdentityVersion"]="2";result["MainhandIdentity"]=displays[resolved.Game.DisplayIndex].StableId;result["MainhandDevice"]=displays[resolved.Game.DisplayIndex].DeviceName;
             result["MonitorIdentities"]=string.Join("|",identities);result["MonitorDevices"]=string.Join("|",devices);result["Monitors"]=string.Join(",",indices);
             result["WorkspaceProfileID"]=document.Id;result["WorkspaceProfileName"]=document.Name;
             return result;
