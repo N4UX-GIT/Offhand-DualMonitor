@@ -103,7 +103,30 @@ $companionDownloads = if ($CompanionChanged) {
 "@
 }
 
-$testFocus = if ($Tag -eq 'v2.1.2-beta.24') {
+$testFocus = if ($Tag -eq 'v2.1.2-beta.26') {
+@'
+1. Back up SavedVariables, native Edit Mode layouts and UI addon profiles. Upgrade without deleting settings.
+2. On Anniversary, check World Map, Spellbook, Macro and bags individually and together. Verify open-before-reload restoration and closed-before-reload intent, Escape, native NPC interactions and normal restart behavior.
+3. Test default bags and each installed replacement separately. Check individual bag IDs, opening/closing layout, scale, bank and native item actions, with fresh errors and taint evidence. Recorded replacement acceptance has no exact version inventory.
+4. On Retail, check normal pet-battle controls and release after topology/feature changes. Check Trading Post, native popup/toast behavior, external mover takeover and combat transitions during intended gameplay.
+5. Retest setup recovery and Help & recovery for readable wrapping and scrolling. Expanded English fallback remains pending translation. Include client/build, addon/Companion versions, geometry, normal UI owners and /offhand diag.
+
+Six Retail audit findings have assumption-based acceptance, not newly recorded live verification. Static and simulated tests do not establish taint safety. The Anniversary memory-crash report remains unresolved. Forever release-client and direct Linux/Wine checks remain pending.
+
+Companion remains 2.1.2-beta.20. No experimental HDR/dashboard, native graphics-reset recovery or loading-art executable changes are included.
+'@
+} elseif ($Tag -eq 'v2.1.2-beta.25') {
+@'
+1. Back up SavedVariables, Blizzard Edit Mode layouts and UI addon profiles. Upgrade without deleting settings.
+2. Test missing Companion geometry: apply Span WoW Now in the game world, Reload UI, then resume calibration. Check wizard centering and all text after span and restore.
+3. With a full custom-layout list, click Repair HUD. Follow the guided Edit Mode recovery, delete only an unused test layout, close Edit Mode and retry. Only the reload prompt should remain after success.
+4. On Retail, test real cinematic skip/cancel/resume, group confirmations, keystone and completion UI, event toasts and vehicle controls. Do not fabricate native events. Expanded candidates still require live acceptance.
+5. Retest shared HUD selection across two characters, rollback, tooltips, chat persistence and normal panel behavior. Include fresh Lua and taint evidence before, during and after combat.
+6. Include exact client/build, addon version, display arrangement and /offhand diag output. Other clients, translation expansion and narrow Mainhand geometry remain test targets.
+
+Companion remains 2.1.2-beta.20. Experimental HDR/dashboard, native graphics-reset recovery and loading-art changes are not included. The Anniversary manual-span memory-crash report remains unresolved.
+'@
+} elseif ($Tag -eq 'v2.1.2-beta.24') {
 @'
 1. Back up Offhand SavedVariables, Blizzard Edit Mode layouts and UI addon profiles before upgrading. Keep existing settings for the upgrade test.
 2. Move chat to the workspace, switch tabs with real incoming messages, then check placement and message separation after /reload, zoning and a normal restart. Include Ellesmere UI where used.

@@ -3,17 +3,133 @@ local _, Offhand = ...
 local Lifecycle = {}
 Offhand.CanvasPanelLifecycle = Lifecycle
 
+function Lifecycle.ObserveTBCPanelHide(Canvas, frame)
+    local registry = Offhand.CanvasPanelRegistry
+    if not registry.IsTBCPanelRuntime() or not frame or not Offhand.db or not Offhand.db.enabled then return end
+    local state = Offhand.CanvasFrameState
+    if state and state.IsEvicting and state.IsEvicting(frame) then return end
+    pcall(function()
+        if frame.IsForbidden and frame:IsForbidden() then return end
+        local name = frame.GetName and frame:GetName()
+        if not name or registry.GetPositionRoot(frame) ~= frame
+            or not (Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]) then return end
+        if frame.IsShown and not frame:IsShown() then Canvas:SetWorkspacePanelOpen(frame, false) end
+    end)
+end
+
+function Lifecycle.InstallTBCOpenStateTracking(Canvas)
+    if not Offhand.CanvasPanelRegistry.IsTBCPanelRuntime()
+        or Canvas.tbcPanelHideObserverHooked or not hooksecurefunc or not HideUIPanel then return end
+    Canvas.tbcPanelHideObserverHooked = true
+    hooksecurefunc("HideUIPanel", function(frame) Lifecycle.ObserveTBCPanelHide(Canvas, frame) end)
+end
+
+function Lifecycle.CaptureTBCPanelOpenState(Canvas)
+    local registry = Offhand.CanvasPanelRegistry
+    local db = Offhand.db
+    if not registry.IsTBCPanelRuntime() or not db or not db.enabled then return end
+    local viewport = Offhand.Viewport
+    local ok, metrics = false, nil
+    if viewport and viewport.GetMetrics then ok, metrics = pcall(viewport.GetMetrics, viewport) end
+    if not ok or not metrics or not metrics.isSpanned then return end
+    -- Sample once from Init's first transition event, before viewport cleanup.
+    -- Logical IsShown survives a hidden UIParent; explicitly closed frames do not.
+    for name in pairs(db.savedWorkspacePositions or {}) do
+        local frame = _G[name]
+        if registry.IsContextBoundPanel(name) then
+            Canvas:SetWorkspacePanelOpen(name, false)
+        elseif frame then
+            pcall(function()
+                if frame.IsForbidden and frame:IsForbidden() then return end
+                if registry.GetPositionRoot(frame) ~= frame or not frame.IsShown then return end
+                Canvas:SetWorkspacePanelOpen(name, frame:IsShown() and true or false)
+            end)
+        end
+    end
+    if Offhand.CanvasBackpackState and Offhand.CanvasBackpackState.CaptureTBCBagIDs then
+        Offhand.CanvasBackpackState.CaptureTBCBagIDs(Canvas)
+    end
+end
+
+local tbcSlotState = setmetatable({}, { __mode = "k" })
+function Lifecycle.UpdateTBCWorkspacePanelSlots(nativeFrame)
+    local toc = tonumber(Offhand.tocVersion) or 0
+    if Offhand.isForever or toc < 20500 or toc >= 20600
+        or (InCombatLockdown and InCombatLockdown())
+        or type(SetUIPanelAttribute) ~= "function" then return end
+    local db = Offhand.db or {}
+    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+    local enabled = db.enabled and db.independentWorkspacePanels ~= false
+        and db.persistentWorkspacePanels ~= false and metrics and metrics.isSpanned
+    for _, name in ipairs({"WorldMapFrame", "SpellBookFrame"}) do
+        local frame = _G[name]
+        local registration = UIPanelWindows and UIPanelWindows[name]
+        if frame and registration and frame.GetAttribute then
+            pcall(function()
+                if frame.IsForbidden and frame:IsForbidden() then return end
+                local compatibility = Offhand.CanvasCompatibility
+                local external = name == "WorldMapFrame" and compatibility
+                    and compatibility.ShouldYieldWorldMap and compatibility.ShouldYieldWorldMap(frame)
+                local workspace = enabled and frame ~= nativeFrame and not external
+                    and db.savedWorkspacePositions and db.savedWorkspacePositions[name]
+                    and not (name == "WorldMapFrame" and frame.IsMaximized and frame:IsMaximized())
+                local state = tbcSlotState[frame]
+                local function Read(key)
+                    if frame:GetAttribute("UIPanelLayout-defined") then
+                        return frame:GetAttribute("UIPanelLayout-" .. key)
+                    end
+                    return registration[key]
+                end
+                local function RestoreOwned()
+                    for _, key in ipairs({"pushable", "allowOtherPanels"}) do
+                        if state.applied[key] and Read(key) == 1 and state[key] ~= 1 then
+                            SetUIPanelAttribute(frame, key, state[key])
+                        end
+                        state.applied[key] = nil
+                    end
+                end
+                if workspace then
+                    if not state then
+                        state = {pushable=Read("pushable"), allowOtherPanels=Read("allowOtherPanels"), applied={}}
+                        tbcSlotState[frame] = state
+                    end
+                    if state.yielded then return end
+                    for _, key in ipairs({"pushable", "allowOtherPanels"}) do
+                        if state.applied[key] and Read(key) ~= 1 then
+                            state.yielded = true
+                            RestoreOwned()
+                            return
+                        end
+                    end
+                    -- Native left/center slots can coexist when neither window
+                    -- is exclusive and at least one is pushable. Keep area and
+                    -- secure registration intact so native layout still runs.
+                    for _, key in ipairs({"pushable", "allowOtherPanels"}) do
+                        if Read(key) ~= 1 then SetUIPanelAttribute(frame, key, 1) end
+                        state.applied[key] = true
+                    end
+                elseif state then
+                    RestoreOwned()
+                    tbcSlotState[frame] = nil
+                end
+            end)
+        end
+    end
+end
+
 function Lifecycle.InstallClosePolicy(Canvas, services)
     local IsFrameOnWorkspace = services.IsFrameOnWorkspace
     local ShouldYieldFrameToClassicUIForever = Offhand.CanvasCompatibility.ShouldYieldFrameToClassicUIForever
     local IsForeverNativeContainerName = Offhand.CanvasBackpackState.IsForeverContainerName
     local explicitCombinedBagClose = false
+    local toc = tonumber(Offhand.tocVersion) or 0
+    local tbcPanelRuntime = not Offhand.isForever and toc >= 20500 and toc < 20600
 
     -- Do not register in the shared Escape dispatcher, even via securecallfunction:
     -- live Retail tests produced SpellStopCasting taint with both registrations.
     -- The captured native CloseAllWindows still looks up CloseWindows dynamically.
     -- Filter only that later cleanup boundary, without ending/reopening sessions.
-    if Offhand.isRetail and not Offhand.isForever and type(CloseWindows) == "function"
+    if (Offhand.isRetail or tbcPanelRuntime) and not Offhand.isForever and type(CloseWindows) == "function"
         and type(GetUIPanel) == "function" and type(HideUIPanel) == "function"
         and not Canvas.workspaceCloseWindowsInstalled then
         local nativeCloseWindows = CloseWindows
@@ -23,6 +139,10 @@ function Lifecycle.InstallClosePolicy(Canvas, services)
                 or Offhand.db.persistentWorkspacePanels == false
                 or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved())
                 or (Offhand.Mainhand and Offhand.Mainhand.IsControllerLayout and Offhand.Mainhand:IsControllerLayout()) then
+                return nativeCloseWindows(ignoreCenter, frameToIgnore, context)
+            end
+            -- Preserve native transactions with an explicit ignored frame.
+            if tbcPanelRuntime and frameToIgnore ~= nil then
                 return nativeCloseWindows(ignoreCenter, frameToIgnore, context)
             end
             local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
@@ -35,6 +155,13 @@ function Lifecycle.InstallClosePolicy(Canvas, services)
                 local ok, keep = pcall(function()
                     frame = registry.GetPositionRoot(frame)
                     if frame.IsForbidden and frame:IsForbidden() then return false end
+                    if tbcPanelRuntime then
+                        local name = frame.GetName and frame:GetName()
+                        if registry.IsContextBoundPanel(name)
+                            or (frame == _G.WorldMapFrame and frame.IsMaximized and frame:IsMaximized())
+                            or (Offhand.CanvasCompatibility.ShouldYieldWorldMap
+                                and Offhand.CanvasCompatibility.ShouldYieldWorldMap(frame)) then return false end
+                    end
                     return frame.IsShown and frame:IsShown()
                         and (not frame.IsVisible or frame:IsVisible())
                         and not ShouldYieldFrameToClassicUIForever(frame) and IsFrameOnWorkspace(frame)
@@ -54,8 +181,13 @@ function Lifecycle.InstallClosePolicy(Canvas, services)
                 local nativeIgnore = frame == frameToIgnore and entry.slot ~= "doublewide" and entry.slot ~= "fullscreen"
                 if frame and not visited[frame] and not nativeIgnore and not Keep(frame) then
                     visited[frame] = true
-                    local ignore = entry.slot == "center" and ignoreCenter and GetUIPanelAttribute
-                        and GetUIPanelAttribute(frame, "area") == "center"
+                    local area
+                    if tbcPanelRuntime then
+                        area = frame.GetAttribute and frame:GetAttribute("UIPanelLayout-area")
+                        local name = frame.GetName and frame:GetName()
+                        if area == nil and UIPanelWindows and UIPanelWindows[name] then area = UIPanelWindows[name].area end
+                    elseif GetUIPanelAttribute then area = GetUIPanelAttribute(frame, "area") end
+                    local ignore = entry.slot == "center" and ignoreCenter and area == "center"
                     if not ignore and frame.IsShown and frame:IsShown() then
                         HideUIPanel(frame, UIPANEL_SKIP_SET_POINT, UIPANEL_SKIP_SHOWN_CHECK)
                         closed = true
@@ -81,7 +213,7 @@ function Lifecycle.InstallClosePolicy(Canvas, services)
         if InCombatLockdown() then return "deferred:combat" end
         local registry = Offhand.CanvasPanelRegistry
         local entries = {"EscapeRoute=" .. (self.workspaceCloseWindowsInstalled and "panel-cleanup-filter"
-            or (Offhand.isRetail and "native-unavailable" or "legacy"))}
+            or ((Offhand.isRetail or tbcPanelRuntime) and "native-unavailable" or "legacy"))}
         for _, name in ipairs({"PVEFrame", "GroupFinderFrame", "LFDParentFrame", "PlayerSpellsFrame",
             "ProfessionsBookFrame", "ProfessionsFrame"}) do
             local ok, status = pcall(function()
@@ -95,7 +227,7 @@ function Lifecycle.InstallClosePolicy(Canvas, services)
                 local registered = UIPanelWindows and UIPanelWindows[name] ~= nil
                 return where .. ",registered:" .. tostring(registered)
                     .. ",reload:" .. (registry.IsContextBoundPanel(name) and "native-interaction" or "eligible")
-                    .. ",escape:" .. (registry.RequiresNativePanelRegistration(name) and Offhand.isRetail
+                    .. ",escape:" .. (registry.RequiresNativePanelRegistration(name) and (Offhand.isRetail or tbcPanelRuntime)
                         and not self.workspaceCloseWindowsInstalled and "native-lifecycle"
                         or (Offhand.db and Offhand.db.persistentWorkspacePanels ~= false and "independent-panels" or "disabled"))
             end)
@@ -154,7 +286,7 @@ function Lifecycle.InstallClosePolicy(Canvas, services)
     end
 
 
-    if not Offhand.isForever and CloseAllWindows and not _G.Offhand_OriginalCloseAllWindows then
+    if not Offhand.isForever and not tbcPanelRuntime and CloseAllWindows and not _G.Offhand_OriginalCloseAllWindows then
         _G.Offhand_OriginalCloseAllWindows = CloseAllWindows
         CloseAllWindows = function(ignoreCenter, context)
             if context ~= nil then return _G.Offhand_OriginalCloseAllWindows(ignoreCenter, context) end
@@ -408,7 +540,10 @@ function Lifecycle.InstallModality(Canvas, services)
         -- has no valid panel transaction to display. These panels still keep their
         -- saved Offhand anchor and restore it from OnShow, while Escape and native
         -- close behavior remain Blizzard-owned.
-        if name and RequiresNativePanelRegistration(name) then return false end
+        if name and RequiresNativePanelRegistration(name) then
+            Lifecycle.UpdateTBCWorkspacePanelSlots()
+            return false
+        end
         -- Native bag frames own pooled item buttons whose lifecycle is driven by
         -- Blizzard's bag APIs. A HideUIPanel + direct Show cycle can reveal only the
         -- shell and leave UpdateNewItemList with missing item buttons.
@@ -435,7 +570,10 @@ function Lifecycle.InstallModality(Canvas, services)
           if not name then return end
           -- Positioning an interaction panel must preserve its native registry
           -- and layout attributes as well as avoiding the hide/show eviction.
-          if RequiresNativePanelRegistration(name) then return end
+          if RequiresNativePanelRegistration(name) then
+              Lifecycle.UpdateTBCWorkspacePanelSlots()
+              return
+          end
 
           -- Removing the workspace map from Blizzard's movement fader prevents the
           -- intended always-open map from becoming subdued while the player runs.
@@ -483,6 +621,7 @@ function Lifecycle.InstallModality(Canvas, services)
 
     RemodalizePanel = function(frame)
           if not frame then return end
+          Lifecycle.UpdateTBCWorkspacePanelSlots(frame)
           local name = frame:GetName()
           if not name then return end
           if IsContextBoundPanel(name) then return end

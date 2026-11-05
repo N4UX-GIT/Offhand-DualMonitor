@@ -33,15 +33,29 @@ local function Accessible(frame)
     return true
 end
 
+local function PublicNumber(value)
+    -- Retail may expose secret coordinates even outside combat (for example
+    -- encounter-warning previews in Edit Mode). Never compare or calculate
+    -- with these values; leave their tooltip placement to Blizzard.
+    if type(issecretvalue) == "function" then
+        local ok, secret = pcall(issecretvalue, value)
+        if not ok or secret then return false end
+    end
+    return type(value) == "number" and value == value
+        and value > -math.huge and value < math.huge
+end
+
 local function FrameBounds(frame)
     if not Accessible(frame) then return nil end
-    local uiScale = UIParent and UIParent.GetEffectiveScale
-        and UIParent:GetEffectiveScale() or 1
+    local uiScale = 1
+    if UIParent and UIParent.GetEffectiveScale then uiScale = UIParent:GetEffectiveScale() end
     local frameScale = frame:GetEffectiveScale()
-    if not uiScale or uiScale <= 0 or not frameScale or frameScale <= 0 then return nil end
+    if not PublicNumber(uiScale) or not PublicNumber(frameScale)
+        or uiScale <= 0 or frameScale <= 0 then return nil end
     local left, right = frame:GetLeft(), frame:GetRight()
     local top, bottom = frame:GetTop(), frame:GetBottom()
-    if not left or not right or not top or not bottom then return nil end
+    if not PublicNumber(left) or not PublicNumber(right)
+        or not PublicNumber(top) or not PublicNumber(bottom) then return nil end
     local toUI = frameScale / uiScale
     return left * toUI, right * toUI, top * toUI, bottom * toUI, uiScale, frameScale
 end
@@ -340,12 +354,11 @@ function PopupBounds:ArrangeTooltipComparisons(frame)
         if comparison and comparison ~= root and comparison.IsShown
             and comparison:IsShown() then
             local left, right, top, bottom = FrameBounds(comparison)
-            if left then
-                minLeft = math.min(minLeft, left)
-                maxRight = math.max(maxRight, right)
-                maxTop = math.max(maxTop, top)
-                minBottom = math.min(minBottom, bottom)
-            end
+            if not left then return false end
+            minLeft = math.min(minLeft, left)
+            maxRight = math.max(maxRight, right)
+            maxTop = math.max(maxTop, top)
+            minBottom = math.min(minBottom, bottom)
         end
     end
 
@@ -422,14 +435,8 @@ function PopupBounds:Constrain(frame)
     local metrics = Active()
     if not metrics or not Accessible(frame) then return false end
 
-    local uiScale = UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
-    local frameScale = frame:GetEffectiveScale()
-    if not uiScale or uiScale <= 0 or not frameScale or frameScale <= 0 then return false end
-    local toUI = frameScale / uiScale
-    local left, right = frame:GetLeft(), frame:GetRight()
-    local top, bottom = frame:GetTop(), frame:GetBottom()
-    if not left or not right or not top or not bottom then return false end
-    left, right, top, bottom = left * toUI, right * toUI, top * toUI, bottom * toUI
+    local left, right, top, bottom, uiScale, frameScale = FrameBounds(frame)
+    if not left then return false end
     local width, height = right - left, top - bottom
     if width <= 0 or height <= 0 then return false end
 

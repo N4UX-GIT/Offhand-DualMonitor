@@ -892,6 +892,12 @@ function Viewport:Apply()
     WorldFrame:ClearAllPoints()
     self:SetPoint(WorldFrame, "BOTTOMLEFT", "BOTTOMLEFT", m.gameLeft, m.gameBottom)
     self:SetPoint(WorldFrame, "TOPRIGHT", "BOTTOMLEFT", m.gameRight, m.gameTop)
+    if Offhand.CinematicPresentation then Offhand.CinematicPresentation:Apply(m) end
+    if Offhand.HUD and Offhand.HUD.PositionRetailOverrideBar then Offhand.HUD:PositionRetailOverrideBar(m) end
+    if Offhand.HUD and Offhand.HUD.PositionRetailNotifications then
+        Offhand.HUD:PositionRetailNotifications(m)
+        Offhand.HUD:PositionPremadeGroupDialogs(m)
+    end
     Offhand:Debug("Viewport: %dx%d pixels at (%d, %d).", m.gamePixelWidth,
         m.gamePixelHeight, m.gamePixelLeft, m.gamePixelBottom)
 end
@@ -903,6 +909,12 @@ function Viewport:Reset()
     end
     WorldFrame:ClearAllPoints()
     WorldFrame:SetAllPoints(UIParent)
+    if Offhand.CinematicPresentation then Offhand.CinematicPresentation:Apply() end
+    if Offhand.HUD and Offhand.HUD.PositionRetailOverrideBar then Offhand.HUD:PositionRetailOverrideBar() end
+    if Offhand.HUD and Offhand.HUD.PositionRetailNotifications then
+        Offhand.HUD:PositionRetailNotifications()
+        Offhand.HUD:PositionPremadeGroupDialogs()
+    end
 end
 
 function Offhand:InitializeViewport()

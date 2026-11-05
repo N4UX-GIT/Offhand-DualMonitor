@@ -203,6 +203,32 @@ function Controls.RegisterDialog(frame)
     end
 end
 
+-- Geometry controls share one reusable countdown, rather than one timer per
+-- click. Keep saved values/text immediate; only the expensive layout settles.
+-- The independent frame keeps running when settings/wizard panels are hidden.
+local geometryLayoutFrame
+local geometryLayoutRemaining
+local function GeometryLayoutOnUpdate(self, elapsed)
+    geometryLayoutRemaining = geometryLayoutRemaining - elapsed
+    if geometryLayoutRemaining > 0 then return end
+    self:SetScript("OnUpdate", nil)
+    geometryLayoutRemaining = nil
+    -- Read current state through the normal dispatcher, including its combat
+    -- deferral. Never replay a captured profile, topology or calibration value.
+    Offhand:ApplyFullLayout()
+end
+
+function Controls.RequestGeometryLayout()
+    if not geometryLayoutFrame then geometryLayoutFrame = CreateFrame("Frame") end
+    geometryLayoutRemaining = 0.25
+    geometryLayoutFrame:SetScript("OnUpdate", GeometryLayoutOnUpdate)
+end
+
+local function PauseGeometryLayout()
+    if geometryLayoutFrame then geometryLayoutFrame:SetScript("OnUpdate", nil) end
+    geometryLayoutRemaining = nil
+end
+
 function Controls.EndSliderInteraction(slider)
     local active = slider._isCustomDrag or slider.isDragging or slider._pendingApply
     slider._isCustomDrag = false
@@ -211,6 +237,7 @@ function Controls.EndSliderInteraction(slider)
     slider._dragStartX = nil
     slider._dragStartVal = nil
     slider:SetScript("OnUpdate", nil)
+    if active and slider.coalesceGeometryLayout then Controls.RequestGeometryLayout() end
     return active and true or false
 end
 
@@ -285,6 +312,10 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
         return not Offhand.isLegacyWrath and "BackdropTemplate" or nil
     end
     local slider = CreateFrame("Slider", nil, parent, BackdropTemplate())
+    local function ApplyLayout()
+        if slider.coalesceGeometryLayout then Controls.RequestGeometryLayout()
+        else Offhand:ApplyFullLayout() end
+    end
     slider:SetOrientation("HORIZONTAL")
     slider:SetSize(220, 16)
     slider:SetMinMaxValues(minVal, maxVal)
@@ -459,6 +490,9 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
     local DRAG_PIXELS = 600  -- physical pixels of travel for full value range
 
     local function StartCustomDrag(self)
+        -- A pending step-button apply must not resize the viewport halfway
+        -- through a later drag. Release/hide/disable schedules the final state.
+        if self.coalesceGeometryLayout then PauseGeometryLayout() end
         self._dragStartX = GetCursorPosition and select(1, GetCursorPosition()) or 0
         self._dragStartVal = self:GetValue()
         self._isCustomDrag = true
@@ -505,12 +539,12 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
                 editBox:SetText(FormatValue(finalValue))
             end
             setVal(finalValue)
-            Offhand:ApplyFullLayout()
+            ApplyLayout()
         end
     end)
 
     slider:SetScript("OnHide", function(self)
-        if Controls.EndSliderInteraction(self) then Offhand:ApplyFullLayout() end
+        if Controls.EndSliderInteraction(self) then ApplyLayout() end
     end)
 
     slider:SetScript("OnValueChanged", function(self, val, userInput)
@@ -529,18 +563,19 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
         if editBox and not (editBox.HasFocus and editBox:HasFocus()) then
             editBox:SetText(formatted)
         end
+        if slider.coalesceGeometryLayout and val == getVal() then return end
         setVal(val)
 
         -- Direct programmatic set ([-]/[+] buttons, editBox, preset buttons)
         if self._isDirect then
             self._pendingApply = false
             self:SetScript("OnUpdate", nil)
-            Offhand:ApplyFullLayout()
+            ApplyLayout()
             return
         end
 
         -- Fallback for any external SetValue not covered above
-        Offhand:ApplyFullLayout()
+        ApplyLayout()
     end)
 
     slider.UpdateText = function(self)
@@ -713,6 +748,15 @@ function Controls.MeasurePopupText(fontString, text, width)
     return math.max(measured, lines * 18 + 8)
 end
 
+-- For addon-owned paragraph blocks that are assigned an explicit height.
+-- Measure unconstrained content, not the previously visible/truncated lines.
+function Controls.FitParagraphText(fontString, text, width)
+    fontString:SetHeight(0)
+    local height = Controls.MeasurePopupText(fontString, text, width)
+    fontString:SetHeight(height)
+    return height
+end
+
 function Controls.GetCardContentTop(card, minimum)
     local width = math.max(1, card:GetWidth() - 24)
     card.title:SetWidth(width)
@@ -875,10 +919,12 @@ function Controls.CreateBottomControl(parent)
         local value = tonumber(input:GetText())
         if not value then Refresh(); return end
         local _, height = GetPhysicalScreenSize()
-        Offhand.db.gameBottomPixels = math.max(0, math.min(height - 1,
+        local desired = math.max(0, math.min(height - 1,
             math.floor(value + (delta or 0) + 0.5)))
+        local changed = desired ~= (Offhand.db.gameBottomPixels or 0)
+        Offhand.db.gameBottomPixels = desired
         Refresh()
-        Offhand:ApplyFullLayout()
+        if changed then Controls.RequestGeometryLayout() end
     end
     local previous = input
     local actionHeight = 22

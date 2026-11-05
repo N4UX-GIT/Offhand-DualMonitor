@@ -205,7 +205,7 @@ local initSource = assert(io.open("Core/Init.lua", "rb")):read("*a")
 for _, obsolete in ipairs({
     "Performance diagnostics:", "AA diagnostics:", "Scaling diagnostics:",
     "Nameplate frame diagnostics:", "Nameplate visibility diagnostics:",
-    "Addon bag diagnostics:", "Cinematic skip-dialog diagnostics:",
+    "Addon bag diagnostics:",
     "Forever native bag diagnostics:", "Panel reload diagnostics:",
     "Panel motion diagnostics:", "Group-frame diagnostics:",
     "Protected-HUD diagnostics:",

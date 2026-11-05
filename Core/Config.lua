@@ -905,6 +905,44 @@ function Offhand:SetCompanionWarningSuppressed(suppressed)
     SaveOnboarding()
 end
 
+function Offhand:EnsureCharacterIdentity()
+    if type(OffhandCharDB) ~= "table" or not UnitGUID then return false end
+    local guid = UnitGUID("player")
+    if type(guid) ~= "string" or guid == "" then return false end
+    local previous = OffhandCharDB.characterGUID
+    local record = OffhandCharDB.mainhandLayout
+    local player = UnitName and UnitName("player")
+    local stale = (previous and previous ~= guid)
+        or (type(record) == "table" and record.ownerGUID and record.ownerGUID ~= guid)
+        or (type(record) == "table" and record.ownerName and player and record.ownerName ~= player)
+    if stale then
+        -- Retain the old HUD provenance for recovery. Account profiles, physical
+        -- calibration and native Edit Mode layouts are not character identity.
+        OffhandCharDB.previousHUDIdentity = {
+            characterGUID = previous, mainhandLayout = record,
+            editModeLayoutName = OffhandCharDB.editModeLayoutName,
+        }
+        for _, key in ipairs({"mainhandLayout", "editModeLayoutName", "mainhandWindowedLayout",
+            "mainhandWindowedManualLayout", "foreverEditModeLayoutName", "foreverEditModeLayoutID",
+            "foreverEditModeLegacyRecovery", "foreverEditModeRecovery", "mainhandLayoutDeferred",
+            "hudSetupReminderDeclined"}) do OffhandCharDB[key] = nil end
+    end
+    OffhandCharDB.characterGUID = guid
+    if not self.isLegacyWrath and (stale or (not previous and not OffhandCharDB.mainhandLayout)) then
+        OffhandCharDB.hudSetupReminder = true
+        OffhandCharDB.hudSetupReminderDeclined = nil
+    end
+    local mainhand = self.Mainhand
+    if mainhand and mainhand.IsCharacterEditModeLayoutAllowed
+        and not mainhand:IsCharacterEditModeLayoutAllowed(OffhandCharDB.editModeLayoutName) then
+        local current = OffhandCharDB.mainhandLayout
+        OffhandCharDB.editModeLayoutName = type(current) == "table"
+            and mainhand:IsCharacterEditModeLayoutAllowed(current.generatedName) and current.generatedName or nil
+        if not OffhandCharDB.editModeLayoutName then OffhandCharDB.hudSetupReminder = true end
+    end
+    return stale and true or false
+end
+
 function Offhand:InitializeConfig()
     -- ForeverState.lua is loaded immediately before this module. A new bridge
     -- version is authoritative once after a cold launch; an already-consumed
@@ -998,6 +1036,7 @@ function Offhand:InitializeConfig()
         end
     end
 
+    self:EnsureCharacterIdentity()
     local current = OffhandCharDB.activeProfile or "Default"
     if not OffhandDB.profiles[current] then
         OffhandDB.profiles[current] = {}

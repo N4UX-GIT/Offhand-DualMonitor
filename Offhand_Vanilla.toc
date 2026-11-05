@@ -1,10 +1,10 @@
 ## Interface: 11509, 11508
 ## Title: |cffffbd0aOffhand|r |cffffffff[Multi-Monitor Setup]|r
-## Notes: Equip your Offhand. Dual wield your monitors. Multi-Monitor Setup UI.
+## Notes: Keep gameplay on one screen and move maps, bags, chat, and other supported UI panels to another.
 ## Author: N4UX (Noggaholic)
 ## Version: 2.1.2
-## X-Offhand-Release: beta.24
-## X-Offhand-Addon-Release: beta.24
+## X-Offhand-Release: beta.26
+## X-Offhand-Addon-Release: beta.26
 ## X-Offhand-Companion-Version: 2.1.2
 ## X-Offhand-Companion-Release: beta.20
 ## X-Offhand-Companion-Protocol: 1
@@ -34,6 +34,7 @@ Core\MainhandGamepad.lua
 Core\MainhandEditMode.lua
 Core\Mainhand.lua
 Core\RetailFullscreen.lua
+Core\CinematicPresentation.lua
 Core\DialogueUICompat.lua
 Core\ChatBubbles.lua
 Core\MenuPlacement.lua

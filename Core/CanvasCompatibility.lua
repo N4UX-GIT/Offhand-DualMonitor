@@ -127,6 +127,36 @@ function Compatibility.ShouldYieldWorldMap(frameOrName)
     return frameOrName == _G.WorldMapFrame
 end
 
+function Compatibility.GetTBCSpellbookDiagnostics()
+    local toc = tonumber(Offhand.tocVersion) or 0
+    if Offhand.isForever or toc < 20500 or toc >= 20600 then return "" end
+    if InCombatLockdown and InCombatLockdown() then return " | Spellbook=combat-deferred" end
+    local frame = _G.SpellBookFrame
+    if not frame then return " | Spellbook=absent" end
+    local ok, report = pcall(function()
+        if frame.IsForbidden and frame:IsForbidden() then return "forbidden" end
+        local function Read(method)
+            if type(frame[method]) ~= "function" then return "unknown" end
+            local read, value = pcall(frame[method], frame)
+            return read and tostring(value) or "unresolved"
+        end
+        local registration = UIPanelWindows and UIPanelWindows.SpellBookFrame
+        local area = "unknown"
+        if type(frame.GetAttribute) == "function" then
+            local read, value = pcall(frame.GetAttribute, frame, "UIPanelLayout-area")
+            if read then area = tostring(value) end
+        end
+        local db = Offhand.db or {}
+        return string.format("shown=%s,visible=%s,protected=%s,alpha=%s,rect=%s/%s/%s/%s,scale=%s,points=%s,registered=%s,area=%s,saved=%s",
+            Read("IsShown"), Read("IsVisible"), Read("IsProtected"), Read("GetEffectiveAlpha"),
+            Read("GetLeft"), Read("GetBottom"), Read("GetWidth"), Read("GetHeight"),
+            Read("GetEffectiveScale"), Read("GetNumPoints"), tostring(registration ~= nil), area,
+            db.savedWorkspacePositions and db.savedWorkspacePositions.SpellBookFrame and "workspace"
+                or (db.savedMainPositions and db.savedMainPositions.SpellBookFrame and "mainhand" or "none"))
+    end)
+    return " | Spellbook=" .. (ok and report or "unresolved")
+end
+
 function Compatibility.GetDiagnostics(compact, coordinateFontRefreshCount)
     local mapOwner = Compatibility.GetWorldMapExternalOwner() or "Offhand"
     if compact then
@@ -137,13 +167,26 @@ function Compatibility.GetDiagnostics(compact, coordinateFontRefreshCount)
     local leatrixStatus = Compatibility.HasLeatrixMaps() and string.format(
         " | LeatrixMaps=loaded | CoordinateFontRefresh=%s",
         tostring(coordinateFontRefreshCount or "pending")) or ""
+    local spellbookStatus = Compatibility.GetTBCSpellbookDiagnostics()
+    local bagStatus = ""
+    if Offhand.CanvasPanelRegistry and Offhand.CanvasPanelRegistry.IsTBCPanelRuntime() then
+        local snapshot = Offhand.db and Offhand.db.tbcWorkspaceBagSnapshot
+        local ids = {}
+        if type(snapshot) == "table" and snapshot.schema == 1 and type(snapshot.open) == "table" then
+            for id = 0, 4 do if snapshot.open[tostring(id)] then ids[#ids+1] = tostring(id) end end
+        end
+        bagStatus = " | TBCBags=" .. (type(snapshot) == "table" and snapshot.schema == 1 and "v1:" or "legacy:")
+            .. (#ids > 0 and table.concat(ids, ",") or "none") .. ","
+            .. tostring(Offhand.Canvas and Offhand.Canvas.tbcBagIDRestoreStatus or "idle")
+            .. ",capture=" .. tostring(Offhand.Canvas and Offhand.Canvas.tbcBagCaptureStatus or "idle")
+    end
     if Compatibility.HasClassicUIForever() then
         return string.format(
             "MoveAny=%s | ClassicUIForever=loaded | WorldMapOwner=%s | CharacterFrameOwner=ClassicUIForever",
-            Compatibility.HasMoveAny() and "loaded" or "absent", mapOwner) .. leatrixStatus
+            Compatibility.HasMoveAny() and "loaded" or "absent", mapOwner) .. leatrixStatus .. spellbookStatus .. bagStatus
     end
     return string.format("MoveAny=%s | WorldMapOwner=%s",
-        Compatibility.HasMoveAny() and "loaded" or "absent", mapOwner) .. leatrixStatus
+        Compatibility.HasMoveAny() and "loaded" or "absent", mapOwner) .. leatrixStatus .. spellbookStatus .. bagStatus
 end
 
 function Compatibility.IsForeverProfessionsPanel(frame, suppliedName)
