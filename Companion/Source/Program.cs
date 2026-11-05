@@ -1003,8 +1003,17 @@ namespace Offhand.Companion
             using(var work=new SolidBrush(Color.FromArgb(175,130,44)))foreach(var r in MonitorSelection.VisibleRectangles(Plan))if(r!=Plan.MainhandBounds)e.Graphics.FillRectangle(work,map(r));
             using(var brush=new SolidBrush(CompanionUi.Text))using(var font=new Font(Font,FontStyle.Regular)) {
                 var center=new StringFormat{Alignment=StringAlignment.Center,LineAlignment=StringAlignment.Center};
-                e.Graphics.DrawString("Game",font,brush,map(Plan.MainhandBounds),center);center.Dispose();
-                e.Graphics.DrawString("Green: game   Gold: workspace   Outline: free desktop",font,brush,new RectangleF(inset,Height-legendHeight,Width-2*inset,legendHeight));
+                e.Graphics.DrawString("Game",font,brush,map(Plan.MainhandBounds),center);
+                if(Plan.MultiRegion)using(var edge=new Pen(CompanionUi.Text)) {
+                    for(int i=0;i<Plan.Workspaces.Length;i++) {
+                        var area=map(Plan.Workspaces[i].Bounds);
+                        e.Graphics.DrawRectangle(edge,area.X+.5f,area.Y+.5f,Math.Max(0,area.Width-1),Math.Max(0,area.Height-1));
+                        if(area.Width>=font.Height&&area.Height>=font.Height)
+                            e.Graphics.DrawString(i==0?"A":"B",font,brush,area,center);
+                    }
+                }
+                center.Dispose();
+                e.Graphics.DrawString("Green: game   Gold: workspace   Unfilled: free desktop",font,brush,new RectangleF(inset,Height-legendHeight,Width-2*inset,legendHeight));
             }
         }
     }
