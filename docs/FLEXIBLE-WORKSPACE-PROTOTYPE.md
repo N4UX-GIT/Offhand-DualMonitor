@@ -52,7 +52,12 @@ even when a plan cannot be validated.
 
 Automated checks on 5 November 2026:
 
-- All 91 top-level Lua suites and six TOC/load-path/syntax checks pass.
+- All 92 top-level Lua suites and six TOC/load-path/syntax checks pass.
+- Eighteen production-path World Map simulations cover centered, stacked and
+  corner regions at three physical/UI ratios and two inherited scales. Map fit
+  preserves saved preferences and legacy placement backups; combat, maximized
+  maps and external map owners retain their guards. These are simulations, not
+  protected descendant or native-provider acceptance.
 - 239 pure planner checks per x64/x86 architecture pass.
 - 45 new document/migration/capability/atomic-save/editor checks per architecture
   pass. Actual C# schema 3 bridges for centered, stacked, offset, two-display
@@ -121,18 +126,89 @@ installed addon files were restored with verified hashes. Battle.net was left
 open. HUD onboarding was neither accepted nor dismissed. No media fixture was
 installed. Private evidence: dist/live-qa-workspace-features-retail-20261105-004450.
 
+## Follow-up acceptance: map ownership, stacked and corner regions
+
+Source fab9e5a752d5b05aef7665bdec39a378d3b85992 adds separate workspace preview
+outlines and A/B labels, with a legend identifying free desktop space. It also
+adds the map-fit simulations above. It does not change runtime panel ownership,
+map fitting or native mutation declarations. The adjacent stacked workspaces
+remain visually distinct in the preview instead of reading as one gold block.
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Follow-up private Beta 6 EXE | 0540B0FE1DF228153E41742F9AA12C7F79B73701D752B93A0CC269F1ECA86B77 |
+| Follow-up private Companion ZIP | FC23E65979620F18262C19BE134DC99442E7A13AE11F25200FA7B5E345A7B49A |
+
+This separate candidate has a clean-source receipt. Its local report-only
+Defender custom scan explicitly found no threats, exit 0, with the same engine,
+platform and definitions recorded above. Protection stayed enabled, with no
+settings or exclusions changed. The EXE remains unsigned. Private candidate and
+scan receipts: dist/workspace-features-native-flex-beta6-20261105-084703 and
+dist/defender-flexible-beta6-20261105-084708. Earlier candidate receipts are
+historical and have not been replaced.
+
+The baseline map overlap is explained by external ownership. The live owner
+diagnostic reported OpenMap, actual map scale 0.8 and dormant Offhand preferred
+scale 1.1. Offhand deliberately yields map geometry to OpenMap. With only
+OpenMap temporarily disabled in the backed-up QA character configuration,
+Offhand's existing map fit and restore paths fully contained the map in all
+three tested geometries. No runtime override or new map scaling fix was needed.
+External map addons retain their own placement and may require adjustment in
+their own settings when an Offhand region changes.
+
+Retail GetBuildInfo returned 12.1.5, 70783, Nov 3 2026, interface 120105, with
+project ID 1 and locale enUS. The idle level-one QA character was not moved and
+no combat or protected descendant actions were performed. Accepted live cases
+on the 2560x1440 primary display:
+
+- Centered: game 512,0 / 1536x1440, two full-height 512-pixel workspaces.
+- Stacked: game 640,0 / 1920x1440, two 640x720 workspaces at upper/lower left.
+- Corner gaps: game 512,0 / 1536x1440, workspace A at top-left 0,0 / 512x640
+  and B at top-left 2048,800 / 512x640. Native clipping reported a complex
+  region, type 3, and exposed the unused desktop areas.
+
+Fresh SavedVariables diagnostics report schema 3 READY and viewportMatches true
+for each layout, plus full World Map containment. Stacked acceptance followed
+an actual UI reload. The corner layout and both different background images
+also survived reload, followed by a newly captured matching viewport diagnostic.
+The separate candidate above ran the corner, media and final Restore checks;
+the prior private candidate ran the centered/stacked checks with identical Lua
+runtime sources. This does not establish the unactivated desktop-gap input path.
+
+A temporary code-free two-image Studio fixture supplied warm landscape and cool
+portrait assets. Region A Fit used the full canvas width at 2:1; region B Fit
+used full height at 1:2. Captured dimensions and UV coordinates match the image
+content and exclude padded texture pixels. Switching A to Gnomish Tinker theme
+hid only A's image; B retained its own image with the expected Fill crop.
+Selecting a missing B asset hid its texture and showed the theme fallback,
+without silently substituting A's asset. Reselecting the original B asset
+recovered its image. Stored asset/fit preferences survived the theme change.
+Studio tests also pass 96 producer-to-Lua crop/fit comparisons, two-image
+library/routing/profile cases and the offline import/export workflow fixtures.
+
+The existing chat extended into a desktop gap, but the live custom-chat-owner
+diagnostic was true and both Chattynator and EllesmereUIChat were enabled.
+Offhand intentionally leaves their layout alone. This is a compatibility limit,
+not acceptance of native chat placement in small regions; repeat that separate
+test with external chat providers disabled before promotion. Character stayed
+on Mainhand in this run, without establishing the full oversized-panel matrix.
+
+Native Restore returned exact original bounds 0,215 / 2560x961, style 14CF0000,
+region type 0, client rectangle and window placement. A fresh addon snapshot
+reported isSpanned false and topology MISMATCH, using the normal recovery path.
+All 13 historical BugGrabber records were unchanged in full-record comparison,
+session counters 352 through 357. Both QA apps exited normally. The temporary
+media fixture was hash-verified and moved into private evidence; all 18 state
+files and 78 original addon files were restored with verified hashes. OpenMap
+was restored enabled. Battle.net remained open; HUD onboarding was untouched.
+Private evidence: dist/live-qa-workspace-features-retail-20261105-081950,
+including acceptance-summary.json and native screenshots.
+
 ## Remaining gates
 
-The old saved map position visibly crosses the narrow workspace/game boundary
-in this run. That is an unresolved panel-placement/fit case, not evidence that
-every panel already supports these geometries. Reproduce it from the retained
-private snapshot, establish the effective-scale/ownership path, and verify a
-guarded fallback before promoting the feature. Background asset selection and
-per-region themes also need live acceptance with the new narrow/corner layouts.
-
-Complete the corner-gap and stacked layouts in WoW, unactivated gap input and
-focus/taskbar behavior, fresh geometry checks after reload and after Restore,
-profile switching/manual precedence, and oversized/missing-destination recovery.
+Complete native chat placement without external providers, unactivated gap input
+and focus/taskbar behavior, profile switching/manual precedence, and the full
+oversized/missing-destination recovery matrix for the new flexible geometries.
 Mixed-DPI, physical disconnect/reconnect, other client builds, combat/protected
 actions, performance, novice usability and the complete editor remain pending.
 No GitHub, Store, stable artifact or website is changed by this prototype.
