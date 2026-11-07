@@ -14,6 +14,15 @@ All notable changes to this project will be documented in this file.
   This is a candidate mitigation for adjustment stalls; live graphics recovery
   and crash verification remain pending.
 
+### Discord report follow-up candidate
+- Keep Forever guild invites and Chat Settings anchored to Mainhand through
+  native popup and panel transactions, retaining popup-stack relationships.
+- Yield player aura-bar placement to EllesmereUI and preserve the native
+  Debuffs and External Defensives Edit Mode roots during initialization.
+- Translate French setup, placement and calibration recovery guidance.
+- Automated regression and manifest checks pass. Native popup actions,
+  controller focus, aura behavior and French visual acceptance remain pending.
+
 ### Forever generated HUD action-bar candidate
 - Give default action bars 2 and 3 separate rows above the main action bar when
   generating a keyboard HUD. Preserve source customizations and replacement

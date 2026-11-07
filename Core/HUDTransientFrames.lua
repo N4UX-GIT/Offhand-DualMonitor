@@ -67,7 +67,8 @@ function Transient.Install(HUD, services)
             if CanPositionMainhandTransient(frame) and frame.GetNumPoints and frame.GetPoint then
                 local state = specialPopupPoints[frame]
                 local current = frame:GetNumPoints() == 1 and { frame:GetPoint(1) } or nil
-                local owned = state and SamePopupPoint(current, state.applied)
+                local userPlaced = frame.IsUserPlaced and frame:IsUserPlaced()
+                local owned = state and not userPlaced and SamePopupPoint(current, state.applied)
                 if not active or not needed[frame] then
                     if owned then Points(frame, state.original) end
                     specialPopupPoints[frame] = nil
@@ -75,9 +76,10 @@ function Transient.Install(HUD, services)
                     local original = owned and state.original or current
                     -- Keep Blizzard's dialog-to-dialog stack graph intact. Only
                     -- its top root is relative to the full-screen parent.
-                    if original and not (frame.IsUserPlaced and frame:IsUserPlaced())
+                    if original and not userPlaced
                         and original[2] == UIParent
                         and original[1] == "TOP" and original[3] == "TOP"
+                        and (not Offhand.isForever or (original[4] or 0) == 0)
                         and frame.GetEffectiveScale then
                         local scale = frame:GetEffectiveScale()
                         local parentScale = UIParent:GetEffectiveScale()
@@ -101,7 +103,8 @@ function Transient.Install(HUD, services)
         if not (Offhand.isRetail or Offhand.isForever) or not hooksecurefunc then return end
         for _, name in ipairs({ "StaticPopup_SetUpPosition", "StaticPopupSpecial_Show",
             "StaticPopupSpecial_Hide", "StaticPopup_Hide", "ShowUIPanel", "HideUIPanel" }) do
-            if type(_G[name]) == "function" and not specialPopupHooks[name] then
+            if (Offhand.isForever or (name ~= "ShowUIPanel" and name ~= "HideUIPanel"))
+                and type(_G[name]) == "function" and not specialPopupHooks[name] then
                 specialPopupHooks[name] = true
                 hooksecurefunc(name, function(dialog)
                     if Offhand.isForever then
@@ -112,7 +115,6 @@ function Transient.Install(HUD, services)
                         end
                         return
                     end
-                    if name == "ShowUIPanel" or name == "HideUIPanel" then return end
                     -- SetUpPosition runs before Show; include that pending root.
                     HUD:PositionPremadeGroupDialogs(nil, name == "StaticPopup_SetUpPosition" and dialog or nil)
                 end)

@@ -23,5 +23,11 @@ for _,locale in ipairs(locales) do
         assert(placeholders(text)==placeholders(values[key]),locale..": format mismatch in "..key)
     end
 end
+local french = dictionary("frFR")
+for key, text in pairs(base) do
+    if key:match("^ONBOARD_") or key:match("^WIZARD_RECOVERY_") then
+        assert(french[key] ~= text, "French setup still uses English fallback for " .. key)
+    end
+end
 print("PASS: all 11 locale dictionaries have complete keys and matching format arguments")
 

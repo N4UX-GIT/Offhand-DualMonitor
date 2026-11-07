@@ -678,6 +678,7 @@ function HUD:HookFrames()
                 if frame and type(frame) == "table" and frame.GetPoint
                     and not TransientPolicy.IsSecureRoot(frame)
                     and not TransientPolicy.IsNativeDialogRoot(frame)
+                    and not Compatibility.IsExternallyOwnedHUDFrame(frame, name)
                     and not IsBlizzardEditModeOwnedFrame(frame, name)
                     and not hooks[frame] and frame.IsProtected and not frame:IsProtected() then
                     hooks[frame] = true
@@ -758,6 +759,7 @@ function HUD:HookFrames()
                     end
                     if cName == "OffhandCanvasFrame" or cName == "OffhandSeamGuideLine"
                         or (Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:IsCanvas(child)) then return end
+                    if Compatibility.IsExternallyOwnedHUDFrame(child, cName) then return end
                     if IsBlizzardEditModeOwnedFrame(child, cName)
                         or IsForeverEditModeFrame(child, cName) then return end
                     -- Native chat owns these linked frames. Moving a dock or tab

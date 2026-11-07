@@ -9,6 +9,12 @@ based on Beta 26 commit 9c7e83c. The snapshot contains 59 changed runtime,
 manifest, changelog and Lua test files captured through an isolated Git index.
 The original local checkout retains its edits and staging.
 
+A follow-up snapshot, 6c19735bd1ad0c05fdd127e2cb4b6ac0e319db83, captures
+local changes that arrived during packaging. It adds Forever native-dialog
+fixtures, aura-bar ownership guards, related popup-hook restrictions and
+French text corrections. The combined generic rescue path preserves both
+external aura ownership and workspace-canvas exclusions.
+
 ## Combined behavior
 
 - The six addon manifests retain Beta 26 release metadata and declare topology
@@ -28,7 +34,7 @@ reuses the exact Test 3 executable and records its hash.
 
 ## Verification
 
-All 100 top-level Lua suites passed after reconciliation. A targeted addition
+All 101 top-level Lua suites passed after the follow-up reconciliation. A targeted addition
 to the popup suite verifies that comparison tooltips follow their owner's
 workspace. All six manifests, 72 runtime paths, XML references and Lua 5.1
 syntax passed validation.
