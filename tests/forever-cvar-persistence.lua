@@ -239,7 +239,7 @@ cvars.offhandForeverDisplayFlags = nil
 local displayFlags = NewAddon(true)
 displayFlags:SetEnabled(true)
 displayFlags:SetRawMouseInput(false)
-assert(cvars.offhandForeverDisplayFlags == "V1|1|0",
+assert(cvars.offhandForeverDisplayFlags == "V2|1|0|0",
     "Forever display flags must be written when either setting changes")
 local displayReload = NewAddon(true)
 assert(displayReload.db.enabled == true and displayReload.db.rawMouseInput == false,
@@ -249,6 +249,19 @@ displayReload:SetRawMouseInput(true)
 local disabledReload = NewAddon(true)
 assert(disabledReload.db.enabled == false and disabledReload.db.rawMouseInput == true,
     "Explicitly disabled Forever display flags must also survive reload")
+assert(disabledReload.db.automaticSetupSuppressed == true,
+    "explicit disable must preserve setup opt-out through the session fallback")
+disabledReload:SetAutomaticSetupSuppressed(false)
+local returnedToSetup = NewAddon(true)
+assert(returnedToSetup.db.enabled == false and returnedToSetup.db.automaticSetupSuppressed == false,
+    "returning to setup must clear the opt-out without activating the viewport")
+cvars.offhandForeverDisplayFlags = "V1|0|1"
+local legacyDisplayFlags = NewAddon(true, { profiles = { Default = { automaticSetupSuppressed = true } } })
+assert(legacyDisplayFlags.db.enabled == false and legacyDisplayFlags.db.automaticSetupSuppressed == true,
+    "legacy flags must preserve a durable explicit opt-out")
+local legacyFreshFlags = NewAddon(true)
+assert(legacyFreshFlags.db.enabled == false and not legacyFreshFlags.db.automaticSetupSuppressed,
+    "legacy inactive flags alone must not suppress first-launch guidance")
 cvars.offhandForeverDisplayFlags = nil
 local uninitializedDisplayFlags = NewAddon(true, { profiles = { Default = {
     enabled = true,

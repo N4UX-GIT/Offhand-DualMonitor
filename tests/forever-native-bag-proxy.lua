@@ -199,12 +199,114 @@ assert(loadfile("Core/CanvasMapPresentation.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasPanelLifecycle.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
 assert(addon.Canvas:EnableForeverNativeBagProxy(),
     "Forever bag proxy controller was not created")
 
 local controller = _G.OffhandForeverNativeBagController
 assert(controller and controller.parent == UIParent,
     "Forever bag controller must be owned by UIParent")
+
+-- First span has no bag placement history. Blizzard's native bottom-right
+-- anchor follows the entire canvas, which need not be a visible display.
+local initialDB, initialMetrics = addon.db, metrics
+addon.db = { enabled = true }
+metrics = {
+    isSpanned = true, screenWidth = 6000, screenHeight = 2032,
+    gameLeft = 0, gameRight = 3440, gameBottom = 592, gameTop = 2032,
+    workspaceLeft = 3440, workspaceRight = 6000,
+    workspaceBottom = 0, workspaceTop = 1440,
+    workspaceWidth = 2560, workspaceHeight = 1440,
+}
+ContainerFrameCombinedBags = nil
+controller.scripts.OnUpdate(controller, 0.001)
+ContainerFrameCombinedBags = bag
+bag:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 9000, 9000)
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:GetLeft() >= metrics.workspaceLeft + 12
+        and bag:GetLeft() + bag:GetWidth() <= metrics.workspaceRight - 12
+        and bag:GetTop() <= metrics.workspaceTop - 12
+        and bag:GetBottom() >= metrics.workspaceBottom + 12,
+    "first-span combined bags must open visibly without saved positions or window Restore")
+assert(not addon.db.nativeBackpackWorkspacePosition,
+    "a default opening must not invent a player-saved bag position")
+
+-- Reopening after Blizzard reanchors must use the same visible default.
+bag:Hide()
+controller.scripts.OnUpdate(controller, 0.001)
+bag:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 9000, 9000)
+bag:Show()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:GetLeft() + bag:GetWidth() <= metrics.workspaceRight - 12,
+    "unsaved native bag reopen must not require manually moving the bag first")
+
+-- A bottom-right canvas void also exists with Mainhand on the right and the
+-- workspace higher on the left. Use the workspace rectangle, not UIParent.
+metrics.gameLeft, metrics.gameRight = 2560, 6000
+metrics.gameBottom, metrics.gameTop = 592, 2032
+metrics.workspaceLeft, metrics.workspaceRight = 0, 2560
+metrics.workspaceBottom, metrics.workspaceTop = 592, 2032
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:GetLeft() >= 12 and bag:GetLeft() + bag:GetWidth() <= 2548
+        and bag:GetBottom() >= 604,
+    "first-span bags must fit a vertically offset left workspace too")
+
+local initialHeight = bag.height
+bag.height = 1800
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:GetTop() <= metrics.workspaceTop - 12,
+    "an oversized combined bag must retain a reachable title on the visible display")
+bag.height = initialHeight
+
+-- Effective scales differ on a real span. Root anchor arguments are local to
+-- the bag, while the display rectangles are in UIParent units.
+local initialBagScale, initialParentScale = bag.GetEffectiveScale, UIParent.GetEffectiveScale
+bag.GetEffectiveScale = function() return 0.75 end
+UIParent.GetEffectiveScale = function() return 0.496 end
+controller.scripts.OnUpdate(controller, 0.001)
+local firstSpanFactor = 0.75 / 0.496
+assert(bag:GetLeft() * firstSpanFactor >= metrics.workspaceLeft + 12 - 0.01
+        and (bag:GetLeft() + bag:GetWidth()) * firstSpanFactor <= metrics.workspaceRight - 12 + 0.01
+        and bag:GetTop() * firstSpanFactor <= metrics.workspaceTop - 12 + 0.01
+        and bag:GetBottom() * firstSpanFactor >= metrics.workspaceBottom + 12 - 0.01,
+    "first-span default bag placement must convert effective scales exactly once")
+bag.GetEffectiveScale, UIParent.GetEffectiveScale = initialBagScale, initialParentScale
+
+-- The same default works for the individual backpack presentation.
+ContainerFrameCombinedBags, ContainerFrame1 = nil, makeFrame("ContainerFrame1", 178, 300)
+ContainerFrame1:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 9000, 9000)
+ContainerFrame1:Show()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(ContainerFrame1:GetLeft() >= metrics.workspaceLeft + 12
+        and ContainerFrame1:GetLeft() + ContainerFrame1:GetWidth() <= metrics.workspaceRight - 12
+        and ContainerFrame1:GetBottom() >= metrics.workspaceBottom + 12,
+    "individual Blizzard backpack must also open visibly on its first span")
+ContainerFrame1:Hide()
+controller.scripts.OnUpdate(controller, 0.001)
+ContainerFrame1, ContainerFrameCombinedBags = nil, bag
+
+local function AssertDefaultYield(label)
+    bag:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 9000, 9000)
+    controller.scripts.OnUpdate(controller, 0.001)
+    assert(bag:GetLeft() == 9000 and bag:GetTop() == 9000,
+        "first-span placement must yield during " .. label)
+end
+addon.db.enabled = false
+AssertDefaultYield("disabled addon")
+addon.db.enabled = true
+metrics.isSpanned = false
+AssertDefaultYield("single-screen layout")
+metrics.isSpanned = true
+InCombatLockdown = function() return true end
+AssertDefaultYield("combat")
+InCombatLockdown = function() return false end
+Bagnon = {}
+AssertDefaultYield("replacement bag ownership")
+Bagnon = nil
+addon.Mainhand = {IsNativeGamepadInterface = function() return true end}
+AssertDefaultYield("native Gamepad ownership")
+addon.Mainhand = nil
+addon.db, metrics = initialDB, initialMetrics
 controller.scripts.OnUpdate(controller, 0.11)
 
 assert(bag.nativeHookCalls == 0 and bag.nativeScriptCalls == 0
@@ -296,7 +398,10 @@ bag:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 120, 900)
 
 local handle
 for _, frame in ipairs(created) do
-    if frame ~= controller and frame.parent == UIParent then handle = frame end
+    if frame ~= controller and frame.parent == UIParent and frame.scripts.OnDragStart then
+        handle = frame
+        break
+    end
 end
 assert(handle and handle.scripts.OnDragStart and handle.scripts.OnDragStop,
     "Forever bag proxy must expose a UIParent-owned drag grip")
@@ -592,5 +697,31 @@ bag:Show()
 controller.scripts.OnUpdate(controller,0.001)
 assert(handle:IsShown(),'reopening a bag must show its grip even when geometry is unchanged')
 handle.ClearAllPoints,handle.SetPoint,handle.SetSize=originalClear,originalPoint,originalSize
+
+-- Exercise the production compatibility gate with combined mode's missing
+-- individual root. A false replacement owner used to disable this controller.
+assert(ContainerFrame1 == nil and ContainerFrameCombinedBags == bag)
+assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
+bag:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 9000, 9000)
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:GetLeft() < metrics.workspaceRight and handle:IsShown(),
+    "combined-only native bags must still restore through the production ownership gate")
+
+bag.IsVisible = function() return false end
+bag.GetEffectiveAlpha = function() return 0 end
+bag.GetParent = function() return UIParent end
+UIParent.GetName = function() return "UIParent" end
+local diagnosticLeft, diagnosticTop = bag:GetLeft(), bag:GetTop()
+local bagReport = addon.Canvas:GetForeverNativeBagDiagnostics()
+assert(bagReport:find("custom=0 proxy=1", 1, true)
+        and bagReport:find("ContainerFrame1=absent", 1, true)
+        and bagReport:find("shown=true,visible=false,alpha=0,parent=UIParent", 1, true)
+        and bagReport:find("rect=", 1, true) and bagReport:find("saved=workspace", 1, true),
+    "bag diagnostics must distinguish a shown root from an invisible or transparent bag")
+assert(bag:GetLeft() == diagnosticLeft and bag:GetTop() == diagnosticTop,
+    "bag diagnostics must not repair or toggle the reported frame")
+bag.GetBottom = function() error("unavailable geometry") end
+assert(addon.Canvas:GetForeverNativeBagDiagnostics():find("ContainerFrameCombinedBags={unresolved}", 1, true),
+    "unreadable native bag geometry must not abort the support report")
 print("PASS: Forever native bags use an isolated sibling proxy and persist movement")
 print('PASS: proxy no-op layout, immediate drag/resize/scale updates and disturbed geometry repair')

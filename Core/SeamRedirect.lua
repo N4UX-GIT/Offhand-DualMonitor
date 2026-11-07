@@ -677,6 +677,7 @@ function HUD:HookFrames()
                 local frame = _G[name]
                 if frame and type(frame) == "table" and frame.GetPoint
                     and not TransientPolicy.IsSecureRoot(frame)
+                    and not TransientPolicy.IsNativeDialogRoot(frame)
                     and not IsBlizzardEditModeOwnedFrame(frame, name)
                     and not hooks[frame] and frame.IsProtected and not frame:IsProtected() then
                     hooks[frame] = true
@@ -745,6 +746,7 @@ function HUD:HookFrames()
                 -- bounded root, even if it does not report IsProtected().
                 and not TransientPolicy.IsSecureRoot(child) then
                 pcall(function()
+                    if TransientPolicy.IsNativeDialogRoot(child) then return end
                     if child.IsForbidden and child:IsForbidden() then return end
                     if not child.IsShown or not child:IsShown() then return end
                     if child.IsProtected and child:IsProtected() then return end

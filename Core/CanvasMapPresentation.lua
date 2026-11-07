@@ -10,6 +10,11 @@ local IsExternallyPositionedWorldMap = Compatibility.IsExternallyPositionedWorld
 local ShouldYieldWorldMapToMoveAny = Compatibility.ShouldYieldWorldMap
 local IsPanelEvicting = Offhand.CanvasFrameState.IsEvicting
 
+function Map.IsNativeGamepadOwned(Canvas)
+    return Offhand.isForever and Canvas.CanManagePanelsFromAddon
+        and not Canvas.CanManagePanelsFromAddon() or false
+end
+
 -- TBC's native scroll controller returns physical cursor pixels, then compares
 -- them with canvas-local bounds. Offhand's window scaling requires conversion
 -- at that boundary. Keep this isolated from Retail/Forever and custom handlers.
@@ -134,6 +139,7 @@ function Map.InstallBehavior(Canvas, services)
     local EvictWorkspacePanelSlot = services.EvictWorkspacePanelSlot
     function Canvas:PreserveExternalWorldMapOpenState(map)
         if not IsExternallyPositionedWorldMap(map) or not map.IsShown or not map:IsShown() then return false end
+        if Offhand.isForever and map.IsMaximized and map:IsMaximized() then return false end
         if not IsFrameOnWorkspace(map) then
             self:SetWorkspacePanelOpen(map, false)
             RegisterSpecialFrame("WorldMapFrame")
@@ -184,6 +190,7 @@ function Map.InstallBehavior(Canvas, services)
     end
 
     function Canvas:RefocusPersistentWorldMap()
+        if Map.IsNativeGamepadOwned(self) then return false end
         local map = _G.WorldMapFrame
         -- MoveAny owns map geometry, not MapCanvas content. Modern and Classic
         -- clients still need the displayed map ID refreshed while the persistent
@@ -281,14 +288,16 @@ function Map.InstallConfiguration(Canvas, services)
     end
 
     function Canvas:ConfigureWorldMap()
+        -- Canvas scale/fader/settlement belongs to keyboard workspace mode.
+        -- The Gamepad adapter is the sole root-position writer in native UI.
+        if Map.IsNativeGamepadOwned(self) then return end
         local map = WorldMapFrame
         if Offhand.CanvasPanelLifecycle and Offhand.CanvasPanelLifecycle.UpdateTBCWorkspacePanelSlots then
             Offhand.CanvasPanelLifecycle.UpdateTBCWorkspacePanelSlots()
         end
         if InCombatLockdown() or not map or HasLeatrixMaps() or not Offhand.db or not Offhand.db.enabled then return end
-        -- Maximized WorldMapFrame is a separate Blizzard-owned layout on every
-        -- modern client. Never apply Offhand's windowed scale, anchor, UIPanel
-        -- registration, or saved geometry until Blizzard finishes minimizing it.
+        -- The fullscreen layout has its own fit on Forever. Keep windowed
+        -- scale, UIPanel registration and saved geometry out of it.
         if IsWorldMapMaximized(map) then return end
         if ShouldYieldWorldMapToMoveAny(map) then
             self:RepairYieldedWorldMapAnchor(map)

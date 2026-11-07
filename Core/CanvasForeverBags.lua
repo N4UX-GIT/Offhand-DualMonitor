@@ -27,7 +27,7 @@ function Adapter.Install(Canvas, services)
     -- Keep all Offhand state and input handlers outside the ContainerFrame tree so
     -- moving the bag root does not also install addon code on an item-action
     -- ancestor.  The only native writes performed by this adapter are the root
-    -- movement requested by a hardware drag and an out-of-combat anchor restore.
+    -- movement requested by a hardware drag and out-of-combat root placement.
     local foreverNativeBagState = setmetatable({}, { __mode = "k" })
     local foreverNativeBagController
 
@@ -68,6 +68,16 @@ function Adapter.Install(Canvas, services)
         if frameWidth <= 0 then frameWidth = 192 end
         if frameHeight <= 0 then frameHeight = 192 end
 
+        -- A fresh span has no drag history. Native anchors use the full canvas,
+        -- including monitor voids, so provide a default inside the workspace
+        -- without persisting it as a player placement or reopening a hidden bag.
+        if not position then
+            position = {
+                x = metrics.workspaceRight - frameWidth - 12,
+                y = metrics.workspaceBottom + frameHeight + 12,
+            }
+            onWorkspace = true
+        end
         local targetX, targetY = position.x, position.y
         local minX, maxX, minY, maxY
         if onWorkspace then
@@ -87,13 +97,13 @@ function Adapter.Install(Canvas, services)
             end
             minX = metrics.workspaceLeft + 12
             maxX = math.max(minX, metrics.workspaceRight - frameWidth - 12)
-            minY = metrics.workspaceBottom + frameHeight + 12
-            maxY = math.max(minY, metrics.workspaceTop - 12)
+            maxY = metrics.workspaceTop - 12
+            minY = math.min(maxY, metrics.workspaceBottom + frameHeight + 12)
         else
             minX = metrics.gameLeft + 12
             maxX = math.max(minX, metrics.gameRight - frameWidth - 12)
-            minY = metrics.gameBottom + frameHeight + 12
-            maxY = math.max(minY, metrics.gameTop - 12)
+            maxY = metrics.gameTop - 12
+            minY = math.min(maxY, metrics.gameBottom + frameHeight + 12)
         end
 
         return math.max(minX, math.min(targetX, maxX)),
@@ -109,7 +119,6 @@ function Adapter.Install(Canvas, services)
             or not Offhand.db or not Offhand.db.enabled or not frame
             or not frame.IsShown or not frame:IsShown() then return false end
         local position, onWorkspace = GetForeverNativeBagSavedPosition(frame)
-        if not position then return false end
         local x, y, frameScale, parentScale =
             GetForeverNativeBagTarget(frame, position, onWorkspace)
         if not x then return false end
@@ -157,9 +166,8 @@ function Adapter.Install(Canvas, services)
             local x = math.max(metrics.workspaceLeft + 12,
                 math.min(left, math.max(metrics.workspaceLeft + 12,
                     metrics.workspaceRight - width - 12)))
-            local y = math.max(metrics.workspaceBottom + height + 12,
-                math.min(top, math.max(metrics.workspaceBottom + height + 12,
-                    metrics.workspaceTop - 12)))
+            local y = math.max(math.min(metrics.workspaceBottom + height + 12, metrics.workspaceTop - 12),
+                math.min(top, metrics.workspaceTop - 12))
             local position = {
                 x = x, y = y,
                 canvasWidth = metrics.workspaceWidth,
@@ -190,8 +198,8 @@ function Adapter.Install(Canvas, services)
             Offhand.db.nativeBackpackWorkspaceOpen = nil
             local x = math.max(metrics.gameLeft + 12,
                 math.min(left, math.max(metrics.gameLeft + 12, metrics.gameRight - width - 12)))
-            local y = math.max(metrics.gameBottom + height + 12,
-                math.min(top, math.max(metrics.gameBottom + height + 12, metrics.gameTop - 12)))
+            local y = math.max(math.min(metrics.gameBottom + height + 12, metrics.gameTop - 12),
+                math.min(top, metrics.gameTop - 12))
             Offhand.db.savedMainPositions[name] = { x = x, y = y }
         end
         SaveForeverPanelOwnership()
@@ -355,9 +363,13 @@ function Adapter.Install(Canvas, services)
     -- the missing root or clears the stale logical state, after which OpenAllBags
     -- can initialize the pooled item buttons normally. Never call frame:Show().
     local function OpenForeverNativeBackpackThroughBlizzard()
+        -- A replacement can own the shared bag functions even when a previous
+        -- native workspace snapshot is still pending after a panel transition.
+        if not CanManagePanelsFromAddon() or (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()) then
+            return nil
+        end
         local shownBag = GetShownNativeBackpackRoot()
         if shownBag then return shownBag end
-        if not CanManagePanelsFromAddon() then return nil end
 
         Canvas._foreverNativeBagRestoreInProgress = true
         if OpenAllBags then
@@ -487,8 +499,35 @@ function Adapter.Install(Canvas, services)
         for _, frameName in ipairs(backpackRootNames) do
             local frame = _G[frameName]
             if frame then
-                roots[#roots + 1] = string.format("%s=%s", frameName,
-                    frame.IsShown and frame:IsShown() and "shown" or "hidden")
+                local ok, report = pcall(function()
+                    if frame.IsForbidden and frame:IsForbidden() then return "forbidden" end
+                    local function Read(method)
+                        return type(frame[method]) == "function" and tostring(frame[method](frame)) or "unknown"
+                    end
+                    local parent = frame.GetParent and frame:GetParent()
+                    local frameScale = frame.GetEffectiveScale and frame:GetEffectiveScale()
+                    local parentScale = UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()
+                    local left = frame.GetLeft and frame:GetLeft()
+                    local bottom = frame.GetBottom and frame:GetBottom()
+                    local width = frame.GetWidth and frame:GetWidth()
+                    local height = frame.GetHeight and frame:GetHeight()
+                    local rect = "unresolved"
+                    if left and bottom and width and height and frameScale and parentScale and parentScale > 0 then
+                        local factor = frameScale / parentScale
+                        rect = string.format("%.0f/%.0f/%.0f/%.0f",
+                            left * factor, bottom * factor, width * factor, height * factor)
+                    end
+                    local db = Offhand.db or {}
+                    local owner = db.savedWorkspacePositions and db.savedWorkspacePositions[frameName] and "workspace"
+                        or (db.savedMainPositions and db.savedMainPositions[frameName] and "mainhand" or "none")
+                    return string.format("shown=%s,visible=%s,alpha=%s,parent=%s,scale=%s,rect=%s,saved=%s",
+                        Read("IsShown"), Read("IsVisible"), Read("GetEffectiveAlpha"),
+                        parent and parent.GetName and tostring(parent:GetName()) or "unknown",
+                        tostring(frameScale or "unknown"), rect, owner)
+                end)
+                roots[#roots + 1] = frameName .. "={" .. (ok and report or "unresolved") .. "}"
+            else
+                roots[#roots + 1] = frameName .. "=absent"
             end
         end
         local optionOpen = false
@@ -497,7 +536,7 @@ function Adapter.Install(Canvas, services)
             optionOpen = ok and value and true or false
         end
         local status = string.format(
-            "tracked=%s saved=%s menu=%s option=%s panel=%s combat=%s input=%s roots=%s",
+            "tracked=%s saved=%s menu=%s option=%s panel=%s combat=%s input=%s custom=%s proxy=%s roots=%s",
             IsNativeBackpackTrackedOpen() and "1" or "0",
             GetNativeBackpackWorkspacePosition() and "1" or "0",
             GameMenuFrame and GameMenuFrame.IsShown and GameMenuFrame:IsShown() and "1" or "0",
@@ -505,6 +544,8 @@ function Adapter.Install(Canvas, services)
             IsForeverNativeBagPreservingPanelShown() and "1" or "0",
             InCombatLockdown and InCombatLockdown() and "1" or "0",
             Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved() and "1" or "0",
+            Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon() and "1" or "0",
+            foreverNativeBagController and "1" or "0",
             #roots > 0 and table.concat(roots, ",") or "none")
         return status
     end

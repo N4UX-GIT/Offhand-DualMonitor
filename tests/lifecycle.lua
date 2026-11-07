@@ -187,6 +187,36 @@ prompt.accept.scripts.OnClick()
 assert(resumed == 1 and OffhandCharDB.mainhandLayoutDeferred,
     "resuming must open HUD setup without claiming the layout is repaired")
 addon.Wizard, addon.HasBlizzardEditMode, addon._hudSetupReminderShown = nil, reminderEditMode, nil
+local priorMainhand, priorCharacterSetup = addon.Mainhand, addon.CharacterSetup
+addon.Mainhand = {GetGeometrySignature = function() return "character-test" end}
+OffhandCharDB = {}
+addon.Wizard = {OpenHUDSetup = function() resumed = resumed + 1 end}
+assert(loadfile("Core/CharacterSetup.lua"))("Offhand", addon)
+assert(addon.CharacterSetup:Show("CHARACTER_SETUP_WAITING_FOR_SPAN"))
+assert(prompt.shown and prompt.strata == "TOOLTIP" and not prompt.alternate.shown
+        and prompt.accept.text == addon.L.POPUP_BTN_GOT_IT
+        and prompt.cancel.shown and prompt.cancel.text == addon.L.CHARACTER_SETUP_HIDE_SPAN_NOTICE,
+    "the span notice must offer both temporary and persistent dismissal")
+addon.CharacterSetup:Hide()
+assert(not OffhandCharDB.hudSpanNoticeDismissed, "hiding the notice must not persist dismissal")
+assert(addon.CharacterSetup:Show("CHARACTER_SETUP_WAITING_FOR_SPAN"))
+prompt.accept.scripts.OnClick()
+assert(not prompt.shown and addon.CharacterSetup.spanNoticeDismissed
+        and not OffhandCharDB.hudSpanNoticeDismissed and not OffhandCharDB.characterSetup,
+    "Got it must only acknowledge the notice for this UI session")
+assert(addon.CharacterSetup:Show("CHARACTER_SETUP_WAITING_FOR_SPAN"))
+prompt.cancel.scripts.OnClick()
+assert(not prompt.shown and OffhandCharDB.hudSpanNoticeDismissed and not OffhandCharDB.characterSetup,
+    "the persistent dismissal button must save only the notice preference")
+assert(addon.CharacterSetup:Show("CHARACTER_SETUP_READY"))
+assert(prompt.popupKey == "OFFHAND_CHARACTER_SETUP" and prompt.strata == "TOOLTIP"
+        and prompt.alternate.shown and prompt.alternate.text == addon.L.CHARACTER_SETUP_CUSTOMIZE,
+    "the three-choice character check must use the owned Mainhand popup in keyboard UI")
+prompt.alternate.scripts.OnClick()
+assert(resumed == 2 and OffhandCharDB.characterSetup.choice == "customize"
+        and not OffhandCharDB.characterSetup.complete,
+    "the owned third button must preserve the character's Customize choice")
+addon.Mainhand, addon.CharacterSetup, addon.Wizard = priorMainhand, priorCharacterSetup, nil
 OffhandCharDB = reminderCharacter
 StaticPopupDialogs.OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT = nil
 addon.Viewport, addon.UIControls = nil, nil
@@ -651,6 +681,7 @@ do
     Enter(true)
     assert(opened == 1, "completed users must not be forced through setup again")
     complete, addon.db.enabled = false, false
+    addon.db.automaticSetupSuppressed = true
     addon.GetOnboardingResumeStep = function() return 6 end
     Enter(true)
     assert(opened == 1, "a deliberately disabled profile must not receive incomplete-setup prompts")

@@ -327,6 +327,11 @@ end
 -- here and remain covered by the stricter guard above.
 local function IsUnsafeForPanelMutation(frame, name)
     if not frame then return true end
+    if Offhand.isForever and Compatibility.IsForeverEllesmereBag(name or (frame.GetName and frame:GetName())) then
+        return true
+    end
+    if Offhand.isForever and frame == _G.WorldMapFrame
+        and not CanManagePanelsFromAddon() then return true end
     if ShouldYieldFrameToClassicUIForever(frame, name) then return true end
     if ShouldYieldWorldMapToMoveAny(name or frame) then return true end
     if IsBlizzardEditModeOwnedFrame(frame, name) then return true end
@@ -1001,7 +1006,9 @@ function Canvas:RestorePersistentFrames(mode)
     -- Historical Baganator/EUI child snapshots must not resurrect the native
     -- backpack on Forever. Only the explicit mode-independent native marker is
     -- authoritative there.
-    if Offhand.isForever then hasBag = IsNativeBackpackTrackedOpen() end
+    if Offhand.isForever then
+        hasBag = IsNativeBackpackTrackedOpen() and not (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon())
+    end
     if BackpackState.UsesTBCBagIDs and BackpackState.UsesTBCBagIDs() then
         -- Frame names are pooled on Anniversary. Never let legacy per-frame
         -- markers (including absent/false records) trigger OpenAllBags.
@@ -1015,6 +1022,7 @@ function Canvas:RestorePersistentFrames(mode)
             if activeLockRestore then Canvas.activeLockBagRestoreQueued = nil end
             -- The player can change interface style during the delay.
             if not CanManagePanelsFromAddon() then return end
+            if Offhand.isForever and Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon() then return end
             -- Combined Backpack mode may never create ContainerFrame1 during
             -- startup, which makes the general compatibility heuristic report
             -- a false custom-bag positive. An explicit saved native root wins.
@@ -1378,6 +1386,8 @@ nonMovableSystemPanels = {
     InterfaceOptionsFrame = true,
     VideoOptionsFrame = true,
     AudioOptionsFrame = true,
+    GuildInviteFrame = true,
+    ChatConfigFrame = true,
     -- Transient/interactive Blizzard UI is positioned by SeamRedirect (where
     -- safe) or left to secure/Edit Mode ownership. It must never acquire the
     -- generic panel drag, persistence, independent-open, or Escape behavior.
@@ -1928,7 +1938,9 @@ function Canvas:EnableFreeDragging()
     local hasCustomBags = Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()
     local hasCustomMinimap = Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon()
 
-    if Offhand.isForever and not hasCustomBags then
+    -- Install the external observer even before Blizzard creates its bag roots.
+    -- Its live ownership gate yields to replacements and accepts late roots.
+    if Offhand.isForever then
         self:EnableForeverNativeBagProxy()
     end
     if Offhand.isForever and IsExternallyPositionedWorldMap(_G.WorldMapFrame) then

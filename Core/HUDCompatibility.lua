@@ -60,11 +60,14 @@ function Compatibility.HasCustomStatusBarAddon()
 end
 
 function Compatibility.HasCustomBagAddon()
-    if Compatibility.IsAddonPresent("EllesmereUIBags") then return true end
+    if Compatibility.IsAddonPresent("EllesmereUIBags")
+        and not (Offhand.isForever and Compatibility.UsesNativeGamepadInterface()) then return true end
     if _G.Baganator or _G.Baginator or _G.Bagnon or _G.AdiBags
         or _G.ArkInventory or _G.BetterBags or _G.Inventorian
         or _G.ElvUI or _G.Tukui then return true end
-    return not _G.ContainerFrame1
+    -- Combined mode can exist without an individual backpack root. Either
+    -- native root is sufficient; explicit replacement owners above still win.
+    return not (_G.ContainerFrame1 or _G.ContainerFrameCombinedBags)
 end
 
 function Compatibility.HasCustomMinimapAddon()

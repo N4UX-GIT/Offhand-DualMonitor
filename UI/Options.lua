@@ -142,11 +142,22 @@ _G.BINDING_NAME_OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS =
 
 function Options:CreateMainhandHUDLayout(options)
     if Offhand.Mainhand and Offhand.Mainhand.CreateOrUpdateEditModeLayout then
-        return Offhand.Mainhand:CreateOrUpdateEditModeLayout(options)
+        local ok, value, moved, activation = Offhand.Mainhand:CreateOrUpdateEditModeLayout(options)
+        Offhand.Mainhand.lastLayoutFailure = not ok and tostring(value or "unavailable") or nil
+        return ok, value, moved, activation
     end
     return false, "unavailable"
 end
 
+local mainhandFailureKeys = {
+    combat = "HUD_FAILURE_COMBAT", open = "HUD_FAILURE_EDITMODE_OPEN",
+    disabled = "HUD_FAILURE_DISABLED", ["read-api"] = "HUD_FAILURE_API",
+    ["save-api"] = "HUD_FAILURE_API", api = "HUD_FAILURE_API", unsupported = "HUD_FAILURE_API",
+    unavailable = "HUD_FAILURE_UNAVAILABLE", presets = "HUD_FAILURE_UNAVAILABLE",
+    state = "HUD_FAILURE_STATE", source = "HUD_FAILURE_SOURCE",
+    ["repair-system"] = "HUD_FAILURE_REPAIR", already = "HUD_FAILURE_ALREADY",
+    save = "HUD_FAILURE_SAVE", ["activate-api"] = "HUD_FAILURE_ACTIVATE",
+}
 function Options:ConfirmRecovery(key, callback)
     Offhand.OptionsActions.ConfirmRecovery(L[key], callback)
 end
@@ -164,8 +175,8 @@ function Options:RecoverMissingUI()
 end
 
 function Options:GetMainhandLayoutFailureText(reason)
-    if reason == "maximum" then return L["MAINHAND_LAYOUT_MAXIMUM"] end
-    if reason == "gamepad" then return L["MAINHAND_LAYOUT_GAMEPAD_FAILED"] end
+    if reason == "maximum" then return L["WIZARD_RECOVERY_MAX_BODY"] end
+    if reason == "gamepad" then return L["HUD_FAILURE_CONTROLLER"] end
     if reason == "span" then
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
             and Offhand.Viewport:GetMetrics() or nil
@@ -173,9 +184,9 @@ function Options:GetMainhandLayoutFailureText(reason)
             and not metrics.manualCanvas then
             return L["MAINHAND_LAYOUT_SPAN_MISMATCH"]
         end
-        return L["MAINHAND_LAYOUT_SPAN_UNCONFIRMED"]
+        return L["MAINHAND_LAYOUT_SPAN_ACTIONS"]
     end
-    return string.format(L["MAINHAND_LAYOUT_FAILED"], tostring(reason or "unavailable"))
+    return L[mainhandFailureKeys[reason] or "HUD_FAILURE_UNKNOWN"]
 end
 
 function Options:GatherSafeUIToMainhand()
@@ -1116,6 +1127,8 @@ function Options:CreateFloatingPanel()
     -- Forever has two layout-status rows plus wrapped Edit Mode guidance.
     -- Keep the preview checkbox below that text instead of sharing its line.
     local recoveryHeight = Offhand.isForever and 374 or (supportsMainhandLayout and 302 or 152)
+    local transfer = Offhand.EllesmereLayout
+    local showEllesmerePreview = transfer and transfer.ShowPreview and transfer:IsAvailable()
     local recoveryCard = CreateCard(tab2, L["CARD_RECOVERY"], recoveryHeight)
     local advancedCard
     local advancedCheck
@@ -1509,6 +1522,21 @@ function Options:CreateFloatingPanel()
             function(value) Offhand.db.autoRecoverEditModeControls = value == true end,
             L["AUTO_RECOVER_EDIT_MODE_CONTROLS"], L["AUTO_RECOVER_EDIT_MODE_CONTROLS_DESC"])
         autoEditModeControls:SetPoint("TOPLEFT", forceCheck, "BOTTOMLEFT", 0, -6)
+    end
+
+    if showEllesmerePreview then
+        local caption = recoveryCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        caption:SetPoint("BOTTOMLEFT", recoveryCard, "BOTTOMLEFT", 12, 14)
+        caption:SetPoint("RIGHT", recoveryCard, "RIGHT", -12, 0)
+        caption:SetJustifyH("LEFT")
+        caption:SetWordWrap(true)
+        caption:SetText(L["ELLESMERE_HUD_PREVIEW_DESC"])
+        recoveryCard:SetHeight(recoveryHeight + 48 + Controls.MeasureWrappedText(caption, caption:GetText(), 638))
+        local preview = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
+        preview:SetSize(220, 26)
+        preview:SetPoint("BOTTOMLEFT", caption, "TOPLEFT", 0, 6)
+        preview:SetText(L["ELLESMERE_HUD_VISUAL"])
+        preview:SetScript("OnClick", function() transfer:ShowPreview() end)
     end
 
     local compatDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
@@ -2291,6 +2319,9 @@ function Options:CreateFloatingPanel()
     for index, topic in ipairs(helpTopics) do
         local title = string.format("%d. %s", index, L["HELP_" .. topic .. "_TITLE"])
         local text = L["HELP_" .. topic .. "_BODY"]
+        if topic == "EDIT_MODE" and Offhand.isForever then
+            text = text .. "\n\n" .. L["ELLESMERE_HUD_HELP_BODY"]
+        end
         local card = CreateCard(tab5, title, 1)
         local contentTop = Controls.GetCardContentTop(card, 34)
         local body = card:CreateFontString(nil, "ARTWORK", "GameFontHighlight")

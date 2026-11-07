@@ -191,6 +191,21 @@ assert(comparisonPoint and comparisonPoint[1] == "TOPLEFT"
         and ShoppingTooltip2.points[1][2] == ShoppingTooltip1,
     "in-bounds rightward comparison graph was unnecessarily rewritten")
 
+-- The comparison group must use the owner's region on a multi-workspace plan.
+addon.WorkspaceRegions = {
+    ForFrame = function(_, metrics, owner)
+        assert(owner == leftOwner, "comparison bounds must resolve the item owner")
+        local region = {}
+        for key, value in pairs(metrics) do region[key] = value end
+        region.workspaceLeft, region.workspaceRight = 2000, 3000
+        return region
+    end,
+}
+assert(addon.PopupBounds:ArrangeTooltipComparisons(GameTooltip)
+    and math.abs(GameTooltip.points[1][4] - 2012) < 0.01,
+    "comparison tooltips must stay in the selected workspace instead of the primary workspace")
+addon.WorkspaceRegions = nil
+
 GameTooltip.scripts.OnHide(GameTooltip)
 assert(GameTooltip._OffhandManagedOwner == nil
         and GameTooltip._OffhandOwnerDirection == nil,
@@ -232,6 +247,38 @@ inside.left, inside.right, inside.top, inside.bottom = 1500, 1700, 600, 400
 assert(not addon.PopupBounds:Constrain(inside) and #inside.points == 0,
     "already visible context menu was unnecessarily reanchored")
 
+-- Model Retail secret numbers through the capability API. Every coordinate
+-- and both scale inputs must be rejected before arithmetic or native writes.
+do
+    local previousSecret, previousScale = issecretvalue, UIParent.GetEffectiveScale
+    local secretNumber = 147852
+    issecretvalue = function(value) return value == secretNumber end
+    for _, field in ipairs({'left', 'right', 'top', 'bottom', 'frameScale', 'uiScale'}) do
+        local owner = menuFrame()
+        owner.left, owner.right, owner.top, owner.bottom = 850, 950, 700, 600
+        if field == 'frameScale' then
+            owner.GetEffectiveScale = function() return secretNumber end
+        elseif field == 'uiScale' then
+            UIParent.GetEffectiveScale = function() return secretNumber end
+        else owner[field] = secretNumber end
+        local tooltip = tooltipFrame(900, 1250, 720, 300, owner)
+        assert(not addon.PopupBounds:RedirectTooltipOwner(tooltip, owner, 'ANCHOR_RIGHT')
+            and not tooltip.setOwnerCalls and #tooltip.points == 0,
+            'secret '..field..' must preserve Blizzard tooltip ownership and anchors')
+        assert(not addon.PopupBounds:Constrain(owner) and #owner.points == 0,
+            'secret '..field..' must prevent menu arithmetic and repositioning')
+        UIParent.GetEffectiveScale = previousScale
+    end
+    local root = tooltipFrame(900, 1250, 720, 300, itemOwner)
+    root._OffhandManagedOwner, root._OffhandOwnerDirection = itemOwner, 'ANCHOR_LEFT'
+    local oldLeft = ShoppingTooltip1.left
+    ShoppingTooltip1.left = secretNumber
+    assert(not addon.PopupBounds:ArrangeTooltipComparisons(root) and #root.points == 0,
+        'unknown comparison bounds must leave the complete tooltip group native')
+    ShoppingTooltip1.left = oldLeft
+    issecretvalue, UIParent.GetEffectiveScale = previousSecret, previousScale
+end
+
 InCombatLockdown = function() return true end
 local combat = menuFrame()
 assert(not addon.PopupBounds:Constrain(combat) and #combat.points == 0,
@@ -257,3 +304,98 @@ assert(not addon.PopupBounds:ArrangeTooltipComparisons(GameTooltip),
     "Classic comparison groups must remain native rather than moving only the backdrop root")
 addon.PopupBounds.SetTooltipPoint = originalTooltipPoint
 print("PASS: modern and legacy unit context menus stay inside the physical Mainhand bounds")
+
+-- Forever on a mixed-height span. Simulate the named presentation roots
+-- without registering scripts on EllesmereUI or its native Gamepad input.
+addon.isForever = true
+EllesmereUI = {}
+local span = {
+    isSpanned = true,
+    gameLeft = 1440, gameRight = 4000, gameBottom = 0, gameTop = 1440,
+    workspaceLeft = 0, workspaceRight = 1440, workspaceBottom = 0, workspaceTop = 2560,
+}
+addon.Viewport.GetMetrics = function() return span end
+
+local function ellesmereWindow(left, right, top, bottom)
+    local frame = menuFrame()
+    frame.left, frame.right, frame.top, frame.bottom = left, right, top, bottom
+    frame.scale = 1
+    frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    function frame:GetNumPoints() return #self.points end
+    function frame:GetPoint(index) return unpack(self.points[index]) end
+    function frame:GetScale() return self.scale end
+    function frame:SetScale(value) self.scale = value end
+    function frame:GetEffectiveScale() return self.scale * 0.5 end
+    function frame:IsVisible() return self.shown end
+    function frame:IsProtected() return self.protected end
+    return frame
+end
+
+EllesmereUIFrame = ellesmereWindow(830, 3170, 2130, 430)
+EUIFirstInstallPopup = ellesmereWindow(50, 950, 2210, 1710)
+EUIConfirmPopup = ellesmereWindow(1650, 2350, 1690, 1490)
+EUIInfoPopup = ellesmereWindow(1650, 2350, 1690, 1490)
+EUIInfoPopup.protected = true
+InCombatLockdown = function() return true end
+addon.PopupBounds:RefreshEllesmereWindows()
+assert(EllesmereUIFrame.points[1][1] == "CENTER", "Ellesmere windows must defer during combat")
+InCombatLockdown = function() return false end
+addon.PopupBounds:RefreshEllesmereWindows()
+local settingsPoint = EllesmereUIFrame.points[1]
+local fittedScale = EllesmereUIFrame:GetScale()
+assert(settingsPoint[1] == "TOPLEFT" and settingsPoint[2] == UIParent
+    and math.abs(settingsPoint[4] * fittedScale - 1444) < 0.01
+    and math.abs(settingsPoint[5] * fittedScale - 1436) < 0.01
+    and math.abs(1700 * fittedScale - 1432) < 0.01,
+    "oversized settings must fit inside the physical Mainhand")
+assert(EUIFirstInstallPopup.points[1][1] == "CENTER" and EUIInfoPopup.points[1][1] == "CENTER",
+    "visible workspace and protected popup anchors must be preserved")
+assert(EUIConfirmPopup.points[1][1] == "TOPLEFT" and EUIConfirmPopup:GetScale() == 1,
+    "modal in the physical void must be recovered without shrinking it")
+addon.PopupBounds:RefreshEllesmereWindows()
+assert(EllesmereUIFrame.points[1] == settingsPoint, "refresh must not repeat an active placement")
+
+EllesmereUIFrame:ClearAllPoints()
+EllesmereUIFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 1600, 1200)
+EUIConfirmPopup.shown = false
+span.isSpanned = false
+addon.PopupBounds:RefreshEllesmereWindows()
+assert(EllesmereUIFrame.points[1][4] == 1600, "Offhand must yield to a later Ellesmere placement")
+assert(EUIConfirmPopup.points[1][1] == "CENTER", "hidden modal must recover its original anchor")
+
+EllesmereUIFrame = ellesmereWindow(830, 3170, 2130, 430)
+span.isSpanned = true
+addon.PopupBounds:RefreshEllesmereWindows()
+span.isSpanned = false
+addon.PopupBounds:RefreshEllesmereWindows()
+assert(EllesmereUIFrame.points[1][1] == "CENTER" and EllesmereUIFrame:GetScale() == 1,
+    "span restore must release an unchanged settings anchor and temporary scale")
+
+UIParent.GetWidth = function() return 4000 end
+UIParent.GetHeight = function() return 2560 end
+local toolbar = ellesmereWindow(1428, 2572, 2560, 2440)
+local hoverZone = {}
+EllesmereUnlockMode = {
+    IsVisible = function(self) return self.visible end,
+    GetChildren = function() return hoverZone, toolbar end,
+    visible = true,
+}
+function hoverZone:GetParent() return EllesmereUnlockMode end
+toolbar.GetParent = hoverZone.GetParent
+toolbar._hoverZone = hoverZone
+EllesmereUI.GetUnlockModeTopBarAnchor = function() return hoverZone end
+toolbar:ClearAllPoints()
+toolbar:SetPoint("TOP", UIParent, "TOP", 0, 20)
+span.isSpanned = true
+addon.PopupBounds:RefreshEllesmereWindows()
+assert(toolbar.points[1][5] == 20, "Unlock Mode's native entrance animation must settle first")
+toolbar:ClearAllPoints()
+toolbar:SetPoint("TOP", UIParent, "TOP", 0, 0)
+addon.PopupBounds:RefreshEllesmereWindows()
+assert(toolbar.points[1][4] == -1280 and toolbar.points[1][5] == 0 and toolbar:GetScale() == 1,
+    "the toolbar must fit the portrait display while preserving the physical hover edge")
+EllesmereUnlockMode.visible = false
+toolbar.shown = false
+addon.PopupBounds:RefreshEllesmereWindows()
+assert(toolbar.points[1][4] == 0, "the Unlock Mode anchor must return to EllesmereUI on close")
+print("PASS: Forever Ellesmere windows and Unlock Mode toolbar fit physical display bounds")
