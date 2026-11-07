@@ -3831,6 +3831,10 @@ namespace Offhand.Companion
                 RetailGraphicsRecoveryEnabled ? ClassicGraphicsRecovery.ClientScope.Retail : ClassicGraphicsRecovery.ClientScope.Classic;
         } }
         internal const string FullVersion = BaseVersion + " " + ReleaseLabel;
+        internal const string LayoutApplyInstruction =
+            "After changing Mainhand or layout, click Span WoW Now, then type /reload in WoW.";
+        internal const string ReloadLayoutInstruction =
+            "Return to WoW and type /reload once to load the selected Mainhand and workspace layout.";
 
         // Warcraft Dark Interface Palette (Black / Dark Grey / Burnished Gold)
         private readonly Color cBg = Color.FromArgb(12, 12, 14);                // Obsidian black canvas (#0c0c0e)
@@ -4166,7 +4170,7 @@ namespace Offhand.Companion
                 RefreshDisplayControls(ReadDisplays(),true);
                 chkAutoSpan.Checked=appSettings.ContainsKey("AutoSpan")&&appSettings["AutoSpan"]=="True";
                 UpdatePartialControls();RefreshSelectedColorStatus();
-                AddLog("Workspace profiles saved. Click Span WoW Now to apply the selected display plan, then reload the addon for its matching panel layout.");
+                AddLog("Workspace profiles saved. Click Span WoW Now to apply the selected display plan, then type /reload in WoW.");
             } catch(Exception ex) {AddLog("Workspace profiles were not saved: "+ex.Message);MessageBox.Show(this,ex.Message,"Workspace profiles",MessageBoxButtons.OK,MessageBoxIcon.Information);}
             finally {ResumeUiPolling();}
         }
@@ -5101,7 +5105,8 @@ namespace Offhand.Companion
             uiToolTips.SetToolTip(clbMonitors,
                 "Select exactly two displays for normal use. If a saved display is disconnected, Offhand refuses to span rather than shrinking the UI onto the remaining screen.");
             uiToolTips.SetToolTip(cmbMainhand,
-                "The display that contains the 3D game view and Blizzard combat UI. The other selected display becomes the Offhand workspace.");
+                "The display that contains the 3D game view and Blizzard combat UI. The other selected display becomes the Offhand workspace.\r\n\r\n"
+                + LayoutApplyInstruction);
             uiToolTips.SetToolTip(chkSingleSplit,
                 "For one 32:9 or 32:10 super-ultrawide only: divide that display into a game half and workspace half. Leave disabled for ordinary single-monitor use.");
             uiToolTips.SetToolTip(cmbSingleSide,
@@ -6114,7 +6119,7 @@ namespace Offhand.Companion
                 ? "Offhand addon: Installed" + release : "Offhand addon: Needs attention";
             lblAddonStatus.ForeColor = status.Installed ? cGreen : cYellow;
             lblAddonReason.Text = status.Installed
-                ? "Confirm Offhand is enabled in WoW. Use /reload after applying a layout."
+                ? "Confirm Offhand is enabled in WoW. " + LayoutApplyInstruction
                 : status.SetupHint;
         }
 
@@ -6855,16 +6860,15 @@ namespace Offhand.Companion
                 };
                 evidenceTimer.Start();
 #endif
-                if (remote) AddLog(string.Format("Remote Desktop span applied at {0}x{1}. Use /reload once in WoW. Keep Companion open for Restore Window.", bounds.Width, bounds.Height));
+                if (remote) AddLog(string.Format("Remote Desktop span applied at {0}x{1}. {2} Keep Companion open for Restore Window.", bounds.Width, bounds.Height, ReloadLayoutInstruction));
                 else AddLog(GraphicsRecoveryTestBuild
                     ? string.Format(RecoveryScope + " span request applied at {0}x{1}; stable-window verification remains separate.", bounds.Width, bounds.Height)
-                    : string.Format("Spanned {0}x{1}. The span remains if you exit the Companion. If the character UI was already loaded, use /reload once, then run /offhand wizard.", bounds.Width, bounds.Height));
+                    : string.Format("Spanned {0}x{1}. {2} For first-time setup, run /offhand guide after reloading.", bounds.Width, bounds.Height, ReloadLayoutInstruction));
                 if (plan.IsCustom)
-                    AddLog("Custom region applied. In Offhand Window Setup choose Use Companion, then /reload if needed. Automatic graphics-reset recovery is disabled for this prototype; use Span WoW Now after a graphics reset.");
-                trayIcon.ShowBalloonTip(4000, GraphicsRecoveryTestBuild ? RecoveryScope + " span requested" : "Offhand Spanned",
+                    AddLog("Custom region applied. In Offhand Window Setup choose Use Companion, then type /reload in WoW. Automatic graphics-reset recovery is disabled for this prototype; use Span WoW Now after a graphics reset.");
+                trayIcon.ShowBalloonTip(6000, GraphicsRecoveryTestBuild ? RecoveryScope + " span requested" : "Span applied: type /reload in WoW",
                     GraphicsRecoveryTestBuild ? "Wait for stable-span confirmation in the activity log before the VSync test."
-                    : remote ? "Use /reload once in WoW. Keep Companion open to manage the Remote Desktop span."
-                    : "Exact geometry saved. You may now exit the Companion, or leave it running for monitoring and recovery.", ToolTipIcon.Info);
+                    : ReloadLayoutInstruction + (remote ? " Keep Companion open for Restore Window." : ""), ToolTipIcon.Info);
                 rollback.Commit();
                 if (remote)
                     remoteSpan = new RemoteSpan { ProcessId = proc.Id, Handle = handle, Displays = displays, Topology = rollback.Topology };
