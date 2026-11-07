@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Offhand 2.1.3 Store update preparation
+
+- Use the clean `2.1.3` product/add-on identity, without a beta or tester suffix.
+  Companion file/manifest version is `2.1.3.9`. All six add-on manifests name
+  the same Companion; Store remains the recommended distribution channel.
+- Prepare Store package `2.1.300.0` with the existing package name and publisher,
+  above the locally installed `2.1.20.0`. Store certification, actual update
+  installation and publication remain pending.
+- Supersede the prepared Beta 7 review samples with exact new hashes. No earlier
+  local scan or Microsoft determination is transferred to the new files.
+
 ### Offhand 2.1.3 Beta 7 candidate
 
 - Give Companion and the matching workspace add-on the same clean

@@ -12,9 +12,9 @@
   [![Portable, Linux, and manual options](https://img.shields.io/badge/Companion-Portable_%26_manual_options-181717?style=for-the-badge&logo=github)](https://offhand-wow.onrender.com/companion.html)
 </div>
 
-This candidate checkout pairs **Offhand Companion 2.1.3 Beta 7** with the
-**Offhand add-on 2.1.3 Beta 7**, including Flexible Layout. Use the matched
-candidate bundle described in [the Beta 7 guide](docs/COMPANION-2.1.3-BETA7-CANDIDATE.md).
+This candidate checkout pairs **Offhand Companion 2.1.3** with the
+**Offhand add-on 2.1.3**, including Flexible Layout. Use the matched
+candidate bundle described in [the Store update guide](docs/COMPANION-2.1.3-STORE-PREPARATION.md).
 It is prepared for testing and Microsoft file-review submission; it has not been
 published as an official release or submitted to Microsoft. Existing public
 download links below continue to identify the previously published downloads.

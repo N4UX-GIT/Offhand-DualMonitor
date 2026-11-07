@@ -23,13 +23,13 @@ $binary = Join-Path $output 'Offhand.exe'
 & $compiler /nologo /target:winexe /optimize+ /platform:anycpu "/out:$binary" "/win32icon:$root\Media\offhand-logo.ico" "/win32manifest:$appManifest" "/resource:$root\Media\offhand-logo-small.png,Offhand.Companion.Resources.offhand-logo.png" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll $source (Join-Path (Split-Path -Parent $source) LayoutDocument.cs) (Join-Path (Split-Path -Parent $source) WorkspaceLayoutService.cs) (Join-Path (Split-Path -Parent $source) FlexibleWorkspaceEditor.cs)
 if ($LASTEXITCODE -ne 0) { throw 'Candidate compilation failed.' }
 $identity = [Diagnostics.FileVersionInfo]::GetVersionInfo($binary)
-if ($identity.FileVersion -ne '2.1.3.8' -or $identity.ProductVersion -ne '2.1.3-beta.7') {
+if ($identity.FileVersion -ne '2.1.3.9' -or $identity.ProductVersion -ne '2.1.3') {
     throw 'Candidate executable version does not match the planned release.'
 }
-$archive = Join-Path $output 'Offhand-Companion-v2.1.3-beta.7.zip'
-& (Join-Path $PSScriptRoot 'New-CompanionTestPackage.ps1') -BinaryPath $binary -OutputPath $archive -Version '2.1.3-beta.7' | Out-Null
+$archive = Join-Path $output 'Offhand-Companion-v2.1.3.zip'
+& (Join-Path $PSScriptRoot 'New-CompanionTestPackage.ps1') -BinaryPath $binary -OutputPath $archive -Version '2.1.3' | Out-Null
 $readme = @'
-Offhand Companion 2.1.3 Beta 7: local release candidate, live QA pending.
+Offhand Companion 2.1.3: local release candidate, live QA pending.
 
 Exit any other Companion through its tray menu before testing this build.
 This ordinary runtime uses your existing Companion preferences. Preserve your
@@ -138,7 +138,7 @@ if ((Get-FileHash -LiteralPath $publicBinary).Hash -ne $publicHash -or
     (Get-FileHash -LiteralPath $publicArchive).Hash -ne $publicArchiveHash) { throw 'Canonical public artifacts changed.' }
 $dirty = @(& git -C $root status --porcelain --untracked-files=no)
 $record = [ordered]@{
-    version='2.1.3-beta.7'; fileVersion=$identity.FileVersion
+    version='2.1.3'; fileVersion=$identity.FileVersion
     sourceRevision=(& git -C $root rev-parse HEAD).Trim(); trackedChanges=[bool]$dirty.Count
     programSha256=(Get-FileHash -LiteralPath $source).Hash
     interactionAuditSha256=(Get-FileHash -LiteralPath $interactionAudit).Hash

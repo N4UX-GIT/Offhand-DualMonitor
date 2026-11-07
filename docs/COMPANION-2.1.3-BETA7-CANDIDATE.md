@@ -1,5 +1,9 @@
 # Offhand 2.1.3 Beta 7 candidate
 
+Historical preparation, superseded by the clean
+[2.1.3 Store update candidate](COMPANION-2.1.3-STORE-PREPARATION.md). The Beta 7
+samples were not submitted to Microsoft and should not be used for the new review.
+
 Prepared 2026-11-07. Companion and add-on now use the same clean version name:
 
 | Component | Display/release version | Additional identity |

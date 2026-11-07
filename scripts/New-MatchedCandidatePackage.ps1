@@ -13,8 +13,8 @@ $revision=(& git -C $root rev-parse HEAD).Trim()
 $receipt=Get-Content (Join-Path $native candidate.json) -Raw|ConvertFrom-Json
 if($receipt.trackedChanges -or $receipt.sourceRevision -ne $revision -or -not $receipt.customRegionsPrototype){throw 'Candidate provenance mismatch.'}
 $version=$receipt.version
-if($version -notmatch '^(\d+\.\d+\.\d+)-(beta\.\d+)$'){throw 'Expected a versioned beta candidate.'}
-$core=$matches[1];$release=$matches[2]
+if($version -notmatch '^(\d+\.\d+\.\d+)(?:-(beta\.\d+))?$'){throw 'Expected a release or beta version.'}
+$core=$matches[1];$release=if($matches.ContainsKey(2)){$matches[2]}else{''}
 $runtime='Offhand-Companion-v'+$version+'.zip'
 if((Get-FileHash (Join-Path $native Offhand.exe)).Hash -ne $receipt.binarySha256 -or
     (Get-FileHash (Join-Path $native $runtime)).Hash -ne $receipt.archiveSha256){throw 'Candidate artifact drift.'}
@@ -34,7 +34,7 @@ $files=@(foreach($path in $paths|Sort-Object){
     if($path -like '*.toc'){
         $text=[IO.File]::ReadAllText($source)
         foreach($field in @{'Version'=$core;'X-Offhand-Release'=$release;'X-Offhand-Addon-Release'=$release;'X-Offhand-Companion-Version'=$core;'X-Offhand-Companion-Release'=$release}.GetEnumerator()){
-            if($text -notmatch ('(?m)^## '+[regex]::Escape($field.Key)+': '+[regex]::Escape($field.Value)+'\r?$')){throw ('Unmatched addon metadata: '+$path+' '+$field.Key)}
+            if($text -notmatch ('(?m)^## '+[regex]::Escape($field.Key)+':[ \t]*'+[regex]::Escape($field.Value)+'[ \t]*\r?$')){throw ('Unmatched addon metadata: '+$path+' '+$field.Key)}
         }
         if($text -match 'X-Offhand-Candidate:|\[Workspace Test'){throw 'Historical tester label in clean candidate.'}
     }

@@ -62,8 +62,8 @@ using System.Windows.Forms;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.3.8")]
-[assembly: AssemblyInformationalVersion("2.1.3-beta.7")]
+[assembly: AssemblyFileVersion("2.1.3.9")]
+[assembly: AssemblyInformationalVersion("2.1.3")]
 #endif
 
 namespace Offhand.Companion
@@ -3801,7 +3801,7 @@ namespace Offhand.Companion
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
 #else
-        internal const string ReleaseLabel = "Beta 7";
+        internal const string ReleaseLabel = "";
         internal static readonly bool GraphicsRecoveryEnabled = true;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
@@ -3830,7 +3830,7 @@ namespace Offhand.Companion
             return ForeverGraphicsRecoveryEnabled ? ClassicGraphicsRecovery.ClientScope.Forever :
                 RetailGraphicsRecoveryEnabled ? ClassicGraphicsRecovery.ClientScope.Retail : ClassicGraphicsRecovery.ClientScope.Classic;
         } }
-        internal const string FullVersion = BaseVersion + " " + ReleaseLabel;
+        internal const string FullVersion = ReleaseLabel == "" ? BaseVersion : BaseVersion + " " + ReleaseLabel;
         internal const string LayoutApplyInstruction =
             "After changing Mainhand or layout, click Span WoW Now, then type /reload in WoW.";
         internal const string ReloadLayoutInstruction =

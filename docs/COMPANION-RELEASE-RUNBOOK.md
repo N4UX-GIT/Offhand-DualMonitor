@@ -361,19 +361,23 @@ Replace the example version in every command with the recorded release version.
 Skip this section for addon-only releases. Package the exact reviewed Companion
 artifact when the application itself is intentionally updated.
 
-Use the Store-assigned identity already encoded in the builder. Example:
+Use the Store-assigned identity already encoded in the builder. The current
+prepared 2.1.3 update is described in
+[the Store update guide](COMPANION-2.1.3-STORE-PREPARATION.md). Example:
 
 ```powershell
+$candidate = Get-Content .\dist\companion-2.1.3-native\candidate.json -Raw | ConvertFrom-Json
 .\Companion\Store\Build-StorePackage.ps1 `
-  -PackageVersion 2.1.20.0 `
-  -CompanionPath .\Companion\Offhand.exe `
-  -ExpectedCompanionSha256 81EECE9430885CEAC178A44A42429854524279072305F9F94EE62E7CCD620CCB
+  -PackageVersion 2.1.300.0 `
+  -CompanionPath .\dist\companion-2.1.3-native\Offhand.exe `
+  -ExpectedCompanionSha256 $candidate.binarySha256
 ```
 
-The Store `2.1.19.0` submission embeds the earlier reviewed `658B633...`
-executable. Let that certification complete. Use `2.1.20.0` or another unused
-higher version for the topology-repair executable; never replace the package in
-an active certification submission.
+The earlier Store `2.1.19.0` submission and Beta 20 `2.1.20.0` preparation are
+historical. The local installed package was observed as `2.1.20.0` on
+2026-11-07. The new `2.1.300.0` retains its identity and sorts higher. Confirm
+Partner Center's current published/in-flight versions before upload; never
+replace an active certification submission without reviewing its state.
 
 - [ ] Use a Store version higher than the currently published x64 package.
 - [ ] Confirm the package name is `N4UX.OffhandCompanion`.
