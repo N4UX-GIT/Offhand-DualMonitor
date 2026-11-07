@@ -11,7 +11,9 @@ $allowed=@(
  'user32.dll!SetWindowRgn','user32.dll!GetWindowRgn','user32.dll!GetClientRect','user32.dll!IsHungAppWindow',
  'gdi32.dll!GetRgnBox','gdi32.dll!CreateRectRgn','gdi32.dll!CombineRgn','gdi32.dll!DeleteObject',
  'user32.dll!GetWindowRect','user32.dll!GetSystemMetrics','user32.dll!EnumDisplayDevices',
- 'user32.dll!SetThreadDpiAwarenessContext'
+ 'user32.dll!SetThreadDpiAwarenessContext',
+ 'wtsapi32.dll!WTSQuerySessionInformationW','wtsapi32.dll!WTSFreeMemory',
+ 'wtsapi32.dll!WTSRegisterSessionNotification','wtsapi32.dll!WTSUnRegisterSessionNotification'
 )
 $pattern='\[DllImport\("(?<dll>[^"]+)"(?<args>[^\]]*)\)\]\s*(?:\[return:[^\]]+\]\s*)*(?:public|private|internal)\s+static\s+extern\s+\S+\s+(?<name>\w+)\s*\('
 $denied='\b(ReadProcessMemory|WriteProcessMemory|VirtualAllocEx|CreateRemoteThread|NtReadVirtualMemory|NtWriteVirtualMemory|SetWindowsHookEx|SendInput|SendMessage|PostMessage|SendKeys|keybd_event|mouse_event|GetProcAddress|LoadLibrary|PROCESS_ALL_ACCESS|PROCESS_VM_READ|PROCESS_VM_WRITE)\b'

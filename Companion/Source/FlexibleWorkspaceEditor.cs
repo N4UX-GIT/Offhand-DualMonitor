@@ -42,7 +42,9 @@ namespace Offhand.Companion
         internal readonly NumericUpDown[,] Areas=new NumericUpDown[3,4];
         internal readonly Button SavePlan=new Button{Text="Save plan",AutoSize=true};
         internal readonly WorkspacePlanPreview Diagram=new WorkspacePlanPreview{Dock=DockStyle.Top,Height=160};
-        private readonly Label status=new Label{Dock=DockStyle.Fill,AutoSize=true,MaximumSize=new Size(660,0),AccessibleName="Flexible layout status"};
+        private readonly Label status = new Label();
+        private readonly Label review;
+        private readonly List<Control> areaControls = new List<Control>();
         private readonly List<MonitorSelection.Display> displays;
         private readonly Dictionary<string,string> original;
         private readonly Control[] secondControls=new Control[5];
@@ -55,39 +57,58 @@ namespace Offhand.Companion
         {
             if(connected==null||connected.Count==0)throw new InvalidOperationException("No connected display is available.");
             displays=connected;original=new Dictionary<string,string>(current);
-            Text="Flexible workspace layout (prototype)";ClientSize=new Size(740,650);
-            MinimumSize=new Size(540,420);StartPosition=FormStartPosition.CenterParent;AutoScaleMode=AutoScaleMode.Dpi;
-            var scroll=new Panel{Dock=DockStyle.Fill,AutoScroll=true,Padding=new Padding(16)};
-            var table=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,ColumnCount=5};
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,32));for(int i=0;i<4;i++)table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,17));
-            Action<Control> wide=control=>{table.Controls.Add(control,0,table.RowCount++);table.SetColumnSpan(control,5);};
-            wide(new Label{Text="One display can contain the game and one or two separate workspace areas. The prototype uses numeric rectangles and presets. Save changes settings only; Span WoW Now and one manual UI reload apply them.",AutoSize=true,Dock=DockStyle.Fill,Margin=new Padding(0,0,0,12)});
-            wide(UseLayout);wide(DisplaySelector);
-            var presets=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,WrapContents=true};
-            foreach(string preset in new[]{"centered","stacked","single"}) {
-                string value=preset;var button=new Button{Text=preset=="centered"?"Game between two workspaces":preset=="stacked"?"Two stacked workspaces":"One side workspace",AutoSize=true};
-                button.Click+=(s,e)=>LoadPreset(value);presets.Controls.Add(button);
+            var layout = new WorkspaceEditorLayout(this, WorkspaceEditorLayout.Flexible, new Size(740, 710), new Size(550, 310), 32, 17, 17, 17, 17);
+            var table = layout.Table;
+            layout.Heading("1. Choose a monitor");
+            layout.Guide("Place the game and one or two workspaces on one monitor. " + WorkspaceEditorLayout.FlexibleAddon);
+            layout.ExplainReplacement(current, WorkspaceEditorLayout.Flexible);
+            layout.AddWide(UseLayout);
+            DisplaySelector.AccessibleName = "Monitor";
+            DisplaySelector.Margin = new Padding(0, 4, 0, 4);
+            layout.AddWide(DisplaySelector);
+
+            int firstAreaRow = table.RowCount;
+            layout.Heading("2. Set the areas");
+            layout.Guide("Start with a preset or edit the rectangles below. X and Y are pixel offsets from the monitor's top-left corner.");
+            var presets = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = true, Margin = new Padding(0, 0, 0, 8) };
+            foreach (string preset in new[] { "centered", "stacked", "single" })
+            {
+                string value = preset;
+                var button = new Button { Text = preset == "centered" ? "Game between two workspaces"
+                    : preset == "stacked" ? "Two stacked workspaces" : "One side workspace", AutoSize = true };
+                button.Click += (s,e) => LoadPreset(value);
+                presets.Controls.Add(button);
             }
-            wide(presets);wide(Second);
-            int header=table.RowCount++;
-            string[] headings={"Area","X","Y","Width","Height"};
-            for(int c=0;c<5;c++)table.Controls.Add(new Label{Text=headings[c],AutoSize=true,Dock=DockStyle.Fill},c,header);
-            for(int row=0;row<3;row++) {
-                int tableRow=table.RowCount++;string label=row==0?"Game":row==1?"Workspace A":"Workspace B";
-                var text=new Label{Text=label,AutoSize=true,Dock=DockStyle.Fill,Padding=new Padding(0,5,0,0)};table.Controls.Add(text,0,tableRow);
-                if(row==2)secondControls[0]=text;
-                for(int c=0;c<4;c++) {
-                    var field=new NumericUpDown{Minimum=0,Maximum=32768,Dock=DockStyle.Fill,AccessibleName=label+" "+headings[c+1],ThousandsSeparator=true};
-                    Areas[row,c]=field;table.Controls.Add(field,c+1,tableRow);field.ValueChanged+=(s,e)=>UpdatePreview();
-                    if(row==2)secondControls[c+1]=field;
+            layout.AddWide(presets);
+            layout.AddWide(Second);
+
+            int header = table.RowCount++;
+            string[] headings = { "Area", "X (px)", "Y (px)", "Width (px)", "Height (px)" };
+            for (int column = 0; column < headings.Length; column++)
+                table.Controls.Add(new Label { Text = headings[column], AutoSize = true, Dock = DockStyle.Fill }, column, header);
+            for (int row = 0; row < 3; row++)
+            {
+                int tableRow = table.RowCount++;
+                string label = row == 0 ? "Game" : row == 1 ? "Workspace A" : "Workspace B";
+                var area = new Label { Text = label, AutoSize = true, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft };
+                table.Controls.Add(area, 0, tableRow);
+                if (row == 2) secondControls[0] = area;
+                for (int column = 0; column < 4; column++)
+                {
+                    var field = new NumericUpDown { Minimum = 0, Maximum = 32768, Dock = DockStyle.Fill,
+                        AccessibleName = label + " " + headings[column + 1], ThousandsSeparator = true, Margin = new Padding(3, 4, 3, 4) };
+                    Areas[row,column] = field;
+                    table.Controls.Add(field, column + 1, tableRow);
+                    field.ValueChanged += (s,e) => UpdatePreview();
+                    if (row == 2) secondControls[column + 1] = field;
                 }
             }
-            wide(Diagram);wide(status);scroll.Controls.Add(table);
-            var footer=new FlowLayoutPanel{Dock=DockStyle.Bottom,Height=56,FlowDirection=FlowDirection.RightToLeft,Padding=new Padding(8)};
-            var cancel=new Button{Text="Cancel",DialogResult=DialogResult.Cancel,AutoSize=true};
-            footer.Controls.Add(cancel);footer.Controls.Add(SavePlan);Controls.Add(scroll);Controls.Add(footer);
-            CancelButton=cancel;AcceptButton=SavePlan;
-            for(int i=0;i<displays.Count;i++)DisplaySelector.Items.Add(string.Format("Display {0}: {1} x {2}{3}",i+1,displays[i].Bounds.Width,displays[i].Bounds.Height,displays[i].Primary?" (Primary)":""));
+            foreach (Control control in table.Controls)
+                if (table.GetRow(control) >= firstAreaRow) areaControls.Add(control);
+            review = layout.Heading("3. Review the layout");
+            layout.AddWide(Diagram);
+            for (int i = 0; i < displays.Count; i++)
+                DisplaySelector.Items.Add(CompanionUi.DisplayName(displays[i], i));
             layoutId=Guid.NewGuid().ToString("N");layoutName="Flexible layout";
             updating=true;DisplaySelector.SelectedIndex=0;for(int i=0;i<displays.Count;i++)if(displays[i].Primary){DisplaySelector.SelectedIndex=i;break;}
             UseLayout.Checked=WorkspaceLayoutSettings.Enabled(current);updating=false;
@@ -103,18 +124,23 @@ namespace Offhand.Companion
                 LoadDocument(document);
             } else LoadPreset("centered");
             DisplaySelector.SelectedIndexChanged+=(s,e)=>{if(!updating)LoadPreset("centered");};
-            UseLayout.CheckedChanged+=(s,e)=>UpdatePreview();Second.CheckedChanged+=(s,e)=>UpdatePreview();
+            UseLayout.CheckedChanged += (s,e) =>
+            {
+                UpdatePreview();
+                layout.FitContent(true);
+            };
+            Second.CheckedChanged += (s,e) => UpdatePreview();
             SavePlan.Click+=(s,e)=>{
                 try {Settings=Proposed();DialogResult=DialogResult.OK;Close();}
-                catch(InvalidOperationException ex){status.Text=ex.Message;status.ForeColor=CompanionUi.Warning;}
+                catch (InvalidOperationException ex)
+                {
+                    WorkspaceEditorLayout.UpdateStatus(SavePlan, status, Diagram, null, WorkspaceEditorLayout.InvalidPlan + ex.Message, false);
+                }
             };
-            CompanionUi.Apply(this);UpdatePreview();
+            layout.Finish(SavePlan, status, fitHeight: true);
+            UpdatePreview();
         }
-        protected override void OnShown(EventArgs e)
-        {
-            var work=Screen.FromControl(this).WorkingArea;Size=new Size(Math.Min(Width,work.Width),Math.Min(Height,work.Height));
-            Location=new Point(Math.Max(work.Left,Math.Min(Left,work.Right-Width)),Math.Max(work.Top,Math.Min(Top,work.Bottom-Height)));base.OnShown(e);
-        }
+
         private void LoadPreset(string preset)
         {
             if(updating||DisplaySelector.SelectedIndex<0)return;
@@ -152,17 +178,32 @@ namespace Offhand.Companion
         }
         private void UpdatePreview()
         {
-            if(updating)return;
-            SavePlan.Enabled=false;Diagram.Plan=null;Diagram.Displays=displays;
-            foreach(var control in secondControls)if(control!=null)control.Visible=Second.Checked;
-            try {
-                var proposed=Proposed();
-                if(!UseLayout.Checked){status.Text="Flexible mode is disabled. Save restores the previous layout settings. Span WoW Now applies them; Restore Window remains available.";SavePlan.Enabled=true;status.ForeColor=CompanionUi.Text;Diagram.Invalidate();return;}
-                var plan=MonitorSelection.CreatePlan(proposed,displays);Diagram.Plan=plan;
-                status.Text=string.Format("Ready: game {0} x {1}, {2} workspaces. Backing surface {3} x {4}. Save plan does not resize WoW. Apply manually and reload once. This requires the matching schema 3 addon.",plan.MainhandBounds.Width,plan.MainhandBounds.Height,plan.Workspaces.Length,plan.Bounds.Width,plan.Bounds.Height);
-                status.ForeColor=CompanionUi.Text;SavePlan.Enabled=true;
-            } catch(InvalidOperationException ex){status.Text="Check your layout: "+ex.Message;status.ForeColor=CompanionUi.Warning;}
-            Diagram.Invalidate();
+            if (updating) return;
+            bool enabled = UseLayout.Checked;
+            DisplaySelector.Visible = enabled;
+            foreach (var control in areaControls) control.Visible = enabled;
+            foreach (var control in secondControls) control.Visible = enabled && Second.Checked;
+            Diagram.Displays = displays;
+            try
+            {
+                var proposed = Proposed();
+                if (!enabled)
+                {
+                    string text = WorkspaceLayoutSettings.Enabled(original)
+                        ? "Flexible layout is off. Saving restores your previous layout settings."
+                        : "Check Enable flexible layout prototype to start editing.";
+                    WorkspaceEditorLayout.UpdateStatus(SavePlan, status, Diagram, null, text, WorkspaceLayoutSettings.Enabled(original));
+                    return;
+                }
+                var plan = MonitorSelection.CreatePlan(proposed, displays);
+                string summary = plan.Workspaces.Length == 1 ? "One workspace is ready." : "Two workspaces are ready.";
+                WorkspaceEditorLayout.UpdateStatus(SavePlan, status, Diagram, plan, summary, true);
+            }
+            catch (InvalidOperationException ex)
+            {
+                WorkspaceEditorLayout.UpdateStatus(SavePlan, status, Diagram, null, WorkspaceEditorLayout.InvalidPlan + ex.Message, false);
+            }
+            finally { review.Visible = Diagram.Plan != null; }
         }
     }
 }

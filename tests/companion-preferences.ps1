@@ -83,16 +83,8 @@ try {
         $source -notmatch 'AutoScroll = true') {
         throw 'Companion must scale its 96-DPI dashboard geometry linearly and remain scrollable at enlarged display scales.'
     }
-    $displayInfo = [regex]::Match($source, 'lblDisplayInfo = new Label(?s:.*?)Location = new Point\(10, (?<y>\d+)\)(?s:.*?)Size = new Size\(470, (?<h>\d+)\)(?s:.*?)AutoSize = false')
-    $addonReason = [regex]::Match($source, 'lblAddonReason = new Label(?s:.*?)Location = new Point\(10, (?<y>\d+)\)')
-    if (-not $displayInfo.Success -or -not $addonReason.Success -or
-        [int]$displayInfo.Groups['h'].Value -lt 54 -or
-        ([int]$displayInfo.Groups['y'].Value + [int]$displayInfo.Groups['h'].Value) -gt [int]$addonReason.Groups['y'].Value) {
-        throw 'Companion display-plan status must wrap at least three lines without overlapping addon diagnostics.'
-    }
-    if ($source -notmatch 'lblAddonReason = new Label(?s:.*?)Size = new Size\(470, 42\)(?s:.*?)AutoSize = false' -or
-        $source -notmatch 'AddLog\("Addon verification: " \+ status\.Reason\)') {
-        throw 'Companion must show and log the complete client-specific addon verification diagnostic.'
+    if ($source -notmatch 'AddLog\("Addon verification: " \+ status\.Reason\)') {
+        throw 'The Activity Log must retain the complete client-specific addon verification diagnostic.'
     }
     if ($source -notmatch 'TableLayoutPanel configLayout' -or
         $source -notmatch 'FlowLayoutPanel configLeft' -or
@@ -219,7 +211,7 @@ try {
     Write-Output 'PASS: Companion avoids startup persistence and process-token inspection'
     Write-Output 'PASS: single-instance guard prevents duplicate Companion tray processes'
     Write-Output 'PASS: DPI-scaled dashboard geometry keeps wrapped status and configuration controls separate'
-    Write-Output 'PASS: addon verification paths are visible and copied into the activity log'
+    Write-Output 'PASS: detailed addon verification remains available in the activity log'
     Write-Output 'PASS: hotkeyless display identification and multi-monitor selection remain separated at enlarged DPI'
     Write-Output 'PASS: Linux compatibility documentation is included by the release packager'
     Write-Output 'PASS: addon-only releases attach the frozen Beta 20 Companion assets by exact hash'

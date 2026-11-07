@@ -52,7 +52,7 @@ Forever graphics recovery remains outside this production candidate's scope.
 if ($CustomRegionsPrototype) {
     $readme = $readme.Replace('local release candidate, live QA pending.', 'CUSTOM WORKSPACE REGIONS PROTOTYPE, unpublished.')
     $readme = $readme.Replace('Custom regions are not included.', @'
-Custom region opens a layout chooser showing the currently saved mode.
+Workspace layout opens a chooser showing the currently saved mode.
 Choose one monitor or two monitors to open the corresponding editor. The saved
 custom mode is the default keyboard choice. Cancel leaves the plan unchanged.
 Save plan changes settings only; Span WoW Now applies it. For one monitor, set occupied width,
@@ -65,13 +65,15 @@ workspace on a second monitor. Move or resize its overlay, or enter its offsets
 and dimensions. Unused secondary pixels and physical gaps are clipped. The
 preview reports the backing surface, which can include clipped pixels.
 Custom regions are manual-only; graphics-reset recovery is not armed for them.
-Use Restore Window to return to the ordinary window. Disable the custom mode's
-checkbox in its editor to return to the existing two-display or equal-half modes.
+Use Restore Window to return to the ordinary window. Open Workspace layout and
+choose Use standard display layout to turn off all custom modes. Review the
+suggested screens and confirm. Named workspace profiles stay saved.
 Narrow panels may not fit or remain readable; use Mainhand for those panels.
 Flexible layout prototype adds an explicit single-display editor with centered,
 stacked and one-side presets plus numeric rectangles. Enable its checkbox, review
 the preview and Save plan. Span WoW Now and a manual /reload apply the layout.
-The new topology schema 3 requires the matching addon. Schema 1/2 behavior stays
+Use the Offhand addon paired with this Companion build for Flexible Layout.
+Its addon manifests declare topology schema 3. Schema 1/2 behavior stays
 available. Flexible plans use a version 2 profile store copied from version 1;
 the original version 1 store is retained. Disable flexible mode and save to
 restore the prior geometry settings before using an older Companion. Restore

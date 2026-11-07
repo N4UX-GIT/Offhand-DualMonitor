@@ -216,6 +216,43 @@ namespace Offhand.Companion
             invalidDocument[WorkspaceLayoutSettings.DocumentKey]="{\"version\":99}";
             Reject(()=>MonitorSelection.UpgradeIdentitySettings(invalidDocument,displays),"layout");
             Check(invalidDocument[WorkspaceLayoutSettings.DocumentKey]=="{\"version\":99}","Future document bytes retained");
+
+            int[] selected;
+            var standard = CustomRegionPreferences.StandardLayout(invalidDocument, displays, out selected);
+            var standardPlan = MonitorSelection.CreatePlan(standard, displays);
+            Check(!standardPlan.IsCustom && standardPlan.MainhandIndex == 0 && standardPlan.WorkspaceBounds == displays[1].Bounds,
+                "Reset restores full displays even when the flexible document cannot be read");
+            Check(standard[WorkspacePlanProfiles.Key] == custom[WorkspacePlanProfiles.Key] &&
+                standard[WorkspaceLayoutSettings.DocumentKey] == invalidDocument[WorkspaceLayoutSettings.DocumentKey] &&
+                !standard.ContainsKey("WorkspaceProfileID") && standard["unrelated-preference"] == "keep",
+                "Reset must preserve profiles and unrelated settings while clearing the active profile");
+            Check(standard["AutoSpan"] == "False" && WorkspaceLayoutSettings.Enabled(invalidDocument),
+                "Reset must keep automatic spanning off and leave its input unchanged");
+
+            displays.Add(new MonitorSelection.Display { DeviceName = "DISPLAY3", StableId = "INTERFACE-C",
+                Bounds = new Rectangle(2560, 0, 1920, 1080) });
+            var multiple = new Dictionary<string,string>(migrated);
+            multiple["WorkspaceRegionCount"] = "2";
+            multiple["WorkspacePrimary"] = "b";
+            multiple["MonitorIdentities"] += "|INTERFACE-C";
+            foreach (string suffix in new[] { "X", "Y", "Width", "Height" })
+                multiple["WorkspaceRegion2" + suffix] = multiple["WorkspaceRegion1" + suffix];
+            multiple["WorkspaceRegion2Id"] = "b";
+            multiple["WorkspaceRegion2Identity"] = "INTERFACE-C";
+            multiple["WorkspaceRegion2MonitorWidth"] = "1920";
+            multiple["WorkspaceRegion2MonitorHeight"] = "1080";
+            standard = CustomRegionPreferences.StandardLayout(multiple, displays, out selected);
+            Check(selected.Length == 2 && selected[0] == 0 && selected[1] == 2 &&
+                MonitorSelection.CreatePlan(standard, displays).WorkspaceIndex == 2,
+                "Reset from three monitors preserves Mainhand and the default workspace");
+            displays.RemoveAt(2);
+            standard = CustomRegionPreferences.StandardLayout(multiple, displays, out selected);
+            Check(selected.Length == 2 && selected[1] == 1, "Reset should use the remaining selected workspace when the default is unplugged");
+            displays.RemoveAt(1);
+            standard = CustomRegionPreferences.StandardLayout(multiple, displays, out selected);
+            Check(selected.Length == 1 && standard["MonitorIdentities"] == "INTERFACE-A" &&
+                standard["SingleDisplaySplit"] == "False" && !MonitorSelection.MultiEnabled(standard),
+                "Reset with one display must leave the ordinary window and keep split off");
         }
     }
 }

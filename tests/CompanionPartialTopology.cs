@@ -128,6 +128,12 @@ namespace Offhand.Companion
                     Index=1, StableId="replacement", DeviceName="workspace", Bounds=monitor }};
                 RejectSave(savedPlan, settings, replaced);
                 var disabled = new Dictionary<string,string>(settings); disabled["SecondaryAreaEnabled"] = "False";
+                string original = File.ReadAllText(savedPlan);
+                bool resetRejected = false;
+                try { CustomRegionPreferences.Write(savedPlan, disabled, () => missing, displays); }
+                catch (InvalidOperationException) { resetRejected = true; }
+                if (!resetRejected || File.ReadAllText(savedPlan) != original)
+                    throw new Exception("A display change during standard layout confirmation replaced the saved plan.");
                 CustomRegionPreferences.Write(savedPlan, disabled, () => missing);
                 if (!File.ReadAllText(savedPlan).Contains("SecondaryAreaEnabled=False"))
                     throw new Exception("Missing display prevented disabling custom mode.");
