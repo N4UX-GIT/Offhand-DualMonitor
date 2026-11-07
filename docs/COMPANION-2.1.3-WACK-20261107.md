@@ -1,5 +1,9 @@
 # Offhand 2.1.3 final local preflight
 
+Update 2026-11-08: [Store Submission 3 is in certification](COMPANION-2.1.3-MICROSOFT-SUBMISSION-20261108.md)
+with publishing held manually. Defender remains unsubmitted. The preflight
+results and statements below record the earlier 2026-11-07 state.
+
 WACK returned **overall PASS**, with `PARTIAL_RUN=FALSE`, on 2026-11-07 at
 22:31:17 Europe/Berlin. All 13 required tests passed. Of the 11 optional tests,
 10 passed and one reported a finding, reviewed below. No Microsoft Store or

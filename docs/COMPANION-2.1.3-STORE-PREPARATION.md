@@ -3,6 +3,11 @@
 Prepared 2026-11-07. This supersedes the Beta 6/Beta 7 submission preparations.
 No Store or Defender submission, certification or public release is claimed.
 
+Update 2026-11-08: [Submission 3 is now in Store certification](COMPANION-2.1.3-MICROSOFT-SUBMISSION-20261108.md),
+with a manual publishing hold. Partner Center version ordering was verified.
+Defender remains unsubmitted because no applicable detection classification was
+established. The preparation facts below are retained as historical context.
+
 | Surface | Prepared identity |
 | --- | --- |
 | Companion UI/product version | 2.1.3 |
