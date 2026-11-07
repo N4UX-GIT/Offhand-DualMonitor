@@ -66,14 +66,20 @@ Restore Window undoes the span; Use standard display layout disables custom area
 
 ## Promotion gates
 
+The [2026-11-07 final preflight](COMPANION-2.1.3-WACK-20261107.md) records
+WACK overall PASS with all 13 required tests passed and one reviewed optional
+finding, plus current regression and local Defender results. It supersedes the
+earlier WACK hold. Partner Center navigation reached account selection only;
+published/in-flight package versions remain unverified. Nothing was submitted.
+
 The clean name is the intended release identity, not evidence of release
 acceptance. Reuse the exact EXE across portable, paired, Defender and Store
 artifacts. Any rebuild/signing/repack creates new samples. Record and supersede
 the old hashes without rewriting historical tester downloads or approvals.
 
 Run the existing package validator for exact identity, capability/startup policy
-and executable parity. Record local AV scans separately. Windows App Certification
-Kit, actual Store delivery/update, combined live WoW, physical mixed-DPI/hotplug/
+and executable parity. Record local AV scans separately. Actual Store
+delivery/update, combined live WoW, physical mixed-DPI/hotplug/
 three-monitor, Wine and complete protected-action acceptance remain outstanding
 unless a later receipt explicitly demonstrates them. Do not promote the add-on
 or website to a nonexistent portable download or claim Microsoft review early.
