@@ -4,6 +4,66 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Forever generated HUD action-bar candidate
+- Give default action bars 2 and 3 separate rows above the main action bar when
+  generating a keyboard HUD. Preserve source customizations and replacement
+  owners, and reserve space above those rows for related default controls.
+- Source and simulated checks pass. Native Edit Mode selection and action-bar
+  combat/taint acceptance remain pending; existing layouts require an explicit
+  HUD rebuild to receive this change.
+
+### Forever combined backpack report candidate
+- Place newly opened Blizzard backpacks inside the visible Offhand display on
+  the first span, even without a saved bag position. Keep the title reachable
+  when a bag is taller than that display. No replacement bag addon or window
+  Restore step is required by this candidate.
+- Recognize Blizzard's combined backpack when the individual backpack root is
+  absent, so native bag placement is not skipped as replacement-addon ownership.
+- Include native bag visibility, alpha, parent, scaled bounds and saved ownership
+  in full diagnostics. The reported invisible backpack on build 70790 still
+  requires native verification; its cause is not confirmed by the supplied log.
+
+### External addon report candidates
+- Keep the invisible Forever map observer active when Leatrix Maps or OpenMap
+  owns placement. Recheck workspace membership and persistence-option changes
+  without taking over external dragging, scale or map scripts.
+- Add opt-in read-only Zygor frame observations to full diagnostics. The reported
+  Zygor disappearance still needs exact versions and runtime evidence; this is
+  data collection, not a confirmed Zygor compatibility fix.
+
+### Forever controller test candidate
+- Reject unreadable or secret text before radial-menu lookup.
+- Yield World Map presentation, queued keyboard work and dragging controls to
+  native Gamepad ownership, restoring keyboard handling after a mode switch.
+- Constrain eligible stock loot windows that overflow Mainhand during the short
+  opening observation window. Native protected, externally owned and unsafe
+  states retain their existing placement.
+- Native map-warning resolution, real loot/controller actions and combat/taint
+  acceptance remain pending. These are source-reviewed and simulated changes.
+
+### Forever known issues
+- In native Gamepad UI, selecting **Game Menu** from Blizzard's radial closes
+  open Offhand workspace panels, including the combined backpack. This
+  behavior is accepted for the current candidate.
+
+### First launch setup candidate
+- Give new characters a short HUD check with Use existing setup, Customize HUD
+  and Later. Monitor installation remains account-wide. Remember each character's
+  choice and check again when its display geometry or input mode changes.
+- Reuse compatible saved HUD layouts through selection only. Reuse never creates,
+  rewrites or promotes layouts; unavailable layouts lead to HUD setup guidance.
+- Open preparation automatically for new and incomplete setups while keeping
+  the viewport inactive until calibration is applied. Resume placement after
+  Reload UI even before Offhand has been enabled.
+- Remember an explicit disable separately from the inactive default. Reopening
+  the guide or wizard permits setup to resume without activating the viewport.
+- Route new users through preparation from the minimap setup menu and explain
+  placing the first World Map panel onto the empty workspace.
+- Full diagnostics now include account guide/resume state and the saved character
+  choice. Blocked layout reuse explains leaving combat or closing Edit Mode.
+- Source and simulated regression coverage only. Forever release-client visual,
+  cold-launch and native display acceptance remain pending.
+
 ## [2.1.2-beta.26] - 2026-11-01
 
 ### Anniversary panels and bags

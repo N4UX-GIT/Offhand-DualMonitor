@@ -25,6 +25,7 @@ function Placement.InstallSingleScreen(Canvas, services)
             or not Offhand.db.savedWorkspacePositions then return end
         for name in pairs(Offhand.db.savedWorkspacePositions) do
             if not tostring(name):match("^ChatFrame%d+$")
+                and not (Offhand.isForever and Offhand.CanvasCompatibility.IsForeverEllesmereBag(name))
                 and not IsForeverEditModeFrame(_G[name], name)
                 and not IsForeverProfessionsPanel(_G[name], name) then
                 local frame = _G[name]
@@ -94,6 +95,7 @@ function Placement.InstallMainhand(Canvas, services)
         if registry and registry.GetPositionRoot(frame) ~= frame then return false end
         if IsWorldMapMaximized(frame) then return false end
         local name = frame.GetName and frame:GetName()
+        if Offhand.isForever and Offhand.CanvasCompatibility.IsForeverEllesmereBag(name) then return false end
         if ShouldYieldFrameToClassicUIForever(frame, name) then return false end
         if ShouldYieldWorldMapToMoveAny(name or frame) then return false end
         if recoveryAction and services.RemodalizePanel

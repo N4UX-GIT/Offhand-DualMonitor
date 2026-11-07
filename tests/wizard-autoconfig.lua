@@ -879,8 +879,9 @@ local skipPrint, skipMessages = addon.Print, {}
 addon.Print = function(_, message) skipMessages[#skipMessages + 1] = message end
 StaticPopupDialogs[skipPopup.key].OnAccept(nil, skipPopup.callback)
 addon.Print = skipPrint
-assert(#skipMessages == 2 and skipMessages[1] == addon.L.WIZARD_SKIP_HUD_COMPLETE
-        and skipMessages[2] == addon.L.WIZARD_SKIP_HUD_NEXT,
+assert(#skipMessages == 3 and skipMessages[1] == addon.L.WIZARD_SKIP_HUD_COMPLETE
+        and skipMessages[2] == addon.L.WIZARD_SKIP_HUD_NEXT
+        and skipMessages[3] == addon.L.SETUP_FIRST_PANEL,
     "HUD skip must report pending work and next actions without completed-HUD or restart-success messaging")
 assert(addon:IsSetupComplete() and mainhandLayoutDeferred and OffhandCharDB.hudSetupReminder and not wizardFrame:IsShown(),
     "confirmed HUD deferral must complete setup, persist the choice, and close the wizard")
@@ -1029,7 +1030,11 @@ addon.Viewport.GetMetrics = function()
         gameBottom = 0, gameTop = 1440, gameWidth = 2560,
     }
 end
+addon:SetEnabled(false)
+assert(addon.db.automaticSetupSuppressed == true)
 addon.Onboarding:Open()
+assert(addon.db.enabled == false and addon.db.automaticSetupSuppressed == false,
+    "explicit guide entry must clear setup suppression without activating the viewport")
 local onboardingFrame = OffhandFirstLaunchFrame
 assert(onboardingFrame and onboardingFrame:IsShown() and onboardingFrame.page == 1,
     "first-time onboarding must open at its introduction")
@@ -1470,19 +1475,19 @@ addon.isForever = false
 local originalHasBlizzardEditMode = addon.HasBlizzardEditMode
 addon.HasBlizzardEditMode = function() return true end
 onboardingFrame:SetPage(5)
-assert(onboardingFrame.pageBody:GetText() == string.format(addon.L["ONBOARD_CALIBRATE_TASK_EDITMODE"], "|cffffd100" .. onboardingFrame.nextButton:GetText() .. "|r"),
+assert(onboardingFrame.pageBody:GetText() == string.format(addon.L["ONBOARD_CALIBRATE_TASK_EDITMODE"], "|cffffd100" .. onboardingFrame.nextButton:GetText() .. "|r") .. "\n\n" .. addon.L.SETUP_FIRST_PANEL,
     "non-Forever clients with Edit Mode must receive client-neutral HUD guidance")
 onboardingFrame:SetPage(6)
-assert(onboardingFrame.pageBody:GetText() == string.format(addon.L["ONBOARD_CALIBRATE_TASK_EDITMODE"], "|cffffd100" .. onboardingFrame.nextButton:GetText() .. "|r"),
+assert(onboardingFrame.pageBody:GetText() == string.format(addon.L["ONBOARD_CALIBRATE_TASK_EDITMODE"], "|cffffd100" .. onboardingFrame.nextButton:GetText() .. "|r") .. "\n\n" .. addon.L.SETUP_FIRST_PANEL,
     "Edit Mode completion guidance must not be restricted to Retail by name")
 addon.HasBlizzardEditMode = function() return false end
 onboardingFrame:SetPage(5)
 assert(onboardingFrame.pageTitle:GetText() == addon.L["ONBOARD_CALIBRATE_TASK_TITLE"]
-        and onboardingFrame.pageBody:GetText() == string.format(addon.L["ONBOARD_CALIBRATE_TASK_CLASSIC"], "|cffffd100" .. onboardingFrame.nextButton:GetText() .. "|r")
+        and onboardingFrame.pageBody:GetText() == string.format(addon.L["ONBOARD_CALIBRATE_TASK_CLASSIC"], "|cffffd100" .. onboardingFrame.nextButton:GetText() .. "|r") .. "\n\n" .. addon.L.SETUP_FIRST_PANEL
         and not onboardingFrame.actionButton:IsShown(),
     "Classic-family clients without Edit Mode must receive non-Retail preparation guidance")
 onboardingFrame:SetPage(6)
-assert(onboardingFrame.pageBody:GetText() == string.format(addon.L["ONBOARD_CALIBRATE_TASK_CLASSIC"], "|cffffd100" .. onboardingFrame.nextButton:GetText() .. "|r"),
+assert(onboardingFrame.pageBody:GetText() == string.format(addon.L["ONBOARD_CALIBRATE_TASK_CLASSIC"], "|cffffd100" .. onboardingFrame.nextButton:GetText() .. "|r") .. "\n\n" .. addon.L.SETUP_FIRST_PANEL,
     "Classic-family completion guidance must describe the four-step wizard")
 addon.HasBlizzardEditMode = originalHasBlizzardEditMode
 onboardingFrame:SetPage(1)
@@ -2150,3 +2155,126 @@ do
     wizardFrame.testScale = nil
 end
 print("PASS: wizard centers across span, restore, scale and delayed geometry without task changes")
+
+do
+    local detectedMetrics = addon.Viewport.GetMetrics
+    addon.Viewport.GetMetrics = function(self)
+        local metrics = detectedMetrics(self)
+        metrics.isSpanned = true
+        return metrics
+    end
+    addon:SetOnboardingSetupMethod("MANUAL")
+    addon.HasBlizzardEditMode = function() return true end
+    OffhandCharDB = {}
+    local generated, reopen, reloads
+    local characterOwned = false
+    local ellesmereReview, importReload, importPrompts
+    addon.EllesmereLayout = {
+        IsAvailable = function() return true end,
+        ShowPreview = function(_, direction, callback)
+            assert(direction == (ellesmereReview and "ellesmere" or "fit") and not wizardFrame:IsShown(),
+                "the wizard must be hidden before the visual preview opens")
+            reopen = callback
+            return true
+        end,
+        HasPendingReload = function() return importReload end,
+        PromptImportReload = function()
+            if not importReload then return end
+            assert(not wizardFrame:IsShown(), "the reload prompt must follow setup completion")
+            importPrompts = (importPrompts or 0) + 1
+        end,
+    }
+    addon.Mainhand.GetEllesmereLayoutSource = function()
+        return {generated = generated, generatedActive = true, characterOwned = characterOwned}
+    end
+    addon.Mainhand.PromptReload = function()
+        assert(not wizardFrame:IsShown() and OffhandCharDB.wizardRecoveryStep == 6)
+        reloads = (reloads or 0) + 1
+    end
+    addon.Wizard:Open(6)
+    assert(wizardFrame.totalSteps == 6 and wizardFrame.step == 5 and not wizardFrame.pages[6]:IsShown(),
+        "missing native layout must prevent Step 6")
+    generated = {layoutName = "Offhand (3)"}
+    addon.Wizard:Open(6)
+    assert(wizardFrame.step == 5 and wizardFrame.finishBtn:GetText() == addon.L.MAINHAND_LAYOUT_CREATE,
+        "a shared account layout must not bypass the character HUD creation step")
+    local creates = createMainhandLayoutCount
+    createMainhandLayoutResult = {true, "Offhand", 3, "active"}
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(createMainhandLayoutCount == creates + 1 and reloads == 1
+        and not addon.Wizard:ResumeAfterReload(), "native creation must queue Step 6 for a real reload")
+
+    generated = {layoutName = "Offhand"}
+    characterOwned = true
+    assert(loadfile("UI/Wizard.lua"))("Offhand", addon)
+    assert(addon.Wizard:ResumeAfterReload(), "the new session must consume the saved handoff")
+    wizardFrame = _G.OffhandSetupWizardFrame
+    assert(wizardFrame:IsShown() and wizardFrame.step == 6 and not OffhandCharDB.wizardRecoveryStep,
+        string.format("reload must open Step 6 (step %s, total %s, recovery %s)", tostring(wizardFrame.step),
+            tostring(wizardFrame.totalSteps), tostring(wizardFrame.recoveryReason)))
+    local previewButton
+    for _, child in ipairs({wizardFrame.pages[6]:GetChildren()}) do
+        if child:GetObjectType() == "Button" and child:GetText() == addon.L.ELLESMERE_HUD_VISUAL then
+            previewButton = child
+        end
+    end
+    assert(previewButton and not wizardFrame.pages[5]:IsShown())
+    previewButton.scripts.OnClick()
+    assert(reopen and not wizardFrame:IsShown())
+    reopen()
+    assert(wizardFrame:IsShown() and wizardFrame.step == 6, "closing the preview returns to the same wizard step")
+    wizardFrame.backBtn.scripts.OnClick()
+    assert(wizardFrame.step == 5 and wizardFrame.finishBtn:GetText() == addon.L.BTN_NEXT)
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(wizardFrame.step == 6 and createMainhandLayoutCount == creates + 1 and reloads == 1,
+        "a matching existing layout must advance without being recreated or reloaded")
+    addon.Mainhand.GetEllesmereLayoutSource = function() return {generated = generated, generatedActive = false} end
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(wizardFrame:IsShown() and wizardFrame.step == 5,
+        "Finish Setup must recheck that Blizzard still has the matching layout active")
+    addon.Mainhand.GetEllesmereLayoutSource = function() return {generated = generated, generatedActive = true} end
+    wizardFrame.finishBtn.scripts.OnClick()
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(not wizardFrame:IsShown() and not OffhandCharDB.wizardProgressStep
+        and not OffhandCharDB.wizardRecoveryStep, "Finish Setup must be available without an import")
+
+    ellesmereReview = true
+    addon.Mainhand.GetEllesmereLayoutSource = function()
+        return {generated = generated, generatedActive = true, characterOwned = true, ellesmereReview = true}
+    end
+    addon.Wizard:OpenHUDSetup(true)
+    assert(wizardFrame.step == 6 and createMainhandLayoutCount == creates + 1 and reloads == 1,
+        "enabling EllesmereUI with an active character layout must open Step 6 directly")
+    previewButton.scripts.OnClick()
+    reopen("inactive")
+    assert(wizardFrame.finishBtn:GetText() == addon.L.BTN_FINISH and not importPrompts,
+        "an inactive profile must leave Finish unchanged")
+    previewButton.scripts.OnClick()
+    importReload = true
+    reopen("reload")
+    assert(wizardFrame.finishBtn:GetText() == addon.L.ELLESMERE_HUD_FINISH_RELOAD and not importPrompts)
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(importPrompts == 1 and reloads == 1 and createMainhandLayoutCount == creates + 1,
+        "Finish after an active import must prompt once without rewriting Blizzard's layout")
+    importReload, ellesmereReview = nil, nil
+
+    local selectPrompt
+    addon.Mainhand.GetEllesmereLayoutSource = function() return {generated = generated, generatedActive = false} end
+    addon.Mainhand.GetLayoutStatus = function() return {generatedName = "Other mode"} end
+    addon.Mainhand.UseExistingEditModeLayout = function(_, name)
+        assert(name == "Offhand", "wizard activation must target the current mode's matching layout")
+        return false, "activate-api"
+    end
+    addon.Mainhand.PromptManualLayoutSelection = function(_, name, resumeWizard)
+        selectPrompt = name == "Offhand" and resumeWizard
+    end
+    addon.Wizard:Open(6)
+    assert(wizardFrame.step == 5, "an inactive layout must stay at the native step even without a pending flag")
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(selectPrompt and OffhandCharDB.wizardRecoveryStep == 6 and not wizardFrame:IsShown(),
+        "the manual selection path must instruct the user to reload into Step 6")
+    addon.Wizard:Open(5)
+    assert(wizardFrame.finishBtn:GetText() == addon.L.BTN_NEXT,
+        "reopening the wizard before manual selection must still offer layout selection first")
+    print("PASS: EllesmereUI wizard preview, native reload handoff, reuse and optional completion")
+end

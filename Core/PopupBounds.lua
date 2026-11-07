@@ -464,6 +464,170 @@ function PopupBounds:Queue(frame)
     if C_Timer and C_Timer.After then C_Timer.After(0, constrain) else constrain() end
 end
 
+-- These are EllesmereUI presentation roots. Its HUD, movers, dimmers and
+-- input handlers keep their own layout. The full UIParent can include space
+-- with no physical display, so fit these windows once per presentation.
+local ellesmereWindows = {
+    "EllesmereUIFrame", "EUIFirstInstallPopup", "EUIStyleChoicePopup",
+    "EUIConfirmPopup", "EUIInfoPopup", "EUIInputPopup",
+}
+local ellesmerePlacement = setmetatable({}, { __mode = "k" })
+local unlockToolbar
+local unlockPlacement
+
+local function Fits(left, right, top, bottom, minLeft, maxRight, maxTop, minBottom)
+    return left >= minLeft and right <= maxRight and top <= maxTop and bottom >= minBottom
+end
+
+local function SetWindowPoint(frame, point)
+    frame:ClearAllPoints()
+    frame:SetPoint(unpack(point, 1, 5))
+end
+
+local function OwnsEllesmerePlacement(frame, placement)
+    if not placement.original or frame:GetNumPoints() ~= 1
+        or frame:GetScale() ~= placement.scale then return false end
+    local point, relative, relativePoint, x, y = frame:GetPoint(1)
+    local applied = placement.applied
+    return point == applied[1] and relative == applied[2] and relativePoint == applied[3]
+        and PublicNumber(x) and PublicNumber(y)
+        and math.abs(x - applied[4]) < 0.01 and math.abs(y - applied[5]) < 0.01
+end
+
+local function RestoreEllesmereWindow(frame, placement)
+    if OwnsEllesmerePlacement(frame, placement) then
+        if placement.scale ~= placement.originalScale then frame:SetScale(placement.originalScale) end
+        SetWindowPoint(frame, placement.original)
+    end
+end
+
+local function GetUnlockToolbar(overlay)
+    if unlockToolbar and unlockToolbar:GetParent() == overlay then return unlockToolbar end
+    local getAnchor = _G.EllesmereUI.GetUnlockModeTopBarAnchor
+    if type(getAnchor) ~= "function" then return end
+    local hoverZone = getAnchor(_G.EllesmereUI)
+    if not hoverZone or hoverZone:GetParent() ~= overlay then return end
+    for _, child in ipairs({overlay:GetChildren()}) do
+        if child._hoverZone == hoverZone then
+            unlockToolbar = child
+            return child
+        end
+    end
+end
+
+local function RefreshEllesmereUnlockToolbar(metrics)
+    local overlay = _G.EllesmereUnlockMode
+    if not overlay then return end
+    local frame = overlay:IsVisible() and GetUnlockToolbar(overlay) or unlockToolbar
+    if not frame or frame:IsForbidden() or frame:IsProtected() then return end
+    if not metrics or not frame:IsVisible() then
+        if unlockPlacement then RestoreEllesmereWindow(frame, unlockPlacement) end
+        unlockPlacement = nil
+        return
+    end
+    if unlockPlacement and OwnsEllesmerePlacement(frame, unlockPlacement) then return end
+    unlockPlacement = nil
+
+    -- Wait for EllesmereUI to finish sliding the banner in or resizing it.
+    -- Its hover handler uses the real UIParent top, so keep the banner flush
+    -- with that edge and choose a physical display that reaches it.
+    if frame:GetNumPoints() ~= 1 then return end
+    local point, relative, relativePoint, x, y = frame:GetPoint(1)
+    if point ~= "TOP" or relative ~= UIParent or relativePoint ~= "TOP"
+        or not PublicNumber(x) or not PublicNumber(y) or x ~= 0 or y ~= 0 then return end
+    local left, right, top, bottom, uiScale, frameScale = FrameBounds(frame)
+    if not left or right <= left or top <= bottom then return end
+    if Fits(left, right, top, bottom, metrics.gameLeft, metrics.gameRight, metrics.gameTop, metrics.gameBottom)
+        or Fits(left, right, top, bottom, metrics.workspaceLeft, metrics.workspaceRight,
+            metrics.workspaceTop, metrics.workspaceBottom) then return end
+
+    local screenWidth, screenHeight = UIParent:GetWidth(), UIParent:GetHeight()
+    local minLeft, maxRight, minBottom
+    if math.abs(metrics.gameTop - screenHeight) < 1 then
+        minLeft, maxRight, minBottom = metrics.gameLeft, metrics.gameRight, metrics.gameBottom
+    elseif math.abs(metrics.workspaceTop - screenHeight) < 1 then
+        minLeft, maxRight, minBottom = metrics.workspaceLeft, metrics.workspaceRight, metrics.workspaceBottom
+    else
+        return
+    end
+    local scale = frame:GetScale()
+    local ratio = math.min(1, (maxRight - minLeft - 8) / (right - left),
+        (screenHeight - minBottom) / (top - bottom))
+    if ratio <= 0 or not PublicNumber(scale) or scale <= 0 then return end
+    local offset = ((minLeft + maxRight - screenWidth) / 2) * uiScale / (frameScale * ratio)
+    local applied = {"TOP", UIParent, "TOP", offset, 0}
+    if ratio < 1 then frame:SetScale(scale * ratio) end
+    SetWindowPoint(frame, applied)
+    unlockPlacement = {
+        original = {point, relative, relativePoint, x, y},
+        originalScale = scale, scale = frame:GetScale(), applied = applied,
+    }
+end
+
+local function GetEllesmereMetrics()
+    local viewport = Offhand.Viewport
+    local metrics = Offhand.db and Offhand.db.enabled and viewport and viewport:GetMetrics()
+    return metrics and metrics.isSpanned and metrics or false
+end
+
+local function FitEllesmereWindow(frame, metrics)
+    local left, right, top, bottom, uiScale, frameScale = FrameBounds(frame)
+    if not left or right <= left or top <= bottom then return end
+    if Fits(left, right, top, bottom, metrics.gameLeft, metrics.gameRight, metrics.gameTop, metrics.gameBottom)
+        or Fits(left, right, top, bottom, metrics.workspaceLeft, metrics.workspaceRight,
+            metrics.workspaceTop, metrics.workspaceBottom) then return {} end
+    if frame:GetNumPoints() ~= 1 then return {} end
+    local point, relative, relativePoint, x, y = frame:GetPoint(1)
+    if not point or (relative and relative ~= UIParent)
+        or (not relative and frame:GetParent() ~= UIParent)
+        or not PublicNumber(x) or not PublicNumber(y) then return {} end
+
+    local scale = frame:GetScale()
+    local minLeft, maxRight = metrics.gameLeft + 4, metrics.gameRight - 4
+    local minBottom, maxTop = metrics.gameBottom + 4, metrics.gameTop - 4
+    if not PublicNumber(scale) or scale <= 0 or maxRight <= minLeft or maxTop <= minBottom then return {} end
+    local width, height = right - left, top - bottom
+    local ratio = math.min(1, (maxRight - minLeft) / width, (maxTop - minBottom) / height)
+    local fromUI = uiScale / (frameScale * ratio)
+    local newLeft = math.max(minLeft, math.min(left, maxRight - width * ratio))
+    local newTop = math.min(maxTop, math.max(top, minBottom + height * ratio))
+    local applied = {"TOPLEFT", UIParent, "BOTTOMLEFT", newLeft * fromUI, newTop * fromUI}
+    if ratio < 1 then frame:SetScale(scale * ratio) end
+    SetWindowPoint(frame, applied)
+    return {
+        original = {point, relative or UIParent, relativePoint or point, x, y},
+        originalScale = scale, scale = frame:GetScale(), applied = applied,
+    }
+end
+
+function PopupBounds:RefreshEllesmereWindows()
+    if not Offhand.isForever or not _G.EllesmereUI
+        or (InCombatLockdown and InCombatLockdown()) then return end
+    local metrics
+    local overlay = _G.EllesmereUnlockMode
+    if unlockPlacement or (overlay and overlay:IsVisible()) then
+        metrics = GetEllesmereMetrics()
+        RefreshEllesmereUnlockToolbar(metrics)
+    end
+    for _, name in ipairs(ellesmereWindows) do
+        local frame = _G[name]
+        if frame and frame.IsProtected and not frame:IsProtected()
+            and frame.IsForbidden and not frame:IsForbidden() then
+            local placement = ellesmerePlacement[frame]
+            local visible = frame:IsVisible()
+            if visible or placement then
+                if metrics == nil then metrics = GetEllesmereMetrics() end
+                if metrics and visible then
+                    if not placement then ellesmerePlacement[frame] = FitEllesmereWindow(frame, metrics) end
+                elseif placement then
+                    RestoreEllesmereWindow(frame, placement)
+                    ellesmerePlacement[frame] = nil
+                end
+            end
+        end
+    end
+end
+
 local function LegacyUnitMenu(dropdown)
     if not dropdown then return false end
     return dropdown.unit ~= nil or dropdown.which ~= nil
@@ -474,6 +638,12 @@ end
 function PopupBounds:Initialize()
     if self.initialized then return end
     self.initialized = true
+
+    -- Observe from Offhand's own timer. These windows can raise Forever's
+    -- gamepad cursor from their show handlers and may be created lazily.
+    if Offhand.isForever and _G.EllesmereUI and C_Timer and C_Timer.NewTicker then
+        self.ellesmereTicker = C_Timer.NewTicker(0.2, function() self:RefreshEllesmereWindows() end)
+    end
 
     -- Mainline and current Classic branches expose the acquired menu frame as a
     -- supported proxy. Registering against unit-menu tags avoids scanning _G or

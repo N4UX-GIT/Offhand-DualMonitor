@@ -87,7 +87,11 @@ function Policy.GetRetailSpecialPopupNames()
     return { "StaticPopup1", "StaticPopup2", "StaticPopup3", "StaticPopup4",
         "LFGListApplicationDialog", "LFGListInviteDialog", "LFGInvitePopup", "LFDRoleCheckPopup",
         "LFGReadyCheckPopup", "PVPReadyPopup", "PetBattleQueueReadyFrame",
-        "RolePollPopup", "LFGDungeonReadyPopup" }
+        "RolePollPopup", "LFGDungeonReadyPopup", "GuildInviteFrame" }
+end
+
+function Policy.IsNativeDialogRoot(frame)
+    return frame ~= nil and (frame == _G.GuildInviteFrame or frame == _G.ChatConfigFrame)
 end
 
 function Policy.GetRetailNotificationSpecs()

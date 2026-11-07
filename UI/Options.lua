@@ -1123,6 +1123,8 @@ function Options:CreateFloatingPanel()
     -- Forever has two layout-status rows plus wrapped Edit Mode guidance.
     -- Keep the preview checkbox below that text instead of sharing its line.
     local recoveryHeight = Offhand.isForever and 374 or (supportsMainhandLayout and 302 or 152)
+    local transfer = Offhand.EllesmereLayout
+    local showEllesmerePreview = transfer and transfer.ShowPreview and transfer:IsAvailable()
     local recoveryCard = CreateCard(tab2, L["CARD_RECOVERY"], recoveryHeight)
     local advancedCard
     local advancedCheck
@@ -1516,6 +1518,21 @@ function Options:CreateFloatingPanel()
             function(value) Offhand.db.autoRecoverEditModeControls = value == true end,
             L["AUTO_RECOVER_EDIT_MODE_CONTROLS"], L["AUTO_RECOVER_EDIT_MODE_CONTROLS_DESC"])
         autoEditModeControls:SetPoint("TOPLEFT", forceCheck, "BOTTOMLEFT", 0, -6)
+    end
+
+    if showEllesmerePreview then
+        local caption = recoveryCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        caption:SetPoint("BOTTOMLEFT", recoveryCard, "BOTTOMLEFT", 12, 14)
+        caption:SetPoint("RIGHT", recoveryCard, "RIGHT", -12, 0)
+        caption:SetJustifyH("LEFT")
+        caption:SetWordWrap(true)
+        caption:SetText(L["ELLESMERE_HUD_PREVIEW_DESC"])
+        recoveryCard:SetHeight(recoveryHeight + 48 + Controls.MeasureWrappedText(caption, caption:GetText(), 638))
+        local preview = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
+        preview:SetSize(220, 26)
+        preview:SetPoint("BOTTOMLEFT", caption, "TOPLEFT", 0, 6)
+        preview:SetText(L["ELLESMERE_HUD_VISUAL"])
+        preview:SetScript("OnClick", function() transfer:ShowPreview() end)
     end
 
     local compatDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
@@ -2298,6 +2315,9 @@ function Options:CreateFloatingPanel()
     for index, topic in ipairs(helpTopics) do
         local title = string.format("%d. %s", index, L["HELP_" .. topic .. "_TITLE"])
         local text = L["HELP_" .. topic .. "_BODY"]
+        if topic == "EDIT_MODE" and Offhand.isForever then
+            text = text .. "\n\n" .. L["ELLESMERE_HUD_HELP_BODY"]
+        end
         local card = CreateCard(tab5, title, 1)
         local contentTop = Controls.GetCardContentTop(card, 34)
         local body = card:CreateFontString(nil, "ARTWORK", "GameFontHighlight")

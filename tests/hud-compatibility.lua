@@ -23,6 +23,16 @@ assert(not compatibility.HasCustomActionBarAddon(),
     "stock action bars must remain available")
 assert(not compatibility.HasCustomBagAddon(),
     "stock bags must remain available")
+ContainerFrame1, ContainerFrameCombinedBags = nil, {}
+assert(not compatibility.HasCustomBagAddon(),
+    "a native combined backpack must not be mistaken for a replacement when ContainerFrame1 is absent")
+Bagnon = {}
+assert(compatibility.HasCustomBagAddon(),
+    "a replacement must retain ownership even when the native combined root exists")
+Bagnon, ContainerFrameCombinedBags = nil, nil
+assert(compatibility.HasCustomBagAddon(),
+    "missing both native roots must retain the conservative ownership fallback")
+ContainerFrame1 = {}
 assert(not compatibility.HasCustomMinimapAddon(),
     "the stock Minimap must remain available")
 
@@ -43,6 +53,13 @@ loaded.EllesmereUIActionBars, loaded.EllesmereUIMinimap, loaded.EllesmereUIChat 
 loaded.EllesmereUIBags = true
 assert(compatibility.HasCustomBagAddon(),
     "Ellesmere bags must own native bag layout even when ContainerFrame1 still exists")
+addon.isForever = true
+addon.Mainhand = {IsNativeGamepadInterface = function() return true end}
+assert(not compatibility.HasCustomBagAddon(),
+    "Forever native Gamepad layout must respect EllesmereUI's bag stand-down")
+Baganator = {}
+assert(compatibility.HasCustomBagAddon(), "the Ellesmere stand-down must preserve another bag provider")
+Baganator, addon.Mainhand, addon.isForever = nil, nil, false
 loaded.EllesmereUIBags = nil
 local previousEnum = Enum
 Enum = { EditModeSystem = {ActionBar=1, StatusTrackingBar=2} }

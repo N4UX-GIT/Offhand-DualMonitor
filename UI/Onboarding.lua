@@ -673,7 +673,11 @@ function Onboarding:CreateFrame()
         elseif self.page == 4 then self.nextButton:SetText(L["ONBOARD_CONFIRM_PLACEMENT"])
         end
         if self.page == 6 then
-            self.pageBody:SetText(string.format(L[bodyKey], "|cffffd100" .. self.nextButton:GetText() .. "|r"))
+            local transfer = Offhand.EllesmereLayout
+            local ellesmereHelp = transfer and transfer.ShowPreview and transfer:IsAvailable()
+                and ("\n\n" .. L["ELLESMERE_HUD_SETUP_DESC"]) or ""
+            self.pageBody:SetText(string.format(L[bodyKey], "|cffffd100" .. self.nextButton:GetText() .. "|r")
+                .. ellesmereHelp .. "\n\n" .. L["SETUP_FIRST_PANEL"])
         end
         local stateKey
         if self.page == 3 then
@@ -802,6 +806,7 @@ function Onboarding:CreateFrame()
 end
 
 function Onboarding:Open()
+    if Offhand.SetAutomaticSetupSuppressed then Offhand:SetAutomaticSetupSuppressed(false) end
     if Offhand.Wizard and Offhand.Wizard.ResumeAfterReload
         and Offhand.Wizard:ResumeAfterReload() then return end
     if Offhand.Wizard and Offhand.Wizard.CancelEditModeReturn then Offhand.Wizard:CancelEditModeReturn() end

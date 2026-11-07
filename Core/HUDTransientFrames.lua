@@ -23,6 +23,10 @@ function Transient.Install(HUD, services)
     local specialPopupPoints = setmetatable({}, { __mode = "k" })
     local specialPopupHooks = {}
     local specialPopupNames = Policy.GetRetailSpecialPopupNames()
+    if Offhand.isForever then
+        specialPopupNames = { "StaticPopup1", "StaticPopup2", "StaticPopup3",
+            "StaticPopup4", "GuildInviteFrame", "ChatConfigFrame" }
+    end
 
     local function SamePopupPoint(a, b)
         return a and b and a[1] == b[1] and a[2] == b[2] and a[3] == b[3]
@@ -31,7 +35,8 @@ function Transient.Install(HUD, services)
     end
 
     function HUD:PositionPremadeGroupDialogs(m, preparing)
-        if not Offhand.isRetail or (InCombatLockdown and InCombatLockdown()) then return end
+        if not (Offhand.isRetail or Offhand.isForever)
+            or (InCombatLockdown and InCombatLockdown()) then return end
         m = m or (Offhand.Viewport and Offhand.Viewport:GetMetrics())
         local active = Offhand.db and Offhand.db.enabled and Offhand.db.seamRedirect
             and m and m.isSpanned
@@ -70,7 +75,8 @@ function Transient.Install(HUD, services)
                     local original = owned and state.original or current
                     -- Keep Blizzard's dialog-to-dialog stack graph intact. Only
                     -- its top root is relative to the full-screen parent.
-                    if original and original[2] == UIParent
+                    if original and not (frame.IsUserPlaced and frame:IsUserPlaced())
+                        and original[2] == UIParent
                         and original[1] == "TOP" and original[3] == "TOP"
                         and frame.GetEffectiveScale then
                         local scale = frame:GetEffectiveScale()
@@ -92,11 +98,21 @@ function Transient.Install(HUD, services)
     end
 
     local function HookPremadeGroupPlacement()
-        if not Offhand.isRetail or not hooksecurefunc then return end
-        for _, name in ipairs({ "StaticPopup_SetUpPosition", "StaticPopupSpecial_Show", "StaticPopupSpecial_Hide", "StaticPopup_Hide" }) do
+        if not (Offhand.isRetail or Offhand.isForever) or not hooksecurefunc then return end
+        for _, name in ipairs({ "StaticPopup_SetUpPosition", "StaticPopupSpecial_Show",
+            "StaticPopupSpecial_Hide", "StaticPopup_Hide", "ShowUIPanel", "HideUIPanel" }) do
             if type(_G[name]) == "function" and not specialPopupHooks[name] then
                 specialPopupHooks[name] = true
                 hooksecurefunc(name, function(dialog)
+                    if Offhand.isForever then
+                        -- Let native popup focus and panel transactions finish.
+                        -- No script or bookkeeping is attached to their roots.
+                        if C_Timer and C_Timer.After then
+                            C_Timer.After(0, function() HUD:PositionPremadeGroupDialogs() end)
+                        end
+                        return
+                    end
+                    if name == "ShowUIPanel" or name == "HideUIPanel" then return end
                     -- SetUpPosition runs before Show; include that pending root.
                     HUD:PositionPremadeGroupDialogs(nil, name == "StaticPopup_SetUpPosition" and dialog or nil)
                 end)
@@ -1161,7 +1177,7 @@ function Transient.Install(HUD, services)
         -- Static popups are pooled and Blizzard may restore their stock CENTER
         -- point after OnShow. Reapplying the same desired point is a no-op, while a
         -- later native reset is repaired on the next layout/ticker pass.
-        for i = 1, Offhand.isRetail and 0 or 4 do
+        for i = 1, (Offhand.isRetail or Offhand.isForever) and 0 or 4 do
             local frame = _G["StaticPopup" .. i]
             if CanPositionMainhandTransient(frame) then
                 pcall(function()

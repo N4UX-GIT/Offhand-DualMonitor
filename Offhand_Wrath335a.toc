@@ -33,6 +33,8 @@ Core\MainhandCompatibility.lua
 Core\MainhandGamepad.lua
 Core\MainhandEditMode.lua
 Core\Mainhand.lua
+Core\ForeverEllesmereLayout.lua
+Core\CharacterSetup.lua
 Core\RetailFullscreen.lua
 Core\CinematicPresentation.lua
 Core\DialogueUICompat.lua
@@ -85,3 +87,4 @@ UI\DisplayIdentify.lua
 UI\Minimap.lua
 UI\Onboarding.lua
 UI\Wizard.lua
+UI\EllesmereLayoutPreview.lua
