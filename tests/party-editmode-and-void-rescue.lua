@@ -1882,6 +1882,33 @@ local rescuedTop = ExampleAddonWindow:GetTop()
 assert(rescuedTop <= metrics.gameTop, string.format("Rescued frame top (%s) must be <= gameTop (%s)", tostring(rescuedTop), tostring(metrics.gameTop)))
 print(string.format("PASS: Void Rescue Engine successfully rescued ExampleAddonWindow from void (top=%s <= gameTop=%s)", tostring(rescuedTop), tostring(metrics.gameTop)))
 
+-- Ellesmere owns its player-aura roots even at a full-parent stock anchor.
+-- The same generic scanner must still rescue ordinary addon popups above.
+do
+local originalSpecialFrames = UISpecialFrames
+UISpecialFrames = {}
+for _, name in ipairs({"EllesmereUIPlayerAuraBars_Buffs", "EllesmereUIPlayerAuraBars_Debuffs"}) do
+    local aura = makeMockFrame(name, 400, 150)
+    _G[name] = aura
+    aura:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    table.insert(UIParent.children, aura)
+    UISpecialFrames[#UISpecialFrames + 1] = name
+    local writes = aura.setPointCalls
+    addon.HUD:HookFrames()
+    flushTimers()
+    addon.Canvas.MakePanelDraggable(aura)
+    assert(aura.setPointCalls == writes and not aura.scripts.OnShow and not aura.scripts.OnDragStart,
+        "generic popup and workspace controllers must yield Ellesmere aura roots")
+    aura:ClearAllPoints()
+    aura:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 2000, -50)
+    writes = aura.setPointCalls
+    flushTimers()
+    assert(aura.setPointCalls == writes, "the owning HUD addon must control offscreen aura recovery")
+end
+UISpecialFrames = originalSpecialFrames
+print("PASS: generic popup rescue preserves Ellesmere player aura ownership")
+end
+
 -- A workspace stacked directly above Mainhand shares the same horizontal
 -- range. The void scanner must use the complete workspace rectangle instead
 -- of treating every frame above gameTop as lost.

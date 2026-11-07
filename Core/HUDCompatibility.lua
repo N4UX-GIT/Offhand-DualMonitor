@@ -16,7 +16,8 @@ local foreverEditModeFrameNames = {
     BossTargetFrameContainer = true,
     PartyFrame = true, PartyMemberFrame1 = true, CompactPartyFrame = true,
     CompactRaidFrameContainer = true,
-    BuffFrame = true, BuffCluster = true, CastingBarFrame = true, PlayerCastingBarFrame = true,
+    BuffFrame = true, DebuffFrame = true, ExternalDefensivesFrame = true,
+    BuffCluster = true, CastingBarFrame = true, PlayerCastingBarFrame = true,
     ExtraAbilityContainer = true, ExtraActionBarFrame = true, ZoneAbilityFrame = true,
     EncounterBar = true, UIWidgetPowerBarContainerFrame = true, LossOfControlFrame = true,
     MainMenuBarVehicleLeaveButton = true, VehicleExitButton = true,
@@ -115,6 +116,14 @@ end
 
 function Compatibility.HasCustomChatAddon()
     return Compatibility.HasChattynator() or Compatibility.IsAddonPresent("EllesmereUIChat")
+end
+
+function Compatibility.IsExternallyOwnedHUDFrame(frame, name)
+    name = name or (frame and frame.GetName and frame:GetName())
+    -- These public roots are positioned by Ellesmere's player aura-bar module
+    -- and its unlock anchors. The generic popup pass must not compete with it.
+    return name == "EllesmereUIPlayerAuraBars_Buffs"
+        or name == "EllesmereUIPlayerAuraBars_Debuffs"
 end
 
 -- Serialized HUD generation must respect the same owners as runtime movement.

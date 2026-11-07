@@ -197,6 +197,8 @@ end
 
 local function IsUnsafeForDirectMutation(frame)
     if not frame then return true end
+    local hudCompatibility = Offhand.HUDCompatibility
+    if hudCompatibility and hudCompatibility.IsExternallyOwnedHUDFrame(frame) then return true end
     if ShouldYieldFrameToClassicUIForever(frame) then return true end
     if IsBlizzardEditModeOwnedFrame(frame) then return true end
     if ShouldYieldForeverProfessionsPanel(frame) then return true end
@@ -301,6 +303,8 @@ end
 -- here and remain covered by the stricter guard above.
 local function IsUnsafeForPanelMutation(frame, name)
     if not frame then return true end
+    local hudCompatibility = Offhand.HUDCompatibility
+    if hudCompatibility and hudCompatibility.IsExternallyOwnedHUDFrame(frame, name) then return true end
     if Offhand.isForever and Compatibility.IsForeverEllesmereBag(name or (frame.GetName and frame:GetName())) then
         return true
     end

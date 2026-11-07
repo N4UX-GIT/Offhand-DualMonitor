@@ -13,6 +13,15 @@ C_AddOns = {
 
 assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
 local compatibility = assert(addon.HUDCompatibility)
+do
+    addon.isForever = true
+    for _, name in ipairs({"BuffFrame", "DebuffFrame", "ExternalDefensivesFrame"}) do
+        local aura = { GetName = function() return name end }
+        assert(compatibility.IsForeverEditModeFrame(aura, name),
+            "native aura roots must retain Edit Mode ownership before managed flags initialize")
+    end
+    addon.isForever = false
+end
 
 MainMenuBar = {}
 ContainerFrame1 = {}
