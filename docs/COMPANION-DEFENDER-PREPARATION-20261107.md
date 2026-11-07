@@ -1,5 +1,10 @@
 # Companion Microsoft Defender review preparation, 2026-11-07
 
+The initial Beta 6 preparation below is superseded by the clean, matched
+[2.1.3 Beta 7 candidate](COMPANION-2.1.3-BETA7-CANDIDATE.md). Retain its old
+hashes as historical evidence. Use the separate Beta 7 samples and submission
+record for a new review; neither set has been submitted to Microsoft.
+
 Status: preparation only. No file has been uploaded and no Microsoft result is
 claimed for this candidate. The user requested preparation of the latest
 Companion, including the active-display identity correction and reload guidance.

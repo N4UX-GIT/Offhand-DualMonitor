@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Offhand 2.1.3 Beta 7 candidate
+
+- Give Companion and the matching workspace add-on the same clean
+  `2.1.3-beta.7` identity. Companion file/manifest version is `2.1.3.8`, newer
+  than the earlier Beta 6 candidate. All six add-on manifests recommend the
+  matching Companion while retaining protocol/schema compatibility.
+- Include the active-display monitor identity correction and explicit
+  Span WoW Now followed by `/reload` guidance. Flexible Layout, named profiles,
+  panel routing and independent region themes remain included.
+- Rebuild the exact Microsoft review samples after the version change.
+  This is candidate preparation, not a Microsoft determination or an official
+  release. Previous test-package hashes and reviews do not cover the new files.
+
 - Integrated Companion display identity hardening into the custom-workspace
   candidate: distinct per-monitor interface IDs, explicit ambiguity errors,
   reviewed migration and preserved workspace/profile geometry. Native dock,

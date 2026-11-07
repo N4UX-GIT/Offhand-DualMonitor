@@ -62,8 +62,8 @@ using System.Windows.Forms;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.3.7")]
-[assembly: AssemblyInformationalVersion("2.1.3-beta.6")]
+[assembly: AssemblyFileVersion("2.1.3.8")]
+[assembly: AssemblyInformationalVersion("2.1.3-beta.7")]
 #endif
 
 namespace Offhand.Companion
@@ -3801,7 +3801,7 @@ namespace Offhand.Companion
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
 #else
-        internal const string ReleaseLabel = "Beta 6";
+        internal const string ReleaseLabel = "Beta 7";
         internal static readonly bool GraphicsRecoveryEnabled = true;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;

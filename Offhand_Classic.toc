@@ -2,11 +2,11 @@
 ## Title: |cffffbd0aOffhand|r |cffffffff[Multi-Monitor Setup]|r
 ## Notes: Keep gameplay on one screen and move maps, bags, chat, and other supported UI panels to another.
 ## Author: N4UX (Noggaholic)
-## Version: 2.1.2
-## X-Offhand-Release: beta.26
-## X-Offhand-Addon-Release: beta.26
-## X-Offhand-Companion-Version: 2.1.2
-## X-Offhand-Companion-Release: beta.20
+## Version: 2.1.3
+## X-Offhand-Release: beta.7
+## X-Offhand-Addon-Release: beta.7
+## X-Offhand-Companion-Version: 2.1.3
+## X-Offhand-Companion-Release: beta.7
 ## X-Offhand-Companion-Protocol: 1
 ## X-Offhand-Topology-Schemas: 1,2,3
 ## X-Offhand-Companion-Min-Version: 2.1.2-beta.19
