@@ -41,6 +41,7 @@ namespace Offhand.Companion
         [STAThread]
         internal static void Main()
         {
+            ActivePathCases();
             var pair = Pair();
             var plan = Plan(pair, "INTERFACE-A|INTERFACE-B", "INTERFACE-B", false);
             Check(plan.Indices.Length == 2 && plan.MainhandIndex == 1, "Distinct pair/Mainhand");
@@ -111,6 +112,66 @@ namespace Offhand.Companion
             Check(!MonitorSelection.HasStableIdentitySettings(settings), "Partial save cannot auto-span");
             WorkspaceCases();
             Console.WriteLine("PASS: " + checks + " display identity, migration, workspace/profile, ambiguity and reconnect checks");
+        }
+
+        private static void ActivePathCases()
+        {
+            Check(System.Runtime.InteropServices.Marshal.SizeOf(typeof(DisplayIdentity.TargetName)) == 420,
+                "Target name native structure size");
+            Check(System.Runtime.InteropServices.Marshal.OffsetOf(typeof(DisplayIdentity.TargetName), "Path").ToInt32() == 164,
+                "Target monitor interface path offset");
+            var paths = new List<DisplayIdentity.ActivePath> {
+                new DisplayIdentity.ActivePath { Device="DISPLAY1", Identity="INTERFACE-A" },
+                new DisplayIdentity.ActivePath { Device="DISPLAY2", Identity="INTERFACE-B" }
+            };
+            var stale = new DisplayIdentity.Child { Identity="DISABLED-TV", LegacyIdentity="OLD-TV" };
+            var a = DisplayIdentity.Resolve("display1", paths, new List<DisplayIdentity.Child> { stale,
+                new DisplayIdentity.Child { Identity="INTERFACE-A", LegacyIdentity="OLD-A" } }, null);
+            var b = DisplayIdentity.Resolve("DISPLAY2", paths, new List<DisplayIdentity.Child> { stale,
+                new DisplayIdentity.Child { Identity="INTERFACE-B", LegacyIdentity="OLD-B" } }, null);
+            Check(a.Identity=="INTERFACE-A" && b.Identity=="INTERFACE-B", "Repeated stale first monitor entry cannot collapse active pair");
+            Check(a.LegacyIdentity=="OLD-A" && b.LegacyIdentity=="OLD-B", "Legacy aliases must belong to the active child");
+            var pair=Pair();
+            pair[0].Bounds=new Rectangle(0,0,1920,1080);pair[1].Bounds=new Rectangle(1920,0,1920,1080);
+            pair[0].StableId=a.Identity;pair[0].LegacyStableId=a.LegacyIdentity;
+            pair[1].StableId=b.Identity;pair[1].LegacyStableId=b.LegacyIdentity;
+            var plan=Plan(pair,"INTERFACE-A|INTERFACE-B","INTERFACE-A",false);
+            Check(plan.Indices.Length==2 && plan.Bounds.Width==3840, "Reporter-shaped identical-resolution pair spans both displays");
+            Check(Plan(pair,"OLD-A|OLD-B","OLD-A",false).Indices.Length==2,"Unique old aliases still migrate");
+            b=DisplayIdentity.Resolve("DISPLAY2",paths,new List<DisplayIdentity.Child>{stale},null);
+            Check(b.Identity=="INTERFACE-B" && b.LegacyIdentity==null,"Missing active child must not retain disabled TV alias");
+            b=DisplayIdentity.Resolve("DISPLAY2",paths,new List<DisplayIdentity.Child>{
+                new DisplayIdentity.Child { Identity="INTERFACE-B", LegacyIdentity="OLD-B" },
+                new DisplayIdentity.Child { Identity="interface-b", LegacyIdentity="OTHER" }},null);
+            Check(b.Identity=="INTERFACE-B" && b.LegacyIdentity==null,"Repeated matching children cannot select an arbitrary alias");
+            paths.Add(new DisplayIdentity.ActivePath {Device="DISPLAY1",Identity="CLONE"});
+            Check(DisplayIdentity.Resolve("DISPLAY1",paths,new List<DisplayIdentity.Child>{stale},null).Identity==null,
+                "Cloned active source must not select its first target");
+            paths.RemoveAt(2);paths[1].Identity="INTERFACE-A";
+            pair[1].StableId=DisplayIdentity.Resolve("DISPLAY2",paths,new List<DisplayIdentity.Child>(),null).Identity;
+            Reject(()=>Plan(pair,"INTERFACE-A|INTERFACE-A","INTERFACE-A",false),"same monitor identity");
+            paths[1].Identity=null;
+            Check(DisplayIdentity.Resolve("DISPLAY2",paths,new List<DisplayIdentity.Child>{stale},null).Identity==null,
+                "Unnamed active target cannot fall back to child zero");
+            Check(DisplayIdentity.Resolve("MISSING",paths,new List<DisplayIdentity.Child>{stale},null).Identity==null,
+                "Missing active source cannot fall back to child zero");
+            Check(DisplayIdentity.Resolve("DISPLAY1",new List<DisplayIdentity.ActivePath>(),new List<DisplayIdentity.Child>{stale},null).Identity==null,
+                "Empty successful active snapshot cannot fall back");
+            Check(DisplayIdentity.Resolve("DISPLAY1",null,new List<DisplayIdentity.Child>{stale},"access denied").Identity==null,
+                "Transient or access failures cannot fall back");
+            Check(DisplayIdentity.Resolve("DISPLAY1",null,new List<DisplayIdentity.Child>{stale},null).Identity=="DISABLED-TV",
+                "Unsupported API retains unique-interface compatibility fallback");
+            Check(DisplayIdentity.Resolve("DISPLAY1",null,new List<DisplayIdentity.Child>{stale,stale},null).Identity==null,
+                "Unsupported API must refuse ambiguous child entries");
+
+            // Read-only native smoke test, no window movement or preference writes.
+            var devices=new List<string>();
+            foreach(var screen in System.Windows.Forms.Screen.AllScreens)devices.Add(screen.DeviceName);
+            var native=DisplayIdentity.Read(devices);
+            foreach(string device in devices) {
+                Check(native.ContainsKey(device)&&!string.IsNullOrEmpty(native[device].Detail),"Native enumeration must explain every source");
+                Console.WriteLine("Native identity: "+device+"; "+native[device].Identity+"; "+native[device].Detail);
+            }
         }
 
         private static Dictionary<string,string> Legacy()

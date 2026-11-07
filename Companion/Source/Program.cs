@@ -246,6 +246,128 @@ namespace Offhand.Companion
 
     // Read-only Windows display state. This describes desktop outputs, not WoW's
     // swap chain or whether Auto HDR / a driver filter is active for the game.
+    internal static class DisplayIdentity
+    {
+        internal sealed class ActivePath { internal string Device, Identity; }
+        internal sealed class Child { internal string Identity, LegacyIdentity; }
+        internal sealed class State { internal string Identity, LegacyIdentity, Detail; }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        internal struct TargetName
+        {
+            internal DisplayColor.Header Header;
+            internal uint Flags, Technology;
+            internal ushort EdidManufacturer, EdidProduct;
+            internal uint ConnectorInstance;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)] internal string Name;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] internal string Path;
+        }
+        [DllImport("user32.dll", EntryPoint = "DisplayConfigGetDeviceInfo", ExactSpelling = true)]
+        private static extern int GetTargetName(ref TargetName name);
+
+        // Null paths mean the API is unsupported. An empty successful snapshot,
+        // missing target or cloned source must never fall back to child zero.
+        internal static State Resolve(string device, IList<ActivePath> paths, IList<Child> children, string failure)
+        {
+            var state = new State();
+            if (paths == null)
+            {
+                if (failure != null) { state.Detail = failure; return state; }
+                if (children.Count != 1 || string.IsNullOrWhiteSpace(children[0].Identity))
+                { state.Detail = "Active display paths unavailable; monitor entries are missing or ambiguous"; return state; }
+                state.Identity = children[0].Identity.Trim();
+                state.LegacyIdentity = children[0].LegacyIdentity;
+                state.Detail = "Single monitor interface fallback (active display paths unsupported)";
+                return state;
+            }
+            ActivePath match = null;
+            foreach (var path in paths)
+            {
+                if (!string.Equals(path.Device, device, StringComparison.OrdinalIgnoreCase)) continue;
+                if (match != null) { state.Detail = "Multiple active targets share this display source"; return state; }
+                match = path;
+            }
+            if (match == null || string.IsNullOrWhiteSpace(match.Identity))
+            { state.Detail = "Windows did not identify an active monitor target for this display"; return state; }
+            state.Identity = match.Identity.Trim();
+            int aliases = 0;
+            foreach (var child in children)
+                if (string.Equals(child.Identity, state.Identity, StringComparison.OrdinalIgnoreCase))
+                { aliases++; state.LegacyIdentity = child.LegacyIdentity; }
+            if (aliases != 1) state.LegacyIdentity = null;
+            state.Detail = "Windows active display path";
+            return state;
+        }
+
+        private static List<ActivePath> ReadPaths(out string failure)
+        {
+            failure = null;
+            try
+            {
+                for (int attempt = 0; attempt < 3; attempt++)
+                {
+                    uint count, modes;
+                    int result = DisplayColor.GetDisplayConfigBufferSizes(2, out count, out modes);
+                    if (result == 50) return null; // ERROR_NOT_SUPPORTED, including older display drivers.
+                    if (result != 0) { failure = "Active display enumeration failed: " + result; return null; }
+                    if (count > 256 || modes > 1024) { failure = "Active display enumeration exceeded safe limits"; return null; }
+                    var paths = new DisplayColor.Path[Math.Max(1u, count)];
+                    var modeInfo = new DisplayColor.ModeInfo[Math.Max(1u, modes)];
+                    result = DisplayColor.QueryDisplayConfig(2, ref count, paths, ref modes, modeInfo, IntPtr.Zero);
+                    if (result == 122) continue;
+                    if (result == 50) return null;
+                    if (result != 0) { failure = "Active display query failed: " + result; return null; }
+                    var values = new List<ActivePath>();
+                    for (int i = 0; i < count; i++)
+                    {
+                        var source = new DisplayColor.SourceName { Header = new DisplayColor.Header { Type = 1,
+                            Size = (uint)Marshal.SizeOf(typeof(DisplayColor.SourceName)), Adapter = paths[i].Source.Adapter, Id = paths[i].Source.Id } };
+                        if (DisplayColor.GetSourceName(ref source) != 0 || string.IsNullOrWhiteSpace(source.Name))
+                        { failure = "Windows could not identify an active display source"; return null; }
+                        var target = new TargetName { Header = new DisplayColor.Header { Type = 2,
+                            Size = (uint)Marshal.SizeOf(typeof(TargetName)), Adapter = paths[i].Target.Adapter, Id = paths[i].Target.Id } };
+                        int named = GetTargetName(ref target);
+                        values.Add(new ActivePath { Device = source.Name,
+                            Identity = named == 0 && paths[i].Target.Available != 0 ? target.Path : null });
+                    }
+                    return values;
+                }
+                failure = "Display configuration kept changing; try again after reconnecting displays";
+            }
+            catch (DllNotFoundException) { }
+            catch (EntryPointNotFoundException) { }
+            return null;
+        }
+
+        private static List<Child> ReadChildren(string device)
+        {
+            var children = new List<Child>();
+            for (uint index = 0; index < 256; index++)
+            {
+                var current = new NativeMethods.DISPLAY_DEVICE();
+                current.cb = Marshal.SizeOf(typeof(NativeMethods.DISPLAY_DEVICE));
+                if (!NativeMethods.EnumDisplayDevices(device, index, ref current, 1)) return children;
+                var legacy = new NativeMethods.DISPLAY_DEVICE();
+                legacy.cb = current.cb;
+                bool found = NativeMethods.EnumDisplayDevices(device, index, ref legacy, 0);
+                children.Add(new Child { Identity = (current.DeviceID ?? "").Trim(),
+                    LegacyIdentity = found && !string.IsNullOrWhiteSpace(legacy.DeviceID) ? legacy.DeviceID.Trim() : null });
+            }
+            // Do not accept a truncated enumeration as a unique legacy alias.
+            return new List<Child>();
+        }
+
+        internal static Dictionary<string, State> Read(IEnumerable<string> devices)
+        {
+            string failure;
+            var paths = ReadPaths(out failure);
+            var result = new Dictionary<string, State>(StringComparer.OrdinalIgnoreCase);
+            foreach (string device in devices)
+                result[device] = Resolve(device, paths, ReadChildren(device), failure);
+            return result;
+        }
+    }
+
     internal static class DisplayColor
     {
         internal enum Mode { Unknown, Sdr, Wcg, Hdr }
@@ -307,12 +429,12 @@ namespace Offhand.Companion
         internal struct ModeInfo { [FieldOffset(0)] internal uint Type; }
 
         [DllImport("user32.dll")]
-        private static extern int GetDisplayConfigBufferSizes(uint flags, out uint paths, out uint modes);
+        internal static extern int GetDisplayConfigBufferSizes(uint flags, out uint paths, out uint modes);
         [DllImport("user32.dll")]
-        private static extern int QueryDisplayConfig(uint flags, ref uint pathCount, [Out] Path[] paths,
+        internal static extern int QueryDisplayConfig(uint flags, ref uint pathCount, [Out] Path[] paths,
             ref uint modeCount, [Out] ModeInfo[] modes, IntPtr topology);
         [DllImport("user32.dll", EntryPoint = "DisplayConfigGetDeviceInfo", CharSet = CharSet.Unicode)]
-        private static extern int GetSourceName(ref SourceName name);
+        internal static extern int GetSourceName(ref SourceName name);
         [DllImport("user32.dll", EntryPoint = "DisplayConfigGetDeviceInfo")]
         private static extern int GetColorInfo(ref ColorInfo info);
 
@@ -507,6 +629,7 @@ namespace Offhand.Companion
             internal string DeviceName;
             internal string StableId;
             internal string LegacyStableId;
+            internal string IdentityDetail;
             internal Rectangle Bounds;
             internal Rectangle WorkArea;
             internal bool Primary;
@@ -3879,24 +4002,18 @@ namespace Offhand.Companion
             }
         }
 
-        private static string ReadStableDisplayId(string deviceName, bool legacy = false)
-        {
-            var monitor = new NativeMethods.DISPLAY_DEVICE();
-            monitor.cb = Marshal.SizeOf(typeof(NativeMethods.DISPLAY_DEVICE));
-            const uint EDD_GET_DEVICE_INTERFACE_NAME = 1;
-            if (!NativeMethods.EnumDisplayDevices(deviceName, 0, ref monitor, legacy ? 0 : EDD_GET_DEVICE_INTERFACE_NAME)) return null;
-            if (!string.IsNullOrWhiteSpace(monitor.DeviceID)) return monitor.DeviceID.Trim();
-            return null;
-        }
-
         private static List<MonitorSelection.Display> ReadDisplays()
         {
             var result = new List<MonitorSelection.Display>();
             var screens = Screen.AllScreens;
+            var devices = new List<string>();
+            foreach (var screen in screens) devices.Add(screen.DeviceName);
+            var identities = DisplayIdentity.Read(devices);
             for (int i = 0; i < screens.Length; i++)
                 result.Add(new MonitorSelection.Display { Index = i, DeviceName = screens[i].DeviceName,
-                    StableId = ReadStableDisplayId(screens[i].DeviceName),
-                    LegacyStableId = ReadStableDisplayId(screens[i].DeviceName,true),
+                    StableId = identities[screens[i].DeviceName].Identity,
+                    LegacyStableId = identities[screens[i].DeviceName].LegacyIdentity,
+                    IdentityDetail = identities[screens[i].DeviceName].Detail,
                     Bounds = screens[i].Bounds, WorkArea = screens[i].WorkingArea, Primary = screens[i].Primary });
             return result;
         }
@@ -5884,6 +6001,9 @@ namespace Offhand.Companion
                 lblColorWarning.ForeColor = cMuted;
                 lblScaleInfo.Text = "";
                 colorDiagnostics = lblColorModes.Text;
+                foreach (var display in displays)
+                    colorDiagnostics += string.Format("\r\nDisplay {0}: {1}; identity={2}; {3}",
+                        display.Index + 1, display.DeviceName, display.StableId, display.IdentityDetail);
                 lastColorDiagnostic = null;
                 return;
             }
@@ -5937,6 +6057,7 @@ namespace Offhand.Companion
                 DisplayScaling.State scale;if(!scaleByIndex.TryGetValue(index,out scale))scale=DisplayScaling.Read(display);
                 detail.AppendFormat("Display {0}: {1}; identity={2}; bounds={3}; {4}; {5}; {6}; {7}\r\n",
                     index + 1, display.DeviceName, display.StableId, display.Bounds, state.Label, state.Detail, scale.Label, scale.Detail);
+                detail.AppendLine("Identity lookup: " + display.IdentityDetail);
             }
             colorDiagnostics = detail.ToString();
             if (!string.Equals(lastColorDiagnostic, colorDiagnostics, StringComparison.Ordinal))
