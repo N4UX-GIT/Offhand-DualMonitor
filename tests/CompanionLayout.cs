@@ -63,8 +63,10 @@ namespace Offhand.Companion
             // Embedded Forms can exercise synthetic work areas without the
             // managed top-level Form.Size clamp to the physical host screen.
             // CheckHostWorkingArea separately retains a real top-level case.
+            using (var surface = new Panel { Size = new Size(16384, 16384) })
             using (var form = new CompanionForm { TopLevel = false, MaximumSize = new Size(16384, 16384) })
             {
+                surface.Controls.Add(form);
                 form.CreateControl();
                 form.Scale(new SizeF(factor, factor));
                 LayoutAll(form);
