@@ -4,8 +4,8 @@
 
 The dashboard places Span WoW Now and Restore Window directly below the header.
 The action row is 44 logical pixels tall, with 64% of its width allocated to
-Span. Two short guidance lines explain applying the selected layout, typing
-`/reload` in WoW afterward, and restoring the previous window.
+Span. Separate guidance labels sit beneath their respective buttons, explaining
+applying the layout and typing `/reload`, and returning to the previous window.
 
 With fresh preferences, Configuration is the only expanded panel. System
 Status, Display Diagnostics, and Activity Log start collapsed. Explicit saved
@@ -20,8 +20,10 @@ in the tray menu. Pausing still clears graphics-recovery tracking and stops
 automatic launch monitoring while manual actions remain available. The status
 summary exposes that paused state, and Help describes the tray location.
 
-Layout measurement uses the new action height consistently. The scroll extent
-is explicit so expanded content still scrolls when Windows limits window height.
+Layout measurement uses the new action height consistently. Window fitting runs
+at initial load. Panel toggles and status refreshes preserve the window's size
+and position; expanded content scrolls inside that window. The scroll extent is
+explicit so content remains reachable at the native window-height limit.
 
 ## Validation
 
@@ -62,3 +64,21 @@ expanded Configuration, and absence of a vertical scrollbar. The window was
 left open for review. No game input or span action was performed. Fresh settings
 on this host select its one active display without enabling split, so the
 collapsed indicator appropriately requests a display-layout review.
+
+## Preview 2 corrections
+
+The owner reported jarring Show/Hide resizing and ambiguous placement of the
+shared two-line action guidance. Removed both toggle-time window fitting and
+queued status/shown-time growth. The layout fixture now persists toggles for
+all four panels at each supported scale and asserts unchanged outer bounds.
+It also checks overflowing status content scrolls without growth. Separate
+guidance labels share each button's column and are checked for alignment and
+text clipping at 100%-200% and several window widths.
+
+Preference/layout checks passed. Built and launched
+`dist/dashboard-ui-preview-20261109-2/Offhand.exe`, file version `2.1.3.8002`.
+Computer Use verified the button guidance and System Status expansion/collapse:
+the visible window stayed 550 by 704 logical pixels while expanded content
+scrolled. Closed the earlier preview through its Exit Companion button and left
+Preview 2 open with Configuration expanded and supporting panels collapsed.
+No WoW span, game input or public/Store package replacement was performed.

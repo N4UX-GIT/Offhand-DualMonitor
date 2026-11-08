@@ -146,6 +146,7 @@ namespace Offhand.Companion
                     BoundsInside(span, form).Top >= BoundsInside(status, form).Top ||
                     span.Height < 44 * factor - 1 || Descendants(form).OfType<Button>().Any(button => button.Text == "Pause Monitor"))
                     throw new Exception("Primary actions must be prominent and precede System Status.");
+                CheckActionGuidance(form);
                 form.UpdateClientStatus(null, false);
                 if (!summary.Text.Contains("WoW not running")) throw new Exception("Collapsed status lost stopped-client text.");
                 form.FitDashboardToWorkingArea(Screen.PrimaryScreen.WorkingArea);
@@ -182,6 +183,19 @@ namespace Offhand.Companion
                 monitorItem.PerformClick();
                 if (monitorItem.Text != "Pause background monitoring" || !summary.Text.Contains("WoW running"))
                     throw new Exception("Tray resume must restore launch monitoring and the client summary.");
+                foreach (Panel section in new[] { status, config,
+                    Descendants(form).OfType<Panel>().Single(panel => panel.Controls.OfType<Label>().Any(label => label.Text == "DISPLAY DIAGNOSTICS")),
+                    Descendants(form).OfType<Panel>().Single(panel => panel.Controls.OfType<Label>().Any(label => label.Text == "ACTIVITY LOG")) })
+                {
+                    bool expanded = section.Controls.OfType<Button>().Any(button => button.Text == "Hide");
+                    Rectangle stableBounds = form.Bounds;
+                    form.SetDashboardSectionExpanded(section, !expanded, true);
+                    LayoutAll(form);
+                    if (form.Bounds != stableBounds) throw new Exception("Toggling a panel resized or moved the dashboard.");
+                    form.SetDashboardSectionExpanded(section, expanded, true);
+                    LayoutAll(form);
+                    if (form.Bounds != stableBounds) throw new Exception("Restoring a panel resized or moved the dashboard.");
+                }
                 form.SetDashboardSectionExpanded(status, true, false);
                 var layoutStatus = status.Controls.OfType<Label>().Single(label => label.Text.StartsWith("Display layout"));
                 var roomyDesktop = new Rectangle(0, 0, 2560, 2300);
@@ -200,18 +214,12 @@ namespace Offhand.Companion
                 var cards = scrollPanel.Controls.OfType<TableLayoutPanel>().Single();
                 if (cards.Height + scrollPanel.Padding.Vertical <= scrollPanel.ClientSize.Height)
                     throw new Exception("Fixture did not reproduce the initial status refresh outgrowing the startup window.");
-                // Production growth runs through BeginInvoke after the status
-                // transaction. Settle nested AutoSize/preferred-size caches in
-                // this hidden, message-loop-free fixture before that callback.
+                // Status updates and panel toggles must scroll within the
+                // existing window rather than grow or move the dashboard.
                 LayoutAll(form);
-                form.GrowDashboardToFit(roomyDesktop);
-                LayoutAll(form);
-                bool hostHeightLimit = form.Height >= SystemInformation.MaxWindowTrackSize.Height;
                 bool contentOverflows = cards.Bottom > scrollPanel.ClientSize.Height - scrollPanel.Padding.Bottom;
-                if ((!hostHeightLimit && form.Height <= startupBounds.Height) || form.Width != startupBounds.Width ||
-                    form.Location != startupBounds.Location ||
-                    (contentOverflows ? !hostHeightLimit || !scrollPanel.VerticalScroll.Visible : scrollPanel.VerticalScroll.Visible))
-                    throw new Exception("The initial status refresh did not remove the vertical scrollbar at " + factor
+                if (form.Bounds != startupBounds || (contentOverflows != scrollPanel.VerticalScroll.Visible))
+                    throw new Exception("Status refresh must preserve bounds and scroll overflowing content at " + factor
                         + "x. Startup=" + startupBounds + ", current=" + form.Bounds
                         + ", viewport=" + scrollPanel.ClientSize + ", cardsBottom=" + cards.Bottom
                         + ", padding=" + scrollPanel.Padding + ", scrollbar=" + scrollPanel.VerticalScroll.Visible
@@ -308,6 +316,7 @@ namespace Offhand.Companion
                 {
                     form.ClientSize = new Size((int)(logicalWidth * factor), form.ClientSize.Height);
                     LayoutAll(form);
+                    CheckActionGuidance(form);
                     Panel viewport = form.Controls.OfType<Panel>().Single(panel => panel.AutoScroll);
                     var stack = viewport.Controls.OfType<TableLayoutPanel>().Single();
                     foreach (Control section in stack.Controls)
@@ -317,6 +326,22 @@ namespace Offhand.Companion
                         throw new Exception("Resizing introduced a horizontal scrollbar");
                 }
                 CheckWorkspaceLayoutCaption(form, config, custom, factor);
+            }
+        }
+
+        private static void CheckActionGuidance(CompanionForm form)
+        {
+            foreach (var pair in new[] { new[] { "Span WoW Now", "Span guidance" }, new[] { "Restore Window", "Restore guidance" } })
+            {
+                var button = One<Button>(form, item => item.Text == pair[0]);
+                var hint = One<Label>(form, item => item.AccessibleName == pair[1]);
+                Rectangle buttonBounds = BoundsInside(button, hint.Parent);
+                if (Math.Abs(buttonBounds.Left - hint.Left) > 1 || Math.Abs(buttonBounds.Width - hint.Width) > 1 || hint.Top <= buttonBounds.Bottom)
+                    throw new Exception("Action guidance must align below its own button: " + pair[0]);
+                Size measured = TextRenderer.MeasureText(hint.Text, hint.Font, new Size(hint.Width, int.MaxValue),
+                    TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
+                if (measured.Height > hint.Height || hint.Right > hint.Parent.ClientSize.Width)
+                    throw new Exception("Action guidance is clipped: " + pair[0]);
             }
         }
 
@@ -424,6 +449,7 @@ namespace Offhand.Companion
             foreach (string field in new[] { "configPath", "publicConfigPath" })
                 typeof(CompanionForm).GetField(field, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
                     .SetValue(null, isolated);
+            AppDomain.CurrentDomain.ProcessExit += (sender, args) => { if (System.IO.File.Exists(isolated)) System.IO.File.Delete(isolated); };
             CheckHostWorkingArea();
             CheckScale(1f);
             CheckScale(1.25f);

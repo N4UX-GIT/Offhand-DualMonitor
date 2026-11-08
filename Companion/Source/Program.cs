@@ -54,7 +54,7 @@ using System.Windows.Forms;
 [assembly: AssemblyVersion("2.1.3.0")]
 #endif
 #if UI_PREVIEW
-[assembly: AssemblyFileVersion("2.1.3.8001")]
+[assembly: AssemblyFileVersion("2.1.3.8002")]
 [assembly: AssemblyInformationalVersion("2.1.3")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
@@ -3872,7 +3872,7 @@ namespace Offhand.Companion
         internal const string BaseVersion = "2.1.3";
 #endif
 #if UI_PREVIEW
-        internal const string ReleaseLabel = "UI Preview";
+        internal const string ReleaseLabel = "UI Preview 2";
         internal static readonly bool GraphicsRecoveryEnabled = false;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
@@ -3983,7 +3983,6 @@ namespace Offhand.Companion
         private TableLayoutPanel dashboardFooter;
         private Panel dashboardHeader;
         private bool layingOutDashboard;
-        private bool dashboardGrowthQueued;
         private string colorDiagnostics = "Select a valid display plan to inspect color modes.";
         private string lastColorDiagnostic;
         private Label lblAddonReason;
@@ -4818,12 +4817,6 @@ namespace Offhand.Companion
             FitDashboardToWorkingArea(Screen.FromControl(this).WorkingArea);
         }
 
-        protected override void OnShown(EventArgs e)
-        {
-            base.OnShown(e);
-            QueueDashboardGrowth();
-        }
-
         private int DashboardRequiredClientHeight()
         {
             return dashboardStack.GetPreferredSize(new Size(dashboardStack.Width, 0)).Height
@@ -4843,32 +4836,6 @@ namespace Offhand.Companion
             dashboardScroll.AutoScrollPosition = Point.Empty;
             PerformLayout();
             LayoutDashboardCards();
-        }
-
-        internal void GrowDashboardToFit(Rectangle workArea)
-        {
-            LayoutDashboardCards();
-            int height = Math.Min(workArea.Height,
-                SizeFromClientSize(new Size(ClientSize.Width, DashboardRequiredClientHeight())).Height);
-            if (height <= Height) return;
-
-            int top = Math.Max(workArea.Top, Math.Min(Top, workArea.Bottom - height));
-            SetBounds(Left, top, Width, height);
-            dashboardScroll.AutoScrollPosition = Point.Empty;
-        }
-
-        private void QueueDashboardGrowth()
-        {
-            if (dashboardGrowthQueued || !IsHandleCreated || !Visible || Disposing) return;
-            dashboardGrowthQueued = true;
-            // Status and diagnostics update several labels in one poll. Measure
-            // the resulting cards once after WinForms has laid them out.
-            BeginInvoke(new Action(() =>
-            {
-                dashboardGrowthQueued = false;
-                if (Visible && !IsDisposed && !uiInteractionPaused && WindowState == FormWindowState.Normal)
-                    GrowDashboardToFit(Screen.FromControl(this).WorkingArea);
-            }));
         }
 
         private void CompleteUpdateCheck(Action completion)
@@ -5460,15 +5427,21 @@ namespace Offhand.Companion
             actionRow.ColumnStyles[0].Width = 64;
             actionRow.ColumnStyles[1].Width = 36;
             var actionPanel = new TableLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                ColumnCount = 1, RowCount = 2, Margin = Padding.Empty, Padding = Padding.Empty, BackColor = cBg };
-            actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+                ColumnCount = 2, RowCount = 2, Margin = Padding.Empty, Padding = Padding.Empty, BackColor = cBg };
+            actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 64));
+            actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36));
             actionPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             actionPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             actionPanel.Controls.Add(actionRow, 0, 0);
+            actionPanel.SetColumnSpan(actionRow, 2);
+            actionPanel.Controls.Add(new Label { AutoSize = true, Dock = DockStyle.Fill,
+                Margin = new Padding(0, 6, 10, 0), ForeColor = cMuted, Font = new Font("Segoe UI", 8.5f),
+                Text = "Apply layout, then type /reload in WoW.", AccessibleName = "Span guidance",
+                UseMnemonic = false }, 0, 1);
             actionPanel.Controls.Add(new Label { AutoSize = true, Dock = DockStyle.Fill,
                 Margin = new Padding(0, 6, 0, 0), ForeColor = cMuted, Font = new Font("Segoe UI", 8.5f),
-                Text = "Span applies your selected layout. Then type /reload in WoW.\r\nRestore returns WoW to its previous window.",
-                UseMnemonic = false }, 0, 1);
+                Text = "Return to the previous window.", AccessibleName = "Restore guidance",
+                UseMnemonic = false }, 1, 1);
             foreach (Control item in new Control[] { header, actionPanel, status, config, diagnostics, log })
             {
                 item.Dock = DockStyle.Top;
@@ -5502,10 +5475,8 @@ namespace Offhand.Companion
                 lblColorModes, lblColorWarning, lblScaleInfo })
                 label.TextChanged += (s, e) =>
                 {
-                    int before = dashboardStack.Height;
                     UpdateDashboardStatusSummary();
                     LayoutDashboardCards();
-                    if (dashboardStack.Height > before) QueueDashboardGrowth();
                 };
             lblDisplayInfo.ForeColorChanged += (s, e) => { UpdateDashboardStatusSummary(); };
             dashboardStack.Layout += (s, e) => { LayoutDashboardCards(); };
@@ -5528,14 +5499,6 @@ namespace Offhand.Companion
             {
                 appSettings[section.Key] = (!expanded).ToString();
                 SaveConfig();
-                if (IsHandleCreated && WindowState == FormWindowState.Normal)
-                {
-                    Point previous = Location;
-                    Rectangle workArea = Screen.FromControl(this).WorkingArea;
-                    FitDashboardToWorkingArea(workArea);
-                    Location = new Point(Math.Max(workArea.Left, Math.Min(previous.X, workArea.Right - Width)),
-                        Math.Max(workArea.Top, Math.Min(previous.Y, workArea.Bottom - Height)));
-                }
             }
         }
 
