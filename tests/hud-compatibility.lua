@@ -13,6 +13,15 @@ C_AddOns = {
 
 assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
 local compatibility = assert(addon.HUDCompatibility)
+do
+    addon.isForever = true
+    for _, name in ipairs({"BuffFrame", "DebuffFrame", "ExternalDefensivesFrame"}) do
+        local aura = { GetName = function() return name end }
+        assert(compatibility.IsForeverEditModeFrame(aura, name),
+            "native aura roots must retain Edit Mode ownership before managed flags initialize")
+    end
+    addon.isForever = false
+end
 
 MainMenuBar = {}
 ContainerFrame1 = {}
@@ -23,6 +32,16 @@ assert(not compatibility.HasCustomActionBarAddon(),
     "stock action bars must remain available")
 assert(not compatibility.HasCustomBagAddon(),
     "stock bags must remain available")
+ContainerFrame1, ContainerFrameCombinedBags = nil, {}
+assert(not compatibility.HasCustomBagAddon(),
+    "a native combined backpack must not be mistaken for a replacement when ContainerFrame1 is absent")
+Bagnon = {}
+assert(compatibility.HasCustomBagAddon(),
+    "a replacement must retain ownership even when the native combined root exists")
+Bagnon, ContainerFrameCombinedBags = nil, nil
+assert(compatibility.HasCustomBagAddon(),
+    "missing both native roots must retain the conservative ownership fallback")
+ContainerFrame1 = {}
 assert(not compatibility.HasCustomMinimapAddon(),
     "the stock Minimap must remain available")
 
@@ -43,6 +62,13 @@ loaded.EllesmereUIActionBars, loaded.EllesmereUIMinimap, loaded.EllesmereUIChat 
 loaded.EllesmereUIBags = true
 assert(compatibility.HasCustomBagAddon(),
     "Ellesmere bags must own native bag layout even when ContainerFrame1 still exists")
+addon.isForever = true
+addon.Mainhand = {IsNativeGamepadInterface = function() return true end}
+assert(not compatibility.HasCustomBagAddon(),
+    "Forever native Gamepad layout must respect EllesmereUI's bag stand-down")
+Baganator = {}
+assert(compatibility.HasCustomBagAddon(), "the Ellesmere stand-down must preserve another bag provider")
+Baganator, addon.Mainhand, addon.isForever = nil, nil, false
 loaded.EllesmereUIBags = nil
 local previousEnum = Enum
 Enum = { EditModeSystem = {ActionBar=1, StatusTrackingBar=2} }
@@ -106,5 +132,34 @@ addon.Mainhand = {
 assert(compatibility.UsesNativeGamepadInterface()
         and compatibility.UsesControllerInterface(),
     "Mainhand controller capability delegation changed during extraction")
+
+-- Position ownership can appear after initialization (RestedXP V2 is an
+-- anonymous AceGUI frame). Never cache a missing vendor widget as unowned.
+do
+    local root = {IsUserPlaced=function() return false end}
+    assert(not compatibility.ShouldPreservePopupPosition(root),
+        "ordinary anonymous popups must remain eligible for automatic recovery")
+    RXPV2GuideWindow = {frame=root}
+    assert(compatibility.ShouldPreservePopupPosition(root),
+        "late RestedXP V2 construction must establish position ownership")
+    RXPV2GuideWindow = {frame={}}
+    assert(not compatibility.ShouldPreservePopupPosition(root),
+        "a recycled or replaced guide must not claim an unrelated root")
+    RXPV2GuideWindow = nil
+    root.IsUserPlaced = function() error('unreadable placement') end
+    assert(compatibility.ShouldPreservePopupPosition(root),
+        "unreadable user placement must prevent automatic writes")
+    local secret = {}
+    local previousSecretCheck = issecretvalue
+    issecretvalue = function(value) return value == secret end
+    root.IsUserPlaced = function() return secret end
+    assert(compatibility.ShouldPreservePopupPosition(root),
+        "secret placement results must prevent automatic writes")
+    root.IsUserPlaced = function() return false end
+    root.GetName = function() return secret end
+    assert(compatibility.ShouldPreservePopupPosition(root),
+        "secret frame names must prevent automatic writes")
+    issecretvalue = previousSecretCheck
+end
 
 print("PASS: HUD compatibility ownership and client capability policy")

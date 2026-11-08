@@ -10,6 +10,7 @@ Offhand.modules.ChatBubbles = Bubbles
 
 local tracked = setmetatable({}, { __mode = "k" })
 local instanceFontState
+local foreverFontRecoveryComplete = false
 
 local replacementByOuter = setmetatable({}, { __mode = "k" })
 local pendingRestore = setmetatable({}, { __mode = "k" })
@@ -162,12 +163,18 @@ local function UsesForeverNativeWorldTextScale()
     return ok and name == "WorldTextScale_v2"
 end
 
-local function RestoreForeverNativeBubbleFont()
+local function RestoreForeverNativeBubbleFont(externalOwner)
     RestoreInstanceFont()
+    if foreverFontRecoveryComplete then return end
     if not ChatBubbleFont or not ChatBubbleFont.GetFont
         or not ChatBubbleFont.SetFont then return end
     local ok, file, height, flags = pcall(ChatBubbleFont.GetFont, ChatBubbleFont)
     if not ok or not file or not Positive(height) then return end
+    -- This is startup recovery for old undersized Offhand experiments, not a
+    -- recurring font policy. Other owners may intentionally choose any size.
+    -- Consume the startup check even while explicitly yielding to Ellesmere.
+    foreverFontRecoveryComplete = true
+    if externalOwner or height >= 10 then return end
     local savedHeight = Offhand.db
         and tonumber(Offhand.db.originalChatBubbleFontHeight) or nil
     local nativeHeight = Positive(savedHeight) and savedHeight >= 10
@@ -599,7 +606,7 @@ function Bubbles:ApplyLayout()
         -- Clean up every mutation made by earlier Beta 21 experiments before
         -- entering the replacement path. These are one-time ownership handbacks.
         RestoreTrackedBubbles()
-        RestoreForeverNativeBubbleFont()
+        RestoreForeverNativeBubbleFont(EllesmereOwnsChatBubbles())
         local replace, mode = ReplacementDecision()
         replacementMode = mode
         if replace then UpdateReplacements() else ReleaseAllReplacements() end

@@ -1,3 +1,392 @@
+# BetterBags and RestedXP placement source correction, 2026-11-08
+
+- Reporter confirms Beta 26, Forever. Inspected local BetterBags v0.9.2 and
+  RXPGuides v4.11.34. Generic popup scanning could override vendor/user anchors.
+- New regression fails against immutable test18; correction preserves six named
+  vendor roots, anonymous V2 guide ownership and explicit user placement while
+  ordinary popup recovery still works. All 99 Lua suites and six manifests pass.
+- Private test19 packaged/installed with 99 source and extracted suites passing,
+  six extracted manifests validated, generated bridges preserved and test18
+  rollback retained. Native classic/Next small bag and RestedXP V1 map/vendor/
+  reload placement pass on both sides; classic native title/anchor gestures pass.
+- Corrected fixture snapshot replacement and removed an optional Character
+  helper responsible for four QA-attributed status-bar errors. No product
+  BugGrabber delta; no blocks in the retained final taint interval. No general
+  taint/combat/controller acceptance. Native V2 and exact reporter layout pending.
+- Closed target normally. Restored 33 original files and two bridges, removed
+  QA and eight created state files. Installed test19 and ZIPs reverified.
+- [Native matrix and limitations](../docs/BETTERBAGS-RESTEDXP-LIVE-QA-20261108.md).
+- [Investigation and native matrix](../docs/BETTERBAGS-RESTEDXP-PLACEMENT-20261108.md).
+
+# Test18 controller combat candidate, 2026-11-08
+
+- User reports controller reopen still snaps on either saved side and restores
+  after combat. Keyboard passes do not accept controller behavior.
+- Source confirms native Gamepad has its own destination adapter, which skipped
+  all combat placement. Test18 shares the native permission guard and restores
+  only the last out-of-combat bag root anchor, preserving separate offset stores.
+- Controller regression fails on test17 and passes test18. All 99 suites and six
+  manifests pass in source and extracted package.
+- Native Forever 70862 controller combined-bag PASS: two recorded workspace
+  combat reopen cycles and one Mainhand cycle retain CENTER anchors; controller
+  mode stays active. Post-combat controller item use passes by user report.
+  No new BugGrabber messages/counter changes. Ten separate ForeverPlus arithmetic
+  blocks appear in the taint log, with no Offhand bag-path match.
+- Closed target normally; restored 29 state/enablement/cache files and two
+  bridges, removed recorder plus two created state files. Test18 remains installed.
+  Separate controller bags, equipped extra bags and in-combat item use pending.
+- [Controller candidate](../docs/BAG-CONTROLLER-COMBAT-20261108.md).
+
+# Test17 combined-mode combat QA, 2026-11-07
+
+- Forever 70862 combined root confirmed. Workspace X reversal and out-of-combat
+  B close/reopen pass. Six recorded workspace combat reopen cycles retain saved
+  position and UIParent parent. Mainhand actual combat reopening is explicitly
+  confirmed by the user; recorder corroborates stable geometry but captured no
+  hidden interval there. Post-combat item use passes by user report.
+- No new BugGrabber messages/counter changes. Six separate ForeverPlus secret-
+  arithmetic blocks in the taint log, with no Offhand bag-path match. No whole-
+  session taint-free or in-combat item-action claim.
+- No production change needed; focused regression passes and installed runtime
+  plus immutable ZIP hashes match test17. Restored 21 original state/enablement
+  files and two bridges, removed QA plus one created state file, closed target
+  normally and retained Battle.net. Extra bags/controller remain pending.
+- [Combined native QA](../docs/BAG-COMBINED-LIVE-QA-20261107.md).
+
+# Test17 combat-reopen candidate, 2026-11-07
+
+- Test16 failed actual separate-backpack combat reopening on workspace and
+  Mainhand. Recorder shows hidden/shown transitions, permissive root security
+  flags, native bottom-right anchors and post-combat recovery at +0.2 seconds.
+- Test17 accepts Blizzard's native ContainerFrameContainer ancestry, requiring
+  explicit permissions on it and direct UIParent ancestry. Unknown, reparented
+  or protected containers yield. No parent changes are added. New regression
+  fails on test16 and passes the correction. All 99 suites and six manifests
+  pass in source and extracted package.
+- Test17 native PASS on Forever 70862: seven actual combat reopen cycles on
+  workspace and six on Mainhand retain saved placement and native parent.
+  Workspace X remains hidden, Mainhand X remains visible. User reports no error
+  using a backpack item afterward. No new BugGrabber messages/counter changes.
+  Taint log has seven separate ForeverPlus buff-expiry secret-arithmetic blocks,
+  none matching the Offhand bag path. No whole-session taint-free claim.
+- Test17 cleanup restores 21 state/enablement files and two bridges, removes QA
+  plus one created state file, and closes the target normally. Battle.net open.
+  Equipped extra bags, combined combat, controller and in-combat item use pending.
+- Test16: no new BugGrabber messages/counter deltas; user reports no Lua error
+  using a backpack item after combat. Normal exit, 21 state/enablement files
+  and two bridges restored, QA addon plus two created state files removed.
+- Details: [combat-reopen investigation](../docs/BAG-COMBAT-REOPEN-FIX-20261107.md).
+
+# Test15 native bag live QA, 2026-11-07
+
+- Forever 70862 keyboard checks accept combined/separate backpack X reversal,
+  native keyring second-frame discovery, Mainhand release, reopen and reload.
+  Manual title dragging passes; automated drag input did not move the bag.
+- User-driven combat reopening reproduces native bottom-right snap. Saved
+  Mainhand/Offhand positions recover by 0.2 seconds after combat, preserving
+  ownership and workspace hidden-X state. Combat entry also recorded lockdown
+  false with player combat true, supporting the dual guard.
+- Later repeat kept bags open throughout combat and stayed positioned. It does
+  not accept combat reopening. No new BugGrabber messages/counter changes.
+- Taint-log retention does not cover all initial combat reopening; no general
+  taint-free claim. Equipped additional bags, actual protected item use,
+  combined-mode combat reopening, controller and exact reporter profile pending.
+- No product code/archive change. Closed target client normally, restored 21
+  state/enablement files and bridges, removed temporary QA and two created state
+  files. Battle.net remains open. Details:
+  [test15 native QA](../docs/BAG-TEST15-LIVE-QA-20261107.md).
+
+# Native bag follow-up candidate, 2026-11-07
+
+- Separate bag roots now participate in workspace X hiding without saved names.
+  Native roots/controls gain no scripts or ownership changes.
+- Chrome and native bag recovery use both player-combat and lockdown signals.
+  Native opening rechecks between fallback calls; callback-entered combat keeps
+  intent and stops placement/toggling until a later safe attempt.
+- New regressions fail against frozen test14 and pass with the candidate. All
+  99 suites and six manifests pass. No native combat/taint acceptance claimed.
+- Reported far-edge combat placement/X redraws remain native limitations; the
+  new Lua stack and exact reporter version are requested. Details and retest:
+  [bag follow-up](../docs/BAG-COMBAT-FOLLOWUP-20261107.md).
+
+# Private test14 packaging and login attempt, 2026-11-07
+
+- Includes pending popup ownership and map-content isolation candidates. All
+  99 suites and six manifests pass in source and extracted runtime. Runtime
+  archives and installed files verified; frozen public Beta20 Companion retained.
+- Forever 70862 launch stopped at WOW51900308 before addon loading. No native
+  map/popup, invite, quest update, combat or taint acceptance is claimed.
+- Closed both launcher-created windows normally. Restored 15 original state
+  files, character enablement and two generated bridges; removed temporary QA.
+  Historical BugGrabber records unchanged, but no candidate ran in-world.
+- Test14 packaged/installed locally, test13 retained for rollback. Details:
+  [test14 verification](../docs/FOREVER-DISCORD-TEST14-20261107.md).
+
+# Map-pin taint follow-up, 2026-11-07
+
+- Mort's one-off protected SetPassThroughButtons block occurs during native
+  quest-pin acquisition. Same signature as OH-FOR-001; initial taint source,
+  actual private version and active map owner remain unknown.
+- Source hardening prevents Forever addon-driven content refocusing and MoveAny
+  bootstrap provider rebuilds. Other clients retain refresh behavior and recheck
+  combat in the delayed bootstrap callback. Placement/persistence remain intact.
+- Automatic zone refocusing on Forever is deliberately removed. Native map
+  opening/navigation and normal native quest-pin updates are not replaced.
+- New regression fails against frozen test13 for both entry paths, passes after
+  hardening. All 99 suites/six manifests pass. No native reproduction or taint
+  safety claim; source only, not installed or packaged. Full evidence:
+  [map-pin follow-up](../docs/MAP-PIN-TAINT-FOLLOWUP-20261107.md).
+
+# Group invite combat investigation, 2026-11-07
+
+- Report's client/version and exact symptom remain unspecified. Used Forever
+  70862 source provisionally. Native PARTY_INVITE owns acceptance/decline; the
+  native short Decline lock is distinct from a combat-long failure.
+- Reproduced overlapping legacy OnShow centering and generic popup void rescue
+  on modern StaticPopup1..4. Source excludes these roots from those two writers,
+  preserving native stack translation and legacy-client behavior.
+- Integration fails against frozen test13, then passes with both corrections.
+  All 98 suites and six manifests pass. No live combat or real invite was tested.
+- Source candidate only. Reporter reproduction, action/taint safety and combat
+  visibility remain open. See [investigation](../docs/GROUP-INVITE-COMBAT-20261107.md).
+
+# Addon opening timing test13, 2026-11-07
+
+- Maps, Plus, Sounds, Platynator, ForeverDungeonJournal and Kerzo pass native
+  same-callback CloseSpecialWindows checks after Show, before a ticker. Matching
+  GetTime samples, X alpha 0/mouse disabled, root retained. Physical Escape opens
+  Game Menu without closing each workspace root. Maps/Plus reload discovery passes.
+- Native Leatrix sizes drift from 30 to 30.000032424927; a narrow tolerance fixes
+  anonymous X discovery. Kerzo redraw/reopen, bottom Close, option reversal and
+  Maps actual X pass. Maps/Kerzo Mainhand release is synchronous.
+- Offhand settings' normal Show refits into Mainhand, so its harness sample is
+  excluded from the six vendor workspace passes. Simulation covers its adapter.
+- 98 suites, six manifests; no new errors or repeats. Client closed, 15 original
+  state files/enablement/bridges restored; 14 created files and QA addon removed
+  from installation. Combat/controller, side pages and exact profiles pending.
+- Details: [timing follow-up](../docs/ADDON-WINDOW-TIMING-20261107.md).
+
+# Addon Escape test12, 2026-11-07
+
+- Main-root workspace Escape passes on Forever 70862 for Leatrix Maps 1.60.28,
+  Plus 1.60.29, Sounds 1.60.27, Platynator 541, ForeverDungeonJournal 1.7.2 and
+  Offhand settings. Random Maps/Plus roots are recognized again after reload.
+- Mainhand release, Plus explicit X, Platynator import dismissal and reversible
+  Kerzo 6.1.4 top-right X pass scoped native checks on a remembered 50/50 canvas.
+- All 97 suites and six manifests pass. Combat/controller and Leatrix side-page
+  native acceptance remain separate. No new product errors; one corrected
+  harness-only error had five occurrences. Original state/bridges restored,
+  temporary QA removed, target client closed. See
+  [detailed evidence](../docs/ADDON-ESCAPE-FOLLOWUP-20261107.md).
+
+# Noncombat test11, 2026-11-07
+
+- Three regressions fail before correction and pass afterward: recurring Forever
+  bubble-font normalization, lost ForeverPlus fixed row clearance, and stale
+  Ellesmere toolbar placement after canvas/display geometry changes.
+- Forever 70862 native font fixture retains 24 points through updates/span/Restore.
+  Vendor PlaceAsBar/DrawBar preview transactions fit 48/128-unit rows on Mainhand;
+  enlarged rows retain about 30 UI units of timer/air clearance. Reroute off/on
+  restores original/Mainhand anchors without vendor profile changes.
+- Toolbar native bounds fit the portrait workspace after the corrected resize.
+  Its portrait buttons are outside the primary capture and were not clicked.
+- Chat Settings native open, spanned placement, ShowUIPanel reopening after
+  spanned reload, Escape, Restore and tab navigation pass. No extra fix needed.
+- All 96 Lua suites and six manifests pass. Same three historical BugGrabber
+  records, no new messages or repeats. 20 original state files, Config.wtf,
+  Companion config and two generated bridges restored and hash-verified.
+  Temporary QA addon/state removed; both target apps closed, Battle.net left open.
+- Real triggers and exact profiles/hardware remain separate, as does the owned
+  setup popup's keyboard Escape priority. See docs/NONCOMBAT-FOLLOWUP-20261107.md.
+
+# EncounterBar and EFIGS test10, 2026-11-07
+
+- Forever 1.60.1.70862, keyboard UI, actual 4000x2560 mixed-height physical span.
+- Native EncounterBar preview in the real monitor gap prompts after Edit Mode;
+  an empty unhighlighted root does not. Selective repair moves one system,
+  preserves unrelated serialized systems at save time and survives repeated
+  reload/preview cycles without another prompt.
+- Recovery yields an Ellesmere-owned MainActionBar, matching generation policy.
+- All 825 active keys localized in EFIGS, including esES/esMX; four product/math
+  invariants remain identical. 1591 English fallback values translated, plus a
+  new localized Companion download dialog. Main settings preview passes all
+  five variants, German handbook checked, Spanish wizard truncation corrected.
+- 95 Lua suites and six Lua 5.1/path/XML manifests pass. Real encounter/widget
+  actions, combat, physical controller and full native-language/all-page QA remain.
+- Native original layout restored with four custom rows and no fixture row.
+  Temporary QA addon/state removed, original state/config/bridges hash-restored.
+  No new BugGrabber records or added historical occurrences. Historical taint
+  logs provide no fresh combat evidence. One disconnect during cleanup reconnected
+  normally; no addon causality established. See docs/ENCOUNTERBAR-LIVE-QA-20261107.md
+  and docs/LOCALIZATION-EFIGS-20261107.md.
+
+# Kerzo test9 reload restoration, 2026-11-07
+
+- Forever 1.60.1.70862, Kerzo 6.1.4, keyboard UI, visible single-display split.
+- Open workspace log automatically reopens at its saved position after reload;
+  Escape still preserves it. Explicit X followed by reload stays closed.
+- 95 Lua suites and six manifest checks pass in source and extracted runtime.
+- Three historical BugGrabber messages and counters unchanged. Test apps closed,
+  original Companion configuration, SavedVariables and generated bridges restored.
+- Combat, quest-item, controller and physical multi-monitor coverage remains open.
+- Implementation, limits and cleanup: `docs/KERZO-RELOAD-20261107.md`.
+
+# Forever test.2 expanded live smoke, 2026-11-06
+
+- Forever 1.60.1.70790, existing level 1 Shaman, combined Discord test.2.
+- Cold launches, reloads, Companion span/restore, keyboard/Gamepad mode switch,
+  stock Map then cold/warm Spellbook, native Escape and focus release pass.
+  Character, bags, social, options and wizard entry also exercised.
+- Map stays scale 1 in Gamepad UI. BugGrabber's complete historical error tables
+  remain unchanged; only its session number advances. No fresh blocked event.
+- Physical gamepad count is zero. B/Back, reporter stacked pixels, combat/loot,
+  complete HUD/fresh-account setup and Zygor remain explicit acceptance gaps.
+- Original map addons and character state restored, observer removed, 75 runtime
+  files match ZIP, final uninstrumented launch passed. Test apps closed.
+- Recordings, live matrix, diagnostics and cleanup:
+  `docs/FOREVER-LIVE-SMOKE-20261106.md`.
+
+# Forever test.2 local live pass, 2026-11-05
+
+- Updated the release Forever client at `C:/Games/World of Warcraft/_forever_`,
+  WoW 1.60.1.70790, and tested on an available level 1 Orc Shaman.
+- Native passes: character handoff card, Later across reloads, Companion span,
+  Leatrix workspace Escape after initial and later opens, external map reload
+  restoration, and OpenMap workspace Escape with the original addon combination.
+- Secondary pixels were outside the UI capture. A temporary read-only native
+  map-state overlay/log provided visibility/ownership evidence and was removed.
+- BugGrabber error records match baseline; historical taint.log is unchanged.
+  No new recorded errors, without claiming complete combat/taint acceptance.
+- Original addon toggle restored; test client closed; temporary observer and
+  field removed; all 75 non-generated installed files match the package.
+- Fresh-account setup, complete HUD/reuse, cold launch, drag/option changes,
+  pins, Gamepad/loot/combat and Zygor remain pending. Full evidence and limits:
+  `docs/FOREVER-LIVE-QA-20261105.md`.
+
+# Combined Forever Discord test.2, external map correction and guide diagnostics
+
+- Complete: `dist/Offhand-Complete-v2.1.2-beta.26-forever-discord.test2.zip`, SHA256
+  `A32DCEC9AAC4F729BD11BB65875EDBE8B064A68D3ABAC59D494AD5D23C64B230`.
+- Addon: `dist/Offhand-v2.1.2-beta.26-forever-discord.test2.zip`, SHA256
+  `46FFA54BFA0521D30AE85F7410C8F44BFCDEA1F7C5E9F10A4DF959B57042C696`.
+- Includes all prior combined fixes, active invisible Leatrix/OpenMap observation,
+  membership/option-change persistence and opt-in read-only Zygor frame evidence.
+  Zygor's rendering failure is not reproduced or claimed resolved.
+- Both closed-at-start observer loss and stale persistence after an external drag
+  failed in simulation before their corrections. Regressions cover Leatrix and
+  OpenMap, open/closed transitions, seam directions, live option changes, stable
+  state, combat deferral, native geometry/scripts and Escape/restoration.
+- All 89 source/frozen-snapshot Lua suites pass. Thirteen targeted suites pass on
+  extracted ZIP code. Six manifests and 77 addon/87 complete entries validate;
+  all 86 bundle content checksums and the frozen Beta 20 executable match.
+- Live pending: actual reporter versions/input mode, external-map closure and
+  pin interaction, combat/taint, reload, and Zygor's first error/visibility data.
+  No vendor source, installed addon or settings were modified. No game launched
+  or message/release published. Evidence/checklist/receipt:
+  `docs/EXTERNAL-ADDON-REPORTS-20261105.md` and
+  `dist/forever-discord-test2-20261105/`.
+
+# Combined Forever Discord test.1, awaiting live verification
+
+- Complete bundle:
+  `dist/Offhand-Complete-v2.1.2-beta.26-forever-discord.test1.zip`, SHA256
+  `F3B7F1308A87AB8970E95B2EAA5D1F0D16E83EF354AE1827E82698BE17C88BF6`.
+- Addon only: `dist/Offhand-v2.1.2-beta.26-forever-discord.test1.zip`, SHA256
+  `22ED6DF898AA904007523DC2FC7716839B33CCE84F400CF5272D478DD1B56B79`.
+- Includes all current Forever Gamepad fixes, first launch, character checks and
+  two support refinements: blocked-reuse feedback and full setup diagnostics.
+  Supersedes the separate Gamepad test.2 and onboarding test.2 for this round.
+- All 88 Lua suites pass together in the frozen validation tree. Twelve targeted
+  suites pass against extracted ZIP code. Six-manifest paths/XML/Lua 5.1 checks
+  pass. All 77 addon files match both archives and the validation tree; complete
+  bundle has 87 portable entries and 86 verified content checksums.
+- Optional bundled Companion is byte-identical released Beta 20, SHA256
+  `81EECE9430885CEAC178A44A42429854524279072305F9F94EE62E7CCD620CCB`.
+  Generated bridge placeholders are inert. No experimental native features ship.
+- Live pending: native menu/map/loot actions and current combat/taint evidence,
+  fresh and returning character setup, placement/HUD reloads, cold launch,
+  input/topology transitions and French/narrow wrapping. The original map warning
+  and black-screen report are not accepted as resolved without native evidence.
+- Full scope, artifacts, checksums and frozen receipt:
+  `docs/FOREVER-DISCORD-TEST-20261105.md` and
+  `dist/forever-discord-test1-20261105/`. A copy-ready Discord draft and checklist
+  are included. No Discord message was sent, installed addon changed or public
+  release published.
+
+# Character and first launch onboarding test.2 candidate, awaiting live verification
+
+- Candidate: `dist/Offhand-v2.1.2-beta.26-onboarding.test2.zip`, SHA256
+  `C9C87CDB2ED3C750A1A9850FF5CBAEF96756623A8F3B45B8BBA4E9600C8D341C`.
+  Includes the earlier first-launch fix and short per-character HUD check.
+  It supersedes onboarding test.1 and excludes pending Gamepad work.
+- New characters with completed account setup receive Use existing setup,
+  Customize HUD and Later. Choices are per character, remain outside profiles,
+  survive standard/Forever persistence and reset for a changed GUID. Reuse cannot
+  create or rewrite native layouts. Later respects the saved display/input context.
+- All 88 source and 86 isolated candidate Lua suites pass. Character setup,
+  reuse-only selection, lifecycle, first-launch, shared identity and wizard suites
+  pass against extracted ZIP code. Six manifests pass Lua 5.1/path/XML validation.
+  All 77 entries match staged bytes, with development helpers outside the package.
+- Live pending: actual Forever release build, two new characters on a configured
+  account, exact native layout selection, returning-character silence, Later
+  across reload/cold launch, profile creation, no-layout recovery, HUD-only
+  customization, display/input changes, combat/cinematics and French/narrow
+  wrapping. Verify native protected actions and current taint/error evidence.
+- No client launched, installed addon replaced or public release published.
+  See `docs/CHARACTER-SETUP-20261105.md` and
+  `dist/ONBOARDING-test2-INSTRUCTIONS.txt`.
+
+# First launch onboarding test.1 candidate, awaiting live verification
+
+- Candidate: `dist/Offhand-v2.1.2-beta.26-onboarding.test1.zip`, SHA256
+  `CE69BDB15014B992417A4BC12A5D474B0F4A306848950C3993E2001A368491F6`.
+  Archived Beta 26 plus only onboarding runtime/locales, changelog and test TOC
+  metadata. Existing Gamepad work and the frozen Companion are excluded.
+- Fresh and incomplete profiles receive the guide with the viewport inactive.
+  Explicit disable persists a separate per-profile setup opt-out; reopening the
+  guide/wizard clears it without activating the viewport. Placement reloads
+  resume setup. Forever reads old V1 and new V2 display-flag fallbacks.
+- Minimap setup routes new users through preparation in both menu APIs. The
+  final guide task and wizard completion explain placing the first World Map
+  panel. The new instruction has French text; other existing French fallback
+  text still requires translation.
+- All 86 current Lua suites pass. All 84 isolated baseline-plus-onboarding
+  suites pass with runtime bytes matched to the candidate. Five targeted suites
+  pass against the extracted ZIP. Six-manifest paths/XML/Lua 5.1 validation passes
+  for source and candidate. Package boundaries and extracted bytes verified.
+- Live pending: fresh account onboarding on the actual Forever release build,
+  Windowed placement and reload resume, calibration/HUD reload, first map drop,
+  cold restart, explicit disable/re-entry, cinematic deferral and narrow/French
+  wrapping. Record exact build, input mode, topology/DPI and current errors.
+  Do not delete a real user's SavedVariables to create a fresh test.
+- No game was launched, installed addon updated or public release published.
+  See `docs/FOREVER-ONBOARDING-INVESTIGATION-20261105.md`.
+
+# Forever Gamepad Beta 26 test.2 candidate, awaiting live verification
+
+- Source: `addon/forever/gamepad-reports-20261105`, corrected baseline `9c7e83c`
+  from freshly fetched `origin/addon/develop` (Beta 26). Prior test.1 from
+  `3826dfe` is superseded. All Beta 26 UI/locales/recovery/popup changes retained;
+  only five intended runtime files differ from the new baseline.
+- Replacement archive: `Offhand-v2.1.2-beta.26-forever-gamepad-test.2.zip`, SHA256
+  `3A6A66871F75516257B4BA72112CCC4448339826D76A3790E4EEE8601C0C211B`.
+- OH-FOR-015: reject secret radial text; both supplied independent stacks match
+  the guarded lookup. Regression rejects the original source.
+- OH-FOR-016: source audit found map observer/configuration bypassing native
+  Gamepad ownership. Canvas now yields map scale/fader/content/settlement/drag
+  and saved-position writes, including work queued before a mode change. The
+  existing Gamepad root adapter remains responsible for placement. This is an
+  ownership correction, not a confirmed explanation for the reporter's warning.
+- OH-FOR-017: bounded LOOT_OPENED correction of stock loot overflow, outside
+  combat/Edit Mode and without root scripts, focus changes or persisted anchors.
+  Exact build and real descendant-action/taint checks remain pending.
+- All 84 Lua suites and six-manifest Lua 5.1/path/XML validation pass. Targeted
+  tests cover map queued work/direct entry points/mode resume and loot edge,
+  scale, ownership, custom-layout flag, event cancellation and bounded sampling.
+- No game was launched, installed files changed or public release published.
+  Companion and canonical release metadata remain unchanged. Follow the full
+  reproduction checklist in `docs/FOREVER-GAMEPAD-REPORTS-20261105.md`.
+
 # Retail expanded notification candidate, awaiting live verification
 
 - Reporter explicitly confirms this follow-up is on test.3: party-portrait
@@ -808,6 +1197,7 @@ produce live evidence.
 | Forever World Map shareable waypoint taint | PASS (automated + live Forever) | The first hardening pass stopped hooks on `WorldMapFrame` itself, but the generic draggable setup still hooked its native title container, title button/close lifecycle, and stored addon state on the Blizzard frame. That remained in the same protected widget tree used when Shift-clicking the yellow `Map Pin Sharing` user waypoint to insert a chat link. Forever now uses an independent `UIParent` drag surface, keeps all bookkeeping in an addon-owned weak table, and installs no handler on any native map control. Live verification confirmed shareable-waypoint and ordinary quest-pin refresh behavior without a new `SetPassThroughButtons()` blocked action; the saved workspace map still reopens after `/reload`, survives Escape, and remains draggable. |
 | OH-FOR-007 Forever MapCanvas pin taint and native-bag open-state wedge | PASS (automated + live Forever) | BugGrabber attributed both combat quest-pin refresh and an out-of-combat user-waypoint acquisition to Offhand at protected `Button/Frame:SetPassThroughButtons()`. Generic restore markers now remain in addon-owned weak state, and Forever no longer runs map geometry work from `ToggleWorldMap` or `ToggleQuestLog`; an independent `UIParent` observer settles the saved Offhand anchor after Blizzard's protected toggle stack returns. The observer preserves a pre-reload open marker through the map's initial hidden construction frame and settles the first visible geometry immediately, while retaining placement, scaling, drag, reload persistence, and open-state ownership. Forever native backpacks persist a dedicated native-root open marker: Escape and system-panel cleanup reopen through Blizzard's public bag APIs, while B/X clear the marker and no recovery path directly shows a native bag shell. Forever can hide the root directly without calling `CloseAllBags`; Offhand observes `ToggleAllBags`, `ToggleBag`, and the default-B `ToggleBackpack` path (plus its container-namespace variant) as explicit hardware actions. The former three-second panel-transition grace timer has been removed entirely; Settings/AddOns/Edit Mode recovery now uses only visible panel state, visibility edges, and same-turn navigation markers. Historical EUI/Baganator child markers cannot resurrect the native backpack. Live Forever verification confirmed map-pin acquisition and refresh without a blocked action, map reload/placement persistence, bag reload-state persistence, Escape preservation, and immediate B/X response after dismissing the Game Menu. |
 | Forever `taintLog` diagnostic safety | CLIENT BUG / DO NOT ENABLE | Forever 16.0.1 has a reported client defect where enabling `taintLog` breaks addon `hooksecurefunc` post-hooks. Do not use `/console taintLog 1` or `2` for Offhand live QA on Forever until Blizzard resolves it. Run `/console taintLog 0` followed by `/reload`, then use BugGrabber/BugSack blocked-action stacks for reproduction evidence. |
+| OH-FOR-019 Stacked controller map Back and resizing | SOURCE DEFECT REPRODUCED / NATIVE RETEST PENDING | Public Beta 26 map configuration runs again on addon load without yielding to Gamepad ownership. Offline representative quest-map scaling jumps from 0.73 to 2.651685; existing Discord test.2 performs no scale writes. Expanded map suite exercises 27 stacked-topology/parent-scale/native-size combinations through the production panel dispatcher. All 89 suites pass. Retest native Back, cold/warm Spellbook, mode transitions and combat. No blocked function/stack supplied; do not infer that the popup is resolved from simulated tests. See `docs/FOREVER-STACKED-CONTROLLER-MAP-20261106.md`. |
 | v2.1.2 Forever locked/docked chat-tab drag | FIXED (automated) / GAP (live regression) | Confirmed from the reported `Core/Canvas.lua:1577` stack and locals: Offhand registered the tab for dragging, marked ChatFrame1 movable and called `StartMoving()` even though Forever reported `isLocked=true`, `isDocked=1` and a static dock. Offhand now observes Blizzard's native tab-drag lifecycle without overriding registration/movability or forcing movement. Regression makes those writes throw and verifies initialization plus drag observation remain safe. |
 | v2.1.2 Forever Gamepad destination movement | FIXED (automated) / CRASH RETEST REQUIRED | Character, Map, Spellbook, Talents, Professions, Channels, Social, Communities, Collections and Legacy retain root-only centering. Per-panel Offhand-owned UIParent siblings provide mouse movement without adding a child, script, field, movability flag or drag call to Blizzard panel trees. The completed offset is saved per character. A profile option, enabled by default, hides or restores every addon-owned mover without changing panel placement. The adapter is strictly gated by Forever's native `InputDeviceInterfaceStyle` Gamepad setting. The 2026-10-20 live report produced a native `0x80000003` client breakpoint while toggling Gamepad mode, with no Lua stack. Current source now performs no protected radial or destination anchor work until the interface style has remained stable for one second, observes at 20 Hz instead of every rendered frame, and defers restoration of visible protected roots until they hide. Protected roots retain the narrow position-only allowlist and LootFrame remains excluded. Retest repeated keyboard/Gamepad transitions first, then native Back and focus swap. The same live pass confirmed World Map Escape, a limited Flight Master interaction, and non-Gamepad Loot Window behavior. |
 | v2.1.2 Forever Gamepad Edit Mode transaction dialogs | FIXED (automated) / GAP (live regression) | The Gamepad-only opt-out was removed for the explicit EditModeLayoutDialog, import and unsaved-changes roots. A shown unprotected dialog outside both physical displays is centered on Mainhand outside combat. No Blizzard dialog scripts, controls or focus handlers are changed. |
@@ -2410,3 +2800,196 @@ Manifest and upload notes refreshed. No OpenMap files, native Companion binaries
 SavedVariables or native layouts were edited by packaging. No publication/tag/
 commit made. Existing source and runtime test install retain separate pending
 cinematic work, so the final archive is not an all-current-working-tree snapshot.
+
+## 2026-11-06: Combined backpack visibility report (OH-FOR-021)
+
+- Required behavior: Blizzard bags must work after the first span without
+  Baganator, a window Restore or manual rescue. The native issue remains open
+  pending live acceptance. Workaround success does not satisfy this requirement.
+- Additional source regression: no saved bag position meant no Forever bag
+  placement at all. A shown unsaved bag now receives a visible workspace default;
+  the external observer is installed even before native roots appear. Saved
+  user positions remain authoritative and oversized bags retain a visible title.
+- First-span production-controller regression fails before the correction and
+  passes afterward. It covers the reported 6000x2032 topology, vertically offset
+  left workspace, effective-scale conversion, reopening, individual backpack,
+  late roots and disabled/combat/replacement/native-Gamepad ownership exclusions.
+- Reporter: Forever 1.60.1 build 70790, Interface 16001, addon Beta 26,
+  Companion Beta 20. Opening cue and button illumination without a visible
+  combined backpack. Native bag state is missing from supplied full diagnostics;
+  viewport PASS does not classify the backpack failure.
+- Follow-up: reporter installed Baganator, restored the window, moved Baganator
+  to center, applied the span and moved the bag to Offhand. Functionality returned.
+  Native-bag recovery, Offhand-disabled comparison and candidate acceptance are
+  unverified. Treat this as a successful workaround, not a proven native fix.
+- Candidate corrects a reproduced false replacement-owner result when only the
+  native combined bag root exists, and adds native bag state to full reports.
+  Focused regressions cover real compatibility-gate restoration, explicit
+  replacement precedence, missing roots, invisible/transparent native roots,
+  unreadable bounds and diagnostic non-mutation. Both the ownership regression
+  and missing full-report probe failed before the candidate and pass afterward.
+- Report causality and live acceptance remain open. Retest normal native bag
+  toggles, drag/reopen, item actions, combat/taint, reload and replacement-bag
+  coexistence on the reporter topology. Capture candidate full diagnostics after
+  the missing-bag action and compare once with Offhand disabled and reloaded.
+- Existing unrelated workspace edits are retained. No deployment, package,
+  version change or publication performed for this report.
+- Validation: all 89 Lua suites pass; all six manifests, 65 runtime Lua files
+  and XML references pass Lua 5.1/path validation.
+
+## 2026-11-06: Generated action bars 2 and 3 (OH-FOR-022)
+
+- Supplied screenshot/conversation identifies concealed bars behind the main
+  bar. Exact screenshot build is absent; source investigation uses this chat's
+  Forever 1.60.1 build 70790 scope.
+- Native source presets use placeholder bottom offsets for bars 2 and 3, with
+  automatic stack placement. Offhand's generic translation clears their default
+  flag and fixes them to those unstacked offsets. New regression exercises both
+  empty anchors and actual zero-offset/MicroMenu-relative native relationships.
+  Both cases fail before correction and pass with distinct secondary rows.
+- Candidate modifies copied layout records only, reserves room for related
+  default bottom controls, and preserves customized source and external-owner
+  entries. Existing layouts require explicit player-requested generation/rebuild;
+  no automatic reset or native install occurred. Full rebuild can replace later
+  edits to a generated layout through the existing source-provenance workflow.
+- Passing simulations cover offset left/right Mainhand, scaled secondary bounds,
+  hidden previews, stance clearance, repeat rebuild/stale-edge isolation,
+  customized anchors and replacement ownership. All 89 suites and six manifests
+  pass Lua 5.1/path/XML validation; diff whitespace checks pass.
+- Native selection, save/reload, actual buttons in/out of combat, fresh taint and
+  icon-size/row-count settlement remain pending. This is a source/simulated
+  candidate, not native runtime acceptance.
+# Discord implementation follow-up, 7 November 2026
+
+- Addon source candidate on addon/forever/gamepad-reports-20261105, preserving
+  the existing combined candidate work. 91 Lua suites and six-manifest
+  Lua 5.1/path/XML validation pass.
+- New Forever dialog regression exercises production transaction hooks,
+  deferred placement, native return values, shared/hidden popup roots,
+  stable-write suppression, close restoration, combat and external ownership.
+- Aura regression exercises the existing generic popup ticker and panel
+  drag entry point against EllesmereUI's named player-aura roots. Native
+  Debuffs/External Defensives fallback ownership has direct policy coverage.
+- French dictionaries retain complete key and format parity. Setup and
+  calibration recovery have explicit English-fallback regression checks.
+- Companion and bot changes have separate source/test results in docs/ISSUES.md.
+- Native acceptance is pending. No in-game actions were exercised in this pass.
+
+## Discord test5 packages and local smoke, 7 November 2026
+
+Frozen source and extracted-runtime validation both pass all 91 Lua suites and
+six manifests. See docs/FOREVER-DISCORD-TEST5-20261107.md for artifact receipts
+and the exact test boundary. Installed test5 into the local Forever client,
+backing up the prior addon and SavedVariables and preserving generated bridges.
+Forever 1.60.1.70840 cold load, unspanned native Chat Settings tab navigation,
+reload and /offhand diag full pass. BugGrabber has no new records or counters;
+only its session number changed. WoW and Companion QA windows were closed.
+Spanning remains untested because public Beta 20 reports a disconnected saved
+display identity. The saved display plan was preserved. Real guild invite,
+controller, combat, French and reporter-specific aura acceptance remain open.
+
+The active custom-workspace Companion source already has dynamic layout. Added
+the enlarged 175% regression there; full preference/layout probes pass and its
+full prototype candidate is built separately. Historical layout changes are
+not the release target. Bot commit b9f0324 is pushed; Railway activation has no
+confirming deployment evidence. No Discord posting or tags were performed.
+
+## Native Companion continuation and forum refresh
+
+On 7 November the active 2.1.3 Beta 6 Companion recognizes the two connected
+displays and visibly fits the Mainhand/Delay controls at native 100% scaling.
+At Forever 1.60.1.70840's unavailable-server screen, Span WoW Now has matching
+native outer/client readback for (-1440,-1114 4000x2560); Restore Window succeeds.
+No in-world addon acceptance is implied. BLZ51934200 and Battle.net's 05:00-06:00
+CET maintenance notice block the remaining in-world checks. Test windows are
+closed, public preferences restored byte-for-byte, and 77 runtime files still
+match test5. Generated bridges have normal post-restore lifecycle updates.
+Receipt: dist/forever-discord-test5-20261107/continuation-20261107/native-span-receipt.json.
+
+Read-only forum refresh covers 30 reports plus template, all active/public
+archived entries, starters and latest 15 messages per thread. Existing tags are
+18 Fixed and 12 New/Confirmed. docs/DISCORD-BUG-AUDIT-20261107.md links all 30,
+separating historical promises/tags, source candidates and real acceptance.
+An attachment-only action-bar report was checked against the original linked
+message image. No Discord writes were made. Bot commit still has no GitHub
+status/check/deployment evidence; hosting identification is requested.
+
+## Discord source follow-up and test6
+
+ Forever 1.60.1.70862, test5 smoke and separate test6 source candidate.
+Shared README/research skill/status and external-ownership query were consulted.
+The exact-build vendor-method ask returned guidance only, not an API/safety
+claim. Installed ForeverPlus 1.0.6 and Whisper Messenger v2.1.4 were read only.
+
+ForeverPlus PlaceAsBar (Core/Warnings.lua:166-174) uses full-UIParent center
+and proportional height defaults and replays them from RedrawBars (:371-373).
+DisplayFor creates anonymous noninteractive roots (:308). A narrow posthook
+identifies only these supported transaction roots and translates defaults to
+Mainhand. Explicit saved placements, mover previews, input and combat ownership
+are preserved. Weak side tables retain reversible owned anchors. Generic rescue
+yields observed roots. No vendor code is copied or modified.
+
+Regression with the correction absent fails the Mainhand assertion; candidate
+passes. All 92 Lua suites and six manifests pass in source and extracted test6
+runtime. Test6 ZIPs are in D:/Tools/Code/Offhand/dist and installed with a test5
+rollback backup and both generated bridges preserved. New adapter native warning,
+physical controller and combat acceptance remain open.
+
+The ForeverPlus report image identifies Warnings.lua:105 but gives no vendor
+version; it does not establish exact runtime acceptance of the new adapter.
+The Whisper Messenger warning names WhisperMessenger and supplies no function
+stack. Its own window/Escape contract and secure reply button remain distinct
+from any attribution to Offhand. No speculative taint/focus change was made.
+Ellesmere bubble profile ownership matches the installed read-only accessor;
+engine text remains a separate path. Naowh and Zygor source are unavailable.
+
+70862 upstream revision 9dc84f0d3bbae1768ac3405b3716000bd93eda06 matches the
+researched 70790 GuildInviteFrame.lua, StaticPopup.lua, FloatingChatFrame.lua,
+UIParentPanelManager.lua and BuffFrame.xml contents. This is source evidence.
+[Build identity](https://github.com/Gethe/wow-ui-source/blob/9dc84f0d3bbae1768ac3405b3716000bd93eda06/version.txt).
+
+Native test5 evidence: cold load, span, spanned reload, Restore, unspanned Chat
+Settings tab navigation, and Whisper Messenger /wmsg then Escape pass on the
+existing level 1 Shaman QA character. Chat Settings split placement was not
+conclusively captured by primary-only screenshots. Custom script prompt was
+declined; no /run result is claimed. No messages/gameplay automation occurred.
+BugGrabber messages/counters are unchanged; only session changes. Both QA apps
+closed, Battle.net preserved, public Companion preferences byte-identical.
+
+Details: D:/Tools/Code/Offhand/docs/DISCORD-SOURCE-FOLLOWUP-20261107.md.
+
+## EncounterBar repeat repair, 7 November 2026
+
+Dy confirms Beta 26 on Forever. The supplied image repeats EncounterBar recovery
+after repair and reload. Two regressions reproduce a missing targeted custom-anchor
+repair and dormant shown-root detection. The candidate changes only the active
+layout EncounterBar entry through the player-click native transaction and skips
+positively empty, unhighlighted roots and their child alias. All 93 suites and
+six manifest checks pass in source. Exact reporter build/topology/layout, native
+save/reload, preview placement and protected encounter actions remain unverified.
+See docs/ENCOUNTERBAR-REPAIR-20261107.md for source evidence and acceptance steps.
+
+## Kerzo quest log Escape, 7 November 2026
+
+Installed Kerzo Classic Quest Log 6.1.4 registers its separate KerzosQuestLog
+root in UISpecialFrames after every root/modal transition. Test8 adds a narrow
+Forever keyboard adapter for that transaction and its position-save method.
+Workspace protection follows actual geometry and the existing Escape preference.
+Vendor modals, explicit close/toggle, anchors and settings remain owned by Kerzo;
+the adapter does not reopen the window. Mainhand/Restore/policy release delegates
+Escape registration back to the vendor. Combat and native Gamepad gates remain.
+All 94 source suites and six Lua 5.1/path/XML manifest checks pass. No live Kerzo
+Escape, quest-item or combat check was performed. See docs/KERZO-QUEST-LOG-20261107.md.
+
+## Kerzo live keyboard acceptance, 7 November 2026
+
+Installed test8 (79 non-generated files hash-verified) and Kerzo 6.1.4 pass
+workspace Escape/menu, settings/About dismissal, explicit X/toggle/manual reopen,
+Mainhand closure, preference off/on, reload with saved placement and Restore on
+Forever 70862. Visible testing uses the Companion single-display split at
+2560x1440 with equal workspace/Mainhand halves. No code fix or package replacement
+was required. BugGrabber messages and counters are unchanged. The existing taint
+log is historical, so no protected-action safety claim is made. Original SavedVariables,
+generated bridges and Companion settings were restored and both QA apps closed.
+Physical multi-monitor, quest-item, combat and physical-controller cases remain
+open. See docs/KERZO-LIVE-QA-20261107.md for the exact matrix and cleanup.

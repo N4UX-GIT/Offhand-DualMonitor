@@ -642,6 +642,8 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     local setupPopup = popupKey == "OFFHAND_DOWNLOAD_LINK" or popupKey == "OFFHAND_POWERTOYS_LINK"
         or popupKey == "OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT"
         or popupKey == "OFFHAND_HUD_SETUP_REMINDER"
+        or popupKey == "OFFHAND_CHARACTER_SETUP"
+        or popupKey == "OFFHAND_ELLESMERE_HUD_RELOAD"
     if not self:IsGamepadUIEnabled() and not setupPopup and not recoveryPopup then
         if StaticPopup_Show then return StaticPopup_Show(popupKey, textArg1, textArg2, data) end
         return nil
@@ -904,6 +906,7 @@ function Offhand:HideCompanionNotices(exceptKind)
 end
 
 function Offhand:RefreshMainhandLayoutAttention()
+    if self.CharacterSetup and self.CharacterSetup:Refresh() then return true end
     if InCombatLockdown and InCombatLockdown() then return false end
     local pendingHUD = type(OffhandCharDB) == "table"
         and (OffhandCharDB.hudSetupReminder or OffhandCharDB.mainhandLayoutDeferred)
@@ -1249,13 +1252,15 @@ local function EvaluateEntryNotices(attempt)
         or Offhand.db.firstRunComplete
     local onboardingResumeStep = Offhand.GetOnboardingResumeStep
         and Offhand:GetOnboardingResumeStep() or nil
-    if Offhand.db.enabled and (onboardingResumeStep or not welcomeDismissed or not setupComplete) then
+    if Offhand.db.automaticSetupSuppressed ~= true
+        and (onboardingResumeStep or not welcomeDismissed or not setupComplete) then
         Offhand:HideCompanionNotices()
         Offhand:HideResolvedSpanPrompts(viewportMetrics)
         -- Installation onboarding is deliberately independent from display
         -- calibration. A saved reload handoff takes priority over an older
         -- welcome acknowledgement. Acknowledging the welcome never substitutes
-        -- for completing calibration; deliberately disabled profiles stay quiet.
+        -- for completing calibration. The disabled default must not hide this
+        -- guide; explicit disable records its own suppression flag.
         if Offhand.Onboarding and Offhand.Onboarding.Open then
             Offhand.Onboarding:Open()
         elseif not isSpanned then
@@ -1367,6 +1372,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         -- empty one after Blizzard has already hidden its panels.
         if Offhand._openPanelsCapturedForTransition then return end
         Offhand._openPanelsCapturedForTransition = true
+        if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:PauseForTransition() end
         if Offhand.Canvas and Offhand.Canvas.FinalizeForeverNativeBagStateForTransition then
             Offhand.Canvas:FinalizeForeverNativeBagStateForTransition()
         end
@@ -1434,6 +1440,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         end
     elseif event == "PLAYER_ENTERING_WORLD" then
         Offhand._openPanelsCapturedForTransition = false
+        if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:BeginSession() end
         local shouldEvaluateNotices = not Offhand._hasEnteredWorld
         Offhand._hasEnteredWorld = true
         -- Refresh viewport and layout after zone transition or loading screen
@@ -1464,6 +1471,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         Offhand._playerControlLost = true
         Offhand:DeferAutomaticUIForCinematic()
         Offhand:HideCompanionNotices()
+        if Offhand.CharacterSetup then Offhand.CharacterSetup:Hide() end
         if Offhand.Onboarding and Offhand.Onboarding.Close then Offhand.Onboarding:Close() end
         if Offhand.Wizard and Offhand.Wizard.Close then Offhand.Wizard:Close() end
 
@@ -1487,10 +1495,12 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             local welcomePending = not (Offhand.IsWelcomeDismissed and Offhand:IsWelcomeDismissed())
                 or (Offhand.GetOnboardingResumeStep and Offhand:GetOnboardingResumeStep() ~= nil)
             if welcomePending or (Offhand._companionNoticesShown and next(Offhand._companionNoticesShown))
-                or (Offhand.HUD and Offhand.HUD.foreverRecoveryPromptShown) then
+                or (Offhand.HUD and Offhand.HUD.foreverRecoveryPromptShown)
+                or (Offhand.CharacterSetup and Offhand.CharacterSetup.shown) then
                 Offhand:DeferAutomaticUIForCinematic()
             end
             Offhand:HideCompanionNotices()
+            if Offhand.CharacterSetup then Offhand.CharacterSetup:Hide() end
             Offhand:HideForeverEditModeControlsPrompt()
             Offhand:HidePopup("OFFHAND_WELCOME_SPAN_WARNING")
             Offhand:HidePopup("OFFHAND_FOREVER_SINGLE_SCREEN_LAYOUT")
@@ -1535,6 +1545,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
 
     elseif event == "PLAYER_REGEN_ENABLED" then
         ProcessCombatQueue()
+        if Offhand.CharacterSetup and Offhand.CharacterSetup.pendingCombat then
+            Offhand:RefreshMainhandLayoutAttention()
+        end
 
     elseif event == "UI_SCALE_CHANGED" or event == "DISPLAY_SIZE_CHANGED" then
         -- A Companion span can dispatch several size/scale notifications while
@@ -1567,7 +1580,8 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 end
                 if generation == Offhand._displayGeometryGeneration then
                     Offhand._displayGeometryTransitionActive = false
-                    Offhand:RefreshCompanionNoticeState(displayMetrics)
+                    local companionNotice = Offhand:RefreshCompanionNoticeState(displayMetrics)
+                    if not companionNotice and Offhand.CharacterSetup then Offhand.CharacterSetup:Refresh() end
                 end
             end)
         end)
@@ -1658,7 +1672,9 @@ SlashCmdList["OFFHAND"] = function(msg)
     msg = strtrim(msg or ""):lower()
     local cmd, arg = strsplit(" ", msg, 2)
 
-    if cmd == "notifycapture" then
+    if cmd == "ellesmere" and Offhand.EllesmereLayout then
+        Offhand.EllesmereLayout:Run(strtrim(arg or ""))
+    elseif cmd == "notifycapture" then
         local hud = Offhand.HUD
         if not hud or not hud.ArmNotificationCapture then return end
         local action = strtrim(arg or "")
@@ -1764,6 +1780,20 @@ SlashCmdList["OFFHAND"] = function(msg)
         -- Keep historical feature probes available on demand. Default reports
         -- must not enumerate native HUD trees or collect animation/debug state.
         if fullDiagnostics then
+            local characterSetup = type(OffhandCharDB) == "table" and OffhandCharDB.characterSetup
+            local choice = type(characterSetup) == "table" and characterSetup.choice or "unseen"
+            if choice ~= "existing" and choice ~= "customize" and choice ~= "later" then choice = "unseen" end
+            local resume = Offhand.GetOnboardingResumeStep and Offhand:GetOnboardingResumeStep() or nil
+            Offhand:Print("Setup state: Account=%s | Guide=%s | Resume=%s | Character=%s | Decision=%s.",
+                operating.setupComplete and "complete" or "pending",
+                Offhand.db and Offhand.db.automaticSetupSuppressed == true and "paused" or "available",
+                tostring(resume or "none"), choice,
+                type(characterSetup) == "table" and characterSetup.complete == true and "saved" or "pending")
+            if Offhand.CanvasCompatibility and Offhand.CanvasCompatibility.GetGuideAddonDiagnostics then
+                for _, report in ipairs(Offhand.CanvasCompatibility.GetGuideAddonDiagnostics() or {}) do
+                    Offhand:Print("Guide frame diagnostics: %s.", report)
+                end
+            end
             if Offhand.HUD and Offhand.HUD.GetNotificationCaptureReports then
                 for _, report in ipairs(Offhand.HUD:GetNotificationCaptureReports() or {}) do
                     Offhand:Print("Notification capture: %s.", report)
@@ -1852,6 +1882,10 @@ SlashCmdList["OFFHAND"] = function(msg)
         if fullDiagnostics and Offhand.Canvas and Offhand.Canvas.GetPanelControllerDiagnostics then
             Offhand:Print("Panel controller diagnostics: %s.",
                 Offhand.Canvas:GetPanelControllerDiagnostics())
+        end
+        if fullDiagnostics and Offhand.Canvas and Offhand.Canvas.GetForeverNativeBagDiagnostics then
+            local bags = Offhand.Canvas:GetForeverNativeBagDiagnostics()
+            if bags then Offhand:Print("Native bag diagnostics: %s.", bags) end
         end
         if fullDiagnostics and Offhand.DialogueUICompat and Offhand.DialogueUICompat.GetDiagnostics then
             Offhand:Print("Dialogue UI diagnostics: %s.",

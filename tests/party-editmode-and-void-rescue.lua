@@ -1882,6 +1882,93 @@ local rescuedTop = ExampleAddonWindow:GetTop()
 assert(rescuedTop <= metrics.gameTop, string.format("Rescued frame top (%s) must be <= gameTop (%s)", tostring(rescuedTop), tostring(metrics.gameTop)))
 print(string.format("PASS: Void Rescue Engine successfully rescued ExampleAddonWindow from void (top=%s <= gameTop=%s)", tostring(rescuedTop), tostring(metrics.gameTop)))
 
+-- BetterBags owns its bag/anchor positions through LibWindow. RestedXP owns
+-- both its named legacy guide and its anonymous V2 AceGUI root. A new native
+-- panel must not make the automatic scanner treat them as fresh popups.
+do
+local originalSpecialFrames,originalV2=UISpecialFrames,RXPV2GuideWindow
+local originalPanels={}
+UISpecialFrames={}
+local owned={}
+for _,name in ipairs({'BetterBagsBagBackpack','BetterBagsBagBackpackAnchor',
+    'BetterBagsBagBank','BetterBagsBagBankAnchor','RXPFrame','RXPItemFrame'}) do
+    local f=makeMockFrame(name,300,180)
+    _G[name]=f;f:SetPoint('CENTER',UIParent,'CENTER',0,0)
+    table.insert(UIParent.children,f);table.insert(UISpecialFrames,name)
+    originalPanels[name]=UIPanelWindows[name]
+    UIPanelWindows[name]={area='center'}
+    owned[#owned+1]=f
+end
+local v2=makeMockFrame('AnonymousGuideFixture',300,180)
+v2.name=nil
+v2:SetPoint('CENTER',UIParent,'CENTER',0,0)
+table.insert(UIParent.children,v2);RXPV2GuideWindow={frame=v2};owned[#owned+1]=v2
+local placed=makeMockFrame('UserPlacedAddonWidget',300,180)
+placed:SetUserPlaced(true);placed:SetPoint('TOPLEFT',UIParent,'TOPLEFT',2000,-50)
+table.insert(UIParent.children,placed);owned[#owned+1]=placed
+local counts={};for _,f in ipairs(owned) do counts[f]=f.setPointCalls end
+addon.HUD:HookFrames()
+for _,f in ipairs(owned) do ShowUIPanel(f) end
+local trigger=makeMockFrame('ReportPanelTrigger',250,200)
+UIPanelWindows.ReportPanelTrigger={area='left'}
+for _=1,3 do ShowUIPanel(trigger);UpdateUIPanelPositions();flushTimers();HideUIPanel(trigger) end
+for _,f in ipairs(owned) do
+    assert(f.setPointCalls==counts[f] and not f.scripts.OnShow,
+        'automatic popup rescue must preserve addon/user position ownership: '..tostring(f:GetName()))
+end
+-- A guide's owner can move it later; yielding must not depend on the old anchor.
+v2:ClearAllPoints();v2:SetPoint('TOPLEFT',UIParent,'TOPLEFT',2000,-50)
+local writes=v2.setPointCalls
+flushTimers()
+assert(v2.setPointCalls==writes,'automatic void rescue must preserve the V2 guide owner too')
+-- A user can move an ordinary center-area panel between immediate placement
+-- and the deferred settle pass. The timer must not erase that newer intent.
+local settling=makeMockFrame('UserPositionDuringPopupSettle',250,200)
+UIPanelWindows.UserPositionDuringPopupSettle={area='center'}
+ShowUIPanel(settling)
+settling:SetUserPlaced(true)
+settling:ClearAllPoints();settling:SetPoint('TOPLEFT',UIParent,'TOPLEFT',2100,-250)
+writes=settling.setPointCalls
+flushTimers()
+assert(settling.setPointCalls==writes,'deferred popup centering must yield newly acquired user ownership')
+settling:Hide();UIPanelWindows.UserPositionDuringPopupSettle=nil
+for _,f in ipairs(owned) do
+    f:Hide()
+    local name=f:GetName()
+    if name then UIPanelWindows[name]=originalPanels[name] end
+end
+UISpecialFrames,RXPV2GuideWindow=originalSpecialFrames,originalV2
+UIPanelWindows.ReportPanelTrigger=nil
+print('PASS: automatic popup rescue preserves BetterBags, RestedXP V1/V2 and user-owned placement')
+end
+
+-- Ellesmere owns its player-aura roots even at a full-parent stock anchor.
+-- The same generic scanner must still rescue ordinary addon popups above.
+do
+local originalSpecialFrames = UISpecialFrames
+UISpecialFrames = {}
+for _, name in ipairs({"EllesmereUIPlayerAuraBars_Buffs", "EllesmereUIPlayerAuraBars_Debuffs"}) do
+    local aura = makeMockFrame(name, 400, 150)
+    _G[name] = aura
+    aura:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    table.insert(UIParent.children, aura)
+    UISpecialFrames[#UISpecialFrames + 1] = name
+    local writes = aura.setPointCalls
+    addon.HUD:HookFrames()
+    flushTimers()
+    addon.Canvas.MakePanelDraggable(aura)
+    assert(aura.setPointCalls == writes and not aura.scripts.OnShow and not aura.scripts.OnDragStart,
+        "generic popup and workspace controllers must yield Ellesmere aura roots")
+    aura:ClearAllPoints()
+    aura:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 2000, -50)
+    writes = aura.setPointCalls
+    flushTimers()
+    assert(aura.setPointCalls == writes, "the owning HUD addon must control offscreen aura recovery")
+end
+UISpecialFrames = originalSpecialFrames
+print("PASS: generic popup rescue preserves Ellesmere player aura ownership")
+end
+
 -- A workspace stacked directly above Mainhand shares the same horizontal
 -- range. The void scanner must use the complete workspace rectangle instead
 -- of treating every frame above gameTop as lost.
@@ -3357,3 +3444,42 @@ print('PASS: PlayerSpells semantic tab reload and reversible portrait workspace 
     addon.isForever,addon.isRetail,FriendsFrame,FriendsListFrame=oldForever,oldRetail,oldFriends,oldList
 end)()
 print('PASS: Retail Contacts content remains attached to its native outer window')
+
+-- Modern ordinary confirmations share the native popup stack, including party
+-- invitations. The legacy OnShow centering path must never attach to that pool.
+;(function()
+    local oldForever,oldRetail=addon.isForever,addon.isRetail
+    local oldPopups={StaticPopup1,StaticPopup2,StaticPopup3,StaticPopup4}
+    for _,client in ipairs({'forever','retail'}) do
+        addon.isForever,addon.isRetail=client=='forever',client=='retail'
+        local scriptWrites=0
+        local nativeRoot
+        for index=1,4 do
+            local popup=makeMockFrame('InvitePopupProbe'..index,420,180)
+            popup.HookScript=function() scriptWrites=scriptWrites+1 end
+            _G['StaticPopup'..index]=popup
+            if index==1 then nativeRoot=popup end
+        end
+        addon.HUD:HookFrames()
+        addon.HUD:HookFrames()
+        assert(scriptWrites==0,client..' pooled confirmations must not receive legacy root scripts')
+        nativeRoot:SetPoint('TOP',UIParent,'TOP',0,-135)
+        nativeRoot.GetTop=function() return 2450 end
+        nativeRoot.GetLeft=function() return 2500 end
+        local oldChildren=UIParent.children
+        UIParent.children={nativeRoot}
+        addon.HUD.popupTicker.callback()
+        UIParent.children=oldChildren
+        assert(nativeRoot:GetPoint(1)=='TOP',client..' generic rescue must preserve native popup stack ownership')
+    end
+    addon.isForever,addon.isRetail=false,false
+    local scripts={}
+    StaticPopup1=makeMockFrame('LegacyPopupProbe',420,180)
+    StaticPopup1.HookScript=function(_,key,callback) scripts[key]=callback end
+    StaticPopup2,StaticPopup3,StaticPopup4=nil,nil,nil
+    addon.HUD:HookFrames()
+    assert(type(scripts.OnShow)=='function','legacy client popup centering must remain installed')
+    StaticPopup1,StaticPopup2,StaticPopup3,StaticPopup4=unpack(oldPopups)
+    addon.isForever,addon.isRetail=oldForever,oldRetail
+end)()
+print('PASS: modern party-invite popup roots bypass legacy script hooks')

@@ -35,11 +35,19 @@ local function IsBaganatorRootName(name)
             or name:match("^Baganator_CategoryViewBackpackViewFrame"))
 end
 
+local function IsForeverEllesmereBag(name)
+    return Offhand.isForever and name == "EUI_MainBagFrame"
+end
+
 local function IsAddOnLoadedCompat(name)
     local checker = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
     if not checker then return _G[name] ~= nil end
     local ok, loaded = pcall(checker, name)
     return ok and loaded == true
+end
+
+local function HasConflictingEllesmereBagToggle()
+    return Offhand.isForever and _G.EUI_MainBagFrame and IsAddOnLoadedCompat("Baganator")
 end
 
 local function GetBagnonInventoryRoot()
@@ -86,6 +94,19 @@ local function EllesmereExplicitlyClosed(name)
         and EllesmereUIDB.bagsVisible == false
 end
 
+local function CanShowEllesmereBag(frame)
+    return frame and not (frame.IsForbidden and frame:IsForbidden())
+        and not (frame.IsProtected and frame:IsProtected())
+        and not frame:IsShown()
+        and not (UIParent.IsVisible and not UIParent:IsVisible())
+end
+
+local function ShowEllesmereBag(frame)
+    if not CanShowEllesmereBag(frame) or type(frame.RefreshInventory) ~= "function" then return end
+    frame:Show()
+    if frame:IsVisible() then frame:RefreshInventory() end
+end
+
 function Bags:ForgetOpenSnapshot(name)
     if not Offhand.db then return end
     local saved = Offhand.db.baganatorWorkspacePanels
@@ -95,6 +116,10 @@ end
 
 function Bags:GetSavedPosition()
     local saved = Offhand.db and Offhand.db.baganatorWorkspacePanels or {}
+    local ellesmere = Offhand.isForever and saved.EUI_MainBagFrame
+    if type(ellesmere) == "table" and ellesmere.x and ellesmere.y then
+        return "EUI_MainBagFrame", ellesmere
+    end
     for name, position in pairs(saved) do
         if type(position) == "table" and position.x and position.y then
             return name, position
@@ -102,7 +127,11 @@ function Bags:GetSavedPosition()
     end
 end
 
-function Bags:GetVisibleFrame()
+function Bags:GetVisibleFrame(name)
+    if name then
+        local frame = self.frames[name]
+        return frame and frame:IsVisible() and frame or nil
+    end
     for _, frame in pairs(self.frames) do
         if frame.IsVisible and frame:IsVisible() then return frame end
     end
@@ -142,7 +171,7 @@ function Bags:RegisterRoot(name, frame)
     -- focus lifecycle. Installing scripts on that root can place Offhand in the
     -- execution ancestry of protected FrameControlsManager work. Observe it
     -- only from our own ticker and the secure global Escape transaction hooks.
-    if IsBagnonInventoryRoot(name, frame) then return true end
+    if IsBagnonInventoryRoot(name, frame) or IsForeverEllesmereBag(name) then return true end
     if not frame.HookScript then return true end
 
     local function Changed()
@@ -251,6 +280,30 @@ function Bags:OpenSavedRoot(savedName)
             end
         end
     end
+    if IsForeverEllesmereBag(savedName) and HasConflictingEllesmereBagToggle() then
+        -- EllesmereUI 9.7.8 exposes its scale setup in the module namespace.
+        -- Use that capability for an already-initialized bag and let its own
+        -- show and refresh handlers rebuild it. Neither shared toggle is safe
+        -- to call when both providers registered one.
+        local eui = _G.EllesmereUI
+        local module = eui and eui._ModuleNS and eui._ModuleNS.EllesmereUIBags
+        local internals = module and module._bagsInternals
+        local applyScale = type(internals) == "table" and rawget(internals, "ApplyBagScale")
+        local bagsDB = eui and eui._bagsDB
+        local profile = bagsDB and bagsDB.profile
+        if profile and type(applyScale) == "function"
+            and CanShowEllesmereBag(frame) and pcall(applyScale) then
+            ShowEllesmereBag(frame)
+            if frame:IsVisible() and profile.detachReagentBag then
+                ShowEllesmereBag(_G.EUI_ReagentBagFrame)
+            end
+            return frame:IsVisible()
+        end
+        return false
+    end
+    -- Both addons replace this global. Its current target cannot be inferred
+    -- from the presence or visibility of either backpack root.
+    if HasConflictingEllesmereBagToggle() then return false end
     if ToggleAllBags then
         pcall(ToggleAllBags)
         self:Discover(false)
@@ -263,6 +316,12 @@ local function IsPreservingPanel(frame)
     local canvas = Offhand.Canvas
     return canvas and canvas.IsForeverBagPreservingPanel
         and canvas:IsForeverBagPreservingPanel(frame) or false
+end
+
+local function IsPreservingPanelShown()
+    local canvas = Offhand.Canvas
+    return canvas and canvas.IsForeverBagPreservingPanelShown
+        and canvas:IsForeverBagPreservingPanelShown() or false
 end
 
 local function PanelDefersBagRestore(frame)
@@ -373,8 +432,15 @@ function Bags:Capture()
                         }
                         snapshot = snapshot or {}
                         snapshot[name] = position
-                        Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
-                        Offhand.db.savedWorkspacePositions[name] = position
+                        if IsForeverEllesmereBag(name) then
+                            local reagent = _G.EUI_ReagentBagFrame
+                            position.reagentOpen = reagent and not (reagent.IsForbidden and reagent:IsForbidden())
+                                and reagent:IsVisible()
+                                and Offhand.Canvas.IsFrameOnWorkspace(reagent) or nil
+                        else
+                            Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
+                            Offhand.db.savedWorkspacePositions[name] = position
+                        end
                     end
                 else
                     -- EllesmereUI and Baganator can move their root without
@@ -404,6 +470,16 @@ function Bags:Capture()
     end
 end
 
+local function RestoreGameMenuAfterEscape(menuWasShown)
+    -- Recover the requested menu state without running Blizzard's Escape
+    -- dispatcher a second time, which would close the restored bag again.
+    local menuShouldBeShown = not menuWasShown
+    local menu = GameMenuFrame
+    if not menu or not menu.IsShown or menuShouldBeShown == menu:IsShown() then return end
+    local change = menu[menuShouldBeShown and "Show" or "Hide"]
+    if change then pcall(change, menu) end
+end
+
 function Bags:RestoreAfterEscape(pending)
     if self.escapePending ~= pending then return false end
     self.escapePending = nil
@@ -414,17 +490,19 @@ function Bags:RestoreAfterEscape(pending)
     end
 
     local savedName, position = self:GetSavedPosition()
-    if not position then return false end
+    if not position or IsForeverEllesmereBag(savedName)
+        or (IsBaganatorRootName(savedName) and HasConflictingEllesmereBagToggle()) then return false end
     if EllesmereExplicitlyClosed(savedName) then
         self:ForgetOpenSnapshot(savedName)
         return false
     end
     self.restoring = true
     self:Discover()
-    local visible = self:GetVisibleFrame()
+    local exact = HasConflictingEllesmereBagToggle() and savedName or nil
+    local visible = self:GetVisibleFrame(exact)
     if not visible then
         self:OpenSavedRoot(savedName)
-        visible = self:GetVisibleFrame()
+        visible = self:GetVisibleFrame(exact)
     end
 
     if visible then
@@ -436,26 +514,60 @@ function Bags:RestoreAfterEscape(pending)
         Offhand.Canvas:RestoreWorkspacePosition(visible)
     end
 
-    -- Opening a bag can dismiss Forever's Game Menu. Restore the state that the
-    -- Escape press itself requested without invoking ToggleGameMenu a second time.
-    local menuShouldBeShown = not pending.menuWasShown
-    local menuIsShown = GameMenuFrame and GameMenuFrame.IsShown
-        and GameMenuFrame:IsShown() or false
-    if menuShouldBeShown ~= menuIsShown and GameMenuFrame then
-        if menuShouldBeShown and GameMenuFrame.Show then
-            pcall(GameMenuFrame.Show, GameMenuFrame)
-        elseif GameMenuFrame.Hide then
-            pcall(GameMenuFrame.Hide, GameMenuFrame)
-        end
-    end
-
+    RestoreGameMenuAfterEscape(pending.menuWasShown)
     self.restoring = false
     self:Capture()
     return visible ~= nil
 end
 
+local function CanRestoreEllesmereEscape(frame)
+    local canvas = Offhand.Canvas
+    return frame == _G.EUI_MainBagFrame and CanShowEllesmereBag(frame)
+        and type(EllesmereUIDB) == "table" and EllesmereUIDB.bagsVisible == true
+        and canvas and canvas.IsFrameOnWorkspace(frame)
+        and not IsPreservingPanelShown()
+end
+
+function Bags:RestoreEllesmereAfterEscape(pending)
+    local frame = pending.frame
+    if self.paused or self.restoring or not TrackEnabled() or not IsSpanned()
+        or InputReserved() or InCombatLockdown() or not CanOpenBagsFromAddon()
+        or not CanRestoreEllesmereEscape(frame) then return end
+    -- This root was already initialized and open before native Escape closed
+    -- it. Use the same root's show lifecycle without toggling another provider.
+    ShowEllesmereBag(frame)
+    if not frame:IsVisible() then return end
+    local reagent = _G.EUI_ReagentBagFrame
+    if pending.reagentOpen and CanShowEllesmereBag(reagent)
+        and Offhand.Canvas.IsFrameOnWorkspace(reagent) then
+        ShowEllesmereBag(reagent)
+    end
+    -- Forever counts hiding EllesmereUI's Escape proxy as a handled press.
+    -- Reopening the bag alone would let that proxy claim every subsequent press.
+    RestoreGameMenuAfterEscape(pending.menuWasShown)
+    self:Capture()
+end
+
 function Bags:InstallEscapeHooks()
     if not hooksecurefunc then return end
+    if Offhand.isForever and CloseSpecialWindows and not self.ellesmereEscapeHooked then
+        self.ellesmereEscapeHooked = true
+        hooksecurefunc("CloseSpecialWindows", function()
+            if Bags.paused or Bags.restoring or not CanOpenBagsFromAddon()
+                or not TrackEnabled() or not IsSpanned() or InputReserved() or InCombatLockdown() then return end
+            local name, position = Bags:GetSavedPosition()
+            local frame = IsForeverEllesmereBag(name) and Bags.frames[name]
+            if not position or not CanRestoreEllesmereEscape(frame) then return end
+            local pending = {
+                frame = frame, reagentOpen = position.reagentOpen,
+                menuWasShown = GameMenuFrame and GameMenuFrame.IsShown and GameMenuFrame:IsShown(),
+            }
+            Bags.ellesmereEscapePending = pending
+            C_Timer.After(0, function()
+                if Bags.ellesmereEscapePending == pending then Bags.ellesmereEscapePending = nil end
+            end)
+        end)
+    end
     if CloseAllBags and not self.closeAllBagsHooked then
         self.closeAllBagsHooked = true
         hooksecurefunc("CloseAllBags", function()
@@ -463,6 +575,7 @@ function Bags:InstallEscapeHooks()
                 or InCombatLockdown() or Bags:GetVisibleFrame() then return end
             local savedName, position = Bags:GetSavedPosition()
             if not position then return end
+            if IsForeverEllesmereBag(savedName) then return end
             -- EllesmereUI distinguishes a user-requested bag close from its
             -- Escape proxy hiding the frame. Respect the former even if an
             -- older Offhand open-state sample has not yet been retired.
@@ -489,6 +602,14 @@ function Bags:InstallEscapeHooks()
     if ToggleGameMenu and not self.toggleGameMenuHooked then
         self.toggleGameMenuHooked = true
         hooksecurefunc("ToggleGameMenu", function()
+            local ellesmere = Bags.ellesmereEscapePending
+            Bags.ellesmereEscapePending = nil
+            if ellesmere then
+                local generation = Bags.generation
+                C_Timer.After(0, function()
+                    if generation == Bags.generation then Bags:RestoreEllesmereAfterEscape(ellesmere) end
+                end)
+            end
             if InputReserved() then
                 Bags.escapePending = nil
                 return
@@ -498,7 +619,8 @@ function Bags:InstallEscapeHooks()
                 local savedName, position = Bags:GetSavedPosition()
                 local frame = savedName and Bags.frames[savedName]
                 local visible = frame and frame.IsVisible and frame:IsVisible() or false
-                if position and frame and IsDirectEscapeRoot(savedName, frame) and not visible then
+                if position and frame and IsDirectEscapeRoot(savedName, frame) and not visible
+                    and not HasConflictingEllesmereBagToggle() then
                     local menuIsShown = GameMenuFrame and GameMenuFrame.IsShown
                         and GameMenuFrame:IsShown() or false
                     pending = {
@@ -591,8 +713,7 @@ function Bags:Resume()
             return
         end
         Bags.waitingForInput = false
-        local saved = Offhand.db.baganatorWorkspacePanels or {}
-        local savedName, position = next(saved)
+        local savedName, position = Bags:GetSavedPosition()
         if position and type(position) == "table" and position.x and position.y then
             if EllesmereExplicitlyClosed(savedName) then
                 Bags:ForgetOpenSnapshot(savedName)
@@ -600,10 +721,25 @@ function Bags:Resume()
                 Bags:Capture()
                 return
             end
-            local visible
-            for _, frame in pairs(Bags.frames) do
-                if frame:IsVisible() then visible = frame; break end
+            if IsForeverEllesmereBag(savedName) then
+                local frame = Bags.frames[savedName]
+                -- The frame exists before EllesmereUI installs its bag
+                -- opener and loads the native position on its startup timer.
+                if IsPreservingPanelShown() or not (frame and frame.GetNumPoints and frame:GetNumPoints() > 0) then
+                    attempts = attempts + 1
+                    if attempts < 20 then C_Timer.After(0.25, Restore); return end
+                elseif IsSpanned() and not frame:IsShown()
+                    and EllesmereUIDB and EllesmereUIDB.bagsVisible == true then
+                    local bagsDB = _G.EllesmereUI and _G.EllesmereUI._bagsDB
+                    local profile = bagsDB and bagsDB.profile
+                    if profile and profile.enhancedBags ~= false then Bags:OpenSavedRoot(savedName) end
+                end
+                Bags.paused = false
+                Bags:Capture()
+                return
             end
+            local exact = HasConflictingEllesmereBagToggle() and savedName or nil
+            local visible = Bags:GetVisibleFrame(exact)
             if not visible and not CanOpenBagsFromAddon() then
                 -- Keep the reload-open snapshot. A later player-driven open
                 -- applies its saved workspace position through the normal hook.
@@ -613,9 +749,7 @@ function Bags:Resume()
             if not visible and next(Bags.frames) and not toggled then
                 toggled = true
                 Bags:OpenSavedRoot(savedName)
-                for _, frame in pairs(Bags.frames) do
-                    if frame:IsVisible() then visible = frame; break end
-                end
+                visible = Bags:GetVisibleFrame(exact)
             end
             if visible then
                 position = Bags:NormalizePosition(position, visible)
@@ -643,6 +777,7 @@ events:SetScript("OnEvent", function(_, event, addonName)
         Bags.paused = true
         Bags.generation = Bags.generation + 1
         Bags.escapePending = nil
+        Bags.ellesmereEscapePending = nil
     elseif event == "PLAYER_ENTERING_WORLD"
         or (event == "PLAYER_REGEN_ENABLED" and Bags.waitingForCombat)
         or (event == "PLAYER_CONTROL_GAINED" and Bags.waitingForInput)

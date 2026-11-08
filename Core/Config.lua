@@ -7,8 +7,8 @@ local _, Offhand = ...
 _G.Offhand = Offhand
 
 local defaultSettings = {
-    -- First launch is intentionally inert. The wizard enables Offhand only
-    -- after the user has reviewed the Companion's detected display topology.
+    -- Keep the viewport inert until the user confirms placement and applies
+    -- calibration. First-launch guidance is independent of this switch.
     enabled = false,
     layoutPreset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT", -- "PORTRAIT_LEFT_LANDSCAPE_RIGHT", "LANDSCAPE_DUAL", "CUSTOM"
     primaryPosition = "RIGHT",      -- "LEFT" or "RIGHT" (In Portrait Left, Primary 3D Game is on the RIGHT!)
@@ -677,18 +677,23 @@ function ForeverPersistence:SaveDisplayFlags(db)
     if not self:IsAvailable() or type(db) ~= "table" then return end
     local function Flag(value) return value and "1" or "0" end
     WritePersistentCVar(FOREVER_DISPLAY_FLAGS_CVAR, table.concat({
-        "V1", Flag(db.enabled), Flag(db.rawMouseInput ~= false),
+        "V2", Flag(db.enabled), Flag(db.rawMouseInput ~= false),
+        Flag(db.automaticSetupSuppressed == true),
     }, "|"))
 end
 
 function ForeverPersistence:RestoreDisplayFlags(db)
     if not self:IsAvailable() or type(db) ~= "table" then return false end
     RegisterPersistentCVar(FOREVER_DISPLAY_FLAGS_CVAR)
-    local enabled, rawMouse = tostring(ReadPersistentCVar(FOREVER_DISPLAY_FLAGS_CVAR) or ""):match(
-        "^V1|([01])|([01])$")
+    local value = tostring(ReadPersistentCVar(FOREVER_DISPLAY_FLAGS_CVAR) or "")
+    local enabled, rawMouse, suppressed = value:match("^V2|([01])|([01])|([01])$")
+    if not enabled then enabled, rawMouse = value:match("^V1|([01])|([01])$") end
     if not enabled then return false end
     db.enabled = enabled == "1"
     db.rawMouseInput = rawMouse == "1"
+    -- Older records carry no setup intent. Preserve any durable opt-out rather
+    -- than inferring it from the inactive first-launch viewport default.
+    if suppressed then db.automaticSetupSuppressed = suppressed == "1" end
     return true
 end
 
@@ -755,6 +760,14 @@ end
 function Offhand:SetEnabled(enabled)
     if not Offhand.db then return end
     Offhand.db.enabled = enabled == true
+    -- Only an explicit disable is an opt-out, not the fresh profile default.
+    Offhand.db.automaticSetupSuppressed = enabled ~= true
+    ForeverPersistence:SaveDisplayFlags(Offhand.db)
+end
+
+function Offhand:SetAutomaticSetupSuppressed(suppressed)
+    if not Offhand.db then return end
+    Offhand.db.automaticSetupSuppressed = suppressed == true
     ForeverPersistence:SaveDisplayFlags(Offhand.db)
 end
 
@@ -922,10 +935,11 @@ function Offhand:EnsureCharacterIdentity()
             characterGUID = previous, mainhandLayout = record,
             editModeLayoutName = OffhandCharDB.editModeLayoutName,
         }
-        for _, key in ipairs({"mainhandLayout", "editModeLayoutName", "mainhandWindowedLayout",
+        for _, key in ipairs({"mainhandLayout", "mainhandLayoutsByMode", "editModeLayoutName", "mainhandWindowedLayout",
             "mainhandWindowedManualLayout", "foreverEditModeLayoutName", "foreverEditModeLayoutID",
             "foreverEditModeLegacyRecovery", "foreverEditModeRecovery", "mainhandLayoutDeferred",
-            "hudSetupReminderDeclined"}) do OffhandCharDB[key] = nil end
+            "hudSetupReminderDeclined", "hudSpanNoticeDismissed", "characterSetup",
+            "kerzoQuestLogOpen"}) do OffhandCharDB[key] = nil end
     end
     OffhandCharDB.characterGUID = guid
     if not self.isLegacyWrath and (stale or (not previous and not OffhandCharDB.mainhandLayout)) then

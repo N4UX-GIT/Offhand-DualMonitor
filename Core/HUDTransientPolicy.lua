@@ -87,7 +87,20 @@ function Policy.GetRetailSpecialPopupNames()
     return { "StaticPopup1", "StaticPopup2", "StaticPopup3", "StaticPopup4",
         "LFGListApplicationDialog", "LFGListInviteDialog", "LFGInvitePopup", "LFDRoleCheckPopup",
         "LFGReadyCheckPopup", "PVPReadyPopup", "PetBattleQueueReadyFrame",
-        "RolePollPopup", "LFGDungeonReadyPopup" }
+        "RolePollPopup", "LFGDungeonReadyPopup", "GuildInviteFrame" }
+end
+
+function Policy.IsNativeDialogRoot(frame)
+    if not frame then return false end
+    if frame == _G.GuildInviteFrame or frame == _G.ChatConfigFrame then return true end
+    -- These pooled roots include incoming party invitations. Their native
+    -- shared-stack translator, rather than generic void rescue, owns placement.
+    if Offhand.isRetail or Offhand.isForever then
+        for index = 1, 4 do
+            if frame == _G["StaticPopup" .. index] then return true end
+        end
+    end
+    return false
 end
 
 function Policy.GetRetailNotificationSpecs()

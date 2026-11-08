@@ -856,6 +856,30 @@ function Recovery.Install(HUD)
         return ok and visible == true
     end
 
+    local function ProtectedHUDIsPresented(name, frame)
+        -- Layout generation already yields these systems to their replacement
+        -- addons. Their borrowed native previews must not offer a repair that
+        -- cannot move them, or mask a genuinely lost native system later on.
+        if frame and Compatibility.IsExternallyOwnedEditModeSystem then
+            local ok, owned = pcall(Compatibility.IsExternallyOwnedEditModeSystem, {
+                system = frame.system, systemIndex = frame.systemIndex,
+            })
+            if ok and owned then return false end
+        end
+        -- EncounterBar owns the widget container's Edit Mode anchor. Its empty
+        -- child can retain stale bounds and must not request a second repair.
+        if name == "UIWidgetPowerBarContainerFrame" and _G.EncounterBar then return false end
+        if not FrameIsActuallyVisible(frame) then return false end
+        if name == "EncounterBar" and type(frame.HasContentShowing) == "function"
+            and not FrameIsActuallyVisible(frame.Selection) then
+            -- Blizzard keeps the empty layout root shown after ClearHighlight.
+            -- A shown ownership root alone does not establish a lost HUD bar.
+            local ok, content = pcall(frame.HasContentShowing, frame)
+            if ok and content == false then return false end
+        end
+        return true
+    end
+
     local function VisibleChildFitsPhysicalDisplay(frame, metrics, depth)
         if not frame or type(frame.GetChildren) ~= "function" or (depth or 0) > 2 then
             return false
@@ -996,7 +1020,7 @@ function Recovery.Install(HUD)
                 if not unreliableProtectedHUDRecoveryNames[name]
                     and not customPartyFrames and not groupPresentationFits
                     and not protectedPresentationFits
-                    and FrameIsActuallyVisible(frame)
+                    and ProtectedHUDIsPresented(name, frame)
                     and not FrameFitsPhysicalDisplay(frame, metrics) then
                     outsideName = name
                     break
@@ -1148,6 +1172,7 @@ function Recovery.Install(HUD)
                 local protectedPresentationFits = ProtectedHUDPresentationFits(name, frame, metrics)
                 if editModeOpen and metrics and not unreliableProtectedHUDRecoveryNames[name]
                     and not groupPresentationFits and not protectedPresentationFits
+                    and ProtectedHUDIsPresented(name, frame)
                     and not FrameFitsPhysicalDisplay(frame, metrics) then
                     outside[#outside + 1] = name
                 end

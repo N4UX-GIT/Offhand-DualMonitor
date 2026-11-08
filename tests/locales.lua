@@ -23,5 +23,22 @@ for _,locale in ipairs(locales) do
         assert(placeholders(text)==placeholders(values[key]),locale..": format mismatch in "..key)
     end
 end
+local french = dictionary("frFR")
+for key, text in pairs(base) do
+    if key:match("^ONBOARD_") or key:match("^WIZARD_RECOVERY_") then
+        assert(french[key] ~= text, "French setup still uses English fallback for " .. key)
+    end
+end
+-- Product names and mathematical controls are deliberately language-neutral.
+-- Complete keys alone must never hide newer English fallback paragraphs.
+local invariant = {BINDING_HEADER_OFFHAND=true, BTN_SEAM_MINUS=true,
+    BTN_SEAM_PLUS=true, ELLESMERE_HUD_MAINHAND=true}
+for _, locale in ipairs({"deDE", "frFR", "itIT", "esES", "esMX"}) do
+    local values=dictionary(locale)
+    for key,text in pairs(base) do
+        assert(values[key] ~= text or invariant[key],
+            locale .. ": untranslated English text in " .. key)
+    end
+end
 print("PASS: all 11 locale dictionaries have complete keys and matching format arguments")
 

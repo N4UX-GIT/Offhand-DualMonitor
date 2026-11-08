@@ -197,6 +197,8 @@ end
 
 local function IsUnsafeForDirectMutation(frame)
     if not frame then return true end
+    local hudCompatibility = Offhand.HUDCompatibility
+    if hudCompatibility and hudCompatibility.IsExternallyOwnedHUDFrame(frame) then return true end
     if ShouldYieldFrameToClassicUIForever(frame) then return true end
     if IsBlizzardEditModeOwnedFrame(frame) then return true end
     if ShouldYieldForeverProfessionsPanel(frame) then return true end
@@ -301,6 +303,13 @@ end
 -- here and remain covered by the stricter guard above.
 local function IsUnsafeForPanelMutation(frame, name)
     if not frame then return true end
+    local hudCompatibility = Offhand.HUDCompatibility
+    if hudCompatibility and hudCompatibility.IsExternallyOwnedHUDFrame(frame, name) then return true end
+    if Offhand.isForever and Compatibility.IsForeverEllesmereBag(name or (frame.GetName and frame:GetName())) then
+        return true
+    end
+    if Offhand.isForever and frame == _G.WorldMapFrame
+        and not CanManagePanelsFromAddon() then return true end
     if ShouldYieldFrameToClassicUIForever(frame, name) then return true end
     if ShouldYieldWorldMapToMoveAny(name or frame) then return true end
     if IsBlizzardEditModeOwnedFrame(frame, name) then return true end
@@ -679,6 +688,8 @@ assert(Offhand.CanvasMapPresentation, "Offhand map presentation must load before
     })
 
 function Canvas:UpdatePersistenceBehavior()
+    if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:Refresh() end
+    if Offhand.CanvasAddonEscape then Offhand.CanvasAddonEscape:Refresh() end
     if Offhand.CanvasPanelLifecycle and Offhand.CanvasPanelLifecycle.UpdateTBCWorkspacePanelSlots then
         Offhand.CanvasPanelLifecycle.UpdateTBCWorkspacePanelSlots()
     end
@@ -975,7 +986,9 @@ function Canvas:RestorePersistentFrames(mode)
     -- Historical Baganator/EUI child snapshots must not resurrect the native
     -- backpack on Forever. Only the explicit mode-independent native marker is
     -- authoritative there.
-    if Offhand.isForever then hasBag = IsNativeBackpackTrackedOpen() end
+    if Offhand.isForever then
+        hasBag = IsNativeBackpackTrackedOpen() and not (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon())
+    end
     if BackpackState.UsesTBCBagIDs and BackpackState.UsesTBCBagIDs() then
         -- Frame names are pooled on Anniversary. Never let legacy per-frame
         -- markers (including absent/false records) trigger OpenAllBags.
@@ -989,6 +1002,7 @@ function Canvas:RestorePersistentFrames(mode)
             if activeLockRestore then Canvas.activeLockBagRestoreQueued = nil end
             -- The player can change interface style during the delay.
             if not CanManagePanelsFromAddon() then return end
+            if Offhand.isForever and Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon() then return end
             -- Combined Backpack mode may never create ContainerFrame1 during
             -- startup, which makes the general compatibility heuristic report
             -- a false custom-bag positive. An explicit saved native root wins.
@@ -1345,6 +1359,8 @@ nonMovableSystemPanels = {
     InterfaceOptionsFrame = true,
     VideoOptionsFrame = true,
     AudioOptionsFrame = true,
+    GuildInviteFrame = true,
+    ChatConfigFrame = true,
     -- Transient/interactive Blizzard UI is positioned by SeamRedirect (where
     -- safe) or left to secure/Edit Mode ownership. It must never acquire the
     -- generic panel drag, persistence, independent-open, or Escape behavior.
@@ -1651,7 +1667,7 @@ end
 -- A workspace backpack marked open is independent workspace content, so reopen
 -- only that tracked bag after Settings finishes its transition.
 function Canvas:RestoreTrackedWorkspaceBag()
-    if not Offhand.isForever or (InCombatLockdown and InCombatLockdown())
+    if not Offhand.isForever or foreverBags.IsCombatRestricted()
         or not Offhand.db or not Offhand.db.enabled
         or Offhand.db.persistentWorkspacePanels == false
         or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved())
@@ -1671,6 +1687,12 @@ function Canvas:RestoreTrackedWorkspaceBag()
         -- leave ContainerFrame_OnHide indexing a nil item button later.
         if not bag then bag = GetPreferredNativeBackpackRoot() end
     end
+    -- A native opener can dispatch callbacks that change combat state. Leave
+    -- both placement and tracked intent untouched until the next safe retry.
+    if foreverBags.IsCombatRestricted() then
+        Canvas._restoringWorkspaceBagFromEscape = false
+        return false
+    end
     local name = bag and bag.GetName and bag:GetName()
     local restored = bag and bag.IsShown and bag:IsShown()
     if restored then
@@ -1686,7 +1708,9 @@ function Canvas:RestoreTrackedWorkspaceBag()
         -- fail-closed behavior so an unavailable shell is never exposed.
         local preservingPanel = Canvas._systemPanelOpeningToken ~= nil
             or IsForeverNativeBagPreservingPanelShown()
-        if not preservingPanel then ClearNativeBackpackOpenState() end
+        if not preservingPanel and not foreverBags.IsCombatRestricted() then
+            ClearNativeBackpackOpenState()
+        end
     end
     Canvas._restoringWorkspaceBagFromEscape = false
     return restored and true or false
@@ -1894,7 +1918,9 @@ function Canvas:EnableFreeDragging()
     local hasCustomBags = Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()
     local hasCustomMinimap = Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon()
 
-    if Offhand.isForever and not hasCustomBags then
+    -- Install the external observer even before Blizzard creates its bag roots.
+    -- Its live ownership gate yields to replacements and accepts late roots.
+    if Offhand.isForever then
         self:EnableForeverNativeBagProxy()
     end
     if Offhand.isForever and IsExternallyPositionedWorldMap(_G.WorldMapFrame) then
@@ -2577,6 +2603,8 @@ function Offhand:InitializeCanvas()
     if Offhand.isForever and C_Timer and C_Timer.NewTicker and not Canvas.foreverPositionTicker then
         Canvas.foreverPositionTicker = C_Timer.NewTicker(0.5, function()
             if Offhand._displayGeometryTransitionActive then return end
+            if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:Refresh() end
+            if Offhand.CanvasAddonEscape then Offhand.CanvasAddonEscape:Refresh() end
             Canvas:RetryMissingExperimentalForeverProfessionsMovement()
             Canvas:MonitorDetachedChatSettingsPresentation()
             local editModeShown = EditModeManagerFrame and EditModeManagerFrame.IsShown

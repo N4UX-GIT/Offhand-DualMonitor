@@ -33,17 +33,22 @@ Core\MainhandCompatibility.lua
 Core\MainhandGamepad.lua
 Core\MainhandEditMode.lua
 Core\Mainhand.lua
+Core\ForeverEllesmereLayout.lua
+Core\CharacterSetup.lua
 Core\RetailFullscreen.lua
 Core\CinematicPresentation.lua
 Core\DialogueUICompat.lua
 Core\ChatBubbles.lua
 Core\MenuPlacement.lua
+Core\ForeverPlusWarnings.lua
 Core\HUDCompatibility.lua
 Core\HUDTransientPolicy.lua
 Core\HUDRecovery.lua
 Core\HUDTransientFrames.lua
 Core\SeamRedirect.lua
 Core\PanelMotion.lua
+Core\CanvasAddonEscape.lua
+Core\CanvasKerzoQuestLog.lua
 Core\CanvasCompatibility.lua
 Core\CanvasFrameState.lua
 Core\CanvasPanelRegistry.lua
@@ -85,3 +90,4 @@ UI\DisplayIdentify.lua
 UI\Minimap.lua
 UI\Onboarding.lua
 UI\Wizard.lua
+UI\EllesmereLayoutPreview.lua

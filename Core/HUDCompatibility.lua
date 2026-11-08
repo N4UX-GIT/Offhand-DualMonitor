@@ -16,7 +16,8 @@ local foreverEditModeFrameNames = {
     BossTargetFrameContainer = true,
     PartyFrame = true, PartyMemberFrame1 = true, CompactPartyFrame = true,
     CompactRaidFrameContainer = true,
-    BuffFrame = true, BuffCluster = true, CastingBarFrame = true, PlayerCastingBarFrame = true,
+    BuffFrame = true, DebuffFrame = true, ExternalDefensivesFrame = true,
+    BuffCluster = true, CastingBarFrame = true, PlayerCastingBarFrame = true,
     ExtraAbilityContainer = true, ExtraActionBarFrame = true, ZoneAbilityFrame = true,
     EncounterBar = true, UIWidgetPowerBarContainerFrame = true, LossOfControlFrame = true,
     MainMenuBarVehicleLeaveButton = true, VehicleExitButton = true,
@@ -60,11 +61,14 @@ function Compatibility.HasCustomStatusBarAddon()
 end
 
 function Compatibility.HasCustomBagAddon()
-    if Compatibility.IsAddonPresent("EllesmereUIBags") then return true end
+    if Compatibility.IsAddonPresent("EllesmereUIBags")
+        and not (Offhand.isForever and Compatibility.UsesNativeGamepadInterface()) then return true end
     if _G.Baganator or _G.Baginator or _G.Bagnon or _G.AdiBags
         or _G.ArkInventory or _G.BetterBags or _G.Inventorian
         or _G.ElvUI or _G.Tukui then return true end
-    return not _G.ContainerFrame1
+    -- Combined mode can exist without an individual backpack root. Either
+    -- native root is sufficient; explicit replacement owners above still win.
+    return not (_G.ContainerFrame1 or _G.ContainerFrameCombinedBags)
 end
 
 function Compatibility.HasCustomMinimapAddon()
@@ -112,6 +116,50 @@ end
 
 function Compatibility.HasCustomChatAddon()
     return Compatibility.HasChattynator() or Compatibility.IsAddonPresent("EllesmereUIChat")
+end
+
+function Compatibility.IsExternallyOwnedHUDFrame(frame, name)
+    if Offhand.ForeverPlusWarnings and Offhand.ForeverPlusWarnings:IsOwnedFrame(frame) then return true end
+    name = name or (frame and frame.GetName and frame:GetName())
+    -- These public roots are positioned by Ellesmere's player aura-bar module
+    -- and its unlock anchors. The generic popup pass must not compete with it.
+    return name == "EllesmereUIPlayerAuraBars_Buffs"
+        or name == "EllesmereUIPlayerAuraBars_Debuffs"
+end
+
+local positionedAddonPopupRoots = {
+    BetterBagsBagBackpack = true, BetterBagsBagBank = true,
+    BetterBagsBagBackpackAnchor = true, BetterBagsBagBankAnchor = true,
+    RXPFrame = true, RXPItemFrame = true,
+}
+
+local function IsOrdinaryPopupValue(value)
+    if type(issecretvalue) ~= "function" then return true end
+    local ok, secret = pcall(issecretvalue, value)
+    return ok and secret == false
+end
+
+-- Only automatic popup redirection yields here. Explicit workspace movement
+-- and each vendor's own position persistence keep their existing policies.
+function Compatibility.ShouldPreservePopupPosition(frame, name)
+    if not frame then return false end
+    if not IsOrdinaryPopupValue(name) then return true end
+    if name == nil and type(frame.GetName) == "function" then
+        local ok, value = pcall(frame.GetName, frame)
+        if not ok then return true end
+        name = value
+    end
+    if not IsOrdinaryPopupValue(name) then return true end
+    if type(name) == "string" and positionedAddonPopupRoots[name] then return true end
+    -- RestedXP V2 exposes an AceGUI widget; its actual UIParent child is
+    -- anonymous. Consult the public widget on each pass for load-order changes.
+    local guide = _G.RXPV2GuideWindow
+    if type(guide) == "table" and rawget(guide, "frame") == frame then return true end
+    if type(frame.IsUserPlaced) == "function" then
+        local ok, placed = pcall(frame.IsUserPlaced, frame)
+        if not ok or not IsOrdinaryPopupValue(placed) or placed ~= false then return true end
+    end
+    return false
 end
 
 -- Serialized HUD generation must respect the same owners as runtime movement.

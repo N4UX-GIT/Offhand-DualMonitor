@@ -8,8 +8,9 @@ pairs = function(value)
     return nativePairs(value)
 end
 local bagnonLoaded=false
+local baganatorLoaded=true
 C_AddOns = { IsAddOnLoaded = function(name)
-    return name == "Baganator" or (name == "Bagnon" and bagnonLoaded)
+    return (name == "Baganator" and baganatorLoaded) or (name == "Bagnon" and bagnonLoaded)
 end }
 local baganatorCallbacks = {}
 Baganator = { CallbackRegistry = {
@@ -95,7 +96,9 @@ function GameMenuFrame:Hide() self.shown=false end
 CloseAllBags=function() bag:Hide() end
 ShowUIPanel=function(panel) panel:Show() end
 HideUIPanel=function(panel) panel:Hide() end
+local nativeEscape
 ToggleGameMenu=function()
+    if nativeEscape and nativeEscape() then return end
     if GameMenuFrame.shown then GameMenuFrame:Hide() else GameMenuFrame:Show() end
 end
 hooksecurefunc=function(target, methodOrCallback, maybeCallback)
@@ -324,6 +327,95 @@ assert(not bagnon.shown and bagnonShows==settingsShows,
 HideUIPanel(settings); flush()
 assert(bagnon.shown and bagnonShows==settingsShows+1,
     "closing Settings must restore the previously open Offhand Bagnon root once")
+
+-- Forever's Escape dispatcher can claim Escape via CloseSpecialWindows
+-- without changing menu visibility. It must restore the exact EUI root.
+addon.isForever = true
+addon.Canvas.IsForeverBagPreservingPanelShown = function() return settings.shown end
+bagnon.shown, bagnonLoaded = false, false
+eui.scripts = {}
+tracker.frames.EUI_MainBagFrame = nil
+tracker:Discover(false)
+assert(not next(eui.scripts), "Forever Ellesmere bags must be observed outside their frame tree")
+local refreshed = 0
+function eui:RefreshInventory() refreshed = refreshed + 1 end
+function eui:GetNumPoints() return self.positionReady and 1 or 0 end
+local reagent = setmetatable({shown=true,x=110,y=320,scripts={}}, {__index=bag})
+function reagent:RefreshInventory() self.refreshed = (self.refreshed or 0) + 1 end
+EUI_ReagentBagFrame = reagent
+CloseSpecialWindows = function()
+    if eui.shown then eui:Hide(); reagent:Hide(); return true end
+end
+nativeEscape = function()
+    if not GameMenuFrame.shown then return CloseSpecialWindows() end
+end
+tracker:InstallEscapeHooks()
+GameMenuFrame.shown = false
+eui:Show(); bag:Show(); tick()
+local beforeToggles = toggles
+ToggleGameMenu(); flush()
+assert(eui.shown and refreshed == 1 and toggles == beforeToggles and bag.shown
+    and GameMenuFrame.shown and reagent.shown and reagent.refreshed == 1,
+    "Escape must open the Game Menu and restore the exact workspace Ellesmere root")
+ToggleGameMenu(); flush()
+assert(eui.shown and refreshed == 1 and not GameMenuFrame.shown,
+    "the next Escape must dismiss the menu and leave the Ellesmere bag open")
+
+CloseSpecialWindows(); ShowUIPanel(settings); flush(); tick()
+assert(not eui.shown and refreshed == 1 and not GameMenuFrame.shown,
+    "Options and other unpaired panel cleanup must not trigger the Escape restore")
+HideUIPanel(settings); flush()
+eui:Show(); tick()
+ToggleGameMenu()
+EllesmereUIDB.bagsVisible = false
+flush()
+assert(not eui.shown and refreshed == 1 and not GameMenuFrame.shown,
+    "a deliberate close must win over deferred Escape recovery")
+
+-- A still-open bag retains reload intent. EUI applies its own position when
+-- its startup completes. Offhand must not replay stale coordinates over it.
+bag.shown, baganatorLoaded = false, false
+EllesmereUI = {_bagsDB={profile={enhancedBags=true}}}
+EllesmereUIDB.bagsVisible = true
+eui:Show(); tick()
+onEvent(nil, "PLAYER_LEAVING_WORLD")
+eui:Hide()
+eui.x, eui.positionReady = 720, false
+local reloadToggles = 0
+ToggleAllBags = function() reloadToggles = reloadToggles + 1; eui:Show() end
+onEvent(nil, "PLAYER_ENTERING_WORLD")
+local attempt = table.remove(queue, 1)
+attempt.fn()
+assert(reloadToggles == 0, "the reload must wait until EllesmereUI has installed the bag layout")
+eui.positionReady = true
+flush()
+assert(eui.shown and eui.x == 720 and reloadToggles == 1,
+    "reload must reopen an isolated Ellesmere bag at its native saved anchor")
+onEvent(nil, "PLAYER_LEAVING_WORLD")
+eui:Hide()
+bag:Show()
+baganatorLoaded = true
+onEvent(nil, "PLAYER_ENTERING_WORLD"); flush()
+assert(not eui.shown and reloadToggles == 1 and bag.shown,
+    "reload must skip an ambiguous shared toggle and leave the other provider alone")
+
+local scaleRestored = 0
+EllesmereUI._ModuleNS = {EllesmereUIBags={_bagsInternals={ApplyBagScale=function()
+    scaleRestored = scaleRestored + 1
+end}}}
+eui:Show(); tick()
+onEvent(nil, "PLAYER_LEAVING_WORLD")
+eui:Hide()
+onEvent(nil, "PLAYER_ENTERING_WORLD"); flush()
+assert(eui.shown and refreshed == 2 and eui.x == 720 and reloadToggles == 1
+    and scaleRestored == 1 and bag.shown,
+    "when both providers are loaded, reload must restore only Ellesmere's saved root")
+
+eui:Show(); tick()
+canManagePanels = false
+ToggleGameMenu(); flush()
+assert(not eui.shown and refreshed == 2,
+    "native Gamepad Escape and focus must not be overridden by the replacement-bag path")
 
 print("PASS: addon bag reload, Escape, explicit close, Baganator, Bagnon and EllesmereUI roots")
 
