@@ -40,9 +40,9 @@ try {
     $receipt | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $path -Encoding UTF8
     Expect-Rejection 'source that differs from the submitted Companion'
     $workflow = Get-Content -LiteralPath (Join-Path $root '.github/workflows/release.yml') -Raw
-    if ($workflow -notmatch "if: github.ref_name == 'v2.1.3'" -or
-        $workflow -notmatch 'draft: true' -or $workflow -notmatch 'Prepare-213Publication.ps1') {
-        throw 'The 2.1.3 tag must use frozen artifacts and a draft publication hold.'
+    if ($workflow -notmatch "github.ref_name == 'v2.1.3-beta.27'" -or
+        $workflow -notmatch 'prerelease: true' -or $workflow -notmatch 'draft: true' -or $workflow -notmatch 'Prepare-213Publication.ps1') {
+        throw 'The Beta 27 tag must use frozen Companion 2.1.3 assets, prerelease status and a draft hold.'
     }
     Write-Output 'PASS: publication identity, exact EXE/ZIP, source drift rejection and draft-release safeguards.'
 } finally {

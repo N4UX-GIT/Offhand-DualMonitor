@@ -5,6 +5,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
+$addonVersion = '2.1.3-beta.27'
 if (-not $CompanionDirectory) { $CompanionDirectory = Join-Path $root 'Companion/Prepared/2.1.3' }
 $native = (Resolve-Path -LiteralPath $CompanionDirectory).Path
 $receipt = Get-Content -LiteralPath (Join-Path $native 'release.json') -Raw | ConvertFrom-Json
@@ -61,7 +62,7 @@ if ($LASTEXITCODE -ne 0 -or $paths.Count -ne 86 -or @($paths | Sort-Object -Uniq
 }
 foreach ($toc in $paths | Where-Object { $_ -like '*.toc' }) {
     $text = [IO.File]::ReadAllText((Join-Path $root $toc))
-    foreach ($field in @{'Version'='2.1.3'; 'X-Offhand-Release'=''; 'X-Offhand-Addon-Release'='';
+    foreach ($field in @{'Version'='2.1.3'; 'X-Offhand-Release'='beta.27'; 'X-Offhand-Addon-Release'='beta.27';
         'X-Offhand-Companion-Version'='2.1.3'; 'X-Offhand-Companion-Release'=''}.GetEnumerator()) {
         if ($text -notmatch ('(?m)^## ' + [regex]::Escape($field.Key) + ':[ \t]*' +
             [regex]::Escape($field.Value) + '[ \t]*\r?$')) { throw ('Add-on identity mismatch: ' + $toc + ' ' + $field.Key) }
@@ -90,7 +91,8 @@ $files = @(foreach ($path in $paths | Sort-Object) {
 Copy-Item -LiteralPath (Join-Path $native 'Offhand.exe') -Destination $stage
 Copy-Item -LiteralPath (Join-Path $root 'Companion/LICENSE') -Destination (Join-Path $stage 'COMPANION-LICENSE.txt')
 Copy-Item -LiteralPath (Join-Path $root 'docs/INSTALL-2.1.3.txt') -Destination (Join-Path $stage 'README-FIRST.txt')
-$publication = [ordered]@{version='2.1.3'; addonSourceRevision=$revision;
+$publication = [ordered]@{version=$addonVersion; addonVersion=$addonVersion; companionVersion='2.1.3';
+    prerelease=$true; releaseName='Offhand v2.1.3 Pre-Release Beta 27'; addonSourceRevision=$revision;
     companionSourceRevision=$receipt.companionSourceRevision; companion=$receipt;
     state='prepared_not_published'; storeSubmissionId='1152921505702343609';
     certificationAtPreparation='submitted_not_yet_confirmed'; storePublishingHold='manual';
@@ -119,12 +121,21 @@ function Zip-Verified([string]$Directory, [string]$Target, [bool]$IncludeRoot) {
     } finally { $zip.Dispose() }
     Write-Output ('Verified ' + $expected.Count + ' entries: ' + [IO.Path]::GetFileName($Target))
 }
-Zip-Verified $addon (Join-Path $output 'Offhand-v2.1.3.zip') $true
-Zip-Verified $stage (Join-Path $output 'Offhand-Complete-v2.1.3.zip') $false
+Zip-Verified $addon (Join-Path $output ('Offhand-v' + $addonVersion + '.zip')) $true
+Zip-Verified $stage (Join-Path $output ('Offhand-Complete-v' + $addonVersion + '.zip')) $false
 Copy-Item -LiteralPath (Join-Path $native $receipt.archiveName) -Destination $output
 Copy-Item -LiteralPath (Join-Path $native 'Offhand.exe') -Destination $output
 $publication | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $output 'publication.json') -Encoding UTF8
-@('Offhand-v2.1.3.zip', 'Offhand-Complete-v2.1.3.zip', $receipt.archiveName, 'Offhand.exe', 'publication.json') |
+@(('Offhand-v' + $addonVersion + '.zip'), ('Offhand-Complete-v' + $addonVersion + '.zip'), $receipt.archiveName, 'Offhand.exe', 'publication.json') |
     ForEach-Object { (Get-FileHash -LiteralPath (Join-Path $output $_)).Hash + '  ' + $_ } |
     Set-Content -LiteralPath (Join-Path $output 'checksums-sha256.txt') -Encoding ASCII
-Write-Output ('Prepared 2.1.3 publication from add-on ' + $revision + '; frozen Companion ' + $receipt.companionSourceRevision)
+$companionRelease = Join-Path $output 'companion-release'
+New-Item -ItemType Directory -Path $companionRelease | Out-Null
+foreach ($name in @('Offhand.exe', $receipt.archiveName)) {
+    Copy-Item -LiteralPath (Join-Path $native $name) -Destination $companionRelease
+}
+Copy-Item -LiteralPath (Join-Path $native 'release.json') -Destination (Join-Path $companionRelease 'publication.json')
+@('Offhand.exe', $receipt.archiveName, 'publication.json') |
+    ForEach-Object { (Get-FileHash -LiteralPath (Join-Path $companionRelease $_)).Hash + '  ' + $_ } |
+    Set-Content -LiteralPath (Join-Path $companionRelease 'checksums-sha256.txt') -Encoding ASCII
+Write-Output ('Prepared ' + $addonVersion + ' publication from add-on ' + $revision + '; frozen Companion ' + $receipt.companionSourceRevision)

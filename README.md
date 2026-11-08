@@ -13,7 +13,7 @@
 </div>
 
 This checkout prepares **Offhand Companion 2.1.3** and the matching
-**Offhand add-on 2.1.3**, including Flexible Layout and the reconciled local fixes.
+**Offhand add-on 2.1.3 Pre-Release Beta 27**, including Flexible Layout and the reconciled local fixes.
 The Companion is submitted to Microsoft Store certification with manual publishing
 held. The matching add-on and portable assets are prepared locally, not yet public.
 See [publication preparation](docs/PUBLICATION-2.1.3-PREPARATION-20261108.md) and

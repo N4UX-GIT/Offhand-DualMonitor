@@ -55,7 +55,9 @@ $channelName = switch ($channel) {
     default { $null }
 }
 
-$releaseName = if ($isPrerelease) {
+$releaseName = if ($Tag -eq 'v2.1.3-beta.27') {
+    "Offhand v$version Pre-Release Beta $sequence"
+} elseif ($isPrerelease) {
     "Offhand v$version $channelName $sequence"
 } else {
     "Offhand v$version"
@@ -103,9 +105,9 @@ $companionDownloads = if ($CompanionChanged) {
 "@
 }
 
-$testFocus = if ($Tag -eq 'v2.1.3') {
+$testFocus = if ($Tag -eq 'v2.1.3-beta.27') {
 @'
-1. Back up Offhand SavedVariables, Companion preferences and native/replacement HUD layouts. Install the matching 2.1.3 add-on and Companion without deleting settings. The Store installs Companion only.
+1. Back up Offhand SavedVariables, Companion preferences and native/replacement HUD layouts. Install the 2.1.3 Pre-Release Beta 27 add-on and Companion 2.1.3 without deleting settings. The Store installs Companion only.
 2. Start WoW in ordinary Windowed mode. Review checked displays and Mainhand. Save plan stores choices; Span WoW Now applies them. Type /reload after spanning or changing Mainhand/layout. Use /offhand guide for first setup.
 3. Test standard, single-monitor, partial-secondary, multiple-workspace and Flexible Layout plans that fit your setup. Review the preview, visual area selection, profile reload and missing-display safeguards. Use Workspace layout > Use standard display layout to disable custom areas.
 4. Check supported-panel routing, manual-position priority, independent region themes and installed background-library images. Keep general add-on profiles and Blizzard HUD layouts separate from workspace profiles.

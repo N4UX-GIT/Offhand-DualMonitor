@@ -147,10 +147,13 @@ try {
     if ($beta26Body.Contains([char]0x2014)) { throw 'Beta 26 release notes must not contain em dashes.' }
 
     $matchedNotes = Join-Path $temp 'matched-213.md'
-    & $script -Tag 'v2.1.3' -CompanionChanged -ChangelogPath $projectChangelog -OutputPath $matchedNotes | Out-Null
+    $matched = & $script -Tag 'v2.1.3-beta.27' -CompanionReleaseTag 'v2.1.3' -ChangelogPath $projectChangelog -OutputPath $matchedNotes
+    if (-not $matched.Prerelease -or $matched.ReleaseName -ne 'Offhand v2.1.3 Pre-Release Beta 27') {
+        throw 'The add-on must retain its continuing Pre-Release Beta identity independently of Companion.'
+    }
     $matchedBody = Get-Content -LiteralPath $matchedNotes -Raw -Encoding utf8
     foreach ($required in @('<!-- offhand-companion-version: 2.1.3 -->', 'Offhand-Companion-v2.1.3.zip',
-        'Offhand-v2.1.3.zip', 'Flexible Layout', 'BetterBags/RestedXP', 'manual /reload',
+        'Offhand-v2.1.3-beta.27.zip', 'Flexible Layout', 'BetterBags/RestedXP', 'manual /reload',
         'has not received a Defender review determination', 'source repository for a Lutris')) {
         if (-not $matchedBody.Contains($required)) { throw "Matched 2.1.3 release scope missing: $required" }
     }

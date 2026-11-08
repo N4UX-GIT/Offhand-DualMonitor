@@ -11,7 +11,8 @@ For the pending matched 2.1.3 release, use
 [the dedicated publication preparation](PUBLICATION-2.1.3-PREPARATION-20261108.md)
 and `scripts/Prepare-213Publication.ps1`. Its exact Store-matching native inputs
 are under `Companion/Prepared/2.1.3/`; it does not use the historical canonical
-Beta 20 assets. The v2.1.3 tag workflow creates a draft for coordinated release.
+Beta 20 assets. The workflow stages separate drafts for Companion v2.1.3 and add-on
+v2.1.3-beta.27 (Pre-Release Beta 27). The add-on remains a prerelease.
 The general historical lane and previously published hashes below stay intact.
 
 Every release must satisfy all of the following:

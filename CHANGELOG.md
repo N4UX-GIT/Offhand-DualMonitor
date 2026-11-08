@@ -6,10 +6,11 @@ All notable changes to this project will be documented in this file.
 
 No additional changes queued beyond the prepared 2.1.3 publication.
 
-## [2.1.3] - Prepared 2026-11-08, publication pending
+## [2.1.3-beta.27] - Prepared 2026-11-08, publication pending
 
 ### Matching Companion and add-on
-- Prepare Companion and all six add-on manifests as 2.1.3. Companion EXE version
+- Continue the add-on sequence as 2.1.3 Pre-Release Beta 27 in all six manifests.
+  Companion retains clean version 2.1.3. Its EXE version
   is 2.1.3.9; Store package 2.1.300.0 is submitted for certification with manual
   publication held. Store installs Companion only; the matching add-on is separate.
 - Reuse the exact frozen portable EXE/ZIP matching the submitted Store executable.

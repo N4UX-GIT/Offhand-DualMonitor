@@ -1,4 +1,4 @@
-OFFHAND 2.1.3: MATCHING ADD-ON AND COMPANION
+OFFHAND ADD-ON 2.1.3 PRE-RELEASE BETA 27 + COMPANION 2.1.3
 
 INSTALL OR UPDATE
 1. Close WoW and exit any running Companion through its tray menu.
