@@ -370,11 +370,16 @@ namespace Offhand.Companion
             CheckScale(1.75f, true);
             foreach (float factor in new float[] { 1f, 1.25f, 1.5f, 2f })
             foreach (string mode in new string[] { "standard", "single", "secondary" })
+            foreach (bool smallHost in new[] { false, true })
             using (var choice = new CustomRegionModeDialog(new Dictionary<string,string> {
                 {"PartialSpanEnabled", mode == "single" ? "True" : "False"},
                 {"SecondaryAreaEnabled", mode == "secondary" ? "true" : "False"}
             })) {
-                choice.CreateControl(); choice.Scale(new SizeF(factor, factor)); LayoutAll(choice);
+                choice.CreateControl(); choice.Scale(new SizeF(factor, factor));
+                // Reproduce the hosted Windows runner's window-track limit on
+                // larger developer desktops too, including scroll-to-last-row.
+                if (smallHost) choice.Size = new Size(Math.Min(1044, choice.Width), Math.Min(788, choice.Height));
+                LayoutAll(choice);
                 if (choice.AcceptButton != (mode == "secondary" ? choice.SecondaryButton : choice.SingleButton))
                     throw new Exception("Layout chooser does not default to the saved custom mode.");
                 if (choice.ActiveControl != choice.AcceptButton)
@@ -388,13 +393,20 @@ namespace Offhand.Companion
                     for (Control ancestor = c.Parent; ancestor != choice; ancestor = ancestor.Parent)
                     {
                         var scroll = ancestor as ScrollableControl;
-                        if (scroll != null && scroll.AutoScroll && scroll.VerticalScroll.Visible &&
-                            scroll.DisplayRectangle.Contains(BoundsInside(c, scroll)))
-                            reachableByScroll = true;
+                        if (scroll != null && scroll.AutoScroll && scroll.VerticalScroll.Visible)
+                        {
+                            scroll.ScrollControlIntoView(c);
+                            LayoutAll(scroll);
+                            reachableByScroll = scroll.ClientRectangle.Contains(BoundsInside(c, scroll));
+                            scroll.AutoScrollPosition = Point.Empty;
+                            LayoutAll(scroll);
+                        }
                     }
                     if (bounds.Left < 0 || bounds.Top < 0 || bounds.Right > choice.ClientSize.Width ||
                         (bounds.Bottom > choice.ClientSize.Height && !reachableByScroll))
-                        throw new Exception("Layout chooser clipped at " + factor + "x: " + c.Text);
+                        throw new Exception("Layout chooser clipped at " + factor + "x: " + c.Text
+                            + ", bounds=" + bounds + ", client=" + choice.ClientSize
+                            + ", scroll=" + reachableByScroll + ", parent=" + c.Parent.Bounds);
                 }
                 string preview = Environment.GetEnvironmentVariable("OFFHAND_LAYOUT_PREVIEW");
                 if (factor == 1f && mode == "secondary" && !string.IsNullOrEmpty(preview))
