@@ -6,7 +6,7 @@
     <title>Offhand Window Setup | Recommended Companion guide</title>
     <meta name="description" content="Install and configure Offhand Companion for exact multi-monitor World of Warcraft placement, automatic spanning, and display recovery.">
     <link rel="icon" type="image/png" href="assets/offhand-icon.png">
-    <link rel="stylesheet" href="style.css?v=20261108-one-method">
+    <link rel="stylesheet" href="style.css?v=20261108-standard-default">
 </head>
 <body class="companion-page">
     <header class="navbar">
@@ -65,7 +65,8 @@
         </section>
 
         <section class="content-section" id="first-setup">
-            <div class="section-header"><h2 class="section-title guide-section-title">Follow this once, in order</h2><p class="section-subtitle">Follow these steps for a standard layout. Keep Auto-span WoW on launch off until your first test succeeds. Custom workspace areas are optional and can wait until this setup works.</p></div>
+            <div class="section-header"><h2 class="section-title guide-section-title">Follow this once, in order</h2><p class="section-subtitle">Standard layout is already selected for a new setup. Keep Auto-span WoW on launch off until your first test succeeds.</p></div>
+            <div class="guide-callout"><strong>Two full monitors? Keep standard layout.</strong> Select your screens and Mainhand on the dashboard. You do not need to open <strong>Workspace layout</strong> or choose its <strong>Two monitors</strong> custom editor. That editor uses only a selected area of the second screen.</div>
             <div class="companion-first-run">
                 <figure class="companion-annotated-figure">
                     <div class="companion-shot-wrap"><div class="image-frame"><img src="assets/offhand-companion-dashboard-20261108.png" alt="Offhand Companion dashboard with System Status, display selection, workspace controls, Span and Restore, Display Diagnostics and Store Updates." width="550" height="1053" loading="lazy" decoding="async"></div></div>
@@ -74,12 +75,12 @@
                 <div class="first-run-steps">
                     <article><span class="step-seal">1</span><div><h3>Enter the world and select Windowed</h3><p>Open Companion, launch WoW and log into a character. In <code>/offhand guide</code>, choose <strong>Use Companion</strong> and <strong>Already installed</strong>, then click <strong>Set to Windowed</strong>. If unavailable, use <strong>Open display settings</strong>, select <strong>Windowed</strong> and apply. Under Companion's <strong>System Status</strong>, confirm that WoW is running and Offhand is installed. Continue the in-game guide to the window-placement step and leave it open.</p></div></article>
                     <article><span class="step-seal">2</span><div><h3>Identify your screens</h3><p>Select <strong>Identify Displays</strong>. Windows briefly places a large number on each screen.</p></div></article>
-                    <article><span class="step-seal">3</span><div><h3>Choose a standard layout</h3><p>For two full displays, check both under <strong>Span displays</strong> and select the game screen under <strong>Mainhand (game)</strong>. For an equal ultrawide split, check one 32:9 or 32:10 screen, enable <strong>Single-display 32:9 split</strong>, and choose <strong>Game side</strong>. Start here even if you plan to customize the workspace later.</p></div></article>
+                    <article><span class="step-seal">3</span><div><h3>Keep standard layout and select your displays</h3><p>For two full displays, check both under <strong>Span displays</strong> and select the game screen under <strong>Mainhand (game)</strong>. For an equal ultrawide split, check one 32:9 or 32:10 screen, enable <strong>Single-display 32:9 split</strong>, and choose <strong>Game side</strong>. Leave <strong>Workspace layout (standard)</strong> as it is. Custom areas are not required for either arrangement.</p></div></article>
                     <article><span class="step-seal">4</span><div><h3>Apply the span</h3><p>In Companion, select <strong>Span WoW Now</strong>. If asked to confirm saved displays, check the game and workspace screens before choosing <strong>OK</strong>. Cancel if the selection is wrong and correct it with <strong>Identify Displays</strong>.</p></div></article>
                     <article><span class="step-seal">5</span><div><h3>Return to the same in-game guide</h3><p>Choose <strong>Reload UI</strong> (or type <code>/reload</code>) to load Companion geometry, then <strong>Confirm placement</strong>. Click <strong>Start Calibration</strong> and follow the <a href="in-game-setup.html#finish-calibration">calibration and HUD instructions</a>. Keep Use Companion selected.</p></div></article>
                 </div>
             </div>
-            <div class="guide-callout companion-special-layout"><strong>Optional, after standard setup:</strong> <a href="custom-workspaces.html">Custom workspaces</a> let you change the areas used by Companion. They are another layout choice within this method, not an additional setup you must complete.</div>
+            <div class="guide-callout companion-special-layout"><strong>Need a different shape later?</strong> <a href="custom-workspaces.html">Custom workspaces</a> are for unequal splits, only part of another monitor, or extra workspace regions. They are optional layout choices within Companion.</div>
             <div class="guide-callout warning-callout"><strong>Run Companion at the same privilege level as WoW.</strong> If Windows reports access denied or error 5, close both programs and restart them normally. Do not run only one of them as administrator.</div>
             <div class="guide-callout"><strong>Next: finish calibration.</strong> Continue in the same guide after confirming placement. The <a href="in-game-setup.html#finish-calibration">calibration reference</a> explains the remaining steps; you do not need to restart setup or try another method.</div>
         </section>
@@ -115,6 +116,8 @@
 
         <section class="content-section" id="recovery">
             <div class="section-header"><h2 class="section-title guide-section-title">If the window or displays change</h2></div>
+            <div class="guide-callout" id="standard-layout"><strong>Selected a custom area by mistake?</strong> Open <strong>Workspace layout (custom)…</strong> and choose <strong>Use standard display layout</strong>. Review the suggested displays and Mainhand, then click <strong>Span WoW Now</strong> and reload in WoW. Named plans stay saved. <strong>Restore Window</strong> alone does not switch the saved layout back to standard.</div>
+            <p>Standard is the default when no saved layout exists. A saved custom layout is restored on launch; updating or reopening Companion does not reset it. Use the action above to switch back deliberately.</p>
             <div class="grid-3">
                 <article class="wow-card"><h3 class="wow-card-title">A selected display is missing</h3><p class="wow-card-desc">Companion refuses to collapse a two-display profile onto the remaining screen. While active, it restores a bordered Mainhand window instead. Reconnect the display or review the current layout before spanning again. For custom regions, follow the <a href="custom-workspaces.html#recovery">workspace recovery steps</a>.</p></article>
                 <article class="wow-card"><h3 class="wow-card-title">The span is wrong</h3><p class="wow-card-desc">Select <strong>Restore Window</strong>, use <strong>Identify Displays</strong>, review the selected displays and Mainhand (or edit <strong>Workspace layout</strong> for a custom plan), then apply <strong>Span WoW Now</strong> again. Re-run <code>/offhand guide</code> only if the intended canvas itself changed.</p></article>
