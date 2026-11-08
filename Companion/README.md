@@ -2,6 +2,15 @@
 
 Native Windows desktop companion application for the Offhand World of Warcraft add-on. See [Linux.md](Linux.md) for the current experimental Wine path and the native-Linux implementation boundary.
 
+## Choose one setup method
+
+Use only one window-placement method: Companion (recommended on Windows),
+FancyZones, or manual placement. These are alternatives. This document covers
+Companion; the other methods do not require it. Keep the same choice in
+`/offhand guide`, place the window, then return to that guide to reload, confirm
+placement and finish calibration. Custom workspaces, named plans, themes and
+backgrounds are optional after the standard setup works.
+
 ## Features
 * **Optional Auto-Spanning**: Detects World of Warcraft launches and can span the game window borderlessly across your multi-monitor virtual desktop. This is disabled by default so a first launch cannot move WoW before the display selection is reviewed.
 * **Addon Verification**: Validates that the Offhand add-on is properly installed in your WoW client's `Interface\AddOns` folder.

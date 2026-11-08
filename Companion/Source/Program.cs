@@ -5737,23 +5737,25 @@ namespace Offhand.Companion
         private void FillSetupHelp(RichTextBox guide, Font sectionFont)
         {
             AppendHelpSection(guide, sectionFont, "First-time setup",
-                "1. Start WoW with the Offhand addon enabled. In WoW's Graphics options, select Windowed and click Apply. WoW should have a movable title bar.",
-                "2. Enter the game world and type /offhand guide in chat. Choose Use Companion when the guide asks for a setup method. Continue to the window placement step.",
-                "3. In Companion, leave Auto-span WoW on launch off for setup. Choose the layout you want, then click Span WoW Now. See Choose a display layout below for the available options.",
-                "4. Return to the in-game guide. Click Reload UI, then Confirm placement. Follow the Auto-Setup Wizard to finish calibration.",
-                "5. On Retail and Forever, finish with Create Mainhand HUD Layout. Leave combat, close Edit Mode, and click the button. Reload when prompted. Wait for layout creation to succeed before moving your panels.");
+                "Choose only ONE window-placement method: Companion (recommended on Windows), FancyZones, or manual placement. These are alternatives, not steps to complete in sequence. If you chose FancyZones or manual placement, follow that guide instead; Companion is not required for those methods.",
+                "1. Start WoW with the Offhand addon enabled and enter the game world. Back up your Blizzard Edit Mode layout and UI addon profiles. Open /offhand guide, choose Use Companion and Already installed, then continue to the Windowed-mode and placement steps. Keep this guide open.",
+                "2. Use standard Windowed mode. In Companion, leave Auto-span WoW on launch off, choose a standard display layout, and click Span WoW Now. Review any saved-display confirmation before accepting.",
+                "3. Return to the same in-game guide. Click Reload UI, then Confirm placement and Start Calibration. Keep Use Companion selected. Finish calibration and, where offered, Create Mainhand HUD Layout outside combat with Edit Mode closed. Reload when prompted.",
+                "Relaunch WoW once and reapply your chosen span to check the game, panels and HUD. You do not need to restart setup or try another method.",
+                "Custom workspaces, named plans, themes and backgrounds are optional after standard setup works. The later Help sections are references, not extra tasks you must complete.");
 
             AppendHelpSection(guide, sectionFont, "Confirm saved displays",
                 "If System Status asks you to confirm your saved displays, open WoW and click Span WoW Now. Check the game and workspace screens in the dialog.",
                 "Click OK to save the screen selection and proceed with spanning. If a screen is wrong, click Cancel. Use Identify Displays to match the screen numbers to your monitors, then correct Span displays and Mainhand (game) or open Workspace layout to edit a saved custom layout. Click Span WoW Now again when ready.");
 
-            AppendHelpSection(guide, sectionFont, "Choose a display layout",
+            AppendHelpSection(guide, sectionFont, "Choose one standard display layout",
                 "Two full displays. Check both screens under Span displays and pick Mainhand (game). The other screen becomes your Offhand workspace.",
                 "One super-ultrawide. For an equal split on a 32:9 or 32:10 display, check only that screen, enable Single-display 32:9 split, and choose Game side.",
-                "Workspace layout. Choose One monitor for a full-height game and workspace split, Two monitors for a full game screen and a rectangular workspace, or Multiple workspaces for a full game screen plus one or two workspaces on separate displays.",
-                "Flexible layout (prototype). Use presets or enter the game and workspace rectangles to place one or two workspaces on the same physical display. " + WorkspaceEditorLayout.FlexibleAddon);
+                "Choose the standard layout that fits your screens. You do not need to configure both choices or open the custom editors for first-time setup.");
 
-            AppendHelpSection(guide, sectionFont, "Edit and reuse custom workspaces",
+            AppendHelpSection(guide, sectionFont, "Optional: custom workspaces and saved plans",
+                "Use these controls later if you want to change the standard workspace areas. In Workspace layout, choose just one editor: One monitor, Two monitors, Multiple workspaces, or Flexible layout (prototype). You do not need to complete every editor.",
+                "One monitor makes a full-height game and workspace split. Two monitors keeps a full game screen with a rectangular workspace on the other. Multiple workspaces adds one or two workspaces on separate displays. Flexible layout places the game and workspaces on one display. " + WorkspaceEditorLayout.FlexibleAddon,
                 "In custom editors with a visual picker, click Select area on monitor. Drag to move the area or drag its edges to resize. Use the arrow keys to move, Ctrl + arrow keys to move one pixel, or Shift + arrow keys to resize. Press Enter to accept the area or Esc to return to the editor.",
                 "Check the preview and click Save plan to keep your settings. Click Span WoW Now to resize the game window, then reload the WoW UI once.",
                 "To turn off custom workspaces, open Workspace layout and choose Use standard display layout. Review the suggested displays before saving. Named profiles stay saved.",
