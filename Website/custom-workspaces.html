@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offhand Custom Workspaces | Companion 2.1.3 guide</title>
+    <meta name="description" content="Choose, save and apply custom WoW workspace areas with Offhand Companion 2.1.3. Learn layout types, named plans, addon layouts and recovery.">
+    <link rel="icon" type="image/png" href="assets/offhand-icon.png">
+    <link rel="stylesheet" href="style.css?v=20261108-workspaces2">
+</head>
+<body class="companion-page custom-workspaces-page">
+    <header class="navbar">
+        <div class="nav-container">
+            <a class="brand" href="index.html" aria-label="Offhand home"><img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="brand-medallion"><div class="brand-text"><span class="brand-title">OFFHAND</span><span class="brand-subtitle">Dual-Wield Your Monitors</span></div></a>
+            <nav class="nav-primary" aria-label="Primary navigation"><a href="companion.html">Window Setup</a><a href="in-game-setup.html">In-Game Setup</a><a href="background-studio.html">Studio</a><a href="manual-spanning.html">Alternative Setup</a></nav>
+            <div class="nav-controls">
+                <details class="site-menu">
+                    <summary>Menu <span aria-hidden="true">▾</span></summary>
+                    <nav class="site-menu-panel" aria-label="Complete site navigation">
+                        <div class="site-menu-group"><span class="site-menu-label">Pages</span><a href="index.html">Home</a><a href="demonstration.html">Demonstration</a><a href="companion.html">Window Setup</a><a href="in-game-setup.html">In-Game Setup</a><a href="background-studio.html">Background Studio</a><a href="manual-spanning.html">Alternative Setup</a></div>
+                        
+                        <div class="site-menu-external"><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub <span aria-hidden="true">↗</span></a><a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge <span aria-hidden="true">↗</span></a></div>
+                    </nav>
+                </details>
+                <a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener" class="btn btn-wow-red btn-sm nav-download"><svg class="curseforge-mark" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M18.326 9.2145S23.2261 8.4418 24 6.1882h-7.5066V4.4H0l2.0318 2.3576V9.173s5.1267-.2665 7.1098 1.2372c2.7146 2.516-3.053 5.917-3.053 5.917L5.0995 19.6c1.5465-1.4726 4.494-3.3775 9.8983-3.2857-2.0565.65-4.1245 1.6651-5.7344 3.2857h10.9248l-1.0288-3.2726s-7.918-4.6688-.8336-7.1127z"/></svg>CurseForge</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="content-deck setup-guide-deck">
+        <section class="content-section">
+            <div class="deck-intro-banner">
+                <h1 class="guide-title">Build your custom workspace</h1>
+                <p class="deck-intro-text">Keep the game on Mainhand and give supported panels their own areas. Companion controls where WoW appears; the addon controls the panels inside it.</p>
+                <p><a href="companion.html#first-setup">Need two full displays or an equal ultrawide split? Start with standard setup.</a></p>
+            </div>
+            <nav class="page-jump-nav" aria-label="Custom workspace guide sections"><span>On this page</span><a href="#requirements">Requirements</a><a href="#choose">Choose layout</a><a href="#apply">Save and apply</a><a href="#profiles">Saved plans</a><a href="#panels">Panels and appearance</a><a href="#recovery">Recovery</a></nav>
+        </section>
+        <section class="content-section" id="requirements">
+            <div class="section-header"><h2 class="section-title guide-section-title">Check both components first</h2></div>
+            <p>Use <strong>Companion 2.1.3</strong> from <a href="https://apps.microsoft.com/detail/9PL4PW84Q90W" target="_blank" rel="noopener">Microsoft Store</a> with the matching <strong>Offhand addon 2.1.3 Pre-Release Beta 27</strong>. Install the addon separately for the WoW client you play. A Store update does not update the addon.</p>
+            <div class="guide-callout warning-callout"><strong>Addon availability:</strong> the matching addon and portable Companion packages are currently awaiting public GitHub release. The instructions below are for users who already have the matching prerelease addon. Older downloads do not provide the new workspace integration. Use <a href="companion.html#first-setup">standard setup</a> until you have both components. <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/releases">Check published releases</a>.</div>
+            <p>Before changing the canvas, save a copy of your Blizzard Edit Mode layout and back up UI addon profiles. Set WoW to ordinary <strong>Windowed</strong> mode, enter the game world, and leave <strong>Auto-span WoW on launch</strong> off.</p>
+        </section>
+        <section class="content-section" id="choose">
+            <div class="section-header"><h2 class="section-title guide-section-title">Choose the area you want</h2><p class="section-subtitle">Open Workspace layout in Companion. Choose one mode, then follow the shared save-and-apply steps below.</p></div>
+            <div class="setup-split">
+                <article class="faq-card guide-panel"><h3>One monitor</h3><p>Choose this for a side-by-side split with your own game and workspace widths. Both areas use the monitor's full height. Select the monitor, game side, occupied area and workspace width in the editor.</p><p>Example: reserve a narrow workspace beside a wider game area on an ultrawide. For an equal 32:9/32:10 split, standard setup is simpler.</p></article>
+                <article class="faq-card guide-panel"><h3>Two monitors</h3><p>Keep one full display for the game and choose a rectangular workspace on a second display. Select distinct game and workspace monitors, then set the workspace's position and size.</p><p>Example: use only the lower portion of a portrait screen for WoW panels, leaving the remaining desktop available.</p></article>
+                <article class="faq-card guide-panel"><h3>Multiple workspaces</h3><p>Keep a full game monitor and define one or two workspace regions on separate displays. Choose the game screen, workspace A, optional workspace B, and the primary workspace.</p><p>The primary workspace is the default destination when a panel has no more specific placement. Give each area enough room for the panels you intend to use.</p></article>
+                <article class="faq-card guide-panel"><h3>Flexible layout (prototype)</h3><p>This advanced option places the game and one or two workspace rectangles on a single monitor. Choose a preset or enter the rectangles, then inspect the preview for position, size and gaps.</p><p>The published control is labelled <strong>prototype</strong>. It requires the paired addon. Begin with a simpler mode unless you need this arrangement.</p></article>
+            </div>
+            <details class="faq-card workspace-detail"><summary>How to select an area visually</summary><div class="faq-body"><p>Where available, choose <strong>Select area on monitor</strong>. Drag the area to move it or drag its edges to resize it. Arrow keys move the area; <strong>Ctrl + arrow</strong> moves one pixel and <strong>Shift + arrow</strong> resizes. Press <strong>Enter</strong> to accept or <strong>Esc</strong> to return to the editor.</p><p>Editor dimensions use physical pixels. Check which monitor is selected before entering offsets. The preview shows the occupied game/workspace areas and remaining desktop. Areas must fit their selected displays without overlapping; resolve any validation message before saving.</p></div></details>
+        </section>
+        <section class="content-section" id="apply">
+            <div class="section-header"><h2 class="section-title guide-section-title">Save the plan, then apply it</h2><p class="section-subtitle">Saving settings, moving WoW, and loading the new geometry inside WoW are three separate actions.</p></div>
+            <ol class="workspace-steps">
+                <li><strong>Review and Save plan.</strong> Check the game screen, each workspace, and the preview. Save plan keeps the settings; it does not resize WoW.</li>
+                <li><strong>Click Span WoW Now.</strong> Review any display confirmation before accepting. Check that the visible game and workspace areas match the plan.</li>
+                <li><strong>Reload inside WoW.</strong> Type <code>/reload</code>, or use Reload UI in <code>/offhand guide</code>, so the addon reads the applied geometry. Companion does not type this command for you.</li>
+                <li><strong>Confirm and calibrate.</strong> In the guide choose Use Companion, then Confirm placement. Finish the <a href="in-game-setup.html#guided-setup">calibration and HUD instructions</a>. Wait for HUD setup to succeed before arranging panels.</li>
+            </ol>
+            <div class="guide-callout"><strong>Every later launch:</strong> custom layouts use <strong>Span WoW Now</strong> each time. Auto-span is for standard layouts. Reapply a changed plan and reload before checking panel positions. Keep Companion open if you need its remembered Restore Window state or active recovery.</div>
+        </section>
+        <section class="content-section" id="profiles">
+            <div class="section-header"><h2 class="section-title guide-section-title">Know which layout you are saving</h2></div>
+            <div class="workspace-table-wrap" role="region" tabindex="0" aria-label="Saved layout comparison, scroll horizontally on narrow screens"><table class="workspace-table"><caption>Each kind of saved layout has a different purpose. On small screens, scroll sideways to compare.</caption><thead><tr><th scope="col">Where</th><th scope="col">What it saves</th><th scope="col">What it does not replace</th></tr></thead><tbody>
+                <tr><th scope="row">Companion: Workspace profiles</th><td>Named Multiple workspaces display plans, including selected monitors and areas.</td><td>Addon panel arrangement and Blizzard HUD editing.</td></tr>
+                <tr><th scope="row">Addon: Profiles, workspace layouts</th><td>Panel placement, routing and workspace appearance within the current general addon profile.</td><td>Physical display geometry or calibration.</td></tr>
+                <tr><th scope="row">Addon: general profiles</th><td>The broader Offhand preferences containing those workspace layouts.</td><td>Companion's display plans.</td></tr>
+                <tr><th scope="row">Blizzard Edit Mode</th><td>Protected HUD controls such as action bars and unit frames.</td><td>Ordinary workspace panels or native window placement.</td></tr>
+            </tbody></table></div>
+            <p>For a reusable Multiple workspaces plan, open <strong>Workspace profiles...</strong> and save it under a useful name. Changes in that dialog remain staged until <strong>Save changes</strong>. To switch, choose the plan, click <strong>Load selected</strong>, then <strong>Save changes</strong>. Apply it using the <a href="#apply">save-and-apply sequence</a>.</p>
+            <p>For example, save a plan called “Map and inventory”. Arrange panels in WoW after applying it. When the paired addon first sees a named plan, it creates an associated workspace layout from the current one. Later applications can restore that plan's associated layout. You can still select a different in-game workspace layout manually.</p>
+            <p>A saved plan needs its configured monitors at the saved resolutions. A missing or changed display requires review. Deleting a Companion plan does not delete its in-game workspace layout.</p>
+        </section>
+        <section class="content-section" id="panels">
+            <div class="section-header"><h2 class="section-title guide-section-title">Arrange panels and appearance inside WoW</h2></div>
+            <p>Open <code>/offhand</code>. In <strong>Workspace</strong>, choose destinations for supported panel groups such as Map, Character, Spells, Collections, Achievements and Journal. A panel you drag manually keeps that placement. <strong>Use routing again</strong> asks before clearing that group's manual positions. Bags, chat and third-party panels retain their existing behavior.</p>
+            <p>In <strong>Themes</strong>, each active region can inherit the global appearance or use its own theme, background and image fit. These choices style the workspace canvas, not Blizzard's panels. Inactive regions cannot be edited.</p>
+            <p>For a custom background, open <a href="background-studio.html">Background Studio</a> and preview <strong>Custom dimensions</strong> using that region's width and height from Companion. Preview each differently shaped region separately. Studio preview dimensions do not resize WoW. Install the generated media package beside Offhand and fully restart WoW before selecting the installed image.</p>
+            <p>Use the <a href="in-game-setup.html#edit-mode">Edit Mode instructions</a> for protected HUD controls and the <a href="in-game-setup.html#recovery">in-game recovery guide</a> for missing panels. Avoid rebuilding a working HUD just to move an ordinary panel.</p>
+        </section>
+        <section class="content-section" id="recovery">
+            <div class="section-header"><h2 class="section-title guide-section-title">Change or recover a workspace</h2></div>
+            <div class="setup-split">
+                <article class="faq-card guide-panel"><h3>The editor changed, but WoW did not</h3><p>Save plan only stores settings. Click Span WoW Now, then reload the WoW UI. Check the active plan and each visible region before moving panels.</p></article>
+                <article class="faq-card guide-panel"><h3>A monitor is missing or the plan will not load</h3><p>Reconnect the configured display and check its Windows resolution. Use Identify Displays to review roles. Do not repeatedly apply an old plan to an unfamiliar screen arrangement. Use Restore Window to return to a usable window.</p></article>
+                <article class="faq-card guide-panel"><h3>Return to standard displays</h3><p>Open Workspace layout and choose Use standard display layout. Review the suggested displays and save. Named plans stay saved. Apply the standard span and reload. Restore Window alone does not erase the custom plan.</p></article>
+                <article class="faq-card guide-panel"><h3>A panel is missing or in the wrong area</h3><p>First verify the applied geometry and reload. Then check its route and any manual placement. Follow the <a href="in-game-setup.html#recovery">targeted panel recovery steps</a> before gathering every window or rebuilding the HUD.</p></article>
+            </div>
+            <p>For support, include Companion and addon versions, your WoW client, the plan preview, and what happened after Span WoW Now and reload. Use <strong>Copy Display Diagnostics</strong> in Companion and <code>/offhand diag</code> in WoW. Remove private account, character or chat details before sharing.</p>
+            <p><a href="companion.html#recovery">Companion display, color and scaling troubleshooting</a> · <a href="companion.html#first-setup">Back to standard setup</a></p>
+        </section>
+    </main>
+    <footer class="footer">
+        <div class="footer-container"><div class="footer-brand"><img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="footer-logo"><div class="footer-info"><span class="footer-title">OFFHAND</span><span class="footer-subtitle">Dual-Wield Your Monitors</span></div></div><nav class="footer-nav" aria-label="Footer navigation"><div class="footer-nav-row"><a href="index.html">Home</a><a href="companion.html">Window Setup</a><a href="in-game-setup.html">In-Game Setup</a><a href="background-studio.html">Background Studio</a><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub</a></div><div class="footer-nav-row"><a href="index.html#faq">FAQ</a><a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge</a><a href="manual-spanning.html">Alternative Setup</a><span class="footer-community-actions"><a class="footer-discord" href="https://discord.gg/J2P3SM6pAY" target="_blank" rel="noopener noreferrer" aria-label="Join the Offhand Discord" title="Join the Offhand Discord"><img src="assets/discord-symbol.svg" alt="" aria-hidden="true">Join Discord</a><a class="footer-support" href="https://ko-fi.com/n4uxaddons" target="_blank" rel="noopener noreferrer" aria-label="Support N4UX on Ko-fi"><img src="assets/ko-fi-symbol.png" alt="" aria-hidden="true">Support N4UX</a></span></div></nav></div>
+        <div class="footer-legal"><p>The Companion is optional. FancyZones and manual placement remain complete setup paths.</p></div>
+    </footer>
+</body>
+</html>
