@@ -1,8 +1,8 @@
 # Simplified in-game and Companion setup guidance
 
 8 November 2026. Source-only help update from main 1df5e4b, following the website
-single-method flow. No state-machine, native-window, persistence, geometry,
-protected-frame or API behavior changes.
+single-method flow. The follow-up below also changes custom-editor entry. No native-window,
+persistence, geometry, protected-frame or API behavior changes.
 
 ## User-facing changes
 
@@ -56,3 +56,23 @@ Do not claim their hashes or acceptance cover the edited native help source.
 The next Companion candidate needs its normal versioning, build, package and
 delivery validation before publication. This change does not update an already
 installed Microsoft Store app or publish an addon package.
+
+## Standard-layout entry follow-up
+
+Fresh preferences already select standard layout. The old chooser presented only
+custom editors and focused its one-monitor editor; its "Two monitors" name could
+be mistaken for normal full-monitor setup. The candidate now puts Keep standard
+layout first and makes it the fresh-setup Enter action. Custom editors require a
+separate optional opt-in, and the second-monitor action explicitly describes a
+custom area. Existing saved custom layouts keep their mode and focus. Choosing
+an editor does not write settings; keeping standard when already standard is a
+no-op. Named profiles and geometry defaults are unchanged.
+
+Dashboard status shows whether standard or custom layout is selected. Tooltips,
+Help and README explain full-monitor setup, reasons to use custom areas and the
+return-to-standard path. Reinstalling is not presented as a settings reset.
+
+Regression fixtures cover missing preferences, the standard default, guarded
+custom entry, deliberate custom selection and preference immutability. Rendered
+chooser previews and scaled-layout fixtures check reachability and wrapping.
+The next native build still requires the release and live-acceptance steps above.

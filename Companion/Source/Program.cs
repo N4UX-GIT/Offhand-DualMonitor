@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -1584,37 +1584,57 @@ namespace Offhand.Companion
         internal bool Multiple;
         internal bool Flexible;
         internal bool UseStandard;
-        internal readonly Button SingleButton, SecondaryButton, MultipleButton, FlexibleButton;
+        internal readonly Button StandardButton, SingleButton, SecondaryButton, MultipleButton, FlexibleButton;
+        internal readonly CheckBox EnableCustom = new CheckBox { Text = "I want custom workspace areas (optional)", AutoSize = true };
 
         internal CustomRegionModeDialog(IDictionary<string,string> settings)
         {
             string current = WorkspaceEditorLayout.CurrentMode(settings);
-            var layout = new WorkspaceEditorLayout(this, "Choose a custom workspace",
-                new Size(620, current == WorkspaceEditorLayout.Standard ? 484 : 620), new Size(470, 360), 100);
-            layout.Heading("Saved layout");
-            layout.Guide(current);
-            layout.Heading("Choose a layout to edit");
-            layout.Guide("Select an option below. The editor keeps your changes when you click Save plan.");
-            SingleButton = AddOption(layout, WorkspaceEditorLayout.Single, "Split one monitor into side-by-side, full-height game and workspace areas.");
-            SecondaryButton = AddOption(layout, WorkspaceEditorLayout.Secondary, "Keep one full monitor for the game and choose a workspace area on a second monitor.");
-            MultipleButton = AddOption(layout, WorkspaceEditorLayout.Multiple, "Keep one full monitor for the game and place up to two workspaces on separate monitors.");
-            FlexibleButton = AddOption(layout, WorkspaceEditorLayout.Flexible, "Place the game and one or two workspaces anywhere on a single monitor. " + WorkspaceEditorLayout.FlexibleAddon);
-            if (current != WorkspaceEditorLayout.Standard)
-            {
-                layout.Heading("Return to a standard layout");
-                var standard = AddOption(layout, "Use standard display layout", "Turn off custom workspaces and review the displays to use. Named workspace profiles stay saved.");
-                standard.Click += (s, e) => { UseStandard = true; DialogResult = DialogResult.OK; Close(); };
-            }
+            bool standardActive = current == WorkspaceEditorLayout.Standard;
+            var layout = new WorkspaceEditorLayout(this, "Standard layout or optional custom areas",
+                new Size(660, 740), new Size(470, 360), 100);
+            layout.Heading("Active layout: " + current);
+            layout.Guide(standardActive
+                ? "Standard layout is already selected. For normal two-monitor setup, use the full game monitor and full Offhand monitor. You do not need a custom workspace."
+                : "A saved custom workspace is active. It will be restored on launch until you choose standard layout. Your named plans remain saved.");
+            StandardButton = AddOption(layout, standardActive ? "Keep standard layout (recommended)" : "Use standard display layout",
+                "For two full monitors, choose Span displays and Mainhand on the dashboard. The equal single-display split is also a standard layout. No custom area editor is needed.");
+            StandardButton.Click += (s, e) => { UseStandard = true; DialogResult = DialogResult.OK; Close(); };
+            layout.Heading("Optional: custom workspace areas");
+            layout.Guide("Use a custom area only when you want an unequal split, only part of another monitor, or extra workspace regions. Two physical monitors alone do not require the two-monitor custom editor.");
+            EnableCustom.Checked = !standardActive;
+            EnableCustom.AccessibleDescription = "Enable only to intentionally edit custom areas. This does not change your saved layout.";
+            layout.AddWide(EnableCustom);
+            SingleButton = AddOption(layout, "Custom split on one monitor", "Choose unequal game/workspace widths or leave part of one screen for other desktop apps.");
+            SecondaryButton = AddOption(layout, "Custom area on a second monitor", "Use only a chosen rectangle on the second screen. For the whole second monitor, keep standard layout instead.");
+            MultipleButton = AddOption(layout, "Custom areas on separate monitors", "Use one full game monitor and up to two selected workspace regions on other monitors.");
+            FlexibleButton = AddOption(layout, "Flexible custom layout (prototype)", "Place game and workspace rectangles on one screen. " + WorkspaceEditorLayout.FlexibleAddon);
 
-            SingleButton.Click += (s, e) => { DialogResult = DialogResult.OK; Close(); };
-            SecondaryButton.Click += (s, e) => { Secondary = true; DialogResult = DialogResult.OK; Close(); };
-            MultipleButton.Click += (s, e) => { Multiple = true; DialogResult = DialogResult.OK; Close(); };
-            FlexibleButton.Click += (s, e) => { Flexible = true; DialogResult = DialogResult.OK; Close(); };
-            Button selected = current == WorkspaceEditorLayout.Flexible ? FlexibleButton
+            Button savedChoice = current == WorkspaceEditorLayout.Flexible ? FlexibleButton
                 : current == WorkspaceEditorLayout.Multiple ? MultipleButton
-                : current == WorkspaceEditorLayout.Secondary ? SecondaryButton : SingleButton;
-            layout.Finish(null, defaultChoice: selected);
-            ActiveControl = selected;
+                : current == WorkspaceEditorLayout.Secondary ? SecondaryButton
+                : current == WorkspaceEditorLayout.Single ? SingleButton : StandardButton;
+            Button[] customButtons = { SingleButton, SecondaryButton, MultipleButton, FlexibleButton };
+            Action updateChoices = () => {
+                foreach (Button button in customButtons) button.Enabled = EnableCustom.Checked;
+                AcceptButton = EnableCustom.Checked ? savedChoice : StandardButton;
+            };
+            EnableCustom.CheckedChanged += (s, e) => updateChoices();
+            foreach (Button button in customButtons)
+            {
+                Button target = button;
+                target.Click += (s, e) => {
+                    if (!EnableCustom.Checked) return;
+                    Secondary = target == SecondaryButton;
+                    Multiple = target == MultipleButton;
+                    Flexible = target == FlexibleButton;
+                    DialogResult = DialogResult.OK;
+                    Close();
+                };
+            }
+            layout.Finish(null, defaultChoice: savedChoice);
+            updateChoices();
+            ActiveControl = (Control)AcceptButton;
         }
 
         private static Button AddOption(WorkspaceEditorLayout layout, string title, string description)
@@ -2055,7 +2075,7 @@ namespace Offhand.Companion
         {
             var layout = new WorkspaceEditorLayout(this, "Two-monitor workspace", new Size(640, 695), new Size(500, 430), 40, 60);
             layout.Heading("1. Choose two monitors");
-            layout.Guide("The game uses a full monitor. Choose a rectangle on the second monitor for your Offhand panels.");
+            layout.Guide("Custom area only: this uses a chosen rectangle on the second monitor. For two whole monitors, cancel and keep standard layout on the dashboard.");
             layout.ExplainReplacement(settings, WorkspaceEditorLayout.Secondary);
             for (int i = 0; i < displays.Count; i++)
             {
@@ -4280,6 +4300,9 @@ namespace Offhand.Companion
                     if (choice.ShowDialog(this) != DialogResult.OK) return;
                     if (choice.UseStandard)
                     {
+                        // Keeping an already-standard layout is a no-op. Opening this
+                        // chooser must not rewrite preferences or monitor selection.
+                        if (WorkspaceEditorLayout.CurrentMode(appSettings) == WorkspaceEditorLayout.Standard) return;
                         confirmedDisplays = ReadDisplays();
                         int[] selection;
                         proposed = CustomRegionPreferences.StandardLayout(appSettings, confirmedDisplays, out selection);
@@ -5186,7 +5209,7 @@ namespace Offhand.Companion
             btnPartialSpan.Click += (s, e) => EditPartialSpan();
             configLayout.Controls.Add(btnPartialSpan, 1, 2);
             uiToolTips.SetToolTip(btnWorkspaceProfiles,"Save and manage named Multiple workspaces plans. Loading selects settings; Span WoW Now applies them.");
-            uiToolTips.SetToolTip(btnPartialSpan, "Edit a custom workspace or return to a standard display layout.");
+            uiToolTips.SetToolTip(btnPartialSpan, "Standard layout is the default for full monitors. Open this only to use custom areas or return from a custom plan. Custom areas are optional, not required for two monitors.");
 
             uiToolTips.SetToolTip(chkAutoSpan,
                 "Disabled by default. When enabled, Offhand spans each newly detected WoW window across the selected displays. Manual Span WoW Now remains available when disabled.");
@@ -5751,14 +5774,14 @@ namespace Offhand.Companion
             AppendHelpSection(guide, sectionFont, "Choose one standard display layout",
                 "Two full displays. Check both screens under Span displays and pick Mainhand (game). The other screen becomes your Offhand workspace.",
                 "One super-ultrawide. For an equal split on a 32:9 or 32:10 display, check only that screen, enable Single-display 32:9 split, and choose Game side.",
-                "Choose the standard layout that fits your screens. You do not need to configure both choices or open the custom editors for first-time setup.");
+                "Standard layout is the default for a new setup. Select the displays and Mainhand on the dashboard, then Span WoW Now. Do not choose the custom two-monitor editor just because you have two screens. Existing saved custom plans are restored on launch until you switch back.");
 
             AppendHelpSection(guide, sectionFont, "Optional: custom workspaces and saved plans",
-                "Use these controls later if you want to change the standard workspace areas. In Workspace layout, choose just one editor: One monitor, Two monitors, Multiple workspaces, or Flexible layout (prototype). You do not need to complete every editor.",
-                "One monitor makes a full-height game and workspace split. Two monitors keeps a full game screen with a rectangular workspace on the other. Multiple workspaces adds one or two workspaces on separate displays. Flexible layout places the game and workspaces on one display. " + WorkspaceEditorLayout.FlexibleAddon,
+                "Custom workspaces are for an unequal split, only part of a second monitor, or additional workspace areas. For two whole monitors, keep standard layout. In Workspace layout, enable I want custom workspace areas only if you need one of these changes, then choose one editor.",
+                "Custom split on one monitor makes a full-height game and workspace split. Custom area on a second monitor keeps a full game screen with a rectangular workspace on the other. Custom areas on separate monitors adds one or two workspace regions. Flexible custom layout places the game and workspaces on one display. " + WorkspaceEditorLayout.FlexibleAddon,
                 "In custom editors with a visual picker, click Select area on monitor. Drag to move the area or drag its edges to resize. Use the arrow keys to move, Ctrl + arrow keys to move one pixel, or Shift + arrow keys to resize. Press Enter to accept the area or Esc to return to the editor.",
                 "Check the preview and click Save plan to keep your settings. Click Span WoW Now to resize the game window, then reload the WoW UI once.",
-                "To turn off custom workspaces, open Workspace layout and choose Use standard display layout. Review the suggested displays before saving. Named profiles stay saved.",
+                "If you selected a custom area by mistake, open Workspace layout and choose Use standard display layout. Review the suggested displays, then Span WoW Now and reload in WoW. Named profiles stay saved. Restore Window alone does not switch the saved layout back to standard.",
                 "Use Workspace profiles to manage named Multiple workspaces plans. To switch plans, pick a profile, click Load selected, then click Save changes. Click Span WoW Now and reload in WoW. Use the in-game Profiles tab for addon panel layouts and theme choices.");
 
             AppendHelpSection(guide, sectionFont, "Daily use",
@@ -6184,7 +6207,10 @@ namespace Offhand.Companion
                     plan.Workspaces.Length == 1 ? "" : "s", plan.Indices.Length, plan.Indices.Length == 1 ? "" : "s")
                 : string.Format("Workspace {0} × {1}{2}", plan.WorkspaceBounds.Width, plan.WorkspaceBounds.Height,
                     plan.SplitSingle ? " (single display)" : "");
-            return state + "\r\n" + game + "  •  " + workspace;
+            string mode = plan.IsCustom || plan.FlexibleLayout
+                ? "Custom workspace: selected areas"
+                : plan.SplitSingle ? "Standard layout: equal split" : "Standard layout: full monitors";
+            return mode + "\r\n" + state + "\r\n" + game + "  •  " + workspace;
         }
 
         internal void UpdateClientStatus(AddonStatus status, bool anyWoWProcess)

@@ -11,6 +11,25 @@ Companion; the other methods do not require it. Keep the same choice in
 placement and finish calibration. Custom workspaces, named plans, themes and
 backgrounds are optional after the standard setup works.
 
+## Start with standard layout
+
+**Standard layout is already selected for a new setup.** For two full monitors,
+check both under **Span displays**, choose **Mainhand (game)** and click
+**Span WoW Now** at the placement step. No custom workspace editor is needed.
+The optional equal single-display split also belongs to standard layout.
+
+Custom workspaces are for an unequal split, a workspace covering only part of a
+second monitor, or additional workspace areas. In the layout chooser, keep
+standard unless you need one of these arrangements. Custom editors require the
+explicit **I want custom workspace areas (optional)** choice. The second-monitor
+custom option means a selected rectangle, not ordinary two-full-monitor setup.
+
+Saved custom layouts are restored on launch. To return to full monitors, open
+**Workspace layout (custom)…**, choose **Use standard display layout**, review
+**Span displays** and **Mainhand (game)**, then span again and reload the WoW UI.
+Named workspace plans remain saved. **Restore Window** alone does not change the
+saved layout mode.
+
 ## Features
 * **Optional Auto-Spanning**: Detects World of Warcraft launches and can span the game window borderlessly across your multi-monitor virtual desktop. This is disabled by default so a first launch cannot move WoW before the display selection is reviewed.
 * **Addon Verification**: Validates that the Offhand add-on is properly installed in your WoW client's `Interface\AddOns` folder.

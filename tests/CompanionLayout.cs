@@ -159,7 +159,7 @@ namespace Offhand.Companion
                         + ", padding=" + scrollPanel.Padding + ", scrollbar=" + scrollPanel.VerticalScroll.Visible
                         + ", maximum=" + form.MaximumSize + ", host=" + SystemInformation.VirtualScreen);
 
-                layoutStatus.Text = "Selected display layout\r\nGame 2560 × 1440  •  Workspace 1418 × 1440";
+                layoutStatus.Text = "Standard layout: full monitors\r\nSelected display layout\r\nGame 2560 × 1440  •  Workspace 1418 × 1440";
                 form.UpdateClientStatus(null, false);
                 if (!status.Controls.OfType<Label>().Any(label => label.Text == "WoW: Not running"))
                     throw new Exception("System Status omitted the stopped client state.");
@@ -380,13 +380,15 @@ namespace Offhand.Companion
                 // larger developer desktops too, including scroll-to-last-row.
                 if (smallHost) choice.Size = new Size(Math.Min(1044, choice.Width), Math.Min(788, choice.Height));
                 LayoutAll(choice);
-                if (choice.AcceptButton != (mode == "secondary" ? choice.SecondaryButton : choice.SingleButton))
+                if (choice.AcceptButton != (mode == "standard" ? choice.StandardButton : mode == "secondary" ? choice.SecondaryButton : choice.SingleButton))
                     throw new Exception("Layout chooser does not default to the saved custom mode.");
                 if (choice.ActiveControl != choice.AcceptButton)
                     throw new Exception("Layout chooser focuses a different mode than its default Enter action.");
-                var reset = Descendants(choice).OfType<Button>().SingleOrDefault(button => button.Text == "Use standard display layout");
-                if ((mode == "standard") != (reset == null))
-                    throw new Exception("The standard-layout action should be available while a custom layout is saved.");
+                if (!choice.StandardButton.Enabled || choice.EnableCustom.Checked != (mode != "standard") ||
+                    choice.SecondaryButton.Enabled != (mode != "standard"))
+                    throw new Exception("Standard must always be available; fresh custom choices must require opt-in.");
+                if (BoundsInside(choice.StandardButton, choice).Top >= BoundsInside(choice.SingleButton, choice).Top)
+                    throw new Exception("Standard layout must precede custom editor choices.");
                 foreach (Control c in Descendants(choice).Where(c => c is Button || c is Label)) {
                     Rectangle bounds = BoundsInside(c, choice);
                     bool reachableByScroll = false;
@@ -417,6 +419,7 @@ namespace Offhand.Companion
                     }
                 // Exercise both explicit choices, including a change from the saved mode.
                 bool secondary = mode != "secondary";
+                choice.EnableCustom.Checked = true;
                 typeof(Button).GetMethod("OnClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                     .Invoke(secondary ? choice.SecondaryButton : choice.SingleButton, new object[] { EventArgs.Empty });
                 if (choice.DialogResult != DialogResult.OK || choice.Secondary != secondary)
