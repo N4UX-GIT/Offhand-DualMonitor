@@ -131,7 +131,7 @@ try {
         throw 'Release packaging must freeze the Beta 20 candidate bytes and require an explicit Companion-change lane.'
     }
     $storeBuilder = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Store\Build-StorePackage.ps1') -Raw
-    if ($storeBuilder -notmatch "\[string\]\`$PackageVersion = '2\.1\.300\.0'" -or
+    if ($storeBuilder -notmatch "\[string\]\`$PackageVersion = '2\.1\.301\.0'" -or
         $storeBuilder -notmatch '\[string\]\$CompanionPath' -or
         $storeBuilder -notmatch '\[string\]\$ExpectedCompanionSha256' -or
         $storeBuilder -notmatch 'Companion SHA-256 mismatch') {
