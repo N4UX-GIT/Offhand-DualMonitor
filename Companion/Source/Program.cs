@@ -11,6 +11,10 @@ using System.Text.RegularExpressions;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
+#if UI_PREVIEW && (RDP_TEST || HDR_DPI_DIAGNOSTICS_TEST || GRAININESS_TEST || FOREVER_GRAPHICS_RECOVERY_TEST || RETAIL_GRAPHICS_RECOVERY_TEST || CLASSIC_GRAPHICS_RECOVERY_TEST)
+#error UI preview requires its own isolated build configuration.
+#endif
+
 #if HDR_DPI_DIAGNOSTICS_TEST && (GRAININESS_TEST || FOREVER_GRAPHICS_RECOVERY_TEST || RETAIL_GRAPHICS_RECOVERY_TEST || CLASSIC_GRAPHICS_RECOVERY_TEST)
 #error Diagnostics and rendering/recovery experiments require separate builds.
 #endif
@@ -25,7 +29,9 @@ using System.Windows.Forms;
 #error RDP test packaging must use the ordinary Companion runtime.
 #endif
 
-#if RDP_TEST
+#if UI_PREVIEW
+[assembly: AssemblyTitle("Offhand Companion UI Preview")]
+#elif RDP_TEST
 [assembly: AssemblyTitle("Offhand Companion RDP Test 1")]
 #elif HDR_DPI_DIAGNOSTICS_TEST
 [assembly: AssemblyTitle("Offhand Companion HDR DPI DIAGNOSTICS TEST 3")]
@@ -47,7 +53,10 @@ using System.Windows.Forms;
 #else
 [assembly: AssemblyVersion("2.1.3.0")]
 #endif
-#if RDP_TEST
+#if UI_PREVIEW
+[assembly: AssemblyFileVersion("2.1.3.8001")]
+[assembly: AssemblyInformationalVersion("2.1.3")]
+#elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
 [assembly: AssemblyInformationalVersion("2.1.3-beta.6")]
 #elif HDR_DPI_DIAGNOSTICS_TEST
@@ -3862,7 +3871,12 @@ namespace Offhand.Companion
 #else
         internal const string BaseVersion = "2.1.3";
 #endif
-#if RDP_TEST
+#if UI_PREVIEW
+        internal const string ReleaseLabel = "UI Preview";
+        internal static readonly bool GraphicsRecoveryEnabled = false;
+        internal static readonly bool RetailGraphicsRecoveryEnabled = false;
+        internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
+#elif RDP_TEST
         internal const string ReleaseLabel = "Beta 6 RDP Test 1";
         internal static readonly bool GraphicsRecoveryEnabled = true;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
@@ -4449,7 +4463,9 @@ namespace Offhand.Companion
         private static readonly string publicConfigPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Offhand", "OffhandConfig.ini");
-#if RDP_TEST
+#if UI_PREVIEW
+        private static readonly string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DashboardPreviewConfig.ini");
+#elif RDP_TEST
         private static readonly string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "RdpTestConfig.ini");
 #elif HDR_DPI_DIAGNOSTICS_TEST
         private static readonly string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DiagnosticsTestConfig.ini");
@@ -4470,7 +4486,9 @@ namespace Offhand.Companion
             try
             {
                 // Import portable settings once; future launches are independent of CWD.
-#if RDP_TEST || HDR_DPI_DIAGNOSTICS_TEST
+#if UI_PREVIEW
+                string source = configPath;
+#elif RDP_TEST || HDR_DPI_DIAGNOSTICS_TEST
                 string source = File.Exists(configPath) ? configPath : publicConfigPath;
 #else
                 string source = CompanionSettingsPath.ReadSource(configPath, publicConfigPath,
@@ -4670,6 +4688,9 @@ namespace Offhand.Companion
         {
             using (Process current = Process.GetCurrentProcess()) currentSessionId = current.SessionId;
             LoadConfig();
+#if UI_PREVIEW
+            appSettings["AutoSpan"] = "False";
+#endif
 #if RDP_TEST
             appSettings["AutoSpan"] = "False";
 #endif
@@ -4691,6 +4712,11 @@ namespace Offhand.Companion
             };
             InitializeTray();
             InitializeTimer();
+#if UI_PREVIEW
+            chkAutoSpan.Enabled = false;
+            itemAuto.Enabled = false;
+            AddLog("UI PREVIEW: separate local settings; automatic spanning and graphics recovery disabled.");
+#endif
 #if RDP_TEST
             this.Text = "Offhand Companion - RDP Test 1";
             AddLog("RDP TEST 1: preferences are saved beside this test executable.");
@@ -7076,7 +7102,11 @@ namespace Offhand.Companion
             {
                 try
                 {
+#if UI_PREVIEW
+                    instanceMutex = new System.Threading.Mutex(true, @"Local\OffhandCompanionDashboardPreview", out ownsInstance);
+#else
                     instanceMutex = new System.Threading.Mutex(true, @"Local\OffhandCompanion", out ownsInstance);
+#endif
                 }
                 catch (System.Threading.AbandonedMutexException)
                 {

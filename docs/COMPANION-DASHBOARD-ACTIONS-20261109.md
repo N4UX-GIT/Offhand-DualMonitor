@@ -42,3 +42,23 @@ is explicit so expanded content still scrolls when Windows limits window height.
 
 This is source for a subsequent Companion candidate. Existing prepared EXEs,
 portable archives, Store packages, and add-on runtime files were not replaced.
+
+## Local review build
+
+`scripts/New-CompanionDashboardPreview.ps1 -OutputDirectory <fresh-directory>`
+builds a distinct `UI_PREVIEW` configuration, file version `2.1.3.8001`.
+It uses only `DashboardPreviewConfig.ini` beside its EXE, ignores public/Store
+preferences, forces auto-span off, disables its launch controls and graphics
+recovery, and uses a separate instance mutex. Ordinary builds retain their
+existing configuration paths and instance identity. Manual controls remain
+available for the reviewer.
+
+Prepared and launched `dist/dashboard-ui-preview-20261109-1/Offhand.exe` for the
+owner. An executable fixture in the same directory verified the actual preview
+assembly's settings path, title, disabled auto-span controls and recovery flag.
+The production preference/layout regression suite passed again. Computer Use
+confirmed the visible window, correct logo, action hierarchy, collapsed status,
+expanded Configuration, and absence of a vertical scrollbar. The window was
+left open for review. No game input or span action was performed. Fresh settings
+on this host select its one active display without enabling split, so the
+collapsed indicator appropriately requests a display-layout review.
