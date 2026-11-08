@@ -90,3 +90,28 @@ Confirm no page-wide horizontal overflow and keyboard-accessible details/table
 scrolling. Verify deployed HTML/CSS bytes after the website PR merges to main.
 Screenshot completion remains pending owner-supplied captures; the text guide
 works independently and uses no empty image placeholders.
+
+## First supplied screenshot batch
+
+The owner subsequently supplied nine Companion captures. Five original PNGs are
+used, unchanged, in optional full-size references beside the relevant instructions:
+dashboard, layout chooser, valid one-monitor plan, enabled flexible editor and
+Display Troubleshooting. Exact source names, dimensions and hashes are in
+WEBSITE-COMPANION-213-SCREENSHOTS-20261108.json. Captions distinguish example
+dimensions, a saved plan and an applied span. The flexible editor reference also
+explains that its enable checkbox reveals the controls.
+
+The owner explicitly approved publication of the supplied dashboard, including
+its Activity Log details, after the initial privacy omission. It is copied
+unchanged and captioned as a saved layout before WoW starts. The two-
+monitor and multiple-workspace captures show unselected workspace monitors and
+disabled Save plan; request configured examples for successful setup guidance.
+The disabled flexible editor adds no useful step beyond the enabled reference.
+The Help screenshot repeats the written setup and is not added as another guide.
+
+Remaining owner captures: configured two-monitor and multiple-workspace plans,
+visual area picker, named plans,
+in-game workspace/general profile sections, routing and region appearance, and
+one completed labelled layout. A separate diagnostics card capture is optional
+because it is already readable in the supplied dashboard. Keep the prior calibration
+captures where the labels match. No need for additional generic Help images.

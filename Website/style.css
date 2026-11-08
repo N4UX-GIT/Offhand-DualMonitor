@@ -2059,7 +2059,7 @@ kbd {
 .workspace-table th, .workspace-table td { padding: 14px; border: 1px solid var(--border-color, #343944); text-align: left; vertical-align: top; }
 .workspace-table th { color: var(--rio-gold); }
 .custom-workspaces-page .content-section > p { line-height: 1.8; margin: 16px 0; }
-.custom-workspaces-page .setup-split { align-items: stretch; }
+.custom-workspaces-page .setup-split { align-items: start; }
 @media (max-width: 600px) {
     .workspace-table { min-width: 560px; }
     .workspace-table th, .workspace-table td { padding: 12px; font-size: 0.9rem; }
