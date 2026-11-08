@@ -1,0 +1,44 @@
+# Companion dashboard action hierarchy, 2026-11-09
+
+## Behavior
+
+The dashboard places Span WoW Now and Restore Window directly below the header.
+The action row is 44 logical pixels tall, with 64% of its width allocated to
+Span. Two short guidance lines explain applying the selected layout, typing
+`/reload` in WoW afterward, and restoring the previous window.
+
+With fresh preferences, Configuration is the only expanded panel. System
+Status, Display Diagnostics, and Activity Log start collapsed. Explicit saved
+panel choices remain authoritative. The System Status heading retains a
+colored indicator and text: WoW not running/waiting, WoW running, Check add-on,
+Check display layout, or Monitoring paused. Show opens the existing detailed
+status. The running indicator does not claim the add-on loaded successfully.
+
+Pause Monitor is removed from the dashboard action row. Its existing behavior
+remains available as Pause background monitoring / Resume background monitoring
+in the tray menu. Pausing still clears graphics-recovery tracking and stops
+automatic launch monitoring while manual actions remain available. The status
+summary exposes that paused state, and Help describes the tray location.
+
+Layout measurement uses the new action height consistently. The scroll extent
+is explicit so expanded content still scrolls when Windows limits window height.
+
+## Validation
+
+- `tests/companion-preferences.ps1`: passed, including dashboard alignment,
+  working-area fit and expansion at 100%, 125%, 150%, 175%, and 200%. Extended
+  the layout fixture for fresh collapsed defaults, action prominence/order,
+  summary bounds and status transitions, and actual tray-item pause/resume.
+- The layout fixture now isolates preference reads/writes from the owner's
+  existing configuration. Its rendered previews respect collapsed sections.
+- `tests/companion-workspace-ux.ps1`: 108 checks passed on x64 and x86.
+- `tests/companion-store-persistence.ps1`: 25 portable persistence checks passed.
+- `tests/companion-interaction-boundary.ps1`: source/native boundary checks passed.
+- All 109 current-tree Lua suites passed. The tree includes pre-existing pending
+  add-on changes; those changes were preserved and are outside this UI change.
+- Reviewed the rendered default dashboard. Logs and previews are under ignored
+  `dist/dashboard-actions-20261109/`. This is fixture rendering, not a fresh
+  installed-Store, live WoW, or mixed-DPI physical-monitor acceptance test.
+
+This is source for a subsequent Companion candidate. Existing prepared EXEs,
+portable archives, Store packages, and add-on runtime files were not replaced.

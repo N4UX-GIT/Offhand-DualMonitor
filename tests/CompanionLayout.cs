@@ -48,6 +48,10 @@ namespace Offhand.Companion
             foreach (Control child in parent.Controls)
             {
                 if (child.Width <= 0 || child.Height <= 0) continue;
+                var toggle = parent.Controls.OfType<Button>().FirstOrDefault(button => button.Text == "Show" || button.Text == "Hide");
+                if (toggle != null && ((toggle.Text == "Show" && child != toggle && child != parent.Controls[0]
+                        && child.AccessibleName != "System status summary") ||
+                    (toggle.Text == "Hide" && child.AccessibleName == "System status summary"))) continue;
                 Point location = new Point(origin.X + child.Left, origin.Y + child.Top);
                 using (var bitmap = new Bitmap(child.Width, child.Height))
                 {
@@ -125,6 +129,60 @@ namespace Offhand.Companion
 
                 Panel status = Descendants(form).OfType<Panel>().Single(panel =>
                     panel.Controls.OfType<Label>().Any(label => label.Text == "SYSTEM STATUS"));
+                var summary = One<Label>(status, label => label.AccessibleName == "System status summary");
+                if (!status.Controls.OfType<Button>().Any(button => button.Text == "Show") ||
+                    !config.Controls.OfType<Button>().Any(button => button.Text == "Hide"))
+                    throw new Exception("Fresh dashboard must collapse System Status and expand Configuration.");
+                foreach (string heading in new[] { "DISPLAY DIAGNOSTICS", "ACTIVITY LOG" })
+                {
+                    Panel card = Descendants(form).OfType<Panel>().Single(panel =>
+                        panel.Controls.OfType<Label>().Any(label => label.Text == heading));
+                    if (!card.Controls.OfType<Button>().Any(button => button.Text == "Show"))
+                        throw new Exception("Supporting panels must start collapsed.");
+                }
+                var span = One<Button>(form, button => button.Text == "Span WoW Now");
+                var restore = One<Button>(form, button => button.Text == "Restore Window");
+                if (span.Parent != restore.Parent || span.Width <= restore.Width ||
+                    BoundsInside(span, form).Top >= BoundsInside(status, form).Top ||
+                    span.Height < 44 * factor - 1 || Descendants(form).OfType<Button>().Any(button => button.Text == "Pause Monitor"))
+                    throw new Exception("Primary actions must be prominent and precede System Status.");
+                form.UpdateClientStatus(null, false);
+                if (!summary.Text.Contains("WoW not running")) throw new Exception("Collapsed status lost stopped-client text.");
+                form.FitDashboardToWorkingArea(Screen.PrimaryScreen.WorkingArea);
+                LayoutAll(form);
+                var headingLabel = status.Controls.OfType<Label>().Single(label => label.Text == "SYSTEM STATUS");
+                var showButton = status.Controls.OfType<Button>().Single(button => button.Text == "Show");
+                if (!status.ClientRectangle.Contains(summary.Bounds) || summary.Left <= headingLabel.Right || summary.Right >= showButton.Left ||
+                    TextRenderer.MeasureText(summary.Text, summary.Font).Width > summary.Width)
+                    throw new Exception("Collapsed status summary must fit between its title and Show button at " + factor + "x.");
+                string defaultPreview = Environment.GetEnvironmentVariable("OFFHAND_LAYOUT_PREVIEW");
+                if (factor == 1f && !string.IsNullOrEmpty(defaultPreview))
+                    using (var bitmap = new Bitmap(form.ClientSize.Width, form.ClientSize.Height))
+                    {
+                        using (var graphics = Graphics.FromImage(bitmap)) graphics.Clear(form.BackColor);
+                        RenderChildren(form, bitmap, Point.Empty);
+                        bitmap.Save(defaultPreview + ".default.png", System.Drawing.Imaging.ImageFormat.Png);
+                    }
+                form.UpdateClientStatus(new AddonStatus { Installed = false, SetupHint = "Install Offhand." }, true);
+                if (!summary.Text.Contains("Check add-on")) throw new Exception("Collapsed status hid an addon problem.");
+                Color attentionColor = summary.ForeColor;
+                form.UpdateClientStatus(new AddonStatus { Installed = true }, true);
+                if (!summary.Text.Contains("WoW running")) throw new Exception("Collapsed status lost running-client text.");
+                var layoutLine = status.Controls.OfType<Label>().Single(label => label.Text.StartsWith("Display layout"));
+                Color layoutColor = layoutLine.ForeColor;
+                layoutLine.ForeColor = attentionColor;
+                if (!summary.Text.Contains("Check display layout")) throw new Exception("Collapsed status hid a layout problem.");
+                layoutLine.ForeColor = layoutColor;
+                var tray = (NotifyIcon)typeof(CompanionForm).GetField("trayIcon",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(form);
+                var monitorItem = tray.ContextMenuStrip.Items.OfType<ToolStripMenuItem>().Single(item => item.Text == "Pause background monitoring");
+                monitorItem.PerformClick();
+                if (!summary.Text.Contains("Monitoring paused")) throw new Exception("Tray pause must remain visible on dashboard.");
+                if (monitorItem.Text != "Resume background monitoring") throw new Exception("Tray menu must allow resuming.");
+                monitorItem.PerformClick();
+                if (monitorItem.Text != "Pause background monitoring" || !summary.Text.Contains("WoW running"))
+                    throw new Exception("Tray resume must restore launch monitoring and the client summary.");
+                form.SetDashboardSectionExpanded(status, true, false);
                 var layoutStatus = status.Controls.OfType<Label>().Single(label => label.Text.StartsWith("Display layout"));
                 var roomyDesktop = new Rectangle(0, 0, 2560, 2300);
                 form.FitDashboardToWorkingArea(roomyDesktop);
@@ -211,7 +269,7 @@ namespace Offhand.Companion
                         throw new Exception("Header links must fit in one aligned row below the version at " + factor + "x.");
                     if (stack.Right > viewport.ClientSize.Width - viewport.Padding.Right || viewport.HorizontalScroll.Visible || form.HorizontalScroll.Visible)
                         throw new Exception("Dashboard needs horizontal scrolling at " + factor + "x: stack=" + stack.Bounds + ", viewport=" + viewport.ClientSize);
-                    var statusRows = status.Controls.OfType<Label>().OrderBy(label => label.Top).ToArray();
+                    var statusRows = status.Controls.OfType<Label>().Where(label => label != summary).OrderBy(label => label.Top).ToArray();
                     for (int i = 1; i < statusRows.Length; i++)
                         if (statusRows[i].Left != statusRows[0].Left ||
                             statusRows[i].Top < statusRows[i - 1].Bottom ||
@@ -361,6 +419,11 @@ namespace Offhand.Companion
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            // Never inherit or write the owner's real dashboard preferences.
+            string isolated = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Offhand-layout-" + Guid.NewGuid().ToString("N") + ".ini");
+            foreach (string field in new[] { "configPath", "publicConfigPath" })
+                typeof(CompanionForm).GetField(field, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
+                    .SetValue(null, isolated);
             CheckHostWorkingArea();
             CheckScale(1f);
             CheckScale(1.25f);

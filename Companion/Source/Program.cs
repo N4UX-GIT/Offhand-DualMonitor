@@ -3953,6 +3953,8 @@ namespace Offhand.Companion
         private Label lblColorModes;
         private Label lblColorWarning;
         private Label lblScaleInfo;
+        private Label lblStatusSummary;
+        private const int DashboardActionHeight = 44;
         private sealed class DashboardSection
         {
             internal Panel Panel;
@@ -4493,7 +4495,7 @@ namespace Offhand.Companion
         }
 
         private Button btnSpanNow;
-        private Button btnToggleWatch;
+        private ToolStripMenuItem itemMonitor;
         private Button btnCheckUpdates;
         private RichTextBox logBox;
         private readonly List<string> activityLogEntries = new List<string>();
@@ -4806,7 +4808,7 @@ namespace Offhand.Companion
         {
             if (dashboardStack == null) return;
             LayoutDashboardCards();
-            float scale = btnSpanNow.Height / 36f;
+            float scale = btnSpanNow.Height / (float)DashboardActionHeight;
             Size desired = SizeFromClientSize(new Size((int)Math.Ceiling(548 * scale),
                 DashboardRequiredClientHeight()));
             Size fitted = new Size(Math.Min(desired.Width, workArea.Width), Math.Min(desired.Height, workArea.Height));
@@ -4998,6 +5000,12 @@ namespace Offhand.Companion
             // Status Card
             Panel statusPanel = CreateCardPanel(16, 102, 490, 184, "System Status");
             this.Controls.Add(statusPanel);
+            lblStatusSummary = new Label { Text = "Checking WoW...", AutoEllipsis = true,
+                Font = new Font("Segoe UI", 8.5f), ForeColor = cMuted,
+                TextAlign = ContentAlignment.MiddleLeft, UseMnemonic = false,
+                AccessibleName = "System status summary" };
+            statusPanel.Controls.Add(lblStatusSummary);
+            lblStatusSummary.Click += (s, e) => { SetDashboardSectionExpanded(statusPanel, true, true); };
 
             lblWowStatus = new Label
             {
@@ -5308,36 +5316,15 @@ namespace Offhand.Companion
 
 
             // Action Buttons
-            btnSpanNow = CreateButton("Span WoW Now", 16, 522, 158, 36, cBtnPrimaryBg, cGoldBright, cGold);
+            btnSpanNow = CreateButton("Span WoW Now", 16, 522, 158, DashboardActionHeight, cBtnPrimaryBg, cGoldBright, cGold);
             btnSpanNow.Click += (s, e) => { InvokeSpanWindow(true); };
             this.Controls.Add(btnSpanNow);
             uiToolTips.SetToolTip(btnSpanNow, "Immediately make the detected WoW window borderless and span it across the selected displays. This also resumes spanning after Restore Window.");
 
-            Button btnRestoreNow = CreateButton("Restore Window", 182, 522, 158, 36, cBtnBg, cText, cBorder);
+            Button btnRestoreNow = CreateButton("Restore Window", 182, 522, 158, DashboardActionHeight, cBtnBg, cText, cBorder);
             btnRestoreNow.Click += (s, e) => { InvokeRestoreWindow(true); };
             this.Controls.Add(btnRestoreNow);
             uiToolTips.SetToolTip(btnRestoreNow, "Return WoW to the bordered bounds remembered before spanning. Missing-display recovery still fills the surviving Mainhand. Automatic spanning pauses for that WoW process until Span WoW Now is used.");
-
-            btnToggleWatch = CreateButton("Pause Monitor", 348, 522, 158, 36, cBtnBg, cText, cBorder);
-            btnToggleWatch.Click += (s, e) =>
-            {
-                isMonitoring = !isMonitoring;
-                if (!isMonitoring) classicRecovery.Clear();
-                if (isMonitoring)
-                {
-                    btnToggleWatch.Text = "Pause Monitor";
-                    btnToggleWatch.ForeColor = cText;
-                    AddLog("Background auto-watcher resumed.");
-                }
-                else
-                {
-                    btnToggleWatch.Text = "Resume Monitor";
-                    btnToggleWatch.ForeColor = cYellow;
-                    AddLog("Background auto-watcher PAUSED by user.");
-                }
-            };
-            this.Controls.Add(btnToggleWatch);
-            uiToolTips.SetToolTip(btnToggleWatch, "Pause or resume background detection of WoW launches. Manual Span and Restore controls remain available while monitoring is paused.");
 
             // Color status is advisory and never gates Span or auto-spanning.
             Panel colorPanel = CreateCardPanel(16, 570, 490, 206, "Display Diagnostics");
@@ -5402,7 +5389,7 @@ namespace Offhand.Companion
             uiToolTips.SetToolTip(btnExit, "Stop monitoring and fully exit the Companion. Closing the title-bar X only minimizes it to the tray.");
 
             ArrangeDashboard(headerPanel, statusPanel, configPanel, colorPanel, logPanel,
-                new Control[] { btnSpanNow, btnRestoreNow, btnToggleWatch },
+                new Control[] { btnSpanNow, btnRestoreNow },
                 new Control[] { btnMinimize, btnCheckUpdates, btnExit });
 
             this.FormClosing += (s, e) =>
@@ -5443,8 +5430,20 @@ namespace Offhand.Companion
                 AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 1, RowCount = 0,
                 Margin = Padding.Empty, Padding = Padding.Empty, BackColor = cBg };
             dashboardStack.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            var actionRow = DashboardButtonRow(actions, 36);
-            foreach (Control item in new Control[] { header, status, config, actionRow, diagnostics, log })
+            var actionRow = DashboardButtonRow(actions, DashboardActionHeight);
+            actionRow.ColumnStyles[0].Width = 64;
+            actionRow.ColumnStyles[1].Width = 36;
+            var actionPanel = new TableLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 1, RowCount = 2, Margin = Padding.Empty, Padding = Padding.Empty, BackColor = cBg };
+            actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            actionPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            actionPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            actionPanel.Controls.Add(actionRow, 0, 0);
+            actionPanel.Controls.Add(new Label { AutoSize = true, Dock = DockStyle.Fill,
+                Margin = new Padding(0, 6, 0, 0), ForeColor = cMuted, Font = new Font("Segoe UI", 8.5f),
+                Text = "Span applies your selected layout. Then type /reload in WoW.\r\nRestore returns WoW to its previous window.",
+                UseMnemonic = false }, 0, 1);
+            foreach (Control item in new Control[] { header, actionPanel, status, config, diagnostics, log })
             {
                 item.Dock = DockStyle.Top;
                 item.Margin = new Padding(0, 0, 0, 10);
@@ -5466,7 +5465,7 @@ namespace Offhand.Companion
             dashboardScroll.BringToFront();
             foreach (var section in dashboardSections.Values)
             {
-                bool collapsed = section.Panel == log;
+                bool collapsed = section.Panel != config;
                 string saved;
                 bool parsed;
                 if (appSettings.TryGetValue(section.Key, out saved) && bool.TryParse(saved, out parsed)) collapsed = parsed;
@@ -5478,9 +5477,11 @@ namespace Offhand.Companion
                 label.TextChanged += (s, e) =>
                 {
                     int before = dashboardStack.Height;
+                    UpdateDashboardStatusSummary();
                     LayoutDashboardCards();
                     if (dashboardStack.Height > before) QueueDashboardGrowth();
                 };
+            lblDisplayInfo.ForeColorChanged += (s, e) => { UpdateDashboardStatusSummary(); };
             dashboardStack.Layout += (s, e) => { LayoutDashboardCards(); };
             ResumeLayout(true);
             LayoutDashboardCards();
@@ -5494,7 +5495,8 @@ namespace Offhand.Companion
             section.Toggle.Text = expanded ? "Hide" : "Show";
             section.Toggle.AccessibleName = (expanded ? "Collapse " : "Expand ") + section.Heading.Text.Trim();
             foreach (Control child in panel.Controls)
-                if (child != section.Heading && child != section.Toggle) child.Visible = expanded;
+                if (child == lblStatusSummary) child.Visible = !expanded;
+                else if (child != section.Heading && child != section.Toggle) child.Visible = expanded;
             LayoutDashboardCards();
             if (persist)
             {
@@ -5590,7 +5592,7 @@ namespace Offhand.Companion
             dashboardStack.SuspendLayout();
             try
             {
-                float scale = btnSpanNow.Height / 36f;
+                float scale = btnSpanNow.Height / (float)DashboardActionHeight;
                 int inset = (int)Math.Ceiling(14 * scale);
                 foreach (Control child in dashboardHeader.Controls)
                 {
@@ -5605,6 +5607,13 @@ namespace Offhand.Companion
                     section.Toggle.Left = panel.Width - section.Toggle.Width - inset;
                     section.Heading.SetBounds(inset, (int)Math.Ceiling(6 * scale),
                         Math.Max(1, section.Toggle.Left - 2 * inset), (int)Math.Ceiling(22 * scale));
+                    if (panel.Controls.Contains(lblStatusSummary) && !section.Expanded)
+                    {
+                        section.Heading.Width = (int)Math.Ceiling(128 * scale);
+                        int left = section.Heading.Right + (int)Math.Ceiling(8 * scale);
+                        lblStatusSummary.SetBounds(left, section.Heading.Top,
+                            Math.Max(1, section.Toggle.Left - inset - left), section.Heading.Height);
+                    }
                     if (!section.Expanded) { panel.Height = (int)Math.Ceiling(34 * scale); continue; }
                     if (panel.Controls.Contains(lblWowStatus))
                     {
@@ -5640,7 +5649,12 @@ namespace Offhand.Companion
                     }
                 }
             }
-            finally { dashboardStack.ResumeLayout(true); layingOutDashboard = false; }
+            finally
+            {
+                dashboardStack.ResumeLayout(true);
+                dashboardScroll.AutoScrollMinSize = new Size(0, dashboardStack.Height + dashboardScroll.Padding.Vertical);
+                layingOutDashboard = false;
+            }
         }
 
         private Panel CreateCardPanel(int x, int y, int w, int h, string title)
@@ -5761,7 +5775,7 @@ namespace Offhand.Companion
 
             AppendHelpSection(guide, sectionFont, "Daily use",
                 "Click Span WoW Now after the game window opens. For standard display layouts, you can enable Auto-span WoW on launch and set a delay. For custom layouts, use Span WoW Now each time.",
-                "Restore Window returns WoW to its pre-span window and suspends auto-span for that WoW session. Click Span WoW Now to apply the layout again. Pause Monitor stops launch detection while the manual controls remain available.",
+                "Restore Window returns WoW to its pre-span window and suspends auto-span for that WoW session. Click Span WoW Now to apply the layout again. To stop background launch detection, right-click the Companion tray icon and select Pause background monitoring. Manual Span and Restore remain available.",
                 "The title-bar X minimizes Companion to the tray. Exit Companion closes it and leaves the current WoW window spanned. Keep Companion open for auto-span, automatic display-disconnect recovery, or to restore the remembered window bounds.",
                 "In Remote Desktop, click Span WoW Now and choose the game and workspace screens for that connection. Keep Companion running for Restore Window and confirm the screens again after reconnecting.");
 
@@ -5944,6 +5958,10 @@ namespace Offhand.Companion
             };
             trayMenu.Items.Add(itemAuto);
 
+            itemMonitor = new ToolStripMenuItem("Pause background monitoring");
+            itemMonitor.Click += (s, e) => { ToggleBackgroundMonitoring(); };
+            trayMenu.Items.Add(itemMonitor);
+
             trayMenu.Items.Add(new ToolStripSeparator());
 
             ToolStripMenuItem itemExit = new ToolStripMenuItem("Exit");
@@ -5960,6 +5978,16 @@ namespace Offhand.Companion
             this.Show();
             this.WindowState = FormWindowState.Normal;
             this.Activate();
+        }
+
+        internal void ToggleBackgroundMonitoring()
+        {
+            isMonitoring = !isMonitoring;
+            if (!isMonitoring) classicRecovery.Clear();
+            if (itemMonitor != null)
+                itemMonitor.Text = isMonitoring ? "Pause background monitoring" : "Resume background monitoring";
+            AddLog(isMonitoring ? "Background auto-watcher resumed." : "Background auto-watcher PAUSED by user.");
+            UpdateDashboardStatusSummary();
         }
 
         private void ExitApplication()
@@ -6185,6 +6213,26 @@ namespace Offhand.Companion
             return state + "\r\n" + game + "  •  " + workspace;
         }
 
+        private void UpdateDashboardStatusSummary()
+        {
+            if (lblStatusSummary == null) return;
+            string text;
+            Color color;
+            if (!isMonitoring) { text = "Monitoring paused"; color = cYellow; }
+            else if (lblDisplayInfo.ForeColor == cYellow) { text = "Check display layout"; color = cYellow; }
+            else if (lblAddonStatus.ForeColor == cYellow) { text = "Check add-on"; color = cYellow; }
+            else if (lblWowStatus.ForeColor == cGreen) { text = "WoW running"; color = cGreen; }
+            else
+            {
+                string state = lblWowStatus.Text.Replace("WoW: ", "");
+                text = "WoW " + (state.Length == 0 ? "checking..." : char.ToLowerInvariant(state[0]) + state.Substring(1));
+                color = cMuted;
+            }
+            lblStatusSummary.Text = "\u25CF " + text;
+            lblStatusSummary.ForeColor = color;
+            uiToolTips.SetToolTip(lblStatusSummary, text + ". Select Show for details.");
+        }
+
         internal void UpdateClientStatus(AddonStatus status, bool anyWoWProcess)
         {
             if (status == null)
@@ -6196,6 +6244,7 @@ namespace Offhand.Companion
                 lblAddonReason.Text = anyWoWProcess
                     ? "Wait for WoW to open. Keep one WoW window open when using Remote Desktop."
                     : "Start WoW to check the addon for that client.";
+                UpdateDashboardStatusSummary();
                 return;
             }
 
@@ -6222,6 +6271,7 @@ namespace Offhand.Companion
             lblAddonReason.Text = status.Installed
                 ? "Confirm Offhand is enabled in WoW. " + LayoutApplyInstruction
                 : status.SetupHint;
+            UpdateDashboardStatusSummary();
         }
 
         private void OnTimerTick()
@@ -6579,7 +6629,7 @@ namespace Offhand.Companion
                 bool wasRearming = recovery.Rearming;
                 bool shouldRecover = recovery.Observe(observed, RecoveryPlanKey(plan, displays), DateTime.UtcNow, isMonitoring);
                 if (!wasConfirmed && recovery.Confirmed)
-                    AddLog(RecoveryScope + " span verified stable. Graphics-reset recovery is armed. Restore Window or Pause Monitor cancels it.");
+                    AddLog(RecoveryScope + " span verified stable. Graphics-reset recovery is armed. Restore Window or Pause background monitoring in the tray menu cancels it.");
                 if (wasRearming && !recovery.Rearming && !recovery.Spent)
                     AddLog(RecoveryScope + " recovery re-armed after verified stability and cooldown. Limit: 3 automatic recoveries per 5 minutes.");
                 if (!shouldRecover)
