@@ -6,18 +6,18 @@
     <title>Offhand Window Setup | Recommended Companion guide</title>
     <meta name="description" content="Install and configure Offhand Companion for exact multi-monitor World of Warcraft placement, automatic spanning, and display recovery.">
     <link rel="icon" type="image/png" href="assets/offhand-icon.png">
-    <link rel="stylesheet" href="style.css?v=20261108-static-images">
+    <link rel="stylesheet" href="style.css?v=20261108-one-method">
 </head>
 <body class="companion-page">
     <header class="navbar">
         <div class="nav-container">
             <a class="brand" href="index.html" aria-label="Offhand home"><img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="brand-medallion"><div class="brand-text"><span class="brand-title">OFFHAND</span><span class="brand-subtitle">Dual-Wield Your Monitors</span></div></a>
-            <nav class="nav-primary" aria-label="Primary navigation"><a href="companion.html" aria-current="page">Window Setup</a><a href="in-game-setup.html">In-Game Setup</a><a href="background-studio.html">Studio</a><a href="manual-spanning.html">Alternative Setup</a></nav>
+            <nav class="nav-primary" aria-label="Primary navigation"><a href="index.html#setup">Start setup</a><a href="in-game-setup.html">Finish in WoW</a><a href="background-studio.html">Studio</a><a href="manual-spanning.html">Other methods</a></nav>
             <div class="nav-controls">
                 <details class="site-menu">
                     <summary>Menu <span aria-hidden="true">▾</span></summary>
                     <nav class="site-menu-panel" aria-label="Complete site navigation">
-                        <div class="site-menu-group"><span class="site-menu-label">Pages</span><a href="index.html">Home</a><a href="demonstration.html">Demonstration</a><a href="companion.html" aria-current="page">Window Setup</a><a href="in-game-setup.html">In-Game Setup</a><a href="background-studio.html">Background Studio</a><a href="manual-spanning.html">Alternative Setup</a></div>
+                        <div class="site-menu-group"><span class="site-menu-label">Pages</span><a href="index.html">Home</a><a href="demonstration.html">Demonstration</a><a href="index.html#setup">Start setup</a><a href="in-game-setup.html">Finish in WoW</a><a href="background-studio.html">Background Studio</a><a href="manual-spanning.html">Other methods</a></div>
                         <div class="site-menu-group site-menu-sections"><span class="site-menu-label">On this page</span><a href="#install">Install</a><a href="#first-setup">First setup</a><a href="#controls">Controls</a><a href="#everyday">Everyday use</a><a href="#recovery">Recovery</a><a href="#security">Security and policy</a></div>
                         <div class="site-menu-external"><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub <span aria-hidden="true">↗</span></a><a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge <span aria-hidden="true">↗</span></a></div>
                     </nav>
@@ -31,10 +31,10 @@
         <section class="content-section">
             <div class="deck-intro-banner">
                 <h1 class="guide-title">Set up Offhand Companion</h1>
-                <p class="deck-intro-text">Companion is the recommended Windows setup tool for exact monitor geometry, borderless spanning, and display recovery. Linux/Wine uses the experimental portable path.</p>
+                <p class="deck-intro-text">You are following the Companion method, recommended for Windows. Use Companion to place WoW, then finish calibration inside the game. You do not need FancyZones or the manual-placement guide.</p>
                 <p class="deck-intro-text">It positions the ordinary World of Warcraft desktop window. It does not control gameplay, send game input, inject code, or read game memory.</p>
-                <div class="hero-actions"><a href="#install" class="btn btn-wow-red btn-lg">Install Companion</a><a href="manual-spanning.html" class="btn btn-wow-stone btn-lg">Use FancyZones or manual setup</a></div>
-                <p class="deck-intro-text"><a href="#first-setup">Already installed? Start setup</a></p>
+                <div class="hero-actions"><a href="#install" class="btn btn-wow-red btn-lg">Install Companion</a><a href="#first-setup" class="btn btn-wow-stone btn-lg">Already installed? Start setup</a></div>
+                <p class="deck-intro-text"><a href="index.html#setup">Choose a different setup method</a></p>
             </div>
             <nav class="page-jump-nav" aria-label="Companion guide sections"><span>On this page</span><a href="#install">Install</a><a href="#first-setup">First setup</a><a href="#controls">Controls</a><a href="#everyday">Everyday use</a><a href="#recovery">Recovery</a><a href="#security">Security and policy</a></nav>
         </section>
@@ -65,7 +65,7 @@
         </section>
 
         <section class="content-section" id="first-setup">
-            <div class="section-header"><h2 class="section-title guide-section-title">Follow this once, in order</h2><p class="section-subtitle">Keep Auto-span WoW on launch off until your first manual span succeeds. These steps cover standard layouts; use the workspace guide when you want custom areas.</p></div>
+            <div class="section-header"><h2 class="section-title guide-section-title">Follow this once, in order</h2><p class="section-subtitle">Follow these steps for a standard layout. Keep Auto-span WoW on launch off until your first test succeeds. Custom workspace areas are optional and can wait until this setup works.</p></div>
             <div class="companion-first-run">
                 <figure class="companion-annotated-figure">
                     <div class="companion-shot-wrap"><div class="image-frame"><img src="assets/offhand-companion-dashboard-20261108.png" alt="Offhand Companion dashboard with System Status, display selection, workspace controls, Span and Restore, Display Diagnostics and Store Updates." width="550" height="1053" loading="lazy" decoding="async"></div></div>
@@ -74,14 +74,14 @@
                 <div class="first-run-steps">
                     <article><span class="step-seal">1</span><div><h3>Enter the world and select Windowed</h3><p>Open Companion, launch WoW and log into a character. In <code>/offhand guide</code>, choose <strong>Use Companion</strong> and <strong>Already installed</strong>, then click <strong>Set to Windowed</strong>. If unavailable, use <strong>Open display settings</strong>, select <strong>Windowed</strong> and apply. Under Companion's <strong>System Status</strong>, confirm that WoW is running and Offhand is installed.</p></div></article>
                     <article><span class="step-seal">2</span><div><h3>Identify your screens</h3><p>Select <strong>Identify Displays</strong>. Windows briefly places a large number on each screen.</p></div></article>
-                    <article><span class="step-seal">3</span><div><h3>Choose a standard layout</h3><p>For two full displays, check both under <strong>Span displays</strong> and select the game screen under <strong>Mainhand (game)</strong>. For an equal ultrawide split, check one 32:9 or 32:10 screen, enable <strong>Single-display 32:9 split</strong>, and choose <strong>Game side</strong>. For partial or multiple workspace areas, follow the <a href="custom-workspaces.html">custom workspace guide</a> instead.</p></div></article>
+                    <article><span class="step-seal">3</span><div><h3>Choose a standard layout</h3><p>For two full displays, check both under <strong>Span displays</strong> and select the game screen under <strong>Mainhand (game)</strong>. For an equal ultrawide split, check one 32:9 or 32:10 screen, enable <strong>Single-display 32:9 split</strong>, and choose <strong>Game side</strong>. Start here even if you plan to customize the workspace later.</p></div></article>
                     <article><span class="step-seal">4</span><div><h3>Apply the span</h3><p>Enter the game world, then select <strong>Span WoW Now</strong>. If asked to confirm saved displays, check the game and workspace screens before choosing <strong>OK</strong>. Cancel if the selection is wrong and correct it with <strong>Identify Displays</strong>.</p></div></article>
                     <article><span class="step-seal">5</span><div><h3>Finish inside WoW</h3><p>Open <code>/offhand guide</code>, choose <strong>Use Companion</strong>, and continue to placement. Choose <strong>Reload UI</strong> (or type <code>/reload</code>) to load Companion’s display geometry, then <strong>Confirm placement</strong>. Click <strong>Start Calibration</strong> and follow the <a href="in-game-setup.html#guided-setup">in-game calibration and HUD steps</a>.</p></div></article>
                 </div>
             </div>
-            <div class="guide-callout companion-special-layout"><strong>Want a custom area?</strong> Use <a href="custom-workspaces.html">Custom workspaces</a> for unequal splits, part of a second display, multiple workspaces, named plans, and returning to a standard layout.</div>
+            <div class="guide-callout companion-special-layout"><strong>Optional, after standard setup:</strong> <a href="custom-workspaces.html">Custom workspaces</a> let you change the areas used by Companion. They are another layout choice within this method, not an additional setup you must complete.</div>
             <div class="guide-callout warning-callout"><strong>Run Companion at the same privilege level as WoW.</strong> If Windows reports access denied or error 5, close both programs and restart them normally. Do not run only one of them as administrator.</div>
-            <div class="guide-callout"><strong>Continue inside WoW:</strong> follow the <a href="in-game-setup.html#guided-setup">illustrated first-time setup and calibration guide</a>. It contains the current screenshots, HUD completion steps and recovery instructions. For FancyZones or manual placement, use the <a href="manual-spanning.html">alternative setup guide</a>.</div>
+            <div class="guide-callout"><strong>Continue inside WoW:</strong> follow the <a href="in-game-setup.html#guided-setup">illustrated first-time setup and calibration guide</a>. Select <strong>Use Companion</strong> again in that guide. You can skip the other placement methods and the settings reference unless you need them.</div>
         </section>
 
         <section class="content-section" id="controls">
@@ -142,7 +142,7 @@
     </main>
 
     <footer class="footer">
-        <div class="footer-container"><div class="footer-brand"><img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="footer-logo"><div class="footer-info"><span class="footer-title">OFFHAND</span><span class="footer-subtitle">Dual-Wield Your Monitors</span></div></div><nav class="footer-nav" aria-label="Footer navigation"><div class="footer-nav-row"><a href="index.html">Home</a><a href="companion.html" aria-current="page">Window Setup</a><a href="in-game-setup.html">In-Game Setup</a><a href="background-studio.html">Background Studio</a><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub</a></div><div class="footer-nav-row"><a href="index.html#faq">FAQ</a><a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge</a><a href="manual-spanning.html">Alternative Setup</a><span class="footer-community-actions"><a class="footer-discord" href="https://discord.gg/J2P3SM6pAY" target="_blank" rel="noopener noreferrer" aria-label="Join the Offhand Discord" title="Join the Offhand Discord"><img src="assets/discord-symbol.svg" alt="" aria-hidden="true">Join Discord</a><a class="footer-support" href="https://ko-fi.com/n4uxaddons" target="_blank" rel="noopener noreferrer" aria-label="Support N4UX on Ko-fi"><img src="assets/ko-fi-symbol.png" alt="" aria-hidden="true">Support N4UX</a></span></div></nav></div>
+        <div class="footer-container"><div class="footer-brand"><img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="footer-logo"><div class="footer-info"><span class="footer-title">OFFHAND</span><span class="footer-subtitle">Dual-Wield Your Monitors</span></div></div><nav class="footer-nav" aria-label="Footer navigation"><div class="footer-nav-row"><a href="index.html">Home</a><a href="index.html#setup">Start setup</a><a href="in-game-setup.html">Finish in WoW</a><a href="background-studio.html">Background Studio</a><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub</a></div><div class="footer-nav-row"><a href="index.html#faq">FAQ</a><a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge</a><a href="manual-spanning.html">Other methods</a><span class="footer-community-actions"><a class="footer-discord" href="https://discord.gg/J2P3SM6pAY" target="_blank" rel="noopener noreferrer" aria-label="Join the Offhand Discord" title="Join the Offhand Discord"><img src="assets/discord-symbol.svg" alt="" aria-hidden="true">Join Discord</a><a class="footer-support" href="https://ko-fi.com/n4uxaddons" target="_blank" rel="noopener noreferrer" aria-label="Support N4UX on Ko-fi"><img src="assets/ko-fi-symbol.png" alt="" aria-hidden="true">Support N4UX</a></span></div></nav></div>
         <div class="footer-legal"><p>The Companion is optional. FancyZones and manual placement remain complete setup paths.</p></div>
     </footer>
 </body>
