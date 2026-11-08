@@ -2079,7 +2079,7 @@ kbd {
 .setup-next { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; margin-top: 24px; }
 .content-section[hidden] { display: none; }
 
-#finish-calibration { scroll-margin-top: 100px; }
+#finish-calibration, #standard-layout { scroll-margin-top: 110px; }
 
 /* One compact comparison panel keeps both original images uncropped. */
 .showcase-header-bar h2 { margin: 0; }
