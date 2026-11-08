@@ -133,4 +133,33 @@ assert(compatibility.UsesNativeGamepadInterface()
         and compatibility.UsesControllerInterface(),
     "Mainhand controller capability delegation changed during extraction")
 
+-- Position ownership can appear after initialization (RestedXP V2 is an
+-- anonymous AceGUI frame). Never cache a missing vendor widget as unowned.
+do
+    local root = {IsUserPlaced=function() return false end}
+    assert(not compatibility.ShouldPreservePopupPosition(root),
+        "ordinary anonymous popups must remain eligible for automatic recovery")
+    RXPV2GuideWindow = {frame=root}
+    assert(compatibility.ShouldPreservePopupPosition(root),
+        "late RestedXP V2 construction must establish position ownership")
+    RXPV2GuideWindow = {frame={}}
+    assert(not compatibility.ShouldPreservePopupPosition(root),
+        "a recycled or replaced guide must not claim an unrelated root")
+    RXPV2GuideWindow = nil
+    root.IsUserPlaced = function() error('unreadable placement') end
+    assert(compatibility.ShouldPreservePopupPosition(root),
+        "unreadable user placement must prevent automatic writes")
+    local secret = {}
+    local previousSecretCheck = issecretvalue
+    issecretvalue = function(value) return value == secret end
+    root.IsUserPlaced = function() return secret end
+    assert(compatibility.ShouldPreservePopupPosition(root),
+        "secret placement results must prevent automatic writes")
+    root.IsUserPlaced = function() return false end
+    root.GetName = function() return secret end
+    assert(compatibility.ShouldPreservePopupPosition(root),
+        "secret frame names must prevent automatic writes")
+    issecretvalue = previousSecretCheck
+end
+
 print("PASS: HUD compatibility ownership and client capability policy")

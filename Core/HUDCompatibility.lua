@@ -119,11 +119,47 @@ function Compatibility.HasCustomChatAddon()
 end
 
 function Compatibility.IsExternallyOwnedHUDFrame(frame, name)
+    if Offhand.ForeverPlusWarnings and Offhand.ForeverPlusWarnings:IsOwnedFrame(frame) then return true end
     name = name or (frame and frame.GetName and frame:GetName())
     -- These public roots are positioned by Ellesmere's player aura-bar module
     -- and its unlock anchors. The generic popup pass must not compete with it.
     return name == "EllesmereUIPlayerAuraBars_Buffs"
         or name == "EllesmereUIPlayerAuraBars_Debuffs"
+end
+
+local positionedAddonPopupRoots = {
+    BetterBagsBagBackpack = true, BetterBagsBagBank = true,
+    BetterBagsBagBackpackAnchor = true, BetterBagsBagBankAnchor = true,
+    RXPFrame = true, RXPItemFrame = true,
+}
+
+local function IsOrdinaryPopupValue(value)
+    if type(issecretvalue) ~= "function" then return true end
+    local ok, secret = pcall(issecretvalue, value)
+    return ok and secret == false
+end
+
+-- Only automatic popup redirection yields here. Explicit workspace movement
+-- and each vendor's own position persistence keep their existing policies.
+function Compatibility.ShouldPreservePopupPosition(frame, name)
+    if not frame then return false end
+    if not IsOrdinaryPopupValue(name) then return true end
+    if name == nil and type(frame.GetName) == "function" then
+        local ok, value = pcall(frame.GetName, frame)
+        if not ok then return true end
+        name = value
+    end
+    if not IsOrdinaryPopupValue(name) then return true end
+    if type(name) == "string" and positionedAddonPopupRoots[name] then return true end
+    -- RestedXP V2 exposes an AceGUI widget; its actual UIParent child is
+    -- anonymous. Consult the public widget on each pass for load-order changes.
+    local guide = _G.RXPV2GuideWindow
+    if type(guide) == "table" and rawget(guide, "frame") == frame then return true end
+    if type(frame.IsUserPlaced) == "function" then
+        local ok, placed = pcall(frame.IsUserPlaced, frame)
+        if not ok or not IsOrdinaryPopupValue(placed) or placed ~= false then return true end
+    end
+    return false
 end
 
 -- Serialized HUD generation must respect the same owners as runtime movement.

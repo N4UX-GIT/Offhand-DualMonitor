@@ -59,6 +59,8 @@ local hudRecoveryIndex
 local hudTransientFramesIndex
 local seamRedirectIndex
 local compatibilityIndex
+local kerzoQuestLogIndex
+local addonEscapeIndex
 local frameStateIndex
 local panelRegistryIndex
 local canvasPersistenceIndex
@@ -90,6 +92,8 @@ for index, file in ipairs(main) do
     if file == "Core/HUDRecovery.lua" then hudRecoveryIndex = index end
     if file == "Core/HUDTransientFrames.lua" then hudTransientFramesIndex = index end
     if file == "Core/SeamRedirect.lua" then seamRedirectIndex = index end
+    if file == "Core/CanvasKerzoQuestLog.lua" then kerzoQuestLogIndex = index end
+    if file == "Core/CanvasAddonEscape.lua" then addonEscapeIndex = index end
     if file == "Core/CanvasCompatibility.lua" then compatibilityIndex = index end
     if file == "Core/CanvasFrameState.lua" then frameStateIndex = index end
     if file == "Core/CanvasPanelRegistry.lua" then panelRegistryIndex = index end
@@ -146,6 +150,10 @@ assert(compatibilityIndex and frameStateIndex and panelRegistryIndex and canvasP
         and canvasPanelLifecycleIndex + 1 == canvasPanelPlacementIndex
         and canvasPanelPlacementIndex + 1 == canvasIndex,
     "Canvas support services must load together immediately before Canvas")
+assert(kerzoQuestLogIndex and kerzoQuestLogIndex + 1 == compatibilityIndex,
+    "Kerzo Escape adapter must load before Canvas initializes its persistence policy")
+assert(addonEscapeIndex and addonEscapeIndex + 1 == kerzoQuestLogIndex,
+    "addon settings Escape adapters must load before Canvas persistence initialization")
 local workspaceOptionsIndex
 for i,file in ipairs(main) do if file=="UI/WorkspaceOptions.lua" then workspaceOptionsIndex=i end end
 assert(controlsIndex and optionsActionsIndex and workspaceOptionsIndex and optionsIndex

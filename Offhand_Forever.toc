@@ -45,12 +45,15 @@ Core\CinematicPresentation.lua
 Core\DialogueUICompat.lua
 Core\ChatBubbles.lua
 Core\MenuPlacement.lua
+Core\ForeverPlusWarnings.lua
 Core\HUDCompatibility.lua
 Core\HUDTransientPolicy.lua
 Core\HUDRecovery.lua
 Core\HUDTransientFrames.lua
 Core\SeamRedirect.lua
 Core\PanelMotion.lua
+Core\CanvasAddonEscape.lua
+Core\CanvasKerzoQuestLog.lua
 Core\CanvasCompatibility.lua
 Core\CanvasFrameState.lua
 Core\CanvasPanelRegistry.lua

@@ -212,6 +212,10 @@ local function IsExtraAbilityRecovery(name)
     return name == "ExtraAbilityContainer" or name == "ExtraActionBarFrame" or name == "ZoneAbilityFrame"
 end
 
+local function IsEncounterRecovery(name)
+    return name == "EncounterBar" or name == "UIWidgetPowerBarContainerFrame"
+end
+
 local function RefineExtraAbilityRecovery(layout, rect, transformed, repairFrameName)
     if not IsExtraAbilityRecovery(repairFrameName) then return 0, 0 end
     local systems = Enum and Enum.EditModeSystem
@@ -318,6 +322,30 @@ local function ParentScale(frame)
     local parent = UIParent:GetEffectiveScale()
     if ok and type(scale) == "number" and scale > 0 and parent and parent > 0 then return scale / parent end
     return 1
+end
+
+local function RefineEncounterRecovery(layout, rect, repairFrameName)
+    if not IsEncounterRecovery(repairFrameName) then return 0 end
+    local system = Enum and Enum.EditModeSystem and Enum.EditModeSystem.EncounterBar
+    if system == nil then return 0 end
+    for _, entry in ipairs(layout.systems or {}) do
+        if entry.system == system and not ExternallyOwnedSystem(entry) then
+            -- A custom/system-relative anchor survives ordinary generation.
+            -- Explicit Repair HUD consent covers this system only. Blizzard
+            -- applies the saved anchor; never reanchor its protected live root.
+            -- EditModeSystemMixin divides serialized offsets by GetScale()
+            -- when applying them. Keep saved offsets in UIParent units.
+            entry.anchorInfo = {
+                point = "CENTER", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT",
+                offsetX = (rect.left + rect.right) / 2,
+                offsetY = rect.bottom + rect.height * 0.6,
+            }
+            entry.anchorInfo2 = nil
+            entry.isInDefaultPosition = false
+            return 1
+        end
+    end
+    return 0
 end
 
 local function PlaceRetailStatus(entry, mainAnchor, mainFrame, rect)
@@ -1164,12 +1192,15 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
     end
 
     local repairExtra = IsExtraAbilityRecovery(repairFrameName)
+    local repairEncounter = IsEncounterRecovery(repairFrameName)
+    local targeted = repairExtra or repairEncounter
     local selective = type(repairSystems) == "table" and #repairSystems > 0
     -- Targeted recovery preserves the other systems in the existing generated
     -- layout, including edits made since it was first created.
     local selectiveSource = selective and ResolveActiveLayout(data, presets) or nil
-    local layout = DeepCopy(legacyLayout or selectiveSource
-        or (repairExtra and (generated or previousAccountLayout or source) or source))
+    local encounterSource = repairEncounter and ResolveActiveLayout(data, presets) or nil
+    local layout = DeepCopy(legacyLayout or selectiveSource or encounterSource
+        or (targeted and (generated or previousAccountLayout or source) or source))
     local sourceDefaults = {}
     local externallyOwned = {}
     for index, entry in ipairs(layout.systems or {}) do
@@ -1182,7 +1213,7 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
     local foreverClassBar = actionIndices and actionIndices.ClassBar
     local moved, transformed = 0, {}
     if legacyLayout then moved = matchingRecord.movedSystems or #(layout.systems or {}) end
-    if not legacyLayout and not repairExtra and not selective then
+    if not legacyLayout and not targeted and not selective then
         moved, transformed = TransformLayout(layout, rect, function(entry)
             -- Forever's empty MultiCast/Totem Edit Mode preview can call
             -- C_TooltipInfo.GetSpellByID(nil) after an addon-generated relocation.
@@ -1194,13 +1225,15 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
         RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerLayout)
     end
     local groupMoved, groupRepaired = 0, 0
-    if not legacyLayout and not repairExtra and not selective then
+    if not legacyLayout and not targeted and not selective then
         groupMoved, groupRepaired = RefineGroupHUDLayout(layout, rect, sourceDefaults,
             transformed, repairFrameName)
     end
     moved = moved + groupMoved
     local extraMoved, extraRepaired = RefineExtraAbilityRecovery(layout, rect, transformed, repairFrameName)
     moved = moved + extraMoved
+    local encounterRepaired = RefineEncounterRecovery(layout, rect, repairFrameName)
+    moved = moved + encounterRepaired
     if selective then
         for _, request in ipairs(repairSystems) do
             local found
@@ -1218,6 +1251,9 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
         end
     end
     if repairExtra and extraRepaired == 0 then
+        return false, "repair-system", LayoutName(source, "layout"), moved
+    end
+    if repairEncounter and encounterRepaired == 0 then
         return false, "repair-system", LayoutName(source, "layout"), moved
     end
     if IsGroupRecoveryFrame(repairFrameName) and groupRepaired == 0 then

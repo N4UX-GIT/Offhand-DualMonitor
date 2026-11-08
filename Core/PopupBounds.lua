@@ -612,7 +612,25 @@ local function RefreshEllesmereUnlockToolbar(metrics)
         unlockPlacement = nil
         return
     end
-    if unlockPlacement and OwnsEllesmerePlacement(frame, unlockPlacement) then return end
+    -- Window/UI scale and topology can settle after the first span callback.
+    -- Ownership alone does not mean that the old physical target still fits.
+    local geometry = { UIParent:GetWidth(), UIParent:GetHeight(), UIParent:GetEffectiveScale(),
+        metrics.gameLeft, metrics.gameRight, metrics.gameBottom, metrics.gameTop,
+        metrics.workspaceLeft, metrics.workspaceRight, metrics.workspaceBottom, metrics.workspaceTop,
+        frame:GetWidth(), frame:GetHeight() }
+    for index = 1, 13 do if not PublicNumber(geometry[index]) then return end end
+    if unlockPlacement and OwnsEllesmerePlacement(frame, unlockPlacement) then
+        local same = unlockPlacement.geometry ~= nil
+        for index = 1, 13 do
+            if not same or math.abs(geometry[index] - unlockPlacement.geometry[index]) > 0.01 then
+                same = false
+                break
+            end
+        end
+        if same then return end
+        -- Refit from the vendor's original size, never from our shrunken size.
+        RestoreEllesmereWindow(frame, unlockPlacement)
+    end
     unlockPlacement = nil
 
     -- Wait for EllesmereUI to finish sliding the banner in or resizing it.
@@ -647,7 +665,7 @@ local function RefreshEllesmereUnlockToolbar(metrics)
     SetWindowPoint(frame, applied)
     unlockPlacement = {
         original = {point, relative, relativePoint, x, y},
-        originalScale = scale, scale = frame:GetScale(), applied = applied,
+        originalScale = scale, scale = frame:GetScale(), applied = applied, geometry = geometry,
     }
 end
 

@@ -384,6 +384,16 @@ function hoverZone:GetParent() return EllesmereUnlockMode end
 toolbar.GetParent = hoverZone.GetParent
 toolbar._hoverZone = hoverZone
 EllesmereUI.GetUnlockModeTopBarAnchor = function() return hoverZone end
+-- Follow the anchor and scale so a changed native canvas is observable.
+function toolbar:GetWidth() return 1144 end
+function toolbar:GetHeight() return 120 end
+function toolbar:GetLeft()
+    local x = self.points[1][4]
+    return UIParent:GetWidth() / (2 * self.scale) + x - self:GetWidth() / 2
+end
+function toolbar:GetRight() return self:GetLeft() + self:GetWidth() end
+function toolbar:GetTop() return UIParent:GetHeight() / self.scale + self.points[1][5] end
+function toolbar:GetBottom() return self:GetTop() - self:GetHeight() end
 toolbar:ClearAllPoints()
 toolbar:SetPoint("TOP", UIParent, "TOP", 0, 20)
 span.isSpanned = true
@@ -394,8 +404,19 @@ toolbar:SetPoint("TOP", UIParent, "TOP", 0, 0)
 addon.PopupBounds:RefreshEllesmereWindows()
 assert(toolbar.points[1][4] == -1280 and toolbar.points[1][5] == 0 and toolbar:GetScale() == 1,
     "the toolbar must fit the portrait display while preserving the physical hover edge")
+UIParent.GetWidth = function() return 4040 end
+span.workspaceRight, span.gameLeft, span.gameRight = 700, 700, 4040
+addon.PopupBounds:RefreshEllesmereWindows()
+assert(toolbar:GetLeft() * toolbar:GetScale() >= 0
+    and toolbar:GetRight() * toolbar:GetScale() <= 700,
+    "an owned toolbar must refit when span geometry settles or resizes")
+local settledPoint, settledScale = toolbar.points[1], toolbar:GetScale()
+addon.PopupBounds:RefreshEllesmereWindows()
+assert(toolbar.points[1] == settledPoint and toolbar:GetScale() == settledScale,
+    "stable toolbar geometry must not rewrite anchors or accumulate scale")
 EllesmereUnlockMode.visible = false
 toolbar.shown = false
 addon.PopupBounds:RefreshEllesmereWindows()
-assert(toolbar.points[1][4] == 0, "the Unlock Mode anchor must return to EllesmereUI on close")
+assert(toolbar.points[1][4] == 0 and toolbar:GetScale() == 1,
+    "the Unlock Mode anchor and original scale must return to EllesmereUI on close")
 print("PASS: Forever Ellesmere windows and Unlock Mode toolbar fit physical display bounds")

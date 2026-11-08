@@ -1135,6 +1135,7 @@ function Transient.Install(HUD, services)
     end
 
     function HUD:PositionMainhandTransientFrames(m)
+        if Offhand.ForeverPlusWarnings then Offhand.ForeverPlusWarnings:ApplyLayout(m) end
         self:PositionRetailOverrideBar(m)
         self:PositionPremadeGroupDialogs(m)
         self:PositionRetailNotifications(m)
@@ -1192,6 +1193,7 @@ function Transient.Install(HUD, services)
     end
 
     function HUD:HookMainhandTransientFrames()
+        if Offhand.ForeverPlusWarnings then Offhand.ForeverPlusWarnings:Hook() end
         HookPremadeGroupPlacement()
         self:HookRetailNotifications()
         PreloadGroupLootForSecurePositioning()

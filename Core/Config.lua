@@ -950,7 +950,8 @@ function Offhand:EnsureCharacterIdentity()
         for _, key in ipairs({"mainhandLayout", "mainhandLayoutsByMode", "editModeLayoutName", "mainhandWindowedLayout",
             "mainhandWindowedManualLayout", "foreverEditModeLayoutName", "foreverEditModeLayoutID",
             "foreverEditModeLegacyRecovery", "foreverEditModeRecovery", "mainhandLayoutDeferred",
-            "hudSetupReminderDeclined", "hudSpanNoticeDismissed", "characterSetup"}) do OffhandCharDB[key] = nil end
+            "hudSetupReminderDeclined", "hudSpanNoticeDismissed", "characterSetup",
+            "kerzoQuestLogOpen"}) do OffhandCharDB[key] = nil end
     end
     OffhandCharDB.characterGUID = guid
     if not self.isLegacyWrath and (stale or (not previous and not OffhandCharDB.mainhandLayout)) then

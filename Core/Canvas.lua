@@ -714,6 +714,8 @@ assert(Offhand.CanvasMapPresentation, "Offhand map presentation must load before
     })
 
 function Canvas:UpdatePersistenceBehavior()
+    if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:Refresh() end
+    if Offhand.CanvasAddonEscape then Offhand.CanvasAddonEscape:Refresh() end
     if Offhand.CanvasPanelLifecycle and Offhand.CanvasPanelLifecycle.UpdateTBCWorkspacePanelSlots then
         Offhand.CanvasPanelLifecycle.UpdateTBCWorkspacePanelSlots()
     end
@@ -1699,7 +1701,7 @@ end
 -- A workspace backpack marked open is independent workspace content, so reopen
 -- only that tracked bag after Settings finishes its transition.
 function Canvas:RestoreTrackedWorkspaceBag()
-    if not Offhand.isForever or (InCombatLockdown and InCombatLockdown())
+    if not Offhand.isForever or foreverBags.IsCombatRestricted()
         or not Offhand.db or not Offhand.db.enabled
         or Offhand.db.persistentWorkspacePanels == false
         or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved())
@@ -1719,6 +1721,12 @@ function Canvas:RestoreTrackedWorkspaceBag()
         -- leave ContainerFrame_OnHide indexing a nil item button later.
         if not bag then bag = GetPreferredNativeBackpackRoot() end
     end
+    -- A native opener can dispatch callbacks that change combat state. Leave
+    -- both placement and tracked intent untouched until the next safe retry.
+    if foreverBags.IsCombatRestricted() then
+        Canvas._restoringWorkspaceBagFromEscape = false
+        return false
+    end
     local name = bag and bag.GetName and bag:GetName()
     local restored = bag and bag.IsShown and bag:IsShown()
     if restored then
@@ -1734,7 +1742,9 @@ function Canvas:RestoreTrackedWorkspaceBag()
         -- fail-closed behavior so an unavailable shell is never exposed.
         local preservingPanel = Canvas._systemPanelOpeningToken ~= nil
             or IsForeverNativeBagPreservingPanelShown()
-        if not preservingPanel then ClearNativeBackpackOpenState() end
+        if not preservingPanel and not foreverBags.IsCombatRestricted() then
+            ClearNativeBackpackOpenState()
+        end
     end
     Canvas._restoringWorkspaceBagFromEscape = false
     return restored and true or false
@@ -2627,6 +2637,8 @@ function Offhand:InitializeCanvas()
     if Offhand.isForever and C_Timer and C_Timer.NewTicker and not Canvas.foreverPositionTicker then
         Canvas.foreverPositionTicker = C_Timer.NewTicker(0.5, function()
             if Offhand._displayGeometryTransitionActive then return end
+            if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:Refresh() end
+            if Offhand.CanvasAddonEscape then Offhand.CanvasAddonEscape:Refresh() end
             Canvas:RetryMissingExperimentalForeverProfessionsMovement()
             Canvas:MonitorDetachedChatSettingsPresentation()
             local editModeShown = EditModeManagerFrame and EditModeManagerFrame.IsShown

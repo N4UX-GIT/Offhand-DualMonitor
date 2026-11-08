@@ -47,8 +47,8 @@ end
 
 
 StaticPopupDialogs["OFFHAND_DOWNLOAD_LINK"] = {
-    text = "The Companion App automates a pixel-perfect, borderless span across multiple monitors.\n\nRecommended for Windows: copy the Microsoft Store address below. Portable and Linux/Wine options remain available at offhand-wow.onrender.com/companion.html and through the official GitHub releases.",
-    button1 = "Close",
+    text = L["COMPANION_DOWNLOAD_LINK_TEXT"],
+    button1 = L["BTN_CLOSE"],
     hasEditBox = true,
     editBoxWidth = 260,
     OnShow = function(self)
@@ -332,6 +332,7 @@ function Options:CreateFloatingPanel()
     desc:SetText(L["ADDON_DESC"])
     
     local closeBtn = CreateFrame("Button", nil, configFrame.header, "UIPanelCloseButton")
+    configFrame.workspaceCloseButton = closeBtn
     closeBtn:SetSize(28, 28)
     closeBtn:SetPoint("RIGHT", configFrame.header, "RIGHT", -10, 0)
     closeBtn:SetScript("OnClick", function()

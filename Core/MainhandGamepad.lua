@@ -605,7 +605,57 @@ local function CenterDestinationPanel(frame, suppliedName)
         if not ok then return false, "move-blocked" end
     end
     state.applied = { x = x, y = y }
+    if IsNativeBagDestinationName(name) then
+        state.nativeInitialized = true
+        state.nativeBagScale = frameScale
+        state.nativeBagParentScale = parentScale
+    end
     return true, "centered"
+end
+
+local function RepairCombatBagDestination(frame, state)
+    local bags = Offhand.CanvasForeverBags
+    if not state or not state.applied then return false, "combat-bag-uninitialized" end
+    if not bags or not bags.CanRepairCombatAnchor
+        or not bags.CanRepairCombatAnchor(frame, state) then
+        return false, "combat-bag-restricted"
+    end
+    local plain = bags.IsPlainValue
+    local function Finite(value)
+        return plain(value) and type(value) == "number" and value == value
+            and math.abs(value) ~= math.huge
+    end
+    local x, y = state.applied.x, state.applied.y
+    if not Finite(x) or not Finite(y) then return false, "combat-bag-position" end
+    local scaleOK, scale = pcall(frame.GetEffectiveScale, frame)
+    local parentOK, parentScale = pcall(UIParent.GetEffectiveScale, UIParent)
+    if not scaleOK or not parentOK or not Finite(scale) or not Finite(parentScale)
+        or scale <= 0 or parentScale <= 0 or scale ~= state.nativeBagScale
+        or parentScale ~= state.nativeBagParentScale then return false, "combat-bag-scale" end
+    local function Matches()
+        local okCount, count = pcall(frame.GetNumPoints, frame)
+        local ok, point, relative, relativePoint, currentX, currentY = pcall(frame.GetPoint, frame, 1)
+        if not okCount or not Finite(count) or count < 1 or not ok or not plain(point)
+            or not plain(relative) or not plain(relativePoint) or not Finite(currentX)
+            or not Finite(currentY) then return nil end
+        return count == 1 and point == "CENTER" and relative == UIParent and relativePoint == "CENTER"
+            and math.abs(currentX - x) < 0.01 and math.abs(currentY - y) < 0.01
+    end
+    local matches = Matches()
+    if matches == nil then return false, "combat-bag-anchor" end
+    if not matches then
+        -- Restore only the last out-of-combat root anchor. Do not run ordinary
+        -- centering, clamping, chrome, open/close, drag or persistence in combat.
+        local ok = pcall(function()
+            frame:ClearAllPoints()
+            frame:SetPoint("CENTER", UIParent, "CENTER", x, y)
+        end)
+        if not ok or not Matches() then
+            state.combatPlacementFailed = true
+            return false, "combat-bag-move-blocked"
+        end
+    end
+    return true, "combat-bag-positioned"
 end
 
 local function ReadAnchors(frame)
@@ -929,6 +979,7 @@ function Mainhand:CenterForeverGamepadDestinationPanels()
     for _, name in ipairs(gamepadDestinationPanelNames) do
         local frame = ResolveGamepadDestinationPanel(name)
         local state = frame and gamepadDestinationPanelState[frame] or nil
+        if state and not inCombat then state.combatPlacementFailed = nil end
         local replacementBag = IsNativeBagDestinationName(name)
             and Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()
         local isWorldMap = name == "WorldMapFrame"
@@ -999,7 +1050,16 @@ function Mainhand:CenterForeverGamepadDestinationPanels()
                 gamepadDestinationPanelStatus[name] = "hidden"
             end
         elseif frame and inCombat then
-            gamepadDestinationPanelStatus[name] = "combat"
+            if active and IsNativeBagDestinationName(name) and frame.IsShown and frame:IsShown() then
+                local repaired, reason = RepairCombatBagDestination(frame, state)
+                gamepadDestinationPanelStatus[name] = reason
+                if repaired then moved = moved + 1 end
+            else
+                gamepadDestinationPanelStatus[name] = "combat"
+            end
+        end
+        if isWorldMap then
+            UpdateGamepadMapFade(frame, centeredMap and IsMapOnWorkspace(frame), inCombat)
         end
         if isWorldMap then
             UpdateGamepadMapFade(frame, centeredMap and IsMapOnWorkspace(frame), inCombat)

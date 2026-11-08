@@ -17,10 +17,19 @@ local knownFrameNames = {
     "ContainerFrame1",
     "ContainerFrameCombinedBags",
     "EUI_MainBagFrame",
+    "KerzosQuestLog",
 }
 
 local function CanUseFrame(frame)
     return frame and not (frame.IsForbidden and frame:IsForbidden())
+end
+
+local function IsCombatRestricted()
+    local geometry = Offhand.MainhandGeometry
+    if geometry and geometry.IsPlayerCombatRestricted then
+        return geometry.IsPlayerCombatRestricted()
+    end
+    return InCombatLockdown and InCombatLockdown() or false
 end
 
 local function IsVisible(frame)
@@ -53,7 +62,7 @@ end
 local function SetButtonHidden(button, hidden)
     local state = RememberButton(button)
     if not state or (not hidden and not state.hidden) then return end
-    if InCombatLockdown and InCombatLockdown() then return end
+    if IsCombatRestricted() then return end
     if button.IsForbidden and button:IsForbidden() then return end
     if hidden then
         -- Native panel refreshes and third-party skins may restore their own
@@ -91,6 +100,11 @@ local function GetCloseButtons(frame, name)
     local buttons = {}
     AddButton(buttons, frame and frame.CloseButton)
     AddButton(buttons, name and _G[name .. "CloseButton"])
+    local adapter = Offhand.CanvasAddonEscape
+    if adapter and adapter.GetCloseButtons then
+        local ok, extra = pcall(adapter.GetCloseButtons, adapter, frame)
+        if ok then for _, button in ipairs(extra) do AddButton(buttons, button) end end
+    end
     if name == "WorldMapFrame" then
         AddButton(buttons, _G.WorldMapFrameCloseButton)
     elseif name == "CharacterFrame" then
@@ -152,11 +166,16 @@ function Chrome:Refresh()
         self:RestoreAll()
         return false
     end
-    if InCombatLockdown and InCombatLockdown() then return false end
+    if IsCombatRestricted() then return false end
 
     self:DiscoverDynamicFrames()
     local frameNames = {}
     for _, name in ipairs(knownFrameNames) do frameNames[name] = true end
+    -- Separate native bags can exist without any saved placement. Discover
+    -- their bounded names without scanning globals or claiming their layout.
+    for index = 2, math.min(tonumber(NUM_CONTAINER_FRAMES) or 13, 40) do
+        frameNames["ContainerFrame" .. index] = true
+    end
     if type(db.savedWorkspacePositions) == "table" then
         for name in pairs(db.savedWorkspacePositions) do frameNames[name] = true end
     end
@@ -164,6 +183,10 @@ function Chrome:Refresh()
         for name in pairs(db.baganatorWorkspacePanels) do frameNames[name] = true end
     end
     for name in pairs(self.dynamicNames) do frameNames[name] = true end
+    local adapter = Offhand.CanvasAddonEscape
+    if adapter and adapter.VisitRoots then
+        adapter:VisitRoots(function(_, name) frameNames[name] = true end)
+    end
 
     local desired = {}
     for name in pairs(frameNames) do

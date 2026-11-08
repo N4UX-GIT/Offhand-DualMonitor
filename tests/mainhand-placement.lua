@@ -45,6 +45,7 @@ local function frame(name)
     return f
 end
 
+
 UIParent = frame("UIParent")
 function UIParent:GetWidth() return 4000 end
 function UIParent:GetHeight() return 2560 end
@@ -87,6 +88,7 @@ OffhandCharDB = {}
 assert(loadfile("Core/MainhandGeometry.lua"))("Offhand", addon)
 assert(loadfile("Core/MainhandCompatibility.lua"))("Offhand", addon)
 assert(loadfile("Core/MainhandGamepad.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand", addon)
 assert(loadfile("Core/MainhandEditMode.lua"))("Offhand", addon)
 assert(loadfile("Core/Mainhand.lua"))("Offhand", addon)
 
@@ -967,6 +969,134 @@ addon.Mainhand:CenterForeverGamepadDestinationPanels()
 assert(nativeBackpack.points[1][1] == "CENTER" and nativeBackpack.points[1][4] == backpackPoint[4]
         and nativeBackpack.points[1][5] == backpackPoint[5],
     "reopening the backpack must restore the saved Offhand position after Blizzard resets the anchor")
+
+-- Controller mode owns a different observer and position store from keyboard
+-- bags. Its native reopening path must preserve the last permitted root anchor.
+local function PermitCombatBag(f)
+    f.CanChangeProtectedState=function() return true end
+    f.IsAnchoringRestricted=function() return false end
+    f.IsAnchoringSecret=function() return false end
+end
+PermitCombatBag(nativeBackpack)
+local originalClamp=nativeBackpack.SetClampedToScreen
+nativeBackpack.SetClampedToScreen=function(self,value)
+    assert(not unitCombat,'combat bag repair must not alter native clamping')
+    return originalClamp(self,value)
+end
+local savedControllerOffset=OffhandCharDB.foreverGamepadPanelOffsets.ContainerFrameCombinedBags
+unitCombat=true
+nativeBackpack.shown=false
+gamepadObserver:OnUpdate(.1)
+nativeBackpack:ClearAllPoints()
+nativeBackpack:SetPoint('BOTTOMRIGHT',UIParent,'BOTTOMRIGHT',-32,60)
+nativeBackpack.shown=true
+gamepadObserver:OnUpdate(.1)
+assert(nativeBackpack.points[1][1]=='CENTER'
+    and nativeBackpack.points[1][4]==backpackPoint[4]
+    and nativeBackpack.points[1][5]==backpackPoint[5],
+    'controller combat reopening must preserve the saved Offhand bag anchor')
+assert(not backpackMover.shown and OffhandCharDB.foreverGamepadPanelOffsets.ContainerFrameCombinedBags==savedControllerOffset,
+    'combat repair must hide the mover and preserve the controller position store')
+ContainerFrame1.shown=true
+ContainerFrame1:ClearAllPoints()
+ContainerFrame1:SetPoint('BOTTOMRIGHT',UIParent,'BOTTOMRIGHT',-32,60)
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+assert(ContainerFrame1.points[1][1]=='BOTTOMRIGHT',
+    'a controller bag first seen during combat must defer')
+ContainerFrame1.shown=false
+unitCombat=false
+OffhandCharDB.foreverGamepadPanelOffsets.ContainerFrameCombinedBags={x=40,y=30}
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+local mainBagPoint={nativeBackpack:GetPoint(1)}
+unitCombat=true
+InCombatLockdown=function() return true end
+nativeBackpack:ClearAllPoints()
+nativeBackpack:SetPoint('BOTTOMRIGHT',UIParent,'BOTTOMRIGHT',-32,60)
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+assert(nativeBackpack.points[1][1]=='CENTER' and nativeBackpack.points[1][4]==mainBagPoint[4],
+    'controller combat reopening must also preserve Mainhand placement during lockdown')
+InCombatLockdown=function() return false end
+for _,method in ipairs({'IsForbidden','IsProtected','CanChangeProtectedState','IsAnchoringRestricted','IsAnchoringSecret'}) do
+    local original=nativeBackpack[method]
+    nativeBackpack[method]=function() return method~='CanChangeProtectedState' end
+    nativeBackpack:ClearAllPoints()
+    nativeBackpack:SetPoint('BOTTOMRIGHT',UIParent,'BOTTOMRIGHT',-32,60)
+    addon.Mainhand:CenterForeverGamepadDestinationPanels()
+    assert(nativeBackpack.points[1][1]=='BOTTOMRIGHT','restricted controller root must yield: '..method)
+    nativeBackpack[method]=nil
+    addon.Mainhand:CenterForeverGamepadDestinationPanels()
+    assert(nativeBackpack.points[1][1]=='BOTTOMRIGHT','missing controller capability must yield: '..method)
+    nativeBackpack[method]=original
+end
+local secret={}
+issecretvalue=function(value) return value==secret end
+nativeBackpack.CanChangeProtectedState=function() return secret end
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+assert(nativeBackpack.points[1][1]=='BOTTOMRIGHT','secret controller capabilities must yield')
+nativeBackpack.CanChangeProtectedState=function() return true end
+local originalReadPoint=nativeBackpack.GetPoint
+nativeBackpack.GetPoint=function() return secret,UIParent,'BOTTOMRIGHT',-32,60 end
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+assert(nativeBackpack.points[1][1]=='BOTTOMRIGHT','secret controller anchor reads must yield')
+nativeBackpack.GetPoint=nil
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+assert(nativeBackpack.points[1][1]=='BOTTOMRIGHT','missing controller anchor reads must yield')
+nativeBackpack.GetPoint=originalReadPoint
+issecretvalue=nil
+local originalBagPoint=nativeBackpack.SetPoint
+local attemptedWrites=0
+nativeBackpack.SetPoint=function() attemptedWrites=attemptedWrites+1;error('simulated protected write rejection') end
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+assert(attemptedWrites==1,'failed controller combat anchor must suspend until combat ends')
+nativeBackpack.SetPoint=originalBagPoint
+unitCombat=false
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+unitCombat=true
+nativeBackpack:ClearAllPoints()
+nativeBackpack:SetPoint('BOTTOMRIGHT',UIParent,'BOTTOMRIGHT',-32,60)
+attemptedWrites=0
+nativeBackpack.SetPoint=function() attemptedWrites=attemptedWrites+1 end
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+assert(attemptedWrites==1,'silent controller anchor rejection must also suspend')
+nativeBackpack.SetPoint=originalBagPoint
+unitCombat=false
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+unitCombat=true
+customBagAddon=true
+nativeBackpack:ClearAllPoints()
+nativeBackpack:SetPoint('BOTTOMRIGHT',UIParent,'BOTTOMRIGHT',-32,60)
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+assert(nativeBackpack.points[1][1]=='BOTTOMRIGHT','replacement bags must retain controller combat ownership')
+customBagAddon=false
+unitCombat=false
+OffhandCharDB.foreverGamepadPanelOffsets.ContainerFrameCombinedBags=savedControllerOffset
+nativeBackpack.SetClampedToScreen=originalClamp
+nativeBackpack.shown = false
+
+-- Separate controller bags keep Blizzard's container ancestry too.
+ContainerFrameContainer=frame('ContainerFrameContainer')
+ContainerFrameContainer.parent=UIParent
+PermitCombatBag(ContainerFrameContainer)
+PermitCombatBag(ContainerFrame1)
+ContainerFrame1.parent=ContainerFrameContainer
+ContainerFrame1.shown=true
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+local separatePoint={ContainerFrame1:GetPoint(1)}
+unitCombat=true
+ContainerFrame1.shown=false
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+ContainerFrame1:ClearAllPoints()
+ContainerFrame1:SetPoint('BOTTOMRIGHT',ContainerFrameContainer,'BOTTOMRIGHT',-32,60)
+ContainerFrame1.shown=true
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+assert(ContainerFrame1.points[1][1]=='CENTER' and ContainerFrame1.points[1][4]==separatePoint[4]
+    and ContainerFrame1.parent==ContainerFrameContainer,
+    'separate controller bags must repair the root anchor without reparenting')
+unitCombat=false
+ContainerFrame1.shown=false
+
 nativeBackpack.shown = false
 
 FriendsFrame.shown = false
@@ -1965,4 +2095,72 @@ do
         assert(not full and reason == "maximum", "five account layouts must still exhaust the account quota")
     end
     print("PASS: Forever character layout scope, legacy migration, capacity, owner changes and input-mode reuse")
+end
+
+do
+-- A repaired EncounterBar must stop retaining a custom system-relative anchor.
+-- Exercise both native layout scopes and repeat the transaction after reload.
+for _, forever in ipairs({false, true}) do
+    addon.isForever, addon.isRetail = forever, not forever
+    currentInterfaceStyle = 1
+    Enum.InputDeviceInterfaceType = {Gamepad=2}
+    addon.IsGamepadUIEnabled = function() return false end
+    C_AddOns = {IsAddOnLoaded=function() return false end}
+    OffhandDB, OffhandCharDB = {}, {}
+    Constants.EditModeConsts.EditModeMaxLayoutsPerType = 10
+    local encounter = Enum.EditModeSystem.EncounterBar
+    local original = {
+        layoutName = 'Personal encounter test', layoutType = Enum.EditModeLayoutType.Account,
+        systems = {
+            {system=9876, systemIndex=1, isInDefaultPosition=false,
+             anchorInfo={point='LEFT',relativeTo='OtherSystem',relativePoint='RIGHT',offsetX=123,offsetY=456},
+             settings={{setting=1,value=42}}},
+            {system=encounter, systemIndex=1, isInDefaultPosition=false,
+             anchorInfo={point='TOP',relativeTo='LossOfControlFrame',relativePoint='BOTTOM',offsetX=-9000,offsetY=9000},
+             anchorInfo2={point='BOTTOM',relativeTo='OtherSystem',relativePoint='TOP',offsetX=9000,offsetY=-9000},
+             settings={{setting=2,value=17}}},
+        },
+    }
+    presetLayouts = {copyTable(preset), {layoutName='Classic',systems={}}, {layoutName='Gamepad',interfaceStyle=2,systems={}}}
+    EditModePresetLayoutManager.GetCopyOfPresetLayouts = function() return copyTable(presetLayouts) end
+    layoutData = {activeLayout=4,layouts={copyTable(original)}}
+    C_EditMode.GetLayouts = function() return copyTable(layoutData) end
+    C_EditMode.SaveLayouts = function(data) saved=data; layoutData=data; saveCount=saveCount+1 end
+    C_EditMode.OnLayoutAdded = function(id) layoutData.activeLayout=id end
+    C_EditMode.SetActiveLayout = function(id) layoutData.activeLayout=id end
+    EditModeManagerFrame = {IsShown=function() return false end, editModeActive=false}
+    EncounterBar.scale = 0.5
+    local oldClear, oldPoint = EncounterBar.ClearAllPoints, EncounterBar.SetPoint
+    EncounterBar.ClearAllPoints = function() error('repair must only change serialized layout data') end
+    EncounterBar.SetPoint = EncounterBar.ClearAllPoints
+    for _, name in ipairs({'EncounterBar','UIWidgetPowerBarContainerFrame'}) do
+        local success, why = addon.Mainhand:CreateOrUpdateEditModeLayout({repairFrameName=name})
+        assert(success, tostring(why))
+        local index = layoutData.activeLayout - 3
+        local rows = layoutData.layouts[index].systems
+        assert(rows[2].anchorInfo.relativeTo == 'UIParent',
+            'EncounterBar repair retained the unreachable system-relative anchor')
+        -- Model native ApplySystemAnchor's division before frame-local SetPoint.
+        local appliedX, appliedY = rows[2].anchorInfo.offsetX/0.5, rows[2].anchorInfo.offsetY/0.5
+        near(appliedX * 0.5, (metrics.gameLeft + metrics.gameRight)/2)
+        near(appliedY * 0.5, metrics.gameBottom + (metrics.gameTop-metrics.gameBottom)*0.6)
+        assert(rows[1].anchorInfo.offsetX == 123 and rows[1].settings[1].value == 42
+            and rows[2].settings[1].value == 17 and rows[2].isInDefaultPosition == false
+            and rows[2].anchorInfo2 == nil,
+            'EncounterBar repair changed unrelated layout edits or target settings')
+        assert(layoutData.layouts[1].systems[2].anchorInfo.relativeTo == 'LossOfControlFrame',
+            'repair overwrote the source personal layout')
+        -- The next call sees the saved native row, as it would after reload.
+        layoutData = copyTable(layoutData)
+    end
+    local active = layoutData.layouts[layoutData.activeLayout-3]
+    table.remove(active.systems, 2)
+    local writes = saveCount
+    local success, why = addon.Mainhand:CreateOrUpdateEditModeLayout({repairFrameName='EncounterBar'})
+    assert(not success and why == 'repair-system' and saveCount == writes,
+        'missing EncounterBar must fail without reporting a successful repair')
+    EncounterBar.ClearAllPoints, EncounterBar.SetPoint = oldClear, oldPoint
+    EncounterBar.scale = 1
+end
+print('PASS: EncounterBar targeted repair, alias, scale, reload retry and missing-system failure')
 end

@@ -39,13 +39,93 @@ All notable changes to this project will be documented in this file.
   and crash verification remain pending.
 
 ### Discord report follow-up candidate
+- Preserve BetterBags and RestedXP position ownership during automatic popup
+  rescue and centering, including BetterBags anchors and RestedXP's anonymous
+  V2 guide. Honour explicit user placement. Test19 is packaged and installed;
+  native classic/Next small bags and RestedXP V1 retain map/vendor/reload
+  placement on both sides of the tested split. Classic title/anchor gestures
+  pass. Native V2, other Next variants and exact reporter layout remain pending.
+- Restore the last permitted native backpack anchor in the separate Gamepad
+  observer during combat. Share the keyboard path's capability/ancestry guard;
+  leave opening, clamping, item controls, drag and persistence deferred. Test18
+  source regressions pass. Native controller combined-bag combat reopening passes
+  on Offhand and Mainhand, with post-combat item use and no new BugGrabber errors.
+- Restore existing Forever backpack placement after combat reopening only when
+  the initialized root explicitly permits geometry changes. Keep restricted roots
+  and all native opening/chrome/persistence work deferred. Regression coverage
+  includes Blizzard's separate-bag container ancestry after test16's direct-parent
+  restriction failed live. Test17 passes actual separate-backpack combat reopening
+  on Offhand and Mainhand, with post-combat item use and no new BugGrabber errors.
+  Combined-mode follow-up also passes on Offhand and Mainhand; Mainhand reopening
+  is manually confirmed, while the workspace recorder captures six reopen cycles.
+- Include additional separate native bags in reversible workspace X hiding.
+  Defer bag recovery/chrome until both player combat and lockdown clear, keeping
+  saved intent if native opening enters combat. Source regressions pass; native
+  combat placement and the newly reported Lua error remain unverified.
+- Leave Forever map-content rebuilding to Blizzard by removing Offhand's zone
+  refocusing and bootstrap provider refresh calls. Placement and persistence
+  remain. Regression checks pass; the intermittent quest-pin taint report still
+  requires native reproduction and source attribution.
+- Remove competing legacy centering and generic void rescue from Retail/Forever
+  pooled confirmation dialogs, including party invitations. Preserve native popup
+  stacking. Source regressions pass; real combat-invite acceptance is pending.
+- Apply supported addon settings Escape and hidden-X policies immediately at
+  open/show/drag boundaries, removing the timer gap. Hide Leatrix/Platynator X
+  buttons reversibly and reapply Kerzo X hiding during vendor header redraws.
+  Six vendor roots pass native checks before any timer advances on Forever 70862.
+- Extend Forever workspace Escape protection to Leatrix Maps/Plus settings,
+  Leatrix Sounds, Platynator settings, ForeverDungeonJournal and Offhand settings.
+  Main-root keyboard checks pass, including random Leatrix names after reload.
+  Preserve explicit close, native dialogs and Mainhand behavior.
+- Honor Hide close buttons for Kerzo's top-right X. Native workspace hiding,
+  Mainhand restoration and option reversal pass without changing vendor scripts.
+- Run Forever's legacy bubble-font recovery once at startup, yielding to an
+  explicit bubble owner and preserving later custom font sizes. A native
+  24-point font fixture survives layout updates, span and Restore.
+- Preserve ForeverPlus's fixed icon/countdown clearance between default general
+  and consumable warnings when adapting them to a shorter Mainhand. Native
+  vendor preview transactions pass with 48- and 128-unit icons and rerouting
+  off/on, without changing vendor profiles.
+- Refit the Ellesmere unlock toolbar when canvas, UI scale or display geometry
+  settles after spanning. Start each refit from the original vendor size and
+  retain stable no-op, animation and ownership behavior. Native bounds now fit
+  the portrait workspace after the reproduced resize.
+- Complete addon EFIGS dictionaries across 825 active keys, including esES and
+  esMX. Translate 1591 English fallback entries and the Companion download
+  dialog. Keep commands, product names and format arguments intact. Live
+  dictionary previews pass the main settings in all five non-English variants;
+  shorten the Spanish setup button to avoid truncation.
+- Yield recovery scans to the existing external Edit Mode system ownership
+  policy, matching layout generation and avoiding ineffective repairs of
+  Ellesmere-owned action bars. EncounterBar recovery passes a real mixed-height
+  monitor-gap fixture on Forever 70862, with one system repaired, unrelated
+  entries preserved at save time and no repeat prompt after reload.
+- Restore Kerzo Classic Quest Log after reload when left open on the workspace
+  with panel persistence and reload restoration enabled. Keep explicit closure
+  and vendor-saved placement. Live open/reload, Escape after restoration and
+  closed/reload checks pass on Forever 70862; 95 suites and six manifests pass.
+- Preserve Kerzo Classic Quest Log's workspace window through Escape on Forever,
+  retaining its modal priority, explicit close/toggle behavior and native Escape
+  closure on Mainhand. Source/simulated checks and live keyboard Escape, modal,
+  toggle, preference, reload and Restore checks pass on Forever 70862 in a
+  single-display split. Combat, quest-item and controller coverage remains open.
+- Repair the selected EncounterBar layout entry while preserving other HUD
+  adjustments. Ignore empty, unhighlighted EncounterBar ownership roots when
+  detecting unreachable HUD previews. Automated and controlled native
+  save/reload checks pass. The reporter's exact layout and protected encounter
+  actions remain separate acceptance items.
+- Keep unpositioned ForeverPlus warning bars inside Mainhand after the vendor's
+  own layout transaction. Preserve its saved positions, mover previews, input,
+  combat deferral and restoration when redirection is disabled. Automated
+  coverage passes; real warning/Gamepad/combat acceptance remains pending.
 - Keep Forever guild invites and Chat Settings anchored to Mainhand through
   native popup and panel transactions, retaining popup-stack relationships.
 - Yield player aura-bar placement to EllesmereUI and preserve the native
   Debuffs and External Defensives Edit Mode roots during initialization.
 - Translate French setup, placement and calibration recovery guidance.
 - Automated regression and manifest checks pass. Native popup actions,
-  controller focus, aura behavior and French visual acceptance remain pending.
+  controller focus, aura behavior and complete native-language client acceptance
+  remain pending; French main-settings dictionary preview passes.
 
 ### Forever generated HUD action-bar candidate
 - Give default action bars 2 and 3 separate rows above the main action bar when

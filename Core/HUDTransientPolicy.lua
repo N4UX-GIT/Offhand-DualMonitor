@@ -91,7 +91,16 @@ function Policy.GetRetailSpecialPopupNames()
 end
 
 function Policy.IsNativeDialogRoot(frame)
-    return frame ~= nil and (frame == _G.GuildInviteFrame or frame == _G.ChatConfigFrame)
+    if not frame then return false end
+    if frame == _G.GuildInviteFrame or frame == _G.ChatConfigFrame then return true end
+    -- These pooled roots include incoming party invitations. Their native
+    -- shared-stack translator, rather than generic void rescue, owns placement.
+    if Offhand.isRetail or Offhand.isForever then
+        for index = 1, 4 do
+            if frame == _G["StaticPopup" .. index] then return true end
+        end
+    end
+    return false
 end
 
 function Policy.GetRetailNotificationSpecs()

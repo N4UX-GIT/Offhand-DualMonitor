@@ -190,12 +190,13 @@ function Map.InstallBehavior(Canvas, services)
     end
 
     function Canvas:RefocusPersistentWorldMap()
-        if Map.IsNativeGamepadOwned(self) then return false end
+        -- SetMapID/ResetZoom can rebuild native pin pools and enter protected
+        -- mouse-input setup. Forever content refresh must stay Blizzard-owned,
+        -- including keyboard mode; deferring addon calls does not untaint them.
+        if Offhand.isForever then return false end
         local map = _G.WorldMapFrame
-        -- MoveAny owns map geometry, not MapCanvas content. Modern and Classic
-        -- clients still need the displayed map ID refreshed while the persistent
-        -- frame remains open. Forever keeps its stricter protected-map boundary.
-        if ShouldYieldWorldMapToMoveAny(map) and Offhand.isForever then return false end
+        -- MoveAny owns geometry, not content. Other clients retain refocusing
+        -- while the persistent frame stays open, without applying geometry here.
         if InCombatLockdown() or not map or not map.IsShown or not map:IsShown()
             or IsExternallyPositionedWorldMap(map) or not Offhand.db or not Offhand.db.enabled
             or Offhand.db.persistentWorkspacePanels == false then
@@ -229,7 +230,7 @@ function Map.InstallBehavior(Canvas, services)
     end
 
     function Canvas:RequestPersistentWorldMapRefocus()
-        if ShouldYieldWorldMapToMoveAny(_G.WorldMapFrame) and Offhand.isForever then return end
+        if Offhand.isForever then return end
         if not C_Timer or not C_Timer.After then return end
         self._mapZoneRefocusGeneration = (self._mapZoneRefocusGeneration or 0) + 1
         local generation = self._mapZoneRefocusGeneration
@@ -560,10 +561,13 @@ function Map.InstallBootstrap(Canvas, services)
         -- The first MapCanvas layout can finish before the bootstrap anchor exists,
         -- leaving its scroll child sized for a zero/old rectangle. Re-run only the
         -- public mixin refresh methods after the new anchor has settled; later opens
-        -- already have geometry and never enter this path.
-        if C_Timer and C_Timer.After then
+        -- already have geometry and never enter this path. Forever keeps content
+        -- rebuilds entirely native, even when the geometry bootstrap is needed.
+        if not Offhand.isForever and C_Timer and C_Timer.After then
             C_Timer.After(0, function()
-                if not frame.IsShown or not frame:IsShown() then return end
+                if Offhand.isForever or (InCombatLockdown and InCombatLockdown())
+                    or not Offhand.db or not Offhand.db.enabled
+                    or not frame.IsShown or not frame:IsShown() then return end
                 if type(frame.OnCanvasSizeChanged) == "function" then
                     pcall(frame.OnCanvasSizeChanged, frame)
                 end

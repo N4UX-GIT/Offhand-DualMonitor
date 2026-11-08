@@ -11,6 +11,7 @@ local addon = {
     },
 }
 _G.Offhand = addon
+assert(loadfile('Core/MainhandGeometry.lua'))('Offhand',addon)
 local nativePairs, globalScans = pairs, 0
 pairs = function(value)
     if value == _G then globalScans = globalScans + 1 end
@@ -71,6 +72,8 @@ WorldMapFrameCloseButton = mapClose
 local characterClose = makeButton(1, true)
 CharacterFrame = makeFrame("CharacterFrame", false, characterClose)
 CharacterFrameCloseButton = characterClose
+local kerzoClose = makeButton(0.8, true)
+KerzosQuestLog = makeFrame("KerzosQuestLog", true, kerzoClose)
 
 local baganatorClose = makeButton(1, true)
 local baganatorName = "Baganator_SingleViewBackpackViewFrameblizzard_black"
@@ -96,6 +99,8 @@ assert(mapMaximize.alpha == 1 and mapMaximize.mouse,
     "disabled map option must not alter the enlarge button")
 
 chrome:SetEnabled(true)
+assert(kerzoClose.alpha == 0 and not kerzoClose.mouse,
+    "Kerzo's inherited CloseButton must hide without a generic saved panel position")
 assert(mapClose.alpha == 0 and not mapClose.mouse,
     "workspace World Map close button must become invisible and non-interactive")
 assert(mapMaximize.alpha == 1 and mapMaximize.mouse,
@@ -128,7 +133,12 @@ assert(mapMaximize.alpha == 0 and not mapMaximize.mouse,
     "polling must reapply the hidden map-enlarge state after a native map refresh")
 
 WorldMapFrame.onWorkspace = false
+KerzosQuestLog.onWorkspace = false
 CharacterFrame.onWorkspace = true
+chrome:Refresh()
+assert(kerzoClose.alpha == 0.8 and kerzoClose.mouse,
+    "Kerzo's original X button must return on Mainhand")
+KerzosQuestLog.onWorkspace = true
 chrome:Refresh()
 assert(mapClose.alpha == 0.75 and mapClose.mouse,
     "moving a frame to Mainhand must restore its original close-button state")
@@ -148,6 +158,8 @@ assert(characterClose.alpha == 1 and characterClose.mouse,
     "post-combat refresh must restore Mainhand chrome")
 
 chrome:SetEnabled(false)
+assert(kerzoClose.alpha == 0.8 and kerzoClose.mouse and kerzoClose.hookWrites == 0,
+    "Kerzo chrome must restore on opt-out without installing button scripts")
 assert(baganatorClose.alpha == 1 and baganatorClose.mouse
         and euiClose.alpha == 1 and euiClose.mouse,
     "disabling the option must restore every button Offhand changed")
@@ -180,4 +192,30 @@ chrome:Refresh()
 assert(mapClose.alpha == 0.75 and mapClose.mouse,
     "single-screen recovery must keep native close buttons available")
 
+-- Separate native bags are independent chrome roots, not only ContainerFrame1.
+metrics.isSpanned=true
+NUM_CONTAINER_FRAMES=6
+local extraClose=makeButton(.6,true)
+local mainBagClose=makeButton(.9,true)
+ContainerFrame2=makeFrame('ContainerFrame2',true,extraClose)
+ContainerFrame3=makeFrame('ContainerFrame3',false,mainBagClose)
+chrome:Refresh()
+assert(extraClose.alpha==0 and not extraClose.mouse,
+    'all separate workspace bag close buttons must participate without saved positions')
+assert(mainBagClose.alpha==.9 and mainBagClose.mouse,'Mainhand separate bag X must remain native')
+local unitCombat=true
+UnitAffectingCombat=function() return unitCombat end
+ContainerFrame2.onWorkspace=false
+chrome:Refresh()
+assert(extraClose.alpha==0 and not extraClose.mouse,
+    'chrome must defer while player combat is active even when lockdown lags')
+unitCombat=false
+chrome:Refresh()
+assert(extraClose.alpha==.6 and extraClose.mouse,'post-combat Mainhand return must restore original X')
+ContainerFrame2.onWorkspace=true
+chrome:Refresh()
+assert(extraClose.alpha==0 and extraClose.hookWrites==0)
+chrome:SetEnabled(false)
+assert(extraClose.alpha==.6 and extraClose.mouse,'extra bag X must restore on opt-out')
+assert(globalScans==0,'separate bag discovery must remain bounded, without global scans')
 print("PASS: workspace-only close buttons hide reversibly without native control hooks")
