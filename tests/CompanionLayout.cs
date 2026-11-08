@@ -384,7 +384,16 @@ namespace Offhand.Companion
                     throw new Exception("The standard-layout action should be available while a custom layout is saved.");
                 foreach (Control c in Descendants(choice).Where(c => c is Button || c is Label)) {
                     Rectangle bounds = BoundsInside(c, choice);
-                    if (bounds.Left < 0 || bounds.Top < 0 || bounds.Right > choice.ClientSize.Width || bounds.Bottom > choice.ClientSize.Height)
+                    bool reachableByScroll = false;
+                    for (Control ancestor = c.Parent; ancestor != choice; ancestor = ancestor.Parent)
+                    {
+                        var scroll = ancestor as ScrollableControl;
+                        if (scroll != null && scroll.AutoScroll && scroll.VerticalScroll.Visible &&
+                            scroll.DisplayRectangle.Contains(BoundsInside(c, scroll)))
+                            reachableByScroll = true;
+                    }
+                    if (bounds.Left < 0 || bounds.Top < 0 || bounds.Right > choice.ClientSize.Width ||
+                        (bounds.Bottom > choice.ClientSize.Height && !reachableByScroll))
                         throw new Exception("Layout chooser clipped at " + factor + "x: " + c.Text);
                 }
                 string preview = Environment.GetEnvironmentVariable("OFFHAND_LAYOUT_PREVIEW");
