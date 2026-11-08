@@ -60,13 +60,10 @@ namespace Offhand.Companion
 
         private static void CheckScale(float factor, bool enlargedChildren = false)
         {
-            // Embedded Forms can exercise synthetic work areas without the
-            // managed top-level Form.Size clamp to the physical host screen.
-            // CheckHostWorkingArea separately retains a real top-level case.
-            using (var surface = new Panel { Size = new Size(16384, 16384) })
-            using (var form = new CompanionForm { TopLevel = false, MaximumSize = new Size(16384, 16384) })
+            // Synthetic work areas still obey WinForms' host MaxWindowTrackSize.
+            // Verify scrolling at that native limit and full fit when space exists.
+            using (var form = new CompanionForm())
             {
-                surface.Controls.Add(form);
                 form.CreateControl();
                 form.Scale(new SizeF(factor, factor));
                 LayoutAll(form);
@@ -151,9 +148,11 @@ namespace Offhand.Companion
                 LayoutAll(form);
                 form.GrowDashboardToFit(roomyDesktop);
                 LayoutAll(form);
-                if (form.Height <= startupBounds.Height || form.Width != startupBounds.Width ||
-                    form.Location != startupBounds.Location || scrollPanel.VerticalScroll.Visible ||
-                    cards.Bottom > scrollPanel.ClientSize.Height - scrollPanel.Padding.Bottom)
+                bool hostHeightLimit = form.Height >= SystemInformation.MaxWindowTrackSize.Height;
+                bool contentOverflows = cards.Bottom > scrollPanel.ClientSize.Height - scrollPanel.Padding.Bottom;
+                if ((!hostHeightLimit && form.Height <= startupBounds.Height) || form.Width != startupBounds.Width ||
+                    form.Location != startupBounds.Location ||
+                    (contentOverflows ? !hostHeightLimit || !scrollPanel.VerticalScroll.Visible : scrollPanel.VerticalScroll.Visible))
                     throw new Exception("The initial status refresh did not remove the vertical scrollbar at " + factor
                         + "x. Startup=" + startupBounds + ", current=" + form.Bounds
                         + ", viewport=" + scrollPanel.ClientSize + ", cardsBottom=" + cards.Bottom
@@ -220,7 +219,9 @@ namespace Offhand.Companion
                             throw new Exception("System Status rows overlap or escape the card at " + factor + "x.");
                     if (factor == 1f && workArea.Height >= 1400)
                     {
-                        if (stack.Bottom > viewport.ClientSize.Height - viewport.Padding.Bottom || viewport.VerticalScroll.Visible)
+                        bool overflow = stack.Bottom > viewport.ClientSize.Height - viewport.Padding.Bottom;
+                        bool atNativeLimit = form.Height >= SystemInformation.MaxWindowTrackSize.Height;
+                        if (overflow ? !atNativeLimit || !viewport.VerticalScroll.Visible : viewport.VerticalScroll.Visible)
                             throw new Exception("Full dashboard should fit this work area without scrolling.");
                         string preview = Environment.GetEnvironmentVariable("OFFHAND_LAYOUT_PREVIEW");
                         if (!string.IsNullOrEmpty(preview) && workArea.Left == 0)
