@@ -2047,7 +2047,6 @@ kbd {
 }
 
 /* Companion 2.1.3 guidance shares the existing site components. */
-.companion-first-run.companion-first-run-text { display: block; }
 .companion-preview-card:has(> .companion-preview-copy:only-child) { grid-template-columns: 1fr; }
 .workspace-detail { margin-top: 22px; }
 .workspace-detail > summary { cursor: pointer; padding: 18px; font-weight: 700; color: var(--rio-gold); }
