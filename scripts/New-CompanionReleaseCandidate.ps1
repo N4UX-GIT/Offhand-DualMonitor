@@ -1,4 +1,4 @@
-param([Parameter(Mandatory = $true)][string]$OutputDirectory, [switch]$CustomRegionsPrototype)
+param([Parameter(Mandatory = $true)][string]$OutputDirectory, [switch]$CustomRegionsPrototype, [switch]$StoreSettingsHotfix)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $output = [IO.Path]::GetFullPath($OutputDirectory)
@@ -23,10 +23,10 @@ $binary = Join-Path $output 'Offhand.exe'
 & $compiler /nologo /target:winexe /optimize+ /platform:anycpu "/out:$binary" "/win32icon:$root\Media\offhand-logo.ico" "/win32manifest:$appManifest" "/resource:$root\Media\offhand-logo-small.png,Offhand.Companion.Resources.offhand-logo.png" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll $source (Join-Path (Split-Path -Parent $source) LayoutDocument.cs) (Join-Path (Split-Path -Parent $source) WorkspaceLayoutService.cs) (Join-Path (Split-Path -Parent $source) FlexibleWorkspaceEditor.cs)
 if ($LASTEXITCODE -ne 0) { throw 'Candidate compilation failed.' }
 $identity = [Diagnostics.FileVersionInfo]::GetVersionInfo($binary)
-if ($identity.FileVersion -ne '2.1.3.9' -or $identity.ProductVersion -ne '2.1.3') {
+if ($identity.FileVersion -ne '2.1.3.10' -or $identity.ProductVersion -ne '2.1.3') {
     throw 'Candidate executable version does not match the planned release.'
 }
-$archive = Join-Path $output 'Offhand-Companion-v2.1.3.zip'
+$archive = Join-Path $output $(if ($StoreSettingsHotfix) { 'Offhand-Companion-v2.1.3-hotfix-candidate-build10.zip' } else { 'Offhand-Companion-v2.1.3.zip' })
 & (Join-Path $PSScriptRoot 'New-CompanionTestPackage.ps1') -BinaryPath $binary -OutputPath $archive -Version '2.1.3' | Out-Null
 $readme = @'
 Offhand Companion 2.1.3: local release candidate, live QA pending.
@@ -116,6 +116,33 @@ WoW window is fullscreen. Restore clears that notification. Shell notification
 failure is nonfatal and logged. Global taskbar preferences are unchanged.
 '@)
 }
+if ($StoreSettingsHotfix) {
+    $readme = @'
+Offhand Companion 2.1.3, HOTFIX CANDIDATE build 2.1.3.10. Unpublished.
+
+Addresses Store settings persistence reports by using explicit package-local
+LocalState storage, importing the existing settings on the next save, and using
+a same-directory rename when File.Replace rejects the operation with error87.
+Sharing, permission and other failures remain errors. Saved settings are never
+truncated as a fallback. Legacy preference files are retained.
+
+Exit every other Companion before testing. Back up preferences first. The
+portable candidate uses the existing portable preferences; package-local Store
+behavior must be tested with package identity, not by running this EXE alone.
+Existing Beta27 and earlier supported addons retain the same protocol.
+
+Review displays and Mainhand, save a workspace plan, close/reopen Companion,
+click Span WoW Now, then /reload in WoW. Verify Restore Window. Copy Display
+Diagnostics now includes exact build, Windows version and settings storage.
+
+Automated tests include installed Store package-identity persistence, repeated
+saves, legacy import, interrupted/locked writes and simulated error87. The
+original user-reported failure has not reproduced on the local Windows build.
+Affected-user confirmation, exact candidate package runtime and final Store
+acceptance remain pending. This package is not a public replacement for2.1.3.
+No Microsoft Store submission, signing or Defender verdict is implied.
+'@
+}
 # Replace only the generated README, retaining the same verified executable.
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = [IO.Compression.ZipFile]::Open($archive, [IO.Compression.ZipArchiveMode]::Update)
@@ -151,6 +178,7 @@ $record = [ordered]@{
     frozenPublicSha256=$publicHash; frozenArchiveSha256=$publicArchiveHash
     recoveryClients=@('_retail_', '_anniversary_'); liveVerification='pending'
     customRegionsPrototype=[bool]$CustomRegionsPrototype
+    storeSettingsHotfix=[bool]$StoreSettingsHotfix
 }
 $record | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $output 'candidate.json') -Encoding UTF8
 @("$($record.binarySha256)  Offhand.exe", "$($record.archiveSha256)  $([IO.Path]::GetFileName($archive))") |
