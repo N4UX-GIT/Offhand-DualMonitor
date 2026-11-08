@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="See how Offhand gives World of Warcraft windows their own workspace, with an illustrated layout tour and in-game dual-monitor footage.">
+    <meta name="description" content="See how Offhand gives World of Warcraft windows their own workspace, with in-game dual-monitor footage and an illustrated layout tour.">
     <title>Offhand | Layout demonstration</title>
     <link rel="icon" href="assets/offhand-icon.png">
-    <link rel="stylesheet" href="style.css?v=20261022-2">
-    <link rel="stylesheet" href="demonstration.css?v=27">
+    <link rel="stylesheet" href="style.css?v=20261103-12">
+    <link rel="stylesheet" href="demonstration.css?v=28">
     <script src="demonstration.js?v=27" defer></script>
 </head>
 <body class="demonstration-page">
@@ -20,7 +20,7 @@
                     <summary>Menu <span aria-hidden="true">▾</span></summary>
                     <nav class="site-menu-panel" aria-label="Complete site navigation">
                         <div class="site-menu-group"><span class="site-menu-label">Pages</span><a href="index.html">Home</a><a href="demonstration.html" aria-current="page">Demonstration</a><a href="companion.html">Window Setup</a><a href="in-game-setup.html">In-Game Setup</a><a href="background-studio.html">Background Studio</a><a href="manual-spanning.html">Alternative Setup</a></div>
-                        <div class="site-menu-group site-menu-sections"><span class="site-menu-label">On this page</span><a href="#layout-tour">Layout tour</a><a href="#in-game-footage">In-game footage</a><a href="#next-steps">Get started</a></div>
+                        <div class="site-menu-group site-menu-sections"><span class="site-menu-label">On this page</span><a href="#in-game-footage">In-game footage</a><a href="#illustrated-layouts">Layout tour</a><a href="#next-steps">Get started</a></div>
                         <div class="site-menu-external"><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub <span aria-hidden="true">↗</span></a><a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge <span aria-hidden="true">↗</span></a></div>
                     </nav>
                 </details>
@@ -29,7 +29,30 @@
         </div>
     </header>
     <main class="content-deck setup-guide-deck demonstration-deck">
-        <div class="deck-intro-banner demo-intro"><div class="hero-badge">SEE OFFHAND IN ACTION</div><h1 class="guide-title">Your game. More room around it.</h1><p class="deck-intro-text">Keep World of Warcraft and its HUD on Mainhand, with your map, bags, Character panel, and chat in a workspace of their own on Offhand.</p><p class="demo-instructions">Play the full tour, or open Explore layouts to choose a scene. Expand the demo for a closer look. Press Escape to return.</p></div>
+        <div class="deck-intro-banner demo-intro"><h1 class="guide-title">Your game. More room around it.</h1><p class="deck-intro-text">Keep World of Warcraft and its HUD on Mainhand, with your map, bags, Character panel, and chat in a workspace of their own on Offhand.</p><p class="demo-instructions">Watch the 30-second in-game example, then explore the illustrated layouts below.</p></div>
+        <section class="gameplay-example" id="in-game-footage" aria-labelledby="gameplay-title">
+            <div class="gameplay-intro">
+                <p class="eyebrow">IN-GAME DUAL-MONITOR FOOTAGE</p>
+                <h2 id="gameplay-title">Your UI stays accessible. Your game stays clear.</h2>
+                <p>Move your map, Character panel, and bags to Offhand. Keep Mainhand clear.</p>
+            </div>
+            <figure class="gameplay-video">
+                <div class="gameplay-player">
+                <video id="gameplay-recording" controls playsinline preload="none" poster="assets/offhand-in-game-demo-poster.jpg?v=6" width="1920" height="1080" aria-label="30-second silent recording: One screen, shared space. Panels open on Mainhand, then move to Offhand. Your game on Mainhand; your UI within reach on Offhand." aria-describedby="gameplay-caption">
+                    <source src="assets/offhand-in-game-demo.mp4?v=6" type="video/mp4">
+                    Your browser cannot play this video. <a href="assets/offhand-in-game-demo.mp4">Download the in-game example</a>.
+                </video>
+                <button id="gameplay-watch" class="gameplay-watch" type="button" aria-controls="gameplay-recording" aria-label="Watch the 30-second in-game demonstration" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"/></svg><span>Watch · 30 seconds</span></button>
+                </div>
+                <figcaption id="gameplay-caption">Offhand workspace on the left; Mainhand game view on the right. Both regions are from the same recording. Screen positioning, fades, and text are edited for presentation, not automatic display rearrangement. Silent video, 30 seconds.</figcaption>
+            </figure>
+        </section>
+        <p class="demo-continue"><a href="#illustrated-layouts">Explore the illustrated layouts <span aria-hidden="true">↓</span></a></p>
+        <div class="layout-tour-intro" id="illustrated-layouts">
+            <p class="eyebrow">ILLUSTRATED LAYOUT TOUR</p>
+            <h2>See how the layouts work</h2>
+            <p class="demo-instructions">Play the full tour, or open Explore layouts to choose a scene. Expand the demo for a closer look. Press Escape to return.</p>
+        </div>
         <section class="demo" id="layout-tour" aria-label="Animated Offhand display demonstration">
             <div class="stage" id="stage">
                 <svg id="scene" viewBox="0 0 1600 1000" role="img" aria-labelledby="scene-title scene-description">
@@ -82,23 +105,6 @@
             <div class="explanation"><p class="eyebrow" id="layout-kicker">BEFORE OFFHAND · ONE DISPLAY</p><h2 id="layout-title">Open the map. Lose sight of the world.</h2><p id="layout-description">Watch the player open the map, return to the game, inspect Character and Bags, then reopen the map. Each window competes with the world for the same screen space.</p></div>
         </section>
         <p class="footnote">Illustrated layouts. Screen graphics explain the arrangement; actual controls and available features depend on your WoW client.</p>
-        <section class="gameplay-example" id="in-game-footage" aria-labelledby="gameplay-title">
-            <div class="gameplay-intro">
-                <p class="eyebrow">IN-GAME DUAL-MONITOR FOOTAGE</p>
-                <h2 id="gameplay-title">Your UI stays accessible. Your game stays clear.</h2>
-                <p>Move your map, Character panel, and bags to Offhand. Keep Mainhand clear.</p>
-            </div>
-            <figure class="gameplay-video">
-                <div class="gameplay-player">
-                <video id="gameplay-recording" controls playsinline preload="none" poster="assets/offhand-in-game-demo-poster.jpg?v=6" width="1920" height="1080" aria-label="30-second silent recording: One screen, shared space. Panels open on Mainhand, then move to Offhand. Your game on Mainhand; your UI within reach on Offhand." aria-describedby="gameplay-caption">
-                    <source src="assets/offhand-in-game-demo.mp4?v=6" type="video/mp4">
-                    Your browser cannot play this video. <a href="assets/offhand-in-game-demo.mp4">Download the in-game example</a>.
-                </video>
-                <button id="gameplay-watch" class="gameplay-watch" type="button" aria-controls="gameplay-recording" aria-label="Watch the 30-second in-game demonstration" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"/></svg><span>Watch · 30 seconds</span></button>
-                </div>
-                <figcaption id="gameplay-caption">Offhand workspace on the left; Mainhand game view on the right. Both regions are from the same recording. Screen positioning, fades, and text are edited for presentation, not automatic display rearrangement. Silent video, 30 seconds.</figcaption>
-            </figure>
-        </section>
         <div class="hero-actions demo-next" id="next-steps"><a href="index.html#setup" class="btn btn-wow-red btn-lg">Get Started</a></div>
         <noscript><p>This interactive demonstration needs JavaScript. <a href="in-game-setup.html">The setup guide works without it.</a></p></noscript>
     </main>
