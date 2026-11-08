@@ -1,5 +1,40 @@
 # Display identity hardening in the custom-workspace Companion
 
+## Acceptance update, 2026-11-06
+
+The reporter subsequently confirms successful monitor selection and spanning
+with the TV unplugged on the existing setup. Temporary native span recovery is
+therefore reporter-confirmed. This is not acceptance of this candidate with
+the TV connected. Reload/calibration/persistence/Restore/reconnect outcomes and
+exact active-child/path attribution remain unverified.
+
+The subsequent TV-disconnected capture at 01:05:38 UTC returns distinct
+legacy and interface IDs for the same DISPLAY13/14 sources: HWV62F5/UID4357 and
+BNQ7F2B/UID4355, replacing repeated SNYA401/UID4352. WoW/Companion are absent
+in both captures. Disconnecting the disabled TV clears this observed collision;
+active-target mapping is the needed permanent repair direction. Temporary
+Beta 20 reselection with TV unplugged passes pure-planner checks and now has
+reporter-confirmed native span success. Restore, reconnect repeatability and
+exact child attribution remain pending. Interface-flag-only enumeration remains
+inadequate with TV connected.
+
+The second reporter's native diagnostic v2 baseline now returns identical
+interface IDs for both active GDI display names as well as identical legacy IDs,
+with no WoW or Companion process detected. A connected but disabled TV is newly
+reported. This source's ReadStableDisplayId still queries monitor child index
+zero, so changing EDD_GET_DEVICE_INTERFACE_NAME alone does not resolve that
+configuration. Ambiguity refusal is the expected defensive result, not a working
+span repair. Do not distribute this candidate as a verified fix for this case.
+
+Next evidence: reconnect repeatability, monitor children/state flags and active
+source-to-target mapping. A wrong first-child association is a supported
+hypothesis, not yet an observed native call-by-call attribution.
+QueryDisplayConfig is already used for colour diagnostics but not identity reads.
+Further identity resolution work and native acceptance remain required.
+Full evolving evidence:
+`D:/Tools/Code/Offhand/docs/COMPANION-DISPLAY-SECOND-REPORT-20261106.md`.
+No runtime source or native artifact was changed by this acceptance update.
+
 The owner requested that the CurseForge display-selection correction be included
 in the main custom-workspace rework and hardened without depending on the reporter
 providing exact monitor or dock details. Integrated on

@@ -58,7 +58,7 @@ namespace Offhand.Companion
             }
         }
 
-        private static void CheckScale(float factor)
+        private static void CheckScale(float factor, bool enlargedChildren = false)
         {
             using (var form = new CompanionForm())
             {
@@ -76,6 +76,13 @@ namespace Offhand.Companion
                 ComboBox mainhand = combos.Single(control => control.AccessibleName == "Mainhand game display");
                 ComboBox gameSide = combos.Single(control => control.AccessibleName == "Game side on single display");
                 Button identify = One<Button>(config, control => control.Text == "Identify Displays");
+                if (enlargedChildren)
+                {
+                    form.Font = new Font("Segoe UI", 9f * factor);
+                    displays.Scale(new SizeF(factor, factor));
+                    delay.Parent.Controls[0].Scale(new SizeF(factor, factor));
+                    LayoutAll(form);
+                }
 
                 Button custom = One<Button>(config, control => control.Text.StartsWith("Workspace layout ("));
                 Button profiles = One<Button>(config, control => control.Text == "Workspace profiles...");
@@ -87,6 +94,13 @@ namespace Offhand.Companion
                         throw new Exception(control.GetType().Name + " escaped the configuration card at " + factor + "x: " + bounds);
                     if (bounds.Width <= 0 || bounds.Height <= 0)
                         throw new Exception(control.GetType().Name + " collapsed at " + factor + "x.");
+                    for (Control parent = control.Parent; parent != config; parent = parent.Parent)
+                    {
+                        Rectangle inside = BoundsInside(control, parent);
+                        if (!parent.ClientRectangle.Contains(inside))
+                            throw new Exception(control.GetType().Name + " clipped by " + parent.GetType().Name
+                                + " at " + factor + "x: " + inside);
+                    }
                 }
 
                 Rectangle displayBounds = BoundsInside(displays, config);
@@ -315,6 +329,7 @@ namespace Offhand.Companion
             CheckScale(1.5f);
             CheckScale(1.75f);
             CheckScale(2.0f);
+            CheckScale(1.75f, true);
             foreach (float factor in new float[] { 1f, 1.25f, 1.5f, 2f })
             foreach (string mode in new string[] { "standard", "single", "secondary" })
             using (var choice = new CustomRegionModeDialog(new Dictionary<string,string> {
