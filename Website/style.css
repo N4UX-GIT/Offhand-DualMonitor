@@ -2078,3 +2078,5 @@ kbd {
 .setup-optional > summary { cursor: pointer; padding: 18px; color: var(--rio-gold); font-weight: 700; }
 .setup-next { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; margin-top: 24px; }
 .content-section[hidden] { display: none; }
+
+#finish-calibration { scroll-margin-top: 100px; }

@@ -193,8 +193,6 @@
                         <li>Open <code>/offhand guide</code> and select <strong>the same method you used above</strong>: Use FancyZones or Configure Manually. Do not switch methods at this step.</li>
                         <li>Confirm that WoW is visibly covering the intended displays or ultrawide region.</li>
                         <li>Click <strong>Confirm placement</strong>, then choose <strong>Remember Window</strong> in the confirmation dialog. Offhand stores the confirmed canvas dimensions account-wide. In settings, the equivalent action is <strong>Remember Current Window</strong>.</li>
-                        <li>Complete seam, Mainhand, viewport, and UI-scale calibration.</li>
-                        <li>On clients with supported Blizzard Edit Mode APIs, create the Mainhand HUD layout outside combat and reload when prompted.</li>
                     </ol>
                 </article>
                 <article class="faq-card guide-panel">
@@ -210,7 +208,7 @@
             <div class="guide-callout warning-callout">
                 <strong>Visual confirmation still matters.</strong> WoW exposes its render-canvas size to the addon, but not the native window position or the physical monitor rectangles beneath it. A same-sized window moved away from the intended seam cannot be detected reliably by addon Lua.
             </div>
-            <div class="hero-actions setup-guide-actions"><a href="in-game-setup.html" class="btn btn-wow-red btn-lg">Continue with the in-game guide</a></div>
+            <div class="hero-actions setup-guide-actions"><a href="in-game-setup.html#finish-calibration" class="btn btn-wow-red btn-lg">Continue to calibration</a></div>
 <details class="faq-card settings-screenshot-details"><summary class="faq-summary"><h3>See the window confirmation</h3><span>Shared by FancyZones and manual placement</span><svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></summary><div class="faq-body settings-screenshot-gallery"><figure><div class="image-frame"><img src="assets/offhand-guide-independent-confirmation-20261101.png" alt="Independent placement needs your confirmation." width="871" height="571" loading="lazy" decoding="async"></div><figcaption><strong>Independent placement needs your confirmation.</strong> Offhand can read the render-canvas size, but cannot verify the native window position or physical display boundaries.</figcaption></figure><figure><div class="image-frame"><img src="assets/offhand-guide-remember-window-20261101.png" alt="Confirm this Offhand window." width="417" height="258" loading="lazy" decoding="async"></div><figcaption><strong>Confirm this Offhand window.</strong> Only choose Remember Window after checking the actual placement across your displays. Back returns without confirming.</figcaption></figure></div></details>
         </section>
 
