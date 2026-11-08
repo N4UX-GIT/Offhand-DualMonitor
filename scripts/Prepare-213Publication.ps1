@@ -1,14 +1,28 @@
 param(
     [string]$OutputDirectory,
     [string]$CompanionDirectory,
-    [switch]$ValidateOnly
+    [switch]$ValidateOnly,
+    [switch]$HistoricalArtifactsOnly
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
+if ($HistoricalArtifactsOnly -and (!$ValidateOnly -or $OutputDirectory)) {
+    throw 'Historical artifact verification cannot prepare or publish packages.'
+}
 $addonVersion = '2.1.3-beta.27'
 if (-not $CompanionDirectory) { $CompanionDirectory = Join-Path $root 'Companion/Prepared/2.1.3' }
 $native = (Resolve-Path -LiteralPath $CompanionDirectory).Path
 $receipt = Get-Content -LiteralPath (Join-Path $native 'release.json') -Raw | ConvertFrom-Json
+if ($HistoricalArtifactsOnly) {
+    # Current Companion development may advance beyond the released runtime.
+    # Verify its original immutable receipt, not new source against old bytes.
+    $receiptBytes = [Text.Encoding]::UTF8.GetBytes([IO.File]::ReadAllText((Join-Path $native 'release.json')).Replace("`r`n", "`n"))
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { $receiptHash = [BitConverter]::ToString($sha.ComputeHash($receiptBytes)).Replace('-', '') } finally { $sha.Dispose() }
+    if ($receiptHash -ne '39932C487054B5C137F6602409637B68009A67F3FE80088247CD075F91284F52') {
+        throw 'Historical Companion receipt changed.'
+    }
+}
 $exeHash = '88916B6FBAA4FF2E81EC574F8FA248C553ED531AD7A3DC828FF4948568797443'
 $zipHash = 'C277105FEFA08B8A7EC7B089151D418960FF0378B449375BBBF56B2686AB816A'
 if ($receipt.version -ne '2.1.3' -or $receipt.fileVersion -ne '2.1.3.9' -or
@@ -32,6 +46,7 @@ $inputPaths = @('Companion/Source/Program.cs', 'Companion/Source/LayoutDocument.
 if (@($receipt.inputs).Count -ne $inputPaths.Count -or
     @(Compare-Object $inputPaths @($receipt.inputs.path)).Count) { throw 'Frozen source inventory mismatch.' }
 foreach ($sourceInput in $receipt.inputs) {
+    if ($HistoricalArtifactsOnly) { continue }
     $bytes = [IO.File]::ReadAllBytes((Join-Path $root $sourceInput.path))
     if ($sourceInput.normalization -eq 'CRLF-to-LF') {
         $bytes = [Text.Encoding]::UTF8.GetBytes([Text.Encoding]::UTF8.GetString($bytes).Replace("`r`n", "`n"))
@@ -74,7 +89,11 @@ if (([IO.File]::ReadAllText((Join-Path $root 'Core/CompanionTopology.lua')) -rep
 if (([IO.File]::ReadAllText((Join-Path $root 'Core/ForeverState.lua')) -replace '(?s)--\[\[.*?--\]\]','').Trim()) {
     throw 'Recovery bridge must be inert.'
 }
-if ($ValidateOnly) { Write-Output 'PASS: frozen Companion, source inputs, minimal ZIP and matching add-on inventory.'; return }
+if ($ValidateOnly) {
+    if ($HistoricalArtifactsOnly) { Write-Output 'PASS: historical Companion receipt/EXE/ZIP and add-on inventory; current runtime is not packaged.' }
+    else { Write-Output 'PASS: frozen Companion, source inputs, minimal ZIP and matching add-on inventory.' }
+    return
+}
 if (@(& git -C $root status --porcelain).Count) { throw 'Commit the complete publication source before packaging.' }
 if (-not $OutputDirectory) { throw 'Use a fresh explicit OutputDirectory.' }
 $output = [IO.Path]::GetFullPath($OutputDirectory)

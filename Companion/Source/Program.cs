@@ -62,7 +62,7 @@ using System.Windows.Forms;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.3.9")]
+[assembly: AssemblyFileVersion("2.1.3.10")]
 [assembly: AssemblyInformationalVersion("2.1.3")]
 #endif
 
@@ -188,6 +188,27 @@ namespace Offhand.Companion
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
         private static extern int GetCurrentPackageFullName(ref int packageFullNameLength,
             StringBuilder packageFullName);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+        private static extern int GetCurrentPackageFamilyName(ref int length, StringBuilder familyName);
+
+        internal static string PackageFamilyName()
+        {
+            try
+            {
+                int length = 0;
+                int result = GetCurrentPackageFamilyName(ref length, null);
+                if (result == AppModelErrorNoPackage) return null;
+                if (result != ErrorInsufficientBuffer || length <= 0)
+                    throw new IOException("Cannot locate Microsoft Store settings (Windows error " + result + ").");
+                var family = new StringBuilder(length);
+                result = GetCurrentPackageFamilyName(ref length, family);
+                if (result != 0) throw new IOException("Cannot locate Microsoft Store settings (Windows error " + result + ").");
+                return family.ToString();
+            }
+            catch (EntryPointNotFoundException) { return null; }
+            catch (DllNotFoundException) { return null; }
+        }
 
         internal static bool IsStorePackage()
         {
@@ -3074,8 +3095,60 @@ namespace Offhand.Companion
         }
     }
 
+    internal static class CompanionSettingsPath
+    {
+        internal static string Resolve(string localData, string packageFamily)
+        {
+            if (string.IsNullOrEmpty(packageFamily)) return Path.Combine(localData, "Offhand", "OffhandConfig.ini");
+            if (packageFamily.IndexOfAny(new[] { '\\', '/', ':', '\r', '\n' }) >= 0 || packageFamily == "." || packageFamily == "..")
+                throw new InvalidDataException("Invalid Microsoft Store package family.");
+            // Use one physical package-data directory, not merged/redirected
+            // AppData paths whose source and destination may resolve differently.
+            return Path.Combine(localData, "Packages", packageFamily, "LocalState", "OffhandConfig.ini");
+        }
+
+        internal static string ReadSource(string current, string legacy, string portable)
+        {
+            if (File.Exists(current)) return current;
+            // Read legacy through the package context so Windows can find its
+            // existing redirected copy. Import only on the next explicit save.
+            return File.Exists(legacy) ? legacy : portable;
+        }
+    }
+
     internal static class PreferenceFile
     {
+        [DllImport("kernel32.dll", EntryPoint = "MoveFileExW", CharSet = CharSet.Unicode,
+            ExactSpelling = true, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool MoveFileEx(string source, string destination, uint flags);
+
+        internal static void ReplaceExisting(string temporary, string target, Action<string,string> replace = null)
+        {
+            try
+            {
+                if (replace != null) replace(temporary, target);
+                else File.Replace(temporary, target, null);
+            }
+            catch (IOException ex)
+            {
+                // Only ERROR_INVALID_PARAMETER has this compatibility path.
+                // Sharing/permission errors still fail without touching target.
+                if (ex.HResult != unchecked((int)0x80070057)) throw;
+                if (!string.Equals(Path.GetDirectoryName(Path.GetFullPath(temporary)),
+                    Path.GetDirectoryName(Path.GetFullPath(target)), StringComparison.OrdinalIgnoreCase)) throw;
+                // Immediate same-directory rename, no copy/delete or live-file
+                // truncation fallback, and no cross-volume/reboot options.
+                if (!MoveFileEx(temporary, target, 0x1 | 0x8))
+                {
+                    int error = Marshal.GetLastWin32Error();
+                    throw new IOException("Cannot replace saved settings: " +
+                        new System.ComponentModel.Win32Exception(error).Message,
+                        unchecked((int)(0x80070000U | (uint)error)));
+                }
+            }
+        }
+
         internal static void Write(string path, IDictionary<string, string> settings)
         { Write(path, settings, null); }
 
@@ -3094,20 +3167,39 @@ namespace Offhand.Companion
                 lines.Add(key + "=" + value);
             }
             string target = Path.GetFullPath(path);
-            Directory.CreateDirectory(Path.GetDirectoryName(target));
             string temporary = target + ".pending-" + Guid.NewGuid().ToString("N");
+            string operation = "creating the settings directory";
             try
             {
+                Directory.CreateDirectory(Path.GetDirectoryName(target));
+                operation = "writing the new settings file";
                 byte[] bytes = new UTF8Encoding(false).GetBytes(string.Join(Environment.NewLine, lines.ToArray()) + Environment.NewLine);
                 using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                { stream.Write(bytes, 0, bytes.Length); stream.Flush(true); }
+                {
+                    stream.Write(bytes, 0, bytes.Length);
+                    operation = "flushing the new settings file";
+                    stream.Flush(true);
+                }
+                operation = "validating the new settings";
                 if (beforePublish != null) beforePublish(temporary);
                 // Never fall back to truncating a live settings file if atomic
                 // replacement is unavailable or rejected by the filesystem.
-                if (File.Exists(target)) File.Replace(temporary, target, null);
+                operation = "replacing saved settings";
+                if (File.Exists(target)) ReplaceExisting(temporary, target);
                 else File.Move(temporary, target);
             }
-            finally { if (File.Exists(temporary)) File.Delete(temporary); }
+            catch (IOException ex)
+            {
+                throw new IOException("Settings were not saved while " + operation + " (0x" +
+                    ex.HResult.ToString("X8") + "): " + ex.Message, ex);
+            }
+            finally
+            {
+                // Cleanup must not hide the operation that actually failed.
+                try { if (File.Exists(temporary)) File.Delete(temporary); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
         }
 
         internal static Dictionary<string, string> Read(string path)
@@ -4363,7 +4455,9 @@ namespace Offhand.Companion
         private static readonly string configPath = SpanPresentationTest.ConfigPath;
 #else
         private static readonly string configPath = GraphicsRecoveryTestBuild
-            ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, RecoveryScope + "TestConfig.ini") : publicConfigPath;
+            ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, RecoveryScope + "TestConfig.ini")
+            : CompanionSettingsPath.Resolve(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                CompanionDistribution.PackageFamilyName());
 #endif
         private string configWarning;
         private bool requiresDisplayIdentityConfirmation;
@@ -4377,9 +4471,8 @@ namespace Offhand.Companion
 #if RDP_TEST || HDR_DPI_DIAGNOSTICS_TEST
                 string source = File.Exists(configPath) ? configPath : publicConfigPath;
 #else
-                string source = File.Exists(configPath) ? configPath :
-                    GraphicsRecoveryTestBuild && File.Exists(publicConfigPath) ? publicConfigPath :
-                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "OffhandConfig.ini");
+                string source = CompanionSettingsPath.ReadSource(configPath, publicConfigPath,
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "OffhandConfig.ini"));
 #endif
                 appSettings = PreferenceFile.Read(source);
                 requiresDisplayIdentityConfirmation=!HasStableIdentitySettings()
@@ -4607,7 +4700,10 @@ namespace Offhand.Companion
             AddLog("TEST MODE: " + SpanPresentationTest.Mode + "; manual Span only. Logs: " + SpanPresentationTest.LogPath);
 #endif
             if (configWarning != null) AddLog(configWarning);
-            AddLog("Offhand Companion v" + FullVersion + " initialized.");
+            AddLog("Offhand Companion v" + FullVersion + " (build " +
+                ((AssemblyFileVersionAttribute)Attribute.GetCustomAttribute(typeof(CompanionForm).Assembly,
+                    typeof(AssemblyFileVersionAttribute))).Version + ") initialized.");
+            AddLog("Settings storage: " + (isStorePackage ? "Microsoft Store package data." : "local user profile."));
 #if HDR_DPI_DIAGNOSTICS_TEST
             this.Text = "Offhand Companion - HDR / DPI DIAGNOSTICS TEST 3";
             chkAutoSpan.Enabled = false;
@@ -5988,7 +6084,12 @@ namespace Offhand.Companion
             RefreshSelectedColorStatus();
             try
             {
-                Clipboard.SetText("Offhand Companion " + FullVersion + "\r\nCaptured UTC: " + DateTime.UtcNow.ToString("u")
+                Clipboard.SetText("Offhand Companion " + FullVersion
+                    + "\r\nBuild: " + ((AssemblyFileVersionAttribute)Attribute.GetCustomAttribute(typeof(CompanionForm).Assembly,
+                        typeof(AssemblyFileVersionAttribute))).Version
+                    + "\r\nWindows: " + Environment.OSVersion.Version
+                    + "\r\nSettings storage: " + (isStorePackage ? "Microsoft Store package data" : "local user profile")
+                    + "\r\nCaptured UTC: " + DateTime.UtcNow.ToString("u")
                     + "\r\n" + colorDiagnostics + "\r\nWindows display state only; game HDR conversion, WoW UI/render scale and image brightness are not measured.");
                 AddLog("Display diagnostics copied to clipboard.");
             }

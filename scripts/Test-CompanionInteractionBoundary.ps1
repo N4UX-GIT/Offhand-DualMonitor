@@ -1,7 +1,8 @@
 param([string]$SourceDirectory = (Join-Path $PSScriptRoot '../Companion/Source'), [string]$OutputPath)
 $ErrorActionPreference='Stop'
 $allowed=@(
- 'kernel32.dll!GetCurrentPackageFullName','user32.dll!GetDisplayConfigBufferSizes','user32.dll!QueryDisplayConfig',
+ 'kernel32.dll!GetCurrentPackageFullName','kernel32.dll!GetCurrentPackageFamilyName',
+ 'kernel32.dll!MoveFileEx','user32.dll!GetDisplayConfigBufferSizes','user32.dll!QueryDisplayConfig',
  'user32.dll!GetSourceName','user32.dll!GetTargetName','user32.dll!GetColorInfo','user32.dll!MonitorFromRect','user32.dll!GetMonitorInfo',
  'shcore.dll!GetScaleFactorForMonitor','user32.dll!GetWindowPlacement','user32.dll!SetWindowPlacement',
  'user32.dll!EnumWindows','user32.dll!GetWindowThreadProcessId','user32.dll!IsWindowVisible','user32.dll!IsZoomed',
@@ -18,7 +19,7 @@ $allowed=@(
 $pattern='\[DllImport\("(?<dll>[^"]+)"(?<args>[^\]]*)\)\]\s*(?:\[return:[^\]]+\]\s*)*(?:public|private|internal)\s+static\s+extern\s+\S+\s+(?<name>\w+)\s*\('
 $denied='\b(ReadProcessMemory|WriteProcessMemory|VirtualAllocEx|CreateRemoteThread|NtReadVirtualMemory|NtWriteVirtualMemory|SetWindowsHookEx|SendInput|SendMessage|PostMessage|SendKeys|keybd_event|mouse_event|GetProcAddress|LoadLibrary|PROCESS_ALL_ACCESS|PROCESS_VM_READ|PROCESS_VM_WRITE)\b'
 # Source/target names and color requests all read DisplayConfigGetDeviceInfo.
-$aliases=@{GetSourceName='DisplayConfigGetDeviceInfo';GetTargetName='DisplayConfigGetDeviceInfo';GetColorInfo='DisplayConfigGetDeviceInfo';GetMonitorInfo='GetMonitorInfoW'}
+$aliases=@{GetSourceName='DisplayConfigGetDeviceInfo';GetTargetName='DisplayConfigGetDeviceInfo';GetColorInfo='DisplayConfigGetDeviceInfo';GetMonitorInfo='GetMonitorInfoW';MoveFileEx='MoveFileExW'}
 $found=@();$files=@();$excluded=@();$allSource=''
 foreach($file in Get-ChildItem -LiteralPath $SourceDirectory -Filter '*.cs' -File){
  $source=[IO.File]::ReadAllText($file.FullName);$allSource+=$source+"`n"
