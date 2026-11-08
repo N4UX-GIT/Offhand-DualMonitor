@@ -835,8 +835,7 @@ code {
 .quest-step-card { min-width: 0; overflow-wrap: anywhere; }
 .companion-preview-figure { margin: 0; min-width: 0; }
 .companion-preview-figure img { display: block; width: 100%; height: auto; border-radius: 8px; }
-.companion-preview-figure a { display: block; border-radius: 8px; }
-.companion-preview-figure a:focus-visible { outline: 3px solid var(--rio-gold); outline-offset: 5px; }
+.companion-preview-figure .image-frame { display: block; border-radius: 8px; }
 .companion-preview-figure figcaption { margin-top: 12px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5; }
 
 @media (max-width: 960px) {
@@ -1740,9 +1739,7 @@ kbd {
     border-radius: 7px;
 }
 
-.walkthrough-gallery a { display: block; overflow: hidden; border-radius: 5px; }
-.walkthrough-gallery a:focus-visible { outline: 3px solid var(--rio-gold); outline-offset: 3px; }
-
+.walkthrough-gallery .image-frame { display: block; overflow: hidden; border-radius: 5px; }
 .walkthrough-gallery img {
     display: block;
     width: 100%;
@@ -1782,8 +1779,7 @@ kbd {
     border-radius: 7px;
 }
 
-.setup-visual-flow a { display: block; overflow: hidden; border-radius: 5px; }
-.setup-visual-flow a:focus-visible { outline: 3px solid var(--rio-gold); outline-offset: 3px; }
+.setup-visual-flow .image-frame { display: block; overflow: hidden; border-radius: 5px; }
 .setup-visual-flow img { display: block; width: 100%; height: auto; border-radius: 5px; }
 .setup-visual-flow figcaption { padding: 10px 4px 2px; color: var(--text-secondary); font-size: 0.82rem; line-height: 1.45; }
 
@@ -1835,8 +1831,7 @@ kbd {
     border-radius: var(--radius-md);
 }
 
-.hud-layout-example a { display: block; overflow: hidden; border-radius: 6px; }
-.hud-layout-example a:focus-visible { outline: 3px solid var(--rio-gold); outline-offset: 3px; }
+.hud-layout-example .image-frame { display: block; overflow: hidden; border-radius: 6px; }
 .hud-layout-example img { display: block; width: 100%; height: auto; border-radius: 6px; }
 .hud-layout-example figcaption { padding: 13px 6px 3px; color: var(--text-secondary); font-size: 0.88rem; line-height: 1.55; }
 .hud-layout-example figcaption strong { color: var(--rio-gold-bright); }
@@ -1896,8 +1891,7 @@ kbd {
 .settings-screenshot-gallery-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .settings-screenshot-gallery-single { grid-template-columns: minmax(0, 680px); justify-content: center; }
 .settings-screenshot-gallery figure { min-width: 0; margin: 0; padding: 10px; background: rgba(9, 11, 16, 0.68); border: 1px solid var(--rio-border-subtle); border-radius: 7px; }
-.settings-screenshot-gallery a { display: block; overflow: hidden; border-radius: 5px; }
-.settings-screenshot-gallery a:focus-visible { outline: 3px solid var(--rio-gold); outline-offset: 3px; }
+.settings-screenshot-gallery .image-frame { display: block; overflow: hidden; border-radius: 5px; }
 .settings-screenshot-gallery img { display: block; width: 100%; height: auto; border-radius: 5px; }
 .settings-screenshot-gallery figcaption { padding: 10px 4px 2px; color: var(--text-secondary); font-size: 0.82rem; line-height: 1.5; }
 .settings-screenshot-gallery figcaption strong { color: var(--rio-gold-bright); }
@@ -2066,9 +2060,8 @@ kbd {
 
 /* Keep workspace references visible and their UI proportions intact. */
 .workspace-card-image { margin: 18px 0; }
-.workspace-card-image a { display: flex; align-items: center; justify-content: center; height: 280px; background: #090909; border: 1px solid var(--rio-border-subtle); border-radius: 6px; overflow: hidden; }
+.workspace-card-image .image-frame { display: flex; align-items: center; justify-content: center; height: 280px; background: #090909; border: 1px solid var(--rio-border-subtle); border-radius: 6px; overflow: hidden; }
 .workspace-card-image img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; }
 .workspace-card-image figcaption, .guidance-crop figcaption { margin-top: 10px; color: var(--text-secondary); font-size: 0.84rem; line-height: 1.6; }
 .guidance-crop { margin: 22px auto; max-width: 640px; }
 .guidance-crop img { display: block; max-width: 100%; height: auto; margin: auto; border: 1px solid var(--rio-border-subtle); border-radius: 5px; }
-.workspace-card-image a:focus-visible, .guidance-crop a:focus-visible { outline: 3px solid var(--rio-gold); outline-offset: 4px; }
