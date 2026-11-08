@@ -2065,3 +2065,18 @@ kbd {
 .workspace-card-image figcaption, .guidance-crop figcaption { margin-top: 10px; color: var(--text-secondary); font-size: 0.84rem; line-height: 1.6; }
 .guidance-crop { margin: 22px auto; max-width: 640px; }
 .guidance-crop img { display: block; max-width: 100%; height: auto; margin: auto; border: 1px solid var(--rio-border-subtle); border-radius: 5px; }
+
+/* One required route: addon, one window method, then in-game completion. */
+.setup-stage { display: grid; grid-template-columns: 42px minmax(0,1fr); gap: 18px; margin: 30px 0 20px; }
+.setup-stage h3 { color: var(--rio-gold); margin: 4px 0 12px; }
+.setup-stage p { line-height: 1.7; margin: 8px 0; }
+.setup-choice-label { color: var(--rio-gold); font-size: 0.88rem; margin: 10px 0; }
+.setup-method-grid .method-card { display: flex; flex-direction: column; align-items: start; }
+.setup-method-grid .method-card > .btn { margin-top: auto; }
+.setup-choice-note { line-height: 1.7; margin: 20px 0; color: var(--text-secondary); }
+.setup-optional { margin-top: 28px; }
+.setup-optional > summary { cursor: pointer; padding: 18px; color: var(--rio-gold); font-weight: 700; }
+.setup-next { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; margin-top: 24px; }
+.content-section[hidden] { display: none; }
+
+#finish-calibration { scroll-margin-top: 100px; }
