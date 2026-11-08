@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.IO;
+using System.Reflection;
 using System.Windows.Forms;
 
 namespace Offhand.Companion
@@ -43,7 +45,7 @@ namespace Offhand.Companion
             parent.PerformLayout();
         }
 
-        private static void CheckScale(float factor)
+        private static void CheckScale(float factor, bool enlargedChildren)
         {
             using (var form = new CompanionForm())
             {
@@ -61,6 +63,14 @@ namespace Offhand.Companion
                 ComboBox gameSide = combos.OrderBy(control => control.Width).First();
                 Button identify = One<Button>(config, control => control.Text == "Identify Displays");
 
+                if (enlargedChildren)
+                {
+                    form.Font = new Font("Segoe UI", 9f * factor);
+                    displays.Scale(new SizeF(factor, factor));
+                    delay.Parent.Controls[0].Scale(new SizeF(factor, factor));
+                    LayoutAll(form);
+                }
+
                 foreach (Control control in new Control[] { delay, displays, mainhand, gameSide, identify })
                 {
                     Rectangle bounds = BoundsInside(control, config);
@@ -69,6 +79,13 @@ namespace Offhand.Companion
                         throw new Exception(control.GetType().Name + " escaped the configuration card at " + factor + "x: " + bounds);
                     if (bounds.Width <= 0 || bounds.Height <= 0)
                         throw new Exception(control.GetType().Name + " collapsed at " + factor + "x.");
+                    for (Control parent = control.Parent; parent != form; parent = parent.Parent)
+                    {
+                        Rectangle inside = BoundsInside(control, parent);
+                        if (!parent.ClientRectangle.Contains(inside))
+                            throw new Exception(control.GetType().Name + " clipped by " + parent.GetType().Name
+                                + " at " + factor + "x: " + inside);
+                    }
                 }
 
                 Rectangle displayBounds = BoundsInside(displays, config);
@@ -86,10 +103,17 @@ namespace Offhand.Companion
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            CheckScale(1.25f);
-            CheckScale(1.5f);
-            CheckScale(2.0f);
-            Console.WriteLine("PASS: configuration selectors remain measured and separated at 125%, 150%, and 200% scaling");
+            string config = Path.Combine(Path.GetTempPath(), "Offhand-layout-" + Guid.NewGuid().ToString("N") + ".ini");
+            typeof(CompanionForm).GetField("configPath", BindingFlags.NonPublic | BindingFlags.Static)
+                .SetValue(null, config);
+            try
+            {
+                foreach (float scale in new[] { 1f, 1.25f, 1.5f, 1.75f, 2f })
+                    CheckScale(scale, false);
+                CheckScale(1.75f, true);
+                Console.WriteLine("PASS: configuration controls fit every ancestor at 100-200% and enlarged 175% sizing");
+            }
+            finally { if (File.Exists(config)) File.Delete(config); }
         }
     }
 }

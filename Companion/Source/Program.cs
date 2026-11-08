@@ -228,14 +228,34 @@ namespace Offhand.Companion
         private static int FindDisplay(IList<Display> displays, string stableId, string deviceName)
         {
             if (!string.IsNullOrWhiteSpace(stableId))
+            {
+                int match = -1;
                 for (int i = 0; i < displays.Count; i++)
                     if (string.Equals(displays[i].StableId, stableId, StringComparison.OrdinalIgnoreCase))
-                        return i;
+                    {
+                        if (match >= 0) return -2;
+                        match = i;
+                    }
+                if (match >= 0) return match;
+            }
             if (!string.IsNullOrWhiteSpace(deviceName))
                 for (int i = 0; i < displays.Count; i++)
                     if (string.Equals(displays[i].DeviceName, deviceName, StringComparison.OrdinalIgnoreCase))
                         return i;
             return -1;
+        }
+
+        internal static bool HasCurrentIdentitySettings(IDictionary<string, string> settings)
+        {
+            string version, identities, mainhand;
+            if (!settings.TryGetValue("DisplayIdentityVersion", out version) || version != "2"
+                || !settings.TryGetValue("MonitorIdentities", out identities)
+                || !settings.TryGetValue("MainhandIdentity", out mainhand)
+                || string.IsNullOrWhiteSpace(mainhand)) return false;
+            var unique = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string identity in Tokens(identities, '|'))
+                if (string.IsNullOrWhiteSpace(identity) || !unique.Add(identity)) return false;
+            return unique.Count > 0 && unique.Contains(mainhand);
         }
 
         internal static bool HasDisconnectedSavedDisplay(string savedIdentities, string savedDevices,
@@ -291,10 +311,15 @@ namespace Offhand.Companion
             bool useStableIdentities = savedIdentities != null;
             if (selectedValues != null)
             {
+                var requestedSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (string requested in devices)
                 {
+                    if (!requestedSet.Add(requested))
+                        throw new InvalidOperationException("The saved display selection contains duplicate identities. Review the checked displays and Mainhand, then click Span WoW Now again.");
                     int match = FindDisplay(displays, useStableIdentities ? requested : null,
                         useStableIdentities ? null : requested);
+                    if (match == -2)
+                        throw new InvalidOperationException("Windows returned the same monitor identity for multiple displays. Offhand cannot safely distinguish Mainhand from the workspace; no span was applied.");
                     if (match < 0)
                         throw new InvalidOperationException("A saved display is disconnected (" + requested + "). Restore the WoW window or reconnect it; Offhand will not collapse the span onto the remaining screen.");
                     if (!selected.Contains(match)) selected.Add(match);
@@ -325,13 +350,11 @@ namespace Offhand.Companion
             int mainhand = -1;
             if (!string.IsNullOrWhiteSpace(mainhandIdentity) || !string.IsNullOrWhiteSpace(mainhandDevice))
             {
-                foreach (int index in selected)
-                    if ((!string.IsNullOrWhiteSpace(mainhandIdentity)
-                            && string.Equals(displays[index].StableId, mainhandIdentity, StringComparison.OrdinalIgnoreCase))
-                        || (string.IsNullOrWhiteSpace(mainhandIdentity)
-                            && string.Equals(displays[index].DeviceName, mainhandDevice, StringComparison.OrdinalIgnoreCase)))
-                        mainhand = index;
-                if (mainhand < 0)
+                mainhand = FindDisplay(displays, mainhandIdentity,
+                    string.IsNullOrWhiteSpace(mainhandIdentity) ? mainhandDevice : null);
+                if (mainhand == -2)
+                    throw new InvalidOperationException("The Mainhand monitor identity is ambiguous. Review the display selection; no span was applied.");
+                if (mainhand < 0 || !selected.Contains(mainhand))
                     throw new InvalidOperationException("The saved Mainhand display is unavailable. Select the connected game-view display before spanning.");
             }
             if (mainhand < 0)
@@ -1207,9 +1230,11 @@ namespace Offhand.Companion
         {
             var monitor = new NativeMethods.DISPLAY_DEVICE();
             monitor.cb = Marshal.SizeOf(typeof(NativeMethods.DISPLAY_DEVICE));
-            if (!NativeMethods.EnumDisplayDevices(deviceName, 0, ref monitor, 0)) return null;
+            // Request the documented per-monitor interface name. The ordinary
+            // DeviceID and reserved DeviceKey are not unique-identity contracts.
+            const uint EDD_GET_DEVICE_INTERFACE_NAME = 1;
+            if (!NativeMethods.EnumDisplayDevices(deviceName, 0, ref monitor, EDD_GET_DEVICE_INTERFACE_NAME)) return null;
             if (!string.IsNullOrWhiteSpace(monitor.DeviceID)) return monitor.DeviceID.Trim();
-            if (!string.IsNullOrWhiteSpace(monitor.DeviceKey)) return monitor.DeviceKey.Trim();
             return null;
         }
 
@@ -1226,9 +1251,7 @@ namespace Offhand.Companion
 
         private static bool HasStableIdentitySettings()
         {
-            return appSettings.ContainsKey("DisplayIdentityVersion")
-                && appSettings.ContainsKey("MonitorIdentities")
-                && appSettings.ContainsKey("MainhandIdentity");
+            return MonitorSelection.HasCurrentIdentitySettings(appSettings);
         }
 
         private void RefreshDisplayControls(List<MonitorSelection.Display> displays)
@@ -1249,6 +1272,8 @@ namespace Offhand.Companion
             appSettings.TryGetValue("MainhandDevice", out savedMainhand);
 
             refreshingDisplayControls = true;
+            displayControlRevision++;
+            displaySelectionEdited = false;
             clbMonitors.BeginUpdate();
             cmbMainhand.BeginUpdate();
             try
@@ -1271,13 +1296,14 @@ namespace Offhand.Companion
                 {
                     var choice = (DisplayChoice)cmbMainhand.Items[i];
                     if ((useStableIdentities && string.Equals(choice.StableId, savedMainhandIdentity, StringComparison.OrdinalIgnoreCase))
-                        || (!useStableIdentities && uiDisplays[i].Primary))
+                        || (!useStableIdentities && string.Equals(choice.DeviceName, savedMainhand, StringComparison.OrdinalIgnoreCase)))
                     {
                         cmbMainhand.SelectedIndex = i;
                         break;
                     }
                 }
-                if (cmbMainhand.SelectedIndex < 0 && cmbMainhand.Items.Count > 0)
+                if (cmbMainhand.SelectedIndex < 0 && cmbMainhand.Items.Count > 0
+                    && string.IsNullOrWhiteSpace(savedMainhand) && string.IsNullOrWhiteSpace(savedMainhandIdentity))
                 {
                     for (int i = 0; i < uiDisplays.Count; i++)
                         if (uiDisplays[i].Primary) { cmbMainhand.SelectedIndex = i; break; }
@@ -1295,6 +1321,13 @@ namespace Offhand.Companion
 
         private MonitorSelection.Plan GetMonitorPlan(List<MonitorSelection.Display> displays)
         {
+            if (!HasStableIdentitySettings())
+                throw new InvalidOperationException("Display identity upgrade required. Verify the selected displays and Mainhand, then click Span WoW Now.");
+            return GetUnconfirmedMonitorPlan(displays);
+        }
+
+        private MonitorSelection.Plan GetUnconfirmedMonitorPlan(List<MonitorSelection.Display> displays)
+        {
             string identities, devices, legacy, mainhandIdentity, mainhand, split, side;
             appSettings.TryGetValue("MonitorIdentities", out identities);
             appSettings.TryGetValue("MonitorDevices", out devices);
@@ -1303,8 +1336,6 @@ namespace Offhand.Companion
             appSettings.TryGetValue("MainhandDevice", out mainhand);
             appSettings.TryGetValue("SingleDisplaySplit", out split);
             appSettings.TryGetValue("SingleGameSide", out side);
-            if (!HasStableIdentitySettings())
-                throw new InvalidOperationException("Display identity upgrade required. Verify the selected displays and Mainhand, then click Span WoW Now.");
             return MonitorSelection.CreatePlan(identities, devices, legacy, mainhandIdentity, mainhand,
                 string.Equals(split, "True", StringComparison.OrdinalIgnoreCase),
                 string.Equals(side, "LEFT", StringComparison.OrdinalIgnoreCase), displays);
@@ -1326,18 +1357,30 @@ namespace Offhand.Companion
             appSettings["MonitorDevices"] = string.Join("|", devices.ToArray());
             if (identities.Count == devices.Count)
                 appSettings["MonitorIdentities"] = string.Join("|", identities.ToArray());
+            else appSettings.Remove("MonitorIdentities");
             appSettings["Monitors"] = string.Join(",", legacy.ToArray());
             var choice = cmbMainhand == null ? null : cmbMainhand.SelectedItem as DisplayChoice;
             if (choice != null)
             {
                 appSettings["MainhandDevice"] = choice.DeviceName;
                 if (!string.IsNullOrWhiteSpace(choice.StableId)) appSettings["MainhandIdentity"] = choice.StableId;
+                else appSettings.Remove("MainhandIdentity");
             }
-            if (identities.Count == devices.Count && identities.Count > 0 && choice != null
-                && !string.IsNullOrWhiteSpace(choice.StableId)) appSettings["DisplayIdentityVersion"] = "1";
+            else appSettings.Remove("MainhandIdentity");
+            appSettings.Remove("DisplayIdentityVersion");
             if (chkSingleSplit != null) appSettings["SingleDisplaySplit"] = chkSingleSplit.Checked.ToString();
             if (cmbSingleSide != null && cmbSingleSide.SelectedItem != null)
                 appSettings["SingleGameSide"] = cmbSingleSide.SelectedItem.ToString().ToUpperInvariant();
+            if (!requiresDisplayIdentityConfirmation && identities.Count == devices.Count
+                && identities.Count > 0 && choice != null && !string.IsNullOrWhiteSpace(choice.StableId))
+            {
+                try
+                {
+                    GetUnconfirmedMonitorPlan(uiDisplays);
+                    appSettings["DisplayIdentityVersion"] = "2";
+                }
+                catch (InvalidOperationException) { /* Incomplete edits remain unconfirmed. */ }
+            }
             SaveConfig();
         }
 
@@ -1352,12 +1395,14 @@ namespace Offhand.Companion
             for (int i = 0; i < clbMonitors.Items.Count; i++)
                 if (clbMonitors.GetItemChecked(i) && string.IsNullOrWhiteSpace(uiDisplays[i].StableId))
                     throw new InvalidOperationException("Windows did not provide a stable identity for every selected display.");
+            GetUnconfirmedMonitorPlan(uiDisplays);
             DialogResult answer = MessageBox.Show(
-                "Offhand now identifies physical monitors independently of Windows DISPLAY numbers.\n\n" +
+                "Offhand has updated monitor identification. Review the checked displays, using Identify Displays if needed.\n\n" +
                 "Verify that " + choice.Label + " is the Mainhand game display. Continue and remember this physical display selection?",
                 "Confirm Offhand displays", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
             if (answer != DialogResult.Yes)
                 throw new InvalidOperationException("Span cancelled. Select the correct Mainhand display and try again.");
+            requiresDisplayIdentityConfirmation = false;
             SaveDisplaySettingsFromControls();
             if (!HasStableIdentitySettings())
                 throw new InvalidOperationException("The physical display selection could not be saved.");
@@ -1369,6 +1414,9 @@ namespace Offhand.Companion
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Offhand", "OffhandConfig.ini");
         private string configWarning;
+        private bool requiresDisplayIdentityConfirmation;
+        private bool displaySelectionEdited;
+        private int displayControlRevision;
 
         private void LoadConfig()
         {
@@ -1378,6 +1426,9 @@ namespace Offhand.Companion
                 string source = File.Exists(configPath) ? configPath :
                     Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "OffhandConfig.ini");
                 appSettings = PreferenceFile.Read(source);
+                requiresDisplayIdentityConfirmation = !HasStableIdentitySettings()
+                    && (appSettings.ContainsKey("MonitorIdentities") || appSettings.ContainsKey("MonitorDevices")
+                        || appSettings.ContainsKey("Monitors"));
             }
             catch (IOException ex) { configWarning = "Cannot read settings: " + ex.Message; }
             catch (UnauthorizedAccessException ex) { configWarning = "Cannot read settings: " + ex.Message; }
@@ -1846,6 +1897,14 @@ namespace Offhand.Companion
             delayRow.Controls.Add(lblDelay);
             numDelaySpan = new NumericUpDown { Width = 60, Minimum = 0, Maximum = 60, Value = 15, Margin = Padding.Empty, BackColor = cCard, ForeColor = cText };
             delayRow.Controls.Add(numDelaySpan);
+            delayRow.Layout += (s, e) =>
+            {
+                // Labels can be font-scaled again after DPI scaling. Reserve
+                // the native numeric input before measuring the label.
+                int available = delayRow.ClientSize.Width - numDelaySpan.Width;
+                int labelWidth = Math.Max(0, available);
+                if (lblDelay.Width != labelWidth) lblDelay.Width = labelWidth;
+            };
             configLeft.Controls.Add(delayRow);
 
             Button btnIdentifyDisplays = CreateButton("Identify Displays", 0, 0, 190, 27,
@@ -1873,9 +1932,12 @@ namespace Offhand.Companion
                     uiDisplays[i].Primary ? " (Primary)" : ""), true);
             }
             clbMonitors.ItemCheck += (s, e) => {
-                if (!this.IsHandleCreated) return;
+                if (!this.IsHandleCreated || refreshingDisplayControls) return;
+                displaySelectionEdited = true;
+                int revision = displayControlRevision;
                 this.BeginInvoke(new Action(() => {
-                    SaveDisplaySettingsFromControls();
+                    if (!IsDisposed && revision == displayControlRevision)
+                        SaveDisplaySettingsFromControls();
                 }));
             };
             configRight.Controls.Add(clbMonitors);
@@ -1891,6 +1953,21 @@ namespace Offhand.Companion
                     Label = string.Format("Display {0} — {1}x{2}", i + 1, b.Width, b.Height) });
             }
             configRight.Controls.Add(cmbMainhand);
+            configRight.Layout += (s, e) =>
+            {
+                // The list scrolls internally. Give the labels and Mainhand
+                // selector their actual measured space at the active font/DPI.
+                int width = configRight.ClientSize.Width;
+                int listHeight = configRight.ClientSize.Height
+                    - lblMonitors.Height - lblMonitors.Margin.Vertical
+                    - lblMainhand.Height - lblMainhand.Margin.Vertical
+                    - cmbMainhand.Height - cmbMainhand.Margin.Vertical
+                    - clbMonitors.Margin.Vertical;
+                int height = Math.Max(1, listHeight);
+                if (clbMonitors.Width != width) clbMonitors.Width = width;
+                if (cmbMainhand.Width != width) cmbMainhand.Width = width;
+                if (clbMonitors.Height != height) clbMonitors.Height = height;
+            };
 
             chkSingleSplit = new CheckBox { Text = "Single-display 32:9 split", Size = new Size(220, 22), Margin = new Padding(0, 0, 0, 4), Font = new Font("Segoe UI", 9), ForeColor = cText, BackColor = Color.Transparent };
             configLeft.Controls.Add(chkSingleSplit);
@@ -1954,9 +2031,10 @@ namespace Offhand.Companion
             {
                 var choice = (DisplayChoice)cmbMainhand.Items[i];
                 if ((useStableIdentities && string.Equals(choice.StableId, savedMainhandIdentity, StringComparison.OrdinalIgnoreCase))
-                    || (!useStableIdentities && uiDisplays[i].Primary)) { cmbMainhand.SelectedIndex = i; break; }
+                    || (!useStableIdentities && string.Equals(choice.DeviceName, savedMainhand, StringComparison.OrdinalIgnoreCase))) { cmbMainhand.SelectedIndex = i; break; }
             }
-            if (cmbMainhand.SelectedIndex < 0 && cmbMainhand.Items.Count > 0)
+            if (cmbMainhand.SelectedIndex < 0 && cmbMainhand.Items.Count > 0
+                && string.IsNullOrWhiteSpace(savedMainhand) && string.IsNullOrWhiteSpace(savedMainhandIdentity))
             {
                 for (int i = 0; i < uiDisplays.Count; i++)
                     if (uiDisplays[i].Primary) { cmbMainhand.SelectedIndex = i; break; }
@@ -1965,9 +2043,9 @@ namespace Offhand.Companion
             chkSingleSplit.Checked = appSettings.ContainsKey("SingleDisplaySplit") && appSettings["SingleDisplaySplit"] == "True";
             if (appSettings.ContainsKey("SingleGameSide") && appSettings["SingleGameSide"].Equals("LEFT", StringComparison.OrdinalIgnoreCase)) cmbSingleSide.SelectedIndex = 1;
 
-            cmbMainhand.SelectedIndexChanged += (s, e) => { SaveDisplaySettingsFromControls(); };
-            chkSingleSplit.CheckedChanged += (s, e) => { cmbSingleSide.Enabled = chkSingleSplit.Checked; SaveDisplaySettingsFromControls(); };
-            cmbSingleSide.SelectedIndexChanged += (s, e) => { SaveDisplaySettingsFromControls(); };
+            cmbMainhand.SelectedIndexChanged += (s, e) => { if (!refreshingDisplayControls) displaySelectionEdited = true; SaveDisplaySettingsFromControls(); };
+            chkSingleSplit.CheckedChanged += (s, e) => { cmbSingleSide.Enabled = chkSingleSplit.Checked; displaySelectionEdited = true; SaveDisplaySettingsFromControls(); };
+            cmbSingleSide.SelectedIndexChanged += (s, e) => { displaySelectionEdited = true; SaveDisplaySettingsFromControls(); };
             cmbSingleSide.Enabled = chkSingleSplit.Checked;
 
             if (appSettings.ContainsKey("AutoSpan")) chkAutoSpan.Checked = appSettings["AutoSpan"] == "True";
@@ -2796,6 +2874,24 @@ namespace Offhand.Companion
                 proc = GetWoWProcess();
                 if (proc == null) throw new Exception("Launch exactly one WoW client first.");
 
+                List<MonitorSelection.Display> displays = ReadDisplays();
+                if (manual)
+                {
+                    if (!MonitorSelection.SameDisplays(uiDisplays, displays))
+                    {
+                        RefreshDisplayControls(displays);
+                        throw new InvalidOperationException("Windows display arrangement changed. Review the checked displays and Mainhand, then click Span WoW Now again.");
+                    }
+                    string savedIdentities, savedDevices;
+                    appSettings.TryGetValue("MonitorIdentities", out savedIdentities);
+                    appSettings.TryGetValue("MonitorDevices", out savedDevices);
+                    if (!displaySelectionEdited && MonitorSelection.HasDisconnectedSavedDisplay(
+                        HasStableIdentitySettings() ? savedIdentities : null, savedDevices, displays))
+                        throw new InvalidOperationException("A saved display is disconnected or ambiguous. Reconnect it, or explicitly review and change the selected displays before spanning.");
+                    // ItemCheck saves asynchronously. A manual action must use
+                    // the currently committed controls, not an older snapshot.
+                    SaveDisplaySettingsFromControls();
+                }
                 ConfirmStableDisplayIdentity(manual);
 
                 AddonStatus status = TestOffhandAddonStatus(proc);
@@ -2804,7 +2900,6 @@ namespace Offhand.Companion
                 IntPtr handle = GetWoWWindowHandle(proc);
                 if (handle == IntPtr.Zero) throw new Exception("WoW window is not ready. Retry after it opens.");
 
-                List<MonitorSelection.Display> displays = ReadDisplays();
                 string identities, devices, legacy, mainhandIdentity, mainhand, split, side;
                 appSettings.TryGetValue("MonitorIdentities", out identities);
                 appSettings.TryGetValue("MonitorDevices", out devices);
