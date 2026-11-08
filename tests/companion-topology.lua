@@ -23,7 +23,15 @@ end
 local stacked = plan(2560, 2520, rect(0, 0, 2560, 1440), rect(200, 1440, 1920, 1080))
 local split = plan(5120, 1440, rect(0, 0, 2560, 1440), rect(2560, 0, 2560, 1440))
 split.mode = "SPLIT_ULTRAWIDE"
+-- Investigation fixture only: the Companion planner does not yet expose this
+-- partial-width mode. Characterize schema 1 acceptance without relaxing it.
+local partial = plan(4080, 1440, rect(640, 0, 3440, 1440), rect(0, 0, 640, 1440))
+partial.mode = "SPLIT_ULTRAWIDE"
 local cases = {
+    {"partial occupied window", partial, 4080, 1440, 4080, 1440, "READY"},
+    {"partial stale full monitor", partial, 5120, 1440, 4080, 1440, "MISMATCH"},
+    {"partial stale full canvas", partial, 4080, 1440, 5120, 1440, "MISMATCH"},
+    {"partial restored game", partial, 3440, 1440, 3440, 1440, "MISMATCH"},
     {"exact mixed", mixed, 3640, 1816, 2287, 1141, "READY"},
     {"stale Mainhand", mixed, 2560, 1440, 2287, 1141, "READY"},
     {"stale workspace", mixed, 1080, 1816, 2287, 1141, "READY"},

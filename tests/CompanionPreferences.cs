@@ -8,7 +8,11 @@ namespace Offhand.Companion {
         private static int checkNumber;
         private static void Check(bool value) { checkNumber++; if (!value) throw new Exception("Preference regression at check " + checkNumber); }
         public static void Main() {
-            Check(CompanionForm.FullVersion == "2.1.2 Beta 20");
+            Check(CompanionForm.FullVersion == "2.1.3");
+            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+            Check(assembly.GetName().Version == new Version(2,1,3,0));
+            Check(((System.Reflection.AssemblyInformationalVersionAttribute)Attribute.GetCustomAttribute(
+                assembly, typeof(System.Reflection.AssemblyInformationalVersionAttribute))).InformationalVersion == "2.1.3");
             Check(CompanionDistribution.UpdateButtonText(true) == "Store Updates");
             Check(CompanionDistribution.UpdateButtonText(false) == "Check for Updates");
             Check(CompanionDistribution.UpdateMenuText(true).Contains("Microsoft Store"));
@@ -23,7 +27,7 @@ namespace Offhand.Companion {
             Check(CompanionReleaseVersion.TryParse("2.1.2-beta.18", out beta18));
             Check(CompanionReleaseVersion.TryParse("2.1.2-beta.19", out beta19));
             Check(CompanionReleaseVersion.TryParse("2.1.2", out stable));
-            Check(CompanionReleaseVersion.TryParse("2.1.3-beta.1", out newer));
+            Check(CompanionReleaseVersion.TryParse("2.1.3-beta.6", out newer));
             Check(beta14.CompareTo(beta13) > 0 && beta15.CompareTo(beta14) > 0
                 && beta18.CompareTo(beta15) > 0 && beta19.CompareTo(beta18) > 0
                 && stable.CompareTo(beta19) > 0 && newer.CompareTo(stable) > 0);
@@ -45,11 +49,21 @@ namespace Offhand.Companion {
             CompanionUpdateRelease legacyUpdate = CompanionUpdatePolicy.SelectLatest(legacyFeed, beta19);
             Check(legacyUpdate.Version.Display == "v2.1.2 Beta 18" && legacyUpdate.Url.EndsWith("legacy-18"));
             Check(!CompanionDefaults.AutoSpanOnLaunch);
+            Check(AutoSpanAttemptPolicy.ShouldAttempt(true, true, true, true,
+                false, false, false));
+            Check(!AutoSpanAttemptPolicy.ShouldAttempt(true, true, true, true,
+                false, false, true));
+            Check(!AutoSpanAttemptPolicy.ShouldAttempt(true, true, false, true,
+                false, false, false));
+            Check(!AutoSpanAttemptPolicy.ShouldAttempt(true, true, true, false,
+                false, false, false));
             Check(WindowInteropDiagnostics.StyleFailure("Could not remove WoW window borders", 5)
                 .Contains("same privilege level"));
             Check(WindowInteropDiagnostics.StyleFailure("Could not remove WoW window borders", 87)
                 .Contains("Windows error 87"));
             var renderTarget = new Rectangle(-440, -1080, 3440, 2520);
+            Check(!RenderResizeHandshake.Allowed(false));
+            Check(!RenderResizeHandshake.Allowed(true));
             var renderIntermediate = RenderResizeHandshake.IntermediateBounds(renderTarget);
             Check(renderIntermediate == new Rectangle(-440, -1080, 3440, 2519));
             Check(RenderResizeHandshake.IntermediateBounds(new Rectangle(2, 3, 10, 1))
@@ -58,6 +72,17 @@ namespace Offhand.Companion {
                 == new Rectangle(2, 3, 1, 1));
             Check(ProcessPathResolver.Get(null) == null);
             Check(!string.IsNullOrEmpty(ProcessPathResolver.Get(Process.GetCurrentProcess())));
+            var stableSettings = new Dictionary<string, string> {
+                { "DisplayIdentityVersion", "1" },
+                { "MonitorIdentities", "MONITOR\\MAIN\\A|MONITOR\\WORK\\B" },
+                { "MainhandIdentity", "MONITOR\\MAIN\\A" }
+            };
+            Check(MonitorSelection.HasSavedIdentitySettings(stableSettings));
+            Check(!MonitorSelection.HasStableIdentitySettings(stableSettings));
+            stableSettings["DisplayIdentityVersion"]="2";
+            Check(MonitorSelection.HasStableIdentitySettings(stableSettings));
+            stableSettings["MonitorIdentities"] = "";
+            Check(!MonitorSelection.HasStableIdentitySettings(stableSettings));
             var displays = new List<MonitorSelection.Display> {
                 new MonitorSelection.Display { Index = 0, DeviceName = @"\\.\DISPLAY1", StableId = @"MONITOR\MAIN\A", Bounds = new Rectangle(0, 0, 3440, 1440), WorkArea = new Rectangle(0, 0, 3440, 1400), Primary = true },
                 new MonitorSelection.Display { Index = 1, DeviceName = @"\\.\DISPLAY2", StableId = @"MONITOR\WORK\B", Bounds = new Rectangle(-1920, 360, 1920, 1080), WorkArea = new Rectangle(-1920, 360, 1920, 1040), Primary = false }
@@ -129,6 +154,36 @@ namespace Offhand.Companion {
                 Check(PreferenceFile.Delay("garbage") == 15);
                 Check(PreferenceFile.Delay("99999999999999999999999999999999999999") == 15);
                 Check(PreferenceFile.Delay("30") == 30);
+                settings["UnknownFutureKey"] = "kept=with=equals";
+                settings["DisplayName"] = "ø漢字";
+                PreferenceFile.Write(file, settings);
+                Check(PreferenceFile.Read(file)["UnknownFutureKey"] == "kept=with=equals"
+                    && PreferenceFile.Read(file)["DisplayName"] == "ø漢字");
+                byte[] lastGood = File.ReadAllBytes(file);
+                settings["DelaySpan"] = "17";
+                bool interrupted = false;
+                try { PreferenceFile.Write(file, settings, staged => { File.WriteAllText(staged, "partial"); throw new IOException("interrupted write"); }); }
+                catch (IOException) { interrupted = true; }
+                Check(interrupted && SpanRollback.SameBytes(lastGood, File.ReadAllBytes(file)));
+                bool lockedWrite = false;
+                using (var locked = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.None))
+                {
+                    try { PreferenceFile.Write(file, settings); }
+                    catch (IOException) { lockedWrite = true; }
+                }
+                Check(lockedWrite && SpanRollback.SameBytes(lastGood, File.ReadAllBytes(file)));
+                settings["Invalid"] = "line1\nline2";
+                bool invalidWrite = false;
+                try { PreferenceFile.Write(file, settings); }
+                catch (InvalidDataException) { invalidWrite = true; }
+                Check(invalidWrite && SpanRollback.SameBytes(lastGood, File.ReadAllBytes(file)));
+                settings.Remove("Invalid");
+                PreferenceFile.Write(file, settings);
+                Check(PreferenceFile.Read(file)["DelaySpan"] == "17");
+                string created = Path.Combine(root, "nested", "new.ini");
+                PreferenceFile.Write(created, settings);
+                Check(PreferenceFile.Read(created)["UnknownFutureKey"] == "kept=with=equals");
+                Check(Directory.GetFiles(root, "*.pending-*", SearchOption.AllDirectories).Length == 0);
                 var leftMonitor = new System.Drawing.Rectangle(-1440, -1120, 1440, 2520);
                 var fit = RestoreGeometry.Fit(new System.Drawing.Rectangle(-1800, -1500, 1920, 3000), leftMonitor);
                 Check(leftMonitor.Contains(fit) && fit.Width == 1440 && fit.Height == 2520);
@@ -156,6 +211,9 @@ namespace Offhand.Companion {
                 File.WriteAllText(Path.Combine(futureAddon, "Offhand_Forever.toc"),
                     "## Interface: 16000\n## X-Offhand-Release: beta.20\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.2-beta.19\n");
                 Check(AddonInstallation.Inspect(futureWow).Installed);
+                File.WriteAllText(Path.Combine(futureAddon, "Offhand_Forever.toc"),
+                    "## Interface: 16000\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.4-beta.1\n");
+                Check(!AddonInstallation.Inspect(futureWow).Installed);
 
                 string legacyWow = Path.Combine(root, "legacy-compatible");
                 string legacyAddon = Path.Combine(legacyWow, "Interface", "AddOns", "Offhand");
@@ -221,9 +279,11 @@ namespace Offhand.Companion {
                 bridge = File.ReadAllText(Path.Combine(core, "ForeverState.lua"));
                 Check(bridge != priorBridge && bridge.Contains("\"Other\""));
                 string topologyMessage;
-                Check(CompanionTopologyBridge.TryWrite(wow, plan, displays, out topologyMessage));
+                byte[] writtenTopology;
+                Check(CompanionTopologyBridge.TryWrite(wow, plan, displays, out topologyMessage, out writtenTopology));
+                Check(SpanRollback.SameBytes(writtenTopology, File.ReadAllBytes(Path.Combine(core, "CompanionTopology.lua"))));
                 string topology = File.ReadAllText(Path.Combine(core, "CompanionTopology.lua"));
-                Check(topology.Contains("mode = \"DUAL_DISPLAY\"") && topology.Contains("companionVersion = \"2.1.2-beta.20\"") && topology.Contains("width = 3440") &&
+                Check(topology.Contains("mode = \"DUAL_DISPLAY\"") && topology.Contains("companionVersion = \"2.1.3\"") && topology.Contains("width = 3440") &&
                     topology.Contains("height = 1080") && topology.Contains("y = 0"));
                 Check(CompanionTopologyBridge.IsCurrent(wow, plan, displays));
                 File.WriteAllText(Path.Combine(core, "CompanionTopology.lua"),
@@ -231,7 +291,7 @@ namespace Offhand.Companion {
                 Check(!CompanionTopologyBridge.IsCurrent(wow, plan, displays));
                 Check(CompanionTopologyBridge.TryWrite(wow, plan, displays, out topologyMessage)
                     && CompanionTopologyBridge.IsCurrent(wow, plan, displays));
-                Console.WriteLine("PASS: safe display identities, addon layout diagnosis, missing-monitor guard, topology bridge, settings validation, restore geometry and atomic Forever state generation");
+                Console.WriteLine("PASS: safe display identities, addon layout diagnosis, missing-monitor guard, topology bridge, atomic settings with failure preservation, restore geometry and atomic Forever state generation");
             } finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }
     }

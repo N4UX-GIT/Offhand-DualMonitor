@@ -55,7 +55,9 @@ $channelName = switch ($channel) {
     default { $null }
 }
 
-$releaseName = if ($isPrerelease) {
+$releaseName = if ($Tag -eq 'v2.1.3-beta.27') {
+    "Offhand v$version Pre-Release Beta $sequence"
+} elseif ($isPrerelease) {
     "Offhand v$version $channelName $sequence"
 } else {
     "Offhand v$version"
@@ -103,7 +105,41 @@ $companionDownloads = if ($CompanionChanged) {
 "@
 }
 
-$testFocus = if ($Tag -eq 'v2.1.2-beta.24') {
+$testFocus = if ($Tag -eq 'v2.1.3-beta.27') {
+@'
+1. Back up Offhand SavedVariables, Companion preferences and native/replacement HUD layouts. Install the 2.1.3 Pre-Release Beta 27 add-on and Companion 2.1.3 without deleting settings. The Store installs Companion only.
+2. Start WoW in ordinary Windowed mode. Review checked displays and Mainhand. Save plan stores choices; Span WoW Now applies them. Type /reload after spanning or changing Mainhand/layout. Use /offhand guide for first setup.
+3. Test standard, single-monitor, partial-secondary, multiple-workspace and Flexible Layout plans that fit your setup. Review the preview, visual area selection, profile reload and missing-display safeguards. Use Workspace layout > Use standard display layout to disable custom areas.
+4. Check supported-panel routing, manual-position priority, independent region themes and installed background-library images. Keep general add-on profiles and Blizzard HUD layouts separate from workspace profiles.
+5. Verify Restore Window, relaunch, existing saved positions, native/replacement bag and map behavior, controller mode where used, and normal actions before/during/after combat. Include fresh Lua and taint evidence; source/simulated passes do not establish full hardware or protected-action coverage.
+6. Report client/build, display identities, arrangement/scaling, affected add-ons, steps and Display Diagnostics. Physical mixed-DPI/hotplug/three-monitor, Wine and full exact-package live acceptance remain separate checks.
+
+Local WACK passed all 13 required tests; one optional blocked-executable finding was reviewed and retained. Local Defender scans were clean. The exact portable sample has not received a Defender review determination; Store certification and SmartScreen reputation are separate. Keep security protections enabled and report exact detections.
+'@
+} elseif ($Tag -eq 'v2.1.2-beta.26') {
+@'
+1. Back up SavedVariables, native Edit Mode layouts and UI addon profiles. Upgrade without deleting settings.
+2. On Anniversary, check World Map, Spellbook, Macro and bags individually and together. Verify open-before-reload restoration and closed-before-reload intent, Escape, native NPC interactions and normal restart behavior.
+3. Test default bags and each installed replacement separately. Check individual bag IDs, opening/closing layout, scale, bank and native item actions, with fresh errors and taint evidence. Recorded replacement acceptance has no exact version inventory.
+4. On Retail, check normal pet-battle controls and release after topology/feature changes. Check Trading Post, native popup/toast behavior, external mover takeover and combat transitions during intended gameplay.
+5. Retest setup recovery and Help & recovery for readable wrapping and scrolling. Expanded English fallback remains pending translation. Include client/build, addon/Companion versions, geometry, normal UI owners and /offhand diag.
+
+Six Retail audit findings have assumption-based acceptance, not newly recorded live verification. Static and simulated tests do not establish taint safety. The Anniversary memory-crash report remains unresolved. Forever release-client and direct Linux/Wine checks remain pending.
+
+Companion remains 2.1.2-beta.20. No experimental HDR/dashboard, native graphics-reset recovery or loading-art executable changes are included.
+'@
+} elseif ($Tag -eq 'v2.1.2-beta.25') {
+@'
+1. Back up SavedVariables, Blizzard Edit Mode layouts and UI addon profiles. Upgrade without deleting settings.
+2. Test missing Companion geometry: apply Span WoW Now in the game world, Reload UI, then resume calibration. Check wizard centering and all text after span and restore.
+3. With a full custom-layout list, click Repair HUD. Follow the guided Edit Mode recovery, delete only an unused test layout, close Edit Mode and retry. Only the reload prompt should remain after success.
+4. On Retail, test real cinematic skip/cancel/resume, group confirmations, keystone and completion UI, event toasts and vehicle controls. Do not fabricate native events. Expanded candidates still require live acceptance.
+5. Retest shared HUD selection across two characters, rollback, tooltips, chat persistence and normal panel behavior. Include fresh Lua and taint evidence before, during and after combat.
+6. Include exact client/build, addon version, display arrangement and /offhand diag output. Other clients, translation expansion and narrow Mainhand geometry remain test targets.
+
+Companion remains 2.1.2-beta.20. Experimental HDR/dashboard, native graphics-reset recovery and loading-art changes are not included. The Anniversary manual-span memory-crash report remains unresolved.
+'@
+} elseif ($Tag -eq 'v2.1.2-beta.24') {
 @'
 1. Back up Offhand SavedVariables, Blizzard Edit Mode layouts and UI addon profiles before upgrading. Keep existing settings for the upgrade test.
 2. Move chat to the workspace, switch tabs with real incoming messages, then check placement and message separation after /reload, zoning and a normal restart. Include Ellesmere UI where used.
@@ -161,7 +197,7 @@ $testFocus
 
 ## Linux and Wine status
 
-The Companion is still a Windows WinForms application. Wine support is experimental: run WoW and the Companion as the same user in the same ``WINEPREFIX`` and with the same Wine/Proton runner version. See ``Companion/Linux.md`` in the complete package for a Lutris example and extraction checks. Native Linux, X11, and general Wayland support are not claimed by this release.
+The Companion is still a Windows WinForms application. Wine support is experimental: run WoW and the Companion as the same user in the same ``WINEPREFIX`` and with the same Wine/Proton runner version. See ``Companion/Linux.md`` in the source repository for a Lutris example and extraction checks. Native Linux, X11, and general Wayland support are not claimed by this release.
 
 ## Reporting issues
 

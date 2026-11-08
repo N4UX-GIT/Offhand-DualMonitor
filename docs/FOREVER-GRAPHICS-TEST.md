@@ -42,3 +42,6 @@ retries. It does not repair unknown renderer faults or protected addon errors.
 See COMPANION-CLIENT-MATRIX.md in the source checkout for the full release matrix.
 The final November 4 client build must be retested even if this candidate passes
 on the current installed client.
+
+Current user direction (25 October): live testing is deferred until the Forever release. Resume under the shared COMPANION-ONGOING-BUILD.md plan.
+

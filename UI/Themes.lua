@@ -119,7 +119,81 @@ function Themes:GetThemeInfo(themeKey)
     return THEME_DATA[themeKey] or THEME_DATA.CLASSIC
 end
 
-function Themes:ApplyCanvasTheme(canvasFrame)
+function Themes:GetRegionSettings(regionID)
+    local db=Offhand.db or {}
+    local override=regionID and type(db.workspaceRegionThemes)=="table" and db.workspaceRegionThemes[regionID]
+    if type(override)~="table" then return db end
+    local result={}; for key,value in pairs(db) do result[key]=value end
+    if THEME_DATA[override.theme] then result.theme=override.theme end
+    if CANVAS_PALETTES[override.canvasColor] then result.canvasColor=override.canvasColor end
+    if COLOR_PALETTES[override.trimColor] then result.trimColor=override.trimColor end
+    local alpha=override.canvasAlpha
+    if type(alpha)=="number" and alpha==alpha and alpha>=0 and alpha<=1 then result.canvasAlpha=alpha end
+    if override.userMediaMode=="THEME" then result.userMediaEnabled=false
+    elseif override.userMediaMode=="IMAGE" then result.userMediaEnabled=true end
+    if override.userMediaMode=="IMAGE" then result.userMediaAssetID=override.userMediaAssetID end
+    local fit=override.userMediaFitMode
+    if fit=="PACKAGE" or fit=="FILL" or fit=="FIT" or fit=="STRETCH" then result.userMediaFitMode=fit end
+    return result
+end
+
+function Themes:SetRegionTheme(regionID,themeKey)
+    if InCombatLockdown and InCombatLockdown() then return false,"WORKSPACE_COMBAT" end
+    if not Offhand.db or type(regionID)~="string" or #regionID>32
+        or not regionID:match("^[%w_-]+$") or themeKey~=nil and not THEME_DATA[themeKey] then return false,"WORKSPACE_PROFILE_INVALID" end
+    if Offhand.db.workspaceRegionThemes~=nil and type(Offhand.db.workspaceRegionThemes)~="table" then return false,"WORKSPACE_PROFILE_INVALID" end
+    Offhand.db.workspaceRegionThemes=Offhand.db.workspaceRegionThemes or {}
+    -- Theme inheritance is independent from the region's image preferences.
+    if not themeKey then
+        local settings=Offhand.db.workspaceRegionThemes[regionID]
+        if type(settings)=="table" then
+            settings.theme,settings.trimColor,settings.canvasColor,settings.canvasAlpha=nil,nil,nil,nil
+            if not next(settings) then Offhand.db.workspaceRegionThemes[regionID]=nil end
+        end
+    else
+        local settings=type(Offhand.db.workspaceRegionThemes[regionID])=="table"
+            and Offhand.db.workspaceRegionThemes[regionID] or {}
+        settings.theme=themeKey
+        local presets={CLASSIC={"GOLD","CLASSIC_STONE"},BLIZZARD_SLATE={"SILVER","CHARCOAL"},
+            OBSIDIAN={"SILVER","CHARCOAL"},PITCH_BLACK={"SILVER","PURE_BLACK"},GNOMISH_TINKER={"TINKER_BRASS","TINKER_SLATE"}}
+        settings.trimColor,settings.canvasColor=unpack(presets[themeKey])
+        Offhand.db.workspaceRegionThemes[regionID]=settings
+    end
+    self:ApplyCanvasTheme()
+    return true
+end
+
+local function SetRegionMedia(regionID,key,value)
+    if InCombatLockdown and InCombatLockdown() then return false,"WORKSPACE_COMBAT" end
+    local db=Offhand.db
+    if not db or type(regionID)~="string" or #regionID>32 or not regionID:match("^[%w_-]+$")
+        or db.workspaceRegionThemes~=nil and type(db.workspaceRegionThemes)~="table" then return false,"WORKSPACE_PROFILE_INVALID" end
+    db.workspaceRegionThemes=db.workspaceRegionThemes or {}
+    local settings=type(db.workspaceRegionThemes[regionID])=="table" and db.workspaceRegionThemes[regionID] or {}
+    settings[key]=value
+    db.workspaceRegionThemes[regionID]=next(settings) and settings or nil
+    Themes:ApplyCanvasTheme()
+    return true
+end
+function Themes:SetRegionMediaMode(regionID,mode)
+    if mode~=nil and mode~="IMAGE" and mode~="THEME" then return false,"WORKSPACE_PROFILE_INVALID" end
+    return SetRegionMedia(regionID,"userMediaMode",mode)
+end
+function Themes:SetRegionMediaAsset(regionID,assetID)
+    if assetID~=nil and (type(assetID)~="string" or #assetID<1 or #assetID>40
+        or not assetID:match("^[%w_-]+$")) then return false,"WORKSPACE_PROFILE_INVALID" end
+    return SetRegionMedia(regionID,"userMediaAssetID",assetID)
+end
+function Themes:SetRegionMediaFit(regionID,fit)
+    if fit~=nil and fit~="PACKAGE" and fit~="FILL" and fit~="FIT" and fit~="STRETCH" then return false,"WORKSPACE_PROFILE_INVALID" end
+    return SetRegionMedia(regionID,"userMediaFitMode",fit)
+end
+
+function Themes:ApplyCanvasTheme(canvasFrame,regionID)
+    if not canvasFrame and Offhand.canvases then
+        for id,canvas in pairs(Offhand.canvases) do self:ApplyCanvasTheme(canvas,id) end
+        return
+    end
     if not canvasFrame then
         canvasFrame = _G["OffhandCanvasFrame"] or Offhand.canvas
     end
@@ -129,21 +203,25 @@ function Themes:ApplyCanvasTheme(canvasFrame)
     end
     if not canvasFrame then return end
 
-    local currentThemeKey = (Offhand.db and Offhand.db.theme) or "CLASSIC"
+    if not regionID then
+        for id,canvas in pairs(Offhand.canvases or {}) do if canvas==canvasFrame then regionID=id; break end end
+    end
+    local settings=self:GetRegionSettings(regionID)
+    local currentThemeKey = settings.theme or "CLASSIC"
     local theme = self:GetThemeInfo(currentThemeKey)
     local isClassic = (currentThemeKey == "CLASSIC")
     local isPureBlackTheme = (currentThemeKey == "PITCH_BLACK")
 
-    local colorKey = (Offhand.db and Offhand.db.canvasColor) or "CHARCOAL"
-    local alpha = (Offhand.db and Offhand.db.canvasAlpha)
+    local colorKey = settings.canvasColor or "CHARCOAL"
+    local alpha = settings.canvasAlpha
     if alpha == nil then alpha = 0.95 end
 
     local r, g, b
     local bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark"
     local isPureBlackBg = (colorKey == "PURE_BLACK") or isPureBlackTheme
 
-    if not isPureBlackTheme and colorKey == "CUSTOM" and Offhand.db and Offhand.db.customCanvasColor then
-        local c = Offhand.db.customCanvasColor
+    if not isPureBlackTheme and colorKey == "CUSTOM" and settings.customCanvasColor then
+        local c = settings.customCanvasColor
         r, g, b = c.r or 0.22, c.g or 0.42, c.b or 0.64
     elseif isPureBlackBg then
         r, g, b = 0.0, 0.0, 0.0
@@ -197,16 +275,16 @@ function Themes:ApplyCanvasTheme(canvasFrame)
     local br = theme.borderColor or { 1.0, 1.0, 1.0, 1.0 }
     if isPureBlackTheme then
         br = { 0.18, 0.18, 0.18, 1.0 }
-    elseif Offhand.db and Offhand.db.trimColor then
-        if Offhand.db.trimColor == "CUSTOM" and Offhand.db.customTrimColor then
-            local c = Offhand.db.customTrimColor
+    elseif settings.trimColor then
+        if settings.trimColor == "CUSTOM" and settings.customTrimColor then
+            local c = settings.customTrimColor
             br = { c.r, c.g, c.b, c.a or 1.0 }
-        elseif COLOR_PALETTES[Offhand.db.trimColor] then
-            if isClassic and Offhand.db.trimColor == "GOLD" then
+        elseif COLOR_PALETTES[settings.trimColor] then
+            if isClassic and settings.trimColor == "GOLD" then
                 -- Classic Blizzard gold on UI-DialogBox-Border is pre-rendered; keep untainted
                 br = { 1.0, 1.0, 1.0, 1.0 }
             else
-                local c = COLOR_PALETTES[Offhand.db.trimColor]
+                local c = COLOR_PALETTES[settings.trimColor]
                 br = { c.r, c.g, c.b, c.a or 1.0 }
             end
         end
@@ -216,9 +294,14 @@ function Themes:ApplyCanvasTheme(canvasFrame)
         canvasFrame:SetBackdropBorderColor(br[1], br[2], br[3], br[4] or 1.0)
     end
 
-    if (canvasFrame == Offhand.canvas or canvasFrame == _G["OffhandCanvasFrame"])
+    if (canvasFrame == Offhand.canvas or canvasFrame == _G["OffhandCanvasFrame"]
+        or (Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:IsCanvas(canvasFrame)))
         and Offhand.UserMedia and Offhand.UserMedia.ApplyToCanvas then
-        Offhand.UserMedia:ApplyToCanvas(canvasFrame)
+        if Offhand.UserMedia:ApplyToCanvas(canvasFrame,settings) and canvasFrame.SetBackdropColor then
+            -- BackdropTemplate draws its fill above the custom BACKGROUND textures.
+            -- The media matte supplies the fill; retain the independently styled border.
+            canvasFrame:SetBackdropColor(0,0,0,0)
+        end
     end
 end
 

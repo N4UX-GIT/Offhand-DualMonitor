@@ -47,8 +47,8 @@ end
 
 
 StaticPopupDialogs["OFFHAND_DOWNLOAD_LINK"] = {
-    text = "The Companion App automates a pixel-perfect, borderless span across multiple monitors.\n\nRecommended for Windows: copy the Microsoft Store address below. Portable and Linux/Wine options remain available at offhand-wow.onrender.com/companion.html and through the official GitHub releases.",
-    button1 = "Close",
+    text = L["COMPANION_DOWNLOAD_LINK_TEXT"],
+    button1 = L["BTN_CLOSE"],
     hasEditBox = true,
     editBoxWidth = 260,
     OnShow = function(self)
@@ -142,11 +142,22 @@ _G.BINDING_NAME_OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS =
 
 function Options:CreateMainhandHUDLayout(options)
     if Offhand.Mainhand and Offhand.Mainhand.CreateOrUpdateEditModeLayout then
-        return Offhand.Mainhand:CreateOrUpdateEditModeLayout(options)
+        local ok, value, moved, activation = Offhand.Mainhand:CreateOrUpdateEditModeLayout(options)
+        Offhand.Mainhand.lastLayoutFailure = not ok and tostring(value or "unavailable") or nil
+        return ok, value, moved, activation
     end
     return false, "unavailable"
 end
 
+local mainhandFailureKeys = {
+    combat = "HUD_FAILURE_COMBAT", open = "HUD_FAILURE_EDITMODE_OPEN",
+    disabled = "HUD_FAILURE_DISABLED", ["read-api"] = "HUD_FAILURE_API",
+    ["save-api"] = "HUD_FAILURE_API", api = "HUD_FAILURE_API", unsupported = "HUD_FAILURE_API",
+    unavailable = "HUD_FAILURE_UNAVAILABLE", presets = "HUD_FAILURE_UNAVAILABLE",
+    state = "HUD_FAILURE_STATE", source = "HUD_FAILURE_SOURCE",
+    ["repair-system"] = "HUD_FAILURE_REPAIR", already = "HUD_FAILURE_ALREADY",
+    save = "HUD_FAILURE_SAVE", ["activate-api"] = "HUD_FAILURE_ACTIVATE",
+}
 function Options:ConfirmRecovery(key, callback)
     Offhand.OptionsActions.ConfirmRecovery(L[key], callback)
 end
@@ -164,8 +175,8 @@ function Options:RecoverMissingUI()
 end
 
 function Options:GetMainhandLayoutFailureText(reason)
-    if reason == "maximum" then return L["MAINHAND_LAYOUT_MAXIMUM"] end
-    if reason == "gamepad" then return L["MAINHAND_LAYOUT_GAMEPAD_FAILED"] end
+    if reason == "maximum" then return L["WIZARD_RECOVERY_MAX_BODY"] end
+    if reason == "gamepad" then return L["HUD_FAILURE_CONTROLLER"] end
     if reason == "span" then
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
             and Offhand.Viewport:GetMetrics() or nil
@@ -173,9 +184,9 @@ function Options:GetMainhandLayoutFailureText(reason)
             and not metrics.manualCanvas then
             return L["MAINHAND_LAYOUT_SPAN_MISMATCH"]
         end
-        return L["MAINHAND_LAYOUT_SPAN_UNCONFIRMED"]
+        return L["MAINHAND_LAYOUT_SPAN_ACTIONS"]
     end
-    return string.format(L["MAINHAND_LAYOUT_FAILED"], tostring(reason or "unavailable"))
+    return L[mainhandFailureKeys[reason] or "HUD_FAILURE_UNKNOWN"]
 end
 
 function Options:GatherSafeUIToMainhand()
@@ -321,6 +332,7 @@ function Options:CreateFloatingPanel()
     desc:SetText(L["ADDON_DESC"])
     
     local closeBtn = CreateFrame("Button", nil, configFrame.header, "UIPanelCloseButton")
+    configFrame.workspaceCloseButton = closeBtn
     closeBtn:SetSize(28, 28)
     closeBtn:SetPoint("RIGHT", configFrame.header, "RIGHT", -10, 0)
     closeBtn:SetScript("OnClick", function()
@@ -576,6 +588,10 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 1: DISPLAY & VIEWPORT CALIBRATION
     -- ========================================================================
+    local workspaceCards
+    if Offhand.WorkspaceOptions then
+        workspaceCards=Offhand.WorkspaceOptions.Build({workspace=tab2,themes=tab3,profiles=tab4},CreateCard,Options)
+    end
     local card1_1 = CreateCard(tab1, L["CARD_LAYOUT_PRESETS"], 216)
 
     local enableCheck = CreateNativeCheckbox(card1_1, L["ENABLE_OFFHAND"],
@@ -1112,6 +1128,8 @@ function Options:CreateFloatingPanel()
     -- Forever has two layout-status rows plus wrapped Edit Mode guidance.
     -- Keep the preview checkbox below that text instead of sharing its line.
     local recoveryHeight = Offhand.isForever and 374 or (supportsMainhandLayout and 302 or 152)
+    local transfer = Offhand.EllesmereLayout
+    local showEllesmerePreview = transfer and transfer.ShowPreview and transfer:IsAvailable()
     local recoveryCard = CreateCard(tab2, L["CARD_RECOVERY"], recoveryHeight)
     local advancedCard
     local advancedCheck
@@ -1507,6 +1525,21 @@ function Options:CreateFloatingPanel()
         autoEditModeControls:SetPoint("TOPLEFT", forceCheck, "BOTTOMLEFT", 0, -6)
     end
 
+    if showEllesmerePreview then
+        local caption = recoveryCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        caption:SetPoint("BOTTOMLEFT", recoveryCard, "BOTTOMLEFT", 12, 14)
+        caption:SetPoint("RIGHT", recoveryCard, "RIGHT", -12, 0)
+        caption:SetJustifyH("LEFT")
+        caption:SetWordWrap(true)
+        caption:SetText(L["ELLESMERE_HUD_PREVIEW_DESC"])
+        recoveryCard:SetHeight(recoveryHeight + 48 + Controls.MeasureWrappedText(caption, caption:GetText(), 638))
+        local preview = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
+        preview:SetSize(220, 26)
+        preview:SetPoint("BOTTOMLEFT", caption, "TOPLEFT", 0, 6)
+        preview:SetText(L["ELLESMERE_HUD_VISUAL"])
+        preview:SetScript("OnClick", function() transfer:ShowPreview() end)
+    end
+
     local compatDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     compatDesc:SetPoint("TOPLEFT", 32, Offhand.isForever and -528 or -344)
     compatDesc:SetWidth(530)
@@ -1588,6 +1621,7 @@ function Options:CreateFloatingPanel()
         L["SLIDER_BEZEL_GAP_TIP_TITLE"], L["SLIDER_BEZEL_GAP_TIP_DESC"]
     )
     bezelSlider:SetPoint("TOPLEFT", 12, -54)
+    bezelSlider.coalesceGeometryLayout = true
     bezelSlider:SetWidth(290)
 
 
@@ -2286,6 +2320,9 @@ function Options:CreateFloatingPanel()
     for index, topic in ipairs(helpTopics) do
         local title = string.format("%d. %s", index, L["HELP_" .. topic .. "_TITLE"])
         local text = L["HELP_" .. topic .. "_BODY"]
+        if topic == "EDIT_MODE" and Offhand.isForever then
+            text = text .. "\n\n" .. L["ELLESMERE_HUD_HELP_BODY"]
+        end
         local card = CreateCard(tab5, title, 1)
         local contentTop = Controls.GetCardContentTop(card, 34)
         local body = card:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
@@ -2303,9 +2340,16 @@ function Options:CreateFloatingPanel()
     offhandCards = {card2_1, card2_2, windowControlCard}
     if advancedCard then offhandCards[#offhandCards + 1] = advancedCard end
     offhandCards[#offhandCards + 1] = recoveryCard
+    if workspaceCards then tinsert(offhandCards,1,workspaceCards.routing) end
     Options:StackCards(tab2, offhandCards)
-    Options:StackCards(tab3, {card3_1, card3_2, card3_3, card3_4})
-    Options:StackCards(tab4, {card4_1})
+    local themeCards={card3_1,card3_2,card3_3,card3_4}
+    local profileCards={card4_1}
+    if workspaceCards then
+        tinsert(themeCards,1,workspaceCards.themes)
+        tinsert(profileCards,1,workspaceCards.profiles)
+    end
+    Options:StackCards(tab3,themeCards)
+    Options:StackCards(tab4,profileCards)
     Options:StackCards(tab5, helpCards)
 
     -- ========================================================================
@@ -2352,6 +2396,14 @@ function Options:CreateFloatingPanel()
                 info.gamePixelWidth, info.gamePixelHeight,
                 info.workspacePixelWidth, info.workspacePixelHeight)
                 .. "\n|cffaaaaaa" .. L["EXACT_TOPOLOGY_LOCKED"] .. "|r"
+            if info.workspaceRegions then
+                local parts={string.format(L["COMPANION_WORKSPACES_SUMMARY"],info.gamePixelWidth,info.gamePixelHeight,#info.workspaceRegions)}
+                for i,r in ipairs(info.workspaceRegions) do
+                    parts[#parts+1]=string.format(L["COMPANION_WORKSPACE_REGION_LINE"],i,r.pixelWidth,r.pixelHeight)
+                        ..(r.id==info.primaryWorkspaceRegion and L["COMPANION_PRIMARY_WORKSPACE"] or "")
+                end
+                bannerText=table.concat(parts,"\n").."\n|cffaaaaaa"..L["EXACT_TOPOLOGY_LOCKED"].."|r"
+            end
         else
             bannerText = string.format(L["TAB_DISPLAY"] .. ": %s (%dx%d)",
                 info.description, info.physWidth, info.physHeight)
@@ -2521,6 +2573,8 @@ function Options:CreateFloatingPanel()
         if Options.UpdateProfileList then
             Options:UpdateProfileList()
         end
+
+        if Offhand.WorkspaceOptions then Offhand.WorkspaceOptions:Refresh() end
 
         local bagAddon = Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()
         local mmAddon = Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon()

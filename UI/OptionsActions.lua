@@ -24,6 +24,7 @@ function Actions.Install(Options, services)
         return not Offhand.isLegacyWrath and "BackdropTemplate" or nil
     end
     local seamGuideLine
+    local regionSeamGuides={}
     local seamGuideRevision = 0
 
     local GamepadFocusBindingStatusText
@@ -190,6 +191,22 @@ function Actions.Install(Options, services)
     function Options:ShowSeamGuide(deckRatio)
         if not UIParent then return end
         seamGuideRevision = seamGuideRevision + 1
+        for _,line in ipairs(regionSeamGuides) do line:Hide() end
+        local regionMetrics=Offhand.Viewport and Offhand.Viewport:GetMetrics()
+        if regionMetrics and regionMetrics.workspaceRegions and Offhand.WorkspaceRegions then
+            if seamGuideLine then seamGuideLine:Hide() end
+            for i,segment in ipairs(Offhand.WorkspaceRegions:Seams(regionMetrics)) do
+                local line=regionSeamGuides[i]
+                if not line then
+                    line=CreateFrame("Frame",nil,UIParent);line:SetFrameStrata("TOOLTIP")
+                    local texture=line:CreateTexture(nil,"OVERLAY");texture:SetAllPoints()
+                    SetSolidColor(texture,1,0.2,0.2,0.85);regionSeamGuides[i]=line
+                end
+                line:ClearAllPoints();line:SetSize(segment.width,segment.height)
+                line:SetPoint("BOTTOMLEFT",UIParent,"BOTTOMLEFT",segment.x,segment.y);line:Show()
+            end
+            return
+        end
         if not deckRatio then
             deckRatio = (Offhand.db and Offhand.db.deckWidthRatio) or 0.36
         end
@@ -251,6 +268,7 @@ function Actions.Install(Options, services)
     end
 
     function Options:HideSeamGuide()
+        for _,line in ipairs(regionSeamGuides) do line:Hide() end
         seamGuideRevision = seamGuideRevision + 1
         if seamGuideLine then
             seamGuideLine:Hide()
@@ -258,6 +276,7 @@ function Actions.Install(Options, services)
     end
 
     function Options:IsSeamGuideShown()
+        for _,line in ipairs(regionSeamGuides) do if line:IsShown() then return true end end
         return (seamGuideLine and seamGuideLine.IsShown and seamGuideLine:IsShown()) or false
     end
 

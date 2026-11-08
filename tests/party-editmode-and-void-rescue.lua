@@ -217,20 +217,12 @@ CreateFrame = function(frameType, name, parent, template)
         function f:SetFrameRef(key, value) self.frameRefs[key] = value end
         function f:GetFrameRef(key) return self.frameRefs[key] end
         function f:SetAttribute(key, value) self.attributes[key] = value end
-        function f:Execute()
-            local target = self:GetFrameRef("offhandTransient")
-            if target then
-                target:ClearAllPoints()
-                if self:GetAttribute("offhandBounds") then
-                    target:SetPoint("BOTTOMLEFT", self:GetParent(), "BOTTOMLEFT",
-                        self:GetAttribute("offhandLeft"), self:GetAttribute("offhandBottom"))
-                    target:SetPoint("TOPRIGHT", self:GetParent(), "BOTTOMLEFT",
-                        self:GetAttribute("offhandRight"), self:GetAttribute("offhandTop"))
-                else
-                    target:SetPoint(self:GetAttribute("offhandPoint"), self:GetParent(), "BOTTOMLEFT",
-                        self:GetAttribute("offhandX"), self:GetAttribute("offhandY"))
-                end
-            end
+        function f:Execute(script)
+            -- Execute only the local addon's snippet against synthetic frames.
+            -- This models its writes, not WoW's restricted environment or taint.
+            local run = assert(loadstring(script))
+            setfenv(run, setmetatable({ self = self }, { __index = _G }))
+            run()
         end
         function f:WrapScript(trigger, script)
             trigger:HookScript(script, function()
@@ -353,7 +345,8 @@ C_AddOns = {
             PetBattleFrame:ClearAllPoints()
             PetBattleFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, 0)
             PetBattleFrame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", 0, 0)
-            PetBattleFrame.IsProtected = function() return true end
+            -- Blizzard declares an ordinary full-screen root, not a secure
+            -- template. Do not hide generic-scanner bugs behind IsProtected.
             PetBattleFrame:Hide()
             return true
         end
@@ -498,6 +491,12 @@ assert(petBattleDiagnostics.loaded and petBattleDiagnostics.preloadAttempted
     "pet-battle diagnostics must report preloaded Mainhand bounds")
 assert(not PetBattleFrame:IsShown(),
     "preparing pet-battle bounds must not change Blizzard visibility")
+do
+    local petBoundsWrites = PetBattleFrame.setPointCalls
+    addon.HUD:PositionMainhandTransientFrames(metrics)
+    assert(PetBattleFrame.setPointCalls == petBoundsWrites,
+        "unchanged pet-battle bounds must not be cleared and rebuilt on maintenance")
+end
 assertMainhandAnchor(CombatText, "CENTER", 2720, 726, "Floating combat text")
 assert(CombatText:IsIgnoringParentScale() == false,
     "floating combat text must inherit Offhand's UIParent scale")
@@ -1714,6 +1713,30 @@ addon.HUD:HookFrames()
 flushTimers()
 assert(selectedLayout == 6 and managerSelection == nil,
     "Retail must restore the character's newly selected layout by global ID")
+-- A stale remembered preference must not override the shared layout with a
+-- generated row belonging to another character.
+do
+local previousMainhand = addon.Mainhand
+local foreignName = "Offhand - Mainhand - OtherCharacter"
+local previousRowName = layoutData.layouts[4].layoutName
+layoutData.layouts[4].layoutName = foreignName
+OffhandCharDB.editModeLayoutName = foreignName
+local previousLayoutRecord = OffhandCharDB.mainhandLayout
+OffhandCharDB.mainhandLayout = {generatedName="Offhand"}
+addon.Mainhand = {
+    IsCharacterEditModeLayoutAllowed=function(_, name) return name ~= foreignName end,
+    GetLayoutStatus=function() return {configured=true} end,
+}
+selectedLayout = nil
+addon.HUD.editModeLoadScheduled = nil
+addon.HUD:HookFrames()
+flushTimers()
+assert(selectedLayout == 6 and OffhandCharDB.editModeLayoutName == "Offhand",
+    "login must replace a foreign-character preference with the configured shared target")
+addon.Mainhand = previousMainhand
+OffhandCharDB.mainhandLayout = previousLayoutRecord
+layoutData.layouts[4].layoutName = previousRowName
+end
 addon.isForever = true
 EditModePresetLayoutManager = nil
 layoutData.activeLayout = 6
@@ -1794,6 +1817,49 @@ print("PASS: Forever centers GameMenuFrame before render and it dismisses cleanl
 -- ============================================================================
 -- TEST 7: Universal Void Rescue Engine (Focused Roster Frame & Rogue Frames)
 -- ============================================================================
+-- A native full-screen reset can precede the maintenance pass. On this
+-- mixed-height canvas its top is above Mainhand. The generic popup scanner runs
+-- first and must leave both bounds intact for the dedicated battle mover.
+do
+local wasRetailForPetBattle = addon.isRetail
+addon.isRetail = true
+local petGetLeft = PetBattleFrame.GetLeft
+PetBattleFrame.GetLeft = function(self)
+    -- The generic mock only resolves single-point widths. SetAllPoints has
+    -- left=0, not -width from its BOTTOMRIGHT point.
+    if self.points[1] and self.points[1][1] == "TOPLEFT" then return 0 end
+    return petGetLeft(self)
+end
+PetBattleFrame:ClearAllPoints()
+PetBattleFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, 0)
+PetBattleFrame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", 0, 0)
+PetBattleFrame:Show()
+local petRootListed = false
+for _, child in ipairs(UIParent.children) do
+    if child == PetBattleFrame then petRootListed = true end
+end
+if not petRootListed then table.insert(UIParent.children, PetBattleFrame) end
+assert(not PetBattleFrame:IsProtected() and PetBattleFrame:GetTop() > metrics.gameTop,
+    "pet-battle regression must exercise an unprotected root above Mainhand")
+addon.HUD.popupTicker.callback()
+assert(PetBattleFrame:GetNumPoints() == 2
+        and select(1, PetBattleFrame:GetPoint(1)) == "BOTTOMLEFT"
+        and select(1, PetBattleFrame:GetPoint(2)) == "TOPRIGHT"
+        and not addon.HUD:GetPetBattleDiagnostics().conflict,
+    "popup rescue must preserve pet-battle bounds for dedicated Mainhand placement")
+assert(PetBattleFrame:IsShown(), "maintenance must leave native battle visibility alone")
+local previousPetPanel = UIPanelWindows.PetBattleFrame
+UIPanelWindows.PetBattleFrame = { area = "center" }
+addon.Canvas:TryMakeFrameDraggable(PetBattleFrame)
+assert(not PetBattleFrame._OffhandMovable, "pet battles must never become workspace panels")
+assert(not addon.Canvas:RescuePanelFromVoid(PetBattleFrame, metrics),
+    "generic panel rescue must also yield the full-screen battle root")
+UIPanelWindows.PetBattleFrame = previousPetPanel
+PetBattleFrame:Hide()
+PetBattleFrame.GetLeft = petGetLeft
+addon.isRetail = wasRetailForPetBattle
+end
+
 -- Place ExampleAddonWindow high up in the black void (e.g. x = 2000, top = 2500, where gameTop is 1446)
 ExampleAddonWindow:ClearAllPoints()
 ExampleAddonWindow:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 2000, -50) -- y = 2510 in the void!
@@ -1815,6 +1881,93 @@ assert(rescuedPt, "ExampleAddonWindow must be repositioned by Void Rescue Engine
 local rescuedTop = ExampleAddonWindow:GetTop()
 assert(rescuedTop <= metrics.gameTop, string.format("Rescued frame top (%s) must be <= gameTop (%s)", tostring(rescuedTop), tostring(metrics.gameTop)))
 print(string.format("PASS: Void Rescue Engine successfully rescued ExampleAddonWindow from void (top=%s <= gameTop=%s)", tostring(rescuedTop), tostring(metrics.gameTop)))
+
+-- BetterBags owns its bag/anchor positions through LibWindow. RestedXP owns
+-- both its named legacy guide and its anonymous V2 AceGUI root. A new native
+-- panel must not make the automatic scanner treat them as fresh popups.
+do
+local originalSpecialFrames,originalV2=UISpecialFrames,RXPV2GuideWindow
+local originalPanels={}
+UISpecialFrames={}
+local owned={}
+for _,name in ipairs({'BetterBagsBagBackpack','BetterBagsBagBackpackAnchor',
+    'BetterBagsBagBank','BetterBagsBagBankAnchor','RXPFrame','RXPItemFrame'}) do
+    local f=makeMockFrame(name,300,180)
+    _G[name]=f;f:SetPoint('CENTER',UIParent,'CENTER',0,0)
+    table.insert(UIParent.children,f);table.insert(UISpecialFrames,name)
+    originalPanels[name]=UIPanelWindows[name]
+    UIPanelWindows[name]={area='center'}
+    owned[#owned+1]=f
+end
+local v2=makeMockFrame('AnonymousGuideFixture',300,180)
+v2.name=nil
+v2:SetPoint('CENTER',UIParent,'CENTER',0,0)
+table.insert(UIParent.children,v2);RXPV2GuideWindow={frame=v2};owned[#owned+1]=v2
+local placed=makeMockFrame('UserPlacedAddonWidget',300,180)
+placed:SetUserPlaced(true);placed:SetPoint('TOPLEFT',UIParent,'TOPLEFT',2000,-50)
+table.insert(UIParent.children,placed);owned[#owned+1]=placed
+local counts={};for _,f in ipairs(owned) do counts[f]=f.setPointCalls end
+addon.HUD:HookFrames()
+for _,f in ipairs(owned) do ShowUIPanel(f) end
+local trigger=makeMockFrame('ReportPanelTrigger',250,200)
+UIPanelWindows.ReportPanelTrigger={area='left'}
+for _=1,3 do ShowUIPanel(trigger);UpdateUIPanelPositions();flushTimers();HideUIPanel(trigger) end
+for _,f in ipairs(owned) do
+    assert(f.setPointCalls==counts[f] and not f.scripts.OnShow,
+        'automatic popup rescue must preserve addon/user position ownership: '..tostring(f:GetName()))
+end
+-- A guide's owner can move it later; yielding must not depend on the old anchor.
+v2:ClearAllPoints();v2:SetPoint('TOPLEFT',UIParent,'TOPLEFT',2000,-50)
+local writes=v2.setPointCalls
+flushTimers()
+assert(v2.setPointCalls==writes,'automatic void rescue must preserve the V2 guide owner too')
+-- A user can move an ordinary center-area panel between immediate placement
+-- and the deferred settle pass. The timer must not erase that newer intent.
+local settling=makeMockFrame('UserPositionDuringPopupSettle',250,200)
+UIPanelWindows.UserPositionDuringPopupSettle={area='center'}
+ShowUIPanel(settling)
+settling:SetUserPlaced(true)
+settling:ClearAllPoints();settling:SetPoint('TOPLEFT',UIParent,'TOPLEFT',2100,-250)
+writes=settling.setPointCalls
+flushTimers()
+assert(settling.setPointCalls==writes,'deferred popup centering must yield newly acquired user ownership')
+settling:Hide();UIPanelWindows.UserPositionDuringPopupSettle=nil
+for _,f in ipairs(owned) do
+    f:Hide()
+    local name=f:GetName()
+    if name then UIPanelWindows[name]=originalPanels[name] end
+end
+UISpecialFrames,RXPV2GuideWindow=originalSpecialFrames,originalV2
+UIPanelWindows.ReportPanelTrigger=nil
+print('PASS: automatic popup rescue preserves BetterBags, RestedXP V1/V2 and user-owned placement')
+end
+
+-- Ellesmere owns its player-aura roots even at a full-parent stock anchor.
+-- The same generic scanner must still rescue ordinary addon popups above.
+do
+local originalSpecialFrames = UISpecialFrames
+UISpecialFrames = {}
+for _, name in ipairs({"EllesmereUIPlayerAuraBars_Buffs", "EllesmereUIPlayerAuraBars_Debuffs"}) do
+    local aura = makeMockFrame(name, 400, 150)
+    _G[name] = aura
+    aura:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    table.insert(UIParent.children, aura)
+    UISpecialFrames[#UISpecialFrames + 1] = name
+    local writes = aura.setPointCalls
+    addon.HUD:HookFrames()
+    flushTimers()
+    addon.Canvas.MakePanelDraggable(aura)
+    assert(aura.setPointCalls == writes and not aura.scripts.OnShow and not aura.scripts.OnDragStart,
+        "generic popup and workspace controllers must yield Ellesmere aura roots")
+    aura:ClearAllPoints()
+    aura:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 2000, -50)
+    writes = aura.setPointCalls
+    flushTimers()
+    assert(aura.setPointCalls == writes, "the owning HUD addon must control offscreen aura recovery")
+end
+UISpecialFrames = originalSpecialFrames
+print("PASS: generic popup rescue preserves Ellesmere player aura ownership")
+end
 
 -- A workspace stacked directly above Mainhand shares the same horizontal
 -- range. The void scanner must use the complete workspace rectangle instead
@@ -3070,6 +3223,29 @@ assert(table.concat(phaseOrder,',')==
     'popup-rescue,transient-discovery,transient-placement,editmode-hooks,editmode-recovery,party-recovery',
     'phase timing must execute the same six operations once in their original order')
 
+-- A successful wizard/repair transaction needs reload, not another repair
+-- based on stale protected preview bounds from the previous native layout.
+do
+    local hides = 0
+    local oldHide = addon.HideForeverPartyFrameRecoveryPrompt
+    addon.HideForeverPartyFrameRecoveryPrompt = function() hides = hides + 1 end
+    addon.HUD.foreverPartyFrameOutsideDisplays = 'PlayerFrame'
+    addon.HUD.foreverProtectedHUDDetectedInEditMode = true
+    addon.HUD.foreverPartyFrameRecoveryPromptShown = true
+    addon.HUD:CompleteProtectedHUDLayoutRecovery()
+    assert(hides == 1 and addon.HUD.protectedHUDReloadPending
+        and not addon.HUD.foreverPartyFrameOutsideDisplays
+        and not addon.HUD.foreverProtectedHUDDetectedInEditMode
+        and not addon.HUD.foreverPartyFrameRecoveryPromptShown,
+        'successful layout creation must hide and clear the old repair prompt')
+    local oldMetrics = addon.Viewport.GetMetrics
+    addon.Viewport.GetMetrics = function() error('must not inspect stale bounds while reload is pending') end
+    addon.HUD:UpdateForeverPartyFrameRecovery()
+    addon.Viewport.GetMetrics = oldMetrics
+    addon.HideForeverPartyFrameRecoveryPrompt = oldHide
+    addon.HUD.protectedHUDReloadPending = nil
+end
+
 
 -- Retail Contacts must ignore both immediate and queued social repair while a
 -- hardware drag is active, then retain its exact Mainhand drop and native root.
@@ -3268,3 +3444,85 @@ print('PASS: PlayerSpells semantic tab reload and reversible portrait workspace 
     addon.isForever,addon.isRetail,FriendsFrame,FriendsListFrame=oldForever,oldRetail,oldFriends,oldList
 end)()
 print('PASS: Retail Contacts content remains attached to its native outer window')
+
+-- Exercise the initial OnShow path, where no saved position exists yet.
+;(function()
+    assert(loadfile('Core/WorkspaceRegions.lua'))('Offhand',addon)
+    assert(loadfile('Core/WorkspaceRouting.lua'))('Offhand',addon)
+    addon.isForever,addon.isRetail=false,true
+    metrics.workspaceRegions={{id='left',x=0,y=0,width=1440,height=2560},{id='right',x=4000,y=0,width=1920,height=1440}}
+    metrics.primaryWorkspaceRegion='left';metrics.topologySchema=2;metrics.isSpanned=true
+    addon.db.enabled=true;addon.db.workspacePanelRoutes={achievements='right'}
+    addon.db.savedWorkspacePositions.AchievementFrame=nil;addon.db.savedMainPositions.AchievementFrame=nil
+    local root=makeMockFrame('AchievementFrame',400,600);AchievementFrame=root
+    UIPanelWindows.AchievementFrame={area='left',pushable=1}
+    addon.Canvas:TryMakeFrameDraggable(root)
+    root:Hide();root:Show();flushTimers();flushTimers()
+    local record=addon.db.savedWorkspacePositions.AchievementFrame
+    assert(record and record.autoRoute=='achievements' and record.regionId=='right','Initial native OnShow skipped an unsaved routing rule')
+    assert(root:GetLeft()>=4012,'Deferred native show stack lost the routed anchor')
+    root:Hide()
+end)()
+print('PASS: initial native OnShow routes an unsaved panel after the native show stack')
+
+-- Collections must retain its native registration, like the standalone spellbook.
+;(function()
+    metrics.workspaceRegions={{id='left',x=0,y=644,width=365,height=457}}
+    metrics.primaryWorkspaceRegion='left';metrics.topologySchema=2;metrics.isSpanned=true
+    addon.db.workspacePanelRoutes={collections='left'}
+    addon.db.savedWorkspacePositions.CollectionsJournal={x=12,y=1089,regionId='left',regionX=.02,regionY=.98,autoRoute='collections',routeTarget='left'}
+    addon.db.savedMainPositions.CollectionsJournal=nil
+    local root=makeMockFrame('CollectionsJournal',703,606);CollectionsJournal=root
+    root.IsProtected=function()return true end
+    local registration={area='left',pushable=1};UIPanelWindows.CollectionsJournal=registration
+    addon.Canvas:TryMakeFrameDraggable(root)
+    assert(UIPanelWindows.CollectionsJournal==registration,'Collections lost native registration before its guarded restore')
+    root:Hide();root:Show();flushTimers();flushTimers()
+    assert(root:GetLeft()>=metrics.gameLeft+12,'Oversized protected Collections failed Mainhand recovery')
+    assert(root:GetScale()==1 and addon.db.savedWorkspacePositions.CollectionsJournal.regionId=='left','Collections recovery changed native scale or destination intent')
+    root:ClearAllPoints();root:SetPoint('TOPLEFT',UIParent,'BOTTOMLEFT',16,985)
+    flushTimers();flushTimers()
+    assert(root:GetLeft()>=metrics.gameLeft+12,'Late native Collections anchor reset defeated recovery')
+    assert(UIPanelWindows.CollectionsJournal==registration,'Collections lifecycle registration changed')
+    root:Hide()
+end)()
+print('PASS: protected native Collections registration, oversized routing, original intent and late anchor repair')
+
+-- Modern ordinary confirmations share the native popup stack, including party
+-- invitations. The legacy OnShow centering path must never attach to that pool.
+;(function()
+    local oldForever,oldRetail=addon.isForever,addon.isRetail
+    local oldPopups={StaticPopup1,StaticPopup2,StaticPopup3,StaticPopup4}
+    for _,client in ipairs({'forever','retail'}) do
+        addon.isForever,addon.isRetail=client=='forever',client=='retail'
+        local scriptWrites=0
+        local nativeRoot
+        for index=1,4 do
+            local popup=makeMockFrame('InvitePopupProbe'..index,420,180)
+            popup.HookScript=function() scriptWrites=scriptWrites+1 end
+            _G['StaticPopup'..index]=popup
+            if index==1 then nativeRoot=popup end
+        end
+        addon.HUD:HookFrames()
+        addon.HUD:HookFrames()
+        assert(scriptWrites==0,client..' pooled confirmations must not receive legacy root scripts')
+        nativeRoot:SetPoint('TOP',UIParent,'TOP',0,-135)
+        nativeRoot.GetTop=function() return 2450 end
+        nativeRoot.GetLeft=function() return 2500 end
+        local oldChildren=UIParent.children
+        UIParent.children={nativeRoot}
+        addon.HUD.popupTicker.callback()
+        UIParent.children=oldChildren
+        assert(nativeRoot:GetPoint(1)=='TOP',client..' generic rescue must preserve native popup stack ownership')
+    end
+    addon.isForever,addon.isRetail=false,false
+    local scripts={}
+    StaticPopup1=makeMockFrame('LegacyPopupProbe',420,180)
+    StaticPopup1.HookScript=function(_,key,callback) scripts[key]=callback end
+    StaticPopup2,StaticPopup3,StaticPopup4=nil,nil,nil
+    addon.HUD:HookFrames()
+    assert(type(scripts.OnShow)=='function','legacy client popup centering must remain installed')
+    StaticPopup1,StaticPopup2,StaticPopup3,StaticPopup4=unpack(oldPopups)
+    addon.isForever,addon.isRetail=oldForever,oldRetail
+end)()
+print('PASS: modern party-invite popup roots bypass legacy script hooks')

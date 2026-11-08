@@ -1,14 +1,15 @@
 ## Interface: 16001
 ## AllowLoadGameType: camelot
 ## Title: |cffffbd0aOffhand|r |cffffffff[Multi-Monitor Setup]|r
-## Notes: Equip your Offhand. Dual wield your monitors. Multi-Monitor Setup UI.
+## Notes: Keep gameplay on one screen and move maps, bags, chat, and other supported UI panels to another.
 ## Author: N4UX (Noggaholic)
-## Version: 2.1.2
-## X-Offhand-Release: beta.24
-## X-Offhand-Addon-Release: beta.24
-## X-Offhand-Companion-Version: 2.1.2
-## X-Offhand-Companion-Release: beta.20
+## Version: 2.1.3
+## X-Offhand-Release: beta.27
+## X-Offhand-Addon-Release: beta.27
+## X-Offhand-Companion-Version: 2.1.3
+## X-Offhand-Companion-Release:
 ## X-Offhand-Companion-Protocol: 1
+## X-Offhand-Topology-Schemas: 1,2,3
 ## X-Offhand-Companion-Min-Version: 2.1.2-beta.19
 ## X-Offhand-Manifest: Forever
 ## X-Website: https://offhand-wow.onrender.com/
@@ -26,6 +27,9 @@ Core\ForeverState.lua
 Core\Config.lua
 Core\UserMedia.lua
 Core\ManualCanvas.lua
+Core\WorkspaceRegions.lua
+Core\WorkspaceProfiles.lua
+Core\WorkspaceRouting.lua
 Core\Viewport.lua
 Core\TopologyDetection.lua
 Core\PopupBounds.lua
@@ -34,16 +38,22 @@ Core\MainhandCompatibility.lua
 Core\MainhandGamepad.lua
 Core\MainhandEditMode.lua
 Core\Mainhand.lua
+Core\ForeverEllesmereLayout.lua
+Core\CharacterSetup.lua
 Core\RetailFullscreen.lua
+Core\CinematicPresentation.lua
 Core\DialogueUICompat.lua
 Core\ChatBubbles.lua
 Core\MenuPlacement.lua
+Core\ForeverPlusWarnings.lua
 Core\HUDCompatibility.lua
 Core\HUDTransientPolicy.lua
 Core\HUDRecovery.lua
 Core\HUDTransientFrames.lua
 Core\SeamRedirect.lua
 Core\PanelMotion.lua
+Core\CanvasAddonEscape.lua
+Core\CanvasKerzoQuestLog.lua
 Core\CanvasCompatibility.lua
 Core\CanvasFrameState.lua
 Core\CanvasPanelRegistry.lua
@@ -80,8 +90,10 @@ Locales\zhTW.lua
 UI\Themes.lua
 UI\Controls.lua
 UI\OptionsActions.lua
+UI\WorkspaceOptions.lua
 UI\Options.lua
 UI\DisplayIdentify.lua
 UI\Minimap.lua
 UI\Onboarding.lua
 UI\Wizard.lua
+UI\EllesmereLayoutPreview.lua

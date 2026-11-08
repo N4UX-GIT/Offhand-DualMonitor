@@ -113,6 +113,62 @@ addon.RetailFullscreen:Apply()
 assert(math.abs(PerksProgramFrame:GetScale() - 0.64) < 0.001,
     "equal-height layout unnecessarily changed the Trading Post scale")
 
+do
+    metrics.physicalHeight, metrics.gamePixelHeight = 2560, 1440
+    local frame = PerksProgramFrame
+    local externalOwner = {}
+    for _, change in ipairs({ "anchor", "scale", "both" }) do
+        addon.db.enabled = true
+        frame:SetAllPoints(UIParent)
+        frame:SetScale(0.64)
+        addon.RetailFullscreen:Apply()
+        if change ~= "scale" then
+            frame:ClearAllPoints()
+            frame:SetPoint("CENTER", externalOwner, "CENTER", 40, 20)
+        end
+        if change ~= "anchor" then frame:SetScale(0.8) end
+        addon.RetailFullscreen:Apply()
+        if change ~= "scale" then
+            assert(select(2, frame:GetPoint(1)) == externalOwner, "active placement overwrote external anchor")
+        end
+        if change ~= "anchor" then assert(frame:GetScale() == 0.8, "active placement overwrote external scale") end
+        addon.db.enabled = false
+        addon.RetailFullscreen:Apply()
+        if change == "scale" then
+            assert(frame:GetPoint(1) == "TOPLEFT", "still-owned anchors must restore independently")
+        else
+            assert(select(2, frame:GetPoint(1)) == externalOwner, "cleanup overwrote external anchor")
+        end
+        if change == "anchor" then
+            assert(frame:GetScale() == 0.64, "still-owned scale must restore independently")
+        else
+            assert(frame:GetScale() == 0.8, "cleanup overwrote external scale")
+        end
+        addon.db.enabled = true
+        addon.RetailFullscreen:Apply()
+        if change ~= "scale" then assert(select(2, frame:GetPoint(1)) == externalOwner) end
+        if change ~= "anchor" then assert(frame:GetScale() == 0.8, "re-enable reclaimed external scale") end
+    end
+
+    -- The combat callback resolves current intent instead of replaying an old
+    -- Restore request after the player has already re-enabled the feature.
+    frame:SetAllPoints(UIParent)
+    frame:SetScale(0.64)
+    addon.RetailFullscreen:Apply()
+    local queue = {}
+    addon.RunOrQueueCombat = function(_, callback) queue[#queue + 1] = callback end
+    combat = true
+    addon.db.enabled = false
+    addon.RetailFullscreen:Apply()
+    addon.RetailFullscreen:Apply()
+    assert(#queue == 1, "Trading Post cleanup must coalesce in combat")
+    addon.db.enabled = true
+    combat = false
+    queue[1]()
+    assert(frame:GetPoint(1) == "BOTTOMLEFT" and addon.RetailFullscreen.modified,
+        "stale combat cleanup ran after re-enable")
+end
+
 -- Non-Retail clients load the shared file but never attach or mutate the frame.
 local classicAddon = {isRetail = false, db = {enabled = true}}
 local classicFrame = NewFrame()

@@ -4,6 +4,172 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+No additional changes queued beyond the prepared 2.1.3 publication.
+
+## [2.1.3-beta.27] - Prepared 2026-11-08, publication pending
+
+### Matching Companion and add-on
+- Continue the add-on sequence as 2.1.3 Pre-Release Beta 27 in all six manifests.
+  Companion retains clean version 2.1.3. Its EXE version
+  is 2.1.3.9; Store package 2.1.300.0 is submitted for certification with manual
+  publication held. Store installs Companion only; the matching add-on is separate.
+- Reuse the exact frozen portable EXE/ZIP matching the submitted Store executable.
+  No runtime rebuild accompanies add-on reconciliation or publication packaging.
+
+### Custom workspaces and backgrounds
+- Standard spanning, game/workspace areas on one monitor, partial secondary-monitor
+  areas, multiple workspaces and Flexible Layout, with visual area selection,
+  previews, saved display plans and an option to return to standard layout.
+- Named in-game workspace profiles, supported-panel routing, manual-position
+  priority, separate region themes and installed background-library images.
+- Retain Background Studio export/library support, per-region image/fit choices
+  and theme fallback for missing images. General add-on profiles, workspace
+  profiles and Blizzard HUD layouts remain separate.
+
+### Companion reliability and guidance
+- Map saved monitor identities to active Windows display targets rather than
+  assuming the first monitor child belongs to an output. Handle stale, disabled,
+  virtual and ambiguous display assignments with explicit review and safe refusal.
+- Improve scaling/layout, HDR/SDR diagnostics, taskbar presentation, Restore and
+  failure rollback. Bounded graphics-reset recovery applies to Retail/Anniversary.
+- Refresh dashboard, Help and workspace editors, window icons and community links.
+  Make Span WoW Now followed by manual /reload explicit after layout/Mainhand changes.
+
+### Add-on fixes and compatibility
+- Improve first-launch guidance, per-character setup and shared/character HUD
+  reuse, explicit repair and recovery. Retain Ellesmere ownership and preview/import
+  safeguards; imported or generated native layouts still require the user's reload.
+- Preserve native bag state, separate/combined ownership and permitted saved-root
+  placement through keyboard/controller combat reopening on Forever. Cold,
+  restricted, secret and replacement-owned roots retain their guarded deferral.
+- Preserve BetterBags/RestedXP and user-owned popup placement during automatic
+  rescue. Improve native confirmation stacking, EncounterBar repair and external
+  HUD ownership. Leave native map pin/content rebuilding to Blizzard on Forever.
+- Improve supported add-on settings/Kerzo Escape and reversible close-button
+  policies, Kerzo reload restoration, ForeverPlus warnings, bubble-font ownership
+  and Ellesmere toolbar refitting after settled display changes.
+- Retain Retail secret-value guards, workspace-aware tooltip/comparison bounds,
+  native map/bag lifecycle and earlier Beta 26 onboarding/persistence fixes.
+- Complete existing EFIGS translations and the 44 custom-workspace keys across
+  deDE, frFR, itIT, esES and esMX. Other locale dictionaries retain existing fallback
+  policy. Native-language layout acceptance remains distinct from dictionary tests.
+
+### Verification and remaining acceptance
+- Combined add-on: 109 Lua regression suites and six TOCs/Lua 5.1 syntax passed.
+  Broader Companion, publication and website verification is recorded in
+  docs/PUBLICATION-2.1.3-PREPARATION-20261108.md.
+- Local WACK overall PASS, all 13 required tests passed; one optional finding is
+  reviewed and retained. Local Defender scans were clean. The portable sample
+  has no Defender file-review determination; local scans are not Microsoft approval.
+- Native evidence remains scoped to its documented clients, builds and scenarios.
+  Physical mixed-DPI/hotplug/three-monitor, Wine, combined exact-package live WoW
+  and complete combat/protected-action acceptance remain separate open coverage.
+
+Earlier candidate notes: docs/2.1.3-DEVELOPMENT-CHANGELOG.md.
+
+## [2.1.2-beta.26] - 2026-11-01
+
+### Anniversary panels and bags
+- Improved native panel coexistence, Spellbook lifecycle and remembered standalone
+  open/closed intent. Context-bound NPC interactions retain native closure.
+- Restricted standalone Macro loading to its known native owner and rechecked
+  current persistence, combat and window state before restoring it.
+- Improved default bag identity, open/closed restoration and native bag layout
+  during opening and closing. Replacement bag addons retain ownership.
+- Retained the Anniversary map registration and cursor-scale corrections and
+  earlier geometry-adjustment coalescing work from the Beta 25 candidate.
+
+### Retail UI
+- Corrected the generic popup-rescue interaction that made pet-battle controls
+  disappear on mixed-height layouts, preserving native pet-battle visibility.
+- Improved transient ownership across topology changes, feature disable and
+  external mover takeover. Still-owned native anchors restore; custom owners yield.
+- Improved Trading Post anchor/scale restoration independently and made generic
+  popup callbacks read current geometry and honor the redirect option.
+- Improved scenario/challenge toast placement after native layout transactions,
+  including coalesced combat-deferred handling and expiration checks.
+
+### Guidance and retained changes
+- Includes the earlier Beta 25 setup recovery, handbook alignment and current
+  confirmation button names. Non-English revised guidance uses labelled English
+  fallback pending translation. Screenshot and capture guidance remains separate
+  from runtime acceptance.
+- This is an addon release candidate. Companion remains 2.1.2-beta.20; experimental
+  HDR/dashboard, native graphics-reset and loading-art work is not shipped.
+
+### Evidence and remaining checks
+- The reported Retail pet-battle failure has user-confirmed acceptance.
+- Anniversary test.11 default/replacement bag cases and reported Baganator/Bagnon
+  open-before-reload, closed-before-reload and Escape behavior have user acceptance.
+  Exact replacement versions were not recorded; this is not a full matrix pass.
+- Six Retail ownership audit findings were accepted by assumption at the user's
+  request, not by a newly recorded live session. Native timing, protected actions,
+  combat/taint, cold login and broader topology/compatibility checks remain pending.
+- All 82 Lua regression suites pass on the integrated candidate. Static and
+  simulated checks do not establish native client or anti-taint correctness.
+- The separate Anniversary memory-crash report remains unresolved. Geometry
+  coalescing is a mitigation candidate. Forever release-client and direct Linux/
+  Wine verification remain pending.
+
+## [2.1.2-beta.25] - 2026-11-01
+
+### Additional fixes in the updated package
+- Preserved TBC Anniversary World Map native panel registration for map opening
+  and lifecycle. Added a native cursor-scale adapter for inward map navigation,
+  isolated from Retail, Forever and custom map owners. Opening has a partial
+  reporter pass; cursor navigation and broader lifecycle acceptance remain pending.
+- Coalesced rapid bezel-gap and game-bottom adjustments into one final layout
+  after a short pause, retaining immediate value updates and current-state combat
+  deferral. This is a candidate mitigation for adjustment stalls, not a confirmed
+  graphics-device recovery or memory-crash fix.
+- Added opt-in Retail notification capture for support: /offhand notifycapture
+  start, stop and show. Collection is bounded to one hour and 64 recent changes;
+  captures remain session-only and normal diagnostics stay compact.
+
+### Setup and recovery
+- Aligned the in-game handbook and expanded placement help with Companion-first
+  setup, current confirmation buttons and missing-only recovery. Revised locale
+  overrides use English fallback until translated; new help-card captures follow
+  live wrapping/scrolling review.
+- Calibration now pauses with actionable instructions when Companion geometry is
+  missing or does not match the window. Apply Span WoW Now in the game world,
+  then Reload UI to resume the same step. Maximizing one monitor is not spanning.
+- A full Blizzard Edit Mode layout list now opens guided recovery: export or
+  delete an unused layout yourself, close Edit Mode, then retry HUD creation.
+  Offhand never deletes a layout automatically.
+- Repair HUD uses the same capacity recovery and retires obsolete repair prompts
+  after successful layout creation, leaving the reload prompt as the next action.
+- Kept the wizard centered through span/restore and reflowed guidance paragraphs
+  to prevent truncation or overflow. Added clearer failure-specific HUD guidance.
+- Shortened the settings tagline to "Dual-wield your monitors." and clarified
+  the addon-list description.
+- Guarded Retail tooltip bounds against secret, missing and nonfinite coordinates
+  before arithmetic, including Encounter Warnings tooltips in Edit Mode.
+
+### Retail compatibility candidates
+- Added Mainhand presentation for cinematic/movie playback and the native skip
+  confirmation, preserving Blizzard input, playback and visibility ownership.
+- Expanded native group-confirmation stack handling and added Mainhand placement
+  for keystone insertion, completion banners and event toasts. Native links,
+  offsets, handlers and external ownership are preserved.
+- Added a native-anchor adapter for Retail override/vehicle presentation.
+- Hardened shared HUD layout identity: character-named layouts cannot be adopted
+  by another character; explicit setup can preserve a tuned legacy layout;
+  GUID tracking distinguishes future same-name character recreations.
+
+### Evidence and remaining checks
+- Setup/full-slot Repair HUD recovery was accepted on Anniversary and Retail.
+  Shared selection and tuned placement were accepted on the reported Retail setup.
+- All 73 Lua 5.1 suites pass on the integrated source. These are simulated tests,
+  not proof of combat/taint safety or native action correctness.
+- Expanded Retail notification, cinematic and vehicle candidates still require
+  targeted live acceptance, including real native actions and current taint logs.
+  Translation expansion, narrow Mainhand layouts and other clients need retesting.
+- The Anniversary manual-span memory-crash report remains unresolved; this build
+  does not claim an out-of-memory fix. Forever release-client testing is pending.
+- Companion remains 2.1.2-beta.20. Experimental HDR/dashboard, native graphics-reset
+  recovery and loading-art changes are not included in the release executable.
+
 ## [2.1.2-beta.24] - 2026-10-30
 
 ### Fixed and improved

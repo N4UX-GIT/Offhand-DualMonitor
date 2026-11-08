@@ -21,6 +21,10 @@ function Adapter.Install(Canvas, services)
     local RestoreWorkspacePosition = assert(services.RestoreWorkspacePosition, "Missing Forever map service: RestoreWorkspacePosition")
     local WithWorkspace = assert(services.WithWorkspace, "Missing Forever map service: WithWorkspace")
     local OnPanelDragStop = assert(services.OnPanelDragStop, "Missing Forever map service: OnPanelDragStop")
+    local function NativeGamepadOwnsMap()
+        local presentation = Offhand.CanvasMapPresentation
+        return presentation and presentation.IsNativeGamepadOwned(Canvas) or false
+    end
 
     -- Forever's map-pin sharing path is protected. A drag handler parented to the
     -- World Map, or attached to its native title/close controls, taints the same
@@ -30,6 +34,26 @@ function Adapter.Install(Canvas, services)
     -- of WorldMapFrame and no script is installed on any native map object.
     local function QueueForeverWorldMapSettlement(map, state, shown, forcePanelTransaction)
         if not Offhand.isForever or not map or not state then return end
+        if NativeGamepadOwnsMap() then
+            if not state.nativeGamepad then
+                state.nativeGamepad = true
+                state.settlementGeneration = (state.settlementGeneration or 0) + 1
+                state.observedShown = nil
+                state.observedMaximized = nil
+            end
+            return
+        end
+        state.nativeGamepad = nil
+        if shown and map.IsMaximized and map:IsMaximized() then
+            if not state.observedMaximized then
+                state.settlementGeneration = (state.settlementGeneration or 0) + 1
+            end
+            state.observedShown, state.observedMaximized = true, true
+            return
+        elseif state.observedMaximized then
+            state.observedMaximized = nil
+            if shown then state.observedShown = nil end
+        end
         if forcePanelTransaction then
             if not shown then return end
             state.observedShown = true
@@ -63,9 +87,11 @@ function Adapter.Install(Canvas, services)
         local generation = state.settlementGeneration
         local function Settle()
             if generation ~= state.settlementGeneration
+                or NativeGamepadOwnsMap()
                 or ShouldYieldWorldMapToMoveAny(map)
                 or not Offhand.db or not Offhand.db.enabled
-                or not map.IsShown or not map:IsShown() then return end
+                or not map.IsShown or not map:IsShown()
+                or (map.IsMaximized and map:IsMaximized()) then return end
             if InCombatLockdown() then
                 if Offhand.RunOrQueueCombat then
                     Offhand:RunOrQueueCombat(Settle)
@@ -85,7 +111,7 @@ function Adapter.Install(Canvas, services)
                     NotePanelControllerActivity("WorldMapFrame", "forever-world-map", "settlement")
                     RestoreSavedPositionAfterShow(map)
                 end
-            elseif not (map.IsMaximized and map:IsMaximized()) then
+            else
                 Canvas:RescuePanelFromVoid(map)
             end
             Canvas:RepairShownWorkspacePanels(map)
@@ -169,7 +195,8 @@ function Adapter.Install(Canvas, services)
             end
             if returnButton.SetScript then
                 returnButton:SetScript("OnClick", function()
-                    if InCombatLockdown() or not map.IsShown or not map:IsShown() then return end
+                    if NativeGamepadOwnsMap() or InCombatLockdown()
+                        or not map.IsShown or not map:IsShown() then return end
                     if map.IsMaximized and map:IsMaximized() then
                         if map.HandleUserActionMinimizeSelf then
                             map:HandleUserActionMinimizeSelf()
@@ -204,20 +231,63 @@ function Adapter.Install(Canvas, services)
         local function UpdateHandle(_, elapsed)
             local mapShown = Offhand.db and Offhand.db.enabled
                 and map.IsShown and map:IsShown()
+            local maximized = mapShown and map.IsMaximized and map:IsMaximized()
             QueueForeverWorldMapSettlement(map, state, mapShown and true or false)
             elapsedSinceUpdate = elapsedSinceUpdate + (tonumber(elapsed) or 0)
             if elapsedSinceUpdate < 0.10 then return end
             elapsedSinceUpdate = 0
 
-            if ShouldYieldWorldMapToMoveAny(map) then
+            if NativeGamepadOwnsMap() then
                 SetPanelDragging(map, false)
                 if handle.EnableMouse then handle:EnableMouse(false) end
-                if handle.Hide then handle:Hide() end
+                -- Keep the invisible observer running so keyboard mode can
+                -- resume without a reload. Its hit area remains off screen.
+                if handle.SetSize then handle:SetSize(1, 1) end
+                if handle.ClearAllPoints and handle.SetPoint then
+                    handle:ClearAllPoints()
+                    handle:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", -100, -100)
+                end
                 if returnButton and returnButton.Hide then returnButton:Hide() end
                 return
             end
+            if ShouldYieldWorldMapToMoveAny(map) then
+                SetPanelDragging(map, false)
+                if handle.EnableMouse then handle:EnableMouse(false) end
+                if IsExternallyPositionedWorldMap(map) then
+                    -- Leatrix/OpenMap own geometry and dragging, but this
+                    -- independent observer still tracks later show edges for
+                    -- workspace open intent and Escape persistence. Hiding it
+                    -- while the map is closed prevents those edges being seen.
+                    if not state.externalObserverParked then
+                        if handle.SetSize then handle:SetSize(1, 1) end
+                        if handle.ClearAllPoints and handle.SetPoint then
+                            handle:ClearAllPoints()
+                            handle:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", -100, -100)
+                        end
+                        state.externalObserverParked = true
+                    end
+                    if not mapShown or maximized then
+                        state.externalWorkspace, state.externalPersistence = nil, nil
+                    elseif not InCombatLockdown() and Canvas.IsFrameOnWorkspace then
+                        local ok, workspace = pcall(Canvas.IsFrameOnWorkspace, map)
+                        local persistent = Offhand.db.persistentWorkspacePanels ~= false
+                        -- Leatrix/OpenMap drag their map without a show edge.
+                        -- Re-evaluate ownership only when membership or the
+                        -- persistence option changes, not on every observer tick.
+                        if ok and (state.externalWorkspace ~= workspace or state.externalPersistence ~= persistent) then
+                            Canvas:PreserveExternalWorldMapOpenState(map)
+                            state.externalWorkspace, state.externalPersistence = workspace, persistent
+                        end
+                    end
+                elseif handle.Hide then
+                    handle:Hide()
+                end
+                if returnButton and returnButton.Hide then returnButton:Hide() end
+                return
+            end
+            state.externalObserverParked = nil
+            state.externalWorkspace, state.externalPersistence = nil, nil
 
-            local maximized = mapShown and map.IsMaximized and map:IsMaximized()
             if returnButton then
                 if maximized and not InCombatLockdown() then
                     local metrics = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
@@ -233,7 +303,7 @@ function Adapter.Install(Canvas, services)
                 end
             end
 
-            local usable = mapShown
+            local usable = mapShown and not maximized
                 and map.GetLeft and map:GetLeft()
                 and map.GetTop and map:GetTop()
             if not usable then
@@ -265,7 +335,8 @@ function Adapter.Install(Canvas, services)
         if handle.SetScript then
             handle:SetScript("OnUpdate", UpdateHandle)
             handle:SetScript("OnDragStart", function()
-                if ShouldYieldWorldMapToMoveAny(map) or InCombatLockdown()
+                if NativeGamepadOwnsMap() or ShouldYieldWorldMapToMoveAny(map) or InCombatLockdown()
+                    or (map.IsMaximized and map:IsMaximized())
                     or not Offhand.db or not Offhand.db.enabled then return end
                 local started = pcall(function()
                     map:SetMovable(true)
@@ -275,6 +346,10 @@ function Adapter.Install(Canvas, services)
                 SetPanelDragging(map, started)
             end)
             handle:SetScript("OnDragStop", function()
+                if NativeGamepadOwnsMap() then
+                    SetPanelDragging(map, false)
+                    return
+                end
                 OnPanelDragStop(map)
                 UpdateHandle(nil, 1)
             end)

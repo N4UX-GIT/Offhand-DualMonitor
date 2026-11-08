@@ -542,12 +542,12 @@ function Onboarding:CreateFrame()
                     Controls.MeasureWrappedText(button:GetFontString(), button:GetText(), 180, 14) + 8)
             end
         end
-        local bodyHeight = Controls.MeasureWrappedText(self.pageBody, self.pageBody:GetText(), 612)
+        local bodyHeight = Controls.FitParagraphText(self.pageBody, self.pageBody:GetText(), 612)
         local illustrated = self.modeIllustration:IsShown()
         local layout = Controls.GetGuideLayout(
             Controls.MeasureWrappedText(self.pageTitle, self.pageTitle:GetText(), 612),
             bodyHeight + (illustrated and 100 or 0),
-            Controls.MeasureWrappedText(self.statusText, self.statusText:GetText(), 612),
+            Controls.FitParagraphText(self.statusText, self.statusText:GetText(), 612),
             actionHeight)
         self:SetHeight(layout.height)
         self.pageBody:ClearAllPoints()
@@ -597,6 +597,13 @@ function Onboarding:CreateFrame()
     end
 
     function f:SelectMethod(method)
+        local previous = Offhand.GetOnboardingSetupMethod and Offhand:GetOnboardingSetupMethod()
+        if previous ~= method and type(OffhandCharDB) == "table" then
+            -- A different placement workflow needs a fresh calibration review,
+            -- not a jump to the previous method's final task. Keep all values.
+            OffhandCharDB.wizardProgressStep = nil
+            OffhandCharDB.wizardRecoveryStep = nil
+        end
         if Offhand.SetOnboardingSetupMethod then Offhand:SetOnboardingSetupMethod(method) end
         if Offhand.ManualCanvas then
             Offhand.ManualCanvas:SetGeometryPreference(method == "COMPANION" and "AUTO" or "MANUAL")
@@ -642,6 +649,9 @@ function Onboarding:CreateFrame()
             self.pageTitle:SetText(L["ONBOARD_PLACE_TITLE"])
         end
         local bodyText = L[bodyKey]
+        if self.page == 4 and method == "COMPANION" then
+            bodyText = bodyText .. "\n\n" .. L["ONBOARD_SPAN_NOT_MAXIMIZE"]
+        end
         if self.helpExpanded and method and (self.page == 3 or self.page == 4) then
             bodyText = bodyText .. "\n\n" .. L["ONBOARD_PATH_" .. method .. "_" .. self.page]
         end
@@ -663,7 +673,11 @@ function Onboarding:CreateFrame()
         elseif self.page == 4 then self.nextButton:SetText(L["ONBOARD_CONFIRM_PLACEMENT"])
         end
         if self.page == 6 then
-            self.pageBody:SetText(string.format(L[bodyKey], "|cffffd100" .. self.nextButton:GetText() .. "|r"))
+            local transfer = Offhand.EllesmereLayout
+            local ellesmereHelp = transfer and transfer.ShowPreview and transfer:IsAvailable()
+                and ("\n\n" .. L["ELLESMERE_HUD_SETUP_DESC"]) or ""
+            self.pageBody:SetText(string.format(L[bodyKey], "|cffffd100" .. self.nextButton:GetText() .. "|r")
+                .. ellesmereHelp .. "\n\n" .. L["SETUP_FIRST_PANEL"])
         end
         local stateKey
         if self.page == 3 then
@@ -747,6 +761,7 @@ function Onboarding:CreateFrame()
     -- a request suppresses intermediate CVar events until rollback/apply ends.
     function f:CenterInMainhand()
         if not self:IsShown() then return end
+        self:LayoutPage()
         local m = Metrics()
         local scale = Controls.FitDialog(self, m)
         self:ClearAllPoints()
@@ -791,6 +806,10 @@ function Onboarding:CreateFrame()
 end
 
 function Onboarding:Open()
+    if Offhand.SetAutomaticSetupSuppressed then Offhand:SetAutomaticSetupSuppressed(false) end
+    if Offhand.Wizard and Offhand.Wizard.ResumeAfterReload
+        and Offhand.Wizard:ResumeAfterReload() then return end
+    if Offhand.Wizard and Offhand.Wizard.CancelEditModeReturn then Offhand.Wizard:CancelEditModeReturn() end
     if Offhand.Wizard then Offhand.Wizard.settingsResumeStep = nil end
     resumeAfterDownload = nil
     if settingsReturnWatcher then settingsReturnWatcher:SetScript("OnUpdate", nil) end

@@ -74,6 +74,15 @@ local function GatherOffScreenUI()
     if Offhand.GatherOffScreenUI then Offhand:GatherOffScreenUI() end
 end
 
+local function OpenSetupWizard()
+    if Offhand.IsSetupComplete and not Offhand:IsSetupComplete()
+        and Offhand.Onboarding and Offhand.Onboarding.Open then
+        Offhand.Onboarding:Open()
+    elseif Offhand.Wizard and Offhand.Wizard.Open then
+        Offhand.Wizard:Open()
+    end
+end
+
 icon:SetScript("OnClick", function(self, button)
     if isDragging then return end
     local L = Offhand.L or {}
@@ -91,9 +100,7 @@ icon:SetScript("OnClick", function(self, button)
                 rootDescription:CreateButton(openSettings, function()
                     if Offhand.Options then Offhand.Options:Open() end
                 end)
-                rootDescription:CreateButton(runWizard, function()
-                    if Offhand.Wizard then Offhand.Wizard:Open() end
-                end)
+                rootDescription:CreateButton(runWizard, OpenSetupWizard)
                 rootDescription:CreateDivider()
                 rootDescription:CreateButton(gatherUI, GatherOffScreenUI)
             end)
@@ -102,7 +109,7 @@ icon:SetScript("OnClick", function(self, button)
             local menuList = {
                 { text = title, isTitle = true, notCheckable = true },
                 { text = openSettings, notCheckable = true, func = function() if Offhand.Options then Offhand.Options:Open() end end },
-                { text = runWizard, notCheckable = true, func = function() if Offhand.Wizard then Offhand.Wizard:Open() end end },
+                { text = runWizard, notCheckable = true, func = OpenSetupWizard },
                 { text = "", isTitle = true, notCheckable = true },
                 { text = gatherUI, notCheckable = true, func = GatherOffScreenUI }
             }

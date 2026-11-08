@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory = $true)][string]$BinaryPath,
     [Parameter(Mandatory = $true)][string]$OutputPath,
-    [string]$Version = '2.1.2-beta.20'
+    [string]$Version = '2.1.2-beta.20',
+    [string]$ReadmeTemplate
 )
 
 $ErrorActionPreference = 'Stop'
@@ -23,7 +24,10 @@ try {
         (Join-Path $temp 'LICENSE'),
         $licenseText,
         [Text.UTF8Encoding]::new($true))
-    $readme = (Get-Content -LiteralPath (Join-Path $root 'Companion\PORTABLE-README.txt') -Raw).
+    if (!$ReadmeTemplate) {
+        $ReadmeTemplate = Get-Content -LiteralPath (Join-Path $root 'Companion\PORTABLE-README.txt') -Raw
+    }
+    $readme = $ReadmeTemplate.
         Replace('{{VERSION}}', $Version).
         Replace('{{EXE_SHA256}}', $hash)
     [IO.File]::WriteAllText((Join-Path $temp 'README.txt'), $readme, [Text.UTF8Encoding]::new($false))

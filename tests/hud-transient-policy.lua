@@ -6,6 +6,8 @@ local specs = policy.GetSpecs()
 
 local byName = {}
 for _, spec in ipairs(specs) do byName[spec.name] = spec end
+assert(byName.LFGListApplicationDialog.specialPopup and byName.LFGListInviteDialog.specialPopup,
+    "premade-group dialogs must use the external native-stack placement policy")
 assert(byName.GroupLootContainer and byName.GroupLootContainer.secure
         and byName.GroupLootContainer.groupLootRows
         and byName.PetBattleFrame and byName.PetBattleFrame.petBattleBounds,
@@ -25,6 +27,9 @@ HouseEditorFrame = { ModeBar = ordinary }
 assert(policy.Resolve(byName["HouseEditorFrame.ModeBar"]) == ordinary,
     "nested transient resolution changed during extraction")
 assert(policy.Resolve(nil) == nil, "invalid transient specifications must fail closed")
+PetBattleFrame = ordinary
+assert(policy.IsSecureRoot(PetBattleFrame) and not policy.IsSecureRoot({})
+    and not policy.IsSecureRoot(nil), "dedicated roots must be excluded from generic rescue")
 
 assert(policy.CanPosition(ordinary), "ordinary mutable transient frame was rejected")
 local forbidden = {

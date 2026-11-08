@@ -7,8 +7,8 @@ local _, Offhand = ...
 _G.Offhand = Offhand
 
 local defaultSettings = {
-    -- First launch is intentionally inert. The wizard enables Offhand only
-    -- after the user has reviewed the Companion's detected display topology.
+    -- Keep the viewport inert until the user confirms placement and applies
+    -- calibration. First-launch guidance is independent of this switch.
     enabled = false,
     layoutPreset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT", -- "PORTRAIT_LEFT_LANDSCAPE_RIGHT", "LANDSCAPE_DUAL", "CUSTOM"
     primaryPosition = "RIGHT",      -- "LEFT" or "RIGHT" (In Portrait Left, Primary 3D Game is on the RIGHT!)
@@ -569,6 +569,12 @@ function ForeverPersistence:SaveWorkspacePosition(name, position, width, height)
     local value = table.concat({ "W4", tostring(x), tostring(y), tostring(tonumber(width) or 0),
         tostring(tonumber(height) or 0), tostring(canvasWidth), tostring(canvasHeight),
         tostring(canvasLeft), tostring(canvasBottom) }, "|")
+    if type(position.regionId)=="string" then
+        if #position.regionId<1 or #position.regionId>32 or not position.regionId:match("^[%w_-]+$") then return false end
+        value="W5"..value:sub(3).."|"..position.regionId
+        -- A bounded persistence format; this is not an assumed client CVar limit.
+        if #value>240 then return false end
+    end
     WritePersistentCVar(PositionCVar(name), value)
 end
 
@@ -585,8 +591,13 @@ function ForeverPersistence:RestorePositions()
     for _, name in ipairs(names) do
         RegisterPersistentCVar(PositionCVar(name))
         local value = ReadPersistentCVar(PositionCVar(name))
-        local kind, x, y, width, height, canvasWidth, canvasHeight, canvasLeft, canvasBottom = tostring(value or ""):match(
+        local kind, x, y, width, height, canvasWidth, canvasHeight, canvasLeft, canvasBottom,regionId = tostring(value or ""):match(
+            "^(W5)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%w_-]+)$")
+        if regionId and #regionId>32 then kind=nil end
+        if not kind then
+            kind, x, y, width, height, canvasWidth, canvasHeight, canvasLeft, canvasBottom = tostring(value or ""):match(
             "^(W4)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)$")
+        end
         if not kind then
             kind, x, y, width, height, canvasHeight, canvasBottom = tostring(value or ""):match(
             "^(W3)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)$")
@@ -609,8 +620,9 @@ function ForeverPersistence:RestorePositions()
             -- fallback. A durable Mainhand record is an explicit, mutually
             -- exclusive owner and must not be combined with a stale W* value.
             Offhand.db.savedWorkspacePositions[name] = nil
-        elseif (kind == "W" or kind == "W2" or kind == "W3" or kind == "W4") and x and y then
+        elseif (kind == "W" or kind == "W2" or kind == "W3" or kind == "W4" or kind=="W5") and x and y then
             Offhand.db.savedWorkspacePositions[name] = {
+                regionId=kind=="W5" and regionId or nil,
                 x = x,
                 y = y,
                 width = width and width > 0 and width or nil,
@@ -677,18 +689,23 @@ function ForeverPersistence:SaveDisplayFlags(db)
     if not self:IsAvailable() or type(db) ~= "table" then return end
     local function Flag(value) return value and "1" or "0" end
     WritePersistentCVar(FOREVER_DISPLAY_FLAGS_CVAR, table.concat({
-        "V1", Flag(db.enabled), Flag(db.rawMouseInput ~= false),
+        "V2", Flag(db.enabled), Flag(db.rawMouseInput ~= false),
+        Flag(db.automaticSetupSuppressed == true),
     }, "|"))
 end
 
 function ForeverPersistence:RestoreDisplayFlags(db)
     if not self:IsAvailable() or type(db) ~= "table" then return false end
     RegisterPersistentCVar(FOREVER_DISPLAY_FLAGS_CVAR)
-    local enabled, rawMouse = tostring(ReadPersistentCVar(FOREVER_DISPLAY_FLAGS_CVAR) or ""):match(
-        "^V1|([01])|([01])$")
+    local value = tostring(ReadPersistentCVar(FOREVER_DISPLAY_FLAGS_CVAR) or "")
+    local enabled, rawMouse, suppressed = value:match("^V2|([01])|([01])|([01])$")
+    if not enabled then enabled, rawMouse = value:match("^V1|([01])|([01])$") end
     if not enabled then return false end
     db.enabled = enabled == "1"
     db.rawMouseInput = rawMouse == "1"
+    -- Older records carry no setup intent. Preserve any durable opt-out rather
+    -- than inferring it from the inactive first-launch viewport default.
+    if suppressed then db.automaticSetupSuppressed = suppressed == "1" end
     return true
 end
 
@@ -755,6 +772,14 @@ end
 function Offhand:SetEnabled(enabled)
     if not Offhand.db then return end
     Offhand.db.enabled = enabled == true
+    -- Only an explicit disable is an opt-out, not the fresh profile default.
+    Offhand.db.automaticSetupSuppressed = enabled ~= true
+    ForeverPersistence:SaveDisplayFlags(Offhand.db)
+end
+
+function Offhand:SetAutomaticSetupSuppressed(suppressed)
+    if not Offhand.db then return end
+    Offhand.db.automaticSetupSuppressed = suppressed == true
     ForeverPersistence:SaveDisplayFlags(Offhand.db)
 end
 
@@ -905,6 +930,45 @@ function Offhand:SetCompanionWarningSuppressed(suppressed)
     SaveOnboarding()
 end
 
+function Offhand:EnsureCharacterIdentity()
+    if type(OffhandCharDB) ~= "table" or not UnitGUID then return false end
+    local guid = UnitGUID("player")
+    if type(guid) ~= "string" or guid == "" then return false end
+    local previous = OffhandCharDB.characterGUID
+    local record = OffhandCharDB.mainhandLayout
+    local player = UnitName and UnitName("player")
+    local stale = (previous and previous ~= guid)
+        or (type(record) == "table" and record.ownerGUID and record.ownerGUID ~= guid)
+        or (type(record) == "table" and record.ownerName and player and record.ownerName ~= player)
+    if stale then
+        -- Retain the old HUD provenance for recovery. Account profiles, physical
+        -- calibration and native Edit Mode layouts are not character identity.
+        OffhandCharDB.previousHUDIdentity = {
+            characterGUID = previous, mainhandLayout = record,
+            editModeLayoutName = OffhandCharDB.editModeLayoutName,
+        }
+        for _, key in ipairs({"mainhandLayout", "mainhandLayoutsByMode", "editModeLayoutName", "mainhandWindowedLayout",
+            "mainhandWindowedManualLayout", "foreverEditModeLayoutName", "foreverEditModeLayoutID",
+            "foreverEditModeLegacyRecovery", "foreverEditModeRecovery", "mainhandLayoutDeferred",
+            "hudSetupReminderDeclined", "hudSpanNoticeDismissed", "characterSetup",
+            "kerzoQuestLogOpen"}) do OffhandCharDB[key] = nil end
+    end
+    OffhandCharDB.characterGUID = guid
+    if not self.isLegacyWrath and (stale or (not previous and not OffhandCharDB.mainhandLayout)) then
+        OffhandCharDB.hudSetupReminder = true
+        OffhandCharDB.hudSetupReminderDeclined = nil
+    end
+    local mainhand = self.Mainhand
+    if mainhand and mainhand.IsCharacterEditModeLayoutAllowed
+        and not mainhand:IsCharacterEditModeLayoutAllowed(OffhandCharDB.editModeLayoutName) then
+        local current = OffhandCharDB.mainhandLayout
+        OffhandCharDB.editModeLayoutName = type(current) == "table"
+            and mainhand:IsCharacterEditModeLayoutAllowed(current.generatedName) and current.generatedName or nil
+        if not OffhandCharDB.editModeLayoutName then OffhandCharDB.hudSetupReminder = true end
+    end
+    return stale and true or false
+end
+
 function Offhand:InitializeConfig()
     -- ForeverState.lua is loaded immediately before this module. A new bridge
     -- version is authoritative once after a cold launch; an already-consumed
@@ -998,6 +1062,7 @@ function Offhand:InitializeConfig()
         end
     end
 
+    self:EnsureCharacterIdentity()
     local current = OffhandCharDB.activeProfile or "Default"
     if not OffhandDB.profiles[current] then
         OffhandDB.profiles[current] = {}

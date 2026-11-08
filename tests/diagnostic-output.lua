@@ -46,11 +46,13 @@ addon.Mainhand = { GetEditModeDiagnostics = function(_, compact)
     return compact and "Active=7 | Geometry=current" or "Active=7 | GamepadPanels=details"
 end }
 addon.ManualCanvas = { GetDiagnostics = probe("manual", {}) }
+addon.CanvasCompatibility = {GetGuideAddonDiagnostics = probe("guides", {"Zygor probes: fixture"})}
 addon.modules.ChatBubbles = { GetDiagnostics = probe("bubbles", {}) }
 addon.Canvas = {
     -- The old caller discarded reports without the substring 'loaded'.
     GetCompatibilityDiagnostics = function() return "WorldMapOwner=OpenMap" end,
     GetPanelControllerDiagnostics = probe("panels", "idle"),
+    GetForeverNativeBagDiagnostics = probe("bags", "roots=ContainerFrameCombinedBags=shown"),
 }
 addon.DialogueUICompat = { GetDiagnostics = probe("dialogue", "animation") }
 local media = { status = "MISSING", installed = false, reason = "NOT_INSTALLED" }
@@ -70,12 +72,26 @@ for _, absent in ipairs({"Topology diagnostics:", "Manual canvas", "Group frame"
     "Dialogue UI", "User media", "diskRevision", "GamepadPanels"}) do
     assert(not compact:find(absent, 1, true), "unnecessary default output: " .. absent)
 end
+addon.db.automaticSetupSuppressed = true
+addon.GetOnboardingResumeStep = function() return 4 end
+OffhandCharDB = {characterSetup = {version = 1, choice = "later", complete = true}}
 local full = run("diag full")
-for _, name in ipairs({"tooltip", "interaction", "text", "loot", "pets", "groups", "protected", "manual", "bubbles", "panels", "dialogue"}) do
+assert(not compact:find("Setup state:", 1, true)
+        and full:find("Setup state: Account=complete | Guide=paused | Resume=4 | Character=later | Decision=saved", 1, true),
+    "full diagnostics must expose setup intent and character decision without bloating compact reports")
+assert(not compact:find("Cinematic skip-dialog diagnostics:", 1, true)
+    and full:find("Cinematic skip-dialog diagnostics: not-attached", 1, true),
+    "active cutscene investigation state belongs only in requested full diagnostics")
+for _, name in ipairs({"tooltip", "interaction", "text", "loot", "pets", "groups", "protected", "manual", "bubbles", "panels", "dialogue", "guides", "bags"}) do
     assert(probes[name] == 1, "full diagnostics lost requested evidence: " .. name)
 end
+assert(full:find("Native bag diagnostics: roots=ContainerFrameCombinedBags=shown", 1, true),
+    "full support reports must expose native bag state after a missing-backpack report")
 assert(full:find("Interaction visibility: ProfessionsFrame=hidden", 1, true),
     "full support reports must include the requested missing-frame evidence")
+assert(not compact:find("Guide frame diagnostics:", 1, true)
+        and full:find("Guide frame diagnostics: Zygor probes: fixture", 1, true),
+    "guide frame inspection must remain opt-in through full diagnostics")
 assert(full:find("diskRevision", 1, true) and full:find("GamepadPanels", 1, true)
     and full:find("User media", 1, true), "full report omitted detailed state")
 topology.status = "MISMATCH"
@@ -88,4 +104,13 @@ media.installed, media.status, media.enabled = true, "INVALID", true
 local invalid = run("diag")
 assert(invalid:find("User media diagnostics: status=INVALID", 1, true)
     and not invalid:find("texture=", 1, true), "invalid installed media must remain visible and concise")
+local armed,stopped=0,0
+addon.HUD.ArmNotificationCapture=function() armed=armed+1;return true end
+addon.HUD.StopNotificationCapture=function() stopped=stopped+1 end
+addon.HUD.GetNotificationCaptureReports=function() return {"retained-frame-evidence"} end
+assert(run('notifycapture start'):find('Notification capture armed',1,true) and armed==1)
+assert(run('notifycapture stop'):find('Notification capture stopped',1,true) and stopped==1)
+assert(run('notifycapture show'):find('retained-frame-evidence',1,true))
+assert(run('diag full'):find('Notification capture: retained-frame-evidence',1,true))
+assert(not run('diag'):find('retained-frame-evidence',1,true),'compact diagnostics must not dump capture history')
 print("PASS: compact support snapshot, conditional recovery evidence and opt-in full diagnostics")

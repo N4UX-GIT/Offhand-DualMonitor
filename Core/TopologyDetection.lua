@@ -56,6 +56,8 @@ function Detection.Detect()
         info.gamePixelHeight = metrics.gamePixelHeight
         info.workspacePixelWidth = metrics.workspacePixelWidth
         info.workspacePixelHeight = metrics.workspacePixelHeight
+        info.workspaceRegions=metrics.workspaceRegions
+        info.primaryWorkspaceRegion=metrics.primaryWorkspaceRegion
         info.recommendedPreset = stacked and "STACKED_VERTICAL"
             or (workspacePortrait and gameLandscape and "PORTRAIT_LEFT_LANDSCAPE_RIGHT")
             or "LANDSCAPE_DUAL"

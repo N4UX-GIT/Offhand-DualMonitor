@@ -33,15 +33,29 @@ local function Accessible(frame)
     return true
 end
 
+local function PublicNumber(value)
+    -- Retail may expose secret coordinates even outside combat (for example
+    -- encounter-warning previews in Edit Mode). Never compare or calculate
+    -- with these values; leave their tooltip placement to Blizzard.
+    if type(issecretvalue) == "function" then
+        local ok, secret = pcall(issecretvalue, value)
+        if not ok or secret then return false end
+    end
+    return type(value) == "number" and value == value
+        and value > -math.huge and value < math.huge
+end
+
 local function FrameBounds(frame)
     if not Accessible(frame) then return nil end
-    local uiScale = UIParent and UIParent.GetEffectiveScale
-        and UIParent:GetEffectiveScale() or 1
+    local uiScale = 1
+    if UIParent and UIParent.GetEffectiveScale then uiScale = UIParent:GetEffectiveScale() end
     local frameScale = frame:GetEffectiveScale()
-    if not uiScale or uiScale <= 0 or not frameScale or frameScale <= 0 then return nil end
+    if not PublicNumber(uiScale) or not PublicNumber(frameScale)
+        or uiScale <= 0 or frameScale <= 0 then return nil end
     local left, right = frame:GetLeft(), frame:GetRight()
     local top, bottom = frame:GetTop(), frame:GetBottom()
-    if not left or not right or not top or not bottom then return nil end
+    if not PublicNumber(left) or not PublicNumber(right)
+        or not PublicNumber(top) or not PublicNumber(bottom) then return nil end
     local toUI = frameScale / uiScale
     return left * toUI, right * toUI, top * toUI, bottom * toUI, uiScale, frameScale
 end
@@ -110,6 +124,7 @@ function PopupBounds:UpdateClassicTooltipClamp(frame, preparing)
         or (frame.IsProtected and frame:IsProtected()) then return false end
     local metrics = Active()
     local _, owner = TooltipRootAndOwner(frame)
+    if metrics and Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,owner or frame) end
     local worldOwner = owner and (owner == UIParent or owner == _G.WorldFrame)
     local external = _G.TipTac or _G.TinyTooltip or _G.TinyTooltipReforged
     if not metrics or not owner or frame.IsEmbedded or external
@@ -167,6 +182,56 @@ function PopupBounds:UpdateClassicTooltipClamp(frame, preparing)
 end
 
 local tooltipCapture
+local settingsTooltipScales=setmetatable({}, {__mode='k'})
+local settingsTooltipYielded=setmetatable({}, {__mode='k'})
+function PopupBounds:UpdateSettingsTooltipScale(frame,restoreOnly)
+    -- Anniversary 2.5.6.70577's SettingsTooltip is a parentless root at scale 1.
+    -- Its text otherwise ignores the scaled Options UI. Other tooltip/client
+    -- normalization retains its existing contract.
+    local toc=tonumber(Offhand.tocVersion) or 0
+    if frame~=_G.SettingsTooltip or not frame or toc<20500 or toc>=20600
+        or Offhand.isRetail or Offhand.isForever
+        or (InCombatLockdown and InCombatLockdown())
+        or (frame.IsForbidden and frame:IsForbidden())
+        or (frame.IsProtected and frame:IsProtected())
+        or not frame.GetScale or not frame.SetScale then return false end
+    local state=settingsTooltipScales[frame]
+    if state and state.applying then return false end
+    local scale=frame:GetScale()
+    if type(scale)~='number' or scale<=0 or scale~=scale or scale==math.huge then return false end
+    if state and math.abs(scale-state.applied)>0.0001 then
+        settingsTooltipScales[frame]=nil;settingsTooltipYielded[frame]=true;return false
+    end
+    local external=_G.TipTac or _G.TinyTooltip or _G.TinyTooltipReforged
+    local metrics=not restoreOnly and not external and Offhand.db and Offhand.db.enabled
+        and Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+    if not metrics or not metrics.isSpanned then
+        if state then
+            state.applying=true
+            local ok=pcall(frame.SetScale,frame,state.original)
+            settingsTooltipScales[frame]=nil
+            return ok
+        end
+        return false
+    end
+    if settingsTooltipYielded[frame] or (not state and math.abs(scale-1)>0.0001) then return false end
+    local parent=frame.GetParent and frame:GetParent()
+    if parent and parent~=UIParent then return false end
+    local desired=UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()
+    local ignores=frame.IsIgnoringParentScale and frame:IsIgnoringParentScale()
+    local parentScale=not ignores and parent and parent.GetEffectiveScale and parent:GetEffectiveScale() or 1
+    if type(desired)~='number' or desired<=0 or desired~=desired or desired==math.huge
+        or type(parentScale)~='number' or parentScale<=0 then return false end
+    desired=desired/parentScale
+    if math.abs(scale-desired)<=0.0001 then return false end
+    state=state or {original=scale}
+    state.applied,state.applying=desired,true;settingsTooltipScales[frame]=state
+    local ok=pcall(frame.SetScale,frame,desired)
+    state.applying=false
+    if not ok then settingsTooltipScales[frame]=nil end
+    return ok
+end
+
 function PopupBounds:ArmTooltipPresentationCapture()
     if InCombatLockdown and InCombatLockdown() then return false end
     local token = {}
@@ -194,7 +259,28 @@ function PopupBounds:GetTooltipPresentationDiagnostics()
             frame.GetFrameLevel and tostring(frame:GetFrameLevel()) or "unknown",
             frame.GetEffectiveScale and string.format("%.3f", frame:GetEffectiveScale()) or "unknown", bounds)
     end
-    for _, name in ipairs({ "GameTooltip", "ItemRefTooltip", "ShoppingTooltip1", "ShoppingTooltip2" }) do
+    local function ScaleDetails(frame)
+        local function Number(v)return type(v)=='number' and v==v and math.abs(v)<math.huge and string.format('%.3f',v) or 'unknown' end
+        local parent=frame.GetParent and frame:GetParent()
+        local parentAllowed=parent and not (parent.IsForbidden and parent:IsForbidden())
+        local parentName=parentAllowed and parent.GetName and parent:GetName() or 'unknown'
+        local fontHeight
+        if frame.GetRegions then
+            local regions={frame:GetRegions()}
+            for i=1,math.min(32,#regions) do
+                local region=regions[i]
+                if region and not (region.IsForbidden and region:IsForbidden()) and region.GetFont then
+                    local _,height=region:GetFont();fontHeight=height;break
+                end
+            end
+        end
+        return string.format('localScale=%s;parent=%s;parentScale=%s;uiScale=%s;ignoreParentScale=%s;fontHeight=%s',
+            Number(frame.GetScale and frame:GetScale()),tostring(parentName),
+            Number(parentAllowed and parent.GetEffectiveScale and parent:GetEffectiveScale()),
+            Number(UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()),
+            frame.IsIgnoringParentScale and tostring(frame:IsIgnoringParentScale()) or 'unknown',Number(fontHeight))
+    end
+    for _, name in ipairs({ "GameTooltip", "ItemRefTooltip", "ShoppingTooltip1", "ShoppingTooltip2", "SettingsTooltip" }) do
         local ok, detail = pcall(function()
             local frame = _G[name]
             if not frame then return "absent" end
@@ -207,9 +293,9 @@ function PopupBounds:GetTooltipPresentationDiagnostics()
             if slice and slice.GetCenterColor then _, _, _, centerAlpha = slice:GetCenterColor() end
             local clamp = frame.GetClampRectInsets
                 and string.format("%.1f/%.1f/%.1f/%.1f", frame:GetClampRectInsets()) or "unavailable"
-            return string.format("%s;embedded=%s;backdrop=%s;centerAlpha=%s;clamp=%s",
+            return string.format("%s;embedded=%s;backdrop=%s;centerAlpha=%s;clamp=%s;%s",
                 Describe(frame), frame.IsEmbedded and "yes" or "no", Describe(slice),
-                centerAlpha and string.format("%.2f", centerAlpha) or "unknown", clamp)
+                centerAlpha and string.format("%.2f", centerAlpha) or "unknown", clamp,ScaleDetails(frame))
         end)
         reports[#reports + 1] = name .. "=" .. (ok and detail or "unavailable")
     end
@@ -266,6 +352,7 @@ function PopupBounds:RedirectTooltipOwner(frame, owner, anchor)
     if not Offhand.isRetail and not Offhand.isForever then return false end
     if self.redirectingTooltipOwner or (InCombatLockdown and InCombatLockdown()) then return false end
     local metrics = Active()
+    if metrics and Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,owner or frame) end
     if not metrics or not Positionable(frame) or not owner or owner == UIParent then
         self:ClearManagedTooltip(frame)
         return false
@@ -316,6 +403,7 @@ function PopupBounds:ArrangeTooltipComparisons(frame)
     local metrics = Active()
     if not metrics then return false end
     local root, owner = TooltipRootAndOwner(frame)
+    if Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,owner or frame) end
     if root and owner and (owner == UIParent or owner == _G.WorldFrame) then
         -- Apply native bounds only after the comparison manager has completed
         -- its anchor graph. Do not install intermediate shopping-card observers.
@@ -340,12 +428,11 @@ function PopupBounds:ArrangeTooltipComparisons(frame)
         if comparison and comparison ~= root and comparison.IsShown
             and comparison:IsShown() then
             local left, right, top, bottom = FrameBounds(comparison)
-            if left then
-                minLeft = math.min(minLeft, left)
-                maxRight = math.max(maxRight, right)
-                maxTop = math.max(maxTop, top)
-                minBottom = math.min(minBottom, bottom)
-            end
+            if not left then return false end
+            minLeft = math.min(minLeft, left)
+            maxRight = math.max(maxRight, right)
+            maxTop = math.max(maxTop, top)
+            minBottom = math.min(minBottom, bottom)
         end
     end
 
@@ -380,6 +467,11 @@ function PopupBounds:ObserveTooltip(tooltip)
     if not tooltip or tooltip._OffhandBoundsObserved then return false end
     tooltip._OffhandBoundsObserved = true
     if tooltip.HookScript then
+        if tooltip == _G.SettingsTooltip then
+            tooltip:HookScript('OnShow',function(self)
+                CaptureVisibleTooltip(self)
+            end)
+        end
         -- Shopping-tooltip OnShow fires while Retail's comparison manager is
         -- still constructing its layout. Reanchoring from that intermediate
         -- callback makes the manager and Offhand visibly alternate. Root
@@ -395,6 +487,10 @@ function PopupBounds:ObserveTooltip(tooltip)
             tooltip:HookScript("OnShow", function(self) PopupBounds:UpdateClassicTooltipClamp(self) end)
         end
         tooltip:HookScript("OnHide", function(self)
+            if self==_G.SettingsTooltip then
+                PopupBounds:UpdateSettingsTooltipScale(self,true)
+                settingsTooltipYielded[self]=nil
+            end
             PopupBounds:RestoreClassicTooltipClamp(self)
             PopupBounds:ClearManagedTooltip(self)
         end)
@@ -405,6 +501,10 @@ function PopupBounds:ObserveTooltip(tooltip)
     end
     if tooltip.SetOwner and hooksecurefunc then
         hooksecurefunc(tooltip, "SetOwner", function(self, owner, anchor)
+            -- Settings builds its lines immediately after SetOwner. Scaling on
+            -- show, even next turn, leaves native wrapping/height inconsistent
+            -- on Anniversary. Prepare scale before native text construction.
+            if self==_G.SettingsTooltip then PopupBounds:UpdateSettingsTooltipScale(self) end
             PopupBounds:UpdateClassicTooltipClamp(self, true)
             if not Offhand.isRetail and not Offhand.isForever then
                 return
@@ -422,14 +522,8 @@ function PopupBounds:Constrain(frame)
     local metrics = Active()
     if not metrics or not Accessible(frame) then return false end
 
-    local uiScale = UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
-    local frameScale = frame:GetEffectiveScale()
-    if not uiScale or uiScale <= 0 or not frameScale or frameScale <= 0 then return false end
-    local toUI = frameScale / uiScale
-    local left, right = frame:GetLeft(), frame:GetRight()
-    local top, bottom = frame:GetTop(), frame:GetBottom()
-    if not left or not right or not top or not bottom then return false end
-    left, right, top, bottom = left * toUI, right * toUI, top * toUI, bottom * toUI
+    local left, right, top, bottom, uiScale, frameScale = FrameBounds(frame)
+    if not left then return false end
     local width, height = right - left, top - bottom
     if width <= 0 or height <= 0 then return false end
 
@@ -457,6 +551,188 @@ function PopupBounds:Queue(frame)
     if C_Timer and C_Timer.After then C_Timer.After(0, constrain) else constrain() end
 end
 
+-- These are EllesmereUI presentation roots. Its HUD, movers, dimmers and
+-- input handlers keep their own layout. The full UIParent can include space
+-- with no physical display, so fit these windows once per presentation.
+local ellesmereWindows = {
+    "EllesmereUIFrame", "EUIFirstInstallPopup", "EUIStyleChoicePopup",
+    "EUIConfirmPopup", "EUIInfoPopup", "EUIInputPopup",
+}
+local ellesmerePlacement = setmetatable({}, { __mode = "k" })
+local unlockToolbar
+local unlockPlacement
+
+local function Fits(left, right, top, bottom, minLeft, maxRight, maxTop, minBottom)
+    return left >= minLeft and right <= maxRight and top <= maxTop and bottom >= minBottom
+end
+
+local function SetWindowPoint(frame, point)
+    frame:ClearAllPoints()
+    frame:SetPoint(unpack(point, 1, 5))
+end
+
+local function OwnsEllesmerePlacement(frame, placement)
+    if not placement.original or frame:GetNumPoints() ~= 1
+        or frame:GetScale() ~= placement.scale then return false end
+    local point, relative, relativePoint, x, y = frame:GetPoint(1)
+    local applied = placement.applied
+    return point == applied[1] and relative == applied[2] and relativePoint == applied[3]
+        and PublicNumber(x) and PublicNumber(y)
+        and math.abs(x - applied[4]) < 0.01 and math.abs(y - applied[5]) < 0.01
+end
+
+local function RestoreEllesmereWindow(frame, placement)
+    if OwnsEllesmerePlacement(frame, placement) then
+        if placement.scale ~= placement.originalScale then frame:SetScale(placement.originalScale) end
+        SetWindowPoint(frame, placement.original)
+    end
+end
+
+local function GetUnlockToolbar(overlay)
+    if unlockToolbar and unlockToolbar:GetParent() == overlay then return unlockToolbar end
+    local getAnchor = _G.EllesmereUI.GetUnlockModeTopBarAnchor
+    if type(getAnchor) ~= "function" then return end
+    local hoverZone = getAnchor(_G.EllesmereUI)
+    if not hoverZone or hoverZone:GetParent() ~= overlay then return end
+    for _, child in ipairs({overlay:GetChildren()}) do
+        if child._hoverZone == hoverZone then
+            unlockToolbar = child
+            return child
+        end
+    end
+end
+
+local function RefreshEllesmereUnlockToolbar(metrics)
+    local overlay = _G.EllesmereUnlockMode
+    if not overlay then return end
+    local frame = overlay:IsVisible() and GetUnlockToolbar(overlay) or unlockToolbar
+    if not frame or frame:IsForbidden() or frame:IsProtected() then return end
+    if not metrics or not frame:IsVisible() then
+        if unlockPlacement then RestoreEllesmereWindow(frame, unlockPlacement) end
+        unlockPlacement = nil
+        return
+    end
+    -- Window/UI scale and topology can settle after the first span callback.
+    -- Ownership alone does not mean that the old physical target still fits.
+    local geometry = { UIParent:GetWidth(), UIParent:GetHeight(), UIParent:GetEffectiveScale(),
+        metrics.gameLeft, metrics.gameRight, metrics.gameBottom, metrics.gameTop,
+        metrics.workspaceLeft, metrics.workspaceRight, metrics.workspaceBottom, metrics.workspaceTop,
+        frame:GetWidth(), frame:GetHeight() }
+    for index = 1, 13 do if not PublicNumber(geometry[index]) then return end end
+    if unlockPlacement and OwnsEllesmerePlacement(frame, unlockPlacement) then
+        local same = unlockPlacement.geometry ~= nil
+        for index = 1, 13 do
+            if not same or math.abs(geometry[index] - unlockPlacement.geometry[index]) > 0.01 then
+                same = false
+                break
+            end
+        end
+        if same then return end
+        -- Refit from the vendor's original size, never from our shrunken size.
+        RestoreEllesmereWindow(frame, unlockPlacement)
+    end
+    unlockPlacement = nil
+
+    -- Wait for EllesmereUI to finish sliding the banner in or resizing it.
+    -- Its hover handler uses the real UIParent top, so keep the banner flush
+    -- with that edge and choose a physical display that reaches it.
+    if frame:GetNumPoints() ~= 1 then return end
+    local point, relative, relativePoint, x, y = frame:GetPoint(1)
+    if point ~= "TOP" or relative ~= UIParent or relativePoint ~= "TOP"
+        or not PublicNumber(x) or not PublicNumber(y) or x ~= 0 or y ~= 0 then return end
+    local left, right, top, bottom, uiScale, frameScale = FrameBounds(frame)
+    if not left or right <= left or top <= bottom then return end
+    if Fits(left, right, top, bottom, metrics.gameLeft, metrics.gameRight, metrics.gameTop, metrics.gameBottom)
+        or Fits(left, right, top, bottom, metrics.workspaceLeft, metrics.workspaceRight,
+            metrics.workspaceTop, metrics.workspaceBottom) then return end
+
+    local screenWidth, screenHeight = UIParent:GetWidth(), UIParent:GetHeight()
+    local minLeft, maxRight, minBottom
+    if math.abs(metrics.gameTop - screenHeight) < 1 then
+        minLeft, maxRight, minBottom = metrics.gameLeft, metrics.gameRight, metrics.gameBottom
+    elseif math.abs(metrics.workspaceTop - screenHeight) < 1 then
+        minLeft, maxRight, minBottom = metrics.workspaceLeft, metrics.workspaceRight, metrics.workspaceBottom
+    else
+        return
+    end
+    local scale = frame:GetScale()
+    local ratio = math.min(1, (maxRight - minLeft - 8) / (right - left),
+        (screenHeight - minBottom) / (top - bottom))
+    if ratio <= 0 or not PublicNumber(scale) or scale <= 0 then return end
+    local offset = ((minLeft + maxRight - screenWidth) / 2) * uiScale / (frameScale * ratio)
+    local applied = {"TOP", UIParent, "TOP", offset, 0}
+    if ratio < 1 then frame:SetScale(scale * ratio) end
+    SetWindowPoint(frame, applied)
+    unlockPlacement = {
+        original = {point, relative, relativePoint, x, y},
+        originalScale = scale, scale = frame:GetScale(), applied = applied, geometry = geometry,
+    }
+end
+
+local function GetEllesmereMetrics()
+    local viewport = Offhand.Viewport
+    local metrics = Offhand.db and Offhand.db.enabled and viewport and viewport:GetMetrics()
+    return metrics and metrics.isSpanned and metrics or false
+end
+
+local function FitEllesmereWindow(frame, metrics)
+    local left, right, top, bottom, uiScale, frameScale = FrameBounds(frame)
+    if not left or right <= left or top <= bottom then return end
+    if Fits(left, right, top, bottom, metrics.gameLeft, metrics.gameRight, metrics.gameTop, metrics.gameBottom)
+        or Fits(left, right, top, bottom, metrics.workspaceLeft, metrics.workspaceRight,
+            metrics.workspaceTop, metrics.workspaceBottom) then return {} end
+    if frame:GetNumPoints() ~= 1 then return {} end
+    local point, relative, relativePoint, x, y = frame:GetPoint(1)
+    if not point or (relative and relative ~= UIParent)
+        or (not relative and frame:GetParent() ~= UIParent)
+        or not PublicNumber(x) or not PublicNumber(y) then return {} end
+
+    local scale = frame:GetScale()
+    local minLeft, maxRight = metrics.gameLeft + 4, metrics.gameRight - 4
+    local minBottom, maxTop = metrics.gameBottom + 4, metrics.gameTop - 4
+    if not PublicNumber(scale) or scale <= 0 or maxRight <= minLeft or maxTop <= minBottom then return {} end
+    local width, height = right - left, top - bottom
+    local ratio = math.min(1, (maxRight - minLeft) / width, (maxTop - minBottom) / height)
+    local fromUI = uiScale / (frameScale * ratio)
+    local newLeft = math.max(minLeft, math.min(left, maxRight - width * ratio))
+    local newTop = math.min(maxTop, math.max(top, minBottom + height * ratio))
+    local applied = {"TOPLEFT", UIParent, "BOTTOMLEFT", newLeft * fromUI, newTop * fromUI}
+    if ratio < 1 then frame:SetScale(scale * ratio) end
+    SetWindowPoint(frame, applied)
+    return {
+        original = {point, relative or UIParent, relativePoint or point, x, y},
+        originalScale = scale, scale = frame:GetScale(), applied = applied,
+    }
+end
+
+function PopupBounds:RefreshEllesmereWindows()
+    if not Offhand.isForever or not _G.EllesmereUI
+        or (InCombatLockdown and InCombatLockdown()) then return end
+    local metrics
+    local overlay = _G.EllesmereUnlockMode
+    if unlockPlacement or (overlay and overlay:IsVisible()) then
+        metrics = GetEllesmereMetrics()
+        RefreshEllesmereUnlockToolbar(metrics)
+    end
+    for _, name in ipairs(ellesmereWindows) do
+        local frame = _G[name]
+        if frame and frame.IsProtected and not frame:IsProtected()
+            and frame.IsForbidden and not frame:IsForbidden() then
+            local placement = ellesmerePlacement[frame]
+            local visible = frame:IsVisible()
+            if visible or placement then
+                if metrics == nil then metrics = GetEllesmereMetrics() end
+                if metrics and visible then
+                    if not placement then ellesmerePlacement[frame] = FitEllesmereWindow(frame, metrics) end
+                elseif placement then
+                    RestoreEllesmereWindow(frame, placement)
+                    ellesmerePlacement[frame] = nil
+                end
+            end
+        end
+    end
+end
+
 local function LegacyUnitMenu(dropdown)
     if not dropdown then return false end
     return dropdown.unit ~= nil or dropdown.which ~= nil
@@ -467,6 +743,12 @@ end
 function PopupBounds:Initialize()
     if self.initialized then return end
     self.initialized = true
+
+    -- Observe from Offhand's own timer. These windows can raise Forever's
+    -- gamepad cursor from their show handlers and may be created lazily.
+    if Offhand.isForever and _G.EllesmereUI and C_Timer and C_Timer.NewTicker then
+        self.ellesmereTicker = C_Timer.NewTicker(0.2, function() self:RefreshEllesmereWindows() end)
+    end
 
     -- Mainline and current Classic branches expose the acquired menu frame as a
     -- supported proxy. Registering against unit-menu tags avoids scanning _G or

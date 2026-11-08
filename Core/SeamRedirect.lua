@@ -647,7 +647,8 @@ function HUD:HookFrames()
     -- Rescues frames anchoring into the unrendered black space above the 3D Game Viewport,
     -- and redirects popups that anchor to the bezel seam center.
     local function RedirectExternalPopups()
-        if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+        if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
+            or not Offhand.db.seamRedirect then return end
         -- Forever's native gamepad navigator owns the structure and focus of
         -- visible windows. The broad rescue pass must not enumerate and
         -- re-anchor those roots while SmartNavigation is rebuilding them.
@@ -675,17 +676,31 @@ function HUD:HookFrames()
             for _, name in ipairs(UISpecialFrames) do
                 local frame = _G[name]
                 if frame and type(frame) == "table" and frame.GetPoint
+                    and not TransientPolicy.IsSecureRoot(frame)
+                    and not TransientPolicy.IsNativeDialogRoot(frame)
+                    and not Compatibility.IsExternallyOwnedHUDFrame(frame, name)
+                    and not Compatibility.ShouldPreservePopupPosition(frame, name)
                     and not IsBlizzardEditModeOwnedFrame(frame, name)
                     and not hooks[frame] and frame.IsProtected and not frame:IsProtected() then
                     hooks[frame] = true
                     frame:HookScript("OnShow", function(self)
-                        if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
-                        local pt, rel = self:GetPoint(1)
-                        if (rel == UIParent or rel == nil) and (pt == "CENTER") then
+                        if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
+                            or not Offhand.db.seamRedirect or UsesNativeGamepadInterface()
+                            or (self.IsForbidden and self:IsForbidden())
+                            or (self.IsProtected and self:IsProtected())
+                            or Compatibility.ShouldPreservePopupPosition(self) then return end
+                        local current = Offhand.Viewport:GetMetrics()
+                        if not current or not current.isSpanned or self:GetNumPoints() ~= 1 then return end
+                        local pt, rel, relPt, x, y = self:GetPoint(1)
+                        if (rel == UIParent or rel == nil) and pt == "CENTER"
+                            and relPt == "CENTER" and (x or 0) == 0 and (y or 0) == 0 then
+                            local scale = self:GetEffectiveScale()
+                            local parentScale = UIParent:GetEffectiveScale()
+                            if not scale or scale <= 0 or not parentScale or parentScale <= 0 then return end
                             self:ClearAllPoints()
-                            local factor = UIParent:GetEffectiveScale() / self:GetEffectiveScale()
-                            local offsetX = cx - (UIParent:GetWidth() / 2)
-                            local offsetY = cy - (UIParent:GetHeight() / 2)
+                            local factor = parentScale / scale
+                            local offsetX = (current.gameLeft + current.gameRight) / 2 - UIParent:GetWidth() / 2
+                            local offsetY = (current.gameBottom + current.gameTop) / 2 - UIParent:GetHeight() / 2
                             self:SetPoint("CENTER", UIParent, "CENTER", offsetX * factor, offsetY * factor)
                         end
                     end)
@@ -713,6 +728,7 @@ function HUD:HookFrames()
                     local onGameSide = centerX >= m.gameLeft and centerX <= m.gameRight
                     local onWorkspace = CenterIsInside(left, top, width, height,
                         m.workspaceLeft, m.workspaceBottom, m.workspaceRight, m.workspaceTop)
+                    if m.workspaceRegions and Offhand.WorkspaceRegions then onWorkspace=Offhand.WorkspaceRegions:ContainsPoint(m,left+width/2,top-height/2) end
                     if onGameSide and not onWorkspace and top > (m.gameTop + 2) then
                         frame:ClearAllPoints()
                         local invFactor = parentScale / fScale
@@ -726,8 +742,13 @@ function HUD:HookFrames()
 
         -- 3. Scan active children of UIParent for rogue centered popup frames or frames in the void
         for _, child in ipairs({UIParent:GetChildren()}) do
-            if type(child) == "table" and child ~= WorldFrame and child ~= Offhand.canvas then
+            if type(child) == "table" and child ~= WorldFrame and child ~= Offhand.canvas
+                -- Dedicated transient roots arbitrate native/custom ownership.
+                -- Generic rescue must not bypass that decision or collapse a
+                -- bounded root, even if it does not report IsProtected().
+                and not TransientPolicy.IsSecureRoot(child) then
                 pcall(function()
+                    if TransientPolicy.IsNativeDialogRoot(child) then return end
                     if child.IsForbidden and child:IsForbidden() then return end
                     if not child.IsShown or not child:IsShown() then return end
                     if child.IsProtected and child:IsProtected() then return end
@@ -737,7 +758,10 @@ function HUD:HookFrames()
                         local okName, name = pcall(child.GetName, child)
                         if okName then cName = name end
                     end
-                    if cName == "OffhandCanvasFrame" or cName == "OffhandSeamGuideLine" then return end
+                    if cName == "OffhandCanvasFrame" or cName == "OffhandSeamGuideLine"
+                        or (Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:IsCanvas(child)) then return end
+                    if Compatibility.IsExternallyOwnedHUDFrame(child, cName) then return end
+                    if Compatibility.ShouldPreservePopupPosition(child, cName) then return end
                     if IsBlizzardEditModeOwnedFrame(child, cName)
                         or IsForeverEditModeFrame(child, cName) then return end
                     -- Native chat owns these linked frames. Moving a dock or tab
@@ -757,6 +781,7 @@ function HUD:HookFrames()
                     local onGameSide = centerX >= m.gameLeft and centerX <= m.gameRight
                     local onWorkspace = CenterIsInside(left, top, width, height,
                         m.workspaceLeft, m.workspaceBottom, m.workspaceRight, m.workspaceTop)
+                    if m.workspaceRegions and Offhand.WorkspaceRegions then onWorkspace=Offhand.WorkspaceRegions:ContainsPoint(m,left+width/2,top-height/2) end
                     if onGameSide and not onWorkspace and top > (m.gameTop + 2) then
                         if child.GetPoint and child.ClearAllPoints and child.SetPoint then
                             child:ClearAllPoints()
@@ -852,6 +877,15 @@ function HUD:HookFrames()
             RememberCharacterEditModeLayout()
         end
 
+        if not forever and Offhand.Mainhand and Offhand.Mainhand.IsCharacterEditModeLayoutAllowed
+            and not Offhand.Mainhand:IsCharacterEditModeLayoutAllowed(targetName) then
+            local record = type(OffhandCharDB) == "table" and OffhandCharDB.mainhandLayout
+            local status = Offhand.Mainhand:GetLayoutStatus()
+            targetName = status.configured and record.generatedName or nil
+            OffhandCharDB.editModeLayoutName = targetName
+            if not targetName then OffhandCharDB.hudSetupReminder = true end
+        end
+
         local found = false
         local needsSetup = false
         for index, layout in ipairs(layoutData.layouts) do
@@ -892,7 +926,9 @@ function HUD:HookFrames()
             end
         end
 
-        if not forever and not found and activeName and type(OffhandCharDB) == "table" then
+        if not forever and not found and activeName and type(OffhandCharDB) == "table"
+            and (not Offhand.Mainhand or not Offhand.Mainhand.IsCharacterEditModeLayoutAllowed
+                or Offhand.Mainhand:IsCharacterEditModeLayoutAllowed(activeName)) then
             -- The remembered layout was renamed or deleted. The currently
             -- active Blizzard choice is the safest replacement; never select
             -- an unrelated layout that inherited the old numeric slot.
@@ -971,6 +1007,7 @@ function HUD:HookFrames()
                 if frame and not InCombatLockdown() and Offhand.db and Offhand.db.enabled then
                     local name = frame.GetName and frame:GetName()
                     if name then
+                        if Compatibility.ShouldPreservePopupPosition(frame, name) then return end
                         if IsBlizzardEditModeOwnedFrame(frame, name)
                             or IsForeverEditModeFrame(frame, name) then return end
                         local isMenu = false
@@ -981,7 +1018,8 @@ function HUD:HookFrames()
                         local info = UIPanelWindows and UIPanelWindows[name]
                         if isMenu or (info and info.area == "center") then
                             local function DoCenter()
-                                if frame:IsShown() and not InCombatLockdown() then
+                                if frame:IsShown() and not InCombatLockdown()
+                                    and not Compatibility.ShouldPreservePopupPosition(frame, name) then
                                     local m = Offhand.Viewport:GetMetrics()
                                     frame:ClearAllPoints()
                                     local cx = (m.gameLeft + m.gameRight) / 2
@@ -1040,6 +1078,11 @@ function HUD:HookFrames()
         local bagsOnWorkspace = false
         if bpPos and bpPos.x and bpPos.y then
             bagsOnWorkspace = true
+            if Offhand.WorkspaceRegions and m.workspaceRegions then
+                m=Offhand.WorkspaceRegions:ForRegion(m,bpPos.regionId)
+                deckMinX,deckMaxX=m.workspaceLeft+12,m.workspaceRight-12
+                deckMinY,deckMaxY=m.workspaceBottom+12,math.max(m.workspaceBottom+12,m.workspaceTop-30)
+            end
         end
 
         local bagSpacing = 4
@@ -1203,9 +1246,21 @@ function HUD:HookFrames()
         isArrangingBags = false
     end
 
+    -- Anniversary has Edit Mode APIs but still uses the Classic container
+    -- manager. Its OnHide runs the native anchor pass even when no bag toggle
+    -- follows (for example the close button). Correct that pass inline so the
+    -- surviving bags cannot render at native anchors until a deferred retry.
+    local tbcBagRuntime = Offhand.CanvasPanelRegistry
+        and Offhand.CanvasPanelRegistry.IsTBCPanelRuntime()
+    if tbcBagRuntime and _G.UpdateContainerFrameAnchors
+        and hooksecurefunc and not self.tbcBagAnchorsHooked then
+        self.tbcBagAnchorsHooked = true
+        hooksecurefunc("UpdateContainerFrameAnchors", function() HUD:LayoutBags() end)
+    end
+
     -- Legacy clients use the custom bag anchor pass to avoid anchor-family
     -- cycles. Forever keeps Blizzard's function identity to preserve taint safety.
-    if _G.UpdateContainerFrameAnchors and not self.anchorsHooked and not UsesForeverEditMode() and not HasBlizzardEditMode() then
+    if _G.UpdateContainerFrameAnchors and not tbcBagRuntime and not self.anchorsHooked and not UsesForeverEditMode() and not HasBlizzardEditMode() then
         self.anchorsHooked = true
         HUD.origUpdateContainerFrameAnchors = _G.UpdateContainerFrameAnchors
         _G.UpdateContainerFrameAnchors = function(...)
@@ -1306,7 +1361,10 @@ function HUD:HookFrames()
         end
     end
     end
-    for i = 1, 4 do
+    -- Retail/Forever pooled confirmations (including PARTY_INVITE) belong to
+    -- the shared native stack translator. Legacy OnShow centering overwrites
+    -- its TOP/linked anchors and adds scripts to action-sensitive native roots.
+    for i = 1, (Offhand.isRetail or Offhand.isForever) and 0 or 4 do
         local frame = _G["StaticPopup" .. i]
         if frame and not hooks[frame] then
             hooks[frame] = true

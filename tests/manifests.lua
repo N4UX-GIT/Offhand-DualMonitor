@@ -15,12 +15,13 @@ for _, toc in ipairs(tocs) do
     local text = assert(io.open(toc, "rb")):read("*a")
     assert(text:match("## LoadSavedVariablesFirst:%s*1"), "Missing early SavedVariables load: " .. toc)
     assert(text:match("## X%-Offhand%-Manifest:%s*%S+"), "Missing manifest diagnostic marker: " .. toc)
-    assert(text:match("## X%-Offhand%-Release:%s*beta%.24"), "Beta 24 addon release marker missing: " .. toc)
-    assert(text:match("## X%-Offhand%-Companion%-Version:%s*2%.1%.2"), "Frozen Companion version marker changed: " .. toc)
-    assert(text:match("## X%-Offhand%-Companion%-Release:%s*beta%.20"), "Beta 20 Companion release marker missing: " .. toc)
+    assert(text:match("## Version:%s*2%.1%.3"), "Matching 2.1.3 addon version missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Release:[ \t]*beta%.27[ \t]*\r?\n"), "Pre-Release Beta 27 addon marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Companion%-Version:%s*2%.1%.3"), "Matching Companion version marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Companion%-Release:[ \t]*\r?\n"), "Stable Companion release marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Protocol:%s*1"), "Companion protocol marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Min%-Version:%s*2%.1%.2%-beta%.19"), "Companion minimum version marker missing: " .. toc)
-    assert(text:match("## X%-Offhand%-Addon%-Release:%s*beta%.24"), "Beta 24 addon release marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Addon%-Release:[ \t]*beta%.27[ \t]*\r?\n"), "Pre-Release Beta 27 addon marker missing: " .. toc)
 end
 local genericText = assert(io.open("Offhand.toc", "rb")):read("*a")
 local mainlineText = assert(io.open("Offhand_Mainline.toc", "rb")):read("*a")
@@ -58,6 +59,8 @@ local hudRecoveryIndex
 local hudTransientFramesIndex
 local seamRedirectIndex
 local compatibilityIndex
+local kerzoQuestLogIndex
+local addonEscapeIndex
 local frameStateIndex
 local panelRegistryIndex
 local canvasPersistenceIndex
@@ -89,6 +92,8 @@ for index, file in ipairs(main) do
     if file == "Core/HUDRecovery.lua" then hudRecoveryIndex = index end
     if file == "Core/HUDTransientFrames.lua" then hudTransientFramesIndex = index end
     if file == "Core/SeamRedirect.lua" then seamRedirectIndex = index end
+    if file == "Core/CanvasKerzoQuestLog.lua" then kerzoQuestLogIndex = index end
+    if file == "Core/CanvasAddonEscape.lua" then addonEscapeIndex = index end
     if file == "Core/CanvasCompatibility.lua" then compatibilityIndex = index end
     if file == "Core/CanvasFrameState.lua" then frameStateIndex = index end
     if file == "Core/CanvasPanelRegistry.lua" then panelRegistryIndex = index end
@@ -145,9 +150,16 @@ assert(compatibilityIndex and frameStateIndex and panelRegistryIndex and canvasP
         and canvasPanelLifecycleIndex + 1 == canvasPanelPlacementIndex
         and canvasPanelPlacementIndex + 1 == canvasIndex,
     "Canvas support services must load together immediately before Canvas")
-assert(controlsIndex and optionsActionsIndex and optionsIndex
+assert(kerzoQuestLogIndex and kerzoQuestLogIndex + 1 == compatibilityIndex,
+    "Kerzo Escape adapter must load before Canvas initializes its persistence policy")
+assert(addonEscapeIndex and addonEscapeIndex + 1 == kerzoQuestLogIndex,
+    "addon settings Escape adapters must load before Canvas persistence initialization")
+local workspaceOptionsIndex
+for i,file in ipairs(main) do if file=="UI/WorkspaceOptions.lua" then workspaceOptionsIndex=i end end
+assert(controlsIndex and optionsActionsIndex and workspaceOptionsIndex and optionsIndex
         and controlsIndex + 1 == optionsActionsIndex
-        and optionsActionsIndex + 1 == optionsIndex,
+        and optionsActionsIndex + 1 == workspaceOptionsIndex
+        and workspaceOptionsIndex + 1 == optionsIndex,
     "shared controls and settings actions must load immediately before Options")
 for i=2,#tocs do
     local flavor = entries(tocs[i])

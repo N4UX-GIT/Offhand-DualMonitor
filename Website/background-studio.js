@@ -1,4 +1,9 @@
 import {
+    LIBRARY_MEDIA_SCHEMA,
+    LIBRARY_TEXTURES,
+    MAX_LIBRARY_PIXELS,
+    createLibraryToc,
+    readMediaPackage,
     PACKAGE_LIMITS,
     PACKAGE_FILES,
     GENERATOR_VERSION,
@@ -15,11 +20,17 @@ import {
     formatBytes,
     inspectGeneratedZip,
     inspectImageHeader,
-} from "./background-studio-core.mjs?v=20261020-2";
+    recipeControlValues,
+} from "./background-studio-core.mjs?v=20261104-1";
 
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 const MAX_IMAGE_PIXELS = 40 * 1000 * 1000;
 const elements = {
+    library: document.querySelector("#background-library"),
+    assetPicker: document.querySelector("#background-picker"),
+    addBackground: document.querySelector("#add-background"),
+    removeBackground: document.querySelector("#remove-background"),
+    libraryInput: document.querySelector("#library-image-input"),
     imageInput: document.querySelector("#image-input"),
     packageInput: document.querySelector("#package-input"),
     imageDrop: document.querySelector("#image-drop-zone"),
@@ -65,6 +76,9 @@ const elements = {
 };
 
 const state = {
+    assets: [],
+    selected: 0,
+    libraryMode: false,
     sourceCanvas: null,
     sourceLabel: "",
     packageRecipe: null,
@@ -79,6 +93,9 @@ function setStatus(message, kind = "") {
 function setBusy(busy) {
     state.busy = busy;
     elements.generate.disabled = busy || !state.sourceCanvas;
+    elements.imageInput.disabled = busy;
+    elements.packageInput.disabled = busy;
+    refreshLibrary();
     elements.generate.textContent = busy ? "Generating package…" : "Generate media package";
 }
 
@@ -274,16 +291,16 @@ function drawPreview() {
 }
 
 function applyRecipe(recipe) {
-    const fit = ["FILL", "FIT", "STRETCH"].includes(recipe.suggestedFit) ? recipe.suggestedFit : "FILL";
+    const restored = recipeControlValues(recipe);
+    const fit = restored.fit;
     const radio = document.querySelector(`input[name="fit-mode"][value="${fit}"]`);
     if (radio) radio.checked = true;
-    const zoom = Number(recipe.zoom);
-    elements.zoom.value = String(Math.round(Math.min(2, Math.max(1, Number.isFinite(zoom) ? zoom : 1)) * 100));
-    elements.focusX.value = String(Math.round(Math.min(1, Math.max(0, Number(recipe.focalX) || 0.5)) * 100));
-    elements.focusY.value = String(Math.round(Math.min(1, Math.max(0, Number(recipe.focalY) || 0.5)) * 100));
-    elements.opacity.value = String(Math.round(Math.min(1, Math.max(0.1, Number(recipe.opacity) || 1)) * 100));
-    elements.dim.value = String(Math.round(Math.min(0.8, Math.max(0, Number(recipe.dim) || 0)) * 100));
-    if (/^#[0-9A-Fa-f]{6}$/.test(recipe.matte || "")) elements.matte.value = recipe.matte;
+    elements.zoom.value = String(Math.round(restored.zoom * 100));
+    elements.focusX.value = String(Math.round(restored.focalX * 100));
+    elements.focusY.value = String(Math.round(restored.focalY * 100));
+    elements.opacity.value = String(Math.round(restored.opacity * 100));
+    elements.dim.value = String(Math.round(restored.dim * 100));
+    elements.matte.value = restored.matte;
     const width = Number(recipe.previewWorkspaceWidth);
     const height = Number(recipe.previewWorkspaceHeight);
     if (width >= 320 && height >= 320 && width <= 8192 && height <= 8192) {
@@ -319,88 +336,91 @@ async function imageFileToCanvas(file) {
     }
 }
 
-async function loadImageFile(file) {
-    try {
-        setStatus("Decoding the selected image locally…", "working");
-        const canvas = await imageFileToCanvas(file);
-        state.sourceCanvas = canvas;
-        state.sourceLabel = "New image";
-        state.packageRecipe = null;
-        elements.controls.disabled = false;
-        elements.sourceSummary.textContent = `${file.name} · ${canvas.width}×${canvas.height} · ${formatBytes(file.size)}`;
-        elements.sourceFact.textContent = `${canvas.width}×${canvas.height}`;
-        const texture = chooseTextureDimensions(canvas.width, canvas.height);
-        elements.textureFact.textContent = `${texture.textureWidth}×${texture.textureHeight} TGA`;
-        elements.packageFact.textContent = `About ${formatBytes(texture.textureWidth * texture.textureHeight * 4)}`;
-        setStatus("Image ready. Adjust the preview, then generate the package.", "success");
-        setBusy(false);
-        drawPreview();
-    } catch (error) {
-        state.sourceCanvas = null;
-        elements.controls.disabled = true;
-        setBusy(false);
-        setStatus(error instanceof Error ? error.message : "The image could not be opened.", "error");
-    }
+function stashSelected() {
+    const asset = state.assets[state.selected];
+    if (asset) asset.recipe = recipeFromControls(chooseTextureDimensions(asset.canvas.width, asset.canvas.height));
 }
 
-function validateRecipe(recipe, tga) {
-    if (!recipe || ![LEGACY_MEDIA_SCHEMA, MEDIA_SCHEMA].includes(Number(recipe.schema))) {
-        throw new Error("The package recipe schema is unsupported.");
+function refreshLibrary() {
+    elements.library.hidden = !state.assets.length;
+    elements.assetPicker.replaceChildren();
+    state.assets.forEach((asset, index) => {
+        const option = document.createElement("option");
+        option.value = String(index);
+        option.textContent = asset.name;
+        elements.assetPicker.appendChild(option);
+    });
+    elements.assetPicker.value = String(state.selected);
+    elements.assetPicker.disabled = state.busy || state.assets.length < 2;
+    elements.addBackground.disabled = state.busy || state.assets.length >= 2;
+    elements.removeBackground.disabled = state.busy || state.assets.length < 2;
+}
+
+function selectBackground(index) {
+    state.selected = index;
+    const asset = state.assets[index];
+    state.sourceCanvas = asset?.canvas || null;
+    state.packageRecipe = asset?.recipe || null;
+    if (asset) {
+        applyRecipe(asset.recipe || {});
+        elements.sourceFact.textContent = `${asset.canvas.width}×${asset.canvas.height}`;
+        elements.sourceSummary.textContent = `${asset.name} · ${asset.canvas.width}×${asset.canvas.height}`;
     }
-    const contentWidth = Number(recipe.imageWidth);
-    const contentHeight = Number(recipe.imageHeight);
-    if (!Number.isInteger(contentWidth) || !Number.isInteger(contentHeight) || contentWidth < 1 || contentHeight < 1
-        || contentWidth > tga.width || contentHeight > tga.height
-        || Number(recipe.textureWidth) !== tga.width || Number(recipe.textureHeight) !== tga.height) {
-        throw new Error("The package recipe does not match its texture.");
-    }
-    return { contentWidth, contentHeight };
+    elements.controls.disabled = !asset;
+    setBusy(false);
+    drawPreview();
+}
+
+async function loadImageFile(file, add = false) {
+    if (state.busy || !file) return;
+    try {
+        setBusy(true);
+        if (add && state.assets.length >= 2) throw new Error("A library supports up to two backgrounds.");
+        setStatus("Decoding the selected image locally…", "working");
+        const canvas = await imageFileToCanvas(file);
+        stashSelected();
+        const current = !add && state.assets[state.selected];
+        const name = file.name.replace(/\.[^.]+$/, "").replace(/[\x00-\x1f\x7f|]/g, "").trim().slice(0, 48) || "Background";
+        const asset = { canvas, id: current?.id || `image-${crypto.randomUUID().replaceAll("-", "")}`,
+            name: current?.name || name, recipe: current?.recipe || recipeFromControls(chooseTextureDimensions(canvas.width, canvas.height)) };
+        if (add) { state.assets.push(asset); state.libraryMode = true; }
+        else if (current) state.assets[state.selected] = asset;
+        else state.assets.push(asset);
+        selectBackground(add ? state.assets.length - 1 : state.selected);
+        setStatus("Background ready. Add a second image if you want different backgrounds per region.", "success");
+    } catch (error) {
+        setStatus(error instanceof Error ? error.message : "The image could not be opened.", "error");
+    } finally { setBusy(false); }
 }
 
 async function loadExistingPackage(file) {
+    if (state.busy || !file) return;
     try {
-        if (!file || file.size < 1 || file.size > PACKAGE_LIMITS.maxCompressedBytes) throw new Error("Choose a package no larger than 12 MiB.");
+        setBusy(true);
+        if (file.size < 1 || file.size > PACKAGE_LIMITS.maxCompressedBytes) throw new Error("Choose a package no larger than 12 MiB.");
         setStatus("Inspecting the package locally…", "working");
-        const entries = inspectGeneratedZip(new Uint8Array(await file.arrayBuffer()));
-        const recipe = decodeJson(entries.get(PACKAGE_FILES.recipe));
-        const tga = decodeTga32(entries.get(PACKAGE_FILES.texture));
-        const { contentWidth, contentHeight } = validateRecipe(recipe, tga);
-        const textureCanvas = document.createElement("canvas");
-        textureCanvas.width = tga.width;
-        textureCanvas.height = tga.height;
-        textureCanvas.getContext("2d").putImageData(new ImageData(tga.rgba, tga.width, tga.height), 0, 0);
-        const sourceCanvas = document.createElement("canvas");
-        sourceCanvas.width = contentWidth;
-        sourceCanvas.height = contentHeight;
-        sourceCanvas.getContext("2d").drawImage(textureCanvas, 0, 0, contentWidth, contentHeight, 0, 0, contentWidth, contentHeight);
-
-        state.sourceCanvas = sourceCanvas;
-        state.sourceLabel = "Existing package";
-        state.packageRecipe = recipe;
-        applyRecipe(recipe);
-        elements.controls.disabled = false;
-        elements.sourceSummary.textContent = `${file.name} · schema ${recipe.schema} · generator ${recipe.generatorVersion || "unknown"}`;
-        elements.sourceFact.textContent = `${contentWidth}×${contentHeight} packaged image`;
-        elements.textureFact.textContent = `${tga.width}×${tga.height} TGA`;
+        const imported = readMediaPackage(inspectGeneratedZip(new Uint8Array(await file.arrayBuffer())));
+        const assets = imported.images.map(({ recipe, tga }) => {
+            const textureCanvas = document.createElement("canvas");
+            textureCanvas.width = tga.width; textureCanvas.height = tga.height;
+            textureCanvas.getContext("2d").putImageData(new ImageData(tga.rgba, tga.width, tga.height), 0, 0);
+            const canvas = document.createElement("canvas");
+            canvas.width = recipe.imageWidth; canvas.height = recipe.imageHeight;
+            canvas.getContext("2d").drawImage(textureCanvas, 0, 0, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+            return { id: recipe.id, name: recipe.name, recipe, canvas };
+        });
+        state.assets = assets; state.libraryMode = imported.library;
+        selectBackground(0);
         elements.packageFact.textContent = formatBytes(file.size);
-        if (Number(recipe.schema) === LEGACY_MEDIA_SCHEMA) {
-            setStatus("Legacy package passed local safety checks. Generate a replacement to convert it to the current code-free format.", "success");
-        } else {
-            setStatus("Package passed structural, path, size, and CRC checks. You can repair or regenerate it.", "success");
-        }
-        setBusy(false);
-        drawPreview();
+        setStatus("Package passed local safety checks. Choose a background to edit, then generate a clean replacement.", "success");
     } catch (error) {
-        state.sourceCanvas = null;
-        elements.controls.disabled = true;
-        setBusy(false);
         setStatus(error instanceof Error ? error.message : "The package could not be inspected.", "error");
-    }
+    } finally { setBusy(false); }
 }
 
 function createPackageText(recipe) {
-    const toc = createMediaToc(recipe);
-    const readme = `OFFHAND USER MEDIA\r\n==================\r\n\r\nThis package was generated locally in your browser by the Offhand Background Studio.\r\nYour source image was not uploaded.\r\n\r\nSECURITY\r\nThis package contains one TGA texture, declarative TOC metadata, a JSON recipe, and this text file.\r\nIt contains no Lua, executable, DLL, macro, installer, or network code.\r\nDo not install media packages received from other people directly. Open an existing package with the official Background Studio and generate a clean replacement instead.\r\n\r\nINSTALL\r\n1. Close World of Warcraft completely.\r\n2. Extract Offhand_UserMedia beside Offhand in the client's Interface\\AddOns folder.\r\n3. Start WoW and verify both Offhand and Offhand User Media are enabled.\r\n4. Open /offhand, select Themes, scroll to 4. Background Studio, and enable Use installed custom background.\r\n\r\nUPDATE\r\nReturn to the Background Studio and choose Update package, or create a new package.\r\nClose WoW before replacing this folder.\r\n\r\nREMOVE\r\nDisable the custom background, close WoW, then delete only Offhand_UserMedia.\r\n`;
+    const toc = recipe.schema === LIBRARY_MEDIA_SCHEMA ? createLibraryToc(recipe) : createMediaToc(recipe);
+    const readme = `OFFHAND USER MEDIA\r\n==================\r\n\r\nThis package was generated locally in your browser by the Offhand Background Studio.\r\nYour source image was not uploaded.\r\n\r\nSECURITY\r\nThis package contains one or two TGA textures, declarative TOC metadata, a JSON recipe, and this text file.\r\nIt contains no Lua, executable, DLL, macro, installer, or network code.\r\nDo not install media packages received from other people directly. Open an existing package with the official Background Studio and generate a clean replacement instead.\r\n\r\nINSTALL\r\n1. Close World of Warcraft completely.\r\n2. Extract Offhand_UserMedia beside Offhand in the client's Interface\\AddOns folder.\r\n3. Start WoW and verify both Offhand and Offhand User Media are enabled.\r\n4. Open /offhand, select Themes, open Background Studio, and enable Use installed custom background.\r\n\r\nCUSTOM WORKSPACE REGIONS\r\nPreview using each region width and height from Companion. One installed image is fitted independently inside each region.\r\nIn builds with region background controls, choose inherit, theme only, or installed image and set its fit per region.\r\nWorkspace profiles retain these choices. Library packages require an Offhand build with background library support. Choose an installed image by name for each region in Themes. Missing image assignments return to the theme without selecting a different image.\r\n\r\nUPDATE\r\nReturn to the Background Studio and choose Update package, or create a new package.\r\nClose WoW before replacing this folder.\r\n\r\nREMOVE\r\nDisable the custom background, close WoW, then delete only Offhand_UserMedia.\r\n`;
     return { toc, readme };
 }
 
@@ -410,27 +430,35 @@ async function generatePackage() {
         setBusy(true);
         setStatus("Normalizing the image and building the package locally…", "working");
         await new Promise((resolve) => requestAnimationFrame(resolve));
-        const dimensions = chooseTextureDimensions(state.sourceCanvas.width, state.sourceCanvas.height);
-        const textureCanvas = document.createElement("canvas");
-        textureCanvas.width = dimensions.textureWidth;
-        textureCanvas.height = dimensions.textureHeight;
-        const context = textureCanvas.getContext("2d", { willReadFrequently: true });
-        context.clearRect(0, 0, textureCanvas.width, textureCanvas.height);
-        context.imageSmoothingEnabled = true;
-        context.imageSmoothingQuality = "high";
-        context.drawImage(state.sourceCanvas, 0, 0, state.sourceCanvas.width, state.sourceCanvas.height,
-            0, 0, dimensions.contentWidth, dimensions.contentHeight);
-        const pixels = context.getImageData(0, 0, textureCanvas.width, textureCanvas.height).data;
-        const tga = encodeTga32(textureCanvas.width, textureCanvas.height, pixels);
-        const recipe = recipeFromControls(dimensions);
-        const recipeText = `${JSON.stringify(recipe, null, 2)}\n`;
+        stashSelected();
+        const library = state.libraryMode;
+        const textures = [];
+        const assets = state.assets.map((asset, index) => {
+            const dimensions = chooseTextureDimensions(asset.canvas.width, asset.canvas.height,
+                { maxTexturePixels: Math.floor(MAX_LIBRARY_PIXELS / state.assets.length) });
+            const textureCanvas = document.createElement("canvas");
+            textureCanvas.width = dimensions.textureWidth; textureCanvas.height = dimensions.textureHeight;
+            const context = textureCanvas.getContext("2d", { willReadFrequently: true });
+            context.imageSmoothingEnabled = true; context.imageSmoothingQuality = "high";
+            context.drawImage(asset.canvas, 0, 0, asset.canvas.width, asset.canvas.height,
+                0, 0, dimensions.contentWidth, dimensions.contentHeight);
+            textures.push({ name: LIBRARY_TEXTURES[index], data: encodeTga32(textureCanvas.width, textureCanvas.height,
+                context.getImageData(0, 0, textureCanvas.width, textureCanvas.height).data) });
+            return { ...asset.recipe, id: asset.id, name: asset.name,
+                imageWidth: dimensions.contentWidth, imageHeight: dimensions.contentHeight,
+                textureWidth: dimensions.textureWidth, textureHeight: dimensions.textureHeight };
+        });
+        const recipe = library ? { schema: LIBRARY_MEDIA_SCHEMA, generatorVersion: GENERATOR_VERSION, assets }
+            : { ...assets[0], schema: MEDIA_SCHEMA, generatorVersion: GENERATOR_VERSION };
+        if (!library) { delete recipe.id; delete recipe.name; }
         const text = createPackageText(recipe);
         const zip = buildStoredZip([
             { name: PACKAGE_FILES.toc, data: text.toc },
-            { name: PACKAGE_FILES.recipe, data: recipeText },
-            { name: PACKAGE_FILES.readme, data: text.readme },
-            { name: PACKAGE_FILES.texture, data: tga },
+            { name: PACKAGE_FILES.recipe, data: `${JSON.stringify(recipe, null, 2)}\n` },
+            { name: PACKAGE_FILES.readme, data: text.readme }, ...textures,
         ]);
+        // Recheck the exact download with the same strict reader used for imports.
+        readMediaPackage(inspectGeneratedZip(zip));
         const blob = new Blob([zip], { type: "application/zip" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
@@ -441,7 +469,7 @@ async function generatePackage() {
         link.click();
         link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 2000);
-        elements.textureFact.textContent = `${dimensions.textureWidth}×${dimensions.textureHeight} TGA`;
+        elements.textureFact.textContent = `${assets.length} background${assets.length > 1 ? "s" : ""} · shared 2 MP budget`;
         elements.packageFact.textContent = formatBytes(zip.length);
         setStatus("Package generated. Close WoW before extracting it beside the main Offhand addon.", "success");
     } catch (error) {
@@ -472,11 +500,19 @@ function bindDropZone(zone, handler) {
     });
 }
 
+elements.assetPicker.addEventListener("change", () => { stashSelected(); selectBackground(Number(elements.assetPicker.value)); });
+elements.addBackground.addEventListener("click", () => { elements.libraryInput.value = ""; elements.libraryInput.click(); });
+elements.libraryInput.addEventListener("change", () => loadImageFile(elements.libraryInput.files?.[0], true));
+elements.removeBackground.addEventListener("click", () => {
+    if (state.assets.length < 2 || state.busy) return;
+    stashSelected(); state.assets.splice(state.selected, 1); selectBackground(0);
+    setStatus("Background removed. Its old region assignments will use the theme until reassigned.", "success");
+});
 elements.imageTab.addEventListener("click", () => switchSource("image"));
 elements.packageTab.addEventListener("click", () => switchSource("package"));
 elements.imageInput.addEventListener("change", () => loadImageFile(elements.imageInput.files?.[0]));
 elements.packageInput.addEventListener("change", () => loadExistingPackage(elements.packageInput.files?.[0]));
-bindDropZone(elements.imageDrop, loadImageFile);
+bindDropZone(elements.imageDrop, (file) => loadImageFile(file));
 bindDropZone(elements.packageDrop, loadExistingPackage);
 elements.preset.addEventListener("change", () => {
     elements.customDimensions.hidden = elements.preset.value !== "custom";

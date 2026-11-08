@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
   <img src="https://raw.githubusercontent.com/N4UX-GIT/Offhand-DualMonitor/main/Website/assets/offhand-banner.png" alt="Offhand Logo" width="100%">
   
   # Offhand: Multi-Monitor Setup for World of Warcraft
@@ -11,6 +11,14 @@
   [![Get Offhand Companion from Microsoft Store](https://img.shields.io/badge/Get_it_from-Microsoft_Store-0078D4?style=for-the-badge&logo=microsoft)](https://apps.microsoft.com/detail/9PL4PW84Q90W)
   [![Portable, Linux, and manual options](https://img.shields.io/badge/Companion-Portable_%26_manual_options-181717?style=for-the-badge&logo=github)](https://offhand-wow.onrender.com/companion.html)
 </div>
+
+This checkout prepares **Offhand Companion 2.1.3** and the matching
+**Offhand add-on 2.1.3 Pre-Release Beta 27**, including Flexible Layout and the reconciled local fixes.
+The Companion is submitted to Microsoft Store certification with manual publishing
+held. The matching add-on and portable assets are prepared locally, not yet public.
+See [publication preparation](docs/PUBLICATION-2.1.3-PREPARATION-20261108.md) and
+[installation guidance](docs/INSTALL-2.1.3.txt). Existing public download links
+below identify the currently published downloads until coordinated promotion.
 
 ---
 
@@ -144,7 +152,9 @@ Use the [Background Studio](https://offhand-wow.onrender.com/background-studio.h
 
 The **Studio recommendation** uses the fit mode stored in the generated package. Fill, Fit, and Stretch can also be selected in-game without regenerating the image. Crop focus, zoom, opacity, darkening, and matte color remain controlled by the Background Studio package. Replacing its texture requires a full client restart; `/reload` alone does not reload interface texture files reliably. Normal Offhand updates do not modify the separate user-owned media folder.
 
-Current media packages contain only `Offhand_UserMedia.toc`, `BackgroundRecipe.json`, `README.txt`, and `Textures/Background.tga`. They contain no Lua or native executable. Do not install a media ZIP received from another person directly, because any archive can be modified after generation. Open it through the official Studio's **Update package** path and generate a clean replacement. The importer reads archives in memory without extracting or executing them, accepts only the current or legacy Studio file layout, applies strict path and size limits, and discards the legacy `Background.lua` file when producing the current code-free format.
+Single-image media packages contain only `Offhand_UserMedia.toc`, `BackgroundRecipe.json`, `README.txt`, and `Textures/Background.tga`. The updated workspace test build optionally supports a two-image library with `Textures/Background2.tga`. In Studio, use **Add background**, edit each selected image, then export one package. Choose each region's background by name in Themes. Named workspace layouts retain image and fit choices. Both images share the existing texture budget. The test package includes an offline Studio; the public website may still provide the single-image version.
+
+Media packages contain no Lua or native executable. Do not install a media ZIP received from another person directly, because any archive can be modified after generation. Open it through Studio's **Update package** path and generate a clean replacement. The importer reads archives in memory without extracting or executing them, accepts only allowlisted Studio file layouts, applies strict path, size and manifest limits, and discards legacy `Background.lua` when producing a code-free replacement. A missing assigned image falls back to the region theme while retaining the saved assignment.
 
 ---
 

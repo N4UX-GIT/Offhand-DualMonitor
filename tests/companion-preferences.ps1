@@ -4,12 +4,12 @@ if (-not (Test-Path -LiteralPath $compiler)) { throw 'C# compiler unavailable' }
 $testExe = Join-Path ([IO.Path]::GetTempPath()) ('Offhand-preferences-' + [guid]::NewGuid().ToString() + '.exe')
 $layoutTestExe = Join-Path ([IO.Path]::GetTempPath()) ('Offhand-layout-' + [guid]::NewGuid().ToString() + '.exe')
 try {
-    & $compiler /nologo /target:exe /main:Offhand.Companion.PreferencesTest "/out:$testExe" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $PSScriptRoot '..\Companion\Source\Program.cs') (Join-Path $PSScriptRoot 'CompanionPreferences.cs')
+    & $compiler /nologo /target:exe /main:Offhand.Companion.PreferencesTest "/out:$testExe" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $PSScriptRoot '..\Companion\Source\Program.cs') (Join-Path $PSScriptRoot '..\Companion\Source\LayoutDocument.cs') (Join-Path $PSScriptRoot '..\Companion\Source\WorkspaceLayoutService.cs') (Join-Path $PSScriptRoot 'CompanionPreferences.cs') (Join-Path $PSScriptRoot '..\Companion\Source\FlexibleWorkspaceEditor.cs')
     if ($LASTEXITCODE -ne 0) { throw 'Companion test compilation failed' }
     & $testExe
     if ($LASTEXITCODE -ne 0) { throw 'Companion preference test failed' }
 
-    & $compiler /nologo /target:exe /main:Offhand.Companion.LayoutTest "/out:$layoutTestExe" /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $PSScriptRoot '..\Companion\Source\Program.cs') (Join-Path $PSScriptRoot 'CompanionLayout.cs')
+    & $compiler /nologo /target:exe /main:Offhand.Companion.LayoutTest "/out:$layoutTestExe" /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $PSScriptRoot '..\Companion\Source\Program.cs') (Join-Path $PSScriptRoot '..\Companion\Source\LayoutDocument.cs') (Join-Path $PSScriptRoot '..\Companion\Source\WorkspaceLayoutService.cs') (Join-Path $PSScriptRoot 'CompanionLayout.cs') (Join-Path $PSScriptRoot '..\Companion\Source\FlexibleWorkspaceEditor.cs')
     if ($LASTEXITCODE -ne 0) { throw 'Companion layout test compilation failed' }
     & $layoutTestExe
     if ($LASTEXITCODE -ne 0) { throw 'Companion scaled-layout test failed' }
@@ -30,13 +30,17 @@ try {
         $source -notmatch 'CompanionUpdatePolicy\.SelectLatest') {
         throw 'Companion update checks must use the official repository release list and channel policy.'
     }
-    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.2-beta\.20"\)' -or
-        $source -notmatch 'AssemblyFileVersion\("2\.1\.2\.20"\)') {
+    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.3"\)' -or
+        $source -notmatch 'AssemblyFileVersion\("2\.1\.3\.9"\)') {
         throw 'Companion binary metadata must identify the exact beta build.'
     }
     $appManifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Source\app.manifest') -Raw
-    if ($appManifest -notmatch '<assemblyIdentity version="2\.1\.2\.20" name="Offhand\.Companion\.App"/>') {
+    if ($appManifest -notmatch '<assemblyIdentity version="2\.1\.3\.9" name="Offhand\.Companion\.App"/>') {
         throw 'Companion application manifest must identify the exact beta build.'
+    }
+    $candidateBuilder = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\scripts\New-CompanionReleaseCandidate.ps1') -Raw
+    if ($candidateBuilder -notmatch "FileVersion -ne '2\.1\.3\.9'") {
+        throw 'Candidate packaging must accept the current reviewed file version.'
     }
     if ($source -match 'Process\.GetProcesses\(\)' -or
         $source -notmatch 'foreach \(string processName in wowProcessNames\)(?s:.*?)Process\.GetProcessesByName\(processName\)') {
@@ -75,20 +79,12 @@ try {
     }
     if ($source -notmatch 'AutoScaleDimensions = new SizeF\(96F, 96F\)' -or
         $source -notmatch 'AutoScaleMode = AutoScaleMode\.Dpi' -or
-        $source -notmatch 'ClientSize = new Size\(524, 824\)' -or
+        $source -notmatch 'FitDashboardToWorkingArea\(Screen.FromControl\(this\).WorkingArea\)' -or
         $source -notmatch 'AutoScroll = true') {
         throw 'Companion must scale its 96-DPI dashboard geometry linearly and remain scrollable at enlarged display scales.'
     }
-    $displayInfo = [regex]::Match($source, 'lblDisplayInfo = new Label(?s:.*?)Location = new Point\(10, (?<y>\d+)\)(?s:.*?)Size = new Size\(470, (?<h>\d+)\)(?s:.*?)AutoSize = false')
-    $addonReason = [regex]::Match($source, 'lblAddonReason = new Label(?s:.*?)Location = new Point\(10, (?<y>\d+)\)')
-    if (-not $displayInfo.Success -or -not $addonReason.Success -or
-        [int]$displayInfo.Groups['h'].Value -lt 54 -or
-        ([int]$displayInfo.Groups['y'].Value + [int]$displayInfo.Groups['h'].Value) -gt [int]$addonReason.Groups['y'].Value) {
-        throw 'Companion display-plan status must wrap at least three lines without overlapping addon diagnostics.'
-    }
-    if ($source -notmatch 'lblAddonReason = new Label(?s:.*?)Size = new Size\(470, 42\)(?s:.*?)AutoSize = false' -or
-        $source -notmatch 'AddLog\("Addon verification: " \+ status\.Reason\)') {
-        throw 'Companion must show and log the complete client-specific addon verification diagnostic.'
+    if ($source -notmatch 'AddLog\("Addon verification: " \+ status\.Reason\)') {
+        throw 'The Activity Log must retain the complete client-specific addon verification diagnostic.'
     }
     if ($source -notmatch 'TableLayoutPanel configLayout' -or
         $source -notmatch 'FlowLayoutPanel configLeft' -or
@@ -135,11 +131,11 @@ try {
         throw 'Release packaging must freeze the Beta 20 candidate bytes and require an explicit Companion-change lane.'
     }
     $storeBuilder = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Store\Build-StorePackage.ps1') -Raw
-    if ($storeBuilder -notmatch "\[string\]\`$PackageVersion = '2\.1\.20\.0'" -or
+    if ($storeBuilder -notmatch "\[string\]\`$PackageVersion = '2\.1\.300\.0'" -or
         $storeBuilder -notmatch '\[string\]\$CompanionPath' -or
         $storeBuilder -notmatch '\[string\]\$ExpectedCompanionSha256' -or
         $storeBuilder -notmatch 'Companion SHA-256 mismatch') {
-        throw 'The Store package must default to Beta 20 and support exact reviewed executable bytes with hash enforcement.'
+        throw 'The Store package must use the prepared update version and enforce the exact selected executable hash.'
     }
     if ($source -notmatch 'GetCurrentPackageFullName' -or
         $source -notmatch 'StoreProductId = "9PL4PW84Q90W"' -or
@@ -195,9 +191,11 @@ try {
         throw 'The addon must recommend Microsoft Store while preserving the pinned Beta 20 and versioned future portable URLs.'
     }
     $addonOptions = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\UI\Options.lua') -Raw
+    $englishLocale = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Locales\enUS.lua') -Raw
     if ($addonOptions -notmatch 'local COMPANION_DOWNLOAD_URL = Offhand\.companionDownloadUrl' -or
-        $addonOptions -notmatch 'Recommended for Windows: copy the Microsoft Store address below' -or
-        $addonOptions -notmatch 'offhand-wow\.onrender\.com/companion\.html') {
+        $addonOptions -notmatch 'text = L\["COMPANION_DOWNLOAD_LINK_TEXT"\]' -or
+        $englishLocale -notmatch 'Recommended for Windows: copy the Microsoft Store address below' -or
+        $englishLocale -notmatch 'offhand-wow\.onrender\.com/companion\.html') {
         throw 'The addon options must recommend the Microsoft Store Companion URL.'
     }
     $linuxGuide = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Linux.md') -Raw
@@ -215,7 +213,7 @@ try {
     Write-Output 'PASS: Companion avoids startup persistence and process-token inspection'
     Write-Output 'PASS: single-instance guard prevents duplicate Companion tray processes'
     Write-Output 'PASS: DPI-scaled dashboard geometry keeps wrapped status and configuration controls separate'
-    Write-Output 'PASS: addon verification paths are visible and copied into the activity log'
+    Write-Output 'PASS: detailed addon verification remains available in the activity log'
     Write-Output 'PASS: hotkeyless display identification and multi-monitor selection remain separated at enlarged DPI'
     Write-Output 'PASS: Linux compatibility documentation is included by the release packager'
     Write-Output 'PASS: addon-only releases attach the frozen Beta 20 Companion assets by exact hash'

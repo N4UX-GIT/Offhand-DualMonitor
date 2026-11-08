@@ -1,0 +1,384 @@
+local _, Offhand = ...
+local Transfer = Offhand.EllesmereLayout
+if not Transfer then return end
+
+local Controls, L = Offhand.UIControls, Offhand.L
+local dialog
+local importReturn, watchedImporter
+local directions = {"fit", "ellesmere", "blizzard"}
+local modeLabels = {fit = "ELLESMERE_HUD_FIT", ellesmere = "ELLESMERE_HUD_COPY", blizzard = "ELLESMERE_HUD_FALLBACK"}
+local modeGuidance = {
+    fit = "ELLESMERE_HUD_GUIDE_FIT",
+    ellesmere = "ELLESMERE_HUD_GUIDE_COPY",
+    blizzard = "ELLESMERE_HUD_GUIDE_FALLBACK",
+}
+local colors = {{1, .73, .3}, {.35, .8, 1}, {.39, .91, .65}, {.98, .55, .66}, {.75, .64, 1}}
+
+local function Surface(parent)
+    return CreateFrame("Frame", nil, parent, "BackdropTemplate")
+end
+
+local function Label(parent, font)
+    local label = parent:CreateFontString(nil, "OVERLAY", font or "GameFontHighlight")
+    label:SetJustifyH("LEFT")
+    return label
+end
+
+local function Button(parent, label, width, onClick)
+    local button = Controls.CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    button:SetSize(width, 26)
+    button:SetText(L[label])
+    button:SetScript("OnClick", onClick)
+    return button
+end
+
+local function MakeDiagram(parent, title, column)
+    local map = Surface(parent)
+    map:SetSize(424, 216)
+    map:SetPoint("TOPLEFT", parent, "TOPLEFT", 18 + column * 440, -160)
+    Controls.StyleSurface(map, "input")
+    local label = Label(parent, "GameFontNormal")
+    label:SetPoint("BOTTOMLEFT", map, "TOPLEFT", 0, 6)
+    label:SetText(L[title])
+    map.canvas = CreateFrame("Frame", nil, map)
+    map.canvas:SetPoint("CENTER")
+    map.displays, map.markers = {}, {}
+    for i, displayLabel in ipairs({"ELLESMERE_HUD_MAINHAND", "ELLESMERE_HUD_WORKSPACE"}) do
+        local screen = CreateFrame("Frame", nil, map.canvas)
+        local fill = screen:CreateTexture(nil, "BACKGROUND")
+        fill:SetAllPoints()
+        if i == 1 then fill:SetColorTexture(.13, .22, .30, 1) else fill:SetColorTexture(.17, .17, .22, 1) end
+        local name = Label(screen, "GameFontHighlightSmall")
+        name:SetPoint("TOPLEFT", 5, -5)
+        name:SetPoint("RIGHT", -4, 0)
+        name:SetWordWrap(false)
+        name:SetText(L[displayLabel])
+        map.displays[i] = screen
+    end
+    for i, color in ipairs(colors) do
+        local marker = CreateFrame("Frame", nil, map.canvas)
+        marker:SetFrameLevel(map.canvas:GetFrameLevel() + 3)
+        local fill = marker:CreateTexture(nil, "ARTWORK")
+        fill:SetAllPoints()
+        fill:SetColorTexture(color[1], color[2], color[3], .65)
+        local number = Label(marker, "GameFontHighlightSmall")
+        number:SetPoint("CENTER")
+        number:SetText(i)
+        map.markers[i] = marker
+    end
+    return map
+end
+
+local function Plot(map, context, rows, after, direction, selected)
+    local rect = context and context.rect
+    map.canvas:SetShown(rect ~= nil)
+    if not rect then return end
+    local width, height = rect.screenWidth, rect.screenHeight
+    local scale = math.min(408 / width, 200 / height)
+    map.canvas:SetSize(width * scale, height * scale)
+    for i, display in ipairs(map.displays) do
+        local b = i == 1 and rect or i == 2 and context.workspace
+        display:SetShown(b ~= nil and b ~= false)
+        if b then
+            display:ClearAllPoints()
+            display:SetPoint("BOTTOMLEFT", map.canvas, "BOTTOMLEFT", b.left * scale, b.bottom * scale)
+            display:SetSize((b.right - b.left) * scale, (b.top - b.bottom) * scale)
+        end
+    end
+    for i, marker in ipairs(map.markers) do
+        local row = rows[i]
+        local b = row and row.current
+        local proposed = row and selected[row.map.key] ~= false and row.proposed
+        if after then b = proposed or (direction ~= "blizzard" and b) end
+        marker:Hide()
+        if b and b.left <= width and b.bottom <= height and b.left + b.width >= 0 and b.bottom + b.height >= 0 then
+            local left, bottom = math.max(b.left, 0), math.max(b.bottom, 0)
+            local right, top = math.min(b.left + b.width, width), math.min(b.bottom + b.height, height)
+            marker:ClearAllPoints()
+            marker:SetPoint("CENTER", map.canvas, "BOTTOMLEFT", (left + right) * scale / 2, (bottom + top) * scale / 2)
+            marker:SetSize(math.max(15, (right - left) * scale), math.max(14, (top - bottom) * scale))
+            marker:SetAlpha(after and not proposed and .55 or 1)
+            marker:Show()
+        end
+    end
+end
+
+local function ReadPlan(direction)
+    local ok, rows, source, context = pcall(Transfer.Preview, Transfer, direction)
+    if not ok then return nil, "ELLESMERE_HUD_UNAVAILABLE" end
+    if not rows then return nil, source end
+    local signature = {context.profileName or "", source or "", context.controller and "1" or "0",
+        Offhand.MainhandGeometry.Signature(context.rect)}
+    local workspace = context.workspace
+    if workspace then
+        signature[#signature + 1] = string.format("%f,%f,%f,%f", workspace.left, workspace.bottom, workspace.right, workspace.top)
+    end
+    local changed = 0
+    for _, row in ipairs(rows) do
+        local pos = row.position or row.anchor
+        if pos then
+            changed = changed + 1
+            signature[#signature + 1] = string.format("%s,%s,%s,%.6f,%.6f", row.map.key, pos.point,
+                pos.relPoint or pos.relativePoint, pos.x or pos.offsetX, pos.y or pos.offsetY)
+        end
+    end
+    return {rows = rows, context = context, source = source, signature = table.concat(signature, "|"), changed = changed}
+end
+
+local function Render(direction)
+    local plan, reason = ReadPlan(direction)
+    if direction ~= dialog.direction then dialog.rowSelection = {} end
+    dialog.direction, dialog.plan = direction, plan
+    local context = plan and plan.context
+    local rows = plan and plan.rows or {}
+    for _, button in ipairs(dialog.modes) do
+        button.selected = button.direction == direction
+        Controls.StyleSurface(button, "button")
+    end
+    dialog.subtitle:SetText(context and string.format(L["ELLESMERE_HUD_VISUAL_SOURCE"],
+        context.profileName or "—", plan.source or "—") or L[reason])
+    dialog.guide:SetText(L[modeGuidance[direction]])
+    Plot(dialog.before, context, rows, false, direction, dialog.rowSelection)
+    Plot(dialog.after, context, rows, true, direction, dialog.rowSelection)
+    local selected = 0
+    for i, label in ipairs(dialog.legend) do
+        local row = rows[i]
+        local canCopy = row and (row.position or row.anchor)
+        local checked = canCopy and dialog.rowSelection[row.map.key] ~= false
+        local status = row and (row.reason or (row.anchor and "ELLESMERE_HUD_POINT_ONLY" or "ELLESMERE_HUD_WILL_MOVE"))
+        local checkbox = dialog.checkboxes[i]
+        checkbox:SetShown(canCopy ~= nil and canCopy ~= false)
+        checkbox:SetChecked(checked == true)
+        label:SetText(row and string.format("%d  %s  ·  %s", i, L[row.map.label], L[status]) or "")
+        if checked then selected = selected + 1 end
+    end
+    dialog.apply:SetText(L[direction == "blizzard" and "ELLESMERE_HUD_SAVE_FALLBACK" or "ELLESMERE_HUD_REVIEW_IMPORT"])
+    dialog.apply:SetEnabled(plan and not context.block and selected > 0 or false)
+    dialog.status:SetText(context and context.block and L[context.block]
+        or plan and selected == 0 and L[plan.changed == 0 and "ELLESMERE_HUD_NO_CHANGES"
+            or "ELLESMERE_HUD_SELECT_ROWS"] or "")
+end
+
+function Transfer:PromptImportReload()
+    if not self:HasPendingReload() or not (StaticPopupDialogs and Offhand.ShowPopup) then return end
+    local mainhand = Offhand.Mainhand
+    local manual = not ReloadUI or (InCombatLockdown and InCombatLockdown())
+        or mainhand and mainhand.IsNativeGamepadInterface and mainhand:IsNativeGamepadInterface()
+    StaticPopupDialogs.OFFHAND_ELLESMERE_HUD_RELOAD = {
+        text = L[manual and "ELLESMERE_HUD_IMPORT_RELOAD_MANUAL" or "ELLESMERE_HUD_IMPORT_RELOAD_PROMPT"],
+        button1 = manual and (OKAY or "OK") or L["ONBOARD_RELOAD_UI"],
+        button2 = not manual and L["CHARACTER_SETUP_LATER"] or nil,
+        OnAccept = not manual and function()
+            if not self:HasPendingReload() then return end
+            if InCombatLockdown and InCombatLockdown() then
+                Offhand:Print(L["ELLESMERE_HUD_RELOAD"])
+            else
+                ReloadUI()
+            end
+        end or nil,
+        timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
+    }
+    return Offhand:ShowPopup("OFFHAND_ELLESMERE_HUD_RELOAD")
+end
+
+local function ReviewImport(plan, rows)
+    local onDismiss = dialog.onDismiss
+    dialog.onDismiss = nil
+    dialog:Hide()
+    local function Failed(reason)
+        if dialog.plan ~= plan or dialog:IsShown() then return end
+        dialog.onDismiss = onDismiss
+        dialog.status:SetText(L[reason or "ELLESMERE_HUD_IMPORT_FAILED"])
+        dialog:Show()
+        dialog:Raise()
+    end
+    local function CanContinue()
+        if dialog.plan ~= plan or dialog:IsShown() then return false end
+        if InCombatLockdown() then
+            Failed("ELLESMERE_HUD_BUSY")
+            return false
+        end
+        return true
+    end
+
+    -- Let the click and preview close finish before opening the load-on-demand
+    -- options panel. Give Profiles its own pass before starting async decode.
+    C_Timer.After(0, function()
+        if not CanContinue() then return end
+        local eui = _G.EllesmereUI
+        if not (eui and eui.NavigateToElementSettings and eui.GetActiveModule and eui.GetActivePage) then
+            Failed()
+            return
+        end
+        local ok = pcall(eui.NavigateToElementSettings, eui, "_EUIProfiles", "Profiles")
+        if not ok then
+            Failed()
+            return
+        end
+        C_Timer.After(0, function()
+            if not CanContinue() then return end
+            if eui.IsShown and not eui:IsShown() then
+                if onDismiss then onDismiss() end
+                return
+            end
+            if eui:GetActiveModule() ~= "_EUIProfiles" or eui:GetActivePage() ~= "Profiles" then
+                Failed()
+                return
+            end
+            -- The cached tab can be active while its separately pooled content
+            -- is hidden. Repair it before there is an import session to orphan.
+            local root = eui._profilesRoot
+            if eui.RefreshPage and (not root or not root:IsVisible()) then
+                local refreshed = pcall(eui.RefreshPage, eui, true)
+                if not refreshed then
+                    Failed()
+                    return
+                end
+            end
+            local function ImportFinished(result)
+                if not onDismiss and result ~= "reload" then return end
+                local function Return()
+                    if onDismiss then
+                        onDismiss(result)
+                    else
+                        Transfer:PromptImportReload()
+                    end
+                end
+                C_Timer.After(0, function()
+                    local frame = eui.GetMainFrame and eui:GetMainFrame()
+                    if not (frame and frame:IsShown()) then
+                        Return()
+                        return
+                    end
+                    -- A decode error leaves EllesmereUI visible. Return when
+                    -- the user closes it, just as after a normal review.
+                    importReturn = Return
+                    if watchedImporter == frame then return end
+                    watchedImporter = frame
+                    frame:HookScript("OnHide", function()
+                        if watchedImporter ~= frame then return end
+                        local callback = importReturn
+                        importReturn = nil
+                        if callback then C_Timer.After(0, callback) end
+                    end)
+                end)
+            end
+            local called, opened, reason = pcall(Transfer.OpenImport, Transfer, rows, ImportFinished)
+            if not (called and opened) then
+                Failed(reason == "ELLESMERE_HUD_OVERRIDES" and reason or nil)
+            end
+        end)
+    end)
+end
+
+local function Apply()
+    local previous = dialog.plan
+    if not previous then return end
+    Render(dialog.direction)
+    local current = dialog.plan
+    if not current or current.context.block then return end
+    if current.signature ~= previous.signature then
+        dialog.status:SetText(L["ELLESMERE_HUD_REFRESHED"])
+        return
+    end
+    local rows, canApply = {}, false
+    for _, row in ipairs(current.rows) do
+        if dialog.rowSelection[row.map.key] ~= false then
+            rows[#rows + 1] = row
+            canApply = canApply or row.position or row.anchor
+        end
+    end
+    if not canApply then return end
+    if dialog.direction == "blizzard" then
+        local ok, result = Offhand.Mainhand:SaveEllesmereFallback(current.context, rows)
+        if ok then
+            dialog.apply:Disable()
+            dialog.status:SetText(string.format(L["ELLESMERE_HUD_FALLBACK_SAVED"], result))
+        else
+            dialog.status:SetText(Offhand.Options:GetMainhandLayoutFailureText(result))
+        end
+    else
+        ReviewImport(current, rows)
+    end
+end
+
+local function CreateDialog()
+    local frame = CreateFrame("Frame", "OffhandEllesmerePreviewFrame", UIParent, "BackdropTemplate")
+    frame:SetSize(900, 548)
+    frame:SetFrameStrata("FULLSCREEN_DIALOG")
+    frame:EnableMouse(true)
+    frame:Hide()
+    frame:SetScript("OnHide", function(self)
+        local callback = self.onDismiss
+        self.onDismiss = nil
+        -- Escape can close multiple registered windows in one pass.
+        if callback then C_Timer.After(0, callback) end
+    end)
+    if UISpecialFrames then table.insert(UISpecialFrames, frame:GetName()) end
+    Controls.StyleSurface(frame, "window")
+    local title = Label(frame, "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", 18, -15)
+    title:SetText(L["ELLESMERE_HUD_VISUAL"])
+    frame.subtitle = Label(frame, "GameFontHighlightSmall")
+    frame.subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
+    frame.subtitle:SetPoint("RIGHT", frame, "RIGHT", -18, 0)
+    frame.modes = {}
+    for i, direction in ipairs(directions) do
+        local button = Button(frame, modeLabels[direction], 276, function() Render(direction) end)
+        button.direction = direction
+        button:SetPoint("TOPLEFT", 18 + (i - 1) * 292, -66)
+        frame.modes[i] = button
+    end
+    frame.guide = Label(frame, "GameFontHighlightSmall")
+    frame.guide:SetPoint("TOPLEFT", 18, -102)
+    frame.guide:SetPoint("RIGHT", frame, "RIGHT", -18, 0)
+    frame.guide:SetWordWrap(true)
+    frame.before = MakeDiagram(frame, "ELLESMERE_HUD_CURRENT", 0)
+    frame.after = MakeDiagram(frame, "ELLESMERE_HUD_PROPOSED", 1)
+    frame.legend, frame.checkboxes = {}, {}
+    for i, color in ipairs(colors) do
+        local checkbox = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+        checkbox:SetSize(16, 16)
+        checkbox:SetPoint("TOPLEFT", 18, -381 - (i - 1) * 17)
+        checkbox:SetScript("OnClick", function(self)
+            local row = frame.plan and frame.plan.rows[i]
+            if not row then return end
+            frame.rowSelection[row.map.key] = self:GetChecked() == true
+            Render(frame.direction)
+        end)
+        frame.checkboxes[i] = checkbox
+        local label = Label(frame, "GameFontHighlightSmall")
+        label:SetTextColor(unpack(color))
+        label:SetPoint("TOPLEFT", 38, -383 - (i - 1) * 17)
+        label:SetPoint("RIGHT", frame, "RIGHT", -20, 0)
+        frame.legend[i] = label
+    end
+    local close = Button(frame, "BTN_CLOSE", 120, function() frame:Hide() end)
+    close:SetPoint("BOTTOMRIGHT", -18, 14)
+    frame.apply = Button(frame, "ELLESMERE_HUD_REVIEW_IMPORT", 228, Apply)
+    frame.apply:SetPoint("RIGHT", close, "LEFT", -8, 0)
+    frame.status = Label(frame, "GameFontHighlightSmall")
+    frame.status:SetPoint("BOTTOMLEFT", 20, 12)
+    frame.status:SetPoint("RIGHT", frame.apply, "LEFT", -12, 0)
+    return frame
+end
+
+function Transfer:ShowPreview(direction, onDismiss)
+    if not self:IsAvailable() then return end
+    if not dialog then dialog = CreateDialog() end
+    local m = Offhand.Viewport:GetMetrics()
+    local scale = Controls.FitDialog(dialog, m)
+    dialog:ClearAllPoints()
+    if m and m.isSpanned then
+        dialog:SetPoint("CENTER", UIParent, "BOTTOMLEFT", (m.gameLeft + m.gameRight) / (2 * scale),
+            (m.gameBottom + m.gameTop) / (2 * scale))
+    else
+        dialog:SetPoint("CENTER", UIParent)
+    end
+    dialog.rowSelection = {}
+    dialog.onDismiss = onDismiss or dialog.onDismiss
+    Render(direction or "fit")
+    dialog:Show()
+    dialog:Raise()
+    return true
+end

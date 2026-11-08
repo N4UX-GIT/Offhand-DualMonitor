@@ -30,7 +30,14 @@ end
 
 function Viewport:GetCompanionTopology(pw, ph, sw, sh)
     local topology = _G.OffhandCompanionTopology
-    if type(topology) ~= "table" or tonumber(topology.schema) ~= 1 then return nil, "ABSENT" end
+    if type(topology) ~= "table" then return nil, "ABSENT" end
+    if tonumber(topology.schema) == 3 then
+        topology = Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:ValidateFlexibleTopology(topology)
+        if not topology then return nil, "MISMATCH" end
+    elseif tonumber(topology.schema) == 2 then
+        topology = Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:ValidateTopology(topology)
+        if not topology then return nil, "MISMATCH" end
+    elseif tonumber(topology.schema) ~= 1 then return nil, "ABSENT" end
     local topologyWidth = tonumber(topology.physicalWidth)
     local topologyHeight = tonumber(topology.physicalHeight)
     if not topologyWidth or not topologyHeight or topologyWidth <= 0 or topologyHeight <= 0
@@ -58,6 +65,16 @@ function Viewport:GetCompanionTopology(pw, ph, sw, sh)
     -- becomes MISMATCH again.
     local reportedDisplay = (Near(topology.game.width, pw) and Near(topology.game.height, ph))
         or (Near(topology.workspace.width, pw) and Near(topology.workspace.height, ph))
+    if topology.schema == 2 or topology.schema == 3 then
+        for _,r in ipairs(topology.workspaces) do
+            reportedDisplay=reportedDisplay or (Near(r.width,pw) and Near(r.height,ph))
+        end
+    end
+    if topology.schema == 3 then
+        for _,display in ipairs(topology.displays) do
+            reportedDisplay=reportedDisplay or (Near(display.width,pw) and Near(display.height,ph))
+        end
+    end
     -- Some offset arrangements share one display's aspect. In that case the
     -- canvas cannot distinguish a span from a restored window; require the
     -- exact physical bounds instead of accepting ambiguous stale dimensions.
@@ -463,7 +480,7 @@ function Viewport:GetMetrics(allowUnconfirmedManual)
         local workspaceBottom = math.floor(tonumber(workspace.y) + 0.5)
         local workspaceWidth = math.floor(tonumber(workspace.width) + 0.5)
         local workspaceHeight = math.floor(tonumber(workspace.height) + 0.5)
-        return {
+        local metrics = {
             screenWidth = sw, screenHeight = sh, physicalWidth = pw, physicalHeight = ph,
             deckWidth = workspaceWidth * ux,
             workspaceWidth = workspaceWidth * ux, workspaceHeight = workspaceHeight * uy,
@@ -484,8 +501,15 @@ function Viewport:GetMetrics(allowUnconfirmedManual)
             companionVersion = companionVersion,
             expectedCompanionVersion = expectedCompanionVersion,
         }
+        return Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:ApplyMetrics(metrics,topology) or metrics
     end
 
+    -- A rejected multi-region bridge must never activate a coincidentally
+    -- matching legacy manual canvas. Explicit MANUAL retains its own contract.
+    if geometryPreference ~= "MANUAL" and type(_G.OffhandCompanionTopology)=="table"
+        and (tonumber(_G.OffhandCompanionTopology.schema) or 0)>=2 then
+        return SafeSingleScreenMetrics(sw,sh,pw,ph,preset,topologyStatus,"EXACT_REQUIRED")
+    end
 
     local manualMatch, acceptedManual
     if manual and geometryPreference ~= "EXACT" then
@@ -892,6 +916,12 @@ function Viewport:Apply()
     WorldFrame:ClearAllPoints()
     self:SetPoint(WorldFrame, "BOTTOMLEFT", "BOTTOMLEFT", m.gameLeft, m.gameBottom)
     self:SetPoint(WorldFrame, "TOPRIGHT", "BOTTOMLEFT", m.gameRight, m.gameTop)
+    if Offhand.CinematicPresentation then Offhand.CinematicPresentation:Apply(m) end
+    if Offhand.HUD and Offhand.HUD.PositionRetailOverrideBar then Offhand.HUD:PositionRetailOverrideBar(m) end
+    if Offhand.HUD and Offhand.HUD.PositionRetailNotifications then
+        Offhand.HUD:PositionRetailNotifications(m)
+        Offhand.HUD:PositionPremadeGroupDialogs(m)
+    end
     Offhand:Debug("Viewport: %dx%d pixels at (%d, %d).", m.gamePixelWidth,
         m.gamePixelHeight, m.gamePixelLeft, m.gamePixelBottom)
 end
@@ -903,6 +933,12 @@ function Viewport:Reset()
     end
     WorldFrame:ClearAllPoints()
     WorldFrame:SetAllPoints(UIParent)
+    if Offhand.CinematicPresentation then Offhand.CinematicPresentation:Apply() end
+    if Offhand.HUD and Offhand.HUD.PositionRetailOverrideBar then Offhand.HUD:PositionRetailOverrideBar() end
+    if Offhand.HUD and Offhand.HUD.PositionRetailNotifications then
+        Offhand.HUD:PositionRetailNotifications()
+        Offhand.HUD:PositionPremadeGroupDialogs()
+    end
 end
 
 function Offhand:InitializeViewport()

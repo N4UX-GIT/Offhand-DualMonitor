@@ -25,6 +25,7 @@ function Placement.InstallSingleScreen(Canvas, services)
             or not Offhand.db.savedWorkspacePositions then return end
         for name in pairs(Offhand.db.savedWorkspacePositions) do
             if not tostring(name):match("^ChatFrame%d+$")
+                and not (Offhand.isForever and Offhand.CanvasCompatibility.IsForeverEllesmereBag(name))
                 and not IsForeverEditModeFrame(_G[name], name)
                 and not IsForeverProfessionsPanel(_G[name], name) then
                 local frame = _G[name]
@@ -94,6 +95,7 @@ function Placement.InstallMainhand(Canvas, services)
         if registry and registry.GetPositionRoot(frame) ~= frame then return false end
         if IsWorldMapMaximized(frame) then return false end
         local name = frame.GetName and frame:GetName()
+        if Offhand.isForever and Offhand.CanvasCompatibility.IsForeverEllesmereBag(name) then return false end
         if ShouldYieldFrameToClassicUIForever(frame, name) then return false end
         if ShouldYieldWorldMapToMoveAny(name or frame) then return false end
         if recoveryAction and services.RemodalizePanel
@@ -130,6 +132,11 @@ function Placement.InstallMainhand(Canvas, services)
         local maxX = math.max(minX, metrics.gameRight - width - inset)
         local minY = metrics.gameBottom + height + inset
         local maxY = math.max(minY, metrics.gameTop - inset)
+        if metrics.workspaceRegions and height > metrics.gameTop-metrics.gameBottom-2*inset then
+            -- An oversized fallback cannot be fully contained. Keep its title
+            -- reachable instead of placing it above the physical game monitor.
+            minY,maxY=metrics.gameTop-inset,metrics.gameTop-inset
+        end
 
         if preserveContained and not position then
             local left = frame.GetLeft and frame:GetLeft()
@@ -363,19 +370,26 @@ function Placement.InstallVoid(Canvas, services)
                 bottom = metrics.gameBottom, top = metrics.gameTop,
             },
         }
+        if metrics.workspaceRegions then
+            areas={areas[2]}
+            for _,r in ipairs(metrics.workspaceRegions) do
+                areas[#areas+1]={left=r.x,right=r.x+r.width,bottom=r.y,top=r.y+r.height}
+            end
+        end
 
         local function IsContained(area)
             return left >= area.left + inset and right <= area.right - inset
                 and bottom >= area.bottom + inset and top <= area.top - inset
         end
-        if IsContained(areas[1]) or IsContained(areas[2]) then return false end
+        for _,area in ipairs(areas) do if IsContained(area) then return false end end
 
         local function Overlap(area)
             local overlapWidth = math.max(0, math.min(right, area.right) - math.max(left, area.left))
             local overlapHeight = math.max(0, math.min(top, area.top) - math.max(bottom, area.bottom))
             return overlapWidth * overlapHeight
         end
-        local target = Overlap(areas[1]) >= Overlap(areas[2]) and areas[1] or areas[2]
+        local target=areas[1]
+        for i=2,#areas do if Overlap(areas[i])>Overlap(target) then target=areas[i] end end
         local availableWidth = math.max(0, target.right - target.left - inset * 2)
         local availableHeight = math.max(0, target.top - target.bottom - inset * 2)
         local targetLeft = width <= availableWidth
@@ -412,6 +426,7 @@ function Placement.Install(Canvas, services)
         if not frame then return nil end
         local ok, placement = pcall(function()
             local metrics = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
+            if Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,frame) end
             if not metrics or not metrics.isSpanned then return nil end
             local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
             local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1

@@ -1,6 +1,53 @@
 # Custom Workspace Regions Implementation Plan
 
-Status: **Approved for future development; deliberately deferred until the current single-workspace architecture is stable and its known bugs are resolved.**
+3 November schema 2 follow-up: the user authorized the recommended extension and
+autonomous work while remote. [Experimental Prototype 7](CUSTOM-WORKSPACE-REGIONS-SCHEMA2-PROTOTYPE.md)
+now implements one game display plus one or two independent workspace areas,
+per-monitor visual selectors, region-aware persistence and explicit capability
+gating. Automated checks and a bounded one-real-workspace Retail package run
+passed. Physical three-display, cross-workspace input/persistence, combat and
+mixed-DPI gates remain open. Earlier deferral language below records the original
+staging decision; it does not describe the current experimental source or waive
+release gates. P6 remains the immutable previous review/rollback candidate.
+
+3 November follow-up: [consolidated P6 package QA](CUSTOM-WORKSPACE-REGIONS-CONSOLIDATED-QA.md)
+records the integrated addon source, Retail/Anniversary evidence and the user's
+manual Character drag pass. [Third-monitor investigation](CUSTOM-WORKSPACE-REGIONS-THIRD-MONITOR-STUDY.md)
+distinguishes three connected displays from three participating displays, adds
+bounded characterization evidence and recommends the next schema 2 slice. It
+does not enable that slice or waive its existing stabilization gates.
+
+2 November 2026 implementation authorization: the user explicitly requested all
+remaining work through an initial working implementation. This supersedes the
+earlier deferral for the contiguous schema 1 slice. Work is isolated on
+`codex/custom-workspace-regions`, branched from the tested Companion preparation
+commit `a4684a1` so its fixes are retained. No promotion to `main` or publication
+is implied. The original gates below continue to govern broader schema 2 work.
+See [the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md) for current scope.
+The [Retail HUD follow-up](CUSTOM-WORKSPACE-REGIONS-RETAIL-HUD-QA.md) adds bounded
+regeneration and panel acceptance. Fresh row creation at the layout cap,
+protected actions, panel dragging and external-owner fit remain explicit gaps.
+The later [Retail lifecycle follow-up](CUSTOM-WORKSPACE-REGIONS-RETAIL-LIFECYCLE-QA.md)
+accepts exact Prototype 5 cold restart/manual apply, opposite edge/game-side
+selection, and ordinary-window maximized/minimized entry. Actual setup-button
+input safely refused fresh creation at the cap; Character dragging remains open.
+
+Investigation started 1 November 2026 at the user's request. See
+[the initial source study](CUSTOM-WORKSPACE-REGIONS-INVESTIGATION.md) for
+characterization results and implementation gaps. The initial contiguous
+prototype is now implemented; broader region work retains the entry criteria
+below, subject to the explicit stage 0 authorization above.
+
+Status: **Initial schema 1 prototypes implemented: single-monitor custom layouts,
+visual selection overlays, and a full game monitor with a partial workspace on a
+second monitor. Prototype 1 has Retail and targeted Anniversary evidence;
+prototype 3 has Retail apply/reload/cold-restart/Restore and targeted Anniversary
+apply/reload/Restore evidence. Prototype 5 adds current-display validation at
+Save and has targeted Retail two-monitor to single-monitor transition, reload
+and exact native Restore evidence, plus Anniversary secondary-workspace reload,
+fresh error-capture and Restore evidence on a level-1 character. The initial
+schema 1 implementation is working on the recorded setup. General schema 2
+region development remains deferred behind the stabilization gates.**
 
 This document records the intended design, implementation sequence, compatibility requirements, risk assessment, validation matrix, and release gates for partial-monitor and multi-monitor Offhand workspace regions. It is not authorization to begin implementation on the current stabilization branch.
 
@@ -97,9 +144,11 @@ The first implementation should let the user choose:
 When game and workspace are contiguous and rectangular, Companion may emit a
 schema 1 topology whose `physicalWidth` and native window bounds describe only
 the `4080x1440` WoW region. This preserves the current addon's one-Mainhand,
-one-workspace contract and avoids delaying this case on schema 2. Schema 2
-remains required when regions are discontiguous, multiple, or need native
-window-region clipping.
+one-workspace contract and avoids delaying this case on schema 2. Implementation
+evidence also permits one rectangular workspace on a second monitor under schema
+1, with Companion clipping the native window to the game/workspace union. Physical
+gaps or native clipping alone do not require a new addon topology schema. Multiple
+independent workspaces and per-region frame destinations remain schema 2 work.
 
 ### 4.3 Partial-monitor workspace
 
@@ -232,6 +281,34 @@ Refuse to save or apply when:
 - The resulting native bounds are invalid or exceed a conservative platform limit.
 - The addon installation does not advertise support for the required topology schema.
 - The generated topology cannot be written atomically.
+
+### 5.3.1 Narrow-panel fit gate
+
+The motivating 640-pixel workspace is a layout example, not a promise that every
+supported panel fits at every UI scale. The existing generic position clamp
+does not resize oversized frames. The Retail PlayerSpells adapter can shrink
+its native root, but has no readability floor: in a synthetic 640-unit-wide
+workspace, a representative 2120-unit talents panel fits at about 29% scale.
+
+For the first partial-span slice, before exposing Save and Apply:
+
+- Evaluate panel dimensions in UIParent units using effective frame scale and
+  the current physical-to-UI conversion. Do not compare physical monitor width
+  directly with frame-local width. Re-evaluate after UI-scale changes.
+- Distinguish panels with a reviewed fit adapter from generic movable panels.
+  Do not extend PlayerSpells scaling to arbitrary or protected frame trees.
+- Establish and live-review readable minimums per supported fit adapter before
+  treating a scaled fit as accepted. Mathematical containment is insufficient.
+- Keep Mainhand available for panels without an accepted fit. Preserve their
+  existing saved placement until an explicit relocation succeeds, and provide
+  a reachable recovery action instead of silently saving an overflowing drop.
+- Exercise both game sides, inherited scale, tab/size changes, oversized width
+  and height, cold launch/reload, combat deferral and an external scale owner.
+
+These are future acceptance requirements. Current runtime placement and scaling
+are unchanged. No universal minimum workspace width or readability threshold is
+accepted by the source study alone. See the narrow-fit evidence in
+[the investigation](CUSTOM-WORKSPACE-REGIONS-INVESTIGATION.md).
 
 ### 5.4 Native window region
 
@@ -569,6 +646,16 @@ The feature must remain ordinary external Win32 window management. It must not i
 
 ## 13. Implementation stages
 
+### Stage 0: contiguous schema 1 partial span
+
+After the entry criteria in section 2 are met, deliver the single-display fast
+path from sections 4.2 and 5.0.1 first. Validate actual partial-window reporting,
+native clipping/rollback, fitting-panel persistence and application sharing
+before enabling it. Keep the existing canvas-relative position records and
+schema 1 contract. No schema 2 parsing, region IDs or migration is required for
+this contiguous one-workspace slice. If its live reporting gate fails, follow
+the documented fallback instead of weakening dimension checks.
+
 ### Stage 1: compatibility foundation
 
 - Add schema 2 parsing and validation.
@@ -580,9 +667,6 @@ The feature must remain ordinary external Win32 window management. It must not i
 
 ### Stage 2: one custom region
 
-- First deliver the schema 1 contiguous single-display partial-span fast path
-  when its acceptance matrix passes. This covers the `5120x1440` shared-screen
-  case without introducing multi-region persistence.
 - Implement one partial region on one Offhand monitor.
 - Add the visual editor and presets.
 - Add native exact-region clipping and rollback.
@@ -684,4 +768,11 @@ Do not merge to `main` until:
 
 The feature is worth pursuing because it addresses a direct user request: reserving specific screen space for Offhand while allowing other applications to share a monitor, and distributing Offhand workspace areas across multiple monitors. It may also reduce presentation cost for layouts where partial regions shrink the WoW window's outer bounds.
 
-Development is intentionally postponed until the current architecture and bug backlog are stable. The approved direction is to preserve the existing experience as schema 1, introduce custom regions as an opt-in schema 2 capability, and implement the feature on a new branch created from the future stabilized `main`.
+The original proposal postponed development until the architecture and bug
+backlog were stable. The user subsequently authorized development and testing on
+`codex/custom-workspace-regions`, followed by named workspace profiles, automatic
+panel routing and per-region themes. The existing experience remains schema 1;
+multiple workspaces is opt-in schema 2. The initial feature implementation and
+its remaining acceptance gates are documented in
+[workspace profiles](CUSTOM-WORKSPACE-PROFILES.md). This authorization does not
+waive the merge/release gates above.

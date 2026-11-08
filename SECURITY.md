@@ -1,5 +1,11 @@
 # Offhand Security and Companion Verification
 
+The approved layout roadmap follows the
+[Companion interaction and release boundaries](docs/COMPANION-INTERACTION-AND-RELEASE-BOUNDARIES.md).
+That record distinguishes WoW policy uncertainty, the bounded native-source
+audit, signature/reputation status and the exact-hash local Defender scan of
+Workspace Test 2. It makes no claim of Blizzard approval or Warden clearance.
+
 ## Download only from official sources
 
 Obtain the Offhand Companion from the project's official GitHub Releases page:
@@ -74,6 +80,14 @@ automatically to a rebuilt executable or newly generated archive, and they do
 not replace checksum verification or independent review of the source.
 
 ## Background Studio media-package security
+
+The unofficial Workspace Test 2 offline Studio additionally supports a bounded
+schema 3 library. Its optional second image is
+`Textures/Background2.tga`; the package remains declarative and contains no Lua
+or native executable. One or two images share the existing aggregate texture
+budget. The Test 2 importer validates image IDs, dimensions, presentation
+settings and exact manifest/file parity before regeneration. This does not
+imply that the deployed public website has been updated with library support.
 
 The official [Background Studio](https://offhand-wow.onrender.com/background-studio.html)
 processes PNG, JPEG, and WebP files in browser memory. The selected image is

@@ -80,6 +80,10 @@ function CreateFrame(kind, name, parent, template)
         table.insert(self.hooks[event], callback)
     end
     function f:Show()
+        if self.name == "OffhandSetupWizardFrame" then
+            assert(next(self.points),
+                "wizard must be anchored before Show; OnShow cannot position an unanchored native frame")
+        end
         self.shown = true
         if self.scripts["OnShow"] then self.scripts["OnShow"](self) end
         for _, callback in ipairs(self.hooks.OnShow or {}) do callback(self) end
@@ -93,7 +97,7 @@ function CreateFrame(kind, name, parent, template)
     function f:IsShown() return self.shown end
     function f:SetText(t) self.text = t end
     function f:GetFontString()
-        if not f._fontString then f._fontString = { SetWidth = function() end, SetWordWrap = function() end, SetTextColor = function() end } end
+        if not f._fontString then f._fontString = { SetWidth = function(s, width) s.width = width end, SetWordWrap = function() end, SetTextColor = function() end } end
         return f._fontString
     end
     function f:GetText() return self.text end
@@ -126,7 +130,7 @@ function CreateFrame(kind, name, parent, template)
             text = "",
             points = {},
             SetText = function(s, t) s.text = t end,
-            SetWidth = function() end,
+            SetWidth = function(s, width) s.width = width end,
             SetHeight = function(s, height) s.height = height end,
             GetHeight = function(s) return s.height or 0 end,
             SetWordWrap = function() end,
@@ -137,7 +141,7 @@ function CreateFrame(kind, name, parent, template)
             SetJustifyH = function() end,
             SetJustifyV = function() end,
             SetTextColor = function() end,
-            SetWidth = function() end,
+            SetWidth = function(s, width) s.width = width end,
         }
         return fs
     end
@@ -408,6 +412,7 @@ addon.Mainhand = {
         return true
     end,
 }
+local trackedHUDCreation=addon.Options.CreateMainhandHUDLayout
 addon.Options.CreateMainhandHUDLayout = function()
     createMainhandLayoutCount = createMainhandLayoutCount + 1
     return unpack(createMainhandLayoutResult)
@@ -516,8 +521,8 @@ assert(addon.Options:GetMainhandLayoutFailureText("span")
     "a stale Companion layout must produce actionable manual and Companion recovery guidance")
 addon.Viewport.GetMetrics = originalGetMetrics
 assert(addon.Options:GetMainhandLayoutFailureText("span")
-        == addon.L["MAINHAND_LAYOUT_SPAN_UNCONFIRMED"],
-    "an unconfirmed span without stale topology must produce actionable diagnostics guidance")
+        == addon.L["MAINHAND_LAYOUT_SPAN_ACTIONS"],
+    "an unconfirmed span must explain spanning/reload rather than suggest diagnostics as a repair")
 
 -- Test 3840x1080 (dual landscape side by side)
 GetPhysicalScreenSize = function() return 3840, 1080 end
@@ -642,6 +647,12 @@ assert(layoutAppliedCount >= 1, "AutoConfigure must trigger ApplyFullLayout")
 -- 3. Test Wizard Dialog Frame & Interactive Controls
 -- ============================================================================
 assert(addon.Wizard ~= nil, "Offhand.Wizard must exist")
+local interactiveMetrics = addon.Viewport.GetMetrics
+addon.Viewport.GetMetrics = function()
+    local m = interactiveMetrics(addon.Viewport)
+    m.isSpanned = true
+    return m
+end
 addon.Wizard:Open()
 
 local wizardFrame = _G["OffhandSetupWizardFrame"]
@@ -762,7 +773,7 @@ assert(wizardFrame.step == 1, "Back must return to the previous step")
 local wizardMetrics = addon.Viewport.GetMetrics
 addon.isForever = true
 addon.Viewport.GetMetrics = function()
-    return { companionTopology=false, topologyStatus="ABSENT", isSpanned=false }
+    return { companionTopology=false, topologyStatus="ABSENT", isSpanned=true }
 end
 OffhandDB.onboarding.setupComplete = false
 wizardFrame:SetStep(4)
@@ -797,12 +808,9 @@ addon.Viewport.GetMetrics = function()
     }
 end
 wizardFrame:SetStep(4)
-wizardFrame.finishBtn.scripts.OnClick()
 assert(wizardFrame.step == 4 and not addon:IsSetupComplete()
-        and wizardFrame.validationStatus:GetText():find(
-            addon.L["MAINHAND_LAYOUT_SPAN_MISMATCH"], 1, true)
-        and wizardFrame.statusText:GetText():find(
-            addon.L["MAINHAND_LAYOUT_SPAN_MISMATCH"], 1, true),
+        and wizardFrame.recoveryReason == "span"
+        and wizardFrame.recoveryBody:GetText():find("Choose placement method", 1, true),
     "a stale topology must block wizard completion with actionable guidance on the current step")
 
 -- FancyZones targets the Windows work area and sizes the decorated outer
@@ -841,8 +849,8 @@ addon.Viewport.GetMetrics = function()
     return { companionTopology=false, topologyStatus="MISMATCH", isSpanned=false }
 end
 wizardFrame.finishBtn.scripts.OnClick()
-assert(wizardFrame.mainhandLayoutStatus:GetText():find(
-        addon.L["MAINHAND_LAYOUT_SPAN_MISMATCH"], 1, true),
+assert(wizardFrame.recoveryReason == "span"
+        and wizardFrame.finishBtn:GetText():find("Choose placement method", 1, true),
     "the final HUD action must replace the cryptic span token with recovery guidance")
 addon.Viewport.GetMetrics = wizardMetrics
 createMainhandLayoutResult = { true, "Offhand - Mainhand - Test", 52 }
@@ -871,8 +879,9 @@ local skipPrint, skipMessages = addon.Print, {}
 addon.Print = function(_, message) skipMessages[#skipMessages + 1] = message end
 StaticPopupDialogs[skipPopup.key].OnAccept(nil, skipPopup.callback)
 addon.Print = skipPrint
-assert(#skipMessages == 2 and skipMessages[1] == addon.L.WIZARD_SKIP_HUD_COMPLETE
-        and skipMessages[2] == addon.L.WIZARD_SKIP_HUD_NEXT,
+assert(#skipMessages == 3 and skipMessages[1] == addon.L.WIZARD_SKIP_HUD_COMPLETE
+        and skipMessages[2] == addon.L.WIZARD_SKIP_HUD_NEXT
+        and skipMessages[3] == addon.L.SETUP_FIRST_PANEL,
     "HUD skip must report pending work and next actions without completed-HUD or restart-success messaging")
 assert(addon:IsSetupComplete() and mainhandLayoutDeferred and OffhandCharDB.hudSetupReminder and not wizardFrame:IsShown(),
     "confirmed HUD deferral must complete setup, persist the choice, and close the wizard")
@@ -1021,7 +1030,11 @@ addon.Viewport.GetMetrics = function()
         gameBottom = 0, gameTop = 1440, gameWidth = 2560,
     }
 end
+addon:SetEnabled(false)
+assert(addon.db.automaticSetupSuppressed == true)
 addon.Onboarding:Open()
+assert(addon.db.enabled == false and addon.db.automaticSetupSuppressed == false,
+    "explicit guide entry must clear setup suppression without activating the viewport")
 local onboardingFrame = OffhandFirstLaunchFrame
 assert(onboardingFrame and onboardingFrame:IsShown() and onboardingFrame.page == 1,
     "first-time onboarding must open at its introduction")
@@ -1462,19 +1475,19 @@ addon.isForever = false
 local originalHasBlizzardEditMode = addon.HasBlizzardEditMode
 addon.HasBlizzardEditMode = function() return true end
 onboardingFrame:SetPage(5)
-assert(onboardingFrame.pageBody:GetText() == string.format(addon.L["ONBOARD_CALIBRATE_TASK_EDITMODE"], "|cffffd100" .. onboardingFrame.nextButton:GetText() .. "|r"),
+assert(onboardingFrame.pageBody:GetText() == string.format(addon.L["ONBOARD_CALIBRATE_TASK_EDITMODE"], "|cffffd100" .. onboardingFrame.nextButton:GetText() .. "|r") .. "\n\n" .. addon.L.SETUP_FIRST_PANEL,
     "non-Forever clients with Edit Mode must receive client-neutral HUD guidance")
 onboardingFrame:SetPage(6)
-assert(onboardingFrame.pageBody:GetText() == string.format(addon.L["ONBOARD_CALIBRATE_TASK_EDITMODE"], "|cffffd100" .. onboardingFrame.nextButton:GetText() .. "|r"),
+assert(onboardingFrame.pageBody:GetText() == string.format(addon.L["ONBOARD_CALIBRATE_TASK_EDITMODE"], "|cffffd100" .. onboardingFrame.nextButton:GetText() .. "|r") .. "\n\n" .. addon.L.SETUP_FIRST_PANEL,
     "Edit Mode completion guidance must not be restricted to Retail by name")
 addon.HasBlizzardEditMode = function() return false end
 onboardingFrame:SetPage(5)
 assert(onboardingFrame.pageTitle:GetText() == addon.L["ONBOARD_CALIBRATE_TASK_TITLE"]
-        and onboardingFrame.pageBody:GetText() == string.format(addon.L["ONBOARD_CALIBRATE_TASK_CLASSIC"], "|cffffd100" .. onboardingFrame.nextButton:GetText() .. "|r")
+        and onboardingFrame.pageBody:GetText() == string.format(addon.L["ONBOARD_CALIBRATE_TASK_CLASSIC"], "|cffffd100" .. onboardingFrame.nextButton:GetText() .. "|r") .. "\n\n" .. addon.L.SETUP_FIRST_PANEL
         and not onboardingFrame.actionButton:IsShown(),
     "Classic-family clients without Edit Mode must receive non-Retail preparation guidance")
 onboardingFrame:SetPage(6)
-assert(onboardingFrame.pageBody:GetText() == string.format(addon.L["ONBOARD_CALIBRATE_TASK_CLASSIC"], "|cffffd100" .. onboardingFrame.nextButton:GetText() .. "|r"),
+assert(onboardingFrame.pageBody:GetText() == string.format(addon.L["ONBOARD_CALIBRATE_TASK_CLASSIC"], "|cffffd100" .. onboardingFrame.nextButton:GetText() .. "|r") .. "\n\n" .. addon.L.SETUP_FIRST_PANEL,
     "Classic-family completion guidance must describe the four-step wizard")
 addon.HasBlizzardEditMode = originalHasBlizzardEditMode
 onboardingFrame:SetPage(1)
@@ -1502,7 +1515,11 @@ for _, method in ipairs({"FANCYZONES", "COMPANION", "MANUAL"}) do
     addon:SetOnboardingSetupMethod(method)
     for _, page in ipairs({3, 4}) do
         onboardingFrame:SetPage(page)
-        assert(onboardingFrame.pageBody:GetText() == addon.L[page == 3 and "ONBOARD_MODE_READY_BODY" or "ONBOARD_PLACE_" .. method],
+        local expectedBody = addon.L[page == 3 and "ONBOARD_MODE_READY_BODY" or "ONBOARD_PLACE_" .. method]
+        if page == 4 and method == "COMPANION" then
+            expectedBody = expectedBody .. "\n\n" .. addon.L["ONBOARD_SPAN_NOT_MAXIMIZE"]
+        end
+        assert(onboardingFrame.pageBody:GetText() == expectedBody,
             "preparation must be one task and placement must describe only the selected method")
         onboardingFrame.helpButton.scripts.OnClick()
         assert(onboardingFrame.pageBody:GetText():find(addon.L["ONBOARD_PATH_" .. method .. "_" .. page], 1, true),
@@ -1752,6 +1769,190 @@ assert(addon.SetTooltip ~= nil, "Offhand:SetTooltip must be defined")
 
 print("PASS: 1-click auto-configuration, topology heuristics, wizard frame, UI scale slider, overlap prevention, and tooltips verified!")
 
+-- Discord v23 regression: a directly opened/resumed wizard must not reach HUD
+-- creation with missing Companion geometry, or strand a player at a full list.
+do
+    local savedMetrics, savedMethod = addon.Viewport.GetMetrics, addon:GetOnboardingSetupMethod()
+    local savedCharDB=OffhandCharDB
+    OffhandCharDB={}
+    local savedReload, savedEditMode, savedShow, savedCombat = ReloadUI, EditModeManagerFrame, ShowUIPanel, InCombatLockdown
+    local ready = false
+    addon:SetOnboardingSetupMethod("COMPANION")
+    addon.Viewport.GetMetrics = function()
+        if not ready then return {isSpanned=false, topologyStatus="ABSENT"} end
+        return {isSpanned=true, companionTopology=true, topologyStatus="READY",
+            companionVersionStatus="MATCH", physicalWidth=4000, physicalHeight=2560,
+            screenWidth=4000,screenHeight=2560,
+            gamePixelWidth=2560, gamePixelHeight=1440, workspacePixelWidth=1440, workspacePixelHeight=2560,
+            gameLeft=1440, gameRight=4000, gameBottom=0, gameTop=1440,
+            workspaceLeft=0, workspaceRight=1440, workspaceTop=2560, workspaceBottom=0, topologyMode="DUAL_DISPLAY"}
+    end
+    InCombatLockdown=function() return false end
+    addon.Wizard:Open()
+    assert(wizardFrame.recoveryReason=='span' and wizardFrame.recoveryCard:IsShown())
+    local body = wizardFrame.recoveryBody
+    local originalHeight = body.GetStringHeight
+    body.GetStringHeight = function() return 12 end -- stale ellipsized native metrics
+    wizardFrame:LayoutStep()
+    assert(body.height > 100 and body.width == wizardFrame.recoveryCard:GetWidth() - 28,
+        'recovery must reserve full paragraphs despite truncated native metrics')
+    local reserved = body.height
+    body.GetStringHeight = function() return reserved + 40 end
+    wizardFrame.scripts.OnEvent(wizardFrame, 'DISPLAY_SIZE_CHANGED')
+    assert(body.height >= reserved + 40
+        and wizardFrame.recoveryCard:GetHeight() >= body.height + 36 + 12,
+        'display changes must remeasure and contain the full recovery text')
+    body.GetStringHeight = originalHeight
+    wizardFrame:LayoutStep()
+    for _,card in ipairs(wizardFrame.pages) do assert(not card:IsShown()) end
+    assert(not wizardFrame.skipLayoutBtn:IsShown() and not wizardFrame.backBtn:IsShown(),
+        'missing placement must not offer navigation/finish paths around its recovery')
+    local initialCreates=createMainhandLayoutCount
+    wizardFrame:SetStep(5)
+    local reloads=0
+    ReloadUI=function() reloads=reloads+1 end
+    InCombatLockdown=function() return true end
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(reloads==0 and not OffhandCharDB.wizardRecoveryStep,'combat must not persist a reload request')
+    InCombatLockdown=function() return false end
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(reloads==1 and OffhandCharDB.wizardRecoveryStep==5 and addon:GetOnboardingResumeStep()==6)
+    assert(createMainhandLayoutCount==initialCreates,'missing placement must not call HUD generation')
+    -- Simulate the persisted handoff in a newly opened guide after /reload.
+    addon.Onboarding:Open()
+    assert(wizardFrame.step==5 and wizardFrame.recoveryReason=='span'
+        and not OffhandCharDB.wizardRecoveryStep,'failed reload must remain recoverable at the saved step')
+    wizardFrame.finishBtn.scripts.OnClick()
+    ready=true
+    addon.Onboarding:Open()
+    assert(wizardFrame.step==5 and not wizardFrame.recoveryReason and wizardFrame.pages[5]:IsShown(),
+        'loaded geometry must resume the same step without automatically creating a layout')
+    assert(wizardFrame.backBtn:IsShown(),'normal Back must reappear after span recovery')
+    ready=false
+    wizardFrame:SetStep(2)
+    wizardFrame.recoveryBackButton.scripts.OnClick()
+    assert(onboardingFrame:IsShown() and onboardingFrame.page==4 and not wizardFrame:IsShown())
+    ready=true
+    addon.Wizard:OpenHUDSetup()
+    addon.Wizard:OpenLayoutCapacityRecovery()
+    assert(wizardFrame.step == wizardFrame.totalSteps and wizardFrame.recoveryReason == 'maximum',
+        'Repair HUD capacity failure must enter actionable wizard recovery')
+    addon.Wizard:OpenHUDSetup()
+    createMainhandLayoutResult={false,'maximum'}
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(wizardFrame.recoveryReason=='maximum' and wizardFrame.recoveryBody:GetText():find('layout dropdown',1,true))
+    assert(not wizardFrame.recoveryBody:GetText():find('Limit is 5',1,true))
+    assert(wizardFrame:GetHeight() >= wizardFrame.recoveryCard:GetHeight()+100,
+        'recovery text must participate in the measured layout')
+    local manager={shown=false,IsShown=function(self) return self.shown end,CanEnterEditMode=function() return true end}
+    EditModeManagerFrame=manager
+    ShowUIPanel=function(frame) assert(frame==manager);frame.shown=true end
+    InCombatLockdown=function() return true end
+    assert(not addon.Wizard:OpenLayoutManagement() and not manager.shown)
+    InCombatLockdown=function() return false end
+    assert(addon.Wizard:OpenLayoutManagement() and not wizardFrame:IsShown() and manager.shown)
+    local watcher
+    for _,frame in ipairs(frames) do
+        if frame.scripts.OnUpdate and frame~=wizardFrame and frame~=onboardingFrame then watcher=frame end
+    end
+    assert(watcher,'Edit Mode return must have an addon-owned observer')
+    watcher.scripts.OnUpdate(watcher,0.25)
+    assert(not wizardFrame:IsShown(),'opening Edit Mode must keep calibration out of the way')
+    manager.shown=false
+    watcher.scripts.OnUpdate(watcher,0.25)
+    assert(wizardFrame:IsShown() and wizardFrame.step==5 and not watcher.scripts.OnUpdate,
+        'closing Edit Mode must resume HUD setup and stop observing')
+    assert(wizardFrame.backBtn:IsShown(),'normal Back must reappear after Edit Mode recovery')
+    assert(createMainhandLayoutCount==initialCreates+1,'return must not automatically retry or delete a layout')
+    -- Repeated visits reuse the watcher, and explicit guide navigation cancels it.
+    wizardFrame:ShowRecovery('maximum')
+    assert(addon.Wizard:OpenLayoutManagement())
+    addon.Onboarding:Open()
+    assert(not watcher.scripts.OnUpdate and not addon.Wizard.editModeReturnStep)
+    manager.shown=false
+    assert(not manager.scripts and not manager.hooks,'native Edit Mode manager must not receive addon hooks/fields')
+    -- Each placement method must lead with an action that can resolve its state.
+    ready=false
+    for _,method in ipairs({'MANUAL','FANCYZONES'}) do
+        addon:SetOnboardingSetupMethod(method)
+        wizardFrame:SetStep(3)
+        assert(wizardFrame.finishBtn:GetText():find('Return to window setup',1,true))
+        assert(not wizardFrame.recoveryBody:GetText():find('Span WoW Now',1,true))
+        assert(wizardFrame.recoveryBody:GetText():find('Confirm placement',1,true))
+        wizardFrame.recoveryBackButton.scripts.OnClick()
+        assert(wizardFrame.recoveryReason=='span','rechecking must not confirm a missing placement')
+        wizardFrame.finishBtn.scripts.OnClick()
+        assert(onboardingFrame:IsShown() and onboardingFrame.page==4)
+    end
+    OffhandDB.onboarding.setupMethod=nil
+    wizardFrame:SetStep(3)
+    assert(wizardFrame.finishBtn:GetText():find('Choose placement method',1,true))
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(onboardingFrame.page==2,'unknown method must return to method selection')
+    addon:SetOnboardingSetupMethod('COMPANION')
+    ready=true
+    OffhandDB.onboarding.setupComplete=false
+    addon.Wizard:Open(3)
+    local ratio=addon.db.deckWidthRatio
+    addon.Wizard:Close()
+    addon.Wizard:Open()
+    assert(wizardFrame.step==3 and wizardFrame.restartButton:IsShown() and wizardFrame.backBtn:IsShown(),
+        'ordinary close/reopen must resume the incomplete task with navigation intact')
+    assert(wizardFrame.validationStatus:GetText():find('Continuing calibration',1,true))
+    addon.Wizard:Close()
+    addon.Onboarding:Open()
+    assert(wizardFrame:IsShown() and wizardFrame.step==3 and not onboardingFrame:IsShown(),
+        'login guide handoff must resume incomplete calibration without overlapping dialogs')
+    wizardFrame.restartButton.scripts.OnClick()
+    assert(wizardFrame.step==1 and addon.db.deckWidthRatio==ratio and not wizardFrame.restartButton:IsShown(),
+        'restart must reset navigation only, not saved calibration values')
+    for _,bad in ipairs({0,6,'invalid'}) do
+        OffhandCharDB.wizardProgressStep=bad
+        assert(not addon.Wizard:GetSavedStep(),'invalid saved task must not become an actionable step')
+    end
+    OffhandCharDB.wizardProgressStep=3
+    createMainhandLayoutResult={true,'Offhand - Mainhand - Test',52}
+    wizardFrame:SetStep(5)
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(not OffhandCharDB.wizardProgressStep and not OffhandCharDB.wizardRecoveryStep,
+        'successful setup must clear pending calibration markers')
+    addon.Wizard:Open()
+    assert(wizardFrame.step==1,'completed users must start fresh when intentionally reopening calibration')
+    local reasons={combat='HUD_FAILURE_COMBAT',open='HUD_FAILURE_EDITMODE_OPEN',
+        disabled='HUD_FAILURE_DISABLED',['read-api']='HUD_FAILURE_API',['save-api']='HUD_FAILURE_API',
+        api='HUD_FAILURE_API',unsupported='HUD_FAILURE_API',unavailable='HUD_FAILURE_UNAVAILABLE',
+        presets='HUD_FAILURE_UNAVAILABLE',state='HUD_FAILURE_STATE',source='HUD_FAILURE_SOURCE',
+        ['repair-system']='HUD_FAILURE_REPAIR',already='HUD_FAILURE_ALREADY',save='HUD_FAILURE_SAVE',
+        ['activate-api']='HUD_FAILURE_ACTIVATE',gamepad='HUD_FAILURE_CONTROLLER'}
+    for reason,key in pairs(reasons) do
+        local message=addon.Options:GetMainhandLayoutFailureText(reason)
+        assert(message==addon.L[key] and not message:find('('..reason..')',1,true),
+            'HUD failure must have actionable localized guidance: '..reason)
+    end
+    assert(addon.Options:GetMainhandLayoutFailureText('future-api-reason')==addon.L.HUD_FAILURE_UNKNOWN)
+    local originalCreate=addon.Mainhand.CreateOrUpdateEditModeLayout
+    addon.Mainhand.CreateOrUpdateEditModeLayout=function() return false,'save' end
+    assert(not trackedHUDCreation(addon.Options) and addon.Mainhand.lastLayoutFailure=='save',
+        'the technical failure reason must remain available on the addon namespace')
+    addon.Mainhand.CreateOrUpdateEditModeLayout=function() return true,'layout',3,'select' end
+    local success,name,moved,activation=trackedHUDCreation(addon.Options)
+    assert(success and name=='layout' and moved==3 and activation=='select' and not addon.Mainhand.lastLayoutFailure,
+        'successful HUD creation must preserve results and clear the stale technical failure')
+    addon.Mainhand.CreateOrUpdateEditModeLayout=originalCreate
+    local preference=addon.ManualCanvas:GetGeometryPreference()
+    OffhandCharDB.wizardProgressStep=5
+    OffhandCharDB.wizardRecoveryStep=5
+    onboardingFrame:SelectMethod('MANUAL')
+    assert(not OffhandCharDB.wizardProgressStep and not OffhandCharDB.wizardRecoveryStep and addon.db.deckWidthRatio==ratio,
+        'changing placement methods must restart review without resetting calibration values')
+    addon.ManualCanvas:SetGeometryPreference(preference)
+    addon.Viewport.GetMetrics=savedMetrics
+    if savedMethod then addon:SetOnboardingSetupMethod(savedMethod) end
+    ReloadUI,EditModeManagerFrame,ShowUIPanel,InCombatLockdown=savedReload,savedEditMode,savedShow,savedCombat
+    OffhandCharDB=savedCharDB
+    print('PASS: missing-span reload handoff and Edit Mode capacity recovery without native hooks')
+end
+
 local oldAfter = C_Timer.After
 local previewTimeout
 C_Timer.After = function(delay, callback)
@@ -1846,6 +2047,17 @@ addon.Options:Close()
 assert(not wizardFrame:IsShown(), "completed users must retain ordinary Settings close behavior")
 
 -- Display changes recenter the visible guide without changing its task.
+do
+    local body, status = onboardingFrame.pageBody, onboardingFrame.statusText
+    local bodyMeasure, statusMeasure = body.GetStringHeight, status.GetStringHeight
+    body.GetStringHeight = function() return 12 end
+    status.GetStringHeight = function() return 12 end
+    onboardingFrame:SetPage(4)
+    onboardingFrame:SetStatusText(string.rep("Full status instructions. ", 40))
+    assert(body.height > 15 and status.height > 42,
+        "guide paragraphs and status must grow past stale truncated measurements")
+    body.GetStringHeight, status.GetStringHeight = bodyMeasure, statusMeasure
+end
 local metricsGetter = addon.Viewport.GetMetrics
 addon.Viewport.GetMetrics = function() return {
     isSpanned = true, gameWidth = 1600, gameLeft = 1000, gameRight = 2600,
@@ -1872,4 +2084,197 @@ do
     end
     assert(guides == 3 and calibrations == 3, "warning actions must launch their named recovery flow")
     addon.Onboarding, addon.Wizard = guideModule, wizardModule
+end
+
+-- Recompute the wizard center from current geometry across native window
+-- changes, including delayed topology acceptance and local dialog scaling.
+do
+    local oldGetter, oldTimer = addon.Viewport.GetMetrics, C_Timer.After
+    local oldSetScale, oldGetScale = wizardFrame.SetScale, wizardFrame.GetScale
+    local pending, reads = {}, 0
+    local metrics = {isSpanned = false, gameWidth = 1920, gameHeight = 1080}
+    C_Timer.After = function(delay, callback)
+        pending[#pending + 1] = {delay = delay, callback = callback}
+    end
+    addon.Viewport.GetMetrics = function() reads = reads + 1; return metrics end
+    wizardFrame.SetScale = function(self, scale) self.testScale = scale end
+    wizardFrame.GetScale = function(self) return self.testScale or 1 end
+    wizardFrame:Show()
+    local step, reason = wizardFrame.step, wizardFrame.recoveryReason
+    local function centered(x, y)
+        local point = wizardFrame.points.CENTER
+        local scale = wizardFrame:GetScale()
+        assert(point.relPoint == "BOTTOMLEFT"
+            and math.abs(point.x * scale - x) < 0.001
+            and math.abs(point.y * scale - y) < 0.001,
+            "wizard center must match Mainhand in UIParent units")
+    end
+    local function resize(event)
+        pending = {}
+        wizardFrame.scripts.OnEvent(wizardFrame, event or "DISPLAY_SIZE_CHANGED")
+        assert(#pending == 2 and pending[2].delay > 0.75,
+            "resize must use bounded settling checks after the geometry debounce")
+    end
+    -- The immediate event can still see the ordinary client rectangle.
+    resize()
+    local stale = pending
+    metrics = {isSpanned = true, gameWidth = 1600, gameHeight = 900,
+        gameLeft = 1440, gameRight = 3040, gameBottom = 0, gameTop = 900}
+    pending[2].callback()
+    centered(2240, 450)
+    -- Repeat span/restore without accumulating the old absolute anchor.
+    for i = 1, 3 do
+        metrics = {isSpanned = false, gameWidth = 1920, gameHeight = 1080}
+        resize()
+        local point = wizardFrame.points.CENTER
+        assert(point.relPoint == "CENTER" and point.x == 0 and point.y == 0,
+            "restored wizard must center on the ordinary client")
+        metrics = {isSpanned = true, gameWidth = 1600, gameHeight = 900,
+            gameLeft = 1440, gameRight = 3040, gameBottom = 0, gameTop = 900}
+        resize()
+        centered(2240, 450)
+    end
+    local previousReads = reads
+    for _, timer in ipairs(stale) do timer.callback() end
+    assert(reads == previousReads, "superseded resize callbacks must do no work")
+    metrics = {isSpanned = true, gameWidth = 400, gameHeight = 600,
+        gameLeft = 1600, gameRight = 2000, gameBottom = 120, gameTop = 720}
+    resize("UI_SCALE_CHANGED")
+    assert(wizardFrame:GetScale() < 1, "small Mainhand must fit the dialog")
+    centered(1800, 420)
+    assert(wizardFrame.step == step and wizardFrame.recoveryReason == reason,
+        "repositioning must preserve the calibration step and recovery state")
+    wizardFrame:Hide()
+    previousReads = reads
+    for _, timer in ipairs(pending) do timer.callback() end
+    wizardFrame.scripts.OnEvent(wizardFrame, "DISPLAY_SIZE_CHANGED")
+    assert(reads == previousReads, "hidden wizard must cancel queued geometry work")
+    assert(not wizardFrame.scripts.OnUpdate, "centering must not add continuous polling")
+    addon.Viewport.GetMetrics, C_Timer.After = oldGetter, oldTimer
+    wizardFrame.SetScale, wizardFrame.GetScale = oldSetScale, oldGetScale
+    wizardFrame.testScale = nil
+end
+print("PASS: wizard centers across span, restore, scale and delayed geometry without task changes")
+
+do
+    local detectedMetrics = addon.Viewport.GetMetrics
+    addon.Viewport.GetMetrics = function(self)
+        local metrics = detectedMetrics(self)
+        metrics.isSpanned = true
+        return metrics
+    end
+    addon:SetOnboardingSetupMethod("MANUAL")
+    addon.HasBlizzardEditMode = function() return true end
+    OffhandCharDB = {}
+    local generated, reopen, reloads
+    local characterOwned = false
+    local ellesmereReview, importReload, importPrompts
+    addon.EllesmereLayout = {
+        IsAvailable = function() return true end,
+        ShowPreview = function(_, direction, callback)
+            assert(direction == (ellesmereReview and "ellesmere" or "fit") and not wizardFrame:IsShown(),
+                "the wizard must be hidden before the visual preview opens")
+            reopen = callback
+            return true
+        end,
+        HasPendingReload = function() return importReload end,
+        PromptImportReload = function()
+            if not importReload then return end
+            assert(not wizardFrame:IsShown(), "the reload prompt must follow setup completion")
+            importPrompts = (importPrompts or 0) + 1
+        end,
+    }
+    addon.Mainhand.GetEllesmereLayoutSource = function()
+        return {generated = generated, generatedActive = true, characterOwned = characterOwned}
+    end
+    addon.Mainhand.PromptReload = function()
+        assert(not wizardFrame:IsShown() and OffhandCharDB.wizardRecoveryStep == 6)
+        reloads = (reloads or 0) + 1
+    end
+    addon.Wizard:Open(6)
+    assert(wizardFrame.totalSteps == 6 and wizardFrame.step == 5 and not wizardFrame.pages[6]:IsShown(),
+        "missing native layout must prevent Step 6")
+    generated = {layoutName = "Offhand (3)"}
+    addon.Wizard:Open(6)
+    assert(wizardFrame.step == 5 and wizardFrame.finishBtn:GetText() == addon.L.MAINHAND_LAYOUT_CREATE,
+        "a shared account layout must not bypass the character HUD creation step")
+    local creates = createMainhandLayoutCount
+    createMainhandLayoutResult = {true, "Offhand", 3, "active"}
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(createMainhandLayoutCount == creates + 1 and reloads == 1
+        and not addon.Wizard:ResumeAfterReload(), "native creation must queue Step 6 for a real reload")
+
+    generated = {layoutName = "Offhand"}
+    characterOwned = true
+    assert(loadfile("UI/Wizard.lua"))("Offhand", addon)
+    assert(addon.Wizard:ResumeAfterReload(), "the new session must consume the saved handoff")
+    wizardFrame = _G.OffhandSetupWizardFrame
+    assert(wizardFrame:IsShown() and wizardFrame.step == 6 and not OffhandCharDB.wizardRecoveryStep,
+        string.format("reload must open Step 6 (step %s, total %s, recovery %s)", tostring(wizardFrame.step),
+            tostring(wizardFrame.totalSteps), tostring(wizardFrame.recoveryReason)))
+    local previewButton
+    for _, child in ipairs({wizardFrame.pages[6]:GetChildren()}) do
+        if child:GetObjectType() == "Button" and child:GetText() == addon.L.ELLESMERE_HUD_VISUAL then
+            previewButton = child
+        end
+    end
+    assert(previewButton and not wizardFrame.pages[5]:IsShown())
+    previewButton.scripts.OnClick()
+    assert(reopen and not wizardFrame:IsShown())
+    reopen()
+    assert(wizardFrame:IsShown() and wizardFrame.step == 6, "closing the preview returns to the same wizard step")
+    wizardFrame.backBtn.scripts.OnClick()
+    assert(wizardFrame.step == 5 and wizardFrame.finishBtn:GetText() == addon.L.BTN_NEXT)
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(wizardFrame.step == 6 and createMainhandLayoutCount == creates + 1 and reloads == 1,
+        "a matching existing layout must advance without being recreated or reloaded")
+    addon.Mainhand.GetEllesmereLayoutSource = function() return {generated = generated, generatedActive = false} end
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(wizardFrame:IsShown() and wizardFrame.step == 5,
+        "Finish Setup must recheck that Blizzard still has the matching layout active")
+    addon.Mainhand.GetEllesmereLayoutSource = function() return {generated = generated, generatedActive = true} end
+    wizardFrame.finishBtn.scripts.OnClick()
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(not wizardFrame:IsShown() and not OffhandCharDB.wizardProgressStep
+        and not OffhandCharDB.wizardRecoveryStep, "Finish Setup must be available without an import")
+
+    ellesmereReview = true
+    addon.Mainhand.GetEllesmereLayoutSource = function()
+        return {generated = generated, generatedActive = true, characterOwned = true, ellesmereReview = true}
+    end
+    addon.Wizard:OpenHUDSetup(true)
+    assert(wizardFrame.step == 6 and createMainhandLayoutCount == creates + 1 and reloads == 1,
+        "enabling EllesmereUI with an active character layout must open Step 6 directly")
+    previewButton.scripts.OnClick()
+    reopen("inactive")
+    assert(wizardFrame.finishBtn:GetText() == addon.L.BTN_FINISH and not importPrompts,
+        "an inactive profile must leave Finish unchanged")
+    previewButton.scripts.OnClick()
+    importReload = true
+    reopen("reload")
+    assert(wizardFrame.finishBtn:GetText() == addon.L.ELLESMERE_HUD_FINISH_RELOAD and not importPrompts)
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(importPrompts == 1 and reloads == 1 and createMainhandLayoutCount == creates + 1,
+        "Finish after an active import must prompt once without rewriting Blizzard's layout")
+    importReload, ellesmereReview = nil, nil
+
+    local selectPrompt
+    addon.Mainhand.GetEllesmereLayoutSource = function() return {generated = generated, generatedActive = false} end
+    addon.Mainhand.GetLayoutStatus = function() return {generatedName = "Other mode"} end
+    addon.Mainhand.UseExistingEditModeLayout = function(_, name)
+        assert(name == "Offhand", "wizard activation must target the current mode's matching layout")
+        return false, "activate-api"
+    end
+    addon.Mainhand.PromptManualLayoutSelection = function(_, name, resumeWizard)
+        selectPrompt = name == "Offhand" and resumeWizard
+    end
+    addon.Wizard:Open(6)
+    assert(wizardFrame.step == 5, "an inactive layout must stay at the native step even without a pending flag")
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(selectPrompt and OffhandCharDB.wizardRecoveryStep == 6 and not wizardFrame:IsShown(),
+        "the manual selection path must instruct the user to reload into Step 6")
+    addon.Wizard:Open(5)
+    assert(wizardFrame.finishBtn:GetText() == addon.L.BTN_NEXT,
+        "reopening the wizard before manual selection must still offer layout selection first")
+    print("PASS: EllesmereUI wizard preview, native reload handoff, reuse and optional completion")
 end

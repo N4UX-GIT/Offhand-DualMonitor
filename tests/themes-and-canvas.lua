@@ -106,6 +106,7 @@ local function makeMockFrame(name, w, h)
             SetWordWrap = function() end,
             GetText = function(self) return self.text end,
             SetTextColor = function() end,
+            SetAlpha = function() end,
             SetJustifyH = function() end,
             SetWidth = function(self, width) self.width = width end,
         }
@@ -142,6 +143,10 @@ controlsChunk("Offhand", addon)
 
 assert(loadfile("Core/TopologyDetection.lua"))("Offhand", addon)
 assert(loadfile("UI/OptionsActions.lua"))("Offhand", addon)
+assert(loadfile("Locales/enUS.lua"))("Offhand",addon)
+assert(loadfile("Core/WorkspaceProfiles.lua"))("Offhand",addon)
+assert(loadfile("Core/WorkspaceRouting.lua"))("Offhand",addon)
+assert(loadfile("UI/WorkspaceOptions.lua"))("Offhand",addon)
 local optionsChunk = assert(loadfile("UI/Options.lua"))
 optionsChunk("Offhand", addon)
 
@@ -212,6 +217,19 @@ assert(pt.x == 14 and pt.y == -14, "BayHeader TOPLEFT must be indented (14, -14)
 local configFrame = addon.Options:CreateFloatingPanel()
 assert(configFrame ~= nil, "Options floating panel must be created")
 assert(configFrame:GetHeight() == 732, "Options floating panel height must be 732px")
+for _,first in ipairs({addon.WorkspaceOptions.controls.profiles,addon.WorkspaceOptions.controls.routing,addon.WorkspaceOptions.controls.themes})do
+    local stack={}
+    for _,card in ipairs(configFrame.cards)do if card.settingsTab==first.settingsTab then stack[#stack+1]=card end end
+    assert(#stack>=2 and stack[1]==first,'New workspace card was omitted from its page')
+    table.sort(stack,function(a,b)local _,_,_,_,ay=a:GetPoint();local _,_,_,_,by=b:GetPoint();return ay>by end)
+    local bottom=0
+    for _,card in ipairs(stack)do
+        local _,_,_,_,y=card:GetPoint()
+        assert(y and -y>=bottom,'Workspace and existing option cards overlap: '..tostring(card.sectionLabel)..' '..tostring(y)..' previous '..bottom)
+        bottom=-y+card:GetHeight()
+    end
+    assert(first.settingsTab:GetHeight()>=bottom,'Page scroll height omits a workspace card')
+end
 
 -- Change trim color to CYAN_GLOW and check slider thumb tint
 addon.db.trimColor = "CYAN_GLOW"

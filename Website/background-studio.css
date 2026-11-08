@@ -604,3 +604,12 @@ input[type="range"] { width: 100%; accent-color: var(--rio-gold); }
     .addon-folder-help-body { grid-template-columns: minmax(0, 1fr); padding: 17px; }
     .addon-folder-paths { align-items: flex-start; flex-direction: column; }
 }
+
+.background-library { margin: 1rem 0; padding: 1rem; border: 1px solid var(--border-color, #404550); border-radius: 12px; }
+.background-library[hidden] { display: none; }
+.background-library label { display: block; margin-bottom: .5rem; font-weight: 600; }
+.background-library select { width: 100%; min-height: 40px; color: #eee; background: #1b1e28; border: 1px solid #555b6c; border-radius: 6px; padding: .5rem; }
+.library-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
+.library-actions button { min-height: 40px; padding: .5rem .75rem; border: 1px solid #656c7e; border-radius: 6px; background: #252a36; color: #fff; cursor: pointer; }
+.library-actions button:disabled { opacity: .5; cursor: default; }
+.background-library p { margin: .75rem 0 0; font-size: .85rem; color: #b7bbc8; }
