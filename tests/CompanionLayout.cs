@@ -60,10 +60,10 @@ namespace Offhand.Companion
 
         private static void CheckScale(float factor, bool enlargedChildren = false)
         {
-            // These cases supply synthetic working areas larger than a hosted
-            // CI desktop. Permit that fixture size without changing the app's
-            // production working-area bounds or exact scrollbar assertions.
-            using (var form = new CompanionForm { MaximumSize = new Size(16384, 16384) })
+            // Embedded Forms can exercise synthetic work areas without the
+            // managed top-level Form.Size clamp to the physical host screen.
+            // CheckHostWorkingArea separately retains a real top-level case.
+            using (var form = new CompanionForm { TopLevel = false, MaximumSize = new Size(16384, 16384) })
             {
                 form.CreateControl();
                 form.Scale(new SizeF(factor, factor));
@@ -330,11 +330,35 @@ namespace Offhand.Companion
             }
         }
 
+        private static void CheckHostWorkingArea()
+        {
+            using (var form = new CompanionForm())
+            {
+                form.CreateControl();
+                Rectangle host = Screen.PrimaryScreen.WorkingArea;
+                form.FitDashboardToWorkingArea(host);
+                LayoutAll(form);
+                if (!host.Contains(form.Bounds))
+                    throw new Exception("Native dashboard escaped the actual host work area: " + form.Bounds + ", host=" + host);
+                var viewport = form.Controls.OfType<Panel>().Single(panel => panel.AutoScroll);
+                var stack = viewport.Controls.OfType<TableLayoutPanel>().Single();
+                var footer = form.Controls.OfType<TableLayoutPanel>().Single();
+                if (viewport.Bottom > footer.Top || footer.Bottom > form.ClientSize.Height)
+                    throw new Exception("Actual-host scrolling overlaps the native footer.");
+                foreach (Control button in footer.Controls)
+                    if (!footer.ClientRectangle.Contains(button.Bounds))
+                        throw new Exception("Actual-host footer action is clipped: " + button.Text);
+                if (stack.Bottom > viewport.ClientSize.Height - viewport.Padding.Bottom && !viewport.VerticalScroll.Visible)
+                    throw new Exception("Actual-host overflow has no scrollbar.");
+            }
+        }
+
         [STAThread]
         internal static void Main()
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            CheckHostWorkingArea();
             CheckScale(1f);
             CheckScale(1.25f);
             CheckScale(1.5f);
