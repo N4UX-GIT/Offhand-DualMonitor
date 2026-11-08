@@ -143,6 +143,10 @@ namespace Offhand.Companion
                 var cards = scrollPanel.Controls.OfType<TableLayoutPanel>().Single();
                 if (cards.Height + scrollPanel.Padding.Vertical <= scrollPanel.ClientSize.Height)
                     throw new Exception("Fixture did not reproduce the initial status refresh outgrowing the startup window.");
+                // Production growth runs through BeginInvoke after the status
+                // transaction. Settle nested AutoSize/preferred-size caches in
+                // this hidden, message-loop-free fixture before that callback.
+                LayoutAll(form);
                 form.GrowDashboardToFit(roomyDesktop);
                 LayoutAll(form);
                 if (form.Height <= startupBounds.Height || form.Width != startupBounds.Width ||
