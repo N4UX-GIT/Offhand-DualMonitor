@@ -60,7 +60,10 @@ namespace Offhand.Companion
 
         private static void CheckScale(float factor, bool enlargedChildren = false)
         {
-            using (var form = new CompanionForm())
+            // These cases supply synthetic working areas larger than a hosted
+            // CI desktop. Permit that fixture size without changing the app's
+            // production working-area bounds or exact scrollbar assertions.
+            using (var form = new CompanionForm { MaximumSize = new Size(16384, 16384) })
             {
                 form.CreateControl();
                 form.Scale(new SizeF(factor, factor));
