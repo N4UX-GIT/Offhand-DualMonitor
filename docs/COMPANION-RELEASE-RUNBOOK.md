@@ -7,6 +7,13 @@ artifact remains the in-game addon only.
 
 ## Release objectives
 
+For the pending matched 2.1.3 release, use
+[the dedicated publication preparation](PUBLICATION-2.1.3-PREPARATION-20261108.md)
+and `scripts/Prepare-213Publication.ps1`. Its exact Store-matching native inputs
+are under `Companion/Prepared/2.1.3/`; it does not use the historical canonical
+Beta 20 assets. The v2.1.3 tag workflow creates a draft for coordinated release.
+The general historical lane and previously published hashes below stay intact.
+
 Every release must satisfy all of the following:
 
 - Addon releases keep the portable Companion frozen at `v2.1.2-beta.20`

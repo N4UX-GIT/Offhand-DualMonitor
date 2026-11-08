@@ -191,9 +191,11 @@ try {
         throw 'The addon must recommend Microsoft Store while preserving the pinned Beta 20 and versioned future portable URLs.'
     }
     $addonOptions = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\UI\Options.lua') -Raw
+    $englishLocale = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Locales\enUS.lua') -Raw
     if ($addonOptions -notmatch 'local COMPANION_DOWNLOAD_URL = Offhand\.companionDownloadUrl' -or
-        $addonOptions -notmatch 'Recommended for Windows: copy the Microsoft Store address below' -or
-        $addonOptions -notmatch 'offhand-wow\.onrender\.com/companion\.html') {
+        $addonOptions -notmatch 'text = L\["COMPANION_DOWNLOAD_LINK_TEXT"\]' -or
+        $englishLocale -notmatch 'Recommended for Windows: copy the Microsoft Store address below' -or
+        $englishLocale -notmatch 'offhand-wow\.onrender\.com/companion\.html') {
         throw 'The addon options must recommend the Microsoft Store Companion URL.'
     }
     $linuxGuide = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Linux.md') -Raw

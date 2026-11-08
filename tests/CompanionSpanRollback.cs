@@ -28,7 +28,9 @@ namespace Offhand.Companion
             NativeMethods.RECT actual;
             Check(NativeMethods.GetWindowRect(handle, out actual)
                 && actual.Left == bounds.Left && actual.Top == bounds.Top
-                && actual.Width == bounds.Width && actual.Height == bounds.Height, "exact prior outer bounds");
+                && actual.Width == bounds.Width && actual.Height == bounds.Height,
+                "exact prior outer bounds: actual " + actual.Left + "," + actual.Top + " " + actual.Width + "x" + actual.Height
+                + " expected " + bounds.Left + "," + bounds.Top + " " + bounds.Width + "x" + bounds.Height);
             Check(NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE) == style, "prior style");
             Check(!NativeMethods.IsWindowVisible(handle), "synthetic window remains hidden");
             IntPtr read = NativeMethods.CreateRectRgn(0,0,0,0);
@@ -52,7 +54,11 @@ namespace Offhand.Companion
             foreach (bool secondary in new bool[] {false,true})
             for (int clipped = 0; clipped < 2; clipped++)
             for (int stage = 0; stage < 5; stage++)
-            using (var window = new Form())
+            // The topology is synthetic and can be wider than the host monitor.
+            // A default WinForms maximum inherits Windows' local tracking limit,
+            // which would clamp the fixture before rollback can be exercised.
+            // Keep exact readback assertions and explicitly permit this test size.
+            using (var window = new Form { MaximumSize = new Size(16384, 16384) })
             {
                 var displays = new List<MonitorSelection.Display> {
                     new MonitorSelection.Display { Index=0, StableId="custom", DeviceName="custom",
@@ -324,7 +330,16 @@ namespace Offhand.Companion
                 window.FormBorderStyle = FormBorderStyle.None;
                 window.ShowInTaskbar = false;
                 window.StartPosition = FormStartPosition.Manual;
-                window.Bounds = plan.Bounds;
+                // The planner deliberately includes phantom negative-origin
+                // displays. Keep the native fixture on this host's real desktop:
+                // SetWindowPlacement may relocate wholly offscreen windows.
+                // Negative topology and clipping remain covered independently.
+                Rectangle fixtureBounds = plan.Bounds;
+                bool onDesktop = false;
+                foreach (Screen screen in Screen.AllScreens)
+                    if (screen.Bounds.IntersectsWith(fixtureBounds)) onDesktop = true;
+                if (!onDesktop) fixtureBounds.Location = Screen.PrimaryScreen.WorkingArea.Location;
+                window.Bounds = fixtureBounds;
                 window.WindowState = state;
                 IntPtr handle = window.Handle;
                 Check(NativeMethods.IsIconic(handle) == (state == FormWindowState.Minimized)

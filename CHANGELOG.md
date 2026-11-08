@@ -4,188 +4,67 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Offhand 2.1.3 Store update preparation
+No additional changes queued beyond the prepared 2.1.3 publication.
 
-- Use the clean `2.1.3` product/add-on identity, without a beta or tester suffix.
-  Companion file/manifest version is `2.1.3.9`. All six add-on manifests name
-  the same Companion; Store remains the recommended distribution channel.
-- Prepare Store package `2.1.300.0` with the existing package name and publisher,
-  above the locally installed `2.1.20.0`. Store certification, actual update
-  installation and publication remain pending.
-- Supersede the prepared Beta 7 review samples with exact new hashes. No earlier
-  local scan or Microsoft determination is transferred to the new files.
+## [2.1.3] - Prepared 2026-11-08, publication pending
 
-### Offhand 2.1.3 Beta 7 candidate
+### Matching Companion and add-on
+- Prepare Companion and all six add-on manifests as 2.1.3. Companion EXE version
+  is 2.1.3.9; Store package 2.1.300.0 is submitted for certification with manual
+  publication held. Store installs Companion only; the matching add-on is separate.
+- Reuse the exact frozen portable EXE/ZIP matching the submitted Store executable.
+  No runtime rebuild accompanies add-on reconciliation or publication packaging.
 
-- Give Companion and the matching workspace add-on the same clean
-  `2.1.3-beta.7` identity. Companion file/manifest version is `2.1.3.8`, newer
-  than the earlier Beta 6 candidate. All six add-on manifests recommend the
-  matching Companion while retaining protocol/schema compatibility.
-- Include the active-display monitor identity correction and explicit
-  Span WoW Now followed by `/reload` guidance. Flexible Layout, named profiles,
-  panel routing and independent region themes remain included.
-- Rebuild the exact Microsoft review samples after the version change.
-  This is candidate preparation, not a Microsoft determination or an official
-  release. Previous test-package hashes and reviews do not cover the new files.
+### Custom workspaces and backgrounds
+- Standard spanning, game/workspace areas on one monitor, partial secondary-monitor
+  areas, multiple workspaces and Flexible Layout, with visual area selection,
+  previews, saved display plans and an option to return to standard layout.
+- Named in-game workspace profiles, supported-panel routing, manual-position
+  priority, separate region themes and installed background-library images.
+- Retain Background Studio export/library support, per-region image/fit choices
+  and theme fallback for missing images. General add-on profiles, workspace
+  profiles and Blizzard HUD layouts remain separate.
 
-- Integrated Companion display identity hardening into the custom-workspace
-  candidate: distinct per-monitor interface IDs, explicit ambiguity errors,
-  reviewed migration and preserved workspace/profile geometry. Native dock,
-  reconnect and migration-dialog acceptance remain pending.
+### Companion reliability and guidance
+- Map saved monitor identities to active Windows display targets rather than
+  assuming the first monitor child belongs to an output. Handle stale, disabled,
+  virtual and ambiguous display assignments with explicit review and safe refusal.
+- Improve scaling/layout, HDR/SDR diagnostics, taskbar presentation, Restore and
+  failure rollback. Bounded graphics-reset recovery applies to Retail/Anniversary.
+- Refresh dashboard, Help and workspace editors, window icons and community links.
+  Make Span WoW Now followed by manual /reload explicit after layout/Mainhand changes.
 
-- Coalesced rapid bezel-gap and game-bottom adjustments so the final layout
-  applies after a short pause, while the displayed value updates immediately.
-  This is a candidate mitigation for adjustment stalls; live graphics recovery
-  and crash verification remain pending.
+### Add-on fixes and compatibility
+- Improve first-launch guidance, per-character setup and shared/character HUD
+  reuse, explicit repair and recovery. Retain Ellesmere ownership and preview/import
+  safeguards; imported or generated native layouts still require the user's reload.
+- Preserve native bag state, separate/combined ownership and permitted saved-root
+  placement through keyboard/controller combat reopening on Forever. Cold,
+  restricted, secret and replacement-owned roots retain their guarded deferral.
+- Preserve BetterBags/RestedXP and user-owned popup placement during automatic
+  rescue. Improve native confirmation stacking, EncounterBar repair and external
+  HUD ownership. Leave native map pin/content rebuilding to Blizzard on Forever.
+- Improve supported add-on settings/Kerzo Escape and reversible close-button
+  policies, Kerzo reload restoration, ForeverPlus warnings, bubble-font ownership
+  and Ellesmere toolbar refitting after settled display changes.
+- Retain Retail secret-value guards, workspace-aware tooltip/comparison bounds,
+  native map/bag lifecycle and earlier Beta 26 onboarding/persistence fixes.
+- Complete existing EFIGS translations and the 44 custom-workspace keys across
+  deDE, frFR, itIT, esES and esMX. Other locale dictionaries retain existing fallback
+  policy. Native-language layout acceptance remains distinct from dictionary tests.
 
-### Discord report follow-up candidate
-- Preserve BetterBags and RestedXP position ownership during automatic popup
-  rescue and centering, including BetterBags anchors and RestedXP's anonymous
-  V2 guide. Honour explicit user placement. Test19 is packaged and installed;
-  native classic/Next small bags and RestedXP V1 retain map/vendor/reload
-  placement on both sides of the tested split. Classic title/anchor gestures
-  pass. Native V2, other Next variants and exact reporter layout remain pending.
-- Restore the last permitted native backpack anchor in the separate Gamepad
-  observer during combat. Share the keyboard path's capability/ancestry guard;
-  leave opening, clamping, item controls, drag and persistence deferred. Test18
-  source regressions pass. Native controller combined-bag combat reopening passes
-  on Offhand and Mainhand, with post-combat item use and no new BugGrabber errors.
-- Restore existing Forever backpack placement after combat reopening only when
-  the initialized root explicitly permits geometry changes. Keep restricted roots
-  and all native opening/chrome/persistence work deferred. Regression coverage
-  includes Blizzard's separate-bag container ancestry after test16's direct-parent
-  restriction failed live. Test17 passes actual separate-backpack combat reopening
-  on Offhand and Mainhand, with post-combat item use and no new BugGrabber errors.
-  Combined-mode follow-up also passes on Offhand and Mainhand; Mainhand reopening
-  is manually confirmed, while the workspace recorder captures six reopen cycles.
-- Include additional separate native bags in reversible workspace X hiding.
-  Defer bag recovery/chrome until both player combat and lockdown clear, keeping
-  saved intent if native opening enters combat. Source regressions pass; native
-  combat placement and the newly reported Lua error remain unverified.
-- Leave Forever map-content rebuilding to Blizzard by removing Offhand's zone
-  refocusing and bootstrap provider refresh calls. Placement and persistence
-  remain. Regression checks pass; the intermittent quest-pin taint report still
-  requires native reproduction and source attribution.
-- Remove competing legacy centering and generic void rescue from Retail/Forever
-  pooled confirmation dialogs, including party invitations. Preserve native popup
-  stacking. Source regressions pass; real combat-invite acceptance is pending.
-- Apply supported addon settings Escape and hidden-X policies immediately at
-  open/show/drag boundaries, removing the timer gap. Hide Leatrix/Platynator X
-  buttons reversibly and reapply Kerzo X hiding during vendor header redraws.
-  Six vendor roots pass native checks before any timer advances on Forever 70862.
-- Extend Forever workspace Escape protection to Leatrix Maps/Plus settings,
-  Leatrix Sounds, Platynator settings, ForeverDungeonJournal and Offhand settings.
-  Main-root keyboard checks pass, including random Leatrix names after reload.
-  Preserve explicit close, native dialogs and Mainhand behavior.
-- Honor Hide close buttons for Kerzo's top-right X. Native workspace hiding,
-  Mainhand restoration and option reversal pass without changing vendor scripts.
-- Run Forever's legacy bubble-font recovery once at startup, yielding to an
-  explicit bubble owner and preserving later custom font sizes. A native
-  24-point font fixture survives layout updates, span and Restore.
-- Preserve ForeverPlus's fixed icon/countdown clearance between default general
-  and consumable warnings when adapting them to a shorter Mainhand. Native
-  vendor preview transactions pass with 48- and 128-unit icons and rerouting
-  off/on, without changing vendor profiles.
-- Refit the Ellesmere unlock toolbar when canvas, UI scale or display geometry
-  settles after spanning. Start each refit from the original vendor size and
-  retain stable no-op, animation and ownership behavior. Native bounds now fit
-  the portrait workspace after the reproduced resize.
-- Complete addon EFIGS dictionaries across 825 active keys, including esES and
-  esMX. Translate 1591 English fallback entries and the Companion download
-  dialog. Keep commands, product names and format arguments intact. Live
-  dictionary previews pass the main settings in all five non-English variants;
-  shorten the Spanish setup button to avoid truncation.
-- Yield recovery scans to the existing external Edit Mode system ownership
-  policy, matching layout generation and avoiding ineffective repairs of
-  Ellesmere-owned action bars. EncounterBar recovery passes a real mixed-height
-  monitor-gap fixture on Forever 70862, with one system repaired, unrelated
-  entries preserved at save time and no repeat prompt after reload.
-- Restore Kerzo Classic Quest Log after reload when left open on the workspace
-  with panel persistence and reload restoration enabled. Keep explicit closure
-  and vendor-saved placement. Live open/reload, Escape after restoration and
-  closed/reload checks pass on Forever 70862; 95 suites and six manifests pass.
-- Preserve Kerzo Classic Quest Log's workspace window through Escape on Forever,
-  retaining its modal priority, explicit close/toggle behavior and native Escape
-  closure on Mainhand. Source/simulated checks and live keyboard Escape, modal,
-  toggle, preference, reload and Restore checks pass on Forever 70862 in a
-  single-display split. Combat, quest-item and controller coverage remains open.
-- Repair the selected EncounterBar layout entry while preserving other HUD
-  adjustments. Ignore empty, unhighlighted EncounterBar ownership roots when
-  detecting unreachable HUD previews. Automated and controlled native
-  save/reload checks pass. The reporter's exact layout and protected encounter
-  actions remain separate acceptance items.
-- Keep unpositioned ForeverPlus warning bars inside Mainhand after the vendor's
-  own layout transaction. Preserve its saved positions, mover previews, input,
-  combat deferral and restoration when redirection is disabled. Automated
-  coverage passes; real warning/Gamepad/combat acceptance remains pending.
-- Keep Forever guild invites and Chat Settings anchored to Mainhand through
-  native popup and panel transactions, retaining popup-stack relationships.
-- Yield player aura-bar placement to EllesmereUI and preserve the native
-  Debuffs and External Defensives Edit Mode roots during initialization.
-- Translate French setup, placement and calibration recovery guidance.
-- Automated regression and manifest checks pass. Native popup actions,
-  controller focus, aura behavior and complete native-language client acceptance
-  remain pending; French main-settings dictionary preview passes.
+### Verification and remaining acceptance
+- Combined add-on: 109 Lua regression suites and six TOCs/Lua 5.1 syntax passed.
+  Broader Companion, publication and website verification is recorded in
+  docs/PUBLICATION-2.1.3-PREPARATION-20261108.md.
+- Local WACK overall PASS, all 13 required tests passed; one optional finding is
+  reviewed and retained. Local Defender scans were clean. The portable sample
+  has no Defender file-review determination; local scans are not Microsoft approval.
+- Native evidence remains scoped to its documented clients, builds and scenarios.
+  Physical mixed-DPI/hotplug/three-monitor, Wine, combined exact-package live WoW
+  and complete combat/protected-action acceptance remain separate open coverage.
 
-### Forever generated HUD action-bar candidate
-- Give default action bars 2 and 3 separate rows above the main action bar when
-  generating a keyboard HUD. Preserve source customizations and replacement
-  owners, and reserve space above those rows for related default controls.
-- Source and simulated checks pass. Native Edit Mode selection and action-bar
-  combat/taint acceptance remain pending; existing layouts require an explicit
-  HUD rebuild to receive this change.
-
-### Forever combined backpack report candidate
-- Place newly opened Blizzard backpacks inside the visible Offhand display on
-  the first span, even without a saved bag position. Keep the title reachable
-  when a bag is taller than that display. No replacement bag addon or window
-  Restore step is required by this candidate.
-- Recognize Blizzard's combined backpack when the individual backpack root is
-  absent, so native bag placement is not skipped as replacement-addon ownership.
-- Include native bag visibility, alpha, parent, scaled bounds and saved ownership
-  in full diagnostics. The reported invisible backpack on build 70790 still
-  requires native verification; its cause is not confirmed by the supplied log.
-
-### External addon report candidates
-- Keep the invisible Forever map observer active when Leatrix Maps or OpenMap
-  owns placement. Recheck workspace membership and persistence-option changes
-  without taking over external dragging, scale or map scripts.
-- Add opt-in read-only Zygor frame observations to full diagnostics. The reported
-  Zygor disappearance still needs exact versions and runtime evidence; this is
-  data collection, not a confirmed Zygor compatibility fix.
-
-### Forever controller test candidate
-- Reject unreadable or secret text before radial-menu lookup.
-- Yield World Map presentation, queued keyboard work and dragging controls to
-  native Gamepad ownership, restoring keyboard handling after a mode switch.
-- Constrain eligible stock loot windows that overflow Mainhand during the short
-  opening observation window. Native protected, externally owned and unsafe
-  states retain their existing placement.
-- Native map-warning resolution, real loot/controller actions and combat/taint
-  acceptance remain pending. These are source-reviewed and simulated changes.
-
-### Forever known issues
-- In native Gamepad UI, selecting **Game Menu** from Blizzard's radial closes
-  open Offhand workspace panels, including the combined backpack. This
-  behavior is accepted for the current candidate.
-
-### First launch setup candidate
-- Give new characters a short HUD check with Use existing setup, Customize HUD
-  and Later. Monitor installation remains account-wide. Remember each character's
-  choice and check again when its display geometry or input mode changes.
-- Reuse compatible saved HUD layouts through selection only. Reuse never creates,
-  rewrites or promotes layouts; unavailable layouts lead to HUD setup guidance.
-- Open preparation automatically for new and incomplete setups while keeping
-  the viewport inactive until calibration is applied. Resume placement after
-  Reload UI even before Offhand has been enabled.
-- Remember an explicit disable separately from the inactive default. Reopening
-  the guide or wizard permits setup to resume without activating the viewport.
-- Route new users through preparation from the minimap setup menu and explain
-  placing the first World Map panel onto the empty workspace.
-- Full diagnostics now include account guide/resume state and the saved character
-  choice. Blocked layout reuse explains leaving combat or closing Edit Mode.
-- Source and simulated regression coverage only. Forever release-client visual,
-  cold-launch and native display acceptance remain pending.
+Earlier candidate notes: docs/2.1.3-DEVELOPMENT-CHANGELOG.md.
 
 ## [2.1.2-beta.26] - 2026-11-01
 

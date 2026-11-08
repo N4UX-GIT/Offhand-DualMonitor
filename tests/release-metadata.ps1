@@ -146,7 +146,18 @@ try {
     }
     if ($beta26Body.Contains([char]0x2014)) { throw 'Beta 26 release notes must not contain em dashes.' }
 
-    Write-Output 'PASS: standardized beta, release-candidate, stable, invalid and Beta 23/24 addon-only release metadata'
+    $matchedNotes = Join-Path $temp 'matched-213.md'
+    & $script -Tag 'v2.1.3' -CompanionChanged -ChangelogPath $projectChangelog -OutputPath $matchedNotes | Out-Null
+    $matchedBody = Get-Content -LiteralPath $matchedNotes -Raw -Encoding utf8
+    foreach ($required in @('<!-- offhand-companion-version: 2.1.3 -->', 'Offhand-Companion-v2.1.3.zip',
+        'Offhand-v2.1.3.zip', 'Flexible Layout', 'BetterBags/RestedXP', 'manual /reload',
+        'has not received a Defender review determination', 'source repository for a Lutris')) {
+        if (-not $matchedBody.Contains($required)) { throw "Matched 2.1.3 release scope missing: $required" }
+    }
+    if ($matchedBody.Contains([char]0x2014) -or $matchedBody.Contains('byte-identical 2.1.2-beta.20')) {
+        throw 'Matched 2.1.3 notes must describe the prepared Companion without historical binary claims.'
+    }
+    Write-Output 'PASS: historical metadata and matching 2.1.3 publication scope'
 } finally {
     if (Test-Path -LiteralPath $temp) {
         Remove-Item -LiteralPath $temp -Recurse -Force

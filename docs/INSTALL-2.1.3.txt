@@ -1,0 +1,63 @@
+OFFHAND 2.1.3: MATCHING ADD-ON AND COMPANION
+
+INSTALL OR UPDATE
+1. Close WoW and exit any running Companion through its tray menu.
+2. Back up the installed Offhand add-on, Offhand SavedVariables, Companion
+   preferences and any Blizzard/replacement HUD layouts you want to preserve.
+3. Copy the included Offhand folder to your client's Interface/AddOns folder.
+   The TOC files belong directly in Interface/AddOns/Offhand, without another
+   nested Offhand folder. Do not delete SavedVariables for an ordinary update.
+4. Use the Microsoft Store Companion when the 2.1.3 update is available, or
+   extract the matching portable Companion to a writable folder. Exit one
+   installation before starting the other. The Store installs Companion only;
+   install the matching add-on separately.
+5. Start WoW in ordinary Windowed mode and enable Offhand. Start Companion,
+   review checked displays and Mainhand (game), and use Identify Displays.
+6. Open Workspace layout to choose standard spanning or custom areas. Save plan
+   saves settings. Span WoW Now applies them. Then type /reload in WoW yourself.
+   Changing Mainhand or layout also requires applying the span and /reload.
+7. On first setup, use /offhand guide and complete the displayed calibration
+   and HUD steps. Existing users keep their profiles and saved positions.
+
+CUSTOM WORKSPACES
+Use a single monitor for game and workspace areas, select part of a secondary
+monitor, or configure multiple workspace regions. Flexible Layout supports a
+game region and one or two workspaces on one display. Review the preview and
+choose areas that fit your monitor setup. Unused desktop remains available.
+The whole bounding surface still costs rendering work, including gaps; smaller
+visible workspace regions do not necessarily reduce WoW's rendering cost.
+
+Companion workspace profiles save display plans. In-game workspace profiles
+save supported panel positions, routing, themes and image choices. General
+add-on profiles and Blizzard HUD layouts remain separate. Supported panels can
+be assigned to regions; manual moves take priority. Bags, chat, interaction
+panels and replacements retain their documented placement rules.
+
+Each region can inherit the global appearance, use a theme, or choose an image
+from an installed background library. Missing images fall back to the theme.
+The website Background Studio prepares media add-ons locally in your browser;
+install the exported media add-on before selecting its images in WoW.
+
+RETURN TO STANDARD / ROLLBACK
+Workspace layout > Use standard display layout saves a standard plan. Click
+Span WoW Now and type /reload to apply it. Restore Window returns WoW to its
+remembered ordinary window. Pause Monitor suspends automatic window handling.
+For a full downgrade, close WoW and Companion and restore your previous add-on,
+matching SavedVariables, HUD layouts and Companion preferences from backup.
+
+SECURITY AND SUPPORT
+The portable executable is unsigned. This exact 2.1.3 sample has clean local
+Defender scans but has not received a Defender file-review determination.
+Microsoft Store certification and portable download reputation are separate.
+Keep security protections enabled. Verify checksums from the official release
+and report the precise detection if a scanner flags a file.
+
+Download only from the Microsoft Store product or official GitHub releases:
+https://apps.microsoft.com/detail/9PL4PW84Q90W
+https://github.com/N4UX-GIT/Offhand-DualMonitor/releases
+https://offhand-wow.onrender.com/
+
+Wine remains experimental; see Companion/Linux.md in the source repository.
+Full mixed-DPI, physical three-monitor and all-client combat coverage is not
+established by automated checks. Reports should include client/build, display
+arrangement/scaling, affected add-ons, steps, diagnostics and fresh Lua errors.

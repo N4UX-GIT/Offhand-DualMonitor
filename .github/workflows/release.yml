@@ -18,6 +18,7 @@ on:
 
 jobs:
   build:
+    if: github.ref_name != 'v2.1.3'
     runs-on: windows-latest
     permissions:
       contents: write
@@ -171,5 +172,53 @@ jobs:
           dist/checksums-sha256.txt
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  prepare-213:
+    if: github.ref_name == 'v2.1.3'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+    - name: Checkout matching release source
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Validate frozen Store-matching Companion and publication safeguards
+      shell: powershell
+      run: ./tests/publication-213.ps1
+    - name: Package matching add-on with exact frozen portable assets
+      shell: powershell
+      run: ./scripts/Prepare-213Publication.ps1 -OutputDirectory dist/publication-2.1.3
+    - name: Prepare 2.1.3 release metadata
+      id: metadata
+      shell: powershell
+      run: |
+        ./scripts/New-ReleaseMetadata.ps1 -Tag v2.1.3 -CompanionChanged `
+          -OutputPath dist/publication-2.1.3/release-notes.md `
+          -GitHubOutputPath $env:GITHUB_OUTPUT
+    - name: Attest publication provenance with frozen native identity
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+      with:
+        subject-path: |
+          dist/publication-2.1.3/Offhand-v2.1.3.zip
+          dist/publication-2.1.3/Offhand-Complete-v2.1.3.zip
+          dist/publication-2.1.3/Offhand-Companion-v2.1.3.zip
+          dist/publication-2.1.3/Offhand.exe
+          dist/publication-2.1.3/publication.json
+          dist/publication-2.1.3/checksums-sha256.txt
+    - name: Stage a draft for coordinated Store and add-on publication
+      uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+      with:
+        name: ${{ steps.metadata.outputs.release_name }}
+        body_path: dist/publication-2.1.3/release-notes.md
+        draft: true
+        prerelease: false
+        files: |
+          dist/publication-2.1.3/Offhand-v2.1.3.zip
+          dist/publication-2.1.3/Offhand-Complete-v2.1.3.zip
+          dist/publication-2.1.3/Offhand-Companion-v2.1.3.zip
+          dist/publication-2.1.3/Offhand.exe
+          dist/publication-2.1.3/publication.json
+          dist/publication-2.1.3/checksums-sha256.txt
 
 

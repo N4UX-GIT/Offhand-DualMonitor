@@ -103,7 +103,18 @@ $companionDownloads = if ($CompanionChanged) {
 "@
 }
 
-$testFocus = if ($Tag -eq 'v2.1.2-beta.26') {
+$testFocus = if ($Tag -eq 'v2.1.3') {
+@'
+1. Back up Offhand SavedVariables, Companion preferences and native/replacement HUD layouts. Install the matching 2.1.3 add-on and Companion without deleting settings. The Store installs Companion only.
+2. Start WoW in ordinary Windowed mode. Review checked displays and Mainhand. Save plan stores choices; Span WoW Now applies them. Type /reload after spanning or changing Mainhand/layout. Use /offhand guide for first setup.
+3. Test standard, single-monitor, partial-secondary, multiple-workspace and Flexible Layout plans that fit your setup. Review the preview, visual area selection, profile reload and missing-display safeguards. Use Workspace layout > Use standard display layout to disable custom areas.
+4. Check supported-panel routing, manual-position priority, independent region themes and installed background-library images. Keep general add-on profiles and Blizzard HUD layouts separate from workspace profiles.
+5. Verify Restore Window, relaunch, existing saved positions, native/replacement bag and map behavior, controller mode where used, and normal actions before/during/after combat. Include fresh Lua and taint evidence; source/simulated passes do not establish full hardware or protected-action coverage.
+6. Report client/build, display identities, arrangement/scaling, affected add-ons, steps and Display Diagnostics. Physical mixed-DPI/hotplug/three-monitor, Wine and full exact-package live acceptance remain separate checks.
+
+Local WACK passed all 13 required tests; one optional blocked-executable finding was reviewed and retained. Local Defender scans were clean. The exact portable sample has not received a Defender review determination; Store certification and SmartScreen reputation are separate. Keep security protections enabled and report exact detections.
+'@
+} elseif ($Tag -eq 'v2.1.2-beta.26') {
 @'
 1. Back up SavedVariables, native Edit Mode layouts and UI addon profiles. Upgrade without deleting settings.
 2. On Anniversary, check World Map, Spellbook, Macro and bags individually and together. Verify open-before-reload restoration and closed-before-reload intent, Escape, native NPC interactions and normal restart behavior.
@@ -184,7 +195,7 @@ $testFocus
 
 ## Linux and Wine status
 
-The Companion is still a Windows WinForms application. Wine support is experimental: run WoW and the Companion as the same user in the same ``WINEPREFIX`` and with the same Wine/Proton runner version. See ``Companion/Linux.md`` in the complete package for a Lutris example and extraction checks. Native Linux, X11, and general Wayland support are not claimed by this release.
+The Companion is still a Windows WinForms application. Wine support is experimental: run WoW and the Companion as the same user in the same ``WINEPREFIX`` and with the same Wine/Proton runner version. See ``Companion/Linux.md`` in the source repository for a Lutris example and extraction checks. Native Linux, X11, and general Wayland support are not claimed by this release.
 
 ## Reporting issues
 
