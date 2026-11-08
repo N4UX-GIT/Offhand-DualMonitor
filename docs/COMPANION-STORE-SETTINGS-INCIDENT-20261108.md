@@ -116,3 +116,51 @@ References:
 [Microsoft packaged desktop AppData behavior](https://learn.microsoft.com/en-us/windows/uwp/porting/desktop-to-uwp-behind-the-scenes),
 [package query APIs](https://learn.microsoft.com/en-us/windows/win32/appxpkg/functions),
 [MoveFileExW](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexw).
+
+## Packaged upgrade and WACK follow-up
+
+The owner confirmed that the reporters used the latest Store version and
+authorized the remaining upgrade/preflight checks. Partner Center Current
+packages independently showed Submission3, version2.1.300.0. Its overview offered
+Start update with no in-flight product update.
+
+After owner-approved UAC elevation, a distinct
+`N4UX.OffhandCompanion.HotfixValidation` unsigned-OID package was installed at
+2.1.300.0 and upgraded in place to2.1.301.0. Its baseline and hotfix Offhand.exe
+payloads exactly matched the frozen production/candidate hashes above. No
+certificate was imported and Developer Mode was not changed. Only the isolated
+test identity was installed; the production submission package was not installed.
+
+An ordinary-user fixture loaded each installed executable's own CompanionForm
+and exercised its actual settings load/save entry points. Polling was stopped
+before any message loop; no WoW input, game-window change or addon write occurred.
+Synthetic legacy settings survived package replacement and were imported to
+LocalState. Repeated saves, process relaunch, unknown/non-ASCII values, real
+locked-file rejection, staging cleanup and retry after unlock passed. The first
+Windows PowerShell runner seed decoded a non-ASCII literal using its default
+ANSI code page; equality against actual legacy bytes was verified, followed by
+an explicit UTF8 Unicode round trip against the installed hotfix payload.
+
+The isolated package was removed. The real Store package identity and all three
+real preference-path existence/hash snapshots remained unchanged. This is a
+real isolated MSIX upgrade with exact EXE payloads, not the production-PFN
+upgrade or reproduction on an affected user's Windows build.
+
+WACK10.0.19041.685 ran on the exact unsigned production submission MSIX using
+`-noinstallappx`: overall PASS, PARTIAL_RUN=FALSE, all13 required tests passed,
+10 optional tests passed and one optional finding was reviewed and retained.
+Test88 reports existing URI Process.Start calls and CsI. Exact-byte analysis
+places CsI at EXE offset453974 within image2 of the unchanged Offhand icon,
+a9408-byte PNG. The complete image payload matches the source icon. These are
+not a csi.exe launch or new process integration. No binary suppression change
+was made. The MSIX hash remains BE5F13B064CF1B208BDF3BD31A21360A216C3AACBCF8A17344FDADDACD99DA8C.
+
+Frozen Store-hotfix executable/receipt:
+`Companion/Prepared/2.1.3-store-hotfix-build10/`.
+Local upgrade and WACK evidence:
+`dist/store-settings-hotfix/upgrade-validation/`.
+
+A later screenshot was clarified to concern the portable Companion. It reports
+incorrect spanning and an unspecified unrecognized in-game command. Keep that
+separate from the Store persistence incident; the exact command remains unknown.
+Do not claim that this hotfix resolves that distinct report.
