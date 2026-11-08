@@ -1,6 +1,7 @@
 param([string]$SourceDirectory = (Join-Path $PSScriptRoot '../Companion/Source'), [string]$OutputPath)
 $ErrorActionPreference='Stop'
 $allowed=@(
+ 'uxtheme.dll!SetWindowTheme',
  'kernel32.dll!GetCurrentPackageFullName','kernel32.dll!GetCurrentPackageFamilyName',
  'kernel32.dll!MoveFileEx','user32.dll!GetDisplayConfigBufferSizes','user32.dll!QueryDisplayConfig',
  'user32.dll!GetSourceName','user32.dll!GetTargetName','user32.dll!GetColorInfo','user32.dll!MonitorFromRect','user32.dll!GetMonitorInfo',

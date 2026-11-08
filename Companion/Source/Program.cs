@@ -50,12 +50,14 @@ using System.Windows.Forms;
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
 #if HDR_DPI_DIAGNOSTICS_TEST || GRAININESS_TEST || FOREVER_GRAPHICS_RECOVERY_TEST || RETAIL_GRAPHICS_RECOVERY_TEST || CLASSIC_GRAPHICS_RECOVERY_TEST
 [assembly: AssemblyVersion("2.1.2.0")]
-#else
+#elif RDP_TEST
 [assembly: AssemblyVersion("2.1.3.0")]
+#else
+[assembly: AssemblyVersion("2.1.4.0")]
 #endif
 #if UI_PREVIEW
-[assembly: AssemblyFileVersion("2.1.3.8002")]
-[assembly: AssemblyInformationalVersion("2.1.3")]
+[assembly: AssemblyFileVersion("2.1.4.8001")]
+[assembly: AssemblyInformationalVersion("2.1.4")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
 [assembly: AssemblyInformationalVersion("2.1.3-beta.6")]
@@ -71,8 +73,8 @@ using System.Windows.Forms;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.3.10")]
-[assembly: AssemblyInformationalVersion("2.1.3")]
+[assembly: AssemblyFileVersion("2.1.4.1")]
+[assembly: AssemblyInformationalVersion("2.1.4")]
 #endif
 
 namespace Offhand.Companion
@@ -1128,6 +1130,28 @@ namespace Offhand.Companion
     // preference publication remain owned by the existing planners and callers.
     internal static class CompanionUi
     {
+        [DllImport("uxtheme.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+        private static extern int SetWindowTheme(IntPtr window, string application, string classes);
+
+        // Theme only managed controls owned by this process. Native scrolling,
+        // focus, text selection and accessibility remain with Windows.
+        internal static void StyleScrollbars(Control parent)
+        {
+            if (parent is ScrollableControl || parent is TextBoxBase || parent is ListBox)
+            {
+                EventHandler apply = (s, e) =>
+                {
+                    if (!parent.IsHandleCreated || parent.IsDisposed) return;
+                    try { SetWindowTheme(parent.Handle, SystemInformation.HighContrast ? null : "DarkMode_Explorer", null); }
+                    catch (DllNotFoundException) { }
+                    catch (EntryPointNotFoundException) { }
+                };
+                parent.HandleCreated += apply;
+                parent.SystemColorsChanged += apply;
+                apply(parent, EventArgs.Empty);
+            }
+            foreach (Control child in parent.Controls) StyleScrollbars(child);
+        }
         internal static readonly Color Background=Color.FromArgb(12,12,14), Surface=Color.FromArgb(20,20,24),
             Field=Color.FromArgb(28,28,34), Text=Color.FromArgb(235,230,215), Muted=Color.FromArgb(176,170,158),
             Gold=Color.FromArgb(240,184,54), Border=Color.FromArgb(101,87,58), Warning=Color.FromArgb(255,205,104);
@@ -1197,6 +1221,7 @@ namespace Offhand.Companion
         internal static void Apply(Form form)
         {
             form.BackColor=Background;form.ForeColor=Text;StyleChildren(form,form.AcceptButton);
+            StyleScrollbars(form);
             if (AppIcon != null) form.Icon = AppIcon;
             form.Load += (s, e) => Fit(form, Screen.FromControl(form.Owner ?? form).WorkingArea);
         }
@@ -3868,11 +3893,13 @@ namespace Offhand.Companion
     {
 #if HDR_DPI_DIAGNOSTICS_TEST || GRAININESS_TEST || FOREVER_GRAPHICS_RECOVERY_TEST || RETAIL_GRAPHICS_RECOVERY_TEST || CLASSIC_GRAPHICS_RECOVERY_TEST
         internal const string BaseVersion = "2.1.2";
-#else
+#elif RDP_TEST
         internal const string BaseVersion = "2.1.3";
+#else
+        internal const string BaseVersion = "2.1.4";
 #endif
 #if UI_PREVIEW
-        internal const string ReleaseLabel = "UI Preview 2";
+        internal const string ReleaseLabel = "UI Preview 3";
         internal static readonly bool GraphicsRecoveryEnabled = false;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
@@ -5384,6 +5411,7 @@ namespace Offhand.Companion
             ArrangeDashboard(headerPanel, statusPanel, configPanel, colorPanel, logPanel,
                 new Control[] { btnSpanNow, btnRestoreNow },
                 new Control[] { btnMinimize, btnCheckUpdates, btnExit });
+            CompanionUi.StyleScrollbars(this);
 
             this.FormClosing += (s, e) =>
             {
@@ -5851,6 +5879,7 @@ namespace Offhand.Companion
                 ScrollBars = RichTextBoxScrollBars.Vertical,
                 AccessibleName = title + " guide"
             };
+            CompanionUi.StyleScrollbars(guide);
             using (var sectionFont = new Font(guide.Font.FontFamily, 11, FontStyle.Bold))
             {
                 if (displayTroubleshooting)
