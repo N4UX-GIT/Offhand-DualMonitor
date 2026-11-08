@@ -148,7 +148,11 @@ namespace Offhand.Companion
                 if (form.Height <= startupBounds.Height || form.Width != startupBounds.Width ||
                     form.Location != startupBounds.Location || scrollPanel.VerticalScroll.Visible ||
                     cards.Bottom > scrollPanel.ClientSize.Height - scrollPanel.Padding.Bottom)
-                    throw new Exception("The initial status refresh did not remove the vertical scrollbar at " + factor + "x.");
+                    throw new Exception("The initial status refresh did not remove the vertical scrollbar at " + factor
+                        + "x. Startup=" + startupBounds + ", current=" + form.Bounds
+                        + ", viewport=" + scrollPanel.ClientSize + ", cardsBottom=" + cards.Bottom
+                        + ", padding=" + scrollPanel.Padding + ", scrollbar=" + scrollPanel.VerticalScroll.Visible
+                        + ", maximum=" + form.MaximumSize + ", host=" + SystemInformation.VirtualScreen);
 
                 layoutStatus.Text = "Selected display layout\r\nGame 2560 × 1440  •  Workspace 1418 × 1440";
                 form.UpdateClientStatus(null, false);
