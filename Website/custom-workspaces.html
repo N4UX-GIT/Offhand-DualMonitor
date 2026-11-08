@@ -34,7 +34,7 @@
                 <p class="deck-intro-text">Standard layout is already selected for a new setup and uses full monitors. Custom workspaces are optional: use them only for an unequal split, part of another monitor, or extra workspace regions.</p>
                 <p><a href="companion.html#first-setup">Need two full displays or an equal ultrawide split? Start with standard setup.</a></p>
             </div>
-            <nav class="page-jump-nav" aria-label="Custom workspace guide sections"><span>On this page</span><a href="#standard-or-custom">Do I need custom?</a><a href="#requirements">Requirements</a><a href="#choose">Choose layout</a><a href="#apply">Save and apply</a><a href="#profiles">Saved plans</a><a href="#panels">Panels and appearance</a><a href="#recovery">Recovery</a></nav>
+            <nav class="page-jump-nav" aria-label="Custom workspace guide sections"><span>On this page</span><a href="#standard-or-custom">Do I need custom?</a><a href="#requirements">Requirements</a><a href="#choose">Choose layout</a><a href="#apply">Save and apply</a><a href="#panels">Panels and appearance</a><a href="#profiles">Optional saved plans</a><a href="#recovery">Recovery</a></nav>
         </section>
         <section class="content-section" id="standard-or-custom">
             <div class="section-header"><h2 class="section-title guide-section-title">Two monitors does not mean custom layout</h2></div>
@@ -66,12 +66,20 @@
                 <li><strong>Review and Save plan.</strong> Check the game screen, each workspace, and the preview. Save plan keeps the settings; it does not resize WoW.</li>
                 <li><strong>Click Span WoW Now.</strong> Review any display confirmation before accepting. Check that the visible game and workspace areas match the plan.</li>
                 <li><strong>Reload inside WoW.</strong> Type <code>/reload</code>, or use Reload UI in <code>/offhand guide</code>, so the addon reads the applied geometry. Companion does not type this command for you.</li>
-                <li><strong>Confirm and calibrate.</strong> In the guide choose Use Companion, then Confirm placement. Finish the <a href="in-game-setup.html#guided-setup">calibration and HUD instructions</a>. Wait for HUD setup to succeed before arranging panels.</li>
+                <li><strong>Continue in the same guide.</strong> Keep Use Companion selected, then Confirm placement and Start Calibration. Finish the <a href="in-game-setup.html#finish-calibration">calibration and HUD instructions</a>. Wait for HUD setup to succeed before arranging panels.</li>
             </ol>
-            <div class="guide-callout"><strong>Every later launch:</strong> custom layouts use <strong>Span WoW Now</strong> each time. Auto-span is for standard layouts. Reapply a changed plan and reload before checking panel positions. Keep Companion open if you need its remembered Restore Window state or active recovery.</div>
         </section>
+        <section class="content-section" id="panels">
+            <div class="section-header"><h2 class="section-title guide-section-title">Arrange panels and appearance inside WoW</h2></div>
+            <p>Open <code>/offhand</code>. In <strong>Workspace</strong>, choose destinations for supported panel groups such as Map, Character, Spells, Collections, Achievements and Journal. A panel you drag manually keeps that placement. <strong>Use routing again</strong> asks before clearing that group's manual positions. Bags, chat and third-party panels retain their existing behavior.</p>
+            <p>In <strong>Themes</strong>, each active region can inherit the global appearance or use its own theme, background and image fit. These choices style the workspace canvas, not Blizzard's panels. Inactive regions cannot be edited.</p>
+            <p>For a custom background, open <a href="background-studio.html">Background Studio</a> and preview <strong>Custom dimensions</strong> using that region's width and height from Companion. Preview each differently shaped region separately. Studio preview dimensions do not resize WoW. Install the generated media package beside Offhand and fully restart WoW before selecting the installed image.</p>
+            <p>Use the <a href="in-game-setup.html#edit-mode">Edit Mode instructions</a> for protected HUD controls and the <a href="in-game-setup.html#recovery">in-game recovery guide</a> for missing panels. Avoid rebuilding a working HUD just to move an ordinary panel.</p>
+            <p><strong>After setup, on later launches:</strong> custom layouts use <strong>Span WoW Now</strong> each time. Auto-span is for standard layouts. Reapply a changed plan and reload before checking panel positions. Keep Companion open if you need its remembered Restore Window state or active recovery.</p>
+        </section>
+
         <section class="content-section" id="profiles">
-            <div class="section-header"><h2 class="section-title guide-section-title">Know which layout you are saving</h2></div>
+            <div class="section-header"><h2 class="section-title guide-section-title">Optional: save and reuse named plans</h2></div>
             <div class="workspace-table-wrap" role="region" tabindex="0" aria-label="Saved layout comparison, scroll horizontally on narrow screens"><table class="workspace-table"><caption>Each kind of saved layout has a different purpose. On small screens, scroll sideways to compare.</caption><thead><tr><th scope="col">Where</th><th scope="col">What it saves</th><th scope="col">What it does not replace</th></tr></thead><tbody>
                 <tr><th scope="row">Companion: Workspace profiles</th><td>Named Multiple workspaces display plans, including selected monitors and areas.</td><td>Addon panel arrangement and Blizzard HUD editing.</td></tr>
                 <tr><th scope="row">Addon: Profiles, workspace layouts</th><td>Panel placement, routing and workspace appearance within the current general addon profile.</td><td>Physical display geometry or calibration.</td></tr>
@@ -82,13 +90,6 @@
             <p>For a reusable Multiple workspaces plan, open <strong>Workspace profiles...</strong> and save it under a useful name. Changes in that dialog remain staged until <strong>Save changes</strong>. To switch, choose the plan, click <strong>Load selected</strong>, then <strong>Save changes</strong>. Apply it using the <a href="#apply">save-and-apply sequence</a>.</p>
             <p>For example, save a plan called “Map and inventory”. Arrange panels in WoW after applying it. When the paired addon first sees a named plan, it creates an associated workspace layout from the current one. Later applications can restore that plan's associated layout. You can still select a different in-game workspace layout manually.</p>
             <p>A saved plan needs its configured monitors at the saved resolutions. A missing or changed display requires review. Deleting a Companion plan does not delete its in-game workspace layout.</p>
-        </section>
-        <section class="content-section" id="panels">
-            <div class="section-header"><h2 class="section-title guide-section-title">Arrange panels and appearance inside WoW</h2></div>
-            <p>Open <code>/offhand</code>. In <strong>Workspace</strong>, choose destinations for supported panel groups such as Map, Character, Spells, Collections, Achievements and Journal. A panel you drag manually keeps that placement. <strong>Use routing again</strong> asks before clearing that group's manual positions. Bags, chat and third-party panels retain their existing behavior.</p>
-            <p>In <strong>Themes</strong>, each active region can inherit the global appearance or use its own theme, background and image fit. These choices style the workspace canvas, not Blizzard's panels. Inactive regions cannot be edited.</p>
-            <p>For a custom background, open <a href="background-studio.html">Background Studio</a> and preview <strong>Custom dimensions</strong> using that region's width and height from Companion. Preview each differently shaped region separately. Studio preview dimensions do not resize WoW. Install the generated media package beside Offhand and fully restart WoW before selecting the installed image.</p>
-            <p>Use the <a href="in-game-setup.html#edit-mode">Edit Mode instructions</a> for protected HUD controls and the <a href="in-game-setup.html#recovery">in-game recovery guide</a> for missing panels. Avoid rebuilding a working HUD just to move an ordinary panel.</p>
         </section>
         <section class="content-section" id="recovery">
             <div class="section-header"><h2 class="section-title guide-section-title">Change or recover a workspace</h2></div>

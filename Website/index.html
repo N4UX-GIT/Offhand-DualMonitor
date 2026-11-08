@@ -250,7 +250,7 @@
                     <article class="wow-card method-card"><h3 class="wow-card-title">Manual placement</h3><p class="setup-choice-label">Alternative with no extra window tool</p><p class="wow-card-desc">Drag and resize WoW yourself. You may need to repeat that placement after launching the game.</p><a href="manual-spanning.html#manual" class="btn btn-wow-stone">Set up manually</a></article>
                 </div>
                 <p class="setup-choice-note">Follow the guide for your chosen method only. Do not let Companion and FancyZones both position the WoW window.</p>
-                <div class="setup-stage"><span class="step-seal">3</span><div><h3>Finish inside WoW</h3><p>Once the window is placed, open <code>/offhand guide</code> and select <strong>the same method you chose above</strong>. Finish calibration and, where offered, Create Mainhand HUD Layout. Reload when prompted, then check that your game and panels are on the intended screens.</p><p><a href="in-game-setup.html#guided-setup" class="btn btn-wow-red">Finish in WoW</a></p></div></div>
+                <div class="setup-stage"><span class="step-seal">3</span><div><h3>Finish inside WoW</h3><p>Return to the same <code>/offhand guide</code> used by your chosen method. Confirm placement, then continue to calibration and, where offered, <strong>Create Mainhand HUD Layout</strong>. Reload when prompted and check that the game and panels are on the intended screens.</p><p><a href="in-game-setup.html#finish-calibration" class="btn btn-wow-red">Continue to calibration</a></p></div></div>
                 <details class="faq-card setup-optional"><summary>After setup: optional customization</summary><div class="faq-body"><p>Start with the standard layout. You can explore <a href="custom-workspaces.html">custom workspaces</a>, <a href="background-studio.html">background images</a> and <a href="in-game-setup.html#settings">additional settings</a> later. These are not extra setup methods or required first-run steps.</p></div></details>
             </div>
         </section>
@@ -314,25 +314,7 @@
                             <h4>How do I set World of Warcraft into Windowed mode?</h4>
                             <svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                         </summary>
-                        <div class="faq-body">
-                            <p>
-                                Offhand requires World of Warcraft to run in standard <strong>Windowed</strong> mode so the window can span freely across your dual displays. You can set this in three ways:
-                            </p>
-                            <ol class="faq-steps-list">
-                                <li>
-                                    <strong>In-Game Menu:</strong> Press <kbd>Esc</kbd> &rarr; click <strong>Options</strong> (or <strong>System</strong> in Classic) &rarr; under <strong>Graphics</strong>, set <strong>Display Mode</strong> to <strong>Windowed</strong> &rarr; click <strong>Apply</strong>.
-                                </li>
-                                <li>
-                                    <strong>Keyboard Shortcut:</strong> While World of Warcraft is active and focused, press <kbd>Alt</kbd> + <kbd>Enter</kbd> to immediately toggle between fullscreen and windowed mode.
-                                </li>
-                                <li>
-                                    <strong>Config.wtf File:</strong> If you cannot open the game, open your <code>WTF\Config.wtf</code> file in Notepad and add or edit the line: <code>SET gxWindow "1"</code>.
-                                </li>
-                            </ol>
-                            <div class="faq-tip">
-                                <strong>Important:</strong> Do not select <em>Windowed (Fullscreen)</em>. Windows restricts borderless fullscreen to a single monitor. Selecting standard <em>Windowed</em> mode allows the Offhand Companion or your window manager to span the canvas across both screens.
-                            </div>
-                        </div>
+                        <div class="faq-body"><p>In WoW's Graphics options, select <strong>Windowed</strong> and apply. <strong>Windowed (Fullscreen)</strong> is different. Your <a href="#setup">chosen setup method</a> walks you through this at the placement step; Windowed mode alone does not span the game.</p></div>
                     </details>
 
                     <details class="faq-card">
@@ -340,11 +322,7 @@
                             <h4>How should I place action bars, XP, stance, party, and raid frames?</h4>
                             <svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                         </summary>
-                        <div class="faq-body">
-                            <p>
-                                On clients with supported Blizzard Edit Mode APIs, press <strong>Create Mainhand HUD Layout</strong> on the setup wizard's final step. It clones the active Blizzard layout instead of directly moving protected frames, translates default anchors into Mainhand, aligns XP with the Action Button 1/backpack boundaries, and arranges stance, pet, possess, vehicle-exit, encounter, and extra-ability controls above it. Reload when prompted, then use Blizzard Edit Mode only for personal adjustments. <strong>Recovery &amp; Preview</strong> can rebuild the generated layout later. Clients without those APIs use Offhand's direct compatibility layout; custom action-bar addons retain ownership of their own frames.
-                            </p>
-                        </div>
+                        <div class="faq-body"><p>Where supported, the calibration wizard finishes with <strong>Create Mainhand HUD Layout</strong>. Reload when prompted, then use Blizzard Edit Mode for personal adjustments. Follow the <a href="in-game-setup.html#finish-calibration">calibration instructions</a>; the <a href="in-game-setup.html#edit-mode">HUD reference</a> covers later changes. Custom action-bar addons retain ownership of their frames.</p></div>
                     </details>
 
                     <details class="faq-card">
@@ -423,20 +401,7 @@
                             <h4>How do Offhand, Companion, and FancyZones relate to Blizzard's rules?</h4>
                             <svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                         </summary>
-                        <div class="faq-body">
-                            <p>
-                                The in-game addon uses standard Blizzard UI APIs. Companion and FancyZones perform a comparable desktop-window-management role for this workflow: they resize or reposition ordinary Windowed WoW and are designed not to automate gameplay, send game input, inspect game memory, inject code, or modify game files. Companion can also refresh Offhand's guarded Forever recovery bridge while WoW is fully closed when that compatibility path is needed.
-                            </p>
-                            <p>
-                                For Windows, install it from the official <a href="https://apps.microsoft.com/detail/9PL4PW84Q90W" target="_blank" rel="noopener">Microsoft Store listing</a>. Microsoft reviewed and signs the Store package, and Microsoft Store manages its updates. Linux/Wine users and anyone who prefers a direct portable download can use the official GitHub release, compare its SHA-256 hash with <code>checksums-sha256.txt</code>, and verify its GitHub artifact attestation. The Companion does not require administrator access, install a service, inject into WoW, collect telemetry, or read browser data or credentials. Store installations open Microsoft Store for updates; portable installations query GitHub only when you select <strong>Check for Updates</strong>. Full behavior, build, and verification details are published in the <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md" target="_blank">security guide</a>.
-                            </p>
-                            <p>
-                                The Store package passed Microsoft certification and is signed by Microsoft. Microsoft Security Intelligence also reviewed exact earlier portable hashes without retaining a malware detection. Some VirusTotal engines may still assign the separate unsigned GitHub Companion generic machine-learning or heuristic labels; each vendor controls its own verdict. An Edge “isn't commonly downloaded” message is a separate SmartScreen reputation notice. VirusTotal and vendor reviews are useful evidence, but neither a small detection count nor a clean result proves safety. Review the open source and documented behavior, and verify the official checksum and GitHub build provenance before running a portable copy.
-                            </p>
-                            <p>
-                                None of this guarantees Blizzard approval or account safety. Microsoft authorship, Store availability, open-source code, and security scans do not constitute Blizzard authorization. Blizzard alone interprets and enforces its agreements, and its EULA states that the platform may monitor for unauthorized third-party programs. Review the <a href="https://www.blizzard.com/en-us/legal/bfbbb648-bcc6-4b78-a5c7-e2fe20c135df/blizzard-end-user-license-agreement" target="_blank" rel="noopener">current Blizzard EULA</a> and the <a href="https://www.blizzard.com/legal/cd5930c0-2784-420c-a23d-1e0d6ff8599b/anti-cheating-vereinbarung" target="_blank" rel="noopener">anti-cheating agreement</a>, use any desktop utility at your own discretion, and stop using it if Blizzard guidance changes.
-                            </p>
-                        </div>
+                        <div class="faq-body"><p>The addon uses Blizzard UI APIs. Companion and FancyZones position an ordinary Windowed WoW window and are designed not to automate gameplay, send game input, inspect game memory or inject code.</p><p>Microsoft Store availability, open-source code and security scans do not establish Blizzard approval or guarantee account safety. Blizzard alone interprets and enforces its agreements. Read the <a href="companion.html#security">policy and download-security guidance</a> for the official links, behavior disclosure and verification details.</p></div>
                     </details>
 
                     <details class="faq-card">
