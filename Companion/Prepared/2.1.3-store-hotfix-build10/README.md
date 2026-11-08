@@ -20,4 +20,4 @@ determination is implied.
 
 Original 2.1.3 and Beta20 archives remain frozen. The source add-on keeps its
 Beta27 version and protocol. See the dated incident record for evidence and
-the subsequent Store submission status.
+the [Store submission status](../../../docs/COMPANION-STORE-HOTFIX-SUBMISSION-20261108.md).
