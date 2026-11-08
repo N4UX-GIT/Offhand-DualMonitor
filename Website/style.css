@@ -2080,3 +2080,13 @@ kbd {
 .content-section[hidden] { display: none; }
 
 #finish-calibration { scroll-margin-top: 100px; }
+
+/* One compact comparison panel keeps both original images uncropped. */
+.showcase-header-bar h2 { margin: 0; }
+.showcase-comparison { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.showcase-comparison figure { margin: 0; min-width: 0; }
+.showcase-comparison .showcase-img-container { aspect-ratio: 4 / 3; }
+.showcase-comparison .showcase-img { height: 100%; object-fit: contain; }
+.showcase-comparison figcaption { color: var(--rio-gold); font-size: 0.86rem; margin-top: 10px; text-align: center; }
+.showcase-comparison-note { font-size: 0.82rem; color: var(--text-secondary); margin: 16px 0 0; text-align: center; line-height: 1.6; }
+@media (max-width: 480px) { .showcase-comparison { grid-template-columns: 1fr; } }
