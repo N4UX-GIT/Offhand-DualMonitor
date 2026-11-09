@@ -96,3 +96,7 @@ Additional primary references:
 - [Package-context diagnostic command](https://learn.microsoft.com/en-us/powershell/module/appx/invoke-commandindesktoppackage?view=windowsserver2025-ps).
 - [Custom test harness under package identity](https://learn.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-debug).
 - [Private package flights and certification](https://learn.microsoft.com/en-us/windows/apps/publish/package-flights).
+
+## Public submission authorized without waiting for flight
+
+The publisher subsequently requested public Store submission/publication without waiting for the internal flight. Public Submission 6 (`1152921505702348834`) was accepted for certification with automatic publication after approval, using the unchanged exact candidate MSIX. This supersedes the earlier private-only release scope. It does not turn outstanding real-flight acceptance into a pass. See `docs/COMPANION-2.1.5-STORE-SUBMISSION-20261109.md` for the submitted artifact, listing/reviewer changes and accepted limitations. Public 2.1.5 availability has not yet been observed.

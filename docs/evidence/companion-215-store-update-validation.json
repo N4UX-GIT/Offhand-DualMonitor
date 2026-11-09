@@ -30,7 +30,7 @@
   "localDefender": "scan exited 0, no threats found",
   "storeAssociatedAcceptance": "Partial: real NoUpdate in 1395 ms under installed Store identity; cached relaunch made zero API calls. Store-delivered 2.1.5 flight acceptance pending.",
   "wack": "PASS, full run, 13 required passes, zero required failures; existing optional blocked-executable finding reviewed",
-  "publication": "Private one-account QA flight submitted for certification; public Submission 5 (2.1.4) unchanged",
+  "publication": "Public Submission 6 accepted for certification with automatic publication; publisher elected to proceed without private-flight acceptance. Public 2.1.5 availability not yet confirmed.",
   "submitted214ExeSha256": "2D1FB0DE3A2BF6340D8EB4BF28D751C602C8DF66BD1947D0B43FB0A8DA709D5D",
   "submitted214MsixSha256": "EDE193AA3AF4ADC90264A950CB8B8BB282D24A1BD4E0C4F6A9CA452BE5AB14EA"
 }
