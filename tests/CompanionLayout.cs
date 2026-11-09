@@ -423,13 +423,24 @@ namespace Offhand.Companion
                     guide.Select(section.Length + 1, 1);
                     if (guide.SelectionFont.Bold || guide.SelectionColor.ToArgb() != guide.ForeColor.ToArgb())
                         throw new Exception("Help body text must use the regular guide style.");
-                    int reviewSection = guide.Text.IndexOf("Confirm saved displays", StringComparison.Ordinal);
-                    int troubleshootingSection = guide.Text.IndexOf("Troubleshooting", StringComparison.Ordinal);
-                    if (!troubleshooting && (!guide.Text.Contains("/offhand guide") ||
-                        !guide.Text.Contains("Click Reload UI, then Confirm placement") ||
-                        !guide.Text.Contains("click Save changes") ||
-                        reviewSection < 0 || troubleshootingSection <= reviewSection))
-                        throw new Exception("Help must cover setup, display confirmation, and saving workspace profiles.");
+                    if (!troubleshooting)
+                    {
+                        int previous = -1;
+                        foreach (string task in new[] { "Choose only one window-placement method", "1. Open Companion",
+                            "Click Window is positioned", "then Reload UI", "click Confirm placement",
+                            "Then click Start Calibration", "Finish calibration in WoW", "Check a later launch",
+                            "Daily use", "Optional: custom workspaces", "If the window or displays change", "Troubleshooting" })
+                        {
+                            int position = guide.Text.IndexOf(task, StringComparison.Ordinal);
+                            if (position <= previous)
+                                throw new Exception("Help must keep method choice, placement, calibration and optional tasks in order: " + task);
+                            previous = position;
+                        }
+                        if (!guide.Text.Contains("do not also use FancyZones") ||
+                            !guide.Text.Contains("Standard layout is already selected for a new setup") ||
+                            !guide.Text.Contains("click Save changes") || !guide.Text.Contains("Recover Missing UI"))
+                            throw new Exception("Help must explain one method, standard defaults, saved plans and recovery.");
+                    }
                     foreach (Control button in Descendants(dialog).OfType<Button>())
                         if (!button.Parent.ClientRectangle.Contains(button.Bounds))
                             throw new Exception("Help footer button is clipped at " + factor + "x.");
