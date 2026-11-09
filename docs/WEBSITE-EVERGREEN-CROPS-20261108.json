@@ -1,0 +1,90 @@
+[
+  {
+    "asset": "offhand-guide-home-dashboard.svg",
+    "source": "offhand-companion-dashboard-20261108.png",
+    "viewBox": [
+      16,
+      170,
+      518,
+      631
+    ],
+    "sourceSha256": "5d6c4fd43bb112f1b6853907ed1729eb1aba5ec7e1bd419cef9638c447c28b8b"
+  },
+  {
+    "asset": "offhand-guide-layout-one.svg",
+    "source": "offhand-companion-one-monitor-20261108.png",
+    "viewBox": [
+      22,
+      45,
+      598,
+      600
+    ],
+    "sourceSha256": "acef889696ed21f0434e0b12d3c0ed47a36caf09ea3f1fde23e413f226b3f769"
+  },
+  {
+    "asset": "offhand-guide-layout-two.svg",
+    "source": "offhand-companion-two-monitor-20261108.png",
+    "viewBox": [
+      22,
+      45,
+      598,
+      443
+    ],
+    "sourceSha256": "02a36b342530a5a1d98cd6d1433c36d7f3ea9c145d942ce54c886a7477c21ea1"
+  },
+  {
+    "asset": "offhand-guide-layout-multiple.svg",
+    "source": "offhand-companion-multiple-workspaces-20261108.png",
+    "viewBox": [
+      22,
+      45,
+      628,
+      456
+    ],
+    "sourceSha256": "d44442b3a62ca282eb1184d9ac002a485502f1208ebc94c156ae9f92b2a70465"
+  },
+  {
+    "asset": "offhand-guide-layout-flexible.svg",
+    "source": "offhand-companion-flexible-layout-20261108.png",
+    "viewBox": [
+      22,
+      44,
+      698,
+      605
+    ],
+    "sourceSha256": "05eb214a14cc9340f62ffb41853b1eb3e2cc2feeabf592f2235f43f0ea97e127"
+  },
+  {
+    "asset": "offhand-guide-save-plan.svg",
+    "source": "offhand-companion-one-monitor-20261108.png",
+    "viewBox": [
+      24,
+      668,
+      594,
+      96
+    ],
+    "sourceSha256": "acef889696ed21f0434e0b12d3c0ed47a36caf09ea3f1fde23e413f226b3f769"
+  },
+  {
+    "asset": "offhand-guide-workspace-buttons.svg",
+    "source": "offhand-companion-dashboard-20261108.png",
+    "viewBox": [
+      31,
+      530,
+      489,
+      35
+    ],
+    "sourceSha256": "5d6c4fd43bb112f1b6853907ed1729eb1aba5ec7e1bd419cef9638c447c28b8b"
+  },
+  {
+    "asset": "offhand-guide-diagnostics.svg",
+    "source": "offhand-companion-dashboard-20261108.png",
+    "viewBox": [
+      17,
+      635,
+      516,
+      166
+    ],
+    "sourceSha256": "5d6c4fd43bb112f1b6853907ed1729eb1aba5ec7e1bd419cef9638c447c28b8b"
+  }
+]

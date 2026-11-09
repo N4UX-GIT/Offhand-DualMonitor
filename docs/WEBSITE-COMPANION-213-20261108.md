@@ -115,3 +115,23 @@ in-game workspace/general profile sections, routing and region appearance, and
 one completed labelled layout. A separate diagnostics card capture is optional
 because it is already readable in the supplied dashboard. Keep the prior calibration
 captures where the labels match. No need for additional generic Help images.
+
+## Evergreen guidance and focused image views
+
+Owner requested removal of public version/release numbers and pending GitHub
+publication notices. Public prose, headings, metadata and alt text now use
+product and feature names. Existing pinned download URLs retain their artifact
+identity; historical evidence in developer documents remains traceable.
+
+The home Companion card again displays a related Companion image. All four
+custom layout cards have visible image views instead of hiding only some of
+them in galleries. The incomplete two-monitor and multiple-workspace screenshots
+are used only as labelled control references, never completed span examples.
+
+Eight standalone SVG viewports provide focused crops of the supplied PNGs for
+the home card, layout editors, Save plan, named-plan controls and diagnostics.
+They embed unchanged source pixels and retain readable full-size links. They do
+not fabricate monitor selections, successful preview states, routing screens or
+profile dialogs. The exact crop bounds and source hashes are recorded in
+WEBSITE-EVERGREEN-CROPS-20261108.json. Standard calibration instructions remain
+in their existing owning guide. No addon, Companion binary or package changes.

@@ -835,8 +835,7 @@ code {
 .quest-step-card { min-width: 0; overflow-wrap: anywhere; }
 .companion-preview-figure { margin: 0; min-width: 0; }
 .companion-preview-figure img { display: block; width: 100%; height: auto; border-radius: 8px; }
-.companion-preview-figure a { display: block; border-radius: 8px; }
-.companion-preview-figure a:focus-visible { outline: 3px solid var(--rio-gold); outline-offset: 5px; }
+.companion-preview-figure .image-frame { display: block; border-radius: 8px; }
 .companion-preview-figure figcaption { margin-top: 12px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5; }
 
 @media (max-width: 960px) {
@@ -1632,16 +1631,21 @@ kbd {
 .companion-first-run {
     display: grid;
     grid-template-columns: minmax(330px, 0.85fr) minmax(0, 1.15fr);
-    gap: 34px;
-    align-items: start;
+    gap: 48px;
+    align-items: center;
+    margin: 28px 0;
 }
 
-.companion-annotated-figure { margin: 0; min-width: 0; }
+.companion-annotated-figure {
+    margin: 0;
+    min-width: 0;
+    padding: 20px 12px;
+}
 
 .companion-shot-wrap {
     position: relative;
     width: 100%;
-    max-width: 526px;
+    max-width: 440px;
     margin: 0 auto;
 }
 
@@ -1655,7 +1659,7 @@ kbd {
 }
 
 .companion-annotated-figure figcaption {
-    max-width: 526px;
+    max-width: 440px;
     margin: 12px auto 0;
     color: var(--text-secondary);
     font-size: 0.82rem;
@@ -1740,9 +1744,7 @@ kbd {
     border-radius: 7px;
 }
 
-.walkthrough-gallery a { display: block; overflow: hidden; border-radius: 5px; }
-.walkthrough-gallery a:focus-visible { outline: 3px solid var(--rio-gold); outline-offset: 3px; }
-
+.walkthrough-gallery .image-frame { display: block; overflow: hidden; border-radius: 5px; }
 .walkthrough-gallery img {
     display: block;
     width: 100%;
@@ -1782,8 +1784,7 @@ kbd {
     border-radius: 7px;
 }
 
-.setup-visual-flow a { display: block; overflow: hidden; border-radius: 5px; }
-.setup-visual-flow a:focus-visible { outline: 3px solid var(--rio-gold); outline-offset: 3px; }
+.setup-visual-flow .image-frame { display: block; overflow: hidden; border-radius: 5px; }
 .setup-visual-flow img { display: block; width: 100%; height: auto; border-radius: 5px; }
 .setup-visual-flow figcaption { padding: 10px 4px 2px; color: var(--text-secondary); font-size: 0.82rem; line-height: 1.45; }
 
@@ -1835,8 +1836,7 @@ kbd {
     border-radius: var(--radius-md);
 }
 
-.hud-layout-example a { display: block; overflow: hidden; border-radius: 6px; }
-.hud-layout-example a:focus-visible { outline: 3px solid var(--rio-gold); outline-offset: 3px; }
+.hud-layout-example .image-frame { display: block; overflow: hidden; border-radius: 6px; }
 .hud-layout-example img { display: block; width: 100%; height: auto; border-radius: 6px; }
 .hud-layout-example figcaption { padding: 13px 6px 3px; color: var(--text-secondary); font-size: 0.88rem; line-height: 1.55; }
 .hud-layout-example figcaption strong { color: var(--rio-gold-bright); }
@@ -1896,8 +1896,7 @@ kbd {
 .settings-screenshot-gallery-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .settings-screenshot-gallery-single { grid-template-columns: minmax(0, 680px); justify-content: center; }
 .settings-screenshot-gallery figure { min-width: 0; margin: 0; padding: 10px; background: rgba(9, 11, 16, 0.68); border: 1px solid var(--rio-border-subtle); border-radius: 7px; }
-.settings-screenshot-gallery a { display: block; overflow: hidden; border-radius: 5px; }
-.settings-screenshot-gallery a:focus-visible { outline: 3px solid var(--rio-gold); outline-offset: 3px; }
+.settings-screenshot-gallery .image-frame { display: block; overflow: hidden; border-radius: 5px; }
 .settings-screenshot-gallery img { display: block; width: 100%; height: auto; border-radius: 5px; }
 .settings-screenshot-gallery figcaption { padding: 10px 4px 2px; color: var(--text-secondary); font-size: 0.82rem; line-height: 1.5; }
 .settings-screenshot-gallery figcaption strong { color: var(--rio-gold-bright); }
@@ -2020,7 +2019,9 @@ kbd {
 
     .settings-tour-wide { grid-column: auto; }
 
-    .companion-shot-wrap { max-width: 480px; }
+    .companion-first-run { gap: 28px; }
+    .companion-annotated-figure { padding: 8px 12px; }
+    .companion-shot-wrap { max-width: 440px; }
 }
 
 @media (max-width: 560px) {
@@ -2048,7 +2049,7 @@ kbd {
 
 /* Companion 2.1.3 guidance shares the existing site components. */
 .companion-preview-card:has(> .companion-preview-copy:only-child) { grid-template-columns: 1fr; }
-.workspace-detail { margin-top: 22px; }
+.workspace-detail { margin: 22px 0; }
 .workspace-detail > summary { cursor: pointer; padding: 18px; font-weight: 700; color: var(--rio-gold); }
 .workspace-steps { padding-left: 1.6em; line-height: 1.8; }
 .workspace-steps li { padding: 8px 0 8px 8px; }
@@ -2092,3 +2093,36 @@ kbd {
 #setup-flow-preview-title { scroll-margin-top: 110px; }
 
 #setup-task-preview { scroll-margin-top: 90px; }
+
+/* Keep workspace references visible and their UI proportions intact. */
+.workspace-card-image { margin: 18px 0; }
+.workspace-card-image .image-frame { display: flex; align-items: center; justify-content: center; height: 280px; background: #090909; border: 1px solid var(--rio-border-subtle); border-radius: 6px; overflow: hidden; }
+.workspace-card-image img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; }
+.workspace-card-image figcaption, .guidance-crop figcaption { margin-top: 10px; color: var(--text-secondary); font-size: 0.84rem; line-height: 1.6; }
+.guidance-crop { margin: 22px auto; max-width: 640px; }
+.guidance-crop img { display: block; max-width: 100%; height: auto; margin: auto; border: 1px solid var(--rio-border-subtle); border-radius: 5px; }
+
+/* One required route: addon, one window method, then in-game completion. */
+.setup-stage { display: grid; grid-template-columns: 42px minmax(0,1fr); gap: 18px; margin: 30px 0 20px; }
+.setup-stage h3 { color: var(--rio-gold); margin: 4px 0 12px; }
+.setup-stage p { line-height: 1.7; margin: 8px 0; }
+.setup-choice-label { color: var(--rio-gold); font-size: 0.88rem; margin: 10px 0; }
+.setup-method-grid .method-card { display: flex; flex-direction: column; align-items: start; }
+.setup-method-grid .method-card > .btn { margin-top: auto; }
+.setup-choice-note { line-height: 1.7; margin: 20px 0; color: var(--text-secondary); }
+.setup-optional { margin-top: 28px; }
+.setup-optional > summary { cursor: pointer; padding: 18px; color: var(--rio-gold); font-weight: 700; }
+.setup-next { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; margin-top: 24px; }
+.content-section[hidden] { display: none; }
+
+#finish-calibration, #standard-layout { scroll-margin-top: 110px; }
+
+/* One compact comparison panel keeps both original images uncropped. */
+.showcase-header-bar h2 { margin: 0; }
+.showcase-comparison { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.showcase-comparison figure { margin: 0; min-width: 0; }
+.showcase-comparison .showcase-img-container { aspect-ratio: 4 / 3; }
+.showcase-comparison .showcase-img { height: 100%; object-fit: contain; }
+.showcase-comparison figcaption { color: var(--rio-gold); font-size: 0.86rem; margin-top: 10px; text-align: center; }
+.showcase-comparison-note { font-size: 0.82rem; color: var(--text-secondary); margin: 16px 0 0; text-align: center; line-height: 1.6; }
+@media (max-width: 480px) { .showcase-comparison { grid-template-columns: 1fr; } }
