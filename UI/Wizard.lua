@@ -995,8 +995,20 @@ function Wizard:CreateFrame()
         return true
     end
 
+    local function ActivateCalibration()
+        -- Next is also an explicit calibration action. New profiles start
+        -- disabled, so the optional recommendation cannot be the only path
+        -- that enables their viewport. Keep manually chosen values intact.
+        if Offhand.db and not Offhand.db.enabled then
+            if Offhand.SetEnabled then Offhand:SetEnabled(true)
+            else Offhand.db.enabled = true end
+            Offhand:ApplyFullLayout()
+        end
+    end
+
     local function CompleteSetup(deferMainhandLayout)
         if not ValidateTopology() then return end
+        ActivateCalibration()
         if type(OffhandCharDB) == "table" then
             OffhandCharDB.wizardRecoveryStep = nil
             OffhandCharDB.wizardProgressStep = nil
@@ -1046,6 +1058,7 @@ function Wizard:CreateFrame()
             return
         end
         if not ValidateTopology() then return end
+        ActivateCalibration()
         if f.step == ELLESMERE_STEP then
             local transfer = EllesmereTransfer()
             local layout = transfer and EllesmereNativeLayout()

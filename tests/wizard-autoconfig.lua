@@ -694,6 +694,93 @@ assert(wizardFrame.seamSlider:IsEnabled() == true
         and wizardFrame.seamHelp:GetText() == addon.L["WIZARD_SEAM_INSTRUCTION"],
     "Wizard step 3 must restore normal guidance when manual geometry is available")
 
+-- First-install users may follow Next instead of the optional recommendation.
+-- Opening a guide remains inert; explicitly advancing confirmed calibration
+-- must activate the saved geometry before the HUD transaction can use it.
+do
+    local savedMetrics, savedApply = addon.Viewport.GetMetrics, addon.ApplyFullLayout
+    local savedRatio, savedScale = addon.db.deckWidthRatio, addon.db.hudScale
+    local savedComplete = OffhandDB.onboarding.setupComplete
+    local applied = 0
+    addon.Viewport.GetMetrics = function()
+        return {
+            companionTopology = true, topologyStatus = "READY", isSpanned = true,
+            companionVersionStatus = "MATCH", physicalWidth = 4480, physicalHeight = 1440,
+            gamePixelLeft = 1920, gamePixelBottom = 0, gamePixelWidth = 2560, gamePixelHeight = 1440,
+            workspacePixelLeft = 0, workspacePixelBottom = 5, workspacePixelWidth = 1920, workspacePixelHeight = 1080,
+            gameLeft = 1920, gameRight = 4480, gameBottom = 0, gameTop = 1440,
+            workspaceLeft = 0, workspaceRight = 1920, workspaceBottom = 5, workspaceTop = 1085,
+        }
+    end
+    addon.ApplyFullLayout = function()
+        if addon.db.enabled then applied = applied + 1 end
+    end
+    OffhandDB.onboarding.setupComplete = false
+    addon.db.firstRunComplete = false
+    addon.db.deckWidthRatio, addon.db.hudScale = 0.43, 0.81
+    addon:SetEnabled(false)
+    addon.Wizard:Open(1)
+    assert(not addon.db.enabled and applied == 0,
+        "merely opening calibration must preserve an explicitly disabled viewport")
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(addon.db.enabled and applied == 1 and wizardFrame.step == 2,
+        "fresh-install Next must activate confirmed calibration without requiring Auto-Configure")
+    assert(addon.db.deckWidthRatio == 0.43 and addon.db.hudScale == 0.81
+            and not addon:IsSetupComplete() and not addon.db.automaticSetupSuppressed,
+        "manual continuation must preserve calibration and leave HUD setup incomplete")
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(applied == 1, "later calibration steps must not repeatedly activate an already enabled profile")
+
+    addon:SetEnabled(false)
+    addon.Wizard:Open(3)
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(addon.db.enabled and applied == 2 and wizardFrame.step == 4,
+        "resumed calibration must not strand a disabled profile at a later step")
+
+    local savedCreate, savedPrompt = addon.Options.CreateMainhandHUDLayout, addon.Mainhand.PromptReload
+    local created = 0
+    addon.Options.CreateMainhandHUDLayout = function()
+        assert(addon.db.enabled, "manual setup must activate before requesting the native HUD transaction")
+        created = created + 1
+        return true, "Offhand", 52
+    end
+    addon.Mainhand.PromptReload = function() end
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(wizardFrame.step == 5 and not addon:IsSetupComplete())
+    addon:SetEnabled(false)
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(addon.db.enabled and created == 1 and addon:IsSetupComplete() and not wizardFrame:IsShown(),
+        "fresh manual setup must complete the HUD transaction without the recommendation action")
+    addon.Options.CreateMainhandHUDLayout, addon.Mainhand.PromptReload = savedCreate, savedPrompt
+    OffhandDB.onboarding.setupComplete = false
+    addon.db.firstRunComplete = false
+
+    local beforeRejected, validMetrics = applied, addon.Viewport.GetMetrics
+    addon:SetEnabled(false)
+    addon.Viewport.GetMetrics = function()
+        return { companionTopology = false, topologyStatus = "MISMATCH", isSpanned = false }
+    end
+    addon.Wizard:Open(1)
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(not addon.db.enabled and applied == beforeRejected,
+        "a stale or restored window must never be activated by calibration continuation")
+    addon.Viewport.GetMetrics = function()
+        local metrics = validMetrics()
+        metrics.companionVersionStatus = "MISMATCH"
+        return metrics
+    end
+    addon.Wizard:Open(1)
+    wizardFrame.finishBtn.scripts.OnClick()
+    assert(not addon.db.enabled and applied == beforeRejected,
+        "an incompatible Companion version must not activate calibration")
+
+    addon.Viewport.GetMetrics, addon.ApplyFullLayout = savedMetrics, savedApply
+    addon.db.deckWidthRatio, addon.db.hudScale = savedRatio, savedScale
+    OffhandDB.onboarding.setupComplete = savedComplete
+    addon:SetEnabled(true)
+    addon.Wizard:Open(1)
+end
+
 -- Click 1-Click Auto-Configure inside wizard
 addon.db.deckWidthRatio = 0.55
 addon.db.firstRunComplete = false

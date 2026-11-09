@@ -2,6 +2,25 @@
 
 Stable IDs for reports that require follow-up across test sessions.
 
+## Beta 27 first-install Next route leaves layout disabled
+
+Forever 70862 report: accepted Companion span, Enabled=0 and Setup=0. The user
+confirms following Next after the guide resumed. The wizard's optional
+recommendation enabled Offhand, while ordinary Next did not. A new regression
+reproduces that source defect. Candidate activates existing calibration only
+after explicit validated continuation and before completion/HUD generation.
+All 109 source and packaged Lua suites plus six manifests pass. Native Forever
+70862 first-install Next, actual 54-system HUD creation and two reloads pass on
+the tested single-display split. The later owner-authorised account reset also
+passes with default Companion preferences, zero prior native HUD rows, first HUD
+creation, reload and cold WoW/Companion restart. Fresh settings and candidate are
+retained. An independent repeat also passes with zero Lua errors, including cold
+world entry followed by manual span/reload and restoration of the same HUD.
+Exact reporter topology and protected descendant actions remain
+unverified; no public release changed.
+[Clean-account evidence](SPAN-SETUP-CLEAN-ACCOUNT-LIVE-QA-20261108.md).
+Evidence and private package: [report](SPAN-ACTIVATION-REPORT-20261108.md).
+
 ## OH-COMP-003: Two selected displays rejected as one
 
 The Beta 20 planner reproduces the CurseForge failure when selected devices have
