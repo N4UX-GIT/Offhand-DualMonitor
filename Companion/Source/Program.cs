@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -1656,37 +1656,57 @@ namespace Offhand.Companion
         internal bool Multiple;
         internal bool Flexible;
         internal bool UseStandard;
-        internal readonly Button SingleButton, SecondaryButton, MultipleButton, FlexibleButton;
+        internal readonly Button StandardButton, SingleButton, SecondaryButton, MultipleButton, FlexibleButton;
+        internal readonly CheckBox EnableCustom = new CheckBox { Text = "I want custom workspace areas (optional)", AutoSize = true };
 
         internal CustomRegionModeDialog(IDictionary<string,string> settings)
         {
             string current = WorkspaceEditorLayout.CurrentMode(settings);
-            var layout = new WorkspaceEditorLayout(this, "Choose a custom workspace",
-                new Size(620, current == WorkspaceEditorLayout.Standard ? 484 : 620), new Size(470, 360), 100);
-            layout.Heading("Saved layout");
-            layout.Guide(current);
-            layout.Heading("Choose a layout to edit");
-            layout.Guide("Select an option below. The editor keeps your changes when you click Save plan.");
-            SingleButton = AddOption(layout, WorkspaceEditorLayout.Single, "Split one monitor into side-by-side, full-height game and workspace areas.");
-            SecondaryButton = AddOption(layout, WorkspaceEditorLayout.Secondary, "Keep one full monitor for the game and choose a workspace area on a second monitor.");
-            MultipleButton = AddOption(layout, WorkspaceEditorLayout.Multiple, "Keep one full monitor for the game and place up to two workspaces on separate monitors.");
-            FlexibleButton = AddOption(layout, WorkspaceEditorLayout.Flexible, "Place the game and one or two workspaces anywhere on a single monitor. " + WorkspaceEditorLayout.FlexibleAddon);
-            if (current != WorkspaceEditorLayout.Standard)
-            {
-                layout.Heading("Return to a standard layout");
-                var standard = AddOption(layout, "Use standard display layout", "Turn off custom workspaces and review the displays to use. Named workspace profiles stay saved.");
-                standard.Click += (s, e) => { UseStandard = true; DialogResult = DialogResult.OK; Close(); };
-            }
+            bool standardActive = current == WorkspaceEditorLayout.Standard;
+            var layout = new WorkspaceEditorLayout(this, "Standard layout or optional custom areas",
+                new Size(660, 740), new Size(470, 360), 100);
+            layout.Heading("Active layout: " + current);
+            layout.Guide(standardActive
+                ? "Standard layout is already selected. For normal two-monitor setup, use the full game monitor and full Offhand monitor. You do not need a custom workspace."
+                : "A saved custom workspace is active. It will be restored on launch until you choose standard layout. Your named plans remain saved.");
+            StandardButton = AddOption(layout, standardActive ? "Keep standard layout (recommended)" : "Use standard display layout",
+                "For two full monitors, choose Span displays and Mainhand on the dashboard. The equal single-display split is also a standard layout. No custom area editor is needed.");
+            StandardButton.Click += (s, e) => { UseStandard = true; DialogResult = DialogResult.OK; Close(); };
+            layout.Heading("Optional: custom workspace areas");
+            layout.Guide("Use a custom area only when you want an unequal split, only part of another monitor, or extra workspace regions. Two physical monitors alone do not require the two-monitor custom editor.");
+            EnableCustom.Checked = !standardActive;
+            EnableCustom.AccessibleDescription = "Enable only to intentionally edit custom areas. This does not change your saved layout.";
+            layout.AddWide(EnableCustom);
+            SingleButton = AddOption(layout, "Custom split on one monitor", "Choose unequal game/workspace widths or leave part of one screen for other desktop apps.");
+            SecondaryButton = AddOption(layout, "Custom area on a second monitor", "Use only a chosen rectangle on the second screen. For the whole second monitor, keep standard layout instead.");
+            MultipleButton = AddOption(layout, "Custom areas on separate monitors", "Use one full game monitor and up to two selected workspace regions on other monitors.");
+            FlexibleButton = AddOption(layout, "Flexible custom layout (prototype)", "Place game and workspace rectangles on one screen. " + WorkspaceEditorLayout.FlexibleAddon);
 
-            SingleButton.Click += (s, e) => { DialogResult = DialogResult.OK; Close(); };
-            SecondaryButton.Click += (s, e) => { Secondary = true; DialogResult = DialogResult.OK; Close(); };
-            MultipleButton.Click += (s, e) => { Multiple = true; DialogResult = DialogResult.OK; Close(); };
-            FlexibleButton.Click += (s, e) => { Flexible = true; DialogResult = DialogResult.OK; Close(); };
-            Button selected = current == WorkspaceEditorLayout.Flexible ? FlexibleButton
+            Button savedChoice = current == WorkspaceEditorLayout.Flexible ? FlexibleButton
                 : current == WorkspaceEditorLayout.Multiple ? MultipleButton
-                : current == WorkspaceEditorLayout.Secondary ? SecondaryButton : SingleButton;
-            layout.Finish(null, defaultChoice: selected);
-            ActiveControl = selected;
+                : current == WorkspaceEditorLayout.Secondary ? SecondaryButton
+                : current == WorkspaceEditorLayout.Single ? SingleButton : StandardButton;
+            Button[] customButtons = { SingleButton, SecondaryButton, MultipleButton, FlexibleButton };
+            Action updateChoices = () => {
+                foreach (Button button in customButtons) button.Enabled = EnableCustom.Checked;
+                AcceptButton = EnableCustom.Checked ? savedChoice : StandardButton;
+            };
+            EnableCustom.CheckedChanged += (s, e) => updateChoices();
+            foreach (Button button in customButtons)
+            {
+                Button target = button;
+                target.Click += (s, e) => {
+                    if (!EnableCustom.Checked) return;
+                    Secondary = target == SecondaryButton;
+                    Multiple = target == MultipleButton;
+                    Flexible = target == FlexibleButton;
+                    DialogResult = DialogResult.OK;
+                    Close();
+                };
+            }
+            layout.Finish(null, defaultChoice: savedChoice);
+            updateChoices();
+            ActiveControl = (Control)AcceptButton;
         }
 
         private static Button AddOption(WorkspaceEditorLayout layout, string title, string description)
@@ -2127,7 +2147,7 @@ namespace Offhand.Companion
         {
             var layout = new WorkspaceEditorLayout(this, "Two-monitor workspace", new Size(640, 695), new Size(500, 430), 40, 60);
             layout.Heading("1. Choose two monitors");
-            layout.Guide("The game uses a full monitor. Choose a rectangle on the second monitor for your Offhand panels.");
+            layout.Guide("Custom area only: this uses a chosen rectangle on the second monitor. For two whole monitors, cancel and keep standard layout on the dashboard.");
             layout.ExplainReplacement(settings, WorkspaceEditorLayout.Secondary);
             for (int i = 0; i < displays.Count; i++)
             {
@@ -4360,6 +4380,9 @@ namespace Offhand.Companion
                     if (choice.ShowDialog(this) != DialogResult.OK) return;
                     if (choice.UseStandard)
                     {
+                        // Keeping an already-standard layout is a no-op. Opening this
+                        // chooser must not rewrite preferences or monitor selection.
+                        if (WorkspaceEditorLayout.CurrentMode(appSettings) == WorkspaceEditorLayout.Standard) return;
                         confirmedDisplays = ReadDisplays();
                         int[] selection;
                         proposed = CustomRegionPreferences.StandardLayout(appSettings, confirmedDisplays, out selection);
@@ -5253,7 +5276,7 @@ namespace Offhand.Companion
             btnPartialSpan.Click += (s, e) => EditPartialSpan();
             configLayout.Controls.Add(btnPartialSpan, 1, 2);
             uiToolTips.SetToolTip(btnWorkspaceProfiles,"Save and manage named Multiple workspaces plans. Loading selects settings; Span WoW Now applies them.");
-            uiToolTips.SetToolTip(btnPartialSpan, "Edit a custom workspace or return to a standard display layout.");
+            uiToolTips.SetToolTip(btnPartialSpan, "Standard layout is the default for full monitors. Open this only to use custom areas or return from a custom plan. Custom areas are optional, not required for two monitors.");
 
             uiToolTips.SetToolTip(chkAutoSpan,
                 "Disabled by default. When enabled, Offhand spans each newly detected WoW window across the selected displays. Manual Span WoW Now remains available when disabled.");
@@ -5826,49 +5849,43 @@ namespace Offhand.Companion
 
         private void FillSetupHelp(RichTextBox guide, Font sectionFont)
         {
-            AppendHelpSection(guide, sectionFont, "First-time setup",
-                "1. Start WoW with the Offhand addon enabled. In WoW's Graphics options, select Windowed and click Apply. WoW should have a movable title bar.",
-                "2. Enter the game world and type /offhand guide in chat. Choose Use Companion when the guide asks for a setup method. Continue to the window placement step.",
-                "3. In Companion, leave Auto-span WoW on launch off for setup. Choose the layout you want, then click Span WoW Now. See Choose a display layout below for the available options.",
-                "4. Return to the in-game guide. Click Reload UI, then Confirm placement. Follow the Auto-Setup Wizard to finish calibration.",
-                "5. On Retail and Forever, finish with Create Mainhand HUD Layout. Leave combat, close Edit Mode, and click the button. Reload when prompted. Wait for layout creation to succeed before moving your panels.");
+            AppendHelpSection(guide, sectionFont, "First-time setup: use Companion only",
+                "Companion, FancyZones and manual placement are alternatives. Follow only one method. These steps cover Companion, recommended on Windows.",
+                "1. Enter the world and select Windowed. Enable Offhand in WoW and back up your Edit Mode layout and UI addon profiles. Open /offhand guide, choose Use Companion and Already installed, then follow its Windowed-mode step. Leave Auto-span WoW on launch off for this first test.",
+                "2. Identify your screens. In Companion's Configuration section, click Identify Displays. Use Show if the section is collapsed. System Status also starts collapsed: click Show there to check the detected client and installed addon files. Installed files do not confirm that the addon is enabled in WoW.",
+                "3. Select your displays. Standard layout is already selected for a new setup. For two full screens, check both under Span displays and select Mainhand (game). For an equal ultrawide split, select one 32:9 or 32:10 screen, enable Single-display 32:9 split and choose Game side. Keep Workspace layout (standard); custom editors are optional.",
+                "4. Apply the span. Click Span WoW Now at the top of the dashboard. If asked to confirm saved displays, check the game and workspace screens, then choose OK. If they are wrong, cancel and correct the selection before spanning.",
+                "5. Return to the same in-game guide. Click Reload UI, Confirm placement, then Start Calibration. Keep Use Companion selected and continue with calibration below. You do not need to restart the welcome guide.");
 
-            AppendHelpSection(guide, sectionFont, "Confirm saved displays",
-                "If System Status asks you to confirm your saved displays, open WoW and click Span WoW Now. Check the game and workspace screens in the dialog.",
-                "Click OK to save the screen selection and proceed with spanning. If a screen is wrong, click Cancel. Use Identify Displays to match the screen numbers to your monitors, then correct Span displays and Mainhand (game) or open Workspace layout to edit a saved custom layout. Click Span WoW Now again when ready.");
+            AppendHelpSection(guide, sectionFont, "Calibration: finish in the same guide",
+                "Review display detection, Mainhand orientation, the physical seam and UI size in that order. Companion supplies exact geometry, so locked orientation and seam-width controls are expected. Change screens or Mainhand in Companion only if the selected arrangement is wrong, then span again and reload.",
+                "Where offered, finish with Create Mainhand HUD Layout outside combat with Blizzard Edit Mode closed, then reload when prompted. Clients without that step use Finish Setup. Follow any additional HUD-addon step offered by your client. Wait for setup to succeed before arranging ordinary workspace panels.",
+                "If calibration and HUD setup are already complete, continue with the check below. Do not create the HUD layout again just to read this Help.");
 
-            AppendHelpSection(guide, sectionFont, "Choose a display layout",
-                "Two full displays. Check both screens under Span displays and pick Mainhand (game). The other screen becomes your Offhand workspace.",
-                "One super-ultrawide. For an equal split on a 32:9 or 32:10 display, check only that screen, enable Single-display 32:9 split, and choose Game side.",
-                "Workspace layout. Choose One monitor for a full-height game and workspace split, Two monitors for a full game screen and a rectangular workspace, or Multiple workspaces for a full game screen plus one or two workspaces on separate displays.",
-                "Flexible layout (prototype). Use presets or enter the game and workspace rectangles to place one or two workspaces on the same physical display. " + WorkspaceEditorLayout.FlexibleAddon);
+            AppendHelpSection(guide, sectionFont, "After calibration: check your next launch",
+                "Arrange supported panels in WoW. Exit WoW normally, relaunch it, apply your chosen span and confirm that the game, workspace panels and Mainhand HUD return.",
+                "For standard layouts, you may then enable Auto-span WoW on launch and leave Companion in the tray. Custom layouts use Span WoW Now each time. The title-bar X minimizes to the tray; Exit Companion closes it and leaves the current span in place.",
+                "Keep Companion running for automatic spanning, active display-disconnect recovery, the remembered Restore Window bounds or an indicated Forever recovery bridge. Restore Window at the top returns WoW to its pre-span window and suspends auto-span for that session. The tray menu provides Pause/Resume background monitoring; manual Span and Restore remain available.");
 
-            AppendHelpSection(guide, sectionFont, "Edit and reuse custom workspaces",
-                "In custom editors with a visual picker, click Select area on monitor. Drag to move the area or drag its edges to resize. Use the arrow keys to move, Ctrl + arrow keys to move one pixel, or Shift + arrow keys to resize. Press Enter to accept the area or Esc to return to the editor.",
-                "Check the preview and click Save plan to keep your settings. Click Span WoW Now to resize the game window, then reload the WoW UI once.",
-                "To turn off custom workspaces, open Workspace layout and choose Use standard display layout. Review the suggested displays before saving. Named profiles stay saved.",
-                "Use Workspace profiles to manage named Multiple workspaces plans. To switch plans, pick a profile, click Load selected, then click Save changes. Click Span WoW Now and reload in WoW. Use the in-game Profiles tab for addon panel layouts and theme choices.");
+            AppendHelpSection(guide, sectionFont, "Optional: custom workspaces and saved plans",
+                "Use custom areas only for unequal widths, part of a second screen or extra workspace regions. Two full monitors need only standard layout. Open Workspace layout and enable I want custom workspace areas only when you need one of these changes.",
+                "Choose one editor: Custom split on one monitor, Custom area on a second monitor, Custom areas on separate monitors or Flexible custom layout (prototype). " + WorkspaceEditorLayout.FlexibleAddon,
+                "Where available, Select area on monitor lets you drag the area or its edges. Arrow keys move it; Ctrl + arrow moves one pixel and Shift + arrow resizes. Enter accepts and Esc returns. Review the preview and Save plan. To apply changed settings, click Span WoW Now and reload in WoW.",
+                "Workspace profiles saves named Multiple workspaces plans. Loading stages settings: Load selected, then Save changes. Apply them with the same Span and reload sequence. In-game Profiles controls addon settings, not physical display rectangles.");
 
-            AppendHelpSection(guide, sectionFont, "Daily use",
-                "Click Span WoW Now after the game window opens. For standard display layouts, you can enable Auto-span WoW on launch and set a delay. For custom layouts, use Span WoW Now each time.",
-                "Restore Window returns WoW to its pre-span window and suspends auto-span for that WoW session. Click Span WoW Now to apply the layout again. To stop background launch detection, right-click the Companion tray icon and select Pause background monitoring. Manual Span and Restore remain available.",
-                "The title-bar X minimizes Companion to the tray. Exit Companion closes it and leaves the current WoW window spanned. Keep Companion open for auto-span, automatic display-disconnect recovery, or to restore the remembered window bounds.",
-                "In Remote Desktop, click Span WoW Now and choose the game and workspace screens for that connection. Keep Companion running for Restore Window and confirm the screens again after reconnecting.");
+            AppendHelpSection(guide, sectionFont, "Recovery: choose the matching symptom",
+                "Wrong window or screens: use Restore Window, Identify Displays, then review Span displays and Mainhand before spanning again. If a saved display is missing, reconnect it or review the current layout before retrying. In Remote Desktop, confirm the game and workspace screens for that connection.",
+                "Correct window but wrong addon area: reload after the corrected span and check that Offhand is enabled for that WoW client. Open Activity Log with Show for installation paths and span or file errors. Include /offhand diag if the problem remains.",
+                "Expected full monitors but got a custom area: open Workspace layout (custom) and choose Use standard display layout. Review the displays, span again and reload. Named plans stay saved. A saved custom plan is restored on launch until you switch back; Restore Window alone does not change the saved mode.",
+                "Missing supported panel or HUD element: use Recover Missing UI in Offhand's Recovery & Preview first. It targets fully off-screen supported elements. Gather Safe UI to Mainhand is broader and can change visible panel positions. Use Blizzard Edit Mode for personal HUD adjustments; back up before rebuilding a layout.",
+                "Access denied or error 5: close WoW and Companion and restart them normally at the same privilege level. Do not run only one as administrator.",
+                "Color, sharpness or Windows scaling: expand Display Diagnostics with Show, open Display Troubleshooting and use Copy Display Diagnostics for your report. These controls report display information rather than changing HDR or Windows scale.",
+                "On Forever, follow any Use Modern / Restore Offhand recovery prompt after a disconnect. Keep Companion running through normal shutdown when that client needs its compatibility recovery bridge. Do not rebuild a working HUD merely because the window has not yet been placed.");
 
-            AppendHelpSection(guide, sectionFont, "Recover your window or panels",
-                "If a display is missing, reconnect it before spanning again. Use Restore Window to bring the game back to a usable window.",
-                "If addon panels are out of reach, open Offhand's Recovery & Preview and use Gather Off-Screen UI or Gather Safe UI to Mainhand. To rebuild the game HUD, leave combat, close Edit Mode, and choose Create Mainhand HUD Layout. Reload when prompted.",
-                "On Forever, if Offhand offers Use Modern after a display disconnect, use it until you can reconnect and reapply the saved span. Then choose Restore Offhand. After making personal Edit Mode changes, choose Use Current Edit Mode Layout in Recovery & Preview. Keep Companion running through shutdown when Forever needs the compatibility bridge to restore its layout on the next launch.");
-
-            AppendHelpSection(guide, sectionFont, "Troubleshooting",
-                "If the game view still fills the entire window after a reload, check that the Offhand addon is enabled for that WoW client and matches your Companion package. Open Activity Log for the installation path and any span or file-permission errors.",
-                "If the screen arrangement looks wrong, match the monitor positions in Windows Display Settings to your desk. For color or scale issues, use Display Troubleshooting and Copy Display Diagnostics on the dashboard.",
-                "If Windows reports error 5 when spanning, close both apps and launch Battle.net, WoW, and Companion at the same privilege level.");
-
-            AppendHelpSection(guide, sectionFont, "Updates and privacy",
+            AppendHelpSection(guide, sectionFont, "Updates and support",
                 CompanionDistribution.UpdateHelpText(isStorePackage),
                 CompanionDistribution.PrivacyNetworkText(isStorePackage),
-                "Website, Discord, and CurseForge open in your default browser when you click their buttons.");
+                "Website, Discord and CurseForge buttons open your default browser. For support, include the exact symptom, client, display arrangement, copied display diagnostics and /offhand diag. Review logs for private details before sharing.");
         }
 
         internal Form CreateHelpDialog(bool displayTroubleshooting)
@@ -6287,7 +6304,10 @@ namespace Offhand.Companion
                     plan.Workspaces.Length == 1 ? "" : "s", plan.Indices.Length, plan.Indices.Length == 1 ? "" : "s")
                 : string.Format("Workspace {0} × {1}{2}", plan.WorkspaceBounds.Width, plan.WorkspaceBounds.Height,
                     plan.SplitSingle ? " (single display)" : "");
-            return state + "\r\n" + game + "  •  " + workspace;
+            string mode = plan.IsCustom || plan.FlexibleLayout
+                ? "Custom workspace: selected areas"
+                : plan.SplitSingle ? "Standard layout: equal split" : "Standard layout: full monitors";
+            return mode + "\r\n" + state + "\r\n" + game + "  •  " + workspace;
         }
 
         private void UpdateDashboardStatusSummary()

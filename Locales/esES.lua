@@ -72,7 +72,7 @@ L["CHARACTER_SETUP_REUSED"] = "Diseño HUD existente seleccionado para este pers
 L["SETUP_FIRST_PANEL"] = "Tras calibrar y recargar si se solicita, abre el mapa del mundo y arrastra su barra de título a Offhand. El espacio vacío está listo para tus paneles."
 -- Display identification (English fallback until translated).
 L["IDENTIFY_DISPLAYS"] = "Mostrar Mainhand / Offhand"
-L["ONBOARD_INTRO_BRIEF"] = "Mantén el juego en Mainhand y los paneles compatibles en Offhand.\n\nAntes guarda una copia del diseño Blizzard y de los perfiles de addons UI. Extender cambia el área y puede exigir recolocar interfaces personalizadas.\n\nElige colocación y luego calibra. Cerrar pausa la configuración."
+L["ONBOARD_INTRO_BRIEF"] = "Mantén el juego en Mainhand y los paneles compatibles en Offhand.\n\nPrimero guarda tu diseño del modo Edición y los perfiles de tus addons de interfaz. Elige UN método de colocación y termina la calibración en esta guía. No necesitas completar los demás métodos.\n\nLos espacios personalizados, temas y fondos son opcionales después. Cerrar esta guía pausa la configuración."
 L["ONBOARD_CONTINUE_SETUP"] = "Continuar configuración"
 L["ONBOARD_CALIBRATE_TASK_TITLE"] = "Calibrar Mainhand"
 L["ONBOARD_CALIBRATE_TASK_EDITMODE"] = "1. Pulsa %s abajo.\n2. Confirma Mainhand, alinea la unión y elige el tamaño de interfaz.\n3. En el último paso pulsa |cffffd100Crear diseño HUD Mainhand|r, |cffffd100fuera de combate|r y con |cffffd100Modo de edición de Blizzard cerrado|r.\n\nColocar la ventana es solo el inicio. El asistente completa calibración y HUD."
@@ -80,7 +80,7 @@ L["ONBOARD_CALIBRATE_TASK_CLASSIC"] = "1. Pulsa %s abajo.\n2. Confirma Mainhand,
 L["ONBOARD_MODE_BEFORE"] = "Ilustración: ventana a pantalla completa"
 L["ONBOARD_MODE_AFTER"] = "Ilustración: ventana con barra de título"
 L["ONBOARD_BEGIN"] = "Iniciar configuración"
-L["ONBOARD_CHOOSE_BRIEF"] = "Elige cómo distribuir WoW entre monitores.\n\nCompanion: recomendado en Windows, disponible en Microsoft Store, con colocación sin bordes y geometría exacta.\nFancyZones: usa PowerToys ya configurado.\nManual: ajusta tú la ventana.\n\nElegir no inicia una descarga."
+L["ONBOARD_CHOOSE_BRIEF"] = "Elige UN método para colocar WoW y mantenlo durante la calibración.\n\nCompanion: recomendado en Windows; colocación sin bordes y geometría exacta.\nFancyZones: alternativa con Microsoft PowerToys.\nManual: alternativa sin otra herramienta de ventanas.\n\nSon alternativas, no pasos consecutivos. Elegir un método no inicia una descarga."
 L["ONBOARD_SOFTWARE_FANCYZONES_TITLE"] = "¿Ya tienes PowerToys?"
 L["ONBOARD_SOFTWARE_COMPANION_TITLE"] = "¿Ya tienes Companion?"
 L["ONBOARD_SOFTWARE_BRIEF"] = "Si ya está instalado, elige Ya instalado. Si no, obtén e instala el programa y vuelve aquí.\n\nNo hace falta reinstalar."
@@ -93,14 +93,14 @@ L["ONBOARD_MODE_TASK_BODY"] = "Activa Ventana y comprueba que WoW se pueda mover
 L["ONBOARD_PLACE_TITLE"] = "Colocar WoW en los monitores"
 L["ONBOARD_PLACE_NEXT"] = "Colocar WoW"
 L["ONBOARD_PLACE_FANCYZONES"] = "En PowerToys crea una zona Canvas de FancyZones sobre los monitores deseados.\n\nMantén Mayús y arrastra dentro el título de WoW. Confirma la colocación.\n\nPara ver los pasos, abre ¿Tienes problemas? abajo."
-L["ONBOARD_PLACE_COMPANION"] = "En Companion elige monitores y Mainhand. Dentro del mundo pulsa |cffffd100Span WoW Now|r.\n\nVuelve aquí, pulsa |cffffd100Recargar interfaz|r y |cffffd100Confirmar colocación|r. Companion elimina la barra de título."
+
 L["ONBOARD_PLACE_MANUAL"] = "Mueve y ajusta WoW sobre los monitores o la región ultrapanorámica deseados.\n\nCuando se vea correcto, confirma la colocación. Es tu confirmación, no una detección automática."
 L["ONBOARD_CONFIRM_PLACEMENT"] = "Confirmar colocación"
 L["ONBOARD_SHOW_HELP"] = "¿Tienes problemas?"
 L["ONBOARD_HIDE_HELP"] = "Ocultar ayuda"
 L["ONBOARD_RESUME_CALIBRATION"] = "Continuar calibración"
 L["ONBOARD_PATH_FANCYZONES_3"] = "1. Activa Ventana, desde los ajustes si hace falta. No Ventana (pantalla completa).\n2. Activa FancyZones y las zonas entre monitores en PowerToys. Alinea los monitores de Windows con tu mesa y usa la misma escala.\n3. Crea una zona Canvas para toda la ventana. Mantén Mayús y arrastra dentro el título de WoW.\n\nFancyZones coloca la ventana, pero conserva la barra de título."
-L["ONBOARD_PATH_COMPANION_3"] = "1. Activa Ventana. Si se bloquea, usa los ajustes de pantalla, no Ventana (pantalla completa).\n2. En Companion elige monitores y Mainhand.\n3. Dentro del mundo pulsa Span WoW Now.\n\nCompanion elimina la barra de título. Mantén desactivada la extensión automática durante la configuración inicial."
+
 L["ONBOARD_PATH_MANUAL_3"] = "1. Activa Ventana, desde los ajustes si hace falta. No Ventana (pantalla completa).\n2. Alinea los monitores de Windows con tu mesa.\n3. Mueve y ajusta WoW sobre los monitores o la región ultrapanorámica que quieras dividir.\n\nNo es automático. Quizá debas restaurar la colocación al reiniciar."
 L["ONBOARD_STATE_MODE_READY"] = "Modo ventana activo. La colocación y la calibración son pasos independientes."
 L["ONBOARD_STATE_MODE_OTHER"] = "Se requiere modo Ventana. Actívalo aquí o en los ajustes del juego, no Ventana (pantalla completa)."
@@ -164,7 +164,7 @@ L["ONBOARD_TITLE"] = "Te damos la bienvenida a Offhand"
 L["ONBOARD_PROGRESS"] = "First-time setup - Step %d of %d"
 L["ONBOARD_STEP_1_TITLE"] = "Convierte un segundo monitor en tu Offhand"
 L["ONBOARD_STEP_1_BODY"] = "This guide prepares Windows, WoW and Companion before the separate calibration wizard."
-L["ONBOARD_STEP_2_TITLE"] = "Elige cómo extender WoW"
+L["ONBOARD_STEP_2_TITLE"] = "Elige un solo método"
 L["ONBOARD_STEP_2_BODY"] = "On Windows, we recommend the Microsoft Store Companion for exact monitor geometry and borderless placement.\n\nFancyZones remains an option for an existing PowerToys setup. Manual resizing works on any platform. Portable Companion builds are available for Linux/Wine.\n\nChoose the method you will use to place WoW, then continue calibration."
 L["ONBOARD_STEP_3_TITLE"] = "Preparar Windows y WoW"
 L["ONBOARD_STEP_3_BODY"] = "Arrange displays in Windows and use WoW Windowed mode. Then use Companion, or manually resize WoW across both displays."
@@ -322,7 +322,7 @@ L["WIZARD_RECOMMENDATION_APPLIED"] = "Ajustes recomendados aplicados"
 L["WIZARD_CHECK_RECOMMENDATION"] = "Continúa para revisar la distribución, alineación y tamaño de la interfaz."
 L["BTN_SETTINGS"] = "Todos los ajustes"
 L["STEP_PROGRESS"] = "Paso %d de %d"
-L["STEP_1_HELP"] = "Guarda primero diseños Blizzard y perfiles de addons UI. Extender puede exigir recolocar la interfaz. Usa Ventana y alinea los monitores de Windows con tu mesa."
+
 L["STEP_2_HELP"] = "Elige el monitor del juego y su relación de aspecto. El otro será el monitor Offhand."
 L["WIZARD_STEP2_OPTIONS_LOCKED"] = "Opciones bloqueadas porque Companion aporta la geometría exacta. Cambia monitores o Mainhand en Companion y extiende de nuevo, o pulsa Siguiente."
 L["WIZARD_STEP3_OPTIONS_LOCKED"] = "El ancho Offhand está bloqueado por la geometría exacta de Companion. Cambia monitores o Mainhand allí y extiende de nuevo. El láser y el desplazamiento inferior siguen disponibles para alinear."
@@ -737,11 +737,11 @@ L["POPUP_COMPANION_HANDOFF_TEXT"] = "|cffffd100Offhand no pudo confirmar la expa
 L["POPUP_COMPANION_TOPOLOGY_TEXT"] = "|cffffd100La disposición guardada ya no coincide con la ventana WoW.|r\n\nLas versiones del addon y Companion podrían ser correctas. Abre |cffffd100Companion|r, comprueba monitores y Mainhand y pulsa |cffffd100Span WoW Now|r.\n\nEn WoW usa |cffffd100/reload|r una vez si ya estaba abierto al extender."
 L["POPUP_COMPANION_VERSION_TEXT"] = "|cffffd100Las versiones de Companion no coinciden|r\n\nEsta configuración de pantalla fue creada por Companion %s, pero este addon requiere %s. Actualiza Companion, vuelve a expandir WoW y escribe /reload.\n\nCopia la dirección oficial de descarga:"
 L["POPUP_BTN_GOT_IT"] = "Entendido"
-L["POPUP_WELCOME_WARNING_TEXT"] = "|cffffd100¡Te damos la bienvenida a Offhand!|r\n\nPara usar esta interfaz de dos monitores, la ventana de World of Warcraft debe extenderse a través de ambas pantallas. Actualmente, el juego solo se muestra en una.\n\nRecomendamos utilizar la |cff00ff00Offhand Companion App|r (.exe para Windows) para lograr automáticamente una extensión perfecta y sin bordes en tus monitores.\n\nEn cuanto el juego cubra ambos monitores, pulsa «Abrir asistente» para calibrar la interfaz."
+L["POPUP_WELCOME_WARNING_TEXT"] = "|cffffd100¡Bienvenido a Offhand!|r\n\nElige UN método: Companion (recomendado en Windows), FancyZones o ajuste manual. Usa el modo Ventana estándar, sigue solo ese método y termina la calibración en la misma guía."
 L["POPUP_BTN_GET_APP"] = "Obtener app (Copiar enlace)"
 L["POPUP_BTN_LAUNCH_WIZARD"] = "Abrir asistente"
 L["POPUP_BTN_IGNORE"] = "Ignorar"
-L["WIZARD_WELCOME_TEXT"] = "|cffffd100¡Te damos la bienvenida a Offhand!|r La ventana de World of Warcraft ya cubre ambos monitores.\n\nOffhand dividirá tu interfaz de forma óptima: situará el juego 3D en tu monitor principal y creará un espacio despejado en tu pantalla secundaria para mapas, bolsas y lecturas.\n\nPulsa abajo en |cff00ff00Configuración con un clic|r para calibrar al instante."
+L["WIZARD_WELCOME_TEXT"] = "|cffffd100Calibra la configuración elegida|r\n\nLa colocación de la ventana está completa. Mantén el mismo método; no necesitas probar las alternativas. Termina cada paso de calibración y la configuración HUD Mainhand que se ofrezca. Los temas, fondos y espacios personalizados son opcionales después."
 
 -- Newly Added Fields
 L["ENABLE_OFFHAND"] = "Activar Offhand en varios monitores"
@@ -841,8 +841,8 @@ L["ONBOARD_MANUAL_CONFIRM_TEXT"] = "|cffffd100Confirm this Offhand window|r\n\nC
 L["ONBOARD_MANUAL_CONFIRM_TEXT_FOREVER"] = "|cffffd100Confirm this Forever window|r\n\nForever cannot report the native window position. Continue only if FancyZones or you deliberately positioned WoW across the intended displays or ultrawide region."
 L["ONBOARD_MANUAL_CONFIRM_ACCEPT"] = "Recordar ventana"
 L["MSG_SPAN_GUIDE"] = "Coloca WoW en modo ventana con FancyZones, Companion o manualmente y confirma el área en Offhand."
-L["POPUP_WELCOME_WARNING_TEXT"] = "|cffffd100Welcome to Offhand!|r\n\nSet WoW to standard Windowed mode, then choose FancyZones, Offhand Companion, or manual resizing. Offhand validates the resulting canvas and guides calibration."
-L["WIZARD_WELCOME_TEXT"] = "|cffffd100Welcome to Offhand!|r This wizard verifies the current WoW canvas. Exact Companion topology is used when available; FancyZones and manual windows use the canvas remembered during window setup."
+
+
 L["READINESS_RECOVERY_FOREVER"] = "Persistencia SavedVariables; puente Companion opcional"
 L["POPUP_CONFIRM_EXISTING_WINDOW_TEXT"] = "|cffffd100Confirm your existing Offhand window|r\n\nThis update validates independently positioned windows before applying a split. Your saved profile has not been removed. If WoW is positioned correctly, choose Remember Current Window. Otherwise choose Not Now and run /offhand guide after positioning it."
 L["MAINHAND_GAMEPAD_PRESET_APPLIED"] = "Preajuste de mando activo adaptado a Mainhand; %d sistemas HUD movidos."
@@ -935,19 +935,19 @@ L["CHECK_ESC_PERSIST_LIMITED_DESC"] = "Mantiene abiertas con Escape las ventanas
 
 -- Aligned setup and recovery handbook (English fallback until translated).
 L["ONBOARD_PATH_FANCYZONES_4"] = "Comprueba que WoW ocupe la zona FancyZones deseada entre monitores.\n\nConfirma la colocación y recuerda la ventana. Solo confirma el tamaño, no los límites físicos ni la unión. Después viene la calibración."
-L["ONBOARD_PATH_COMPANION_4"] = "Dentro del mundo pulsa |cffffd100Span WoW Now|r en Companion. Vuelve aquí y pulsa |cffffd100Recargar interfaz|r para cargar la geometría.\n\nConfirmar colocación comprueba extensión y datos Companion. Luego elige Iniciar calibración: colocar la ventana no termina la configuración."
+
 L["ONBOARD_PATH_MANUAL_4"] = "Comprueba que colocaste WoW sobre los monitores o la región ultrapanorámica deseados.\n\nConfirma la colocación y recuerda la ventana para confirmar el tamaño. WoW no verifica límites físicos ni posición en el escritorio. Aún falta calibrar."
 L["ONBOARD_STATUS_CHECK_PROMPT"] = "Coloca WoW con el método elegido y confirma la colocación."
-L["HELP_OVERVIEW_BODY"] = "Usa estas secciones para configurar y recuperar. La bienvenida de Offhand reabre la configuración inicial, el asistente automático abre la calibración y Configurar ventana vuelve a la colocación. Recuperar interfaz perdida mueve solo elementos compatibles totalmente fuera de pantalla y conserva los visibles. El HUD protegido sigue bajo el modo de edición Blizzard."
-L["HELP_SETUP_BODY"] = "1. Guarda diseños Blizzard y perfiles UI. Abre /offhand guide e inicia la configuración.\n2. En Windows se recomienda Companion. FancyZones y manual siguen siendo alternativas; Linux/Wine es experimental.\n3. Usa Ventana normal. En Companion elige monitores y Mainhand y pulsa Span WoW Now dentro del mundo. En WoW recarga la interfaz y confirma la colocación.\n4. FancyZones/manual: comprueba visualmente, confirma y recuerda la ventana.\n5. Inicia la calibración. Completa detección, orientación Mainhand, unión y escala. Si es compatible, crea el HUD Mainhand fuera de combate con el modo de edición cerrado y recarga.\n6. Cierra normalmente y reinicia WoW. Restaura la extensión y comprueba espacio y HUD."
+L["HELP_OVERVIEW_BODY"] = "Empieza con /offhand guide y elige un método de colocación. Termina la calibración en la misma guía. El asistente automático repite la calibración; Configuración de ventana vuelve a la colocación.\n\nLas demás secciones son referencias, no tareas adicionales. Los temas, fondos y espacios personalizados son opcionales. Recuperar UI perdida sirve para paneles inaccesibles; el HUD de combate protegido sigue en el modo Edición de Blizzard."
+L["HELP_SETUP_BODY"] = "Guarda tu diseño del modo Edición y los perfiles de tus addons de interfaz.\n\n1. Abre /offhand guide. Elige UN método: Companion (recomendado en Windows), FancyZones o colocación manual.\n2. Sigue solo ese método en modo Ventana estándar. Companion: Span WoW Now, recarga la interfaz y confirma la colocación. FancyZones o manual: comprueba visualmente, confirma y recuerda la ventana.\n3. Continúa la misma guía con la calibración. Si se ofrece, crea el diseño HUD Mainhand fuera de combate con el modo Edición cerrado y recarga.\n\nReinicia WoW una vez y vuelve a aplicar tu colocación. Los espacios personalizados, temas y fondos son opcionales."
 L["HELP_COMPANION_TITLE"] = "Colocación de ventanas: Companion y alternativas"
-L["HELP_COMPANION_BODY"] = "En Windows recomendamos Companion para geometría exacta y extensión sin bordes. Elige monitores y Mainhand, dentro del mundo pulsa Span WoW Now y en Offhand Recargar interfaz y Confirmar colocación. Maximizar no es extender.\n\nAlternativas: coloca WoW con FancyZones o manualmente, comprueba ambos monitores, confirma y recuerda la ventana. Offhand lee el tamaño pero no verifica su posición en el escritorio. En ajustes la acción es Recordar ventana actual.\n\nLa geometría Companion está bloqueada a propósito. Cambia monitores o Mainhand allí y extiende otra vez. Linux/Wine portátil sigue siendo experimental."
+L["HELP_COMPANION_BODY"] = "Elige UN SOLO método de colocación.\n\nCompanion se recomienda en Windows por su colocación sin bordes y geometría exacta. FancyZones usa una zona de PowerToys. En manual, cambias el tamaño de WoW tú mismo. No necesitas Companion y FancyZones juntos.\n\nSigue tu método en /offhand guide y mantenlo durante la calibración. Con Companion, cambia allí las pantallas o Mainhand y aplica de nuevo; su geometría exacta está bloqueada en el addon. El soporte portátil Linux/Wine sigue siendo experimental."
 L["HELP_PANELS_BODY"] = "Arrastra a Offhand los títulos de paneles compatibles: mapa, personaje, bolsas y chat. Paneles independientes, persistencia y Escape tienen ajustes separados en Monitor Offhand y mapa. La restauración depende de panel, cliente y ajustes. Las ventanas de interacción se cierran al finalizarla.\n\nUsa los ajustes del mapa para la escala compatible. Los addons alternativos mantienen el control. Barras y marcos protegidos no son ventanas normales: usa el modo de edición Blizzard o los controles del addon propietario."
-L["HELP_RECOVERY_BODY"] = "Interfaz perdida: usa primero Recuperar interfaz perdida. Solo mueve elementos compatibles totalmente fuera de pantalla. Lee el resultado y recarga si se solicita.\n\nReunir interfaz en Mainhand también mueve ventanas visibles y posiciones guardadas. Crear/reconstruir HUD puede mover sistemas visibles y sustituir cambios. Haz copia antes y lee las confirmaciones.\n\nVentana/división incorrecta: repite la colocación. Con Companion extiende, recarga y confirma. Con FancyZones/manual comprueba visualmente antes de recordar.\n\nLista de diseños llena: sigue la guía. Exporta si hace falta uno sin uso y elimínalo tú. Cierra el modo de edición y repite. Offhand no elimina diseños.\n\nHUD protegido mal colocado: sal del combate y usa el modo de edición Blizzard o los controles del addon. Reconstruye solo si hace falta.\n\nCámara bloqueada verticalmente: mantén activa la entrada directa del ratón en Pantalla.\n\nMonitor desconectado: coloca WoW en uno disponible antes de cambiar el HUD. Restaura la extensión tras reconectar.\n\nPara problemas pendientes envía /offhand diag, cliente/compilación, versiones addon/Companion, disposición, pasos y errores nuevos. Si usas Companion incluye su registro de actividad."
+
 L["HELP_EDIT_MODE_TITLE"] = "HUD protegido y modo de edición de Blizzard"
-L["HELP_EDIT_MODE_BODY"] = "En clientes con integración Blizzard, incluidos Retail y Forever, usa Crear diseño HUD Mainhand fuera de combate con el modo de edición cerrado. Copia el diseño activo, conserva posiciones personalizadas y mueve anclajes predeterminados a Mainhand. Recarga cuando se indique.\n\nPersonaliza y guarda el diseño Offhand generado en el modo de edición Blizzard. Los diseños compartidos compatibles se reutilizan; la geometría y los addons propietarios pueden exigir uno independiente. Reconstruir puede sustituir cambios: haz copia antes.\n\nEn Forever, Usar diseño actual del modo de edición recuerda uno personalizado para el personaje. Los demás clientes mantienen su proceso. Para HUD externos usa los controles de su addon."
+
 L["HELP_COLD_LAUNCH_BODY"] = "Companion: restaura la extensión antes de comprobar paneles. Déjalo abierto para extensión automática o recuperación de monitores. Restore Window vuelve a una ventana normal.\n\nFancyZones: encaja WoW en la zona guardada si hace falta. Manual: restaura tamaño y posición. Recuerda la ventana actual solo tras comprobarla visualmente.\n\nTras cambios, cierra WoW normalmente y reinicia una vez. Comprueba extensión, paneles y HUD. No borres ajustes ni reconstruyas diseños solo porque la ventana aún no esté colocada."
-L["HELP_WELCOME_BODY"] = "La guía inicial tiene cinco pasos: bienvenida, método, modo ventana, colocación e inicio de calibración. La calibración es un proceso aparte. Cerrar pausa, no completa.\n\nCompanion requiere Span WoW Now, recarga y confirmación. La colocación independiente necesita comprobación visual y Recordar ventana. Termina calibración, HUD si es compatible y recargas solicitadas. Reabre con /offhand guide o calibra con /offhand wizard."
+
 
 L["COMPANION_DOWNLOAD_LINK_TEXT"] = "La aplicación Companion extiende automáticamente el juego sin bordes por varios monitores con precisión de píxel.\n\nRecomendado para Windows: copia la dirección de Microsoft Store que aparece abajo. Las versiones portátiles y las opciones para Linux/Wine siguen disponibles en offhand-wow.onrender.com/companion.html y en las versiones oficiales de GitHub."
 
@@ -996,3 +996,17 @@ L["WORKSPACE_CUSTOM_REQUIRED"] = "Aplica un plan con varios espacios de trabajo 
 L["COMPANION_WORKSPACES_SUMMARY"] = "Companion activo: juego %dx%d | %d espacios de trabajo"
 L["COMPANION_WORKSPACE_REGION_LINE"] = "Espacio de trabajo %d: %dx%d"
 L["COMPANION_PRIMARY_WORKSPACE"] = " (principal)"
+
+L["ONBOARD_PLACE_COMPANION"] = "Para dos pantallas completas, conserva el diseño estándar en Companion. Usa Identify Displays, elige pantallas y Mainhand y pulsa |cffffd100Span WoW Now|r arriba. Las áreas personalizadas son opcionales.\n\nVuelve aquí: |cffffd100Reload UI|r y después |cffffd100Confirm placement|r."
+
+L["ONBOARD_PATH_COMPANION_3"] = "Tras el modo ventana, continúa con Place WoW. Deja desactivada la expansión automática en esta primera prueba. Configuration contiene Identify Displays, Span displays y Mainhand. Show abre las secciones contraídas. Para dos pantallas completas, conserva el diseño estándar."
+
+L["ONBOARD_PATH_COMPANION_4"] = "Si la posición es incorrecta, usa Restore Window arriba en Companion, corrige pantallas y Mainhand y expande otra vez. Show abre System Status o Activity Log si hace falta. Tras corregir, recarga aquí y confirma. La calibración sigue a la confirmación."
+
+L["STEP_1_HELP"] = "La posición de la ventana ya está confirmada. Revisa la disposición detectada y la recomendación y continúa. Conserva el mismo método; no reinicies la colocación."
+
+L["HELP_EDIT_MODE_BODY"] = "Si el asistente ya creó el diseño HUD Mainhand, consérvalo. Usa el modo Edición de Blizzard para los ajustes personales y guarda.\n\nCrea o reconstruye solo cuando sea necesario, fuera de combate y con el modo Edición cerrado. Haz una copia antes: reconstruir puede sustituir los cambios. Recarga cuando se indique. En Forever, Use Current Edit Mode Layout designa un diseño personalizado guardado. Otros addons HUD conservan sus elementos."
+
+L["HELP_RECOVERY_BODY"] = "Ventana o división incorrecta: restaura primero el método elegido. Con Companion, expande y recarga; con FancyZones/manual, revisa antes de recordar la ventana. Tras desconectar una pantalla, reconéctala y restaura la ventana antes de cambiar el HUD.\n\nInterfaz compatible ausente: usa primero Recover Missing UI. Los elementos visibles se quedan. Gather Safe UI to Mainhand es más amplio y puede cambiar posiciones guardadas.\n\nHUD de combate mal colocado: sal del combate y usa el modo Edición de Blizzard o el addon responsable. Guarda antes de reconstruir. Si la lista está llena, elimina tú mismo solo un diseño no deseado; Offhand no elimina ninguno.\n\nPara soporte: /offhand diag, cliente, método, pantallas y síntoma exacto. Con Companion, copia también los diagnósticos de pantalla y las entradas pertinentes del registro."
+
+L["HELP_WELCOME_BODY"] = "La primera guía coloca la ventana. El asistente de calibración comprueba Mainhand, unión, tamaño de interfaz y el HUD que corresponda. Mantén el mismo método durante todo el proceso.\n\nCerrar una guía pausa el progreso. Reanuda con /offhand guide; /offhand wizard vuelve a la calibración. Después, organiza los paneles y comprueba un reinicio normal. La personalización opcional viene luego."
