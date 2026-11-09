@@ -1631,16 +1631,21 @@ kbd {
 .companion-first-run {
     display: grid;
     grid-template-columns: minmax(330px, 0.85fr) minmax(0, 1.15fr);
-    gap: 34px;
-    align-items: start;
+    gap: 48px;
+    align-items: center;
+    margin: 28px 0;
 }
 
-.companion-annotated-figure { margin: 0; min-width: 0; }
+.companion-annotated-figure {
+    margin: 0;
+    min-width: 0;
+    padding: 20px 12px;
+}
 
 .companion-shot-wrap {
     position: relative;
     width: 100%;
-    max-width: 526px;
+    max-width: 440px;
     margin: 0 auto;
 }
 
@@ -1654,7 +1659,7 @@ kbd {
 }
 
 .companion-annotated-figure figcaption {
-    max-width: 526px;
+    max-width: 440px;
     margin: 12px auto 0;
     color: var(--text-secondary);
     font-size: 0.82rem;
@@ -2014,7 +2019,9 @@ kbd {
 
     .settings-tour-wide { grid-column: auto; }
 
-    .companion-shot-wrap { max-width: 480px; }
+    .companion-first-run { gap: 28px; }
+    .companion-annotated-figure { padding: 8px 12px; }
+    .companion-shot-wrap { max-width: 440px; }
 }
 
 @media (max-width: 560px) {
