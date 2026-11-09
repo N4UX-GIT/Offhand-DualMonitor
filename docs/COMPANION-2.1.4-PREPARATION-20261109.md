@@ -138,3 +138,12 @@ UI Preview 4, file 2.1.4.8002. New ordinary runtime identity is 2.1.4.2. Prior
 candidate 1 and all published artifacts are preserved. The new import is only
 the UI metric query `user32.dll!GetSystemMetricsForDpi`; no input/process-memory
 capability was added.
+
+Corrected runtime commit: `eeea341`, file 2.1.4.2. Draft portable output is under
+`dist/companion-2.1.4-candidate-2/`, with its own source/hash receipt. Seven
+focused runs passed after this correction: preferences/dashboard, workspace UX
+(both architectures), ordinary and diagnostics color checks, Remote Desktop,
+interaction boundaries, and portable persistence. The stronger transition
+checks pass at every tested scale. Candidate 2 has not inherited candidate 1's
+WACK/Store-package verdict. Keep release on hold until the brief-flash review
+and fresh package preflight are complete. Preview 4 is open for that review.
