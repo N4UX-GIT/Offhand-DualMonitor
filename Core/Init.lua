@@ -51,6 +51,8 @@ Offhand.companionDownloadUrl = Offhand.companionStoreUrl
 -- The addon only links to Microsoft's documentation. It does not inspect or
 -- depend on PowerToys; FancyZones is one optional way to place the WoW window.
 Offhand.powerToysDownloadUrl = "https://aka.ms/getPowerToys"
+Offhand.websiteUrl = "https://offhand-wow.onrender.com/"
+Offhand.discordUrl = "https://discord.gg/J2P3SM6pAY"
 Offhand.modules = {}
 Offhand.callbacks = {}
 
@@ -564,6 +566,10 @@ end
 -- focus and binding stack. An addon-triggered popup can therefore taint
 -- FrameControlsManager before it reaches a protected gamepad action. Route all
 -- Offhand dialogs through one addon-owned card while that interface is active.
+-- Setup confirmations also use this card in keyboard/mouse UI: Blizzard's
+-- shared popup stack starts at the whole-canvas seam and then restores its TOP
+-- anchor. Position our own card inside Mainhand before Show instead of moving
+-- a native pooled dialog after its popup transaction.
 local function GetGamepadSafePopup()
     if Offhand._gamepadSafePopup then return Offhand._gamepadSafePopup end
 
@@ -640,7 +646,14 @@ end
 function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     local recoveryPopup = popupKey == "OFFHAND_CONFIRM_RECOVERY"
     local setupPopup = popupKey == "OFFHAND_DOWNLOAD_LINK" or popupKey == "OFFHAND_POWERTOYS_LINK"
+        or popupKey == "OFFHAND_WEBSITE_LINK" or popupKey == "OFFHAND_DISCORD_LINK"
+        or popupKey == "OFFHAND_CONFIRM_WINDOWED_MODE"
+        or popupKey == "OFFHAND_CONFIRM_PLACEMENT"
+        or popupKey == "OFFHAND_CONFIRM_MANUAL_LAYOUT"
+        or popupKey == "OFFHAND_CONFIRM_MANUAL_LAYOUT_FOREVER"
         or popupKey == "OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT"
+        or popupKey == "OFFHAND_MAINHAND_LAYOUT_RELOAD"
+        or popupKey == "OFFHAND_MAINHAND_LAYOUT_SELECT"
         or popupKey == "OFFHAND_HUD_SETUP_REMINDER"
         or popupKey == "OFFHAND_CHARACTER_SETUP"
         or popupKey == "OFFHAND_ELLESMERE_HUD_RELOAD"
@@ -1672,7 +1685,9 @@ SlashCmdList["OFFHAND"] = function(msg)
     msg = strtrim(msg or ""):lower()
     local cmd, arg = strsplit(" ", msg, 2)
 
-    if cmd == "ellesmere" and Offhand.EllesmereLayout then
+    if cmd == "recovermap" and Offhand.OpenMapRecovery then
+        Offhand.OpenMapRecovery:RunAndReport()
+    elseif cmd == "ellesmere" and Offhand.EllesmereLayout then
         Offhand.EllesmereLayout:Run(strtrim(arg or ""))
     elseif cmd == "notifycapture" then
         local hud = Offhand.HUD

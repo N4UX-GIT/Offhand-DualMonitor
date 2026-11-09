@@ -879,8 +879,22 @@ C_EditMode = {
 -- Simulate on-demand loading of Blizzard_EditMode
 addon.HUD.editModeLoadScheduled = nil
 local panelAttributeWrites = UIParent.attributeWrites or 0
+GameMenuFrame_Show = function()
+    GameMenuFrame:Show()
+    GameMenuFrame:ClearAllPoints()
+    GameMenuFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+end
 addon.HUD:HookFrames()
 addon.HUD:AlignHUDFrames(metrics)
+GameMenuFrame_Show()
+do
+local nativeMenuPoint = GameMenuFrame.points[1]
+assert(nativeMenuPoint[1] == "CENTER" and nativeMenuPoint[3] == "BOTTOMLEFT"
+    and nativeMenuPoint[4] == (metrics.gameLeft+metrics.gameRight)/2
+    and nativeMenuPoint[5] == (metrics.gameBottom+metrics.gameTop)/2,
+    "direct native GameMenuFrame_Show must reach physical Mainhand without ToggleGameMenu")
+end
+GameMenuFrame:Hide()
 assert((UIParent.attributeWrites or 0) == panelAttributeWrites,
     "Forever must not write legacy UIParent panel-layout attributes")
 
@@ -2675,6 +2689,39 @@ assert(addon.Canvas.IsFrameOnWorkspace(flightMap),
     "every later Flight Map interaction must restore the saved position")
 flightMap:Hide()
 print("PASS: context-bound Flight Map settles per interaction without reload opening")
+
+do
+for _, flightName in ipairs({"FlightMapFrame", "TaxiFrame"}) do
+    local previousForever, previousRoot = addon.isForever, _G[flightName]
+    local previousGrip = addon.PanelMotion.AttachGuardedTitleGrip
+    local previousWorkspace = addon.db.savedWorkspacePositions[flightName]
+    local previousMain = addon.db.savedMainPositions[flightName]
+    addon.isForever = true
+    addon.db.savedWorkspacePositions[flightName], addon.db.savedMainPositions[flightName] = nil, nil
+    addon.PanelMotion.AttachGuardedTitleGrip = function() return nil, "test_grip_unavailable" end
+    local flightWithoutGrip = makeMockFrame(flightName, 1004, 689)
+    flightWithoutGrip.IsProtected = function() return true end
+    flightWithoutGrip:Hide()
+    RegisterUIPanel(flightWithoutGrip)
+    flushTimers()
+    assert(not flightWithoutGrip._OffhandMovable, "fixture unexpectedly obtained a title grip")
+    flightWithoutGrip:ClearAllPoints()
+    flightWithoutGrip:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -1004, 0)
+    ShowUIPanel(flightWithoutGrip)
+    flushTimers(); flushTimers()
+    assert(flightWithoutGrip:IsShown() and flightWithoutGrip:GetLeft() >= metrics.gameLeft
+        and flightWithoutGrip:GetTop() <= metrics.gameTop,
+        "flight-master placement must not depend on successfully installing a drag grip")
+    assert(UIPanelWindows[flightName] and not flightWithoutGrip.scripts.OnShow,
+        "failed-grip recovery must preserve native registration and avoid native script hooks")
+    assert(flightWithoutGrip.rescueGeneration == nil and flightWithoutGrip.restoreGeneration == nil,
+        "failed-grip flight recovery must not store settlement markers on the native map")
+    flightWithoutGrip:Hide()
+    addon.PanelMotion.AttachGuardedTitleGrip = previousGrip
+    addon.db.savedWorkspacePositions[flightName], addon.db.savedMainPositions[flightName] = previousWorkspace, previousMain
+    addon.isForever, _G[flightName] = previousForever, previousRoot
+end
+end
 
 -- Moving an NPC-bound panel must not detach it from Blizzard's active UIPanel
 -- transaction. AuctionHouseFrame in particular stops reopening after a

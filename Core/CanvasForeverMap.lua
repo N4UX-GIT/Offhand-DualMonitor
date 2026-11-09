@@ -154,6 +154,26 @@ function Adapter.Install(Canvas, services)
     -- Social adapters run their dedicated repair, while the generic pass can only
     -- touch panels assigned to the generic controller.
     local function RepairUIPanelTransaction(exceptFrame, skipBagCapture)
+        if Offhand.isForever and Offhand.db and Offhand.db.enabled
+            and not (InCombatLockdown and InCombatLockdown())
+            and not NativeGamepadOwnsMap() and exceptFrame
+            and (exceptFrame == _G.FlightMapFrame or exceptFrame == _G.TaxiFrame)
+            and exceptFrame.IsShown and exceptFrame:IsShown() then
+            -- Flight placement must survive a failed/unavailable drag grip.
+            -- The native transaction already opened the interaction: recover
+            -- its root only, without showing a shell or adding native scripts.
+            local name = exceptFrame.GetName and exceptFrame:GetName()
+            local db = Offhand.db
+            local saved = db and ((db.savedWorkspacePositions and db.savedWorkspacePositions[name])
+                or (db.savedMainPositions and db.savedMainPositions[name]))
+            if saved then
+                RestoreWorkspacePosition(exceptFrame)
+            elseif Canvas.PlacePanelOnMainhand then
+                -- The shared transaction already has bounded settlement passes.
+                -- Do not add per-frame generation markers to this MapCanvas root.
+                Canvas:PlacePanelOnMainhand(exceptFrame, nil, nil, true)
+            end
+        end
         local map = _G.WorldMapFrame
         if IsForeverWorldMap(map) and map.IsShown and map:IsShown() then
             QueueForeverWorldMapSettlement(

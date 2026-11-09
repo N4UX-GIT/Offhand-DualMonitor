@@ -85,6 +85,11 @@ local addon = {
 local customBagAddon = false
 addon.HasCustomBagAddon = function() return customBagAddon end
 OffhandCharDB = {}
+-- This partial addon fixture needs only the reload capability; keep its
+-- existing client/input ownership doubles independent of other runtime APIs.
+local reloadRuntime = {}
+assert(loadfile("Core/ClientRuntime.lua"))("Offhand", reloadRuntime)
+addon.GetReloadUIFunction = reloadRuntime.GetReloadUIFunction
 assert(loadfile("Core/MainhandGeometry.lua"))("Offhand", addon)
 assert(loadfile("Core/MainhandCompatibility.lua"))("Offhand", addon)
 assert(loadfile("Core/MainhandGamepad.lua"))("Offhand", addon)
@@ -765,6 +770,8 @@ OffhandCharDB.foreverGamepadPanelOffsets = nil
 local openingDestinations = {
     "CharacterFrame", "PlayerSpellsFrame", "CalendarFrame", "CommunitiesFrame",
     "SocialUIFrame", "CollectionsJournal", "ContainerFrameCombinedBags",
+    "TaxiFrame", "MailFrame", "OpenMailFrame", "AuctionHouseFrame", "AuctionFrame",
+    "CooldownViewerSettings",
 }
 local previousDragHandles = addon.db.showGamepadPanelDragHandles
 addon.db.showGamepadPanelDragHandles = false
@@ -818,6 +825,28 @@ assert(addon.Mainhand:PromptReload()
     "keyboard reload prompt did not retain its normal reload action")
 StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.OnAccept()
 assert(reloadCalls == 1, "keyboard reload prompt did not call ReloadUI")
+do
+    local previousUI, previousReload, previousCombat = C_UI, ReloadUI, InCombatLockdown
+    local modernReloads = 0
+    C_UI, ReloadUI = { Reload = function() modernReloads = modernReloads + 1 end }, nil
+    addon.Mainhand:PromptReload()
+    StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.OnAccept()
+    assert(modernReloads == 1, "HUD reload must support the namespaced API without ReloadUI")
+    addon.Mainhand:PromptReload()
+    local click = StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.OnAccept
+    currentInterfaceStyle = Enum.InputDeviceInterfaceType.Gamepad
+    click()
+    assert(modernReloads == 1 and not StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.OnAccept,
+        "a stale reload button must recheck controller ownership and show manual guidance")
+    currentInterfaceStyle = 1
+    addon.Mainhand:PromptReload()
+    click = StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.OnAccept
+    InCombatLockdown = function() return true end
+    click()
+    assert(modernReloads == 1 and not StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.OnAccept,
+        "a stale reload button must recheck combat and show manual guidance")
+    C_UI, ReloadUI, InCombatLockdown = previousUI, previousReload, previousCombat
+end
 currentInterfaceStyle = Enum.InputDeviceInterfaceType.Gamepad
 
 CharacterFrame = frame("CharacterFrame")

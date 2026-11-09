@@ -20,7 +20,7 @@ L["ELLESMERE_HUD_WIZARD_EXISTING"] = "Ein Mainhand-HUD passt bereits zu dieser F
 L["ELLESMERE_HUD_WIZARD_SELECT"] = "Ein passendes Mainhand-HUD ist gespeichert. Fahre fort, um es auszuwählen und neu zu laden."
 L["ELLESMERE_HUD_WIZARD_SELECT_MANUAL"] = "Wähle „%s“ in Blizzards Bearbeitungsmodus und klicke auf Speichern. Schließe den Modus und gib /reload ein, um beim EllesmereUI-Schritt fortzufahren."
 L["ELLESMERE_HUD_WIZARD_RELOAD"] = "Lade neu, um das Mainhand-HUD anzuwenden und mit EllesmereUI fortzufahren."
-L["ELLESMERE_HUD_HELP_BODY"] = "Öffne mit EllesmereUI auf Forever die Vorschau im Assistenten oder unter Offhand-Monitor und Karte > Wiederherstellung und Vorschau. „Anpassen“ behält bereits sichtbare Positionen bei. Zum Kopieren oder Speichern eines Blizzard-Ersatzlayouts muss ein Mainhand-HUD für diese Fensteranordnung und diesen Eingabemodus aktiv sein. Wähle Positionen und „Profilimport prüfen“. Klicke in EllesmereUI auf „Import Selected Addons“. Nach Auswahl eines neuen Profils fordert Offhand zum Neuladen auf. Nutze EllesmereUIs Entsperrmodus für nicht unterstützte Elemente."
+L["ELLESMERE_HUD_HELP_BODY"] = "Öffne mit EllesmereUI auf Forever die Vorschau im Assistenten oder unter Offhand-Monitor > Wiederherstellung und Vorschau. „Anpassen“ behält bereits sichtbare Positionen bei. Zum Kopieren oder Speichern eines Blizzard-Ersatzlayouts muss ein Mainhand-HUD für diese Fensteranordnung und diesen Eingabemodus aktiv sein. Wähle Positionen und „Profilimport prüfen“. Klicke in EllesmereUI auf „Import Selected Addons“. Nach Auswahl eines neuen Profils fordert Offhand zum Neuladen auf. Nutze EllesmereUIs Entsperrmodus für nicht unterstützte Elemente."
 L["ELLESMERE_HUD_VISUAL_SOURCE"] = "EllesmereUI-Profil  %s    |    Blizzard-Layout  %s"
 L["ELLESMERE_HUD_FIT"] = "EllesmereUI an die Fensteranordnung anpassen"
 L["ELLESMERE_HUD_COPY"] = "Offhand nach EllesmereUI kopieren"
@@ -75,12 +75,12 @@ L["IDENTIFY_DISPLAYS"] = "Mainhand / Offhand anzeigen"
 L["ONBOARD_INTRO_BRIEF"] = "Spiele auf Mainhand und nutze unterstützte Fenster auf Offhand.\n\nSichere zuerst dein Blizzard-Layout und deine UI-Addon-Profile. Die erweiterte Fensterfläche kann Anpassungen eigener Oberflächen erfordern.\n\nWähle eine Platzierungsmethode und kalibriere danach. Schließen pausiert die Einrichtung."
 L["ONBOARD_CONTINUE_SETUP"] = "Einrichtung fortsetzen"
 L["ONBOARD_CALIBRATE_TASK_TITLE"] = "Mainhand kalibrieren"
-L["ONBOARD_CALIBRATE_TASK_EDITMODE"] = "1. Klicke unten auf %s.\n2. Bestätige Mainhand, richte die Trennlinie aus und wähle die UI-Größe.\n3. Wähle im letzten Schritt |cffffd100Mainhand-HUD-Layout erstellen|r, |cffffd100außerhalb des Kampfes|r mit |cffffd100geschlossenem Blizzard-Bearbeitungsmodus|r.\n\nFensterplatzierung ist erst der Anfang. Der Assistent beendet Kalibrierung und HUD-Einrichtung."
+L["ONBOARD_CALIBRATE_TASK_EDITMODE"] = "Klicke auf %s, um die Kalibrierung zu öffnen.\n\nPrüfe die Bildschirmkante und UI-Größe und erstelle dein Mainhand-HUD. Lade die UI neu, wenn du dazu aufgefordert wirst."
 L["ONBOARD_CALIBRATE_TASK_CLASSIC"] = "1. Klicke unten auf %s.\n2. Bestätige im Assistenten Mainhand, richte die Trennlinie aus und wähle die UI-Größe.\n3. Wähle |cffffd100Einrichtung abschließen|r und ziehe unterstützte Fenster auf Offhand.\n\nDieser Client benötigt kein erzeugtes Blizzard-Layout."
 L["ONBOARD_MODE_BEFORE"] = "Abbildung: Fenstermodus (Vollbild)"
 L["ONBOARD_MODE_AFTER"] = "Abbildung: Fenstermodus mit Titelleiste"
 L["ONBOARD_BEGIN"] = "Einrichtung starten"
-L["ONBOARD_CHOOSE_BRIEF"] = "Wähle, wie WoW über deine Bildschirme verteilt wird.\n\nCompanion: auf Windows empfohlen, im Microsoft Store erhältlich, für randlose Platzierung und exakte Geometrie.\nFancyZones: vorhandene PowerToys-Einrichtung nutzen.\nManuell: Fenster selbst anpassen.\n\nDie Auswahl startet keinen Download."
+L["ONBOARD_CHOOSE_BRIEF"] = "Companion (empfohlen)\nAutomatische Fensterplatzierung unter Windows.\n\nFancyZones\nVorhandene PowerToys-Einrichtung nutzen.\n\nManuell\nWoW selbst in der Größe anpassen.\n\nWähle unten eine Methode."
 L["ONBOARD_SOFTWARE_FANCYZONES_TITLE"] = "PowerToys schon vorhanden?"
 L["ONBOARD_SOFTWARE_COMPANION_TITLE"] = "Companion schon vorhanden?"
 L["ONBOARD_SOFTWARE_BRIEF"] = "Falls bereits installiert, wähle „Bereits installiert“. Andernfalls beziehe und installiere die Software und kehre hierher zurück.\n\nEine Neuinstallation ist nicht nötig."
@@ -134,7 +134,7 @@ L["IDENTIFY_CLOSE"] = "Beschriftungen ausblenden"
 L["IDENTIFY_COMBAT"] = "Verlasse den Kampf vor der Bildschirmkennzeichnung."
 L["IDENTIFY_TIP"] = "Beschriftet Mainhand und Offhand vorübergehend in WoW. Nutze vor der Erweiterung Windows-Anzeigeeinstellungen > Identifizieren für physische Monitore. Keine Anzeigeeinstellung wird geändert."
 L["BTN_APPLY_SHORT"] = "Anwenden"
-L["TAB_HELP"] = "Hilfe & Wiederherstellung"
+L["TAB_HELP"] = "Hilfe & Einrichtung"
 L["UI_SECTIONS"] = "Auf dieser Seite"
 L["CARD_GROUP_LOOT"] = "Beutewürfe für Gruppen"
 L["GROUP_LOOT_MOVE_DESC"] = "Wähle die Position des ersten Bedarfs-/Gierwurfs auf Mainhand. Weitere Würfe werden in der gewählten Richtung angeordnet."
@@ -285,7 +285,7 @@ L["MAINHAND_LAYOUT_STATUS"] = "Mainhand-HUD-Layout: %s"
 L["MAINHAND_LAYOUT_UNSET"] = "Nicht erstellt"
 L["MAINHAND_LAYOUT_STALE"] = "%s (Aktualisierung erforderlich)"
 L["MAINHAND_LAYOUT_RELOAD_TEXT"] = "Offhand hat das Mainhand-HUD-Layout erstellt und ausgewählt. Jetzt neu laden, damit Blizzard alle geschützten Frames anwendet?"
-L["MAINHAND_LAYOUT_RELOAD_MANUAL"] = "Offhand hat das Mainhand-HUD-Layout erstellt und ausgewählt. Forever blockiert von Addons angeforderte Neuladungen im Gamepad-Modus. Schließe diese Meldung und gib dann /reload ein."
+L["MAINHAND_LAYOUT_RELOAD_MANUAL"] = "Dein Mainhand-HUD-Layout ist bereit. Verlasse bei Bedarf den Kampf und gib /reload im Chat ein."
 L["MAINHAND_LAYOUT_SELECT_MANUAL"] = "Layout „%s“ erstellt, aber Forever erlaubt keine Addon-Auswahl. Schließe Offhand, öffne Blizzards Bearbeitungsmodus, wähle es im Layoutmenü und speichere. Das HUD sollte sofort wechseln. Kehre zu Offhand zurück und wähle „Aktuelles Bearbeitungsmodus-Layout verwenden“."
 L["PROFILE_NEW_NAME"] = "Neuer Profilname"
 L["PROFILE_ACTIVE"] = "(aktiv)"
@@ -322,7 +322,7 @@ L["WIZARD_RECOMMENDATION_APPLIED"] = "Empfohlene Einstellungen angewendet"
 L["WIZARD_CHECK_RECOMMENDATION"] = "Prüfe als Nächstes Monitoranordnung, Ausrichtung und UI-Größe."
 L["BTN_SETTINGS"] = "Alle Einstellungen"
 L["STEP_PROGRESS"] = "Schritt %d von %d"
-L["STEP_1_HELP"] = "Sichere zuerst Blizzard-Layouts und UI-Addon-Profile. Eine Erweiterung kann eigene UI-Anpassungen erfordern. Nutze Fenstermodus und ordne Windows-Bildschirme wie auf dem Schreibtisch an."
+L["STEP_1_HELP"] = "Sichere dein Blizzard-Layout und deine UI-Addon-Profile, bevor du fortfährst."
 L["STEP_2_HELP"] = "Wähle den Spielmonitor und sein Seitenverhältnis. Der andere wird zum Offhand-Monitor."
 L["WIZARD_STEP2_OPTIONS_LOCKED"] = "Diese Optionen sind gesperrt, weil Companion die exakte Geometrie liefert. Ändere Bildschirme oder Mainhand in Companion und erweitere erneut, oder klicke zum Fortfahren auf Weiter."
 L["WIZARD_STEP3_OPTIONS_LOCKED"] = "Die Offhand-Breite ist durch Companions exakte Geometrie gesperrt. Ändere Bildschirme oder Mainhand dort und erweitere erneut. Laser und unterer Spielversatz bleiben zur Ausrichtung verfügbar."
@@ -337,7 +337,7 @@ L["EDIT_MODE_LAYOUT_MISSING"] = "Forever verwendet Blizzards Bearbeitungsmodus f
 L["EDIT_MODE_LAYOUT_MISSING_RETAIL"] = "Blizzards Bearbeitungsmodus verwaltet Aktionsleisten und Kampffenster. Positioniere sie außerhalb des Kampfes auf dem Hauptmonitor und wähle das Layout für diesen Charakter. Offhand merkt sich diese Auswahl pro Charakter."
 L["COMPAT_ELLESMERE_PARTY"] = "EllesmereUI-Schlachtzugfenster erkannt. Positioniere die Ersatz-Gruppen- und Schlachtzugfenster im Entsperrmodus von EllesmereUI. Deaktiviere das EllesmereUI-Schlachtzugfenster-Modul, um stattdessen Blizzards Bearbeitungsmodus zu verwenden."
 
-L["HELP_OVERVIEW_TITLE"] = "Offhand-Handbuch für Einrichtung und Wiederherstellung"
+L["HELP_OVERVIEW_TITLE"] = "Einrichtung & Hilfe"
 L["HELP_COLD_LAUNCH_TITLE"] = "Alltag, Beenden und Kaltstartprüfung"
 L["HELP_WELCOME_TITLE"] = "Begrüßung und Einrichtungsstatus"
 
@@ -350,9 +350,9 @@ L["CONFIG_SAVED"] = "Offhand-Konfiguration gespeichert."
 
 -- Options Dashboard Header & Tabs
 L["OPTIONS_TITLE"] = "OFFHAND-MEHRMONITOR-ARBEITSBEREICH"
-L["TAB_DISPLAY"] = "Anzeige & Spielbereich"
-L["TAB_WORKSPACE"] = "Offhand-Monitor & Karte"
-L["TAB_THEMES"] = "Designs & Farben"
+L["TAB_DISPLAY"] = "Anzeige & HUD"
+L["TAB_WORKSPACE"] = "Offhand-Monitor"
+L["TAB_THEMES"] = "Aussehen"
 L["BTN_AUTO_WIZARD"] = "Einrichtungsassistent"
 L["BTN_AUTO_WIZARD_TIP_TITLE"] = "Assistent zur Bildschirmkalibrierung"
 L["BTN_AUTO_WIZARD_TIP_DESC"] = "Öffnet den Assistenten zur Auflösungserkennung und Kalibrierung der Monitorgrenze."
@@ -433,7 +433,7 @@ L["SLIDER_BEZEL_GAP"] = "Rahmenabstand korrigieren:"
 L["SLIDER_BEZEL_GAP_TIP_TITLE"] = "Rahmenausgleich"
 L["SLIDER_BEZEL_GAP_TIP_DESC"] = "Schafft eine leere Zone zum Ausgleich der physischen Rahmen zwischen den Bildschirmen."
 
--- Tab 2: Offhand Monitor & Map
+-- Tab 2: Offhand Monitor
 L["CARD_WORKSPACE_MGMT"] = "1. Offhand-Fensterverwaltung"
 L["CHECK_CANVAS_ENABLED"] = "Offhand-Arbeitsfläche aktivieren"
 L["CHECK_CANVAS_ENABLED_TIP_TITLE"] = "Offhand-Arbeitsfläche"
@@ -939,11 +939,11 @@ L["ONBOARD_PATH_FANCYZONES_4"] = "Prüfe, ob WoW die gewünschte bildschirmüber
 L["ONBOARD_PATH_COMPANION_4"] = "Klicke in Companion nach Betreten der Spielwelt auf |cffffd100Span WoW Now|r. Kehre zurück und wähle |cffffd100UI neu laden|r, um die Geometrie zu laden.\n\n„Platzierung bestätigen“ prüft Erweiterung und Companion-Daten. Wähle dann „Kalibrierung starten“. Die Fensterplatzierung beendet die Einrichtung nicht."
 L["ONBOARD_PATH_MANUAL_4"] = "Prüfe deine bewusste Platzierung über die gewünschten Bildschirme oder den Ultrabreitbereich.\n\nBestätige die Platzierung und merke das Fenster, um die Größe zu bestätigen. WoW kann physische Bildschirmgrenzen und Desktopposition nicht prüfen. Die Kalibrierung folgt noch."
 L["ONBOARD_STATUS_CHECK_PROMPT"] = "Platziere WoW mit der gewählten Methode und bestätige die Platzierung."
-L["HELP_OVERVIEW_BODY"] = "Diese Abschnitte helfen bei Einrichtung und Wiederherstellung. „Willkommen bei Offhand“ öffnet die Ersteinrichtung, der Einrichtungsassistent die Kalibrierung und „Fenstereinrichtung“ die Platzierung. „Fehlende UI bergen“ verschiebt nur vollständig unsichtbare unterstützte Elemente. Sichtbare bleiben erhalten. Geschützte Kampffenster verwaltet weiterhin Blizzards Bearbeitungsmodus."
+L["HELP_OVERVIEW_BODY"] = "Neue Einrichtung oder andere Bildschirme? Beginne mit der Fenstereinrichtung und starte dann die Kalibrierung.\n\nFehlende Fenster und HUD-Reparatur findest du unter Offhand-Monitor > Wiederherstellung & Vorschau."
 L["HELP_SETUP_BODY"] = "1. Sichere Blizzard-Layouts und UI-Profile. Öffne /offhand guide und starte die Einrichtung.\n2. Wähle unter Windows bevorzugt Companion. FancyZones und manuelle Platzierung bleiben Alternativen; Linux/Wine ist experimentell.\n3. Nutze normalen Fenstermodus. Wähle in Companion Bildschirme und Mainhand, klicke in der Spielwelt auf „Span WoW Now“. Lade in WoW die UI neu und bestätige die Platzierung.\n4. Mit FancyZones/manuell: Sichtprüfung, Platzierung bestätigen, Fenster merken.\n5. Starte die Kalibrierung. Bestätige Erkennung, Mainhand-Ausrichtung, Trennlinie und UI-Größe. Erstelle bei Unterstützung außerhalb des Kampfes mit geschlossenem Bearbeitungsmodus das Mainhand-HUD und lade neu.\n6. Beende WoW normal und starte neu. Stelle die Erweiterung wieder her und prüfe Arbeitsfläche und HUD."
 L["HELP_COMPANION_TITLE"] = "Fensterplatzierung: Companion und Alternativen"
 L["HELP_COMPANION_BODY"] = "Auf Windows empfehlen wir Companion für exakte Bildschirmgeometrie und randlose Erweiterung. Wähle dort Bildschirme und Mainhand, klicke in der Spielwelt auf „Span WoW Now“ und in Offhand auf „UI neu laden“ sowie „Platzierung bestätigen“. Maximieren ist keine Erweiterung.\n\nAlternativ: Platziere WoW mit FancyZones oder manuell, prüfe beide Bildschirme und bestätige und merke das Fenster. Offhand liest die Größe, kann aber die Desktopposition nicht prüfen. In den Einstellungen heißt die Aktion „Aktuelles Fenster merken“.\n\nCompanion-Geometrie ist absichtlich gesperrt. Ändere Bildschirme oder Mainhand in Companion und erweitere erneut. Portable Linux/Wine-Unterstützung ist experimentell."
-L["HELP_PANELS_BODY"] = "Ziehe unterstützte normale Fenster wie Weltkarte, Charakter, Taschen und Chat an ihren Titelleisten auf Offhand. Unabhängige Fenster, Persistenz und Escape haben eigene Optionen unter Offhand-Monitor und Karte. Wiederherstellung hängt von Fenster, Client und Einstellungen ab. Interaktionsfenster schließen beim Ende ihrer Interaktion.\n\nNutze die Karteneinstellungen für unterstützte Skalierung. Ersatzaddons behalten ihre Fensterkontrolle. Aktionsleisten und geschützte Kampffenster sind keine normalen Arbeitsflächenfenster: Nutze Blizzards Bearbeitungsmodus oder die Werkzeuge des Ersatzaddons."
+L["HELP_PANELS_BODY"] = "Ziehe unterstützte normale Fenster wie Weltkarte, Charakter, Taschen und Chat an ihren Titelleisten auf Offhand. Unabhängige Fenster, Persistenz und Escape haben eigene Optionen unter Offhand-Monitor. Wiederherstellung hängt von Fenster, Client und Einstellungen ab. Interaktionsfenster schließen beim Ende ihrer Interaktion.\n\nNutze die Karteneinstellungen für unterstützte Skalierung. Ersatzaddons behalten ihre Fensterkontrolle. Aktionsleisten und geschützte Kampffenster sind keine normalen Arbeitsflächenfenster: Nutze Blizzards Bearbeitungsmodus oder die Werkzeuge des Ersatzaddons."
 L["HELP_RECOVERY_BODY"] = "Fehlende UI: Nutze zuerst „Fehlende UI bergen“. Nur vollständig unsichtbare unterstützte Elemente werden verschoben. Lies das Ergebnis und lade bei Aufforderung neu.\n\n„Sichere UI nach Mainhand holen“ verschiebt auch sichtbare Fenster und gespeicherte Positionen. HUD-Erstellung/Neuaufbau kann sichtbare Systeme und eigene Änderungen ersetzen. Sichere vorher und lies die Bestätigungen.\n\nFalsches Fenster/Aufteilung: Stelle die Platzierung erneut her. Mit Companion erweitern, neu laden und bestätigen. Mit FancyZones/manuell vor dem Merken sichtbar prüfen.\n\nVolle Layoutliste: Folge der Anleitung. Exportiere bei Bedarf ein ungenutztes Layout und lösche es selbst. Schließe den Bearbeitungsmodus und versuche erneut. Offhand löscht keine Layouts.\n\nGeschütztes HUD falsch platziert: Verlasse den Kampf und nutze Blizzards Bearbeitungsmodus oder die Werkzeuge des HUD-Addons. Baue nur bei Bedarf neu auf.\n\nKamera bewegt sich nicht vertikal: Lass rohe Mauseingabe unter Anzeige aktiv.\n\nBildschirm getrennt: Platziere WoW zuerst auf einem verfügbaren Bildschirm. Stelle die Erweiterung nach dem Anschließen wieder her.\n\nBei offenen Problemen: /offhand diag, Client/Build, Addon-/Companion-Versionen, Bildschirmanordnung, Schritte und frische Fehler senden. Mit Companion auch das Aktivitätsprotokoll beilegen."
 L["HELP_EDIT_MODE_TITLE"] = "Geschütztes HUD und Blizzard-Bearbeitungsmodus"
 L["HELP_EDIT_MODE_BODY"] = "Auf Clients mit Blizzard-Layoutintegration, einschließlich Retail und Forever, nutze außerhalb des Kampfes bei geschlossenem Bearbeitungsmodus „Mainhand-HUD-Layout erstellen“. Dies kopiert das aktive Layout, erhält eigene Positionen und verschiebt Standardanker nach Mainhand. Lade bei Aufforderung neu.\n\nPasse das erzeugte Offhand-Layout in Blizzards Bearbeitungsmodus an und speichere. Kompatible gemeinsame Layouts sind wiederverwendbar. Geometrie und zuständige Addons können separate Layouts erfordern. Neuaufbau kann eigene Änderungen ersetzen: vorher sichern.\n\nAuf Forever merkt „Aktuelles Bearbeitungsmodus-Layout verwenden“ ein gespeichertes eigenes Layout für den Charakter. Andere Clients behalten ihren Ablauf. Verwende für externe HUD-Elemente die Werkzeuge ihres Addons."
@@ -951,3 +951,72 @@ L["HELP_COLD_LAUNCH_BODY"] = "Companion: Stelle die gewünschte Erweiterung vor 
 L["HELP_WELCOME_BODY"] = "Die Erstanleitung hat fünf Schritte: Begrüßung, Methode, Fenstermodus, Platzierung und Übergabe zur Kalibrierung. Der Kalibrierungsassistent ist separat. Schließen pausiert, bestätigt aber keinen Abschluss.\n\nCompanion benötigt „Span WoW Now“, UI-Neuladen und Platzierungsbestätigung. Unabhängige Platzierung braucht Sichtprüfung und „Fenster merken“. Beende die Kalibrierung und bei Unterstützung die HUD-Erstellung samt angefordertem Neuladen. Öffne die Anleitung mit /offhand guide oder die Kalibrierung mit /offhand wizard."
 
 L["COMPANION_DOWNLOAD_LINK_TEXT"] = "Die Companion-App spannt das Spiel automatisch pixelgenau und randlos über mehrere Monitore.\n\nFür Windows empfohlen: Kopiere die unten stehende Microsoft-Store-Adresse. Portable Versionen und Optionen für Linux/Wine findest du weiterhin auf offhand-wow.onrender.com/companion.html und in den offiziellen GitHub-Veröffentlichungen."
+
+-- Explicit OpenMap title recovery.
+L["OPENMAP_RECOVERY_BUTTON"] = "OpenMap-Titelleiste zurückholen"
+L["OPENMAP_RECOVERY_TIP"] = "Holt die Titelleiste der geöffneten OpenMap im Fenstermodus auf Mainhand und speichert die Position. Größe und Skalierung bleiben erhalten. Unterstützt OpenMap v0.7.5-beta auf Forever. Zuerst den Kampf verlassen."
+L["OPENMAP_RECOVERY_DONE"] = "Kartentitelleiste auf Mainhand zurückgeholt. Zum Platzieren die obere Titelleiste ziehen."
+L["OPENMAP_RECOVERY_COMBAT"] = "Verlasse den Kampf und hole dann die OpenMap-Titelleiste erneut zurück."
+L["OPENMAP_RECOVERY_UNAVAILABLE"] = "Öffne zuerst OpenMap im Fenstermodus und lasse die Maustaste los. Die Wiederherstellung unterstützt OpenMap v0.7.5-beta auf Forever mit aktiviertem Offhand, Standardoberfläche und ohne anderen Kartenverschieber."
+
+-- Map scale ownership and availability.
+L["MAP_SCALE_TARGET_HELP"] = "Skaliert die Karte auf ihrem aktuellen Monitor. Automatisch passt sie dort ein."
+L["MAP_SCALE_OPENMAP_HELP"] = "OpenMap: 50–160 %. Automatisch passt die Karte auf den aktuellen Monitor."
+L["MAP_SCALE_UNAVAILABLE"] = "Karte außerhalb des Kampfes im Fenstermodus mit Maus/Tastatur öffnen. Andere Karten-Addons haben eigene Einstellungen."
+
+-- Guided placement checkpoint and recommended next action.
+L["ONBOARD_SPAN_COMPANION"] = "1. Wähle im Companion deine Monitore und Mainhand.\n\n2. Klicke im Companion auf |cffffd100Span WoW Now|r.\n\n3. Kehre zurück, sobald WoW deine Bildschirme abdeckt, und klicke auf %s."
+L["ONBOARD_SPAN_FANCYZONES"] = "Erstelle eine FancyZones-Canvas-Zone über die gewünschten Bildschirme. Halte die Umschalttaste gedrückt und ziehe WoW hinein. Kehre zurück und klicke auf %s."
+L["ONBOARD_SPAN_MANUAL"] = "Verschiebe und vergrößere WoW über die gewünschten Bildschirme oder den Ultrawide-Bereich. Klicke dann auf %s. Dies ist deine Bestätigung, keine automatische Monitorerkennung."
+L["ONBOARD_SPAN_ACK"] = "Fenster ist positioniert"
+L["ONBOARD_RELOAD_TASK"] = "Klicke unten auf %s.\n\nDiese Anleitung kehrt nach dem Neuladen zurück."
+L["ONBOARD_CONFIRM_TASK"] = "Prüfe, ob WoW deine Bildschirme abdeckt und der Spielbereich sichtbar ist.\n\nKlicke auf %s, um die Platzierung zu prüfen."
+L["ONBOARD_CONFIRM_REVIEW"] = "Du hast WoW positioniert und die UI neu geladen. Deckt das Fenster die gewünschten Bildschirme oder den Ultrawide-Bereich ab und ist der Spielbereich sichtbar? Bestätige nur, wenn du diese Platzierung kalibrieren möchtest."
+L["ONBOARD_CHECKPOINT_REQUIRED"] = "Positioniere zuerst das Fenster und lade dann die UI neu. Danach wird die Platzierungsbestätigung freigeschaltet."
+L["SETUP_NEXT_ACTION"] = "Weiter: %s"
+
+-- Visual setup task cards and progress.
+L["SETUP_STAGE_START"] = "Beginn"
+L["SETUP_STAGE_METHOD"] = "Methode"
+L["SETUP_STAGE_WINDOW"] = "Fenster"
+L["SETUP_STAGE_PLACE"] = "Platzierung"
+L["SETUP_STAGE_CALIBRATE"] = "Kalibrieren"
+L["SETUP_STAGE_DETECT"] = "Erkennung"
+L["SETUP_STAGE_SEAM"] = "Naht"
+L["SETUP_STAGE_SCALE"] = "Skalierung"
+L["SETUP_STAGE_HUD"] = "Spiel-HUD"
+L["SETUP_VISUAL_WINDOW"] = "Beispiele für Fenstermodi (Abbildung)"
+L["SETUP_VISUAL_POSITION"] = "Prüfe Mainhand und Offhand"
+L["SETUP_VISUAL_RELOAD"] = "Fortschritt der Platzierung (Abbildung)"
+L["SETUP_VISUAL_SEAM"] = "Richte die rote Linie an der Monitornaht aus"
+L["SETUP_VISUAL_SCALE"] = "Vorschau der Textgröße"
+L["SETUP_VISUAL_HUD"] = "Ziel: Das Spiel-HUD bleibt auf Mainhand"
+L["SETUP_VISUAL_EXAMPLE"] = "Beispiellayout"
+L["SETUP_VISUAL_CONFIGURED"] = "Konfigurierte Bereiche"
+L["SETUP_VISUAL_SAMPLE"] = "Aa 123   Questziele   Taschen"
+
+L["WIZARD_COMPANION_LAYOUT_TITLE"] = "Deine Bildschirmanordnung"
+
+L["WIZARD_COMPANION_SUMMARY"] = "Companion hat den Spiel- und Arbeitsbereich eingerichtet."
+
+L["WIZARD_COMPANION_CHANGE"] = "Ändere die Bildschirme in Companion, spanne WoW erneut auf und lade dann die UI neu."
+
+L["WIZARD_COMPANION_ACTION"] = "Companion-Anordnung verwenden"
+
+L["WIZARD_COMPANION_SEAM"] = "Prüfe die rote Linie am Rand des Spielbereichs. Passe die vertikale Position nur bei Bedarf an."
+
+L["WIZARD_HUD_SHORT_BODY"] = "Erstelle eine Kopie deines Blizzard-HUDs für Mainhand. Das Original bleibt erhalten.\n\nVerlasse den Kampf und schließe den Bearbeitungsmodus. Klicke dann unten und lade die UI neu, wenn du dazu aufgefordert wirst."
+
+L["HEADER_CRAFTED_BY"] = "Erstellt von: N4UX."
+
+L["BTN_WEBSITE"] = "Webseite"
+
+L["BTN_DISCORD"] = "Discord"
+
+L["WEBSITE_LINK_TEXT"] = "Kopiere diese Adresse in deinen Browser, um die Offhand-Webseite zu öffnen."
+
+L["DISCORD_LINK_TEXT"] = "Kopiere diese Adresse in deinen Browser, um dem Offhand-Discord beizutreten."
+
+L["BTN_OPEN_RECOVERY"] = "Wiederherstellung"
+
+L["CARD_CHARACTER_WINDOW"] = "Charakterfenster"

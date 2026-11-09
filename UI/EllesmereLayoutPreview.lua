@@ -162,7 +162,7 @@ end
 function Transfer:PromptImportReload()
     if not self:HasPendingReload() or not (StaticPopupDialogs and Offhand.ShowPopup) then return end
     local mainhand = Offhand.Mainhand
-    local manual = not ReloadUI or (InCombatLockdown and InCombatLockdown())
+    local manual = not Offhand:GetReloadUIFunction() or (InCombatLockdown and InCombatLockdown())
         or mainhand and mainhand.IsNativeGamepadInterface and mainhand:IsNativeGamepadInterface()
     StaticPopupDialogs.OFFHAND_ELLESMERE_HUD_RELOAD = {
         text = L[manual and "ELLESMERE_HUD_IMPORT_RELOAD_MANUAL" or "ELLESMERE_HUD_IMPORT_RELOAD_PROMPT"],
@@ -173,7 +173,10 @@ function Transfer:PromptImportReload()
             if InCombatLockdown and InCombatLockdown() then
                 Offhand:Print(L["ELLESMERE_HUD_RELOAD"])
             else
-                ReloadUI()
+                local reload = Offhand:GetReloadUIFunction()
+                if reload and not (mainhand and mainhand.IsNativeGamepadInterface
+                    and mainhand:IsNativeGamepadInterface()) then reload()
+                else self:PromptImportReload() end
             end
         end or nil,
         timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,

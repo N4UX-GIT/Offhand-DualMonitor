@@ -33,12 +33,12 @@ L["IDENTIFY_DISPLAYS"] = "Show Mainhand / Offhand"
 L["ONBOARD_INTRO_BRIEF"] = "Keep the game on Mainhand and supported panels on Offhand.\n\nBefore setup, save a copy of your Blizzard Edit Mode layout and back up your UI addon profiles. Spanning changes the canvas, so custom interfaces may need repositioning.\n\nChoose a placement method, then calibrate. Closing this guide pauses setup."
 L["ONBOARD_CONTINUE_SETUP"] = "Continue setup"
 L["ONBOARD_CALIBRATE_TASK_TITLE"] = "Calibrate Mainhand"
-L["ONBOARD_CALIBRATE_TASK_EDITMODE"] = "1. Click %s below.\n2. Follow the wizard to confirm Mainhand, align the seam and choose a comfortable UI size.\n3. On the final wizard step, click |cffffd100Create Mainhand HUD Layout|r while |cffffd100outside combat|r with |cffffd100Blizzard Edit Mode closed|r.\n\nWindow placement is only the first stage. The wizard completes calibration and HUD setup."
+L["ONBOARD_CALIBRATE_TASK_EDITMODE"] = "Click %s to open calibration.\n\nCheck the seam and UI size, then create your Mainhand HUD. Reload when asked."
 L["ONBOARD_CALIBRATE_TASK_CLASSIC"] = "1. Click %s below.\n2. Follow the wizard to confirm Mainhand, align the seam and choose a comfortable UI size.\n3. Click |cffffd100Finish Setup|r, then move supported panels onto Offhand.\n\nThis client does not require a generated Blizzard Edit Mode layout."
 L["ONBOARD_MODE_BEFORE"] = "Illustration: Windowed (Fullscreen)"
 L["ONBOARD_MODE_AFTER"] = "Illustration: Windowed, with title bar"
 L["ONBOARD_BEGIN"] = "Start setup"
-L["ONBOARD_CHOOSE_BRIEF"] = "Choose how to place WoW across your screens.\n\nCompanion: recommended on Windows. Get it from Microsoft Store for borderless placement and exact monitor geometry.\nFancyZones: use an existing PowerToys setup.\nManual: resize the window yourself.\n\nChoosing a method does not start a download."
+L["ONBOARD_CHOOSE_BRIEF"] = "Companion (recommended)\nAutomatic window placement on Windows.\n\nFancyZones\nUse your existing PowerToys setup.\n\nManual\nResize WoW yourself.\n\nChoose a method below."
 L["ONBOARD_SOFTWARE_FANCYZONES_TITLE"] = "Have PowerToys already?"
 L["ONBOARD_SOFTWARE_COMPANION_TITLE"] = "Have Companion already?"
 L["ONBOARD_SOFTWARE_BRIEF"] = "If it is installed, continue with Already installed. Otherwise choose Get it, install the software, then return here.\n\nNo reinstallation is needed."
@@ -95,7 +95,7 @@ L["IDENTIFY_CLOSE"] = "Hide labels"
 L["IDENTIFY_COMBAT"] = "Leave combat before identifying displays."
 L["IDENTIFY_TIP"] = "Temporarily labels Mainhand and Offhand inside WoW. Before spanning, use Windows Display Settings > Identify to identify physical screens. No display settings are changed."
 L["BTN_APPLY_SHORT"] = "Apply"
-L["TAB_HELP"] = "Help & recovery"
+L["TAB_HELP"] = "Help & Setup"
 L["UI_SECTIONS"] = "On this page"
 
 -- Settings and guided setup
@@ -311,7 +311,7 @@ L["ELLESMERE_HUD_WIZARD_EXISTING"] = "A Mainhand HUD layout already matches this
 L["ELLESMERE_HUD_WIZARD_SELECT"] = "A matching Mainhand HUD layout is saved. Continue to select it and reload."
 L["ELLESMERE_HUD_WIZARD_SELECT_MANUAL"] = "Select '%s' in Blizzard Edit Mode and click Save. Close Edit Mode, then type /reload to resume the wizard at the EllesmereUI step."
 L["ELLESMERE_HUD_WIZARD_RELOAD"] = "Reload to apply your Mainhand HUD layout and continue to the EllesmereUI step."
-L["ELLESMERE_HUD_HELP_BODY"] = "With EllesmereUI enabled on Forever, open the visual preview from the setup wizard or Offhand Monitor & Map > Recovery & Preview. Fit keeps supported positions already visible on either display. To copy positions or save a Blizzard fallback, use an active Mainhand HUD layout for this span and input mode. Select the positions you want and choose Review profile import. In EllesmereUI, click Import Selected Addons. Offhand prompts you to reload after a new profile is selected. Use EllesmereUI Unlock Mode to place elements outside the preview's coverage."
+L["ELLESMERE_HUD_HELP_BODY"] = "With EllesmereUI enabled on Forever, open the visual preview from the setup wizard or Offhand Monitor > Recovery & Preview. Fit keeps supported positions already visible on either display. To copy positions or save a Blizzard fallback, use an active Mainhand HUD layout for this span and input mode. Select the positions you want and choose Review profile import. In EllesmereUI, click Import Selected Addons. Offhand prompts you to reload after a new profile is selected. Use EllesmereUI Unlock Mode to place elements outside the preview's coverage."
 L["ELLESMERE_HUD_VISUAL_SOURCE"] = "EllesmereUI profile  %s    |    Blizzard layout  %s"
 L["ELLESMERE_HUD_FIT"] = "Fit EllesmereUI to this span"
 L["ELLESMERE_HUD_COPY"] = "Copy Offhand to EllesmereUI"
@@ -347,7 +347,7 @@ L["ELLESMERE_HUD_RELOAD"] = "EllesmereUI accepted the import. Run /reload to loa
 L["ELLESMERE_HUD_SAVED_INACTIVE"] = "EllesmereUI saved the profile. Check Active Profile and any specialization assignment in Profiles & Presets before reloading."
 L["MAINHAND_LAYOUT_STALE"] = "%s (update required)"
 L["MAINHAND_LAYOUT_RELOAD_TEXT"] = "Offhand created and selected the Mainhand HUD layout. Reload now to let Blizzard apply every protected frame?"
-L["MAINHAND_LAYOUT_RELOAD_MANUAL"] = "Offhand created and selected the Mainhand HUD layout. Forever blocks addon-requested reloads while Gamepad mode is active. Close this message, then type /reload."
+L["MAINHAND_LAYOUT_RELOAD_MANUAL"] = "Your Mainhand HUD layout is ready. Leave combat if needed, then type /reload in chat."
 L["MAINHAND_LAYOUT_SELECT_MANUAL"] = "Offhand created the layout '%s', but Forever did not allow addon-driven selection. Close Offhand, open Blizzard Edit Mode, choose this layout from the Layout menu, and click Save. The HUD should move immediately. Then return to Offhand and click Use Current Edit Mode Layout."
 L["PROFILE_NEW_NAME"] = "New profile name"
 L["PROFILE_ACTIVE"] = "(active)"
@@ -397,7 +397,7 @@ L["WIZARD_RECOMMENDATION_APPLIED"] = "Recommended settings applied"
 L["WIZARD_CHECK_RECOMMENDATION"] = "Continue to check monitor layout, alignment and UI size."
 L["BTN_SETTINGS"] = "All Settings"
 L["STEP_PROGRESS"] = "Step %d of %d"
-L["STEP_1_HELP"] = "Back up your Blizzard Edit Mode layout and UI addon profiles first. Spanning may require repositioning custom UI. Use Windowed mode and match the Windows display arrangement to your desk."
+L["STEP_1_HELP"] = "Back up your Blizzard Edit Mode layout and UI addon profiles before continuing."
 L["STEP_2_HELP"] = "Choose which monitor shows the game and select its aspect ratio. Your other monitor becomes the Offhand Monitor."
 L["WIZARD_STEP2_OPTIONS_LOCKED"] = "These options are locked because Companion supplied the exact monitor geometry. This is expected. Change the displays or Mainhand in Companion and span again, or click Next to continue."
 L["WIZARD_STEP3_OPTIONS_LOCKED"] = "Offhand Monitor width is locked because Companion supplied the exact monitor geometry. Change displays or Mainhand in Companion and span again. The laser and Game bottom offset remain available for physical alignment."
@@ -407,14 +407,14 @@ L["STEP_4_HELP_NO_EDITMODE"] = "Choose a comfortable UI size. This client does n
 L["STEP_4_HELP_EDITMODE"] = "Choose a comfortable UI size. Click Next to create the required Mainhand HUD layout as the final setup step on this client."
 L["STEP_5_HELP"] = "Protected combat frames cannot be moved like ordinary workspace windows. Finish setup by giving Blizzard Edit Mode a Mainhand-safe layout."
 L["WIZARD_STEP_5_BODY"] = "Offhand will clone the active Blizzard layout, preserve custom-positioned entries, and move only default HUD anchors into Mainhand. It also arranges XP and the standard utility bars above the action bar.\n\nPress the button below outside combat with Edit Mode closed. The generated layout is selected automatically; reload when prompted. Use Recovery & Preview later to rebuild it after display or source-layout changes."
-L["HELP_OVERVIEW_TITLE"] = "Offhand Setup & Recovery Handbook"
-L["HELP_OVERVIEW_BODY"] = "Use the sections below for setup and recovery. Welcome to Offhand reopens first-time setup; Auto-Setup Wizard opens calibration; Window Setup returns to placement. Recover Missing UI targets fully off-screen supported elements and preserves visible ones. Protected combat HUD frames remain under Blizzard Edit Mode."
+L["HELP_OVERVIEW_TITLE"] = "Setup & help"
+L["HELP_OVERVIEW_BODY"] = "New setup or changed displays? Start with Window Setup, then run calibration.\n\nFor missing windows or HUD repair, open Offhand Monitor > Recovery & Preview."
 L["HELP_SETUP_TITLE"] = "Complete first-time setup"
 L["HELP_SETUP_BODY"] = "1. Back up your Blizzard Edit Mode layout and UI addon profiles. Open /offhand guide and click Start setup.\n2. Choose Use Companion for the recommended Windows setup. FancyZones and manual placement remain alternatives; portable Linux/Wine support is experimental.\n3. Use standard Windowed mode. In the game world, select displays and Mainhand in Companion and click Span WoW Now. Return to WoW, Reload UI, then Confirm placement.\n4. With FancyZones or manual placement, visually check the window, click Confirm placement, then Remember Window.\n5. Click Start Calibration. Complete display detection, Mainhand orientation, seam and UI scale. Where supported, create the Mainhand HUD layout outside combat with Edit Mode closed, then reload.\n6. Exit WoW normally, relaunch, restore the intended span and check the workspace and HUD."
 L["HELP_COMPANION_TITLE"] = "Window placement: Companion and alternatives"
 L["HELP_COMPANION_BODY"] = "Companion is recommended on Windows for exact display geometry and borderless spanning. Choose displays and Mainhand there, click Span WoW Now in the game world, then Reload UI and Confirm placement in Offhand. Maximizing one monitor is not spanning.\n\nFancyZones and manual placement are alternatives. Position WoW yourself, visually verify both screens, then Confirm placement and Remember Window. Offhand can read the canvas size but cannot verify the native window position. Remember Current Window is the equivalent action in settings.\n\nCompanion-supplied geometry controls are intentionally locked. Change displays or Mainhand in Companion and span again. Portable Linux/Wine support remains experimental."
 L["HELP_PANELS_TITLE"] = "Workspace panels Offhand can restore"
-L["HELP_PANELS_BODY"] = "Drag supported ordinary panels, such as World Map, Character, bags and chat, by their headers into Offhand. Independent panels, persistence and Escape behavior have separate controls on Offhand Monitor & Map. Restoration depends on the panel, client and enabled settings; interaction windows should close when their native interaction ends.\n\nUse map settings for supported scaling. Recognized replacement addons keep ownership of their frames. Action bars and protected combat frames are not ordinary workspace windows; use Blizzard Edit Mode or the replacement addon's own controls."
+L["HELP_PANELS_BODY"] = "Drag supported ordinary panels, such as World Map, Character, bags and chat, by their headers into Offhand. Independent panels, persistence and Escape behavior have separate controls on Offhand Monitor. Restoration depends on the panel, client and enabled settings; interaction windows should close when their native interaction ends.\n\nUse map settings for supported scaling. Recognized replacement addons keep ownership of their frames. Action bars and protected combat frames are not ordinary workspace windows; use Blizzard Edit Mode or the replacement addon's own controls."
 L["HELP_RECOVERY_TITLE"] = "Recovery playbook"
 L["HELP_RECOVERY_BODY"] = "Missing supported UI: start with Recover Missing UI. It moves fully off-screen supported elements; visible elements stay in place. Read the result and reload if HUD repair requests it.\n\nGather Safe UI to Mainhand is broader: it can move supported visible workspace windows and update saved positions. HUD creation/rebuild can reposition visible systems and replace edits in the generated layout. Back up first and read each confirmation.\n\nWrong window or split: reapply your chosen placement. Companion users span, Reload UI and confirm. FancyZones/manual users visually check placement before remembering it.\n\nFull Edit Mode layout list: follow the guided recovery. Export a layout if needed, delete only an unused layout yourself, close Edit Mode and retry HUD creation. Offhand never deletes a layout for you.\n\nMisplaced protected HUD: leave combat and use Blizzard Edit Mode or your HUD addon's own controls. Rebuild only when needed.\n\nCamera stops moving vertically: keep Use raw mouse input enabled on Display.\n\nDisconnected display: put WoW on a surviving display before changing the HUD. Restore the span after reconnecting.\n\nFor unresolved issues, include /offhand diag, client/build, addon and Companion versions, display arrangement, reproduction steps and fresh errors. Companion users should include its activity log."
 L["HELP_EDIT_MODE_TITLE"] = "Protected HUD and Blizzard Edit Mode"
@@ -440,9 +440,9 @@ L["CONFIG_SAVED"] = "Offhand configuration saved."
 -- Options Dashboard Header & Tabs
 -- ============================================================================
 L["OPTIONS_TITLE"] = "OFFHAND MULTI-MONITOR WORKSPACE"
-L["TAB_DISPLAY"] = "Display"
-L["TAB_WORKSPACE"] = "Offhand Monitor & Map"
-L["TAB_THEMES"] = "Themes & Colors"
+L["TAB_DISPLAY"] = "Display & HUD"
+L["TAB_WORKSPACE"] = "Offhand Monitor"
+L["TAB_THEMES"] = "Appearance"
 L["BTN_AUTO_WIZARD"] = "Auto-Setup Wizard"
 L["BTN_AUTO_WIZARD_TIP_TITLE"] = "Display Calibration Wizard"
 L["BTN_AUTO_WIZARD_TIP_DESC"] = "Open the guided 1-click display configuration wizard to automatically detect your screen resolution and calibrate your physical monitor seam."
@@ -526,7 +526,7 @@ L["SLIDER_BEZEL_GAP_TIP_TITLE"] = "Bezel Gap Compensation"
 L["SLIDER_BEZEL_GAP_TIP_DESC"] = "Compensates for the physical plastic border between your screens by creating a blank dead zone to prevent visual misalignment across monitors."
 
 -- ============================================================================
--- Tab 2: Offhand Monitor & Map
+-- Tab 2: Offhand Monitor
 -- ============================================================================
 L["CARD_WORKSPACE_MGMT"] = "1. Offhand Monitor Panel Management & Behavior"
 L["CHECK_CANVAS_ENABLED"] = "Enable Offhand Offhand Canvas"
@@ -966,3 +966,72 @@ L["RECOVERY_EXTRA_CONFIRM"] = "Reset Extra Abilities to Mainhand? This changes i
 L["CHECK_ESC_PERSIST_LIMITED_DESC"] = "Keeps supported Offhand windows open on Escape while out of combat. Close buttons and interaction endings still work normally. Protected UI modes retain native behavior."
 
 L["COMPANION_DOWNLOAD_LINK_TEXT"] = "The Companion App automates a pixel-perfect, borderless span across multiple monitors.\n\nRecommended for Windows: copy the Microsoft Store address below. Portable and Linux/Wine options remain available at offhand-wow.onrender.com/companion.html and through the official GitHub releases."
+
+-- Explicit OpenMap title recovery.
+L["OPENMAP_RECOVERY_BUTTON"] = "Recover OpenMap title"
+L["OPENMAP_RECOVERY_TIP"] = "Bring the open, windowed OpenMap title onto Mainhand and remember that position. Keeps size and scale. Supports OpenMap v0.7.5-beta on Forever. Leave combat first."
+L["OPENMAP_RECOVERY_DONE"] = "Map title recovered on Mainhand. Drag its top title bar to place it."
+L["OPENMAP_RECOVERY_COMBAT"] = "Leave combat, then try Recover OpenMap title again."
+L["OPENMAP_RECOVERY_UNAVAILABLE"] = "Open the windowed OpenMap map first and release the mouse. Recovery supports OpenMap v0.7.5-beta on Forever with Offhand enabled, standard UI and no other map mover."
+
+-- Map scale ownership and availability.
+L["MAP_SCALE_TARGET_HELP"] = "Scales the map on its current monitor. Auto Fit fits that monitor."
+L["MAP_SCALE_OPENMAP_HELP"] = "OpenMap: 50–160%. Auto Fit fits the current monitor."
+L["MAP_SCALE_UNAVAILABLE"] = "Open a windowed map outside combat in mouse/keyboard UI. Other map owners use their own settings."
+
+-- Guided placement checkpoint and recommended next action.
+L["ONBOARD_SPAN_COMPANION"] = "1. In Companion, select your monitors and Mainhand.\n\n2. Click |cffffd100Span WoW Now|r in Companion.\n\n3. Return here once WoW covers your screens, then click %s."
+L["ONBOARD_SPAN_FANCYZONES"] = "Create a FancyZones Canvas zone across the intended screens. Hold Shift and drag WoW into that zone. Return here and click %s."
+L["ONBOARD_SPAN_MANUAL"] = "Drag and resize WoW across the intended screens or ultrawide region. When it covers the area you want, click %s. This is your acknowledgement, not automatic monitor detection."
+L["ONBOARD_SPAN_ACK"] = "Window is positioned"
+L["ONBOARD_RELOAD_TASK"] = "Click %s below.\n\nThis guide returns when the reload is complete."
+L["ONBOARD_CONFIRM_TASK"] = "Check that WoW covers your screens and the game area is visible.\n\nClick %s to review your placement."
+L["ONBOARD_CONFIRM_REVIEW"] = "You have positioned WoW and reloaded the UI. Does the window cover the intended screens or ultrawide region, with the game area visible? Confirm only if this is the placement you want to calibrate."
+L["ONBOARD_CHECKPOINT_REQUIRED"] = "First position the window, then reload. Placement confirmation unlocks afterward."
+L["SETUP_NEXT_ACTION"] = "Next: %s"
+
+-- Visual setup task cards and progress.
+L["SETUP_STAGE_START"] = "Start"
+L["SETUP_STAGE_METHOD"] = "Method"
+L["SETUP_STAGE_WINDOW"] = "Window"
+L["SETUP_STAGE_PLACE"] = "Placement"
+L["SETUP_STAGE_CALIBRATE"] = "Calibrate"
+L["SETUP_STAGE_DETECT"] = "Detection"
+L["SETUP_STAGE_SEAM"] = "Seam"
+L["SETUP_STAGE_SCALE"] = "Scale"
+L["SETUP_STAGE_HUD"] = "HUD"
+L["SETUP_VISUAL_WINDOW"] = "Window mode examples (illustration)"
+L["SETUP_VISUAL_POSITION"] = "Check Mainhand and Offhand"
+L["SETUP_VISUAL_RELOAD"] = "Placement progress (illustration)"
+L["SETUP_VISUAL_SEAM"] = "Align the red line with the monitor seam"
+L["SETUP_VISUAL_SCALE"] = "Text size preview"
+L["SETUP_VISUAL_HUD"] = "Goal: keep the game HUD inside Mainhand"
+L["SETUP_VISUAL_EXAMPLE"] = "Example layout"
+L["SETUP_VISUAL_CONFIGURED"] = "Configured regions"
+L["SETUP_VISUAL_SAMPLE"] = "Aa 123   Quest objectives   Bags"
+
+L["WIZARD_COMPANION_LAYOUT_TITLE"] = "Your display layout"
+
+L["WIZARD_COMPANION_SUMMARY"] = "Companion has set up your game and workspace areas."
+
+L["WIZARD_COMPANION_CHANGE"] = "To change screens, use Companion, span WoW again, then reload."
+
+L["WIZARD_COMPANION_ACTION"] = "Use Companion layout"
+
+L["WIZARD_COMPANION_SEAM"] = "Check the red line at the edge of the game area. Adjust the vertical position only if needed."
+
+L["WIZARD_HUD_SHORT_BODY"] = "Create a copy of your Blizzard HUD for Mainhand. Your original layout is kept.\n\nLeave combat and close Edit Mode, then click the button below. Reload when asked."
+
+L["HEADER_CRAFTED_BY"] = "Crafted by: N4UX."
+
+L["BTN_WEBSITE"] = "Website"
+
+L["BTN_DISCORD"] = "Discord"
+
+L["WEBSITE_LINK_TEXT"] = "Copy this address into your browser to open the Offhand website."
+
+L["DISCORD_LINK_TEXT"] = "Copy this address into your browser to join the Offhand Discord."
+
+L["BTN_OPEN_RECOVERY"] = "Recovery tools"
+
+L["CARD_CHARACTER_WINDOW"] = "Character window"

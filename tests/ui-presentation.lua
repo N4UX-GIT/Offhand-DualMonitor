@@ -122,7 +122,8 @@ input:SetScript("OnEditFocusGained", function() focusEvents = focusEvents + 1 en
 input:Fire("OnEditFocusGained")
 assert(focusEvents == 1 and input.uiFocus and input.border[1] > 0.8)
 input:Fire("OnEditFocusLost")
-assert(not input.uiFocus and input.border[1] == 0.2)
+assert(not input.uiFocus and input.border[1] >= .3 and input.border[1] < .5
+    and input.border[1] < input.border[2], "unfocused fields retain a visible neutral border")
 addon.isLegacyWrath = true
 CreateFrame = function(...)
     local legacyFrame = Frame(...)
@@ -152,7 +153,7 @@ ui.RefreshStyles()
 assert(input.uiFocus and math.abs(input.border[2] - 0.68) < 0.001,
     "numeric focus borders must follow custom accents and survive theme refresh")
 ui.SetInputFocused(input, false)
-assert(input.border[1] == 0.2)
+assert(input.border[1] >= .3 and input.border[1] < .5 and input.border[1] < input.border[2])
 local slider = Frame("Slider")
 slider.thumb = Region()
 ui.StyleSlider(slider)

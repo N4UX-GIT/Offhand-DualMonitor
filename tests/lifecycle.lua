@@ -16,6 +16,20 @@ SlashCmdList = {}
 assert(loadfile("Core/Init.lua"))("Offhand", addon)
 assert(loadfile("Core/ClientRuntime.lua"))("Offhand", addon)
 
+do
+    local oldUI, oldReload = C_UI, ReloadUI
+    local legacy, modern = function() end, function() end
+    C_UI, ReloadUI = { Reload = modern }, legacy
+    assert(addon:GetReloadUIFunction() == modern, "prefer the current reload API when both exist")
+    ReloadUI = nil
+    assert(addon:GetReloadUIFunction() == modern, "reload must work without the legacy global")
+    C_UI, ReloadUI = {}, legacy
+    assert(addon:GetReloadUIFunction() == legacy, "retain original-client reload compatibility")
+    ReloadUI = nil
+    assert(addon:GetReloadUIFunction() == nil, "missing capabilities must not pretend to reload")
+    C_UI, ReloadUI = oldUI, oldReload
+end
+
 -- The live interface-style API is authoritative when available, with
 -- InputUtil retained only for builds/load orders that do not expose it yet.
 Enum = { InputDeviceInterfaceType = { Mkb = 1, Gamepad = 2 } }
@@ -55,6 +69,10 @@ local function makePromptFrame(name)
     function frame:SetText(value) self.text = value end
     function frame:SetScript(event, callback) self.scripts[event] = callback end
     function frame:Show()
+        if self.name == "OffhandGamepadSafePopup" then
+            assert(not self.shown and #self.points == 1 and self.points[1][1] == "CENTER",
+                "owned confirmations must be hidden and positioned before becoming visible")
+        end
         self.shown = true
         if self.scripts.OnShow then self.scripts.OnShow(self) end
     end
@@ -168,6 +186,43 @@ assert(prompt.points[1][2] == UIParent and prompt.points[1][4] == 2072 / 0.8,
     'setup confirmation must use Mainhand geometry, not a stale anchor')
 prompt.accept.scripts.OnClick()
 assert(confirmed == 1 and not prompt.shown, 'owned setup confirmation must preserve callback data')
+-- Guide placement and the HUD completion/reload prompts must never enter the
+-- native stack, even in keyboard UI. Reuse must not inherit the previous card's
+-- anchor or accidentally invoke its callback when a new prompt replaces it.
+local setupKeys = {
+    "OFFHAND_WEBSITE_LINK", "OFFHAND_DISCORD_LINK",
+    "OFFHAND_CONFIRM_WINDOWED_MODE", "OFFHAND_CONFIRM_PLACEMENT",
+    "OFFHAND_CONFIRM_MANUAL_LAYOUT", "OFFHAND_CONFIRM_MANUAL_LAYOUT_FOREVER",
+    "OFFHAND_MAINHAND_LAYOUT_RELOAD", "OFFHAND_MAINHAND_LAYOUT_SELECT",
+}
+for _, key in ipairs(setupKeys) do
+    local previous = StaticPopupDialogs[key]
+    local accepts, cancels = 0, 0
+    StaticPopupDialogs[key] = {
+        text = "Review %s", button1 = "Continue", button2 = "Back",
+        OnAccept = function(_, data) accepts = accepts + data end,
+        OnCancel = function() cancels = cancels + 1 end,
+    }
+    local card = addon:ShowPopup(key, "placement", nil, 2)
+    assert(card == prompt and staticShows == 0 and card.strata == "TOOLTIP"
+            and card.text.text == "Review placement"
+            and card.points[1][2] == UIParent and card.points[1][3] == "BOTTOMLEFT"
+            and card.points[1][4] == 2072 / 0.8 and card.points[1][5] == 552.5 / 0.8,
+        key .. " must open centered inside Mainhand without a native TOP/seam anchor")
+    addon:ShowPopup(key, "placement", nil, 2)
+    assert(accepts == 0 and cancels == 0, "replacing a prompt must not accept or cancel it")
+    card.cancel.scripts.OnClick()
+    assert(cancels == 1 and accepts == 0 and not card.shown)
+    addon:ShowPopup(key, "placement", nil, 2).accept.scripts.OnClick()
+    assert(accepts == 2 and not card.shown, "owned dialogs must retain callback data")
+    addon:ShowPopup(key, "placement", nil, 2)
+    assert(addon:HidePopup(key) and not card.shown and staticHides == 0,
+        "hiding an owned setup prompt must leave the native stack untouched")
+    StaticPopupDialogs[key] = previous
+end
+addon:ShowPopup("OFFHAND_NATIVE_KEYBOARD_PROBE")
+assert(staticShows == 1, "unrelated keyboard popups must retain their existing native route")
+staticShows = 0
 local reminderCharacter = OffhandCharDB
 local reminderEditMode = addon.HasBlizzardEditMode
 OffhandCharDB = {mainhandLayoutDeferred = true}

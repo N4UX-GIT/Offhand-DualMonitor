@@ -510,6 +510,9 @@ function HUD:IsRetailEditModePrimaryChat(frame)
 end
 
 function HUD:HookFrames()
+    if Offhand.MenuPlacement and Offhand.MenuPlacement.InstallForeverSettingsRecovery then
+        Offhand.MenuPlacement:InstallForeverSettingsRecovery()
+    end
     self:HookMainhandTransientFrames()
     if UsesForeverEditMode() then
         -- Seed the hidden frame as soon as it exists, then repair synchronously
@@ -520,6 +523,12 @@ function HUD:HookFrames()
             hooksecurefunc("ToggleGameMenu", function()
                 PositionForeverGameMenu()
             end)
+        end
+        -- Native Escape can call GameMenuFrame_Show directly, bypassing
+        -- ToggleGameMenu. Observe that completed open path as well.
+        if hooksecurefunc and GameMenuFrame_Show and not self.foreverGameMenuShowHooked then
+            self.foreverGameMenuShowHooked = true
+            hooksecurefunc("GameMenuFrame_Show", function() PositionForeverGameMenu() end)
         end
     end
     if not HasBlizzardEditMode() and not HasCustomActionBarAddon() then

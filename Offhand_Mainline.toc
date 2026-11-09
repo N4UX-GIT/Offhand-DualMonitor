@@ -68,6 +68,9 @@ Core\WorkspaceBehavior.lua
 Core\WorkspaceChrome.lua
 Core\BagPersistence.lua
 Core\Recovery.lua
+Core\OpenMapRecovery.lua
+Core\MapScale.lua
+Core\SetupPlacement.lua
 
 # Locales
 Locales\enUS.lua
@@ -87,6 +90,7 @@ UI\Themes.lua
 UI\Controls.lua
 UI\OptionsActions.lua
 UI\Options.lua
+UI\SetupVisuals.lua
 UI\DisplayIdentify.lua
 UI\Minimap.lua
 UI\Onboarding.lua

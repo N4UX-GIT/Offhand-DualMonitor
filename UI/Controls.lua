@@ -15,7 +15,7 @@ local fittedDialogs = setmetatable({}, { __mode = "k" })
 local layoutFitInstalled = false
 local FLAT_BACKDROP = {
     bgFile = "Interface\\Buttons\\WHITE8X8",
-    edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1,
+    edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 2,
     insets = { left = 1, right = 1, top = 1, bottom = 1 },
 }
 
@@ -36,32 +36,84 @@ function Controls.StyleSurface(frame, kind)
     local shade = black and 0 or (kind == "window" and 0.035 or 0.065)
     if kind == "input" then shade = black and 0 or 0.025 end
     local enabled = not frame.IsEnabled or frame:IsEnabled()
-    local selected = frame.selected or frame.uiPrimary
-    local active = selected or frame.uiHover or frame.uiFocus
+    enabled = enabled and enabled ~= 0
+    local selected = frame.selected
+    local actionHover = frame.uiPrimary and (frame.uiHover or frame.uiFocus)
+    local active = selected or frame.uiPrimary or frame.uiHover or frame.uiFocus
     local r, g, b = Controls.GetAccent()
     if kind == "button" then
         shade = enabled and (frame.uiPressed and 0.055 or (active and 0.14 or 0.09)) or 0.045
     end
     frame:SetBackdropColor(shade, shade, black and shade or shade + 0.014, 1)
+    if frame.uiSetupSurface and not black then
+        if kind == "window" then frame:SetBackdropColor(.047,.051,.063,1)
+        else frame:SetBackdropColor(.094,.102,.137,1) end
+    end
+    if kind == "button" and frame.uiPrimary and enabled then
+        if actionHover then
+            frame:SetBackdropColor(frame.uiPressed and .19 or .25, .19, .065, 1)
+        else
+            frame:SetBackdropColor(.075, .082, .105, 1)
+        end
+    end
     if active and enabled then
-        frame:SetBackdropBorderColor(r * 0.85, g * 0.85, b * 0.85, 1)
+        local strength = frame.uiPrimary and 1 or .85
+        if frame.uiPrimary then frame:SetBackdropBorderColor(1,.89,.52,1)
+        else frame:SetBackdropBorderColor(r * strength, g * strength, b * strength, 1) end
     else
-        frame:SetBackdropBorderColor(0.20, 0.22, 0.26, 1)
+        if kind == "button" and not enabled then frame:SetBackdropBorderColor(.20,.22,.26,1)
+        else frame:SetBackdropBorderColor(.36,.39,.45,1) end
     end
     if kind == "button" then
         local text = frame.GetFontString and frame:GetFontString()
         if text and text.SetTextColor then
             if not enabled then text:SetTextColor(0.45, 0.48, 0.53)
+            elseif frame.uiPrimary then text:SetTextColor(1,.97,.88,1)
             elseif frame.uiTextColor then text:SetTextColor(unpack(frame.uiTextColor))
             else text:SetTextColor(0.93, 0.94, 0.96) end
         end
         if frame.selectionMark then
+            if frame.selectionMark.SetVertexColor then
+                if frame.uiPrimary then frame.selectionMark:SetVertexColor(r, g, b, 1)
+                else frame.selectionMark:SetVertexColor(.93, .94, .96, 1) end
+            end
             if frame.selected then frame.selectionMark:Show() else frame.selectionMark:Hide() end
         end
     end
     if (kind == "card" or kind == "header") and frame.title and frame.title.SetTextColor then
         frame.title:SetTextColor(r, g, b, 1)
     end
+end
+
+function Controls.SetRecommendedButton(button, recommended)
+    if button.IsEnabled then
+        local enabled=button:IsEnabled()
+        recommended=recommended and enabled and enabled~=0
+    end
+    button.uiPrimary = recommended and true or nil
+    if button.SetNormalFontObject then
+        button:SetNormalFontObject("GameFontHighlight")
+        button:SetHighlightFontObject("GameFontHighlight")
+        button:SetDisabledFontObject("GameFontDisable")
+    end
+    if recommended and not button.recommendationArrow then
+        local arrow=button:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+        arrow:SetPoint("RIGHT",button,"RIGHT",-6,0)
+        arrow:SetText(">")
+        button.recommendationArrow=arrow
+    end
+    local arrow=button.recommendationArrow
+    if arrow then
+        arrow:SetTextColor(1,.82,.12,1)
+        if recommended then if arrow.Show then arrow:Show() end
+        elseif arrow.Hide then arrow:Hide() end
+    end
+    local text=button.GetFontString and button:GetFontString()
+    if text and text.SetPoint then
+        text:SetPoint("TOPRIGHT",button,"TOPRIGHT",recommended and -20 or -5,-2)
+    end
+    Controls.StyleSurface(button, "button")
+    return button.uiPrimary==true
 end
 
 function Controls.SetButtonTextColor(button, r, g, b, a)
@@ -313,7 +365,8 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
     end
     local slider = CreateFrame("Slider", nil, parent, BackdropTemplate())
     local function ApplyLayout()
-        if slider.coalesceGeometryLayout then Controls.RequestGeometryLayout()
+        if slider.applyLayout then slider.applyLayout()
+        elseif slider.coalesceGeometryLayout then Controls.RequestGeometryLayout()
         else Offhand:ApplyFullLayout() end
     end
     slider:SetOrientation("HORIZONTAL")
@@ -423,6 +476,7 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
     end
 
     local function CommitEditBox()
+        if slider._isRefreshing then return end
         if not Controls.IsSliderEnabled(slider) then
             editBox:SetText(FormatValue(getVal()))
             if editBox.ClearFocus then editBox:ClearFocus() end
@@ -592,6 +646,23 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
         if editBox and not (editBox.HasFocus and editBox:HasFocus()) then
             editBox:SetText(formatted)
         end
+    end
+
+    -- Update the captured bounds used by typing, stepping and custom dragging,
+    -- as well as the native thumb. Synchronizing owners must not call setVal.
+    slider.SetRange = function(self, lower, upper)
+        if type(lower) ~= "number" or type(upper) ~= "number" or lower ~= lower or upper ~= upper
+            or lower <= -math.huge or upper >= math.huge or lower >= upper then return false end
+        if lower == minVal and upper == maxVal then return true end
+        Controls.EndSliderInteraction(self)
+        minVal, maxVal = lower, upper
+        self._isRefreshing = true
+        self:SetMinMaxValues(minVal, maxVal)
+        self:SetValue(getVal())
+        if editBox.ClearFocus then editBox:ClearFocus() end
+        self._isRefreshing = nil
+        self:UpdateText()
+        return true
     end
 
     slider.UpdateTheme = function(self, trimKey)
@@ -765,12 +836,12 @@ function Controls.GetCardContentTop(card, minimum)
         Controls.MeasureWrappedText(card.title, card.sectionLabel, width) + 20)
 end
 
-function Controls.GetGuideLayout(titleHeight, bodyHeight, statusHeight, actionHeight)
-    local bodyTop = 88 + math.max(18, titleHeight or 0) + 12
+function Controls.GetGuideLayout(titleHeight, bodyHeight, statusHeight, actionHeight, footerHeight, titleTop)
+    local bodyTop = (titleTop or 88) + math.max(18, titleHeight or 0) + 12
     bodyHeight = math.max(15, bodyHeight or 0)
     statusHeight = math.max(42, statusHeight or 0)
     actionHeight = (actionHeight or 0) > 0 and math.max(26, actionHeight) or 0
-    local statusBottom = 68
+    local statusBottom = 40 + math.max(28, footerHeight or 0)
     local actionBottom = statusBottom + statusHeight + 12
     local reserved = statusBottom + statusHeight
         + (actionHeight > 0 and (12 + actionHeight) or 0)

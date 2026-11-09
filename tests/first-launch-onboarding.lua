@@ -137,4 +137,47 @@ Enter(addon, true)
 assert(addon.foreverPersistenceDiagnostics.source == "session-fallback"
         and addon.db.automaticSetupSuppressed == true and addon.opened == 0,
     "complete Forever snapshot recovery must preserve the explicit setup opt-out")
+do
+    -- Reload checkpoints use real Config persistence, including Forever's
+    -- missing-SavedVariables fallback. New module means a fresh UI session.
+    cvars = {}
+    local function NewPlacement(account, character)
+        local fresh = NewAddon(account, character)
+        fresh.Viewport.GetMetrics=function() return {physicalWidth=4000,physicalHeight=2560} end
+        assert(loadfile("Core/SetupPlacement.lua"))("Offhand",fresh)
+        return fresh
+    end
+    local fresh=NewPlacement()
+    fresh:SetOnboardingSetupMethod("COMPANION")
+    local flow=fresh.SetupPlacement
+    assert(flow:GetStage()=="SPAN" and not flow:RequestReload() and not flow:Confirm("COMPANION|4000|2560"))
+    assert(flow:AcknowledgeSpan() and flow:GetStage()=="RELOAD")
+    assert(flow:RequestReload() and flow:GetStage()=="RELOAD",
+        "a reload request was treated as a completed reload in the same session")
+    assert(not flow:Confirm("COMPANION|4000|2560"))
+    fresh=NewPlacement() -- Drop normal SV; retain existing session CVars.
+    assert(fresh:GetOnboardingSetupMethod()=="COMPANION" and fresh.SetupPlacement:GetStage()=="CONFIRM",
+        "Forever fallback lost the placement reload checkpoint")
+    assert(fresh.SetupPlacement:Confirm("COMPANION|4000|2560") and fresh.SetupPlacement:GetStage()=="READY")
+    fresh.Viewport.GetMetrics=function() return {physicalWidth=1920,physicalHeight=1080} end
+    assert(fresh.SetupPlacement:GetStage()=="SPAN", "changed geometry reused a completed checkpoint")
+    fresh:SetOnboardingSetupMethod("MANUAL")
+    assert(fresh.SetupPlacement:GetStage()=="SPAN", "changed setup method reused a completed checkpoint")
+    fresh.SetupPlacement:Reset()
+    fresh=NewPlacement()
+    assert(fresh.SetupPlacement:GetStage()=="SPAN", "cleared checkpoint resurfaced through CVar fallback")
+    fresh:SetPlacementCheckpoint("V99|COMPANION|4000|2560|C")
+    assert(fresh.SetupPlacement:GetStage()=="SPAN", "unknown checkpoint schema was trusted")
+    for _, client in ipairs({{"12.1.7",121700},{"1.15.9",11509},{"3.3.5",30300}}) do
+        version, interface = unpack(client)
+        fresh=NewPlacement()
+        fresh:SetOnboardingSetupMethod("MANUAL")
+        assert(fresh.SetupPlacement:AcknowledgeSpan() and fresh.SetupPlacement:RequestReload())
+        local account, character=OffhandDB,OffhandCharDB
+        fresh=NewPlacement(account,character)
+        local stage, signature=fresh.SetupPlacement:GetStage()
+        assert(stage=="CONFIRM" and fresh.SetupPlacement:Confirm(signature),
+            "ordinary SavedVariables did not resume a placement checkpoint")
+    end
+end
 print("PASS: fresh launch, inactive viewport, placement resume, explicit disable, persistence and cinematic deferral")

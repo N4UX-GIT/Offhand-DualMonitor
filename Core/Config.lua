@@ -883,6 +883,25 @@ function Offhand:GetOnboardingSetupMethod()
     return nil
 end
 
+-- Character SavedVariables plus Forever's established CVar fallback. This
+-- checkpoint contains only workflow/mode/canvas dimensions, never frame data.
+function Offhand:GetPlacementCheckpoint()
+    local value
+    if type(OffhandCharDB) == "table" then value = OffhandCharDB.placementCheckpoint end
+    if value ~= nil then return value end
+    if ForeverPersistence:IsAvailable() then
+        RegisterPersistentCVar("offhandPlacementCheckpoint")
+        return ReadPersistentCVar("offhandPlacementCheckpoint")
+    end
+end
+
+function Offhand:SetPlacementCheckpoint(value)
+    value = type(value) == "string" and value or ""
+    if type(OffhandCharDB) ~= "table" then OffhandCharDB = {} end
+    OffhandCharDB.placementCheckpoint = value
+    if ForeverPersistence:IsAvailable() then WritePersistentCVar("offhandPlacementCheckpoint", value) end
+end
+
 function Offhand:SetOnboardingSetupMethod(method)
     if method ~= "COMPANION" and method ~= "FANCYZONES" and method ~= "MANUAL" then
         return false

@@ -954,4 +954,39 @@ pressEscapeCloseSpecialFrames()
 assert(not WorldMapFrame:IsShown(),
     "Escape must retain native close behavior for a Mainhand map")
 
-print("PASS: Forever map persists through reload/Escape without script replacement")
+do
+    -- A keyboard map can grow once when dropped onto a larger workspace. AUTO
+    -- must settle, while a numeric preference must retain the chosen size.
+    addon.db.savedMainPositions.WorldMapFrame = nil
+    addon.db.savedWorkspacePositions.WorldMapFrame = {x=20,y=1200}
+    addon.db.workspaceMapScale = "AUTO"
+    addon.Canvas:ConfigureWorldMap()
+    local fitted = WorldMapFrame:GetScale()
+    for _ = 1, 5 do
+        addon.Canvas:ConfigureWorldMap()
+        assert(WorldMapFrame:GetScale() == fitted, "workspace auto-fit grew repeatedly")
+    end
+    addon.db.workspaceMapScale = .83
+    addon.Canvas:ConfigureWorldMap()
+    assert(WorldMapFrame:GetScale() == .83, "explicit keyboard map scale was replaced by auto-fit")
+end
+do
+    assert(loadfile("Core/MapScale.lua"))("Offhand", addon)
+    local settings = addon.MapScale
+    assert(settings:Set(.70) and WorldMapFrame:GetScale() == .70,
+        "settings did not resize the native workspace map")
+    assert(addon.db.workspaceMapScale == .70)
+    assert(settings:Set("AUTO") and addon.db.workspaceMapScale == "AUTO",
+        "Auto Fit was overwritten by numeric display synchronization")
+    addon.db.savedWorkspacePositions.WorldMapFrame = nil
+    addon.db.savedMainPositions.WorldMapFrame = {x=1800,y=1000}
+    assert(settings:Set(.85) and WorldMapFrame:GetScale() == .85,
+        "Mainhand settings wrote the workspace preference instead")
+    assert(addon.db.mainMapScale == .85 and addon.db.workspaceMapScale == "AUTO")
+    assert(settings:Set("AUTO") and addon.db.mainMapScale == "AUTO")
+    local fitted = WorldMapFrame:GetScale()
+    assert(fitted > 1)
+    addon.Canvas:ConfigureWorldMap()
+    assert(WorldMapFrame:GetScale() == fitted, "Mainhand AUTO failed to settle")
+end
+print("PASS: Forever map persists through reload/Escape without script replacement; AUTO settles and explicit scale is retained")

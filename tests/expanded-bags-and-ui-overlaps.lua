@@ -126,12 +126,14 @@ local function makeMockFrame(name, w, h)
     function f:SetMaxLetters() end
     function f:ClearFocus() end
     function f:GetText() return "0" end
+    function f:RegisterEvent() end
     function f:SetEnabled() end
     function f:CreateFontString()
         return {
             SetPoint = function(self, ...) self.pointArgs = {...} end,
             SetText = function(self, t) self.text = t end,
             SetWidth = function() end,
+            SetHeight = function(self, height) self.height = height end,
             SetWordWrap = function() end,
             SetTextColor = function() end,
             SetJustifyH = function() end,
@@ -195,6 +197,7 @@ assert(loadfile("UI/Themes.lua"))("Offhand", addon)
 assert(loadfile("UI/Controls.lua"))("Offhand", addon)
 assert(loadfile("Core/TopologyDetection.lua"))("Offhand", addon)
 assert(loadfile("UI/OptionsActions.lua"))("Offhand", addon)
+assert(loadfile("Core/MapScale.lua"))("Offhand", addon)
 assert(loadfile("UI/Options.lua"))("Offhand", addon)
 addon.SeamRedirect:HookFrames()
 
