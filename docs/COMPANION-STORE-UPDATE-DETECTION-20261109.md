@@ -2,7 +2,7 @@
 
 ## Scope and source
 
-Branch: `codex/companion-store-update`, based on the reviewed Companion dashboard/source records through `8c6e089`. Product 2.1.5, production file 2.1.5.1, proposed Store package 2.1.500.0. No add-on, public executable, GitHub release asset or Store submission is changed by this work. The website deployment remains independent.
+Branch: `codex/companion-store-update`, based on the reviewed Companion dashboard/source records through `8c6e089`. Product 2.1.5, production file 2.1.5.1, Store package 2.1.500.0. No add-on, public executable or GitHub release asset is changed by this work. A separate owner-only Store flight was submitted after local validation; the public 2.1.4 submission remains unchanged. The website deployment remains independent.
 
 The shared knowledge README/research skill, status and Store-update finding were consulted before implementation. Game snapshots are review-due, but this change makes no WoW API decisions. Current source and primary Microsoft documentation are the evidence used here.
 
@@ -26,7 +26,7 @@ The existing test's future minimum-version fixture moved to 2.1.6-beta.1 so it r
 
 ## Remaining release acceptance
 
-A real Store-associated 2.1.5 build/flight must exercise available/no-update, offline/unavailable services, cached answers and propagation delays before release. A local metadata/owner binding, fake provider or arbitrary sideloaded package does not prove correct Store catalog association or availability. The currently submitted 2.1.4 package is not used as an injection target or replaced for this test. Windows 10/Wine runtime acceptance, fresh WACK and exact-build Defender release assessment remain separate gates. No Defender or anti-cheat guarantee is claimed.
+A Store-delivered 2.1.5 flight must exercise available/no-update, offline/unavailable services, cached answers and propagation delays before public release. A local metadata/owner binding, fake provider or arbitrary sideloaded package does not prove correct Store catalog association or availability. The identity-bound diagnostic host described below is useful partial integration evidence; it does not replace acceptance of the Store-delivered flight. The installed 2.1.4 files were not replaced or modified. Windows 10/Wine runtime acceptance remains a separate gate. Fresh WACK and a local exact-build Defender scan passed as recorded below. No Defender or anti-cheat guarantee is claimed.
 
 If Store acceptance fails, the existing manual Store button remains functional, and failure of the automatic check does not affect window management. Rollback uses the preserved submitted 2.1.4 artifact and existing layout preferences; only the isolated update cache is new.
 
@@ -51,7 +51,7 @@ Source commit `7bc07a6` built cleanly as candidate 2. Local package parity and i
 - EXE SHA-256: 95811DBB7020A20E2541AE123E69FE80721C83A0FD52D0EE5557DD6D54DCCC2A.
 - MSIX SHA-256: 9AD0A4F561C27A750885E8030B5E72DFC4FBD80DF8CD507FEB26FB1D335B71CA.
 
-Before release, Store-associated acceptance must also confirm quiet behavior with a signed-out/unavailable Store and cached answers. No availability request, installation, catalog flight or publication was performed in this implementation task. The submitted 2.1.4 hashes were verified unchanged again after the final build.
+Before public release, Store-associated acceptance must also confirm quiet behavior with a signed-out/unavailable Store. The implementation-stage fixtures made no availability request; the subsequent real query and private flight are recorded below. The submitted 2.1.4 hashes were verified unchanged again after the final build and Store tests.
 
 ## Owner local test package
 
@@ -60,4 +60,39 @@ Prepared `dist/companion-2.1.5-local-test-1-final/Offhand-Companion-2.1.5-Local-
 The selector exposes available, no-update, unavailable and timeout responses, plus a test-cache reset checkbox. These are explicitly simulated responses, not actual Microsoft Store detection. Native visual QA observed the delayed Available state change without a new popup, correct disabled controls and successful Exit. The completed host/ZIP directory received a local Defender scan with exit 0 and no threats. ZIP entry/parity checks passed; local runtime test data is outside the archive. The original 2.1.4 submission hashes were verified unchanged.
 
 Archive SHA-256: `67291DEE6FC3AECC7508BB604CBF4C3C238BE3DF4C94AF241F2243138656DC48`.
-Receipt: `docs/evidence/companion-215-local-test-package.json`. This package is local and unpublished. Real Store association, catalog response and release certification gates above remain pending.
+Receipt: `docs/evidence/companion-215-local-test-package.json`. This simulation package is local and unpublished. Subsequent real Store evidence follows; full flight acceptance remains pending.
+
+## Real Store integration and private flight
+
+On 9 November, Microsoft's supported `Invoke-CommandInDesktopPackage` command launched the separate `tests/CompanionStoreAssociatedProbe.cs` test host with the installed Store 2.1.400.0 identity. The host loads the exact unchanged 2.1.5.1 EXE, redirects configuration and update cache to a test directory, stops game monitoring, and disables game/configuration actions. Its observational wrapper calls the real production Store API; it does not substitute a Store response. Production scheduling, cache and button handling run normally.
+
+- The first launch made one real request after the production 30-second delay. It returned `NoUpdate` in 1,395 ms without error, displaying `Store Updates` with the correct accessible description.
+- A second launch used the persisted result and made zero API calls. The attempt timestamp remained unchanged.
+- The separate Store-identity persistence suite passed 47 checks, including migration, repeated writes, locks, interruption and error-87 fallback.
+- Installed package identity, installed EXE, three preference locations, submitted 2.1.4 EXE/MSIX and candidate 2.1.5 EXE/MSIX remained unchanged at the final preservation check, 02:32 UTC.
+
+This is identity-bound diagnostic-process evidence, not a Store installation/upgrade of 2.1.5. The diagnostic token differs from normal app activation. `NoUpdate` was consistent with the installed public 2.1.4 package; an actual `Available` response has not yet been observed. Respect the documented 30-minute service cache and ten-per-day detection limit when testing flight propagation. Do not reset the user's daily cache or change their Store sign-in/network settings to manufacture a result.
+
+Fresh WACK on the exact candidate MSIX completed with exit 0, overall PASS, no partial run, 13 required passes and zero required failures. Optional checks had ten passes and one existing blocked-executables finding. Review traced `CsI` to the unchanged embedded logo PNG (9,408 bytes, SHA-256 `5A07E4979187D0DEEC6F098EB8EBE1A0E47ABFA622C753F6CAE3882BEB3DEAC8`), shared with submitted 2.1.4 and the source icon. Existing `Process.Start` calls open the official Store, manual GitHub page, documented external links or Windows display settings. No new native imports were added. WACK ran with `-noinstallappx`; the installed Store package and preferences were preserved. A fresh Defender custom scan exited 0 and found no threats; this is not a Microsoft submission verdict.
+
+Partner Center accepted **Companion 2.1.5 internal QA**, submission `1152921505702349123`, for certification. It contains the exact validated 2.1.500.0 MSIX and is limited to the one-account **Companion internal QA** group. The account address is intentionally excluded from source and evidence. The flight publishes only to that group after certification. Additional Testing Information now includes private-flight instructions while retaining the existing 2.1.4 reviewer notes. Public Submission 5 remains live, with no new standard submission created. Private certification and Store propagation are pending; no public 2.1.5 release is claimed.
+
+Receipts: `docs/evidence/companion-215-store-associated.json` and `docs/evidence/companion-215-wack.json`. Full local outputs are under `dist/companion-215-store-associated` and `dist/companion-215-wack`. The remaining flight acceptance covers Store delivery/upgrade, a real available response if observable before the upgrade, and quiet real-service failure behavior. Existing fixture coverage for failure/timeout is separate from those observations.
+
+### Reproducing the identity-bound probe
+
+Use the same signed-in Windows user that owns the installed Store package. This probe is deliberately pinned to the recorded candidate hash. Copy that EXE beside the compiled test host; do not replace the installed Store EXE. Build with the Framework64 C# compiler, references `System.dll`, `System.Core.dll`, `System.Drawing.dll`, `System.Windows.Forms.dll` and `System.Web.Extensions.dll`, and `/target:winexe /platform:x64`. Pass the absolute source path to the compiler. Start it with:
+
+```powershell
+Invoke-CommandInDesktopPackage -PackageFamilyName N4UX.OffhandCompanion_bwe0ea6astzt8 `
+  -AppId OffhandCompanion -Command $absoluteProbeExe `
+  -Args ('"' + $absoluteIsolatedOutputDirectory + '" online')
+```
+
+The host records `result.json` and closes after 50 seconds. Its output directory must be test-only; it contains the isolated cache and configuration. Preserve the first receipt before relaunching with the same output directory and mode `cached`; the second receipt must record zero queries and the unchanged cache timestamp. Do not repeatedly use fresh directories to bypass service limits. A newly certified flight may automatically update the owner's installed app, so refresh installed identity/version evidence before interpreting subsequent results.
+
+Additional primary references:
+
+- [Package-context diagnostic command](https://learn.microsoft.com/en-us/powershell/module/appx/invoke-commandindesktoppackage?view=windowsserver2025-ps).
+- [Custom test harness under package identity](https://learn.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-debug).
+- [Private package flights and certification](https://learn.microsoft.com/en-us/windows/apps/publish/package-flights).
