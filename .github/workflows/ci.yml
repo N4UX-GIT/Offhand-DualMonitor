@@ -42,6 +42,7 @@ jobs:
         shell: powershell
         run: |
           ./tests/companion-preferences.ps1
+          ./tests/companion-store-updates.ps1
           ./tests/companion-store-persistence.ps1
 
       - name: Verify frozen 2.1.3 publication assets and release scope

@@ -184,6 +184,20 @@ administrator access. It does not install a service, configure startup
 persistence, inspect process security tokens, inject code, read browser data,
 collect telemetry, inspect chat or gameplay, or handle account credentials.
 
+### Store availability checks in the 2.1.5 source
+
+The Store build uses the Windows Store service to query update availability,
+30 seconds after startup and at most once daily. It stores only the current
+build, attempt time and result in a package-local cache, separately from layout
+preferences. Errors, unavailable APIs and timeouts do not block window actions
+or produce a popup. A passive Update available button opens the official Store
+page when clicked. The Companion invokes no package download/install API and
+does not restart itself. Portable and preview builds skip automatic Store checks.
+The optional binding uses only OS WinRT metadata, the framework async adapter,
+and the documented IInitializeWithWindow interface for the Companion's HWND.
+It does not download or generate code. This is unpublished source behavior;
+Store-associated acceptance and exact-build release scans remain separate gates.
+
 ## Why antivirus false positives can occur
 
 Window-management utilities commonly enumerate processes, manipulate another

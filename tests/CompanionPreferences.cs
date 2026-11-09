@@ -9,11 +9,11 @@ namespace Offhand.Companion {
         private static void Check(bool value, [System.Runtime.CompilerServices.CallerLineNumber] int line = 0)
         { checkNumber++; if (!value) throw new Exception("Preference regression at check " + checkNumber + ", line " + line); }
         public static void Main() {
-            Check(CompanionForm.FullVersion == "2.1.4");
+            Check(CompanionForm.FullVersion == "2.1.5");
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-            Check(assembly.GetName().Version == new Version(2,1,4,0));
+            Check(assembly.GetName().Version == new Version(2,1,5,0));
             Check(((System.Reflection.AssemblyInformationalVersionAttribute)Attribute.GetCustomAttribute(
-                assembly, typeof(System.Reflection.AssemblyInformationalVersionAttribute))).InformationalVersion == "2.1.4");
+                assembly, typeof(System.Reflection.AssemblyInformationalVersionAttribute))).InformationalVersion == "2.1.5");
             Check(CompanionDistribution.UpdateButtonText(true) == "Store Updates");
             Check(CompanionDistribution.UpdateButtonText(false) == "Check for Updates");
             Check(CompanionDistribution.UpdateMenuText(true).Contains("Microsoft Store"));
@@ -213,7 +213,7 @@ namespace Offhand.Companion {
                     "## Interface: 16000\n## X-Offhand-Release: beta.20\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.2-beta.19\n");
                 Check(AddonInstallation.Inspect(futureWow).Installed);
                 File.WriteAllText(Path.Combine(futureAddon, "Offhand_Forever.toc"),
-                    "## Interface: 16000\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.5-beta.1\n");
+                    "## Interface: 16000\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.6-beta.1\n");
                 Check(!AddonInstallation.Inspect(futureWow).Installed);
 
                 string legacyWow = Path.Combine(root, "legacy-compatible");
@@ -284,7 +284,7 @@ namespace Offhand.Companion {
                 Check(CompanionTopologyBridge.TryWrite(wow, plan, displays, out topologyMessage, out writtenTopology));
                 Check(SpanRollback.SameBytes(writtenTopology, File.ReadAllBytes(Path.Combine(core, "CompanionTopology.lua"))));
                 string topology = File.ReadAllText(Path.Combine(core, "CompanionTopology.lua"));
-                Check(topology.Contains("mode = \"DUAL_DISPLAY\"") && topology.Contains("companionVersion = \"2.1.4\"") && topology.Contains("width = 3440") &&
+                Check(topology.Contains("mode = \"DUAL_DISPLAY\"") && topology.Contains("companionVersion = \"2.1.5\"") && topology.Contains("width = 3440") &&
                     topology.Contains("height = 1080") && topology.Contains("y = 0"));
                 Check(CompanionTopologyBridge.IsCurrent(wow, plan, displays));
                 File.WriteAllText(Path.Combine(core, "CompanionTopology.lua"),

@@ -10,6 +10,10 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Globalization;
+using Timer = System.Windows.Forms.Timer;
 
 #if UI_PREVIEW && (RDP_TEST || HDR_DPI_DIAGNOSTICS_TEST || GRAININESS_TEST || FOREVER_GRAPHICS_RECOVERY_TEST || RETAIL_GRAPHICS_RECOVERY_TEST || CLASSIC_GRAPHICS_RECOVERY_TEST)
 #error UI preview requires its own isolated build configuration.
@@ -53,11 +57,11 @@ using System.Windows.Forms;
 #elif RDP_TEST
 [assembly: AssemblyVersion("2.1.3.0")]
 #else
-[assembly: AssemblyVersion("2.1.4.0")]
+[assembly: AssemblyVersion("2.1.5.0")]
 #endif
 #if UI_PREVIEW
-[assembly: AssemblyFileVersion("2.1.4.8002")]
-[assembly: AssemblyInformationalVersion("2.1.4")]
+[assembly: AssemblyFileVersion("2.1.5.8001")]
+[assembly: AssemblyInformationalVersion("2.1.5")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
 [assembly: AssemblyInformationalVersion("2.1.3-beta.6")]
@@ -73,8 +77,8 @@ using System.Windows.Forms;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.4.2")]
-[assembly: AssemblyInformationalVersion("2.1.4")]
+[assembly: AssemblyFileVersion("2.1.5.1")]
+[assembly: AssemblyInformationalVersion("2.1.5")]
 #endif
 
 namespace Offhand.Companion
@@ -243,6 +247,19 @@ namespace Offhand.Companion
             return storePackage ? "Store Updates" : "Check for Updates";
         }
 
+        internal static string UpdateButtonText(bool storePackage, StoreUpdateState state)
+        {
+            return storePackage && state == StoreUpdateState.Available ? "Update available…" : UpdateButtonText(storePackage);
+        }
+
+        internal static string StoreUpdateTip(StoreUpdateState state)
+        {
+            string status = state == StoreUpdateState.Available ? "A Companion update is available. "
+                : state == StoreUpdateState.NoUpdate ? "The last Store check found no update. "
+                : state == StoreUpdateState.Unavailable ? "The automatic Store check was unavailable. " : "";
+            return status + "Open Microsoft Store to check and install updates when convenient. The Companion never installs an update itself.";
+        }
+
         internal static string UpdateMenuText(bool storePackage)
         {
             return storePackage ? "Check Microsoft Store for Updates" : "Check for Updates";
@@ -251,15 +268,174 @@ namespace Offhand.Companion
         internal static string UpdateHelpText(bool storePackage)
         {
             return storePackage
-                ? "Store Updates: Open the official Microsoft Store product page. Microsoft Store installs updates for this package; the Companion does not contact GitHub."
+                ? "Store Updates: Companion quietly checks Microsoft Store after startup, at most once daily. Update available means the Store reported an update. Click to open the official Store page and install when convenient. The Companion does not contact GitHub."
                 : "Check for Updates: Make a one-time HTTPS request to the official GitHub Releases API. Update checks never run automatically.";
         }
 
         internal static string PrivacyNetworkText(bool storePackage)
         {
             return storePackage
-                ? "The Companion does not collect telemetry, credentials, chat, or gameplay data. It does not configure Windows startup persistence or inspect process security tokens. The Companion itself makes no network request for update checks in the Store package; clicking Store Updates opens the official Microsoft Store product page, and Microsoft Store manages installation and updates."
+                ? "The Companion does not collect telemetry, credentials, chat, or gameplay data. It does not configure Windows startup persistence or inspect process security tokens. Store installations quietly ask Microsoft's Windows Store service about available Companion updates after startup, at most once daily. A local cache stores the check time, build and result. Clicking Store Updates or Update available opens the official Store page; Microsoft Store manages downloading and installation."
                 : "The Companion does not collect telemetry, credentials, chat, or gameplay data. It does not configure Windows startup persistence or inspect process security tokens. The Companion itself contacts the official GitHub Releases API only when you click Check for Updates. Release checksums, source, and build provenance are published with official GitHub releases.";
+        }
+    }
+
+    internal enum StoreUpdateState { NotChecked, NoUpdate, Available, Unavailable }
+
+    // Separate from layout preferences. A failed cache write skips the query,
+    // so restarting the app cannot turn an unavailable Store into rapid retries.
+    internal sealed class StoreUpdateCache
+    {
+        internal static readonly TimeSpan Interval = TimeSpan.FromDays(1);
+        private readonly string path;
+        private readonly string version;
+        internal StoreUpdateCache(string path, string version) { this.path = path; this.version = version; }
+
+        private Dictionary<string, string> Read()
+        {
+            if (File.Exists(path) && new FileInfo(path).Length > 4096) return new Dictionary<string, string>();
+            return PreferenceFile.Read(path);
+        }
+
+        private static bool TryTime(IDictionary<string, string> values, DateTime now, out DateTime attempted)
+        {
+            string text;
+            attempted = default(DateTime);
+            return values.TryGetValue("AttemptUtc", out text)
+                && DateTime.TryParseExact(text, "o", CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind, out attempted)
+                && attempted.Kind == DateTimeKind.Utc && attempted <= now + Interval;
+        }
+
+        internal StoreUpdateState Cached(DateTime now)
+        {
+            var values = Read(); DateTime attempted; string state, savedVersion; StoreUpdateState parsed;
+            if (TryTime(values, now, out attempted) && now - attempted < Interval
+                && values.TryGetValue("Build", out savedVersion) && savedVersion == version
+                && values.TryGetValue("State", out state) && Enum.TryParse(state, out parsed)
+                && Enum.IsDefined(typeof(StoreUpdateState), parsed)) return parsed;
+            return StoreUpdateState.NotChecked;
+        }
+
+        internal TimeSpan UntilDue(DateTime now)
+        {
+            DateTime attempted;
+            return TryTime(Read(), now, out attempted) && now - attempted < Interval
+                ? attempted + Interval - now : TimeSpan.Zero;
+        }
+
+        internal bool TryClaim(DateTime now)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            using (var gate = new FileStream(path + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+            {
+                if (UntilDue(now) > TimeSpan.Zero) return false;
+                PreferenceFile.Write(path, new Dictionary<string, string> {
+                    { "Build", version }, { "AttemptUtc", now.ToString("o", CultureInfo.InvariantCulture) },
+                    { "State", StoreUpdateState.NotChecked.ToString() } });
+                return true;
+            }
+        }
+
+        internal void Complete(DateTime attempted, StoreUpdateState state)
+        {
+            using (var gate = new FileStream(path + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+            {
+                var values = Read(); string saved;
+                string savedVersion;
+                if (!values.TryGetValue("Build", out savedVersion) || savedVersion != version
+                    || !values.TryGetValue("AttemptUtc", out saved)
+                    || saved != attempted.ToString("o", CultureInfo.InvariantCulture)) return;
+                values["State"] = state.ToString();
+                PreferenceFile.Write(path, values);
+            }
+        }
+    }
+
+    internal static class StoreUpdateCheck
+    {
+        private static void Observe(Task task)
+        {
+            task.ContinueWith(t => { var observed = t.Exception; },
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
+        }
+        internal static bool Eligible(bool storePackage)
+        {
+#if UI_PREVIEW || RDP_TEST || HDR_DPI_DIAGNOSTICS_TEST || GRAININESS_TEST || FOREVER_GRAPHICS_RECOVERY_TEST || RETAIL_GRAPHICS_RECOVERY_TEST || CLASSIC_GRAPHICS_RECOVERY_TEST
+            return false;
+#else
+            return storePackage;
+#endif
+        }
+
+        internal static async Task<StoreUpdateState> RunAsync(
+            Func<CancellationToken, Task<StoreUpdateState>> query, int timeoutMilliseconds, CancellationToken lifetime)
+        {
+            using (var cancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime))
+            {
+                Task<StoreUpdateState> pending = null;
+                try
+                {
+                    lifetime.ThrowIfCancellationRequested();
+                    pending = query(cancellation.Token);
+                    if (await Task.WhenAny(pending, Task.Delay(timeoutMilliseconds, lifetime)) != pending)
+                    {
+                        cancellation.Cancel();
+                        // A provider that ignores cancellation must not block shutdown or
+                        // publish a late result. Observe eventual faults without UI work.
+                        Observe(pending);
+                        return StoreUpdateState.Unavailable;
+                    }
+                    lifetime.ThrowIfCancellationRequested();
+                    return await pending;
+                }
+                catch (Exception)
+                {
+                    if (pending != null) Observe(pending);
+                    return StoreUpdateState.Unavailable;
+                }
+            }
+        }
+    }
+
+    internal static class StoreUpdateRuntime
+    {
+        [ComImport, Guid("3E68D4BD-7135-4D10-8018-9FB6D9F33FA1"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IInitializeWithWindow { void Initialize(IntPtr owner); }
+
+        // Bind only the OS-provided WinRT metadata and framework async bridge.
+        // This keeps portable/Wine builds free of a mandatory Windows SDK runtime
+        // dependency. No package download or install API is invoked here.
+        internal static MethodInfo TaskAdapter(Type resultType)
+        {
+            var bridge = Assembly.Load("System.Runtime.WindowsRuntime, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089");
+            foreach (var method in bridge.GetType("System.WindowsRuntimeSystemExtensions").GetMethods())
+            {
+                var parameters = method.GetParameters();
+                if (method.Name == "AsTask" && method.IsGenericMethodDefinition
+                    && method.GetGenericArguments().Length == 1 && parameters.Length == 2
+                    && parameters[0].ParameterType.IsGenericType
+                    && parameters[0].ParameterType.GetGenericTypeDefinition().FullName == "Windows.Foundation.IAsyncOperation`1"
+                    && parameters[1].ParameterType == typeof(CancellationToken)) return method.MakeGenericMethod(resultType);
+            }
+            throw new PlatformNotSupportedException("The Windows Store async bridge is unavailable.");
+        }
+
+        internal static async Task<StoreUpdateState> QueryAsync(IntPtr owner, CancellationToken cancellation)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            Type type = Type.GetType("Windows.Services.Store.StoreContext, Windows, ContentType=WindowsRuntime", true);
+            MethodInfo query = type.GetMethod("GetAppAndOptionalStorePackageUpdatesAsync");
+            MethodInfo adapter = TaskAdapter(query.ReturnType.GetGenericArguments()[0]);
+            object context = type.GetMethod("GetDefault").Invoke(null, null);
+            ((IInitializeWithWindow)context).Initialize(owner);
+            object operation = query.Invoke(context, null);
+            var task = (Task)adapter.Invoke(null, new object[] { operation, cancellation });
+            await task;
+            var updates = (System.Collections.IEnumerable)task.GetType().GetProperty("Result").GetValue(task, null);
+            var iterator = updates.GetEnumerator();
+            try { return iterator.MoveNext() ? StoreUpdateState.Available : StoreUpdateState.NoUpdate; }
+            finally { var disposable = iterator as IDisposable; if (disposable != null) disposable.Dispose(); GC.KeepAlive(context); }
         }
     }
 
@@ -3934,10 +4110,10 @@ namespace Offhand.Companion
 #elif RDP_TEST
         internal const string BaseVersion = "2.1.3";
 #else
-        internal const string BaseVersion = "2.1.4";
+        internal const string BaseVersion = "2.1.5";
 #endif
 #if UI_PREVIEW
-        internal const string ReleaseLabel = "UI Preview 4";
+        internal const string ReleaseLabel = "UI Preview 1";
         internal static readonly bool GraphicsRecoveryEnabled = false;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
@@ -4590,6 +4766,12 @@ namespace Offhand.Companion
         private bool isMonitoring = true;
         private bool isExplicitExit = false;
         private bool updateCheckInProgress = false;
+        private Timer storeUpdateTimer;
+        private readonly CancellationTokenSource storeUpdateLifetime = new CancellationTokenSource();
+        private bool storeUpdateStopped;
+        private StoreUpdateCache storeUpdateCache;
+        private ToolStripMenuItem itemCheckUpdates;
+        private Func<IntPtr, CancellationToken, Task<StoreUpdateState>> storeUpdateQuery = StoreUpdateRuntime.QueryAsync;
         private readonly bool isStorePackage = CompanionDistribution.IsStorePackage();
         private readonly HashSet<int> spannedPids = new HashSet<int>();
 #if GRAININESS_TEST
@@ -4771,6 +4953,13 @@ namespace Offhand.Companion
             remoteWatcher = new RemoteDesktopWatcher(InvalidateRemoteSpan);
             Disposed += (s, e) =>
             {
+                if (!storeUpdateStopped)
+                {
+                    storeUpdateStopped = true;
+                    if (storeUpdateTimer != null) storeUpdateTimer.Dispose();
+                    storeUpdateLifetime.Cancel();
+                    storeUpdateLifetime.Dispose();
+                }
                 remoteWatcher.Dispose();
                 InvalidateRemoteSpan();
             };
@@ -4874,6 +5063,58 @@ namespace Offhand.Companion
                     }));
                 }
             });
+        }
+
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            if (!StoreUpdateCheck.Eligible(isStorePackage) || storeUpdateTimer != null) return;
+            string build = ((AssemblyFileVersionAttribute)Attribute.GetCustomAttribute(
+                typeof(CompanionForm).Assembly, typeof(AssemblyFileVersionAttribute))).Version;
+            storeUpdateCache = new StoreUpdateCache(Path.Combine(Path.GetDirectoryName(configPath), "StoreUpdateCheck.ini"), build);
+            try { ApplyStoreUpdateState(storeUpdateCache.Cached(DateTime.UtcNow)); }
+            catch (Exception) { ApplyStoreUpdateState(StoreUpdateState.Unavailable); }
+            storeUpdateTimer = new Timer { Interval = 30000 };
+            storeUpdateTimer.Tick += async (s, args) =>
+            {
+                storeUpdateTimer.Stop();
+                DateTime attempted = DateTime.UtcNow;
+                try
+                {
+                    if (storeUpdateCache.TryClaim(attempted))
+                    {
+                        var result = await StoreUpdateCheck.RunAsync(
+                            token => storeUpdateQuery(Handle, token), 15000, storeUpdateLifetime.Token);
+                        if (IsDisposed || Disposing || isExplicitExit) return;
+                        storeUpdateCache.Complete(attempted, result);
+                        ApplyStoreUpdateState(result);
+                    }
+                    else ApplyStoreUpdateState(storeUpdateCache.Cached(attempted));
+                }
+                catch (Exception)
+                {
+                    if (!IsDisposed && !Disposing && !isExplicitExit) ApplyStoreUpdateState(StoreUpdateState.Unavailable);
+                }
+                if (IsDisposed || Disposing || isExplicitExit) return;
+                TimeSpan delay = StoreUpdateCache.Interval;
+                try { var remaining = storeUpdateCache.UntilDue(DateTime.UtcNow); if (remaining > TimeSpan.Zero) delay = remaining; }
+                catch (Exception) { }
+                storeUpdateTimer.Interval = (int)Math.Max(1000, Math.Min(StoreUpdateCache.Interval.TotalMilliseconds, delay.TotalMilliseconds));
+                storeUpdateTimer.Start();
+            };
+            storeUpdateTimer.Start();
+        }
+
+        private void ApplyStoreUpdateState(StoreUpdateState state)
+        {
+            if (!isStorePackage || IsDisposed || Disposing) return;
+            btnCheckUpdates.Text = CompanionDistribution.UpdateButtonText(true, state);
+            btnCheckUpdates.AccessibleName = btnCheckUpdates.Text;
+            btnCheckUpdates.AccessibleDescription = CompanionDistribution.StoreUpdateTip(state);
+            btnCheckUpdates.ForeColor = state == StoreUpdateState.Available ? cGoldBright : cText;
+            uiToolTips.SetToolTip(btnCheckUpdates, CompanionDistribution.StoreUpdateTip(state));
+            if (itemCheckUpdates != null) itemCheckUpdates.Text = state == StoreUpdateState.Available
+                ? "Update available in Microsoft Store…" : CompanionDistribution.UpdateMenuText(true);
         }
 
         protected override void OnLoad(EventArgs e)
@@ -5439,7 +5680,7 @@ namespace Offhand.Companion
             btnCheckUpdates.Click += (s, e) => { CheckForUpdates(); };
             this.Controls.Add(btnCheckUpdates);
             uiToolTips.SetToolTip(btnCheckUpdates, isStorePackage
-                ? "Open the official Microsoft Store product page. Microsoft Store manages updates for this installation."
+                ? CompanionDistribution.StoreUpdateTip(StoreUpdateState.NotChecked)
                 : "Contact the official GitHub Releases API once to compare versions. The Companion never checks for updates automatically.");
 
             Button btnExit = CreateButton("Exit Companion", 356, 1000, 152, 30, cBtnDanger, Color.FromArgb(235, 130, 130), Color.FromArgb(140, 45, 45));
@@ -6012,7 +6253,7 @@ namespace Offhand.Companion
             itemHelp.Click += (s, e) => { RestoreForm(); ShowHelpDialog(); };
             trayMenu.Items.Add(itemHelp);
 
-            ToolStripMenuItem itemCheckUpdates = new ToolStripMenuItem(CompanionDistribution.UpdateMenuText(isStorePackage));
+            itemCheckUpdates = new ToolStripMenuItem(CompanionDistribution.UpdateMenuText(isStorePackage));
             itemCheckUpdates.Click += (s, e) => { RestoreForm(); CheckForUpdates(); };
             trayMenu.Items.Add(itemCheckUpdates);
 
