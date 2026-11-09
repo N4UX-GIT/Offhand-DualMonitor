@@ -1001,7 +1001,7 @@ L["COMPANION_PRIMARY_WORKSPACE"] = " (기본)"
 
 -- Simplified setup wording above uses English fallback pending translation.
 
-L["ONBOARD_PLACE_COMPANION"] = "In Companion, keep standard layout. Use Identify Displays, select the intended screens and Mainhand, then click |cffffd100Span WoW Now|r at the top. Custom workspaces are optional.\n\nReturn here: |cffffd100Reload UI|r, then |cffffd100Confirm placement|r."
+L["ONBOARD_PLACE_COMPANION"] = "For two full monitors, keep standard layout in Companion. Use Identify Displays, select the intended screens and Mainhand, then click |cffffd100Span WoW Now|r at the top. Custom workspaces are optional.\n\nReturn here: |cffffd100Reload UI|r, then |cffffd100Confirm placement|r."
 
 L["ONBOARD_PATH_COMPANION_3"] = "After Windowed mode, continue to Place WoW. In Companion, leave auto-span off for this first test. Configuration contains Identify Displays, Span displays and Mainhand. Use Show if a section is collapsed. For two full screens, keep standard layout."
 

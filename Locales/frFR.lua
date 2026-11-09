@@ -998,7 +998,7 @@ L["COMPANION_WORKSPACES_SUMMARY"] = "Companion actif : jeu %dx%d | %d espaces de
 L["COMPANION_WORKSPACE_REGION_LINE"] = "Espace de travail %d : %dx%d"
 L["COMPANION_PRIMARY_WORKSPACE"] = " (principal)"
 
-L["ONBOARD_PLACE_COMPANION"] = "Dans Companion, gardez la disposition standard. Utilisez Identify Displays, choisissez les écrans et Mainhand, puis cliquez sur |cffffd100Span WoW Now|r en haut. Les espaces personnalisés sont facultatifs.\n\nRevenez ici : |cffffd100Reload UI|r, puis |cffffd100Confirm placement|r."
+L["ONBOARD_PLACE_COMPANION"] = "Pour deux écrans entiers, gardez la disposition standard dans Companion. Utilisez Identify Displays, choisissez les écrans et Mainhand, puis cliquez sur |cffffd100Span WoW Now|r en haut. Les espaces personnalisés sont facultatifs.\n\nRevenez ici : |cffffd100Reload UI|r, puis |cffffd100Confirm placement|r."
 
 L["ONBOARD_PATH_COMPANION_3"] = "Après le mode fenêtré, passez à Place WoW. Laissez le placement automatique désactivé pour ce premier essai. Configuration contient Identify Displays, Span displays et Mainhand. Show ouvre une section repliée. Pour deux écrans entiers, gardez la disposition standard."
 

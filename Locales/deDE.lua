@@ -998,7 +998,7 @@ L["COMPANION_WORKSPACES_SUMMARY"] = "Companion aktiv: Spiel %dx%d | %d Arbeitsbe
 L["COMPANION_WORKSPACE_REGION_LINE"] = "Arbeitsbereich %d: %dx%d"
 L["COMPANION_PRIMARY_WORKSPACE"] = " (primär)"
 
-L["ONBOARD_PLACE_COMPANION"] = "Behalte im Companion das Standardlayout. Nutze Identify Displays, wähle Bildschirme und Mainhand und klicke oben auf |cffffd100Span WoW Now|r. Eigene Arbeitsbereiche sind optional.\n\nKehre hierher zurück: |cffffd100Reload UI|r, dann |cffffd100Confirm placement|r."
+L["ONBOARD_PLACE_COMPANION"] = "Für zwei ganze Bildschirme behalte im Companion das Standardlayout. Nutze Identify Displays, wähle Bildschirme und Mainhand und klicke oben auf |cffffd100Span WoW Now|r. Eigene Arbeitsbereiche sind optional.\n\nKehre hierher zurück: |cffffd100Reload UI|r, dann |cffffd100Confirm placement|r."
 
 L["ONBOARD_PATH_COMPANION_3"] = "Gehe nach dem Fenstermodus zu Place WoW. Lass automatisches Aufspannen beim ersten Test aus. Unter Configuration findest du Identify Displays, Span displays und Mainhand. Show öffnet eingeklappte Bereiche. Für zwei ganze Bildschirme bleibt das Standardlayout aktiv."
 
