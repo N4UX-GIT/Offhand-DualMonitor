@@ -2063,3 +2063,32 @@ kbd {
     .workspace-table { min-width: 560px; }
     .workspace-table th, .workspace-table td { padding: 12px; font-size: 0.9rem; }
 }
+
+/* Shared task hierarchy preview for the updated addon guide. */
+.setup-flow-preview { margin: 28px 0; padding: clamp(16px, 3vw, 28px); background: #0c0d10; border: 1px solid #323746; border-radius: 12px; }
+.setup-flow-preview > h3 { margin: 10px 0; color: #ffd750; font-size: 1.4rem; }
+.setup-flow-preview > p, .setup-action-note { color: #c8cbd2; line-height: 1.65; }
+.setup-progress { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 0; margin: 22px 0 16px; list-style: none; }
+.setup-progress li { min-width: 0; padding: 12px; background: #14161d; border: 1px solid #323746; border-radius: 5px; color: #9499a6; font-weight: 600; }
+.setup-progress .is-complete { color: #8be8ba; background: #0e241e; border-color: #267b55; }
+.setup-progress [aria-current="step"] { background: #ffbd0a; color: #111215; border-color: #ffe285; }
+.setup-task-card { padding: clamp(16px, 3vw, 26px); background: #181a23; border: 1px solid #323746; border-radius: 9px; }
+.setup-task-label { color: #ffd750; font-size: .8rem; font-weight: 700; letter-spacing: .06em; }
+.setup-task-copy h4 { margin: 10px 0; font-size: 1.5rem; color: #f3f4f6; }
+.setup-task-copy p { max-width: 65ch; line-height: 1.65; color: #c8cbd2; }
+.setup-layout-example { margin: 22px 0; padding: 16px; border: 1px solid #323746; border-radius: 6px; background: #101218; }
+.setup-layout-example svg { display: block; width: 100%; max-width: 520px; margin: auto; }
+.setup-layout-example figcaption { margin-top: 12px; text-align: center; color: #c8cbd2; font-size: .85rem; }
+.setup-task-status { color: #8be8ba; line-height: 1.6; }
+.setup-task-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+.setup-action-example { display: inline-flex; align-items: center; justify-content: space-between; gap: 24px; padding: 13px 20px; border: 1px solid #323746; border-radius: 5px; font-weight: 700; }
+.setup-action-primary { color: #111215; background: #ffbd0a; border-color: #ffe285; }
+.setup-action-disabled { color: #9499a6; background: #14161d; }
+.setup-action-note { font-size: .82rem; margin-top: 12px; }
+.setup-flow-preview > details { margin-top: 18px; }
+.setup-flow-preview summary { padding: 8px 0; cursor: pointer; color: #ffd750; }
+@media (max-width: 560px) { .setup-progress { grid-template-columns: 1fr; } .setup-task-actions { flex-direction: column; } }
+
+#setup-flow-preview-title { scroll-margin-top: 110px; }
+
+#setup-task-preview { scroll-margin-top: 90px; }

@@ -5,6 +5,13 @@
 
 local _, Offhand = ...
 
+-- Resolve at the hardware-click boundary. Modern clients expose C_UI.Reload;
+-- older supported clients retain the global entry point. Do not replace globals.
+function Offhand:GetReloadUIFunction()
+    if C_UI and type(C_UI.Reload) == "function" then return C_UI.Reload end
+    if type(ReloadUI) == "function" then return ReloadUI end
+end
+
 local function BlizzardEditModeAddonExists()
     if C_AddOns and type(C_AddOns.DoesAddOnExist) == "function" then
         local ok, exists = pcall(C_AddOns.DoesAddOnExist, "Blizzard_EditMode")

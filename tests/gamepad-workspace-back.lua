@@ -83,6 +83,21 @@ behavior:RefreshGamepadWorkspaceBack()
 assert(not overrides[owner], "temporary dismissal must retain its native action")
 focusedPanel.dismissOnUnfocus = nil
 behavior:RefreshGamepadWorkspaceBack()
+-- An NPC window on Offhand still needs Blizzard's native close/interaction
+-- binding. It must not inherit the persistent-book focus-only Back action.
+assert(loadfile("Core/CanvasPanelRegistry.lua"))("Offhand", addon)
+local focusedName = "WorldMapFrame"
+focusedPanel.GetName = function() return focusedName end
+for _, name in ipairs({"MerchantFrame", "QuestFrame", "GossipFrame", "TaxiFrame",
+    "FlightMapFrame", "MailFrame", "OpenMailFrame", "AuctionHouseFrame"}) do
+    focusedName = name
+    behavior:RefreshGamepadWorkspaceBack()
+    assert(not overrides[owner], name .. " must retain native interaction Back")
+    assert(focusedPanel.shown, "binding policy must never hide interaction windows itself")
+end
+focusedName = "WorldMapFrame"
+behavior:RefreshGamepadWorkspaceBack()
+assert(overrides[owner] == "TOGGLEUIFOCUS", "standalone workspace focus policy did not resume")
 combat = true
 local combatBody = assert(loadstring(owner:GetAttribute("_onstate-combat")))
 setfenv(combatBody, { self = owner, newstate = "combat" })

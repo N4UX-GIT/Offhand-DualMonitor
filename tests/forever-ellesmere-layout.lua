@@ -28,6 +28,11 @@ local context = {
 local addon = {isForever = true, db = {enabled = true}, Mainhand = {
     GetEllesmereLayoutSource = function() return context end,
 }}
+-- This partial addon fixture needs only the reload capability; keep its
+-- existing client/input ownership doubles independent of other runtime APIs.
+local reloadRuntime = {}
+assert(loadfile("Core/ClientRuntime.lua"))("Offhand", reloadRuntime)
+addon.GetReloadUIFunction = reloadRuntime.GetReloadUIFunction
 
 local function element(scale)
     local target = frame(scale)
@@ -379,8 +384,16 @@ Tick()
 assert(popup.text == addon.L.ELLESMERE_HUD_IMPORT_RELOAD_PROMPT and reloads == 0)
 popup.OnAccept()
 assert(reloads == 1, "Standard reload requires a confirmation click")
+do
+    local previousUI, previousReload = C_UI, ReloadUI
+    C_UI, ReloadUI = { Reload = function() reloads = reloads + 1 end }, nil
+    transfer:PromptImportReload()
+    popup.OnAccept()
+    assert(reloads == 2, "import reload must work with only C_UI.Reload available")
+    C_UI, ReloadUI = previousUI, previousReload
+end
 gamepad = true
 transfer:PromptImportReload()
-assert(popup.text == addon.L.ELLESMERE_HUD_IMPORT_RELOAD_MANUAL and not popup.OnAccept and reloads == 1,
+assert(popup.text == addon.L.ELLESMERE_HUD_IMPORT_RELOAD_MANUAL and not popup.OnAccept and reloads == 2,
     "Forever Gamepad must receive the manual reload instructions")
 print("PASS: EllesmereUI preview, staged profile review, span fit and inactive Blizzard fallback")

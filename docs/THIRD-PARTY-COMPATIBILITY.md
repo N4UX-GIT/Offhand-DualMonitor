@@ -1,5 +1,18 @@
 # Third-party compatibility boundary
 
+OpenMap retains map window position and scale, including its private saved
+anchor. Its own title handle passed manual placement, reopening and reload
+checks on Forever 70862, including with Leatrix's competing geometry options off.
+Original OpenMap v0.7.5-beta **Reset size and place** failed to recover a hidden
+title even with Offhand disabled. The earlier vendor patch passed native
+reopen/reload/span checks. A subsequent Offhand candidate provides **Recover
+OpenMap title** and `/offhand recovermap` without editing OpenMap files. This
+explicit action coordinates one saved anchor with OpenMap's existing owner,
+preserving size/scale. It is gated to Forever, OpenMap v0.7.5-beta and API 1/4,
+refuses combat and other movers, and has automated acceptance only so far.
+The built-in path and reporter's exact vertical stack need live confirmation; see
+[investigation, repair tool and evidence limits](OPENMAP-SNAPBACK-20261108.md).
+
 The automatic popup scanner now yields to BetterBags' Backpack/Bank windows and
 their anchor roots, RestedXP's named guide/item roots and its anonymous V2 guide
 identified through the public AceGUI widget. Explicit user placement also wins.
@@ -73,3 +86,13 @@ exposed at runtime by other installed addons:
 These names remain the property of their respective owners and are referenced
 solely for interoperability. Compatibility is best-effort because third-party
 runtime interfaces can change without notice.
+
+### OpenMap scale settings candidate (2026-11-08)
+
+The Offhand map scale control supports the reviewed v0.7.5-beta WindowOptions
+contract (API 1/4), active owner and matching module DB. A DB-only setter invokes
+its existing scale Apply action, with no mod:Refresh or vendor source edits.
+OpenMap retains its 50–160% range and saved anchor/size. Auto Fit stores a fitted
+numeric scale in OpenMap rather than a persistent AUTO mode. Other versions and
+owners keep their own settings. Synthetic source/ownership tests pass; native
+rendering, reload and taint acceptance are pending. See MAP-SCALE-20261108.md.

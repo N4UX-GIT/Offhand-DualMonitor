@@ -490,6 +490,14 @@ function Transient.Install(HUD, services)
         local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
         local cx = (m.gameLeft + m.gameRight) / 2
         local cy = (m.gameBottom + m.gameTop) / 2
+        local inspected, correct = pcall(function()
+            if not frame.GetNumPoints or not frame.GetPoint or frame:GetNumPoints() ~= 1 then return false end
+            local point, relative, relativePoint, x, y = frame:GetPoint(1)
+            return point == "CENTER" and relative == UIParent and relativePoint == "BOTTOMLEFT"
+                and type(x) == "number" and type(y) == "number"
+                and math.abs(x-cx*factor) < .01 and math.abs(y-cy*factor) < .01
+        end)
+        if inspected and correct then return true end
         local ok = pcall(function()
             frame:ClearAllPoints()
             frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)

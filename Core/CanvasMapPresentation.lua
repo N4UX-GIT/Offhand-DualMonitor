@@ -425,6 +425,10 @@ function Map.InstallConfiguration(Canvas, services)
             local userMainScale = Offhand.db.mainMapScale
             if userMainScale and tonumber(userMainScale) and tonumber(userMainScale) > 0 then
                 map:SetScale(tonumber(userMainScale))
+            elseif userMainScale == "AUTO" then
+                local baseWidth = map:GetWidth() or 610
+                if baseWidth <= 0 then baseWidth = 610 end
+                map:SetScale(math.max(.50, math.min(3.00, (m.gameWidth - 24) / baseWidth)))
             else
                 map:SetScale(1.0)
             end

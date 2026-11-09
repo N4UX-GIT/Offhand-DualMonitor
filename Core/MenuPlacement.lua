@@ -54,3 +54,53 @@ function Menus:Refresh()
         else self:Center(frame) end
     end
 end
+
+-- Cooldown Settings is an ordinary registered UIPanel, not a cooldown HUD
+-- system. Keep the broad HUD ownership guards intact and observe its dedicated
+-- Blizzard event, without scripts or bookkeeping on the native frame tree.
+function Menus:RecoverForeverCooldownSettings(frame)
+    local ok, recovered = pcall(function()
+        if not Offhand.isForever or frame ~= _G.CooldownViewerSettings or not Usable(frame)
+            or (Offhand.db and Offhand.db.seamRedirect == false)
+            or (Offhand.IsGamepadUIEnabled and Offhand:IsGamepadUIEnabled()) then return false end
+        local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+        if not m or not m.isSpanned then return false end
+        local factor = frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
+        local left, top, width, height = frame:GetLeft(), frame:GetTop(), frame:GetWidth(), frame:GetHeight()
+        for _, value in ipairs({factor, left, top, width, height}) do
+            if not Number(value) then return false end
+        end
+        if factor <= 0 or width <= 0 or height <= 0 then return false end
+        left, top, width, height = left*factor, top*factor, width*factor, height*factor
+        local function Contained(l, b, r, t)
+            return Number(l) and Number(b) and Number(r) and Number(t)
+                and left >= l and left+width <= r and top <= t and top-height >= b
+        end
+        if Contained(m.gameLeft, m.gameBottom, m.gameRight, m.gameTop) then return false end
+        if m.workspaceRegions then
+            for _, region in ipairs(m.workspaceRegions) do
+                if Contained(region.x, region.y, region.x+region.width, region.y+region.height) then return false end
+            end
+        elseif Contained(m.workspaceLeft, m.workspaceBottom, m.workspaceRight, m.workspaceTop) then return false end
+        return self:Center(frame, m)
+    end)
+    return ok and recovered == true
+end
+
+function Menus:InstallForeverSettingsRecovery()
+    if not Offhand.isForever or self.settingsRecoveryInstalled or not EventRegistry
+        or type(EventRegistry.RegisterCallback) ~= "function" then return false end
+    self.settingsRecoveryInstalled = true
+    EventRegistry:RegisterCallback("CooldownViewerSettings.OnShow", function(_, frame)
+        self.settingsRecoveryGeneration = (self.settingsRecoveryGeneration or 0)+1
+        local generation = self.settingsRecoveryGeneration
+        -- Native ShowUIPanel can place the root after OnShow. Wait for that
+        -- transaction, then inspect the live bounds rather than its stock anchor.
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0, function()
+                if generation == self.settingsRecoveryGeneration then self:RecoverForeverCooldownSettings(frame) end
+            end)
+        end
+    end, self)
+    return true
+end

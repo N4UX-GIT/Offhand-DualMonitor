@@ -36,6 +36,14 @@ local function SetShown(frame, shown)
     else frame:Hide() end
 end
 
+local function SupportsWindowLock()
+    local behavior = Offhand.WorkspaceBehavior
+    if behavior and type(behavior.IsLockSupported) == "function" then
+        return behavior:IsLockSupported() == true
+    end
+    return not Offhand.isForever
+end
+
 local function SetSolidColor(texture, r, g, b, a)
     if not texture then return end
     if texture.SetColorTexture then
@@ -130,6 +138,20 @@ StaticPopupDialogs["OFFHAND_ENABLE_FOREVER_PROFESSIONS_MOVEMENT"] = {
     hideOnEscape = true,
     preferredIndex = 3,
 }
+
+-- WoW cannot launch an arbitrary browser. Use the existing owned, selectable
+-- address card and keep the destinations restricted to our official links.
+for _, link in ipairs({
+    { key = "OFFHAND_WEBSITE_LINK", text = "WEBSITE_LINK_TEXT", url = Offhand.websiteUrl },
+    { key = "OFFHAND_DISCORD_LINK", text = "DISCORD_LINK_TEXT", url = Offhand.discordUrl },
+}) do
+    local url = link.url
+    StaticPopupDialogs[link.key] = {
+        text = L[link.text], button1 = L["BTN_CLOSE"], hasEditBox = true,
+        gamepadEditBoxText = function() return url end,
+        timeout = 0, whileDead = true, hideOnEscape = true,
+    }
+end
 
 local Options = {}
 Offhand.Options = Options
@@ -300,19 +322,23 @@ function Options:CreateFloatingPanel()
     end
     title:SetText("|cffffcc00Offhand|r")
     
-    local version = header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    version:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 8, 2)
+    local version = header:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    version:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -7)
+    version:SetWidth(560)
+    version:SetHeight(16)
+    version:SetJustifyH("LEFT")
+    if version.SetWordWrap then version:SetWordWrap(false) end
     local getMetadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
     local verNum = (getMetadata and getMetadata("Offhand", "Version")) or "1.0.0"
     local companionDisplay = Offhand.companionVersionDisplay or ("v" .. verNum)
-    version:SetText("|cffaaaaaav" .. verNum .. "|r |cff777777[Companion "
-        .. companionDisplay .. "]|r")
+    version:SetText("|cffc7cbd4v" .. verNum .. " (Companion "
+        .. companionDisplay .. ") | " .. L["HEADER_CRAFTED_BY"] .. "|r")
     header.versionText = version
 
     local versionButton = CreateFrame("Button", nil, header)
     local versionWidth = version.GetStringWidth and version:GetStringWidth() or 220
-    versionButton:SetSize(math.max(96, math.min(360, versionWidth + 10)), 18)
-    versionButton:SetPoint("CENTER", version, "CENTER", 0, 0)
+    versionButton:SetSize(math.max(96, math.min(560, versionWidth + 10)), 18)
+    versionButton:SetPoint("TOPLEFT", version, "TOPLEFT", 0, 3)
     configFrame.versionButton = versionButton
     if Offhand.SetTooltip then
         local releaseDisplay = Offhand.releaseDisplay or ""
@@ -328,8 +354,9 @@ function Options:CreateFloatingPanel()
     end
     
     local desc = header:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
-    desc:SetText(L["ADDON_DESC"])
+    desc:SetPoint("LEFT", title, "RIGHT", 8, 0)
+    desc:SetText("| " .. L["ADDON_DESC"])
+    header.titleText, header.taglineText = title, desc
     
     local closeBtn = CreateFrame("Button", nil, configFrame.header, "UIPanelCloseButton")
     configFrame.workspaceCloseButton = closeBtn
@@ -338,6 +365,22 @@ function Options:CreateFloatingPanel()
     closeBtn:SetScript("OnClick", function()
         Options:Close()
     end)
+
+    local websiteButton = CreateFrame("Button", nil, header, "UIPanelButtonTemplate")
+    websiteButton:SetSize(92, 26)
+    websiteButton:SetPoint("RIGHT", closeBtn, "LEFT", -12, 0)
+    websiteButton:SetText(L["BTN_WEBSITE"])
+    websiteButton:SetScript("OnClick", function() Offhand:ShowPopup("OFFHAND_WEBSITE_LINK") end)
+    local discordButton = CreateFrame("Button", nil, header, "UIPanelButtonTemplate")
+    discordButton:SetSize(92, 26)
+    discordButton:SetPoint("RIGHT", websiteButton, "LEFT", -8, 0)
+    discordButton:SetText(L["BTN_DISCORD"])
+    discordButton:SetScript("OnClick", function() Offhand:ShowPopup("OFFHAND_DISCORD_LINK") end)
+    configFrame.websiteButton, configFrame.discordButton = websiteButton, discordButton
+    if Offhand.SetTooltip then
+        Offhand:SetTooltip(websiteButton, L["BTN_WEBSITE"], L["WEBSITE_LINK_TEXT"])
+        Offhand:SetTooltip(discordButton, L["BTN_DISCORD"], L["DISCORD_LINK_TEXT"])
+    end
 
     configFrame:SetScript("OnHide", function()
         Options:HideSeamGuide()
@@ -1020,29 +1063,17 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 2: WORKSPACE & WORLD MAP
     -- ========================================================================
-    local card2_1 = CreateCard(tab2, L["MAP_SETTINGS"], 150)
+    local card2_1 = CreateCard(tab2, L["MAP_SETTINGS"], Offhand.isForever and 192 or 150)
 
-    local mapScaleSlider = CreateNativeSlider(card2_1, L["MAP_SCALE"], 0.50, 2.50, 0.05,
-        function()
-            local s = Offhand.db and Offhand.db.workspaceMapScale
-            if s == "AUTO" then
-                local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
-                local baseWidth = (WorldMapFrame and WorldMapFrame:GetWidth()) or 610
-                if baseWidth <= 0 then baseWidth = 610 end
-                local availableWidth = (m and (m.workspaceWidth or m.deckWidth) and ((m.workspaceWidth or m.deckWidth) - 24)) or 610
-                return math.max(0.50, math.min(2.50, math.floor((availableWidth / baseWidth) * 100 + 0.5) / 100))
-            end
-            return (tonumber(s) and tonumber(s)) or 1.00
-        end,
-        function(val)
-            Offhand.db.workspaceMapScale = val
-            if Offhand.Canvas and Offhand.Canvas.ConfigureWorldMap then
-                Offhand.Canvas:ConfigureWorldMap()
-            end
-        end,
-        "%.0f%%",
-        L["SLIDER_MINIMAP_SCALE_TIP_TITLE"], "Adjusts the scale of the World Map on your Offhand Monitor canvas."
+    local mapScaleSlider = CreateNativeSlider(card2_1, L["MAP_SCALE"], 0.50,
+        Offhand.MapScale:GetState().max, 0.05,
+        function() return Offhand.MapScale:GetState().value end,
+        function(val) Offhand.MapScale:Set(val) end,
+        "%.0f%%", L["MAP_SCALE"], L["MAP_SCALE_TARGET_HELP"]
     )
+    -- This action applies through the map owner; a full UI layout can move
+    -- unrelated windows and is not needed for a scale preference.
+    mapScaleSlider.applyLayout = function() mapScaleSlider:UpdateText() end
     mapScaleSlider:SetPoint("TOPLEFT", 12, -54)
     mapScaleSlider:SetWidth(290)
 
@@ -1051,50 +1082,62 @@ function Options:CreateFloatingPanel()
     autoFitBtn:SetPoint("LEFT", mapScaleSlider, "RIGHT", 12, -6)
     autoFitBtn:SetText(L["BTN_MAP_AUTOFIT"])
     autoFitBtn:SetScript("OnClick", function()
-        Offhand.db.workspaceMapScale = "AUTO"
-        if Offhand.Canvas and Offhand.Canvas.ConfigureWorldMap then
-            Offhand.Canvas:ConfigureWorldMap()
-        end
-        local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
-        local baseWidth = (WorldMapFrame and WorldMapFrame:GetWidth()) or 610
-        if baseWidth <= 0 then baseWidth = 610 end
-        local availableWidth = (m and (m.workspaceWidth or m.deckWidth) and ((m.workspaceWidth or m.deckWidth) - 24)) or 610
-        local computedScale = math.max(0.50, math.min(2.50, math.floor((availableWidth / baseWidth) * 100 + 0.5) / 100))
-        mapScaleSlider:SetValue(computedScale)
+        Offhand.MapScale:Set("AUTO")
+        mapScaleSlider:UpdateText()
     end)
-    if Offhand.SetTooltip then Offhand:SetTooltip(autoFitBtn, L["BTN_MAP_AUTOFIT_TIP_TITLE"], L["BTN_MAP_AUTOFIT_TIP_DESC"]) end
+    if Offhand.SetTooltip then Offhand:SetTooltip(autoFitBtn, L["BTN_MAP_AUTOFIT_TIP_TITLE"], L["MAP_SCALE_TARGET_HELP"]) end
 
     local p100Btn = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
     p100Btn:SetSize(48, 22)
     p100Btn:SetPoint("LEFT", autoFitBtn, "RIGHT", 5, 0)
     p100Btn:SetText("100%")
-    p100Btn:SetScript("OnClick", function() mapScaleSlider:SetValue(1.00) end)
+    p100Btn:SetScript("OnClick", function() Offhand.MapScale:Set(1.00); mapScaleSlider:UpdateText() end)
     if Offhand.SetTooltip then Offhand:SetTooltip(p100Btn, L["BTN_MAP_100_TIP_TITLE"], L["BTN_MAP_100_TIP_DESC"]) end
 
     local p150Btn = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
     p150Btn:SetSize(48, 22)
     p150Btn:SetPoint("LEFT", p100Btn, "RIGHT", 5, 0)
     p150Btn:SetText("150%")
-    p150Btn:SetScript("OnClick", function() mapScaleSlider:SetValue(1.50) end)
+    p150Btn:SetScript("OnClick", function() Offhand.MapScale:Set(1.50); mapScaleSlider:UpdateText() end)
     if Offhand.SetTooltip then Offhand:SetTooltip(p150Btn, L["BTN_MAP_150_TIP_TITLE"], L["BTN_MAP_150_TIP_DESC"]) end
 
     local p200Btn = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
     p200Btn:SetSize(48, 22)
     p200Btn:SetPoint("LEFT", p150Btn, "RIGHT", 5, 0)
     p200Btn:SetText("200%")
-    p200Btn:SetScript("OnClick", function() mapScaleSlider:SetValue(2.00) end)
+    p200Btn:SetScript("OnClick", function() Offhand.MapScale:Set(2.00); mapScaleSlider:UpdateText() end)
     if Offhand.SetTooltip then Offhand:SetTooltip(p200Btn, L["BTN_MAP_200_TIP_TITLE"], L["BTN_MAP_200_TIP_DESC"]) end
 
     local p250Btn = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
     p250Btn:SetSize(48, 22)
     p250Btn:SetPoint("LEFT", p200Btn, "RIGHT", 5, 0)
     p250Btn:SetText("250%")
-    p250Btn:SetScript("OnClick", function() mapScaleSlider:SetValue(2.50) end)
+    p250Btn:SetScript("OnClick", function() Offhand.MapScale:Set(2.50); mapScaleSlider:UpdateText() end)
     if Offhand.SetTooltip then Offhand:SetTooltip(p250Btn, L["BTN_MAP_250_TIP_TITLE"], L["BTN_MAP_250_TIP_DESC"]) end
 
     local mapTip = card2_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     mapTip:SetPoint("TOPLEFT", 12, -88)
-    mapTip:SetText(Offhand.isForever and L["MAP_SCALE_HELP_FOREVER"] or L["MAP_SCALE_HELP"])
+    mapTip:SetWidth(530)
+    mapTip:SetWordWrap(true)
+    local function RefreshMapScaleControls()
+        local state = Offhand.MapScale:GetState()
+        mapScaleSlider:SetRange(state.min, state.max)
+        mapScaleSlider.title:SetText(L["MAP_SCALE"] .. (state.owner == "OpenMap" and " (OpenMap)" or ""))
+        Controls.SetSliderEnabled(mapScaleSlider, state.available)
+        autoFitBtn:SetEnabled(state.available)
+        p100Btn:SetEnabled(state.available and state.max >= 1)
+        p150Btn:SetEnabled(state.available and state.max >= 1.5)
+        p200Btn:SetEnabled(state.available and state.max >= 2)
+        p250Btn:SetEnabled(state.available and state.max >= 2.5)
+        mapTip:SetText(L[not state.available and "MAP_SCALE_UNAVAILABLE"
+            or (state.owner == "OpenMap" and "MAP_SCALE_OPENMAP_HELP" or "MAP_SCALE_TARGET_HELP")])
+        mapScaleSlider:UpdateText()
+    end
+    card2_1:SetScript("OnShow", RefreshMapScaleControls)
+    card2_1:RegisterEvent("PLAYER_REGEN_DISABLED")
+    card2_1:RegisterEvent("PLAYER_REGEN_ENABLED")
+    card2_1:RegisterEvent("ADDON_LOADED")
+    card2_1:SetScript("OnEvent", function() if card2_1:IsShown() then RefreshMapScaleControls() end end)
 
     local mapMoveCheck = CreateNativeCheckbox(card2_1, L["MAP_KEEP_OPEN"],
         function() return Offhand.db and Offhand.db.preventMapCloseOnMove end,
@@ -1120,6 +1163,23 @@ function Options:CreateFloatingPanel()
         mapDesc:SetText(L["MAP_KEEP_OPEN_DESC"])
     end
 
+
+    if Offhand.isForever then
+        local descriptionHeight = Controls.MeasureWrappedText(mapDesc, mapDesc:GetText(), 530)
+        mapDesc:SetHeight(descriptionHeight)
+        local recoverMap = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
+        recoverMap:SetPoint("TOPLEFT", 12, -(146 + descriptionHeight))
+        recoverMap:SetPoint("TOPRIGHT", -12, -(146 + descriptionHeight))
+        recoverMap:SetHeight(24)
+        recoverMap:SetText(L["OPENMAP_RECOVERY_BUTTON"])
+        recoverMap:SetScript("OnClick", function()
+            if Offhand.OpenMapRecovery then Offhand.OpenMapRecovery:RunAndReport() end
+        end)
+        if Offhand.SetTooltip then
+            Offhand:SetTooltip(recoverMap, L["OPENMAP_RECOVERY_BUTTON"], L["OPENMAP_RECOVERY_TIP"])
+        end
+        card2_1:SetHeight(182 + descriptionHeight)
+    end
 
     local card2_2 = CreateCard(tab2, L["CARD_PERSISTENCE"],
         Offhand.isForever and 558 or 374)
@@ -1547,7 +1607,10 @@ function Options:CreateFloatingPanel()
     compatDesc:SetWordWrap(true)
     card2_2.compatDesc = compatDesc
 
-    local windowControlCard = CreateCard(tab2, L["CARD_WORKSPACE_WINDOW_CONTROL"], 274)
+    local lockSupported = SupportsWindowLock()
+    local windowControlCard = CreateCard(tab2,
+        L[lockSupported and "CARD_WORKSPACE_WINDOW_CONTROL" or "CARD_CHARACTER_WINDOW"],
+        lockSupported and 274 or 100)
 
     local characterScaleSlider = CreateNativeSlider(windowControlCard, L["CHARACTER_WORKSPACE_SCALE"],
         0.75, 1.50, 0.05,
@@ -1566,51 +1629,52 @@ function Options:CreateFloatingPanel()
     characterScaleSlider:SetPoint("TOPLEFT", windowControlCard, "TOPLEFT", 14, -58)
     characterScaleSlider:SetWidth(260)
 
-    local lockCheck = CreateNativeCheckbox(windowControlCard, L["LOCK_WORKSPACE_WINDOWS"],
-        function() return Offhand.db and Offhand.db.lockWorkspaceWindows == true end,
-        function(value)
-            if Offhand.WorkspaceBehavior then
-                Offhand.WorkspaceBehavior:SetLockEnabled(value)
-            elseif Offhand.db then
-                Offhand.db.lockWorkspaceWindows = value == true
-            end
-            if C_Timer and C_Timer.After then
-                C_Timer.After(0, function()
-                    if Options.RefreshPanel then Options:RefreshPanel() end
-                end)
-            end
-        end,
-        L["LOCK_WORKSPACE_WINDOWS_TIP_TITLE"], L["LOCK_WORKSPACE_WINDOWS_TIP_DESC"])
-    lockCheck:SetPoint("TOPLEFT", 12, -104)
-
-    local lockDesc = windowControlCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    lockDesc:SetPoint("TOPLEFT", 34, -128)
-    lockDesc:SetPoint("TOPRIGHT", -14, -128)
-    lockDesc:SetJustifyH("LEFT")
-    lockDesc:SetWordWrap(true)
-    lockDesc:SetText(Offhand.isForever
-        and L["LOCK_WORKSPACE_WINDOWS_FOREVER"] or L["LOCK_WORKSPACE_WINDOWS_DESC"])
-
-    local function CreateLockTypeCheck(label, kind, top)
-        local check = CreateNativeCheckbox(windowControlCard, label,
-            function()
-                local types = Offhand.db and Offhand.db.lockedWorkspaceWindowTypes
-                return not types or types[kind] ~= false
-            end,
+    local lockCheck, lockMapCheck, lockBagsCheck, lockCharacterCheck
+    if lockSupported then
+        lockCheck = CreateNativeCheckbox(windowControlCard, L["LOCK_WORKSPACE_WINDOWS"],
+            function() return Offhand.db and Offhand.db.lockWorkspaceWindows == true end,
             function(value)
                 if Offhand.WorkspaceBehavior then
-                    Offhand.WorkspaceBehavior:SetWindowTypeLocked(kind, value)
+                    Offhand.WorkspaceBehavior:SetLockEnabled(value)
+                elseif Offhand.db then
+                    Offhand.db.lockWorkspaceWindows = value == true
+                end
+                if C_Timer and C_Timer.After then
+                    C_Timer.After(0, function()
+                        if Options.RefreshPanel then Options:RefreshPanel() end
+                    end)
                 end
             end,
             L["LOCK_WORKSPACE_WINDOWS_TIP_TITLE"], L["LOCK_WORKSPACE_WINDOWS_TIP_DESC"])
-        check:SetPoint("TOPLEFT", 34, top)
-        return check
+        lockCheck:SetPoint("TOPLEFT", 12, -104)
+
+        local lockDesc = windowControlCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        lockDesc:SetPoint("TOPLEFT", 34, -128)
+        lockDesc:SetPoint("TOPRIGHT", -14, -128)
+        lockDesc:SetJustifyH("LEFT")
+        lockDesc:SetWordWrap(true)
+        lockDesc:SetText(L["LOCK_WORKSPACE_WINDOWS_DESC"])
+
+        local function CreateLockTypeCheck(label, kind, top)
+            local check = CreateNativeCheckbox(windowControlCard, label,
+                function()
+                    local types = Offhand.db and Offhand.db.lockedWorkspaceWindowTypes
+                    return not types or types[kind] ~= false
+                end,
+                function(value)
+                    if Offhand.WorkspaceBehavior then
+                        Offhand.WorkspaceBehavior:SetWindowTypeLocked(kind, value)
+                    end
+                end,
+                L["LOCK_WORKSPACE_WINDOWS_TIP_TITLE"], L["LOCK_WORKSPACE_WINDOWS_TIP_DESC"])
+            check:SetPoint("TOPLEFT", 34, top)
+            return check
+        end
+
+        lockMapCheck = CreateLockTypeCheck(L["LOCK_WORKSPACE_MAP"], "map", -180)
+        lockBagsCheck = CreateLockTypeCheck(L["LOCK_WORKSPACE_BAGS"], "bags", -206)
+        lockCharacterCheck = CreateLockTypeCheck(L["LOCK_WORKSPACE_CHARACTER"], "character", -232)
     end
-
-    local lockMapCheck = CreateLockTypeCheck(L["LOCK_WORKSPACE_MAP"], "map", -180)
-    local lockBagsCheck = CreateLockTypeCheck(L["LOCK_WORKSPACE_BAGS"], "bags", -206)
-    local lockCharacterCheck = CreateLockTypeCheck(L["LOCK_WORKSPACE_CHARACTER"], "character", -232)
-
 
     local card2_3 = CreateCard(tab1, L["CARD_BEZEL"], 116)
 
@@ -2284,15 +2348,15 @@ function Options:CreateFloatingPanel()
     FitHelpCard(helpOverview, overviewBody, L["HELP_OVERVIEW_BODY"], overviewTop + 56, 132)
 
     local onboardingHelpBtn = CreateFrame("Button", nil, helpOverview, "UIPanelButtonTemplate")
-    onboardingHelpBtn:SetSize(145, 26)
+    onboardingHelpBtn:SetSize(190, 26)
     onboardingHelpBtn:SetPoint("BOTTOMLEFT", 14, 14)
-    onboardingHelpBtn:SetText(L["ONBOARD_TITLE"])
+    onboardingHelpBtn:SetText(L["POPUP_BTN_SETUP_GUIDE"])
     onboardingHelpBtn:SetScript("OnClick", function()
         if Offhand.Onboarding and Offhand.Onboarding.Open then Offhand.Onboarding:Open() end
     end)
 
     local wizardHelpBtn = CreateFrame("Button", nil, helpOverview, "UIPanelButtonTemplate")
-    wizardHelpBtn:SetSize(145, 26)
+    wizardHelpBtn:SetSize(190, 26)
     wizardHelpBtn:SetPoint("LEFT", onboardingHelpBtn, "RIGHT", 10, 0)
     wizardHelpBtn:SetText(L["BTN_AUTO_WIZARD"])
     wizardHelpBtn:SetScript("OnClick", function()
@@ -2300,19 +2364,13 @@ function Options:CreateFloatingPanel()
     end)
 
     local gatherHelpBtn = CreateFrame("Button", nil, helpOverview, "UIPanelButtonTemplate")
-    gatherHelpBtn:SetSize(145, 26)
+    gatherHelpBtn:SetSize(190, 26)
     gatherHelpBtn:SetPoint("LEFT", wizardHelpBtn, "RIGHT", 10, 0)
-    gatherHelpBtn:SetText(L["RECOVERY_MISSING"])
+    gatherHelpBtn:SetText(L["BTN_OPEN_RECOVERY"])
     gatherHelpBtn:SetScript("OnClick", function()
-        Options:ConfirmRecovery("RECOVERY_MISSING_CONFIRM", function() Options:RecoverMissingUI() end)
-    end)
-
-    local companionHelpBtn = CreateFrame("Button", nil, helpOverview, "UIPanelButtonTemplate")
-    companionHelpBtn:SetSize(145, 26)
-    companionHelpBtn:SetPoint("LEFT", gatherHelpBtn, "RIGHT", 10, 0)
-    companionHelpBtn:SetText(L["POPUP_BTN_SETUP_GUIDE"])
-    companionHelpBtn:SetScript("OnClick", function()
-        if Offhand.Onboarding and Offhand.Onboarding.Open then Offhand.Onboarding:Open() end
+        SwitchTab(2)
+        local _, _, _, _, y = recoveryCard:GetPoint(1)
+        Controls.SetScrollOffset(optionsScrollFrame, -(y or 0))
     end)
 
     local helpCards = { helpOverview }
@@ -2335,8 +2393,8 @@ function Options:CreateFloatingPanel()
         helpCards[#helpCards + 1] = card
     end
 
-    Options:StackCards(tab1, {card1_1, manualCanvasCard, card1_2, motionCard,
-        card1_3, card2_3, card1_4, groupLootCard, card1_5})
+    Options:StackCards(tab1, {card1_1, card1_2, card1_3, motionCard,
+        card1_4, groupLootCard, manualCanvasCard, card2_3, card1_5})
     offhandCards = {card2_1, card2_2, windowControlCard}
     if advancedCard then offhandCards[#offhandCards + 1] = advancedCard end
     offhandCards[#offhandCards + 1] = recoveryCard
@@ -2496,20 +2554,24 @@ function Options:CreateFloatingPanel()
         reloadCheck:SetChecked((Offhand.db and Offhand.db.restoreWorkspaceOnReload ~= false) or false)
         forceCheck:SetChecked((Offhand.db and Offhand.db.forceDualOnSingle) or false)
         characterScaleSlider:UpdateText()
-        local lockSupported = Offhand.WorkspaceBehavior
-            and Offhand.WorkspaceBehavior:IsLockSupported() or not Offhand.isForever
-        lockCheck:SetChecked(lockSupported
-            and (Offhand.db and Offhand.db.lockWorkspaceWindows == true) or false)
-        local lockTypes = Offhand.db and Offhand.db.lockedWorkspaceWindowTypes or nil
-        lockMapCheck:SetChecked(not lockTypes or lockTypes.map ~= false)
-        lockBagsCheck:SetChecked(not lockTypes or lockTypes.bags ~= false)
-        lockCharacterCheck:SetChecked(not lockTypes or lockTypes.character ~= false)
-        SetCheckboxEnabled(lockCheck, lockSupported)
-        local lockChildrenEnabled = lockSupported
-            and Offhand.db and Offhand.db.lockWorkspaceWindows == true
-        SetCheckboxEnabled(lockMapCheck, lockChildrenEnabled)
-        SetCheckboxEnabled(lockBagsCheck, lockChildrenEnabled)
-        SetCheckboxEnabled(lockCharacterCheck, lockChildrenEnabled)
+        if lockCheck then
+            local lockSupported = not Offhand.isForever
+            if Offhand.WorkspaceBehavior and Offhand.WorkspaceBehavior.IsLockSupported then
+                lockSupported = Offhand.WorkspaceBehavior:IsLockSupported() == true
+            end
+            lockCheck:SetChecked(lockSupported
+                and (Offhand.db and Offhand.db.lockWorkspaceWindows == true) or false)
+            local lockTypes = Offhand.db and Offhand.db.lockedWorkspaceWindowTypes or nil
+            lockMapCheck:SetChecked(not lockTypes or lockTypes.map ~= false)
+            lockBagsCheck:SetChecked(not lockTypes or lockTypes.bags ~= false)
+            lockCharacterCheck:SetChecked(not lockTypes or lockTypes.character ~= false)
+            SetCheckboxEnabled(lockCheck, lockSupported)
+            local lockChildrenEnabled = lockSupported
+                and Offhand.db and Offhand.db.lockWorkspaceWindows == true
+            SetCheckboxEnabled(lockMapCheck, lockChildrenEnabled)
+            SetCheckboxEnabled(lockBagsCheck, lockChildrenEnabled)
+            SetCheckboxEnabled(lockCharacterCheck, lockChildrenEnabled)
+        end
         if motionCheck then
             motionCheck:SetChecked(Offhand.IsAntiShimmerEnabled and Offhand:IsAntiShimmerEnabled() or false)
         end
@@ -2568,7 +2630,7 @@ function Options:CreateFloatingPanel()
         bezelSlider:UpdateText()
         alphaSlider:UpdateText()
         hudSlider:UpdateText()
-        mapScaleSlider:UpdateText()
+        RefreshMapScaleControls()
 
         if Options.UpdateProfileList then
             Options:UpdateProfileList()

@@ -255,7 +255,16 @@ function Behavior:RefreshGamepadWorkspaceBack()
     local bindBack = false
     if active and not menuShown then
         for _, panel in ipairs(panels) do
-            if panel == focusedFrame and not panel.dismissOnUnfocus then bindBack = true; break end
+            if panel == focusedFrame and not panel.dismissOnUnfocus then
+                local registry = Offhand.CanvasPanelRegistry
+                local name = panel.GetName and panel:GetName()
+                -- NPC/interaction windows must retain native close and cleanup.
+                -- TOGGLEUIFOCUS only releases focus when dismissOnUnfocus is nil.
+                local interaction = registry and registry.IsContextBoundPanel
+                    and registry.IsContextBoundPanel(name)
+                if not interaction then bindBack = true end
+                break
+            end
         end
     end
     local owner = self.gamepadBackOwner or (bindBack and EnsureGamepadBackOwner(self))

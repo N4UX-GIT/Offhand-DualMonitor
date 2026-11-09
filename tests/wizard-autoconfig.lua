@@ -34,6 +34,13 @@ function CreateFrame(kind, name, parent, template)
         table.insert(parent.children, f)
     end
     function f:GetChildren() return unpack(self.children) end
+    function f:SetParent(nextParent)
+        if self.parent and self.parent.children then
+            for i,child in ipairs(self.parent.children) do if child==self then table.remove(self.parent.children,i);break end end
+        end
+        self.parent=nextParent
+        if nextParent and nextParent.children then table.insert(nextParent.children,self) end
+    end
     function f:GetRegions() return unpack(self.regions) end
     function f:GetObjectType() return self.kind end
     function f:GetLeft() return self.points["TOPLEFT"] and self.points["TOPLEFT"].x or 0 end
@@ -97,7 +104,7 @@ function CreateFrame(kind, name, parent, template)
     function f:IsShown() return self.shown end
     function f:SetText(t) self.text = t end
     function f:GetFontString()
-        if not f._fontString then f._fontString = { SetWidth = function(s, width) s.width = width end, SetWordWrap = function() end, SetTextColor = function() end } end
+        if not f._fontString then f._fontString = { SetWidth = function(s, width) s.width = width end, SetWordWrap = function(s, enabled) s.wordWrap = enabled end, SetTextColor = function() end } end
         return f._fontString
     end
     function f:GetText() return self.text end
@@ -128,12 +135,16 @@ function CreateFrame(kind, name, parent, template)
     function f:CreateFontString(layer, sublayer, template)
         local fs = {
             text = "",
+            shown = true,
+            Show = function(s) s.shown=true end,
+            Hide = function(s) s.shown=false end,
+            IsShown = function(s) return s.shown end,
             points = {},
             SetText = function(s, t) s.text = t end,
             SetWidth = function(s, width) s.width = width end,
             SetHeight = function(s, height) s.height = height end,
             GetHeight = function(s) return s.height or 0 end,
-            SetWordWrap = function() end,
+            SetWordWrap = function(s, enabled) s.wordWrap = enabled end,
             SetTextColor = function() end,
             GetText = function(s) return s.text end,
             SetPoint = function(s, pt, rel, relPt, x, y) s.points[pt] = { rel = rel, relPt = relPt, x = x, y = y } end,
@@ -272,7 +283,10 @@ assert(loadfile("UI/Themes.lua"))("Offhand", addon)
 assert(loadfile("UI/Controls.lua"))("Offhand", addon)
 assert(loadfile("Core/TopologyDetection.lua"))("Offhand", addon)
 assert(loadfile("UI/OptionsActions.lua"))("Offhand", addon)
+assert(loadfile("Core/MapScale.lua"))("Offhand", addon)
 assert(loadfile("UI/Options.lua"))("Offhand", addon)
+assert(loadfile("Core/SetupPlacement.lua"))("Offhand", addon)
+assert(loadfile("UI/SetupVisuals.lua"))("Offhand", addon)
 assert(loadfile("UI/Onboarding.lua"))("Offhand", addon)
 assert(loadfile("UI/Wizard.lua"))("Offhand", addon)
 
@@ -657,6 +671,9 @@ addon.Wizard:Open()
 
 local wizardFrame = _G["OffhandSetupWizardFrame"]
 assert(wizardFrame ~= nil, "OffhandSetupWizardFrame must be created")
+for _, text in ipairs({wizardFrame.welcomeText,wizardFrame.topoText,wizardFrame.recomText,wizardFrame.statusText,wizardFrame.progressText}) do
+    assert(text.wordWrap == true, "Wizard guidance must wrap instead of truncating native text")
+end
 assert(wizardFrame:IsShown() == true, "Wizard frame must be shown after Wizard:Open()")
 assert(wizardFrame.topoText:GetText():find("4000x2560"), "Wizard topoText must show detected resolution")
 assert(wizardFrame.recomText:GetText():find("36.0%%"), "Wizard recomText must show recommended 36% seam")
@@ -669,25 +686,24 @@ assert(aspectLabelPoint and aspectButtonPoint and aspectButtonPoint.y <= aspectL
 
 local initialWizardMetrics = addon.Viewport.GetMetrics
 addon.Viewport.GetMetrics = function()
-    return { companionTopology = true, isSpanned = true, topologyStatus = "READY" }
+    local m=initialWizardMetrics()
+    m.companionTopology=true;m.isSpanned=true;m.topologyStatus="READY"
+    return m
 end
 wizardFrame:UpdateState()
-assert(wizardFrame.aspectButtons[1]:IsEnabled() == false
-        and wizardFrame.exactTopologyHelp:GetText():find("locked", 1, true),
-    "Wizard step 2 must explain that exact Companion geometry locks its choices")
-assert(wizardFrame.seamSlider:IsEnabled() == false
-        and wizardFrame.laserButton:IsEnabled() == true
-        and wizardFrame.seamHelp:GetText():find("locked", 1, true),
-    "Wizard step 3 must explain its width lock while leaving physical alignment available")
-local seamHelpPoint = wizardFrame.seamHelp.points["TOPLEFT"]
-local seamTitlePoint = wizardFrame.seamTitle.points["TOPLEFT"]
-local seamHelpY = seamHelpPoint and (seamHelpPoint.y or seamHelpPoint.relPt)
-local seamTitleY = seamTitlePoint and (seamTitlePoint.y or seamTitlePoint.relPt)
-assert(seamHelpY and seamTitleY and seamTitleY <= seamHelpY - 32,
-    "Wizard step 3 lock guidance must not overlap the Offhand Monitor width label")
+wizardFrame:SetStep(2)
+assert(not wizardFrame.aspectButtons[1]:IsShown() and not wizardFrame.aspectLabel:IsShown()
+        and wizardFrame.exactTopologyHelp:GetText()==addon.L.WIZARD_COMPANION_CHANGE,
+    "Companion layout review must hide manual-only choices and show a short change hint")
+wizardFrame:SetStep(3)
+assert(not wizardFrame.seamSlider:IsShown() and not wizardFrame.seamTitle:IsShown()
+        and wizardFrame.laserButton:IsEnabled() and wizardFrame.laserButton:IsShown()
+        and wizardFrame.seamHelp:GetText()==addon.L.WIZARD_COMPANION_SEAM,
+    "Companion seam review must hide width controls and retain physical alignment")
 addon.Viewport.GetMetrics = initialWizardMetrics
 wizardFrame:UpdateState()
-assert(wizardFrame.aspectButtons[1]:IsEnabled() == true
+wizardFrame:SetStep(2)
+assert(wizardFrame.aspectButtons[1]:IsShown() and wizardFrame.aspectButtons[1]:IsEnabled() == true
         and wizardFrame.exactTopologyHelp:GetText() == "",
     "Wizard step 2 must remove the lock explanation when manual geometry is available")
 assert(wizardFrame.seamSlider:IsEnabled() == true
@@ -784,6 +800,10 @@ end
 -- Click 1-Click Auto-Configure inside wizard
 addon.db.deckWidthRatio = 0.55
 addon.db.firstRunComplete = false
+wizardFrame:SetStep(1)
+assert(wizardFrame.recommendedButton==wizardFrame.autoBtn and wizardFrame.autoBtn.uiPrimary
+    and not wizardFrame.finishBtn.uiPrimary,
+    "wizard discovery must highlight Apply recommendations rather than bypass it")
 wizardFrame.autoBtn.scripts["OnClick"]()
 assert(not addon.db.firstRunComplete, "Applying a recommendation must not finish the wizard")
 assert(math.abs(addon.db.deckWidthRatio - 0.36) < 0.001, "AutoConfigure button in Wizard must set 36% seam")
@@ -799,12 +819,20 @@ for step = 1, wizardFrame.totalSteps do
     assert(addon.Options:IsSeamGuideShown() == (step == 3), "Seam guide belongs to alignment step")
 end
 wizardFrame:SetStep(5)
+assert(wizardFrame.recommendedButton==wizardFrame.finishBtn and wizardFrame.finishBtn.uiPrimary
+    and wizardFrame.progressText:GetText():find(wizardFrame.finishBtn:GetText(),1,true),
+    "wizard must highlight and name its recommended next action")
 assert(wizardFrame.welcomeText:GetText() == addon.L["STEP_5_HELP"]
-        and wizardFrame.mainhandLayoutHelp:GetText():find(addon.L["WIZARD_STEP_5_BODY"], 1, true) == 1
-        and wizardFrame.welcomeText:GetText() ~= wizardFrame.mainhandLayoutHelp:GetText()
-        and wizardFrame.mainhandLayoutHelp:GetText():find("Recovery & Preview", 1, true)
-        and wizardFrame.mainhandLayoutHelp:GetText():find("Readiness:", 1, true),
-    "wizard step 5 must separate its purpose from its detailed action and recovery guidance")
+        and wizardFrame.mainhandLayoutHelp:GetText()==addon.L.WIZARD_HUD_SHORT_BODY
+        and not wizardFrame.mainhandLayoutHelp:GetText():find("Readiness:",1,true),
+    "HUD setup must use short player instructions without diagnostic readiness fields")
+wizardFrame:SetStep(4)
+assert(wizardFrame.stepIllustration.legend:GetText():find("70%%"),
+    "the scale preview must show the current UI percentage")
+addon.db.hudScale=.85;wizardFrame:UpdateState()
+assert(wizardFrame.stepIllustration.legend:GetText():find("85%%"),
+    "the scale preview must follow current scale changes")
+addon.db.hudScale=.70;wizardFrame:UpdateState();wizardFrame:SetStep(5)
 assert(wizardFrame.skipLayoutBtn:IsShown() and not wizardFrame.advBtn:IsShown(),
     "the final HUD step must replace All Settings with an explicit finish-without-layout path")
 do
@@ -827,6 +855,12 @@ do
             "wizard validation must stay above the complete footer")
     end
     for step = 1, wizardFrame.totalSteps do wizardFrame:SetStep(step); CheckWizardBounds() end
+    local frameCount, height, cardHeight=#frames,wizardFrame:GetHeight(),wizardFrame.pages[5]:GetHeight()
+    for _=1,50 do wizardFrame:LayoutStep();CheckWizardBounds() end
+    assert(#frames==frameCount and wizardFrame:GetHeight()==height and wizardFrame.pages[5]:GetHeight()==cardHeight,
+        "visual refresh allocated frames or accumulated illustration height")
+    assert(wizardFrame.progressRail.cells[1].state=="complete" and wizardFrame.progressRail.cells[5].state=="current")
+
     local originalHelp = wizardFrame.mainhandLayoutHelp:GetText()
     local originalStatus = wizardFrame.mainhandLayoutStatus:GetText()
     local originalFinish = wizardFrame.finishBtn:GetText()
@@ -1350,18 +1384,72 @@ do
         end
         assert(bodyBottom + 16 <= contentBottom, "setup body must not overlap actions or status")
         if onboardingFrame.modeIllustration:IsShown() then
-            local illustrationBottom = -onboardingFrame.modeIllustration.points.TOPLEFT.y + 88
+            local illustrationBottom = -onboardingFrame.modeIllustration.points.TOPLEFT.y + onboardingFrame.modeIllustration:GetHeight()
             assert(illustrationBottom + 16 <= contentBottom,
                 "the mode illustration must not overlap actions or status")
         end
     end
-    for page = 1, 6 do onboardingFrame:SetPage(page); CheckGuideBounds() end
+    for page = 1, 6 do
+        onboardingFrame:SetPage(page);CheckGuideBounds()
+        assert(onboardingFrame.modeIllustration:IsShown()==(page>=3),
+            "non-illustrated guide tasks exposed the native-default visible pool")
+    end
+    local frameCount,height=#frames,onboardingFrame:GetHeight()
+    for _=1,50 do onboardingFrame:LayoutPage();CheckGuideBounds() end
+    assert(#frames==frameCount and onboardingFrame:GetHeight()==height,
+        "guide visual refresh allocated frames or changed the stable layout")
+
     for _, page in ipairs({3, 4}) do
         onboardingFrame:SetPage(page)
         onboardingFrame.helpButton.scripts.OnClick()
         CheckGuideBounds()
         onboardingFrame.helpButton.scripts.OnClick()
         CheckGuideBounds()
+    end
+    do
+        local dictionary, oldLocale = {}, GetLocale
+        for key,value in pairs(addon.L) do dictionary[key]=value end
+        local oldMethod, oldCheckpoint=addon:GetOnboardingSetupMethod(),addon:GetPlacementCheckpoint()
+        local oldMetrics,oldPreview=addon.Viewport.GetMetrics,addon.Viewport.GetManualPreviewMetrics
+        addon.Viewport.GetMetrics=function() return {isSpanned=true,physicalWidth=4000,physicalHeight=2560,
+            gameWidth=2560,gameHeight=1440,gameLeft=1440,gameRight=4000,gameBottom=0,gameTop=1440} end
+        addon.Viewport.GetManualPreviewMetrics=function() return {physicalWidth=4000,physicalHeight=2560} end
+        for _,locale in ipairs({"enUS","deDE","esES","esMX","frFR","itIT","ptBR","ruRU","koKR","zhCN","zhTW"}) do
+            for key in pairs(addon.L) do addon.L[key]=nil end
+            for key,value in pairs(dictionary) do addon.L[key]=value end
+            GetLocale=function() return locale end
+            assert(loadfile("Locales/"..locale..".lua"))("Offhand",addon)
+            addon:SetOnboardingSetupMethod("MANUAL")
+            addon.SetupPlacement:Reset()
+            onboardingFrame:SetPage(4)
+            CheckGuideBounds()
+            assert(onboardingFrame.actionButton.uiPrimary and not onboardingFrame.nextButton.enabled)
+            assert(onboardingFrame.pageBody:GetText():find(addon.L.ONBOARD_SPAN_ACK,1,true))
+            onboardingFrame.actionButton.scripts.OnClick()
+            CheckGuideBounds()
+            assert(onboardingFrame.pageBody:GetText():find(addon.L.ONBOARD_RELOAD_UI,1,true))
+            assert(addon.SetupPlacement:RequestReload())
+            assert(loadfile("Core/SetupPlacement.lua"))("Offhand",addon)
+            onboardingFrame:SetPage(4)
+            CheckGuideBounds()
+            assert(onboardingFrame.nextButton.uiPrimary and onboardingFrame.nextButton.enabled,
+                "review action was not highlighted after reload for "..locale)
+            assert(onboardingFrame.pageBody:GetText():find(addon.L.ONBOARD_CONFIRM_PLACEMENT,1,true))
+            wizardFrame:SetStep(5)
+            local card=wizardFrame.pages[5]
+            local top=-select(5,card:GetPoint(1))
+            local validationTop=wizardFrame:GetHeight()-wizardFrame.validationStatus.points.BOTTOMLEFT.y
+                -wizardFrame.validationStatus:GetHeight()
+            assert(top+card:GetHeight()+12<=validationTop,"localized wizard caption overlaps content: "..locale)
+        end
+        for key in pairs(addon.L) do addon.L[key]=nil end
+        for key,value in pairs(dictionary) do addon.L[key]=value end
+        GetLocale=oldLocale
+        OffhandDB.onboarding.setupMethod=oldMethod
+        addon.Viewport.GetMetrics,addon.Viewport.GetManualPreviewMetrics=oldMetrics,oldPreview
+        addon:SetPlacementCheckpoint(oldCheckpoint)
+        assert(loadfile("Core/SetupPlacement.lua"))("Offhand",addon)
+        wizardFrame:SetStep(5)
     end
     onboardingFrame:SetPage(2)
     onboardingFrame:SetStatusText(string.rep("Expanded setup status ", 60))
@@ -1436,7 +1524,12 @@ StaticPopup_Show = originalStaticPopupShow
 local reloadCount = 0
 ReloadUI = function() reloadCount = reloadCount + 1 end
 onboardingFrame:SetPage(4)
+assert(not onboardingFrame.nextButton.enabled and onboardingFrame.actionButton.uiPrimary,
+    "placement must start with a highlighted window-position acknowledgement")
 onboardingFrame.actionButton.scripts.OnClick()
+assert(reloadCount==0 and addon.SetupPlacement:GetStage()=="RELOAD" and not onboardingFrame.nextButton.enabled)
+onboardingFrame.actionButton.scripts.OnClick()
+assert(addon.SetupPlacement:GetStage()=="RELOAD", "requesting Reload UI counted as a completed reload")
 assert(reloadCount == 1 and OffhandDB.onboarding.resumeStep == 4,
     "step 4 Reload UI must persist its resume point before reloading")
 OffhandDB.onboarding.welcomeDismissed = true
@@ -1445,6 +1538,20 @@ assert(addon:GetOnboardingResumeStep() == 4 and addon:IsWelcomeDismissed(),
 addon.Onboarding:Open()
 assert(onboardingFrame.page == 4 and OffhandDB.onboarding.resumeStep == 4,
     "unfinished onboarding must retain step 4 across subsequent reloads")
+
+local function PreparePlacementReview()
+    onboardingFrame:SetPage(4)
+    if addon.SetupPlacement:GetStage()=="SPAN" then onboardingFrame.actionButton.scripts.OnClick() end
+    if addon.SetupPlacement:GetStage()=="RELOAD" then
+        onboardingFrame.actionButton.scripts.OnClick()
+        -- A fresh module models a new UI session; merely calling ReloadUI above
+        -- intentionally leaves the checkpoint locked in the old session.
+        assert(loadfile("Core/SetupPlacement.lua"))("Offhand", addon)
+    end
+    onboardingFrame:SetPage(4)
+    local stage=addon.SetupPlacement:GetStage()
+    assert(stage=="CONFIRM" or stage=="READY", "placement fixture did not perform a modeled reload")
+end
 
 -- Manual spanning and intentional single-ultrawide layouts are first-class
 -- paths, but WoW cannot expose physical display boundaries. They must require
@@ -1465,7 +1572,8 @@ assert(addon:SetOnboardingSetupMethod("MANUAL") == true,
     "manual setup method must be accepted")
 onboardingFrame:SetPage(4)
 local manualPopup
-StaticPopup_Show = function(key, text, _, callback)
+local originalManualShowPopup = addon.ShowPopup
+addon.ShowPopup = function(_, key, text, _, callback)
     local frame = {
         SetFrameStrata = function(self, strata) self.strata = strata end,
         Raise = function(self) self.raised = true end,
@@ -1473,12 +1581,49 @@ StaticPopup_Show = function(key, text, _, callback)
     manualPopup = { key = key, text = text, callback = callback, frame = frame }
     return frame
 end
+PreparePlacementReview()
 onboardingFrame.nextButton.scripts.OnClick()
 assert(onboardingFrame.page == 4 and manualPopup
         and manualPopup.key == "OFFHAND_CONFIRM_MANUAL_LAYOUT",
     "manual geometry must wait for explicit acknowledgement at onboarding step 4")
 assert(manualPopup.frame.strata == "TOOLTIP" and manualPopup.frame.raised,
     "the manual-layout confirmation must be raised above the onboarding window")
+do
+    -- Modal acceptance must recheck live state, not trust the opening snapshot.
+    local checkpoint=addon:GetPlacementCheckpoint()
+    addon._displayGeometryTransitionActive=true
+    StaticPopupDialogs[manualPopup.key].OnAccept(nil,manualPopup.callback)
+    assert(onboardingFrame.page==4 and addon:GetPlacementCheckpoint()==checkpoint)
+    addon._displayGeometryTransitionActive=nil
+    onboardingFrame:SetPage(4)
+    onboardingFrame.nextButton.scripts.OnClick()
+    local stale=manualPopup.callback
+    onboardingFrame:SetPage(3)
+    onboardingFrame:SetPage(4)
+    stale()
+    assert(onboardingFrame.page==4 and addon:GetPlacementCheckpoint()==checkpoint,
+        "a modal from a previous page visit confirmed placement")
+    onboardingFrame.nextButton.scripts.OnClick()
+    local metrics=addon.Viewport.GetMetrics
+    addon.Viewport.GetMetrics=function()
+        local m=metrics();m.physicalWidth=m.physicalWidth+100;return m
+    end
+    StaticPopupDialogs[manualPopup.key].OnAccept(nil,manualPopup.callback)
+    assert(onboardingFrame.page==4 and addon:GetPlacementCheckpoint()==checkpoint,
+        "resizing while the modal was open accepted the old preview")
+    addon.Viewport.GetMetrics=metrics
+    onboardingFrame:SetPage(4)
+    onboardingFrame.nextButton.scripts.OnClick()
+    local combat=InCombatLockdown
+    InCombatLockdown=function() return true end
+    StaticPopupDialogs[manualPopup.key].OnAccept(nil,manualPopup.callback)
+    assert(onboardingFrame.page==4 and addon:GetPlacementCheckpoint()==checkpoint
+        and not onboardingFrame.nextButton.enabled,
+        "combat accepted a placement review or left confirmation enabled")
+    InCombatLockdown=combat
+    onboardingFrame:SetPage(4)
+    onboardingFrame.nextButton.scripts.OnClick()
+end
 StaticPopupDialogs[manualPopup.key].OnAccept(nil, manualPopup.callback)
 assert(onboardingFrame.page == 6,
     "confirmed manual geometry must advance directly to the calibration handoff")
@@ -1487,6 +1632,7 @@ assert(addon:SetOnboardingSetupMethod("FANCYZONES") == true,
     "FancyZones setup method must be accepted")
 onboardingFrame:SetPage(4)
 manualPopup = nil
+PreparePlacementReview()
 onboardingFrame.nextButton.scripts.OnClick()
 assert(onboardingFrame.page == 4 and manualPopup
         and manualPopup.key == "OFFHAND_CONFIRM_MANUAL_LAYOUT",
@@ -1505,6 +1651,7 @@ addon.Viewport.GetMetrics = function()
 end
 onboardingFrame:SetPage(4)
 manualPopup = nil
+PreparePlacementReview()
 onboardingFrame.nextButton.scripts.OnClick()
 assert(onboardingFrame.page == 4 and manualPopup
         and manualPopup.key == "OFFHAND_CONFIRM_MANUAL_LAYOUT",
@@ -1524,6 +1671,7 @@ addon.Viewport.GetMetrics = function()
     }
 end
 manualPopup = nil
+PreparePlacementReview()
 onboardingFrame.nextButton.scripts.OnClick()
 assert(onboardingFrame.page == 4 and manualPopup
         and manualPopup.key == "OFFHAND_CONFIRM_MANUAL_LAYOUT",
@@ -1552,6 +1700,7 @@ addon.Viewport.GetMetrics = function()
         gameBottom = 0, gameTop = 1440, gameWidth = 2560,
     }
 end
+addon.ShowPopup = originalManualShowPopup
 StaticPopup_Show = originalStaticPopupShow
 addon.isForever = true
 onboardingFrame:SetPage(5)
@@ -1583,7 +1732,20 @@ addon.Wizard.Open = function() calibrationOpened = true end
 onboardingFrame.nextButton.scripts.OnClick()
 onboardingFrame.actionButton.scripts.OnClick() -- choose Companion
 onboardingFrame.actionButton.scripts.OnClick() -- Already installed
-for _ = 1, 4 do onboardingFrame.nextButton.scripts.OnClick() end
+onboardingFrame.nextButton.scripts.OnClick() -- Windowed -> placement
+PreparePlacementReview()
+local confirmPlacement, previousPlacementPopup = nil, addon.ShowPopup
+addon.ShowPopup=function(_, key, _, _, callback)
+    assert(key=="OFFHAND_CONFIRM_PLACEMENT")
+    confirmPlacement=callback
+    return {SetFrameStrata=function() end,Raise=function() end}
+end
+onboardingFrame.nextButton.scripts.OnClick()
+assert(confirmPlacement and onboardingFrame.page==4, "Companion placement must wait for final confirmation")
+StaticPopupDialogs.OFFHAND_CONFIRM_PLACEMENT.OnAccept(nil,confirmPlacement)
+assert(onboardingFrame.page==6 and addon.SetupPlacement:GetStage()=="READY")
+onboardingFrame.nextButton.scripts.OnClick()
+addon.ShowPopup=previousPlacementPopup
 assert(addon:IsWelcomeDismissed(),
     "onboarding must acknowledge the welcome only when handing off to calibration")
 assert(calibrationOpened, "onboarding must hand off to the separate calibration wizard")
@@ -1600,12 +1762,11 @@ assert(onboardingFrame.page == 4, "a restored single-window session must recheck
 addon.Viewport.GetMetrics = resumeMetrics
 for _, method in ipairs({"FANCYZONES", "COMPANION", "MANUAL"}) do
     addon:SetOnboardingSetupMethod(method)
+    addon.SetupPlacement:Reset()
     for _, page in ipairs({3, 4}) do
         onboardingFrame:SetPage(page)
-        local expectedBody = addon.L[page == 3 and "ONBOARD_MODE_READY_BODY" or "ONBOARD_PLACE_" .. method]
-        if page == 4 and method == "COMPANION" then
-            expectedBody = expectedBody .. "\n\n" .. addon.L["ONBOARD_SPAN_NOT_MAXIMIZE"]
-        end
+        local expectedBody = page == 3 and addon.L["ONBOARD_MODE_READY_BODY"]
+            or string.format(addon.L["ONBOARD_SPAN_" .. method], "|cffffd100" .. addon.L["ONBOARD_SPAN_ACK"] .. "|r")
         assert(onboardingFrame.pageBody:GetText() == expectedBody,
             "preparation must be one task and placement must describe only the selected method")
         onboardingFrame.helpButton.scripts.OnClick()
@@ -1613,14 +1774,14 @@ for _, method in ipairs({"FANCYZONES", "COMPANION", "MANUAL"}) do
             "troubleshooting must reveal only the selected method's detailed instructions")
         onboardingFrame.helpButton.scripts.OnClick()
     end
-    assert(onboardingFrame.actionButton.points.BOTTOM.x == (method == "COMPANION" and -101 or 0),
+    assert(onboardingFrame.actionButton.points.BOTTOM.x == -101,
         "visible placement actions must be centered without a hidden reload action")
 end
 -- Migrate older welcome-dismissed/incomplete records without a resume marker.
 OffhandDB.onboarding.resumeStep = nil
 addon:SetOnboardingSetupMethod("COMPANION")
 addon.Onboarding:Open()
-assert(onboardingFrame.page == 6, "legacy incomplete acknowledgements must still lead back to calibration")
+assert(onboardingFrame.page == 4, "legacy incomplete acknowledgements must verify placement before calibration")
 OffhandDB.onboarding.resumeStep = nil
 OffhandDB.onboarding.setupMethod = nil
 addon.Viewport.GetMetrics = function() return {isSpanned = false} end
@@ -1658,6 +1819,24 @@ assert(optPanel.versionButton and optPanel.versionButton.scripts.OnEnter
     "the settings header version must expose an exact-build hover tooltip")
 assert(optPanel.header.versionText:GetText():find("Companion v2.1.2 Beta 18", 1, true),
     "the settings header must show the paired Companion build")
+assert(optPanel.header.versionText:GetText():find("N4UX", 1, true),
+    "the version row must credit the addon author")
+assert(optPanel.header.taglineText:GetText() == "| " .. addon.L.ADDON_DESC
+    and optPanel.header.taglineText.points.LEFT.rel == optPanel.header.titleText
+    and optPanel.header.taglineText.points.LEFT.relPt == "RIGHT"
+    and optPanel.header.versionText:GetHeight() == 16,
+    "the tagline must share the title row, above one readable version row")
+do
+    local previous, shown = addon.ShowPopup
+    addon.ShowPopup = function(_, key) shown = key end
+    optPanel.websiteButton.scripts.OnClick()
+    assert(shown == "OFFHAND_WEBSITE_LINK"
+        and StaticPopupDialogs[shown].gamepadEditBoxText() == "https://offhand-wow.onrender.com/")
+    optPanel.discordButton.scripts.OnClick()
+    assert(shown == "OFFHAND_DISCORD_LINK"
+        and StaticPopupDialogs[shown].gamepadEditBoxText() == "https://discord.gg/J2P3SM6pAY")
+    addon.ShowPopup = previous
+end
 assert(optPanel.versionButton.offhandTooltipText:find("v2.1.2-beta.18", 1, true)
         and optPanel.versionButton.offhandTooltipText:find("v2.1.2 Beta 18", 1, true),
     "the version tooltip must distinguish addon and paired Companion builds")
@@ -1691,6 +1870,7 @@ end
 assert(optPanel.autoWizardBtn ~= nil, "Options dashboard must have autoWizardBtn in top banner")
 assert(#optPanel.tabButtons == 5 and optPanel.tabButtons[1].selected,
     "settings must expose all five pages with a persistent selected navigation state")
+
 optPanel.scrollFrame:SetHeight(400) -- anchored viewport height in the real client
 optPanel.scrollFrame.scripts.OnMouseWheel(optPanel.scrollFrame, -10)
 assert(optPanel.scrollFrame:GetVerticalScroll() == 400)
@@ -1713,6 +1893,54 @@ assert(not lastSection:IsShown() and optPanel.sectionButtons[1]:IsShown(),
     "shorter pages must hide stale section shortcuts")
 optPanel.tabButtons[1].scripts.OnClick()
 addon.UIControls.SetScrollOffset(optPanel.scrollFrame, 0)
+do
+    local function Sections(tab)
+        local cards = {}
+        for _, card in ipairs(optPanel.cards) do
+            if card.parent == tab then cards[#cards+1] = card end
+        end
+        table.sort(cards, function(a,b) return select(5,a:GetPoint(1)) > select(5,b:GetPoint(1)) end)
+        return cards
+    end
+    local display, workspace, appearance = Sections(optPanel.tab1), Sections(optPanel.tab2), Sections(optPanel.tab3)
+    assert(display[1].sectionLabel == addon.L.CARD_LAYOUT_PRESETS
+        and display[2].sectionLabel == addon.L.CARD_VIEWPORT_AR
+        and display[3].sectionLabel == addon.L.CARD_SCALE_ALIGNMENT,
+        "display geometry and UI size must precede secondary and advanced settings")
+    assert(workspace[1].sectionLabel == addon.L.MAP_SETTINGS
+        and workspace[2].sectionLabel == addon.L.CARD_PERSISTENCE
+        and workspace[3].sectionLabel == addon.L[addon.isForever
+            and "CARD_CHARACTER_WINDOW" or "CARD_WORKSPACE_WINDOW_CONTROL"],
+        "map and everyday window controls must lead the Offhand page")
+    if addon.isForever then
+        assert(workspace[3]:GetHeight() == 100, "Forever must use a compact Character scale card")
+        for _, child in ipairs(workspace[3].children) do
+            assert(not child.Text or child.Text:GetText() ~= addon.L.LOCK_WORKSPACE_WINDOWS,
+                "unsupported lock controls must not be created in Forever settings")
+        end
+    end
+    local recoveryIndex, routingIndex
+    for i,card in ipairs(workspace) do
+        if card.sectionLabel == addon.L.CARD_RECOVERY then recoveryIndex=i end
+        if card.sectionLabel == addon.L.WORKSPACE_ROUTING_TITLE then routingIndex=i end
+    end
+    assert(not routingIndex or recoveryIndex < routingIndex,
+        "optional automatic routing must follow map, window and recovery tools")
+    assert(appearance[1].sectionLabel == addon.L.CARD_THEMES,
+        "overall appearance must precede individual workspace overrides")
+    assert(optPanel.tabButtons[2]:GetText() == "Offhand Monitor"
+        and optPanel.tabButtons[5]:GetText() == "Help & Setup")
+    local help = Sections(optPanel.tab5)[1]
+    local recoveryLink
+    for _,child in ipairs(help.children) do
+        if child.GetText and child:GetText() == addon.L.BTN_OPEN_RECOVERY then recoveryLink=child end
+    end
+    assert(recoveryLink, "setup help must link to the existing recovery section")
+    recoveryLink.scripts.OnClick()
+    assert(optPanel.tabButtons[2].selected and optPanel.scrollFrame:GetVerticalScroll() > 0)
+    optPanel.tabButtons[1].scripts.OnClick()
+    addon.UIControls.SetScrollOffset(optPanel.scrollFrame,0)
+end
 assert(optPanel.companionAppBtn ~= nil, "Options dashboard must expose its Companion App button")
 
 -- An active Companion plan owns exact monitor geometry. The settings header

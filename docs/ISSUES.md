@@ -1824,6 +1824,13 @@ See [controller combat candidate](BAG-CONTROLLER-COMBAT-20261108.md).
 
 ## OH-FOR-010: Gamepad Back/Escape closes workspace panels
 
+- Beta 27 follow-up, 2026-11-08: a source regression reproduced the focus-only
+  Back override on workspace MerchantFrame despite its NPC lifecycle. The
+  candidate now excludes registry-classified interaction roots so vendor,
+  quest, gossip, mail, auction and flight windows retain native Back. Physical
+  controller acceptance and the broader Escape/menu-wheel report remain open.
+  See [Beta 27 investigation](FOREVER-BETA27-PANEL-REPORTS-20261108.md).
+
 - **Accepted known issue for the current candidate, 2026-11-06.** Selecting
   Game Menu from Blizzard's radial closes workspace panels in Forever's
   native Gamepad UI. This path is outside current acceptance requirements.
@@ -2225,6 +2232,27 @@ See [controller combat candidate](BAG-CONTROLLER-COMBAT-20261108.md).
 
 ## OH-FOR-013: OpenMap and Leatrix world-map position ownership
 
+- New beta.27 report, 2026-11-08: title bar is off-screen and dragging the
+  bottom black bar snaps back, including in restored single-screen recovery.
+  The previous ownership fix is present in beta.27. Installed OpenMap's own
+  anchor lock rejects foreign writes while its own title gesture saves them;
+  its clamp allows an off-screen title. Reporter OpenMap version and exact
+  bottom control remain unknown. Native Forever 70862 checks reproduced a
+  separate hidden-title Reset size and place failure in OpenMap v0.7.5-beta,
+  both with Offhand enabled and disabled. A local OpenMap-only reset patch
+  centers and saves the recovered window; reset, reopen, reload and span/restore
+  checks passed. Original title dragging passed manual checks, including with
+  Leatrix's competing geometry options off. Offhand runtime was unchanged.
+  Reporter confirmation on the exact vertical stack remains open. See
+  [native evidence, local repair and limits](OPENMAP-SNAPBACK-20261108.md).
+- Built-in recovery follow-up, 2026-11-08: Offhand now has a source candidate
+  **Recover OpenMap title** action and `/offhand recovermap`. No separate OpenMap
+  file patch is needed by that path. It updates the known owner's saved anchor
+  before a one-shot Mainhand placement, preserves size/scale, and refuses combat,
+  other owners and unreviewed versions. Scoped to Forever/OpenMap v0.7.5-beta/API
+  1/4. Synthetic acceptance includes the original vendor's actual Hold/title
+  handlers; native acceptance against stock OpenMap remains pending. The prior
+  local vendor-patch pass does not validate the built-in call path.
 - The owner verified OpenMap opens on Offhand in standard UI and fits Mainhand
   when maximized. Minimizing left it on Mainhand. The local OpenMap profile
   had no stored window anchor. The follow-up keeps the observed workspace
@@ -3313,3 +3341,114 @@ Manifest and upload notes refreshed. No OpenMap files, native Companion binaries
 SavedVariables or native layouts were edited by packaging. No publication/tag/
 commit made. Existing source and runtime test install retain separate pending
 cinematic work, so the final archive is not an all-current-working-tree snapshot.
+
+## OH-FOR-023: Beta 27 stacked-display settings, flight map and menu placement
+
+- Reports: Ferris's Cooldown Settings, mail/auction/talents and seam-crossing Game
+  Menu; Aphneus's missing flight map. Beta 27 confirmed, Companion probably
+  2.1.3 pre-hotfix, exact client/build/topology unconfirmed.
+- Flight clarification: NPC dialogue works; the map returns after restoring to
+  one screen. Offhand alone reproduces, so Leatrix is not required.
+- Source regressions reproduce flight placement depending on a successful drag
+  grip and native direct GameMenuFrame_Show bypassing the ToggleGameMenu hook.
+  Candidates decouple already-open flight placement from grips and observe the
+  direct menu-open path. Both remain out-of-combat and preserve native lifecycle.
+- Cooldown Settings has a dedicated native show event. Candidate recovery uses
+  that event and live physical bounds, without changing cooldown HUD ownership,
+  native scripts, protected roots or visibility. The Gamepad adapter also learns
+  omitted safe mail/auction/taxi/settings destinations; its protected allowlist
+  is unchanged. Clipped PlayerSpellsFrame talents still need runtime evidence.
+- Video: map growth occurs once on workspace drop, consistent with default AUTO.
+  Quest count is 9/40; Durotar is collapsed (+). The dropdown X is Blizzard's
+  filter-reset control. These do not justify quest-content or chrome rewrites.
+- Status: source candidates with automated acceptance; no deployment or native
+  acceptance yet. See docs/FOREVER-BETA27-PANEL-REPORTS-20261108.md for evidence,
+  primary source revision, limitations and required live matrix. Controller
+  Back policy is tracked under OH-FOR-010.
+
+## OH-FOR-024: Beta 27 world-map scale controls have no effect
+
+- Forever mouse/keyboard report affects Offhand and Mainhand; OpenMap personally
+  confirmed, native Blizzard reproduction and competing owners unconfirmed.
+- Source candidate routes native scale to the active side and reviewed OpenMap
+  0.7.5-beta through its owner scale action. Auto Fit retains native AUTO mode;
+  same-value presets can explicitly leave AUTO. Unsupported controls are disabled.
+- 102 Lua suites and six-manifest validation pass. Original OpenMap source probe
+  accepts its actual Apply/Hold/reopen path with modeled frames.
+- Packaging, native rendering/reload/taint acceptance pending. Details and source
+  boundaries: docs/MAP-SCALE-20261108.md. No client install or vendor patch here.
+
+## OH-UI-025: Guide and calibration next actions are unclear
+
+- Report: users do not know which button continues setup; placement can be
+  confirmed before span/reload preparation has actually completed.
+- Candidate: accent-highlight one recommended action, name the wizard action in
+  its progress caption, and split guide placement into Position -> Reload ->
+  Review. Confirmation requires a checkpoint from a fresh UI session and final
+  player review. Existing readiness checks and fresh manual preview still apply.
+- Reload requests alone cannot unlock confirmation. Changed method/canvas,
+  stale dialogs, combat and missing geometry are guarded. Manual physical display
+  coverage remains a player acknowledgement, not an automatic detection claim.
+- 102 suites and all six manifests pass, including all 11 locale layout fixtures
+  and ordinary/Forever-fallback persistence. Candidate not installed or live
+  accepted. See docs/SETUP-GUIDANCE-20261108.md for scope and remaining matrix.
+
+### OH-UI-025 visual follow-up, 2026-11-09
+
+The source candidate now uses website-style filled gold next actions, task cards,
+numbered progress and localized task illustrations. Mainhand/Offhand geometry
+includes stacked/offset/void layouts and honestly labelled examples. Website
+source has an accessible responsive preview and older-version screenshot labels.
+All 103 Lua suites, six manifests and website integrity pass. Desktop/mobile
+website rendering was reviewed locally; native game visual/focus/reload acceptance,
+installation, packaging and publication remain pending. Details and evidence:
+docs/VISUAL-SETUP-20261109.md.
+
+### OH-UI-025 live and usability follow-up, 2026-11-09
+
+Private Test 8 is packaged and installed. This supersedes the earlier source-only
+status above. A native Companion span -> reload -> placement review/cancel flow
+passed on Forever 1.60.1.70862 using a single-display split. Test 6 native review
+confirmed shorter Companion pages, hidden manual-only controls, scale percentage
+updates, hover contrast and the HUD page without readiness diagnostics. Test 7
+subdued the progress highlight and removed font shadows. Test 8 spaces the guide
+instructions and highlights Span WoW Now. All 11 locale dictionaries are updated.
+The private QA chat helper is archived outside the client and unloads on reload.
+104 root/111 packaged suites and six manifests pass. Final copy and broader native
+coverage remain pending; no public release. See GUIDE-WIZARD-LIVE-QA-20261109.md.
+
+
+### OH-UI-025 follow-up, 2026-11-09: setup confirmation positioning
+
+The user reported placement confirmation and the final HUD dialog jumping from
+the seam to the Mainhand top. Keyboard/mouse setup keys were still routed through
+Blizzard StaticPopup. Private Guide & Wizard Test 9 routes placement/windowed/manual
+confirmations and HUD reload/selection prompts through the existing owned card,
+positioned inside Mainhand before becoming visible. Other native popups are
+unchanged. 104 root and 111 packaged suites plus six-manifest Lua 5.1 validation
+pass. Candidate installed; native reload and visual acceptance pending. No combat
+or controller acceptance is inferred. Full evidence: docs/GUIDE-WIZARD-LIVE-QA-20261109.md.
+
+
+### OH-UI-025 follow-up: reload and settings usability, 2026-11-09
+
+HUD/setup reload calls now resolve C_UI.Reload with a legacy fallback; HUD clicks
+recheck combat and controller ownership. Added header Website/Discord address
+cards and a localized N4UX author credit. Renamed settings tabs, moved map and
+everyday controls ahead of automatic routing, and simplified setup help with a
+shortcut to the existing recovery tools. 104 root and 111 packaged Lua 5.1 suites
+pass; six manifests validate. Test 10 packaged and installed, preserving generated
+bridges and the accepted workspace/span baseline. Native reload/action/visual
+acceptance remains pending. Details and hash: docs/SETTINGS-USABILITY-20261109.md.
+
+
+### OH-UI-025 follow-up: header and unavailable window lock, 2026-11-09
+
+Title and slogan now share a row; versions and author credit use one more readable
+second row. Source/ledger review confirms the stronger window lock is still
+explicitly unsupported on Forever, with no later dedicated acceptance recorded.
+Unsupported clients now receive a compact Character window scale card, without
+disabled lock controls or testing-status copy. Supported-client lock UI, all
+preferences and independent Escape/reload persistence are preserved. 104 root and
+111 packaged Lua suites pass; six manifests validate under Lua 5.1. Test 11 is
+installed; native visual review awaits /reload. See docs/SETTINGS-USABILITY-20261109.md.
