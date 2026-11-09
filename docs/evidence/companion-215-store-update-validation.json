@@ -1,0 +1,36 @@
+{
+  "version": "2.1.5",
+  "fileVersion": "2.1.5.1",
+  "packageVersion": "2.1.500.0",
+  "sourceCommit": "7bc07a60113c7c990067d5fd86215ace310399cc",
+  "sourceCleanAtBuild": true,
+  "binarySha256": "95811DBB7020A20E2541AE123E69FE80721C83A0FD52D0EE5557DD6D54DCCC2A",
+  "archiveSha256": "AC63C09713E1D053D157EF527A6773456F4C9FE4005D56E2DF2626911ACC4269",
+  "msixSha256": "9AD0A4F561C27A750885E8030B5E72DFC4FBD80DF8CD507FEB26FB1D335B71CA",
+  "storeUpdateFixtures": {
+    "catalogRequestMade": false,
+    "previewPerArchitecture": 116,
+    "architectures": [
+      "x64",
+      "x86"
+    ],
+    "productionPerArchitecture": 120,
+    "totalAssertions": 472,
+    "osMetadataAndOwnerBinding": "passed, no native skip on local machine"
+  },
+  "uiScales": [
+    "100%",
+    "125%",
+    "150%",
+    "175%",
+    "200%"
+  ],
+  "nativeImportAudit": "45 reviewed declarations, passed",
+  "packageParity": "passed",
+  "localDefender": "scan exited 0, no threats found",
+  "storeAssociatedAcceptance": "pending",
+  "wack": "not run for this candidate",
+  "publication": "unpublished",
+  "submitted214ExeSha256": "2D1FB0DE3A2BF6340D8EB4BF28D751C602C8DF66BD1947D0B43FB0A8DA709D5D",
+  "submitted214MsixSha256": "EDE193AA3AF4ADC90264A950CB8B8BB282D24A1BD4E0C4F6A9CA452BE5AB14EA"
+}

@@ -43,3 +43,12 @@ Rechecked the original candidate-2 files from the Companion dashboard checkout:
 - [Desktop Bridge window-owner setup, earlier .NET](https://learn.microsoft.com/en-us/windows/uwp/monetize/in-app-purchases-and-trials#using-the-storecontext-class-with-the-desktop-bridge).
 - [Framework async adapter](https://learn.microsoft.com/en-us/dotnet/api/system.windowsruntimesystemextensions.astask).
 - [Store-managed package updates](https://learn.microsoft.com/en-us/windows/msix/store-developer-package-update).
+
+## Final local candidate
+
+Source commit `7bc07a6` built cleanly as candidate 2. Local package parity and identity checks passed for the fresh MSIX. A Defender custom scan of the complete candidate directory exited 0 and reported no threats. This is an exact local scan result, not a Microsoft Defender submission verdict or future detection guarantee. Source/hash and pending acceptance states are in `docs/evidence/companion-215-store-update-validation.json`.
+
+- EXE SHA-256: 95811DBB7020A20E2541AE123E69FE80721C83A0FD52D0EE5557DD6D54DCCC2A.
+- MSIX SHA-256: 9AD0A4F561C27A750885E8030B5E72DFC4FBD80DF8CD507FEB26FB1D335B71CA.
+
+Before release, Store-associated acceptance must also confirm quiet behavior with a signed-out/unavailable Store and cached answers. No availability request, installation, catalog flight or publication was performed in this implementation task. The submitted 2.1.4 hashes were verified unchanged again after the final build.
