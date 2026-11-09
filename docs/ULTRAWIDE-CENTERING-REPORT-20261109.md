@@ -142,3 +142,14 @@ The report also supports a guidance follow-up: explicitly distinguish moving the
 combined window from activating/calibrating the add-on's game viewport on first
 setup. No automatic enabling or gameplay input should be introduced to hide that
 required user action.
+
+## Resolution
+
+The owner relayed the reporter's confirmation that completing setup resolved the
+issue. Close this report as incomplete first-time setup, resolved by the existing
+guide/calibration flow. This is reporter-confirmed resolution, not an independently
+observed post-setup diagnostic capture. No Companion geometry fix, runtime change,
+new package or release is required for this report. The planner/bridge regression
+cases remain useful characterization coverage. Clearer guidance distinguishing
+native spanning from first-time add-on activation/calibration remains a separate
+UX improvement, not an open failure in this resolved case.
