@@ -100,3 +100,45 @@ A useful UX follow-up is a **Centre game on monitor** preset with explicit game,
 workspace and free-desktop dimensions. It should not silently change existing
 plans or imply that centring the combined window centres the game. No such new
 runtime behavior was implemented or released in this investigation.
+
+## Reporter diagnostics received
+
+The next screenshots identify Forever 1.60.1 build 70862, interface 16001,
+Offhand 2.1.5-beta.28, paired Companion 2.1.5, keyboard/mouse UI. They show:
+
+- Enabled=0, Setup=0, Spanned=0 and Source=Single-screen.
+- Companion Writer=not-recorded and version Status=unavailable, rather than a
+  demonstrated incompatible version.
+- Topology state=ABSENT, loaded=no, schema=none, expected=unknown x unknown.
+- Current physical client size 2502 x 1401, not the selected 3790 x 1440 canvas.
+- Workspace=(0,0 0x0). Generated HUD=none, Geometry=none.
+- Native map owner Offhand; LeatrixMaps/OpenMap absent in this capture.
+- Viewport bounds check PASS, which validates the current single-screen fallback,
+  not the intended custom span. Forever persistence source SavedVariables with
+  bridge absent/session none does not by itself establish a persistence fault.
+
+This confirms that setup is incomplete and Offhand's game/workspace layout is
+inactive at capture. It also confirms no Companion topology is loaded. Finishing
+calibration alone is not the first step while the expected span/handoff is absent.
+The capture does not establish whether it preceded Span/reload, followed Restore,
+or reflects a failed/wrong-path handoff. Do not attribute ABSENT to incomplete
+calibration alone: successful Companion span writes the bridge before resizing,
+and a subsequent add-on reload must read it from the active client's installation.
+
+Recommended sequence: ordinary Windowed mode, verify Companion recognizes this
+Forever installation, save/apply the desired plan with Span WoW Now, then continue
+the in-game guide's Window is positioned / Reload UI / Confirm placement sequence.
+Complete calibration and the supported HUD/reload steps afterward. Preserve saved
+settings and existing HUD work. For the centred 16:9 layout use 3840 combined,
+1280 workspace, Left anchor, Right game as above.
+
+Expected follow-up after completed setup: Enabled=1, Setup=1, Source=Companion,
+Spanned=1, topology loaded/READY, physical canvas matching the applied plan and a
+nonzero workspace. If topology remains ABSENT after a successful Span and reload,
+inspect the Companion Activity Log, verified client/add-on installation path and
+span/write result instead of resetting settings or repeating calibration blindly.
+
+The report also supports a guidance follow-up: explicitly distinguish moving the
+combined window from activating/calibrating the add-on's game viewport on first
+setup. No automatic enabling or gameplay input should be introduced to hide that
+required user action.
