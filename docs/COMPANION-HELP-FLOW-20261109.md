@@ -33,6 +33,12 @@ No runtime topology, window operation or settings behavior changed. Review
 the help in the next packaged candidate before promotion; this source-only
 change does not claim a new installed-Store or in-game runtime acceptance pass.
 
+CI now invokes the existing historical-artifact validation mode for the frozen
+2.1.5 receipt, EXE and archive, matching its treatment of 2.1.3. The publication
+fixture forwards that option and verifies it cannot create packages. Default
+publication validation remains strict about source drift; this help change
+requires a new reviewed candidate before it can ship.
+
 Evidence: current `Website/companion.html`, `Website/in-game-setup.html`,
 `UI/Onboarding.lua`, `UI/Wizard.lua`, English locale labels and the live capture
 record in `WEBSITE-LIVE-CAPTURES-20261109.md`. Shared knowledge status and setup
