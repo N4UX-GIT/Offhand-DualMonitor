@@ -1,0 +1,121 @@
+{
+  "version": "2.1.4",
+  "fileVersion": "2.1.4.1",
+  "packageVersion": "2.1.400.0",
+  "sourceRevision": "4738e8037b61f0951d027bf206713f647ef8edf8",
+  "sourceInputs": {
+    "Program.cs": "7BC4AFC0872EDFD36593CB1A25896999BCD9FD76EAD849B73793E1103EECE143",
+    "LayoutDocument.cs": "B998543CDF3D1B8C8FA3EC0DB60864B56AC7011FB9C1C832B84528E6798540B3",
+    "WorkspaceLayoutService.cs": "2039BEC4CA7BE95FE4EAFAC2C2BA502DF31262B8A0BDF51F82084D66DB4E057A",
+    "FlexibleWorkspaceEditor.cs": "DDEB200F6533E1F211289132B4E4F27D18F3B48E7A73E98A2F1502B51C9AB17C",
+    "app.manifest": "14AF2FB796A92CCE5BBA42087629449265E2135896F0EF350E31EDE3C1203E08"
+  },
+  "binarySha256": "2DC918A910FF587E850737CC162598286D8BD4511DB07EB629A1D65833B5CBAE",
+  "archiveSha256": "45529175A894BA20A28BB21028757C7D0337A8A1546771110BBAC119FEA8A6B0",
+  "msixSha256": "082E4FA428E56EDF2D573C3B9914974BF255697416E6A7BF51EC9816D5EBDD13",
+  "nativeRegressionRuns": [
+    {
+      "exitCode": 0,
+      "suite": "companion-preferences"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-display-selection"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-partial-topology"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-workspace-regions"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-workspace-profiles"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-layout-document"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-flexible-layouts"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-third-monitor"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-taskbar-presentation"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-span-rollback"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-workspace-ux"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-remote-desktop"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-color"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-color-DiagnosticsTest"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-graphics-recovery-Production"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-graphics-recovery"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-graphics-recovery-Retail"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-graphics-recovery-Forever"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-interaction-boundary"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-store-persistence"
+    },
+    {
+      "exitCode": 0,
+      "suite": "publication-213-HistoricalArtifactsOnly"
+    },
+    {
+      "exitCode": 0,
+      "suite": "release-metadata"
+    }
+  ],
+  "luaSuitesPassed": 109,
+  "portablePersistenceChecksPassed": 25,
+  "installedStoreIdentityPersistenceChecksPassed": 47,
+  "packageParity": "PASS",
+  "wackOverall": "PASS",
+  "wackRequiredPassed": 13,
+  "wackOptionalReviewed": 1,
+  "wackNoInstallation": true,
+  "installedStoreAndPreferencesUnchanged": true,
+  "defenderLocalScan": "No threats, exit 0",
+  "defenderSignatures": "1.463.191.0",
+  "publication": "unpublished",
+  "liveWoWAcceptance": "not performed",
+  "otherPendingAddonEdits": "excluded from Companion artifacts",
+  "preview": "dist/dashboard-ui-preview-20261109-4-final/Offhand.exe"
+}
