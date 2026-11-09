@@ -52,3 +52,12 @@ Source commit `7bc07a6` built cleanly as candidate 2. Local package parity and i
 - MSIX SHA-256: 9AD0A4F561C27A750885E8030B5E72DFC4FBD80DF8CD507FEB26FB1D335B71CA.
 
 Before release, Store-associated acceptance must also confirm quiet behavior with a signed-out/unavailable Store and cached answers. No availability request, installation, catalog flight or publication was performed in this implementation task. The submitted 2.1.4 hashes were verified unchanged again after the final build.
+
+## Owner local test package
+
+Prepared `dist/companion-2.1.5-local-test-1-final/Offhand-Companion-2.1.5-Local-Test-1.zip` with the unchanged 2.1.5.1 EXE, a separate local simulation host, license, README, manifest and checksums. No unsigned MSIX or installation script is included. The host verifies the exact production EXE hash, substitutes only the Store response delegate and uses isolated LocalTestData per scenario. It pauses background game monitoring and disables game/configuration actions in its own dashboard. The ordinary portable Offhand.exe remains available for separate normal testing with the usual user preferences.
+
+The selector exposes available, no-update, unavailable and timeout responses, plus a test-cache reset checkbox. These are explicitly simulated responses, not actual Microsoft Store detection. Native visual QA observed the delayed Available state change without a new popup, correct disabled controls and successful Exit. The completed host/ZIP directory received a local Defender scan with exit 0 and no threats. ZIP entry/parity checks passed; local runtime test data is outside the archive. The original 2.1.4 submission hashes were verified unchanged.
+
+Archive SHA-256: `67291DEE6FC3AECC7508BB604CBF4C3C238BE3DF4C94AF241F2243138656DC48`.
+Receipt: `docs/evidence/companion-215-local-test-package.json`. This package is local and unpublished. Real Store association, catalog response and release certification gates above remain pending.
