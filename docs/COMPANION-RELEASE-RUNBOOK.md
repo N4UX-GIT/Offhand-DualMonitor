@@ -1,6 +1,6 @@
 # Offhand Companion release runbook
 
-The next Companion-only UI candidate is **2.1.4**, file build **2.1.4.1**, proposed
+The next Companion-only UI candidate is **2.1.4**, file build **2.1.4.2**, proposed
 Store package **2.1.400.0**. Use
 [its preparation record](COMPANION-2.1.4-PREPARATION-20261109.md) and
 `scripts/New-CompanionUiCandidate.ps1`. The 2.1.3 workflows and receipts below

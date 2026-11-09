@@ -25,9 +25,9 @@ $options=@('/nologo','/target:winexe','/optimize+','/platform:anycpu',"/out:$bin
 & $compiler @options @files
 if($LASTEXITCODE-ne 0){throw 'UI release candidate compilation failed.'}
 $identity=[Diagnostics.FileVersionInfo]::GetVersionInfo($binary)
-if($identity.FileVersion-ne '2.1.4.1' -or $identity.ProductVersion-ne '2.1.4') {throw 'Unexpected candidate identity.'}
+if($identity.FileVersion-ne '2.1.4.2' -or $identity.ProductVersion-ne '2.1.4') {throw 'Unexpected candidate identity.'}
 $readme=@'
-Offhand Companion {{VERSION}}, unpublished release candidate (build 2.1.4.1).
+Offhand Companion {{VERSION}}, unpublished release candidate (build 2.1.4.2).
 SHA-256: {{EXE_SHA256}}
 
 Extract this archive to a writable folder. Exit the regular Companion through

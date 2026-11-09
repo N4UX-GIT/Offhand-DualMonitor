@@ -1,10 +1,13 @@
 # Companion 2.1.4 release preparation, 2026-11-09
 
-Status: candidate prepared, local preflight passed, unpublished. No GitHub or Store publication is
+Status: candidate 1 superseded after owner-reported transition defects. The
+corrected build 2.1.4.2 / UI Preview 4 requires visual transition signoff and fresh
+package preflight before release. Candidate 1's hashes and passes below remain
+historical evidence, not readiness for the corrected build. No GitHub or Store publication is
 authorized by this record. The owner requested remaining UI checks and next
 release preparation after reviewing local UI Preview 2.
 
-## Scope and identity
+## Candidate 1 scope and identity (superseded)
 
 Product 2.1.4, assembly 2.1.4.0, exact production file build 2.1.4.1, proposed
 Store package 2.1.400.0. Protocol 1 and supported topology schemas are unchanged.
@@ -100,8 +103,38 @@ Sanitized results: `docs/evidence/companion-214-ui-validation.json` and
 are alongside the candidate. Original prepared 2.1.3 build9/build10 and Beta20
 artifacts were preserved.
 
-The candidate is ready for owner release review. Store submission/certification,
+Candidate 1 was superseded after that review. Store submission/certification,
 public GitHub release/tag, and rollout are still separate actions. Windows 10,
 Wine, physical mixed-DPI and high-contrast visual transitions were not observed
 in this UI pass; native system-theme fallback is retained. No live game action
 was added to or performed by these UI checks.
+
+## Transition correction, build 2
+
+The owner's subsequent review found a brief white scrollbar and apparent
+resizing during Show/Hide. Endpoint-only bounds checks missed the scrollbar
+gutter changing every card's width. The corrected dashboard reserves a constant
+gutter using the documented
+[GetSystemMetricsForDpi](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getsystemmetricsfordpi)
+metric, with an older-platform fallback. The content stack no longer docks to
+the changing client width. It keeps a constrained width, batches panel layout,
+and buffers managed background painting.
+
+Hidden log/scroll-control handles are created and themed during form Load,
+before the first visible expansion. Handle recreation retains the existing
+theme handler. This addresses late first-show native creation rather than
+reapplying the dark theme after showing a control.
+
+The layout fixture now observes intermediate SizeChanged/LocationChanged events,
+content-width changes and late log HandleCreated events across every panel at
+100%-200%. All three counters remain zero. These checks are stronger than only
+comparing final bounds, but are not a claim about every subsecond rendered frame.
+Ten native screenshot samples of expansion stayed 550x704 and were dark at
+capture; the first arrived 671ms after starting the click, so this sampling
+cannot rule out a shorter first-frame flash. Owner visual review remains needed.
+
+New isolated preview: `dist/dashboard-ui-preview-20261109-5-transitions/Offhand.exe`,
+UI Preview 4, file 2.1.4.8002. New ordinary runtime identity is 2.1.4.2. Prior
+candidate 1 and all published artifacts are preserved. The new import is only
+the UI metric query `user32.dll!GetSystemMetricsForDpi`; no input/process-memory
+capability was added.

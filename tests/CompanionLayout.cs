@@ -183,6 +183,20 @@ namespace Offhand.Companion
                 monitorItem.PerformClick();
                 if (monitorItem.Text != "Pause background monitoring" || !summary.Text.Contains("WoW running"))
                     throw new Exception("Tray resume must restore launch monitoring and the client summary.");
+                CompanionUi.PrimeScrollbars(form);
+                var viewportBeforeToggles = form.Controls.OfType<Panel>().Single(panel => panel.AutoScroll);
+                var stackBeforeToggles = viewportBeforeToggles.Controls.OfType<TableLayoutPanel>().Single();
+                int stableContentWidth = stackBeforeToggles.Width;
+                int transientResizes = 0, contentWidthChanges = 0, logHandleCreations = 0;
+                var logControl = One<RichTextBox>(form, item => true);
+                if (!logControl.IsHandleCreated) throw new Exception("Hidden Activity Log must be themed before its first Show.");
+                EventHandler onOuterChange = (sender, args) => { transientResizes++; };
+                EventHandler onContentChange = (sender, args) => { if (stackBeforeToggles.Width != stableContentWidth) contentWidthChanges++; };
+                EventHandler onLogHandle = (sender, args) => { logHandleCreations++; };
+                form.SizeChanged += onOuterChange;
+                form.LocationChanged += onOuterChange;
+                stackBeforeToggles.SizeChanged += onContentChange;
+                logControl.HandleCreated += onLogHandle;
                 foreach (Panel section in new[] { status, config,
                     Descendants(form).OfType<Panel>().Single(panel => panel.Controls.OfType<Label>().Any(label => label.Text == "DISPLAY DIAGNOSTICS")),
                     Descendants(form).OfType<Panel>().Single(panel => panel.Controls.OfType<Label>().Any(label => label.Text == "ACTIVITY LOG")) })
@@ -196,6 +210,13 @@ namespace Offhand.Companion
                     LayoutAll(form);
                     if (form.Bounds != stableBounds) throw new Exception("Restoring a panel resized or moved the dashboard.");
                 }
+                form.SizeChanged -= onOuterChange;
+                form.LocationChanged -= onOuterChange;
+                stackBeforeToggles.SizeChanged -= onContentChange;
+                logControl.HandleCreated -= onLogHandle;
+                if (transientResizes != 0 || contentWidthChanges != 0 || logHandleCreations != 0)
+                    throw new Exception("Show/Hide caused transient outer/content resizing or late log creation: "
+                        + transientResizes + "/" + contentWidthChanges + "/" + logHandleCreations);
                 form.SetDashboardSectionExpanded(status, true, false);
                 var layoutStatus = status.Controls.OfType<Label>().Single(label => label.Text.StartsWith("Display layout"));
                 var roomyDesktop = new Rectangle(0, 0, 2560, 2300);

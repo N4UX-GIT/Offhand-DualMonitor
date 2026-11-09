@@ -56,7 +56,7 @@ using System.Windows.Forms;
 [assembly: AssemblyVersion("2.1.4.0")]
 #endif
 #if UI_PREVIEW
-[assembly: AssemblyFileVersion("2.1.4.8001")]
+[assembly: AssemblyFileVersion("2.1.4.8002")]
 [assembly: AssemblyInformationalVersion("2.1.4")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
@@ -73,7 +73,7 @@ using System.Windows.Forms;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.4.1")]
+[assembly: AssemblyFileVersion("2.1.4.2")]
 [assembly: AssemblyInformationalVersion("2.1.4")]
 #endif
 
@@ -1133,10 +1133,38 @@ namespace Offhand.Companion
         [DllImport("uxtheme.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
         private static extern int SetWindowTheme(IntPtr window, string application, string classes);
 
+        [DllImport("user32.dll", ExactSpelling = true)]
+        private static extern int GetSystemMetricsForDpi(int index, uint dpi);
+
+        internal static int ScrollbarGutter(float scale)
+        {
+            try
+            {
+                int width = GetSystemMetricsForDpi(2, (uint)Math.Max(96, Math.Round(96 * scale)));
+                if (width > 0) return width;
+            }
+            catch (DllNotFoundException) { }
+            catch (EntryPointNotFoundException) { }
+            return Math.Max(SystemInformation.VerticalScrollBarWidth, (int)Math.Ceiling(17 * scale));
+        }
+
+        internal static void PrimeScrollbars(Control parent)
+        {
+            // Hidden log/editor controls otherwise create their native handles
+            // during Show, exposing the default non-client paint before theming.
+            if (parent is ScrollableControl || parent is TextBoxBase || parent is ListBox)
+            {
+                IntPtr handle = parent.Handle;
+            }
+            foreach (Control child in parent.Controls) PrimeScrollbars(child);
+        }
+
         // Theme only managed controls owned by this process. Native scrolling,
         // focus, text selection and accessibility remain with Windows.
         internal static void StyleScrollbars(Control parent)
         {
+            var form = parent as Form;
+            if (form != null) form.Load += (s, e) => { PrimeScrollbars(form); };
             if (parent is ScrollableControl || parent is TextBoxBase || parent is ListBox)
             {
                 EventHandler apply = (s, e) =>
@@ -1231,6 +1259,16 @@ namespace Offhand.Companion
             form.Size=new Size(Math.Min(form.Width,work.Width),Math.Min(form.Height,work.Height));
             form.Location=new Point(Math.Max(work.Left,Math.Min(form.Left,work.Right-form.Width)),Math.Max(work.Top,Math.Min(form.Top,work.Bottom-form.Height)));
         }
+    }
+
+    internal sealed class DashboardViewport : Panel
+    {
+        internal DashboardViewport() { DoubleBuffered = true; }
+    }
+
+    internal sealed class DashboardStack : TableLayoutPanel
+    {
+        internal DashboardStack() { DoubleBuffered = true; }
     }
 
     internal sealed class WorkspaceEditorLayout
@@ -3899,7 +3937,7 @@ namespace Offhand.Companion
         internal const string BaseVersion = "2.1.4";
 #endif
 #if UI_PREVIEW
-        internal const string ReleaseLabel = "UI Preview 3";
+        internal const string ReleaseLabel = "UI Preview 4";
         internal static readonly bool GraphicsRecoveryEnabled = false;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
@@ -4888,6 +4926,7 @@ namespace Offhand.Companion
             // fonts proportional on high-resolution and mixed-DPI displays.
             this.AutoScaleDimensions = new SizeF(96F, 96F);
             this.AutoScaleMode = AutoScaleMode.Dpi;
+            this.DoubleBuffered = true;
             this.Font = new Font("Segoe UI", 9F);
             this.Text = GraphicsRecoveryTestBuild ? "Offhand Companion - " + (ForeverGraphicsRecoveryEnabled ? "FOREVER TEST 5" : RetailGraphicsRecoveryEnabled ? "RETAIL TEST 4" : "CLASSIC TEST 3") : "Offhand Companion " + FullVersion;
             this.ClientSize = new Size(548, 824);
@@ -5446,8 +5485,8 @@ namespace Offhand.Companion
         {
             SuspendLayout();
             dashboardHeader = header;
-            dashboardScroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(16, 10, 16, 6), BackColor = cBg };
-            dashboardStack = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true,
+            dashboardScroll = new DashboardViewport { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(16, 10, 16, 6), BackColor = cBg };
+            dashboardStack = new DashboardStack { Location = new Point(16, 10), AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 1, RowCount = 0,
                 Margin = Padding.Empty, Padding = Padding.Empty, BackColor = cBg };
             dashboardStack.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -5508,6 +5547,7 @@ namespace Offhand.Companion
                 };
             lblDisplayInfo.ForeColorChanged += (s, e) => { UpdateDashboardStatusSummary(); };
             dashboardStack.Layout += (s, e) => { LayoutDashboardCards(); };
+            dashboardScroll.SizeChanged += (s, e) => { LayoutDashboardCards(); };
             ResumeLayout(true);
             LayoutDashboardCards();
         }
@@ -5516,13 +5556,23 @@ namespace Offhand.Companion
         {
             DashboardSection section;
             if (!dashboardSections.TryGetValue(panel, out section)) return;
-            section.Expanded = expanded;
-            section.Toggle.Text = expanded ? "Hide" : "Show";
-            section.Toggle.AccessibleName = (expanded ? "Collapse " : "Expand ") + section.Heading.Text.Trim();
-            foreach (Control child in panel.Controls)
-                if (child == lblStatusSummary) child.Visible = !expanded;
-                else if (child != section.Heading && child != section.Toggle) child.Visible = expanded;
-            LayoutDashboardCards();
+            dashboardScroll.SuspendLayout();
+            panel.SuspendLayout();
+            try
+            {
+                section.Expanded = expanded;
+                section.Toggle.Text = expanded ? "Hide" : "Show";
+                section.Toggle.AccessibleName = (expanded ? "Collapse " : "Expand ") + section.Heading.Text.Trim();
+                foreach (Control child in panel.Controls)
+                    if (child == lblStatusSummary) child.Visible = !expanded;
+                    else if (child != section.Heading && child != section.Toggle) child.Visible = expanded;
+                LayoutDashboardCards();
+            }
+            finally
+            {
+                panel.ResumeLayout(false);
+                dashboardScroll.ResumeLayout(true);
+            }
             if (persist)
             {
                 appSettings[section.Key] = (!expanded).ToString();
@@ -5606,10 +5656,19 @@ namespace Offhand.Companion
         {
             if (dashboardStack == null || layingOutDashboard) return;
             layingOutDashboard = true;
-            dashboardStack.SuspendLayout();
             try
             {
                 float scale = btnSpanNow.Height / (float)DashboardActionHeight;
+                // Reserve the native scrollbar gutter even while it is hidden.
+                // Dock=Top would otherwise resize every card when WS_VSCROLL
+                // changes the viewport's client width during Show/Hide.
+                int width = Math.Max(1, dashboardScroll.Width - dashboardScroll.Padding.Horizontal
+                    - CompanionUi.ScrollbarGutter(scale));
+                dashboardStack.MinimumSize = new Size(width, 0);
+                dashboardStack.MaximumSize = new Size(width, 0);
+                dashboardStack.Width = width;
+                dashboardStack.PerformLayout();
+                dashboardStack.SuspendLayout();
                 int inset = (int)Math.Ceiling(14 * scale);
                 foreach (Control child in dashboardHeader.Controls)
                 {

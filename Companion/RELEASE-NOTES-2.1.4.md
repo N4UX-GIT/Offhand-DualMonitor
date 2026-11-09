@@ -8,6 +8,8 @@ Prepared release notes, unpublished candidate.
   is the only expanded panel for fresh settings; saved panel choices are kept.
 - Show/Hide and status updates keep the window's size and position stable.
   Expanded content scrolls inside the window.
+- Reserved scrollbar space keeps panel widths stable as scrolling appears.
+  Hidden scroll controls are initialized and themed before first expansion.
 - Dark native scrollbars for the dashboard, Activity Log, Help and workspace
   screens where Windows supports the theme. Native scrolling and accessibility
   remain available; high contrast retains system styling.
