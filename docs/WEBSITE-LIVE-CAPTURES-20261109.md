@@ -39,7 +39,13 @@ placement wording. It was observed, not represented as updated by this
 website-only change. Correcting that bundled help requires the next Companion
 source/candidate update; the frozen release binary was not modified.
 
-Shared knowledge status and setup searches were consulted. The corpus reports
-review-due Blizzard snapshots; current local source and the observed target
-client are the authority for this screenshot work. No Blizzard API change was
-made or inferred from retrieval.
+Shared knowledge status and setup searches were requested. The corpus reports
+review-due Blizzard snapshots and a stale search index, so no retrieval result
+was used as evidence. Current local source and the observed target client are
+the authority for this screenshot work. No Blizzard API change was made or
+inferred from retrieval.
+
+Validation: website integrity passes for seven pages and 341 local references.
+All twenty PNG files are referenced, their declared dimensions match the files,
+and refreshed screenshots have no image links. Browser review checked the
+expanded first-time and calibration galleries and full home dashboard.
