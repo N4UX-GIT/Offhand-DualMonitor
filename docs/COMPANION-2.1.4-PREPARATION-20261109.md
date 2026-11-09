@@ -1,8 +1,8 @@
 # Companion 2.1.4 release preparation, 2026-11-09
 
 Status: candidate 1 superseded after owner-reported transition defects. The
-corrected build 2.1.4.2 / UI Preview 4 requires visual transition signoff and fresh
-package preflight before release. Candidate 1's hashes and passes below remain
+corrected build 2.1.4.2 / UI Preview 4 passed fresh package preflight but still
+requires visual transition signoff before release. Candidate 1's hashes and passes below remain
 historical evidence, not readiness for the corrected build. No GitHub or Store publication is
 authorized by this record. The owner requested remaining UI checks and next
 release preparation after reviewing local UI Preview 2.
@@ -145,5 +145,20 @@ focused runs passed after this correction: preferences/dashboard, workspace UX
 (both architectures), ordinary and diagnostics color checks, Remote Desktop,
 interaction boundaries, and portable persistence. The stronger transition
 checks pass at every tested scale. Candidate 2 has not inherited candidate 1's
-WACK/Store-package verdict. Keep release on hold until the brief-flash review
-and fresh package preflight are complete. Preview 4 is open for that review.
+WACK/Store-package verdict. Keep release on hold until the brief-flash review is
+complete. Preview 4 is open for that review.
+
+Fresh build-2 preflight subsequently passed all 22 regression runs, MSIX identity
+and exact EXE parity, local Defender scan, and WACK overall PASS (13 required
+passes; the same reviewed optional process-launch/icon finding). The runner
+used noinstallappx and verified the installed 2.1.301.0 package, preferences and
+candidate hash remained unchanged. New sanitized records are
+`docs/evidence/companion-214-ui-build2-validation.json` and
+`docs/evidence/companion-214-ui-build2-wack.json`. The candidate remains unpublished
+with `briefFlashVisualReview=pending` in its acceptance receipt. Prior Lua and
+installed-identity persistence evidence remains separately scoped; these native
+UI corrections did not change add-on or persistence source.
+
+Build-2 EXE SHA-256: `2D1FB0DE3A2BF6340D8EB4BF28D751C602C8DF66BD1947D0B43FB0A8DA709D5D`.
+ZIP SHA-256: `D02DA1C5B31CD69875FAC4C04B8229259AE1AAF446B135B53ABC6A9F8752D53B`.
+MSIX SHA-256: `EDE193AA3AF4ADC90264A950CB8B8BB282D24A1BD4E0C4F6A9CA452BE5AB14EA`.
