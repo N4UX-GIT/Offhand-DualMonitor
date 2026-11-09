@@ -119,8 +119,15 @@
   "installedStoreAndPreferencesUnchanged": true,
   "defenderLocalScan": "No threats, exit 0",
   "defenderSignatures": "1.463.191.0",
-  "briefFlashVisualReview": "pending",
+  "briefFlashVisualReview": "PASS",
   "firstSampleFrameDelayMs": 671,
   "previousCandidate": "superseded",
-  "publication": "on hold, unpublished"
+  "publication": "unpublished",
+  "readiness": "ready for release review",
+  "ownerVisualConfirmation": {
+    "date": "2026-11-09",
+    "previewFileVersion": "2.1.4.8002",
+    "previewTitle": "Offhand Companion 2.1.4 UI Preview 4",
+    "response": "No flash or jitter"
+  }
 }

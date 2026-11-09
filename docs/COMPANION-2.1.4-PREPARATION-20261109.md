@@ -1,8 +1,9 @@
 # Companion 2.1.4 release preparation, 2026-11-09
 
 Status: candidate 1 superseded after owner-reported transition defects. The
-corrected build 2.1.4.2 / UI Preview 4 passed fresh package preflight but still
-requires visual transition signoff before release. Candidate 1's hashes and passes below remain
+corrected build 2.1.4.2 passed fresh package preflight and owner visual verification
+in UI Preview 4. Candidate 2 is ready for release review, unpublished.
+Candidate 1's hashes and passes below remain
 historical evidence, not readiness for the corrected build. No GitHub or Store publication is
 authorized by this record. The owner requested remaining UI checks and next
 release preparation after reviewing local UI Preview 2.
@@ -155,10 +156,24 @@ used noinstallappx and verified the installed 2.1.301.0 package, preferences and
 candidate hash remained unchanged. New sanitized records are
 `docs/evidence/companion-214-ui-build2-validation.json` and
 `docs/evidence/companion-214-ui-build2-wack.json`. The candidate remains unpublished
-with `briefFlashVisualReview=pending` in its acceptance receipt. Prior Lua and
+with `briefFlashVisualReview=pending` at that stage of its acceptance receipt. Prior Lua and
 installed-identity persistence evidence remains separately scoped; these native
 UI corrections did not change add-on or persistence source.
 
 Build-2 EXE SHA-256: `2D1FB0DE3A2BF6340D8EB4BF28D751C602C8DF66BD1947D0B43FB0A8DA709D5D`.
 ZIP SHA-256: `D02DA1C5B31CD69875FAC4C04B8229259AE1AAF446B135B53ABC6A9F8752D53B`.
 MSIX SHA-256: `EDE193AA3AF4ADC90264A950CB8B8BB282D24A1BD4E0C4F6A9CA452BE5AB14EA`.
+
+## Owner transition verification complete
+
+On 9 November, the owner answered the question specifically naming UI Preview 4
+(file 2.1.4.8002): **"No flash or jitter"**. This closes the visual transition
+gate left open above. The acceptance and transition-readiness records now mark
+visual review PASS, with the exact preview version and owner response recorded.
+The EXE, ZIP and MSIX hashes were rechecked and remain unchanged; no rebuild or
+repeat test run was needed for this evidence-only update.
+
+Candidate 2, production file 2.1.4.2 / proposed Store package 2.1.400.0, is ready
+for release review. GitHub/Store publication, source promotion and rollout remain
+separate actions. The owner's UI confirmation is not a new live WoW, different-OS,
+mixed-DPI or production-PFN upgrade acceptance claim.
