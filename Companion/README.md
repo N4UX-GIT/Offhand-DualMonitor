@@ -2,6 +2,45 @@
 
 Native Windows desktop companion application for the Offhand World of Warcraft add-on. See [Linux.md](Linux.md) for the current experimental Wine path and the native-Linux implementation boundary.
 
+## Choose one setup method
+
+Use only one window-placement method: Companion (recommended on Windows),
+FancyZones, or manual placement. These are alternatives. This document covers
+Companion; the other methods do not require it. Keep the same choice in
+`/offhand guide`, place the window, then return to that guide to reload, confirm
+placement and finish calibration. Custom workspaces, named plans, themes and
+backgrounds are optional after the standard setup works.
+
+## Dashboard and setup order
+
+Span WoW Now and Restore Window are at the top. Configuration contains display
+selection. System Status, Display Diagnostics and Activity Log are collapsed by
+default; use Show when you need their details. Installed addon files do not
+prove that Offhand is enabled for the active WoW client.
+
+Follow the five first-time steps in Help, finish calibration in the same in-game
+guide, arrange panels and verify a normal relaunch. Daily automation and custom
+areas come afterward. The tray menu contains Pause/Resume background monitoring.
+
+## Start with standard layout
+
+**Standard layout is already selected for a new setup.** For two full monitors,
+check both under **Span displays**, choose **Mainhand (game)** and click
+**Span WoW Now** at the placement step. No custom workspace editor is needed.
+The optional equal single-display split also belongs to standard layout.
+
+Custom workspaces are for an unequal split, a workspace covering only part of a
+second monitor, or additional workspace areas. In the layout chooser, keep
+standard unless you need one of these arrangements. Custom editors require the
+explicit **I want custom workspace areas (optional)** choice. The second-monitor
+custom option means a selected rectangle, not ordinary two-full-monitor setup.
+
+Saved custom layouts are restored on launch. To return to full monitors, open
+**Workspace layout (custom)…**, choose **Use standard display layout**, review
+**Span displays** and **Mainhand (game)**, then span again and reload the WoW UI.
+Named workspace plans remain saved. **Restore Window** alone does not change the
+saved layout mode.
+
 ## Features
 * **Optional Auto-Spanning**: Detects World of Warcraft launches and can span the game window borderlessly across your multi-monitor virtual desktop. This is disabled by default so a first launch cannot move WoW before the display selection is reviewed.
 * **Addon Verification**: Validates that the Offhand add-on is properly installed in your WoW client's `Interface\AddOns` folder.
