@@ -160,6 +160,17 @@ try {
     if ($matchedBody.Contains([char]0x2014) -or $matchedBody.Contains('byte-identical 2.1.2-beta.20')) {
         throw 'Matched 2.1.3 notes must describe the prepared Companion without historical binary claims.'
     }
+    $beta28Notes = Join-Path $temp 'beta28.md'
+    $beta28 = & $script -Tag 'v2.1.5-beta.28' -CompanionReleaseTag 'v2.1.5' -ChangelogPath $projectChangelog -OutputPath $beta28Notes
+    if (!$beta28.Prerelease -or $beta28.ReleaseName -ne 'Offhand v2.1.5 Pre-Release Beta 28') {
+        throw 'Beta 28 must remain a named prerelease, separate from clean Companion 2.1.5.'
+    }
+    $beta28Body = Get-Content -LiteralPath $beta28Notes -Raw -Encoding utf8
+    foreach ($required in @('<!-- offhand-companion-version: 2.1.5 -->', 'Offhand-Companion-v2.1.5.zip',
+        'Window is positioned', 'quiet', 'OpenMap', 'manual', 'beta.28')) {
+        if (!$beta28Body.Contains($required)) { throw "Beta 28 publication scope missing: $required" }
+    }
+    if ($beta28Body.Contains([char]0x2014)) { throw 'Beta 28 release notes must not contain em dashes.' }
     Write-Output 'PASS: historical metadata and matching 2.1.3 publication scope'
 } finally {
     if (Test-Path -LiteralPath $temp) {

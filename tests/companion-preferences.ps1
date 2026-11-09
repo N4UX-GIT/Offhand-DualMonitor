@@ -165,7 +165,7 @@ try {
     if ($packager -notmatch '\$companionArchiveName = "Offhand-Companion-v\$Version\.zip"') {
         throw 'Companion release archives must include their exact version in the filename.'
     }
-    $pinnedCompanionUrl = 'https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.20/Offhand-Companion.zip'
+    $pinnedCompanionUrl = 'https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.5/Offhand-Companion-v2.1.5.zip'
     foreach ($relativePath in @(
         'README.md',
         'Website\index.html'
@@ -173,14 +173,14 @@ try {
         $publicSurface = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\$relativePath") -Raw
         if (-not $publicSurface.Contains($pinnedCompanionUrl) -or
             $publicSurface -match 'releases/latest/download/Offhand-Companion\.zip') {
-            throw "$relativePath must point directly to the frozen Beta 20 Companion."
+            throw "$relativePath must point directly to the reviewed Companion 2.1.5 archive."
         }
     }
     $curseForgeDescription = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\docs\CURSEFORGE_DESCRIPTION.md') -Raw
     if (-not $curseForgeDescription.Contains('https://apps.microsoft.com/detail/9PL4PW84Q90W') -or
-        -not $curseForgeDescription.Contains('https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.2-beta.20') -or
+        -not $curseForgeDescription.Contains('https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.5') -or
         $curseForgeDescription -match 'releases/latest/download/Offhand-Companion\.zip') {
-        throw 'CurseForge must recommend the Store and identify the pinned Beta 20 release without using an unversioned latest-download URL.'
+        throw 'CurseForge must recommend the Store and identify the pinned 2.1.5 release without using an unversioned latest-download URL.'
     }
     $addonInit = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Core\Init.lua') -Raw
     if ($addonInit -notmatch 'companionArchiveName = Offhand\.companionFullVersion == "2\.1\.2-beta\.20"' -or
@@ -217,7 +217,7 @@ try {
     Write-Output 'PASS: hotkeyless display identification and multi-monitor selection remain separated at enlarged DPI'
     Write-Output 'PASS: Linux compatibility documentation is included by the release packager'
     Write-Output 'PASS: addon-only releases attach the frozen Beta 20 Companion assets by exact hash'
-    Write-Output 'PASS: public website/docs point to the frozen Beta 20 Companion while the addon derives its version-matched URL'
+    Write-Output 'PASS: public website/docs point to Companion 2.1.5 while the addon derives its version-matched URL'
     Write-Output 'PASS: release ZIPs are portable and Linux guidance covers prefix/runner matching'
     Write-Output 'PASS: all shipped Companion executables use the consistent Offhand.exe name'
     Write-Output 'PASS: release packaging preserves and verifies one canonical Companion executable'

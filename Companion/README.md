@@ -10,11 +10,11 @@ Native Windows desktop companion application for the Offhand World of Warcraft a
 * **Zero Console Flashing**: Compiled as a native Win32 subsystem application (`Offhand.exe`).
 * **System Tray Integration**: Minimizes silently to the Windows notification tray with quick-actions and live status tips.
 * **Built-in Guidance**: Hover dashboard controls for detailed tooltips, or use the `?` button (also available from the tray menu) for the complete setup, daily-use, Forever recovery, and troubleshooting guide.
-* **Quiet Store Update Detection (2.1.5 source)**: Store installations check
+* **Quiet Store Update Detection (2.1.5)**: Store installations check
   availability through Windows Store services after startup, at most once daily.
   **Update available…** is a passive button, with no popup or automatic restart.
   Clicking it opens Microsoft Store, which handles installation. Portable
-  installations retain their manual GitHub check. Store acceptance is pending.
+  installations retain their manual GitHub check. Store 2.1.5 is in certification; full flight acceptance remains unverified.
 * **DPI-Aware**: Full Per-Monitor V2 scaling ensures crisp fonts and accurate window positioning on mixed-resolution / mixed-scale setups.
 * **Post-Span Render Resync**: After the exact borderless span is established,
   the Companion performs a one-pixel resize nudge and immediately restores the

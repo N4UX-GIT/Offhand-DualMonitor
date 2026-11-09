@@ -1,10 +1,12 @@
 # Offhand Companion release runbook
 
-The next Companion-only UI candidate is **2.1.4**, file build **2.1.4.2**, proposed
-Store package **2.1.400.0**. Use
-[its preparation record](COMPANION-2.1.4-PREPARATION-20261109.md) and
-`scripts/New-CompanionUiCandidate.ps1`. The 2.1.3 workflows and receipts below
-remain historical/frozen; they must not rebuild this candidate as 2.1.3.
+Current coordinated publication: **add-on 2.1.5 Pre-Release Beta 28** and
+**Companion 2.1.5**, file build **2.1.5.1**, Store package **2.1.500.0**.
+Use [the current preparation record](PUBLICATION-2.1.5-PREPARATION-20261109.md)
+and `scripts/Prepare-215Publication.ps1`. Frozen exact native assets are under
+`Companion/Prepared/2.1.5/`. Public Store Submission 6 is in certification with
+automatic publication after approval. Historical 2.1.3/Beta 20 workflows below
+remain frozen reference lanes; do not use them for new tags.
 
 This document is the operational source of truth for preparing, publishing,
 validating, and communicating Offhand Companion releases through GitHub and the

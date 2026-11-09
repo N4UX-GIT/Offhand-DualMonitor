@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+No additional changes queued beyond 2.1.5 Pre-Release Beta 28 and Companion 2.1.5.
+
+## [2.1.5-beta.28] - 2026-11-09
+
+### Guided setup and settings
+- Split placement into explicit Window is positioned, Reload UI and Confirm
+  placement actions, with a final review. Add visual task cards, progress and a
+  highlighted next action to the guide and calibration wizard.
+- Keep placement and HUD confirmation dialogs inside Mainhand before showing
+  them, avoiding the shared popup stack's seam-to-top jump.
+- Improve settings header spacing, readable versions, Website/Discord links,
+  typed slider values and consistent action styling. Show a compact Character
+  scaling section when stronger workspace window locking is unsupported.
 - Correct the first-install calibration path that follows Next without choosing
   Auto-Configure. Explicit continuation now enables the validated layout while
   preserving calibration values. Source and packaged regressions pass. Native
@@ -14,7 +27,46 @@ All notable changes to this project will be documented in this file.
   plus reload retaining the same HUD.
   Exact reporter topology remains unverified.
 
-## [2.1.3-beta.27] - Prepared 2026-11-08, publication pending
+### Map, panels and compatibility
+- Apply native map scale to the map's actual Mainhand/workspace side. Preserve
+  Auto Fit and explicit same-value presets without triggering unrelated layouts.
+- For the reviewed OpenMap v0.7.5-beta on Forever, route explicit scale actions
+  through its own guarded settings and offer title recovery while preserving
+  owner size/scale. Unsupported owners, combat and restricted UI retain guards.
+  No third-party source patch is included in the add-on package.
+- Improve guarded Forever map Escape behavior, gamepad Back deferral, transient
+  menu placement and HUD/EncounterBar ownership. Preserve custom-workspace,
+  panel-routing, themes and background-library behavior from Beta 27.
+- Add translated setup/settings strings and retain locale fallback policy.
+
+### Matching Companion 2.1.5
+- Update all six add-on manifests and portable links to Companion 2.1.5 while
+  retaining protocol 1 and minimum version 2.1.2-beta.19. No forced companion
+  upgrade is introduced for previously compatible standard layouts.
+- Include the redesigned 2.1.4 dashboard: prominent Span/Restore, collapsed
+  status with a concise indicator, stable Show/Hide sizing and dark scrollbars.
+- Add quiet, daily Store update availability checks and a static update action.
+  The Store handles installation. Portable GitHub checks remain manual.
+- Retain the Store settings-save hotfix and existing monitor-identity, custom
+  layout, scaling, taskbar and window-recovery safeguards. Type /reload in WoW
+  after spanning or changing Mainhand/layout.
+
+### Validation and release status
+- Merged add-on: 114 Lua 5.1 regression suites pass before final package checks.
+  New exact-package and release validation is recorded in
+  docs/PUBLICATION-2.1.5-PREPARATION-20261109.md.
+- Companion uses the unchanged 2.1.5.1 executable submitted as Store package
+  2.1.500.0. WACK passed all 13 required checks; one existing optional finding
+  is reviewed. The local Defender scan found no threats, without a Microsoft
+  file-review verdict or future detection guarantee.
+- Store Submission 6 is in certification with automatic publication enabled.
+  The publisher chose to proceed without awaiting private-flight acceptance.
+  Full Store-delivered upgrade, real Available and real signed-out/offline
+  observations remain unverified. Exact combined-package live WoW, full
+  physical mixed-DPI/hotplug/three-monitor, Wine and complete all-client
+  combat/protected-action acceptance remain open, separately from prior scoped QA.
+
+## [2.1.3-beta.27] - 2026-11-08
 
 ### Matching Companion and add-on
 - Continue the add-on sequence as 2.1.3 Pre-Release Beta 27 in all six manifests.
