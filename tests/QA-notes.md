@@ -1,3 +1,37 @@
+# Beta 27 first-install Next activation candidate, 2026-11-08
+
+- Owner-requested independent repeat also PASS: reset account/cache/Companion
+  preferences again, zero old native rows, ordinary Next, one new54system HUD,
+  HUD reload and full process restart. Cold world entry before manual span plus
+  reload restores the same HUD. Zero Lua errors including helper, AutoConfigure0,
+  HUD calls1. Separate clean-account-repeat-20261108 evidence retained; helper
+  removed and fresh settings/candidate retained. Same single-display scope.
+- Second native PASS after authorised whole-account addon-state/cache reset and
+  default Companion preferences. Removed six synced prior HUD rows; verified
+  zero native custom rows before ordinary Next, one fresh Modern-derived HUD,
+  requested reload and cold WoW/Companion restart. AutoConfigure=0, HUD calls=1,
+  zero product errors. Fresh settings/candidate retained; QA removed; prior
+  addon enabled selection restored. Single-display split only. See
+  docs/SPAN-SETUP-CLEAN-ACCOUNT-LIVE-QA-20261108.md and its error attribution.
+- Native PASS on Forever 70862: clean first-install guide, actual Next activation
+  without Auto-Configure, creation/selection of a new 54-system HUD from Modern,
+  and active viewport/setup/layout persistence through two completed reloads.
+  Tested Companion's existing 2560x1440 single-display split, not the reporter's
+  two-monitor arrangement. No new product BugGrabber delta; four recorder-only
+  errors and its persistence correction are retained in private QA evidence.
+  Restored all original WTF/cache/addon/Companion files by hash, removed QA and
+  closed WoW. See docs/SPAN-SETUP-NEXT-LIVE-QA-20261108.md for scope and limits.
+- User confirms guide reappeared after span/reload and they followed Next.
+- New regression reproduces a disabled profile advancing calibration without
+  the optional recommendation action. Explicit validated continuation now
+  activates the existing calibration before HUD creation/completion.
+- All 109 source and extracted-candidate Lua suites pass; all six source and
+  extracted manifests pass Lua 5.1/path/XML validation. See native scope above.
+- Private addon-only span-setup-test1 retains published Beta 27 bytes except
+  UI/Wizard.lua and six candidate title/marker changes. Temporary native test
+  installation restored afterward; no publication or Companion rebuild.
+  See docs/SPAN-ACTIVATION-REPORT-20261108.md.
+
 # BetterBags and RestedXP placement source correction, 2026-11-08
 
 - Reporter confirms Beta 26, Forever. Inspected local BetterBags v0.9.2 and

@@ -4,7 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-No additional changes queued beyond the prepared 2.1.3 publication.
+- Correct the first-install calibration path that follows Next without choosing
+  Auto-Configure. Explicit continuation now enables the validated layout while
+  preserving calibration values. Source and packaged regressions pass. Native
+  Forever 70862 Next activation, HUD creation and two reloads pass on the private
+  span-setup-test1 single-display split. A second clean-account/default-Companion
+  run also passes first HUD creation, reload and cold WoW/Companion restart.
+  An independent repeat passes with zero Lua errors and cold in-world re-span
+  plus reload retaining the same HUD.
+  Exact reporter topology remains unverified.
 
 ## [2.1.3-beta.27] - Prepared 2026-11-08, publication pending
 
