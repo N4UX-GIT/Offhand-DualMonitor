@@ -1,5 +1,14 @@
 # Next Companion release preparation
 
+## Help update for the next build, 9 November 2026
+
+Include the [revised Companion help](COMPANION-HELP-FLOW-20261109.md) in the next
+candidate. It matches the current website and in-game placement checkpoints,
+keeps one setup method throughout, and puts standard setup and calibration
+before optional custom workspaces. This is source preparation; existing released
+executables and packages are unchanged. Earlier candidate records below retain
+their original scope and evidence.
+
 The next custom-workspace build must include the
 [5 November display identity hardening](COMPANION-DISPLAY-IDENTITY-HARDENING-20261105.md).
 It is integrated into `codex/custom-workspace-regions`; existing candidate

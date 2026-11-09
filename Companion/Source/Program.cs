@@ -6068,43 +6068,45 @@ namespace Offhand.Companion
         private void FillSetupHelp(RichTextBox guide, Font sectionFont)
         {
             AppendHelpSection(guide, sectionFont, "First-time setup",
-                "1. Start WoW with the Offhand addon enabled. In WoW's Graphics options, select Windowed and click Apply. WoW should have a movable title bar.",
-                "2. Enter the game world and type /offhand guide in chat. Choose Use Companion when the guide asks for a setup method. Continue to the window placement step.",
-                "3. In Companion, leave Auto-span WoW on launch off for setup. Choose the layout you want, then click Span WoW Now. See Choose a display layout below for the available options.",
-                "4. Return to the in-game guide. Click Reload UI, then Confirm placement. Follow the Auto-Setup Wizard to finish calibration.",
-                "5. On Retail and Forever, finish with Create Mainhand HUD Layout. Leave combat, close Edit Mode, and click the button. Reload when prompted. Wait for layout creation to succeed before moving your panels.");
+                "Choose only one window-placement method: Companion, FancyZones, or manual placement. These steps are for Companion. Keep Use Companion selected in the WoW guide; do not also use FancyZones to position the window. If you chose another method, follow that method's guide instead.",
+                "Before setup, save a copy of your Blizzard Edit Mode layout and back up your UI addon profiles.",
+                "1. Open Companion and leave Auto-span WoW on launch off for the first test. Launch WoW with Offhand enabled and enter the game world. Type /offhand guide, choose Use Companion and Already installed, then follow the Windowed step. Select Windowed, not Windowed (Fullscreen). Continue to Place WoW and leave the guide open.",
+                "2. In Companion, click Identify Displays to match the screen numbers to your monitors. Select Show beside System Status if you need to check WoW, addon installation, or layout details. Also check that Offhand is enabled in WoW.",
+                "3. Standard layout is already selected for a new setup. For two full monitors, check both under Span displays and choose Mainhand (game); the other screen becomes Offhand. For an equal split on one 32:9 or 32:10 screen, select only that screen, enable Single-display 32:9 split, and choose Game side. Leave Workspace layout (standard) as it is. Its Two monitors custom editor is for using only part of a second screen, not ordinary full-monitor setup.",
+                "4. Click Span WoW Now at the top of Companion. If asked to confirm saved displays, check the game and workspace screens, then click OK. If they are wrong, click Cancel and correct the selection before spanning again.",
+                "5. Return to the same in-game guide. Click Window is positioned, then Reload UI. When the guide returns, click Confirm placement and review the visible result. Confirm only if the intended screens or ultrawide region are covered and the game area is visible. Then click Start Calibration. You do not need to restart setup or try another method.");
 
-            AppendHelpSection(guide, sectionFont, "Confirm saved displays",
-                "If System Status asks you to confirm your saved displays, open WoW and click Span WoW Now. Check the game and workspace screens in the dialog.",
-                "Click OK to save the screen selection and proceed with spanning. If a screen is wrong, click Cancel. Use Identify Displays to match the screen numbers to your monitors, then correct Span displays and Mainhand (game) or open Workspace layout to edit a saved custom layout. Click Span WoW Now again when ready.");
+            AppendHelpSection(guide, sectionFont, "Finish calibration in WoW",
+                "Follow the wizard in order: Detection, Placement, Seam, Scale, then HUD. With Companion, choose Use Companion layout on Detection. Placement shows your configured regions; manual geometry controls are hidden. To change displays or Mainhand, change them in Companion, span again, then reload in WoW.",
+                "Check the red seam guide, adjust the bottom offset only if needed, then use the text preview to choose a comfortable UI size.",
+                "Where offered, click Create Mainhand HUD Layout outside combat with Blizzard Edit Mode closed. Reload when prompted. On clients without this HUD step, choose Finish Setup. After calibration and any requested reload, open the map, bags, Character panel and chat, and drag supported windows onto Offhand. The empty workspace is ready for your panels. A completed setup does not need another HUD rebuild.");
 
-            AppendHelpSection(guide, sectionFont, "Choose a display layout",
-                "Two full displays. Check both screens under Span displays and pick Mainhand (game). The other screen becomes your Offhand workspace.",
-                "One super-ultrawide. For an equal split on a 32:9 or 32:10 display, check only that screen, enable Single-display 32:9 split, and choose Game side.",
-                "Workspace layout. Choose One monitor for a full-height game and workspace split, Two monitors for a full game screen and a rectangular workspace, or Multiple workspaces for a full game screen plus one or two workspaces on separate displays.",
-                "Flexible layout (prototype). Use presets or enter the game and workspace rectangles to place one or two workspaces on the same physical display. " + WorkspaceEditorLayout.FlexibleAddon);
-
-            AppendHelpSection(guide, sectionFont, "Edit and reuse custom workspaces",
-                "In custom editors with a visual picker, click Select area on monitor. Drag to move the area or drag its edges to resize. Use the arrow keys to move, Ctrl + arrow keys to move one pixel, or Shift + arrow keys to resize. Press Enter to accept the area or Esc to return to the editor.",
-                "Check the preview and click Save plan to keep your settings. Click Span WoW Now to resize the game window, then reload the WoW UI once.",
-                "To turn off custom workspaces, open Workspace layout and choose Use standard display layout. Review the suggested displays before saving. Named profiles stay saved.",
-                "Use Workspace profiles to manage named Multiple workspaces plans. To switch plans, pick a profile, click Load selected, then click Save changes. Click Span WoW Now and reload in WoW. Use the in-game Profiles tab for addon panel layouts and theme choices.");
+            AppendHelpSection(guide, sectionFont, "Check a later launch",
+                "Exit WoW normally and fully relaunch it. Restore the span using Companion, then check that the game and protected HUD return to Mainhand and your supported panels return to Offhand. Once this first test succeeds, standard layouts can use Auto-span WoW on launch with a suitable delay. For custom layouts, click Span WoW Now each time.");
 
             AppendHelpSection(guide, sectionFont, "Daily use",
-                "Click Span WoW Now after the game window opens. For standard display layouts, you can enable Auto-span WoW on launch and set a delay. For custom layouts, use Span WoW Now each time.",
-                "Restore Window returns WoW to its pre-span window and suspends auto-span for that WoW session. Click Span WoW Now to apply the layout again. To stop background launch detection, right-click the Companion tray icon and select Pause background monitoring. Manual Span and Restore remain available.",
+                "Restore Window returns WoW to its pre-span window and suspends auto-span for that WoW session. Click Span WoW Now to apply the saved layout again. To stop background launch detection, right-click the tray icon and select Pause background monitoring. Manual Span and Restore remain available.",
                 "The title-bar X minimizes Companion to the tray. Exit Companion closes it and leaves the current WoW window spanned. Keep Companion open for auto-span, automatic display-disconnect recovery, or to restore the remembered window bounds.",
                 "In Remote Desktop, click Span WoW Now and choose the game and workspace screens for that connection. Keep Companion running for Restore Window and confirm the screens again after reconnecting.");
 
-            AppendHelpSection(guide, sectionFont, "Recover your window or panels",
-                "If a display is missing, reconnect it before spanning again. Use Restore Window to bring the game back to a usable window.",
-                "If addon panels are out of reach, open Offhand's Recovery & Preview and use Gather Off-Screen UI or Gather Safe UI to Mainhand. To rebuild the game HUD, leave combat, close Edit Mode, and choose Create Mainhand HUD Layout. Reload when prompted.",
-                "On Forever, if Offhand offers Use Modern after a display disconnect, use it until you can reconnect and reapply the saved span. Then choose Restore Offhand. After making personal Edit Mode changes, choose Use Current Edit Mode Layout in Recovery & Preview. Keep Companion running through shutdown when Forever needs the compatibility bridge to restore its layout on the next launch.");
+            AppendHelpSection(guide, sectionFont, "Optional: custom workspaces",
+                "Try custom workspaces after standard setup works, only if you need unequal widths, part of another monitor, or extra workspace regions. These are optional layout choices inside Companion, not another setup method. Opening a custom editor does not apply it; Save plan keeps the edited settings.",
+                "One monitor: a full-height game and workspace split with custom widths. Two monitors: a full game screen plus a selected rectangle on a second screen. Multiple workspaces: a full game screen plus one or two workspaces on separate displays.",
+                "Flexible layout (prototype): use presets or edit game and workspace rectangles on one physical display. " + WorkspaceEditorLayout.FlexibleAddon,
+                "With Select area on monitor, drag to move the area or drag an edge to resize. Arrow keys move, Ctrl + arrow keys move one pixel, and Shift + arrow keys resize. Enter accepts the area; Esc returns to the editor. Review the preview, click Save plan, then Span WoW Now and reload in WoW. If the intended canvas changes, continue the placement and calibration checks in /offhand guide with Use Companion selected.",
+                "Workspace profiles manage named Multiple workspaces plans. Pick a profile, click Load selected, then click Save changes. Apply the plan with Span WoW Now and reload in WoW. These plans are separate from the in-game Profiles tab, which stores addon settings, and from Blizzard Edit Mode layouts.");
+
+            AppendHelpSection(guide, sectionFont, "If the window or displays change",
+                "Span is wrong: click Restore Window, use Identify Displays, and review Span displays and Mainhand (game), or edit Workspace layout for a custom plan. Apply Span WoW Now again and reload in WoW. Repeat calibration only if the intended canvas changed.",
+                "A display is missing: reconnect it or review the current layout before spanning again. Restore Window brings WoW back to a usable window. A safe single-screen fallback keeps your saved panel positions.",
+                "Selected a custom area by mistake? Open Workspace layout (custom) and choose Use standard display layout. Review the suggested displays and Mainhand, then click Span WoW Now and reload in WoW. Named plans stay saved. Restore Window alone does not switch the saved layout back to standard. New setups start with standard layout; reopening or updating Companion preserves an existing saved custom plan.",
+                "Panels or HUD elements are missing: open Offhand's Recovery & Preview and start with Recover Missing UI, which preserves visible elements. Gather Safe UI to Mainhand is a broader action for supported workspace windows. Rebuild the Mainhand HUD only when needed, outside combat with Edit Mode closed; rebuilding can replace edits in the generated layout. Back up that layout first and reload when prompted.",
+                "On Forever, if Offhand offers Use Modern after a display disconnect, use it until you can reconnect and reapply the saved span. Then choose Restore Offhand. After personal Edit Mode changes, choose Use Current Edit Mode Layout in Recovery & Preview. Keep Companion running through shutdown when Forever needs the compatibility bridge to restore its layout on the next launch.");
 
             AppendHelpSection(guide, sectionFont, "Troubleshooting",
-                "If the game view still fills the entire window after a reload, check that the Offhand addon is enabled for that WoW client and matches your Companion package. Open Activity Log for the installation path and any span or file-permission errors.",
-                "If the screen arrangement looks wrong, match the monitor positions in Windows Display Settings to your desk. For color or scale issues, use Display Troubleshooting and Copy Display Diagnostics on the dashboard.",
-                "If Windows reports error 5 when spanning, close both apps and launch Battle.net, WoW, and Companion at the same privilege level.");
+                "If the game view fills the entire window after reloading, check that Offhand is enabled for that WoW client. Open Activity Log for installation paths and span or file-permission errors. Keep your chosen setup method while troubleshooting.",
+                "If the arrangement looks wrong, match Windows Display Settings to your desk. For color or scale concerns, expand Display Diagnostics, then open Display Troubleshooting. Copy Display Diagnostics for your support report. Windows display scaling and WoW UI scale are separate settings.",
+                "If Windows reports access denied or error 5, close both apps and restart them normally at the same privilege level. Do not run only one as administrator. For more help, use the Website or Discord button on the dashboard and include /offhand diag from WoW with the display diagnostics.");
 
             AppendHelpSection(guide, sectionFont, "Updates and privacy",
                 CompanionDistribution.UpdateHelpText(isStorePackage),
