@@ -91,6 +91,7 @@ local function makeMockFrame(name, w, h)
             SetPoint = function(s, pt, rel, relPt, x, y) table.insert(s.points, { point = pt, rel = rel, relPt = relPt, x = x, y = y }) end,
             SetText = function(self, t) self.text = t end,
             SetWidth = function() end,
+            SetHeight = function(self, height) self.height = height end,
             SetWordWrap = function() end,
             GetText = function(self) return self.text or "" end,
             SetTextColor = function() end,
@@ -186,7 +187,9 @@ assert(loadfile("UI/Themes.lua"))("Offhand", addon)
 assert(loadfile("UI/Controls.lua"))("Offhand", addon)
 assert(loadfile("Core/TopologyDetection.lua"))("Offhand", addon)
 assert(loadfile("UI/OptionsActions.lua"))("Offhand", addon)
+assert(loadfile("Core/MapScale.lua"))("Offhand", addon)
 assert(loadfile("UI/Options.lua"))("Offhand", addon)
+assert(loadfile("UI/SetupVisuals.lua"))("Offhand", addon)
 assert(loadfile("UI/Wizard.lua"))("Offhand", addon)
 
 local layoutAppliedCount = 0
@@ -635,6 +638,110 @@ do
         'queued geometry replayed the old profile')
     addon.ApplyFullLayout=oldApply
     addon.db=previousDB
+end
+do
+    -- Exercise the actual map card callbacks: AUTO must remain a mode and
+    -- owner-specific scaling must not dispatch a full layout of other windows.
+    local mapSlider, auto, preset
+    for _, f in ipairs(frames) do
+        if f.type=="Slider" and f.title and f.title:GetText()==addon.L["MAP_SCALE"] then mapSlider=f end
+        if f.text==addon.L["BTN_MAP_AUTOFIT"] then auto=auto or f end
+    end
+    for _, f in ipairs(frames) do
+        if f.text=="100%" and f.parent==auto.parent then preset=f end
+    end
+    assert(mapSlider and auto and preset)
+    local previousMap, previousMetrics = WorldMapFrame, addon.Viewport.GetMetrics
+    local previousConfigure, previousRestore = addon.Canvas.ConfigureWorldMap, addon.Canvas.RestoreWorkspacePosition
+    local previousSide = addon.Canvas.IsFrameOnWorkspace
+    local map = {scale=1}
+    function map:GetScale() return self.scale end
+    function map:GetEffectiveScale() return self.scale end
+    function map:GetWidth() return 1000 end
+    function map:GetHeight() return 800 end
+    WorldMapFrame=map
+    addon.Viewport.GetMetrics=function() return {isSpanned=true,workspaceWidth=1024,workspaceHeight=824} end
+    addon.Canvas.IsFrameOnWorkspace=function() return true end
+    addon.Canvas.ConfigureWorldMap=function() map.scale=tonumber(addon.db.workspaceMapScale) or 1 end
+    addon.Canvas.RestoreWorkspacePosition=function() end
+    addon.db.savedMainPositions, addon.db.savedWorkspacePositions = {}, {}
+    layoutAppliedCount=0
+    addon.UIControls.SetSliderEnabled(mapSlider,true)
+    auto.scripts.OnClick()
+    assert(addon.db.workspaceMapScale=="AUTO" and mapSlider:GetValue()==1,
+        "Auto Fit display synchronization invoked the numeric setter")
+    preset.scripts.OnClick()
+    assert(addon.db.workspaceMapScale==1, "same-value preset failed to leave AUTO mode")
+    mapSlider:SetValue(1.25)
+    assert(addon.db.workspaceMapScale==1.25 and map.scale==1.25)
+    assert(layoutAppliedCount==0, "map settings dispatched an unrelated full layout")
+    -- Load-after-panel creation: the SAME slider adopts OpenMap's limits,
+    -- saved value and actions. A read-only owner refresh must not change prefs.
+    local oldOwner = addon.CanvasCompatibility.GetWorldMapExternalOwner
+    local oldForever, oldPresentation = addon.isForever, addon.CanvasMapPresentation
+    local oldGamepad = addon.IsGamepadUIEnabled
+    local oldNamespace, oldAPI, oldDB = OpenMap, OpenMapAPI, OpenMapDB
+    local ownerDB, writes = {enabled=true,windowScale=1.4}, 0
+    local module = {db=ownerDB}
+    function module:WindowOptions(options, get, set, off)
+        options.windowScale={min=.5,max=1.6,step=.05,disabled=off,
+            set=function(info,v) set(info,v); map.scale=v; writes=writes+1 end}
+    end
+    OpenMap={version="v0.7.5-beta",GetModule=function() return module end}
+    OpenMapAPI={major=1,version=4,IsStitched=function() return true end}
+    OpenMapDB={worldmap=ownerDB}
+    addon.isForever, addon.CanvasMapPresentation = true, nil
+    addon.IsGamepadUIEnabled=function() return false end
+    addon.CanvasCompatibility.GetWorldMapExternalOwner=function() return "OpenMap" end
+    local clearFocus=mapSlider.editBox.ClearFocus
+    mapSlider.editBox.ClearFocus=function(self)
+        local hadFocus=self.hasFocus
+        self.hasFocus=false
+        if hadFocus then self.scripts.OnEditFocusLost(self) end
+    end
+    mapSlider.editBox:SetText("240%")
+    mapSlider.editBox.hasFocus=true
+    mapSlider.parent.scripts.OnEvent(mapSlider.parent,"ADDON_LOADED","OpenMap")
+    assert(mapSlider.maxVal==1.6 and mapSlider:GetValue()==1.4 and writes==0)
+    assert(mapSlider.title:GetText():find("OpenMap",1,true) and mapSlider.uiEnabled)
+    assert(addon.db.workspaceMapScale==1.25, "owner refresh overwrote native preference")
+    local p200
+    for _, f in ipairs(frames) do
+        if f.parent==mapSlider.parent and f.text=="200%" then p200=f end
+    end
+    assert(p200 and p200.enabled==false)
+    mapSlider.btnPlus.scripts.OnClick()
+    assert(ownerDB.windowScale==1.45 and map.scale==1.45)
+    mapSlider.editBox:SetText("190%")
+    mapSlider.editBox.scripts.OnEnterPressed(mapSlider.editBox)
+    assert(ownerDB.windowScale==1.6 and mapSlider:GetValue()==1.6,
+        "typed input used the old native range")
+    cursorX=0
+    mapSlider.scripts.OnMouseDown(mapSlider,"LeftButton")
+    cursorX=-300
+    mapSlider.scripts.OnUpdate(mapSlider,.016)
+    assert(ownerDB.windowScale==1.05, "drag used the previous native range")
+    mapSlider.scripts.OnMouseUp(mapSlider,"LeftButton")
+    local savedWrites=writes
+    ownerDB.windowScale=.9
+    mapSlider.parent.scripts.OnShow()
+    assert(mapSlider:GetValue()==.9 and writes==savedWrites,
+        "OpenMap settings refresh wrote instead of reading its saved scale")
+    mapSlider.scripts.OnMouseDown(mapSlider,"LeftButton")
+    addon.CanvasCompatibility.GetWorldMapExternalOwner=oldOwner
+    addon.isForever, addon.CanvasMapPresentation = oldForever, oldPresentation
+    addon.IsGamepadUIEnabled=oldGamepad
+    mapSlider.parent.scripts.OnShow()
+    assert(mapSlider.maxVal==2.5 and mapSlider:GetValue()==1.25 and p200.enabled,
+        "slider failed to return to native settings after ownership changed")
+    assert(not mapSlider._isCustomDrag, "owner change retained a stale drag")
+    mapSlider.scripts.OnMouseUp(mapSlider,"LeftButton")
+    assert(writes==savedWrites and layoutAppliedCount==0 and addon.db.workspaceMapScale==1.25)
+    mapSlider.editBox.ClearFocus=clearFocus
+    OpenMap, OpenMapAPI, OpenMapDB = oldNamespace, oldAPI, oldDB
+    WorldMapFrame, addon.Viewport.GetMetrics = previousMap, previousMetrics
+    addon.Canvas.ConfigureWorldMap, addon.Canvas.RestoreWorkspacePosition = previousConfigure, previousRestore
+    addon.Canvas.IsFrameOnWorkspace=previousSide
 end
 print("PASS: sliders, text entry, drag behavior and bounded geometry coalescing verified")
 

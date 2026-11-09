@@ -69,7 +69,12 @@ persistence with the packaged-app mechanism reviewed by the Store.
 Microsoft Store owns update delivery for the packaged installation. The
 Companion does not query GitHub when it detects package identity. Its **Store
 Updates** button and tray action open the product page for Store status and
-manual update checks. Portable builds remain independent and continue using the
+manual update checks. The 2.1.5 source adds a quiet availability-only StoreContext
+query after startup, limited to once daily with package-local cached state.
+The button changes to Update available when the Store reports an update. It
+never invokes package download/install APIs or an automatic app restart. Store
+association/availability acceptance remains pending for this source change.
+Portable builds remain independent and continue using the
 official GitHub Releases API only after the user clicks **Check for Updates**.
 
 ## Release safety

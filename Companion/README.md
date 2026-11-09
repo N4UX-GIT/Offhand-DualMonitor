@@ -10,11 +10,11 @@ Native Windows desktop companion application for the Offhand World of Warcraft a
 * **Zero Console Flashing**: Compiled as a native Win32 subsystem application (`Offhand.exe`).
 * **System Tray Integration**: Minimizes silently to the Windows notification tray with quick-actions and live status tips.
 * **Built-in Guidance**: Hover dashboard controls for detailed tooltips, or use the `?` button (also available from the tray menu) for the complete setup, daily-use, Forever recovery, and troubleshooting guide.
-* **Channel-Aware, User-Initiated Updates**: The Companion never contacts an
-  update service at startup. Microsoft Store installations use **Store Updates**
-  to open the official Store product page, where Store-managed updates are
-  installed. Portable installations retain the explicit one-time GitHub
-  Releases check.
+* **Quiet Store Update Detection (2.1.5)**: Store installations check
+  availability through Windows Store services after startup, at most once daily.
+  **Update available…** is a passive button, with no popup or automatic restart.
+  Clicking it opens Microsoft Store, which handles installation. Portable
+  installations retain their manual GitHub check. Store 2.1.5 is in certification; full flight acceptance remains unverified.
 * **DPI-Aware**: Full Per-Monitor V2 scaling ensures crisp fonts and accurate window positioning on mixed-resolution / mixed-scale setups.
 * **Post-Span Render Resync**: After the exact borderless span is established,
   the Companion performs a one-pixel resize nudge and immediately restores the
@@ -90,11 +90,22 @@ Use **Span WoW Now** for the initial setup after reviewing the selected displays
 Enabling auto-span is an explicit preference and is remembered on later launches;
 updating the Companion does not overwrite an existing saved choice.
 
-The Companion does not perform an automatic update check. In a Microsoft Store
-installation, **Store Updates** opens the official Offhand Companion product
-page (`9PL4PW84Q90W`); the Companion does not query GitHub, and Microsoft Store
-manages installation and updates. In a portable installation, **Check for
-Updates** makes one HTTPS request to the official
+In the 2.1.5 source, Store installations schedule a quiet availability check
+30 seconds after the dashboard first opens, then at most once per day, including
+while running in the tray. A package-local `StoreUpdateCheck.ini` stores only the
+build, last attempt time and result, separately from layout preferences. Failed
+checks also consume the daily allowance. Unavailable Store services never block
+Span or Restore and are explained only in the update button tooltip. Cached
+availability survives restarts but expires after one day and does not carry over
+to a different build. Preview/diagnostic builds skip automatic checks.
+
+**Store Updates** becomes **Update available…** only when Microsoft reports an
+update. Both open the official product page (`9PL4PW84Q90W`); the Companion does
+not download/install updates, restart itself or contact GitHub in this channel.
+Microsoft Store's own automatic update settings continue to apply. For releases
+through 2.1.4, the Store button simply opens this page without an availability
+query. In a portable installation, **Check for Updates** makes one HTTPS request
+to the official
 `N4UX-GIT/Offhand-DualMonitor` GitHub Releases API. Beta portable installations
 consider both published beta/prerelease and stable Companion builds; stable
 portable installations ignore prereleases. Release metadata carries the actual

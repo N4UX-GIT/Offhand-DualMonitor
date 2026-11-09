@@ -1,0 +1,67 @@
+{
+  "version": "2.1.5",
+  "fileVersion": "2.1.5.1",
+  "packageVersion": "2.1.500.0",
+  "candidateSourceCommit": "7bc07a60113c7c990067d5fd86215ace310399cc",
+  "method": "Microsoft Invoke-CommandInDesktopPackage, separate diagnostic host, exact candidate EXE and isolated settings",
+  "scope": "Identity-bound diagnostic evidence; not acceptance of a Store-installed 2.1.5 package",
+  "online": {
+    "mode": "online",
+    "startedUtc": "2026-11-09T02:17:52.7313251Z",
+    "packageFamily": "N4UX.OffhandCompanion_bwe0ea6astzt8",
+    "packageFullName": "N4UX.OffhandCompanion_2.1.400.0_x64__bwe0ea6astzt8",
+    "storeRouting": true,
+    "queryCount": 1,
+    "queryResult": "NoUpdate",
+    "failure": null,
+    "queryMilliseconds": 1395,
+    "buttonText": "Store Updates",
+    "buttonDescription": "The last Store check found no update. Open Microsoft Store to check and install updates when convenient. The Companion never installs an update itself.",
+    "cache": "AttemptUtc=2026-11-09T02:18:23.6220743Z\r\nBuild=2.1.5.1\r\nState=NoUpdate\r\n",
+    "finishedUtc": "2026-11-09T02:18:44.5038729Z"
+  },
+  "cachedRelaunch": {
+    "mode": "cached",
+    "startedUtc": "2026-11-09T02:19:44.4381507Z",
+    "packageFamily": "N4UX.OffhandCompanion_bwe0ea6astzt8",
+    "packageFullName": "N4UX.OffhandCompanion_2.1.400.0_x64__bwe0ea6astzt8",
+    "storeRouting": true,
+    "queryCount": 0,
+    "queryResult": null,
+    "failure": null,
+    "queryMilliseconds": 0,
+    "buttonText": "Store Updates",
+    "buttonDescription": "The last Store check found no update. Open Microsoft Store to check and install updates when convenient. The Companion never installs an update itself.",
+    "cache": "AttemptUtc=2026-11-09T02:18:23.6220743Z\r\nBuild=2.1.5.1\r\nState=NoUpdate\r\n",
+    "finishedUtc": "2026-11-09T02:20:34.7853334Z"
+  },
+  "persistenceChecksPassed": 47,
+  "preservation": {
+    "checkedUtc": "2026-11-09T02:32:23.2759778Z",
+    "installedPackageUnchanged": true,
+    "installedExeUnchanged": true,
+    "preferencesUnchanged": true,
+    "submitted214ExeUnchanged": true,
+    "submitted214MsixUnchanged": true,
+    "candidate215ExeUnchanged": true,
+    "candidate215MsixUnchanged": true
+  },
+  "privateFlight": {
+    "name": "Companion 2.1.5 internal QA",
+    "submissionId": "1152921505702349123",
+    "status": "Accepted for certification; pre-processing observed",
+    "package": "Offhand-Companion_2_1_500_0_x64.msix",
+    "msixSha256": "9AD0A4F561C27A750885E8030B5E72DFC4FBD80DF8CD507FEB26FB1D335B71CA",
+    "group": "Companion internal QA",
+    "testerCount": 1,
+    "publish": "After certification, private group only",
+    "publicSubmission": "Submission 5 still live, no standard update created",
+    "url": "https://partner.microsoft.com/en-us/dashboard/products/9PL4PW84Q90W/submissions/1152921505702349123"
+  },
+  "pending": [
+    "Flight certification and Store delivery/upgrade",
+    "Real Available response, subject to catalog cache and update timing",
+    "Real signed-out/offline service behavior; fixtures already cover failures",
+    "Windows 10/Wine runtime acceptance"
+  ]
+}

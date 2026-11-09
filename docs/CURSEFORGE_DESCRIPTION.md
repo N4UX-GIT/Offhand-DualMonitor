@@ -54,9 +54,9 @@ At the display-mode step, click **Set to Windowed**. If WoW is already Windowed,
 
 ### 3. Place the window, then confirm it
 
-**Companion:** after your character has entered the game world, select your displays and **Mainhand (game)** in Companion, then click **Span WoW Now**. Return to the guide in WoW, click **Reload UI**, then **Confirm placement**. Maximizing WoW onto one monitor does not replace spanning.
+**Companion:** after your character has entered the game world, select your displays and **Mainhand (game)** in Companion, then click **Span WoW Now**. Return to the guide in WoW, click **Window is positioned**, then **Reload UI**. After reload, use **Confirm placement** and review the result. Maximizing WoW onto one monitor does not replace spanning.
 
-**FancyZones or manual:** place the window across the intended screens, visually check its position, then click **Confirm placement** and **Remember Window** when prompted. This confirms your chosen canvas; it does not automatically detect physical monitor boundaries.
+**FancyZones or manual:** place the window across the intended screens, visually check its position, choose **Window is positioned**, then **Reload UI**. After reload, use **Confirm placement** and review the result. This confirms your chosen canvas; it does not automatically detect physical monitor boundaries.
 
 ![World of Warcraft rendered across the combined Offhand and Mainhand canvas](https://raw.githubusercontent.com/N4UX-GIT/Offhand-DualMonitor/main/Website/assets/offhand-screenshot.jpg)
 
@@ -112,7 +112,7 @@ Companion manages the desktop window: borderless spanning, display selection, ex
 
 [![Get Offhand Companion from Microsoft Store](https://img.shields.io/badge/Get_it_from-Microsoft_Store-0078D4?style=for-the-badge&logo=microsoft)](https://apps.microsoft.com/detail/9PL4PW84Q90W)
 
-Microsoft Store provides a signed installation and managed updates. For a portable download, use the [official Companion Beta 20 release and checksums](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.2-beta.20). The addon and Companion have independent version numbers.
+Microsoft Store provides a signed installation and managed updates. For a portable download, use the [official Companion 2.1.5 release and checksums](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.5). The addon and Companion have independent version numbers.
 
 [Read the Companion installation, Linux/Wine, and recovery guide](https://offhand-wow.onrender.com/companion.html).
 

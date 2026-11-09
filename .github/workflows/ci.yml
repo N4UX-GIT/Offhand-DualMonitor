@@ -42,12 +42,14 @@ jobs:
         shell: powershell
         run: |
           ./tests/companion-preferences.ps1
+          ./tests/companion-store-updates.ps1
           ./tests/companion-store-persistence.ps1
 
       - name: Verify frozen 2.1.3 publication assets and release scope
         shell: powershell
         run: |
           ./tests/publication-213.ps1 -HistoricalArtifactsOnly
+          ./tests/publication-215.ps1
           ./tests/release-metadata.ps1
 
       - name: Test monitor identity ambiguity and workspace migration

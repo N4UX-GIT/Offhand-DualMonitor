@@ -1,0 +1,133 @@
+{
+  "version": "2.1.4",
+  "fileVersion": "2.1.4.2",
+  "packageVersion": "2.1.400.0",
+  "sourceRevision": "eeea3413f5739c8d7cddb5a003af05d818f876de",
+  "sourceInputs": {
+    "Program.cs": "8BC02FAC72738C66283EE1A417DB3F5A80A20D292383CADF5ADAECA59F25FDCE",
+    "LayoutDocument.cs": "B998543CDF3D1B8C8FA3EC0DB60864B56AC7011FB9C1C832B84528E6798540B3",
+    "WorkspaceLayoutService.cs": "2039BEC4CA7BE95FE4EAFAC2C2BA502DF31262B8A0BDF51F82084D66DB4E057A",
+    "FlexibleWorkspaceEditor.cs": "DDEB200F6533E1F211289132B4E4F27D18F3B48E7A73E98A2F1502B51C9AB17C",
+    "app.manifest": "45DC2D34CE97262236E8CE1BEB1536E2FDBB41775FBCB8771E95195DDFCD7172"
+  },
+  "binarySha256": "2D1FB0DE3A2BF6340D8EB4BF28D751C602C8DF66BD1947D0B43FB0A8DA709D5D",
+  "archiveSha256": "D02DA1C5B31CD69875FAC4C04B8229259AE1AAF446B135B53ABC6A9F8752D53B",
+  "msixSha256": "EDE193AA3AF4ADC90264A950CB8B8BB282D24A1BD4E0C4F6A9CA452BE5AB14EA",
+  "regressionRuns": [
+    {
+      "suite": "companion-preferences",
+      "exitCode": 0
+    },
+    {
+      "suite": "companion-workspace-ux",
+      "exitCode": 0
+    },
+    {
+      "suite": "companion-color",
+      "exitCode": 0
+    },
+    {
+      "suite": "companion-color-DiagnosticsTest",
+      "exitCode": 0
+    },
+    {
+      "suite": "companion-remote-desktop",
+      "exitCode": 0
+    },
+    {
+      "suite": "companion-interaction-boundary",
+      "exitCode": 0
+    },
+    {
+      "suite": "companion-store-persistence",
+      "exitCode": 0
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-display-selection"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-partial-topology"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-workspace-regions"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-workspace-profiles"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-layout-document"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-flexible-layouts"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-third-monitor"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-taskbar-presentation"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-span-rollback"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-graphics-recovery-Production"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-graphics-recovery"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-graphics-recovery-Retail"
+    },
+    {
+      "exitCode": 0,
+      "suite": "companion-graphics-recovery-Forever"
+    },
+    {
+      "exitCode": 0,
+      "suite": "publication-213-HistoricalArtifactsOnly"
+    },
+    {
+      "exitCode": 0,
+      "suite": "release-metadata"
+    }
+  ],
+  "transientOuterResizeEvents": 0,
+  "contentWidthChangeEvents": 0,
+  "lateLogHandleCreationEvents": 0,
+  "scales": [
+    "100%",
+    "125%",
+    "150%",
+    "175%",
+    "200%"
+  ],
+  "wackOverall": "PASS",
+  "wackRequiredPassed": 13,
+  "wackReviewedOptional": 1,
+  "installedStoreAndPreferencesUnchanged": true,
+  "defenderLocalScan": "No threats, exit 0",
+  "defenderSignatures": "1.463.191.0",
+  "briefFlashVisualReview": "PASS",
+  "firstSampleFrameDelayMs": 671,
+  "previousCandidate": "superseded",
+  "publication": "unpublished",
+  "readiness": "ready for release review",
+  "ownerVisualConfirmation": {
+    "date": "2026-11-09",
+    "previewFileVersion": "2.1.4.8002",
+    "previewTitle": "Offhand Companion 2.1.4 UI Preview 4",
+    "response": "No flash or jitter"
+  }
+}

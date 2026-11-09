@@ -12,13 +12,14 @@
   [![Portable, Linux, and manual options](https://img.shields.io/badge/Companion-Portable_%26_manual_options-181717?style=for-the-badge&logo=github)](https://offhand-wow.onrender.com/companion.html)
 </div>
 
-This checkout prepares **Offhand Companion 2.1.3** and the matching
-**Offhand add-on 2.1.3 Pre-Release Beta 27**, including Flexible Layout and the reconciled local fixes.
-The Companion is submitted to Microsoft Store certification with manual publishing
-held. The matching add-on and portable assets are prepared locally, not yet public.
-See [publication preparation](docs/PUBLICATION-2.1.3-PREPARATION-20261108.md) and
-[installation guidance](docs/INSTALL-2.1.3.txt). Existing public download links
-below identify the currently published downloads until coordinated promotion.
+Current release: **Offhand add-on 2.1.5 Pre-Release Beta 28** with
+**Companion 2.1.5**. The add-on remains a public beta. Companion 2.1.5 is submitted
+to Microsoft Store certification with automatic publication after approval;
+Store availability can lag the portable GitHub release. The Store installs only
+Companion, so install the add-on separately.
+See [release preparation](docs/PUBLICATION-2.1.5-PREPARATION-20261109.md) and
+[installation guidance](docs/INSTALL-2.1.5.txt). Custom workspace/Flexible Layout,
+setup and map fixes are included, with native acceptance limits recorded there.
 
 ---
 
@@ -41,7 +42,7 @@ UI addon profiles. The larger UI canvas can shift custom interfaces, including
 Ellesmere and Naowh setups, so some panels may need repositioning.
 
 1.  **Install the Addon:** Download the addon from [CurseForge](https://www.curseforge.com/wow/addons/offhand) or install it via your preferred addon manager. For a manual ZIP install, the TOC files must be directly inside `Interface/AddOns/Offhand`; `Interface/AddOns/Offhand/Offhand/Offhand_Forever.toc` is one folder too deep.
-2.  **Choose a spanning method:** On Windows, we recommend the [Microsoft Store Companion](https://apps.microsoft.com/detail/9PL4PW84Q90W) for exact monitor geometry and borderless placement, especially with mixed resolutions or stacked displays. The [manual/FancyZones guide](https://offhand-wow.onrender.com/manual-spanning.html) remains available without an Offhand executable. A [v2.1.2 Beta 20 portable ZIP](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.20/Offhand-Companion.zip) is also available. After **Span WoW Now** succeeds, you may select **Exit Companion**; the current WoW window remains spanned. Leave it running only when you want automatic spanning, display-disconnect recovery, topology-file repair, or the Forever compatibility bridge. Review [SECURITY.md](SECURITY.md) before choosing an executable path.
+2.  **Choose a spanning method:** On Windows, we recommend the [Microsoft Store Companion](https://apps.microsoft.com/detail/9PL4PW84Q90W) for exact monitor geometry and borderless placement, especially with mixed resolutions or stacked displays. The [manual/FancyZones guide](https://offhand-wow.onrender.com/manual-spanning.html) remains available without an Offhand executable. A [v2.1.5 portable ZIP](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.5/Offhand-Companion-v2.1.5.zip) is also available. After **Span WoW Now** succeeds, you may select **Exit Companion**; the current WoW window remains spanned. Leave it running only when you want automatic spanning, display-disconnect recovery, topology-file repair, or the Forever compatibility bridge. Review [SECURITY.md](SECURITY.md) before choosing an executable path.
 
 Linux users should read [Companion/Linux.md](Companion/Linux.md). The current
 binary remains a Windows application; running it under Wine is an experimental

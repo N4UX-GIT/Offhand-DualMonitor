@@ -55,7 +55,7 @@ $channelName = switch ($channel) {
     default { $null }
 }
 
-$releaseName = if ($Tag -eq 'v2.1.3-beta.27') {
+$releaseName = if ($Tag -eq 'v2.1.3-beta.27' -or $Tag -eq 'v2.1.5-beta.28') {
     "Offhand v$version Pre-Release Beta $sequence"
 } elseif ($isPrerelease) {
     "Offhand v$version $channelName $sequence"
@@ -105,7 +105,17 @@ $companionDownloads = if ($CompanionChanged) {
 "@
 }
 
-$testFocus = if ($Tag -eq 'v2.1.3-beta.27') {
+$testFocus = if ($Tag -eq 'v2.1.5-beta.28') {
+@'
+1. Back up SavedVariables, Companion preferences and native/replacement HUD layouts. Upgrade without deleting settings. Install the add-on separately from Store Companion.
+2. Use /offhand guide for first setup. Position WoW, acknowledge Window is positioned, reload, then review Confirm placement. Continue calibration using either the recommendation or Next and complete the HUD/reload steps. Verify a normal restart retains your setup.
+3. In Companion, review displays/Mainhand and click Span WoW Now. Type /reload after spanning or changing layout. Save plan stores choices only. Restore Window returns the previous geometry.
+4. Check custom workspaces, Flexible Layout, saved profiles, supported-panel routing, manual-position priority and region themes/backgrounds. Workspace layout > Use standard display layout returns to ordinary spanning.
+5. Check map scaling on Mainhand and Offhand, fixed presets and Auto Fit. Supported OpenMap remains its own owner. Test title recovery only when needed, outside combat; no third-party source patch is included.
+6. Check settings typed values/sliders, dialog alignment and normal native map/bag/menu behavior, including controller/combat where used. Include fresh Lua/taint evidence. Full exact-package native, physical mixed-DPI/hotplug/three-monitor and Wine coverage remain open.
+7. Store Companion can show a static Update available action after a quiet daily query. It opens Microsoft Store for installation; portable updates stay manual. Store 2.1.5 is in certification. Actual Store-delivered 2.1.5 upgrade, real Available and real signed-out/offline behavior remain unverified; publication proceeds at the owner's request without waiting for the private flight.
+'@
+} elseif ($Tag -eq 'v2.1.3-beta.27') {
 @'
 1. Back up Offhand SavedVariables, Companion preferences and native/replacement HUD layouts. Install the 2.1.3 Pre-Release Beta 27 add-on and Companion 2.1.3 without deleting settings. The Store installs Companion only.
 2. Start WoW in ordinary Windowed mode. Review checked displays and Mainhand. Save plan stores choices; Span WoW Now applies them. Type /reload after spanning or changing Mainhand/layout. Use /offhand guide for first setup.

@@ -10,6 +10,14 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Globalization;
+using Timer = System.Windows.Forms.Timer;
+
+#if UI_PREVIEW && (RDP_TEST || HDR_DPI_DIAGNOSTICS_TEST || GRAININESS_TEST || FOREVER_GRAPHICS_RECOVERY_TEST || RETAIL_GRAPHICS_RECOVERY_TEST || CLASSIC_GRAPHICS_RECOVERY_TEST)
+#error UI preview requires its own isolated build configuration.
+#endif
 
 #if HDR_DPI_DIAGNOSTICS_TEST && (GRAININESS_TEST || FOREVER_GRAPHICS_RECOVERY_TEST || RETAIL_GRAPHICS_RECOVERY_TEST || CLASSIC_GRAPHICS_RECOVERY_TEST)
 #error Diagnostics and rendering/recovery experiments require separate builds.
@@ -25,7 +33,9 @@ using System.Windows.Forms;
 #error RDP test packaging must use the ordinary Companion runtime.
 #endif
 
-#if RDP_TEST
+#if UI_PREVIEW
+[assembly: AssemblyTitle("Offhand Companion UI Preview")]
+#elif RDP_TEST
 [assembly: AssemblyTitle("Offhand Companion RDP Test 1")]
 #elif HDR_DPI_DIAGNOSTICS_TEST
 [assembly: AssemblyTitle("Offhand Companion HDR DPI DIAGNOSTICS TEST 3")]
@@ -44,10 +54,15 @@ using System.Windows.Forms;
 [assembly: AssemblyCopyright("Copyright (C) 2026 Offhand Project")]
 #if HDR_DPI_DIAGNOSTICS_TEST || GRAININESS_TEST || FOREVER_GRAPHICS_RECOVERY_TEST || RETAIL_GRAPHICS_RECOVERY_TEST || CLASSIC_GRAPHICS_RECOVERY_TEST
 [assembly: AssemblyVersion("2.1.2.0")]
-#else
+#elif RDP_TEST
 [assembly: AssemblyVersion("2.1.3.0")]
+#else
+[assembly: AssemblyVersion("2.1.5.0")]
 #endif
-#if RDP_TEST
+#if UI_PREVIEW
+[assembly: AssemblyFileVersion("2.1.5.8001")]
+[assembly: AssemblyInformationalVersion("2.1.5")]
+#elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
 [assembly: AssemblyInformationalVersion("2.1.3-beta.6")]
 #elif HDR_DPI_DIAGNOSTICS_TEST
@@ -62,8 +77,8 @@ using System.Windows.Forms;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.3.10")]
-[assembly: AssemblyInformationalVersion("2.1.3")]
+[assembly: AssemblyFileVersion("2.1.5.1")]
+[assembly: AssemblyInformationalVersion("2.1.5")]
 #endif
 
 namespace Offhand.Companion
@@ -232,6 +247,19 @@ namespace Offhand.Companion
             return storePackage ? "Store Updates" : "Check for Updates";
         }
 
+        internal static string UpdateButtonText(bool storePackage, StoreUpdateState state)
+        {
+            return storePackage && state == StoreUpdateState.Available ? "Update available…" : UpdateButtonText(storePackage);
+        }
+
+        internal static string StoreUpdateTip(StoreUpdateState state)
+        {
+            string status = state == StoreUpdateState.Available ? "A Companion update is available. "
+                : state == StoreUpdateState.NoUpdate ? "The last Store check found no update. "
+                : state == StoreUpdateState.Unavailable ? "The automatic Store check was unavailable. " : "";
+            return status + "Open Microsoft Store to check and install updates when convenient. The Companion never installs an update itself.";
+        }
+
         internal static string UpdateMenuText(bool storePackage)
         {
             return storePackage ? "Check Microsoft Store for Updates" : "Check for Updates";
@@ -240,15 +268,174 @@ namespace Offhand.Companion
         internal static string UpdateHelpText(bool storePackage)
         {
             return storePackage
-                ? "Store Updates: Open the official Microsoft Store product page. Microsoft Store installs updates for this package; the Companion does not contact GitHub."
+                ? "Store Updates: Companion quietly checks Microsoft Store after startup, at most once daily. Update available means the Store reported an update. Click to open the official Store page and install when convenient. The Companion does not contact GitHub."
                 : "Check for Updates: Make a one-time HTTPS request to the official GitHub Releases API. Update checks never run automatically.";
         }
 
         internal static string PrivacyNetworkText(bool storePackage)
         {
             return storePackage
-                ? "The Companion does not collect telemetry, credentials, chat, or gameplay data. It does not configure Windows startup persistence or inspect process security tokens. The Companion itself makes no network request for update checks in the Store package; clicking Store Updates opens the official Microsoft Store product page, and Microsoft Store manages installation and updates."
+                ? "The Companion does not collect telemetry, credentials, chat, or gameplay data. It does not configure Windows startup persistence or inspect process security tokens. Store installations quietly ask Microsoft's Windows Store service about available Companion updates after startup, at most once daily. A local cache stores the check time, build and result. Clicking Store Updates or Update available opens the official Store page; Microsoft Store manages downloading and installation."
                 : "The Companion does not collect telemetry, credentials, chat, or gameplay data. It does not configure Windows startup persistence or inspect process security tokens. The Companion itself contacts the official GitHub Releases API only when you click Check for Updates. Release checksums, source, and build provenance are published with official GitHub releases.";
+        }
+    }
+
+    internal enum StoreUpdateState { NotChecked, NoUpdate, Available, Unavailable }
+
+    // Separate from layout preferences. A failed cache write skips the query,
+    // so restarting the app cannot turn an unavailable Store into rapid retries.
+    internal sealed class StoreUpdateCache
+    {
+        internal static readonly TimeSpan Interval = TimeSpan.FromDays(1);
+        private readonly string path;
+        private readonly string version;
+        internal StoreUpdateCache(string path, string version) { this.path = path; this.version = version; }
+
+        private Dictionary<string, string> Read()
+        {
+            if (File.Exists(path) && new FileInfo(path).Length > 4096) return new Dictionary<string, string>();
+            return PreferenceFile.Read(path);
+        }
+
+        private static bool TryTime(IDictionary<string, string> values, DateTime now, out DateTime attempted)
+        {
+            string text;
+            attempted = default(DateTime);
+            return values.TryGetValue("AttemptUtc", out text)
+                && DateTime.TryParseExact(text, "o", CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind, out attempted)
+                && attempted.Kind == DateTimeKind.Utc && attempted <= now + Interval;
+        }
+
+        internal StoreUpdateState Cached(DateTime now)
+        {
+            var values = Read(); DateTime attempted; string state, savedVersion; StoreUpdateState parsed;
+            if (TryTime(values, now, out attempted) && now - attempted < Interval
+                && values.TryGetValue("Build", out savedVersion) && savedVersion == version
+                && values.TryGetValue("State", out state) && Enum.TryParse(state, out parsed)
+                && Enum.IsDefined(typeof(StoreUpdateState), parsed)) return parsed;
+            return StoreUpdateState.NotChecked;
+        }
+
+        internal TimeSpan UntilDue(DateTime now)
+        {
+            DateTime attempted;
+            return TryTime(Read(), now, out attempted) && now - attempted < Interval
+                ? attempted + Interval - now : TimeSpan.Zero;
+        }
+
+        internal bool TryClaim(DateTime now)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            using (var gate = new FileStream(path + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+            {
+                if (UntilDue(now) > TimeSpan.Zero) return false;
+                PreferenceFile.Write(path, new Dictionary<string, string> {
+                    { "Build", version }, { "AttemptUtc", now.ToString("o", CultureInfo.InvariantCulture) },
+                    { "State", StoreUpdateState.NotChecked.ToString() } });
+                return true;
+            }
+        }
+
+        internal void Complete(DateTime attempted, StoreUpdateState state)
+        {
+            using (var gate = new FileStream(path + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+            {
+                var values = Read(); string saved;
+                string savedVersion;
+                if (!values.TryGetValue("Build", out savedVersion) || savedVersion != version
+                    || !values.TryGetValue("AttemptUtc", out saved)
+                    || saved != attempted.ToString("o", CultureInfo.InvariantCulture)) return;
+                values["State"] = state.ToString();
+                PreferenceFile.Write(path, values);
+            }
+        }
+    }
+
+    internal static class StoreUpdateCheck
+    {
+        private static void Observe(Task task)
+        {
+            task.ContinueWith(t => { var observed = t.Exception; },
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
+        }
+        internal static bool Eligible(bool storePackage)
+        {
+#if UI_PREVIEW || RDP_TEST || HDR_DPI_DIAGNOSTICS_TEST || GRAININESS_TEST || FOREVER_GRAPHICS_RECOVERY_TEST || RETAIL_GRAPHICS_RECOVERY_TEST || CLASSIC_GRAPHICS_RECOVERY_TEST
+            return false;
+#else
+            return storePackage;
+#endif
+        }
+
+        internal static async Task<StoreUpdateState> RunAsync(
+            Func<CancellationToken, Task<StoreUpdateState>> query, int timeoutMilliseconds, CancellationToken lifetime)
+        {
+            using (var cancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime))
+            {
+                Task<StoreUpdateState> pending = null;
+                try
+                {
+                    lifetime.ThrowIfCancellationRequested();
+                    pending = query(cancellation.Token);
+                    if (await Task.WhenAny(pending, Task.Delay(timeoutMilliseconds, lifetime)) != pending)
+                    {
+                        cancellation.Cancel();
+                        // A provider that ignores cancellation must not block shutdown or
+                        // publish a late result. Observe eventual faults without UI work.
+                        Observe(pending);
+                        return StoreUpdateState.Unavailable;
+                    }
+                    lifetime.ThrowIfCancellationRequested();
+                    return await pending;
+                }
+                catch (Exception)
+                {
+                    if (pending != null) Observe(pending);
+                    return StoreUpdateState.Unavailable;
+                }
+            }
+        }
+    }
+
+    internal static class StoreUpdateRuntime
+    {
+        [ComImport, Guid("3E68D4BD-7135-4D10-8018-9FB6D9F33FA1"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IInitializeWithWindow { void Initialize(IntPtr owner); }
+
+        // Bind only the OS-provided WinRT metadata and framework async bridge.
+        // This keeps portable/Wine builds free of a mandatory Windows SDK runtime
+        // dependency. No package download or install API is invoked here.
+        internal static MethodInfo TaskAdapter(Type resultType)
+        {
+            var bridge = Assembly.Load("System.Runtime.WindowsRuntime, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089");
+            foreach (var method in bridge.GetType("System.WindowsRuntimeSystemExtensions").GetMethods())
+            {
+                var parameters = method.GetParameters();
+                if (method.Name == "AsTask" && method.IsGenericMethodDefinition
+                    && method.GetGenericArguments().Length == 1 && parameters.Length == 2
+                    && parameters[0].ParameterType.IsGenericType
+                    && parameters[0].ParameterType.GetGenericTypeDefinition().FullName == "Windows.Foundation.IAsyncOperation`1"
+                    && parameters[1].ParameterType == typeof(CancellationToken)) return method.MakeGenericMethod(resultType);
+            }
+            throw new PlatformNotSupportedException("The Windows Store async bridge is unavailable.");
+        }
+
+        internal static async Task<StoreUpdateState> QueryAsync(IntPtr owner, CancellationToken cancellation)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            Type type = Type.GetType("Windows.Services.Store.StoreContext, Windows, ContentType=WindowsRuntime", true);
+            MethodInfo query = type.GetMethod("GetAppAndOptionalStorePackageUpdatesAsync");
+            MethodInfo adapter = TaskAdapter(query.ReturnType.GetGenericArguments()[0]);
+            object context = type.GetMethod("GetDefault").Invoke(null, null);
+            ((IInitializeWithWindow)context).Initialize(owner);
+            object operation = query.Invoke(context, null);
+            var task = (Task)adapter.Invoke(null, new object[] { operation, cancellation });
+            await task;
+            var updates = (System.Collections.IEnumerable)task.GetType().GetProperty("Result").GetValue(task, null);
+            var iterator = updates.GetEnumerator();
+            try { return iterator.MoveNext() ? StoreUpdateState.Available : StoreUpdateState.NoUpdate; }
+            finally { var disposable = iterator as IDisposable; if (disposable != null) disposable.Dispose(); GC.KeepAlive(context); }
         }
     }
 
@@ -1119,6 +1306,56 @@ namespace Offhand.Companion
     // preference publication remain owned by the existing planners and callers.
     internal static class CompanionUi
     {
+        [DllImport("uxtheme.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+        private static extern int SetWindowTheme(IntPtr window, string application, string classes);
+
+        [DllImport("user32.dll", ExactSpelling = true)]
+        private static extern int GetSystemMetricsForDpi(int index, uint dpi);
+
+        internal static int ScrollbarGutter(float scale)
+        {
+            try
+            {
+                int width = GetSystemMetricsForDpi(2, (uint)Math.Max(96, Math.Round(96 * scale)));
+                if (width > 0) return width;
+            }
+            catch (DllNotFoundException) { }
+            catch (EntryPointNotFoundException) { }
+            return Math.Max(SystemInformation.VerticalScrollBarWidth, (int)Math.Ceiling(17 * scale));
+        }
+
+        internal static void PrimeScrollbars(Control parent)
+        {
+            // Hidden log/editor controls otherwise create their native handles
+            // during Show, exposing the default non-client paint before theming.
+            if (parent is ScrollableControl || parent is TextBoxBase || parent is ListBox)
+            {
+                IntPtr handle = parent.Handle;
+            }
+            foreach (Control child in parent.Controls) PrimeScrollbars(child);
+        }
+
+        // Theme only managed controls owned by this process. Native scrolling,
+        // focus, text selection and accessibility remain with Windows.
+        internal static void StyleScrollbars(Control parent)
+        {
+            var form = parent as Form;
+            if (form != null) form.Load += (s, e) => { PrimeScrollbars(form); };
+            if (parent is ScrollableControl || parent is TextBoxBase || parent is ListBox)
+            {
+                EventHandler apply = (s, e) =>
+                {
+                    if (!parent.IsHandleCreated || parent.IsDisposed) return;
+                    try { SetWindowTheme(parent.Handle, SystemInformation.HighContrast ? null : "DarkMode_Explorer", null); }
+                    catch (DllNotFoundException) { }
+                    catch (EntryPointNotFoundException) { }
+                };
+                parent.HandleCreated += apply;
+                parent.SystemColorsChanged += apply;
+                apply(parent, EventArgs.Empty);
+            }
+            foreach (Control child in parent.Controls) StyleScrollbars(child);
+        }
         internal static readonly Color Background=Color.FromArgb(12,12,14), Surface=Color.FromArgb(20,20,24),
             Field=Color.FromArgb(28,28,34), Text=Color.FromArgb(235,230,215), Muted=Color.FromArgb(176,170,158),
             Gold=Color.FromArgb(240,184,54), Border=Color.FromArgb(101,87,58), Warning=Color.FromArgb(255,205,104);
@@ -1188,6 +1425,7 @@ namespace Offhand.Companion
         internal static void Apply(Form form)
         {
             form.BackColor=Background;form.ForeColor=Text;StyleChildren(form,form.AcceptButton);
+            StyleScrollbars(form);
             if (AppIcon != null) form.Icon = AppIcon;
             form.Load += (s, e) => Fit(form, Screen.FromControl(form.Owner ?? form).WorkingArea);
         }
@@ -1197,6 +1435,16 @@ namespace Offhand.Companion
             form.Size=new Size(Math.Min(form.Width,work.Width),Math.Min(form.Height,work.Height));
             form.Location=new Point(Math.Max(work.Left,Math.Min(form.Left,work.Right-form.Width)),Math.Max(work.Top,Math.Min(form.Top,work.Bottom-form.Height)));
         }
+    }
+
+    internal sealed class DashboardViewport : Panel
+    {
+        internal DashboardViewport() { DoubleBuffered = true; }
+    }
+
+    internal sealed class DashboardStack : TableLayoutPanel
+    {
+        internal DashboardStack() { DoubleBuffered = true; }
     }
 
     internal sealed class WorkspaceEditorLayout
@@ -3859,10 +4107,17 @@ namespace Offhand.Companion
     {
 #if HDR_DPI_DIAGNOSTICS_TEST || GRAININESS_TEST || FOREVER_GRAPHICS_RECOVERY_TEST || RETAIL_GRAPHICS_RECOVERY_TEST || CLASSIC_GRAPHICS_RECOVERY_TEST
         internal const string BaseVersion = "2.1.2";
-#else
+#elif RDP_TEST
         internal const string BaseVersion = "2.1.3";
+#else
+        internal const string BaseVersion = "2.1.5";
 #endif
-#if RDP_TEST
+#if UI_PREVIEW
+        internal const string ReleaseLabel = "UI Preview 1";
+        internal static readonly bool GraphicsRecoveryEnabled = false;
+        internal static readonly bool RetailGraphicsRecoveryEnabled = false;
+        internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
+#elif RDP_TEST
         internal const string ReleaseLabel = "Beta 6 RDP Test 1";
         internal static readonly bool GraphicsRecoveryEnabled = true;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
@@ -3953,6 +4208,8 @@ namespace Offhand.Companion
         private Label lblColorModes;
         private Label lblColorWarning;
         private Label lblScaleInfo;
+        private Label lblStatusSummary;
+        private const int DashboardActionHeight = 44;
         private sealed class DashboardSection
         {
             internal Panel Panel;
@@ -3967,7 +4224,6 @@ namespace Offhand.Companion
         private TableLayoutPanel dashboardFooter;
         private Panel dashboardHeader;
         private bool layingOutDashboard;
-        private bool dashboardGrowthQueued;
         private string colorDiagnostics = "Select a valid display plan to inspect color modes.";
         private string lastColorDiagnostic;
         private Label lblAddonReason;
@@ -4447,7 +4703,9 @@ namespace Offhand.Companion
         private static readonly string publicConfigPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Offhand", "OffhandConfig.ini");
-#if RDP_TEST
+#if UI_PREVIEW
+        private static readonly string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DashboardPreviewConfig.ini");
+#elif RDP_TEST
         private static readonly string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "RdpTestConfig.ini");
 #elif HDR_DPI_DIAGNOSTICS_TEST
         private static readonly string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DiagnosticsTestConfig.ini");
@@ -4468,7 +4726,9 @@ namespace Offhand.Companion
             try
             {
                 // Import portable settings once; future launches are independent of CWD.
-#if RDP_TEST || HDR_DPI_DIAGNOSTICS_TEST
+#if UI_PREVIEW
+                string source = configPath;
+#elif RDP_TEST || HDR_DPI_DIAGNOSTICS_TEST
                 string source = File.Exists(configPath) ? configPath : publicConfigPath;
 #else
                 string source = CompanionSettingsPath.ReadSource(configPath, publicConfigPath,
@@ -4493,7 +4753,7 @@ namespace Offhand.Companion
         }
 
         private Button btnSpanNow;
-        private Button btnToggleWatch;
+        private ToolStripMenuItem itemMonitor;
         private Button btnCheckUpdates;
         private RichTextBox logBox;
         private readonly List<string> activityLogEntries = new List<string>();
@@ -4506,6 +4766,12 @@ namespace Offhand.Companion
         private bool isMonitoring = true;
         private bool isExplicitExit = false;
         private bool updateCheckInProgress = false;
+        private Timer storeUpdateTimer;
+        private readonly CancellationTokenSource storeUpdateLifetime = new CancellationTokenSource();
+        private bool storeUpdateStopped;
+        private StoreUpdateCache storeUpdateCache;
+        private ToolStripMenuItem itemCheckUpdates;
+        private Func<IntPtr, CancellationToken, Task<StoreUpdateState>> storeUpdateQuery = StoreUpdateRuntime.QueryAsync;
         private readonly bool isStorePackage = CompanionDistribution.IsStorePackage();
         private readonly HashSet<int> spannedPids = new HashSet<int>();
 #if GRAININESS_TEST
@@ -4668,6 +4934,9 @@ namespace Offhand.Companion
         {
             using (Process current = Process.GetCurrentProcess()) currentSessionId = current.SessionId;
             LoadConfig();
+#if UI_PREVIEW
+            appSettings["AutoSpan"] = "False";
+#endif
 #if RDP_TEST
             appSettings["AutoSpan"] = "False";
 #endif
@@ -4684,11 +4953,23 @@ namespace Offhand.Companion
             remoteWatcher = new RemoteDesktopWatcher(InvalidateRemoteSpan);
             Disposed += (s, e) =>
             {
+                if (!storeUpdateStopped)
+                {
+                    storeUpdateStopped = true;
+                    if (storeUpdateTimer != null) storeUpdateTimer.Dispose();
+                    storeUpdateLifetime.Cancel();
+                    storeUpdateLifetime.Dispose();
+                }
                 remoteWatcher.Dispose();
                 InvalidateRemoteSpan();
             };
             InitializeTray();
             InitializeTimer();
+#if UI_PREVIEW
+            chkAutoSpan.Enabled = false;
+            itemAuto.Enabled = false;
+            AddLog("UI PREVIEW: separate local settings; automatic spanning and graphics recovery disabled.");
+#endif
 #if RDP_TEST
             this.Text = "Offhand Companion - RDP Test 1";
             AddLog("RDP TEST 1: preferences are saved beside this test executable.");
@@ -4784,16 +5065,62 @@ namespace Offhand.Companion
             });
         }
 
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            if (!StoreUpdateCheck.Eligible(isStorePackage) || storeUpdateTimer != null) return;
+            string build = ((AssemblyFileVersionAttribute)Attribute.GetCustomAttribute(
+                typeof(CompanionForm).Assembly, typeof(AssemblyFileVersionAttribute))).Version;
+            storeUpdateCache = new StoreUpdateCache(Path.Combine(Path.GetDirectoryName(configPath), "StoreUpdateCheck.ini"), build);
+            try { ApplyStoreUpdateState(storeUpdateCache.Cached(DateTime.UtcNow)); }
+            catch (Exception) { ApplyStoreUpdateState(StoreUpdateState.Unavailable); }
+            storeUpdateTimer = new Timer { Interval = 30000 };
+            storeUpdateTimer.Tick += async (s, args) =>
+            {
+                storeUpdateTimer.Stop();
+                DateTime attempted = DateTime.UtcNow;
+                try
+                {
+                    if (storeUpdateCache.TryClaim(attempted))
+                    {
+                        var result = await StoreUpdateCheck.RunAsync(
+                            token => storeUpdateQuery(Handle, token), 15000, storeUpdateLifetime.Token);
+                        if (IsDisposed || Disposing || isExplicitExit) return;
+                        storeUpdateCache.Complete(attempted, result);
+                        ApplyStoreUpdateState(result);
+                    }
+                    else ApplyStoreUpdateState(storeUpdateCache.Cached(attempted));
+                }
+                catch (Exception)
+                {
+                    if (!IsDisposed && !Disposing && !isExplicitExit) ApplyStoreUpdateState(StoreUpdateState.Unavailable);
+                }
+                if (IsDisposed || Disposing || isExplicitExit) return;
+                TimeSpan delay = StoreUpdateCache.Interval;
+                try { var remaining = storeUpdateCache.UntilDue(DateTime.UtcNow); if (remaining > TimeSpan.Zero) delay = remaining; }
+                catch (Exception) { }
+                storeUpdateTimer.Interval = (int)Math.Max(1000, Math.Min(StoreUpdateCache.Interval.TotalMilliseconds, delay.TotalMilliseconds));
+                storeUpdateTimer.Start();
+            };
+            storeUpdateTimer.Start();
+        }
+
+        private void ApplyStoreUpdateState(StoreUpdateState state)
+        {
+            if (!isStorePackage || IsDisposed || Disposing) return;
+            btnCheckUpdates.Text = CompanionDistribution.UpdateButtonText(true, state);
+            btnCheckUpdates.AccessibleName = btnCheckUpdates.Text;
+            btnCheckUpdates.AccessibleDescription = CompanionDistribution.StoreUpdateTip(state);
+            btnCheckUpdates.ForeColor = state == StoreUpdateState.Available ? cGoldBright : cText;
+            uiToolTips.SetToolTip(btnCheckUpdates, CompanionDistribution.StoreUpdateTip(state));
+            if (itemCheckUpdates != null) itemCheckUpdates.Text = state == StoreUpdateState.Available
+                ? "Update available in Microsoft Store…" : CompanionDistribution.UpdateMenuText(true);
+        }
+
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
             FitDashboardToWorkingArea(Screen.FromControl(this).WorkingArea);
-        }
-
-        protected override void OnShown(EventArgs e)
-        {
-            base.OnShown(e);
-            QueueDashboardGrowth();
         }
 
         private int DashboardRequiredClientHeight()
@@ -4806,7 +5133,7 @@ namespace Offhand.Companion
         {
             if (dashboardStack == null) return;
             LayoutDashboardCards();
-            float scale = btnSpanNow.Height / 36f;
+            float scale = btnSpanNow.Height / (float)DashboardActionHeight;
             Size desired = SizeFromClientSize(new Size((int)Math.Ceiling(548 * scale),
                 DashboardRequiredClientHeight()));
             Size fitted = new Size(Math.Min(desired.Width, workArea.Width), Math.Min(desired.Height, workArea.Height));
@@ -4815,32 +5142,6 @@ namespace Offhand.Companion
             dashboardScroll.AutoScrollPosition = Point.Empty;
             PerformLayout();
             LayoutDashboardCards();
-        }
-
-        internal void GrowDashboardToFit(Rectangle workArea)
-        {
-            LayoutDashboardCards();
-            int height = Math.Min(workArea.Height,
-                SizeFromClientSize(new Size(ClientSize.Width, DashboardRequiredClientHeight())).Height);
-            if (height <= Height) return;
-
-            int top = Math.Max(workArea.Top, Math.Min(Top, workArea.Bottom - height));
-            SetBounds(Left, top, Width, height);
-            dashboardScroll.AutoScrollPosition = Point.Empty;
-        }
-
-        private void QueueDashboardGrowth()
-        {
-            if (dashboardGrowthQueued || !IsHandleCreated || !Visible || Disposing) return;
-            dashboardGrowthQueued = true;
-            // Status and diagnostics update several labels in one poll. Measure
-            // the resulting cards once after WinForms has laid them out.
-            BeginInvoke(new Action(() =>
-            {
-                dashboardGrowthQueued = false;
-                if (Visible && !IsDisposed && !uiInteractionPaused && WindowState == FormWindowState.Normal)
-                    GrowDashboardToFit(Screen.FromControl(this).WorkingArea);
-            }));
         }
 
         private void CompleteUpdateCheck(Action completion)
@@ -4866,6 +5167,7 @@ namespace Offhand.Companion
             // fonts proportional on high-resolution and mixed-DPI displays.
             this.AutoScaleDimensions = new SizeF(96F, 96F);
             this.AutoScaleMode = AutoScaleMode.Dpi;
+            this.DoubleBuffered = true;
             this.Font = new Font("Segoe UI", 9F);
             this.Text = GraphicsRecoveryTestBuild ? "Offhand Companion - " + (ForeverGraphicsRecoveryEnabled ? "FOREVER TEST 5" : RetailGraphicsRecoveryEnabled ? "RETAIL TEST 4" : "CLASSIC TEST 3") : "Offhand Companion " + FullVersion;
             this.ClientSize = new Size(548, 824);
@@ -4998,6 +5300,12 @@ namespace Offhand.Companion
             // Status Card
             Panel statusPanel = CreateCardPanel(16, 102, 490, 184, "System Status");
             this.Controls.Add(statusPanel);
+            lblStatusSummary = new Label { Text = "Checking WoW...", AutoEllipsis = true,
+                Font = new Font("Segoe UI", 8.5f), ForeColor = cMuted,
+                TextAlign = ContentAlignment.MiddleLeft, UseMnemonic = false,
+                AccessibleName = "System status summary" };
+            statusPanel.Controls.Add(lblStatusSummary);
+            lblStatusSummary.Click += (s, e) => { SetDashboardSectionExpanded(statusPanel, true, true); };
 
             lblWowStatus = new Label
             {
@@ -5308,36 +5616,15 @@ namespace Offhand.Companion
 
 
             // Action Buttons
-            btnSpanNow = CreateButton("Span WoW Now", 16, 522, 158, 36, cBtnPrimaryBg, cGoldBright, cGold);
+            btnSpanNow = CreateButton("Span WoW Now", 16, 522, 158, DashboardActionHeight, cBtnPrimaryBg, cGoldBright, cGold);
             btnSpanNow.Click += (s, e) => { InvokeSpanWindow(true); };
             this.Controls.Add(btnSpanNow);
             uiToolTips.SetToolTip(btnSpanNow, "Immediately make the detected WoW window borderless and span it across the selected displays. This also resumes spanning after Restore Window.");
 
-            Button btnRestoreNow = CreateButton("Restore Window", 182, 522, 158, 36, cBtnBg, cText, cBorder);
+            Button btnRestoreNow = CreateButton("Restore Window", 182, 522, 158, DashboardActionHeight, cBtnBg, cText, cBorder);
             btnRestoreNow.Click += (s, e) => { InvokeRestoreWindow(true); };
             this.Controls.Add(btnRestoreNow);
             uiToolTips.SetToolTip(btnRestoreNow, "Return WoW to the bordered bounds remembered before spanning. Missing-display recovery still fills the surviving Mainhand. Automatic spanning pauses for that WoW process until Span WoW Now is used.");
-
-            btnToggleWatch = CreateButton("Pause Monitor", 348, 522, 158, 36, cBtnBg, cText, cBorder);
-            btnToggleWatch.Click += (s, e) =>
-            {
-                isMonitoring = !isMonitoring;
-                if (!isMonitoring) classicRecovery.Clear();
-                if (isMonitoring)
-                {
-                    btnToggleWatch.Text = "Pause Monitor";
-                    btnToggleWatch.ForeColor = cText;
-                    AddLog("Background auto-watcher resumed.");
-                }
-                else
-                {
-                    btnToggleWatch.Text = "Resume Monitor";
-                    btnToggleWatch.ForeColor = cYellow;
-                    AddLog("Background auto-watcher PAUSED by user.");
-                }
-            };
-            this.Controls.Add(btnToggleWatch);
-            uiToolTips.SetToolTip(btnToggleWatch, "Pause or resume background detection of WoW launches. Manual Span and Restore controls remain available while monitoring is paused.");
 
             // Color status is advisory and never gates Span or auto-spanning.
             Panel colorPanel = CreateCardPanel(16, 570, 490, 206, "Display Diagnostics");
@@ -5393,7 +5680,7 @@ namespace Offhand.Companion
             btnCheckUpdates.Click += (s, e) => { CheckForUpdates(); };
             this.Controls.Add(btnCheckUpdates);
             uiToolTips.SetToolTip(btnCheckUpdates, isStorePackage
-                ? "Open the official Microsoft Store product page. Microsoft Store manages updates for this installation."
+                ? CompanionDistribution.StoreUpdateTip(StoreUpdateState.NotChecked)
                 : "Contact the official GitHub Releases API once to compare versions. The Companion never checks for updates automatically.");
 
             Button btnExit = CreateButton("Exit Companion", 356, 1000, 152, 30, cBtnDanger, Color.FromArgb(235, 130, 130), Color.FromArgb(140, 45, 45));
@@ -5402,8 +5689,9 @@ namespace Offhand.Companion
             uiToolTips.SetToolTip(btnExit, "Stop monitoring and fully exit the Companion. Closing the title-bar X only minimizes it to the tray.");
 
             ArrangeDashboard(headerPanel, statusPanel, configPanel, colorPanel, logPanel,
-                new Control[] { btnSpanNow, btnRestoreNow, btnToggleWatch },
+                new Control[] { btnSpanNow, btnRestoreNow },
                 new Control[] { btnMinimize, btnCheckUpdates, btnExit });
+            CompanionUi.StyleScrollbars(this);
 
             this.FormClosing += (s, e) =>
             {
@@ -5438,13 +5726,31 @@ namespace Offhand.Companion
         {
             SuspendLayout();
             dashboardHeader = header;
-            dashboardScroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(16, 10, 16, 6), BackColor = cBg };
-            dashboardStack = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true,
+            dashboardScroll = new DashboardViewport { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(16, 10, 16, 6), BackColor = cBg };
+            dashboardStack = new DashboardStack { Location = new Point(16, 10), AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 1, RowCount = 0,
                 Margin = Padding.Empty, Padding = Padding.Empty, BackColor = cBg };
             dashboardStack.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            var actionRow = DashboardButtonRow(actions, 36);
-            foreach (Control item in new Control[] { header, status, config, actionRow, diagnostics, log })
+            var actionRow = DashboardButtonRow(actions, DashboardActionHeight);
+            actionRow.ColumnStyles[0].Width = 64;
+            actionRow.ColumnStyles[1].Width = 36;
+            var actionPanel = new TableLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 2, RowCount = 2, Margin = Padding.Empty, Padding = Padding.Empty, BackColor = cBg };
+            actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 64));
+            actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36));
+            actionPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            actionPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            actionPanel.Controls.Add(actionRow, 0, 0);
+            actionPanel.SetColumnSpan(actionRow, 2);
+            actionPanel.Controls.Add(new Label { AutoSize = true, Dock = DockStyle.Fill,
+                Margin = new Padding(0, 6, 10, 0), ForeColor = cMuted, Font = new Font("Segoe UI", 8.5f),
+                Text = "Apply layout, then type /reload in WoW.", AccessibleName = "Span guidance",
+                UseMnemonic = false }, 0, 1);
+            actionPanel.Controls.Add(new Label { AutoSize = true, Dock = DockStyle.Fill,
+                Margin = new Padding(0, 6, 0, 0), ForeColor = cMuted, Font = new Font("Segoe UI", 8.5f),
+                Text = "Return to the previous window.", AccessibleName = "Restore guidance",
+                UseMnemonic = false }, 1, 1);
+            foreach (Control item in new Control[] { header, actionPanel, status, config, diagnostics, log })
             {
                 item.Dock = DockStyle.Top;
                 item.Margin = new Padding(0, 0, 0, 10);
@@ -5466,7 +5772,7 @@ namespace Offhand.Companion
             dashboardScroll.BringToFront();
             foreach (var section in dashboardSections.Values)
             {
-                bool collapsed = section.Panel == log;
+                bool collapsed = section.Panel != config;
                 string saved;
                 bool parsed;
                 if (appSettings.TryGetValue(section.Key, out saved) && bool.TryParse(saved, out parsed)) collapsed = parsed;
@@ -5477,11 +5783,12 @@ namespace Offhand.Companion
                 lblColorModes, lblColorWarning, lblScaleInfo })
                 label.TextChanged += (s, e) =>
                 {
-                    int before = dashboardStack.Height;
+                    UpdateDashboardStatusSummary();
                     LayoutDashboardCards();
-                    if (dashboardStack.Height > before) QueueDashboardGrowth();
                 };
+            lblDisplayInfo.ForeColorChanged += (s, e) => { UpdateDashboardStatusSummary(); };
             dashboardStack.Layout += (s, e) => { LayoutDashboardCards(); };
+            dashboardScroll.SizeChanged += (s, e) => { LayoutDashboardCards(); };
             ResumeLayout(true);
             LayoutDashboardCards();
         }
@@ -5490,24 +5797,27 @@ namespace Offhand.Companion
         {
             DashboardSection section;
             if (!dashboardSections.TryGetValue(panel, out section)) return;
-            section.Expanded = expanded;
-            section.Toggle.Text = expanded ? "Hide" : "Show";
-            section.Toggle.AccessibleName = (expanded ? "Collapse " : "Expand ") + section.Heading.Text.Trim();
-            foreach (Control child in panel.Controls)
-                if (child != section.Heading && child != section.Toggle) child.Visible = expanded;
-            LayoutDashboardCards();
+            dashboardScroll.SuspendLayout();
+            panel.SuspendLayout();
+            try
+            {
+                section.Expanded = expanded;
+                section.Toggle.Text = expanded ? "Hide" : "Show";
+                section.Toggle.AccessibleName = (expanded ? "Collapse " : "Expand ") + section.Heading.Text.Trim();
+                foreach (Control child in panel.Controls)
+                    if (child == lblStatusSummary) child.Visible = !expanded;
+                    else if (child != section.Heading && child != section.Toggle) child.Visible = expanded;
+                LayoutDashboardCards();
+            }
+            finally
+            {
+                panel.ResumeLayout(false);
+                dashboardScroll.ResumeLayout(true);
+            }
             if (persist)
             {
                 appSettings[section.Key] = (!expanded).ToString();
                 SaveConfig();
-                if (IsHandleCreated && WindowState == FormWindowState.Normal)
-                {
-                    Point previous = Location;
-                    Rectangle workArea = Screen.FromControl(this).WorkingArea;
-                    FitDashboardToWorkingArea(workArea);
-                    Location = new Point(Math.Max(workArea.Left, Math.Min(previous.X, workArea.Right - Width)),
-                        Math.Max(workArea.Top, Math.Min(previous.Y, workArea.Bottom - Height)));
-                }
             }
         }
 
@@ -5587,10 +5897,19 @@ namespace Offhand.Companion
         {
             if (dashboardStack == null || layingOutDashboard) return;
             layingOutDashboard = true;
-            dashboardStack.SuspendLayout();
             try
             {
-                float scale = btnSpanNow.Height / 36f;
+                float scale = btnSpanNow.Height / (float)DashboardActionHeight;
+                // Reserve the native scrollbar gutter even while it is hidden.
+                // Dock=Top would otherwise resize every card when WS_VSCROLL
+                // changes the viewport's client width during Show/Hide.
+                int width = Math.Max(1, dashboardScroll.Width - dashboardScroll.Padding.Horizontal
+                    - CompanionUi.ScrollbarGutter(scale));
+                dashboardStack.MinimumSize = new Size(width, 0);
+                dashboardStack.MaximumSize = new Size(width, 0);
+                dashboardStack.Width = width;
+                dashboardStack.PerformLayout();
+                dashboardStack.SuspendLayout();
                 int inset = (int)Math.Ceiling(14 * scale);
                 foreach (Control child in dashboardHeader.Controls)
                 {
@@ -5605,6 +5924,13 @@ namespace Offhand.Companion
                     section.Toggle.Left = panel.Width - section.Toggle.Width - inset;
                     section.Heading.SetBounds(inset, (int)Math.Ceiling(6 * scale),
                         Math.Max(1, section.Toggle.Left - 2 * inset), (int)Math.Ceiling(22 * scale));
+                    if (panel.Controls.Contains(lblStatusSummary) && !section.Expanded)
+                    {
+                        section.Heading.Width = (int)Math.Ceiling(128 * scale);
+                        int left = section.Heading.Right + (int)Math.Ceiling(8 * scale);
+                        lblStatusSummary.SetBounds(left, section.Heading.Top,
+                            Math.Max(1, section.Toggle.Left - inset - left), section.Heading.Height);
+                    }
                     if (!section.Expanded) { panel.Height = (int)Math.Ceiling(34 * scale); continue; }
                     if (panel.Controls.Contains(lblWowStatus))
                     {
@@ -5640,7 +5966,12 @@ namespace Offhand.Companion
                     }
                 }
             }
-            finally { dashboardStack.ResumeLayout(true); layingOutDashboard = false; }
+            finally
+            {
+                dashboardStack.ResumeLayout(true);
+                dashboardScroll.AutoScrollMinSize = new Size(0, dashboardStack.Height + dashboardScroll.Padding.Vertical);
+                layingOutDashboard = false;
+            }
         }
 
         private Panel CreateCardPanel(int x, int y, int w, int h, string title)
@@ -5761,7 +6092,7 @@ namespace Offhand.Companion
 
             AppendHelpSection(guide, sectionFont, "Daily use",
                 "Click Span WoW Now after the game window opens. For standard display layouts, you can enable Auto-span WoW on launch and set a delay. For custom layouts, use Span WoW Now each time.",
-                "Restore Window returns WoW to its pre-span window and suspends auto-span for that WoW session. Click Span WoW Now to apply the layout again. Pause Monitor stops launch detection while the manual controls remain available.",
+                "Restore Window returns WoW to its pre-span window and suspends auto-span for that WoW session. Click Span WoW Now to apply the layout again. To stop background launch detection, right-click the Companion tray icon and select Pause background monitoring. Manual Span and Restore remain available.",
                 "The title-bar X minimizes Companion to the tray. Exit Companion closes it and leaves the current WoW window spanned. Keep Companion open for auto-span, automatic display-disconnect recovery, or to restore the remembered window bounds.",
                 "In Remote Desktop, click Span WoW Now and choose the game and workspace screens for that connection. Keep Companion running for Restore Window and confirm the screens again after reconnecting.");
 
@@ -5848,6 +6179,7 @@ namespace Offhand.Companion
                 ScrollBars = RichTextBoxScrollBars.Vertical,
                 AccessibleName = title + " guide"
             };
+            CompanionUi.StyleScrollbars(guide);
             using (var sectionFont = new Font(guide.Font.FontFamily, 11, FontStyle.Bold))
             {
                 if (displayTroubleshooting)
@@ -5921,7 +6253,7 @@ namespace Offhand.Companion
             itemHelp.Click += (s, e) => { RestoreForm(); ShowHelpDialog(); };
             trayMenu.Items.Add(itemHelp);
 
-            ToolStripMenuItem itemCheckUpdates = new ToolStripMenuItem(CompanionDistribution.UpdateMenuText(isStorePackage));
+            itemCheckUpdates = new ToolStripMenuItem(CompanionDistribution.UpdateMenuText(isStorePackage));
             itemCheckUpdates.Click += (s, e) => { RestoreForm(); CheckForUpdates(); };
             trayMenu.Items.Add(itemCheckUpdates);
 
@@ -5944,6 +6276,10 @@ namespace Offhand.Companion
             };
             trayMenu.Items.Add(itemAuto);
 
+            itemMonitor = new ToolStripMenuItem("Pause background monitoring");
+            itemMonitor.Click += (s, e) => { ToggleBackgroundMonitoring(); };
+            trayMenu.Items.Add(itemMonitor);
+
             trayMenu.Items.Add(new ToolStripSeparator());
 
             ToolStripMenuItem itemExit = new ToolStripMenuItem("Exit");
@@ -5960,6 +6296,16 @@ namespace Offhand.Companion
             this.Show();
             this.WindowState = FormWindowState.Normal;
             this.Activate();
+        }
+
+        internal void ToggleBackgroundMonitoring()
+        {
+            isMonitoring = !isMonitoring;
+            if (!isMonitoring) classicRecovery.Clear();
+            if (itemMonitor != null)
+                itemMonitor.Text = isMonitoring ? "Pause background monitoring" : "Resume background monitoring";
+            AddLog(isMonitoring ? "Background auto-watcher resumed." : "Background auto-watcher PAUSED by user.");
+            UpdateDashboardStatusSummary();
         }
 
         private void ExitApplication()
@@ -6185,6 +6531,26 @@ namespace Offhand.Companion
             return state + "\r\n" + game + "  •  " + workspace;
         }
 
+        private void UpdateDashboardStatusSummary()
+        {
+            if (lblStatusSummary == null) return;
+            string text;
+            Color color;
+            if (!isMonitoring) { text = "Monitoring paused"; color = cYellow; }
+            else if (lblDisplayInfo.ForeColor == cYellow) { text = "Check display layout"; color = cYellow; }
+            else if (lblAddonStatus.ForeColor == cYellow) { text = "Check add-on"; color = cYellow; }
+            else if (lblWowStatus.ForeColor == cGreen) { text = "WoW running"; color = cGreen; }
+            else
+            {
+                string state = lblWowStatus.Text.Replace("WoW: ", "");
+                text = "WoW " + (state.Length == 0 ? "checking..." : char.ToLowerInvariant(state[0]) + state.Substring(1));
+                color = cMuted;
+            }
+            lblStatusSummary.Text = "\u25CF " + text;
+            lblStatusSummary.ForeColor = color;
+            uiToolTips.SetToolTip(lblStatusSummary, text + ". Select Show for details.");
+        }
+
         internal void UpdateClientStatus(AddonStatus status, bool anyWoWProcess)
         {
             if (status == null)
@@ -6196,6 +6562,7 @@ namespace Offhand.Companion
                 lblAddonReason.Text = anyWoWProcess
                     ? "Wait for WoW to open. Keep one WoW window open when using Remote Desktop."
                     : "Start WoW to check the addon for that client.";
+                UpdateDashboardStatusSummary();
                 return;
             }
 
@@ -6222,6 +6589,7 @@ namespace Offhand.Companion
             lblAddonReason.Text = status.Installed
                 ? "Confirm Offhand is enabled in WoW. " + LayoutApplyInstruction
                 : status.SetupHint;
+            UpdateDashboardStatusSummary();
         }
 
         private void OnTimerTick()
@@ -6579,7 +6947,7 @@ namespace Offhand.Companion
                 bool wasRearming = recovery.Rearming;
                 bool shouldRecover = recovery.Observe(observed, RecoveryPlanKey(plan, displays), DateTime.UtcNow, isMonitoring);
                 if (!wasConfirmed && recovery.Confirmed)
-                    AddLog(RecoveryScope + " span verified stable. Graphics-reset recovery is armed. Restore Window or Pause Monitor cancels it.");
+                    AddLog(RecoveryScope + " span verified stable. Graphics-reset recovery is armed. Restore Window or Pause background monitoring in the tray menu cancels it.");
                 if (wasRearming && !recovery.Rearming && !recovery.Spent)
                     AddLog(RecoveryScope + " recovery re-armed after verified stability and cooldown. Limit: 3 automatic recoveries per 5 minutes.");
                 if (!shouldRecover)
@@ -7026,7 +7394,11 @@ namespace Offhand.Companion
             {
                 try
                 {
+#if UI_PREVIEW
+                    instanceMutex = new System.Threading.Mutex(true, @"Local\OffhandCompanionDashboardPreview", out ownsInstance);
+#else
                     instanceMutex = new System.Threading.Mutex(true, @"Local\OffhandCompanion", out ownsInstance);
+#endif
                 }
                 catch (System.Threading.AbandonedMutexException)
                 {

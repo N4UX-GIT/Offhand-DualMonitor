@@ -1567,7 +1567,8 @@ function Mainhand:PromptReload()
         timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
     }
     StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD = dialog
-    if NativeGamepadInterface() then
+    if NativeGamepadInterface() or (InCombatLockdown and InCombatLockdown())
+        or not Offhand:GetReloadUIFunction() then
         -- Forever blocks addon calls to Reload while its Gamepad interface owns
         -- the input stack, even from an addon-owned hardware-click button. Do
         -- not attempt the protected call. The player can safely type /reload.
@@ -1584,7 +1585,12 @@ function Mainhand:PromptReload()
         dialog.button1 = RELOADUI or "Reload UI"
         dialog.button2 = LATER or "Later"
         dialog.OnAccept = function()
-            if ReloadUI then ReloadUI() end
+            if NativeGamepadInterface() or (InCombatLockdown and InCombatLockdown()) then
+                Mainhand:PromptReload()
+                return
+            end
+            local reload = Offhand:GetReloadUIFunction()
+            if reload then reload() else Mainhand:PromptReload() end
         end
     end
     Offhand:ShowPopup("OFFHAND_MAINHAND_LAYOUT_RELOAD")

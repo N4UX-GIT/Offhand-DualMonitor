@@ -69,6 +69,10 @@ try {
         throw 'Portable archive contents differ from the frozen runtime.'
     }
 } finally { $portable.Dispose() }
+if ($HistoricalArtifactsOnly) {
+    Write-Output 'PASS: historical Companion receipt/EXE/ZIP; current add-on source is not packaged.'
+    return
+}
 $paths = @(& git -C $root ls-files Core UI Locales) + @('Bindings.xml', 'CHANGELOG.md', 'LICENSE', 'README.md',
     'Media/OffhandLogo512x512.blp', 'Media/OffhandLogo64x64.blp',
     'Offhand.toc', 'Offhand_Classic.toc', 'Offhand_Forever.toc', 'Offhand_Mainline.toc', 'Offhand_Vanilla.toc', 'Offhand_Wrath335a.toc')

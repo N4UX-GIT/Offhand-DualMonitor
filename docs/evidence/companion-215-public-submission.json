@@ -1,0 +1,27 @@
+{
+  "recordedUtc": "2026-11-09T02:47:22.3084905Z",
+  "productId": "9PL4PW84Q90W",
+  "submissionNumber": 6,
+  "submissionId": "1152921505702348834",
+  "version": "2.1.5",
+  "fileVersion": "2.1.5.1",
+  "packageVersion": "2.1.500.0",
+  "sourceCommit": "7bc07a60113c7c990067d5fd86215ace310399cc",
+  "msixSha256": "9AD0A4F561C27A750885E8030B5E72DFC4FBD80DF8CD507FEB26FB1D335B71CA",
+  "exeSha256": "95811DBB7020A20E2541AE123E69FE80721C83A0FD52D0EE5557DD6D54DCCC2A",
+  "status": "In certification; submission complete, pre-processing in progress",
+  "publication": "Automatic after certification",
+  "publicAvailabilityConfirmed": false,
+  "publisherDecision": "Proceed publicly without waiting for private-flight acceptance; outstanding observations remain unverified",
+  "listingVerified": true,
+  "certificationNotesSavedVerified": true,
+  "pricingAvailabilityCapabilitiesUnchanged": true,
+  "githubAddonPublished": false,
+  "proof": "dist/companion-215-public-submission/store-submitted.png",
+  "limitations": [
+    "Store-delivered 2.1.5 upgrade not yet observed",
+    "Real Available response not yet observed",
+    "Real signed-out/offline failure not yet observed",
+    "Windows 10/Wine runtime acceptance not observed"
+  ]
+}
