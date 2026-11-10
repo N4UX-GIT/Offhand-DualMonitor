@@ -456,6 +456,9 @@ namespace Offhand.Companion
                 var overlay=One<Panel>(form,panel=>panel.AccessibleName=="Companion tutorial");
                 var card=One<Panel>(overlay,panel=>panel.AccessibleName=="Tutorial explanation");
                 var highlight=(Rectangle)overlay.GetType().GetField("Highlight",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).GetValue(overlay);
+                var snapshot=(Bitmap)overlay.GetType().GetField("Snapshot",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).GetValue(overlay);
+                if(snapshot.GetPixel(0,0).ToArgb()!=form.BackColor.ToArgb())
+                    throw new Exception("Tutorial snapshot included non-client window borders/title bar.");
                 if(highlight.IsEmpty||!overlay.ClientRectangle.Contains(highlight))
                     throw new Exception("Tutorial target was not brought into view at step "+step);
                 if(!overlay.ClientRectangle.Contains(card.Bounds) || form.Bounds!=bounds || viewport.Enabled)

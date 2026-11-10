@@ -5907,7 +5907,11 @@ namespace Offhand.Companion
                 overlay.UiScale = scale;
                 overlay.Highlight = target;
                 var image = new Bitmap(ClientSize.Width,ClientSize.Height);
-                try { DrawToBitmap(image,new Rectangle(Point.Empty,ClientSize)); }
+                try {
+                    using (var graphics = Graphics.FromImage(image)) graphics.Clear(BackColor);
+                    dashboardScroll.DrawToBitmap(image,dashboardScroll.Bounds);
+                    dashboardFooter.DrawToBitmap(image,dashboardFooter.Bounds);
+                }
                 catch { image.Dispose(); throw; }
                 if (overlay.Snapshot != null) overlay.Snapshot.Dispose();
                 overlay.Snapshot = image;
