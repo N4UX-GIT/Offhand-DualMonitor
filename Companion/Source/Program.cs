@@ -4217,6 +4217,7 @@ namespace Offhand.Companion
         private Button btnUseStandardLayout;
         private Panel configurationPanel, diagnosticsPanel, activityPanel, setupGuide;
         private TableLayoutPanel dashboardNavigation;
+        private TableLayoutPanel dashboardActions;
         private Button setupTab, advancedTab;
         private Label[] setupGuideSteps;
         private bool advancedPage;
@@ -5803,7 +5804,7 @@ namespace Offhand.Companion
             var actionRow = DashboardButtonRow(actions, DashboardActionHeight);
             actionRow.ColumnStyles[0].Width = 64;
             actionRow.ColumnStyles[1].Width = 36;
-            var actionPanel = new TableLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            var actionPanel = dashboardActions = new TableLayoutPanel { AutoSize = false, Height = 100,
                 ColumnCount = 2, RowCount = 2, Margin = Padding.Empty, Padding = Padding.Empty, BackColor = cBg };
             actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 64));
             actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36));
@@ -6072,6 +6073,22 @@ namespace Offhand.Companion
                         bottom = Math.Max(bottom, link.Bottom);
                     }
                     dashboardHeader.Height = bottom + inset;
+                }
+                if (dashboardActions != null) {
+                    int captionHeight = 0;
+                    for (int column = 0; column < 2; column++) {
+                        var caption = (Label)dashboardActions.GetControlFromPosition(column, 1);
+                        caption.AutoSize = false;
+                        int height = TextRenderer.MeasureText(caption.Text, caption.Font,
+                            new Size(Math.Max(1, caption.Width), int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix).Height;
+                        captionHeight = Math.Max(captionHeight, height + caption.Margin.Vertical);
+                    }
+                    int actionsHeight = (int)Math.Ceiling(DashboardActionHeight * scale);
+                    dashboardActions.RowStyles[0].SizeType = SizeType.Absolute;
+                    dashboardActions.RowStyles[0].Height = actionsHeight;
+                    dashboardActions.RowStyles[1].SizeType = SizeType.Absolute;
+                    dashboardActions.RowStyles[1].Height = captionHeight;
+                    dashboardActions.Height = actionsHeight + captionHeight;
                 }
                 foreach (var section in dashboardSections.Values)
                 {

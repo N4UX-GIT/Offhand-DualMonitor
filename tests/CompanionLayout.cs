@@ -372,6 +372,8 @@ namespace Offhand.Companion
 
         private static void CheckActionGuidance(CompanionForm form)
         {
+            int requiredBottom = 0;
+            Control actionPanel = null;
             foreach (var pair in new[] { new[] { "Span WoW Now", "Span guidance" }, new[] { "Restore Window", "Restore guidance" } })
             {
                 var button = One<Button>(form, item => item.Text == pair[0]);
@@ -384,9 +386,13 @@ namespace Offhand.Companion
                     throw new Exception("Action guidance must align below its own button: " + pair[0]);
                 Size measured = TextRenderer.MeasureText(hint.Text, hint.Font, new Size(hint.Width, int.MaxValue),
                     TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
+                requiredBottom = Math.Max(requiredBottom, buttonBounds.Bottom + hint.Margin.Vertical + measured.Height);
+                actionPanel = hint.Parent;
                 if (measured.Height > hint.Height || hint.Right > hint.Parent.ClientSize.Width)
                     throw new Exception("Action guidance is clipped: " + pair[0]);
             }
+            if (Math.Abs(actionPanel.Height - requiredBottom) > 2)
+                throw new Exception("Action captions must not leave excess blank space below the buttons.");
         }
 
         private static void CheckNavigation(CompanionForm form, Panel config, Panel advanced, float factor)
