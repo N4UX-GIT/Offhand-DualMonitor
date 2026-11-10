@@ -60,7 +60,7 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyVersion("2.1.5.0")]
 #endif
 #if UI_PREVIEW
-[assembly: AssemblyFileVersion("2.1.5.8004")]
+[assembly: AssemblyFileVersion("2.1.5.8005")]
 [assembly: AssemblyInformationalVersion("2.1.5")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
@@ -4115,7 +4115,7 @@ namespace Offhand.Companion
         internal const string BaseVersion = "2.1.5";
 #endif
 #if UI_PREVIEW
-        internal const string ReleaseLabel = "UI Preview 4";
+        internal const string ReleaseLabel = "UI Preview 5";
         internal static readonly bool GraphicsRecoveryEnabled = false;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
@@ -5761,7 +5761,8 @@ namespace Offhand.Companion
             setupTab.Click += (sender, args) => SelectDashboardPage(false);
             advancedTab.Click += (sender, args) => SelectDashboardPage(true);
             foreach (Button tab in new[] { setupTab, advancedTab }) {
-                tab.FlatAppearance.BorderSize = 0;
+                tab.FlatAppearance.BorderSize = 1;
+                tab.FlatAppearance.BorderColor = Color.FromArgb(43, 43, 49);
                 tab.FlatAppearance.MouseOverBackColor = Color.FromArgb(24, 24, 28);
                 tab.FlatAppearance.MouseDownBackColor = Color.FromArgb(29, 29, 33);
                 tab.Paint += (sender, args) => {
@@ -5812,11 +5813,11 @@ namespace Offhand.Companion
             actionPanel.SetColumnSpan(actionRow, 2);
             actionPanel.Controls.Add(new Label { AutoSize = true, Dock = DockStyle.Fill,
                 Margin = new Padding(0, 6, 10, 0), ForeColor = cMuted, Font = new Font("Segoe UI", 8.5f),
-                Text = "Apply layout, then type /reload in WoW.", AccessibleName = "Span guidance",
+                Text = "Place WoW across the selected game and workspace areas.\r\nThen type /reload in WoW.", AccessibleName = "Span guidance",
                 UseMnemonic = false }, 0, 1);
             actionPanel.Controls.Add(new Label { AutoSize = true, Dock = DockStyle.Fill,
                 Margin = new Padding(0, 6, 0, 0), ForeColor = cMuted, Font = new Font("Segoe UI", 8.5f),
-                Text = "Return to the previous window.", AccessibleName = "Restore guidance",
+                Text = "Stop spanning and return WoW to a normal window.", AccessibleName = "Restore guidance",
                 UseMnemonic = false }, 1, 1);
             foreach (Control item in new Control[] { header, dashboardNavigation, actionPanel, status, config, setupGuide, advanced, diagnostics, log })
             {

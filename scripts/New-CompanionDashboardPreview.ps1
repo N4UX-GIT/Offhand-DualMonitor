@@ -27,14 +27,14 @@ $options = @('/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', '/de
 & $compiler @options @files
 if ($LASTEXITCODE -ne 0) { throw 'Dashboard preview compilation failed.' }
 $identity = [Diagnostics.FileVersionInfo]::GetVersionInfo($binary)
-if ($identity.FileVersion -ne '2.1.5.8004' -or $identity.ProductVersion -ne '2.1.5') {
+if ($identity.FileVersion -ne '2.1.5.8005' -or $identity.ProductVersion -ne '2.1.5') {
     throw 'Unexpected dashboard preview identity.'
 }
 @('AutoSpan=False', 'DashboardCollapsed.SystemStatus=True',
     'DashboardCollapsed.DisplayDiagnostics=True', 'DashboardCollapsed.ActivityLog=True') |
     Set-Content -LiteralPath (Join-Path $output 'DashboardPreviewConfig.ini') -Encoding UTF8
 @'
-Offhand Companion UI Preview 4, local build 2.1.5.8004. Unpublished.
+Offhand Companion UI Preview 5, local build 2.1.5.8005. Unpublished.
 
 Run Offhand.exe to review the updated dashboard. It can coexist with the regular
 Companion. Preferences stay in DashboardPreviewConfig.ini beside this EXE;
@@ -46,7 +46,9 @@ layout-specific guidance. Advanced contains workspace layout/profiles, standard
 layout reset, Auto-span, diagnostics and the log. Its tab indicates an active
 custom layout. New two-monitor plans start with the full Offhand display; saved
 areas are preserved. Switching tabs only changes navigation. Navigation now uses
-quiet underlined tabs, with Span as the primary action. The branded header shows
+quiet underlined tabs with subtle neutral borders. Span remains the primary
+action. Action captions describe the selected game/workspace placement and
+reload step, or returning WoW to a normal window. The branded header shows
 the detected addon version from the running client files, plus the N4UX credit.
 First-time guidance follows the addon guide and calibration prompts.
 

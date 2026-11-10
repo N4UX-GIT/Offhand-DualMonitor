@@ -376,6 +376,9 @@ namespace Offhand.Companion
             {
                 var button = One<Button>(form, item => item.Text == pair[0]);
                 var hint = One<Label>(form, item => item.AccessibleName == pair[1]);
+                if (pair[0] == "Span WoW Now" ? !hint.Text.Contains("game and workspace areas") || !hint.Text.Contains("/reload")
+                    : !hint.Text.Contains("Stop spanning") || !hint.Text.Contains("normal window"))
+                    throw new Exception("Action caption must explain the result and any next step: " + pair[0]);
                 Rectangle buttonBounds = BoundsInside(button, hint.Parent);
                 if (Math.Abs(buttonBounds.Left - hint.Left) > 1 || Math.Abs(buttonBounds.Width - hint.Width) > 1 || hint.Top <= buttonBounds.Bottom)
                     throw new Exception("Action guidance must align below its own button: " + pair[0]);
@@ -397,8 +400,9 @@ namespace Offhand.Companion
             var setup = One<Button>(form, button => button.AccessibleName == "Setup tab");
             var advancedTab = One<Button>(form, button => button.AccessibleName == "Advanced tab");
             var guide = One<Panel>(form, panel => panel.AccessibleName == "Apply your layout guide");
-            if (setup.FlatAppearance.BorderSize != 0 || advancedTab.FlatAppearance.BorderSize != 0 ||
-                setup.BackColor != advancedTab.BackColor)
+            if (setup.FlatAppearance.BorderSize != 1 || advancedTab.FlatAppearance.BorderSize != 1 ||
+                setup.FlatAppearance.BorderColor != Color.FromArgb(43,43,49) ||
+                advancedTab.FlatAppearance.BorderColor != setup.FlatAppearance.BorderColor || setup.BackColor != advancedTab.BackColor)
                 throw new Exception("Navigation must remain visually separate from primary action buttons.");
             string guidance = string.Join(" ", guide.Controls.OfType<Label>().Select(label => label.Text));
             foreach (string required in new[] { "Windowed (Fullscreen)", "log into a character", "/reload", "/offhand guide",

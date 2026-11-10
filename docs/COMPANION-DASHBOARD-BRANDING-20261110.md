@@ -32,3 +32,11 @@ Installed preference hashes remain unchanged. Frozen prepared 2.1.5 EXE/ZIP hash
 
 - Preview EXE SHA256: `034AD815399F10C28033D77CA549A4A5A4393292D66EF64A76809D238B9EAFB6`.
 - Preview ZIP SHA256: `62CDD37A4B26E8C8EE26746B5EDA18204BEA0668175E3920F427A111D5E5B11D`.
+
+## UI Preview 5 refinement
+
+The owner approved the quieter tabs and requested a subtle boundary plus more useful Span/Restore captions. Both tabs now have the same 1px neutral charcoal border, preserving the selected underline and unfilled background. This distinguishes navigation targets without giving them the primary action's gold outline.
+
+Span caption: `Place WoW across the selected game and workspace areas.` followed by `Then type /reload in WoW.` Restore caption: `Stop spanning and return WoW to a normal window.` The latter describes both remembered-bound and fallback restoration; `InvokeRestoreWindow` explicitly restores caption/thick-frame styles and uses a fitted default when no previous bounds are available. No window behavior changes.
+
+This remains an unpublished local preview: product 2.1.5 UI Preview 5, file 2.1.5.8005. Preference/layout tests check caption meaning, wrapping and alignment below each action plus subtle equal tab borders at the existing scale/width matrix. The original guide, detected addon metadata, branding, keyboard access and frozen release boundaries remain in place.
