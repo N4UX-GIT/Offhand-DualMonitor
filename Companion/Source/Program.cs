@@ -60,7 +60,7 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyVersion("2.1.5.0")]
 #endif
 #if UI_PREVIEW
-[assembly: AssemblyFileVersion("2.1.5.8005")]
+[assembly: AssemblyFileVersion("2.1.5.8006")]
 [assembly: AssemblyInformationalVersion("2.1.5")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
@@ -4115,7 +4115,7 @@ namespace Offhand.Companion
         internal const string BaseVersion = "2.1.5";
 #endif
 #if UI_PREVIEW
-        internal const string ReleaseLabel = "UI Preview 5";
+        internal const string ReleaseLabel = "UI Preview 6";
         internal static readonly bool GraphicsRecoveryEnabled = false;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
@@ -4215,12 +4215,64 @@ namespace Offhand.Companion
         private Label lblHeaderTitle, lblHeaderTagline, lblHeaderSubtitle;
         private Panel advancedPanel;
         private Button btnUseStandardLayout;
-        private Panel configurationPanel, diagnosticsPanel, activityPanel, setupGuide;
+        private Panel configurationPanel, diagnosticsPanel, activityPanel;
         private TableLayoutPanel dashboardNavigation;
-        private TableLayoutPanel dashboardActions;
         private Button setupTab, advancedTab;
-        private Label[] setupGuideSteps;
         private bool advancedPage;
+        private TutorialOverlay tutorialOverlay;
+        private List<TutorialStep> tutorialSteps;
+        private int tutorialIndex;
+        private bool tutorialRendering, tutorialPreviousPage;
+        private Point tutorialPreviousScroll;
+        private Control tutorialPreviousFocus;
+        private IButtonControl tutorialPreviousAccept;
+        private Dictionary<Panel, bool> tutorialSections;
+        private Panel tutorialCard;
+        private Label tutorialProgress, tutorialTitle, tutorialBody;
+        private Button tutorialBack, tutorialNext, tutorialSkip;
+        private sealed class TutorialStep
+        {
+            internal string Title, Body;
+            internal Control Target;
+            internal bool Advanced;
+            internal TutorialStep(string title, string body, Control target, bool advanced = false)
+            { Title = title; Body = body; Target = target; Advanced = advanced; }
+        }
+        private sealed class TutorialOverlay : Panel
+        {
+            internal Bitmap Snapshot;
+            internal Rectangle Highlight;
+            internal float UiScale = 1;
+            internal TutorialOverlay()
+            {
+                DoubleBuffered = true;
+                BackColor = Color.FromArgb(12, 12, 15);
+                AccessibleName = "Companion tutorial";
+            }
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                if (Snapshot != null) e.Graphics.DrawImageUnscaled(Snapshot, Point.Empty);
+                using (var shade = new SolidBrush(Color.FromArgb(190, 0, 0, 0))) {
+                    if (Highlight.IsEmpty) e.Graphics.FillRectangle(shade, ClientRectangle);
+                    else {
+                        var r = Highlight;
+                        e.Graphics.FillRectangle(shade, 0, 0, Width, Math.Max(0,r.Top));
+                        e.Graphics.FillRectangle(shade, 0, r.Bottom, Width, Math.Max(0,Height-r.Bottom));
+                        e.Graphics.FillRectangle(shade, 0, r.Top, Math.Max(0,r.Left), r.Height);
+                        e.Graphics.FillRectangle(shade, r.Right, r.Top, Math.Max(0,Width-r.Right), r.Height);
+                    }
+                }
+                if (!Highlight.IsEmpty)
+                    using (var pen = new Pen(Color.FromArgb(255, 189, 10), Math.Max(2,2*UiScale)))
+                        e.Graphics.DrawRectangle(pen, Highlight.X, Highlight.Y, Math.Max(1,Highlight.Width-1), Math.Max(1,Highlight.Height-1));
+                base.OnPaint(e);
+            }
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing && Snapshot != null) { Snapshot.Dispose(); Snapshot = null; }
+                base.Dispose(disposing);
+            }
+        }
         private const int DashboardActionHeight = 44;
         private sealed class DashboardSection
         {
@@ -5090,6 +5142,9 @@ namespace Offhand.Companion
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
+            if (IsHandleCreated && Visible && TutorialNeeded(appSettings)) BeginInvoke(new Action(() => {
+                if (!IsDisposed && Visible && !uiInteractionPaused) StartDashboardTutorial();
+            }));
             if (!StoreUpdateCheck.Eligible(isStorePackage) || storeUpdateTimer != null) return;
             string build = ((AssemblyFileVersionAttribute)Attribute.GetCustomAttribute(
                 typeof(CompanionForm).Assembly, typeof(AssemblyFileVersionAttribute))).Version;
@@ -5713,6 +5768,7 @@ namespace Offhand.Companion
 
             this.FormClosing += (s, e) =>
             {
+                if (tutorialOverlay != null) EndDashboardTutorial(!isExplicitExit);
                 if (!isExplicitExit && e.CloseReason == CloseReason.UserClosing)
                 {
                     e.Cancel = true;
@@ -5722,6 +5778,188 @@ namespace Offhand.Companion
                 }
             };
             this.ResumeLayout(false);
+        }
+
+        internal static bool TutorialNeeded(Dictionary<string, string> settings)
+        {
+            string value;
+            bool seen;
+            return !settings.TryGetValue("CompanionTutorialSeen", out value) || !bool.TryParse(value, out seen) || !seen;
+        }
+
+        private List<TutorialStep> CreateTutorialSteps()
+        {
+            Button restore = (Button)((TableLayoutPanel)btnSpanNow.Parent).GetControlFromPosition(1,0);
+            return new List<TutorialStep> {
+                new TutorialStep("Welcome to Offhand Companion", "This tour introduces the controls without changing your settings or resizing WoW. Use Next and Back to explore, or Skip tour at any time. The header links open the website, Discord and CurseForge; the version line identifies this Companion and the detected addon files.", dashboardHeader),
+                new TutorialStep("Choose your displays", IsCustomSelection()
+                    ? "A custom layout is saved, so these standard controls are locked. Later in this tour, Advanced shows where to edit that layout or return to the standard display layout. Identify Displays shows monitor numbers on your desktop."
+                    : "For two monitors, check both screens under Span displays. Identify Displays briefly shows the screen numbers so you can match them to your desk. This tour does not change the checked screens.", clbMonitors.Parent),
+                new TutorialStep("Choose Mainhand", "Mainhand is the monitor for the 3D game view and combat UI. The other selected monitor becomes the Offhand workspace for maps, bags and supported panels. After changing the layout, use Span WoW Now and reload the WoW UI.", cmbMainhand),
+                new TutorialStep("One ultrawide monitor", "Use Single-display 32:9 split only for an equal game/workspace split on one 32:9 or 32:10 ultrawide. Check only that display and choose Game side. Leave this option off for the usual two-monitor setup. Advanced has custom layouts for other arrangements.", chkSingleSplit.Parent),
+                new TutorialStep("Apply the layout to WoW", "Enable the Offhand addon, log into a character, and use WoW's Windowed mode rather than Windowed (Fullscreen). Span WoW Now places the game window across your selected game and workspace areas. Then type /reload in WoW. This tour will not press Span for you.", btnSpanNow),
+                new TutorialStep("Return to a normal window", "Restore Window stops spanning and returns WoW to a normal, resizable window. It uses the previous size and position when remembered, otherwise a fitted default. Automatic spanning pauses for that WoW session until you use Span WoW Now again.", restore),
+                new TutorialStep("Check System Status", "The compact status reports WoW, addon-file detection and display-layout problems. Show opens the details and next steps. An installed addon file does not confirm that WoW has enabled it. The Companion cannot confirm that you completed the in-game setup.", lblStatusSummary.Parent),
+                new TutorialStep("Advanced is optional", "Setup covers ordinary display selection. Advanced contains custom workspace layouts, saved profiles, automatic spanning and troubleshooting. Switching tabs only changes what you see; it does not change the saved display plan.", advancedTab),
+                new TutorialStep("Custom workspace areas", "Workspace layout lets you choose custom areas instead of using whole screens. New two-monitor plans start with the full Offhand monitor. Save plan keeps settings; Span WoW Now applies them. Use standard display layout turns custom workspaces off after you review the display selection.", advancedPanel, true),
+                new TutorialStep("Reuse workspace profiles", "Workspace profiles saves and loads named Multiple workspaces plans. Loading a profile selects settings; it does not resize WoW. Save your changes, then use Span WoW Now and /reload to apply the chosen plan.", btnWorkspaceProfiles, true),
+                new TutorialStep("Automatic spanning", "Auto-span WoW on launch is optional and off by default. For a standard local display plan, its delay gives WoW time to open before the Companion applies the layout. Custom layouts require a manual Span. " + (GraphicsRecoveryTestBuild ? "Automatic spanning is disabled in this local preview." : "Enable it only after you have tested your layout manually."), chkAutoSpan.Parent, true),
+                new TutorialStep("Display troubleshooting", "Display Diagnostics describes detected color and Windows scaling modes. Expand it when troubleshooting. Copy Display Diagnostics provides a report you can share with support; Display Troubleshooting opens related Help guidance.", diagnosticsPanel, true),
+                new TutorialStep("Activity log", "Activity Log records detailed checks, file paths and errors. Expand it when something goes wrong. The log can help identify an addon installation or settings problem; it does not confirm that the addon is enabled in WoW.", activityPanel, true),
+                new TutorialStep("Updates", isStorePackage ? "Microsoft Store manages this installation. Companion quietly checks for an available update and changes this button when one is found. Use it to open the Store; downloads and installation stay under Store control." : "This portable build checks GitHub only when you press Check for Updates. It opens the official download when an update is available. Store installations use Microsoft Store instead.", btnCheckUpdates),
+                new TutorialStep("Tray and exit", "Minimize to Tray keeps Companion available. The title-bar X also minimizes to the tray. Exit Companion closes it and leaves the current WoW window in place. The tray menu offers background-monitoring controls; Restore Window remains available while Companion runs.", dashboardFooter),
+                new TutorialStep("Finish setup in WoW", "This Companion tour is not game calibration. In WoW, type /offhand guide and choose Companion. Follow Reload UI, Confirm placement and Start Calibration, then any Create Mainhand HUD Layout and reload prompts. You can replay this tour any time from Help > Start Companion tutorial.", dashboardHeader.Controls[dashboardHeader.Controls.Count-1])
+            };
+        }
+
+        internal void StartDashboardTutorial()
+        {
+            if (tutorialOverlay != null || IsDisposed || uiInteractionPaused) return;
+            tutorialPreviousPage = advancedPage;
+            tutorialPreviousScroll = new Point(-dashboardScroll.AutoScrollPosition.X, -dashboardScroll.AutoScrollPosition.Y);
+            tutorialPreviousFocus = ActiveControl;
+            tutorialPreviousAccept = AcceptButton;
+            tutorialSections = new Dictionary<Panel,bool>();
+            foreach (var section in dashboardSections.Values) tutorialSections[section.Panel] = section.Expanded;
+            SuspendUiPolling();
+            foreach (var section in dashboardSections.Values)
+                if (section.CanCollapse) SetDashboardSectionExpanded(section.Panel, false, false);
+            tutorialSteps = CreateTutorialSteps();
+            tutorialIndex = 0;
+            tutorialOverlay = new TutorialOverlay();
+            tutorialCard = new Panel { BackColor = cCard, AccessibleName = "Tutorial explanation" };
+            tutorialCard.Paint += (sender,args) => {
+                using (var pen = new Pen(cBorderDim)) args.Graphics.DrawRectangle(pen,0,0,tutorialCard.Width-1,tutorialCard.Height-1);
+            };
+            tutorialProgress = new Label { ForeColor = cMuted, Font = new Font("Segoe UI",8.5f), UseMnemonic = false };
+            tutorialTitle = new Label { ForeColor = cGoldBright, Font = new Font("Segoe UI",11,FontStyle.Bold), UseMnemonic = false };
+            tutorialBody = new Label { ForeColor = cText, Font = new Font("Segoe UI",9), UseMnemonic = false };
+            tutorialBack = CreateButton("Back",0,0,76,32,cBtnBg,cText,cBorderDim);
+            tutorialNext = CreateButton("Next",0,0,92,32,cBtnPrimaryBg,cGoldBright,cGold);
+            tutorialSkip = CreateButton("Skip tour",0,0,86,32,cBtnBg,cText,cBorderDim);
+            tutorialBack.Click += (sender,args) => MoveDashboardTutorial(-1);
+            tutorialNext.Click += (sender,args) => MoveDashboardTutorial(1);
+            tutorialSkip.Click += (sender,args) => EndDashboardTutorial(true);
+            tutorialCard.Controls.AddRange(new Control[] { tutorialProgress,tutorialTitle,tutorialBody,tutorialSkip,tutorialBack,tutorialNext });
+            tutorialOverlay.Controls.Add(tutorialCard);
+            AcceptButton = tutorialNext;
+            RenderDashboardTutorial();
+        }
+
+        internal void MoveDashboardTutorial(int direction)
+        {
+            if (tutorialOverlay == null) return;
+            if (direction > 0 && tutorialIndex == tutorialSteps.Count-1) { EndDashboardTutorial(true); return; }
+            tutorialIndex = Math.Max(0,Math.Min(tutorialSteps.Count-1,tutorialIndex+direction));
+            RenderDashboardTutorial();
+        }
+
+        internal void EndDashboardTutorial(bool remember)
+        {
+            if (tutorialOverlay == null) return;
+            var overlay = tutorialOverlay;
+            tutorialOverlay = null;
+            Controls.Remove(overlay);
+            dashboardScroll.Enabled = dashboardFooter.Enabled = true;
+            if (trayIcon != null && trayIcon.ContextMenuStrip != null) trayIcon.ContextMenuStrip.Enabled = true;
+            AcceptButton = tutorialPreviousAccept;
+            foreach (var section in tutorialSections) SetDashboardSectionExpanded(section.Key,section.Value,false);
+            SelectDashboardPage(tutorialPreviousPage);
+            dashboardScroll.AutoScrollPosition = tutorialPreviousScroll;
+            overlay.Dispose();
+            if (tutorialPreviousFocus != null && !tutorialPreviousFocus.IsDisposed && tutorialPreviousFocus.CanFocus) tutorialPreviousFocus.Focus();
+            if (remember) { appSettings["CompanionTutorialSeen"] = "True"; SaveConfig(); }
+            ResumeUiPolling();
+        }
+
+        private Rectangle TutorialBounds(Control target)
+        {
+            int x = 0, y = 0;
+            Control current = target;
+            while (current != null && current != this) {
+                x += current.Left;
+                y += current.Top;
+                current = current.Parent;
+            }
+            return current == this ? new Rectangle(x,y,target.Width,target.Height) : Rectangle.Empty;
+        }
+
+        internal void RenderDashboardTutorial()
+        {
+            if (tutorialOverlay == null || tutorialRendering || ClientSize.Width < 1 || ClientSize.Height < 1) return;
+            tutorialRendering = true;
+            try {
+                var overlay = tutorialOverlay;
+                Controls.Remove(overlay);
+                dashboardScroll.Enabled = dashboardFooter.Enabled = true;
+                var step = tutorialSteps[tutorialIndex];
+                SelectDashboardPage(step.Advanced);
+                LayoutDashboardCards();
+                Rectangle target = TutorialBounds(step.Target);
+                if (dashboardScroll.Contains(step.Target) && (target.Top < dashboardScroll.Top || target.Bottom > dashboardScroll.Bottom)) {
+                    int position = -dashboardScroll.AutoScrollPosition.Y;
+                    dashboardScroll.AutoScrollPosition = new Point(0,Math.Max(0,position+target.Top-dashboardScroll.Top-12));
+                    target = TutorialBounds(step.Target);
+                }
+                target.Intersect(ClientRectangle);
+                float scale = btnSpanNow.Height/(float)DashboardActionHeight;
+                int inset = (int)Math.Ceiling(14*scale), gap = (int)Math.Ceiling(10*scale);
+                overlay.UiScale = scale;
+                overlay.Highlight = target;
+                var image = new Bitmap(ClientSize.Width,ClientSize.Height);
+                try { DrawToBitmap(image,new Rectangle(Point.Empty,ClientSize)); }
+                catch { image.Dispose(); throw; }
+                if (overlay.Snapshot != null) overlay.Snapshot.Dispose();
+                overlay.Snapshot = image;
+                dashboardScroll.Enabled = dashboardFooter.Enabled = false;
+                if (trayIcon != null && trayIcon.ContextMenuStrip != null) trayIcon.ContextMenuStrip.Enabled = false;
+                overlay.Bounds = ClientRectangle;
+                tutorialProgress.Text = "COMPANION TUTORIAL  " + (tutorialIndex+1) + " / " + tutorialSteps.Count;
+                tutorialTitle.Text = step.Title;
+                tutorialBody.Text = step.Body;
+                int width = Math.Min((int)Math.Ceiling(440*scale),ClientSize.Width-2*gap);
+                int textWidth = Math.Max(1,width-2*inset), y = inset;
+                foreach (Label label in new[] { tutorialProgress,tutorialTitle,tutorialBody }) {
+                    int height = TextRenderer.MeasureText(label.Text,label.Font,new Size(textWidth,int.MaxValue),TextFormatFlags.WordBreak|TextFormatFlags.NoPrefix).Height;
+                    label.SetBounds(inset,y,textWidth,height);
+                    y += height+gap;
+                }
+                int buttonHeight = (int)Math.Ceiling(32*scale), buttonGap = (int)Math.Ceiling(8*scale);
+                int nextWidth = (int)Math.Ceiling(92*scale), backWidth = (int)Math.Ceiling(76*scale), skipWidth = (int)Math.Ceiling(86*scale);
+                tutorialSkip.SetBounds(inset,y,skipWidth,buttonHeight);
+                tutorialNext.SetBounds(width-inset-nextWidth,y,nextWidth,buttonHeight);
+                tutorialBack.SetBounds(tutorialNext.Left-buttonGap-backWidth,y,backWidth,buttonHeight);
+                tutorialBack.Enabled = tutorialIndex > 0;
+                tutorialNext.Text = tutorialIndex == tutorialSteps.Count-1 ? "Finish" : "Next";
+                int heightCard = y+buttonHeight+inset;
+                int left = Math.Max(gap,Math.Min(ClientSize.Width-width-gap,target.Left+(target.Width-width)/2));
+                int top = target.Bottom+gap;
+                if (top+heightCard > ClientSize.Height-gap) top = target.Top-gap-heightCard;
+                top = Math.Max(gap,Math.Min(top,ClientSize.Height-gap-heightCard));
+                tutorialCard.SetBounds(left,top,width,heightCard);
+                overlay.AccessibleDescription = tutorialProgress.Text + ". " + step.Title + ". " + step.Body;
+                Controls.Add(overlay);
+                overlay.BringToFront();
+                overlay.Invalidate();
+                tutorialNext.Focus();
+            }
+            catch (Exception ex) {
+                EndDashboardTutorial(false);
+                AddLog("The Companion tutorial could not be displayed. Open Help to try again. " + ex.Message);
+            }
+            finally { tutorialRendering = false; }
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (tutorialOverlay != null && keyData == Keys.Escape) { EndDashboardTutorial(true); return true; }
+            return base.ProcessCmdKey(ref msg,keyData);
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            if (tutorialOverlay != null) RenderDashboardTutorial();
         }
 
         private TableLayoutPanel DashboardButtonRow(Control[] buttons, int height)
@@ -5786,16 +6024,6 @@ namespace Offhand.Companion
             }
             dashboardNavigation.Controls.Add(setupTab, 0, 0);
             dashboardNavigation.Controls.Add(advancedTab, 1, 0);
-            setupGuide = new Panel { BackColor = cCard, Height = 230, AccessibleName = "Apply your layout guide" };
-            setupGuide.Controls.Add(new Label { Text = "APPLY YOUR LAYOUT", ForeColor = cGold,
-                Font = new Font("Segoe UI", 9, FontStyle.Bold), Location = new Point(14, 12), Size = new Size(450, 22) });
-            setupGuideSteps = new Label[6];
-            for (int i = 0; i < setupGuideSteps.Length; i++) {
-                var step = new Label { AutoSize = false, ForeColor = i < 4 ? cText : cMuted,
-                    Font = new Font("Segoe UI", 9), UseMnemonic = false, AccessibleName = "Setup guidance " + (i + 1) };
-                setupGuideSteps[i] = step;
-                setupGuide.Controls.Add(step);
-            }
             dashboardScroll = new DashboardViewport { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(16, 10, 16, 6), BackColor = cBg };
             dashboardStack = new DashboardStack { Location = new Point(16, 10), AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 1, RowCount = 0,
@@ -5804,23 +6032,8 @@ namespace Offhand.Companion
             var actionRow = DashboardButtonRow(actions, DashboardActionHeight);
             actionRow.ColumnStyles[0].Width = 64;
             actionRow.ColumnStyles[1].Width = 36;
-            var actionPanel = dashboardActions = new TableLayoutPanel { AutoSize = false, Height = 100,
-                ColumnCount = 2, RowCount = 2, Margin = Padding.Empty, Padding = Padding.Empty, BackColor = cBg };
-            actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 64));
-            actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36));
-            actionPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            actionPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            actionPanel.Controls.Add(actionRow, 0, 0);
-            actionPanel.SetColumnSpan(actionRow, 2);
-            actionPanel.Controls.Add(new Label { AutoSize = true, Dock = DockStyle.Fill,
-                Margin = new Padding(0, 6, 10, 0), ForeColor = cMuted, Font = new Font("Segoe UI", 8.5f),
-                Text = "Place WoW across the selected game and workspace areas.\r\nThen type /reload in WoW.", AccessibleName = "Span guidance",
-                UseMnemonic = false }, 0, 1);
-            actionPanel.Controls.Add(new Label { AutoSize = true, Dock = DockStyle.Fill,
-                Margin = new Padding(0, 6, 0, 0), ForeColor = cMuted, Font = new Font("Segoe UI", 8.5f),
-                Text = "Stop spanning and return WoW to a normal window.", AccessibleName = "Restore guidance",
-                UseMnemonic = false }, 1, 1);
-            foreach (Control item in new Control[] { header, dashboardNavigation, actionPanel, status, config, setupGuide, advanced, diagnostics, log })
+            var actionPanel = actionRow;
+            foreach (Control item in new Control[] { header, dashboardNavigation, actionPanel, status, config, advanced, diagnostics, log })
             {
                 item.Dock = DockStyle.Top;
                 item.Margin = new Padding(0, 0, 0, 10);
@@ -5877,7 +6090,7 @@ namespace Offhand.Companion
             dashboardStack.SuspendLayout();
             try {
                 advancedPage = showAdvanced;
-                configurationPanel.Visible = setupGuide.Visible = !showAdvanced;
+                configurationPanel.Visible = !showAdvanced;
                 advancedPanel.Visible = diagnosticsPanel.Visible = activityPanel.Visible = showAdvanced;
                 UpdateDashboardNavigation();
                 dashboardScroll.AutoScrollPosition = Point.Empty;
@@ -5904,19 +6117,6 @@ namespace Offhand.Companion
                     ? "Workspace layouts, profiles, automatic spanning, diagnostics and activity log. " + (custom ? "Custom layout active." : "")
                     : "Display selection and setup guidance. Switching tabs does not change your saved layout.");
             }
-            setupGuideSteps[0].Text = custom
-                ? "1. Review your custom layout in Advanced > Workspace layout."
-                : chkSingleSplit.Checked ? "1. Select your ultrawide under Span displays and enable Single-display 32:9 split."
-                : "1. Choose your displays. Select both screens under Span displays.";
-            setupGuideSteps[1].Text = custom
-                ? "2. Check the game and workspace areas in the preview, then save your plan."
-                : chkSingleSplit.Checked ? "2. Choose Game side. The other half becomes your Offhand workspace."
-                : "2. Choose Mainhand (game). The other screen becomes your Offhand workspace.";
-            setupGuideSteps[2].Text = "3. Enable Offhand and log into a character. Choose Windowed mode, not Windowed (Fullscreen), then click Span WoW Now.";
-            setupGuideSteps[3].Text = "4. In WoW, type /reload after spanning or changing the layout.";
-            setupGuideSteps[4].Text = "First time? Type /offhand guide and choose Companion. Follow Reload UI, Confirm placement and Start Calibration. Complete calibration, then follow Create Mainhand HUD Layout and reload prompts when offered.";
-            setupGuideSteps[5].Text = "For custom workspace areas, saved profiles and automatic spanning, open Advanced.";
-            if (custom) setupGuideSteps[5].Text = "To turn off custom workspaces, open Advanced > Use standard display layout.";
             LayoutDashboardCards();
         }
 
@@ -6074,22 +6274,6 @@ namespace Offhand.Companion
                     }
                     dashboardHeader.Height = bottom + inset;
                 }
-                if (dashboardActions != null) {
-                    int captionHeight = 0;
-                    for (int column = 0; column < 2; column++) {
-                        var caption = (Label)dashboardActions.GetControlFromPosition(column, 1);
-                        caption.AutoSize = false;
-                        int height = TextRenderer.MeasureText(caption.Text, caption.Font,
-                            new Size(Math.Max(1, caption.Width), int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix).Height;
-                        captionHeight = Math.Max(captionHeight, height + caption.Margin.Vertical);
-                    }
-                    int actionsHeight = (int)Math.Ceiling(DashboardActionHeight * scale);
-                    dashboardActions.RowStyles[0].SizeType = SizeType.Absolute;
-                    dashboardActions.RowStyles[0].Height = actionsHeight;
-                    dashboardActions.RowStyles[1].SizeType = SizeType.Absolute;
-                    dashboardActions.RowStyles[1].Height = captionHeight;
-                    dashboardActions.Height = actionsHeight + captionHeight;
-                }
                 foreach (var section in dashboardSections.Values)
                 {
                     Panel panel = section.Panel;
@@ -6137,19 +6321,7 @@ namespace Offhand.Companion
                                 LayoutDashboardConfiguration(panel, (TableLayoutPanel)child, inset, scale);
                     }
                 }
-                if (setupGuide != null) {
-                    var title = (Label)setupGuide.Controls[0];
-                    title.SetBounds(inset, (int)Math.Ceiling(12 * scale), Math.Max(1, setupGuide.Width - 2 * inset), (int)Math.Ceiling(22 * scale));
-                    int y = (int)Math.Ceiling(42 * scale);
-                    foreach (Label step in setupGuideSteps) {
-                        int available = Math.Max(1, setupGuide.Width - 2 * inset);
-                        int height = TextRenderer.MeasureText(step.Text, step.Font, new Size(available, int.MaxValue),
-                            TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix).Height;
-                        step.SetBounds(inset, y, available, height);
-                        y += height + (int)Math.Ceiling(9 * scale);
-                    }
-                    setupGuide.Height = y - (int)Math.Ceiling(9 * scale) + inset;
-                }
+
             }
             finally
             {
@@ -6348,6 +6520,10 @@ namespace Offhand.Companion
             }
             else
             {
+                Button tutorial = CreateButton("Start Companion tutorial",0,0,220,32,cBtnBg,cText,cBorderDim);
+                tutorial.Dock = DockStyle.Left;
+                tutorial.Click += (s,e) => { help.DialogResult = DialogResult.Retry; help.Close(); };
+                footer.Controls.Add(tutorial);
                 close.Dock = DockStyle.Right;
                 footer.Controls.Add(close);
             }
@@ -6389,13 +6565,15 @@ namespace Offhand.Companion
 
         private void ShowHelpDialog(bool displayTroubleshooting = false)
         {
+            bool replayTutorial = false;
             SuspendUiPolling();
             try
             {
                 using (Form help = CreateHelpDialog(displayTroubleshooting))
-                    help.ShowDialog(this);
+                    replayTutorial = help.ShowDialog(this) == DialogResult.Retry;
             }
             finally { ResumeUiPolling(); }
+            if (replayTutorial) StartDashboardTutorial();
         }
 
         private void InitializeTray()
@@ -6543,6 +6721,7 @@ namespace Offhand.Companion
 
         private void ResumeUiPolling()
         {
+            if (tutorialOverlay != null) { uiInteractionPaused = true; return; }
             uiInteractionPaused = false;
             if (monitorTimer == null || isExplicitExit) return;
             monitorTimer.Start();

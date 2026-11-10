@@ -27,30 +27,28 @@ $options = @('/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', '/de
 & $compiler @options @files
 if ($LASTEXITCODE -ne 0) { throw 'Dashboard preview compilation failed.' }
 $identity = [Diagnostics.FileVersionInfo]::GetVersionInfo($binary)
-if ($identity.FileVersion -ne '2.1.5.8005' -or $identity.ProductVersion -ne '2.1.5') {
+if ($identity.FileVersion -ne '2.1.5.8006' -or $identity.ProductVersion -ne '2.1.5') {
     throw 'Unexpected dashboard preview identity.'
 }
 @('AutoSpan=False', 'DashboardCollapsed.SystemStatus=True',
     'DashboardCollapsed.DisplayDiagnostics=True', 'DashboardCollapsed.ActivityLog=True') |
     Set-Content -LiteralPath (Join-Path $output 'DashboardPreviewConfig.ini') -Encoding UTF8
 @'
-Offhand Companion UI Preview 5, local build 2.1.5.8005. Unpublished.
+Offhand Companion UI Preview 6, local build 2.1.5.8006. Unpublished.
 
 Run Offhand.exe to review the updated dashboard. It can coexist with the regular
 Companion. Preferences stay in DashboardPreviewConfig.ini beside this EXE;
 public/Store preferences are not imported. Automatic spanning and graphics-reset
 recovery are disabled. Manual Span and Restore remain available.
 
-Review the Setup and Advanced tabs. Setup opens first with display controls and
-layout-specific guidance. Advanced contains workspace layout/profiles, standard
-layout reset, Auto-span, diagnostics and the log. Its tab indicates an active
-custom layout. New two-monitor plans start with the full Offhand display; saved
-areas are preserved. Switching tabs only changes navigation. Navigation now uses
-quiet underlined tabs with subtle neutral borders. Span remains the primary
-action. Action captions describe the selected game/workspace placement and
-reload step, or returning WoW to a normal window. The branded header shows
-the detected addon version from the running client files, plus the N4UX credit.
-First-time guidance follows the addon guide and calibration prompts.
+A first-run Companion tutorial highlights the controls and explains their use.
+Next/Back navigate, Skip tour or Escape dismisses it, and Finish completes it.
+The tutorial never changes selections or applies a layout. Replay it from Help
+using Start Companion tutorial. Only its dismissal flag is saved.
+
+Normal Setup has no action captions or permanent setup-instructions card.
+Advanced contains custom layouts/profiles, standard-layout reset, Auto-span,
+diagnostics and the log. Tabs keep subtle borders and a selected underline.
 
 Tab changes and Show/Hide must keep the window size stable. This preview intentionally disables
 automatic spanning; the production auto-span restrictions remain unchanged.
