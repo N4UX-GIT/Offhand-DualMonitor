@@ -60,7 +60,7 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyVersion("2.1.5.0")]
 #endif
 #if UI_PREVIEW
-[assembly: AssemblyFileVersion("2.1.5.8006")]
+[assembly: AssemblyFileVersion("2.1.5.8007")]
 [assembly: AssemblyInformationalVersion("2.1.5")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
@@ -4115,7 +4115,7 @@ namespace Offhand.Companion
         internal const string BaseVersion = "2.1.5";
 #endif
 #if UI_PREVIEW
-        internal const string ReleaseLabel = "UI Preview 6";
+        internal const string ReleaseLabel = "UI Preview 7";
         internal static readonly bool GraphicsRecoveryEnabled = false;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
@@ -5992,11 +5992,11 @@ namespace Offhand.Companion
             dashboardNavigation = new TableLayoutPanel { Height = 38, ColumnCount = 2, RowCount = 1,
                 Margin = Padding.Empty, Padding = Padding.Empty, BackColor = cBg, AccessibleName = "Companion navigation",
                 AccessibleRole = AccessibleRole.PageTabList };
-            dashboardNavigation.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
-            dashboardNavigation.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60));
+            dashboardNavigation.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            dashboardNavigation.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             dashboardNavigation.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            setupTab = CreateButton("Setup", 0, 0, 190, 38, cBtnBg, cText, cBorder);
-            advancedTab = CreateButton("Advanced", 0, 0, 280, 38, cBtnBg, cText, cBorder);
+            setupTab = CreateButton("Setup", 0, 0, 220, 38, cBtnBg, cText, cBorder);
+            advancedTab = CreateButton("Advanced", 0, 0, 220, 38, cBtnBg, cText, cBorder);
             setupTab.Dock = advancedTab.Dock = DockStyle.Fill;
             setupTab.Margin = new Padding(0, 0, 6, 0);
             advancedTab.Margin = new Padding(6, 0, 0, 0);
@@ -6034,8 +6034,10 @@ namespace Offhand.Companion
                 Margin = Padding.Empty, Padding = Padding.Empty, BackColor = cBg };
             dashboardStack.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             var actionRow = DashboardButtonRow(actions, DashboardActionHeight);
-            actionRow.ColumnStyles[0].Width = 64;
-            actionRow.ColumnStyles[1].Width = 36;
+            actionRow.ColumnStyles[0].Width = 50;
+            actionRow.ColumnStyles[1].Width = 50;
+            actions[0].Margin = new Padding(0,0,6,0);
+            actions[1].Margin = new Padding(6,0,0,0);
             var actionPanel = actionRow;
             foreach (Control item in new Control[] { header, dashboardNavigation, actionPanel, status, config, advanced, diagnostics, log })
             {

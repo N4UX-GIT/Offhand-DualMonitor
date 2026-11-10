@@ -29,3 +29,9 @@ Final source commit: `b025ed4`. Local output: ignored `dist/companion-tutorial-p
 Screenshots `tutorial-welcome.png`, `tutorial-displays.png` and `setup.png` are beside the executable. Actual review used one 2560x1440 display. No Span, Restore, external link/update activation, game input or addon file installation was performed. Installed portable/Store preference hashes remained unchanged. The builder verified frozen published artifacts before and after compilation.
 
 The local ZIP contains exactly LICENSE, Offhand.exe and README.txt; its executable matches the reviewed build. It excludes preview preferences, so extraction begins with the first-run tutorial. EXE SHA256: `2BE65DC790F28B05A0014D17DFAF1E6C5F5260BF81BFAFD846D8AA9F34141A18`. ZIP SHA256: `065DD88BBF35DED7C2FB315186F9FFE13B2F578BC93BF1DA26F82F55BDA80697`. No Store/GitHub publication or production/addon version change.
+
+## UI Preview 7 alignment refinement
+
+The owner requested better balance and centered tabs. The former 40/60 navigation columns and 64/36 action columns are replaced with a shared 50/50 grid. Both rows now use the same centered gap and outer edges; Setup and Advanced have equal widths, heights, fonts and subtle borders. Span and Restore also have equal widths. Span retains its gold outline and bold type as the primary action, while Restore remains quieter. No captions or permanent guidance are reintroduced; the replayable tutorial is unchanged.
+
+Layout assertions check both rows' shared edges, centers, widths, spacing and tab font weight, as well as the existing custom-state text fit, tutorial lifecycle and scale/width matrix. This is unpublished UI Preview 7, file 2.1.5.8007. No geometry/runtime behavior or release metadata is changed.

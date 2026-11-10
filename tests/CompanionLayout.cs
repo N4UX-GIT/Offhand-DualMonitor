@@ -155,7 +155,7 @@ namespace Offhand.Companion
                 }
                 var span = One<Button>(form, button => button.Text == "Span WoW Now");
                 var restore = One<Button>(form, button => button.Text == "Restore Window");
-                if (span.Parent != restore.Parent || span.Width <= restore.Width ||
+                if (span.Parent != restore.Parent || Math.Abs(span.Width-restore.Width)>1 ||
                     BoundsInside(span, form).Top >= BoundsInside(status, form).Top ||
                     span.Height < 44 * factor - 1 || Descendants(form).OfType<Button>().Any(button => button.Text == "Pause Monitor"))
                     throw new Exception("Primary actions must be prominent and precede System Status.");
@@ -375,8 +375,19 @@ namespace Offhand.Companion
         {
             var span=One<Button>(form,button=>button.Text=="Span WoW Now");
             var restore=One<Button>(form,button=>button.Text=="Restore Window");
-            if(span.Parent!=restore.Parent || span.Width<=restore.Width || span.Height!=restore.Height)
-                throw new Exception("Primary actions must share an aligned row with Span prominent.");
+            if(span.Parent!=restore.Parent || Math.Abs(span.Width-restore.Width)>1 || span.Height!=restore.Height)
+                throw new Exception("Primary actions must share an equal-width aligned row.");
+            var setup=One<Button>(form,button=>button.AccessibleName=="Setup tab");
+            var advanced=One<Button>(form,button=>button.AccessibleName=="Advanced tab");
+            Rectangle left=BoundsInside(setup,form),right=BoundsInside(advanced,form);
+            Rectangle spanBounds=BoundsInside(span,form),restoreBounds=BoundsInside(restore,form);
+            if(Math.Abs(left.Width-right.Width)>1 || left.Left!=spanBounds.Left || right.Right!=restoreBounds.Right ||
+                Math.Abs(left.Right-spanBounds.Right)>1 || Math.Abs(right.Left-restoreBounds.Left)>1 ||
+                Math.Abs((setup.Left+advanced.Right)-setup.Parent.ClientSize.Width)>1 ||
+                setup.Font.Size!=advanced.Font.Size || setup.Font.Style!=advanced.Font.Style)
+                throw new Exception("Tabs/actions must share a centered, symmetric two-column grid and matching tab weight.");
+            if(!span.Font.Bold || restore.Font.Bold || span.FlatAppearance.BorderColor==restore.FlatAppearance.BorderColor)
+                throw new Exception("Span must retain primary styling within the balanced action row.");
             if(Descendants(form).OfType<Label>().Any(label=>label.AccessibleName=="Span guidance" || label.AccessibleName=="Restore guidance") ||
                 Descendants(form).OfType<Panel>().Any(panel=>panel.AccessibleName=="Apply your layout guide"))
                 throw new Exception("Persistent captions/guidance must be replaced by the replayable tutorial.");
