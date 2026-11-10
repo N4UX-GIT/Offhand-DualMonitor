@@ -43,3 +43,7 @@ The local ZIP has only LICENSE, Offhand.exe and README.txt with matching executa
 ## UI Preview 8 tab height
 
 Approved follow-up: reduce Setup/Advanced from 38 to 32 logical pixels high, while preserving their font, widths, centered alignment, subtle borders, selected underline and horizontal spacing. Span/Restore remain 44px high. Scale/layout coverage now also asserts the 32:44 height relationship and unclipped unchanged tab text; tutorial/state-preservation checks remain included. This is unpublished UI Preview 8, file 2.1.5.8008; no production artifacts or addon source change.
+
+Preference/layout and tutorial checks passed at 100%-200%. Built from `377491f` into ignored `dist/companion-tab-height-preview-8-20261110`; the interaction audit/frozen-artifact guard passed. Computer Use reviewed the shorter tabs and unchanged action buttons in the running Setup view, where the preview is left open. The isolated local review config marks the tutorial seen so it opens directly to Setup; no installed preferences were imported. The ZIP excludes that config and retains normal first-run tutorial behavior. Help replay remains available. Installed preference hashes are unchanged, and no game/Span/Restore input or publication occurred. A settled screenshot is saved as `setup.png`.
+
+Package EXE/README/LICENSE boundary and embedded executable match passed. EXE SHA256: `9C404617F3A64831C5F0454F89B6BDAFE72105DF526AD0487FEFDA9694BA7E60`. ZIP SHA256: `DFF2AD195BC41C606744635F22CB80923B0BC2DBD53D6246AFE3185801E46296`.
