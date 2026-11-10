@@ -1086,3 +1086,19 @@ L["ONBOARD_RELOAD_COMPLETE_PLACE"] = "Das Neuladen ist abgeschlossen. Platziere 
 
 L["PROCDOC_MAINHAND"] = "ProcDoc-Meldungen auf Mainhand zentrieren"
 L["PROCDOC_MAINHAND_DESC"] = "Mainhand beim Aufspannen als Mittelpunkt für ProcDoc verwenden. ProcDoc-Versatz bleibt erhalten; beim Ausschalten wird die Position wiederhergestellt."
+
+-- EllesmereUI transfer blocker guidance.
+L["ELLESMERE_HUD_FOLLOWS"] = "Folgt %s; übergeordnetes Element bewegen."
+L["ELLESMERE_HUD_ANCHORED"] = "Mit einem anderen Element verknüpft."
+L["ELLESMERE_HUD_MOVES_WITH"] = "Wird mit %s verschoben."
+L["ELLESMERE_HUD_BOUNDS"] = "Position oder Größe ist noch nicht verfügbar."
+L["ELLESMERE_HUD_CHILD_BOUNDS"] = "Verknüpftes Element nicht messbar: %s."
+L["ELLESMERE_HUD_ANCHOR_GRAPH"] = "Ankerkette konnte nicht aufgelöst werden."
+L["ELLESMERE_HUD_GROUP_TOO_LARGE"] = "Verknüpfte Gruppe ist größer als Mainhand."
+L["ELLESMERE_HUD_LINK_HELP"] = "Dieses Element folgt seinem übergeordneten EllesmereUI-Element und erhält keine eigene Position. Wähle das übergeordnete Element, falls die Vorschau es verschieben kann, oder ändere die Verknüpfung im EllesmereUI-Freigabemodus. Offhand entfernt keine Verknüpfungen."
+L["ELLESMERE_HUD_BOUNDS_HELP"] = "Öffne und schließe den EllesmereUI-Freigabemodus, um das Element zu initialisieren, und öffne diese Vorschau erneut. Falls es weiterhin fehlt, prüfe, ob Element und Modul aktiviert sind. Alle sichtbaren Gruppenmitglieder müssen messbar sein."
+L["ELLESMERE_HUD_ANCHOR_GRAPH_HELP"] = "Prüfe die Verknüpfungen dieses Elements im EllesmereUI-Freigabemodus auf eine zirkuläre oder unaufgelöste Ankerkette. Ändere die Verknüpfungen, schließe den Modus und öffne die Vorschau erneut."
+L["ELLESMERE_HUD_GROUP_TOO_LARGE_HELP"] = "Verkleinere die Gruppe oder ändere ihre Anordnung im EllesmereUI-Freigabemodus, sodass sie in Mainhand passt. Offhand hält verknüpfte Elemente zusammen."
+L["ELLESMERE_HUD_BLOCKED_ROWS"] = "%d Elemente können nicht übertragen werden. Zeige für Details auf ihre Zeilen. Passe verknüpfte Gruppen im EllesmereUI-Freigabemodus an, schließe ihn und öffne die Vorschau erneut."
+L["ELLESMERE_HUD_PARTIAL"] = "%d Elemente ausgewählt; %d können nicht übertragen werden. Nur markierte Positionen werden kopiert. Zeige für Hinweise auf die nicht verfügbaren Zeilen."
+L["ELLESMERE_HUD_OVERRIDES_HELP"] = "Übertragung durch EllesmereUI-Profilüberschreibungen blockiert. Prüfe unter EllesmereUI > Profiles & Presets die Bereiche Spec Overrides und Conditional Overrides, einschließlich Layoutüberschreibungen. Wechsle zu einem separaten Profil ohne Überschreibungen und öffne die Vorschau erneut. Offhand lässt bestehende Überschreibungen unverändert."

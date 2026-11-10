@@ -152,7 +152,7 @@ linked.player = true
 context.controller = true
 rows = transfer:Preview("ellesmere")
 assert(rows[1].reason == "ELLESMERE_HUD_NATIVE_PAD" and rows[2].position
-    and rows[3].reason == "ELLESMERE_HUD_LINKED", "Gamepad and linked elements must keep their owner")
+    and rows[3].reason == "ELLESMERE_HUD_ANCHORED", "Gamepad and linked elements must keep their owner")
 combat = true
 rows, reason = transfer:Preview("ellesmere")
 assert(not rows and reason == "ELLESMERE_HUD_BUSY")
@@ -176,7 +176,8 @@ assert(rows[1].current.bottom == 1510 and rows[1].proposed.bottom == 1410
     and rows[1].position.y == 1410, "fit must show and repair a frame over the span's physical gap")
 assert(rows[2].position and rows[2].proposed.left == 1440 and rows[2].current.left == 440,
     "fit must offer Mainhand placement for a gameplay frame in the workspace and normalize its scale")
-assert(rows[3].reason == "ELLESMERE_HUD_LINKED", "fit must preserve the targets of existing anchor links")
+assert(rows[3].reason == "ELLESMERE_HUD_CHILD_BOUNDS" and rows[3].reasonArgs[1] == "extra",
+    "fit must identify the linked child whose bounds cannot be measured")
 assert(snapshots == 3, "fit preview must not call the profile snapshot or importer")
 
 EllesmereUIDB = nil
@@ -339,7 +340,7 @@ local preview, review
 local widget = {}
 for _, method in ipairs({"ClearAllPoints", "SetPoint", "SetSize", "SetFrameStrata", "EnableMouse",
     "SetJustifyH", "SetWordWrap", "SetAllPoints", "SetFrameLevel", "SetColorTexture", "SetTextColor",
-    "SetAlpha", "SetChecked", "SetEnabled", "SetWidth", "Raise"}) do widget[method] = function() end end
+    "SetAlpha", "SetChecked", "SetEnabled", "SetWidth", "SetHeight", "Raise"}) do widget[method] = function() end end
 function widget:GetFrameLevel() return 1 end
 function widget:GetName() return self.name end
 function widget:SetScript(event, callback) self[event] = callback end
@@ -355,6 +356,7 @@ function widget:Hide()
 end
 function widget:IsShown() return self.shown end
 function widget:SetShown(shown) self.shown = shown end
+function widget:SetEnabled(enabled) self.enabled = enabled end
 function widget:CreateFontString() return CreateFrame() end
 function widget:CreateTexture() return CreateFrame() end
 CreateFrame = function(_, name)
@@ -388,6 +390,32 @@ assert(loadfile("UI/EllesmereLayoutPreview.lua"))("Offhand", addon)
 importOptions, overrides = nil, nil
 transfer:ShowPreview("ellesmere")
 assert(not preview.selected, "the preview's row selection must not accent the dialog border")
+
+context.block = "ELLESMERE_HUD_OVERRIDES"
+transfer:ShowPreview("ellesmere")
+assert(not review.enabled and preview.status.text == addon.L.ELLESMERE_HUD_OVERRIDES_HELP,
+    "profile override blockers need a visible action path and disabled import")
+context.block = nil
+do
+    local savedRows = importRows
+    local savedUnavailable = context.unavailable
+    context.unavailable = nil
+    importRows = {{map = {key = "linkedFixture", displayLabel = "Player frame"},
+        reason = "ELLESMERE_HUD_FOLLOWS", reasonArgs = {"Action Bar 1"}}}
+    transfer:ShowPreview("ellesmere")
+    assert(preview.legend[1].text:find("Follows Action Bar 1", 1, true)
+        and preview.status.text:find("1 elements", 1, true) and not review.enabled,
+        "explain the linked parent and why no positions can be transferred")
+    local tooltip
+    GameTooltip = {SetOwner = function() end, SetText = function(_, text) tooltip = text end,
+        Show = function() end, Hide = function() end}
+    preview.rowHelp[1]:OnEnter()
+    assert(tooltip:find("EllesmereUI Unlock Mode", 1, true), "row tooltips must explain how to resolve the blocker")
+    preview.rowHelp[1]:OnLeave()
+    GameTooltip, importRows = nil, savedRows
+    context.unavailable = savedUnavailable
+    transfer:ShowPreview("ellesmere")
+end
 do
     local savedRows = importRows
     importRows = {}

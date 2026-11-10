@@ -247,9 +247,27 @@ local function Fits(b, rect)
         and b.left + b.width <= rect.right and b.bottom + b.height <= rect.top
 end
 
+local function HasOverrideData(value, depth)
+    if type(value) ~= "table" then return value ~= nil end
+    if depth > 12 then return next(value) ~= nil end
+    for _, child in pairs(value) do
+        if HasOverrideData(child, depth + 1) then return true end
+    end
+    return false
+end
+
 local function HasOverrides(profile)
-    return profile and (profile.specOverrides or profile.condOverrides
-        or profile.specOverrideGroups or profile.condOverrideGroups)
+    if type(profile) ~= "table" then return false end
+    -- The vendor lazily creates empty stores, including layouts = {}. Those
+    -- do not override anything. Nonempty stores must still block the import:
+    -- partial imports retain them and could overwrite the new positions later.
+    -- Group names/spec assignments alone are metadata, not overridden values.
+    for _, key in ipairs({"specOverrides", "condOverrides",
+        "specUnlockOverrides", "condUnlockOverrides", "specBmOverrides", "condBmOverrides",
+        "specDmOverrides", "condDmOverrides", "unlockOverrideAnchors"}) do
+        if profile[key] and HasOverrideData(profile[key], 0) then return true end
+    end
+    return false
 end
 
 local function ElementFrame(eui, key)
@@ -268,8 +286,27 @@ local function ElementHidden(eui, key)
     end
 end
 
+local function ElementName(eui, key)
+    local element = key and eui._unlockRegisteredElements and eui._unlockRegisteredElements[key]
+    return element and element.label or key
+end
+
 local function GroupBounds(eui, key, bounds, uiScale)
-    if not bounds or eui.IsUnlockAnchored(key) then return end
+    local anchors = EllesmereUIDB and EllesmereUIDB.unlockAnchors
+    if eui.IsUnlockAnchored(key) then
+        local link = type(anchors) == "table" and anchors[key]
+        local target = type(link) == "table" and link.target or nil
+        if target ~= nil and type(target) ~= "string" then return nil, nil, "ELLESMERE_HUD_ANCHOR_GRAPH" end
+        local cursor, seen, count = key, {}, 0
+        while type(anchors) == "table" and type(anchors[cursor]) == "table" and anchors[cursor].target do
+            if seen[cursor] or count >= 100 then return nil, nil, "ELLESMERE_HUD_ANCHOR_GRAPH" end
+            if type(anchors[cursor].target) ~= "string" then return nil, nil, "ELLESMERE_HUD_ANCHOR_GRAPH" end
+            seen[cursor], cursor, count = true, anchors[cursor].target, count + 1
+        end
+        return nil, nil, target and "ELLESMERE_HUD_FOLLOWS" or "ELLESMERE_HUD_ANCHORED",
+            target and {ElementName(eui, target)} or nil
+    end
+    if not bounds then return nil, nil, "ELLESMERE_HUD_BOUNDS" end
     local group = {left = bounds.left, bottom = bounds.bottom, width = bounds.width, height = bounds.height}
     local keys, members = {key}, {[key] = true}
     if key:match("^TBB_%d+$") then
@@ -283,7 +320,7 @@ local function GroupBounds(eui, key, bounds, uiScale)
                 local child = "TBB_" .. index
                 if child ~= key and ns.TBBBarGroupID(member) == gid then
                     local b = FrameBounds(ElementFrame(eui, child), uiScale)
-                    if not b then return end
+                    if not b then return nil, nil, "ELLESMERE_HUD_CHILD_BOUNDS", {ElementName(eui, child)} end
                     local right, top = math.max(group.left + group.width, b.left + b.width),
                         math.max(group.bottom + group.height, b.bottom + b.height)
                     group.left, group.bottom = math.min(group.left, b.left), math.min(group.bottom, b.bottom)
@@ -293,13 +330,12 @@ local function GroupBounds(eui, key, bounds, uiScale)
             end
         end
     end
-    local anchors = EllesmereUIDB and EllesmereUIDB.unlockAnchors
     if type(anchors) == "table" then
         local i = 1
         while i <= #keys do
             for child, link in pairs(anchors) do
                 if type(link) == "table" and link.target == keys[i] then
-                    if members[child] or #keys >= 100 then return end
+                    if members[child] or #keys >= 100 then return nil, nil, "ELLESMERE_HUD_ANCHOR_GRAPH" end
                     members[child], keys[#keys + 1] = true, child
                     local b = FrameBounds(ElementFrame(eui, child), uiScale)
                     if b then
@@ -308,7 +344,7 @@ local function GroupBounds(eui, key, bounds, uiScale)
                         group.left, group.bottom = math.min(group.left, b.left), math.min(group.bottom, b.bottom)
                         group.width, group.height = right - group.left, top - group.bottom
                     elseif not ElementHidden(eui, child) then
-                        return
+                        return nil, nil, "ELLESMERE_HUD_CHILD_BOUNDS", {ElementName(eui, child)}
                     end
                 end
             end
@@ -374,6 +410,7 @@ function Transfer:Preview(direction)
     if not context then return nil, "ELLESMERE_HUD_NO_LAYOUT" end
     local rect = context.rect
     context.unavailable = nil
+    context.block = nil
     context.workspace = GetWorkspaceRect()
     context.profileName = eui.GetActiveProfileName and eui.GetActiveProfileName()
     local profile = eui.GetActiveProfileData and eui.GetActiveProfileData()
@@ -395,7 +432,7 @@ function Transfer:Preview(direction)
             row.current = bounds
             local group
             if direction ~= "blizzard" then
-                group, row.linkedGroup = GroupBounds(eui, map.key, bounds, uiScale)
+                group, row.linkedGroup, row.reason, row.reasonArgs = GroupBounds(eui, map.key, bounds, uiScale)
                 if row.linkedGroup then row.groupCurrent = group end
             end
             if context.controller and map.folder == actionBars then
@@ -404,7 +441,10 @@ function Transfer:Preview(direction)
                 row.reason, row.reasonArgs = UnavailableReason(map.folder)
                 context.unavailable = true
             elseif direction ~= "blizzard" and not group then
-                row.reason = "ELLESMERE_HUD_LINKED"
+                row.reason = row.reason or "ELLESMERE_HUD_BOUNDS"
+            elseif direction ~= "blizzard" and not Fits(group, rect)
+                and (group.width > destination.width or group.height > destination.height) then
+                row.reason = "ELLESMERE_HUD_GROUP_TOO_LARGE"
             elseif direction == "fit" and bounds then
                 if Fits(group, rect) then
                     row.reason = "ELLESMERE_HUD_KEEP"
@@ -466,7 +506,8 @@ function Transfer:Preview(direction)
                 seen[key], key = true, links[key].target
                 local root = roots[key]
                 if root then
-                    row.followKey, row.reason = key, "ELLESMERE_HUD_MOVE_GROUP"
+                    row.followKey = key
+                    row.reason, row.reasonArgs = "ELLESMERE_HUD_MOVES_WITH", {ElementName(eui, key) or key}
                     row.proposed = {left = row.current.left + root.proposed.left - root.current.left,
                         bottom = row.current.bottom + root.proposed.bottom - root.current.bottom,
                         width = row.current.width, height = row.current.height}

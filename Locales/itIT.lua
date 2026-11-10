@@ -1087,3 +1087,19 @@ L["ONBOARD_RELOAD_COMPLETE_PLACE"] = "Il ricaricamento è completo. Posiziona Wo
 
 L["PROCDOC_MAINHAND"] = "Centra gli avvisi ProcDoc su Mainhand"
 L["PROCDOC_MAINHAND_DESC"] = "Usa Mainhand come centro degli avvisi ProcDoc durante l’estensione. Mantiene gli scostamenti ProcDoc e ripristina la posizione alla disattivazione."
+
+-- EllesmereUI transfer blocker guidance.
+L["ELLESMERE_HUD_FOLLOWS"] = "Segue %s; sposta l’elemento principale."
+L["ELLESMERE_HUD_ANCHORED"] = "Collegato a un altro elemento."
+L["ELLESMERE_HUD_MOVES_WITH"] = "Si sposta con %s."
+L["ELLESMERE_HUD_BOUNDS"] = "Posizione o dimensioni non ancora disponibili."
+L["ELLESMERE_HUD_CHILD_BOUNDS"] = "Impossibile misurare l’elemento collegato: %s."
+L["ELLESMERE_HUD_ANCHOR_GRAPH"] = "Impossibile risolvere la catena di ancoraggio."
+L["ELLESMERE_HUD_GROUP_TOO_LARGE"] = "Il gruppo collegato supera Mainhand."
+L["ELLESMERE_HUD_LINK_HELP"] = "Questo elemento segue il suo elemento principale EllesmereUI e non riceve una posizione indipendente. Seleziona l’elemento principale se questa anteprima può spostarlo, oppure modifica il collegamento nella modalità Sblocco di EllesmereUI. Offhand non rimuove i collegamenti."
+L["ELLESMERE_HUD_BOUNDS_HELP"] = "Apri e chiudi la modalità Sblocco di EllesmereUI per inizializzare l’elemento, poi riapri questa anteprima. Se resta indisponibile, verifica che l’elemento e il suo modulo siano abilitati. Tutti i membri visibili del gruppo devono poter essere misurati."
+L["ELLESMERE_HUD_ANCHOR_GRAPH_HELP"] = "Controlla i collegamenti dell’elemento nella modalità Sblocco di EllesmereUI per individuare catene circolari o non risolte. Modifica i collegamenti, chiudi la modalità e riapri l’anteprima."
+L["ELLESMERE_HUD_GROUP_TOO_LARGE_HELP"] = "Riduci le dimensioni del gruppo o modifica la disposizione nella modalità Sblocco di EllesmereUI per farlo rientrare in Mainhand. Offhand mantiene insieme gli elementi collegati."
+L["ELLESMERE_HUD_BLOCKED_ROWS"] = "%d elementi non possono essere trasferiti. Passa sulle righe per i dettagli. Modifica i gruppi collegati nella modalità Sblocco di EllesmereUI, chiudila e riapri questa anteprima."
+L["ELLESMERE_HUD_PARTIAL"] = "%d elementi selezionati; %d non trasferibili. Verranno copiate solo le posizioni selezionate. Passa sulle righe non disponibili per le istruzioni."
+L["ELLESMERE_HUD_OVERRIDES_HELP"] = "Trasferimento bloccato dalle sostituzioni del profilo EllesmereUI. In EllesmereUI > Profiles & Presets, controlla Spec Overrides e Conditional Overrides, incluse le sostituzioni della disposizione. Passa a un profilo separato senza sostituzioni e riapri l’anteprima. Offhand non modifica le sostituzioni esistenti."
