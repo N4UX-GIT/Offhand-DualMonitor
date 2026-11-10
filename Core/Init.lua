@@ -2079,9 +2079,6 @@ logoutFix:SetScript('OnEvent', function()
         if db.originalNameplateSize and SetCVar then
             SetCVar("nameplateSize", db.originalNameplateSize)
         end
-        if db.originalFriendlyPlayerName ~= nil and SetCVar then
-            SetCVar("UnitNameFriendlyPlayerName", db.originalFriendlyPlayerName)
-        end
     end
 
     -- A disabled profile must be completely inert. The viewport/CVar cleanup

@@ -144,21 +144,20 @@ local function WriteBooleanCVar(name, value)
     return pcall(setter, name, tonumber(value) and tonumber(value) >= 0.5 and "1" or "0")
 end
 
-local function ManageFriendlyPlayerNames(db)
+local function RestoreLegacyFriendlyPlayerNames(db)
+    if not db or db.originalFriendlyPlayerName == nil then return end
     local friendlyNames = ReadNonNegativeCVar("UnitNameFriendlyPlayerName")
-    local shouldManage = db and db.enabled and Offhand.isRetail and not Offhand.isForever
-        and friendlyNames ~= nil
-    if shouldManage then
-        if db.originalFriendlyPlayerName == nil then
-            db.originalFriendlyPlayerName = friendlyNames
-        end
-        if friendlyNames < 0.5 then
-            WriteBooleanCVar("UnitNameFriendlyPlayerName", 1)
-        end
-    elseif db and db.originalFriendlyPlayerName ~= nil then
-        WriteBooleanCVar("UnitNameFriendlyPlayerName", db.originalFriendlyPlayerName)
+    local original = tonumber(db.originalFriendlyPlayerName)
+    if original ~= 0 and original ~= 1 then
         db.originalFriendlyPlayerName = nil
+        return
     end
+    if friendlyNames == nil then return end
+    -- Older releases forced this preference on. Restore only that forced value;
+    -- an already-off value belongs to the player. Retry a failed restore later.
+    if friendlyNames == 1 and original == 0
+        and not WriteBooleanCVar("UnitNameFriendlyPlayerName", original) then return end
+    db.originalFriendlyPlayerName = nil
 end
 
 local function ValidPositive(value)
@@ -605,12 +604,9 @@ function Viewport:ApplyGlobalScale()
     local db=Offhand.db
     if not db then return end
     local metrics = db.enabled and self:GetMetrics() or nil
-    -- Friendly Retail plates can remain visible while their name CVar is off,
-    -- producing a blank bar until the unit is selected. This is a visibility
-    -- invariant, not span compensation: keep names enabled for the whole time
-    -- Offhand is enabled, including a restored/unspanned window, and restore the
-    -- player's exact preference only when Offhand itself is disabled or unloaded.
-    ManageFriendlyPlayerNames(db)
+    -- Scaling does not own name/nameplate visibility. Clean up the old forced-on
+    -- preference once, then leave subsequent choices entirely to the player.
+    RestoreLegacyFriendlyPlayerNames(db)
     if not db.enabled or (metrics and not metrics.isSpanned) then
         if self.originalScale or self.originalWorldScale or db.originalUiScale
             or db.originalWorldTextScale or db.originalNameplateSize then
@@ -998,17 +994,6 @@ function Offhand:InitializeViewport()
                 return
             end
             local cvar = type(value) == "string" and string.lower(value) or ""
-            if event == "CVAR_UPDATE" and (cvar == "unitnamefriendlyplayername"
-                or cvar == "nameplateshowfriends") then
-                if not Viewport.friendlyNameVisibilityScheduled then
-                    Viewport.friendlyNameVisibilityScheduled = true
-                    local function reapply()
-                        Viewport.friendlyNameVisibilityScheduled = nil
-                        Viewport:ApplyGlobalScale()
-                    end
-                    if C_Timer and C_Timer.After then C_Timer.After(0, reapply) else reapply() end
-                end
-            end
             if event ~= "CVAR_UPDATE" or string.find(cvar, "nameplate", 1, true) then
                 Viewport:ScheduleNamePlateVisualScale()
             end
