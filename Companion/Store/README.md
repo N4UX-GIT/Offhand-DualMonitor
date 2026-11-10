@@ -15,8 +15,11 @@ The next prepared update is **2.1.6**, EXE **2.1.6.1**, Store package
 **2.1.600.0**. Use `scripts/New-Companion216Candidate.ps1` and the exact frozen
 candidate path/hash with the package builder. See
 [the 2.1.6 preparation record](../../docs/COMPANION-2.1.6-STORE-PREPARATION-20261110.md).
-It is not yet submitted or published. The historical commands below are retained
-as examples; do not rebuild or replace the published 2.1.5 assets.
+It was submitted on 2026-11-10 as public Submission 7, ID
+`1152921505702364011`, and is in certification with automatic publication after
+approval. See [the submission receipt](../../docs/evidence/companion-216-public-submission.json).
+The historical commands below are retained as examples; do not rebuild the tested
+2.1.6 payload or replace the published 2.1.5 assets.
 
 1. Create a free individual developer account from
    <https://storedeveloper.microsoft.com/>.

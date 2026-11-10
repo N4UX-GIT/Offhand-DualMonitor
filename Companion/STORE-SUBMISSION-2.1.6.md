@@ -1,6 +1,6 @@
 # Offhand Companion 2.1.6 Store submission
 
-Prepared 2026-11-10. Not uploaded, submitted or published.
+Submitted 2026-11-10 as public Submission 7, ID `1152921505702364011`. Partner Center accepted the update into certification, with pre-processing in progress and automatic publication after approval. It is not yet published. See [the submission receipt](../docs/evidence/companion-216-public-submission.json). The package/copy below identifies the submitted build.
 
 ## Package
 
@@ -16,7 +16,7 @@ Use `dist/companion-2.1.6-store-submission/Offhand-Companion_2_1_600_0_x64.msix`
 
 Upload this exact unsigned production package for Microsoft Store signing. Do not upload the internal portable candidate, private upgrade packages or test host. Do not rebuild the tested executable. Before upload, verify the existing Partner Center product and highest published/in-flight package version; the installed baseline is 2.1.500.0 but is not an account-side query. Retain existing availability, pricing, capabilities and startup policy unless the owner requests a change.
 
-The read-only package-list check encountered an expired Partner Center session. Sign in manually before the final account-side version check and upload. No update draft was created during preparation.
+The final account-side check succeeded after the preparation turn: public Submission 6 and the private 2.1.5 QA flight both contained `2.1.500.0`. The product identity/publisher matched this package. Partner Center validated `2.1.600.0` and automatically superseded the inherited `2.1.500.0` package in the new submission because both support the same customers. Existing device availability, pricing, age ratings, full-trust justification and publication policy were retained.
 
 ## What's new
 

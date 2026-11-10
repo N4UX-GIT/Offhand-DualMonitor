@@ -1,6 +1,6 @@
 # Offhand Companion 2.1.6
 
-Prepared update, not yet submitted or published.
+Submitted to Microsoft Store as Submission 7 on 2026-11-10. Certification is pending; publication will begin automatically after approval.
 
 - A cleaner dashboard with centered Setup and Advanced tabs. Everyday display controls stay in Setup; custom workspaces, profiles, Auto-span, diagnostics and the activity log are in Advanced.
 - A skippable first-run tutorial highlights the controls and explains their use. Replay it from Help whenever needed. It does not change selections or apply a layout for you.
