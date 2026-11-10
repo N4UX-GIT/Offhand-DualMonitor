@@ -21,3 +21,14 @@ Shared knowledge status/search and authored `offhand-guide-native-20261109.md` /
 Native preference/layout checks cover header order, wrapped version/credit text, current/missing/stopped metadata, source metadata inspection, quiet navigation styles, exact setup action names, stable bounds and minimum-width layout at 100%-200% scaling. Workspace UX passes 111 checks per architecture. Store update checks pass 472 assertions across production/preview x64/x86 variants without real Store queries. Frozen 2.1.5 publication checks pass, including rejection of current development source as the submitted release.
 
 The preview keeps isolated settings, automatic spanning/recovery/update checks disabled, and published files unchanged. Local native review and package receipt are recorded after building below.
+
+## Built and reviewed
+
+Built from source commit `3f246d8` into ignored `dist/companion-branding-preview-4-20261110`. The native interaction audit passed, with four source files and 45 reviewed declarations. Computer Use reviewed the actual Setup and Advanced pages, tagline/subtext/version order, wrapped guidance and underlined navigation. The already running Forever client's installed addon was detected as 2.1.5 Beta 28 and displayed in the header with the final N4UX credit. This is installation metadata evidence, not evidence that the game loaded the addon. No game input, Span, Restore or addon file update was performed.
+
+The preview is left running on Setup. Screenshots `setup.png` and `advanced.png` are beside the executable. Actual review used one 2560x1440 display; scale extremes were exercised in native layout fixtures. No claim is made about fresh in-game setup completion or subsecond flash absence.
+
+Installed preference hashes remain unchanged. Frozen prepared 2.1.5 EXE/ZIP hashes still match their release records. The local ZIP has exactly LICENSE, Offhand.exe and README.txt with matching embedded executable bytes, and no preferences.
+
+- Preview EXE SHA256: `034AD815399F10C28033D77CA549A4A5A4393292D66EF64A76809D238B9EAFB6`.
+- Preview ZIP SHA256: `62CDD37A4B26E8C8EE26746B5EDA18204BEA0668175E3920F427A111D5E5B11D`.
