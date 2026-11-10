@@ -50,6 +50,12 @@ L["ELLESMERE_HUD_BUSY"] = "Cierra el modo de edición o desbloqueo y sal del com
 L["ELLESMERE_HUD_NO_LAYOUT"] = "No se encontró un diseño HUD válido para la extensión actual."
 L["ELLESMERE_HUD_NATIVE_PAD"] = "Barra de teclado omitida en modo mando."
 L["ELLESMERE_HUD_MODULE_MISSING"] = "El elemento de EllesmereUI no está disponible."
+L["ELLESMERE_HUD_INSTALL_MODULE"] = "Instala %s y recarga."
+L["ELLESMERE_HUD_ENABLE_MODULE"] = "Activa %s en los addons y recarga."
+L["ELLESMERE_HUD_RELOAD_MODULE"] = "Recarga para cargar %s."
+L["ELLESMERE_HUD_CHECK_MODULE"] = "Comprueba la configuración y el inicio de %s."
+L["ELLESMERE_HUD_MODULE_GUIDANCE"] = "Activa los módulos necesarios de EllesmereUI en los addons y recarga."
+
 L["ELLESMERE_HUD_LINKED"] = "Anclado a otro elemento o dimensiones del grupo no disponibles."
 L["ELLESMERE_HUD_NO_ANCHOR"] = "No se encontró un anclaje Mainhand compatible."
 L["ELLESMERE_HUD_IMPORT_FAILED"] = "No se pudo abrir el importador de perfiles de EllesmereUI."

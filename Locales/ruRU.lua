@@ -50,6 +50,12 @@ L["ELLESMERE_HUD_BUSY"] = "Close Edit Mode or Unlock Mode and leave combat befor
 L["ELLESMERE_HUD_NO_LAYOUT"] = "No usable HUD layout found for the current span."
 L["ELLESMERE_HUD_NATIVE_PAD"] = "Keyboard bar skipped in Gamepad mode."
 L["ELLESMERE_HUD_MODULE_MISSING"] = "The EllesmereUI element is unavailable."
+L["ELLESMERE_HUD_INSTALL_MODULE"] = "Установите %s и перезагрузите интерфейс."
+L["ELLESMERE_HUD_ENABLE_MODULE"] = "Включите %s в списке модификаций и перезагрузите интерфейс."
+L["ELLESMERE_HUD_RELOAD_MODULE"] = "Перезагрузите интерфейс для загрузки %s."
+L["ELLESMERE_HUD_CHECK_MODULE"] = "Проверьте настройки и запуск %s."
+L["ELLESMERE_HUD_MODULE_GUIDANCE"] = "Включите нужные модули EllesmereUI в списке модификаций и перезагрузите интерфейс."
+
 L["ELLESMERE_HUD_LINKED"] = "Anchored to another element or group bounds unavailable."
 L["ELLESMERE_HUD_NO_ANCHOR"] = "No compatible Mainhand anchor was found."
 L["ELLESMERE_HUD_IMPORT_FAILED"] = "Could not open the EllesmereUI profile importer."

@@ -7,6 +7,8 @@ Offhand.EllesmereLayout = Transfer
 local actionBars = "EllesmereUIActionBars"
 local minimap = "EllesmereUIMinimap"
 local units = "EllesmereUIUnitFrames"
+local cooldowns = "EllesmereUICooldownManager"
+local resources = "EllesmereUIResourceBars"
 local mappings = {
     {system = "ActionBar", indices = "EditModeActionBarSystemIndices", index = "MainBar",
         label = "ELLESMERE_HUD_MAIN_BAR", folder = actionBars, key = "MainBar",
@@ -30,6 +32,79 @@ for number, index in ipairs({"Bar2", "Bar3", "RightBar1", "RightBar2", "ExtraBar
         positionTable = "barPositions", positionKey = key, optional = true}
 end
 
+-- Only providers whose profile position schema has been inspected are included.
+-- Do not call vendor savePos callbacks: those edit the active profile immediately.
+local function Mappings(eui)
+    local result, seen = {}, {}
+    for _, map in ipairs(mappings) do result[#result + 1], seen[map.key] = map, true end
+    local keys = {}
+    for key in pairs(eui._unlockRegisteredElements or {}) do keys[#keys + 1] = key end
+    table.sort(keys)
+    for _, key in ipairs(keys) do
+        local folder, positions, positionKey, localOffsets
+        if key == "StanceBar" or key == "PetBar" then
+            folder, positions, positionKey = actionBars, "barPositions", key
+        elseif key == "pet" or key == "targettarget" or key == "boss"
+            or key == "playerCastbar" or key == "targetCastbar" or key == "focusCastbar" or key == "petCastbar" then
+            folder, positions, positionKey = units, "positions", key
+            localOffsets = key:find("Castbar", 1, true) ~= nil
+        elseif key:match("^CDM_[%w_]+$") then
+            folder, positions, positionKey = cooldowns, "cdmBarPositions", key:sub(5)
+        elseif key == "ERB_CastBar" then
+            folder, positions, positionKey = resources, "castBar", "unlockPos"
+        end
+        if folder and not seen[key] then
+            result[#result + 1] = {key = key, folder = folder, positionTable = positions,
+                positionKey = positionKey, optional = true, fitFallback = true, localOffsets = localOffsets,
+                displayLabel = eui._unlockRegisteredElements[key].label}
+        elseif key:match("^TBB_%d+$") then
+            local ns = eui._ModuleNS and eui._ModuleNS[cooldowns]
+            local spec = ns and ns.GetActiveSpecKey and ns.GetActiveSpecKey()
+            if spec then
+                result[#result + 1] = {key = key, folder = cooldowns, optional = true, fitFallback = true,
+                    specKey = spec, positionTable = "tbbPositions", positionKey = key:sub(5),
+                    displayLabel = eui._unlockRegisteredElements[key].label}
+            end
+        end
+    end
+    return result
+end
+
+local function Copy(value)
+    if type(value) ~= "table" then return value end
+    local out = {}
+    for key, child in pairs(value) do out[key] = Copy(child) end
+    return out
+end
+
+local function UnavailableReason(folder)
+    local api = C_AddOns
+    if not (api and api.GetAddOnInfo and api.GetAddOnEnableState and api.IsAddOnLoaded) then
+        return "ELLESMERE_HUD_MODULE_MISSING"
+    end
+    local function State(name)
+        local installed, title, _, _, loadReason = api.GetAddOnInfo(name)
+        if not installed then return "ELLESMERE_HUD_INSTALL_MODULE", name end
+        -- Forever's incarnation name can differ from UnitName("player").
+        -- The loader's current DISABLED reason is authoritative; passing the
+        -- shortened character name can incorrectly report another scope enabled.
+        if loadReason == "DISABLED" or api.GetAddOnEnableState(name) == 0 then
+            return "ELLESMERE_HUD_ENABLE_MODULE", title or name
+        end
+    end
+    local reason, name = State(folder)
+    if reason then return reason, {name} end
+    if api.GetAddOnDependencies then
+        for _, dependency in ipairs({api.GetAddOnDependencies(folder)}) do
+            reason, name = State(dependency)
+            if reason then return reason, {name} end
+        end
+    end
+    local _, title = api.GetAddOnInfo(folder)
+    return api.IsAddOnLoaded(folder) and "ELLESMERE_HUD_CHECK_MODULE" or "ELLESMERE_HUD_RELOAD_MODULE",
+        {title or folder}
+end
+
 local points = {
     TOPLEFT = true, TOP = true, TOPRIGHT = true, LEFT = true, CENTER = true,
     RIGHT = true, BOTTOMLEFT = true, BOTTOM = true, BOTTOMRIGHT = true,
@@ -41,7 +116,7 @@ local function PublicNumber(value)
 end
 
 local function FindSystem(layout, map)
-    local system = Enum.EditModeSystem and Enum.EditModeSystem[map.system]
+    local system = map.system and Enum.EditModeSystem and Enum.EditModeSystem[map.system]
     local indices = map.indices and Enum[map.indices]
     local index = indices and indices[map.index]
     if not layout or system == nil or (map.index and index == nil) then return nil end
@@ -73,7 +148,21 @@ local function FrameBounds(frame, uiScale)
     if not scale or not frame.GetRect then return end
     local left, bottom, width, height = frame:GetRect()
     if not PublicNumber(left) or not PublicNumber(bottom) or not PublicNumber(width)
-        or not PublicNumber(height) or width <= 0 or height <= 0 then return end
+        or not PublicNumber(height) or width <= 0 or height <= 0 then
+        -- Empty cooldown containers can have no resolved left edge. Their
+        -- public UIParent anchor still describes the mover without reading icons.
+        if not (frame.GetPoint and frame.GetWidth and frame.GetHeight) then return end
+        local point, relative, relativePoint, x, y = frame:GetPoint()
+        width, height = frame:GetWidth(), frame:GetHeight()
+        if relative ~= UIParent or not points[point] or not points[relativePoint]
+            or not PublicNumber(x) or not PublicNumber(y) or not PublicNumber(width)
+            or not PublicNumber(height) or width <= 0 or height <= 0 then return end
+        local ratio = scale / uiScale
+        local rx, ry = PointOrigin(relativePoint, 0, 0, UIParent:GetWidth(), UIParent:GetHeight())
+        local dx, dy = PointOrigin(point, 0, 0, width * ratio, height * ratio)
+        return {left = rx + x * ratio - dx, bottom = ry + y * ratio - dy,
+            width = width * ratio, height = height * ratio}
+    end
     local ratio = scale / uiScale
     return {left = left * ratio, bottom = bottom * ratio, width = width * ratio, height = height * ratio}
 end
@@ -87,7 +176,7 @@ end
 local function ProfileOffsetScale(map, targetScale, uiScale)
     -- Unit Frames stores UIParent offsets and compensates for its own scale
     -- when applying them. Action Bars and Minimap store frame-local offsets.
-    return map.folder == units and 1 or uiScale / targetScale
+    return map.folder == units and not map.localOffsets and 1 or uiScale / targetScale
 end
 
 local function SerializedMenuOrigin(context, point, uiScale)
@@ -183,6 +272,27 @@ local function GroupBounds(eui, key, bounds, uiScale)
     if not bounds or eui.IsUnlockAnchored(key) then return end
     local group = {left = bounds.left, bottom = bounds.bottom, width = bounds.width, height = bounds.height}
     local keys, members = {key}, {[key] = true}
+    if key:match("^TBB_%d+$") then
+        local ns = eui._ModuleNS and eui._ModuleNS[cooldowns]
+        local tbb = ns and ns.GetTrackedBuffBars and ns.GetTrackedBuffBars()
+        local bars = tbb and tbb.bars
+        local cfg = bars and bars[tonumber(key:sub(5))]
+        local gid = cfg and ns.TBBBarGroupID and ns.TBBBarGroupID(cfg)
+        if gid and gid ~= 0 then
+            for index, member in ipairs(bars) do
+                local child = "TBB_" .. index
+                if child ~= key and ns.TBBBarGroupID(member) == gid then
+                    local b = FrameBounds(ElementFrame(eui, child), uiScale)
+                    if not b then return end
+                    local right, top = math.max(group.left + group.width, b.left + b.width),
+                        math.max(group.bottom + group.height, b.bottom + b.height)
+                    group.left, group.bottom = math.min(group.left, b.left), math.min(group.bottom, b.bottom)
+                    group.width, group.height = right - group.left, top - group.bottom
+                    members[child], keys[#keys + 1] = true, child
+                end
+            end
+        end
+    end
     local anchors = EllesmereUIDB and EllesmereUIDB.unlockAnchors
     if type(anchors) == "table" then
         local i = 1
@@ -250,7 +360,7 @@ function Transfer:Preview(direction)
     end
     local targetSizes = {}
     local uiScale = Scale(UIParent)
-    for _, map in ipairs(mappings) do
+    for _, map in ipairs(Mappings(eui)) do
         if map.index == "RightBar1" or map.index == "RightBar2" then
             local bounds = uiScale and FrameBounds(ElementFrame(eui, map.key), uiScale)
             local index = Enum.EditModeActionBarSystemIndices and Enum.EditModeActionBarSystemIndices[map.index]
@@ -263,6 +373,7 @@ function Transfer:Preview(direction)
     end
     if not context then return nil, "ELLESMERE_HUD_NO_LAYOUT" end
     local rect = context.rect
+    context.unavailable = nil
     context.workspace = GetWorkspaceRect()
     context.profileName = eui.GetActiveProfileName and eui.GetActiveProfileName()
     local profile = eui.GetActiveProfileData and eui.GetActiveProfileData()
@@ -271,7 +382,12 @@ function Transfer:Preview(direction)
         context.block = "ELLESMERE_HUD_NEED_NATIVE"
     end
     local rows = {}
-    for _, map in ipairs(mappings) do
+    for _, map in ipairs(Mappings(eui)) do
+        local destination = rect
+        if map.fitFallback and rect.width > 32 and rect.height > 32 then
+            destination = {left = rect.left + 8, bottom = rect.bottom + 8,
+                right = rect.right - 8, top = rect.top - 8, width = rect.width - 16, height = rect.height - 16}
+        end
         local row = {map = map}
         local frame = ElementFrame(eui, map.key)
         if not map.optional or (frame and not ElementHidden(eui, map.key)) then
@@ -285,19 +401,20 @@ function Transfer:Preview(direction)
             if context.controller and map.folder == actionBars then
                 row.reason = "ELLESMERE_HUD_NATIVE_PAD"
             elseif not frame then
-                row.reason = "ELLESMERE_HUD_MODULE_MISSING"
+                row.reason, row.reasonArgs = UnavailableReason(map.folder)
+                context.unavailable = true
             elseif direction ~= "blizzard" and not group then
                 row.reason = "ELLESMERE_HUD_LINKED"
             elseif direction == "fit" and bounds then
                 if Fits(group, rect) then
                     row.reason = "ELLESMERE_HUD_KEEP"
-                elseif group.width <= rect.width and group.height <= rect.height then
-                    local left = math.max(rect.left, math.min(bounds.left, rect.right - bounds.width))
-                    local bottom = math.max(rect.bottom, math.min(bounds.bottom, rect.top - bounds.height))
+                elseif group.width <= destination.width and group.height <= destination.height then
+                    local left = math.max(destination.left, math.min(bounds.left, destination.right - bounds.width))
+                    local bottom = math.max(destination.bottom, math.min(bounds.bottom, destination.top - bounds.height))
                     row.proposed = {left = left, bottom = bottom, width = bounds.width, height = bounds.height}
                     local ratio = ProfileOffsetScale(map, Scale(frame), uiScale)
                     row.position = {point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = left * ratio, y = bottom * ratio}
-                    PlaceGroup(row, bounds, group, rect, ratio)
+                    PlaceGroup(row, bounds, group, destination, ratio)
                 end
             elseif direction == "blizzard" and bounds then
                 local entry = FindSystem(context.generated, map)
@@ -316,7 +433,19 @@ function Transfer:Preview(direction)
                     local width, height = bounds and bounds.width or 0, bounds and bounds.height or 0
                     local dx, dy = PointOrigin(row.position.point, 0, 0, width, height)
                     row.proposed = {left = x - dx, bottom = y - dy, width = width, height = height}
-                    PlaceGroup(row, bounds, group, rect, ProfileOffsetScale(map, Scale(frame), uiScale))
+                    PlaceGroup(row, bounds, group, destination, ProfileOffsetScale(map, Scale(frame), uiScale))
+                elseif map.fitFallback and bounds and Fits(group, rect) then
+                    row.reason = "ELLESMERE_HUD_KEEP"
+                elseif map.fitFallback and bounds and group.width <= destination.width and group.height <= destination.height then
+                    -- EUI-only elements have no serialized Blizzard equivalent.
+                    -- Project their screen proportions into Mainhand once, then
+                    -- keep their linked group fully inside the viewport.
+                    local left = rect.left + (bounds.left + bounds.width / 2) / rect.screenWidth * rect.width - bounds.width / 2
+                    local bottom = rect.bottom + (bounds.bottom + bounds.height / 2) / rect.screenHeight * rect.height - bounds.height / 2
+                    local ratio = ProfileOffsetScale(map, Scale(frame), uiScale)
+                    row.proposed = {left = left, bottom = bottom, width = bounds.width, height = bounds.height}
+                    row.position = {point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = left * ratio, y = bottom * ratio}
+                    PlaceGroup(row, bounds, group, destination, ratio)
                 end
             end
             if not (row.position or row.anchor or row.reason) then row.reason = "ELLESMERE_HUD_NO_ANCHOR" end
@@ -365,17 +494,40 @@ function Transfer:OpenImport(rows, onComplete)
     if HasOverrides(snapshot) then
         return false, "ELLESMERE_HUD_OVERRIDES"
     end
-    local addons = {}
+    local addons, cdmSpells = {}, {}
     for _, row in ipairs(rows) do
         if row.position then
             local map = row.map
             local profile = snapshot.addons[map.folder]
             if type(profile) ~= "table" then return false end
+            if map.specKey then
+                local ns = eui._ModuleNS and eui._ModuleNS[cooldowns]
+                if not ns or not ns.GetActiveSpecKey or ns.GetActiveSpecKey() ~= map.specKey then return false end
+                local store = EllesmereUIDB and EllesmereUIDB.spellAssignments
+                local bucket = store and store.profiles and store.profiles[eui.GetActiveProfileName()]
+                local spec = bucket and bucket.specProfiles and bucket.specProfiles[map.specKey]
+                if type(spec) ~= "table" then return false end
+                -- Vendor imports replace a spec bucket. Include its full copy,
+                -- preserving spell assignments and every unrelated setting.
+                cdmSpells[map.specKey] = cdmSpells[map.specKey] or Copy(spec)
+                profile = cdmSpells[map.specKey]
+            end
             local positions = profile[map.positionTable]
             if not positions then positions = {}; profile[map.positionTable] = positions end
             if type(positions) ~= "table" then return false end
             positions[map.positionKey] = row.position
-            addons[map.folder] = profile
+            if map.specKey then
+                local ns = eui._ModuleNS[cooldowns]
+                local bars = profile.trackedBuffBars and profile.trackedBuffBars.bars
+                local cfg = bars and bars[tonumber(map.positionKey)]
+                local gid = cfg and ns.TBBBarGroupID and ns.TBBBarGroupID(cfg)
+                if gid and gid ~= 0 then
+                    for index, member in ipairs(bars) do
+                        if ns.TBBBarGroupID(member) == gid then positions[tostring(index)] = Copy(row.position) end
+                    end
+                end
+            end
+            addons[map.folder] = snapshot.addons[map.folder]
         end
     end
     if not next(addons) then return false, "ELLESMERE_HUD_NO_CHANGES" end
@@ -384,6 +536,7 @@ function Transfer:OpenImport(rows, onComplete)
         addons = addons, partialImport = true, layoutExcluded = true, overridesExcluded = true,
         windowSkinLook = base and base.windowSkinLook,
     }}
+    if next(cdmSpells) then payload.data.cdmSpells = cdmSpells end
     if eui.StampPayloadClient then eui.StampPayloadClient(payload) end
     local encoded = eui.EncodePayload(payload)
     if not encoded then return false end

@@ -50,6 +50,12 @@ L["ELLESMERE_HUD_BUSY"] = "Close Edit Mode or Unlock Mode and leave combat befor
 L["ELLESMERE_HUD_NO_LAYOUT"] = "No usable HUD layout found for the current span."
 L["ELLESMERE_HUD_NATIVE_PAD"] = "Keyboard bar skipped in Gamepad mode."
 L["ELLESMERE_HUD_MODULE_MISSING"] = "The EllesmereUI element is unavailable."
+L["ELLESMERE_HUD_INSTALL_MODULE"] = "安裝 %s 後重載介面。"
+L["ELLESMERE_HUD_ENABLE_MODULE"] = "在插件清單中啟用 %s 後重載介面。"
+L["ELLESMERE_HUD_RELOAD_MODULE"] = "重載介面以載入 %s。"
+L["ELLESMERE_HUD_CHECK_MODULE"] = "請檢查 %s 的設定與初始化狀態。"
+L["ELLESMERE_HUD_MODULE_GUIDANCE"] = "在插件清單中啟用所需的 EllesmereUI 模組，然後重載介面。"
+
 L["ELLESMERE_HUD_LINKED"] = "Anchored to another element or group bounds unavailable."
 L["ELLESMERE_HUD_NO_ANCHOR"] = "No compatible Mainhand anchor was found."
 L["ELLESMERE_HUD_IMPORT_FAILED"] = "Could not open the EllesmereUI profile importer."

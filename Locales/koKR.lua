@@ -50,6 +50,12 @@ L["ELLESMERE_HUD_BUSY"] = "Close Edit Mode or Unlock Mode and leave combat befor
 L["ELLESMERE_HUD_NO_LAYOUT"] = "No usable HUD layout found for the current span."
 L["ELLESMERE_HUD_NATIVE_PAD"] = "Keyboard bar skipped in Gamepad mode."
 L["ELLESMERE_HUD_MODULE_MISSING"] = "The EllesmereUI element is unavailable."
+L["ELLESMERE_HUD_INSTALL_MODULE"] = "%s 설치 후 UI를 다시 불러오세요."
+L["ELLESMERE_HUD_ENABLE_MODULE"] = "애드온 목록에서 %s 활성화 후 UI를 다시 불러오세요."
+L["ELLESMERE_HUD_RELOAD_MODULE"] = "%s 로드를 위해 UI를 다시 불러오세요."
+L["ELLESMERE_HUD_CHECK_MODULE"] = "%s 설정 및 초기화 상태를 확인하세요."
+L["ELLESMERE_HUD_MODULE_GUIDANCE"] = "애드온 목록에서 필요한 EllesmereUI 모듈을 활성화한 후 UI를 다시 불러오세요."
+
 L["ELLESMERE_HUD_LINKED"] = "Anchored to another element or group bounds unavailable."
 L["ELLESMERE_HUD_NO_ANCHOR"] = "No compatible Mainhand anchor was found."
 L["ELLESMERE_HUD_IMPORT_FAILED"] = "Could not open the EllesmereUI profile importer."

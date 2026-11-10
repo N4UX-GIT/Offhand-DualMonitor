@@ -50,6 +50,12 @@ L["ELLESMERE_HUD_BUSY"] = "Chiudi la modalità modifica o sblocco ed esci dal co
 L["ELLESMERE_HUD_NO_LAYOUT"] = "Nessun layout HUD utilizzabile per l'estensione attuale."
 L["ELLESMERE_HUD_NATIVE_PAD"] = "Barra tastiera ignorata in modalità gamepad."
 L["ELLESMERE_HUD_MODULE_MISSING"] = "L'elemento EllesmereUI non è disponibile."
+L["ELLESMERE_HUD_INSTALL_MODULE"] = "Installa %s, poi ricarica."
+L["ELLESMERE_HUD_ENABLE_MODULE"] = "Abilita %s negli addon, poi ricarica."
+L["ELLESMERE_HUD_RELOAD_MODULE"] = "Ricarica per caricare %s."
+L["ELLESMERE_HUD_CHECK_MODULE"] = "Verifica configurazione e avvio di %s."
+L["ELLESMERE_HUD_MODULE_GUIDANCE"] = "Abilita i moduli EllesmereUI richiesti negli addon, poi ricarica."
+
 L["ELLESMERE_HUD_LINKED"] = "Ancorato a un altro elemento o dimensioni del gruppo non disponibili."
 L["ELLESMERE_HUD_NO_ANCHOR"] = "Nessun ancoraggio Mainhand compatibile trovato."
 L["ELLESMERE_HUD_IMPORT_FAILED"] = "Impossibile aprire l'importazione profili di EllesmereUI."

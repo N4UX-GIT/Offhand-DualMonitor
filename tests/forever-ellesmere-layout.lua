@@ -388,6 +388,26 @@ assert(loadfile("UI/EllesmereLayoutPreview.lua"))("Offhand", addon)
 importOptions, overrides = nil, nil
 transfer:ShowPreview("ellesmere")
 assert(not preview.selected, "the preview's row selection must not accent the dialog border")
+do
+    local savedRows = importRows
+    importRows = {}
+    for i = 1, 25 do
+        importRows[i] = {map = {key = "page" .. i, displayLabel = "Frame " .. i},
+            position = {point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = 1800, y = i * 10}}
+    end
+    transfer:ShowPreview("ellesmere")
+    assert(preview.pages.text == "1 / 3")
+    preview.next.OnClick()
+    assert(preview.pages.text == "2 / 3" and preview.legend[1].text:find("13  Frame 13", 1, true))
+    preview.checkboxes[1].GetChecked = function() return false end
+    preview.checkboxes[1]:OnClick()
+    assert(preview.rowSelection.page13 == false and preview.rowSelection.page1 == nil,
+        "page-two selection must address its global row")
+    preview.previous.OnClick()
+    assert(preview.pages.text == "1 / 3" and preview.rowSelection.page13 == false)
+    importRows = savedRows
+    transfer:ShowPreview("ellesmere")
+end
 review.OnClick()
 assert(not preview:IsShown() and navigations == 0)
 Tick()

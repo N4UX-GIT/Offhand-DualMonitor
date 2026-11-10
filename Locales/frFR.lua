@@ -50,6 +50,12 @@ L["ELLESMERE_HUD_BUSY"] = "Fermez le mode Édition ou Déverrouillage et quittez
 L["ELLESMERE_HUD_NO_LAYOUT"] = "Aucun HUD utilisable trouvé pour l'étendue actuelle."
 L["ELLESMERE_HUD_NATIVE_PAD"] = "Barre clavier ignorée en mode manette."
 L["ELLESMERE_HUD_MODULE_MISSING"] = "L'élément EllesmereUI est indisponible."
+L["ELLESMERE_HUD_INSTALL_MODULE"] = "Installez %s, puis rechargez."
+L["ELLESMERE_HUD_ENABLE_MODULE"] = "Activez %s dans les extensions, puis rechargez."
+L["ELLESMERE_HUD_RELOAD_MODULE"] = "Rechargez pour charger %s."
+L["ELLESMERE_HUD_CHECK_MODULE"] = "Vérifiez la configuration et le démarrage de %s."
+L["ELLESMERE_HUD_MODULE_GUIDANCE"] = "Activez les modules EllesmereUI requis dans les extensions, puis rechargez."
+
 L["ELLESMERE_HUD_LINKED"] = "Ancré à un autre élément ou dimensions du groupe indisponibles."
 L["ELLESMERE_HUD_NO_ANCHOR"] = "Aucun ancrage Mainhand compatible trouvé."
 L["ELLESMERE_HUD_IMPORT_FAILED"] = "Impossible d'ouvrir l'importateur de profils EllesmereUI."

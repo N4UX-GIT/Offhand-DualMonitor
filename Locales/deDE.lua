@@ -50,6 +50,12 @@ L["ELLESMERE_HUD_BUSY"] = "Schließe den Bearbeitungs- oder Entsperrmodus und ve
 L["ELLESMERE_HUD_NO_LAYOUT"] = "Kein nutzbares HUD-Layout für die aktuelle Fensteranordnung gefunden."
 L["ELLESMERE_HUD_NATIVE_PAD"] = "Tastaturleiste im Gamepad-Modus übersprungen."
 L["ELLESMERE_HUD_MODULE_MISSING"] = "Das EllesmereUI-Element ist nicht verfügbar."
+L["ELLESMERE_HUD_INSTALL_MODULE"] = "%s installieren, dann neu laden."
+L["ELLESMERE_HUD_ENABLE_MODULE"] = "%s unter AddOns aktivieren, dann neu laden."
+L["ELLESMERE_HUD_RELOAD_MODULE"] = "Zum Laden von %s die UI neu laden."
+L["ELLESMERE_HUD_CHECK_MODULE"] = "Konfiguration und Start von %s prüfen."
+L["ELLESMERE_HUD_MODULE_GUIDANCE"] = "Benötigte EllesmereUI-Module unter AddOns aktivieren und die UI neu laden."
+
 L["ELLESMERE_HUD_LINKED"] = "An ein anderes Element gebunden oder Gruppengröße unbekannt."
 L["ELLESMERE_HUD_NO_ANCHOR"] = "Kein kompatibler Mainhand-Anker gefunden."
 L["ELLESMERE_HUD_IMPORT_FAILED"] = "Der EllesmereUI-Profilimport konnte nicht geöffnet werden."
