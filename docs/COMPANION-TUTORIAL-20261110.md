@@ -39,3 +39,7 @@ Layout assertions check both rows' shared edges, centers, widths, spacing and ta
 The layout/preference and sixteen-step tutorial checks passed at 100%-200% scaling. Built from `6acd10f` into ignored `dist/companion-alignment-preview-7-20261110`; the interaction audit/frozen-artifact guard passed. Computer Use dismissed the new preview's first-run tour and reviewed the equal-width, centered header grid in the actual running Setup page. It is left open there for owner review; `setup.png` is saved beside the EXE. Installed preference hashes remain unchanged. No Span/Restore or game input, and no publication.
 
 The local ZIP has only LICENSE, Offhand.exe and README.txt with matching executable bytes. EXE SHA256: `084FC81D2CB59F7C59CA097E2AD5B6B412C84FBF6EC0BBF062E824A88663A551`. ZIP SHA256: `9CF9D9B354247E688571AA9A059F7F3902E45D42573FD227BB7F69271CCEB618`.
+
+## UI Preview 8 tab height
+
+Approved follow-up: reduce Setup/Advanced from 38 to 32 logical pixels high, while preserving their font, widths, centered alignment, subtle borders, selected underline and horizontal spacing. Span/Restore remain 44px high. Scale/layout coverage now also asserts the 32:44 height relationship and unclipped unchanged tab text; tutorial/state-preservation checks remain included. This is unpublished UI Preview 8, file 2.1.5.8008; no production artifacts or addon source change.

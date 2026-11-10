@@ -60,7 +60,7 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyVersion("2.1.5.0")]
 #endif
 #if UI_PREVIEW
-[assembly: AssemblyFileVersion("2.1.5.8007")]
+[assembly: AssemblyFileVersion("2.1.5.8008")]
 [assembly: AssemblyInformationalVersion("2.1.5")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
@@ -4115,7 +4115,7 @@ namespace Offhand.Companion
         internal const string BaseVersion = "2.1.5";
 #endif
 #if UI_PREVIEW
-        internal const string ReleaseLabel = "UI Preview 7";
+        internal const string ReleaseLabel = "UI Preview 8";
         internal static readonly bool GraphicsRecoveryEnabled = false;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
@@ -5989,14 +5989,14 @@ namespace Offhand.Companion
             configurationPanel = config;
             diagnosticsPanel = diagnostics;
             activityPanel = log;
-            dashboardNavigation = new TableLayoutPanel { Height = 38, ColumnCount = 2, RowCount = 1,
+            dashboardNavigation = new TableLayoutPanel { Height = 32, ColumnCount = 2, RowCount = 1,
                 Margin = Padding.Empty, Padding = Padding.Empty, BackColor = cBg, AccessibleName = "Companion navigation",
                 AccessibleRole = AccessibleRole.PageTabList };
             dashboardNavigation.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             dashboardNavigation.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             dashboardNavigation.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            setupTab = CreateButton("Setup", 0, 0, 220, 38, cBtnBg, cText, cBorder);
-            advancedTab = CreateButton("Advanced", 0, 0, 220, 38, cBtnBg, cText, cBorder);
+            setupTab = CreateButton("Setup", 0, 0, 220, 32, cBtnBg, cText, cBorder);
+            advancedTab = CreateButton("Advanced", 0, 0, 220, 32, cBtnBg, cText, cBorder);
             setupTab.Dock = advancedTab.Dock = DockStyle.Fill;
             setupTab.Margin = new Padding(0, 0, 6, 0);
             advancedTab.Margin = new Padding(6, 0, 0, 0);

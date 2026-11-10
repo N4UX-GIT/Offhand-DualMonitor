@@ -388,6 +388,11 @@ namespace Offhand.Companion
                 throw new Exception("Tabs/actions must share a centered, symmetric two-column grid and matching tab weight.");
             if(!span.Font.Bold || restore.Font.Bold || span.FlatAppearance.BorderColor==restore.FlatAppearance.BorderColor)
                 throw new Exception("Span must retain primary styling within the balanced action row.");
+            if(Math.Abs(setup.Height-span.Height*32f/44f)>2 || setup.Height!=advanced.Height)
+                throw new Exception("Navigation must retain its smaller 32px height relative to 44px actions after scaling.");
+            foreach(var tab in new[]{setup,advanced})
+                if(TextRenderer.MeasureText(tab.Text,tab.Font).Height+4>tab.Height)
+                    throw new Exception("Reduced tab height clips its unchanged text.");
             if(Descendants(form).OfType<Label>().Any(label=>label.AccessibleName=="Span guidance" || label.AccessibleName=="Restore guidance") ||
                 Descendants(form).OfType<Panel>().Any(panel=>panel.AccessibleName=="Apply your layout guide"))
                 throw new Exception("Persistent captions/guidance must be replaced by the replayable tutorial.");

@@ -27,14 +27,14 @@ $options = @('/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', '/de
 & $compiler @options @files
 if ($LASTEXITCODE -ne 0) { throw 'Dashboard preview compilation failed.' }
 $identity = [Diagnostics.FileVersionInfo]::GetVersionInfo($binary)
-if ($identity.FileVersion -ne '2.1.5.8007' -or $identity.ProductVersion -ne '2.1.5') {
+if ($identity.FileVersion -ne '2.1.5.8008' -or $identity.ProductVersion -ne '2.1.5') {
     throw 'Unexpected dashboard preview identity.'
 }
 @('AutoSpan=False', 'DashboardCollapsed.SystemStatus=True',
     'DashboardCollapsed.DisplayDiagnostics=True', 'DashboardCollapsed.ActivityLog=True') |
     Set-Content -LiteralPath (Join-Path $output 'DashboardPreviewConfig.ini') -Encoding UTF8
 @'
-Offhand Companion UI Preview 7, local build 2.1.5.8007. Unpublished.
+Offhand Companion UI Preview 8, local build 2.1.5.8008. Unpublished.
 
 Run Offhand.exe to review the updated dashboard. It can coexist with the regular
 Companion. Preferences stay in DashboardPreviewConfig.ini beside this EXE;
@@ -48,6 +48,7 @@ using Start Companion tutorial. Only its dismissal flag is saved.
 
 Normal Setup has no action captions or permanent setup-instructions card.
 Setup/Advanced and Span/Restore use a centered, equal-width two-column grid.
+Tabs are 32px high at 100% scaling; actions remain 44px. Tab text stays the same.
 Advanced contains custom layouts/profiles, standard-layout reset, Auto-span,
 diagnostics and the log. Tabs keep subtle borders and a selected underline.
 
