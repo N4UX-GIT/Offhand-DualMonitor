@@ -1,4 +1,4 @@
-param([Parameter(Mandatory = $true)][string]$OutputDirectory)
+﻿param([Parameter(Mandatory = $true)][string]$OutputDirectory)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $output = [IO.Path]::GetFullPath($OutputDirectory)
@@ -27,26 +27,27 @@ $options = @('/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', '/de
 & $compiler @options @files
 if ($LASTEXITCODE -ne 0) { throw 'Dashboard preview compilation failed.' }
 $identity = [Diagnostics.FileVersionInfo]::GetVersionInfo($binary)
-if ($identity.FileVersion -ne '2.1.5.8002' -or $identity.ProductVersion -ne '2.1.5') {
+if ($identity.FileVersion -ne '2.1.5.8003' -or $identity.ProductVersion -ne '2.1.5') {
     throw 'Unexpected dashboard preview identity.'
 }
-@('AutoSpan=False', 'DashboardCollapsed.SystemStatus=True', 'DashboardCollapsed.Configuration=False',
-    'DashboardCollapsed.AdvancedOptions=True', 'DashboardCollapsed.DisplayDiagnostics=True', 'DashboardCollapsed.ActivityLog=True') |
+@('AutoSpan=False', 'DashboardCollapsed.SystemStatus=True',
+    'DashboardCollapsed.DisplayDiagnostics=True', 'DashboardCollapsed.ActivityLog=True') |
     Set-Content -LiteralPath (Join-Path $output 'DashboardPreviewConfig.ini') -Encoding UTF8
 @'
-Offhand Companion UI Preview 2, local build 2.1.5.8002. Unpublished.
+Offhand Companion UI Preview 3, local build 2.1.5.8003. Unpublished.
 
 Run Offhand.exe to review the updated dashboard. It can coexist with the regular
 Companion. Preferences stay in DashboardPreviewConfig.ini beside this EXE;
 public/Store preferences are not imported. Automatic spanning and graphics-reset
 recovery are disabled. Manual Span and Restore remain available.
 
-Review Configuration and the collapsed Advanced options panel. Advanced options
-contains Workspace layout/profiles, Use standard display layout and Auto-span.
-Its header shows when a custom layout is active. New two-monitor custom plans
-start with the full Offhand display. Existing saved areas are preserved.
+Review the Setup and Advanced tabs. Setup opens first with display controls and
+layout-specific guidance. Advanced contains workspace layout/profiles, standard
+layout reset, Auto-span, diagnostics and the log. Its tab indicates an active
+custom layout. New two-monitor plans start with the full Offhand display; saved
+areas are preserved. Switching tabs only changes navigation.
 
-Show/Hide must keep the window size stable. This preview intentionally disables
+Tab changes and Show/Hide must keep the window size stable. This preview intentionally disables
 automatic spanning; the production auto-span restrictions remain unchanged.
 Use Exit Companion to close this preview; the regular installation stays open.
 '@ | Set-Content -LiteralPath (Join-Path $output 'README.txt') -Encoding UTF8

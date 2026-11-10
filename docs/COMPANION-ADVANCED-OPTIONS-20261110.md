@@ -2,6 +2,8 @@
 
 Date: 2026-11-10. Unpublished local preview, product 2.1.5, file 2.1.5.8002.
 
+The original collapsed-card design below is historical evidence for UI Preview 2. The approved follow-up replaces it with Setup and Advanced navigation in UI Preview 3, file 2.1.5.8003. Neither preview is a public release.
+
 ## Behavior
 
 - Configuration retains Span displays, Mainhand (game), Identify Displays, the ordinary single-display split and Game side.
@@ -44,3 +46,16 @@ Installed portable/Store preference files were hash-compared before and after an
 - Preview EXE SHA256: `A0E6025059C8A40A2ACA6D03D10FCC6B166ACBD61E6896923F6B27CF87DC2AB3`.
 - Preview ZIP SHA256: `A17FCF16F36C18CEB8CB55126C417D017A0A1501BB1641654F20248CEC7176B9`.
 - ZIP entries are exactly `LICENSE`, `Offhand.exe`, `README.txt`; the embedded EXE hash matches. No user preferences are included.
+
+## Setup and Advanced tabs follow-up
+
+- Two themed navigation buttons below the header act as Setup and Advanced tabs. Setup opens on every launch; changing pages does not persist or alter the chosen layout.
+- Header, Span/Restore actions and their guidance, System Status and footer actions are shared. The Advanced tab says Custom layout active when appropriate, including while Setup is selected.
+- Setup contains ordinary display controls and a measured, wrapping Apply your layout guide. Instructions adapt to a two-monitor standard plan, the ordinary single-display split, or an active custom plan. They explain Windowed mode, Span WoW Now, `/reload`, and completing `/offhand` setup for first-time users. Custom instructions identify the standard-layout reset action.
+- Advanced contains workspace layouts, named profiles, standard-layout reset, Auto-span/delay, and the existing collapsible Display Diagnostics and Activity Log cards. Configuration and Workspace and Startup cards are always expanded within their page. Prior saved collapse keys are retained but no longer control these two cards.
+- Tab selection uses the same gold/dark styles as the existing interface. Tab buttons expose navigation names and selection descriptions; Left/Right and Home/End switch pages. No new window-management or addon behavior is introduced.
+- Updated Help and actionable messages use the Advanced tab location.
+
+Validation rerun for this follow-up: preference/layout checks pass at 100%-200% scaling, enlarged native children and minimum width. Repeated page changes and Show/Hide produce no outer size/location changes, content-width changes or late log handle creation. Tests cover isolated page contents, shared actions, tab text and selected-state descriptions, wrapped guidance, custom state/reset instructions and preservation of saved settings. Workspace UX passes 111 checks per architecture. Store update tests pass 472 checks across production/preview and x64/x86 variants, without real Store queries. Historical 2.1.5 EXE/ZIP/receipt and source-drift rejection checks pass.
+
+The shared knowledge index was stale again at the start of this follow-up. The existing authored Advanced options finding was read directly; current source and native test evidence govern this native-only UI change.

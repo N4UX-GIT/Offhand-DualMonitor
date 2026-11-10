@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -48,6 +48,8 @@ namespace Offhand.Companion
             foreach (Control child in parent.Controls)
             {
                 if (child.Width <= 0 || child.Height <= 0) continue;
+                var table = parent as TableLayoutPanel;
+                if (table != null && table.GetRowHeights()[table.GetRow(child)] == 0) continue;
                 var toggle = parent.Controls.OfType<Button>().FirstOrDefault(button => button.Text == "Show" || button.Text == "Hide");
                 if (toggle != null && ((toggle.Text == "Show" && child != toggle && child != parent.Controls[0]
                         && child.AccessibleName != "System status summary") ||
@@ -76,15 +78,15 @@ namespace Offhand.Companion
                 Panel config = Descendants(form).OfType<Panel>().Single(panel =>
                     panel.Controls.OfType<Label>().Any(label => label.Text == "CONFIGURATION"));
                 Panel advanced = Descendants(form).OfType<Panel>().Single(panel =>
-                    panel.Controls.OfType<Label>().Any(label => label.Text.StartsWith("ADVANCED OPTIONS")));
-                if (!advanced.Controls.OfType<Button>().Any(button => button.Text == "Show"))
-                    throw new Exception("Advanced options must start collapsed for new preferences.");
+                    panel.Controls.OfType<Label>().Any(label => label.Text == "WORKSPACE AND STARTUP"));
+                if (!One<Button>(form, button => button.AccessibleName == "Setup tab").AccessibleDescription.StartsWith("Selected."))
+                    throw new Exception("Setup must open first.");
                 var delay = One<NumericUpDown>(advanced, control => true);
                 var auto = One<CheckBox>(advanced, control => control.Text == "Auto-span WoW on launch");
                 if (auto.Checked || Descendants(config).OfType<NumericUpDown>().Any()
                     || Descendants(config).OfType<Button>().Any(button => button.Text.StartsWith("Workspace")))
                     throw new Exception("Basic configuration exposes advanced controls or auto-span starts enabled.");
-                form.SetDashboardSectionExpanded(advanced, true, false);
+                form.SelectDashboardPage(true);
                 LayoutAll(form);
                 var displays = One<CheckedListBox>(config, control => true);
                 var combos = Descendants(config).OfType<ComboBox>().ToArray();
@@ -132,7 +134,7 @@ namespace Offhand.Companion
                     throw new Exception("Advanced layout/profile buttons are misaligned at " + factor + "x.");
                 if (BoundsInside(gameSide, config).Top < mainhandBounds.Bottom)
                     throw new Exception("Game side overlaps Mainhand at " + factor + "x.");
-                form.SetDashboardSectionExpanded(advanced, false, false);
+                form.SelectDashboardPage(false);
                 LayoutAll(form);
                 foreach (Control field in new Control[] { delay, gameSide, mainhand })
                     if (!field.Parent.ClientRectangle.Contains(field.Bounds))
@@ -144,7 +146,7 @@ namespace Offhand.Companion
                 if (!status.Controls.OfType<Button>().Any(button => button.Text == "Show") ||
                     !config.Controls.OfType<Button>().Any(button => button.Text == "Hide"))
                     throw new Exception("Fresh dashboard must collapse System Status and expand Configuration.");
-                foreach (string heading in new[] { "ADVANCED OPTIONS", "DISPLAY DIAGNOSTICS", "ACTIVITY LOG" })
+                foreach (string heading in new[] { "DISPLAY DIAGNOSTICS", "ACTIVITY LOG" })
                 {
                     Panel card = Descendants(form).OfType<Panel>().Single(panel =>
                         panel.Controls.OfType<Label>().Any(label => label.Text == heading));
@@ -208,7 +210,11 @@ namespace Offhand.Companion
                 form.LocationChanged += onOuterChange;
                 stackBeforeToggles.SizeChanged += onContentChange;
                 logControl.HandleCreated += onLogHandle;
-                foreach (Panel section in new[] { status, config, advanced,
+                for (int change = 0; change < 6; change++) {
+                    form.SelectDashboardPage(change % 2 == 0);
+                    LayoutAll(form);
+                }
+                foreach (Panel section in new[] { status,
                     Descendants(form).OfType<Panel>().Single(panel => panel.Controls.OfType<Label>().Any(label => label.Text == "DISPLAY DIAGNOSTICS")),
                     Descendants(form).OfType<Panel>().Single(panel => panel.Controls.OfType<Label>().Any(label => label.Text == "ACTIVITY LOG")) })
                 {
@@ -237,10 +243,10 @@ namespace Offhand.Companion
                 string review = CompanionForm.DisplaySelectionPrompt(legacy, true, true);
                 if (!review.StartsWith("Confirm your saved displays\r\n") || !review.Contains("With WoW open") ||
                     !review.Contains("click Span WoW Now") || !review.Contains("when you click OK") ||
-                    !review.Contains("\r\nTo change the layout, open Advanced options > Workspace layout.") ||
+                    !review.Contains("\r\nTo change the layout, open Advanced > Workspace layout.") ||
                     CompanionForm.DisplaySelectionPrompt(legacy, false, true).Contains("Workspace layout"))
                     throw new Exception("Saved display review must explain when to open the confirmation and how to accept it.");
-                layoutStatus.Text = review;
+                layoutStatus.Text = review + string.Concat(Enumerable.Repeat("\r\nCheck your selected displays before applying the saved layout.", 12));
                 form.UpdateClientStatus(null, false);
                 Panel scrollPanel = form.Controls.OfType<Panel>().Single(panel => panel.AutoScroll);
                 var cards = scrollPanel.Controls.OfType<TableLayoutPanel>().Single();
@@ -333,7 +339,8 @@ namespace Offhand.Companion
                         }
                     }
                 }
-                foreach (Panel section in new[] { config, advanced, Descendants(form).OfType<Panel>().Single(panel =>
+                form.SelectDashboardPage(true);
+                foreach (Panel section in new[] { Descendants(form).OfType<Panel>().Single(panel =>
                     panel.Controls.OfType<Label>().Any(label => label.Text == "DISPLAY DIAGNOSTICS")) })
                 {
                     form.SetDashboardSectionExpanded(section, true, false);
@@ -352,12 +359,13 @@ namespace Offhand.Companion
                     Panel viewport = form.Controls.OfType<Panel>().Single(panel => panel.AutoScroll);
                     var stack = viewport.Controls.OfType<TableLayoutPanel>().Single();
                     foreach (Control section in stack.Controls)
-                        if (Math.Abs(section.Width - stack.ClientSize.Width) > 2)
+                        if (stack.GetRowHeights()[stack.GetRow(section)] > 0 && Math.Abs(section.Width - stack.ClientSize.Width) > 2)
                             throw new Exception("Section does not use the available dashboard width");
                     if (viewport.HorizontalScroll.Visible || form.HorizontalScroll.Visible)
                         throw new Exception("Resizing introduced a horizontal scrollbar");
                 }
                 CheckWorkspaceLayoutCaption(form, config, advanced, custom, factor);
+                CheckNavigation(form, config, advanced, factor);
             }
         }
 
@@ -375,6 +383,56 @@ namespace Offhand.Companion
                 if (measured.Height > hint.Height || hint.Right > hint.Parent.ClientSize.Width)
                     throw new Exception("Action guidance is clipped: " + pair[0]);
             }
+        }
+
+        private static void CheckNavigation(CompanionForm form, Panel config, Panel advanced, float factor)
+        {
+            const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
+            var field = typeof(CompanionForm).GetField("appSettings", flags);
+            var settings = (Dictionary<string,string>)field.GetValue(null);
+            var before = new Dictionary<string,string>(settings);
+            var viewport = form.Controls.OfType<Panel>().Single(panel => panel.AutoScroll);
+            var stack = viewport.Controls.OfType<TableLayoutPanel>().Single();
+            var setup = One<Button>(form, button => button.AccessibleName == "Setup tab");
+            var advancedTab = One<Button>(form, button => button.AccessibleName == "Advanced tab");
+            var guide = One<Panel>(form, panel => panel.AccessibleName == "Apply your layout guide");
+            Rectangle outer = form.Bounds;
+            int width = stack.Width;
+            foreach (bool selectAdvanced in new[] { false, true, false, true, false }) {
+                form.SelectDashboardPage(selectAdvanced);
+                LayoutAll(form);
+                int[] rows = stack.GetRowHeights();
+                if ((rows[stack.GetRow(config)] > 0) == selectAdvanced ||
+                    (rows[stack.GetRow(guide)] > 0) == selectAdvanced ||
+                    (rows[stack.GetRow(advanced)] > 0) != selectAdvanced)
+                    throw new Exception("Navigation did not isolate Setup and Advanced content.");
+                if (form.Bounds != outer || stack.Width != width ||
+                    setup.AccessibleDescription.StartsWith("Selected.") == selectAdvanced ||
+                    advancedTab.AccessibleDescription.StartsWith("Selected.") != selectAdvanced)
+                    throw new Exception("Tab selection changed outer bounds/content width or lost selected state.");
+                foreach (string title in new[] { "DISPLAY DIAGNOSTICS", "ACTIVITY LOG" }) {
+                    var card = Descendants(form).OfType<Panel>().Single(panel => panel.Controls.OfType<Label>().Any(label => label.Text == title));
+                    if ((rows[stack.GetRow(card)] > 0) != selectAdvanced)
+                        throw new Exception("Troubleshooting content escaped the Advanced page.");
+                }
+                CheckActionGuidance(form);
+                foreach (Button tab in new[] { setup, advancedTab })
+                    if (TextRenderer.MeasureText(tab.Text, tab.Font).Width + 8 > tab.Width)
+                        throw new Exception("Navigation text is clipped at " + factor + "x.");
+            }
+            foreach (Label step in guide.Controls.OfType<Label>()) {
+                if (!guide.ClientRectangle.Contains(step.Bounds)) throw new Exception("Setup guide escaped its card.");
+                var text = TextRenderer.MeasureText(step.Text, step.Font, new Size(step.Width, int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
+                if (text.Height > step.Height) throw new Exception("Setup instructions are clipped.");
+            }
+            if (settings.Count != before.Count || before.Any(pair => !settings.ContainsKey(pair.Key) || settings[pair.Key] != pair.Value))
+                throw new Exception("Tab navigation changed existing saved preferences.");
+            var split = One<CheckBox>(config, box => box.Text == "Single-display 32:9 split");
+            bool wasSplit = split.Checked;
+            split.Checked = true;
+            if (!guide.Controls.OfType<Label>().Any(label => label.Text.Contains("Choose Game side")))
+                throw new Exception("Single-display guidance did not follow the selected split.");
+            split.Checked = wasSplit;
         }
 
         private static void CheckWorkspaceLayoutCaption(CompanionForm form, Panel config, Panel advanced, Button workspaceLayout, float factor)
@@ -402,21 +460,26 @@ namespace Offhand.Companion
                     LayoutAll(form);
                     string caption = custom ? "Workspace layout (custom)…" : "Workspace layout (standard)…";
                     var beforeDisclosure=new Dictionary<string,string>(settings);
-                    form.SetDashboardSectionExpanded(advanced, true, false);
+                    form.SelectDashboardPage(true);
                     LayoutAll(form);
                     var textSize = TextRenderer.MeasureText(caption, workspaceLayout.Font);
                     if (workspaceLayout.Text != caption || workspaceLayout.AccessibleName != caption ||
                         textSize.Width + workspaceLayout.Padding.Horizontal + 8 > workspaceLayout.Width ||
                         textSize.Height + workspaceLayout.Padding.Vertical > workspaceLayout.Height ||
                         config.Height != standardHeight || standard.Enabled != custom
-                        || heading.Text.Contains("CUSTOM LAYOUT ACTIVE") != custom || form.Bounds != savedBounds)
+                        || One<Button>(form, button => button.AccessibleName == "Advanced tab").Text.Contains("Custom layout active") != custom || form.Bounds != savedBounds)
                         throw new Exception("The custom state/reset action is wrong or clipped at " + factor + "x.");
-                    form.SetDashboardSectionExpanded(advanced, false, false);
+                    form.SelectDashboardPage(false);
                     LayoutAll(form);
                     if (settings.Count!=beforeDisclosure.Count || beforeDisclosure.Any(pair=>!settings.ContainsKey(pair.Key)||settings[pair.Key]!=pair.Value))
                         throw new Exception("Opening/closing Advanced options changed the saved layout or auto-span preference.");
-                    if (TextRenderer.MeasureText(heading.Text, heading.Font).Width > heading.Width)
-                        throw new Exception("Collapsed advanced custom-state heading is clipped at " + factor + "x.");
+                    var tab = One<Button>(form, button => button.AccessibleName == "Advanced tab");
+                    if (TextRenderer.MeasureText(tab.Text, tab.Font).Width + 8 > tab.Width)
+                        throw new Exception("Shared custom-layout tab indication is clipped at " + factor + "x.");
+                    var guide = One<Panel>(form, panel => panel.AccessibleName == "Apply your layout guide");
+                    if (guide.Controls.OfType<Label>().Any(label => label.Text.Contains("Review your custom layout")) != custom ||
+                        guide.Controls.OfType<Label>().Any(label => label.Text.Contains("Use standard display layout")) != custom)
+                        throw new Exception("Setup guide does not explain the active custom plan and its reset route.");
                 }
             }
             finally { settingsField.SetValue(null, original); }

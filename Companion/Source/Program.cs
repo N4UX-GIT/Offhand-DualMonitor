@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -60,7 +60,7 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyVersion("2.1.5.0")]
 #endif
 #if UI_PREVIEW
-[assembly: AssemblyFileVersion("2.1.5.8002")]
+[assembly: AssemblyFileVersion("2.1.5.8003")]
 [assembly: AssemblyInformationalVersion("2.1.5")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
@@ -1212,16 +1212,16 @@ namespace Offhand.Companion
             }
             if (!partial) return plan;
             if (plan.Indices.Length != 1)
-                throw new InvalidOperationException("This custom layout needs exactly one display. Open Advanced options > Workspace layout to review it.");
+                throw new InvalidOperationException("This custom layout needs exactly one display. Open Advanced > Workspace layout to review it.");
             Display display = displays[plan.MainhandIndex];
             if (FindDisplay(displays,read("PartialDisplayIdentity"),null)!=plan.MainhandIndex)
-                throw new InvalidOperationException("The custom region belongs to a different display. Open Advanced options > Workspace layout and save it for this monitor.");
+                throw new InvalidOperationException("The custom region belongs to a different display. Open Advanced > Workspace layout and save it for this monitor.");
             int width, workspace, monitorWidth, monitorHeight;
             if (!int.TryParse(read("PartialWidth"), out width) || !int.TryParse(read("PartialWorkspaceWidth"), out workspace)
                 || !int.TryParse(read("PartialMonitorWidth"), out monitorWidth) || !int.TryParse(read("PartialMonitorHeight"), out monitorHeight))
-                throw new InvalidOperationException("Custom region dimensions are incomplete. Open Advanced options > Workspace layout and save a valid layout.");
+                throw new InvalidOperationException("Custom region dimensions are incomplete. Open Advanced > Workspace layout and save a valid layout.");
             if (display.Bounds.Width != monitorWidth || display.Bounds.Height != monitorHeight)
-                throw new InvalidOperationException("The custom display resolution changed. Open Advanced options > Workspace layout and save the revised layout before spanning.");
+                throw new InvalidOperationException("The custom display resolution changed. Open Advanced > Workspace layout and save the revised layout before spanning.");
             string edge = read("PartialEdge"), side = read("PartialGameSide");
             if ((edge != "LEFT" && edge != "RIGHT") || (side != "LEFT" && side != "RIGHT"))
                 throw new InvalidOperationException("Choose a valid occupied edge and game side in Workspace layout.");
@@ -3328,7 +3328,7 @@ namespace Offhand.Companion
             PreferenceFile.Write(path, settings, temporary => {
                 current = readDisplays();
                 if (confirmedDisplays != null && !MonitorSelection.SameDisplays(confirmedDisplays, current))
-                    throw new InvalidOperationException("The connected displays changed. Open Advanced options > Workspace layout and review the standard layout again.");
+                    throw new InvalidOperationException("The connected displays changed. Open Advanced > Workspace layout and review the standard layout again.");
                 string value;
                 bool custom = (settings.TryGetValue("PartialSpanEnabled", out value)
                         && string.Equals(value, "True", StringComparison.OrdinalIgnoreCase))
@@ -4112,7 +4112,7 @@ namespace Offhand.Companion
         internal const string BaseVersion = "2.1.5";
 #endif
 #if UI_PREVIEW
-        internal const string ReleaseLabel = "UI Preview 2";
+        internal const string ReleaseLabel = "UI Preview 3";
         internal static readonly bool GraphicsRecoveryEnabled = false;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
@@ -4210,6 +4210,11 @@ namespace Offhand.Companion
         private Label lblStatusSummary;
         private Panel advancedPanel;
         private Button btnUseStandardLayout;
+        private Panel configurationPanel, diagnosticsPanel, activityPanel, setupGuide;
+        private TableLayoutPanel dashboardNavigation;
+        private Button setupTab, advancedTab;
+        private Label[] setupGuideSteps;
+        private bool advancedPage;
         private const int DashboardActionHeight = 44;
         private sealed class DashboardSection
         {
@@ -4218,6 +4223,7 @@ namespace Offhand.Companion
             internal Button Toggle;
             internal string Key;
             internal bool Expanded = true;
+            internal bool CanCollapse = true;
         }
         private readonly Dictionary<Panel, DashboardSection> dashboardSections = new Dictionary<Panel, DashboardSection>();
         private TableLayoutPanel dashboardStack;
@@ -4476,9 +4482,9 @@ namespace Offhand.Companion
                 return "Open this display layout with the Companion version that saved it.";
             if (confirmSaved || version == "1")
                 return "Confirm your saved displays\r\nWith WoW open, click Span WoW Now. Check the game and workspace screens in the dialog. Companion remembers your choice when you click OK."
-                    + (custom ? "\r\nTo change the layout, open Advanced options > Workspace layout." : "");
+                    + (custom ? "\r\nTo change the layout, open Advanced > Workspace layout." : "");
             return custom
-                ? "Open Advanced options > Workspace layout to review and save the layout before spanning."
+                ? "Open Advanced > Workspace layout to review and save the layout before spanning."
                 : "Select the displays to span and choose the Mainhand game display.";
         }
 
@@ -4497,9 +4503,10 @@ namespace Offhand.Companion
             if (btnUseStandardLayout != null) btnUseStandardLayout.Enabled = local && partial;
             DashboardSection advanced;
             if (advancedPanel != null && dashboardSections.TryGetValue(advancedPanel, out advanced)) {
-                advanced.Heading.Text = partial ? "ADVANCED OPTIONS · CUSTOM LAYOUT ACTIVE" : "ADVANCED OPTIONS";
+                advanced.Heading.Text = "WORKSPACE AND STARTUP";
                 advanced.Toggle.AccessibleName = (advanced.Expanded ? "Collapse " : "Expand ") + advanced.Heading.Text;
             }
+            UpdateDashboardNavigation();
             clbMonitors.Enabled = local && !partial;
             cmbMainhand.Enabled = local && !partial;
             chkSingleSplit.Enabled = local && !partial;
@@ -5548,7 +5555,7 @@ namespace Offhand.Companion
             if (appSettings.ContainsKey("SingleGameSide") && appSettings["SingleGameSide"].Equals("LEFT", StringComparison.OrdinalIgnoreCase)) cmbSingleSide.SelectedIndex = 1;
 
             cmbMainhand.SelectedIndexChanged += (s, e) => { if(!refreshingDisplayControls)displaySelectionEdited=true;SaveDisplaySettingsFromControls(); };
-            chkSingleSplit.CheckedChanged += (s, e) => { if(!refreshingDisplayControls)displaySelectionEdited=true;cmbSingleSide.Enabled = chkSingleSplit.Checked; SaveDisplaySettingsFromControls(); };
+            chkSingleSplit.CheckedChanged += (s, e) => { if(!refreshingDisplayControls)displaySelectionEdited=true;cmbSingleSide.Enabled = chkSingleSplit.Checked; SaveDisplaySettingsFromControls(); UpdateDashboardNavigation(); };
             cmbSingleSide.SelectedIndexChanged += (s, e) => { if(!refreshingDisplayControls)displaySelectionEdited=true;SaveDisplaySettingsFromControls(); };
             clbMonitors.ItemCheck += (s, e) => {
                 if (!this.IsHandleCreated||refreshingDisplayControls) return;
@@ -5721,6 +5728,43 @@ namespace Offhand.Companion
         {
             SuspendLayout();
             dashboardHeader = header;
+            configurationPanel = config;
+            diagnosticsPanel = diagnostics;
+            activityPanel = log;
+            dashboardNavigation = new TableLayoutPanel { Height = 38, ColumnCount = 2, RowCount = 1,
+                Margin = Padding.Empty, Padding = Padding.Empty, BackColor = cBg, AccessibleName = "Companion navigation",
+                AccessibleRole = AccessibleRole.PageTabList };
+            dashboardNavigation.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
+            dashboardNavigation.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60));
+            dashboardNavigation.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            setupTab = CreateButton("Setup", 0, 0, 190, 38, cBtnBg, cText, cBorder);
+            advancedTab = CreateButton("Advanced", 0, 0, 280, 38, cBtnBg, cText, cBorder);
+            setupTab.Dock = advancedTab.Dock = DockStyle.Fill;
+            setupTab.Margin = new Padding(0, 0, 6, 0);
+            advancedTab.Margin = new Padding(6, 0, 0, 0);
+            setupTab.AccessibleRole = advancedTab.AccessibleRole = AccessibleRole.PageTab;
+            setupTab.Click += (sender, args) => SelectDashboardPage(false);
+            advancedTab.Click += (sender, args) => SelectDashboardPage(true);
+            foreach (Button tab in new[] { setupTab, advancedTab })
+                tab.KeyDown += (sender, args) => {
+                    if (args.KeyCode != Keys.Left && args.KeyCode != Keys.Right && args.KeyCode != Keys.Home && args.KeyCode != Keys.End) return;
+                    bool selectAdvanced = args.KeyCode == Keys.Right || args.KeyCode == Keys.End;
+                    SelectDashboardPage(selectAdvanced);
+                    (selectAdvanced ? advancedTab : setupTab).Focus();
+                    args.Handled = args.SuppressKeyPress = true;
+                };
+            dashboardNavigation.Controls.Add(setupTab, 0, 0);
+            dashboardNavigation.Controls.Add(advancedTab, 1, 0);
+            setupGuide = new Panel { BackColor = cCard, Height = 230, AccessibleName = "Apply your layout guide" };
+            setupGuide.Controls.Add(new Label { Text = "APPLY YOUR LAYOUT", ForeColor = cGold,
+                Font = new Font("Segoe UI", 9, FontStyle.Bold), Location = new Point(14, 12), Size = new Size(450, 22) });
+            setupGuideSteps = new Label[6];
+            for (int i = 0; i < setupGuideSteps.Length; i++) {
+                var step = new Label { AutoSize = false, ForeColor = i < 4 ? cText : cMuted,
+                    Font = new Font("Segoe UI", 9), UseMnemonic = false, AccessibleName = "Setup guidance " + (i + 1) };
+                setupGuideSteps[i] = step;
+                setupGuide.Controls.Add(step);
+            }
             dashboardScroll = new DashboardViewport { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(16, 10, 16, 6), BackColor = cBg };
             dashboardStack = new DashboardStack { Location = new Point(16, 10), AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 1, RowCount = 0,
@@ -5745,7 +5789,7 @@ namespace Offhand.Companion
                 Margin = new Padding(0, 6, 0, 0), ForeColor = cMuted, Font = new Font("Segoe UI", 8.5f),
                 Text = "Return to the previous window.", AccessibleName = "Restore guidance",
                 UseMnemonic = false }, 1, 1);
-            foreach (Control item in new Control[] { header, actionPanel, status, config, advanced, diagnostics, log })
+            foreach (Control item in new Control[] { header, dashboardNavigation, actionPanel, status, config, setupGuide, advanced, diagnostics, log })
             {
                 item.Dock = DockStyle.Top;
                 item.Margin = new Padding(0, 0, 0, 10);
@@ -5767,6 +5811,11 @@ namespace Offhand.Companion
             dashboardScroll.BringToFront();
             foreach (var section in dashboardSections.Values)
             {
+                if (section.Panel == config || section.Panel == advanced) {
+                    section.CanCollapse = false;
+                    section.Expanded = true;
+                    section.Toggle.Visible = false;
+                }
                 bool collapsed = section.Panel != config;
                 string saved;
                 bool parsed;
@@ -5784,7 +5833,58 @@ namespace Offhand.Companion
             lblDisplayInfo.ForeColorChanged += (s, e) => { UpdateDashboardStatusSummary(); };
             dashboardStack.Layout += (s, e) => { LayoutDashboardCards(); };
             dashboardScroll.SizeChanged += (s, e) => { LayoutDashboardCards(); };
+            SelectDashboardPage(false);
             ResumeLayout(true);
+            LayoutDashboardCards();
+        }
+
+        internal void SelectDashboardPage(bool showAdvanced)
+        {
+            if (dashboardScroll == null) return;
+            dashboardScroll.SuspendLayout();
+            dashboardStack.SuspendLayout();
+            try {
+                advancedPage = showAdvanced;
+                configurationPanel.Visible = setupGuide.Visible = !showAdvanced;
+                advancedPanel.Visible = diagnosticsPanel.Visible = activityPanel.Visible = showAdvanced;
+                UpdateDashboardNavigation();
+                dashboardScroll.AutoScrollPosition = Point.Empty;
+            }
+            finally {
+                dashboardStack.ResumeLayout(true);
+                dashboardScroll.ResumeLayout(true);
+            }
+            LayoutDashboardCards();
+        }
+
+        private void UpdateDashboardNavigation()
+        {
+            if (setupTab == null) return;
+            bool custom = IsCustomSelection();
+            advancedTab.Text = custom ? "Advanced · Custom layout active" : "Advanced";
+            foreach (Button tab in new[] { setupTab, advancedTab }) {
+                bool selected = (tab == advancedTab) == advancedPage;
+                tab.BackColor = selected ? Color.FromArgb(42, 33, 12) : cBtnBg;
+                tab.ForeColor = selected ? cGoldBright : cText;
+                tab.FlatAppearance.BorderColor = selected ? cGold : cBorderDim;
+                tab.AccessibleName = tab == setupTab ? "Setup tab" : "Advanced tab";
+                tab.AccessibleDescription = (selected ? "Selected. " : "") + (tab == advancedTab
+                    ? "Workspace layouts, profiles, automatic spanning, diagnostics and activity log. " + (custom ? "Custom layout active." : "")
+                    : "Display selection and setup guidance. Switching tabs does not change your saved layout.");
+            }
+            setupGuideSteps[0].Text = custom
+                ? "1. Review your custom layout in Advanced > Workspace layout."
+                : chkSingleSplit.Checked ? "1. Select your ultrawide under Span displays and enable Single-display 32:9 split."
+                : "1. Choose your displays. Select both screens under Span displays.";
+            setupGuideSteps[1].Text = custom
+                ? "2. Check the game and workspace areas in the preview, then save your plan."
+                : chkSingleSplit.Checked ? "2. Choose Game side. The other half becomes your Offhand workspace."
+                : "2. Choose Mainhand (game). The other screen becomes your Offhand workspace.";
+            setupGuideSteps[2].Text = "3. With WoW open in Windowed mode, click Span WoW Now.";
+            setupGuideSteps[3].Text = "4. In WoW, type /reload to apply the layout to the addon.";
+            setupGuideSteps[4].Text = "First time? Type /offhand in WoW and complete the setup guide.";
+            setupGuideSteps[5].Text = "For custom workspace areas, saved profiles and automatic spanning, open Advanced.";
+            if (custom) setupGuideSteps[5].Text = "To turn off custom workspaces, open Advanced > Use standard display layout.";
             LayoutDashboardCards();
         }
 
@@ -5792,6 +5892,7 @@ namespace Offhand.Companion
         {
             DashboardSection section;
             if (!dashboardSections.TryGetValue(panel, out section)) return;
+            if (!section.CanCollapse) expanded = true;
             dashboardScroll.SuspendLayout();
             panel.SuspendLayout();
             try
@@ -5809,7 +5910,7 @@ namespace Offhand.Companion
                 panel.ResumeLayout(false);
                 dashboardScroll.ResumeLayout(true);
             }
-            if (persist)
+            if (persist && section.CanCollapse)
             {
                 appSettings[section.Key] = (!expanded).ToString();
                 SaveConfig();
@@ -5930,7 +6031,7 @@ namespace Offhand.Companion
                     Panel panel = section.Panel;
                     section.Toggle.Left = panel.Width - section.Toggle.Width - inset;
                     section.Heading.SetBounds(inset, (int)Math.Ceiling(6 * scale),
-                        Math.Max(1, section.Toggle.Left - 2 * inset), (int)Math.Ceiling(22 * scale));
+                        Math.Max(1, (section.CanCollapse ? section.Toggle.Left : panel.Width) - 2 * inset), (int)Math.Ceiling(22 * scale));
                     if (panel.Controls.Contains(lblStatusSummary) && !section.Expanded)
                     {
                         section.Heading.Width = (int)Math.Ceiling(128 * scale);
@@ -5972,6 +6073,19 @@ namespace Offhand.Companion
                                 LayoutDashboardConfiguration(panel, (TableLayoutPanel)child, inset, scale);
                     }
                 }
+                if (setupGuide != null) {
+                    var title = (Label)setupGuide.Controls[0];
+                    title.SetBounds(inset, (int)Math.Ceiling(12 * scale), Math.Max(1, setupGuide.Width - 2 * inset), (int)Math.Ceiling(22 * scale));
+                    int y = (int)Math.Ceiling(42 * scale);
+                    foreach (Label step in setupGuideSteps) {
+                        int available = Math.Max(1, setupGuide.Width - 2 * inset);
+                        int height = TextRenderer.MeasureText(step.Text, step.Font, new Size(available, int.MaxValue),
+                            TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix).Height;
+                        step.SetBounds(inset, y, available, height);
+                        y += height + (int)Math.Ceiling(9 * scale);
+                    }
+                    setupGuide.Height = y - (int)Math.Ceiling(9 * scale) + inset;
+                }
             }
             finally
             {
@@ -6009,7 +6123,7 @@ namespace Offhand.Companion
                 Key = "DashboardCollapsed." + title.Replace(" ", "") };
             dashboardSections.Add(panel, section);
             toggle.Click += (s, e) => { SetDashboardSectionExpanded(panel, !section.Expanded, true); };
-            lblTitle.Click += (s, e) => { SetDashboardSectionExpanded(panel, !section.Expanded, true); };
+            lblTitle.Click += (s, e) => { if (section.CanCollapse) SetDashboardSectionExpanded(panel, !section.Expanded, true); };
 
             panel.Paint += (s, e) =>
             {
@@ -6083,22 +6197,22 @@ namespace Offhand.Companion
 
             AppendHelpSection(guide, sectionFont, "Confirm saved displays",
                 "If System Status asks you to confirm your saved displays, open WoW and click Span WoW Now. Check the game and workspace screens in the dialog.",
-                "Click OK to save the screen selection and proceed with spanning. If a screen is wrong, click Cancel. Use Identify Displays to match the screen numbers to your monitors, then correct Span displays and Mainhand (game) or open Advanced options > Workspace layout to edit a saved custom layout. Click Span WoW Now again when ready.");
+                "Click OK to save the screen selection and proceed with spanning. If a screen is wrong, click Cancel. Use Identify Displays to match the screen numbers to your monitors, then correct Span displays and Mainhand (game) or open Advanced > Workspace layout to edit a saved custom layout. Click Span WoW Now again when ready.");
 
             AppendHelpSection(guide, sectionFont, "Choose a display layout",
                 "Two full displays. Check both screens under Span displays and pick Mainhand (game). The other screen becomes your Offhand workspace.",
                 "One super-ultrawide. For an equal split on a 32:9 or 32:10 display, check only that screen, enable Single-display 32:9 split, and choose Game side.",
-                "Advanced options > Workspace layout. Choose One monitor for a full-height game and workspace split, Two monitors for a full game screen and a rectangular workspace, or Multiple workspaces for a full game screen plus one or two workspaces on separate displays.",
+                "Advanced > Workspace layout. Choose One monitor for a full-height game and workspace split, Two monitors for a full game screen and a rectangular workspace, or Multiple workspaces for a full game screen plus one or two workspaces on separate displays.",
                 "Flexible layout (prototype). Use presets or enter the game and workspace rectangles to place one or two workspaces on the same physical display. " + WorkspaceEditorLayout.FlexibleAddon);
 
             AppendHelpSection(guide, sectionFont, "Edit and reuse custom workspaces",
                 "In custom editors with a visual picker, click Select area on monitor. Drag to move the area or drag its edges to resize. Use the arrow keys to move, Ctrl + arrow keys to move one pixel, or Shift + arrow keys to resize. Press Enter to accept the area or Esc to return to the editor.",
                 "Check the preview and click Save plan to keep your settings. Click Span WoW Now to resize the game window, then reload the WoW UI once.",
-                "To turn off custom workspaces, open Advanced options and click Use standard display layout. The collapsed Advanced options header shows when a custom layout is active. Review the suggested displays before saving. Named profiles stay saved.",
-                "Open Advanced options > Workspace profiles to manage named Multiple workspaces plans. To switch plans, pick a profile, click Load selected, then click Save changes. Click Span WoW Now and reload in WoW. Use the in-game Profiles tab for addon panel layouts and theme choices.");
+                "To turn off custom workspaces, open Advanced and click Use standard display layout. The Advanced tab indicates when a custom layout is active, including while viewing Setup. Review the suggested displays before saving. Named profiles stay saved.",
+                "Open Advanced > Workspace profiles to manage named Multiple workspaces plans. To switch plans, pick a profile, click Load selected, then click Save changes. Click Span WoW Now and reload in WoW. Use the in-game Profiles tab for addon panel layouts and theme choices.");
 
             AppendHelpSection(guide, sectionFont, "Daily use",
-                "Click Span WoW Now after the game window opens. For standard display layouts, open Advanced options to enable Auto-span WoW on launch and set a delay. It is off by default. For custom layouts, use Span WoW Now each time.",
+                "Click Span WoW Now after the game window opens. For standard display layouts, open Advanced to enable Auto-span WoW on launch and set a delay. It is off by default. For custom layouts, use Span WoW Now each time.",
                 "Restore Window returns WoW to its pre-span window and suspends auto-span for that WoW session. Click Span WoW Now to apply the layout again. To stop background launch detection, right-click the Companion tray icon and select Pause background monitoring. Manual Span and Restore remain available.",
                 "The title-bar X minimizes Companion to the tray. Exit Companion closes it and leaves the current WoW window spanned. Keep Companion open for auto-span, automatic display-disconnect recovery, or to restore the remembered window bounds.",
                 "In Remote Desktop, click Span WoW Now and choose the game and workspace screens for that connection. Keep Companion running for Restore Window and confirm the screens again after reconnecting.");
