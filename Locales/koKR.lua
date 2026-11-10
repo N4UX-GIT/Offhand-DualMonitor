@@ -1087,3 +1087,19 @@ L["ONBOARD_RELOAD_COMPLETE_PLACE"] = "다시 불러오기가 완료되었습니�
 
 L["PROCDOC_MAINHAND"] = "ProcDoc 알림을 Mainhand 중앙에 배치"
 L["PROCDOC_MAINHAND_DESC"] = "확장 시 Mainhand를 ProcDoc 알림의 중심으로 사용합니다. ProcDoc 오프셋을 유지하고 끄면 원래 위치로 복원합니다."
+
+-- EllesmereUI transfer blocker guidance.
+L["ELLESMERE_HUD_FOLLOWS"] = "Follows %s; move the parent."
+L["ELLESMERE_HUD_ANCHORED"] = "Linked to another element."
+L["ELLESMERE_HUD_MOVES_WITH"] = "Moves with %s."
+L["ELLESMERE_HUD_BOUNDS"] = "Position or size is not ready."
+L["ELLESMERE_HUD_CHILD_BOUNDS"] = "Cannot measure linked element: %s."
+L["ELLESMERE_HUD_ANCHOR_GRAPH"] = "Anchor chain could not be resolved."
+L["ELLESMERE_HUD_GROUP_TOO_LARGE"] = "Linked group is larger than Mainhand."
+L["ELLESMERE_HUD_LINK_HELP"] = "This element follows its EllesmereUI parent and does not receive an independent position. Select the parent if this preview can move it, or adjust the link in EllesmereUI Unlock Mode. Offhand does not remove links."
+L["ELLESMERE_HUD_BOUNDS_HELP"] = "Open and close EllesmereUI Unlock Mode to initialize the element, then reopen this preview. If it is still unavailable, check that the element and its module are enabled. Offhand cannot move a group until all visible members can be measured."
+L["ELLESMERE_HUD_ANCHOR_GRAPH_HELP"] = "Check this element's links in EllesmereUI Unlock Mode for a circular or unresolved anchor chain. Adjust the links, close Unlock Mode, then reopen this preview."
+L["ELLESMERE_HUD_GROUP_TOO_LARGE_HELP"] = "Reduce the group's size or change its arrangement in EllesmereUI Unlock Mode so that it fits inside Mainhand. Offhand keeps linked elements together."
+L["ELLESMERE_HUD_BLOCKED_ROWS"] = "%d elements cannot be transferred. Hover their rows for details. Adjust linked groups in EllesmereUI Unlock Mode, close it, then reopen this preview."
+L["ELLESMERE_HUD_PARTIAL"] = "%d elements selected; %d cannot be transferred. Only checked positions will be copied. Hover the unavailable rows for guidance."
+L["ELLESMERE_HUD_OVERRIDES_HELP"] = "Transfer blocked by EllesmereUI profile overrides. Open EllesmereUI > Profiles & Presets and review Spec Overrides and Conditional Overrides, including layout overrides. Switch to a separate profile without overrides, then reopen this preview. Offhand leaves your existing overrides unchanged."

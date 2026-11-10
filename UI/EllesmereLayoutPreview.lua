@@ -12,6 +12,15 @@ local modeGuidance = {
     ellesmere = "ELLESMERE_HUD_GUIDE_COPY",
     blizzard = "ELLESMERE_HUD_GUIDE_FALLBACK",
 }
+local rowGuidance = {
+    ELLESMERE_HUD_FOLLOWS = "ELLESMERE_HUD_LINK_HELP",
+    ELLESMERE_HUD_ANCHORED = "ELLESMERE_HUD_LINK_HELP",
+    ELLESMERE_HUD_MOVES_WITH = "ELLESMERE_HUD_LINK_HELP",
+    ELLESMERE_HUD_BOUNDS = "ELLESMERE_HUD_BOUNDS_HELP",
+    ELLESMERE_HUD_CHILD_BOUNDS = "ELLESMERE_HUD_BOUNDS_HELP",
+    ELLESMERE_HUD_ANCHOR_GRAPH = "ELLESMERE_HUD_ANCHOR_GRAPH_HELP",
+    ELLESMERE_HUD_GROUP_TOO_LARGE = "ELLESMERE_HUD_GROUP_TOO_LARGE_HELP",
+}
 local colors = {{1, .73, .3}, {.35, .8, 1}, {.39, .91, .65}, {.98, .55, .66}, {.75, .64, 1}}
 for _, color in ipairs({{.95, .85, .4}, {.4, .85, .85}, {.9, .65, .4}, {.8, .9, .5},
     {.6, .7, 1}, {.95, .5, .8}, {.8, .8, .8}}) do colors[#colors + 1] = color end
@@ -155,9 +164,12 @@ local function Render(direction)
     dialog.pages:SetText(string.format("%d / %d", dialog.page, pages))
     Plot(dialog.before, context, rows, false, direction, dialog.rowSelection, offset)
     Plot(dialog.after, context, rows, true, direction, dialog.rowSelection, offset)
-    local selected = 0
+    local selected, blocked = 0, 0
     for _, row in ipairs(rows) do
         if (row.position or row.anchor) and dialog.rowSelection[row.map.key] ~= false then selected = selected + 1 end
+        if not (row.position or row.anchor or row.followKey) and row.reason ~= "ELLESMERE_HUD_KEEP" then
+            blocked = blocked + 1
+        end
     end
     for i, label in ipairs(dialog.legend) do
         local row = rows[i + offset]
@@ -171,12 +183,20 @@ local function Render(direction)
         local name = row and (row.map.displayLabel or (row.map.number and string.format(L[row.map.label], row.map.number) or L[row.map.label]))
         local message = row and (row.reasonArgs and string.format(L[status], unpack(row.reasonArgs)) or L[status])
         label:SetText(row and string.format("%d  %s  ·  %s", i + offset, name, message) or "")
+        local helpKey = row and rowGuidance[status]
+        dialog.rowHelp[i].text = row and (name .. "\n" .. message .. (helpKey and "\n\n" .. L[helpKey] or "")) or nil
     end
     dialog.apply:SetText(L[direction == "blizzard" and "ELLESMERE_HUD_SAVE_FALLBACK" or "ELLESMERE_HUD_REVIEW_IMPORT"])
     dialog.apply:SetEnabled(plan and not context.block and selected > 0 or false)
-    dialog.status:SetText(context and context.block and L[context.block]
-        or plan and selected == 0 and L[context.unavailable and "ELLESMERE_HUD_MODULE_GUIDANCE" or plan.changed == 0 and "ELLESMERE_HUD_NO_CHANGES"
-            or "ELLESMERE_HUD_SELECT_ROWS"] or "")
+    local summary = context and context.block and L[context.block]
+        or plan and selected == 0 and (context.unavailable and L["ELLESMERE_HUD_MODULE_GUIDANCE"]
+            or blocked > 0 and string.format(L["ELLESMERE_HUD_BLOCKED_ROWS"], blocked)
+            or L[plan.changed == 0 and "ELLESMERE_HUD_NO_CHANGES" or "ELLESMERE_HUD_SELECT_ROWS"])
+        or plan and blocked > 0 and string.format(L["ELLESMERE_HUD_PARTIAL"], selected, blocked) or ""
+    if context and context.block == "ELLESMERE_HUD_OVERRIDES" then
+        summary = L["ELLESMERE_HUD_OVERRIDES_HELP"]
+    end
+    dialog.status:SetText(summary)
 end
 
 function Transfer:PromptImportReload()
@@ -328,7 +348,7 @@ end
 
 local function CreateDialog()
     local frame = CreateFrame("Frame", "OffhandEllesmerePreviewFrame", UIParent, "BackdropTemplate")
-    frame:SetSize(900, 612)
+    frame:SetSize(900, 700)
     frame:SetFrameStrata("FULLSCREEN_DIALOG")
     frame:EnableMouse(true)
     frame:Hide()
@@ -359,7 +379,7 @@ local function CreateDialog()
     frame.guide:SetWordWrap(true)
     frame.before = MakeDiagram(frame, "ELLESMERE_HUD_CURRENT", 0)
     frame.after = MakeDiagram(frame, "ELLESMERE_HUD_PROPOSED", 1)
-    frame.legend, frame.checkboxes = {}, {}
+    frame.legend, frame.checkboxes, frame.rowHelp = {}, {}, {}
     for i, color in ipairs(colors) do
         local column, line = math.floor((i - 1) / 6), (i - 1) % 6
         local checkbox = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
@@ -376,8 +396,22 @@ local function CreateDialog()
         label:SetTextColor(unpack(color))
         label:SetPoint("TOPLEFT", 38 + column * 440, -383 - line * 26)
         label:SetWidth(404)
+        label:SetHeight(24)
+        if label.SetMaxLines then label:SetMaxLines(2) end
         label:SetWordWrap(true)
         frame.legend[i] = label
+        local help = CreateFrame("Frame", nil, frame)
+        help:SetPoint("TOPLEFT", label, "TOPLEFT", 0, 2)
+        help:SetSize(404, 26)
+        help:EnableMouse(true)
+        help:SetScript("OnEnter", function(self)
+            if not self.text or not GameTooltip then return end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(self.text, 1, 1, 1, 1, true)
+            GameTooltip:Show()
+        end)
+        help:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+        frame.rowHelp[i] = help
     end
     frame.previous = Button(frame, "BTN_BACK", 90, function() frame.page = frame.page - 1; Render(frame.direction) end)
     frame.previous:SetPoint("BOTTOMLEFT", 18, 48)
@@ -390,8 +424,10 @@ local function CreateDialog()
     frame.apply = Button(frame, "ELLESMERE_HUD_REVIEW_IMPORT", 228, Apply)
     frame.apply:SetPoint("RIGHT", close, "LEFT", -8, 0)
     frame.status = Label(frame, "GameFontHighlightSmall")
-    frame.status:SetPoint("BOTTOMLEFT", 20, 12)
-    frame.status:SetPoint("RIGHT", frame.apply, "LEFT", -12, 0)
+    frame.status:SetPoint("TOPLEFT", 20, -550)
+    frame.status:SetPoint("RIGHT", frame, "RIGHT", -20, 0)
+    frame.status:SetHeight(68)
+    frame.status:SetWordWrap(true)
     return frame
 end
 
