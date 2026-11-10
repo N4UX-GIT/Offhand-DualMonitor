@@ -13,7 +13,7 @@ import subprocess
 import zipfile
 
 VERSION = '2.1.5-beta.30'
-ADDON_SHA = '115b377cadc6df3de9c44f89b2495b760bcb0c1df9075015af22732538f6df71'
+ADDON_SHA = '4d64f8fa19ae6055c99af75a3346ad2701d76576a664cd8520cd044a255050ed'
 EXE_SHA = '95811dbb7020a20e2541ae123e69fe80721c83a0fd52d0ee5557dd6d54dccc2a'
 PORTABLE_SHA = '9a8ad31226c659be9dd30f626033118ede597993caf41dc138d329642a361c8f'
 RECEIPT_SHA = '739348a64715893412b9af99be55b4d45f04df0a3d6e4d6637a8c4ac959852fb'
@@ -64,7 +64,12 @@ def validate(root, native):
             require(set(old.namelist()) == set(files), 'Published runtime inventory changed')
             changed = {n for n in files if z.read(n) != old.read(n)}
             allowed = {n for n in files if n.endswith('.toc')} | {
-                'Offhand/Core/HUDTransientFrames.lua', 'Offhand/CHANGELOG.md', 'Offhand/README.md'}
+                'Offhand/Core/HUDTransientFrames.lua', 'Offhand/CHANGELOG.md', 'Offhand/README.md',
+                'Offhand/Core/ForeverEllesmereLayout.lua', 'Offhand/Core/HUDCompatibility.lua',
+                'Offhand/Core/Viewport.lua', 'Offhand/Core/Init.lua',
+                'Offhand/UI/EllesmereLayoutPreview.lua'} | {
+                'Offhand/Locales/'+locale+'.lua' for locale in
+                ('deDE','enUS','esES','esMX','frFR','itIT','koKR','ptBR','ruRU','zhCN','zhTW')}
             require(changed == allowed, 'Unapproved release delta: ' + str(changed ^ allowed))
             require(digest(z.read('Offhand/Core/HUDTransientFrames.lua')) ==
                     '377b44efb59d5cb660cccc3c159cc2f1f3e790f48962d55e26278f7e09342ff6',

@@ -24,6 +24,10 @@ The native loot-container placement correction passed private-panel testing
 with spanning in Forever 1.60.1.70862. Real simultaneous loot choices and combat
 behavior still need player verification. Please report remaining issues with
 /offhand diag full, your client/build, display arrangement and other UI addons.
+This build also includes EllesmereUI transfer/guidance, Questie/Social anchor
+and Retail friendly-name preference corrections. Native Retail, active Questie
+objective dragging, populated tracking-bar imports and combat remain feedback
+targets. Daylight code is unchanged; further testing remains deferred.
 
 VERIFICATION AND RECOVERY
 Verify downloads with checksums-sha256.txt. The portable executable is unsigned;

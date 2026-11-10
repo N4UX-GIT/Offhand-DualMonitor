@@ -1,10 +1,21 @@
 # Changelog
 
-## [2.1.5-beta.30] - 2026-11-10
+## [2.1.5-beta.30] - 2026-11-11
 
 - Fixed a case where remaining loot-roll windows could move to the screen seam
   after an earlier roll finished. Offhand now keeps their Mainhand placement
   when Blizzard rearranges the loot container.
+- Expanded the EllesmereUI HUD preview to cover supported cooldown, utility,
+  cast, stance, pet and current-spec tracking bars. Linked groups move together
+  through the normal profile review, and previews show additional rows in pages.
+- Explain which EllesmereUI module or dependency must be installed, enabled or
+  reloaded. Preview messages now identify linked parents, missing bounds,
+  oversized groups and real profile overrides. Empty override stores no longer
+  prevent a layout transfer.
+- Preserve Questie tracker and linked Social/Quick Join button anchors during
+  automatic popup recovery.
+- Respect Retail's friendly-player name-text preference instead of forcing it
+  on. Safely clean up the saved override from older Offhand versions.
 
 Verified with private test panels using Blizzard's native loot-container
 functions in Forever 1.60.1.70862 with spanning applied. Real simultaneous loot
@@ -13,10 +24,11 @@ remaining disappearance with `/offhand diag full`, your client/build and other
 UI addons.
 
 Includes the previously released Beta 29 fixes. Existing settings and layouts
-are preserved. No Companion update is required. Further EllesmereUI layout
-transfer, Questie/Social recovery and Retail preference changes remain deferred;
-this hotfix adds only the loot-container correction. Daylight testing remains
-deferred and its existing Beta 29 implementation is unchanged.
+are preserved. No Companion update is required. The owner requested inclusion
+of the previously deferred addon changes. Native Retail preference acceptance,
+active Questie-objective dragging and populated/spec-changing tracking-bar
+imports still need verification. Daylight testing remains deferred and its
+existing Beta 29 implementation is unchanged.
 
 ## [2.1.5-beta.29] - 2026-11-10
 

@@ -1,28 +1,40 @@
-# Beta 30 loot-roll hotfix preparation
+# Beta 30 UI compatibility hotfix preparation
 
 Beta 29 is already published on CurseForge as file 9545550. Its frozen local
 addon ZIP, GitHub draft, source PR 109 and prepared Companion assets are retained
 unchanged. This follow-up uses a new Beta 30 identity and draft prerelease.
-No public release, tag, source merge or CurseForge upload is part of preparation.
+No public release, tag, main merge or CurseForge upload is part of preparation.
 
 ## Scope and exact artifacts
 
-The release branch starts at the frozen Beta 29 source `e46ff590` and applies
-only the native managed-container ownership correction from `4cac7f1`, plus
-its existing regression fixture. No later EllesmereUI layout-transfer or
-Questie/Social recovery implementation is replayed. The Retail friendly-name
-correction and further Daylight testing remain deferred. Previously published
-Beta 29 functionality, including its Daylight module, is unchanged.
+The owner requested the previously deferred addon changes on 11 November.
+The release starts at frozen Beta 29 source `e46ff590` and now includes:
 
-The addon has the same 93 entries as Beta 29. Exactly nine differ: the six TOCs
-(release labels only), CHANGELOG.md, README.md and HUDTransientFrames.lua.
-Every other entry is byte-identical to the published-release baseline. The
-publisher checks this allowlist, the exact native-tested loot module and inert
-topology/recovery placeholders, rejecting runtime, native and inventory drift.
+- Native loot-container ownership correction from `4cac7f1`, unchanged from the
+  verified private-row test.
+- Expanded EllesmereUI transfers and dependency guidance from `a604625`.
+- Questie and linked Social/Quick Join anchor preservation from `6cc8fda`, with
+  completed cleanup evidence from `019110e`.
+- EllesmereUI linked-anchor/profile-override guidance from `e61bac1`.
+- The Retail friendly-name preference correction and migration/logout tests,
+  imported selectively from the original local development source.
+
+Unrelated Companion, workspace-sizing, guide-refresh and diagnostics work is
+excluded. Previously published Daylight code is unchanged; further testing
+remains deferred. The earlier loot-only Beta 30 ZIP is superseded while the
+GitHub release is still a draft. Its bytes remain in Git commit `7dc5025` and
+an ignored local backup; no published release asset is replaced.
+
+The addon has the same 93 entries as Beta 29. Exactly 25 differ: six TOCs
+(release labels only), CHANGELOG.md, README.md, five Core modules, the
+EllesmereUI preview and eleven locale dictionaries. The other 68 entries are
+byte-identical to the Beta 29 baseline. The publisher checks this explicit
+allowlist, exact native-tested loot module, frozen Companion inputs and inert
+topology/recovery placeholders, rejecting runtime and inventory drift.
 
 | Artifact | SHA-256 |
 | --- | --- |
-| Offhand-v2.1.5-beta.30.zip | `115b377cadc6df3de9c44f89b2495b760bcb0c1df9075015af22732538f6df71` |
+| Offhand-v2.1.5-beta.30.zip | `4d64f8fa19ae6055c99af75a3346ad2701d76576a664cd8520cd044a255050ed` |
 | Native-tested HUDTransientFrames.lua | `377b44efb59d5cb660cccc3c159cc2f1f3e790f48962d55e26278f7e09342ff6` |
 | Unchanged Companion 2.1.5 executable | `95811dbb7020a20e2541ae123e69fe80721c83a0fd52d0ee5557dd6d54dccc2a` |
 | Unchanged Companion 2.1.5 portable ZIP | `9a8ad31226c659be9dd30f626033118ede597993caf41dc138d329642a361c8f` |
@@ -35,9 +47,10 @@ Store submission or compatibility requirement change is included.
 
 ## Evidence and limits
 
-The isolated release source passes 122 Lua suites, including the expanded
-production loot regression, and six manifest/path/XML/Lua 5.1 syntax checks.
-The development branch's two later EllesmereUI suites are intentionally absent.
+The combined release source passes 125 Lua suites, including the expanded
+production loot regression, EllesmereUI dependency/transfer/blocker fixtures
+and Retail legacy-preference migration/logout checks, plus six manifest/path/
+XML/Lua 5.1 syntax checks.
 Beta 29 and Beta 30 each pass eight publication rejection tests. Historical
 metadata and both beta metadata checks pass. The Beta 29 fixture now reads its
 own frozen product bytes, preserving historical acceptance after the version bump.
@@ -52,10 +65,21 @@ BugGrabber entry count stayed at the existing four. All 263 original client
 files were restored by hash and the private helper was removed after normal
 client shutdown. See `FOREVER-LOOT-CRITICAL-20261110.md` for full provenance.
 
+Earlier scoped spanned Forever checks also cover supported EUI cooldown/cast
+imports and reload, disabled-module guidance, controlled linked-anchor/override
+messages, and native Social/Quick Join anchor-chain preservation. Those are
+separate recorded runs, not new full-package native acceptance. Their exact
+scope and cleanup are in FOREVER-ELLESMERE-HUD-REFINEMENT-20261110.md,
+FOREVER-ELLESMERE-BLOCKERS-20261110.md and FOREVER-QUESTIE-SOCIAL-20261110.md.
+
 Actual item roll choices, expiration/queue behavior, combat/taint acceptance,
-controller paths, reporter-specific profiles and physical portrait/4K layouts
-remain unverified. Changelog and release notes state these limits. The change
-does not force-show expired/cancelled rolls or alter item IDs or roll decisions.
+native Retail preference behavior, active Questie-objective dragging, populated
+or spec-changing tracking-bar imports, exact controller paths, reporter-specific
+profiles and physical portrait/4K layouts remain unverified. Global tracking-bar
+groups are not transferred. Changelog and release notes state these limits.
+The loot change does not force-show expired/cancelled rolls or alter item IDs
+or roll decisions. See RETAIL-FRIENDLY-NAMES-20261111.md for one-time migration
+semantics and its native evidence gap.
 
 ## Reproduction and handoff
 
