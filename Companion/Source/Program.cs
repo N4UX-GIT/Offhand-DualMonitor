@@ -5745,7 +5745,11 @@ namespace Offhand.Companion
             setupTab.AccessibleRole = advancedTab.AccessibleRole = AccessibleRole.PageTab;
             setupTab.Click += (sender, args) => SelectDashboardPage(false);
             advancedTab.Click += (sender, args) => SelectDashboardPage(true);
-            foreach (Button tab in new[] { setupTab, advancedTab })
+            foreach (Button tab in new[] { setupTab, advancedTab }) {
+                tab.PreviewKeyDown += (sender, args) => {
+                    if (args.KeyCode == Keys.Left || args.KeyCode == Keys.Right || args.KeyCode == Keys.Home || args.KeyCode == Keys.End)
+                        args.IsInputKey = true;
+                };
                 tab.KeyDown += (sender, args) => {
                     if (args.KeyCode != Keys.Left && args.KeyCode != Keys.Right && args.KeyCode != Keys.Home && args.KeyCode != Keys.End) return;
                     bool selectAdvanced = args.KeyCode == Keys.Right || args.KeyCode == Keys.End;
@@ -5753,6 +5757,7 @@ namespace Offhand.Companion
                     (selectAdvanced ? advancedTab : setupTab).Focus();
                     args.Handled = args.SuppressKeyPress = true;
                 };
+            }
             dashboardNavigation.Controls.Add(setupTab, 0, 0);
             dashboardNavigation.Controls.Add(advancedTab, 1, 0);
             setupGuide = new Panel { BackColor = cCard, Height = 230, AccessibleName = "Apply your layout guide" };
