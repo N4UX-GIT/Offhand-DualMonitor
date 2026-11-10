@@ -6,14 +6,14 @@
     <title>Offhand Alternative Setup | FancyZones and manual placement</title>
     <meta name="description" content="Position World of Warcraft for Offhand with Microsoft PowerToys FancyZones or ordinary manual resizing, then remember and validate the canvas in-game.">
     <link rel="icon" type="image/png" href="assets/offhand-icon.png">
-    <link rel="stylesheet" href="style.css?v=20261108-standard-default">
+    <link rel="stylesheet" href="style.css?v=20261109-beta-preview">
 </head>
 <body class="companion-page">
     <header class="navbar">
         <div class="nav-container">
             <a class="brand" href="index.html" aria-label="Offhand home">
                 <img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="brand-medallion">
-                <div class="brand-text"><span class="brand-title">OFFHAND</span><span class="brand-subtitle">Dual-Wield Your Monitors</span></div>
+                <div class="brand-text"><span class="brand-title">OFFHAND <span class="brand-beta">Beta</span></span><span class="brand-subtitle">Dual-Wield Your Monitors</span></div>
             </a>
             <nav class="nav-primary" aria-label="Primary navigation"><a href="index.html#setup">Start setup</a><a href="in-game-setup.html">Finish in WoW</a><a href="background-studio.html">Studio</a><a href="manual-spanning.html" aria-current="page">Other methods</a></nav>
             <div class="nav-controls">
@@ -49,7 +49,6 @@
     </header>
 
     <main class="content-deck setup-guide-deck">
-        <aside class="guide-callout"><strong>Pre-Release Beta 28 guide:</strong> the new placement flow is <strong>Window is positioned → Reload UI → Confirm placement</strong>, followed by a review dialog. Older add-on versions and the reference captures below use the combined placement screen. <a href="in-game-setup.html#setup-flow-preview-title">See the illustrated flow</a>.</aside>
 
         <section class="content-section">
             <div class="deck-intro-banner">
@@ -107,7 +106,7 @@
                 </article>
             </div>
             <p class="setup-next"><a href="#remember" class="btn btn-wow-red">Window placed? Confirm in WoW</a> <a href="#choose-method">Change method</a></p>
-<details class="faq-card settings-screenshot-details"><summary class="faq-summary"><h3>See the FancyZones guide screens</h3><span>Installation and placement in Offhand</span><svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></summary><div class="faq-body settings-screenshot-gallery"><figure><div class="image-frame"><img src="assets/offhand-guide-fancyzones-installed-20261101.png" alt="PowerToys installation confirmation." width="870" height="569" loading="lazy" decoding="async"></div><figcaption><strong>PowerToys installation confirmation.</strong> Choose Already installed if PowerToys is available. This is your confirmation, not an automatic software check.</figcaption></figure><figure><div class="image-frame"><img src="assets/offhand-guide-fancyzones-download-20261101.png" alt="Get PowerToys." width="683" height="295" loading="lazy" decoding="async"></div><figcaption><strong>Get PowerToys.</strong> Copy the official download address, install PowerToys, then return to the guide. FancyZones is included.</figcaption></figure><figure><div class="image-frame"><img src="assets/offhand-guide-fancyzones-placement-20261101.png" alt="Place WoW with FancyZones." width="869" height="569" loading="lazy" decoding="async"></div><figcaption><strong>Place WoW with FancyZones.</strong> Create the combined Canvas zone in PowerToys, snap Windowed WoW into it, then choose Confirm placement in Offhand.</figcaption></figure></div></details>
+<details class="faq-card settings-screenshot-details"><summary class="faq-summary"><h3>See the FancyZones guide screens</h3><span>Installation and placement in Offhand</span><svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></summary><div class="faq-body settings-screenshot-gallery"><figure><div class="image-frame"><img src="assets/offhand-guide-powertoys-installed-20261109.png" alt="PowerToys installation confirmation." width="769" height="501" loading="lazy" decoding="async"></div><figcaption><strong>PowerToys installation confirmation.</strong> Choose Already installed if PowerToys is available. This is your confirmation, not an automatic software check.</figcaption></figure><figure><div class="image-frame"><img src="assets/offhand-guide-powertoys-download-20261109.png" alt="Get PowerToys." width="601" height="254" loading="lazy" decoding="async"></div><figcaption><strong>Get PowerToys.</strong> Copy the official download address, install PowerToys, then return to the guide. FancyZones is included.</figcaption></figure><figure><div class="image-frame"><img src="assets/offhand-guide-fancyzones-placement-20261109.png" alt="Place WoW with FancyZones." width="768" height="626" loading="lazy" decoding="async"></div><figcaption><strong>Place WoW with FancyZones.</strong> Create the combined Canvas zone in PowerToys, snap Windowed WoW into it, then follow the placement checks in Offhand.</figcaption></figure></div></details>
             <details class="faq-card workspace-detail"><summary>Optional FancyZones settings and canvas-size reference</summary><div class="faq-body fancyzones-recommendations" aria-labelledby="fancyzones-settings-title">
                 <div class="section-header fancyzones-settings-header">
                     <h3 class="section-title" id="fancyzones-settings-title">Recommended FancyZones settings</h3>
@@ -167,7 +166,7 @@
                 <article class="faq-card guide-panel"><h3>What manual setup remembers</h3><p>Offhand stores the confirmed WoW render-canvas dimensions. On later launches, reproduce that size before Offhand reapplies the saved split and panel layout.</p></article>
                 <article class="faq-card guide-panel"><h3>What addon Lua cannot see</h3><p>WoW does not expose the native window position or physical monitor rectangles to the addon. The title bar remains, placement may need to be repeated after launch, and active disconnect recovery requires Companion.</p></article>
             </div></details>
-<details class="faq-card settings-screenshot-details"><summary class="faq-summary"><h3>See the manual placement screen</h3><span>Resize first, then confirm</span><svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></summary><div class="faq-body settings-screenshot-gallery settings-screenshot-gallery-single"><figure><div class="image-frame"><img src="assets/offhand-guide-manual-placement-20261101.png" alt="Place WoW manually." width="867" height="568" loading="lazy" decoding="async"></div><figcaption><strong>Place WoW manually.</strong> Drag and resize the native window yourself, visually check the complete area, then choose Confirm placement.</figcaption></figure></div></details>
+<details class="faq-card settings-screenshot-details"><summary class="faq-summary"><h3>See the manual placement screen</h3><span>Resize first, then confirm</span><svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></summary><div class="faq-body settings-screenshot-gallery settings-screenshot-gallery-single"><figure><div class="image-frame"><img src="assets/offhand-guide-manual-placement-20261109.png" alt="Place WoW manually." width="768" height="646" loading="lazy" decoding="async"></div><figcaption><strong>Place WoW manually.</strong> Drag and resize the native window yourself, visually check the complete area, then follow the placement checks below.</figcaption></figure></div></details>
         </section>
 
         <section class="content-section" id="remember">
@@ -180,7 +179,7 @@
                     <ol class="faq-steps-list">
                         <li>Return to <code>/offhand guide</code> (or open it if needed) and keep <strong>the same method you used above</strong>: Use FancyZones or Configure Manually. Continue to the window-placement step.</li>
                         <li>Confirm that WoW is visibly covering the intended displays or ultrawide region.</li>
-                        <li>Click <strong>Confirm placement</strong>, then choose <strong>Remember Window</strong> in the confirmation dialog. Offhand stores the confirmed canvas dimensions account-wide. In settings, the equivalent action is <strong>Remember Current Window</strong>.</li>
+                        <li>Click <strong>Window is positioned</strong>, then <strong>Reload UI</strong>. When the guide returns, click <strong>Confirm placement</strong>, then choose <strong>Remember Window</strong> in the confirmation dialog. Offhand stores the confirmed canvas dimensions account-wide. In settings, the equivalent action is <strong>Remember Current Window</strong>.</li>
                     </ol>
                 </article>
             </div>
@@ -188,7 +187,7 @@
                 <strong>Visual confirmation still matters.</strong> WoW exposes its render-canvas size to the addon, but not the native window position or the physical monitor rectangles beneath it. A same-sized window moved away from the intended seam cannot be detected reliably by addon Lua.
             </div>
             <div class="hero-actions setup-guide-actions"><a href="in-game-setup.html#finish-calibration" class="btn btn-wow-red btn-lg">Continue to calibration</a></div>
-<details class="faq-card settings-screenshot-details"><summary class="faq-summary"><h3>See the window confirmation</h3><span>Shared by FancyZones and manual placement</span><svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></summary><div class="faq-body settings-screenshot-gallery"><figure><div class="image-frame"><img src="assets/offhand-guide-independent-confirmation-20261101.png" alt="Independent placement needs your confirmation." width="871" height="571" loading="lazy" decoding="async"></div><figcaption><strong>Independent placement needs your confirmation.</strong> Offhand can read the render-canvas size, but cannot verify the native window position or physical display boundaries.</figcaption></figure><figure><div class="image-frame"><img src="assets/offhand-guide-remember-window-20261101.png" alt="Confirm this Offhand window." width="417" height="258" loading="lazy" decoding="async"></div><figcaption><strong>Confirm this Offhand window.</strong> Only choose Remember Window after checking the actual placement across your displays. Back returns without confirming.</figcaption></figure></div></details>
+<details class="faq-card settings-screenshot-details"><summary class="faq-summary"><h3>See the window confirmation</h3><span>After positioning and reloading</span><svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></summary><div class="faq-body settings-screenshot-gallery"><figure><div class="image-frame"><img src="assets/offhand-guide-remember-window-20261101.png" alt="Confirm this Offhand window." width="417" height="258" loading="lazy" decoding="async"></div><figcaption><strong>Confirm this Offhand window.</strong> Only choose Remember Window after checking the actual placement across your displays. Back returns without confirming.</figcaption></figure></div></details>
         </section>
 
         <section class="content-section" id="relaunch">

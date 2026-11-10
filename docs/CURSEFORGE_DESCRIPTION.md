@@ -1,5 +1,11 @@
 **Offhand**
 
+> **PUBLIC BETA · ACTIVELY TESTING**
+>
+> Offhand is in active development. Expect bugs and setup changes during testing.
+>
+> [Get help or report an issue on Discord](https://discord.gg/J2P3SM6pAY).
+
 ![Offhand Logo](https://raw.githubusercontent.com/N4UX-GIT/Offhand-DualMonitor/main/Website/assets/offhand-logo.png)
 
 ## Dual-wield your monitors.

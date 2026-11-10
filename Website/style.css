@@ -234,6 +234,9 @@ code {
 }
 
 .brand-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-family: var(--font-warcraft);
     font-size: 1.35rem;
     font-weight: 900;
@@ -241,6 +244,21 @@ code {
     color: #ffffff;
     line-height: 1.1;
     text-shadow: 0 0 12px rgba(255, 189, 10, 0.3);
+}
+
+.brand-beta {
+    padding: 3px 5px;
+    border: 1px solid rgba(240, 184, 54, 0.55);
+    border-radius: 3px;
+    background: rgba(240, 184, 54, 0.08);
+    color: #ffd670;
+    font-family: var(--font-body);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    text-transform: uppercase;
+    text-shadow: none;
 }
 
 .brand-subtitle {
@@ -507,6 +525,43 @@ code {
     text-shadow: 0 0 16px rgba(240, 184, 54, 0.4);
 }
 
+.beta-notice {
+    max-width: 710px;
+    margin: -8px auto 14px;
+    padding: 16px 24px;
+    border: 1px solid rgba(240, 184, 54, 0.5);
+    border-radius: 6px;
+    background: linear-gradient(135deg, rgba(39, 32, 18, 0.92), rgba(18, 20, 26, 0.96));
+    box-shadow: inset 0 0 0 3px rgba(240, 184, 54, 0.035), 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.beta-notice-label {
+    color: #ffd670;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.beta-notice p {
+    margin: 7px 0 6px;
+    color: #e0dfd8;
+    font-size: 0.9rem;
+    line-height: 1.55;
+}
+
+.beta-notice a {
+    color: #ffd670;
+    font-size: 0.84rem;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+    .home-page .beta-notice { margin: 14px auto 10px; padding: 13px 15px; }
+    .beta-notice-label { font-size: 0.7rem; letter-spacing: 0.08em; }
+}
+
 /* ============================================================================
    Unified Main Content Deck (Wireframe Mockup Layout)
    ============================================================================ */
@@ -613,6 +668,7 @@ code {
 }
 .feature-shot svg, .feature-shot img { display: block; width: 100%; height: 100%; }
 .feature-shot img { object-fit: cover; }
+.feature-shot-dashboard img { object-fit: contain; }
 .feature-credit {
     position: absolute;
     inset: auto 0 0;
