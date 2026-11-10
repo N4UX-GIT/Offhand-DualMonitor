@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -60,7 +60,7 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyVersion("2.1.7.0")]
 #endif
 #if UI_PREVIEW
-[assembly: AssemblyFileVersion("2.1.7.8001")]
+[assembly: AssemblyFileVersion("2.1.7.8002")]
 [assembly: AssemblyInformationalVersion("2.1.7")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
@@ -77,7 +77,7 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.7.1")]
+[assembly: AssemblyFileVersion("2.1.7.2")]
 [assembly: AssemblyInformationalVersion("2.1.7")]
 #endif
 
@@ -4139,7 +4139,7 @@ namespace Offhand.Companion
         internal const string BaseVersion = "2.1.7";
 #endif
 #if UI_PREVIEW
-        internal const string ReleaseLabel = "UI Preview 1";
+        internal const string ReleaseLabel = "UI Preview 2";
         internal static readonly bool GraphicsRecoveryEnabled = false;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
@@ -4869,6 +4869,7 @@ namespace Offhand.Companion
         private bool storeUpdateStopped;
         private StoreUpdateCache storeUpdateCache;
         private Label lblStoreUpdateInfo;
+        private bool startupIntroductionScheduled;
         private ToolStripMenuItem itemCheckUpdates;
         private Func<IntPtr, CancellationToken, Task<StoreUpdateState>> storeUpdateQuery = StoreUpdateRuntime.QueryAsync;
         private readonly bool isStorePackage = CompanionDistribution.IsStorePackage();
@@ -5167,9 +5168,19 @@ namespace Offhand.Companion
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
-            if (IsHandleCreated && Visible && TutorialNeeded(appSettings)) BeginInvoke(new Action(() => {
-                if (!IsDisposed && Visible && !uiInteractionPaused) StartDashboardTutorial();
-            }));
+            if (IsHandleCreated && Visible && !startupIntroductionScheduled) {
+                startupIntroductionScheduled = true;
+                bool tutorial = TutorialNeeded(appSettings);
+                bool news = UpdateNoticeNeeded(appSettings);
+                if (tutorial || news) BeginInvoke(new Action(() => {
+                    if (IsDisposed || !Visible || uiInteractionPaused) return;
+                    if (tutorial) {
+                        if (RememberCompanionVersion(appSettings)) SaveConfig();
+                        StartDashboardTutorial();
+                    }
+                    else ShowWhatsNew();
+                }));
+            }
             if (!StoreUpdateCheck.Eligible(isStorePackage) || storeUpdateTimer != null) return;
             string build = ((AssemblyFileVersionAttribute)Attribute.GetCustomAttribute(
                 typeof(CompanionForm).Assembly, typeof(AssemblyFileVersionAttribute))).Version;
@@ -5824,6 +5835,31 @@ namespace Offhand.Companion
             string value;
             bool seen;
             return !settings.TryGetValue("CompanionTutorialSeen", out value) || !bool.TryParse(value, out seen) || !seen;
+        }
+
+        internal static bool UpdateNoticeNeeded(Dictionary<string, string> settings)
+        {
+            // New installs and older users meeting the tutorial for the first
+            // time get that introduction alone. Legacy 2.1.6 users have the
+            // tutorial flag but no release marker yet, so see this notice once.
+            if (TutorialNeeded(settings)) return false;
+            string value;
+            CompanionReleaseVersion seen, current;
+            if (!CompanionReleaseVersion.TryParse(BaseVersion, out current)) return false;
+            return !settings.TryGetValue("CompanionLastSeenVersion", out value)
+                || !CompanionReleaseVersion.TryParse(value, out seen)
+                || current.CompareTo(seen) > 0;
+        }
+
+        internal static bool RememberCompanionVersion(Dictionary<string, string> settings)
+        {
+            string value;
+            CompanionReleaseVersion seen, current;
+            if (!CompanionReleaseVersion.TryParse(BaseVersion, out current)) return false;
+            if (settings.TryGetValue("CompanionLastSeenVersion", out value)
+                && CompanionReleaseVersion.TryParse(value, out seen) && seen.CompareTo(current) >= 0) return false;
+            settings["CompanionLastSeenVersion"] = BaseVersion;
+            return true;
         }
 
         private List<TutorialStep> CreateTutorialSteps()
@@ -6523,15 +6559,23 @@ namespace Offhand.Companion
         }
 
         internal Form CreateHelpDialog(bool displayTroubleshooting)
+        { return CreateGuideDialog(displayTroubleshooting, false); }
+
+        internal Form CreateWhatsNewDialog()
+        { return CreateGuideDialog(false, true); }
+
+        private Form CreateGuideDialog(bool displayTroubleshooting, bool whatsNew)
         {
-            string title = displayTroubleshooting ? "Display Troubleshooting" : "Setup and Help";
+            string title = whatsNew ? "What's new in " + BaseVersion
+                : displayTroubleshooting ? "Display Troubleshooting" : "Setup and Help";
             var help = new Form
             {
-                Text = displayTroubleshooting ? title : "Offhand Companion Help",
+                Text = whatsNew ? "Offhand Companion " + BaseVersion + " - What's new"
+                    : displayTroubleshooting ? title : "Offhand Companion Help",
                 StartPosition = FormStartPosition.CenterParent,
                 AutoScaleDimensions = new SizeF(96F, 96F),
                 AutoScaleMode = AutoScaleMode.Dpi,
-                Size = new Size(740, 710),
+                Size = whatsNew ? new Size(660, 600) : new Size(740, 710),
                 MinimumSize = new Size(540, 430),
                 BackColor = cBg,
                 ForeColor = cText,
@@ -6553,9 +6597,18 @@ namespace Offhand.Companion
                 BackColor = cCard
             };
             var footer = new Panel { Dock = DockStyle.Bottom, Height = 56, Padding = new Padding(22, 10, 22, 12), BackColor = cCard };
-            Button close = CreateButton("Close", 0, 0, 120, 32, cBtnPrimaryBg, cGoldBright, cGold);
+            Button close = CreateButton(whatsNew ? "Got it" : "Close", 0, 0, 120, 32, cBtnPrimaryBg, cGoldBright, cGold);
             close.Click += (s, e) => help.Close();
-            if (displayTroubleshooting)
+            if (whatsNew)
+            {
+                Button setupHelp = CreateButton("Setup help",0,0,180,32,cBtnBg,cText,cBorderDim);
+                setupHelp.Click += (s,e) => { help.DialogResult = DialogResult.Retry; help.Close(); };
+                var buttons = DashboardButtonRow(new Control[] { setupHelp, close }, 32);
+                buttons.Dock = DockStyle.Fill;
+                buttons.BackColor = cCard;
+                footer.Controls.Add(buttons);
+            }
+            else if (displayTroubleshooting)
             {
                 Button settings = CreateButton("Windows Display Settings", 0, 0, 0, 32, cBtnBg, cText, cBorderDim);
                 settings.Click += (s, e) =>
@@ -6574,11 +6627,15 @@ namespace Offhand.Companion
             else
             {
                 Button tutorial = CreateButton("Start Companion tutorial",0,0,220,32,cBtnBg,cText,cBorderDim);
-                tutorial.Dock = DockStyle.Left;
                 tutorial.Click += (s,e) => { help.DialogResult = DialogResult.Retry; help.Close(); };
-                footer.Controls.Add(tutorial);
-                close.Dock = DockStyle.Right;
-                footer.Controls.Add(close);
+                Button news = CreateButton("What's new",0,0,130,32,cBtnBg,cText,cBorderDim);
+                news.Click += (s,e) => { help.DialogResult = DialogResult.Yes; help.Close(); };
+                var buttons = DashboardButtonRow(new Control[] { tutorial, news, close }, 32);
+                buttons.ColumnStyles[0].Width = 46;
+                buttons.ColumnStyles[1].Width = buttons.ColumnStyles[2].Width = 27;
+                buttons.Dock = DockStyle.Fill;
+                buttons.BackColor = cCard;
+                footer.Controls.Add(buttons);
             }
 
             var guide = new RichTextBox
@@ -6596,7 +6653,21 @@ namespace Offhand.Companion
             CompanionUi.StyleScrollbars(guide);
             using (var sectionFont = new Font(guide.Font.FontFamily, 11, FontStyle.Bold))
             {
-                if (displayTroubleshooting)
+                if (whatsNew)
+                {
+                    AppendHelpSection(guide, sectionFont, "Store update checks",
+                        "For Microsoft Store installations, quiet update checks now run every six hours.",
+                        "Advanced and the Store button tooltip show the last check time. Microsoft Store manages downloads and installation. Portable GitHub checks remain manual.");
+                    AppendHelpSection(guide, sectionFont, "Your saved setup",
+                        "Your display selections, custom areas and profiles are preserved. If everything looks right, continue playing as usual.");
+                    AppendHelpSection(guide, sectionFont, "If something looks wrong",
+                        "If WoW looks blurry, incorrectly sized or misaligned:",
+                        "1. Review displays, Mainhand and Workspace layout in the Companion.",
+                        "2. Click Span WoW Now, then type /reload in WoW.",
+                        "3. Type /offhand guide, choose Companion, and repeat the placement/calibration steps. Follow any Mainhand HUD layout and reload prompts.",
+                        "You can read this notice again from Help > What's new.");
+                }
+                else if (displayTroubleshooting)
                 {
                     AppendHelpSection(guide, sectionFont, "Color and HDR", DisplayColor.Guidance);
                     AppendHelpSection(guide, sectionFont, "Windows display scaling", DisplayScaling.Guidance);
@@ -6618,15 +6689,29 @@ namespace Offhand.Companion
 
         private void ShowHelpDialog(bool displayTroubleshooting = false)
         {
-            bool replayTutorial = false;
+            DialogResult action = DialogResult.None;
             SuspendUiPolling();
             try
             {
                 using (Form help = CreateHelpDialog(displayTroubleshooting))
-                    replayTutorial = help.ShowDialog(this) == DialogResult.Retry;
+                    action = help.ShowDialog(this);
             }
             finally { ResumeUiPolling(); }
-            if (replayTutorial) StartDashboardTutorial();
+            if (action == DialogResult.Retry) StartDashboardTutorial();
+            else if (action == DialogResult.Yes) ShowWhatsNew();
+        }
+
+        private void ShowWhatsNew()
+        {
+            bool setupHelp = false;
+            SuspendUiPolling();
+            try {
+                using (Form news = CreateWhatsNewDialog()) setupHelp = news.ShowDialog(this) == DialogResult.Retry;
+                if (RememberCompanionVersion(appSettings)) SaveConfig();
+            }
+            catch (Exception ex) { AddLog("Could not show update notes. Read them from Help > What's new. " + ex.Message); }
+            finally { ResumeUiPolling(); }
+            if (setupHelp) ShowHelpDialog();
         }
 
         private void InitializeTray()

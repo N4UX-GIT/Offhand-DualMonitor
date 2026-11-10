@@ -3,6 +3,7 @@
 Native Windows desktop companion application for the Offhand World of Warcraft add-on. See [Linux.md](Linux.md) for the current experimental Wine path and the native-Linux implementation boundary.
 
 ## Features
+* **Post-update guidance (2.1.7 source, unpublished)**: Existing users see a one-time What's new notice, with conditional placement/calibration guidance if the game looks blurry, incorrectly sized or misaligned. Replay it from Help. Fresh installs receive the tutorial without an additional update popup; saved layouts are preserved.
 * **Optional Auto-Spanning**: Detects World of Warcraft launches and can span the game window borderlessly across your multi-monitor virtual desktop. This is disabled by default so a first launch cannot move WoW before the display selection is reviewed.
 * **Addon Verification**: Validates that the Offhand add-on is properly installed in your WoW client's `Interface\AddOns` folder.
   It recognizes every supported Offhand TOC and reports the common accidental

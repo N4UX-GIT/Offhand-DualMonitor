@@ -616,6 +616,8 @@ namespace Offhand.Companion
                     var close = One<Button>(dialog, button => button.Text == "Close");
                     if (!troubleshooting && !Descendants(dialog).OfType<Button>().Any(button=>button.Text=="Start Companion tutorial"))
                         throw new Exception("Help must offer tutorial replay.");
+                    if (!troubleshooting && !Descendants(dialog).OfType<Button>().Any(button=>button.Text=="What's new"))
+                        throw new Exception("Help must offer update-note replay.");
                     var heading = One<Label>(dialog, label => true);
                     Rectangle bounds = BoundsInside(guide, dialog);
                     if (!guide.ReadOnly || bounds.Top <= heading.Bottom || bounds.Bottom >= BoundsInside(close, dialog).Top ||
@@ -640,6 +642,25 @@ namespace Offhand.Companion
                     foreach (Control button in Descendants(dialog).OfType<Button>())
                         if (!button.Parent.ClientRectangle.Contains(button.Bounds))
                             throw new Exception("Help footer button is clipped at " + factor + "x.");
+                }
+            }
+            using (var dialog = form.CreateWhatsNewDialog()) {
+                dialog.CreateControl(); dialog.Scale(new SizeF(factor, factor)); dialog.Size=dialog.MinimumSize;
+                LayoutAll(dialog);
+                var guide=One<RichTextBox>(dialog, control=>true);
+                var close=One<Button>(dialog, button=>button.Text=="Got it");
+                var heading=One<Label>(dialog, label=>true);
+                if (!guide.Text.Contains("six hours") || !guide.Text.Contains("If something looks wrong")
+                    || !guide.Text.Contains("/reload") || !guide.Text.Contains("/offhand guide")
+                    || !guide.Text.Contains("placement/calibration") || !guide.Text.Contains("preserved"))
+                    throw new Exception("Update notes must explain changes and conditional setup recovery.");
+                if (BoundsInside(guide,dialog).Top<=heading.Bottom || BoundsInside(guide,dialog).Bottom>=BoundsInside(close,dialog).Top
+                    || dialog.AcceptButton!=close || dialog.CancelButton!=close)
+                    throw new Exception("Update notes must fit between title and pinned dismissal.");
+                foreach (Button button in Descendants(dialog).OfType<Button>()) {
+                    if (!button.Parent.ClientRectangle.Contains(button.Bounds)
+                        || TextRenderer.MeasureText(button.Text,button.Font).Width+8>button.Width)
+                        throw new Exception("Update-note buttons clipped at "+factor+"x.");
                 }
             }
         }

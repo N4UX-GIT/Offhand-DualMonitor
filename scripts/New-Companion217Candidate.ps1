@@ -32,9 +32,9 @@ $compiler=Join-Path $env:WINDIR 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
 & $compiler /nologo /target:winexe /optimize+ /platform:anycpu "/out:$binary" "/win32icon:$root/Media/offhand-logo.ico" "/win32manifest:$source/app.manifest" "/resource:$root/Media/offhand-logo-small.png,Offhand.Companion.Resources.offhand-logo.png" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll @files
 if($LASTEXITCODE-ne 0){throw 'Companion candidate compilation failed.'}
 $identity=[Diagnostics.FileVersionInfo]::GetVersionInfo($binary)
-if($identity.FileVersion-ne '2.1.7.1' -or $identity.ProductVersion-ne '2.1.7'){throw 'Unexpected production candidate identity.'}
+if($identity.FileVersion-ne '2.1.7.2' -or $identity.ProductVersion-ne '2.1.7'){throw 'Unexpected production candidate identity.'}
 $readme=@'
-Offhand Companion {{VERSION}}, unpublished release candidate (build 2.1.7.1).
+Offhand Companion {{VERSION}}, unpublished release candidate (build 2.1.7.2).
 SHA-256: {{EXE_SHA256}}
 
 This production candidate uses ordinary portable preferences and supports manual

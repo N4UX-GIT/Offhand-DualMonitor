@@ -38,7 +38,7 @@ namespace Offhand.Testing
             using (var sha = SHA256.Create())
             using (var stream = File.OpenRead(path))
                 if (BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "") != ExpectedHash)
-                    throw new InvalidDataException("This simulator requires the exact included 2.1.7.1 candidate. Extract the complete ZIP again.");
+                    throw new InvalidDataException("This simulator requires the exact included 2.1.7.2 candidate. Extract the complete ZIP again.");
             return Assembly.LoadFrom(path);
         }
 
@@ -139,12 +139,15 @@ namespace Offhand.Testing
                         report.Tick += (s, e) => {
                             if (!File.Exists(cache) || File.ReadAllText(cache).Contains("State=NotChecked")) return;
                             var info = (Label)formType.GetField("lblStoreUpdateInfo", Instance).GetValue(form);
+                            bool noticeOpen=false;
+                            foreach(Form open in Application.OpenForms)if(open.Text.EndsWith("- What's new"))noticeOpen=true;
                             File.WriteAllLines(Path.Combine(dataPath, "review-result.txt"), new[] {
-                                "Scenario=" + scenario, "Runtime=2.1.7.1",
+                                "Scenario=" + scenario, "Runtime=2.1.7.2",
                                 "Button=" + button.Text,
                                 "Details=" + info.Text.Replace("\r\n", " | "),
                                 "Tooltip=" + button.AccessibleDescription.Replace("\r\n", " | "),
                                 "StatusFits=" + (info.Right <= info.Parent.ClientSize.Width && info.Bottom <= info.Parent.ClientSize.Height),
+                                "UpdateNoticeOpen=" + noticeOpen,
                                 "FinishedUtc=" + DateTime.UtcNow.ToString("o") });
                             report.Stop();
                         };
