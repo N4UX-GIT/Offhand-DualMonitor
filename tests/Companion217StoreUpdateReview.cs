@@ -133,7 +133,23 @@ namespace Offhand.Testing
                             if (item.Text.Contains("Span") || item.Text.Contains("Restore") || item.Text.Contains("monitor") || item.Text.Contains("Help")) item.Enabled = false;
                         formType.GetMethod("UpdateDashboardStatusSummary", Instance).Invoke(form, null);
                         formType.GetMethod("AddLog", Instance).Invoke(form, new object[] { "LOCAL SIMULATION: " + scenario + ". Store responses are simulated; no game actions or real update queries." });
-                        form.Disposed += (s, e) => { monitor.Dispose(); tray.Dispose(); };
+                        // A local diagnostic receipt reads this host's own controls,
+                        // without relying on external desktop focus or capture.
+                        var report = new System.Windows.Forms.Timer { Interval = 1000 };
+                        report.Tick += (s, e) => {
+                            if (!File.Exists(cache) || File.ReadAllText(cache).Contains("State=NotChecked")) return;
+                            var info = (Label)formType.GetField("lblStoreUpdateInfo", Instance).GetValue(form);
+                            File.WriteAllLines(Path.Combine(dataPath, "review-result.txt"), new[] {
+                                "Scenario=" + scenario, "Runtime=2.1.7.1",
+                                "Button=" + button.Text,
+                                "Details=" + info.Text.Replace("\r\n", " | "),
+                                "Tooltip=" + button.AccessibleDescription.Replace("\r\n", " | "),
+                                "StatusFits=" + (info.Right <= info.Parent.ClientSize.Width && info.Bottom <= info.Parent.ClientSize.Height),
+                                "FinishedUtc=" + DateTime.UtcNow.ToString("o") });
+                            report.Stop();
+                        };
+                        report.Start();
+                        form.Disposed += (s, e) => { report.Dispose(); monitor.Dispose(); tray.Dispose(); };
                         Application.Run(form);
                     }
                 }

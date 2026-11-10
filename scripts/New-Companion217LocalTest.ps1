@@ -54,7 +54,7 @@ The existing Beta 28 addon remains compatible. Source and native fixtures are
 recorded in the 2.1.7 preparation notes; Store/WACK acceptance is still pending.
 '@|Set-Content -LiteralPath (Join-Path $output 'README.txt') -Encoding UTF8
 $receipt=[ordered]@{kind='isolated-store-update-simulation';version='2.1.7';runtimeFileVersion='2.1.7.1';
-    sourceRevision=$record.sourceRevision;runtimeSha256=$record.binarySha256;
+    sourceRevision=$record.sourceRevision;reviewSourceRevision=(& git -C $root rev-parse HEAD).Trim();runtimeSha256=$record.binarySha256;
     launcherSha256=(Get-FileHash -LiteralPath $hostBinary).Hash;templateSha256=(Get-FileHash -LiteralPath $template).Hash;
     realStoreQueries=$false;gameMonitoring=$false;settings='LocalTestData';publication='unpublished'}
 $receipt|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $output 'test-build.json') -Encoding UTF8
