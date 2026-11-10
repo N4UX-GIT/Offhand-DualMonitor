@@ -59,3 +59,15 @@ Installed portable/Store preference files were hash-compared before and after an
 Validation rerun for this follow-up: preference/layout checks pass at 100%-200% scaling, enlarged native children and minimum width. Repeated page changes and Show/Hide produce no outer size/location changes, content-width changes or late log handle creation. Tests cover isolated page contents, shared actions, tab text and selected-state descriptions, wrapped guidance, custom state/reset instructions and preservation of saved settings. Workspace UX passes 111 checks per architecture. Store update tests pass 472 checks across production/preview and x64/x86 variants, without real Store queries. Historical 2.1.5 EXE/ZIP/receipt and source-drift rejection checks pass.
 
 The shared knowledge index was stale again at the start of this follow-up. The existing authored Advanced options finding was read directly; current source and native test evidence govern this native-only UI change.
+
+### UI Preview 3 native review and package
+
+The initial tabbed candidate was visually reviewed in both standard and custom states. A custom single-monitor plan was saved only in isolated preview settings, without spanning; Setup then showed the custom-state tab label and correct review/reset guidance, and the standard-reset action was enabled. That first candidate exposed native arrow-key focus traversal without page selection. `PreviewKeyDown` now classifies navigation keys as input before `KeyDown` processes them. Tests exercise both stages, alongside the direct navigation fixtures.
+
+The corrected preview was built from `034d462` into ignored `dist/companion-setup-tabs-preview-3b-20261110`. Computer Use verified Right selects Advanced and Left returns to Setup, the Advanced Activity Log Show/Hide action, both settled layouts and the default Setup view. It is left running on Setup. Screenshots `setup.png` and `advanced.png` are beside the executable. Physical display configuration remained one 2560x1440 display; no live game interaction, Span or Restore was performed. Captures do not establish the absence of subsecond rendering flashes.
+
+Installed preference hashes remained unchanged. The builder's frozen-artifact checks passed, and prepared 2.1.5 EXE/ZIP hashes were independently rechecked. The local archive contains exactly LICENSE, Offhand.exe and README.txt, with matching embedded executable bytes and no preferences.
+
+- Corrected preview EXE SHA256: `E40E307704DBDD1A3EC3D89DD8E42D9A1AB13A0A2F34FC556671487C4FE9ECA4`.
+- Local ZIP SHA256: `F1040CAEF0593339D186E7F96C57B90165F3B757C1741403721E9868CBC99376`.
+- Product/file versions: 2.1.5 UI Preview 3 / 2.1.5.8003. No public publication or production version change.

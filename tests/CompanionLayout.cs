@@ -420,6 +420,19 @@ namespace Offhand.Companion
                     if (TextRenderer.MeasureText(tab.Text, tab.Font).Width + 8 > tab.Width)
                         throw new Exception("Navigation text is clipped at " + factor + "x.");
             }
+            var previewKey = typeof(Control).GetMethod("OnPreviewKeyDown", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            var keyDown = typeof(Control).GetMethod("OnKeyDown", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            foreach (Keys key in new[] { Keys.Right, Keys.Left, Keys.End, Keys.Home }) {
+                var keyPreview = new PreviewKeyDownEventArgs(key);
+                previewKey.Invoke(setup, new object[] { keyPreview });
+                if (!keyPreview.IsInputKey) throw new Exception("Tab navigation key was treated as focus traversal: " + key);
+                var input = new KeyEventArgs(key);
+                keyDown.Invoke(setup, new object[] { input });
+                bool shouldSelectAdvanced = key == Keys.Right || key == Keys.End;
+                if (!input.Handled || !input.SuppressKeyPress ||
+                    advancedTab.AccessibleDescription.StartsWith("Selected.") != shouldSelectAdvanced)
+                    throw new Exception("Navigation keyboard handler lost its page selection: " + key);
+            }
             foreach (Label step in guide.Controls.OfType<Label>()) {
                 if (!guide.ClientRectangle.Contains(step.Bounds)) throw new Exception("Setup guide escaped its card.");
                 var text = TextRenderer.MeasureText(step.Text, step.Font, new Size(step.Width, int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
