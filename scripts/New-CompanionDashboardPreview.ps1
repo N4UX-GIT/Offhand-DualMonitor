@@ -9,7 +9,7 @@ if ($output.Equals($publicDirectory, [StringComparison]::OrdinalIgnoreCase) -or
     throw 'Preview output must be outside the public Companion directory.'
 }
 $frozen = @{}
-foreach ($name in @('Offhand.exe', 'Offhand-Companion.zip')) {
+foreach ($name in @('Offhand.exe', 'Offhand-Companion.zip', 'Prepared/2.1.5/Offhand.exe', 'Prepared/2.1.5/Offhand-Companion-v2.1.5.zip')) {
     $path = Join-Path $publicDirectory $name
     $frozen[$path] = (Get-FileHash -LiteralPath $path).Hash
 }
@@ -27,22 +27,27 @@ $options = @('/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', '/de
 & $compiler @options @files
 if ($LASTEXITCODE -ne 0) { throw 'Dashboard preview compilation failed.' }
 $identity = [Diagnostics.FileVersionInfo]::GetVersionInfo($binary)
-if ($identity.FileVersion -ne '2.1.5.8001' -or $identity.ProductVersion -ne '2.1.5') {
+if ($identity.FileVersion -ne '2.1.5.8002' -or $identity.ProductVersion -ne '2.1.5') {
     throw 'Unexpected dashboard preview identity.'
 }
 @('AutoSpan=False', 'DashboardCollapsed.SystemStatus=True', 'DashboardCollapsed.Configuration=False',
-    'DashboardCollapsed.DisplayDiagnostics=True', 'DashboardCollapsed.ActivityLog=True') |
+    'DashboardCollapsed.AdvancedOptions=True', 'DashboardCollapsed.DisplayDiagnostics=True', 'DashboardCollapsed.ActivityLog=True') |
     Set-Content -LiteralPath (Join-Path $output 'DashboardPreviewConfig.ini') -Encoding UTF8
 @'
-Offhand Companion UI Preview 1, local build 2.1.5.8001. Unpublished.
+Offhand Companion UI Preview 2, local build 2.1.5.8002. Unpublished.
 
 Run Offhand.exe to review the updated dashboard. It can coexist with the regular
 Companion. Preferences stay in DashboardPreviewConfig.ini beside this EXE;
 public/Store preferences are not imported. Automatic spanning and graphics-reset
 recovery are disabled. Manual Span and Restore remain available.
 
-Review the larger primary actions, short reload guidance, collapsed status,
-panel toggles, workspace editors and tray Pause/Resume background monitoring.
+Review Configuration and the collapsed Advanced options panel. Advanced options
+contains Workspace layout/profiles, Use standard display layout and Auto-span.
+Its header shows when a custom layout is active. New two-monitor custom plans
+start with the full Offhand display. Existing saved areas are preserved.
+
+Show/Hide must keep the window size stable. This preview intentionally disables
+automatic spanning; the production auto-span restrictions remain unchanged.
 Use Exit Companion to close this preview; the regular installation stays open.
 '@ | Set-Content -LiteralPath (Join-Path $output 'README.txt') -Encoding UTF8
 $inputs = [ordered]@{}

@@ -49,7 +49,7 @@ jobs:
         shell: powershell
         run: |
           ./tests/publication-213.ps1 -HistoricalArtifactsOnly
-          ./tests/publication-215.ps1
+          ./tests/publication-215.ps1 -HistoricalArtifactsOnly
           ./tests/release-metadata.ps1
 
       - name: Test monitor identity ambiguity and workspace migration

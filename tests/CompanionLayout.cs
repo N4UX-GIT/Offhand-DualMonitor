@@ -75,7 +75,17 @@ namespace Offhand.Companion
 
                 Panel config = Descendants(form).OfType<Panel>().Single(panel =>
                     panel.Controls.OfType<Label>().Any(label => label.Text == "CONFIGURATION"));
-                var delay = One<NumericUpDown>(config, control => true);
+                Panel advanced = Descendants(form).OfType<Panel>().Single(panel =>
+                    panel.Controls.OfType<Label>().Any(label => label.Text.StartsWith("ADVANCED OPTIONS")));
+                if (!advanced.Controls.OfType<Button>().Any(button => button.Text == "Show"))
+                    throw new Exception("Advanced options must start collapsed for new preferences.");
+                var delay = One<NumericUpDown>(advanced, control => true);
+                var auto = One<CheckBox>(advanced, control => control.Text == "Auto-span WoW on launch");
+                if (auto.Checked || Descendants(config).OfType<NumericUpDown>().Any()
+                    || Descendants(config).OfType<Button>().Any(button => button.Text.StartsWith("Workspace")))
+                    throw new Exception("Basic configuration exposes advanced controls or auto-span starts enabled.");
+                form.SetDashboardSectionExpanded(advanced, true, false);
+                LayoutAll(form);
                 var displays = One<CheckedListBox>(config, control => true);
                 var combos = Descendants(config).OfType<ComboBox>().ToArray();
                 if (combos.Length != 2) throw new Exception("Expected Mainhand and game-side selectors.");
@@ -90,17 +100,18 @@ namespace Offhand.Companion
                     LayoutAll(form);
                 }
 
-                Button custom = One<Button>(config, control => control.Text.StartsWith("Workspace layout ("));
-                Button profiles = One<Button>(config, control => control.Text == "Workspace profiles...");
+                Button custom = One<Button>(advanced, control => control.Text.StartsWith("Workspace layout ("));
+                Button profiles = One<Button>(advanced, control => control.Text == "Workspace profiles...");
                 foreach (Control control in new Control[] { delay, displays, mainhand, gameSide, identify, custom, profiles })
                 {
-                    Rectangle bounds = BoundsInside(control, config);
-                    if (bounds.Left < 0 || bounds.Top < 24 || bounds.Right > config.ClientSize.Width
-                        || bounds.Bottom > config.ClientSize.Height)
+                    Panel owner = advanced.Contains(control) ? advanced : config;
+                    Rectangle bounds = BoundsInside(control, owner);
+                    if (bounds.Left < 0 || bounds.Top < 24 || bounds.Right > owner.ClientSize.Width
+                        || bounds.Bottom > owner.ClientSize.Height)
                         throw new Exception(control.GetType().Name + " escaped the configuration card at " + factor + "x: " + bounds);
                     if (bounds.Width <= 0 || bounds.Height <= 0)
                         throw new Exception(control.GetType().Name + " collapsed at " + factor + "x.");
-                    for (Control parent = control.Parent; parent != config; parent = parent.Parent)
+                    for (Control parent = control.Parent; parent != owner; parent = parent.Parent)
                     {
                         Rectangle inside = BoundsInside(control, parent);
                         if (!parent.ClientRectangle.Contains(inside))
@@ -112,17 +123,17 @@ namespace Offhand.Companion
                 Rectangle displayBounds = BoundsInside(displays, config);
                 Rectangle mainhandBounds = BoundsInside(mainhand, config);
                 Rectangle identifyBounds = BoundsInside(identify, config);
-                if (displayBounds.Bottom >= mainhandBounds.Top)
-                    throw new Exception("Display checklist overlaps Mainhand at " + factor + "x.");
-                if (identifyBounds.Right >= displayBounds.Left)
-                    throw new Exception("Identify Displays overlaps the display selectors at " + factor + "x.");
-
-                if (profiles.Top != custom.Top || profiles.Height != custom.Height ||
-                    BoundsInside(profiles, config).Right != identifyBounds.Right ||
-                    BoundsInside(custom, config).Left != displayBounds.Left)
-                    throw new Exception("Workspace actions are misaligned at " + factor + "x.");
-                if (BoundsInside(gameSide, config).Top != mainhandBounds.Top)
-                    throw new Exception("Game Side and Mainhand selectors are misaligned at " + factor + "x.");
+                if (displayBounds.Right >= mainhandBounds.Left || identifyBounds.Top < displayBounds.Bottom)
+                    throw new Exception("Display list, Identify and Mainhand overlap at " + factor + "x.");
+                var customBounds = BoundsInside(custom, advanced);
+                var profileBounds = BoundsInside(profiles, advanced);
+                if (customBounds.Top != profileBounds.Top || customBounds.Height != profileBounds.Height
+                    || customBounds.Right >= profileBounds.Left)
+                    throw new Exception("Advanced layout/profile buttons are misaligned at " + factor + "x.");
+                if (BoundsInside(gameSide, config).Top < mainhandBounds.Bottom)
+                    throw new Exception("Game side overlaps Mainhand at " + factor + "x.");
+                form.SetDashboardSectionExpanded(advanced, false, false);
+                LayoutAll(form);
                 foreach (Control field in new Control[] { delay, gameSide, mainhand })
                     if (!field.Parent.ClientRectangle.Contains(field.Bounds))
                         throw new Exception(field.AccessibleName + " is clipped by its own row at " + factor + "x.");
@@ -133,7 +144,7 @@ namespace Offhand.Companion
                 if (!status.Controls.OfType<Button>().Any(button => button.Text == "Show") ||
                     !config.Controls.OfType<Button>().Any(button => button.Text == "Hide"))
                     throw new Exception("Fresh dashboard must collapse System Status and expand Configuration.");
-                foreach (string heading in new[] { "DISPLAY DIAGNOSTICS", "ACTIVITY LOG" })
+                foreach (string heading in new[] { "ADVANCED OPTIONS", "DISPLAY DIAGNOSTICS", "ACTIVITY LOG" })
                 {
                     Panel card = Descendants(form).OfType<Panel>().Single(panel =>
                         panel.Controls.OfType<Label>().Any(label => label.Text == heading));
@@ -197,7 +208,7 @@ namespace Offhand.Companion
                 form.LocationChanged += onOuterChange;
                 stackBeforeToggles.SizeChanged += onContentChange;
                 logControl.HandleCreated += onLogHandle;
-                foreach (Panel section in new[] { status, config,
+                foreach (Panel section in new[] { status, config, advanced,
                     Descendants(form).OfType<Panel>().Single(panel => panel.Controls.OfType<Label>().Any(label => label.Text == "DISPLAY DIAGNOSTICS")),
                     Descendants(form).OfType<Panel>().Single(panel => panel.Controls.OfType<Label>().Any(label => label.Text == "ACTIVITY LOG")) })
                 {
@@ -226,7 +237,7 @@ namespace Offhand.Companion
                 string review = CompanionForm.DisplaySelectionPrompt(legacy, true, true);
                 if (!review.StartsWith("Confirm your saved displays\r\n") || !review.Contains("With WoW open") ||
                     !review.Contains("click Span WoW Now") || !review.Contains("when you click OK") ||
-                    !review.Contains("\r\nTo change the layout, open Workspace layout.") ||
+                    !review.Contains("\r\nTo change the layout, open Advanced options > Workspace layout.") ||
                     CompanionForm.DisplaySelectionPrompt(legacy, false, true).Contains("Workspace layout"))
                     throw new Exception("Saved display review must explain when to open the confirmation and how to accept it.");
                 layoutStatus.Text = review;
@@ -322,7 +333,7 @@ namespace Offhand.Companion
                         }
                     }
                 }
-                foreach (Panel section in new[] { config, Descendants(form).OfType<Panel>().Single(panel =>
+                foreach (Panel section in new[] { config, advanced, Descendants(form).OfType<Panel>().Single(panel =>
                     panel.Controls.OfType<Label>().Any(label => label.Text == "DISPLAY DIAGNOSTICS")) })
                 {
                     form.SetDashboardSectionExpanded(section, true, false);
@@ -346,7 +357,7 @@ namespace Offhand.Companion
                     if (viewport.HorizontalScroll.Visible || form.HorizontalScroll.Visible)
                         throw new Exception("Resizing introduced a horizontal scrollbar");
                 }
-                CheckWorkspaceLayoutCaption(form, config, custom, factor);
+                CheckWorkspaceLayoutCaption(form, config, advanced, custom, factor);
             }
         }
 
@@ -366,7 +377,7 @@ namespace Offhand.Companion
             }
         }
 
-        private static void CheckWorkspaceLayoutCaption(CompanionForm form, Panel config, Button workspaceLayout, float factor)
+        private static void CheckWorkspaceLayoutCaption(CompanionForm form, Panel config, Panel advanced, Button workspaceLayout, float factor)
         {
             const System.Reflection.BindingFlags privateMembers = System.Reflection.BindingFlags.NonPublic;
             var settingsField = typeof(CompanionForm).GetField("appSettings", privateMembers | System.Reflection.BindingFlags.Static);
@@ -378,20 +389,34 @@ namespace Offhand.Companion
                 settingsField.SetValue(null, settings);
                 form.ClientSize = new Size((int)(500 * factor), form.ClientSize.Height);
                 LayoutAll(form);
-                var table = (TableLayoutPanel)workspaceLayout.Parent;
+                var standard = One<Button>(advanced, button => button.Text == "Use standard display layout");
+                var heading = advanced.Controls.OfType<Label>().Single();
+                var savedBounds = form.Bounds;
                 int standardHeight = config.Height;
+                settings["AutoSpan"]="True";
+                settings["WorkspaceProfiles"]= "preserve named plans";
                 foreach (bool custom in new[] { false, true, false })
                 {
                     settings["WorkspaceRegionsEnabled"] = custom.ToString();
                     refresh.Invoke(form, null);
                     LayoutAll(form);
                     string caption = custom ? "Workspace layout (custom)…" : "Workspace layout (standard)…";
+                    var beforeDisclosure=new Dictionary<string,string>(settings);
+                    form.SetDashboardSectionExpanded(advanced, true, false);
+                    LayoutAll(form);
                     var textSize = TextRenderer.MeasureText(caption, workspaceLayout.Font);
                     if (workspaceLayout.Text != caption || workspaceLayout.AccessibleName != caption ||
                         textSize.Width + workspaceLayout.Padding.Horizontal + 8 > workspaceLayout.Width ||
                         textSize.Height + workspaceLayout.Padding.Vertical > workspaceLayout.Height ||
-                        table.RowCount != 3 || config.Height != standardHeight)
-                        throw new Exception("The workspace layout caption is wrong or does not fit the compact card at " + factor + "x.");
+                        config.Height != standardHeight || standard.Enabled != custom
+                        || heading.Text.Contains("CUSTOM LAYOUT ACTIVE") != custom || form.Bounds != savedBounds)
+                        throw new Exception("The custom state/reset action is wrong or clipped at " + factor + "x.");
+                    form.SetDashboardSectionExpanded(advanced, false, false);
+                    LayoutAll(form);
+                    if (settings.Count!=beforeDisclosure.Count || beforeDisclosure.Any(pair=>!settings.ContainsKey(pair.Key)||settings[pair.Key]!=pair.Value))
+                        throw new Exception("Opening/closing Advanced options changed the saved layout or auto-span preference.");
+                    if (TextRenderer.MeasureText(heading.Text, heading.Font).Width > heading.Width)
+                        throw new Exception("Collapsed advanced custom-state heading is clipped at " + factor + "x.");
                 }
             }
             finally { settingsField.SetValue(null, original); }

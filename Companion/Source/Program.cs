@@ -60,7 +60,7 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyVersion("2.1.5.0")]
 #endif
 #if UI_PREVIEW
-[assembly: AssemblyFileVersion("2.1.5.8001")]
+[assembly: AssemblyFileVersion("2.1.5.8002")]
 [assembly: AssemblyInformationalVersion("2.1.5")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
@@ -1212,16 +1212,16 @@ namespace Offhand.Companion
             }
             if (!partial) return plan;
             if (plan.Indices.Length != 1)
-                throw new InvalidOperationException("This custom layout needs exactly one display. Open Workspace layout to review it.");
+                throw new InvalidOperationException("This custom layout needs exactly one display. Open Advanced options > Workspace layout to review it.");
             Display display = displays[plan.MainhandIndex];
             if (FindDisplay(displays,read("PartialDisplayIdentity"),null)!=plan.MainhandIndex)
-                throw new InvalidOperationException("The custom region belongs to a different display. Open Workspace layout and save it for this monitor.");
+                throw new InvalidOperationException("The custom region belongs to a different display. Open Advanced options > Workspace layout and save it for this monitor.");
             int width, workspace, monitorWidth, monitorHeight;
             if (!int.TryParse(read("PartialWidth"), out width) || !int.TryParse(read("PartialWorkspaceWidth"), out workspace)
                 || !int.TryParse(read("PartialMonitorWidth"), out monitorWidth) || !int.TryParse(read("PartialMonitorHeight"), out monitorHeight))
-                throw new InvalidOperationException("Custom region dimensions are incomplete. Open Workspace layout and save a valid layout.");
+                throw new InvalidOperationException("Custom region dimensions are incomplete. Open Advanced options > Workspace layout and save a valid layout.");
             if (display.Bounds.Width != monitorWidth || display.Bounds.Height != monitorHeight)
-                throw new InvalidOperationException("The custom display resolution changed. Open Workspace layout and save the revised layout before spanning.");
+                throw new InvalidOperationException("The custom display resolution changed. Open Advanced options > Workspace layout and save the revised layout before spanning.");
             string edge = read("PartialEdge"), side = read("PartialGameSide");
             if ((edge != "LEFT" && edge != "RIGHT") || (side != "LEFT" && side != "RIGHT"))
                 throw new InvalidOperationException("Choose a valid occupied edge and game side in Workspace layout.");
@@ -2322,7 +2322,7 @@ namespace Offhand.Companion
             layout.Field("Game monitor", game);
             layout.Field("Workspace monitor", work);
             layout.Heading("2. Set the workspace area");
-            layout.Guide("Drag the workspace into place on its monitor, or enter its size and offsets from the top-left corner.");
+            layout.Guide("New plans use the full workspace monitor. Select a smaller area only if you want to leave desktop space free.");
             var visual = new Button { Text = WorkspaceEditorLayout.SelectArea, AutoSize = true, Dock = DockStyle.Fill, MaximumSize = new Size(0, 38) };
             layout.Field("Pick an area", visual);
             layout.Field("Left offset (px)", x);
@@ -2368,9 +2368,8 @@ namespace Offhand.Companion
                 finally { review.Visible = diagram.Plan != null; }
             };
             Action load=()=> {
-                if(work.SelectedIndex<0||game.SelectedIndex<0)return;var w=displays[work.SelectedIndex];var g=displays[game.SelectedIndex];
-                int dw=Math.Min(640,w.Bounds.Width),dh=Math.Min(g.Bounds.Height,w.Bounds.Height);
-                int dx=w.Bounds.Left<g.Bounds.Left?w.Bounds.Width-dw:0,dy=Math.Max(0,Math.Min(w.Bounds.Height-dh,g.Bounds.Top-w.Bounds.Top));
+                if(work.SelectedIndex<0||game.SelectedIndex<0)return;var w=displays[work.SelectedIndex];
+                int dx=0,dy=0,dw=w.Bounds.Width,dh=w.Bounds.Height;
                 string id;bool saved=settings.TryGetValue("SecondaryAreaIdentity",out id)&&MonitorSelection.FindDisplay(displays,id,null)==work.SelectedIndex;
                 NumericUpDown[] controls={x,y,width,height};string[] keys={"SecondaryAreaX","SecondaryAreaY","SecondaryAreaWidth","SecondaryAreaHeight"};int[] values={dx,dy,dw,dh};
                 for(int i=0;i<4;i++){int v;string value;controls[i].Value=saved&&settings.TryGetValue(keys[i],out value)&&int.TryParse(value,out v)?Math.Max(0,Math.Min(32768,v)):values[i];}update();
@@ -3329,7 +3328,7 @@ namespace Offhand.Companion
             PreferenceFile.Write(path, settings, temporary => {
                 current = readDisplays();
                 if (confirmedDisplays != null && !MonitorSelection.SameDisplays(confirmedDisplays, current))
-                    throw new InvalidOperationException("The connected displays changed. Open Workspace layout and review the standard layout again.");
+                    throw new InvalidOperationException("The connected displays changed. Open Advanced options > Workspace layout and review the standard layout again.");
                 string value;
                 bool custom = (settings.TryGetValue("PartialSpanEnabled", out value)
                         && string.Equals(value, "True", StringComparison.OrdinalIgnoreCase))
@@ -4113,7 +4112,7 @@ namespace Offhand.Companion
         internal const string BaseVersion = "2.1.5";
 #endif
 #if UI_PREVIEW
-        internal const string ReleaseLabel = "UI Preview 1";
+        internal const string ReleaseLabel = "UI Preview 2";
         internal static readonly bool GraphicsRecoveryEnabled = false;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
@@ -4209,6 +4208,8 @@ namespace Offhand.Companion
         private Label lblColorWarning;
         private Label lblScaleInfo;
         private Label lblStatusSummary;
+        private Panel advancedPanel;
+        private Button btnUseStandardLayout;
         private const int DashboardActionHeight = 44;
         private sealed class DashboardSection
         {
@@ -4475,9 +4476,9 @@ namespace Offhand.Companion
                 return "Open this display layout with the Companion version that saved it.";
             if (confirmSaved || version == "1")
                 return "Confirm your saved displays\r\nWith WoW open, click Span WoW Now. Check the game and workspace screens in the dialog. Companion remembers your choice when you click OK."
-                    + (custom ? "\r\nTo change the layout, open Workspace layout." : "");
+                    + (custom ? "\r\nTo change the layout, open Advanced options > Workspace layout." : "");
             return custom
-                ? "Open Workspace layout to review and save the layout before spanning."
+                ? "Open Advanced options > Workspace layout to review and save the layout before spanning."
                 : "Select the displays to span and choose the Mainhand game display.";
         }
 
@@ -4493,6 +4494,12 @@ namespace Offhand.Companion
                 btnPartialSpan.Enabled = local;
             }
             if (btnWorkspaceProfiles != null) btnWorkspaceProfiles.Enabled = local;
+            if (btnUseStandardLayout != null) btnUseStandardLayout.Enabled = local && partial;
+            DashboardSection advanced;
+            if (advancedPanel != null && dashboardSections.TryGetValue(advancedPanel, out advanced)) {
+                advanced.Heading.Text = partial ? "ADVANCED OPTIONS · CUSTOM LAYOUT ACTIVE" : "ADVANCED OPTIONS";
+                advanced.Toggle.AccessibleName = (advanced.Expanded ? "Collapse " : "Expand ") + advanced.Heading.Text;
+            }
             clbMonitors.Enabled = local && !partial;
             cmbMainhand.Enabled = local && !partial;
             chkSingleSplit.Enabled = local && !partial;
@@ -4523,7 +4530,9 @@ namespace Offhand.Companion
             finally {ResumeUiPolling();}
         }
 
-        private void EditPartialSpan()
+        private void EditPartialSpan() { EditWorkspaceLayout(false); }
+
+        private void EditWorkspaceLayout(bool useStandard)
         {
             if (RemoteDesktop.Read() != RemoteDesktop.State.Local) return;
             SuspendUiPolling();
@@ -4533,8 +4542,8 @@ namespace Offhand.Companion
                 List<MonitorSelection.Display> confirmedDisplays = null;
                 using (var choice = new CustomRegionModeDialog(appSettings))
                 {
-                    if (choice.ShowDialog(this) != DialogResult.OK) return;
-                    if (choice.UseStandard)
+                    if (!useStandard && choice.ShowDialog(this) != DialogResult.OK) return;
+                    if (useStandard || choice.UseStandard)
                     {
                         confirmedDisplays = ReadDisplays();
                         int[] selection;
@@ -5351,92 +5360,23 @@ namespace Offhand.Companion
             };
             statusPanel.Controls.Add(lblAddonReason);
 
-            // Configuration Card
+            // Ordinary display selection is kept separate from opt-in layout and launch tools.
             Panel configPanel = CreateCardPanel(16, 296, 490, 212, "Configuration");
             this.Controls.Add(configPanel);
-
-            // Native WinForms selectors choose their own preferred height at
-            // the active DPI. Absolute child coordinates scale, but controls
-            // such as ComboBox and NumericUpDown can retain that preferred
-            // height, leaving large gaps or clipped rows at 125-200% scaling.
-            // Keep the card itself on the 96-DPI dashboard grid, then let two
-            // flow columns measure and position their children after scaling.
-            TableLayoutPanel configLayout = new TableLayoutPanel
-            {
-                Location = new Point(10, 26),
-                Size = new Size(470, 176),
-                ColumnCount = 2,
-                RowCount = 3,
-                Margin = Padding.Empty,
-                Padding = Padding.Empty,
-                BackColor = Color.Transparent
-            };
-            configLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-            configLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-            configLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 100));
-            configLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
-            configLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
-            configPanel.Controls.Add(configLayout);
-
-            FlowLayoutPanel configLeft = CreateDashboardColumn(new Padding(0, 0, 6, 0));
-            FlowLayoutPanel configRight = CreateDashboardColumn(new Padding(6, 0, 0, 0));
+            var configLayout = CreateDashboardGrid(configPanel, 1);
+            var configLeft = CreateDashboardColumn(new Padding(0, 0, 6, 0));
+            var configRight = CreateDashboardColumn(new Padding(6, 0, 0, 0));
             configLayout.Controls.Add(configLeft, 0, 0);
             configLayout.Controls.Add(configRight, 1, 0);
-            FlowLayoutPanel splitOptions = CreateDashboardColumn(new Padding(0, 8, 6, 0));
-            FlowLayoutPanel gameOptions = CreateDashboardColumn(new Padding(6, 8, 0, 0));
-            configLayout.Controls.Add(splitOptions, 0, 1);
-            configLayout.Controls.Add(gameOptions, 1, 1);
-
-            chkAutoSpan = new CheckBox
-            {
-                Text = "Auto-span WoW on launch",
-                Size = new Size(220, 22),
-                Margin = new Padding(0, 0, 0, 4),
-                Font = new Font("Segoe UI", 9),
-                ForeColor = cText,
-                BackColor = Color.Transparent,
-                Checked = CompanionDefaults.AutoSpanOnLaunch
-            };
-            chkAutoSpan.CheckedChanged += (s, e) =>
-            {
-                if (itemAuto != null) itemAuto.Checked = chkAutoSpan.Checked;
-                AddLog("Auto-Span on launch: " + chkAutoSpan.Checked);
-            };
-            configLeft.Controls.Add(chkAutoSpan);
-
-            FlowLayoutPanel delayRow = new FlowLayoutPanel
-            {
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
-                Size = new Size(220, 24),
-                Margin = new Padding(0, 0, 0, 4),
-                Padding = Padding.Empty,
-                BackColor = Color.Transparent
-            };
-            lblDelay = new Label { Text = "Auto-span delay (sec)", Size = new Size(130, 22), Margin = Padding.Empty,
-                TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true, ForeColor = cText, BackColor = Color.Transparent };
-            delayRow.Controls.Add(lblDelay);
-            numDelaySpan = new NumericUpDown { Width = 60, Minimum = 0, Maximum = 60, Value = 15, Margin = Padding.Empty, BackColor = cCard, ForeColor = cText };
-            numDelaySpan.AccessibleName = "Auto-span delay in seconds";
-            delayRow.Controls.Add(numDelaySpan);
-            configLeft.Controls.Add(delayRow);
-
-            Button btnIdentifyDisplays = CreateButton("Identify Displays", 0, 0, 220, 30,
-                cBtnBg, cText, cBorder);
-            btnIdentifyDisplays.Margin = Padding.Empty;
-            btnIdentifyDisplays.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
-            btnIdentifyDisplays.Click += (s, e) => { ShowDisplayIdentifiers(); };
-            configLeft.Controls.Add(btnIdentifyDisplays);
-
             Label lblMonitors = new Label { Text = "Span displays", AutoSize = true, Margin = new Padding(0, 0, 0, 6), ForeColor = cText, BackColor = Color.Transparent };
-            configRight.Controls.Add(lblMonitors);
+            configLeft.Controls.Add(lblMonitors);
             // Keep the checklist at a fixed logical height. CheckedListBox uses
             // IntegralHeight by default and can silently grow to the next whole
             // row; with three or more connected displays that growth overlaps
             // Mainhand controls. Four rows fit at 96 DPI and additional
-            // displays scroll; the flow column positions Mainhand below the
-            // checklist using its actual scaled height.
-            clbMonitors = new CheckedListBox { Size = new Size(220, 74), Margin = Padding.Empty, IntegralHeight = false, BackColor = cBtnBg, ForeColor = cText, BorderStyle = BorderStyle.FixedSingle };
+            // displays scroll; the flow column positions Identify Displays
+            // below the checklist using its actual scaled height.
+            clbMonitors = new CheckedListBox { Size = new Size(220, 74), Margin = new Padding(0, 0, 0, 10), IntegralHeight = false, BackColor = cBtnBg, ForeColor = cText, BorderStyle = BorderStyle.FixedSingle };
             clbMonitors.CheckOnClick = true;
             uiDisplays = ReadDisplays();
             for (int i = 0; i < uiDisplays.Count; i++)
@@ -5445,11 +5385,11 @@ namespace Offhand.Companion
                 clbMonitors.Items.Add(string.Format("Display {0}: {1}x{2}{3}", i + 1, b.Width, b.Height,
                     uiDisplays[i].Primary ? " (Primary)" : ""), true);
             }
-            configRight.Controls.Add(clbMonitors);
+            configLeft.Controls.Add(clbMonitors);
 
             Label lblMainhand = new Label { Text = "Mainhand (game)", Height = 22, Margin = new Padding(0, 0, 0, 4),
                 TextAlign = ContentAlignment.MiddleLeft, ForeColor = cText, BackColor = Color.Transparent };
-            gameOptions.Controls.Add(lblMainhand);
+            configRight.Controls.Add(lblMainhand);
             cmbMainhand = new ComboBox { Width = 220, Margin = Padding.Empty, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = cCard, ForeColor = cText };
             CompanionUi.StyleCombo(cmbMainhand);cmbMainhand.AccessibleName="Mainhand game display";
             for (int i = 0; i < uiDisplays.Count; i++)
@@ -5459,10 +5399,10 @@ namespace Offhand.Companion
                     StableId = uiDisplays[i].StableId,
                     Label = string.Format("Display {0} — {1}x{2}", i + 1, b.Width, b.Height) });
             }
-            gameOptions.Controls.Add(cmbMainhand);
+            configRight.Controls.Add(cmbMainhand);
 
-            chkSingleSplit = new CheckBox { Text = "Single-display 32:9 split", Size = new Size(220, 22), Margin = new Padding(0, 0, 0, 4), Font = new Font("Segoe UI", 9), ForeColor = cText, BackColor = Color.Transparent };
-            splitOptions.Controls.Add(chkSingleSplit);
+            chkSingleSplit = new CheckBox { Text = "Single-display 32:9 split", Size = new Size(220, 22), Margin = new Padding(0, 12, 0, 4), Font = new Font("Segoe UI", 9), ForeColor = cText, BackColor = Color.Transparent };
+            configRight.Controls.Add(chkSingleSplit);
             FlowLayoutPanel sideRow = new FlowLayoutPanel
             {
                 FlowDirection = FlowDirection.LeftToRight,
@@ -5480,19 +5420,74 @@ namespace Offhand.Companion
             cmbSingleSide.Items.AddRange(new object[] { "Right", "Left" });
             cmbSingleSide.SelectedIndex = 0;
             sideRow.Controls.Add(cmbSingleSide);
-            splitOptions.Controls.Add(sideRow);
+            configRight.Controls.Add(sideRow);
 
-            btnWorkspaceProfiles=CreateButton("Workspace profiles...",0,0,220,27,cBtnBg,cText,cBorder);
-            btnWorkspaceProfiles.Dock = DockStyle.Fill;
-            btnWorkspaceProfiles.Margin = new Padding(0, 10, 6, 0);
-            btnWorkspaceProfiles.Click+=(s,e)=>EditWorkspaceProfiles();
-            configLayout.Controls.Add(btnWorkspaceProfiles, 0, 2);
 
-            btnPartialSpan = CreateButton("Workspace layout (standard)…", 0, 0, 220, 27, cBtnBg, cText, cBorder);
-            btnPartialSpan.Dock = DockStyle.Fill;
-            btnPartialSpan.Margin = new Padding(6, 10, 0, 0);
-            btnPartialSpan.Click += (s, e) => EditPartialSpan();
-            configLayout.Controls.Add(btnPartialSpan, 1, 2);
+            Button btnIdentifyDisplays = CreateButton("Identify Displays", 0, 0, 220, 30, cBtnBg, cText, cBorder);
+            btnIdentifyDisplays.Margin = Padding.Empty;
+            btnIdentifyDisplays.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            btnIdentifyDisplays.Click += (sender, args) => ShowDisplayIdentifiers();
+            configLeft.Controls.Add(btnIdentifyDisplays);
+
+            advancedPanel = CreateCardPanel(16, 510, 490, 170, "Advanced Options");
+            this.Controls.Add(advancedPanel);
+            var advancedLayout = CreateDashboardGrid(advancedPanel, 2);
+            var layoutOptions = CreateDashboardColumn(new Padding(0, 0, 6, 8));
+            var profileOptions = CreateDashboardColumn(new Padding(6, 0, 0, 8));
+            var autoOptions = CreateDashboardColumn(new Padding(0, 0, 6, 0));
+            var standardOptions = CreateDashboardColumn(new Padding(6, 0, 0, 0));
+            advancedLayout.Controls.Add(layoutOptions, 0, 0);
+            advancedLayout.Controls.Add(profileOptions, 1, 0);
+            advancedLayout.Controls.Add(autoOptions, 0, 1);
+            advancedLayout.Controls.Add(standardOptions, 1, 1);
+
+            btnPartialSpan = CreateButton("Workspace layout (standard)…", 0, 0, 220, 30, cBtnBg, cText, cBorder);
+            btnPartialSpan.Margin = Padding.Empty;
+            btnPartialSpan.Click += (sender, args) => EditPartialSpan();
+            layoutOptions.Controls.Add(btnPartialSpan);
+            btnWorkspaceProfiles = CreateButton("Workspace profiles...", 0, 0, 220, 30, cBtnBg, cText, cBorder);
+            btnWorkspaceProfiles.Margin = Padding.Empty;
+            btnWorkspaceProfiles.Click += (sender, args) => EditWorkspaceProfiles();
+            profileOptions.Controls.Add(btnWorkspaceProfiles);
+            btnUseStandardLayout = CreateButton("Use standard display layout", 0, 0, 220, 30, cBtnBg, cText, cBorder);
+            btnUseStandardLayout.Margin = Padding.Empty;
+            btnUseStandardLayout.Click += (sender, args) => EditWorkspaceLayout(true);
+            standardOptions.Controls.Add(btnUseStandardLayout);
+            uiToolTips.SetToolTip(btnUseStandardLayout, "Turn off custom workspaces and review the standard display selection. Saved workspace profiles remain available. Click Span WoW Now afterward to apply.");
+            chkAutoSpan = new CheckBox
+            {
+                Text = "Auto-span WoW on launch",
+                Size = new Size(220, 22),
+                Margin = new Padding(0, 0, 0, 4),
+                Font = new Font("Segoe UI", 9),
+                ForeColor = cText,
+                BackColor = Color.Transparent,
+                Checked = CompanionDefaults.AutoSpanOnLaunch
+            };
+            chkAutoSpan.CheckedChanged += (s, e) =>
+            {
+                if (itemAuto != null) itemAuto.Checked = chkAutoSpan.Checked;
+                AddLog("Auto-Span on launch: " + chkAutoSpan.Checked);
+            };
+            autoOptions.Controls.Add(chkAutoSpan);
+
+            FlowLayoutPanel delayRow = new FlowLayoutPanel
+            {
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Size = new Size(220, 24),
+                Margin = new Padding(0, 0, 0, 4),
+                Padding = Padding.Empty,
+                BackColor = Color.Transparent
+            };
+            lblDelay = new Label { Text = "Auto-span delay (sec)", Size = new Size(130, 22), Margin = Padding.Empty,
+                TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true, ForeColor = cText, BackColor = Color.Transparent };
+            delayRow.Controls.Add(lblDelay);
+            numDelaySpan = new NumericUpDown { Width = 60, Minimum = 0, Maximum = 60, Value = 15, Margin = Padding.Empty, BackColor = cCard, ForeColor = cText };
+            numDelaySpan.AccessibleName = "Auto-span delay in seconds";
+            delayRow.Controls.Add(numDelaySpan);
+            autoOptions.Controls.Add(delayRow);
+
             uiToolTips.SetToolTip(btnWorkspaceProfiles,"Save and manage named Multiple workspaces plans. Loading selects settings; Span WoW Now applies them.");
             uiToolTips.SetToolTip(btnPartialSpan, "Edit a custom workspace or return to a standard display layout.");
 
@@ -5688,7 +5683,7 @@ namespace Offhand.Companion
             this.Controls.Add(btnExit);
             uiToolTips.SetToolTip(btnExit, "Stop monitoring and fully exit the Companion. Closing the title-bar X only minimizes it to the tray.");
 
-            ArrangeDashboard(headerPanel, statusPanel, configPanel, colorPanel, logPanel,
+            ArrangeDashboard(headerPanel, statusPanel, configPanel, advancedPanel, colorPanel, logPanel,
                 new Control[] { btnSpanNow, btnRestoreNow },
                 new Control[] { btnMinimize, btnCheckUpdates, btnExit });
             CompanionUi.StyleScrollbars(this);
@@ -5721,7 +5716,7 @@ namespace Offhand.Companion
             return row;
         }
 
-        private void ArrangeDashboard(Panel header, Panel status, Panel config, Panel diagnostics, Panel log,
+        private void ArrangeDashboard(Panel header, Panel status, Panel config, Panel advanced, Panel diagnostics, Panel log,
             Control[] actions, Control[] footer)
         {
             SuspendLayout();
@@ -5750,7 +5745,7 @@ namespace Offhand.Companion
                 Margin = new Padding(0, 6, 0, 0), ForeColor = cMuted, Font = new Font("Segoe UI", 8.5f),
                 Text = "Return to the previous window.", AccessibleName = "Restore guidance",
                 UseMnemonic = false }, 1, 1);
-            foreach (Control item in new Control[] { header, actionPanel, status, config, diagnostics, log })
+            foreach (Control item in new Control[] { header, actionPanel, status, config, advanced, diagnostics, log })
             {
                 item.Dock = DockStyle.Top;
                 item.Margin = new Padding(0, 0, 0, 10);
@@ -5870,27 +5865,39 @@ namespace Offhand.Companion
             return contentHeight + column.Margin.Vertical;
         }
 
+        private TableLayoutPanel CreateDashboardGrid(Panel panel, int rows)
+        {
+            var table = new TableLayoutPanel { Location = new Point(14, 40), Size = new Size(462, 150),
+                ColumnCount = 2, RowCount = rows, Margin = Padding.Empty, Padding = Padding.Empty, BackColor = Color.Transparent };
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            for (int row=0; row<rows; row++) table.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
+            panel.Controls.Add(table);
+            return table;
+        }
+
         private void LayoutDashboardConfiguration(Panel panel, TableLayoutPanel table, int inset, float scale)
         {
             table.SetBounds(inset, (int)Math.Ceiling(40 * scale), Math.Max(1, panel.Width - 2 * inset), table.Height);
             table.PerformLayout();
-            var gameCaption = (Label)table.GetControlFromPosition(1, 1).Controls[0];
-            int captionHeight = Math.Max((int)Math.Ceiling(22 * scale),
-                Math.Max(chkSingleSplit.PreferredSize.Height, gameCaption.PreferredHeight));
-            chkSingleSplit.Height = gameCaption.Height = captionHeight;
-
-            int height = (int)Math.Ceiling(42 * scale);
-            table.RowStyles[2].Height = height;
-            for (int row = 0; row < 2; row++)
+            if (table.Contains(clbMonitors)) {
+                var displayCaption=(Label)clbMonitors.Parent.Controls[0];
+                var gameCaption=(Label)cmbMainhand.Parent.Controls[0];
+                displayCaption.AutoSize=false;
+                displayCaption.Height=gameCaption.Height=(int)Math.Ceiling(22*scale);
+                gameCaption.Margin=new Padding(0,0,0,(int)Math.Ceiling(6*scale));
+            }
+            int height=0;
+            for (int row=0; row<table.RowCount; row++)
             {
                 int rowHeight = Math.Max(
                     MeasureDashboardColumn((FlowLayoutPanel)table.GetControlFromPosition(0, row), scale),
                     MeasureDashboardColumn((FlowLayoutPanel)table.GetControlFromPosition(1, row), scale));
-                table.RowStyles[row].Height = rowHeight;
-                height += rowHeight;
+                table.RowStyles[row].Height=rowHeight;
+                height+=rowHeight;
             }
-            table.Height = height;
-            panel.Height = table.Bottom + inset;
+            table.Height=height;
+            panel.Height=table.Bottom+inset;
         }
 
         private void LayoutDashboardCards()
@@ -6076,22 +6083,22 @@ namespace Offhand.Companion
 
             AppendHelpSection(guide, sectionFont, "Confirm saved displays",
                 "If System Status asks you to confirm your saved displays, open WoW and click Span WoW Now. Check the game and workspace screens in the dialog.",
-                "Click OK to save the screen selection and proceed with spanning. If a screen is wrong, click Cancel. Use Identify Displays to match the screen numbers to your monitors, then correct Span displays and Mainhand (game) or open Workspace layout to edit a saved custom layout. Click Span WoW Now again when ready.");
+                "Click OK to save the screen selection and proceed with spanning. If a screen is wrong, click Cancel. Use Identify Displays to match the screen numbers to your monitors, then correct Span displays and Mainhand (game) or open Advanced options > Workspace layout to edit a saved custom layout. Click Span WoW Now again when ready.");
 
             AppendHelpSection(guide, sectionFont, "Choose a display layout",
                 "Two full displays. Check both screens under Span displays and pick Mainhand (game). The other screen becomes your Offhand workspace.",
                 "One super-ultrawide. For an equal split on a 32:9 or 32:10 display, check only that screen, enable Single-display 32:9 split, and choose Game side.",
-                "Workspace layout. Choose One monitor for a full-height game and workspace split, Two monitors for a full game screen and a rectangular workspace, or Multiple workspaces for a full game screen plus one or two workspaces on separate displays.",
+                "Advanced options > Workspace layout. Choose One monitor for a full-height game and workspace split, Two monitors for a full game screen and a rectangular workspace, or Multiple workspaces for a full game screen plus one or two workspaces on separate displays.",
                 "Flexible layout (prototype). Use presets or enter the game and workspace rectangles to place one or two workspaces on the same physical display. " + WorkspaceEditorLayout.FlexibleAddon);
 
             AppendHelpSection(guide, sectionFont, "Edit and reuse custom workspaces",
                 "In custom editors with a visual picker, click Select area on monitor. Drag to move the area or drag its edges to resize. Use the arrow keys to move, Ctrl + arrow keys to move one pixel, or Shift + arrow keys to resize. Press Enter to accept the area or Esc to return to the editor.",
                 "Check the preview and click Save plan to keep your settings. Click Span WoW Now to resize the game window, then reload the WoW UI once.",
-                "To turn off custom workspaces, open Workspace layout and choose Use standard display layout. Review the suggested displays before saving. Named profiles stay saved.",
-                "Use Workspace profiles to manage named Multiple workspaces plans. To switch plans, pick a profile, click Load selected, then click Save changes. Click Span WoW Now and reload in WoW. Use the in-game Profiles tab for addon panel layouts and theme choices.");
+                "To turn off custom workspaces, open Advanced options and click Use standard display layout. The collapsed Advanced options header shows when a custom layout is active. Review the suggested displays before saving. Named profiles stay saved.",
+                "Open Advanced options > Workspace profiles to manage named Multiple workspaces plans. To switch plans, pick a profile, click Load selected, then click Save changes. Click Span WoW Now and reload in WoW. Use the in-game Profiles tab for addon panel layouts and theme choices.");
 
             AppendHelpSection(guide, sectionFont, "Daily use",
-                "Click Span WoW Now after the game window opens. For standard display layouts, you can enable Auto-span WoW on launch and set a delay. For custom layouts, use Span WoW Now each time.",
+                "Click Span WoW Now after the game window opens. For standard display layouts, open Advanced options to enable Auto-span WoW on launch and set a delay. It is off by default. For custom layouts, use Span WoW Now each time.",
                 "Restore Window returns WoW to its pre-span window and suspends auto-span for that WoW session. Click Span WoW Now to apply the layout again. To stop background launch detection, right-click the Companion tray icon and select Pause background monitoring. Manual Span and Restore remain available.",
                 "The title-bar X minimizes Companion to the tray. Exit Companion closes it and leaves the current WoW window spanned. Keep Companion open for auto-span, automatic display-disconnect recovery, or to restore the remembered window bounds.",
                 "In Remote Desktop, click Span WoW Now and choose the game and workspace screens for that connection. Keep Companion running for Restore Window and confirm the screens again after reconnecting.");

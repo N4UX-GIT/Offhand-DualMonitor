@@ -145,8 +145,18 @@ namespace Offhand.Companion
             }
             using(var secondary=new SecondaryAreaDialog(displays,new Dictionary<string,string>())){
                 Check(secondary.SavePlan.Enabled,"Valid secondary editor is disabled");
+                var plan=All(secondary).OfType<WorkspacePlanPreview>().Single().Plan;
+                Check(plan.WorkspaceBounds==displays[1].Bounds,"New two-monitor custom layout must start with the full Offhand monitor");
+                Check(secondary.Settings==null,"Opening the full-monitor default committed a plan");
                 Check(All(secondary).OfType<WorkspacePlanPreview>().Single().Plan != null, "Two-monitor editor is missing its preview");
                 Render(secondary,Path.Combine(args[0],"two-display-editor.png"));
+            }
+            using(var secondary=new SecondaryAreaDialog(displays,new Dictionary<string,string> {
+                {"SecondaryAreaIdentity",displays[1].StableId},{"SecondaryAreaX","25"},{"SecondaryAreaY","50"},
+                {"SecondaryAreaWidth","800"},{"SecondaryAreaHeight","900"}})) {
+                var plan=All(secondary).OfType<WorkspacePlanPreview>().Single().Plan;
+                Check(plan.WorkspaceBounds==new Rectangle(displays[1].Bounds.Left+25,displays[1].Bounds.Top+50,800,900),
+                    "Saved partial Offhand layout was replaced by the safer first-use default");
             }
             using (var flexible = new FlexibleWorkspaceEditor(displays, new Dictionary<string,string>()))
             {

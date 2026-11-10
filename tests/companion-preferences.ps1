@@ -86,11 +86,8 @@ try {
     if ($source -notmatch 'AddLog\("Addon verification: " \+ status\.Reason\)') {
         throw 'The Activity Log must retain the complete client-specific addon verification diagnostic.'
     }
-    if ($source -notmatch 'TableLayoutPanel configLayout' -or
-        $source -notmatch 'FlowLayoutPanel configLeft' -or
-        $source -notmatch 'FlowLayoutPanel configRight' -or
-        $source -match 'RegisterHotKey|UnregisterHotKey|WM_HOTKEY|0x0312') {
-        throw 'Companion configuration must use separate measured layout columns without restoring global hotkeys.'
+    if ($source -match 'RegisterHotKey|UnregisterHotKey|WM_HOTKEY|0x0312') {
+        throw 'Companion configuration must not restore global hotkeys.'
     }
     if ($source -notmatch 'Text = "Auto-span WoW on launch"') {
         throw 'Companion auto-span caption must remain concise enough for enlarged DPI layouts.'
