@@ -57,11 +57,11 @@ using Timer = System.Windows.Forms.Timer;
 #elif RDP_TEST
 [assembly: AssemblyVersion("2.1.3.0")]
 #else
-[assembly: AssemblyVersion("2.1.5.0")]
+[assembly: AssemblyVersion("2.1.6.0")]
 #endif
 #if UI_PREVIEW
-[assembly: AssemblyFileVersion("2.1.5.8008")]
-[assembly: AssemblyInformationalVersion("2.1.5")]
+[assembly: AssemblyFileVersion("2.1.6.8008")]
+[assembly: AssemblyInformationalVersion("2.1.6")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
 [assembly: AssemblyInformationalVersion("2.1.3-beta.6")]
@@ -77,8 +77,8 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.5.1")]
-[assembly: AssemblyInformationalVersion("2.1.5")]
+[assembly: AssemblyFileVersion("2.1.6.1")]
+[assembly: AssemblyInformationalVersion("2.1.6")]
 #endif
 
 namespace Offhand.Companion
@@ -4112,7 +4112,7 @@ namespace Offhand.Companion
 #elif RDP_TEST
         internal const string BaseVersion = "2.1.3";
 #else
-        internal const string BaseVersion = "2.1.5";
+        internal const string BaseVersion = "2.1.6";
 #endif
 #if UI_PREVIEW
         internal const string ReleaseLabel = "UI Preview 8";
@@ -5935,6 +5935,7 @@ namespace Offhand.Companion
                 tutorialBack.SetBounds(tutorialNext.Left-buttonGap-backWidth,y,backWidth,buttonHeight);
                 tutorialBack.Enabled = tutorialIndex > 0;
                 tutorialNext.Text = tutorialIndex == tutorialSteps.Count-1 ? "Finish" : "Next";
+                tutorialNext.AccessibleName = tutorialNext.Text;
                 int heightCard = y+buttonHeight+inset;
                 int left = Math.Max(gap,Math.Min(ClientSize.Width-width-gap,target.Left+(target.Width-width)/2));
                 int top = target.Bottom+gap;

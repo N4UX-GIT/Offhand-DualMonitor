@@ -26,7 +26,7 @@ namespace Offhand.Companion
             cache.Complete(now, StoreUpdateState.Available);
             Check(new StoreUpdateCache(path, "2.1.5.1").Cached(now.AddHours(1)) == StoreUpdateState.Available,
                 "Available indicator should survive a restart");
-            var upgraded = new StoreUpdateCache(path, "2.1.5.2");
+            var upgraded = new StoreUpdateCache(path, "2.1.6.1");
             Check(upgraded.Cached(now) == StoreUpdateState.NotChecked && !upgraded.TryClaim(now.AddHours(1)),
                 "Upgrade clears old badge without resetting the throttle");
             Check(cache.Cached(now.AddDays(1)) == StoreUpdateState.NotChecked, "Stale status must expire");

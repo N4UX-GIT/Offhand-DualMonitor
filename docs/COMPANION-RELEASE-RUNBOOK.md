@@ -1,5 +1,12 @@
 # Offhand Companion release runbook
 
+Next prepared Companion update: **2.1.6**, EXE **2.1.6.1**, Store MSIX
+**2.1.600.0**. It remains unpublished and uses the existing compatible Beta 28
+addon. Follow [the current preparation record](COMPANION-2.1.6-STORE-PREPARATION-20261110.md)
+and `scripts/New-Companion216Candidate.ps1`; do not use historical candidate
+scripts for this version. Existing release-tag/artifact publication lanes remain
+unchanged until the owner requests publication.
+
 Current coordinated publication: **add-on 2.1.5 Pre-Release Beta 28** and
 **Companion 2.1.5**, file build **2.1.5.1**, Store package **2.1.500.0**.
 Use [the current preparation record](PUBLICATION-2.1.5-PREPARATION-20261109.md)

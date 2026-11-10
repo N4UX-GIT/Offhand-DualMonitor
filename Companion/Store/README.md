@@ -11,6 +11,13 @@ communication, and rollback workflow, use
 
 ## Publisher setup
 
+The next prepared update is **2.1.6**, EXE **2.1.6.1**, Store package
+**2.1.600.0**. Use `scripts/New-Companion216Candidate.ps1` and the exact frozen
+candidate path/hash with the package builder. See
+[the 2.1.6 preparation record](../../docs/COMPANION-2.1.6-STORE-PREPARATION-20261110.md).
+It is not yet submitted or published. The historical commands below are retained
+as examples; do not rebuild or replace the published 2.1.5 assets.
+
 1. Create a free individual developer account from
    <https://storedeveloper.microsoft.com/>.
 2. Reserve **Offhand Companion** in Partner Center.

@@ -492,6 +492,7 @@ namespace Offhand.Companion
                     throw new Exception("Tutorial navigation changed saved settings.");
                 var back=One<Button>(card,button=>button.Text=="Back");
                 var next=One<Button>(card,button=>button.Text==(step==15?"Finish":"Next"));
+                if(next.AccessibleName!=next.Text) throw new Exception("Tutorial final action must expose its visible Finish label.");
                 var skip=One<Button>(card,button=>button.Text=="Skip tour");
                 if(back.Enabled!=(step>0)||skip.Right>=back.Left||back.Right>=next.Left)
                     throw new Exception("Tutorial navigation buttons overlap or lose Back state.");
