@@ -80,7 +80,11 @@ No release assets, Companion binaries or Discord messages/statuses changed.
 
 ## Cleanup
 
-Desktop input paused after another application appeared over WoW. Final
-normal shutdown and backup restoration are pending exclusive desktop access.
-The restore baseline preserves the user's Questie Objectives and QuestieTrace
-choices, while reverting subsequent tracker QA settings and the private helper.
+After the user confirmed exclusive desktop access, the target client closed
+normally. All 253 baseline files were restored and SHA256 verified, including
+the two Questie files captured after the user's first-run choices. This retains
+Questie Objectives and QuestieTrace preferences while reverting tracker QA
+settings, installed Offhand changes and temporary addon flags. Eight new WTF
+files were archived locally and the private helper's runtime files removed.
+Battle.net and Companion were left open. No forceful process termination was
+used. A delayed hash check found no baseline mismatches.
