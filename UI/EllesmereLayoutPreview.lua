@@ -66,12 +66,13 @@ local function MakeDiagram(parent, title, column)
         local number = Label(marker, "GameFontHighlightSmall")
         number:SetPoint("CENTER")
         number:SetText(i)
+        marker.number = number
         map.markers[i] = marker
     end
     return map
 end
 
-local function Plot(map, context, rows, after, direction, selected)
+local function Plot(map, context, rows, after, direction, selected, offset)
     local rect = context and context.rect
     map.canvas:SetShown(rect ~= nil)
     if not rect then return end
@@ -88,7 +89,8 @@ local function Plot(map, context, rows, after, direction, selected)
         end
     end
     for i, marker in ipairs(map.markers) do
-        local row = rows[i]
+        local row = rows[i + offset]
+        marker.number:SetText(i + offset)
         local b = row and (row.groupCurrent or row.current)
         local proposed = row and selected[row.followKey or row.map.key] ~= false and (row.groupProposed or row.proposed)
         if after then b = proposed or (direction ~= "blizzard" and b) end
@@ -117,6 +119,7 @@ local function ReadPlan(direction)
     end
     local changed = 0
     for _, row in ipairs(rows) do
+        signature[#signature + 1] = row.map.specKey or ""
         local pos = row.position or row.anchor
         if pos then
             changed = changed + 1
@@ -133,7 +136,7 @@ end
 
 local function Render(direction)
     local plan, reason = ReadPlan(direction)
-    if direction ~= dialog.direction then dialog.rowSelection = {} end
+    if direction ~= dialog.direction then dialog.rowSelection, dialog.page = {}, 1 end
     dialog.direction, dialog.plan = direction, plan
     local context = plan and plan.context
     local rows = plan and plan.rows or {}
@@ -144,11 +147,20 @@ local function Render(direction)
     dialog.subtitle:SetText(context and string.format(L["ELLESMERE_HUD_VISUAL_SOURCE"],
         context.profileName or "—", plan.source or "—") or L[reason])
     dialog.guide:SetText(L[modeGuidance[direction]])
-    Plot(dialog.before, context, rows, false, direction, dialog.rowSelection)
-    Plot(dialog.after, context, rows, true, direction, dialog.rowSelection)
+    local pages = math.max(1, math.ceil(#rows / #colors))
+    dialog.page = math.min(dialog.page or 1, pages)
+    local offset = (dialog.page - 1) * #colors
+    dialog.previous:SetEnabled(dialog.page > 1)
+    dialog.next:SetEnabled(dialog.page < pages)
+    dialog.pages:SetText(string.format("%d / %d", dialog.page, pages))
+    Plot(dialog.before, context, rows, false, direction, dialog.rowSelection, offset)
+    Plot(dialog.after, context, rows, true, direction, dialog.rowSelection, offset)
     local selected = 0
+    for _, row in ipairs(rows) do
+        if (row.position or row.anchor) and dialog.rowSelection[row.map.key] ~= false then selected = selected + 1 end
+    end
     for i, label in ipairs(dialog.legend) do
-        local row = rows[i]
+        local row = rows[i + offset]
         local canCopy = row and (row.position or row.anchor)
         local checked = canCopy and dialog.rowSelection[row.map.key] ~= false
         local status = row and (row.reason or (row.anchor and "ELLESMERE_HUD_POINT_ONLY"
@@ -156,14 +168,14 @@ local function Render(direction)
         local checkbox = dialog.checkboxes[i]
         checkbox:SetShown(canCopy ~= nil and canCopy ~= false)
         checkbox:SetChecked(checked == true)
-        local name = row and (row.map.number and string.format(L[row.map.label], row.map.number) or L[row.map.label])
-        label:SetText(row and string.format("%d  %s  ·  %s", i, name, L[status]) or "")
-        if checked then selected = selected + 1 end
+        local name = row and (row.map.displayLabel or (row.map.number and string.format(L[row.map.label], row.map.number) or L[row.map.label]))
+        local message = row and (row.reasonArgs and string.format(L[status], unpack(row.reasonArgs)) or L[status])
+        label:SetText(row and string.format("%d  %s  ·  %s", i + offset, name, message) or "")
     end
     dialog.apply:SetText(L[direction == "blizzard" and "ELLESMERE_HUD_SAVE_FALLBACK" or "ELLESMERE_HUD_REVIEW_IMPORT"])
     dialog.apply:SetEnabled(plan and not context.block and selected > 0 or false)
     dialog.status:SetText(context and context.block and L[context.block]
-        or plan and selected == 0 and L[plan.changed == 0 and "ELLESMERE_HUD_NO_CHANGES"
+        or plan and selected == 0 and L[context.unavailable and "ELLESMERE_HUD_MODULE_GUIDANCE" or plan.changed == 0 and "ELLESMERE_HUD_NO_CHANGES"
             or "ELLESMERE_HUD_SELECT_ROWS"] or "")
 end
 
@@ -354,7 +366,7 @@ local function CreateDialog()
         checkbox:SetSize(16, 16)
         checkbox:SetPoint("TOPLEFT", 18 + column * 440, -381 - line * 26)
         checkbox:SetScript("OnClick", function(self)
-            local row = frame.plan and frame.plan.rows[i]
+            local row = frame.plan and frame.plan.rows[i + ((frame.page or 1) - 1) * #colors]
             if not row then return end
             frame.rowSelection[row.map.key] = self:GetChecked() == true
             Render(frame.direction)
@@ -367,6 +379,12 @@ local function CreateDialog()
         label:SetWordWrap(true)
         frame.legend[i] = label
     end
+    frame.previous = Button(frame, "BTN_BACK", 90, function() frame.page = frame.page - 1; Render(frame.direction) end)
+    frame.previous:SetPoint("BOTTOMLEFT", 18, 48)
+    frame.pages = Label(frame, "GameFontHighlightSmall")
+    frame.pages:SetPoint("LEFT", frame.previous, "RIGHT", 12, 0)
+    frame.next = Button(frame, "BTN_NEXT", 90, function() frame.page = frame.page + 1; Render(frame.direction) end)
+    frame.next:SetPoint("LEFT", frame.pages, "RIGHT", 12, 0)
     local close = Button(frame, "BTN_CLOSE", 120, function() frame:Hide() end)
     close:SetPoint("BOTTOMRIGHT", -18, 14)
     frame.apply = Button(frame, "ELLESMERE_HUD_REVIEW_IMPORT", 228, Apply)
