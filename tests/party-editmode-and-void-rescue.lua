@@ -1983,7 +1983,8 @@ local owned={}
 for _,name in ipairs({'BetterBagsBagBackpack','BetterBagsBagBackpackAnchor',
     'BetterBagsBagBank','BetterBagsBagBankAnchor','BetterBagsNextBackpack',
     'BetterBagsNextBank','BetterBagsNextVendor','BetterBagsNextGuildBank',
-    'DetailsBaseFrame1','DetailsBaseFrame12','RXPFrame','RXPItemFrame'}) do
+    'DetailsBaseFrame1','DetailsBaseFrame12','RXPFrame','RXPItemFrame',
+    'Questie_BaseFrame','ChatAlertFrame','TextToSpeechButtonFrame','QuickJoinToastButton'}) do
     local f=makeMockFrame(name,300,180)
     _G[name]=f;f:SetPoint('CENTER',UIParent,'CENTER',0,0)
     table.insert(UIParent.children,f);table.insert(UISpecialFrames,name)
@@ -1991,6 +1992,18 @@ for _,name in ipairs({'BetterBagsBagBackpack','BetterBagsBagBackpackAnchor',
     UIPanelWindows[name]={area='center'}
     owned[#owned+1]=f
 end
+-- Reproduce the linked native alert chain above the shorter Mainhand display.
+-- The roots are UIParent children, but their anchors belong to chat layout.
+local chatStrip=makeMockFrame('NativeChatStripOwnershipFixture',32,200)
+chatStrip:SetPoint('TOPLEFT',UIParent,'BOTTOMLEFT',2000,metrics.gameTop+300)
+ChatAlertFrame:ClearAllPoints()
+ChatAlertFrame:SetPoint('BOTTOMLEFT',chatStrip,'TOPLEFT',0,27)
+TextToSpeechButtonFrame:ClearAllPoints()
+TextToSpeechButtonFrame:SetPoint('BOTTOMLEFT',chatStrip,'TOPLEFT',0,0)
+QuickJoinToastButton:ClearAllPoints()
+QuickJoinToastButton:SetPoint('BOTTOMLEFT',TextToSpeechButtonFrame,'TOPLEFT',0,0)
+Questie_BaseFrame:ClearAllPoints()
+Questie_BaseFrame:SetPoint('TOPLEFT',UIParent,'BOTTOMLEFT',2100,metrics.gameTop+150)
 -- ProcDoc's actual root is a one-unit, non-panel presentation anchor. Popup
 -- recovery must preserve it even when Mainhand centering is disabled.
 local procRoot=makeMockFrame('ProcDocAlertFrame',1,1)
