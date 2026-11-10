@@ -1,6 +1,7 @@
 # Critical loot-roll visibility follow-up, 2026-11-10
 
-Status: source regression reproduced and corrected; native acceptance pending.
+Status: native seam drift reproduced; candidate passes the same private-row
+lifecycle with spanning applied. Real-roll and combat acceptance remain pending.
 Branch: `codex/critical-loot-roll-visibility`, based on `e61bac1`.
 The fix is isolated from the pending EllesmereUI preview and other HUD changes.
 
@@ -75,13 +76,59 @@ is byte-identical, including all existing placeholder bridges. The extracted
 candidate also passed manifest/path/XML/Lua 5.1 syntax validation. It does not
 include the pending EUI preview, Questie/Social changes, private helper or logs.
 
-Native testing is pending confirmation that the running Forever client is free.
-A private dummy-row harness has been prepared for the native container add,
-reflow and removal path without actual items or loot choices. Installation
-preflight refused to run while WoW was open, before creating backups or changing
-installed addon/WTF files. No desktop input was sent and the user's client was
-left untouched. Real simultaneous roll choices and combat lifecycle still need
-reporter verification even if the dummy-row test passes. Daylight is deferred.
+## Native comparison and cleanup
+
+The user authorized addon-only testing in the available Forever client.
+The client was closed normally, 263 existing addon/WTF files were backed up and
+hash-verified, and the authenticated launcher reopened the selected safe test
+character. Forever 1.60.1 build 70862 used keyboard UI, Companion 2.1.6 and its
+single-display 32:9 split, game RIGHT/workspace LEFT. Span WoW Now was applied
+and a normal UI reload settled the viewport before comparison. The private
+helper refused to start with active real rolls or combat. It passed three
+plain addon-owned dummy frames through the actual GroupLootContainer_AddFrame
+and GroupLootContainer_RemoveFrame functions, with no items or roll choices.
+
+The installed build's metadata identified Beta 28 and contained another chat's
+region-sizing QA changes/helper. The affected HUDTransientFrames.lua matched
+frozen Beta 29 text exactly after normalizing line endings. This is therefore
+a controlled comparison of the affected baseline/candidate module in that
+installed environment, not acceptance of the complete frozen Beta 29 package.
+Only that installed module was replaced for the candidate. EllesmereUI, its
+CooldownManager, QoL and BlizzardSkin modules were loaded; DaylightUI and
+ForeverPlus were not. The other chat's helper was left untouched.
+
+- Baseline: after three rows were added, native maintenance reparented the
+  container to BottomManagedFrameContainer with its centered TOP/TOP anchor.
+  Offhand reported rowMoverActive=false, conflict=custom-anchor. Removing the
+  first row moved the remaining two from Mainhand to the seam. They remained
+  shown/visible with full alpha, but their centers changed from Mainhand X
+  2357.143 to full-canvas seam X 1571.429 (UI units). This reproduces a placement
+  loss, not a native Hide or roll-decision failure.
+- Candidate: the same native reflow and first-row removal retained
+  rowMoverActive=true with no conflict. The two remaining rows compacted at
+  Mainhand X 2357.143 and remained fully inside its rectangle immediately and
+  after maintenance. Visible screenshots and SavedVariables agree. The native
+  TOP/TOP transition was observed before Offhand's maintenance re-established
+  its normal fallback container point.
+- BugGrabber entry count stayed at the existing four throughout both runs.
+  This is no increase in recorded error entries, not general taint acceptance.
+- Clear removed only the three private rows. The QA client closed normally;
+  all 263 original files were restored and hash-verified, four new WTF files
+  were archived and only this run's private helper was removed. Battle.net and
+  Companion were left open. Original Questie choices and the other chat's
+  installation/settings were preserved by the complete restore.
+
+Ignored local evidence is in dist/critical-loot-20261110: baseline-results.lua
+(samples 4-7), candidate-results.lua (samples 9-15), check-native.lua and the
+before/after rollback captures. The offline check asserts baseline seam drift,
+candidate remaining-row visibility and Mainhand bounds, spanning, build and
+unchanged error-entry counts. The candidate module SHA256 is
+`377b44efb59d5cb660cccc3c159cc2f1f3e790f48962d55e26278f7e09342ff6`.
+
+Real simultaneous loot choices, expiration/queue lifecycle and combat still
+need reporter verification. This comparison establishes one reproduced cause
+and its correction, not proof that all disappearing-roll reports are resolved.
+Daylight testing remains deferred.
 
 The original prepared Beta 29 ZIP is unchanged, SHA256
 `004be4e1fe35dba3bc55f6579ba7d6aa5f5676328fe9c495305f18bbdba9694e`.

@@ -1349,7 +1349,7 @@ The detailed issue section below remains authoritative.
 | OH-FOR-015 | Forever, exact reporter build unknown | Secret guard on `addon/forever/gamepad-reports-20261105` | New regression rejects baseline; 84 suites and six-manifest Lua 5.1 validation pass | Two independent stacks identify the secret-key lookup | Live resource-text and radial discovery retest |
 | OH-FOR-016 | Forever native Gamepad UI, exact build unknown | Missing Canvas map ownership guards corrected in test candidate | Queued/direct map writes and grip interference rejected by regression | Warning requires reload; candidate retest pending | First error/taint trace, exact build and candidate click-away QA |
 | OH-FOR-017 | Forever native Gamepad UI, exact build unknown | Bounded stock-loot root correction in test candidate | Edge/scale/ownership/event-cancellation coverage passes | LootFrame crosses seam; candidate retest pending | Live loot/autoloot/Edit Mode/combat and taint QA |
-| OH-UI-004 | Forever | Base fix on `main` | Automated passed | Base fix passed | Optional movement QA |
+| OH-UI-004 | Forever | Critical managed-reflow follow-up candidate | 124 suites passed | Spanned private native-row comparison passed | Real simultaneous rolls and combat verification |
 | OH-COMP-001 | Shared Companion contract | Implemented on `main` | Automated passed | Pending | Newer Companion pairing QA |
 | OH-UI-001 | Forever | Resolved on `main` | Automated passed | Passed | Retain regression coverage |
 | OH-UI-002 | Forever | Resolved on `main` | Automated passed | Passed | Retain regression coverage |
@@ -1979,9 +1979,12 @@ See [controller combat candidate](BAG-CONTROLLER-COMBAT-20261108.md).
 
 - Status: Reopened as critical on 2026-11-10 following further reports of hidden
   pending rolls on the current release. Beta 29's sparse-row correction did not
-  cover native bottom-managed container reflows. A separate source/test candidate
-  preserves row correction across that native anchor change. Real-roll and combat
-  acceptance remain pending; see `FOREVER-LOOT-CRITICAL-20261110.md`.
+  cover native bottom-managed container reflows. A separate candidate preserves
+  row correction across that native anchor change. In native Forever 70862 with
+  spanning, removing the first of three private dummy rows reproduced baseline
+  seam drift; the candidate retained both remaining rows inside Mainhand.
+  Real-roll and combat acceptance remain pending; see
+  `FOREVER-LOOT-CRITICAL-20261110.md`.
 - Historical evidence: Earlier Forever Beta QA retained row placement before,
   during and after combat. That result did not cover the later reported lifecycle.
 - Client: Forever Beta, reproduced with Offhand 2.1.2 Beta 21.
