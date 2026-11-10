@@ -32,3 +32,15 @@ Published Companion artifacts, production version metadata, the Store submission
 Consulted the shared knowledge README, research skill, status, and the existing authored dashboard-actions finding. The shared search index was stale, so the attempted dashboard search failed. Current Companion source and the native test results above are authoritative for this change; no new game API or safety claims are made.
 
 Native preview review and artifact hashes are recorded after the build in the local preview receipt and follow-up evidence below.
+
+## Built and reviewed
+
+Built from commit `ba3d998147afe9957e2a969fefc2efc0c0992f16` into ignored `dist/companion-advanced-options-preview-1-20261110`. The native interaction audit passed for four source files and 45 reviewed declarations, with restricted process/input symbols absent.
+
+Computer Use verified the running UI Preview 2 window, default collapsed Advanced options, expanded tool grouping, disabled preview auto-span and disabled standard-layout reset in standard state. Screenshots of both states were saved beside the executable. The window was returned to the default collapsed view and left running for owner review. The local machine exposed one 2560x1440 display, so two-monitor defaults were verified with native synthetic display fixtures rather than physical dual-monitor QA. No Span/Restore or game input was performed. Captures establish the settled layout; they do not prove absence of subsecond animation artifacts.
+
+Installed portable/Store preference files were hash-compared before and after and remained unchanged (including absent paths). The preview builder verified unchanged public Beta 20 and prepared 2.1.5 artifacts. Prepared 2.1.5 EXE/ZIP hashes also match the frozen release records.
+
+- Preview EXE SHA256: `A0E6025059C8A40A2ACA6D03D10FCC6B166ACBD61E6896923F6B27CF87DC2AB3`.
+- Preview ZIP SHA256: `A17FCF16F36C18CEB8CB55126C417D017A0A1501BB1641654F20248CEC7176B9`.
+- ZIP entries are exactly `LICENSE`, `Offhand.exe`, `README.txt`; the embedded EXE hash matches. No user preferences are included.
