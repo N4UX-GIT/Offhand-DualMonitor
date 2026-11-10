@@ -1977,9 +1977,13 @@ See [controller combat candidate](BAG-CONTROLLER-COMBAT-20261108.md).
 
 ## OH-UI-004 — Group loot rolls centered on the monitor seam
 
-- Status: Resolved in live Forever Beta QA. The row-level correction remains in
-  position before, during and after combat. An optional position control is now
-  implemented in current Beta 21 source; its movement workflow awaits live QA.
+- Status: Reopened as critical on 2026-11-10 following further reports of hidden
+  pending rolls on the current release. Beta 29's sparse-row correction did not
+  cover native bottom-managed container reflows. A separate source/test candidate
+  preserves row correction across that native anchor change. Real-roll and combat
+  acceptance remain pending; see `FOREVER-LOOT-CRITICAL-20261110.md`.
+- Historical evidence: Earlier Forever Beta QA retained row placement before,
+  during and after combat. That result did not cover the later reported lifecycle.
 - Client: Forever Beta, reproduced with Offhand 2.1.2 Beta 21.
 - Symptom: Blizzard's group-loot roll container appears at the full-span center
   or partly off-screen instead of inside Mainhand.

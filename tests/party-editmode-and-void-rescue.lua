@@ -663,6 +663,57 @@ GroupLootContainer_Update(GroupLootContainer)
 GroupLootFrame1:Show()
 assertMainhandAnchor(GroupLootFrame1, "CENTER", 2720, 246,
     "first group-loot row after native update")
+-- Modern Blizzard layout reparents the container into the bottom managed
+-- column. Its TOP anchor and changing column offsets are native ownership,
+-- not evidence of a third-party loot mover.
+do
+    local nativeParent = GroupLootContainer.GetParent
+    BottomManagedFrameContainer = makeMockFrame("BottomManagedFrameContainer", 420, 4000)
+    GroupLootContainer.GetParent = function() return BottomManagedFrameContainer end
+    GroupLootContainer.layoutParent = BottomManagedFrameContainer
+    for _, offset in ipairs({-4000, -4100}) do
+        GroupLootContainer:ClearAllPoints()
+        GroupLootContainer:SetPoint("TOP", BottomManagedFrameContainer, "TOP", 0, offset)
+        addon.HUD:PositionMainhandTransientFrames()
+        GroupLootContainer_Update(GroupLootContainer)
+        assert(addon.HUD:GetGroupLootDiagnostics().rowMoverActive,
+            "native bottom-managed reflow must not disable the row correction")
+        assertMainhandAnchor(GroupLootFrame1, "CENTER", 2720, 246,
+            "group-loot row after native managed-column reflow")
+    end
+    GroupLootContainer.rollFrames[2], GroupLootContainer.maxIndex = GroupLootFrame2, 2
+    GroupLootFrame2:Show()
+    GroupLootContainer_Update(GroupLootContainer)
+    GroupLootContainer.rollFrames[1] = nil
+    GroupLootFrame1:Hide()
+    GroupLootContainer:ClearAllPoints()
+    GroupLootContainer:SetPoint("TOP", BottomManagedFrameContainer, "TOP", 0, -4200)
+    addon.HUD:PositionMainhandTransientFrames()
+    GroupLootContainer_Update(GroupLootContainer)
+    assert(GroupLootFrame2:IsShown(), "finishing one roll must not hide another pending roll")
+    assertMainhandAnchor(GroupLootFrame2, "CENTER", 2720, 246,
+        "remaining roll after managed-column reflow and first-roll removal")
+    -- A later custom placement still wins, even under this native parent.
+    GroupLootContainer:ClearAllPoints()
+    GroupLootContainer:SetPoint("TOP", BottomManagedFrameContainer, "TOP", 80, -4200)
+    addon.HUD:PositionMainhandTransientFrames()
+    assert(not addon.HUD:GetGroupLootDiagnostics().rowMoverActive,
+        "a non-native column offset must retain external ownership")
+    GroupLootContainer:ClearAllPoints()
+    GroupLootContainer:SetPoint("TOP", BottomManagedFrameContainer, "TOP", 0, -4200)
+    addon.HUD:PositionMainhandTransientFrames()
+    assert(addon.HUD:GetGroupLootDiagnostics().rowMoverActive,
+        "returning to native column placement must resume correction")
+    GroupLootContainer.rollFrames[1], GroupLootContainer.rollFrames[2], GroupLootContainer.maxIndex = GroupLootFrame1, nil, 1
+    GroupLootFrame1:Show()
+    GroupLootFrame2:Hide()
+    GroupLootContainer_Update(GroupLootContainer)
+    GroupLootContainer.GetParent = nativeParent
+    GroupLootContainer.layoutParent = nil
+    GroupLootContainer:ClearAllPoints()
+    GroupLootContainer:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 0)
+    addon.HUD:PositionMainhandTransientFrames()
+end
 combatLocked = true
 GroupLootContainer:ClearAllPoints()
 GroupLootContainer:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 0)
