@@ -57,11 +57,11 @@ using Timer = System.Windows.Forms.Timer;
 #elif RDP_TEST
 [assembly: AssemblyVersion("2.1.3.0")]
 #else
-[assembly: AssemblyVersion("2.1.6.0")]
+[assembly: AssemblyVersion("2.1.7.0")]
 #endif
 #if UI_PREVIEW
-[assembly: AssemblyFileVersion("2.1.6.8008")]
-[assembly: AssemblyInformationalVersion("2.1.6")]
+[assembly: AssemblyFileVersion("2.1.7.8001")]
+[assembly: AssemblyInformationalVersion("2.1.7")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
 [assembly: AssemblyInformationalVersion("2.1.3-beta.6")]
@@ -77,8 +77,8 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.6.1")]
-[assembly: AssemblyInformationalVersion("2.1.6")]
+[assembly: AssemblyFileVersion("2.1.7.1")]
+[assembly: AssemblyInformationalVersion("2.1.7")]
 #endif
 
 namespace Offhand.Companion
@@ -252,12 +252,30 @@ namespace Offhand.Companion
             return storePackage && state == StoreUpdateState.Available ? "Update available…" : UpdateButtonText(storePackage);
         }
 
-        internal static string StoreUpdateTip(StoreUpdateState state)
+        internal static string StoreUpdateTimeText(StoreUpdateState state, DateTime? attempted)
+        {
+            if (!attempted.HasValue) return "No Store check recorded yet.";
+            string caption = state == StoreUpdateState.Available || state == StoreUpdateState.NoUpdate
+                ? "Last checked: " : "Last attempted: ";
+            return caption + attempted.Value.ToLocalTime().ToString("g", CultureInfo.CurrentCulture) + " (local time).";
+        }
+
+        internal static string StoreUpdateDetails(StoreUpdateState state, DateTime? attempted)
+        {
+            string status = state == StoreUpdateState.Available ? "An update is available in Microsoft Store."
+                : state == StoreUpdateState.NoUpdate ? "No update found at the last check."
+                : state == StoreUpdateState.Unavailable ? "The last automatic check was unavailable."
+                : "No current Store result. Quiet checks run every six hours.";
+            return status + "\r\n" + StoreUpdateTimeText(state, attempted);
+        }
+
+        internal static string StoreUpdateTip(StoreUpdateState state, DateTime? attempted = null)
         {
             string status = state == StoreUpdateState.Available ? "A Companion update is available. "
                 : state == StoreUpdateState.NoUpdate ? "The last Store check found no update. "
                 : state == StoreUpdateState.Unavailable ? "The automatic Store check was unavailable. " : "";
-            return status + "Open Microsoft Store to check and install updates when convenient. The Companion never installs an update itself.";
+            return status + "Open Microsoft Store to check and install updates when convenient. The Companion never installs an update itself.\r\n"
+                + StoreUpdateTimeText(state, attempted) + " Quiet checks run every six hours.";
         }
 
         internal static string UpdateMenuText(bool storePackage)
@@ -268,14 +286,14 @@ namespace Offhand.Companion
         internal static string UpdateHelpText(bool storePackage)
         {
             return storePackage
-                ? "Store Updates: Companion quietly checks Microsoft Store after startup, at most once daily. Update available means the Store reported an update. Click to open the official Store page and install when convenient. The Companion does not contact GitHub."
+                ? "Store Updates: Companion quietly checks Microsoft Store after startup and then at most once every six hours, including while in the tray. Advanced and the Store button tooltip show the last check time in your local time. A failed or incomplete check is shown as an attempt. Update available means the Store reported an update. Click to open the official Store page and install when convenient. The Companion does not contact GitHub."
                 : "Check for Updates: Make a one-time HTTPS request to the official GitHub Releases API. Update checks never run automatically.";
         }
 
         internal static string PrivacyNetworkText(bool storePackage)
         {
             return storePackage
-                ? "The Companion does not collect telemetry, credentials, chat, or gameplay data. It does not configure Windows startup persistence or inspect process security tokens. Store installations quietly ask Microsoft's Windows Store service about available Companion updates after startup, at most once daily. A local cache stores the check time, build and result. Clicking Store Updates or Update available opens the official Store page; Microsoft Store manages downloading and installation."
+                ? "The Companion does not collect telemetry, credentials, chat, or gameplay data. It does not configure Windows startup persistence or inspect process security tokens. Store installations quietly ask Microsoft's Windows Store service about available Companion updates after startup, at most once every six hours. Failed attempts also wait six hours before retrying. A local cache stores the check time, build and result. Clicking Store Updates or Update available opens the official Store page; Microsoft Store manages downloading and installation."
                 : "The Companion does not collect telemetry, credentials, chat, or gameplay data. It does not configure Windows startup persistence or inspect process security tokens. The Companion itself contacts the official GitHub Releases API only when you click Check for Updates. Release checksums, source, and build provenance are published with official GitHub releases.";
         }
     }
@@ -286,7 +304,7 @@ namespace Offhand.Companion
     // so restarting the app cannot turn an unavailable Store into rapid retries.
     internal sealed class StoreUpdateCache
     {
-        internal static readonly TimeSpan Interval = TimeSpan.FromDays(1);
+        internal static readonly TimeSpan Interval = TimeSpan.FromHours(6);
         private readonly string path;
         private readonly string version;
         internal StoreUpdateCache(string path, string version) { this.path = path; this.version = version; }
@@ -315,6 +333,12 @@ namespace Offhand.Companion
                 && values.TryGetValue("State", out state) && Enum.TryParse(state, out parsed)
                 && Enum.IsDefined(typeof(StoreUpdateState), parsed)) return parsed;
             return StoreUpdateState.NotChecked;
+        }
+
+        internal DateTime? LastAttemptUtc(DateTime now)
+        {
+            DateTime attempted;
+            return TryTime(Read(), now, out attempted) ? (DateTime?)attempted : null;
         }
 
         internal TimeSpan UntilDue(DateTime now)
@@ -4112,10 +4136,10 @@ namespace Offhand.Companion
 #elif RDP_TEST
         internal const string BaseVersion = "2.1.3";
 #else
-        internal const string BaseVersion = "2.1.6";
+        internal const string BaseVersion = "2.1.7";
 #endif
 #if UI_PREVIEW
-        internal const string ReleaseLabel = "UI Preview 8";
+        internal const string ReleaseLabel = "UI Preview 1";
         internal static readonly bool GraphicsRecoveryEnabled = false;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
@@ -4844,6 +4868,7 @@ namespace Offhand.Companion
         private readonly CancellationTokenSource storeUpdateLifetime = new CancellationTokenSource();
         private bool storeUpdateStopped;
         private StoreUpdateCache storeUpdateCache;
+        private Label lblStoreUpdateInfo;
         private ToolStripMenuItem itemCheckUpdates;
         private Func<IntPtr, CancellationToken, Task<StoreUpdateState>> storeUpdateQuery = StoreUpdateRuntime.QueryAsync;
         private readonly bool isStorePackage = CompanionDistribution.IsStorePackage();
@@ -5185,13 +5210,23 @@ namespace Offhand.Companion
         private void ApplyStoreUpdateState(StoreUpdateState state)
         {
             if (!isStorePackage || IsDisposed || Disposing) return;
+            DateTime? attempted = null;
+            try { if (storeUpdateCache != null) attempted = storeUpdateCache.LastAttemptUtc(DateTime.UtcNow); }
+            catch (Exception) { }
+            string tip = CompanionDistribution.StoreUpdateTip(state, attempted);
             btnCheckUpdates.Text = CompanionDistribution.UpdateButtonText(true, state);
             btnCheckUpdates.AccessibleName = btnCheckUpdates.Text;
-            btnCheckUpdates.AccessibleDescription = CompanionDistribution.StoreUpdateTip(state);
+            btnCheckUpdates.AccessibleDescription = tip;
             btnCheckUpdates.ForeColor = state == StoreUpdateState.Available ? cGoldBright : cText;
-            uiToolTips.SetToolTip(btnCheckUpdates, CompanionDistribution.StoreUpdateTip(state));
+            uiToolTips.SetToolTip(btnCheckUpdates, tip);
+            if (lblStoreUpdateInfo != null) {
+                lblStoreUpdateInfo.Visible = true;
+                lblStoreUpdateInfo.Text = CompanionDistribution.StoreUpdateDetails(state, attempted);
+                lblStoreUpdateInfo.AccessibleDescription = tip;
+            }
             if (itemCheckUpdates != null) itemCheckUpdates.Text = state == StoreUpdateState.Available
                 ? "Update available in Microsoft Store…" : CompanionDistribution.UpdateMenuText(true);
+            if (itemCheckUpdates != null) itemCheckUpdates.ToolTipText = tip;
         }
 
         protected override void OnLoad(EventArgs e)
@@ -5507,6 +5542,10 @@ namespace Offhand.Companion
 
             advancedPanel = CreateCardPanel(16, 510, 490, 170, "Advanced Options");
             this.Controls.Add(advancedPanel);
+            lblStoreUpdateInfo = new Label { Text = CompanionDistribution.StoreUpdateDetails(StoreUpdateState.NotChecked, null),
+                AutoSize = false, Font = new Font("Segoe UI", 8.5f), ForeColor = cMuted, BackColor = Color.Transparent,
+                UseMnemonic = false, Visible = isStorePackage, AccessibleName = "Store update check status" };
+            advancedPanel.Controls.Add(lblStoreUpdateInfo);
             var advancedLayout = CreateDashboardGrid(advancedPanel, 2);
             var layoutOptions = CreateDashboardColumn(new Padding(0, 0, 6, 8));
             var profileOptions = CreateDashboardColumn(new Padding(6, 0, 0, 8));
@@ -5806,7 +5845,7 @@ namespace Offhand.Companion
                 new TutorialStep("Automatic spanning", "Auto-span WoW on launch is optional and off by default. For a standard local display plan, its delay gives WoW time to open before the Companion applies the layout. Custom layouts require a manual Span. " + (GraphicsRecoveryTestBuild ? "Automatic spanning is disabled in this local preview." : "Enable it only after you have tested your layout manually."), chkAutoSpan.Parent, true),
                 new TutorialStep("Display troubleshooting", "Display Diagnostics describes detected color and Windows scaling modes. Expand it when troubleshooting. Copy Display Diagnostics provides a report you can share with support; Display Troubleshooting opens related Help guidance.", diagnosticsPanel, true),
                 new TutorialStep("Activity log", "Activity Log records detailed checks, file paths and errors. Expand it when something goes wrong. The log can help identify an addon installation or settings problem; it does not confirm that the addon is enabled in WoW.", activityPanel, true),
-                new TutorialStep("Updates", isStorePackage ? "Microsoft Store manages this installation. Companion quietly checks for an available update and changes this button when one is found. Use it to open the Store; downloads and installation stay under Store control." : "This portable build checks GitHub only when you press Check for Updates. It opens the official download when an update is available. Store installations use Microsoft Store instead.", btnCheckUpdates),
+                new TutorialStep("Updates", isStorePackage ? "Microsoft Store manages this installation. Companion quietly checks every six hours and changes this button when an update is found. Advanced and this button's tooltip show the last check time. Use the button to open the Store; downloads and installation stay under Store control." : "This portable build checks GitHub only when you press Check for Updates. It opens the official download when an update is available. Store installations use Microsoft Store instead.", btnCheckUpdates),
                 new TutorialStep("Tray and exit", "Minimize to Tray keeps Companion available. The title-bar X also minimizes to the tray. Exit Companion closes it and leaves the current WoW window in place. The tray menu offers background-monitoring controls; Restore Window remains available while Companion runs.", dashboardFooter),
                 new TutorialStep("Finish setup in WoW", "This Companion tour is not game calibration. In WoW, type /offhand guide and choose Companion. Follow Reload UI, Confirm placement and Start Calibration, then any Create Mainhand HUD Layout and reload prompts. You can replay this tour any time from Help > Start Companion tutorial.", dashboardHeader.Controls[dashboardHeader.Controls.Count-1])
             };
@@ -6076,7 +6115,7 @@ namespace Offhand.Companion
                 section.Panel.SizeChanged += (s, e) => { LayoutDashboardCards(); };
             }
             foreach (Label label in new[] { lblWowStatus, lblAddonStatus, lblDisplayInfo, lblAddonReason,
-                lblColorModes, lblColorWarning, lblScaleInfo })
+                lblColorModes, lblColorWarning, lblScaleInfo, lblStoreUpdateInfo })
                 label.TextChanged += (s, e) =>
                 {
                     UpdateDashboardStatusSummary();
@@ -6238,6 +6277,13 @@ namespace Offhand.Companion
             }
             table.Height=height;
             panel.Height=table.Bottom+inset;
+            if (panel == advancedPanel && lblStoreUpdateInfo != null && isStorePackage) {
+                int available = Math.Max(1, panel.Width - 2 * inset);
+                int textHeight = TextRenderer.MeasureText(lblStoreUpdateInfo.Text, lblStoreUpdateInfo.Font,
+                    new Size(available, int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix).Height;
+                lblStoreUpdateInfo.SetBounds(inset, table.Bottom + (int)Math.Ceiling(10 * scale), available, textHeight);
+                panel.Height = lblStoreUpdateInfo.Bottom + inset;
+            }
         }
 
         private void LayoutDashboardCards()

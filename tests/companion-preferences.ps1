@@ -30,12 +30,12 @@ try {
         $source -notmatch 'CompanionUpdatePolicy\.SelectLatest') {
         throw 'Companion update checks must use the official repository release list and channel policy.'
     }
-    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.6"\)' -or
-        $source -notmatch 'AssemblyFileVersion\("2\.1\.6\.1"\)') {
+    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.7"\)' -or
+        $source -notmatch 'AssemblyFileVersion\("2\.1\.7\.1"\)') {
         throw 'Companion binary metadata must identify the exact release build.'
     }
     $appManifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Source\app.manifest') -Raw
-    if ($appManifest -notmatch '<assemblyIdentity version="2\.1\.6\.1" name="Offhand\.Companion\.App"/>') {
+    if ($appManifest -notmatch '<assemblyIdentity version="2\.1\.7\.1" name="Offhand\.Companion\.App"/>') {
         throw 'Companion application manifest must identify the exact release build.'
     }
     $candidateBuilder = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\scripts\New-CompanionReleaseCandidate.ps1') -Raw
@@ -128,7 +128,7 @@ try {
         throw 'Release packaging must freeze the Beta 20 candidate bytes and require an explicit Companion-change lane.'
     }
     $storeBuilder = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Store\Build-StorePackage.ps1') -Raw
-    if ($storeBuilder -notmatch "\[string\]\`$PackageVersion = '2\.1\.600\.0'" -or
+    if ($storeBuilder -notmatch "\[string\]\`$PackageVersion = '2\.1\.700\.0'" -or
         $storeBuilder -notmatch '\[string\]\$CompanionPath' -or
         $storeBuilder -notmatch '\[string\]\$ExpectedCompanionSha256' -or
         $storeBuilder -notmatch 'Companion SHA-256 mismatch') {

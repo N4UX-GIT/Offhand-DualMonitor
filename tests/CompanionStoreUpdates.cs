@@ -22,20 +22,24 @@ namespace Offhand.Companion
             var cache = new StoreUpdateCache(path, "2.1.5.1");
             Check(cache.Cached(now) == StoreUpdateState.NotChecked, "Missing cache must not mean up-to-date");
             Check(cache.TryClaim(now), "First check should be allowed");
-            Check(!cache.TryClaim(now.AddHours(23)), "Restarts must retain daily throttle");
+            Check(StoreUpdateCache.Interval == TimeSpan.FromHours(6), "Quiet checks use six hours");
+            Check(cache.LastAttemptUtc(now) == now, "Claim records the attempt time before a result");
+            Check(!cache.TryClaim(now.AddHours(6).AddTicks(-1)), "Restarts must retain the full six-hour throttle");
             cache.Complete(now, StoreUpdateState.Available);
             Check(new StoreUpdateCache(path, "2.1.5.1").Cached(now.AddHours(1)) == StoreUpdateState.Available,
                 "Available indicator should survive a restart");
-            var upgraded = new StoreUpdateCache(path, "2.1.6.1");
+            var upgraded = new StoreUpdateCache(path, "2.1.7.1");
             Check(upgraded.Cached(now) == StoreUpdateState.NotChecked && !upgraded.TryClaim(now.AddHours(1)),
                 "Upgrade clears old badge without resetting the throttle");
-            Check(cache.Cached(now.AddDays(1)) == StoreUpdateState.NotChecked, "Stale status must expire");
-            Check(cache.TryClaim(now.AddDays(1)), "A resident tray app may recheck after one day");
+            Check(cache.Cached(now.AddHours(6).AddTicks(-1)) == StoreUpdateState.Available, "Result stays valid until six hours");
+            Check(cache.Cached(now.AddHours(6)) == StoreUpdateState.NotChecked, "Status expires exactly at six hours");
+            Check(cache.LastAttemptUtc(now.AddHours(6)) == now, "Expired results retain the true last attempt time");
+            Check(cache.TryClaim(now.AddHours(6)), "A resident tray app may recheck at six hours");
             cache.Complete(now, StoreUpdateState.Available);
-            Check(cache.Cached(now.AddDays(1)) == StoreUpdateState.NotChecked, "Old completion must not replace a later claim");
-            cache.Complete(now.AddDays(1), StoreUpdateState.Unavailable);
-            Check(cache.Cached(now.AddDays(1)) == StoreUpdateState.Unavailable, "Failure must not report up-to-date");
-            Check(!cache.TryClaim(now.AddDays(1).AddMinutes(1)), "Failure must also be throttled");
+            Check(cache.Cached(now.AddHours(6)) == StoreUpdateState.NotChecked, "Old completion must not replace a later claim");
+            cache.Complete(now.AddHours(6), StoreUpdateState.Unavailable);
+            Check(cache.Cached(now.AddHours(6)) == StoreUpdateState.Unavailable, "Failure must not report up-to-date");
+            Check(!cache.TryClaim(now.AddHours(12).AddTicks(-1)), "Failure must also retain six-hour throttle");
             Check(cache.Cached(now.AddYears(-1)) == StoreUpdateState.NotChecked, "Implausible future timestamp is invalid");
             using (var locked = new FileStream(path + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
             {
@@ -44,11 +48,26 @@ namespace Offhand.Companion
                 Check(denied, "Concurrent claim must fail closed");
             }
             File.WriteAllText(path, "Build=2.1.5.1\nAttemptUtc=bad\nState=Available\n");
+            Check(!cache.LastAttemptUtc(now).HasValue, "Corrupt timestamp must not be shown as a real check");
             Check(cache.Cached(now) == StoreUpdateState.NotChecked && cache.TryClaim(now), "Corrupt cache can recover");
             cache.Complete(now, StoreUpdateState.NoUpdate);
             Check(cache.Cached(now) == StoreUpdateState.NoUpdate, "Empty successful query has its own state");
             File.WriteAllText(path, new string('x', 5000));
             Check(cache.Cached(now) == StoreUpdateState.NotChecked, "Oversized cache is ignored");
+            File.WriteAllText(path, "Build=2.1.5.1\nAttemptUtc=" + now.AddHours(-7).ToString("o") + "\nState=NoUpdate\n");
+            Check(upgraded.TryClaim(now), "Old daily-cache users become eligible after six hours without a reset");
+            string localTime = now.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture);
+            Check(CompanionDistribution.StoreUpdateDetails(StoreUpdateState.NoUpdate, now).Contains("Last checked: " + localTime),
+                "Completed checks expose their local timestamp");
+            Check(CompanionDistribution.StoreUpdateDetails(StoreUpdateState.Unavailable, now).Contains("Last attempted: " + localTime),
+                "Failure time is an attempt, not a successful check");
+            Check(CompanionDistribution.StoreUpdateDetails(StoreUpdateState.NotChecked, now).Contains("Last attempted:"),
+                "Interrupted or expired results do not claim a completed check");
+            Check(CompanionDistribution.StoreUpdateDetails(StoreUpdateState.NotChecked, null).Contains("No Store check recorded yet"),
+                "First run has no invented check time");
+            Check(CompanionDistribution.StoreUpdateTip(StoreUpdateState.Available, now).Contains(localTime)
+                && CompanionDistribution.UpdateHelpText(true).Contains("six hours")
+                && CompanionDistribution.PrivacyNetworkText(true).Contains("six hours"), "Tooltip, Help and privacy agree with cadence");
 
             int calls = 0;
             var result = await StoreUpdateCheck.RunAsync(token => {
@@ -110,6 +129,12 @@ namespace Offhand.Companion
                         formType.GetField("isStorePackage", flags).SetValue(form, true);
                         form.CreateControl(); form.Scale(new SizeF(factor, factor)); form.PerformLayout();
                         var button = (Button)formType.GetField("btnCheckUpdates", flags).GetValue(form);
+                        var info = (Label)formType.GetField("lblStoreUpdateInfo", flags).GetValue(form);
+                        var uiCache = new StoreUpdateCache(Path.Combine(directory, "ui-cache.ini"), "2.1.7.1");
+                        var attempted = DateTime.UtcNow.AddMinutes(-10);
+                        Check(uiCache.TryClaim(attempted) || uiCache.LastAttemptUtc(DateTime.UtcNow).HasValue, "UI fixture has a recorded attempt");
+                        formType.GetField("storeUpdateCache", flags).SetValue(form, uiCache);
+                        form.SelectDashboardPage(true);
                         var tray = (ToolStripMenuItem)formType.GetField("itemCheckUpdates", flags).GetValue(form);
                         var bounds = form.Bounds; var buttonBounds = button.Bounds;
                         var apply = formType.GetMethod("ApplyStoreUpdateState", flags);
@@ -121,6 +146,11 @@ namespace Offhand.Companion
                                 "Update caption must fit at " + factor);
                             Check(form.Bounds == bounds && button.Bounds == buttonBounds, "Notification must not resize dashboard");
                             Check(tray.Text.Contains("available") == (state == StoreUpdateState.Available), "Tray agrees with passive button");
+                            Check(info.Text.Contains("Last ") && info.AccessibleDescription.Contains("local time"), "Visible and accessible check time");
+                            Check(info.Left >= 0 && info.Right <= info.Parent.ClientSize.Width && info.Bottom <= info.Parent.ClientSize.Height,
+                                "Update status fits Advanced at " + factor);
+                            Check(TextRenderer.MeasureText(info.Text, info.Font, new Size(info.Width, int.MaxValue),
+                                TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix).Height <= info.Height, "Status wraps without clipping");
                         }
                         formType.GetField("isStorePackage", flags).SetValue(form, false);
                     }
@@ -145,7 +175,8 @@ namespace Offhand.Companion
 #else
                     Check(timer != null && timer.Interval == 30000 && queries == 0, "Store startup only schedules a delayed check");
                     typeof(System.Windows.Forms.Timer).GetMethod("OnTick", instanceFlags).Invoke(timer, new object[] { EventArgs.Empty });
-                    Check(queries == 1 && timer.Interval > 23 * 60 * 60 * 1000, "Completed check reschedules at daily cadence");
+                    Check(queries == 1 && timer.Interval > 5 * 60 * 60 * 1000 && timer.Interval <= 6 * 60 * 60 * 1000,
+                        "Completed check reschedules at six-hour cadence");
                     var button = (Button)typeOfForm.GetField("btnCheckUpdates", instanceFlags).GetValue(form);
                     Check(button.Text == "Update available…", "Real timer completion updates passive UI");
                     typeof(System.Windows.Forms.Timer).GetMethod("OnTick", instanceFlags).Invoke(timer, new object[] { EventArgs.Empty });

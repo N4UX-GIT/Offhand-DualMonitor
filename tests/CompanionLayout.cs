@@ -569,7 +569,6 @@ namespace Offhand.Companion
                 form.ClientSize = new Size((int)(500 * factor), form.ClientSize.Height);
                 LayoutAll(form);
                 var standard = One<Button>(advanced, button => button.Text == "Use standard display layout");
-                var heading = advanced.Controls.OfType<Label>().Single();
                 var savedBounds = form.Bounds;
                 int standardHeight = config.Height;
                 settings["AutoSpan"]="True";
