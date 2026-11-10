@@ -1349,7 +1349,7 @@ The detailed issue section below remains authoritative.
 | OH-FOR-015 | Forever, exact reporter build unknown | Secret guard on `addon/forever/gamepad-reports-20261105` | New regression rejects baseline; 84 suites and six-manifest Lua 5.1 validation pass | Two independent stacks identify the secret-key lookup | Live resource-text and radial discovery retest |
 | OH-FOR-016 | Forever native Gamepad UI, exact build unknown | Missing Canvas map ownership guards corrected in test candidate | Queued/direct map writes and grip interference rejected by regression | Warning requires reload; candidate retest pending | First error/taint trace, exact build and candidate click-away QA |
 | OH-FOR-017 | Forever native Gamepad UI, exact build unknown | Bounded stock-loot root correction in test candidate | Edge/scale/ownership/event-cancellation coverage passes | LootFrame crosses seam; candidate retest pending | Live loot/autoloot/Edit Mode/combat and taint QA |
-| OH-UI-004 | Forever | Base fix on `main` | Automated passed | Base fix passed | Optional movement QA |
+| OH-UI-004 | Forever | Beta 30 managed-reflow correction prepared | Automated passed | Spanned private native-row comparison passed | Real simultaneous rolls and combat verification |
 | OH-COMP-001 | Shared Companion contract | Implemented on `main` | Automated passed | Pending | Newer Companion pairing QA |
 | OH-UI-001 | Forever | Resolved on `main` | Automated passed | Passed | Retain regression coverage |
 | OH-UI-002 | Forever | Resolved on `main` | Automated passed | Passed | Retain regression coverage |
@@ -1977,6 +1977,12 @@ See [controller combat candidate](BAG-CONTROLLER-COMBAT-20261108.md).
 
 ## OH-UI-004 — Group loot rolls centered on the monitor seam
 
+- Critical follow-up, 2026-11-10: the Beta 29 ownership predicate rejected
+  Blizzard's bottom-managed container anchor and disabled row correction.
+  Removing the first of three private dummy rows in spanned Forever 70862
+  reproduced baseline seam drift. The Beta 30 candidate retains both remaining
+  rows inside Mainhand. Real item choices and combat remain unverified. See
+  `FOREVER-LOOT-CRITICAL-20261110.md` and `GITHUB-BETA30-PREPARATION-20261110.md`.
 - Status: Resolved in live Forever Beta QA. The row-level correction remains in
   position before, during and after combat. An optional position control is now
   implemented in current Beta 21 source; its movement workflow awaits live QA.

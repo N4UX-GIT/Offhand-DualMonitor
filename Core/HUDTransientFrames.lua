@@ -535,6 +535,21 @@ function Transient.Install(HUD, services)
     local function IsStockSecureTransientAnchor(frame, spec)
         local state = secureTransientPoints[frame]
         local userPlaced = frame.IsUserPlaced and frame:IsUserPlaced()
+        if spec.groupLootRows and not userPlaced then
+            local manager = _G.BottomManagedFrameContainer
+            -- Blizzard's modern bottom column reparents this container and
+            -- changes its TOP offset as other HUD elements enter the column.
+            -- This is a native reflow, not an external loot-mover takeover.
+            if manager and frame == _G.GroupLootContainer and frame.GetParent
+                and frame:GetParent() == manager and frame.layoutParent == manager
+                and frame:GetNumPoints() == 1 then
+                local point, relative, relativePoint, x, y = frame:GetPoint(1)
+                if point == "TOP" and relative == manager and relativePoint == "TOP"
+                    and OrdinaryNumber(x) and math.abs(x) <= 0.5 and OrdinaryNumber(y) then
+                    return true
+                end
+            end
+        end
         if state and not userPlaced and SameSecurePoints(frame, state.applied) then return true end
         if state then
             secureTransientOwned[frame] = nil

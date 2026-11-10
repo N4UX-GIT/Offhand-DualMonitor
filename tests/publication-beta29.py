@@ -7,6 +7,7 @@ import shutil
 import unittest
 import urllib.error
 import uuid
+import zipfile
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -41,6 +42,10 @@ class Publication(unittest.TestCase):
             dest = cls.fixture / rel
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / rel, dest)
+        # Historical Beta 29 tests use its immutable product bytes.
+        with zipfile.ZipFile(ROOT / 'Release/Prepared/2.1.5-beta.29/Offhand-v2.1.5-beta.29.zip') as z:
+            for name in files:
+                (cls.fixture / name[len('Offhand/'):]).write_bytes(z.read(name))
         cls.native = cls.fixture / 'Companion/Prepared/2.1.5'
 
     def test_valid_exact_subject(self):

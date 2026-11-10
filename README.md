@@ -12,7 +12,7 @@
   [![Portable, Linux, and manual options](https://img.shields.io/badge/Companion-Portable_%26_manual_options-181717?style=for-the-badge&logo=github)](https://offhand-wow.onrender.com/companion.html)
 </div>
 
-Current release: **Offhand add-on 2.1.5 Pre-Release Beta 29** with
+Current release: **Offhand add-on 2.1.5 Pre-Release Beta 30** with
 **Companion 2.1.5**. The add-on remains a public beta. Companion 2.1.5 is submitted
 to Microsoft Store certification with automatic publication after approval;
 Store availability can lag the portable GitHub release. The Store installs only

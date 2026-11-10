@@ -18,7 +18,7 @@ on:
 
 jobs:
   build:
-    if: github.ref_name != 'v2.1.3' && github.ref_name != 'v2.1.3-beta.27' && github.ref_name != 'v2.1.5' && github.ref_name != 'v2.1.5-beta.28' && github.ref_name != 'v2.1.5-beta.29'
+    if: github.ref_name != 'v2.1.3' && github.ref_name != 'v2.1.3-beta.27' && github.ref_name != 'v2.1.5' && github.ref_name != 'v2.1.5-beta.28' && github.ref_name != 'v2.1.5-beta.29' && github.ref_name != 'v2.1.5-beta.30'
     runs-on: windows-latest
     permissions:
       contents: write
@@ -365,3 +365,70 @@ jobs:
           dist/publication-2.1.5-beta.29/Offhand.exe
           dist/publication-2.1.5-beta.29/publication.json
           dist/publication-2.1.5-beta.29/checksums-sha256.txt
+
+  prepare-215-beta30:
+    if: github.ref_name == 'v2.1.5-beta.30'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+    - name: Checkout matching Beta 30 source
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Configure Lua compiler
+      uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
+    - name: Install Lua 5.1
+      uses: leafo/gh-actions-lua@6919171ccf181b826f44b9bca76307b577217377 # v13.0.0
+      with:
+        luaVersion: "5.1.5"
+    - name: Validate frozen source, artifact boundaries and release safeguards
+      shell: powershell
+      run: |
+        python tests/publication-beta30.py
+        if ($LASTEXITCODE -ne 0) { throw 'Beta 30 publication checks failed' }
+        ./tests/release-metadata-beta30.ps1
+        Get-ChildItem tests -Filter '*.lua' | ForEach-Object {
+          lua $_.FullName
+          if ($LASTEXITCODE -ne 0) { throw ('Lua suite failed: ' + $_.Name) }
+        }
+    - name: Preserve published releases
+      shell: powershell
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        python scripts/Assert-Beta30Draft.py
+    - name: Prepare exact addon and unchanged Companion 2.1.5
+      shell: powershell
+      run: |
+        python scripts/Prepare-Beta30Publication.py --output dist/publication-2.1.5-beta.30
+        if ($LASTEXITCODE -ne 0) { throw 'Beta 30 preparation failed' }
+        ./scripts/New-ReleaseMetadata.ps1 -Tag v2.1.5-beta.30 -CompanionReleaseTag v2.1.5 `
+          -ChangelogPath docs/RELEASE-CHANGELOG-BETA30.md `
+          -OutputPath dist/publication-2.1.5-beta.30/release-notes.md
+    - name: Attest prepared release artifacts
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+      with:
+        subject-path: |
+          dist/publication-2.1.5-beta.30/Offhand-v2.1.5-beta.30.zip
+          dist/publication-2.1.5-beta.30/Offhand-Complete-v2.1.5-beta.30.zip
+          dist/publication-2.1.5-beta.30/Offhand-Companion-v2.1.5.zip
+          dist/publication-2.1.5-beta.30/Offhand.exe
+          dist/publication-2.1.5-beta.30/publication.json
+          dist/publication-2.1.5-beta.30/checksums-sha256.txt
+    - name: Stage Beta 30 as a draft prerelease
+      uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+      with:
+        name: Offhand v2.1.5 Pre-Release Beta 30
+        body_path: dist/publication-2.1.5-beta.30/release-notes.md
+        draft: true
+        prerelease: true
+        make_latest: false
+        files: |
+          dist/publication-2.1.5-beta.30/Offhand-v2.1.5-beta.30.zip
+          dist/publication-2.1.5-beta.30/Offhand-Complete-v2.1.5-beta.30.zip
+          dist/publication-2.1.5-beta.30/Offhand-Companion-v2.1.5.zip
+          dist/publication-2.1.5-beta.30/Offhand.exe
+          dist/publication-2.1.5-beta.30/publication.json
+          dist/publication-2.1.5-beta.30/checksums-sha256.txt
+          dist/publication-2.1.5-beta.30/curseforge-changelog.md

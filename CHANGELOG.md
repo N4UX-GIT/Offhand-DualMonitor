@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.1.5-beta.30] - 2026-11-10
+
+- Fixed a case where remaining loot-roll windows could move to the screen seam
+  after an earlier roll finished. Offhand now keeps their Mainhand placement
+  when Blizzard rearranges the loot container.
+
+Verified with private test panels using Blizzard's native loot-container
+functions in Forever 1.60.1.70862 with spanning applied. Real simultaneous loot
+choices and combat behavior still need player verification. Please report any
+remaining disappearance with `/offhand diag full`, your client/build and other
+UI addons.
+
+Includes the previously released Beta 29 fixes. Existing settings and layouts
+are preserved. No Companion update is required. Further EllesmereUI layout
+transfer, Questie/Social recovery and Retail preference changes remain deferred;
+this hotfix adds only the loot-container correction. Daylight testing remains
+deferred and its existing Beta 29 implementation is unchanged.
+
 ## [2.1.5-beta.29] - 2026-11-10
 
 This is an addon-only beta update. No Companion update is required for these
