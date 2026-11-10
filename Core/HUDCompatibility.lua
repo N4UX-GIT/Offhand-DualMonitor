@@ -156,6 +156,18 @@ local positionedAddonPopupRoots = {
     -- Offhand's optional Mainhand centering is off. Popup recovery must not
     -- supply an offset that the centering adapter would then apply again.
     ProcDocAlertFrame = true,
+    -- Questie owns TrackerLocation and its Ctrl-drag/lock behavior. Its reset
+    -- anchor deliberately uses screen center and need not be IsUserPlaced.
+    Questie_BaseFrame = true,
+}
+
+local linkedChatPopupRoots = {
+    -- Social and Quick Join are two states of the same native button. The
+    -- alert and text-to-speech controls follow the chat button strip. The
+    -- button's immediate anchor varies by client; preserve the linked roots.
+    ChatAlertFrame = true,
+    TextToSpeechButtonFrame = true,
+    QuickJoinToastButton = true,
 }
 
 local function IsOrdinaryPopupValue(value)
@@ -176,6 +188,7 @@ function Compatibility.ShouldPreservePopupPosition(frame, name)
     end
     if not IsOrdinaryPopupValue(name) then return true end
     if type(name) == "string" and positionedAddonPopupRoots[name] then return true end
+    if type(name) == "string" and linkedChatPopupRoots[name] then return true end
     -- Details owns each numbered meter through its instance/LibWindow store.
     -- Its drag completion clears IsUserPlaced; configuration dialogs are separate.
     if type(name) == "string" and name:match("^DetailsBaseFrame%d+$") then return true end
