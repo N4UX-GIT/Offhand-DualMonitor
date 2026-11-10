@@ -27,14 +27,14 @@ $options = @('/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', '/de
 & $compiler @options @files
 if ($LASTEXITCODE -ne 0) { throw 'Dashboard preview compilation failed.' }
 $identity = [Diagnostics.FileVersionInfo]::GetVersionInfo($binary)
-if ($identity.FileVersion -ne '2.1.5.8003' -or $identity.ProductVersion -ne '2.1.5') {
+if ($identity.FileVersion -ne '2.1.5.8004' -or $identity.ProductVersion -ne '2.1.5') {
     throw 'Unexpected dashboard preview identity.'
 }
 @('AutoSpan=False', 'DashboardCollapsed.SystemStatus=True',
     'DashboardCollapsed.DisplayDiagnostics=True', 'DashboardCollapsed.ActivityLog=True') |
     Set-Content -LiteralPath (Join-Path $output 'DashboardPreviewConfig.ini') -Encoding UTF8
 @'
-Offhand Companion UI Preview 3, local build 2.1.5.8003. Unpublished.
+Offhand Companion UI Preview 4, local build 2.1.5.8004. Unpublished.
 
 Run Offhand.exe to review the updated dashboard. It can coexist with the regular
 Companion. Preferences stay in DashboardPreviewConfig.ini beside this EXE;
@@ -45,7 +45,10 @@ Review the Setup and Advanced tabs. Setup opens first with display controls and
 layout-specific guidance. Advanced contains workspace layout/profiles, standard
 layout reset, Auto-span, diagnostics and the log. Its tab indicates an active
 custom layout. New two-monitor plans start with the full Offhand display; saved
-areas are preserved. Switching tabs only changes navigation.
+areas are preserved. Switching tabs only changes navigation. Navigation now uses
+quiet underlined tabs, with Span as the primary action. The branded header shows
+the detected addon version from the running client files, plus the N4UX credit.
+First-time guidance follows the addon guide and calibration prompts.
 
 Tab changes and Show/Hide must keep the window size stable. This preview intentionally disables
 automatic spanning; the production auto-span restrictions remain unchanged.

@@ -366,6 +366,7 @@ namespace Offhand.Companion
                 }
                 CheckWorkspaceLayoutCaption(form, config, advanced, custom, factor);
                 CheckNavigation(form, config, advanced, factor);
+                CheckHeaderBranding(form, factor);
             }
         }
 
@@ -396,6 +397,13 @@ namespace Offhand.Companion
             var setup = One<Button>(form, button => button.AccessibleName == "Setup tab");
             var advancedTab = One<Button>(form, button => button.AccessibleName == "Advanced tab");
             var guide = One<Panel>(form, panel => panel.AccessibleName == "Apply your layout guide");
+            if (setup.FlatAppearance.BorderSize != 0 || advancedTab.FlatAppearance.BorderSize != 0 ||
+                setup.BackColor != advancedTab.BackColor)
+                throw new Exception("Navigation must remain visually separate from primary action buttons.");
+            string guidance = string.Join(" ", guide.Controls.OfType<Label>().Select(label => label.Text));
+            foreach (string required in new[] { "Windowed (Fullscreen)", "log into a character", "/reload", "/offhand guide",
+                "choose Companion", "Reload UI", "Confirm placement", "Start Calibration", "Mainhand HUD" })
+                if (!guidance.Contains(required)) throw new Exception("Setup guidance omitted the addon workflow: " + required);
             Rectangle outer = form.Bounds;
             int width = stack.Width;
             foreach (bool selectAdvanced in new[] { false, true, false, true, false }) {
@@ -446,6 +454,39 @@ namespace Offhand.Companion
             if (!guide.Controls.OfType<Label>().Any(label => label.Text.Contains("Choose Game side")))
                 throw new Exception("Single-display guidance did not follow the selected split.");
             split.Checked = wasSplit;
+        }
+
+        private static void CheckHeaderBranding(CompanionForm form, float factor)
+        {
+            var version = One<Label>(form, label => label.AccessibleName == "Companion and detected addon versions");
+            var tagline = One<Label>(form, label => label.AccessibleName == "Brand tagline");
+            var title = One<Label>(tagline.Parent, label => label.Text == "OFFHAND");
+            var subtitle = One<Label>(tagline.Parent, label => label.Text == "Multi-Monitor Companion for World of Warcraft");
+            var website = One<Button>(tagline.Parent, button => button.Text == "Website");
+            Rectangle stable = form.Bounds;
+            foreach (AddonStatus status in new[] {
+                new AddonStatus { Installed = true, Version = "2.1.5", ReleaseTag = "beta.28" },
+                new AddonStatus { Installed = false },
+                new AddonStatus { Installed = true, Version = "2.1.5 Pre-Release Beta 28 compatible development build" },
+                null }) {
+                form.UpdateClientStatus(status, status != null);
+                LayoutAll(form);
+                if (!version.Text.EndsWith("| Crafted by: N4UX") || !version.Text.Contains("| Addon: ") ||
+                    version.Text != CompanionForm.HeaderVersionText(status, status != null))
+                    throw new Exception("Header versions and creator credit did not follow addon detection.");
+                if (title.Bottom > tagline.Top || tagline.Bottom > subtitle.Top || subtitle.Bottom > version.Top ||
+                    version.Bottom >= website.Top || !tagline.Parent.ClientRectangle.Contains(version.Bounds) || form.Bounds != stable)
+                    throw new Exception("Brand header rows overlap or resize the window at " + factor + "x: "
+                        + title.Bounds + "/" + tagline.Bounds + "/" + subtitle.Bounds + "/" + version.Bounds + "/" + website.Bounds
+                        + "; header=" + tagline.Parent.ClientRectangle + "; bounds=" + form.Bounds + "; expected=" + stable);
+                var measured = TextRenderer.MeasureText(version.Text, version.Font, new Size(version.Width, int.MaxValue),
+                    TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
+                if (measured.Height > version.Height) throw new Exception("Detected addon version or credit is clipped.");
+            }
+            if (!version.Text.Contains("waiting for WoW") || version.Text.Contains("Beta 28"))
+                throw new Exception("Stopped client retained stale detected addon metadata.");
+            if (!CompanionForm.HeaderVersionText(new AddonStatus { Installed = true, Version = "2.1.5", ReleaseTag = "beta.28" }, true)
+                .Contains("Addon: 2.1.5 Beta 28")) throw new Exception("Header lost the addon version or beta increment.");
         }
 
         private static void CheckWorkspaceLayoutCaption(CompanionForm form, Panel config, Panel advanced, Button workspaceLayout, float factor)

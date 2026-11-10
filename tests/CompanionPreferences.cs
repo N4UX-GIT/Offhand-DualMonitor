@@ -199,11 +199,11 @@ namespace Offhand.Companion {
                 string character = Path.Combine(wow, "WTF", "Account", "123", "Realm", "Character", "SavedVariables", "Offhand.lua");
                 Directory.CreateDirectory(core);
                 File.WriteAllText(Path.Combine(Path.GetDirectoryName(core), "Offhand_Forever.toc"),
-                    "## Interface: 16000\n## X-Offhand-Release: beta.19\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.2-beta.19\n");
+                    "## Interface: 16000\n## Version: 2.1.5\n## X-Offhand-Release: beta.19\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.2-beta.19\n");
                 AddonInstallCheck install = AddonInstallation.Inspect(wow);
                 Check(install.Installed && install.AddonDir == Path.GetDirectoryName(core));
                 Check(install.ExpectedAddonDir == Path.Combine(wow, "Interface", "AddOns", "Offhand"));
-                Check(install.ReleaseTag == "beta.19" && install.CompanionProtocol == 1
+                Check(install.Version == "2.1.5" && install.ReleaseTag == "beta.19" && install.CompanionProtocol == 1
                     && install.MinimumCompanionVersion == "2.1.2-beta.19" && install.Reason.Contains(install.AddonDir));
 
                 string futureWow = Path.Combine(root, "future-client");

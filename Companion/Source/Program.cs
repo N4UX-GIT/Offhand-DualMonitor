@@ -60,7 +60,7 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyVersion("2.1.5.0")]
 #endif
 #if UI_PREVIEW
-[assembly: AssemblyFileVersion("2.1.5.8003")]
+[assembly: AssemblyFileVersion("2.1.5.8004")]
 [assembly: AssemblyInformationalVersion("2.1.5")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
@@ -2692,6 +2692,7 @@ namespace Offhand.Companion
         internal string AddonDir;
         internal string ExpectedAddonDir;
         internal string ReleaseTag;
+        internal string Version;
         internal int? CompanionProtocol;
         internal string MinimumCompanionVersion;
         internal string Reason;
@@ -2838,6 +2839,7 @@ namespace Offhand.Companion
             if (HasManifest(addonDir))
             {
                 result.ReleaseTag = ReadMetadata(addonDir, "X-Offhand-Release");
+                result.Version = ReadMetadata(addonDir, "Version");
                 string protocolText = ReadMetadata(addonDir, "X-Offhand-Companion-Protocol");
                 string legacyVersion = ReadMetadata(addonDir, "X-Offhand-Companion-Version");
                 result.MinimumCompanionVersion = ReadMetadata(addonDir, "X-Offhand-Companion-Min-Version");
@@ -3920,6 +3922,7 @@ namespace Offhand.Companion
         public string WowDir;
         public string Reason;
         internal string ReleaseTag;
+        internal string Version;
         internal string SetupHint;
     }
 
@@ -4112,7 +4115,7 @@ namespace Offhand.Companion
         internal const string BaseVersion = "2.1.5";
 #endif
 #if UI_PREVIEW
-        internal const string ReleaseLabel = "UI Preview 3";
+        internal const string ReleaseLabel = "UI Preview 4";
         internal static readonly bool GraphicsRecoveryEnabled = false;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
@@ -4208,6 +4211,8 @@ namespace Offhand.Companion
         private Label lblColorWarning;
         private Label lblScaleInfo;
         private Label lblStatusSummary;
+        private Label lblHeaderVersion;
+        private Label lblHeaderTitle, lblHeaderTagline, lblHeaderSubtitle;
         private Panel advancedPanel;
         private Button btnUseStandardLayout;
         private Panel configurationPanel, diagnosticsPanel, activityPanel, setupGuide;
@@ -5210,7 +5215,7 @@ namespace Offhand.Companion
             // Header Panel
             Panel headerPanel = new Panel();
             headerPanel.Location = new Point(0, 0);
-            headerPanel.Size = new Size(548, 120);
+            headerPanel.Size = new Size(548, 144);
             headerPanel.BackColor = Color.FromArgb(15, 15, 18);
             headerPanel.Paint += (s, e) =>
             {
@@ -5261,7 +5266,7 @@ namespace Offhand.Companion
             headerPanel.Controls.Add(logoBox);
 
             // Title
-            Label titleLabel = new Label();
+            Label titleLabel = lblHeaderTitle = new Label();
             titleLabel.Text = "OFFHAND";
             titleLabel.Location = new Point(102, 9);
             titleLabel.Size = new Size(365, 38);
@@ -5270,10 +5275,15 @@ namespace Offhand.Companion
             titleLabel.BackColor = Color.Transparent;
             headerPanel.Controls.Add(titleLabel);
 
-            // Subtitle
-            Label subLabel = new Label();
+            Label tagline = lblHeaderTagline = new Label { Text = "Dual-wield your monitors", Location = new Point(104, 47),
+                Size = new Size(365, 18), Font = new Font("Segoe UI", 9, FontStyle.Bold),
+                ForeColor = cText, BackColor = Color.Transparent, AccessibleName = "Brand tagline" };
+            headerPanel.Controls.Add(tagline);
+
+            // Descriptive subtitle follows the brand tagline.
+            Label subLabel = lblHeaderSubtitle = new Label();
             subLabel.Text = "Multi-Monitor Companion for World of Warcraft";
-            subLabel.Location = new Point(104, 49);
+            subLabel.Location = new Point(104, 67);
             subLabel.Size = new Size(365, 18);
             subLabel.Font = new Font("Segoe UI", 8.5f);
             subLabel.ForeColor = cBrass;
@@ -5281,14 +5291,17 @@ namespace Offhand.Companion
             headerPanel.Controls.Add(subLabel);
 
             // Version
-            Label verLabel = new Label();
-            verLabel.Text = "v" + FullVersion;
-            verLabel.Location = new Point(104, 68);
+            Label verLabel = lblHeaderVersion = new Label();
+            verLabel.Text = HeaderVersionText(null, false);
+            verLabel.AccessibleName = "Companion and detected addon versions";
+            verLabel.UseMnemonic = false;
+            verLabel.Location = new Point(104, 87);
             verLabel.Size = new Size(365, 14);
             verLabel.Font = new Font("Segoe UI", 7.5f, FontStyle.Italic);
             verLabel.ForeColor = cMuted;
             verLabel.BackColor = Color.Transparent;
             headerPanel.Controls.Add(verLabel);
+            uiToolTips.SetToolTip(verLabel, "Addon version comes from the running WoW client's installed files. Confirm Offhand is enabled in WoW; file detection does not confirm it is loaded.");
 
             Button website = CreateButton("Website", 104, 86, 78, 25, cBtnBg, cText, cBorderDim);
             website.Click += (s, e) => OpenCommunityLink(CompanionDistribution.WebsiteUrl, "the Offhand website");
@@ -5624,6 +5637,8 @@ namespace Offhand.Companion
             uiToolTips.SetToolTip(btnSpanNow, "Immediately make the detected WoW window borderless and span it across the selected displays. This also resumes spanning after Restore Window.");
 
             Button btnRestoreNow = CreateButton("Restore Window", 182, 522, 158, DashboardActionHeight, cBtnBg, cText, cBorder);
+            btnRestoreNow.FlatAppearance.BorderColor = cBorderDim;
+            btnRestoreNow.Font = new Font("Segoe UI", 9);
             btnRestoreNow.Click += (s, e) => { InvokeRestoreWindow(true); };
             this.Controls.Add(btnRestoreNow);
             uiToolTips.SetToolTip(btnRestoreNow, "Return WoW to the bordered bounds remembered before spanning. Missing-display recovery still fills the surviving Mainhand. Automatic spanning pauses for that WoW process until Span WoW Now is used.");
@@ -5746,6 +5761,15 @@ namespace Offhand.Companion
             setupTab.Click += (sender, args) => SelectDashboardPage(false);
             advancedTab.Click += (sender, args) => SelectDashboardPage(true);
             foreach (Button tab in new[] { setupTab, advancedTab }) {
+                tab.FlatAppearance.BorderSize = 0;
+                tab.FlatAppearance.MouseOverBackColor = Color.FromArgb(24, 24, 28);
+                tab.FlatAppearance.MouseDownBackColor = Color.FromArgb(29, 29, 33);
+                tab.Paint += (sender, args) => {
+                    if ((tab == advancedTab) != advancedPage) return;
+                    float scale = btnSpanNow.Height / (float)DashboardActionHeight;
+                    using (var pen = new Pen(cGold, Math.Max(2, 2 * scale)))
+                        args.Graphics.DrawLine(pen, 0, tab.Height - pen.Width / 2, tab.Width, tab.Height - pen.Width / 2);
+                };
                 tab.PreviewKeyDown += (sender, args) => {
                     if (args.KeyCode == Keys.Left || args.KeyCode == Keys.Right || args.KeyCode == Keys.Home || args.KeyCode == Keys.End)
                         args.IsInputKey = true;
@@ -5802,6 +5826,7 @@ namespace Offhand.Companion
                 dashboardStack.RowStyles.Add(new RowStyle(SizeType.AutoSize));
                 dashboardStack.Controls.Add(item, 0, dashboardStack.RowCount - 1);
             }
+            dashboardNavigation.Margin = new Padding(0, 0, 0, 18);
             foreach (Control child in header.Controls)
             {
                 if (child is Label) child.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
@@ -5869,9 +5894,9 @@ namespace Offhand.Companion
             advancedTab.Text = custom ? "Advanced · Custom layout active" : "Advanced";
             foreach (Button tab in new[] { setupTab, advancedTab }) {
                 bool selected = (tab == advancedTab) == advancedPage;
-                tab.BackColor = selected ? Color.FromArgb(42, 33, 12) : cBtnBg;
-                tab.ForeColor = selected ? cGoldBright : cText;
-                tab.FlatAppearance.BorderColor = selected ? cGold : cBorderDim;
+                tab.BackColor = cBg;
+                tab.ForeColor = selected ? cText : cMuted;
+                tab.Invalidate();
                 tab.AccessibleName = tab == setupTab ? "Setup tab" : "Advanced tab";
                 tab.AccessibleDescription = (selected ? "Selected. " : "") + (tab == advancedTab
                     ? "Workspace layouts, profiles, automatic spanning, diagnostics and activity log. " + (custom ? "Custom layout active." : "")
@@ -5885,9 +5910,9 @@ namespace Offhand.Companion
                 ? "2. Check the game and workspace areas in the preview, then save your plan."
                 : chkSingleSplit.Checked ? "2. Choose Game side. The other half becomes your Offhand workspace."
                 : "2. Choose Mainhand (game). The other screen becomes your Offhand workspace.";
-            setupGuideSteps[2].Text = "3. With WoW open in Windowed mode, click Span WoW Now.";
-            setupGuideSteps[3].Text = "4. In WoW, type /reload to apply the layout to the addon.";
-            setupGuideSteps[4].Text = "First time? Type /offhand in WoW and complete the setup guide.";
+            setupGuideSteps[2].Text = "3. Enable Offhand and log into a character. Choose Windowed mode, not Windowed (Fullscreen), then click Span WoW Now.";
+            setupGuideSteps[3].Text = "4. In WoW, type /reload after spanning or changing the layout.";
+            setupGuideSteps[4].Text = "First time? Type /offhand guide and choose Companion. Follow Reload UI, Confirm placement and Start Calibration. Complete calibration, then follow Create Mainhand HUD Layout and reload prompts when offered.";
             setupGuideSteps[5].Text = "For custom workspace areas, saved profiles and automatic spanning, open Advanced.";
             if (custom) setupGuideSteps[5].Text = "To turn off custom workspaces, open Advanced > Use standard display layout.";
             LayoutDashboardCards();
@@ -6030,6 +6055,22 @@ namespace Offhand.Companion
                         child.Left = dashboardHeader.Width - child.Width - inset;
                     else if (child is Label) child.Width = Math.Max(1, dashboardHeader.Width - child.Left - inset
                         - (child.Top < (int)Math.Ceiling(40 * scale) ? (int)Math.Ceiling(44 * scale) : 0));
+                }
+                if (lblHeaderVersion != null) {
+                    int headerGap = (int)Math.Ceiling(2 * scale);
+                    lblHeaderTagline.Top = lblHeaderTitle.Bottom + headerGap;
+                    lblHeaderSubtitle.Top = lblHeaderTagline.Bottom + headerGap;
+                    lblHeaderVersion.Top = lblHeaderSubtitle.Bottom + headerGap;
+                    lblHeaderVersion.Height = TextRenderer.MeasureText(lblHeaderVersion.Text, lblHeaderVersion.Font,
+                        new Size(lblHeaderVersion.Width, int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix).Height;
+                    int bottom = lblHeaderVersion.Bottom;
+                    foreach (Control link in dashboardHeader.Controls) {
+                        if (!(link is Button)) continue;
+                        if (link.Text != "Website" && link.Text != "Discord" && link.Text != "CurseForge") continue;
+                        link.Top = lblHeaderVersion.Bottom + (int)Math.Ceiling(6 * scale);
+                        bottom = Math.Max(bottom, link.Bottom);
+                    }
+                    dashboardHeader.Height = bottom + inset;
                 }
                 foreach (var section in dashboardSections.Values)
                 {
@@ -6677,8 +6718,28 @@ namespace Offhand.Companion
             uiToolTips.SetToolTip(lblStatusSummary, text + ". Select Show for details.");
         }
 
+        internal static string HeaderVersionText(AddonStatus status, bool anyWoWProcess)
+        {
+            string addon = anyWoWProcess ? "checking WoW" : "waiting for WoW";
+            if (status != null) {
+                string version = (status.Version ?? "").Trim();
+                string release = (status.ReleaseTag ?? "").Trim();
+                string releaseName = Regex.Replace(release, @"^beta\.(\d+)$", "Beta $1", RegexOptions.IgnoreCase);
+                addon = version;
+                if (release.Length > 0 && version.IndexOf(release, StringComparison.OrdinalIgnoreCase) < 0)
+                    addon += (addon.Length > 0 ? " " : "") + releaseName;
+                if (addon.Length == 0) addon = status.Installed ? "version unavailable" : "not found";
+            }
+            return "v" + FullVersion + " | Addon: " + addon + " | Crafted by: N4UX";
+        }
+
         internal void UpdateClientStatus(AddonStatus status, bool anyWoWProcess)
         {
+            string headerText = HeaderVersionText(status, anyWoWProcess);
+            if (lblHeaderVersion != null && lblHeaderVersion.Text != headerText) {
+                lblHeaderVersion.Text = headerText;
+                LayoutDashboardCards();
+            }
             if (status == null)
             {
                 lblWowStatus.Text = anyWoWProcess ? "WoW: Waiting for one game window" : "WoW: Not running";
@@ -7003,6 +7064,7 @@ namespace Offhand.Companion
                 result.Installed = install.Installed;
                 result.Reason = install.Reason;
                 result.ReleaseTag = install.ReleaseTag;
+                result.Version = install.Version;
                 result.SetupHint = install.SetupHint;
             }
             catch (Exception ex)
