@@ -21,6 +21,15 @@ do
     local legacy, modern = function() end, function() end
     C_UI, ReloadUI = { Reload = modern }, legacy
     assert(addon:GetReloadUIFunction() == modern, "prefer the current reload API when both exist")
+    local previousForever = addon.isForever
+    addon.isForever = true
+    assert(addon:GetReloadUIFunction() == modern,
+        "Forever keyboard clicks retain the native reload API")
+    local previousStyle = addon.IsGamepadUIEnabled
+    addon.IsGamepadUIEnabled = function() return true end
+    assert(addon:GetReloadUIFunction() == nil, "unverified Forever controller reload remains manual")
+    addon.IsGamepadUIEnabled = previousStyle
+    addon.isForever = previousForever
     ReloadUI = nil
     assert(addon:GetReloadUIFunction() == modern, "reload must work without the legacy global")
     C_UI, ReloadUI = {}, legacy
@@ -220,6 +229,46 @@ for _, key in ipairs(setupKeys) do
         "hiding an owned setup prompt must leave the native stack untouched")
     StaticPopupDialogs[key] = previous
 end
+-- Reload callbacks must run while the clicked parent is visible. Ordinary
+-- callbacks retain hide-first semantics, and reopened cards survive cleanup.
+do
+    local key = "OFFHAND_MAINHAND_LAYOUT_RELOAD"
+    local accepts, hides = 0, 0
+    local definition = {
+        text = "Reload", button1 = "Reload", button2 = "Later",
+        offhandAcceptBeforeHide = true,
+        OnHide = function() hides = hides + 1 end,
+        OnAccept = function(card, data)
+            assert(card.shown and hides == 0 and data == 42,
+                "reload must retain the visible hardware-click target until its callback")
+            accepts = accepts + 1
+        end,
+    }
+    StaticPopupDialogs[key] = definition
+    addon:ShowPopup(key,nil,nil,42).accept.scripts.OnClick()
+    assert(accepts == 1 and hides == 1 and not prompt.shown)
+    definition.OnAccept = function()
+        addon:ShowPopup(key,nil,nil,99)
+    end
+    addon:ShowPopup(key).accept.scripts.OnClick()
+    assert(prompt.shown and prompt.data == 99,
+        "a callback reopening the same definition must keep its replacement card")
+    addon:HidePopup(key)
+    definition.offhandAcceptBeforeHide = nil
+    definition.OnAccept = function(card) assert(not card.shown, "ordinary callbacks remain hide-first") end
+    addon:ShowPopup(key).accept.scripts.OnClick()
+    definition.offhandAcceptBeforeHide = true
+    definition.OnAccept = function() error("cancel must not invoke accept") end
+    addon:ShowPopup(key).cancel.scripts.OnClick()
+    assert(not prompt.shown)
+    StaticPopupDialogs[key] = nil
+end
+addon:ShowManualReloadPrompt()
+assert(prompt.popupKey == "OFFHAND_SETUP_MANUAL_RELOAD" and prompt.strata == "TOOLTIP"
+        and not prompt.definition.OnAccept and not prompt.cancel.shown and staticShows == 0,
+    "manual reload must only show the owned instruction card, with no reload callback")
+prompt.accept.scripts.OnClick()
+assert(not prompt.shown, "closing instructions must not request a native reload")
 addon:ShowPopup("OFFHAND_NATIVE_KEYBOARD_PROBE")
 assert(staticShows == 1, "unrelated keyboard popups must retain their existing native route")
 staticShows = 0
@@ -401,6 +450,19 @@ addon.UpdateCanvas = function() end
 addon:ApplyFullLayout()
 assert(menuRefreshes==1,"single-window fallback must refresh owned open menus, not only spanned HUD")
 addon.Viewport,addon.MenuPlacement=previousViewport,previousMenus
+
+do
+    local oldViewport=addon.Viewport
+    local rootWrites=0
+    addon.Viewport={GetMetrics=function()return{isSpanned=true}end,
+        ApplyGlobalScale=function()rootWrites=rootWrites+1 end}
+    local before=calls
+    addon:ApplyFullLayout(true)
+    assert(calls==before+1 and rootWrites==0,'external scale refresh must run geometry without replacing root scale')
+    addon:ApplyFullLayout()
+    assert(rootWrites==1,'ordinary layout lost its scale ownership')
+    addon.Viewport=oldViewport
+end
 
 -- Verify ADDON_LOADED initializes Canvas and SeamRedirect without recursion / stack overflow
 UIParent = {

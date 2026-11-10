@@ -1216,7 +1216,8 @@ function Wizard:CreateFrame()
         self.recoveryMethod = method
         self.recoveryAction = method == "COMPANION" and "reload" or "placement"
         local primaryKey = reason == "maximum" and "WIZARD_RECOVERY_OPEN_EDITMODE"
-            or method == "COMPANION" and "ONBOARD_RELOAD_UI"
+            or method == "COMPANION" and (Offhand:GetReloadUIFunction()
+                and "ONBOARD_RELOAD_UI" or "BTN_RELOAD_INSTRUCTIONS")
             or method and "WIZARD_RECOVERY_WINDOW_SETUP" or "WIZARD_RECOVERY_CHOOSE_METHOD"
         recoveryBack:SetText(L[reason == "maximum" and "WIZARD_RECOVERY_RETRY"
             or method == "COMPANION" and "WIZARD_RECOVERY_WINDOW_SETUP" or "WIZARD_RECOVERY_RECHECK"])
@@ -1226,7 +1227,8 @@ function Wizard:CreateFrame()
         recoveryCard.sectionLabel = L[reason == "maximum" and "WIZARD_RECOVERY_MAX_TITLE" or "WIZARD_RECOVERY_SPAN_TITLE"]
         recoveryCard.title:SetText(recoveryCard.sectionLabel)
         recoveryBody:SetText(L[reason == "maximum" and "WIZARD_RECOVERY_MAX_BODY"
-            or method == "COMPANION" and "WIZARD_RECOVERY_COMPANION_BODY"
+            or method == "COMPANION" and (Offhand:GetReloadUIFunction()
+                and "WIZARD_RECOVERY_COMPANION_BODY" or "WIZARD_RECOVERY_COMPANION_MANUAL_BODY")
             or method == "FANCYZONES" and "WIZARD_RECOVERY_FANCYZONES_BODY"
             or method == "MANUAL" and "WIZARD_RECOVERY_MANUAL_BODY" or "WIZARD_RECOVERY_CHOOSE_BODY"])
         validationStatus:SetText("")
@@ -1251,7 +1253,7 @@ function Wizard:CreateFrame()
         if card.setupBaseHeight then card:SetHeight(card.setupBaseHeight) end
         local labels={L.SETUP_STAGE_DETECT,L.SETUP_STAGE_PLACE,L.SETUP_STAGE_SEAM,L.SETUP_STAGE_SCALE}
         if self.totalSteps>=5 then labels[5]=L.SETUP_STAGE_HUD end
-        if self.totalSteps>=6 then labels[6]=L.ELLESMERE_HUD_VISUAL end
+        if self.totalSteps>=6 then labels[6]=L.SETUP_STAGE_ELLESMERE end
         self.progressRail:Update(self.step,labels)
         if self.recoveryReason then
             local top = Controls.GetCardContentTop(card, 36)
@@ -1673,10 +1675,10 @@ function Wizard:ReloadPlacement()
         return false
     end
     local reload = Offhand:GetReloadUIFunction()
-    if not reload or type(OffhandCharDB) ~= "table" then return false end
+    if type(OffhandCharDB) ~= "table" then return false end
     -- Existing login handoff opens Onboarding even for previously completed users.
     SaveReloadStep(wizardFrame.step)
-    reload()
+    if reload then reload() else Offhand:ShowManualReloadPrompt() end
     return true
 end
 

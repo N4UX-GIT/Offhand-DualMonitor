@@ -121,18 +121,23 @@ local function TransformLayout(layout, rect, skipEntry)
     local screen = { left = 0, bottom = 0, right = UIParent:GetWidth(), top = UIParent:GetHeight() }
     local moved, transformed = 0, {}
     for index, entry in ipairs(layout.systems or {}) do
-        local info = entry.anchorInfo
-        if not (skipEntry and skipEntry(entry))
-            and type(info) == "table" and (info.relativeTo == nil or info.relativeTo == "UIParent")
-            and type(info.offsetX) == "number" and type(info.offsetY) == "number" then
-            local relativePoint = info.relativePoint or info.point or "CENTER"
-            local sx, sy = PointBase(relativePoint, screen)
-            local gx, gy = PointBase(relativePoint, rect)
-            info.offsetX = info.offsetX + gx - sx
-            info.offsetY = info.offsetY + gy - sy
-            entry.isInDefaultPosition = false
-            moved = moved + 1
-            transformed[index] = true
+        if entry.isInDefaultPosition ~= false and not (skipEntry and skipEntry(entry)) then
+            for _, key in ipairs({"anchorInfo", "anchorInfo2"}) do
+                local info = entry[key]
+                if type(info) == "table" and (info.relativeTo == nil or info.relativeTo == "UIParent")
+                    and type(info.offsetX) == "number" and type(info.offsetY) == "number" then
+                    local relativePoint = info.relativePoint or info.point or "CENTER"
+                    local sx, sy = PointBase(relativePoint, screen)
+                    local gx, gy = PointBase(relativePoint, rect)
+                    info.offsetX = info.offsetX + gx - sx
+                    info.offsetY = info.offsetY + gy - sy
+                    transformed[index] = true
+                end
+            end
+            if transformed[index] then
+                entry.isInDefaultPosition = false
+                moved = moved + 1
+            end
         end
     end
     return moved, transformed
@@ -385,29 +390,23 @@ local function PlaceRetailStatus(entry, mainAnchor, mainFrame, rect)
     return true
 end
 
-local function RefineForeverSecondaryBars(layout, rect, sourceDefaults, mainAnchor, mainFrame, statusHeight)
-    local indices = Enum and Enum.EditModeActionBarSystemIndices
-    local actionSystem = Enum and Enum.EditModeSystem and Enum.EditModeSystem.ActionBar
-    if not Offhand.isForever or not indices or not actionSystem then return 0 end
-    -- Preset Bar2/Bar3 offsets are automatic-stack placeholders. Translating
-    -- them directly removes the native stack and can bury both behind MainBar.
-    -- Serialize real rows, including bars hidden outside Edit Mode.
+local function MainAnchorOrigin(layout, mainAnchor)
     local screen = {left=0, bottom=0, right=UIParent:GetWidth(), top=UIParent:GetHeight()}
     local relative = screen
     if mainAnchor.relativeTo ~= nil and mainAnchor.relativeTo ~= "UIParent" then
         -- Forever's default main bar follows MicroMenuContainer. Resolve that
         -- one known serialized relationship, never its stale live screen edges.
-        if mainAnchor.relativeTo ~= "MicroMenuContainer" then return 0 end
+        if mainAnchor.relativeTo ~= "MicroMenuContainer" then return end
         local menuSystem = Enum.EditModeSystem.MicroMenu
         local menuAnchor
         for _, entry in ipairs(layout.systems or {}) do
             if menuSystem ~= nil and entry.system == menuSystem then menuAnchor = entry.anchorInfo; break end
         end
         if type(menuAnchor) ~= "table" or (menuAnchor.relativeTo ~= nil and menuAnchor.relativeTo ~= "UIParent")
-            or type(menuAnchor.offsetX) ~= "number" or type(menuAnchor.offsetY) ~= "number" then return 0 end
+            or type(menuAnchor.offsetX) ~= "number" or type(menuAnchor.offsetY) ~= "number" then return end
         local menuFrame = _G.MicroMenuContainer
         local width, height = FrameSize(menuFrame, 0, 0)
-        if width <= 0 or height <= 0 then return 0 end
+        if width <= 0 or height <= 0 then return end
         local scale = ParentScale(menuFrame)
         width, height = width * scale, height * scale
         local x, y = PointBase(menuAnchor.relativePoint or menuAnchor.point, screen)
@@ -415,9 +414,57 @@ local function RefineForeverSecondaryBars(layout, rect, sourceDefaults, mainAnch
         local left, bottom = x + menuAnchor.offsetX - px*width, y + menuAnchor.offsetY - py*height
         relative = {left=left, bottom=bottom, right=left+width, top=bottom+height}
     end
-    if type(mainAnchor.offsetX) ~= "number" or type(mainAnchor.offsetY) ~= "number" then return 0 end
+    if type(mainAnchor.offsetX) ~= "number" or type(mainAnchor.offsetY) ~= "number" then return end
     local bx, by = PointBase(mainAnchor.relativePoint or mainAnchor.point, relative)
-    local ax, ay = bx + mainAnchor.offsetX, by + mainAnchor.offsetY
+    return bx + mainAnchor.offsetX, by + mainAnchor.offsetY
+end
+
+local function ForeverStatusFrame(entry)
+    local indices = Enum and Enum.EditModeStatusTrackingBarSystemIndices
+    if indices and indices.StatusTrackingBar1 ~= nil and entry.systemIndex == indices.StatusTrackingBar1 then
+        return _G.MainStatusTrackingBarContainer
+    end
+    if indices and indices.StatusTrackingBar2 ~= nil and entry.systemIndex == indices.StatusTrackingBar2 then
+        return _G.SecondaryStatusTrackingBarContainer
+    end
+end
+
+local function PlaceForeverStatus(entry, layout, rect, sourceDefaults, mainAnchor, mainFrame)
+    local target = ForeverStatusFrame(entry)
+    if not target then return false end
+    local ax, ay = MainAnchorOrigin(layout, mainAnchor)
+    if not ax then return false end
+    local _, mainHeight = FrameSize(mainFrame, 570, 40)
+    local _, my = PointFractions(mainAnchor.point)
+    local bottom = ay + (1 - my) * mainHeight * ParentScale(mainFrame) + 3
+    local indices = Enum.EditModeStatusTrackingBarSystemIndices
+    if entry.systemIndex == indices.StatusTrackingBar2 then
+        for index, primary in ipairs(layout.systems or {}) do
+            if sourceDefaults[index] and primary.system == entry.system
+                and primary.systemIndex == indices.StatusTrackingBar1 then
+                local _, height = FrameSize(_G.MainStatusTrackingBarContainer, 571, 14)
+                bottom = bottom + height * ParentScale(_G.MainStatusTrackingBarContainer) + 4
+                break
+            end
+        end
+    end
+    local width, height = FrameSize(target, 571, 14)
+    local scale = ParentScale(target)
+    width, height = width * scale, height * scale
+    if width > rect.width - 16 or bottom < rect.bottom or bottom + height > rect.top then return false end
+    entry.anchorInfo = {point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT",
+        offsetX = (rect.left + rect.right) / 2, offsetY = bottom}
+    entry.anchorInfo2, entry.isInDefaultPosition = nil, false
+    return true
+end
+
+local function RefineForeverSecondaryBars(layout, rect, sourceDefaults, mainAnchor, mainFrame, statusHeight)
+    local indices = Enum and Enum.EditModeActionBarSystemIndices
+    local actionSystem = Enum and Enum.EditModeSystem and Enum.EditModeSystem.ActionBar
+    if not Offhand.isForever or not indices or not actionSystem then return 0 end
+    -- Serialize distinct rows above the main bar and its status containers.
+    local ax, ay = MainAnchorOrigin(layout, mainAnchor)
+    if not ax then return 0 end
     local mw, mh = FrameSize(mainFrame, 570, 40)
     local ms = ParentScale(mainFrame)
     local mx, my = PointFractions(mainAnchor.point)
@@ -454,16 +501,54 @@ local function RefineForeverSecondaryBars(layout, rect, sourceDefaults, mainAnch
     return refined, refined > 0 and (bottom - ay) or nil
 end
 
+local function RefineForeverRightBars(layout, rect, sourceDefaults, targetSizes)
+    local indices = Enum and Enum.EditModeActionBarSystemIndices
+    local system = Enum and Enum.EditModeSystem and Enum.EditModeSystem.ActionBar
+    if not Offhand.isForever or not indices or system == nil then return 0 end
+    local right, refined = rect.right - 12, 0
+    local screen = {left = 0, bottom = 0, right = UIParent:GetWidth(), top = UIParent:GetHeight()}
+    for _, spec in ipairs({
+        {index = indices.RightBar1, frame = _G.MultiBarRight},
+        {index = indices.RightBar2, frame = _G.MultiBarLeft},
+    }) do
+        for index, entry in ipairs(layout.systems or {}) do
+            if spec.index ~= nil and sourceDefaults[index] and entry.system == system
+                and entry.systemIndex == spec.index and type(entry.anchorInfo) == "table" then
+                local width, height = FrameSize(spec.frame, 40, 480)
+                local scale = ParentScale(spec.frame)
+                width, height = width * scale, height * scale
+                local size = targetSizes and targetSizes[spec.index]
+                if size then width, height = size.width, size.height end
+                if right - width >= rect.left + 12 and height <= rect.height - 24 then
+                    local _, y = PointBase(entry.anchorInfo.relativePoint or entry.anchorInfo.point, screen)
+                    y = y + (tonumber(entry.anchorInfo.offsetY) or 0)
+                    y = math.max(rect.bottom + height / 2 + 12, math.min(y, rect.top - height / 2 - 12))
+                    entry.anchorInfo = {point = "RIGHT", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT",
+                        offsetX = right, offsetY = y}
+                    entry.anchorInfo2, entry.isInDefaultPosition = nil, false
+                    right, refined = right - width - 8, refined + 1
+                end
+                break
+            end
+        end
+    end
+    return refined
+end
+
 local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerLayout)
     -- The native Gamepad preset has GamepadMainActionBar instead of keyboard
     -- ActionBar MainBar. Its manager-relative status bars must be handled
     -- before any keyboard-action-bar prerequisites or early returns.
     local refined = controllerLayout and RefineGamepadStatusBars(layout, rect, sourceDefaults) or 0
+    if not controllerLayout then refined = refined + RefineForeverRightBars(layout, rect, sourceDefaults) end
     local systems = Enum and Enum.EditModeSystem
     local indices = Enum and Enum.EditModeActionBarSystemIndices
     if type(systems) ~= "table" or type(indices) ~= "table" then return refined end
     local actionSystem = systems.ActionBar
     local statusSystem = systems.StatusTrackingBar
+    local statusIndices = Enum.EditModeStatusTrackingBarSystemIndices
+    local foreverContainers = Offhand.isForever and _G.MainStatusTrackingBarContainer
+        and statusIndices and statusIndices.StatusTrackingBar1 ~= nil
     local extraSystem = systems.ExtraAbilities or systems.ExtraAbility
     local vehicleSystem = systems.VehicleLeaveButton or systems.VehicleExitButton
     local encounterSystem = systems.EncounterBar
@@ -481,9 +566,18 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerL
     local possessIndex = indices.PossessActionBar or indices.PossessBar
     if actionSystem == nil or mainIndex == nil then return refined end
 
+    local nativeForeverStatus = false
+    if foreverContainers then
+        for index, entry in ipairs(layout.systems or {}) do
+            if sourceDefaults[index] and entry.system == statusSystem and ForeverStatusFrame(entry) then
+                nativeForeverStatus = true
+                break
+            end
+        end
+    end
     local mainAnchor, lossOfControlAnchor
     for index, entry in ipairs(layout.systems or {}) do
-        if sourceDefaults[index] and entry.system == actionSystem
+        if (sourceDefaults[index] or nativeForeverStatus) and entry.system == actionSystem
             and entry.systemIndex == mainIndex and type(entry.anchorInfo) == "table" then
             mainAnchor = entry.anchorInfo
         elseif sourceDefaults[index] and lossOfControlSystem ~= nil
@@ -518,6 +612,16 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerL
     end
     local statusFrame = _G.StatusTrackingBarManager or _G.MainMenuExpBar
     local statusWidth, statusHeight = FrameSize(statusFrame, mainWidth, 14)
+    if foreverContainers then
+        statusHeight = 0
+        for index, entry in ipairs(layout.systems or {}) do
+            local target = entry.system == statusSystem and sourceDefaults[index] and ForeverStatusFrame(entry)
+            if target then
+                local _, height = FrameSize(target, 571, 14)
+                statusHeight = statusHeight + height * ParentScale(target) + 4
+            end
+        end
+    end
     local stanceFrame = _G.StanceBar or _G.ShapeshiftBarFrame
     local _, stanceHeight = FrameSize(stanceFrame, 252, 36)
     local petFrame = _G.PetActionBar or _G.PetActionBarFrame
@@ -550,6 +654,10 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerL
                 -- with the main/bag bar, not merely Action Button 1.
                 if Offhand.isRetail then
                     if PlaceRetailStatus(entry, mainAnchor, mainFrame, rect) then refined = refined + 1 end
+                elseif foreverContainers then
+                    if PlaceForeverStatus(entry, layout, rect, sourceDefaults, mainAnchor, mainFrame) then
+                        refined = refined + 1
+                    end
                 elseif not nativeClassic and PlaceFromMainAnchor(entry, mainAnchor, statusFrame,
                     mainWidth, 14, hudRight - statusWidth, mainTop + 3) then
                     refined = refined + 1
@@ -1386,6 +1494,11 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
             OffhandCharDB.foreverEditModeLegacyRecovery = nil
             OffhandCharDB.foreverEditModeRecovery = nil
         end
+        if active and Offhand.HideForeverLayoutRecoveryPrompt then
+            Offhand:HideForeverLayoutRecoveryPrompt("fallback")
+            Offhand:HideForeverLayoutRecoveryPrompt("restore")
+            if Offhand.HUD then Offhand.HUD.foreverRecoveryPromptShown = nil end
+        end
         if Offhand.ForeverPersistence and Offhand.ForeverPersistence.SaveProfileSnapshot then
             Offhand.ForeverPersistence:SaveProfileSnapshot(true)
         end
@@ -1433,9 +1546,38 @@ function Mainhand:GetLayoutStatus(geometrySignature, layoutRecord)
     }
 end
 
+local function EllesmereTransferLayout(source, generated, rect, controller, targetSizes)
+    if not source or not generated then return end
+    local projected = DeepCopy(source)
+    local defaults = {}
+    for index, entry in ipairs(projected.systems or {}) do
+        defaults[index] = entry.isInDefaultPosition ~= false
+    end
+    TransformLayout(projected, rect, function(entry)
+        local systems, indices = Enum.EditModeSystem, Enum.EditModeActionBarSystemIndices
+        return systems and indices and indices.ClassBar ~= nil
+            and entry.system == systems.ActionBar and entry.systemIndex == indices.ClassBar
+    end)
+    RefineStandardHUDLayout(projected, rect, defaults, controller)
+    local nativeProjection = DeepCopy(projected)
+    if not controller then RefineForeverRightBars(projected, rect, defaults, targetSizes) end
+    local result = DeepCopy(generated)
+    for rowIndex, entry in ipairs(result.systems or {}) do
+        for index, original in ipairs(source.systems or {}) do
+            if original.system == entry.system and original.systemIndex == entry.systemIndex
+                and defaults[index]
+                and (SameLayoutData(entry, original) or SameLayoutData(entry, nativeProjection.systems[index])) then
+                result.systems[rowIndex] = DeepCopy(projected.systems[index])
+                break
+            end
+        end
+    end
+    return result
+end
+
 -- Read-only source selection for the EllesmereUI transfer. A generated row
 -- can still contain the native anchor for a system owned by another addon.
-function Mainhand:GetEllesmereLayoutSource(geometryOnly)
+function Mainhand:GetEllesmereLayoutSource(geometryOnly, targetSizes)
     local rect = Geometry.GetCurrentRect()
     if not Offhand.isForever or not rect.isSpanned then return nil end
     local controller = NativeGamepadInterface() == true
@@ -1485,6 +1627,7 @@ function Mainhand:GetEllesmereLayoutSource(geometryOnly)
     if not (source or generated) then return nil end
     local context = {source = source, generated = generated, generatedActive = generated ~= nil and generated == active,
         rect = rect, controller = controller, ellesmereReview = ellesmereReview}
+    context.transferLayout = EllesmereTransferLayout(source, generated, rect, controller, targetSizes)
     if generated and characterType then context.characterOwned = generated.layoutType == characterType end
     return context
 end
@@ -1567,21 +1710,21 @@ function Mainhand:PromptReload()
         timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
     }
     StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD = dialog
+    dialog.offhandAcceptBeforeHide = true
     if NativeGamepadInterface() or (InCombatLockdown and InCombatLockdown())
         or not Offhand:GetReloadUIFunction() then
-        -- Forever blocks addon calls to Reload while its Gamepad interface owns
-        -- the input stack, even from an addon-owned hardware-click button. Do
-        -- not attempt the protected call. The player can safely type /reload.
+        -- Preserve the created layout while combat, controller ownership or a
+        -- missing reload API requires the player to use the native chat command.
         dialog.text = Offhand.L["MAINHAND_LAYOUT_RELOAD_MANUAL"]
         dialog.button1 = OKAY or "OK"
         dialog.button2 = nil
         dialog.OnAccept = nil
     else
-    local record = type(OffhandCharDB) == "table" and OffhandCharDB.mainhandLayout or nil
-    dialog.text = NativeGamepadInterface() and type(record) == "table"
-        and record.presetApplied == true
-        and Offhand.L["MAINHAND_GAMEPAD_PRESET_RELOAD_TEXT"]
-        or Offhand.L["MAINHAND_LAYOUT_RELOAD_TEXT"]
+        local record = type(OffhandCharDB) == "table" and OffhandCharDB.mainhandLayout or nil
+        dialog.text = NativeGamepadInterface() and type(record) == "table"
+            and record.presetApplied == true
+            and Offhand.L["MAINHAND_GAMEPAD_PRESET_RELOAD_TEXT"]
+            or Offhand.L["MAINHAND_LAYOUT_RELOAD_TEXT"]
         dialog.button1 = RELOADUI or "Reload UI"
         dialog.button2 = LATER or "Later"
         dialog.OnAccept = function()

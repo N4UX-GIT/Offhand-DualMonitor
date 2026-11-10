@@ -55,7 +55,7 @@ $channelName = switch ($channel) {
     default { $null }
 }
 
-$releaseName = if ($Tag -eq 'v2.1.3-beta.27' -or $Tag -eq 'v2.1.5-beta.28') {
+$releaseName = if ($Tag -eq 'v2.1.3-beta.27' -or $Tag -eq 'v2.1.5-beta.28' -or $Tag -eq 'v2.1.5-beta.29') {
     "Offhand v$version Pre-Release Beta $sequence"
 } elseif ($isPrerelease) {
     "Offhand v$version $channelName $sequence"
@@ -105,7 +105,15 @@ $companionDownloads = if ($CompanionChanged) {
 "@
 }
 
-$testFocus = if ($Tag -eq 'v2.1.5-beta.28') {
+$testFocus = if ($Tag -eq 'v2.1.5-beta.29') {
+@'
+Real simultaneous loot rolls and their combat lifecycle could not be verified locally. Those corrections are included for beta feedback. Please check remaining roll windows, usable roll choices, and long item tooltips during normal play.
+
+This build passes 122 Lua regression suites and six manifest/syntax checks. Controlled spanned Forever 1.60.1.70862 checks cover placement, options, reload, disable/re-enable, Restore Window, and exit/relaunch. Actual combat, exact reporter profiles, controller paths and physical portrait/4K layouts are not fully verified. Old-profile minimap hiding and exact HUD-save reports remain under investigation; the separate Retail friendly-name correction is deferred.
+
+Keep your existing profiles. Report regressions with `/offhand diag full`, the client/build, display arrangement and other UI addons. Companion 2.1.5 is unchanged; an already-working Companion does not need to be replaced.
+'@
+} elseif ($Tag -eq 'v2.1.5-beta.28') {
 @'
 1. Back up SavedVariables, Companion preferences and native/replacement HUD layouts. Upgrade without deleting settings. Install the add-on separately from Store Companion.
 2. Use /offhand guide for first setup. Position WoW, acknowledge Window is positioned, reload, then review Confirm placement. Continue calibration using either the recommendation or Next and complete the HUD/reload steps. Verify a normal restart retains your setup.

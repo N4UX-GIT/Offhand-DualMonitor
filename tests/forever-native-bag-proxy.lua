@@ -171,6 +171,8 @@ end
 ToggleBackpack = function()
     if bag:IsShown() then bag:Hide() else bag:Show() end
 end
+local targetSelected = false
+UnitExists = function(unit) assert(unit == "target"); return targetSelected end
 local nativeToggleGameMenuCalls = 0
 ToggleGameMenu = function()
     nativeToggleGameMenuCalls = nativeToggleGameMenuCalls + 1
@@ -178,6 +180,7 @@ ToggleGameMenu = function()
         CloseAllBags()
         return
     end
+    if targetSelected then targetSelected = false; return end
     if GameMenuFrame:IsShown() then
         GameMenuFrame:Hide()
     else
@@ -472,6 +475,40 @@ assert(not GameMenuFrame:IsShown() and bag:IsShown(),
 assert(nativeToggleGameMenuCalls == 2,
     "bag observation must not add Game Menu toggles")
 
+-- A selected target must remain reachable through Blizzard's Escape order.
+local targetEscapePosition = addon.db.nativeBackpackWorkspacePosition
+local targetEscapeOpens = nativeOpenCalls
+targetSelected = true
+ToggleGameMenu()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(not bag:IsShown() and not GameMenuFrame:IsShown()
+        and addon.db.nativeBackpackWorkspaceOpen == nil,
+    "targeted Escape must respect the native bag close instead of cycling the menu")
+assert(nativeOpenCalls == targetEscapeOpens and targetSelected,
+    "targeted Escape must not reopen bags or clear the target from addon code")
+assert(addon.db.nativeBackpackWorkspacePosition == targetEscapePosition,
+    "native Escape dismissal must preserve saved bag placement")
+ToggleGameMenu()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(not targetSelected and not GameMenuFrame:IsShown() and not bag:IsShown(),
+    "the next native Escape must be able to clear the selected target")
+OpenAllBags()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown(), "player-driven reopening must retain saved workspace placement")
+
+-- Missing or unreadable target state must yield rather than invent focus.
+local unitExistsBefore = UnitExists
+for _,query in ipairs({false, function() error("restricted target query") end}) do
+    UnitExists = query or nil
+    ToggleGameMenu()
+    controller.scripts.OnUpdate(controller, 0.001)
+    assert(not bag:IsShown() and not GameMenuFrame:IsShown(),
+        "unknown target state must leave native Escape dismissal intact")
+    UnitExists = unitExistsBefore
+    OpenAllBags()
+    controller.scripts.OnUpdate(controller, 0.001)
+end
+
 -- Native Gamepad UI owns both bag visibility and Game Menu focus. Its Escape
 -- result must stand, while the saved position and workspace-open intent remain
 -- available for a later player-driven open.
@@ -526,6 +563,28 @@ bag:Hide()
 controller.scripts.OnUpdate(controller, 0.001)
 assert(not bag:IsShown(),
     "no post-Game-Menu timer may override a subsequent native bag close")
+bag:Show()
+controller.scripts.OnUpdate(controller, 0.001)
+
+-- Native Chat Settings closes the workspace backpack during ShowUIPanel.
+-- Preserve open intent through that navigation without borrowing its frame
+-- scripts, and retain a later explicit B close while the dialog remains open.
+ChatConfigFrame = makeFrame("ChatConfigFrame", 745, 605)
+ChatConfigFrame:Show()
+local chatConfigHooks = ChatConfigFrame.nativeHookCalls
+bag:Hide()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown() and addon.db.nativeBackpackWorkspaceOpen == true,
+    "Chat Settings must restore the tracked workspace backpack")
+assert(ChatConfigFrame.nativeHookCalls == chatConfigHooks,
+    "bag preservation must not install Chat Settings scripts")
+ToggleAllBags()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(not bag:IsShown() and addon.db.nativeBackpackWorkspaceOpen == nil,
+    "explicit B close must win while Chat Settings remains open")
+ChatConfigFrame:Hide()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(not bag:IsShown(), "closing Chat Settings must not undo an explicit B close")
 bag:Show()
 controller.scripts.OnUpdate(controller, 0.001)
 
@@ -634,6 +693,24 @@ controller.scripts.OnUpdate(controller, 0.001)
 mouseFoci = {}
 assert(not bag:IsShown(),
     "native close-button click must close without workspace restoration")
+
+-- Native X hides the root before the close post-hook, clearing GetMouseFoci.
+-- The still-valid button hit rectangle identifies that same explicit close.
+bag:Show()
+controller.scripts.OnUpdate(controller, 0.001)
+bag.CloseButton.IsForbidden = function() return false end
+bag.CloseButton.IsMouseOver = function() return true end
+CloseAllBags()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(not bag:IsShown() and addon.db.nativeBackpackWorkspaceOpen == nil,
+    "native X must stay closed when hiding the root clears mouse focus")
+bag.CloseButton.IsMouseOver = function() error("restricted hit test") end
+bag:Show()
+controller.scripts.OnUpdate(controller, 0.001)
+CloseAllBags()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown(), "an unavailable hit test must retain navigation recovery")
+bag.CloseButton.IsMouseOver = nil
 
 -- A normal bag opening starts at Blizzard's bottom-right anchor. The observer
 -- runs every rendered frame so the saved root is corrected before that native

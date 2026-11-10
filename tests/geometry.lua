@@ -114,6 +114,18 @@ print("PASS: physical seam, cross-scale anchors, HUD fit, nested scale, left pri
 
 -- Companion topology is authoritative and preserves mixed monitor heights and
 -- offsets without guessing from the combined aspect ratio.
+pw,ph=5280,2560
+OffhandDB.preferredGeometrySource="AUTO"
+OffhandCompanionTopology={schema=1,companionVersion="2.1.2-beta.18",physicalWidth=pw,physicalHeight=ph,mode="DUAL_DISPLAY",
+    workspace={x=0,y=0,width=1440,height=2560},game={x=1440,y=400,width=3840,height=2160}}
+local reported=addon.Viewport:GetMetrics()
+assert(reported.topologyStatus=="READY" and reported.gamePixelBottom==400
+    and reported.gamePixelWidth==3840 and reported.workspacePixelHeight==2560,
+    "portrait/4K diagnostic uses bottom-origin offsets, not Windows display Y")
+addon.Viewport:Apply()
+x,y,w,h=worldPixels()
+near(x,1440);near(y,400);near(w,3840);near(h,2160)
+
 pw,ph=5360,1440
 -- Model the explicit Companion selection, which hands geometry ownership back
 -- from a previously remembered manual canvas to the generated exact bridge.

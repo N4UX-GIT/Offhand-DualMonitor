@@ -1,8 +1,9 @@
+param([switch]$HistoricalArtifactsOnly)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $script = Join-Path $root 'scripts/Prepare-215Publication.ps1'
 $native = Join-Path $root 'Companion/Prepared/2.1.5'
-& $script -ValidateOnly
+& $script -ValidateOnly -HistoricalArtifactsOnly:$HistoricalArtifactsOnly
 $temporaryBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $fixture = Join-Path $temporaryBase ('Offhand-publication-' + [guid]::NewGuid().ToString('N'))
 try {
@@ -14,12 +15,12 @@ try {
     }
     function Expect-Rejection([string]$Message) {
         $rejected = $false
-        try { & $script -CompanionDirectory $fixture -ValidateOnly | Out-Null }
+        try { & $script -CompanionDirectory $fixture -ValidateOnly -HistoricalArtifactsOnly:$HistoricalArtifactsOnly | Out-Null }
         catch { $rejected = $true }
         if (-not $rejected) { throw ('Publication accepted ' + $Message) }
     }
     Reset-Fixture
-    & $script -CompanionDirectory $fixture -ValidateOnly
+    & $script -CompanionDirectory $fixture -ValidateOnly -HistoricalArtifactsOnly:$HistoricalArtifactsOnly
     foreach ($sample in @('Offhand.exe', 'Offhand-Companion-v2.1.5.zip')) {
         Reset-Fixture
         $path = Join-Path $fixture $sample

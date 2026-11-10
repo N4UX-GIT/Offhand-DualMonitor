@@ -3,6 +3,73 @@ local _, Offhand = ...
 local Recovery = {}
 Offhand.HUDRecovery = Recovery
 
+-- Support-only snapshot for profile-dependent minimap disappearance. Read the
+-- visible map as well as its ownership container; minimap addons can separate
+-- them. No frame hooks, writes, profile contents or automatic repairs.
+function Recovery.GetMinimapVisibilityDiagnostics()
+    if InCombatLockdown and InCombatLockdown() then return { "minimap=deferred:combat" } end
+    local function Read(frame, method)
+        local ok, value = pcall(function()
+            if not frame or (frame.IsForbidden and frame:IsForbidden()) then return end
+            if type(frame[method]) == "function" then return frame[method](frame) end
+        end)
+        if ok and not (issecretvalue and issecretvalue(value)) then return value end
+    end
+    local function Value(value)
+        if issecretvalue and issecretvalue(value) then return "unknown" end
+        if type(value) == "boolean" then return value and "yes" or "no" end
+        if type(value) == "number" and value == value and math.abs(value) < math.huge then
+            return string.format("%.3f", value)
+        end
+        if type(value) == "string" then return value:sub(1, 80) end
+        return "unknown"
+    end
+    local db = Offhand.db or {}
+    local compatibility = Offhand.HUDCompatibility
+    local function Loaded(name)
+        local ok, value = pcall(function()
+            return compatibility and compatibility.IsAddonPresent(name) or false
+        end)
+        return ok and Value(value) or "unknown"
+    end
+    local eui = _G.EllesmereUI
+    local ok, enabled = pcall(function()
+        local get = eui and eui.Lite and eui.Lite.GetAddon
+        local module = type(get) == "function" and get("EllesmereUIMinimap", true)
+        return module and module.db and module.db.profile and module.db.profile.minimap
+            and module.db.profile.minimap.enabled
+    end)
+    local registered = eui and eui._unlockRegisteredElements and eui._unlockRegisteredElements.EBS_Minimap
+    local reports = { string.format(
+        "MinimapOwner=SexyMap:%s,EllesmereCore:%s,EllesmereMinimap:%s,EllesmereOptions:%s,EllesmereMover:%s,EllesmereProfileEnabled:%s",
+        Loaded("SexyMap"), Loaded("EllesmereUI"), Loaded("EllesmereUIMinimap"), Loaded("EllesmereUIOptions"),
+        registered and "registered" or "missing", ok and Value(enabled) or "unknown") }
+    for _, name in ipairs({ "MinimapCluster", "Minimap", "LibDBIcon10_ForeverDungeonJournal", "LFGMinimapFrame" }) do
+        local frame = _G[name]
+        if not frame then
+            reports[#reports + 1] = name .. ".state=absent"
+        else
+            local parent = Read(frame, "GetParent")
+            local special = "unknown"
+            if type(UISpecialFrames) == "table" and #UISpecialFrames <= 256 then
+                special = "no"
+                for _, entry in ipairs(UISpecialFrames) do
+                    if not (issecretvalue and issecretvalue(entry)) and entry == name then special = "yes"; break end
+                end
+            end
+            reports[#reports + 1] = string.format(
+                "%s.state=shown:%s,visible:%s,alpha:%s,effectiveAlpha:%s,parent:%s,parentShown:%s,parentVisible:%s,userPlaced:%s,scale:%s,savedWorkspace:%s,savedMainhand:%s,escapeRegistered:%s",
+                name, Value(Read(frame, "IsShown")), Value(Read(frame, "IsVisible")),
+                Value(Read(frame, "GetAlpha")), Value(Read(frame, "GetEffectiveAlpha")),
+                Value(Read(parent, "GetName")), Value(Read(parent, "IsShown")), Value(Read(parent, "IsVisible")),
+                Value(Read(frame, "IsUserPlaced")), Value(Read(frame, "GetEffectiveScale")),
+                db.savedWorkspacePositions and db.savedWorkspacePositions[name] and "yes" or "no",
+                db.savedMainPositions and db.savedMainPositions[name] and "yes" or "no", special)
+        end
+    end
+    return reports
+end
+
 function Recovery.Install(HUD)
     local Compatibility = assert(Offhand.HUDCompatibility, "Offhand HUD compatibility must load before recovery")
     local HasEllesmerePartyFrames = Compatibility.HasEllesmerePartyFrames
@@ -472,7 +539,7 @@ function Recovery.Install(HUD)
     function HUD:GetInteractionVisibilityDiagnostics(metrics)
         if InCombatLockdown() then return { "deferred:combat" } end
         local reports = {}
-        for _, name in ipairs({ "PVEFrame", "GroupFinderFrame", "LFDParentFrame",
+        for _, name in ipairs({ "MinimapCluster", "Minimap", "PVEFrame", "GroupFinderFrame", "LFDParentFrame",
             "LFGListApplicationDialog", "LFGListInviteDialog", "LFGDungeonReadyPopup", "RolePollPopup",
             "LFDRoleCheckPopup", "LFGReadyCheckPopup", "LFGInvitePopup", "PVPReadyPopup", "PetBattleQueueReadyFrame",
             "ChallengesKeystoneFrame", "ChallengeModeCompleteBanner", "EventToastManagerFrame", "EventToastManagerSideDisplay",
@@ -599,6 +666,7 @@ function Recovery.Install(HUD)
                 return "system-missing"
             end)
         end
+        for _, report in ipairs(Recovery.GetMinimapVisibilityDiagnostics()) do reports[#reports + 1] = report end
         return reports
     end
 

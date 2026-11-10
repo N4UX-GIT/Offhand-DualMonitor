@@ -12,7 +12,7 @@
   [![Portable, Linux, and manual options](https://img.shields.io/badge/Companion-Portable_%26_manual_options-181717?style=for-the-badge&logo=github)](https://offhand-wow.onrender.com/companion.html)
 </div>
 
-Current release: **Offhand add-on 2.1.5 Pre-Release Beta 28** with
+Current release: **Offhand add-on 2.1.5 Pre-Release Beta 29** with
 **Companion 2.1.5**. The add-on remains a public beta. Companion 2.1.5 is submitted
 to Microsoft Store certification with automatic publication after approval;
 Store availability can lag the portable GitHub release. The Store installs only
@@ -196,6 +196,13 @@ If you accidentally drag a window off-screen or change your monitor configuratio
 To return to one monitor, simply disable Offhand's dual-monitor mode in-game, and click **Restore Window** in the Companion App to restore the bordered bounds remembered before the first span. If a saved display disconnects, automatic recovery still fills the surviving Mainhand. The display controls refresh automatically when Windows reports a monitor connection change.
 
 On Forever, exit WoW normally before closing Companion. Companion only refreshes the cold-start recovery snapshot after the WoW process has fully stopped.
+
+If text looks too small after removing Offhand, fully exit WoW and relaunch at
+your normal window size with the addon disabled. Check **UI Scale** and, where
+available, **Text Scale** in the game's settings. If only chat message text is
+affected, check the chat tab's **Font Size** menu. See the
+[font recovery and reporting guide](docs/FONTS-AFTER-REMOVAL-20261109.md) for
+details and the information needed to investigate further.
 
 
 

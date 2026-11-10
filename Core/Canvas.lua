@@ -128,6 +128,8 @@ function Canvas:CreateFrames()
 end
 
 function Canvas:UpdateLayout()
+    if Offhand.ProcDocCompatibility then Offhand.ProcDocCompatibility:Refresh() end
+    if Offhand.DaylightMapCompatibility then Offhand.DaylightMapCompatibility:Refresh() end
     if not rootCanvas then self:CreateFrames() end
 
     local metrics = WithWorkspace(Offhand.Viewport:GetMetrics())
@@ -215,10 +217,15 @@ function Canvas:ShouldYieldWorldMap(frameOrName)
 end
 
 function Canvas:GetCompatibilityDiagnostics(compact)
-    return Compatibility.GetDiagnostics(
+    local report = Compatibility.GetDiagnostics(
         compact,
         self._lastLeatrixCoordinateFontRefreshCount
     )
+    local daylight = Offhand.DaylightMapCompatibility and Offhand.DaylightMapCompatibility:GetDiagnostics()
+    if daylight then report = report .. " | " .. daylight end
+    local procDoc = Offhand.ProcDocCompatibility
+    if procDoc then report = report .. " | ProcDocCenter=" .. (procDoc.status or "inactive") end
+    return report
 end
 
 local function IsUnsafeForDirectMutation(frame)
@@ -2636,6 +2643,7 @@ function Offhand:InitializeCanvas()
 
     if Offhand.isForever and C_Timer and C_Timer.NewTicker and not Canvas.foreverPositionTicker then
         Canvas.foreverPositionTicker = C_Timer.NewTicker(0.5, function()
+            if Offhand.DaylightMapCompatibility then Offhand.DaylightMapCompatibility:Refresh() end
             if Offhand._displayGeometryTransitionActive then return end
             if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:Refresh() end
             if Offhand.CanvasAddonEscape then Offhand.CanvasAddonEscape:Refresh() end

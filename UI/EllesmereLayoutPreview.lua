@@ -13,6 +13,8 @@ local modeGuidance = {
     blizzard = "ELLESMERE_HUD_GUIDE_FALLBACK",
 }
 local colors = {{1, .73, .3}, {.35, .8, 1}, {.39, .91, .65}, {.98, .55, .66}, {.75, .64, 1}}
+for _, color in ipairs({{.95, .85, .4}, {.4, .85, .85}, {.9, .65, .4}, {.8, .9, .5},
+    {.6, .7, 1}, {.95, .5, .8}, {.8, .8, .8}}) do colors[#colors + 1] = color end
 
 local function Surface(parent)
     return CreateFrame("Frame", nil, parent, "BackdropTemplate")
@@ -87,8 +89,8 @@ local function Plot(map, context, rows, after, direction, selected)
     end
     for i, marker in ipairs(map.markers) do
         local row = rows[i]
-        local b = row and row.current
-        local proposed = row and selected[row.map.key] ~= false and row.proposed
+        local b = row and (row.groupCurrent or row.current)
+        local proposed = row and selected[row.followKey or row.map.key] ~= false and (row.groupProposed or row.proposed)
         if after then b = proposed or (direction ~= "blizzard" and b) end
         marker:Hide()
         if b and b.left <= width and b.bottom <= height and b.left + b.width >= 0 and b.bottom + b.height >= 0 then
@@ -121,6 +123,10 @@ local function ReadPlan(direction)
             signature[#signature + 1] = string.format("%s,%s,%s,%.6f,%.6f", row.map.key, pos.point,
                 pos.relPoint or pos.relativePoint, pos.x or pos.offsetX, pos.y or pos.offsetY)
         end
+        for _, bounds in ipairs({row.groupCurrent or row.current or {}, row.groupProposed or row.proposed or {}}) do
+            signature[#signature + 1] = string.format("%s,%s,%s,%s", tostring(bounds.left),
+                tostring(bounds.bottom), tostring(bounds.width), tostring(bounds.height))
+        end
     end
     return {rows = rows, context = context, source = source, signature = table.concat(signature, "|"), changed = changed}
 end
@@ -145,11 +151,13 @@ local function Render(direction)
         local row = rows[i]
         local canCopy = row and (row.position or row.anchor)
         local checked = canCopy and dialog.rowSelection[row.map.key] ~= false
-        local status = row and (row.reason or (row.anchor and "ELLESMERE_HUD_POINT_ONLY" or "ELLESMERE_HUD_WILL_MOVE"))
+        local status = row and (row.reason or (row.anchor and "ELLESMERE_HUD_POINT_ONLY"
+            or row.linkedGroup and "ELLESMERE_HUD_MOVE_GROUP" or "ELLESMERE_HUD_WILL_MOVE"))
         local checkbox = dialog.checkboxes[i]
         checkbox:SetShown(canCopy ~= nil and canCopy ~= false)
         checkbox:SetChecked(checked == true)
-        label:SetText(row and string.format("%d  %s  ·  %s", i, L[row.map.label], L[status]) or "")
+        local name = row and (row.map.number and string.format(L[row.map.label], row.map.number) or L[row.map.label])
+        label:SetText(row and string.format("%d  %s  ·  %s", i, name, L[status]) or "")
         if checked then selected = selected + 1 end
     end
     dialog.apply:SetText(L[direction == "blizzard" and "ELLESMERE_HUD_SAVE_FALLBACK" or "ELLESMERE_HUD_REVIEW_IMPORT"])
@@ -165,6 +173,7 @@ function Transfer:PromptImportReload()
     local manual = not Offhand:GetReloadUIFunction() or (InCombatLockdown and InCombatLockdown())
         or mainhand and mainhand.IsNativeGamepadInterface and mainhand:IsNativeGamepadInterface()
     StaticPopupDialogs.OFFHAND_ELLESMERE_HUD_RELOAD = {
+        offhandAcceptBeforeHide = true,
         text = L[manual and "ELLESMERE_HUD_IMPORT_RELOAD_MANUAL" or "ELLESMERE_HUD_IMPORT_RELOAD_PROMPT"],
         button1 = manual and (OKAY or "OK") or L["ONBOARD_RELOAD_UI"],
         button2 = not manual and L["CHARACTER_SETUP_LATER"] or nil,
@@ -307,7 +316,7 @@ end
 
 local function CreateDialog()
     local frame = CreateFrame("Frame", "OffhandEllesmerePreviewFrame", UIParent, "BackdropTemplate")
-    frame:SetSize(900, 548)
+    frame:SetSize(900, 612)
     frame:SetFrameStrata("FULLSCREEN_DIALOG")
     frame:EnableMouse(true)
     frame:Hide()
@@ -340,9 +349,10 @@ local function CreateDialog()
     frame.after = MakeDiagram(frame, "ELLESMERE_HUD_PROPOSED", 1)
     frame.legend, frame.checkboxes = {}, {}
     for i, color in ipairs(colors) do
+        local column, line = math.floor((i - 1) / 6), (i - 1) % 6
         local checkbox = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
         checkbox:SetSize(16, 16)
-        checkbox:SetPoint("TOPLEFT", 18, -381 - (i - 1) * 17)
+        checkbox:SetPoint("TOPLEFT", 18 + column * 440, -381 - line * 26)
         checkbox:SetScript("OnClick", function(self)
             local row = frame.plan and frame.plan.rows[i]
             if not row then return end
@@ -352,8 +362,9 @@ local function CreateDialog()
         frame.checkboxes[i] = checkbox
         local label = Label(frame, "GameFontHighlightSmall")
         label:SetTextColor(unpack(color))
-        label:SetPoint("TOPLEFT", 38, -383 - (i - 1) * 17)
-        label:SetPoint("RIGHT", frame, "RIGHT", -20, 0)
+        label:SetPoint("TOPLEFT", 38 + column * 440, -383 - line * 26)
+        label:SetWidth(404)
+        label:SetWordWrap(true)
         frame.legend[i] = label
     end
     local close = Button(frame, "BTN_CLOSE", 120, function() frame:Hide() end)
