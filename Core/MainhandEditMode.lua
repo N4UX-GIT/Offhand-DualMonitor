@@ -734,6 +734,158 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerL
     return refined
 end
 
+local function PublicLayoutNumber(value)
+    if type(issecretvalue) == "function" and issecretvalue(value) then return false end
+    return type(value) == "number" and value == value and math.abs(value) < math.huge
+end
+
+-- Fit only the generated copy. Resolve serialized dependencies instead of using
+-- the live positions of a different active layout or detaching snapped children.
+local function FitNativeHUDLayout(layout, rect, sourceDefaults)
+    local manager = _G.EditModeManagerFrame
+    if (not Offhand.isForever and not Offhand.isRetail) or not manager
+        or type(manager.GetRegisteredSystemFrame) ~= "function" then return 0, 0, "unavailable" end
+    local screen = {left = 0, bottom = 0, right = UIParent:GetWidth(), top = UIParent:GetHeight()}
+    local uiScale = UIParent:GetEffectiveScale()
+    if not PublicLayoutNumber(uiScale) or uiScale <= 0 or not PublicLayoutNumber(screen.right) or screen.right <= 0
+        or not PublicLayoutNumber(screen.top) or screen.top <= 0 then return 0, 0, "unavailable" end
+    local records, names = {}, {}
+    local systems, actions = Enum and Enum.EditModeSystem, Enum and Enum.EditModeActionBarSystemIndices
+    for index, entry in ipairs(layout.systems or {}) do
+        local record = {entry = entry, index = index, blocked = ExternallyOwnedSystem(entry)}
+        records[index] = record
+        if Offhand.isForever and systems and actions and actions.ClassBar ~= nil
+            and entry.system == systems.ActionBar and entry.systemIndex == actions.ClassBar then record.blocked = true end
+        local ok, frame = pcall(manager.GetRegisteredSystemFrame, manager, entry.system, entry.systemIndex)
+        if ok and frame and not (frame.IsForbidden and frame:IsForbidden()) then
+            local read, width, height, scale, name = pcall(function()
+                return frame:GetWidth(), frame:GetHeight(), frame:GetEffectiveScale(), frame:GetName()
+            end)
+            if read and PublicLayoutNumber(width) and PublicLayoutNumber(height) and PublicLayoutNumber(scale)
+                and width > 0 and height > 0 and scale > 0 then
+                record.width, record.height = width * scale / uiScale, height * scale / uiScale
+            end
+            if read and type(name) == "string" and not (issecretvalue and issecretvalue(name)) then
+                record.name = name
+                if names[name] ~= nil then
+                    if names[name] then names[name].blocked = true end
+                    names[name], record.blocked = false, true
+                else names[name] = record end
+            end
+        end
+    end
+    local function Resolve(record, visiting)
+        if record.bounds then return record.bounds end
+        if not record.width or visiting[record] then return end
+        visiting[record] = true
+        local function Anchor(info)
+            if type(info) ~= "table" or not PublicLayoutNumber(info.offsetX) or not PublicLayoutNumber(info.offsetY) then return end
+            for _, key in ipairs({"point", "relativePoint", "relativeTo"}) do
+                local value = info[key]
+                if value ~= nil and ((issecretvalue and issecretvalue(value)) or type(value) ~= "string") then return end
+            end
+            local relative, parent = screen, nil
+            if info.relativeTo ~= nil and info.relativeTo ~= "UIParent" then
+                parent = names[info.relativeTo]
+                relative = parent and Resolve(parent, visiting)
+                if not relative then return end
+            end
+            local x, y = PointBase(info.relativePoint or info.point, relative)
+            return {x = x + info.offsetX, y = y + info.offsetY, parent = parent,
+                px = select(1, PointFractions(info.point)), py = select(2, PointFractions(info.point))}
+        end
+        local first, second = Anchor(record.entry.anchorInfo), nil
+        if record.entry.anchorInfo2 then second = Anchor(record.entry.anchorInfo2) end
+        visiting[record] = nil
+        if not first or (record.entry.anchorInfo2 and not second) or (second and second.parent ~= first.parent) then return end
+        local width, height = record.width, record.height
+        if second then
+            if second.px ~= first.px then width = (second.x - first.x) / (second.px - first.px) end
+            if second.py ~= first.py then height = (second.y - first.y) / (second.py - first.py) end
+        end
+        if not PublicLayoutNumber(width) or not PublicLayoutNumber(height) or width <= 0 or height <= 0 then return end
+        local left, bottom = first.x - first.px * width, first.y - first.py * height
+        record.root = first.parent and first.parent.root or record
+        record.bounds = {left = left, bottom = bottom, right = left + width, top = bottom + height}
+        return record.bounds
+    end
+    local groups, skipped = {}, 0
+    for _, record in ipairs(records) do
+        local bounds = Resolve(record, {})
+        if bounds then
+            local group = groups[record.root]
+            if not group then group = {left = bounds.left, bottom = bounds.bottom, right = bounds.right, top = bounds.top, records = {}}; groups[record.root] = group end
+            group.records[#group.records + 1] = record
+            group.blocked = group.blocked or record.blocked
+            group.left, group.bottom = math.min(group.left, bounds.left), math.min(group.bottom, bounds.bottom)
+            group.right, group.top = math.max(group.right, bounds.right), math.max(group.top, bounds.top)
+        elseif not record.blocked then skipped = skipped + 1 end
+    end
+    -- An unresolved snapped child must not be moved indirectly with its parent.
+    for _, record in ipairs(records) do
+        if not record.bounds then
+            for _, key in ipairs({"anchorInfo", "anchorInfo2"}) do
+                local info = record.entry[key]
+                local relative = type(info) == "table" and info.relativeTo
+                local parent = type(relative) == "string" and not (issecretvalue and issecretvalue(relative)) and names[relative]
+                local group = parent and parent.root and groups[parent.root]
+                if group then group.blocked = true end
+            end
+        end
+    end
+    local fitted = 0
+    for root, group in pairs(groups) do
+        if not group.blocked then
+            local width, height = group.right - group.left, group.top - group.bottom
+            local first, second = root.entry.anchorInfo, root.entry.anchorInfo2
+            -- A standalone stretched system (for example XP) can fit by moving
+            -- its two anchors. Never resize bars or a snapped group by guessing.
+            local stretchX, stretchY = false, false
+            if #group.records == 1 and second then
+                local ax, ay = PointFractions(first.point)
+                local bx, by = PointFractions(second.point)
+                stretchX, stretchY = width > rect.width + 0.01 and ax ~= bx, height > rect.height + 0.01 and ay ~= by
+                if stretchX then width = rect.width end
+                if stretchY then height = rect.height end
+            end
+            if width <= rect.width + 0.01 and height <= rect.height + 0.01 then
+                local desiredLeft, desiredBottom = group.left, group.bottom
+                if not (sourceDefaults and sourceDefaults[root.index]) then
+                    -- Keep in-Mainhand edits exactly. Project outlying custom
+                    -- groups proportionally before clamping, so several bars
+                    -- do not all collapse onto the same screen edge.
+                    -- Persisted native anchors and physical-to-UI conversion
+                    -- differ by tiny rounding errors at a display boundary.
+                    -- Use the same epsilon as the eventual write threshold.
+                    if group.left < rect.left - 0.01 or group.right > rect.right + 0.01 then
+                        desiredLeft = rect.left + group.left / screen.right * rect.width
+                    end
+                    if group.bottom < rect.bottom - 0.01 or group.top > rect.top + 0.01 then
+                        desiredBottom = rect.bottom + group.bottom / screen.top * rect.height
+                    end
+                end
+                local left = math.max(rect.left, math.min(desiredLeft, rect.right - width))
+                local bottom = math.max(rect.bottom, math.min(desiredBottom, rect.top - height))
+                local dx, dy = left - group.left, bottom - group.bottom
+                if math.abs(dx) > 0.01 or math.abs(dy) > 0.01 or stretchX or stretchY then
+                    for _, info in ipairs({first, second}) do
+                        local sx, sy = PointBase(info.relativePoint or info.point, screen)
+                        local px, py = PointFractions(info.point)
+                        info.offsetX = stretchX and (left + px * width - sx) or (info.offsetX + dx)
+                        info.offsetY = stretchY and (bottom + py * height - sy) or (info.offsetY + dy)
+                    end
+                    root.entry.isInDefaultPosition = false
+                    fitted = fitted + 1
+                end
+            else skipped = skipped + #group.records end
+        elseif group.left < rect.left - 0.01 or group.right > rect.right + 0.01
+            or group.bottom < rect.bottom - 0.01 or group.top > rect.top + 0.01 then
+            for _, record in ipairs(group.records) do if not record.blocked then skipped = skipped + 1 end end
+        end
+    end
+    return fitted, skipped, skipped > 0 and "partial" or "complete"
+end
+
 local function GeneratedLayoutBaseName(controllerLayout)
     return controllerLayout and "Offhand - Gamepad" or "Offhand"
 end
@@ -1054,13 +1206,15 @@ function Mainhand:GetEditModeDiagnostics(compact)
     local status = self:GetLayoutStatus()
     local data = EditModeData()
     local active = data and data.activeLayout or "unavailable"
+    local fit = string.format(" | NativeFit=%s/%s/%s | Source=%s", tostring(status.fitStatus or "not-recorded"),
+        tostring(status.fitMoved or 0), tostring(status.fitSkipped or 0), tostring(status.sourceName or "unknown"))
     if compact then
         return string.format("Active=%s | Generated=%s | Geometry=%s | Attention=%s/%s | Gamepad=%s | LastFailure=%s",
             tostring(active),
             status.configured and tostring(status.generatedName or "recorded") or "none",
             status.configured and (status.currentGeometry and "current" or "stale") or "none",
             needsAttention and "yes" or "no", tostring(reason or "unknown"),
-            NativeGamepadInterface() and "yes" or "no", tostring(self.lastLayoutFailure or "none"))
+            NativeGamepadInterface() and "yes" or "no", tostring(self.lastLayoutFailure or "none")) .. fit
     end
     return string.format(
         "Supported=%s | API=%s/%s | Active=%s | Generated=%s | Geometry=%s | Attention=%s/%s | Repair=%s/%s | GamepadMenu=%s | GamepadPanels=%s | GamepadReticle=%s | GamepadBack=%s | LastFailure=%s | GamepadLoot=%s",
@@ -1079,7 +1233,7 @@ function Mainhand:GetEditModeDiagnostics(compact)
         Offhand.WorkspaceBehavior and Offhand.WorkspaceBehavior.GetGamepadWorkspaceBackDiagnostics
             and Offhand.WorkspaceBehavior:GetGamepadWorkspaceBackDiagnostics() or "unavailable",
         tostring(self.lastLayoutFailure or "none"),
-        self:GetForeverGamepadLootDiagnostics())
+        self:GetForeverGamepadLootDiagnostics()) .. fit
 end
 
 function Mainhand:CreateOrUpdateEditModeLayout(options)
@@ -1088,6 +1242,7 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
     local repairSystems = options and options.repairSystems
     if InCombatLockdown and InCombatLockdown() then return false, "combat" end
     if not Offhand.db or not Offhand.db.enabled then return false, "disabled" end
+    if Offhand._displayGeometryTransitionActive then return false, "span" end
     local rect = self:GetRect()
     if not rect.isSpanned then return false, "span" end
     -- ConsolePort remains the external owner of its protected controller HUD.
@@ -1129,6 +1284,11 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
         and IsCurrentCharacterLayoutName(modeRecord.generatedName, controllerLayout)
         and modeRecord or nil
     local source, sourceID, sourceIndex, sourcePreset
+    local activeSource, activeSourceID, activeSourceIndex, activeSourcePreset = ResolveActiveLayout(data, presets)
+    local activeName = activeSource and LayoutName(activeSource, "")
+    local explicitSource = not nativeGamepadLayout and not repairFrameName and not repairSystems and activeSource
+        and not (IsCharacterLayoutName(activeName) or IsSharedLayoutName(activeName, false)
+            or IsSharedLayoutName(activeName, true) or IsEllesmereFallbackName(activeName))
     if nativeGamepadLayout then
         -- Old beta builds could leave a controller record pointing at Classic
         -- after rejecting custom-layout activation. Always rebuild a Gamepad
@@ -1144,6 +1304,10 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
                     activeSource, activeID, activeIndex, true
             end
         end
+    elseif explicitSource then
+        -- A deliberate Create after selecting Modern or another user layout
+        -- must use that choice, not silently revive the previous source.
+        source, sourceID, sourceIndex, sourcePreset = activeSource, activeSourceID, activeSourceIndex, activeSourcePreset
     elseif modeRecord and modeRecord.sourcePreset and tonumber(modeRecord.sourceID) then
         -- Source provenance is safe to reuse even when an older account-global
         -- fallback attached another character's generated target to this DB.
@@ -1307,7 +1471,12 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
     -- layout, including edits made since it was first created.
     local selectiveSource = selective and ResolveActiveLayout(data, presets) or nil
     local encounterSource = repairEncounter and ResolveActiveLayout(data, presets) or nil
-    local layout = DeepCopy(legacyLayout or selectiveSource or encounterSource
+    local preserveGenerated = (Offhand.isForever or Offhand.isRetail) and manager
+        and type(manager.GetRegisteredSystemFrame) == "function"
+        and not controllerLayout and not targeted and not selective and not explicitSource and generated and matchingRecord
+        and matchingRecord.geometrySignature == self:GetGeometrySignature()
+        and generated == activeSource
+    local layout = DeepCopy(legacyLayout or selectiveSource or encounterSource or (preserveGenerated and generated)
         or (targeted and (generated or previousAccountLayout or source) or source))
     local sourceDefaults = {}
     local externallyOwned = {}
@@ -1321,7 +1490,8 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
     local foreverClassBar = actionIndices and actionIndices.ClassBar
     local moved, transformed = 0, {}
     if legacyLayout then moved = matchingRecord.movedSystems or #(layout.systems or {}) end
-    if not legacyLayout and not targeted and not selective then
+    if preserveGenerated then moved = matchingRecord.movedSystems or #(layout.systems or {}) end
+    if not legacyLayout and not preserveGenerated and not targeted and not selective then
         moved, transformed = TransformLayout(layout, rect, function(entry)
             -- Forever's empty MultiCast/Totem Edit Mode preview can call
             -- C_TooltipInfo.GetSpellByID(nil) after an addon-generated relocation.
@@ -1333,7 +1503,7 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
         RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerLayout)
     end
     local groupMoved, groupRepaired = 0, 0
-    if not legacyLayout and not targeted and not selective then
+    if not legacyLayout and not preserveGenerated and not targeted and not selective then
         groupMoved, groupRepaired = RefineGroupHUDLayout(layout, rect, sourceDefaults,
             transformed, repairFrameName)
     end
@@ -1370,6 +1540,11 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
     -- Refinement can inspect neighbouring native systems. Restore external
     -- entries byte-for-byte even if a requested repair traversed that group.
     for index, entry in pairs(externallyOwned) do layout.systems[index] = entry end
+    local fitMoved, fitSkipped, fitStatus = 0, 0, "not-requested"
+    if not targeted and not selective and not controllerLayout then
+        fitMoved, fitSkipped, fitStatus = FitNativeHUDLayout(layout, rect, sourceDefaults)
+        moved = moved + fitMoved
+    end
     if moved == 0 and not characterType then return false, "already", LayoutName(source, "layout"), 0 end
 
     layout.layoutName = generatedName
@@ -1401,6 +1576,7 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
         generatedName = generatedName,
         geometrySignature = self:GetGeometrySignature(),
         movedSystems = moved,
+        fitMoved = fitMoved, fitSkipped = fitSkipped, fitStatus = fitStatus,
         protectedRepairCandidate = repairFrameName,
         protectedRepairSystems = groupRepaired + extraRepaired > 0 and groupRepaired + extraRepaired or nil,
         controllerLayout = controllerLayout and true or nil,
@@ -1412,6 +1588,18 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
     local called, result
     if not (characterType and generated and SameLayoutData(generated.systems, layout.systems)
         and generated.interfaceStyle == layout.interfaceStyle) then
+        if generated then
+            -- Snapshot before the native write, including saves that error or
+            -- whose updated row only becomes readable on a later UI turn.
+            if type(OffhandCharDB.mainhandLayoutBackups) ~= "table" then OffhandCharDB.mainhandLayoutBackups = {} end
+            local backupKey = generatedName
+            local prior = OffhandCharDB.mainhandLayoutBackups[backupKey]
+            local priorOwner = type(prior) == "table" and type(prior.record) == "table" and prior.record.ownerGUID
+            if prior and playerGUID and priorOwner ~= playerGUID then backupKey = backupKey .. "@" .. playerGUID end
+            if not OffhandCharDB.mainhandLayoutBackups[backupKey] then
+                OffhandCharDB.mainhandLayoutBackups[backupKey] = {layout = DeepCopy(generated), record = DeepCopy(matchingRecord)}
+            end
+        end
         local writeData = DeepCopy(data)
         if generated then
             writeData.layouts[targetIndex] = layout
@@ -1535,6 +1723,7 @@ function Mainhand:GetLayoutStatus(geometrySignature, layoutRecord)
         generatedName = record.generatedName,
         generatedID = record.generatedID,
         movedSystems = record.movedSystems,
+        fitMoved = record.fitMoved, fitSkipped = record.fitSkipped, fitStatus = record.fitStatus,
         protectedRepairCandidate = record.protectedRepairCandidate,
         protectedRepairSystems = record.protectedRepairSystems,
         controllerLayout = record.controllerLayout == true,
