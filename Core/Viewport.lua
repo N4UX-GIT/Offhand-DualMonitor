@@ -188,15 +188,15 @@ local function ParseReleaseVersion(value)
     }
 end
 
-local function ReleaseAtLeast(actual, minimum)
-    local left, right = ParseReleaseVersion(actual), ParseReleaseVersion(minimum)
+function Viewport:CompareReleaseVersions(actual, expected)
+    local left, right = ParseReleaseVersion(actual), ParseReleaseVersion(expected)
     if not left or not right then return nil end
     for _, field in ipairs({"major", "minor", "patch"}) do
-        if left[field] ~= right[field] then return left[field] > right[field] end
+        if left[field] ~= right[field] then return left[field] > right[field] and 1 or -1 end
     end
-    if left.stable ~= right.stable then return left.stable end
-    if left.stable then return true end
-    return left.beta >= right.beta
+    if left.stable ~= right.stable then return left.stable and 1 or -1 end
+    if left.stable or left.beta == right.beta then return 0 end
+    return left.beta > right.beta and 1 or -1
 end
 
 local function CompanionVersionStatus(topology)
@@ -208,12 +208,12 @@ local function CompanionVersionStatus(topology)
             and Offhand.companionFullVersion or nil)
     if not actual or actual == "" then return "UNKNOWN", nil, expected end
     if not expected or expected == "" then return "UNKNOWN", actual, nil end
-    local compatible = ReleaseAtLeast(actual, expected)
-    if compatible == nil then
+    local comparison = Viewport:CompareReleaseVersions(actual, expected)
+    if comparison == nil then
         return string.lower(actual) == string.lower(expected) and "MATCH" or "UNKNOWN",
             actual, expected
     end
-    return compatible and "MATCH" or "MISMATCH", actual, expected
+    return comparison >= 0 and "MATCH" or "MISMATCH", actual, expected
 end
 
 -- A stale exact topology is unsafe on every client. An absent topology is

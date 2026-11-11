@@ -1,6 +1,17 @@
 local _, Offhand = ...
 if GetLocale() ~= "zhTW" then return end
 local L = Offhand.L
+L["WHATS_NEW_TITLE"] = "Offhand v%s 更新內容"
+L["WHATS_NEW_BETA32"] = "• 可分別調整每個工作區的面板大小。\n• 套用前可預覽變更，使用 Companion 2.1.7 還可依 Windows 縮放比例估算大小。\n• 改善地圖配置、設定指引和彈出視窗位置。"
+L["WHATS_NEW_FALLBACK"] = "請查看完整版本說明，了解此版本的變更。"
+L["WHATS_NEW_COMPANION_PAIRED"] = "此插件版本同時發行了 Companion %s。"
+L["WHATS_NEW_COMPANION_UNCHANGED"] = "此次插件更新沒有搭配新版 Companion。"
+L["WHATS_NEW_COMPANION_LAST_USED"] = "上次延伸 WoW 視窗時使用的 Companion 版本：%s。"
+L["WHATS_NEW_COMPANION_STORE"] = "此插件發行時的 Microsoft Store 版本：%s。"
+L["WHATS_NEW_COMPANION_CHECK"] = "如果你使用 Microsoft Store 版本，請前往商店檢查更新。"
+L["WHATS_NEW_STORE_LINK"] = "Microsoft Store 連結"
+L["WHATS_NEW_NOTES_LINK"] = "版本說明"
+L["WHATS_NEW_COPY_HINT"] = "選取並複製網址，再用瀏覽器開啟。"
 -- Experimental EllesmereUI transfer strings use English fallback.
 L["ELLESMERE_HUD_HELP"] = "Use /offhand ellesmere preview to open the visual HUD preview."
 L["ELLESMERE_HUD_VISUAL"] = "EllesmereUI HUD Preview"

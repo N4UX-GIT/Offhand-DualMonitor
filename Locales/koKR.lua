@@ -1,6 +1,17 @@
 local _, Offhand = ...
 if GetLocale() ~= "koKR" then return end
 local L = Offhand.L
+L["WHATS_NEW_TITLE"] = "Offhand v%s의 새로운 기능"
+L["WHATS_NEW_BETA32"] = "• 작업 공간마다 패널 크기를 따로 설정할 수 있습니다.\n• 적용하기 전에 변경 사항을 미리 보고, Companion 2.1.7로 Windows 배율 추정치를 사용할 수 있습니다.\n• 지도 맞춤, 설정 안내, 팝업 위치를 개선했습니다."
+L["WHATS_NEW_FALLBACK"] = "이 버전의 변경 사항은 전체 릴리스 노트를 참고하세요."
+L["WHATS_NEW_COMPANION_PAIRED"] = "이 애드온 버전과 함께 Companion %s이 출시되었습니다."
+L["WHATS_NEW_COMPANION_UNCHANGED"] = "이 애드온 업데이트와 함께 출시된 새 Companion 버전은 없습니다."
+L["WHATS_NEW_COMPANION_LAST_USED"] = "마지막으로 WoW 창을 확장할 때 사용한 Companion: %s."
+L["WHATS_NEW_COMPANION_STORE"] = "애드온 출시 시점의 Microsoft Store 버전: %s."
+L["WHATS_NEW_COMPANION_CHECK"] = "Microsoft Store 버전을 사용 중이라면 스토어에서 업데이트를 확인하세요."
+L["WHATS_NEW_STORE_LINK"] = "Microsoft Store 링크"
+L["WHATS_NEW_NOTES_LINK"] = "릴리스 노트"
+L["WHATS_NEW_COPY_HINT"] = "주소를 선택해 복사한 다음 브라우저에서 여세요."
 -- Experimental EllesmereUI transfer strings use English fallback.
 L["ELLESMERE_HUD_HELP"] = "Use /offhand ellesmere preview to open the visual HUD preview."
 L["ELLESMERE_HUD_VISUAL"] = "EllesmereUI HUD Preview"

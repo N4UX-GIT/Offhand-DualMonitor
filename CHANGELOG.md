@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+- Show what changed on the first login after an Offhand update. The dialog also
+  shows the Companion release status and offers a copyable Microsoft Store link.
+  Reopen it anytime with `/offhand whatsnew`.
+
 ## [2.1.5-beta.32] - Unreleased
 
 - Set separate sizes for supported panels in each Offhand workspace from
