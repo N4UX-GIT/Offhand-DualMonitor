@@ -43,11 +43,15 @@ function Placement.InstallSingleScreen(Canvas, services)
         local name = frame.GetName and frame:GetName()
         if not name or not Offhand.db.savedWorkspacePositions[name]
             or IsForeverEditModeFrame(frame, name) or IsUnsafeForPanelMutation(frame, name) then return false end
+        local daylight = Offhand.DaylightMapCompatibility
+        if name == "WorldMapFrame" and daylight and daylight.ShouldPreserveSingleScreenPosition
+            and daylight:ShouldPreserveSingleScreenPosition(frame, metrics) then return false end
 
         -- Blizzard Edit Mode's Modern fallback already places chat correctly and
         -- may also restore its preferred size. Do not override it with panel logic.
         if tostring(name):match("^ChatFrame%d+$") then return false end
 
+        if Offhand.WorkspaceScale and not Offhand.WorkspaceScale:Apply(frame,false,metrics) then return false end
         if frame.SetClampedToScreen then pcall(frame.SetClampedToScreen, frame, true) end
         if frame.ClearAllPoints and frame.SetPoint then
             pcall(function()
@@ -117,6 +121,7 @@ function Placement.InstallMainhand(Canvas, services)
         metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics
             and WithWorkspace(Offhand.Viewport:GetMetrics()))
         if not metrics or not metrics.isSpanned then return false end
+        if Offhand.WorkspaceScale and not Offhand.WorkspaceScale:Apply(frame,false,metrics) then return false end
 
         local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
         local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or parentScale

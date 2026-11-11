@@ -27,10 +27,12 @@ Core\Config.lua
 Core\UserMedia.lua
 Core\ManualCanvas.lua
 Core\WorkspaceRegions.lua
+Core\WorkspaceScale.lua
 Core\WorkspaceProfiles.lua
 Core\WorkspaceRouting.lua
 Core\Viewport.lua
 Core\TopologyDetection.lua
+Core\EllesmereScaleCompatibility.lua
 Core\PopupBounds.lua
 Core\MainhandGeometry.lua
 Core\MainhandCompatibility.lua
@@ -44,6 +46,7 @@ Core\CinematicPresentation.lua
 Core\DialogueUICompat.lua
 Core\ChatBubbles.lua
 Core\MenuPlacement.lua
+Core\ProcDocCompatibility.lua
 Core\ForeverPlusWarnings.lua
 Core\HUDCompatibility.lua
 Core\HUDTransientPolicy.lua
@@ -64,6 +67,7 @@ Core\CanvasChat.lua
 Core\CanvasProfessions.lua
 Core\CanvasPanelMotion.lua
 Core\CanvasMapPresentation.lua
+Core\DaylightMapCompatibility.lua
 Core\CanvasPanelLifecycle.lua
 Core\CanvasPanelPlacement.lua
 Core\Canvas.lua
@@ -91,6 +95,7 @@ Locales\zhTW.lua
 # UI & Themes
 UI\Themes.lua
 UI\Controls.lua
+UI\WorkspaceScaleControls.lua
 UI\OptionsActions.lua
 UI\WorkspaceOptions.lua
 UI\Options.lua

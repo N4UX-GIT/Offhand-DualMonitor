@@ -378,3 +378,90 @@ function Chat.Install(Canvas)
     }
 end
 
+-- Explicit support capture only. Never read chat contents or alter native
+-- snapping, anchors, docking, visibility or the account-wide snap preference.
+function Chat:GetPlacementDiagnostics(compact)
+    local function Secret(value)
+        return issecretvalue and issecretvalue(value)
+    end
+    local function Field(object, key)
+        if Secret(object) or object == nil then return nil end
+        local ok, value = pcall(function() return object[key] end)
+        if ok and not Secret(value) then return value end
+    end
+    local function Read(object, method, ...)
+        local fn = Field(object, method)
+        if type(fn) ~= "function" then return nil end
+        local ok, value = pcall(fn, object, ...)
+        if ok and not Secret(value) then return value end
+    end
+    local function Atom(value)
+        if Secret(value) then return "secret" end
+        if type(value) == "boolean" then return value and "yes" or "no" end
+        if type(value) == "number" then
+            if value ~= value or value == math.huge or value == -math.huge then return "unknown" end
+            return string.format("%.3f", value)
+        end
+        if type(value) == "string" then return value:gsub("[|%c]", "?"):sub(1, 64) end
+        return "unknown"
+    end
+    local function Name(frame)
+        if Secret(frame) then return "secret" end
+        local kind = type(frame)
+        if kind ~= "table" and kind ~= "userdata" then return "unknown" end
+        if Read(frame, "IsForbidden") == true then return "forbidden" end
+        return Atom(Read(frame, "GetName"))
+    end
+    if InCombatLockdown and InCombatLockdown() then return {"state=combat-deferred"} end
+    local manager = _G.EditModeManagerFrame
+    local lines = {"EditMode=" .. Atom(Read(manager, "IsShown"))
+        .. " | SnapToElements=" .. Atom(Read(manager, "IsSnapEnabled"))}
+    local db = Offhand.db or {}
+    local omitted = 0
+    for index = 1, 10 do
+        local name = "ChatFrame" .. index
+        local frame = _G[name]
+        if frame then
+            if Read(frame, "IsForbidden") == true then
+                lines[#lines + 1] = name .. "=forbidden"
+            elseif compact and index > 1 and Read(frame, "IsShown") == false
+                and (Field(frame, "isDocked") == nil or Field(frame, "isDocked") == false
+                    or Field(frame, "isDocked") == 0)
+                and not (db.savedWorkspacePositions and db.savedWorkspacePositions[name])
+                and not (db.savedMainPositions and db.savedMainPositions[name]) then
+                omitted = omitted + 1
+            else
+                local points, getPoint = {}, Field(frame, "GetPoint")
+                local count = Read(frame, "GetNumPoints")
+                if type(count) == "number" and count == count and count >= 0 and count <= 8
+                    and type(getPoint) == "function" then
+                    for pointIndex = 1, math.min(math.floor(count), 2) do
+                        local ok, point, relative, relativePoint, x, y = pcall(getPoint, frame, pointIndex)
+                        if ok then
+                            points[#points + 1] = Atom(point) .. ":" .. Name(relative)
+                                .. ":" .. Atom(relativePoint) .. ":" .. Atom(x) .. "/" .. Atom(y)
+                        end
+                    end
+                end
+                local saved = db.savedWorkspacePositions and db.savedWorkspacePositions[name] and "workspace"
+                    or db.savedMainPositions and db.savedMainPositions[name] and "mainhand" or "none"
+                lines[#lines + 1] = name .. " shown=" .. Atom(Read(frame, "IsShown"))
+                    .. " | docked=" .. Atom(Field(frame, "isDocked"))
+                    .. " | EditMode=" .. Atom(Field(frame, "isInEditMode"))
+                    .. " | snapTarget=" .. Name(Field(frame, "snappedToFrame"))
+                    .. " | parent=" .. Name(Read(frame, "GetParent"))
+                    .. " | rect(L/B/W/H)=" .. Atom(Read(frame, "GetLeft")) .. "/"
+                        .. Atom(Read(frame, "GetBottom")) .. "/" .. Atom(Read(frame, "GetWidth"))
+                        .. "/" .. Atom(Read(frame, "GetHeight"))
+                    .. " | scale=" .. Atom(Read(frame, "GetEffectiveScale"))
+                    .. " | saved=" .. saved .. " | anchors=" .. (#points > 0 and table.concat(points, ";") or "unresolved")
+            end
+        end
+    end
+    if omitted > 0 then
+        lines[#lines + 1] = "Other hidden/untracked windows=" .. omitted
+            .. " | Inspect all anchors with /offhand diag chat"
+    end
+    return lines
+end
+

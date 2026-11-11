@@ -4,7 +4,83 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-No additional changes queued beyond 2.1.5 Pre-Release Beta 28 and Companion 2.1.5.
+- Add opt-in panel sizing for each workspace region in calibration and Workspace
+  settings, with preview, Apply/discard, Windows-based Auto estimates and optional
+  chat sizing. Existing configurations remain at 100% until explicitly changed.
+- Report scale metadata for every Companion workspace display, including custom
+  regions sharing a monitor. Preserve region choices in workspace presets and
+  Forever profile recovery. Native Companion binaries remain unchanged pending
+  the Companion candidate workflow; live scaling/taint QA remains pending.
+
+- Preserve DaylightUI's saved world-map placement when reopening the map after
+  Restore Window, instead of replacing it with a single-screen recovery anchor.
+- Preserve ProcDoc's own alert anchor during automatic popup recovery, avoiding
+  an extra Mainhand offset when optional centering is enabled and allowing its
+  latest vendor offsets to restore when centering is turned off.
+- Reflow existing native Forever panels when Offhand restores its owned UI
+  scale on disable or loss of spanning, keeping open NPC windows reachable
+  without closing their interaction. External scale ownership is preserved.
+- Keep EllesmereUI's pixel grid consistent with Offhand's spanned root scale.
+  Refresh geometry after EllesmereUI scale changes without replacing that
+  selected scale, and preserve later external scale choices when disabling
+  Offhand. Controlled spanned Forever 70862 scale/reload checks pass; exact
+  reporter profiles, physical portrait/4K layouts and combat remain unverified.
+- Let native Escape close a Forever workspace backpack when a target is
+  selected, allowing the next Escape to dismiss that target. Retain saved bag
+  placement and the existing no-target workspace behavior.
+- Preserve Details meter placement during automatic popup recovery even when
+  Details clears the native user-placed flag. A controlled spanned Forever
+  70862 case reproduces the jump before correction and retains its anchor
+  afterward; exact reporter profiles and combat remain unverified.
+- Preserve BetterBags Next panel placement during automatic popup recovery,
+  including panels that deliberately clear the native user-placed flag.
+  Spanned Forever 70862 Next small/full and RestedXP V2 map/reload checks pass;
+  exact reporter profiles, bank/vendor panels and combat remain unverified.
+- Preserve a saved Forever workspace backpack through Chat Settings dismissal.
+  Respect the native X close even when hiding the bag clears mouse focus before
+  the close observer runs. Spanned Forever 70862 checks pass restoration,
+  explicit closure and closed-state reload; combat and replacement bags remain
+  outside that acceptance.
+- Keep remaining loot rolls in a compact, scale-correct stack after an earlier
+  roll is removed. Fit the complete stack inside Mainhand and avoid unchanged
+  maintenance anchor writes while preserving native visibility and choices.
+- Constrain native Mainhand item tooltips to the physical display. Fit oversized
+  native tooltip cards temporarily and restore their original scale on hide or
+  smaller content, while respecting combat and other tooltip owners.
+- Preserve oversized tooltip fitting through Offhand's scale-normalization
+  callbacks, including nested native size changes. Spanned Forever synthetic
+  tall/short/hide checks pass; real item/combat acceptance remains pending.
+- Add an optional, reversible ProcDoc Mainhand-center control. Preserve vendor
+  offsets/settings and release placement on disable or unspan. All eleven
+  locales and six manifests include the new control/adapter. Native acceptance
+  remains pending for these source and simulated corrections.
+
+- Preserve the player's friendly-name visibility preference instead of forcing
+  it on during Retail scaling refreshes. Restore the old forced setting once
+  when still owned, and preserve newer choices through disable and logout.
+  Source and simulated checks pass; native Retail acceptance remains pending.
+- Restore Offhand's temporary UI root scale on logout outside combat while
+  Offhand still owns it, and prevent teardown callbacks from reapplying it.
+  Add regression coverage and recovery guidance for a report of tiny fonts
+  after removal. The reported font symptoms still need native reproduction.
+- Preserve detached minimaps and vendor crop parents during automatic popup
+  recovery. Skip native minimap repair when a replacement owns it. Expanded
+  diagnostics identify Ellesmere module/mover readiness and known minimap buttons.
+- Include minimap visibility, alpha, parent and saved-placement details in
+  full diagnostics to investigate profile-dependent disappearance reports.
+- Add targeted DaylightUI map-mover compatibility while Offhand owns a saved
+  map placement. Keep Offhand geometry and DaylightUI skinning, preserve the
+  vendor's saved settings, and restore its controls and placement on release.
+  Source and simulated checks pass; native Forever acceptance remains pending.
+- When setup is reloaded before Companion has spanned WoW, return to the span
+  instructions and acknowledge the completed reload. Keep the task text,
+  illustration and buttons consistent. Confirm placement stays locked until
+  valid placement and a completed reload, then advances to calibration.
+- Fix the HUD completion Reload UI button on Forever keyboard/mouse UI by
+  running the reload callback before hiding its clicked dialog. Preserve manual
+  instructions for controller UI and unavailable reload APIs. Keep guide/wizard
+  progress across manual reloads and guard placement confirmation until reload.
+  Native Forever 1.60.1.70862 HUD prompt reload verified out of combat.
 
 ## [2.1.5-beta.28] - 2026-11-09
 

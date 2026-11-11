@@ -44,6 +44,10 @@ assert(classicText:match("## Interface:%s*30300"),
 assert(wrathText:match("## Interface:%s*30300%s*\r?\n"),
     "dedicated Wrath test manifest must target only interface 30300")
 local main = entries(tocs[1])
+local procDocIndex
+for index, file in ipairs(main) do
+    if file == "Core/ProcDocCompatibility.lua" then procDocIndex = index end
+end
 local initIndex
 local viewportIndex
 local topologyDetectionIndex
@@ -71,6 +75,7 @@ local canvasChatIndex
 local canvasProfessionsIndex
 local canvasPanelMotionIndex
 local canvasMapPresentationIndex
+local daylightMapCompatibilityIndex
 local canvasPanelLifecycleIndex
 local canvasPanelPlacementIndex
 local canvasIndex
@@ -105,6 +110,7 @@ for index, file in ipairs(main) do
     if file == "Core/CanvasProfessions.lua" then canvasProfessionsIndex = index end
     if file == "Core/CanvasPanelMotion.lua" then canvasPanelMotionIndex = index end
     if file == "Core/CanvasMapPresentation.lua" then canvasMapPresentationIndex = index end
+    if file == "Core/DaylightMapCompatibility.lua" then daylightMapCompatibilityIndex = index end
     if file == "Core/CanvasPanelLifecycle.lua" then canvasPanelLifecycleIndex = index end
     if file == "Core/CanvasPanelPlacement.lua" then canvasPanelPlacementIndex = index end
     if file == "Core/Canvas.lua" then canvasIndex = index end
@@ -146,18 +152,22 @@ assert(compatibilityIndex and frameStateIndex and panelRegistryIndex and canvasP
         and canvasChatIndex + 1 == canvasProfessionsIndex
         and canvasProfessionsIndex + 1 == canvasPanelMotionIndex
         and canvasPanelMotionIndex + 1 == canvasMapPresentationIndex
-        and canvasMapPresentationIndex + 1 == canvasPanelLifecycleIndex
+        and canvasMapPresentationIndex + 1 == daylightMapCompatibilityIndex
+        and daylightMapCompatibilityIndex + 1 == canvasPanelLifecycleIndex
         and canvasPanelLifecycleIndex + 1 == canvasPanelPlacementIndex
         and canvasPanelPlacementIndex + 1 == canvasIndex,
     "Canvas support services must load together immediately before Canvas")
 assert(kerzoQuestLogIndex and kerzoQuestLogIndex + 1 == compatibilityIndex,
     "Kerzo Escape adapter must load before Canvas initializes its persistence policy")
+assert(procDocIndex and procDocIndex > viewportIndex and procDocIndex < canvasIndex,
+    "ProcDoc adapter must load after viewport services and before Canvas refresh")
 assert(addonEscapeIndex and addonEscapeIndex + 1 == kerzoQuestLogIndex,
     "addon settings Escape adapters must load before Canvas persistence initialization")
 local workspaceOptionsIndex
 for i,file in ipairs(main) do if file=="UI/WorkspaceOptions.lua" then workspaceOptionsIndex=i end end
 assert(controlsIndex and optionsActionsIndex and workspaceOptionsIndex and optionsIndex
-        and controlsIndex + 1 == optionsActionsIndex
+        and main[controlsIndex+1]=="UI/WorkspaceScaleControls.lua"
+        and controlsIndex + 2 == optionsActionsIndex
         and optionsActionsIndex + 1 == workspaceOptionsIndex
         and workspaceOptionsIndex + 1 == optionsIndex,
     "shared controls and settings actions must load immediately before Options")

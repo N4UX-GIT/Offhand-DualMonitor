@@ -237,6 +237,13 @@ local function BringPopupForward(dialog)
     return dialog
 end
 
+local function PreparePlacementReload()
+    if not Offhand.SetupPlacement:RequestReload() then return false end
+    if type(OffhandCharDB) == "table" then OffhandCharDB.wizardRecoveryStep = nil end
+    if Offhand.SetOnboardingResumeStep then Offhand:SetOnboardingResumeStep(4) end
+    return true
+end
+
 StaticPopupDialogs["OFFHAND_CONFIRM_MANUAL_LAYOUT"] = {
     text = L["ONBOARD_MANUAL_CONFIRM_TEXT"] .. "\n\n" .. L["ONBOARD_CONFIRM_REVIEW"],
     button1 = L["ONBOARD_MANUAL_CONFIRM_ACCEPT"],
@@ -340,6 +347,16 @@ local function SetupStatus()
         return true, L["ONBOARD_STATUS_VERSION_UNKNOWN"]
     end
     return true, L["ONBOARD_STATUS_READY"]
+end
+
+-- A completed reload and valid placement are separate facts. A rejected or
+-- missing bridge needs another span attempt, not an endless Reload UI action.
+local function NeedsPlacementRetry(stage, ready)
+    if ready or (stage ~= "CONFIRM" and stage ~= "READY") then return false end
+    if Offhand._displayGeometryTransitionActive or WindowedState() == "OTHER" then return false end
+    local m = Metrics()
+    return Offhand:GetOnboardingSetupMethod() == "COMPANION" and m
+        and (m.topologyStatus == "MISMATCH" or not m.companionTopology) or false
 end
 
 function Onboarding:CreateFrame()
@@ -574,33 +591,39 @@ function Onboarding:CreateFrame()
         local method = Offhand:GetOnboardingSetupMethod()
         local combat = InCombatLockdown and InCombatLockdown()
         local ready, message = SetupStatus()
-        if (stage == "CONFIRM" or stage == "READY") and not ready then stage = "RELOAD" end
-        local phase = stage == "SPAN" and 1 or stage == "RELOAD" and 2 or 3
+        local retryPlacement = NeedsPlacementRetry(stage, ready)
+        local needsSpan = stage == "SPAN" or retryPlacement
+        local phase = needsSpan and 1 or stage == "RELOAD" and 2 or 3
+        self.placementPhase = phase
+        local manualReload = not Offhand:GetReloadUIFunction()
         self.pageTitle:SetText(L["ONBOARD_PLACE_TITLE"] .. "\n" .. string.format(L["STEP_PROGRESS"],phase,3))
-        local key = stage == "SPAN" and ("ONBOARD_SPAN_" .. (method or "MANUAL"))
-            or (stage == "RELOAD" and "ONBOARD_RELOAD_TASK" or "ONBOARD_CONFIRM_TASK")
-        local buttonKey = stage == "SPAN" and "ONBOARD_SPAN_ACK"
+        local key = needsSpan and ("ONBOARD_SPAN_" .. (method or "MANUAL"))
+            or (stage == "RELOAD" and (manualReload and "SETUP_MANUAL_RELOAD" or "ONBOARD_RELOAD_TASK")
+                or "ONBOARD_CONFIRM_TASK")
+        local buttonKey = needsSpan and "ONBOARD_SPAN_ACK"
             or stage == "RELOAD" and "ONBOARD_RELOAD_UI" or "ONBOARD_CONFIRM_PLACEMENT"
         local text = string.format(L[key], "|cffffd100" .. L[buttonKey] .. "|r")
+        if retryPlacement then text = L["ONBOARD_RELOAD_COMPLETE_PLACE"] .. "\n\n" .. text end
         if self.helpExpanded and method then text = text .. "\n\n" .. L["ONBOARD_PATH_" .. method .. "_4"] end
         self.pageBody:SetText(text)
-        self.nextButton:SetEnabled(phase == 3 and not combat)
-        SetShown(self.actionButton,phase < 3)
+        self.nextButton:SetEnabled(phase == 3 and ready and not combat)
+        SetShown(self.actionButton,phase < 3 and not (phase == 2 and manualReload))
         self.actionButton:SetEnabled(not combat and not Offhand._displayGeometryTransitionActive
             and method ~= nil and WindowedState() ~= "OTHER")
-        self.actionButton:SetText(L[stage == "SPAN" and "ONBOARD_SPAN_ACK" or "ONBOARD_RELOAD_UI"])
+        self.actionButton:SetText(L[needsSpan and "ONBOARD_SPAN_ACK" or "ONBOARD_RELOAD_UI"])
         self.actionButton:SetScript("OnClick",function()
             if WindowedState() == "OTHER" then self:SetStatusText(L["ONBOARD_STATE_MODE_OTHER"]); return end
             if InCombatLockdown and InCombatLockdown() then self:SetStatusText(L["ONBOARD_RELOAD_COMBAT"]); return end
             local current = Offhand.SetupPlacement:GetStage()
+            local currentReady = SetupStatus()
             local reload = Offhand:GetReloadUIFunction()
-            if current == "SPAN" then
-                Offhand.SetupPlacement:AcknowledgeSpan()
-            elseif (current == "RELOAD" or current == "CONFIRM" or current == "READY") and reload then
-                if Offhand.SetupPlacement:RequestReload() then
-                    if type(OffhandCharDB) == "table" then OffhandCharDB.wizardRecoveryStep = nil end
-                    if Offhand.SetOnboardingResumeStep then Offhand:SetOnboardingResumeStep(4) end
-                    reload()
+            if current == "SPAN" or NeedsPlacementRetry(current, currentReady) then
+                if Offhand.SetupPlacement:AcknowledgeSpan() and not PreparePlacementReload() then
+                    Offhand.SetupPlacement:Reset()
+                end
+            elseif current == "RELOAD" or current == "CONFIRM" or current == "READY" then
+                if PreparePlacementReload() then
+                    if reload then reload() else Offhand:ShowManualReloadPrompt() end
                 end
             end
             self:RefreshPlacementState()
@@ -627,10 +650,10 @@ function Onboarding:CreateFrame()
         for _,button in ipairs({self.backButton,self.helpButton,self.nextButton}) do button:SetHeight(footerHeight) end
         local kind=self.page==3 and "WINDOW" or self.page==4 and "POSITION" or self.page==6 and "HUD" or nil
         if self.page==4 then
-            local stage=Offhand.SetupPlacement:GetStage()
-            if stage=="RELOAD" or stage=="CONFIRM" or stage=="READY" then
+            local phase=self.placementPhase or 1
+            if phase > 1 then
                 kind="RELOAD"
-                self.modeIllustration:Update(kind,Metrics(),stage=="RELOAD" and 2 or 3)
+                self.modeIllustration:Update(kind,Metrics(),phase)
             else self.modeIllustration:Update(kind,Metrics()) end
         elseif kind then self.modeIllustration:Update(kind,Metrics()) end
         SetShown(self.modeIllustration,kind~=nil)
@@ -894,6 +917,16 @@ function Onboarding:CreateFrame()
 
     guideFrame = f
     return f
+end
+
+-- Called by the completed core geometry transition, not a guessed timer. A
+-- recenter alone does not update disabled actions or their waiting message.
+function Onboarding:RefreshDisplayState()
+    local f = guideFrame
+    if not f or not f:IsShown() then return end
+    if f.page == 3 then f:RefreshModeState(true)
+    elseif f.page == 4 then f:RefreshPlacementState() end
+    f:CenterInMainhand()
 end
 
 function Onboarding:Open()

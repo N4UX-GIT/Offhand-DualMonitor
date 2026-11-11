@@ -162,4 +162,26 @@ do
     issecretvalue = previousSecretCheck
 end
 
+do
+    local previousMap, previousEUI = Minimap, EllesmereUIMinimap
+    local parent = {GetParent=function() return UIParent end}
+    Minimap = {GetParent=function() return parent end}
+    EllesmereUIMinimap = {}
+    assert(compatibility.IsExternallyOwnedHUDFrame(Minimap, "Minimap"))
+    assert(compatibility.IsExternallyOwnedHUDFrame(parent), "anonymous minimap parent must retain ownership")
+    assert(not compatibility.IsExternallyOwnedHUDFrame(UIParent, "UIParent"), "minimap ownership must stop before UIParent")
+    parent.GetParent = function() return parent end
+    assert(not compatibility.IsExternallyOwnedHUDFrame({}, "Unrelated"), "cyclic parent chains must remain bounded")
+    Minimap, EllesmereUIMinimap = previousMap, previousEUI
+end
 print("PASS: HUD compatibility ownership and client capability policy")
+
+do
+    local root = {IsUserPlaced=function() return false end}
+    assert(compatibility.ShouldPreservePopupPosition(root, 'DetailsBaseFrame1'))
+    assert(compatibility.ShouldPreservePopupPosition(root, 'DetailsBaseFrame12'))
+    assert(not compatibility.ShouldPreservePopupPosition(root, 'DetailsBaseFrameSettings'),
+        'Details configuration dialogs must retain ordinary popup recovery')
+    assert(not compatibility.ShouldPreservePopupPosition(root, 'OtherDetailsBaseFrame1'),
+        'Details ownership must match the complete instance-root name')
+end

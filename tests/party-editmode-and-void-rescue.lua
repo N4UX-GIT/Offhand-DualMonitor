@@ -657,6 +657,7 @@ assertMainhandAnchor(GroupLootContainer, "BOTTOM", 2720, 196,
 -- individual roll rows must remain attached directly to Mainhand, and every
 -- native GroupLootContainer_Update must restore that independent row layout.
 GroupLootContainer.rollFrames[1] = GroupLootFrame1
+
 GroupLootContainer.maxIndex = 1
 GroupLootContainer_Update(GroupLootContainer)
 GroupLootFrame1:Show()
@@ -740,6 +741,61 @@ assertMainhandAnchor(GroupLootFrame2, "CENTER", 2720, 346,
 
 GroupLootFrame1:Hide()
 GroupLootFrame2:Hide()
+
+-- Removing the first native roll leaves a sparse array. The remaining row's
+-- scale must supply the baseline, and it becomes the first displayed slot.
+do
+GroupLootContainer.rollFrames[1] = nil
+GroupLootContainer.rollFrames[2] = GroupLootFrame2
+GroupLootFrame2.scale = 0.5
+GroupLootFrame2:Show()
+GroupLootContainer_Update(GroupLootContainer)
+assertMainhandAnchor(GroupLootFrame2, "CENTER", 5440, 442,
+    "remaining scaled roll after the first roll is removed")
+assert(GroupLootFrame2:IsShown() and not GroupLootFrame1:IsShown(),
+    "roll layout changed Blizzard's chosen visibility")
+GroupLootFrame2.scale = 1
+GroupLootFrame2:Hide()
+GroupLootContainer.rollFrames[1] = GroupLootFrame1
+
+-- A saved first-roll anchor at an edge must accommodate the complete stack.
+GroupLootContainer.rollFrames[3] = GroupLootFrame3
+GroupLootContainer.maxIndex = 3
+addon.db.groupLootPosition = {x = 1, y = 1}
+GroupLootContainer_Update(GroupLootContainer)
+assertMainhandAnchor(GroupLootFrame1, "CENTER", 3778, 1189,
+    "complete loot stack fitted inside Mainhand")
+assert(GroupLootFrame3:GetTop() <= metrics.gameTop - 12,
+    "later roll escaped the physical Mainhand top")
+assert(addon.db.groupLootPosition.x == 1 and addon.db.groupLootPosition.y == 1,
+    "temporary roll-stack fitting changed the user's saved anchor")
+addon.db.groupLootPosition = {x = 0, y = 0}
+assert(addon.HUD:SetGroupLootStackDirection("DOWN"))
+assertMainhandAnchor(GroupLootFrame1, "CENTER", 1662, 263,
+    "downward loot stack fitted above the physical Mainhand bottom")
+assert(GroupLootFrame3:GetBottom() >= metrics.gameBottom + 12,
+    "later downward roll escaped the physical Mainhand bottom")
+GroupLootContainer.rollFrames[3] = nil
+GroupLootContainer.maxIndex = 2
+addon.db.groupLootPosition = nil
+assert(addon.HUD:SetGroupLootStackDirection("UP"))
+GroupLootContainer_Update(GroupLootContainer)
+addon.HUD:PositionMainhandTransientFrames(metrics)
+local idleLootWrites = GroupLootFrame1.setPointCalls
+local idleContainerWrites = GroupLootContainer.setPointCalls
+addon.HUD:PositionMainhandTransientFrames(metrics)
+assert(GroupLootFrame1.setPointCalls == idleLootWrites
+    and GroupLootContainer.setPointCalls == idleContainerWrites,
+    "unchanged transient maintenance rewrote loot anchors")
+local secretDimension, nativeHeight = {}, GroupLootFrame2.GetHeight
+issecretvalue = function(value) return value == secretDimension end
+GroupLootFrame2.GetHeight = function() return secretDimension end
+GroupLootContainer_Update(GroupLootContainer)
+assert(select(2, GroupLootFrame1:GetPoint(1)) == GroupLootContainer,
+    "unreadable later-row dimensions caused a partial Offhand stack update")
+GroupLootFrame2.GetHeight, issecretvalue = nativeHeight, nil
+GroupLootContainer_Update(GroupLootContainer)
+end
 
 -- START_TIMER dynamically creates/reuses timer children. The post-event hook
 -- must catch a newly allocated completion texture immediately.
@@ -1798,6 +1854,26 @@ assert(addon.Canvas:PlaceForSingleScreenRecovery(recoveryBag,
 local bagPoint = recoveryBag.points[#recoveryBag.points]
 assert(bagPoint and bagPoint[1] == "BOTTOMRIGHT" and bagPoint[3] == "BOTTOMRIGHT",
     "the backpack must recover above the lower-right action UI")
+do
+    local previous = addon.DaylightMapCompatibility
+    local map = makeMockFrame("WorldMapFrame", 600, 400)
+    local saved = addon.db.savedWorkspacePositions.WorldMapFrame
+    addon.db.savedWorkspacePositions.WorldMapFrame = {x=100,y=900}
+    map:SetPoint("TOPLEFT",UIParent,"BOTTOMLEFT",19,1141)
+    local points = #map.points
+    addon.DaylightMapCompatibility = {ShouldPreserveSingleScreenPosition=function(_,frame,metrics)
+        return frame == map and not metrics.isSpanned
+    end}
+    assert(not addon.Canvas:PlaceForSingleScreenRecovery(map,
+        {topologyStatus="MISMATCH",isSpanned=false}) and #map.points == points,
+        "single-screen recovery must not replace Daylight's restored vendor anchor")
+    addon.DaylightMapCompatibility.ShouldPreserveSingleScreenPosition=function()return false end
+    assert(addon.Canvas:PlaceForSingleScreenRecovery(map,
+        {topologyStatus="MISMATCH",isSpanned=false}),
+        "a map without verified vendor placement must retain native recovery")
+    addon.DaylightMapCompatibility = previous
+    addon.db.savedWorkspacePositions.WorldMapFrame = saved
+end
 recoveryPanel:Show()
 addon.Canvas:PrepareSingleScreenRecovery({ topologyStatus = "ABSENT", isSpanned = false })
 assert(recoveryPanel:IsShown(),
@@ -1905,7 +1981,9 @@ local originalPanels={}
 UISpecialFrames={}
 local owned={}
 for _,name in ipairs({'BetterBagsBagBackpack','BetterBagsBagBackpackAnchor',
-    'BetterBagsBagBank','BetterBagsBagBankAnchor','RXPFrame','RXPItemFrame'}) do
+    'BetterBagsBagBank','BetterBagsBagBankAnchor','BetterBagsNextBackpack',
+    'BetterBagsNextBank','BetterBagsNextVendor','BetterBagsNextGuildBank',
+    'DetailsBaseFrame1','DetailsBaseFrame12','RXPFrame','RXPItemFrame'}) do
     local f=makeMockFrame(name,300,180)
     _G[name]=f;f:SetPoint('CENTER',UIParent,'CENTER',0,0)
     table.insert(UIParent.children,f);table.insert(UISpecialFrames,name)
@@ -1913,6 +1991,11 @@ for _,name in ipairs({'BetterBagsBagBackpack','BetterBagsBagBackpackAnchor',
     UIPanelWindows[name]={area='center'}
     owned[#owned+1]=f
 end
+-- ProcDoc's actual root is a one-unit, non-panel presentation anchor. Popup
+-- recovery must preserve it even when Mainhand centering is disabled.
+local procRoot=makeMockFrame('ProcDocAlertFrame',1,1)
+procRoot:SetPoint('CENTER',UIParent,'CENTER',0,0)
+table.insert(UIParent.children,procRoot);owned[#owned+1]=procRoot
 local v2=makeMockFrame('AnonymousGuideFixture',300,180)
 v2.name=nil
 v2:SetPoint('CENTER',UIParent,'CENTER',0,0)
@@ -1954,6 +2037,38 @@ end
 UISpecialFrames,RXPV2GuideWindow=originalSpecialFrames,originalV2
 UIPanelWindows.ReportPanelTrigger=nil
 print('PASS: automatic popup rescue preserves BetterBags, RestedXP V1/V2 and user-owned placement')
+end
+
+-- Detached vendor minimaps are HUD, not rogue popups. Exercise the production
+-- scanner with a partially overhanging minimap and an anonymous crop parent.
+do
+local previousMap, previousEUI = Minimap, EllesmereUIMinimap
+EllesmereUIMinimap = {}
+local map = makeMockFrame("Minimap", 200, 200)
+Minimap = map
+map:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", metrics.gameRight - 110, metrics.gameTop + 40)
+map.GetParent = function() return UIParent end
+table.insert(UIParent.children, map)
+local writes = map.setPointCalls
+addon.HUD:HookFrames(); flushTimers()
+addon.Canvas.MakePanelDraggable(map)
+assert(map.setPointCalls == writes and not map.scripts.OnShow and not map.scripts.OnDragStart,
+    "popup rescue and Canvas movement must preserve the detached visible minimap")
+local crop = makeMockFrame("AnonymousMinimapCropTest", 200, 160)
+_G.AnonymousMinimapCropTest = nil
+crop.name = nil
+crop:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", metrics.gameRight - 110, metrics.gameTop + 60)
+crop.GetParent = function() return UIParent end
+map.GetParent = function() return crop end
+map:Hide() -- hidden canvas does not relinquish the vendor's parent frame
+table.insert(UIParent.children, crop)
+writes = crop.setPointCalls
+flushTimers(); addon.Canvas.MakePanelDraggable(crop)
+assert(crop.setPointCalls == writes and not crop.scripts.OnShow and not crop.scripts.OnDragStart,
+    "anonymous minimap crop parent must not be rescued or made draggable")
+map:Hide(); crop:Hide()
+Minimap, EllesmereUIMinimap = previousMap, previousEUI
+print("PASS: detached minimap and vendor crop ancestry retain exclusive HUD ownership")
 end
 
 -- Ellesmere owns its player-aura roots even at a full-parent stock anchor.

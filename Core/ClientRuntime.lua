@@ -5,9 +5,12 @@
 
 local _, Offhand = ...
 
--- Resolve at the hardware-click boundary. Modern clients expose C_UI.Reload;
--- older supported clients retain the global entry point. Do not replace globals.
+-- Call only from a live hardware click, before hiding its button/parent. On
+-- Forever 1.60.1.70862 the owned popup's hide-first callback loses reload input
+-- permission; callback-first succeeds in keyboard/mouse UI. Controller UI keeps
+-- the manual handoff until its native activation path is separately verified.
 function Offhand:GetReloadUIFunction()
+    if self.isForever and self.IsGamepadUIEnabled and self:IsGamepadUIEnabled() then return nil end
     if C_UI and type(C_UI.Reload) == "function" then return C_UI.Reload end
     if type(ReloadUI) == "function" then return ReloadUI end
 end

@@ -697,6 +697,7 @@ function HUD:HookFrames()
                             or not Offhand.db.seamRedirect or UsesNativeGamepadInterface()
                             or (self.IsForbidden and self:IsForbidden())
                             or (self.IsProtected and self:IsProtected())
+                            or Compatibility.IsExternallyOwnedHUDFrame(self)
                             or Compatibility.ShouldPreservePopupPosition(self) then return end
                         local current = Offhand.Viewport:GetMetrics()
                         if not current or not current.isSpanned or self:GetNumPoints() ~= 1 then return end

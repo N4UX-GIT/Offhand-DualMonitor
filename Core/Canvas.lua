@@ -128,6 +128,8 @@ function Canvas:CreateFrames()
 end
 
 function Canvas:UpdateLayout()
+    if Offhand.ProcDocCompatibility then Offhand.ProcDocCompatibility:Refresh() end
+    if Offhand.DaylightMapCompatibility then Offhand.DaylightMapCompatibility:Refresh() end
     if not rootCanvas then self:CreateFrames() end
 
     local metrics = WithWorkspace(Offhand.Viewport:GetMetrics())
@@ -215,10 +217,15 @@ function Canvas:ShouldYieldWorldMap(frameOrName)
 end
 
 function Canvas:GetCompatibilityDiagnostics(compact)
-    return Compatibility.GetDiagnostics(
+    local report = Compatibility.GetDiagnostics(
         compact,
         self._lastLeatrixCoordinateFontRefreshCount
     )
+    local daylight = Offhand.DaylightMapCompatibility and Offhand.DaylightMapCompatibility:GetDiagnostics()
+    if daylight then report = report .. " | " .. daylight end
+    local procDoc = Offhand.ProcDocCompatibility
+    if procDoc then report = report .. " | ProcDocCenter=" .. (procDoc.status or "inactive") end
+    return report
 end
 
 local function IsUnsafeForDirectMutation(frame)
@@ -1145,6 +1152,22 @@ EvictWorkspacePanelSlot, DemodalizePanel, RemodalizePanel = Offhand.CanvasPanelL
     RegisterSpecialFrame = RegisterSpecialFrame,
     UnregisterSpecialFrame = UnregisterSpecialFrame,
 })
+
+function Canvas:CanScaleWorkspacePanel(frame)
+    if not frame or InCombatLockdown() or not CanManagePanelsFromAddon() then return false end
+    local name=frame.GetName and frame:GetName()
+    if IsUnsafeForPanelMutation(frame,name) or IsRetailChatEditModeActive(frame) then return false end
+    if HasCustomChatAddon() and (name and name:match("^ChatFrame") or frame==_G.GeneralDockManager or frame==_G.GENERAL_CHAT_DOCK) then return false end
+    return true
+end
+
+function Canvas:RestoreRegionScaledPanel(frame)
+    local name=frame and frame.GetName and frame:GetName()
+    if Offhand.isForever and IsBackpackRoot(name) and self.RefreshForeverNativeBagPlacement then
+        return self:RefreshForeverNativeBagPlacement(frame)
+    end
+    return self:RestoreWorkspacePosition(frame)
+end
 
 OnPanelDragStop = Persistence.InstallDrag(Canvas, {
     ShouldYieldFrameToClassicUIForever = function(...) return ShouldYieldFrameToClassicUIForever(...) end,
@@ -2636,6 +2659,7 @@ function Offhand:InitializeCanvas()
 
     if Offhand.isForever and C_Timer and C_Timer.NewTicker and not Canvas.foreverPositionTicker then
         Canvas.foreverPositionTicker = C_Timer.NewTicker(0.5, function()
+            if Offhand.DaylightMapCompatibility then Offhand.DaylightMapCompatibility:Refresh() end
             if Offhand._displayGeometryTransitionActive then return end
             if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:Refresh() end
             if Offhand.CanvasAddonEscape then Offhand.CanvasAddonEscape:Refresh() end

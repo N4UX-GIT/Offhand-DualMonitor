@@ -144,21 +144,20 @@ local function WriteBooleanCVar(name, value)
     return pcall(setter, name, tonumber(value) and tonumber(value) >= 0.5 and "1" or "0")
 end
 
-local function ManageFriendlyPlayerNames(db)
+local function RestoreLegacyFriendlyPlayerNames(db)
+    if not db or db.originalFriendlyPlayerName == nil then return end
     local friendlyNames = ReadNonNegativeCVar("UnitNameFriendlyPlayerName")
-    local shouldManage = db and db.enabled and Offhand.isRetail and not Offhand.isForever
-        and friendlyNames ~= nil
-    if shouldManage then
-        if db.originalFriendlyPlayerName == nil then
-            db.originalFriendlyPlayerName = friendlyNames
-        end
-        if friendlyNames < 0.5 then
-            WriteBooleanCVar("UnitNameFriendlyPlayerName", 1)
-        end
-    elseif db and db.originalFriendlyPlayerName ~= nil then
-        WriteBooleanCVar("UnitNameFriendlyPlayerName", db.originalFriendlyPlayerName)
+    local original = tonumber(db.originalFriendlyPlayerName)
+    if original ~= 0 and original ~= 1 then
         db.originalFriendlyPlayerName = nil
+        return
     end
+    if friendlyNames == nil then return end
+    -- Older releases forced this preference on. Restore only that forced value;
+    -- an already-off value belongs to the player. Retry a failed restore later.
+    if friendlyNames == 1 and original == 0
+        and not WriteBooleanCVar("UnitNameFriendlyPlayerName", original) then return end
+    db.originalFriendlyPlayerName = nil
 end
 
 local function ValidPositive(value)
@@ -501,7 +500,9 @@ function Viewport:GetMetrics(allowUnconfirmedManual)
             companionVersion = companionVersion,
             expectedCompanionVersion = expectedCompanionVersion,
         }
-        return Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:ApplyMetrics(metrics,topology) or metrics
+        if Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ApplyMetrics(metrics,topology) end
+        if Offhand.WorkspaceScale then metrics=Offhand.WorkspaceScale:ApplyTopologyMetrics(metrics,topology) end
+        return metrics
     end
 
     -- A rejected multi-region bridge must never activate a coincidentally
@@ -601,27 +602,31 @@ end
 
 -- This is the sole scale owner. Never call it from HUD/frame-position hooks.
 function Viewport:ApplyGlobalScale()
-    if InCombatLockdown() or self.scaling then return end
+    if InCombatLockdown() or self.scaling or self.loggingOut then return end
     local db=Offhand.db
     if not db then return end
     local metrics = db.enabled and self:GetMetrics() or nil
-    -- Friendly Retail plates can remain visible while their name CVar is off,
-    -- producing a blank bar until the unit is selected. This is a visibility
-    -- invariant, not span compensation: keep names enabled for the whole time
-    -- Offhand is enabled, including a restored/unspanned window, and restore the
-    -- player's exact preference only when Offhand itself is disabled or unloaded.
-    ManageFriendlyPlayerNames(db)
+    -- Scaling does not own name/nameplate visibility. Clean up the old forced-on
+    -- preference once, then leave subsequent choices entirely to the player.
+    RestoreLegacyFriendlyPlayerNames(db)
     if not db.enabled or (metrics and not metrics.isSpanned) then
         if self.originalScale or self.originalWorldScale or db.originalUiScale
             or db.originalWorldTextScale or db.originalNameplateSize then
             self.scaling=true
+            local restoredRoot = false
             pcall(function() 
+                local previousRoot = UIParent:GetScale()
+                local ownsRoot = self.appliedScale
+                    and math.abs(UIParent:GetScale() - self.appliedScale) < 0.00001
                 if db.originalUiScale then
                     if SetCVar then SetCVar("uiScale", db.originalUiScale) end
-                    UIParent:SetScale(tonumber(db.originalUiScale) or 1)
-                elseif self.originalScale then
+                    if ownsRoot or not self.appliedScale then
+                        UIParent:SetScale(tonumber(db.originalUiScale) or 1)
+                    end
+                elseif self.originalScale and ownsRoot then
                     UIParent:SetScale(self.originalScale)
                 end
+                restoredRoot = math.abs(UIParent:GetScale() - previousRoot) > 0.00001
                 
                 if db.originalUseUiScale then
                     if SetCVar then SetCVar("useUiScale", db.originalUseUiScale) end
@@ -638,7 +643,15 @@ function Viewport:ApplyGlobalScale()
                     WorldFrame:SetScale(self.originalWorldScale)
                 end
             end)
+            -- SetScale does not notify Forever's native panel manager. An open
+            -- NPC panel can retain spanned coordinates outside the restored
+            -- canvas. Reflow existing native slots without ending or reopening
+            -- their interactions, only after releasing a root we changed.
+            if restoredRoot and Offhand.isForever and type(UpdateUIPanelPositions) == "function" then
+                pcall(UpdateUIPanelPositions)
+            end
             self.originalScale = nil
+            self.appliedScale = nil
             self.originalWorldScale = nil
             db.originalUiScale = nil
             db.originalUseUiScale = nil
@@ -683,6 +696,12 @@ function Viewport:ApplyGlobalScale()
     -- its engine-rendered damage/XP text ignores WorldFrame scale, so mutating
     -- the root there adds risk without correcting the reported text.
     local uiNeedsWrite = math.abs(UIParent:GetScale()-desired) >= 0.00001
+    if uiNeedsWrite and self.appliedScale
+        and math.abs(UIParent:GetScale() - self.appliedScale) >= 0.00001 then
+        -- An explicit layout can reclaim the root after another owner's change.
+        -- Release back to that newer baseline, rather than the login-time value.
+        self.originalScale = UIParent:GetScale()
+    end
     -- Damage numbers and other engine-owned world text are rendered against
     -- the complete spanned window rather than the bounded WorldFrame. Live
     -- comparison shows equal-height spans already render at the native size;
@@ -701,7 +720,10 @@ function Viewport:ApplyGlobalScale()
     local ok,err=pcall(function() 
         -- Keep the native CVar separate: client clamping can otherwise cause
         -- every display notification to write it again.
-        if uiNeedsWrite then UIParent:SetScale(desired) end
+        if uiNeedsWrite then
+            UIParent:SetScale(desired)
+            self.appliedScale = desired
+        end
         if worldTextNeedsWrite then
             WriteNumericCVar(worldTextScaleCVar, desiredWorldTextScale)
         end
@@ -712,6 +734,25 @@ function Viewport:ApplyGlobalScale()
     -- reached their new values; normalizing before this point uses stale
     -- enemy/friendly scales on the first application.
     self:ApplyNamePlateVisualScale(m)
+end
+
+function Viewport:PrepareForLogout()
+    -- CVar restoration and native teardown can emit layout notifications.
+    -- Do not let those callbacks reapply the spanned scale during shutdown.
+    self.loggingOut = true
+    if InCombatLockdown() or not self.originalScale or not self.appliedScale then return end
+    -- Restore only the runtime root scale we still own. Modern layout never
+    -- changes uiScale/useUiScale, so restoring those legacy CVars alone cannot
+    -- release this temporary scale. A changed root belongs to another owner.
+    local ok, current = pcall(UIParent.GetScale, UIParent)
+    if not ok or math.abs(current - self.appliedScale) >= 0.00001 then return end
+    self.scaling = true
+    local restored = pcall(UIParent.SetScale, UIParent, self.originalScale)
+    self.scaling = false
+    if restored then
+        self.originalScale = nil
+        self.appliedScale = nil
+    end
 end
 
 function Viewport:IsDualActive()
@@ -880,7 +921,7 @@ function Viewport:GetPerformanceDiagnostics(metrics)
     }
 end
 
-function Viewport:CaptureDiagnostics()
+function Viewport:CaptureDiagnostics(storeSnapshot)
     local m = self:GetMetrics()
     local snapshot = { metrics = m, frames = {} }
     -- Only WorldFrame participates in the PASS/MISMATCH result. Historical
@@ -901,7 +942,7 @@ function Viewport:CaptureDiagnostics()
         and math.abs(world.y - m.gamePixelBottom) < 1
         and math.abs(world.width - m.gamePixelWidth) < 1
         and math.abs(world.height - m.gamePixelHeight) < 1 or false
-    Offhand.db.lastGeometryCheck = snapshot
+    if storeSnapshot ~= false then Offhand.db.lastGeometryCheck = snapshot end
     return snapshot
 end
 
@@ -955,17 +996,6 @@ function Offhand:InitializeViewport()
                 return
             end
             local cvar = type(value) == "string" and string.lower(value) or ""
-            if event == "CVAR_UPDATE" and (cvar == "unitnamefriendlyplayername"
-                or cvar == "nameplateshowfriends") then
-                if not Viewport.friendlyNameVisibilityScheduled then
-                    Viewport.friendlyNameVisibilityScheduled = true
-                    local function reapply()
-                        Viewport.friendlyNameVisibilityScheduled = nil
-                        Viewport:ApplyGlobalScale()
-                    end
-                    if C_Timer and C_Timer.After then C_Timer.After(0, reapply) else reapply() end
-                end
-            end
             if event ~= "CVAR_UPDATE" or string.find(cvar, "nameplate", 1, true) then
                 Viewport:ScheduleNamePlateVisualScale()
             end

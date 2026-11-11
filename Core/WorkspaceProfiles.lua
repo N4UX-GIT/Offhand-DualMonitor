@@ -9,7 +9,7 @@ local fields = {
     "workspacePanelLoadAddons", "workspaceRegionThemes", "workspacePanelRoutes",
     "nativeBackpackWorkspacePosition", "nativeBackpackWorkspaceOpen",
     "workspacePlayerSpellsTab", "workspaceMapScale", "mainMapScale",
-    "userMediaEnabled", "userMediaFitMode",
+    "userMediaEnabled", "userMediaFitMode", "workspaceRegionScales",
 }
 local mediaFields={userMediaEnabled=true,userMediaFitMode=true}
 local function Copy(value, depth)
@@ -35,6 +35,7 @@ local tableFields={savedWorkspacePositions=true,savedMainPositions=true,openWork
     workspacePanelLoadAddons=true,workspaceRegionThemes=true,workspacePanelRoutes=true,nativeBackpackWorkspacePosition=true}
 local function ValidState(state)
     if type(state)~="table" then return false end
+    if Offhand.WorkspaceScale and not Offhand.WorkspaceScale:ValidSettings(state.workspaceRegionScales) then return false end
     if state.mediaSettingsVersion~=nil and state.mediaSettingsVersion~=1 then return false end
     if state.userMediaEnabled~=nil and type(state.userMediaEnabled)~="boolean" then return false end
     local fit=state.userMediaFitMode
@@ -52,7 +53,8 @@ local function ValidState(state)
     end
     for _,key in ipairs({"workspaceMapScale","mainMapScale"}) do
         local value=state[key]
-        if value~=nil and (type(value)~="number" or value~=value or value<=0 or value==math.huge) then return false end
+        if value~=nil and value~="AUTO"
+            and (type(value)~="number" or value~=value or value<=0 or value==math.huge) then return false end
     end
     return true
 end
@@ -112,6 +114,7 @@ function Profiles:Activate(id, deferLayout)
     if type(item)~="table" or not ValidState(item.state) then return Failure("WORKSPACE_PROFILE_INVALID") end
     local previous={}
     if store.active~=id then
+        if Offhand.WorkspaceScale then Offhand.WorkspaceScale.generation=Offhand.WorkspaceScale.generation+1 end
         for name in pairs(Offhand.db.savedWorkspacePositions or {}) do previous[name]=true end
         for name in pairs(Offhand.db.savedMainPositions or {}) do previous[name]=true end
         store.items[store.active].state=Snapshot()

@@ -21,6 +21,15 @@ do
     local legacy, modern = function() end, function() end
     C_UI, ReloadUI = { Reload = modern }, legacy
     assert(addon:GetReloadUIFunction() == modern, "prefer the current reload API when both exist")
+    local previousForever = addon.isForever
+    addon.isForever = true
+    assert(addon:GetReloadUIFunction() == modern,
+        "Forever keyboard clicks retain the native reload API")
+    local previousStyle = addon.IsGamepadUIEnabled
+    addon.IsGamepadUIEnabled = function() return true end
+    assert(addon:GetReloadUIFunction() == nil, "unverified Forever controller reload remains manual")
+    addon.IsGamepadUIEnabled = previousStyle
+    addon.isForever = previousForever
     ReloadUI = nil
     assert(addon:GetReloadUIFunction() == modern, "reload must work without the legacy global")
     C_UI, ReloadUI = {}, legacy
@@ -87,6 +96,7 @@ local function makePromptFrame(name)
     function frame:CreateFontString()
         local text = { points = {} }
         function text:SetPoint(...) self.points[#self.points + 1] = { ... } end
+        function text:SetWidth(value) self.width = value end
         function text:SetHeight(value) self.height = value end
         function text:SetJustifyH(value) self.justifyH = value end
         function text:SetJustifyV(value) self.justifyV = value end
@@ -167,13 +177,8 @@ addon.Viewport = { GetMetrics = function() return {
     isSpanned = true, gameWidth = 1950, gameLeft = 1097, gameRight = 3047,
     gameBottom = 4, gameTop = 1101,
 } end }
-addon.UIControls = {
-    FitDialog = function() return 0.8 end,
-    MeasureWrappedText = function(text)
-        assert(text.height == 0, "popup text must clear its previous height before measuring")
-        return 150
-    end,
-}
+assert(loadfile("UI/Controls.lua"))("Offhand", addon)
+addon.UIControls.FitDialog = function() return 0.8 end
 StaticPopupDialogs.OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT = {
     text = 'Confirm', button1 = 'Finish', button2 = 'Back',
     OnAccept = function(_, callback) callback() end,
@@ -181,7 +186,9 @@ StaticPopupDialogs.OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT = {
 local confirmed = 0
 local prompt = addon:ShowPopup('OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT', nil, nil,
     function() confirmed = confirmed + 1 end)
-assert(prompt.strata == 'TOOLTIP' and staticShows == 0 and prompt.height >= 226)
+assert(prompt.strata == 'TOOLTIP' and staticShows == 0 and prompt.width == 440
+        and prompt.height == prompt.text.height + 70 and prompt.height < 120,
+    "short confirmations should size to their text and action row")
 assert(prompt.points[1][2] == UIParent and prompt.points[1][4] == 2072 / 0.8,
     'setup confirmation must use Mainhand geometry, not a stale anchor')
 prompt.accept.scripts.OnClick()
@@ -220,6 +227,46 @@ for _, key in ipairs(setupKeys) do
         "hiding an owned setup prompt must leave the native stack untouched")
     StaticPopupDialogs[key] = previous
 end
+-- Reload callbacks must run while the clicked parent is visible. Ordinary
+-- callbacks retain hide-first semantics, and reopened cards survive cleanup.
+do
+    local key = "OFFHAND_MAINHAND_LAYOUT_RELOAD"
+    local accepts, hides = 0, 0
+    local definition = {
+        text = "Reload", button1 = "Reload", button2 = "Later",
+        offhandAcceptBeforeHide = true,
+        OnHide = function() hides = hides + 1 end,
+        OnAccept = function(card, data)
+            assert(card.shown and hides == 0 and data == 42,
+                "reload must retain the visible hardware-click target until its callback")
+            accepts = accepts + 1
+        end,
+    }
+    StaticPopupDialogs[key] = definition
+    addon:ShowPopup(key,nil,nil,42).accept.scripts.OnClick()
+    assert(accepts == 1 and hides == 1 and not prompt.shown)
+    definition.OnAccept = function()
+        addon:ShowPopup(key,nil,nil,99)
+    end
+    addon:ShowPopup(key).accept.scripts.OnClick()
+    assert(prompt.shown and prompt.data == 99,
+        "a callback reopening the same definition must keep its replacement card")
+    addon:HidePopup(key)
+    definition.offhandAcceptBeforeHide = nil
+    definition.OnAccept = function(card) assert(not card.shown, "ordinary callbacks remain hide-first") end
+    addon:ShowPopup(key).accept.scripts.OnClick()
+    definition.offhandAcceptBeforeHide = true
+    definition.OnAccept = function() error("cancel must not invoke accept") end
+    addon:ShowPopup(key).cancel.scripts.OnClick()
+    assert(not prompt.shown)
+    StaticPopupDialogs[key] = nil
+end
+addon:ShowManualReloadPrompt()
+assert(prompt.popupKey == "OFFHAND_SETUP_MANUAL_RELOAD" and prompt.strata == "TOOLTIP"
+        and not prompt.definition.OnAccept and not prompt.cancel.shown and staticShows == 0,
+    "manual reload must only show the owned instruction card, with no reload callback")
+prompt.accept.scripts.OnClick()
+assert(not prompt.shown, "closing instructions must not request a native reload")
 addon:ShowPopup("OFFHAND_NATIVE_KEYBOARD_PROBE")
 assert(staticShows == 1, "unrelated keyboard popups must retain their existing native route")
 staticShows = 0
@@ -263,10 +310,19 @@ assert(addon.CharacterSetup:Show("CHARACTER_SETUP_WAITING_FOR_SPAN"))
 prompt.cancel.scripts.OnClick()
 assert(not prompt.shown and OffhandCharDB.hudSpanNoticeDismissed and not OffhandCharDB.characterSetup,
     "the persistent dismissal button must save only the notice preference")
+local characterMessage = rawget(addon.L, "CHARACTER_SETUP_TEXT")
+addon.L.CHARACTER_SETUP_TEXT = "Set up this character's HUD\n\nChoose how to set up your HUD.\n\n%s"
 assert(addon.CharacterSetup:Show("CHARACTER_SETUP_READY"))
 assert(prompt.popupKey == "OFFHAND_CHARACTER_SETUP" and prompt.strata == "TOOLTIP"
         and prompt.alternate.shown and prompt.alternate.text == addon.L.CHARACTER_SETUP_CUSTOMIZE,
     "the three-choice character check must use the owned Mainhand popup in keyboard UI")
+assert(prompt.width == 520 and prompt.height > 120 and not prompt.EditBox.shown
+        and prompt.accept.points[1][4] + prompt.accept.width / 2
+            < prompt.alternate.points[1][4] - prompt.alternate.width / 2
+        and prompt.alternate.points[1][4] + prompt.alternate.width / 2
+            < prompt.cancel.points[1][4] - prompt.cancel.width / 2,
+    "a reused character card must expand for its paragraphs and keep three distinct actions")
+addon.L.CHARACTER_SETUP_TEXT = characterMessage
 prompt.alternate.scripts.OnClick()
 assert(resumed == 2 and OffhandCharDB.characterSetup.choice == "customize"
         and not OffhandCharDB.characterSetup.complete,
@@ -402,6 +458,19 @@ addon:ApplyFullLayout()
 assert(menuRefreshes==1,"single-window fallback must refresh owned open menus, not only spanned HUD")
 addon.Viewport,addon.MenuPlacement=previousViewport,previousMenus
 
+do
+    local oldViewport=addon.Viewport
+    local rootWrites=0
+    addon.Viewport={GetMetrics=function()return{isSpanned=true}end,
+        ApplyGlobalScale=function()rootWrites=rootWrites+1 end}
+    local before=calls
+    addon:ApplyFullLayout(true)
+    assert(calls==before+1 and rootWrites==0,'external scale refresh must run geometry without replacing root scale')
+    addon:ApplyFullLayout()
+    assert(rootWrites==1,'ordinary layout lost its scale ownership')
+    addon.Viewport=oldViewport
+end
+
 -- Verify ADDON_LOADED initializes Canvas and SeamRedirect without recursion / stack overflow
 UIParent = {
     GetEffectiveScale = function() return 1 end,
@@ -477,6 +546,12 @@ C_Timer.NewTimer = function(delay, fn)
     return timer
 end
 local displayApplies, displayRestores = 0, 0
+local displayGuideRefreshes, previousDisplayGuide = 0, addon.Onboarding
+addon.Onboarding = {RefreshDisplayState = function()
+    assert(addon._displayGeometryTransitionActive == false,
+        "guide readiness must refresh after the transition flag is cleared")
+    displayGuideRefreshes = displayGuideRefreshes + 1
+end}
 addon.ApplyFullLayout = function() displayApplies = displayApplies + 1 end
 addon.Canvas.RestorePersistentFrames = function() displayRestores = displayRestores + 1 end
 initOnEvent(nil, "DISPLAY_SIZE_CHANGED")
@@ -487,11 +562,13 @@ assert(superseded.cancelled == true, "display debounce did not cancel the supers
 assert(addon._displayGeometryTransitionActive == true, "display transition did not suspend persistence capture")
 superseded.fn()
 assert(displayApplies == 0, "superseded display geometry pass applied a layout")
+assert(displayGuideRefreshes == 0, "superseded display generation refreshed the guide")
 finalTimer.fn()
 assert(displayApplies == 1 and displayRestores == 1,
     "settled display geometry did not apply and restore exactly once")
 assert(addon._displayGeometryTransitionActive == false,
     "display transition remained active after settled layout restore")
+assert(displayGuideRefreshes == 1, "settled display geometry must refresh the guide exactly once")
 
 -- A graphics reset can settle while combat still blocks layout writes. A later
 -- reset must invalidate work already queued by the older debounce callback.
@@ -508,11 +585,14 @@ queuedDisplayWork[1]()
 assert(displayApplies == appliesBeforeQueue and displayRestores == restoresBeforeQueue
         and addon._displayGeometryTransitionActive,
     "a superseded combat-queued resize must not restore layout or end the newer transition")
+assert(displayGuideRefreshes == 1, "stale queued geometry must not refresh guide readiness")
 queuedDisplayWork[2]()
 assert(displayApplies == appliesBeforeQueue + 1 and displayRestores == restoresBeforeQueue + 1
         and not addon._displayGeometryTransitionActive,
     "only the latest combat-queued display reset may restore the settled layout")
+assert(displayGuideRefreshes == 2, "only the latest queued transition may refresh guide readiness")
 addon.RunOrQueueCombat = originalRunOrQueueCombat
+addon.Onboarding = previousDisplayGuide
 
 -- In-engine cinematics can restore WorldFrame across the entire spanned
 -- window. Start/stop transitions must reassert only the viewport after

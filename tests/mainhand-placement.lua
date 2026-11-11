@@ -294,8 +294,8 @@ assert(layoutAdded == 4 and activated == nil and #saved.layouts == 1 and saveCou
     "generated custom layout did not use Blizzard's one-save layout-added transaction")
 local generated = saved.layouts[1]
 assert(generated.systems[1].anchorInfo.offsetX == 720
-        and generated.systems[1].anchorInfo.offsetY == -656,
-    "the default Damage Meter was not translated and inset below Mainhand's top region")
+        and generated.systems[1].anchorInfo.offsetY == -560,
+    "the default Damage Meter must keep its preset offset from Mainhand's top region")
 assert(generated.systems[2].anchorInfo.point == "BOTTOM"
         and generated.systems[2].anchorInfo.offsetX == 820
         and generated.systems[2].anchorInfo.offsetY == 43,
@@ -334,12 +334,12 @@ assert(generated.systems[12].anchorInfo.offsetX == 0
         and generated.systems[12].isInDefaultPosition == true,
     "the Forever MultiCast/Class bar was moved away from its safe source position")
 assert(generated.systems[13].anchorInfo.offsetX == 0
-        and generated.systems[13].anchorInfo.offsetY == -1184,
-    "the default Minimap and its system-relative Buff row were not inset from Mainhand's top edge")
+        and generated.systems[13].anchorInfo.offsetY == -1120,
+    "the default Minimap must keep its preset offset from Mainhand's top edge")
 assert(generated.systems[14].anchorInfo.relativeTo == "MinimapCluster"
         and generated.systems[14].anchorInfo.offsetX == -8
-        and generated.systems[14].anchorInfo.offsetY == -96,
-    "the default keyboard Buff Frame was not inset further without breaking its native relationship")
+        and generated.systems[14].anchorInfo.offsetY == 0,
+    "the default keyboard Buff Frame must retain its native relationship")
 assert(preset.systems[1].anchorInfo.offsetX == 0 and preset.systems[1].anchorInfo.offsetY == 0,
     "the source preset was mutated")
 assert(OffhandCharDB.mainhandLayout.sourcePreset
@@ -398,7 +398,7 @@ assert(saveCount == 3,
     "layout updates must save once and must not resubmit the payload after activation")
 generated = saved.layouts[2]
 assert(generated.systems[1].anchorInfo.offsetX == -720
-        and generated.systems[1].anchorInfo.offsetY == -656,
+        and generated.systems[1].anchorInfo.offsetY == -560,
     "layout update drifted instead of rebuilding from its source")
 
 -- Forever may expose the native post-save layout-added transaction without a
@@ -821,6 +821,12 @@ assert(addon.Mainhand:PromptReload()
     "native Gamepad reload prompt retained a protected ReloadUI callback")
 currentInterfaceStyle = 1
 assert(addon.Mainhand:PromptReload()
+        and type(StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.OnAccept) == "function"
+        and StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.offhandAcceptBeforeHide == true
+        and reloadCalls == 0,
+    "Forever keyboard HUD reload must use the visible-parent callback path")
+addon.isForever = false
+assert(addon.Mainhand:PromptReload()
         and type(StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.OnAccept) == "function",
     "keyboard reload prompt did not retain its normal reload action")
 StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.OnAccept()
@@ -834,11 +840,13 @@ do
     assert(modernReloads == 1, "HUD reload must support the namespaced API without ReloadUI")
     addon.Mainhand:PromptReload()
     local click = StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.OnAccept
+    addon.isForever = true
     currentInterfaceStyle = Enum.InputDeviceInterfaceType.Gamepad
     click()
     assert(modernReloads == 1 and not StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.OnAccept,
         "a stale reload button must recheck controller ownership and show manual guidance")
     currentInterfaceStyle = 1
+    addon.isForever = false
     addon.Mainhand:PromptReload()
     click = StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.OnAccept
     InCombatLockdown = function() return true end
@@ -847,6 +855,7 @@ do
         "a stale reload button must recheck combat and show manual guidance")
     C_UI, ReloadUI, InCombatLockdown = previousUI, previousReload, previousCombat
 end
+addon.isForever = true
 currentInterfaceStyle = Enum.InputDeviceInterfaceType.Gamepad
 
 CharacterFrame = frame("CharacterFrame")
@@ -1464,6 +1473,47 @@ assert(saved.layouts[1].systems[2].anchorInfo.relativeTo == "UIParent"
 assert(nativeGamepadSystems[2].anchorInfo.relativeTo == "StatusTrackingBarManager"
         and nativeGamepadSystems[5].anchorInfo.offsetX == 0,
     "native Gamepad source preset must remain unchanged")
+
+-- The actual Gamepad preset lacks the keyboard MainBar entry, so minimap
+-- and unit-frame placement must run without the keyboard refinement path.
+local oldUnits, oldUnitSystem = Enum.EditModeUnitFrameSystemIndices, Enum.EditModeSystem.UnitFrame
+Enum.EditModeSystem.UnitFrame = 80
+Enum.EditModeUnitFrameSystemIndices = {Player = 0, Target = 1, Focus = 2}
+local firstUnit = #nativeGamepadSystems + 1
+for index, anchor in ipairs({
+    {point = "BOTTOMRIGHT", offsetX = -185, offsetY = 295},
+    {point = "BOTTOMLEFT", offsetX = 185, offsetY = 295},
+    {point = "BOTTOMLEFT", offsetX = 386, offsetY = 316},
+}) do
+    anchor.relativeTo, anchor.relativePoint = "UIParent", "BOTTOM"
+    nativeGamepadSystems[firstUnit + index - 1] = {
+        system = Enum.EditModeSystem.UnitFrame, systemIndex = index - 1, isInDefaultPosition = true,
+        anchorInfo = anchor,
+    }
+end
+local mapIndex
+for index, entry in ipairs(nativeGamepadSystems) do
+    if entry.system == Enum.EditModeSystem.Minimap then mapIndex = index; break end
+end
+assert(mapIndex, "the Gamepad fixture needs a default minimap system")
+nativeGamepadSystems[mapIndex].anchorInfo.offsetX, nativeGamepadSystems[mapIndex].anchorInfo.offsetY = 0, 0
+assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+local gamepadGenerated = saved.layouts[1].systems
+local gamepadRect = addon.Mainhand.rect
+assert(gamepadGenerated[mapIndex].anchorInfo.offsetX == gamepadRect.right - UIParent:GetWidth()
+    and gamepadGenerated[mapIndex].anchorInfo.offsetY == gamepadRect.top - UIParent:GetHeight(),
+    "the native Gamepad minimap must use the top-right of Mainhand")
+local player, target, focus = gamepadGenerated[firstUnit].anchorInfo,
+    gamepadGenerated[firstUnit + 1].anchorInfo, gamepadGenerated[firstUnit + 2].anchorInfo
+local centerShift = (gamepadRect.left + gamepadRect.right - UIParent:GetWidth()) / 2
+assert(player.point == "BOTTOMRIGHT" and target.point == "BOTTOMLEFT" and focus.point == "BOTTOMLEFT"
+    and player.offsetX == centerShift - 185 and target.offsetX == centerShift + 185
+    and focus.offsetX == centerShift + 386 and player.offsetY == gamepadRect.bottom + 295
+    and target.offsetY == player.offsetY and focus.offsetY == gamepadRect.bottom + 316,
+    "the native Gamepad unit frames must retain the preset's spacing and focus beside target")
+assert(nativeGamepadSystems[firstUnit].anchorInfo.offsetY == 295,
+    "generating a Gamepad layout must not write the built-in unit-frame anchors")
+Enum.EditModeUnitFrameSystemIndices, Enum.EditModeSystem.UnitFrame = oldUnits, oldUnitSystem
 EditModePresetLayoutManager.presetLayoutInfo[1].systems = syntheticGamepadSystems
 
 -- A customized Forever Party entry can be relative to another Edit Mode
@@ -1943,6 +1993,28 @@ assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
 assert(#saved.layouts == 1 and saved.layouts[1].systems[2].anchorInfo.offsetX == firstRowX
         and saved.layouts[1].systems[2].anchorInfo.offsetY == firstRowY,
     "rebuilds must use serialized relationships and must not drift with stale live anchors")
+secondarySource.systems[2].anchorInfo.bottomBarOffsetX = 22
+secondarySource.systems[3].anchorInfo.bottomBarOffsetX = 606
+secondarySource.systems[3].anchorInfo.bottomBarExcludeFromStackIncrement = true
+OffhandCharDB, OffhandDB = {}, {}
+layoutData = {activeLayout=1,layouts={}}
+assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+local stockRow2, stockRow3 = saved.layouts[1].systems[2].anchorInfo, saved.layouts[1].systems[3].anchorInfo
+assert(stockRow2.offsetY == stockRow3.offsetY
+        and math.abs((stockRow3.offsetX - 454*1.1/2) - (stockRow2.offsetX - 454*0.8/2) - (606 - 22)) < 0.01,
+    "the default secondary bars must retain Blizzard's side-by-side offsets when they fit")
+local wideMetrics = metrics
+metrics = {gameLeft=0,gameRight=900,gameBottom=0,gameTop=1440,isSpanned=true}
+addon.Mainhand:Update("narrow-secondary-bars")
+OffhandCharDB, OffhandDB = {}, {}
+layoutData = {activeLayout=1,layouts={}}
+assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+local narrowRow2, narrowRow3 = saved.layouts[1].systems[2].anchorInfo, saved.layouts[1].systems[3].anchorInfo
+assert(narrowRow3.offsetY > narrowRow2.offsetY + 35*0.8
+        and narrowRow3.offsetX + 454*1.1/2 <= metrics.gameRight,
+    "a narrow Mainhand must stack the secondary bar without clipping it")
+metrics = wideMetrics
+addon.Mainhand:Update("restore-secondary-bar-fixture")
 secondarySource.systems[2].isInDefaultPosition = false
 secondarySource.systems[2].anchorInfo = {point="LEFT",relativeTo="OtherSystem",
     relativePoint="RIGHT",offsetX=77,offsetY=88}
@@ -2192,4 +2264,296 @@ for _, forever in ipairs({false, true}) do
     EncounterBar.scale = 1
 end
 print('PASS: EncounterBar targeted repair, alias, scale, reload retry and missing-system failure')
+end
+
+do
+-- Source-derived test inputs. This executes Offhand only, never upstream Lua.
+addon.isForever, addon.isRetail = true, false
+ConsolePort, C_CVar, EllesmereUI = nil, nil, nil
+C_AddOns = {IsAddOnLoaded = function() return false end}
+GetCVar = function() return "Keyboard" end
+currentInterfaceStyle = 0
+Enum.InputDeviceInterfaceType = {Gamepad=1}
+UnitName = function() return "GeometryProbe" end
+UnitGUID = function() return "Player-geometry-probe" end
+local action = Enum.EditModeSystem.ActionBar
+local indices = Enum.EditModeActionBarSystemIndices
+indices.MainBar, indices.RightBar1, indices.RightBar2 = 1,4,5
+local menu = Enum.EditModeSystem.MicroMenu or 1001
+Enum.EditModeSystem.MicroMenu = menu
+local function row(kind, index, default, point, relative, relativePoint, x, y)
+ return {system=kind,systemIndex=index,isInDefaultPosition=default,anchorInfo={
+  point=point,relativeTo=relative,relativePoint=relativePoint,offsetX=x,offsetY=y}}
+end
+local source = {layoutName="Modern",layoutIndex=0,interfaceStyle=0,systems={
+ row(action,1,true,"BOTTOMRIGHT","MicroMenuContainer","BOTTOMLEFT",-4.5,-4),
+ row(menu,nil,true,"BOTTOM","UIParent","BOTTOM",116.5,6),
+ row(action,4,true,"RIGHT","UIParent","RIGHT",-5,-77),
+ row(action,5,true,"RIGHT","UIParent","RIGHT",-5,-77),
+ row(9000,nil,false,"BOTTOMLEFT","UIParent","BOTTOMLEFT",100,100),
+ row(9001,nil,true,"TOPLEFT","UIParent","TOPLEFT",24,-100),
+}}
+source.systems[6].anchorInfo2={point="BOTTOMRIGHT",relativeTo="UIParent",relativePoint="BOTTOMRIGHT",offsetX=-24,offsetY=100}
+presetLayouts={source,{layoutName="Classic",systems={}},{layoutName="Gamepad",interfaceStyle=1,systems={}}}
+EditModePresetLayoutManager={GetCopyOfPresetLayouts=function() return copyTable(presetLayouts) end}
+MainActionBar=frame("MainActionBar");MainActionBar:SetSize(570,40)
+MainActionBar:SetPoint("BOTTOMRIGHT",UIParent,"BOTTOM",-4.5,-4)
+MicroMenuContainer=frame("MicroMenuContainer");MicroMenuContainer:SetSize(200,40)
+MultiBarRight=frame("MultiBarRight");MultiBarRight:SetSize(40,480)
+MultiBarLeft=frame("MultiBarLeft");MultiBarLeft:SetSize(40,480)
+RIGHT_ACTION_BAR_DEFAULT_OFFSET_X, RIGHT_ACTION_BAR_DEFAULT_OFFSET_Y, RIGHT_ACTION_BAR_DEFAULT_PADDING_X = -5, -77, 0
+C_EditMode.SaveLayouts=function(data) layoutData=copyTable(data) end
+C_EditMode.OnLayoutAdded=function(id) layoutData.activeLayout=id end
+C_EditMode.SetActiveLayout=function(id) layoutData.activeLayout=id end
+Constants.EditModeConsts.EditModeMaxLayoutsPerType=10
+local cases={
+ {name="split-right-50-50",sw=3142.8571,sh=1767.8571,l=1571.42855,b=0,r=3142.8571,t=1767.8571},
+ {name="split-left-50-50",sw=3142.8571,sh=1767.8571,l=0,b=0,r=1571.42855,t=1767.8571},
+ {name="dual-right",sw=3840,sh=1080,l=1920,b=0,r=3840,t=1080},
+ {name="dual-left",sw=3840,sh=1080,l=0,b=0,r=1920,t=1080},
+ {name="portrait-left",sw=4000,sh=2560,l=1440,b=0,r=4000,t=1440},
+ {name="portrait-4k-bottom-offset",sw=5280,sh=2560,l=1440,b=400,r=5280,t=2560},
+ {name="stacked-top",sw=1920,sh=2160,l=0,b=1080,r=1920,t=2160},
+ {name="stacked-bottom",sw=1920,sh=2160,l=0,b=0,r=1920,t=1080},
+}
+for _,eui in ipairs({false,true}) do
+ C_AddOns.IsAddOnLoaded=function(name)
+  return eui and (name=="EllesmereUIActionBars" or name=="EllesmereUIUnitFrames")
+ end
+ if eui then
+  local function element(width, scale)
+   local f=frame();f.scale=scale;f.GetRect=function() return 100,100,width,480 end
+   return {getFrame=function() return f end}
+  end
+  EllesmereUI={IsUnlockAnchored=function() return false end,
+   GetActiveProfileData=function() return {} end,
+   _unlockRegisteredElements={Bar4=element(60,.8),Bar5=element(40,1.1)}}
+  assert(loadfile("Core/ForeverEllesmereLayout.lua"))("Offhand",addon)
+ end
+ for _,barScale in ipairs({.65,1,1.25}) do
+ MultiBarRight.scale,MultiBarLeft.scale=barScale,barScale*.9
+ for _,case in ipairs(cases) do
+  UIParent.GetWidth=function() return case.sw end
+  UIParent.GetHeight=function() return case.sh end
+  metrics={gameLeft=case.l,gameBottom=case.b,gameRight=case.r,gameTop=case.t,isSpanned=true}
+  if case.b>0 then
+   metrics.workspaceLeft,metrics.workspaceBottom,metrics.workspaceRight,metrics.workspaceTop=0,0,case.sw,case.b
+  elseif case.t<case.sh then
+   metrics.workspaceLeft,metrics.workspaceBottom,metrics.workspaceRight,metrics.workspaceTop=0,case.t,case.sw,case.sh
+  elseif case.l>0 then
+   metrics.workspaceLeft,metrics.workspaceBottom,metrics.workspaceRight,metrics.workspaceTop=0,0,case.l,case.sh
+  else
+   metrics.workspaceLeft,metrics.workspaceBottom,metrics.workspaceRight,metrics.workspaceTop=case.r,0,case.sw,case.sh
+  end
+  addon.Mainhand:Update("geometry-matrix")
+  OffhandDB,OffhandCharDB={},{}
+  layoutData={activeLayout=1,layouts={}}
+  local ok,name=addon.Mainhand:CreateOrUpdateEditModeLayout()
+  assert(ok,tostring(name))
+  local generated=layoutData.layouts[layoutData.activeLayout-3]
+  local a,b,c=generated.systems[3].anchorInfo,generated.systems[4].anchorInfo,generated.systems[5].anchorInfo
+  local overlap=a.point==b.point and a.relativeTo==b.relativeTo and a.relativePoint==b.relativePoint
+   and a.offsetX==b.offsetX and a.offsetY==b.offsetY
+  if eui then
+   local rows=addon.EllesmereLayout:Preview("ellesmere")
+   local a,b=rows[6].proposed,rows[7].proposed
+   assert(a and b and b.left+b.width<=a.left-4.99,
+    case.name..": replacement right bars must have separate columns at their actual scales")
+   for _,bounds in ipairs({a,b}) do
+    assert(bounds.left>=case.l and bounds.left+bounds.width<=case.r
+     and bounds.bottom>=case.b and bounds.bottom+bounds.height<=case.t,
+     case.name..": replacement bar bounds escaped Mainhand")
+   end
+  end
+  local second=generated.systems[6].anchorInfo2
+  local secondMismatch=math.abs(second.offsetX-(-24+case.r-case.sw))>.01
+   or math.abs(second.offsetY-(100+case.b))>.01
+  assert(not secondMismatch,case.name..": generation transformed only one anchor of a stretched frame")
+  assert(c.offsetX==100 and c.offsetY==100,case.name..": generation moved a customized source entry")
+  if not eui then
+   assert(not overlap,case.name..": native right bars still overlap")
+   local width=40*MultiBarRight.scale
+   assert(math.abs(a.offsetX - (case.r - 5)) < 0.01 and math.abs(a.offsetY - ((case.b + case.t)/2 - 77)) < 0.01
+    and b.offsetX<=a.offsetX-width-4.99,case.name..": native right columns must keep their stock spacing")
+  else
+   assert(generated.systems[3].isInDefaultPosition and generated.systems[4].isInDefaultPosition,
+    "generation must preserve external native ownership while the transfer uses a projected copy")
+  end
+  assert(source.systems[3].isInDefaultPosition and source.systems[3].anchorInfo.offsetX==-5
+   and source.systems[6].anchorInfo2.offsetX==-24,"generation or preview mutated the source preset")
+ end
+ end
+end
+RIGHT_ACTION_BAR_DEFAULT_OFFSET_X, RIGHT_ACTION_BAR_DEFAULT_OFFSET_Y, RIGHT_ACTION_BAR_DEFAULT_PADDING_X = nil, nil, nil
+print("PASS: native generation and EllesmereUI projection across eight topologies and three bar scales")
+end
+
+do
+-- Forever uses separate Edit Mode containers. A stale live TOP anchor on the
+-- main bar and the legacy manager must not lower XP into the action buttons.
+addon.isForever, addon.isRetail = true, false
+GetCVar = function() return "Keyboard" end
+ConsolePort,C_CVar,EditModeManagerFrame = nil,nil,nil
+currentInterfaceStyle = 0
+UnitName = function() return "StatusProbe" end
+UnitGUID = function() return "Player-status-probe" end
+local action,status,menu = Enum.EditModeSystem.ActionBar,Enum.EditModeSystem.StatusTrackingBar,Enum.EditModeSystem.MicroMenu
+local barIndices = Enum.EditModeActionBarSystemIndices
+barIndices.MainBar,barIndices.Bar2,barIndices.Bar3=1,2,3
+Enum.EditModeStatusTrackingBarSystemIndices={StatusTrackingBar1=1,StatusTrackingBar2=2}
+MainActionBar=frame("MainActionBar");MainActionBar:SetSize(570,40);MainActionBar.scale=.85
+MainActionBar:SetPoint("TOPLEFT",UIParent,"TOPLEFT",-90000,90000)
+MicroMenuContainer=frame("MicroMenuContainer");MicroMenuContainer:SetSize(200,40);MicroMenuContainer.scale=1.2
+MainStatusTrackingBarContainer=frame("MainStatusTrackingBarContainer")
+MainStatusTrackingBarContainer:SetSize(900,14);MainStatusTrackingBarContainer.scale=.8
+MainStatusTrackingBarContainer:SetPoint("TOPLEFT",UIParent,"TOPLEFT",90000,-90000)
+SecondaryStatusTrackingBarContainer=frame("SecondaryStatusTrackingBarContainer")
+SecondaryStatusTrackingBarContainer:SetSize(800,16);SecondaryStatusTrackingBarContainer.scale=1.1
+SecondaryStatusTrackingBarContainer:SetPoint("TOPRIGHT",UIParent,"TOPRIGHT",-90000,90000)
+StatusTrackingBarManager=frame("StatusTrackingBarManager");StatusTrackingBarManager:SetSize(9000,900)
+MultiBarBottomLeft=frame("MultiBarBottomLeft");MultiBarBottomLeft:SetSize(450,35);MultiBarBottomLeft.scale=1
+MultiBarBottomRight=frame("MultiBarBottomRight");MultiBarBottomRight:SetSize(450,35);MultiBarBottomRight.scale=1
+for _,native in ipairs({MainActionBar,MainStatusTrackingBarContainer,SecondaryStatusTrackingBarContainer}) do
+ native.SetPoint=function() error("generation moved a protected native status/action frame") end
+ native.ClearAllPoints=native.SetPoint
+ native.SetScale=native.SetPoint
+end
+local source={layoutName="Modern",layoutIndex=0,interfaceStyle=0,systems={
+ {system=action,systemIndex=1,isInDefaultPosition=true,anchorInfo={point="BOTTOMRIGHT",relativeTo="MicroMenuContainer",relativePoint="BOTTOMLEFT",offsetX=-4.5,offsetY=-4}},
+ {system=menu,isInDefaultPosition=true,anchorInfo={point="BOTTOM",relativeTo="UIParent",relativePoint="BOTTOM",offsetX=116.5,offsetY=6}},
+ {system=status,systemIndex=1,isInDefaultPosition=true,anchorInfo={point="BOTTOM",relativeTo="StatusTrackingBarManager",relativePoint="BOTTOM",offsetX=0,offsetY=0}},
+ {system=status,systemIndex=2,isInDefaultPosition=true,anchorInfo={point="BOTTOM",relativeTo="StatusTrackingBarManager",relativePoint="BOTTOM",offsetX=0,offsetY=0}},
+ {system=action,systemIndex=2,isInDefaultPosition=true,anchorInfo={point="BOTTOM",relativeTo="UIParent",relativePoint="BOTTOM",offsetX=0,offsetY=0}},
+ {system=action,systemIndex=3,isInDefaultPosition=true,anchorInfo={point="BOTTOM",relativeTo="UIParent",relativePoint="BOTTOM",offsetX=0,offsetY=0}},
+}}
+presetLayouts={source,{layoutName="Classic",systems={}},{layoutName="Gamepad",interfaceStyle=1,systems={}}}
+EditModePresetLayoutManager={GetCopyOfPresetLayouts=function() return copyTable(presetLayouts) end}
+C_EditMode.SaveLayouts=function(data) layoutData=copyTable(data) end
+C_EditMode.OnLayoutAdded=function(id) layoutData.activeLayout=id end
+C_EditMode.SetActiveLayout=function(id) layoutData.activeLayout=id end
+Constants.EditModeConsts.EditModeMaxLayoutsPerType=10
+local function Near(a,b) assert(math.abs(a-b)<.01,tostring(a).." ~= "..tostring(b)) end
+for _,eui in ipairs({false,true}) do
+ C_AddOns={IsAddOnLoaded=function(name) return eui and name=="EllesmereUIActionBars" end}
+ EllesmereUI=eui and {Lite={GetAddon=function() return {db={profile={useBlizzardDataBars=true}}} end}} or nil
+ for _,area in ipairs({
+  {w=3142.8571,h=1767.8571,l=1571.42855,b=0,r=3142.8571,t=1767.8571},
+  {w=4000,h=2560,l=1440,b=0,r=4000,t=1440},
+  {w=1920,h=2160,l=0,b=1080,r=1920,t=2160},
+ }) do
+  UIParent.GetWidth=function() return area.w end;UIParent.GetHeight=function() return area.h end
+  metrics={gameLeft=area.l,gameBottom=area.b,gameRight=area.r,gameTop=area.t,isSpanned=true}
+  addon.Mainhand:Update("forever-xp")
+  OffhandDB,OffhandCharDB={},{}
+  layoutData={activeLayout=1,layouts={}}
+  assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+  local rows=layoutData.layouts[layoutData.activeLayout-3].systems
+  local xp,rep=rows[3].anchorInfo,rows[4].anchorInfo
+  assert(xp.relativeTo=="UIParent" and xp.relativePoint=="BOTTOMLEFT" and xp.point=="BOTTOM")
+  Near(xp.offsetX,(area.l+area.r)/2)
+  Near(xp.offsetY,area.b+6-4+40*.85+3)
+  Near(rep.offsetY,xp.offsetY+14*.8+4)
+  if not eui then
+   assert(rows[5].anchorInfo.offsetY>=rep.offsetY+16*1.1+8,
+    "the secondary action row must clear both native status bars")
+  else
+   assert(rows[1].isInDefaultPosition and rows[5].isInDefaultPosition,
+    "native status placement must yield movement of replacement-owned action bars")
+  end
+  source.systems[4].isInDefaultPosition=false
+  source.systems[4].anchorInfo={point="BOTTOMLEFT",relativeTo="UIParent",relativePoint="BOTTOMLEFT",offsetX=123,offsetY=111}
+  assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+  rows=layoutData.layouts[layoutData.activeLayout-3].systems
+  assert(rows[4].anchorInfo.offsetX==123 and rows[4].anchorInfo.offsetY==111,
+   "generation must preserve an explicitly customized reputation bar")
+  source.systems[4].isInDefaultPosition=true
+  source.systems[4].anchorInfo={point="BOTTOM",relativeTo="StatusTrackingBarManager",relativePoint="BOTTOM",offsetX=0,offsetY=0}
+ end
+end
+print("PASS: Forever XP/Rep containers, saved self points, scale, secondary clearance, custom positions and EUI ownership")
+end
+
+-- Production create/rebuild transaction: fit a copy, retain generated edits,
+-- honour a deliberate new source, and preserve the replaced generated payload.
+do
+    addon.isForever, addon.isRetail = true, false
+    addon.db.enabled = true
+    addon.IsGamepadUIEnabled = function() return false end
+    InputUtil = {IsGamepadUIEnabled = function() return false end}
+    C_InputInterfaceStyle, ConsolePort, EllesmereUI = nil, nil, nil
+    UnitName, UnitGUID = function() return "FitTester" end, function() return "Player-FitTester" end
+    Enum.EditModeLayoutType = {Preset = 1, Account = 2, Character = 3}
+    Enum.EditModeSystem.Minimap = 501
+    UIParent.GetWidth, UIParent.GetHeight = function() return 2496 end, function() return 1322 end
+    UIParent.GetEffectiveScale = function() return 1 end
+    metrics = {isSpanned = true, gameLeft = 0, gameRight = 1755, gameBottom = 0, gameTop = 1097}
+    addon.Mainhand:Update("native-fit-fixture")
+    addon.HUDCompatibility = {IsExternallyOwnedEditModeSystem = function() return false end}
+    local map = frame("NativeMap")
+    map.w, map.h = 100, 100
+    local function Row(default, relative, x, y)
+        return {system = 501, isInDefaultPosition = default, settings = {{setting = 1, value = 123}},
+            anchorInfo = {point = "TOPRIGHT", relativeTo = "UIParent", relativePoint = relative, offsetX = x, offsetY = y}}
+    end
+    local modern = {layoutName = "Modern", layoutIndex = 0, layoutType = 1, systems = {Row(true, "TOPRIGHT", -20, -30)}}
+    local playerSource = {layoutName = "My Custom HUD", layoutType = 2, systems = {Row(false, "BOTTOMLEFT", 2450, 1290)}}
+    local playerBefore, modernBefore = copyTable(playerSource), copyTable(modern)
+    EditModePresetLayoutManager = {GetCopyOfPresetLayouts = function()
+        return {copyTable(modern), {layoutName = "Classic", layoutIndex = 1, layoutType = 1, systems = {}},
+            {layoutName = "Gamepad", layoutIndex = 2, layoutType = 1, systems = {}}}
+    end}
+    EditModeManagerFrame = {GetRegisteredSystemFrame = function(_, system) if system == 501 then return map end end}
+    layoutData = {activeLayout = 4, layouts = {copyTable(playerSource)}}
+    OffhandDB, OffhandCharDB = {}, {}
+    local writes, rejectSave = 0, false
+    C_EditMode = {
+        GetLayouts = function() return copyTable(layoutData) end,
+        SaveLayouts = function(data)
+            writes = writes + 1
+            if rejectSave then return false end
+            layoutData = copyTable(data); return true
+        end,
+        OnLayoutAdded = function(id) layoutData.activeLayout = id; return true end,
+        SetActiveLayout = function(id) layoutData.activeLayout = id; return true end,
+    }
+    assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+    local id = layoutData.activeLayout
+    local target = layoutData.layouts[id - 3]
+    assert(target.systems[1].anchorInfo.offsetX <= 1755 and target.systems[1].anchorInfo.offsetY <= 1097,
+        "actual create transaction retained the source's off-Mainhand absolute coordinates")
+    assert(target.systems[1].settings[1].value == 123 and layoutData.layouts[1].layoutName == playerSource.layoutName
+        and layoutData.layouts[1].systems[1].anchorInfo.offsetX == 2450,
+        "create transaction overwrote the player's source or HUD settings")
+    target.systems[1].anchorInfo.offsetX, target.systems[1].anchorInfo.offsetY = 1000, 800
+    assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+    assert(layoutData.layouts[id - 3].systems[1].anchorInfo.offsetX == 1000,
+        "rebuilding the active current generated layout discarded an in-Mainhand edit")
+    layoutData.activeLayout = 1
+    OffhandCharDB.mainhandLayoutBackups = "invalid-old-data"
+    assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+    assert(OffhandCharDB.mainhandLayout.sourceName == "Modern" and OffhandCharDB.mainhandLayout.sourcePreset
+        and layoutData.layouts[id - 3].systems[1].anchorInfo.offsetX == -761,
+        "explicit Create from Modern reused the prior custom source")
+    local backup = OffhandCharDB.mainhandLayoutBackups[OffhandCharDB.mainhandLayout.generatedName]
+    assert(backup and backup.layout.systems[1].anchorInfo.offsetX == 1000 and #layoutData.layouts == 2,
+        "rebase must retain the old generated payload without consuming another native slot")
+    assert(playerSource.systems[1].anchorInfo.offsetX == playerBefore.systems[1].anchorInfo.offsetX
+        and modern.systems[1].anchorInfo.offsetX == modernBefore.systems[1].anchorInfo.offsetX,
+        "source preset or custom source was mutated")
+    local previousRecord = copyTable(OffhandCharDB.mainhandLayout)
+    local beforeAnchor = layoutData.layouts[id - 3].systems[1].anchorInfo.offsetX
+    OffhandCharDB.mainhandLayoutBackups = nil
+    layoutData.activeLayout, rejectSave = 4, true
+    local succeeded, reason = addon.Mainhand:CreateOrUpdateEditModeLayout()
+    assert(not succeeded and reason == "save" and layoutData.layouts[id - 3].systems[1].anchorInfo.offsetX == beforeAnchor
+        and OffhandCharDB.mainhandLayout.sourceName == previousRecord.sourceName,
+        "failed native save changed the active payload or provenance")
+    assert(OffhandCharDB.mainhandLayoutBackups[previousRecord.generatedName].layout.systems[1].anchorInfo.offsetX == beforeAnchor,
+        "an erroring native save must still retain the pre-write generated payload")
+    addon._displayGeometryTransitionActive = true
+    local beforeWrites = writes
+    succeeded, reason = addon.Mainhand:CreateOrUpdateEditModeLayout()
+    assert(not succeeded and reason == "span" and writes == beforeWrites, "unsettled geometry must block layout saving")
+    addon._displayGeometryTransitionActive = nil
+    print("PASS: native HUD fitting transaction preserves source/generated edits, supports explicit Modern rebase, snapshots and failed-save guards")
 end

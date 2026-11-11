@@ -2,6 +2,10 @@
 local _, Offhand = ...
 local Transient = {}
 Offhand.HUDTransientFrames = Transient
+local function OrdinaryNumber(value)
+    if issecretvalue and issecretvalue(value) then return false end
+    return type(value) == "number" and value == value and math.abs(value) < math.huge
+end
 
 function Transient.Install(HUD, services)
     local Points = assert(services.Points, "Missing transient HUD anchor writer")
@@ -814,7 +818,11 @@ function Transient.Install(HUD, services)
     end
 
     local function GetDefaultGroupLootCenter(metrics, container)
-        local row = container and container.rollFrames and container.rollFrames[1]
+        local row
+        for index = 1, tonumber(container and container.maxIndex) or 0 do
+            row = container.rollFrames and container.rollFrames[index]
+            if row then break end
+        end
         local rowScale = row and row.GetEffectiveScale and row:GetEffectiveScale() or 1
         local parentScale = UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
         local factor = parentScale / math.max(tonumber(rowScale) or 1, 0.0001)
@@ -852,6 +860,10 @@ function Transient.Install(HUD, services)
         -- Validate the complete native set before moving anything. This makes an
         -- addon-owned mover (a row relative to its own anchor) an explicit conflict
         -- instead of creating a last-writer contest.
+        local margin = 12 * (metrics.hudScale or 1)
+        local minX, maxX = metrics.gameLeft + margin, metrics.gameRight - margin
+        local minY, maxY = metrics.gameBottom + margin, metrics.gameTop - margin
+        local slot = 0
         for index = 1, maxIndex do
             local row = rows[index]
             if row then
@@ -863,8 +875,29 @@ function Transient.Install(HUD, services)
                     groupLootRowMover.conflict = "custom-or-protected-row:" .. tostring(name)
                     return false
                 end
+                local rowScale = row.GetEffectiveScale and row:GetEffectiveScale() or 1
+                local parentScale = UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
+                local width = row.GetWidth and row:GetWidth() or 0
+                local height = row.GetHeight and row:GetHeight() or 0
+                if not OrdinaryNumber(rowScale) or not OrdinaryNumber(parentScale)
+                    or not OrdinaryNumber(width) or not OrdinaryNumber(height)
+                    or rowScale <= 0 or parentScale <= 0 then return false end
+                local toUI = rowScale / math.max(parentScale, 0.0001)
+                local halfWidth = width * toUI / 2
+                local halfHeight = height * toUI / 2
+                local offset = stackStep * slot * toUI
+                minX = math.max(minX, metrics.gameLeft + margin + halfWidth)
+                maxX = math.min(maxX, metrics.gameRight - margin - halfWidth)
+                minY = math.max(minY, metrics.gameBottom + margin + halfHeight - offset)
+                maxY = math.min(maxY, metrics.gameTop - margin - halfHeight - offset)
+                slot = slot + 1
             end
         end
+
+        -- Fit the whole active stack without changing the saved preview anchor
+        -- or native row sizes. A sparse native array must not leave empty slots.
+        if minX <= maxX then centerX = math.max(minX, math.min(maxX, centerX)) end
+        if minY <= maxY then centerY = math.max(minY, math.min(maxY, centerY)) end
 
         local moved = 0
         for index = 1, maxIndex do
@@ -873,10 +906,12 @@ function Transient.Install(HUD, services)
                 local rowScale = row.GetEffectiveScale and row:GetEffectiveScale() or 1
                 local parentScale = UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
                 local factor = parentScale / math.max(tonumber(rowScale) or 1, 0.0001)
-                row:ClearAllPoints()
-                row:SetPoint("CENTER", UIParent, "BOTTOMLEFT",
-                    centerX * factor,
-                    centerY * factor + stackStep * (index - 1))
+                local desired = {"CENTER", UIParent, "BOTTOMLEFT",
+                    centerX * factor, centerY * factor + stackStep * moved}
+                if not SameSecurePoints(row, {desired}) then
+                    row:ClearAllPoints()
+                    row:SetPoint(unpack(desired))
+                end
                 groupLootRowsOwned[row] = true
                 moved = moved + 1
             end
@@ -1102,7 +1137,8 @@ function Transient.Install(HUD, services)
             ConfigureGroupLootRowMover(frame, physicalX, physicalY)
             if groupLootMoverRequested then PositionGroupLootMoverFrame(m) end
         end
-        if SecureScreenPoint(frame, spec.point, x, y) then
+        if SameSecurePoints(frame, {{spec.point, UIParent, "BOTTOMLEFT", x, y}})
+            or SecureScreenPoint(frame, spec.point, x, y) then
             RecordSecurePoints(frame, original)
             return true
         end
