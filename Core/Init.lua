@@ -1693,6 +1693,9 @@ function Offhand:ApplyFullLayout(preserveGlobalScale)
                     module:ApplyLayout()
                 end
             end
+        elseif Offhand.PopupBounds and Offhand.PopupBounds.ApplyLayout then
+            -- Release tooltip clamp insets when the canvas returns to one screen.
+            Offhand.PopupBounds:ApplyLayout()
         end
     end)
 

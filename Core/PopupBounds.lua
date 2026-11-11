@@ -83,9 +83,22 @@ end
 local comparisonTooltipNames = {
     "ShoppingTooltip1", "ShoppingTooltip2", "ShoppingTooltip3",
 }
+local tooltipAnchorPoints = {TOPLEFT = true, TOP = true, TOPRIGHT = true, LEFT = true, CENTER = true,
+    RIGHT = true, BOTTOMLEFT = true, BOTTOM = true, BOTTOMRIGHT = true}
+
+local function IsComparisonCard(root, frame)
+    if type(root.shoppingTooltips) == "table" then
+        for _, card in ipairs(root.shoppingTooltips) do if card == frame then return true end end
+    else
+        for _, name in ipairs(comparisonTooltipNames) do if _G[name] == frame then return true end end
+    end
+    return false
+end
 
 local classicClampState = setmetatable({}, { __mode = "k" })
 local classicClampUpdating
+local comparisonClampState = setmetatable({}, { __mode = "k" })
+local comparisonClampUpdating
 local tooltipFitState = setmetatable({}, { __mode = "k" })
 local tooltipFitYielded = setmetatable({}, { __mode = "k" })
 local tooltipFitUpdating
@@ -173,14 +186,19 @@ function PopupBounds:RestoreClassicTooltipClamp(frame)
     return true
 end
 function PopupBounds:UpdateClassicTooltipClamp(frame, preparing)
-    if classicClampUpdating or tooltipFitUpdating
+    if classicClampUpdating or tooltipFitUpdating or comparisonClampUpdating
         or (InCombatLockdown and InCombatLockdown()) or not frame
         or not frame.GetClampRectInsets or not frame.SetClampRectInsets
         or not frame.IsClampedToScreen or not frame.SetClampedToScreen then return false end
     if (frame.IsForbidden and frame:IsForbidden())
         or (frame.IsProtected and frame:IsProtected()) then return false end
     local metrics = Active()
-    local _, owner = TooltipRootAndOwner(frame)
+    local root, owner = TooltipRootAndOwner(frame)
+    -- Modern shopping cards belong to one native anchor chain. Restrict only
+    -- its root; independently clamping a card can slide it over its neighbour.
+    if (Offhand.isRetail or Offhand.isForever) and root and root ~= frame then
+        return self:RestoreClassicTooltipClamp(frame)
+    end
     if metrics and Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,owner or frame) end
     local worldOwner = owner and (owner == UIParent or owner == _G.WorldFrame)
     local external = _G.TipTac or _G.TinyTooltip or _G.TinyTooltipReforged
@@ -190,6 +208,7 @@ function PopupBounds:UpdateClassicTooltipClamp(frame, preparing)
         metrics.workspaceRight, metrics.workspaceTop)
     if not metrics or not owner or frame.IsEmbedded or external
         or (not mainhandOwner and not workspaceOwner) then
+        comparisonClampState[frame] = nil
         return self:RestoreClassicTooltipClamp(frame)
     end
     local left = mainhandOwner and metrics.gameLeft or metrics.workspaceLeft
@@ -206,6 +225,23 @@ function PopupBounds:UpdateClassicTooltipClamp(frame, preparing)
     local margin = 12 * (metrics.hudScale or 1)
     local minX, maxX = left + margin, right - margin
     local minY, maxY = bottom + margin, top - margin
+    local group = comparisonClampState[frame]
+    if group then
+        for _, card in ipairs(group.cards) do
+            if (card.IsForbidden and card:IsForbidden()) or (card.IsProtected and card:IsProtected()) then return false end
+            if not IsComparisonCard(frame, card) or not card.IsShown or not card:IsShown() or TooltipRootAndOwner(card) ~= frame then
+                comparisonClampState[frame], group = nil, nil
+                break
+            end
+        end
+        if group then
+            -- Oversized groups retain the native full-window policy rather
+            -- than compressing independent cards into an overlapping stack.
+            if group.nativeOnly or group.width > maxX - minX or group.height > maxY - minY then return self:RestoreClassicTooltipClamp(frame) end
+            minX, maxX = minX + group.left, maxX - group.right
+            minY, maxY = minY + group.bottom, maxY - group.top
+        end
+    end
     if not preparing and (not frame.IsShown or frame:IsShown()) then
         local left, right, top, bottom = FrameBounds(frame)
         if not left or right <= left or top <= bottom then return false end
@@ -459,6 +495,110 @@ end
 -- trying to anchor each frame to the other. Move only the manually-owned root
 -- after the completed comparison transaction, which translates the intact
 -- graph as one unit and leaves a small physical margin at the seam.
+local function ComparisonEnvelope(root, cards)
+    local left, right, top, bottom = FrameBounds(root)
+    if not left then return end
+    local bounds = {[root] = {left = left, right = right, top = top, bottom = bottom}}
+    local allowed, visiting = {}, {}
+    for _, card in ipairs(cards) do allowed[card] = true end
+    local function Fractions(point)
+        return point:find("LEFT", 1, true) and 0 or point:find("RIGHT", 1, true) and 1 or .5,
+            point:find("BOTTOM", 1, true) and 0 or point:find("TOP", 1, true) and 1 or .5
+    end
+    local function Resolve(card)
+        if bounds[card] then return bounds[card] end
+        if not allowed[card] or visiting[card] or not card.GetPoint or not card.GetNumPoints then return end
+        local l, r, t, b, uiScale, frameScale = FrameBounds(card)
+        if not l then return end
+        local ok, count = pcall(card.GetNumPoints, card)
+        if not ok or not PublicNumber(count) or count < 1 or count > 8 or count % 1 ~= 0 then return end
+        visiting[card] = true
+        local x, y, xPriority, yPriority
+        for index = 1, count do
+            local read, point, relative, relativePoint, dx, dy = pcall(card.GetPoint, card, index)
+            if not read or (issecretvalue and (issecretvalue(point) or issecretvalue(relativePoint)
+                    or issecretvalue(relative) or issecretvalue(dx) or issecretvalue(dy)))
+                or type(point) ~= "string" or type(relativePoint) ~= "string"
+                or not PublicNumber(dx or 0) or not PublicNumber(dy or 0) then visiting[card] = nil; return end
+            if not tooltipAnchorPoints[point] or not tooltipAnchorPoints[relativePoint] then visiting[card] = nil; return end
+            local parent = relative == root and bounds[root] or Resolve(relative)
+            if not parent then visiting[card] = nil; return end
+            local px, py = Fractions(point)
+            local rx, ry = Fractions(relativePoint)
+            local cx = parent.left + rx * (parent.right - parent.left) + (dx or 0) * frameScale / uiScale - px * (r - l)
+            local cy = parent.bottom + ry * (parent.top - parent.bottom) + (dy or 0) * frameScale / uiScale - py * (t - b)
+            -- Native TOP + RIGHT anchors constrain separate axes. Prefer the
+            -- edge-specific point over the other point's implicit centre.
+            local xp, yp = px ~= .5 and 1 or 0, py ~= .5 and 1 or 0
+            if xPriority == nil or xp > xPriority then x, xPriority = cx, xp
+            elseif xp == xPriority and math.abs(cx - x) > .1 then visiting[card] = nil; return end
+            if yPriority == nil or yp > yPriority then y, yPriority = cy, yp
+            elseif yp == yPriority and math.abs(cy - y) > .1 then visiting[card] = nil; return end
+        end
+        visiting[card] = nil
+        bounds[card] = {left = x, right = x + r - l, bottom = y, top = y + t - b}
+        return bounds[card]
+    end
+    local minLeft, maxRight, maxTop, minBottom = left, right, top, bottom
+    for _, card in ipairs(cards) do
+        local rect = Resolve(card)
+        if not rect then return end
+        minLeft, maxRight = math.min(minLeft, rect.left), math.max(maxRight, rect.right)
+        maxTop, minBottom = math.max(maxTop, rect.top), math.min(minBottom, rect.bottom)
+    end
+    return {cards = cards, left = left - minLeft, right = maxRight - right,
+        top = maxTop - top, bottom = bottom - minBottom, width = maxRight - minLeft, height = maxTop - minBottom}
+end
+
+local function NativeComparisonBounds(root)
+    if not root.GetClampRectInsets or not root.SetClampRectInsets
+        or not root.IsClampedToScreen or not root.SetClampedToScreen then return false end
+    local cards = {}
+    local candidates = type(root.shoppingTooltips) == "table" and root.shoppingTooltips or nil
+    for index = 1, candidates and #candidates or #comparisonTooltipNames do
+        local card = candidates and candidates[index] or _G[comparisonTooltipNames[index]]
+        if card and ((card.IsForbidden and card:IsForbidden()) or (card.IsProtected and card:IsProtected())) then return true end
+        if card and card ~= root and card.IsShown and card:IsShown()
+            and TooltipRootAndOwner(card) == root then
+            cards[#cards + 1] = card
+        end
+    end
+    -- Validate the complete transaction before restoring any owned bounds.
+    for _, tooltip in ipairs({root, unpack(cards)}) do
+        if tooltip.IsEmbedded or (tooltip.IsForbidden and tooltip:IsForbidden())
+            or (tooltip.IsProtected and tooltip:IsProtected()) or not FrameBounds(tooltip) then return true end
+    end
+    if #cards == 0 then
+        comparisonClampState[root] = nil
+        PopupBounds:UpdateClassicTooltipClamp(root)
+        return true
+    end
+    local previous, current = comparisonClampState[root], ComparisonEnvelope(root, cards)
+    local unchanged = previous and current and #previous.cards == #cards
+    if unchanged and not previous.nativeOnly then
+        for index, card in ipairs(cards) do
+            if previous.cards[index] ~= card or classicClampState[card] or tooltipFitState[card] then unchanged = false end
+        end
+        for _, key in ipairs({"left", "right", "top", "bottom", "width", "height"}) do
+            if math.abs(previous[key] - current[key]) > 0.01 then unchanged = false end
+        end
+    elseif previous and previous.nativeOnly then unchanged = false end
+    if unchanged then PopupBounds:UpdateClassicTooltipClamp(root); return true end
+    comparisonClampState[root] = nil
+    comparisonClampUpdating = true
+    local ok, state = pcall(function()
+        PopupBounds:RestoreClassicTooltipClamp(root)
+        for _, card in ipairs(cards) do PopupBounds:RestoreClassicTooltipClamp(card) end
+        return ComparisonEnvelope(root, cards) or {cards = cards, nativeOnly = true}
+    end)
+    comparisonClampUpdating = nil
+    if ok then
+        comparisonClampState[root] = state
+        PopupBounds:UpdateClassicTooltipClamp(root)
+    end
+    return true
+end
+
 function PopupBounds:ArrangeTooltipComparisons(frame)
     if not Offhand.isRetail and not Offhand.isForever then return false end
     if InCombatLockdown and InCombatLockdown() then return false end
@@ -466,6 +606,18 @@ function PopupBounds:ArrangeTooltipComparisons(frame)
     if not metrics then return false end
     local root, owner = TooltipRootAndOwner(frame)
     if Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,owner or frame) end
+    local external = _G.TipTac or _G.TinyTooltip or _G.TinyTooltipReforged
+    if root and external then
+        comparisonClampState[root] = nil
+        self:RestoreClassicTooltipClamp(root)
+        return false
+    end
+    if not root or not owner or external or root.IsEmbedded
+        or (root.IsForbidden and root:IsForbidden()) or (root.IsProtected and root:IsProtected()) then return false end
+    local inside = owner == UIParent or owner == _G.WorldFrame
+        or FrameCenterInside(owner, metrics.gameLeft, metrics.gameBottom, metrics.gameRight, metrics.gameTop)
+        or FrameCenterInside(owner, metrics.workspaceLeft, metrics.workspaceBottom, metrics.workspaceRight, metrics.workspaceTop)
+    if inside and NativeComparisonBounds(root) then return true end
     if root and owner and (owner == UIParent or owner == _G.WorldFrame) then
         -- Apply native bounds only after the comparison manager has completed
         -- its anchor graph. Do not install intermediate shopping-card observers.
@@ -525,6 +677,25 @@ function PopupBounds:ArrangeTooltipComparisons(frame)
         (rootLeft + dx) * fromUI, (rootTop + dy) * fromUI)
 end
 
+function PopupBounds:ApplyLayout()
+    if not Active() then
+        for _, name in ipairs({"GameTooltip", "ItemRefTooltip", "ShoppingTooltip1", "ShoppingTooltip2", "ShoppingTooltip3"}) do
+            local tooltip = _G[name]
+            if tooltip then
+                comparisonClampState[tooltip] = nil
+                self:RestoreClassicTooltipClamp(tooltip)
+            end
+        end
+        return
+    end
+    for _, name in ipairs({"GameTooltip", "ItemRefTooltip"}) do
+        local tooltip = _G[name]
+        if tooltip and not (tooltip.IsForbidden and tooltip:IsForbidden()) and tooltip.IsShown and tooltip:IsShown() then
+            self:ArrangeTooltipComparisons(tooltip)
+        end
+    end
+end
+
 function PopupBounds:ObserveTooltip(tooltip)
     if not tooltip or tooltip._OffhandBoundsObserved then return false end
     tooltip._OffhandBoundsObserved = true
@@ -549,6 +720,7 @@ function PopupBounds:ObserveTooltip(tooltip)
             tooltip:HookScript("OnShow", function(self) PopupBounds:UpdateClassicTooltipClamp(self) end)
         end
         tooltip:HookScript("OnHide", function(self)
+            comparisonClampState[self] = nil
             if self==_G.SettingsTooltip then
                 PopupBounds:UpdateSettingsTooltipScale(self,true)
                 settingsTooltipYielded[self]=nil
@@ -564,6 +736,7 @@ function PopupBounds:ObserveTooltip(tooltip)
     end
     if tooltip.SetOwner and hooksecurefunc then
         hooksecurefunc(tooltip, "SetOwner", function(self, owner, anchor)
+            comparisonClampState[self] = nil
             -- Settings builds its lines immediately after SetOwner. Scaling on
             -- show, even next turn, leaves native wrapping/height inconsistent
             -- on Anniversary. Prepare scale before native text construction.
