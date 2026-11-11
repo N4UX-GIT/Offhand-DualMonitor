@@ -12,7 +12,18 @@ local modeGuidance = {
     ellesmere = "ELLESMERE_HUD_GUIDE_COPY",
     blizzard = "ELLESMERE_HUD_GUIDE_FALLBACK",
 }
+local rowGuidance = {
+    ELLESMERE_HUD_FOLLOWS = "ELLESMERE_HUD_LINK_HELP",
+    ELLESMERE_HUD_ANCHORED = "ELLESMERE_HUD_LINK_HELP",
+    ELLESMERE_HUD_MOVES_WITH = "ELLESMERE_HUD_LINK_HELP",
+    ELLESMERE_HUD_BOUNDS = "ELLESMERE_HUD_BOUNDS_HELP",
+    ELLESMERE_HUD_CHILD_BOUNDS = "ELLESMERE_HUD_BOUNDS_HELP",
+    ELLESMERE_HUD_ANCHOR_GRAPH = "ELLESMERE_HUD_ANCHOR_GRAPH_HELP",
+    ELLESMERE_HUD_GROUP_TOO_LARGE = "ELLESMERE_HUD_GROUP_TOO_LARGE_HELP",
+}
 local colors = {{1, .73, .3}, {.35, .8, 1}, {.39, .91, .65}, {.98, .55, .66}, {.75, .64, 1}}
+for _, color in ipairs({{.95, .85, .4}, {.4, .85, .85}, {.9, .65, .4}, {.8, .9, .5},
+    {.6, .7, 1}, {.95, .5, .8}, {.8, .8, .8}}) do colors[#colors + 1] = color end
 
 local function Surface(parent)
     return CreateFrame("Frame", nil, parent, "BackdropTemplate")
@@ -64,12 +75,13 @@ local function MakeDiagram(parent, title, column)
         local number = Label(marker, "GameFontHighlightSmall")
         number:SetPoint("CENTER")
         number:SetText(i)
+        marker.number = number
         map.markers[i] = marker
     end
     return map
 end
 
-local function Plot(map, context, rows, after, direction, selected)
+local function Plot(map, context, rows, after, direction, selected, offset)
     local rect = context and context.rect
     map.canvas:SetShown(rect ~= nil)
     if not rect then return end
@@ -86,9 +98,10 @@ local function Plot(map, context, rows, after, direction, selected)
         end
     end
     for i, marker in ipairs(map.markers) do
-        local row = rows[i]
-        local b = row and row.current
-        local proposed = row and selected[row.map.key] ~= false and row.proposed
+        local row = rows[i + offset]
+        marker.number:SetText(i + offset)
+        local b = row and (row.groupCurrent or row.current)
+        local proposed = row and selected[row.followKey or row.map.key] ~= false and (row.groupProposed or row.proposed)
         if after then b = proposed or (direction ~= "blizzard" and b) end
         marker:Hide()
         if b and b.left <= width and b.bottom <= height and b.left + b.width >= 0 and b.bottom + b.height >= 0 then
@@ -115,11 +128,16 @@ local function ReadPlan(direction)
     end
     local changed = 0
     for _, row in ipairs(rows) do
+        signature[#signature + 1] = row.map.specKey or ""
         local pos = row.position or row.anchor
         if pos then
             changed = changed + 1
             signature[#signature + 1] = string.format("%s,%s,%s,%.6f,%.6f", row.map.key, pos.point,
                 pos.relPoint or pos.relativePoint, pos.x or pos.offsetX, pos.y or pos.offsetY)
+        end
+        for _, bounds in ipairs({row.groupCurrent or row.current or {}, row.groupProposed or row.proposed or {}}) do
+            signature[#signature + 1] = string.format("%s,%s,%s,%s", tostring(bounds.left),
+                tostring(bounds.bottom), tostring(bounds.width), tostring(bounds.height))
         end
     end
     return {rows = rows, context = context, source = source, signature = table.concat(signature, "|"), changed = changed}
@@ -127,7 +145,7 @@ end
 
 local function Render(direction)
     local plan, reason = ReadPlan(direction)
-    if direction ~= dialog.direction then dialog.rowSelection = {} end
+    if direction ~= dialog.direction then dialog.rowSelection, dialog.page = {}, 1 end
     dialog.direction, dialog.plan = direction, plan
     local context = plan and plan.context
     local rows = plan and plan.rows or {}
@@ -138,25 +156,47 @@ local function Render(direction)
     dialog.subtitle:SetText(context and string.format(L["ELLESMERE_HUD_VISUAL_SOURCE"],
         context.profileName or "—", plan.source or "—") or L[reason])
     dialog.guide:SetText(L[modeGuidance[direction]])
-    Plot(dialog.before, context, rows, false, direction, dialog.rowSelection)
-    Plot(dialog.after, context, rows, true, direction, dialog.rowSelection)
-    local selected = 0
+    local pages = math.max(1, math.ceil(#rows / #colors))
+    dialog.page = math.min(dialog.page or 1, pages)
+    local offset = (dialog.page - 1) * #colors
+    dialog.previous:SetEnabled(dialog.page > 1)
+    dialog.next:SetEnabled(dialog.page < pages)
+    dialog.pages:SetText(string.format("%d / %d", dialog.page, pages))
+    Plot(dialog.before, context, rows, false, direction, dialog.rowSelection, offset)
+    Plot(dialog.after, context, rows, true, direction, dialog.rowSelection, offset)
+    local selected, blocked = 0, 0
+    for _, row in ipairs(rows) do
+        if (row.position or row.anchor) and dialog.rowSelection[row.map.key] ~= false then selected = selected + 1 end
+        if not (row.position or row.anchor or row.followKey) and row.reason ~= "ELLESMERE_HUD_KEEP" then
+            blocked = blocked + 1
+        end
+    end
     for i, label in ipairs(dialog.legend) do
-        local row = rows[i]
+        local row = rows[i + offset]
         local canCopy = row and (row.position or row.anchor)
         local checked = canCopy and dialog.rowSelection[row.map.key] ~= false
-        local status = row and (row.reason or (row.anchor and "ELLESMERE_HUD_POINT_ONLY" or "ELLESMERE_HUD_WILL_MOVE"))
+        local status = row and (row.reason or (row.anchor and "ELLESMERE_HUD_POINT_ONLY"
+            or row.linkedGroup and "ELLESMERE_HUD_MOVE_GROUP" or "ELLESMERE_HUD_WILL_MOVE"))
         local checkbox = dialog.checkboxes[i]
         checkbox:SetShown(canCopy ~= nil and canCopy ~= false)
         checkbox:SetChecked(checked == true)
-        label:SetText(row and string.format("%d  %s  ·  %s", i, L[row.map.label], L[status]) or "")
-        if checked then selected = selected + 1 end
+        local name = row and (row.map.displayLabel or (row.map.number and string.format(L[row.map.label], row.map.number) or L[row.map.label]))
+        local message = row and (row.reasonArgs and string.format(L[status], unpack(row.reasonArgs)) or L[status])
+        label:SetText(row and string.format("%d  %s  ·  %s", i + offset, name, message) or "")
+        local helpKey = row and rowGuidance[status]
+        dialog.rowHelp[i].text = row and (name .. "\n" .. message .. (helpKey and "\n\n" .. L[helpKey] or "")) or nil
     end
     dialog.apply:SetText(L[direction == "blizzard" and "ELLESMERE_HUD_SAVE_FALLBACK" or "ELLESMERE_HUD_REVIEW_IMPORT"])
     dialog.apply:SetEnabled(plan and not context.block and selected > 0 or false)
-    dialog.status:SetText(context and context.block and L[context.block]
-        or plan and selected == 0 and L[plan.changed == 0 and "ELLESMERE_HUD_NO_CHANGES"
-            or "ELLESMERE_HUD_SELECT_ROWS"] or "")
+    local summary = context and context.block and L[context.block]
+        or plan and selected == 0 and (context.unavailable and L["ELLESMERE_HUD_MODULE_GUIDANCE"]
+            or blocked > 0 and string.format(L["ELLESMERE_HUD_BLOCKED_ROWS"], blocked)
+            or L[plan.changed == 0 and "ELLESMERE_HUD_NO_CHANGES" or "ELLESMERE_HUD_SELECT_ROWS"])
+        or plan and blocked > 0 and string.format(L["ELLESMERE_HUD_PARTIAL"], selected, blocked) or ""
+    if context and context.block == "ELLESMERE_HUD_OVERRIDES" then
+        summary = L["ELLESMERE_HUD_OVERRIDES_HELP"]
+    end
+    dialog.status:SetText(summary)
 end
 
 function Transfer:PromptImportReload()
@@ -165,6 +205,7 @@ function Transfer:PromptImportReload()
     local manual = not Offhand:GetReloadUIFunction() or (InCombatLockdown and InCombatLockdown())
         or mainhand and mainhand.IsNativeGamepadInterface and mainhand:IsNativeGamepadInterface()
     StaticPopupDialogs.OFFHAND_ELLESMERE_HUD_RELOAD = {
+        offhandAcceptBeforeHide = true,
         text = L[manual and "ELLESMERE_HUD_IMPORT_RELOAD_MANUAL" or "ELLESMERE_HUD_IMPORT_RELOAD_PROMPT"],
         button1 = manual and (OKAY or "OK") or L["ONBOARD_RELOAD_UI"],
         button2 = not manual and L["CHARACTER_SETUP_LATER"] or nil,
@@ -307,7 +348,7 @@ end
 
 local function CreateDialog()
     local frame = CreateFrame("Frame", "OffhandEllesmerePreviewFrame", UIParent, "BackdropTemplate")
-    frame:SetSize(900, 548)
+    frame:SetSize(900, 700)
     frame:SetFrameStrata("FULLSCREEN_DIALOG")
     frame:EnableMouse(true)
     frame:Hide()
@@ -338,13 +379,14 @@ local function CreateDialog()
     frame.guide:SetWordWrap(true)
     frame.before = MakeDiagram(frame, "ELLESMERE_HUD_CURRENT", 0)
     frame.after = MakeDiagram(frame, "ELLESMERE_HUD_PROPOSED", 1)
-    frame.legend, frame.checkboxes = {}, {}
+    frame.legend, frame.checkboxes, frame.rowHelp = {}, {}, {}
     for i, color in ipairs(colors) do
+        local column, line = math.floor((i - 1) / 6), (i - 1) % 6
         local checkbox = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
         checkbox:SetSize(16, 16)
-        checkbox:SetPoint("TOPLEFT", 18, -381 - (i - 1) * 17)
+        checkbox:SetPoint("TOPLEFT", 18 + column * 440, -381 - line * 26)
         checkbox:SetScript("OnClick", function(self)
-            local row = frame.plan and frame.plan.rows[i]
+            local row = frame.plan and frame.plan.rows[i + ((frame.page or 1) - 1) * #colors]
             if not row then return end
             frame.rowSelection[row.map.key] = self:GetChecked() == true
             Render(frame.direction)
@@ -352,17 +394,40 @@ local function CreateDialog()
         frame.checkboxes[i] = checkbox
         local label = Label(frame, "GameFontHighlightSmall")
         label:SetTextColor(unpack(color))
-        label:SetPoint("TOPLEFT", 38, -383 - (i - 1) * 17)
-        label:SetPoint("RIGHT", frame, "RIGHT", -20, 0)
+        label:SetPoint("TOPLEFT", 38 + column * 440, -383 - line * 26)
+        label:SetWidth(404)
+        label:SetHeight(24)
+        if label.SetMaxLines then label:SetMaxLines(2) end
+        label:SetWordWrap(true)
         frame.legend[i] = label
+        local help = CreateFrame("Frame", nil, frame)
+        help:SetPoint("TOPLEFT", label, "TOPLEFT", 0, 2)
+        help:SetSize(404, 26)
+        help:EnableMouse(true)
+        help:SetScript("OnEnter", function(self)
+            if not self.text or not GameTooltip then return end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(self.text, 1, 1, 1, 1, true)
+            GameTooltip:Show()
+        end)
+        help:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+        frame.rowHelp[i] = help
     end
+    frame.previous = Button(frame, "BTN_BACK", 90, function() frame.page = frame.page - 1; Render(frame.direction) end)
+    frame.previous:SetPoint("BOTTOMLEFT", 18, 48)
+    frame.pages = Label(frame, "GameFontHighlightSmall")
+    frame.pages:SetPoint("LEFT", frame.previous, "RIGHT", 12, 0)
+    frame.next = Button(frame, "BTN_NEXT", 90, function() frame.page = frame.page + 1; Render(frame.direction) end)
+    frame.next:SetPoint("LEFT", frame.pages, "RIGHT", 12, 0)
     local close = Button(frame, "BTN_CLOSE", 120, function() frame:Hide() end)
     close:SetPoint("BOTTOMRIGHT", -18, 14)
     frame.apply = Button(frame, "ELLESMERE_HUD_REVIEW_IMPORT", 228, Apply)
     frame.apply:SetPoint("RIGHT", close, "LEFT", -8, 0)
     frame.status = Label(frame, "GameFontHighlightSmall")
-    frame.status:SetPoint("BOTTOMLEFT", 20, 12)
-    frame.status:SetPoint("RIGHT", frame.apply, "LEFT", -12, 0)
+    frame.status:SetPoint("TOPLEFT", 20, -550)
+    frame.status:SetPoint("RIGHT", frame, "RIGHT", -20, 0)
+    frame.status:SetHeight(68)
+    frame.status:SetWordWrap(true)
     return frame
 end
 

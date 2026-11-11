@@ -46,6 +46,7 @@ local defaultSettings = {
 
     -- Feature toggles
     seamRedirect = true,            -- Redirect popups and errors away from center bezel
+    centerProcDocOnMainhand = false, -- Optional reversible ProcDoc center adapter
     preventMapCloseOnMove = true,   -- Keep WorldMap open while running/walking
     independentWorkspacePanels = true, -- Panels placed on the secondary workspace stay open independently
     persistentWorkspacePanels = true,  -- Keep workspace panels and maps open when pressing Escape

@@ -60,6 +60,8 @@ function Recovery:Run()
         and not (_G.MoveAny or _G.MoveAnything) then
         local function Add(name, system, index, needsIndex, x, y, expected)
             if system == nil or (needsIndex and index == nil) then return end
+            if compatibility and compatibility.IsExternallyOwnedEditModeSystem
+                and compatibility.IsExternallyOwnedEditModeSystem({system=system, systemIndex=index}) then return end
             local state = Recovery.Inspect(_G[name], metrics)
             if state ~= "missing" and not (state == "hidden" and expected) then return end
             local sized, width, frameHeight, factor = pcall(function()

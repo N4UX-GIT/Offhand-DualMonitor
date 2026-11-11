@@ -108,6 +108,14 @@ assert(addon.Recovery:Run() and requests==nil,'inactive ability was treated as m
 ExtraAbilityContainer.shown=true;ExtraAbilityContainer.x=1100
 available=true
 assert(addon.Recovery:Run() and requests==nil,'visible ability must remain where the player placed it')
+local previousCompatibility = addon.HUDCompatibility
+addon.HUDCompatibility = {IsExternallyOwnedEditModeSystem=function(entry) return entry.system==8 end}
+MinimapCluster.x = -500
+requests = nil
+assert(addon.Recovery:Run() and requests==nil,
+    'missing-only recovery must not offer a native anchor repair for an externally owned minimap')
+addon.HUDCompatibility = previousCompatibility
+MinimapCluster.x = 900
 combat=true
 local success,why=addon.Recovery:Run()
 assert(not success and why=='combat')

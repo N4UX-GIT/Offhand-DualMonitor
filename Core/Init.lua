@@ -623,6 +623,18 @@ local function GetGamepadSafePopup()
 
     local function Finish(handler)
         local definition, data = frame.definition, frame.data
+        if handler == "OnAccept" and definition and definition.offhandAcceptBeforeHide
+            and type(definition.OnAccept) == "function" then
+            -- Forever revokes reload's hardware-click permission when its
+            -- clicked parent is hidden first. Keep this ordering opt-in so
+            -- ordinary confirmation callbacks retain their existing lifecycle.
+            local generation = frame.popupGeneration
+            definition.OnAccept(frame, data, "clicked")
+            -- A callback may replace/reopen this same pooled card, including
+            -- the same definition after an input-style or combat change.
+            if frame.popupGeneration == generation and frame.definition == definition then frame:Hide() end
+            return
+        end
         frame:Hide()
         if definition and type(definition[handler]) == "function" then
             definition[handler](frame, data, "clicked")
@@ -646,6 +658,7 @@ end
 function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     local recoveryPopup = popupKey == "OFFHAND_CONFIRM_RECOVERY"
     local setupPopup = popupKey == "OFFHAND_DOWNLOAD_LINK" or popupKey == "OFFHAND_POWERTOYS_LINK"
+        or popupKey == "OFFHAND_SETUP_MANUAL_RELOAD"
         or popupKey == "OFFHAND_WEBSITE_LINK" or popupKey == "OFFHAND_DISCORD_LINK"
         or popupKey == "OFFHAND_CONFIRM_WINDOWED_MODE"
         or popupKey == "OFFHAND_CONFIRM_PLACEMENT"
@@ -666,6 +679,7 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     if not definition then return nil end
     local frame = GetGamepadSafePopup()
     if frame.popupKey then frame:Hide() end
+    frame.popupGeneration = (frame.popupGeneration or 0) + 1
     frame.popupKey, frame.definition, frame.data = popupKey, definition, data
     frame.text:SetJustifyH(recoveryPopup and "LEFT" or "CENTER")
     if frame.text.SetFontObject then
@@ -720,6 +734,14 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
         if frame.EditBox.SetFocus then frame.EditBox:SetFocus() end
     end
     return frame
+end
+
+function Offhand:ShowManualReloadPrompt()
+    StaticPopupDialogs.OFFHAND_SETUP_MANUAL_RELOAD = {
+        text = self.L["SETUP_MANUAL_RELOAD"], button1 = self.L["BTN_CLOSE"],
+        timeout = 0, whileDead = true, hideOnEscape = true,
+    }
+    return self:ShowPopup("OFFHAND_SETUP_MANUAL_RELOAD")
 end
 
 function Offhand:HidePopup(popupKey)
@@ -1605,14 +1627,14 @@ end)
 local isApplyingLayout = false
 local layoutPending = false
 
-function Offhand:ApplyFullLayout()
+function Offhand:ApplyFullLayout(preserveGlobalScale)
     if not Offhand.db then return end
     if InCombatLockdown() then
         if not layoutPending then
             layoutPending = true
             self:RunOrQueueCombat(function()
                 layoutPending = false
-                Offhand:ApplyFullLayout()
+                Offhand:ApplyFullLayout(preserveGlobalScale)
             end)
         end
         return
@@ -1624,7 +1646,10 @@ function Offhand:ApplyFullLayout()
         if Offhand.WorkspaceProfiles and Offhand.Viewport then
             Offhand.WorkspaceProfiles:SyncCompanion(Offhand.Viewport:GetMetrics())
         end
-        if Offhand.Viewport and Offhand.Viewport.ApplyGlobalScale then Offhand.Viewport:ApplyGlobalScale() end
+        if preserveGlobalScale ~= true and Offhand.Viewport and Offhand.Viewport.ApplyGlobalScale then
+            Offhand.Viewport:ApplyGlobalScale()
+        end
+        if Offhand.EllesmereScaleCompatibility then Offhand.EllesmereScaleCompatibility:Refresh() end
         if Offhand.UpdateViewport then
             Offhand:UpdateViewport()
         end
@@ -2023,6 +2048,9 @@ SlashCmdList["Offhand"] = SlashCmdList["OFFHAND"]
 local logoutFix = CreateFrame('Frame')
 logoutFix:RegisterEvent('PLAYER_LOGOUT')
 logoutFix:SetScript('OnEvent', function()
+    if Offhand.Viewport and Offhand.Viewport.PrepareForLogout then
+        Offhand.Viewport:PrepareForLogout()
+    end
     if Offhand.RawMouse and Offhand.RawMouse.Restore then
         Offhand.RawMouse:Restore()
     end
@@ -2050,9 +2078,6 @@ logoutFix:SetScript('OnEvent', function()
         end
         if db.originalNameplateSize and SetCVar then
             SetCVar("nameplateSize", db.originalNameplateSize)
-        end
-        if db.originalFriendlyPlayerName ~= nil and SetCVar then
-            SetCVar("UnitNameFriendlyPlayerName", db.originalFriendlyPlayerName)
         end
     end
 
@@ -2172,6 +2197,11 @@ frame:SetScript("OnEvent", function()
     local function EnforceTooltipScale(self)
         if not Offhand.isRetail and not Offhand.isForever then return end
         if (InCombatLockdown and InCombatLockdown()) or not UIParent or not HasActiveSpannedLayout() then return end
+        -- The native size callback can run inside the fit's SetScale call,
+        -- before its final ownership record exists. Preserve that transaction
+        -- as well as the completed fit and any scale owner it yielded to.
+        if Offhand.PopupBounds and Offhand.PopupBounds.PreservesTooltipFitScale
+            and Offhand.PopupBounds:PreservesTooltipFitScale(self) then return end
         if self.SetIgnoreParentScale and self.IsIgnoringParentScale and self:IsIgnoringParentScale() then
             self:SetIgnoreParentScale(false)
         end

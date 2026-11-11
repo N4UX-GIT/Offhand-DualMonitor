@@ -1182,7 +1182,7 @@ function Options:CreateFloatingPanel()
     end
 
     local card2_2 = CreateCard(tab2, L["CARD_PERSISTENCE"],
-        Offhand.isForever and 558 or 374)
+        Offhand.isForever and 598 or 414)
     local supportsMainhandLayout = type(Offhand.HasBlizzardEditMode) == "function"
         and Offhand:HasBlizzardEditMode()
     -- Forever has two layout-status rows plus wrapped Edit Mode guidance.
@@ -1600,8 +1600,16 @@ function Options:CreateFloatingPanel()
         preview:SetScript("OnClick", function() transfer:ShowPreview() end)
     end
 
+    local procDocCheck = CreateNativeCheckbox(card2_2, L["PROCDOC_MAINHAND"],
+        function() return Offhand.db and Offhand.db.centerProcDocOnMainhand == true end,
+        function(value)
+            Offhand.db.centerProcDocOnMainhand = value == true
+            if Offhand.ProcDocCompatibility then Offhand.ProcDocCompatibility:Refresh() end
+        end, L["PROCDOC_MAINHAND"], L["PROCDOC_MAINHAND_DESC"])
+    procDocCheck:SetPoint("TOPLEFT", 10, Offhand.isForever and -520 or -336)
+    card2_2.procDocCheck = procDocCheck
     local compatDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    compatDesc:SetPoint("TOPLEFT", 32, Offhand.isForever and -528 or -344)
+    compatDesc:SetPoint("TOPLEFT", 32, Offhand.isForever and -568 or -384)
     compatDesc:SetWidth(530)
     compatDesc:SetJustifyH("LEFT")
     compatDesc:SetWordWrap(true)
@@ -2536,6 +2544,7 @@ function Options:CreateFloatingPanel()
         rFill:SetChecked(Offhand.db and Offhand.db.aspectRatioMode == "FILL")
 
         seamCheck:SetChecked((Offhand.db and Offhand.db.seamRedirect) or false)
+        card2_2.procDocCheck:SetChecked(Offhand.db and Offhand.db.centerProcDocOnMainhand == true or false)
         hideCloseCheck:SetChecked((Offhand.db and Offhand.db.hideWorkspaceCloseButtons == true) or false)
         hideMapMaximizeCheck:SetChecked((Offhand.db and Offhand.db.hideWorkspaceMapMaximizeButton == true) or false)
         if gamepadDragHandlesCheck then

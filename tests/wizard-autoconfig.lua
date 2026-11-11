@@ -1427,7 +1427,10 @@ do
             assert(onboardingFrame.pageBody:GetText():find(addon.L.ONBOARD_SPAN_ACK,1,true))
             onboardingFrame.actionButton.scripts.OnClick()
             CheckGuideBounds()
-            assert(onboardingFrame.pageBody:GetText():find(addon.L.ONBOARD_RELOAD_UI,1,true))
+            assert(onboardingFrame.pageBody:GetText():find(
+                addon:GetReloadUIFunction() and addon.L.ONBOARD_RELOAD_UI or "/reload",1,true))
+            assert(onboardingFrame.actionButton:IsShown() == (addon:GetReloadUIFunction() ~= nil),
+                "manual reload guidance must not show a nonfunctional action button")
             assert(addon.SetupPlacement:RequestReload())
             assert(loadfile("Core/SetupPlacement.lua"))("Offhand",addon)
             onboardingFrame:SetPage(4)
@@ -1435,6 +1438,16 @@ do
             assert(onboardingFrame.nextButton.uiPrimary and onboardingFrame.nextButton.enabled,
                 "review action was not highlighted after reload for "..locale)
             assert(onboardingFrame.pageBody:GetText():find(addon.L.ONBOARD_CONFIRM_PLACEMENT,1,true))
+            addon:SetOnboardingSetupMethod("COMPANION")
+            addon.SetupPlacement:Reset()
+            assert(addon.SetupPlacement:AcknowledgeSpan() and addon.SetupPlacement:RequestReload())
+            assert(loadfile("Core/SetupPlacement.lua"))("Offhand",addon)
+            onboardingFrame:SetPage(4)
+            CheckGuideBounds()
+            assert(onboardingFrame.placementPhase==1 and not onboardingFrame.nextButton.enabled
+                and onboardingFrame.pageBody:GetText():find(addon.L.ONBOARD_RELOAD_COMPLETE_PLACE,1,true),
+                "localized span recovery must acknowledge the completed reload: "..locale)
+            addon:SetOnboardingSetupMethod("MANUAL")
             wizardFrame:SetStep(5)
             local card=wizardFrame.pages[5]
             local top=-select(5,card:GetPoint(1))
@@ -1538,6 +1551,89 @@ assert(addon:GetOnboardingResumeStep() == 4 and addon:IsWelcomeDismissed(),
 addon.Onboarding:Open()
 assert(onboardingFrame.page == 4 and OffhandDB.onboarding.resumeStep == 4,
     "unfinished onboarding must retain step 4 across subsequent reloads")
+do
+    local previousStyle = addon.IsGamepadUIEnabled
+    addon.IsGamepadUIEnabled = function() return true end
+    local previousForever, previousUI, previousMetrics = addon.isForever, C_UI, addon.Viewport.GetMetrics
+    local protectedReloadCalls = 0
+    addon.isForever = true
+    C_UI = { Reload = function() protectedReloadCalls = protectedReloadCalls + 1 end }
+    addon.Viewport.GetMetrics = function() return {
+        isSpanned=true, companionTopology=true, topologyStatus="READY", companionVersionStatus="MATCH",
+        physicalWidth=4000,physicalHeight=2560,gameWidth=2560,gameHeight=1440,
+        gameLeft=1440,gameRight=4000,gameBottom=0,gameTop=1440,
+    } end
+    addon.SetupPlacement:Reset()
+    onboardingFrame:SetPage(4)
+    onboardingFrame.actionButton.scripts.OnClick()
+    local stage, signature = addon.SetupPlacement:GetStage()
+    assert(stage == "RELOAD" and protectedReloadCalls == 0
+        and not onboardingFrame.actionButton:IsShown() and not onboardingFrame.nextButton.enabled
+        and onboardingFrame.pageBody:GetText() == addon.L.SETUP_MANUAL_RELOAD
+        and addon:GetOnboardingResumeStep() == 4,
+        "Forever must save its manual reload handoff without invoking either reload API")
+    assert(not addon.SetupPlacement:Confirm(signature),
+        "preparing manual reload must not unlock placement in the current UI session")
+    onboardingFrame:RefreshPlacementState()
+    assert(not onboardingFrame.nextButton.enabled and protectedReloadCalls == 0)
+    assert(loadfile("Core/SetupPlacement.lua"))("Offhand",addon)
+    onboardingFrame:SetPage(4)
+    assert(addon.SetupPlacement:GetStage() == "CONFIRM" and onboardingFrame.nextButton.enabled,
+        "a modeled real UI reload must unlock the saved placement review")
+    addon.isForever, C_UI, addon.Viewport.GetMetrics = previousForever, previousUI, previousMetrics
+    addon.IsGamepadUIEnabled = previousStyle
+end
+
+-- Reproduce a real reload without an applied Companion span. Reload remains
+-- complete, but the next task must be placement, never a repeated reload loop.
+do
+    local oldMetrics, oldMethod = addon.Viewport.GetMetrics, addon:GetOnboardingSetupMethod()
+    local oldCheckpoint, oldUI, oldStyle = addon:GetPlacementCheckpoint(), C_UI, addon.IsGamepadUIEnabled
+    local reloads, matched = 0, false
+    C_UI = {Reload=function() reloads=reloads+1 end}
+    addon.IsGamepadUIEnabled=function() return false end
+    addon:SetOnboardingSetupMethod("COMPANION")
+    addon.Viewport.GetMetrics=function() return {
+        physicalWidth=4000,physicalHeight=2560,screenWidth=1200,screenHeight=768,
+        topologyStatus=matched and "READY" or "MISMATCH",companionTopology=matched,
+        companionVersionStatus="MATCH",isSpanned=matched,
+        gameLeft=1440,gameRight=4000,gameBottom=0,gameTop=1440,gameWidth=2560,
+    } end
+    addon.SetupPlacement:Reset()
+    assert(addon.SetupPlacement:AcknowledgeSpan() and addon.SetupPlacement:RequestReload())
+    assert(loadfile("Core/SetupPlacement.lua"))("Offhand",addon)
+    local checkpoint=addon:GetPlacementCheckpoint()
+    onboardingFrame:SetPage(4)
+    assert(addon.SetupPlacement:GetStage()=="CONFIRM" and addon:GetPlacementCheckpoint()==checkpoint,
+        "an unsuccessful span must not erase the fact that the UI actually reloaded")
+    assert(onboardingFrame.placementPhase==1 and onboardingFrame.modeIllustration.kind=="POSITION"
+        and onboardingFrame.actionButton:GetText():find(addon.L.ONBOARD_SPAN_ACK,1,true)
+        and onboardingFrame.pageBody:GetText():find(addon.L.ONBOARD_RELOAD_COMPLETE_PLACE,1,true)
+        and not onboardingFrame.nextButton.enabled,
+        "an unspanned post-reload window must show placement instructions and lock confirmation")
+    onboardingFrame.nextButton.scripts.OnClick()
+    assert(onboardingFrame.page==4 and reloads==0,"a stale confirmation bypassed missing span")
+    onboardingFrame.actionButton.scripts.OnClick()
+    assert(reloads==0 and addon.SetupPlacement:GetStage()=="RELOAD"
+        and onboardingFrame.placementPhase==2 and not onboardingFrame.nextButton.enabled,
+        "the recovery action must acknowledge new placement without immediately reloading")
+    matched=true
+    onboardingFrame.actionButton.scripts.OnClick()
+    assert(reloads==1 and addon.SetupPlacement:GetStage()=="RELOAD" and not onboardingFrame.nextButton.enabled,
+        "a reload request after spanning must still wait for a new UI session")
+    assert(loadfile("Core/SetupPlacement.lua"))("Offhand",addon)
+    onboardingFrame:SetPage(4)
+    assert(onboardingFrame.placementPhase==3 and onboardingFrame.nextButton.enabled
+        and not onboardingFrame.actionButton:IsShown(),"valid placement must unlock after the actual reload")
+    matched=false
+    onboardingFrame:RefreshPlacementState()
+    assert(not onboardingFrame.nextButton.enabled and onboardingFrame.placementPhase==1,
+        "losing the valid span must lock confirmation and restore placement guidance")
+    addon.Viewport.GetMetrics, C_UI, addon.IsGamepadUIEnabled=oldMetrics,oldUI,oldStyle
+    addon:SetOnboardingSetupMethod(oldMethod)
+    addon:SetPlacementCheckpoint(oldCheckpoint)
+    assert(loadfile("Core/SetupPlacement.lua"))("Offhand",addon)
+end
 
 local function PreparePlacementReview()
     onboardingFrame:SetPage(4)
@@ -2132,6 +2228,23 @@ do
     InCombatLockdown=function() return false end
     wizardFrame.finishBtn.scripts.OnClick()
     assert(reloads==1 and OffhandCharDB.wizardRecoveryStep==5 and addon:GetOnboardingResumeStep()==6)
+    do
+        local previousForever, previousStyle = addon.isForever, addon.IsGamepadUIEnabled
+        addon.isForever = true
+        addon.IsGamepadUIEnabled = function() return true end
+        wizardFrame:ShowRecovery('span')
+        assert(wizardFrame.finishBtn:GetText():find(addon.L.BTN_RELOAD_INSTRUCTIONS,1,true)
+            and wizardFrame.recoveryBody:GetText() == addon.L.WIZARD_RECOVERY_COMPANION_MANUAL_BODY)
+        wizardFrame.finishBtn.scripts.OnClick()
+        local prompt = addon._gamepadSafePopup
+        assert(reloads == 1 and OffhandCharDB.wizardRecoveryStep == 5
+            and prompt.popupKey == "OFFHAND_SETUP_MANUAL_RELOAD" and not prompt.definition.OnAccept,
+            "Forever recovery must save the wizard step and offer instructions without reloading")
+        prompt.accept.scripts.OnClick()
+        assert(reloads == 1, "dismissing reload instructions must never call a reload API")
+        addon.isForever, addon.IsGamepadUIEnabled = previousForever, previousStyle
+        wizardFrame:ShowRecovery('span')
+    end
     assert(createMainhandLayoutCount==initialCreates,'missing placement must not call HUD generation')
     -- Simulate the persisted handoff in a newly opened guide after /reload.
     addon.Onboarding:Open()
@@ -2534,6 +2647,19 @@ do
         end
     end
     assert(previewButton and not wizardFrame.pages[5]:IsShown())
+    local transferTab = wizardFrame.progressRail.cells[6]
+    assert(transferTab.text:GetText():find(addon.L.SETUP_STAGE_ELLESMERE, 1, true)
+        and not transferTab.text:GetText():find(addon.L.ELLESMERE_HUD_VISUAL, 1, true),
+        "the progress tab must use the short product label")
+    local oldMeasure = transferTab.text.GetStringHeight
+    transferTab.text.GetStringHeight = function(self)
+        assert(self:GetHeight() == 0, "tab text must be unconstrained before measuring")
+        return 48
+    end
+    wizardFrame:LayoutStep()
+    assert(transferTab:GetHeight() >= 60 and transferTab.text:GetHeight() == 48,
+        "the progress rail must reserve the full wrapped tab height")
+    transferTab.text.GetStringHeight = oldMeasure
     previewButton.scripts.OnClick()
     assert(reopen and not wizardFrame:IsShown())
     reopen()

@@ -7,6 +7,8 @@ Offhand.EllesmereLayout = Transfer
 local actionBars = "EllesmereUIActionBars"
 local minimap = "EllesmereUIMinimap"
 local units = "EllesmereUIUnitFrames"
+local cooldowns = "EllesmereUICooldownManager"
+local resources = "EllesmereUIResourceBars"
 local mappings = {
     {system = "ActionBar", indices = "EditModeActionBarSystemIndices", index = "MainBar",
         label = "ELLESMERE_HUD_MAIN_BAR", folder = actionBars, key = "MainBar",
@@ -23,6 +25,85 @@ local mappings = {
         label = "ELLESMERE_HUD_FOCUS", folder = units, key = "focus",
         positionTable = "positions", positionKey = "focus"},
 }
+for number, index in ipairs({"Bar2", "Bar3", "RightBar1", "RightBar2", "ExtraBar1", "ExtraBar2", "ExtraBar3"}) do
+    local key = "Bar" .. (number + 1)
+    mappings[#mappings + 1] = {system = "ActionBar", indices = "EditModeActionBarSystemIndices", index = index,
+        label = "ELLESMERE_HUD_NUMBERED_BAR", number = number + 1, folder = actionBars, key = key,
+        positionTable = "barPositions", positionKey = key, optional = true}
+end
+
+-- Only providers whose profile position schema has been inspected are included.
+-- Do not call vendor savePos callbacks: those edit the active profile immediately.
+local function Mappings(eui)
+    local result, seen = {}, {}
+    for _, map in ipairs(mappings) do result[#result + 1], seen[map.key] = map, true end
+    local keys = {}
+    for key in pairs(eui._unlockRegisteredElements or {}) do keys[#keys + 1] = key end
+    table.sort(keys)
+    for _, key in ipairs(keys) do
+        local folder, positions, positionKey, localOffsets
+        if key == "StanceBar" or key == "PetBar" then
+            folder, positions, positionKey = actionBars, "barPositions", key
+        elseif key == "pet" or key == "targettarget" or key == "boss"
+            or key == "playerCastbar" or key == "targetCastbar" or key == "focusCastbar" or key == "petCastbar" then
+            folder, positions, positionKey = units, "positions", key
+            localOffsets = key:find("Castbar", 1, true) ~= nil
+        elseif key:match("^CDM_[%w_]+$") then
+            folder, positions, positionKey = cooldowns, "cdmBarPositions", key:sub(5)
+        elseif key == "ERB_CastBar" then
+            folder, positions, positionKey = resources, "castBar", "unlockPos"
+        end
+        if folder and not seen[key] then
+            result[#result + 1] = {key = key, folder = folder, positionTable = positions,
+                positionKey = positionKey, optional = true, fitFallback = true, localOffsets = localOffsets,
+                displayLabel = eui._unlockRegisteredElements[key].label}
+        elseif key:match("^TBB_%d+$") then
+            local ns = eui._ModuleNS and eui._ModuleNS[cooldowns]
+            local spec = ns and ns.GetActiveSpecKey and ns.GetActiveSpecKey()
+            if spec then
+                result[#result + 1] = {key = key, folder = cooldowns, optional = true, fitFallback = true,
+                    specKey = spec, positionTable = "tbbPositions", positionKey = key:sub(5),
+                    displayLabel = eui._unlockRegisteredElements[key].label}
+            end
+        end
+    end
+    return result
+end
+
+local function Copy(value)
+    if type(value) ~= "table" then return value end
+    local out = {}
+    for key, child in pairs(value) do out[key] = Copy(child) end
+    return out
+end
+
+local function UnavailableReason(folder)
+    local api = C_AddOns
+    if not (api and api.GetAddOnInfo and api.GetAddOnEnableState and api.IsAddOnLoaded) then
+        return "ELLESMERE_HUD_MODULE_MISSING"
+    end
+    local function State(name)
+        local installed, title, _, _, loadReason = api.GetAddOnInfo(name)
+        if not installed then return "ELLESMERE_HUD_INSTALL_MODULE", name end
+        -- Forever's incarnation name can differ from UnitName("player").
+        -- The loader's current DISABLED reason is authoritative; passing the
+        -- shortened character name can incorrectly report another scope enabled.
+        if loadReason == "DISABLED" or api.GetAddOnEnableState(name) == 0 then
+            return "ELLESMERE_HUD_ENABLE_MODULE", title or name
+        end
+    end
+    local reason, name = State(folder)
+    if reason then return reason, {name} end
+    if api.GetAddOnDependencies then
+        for _, dependency in ipairs({api.GetAddOnDependencies(folder)}) do
+            reason, name = State(dependency)
+            if reason then return reason, {name} end
+        end
+    end
+    local _, title = api.GetAddOnInfo(folder)
+    return api.IsAddOnLoaded(folder) and "ELLESMERE_HUD_CHECK_MODULE" or "ELLESMERE_HUD_RELOAD_MODULE",
+        {title or folder}
+end
 
 local points = {
     TOPLEFT = true, TOP = true, TOPRIGHT = true, LEFT = true, CENTER = true,
@@ -35,7 +116,7 @@ local function PublicNumber(value)
 end
 
 local function FindSystem(layout, map)
-    local system = Enum.EditModeSystem and Enum.EditModeSystem[map.system]
+    local system = map.system and Enum.EditModeSystem and Enum.EditModeSystem[map.system]
     local indices = map.indices and Enum[map.indices]
     local index = indices and indices[map.index]
     if not layout or system == nil or (map.index and index == nil) then return nil end
@@ -67,7 +148,21 @@ local function FrameBounds(frame, uiScale)
     if not scale or not frame.GetRect then return end
     local left, bottom, width, height = frame:GetRect()
     if not PublicNumber(left) or not PublicNumber(bottom) or not PublicNumber(width)
-        or not PublicNumber(height) or width <= 0 or height <= 0 then return end
+        or not PublicNumber(height) or width <= 0 or height <= 0 then
+        -- Empty cooldown containers can have no resolved left edge. Their
+        -- public UIParent anchor still describes the mover without reading icons.
+        if not (frame.GetPoint and frame.GetWidth and frame.GetHeight) then return end
+        local point, relative, relativePoint, x, y = frame:GetPoint()
+        width, height = frame:GetWidth(), frame:GetHeight()
+        if relative ~= UIParent or not points[point] or not points[relativePoint]
+            or not PublicNumber(x) or not PublicNumber(y) or not PublicNumber(width)
+            or not PublicNumber(height) or width <= 0 or height <= 0 then return end
+        local ratio = scale / uiScale
+        local rx, ry = PointOrigin(relativePoint, 0, 0, UIParent:GetWidth(), UIParent:GetHeight())
+        local dx, dy = PointOrigin(point, 0, 0, width * ratio, height * ratio)
+        return {left = rx + x * ratio - dx, bottom = ry + y * ratio - dy,
+            width = width * ratio, height = height * ratio}
+    end
     local ratio = scale / uiScale
     return {left = left * ratio, bottom = bottom * ratio, width = width * ratio, height = height * ratio}
 end
@@ -81,7 +176,25 @@ end
 local function ProfileOffsetScale(map, targetScale, uiScale)
     -- Unit Frames stores UIParent offsets and compensates for its own scale
     -- when applying them. Action Bars and Minimap store frame-local offsets.
-    return map.folder == units and 1 or uiScale / targetScale
+    return map.folder == units and not map.localOffsets and 1 or uiScale / targetScale
+end
+
+local function SerializedMenuOrigin(context, point, uiScale)
+    local entry = FindSystem(context.transferLayout or context.generated, {system = "MicroMenu"})
+    local anchor = entry and entry.anchorInfo
+    if not anchor or entry.anchorInfo2 or (anchor.relativeTo and anchor.relativeTo ~= "UIParent")
+        or not points[anchor.point] or not points[anchor.relativePoint]
+        or not PublicNumber(anchor.offsetX) or not PublicNumber(anchor.offsetY) then return end
+    local frame = _G.MicroMenuContainer
+    local scale = Scale(frame)
+    if not scale or not frame.GetWidth or not frame.GetHeight then return end
+    local width, height = frame:GetWidth(), frame:GetHeight()
+    if not PublicNumber(width) or not PublicNumber(height) or width <= 0 or height <= 0 then return end
+    width, height = width * scale / uiScale, height * scale / uiScale
+    local x, y = PointOrigin(anchor.relativePoint, 0, 0, context.rect.screenWidth, context.rect.screenHeight)
+    local dx, dy = PointOrigin(anchor.point, 0, 0, width, height)
+    return PointOrigin(point, x + anchor.offsetX - dx, y + anchor.offsetY - dy,
+        x + anchor.offsetX - dx + width, y + anchor.offsetY - dy + height)
 end
 
 local function Position(context, map, target)
@@ -91,9 +204,10 @@ local function Position(context, map, target)
     -- rows once, even when a generated layout already exists.
     local original = raw and raw.anchorInfo
     local relative = original and original.relativeTo
-    local projected = raw and (not generated or ((not relative or relative == "UIParent")
+    local projected = raw and raw.isInDefaultPosition ~= false and (not generated or ((not relative or relative == "UIParent")
         and SameAnchor(original, generated.anchorInfo)))
-    local entry = projected and raw or generated
+    local entry = FindSystem(context.transferLayout, map) or (projected and raw or generated)
+    if context.transferLayout then projected = false end
     local anchor = entry and entry.anchorInfo
     if not anchor or entry.anchorInfo2
         or not points[anchor.point] or not points[anchor.relativePoint]
@@ -110,8 +224,11 @@ local function Position(context, map, target)
     if anchor.relativeTo and anchor.relativeTo ~= "UIParent" then
         -- This Forever layout places Action Bar 1 beside the Micro Menu.
         -- Resolve that reference only while this generated layout is active.
-        if projected or not context.generatedActive or anchor.relativeTo ~= map.nativeReference then return end
-        local refX, refY = NativeReferenceOrigin(_G[anchor.relativeTo], relativePoint, uiScale)
+        if projected or anchor.relativeTo ~= map.nativeReference then return end
+        local refX, refY = SerializedMenuOrigin(context, relativePoint, uiScale)
+        if not refX and context.generatedActive then
+            refX, refY = NativeReferenceOrigin(_G[anchor.relativeTo], relativePoint, uiScale)
+        end
         if not refX then return end
         x, y = x + refX, y + refY
         relativePoint, screenX, screenY = "BOTTOMLEFT", 0, 0
@@ -130,22 +247,126 @@ local function Fits(b, rect)
         and b.left + b.width <= rect.right and b.bottom + b.height <= rect.top
 end
 
-local function HasOverrides(profile)
-    return profile and (profile.specOverrides or profile.condOverrides
-        or profile.specOverrideGroups or profile.condOverrideGroups)
-end
-
-local function HasAnchorLink(eui, key)
-    if eui.IsUnlockAnchored(key) then return true end
-    -- An anchor target also moves its children. Exclude it until the preview
-    -- can show the entire linked group.
-    local anchors = EllesmereUIDB and EllesmereUIDB.unlockAnchors
-    if type(anchors) == "table" then
-        for _, link in pairs(anchors) do
-            if type(link) == "table" and link.target == key then return true end
-        end
+local function HasOverrideData(value, depth)
+    if type(value) ~= "table" then return value ~= nil end
+    if depth > 12 then return next(value) ~= nil end
+    for _, child in pairs(value) do
+        if HasOverrideData(child, depth + 1) then return true end
     end
     return false
+end
+
+local function HasOverrides(profile)
+    if type(profile) ~= "table" then return false end
+    -- The vendor lazily creates empty stores, including layouts = {}. Those
+    -- do not override anything. Nonempty stores must still block the import:
+    -- partial imports retain them and could overwrite the new positions later.
+    -- Group names/spec assignments alone are metadata, not overridden values.
+    for _, key in ipairs({"specOverrides", "condOverrides",
+        "specUnlockOverrides", "condUnlockOverrides", "specBmOverrides", "condBmOverrides",
+        "specDmOverrides", "condDmOverrides", "unlockOverrideAnchors"}) do
+        if profile[key] and HasOverrideData(profile[key], 0) then return true end
+    end
+    return false
+end
+
+local function ElementFrame(eui, key)
+    local element = eui._unlockRegisteredElements and eui._unlockRegisteredElements[key]
+    if element and type(element.getFrame) == "function" then
+        local ok, frame = pcall(element.getFrame, key)
+        if ok then return frame end
+    end
+end
+
+local function ElementHidden(eui, key)
+    local element = eui._unlockRegisteredElements and eui._unlockRegisteredElements[key]
+    if element and type(element.isHidden) == "function" then
+        local ok, hidden = pcall(element.isHidden, key)
+        return ok and hidden == true
+    end
+end
+
+local function ElementName(eui, key)
+    local element = key and eui._unlockRegisteredElements and eui._unlockRegisteredElements[key]
+    return element and element.label or key
+end
+
+local function GroupBounds(eui, key, bounds, uiScale)
+    local anchors = EllesmereUIDB and EllesmereUIDB.unlockAnchors
+    if eui.IsUnlockAnchored(key) then
+        local link = type(anchors) == "table" and anchors[key]
+        local target = type(link) == "table" and link.target or nil
+        if target ~= nil and type(target) ~= "string" then return nil, nil, "ELLESMERE_HUD_ANCHOR_GRAPH" end
+        local cursor, seen, count = key, {}, 0
+        while type(anchors) == "table" and type(anchors[cursor]) == "table" and anchors[cursor].target do
+            if seen[cursor] or count >= 100 then return nil, nil, "ELLESMERE_HUD_ANCHOR_GRAPH" end
+            if type(anchors[cursor].target) ~= "string" then return nil, nil, "ELLESMERE_HUD_ANCHOR_GRAPH" end
+            seen[cursor], cursor, count = true, anchors[cursor].target, count + 1
+        end
+        return nil, nil, target and "ELLESMERE_HUD_FOLLOWS" or "ELLESMERE_HUD_ANCHORED",
+            target and {ElementName(eui, target)} or nil
+    end
+    if not bounds then return nil, nil, "ELLESMERE_HUD_BOUNDS" end
+    local group = {left = bounds.left, bottom = bounds.bottom, width = bounds.width, height = bounds.height}
+    local keys, members = {key}, {[key] = true}
+    if key:match("^TBB_%d+$") then
+        local ns = eui._ModuleNS and eui._ModuleNS[cooldowns]
+        local tbb = ns and ns.GetTrackedBuffBars and ns.GetTrackedBuffBars()
+        local bars = tbb and tbb.bars
+        local cfg = bars and bars[tonumber(key:sub(5))]
+        local gid = cfg and ns.TBBBarGroupID and ns.TBBBarGroupID(cfg)
+        if gid and gid ~= 0 then
+            for index, member in ipairs(bars) do
+                local child = "TBB_" .. index
+                if child ~= key and ns.TBBBarGroupID(member) == gid then
+                    local b = FrameBounds(ElementFrame(eui, child), uiScale)
+                    if not b then return nil, nil, "ELLESMERE_HUD_CHILD_BOUNDS", {ElementName(eui, child)} end
+                    local right, top = math.max(group.left + group.width, b.left + b.width),
+                        math.max(group.bottom + group.height, b.bottom + b.height)
+                    group.left, group.bottom = math.min(group.left, b.left), math.min(group.bottom, b.bottom)
+                    group.width, group.height = right - group.left, top - group.bottom
+                    members[child], keys[#keys + 1] = true, child
+                end
+            end
+        end
+    end
+    if type(anchors) == "table" then
+        local i = 1
+        while i <= #keys do
+            for child, link in pairs(anchors) do
+                if type(link) == "table" and link.target == keys[i] then
+                    if members[child] or #keys >= 100 then return nil, nil, "ELLESMERE_HUD_ANCHOR_GRAPH" end
+                    members[child], keys[#keys + 1] = true, child
+                    local b = FrameBounds(ElementFrame(eui, child), uiScale)
+                    if b then
+                        local right = math.max(group.left + group.width, b.left + b.width)
+                        local top = math.max(group.bottom + group.height, b.bottom + b.height)
+                        group.left, group.bottom = math.min(group.left, b.left), math.min(group.bottom, b.bottom)
+                        group.width, group.height = right - group.left, top - group.bottom
+                    elseif not ElementHidden(eui, child) then
+                        return nil, nil, "ELLESMERE_HUD_CHILD_BOUNDS", {ElementName(eui, child)}
+                    end
+                end
+            end
+            i = i + 1
+        end
+    end
+    return group, #keys > 1
+end
+
+local function PlaceGroup(row, bounds, group, rect, ratio)
+    if group.width > rect.width or group.height > rect.height then
+        row.position, row.proposed = nil, nil
+        return
+    end
+    local dx, dy = row.proposed.left - bounds.left, row.proposed.bottom - bounds.bottom
+    local left = math.max(rect.left, math.min(group.left + dx, rect.right - group.width))
+    local bottom = math.max(rect.bottom, math.min(group.bottom + dy, rect.top - group.height))
+    dx, dy = left - group.left, bottom - group.bottom
+    row.position.x = row.position.x + (bounds.left + dx - row.proposed.left) * ratio
+    row.position.y = row.position.y + (bounds.bottom + dy - row.proposed.bottom) * ratio
+    row.proposed.left, row.proposed.bottom = bounds.left + dx, bounds.bottom + dy
+    row.groupProposed = {left = left, bottom = bottom, width = group.width, height = group.height}
 end
 
 local function GetWorkspaceRect()
@@ -173,12 +394,23 @@ function Transfer:Preview(direction)
         or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved()) then
         return nil, "ELLESMERE_HUD_BUSY"
     end
-    local context = Offhand.Mainhand:GetEllesmereLayoutSource(direction == "fit")
+    local targetSizes = {}
+    local uiScale = Scale(UIParent)
+    for _, map in ipairs(Mappings(eui)) do
+        if map.index == "RightBar1" or map.index == "RightBar2" then
+            local bounds = uiScale and FrameBounds(ElementFrame(eui, map.key), uiScale)
+            local index = Enum.EditModeActionBarSystemIndices and Enum.EditModeActionBarSystemIndices[map.index]
+            if bounds and index then targetSizes[index] = {width = bounds.width, height = bounds.height} end
+        end
+    end
+    local context = Offhand.Mainhand:GetEllesmereLayoutSource(direction == "fit", targetSizes)
     if not context and direction ~= "fit" then
         context = Offhand.Mainhand:GetEllesmereLayoutSource(true)
     end
     if not context then return nil, "ELLESMERE_HUD_NO_LAYOUT" end
     local rect = context.rect
+    context.unavailable = nil
+    context.block = nil
     context.workspace = GetWorkspaceRect()
     context.profileName = eui.GetActiveProfileName and eui.GetActiveProfileName()
     local profile = eui.GetActiveProfileData and eui.GetActiveProfileData()
@@ -186,56 +418,103 @@ function Transfer:Preview(direction)
     if (direction == "ellesmere" or direction == "blizzard") and not context.generated then
         context.block = "ELLESMERE_HUD_NEED_NATIVE"
     end
-    local uiScale = Scale(UIParent)
     local rows = {}
-    for _, map in ipairs(mappings) do
-        local element = eui._unlockRegisteredElements and eui._unlockRegisteredElements[map.key]
+    for _, map in ipairs(Mappings(eui)) do
+        local destination = rect
+        if map.fitFallback and rect.width > 32 and rect.height > 32 then
+            destination = {left = rect.left + 8, bottom = rect.bottom + 8,
+                right = rect.right - 8, top = rect.top - 8, width = rect.width - 16, height = rect.height - 16}
+        end
         local row = {map = map}
-        local frame
-        if element and type(element.getFrame) == "function" then
-            local read, value = pcall(element.getFrame, map.key)
-            if read then frame = value end
+        local frame = ElementFrame(eui, map.key)
+        if not map.optional or (frame and not ElementHidden(eui, map.key)) then
+            local bounds = uiScale and FrameBounds(frame, uiScale)
+            row.current = bounds
+            local group
+            if direction ~= "blizzard" then
+                group, row.linkedGroup, row.reason, row.reasonArgs = GroupBounds(eui, map.key, bounds, uiScale)
+                if row.linkedGroup then row.groupCurrent = group end
+            end
+            if context.controller and map.folder == actionBars then
+                row.reason = "ELLESMERE_HUD_NATIVE_PAD"
+            elseif not frame then
+                row.reason, row.reasonArgs = UnavailableReason(map.folder)
+                context.unavailable = true
+            elseif direction ~= "blizzard" and not group then
+                row.reason = row.reason or "ELLESMERE_HUD_BOUNDS"
+            elseif direction ~= "blizzard" and not Fits(group, rect)
+                and (group.width > destination.width or group.height > destination.height) then
+                row.reason = "ELLESMERE_HUD_GROUP_TOO_LARGE"
+            elseif direction == "fit" and bounds then
+                if Fits(group, rect) then
+                    row.reason = "ELLESMERE_HUD_KEEP"
+                elseif group.width <= destination.width and group.height <= destination.height then
+                    local left = math.max(destination.left, math.min(bounds.left, destination.right - bounds.width))
+                    local bottom = math.max(destination.bottom, math.min(bounds.bottom, destination.top - bounds.height))
+                    row.proposed = {left = left, bottom = bottom, width = bounds.width, height = bounds.height}
+                    local ratio = ProfileOffsetScale(map, Scale(frame), uiScale)
+                    row.position = {point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = left * ratio, y = bottom * ratio}
+                    PlaceGroup(row, bounds, group, destination, ratio)
+                end
+            elseif direction == "blizzard" and bounds then
+                local entry = FindSystem(context.generated, map)
+                if entry and not entry.anchorInfo2 and (Fits(bounds, rect) or Fits(bounds, context.workspace)) then
+                    local x, y = bounds.left + bounds.width / 2, bounds.bottom + bounds.height / 2
+                    row.system, row.systemIndex = entry.system, entry.systemIndex
+                    row.anchor = {point = "CENTER", relativePoint = "BOTTOMLEFT", relativeTo = "UIParent",
+                        offsetX = x, offsetY = y}
+                    -- The native frame can have a different size. Show the destination anchor.
+                    row.proposed = {left = x, bottom = y, width = 0, height = 0}
+                end
+            elseif direction == "ellesmere" and not context.block then
+                local x, y
+                row.position, x, y = Position(context, map, frame)
+                if row.position then
+                    local width, height = bounds and bounds.width or 0, bounds and bounds.height or 0
+                    local dx, dy = PointOrigin(row.position.point, 0, 0, width, height)
+                    row.proposed = {left = x - dx, bottom = y - dy, width = width, height = height}
+                    PlaceGroup(row, bounds, group, destination, ProfileOffsetScale(map, Scale(frame), uiScale))
+                elseif map.fitFallback and bounds and Fits(group, rect) then
+                    row.reason = "ELLESMERE_HUD_KEEP"
+                elseif map.fitFallback and bounds and group.width <= destination.width and group.height <= destination.height then
+                    -- EUI-only elements have no serialized Blizzard equivalent.
+                    -- Project their screen proportions into Mainhand once, then
+                    -- keep their linked group fully inside the viewport.
+                    local left = rect.left + (bounds.left + bounds.width / 2) / rect.screenWidth * rect.width - bounds.width / 2
+                    local bottom = rect.bottom + (bounds.bottom + bounds.height / 2) / rect.screenHeight * rect.height - bounds.height / 2
+                    local ratio = ProfileOffsetScale(map, Scale(frame), uiScale)
+                    row.proposed = {left = left, bottom = bottom, width = bounds.width, height = bounds.height}
+                    row.position = {point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = left * ratio, y = bottom * ratio}
+                    PlaceGroup(row, bounds, group, destination, ratio)
+                end
+            end
+            if not (row.position or row.anchor or row.reason) then row.reason = "ELLESMERE_HUD_NO_ANCHOR" end
+            rows[#rows + 1] = row
         end
-        local bounds = uiScale and FrameBounds(frame, uiScale)
-        row.current = bounds
-        if context.controller and map.folder == actionBars then
-            row.reason = "ELLESMERE_HUD_NATIVE_PAD"
-        elseif not frame then
-            row.reason = "ELLESMERE_HUD_MODULE_MISSING"
-        elseif HasAnchorLink(eui, map.key) then
-            row.reason = "ELLESMERE_HUD_LINKED"
-        elseif direction == "fit" and bounds then
-            if Fits(bounds, rect) or Fits(bounds, context.workspace) then
-                row.reason = "ELLESMERE_HUD_KEEP"
-            elseif bounds.width <= rect.width and bounds.height <= rect.height then
-                local left = math.max(rect.left, math.min(bounds.left, rect.right - bounds.width))
-                local bottom = math.max(rect.bottom, math.min(bounds.bottom, rect.top - bounds.height))
-                row.proposed = {left = left, bottom = bottom, width = bounds.width, height = bounds.height}
-                local ratio = ProfileOffsetScale(map, Scale(frame), uiScale)
-                row.position = {point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = left * ratio, y = bottom * ratio}
-            end
-        elseif direction == "blizzard" and bounds then
-            local entry = FindSystem(context.generated, map)
-            if entry and not entry.anchorInfo2 and (Fits(bounds, rect) or Fits(bounds, context.workspace)) then
-                local x, y = bounds.left + bounds.width / 2, bounds.bottom + bounds.height / 2
-                row.system, row.systemIndex = entry.system, entry.systemIndex
-                row.anchor = {point = "CENTER", relativePoint = "BOTTOMLEFT", relativeTo = "UIParent",
-                    offsetX = x, offsetY = y}
-                -- The native frame can have a different size. Show the destination anchor.
-                row.proposed = {left = x, bottom = y, width = 0, height = 0}
-            end
-        elseif direction == "ellesmere" and not context.block then
-            local x, y
-            row.position, x, y = Position(context, map, frame)
-            if row.position then
-                local width, height = bounds and bounds.width or 0, bounds and bounds.height or 0
-                local dx, dy = PointOrigin(row.position.point, 0, 0, width, height)
-                row.proposed = {left = x - dx, bottom = y - dy, width = width, height = height}
-                if bounds and not Fits(row.proposed, rect) then row.position, row.proposed = nil, nil end
+    end
+    -- A mapped child follows the selected root rather than receiving its own
+    -- saved position. Show that movement even when the child is not selectable.
+    local roots = {}
+    for _, row in ipairs(rows) do
+        if row.position then roots[row.map.key] = row end
+    end
+    local links = EllesmereUIDB and EllesmereUIDB.unlockAnchors
+    for _, row in ipairs(rows) do
+        if direction ~= "blizzard" and not row.position and row.current and type(links) == "table" then
+            local key, seen = row.map.key, {}
+            while type(links[key]) == "table" and links[key].target and not seen[key] do
+                seen[key], key = true, links[key].target
+                local root = roots[key]
+                if root then
+                    row.followKey = key
+                    row.reason, row.reasonArgs = "ELLESMERE_HUD_MOVES_WITH", {ElementName(eui, key) or key}
+                    row.proposed = {left = row.current.left + root.proposed.left - root.current.left,
+                        bottom = row.current.bottom + root.proposed.bottom - root.current.bottom,
+                        width = row.current.width, height = row.current.height}
+                    break
+                end
             end
         end
-        if not (row.position or row.anchor or row.reason) then row.reason = "ELLESMERE_HUD_NO_ANCHOR" end
-        rows[#rows + 1] = row
     end
     local native = context.generated or context.source
     return rows, native and native.layoutName, context
@@ -256,17 +535,40 @@ function Transfer:OpenImport(rows, onComplete)
     if HasOverrides(snapshot) then
         return false, "ELLESMERE_HUD_OVERRIDES"
     end
-    local addons = {}
+    local addons, cdmSpells = {}, {}
     for _, row in ipairs(rows) do
         if row.position then
             local map = row.map
             local profile = snapshot.addons[map.folder]
             if type(profile) ~= "table" then return false end
+            if map.specKey then
+                local ns = eui._ModuleNS and eui._ModuleNS[cooldowns]
+                if not ns or not ns.GetActiveSpecKey or ns.GetActiveSpecKey() ~= map.specKey then return false end
+                local store = EllesmereUIDB and EllesmereUIDB.spellAssignments
+                local bucket = store and store.profiles and store.profiles[eui.GetActiveProfileName()]
+                local spec = bucket and bucket.specProfiles and bucket.specProfiles[map.specKey]
+                if type(spec) ~= "table" then return false end
+                -- Vendor imports replace a spec bucket. Include its full copy,
+                -- preserving spell assignments and every unrelated setting.
+                cdmSpells[map.specKey] = cdmSpells[map.specKey] or Copy(spec)
+                profile = cdmSpells[map.specKey]
+            end
             local positions = profile[map.positionTable]
             if not positions then positions = {}; profile[map.positionTable] = positions end
             if type(positions) ~= "table" then return false end
             positions[map.positionKey] = row.position
-            addons[map.folder] = profile
+            if map.specKey then
+                local ns = eui._ModuleNS[cooldowns]
+                local bars = profile.trackedBuffBars and profile.trackedBuffBars.bars
+                local cfg = bars and bars[tonumber(map.positionKey)]
+                local gid = cfg and ns.TBBBarGroupID and ns.TBBBarGroupID(cfg)
+                if gid and gid ~= 0 then
+                    for index, member in ipairs(bars) do
+                        if ns.TBBBarGroupID(member) == gid then positions[tostring(index)] = Copy(row.position) end
+                    end
+                end
+            end
+            addons[map.folder] = snapshot.addons[map.folder]
         end
     end
     if not next(addons) then return false, "ELLESMERE_HUD_NO_CHANGES" end
@@ -275,6 +577,7 @@ function Transfer:OpenImport(rows, onComplete)
         addons = addons, partialImport = true, layoutExcluded = true, overridesExcluded = true,
         windowSkinLook = base and base.windowSkinLook,
     }}
+    if next(cdmSpells) then payload.data.cdmSpells = cdmSpells end
     if eui.StampPayloadClient then eui.StampPayloadClient(payload) end
     local encoded = eui.EncodePayload(payload)
     if not encoded then return false end

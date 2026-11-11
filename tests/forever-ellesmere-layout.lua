@@ -2,6 +2,8 @@ local function frame(scale)
     return {GetEffectiveScale = function() return scale end}
 end
 UIParent = frame(1)
+UIParent.GetWidth = function() return 4000 end
+UIParent.GetHeight = function() return 2560 end
 Enum = {
     EditModeSystem = {ActionBar = 0, Minimap = 1, UnitFrame = 2},
     EditModeActionBarSystemIndices = {MainBar = 1},
@@ -23,7 +25,8 @@ local rawFocus = system(2, 3, "CENTER", 0, 0, "PlayerFrame")
 local context = {
     source = {layoutName = "Modern", systems = {rawBar, rawMinimap, rawPlayer, rawFocus}},
     generated = {layoutName = "Offhand", systems = {rawBar, generatedMinimap, rawPlayer, rawFocus}},
-    rect = {left = 1440, right = 4000, bottom = 0, top = 1440, screenWidth = 4000, screenHeight = 2560},
+    rect = {left = 1440, right = 4000, bottom = 0, top = 1440, width = 2560, height = 1440,
+        screenWidth = 4000, screenHeight = 2560},
 }
 local addon = {isForever = true, db = {enabled = true}, Mainhand = {
     GetEllesmereLayoutSource = function() return context end,
@@ -36,6 +39,7 @@ addon.GetReloadUIFunction = reloadRuntime.GetReloadUIFunction
 
 local function element(scale)
     local target = frame(scale)
+    target.GetRect = function() return 1700, 600, 170, 40 end
     return {getFrame = function() return target end}
 end
 local snapshots, payload, importOptions = 0
@@ -97,6 +101,16 @@ context.generatedActive = false
 microRows = transfer:Preview("ellesmere")
 assert(microRows[1].reason == "ELLESMERE_HUD_NO_ANCHOR",
     "an inactive layout must not borrow the current Micro Menu position")
+Enum.EditModeSystem.MicroMenu = 13
+local menu = system(13, nil, "BOTTOMRIGHT", -100, 20)
+context.transferLayout = {systems = {microBar, menu}}
+MicroMenuContainer.GetWidth = function() return 800 end
+MicroMenuContainer.GetHeight = function() return 80 end
+MicroMenuContainer.GetRect = function() return 90000, 90000, 800, 80 end
+microRows = transfer:Preview("ellesmere")
+assert(microRows[1].position.x == 3496 and microRows[1].position.y == 40,
+    "Copy must resolve the serialized Micro Menu anchor instead of a stale live position")
+context.transferLayout = nil
 context.generated.systems[1] = rawBar
 
 local importRows = rows
@@ -138,7 +152,7 @@ linked.player = true
 context.controller = true
 rows = transfer:Preview("ellesmere")
 assert(rows[1].reason == "ELLESMERE_HUD_NATIVE_PAD" and rows[2].position
-    and rows[3].reason == "ELLESMERE_HUD_LINKED", "Gamepad and linked elements must keep their owner")
+    and rows[3].reason == "ELLESMERE_HUD_ANCHORED", "Gamepad and linked elements must keep their owner")
 combat = true
 rows, reason = transfer:Preview("ellesmere")
 assert(not rows and reason == "ELLESMERE_HUD_BUSY")
@@ -160,9 +174,10 @@ EllesmereUIDB = {unlockAnchors = {extra = {target = "player"}}}
 rows = transfer:Preview("fit")
 assert(rows[1].current.bottom == 1510 and rows[1].proposed.bottom == 1410
     and rows[1].position.y == 1410, "fit must show and repair a frame over the span's physical gap")
-assert(rows[2].reason == "ELLESMERE_HUD_KEEP" and rows[2].current.left == 440,
-    "fit must preserve a visible workspace placement and normalize frame scale")
-assert(rows[3].reason == "ELLESMERE_HUD_LINKED", "fit must preserve the targets of existing anchor links")
+assert(rows[2].position and rows[2].proposed.left == 1440 and rows[2].current.left == 440,
+    "fit must offer Mainhand placement for a gameplay frame in the workspace and normalize its scale")
+assert(rows[3].reason == "ELLESMERE_HUD_CHILD_BOUNDS" and rows[3].reasonArgs[1] == "extra",
+    "fit must identify the linked child whose bounds cannot be measured")
 assert(snapshots == 3, "fit preview must not call the profile snapshot or importer")
 
 EllesmereUIDB = nil
@@ -172,6 +187,73 @@ local scaledFit = transfer:Preview("fit")[3]
 assert(scaledFit.position.x == scaledFit.proposed.left and scaledFit.position.y == scaledFit.proposed.bottom,
     "fit must also save scaled unit frames in UIParent units")
 EllesmereUI._unlockRegisteredElements.player = player
+
+-- The default profile links each mini cast bar to its unit frame. A root
+-- must move together with its children without importing new anchor links.
+local registry = EllesmereUI._unlockRegisteredElements
+registry.player = placedElement(600, 500, 170, 40)
+registry.playerCastbar = placedElement(590, 480, 190, 14)
+EllesmereUIDB = {unlockAnchors = {playerCastbar = {target = "player", side = "BOTTOM"}}}
+local links = EllesmereUIDB.unlockAnchors
+overrides = nil
+local grouped = transfer:Preview("fit")[3]
+assert(grouped.position and grouped.linkedGroup and grouped.proposed.left == 1450
+    and grouped.groupProposed.left == 1440 and grouped.groupProposed.bottom == 480,
+    "Fit must keep the entire unit and cast bar group inside Mainhand")
+grouped = transfer:Preview("ellesmere")[3]
+assert(grouped.position and grouped.position.x == 420 and grouped.position.y == -860
+    and grouped.groupProposed.left == grouped.proposed.left - 10
+    and grouped.groupProposed.bottom == grouped.proposed.bottom - 20,
+    "Copy must use the native parent position and show the attached cast bar at the same relative offset")
+assert(transfer:OpenImport({grouped}) and payload.data.addons.EllesmereUIUnitFrames.positions.player
+    and payload.data.layoutExcluded and not payload.data.unlockLayout and EllesmereUIDB.unlockAnchors == links,
+    "the new profile must retain EllesmereUI's link graph while updating the root position")
+local focus = registry.focus
+registry.focus = placedElement(800, 500, 170, 40)
+links.focus = {target = "player", side = "RIGHT"}
+linked.focus = true
+local linkedRows = transfer:Preview("fit")
+assert(not linkedRows[5].position and linkedRows[5].followKey == "player"
+    and linkedRows[5].proposed.left - linkedRows[5].current.left
+        == linkedRows[3].proposed.left - linkedRows[3].current.left,
+    "a mapped child must be drawn at the selected parent's destination without a separate position write")
+links.focus, linked.focus, registry.focus = nil, nil, focus
+registry.playerCastbar = placedElement(0, 480, 3000, 14)
+assert(not transfer:Preview("fit")[3].position, "an oversized linked group must remain excluded")
+registry.playerCastbar = {getFrame = function() end, isHidden = function() return true end}
+assert(transfer:Preview("fit")[3].position,
+    "a disabled cast bar without bounds must not block moving its visible parent")
+registry.player, registry.playerCastbar, EllesmereUIDB = player, nil, nil
+
+-- Numbered bars need the same scale-aware, checked transfer as Action Bar 1.
+Enum.EditModeActionBarSystemIndices.Bar2 = 2
+local bar2 = system(0, 2, "BOTTOM", 0, 260)
+context.source.systems[#context.source.systems + 1] = bar2
+context.generated.systems[#context.generated.systems + 1] = bar2
+registry.Bar2 = placedElement(500, 500, 400, 30)
+local bars = transfer:Preview("ellesmere")
+assert(#bars == 6 and bars[6].map.key == "Bar2" and bars[6].position.x == 720
+    and bars[6].position.y == 260, "Copy must include registered numbered action bars")
+assert(transfer:Preview("fit")[6].proposed.left == 1440,
+    "Fit must include numbered gameplay bars in the workspace")
+Enum.EditModeActionBarSystemIndices.RightBar1 = 4
+local bar4 = system(0, 4, "RIGHT", -24, 0)
+context.source.systems[#context.source.systems + 1] = bar4
+context.generated.systems[#context.generated.systems + 1] = bar4
+registry.Bar4 = placedElement(3800, 400, 40, 400)
+assert(transfer:Preview("ellesmere")[7].position,
+    "Action Bar 4 must map through Forever's RightBar1 enum identity")
+registry.Bar4.isHidden = function() return true end
+assert(#transfer:Preview("fit") == 6, "disabled numbered bars must stay out of the offered transfer")
+registry.Bar4 = nil
+table.remove(context.source.systems)
+table.remove(context.generated.systems)
+context.controller = true
+assert(transfer:Preview("ellesmere")[6].reason == "ELLESMERE_HUD_NATIVE_PAD",
+    "numbered keyboard bars must yield to the native Gamepad layout")
+context.controller, registry.Bar2 = false, nil
+table.remove(context.source.systems)
+table.remove(context.generated.systems)
 local generated = context.generated
 context.generated = nil
 local forwardRows, _, forward = transfer:Preview("ellesmere")
@@ -258,7 +340,7 @@ local preview, review
 local widget = {}
 for _, method in ipairs({"ClearAllPoints", "SetPoint", "SetSize", "SetFrameStrata", "EnableMouse",
     "SetJustifyH", "SetWordWrap", "SetAllPoints", "SetFrameLevel", "SetColorTexture", "SetTextColor",
-    "SetAlpha", "SetChecked", "SetEnabled", "Raise"}) do widget[method] = function() end end
+    "SetAlpha", "SetChecked", "SetEnabled", "SetWidth", "SetHeight", "Raise"}) do widget[method] = function() end end
 function widget:GetFrameLevel() return 1 end
 function widget:GetName() return self.name end
 function widget:SetScript(event, callback) self[event] = callback end
@@ -274,6 +356,7 @@ function widget:Hide()
 end
 function widget:IsShown() return self.shown end
 function widget:SetShown(shown) self.shown = shown end
+function widget:SetEnabled(enabled) self.enabled = enabled end
 function widget:CreateFontString() return CreateFrame() end
 function widget:CreateTexture() return CreateFrame() end
 CreateFrame = function(_, name)
@@ -307,6 +390,52 @@ assert(loadfile("UI/EllesmereLayoutPreview.lua"))("Offhand", addon)
 importOptions, overrides = nil, nil
 transfer:ShowPreview("ellesmere")
 assert(not preview.selected, "the preview's row selection must not accent the dialog border")
+
+context.block = "ELLESMERE_HUD_OVERRIDES"
+transfer:ShowPreview("ellesmere")
+assert(not review.enabled and preview.status.text == addon.L.ELLESMERE_HUD_OVERRIDES_HELP,
+    "profile override blockers need a visible action path and disabled import")
+context.block = nil
+do
+    local savedRows = importRows
+    local savedUnavailable = context.unavailable
+    context.unavailable = nil
+    importRows = {{map = {key = "linkedFixture", displayLabel = "Player frame"},
+        reason = "ELLESMERE_HUD_FOLLOWS", reasonArgs = {"Action Bar 1"}}}
+    transfer:ShowPreview("ellesmere")
+    assert(preview.legend[1].text:find("Follows Action Bar 1", 1, true)
+        and preview.status.text:find("1 elements", 1, true) and not review.enabled,
+        "explain the linked parent and why no positions can be transferred")
+    local tooltip
+    GameTooltip = {SetOwner = function() end, SetText = function(_, text) tooltip = text end,
+        Show = function() end, Hide = function() end}
+    preview.rowHelp[1]:OnEnter()
+    assert(tooltip:find("EllesmereUI Unlock Mode", 1, true), "row tooltips must explain how to resolve the blocker")
+    preview.rowHelp[1]:OnLeave()
+    GameTooltip, importRows = nil, savedRows
+    context.unavailable = savedUnavailable
+    transfer:ShowPreview("ellesmere")
+end
+do
+    local savedRows = importRows
+    importRows = {}
+    for i = 1, 25 do
+        importRows[i] = {map = {key = "page" .. i, displayLabel = "Frame " .. i},
+            position = {point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = 1800, y = i * 10}}
+    end
+    transfer:ShowPreview("ellesmere")
+    assert(preview.pages.text == "1 / 3")
+    preview.next.OnClick()
+    assert(preview.pages.text == "2 / 3" and preview.legend[1].text:find("13  Frame 13", 1, true))
+    preview.checkboxes[1].GetChecked = function() return false end
+    preview.checkboxes[1]:OnClick()
+    assert(preview.rowSelection.page13 == false and preview.rowSelection.page1 == nil,
+        "page-two selection must address its global row")
+    preview.previous.OnClick()
+    assert(preview.pages.text == "1 / 3" and preview.rowSelection.page13 == false)
+    importRows = savedRows
+    transfer:ShowPreview("ellesmere")
+end
 review.OnClick()
 assert(not preview:IsShown() and navigations == 0)
 Tick()
@@ -381,6 +510,11 @@ Tick()
 assert(not popup, "the standalone prompt must wait for the profile window to close")
 optionsFrame:Hide()
 Tick()
+assert(popup.text == addon.L.ELLESMERE_HUD_IMPORT_RELOAD_PROMPT and popup.OnAccept
+    and popup.offhandAcceptBeforeHide and reloads == 0,
+    "Forever keyboard import reload must keep the clicked parent visible")
+addon.isForever = false
+transfer:PromptImportReload()
 assert(popup.text == addon.L.ELLESMERE_HUD_IMPORT_RELOAD_PROMPT and reloads == 0)
 popup.OnAccept()
 assert(reloads == 1, "Standard reload requires a confirmation click")
@@ -392,6 +526,10 @@ do
     assert(reloads == 2, "import reload must work with only C_UI.Reload available")
     C_UI, ReloadUI = previousUI, previousReload
 end
+addon.isForever = true
+transfer:PromptImportReload()
+assert(popup.OnAccept and popup.offhandAcceptBeforeHide and reloads == 2,
+    "Forever keyboard import must retain callback-first reload")
 gamepad = true
 transfer:PromptImportReload()
 assert(popup.text == addon.L.ELLESMERE_HUD_IMPORT_RELOAD_MANUAL and not popup.OnAccept and reloads == 2,

@@ -55,7 +55,7 @@ $channelName = switch ($channel) {
     default { $null }
 }
 
-$releaseName = if ($Tag -eq 'v2.1.3-beta.27' -or $Tag -eq 'v2.1.5-beta.28') {
+$releaseName = if ($Tag -eq 'v2.1.3-beta.27' -or $Tag -eq 'v2.1.5-beta.28' -or $Tag -eq 'v2.1.5-beta.29' -or $Tag -eq 'v2.1.5-beta.30') {
     "Offhand v$version Pre-Release Beta $sequence"
 } elseif ($isPrerelease) {
     "Offhand v$version $channelName $sequence"
@@ -105,7 +105,25 @@ $companionDownloads = if ($CompanionChanged) {
 "@
 }
 
-$testFocus = if ($Tag -eq 'v2.1.5-beta.28') {
+$testFocus = if ($Tag -eq 'v2.1.5-beta.30') {
+@'
+The loot-container correction passed a controlled before/after comparison in Forever 1.60.1.70862 with spanning applied. Removing the first of three private test panels moved the remaining panels to the seam with the prior code; this build kept both visible and centered inside Mainhand through native reflow and maintenance. No real items or roll choices were used. Real simultaneous loot rolls, expiration/queue behavior and combat still need player verification.
+
+The release source passes 125 Lua regression suites and six manifest/syntax checks. This build includes the loot-container correction, expanded EllesmereUI layout transfers and dependency/blocker guidance, Questie/Social anchor preservation and the Retail friendly-name preference correction. The owner requested inclusion of these previously deferred addon changes. Companion and the existing DaylightUI implementation are unchanged; further Daylight testing remains deferred.
+
+Earlier spanned Forever checks cover supported EllesmereUI cooldown/cast imports and reload, disabled-module guidance, controlled linked-anchor/override preview cases and Social/Quick Join anchor preservation. These scoped results do not establish exact reporter-profile acceptance. Native Retail preference behavior, active Questie-objective dragging, populated/spec-changing tracking-bar imports and combat remain unverified. Global tracking-bar groups are not transferred. Exact controller paths and physical portrait/4K layouts are not newly verified. Legacy Retail cleanup can restore a saved off preference once before returning control to the player.
+
+Keep your existing profiles. Report regressions with `/offhand diag full`, the client/build, display arrangement and other UI addons. Companion 2.1.5 is unchanged; an already-working Companion does not need to be replaced.
+'@
+} elseif ($Tag -eq 'v2.1.5-beta.29') {
+@'
+Real simultaneous loot rolls and their combat lifecycle could not be verified locally. Those corrections are included for beta feedback. Please check remaining roll windows, usable roll choices, and long item tooltips during normal play.
+
+This build passes 122 Lua regression suites and six manifest/syntax checks. Controlled spanned Forever 1.60.1.70862 checks cover placement, options, reload, disable/re-enable, Restore Window, and exit/relaunch. Actual combat, exact reporter profiles, controller paths and physical portrait/4K layouts are not fully verified. Old-profile minimap hiding and exact HUD-save reports remain under investigation; the separate Retail friendly-name correction is deferred.
+
+Keep your existing profiles. Report regressions with `/offhand diag full`, the client/build, display arrangement and other UI addons. Companion 2.1.5 is unchanged; an already-working Companion does not need to be replaced.
+'@
+} elseif ($Tag -eq 'v2.1.5-beta.28') {
 @'
 1. Back up SavedVariables, Companion preferences and native/replacement HUD layouts. Upgrade without deleting settings. Install the add-on separately from Store Companion.
 2. Use /offhand guide for first setup. Position WoW, acknowledge Window is positioned, reload, then review Confirm placement. Continue calibration using either the recommendation or Next and complete the HUD/reload steps. Verify a normal restart retains your setup.
