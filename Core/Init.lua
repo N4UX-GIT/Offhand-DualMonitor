@@ -263,6 +263,7 @@ local companionPopupFallbacks = {
     POPUP_COMPANION_HANDOFF_TEXT = "|cffffd100Offhand could not confirm the current display span.|r\n\nOpen Companion, select your displays and Mainhand monitor, then click Span WoW Now. If WoW was already running, type /reload once afterward.",
     POPUP_COMPANION_TOPOLOGY_TEXT = "|cffffd100The saved display layout no longer matches this WoW window.|r\n\nOpen Companion, confirm the selected displays and Mainhand monitor, then click Span WoW Now. If WoW was already running, type /reload once afterward.",
     POPUP_COMPANION_VERSION_TEXT = "|cffffd100Companion version mismatch|r\n\nThis display layout was created by Companion %s, but this addon requires %s. Update Companion, span WoW again, and type /reload.\n\nCopy the official download address below:",
+    FOREVER_SINGLE_SCREEN_COMPANION_HINT = "To span again, click Span WoW Now in Companion, then type /reload in WoW.",
     POPUP_BTN_GOT_IT = "Got it",
 }
 
@@ -590,17 +591,17 @@ local function GetGamepadSafePopup()
 
     local text = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     if frame.SetBackdropColor then frame:SetBackdropColor(0.035, 0.035, 0.045, 1) end
-    text:SetPoint("TOPLEFT", frame, "TOPLEFT", 28, -26)
-    text:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -28, -26)
+    text:SetPoint("TOP", frame, "TOP", 0, -18)
     text:SetHeight(112)
     text:SetJustifyH("CENTER")
     text:SetJustifyV("TOP")
     if text.SetWordWrap then text:SetWordWrap(true) end
+    if text.SetNonSpaceWrap then text:SetNonSpaceWrap(true) end
     frame.text = text
 
     local editBox = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
-    editBox:SetSize(430, 24)
-    editBox:SetPoint("BOTTOM", frame, "BOTTOM", 0, 58)
+    editBox:SetHeight(24)
+    editBox:SetPoint("BOTTOM", frame, "BOTTOM", 0, 48)
     if editBox.SetAutoFocus then editBox:SetAutoFocus(false) end
     editBox:SetScript("OnEscapePressed", function(self)
         if self.ClearFocus then self:ClearFocus() end
@@ -608,17 +609,11 @@ local function GetGamepadSafePopup()
     frame.EditBox = editBox
 
     local accept = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    accept:SetSize(210, 24)
-    accept:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 42, 22)
     frame.accept = accept
 
     local cancel = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    cancel:SetSize(210, 24)
-    cancel:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -42, 22)
     frame.cancel = cancel
     local alternate = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    alternate:SetSize(145, 24)
-    alternate:SetPoint("BOTTOM", frame, "BOTTOM", 0, 22)
     frame.alternate = alternate
 
     local function Finish(handler)
@@ -657,6 +652,7 @@ end
 
 function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     local recoveryPopup = popupKey == "OFFHAND_CONFIRM_RECOVERY"
+    local helpPopup = popupKey == "OFFHAND_SETTINGS_HELP"
     local setupPopup = popupKey == "OFFHAND_DOWNLOAD_LINK" or popupKey == "OFFHAND_POWERTOYS_LINK"
         or popupKey == "OFFHAND_SETUP_MANUAL_RELOAD"
         or popupKey == "OFFHAND_WEBSITE_LINK" or popupKey == "OFFHAND_DISCORD_LINK"
@@ -670,7 +666,7 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
         or popupKey == "OFFHAND_HUD_SETUP_REMINDER"
         or popupKey == "OFFHAND_CHARACTER_SETUP"
         or popupKey == "OFFHAND_ELLESMERE_HUD_RELOAD"
-    if not self:IsGamepadUIEnabled() and not setupPopup and not recoveryPopup then
+    if not self:IsGamepadUIEnabled() and not setupPopup and not recoveryPopup and not helpPopup then
         if StaticPopup_Show then return StaticPopup_Show(popupKey, textArg1, textArg2, data) end
         return nil
     end
@@ -681,26 +677,31 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     if frame.popupKey then frame:Hide() end
     frame.popupGeneration = (frame.popupGeneration or 0) + 1
     frame.popupKey, frame.definition, frame.data = popupKey, definition, data
-    frame.text:SetJustifyH(recoveryPopup and "LEFT" or "CENTER")
+    frame.text:SetJustifyH((recoveryPopup or helpPopup) and "LEFT" or "CENTER")
     if frame.text.SetFontObject then
         frame.text:SetFontObject(GameFontHighlight)
     end
-    frame.text:SetText(FormatPopupText(definition.text, textArg1, textArg2))
-    -- Remove the previous card's height before measuring, avoiding truncated
-    -- GetStringHeight results when a longer message reuses this FontString.
-    -- Only our owned card changes strata. Native popup frames are untouched.
-    frame:SetFrameStrata((setupPopup or recoveryPopup) and "TOOLTIP" or "FULLSCREEN_DIALOG")
-    if self.UIControls and self.UIControls.MeasureWrappedText then
-        frame.text:SetHeight(0)
-        local measure = self.UIControls.MeasurePopupText or self.UIControls.MeasureWrappedText
-        local height = measure(frame.text, frame.text:GetText(), 464) + 8
-        frame.text:SetHeight(height)
-        frame:SetHeight(math.max(210, height + (definition.hasEditBox and 118 or 76)))
-    end
+    local message = FormatPopupText(definition.text, textArg1, textArg2)
+    frame.text:SetText(message)
+    frame:SetFrameStrata((setupPopup or recoveryPopup or helpPopup) and "TOOLTIP" or "FULLSCREEN_DIALOG")
 
     local editValue = definition.gamepadEditBoxText
     if type(editValue) == "function" then editValue = editValue() end
+    local width = (editValue ~= nil or definition.button3 or message:find("\n", 1, true)) and 520 or 440
+    local textWidth = width - 48
+    local controls = self.UIControls
+    local textHeight
+    if controls and controls.FitCompactParagraph then
+        textHeight = controls.FitCompactParagraph(frame.text, message, textWidth)
+    else
+        textHeight = 112
+        frame.text:SetWidth(textWidth)
+        frame.text:SetHeight(textHeight)
+    end
+    frame:SetSize(width, textHeight + (editValue ~= nil and 104 or 70))
+
     if editValue ~= nil then
+        frame.EditBox:SetWidth(width - 90)
         frame.EditBox:SetText(tostring(editValue))
         if frame.EditBox.SetCursorPosition then frame.EditBox:SetCursorPosition(0) end
         if frame.EditBox.ClearFocus then frame.EditBox:ClearFocus() end
@@ -709,23 +710,38 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
         frame.EditBox:Hide()
     end
 
-    frame.accept:SetText(definition.button1 or OKAY or "OK")
-    frame.accept:SetWidth(definition.button3 and 145 or 210)
-    frame.cancel:SetWidth(definition.button3 and 145 or 210)
+    local buttons = {{frame.accept, definition.button1 or OKAY or "OK"}}
     frame.alternate:Hide()
+    frame.cancel:Hide()
     if definition.button3 then
-        frame.alternate:SetText(definition.button3)
-        frame.alternate:Show()
+        buttons[#buttons + 1] = {frame.alternate, definition.button3}
     end
     if definition.button2 then
-        frame.accept:ClearAllPoints()
-        frame.accept:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 42, 22)
-        frame.cancel:SetText(definition.button2)
-        frame.cancel:Show()
-    else
-        frame.accept:ClearAllPoints()
-        frame.accept:SetPoint("BOTTOM", frame, "BOTTOM", 0, 22)
-        frame.cancel:Hide()
+        buttons[#buttons + 1] = {frame.cancel, definition.button2}
+    end
+    local count, gap, total = #buttons, 10, 0
+    for _, item in ipairs(buttons) do
+        local button, label = item[1], item[2]
+        button:SetText(label)
+        local fontString = button.GetFontString and button:GetFontString()
+        if fontString and fontString.SetTextScale then fontString:SetTextScale(1) end
+        local labelWidth = controls and controls.MeasureSingleLine and controls.MeasureSingleLine(fontString, label)
+            or #label * 7
+        item.width = math.max(count == 1 and 180 or count == 2 and 132 or 112, labelWidth + 20)
+        total = total + item.width
+    end
+    local scale = math.min(1, (textWidth - (count - 1) * gap) / total)
+    local left = -(total * scale + (count - 1) * gap) / 2
+    for _, item in ipairs(buttons) do
+        local button = item[1]
+        local buttonWidth = item.width * scale
+        button:SetSize(buttonWidth, 24)
+        button:ClearAllPoints()
+        button:SetPoint("BOTTOM", frame, "BOTTOM", left + buttonWidth / 2, 14)
+        local fontString = button.GetFontString and button:GetFontString()
+        if fontString and fontString.SetTextScale then fontString:SetTextScale(scale) end
+        button:Show()
+        left = left + buttonWidth + gap
     end
     PositionGamepadSafeFrame(frame)
     frame:Show()
@@ -1046,9 +1062,12 @@ function Offhand:RefreshCompanionNoticeState(metrics)
         Offhand:HideCompanionNotices()
         return nil
     end
-    local recoveryPromptActive = Offhand.isForever and Offhand.HUD
-        and Offhand.HUD.foreverRecoveryPromptShown ~= nil
-    local kind = Offhand:GetCompanionNoticeKind(metrics, recoveryPromptActive)
+    local hud = Offhand.HUD
+    if hud and hud.IsForeverLayoutRecoveryHandlingSpan and hud:IsForeverLayoutRecoveryHandlingSpan(metrics) then
+        Offhand:HideCompanionNotices()
+        return "RECOVERY"
+    end
+    local kind = Offhand:GetCompanionNoticeKind(metrics)
     Offhand:ShowCompanionNotice(kind, metrics)
     local manualState = metrics and metrics.manualCanvasState
     local manual = Offhand.ManualCanvas and Offhand.ManualCanvas.GetDiagnostics
@@ -1081,23 +1100,31 @@ function Offhand:RefreshCompanionNoticeState(metrics)
     return kind
 end
 
-function Offhand:ShowForeverLayoutRecoveryPrompt(kind, layoutName, fallbackName)
+function Offhand:ShowForeverLayoutRecoveryPrompt(kind, layoutName, fallbackName, metrics)
     if Offhand:IsBlizzardInputReserved() then
         Offhand:DeferAutomaticUIForCinematic()
-        return
+        return false
     end
+    Offhand:HideCompanionNotices()
+    Offhand:HidePopup("OFFHAND_CONFIRM_EXISTING_WINDOW")
     local key = kind == "restore" and "OFFHAND_FOREVER_RESTORE_LAYOUT"
         or "OFFHAND_FOREVER_SINGLE_SCREEN_LAYOUT"
     local definition = StaticPopupDialogs[key]
     local gamepad = fallbackName == "Gamepad"
     definition.offhandAcceptBeforeHide = gamepad or nil
-    if kind == "restore" then
-        definition.button2 = Offhand.L[gamepad and "FOREVER_KEEP_CURRENT_LAYOUT" or "FOREVER_KEEP_MODERN"]
-    else
-        definition.text = Offhand.L[gamepad and "FOREVER_GAMEPAD_SINGLE_SCREEN_LAYOUT_TEXT"
+    if kind == "fallback" then
+        definition.button1 = gamepad and (_G.LAYOUT_STYLE_GAMEPAD or fallbackName) or Offhand.L["FOREVER_USE_MODERN"]
+        local text = Offhand.L[gamepad and "FOREVER_GAMEPAD_SINGLE_SCREEN_LAYOUT_TEXT"
             or "FOREVER_SINGLE_SCREEN_LAYOUT_TEXT"]
-        definition.button1 = gamepad and (_G.LAYOUT_STYLE_GAMEPAD or fallbackName)
-            or Offhand.L["FOREVER_USE_MODERN"]
+        local method = Offhand.GetOnboardingSetupMethod and Offhand:GetOnboardingSetupMethod()
+        local preference = Offhand.ManualCanvas and Offhand.ManualCanvas:GetGeometryPreference()
+        if (metrics and metrics.manualCanvasState == "EXACT_REQUIRED")
+            or (method == "COMPANION" and preference ~= "MANUAL") then
+            text = text .. "\n\n" .. CompanionPopupLocale("FOREVER_SINGLE_SCREEN_COMPANION_HINT")
+        end
+        definition.text = text
+    else
+        definition.button2 = Offhand.L[gamepad and "FOREVER_KEEP_CURRENT_LAYOUT" or "FOREVER_KEEP_MODERN"]
     end
     Offhand:ShowPopup(key, layoutName or "Offhand")
 end
@@ -1278,7 +1305,6 @@ local function EvaluateEntryNotices(attempt)
         end
         return
     end
-    Offhand._automaticUIPendingAfterCinematic = nil
     if Offhand._displayGeometryTransitionActive and attempt < 5 then
         C_Timer.After(0.5, function()
             EvaluateEntryNotices(attempt + 1)
@@ -1287,8 +1313,13 @@ local function EvaluateEntryNotices(attempt)
     end
     if not Offhand.db then return end
 
+    local resumeAutomaticUI = Offhand._automaticUIPendingAfterCinematic
+    Offhand._automaticUIPendingAfterCinematic = nil
     local viewportMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
         and Offhand.Viewport:GetMetrics() or nil
+    if resumeAutomaticUI and Offhand.HUD and Offhand.HUD.UpdateForeverRecoveryLayout then
+        Offhand.HUD:UpdateForeverRecoveryLayout(viewportMetrics)
+    end
     local isSpanned = viewportMetrics and viewportMetrics.isSpanned
     local w = GetScreenWidth() * UIParent:GetEffectiveScale()
     local physW = w
@@ -1575,18 +1606,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 end
             end)
             if Offhand._automaticUIPendingAfterCinematic then
-                C_Timer.After(0.75, function()
-                    if Offhand:IsBlizzardInputReserved() then
-                        EvaluateEntryNotices(1)
-                        return
-                    end
-                    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
-                        and Offhand.Viewport:GetMetrics() or nil
-                    if Offhand.HUD and Offhand.HUD.UpdateForeverRecoveryLayout then
-                        Offhand.HUD:UpdateForeverRecoveryLayout(metrics)
-                    end
-                    EvaluateEntryNotices(1)
-                end)
+                C_Timer.After(0.75, function() EvaluateEntryNotices(1) end)
             end
         end
 
@@ -1633,6 +1653,12 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 end
                 if generation == Offhand._displayGeometryGeneration then
                     Offhand._displayGeometryTransitionActive = false
+                    -- The resize event reached the guide while the transition
+                    -- was active. Refresh readiness only after this generation
+                    -- finishes, including layout work deferred by combat.
+                    if Offhand.Onboarding and Offhand.Onboarding.RefreshDisplayState then
+                        Offhand.Onboarding:RefreshDisplayState()
+                    end
                     local companionNotice = Offhand:RefreshCompanionNoticeState(displayMetrics)
                     if not companionNotice and Offhand.CharacterSetup then Offhand.CharacterSetup:Refresh() end
                 end
@@ -1680,6 +1706,7 @@ function Offhand:ApplyFullLayout(preserveGlobalScale)
         if Offhand.UpdateCanvas then
             Offhand:UpdateCanvas()
         end
+        if Offhand.WorkspaceScale then Offhand.WorkspaceScale:Refresh() end
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
         if Offhand.Mainhand and Offhand.Mainhand.UpdateWindowModeLayout then
             Offhand.Mainhand:UpdateWindowModeLayout(metrics)
@@ -1711,6 +1738,9 @@ function Offhand:ApplyFullLayout(preserveGlobalScale)
                     module:ApplyLayout()
                 end
             end
+        elseif Offhand.PopupBounds and Offhand.PopupBounds.ApplyLayout then
+            -- Release tooltip clamp insets when the canvas returns to one screen.
+            Offhand.PopupBounds:ApplyLayout()
         end
     end)
 
@@ -1759,8 +1789,20 @@ SlashCmdList["OFFHAND"] = function(msg)
             Offhand:Print("Use /offhand notifycapture start, stop or show.")
         end
     elseif cmd == "diag" or cmd == "metrics" or cmd == "info" then
-        local fullDiagnostics = strtrim(arg or "") == "full"
-        local snapshot = Offhand.Viewport:CaptureDiagnostics()
+        local reportMode, reportAction = strsplit(" ", strtrim(arg or ""), 2)
+        reportMode, reportAction = reportMode or "", strtrim(reportAction or "")
+        if (reportMode ~= "" and reportMode ~= "full" and reportMode ~= "chat"
+            and reportMode ~= "tooltip" and reportMode ~= "panels" and reportMode ~= "debug")
+            or (reportAction ~= "" and not (reportMode == "tooltip" and reportAction == "capture")) then
+            Offhand:Print("Use /offhand diag [full, chat, tooltip, panels, debug]. To capture a hover: /offhand diag tooltip capture.")
+            return
+        end
+        local debugDiagnostics = reportMode == "debug"
+        local fullDiagnostics = reportMode == "full" or debugDiagnostics
+        local chatDiagnostics = fullDiagnostics or reportMode == "chat"
+        local tooltipDiagnostics = debugDiagnostics or reportMode == "tooltip"
+        local panelDiagnostics = debugDiagnostics or reportMode == "panels"
+        local snapshot = Offhand.Viewport:CaptureDiagnostics(false)
         local vpStatus = snapshot.viewportMatches and L["MSG_DIAG_PASS"] or L["MSG_DIAG_MISMATCH"]
         Offhand:Print(L["MSG_DIAG_VIEWPORT"], vpStatus)
         local m = snapshot.metrics or (Offhand.Viewport and Offhand.Viewport:GetMetrics()) or {}
@@ -1773,22 +1815,38 @@ SlashCmdList["OFFHAND"] = function(msg)
             tostring(versions.companionMinimum), tostring(versions.companionProtocol),
             tostring(versions.companionStatus))
         local operating = Offhand:GetOperatingDiagnostics(m)
-        Offhand:Print("State: Enabled=%s | Spanned=%s | Source=%s | Preset=%s | Mainhand=%s | Combat=%s | Setup=%s.",
+        Offhand:Print("State: Enabled=%s | Spanned=%s | Source=%s | Combat=%s | Setup=%s.",
             operating.enabled and "1" or "0", operating.spanned and "1" or "0",
-            operating.topologySource, tostring(operating.layoutPreset),
-            tostring(operating.mainhandPosition), operating.inCombat and "1" or "0",
+            operating.topologySource, operating.inCombat and "1" or "0",
             operating.setupComplete and "1" or "0")
         Offhand:Print("Display rectangles: Mainhand=(%d,%d %dx%d) | Workspace=(%d,%d %dx%d).",
             operating.mainhandLeft, operating.mainhandBottom,
             operating.mainhandWidth, operating.mainhandHeight,
             operating.workspaceLeft, operating.workspaceBottom,
             operating.workspaceWidth, operating.workspaceHeight)
+        if Offhand.WorkspaceScale then
+            local sizing=Offhand.WorkspaceScale:GetDiagnostics(m)
+            for _,region in ipairs(sizing.regions) do
+                Offhand:Print("Workspace sizing: Region=%s | Setting=%s | Resolved=%.0f%% | Source=%s | Windows=%s/%s | Chat=%s.",
+                    region.id,tostring(region.setting),region.multiplier*100,region.source,
+                    tostring(region.workspacePercent or "unknown"),tostring(region.gamePercent or "unknown"),tostring(region.chat))
+            end
+            Offhand:Print("Workspace sizing ownership: Scaled=%d | Released=%d | LastRejected=%s.",
+                sizing.scaled,sizing.released,tostring(sizing.lastFailure or "none"))
+        end
+        if fullDiagnostics or not snapshot.viewportMatches then
+            local world = snapshot.frames and snapshot.frames.WorldFrame
+            local actual = world and string.format("(%.1f,%.1f %.1fx%.1f)",
+                world.x, world.y, world.width, world.height) or "unavailable"
+            Offhand:Print("WorldFrame bounds (physical pixels): actual=%s | planned=(%d,%d %dx%d).", actual,
+                operating.mainhandLeft, operating.mainhandBottom, operating.mainhandWidth, operating.mainhandHeight)
+        end
         local physW, physH = m.physicalWidth or 0, m.physicalHeight or 0
         local screenW = GetScreenWidth()
         local screenH = GetScreenHeight()
         local effScale = UIParent and UIParent:GetEffectiveScale() or 1.0
-        Offhand:Print(L["MSG_DIAG_FULL"],
-            physW, physH, screenW, screenH, effScale, m.deckWidth or 0, (Offhand.db.deckWidthRatio or 0) * 100, m.gameWidth or 0, m.gameHeight or 0)
+        Offhand:Print("Geometry: Physical=%dx%d | ScreenUI=%.0fx%.0f | EffectiveScale=%.3f | GameUI=%.0fx%.0f.",
+            physW, physH, screenW, screenH, effScale, m.gameWidth or 0, m.gameHeight or 0)
         if Offhand.isLegacyWrath then
             Offhand:Print("Legacy Wrath diagnostics: Interface=%s | Timer=%s | PhysicalSource=%s.",
                 tostring(Offhand.tocVersion or "unknown"),
@@ -1806,7 +1864,7 @@ SlashCmdList["OFFHAND"] = function(msg)
                 topologyDiag.liveWidth, topologyDiag.liveHeight,
                 topologyDiag.canvasWidth, topologyDiag.canvasHeight)
         end
-        if (fullDiagnostics or (m.isSpanned and not m.companionTopology))
+        if (debugDiagnostics or (not m.companionTopology and (fullDiagnostics or m.isSpanned)))
             and Offhand.ManualCanvas and Offhand.ManualCanvas.GetDiagnostics then
             local manual = Offhand.ManualCanvas:GetDiagnostics()
             Offhand:Print("Manual canvas diagnostics: state=%s | preference=%s | remembered=%d | selected=%s | source=%s | candidates=%d.",
@@ -1841,8 +1899,8 @@ SlashCmdList["OFFHAND"] = function(msg)
                 editMode.activeMatches and "yes" or "no",
                 editMode.recoveryPending and "pending" or "none")
         end
-        -- Keep historical feature probes available on demand. Default reports
-        -- must not enumerate native HUD trees or collect animation/debug state.
+        -- The full support report includes setup intent. Feature-specific frame
+        -- probes remain explicit, and a snapshot never arms an asynchronous capture.
         if fullDiagnostics then
             local characterSetup = type(OffhandCharDB) == "table" and OffhandCharDB.characterSetup
             local choice = type(characterSetup) == "table" and characterSetup.choice or "unseen"
@@ -1853,6 +1911,8 @@ SlashCmdList["OFFHAND"] = function(msg)
                 Offhand.db and Offhand.db.automaticSetupSuppressed == true and "paused" or "available",
                 tostring(resume or "none"), choice,
                 type(characterSetup) == "table" and characterSetup.complete == true and "saved" or "pending")
+        end
+        if debugDiagnostics then
             if Offhand.CanvasCompatibility and Offhand.CanvasCompatibility.GetGuideAddonDiagnostics then
                 for _, report in ipairs(Offhand.CanvasCompatibility.GetGuideAddonDiagnostics() or {}) do
                     Offhand:Print("Guide frame diagnostics: %s.", report)
@@ -1868,20 +1928,33 @@ SlashCmdList["OFFHAND"] = function(msg)
             if Offhand.MainhandCompatibility and Offhand.MainhandCompatibility.GetClassicRightContainerDiagnostics then
                 Offhand:Print("Classic tracker placement: %s.", Offhand.MainhandCompatibility.GetClassicRightContainerDiagnostics())
             end
+        end
+        if tooltipDiagnostics then
             if Offhand.PopupBounds and Offhand.PopupBounds.GetTooltipPresentationDiagnostics then
                 for _, report in ipairs(Offhand.PopupBounds:GetTooltipPresentationDiagnostics()) do
                     Offhand:Print("Tooltip presentation: %s.", report)
                 end
-                if Offhand.PopupBounds.ArmTooltipPresentationCapture
+            end
+            if reportAction == "capture" then
+                if Offhand.PopupBounds and Offhand.PopupBounds.ArmTooltipPresentationCapture
                     and Offhand.PopupBounds:ArmTooltipPresentationCapture() then
                     Offhand:Print("Tooltip capture armed for 30 seconds: hover an item to capture its visible backdrop.")
+                else
+                    Offhand:Print("Tooltip capture unavailable: leave combat and try again; this client must support tooltip capture.")
                 end
             end
+        end
+        if panelDiagnostics then
             if Offhand.HUD and Offhand.HUD.GetInteractionVisibilityDiagnostics then
+                local absent = 0
                 for _, report in ipairs(Offhand.HUD:GetInteractionVisibilityDiagnostics(m)) do
-                    Offhand:Print("Interaction visibility: %s.", report)
+                    if not debugDiagnostics and report:match("=absent%.?$") then absent = absent + 1
+                    else Offhand:Print("Interaction visibility: %s.", report) end
                 end
+                if absent > 0 then Offhand:Print("Interaction visibility: %d unloaded roots omitted; /offhand diag debug includes them.", absent) end
             end
+        end
+        if debugDiagnostics then
             local perf = Offhand.Viewport:GetWorldTextDiagnostics(m)
             Offhand:Print("Combat text diagnostics: Current=%s | Original=%s | CVar=%s | Method=%s | Enabled=%s | FineTune=%.2f | HeightRatio=%.4f | AppliedRatio=%.4f.",
                 perf.worldTextScale, tostring(perf.originalWorldTextScale or "unmanaged"),
@@ -1900,7 +1973,7 @@ SlashCmdList["OFFHAND"] = function(msg)
                     bubbles.visualManaged or 0)
             end
             if Offhand.HUD and Offhand.HUD.GetGroupLootDiagnostics then
-                local loot = Offhand.HUD:GetGroupLootDiagnostics()
+                local loot = Offhand.HUD:GetGroupLootDiagnostics(m)
                 Offhand:Print("Group loot diagnostics: Loaded=%s | Preload=%s | SecureAnchor=%s | RowMover=%s/%s | Rows=%d | Position=%s | Stack=%s | Preview=%s | Conflict=%s | Triggers=%d | Combat=%s.",
                     loot.loaded and "yes" or "no",
                     loot.preloadAttempted and "yes" or "no",
@@ -1914,6 +1987,11 @@ SlashCmdList["OFFHAND"] = function(msg)
                     tostring(loot.conflict or "none"),
                     loot.triggerCount or 0,
                     loot.inCombat and "yes" or "no")
+                if loot.activeRolls ~= nil then
+                    Offhand:Print("Group loot visibility: ActiveRolls=%s | Container=%s | KeyboardRows=%s.",
+                        tostring(loot.activeRolls), loot.containerVisibility,
+                        #loot.slots > 0 and table.concat(loot.slots, " | ") or "none")
+                end
             end
             if Offhand.HUD and Offhand.HUD.GetPetBattleDiagnostics then
                 local petBattle = Offhand.HUD:GetPetBattleDiagnostics()
@@ -1935,29 +2013,39 @@ SlashCmdList["OFFHAND"] = function(msg)
         end
         if Offhand.Mainhand and Offhand.Mainhand.GetEditModeDiagnostics then
             Offhand:Print("Edit Mode layout diagnostics: %s.",
-                Offhand.Mainhand:GetEditModeDiagnostics(not fullDiagnostics))
+                Offhand.Mainhand:GetEditModeDiagnostics(not debugDiagnostics))
+        end
+        if chatDiagnostics and Offhand.CanvasChat and Offhand.CanvasChat.GetPlacementDiagnostics then
+            for _, report in ipairs(Offhand.CanvasChat:GetPlacementDiagnostics(reportMode == "full")) do
+                Offhand:Print("Chat placement diagnostics: %s.", report)
+            end
         end
         if Offhand.Canvas and Offhand.Canvas.GetCompatibilityDiagnostics then
-            local compatibility = Offhand.Canvas:GetCompatibilityDiagnostics(not fullDiagnostics)
+            local compatibility = Offhand.Canvas:GetCompatibilityDiagnostics(not (debugDiagnostics or panelDiagnostics))
             if compatibility then
                 Offhand:Print("Compatibility diagnostics: %s.", compatibility)
             end
         end
-        if fullDiagnostics and Offhand.Canvas and Offhand.Canvas.GetPanelControllerDiagnostics then
+        if panelDiagnostics and Offhand.Canvas and Offhand.Canvas.GetPanelControllerDiagnostics then
             Offhand:Print("Panel controller diagnostics: %s.",
                 Offhand.Canvas:GetPanelControllerDiagnostics())
         end
-        if fullDiagnostics and Offhand.Canvas and Offhand.Canvas.GetForeverNativeBagDiagnostics then
+        if panelDiagnostics and Offhand.Canvas and Offhand.Canvas.GetPanelPlacementDiagnostics then
+            for _, report in ipairs(Offhand.Canvas:GetPanelPlacementDiagnostics()) do
+                Offhand:Print("Panel placement: %s.", report)
+            end
+        end
+        if panelDiagnostics and Offhand.isForever and Offhand.Canvas and Offhand.Canvas.GetForeverNativeBagDiagnostics then
             local bags = Offhand.Canvas:GetForeverNativeBagDiagnostics()
             if bags then Offhand:Print("Native bag diagnostics: %s.", bags) end
         end
-        if fullDiagnostics and Offhand.DialogueUICompat and Offhand.DialogueUICompat.GetDiagnostics then
+        if debugDiagnostics and Offhand.DialogueUICompat and Offhand.DialogueUICompat.GetDiagnostics then
             Offhand:Print("Dialogue UI diagnostics: %s.",
                 Offhand.DialogueUICompat:GetDiagnostics())
         end
         if Offhand.UserMedia and Offhand.UserMedia.GetDiagnostics then
             local media = Offhand.UserMedia:GetDiagnostics()
-            if fullDiagnostics then
+            if debugDiagnostics then
                 Offhand:Print("User media diagnostics: status=%s | installed=%s | enabled=%s | schema=%s | generator=%s | image=%sx%s | texture=%sx%s | fit=%s | reason=%s.",
                     tostring(media.status), media.installed and "yes" or "no",
                     media.enabled and "yes" or "no", tostring(media.schema or "none"),
@@ -1971,7 +2059,8 @@ SlashCmdList["OFFHAND"] = function(msg)
                     tostring(media.fit or "none"), tostring(media.reason or "none"))
             end
         end
-        if not fullDiagnostics then Offhand:Print("More detail: /offhand diag full.") end
+        if reportMode == "" then Offhand:Print("More detail: /offhand diag full.")
+        elseif fullDiagnostics then Offhand:Print("Focused reports: /offhand diag chat | tooltip | panels | debug. Hover capture: /offhand diag tooltip capture.") end
     elseif cmd == "remember" then
         local preview = Offhand.Viewport and Offhand.Viewport.GetManualPreviewMetrics
             and Offhand.Viewport:GetManualPreviewMetrics() or nil
@@ -2135,6 +2224,7 @@ function Offhand:IsWindowReachable(left, top, width, m)
     for _,r in ipairs(m.workspaceRegions or {}) do
         if InArea(r.x,r.y,r.x+r.width,r.y+r.height) then return true end
     end
+    if m.workspaceRegions and #m.workspaceRegions > 0 then return false end
     if m.workspaceLeft ~= nil then
         return InArea(m.workspaceLeft, m.workspaceBottom, m.workspaceRight, m.workspaceTop)
     end
@@ -2160,11 +2250,19 @@ function Offhand:GatherOffScreenUI()
         end
     end
     local moved = 0
+    local map = self.isForever and _G.WorldMapFrame
+    if map and m.isSpanned and self.Canvas and self.Canvas.GatherSafeUIToMainhand then
+        candidates[map] = nil
+        local called, ok, _, recovered = pcall(self.Canvas.GatherSafeUIToMainhand, self.Canvas, true, map)
+        if called and ok then moved = recovered end
+    end
     for frame in pairs(candidates) do
         local ok, recovered = pcall(function()
             if frame == WorldFrame or frame == self.canvas then return false end
             if frame.IsForbidden and frame:IsForbidden() then return false end
             if not frame:IsShown() or frame:IsProtected() then return false end
+            if frame == map and self.CanvasCompatibility and self.CanvasCompatibility.ShouldYieldWorldMap
+                and self.CanvasCompatibility.ShouldYieldWorldMap(frame) then return false end
             if frame.IsObjectType and frame:IsObjectType("GameTooltip") then return false end
             local scale = frame:GetEffectiveScale()
             if not scale or scale <= 0 then return false end

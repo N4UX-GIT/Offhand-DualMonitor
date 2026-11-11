@@ -156,6 +156,9 @@ local positionedAddonPopupRoots = {
     -- Offhand's optional Mainhand centering is off. Popup recovery must not
     -- supply an offset that the centering adapter would then apply again.
     ProcDocAlertFrame = true,
+    -- ForeverXPbar owns its saved UIParent point, even when that point looks
+    -- like a newly opened popup or falls in a gap between displays.
+    ForeverXPBarMainFrame = true,
     -- Questie owns TrackerLocation and its Ctrl-drag/lock behavior. Its reset
     -- anchor deliberately uses screen center and need not be IsUserPlaced.
     Questie_BaseFrame = true,

@@ -58,6 +58,7 @@ namespace Offhand.Companion
 #endif
                 var card = Descendants(form).OfType<Panel>().Single(panel =>
                     panel.Controls.OfType<Label>().Any(label => label.Text == "DISPLAY DIAGNOSTICS"));
+                form.SelectDashboardPage(true);
                 form.SetDashboardSectionExpanded(card, true, false);
                 var labels = card.Controls.OfType<Label>().Where(label => label.Top > 24).OrderBy(label => label.Top).ToArray();
                 Check(labels.Length == 3, "Diagnostics card needs separate modes, HDR and scale labels");

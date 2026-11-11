@@ -1,4 +1,5 @@
 local addon={db={enabled=true,hudScale=0.7,deckWidthRatio=.36,
+    workspaceMapScale="AUTO",mainMapScale="AUTO",
     savedWorkspacePositions={WorldMapFrame={x=12,y=900,regionId="a",regionX=.1,regionY=.9}},
     savedMainPositions={},openWorkspacePanels={WorldMapFrame=true},
     workspacePanelRoutes={spells="b"},workspaceRegionThemes={b={theme="OBSIDIAN"}}}}
@@ -12,10 +13,14 @@ assert(p:Create(' Raid '));local _,raid=p:List()
 assert(raid~='default' and addon.db.savedWorkspacePositions~=original)
 addon.db.savedWorkspacePositions.WorldMapFrame.x=77
 addon.db.workspaceRegionThemes.b.theme='PITCH_BLACK'
+addon.db.workspaceMapScale,addon.db.mainMapScale=1.25,1.5
 assert(p:Activate('default'))
 assert(addon.db.savedWorkspacePositions.WorldMapFrame.x==12 and addon.db.workspaceRegionThemes.b.theme=='OBSIDIAN')
+assert(addon.db.workspaceMapScale=="AUTO" and addon.db.mainMapScale=="AUTO",
+    "Auto-Fit map preferences must round-trip with a saved workspace profile")
 assert(p:Activate(raid))
 assert(addon.db.savedWorkspacePositions.WorldMapFrame.x==77 and addon.db.workspaceRegionThemes.b.theme=='PITCH_BLACK')
+assert(addon.db.workspaceMapScale==1.25 and addon.db.mainMapScale==1.5)
 assert(addon.db.hudScale==.7 and addon.db.deckWidthRatio==.36,'Workspace selection changed calibration')
 assert(not p:Create('Raid') and not p:Create('|cffff0000bad') and not p:Create(string.rep('a',49)))
 assert(p:Rename(raid,'Gathering') and p:Save())

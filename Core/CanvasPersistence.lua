@@ -290,6 +290,15 @@ function Persistence.InstallDrag(Canvas, services)
                 local id=Offhand.WorkspaceRegions:Destination(m,xInParent,yInParent,frameWidth,frameHeight)
                 destination=Offhand.WorkspaceRegions:ForRegion(m,id~='MAINHAND' and id or nil)
             end
+            if Offhand.WorkspaceScale then
+                if not Offhand.WorkspaceScale:Apply(frame,true,destination) then
+                    SetPanelDragging(frame,false);return
+                end
+                frameScale=(frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
+                scaleFactor=frameScale/parentScale
+                frameWidth=(frame:GetWidth() or 0)*scaleFactor
+                frameHeight=(frame:GetHeight() or 0)*scaleFactor
+            end
             if not Persistence.FitsWorkspace(destination,frameWidth,frameHeight) then
                 local previous=Offhand.db.savedWorkspacePositions[name]
                 Offhand.db.savedMainPositions[name]=previousMainPosition
@@ -302,7 +311,7 @@ function Persistence.InstallDrag(Canvas, services)
                 return
             end
             local position = Persistence.CreateWorkspacePosition(
-                m, xInParent, yInParent, frameWidth, frameHeight,
+                destination, xInParent, yInParent, frameWidth, frameHeight,
                 string.match(name, "^ChatFrame") ~= nil, fallbackHeight
             )
             local clampedX, clampedY = position.x, position.y
@@ -379,6 +388,7 @@ function Persistence.InstallDrag(Canvas, services)
             end
         else
             Offhand.db.savedWorkspacePositions[name] = nil
+            if Offhand.WorkspaceScale then Offhand.WorkspaceScale:Apply(frame,false,m) end
             Persistence.FitPlayerSpellsToWorkspace(frame, m, false)
             Canvas:SetWorkspacePanelOpen(name, false)
             if Offhand.ForeverPersistence then
@@ -552,6 +562,8 @@ function Persistence.InstallRestore(Canvas, services)
         if IsForeverEditModeFrame(frame, name)
             or (IsUnsafeForPanelMutation(frame, name)
                 and not IsForeverSocialPositionRoot(frame, name)) then return end
+        local registry = Offhand.CanvasPanelRegistry
+        if registry and registry.IsInputWidget(frame, name) then return end
         local restrictedProfessionsMovement = IsForeverProfessionsPanel(frame, name)
             and IsExperimentalForeverProfessionsMovementEnabled()
         if IsRetailChatEditModeActive(frame) then return end
@@ -576,6 +588,7 @@ function Persistence.InstallRestore(Canvas, services)
         if Offhand.WorkspaceRegions then m=Offhand.WorkspaceRegions:ForFrame(m,frame,wPos) end
         Persistence.FitPlayerSpellsToWorkspace(frame, m, Persistence.IsPosition(wPos))
         if Persistence.IsPosition(wPos) then
+            if Offhand.WorkspaceScale and not Offhand.WorkspaceScale:Apply(frame,true,m) then return end
             if not restrictedProfessionsMovement
                 and (Offhand.db.independentWorkspacePanels or frame == WorldMapFrame) then
                 DemodalizePanel(frame)

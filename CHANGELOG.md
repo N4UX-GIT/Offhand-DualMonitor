@@ -1,5 +1,37 @@
 # Changelog
 
+## [2.1.5-beta.32] - Unreleased
+
+- Set separate sizes for supported panels in each Offhand workspace from
+  Workspace settings or calibration. Existing layouts keep their current sizes
+  until you apply a change.
+- Preview sizes before applying them. With Companion 2.1.7, you can also
+  estimate a size from the Windows scaling of the game and workspace displays.
+  Manual sizing is available with older compatible Companion versions.
+- Reorganize settings so panel routing and sizing are together. Add help beside
+  the settings it explains, and make setup and recovery prompts easier to follow.
+- Fit the World Map before panel reflow and recover unreachable map drag handles
+  on Forever. Preserve native NPC interactions during single-screen recovery.
+- Keep comparison tooltips together, improve mixed-scale loot roll placement,
+  and prevent saved input controls from reopening as workspace panels.
+- Improve Mainhand HUD fitting and EllesmereUI previews while preserving saved
+  source layouts. Keep Forever Gamepad recovery available and repair a Retail
+  action-bar placement case involving the default status bars.
+- Keep support reports concise by default. Use `/offhand diag panels`,
+  `/offhand diag tooltip`, or `/offhand diag debug` for targeted troubleshooting.
+
+## [2.1.5-beta.31] - 2026-11-11
+
+- Forever Gamepad UI keeps controller actions usable after closing the World Map.
+  The map returns to its saved Offhand position. [Issue #84](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/84)
+- The selected Spellbook entry shows its tooltip beside the icon on Mainhand
+  when first opened with a controller.
+- Keep wizard tabs on one line and size setup and HUD reload dialogs to fit their contents.
+
+Verified with a physical controller on Windows Forever 1.60.1.70888. The
+macOS reporter's confirmation for #84 is pending. Companion 2.1.5 remains
+compatible with this addon update.
+
 ## [2.1.5-beta.30] - 2026-11-11
 
 - Fixed a case where remaining loot-roll windows could move to the screen seam

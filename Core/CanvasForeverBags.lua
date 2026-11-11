@@ -85,10 +85,11 @@ function Adapter.Install(Canvas, services)
     -- Forever's native bag item buttons enter protected UseContainerItem paths.
     -- Keep all Offhand state and input handlers outside the ContainerFrame tree so
     -- moving the bag root does not also install addon code on an item-action
-    -- ancestor.  The only native writes performed by this adapter are the root
-    -- movement requested by a hardware drag and isolated root placement. Combat
+    -- ancestor. Native writes are root movement/placement and explicitly chosen
+    -- region scaling out of combat. Combat
     -- placement additionally requires explicit native geometry permissions.
     local foreverNativeBagState = setmetatable({}, { __mode = "k" })
+    local scaleFitFallbacks = setmetatable({}, { __mode = "k" })
     local foreverNativeBagController
 
     local function GetForeverNativeBagSavedPosition(frame)
@@ -113,11 +114,27 @@ function Adapter.Install(Canvas, services)
         return nil, nil
     end
 
-    local function GetForeverNativeBagTarget(frame, position, onWorkspace)
+    local function GetForeverNativeBagTarget(frame, position, onWorkspace, allowScale)
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
             and WithWorkspace(Offhand.Viewport:GetMetrics())
         if not metrics or not metrics.isSpanned or not frame then return nil end
         if onWorkspace and Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,frame,position) end
+
+        local sizing=Offhand.WorkspaceScale
+        local previousFit=scaleFitFallbacks[frame]
+        local sameFit=previousFit and sizing and previousFit.generation==sizing.generation
+            and previousFit.layout==sizing:Keys(metrics) and previousFit.region==metrics.workspaceRegionID
+        local preservedFit=sameFit and Offhand.CanvasPersistence
+            and Offhand.CanvasPersistence.PreservedFitFallback(frame,metrics,position)
+        if sameFit and not position and previousFit.defaultPosition and previousFit.x and previousFit.y then
+            local factor=frame:GetEffectiveScale()/UIParent:GetEffectiveScale()
+            local left,top=frame:GetLeft(),frame:GetTop()
+            if left and top and math.abs(left*factor-previousFit.x)<.75 and math.abs(top*factor-previousFit.y)<.75 then
+                preservedFit=true;position={x=previousFit.x,y=previousFit.y}
+            end
+        end
+        if preservedFit then onWorkspace=false end
+        if allowScale and sizing and not sizing:Apply(frame,onWorkspace~=false,metrics) then return nil end
 
         local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
         local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
@@ -138,6 +155,21 @@ function Adapter.Install(Canvas, services)
             }
             onWorkspace = true
         end
+        -- Keep legacy placement at 100%. Explicit region sizing uses the same
+        -- fit rule as other panels and retains saved intent on a Mainhand fallback.
+        local fitFallback=preservedFit and true or false
+        if onWorkspace and sizing and sizing:GetSetting(metrics)~=1 and Offhand.CanvasPersistence
+            and not Offhand.CanvasPersistence.FitsWorkspace(metrics,frameWidth,frameHeight) then
+            if not allowScale then return nil end
+            if not sizing:Apply(frame,false,metrics) then return nil end
+            frameScale=frame:GetEffectiveScale()
+            frameWidth=frame:GetWidth()*frameScale/parentScale
+            frameHeight=frame:GetHeight()*frameScale/parentScale
+            onWorkspace=false;fitFallback=true
+        end
+        if fitFallback and sizing then
+            scaleFitFallbacks[frame]={generation=sizing.generation,layout=sizing:Keys(metrics),region=metrics.workspaceRegionID}
+        else scaleFitFallbacks[frame]=nil end
         local targetX, targetY = position.x, position.y
         local minX, maxX, minY, maxY
         if onWorkspace then
@@ -167,7 +199,7 @@ function Adapter.Install(Canvas, services)
         end
 
         return math.max(minX, math.min(targetX, maxX)),
-            math.max(minY, math.min(targetY, maxY)), frameScale, parentScale
+            math.max(minY, math.min(targetY, maxY)), frameScale, parentScale, fitFallback
     end
 
     -- This restore deliberately bypasses the generic panel lifecycle. It does not
@@ -195,9 +227,13 @@ function Adapter.Install(Canvas, services)
                     or value ~= value or math.abs(value) == math.huge then return false end
             end
         end
-        local x, y, frameScale, parentScale =
-            GetForeverNativeBagTarget(frame, position, onWorkspace)
+        local x, y, frameScale, parentScale, fitFallback =
+            GetForeverNativeBagTarget(frame, position, onWorkspace, not inCombat)
         if not x then return false end
+        if fitFallback and not position and scaleFitFallbacks[frame] then
+            local fallback=scaleFitFallbacks[frame]
+            fallback.defaultPosition,fallback.x,fallback.y=true,x,y
+        end
 
         local actualLeft = frame.GetLeft and frame:GetLeft()
         local actualTop = frame.GetTop and frame:GetTop()
@@ -205,6 +241,9 @@ function Adapter.Install(Canvas, services)
             actualLeft = actualLeft * frameScale / parentScale
             actualTop = actualTop * frameScale / parentScale
             if math.abs(actualLeft - x) < 0.75 and math.abs(actualTop - y) < 0.75 then
+                if not inCombat and Offhand.CanvasPersistence then
+                    Offhand.CanvasPersistence.RememberFitFallback(frame,fitFallback and position or nil)
+                end
                 return true
             end
         end
@@ -224,8 +263,18 @@ function Adapter.Install(Canvas, services)
                 end
             end
         end)
+        if ok and not inCombat and Offhand.CanvasPersistence then
+            Offhand.CanvasPersistence.RememberFitFallback(frame,fitFallback and position or nil)
+        end
         if not ok and inCombat and state then state.combatPlacementFailed = true end
         return ok
+    end
+
+    function Canvas:RefreshForeverNativeBagPlacement(frame)
+        if IsCombatRestricted() or not CanManagePanelsFromAddon() or not frame or not frame.GetName
+            or not IsBackpackRoot(frame:GetName()) or _G[frame:GetName()]~=frame
+            or (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()) then return false end
+        return RestoreForeverNativeBagRoot(frame,foreverNativeBagState[frame])
     end
 
     local function SaveForeverNativeBagRoot(frame)
@@ -247,10 +296,21 @@ function Adapter.Install(Canvas, services)
         local top = ((frame.GetTop and frame:GetTop()) or 0) * physicalScale
         local width = ((frame.GetWidth and frame:GetWidth()) or 192) * physicalScale
         local height = ((frame.GetHeight and frame:GetHeight()) or 192) * physicalScale
+        local onWorkspace=IsFrameOnWorkspace(frame)
+        local sizing=Offhand.WorkspaceScale
+        if sizing then
+            if not sizing:Apply(frame,onWorkspace,metrics) then return false end
+            local effective=frame:GetEffectiveScale()/parentScale
+            width=frame:GetWidth()*effective;height=frame:GetHeight()*effective
+            if onWorkspace and sizing:GetSetting(metrics)~=1 and Offhand.CanvasPersistence
+                and not Offhand.CanvasPersistence.FitsWorkspace(metrics,width,height) then
+                return RestoreForeverNativeBagRoot(frame)
+            end
+        end
         Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
         Offhand.db.savedMainPositions = Offhand.db.savedMainPositions or {}
 
-        if IsFrameOnWorkspace(frame) then
+        if onWorkspace then
             local x = math.max(metrics.workspaceLeft + 12,
                 math.min(left, math.max(metrics.workspaceLeft + 12,
                     metrics.workspaceRight - width - 12)))

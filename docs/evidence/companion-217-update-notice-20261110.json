@@ -1,0 +1,58 @@
+{
+  "recordedUtc": "2026-11-10T21:35:57.7521307Z",
+  "runtime": {
+    "version": "2.1.7",
+    "fileVersion": "2.1.7.2",
+    "packageVersion": "2.1.700.0",
+    "sourceRevision": "2d31d18e4a09b8fccb4bbc106f9f7f36063706a1",
+    "sourceInputs": {
+      "Program.cs": "4CA564B9B34F02026AE24A4B0593868DE2BA67C0C3572399D6D92B31C85ACF43",
+      "LayoutDocument.cs": "B998543CDF3D1B8C8FA3EC0DB60864B56AC7011FB9C1C832B84528E6798540B3",
+      "WorkspaceLayoutService.cs": "2039BEC4CA7BE95FE4EAFAC2C2BA502DF31262B8A0BDF51F82084D66DB4E057A",
+      "FlexibleWorkspaceEditor.cs": "DDEB200F6533E1F211289132B4E4F27D18F3B48E7A73E98A2F1502B51C9AB17C",
+      "app.manifest": "5E321AAEA2230EBB3A9B0ACB1035697451FBB418FE1F2AA22C5FA534812517F4"
+    },
+    "trackedChanges": false,
+    "binarySha256": "EC027F77721DB51B9E7C95E2267238230838C1B36400CC8A5D810C60B550CE45",
+    "archiveSha256": "1FE8C0688B760ABCE38A12829AA9074E4716CD2373163AB29703E820EBAF59B4",
+    "publication": "unpublished",
+    "addonProtocol": 1,
+    "compatibleAddon": "2.1.5 Pre-Release Beta 28",
+    "uiPreview": false,
+    "firstRunTutorial": true
+  },
+  "testBuild": {
+    "kind": "isolated-store-update-simulation",
+    "version": "2.1.7",
+    "runtimeFileVersion": "2.1.7.2",
+    "sourceRevision": "2d31d18e4a09b8fccb4bbc106f9f7f36063706a1",
+    "reviewSourceRevision": "2d31d18e4a09b8fccb4bbc106f9f7f36063706a1",
+    "runtimeSha256": "EC027F77721DB51B9E7C95E2267238230838C1B36400CC8A5D810C60B550CE45",
+    "launcherSha256": "86635A8475FD6A3115493E63A9C4240108F9452084511BBAF841FF3A672415A9",
+    "templateSha256": "E31868FE69BF3FD824475B414B9F3CDE3D1776A02F20EA5D947CA27B2A2DEF8C",
+    "realStoreQueries": false,
+    "gameMonitoring": false,
+    "settings": "LocalTestData",
+    "publication": "unpublished"
+  },
+  "zipPath": "dist/Offhand-Companion-2.1.7-Local-Test-3.zip",
+  "zipSha256": "066D4D9914DF8D8645BCCA8FF89BC45C42A911AC04C06A88D4220B88B0F4E3A0",
+  "introPolicy": "Once per acknowledged product version; tutorial priority; legacy migration; rollback marker retained; Help replay",
+  "noticeFixture": {
+    "x64": 63,
+    "x86": 63,
+    "result": "PASS"
+  },
+  "existingLayout": "PASS: 100%-200%, enlarged controls, Help/tutorial and notice footer/content",
+  "storeUpdateAssertions": 776,
+  "storeIdentityPersistenceChecks": 47,
+  "nativeBoundary": "45 imports unchanged; 8 prohibited mutations rejected",
+  "runningSimulation": "Scenario=Available\r\nRuntime=2.1.7.2\r\nButton=Update available…\r\nDetails=An update is available in Microsoft Store. | Last checked: 10/11/2026 22:33 (local time).\r\nTooltip=A Companion update is available. Open Microsoft Store to check and install updates when convenient. The Companion never installs an update itself. | Last checked: 10/11/2026 22:33 (local time). Quiet checks run every six hours.\r\nStatusFits=True\r\nUpdateNoticeOpen=True\r\nFinishedUtc=2026-11-10T21:33:45.0427912Z\r\n",
+  "nativeReview": "CUA accessibility and full owned-dialog screenshot region confirmed complete notes, conditional guide/calibration steps, logo, readable body and footer; notice left open. No injected input used.",
+  "ownerPreferencesAndCacheUnchanged": true,
+  "frozen216ExeSha256": "166C6BD750282C4EFDDE12BBE4A64DAFB1E88B2A29C826A86365FEFF741D4879",
+  "frozen216MsixSha256": "87866739AFBA3BD6C9C73FA39F37C4E11CCE80D25A58A3E45C6B21F4234F2691",
+  "defender": "Fresh test directory and ZIP scans exit 0, no threats",
+  "publication": "Unpublished local test; no Store/GitHub/addon/website publication",
+  "gameEvidence": "Reporter says calibration resolved blur; exact rendering mechanism unmeasured. No new live game test or renderer change."
+}

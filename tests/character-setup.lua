@@ -162,6 +162,14 @@ addon:RefreshMainhandLayoutAttention()
 assert(popupCount == beforePopups, "returning configured character must stay quiet after reload")
 
 check = NewCharacter("Second", "Player-second")
+addon.Wizard.IsOpen = function() return true end
+assert(check:Refresh() and not currentPopup and popupCount == beforePopups,
+    "the automatic HUD reminder must yield while the player is already in setup")
+addon.Wizard.IsOpen = nil
+addon.HUD = {foreverRecoveryPromptShown = "restore"}
+assert(check:Refresh() and not currentPopup and popupCount == beforePopups,
+    "automatic setup must not replace the recovery card on re-spanning")
+addon.HUD = nil
 addon:RefreshMainhandLayoutAttention()
 assert(currentPopup == "OFFHAND_CHARACTER_SETUP" and not OffhandCharDB.mainhandLayout,
     "new character must receive its own check without inheriting character HUD ownership")

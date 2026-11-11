@@ -17,18 +17,28 @@ The Recovery card contains three related actions:
 - **Create Mainhand HUD Layout** clones the recorded source or active Blizzard
   Edit Mode layout, translates its UIParent-relative anchors from the complete
   WoW canvas to the Mainhand rectangle, saves a character-associated generated
-  layout, activates it, and offers to reload. Source entries still using
-  Blizzard's default positions receive a compact standard stack: the XP/status
-  bar aligns with Action Button 1 and the backpack edge; stance, pet, possess,
-  and vehicle-exit controls align over its left edge; extra abilities sit above
-  the action/XP stack; and Encounter sits above Loss of Control. Explicitly
-  customized source entries remain unchanged. Forever leaves the ambiguous
+  layout, activates it, and offers to reload. On Forever, Modern and Gamepad
+  keep their preset minimap, aura, damage meter, and unit-frame offsets relative
+  to Mainhand. Gamepad keeps Blizzard's radial bar and its unit-frame spacing.
+  The keyboard layout keeps Blizzard's right-bar spacing and puts its secondary
+  bars side by side when Mainhand has room. Status bars and other bottom controls
+  use the projected action-bar area. In the generated
+  copy, supported native groups outside Mainhand are fitted using their serialized
+  anchors and registered dimensions. Custom positions already inside Mainhand
+  remain unchanged. Snapped children follow their root. Standalone stretched
+  systems can fit through both anchors; oversized, unknown or externally managed
+  groups retain their source placement for manual review. Forever leaves the ambiguous
   MultiCast/ClassBar entry at its source position to avoid the client's empty
   spell-tooltip error.
 
 Layout writes require a player click, no combat, and a closed Edit Mode window.
-Regeneration always starts from the recorded source layout. It never applies a
-second translation to the generated layout.
+An explicit Create after selecting Modern or another user layout uses that
+selected source. Creating again while the current generated layout is active
+retains its in-Mainhand edits and does not apply a second default translation.
+Before an existing generated payload is replaced, its prior data and provenance
+are retained in `OffhandCharDB.mainhandLayoutBackups` without using another native
+layout slot. Original user layouts and presets remain unchanged. Restore saved
+layout selects existing data; it does not regenerate or reset the HUD.
 
 Forever saves the generated HUD under the character's Edit Mode layouts.
 Standard and Gamepad each have their own slot. Rebuilding for a different
@@ -47,11 +57,12 @@ The same preview is available under **Offhand Monitor & Map → Recovery &
 Preview** and through `/offhand ellesmere preview`. **Help & recovery**
 explains the three transfer choices.
 The preview shows the current and proposed placements on both displays for
-Action Bar 1, minimap, player, target, and focus. Choose the moves to include.
+Action Bars 1–8, minimap, player, target, and focus when their registered
+elements are available. Choose the moves to include.
 
-- **Fit EllesmereUI to this span** proposes moving supported frames that do
-  not fit on either display into Mainhand. Use it when EllesmereUI is already
-  configured. Fit is available before the native HUD is created.
+- **Fit HUD to Mainhand** proposes moving supported gameplay frames onto
+  Mainhand, including ones currently in the workspace. Fit is available
+  before the native HUD is created.
 - **Copy Offhand to EllesmereUI** uses native Offhand positions for the
   selected elements. Use the Mainhand HUD layout for this span and input mode.
   If you need to create or select one, follow the native reload prompt first.
@@ -61,8 +72,13 @@ Action Bar 1, minimap, player, target, and focus. Choose the moves to include.
   anchors into an inactive layout. `/offhand ellesmere fallback` opens this
   view directly. Select the copy in Blizzard Edit Mode when using the native HUD.
 
-Native Gamepad keeps Blizzard's radial bar. Entries with EllesmereUI anchor
-links are skipped, and profiles using overrides are excluded. Fit and Copy
+Native Gamepad keeps Blizzard's radial bar. Its EllesmereUI minimap placement
+accounts for visible keyboard bars and native aura frames. A wider replacement
+focus frame stays beside target when it fits and can move above target on a
+narrower Mainhand. Frames with attached children
+move as a group, preserving their EllesmereUI links. A frame anchored to
+another parent requires moving its parent. Groups without usable bounds
+and profiles using overrides are excluded. Fit and Copy
 open an EllesmereUI import review for a new profile. The module list contains
 only modules with selected positions. Confirm **Import Selected Addons**.
 When the wizard returns, choose **Finish & Reload** to see the reload prompt.
@@ -76,8 +92,8 @@ EllesmereUI 9.7.8 can capture Blizzard frame positions during its initial
 setup. The profile named **Default** can therefore contain saved positions
 that carry over to a single monitor. To repair a single-monitor layout, make
 a copy in **Profiles & Presets → Create New (Copy)** and place the affected
-frames with EllesmereUI Unlock Mode. Fit preserves frames that already fit on
-either display, even if their current location is inconvenient.
+frames with EllesmereUI Unlock Mode. The visual transfer requires an active
+Offhand span and offers Mainhand placement for its supported gameplay frames.
 
 See [Forever HUD mapping](FOREVER-ELLESMERE-HUD-MAPPING.md) for the current
 ownership rules, candidate mappings in both directions, and the proposed

@@ -97,7 +97,7 @@ local function PromptNativeHUD(activation, name, resumeWizard)
     if activation == "select" and Offhand.Mainhand.PromptManualLayoutSelection then
         Offhand.Mainhand:PromptManualLayoutSelection(name, resumeWizard)
     elseif Offhand.Mainhand.PromptReload then
-        Offhand.Mainhand:PromptReload()
+        Offhand.Mainhand:PromptReload(not resumeWizard)
     end
 end
 
@@ -876,6 +876,17 @@ function Wizard:CreateFrame()
     btnHud100:SetScript("OnClick", function() scaleSlider:SetValueDirect(1.00) end)
     if Offhand.SetTooltip then Offhand:SetTooltip(btnHud100, L["WIZARD_PRESET_SCALE_100_TIP_TITLE"], L["WIZARD_PRESET_SCALE_100_TIP_DESC"]) end
     f.scalePresetButtons = { btnHud56, btnHud65, btnHud70, btnHud100 }
+    local regionScaleControl
+    if Offhand.WorkspaceScaleControls then
+        regionScaleControl=Offhand.WorkspaceScaleControls:BuildAdvanced(card4,600)
+        regionScaleControl:SetPoint("TOPLEFT",card4,"TOPLEFT",14,-140)
+        card4:SetHeight(154+regionScaleControl:GetHeight())
+        f.regionScaleControl=regionScaleControl
+        regionScaleControl.onResize=function(height)
+            card4.setupBaseHeight=154+height
+            if f.LayoutStep and f.step==4 then f:LayoutStep() end
+        end
+    end
 
     -- ========================================================================
     -- CARD 5: GENERATED MAINHAND HUD LAYOUT (FOREVER / RETAIL)
@@ -902,6 +913,7 @@ function Wizard:CreateFrame()
     local card6 = CreateWizardCard(f, L["ELLESMERE_HUD_VISUAL"], -690, 160)
     local transferHelp = card6:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     transferHelp:SetJustifyH("LEFT")
+    if transferHelp.SetJustifyV then transferHelp:SetJustifyV("TOP") end
     if transferHelp.SetWordWrap then transferHelp:SetWordWrap(true) end
     transferHelp:SetText(L["ELLESMERE_HUD_WIZARD_BODY"])
     local previewBtn = CreateFrame("Button", nil, card6, "UIPanelButtonTemplate")
@@ -920,7 +932,8 @@ function Wizard:CreateFrame()
         end
         Wizard.previewReturn = ReturnToWizard
         f:Hide()
-        if not transfer:ShowPreview(layout.ellesmereReview and "ellesmere" or "fit", ReturnToWizard) then
+        local direction = (layout.controller or layout.ellesmereReview) and "ellesmere" or "fit"
+        if not transfer:ShowPreview(direction, ReturnToWizard) then
             ReturnToWizard()
         end
     end)
@@ -956,6 +969,12 @@ function Wizard:CreateFrame()
     skipLayoutBtn:SetPoint("BOTTOMLEFT", 18, 14)
     skipLayoutBtn:SetText(L["WIZARD_SKIP_HUD_LAYOUT"])
     skipLayoutBtn:Hide()
+
+    local refreshLayoutBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    refreshLayoutBtn:SetSize(220, 28)
+    refreshLayoutBtn:SetPoint("BOTTOMLEFT", 18, 14)
+    refreshLayoutBtn:SetText(L["MAINHAND_LAYOUT_REFRESH"])
+    refreshLayoutBtn:Hide()
 
     local validationStatus
     local function SetValidationText(message)
@@ -1025,6 +1044,7 @@ function Wizard:CreateFrame()
                 Offhand:Print(L["WIZARD_SKIP_HUD_NEXT"])
             else
                 Offhand:Print(L["CONFIG_SAVED"])
+                if f.totalSteps > 4 then Offhand:Print(L["SETUP_REVIEW_HUD"]) end
                 Offhand:Print(L["READINESS_COLD_START"])
             end
             Offhand:Print(L["SETUP_FIRST_PANEL"])
@@ -1040,7 +1060,7 @@ function Wizard:CreateFrame()
     end)
     f.advBtn = advBtn
 
-    finishBtn:SetScript("OnClick", function()
+    local function Advance(refreshLayout)
         if f.recoveryReason then
             if f.recoveryReason == "maximum" then Wizard:OpenLayoutManagement()
             elseif f.recoveryAction == "reload" then Wizard:ReloadPlacement()
@@ -1082,7 +1102,7 @@ function Wizard:CreateFrame()
                 pendingHUDReload.name, true)
             return
         end
-        if layout then
+        if layout and not refreshLayout then
             if NeedsLayoutSelection(layout) then
                 local name = layout.generated.layoutName
                 local activated = Offhand.Mainhand.UseExistingEditModeLayout
@@ -1134,7 +1154,9 @@ function Wizard:CreateFrame()
             CompleteSetup(false)
         end
         PromptNativeHUD(activation, value, transfer ~= nil)
-    end)
+    end
+    finishBtn:SetScript("OnClick", function() Advance(false) end)
+    refreshLayoutBtn:SetScript("OnClick", function() Advance(true) end)
 
 
     local backBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
@@ -1210,7 +1232,7 @@ function Wizard:CreateFrame()
         welcomeText:SetText(L["WIZARD_RECOVERY_INTRO"])
         if Offhand.Options.HideSeamGuide then Offhand.Options:HideSeamGuide() end
         for _, card in ipairs(self.pages) do card:Hide() end
-        advBtn:Hide(); skipLayoutBtn:Hide(); backBtn:Hide()
+        advBtn:Hide(); skipLayoutBtn:Hide(); refreshLayoutBtn:Hide(); backBtn:Hide()
         restartBtn:Hide()
         local method = Offhand.GetOnboardingSetupMethod and Offhand:GetOnboardingSetupMethod()
         self.recoveryMethod = method
@@ -1250,6 +1272,7 @@ function Wizard:CreateFrame()
         progress:SetText(caption)
         local card = self.recoveryReason and recoveryCard or self.pages[self.step or 1]
         if not card then return end
+        local compactReview = self.step == ELLESMERE_STEP and not self.recoveryReason
         if card.setupBaseHeight then card:SetHeight(card.setupBaseHeight) end
         local labels={L.SETUP_STAGE_DETECT,L.SETUP_STAGE_PLACE,L.SETUP_STAGE_SEAM,L.SETUP_STAGE_SCALE}
         if self.totalSteps>=5 then labels[5]=L.SETUP_STAGE_HUD end
@@ -1336,12 +1359,14 @@ function Wizard:CreateFrame()
                 bottomControl:SetPoint("TOPLEFT",card3,"TOPLEFT",14,-top)
                 card3:SetHeight(top+bottomControl:GetHeight()+14)
             end
-        elseif self.step == ELLESMERE_STEP then
+        elseif self.step == 4 and regionScaleControl then
+            regionScaleControl:Refresh()
+            card4:SetHeight(154+regionScaleControl:GetHeight())
+        elseif compactReview then
             local top = Controls.GetCardContentTop(card6, 32)
             transferHelp:ClearAllPoints()
             transferHelp:SetPoint("TOPLEFT", card6, "TOPLEFT", 14, -top)
-            transferHelp:SetPoint("TOPRIGHT", card6, "TOPRIGHT", -14, -top)
-            top = top + Controls.FitParagraphText(transferHelp, transferHelp:GetText(), 600) + 12
+            top = top + Controls.FitCompactParagraph(transferHelp, transferHelp:GetText(), 600) + 12
             previewBtn:ClearAllPoints()
             previewBtn:SetPoint("TOPLEFT", card6, "TOPLEFT", 14, -top)
             local height = math.max(28,
@@ -1377,7 +1402,7 @@ function Wizard:CreateFrame()
             card:SetHeight(card.setupBaseHeight+self.stepIllustration:GetHeight()+14)
         else self.stepIllustration:Hide() end
         local footerHeight = 28
-        for _, button in ipairs({ advBtn, skipLayoutBtn, backBtn, finishBtn, recoveryBack }) do
+        for _, button in ipairs({ advBtn, skipLayoutBtn, refreshLayoutBtn, backBtn, finishBtn, recoveryBack }) do
             if button:IsShown() then
                 footerHeight = math.max(footerHeight,
                     Controls.MeasureWrappedText(button:GetFontString(), button:GetText(), button:GetWidth() - 10, 14) + 8)
@@ -1389,11 +1414,12 @@ function Wizard:CreateFrame()
         progress:SetWidth(progressWidth)
         local restartHeight = Controls.MeasureWrappedText(restartBtn:GetFontString(), restartBtn:GetText(), 170) + 8
         restartBtn:SetHeight(math.max(24, restartHeight))
+        local fitText = compactReview and Controls.FitCompactParagraph or Controls.FitParagraphText
         local layout = Controls.GetWizardLayout(
-            Controls.FitParagraphText(welcomeText, welcomeText:GetText(), 632),
-            math.max(Controls.FitParagraphText(progress, progress:GetText(), progressWidth),
+            fitText(welcomeText, welcomeText:GetText(), 632),
+            math.max(fitText(progress, progress:GetText(), progressWidth),
                 restartBtn:IsShown() and restartBtn:GetHeight() or 0)+self.progressRail:GetHeight()+12,
-            card:GetHeight(), validationHeight, footerHeight)
+            card:GetHeight(), validationHeight, footerHeight, compactReview and 0 or nil)
         self:SetHeight(layout.height)
         if progress.ClearAllPoints then progress:ClearAllPoints() end
         progress:SetPoint("TOPLEFT", self, "TOPLEFT", restartBtn:IsShown() and 216 or 18, -layout.progressTop)
@@ -1408,7 +1434,7 @@ function Wizard:CreateFrame()
         validationStatus:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", 18, layout.validationBottom)
         validationStatus:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -18, layout.validationBottom)
         validationStatus:SetHeight(layout.validationHeight)
-        for _, button in ipairs({ advBtn, skipLayoutBtn, backBtn, finishBtn, recoveryBack }) do
+        for _, button in ipairs({ advBtn, skipLayoutBtn, refreshLayoutBtn, backBtn, finishBtn, recoveryBack }) do
             button:SetHeight(layout.footerHeight)
         end
         Controls.FitDialog(self, Offhand.Viewport and Offhand.Viewport:GetMetrics())
@@ -1457,6 +1483,7 @@ function Wizard:CreateFrame()
         local needsRefresh = state and state.configured and not state.deferred
             and state.currentGeometry and state.currentOwnership == false and not layout
         SetShown(skipLayoutBtn, self.step == 5 and not controllerLayout)
+        SetShown(refreshLayoutBtn, canCreateController and layout ~= nil and not pendingHUDReload)
         finishBtn:SetText(self.step == HUD_STEP
             and (pendingSelection and L["BTN_NEXT"]
                 or transfer and pendingHUDReload and L["ONBOARD_RELOAD_UI"]
@@ -1475,7 +1502,7 @@ function Wizard:CreateFrame()
                 and not state.currentGeometry then
                 name = string.format(L["MAINHAND_LAYOUT_STALE"], tostring(name))
             end
-            layoutStatus:SetText(controllerLayout and (canCreateController
+            layoutStatus:SetText(controllerLayout and not layout and (canCreateController
                     and L["MAINHAND_LAYOUT_GAMEPAD_STATUS"] or L["MAINHAND_LAYOUT_GAMEPAD_FAILED"])
                 or string.format(L["MAINHAND_LAYOUT_STATUS"], tostring(name)))
             local nextStep = transfer and ("\n\n" .. L["ELLESMERE_HUD_SETUP_DESC"]) or ""
@@ -1766,6 +1793,7 @@ function Wizard:Open(resumeStep)
     resumeStep = resumeStep or savedStep
     self:CancelEditModeReturn()
     self.settingsResumeStep = nil
+    if Offhand.CharacterSetup and Offhand.CharacterSetup.shown then Offhand.CharacterSetup:Hide() end
     if Offhand.Onboarding and Offhand.Onboarding.Close then Offhand.Onboarding:Close() end
     -- Hide Options dashboard if it is currently open to prevent overlapping windows
     if Offhand.Options and Offhand.Options.GetConfigFrame then
@@ -1843,6 +1871,10 @@ function Wizard:ResumeFromSettings()
     self.settingsResumeStep = nil
     self:Open()
     if wizardFrame then wizardFrame:SetStep(step) end
+end
+
+function Wizard:IsOpen()
+    return (wizardFrame and wizardFrame:IsShown()) or self.previewReturn ~= nil
 end
 
 function Wizard:OpenHUDSetup(reviewEllesmere)

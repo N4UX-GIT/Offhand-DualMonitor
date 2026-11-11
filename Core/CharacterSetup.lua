@@ -138,6 +138,9 @@ function Setup:Refresh()
         or not Offhand.HasBlizzardEditMode or not Offhand:HasBlizzardEditMode() then return false end
     local mainhand = Offhand.Mainhand
     if not mainhand or not mainhand.GetCharacterSetupLayoutStatus then return false end
+    local wizard = Offhand.Wizard
+    local recovery = Offhand.HUD and Offhand.HUD.foreverRecoveryPromptShown
+    if recovery or (wizard and wizard.IsOpen and wizard:IsOpen()) then return true end
     local geometry, gamepad = Context()
     if not geometry then return false end
     local record = OffhandCharDB.characterSetup

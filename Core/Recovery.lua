@@ -14,6 +14,14 @@ function Recovery.Inspect(frame, metrics)
         if frame.IsVisible and not frame:IsVisible() then return "parent-hidden" end
         if frame.GetEffectiveAlpha and frame:GetEffectiveAlpha() <= 0 then return "unavailable" end
         local scale = frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
+        local map = Offhand.isForever and frame == _G.WorldMapFrame and Offhand.CanvasForeverMap
+        if map and Offhand.IsWindowReachable then
+            if frame.IsMaximized and frame:IsMaximized() then return "visible" end
+            if not (scale > 0 and scale < math.huge) then return "unavailable" end
+            local left, top, width = map.GetDragHandleBounds(frame, scale)
+            if not left then return "unavailable" end
+            return Offhand:IsWindowReachable(left, top, width, metrics) and "visible" or "missing"
+        end
         local left, bottom = frame:GetLeft(), frame:GetBottom()
         local width, height = frame:GetWidth(), frame:GetHeight()
         if not left or not bottom or not width or not height or width <= 0 or height <= 0 then return "missing" end

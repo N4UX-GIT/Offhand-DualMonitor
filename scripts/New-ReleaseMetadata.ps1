@@ -55,7 +55,7 @@ $channelName = switch ($channel) {
     default { $null }
 }
 
-$releaseName = if ($Tag -eq 'v2.1.3-beta.27' -or $Tag -eq 'v2.1.5-beta.28' -or $Tag -eq 'v2.1.5-beta.29' -or $Tag -eq 'v2.1.5-beta.30') {
+$releaseName = if ($Tag -eq 'v2.1.3-beta.27' -or $Tag -eq 'v2.1.5-beta.28' -or $Tag -eq 'v2.1.5-beta.29' -or $Tag -eq 'v2.1.5-beta.30' -or $Tag -eq 'v2.1.5-beta.31') {
     "Offhand v$version Pre-Release Beta $sequence"
 } elseif ($isPrerelease) {
     "Offhand v$version $channelName $sequence"
@@ -105,7 +105,13 @@ $companionDownloads = if ($CompanionChanged) {
 "@
 }
 
-$testFocus = if ($Tag -eq 'v2.1.5-beta.30') {
+$testFocus = if ($Tag -eq 'v2.1.5-beta.31') {
+@'
+A physical controller test on Windows Forever 1.60.1.70888 passed five World Map open and close cycles. The map returned to its saved Offhand position each time, the Game Menu and Spellbook remained usable, and no blocked-action warning appeared. The initial Attack tooltip also appeared above and to the right of the selected icon on Mainhand without mouse movement.
+
+The macOS retest for issue #84, live input-style transitions and combat remain pending. Include your client build, display arrangement, other UI addons and /offhand diag full with feedback.
+'@
+} elseif ($Tag -eq 'v2.1.5-beta.30') {
 @'
 The loot-container correction passed a controlled before/after comparison in Forever 1.60.1.70862 with spanning applied. Removing the first of three private test panels moved the remaining panels to the seam with the prior code; this build kept both visible and centered inside Mainhand through native reflow and maintenance. No real items or roll choices were used. Real simultaneous loot rolls, expiration/queue behavior and combat still need player verification.
 

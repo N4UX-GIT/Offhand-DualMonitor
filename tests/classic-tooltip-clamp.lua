@@ -136,10 +136,12 @@ for _, client in ipairs({"isRetail", "isForever"}) do
             and insets[4] == -6 and clamped,
         "stacked world tooltips must stay on Mainhand using effective-scale clamp insets")
     ShoppingTooltip1 = comparison
-    assert(addon.PopupBounds:ArrangeTooltipComparisons(tooltip) and comparisonInsets[3] == 206,
-        "completed world-tooltip comparisons must share Mainhand bounds without rewriting their anchor graph")
+    assert(addon.PopupBounds:ArrangeTooltipComparisons(tooltip) and comparisonInsets[3] == 25
+            and comparisonInsets[1] == 0 and comparisonInsets[2] == 0,
+        "completed modern comparisons must reserve group space on the root and keep shopping cards' native bounds")
     addon.PopupBounds:RestoreClassicTooltipClamp(comparison)
     ShoppingTooltip1 = nil
+    addon.PopupBounds:UpdateClassicTooltipClamp(tooltip)
     local unchanged = writes
     addon.PopupBounds:UpdateClassicTooltipClamp(tooltip)
     assert(writes == unchanged, "unchanged world-tooltip bounds must not churn")

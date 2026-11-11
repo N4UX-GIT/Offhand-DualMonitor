@@ -55,6 +55,7 @@ local defaultSettings = {
     showGamepadPanelDragHandles = true, -- Show addon-owned mouse movers for supported Forever Gamepad panels
     lockWorkspaceWindows = false, -- Keep selected supported workspace windows open until this is disabled
     lockedWorkspaceWindowTypes = { map = true, bags = true, character = true },
+    workspaceRegionScales = {version=1,layouts={}}, -- Explicit choices only; upgrades stay at native size
     characterWorkspaceScale = 1.00, -- Multiplier relative to Blizzard's native CharacterFrame scale
     savedWorkspacePositions = {},   -- Persisted coordinates for frames placed on the secondary workspace
     savedMainPositions = {},        -- Persisted coordinates for movable frames on the main screen
@@ -771,6 +772,7 @@ function ForeverPersistence:SeedSessionFallback()
 end
 
 function Offhand:SetEnabled(enabled)
+    if enabled~=true and Offhand.WorkspaceScale then Offhand.WorkspaceScale:RestoreAll() end
     if not Offhand.db then return end
     Offhand.db.enabled = enabled == true
     -- Only an explicit disable is an opt-out, not the fresh profile default.

@@ -2,11 +2,57 @@
 
 Stable IDs for reports that require follow-up across test sessions.
 
+## Post-Beta 32 fix and live QA plan
+
+Baselines are the published addon tag [v2.1.5-beta.32](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.5-beta.32) at `9c6a58d`, the Companion 2.1.7.4 candidate from `8603412` (Store MSIX `2.1.700.0`, Submission 8), and the Retail HUD follow-up [#119](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/119) on addon integration. Record the actual installed build in every result. Prior Forever native runs used overlays and earlier Companion builds, and cover the recorded actions on those subjects.
+
+### P0 · Release and integration
+
+| Work | Action and completion evidence |
+| --- | --- |
+| Companion CI [run 440](https://github.com/N4UX-GIT/Offhand-DualMonitor/actions/runs/43098787924) | Preferences passed. The scaled-layout fixture failed at the Activity Log tutorial step. A hidden dashboard can have bitmap-created handles before entering WinForms' Created state, where AutoScrollPosition ignores writes. [PR #120](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/120) shows an opacity-zero dashboard, forces a short viewport, and checks the full highlight and restoration of a nonzero starting scroll offset. Run the full Windows job on the corrected revision. [WinForms scroll implementation](https://github.com/dotnet/winforms/blob/main/src/System.Windows.Forms/System/Windows/Forms/Scrolling/ScrollableControl.cs) |
+| GitHub, CurseForge and Store | Verify public CurseForge delivery using the Beta 32 ZIP's SHA-256 `fdae02dd0e45c22e52de1170e93fe83c9c3748325ecc5a191cd28b8096a22767`. Confirm the version delivered by the Store. Compare the delivered upgrade against the isolated 2.1.6 → 2.1.7.4 preflight. Check saved displays and plans, one What's new notice, timestamp and six-hour cache across restart, and Store-button routing. Record channel receipts and reconcile stale release labels. |
+| Exact-pair smoke test | On Windows Forever 1.60.1.70888 or the installed replacement build, use the public Beta 32 ZIP and exact 2.1.7.4 executable. Verify cold login → span → `/reload` → matching diagnostics → Restore Window → reload → re-span. Switch from a centered two-workspace plan to Standard with identical outer bounds. Saving must leave the old active layout in place until Span and `/reload`. Disconnect and reconnect one physical display to check fallback, saved-plan recovery and layout preservation. |
+
+### P1 · Placement, protected actions and persisted state
+
+| Work and source state | Target and live acceptance |
+| --- | --- |
+| **Workspace size and fit.** Beta 32 contains the size controller and 2.1.7.4 writes Windows metadata. [Earlier live scope](REGION-SCALE-FOREVER-LIVE-QA-20261111.md) | Use a 100%/150% physical pair and two workspaces. Check native defaults, manual 75%/125%, the Auto ratio, Discard, Apply, preset switching, reload and cold restart. Drag a native bag across regions and back to Mainhand. Stage Apply during tester-driven combat and confirm zero combat scale writes, correct post-combat resize, and the other workspace retaining its size. Exercise a real bag item and map pin, then a supported replacement bag and optional chat. Capture the 640-pixel map and quest-pane case and scope a fit fix if it still crosses the seam. |
+| **Gamepad map, Spellbook and recovery.** [#84](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/84), [#18](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/18), OH-FOR-009/010/011/012/015/016/019/020/021/022. Corrections are in the released addon. | Retest five physical-controller map cycles, Back, first-open Spellbook tooltip, Game Menu and targeting on Windows 70888 and the macOS reporter build or its replacement. Repeat with a stacked workspace, a keyboard-to-Gamepad switch, and combat. Check the active preset, saved map anchor and fresh blocked-action counts. Exercise cold recovery and restoration after monitor loss. Separately test keyboard fit and drag-handle retrieval on a wide, short workspace. |
+| **Loot, NPCs and Escape.** [#17](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/17), [#81](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/81), OH-UI-031/035/036, OH-FOR-017, OH-UI-023. Placement and close-priority changes shipped. | On Forever 70862/70888 use actual simultaneous rolls, resolve one, then capture remaining IDs, visibility and bounds before reloading. Repeat during combat with a short Mainhand and tall tooltip. Reproduce real quest/gossip/merchant open → workspace/Mainhand placement → disable and Restore → reopen. Test stock and separate bags with a target in the reported manual stack. The shipped sequence closes the backpack then clears target. Capture the requested target-first variant separately. Exercise the invite action in a consenting test group. |
+| **Retail HUD activation and ownership.** [#45](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/45) status-chain repair shipped. [#119](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/119) adds active-index registration on addon integration. | On Retail 12.1.5.70783 or its current replacement compare Beta 32 and the integration candidate with a character-specific active layout and a raised Mainhand beside a portrait display. Check that the new account layout activates, Action Bar 1 stays visible, visible and hidden XP behave, and the original character layout survives. Check a second character, cold launch, reload, combat and restoration. Retest friendly-player name preference cleanup and preservation of subsequent changes. |
+| **Topology and Windows identity.** [#79](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/79), [#31](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/31), OH-UI-040/033, OH-COMP-002/003/004. 2.1.7.4 improves diagnostics. | Capture Copy Display Diagnostics before confirmation in the affected projector, dock or virtual-display configuration, then compare connect, disable and reconnect. Record stable targets, Mainhand, rectangles and DPI. Exercise ambiguous and valid legacy selections and confirm safe refusal for unresolved IDs. Compare Span/Restore and graphics reset on known Retail and Anniversary profiles. Reproduce clipped 175% Store controls and error 5 with recorded launch and privilege context. Verify pre-span bounds and preferences survive failure. [Identity details](COMPANION-IDENTITY-REPORT-20261110.md) · [Recovery QA](COMPANION-PRODUCTION-RECOVERY-QA.md) |
+
+### P2 · Reproduce before choosing a fix
+
+| Work | Next evidence and decision |
+| --- | --- |
+| **Edit Mode, chat and replacement UI.** OH-UI-026/028/029/030/034/037/038/039 and chat snapping | Capture `/offhand diag chat` and `/offhand diag panels` before Save, after Save, after `/reload` and across combat where relevant. For stacked chat, record dock membership and the relative anchor. Compare the third-party mover enabled and disabled after a clean reload. Separate minimap hiding, SexyMap selection-box sync, Ellesmere/Naowh flashes, ForeverXPbar, Details and the Zygor arrow by recording the first frame and owner that changes. Repeat the font issue on a real resurrection and after full disable/restart. [Chat capture procedure](CHAT-EDITMODE-SNAPPING-20261110.md) |
+| **Map, comparison tooltips and optional adapters** | Use the reported BiS version and two equipped rings in the narrow portrait hover. Record `/offhand diag tooltip capture` and actual card rectangles. Exercise DaylightUI/OpenMap ownership, BetterBags Next bank and vendor roots, populated RestedXP guides, Ellesmere transfers with real overrides and spec changes, and a real ProcDoc proc. Verify vendor settings and anchors on disable/Restore. [Controlled native results](DISCORD-REMAINING-QA-20261110.md) |
+| **Install, viewport and input intake.** [#80](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/80), [#62](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/62), [#16](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/16), [#22](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/22), [#82](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/82) | Get the exact client/build, enabled addon, release file and install path for #80. For #62/#16 record physical offsets, DPI and full viewport diagnostics, then compare actual and intended rectangles. Reproduce #22 with current Angleur and physical controller input, capturing the reticle and engine cursor separately. #82 matches native Character panel text. Revisit if text persists after close or differs with Offhand disabled. |
+| **Wine and performance.** [#15](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/15), [#9](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/9), [#7](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/7), OH-PERF-001/002 and graininess | On GNOME Wayland/umu/Proton use the same prefix and runner for WoW and Companion. Check detection, one failed auto-span attempt per process, manual re-arm, and Restore. For rendering, hold scene, resolution, render scale and frame cap steady while varying addon activation and span independently. Capture frame times and GPU separately from addon CPU. Keep the resize experiment isolated until a matched native comparison shows a repeatable effect. |
+| **Other client coverage** | After Forever and Retail, smoke current Anniversary, MoP and Classic Era builds with stock UI. Record full build, TOC load, Options, reload, span and Restore, and sample quest, map and tooltip paths relevant to each flavor. Keep older custom-region, contextual UI and experimental 3.3.5a cases in their existing ledger rows with per-client evidence. |
+
+### Branch dispositions
+
+- `addon/develop` is the next-addon integration line. Bring in Beta 32 from `main` while retaining [#119](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/119). Use the released map presentation when reconciling the duplicate Gamepad patch. Keep the Beta 32 issue history and #119 Retail QA evidence.
+- `companion/develop` is the next-Companion integration line. Its old `7ffeb06` tip is an ancestor of Beta 32. Bring it forward to the reviewed mainline without rebuilding the submitted 2.1.7.4 or historical portable executables.
+- Completed checkpoints include the Beta 29–32 release branches, regional workspace and Companion 2.1.7 candidates, Forever recovery card and source snapshot, popup/loot, display-selection, and Ellesmere follow-ups. The older shared Gamepad issue, Retail CPU, Beta 24, and Background Studio branches have equivalent patches or superseding changes in `main`. Preserve the references and local evidence.
+- Carry forward one current Companion Help proposal from [#107](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/107) and [#100](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/100). Compare the missing **Window is positioned** handoff and standard-layout guidance against the 2.1.7 dashboard, tutorial, and addon flow. Use `companion/develop` for the narrow native copy revision. Retain the older single-method draft as history. Verify Help and tutorial on short work areas at 100%, 150%, 175% and 200%, including replay, Back and keyboard dismissal.
+- [#18](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/18), [#45](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/45), and [#19](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/19) retain contributor history. Current branches contain the relevant Gamepad, Retail and Wine behavior. Link new evidence to the current implementation. Keep older website-only variants and screenshots as historical drafts. The standalone Companion 2.1.2-beta.18 signing checkout is a separate legacy lane.
+
+### Live QA handoff
+
+Verify the ZIP and executable hashes before installation. Record full client build, OS, input mode, display rectangles and DPI, span method, enabled UI addons and versions, and initial layout IDs. Use backed-up account and character test profiles. Capture `/offhand diag full` and Companion **Copy Display Diagnostics** before and after transitions. The harness can capture options, diagnostics and reloads after the tester confirms world entry. The tester drives physical controllers, drag, combat, loot and NPC interactions.
+
+Compare fresh errors and occurrence counts with the pre-run baseline. Follow the client-specific logging guidance in each issue. The Forever #84 procedure keeps its taint logger disabled because of the recorded secure post-hook interaction. Record missing evidence explicitly. Exit the target client normally, restore scoped files and generated topology/state from the verified backup, and compare hashes or saved values. Record subject hash, client/build, steps, result, logs, cleanup, and the source fix or remaining evidence for each case. Keep reporter captures private and omit account identifiers from the ledger.
+
 ## GitHub issue review, 11 November 2026
 
 Reviewed all 13 open issues and their comments against GitHub `main` at
 `44e9746`, addon release `v2.1.5-beta.30` and Companion `v2.1.5`.
-The new addon correction is on `addon/shared/github-issue-fixes`.
+The World Map and Spellbook corrections merged to `addon/develop` in [PR #115](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/115) and are included in the Beta 31 release source.
 
 | Issue | Finding |
 | --- | --- |
@@ -177,6 +223,23 @@ diagnostic was absent. After normal exit, the five historical BugGrabber
 records and occurrence counters were unchanged and the taint log was
 byte-identical. The verified candidate remains installed. The near-edge
 fallback is covered by the Lua regression.
+
+## OH-FONTS-AFTER-REMOVAL: tiny chat and resurrection-popup text
+
+**Resolved in the candidate, pending post-release verification.**
+
+CurseForge screenshot reports tiny fonts after uninstalling Offhand. Client,
+build, addon version and restart sequence are unknown. Source review and a new
+production-handler regression identified missing temporary UIParent scale
+restoration on logout. Candidate restores only the still-owned root outside
+combat and blocks late scale reapplication. All 117 Lua suites and six manifest/
+Lua 5.1 checks pass. On Forever 1.60.1.70888 with Offhand 2.1.5 beta.30, a normal
+exit from a mixed-height span and cold restart with Offhand disabled restored
+effective UI scale from 0.39375 to the 0.64 baseline. Chat input and popup font
+heights matched the baseline at 18 and 12. The visual check used WoW's native
+exit confirmation. Reopen if the reporter still sees tiny text after a full
+restart on a release containing the fix.
+See [evidence, recovery steps and reply draft](FONTS-AFTER-REMOVAL-20261109.md).
 
 ## Beta 27 first-install Next route leaves layout disabled
 
@@ -777,8 +840,20 @@ real buff/consumable triggers, combat and physical controller remain open.
 - Report received 2026-11-06: Forever, CurseForge public Beta 26 and Store
   Companion. Mainhand 5120x1440 below a 2560x1440 workspace. Back/Cancel after
   Map & Quest Log shows an Offhand blocked-action warning; Map then Spellbook
-  reportedly sometimes enlarges the quest log. No function/stack, exact WoW
-  build, failing geometry or candidate retest supplied.
+  reportedly sometimes enlarges the quest log. The later visual audit reads
+  build 70790, Companion beta20 MATCH and READY topology from the original
+  diagnostic image. Physical span 5120x2880, Mainhand BOTTOM (0,0 5120x1440),
+  workspace (1233,1440 2560x1440), UI effective scale .350. The generic blocked
+  dialog still supplies no function/stack.
+- Later reporter replies accept the controller correction on test4/latest
+  CurseForge. Their friend's keyboard/mouse `MapGrow.mp4` still shows enlargement
+  after dragging into the upper workspace; that friend's exact build/profile/map
+  owner are unknown. Keep this distinct from controller acceptance and later
+  inaccessible Cooldown Settings/Talents/mail/AH and contextual Back reports.
+  Current native keyboard code fits both destination dimensions; source fit
+  coverage is not acceptance of the friend's configuration. Attachment IDs,
+  review limits and original chronology:
+  [Visual evidence audit](DISCORD-VISUAL-REVIEW-20261110.md).
 - Public `ConfigureWorldMap` lacks a native Gamepad ownership guard and is
   called again by the load-on-demand addon loader. A representative offline
   probe changes map scale 0.73 to 2.651685; the current candidate makes zero
@@ -1471,6 +1546,71 @@ acceptance remains pending. Beta 23 metadata and Companion binaries are unchange
   while spanned. The new screenshot places the quest title and objective below
   the Minimap with clear separation. This accepts the visible local placement;
   long-list, other-topology and protected-action matrix checks remain separate.
+
+## OH-UI-008: Saved input/control frames can reopen during login restoration
+
+- Status: Prevention implemented on `codex/login-input-restoration`; simulated
+  regression and static validation passed. Exact reported cause and live client
+  behavior remain unconfirmed. No release or installed-client change made.
+- Report: One character lost gameplay keyboard input immediately after login.
+  Clicking chat still permitted typing. Other characters were unaffected. The
+  player recovered after Gather Safe UI to Mainhand, Gather Off-Screen UI, and
+  Companion Restore Window followed by spanning again. These actions were not
+  tested individually, so none is established as the decisive recovery step.
+  Follow-up identifies Retail 12.1.5 build 70575. The player reports Beta 22,
+  an unsuccessful rollback to Beta 21, and then returning to Beta 22. A later
+  logout/login did not reproduce the problem. Original SavedVariables from the
+  failing state were not supplied.
+- Recovered-state screenshot: `/offhand diag` reports WoW 12.1.5, build 70575,
+  interface 120105, Retail, and Offhand `2.1.2-beta.23`. That addon version
+  differs from the player's written Beta 22 report; the screenshot does not
+  establish which build was running when input failed. Companion writer/paired
+  versions are `2.1.2-beta.20`, minimum `2.1.2-beta.19`, protocol 1, status MATCH.
+  Viewport check PASS; enabled, spanned, setup complete, out of combat, Companion
+  topology, LANDSCAPE_DUAL, Mainhand LEFT. Physical rectangles are Mainhand
+  `(0,0 1920x1080)` and workspace `(1920,0 1920x1080)`, with a 3840x1080 physical
+  canvas. The 3900x1097 Screen and 1950x1097 GameArea diagnostics use UI units,
+  so their difference from physical pixels alone is not a geometry failure.
+  Effective scale is 0.700. Edit Mode active layout 5 is
+  `Offhand - Mainhand - Kyokoun`, geometry current, attention no/ready, Gamepad no.
+  WorldMapOwner is LeatrixMaps (loaded); OpenMap is absent. Startup lines also
+  show Bartender4ModernGlowEffects, KelaGraphics and City Guide. Their presence
+  is context only, not evidence that any caused the input failure. The image is
+  a post-recovery snapshot and contains no failing-state focus-frame evidence.
+- Confirmed source gap: `RestorePersistentFrames` trusted historical frame names
+  in `savedWorkspacePositions` plus `openWorkspacePanels`. Its broad `^ChatFrame`
+  branch directly showed `ChatFrame1EditBox`. Other existing arbitrary frames
+  could reach the delayed generic `Show` fallback without a panel-root or
+  keyboard-capture check. A synthetic stale chat-edit-box record reproduced that
+  unwanted open before the prevention change. This does not establish that the
+  player's profile contained that record, nor that this produces their exact
+  input symptoms in a native client.
+- Scope: Offhand selects the active profile per character; coordinates and open
+  state live in that profile. A character-only symptom does not by itself prove
+  that the offending frame record was per-character. Current workspace position
+  restoration already clamps recognized panels against the workspace rectangle.
+  No new native-window or physical-display geometry defect was established.
+- Prevention: Automatic opening now requires a recognized registered, seeded, or
+  Offhand-managed panel root (or an exact numeric chat-window name). Input edit
+  boxes, chat child/control names, keyboard-enabled roots and excluded system
+  panels cannot reopen from saved intent. The delayed path repeats eligibility
+  checks and yields to Blizzard input reservation, retaining the existing native
+  control-gained retry. Saved coordinates remain intact, and the normal position
+  restore no longer applies child snapshots to a shown chat input. No global
+  focus clearing, keyboard flag changes or Blizzard input hooks were added.
+- Automated evidence: The regression first failed because login showed
+  `ChatFrame1EditBox`. It now passes for that stale record, an unknown child, a
+  registered keyboard-capture root, an excluded system panel, and capture/input
+  reservation beginning during a delayed restore. Existing ordinary panels,
+  Macro UI load-on-demand, chat, bag and Professions restoration still pass.
+- Live QA: With backed-up settings and the affected client's exact build, test
+  cold login, reload, character swap and profile selection. Check movement,
+  action keys, Escape and chat focus before and after saved panels reopen, with
+  Offhand alone and the player's usual addons. Include changed span geometry
+  and a missing display. Check protected actions and fresh taint/error logs.
+  If the report recurs, capture the original settings and visible/keyboard-focus
+  frame names before gathering; test each recovery action separately. Do not
+  delete SavedVariables as a troubleshooting prerequisite.
 
 ## Current acceptance, 25 October 2026
 
@@ -3637,3 +3777,578 @@ disabled lock controls or testing-status copy. Supported-client lock UI, all
 preferences and independent Escape/reload persistence are preserved. 104 root and
 111 packaged Lua suites pass; six manifests validate under Lua 5.1. Test 11 is
 installed; native visual review awaits /reload. See docs/SETTINGS-USABILITY-20261109.md.
+
+
+### OH-UI-025 follow-up: blocked Forever setup reload, 2026-11-09
+
+WhoAmI reporter screenshots show ADDON_ACTION_BLOCKED for reload() from the owned
+HUD completion popup. The previous API fallback did not establish permission.
+The Forever policy now offers manual chat /reload across input styles, preserving
+the created layout and guide/wizard handoff tickets. Confirmation remains locked
+until a modeled new UI session. Other-client reload routes remain covered.
+114 source and 114 packaged-runtime suites pass; six manifests validate under
+Lua 5.1. Private beta28-manual-reload-test1 is packaged and installed locally;
+Reporter confirmed Forever / Beta 28; native handoff acceptance remains pending.
+Details/hash: docs/FOREVER-MANUAL-RELOAD-20261109.md.
+
+
+### OH-UI-025 follow-up: native reload click verified, 2026-11-09
+
+Supersedes the blanket manual-only fallback above. Forever 1.60.1.70862 keyboard/
+mouse reproduces the blocked call when the owned popup hides first; callback-first
+and the actual production HUD completion prompt both perform real UI reloads.
+Reload dialogs opt into callback-before-hide, with generation protection for
+replacement cards. Other callbacks retain their lifecycle. Controller UI remains
+manual; combat activation and other builds are unverified. 114 source suites pass.
+Private helper removed and final clean reload completed; client closed normally.
+Current BugGrabber contains only the one intentional comparison failure from this
+run, with no later error. Taint log is stale. See docs/RELOAD-BUTTON-RESEARCH-20261109.md.
+
+
+### OH-UI-025 follow-up: reload without span guidance, 2026-11-09
+
+User confirmed no span had been applied. Confirmation correctly stayed locked,
+but the guide incorrectly presented another reload while its illustration showed
+reload complete. The guide now returns to explicit placement instructions with a
+completed-reload message, preserving checkpoint guards. The title, illustration
+and recommended action share one phase. All 114 source suites pass, including
+11-locale recovery bounds. Native Forever 70862 + Companion 2.1.5 single-display
+split passes unspanned recovery, actual Span WoW Now, acknowledgement, reload,
+modal confirmation and advancement to Calibrate. No current-session guide error
+was captured; preexisting minimap errors and stale taint log are separate.
+See docs/GUIDE-PLACEMENT-RECOVERY-20261109.md. No public publication.
+
+
+## OH-UI-026: Ellesmere / Naowh aura flashes during popup rerouting
+
+Reporter: Forever 1.60.1 build 70790, Offhand 2.1.2-beta.26, manual ultrawide
+split, EllesmereUI and Naowh Forever. Disabling popup/dialog rerouting reportedly
+stops the flash. The supplied 274-frame clip visibly moves an aura icon for one
+encoded frame around 1.104, 3.112, 5.129 and 9.137 seconds. Current source already
+excludes Ellesmere player Buffs/Debuffs roots from popup and Canvas controllers;
+relevant existing simulated regressions pass. The exact moving root and Naowh
+version remain unknown. Status: relevant source correction present, reporter
+acceptance pending. Preserve the manual split and profiles; retest with rerouting
+on before adding another exclusion. Evidence and next checks:
+[UI flashing report review](UI-FLASHING-REPORTS-20261109.md).
+
+## OH-UI-027: DaylightUI repositions the persistent workspace world map
+
+A separate reporter uses two 2560x1440 screens with Mainhand left, DaylightUI
+1.6.0.1 and Offhand 2.1.2-beta.26. Panel closure reportedly lets DaylightUI write
+its own smaller Mainhand map geometry before Offhand restores the workspace map
+on the next frame. Author-distributed DaylightUI 1.6.5.2 source corroborates the
+same competing panel hooks, scale/position writes and missing Offhand stand-down.
+Exact reporter version, bridge/probe code and native reproduction remain open.
+At intake Offhand had no DaylightUI map ownership branch. This source-backed
+compatibility defect required a conditional cooperative stand-down retaining
+Offhand placement, vendor skinning and reversible vendor state. A blanket yield
+would relinquish the requested workspace map. No speculative native-frame hook
+or vendor SavedVariables mutation was added. Evidence, hashes, rights and
+acceptance matrix: [UI flashing report review](UI-FLASHING-REPORTS-20261109.md).
+
+
+### OH-UI-027 implementation follow-up, 2026-11-09
+
+Source candidate implemented in Core/DaylightMapCompatibility.lua using installed
+DaylightUI_Skins 1.6.5.2. The mover receives a transient config view that masks its
+anchor only while Offhand owns a valid saved map placement; its scale reader
+preserves the current Offhand scale. Actual vendor settings are never changed.
+Vendor dragging/resizing yields while skinning continues; controls and original
+placement resume on release, with combat deferral and profile/load-order handling.
+No native map hooks, vendor file edits, parked settings or additional ticker.
+All 115 source suites and six-manifest Lua 5.1 validation pass. The lifecycle suite
+also passes against the installed vendor source in an isolated mock runtime.
+Status: implemented, source/simulated verified, native acceptance pending.
+No installation or release. See the implementation follow-up in
+[UI flashing report review](UI-FLASHING-REPORTS-20261109.md).
+
+Native follow-up, 10 November: installed DaylightUI 1.6.6 on spanned Forever
+70862 retains the workspace map through Character panel closure, including
+same-call post-HideUIPanel geometry. Disable/re-enable and reload pass. Restore
+Window exposed generic single-screen recovery replacing Daylight's saved anchor
+on reopening. A narrow verified-vendor exception corrects the failing native
+case; 32 corrected snapshots and control/setting restoration pass. This is a
+controlled 1440p split, not the original loot/flight/PvP, combat, profile-switch,
+Gamepad or two-monitor acceptance. Scoped local state restored; no new captured
+errors. [Native evidence](DAYLIGHT-MAP-NATIVE-QA-20261110.md).
+
+
+## OH-UI-028: Minimap toggles with Game Menu or Talents on an old profile
+
+Forever 1.60.1 build 70862, Offhand 2.1.3-beta.27, matching Companion 2.1.3,
+stacked Mainhand TOP. Reporter narrowed the initial any-window/SexyMap report:
+stock minimap also fails with SexyMap disabled; Game Menu and Talents trigger
+it; fresh Offhand and SexyMap profiles work together. Status: reporter recovered,
+profile-dependent cause unconfirmed. Matching viewport/topology/Edit Mode
+snapshots do not establish minimap visibility or the culprit profile setting.
+
+Current minimap ownership policy was reviewed with installed SexyMap v12.1.7
+(reporter version unknown) and exact-build native minimap/panel-manager source.
+Added read-only Minimap and MinimapCluster visibility/parent/alpha/saved-position
+snapshots to full diagnostics. No speculative Show/Hide override or profile
+reset. All 116 Lua suites and six-manifest Lua 5.1 checks pass. No live repro or
+installation. If it recurs, retain the failing profiles and collect full before /
+after diagnostics around one Game Menu or Talents action, changing only one
+profile/addon state per comparison. Current working profiles should be retained.
+Full evidence: [Minimap profile visibility](MINIMAP-PROFILE-VISIBILITY-20261109.md).
+
+
+### OH-UI-028 follow-up: SexyMap and native Edit Mode selection separate
+
+New user screenshot confirms SexyMap's visible minimap is on the left workspace
+while the native Minimap selection stays at Mainhand's upper right. This is a
+horizontal Mainhand-RIGHT local configuration, distinct from the original
+stacked reporter setup. Installed SexyMap reparents/moves/saves Minimap itself;
+Blizzard's EditModeMinimapSystemTemplate belongs to MinimapCluster. Independent
+vendor placement explains the two locations in source, without proving the
+previous Game Menu/Talents hiding cause. Keep geometry/persistence and visibility
+as separate observations. No forced reparenting or anchor synchronization added.
+See the screenshot follow-up in docs/MINIMAP-PROFILE-VISIBILITY-20261109.md.
+
+
+## OH-UI-029: Ellesmere minimap repeatedly leaves its saved position
+
+Rallina, Forever 1.60.1 build 70862, Offhand 2.1.5-beta.28, Companion 2.1.5 MATCH,
+Mainhand LEFT 2560x1440 plus offset 1440x2560 portrait workspace. Reporter
+screenshots show screen-edge to bottom-center relocation. Supplied diagnostics
+pass viewport/topology/layout checks but omit the visible minimap and caller.
+
+Source defect reproduced: generic popup recovery covers MinimapCluster ownership
+but omitted the detached Minimap canvas. An edge/top-overhanging minimap can be
+repositioned by the normal two-second scanner. Ownership now preserves the
+visible minimap and bounded vendor crop-parent ancestry. Existing OnShow guards
+recheck ownership; missing-only recovery skips external native-system requests.
+No native frame synchronization or vendor-profile overwrite. Full diagnostics
+identify Ellesmere module/mover readiness and known journal/queue minimap roots.
+All 116 suites and six-manifest Lua 5.1 validation pass. Status: source/simulated
+correction prepared, exact reporter native acceptance pending. Brin's earlier
+visibility report and the unidentified dungeon-browser button are not closed.
+Source findings, historical SexyMap scale-hook error, synchronization assessment
+and live matrix: [Minimap ownership investigation](MINIMAP-OWNERSHIP-20261109.md).
+
+
+## Read-only Discord reconciliation, 2026-11-09
+
+All 40 accessible forum threads, including 19 archived threads, were reconciled
+with support history and linked originals. The snapshot contains 2,255 messages
+plus nine linked originals, with no reported permission/pagination gaps. No
+Discord message, reaction, tag, archive or status was changed. One thread is the
+template. Full per-report disposition, evidence and follow-up matrix:
+[Discord report review](DISCORD-REPORT-REVIEW-20261109.md).
+
+### OH-RET-002: Retail friendly-name visibility forced on
+
+Reporter screenshot: Retail 12.1.5 build 70783, interface 120105,
+Offhand 2.1.2-beta.26, manual stacked Mainhand TOP. Source repeatedly forced
+UnitNameFriendlyPlayerName to 1 and reapplied it after CVAR_UPDATE. Candidate
+removes the override, restores an old forced preference once when still owned,
+preserves newer choices and removes unconditional logout restoration. Actual
+nameplate visibility controls must be checked separately from friendly names.
+The geometry regression rejects the prior source; production migration/logout
+coverage passes. All 118 Lua suites and six-manifest Lua 5.1 checks pass.
+Status: source/simulated correction prepared, native Retail acceptance pending.
+
+### OH-UI-030: Combat shifts Character, professions and Skills
+
+Original support follow-ups name these windows, say they return after combat,
+and disclose an unspecified Blizzard-window mover. Exact client/build, mover and
+first geometry writer remain unknown. Preserve existing combat deferral and
+external ownership. Next: same-profile before/during/after root anchors and
+scales, full diagnostics and competing-mover comparison after clean reload.
+
+### OH-UI-031: Remaining loot rows vanish; long item tooltip overflow
+
+Separate from accepted OH-UI-004 placement. Original reports choosing one of
+several rolls hides the remainder until reload and long set-item tooltips extend
+above Mainhand. No client/build/input mode or loot-addon list. Current row mover
+writes anchors, not choices or visibility; pinned Forever native source has a
+sparse array and separate Gamepad interface. No cause attributed. Next: actual
+three-roll lifecycle, native remaining IDs, parent visibility, errors and tall
+card bounds/scale, separately in/out of combat. No blanket Show override added.
+
+Reporter diagnostic received 10 November now confirms Forever 1.60.1.70862,
+Offhand beta28, physical 3000x1920 canvas, Mainhand LEFT (0,237 1920x1080) and
+portrait workspace (1920,0 1080x1920). Combat=1, layout 5 matches, world-map owner
+OpenMap. Companion reports Writer 2.1.3 / Paired 2.1.5 / MATCH. This supersedes
+the original client/build gap; input mode, exact item/roll and replacement addon
+list are still absent. Combat state does not itself establish the cause. The
+current native tooltip fit deliberately avoids combat mutations, so prioritize
+actual short-Mainhand hover, hide and post-combat restoration alongside real roll
+lifecycle. Exact capture/hash: `dist/discord-qa-20261110-3/reporter-diagnostic.json`.
+
+### OH-UI-032: ProcDoc center remains at full-span center
+
+Reporter could not find an X-offset. Initially unavailable locally, authored
+upstream 4.13.0 commit e0ba2c8a043245473393ba56fcccccb06c9b57e2 (9 November,
+19:09:19 UTC) explicitly adds multi-monitor center controls. Pinned source exposes
+Settings > Alerts > Centre point with X/Y offsets and a 1x1 ProcDocAlertFrame.
+ProcDoc 4.14.0 is now installed. Spanned Forever 70862 reproduces generic popup
+recovery competing with its one-unit root and native coordinate rounding
+preventing adapter release. A narrow popup exclusion and comparison tolerance
+correct those controlled failures. Default-off, opt-in, vendor offset updates,
+preview alerts, disable/re-enable, reload and Restore Window pass with scoped
+settings restored. Exact reporter profile, real proc/combat and physical
+multi-monitor acceptance remain open. [Native evidence](PROCDOC-SPANNED-QA-20261110.md).
+
+### OH-UI-033: Vertical viewport offset after unspecified Companion update
+
+Original says both Forever and 3.3.5, Mainhand 3440x1440, secondary right, 150%
+Windows scaling. The mentioned screenshot is absent from the actual message.
+A bot resolution message without reporter explanation is not acceptance. Exact
+client/build, Companion version, native window/topology rectangles and full
+screenshot are required to distinguish physical voids, letterboxing and bounds.
+
+### OH-UI-034: Some HUD positions change after reload
+
+Duuker's original before/after pairs show some HUD returning to Mainhand, while
+workspace map/character stay placed. This supersedes the bot summary that reload
+fixes rendering. Forever 70862, Offhand beta28, Companion 2.1.5 MATCH, two 1440p
+screens, Mainhand RIGHT, active/preferred layout 5 Offhand Main - Albus, Leatrix
+map owner. Snap to Elements off did not fix it. Known blocked reload-button and
+minimap corrections are separate. Next: compare exact system serialized anchors
+before Save, after Save and after reload, with active layout identity/owners.
+
+Visual audit clarification: each pair contains captures of the two halves of
+the span. The two pre-reload pictures alone are not a before/after comparison.
+The separately captioned after pair shows minimap/chat and additional action
+bars on Mainhand. The disabled Save button in a preview does not establish
+which serialized anchors were persisted. Original captions and per-image
+coverage: [Visual evidence audit](DISCORD-VISUAL-REVIEW-20261110.md).
+
+### OH-PERF-002: GPU 100% after setup
+
+One report without hardware/settings/frame-time comparisons. OH-PERF-001 CPU
+work is a different surface. No rendering or driver cause proven. Next: matched
+scene/settings/FPS-limit comparisons, restored versus spanned, then same-size
+span with UI disabled; record GPU frame times and addon CPU separately. No FPS,
+graphics, power or driver settings changed automatically.
+
+### Other reconciled follow-ups
+
+Archived Better Forever Chat also reproduces on stock chat. Screenshots show an
+inactive Combat Log over General, consistent with the stale ChatFrame2 migration
+already removed in OH-UI-002. Exact button-strip behavior still needs observation.
+Archived BG score has no reporter result despite a promised beta19 retest; retain
+OH-FOR-002 native QA. Archived combat-error text matches the map-pin
+SetPassThroughButtons stack; it does not identify first Offhand contamination.
+
+Ryklin explicitly accepts the controller map correction; the friend's keyboard/
+mouse growth remains distinct. Current controller, cutscene and other prior user
+acceptance scopes are preserved. Fresh BetterBags/RestedXP support recurrence
+needs installed-source/version/root comparison with private test19's documented
+native acceptance before attribution. Daylight native testing remains deferred
+as requested. No installation or public release in this review.
+
+
+## Discord implementation follow-up, 2026-11-10
+
+OH-UI-031 now has source corrections for sparse roll arrays, first-remaining-row
+scale selection, whole-stack physical Mainhand fit and redundant anchor writes.
+The production sparse-row regression fails the prior implementation and passes
+now. Native roll choices/visibility remain untouched; real disappearance timing
+still needs native acceptance. Mainhand item owners now receive physical tooltip
+clamp bounds. Known oversized native cards fit proportionally and restore scale
+while still owned, with combat/reentrancy/external-owner guards.
+
+OH-UI-032 now has an opt-in ProcDoc Mainhand-center setting, default off, in all
+six manifests and eleven locales. It preserves vendor offsets and SavedVariables,
+observes the public ApplyCenter method when available, yields external anchors
+and releases placement on disable/unspan, including deferred/failed restoration.
+
+All 120 Lua suites and six-manifest Lua 5.1 checks pass. No installation, native
+QA, publication or Discord mutation. OH-UI-030/033/034 and OH-PERF-002 remain open
+for the exact evidence in the review; no speculative combat or graphics changes.
+Daylight native QA remains deferred. Implementation and live matrix:
+[Discord fixes, 10 November](DISCORD-FIXES-20261110.md).
+
+Private candidate follow-up: 121 frozen-subject suites and package hashes pass.
+Approved Forever 70862 load/options/reload smoke checks passed in an unspanned
+window. Saved topology mismatch prevented spanned acceptance; existing native
+layout was retained. Report-specific gates remain open. Client closed normally,
+helpers disabled, candidate retained with backup. No publication or Discord
+mutation. [Native QA provenance](DISCORD-NATIVE-QA-20261110.md).
+
+Actual spanned follow-up: Forever 70862, verified single-display split / READY
+topology. Native, SexyMap and EUI Minimap panel checks retained visibility;
+vendor-controlled seam placements survived reload with unchanged native anchors.
+SexyMap/native selection-box separation reproduced. EUI Minimap mover appeared
+with its separate module enabled. Native/EUI physical drag, affected profiles,
+combat and multi-monitor gates remain open. No report closed or Discord mutation.
+[Spanned QA evidence](DISCORD-SPANNED-QA-20261110.md).
+
+Later spanned follow-up: native minimap keyboard movement + Save retained exact
+saved anchors through reload; reverse nudge restored visible placement. This
+does not reproduce OH-UI-034's affected profile. OH-UI-031 tooltip work needed
+another correction: Init's scale normalizer was undoing the fit in native size
+callbacks. Ownership coordination now passes the failing-before integrated
+regression and synthetic tall/short/hide runtime checks. Real rolls/items and
+combat remain pending. Client closed normally, flags restored, helpers disabled,
+no fresh captured errors. [Follow-up QA](DISCORD-FOLLOWUP-QA-20261110.md).
+
+Remaining-report pass: Chat/Buffs/Action Bar 3 native Save/reload retained saved
+anchors on the local profile. Cooldown Settings contained placement/reopen and
+explicit seam recovery passed; both native Game Menu opens stayed on Mainhand.
+Cached real-item and synthetic tall/short tooltip checks passed their limited
+cases. New OH-UI-031 reporter evidence narrows the required test to a combat-
+active, 1080-high Mainhand beside a portrait workspace; that case remains open.
+No further attributable defect or runtime fix. Temporary files/settings restored,
+client closed, error records unchanged. Daylight stays deferred.
+[Results and remaining gates](DISCORD-REMAINING-QA-20261110.md).
+
+Stock-chat/backpack follow-up: spanned Forever 70862 stock General/Combat Log,
+Settings, Edit Mode and reload do not reproduce inactive-log overlap. Controlled
+saved-workspace placement does reproduce backpack open-intent loss through Chat
+Settings. Added ChatConfigFrame to the existing preserving-panel list; the bag
+now restores at the same position after Okay. Native X separately hid then
+reopened the backpack because GetMouseFoci was empty by the close post-hook.
+A guarded out-of-combat IsMouseOver query recognizes the explicit close without
+native frame handlers/state. Final native X and closed-state reload pass.
+Both regressions fail before correction; all 121 frozen suites and six-manifest
+Lua 5.1 checks pass. Four historical errors unchanged; client closed, twelve
+scoped original files restored by hash and helpers disabled. Retail, replacement
+bags, separate bags, physical drag and combat acceptance remain open. Daylight
+stays deferred. [Evidence and package provenance](FOREVER-CHAT-BACKPACK-QA-20261110.md).
+
+BetterBags/RestedXP recurrence follow-up: installed BetterBags v0.9.2 Next clears
+IsUserPlaced and uses four panel roots missing from the automatic-popup owner
+list. Adding the exact roots fixes the failing-before production integration
+regression; all 121 frozen suites and six-manifest Lua 5.1 checks pass. Spanned
+Forever 70862 Next small/full and RestedXP v4.11.35 V2 welcome-window geometry and
+scale survive tested map transitions; saved workspace placement survives normal
+reload and bag reopening. All 32 snapshots retain spanning/READY. Exact reporter
+trigger/profile, bank/vendor/guildbank panels, populated guides, physical drag
+and combat remain unverified. Four historical errors unchanged; normal close,
+13 existing scoped files restored by hash, six new files preserved privately
+and their absence restored, helpers disabled. Daylight stays deferred.
+[Evidence and private package](BETTERBAGS-NEXT-RXP-V2-QA-20261110.md).
+
+### OH-UI-035: Health/mana text and bag Escape priority
+
+New [report](https://discord.com/channels/1491522138371391691/1569545754253594744),
+Forever 1.60.1.70862 beta28, remembered manual dual-landscape setup. Numeric
+stock PlayerFrame values remain despite the reporter's text preference. Local
+spanned positive/negative statusText plus statusTextDisplay controls show/hide
+health and mana correctly. No direct Offhand writer found. The same thread's
+Escape/profession-bag issue is separate. A matched spanned native control clears
+the merchant target on the second Escape. Pre-fix workspace bag restoration
+instead cycles the menu and retains the target. The proxy now respects native
+Escape closure while a target is selected, preserving saved placement; the
+subsequent native Escape clears the target in the corrected client. No direct
+target-clearing call or binding replacement. Separate/profession bags, exact
+profile and combat remain open. [Evidence](FOREVER-BAG-ESCAPE-QA-20261110.md).
+
+### OH-UI-036: NPC quest window missing after single-screen restore
+
+New [report](https://discord.com/channels/1491522138371391691/1569621972415946834).
+Linked original says an NPC quest window moved from workspace to Mainhand no
+longer appears after disabling Offhand and Companion Restore Window. No exact
+build or matched NPC interaction diagnostic. Investigate release of saved panel
+placement, preserving native interaction visibility and registration. Do not
+conflate this with the map's quest log or force Show outside an NPC interaction.
+
+Spanned Forever 70862 follow-up: controlled merchant workspace/Mainhand and
+Restore Window/reload reopening pass, without reproducing quest disappearance.
+A natural merchant open does reproduce a separate release defect: disabling
+Offhand restores the root scale while retaining panel coordinates outside the
+visible canvas. Native panel reflow repairs the still-open session immediately.
+Viewport now requests that reflow only when it changes its owned root on
+Forever release; external ownership, combat and repeated inactive passes yield.
+Failing-before regression, 123 frozen suites and six manifests pass. Corrected
+native merchant acceptance passes two disable cycles, preserving the still-open
+registered left slot and normal native X closure. Four historical error records
+are unchanged; scoped settings are restored after confirmed normal exit. Exact
+NPC quest/profile, physical dragging and combat acceptance remain open.
+[Release investigation](NPC-PANEL-RELEASE-QA-20261110.md).
+
+Further spanned drag check: three title gestures do not move the merchant,
+while an addon-owned comparison frame moves. A bounded twelve-call trace shows
+native StartMoving/StopMoving approximately 17 ms apart with original coordinates
+already retained at the first native stop, before Offhand persistence. No
+intervening anchor writer captured; cause and successful physical drag remain
+unresolved. Reopening/reload remain reachable. No speculative runtime change.
+[Drag follow-up](PANEL-DRAG-FOLLOWUP-QA-20261110.md).
+
+### OH-UI-037: Details meter recenters through automatic popup recovery
+
+[Support recurrence](https://discord.com/channels/1491522138371391691/1551335554787057694/1569524937226715167)
+identifies Details' main window. Installed vendor source clears IsUserPlaced
+at drag completion but retains its own position store. Numbered meter roots
+were missing from popup ownership policy. A narrow name match corrects the
+failing-before integration case; ordinary config dialogs remain recoverable.
+Spanned Forever 70862 controlled native baseline relocates the actual Details
+meter from CENTER 0,0 to Mainhand after its flag is cleared. Exact reporter
+profile and natural trigger remain separate from the source-backed fixture.
+New report review, native checks and remaining gates:
+[refresh QA](DISCORD-REFRESH-QA-20261110.md). Daylight stays deferred.
+
+### OH-UI-038: Larger character/quest text after updating
+
+New [support report](https://discord.com/channels/1491522138371391691/1551335554787057694/1569650173208956948)
+identifies Forever and possible EllesmereUI interaction, without build, scale
+values or before/after images. Separate from tiny fonts after addon removal.
+Current Offhand source has no global GameFont/userFontScale writer; inherited
+scale and competing owners still require an affected-profile capture. The bot's
+attribution is not verified. Spanned Forever 70862 with EUI 9.8.4 reproduces
+stale pixel-grid data and workspace geometry after an EUI scale change, plus
+overwriting a later scale selection on disable. A narrow adapter and root
+ownership correction address those controlled failures; the reporter's exact
+startup/font trigger remains open.
+[Scale investigation](ELLESMERE-SCALE-PORTRAIT-4K-QA-20261110.md).
+
+Follow-up with actual EUI Blizzard Skins loaded: skinned Character sheet cold
+entry, normal layout refresh and /reload/reopen retain font sizes/faces and
+correct scale grid across 13 spanned/READY samples. No additional defect
+reproduced. Details also loads; alternate font preference and actual NPC quest
+dialog remain untested. Four historical errors unchanged and scoped settings
+restored. GET-only 15:36 UTC refresh adds no report content or images.
+
+### OH-UI-039: HUD placement on portrait/4K offset displays
+
+New [support images](https://discord.com/channels/1491522138371391691/1551335554787057694/1569676680040284262)
+and [cropped diagnostic](https://discord.com/channels/1491522138371391691/1551335554787057694/1569677131733139458)
+show scattered HUD/populated guide content, Mainhand=(1440,400 3840x2160),
+workspace=(0,0 1440x2560), Phys=5280x2560. Rounded screen/game area and scale
+values are internally consistent. Nonzero display offset is supported and is
+not by itself evidence of a bug. Source confirms that 400 is bottom-origin;
+an exact viewport replay and eight-arrangement native/EUI generation matrix
+pass. These are simulations. Need full build/topology/layout/owner evidence
+and a matched physical-display reproduction. All three new images reviewed;
+do not prescribe Windows realignment from the bot's claim alone.
+[Scale investigation](ELLESMERE-SCALE-PORTRAIT-4K-QA-20261110.md). Daylight stays deferred.
+
+### OH-UI-040: Companion cannot identify every selected display
+
+New [support report](https://discord.com/channels/1491522138371391691/1551335554787057694/1569761136000114758)
+from the GET-only 17:25 UTC refresh. Screenshot reviewed: Companion 2.1.5,
+Forever running with beta.28, Mainhand dropdown Display 1 (1920x1080), Game side
+Right, single-display split unchecked. The confirmation dialog says Windows did
+not provide an identity for every selected display. Actual monitor identifiers,
+selected display bindings, Windows display configuration and full client build
+are not supplied. The screenshot does not prove a failed Windows API call.
+
+Current source emits this exact message when stable identity confirmation lacks
+MonitorIdentities or MainhandIdentity. That identifies a guard, not why the
+reporter's bindings are missing. Local Companion 2.1.6 explicitly spans the
+available display successfully; no matching failure reproduced. Preserve the
+guard until source/version and display diagnostics identify the cause. Need
+the reporter's Copy Display Diagnostics output and checked display/Mainhand
+selection. No speculative native Companion patch, release or Discord reply.
+
+2026-11-10 source follow-up: isolated production UI-save/confirmation probes
+reproduce this exact message for a missing selected-screen identity, missing
+Mainhand identity, empty Mainhand dropdown and fresh zero-checked selection.
+A complete identity pair passes. All 26 probe assertions and 177 existing
+display-selection checks pass on each of x64/x86. Copy Display Diagnostics
+works before layout confirmation and includes identity lookup reasons.
+Reporter cause remains open; no runtime change or shipped artifact replacement.
+[Investigation and evidence request](COMPANION-IDENTITY-REPORT-20261110.md).
+
+Owner-authorized source follow-up distinguishes incomplete standard selection
+from missing/ambiguous monitor identities in the original refusal. Copied
+diagnostics include control state, saved bindings, plan rejection and per-monitor
+lookup reasons/codes, including before layout confirmation. Planner, identity,
+session and confirmation decisions are unchanged. Display-selection 247,
+color 228, Remote Desktop 36 and synthetic native rollback 3,057 checks pass
+per architecture, with preference/layout checks passing as well. Awaiting
+Companion candidate and affected-hardware validation; shipped binaries remain
+unchanged. Details in the investigation's authorized source improvement section.
+
+## CurseForge Beta 29 hotfix preparation, 2026-11-10
+
+Prepared an addon-only frozen hotfix from accepted QA14, retaining critical
+placement/recovery fixes and the owner's explicitly requested loot-roll
+corrections. Actual simultaneous rolls and combat remain beta feedback gates,
+not completed native acceptance. The separate Retail friendly-name preference
+change OH-RET-002 is deferred to native Retail testing; the release subject
+retains published Beta 28 preference behavior.
+
+All 122 applicable suites and six-manifest Lua 5.1 checks pass. Controlled
+spanned Forever 70862 lifecycle checks pass cold launch, options, disable/
+re-enable, reload, Restore Window, respan and normal exit/relaunch. Fresh error
+capture is loaded for the repeated final checks; four historical records remain
+unchanged. Exact reporter profiles, physical portrait/4K and actual combat are
+not closed. All 281 scoped QA paths are restored and the client is closed.
+No upload, release tag, source promotion, Companion replacement or Discord
+change. [Artifact, exclusions and evidence](CURSEFORGE-BETA29-PREPARATION-20261110.md).
+
+## Setup guide: disabled placement action after standard two-display span
+
+2026-11-10: screenshot shows Window is positioned disabled with the geometry
+settling status. Follow-up shows Companion 2.1.6, 2560x1600 Mainhand and
+1080x1920 workspace, both checked and single-display split off. Owner relays
+successful Restore/Span retry. Target client/build and physical offsets unknown.
+
+Production-handler simulation reproduces stale disabled actions after Core
+clears its transition flag: guide recenter callbacks did not refresh readiness.
+Source now notifies the visible guide after the newest settled generation,
+including combat deferral, preserving placement/reload/geometry safeguards.
+All 123 Lua suites and six-manifest Lua 5.1 checks pass; expanded reporter-shaped
+and lifecycle regressions pass. Native acceptance and packaging remain pending.
+No frozen release subject, Companion binary or installation was changed.
+[Investigation, correction and recovery](SETUP-PLACEMENT-SETTLEMENT-20261110.md).
+
+## Native HUD still spans the canvas; item comparisons overlap
+
+2026-11-10 follow-up: previous placement reporter confirms native Blizzard bars,
+probable custom source, Beta 27 to 28 upgrade, Modern selection then recovery and
+reload. Screenshot shows valid topology and active/preferred generated ID 5
+matching, with gameplay HUD still using the wide canvas. Source/model probes
+show retained custom absolute anchors and restore selecting an old layout without
+regeneration. Actual serialized anchors and precise popup identity remain open.
+The released generator's coordinate transform is unchanged between Beta 27/28.
+
+Separate cropped reporter shows comparison text overlap and relays transient
+social-button disappearance. Production per-card clamp in a synthetic engine
+model produces overlap on released/current source. Native failing-hover capture
+and the absent social-button frame remain gaps. Seven targeted Lua suites pass;
+no additional runtime fix or release claimed.
+[Source/version comparison, model evidence and capture steps](HUD-AND-COMPARISON-REPORTS-20261110.md).
+
+Owner-authorized source correction: generated HUD copies now fit supported
+native groups and stretched anchors, preserve original layouts and in-Mainhand
+edits, honour an explicit source choice, and retain pre-write generated snapshots.
+Completed comparisons reserve their native chain through the root instead of
+clamping shopping cards separately. Oversized/unknown groups yield natively.
+All 125 Lua suites and six-manifest Lua 5.1 checks pass. Native reporter data,
+combat/taint and packaged candidate acceptance remain open; social disappearance
+is not closed. No public or frozen release artifact changed.
+[Correction and validation](HUD-TOOLTIP-FIXES-20261110.md).
+
+2026-11-11 follow-up. Forever 1.60.1 build 70888 and Offhand 2.1.5-beta.30
+show two equipped ring cards overlapping during a bag hover. The diagnostic
+shows viewport PASS, a 3000x1920 canvas, Mainhand (0,237) at 1920x1080, and a
+1080x1920 workspace at (1920,0). The tagged Beta 30 code still clamps comparison
+cards individually. A regression fixture models the reported display proportions
+and two ring cards. It reproduces overlap against the tag and passes with the
+existing group correction in the working tree, including both comparison sides
+and cards too wide to fit the workspace together.
+
+Forever Leveling BiS v1.2.2 and v1.2.3 ship identical tooltip code. Its item
+callback appends the scoring panel to GameTooltip or ItemRefTooltip and refits
+the text. The equipped cards remain under the native comparison manager. Larger
+tooltips can increase edge pressure. The reporter's BiS version and the exact
+live frame anchors are still unknown. Native acceptance should use the same bag,
+two equipped rings, and the narrow portrait workspace with BiS enabled. On Beta
+30, /offhand diag full arms hover capture. With the cleaned diagnostics, use
+/offhand diag tooltip capture.
+
+
+## Chat moves offscreen after Edit Mode with snapping enabled
+
+2026-11-10 supplied WhoAmI report: Forever 70862 / beta.28, no chat replacement,
+READY 3440x2640 stacked canvas, matching generated layout ID 6. Primary chat
+becomes a top-left sliver after an Edit Mode move; disabling snapping helped.
+Native source supports a relative-anchor dependency as a leading hypothesis,
+but exact before/after chat anchors and the writer remain uncaptured. The
+separate disappearing-extra-chat report is not closed by that hypothesis.
+
+Source now adds read-only chat/snap/anchor diagnostics to /offhand diag full and
+the localized workaround to HUD setup help. It preserves account-wide snapping
+preferences and existing layout links. All 129 Lua suites pass; native candidate
+acceptance remains open. No auto-disable policy, installation or release.
+[Evidence, implementation and capture plan](CHAT-EDITMODE-SNAPPING-20261110.md).
+
+## Per-region workspace panel sizing implementation 2026-11-10
+
+Source implemented and automated validated, live pending. Calibration and Workspace settings now share opt-in per-region size previews and explicit Apply/discard. Existing configurations retain 100% until changed. Companion source adds optional per-region scale metadata for all existing custom layouts; the frozen binary remains unchanged. Generic placement and native Forever bag adapters apply sizing before fit, preserve fallback intent, and guard deferred repairs. Chat is separately optional; the map retains its dedicated size owner. All 128 Lua suites, the new x86/x64 C# metadata-to-Lua fixtures, relevant Companion topology/preset fixtures, and six-manifest validation pass. Native combat/taint, actual item/chat/map actions, mixed-DPI visual checks, cold launch and packaged candidate remain pending. See [implementation and QA contract](REGION-PANEL-SCALING-20261110.md).
