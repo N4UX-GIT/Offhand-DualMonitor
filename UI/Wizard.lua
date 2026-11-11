@@ -902,6 +902,7 @@ function Wizard:CreateFrame()
     local card6 = CreateWizardCard(f, L["ELLESMERE_HUD_VISUAL"], -690, 160)
     local transferHelp = card6:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     transferHelp:SetJustifyH("LEFT")
+    if transferHelp.SetJustifyV then transferHelp:SetJustifyV("TOP") end
     if transferHelp.SetWordWrap then transferHelp:SetWordWrap(true) end
     transferHelp:SetText(L["ELLESMERE_HUD_WIZARD_BODY"])
     local previewBtn = CreateFrame("Button", nil, card6, "UIPanelButtonTemplate")
@@ -1250,6 +1251,7 @@ function Wizard:CreateFrame()
         progress:SetText(caption)
         local card = self.recoveryReason and recoveryCard or self.pages[self.step or 1]
         if not card then return end
+        local compactReview = self.step == ELLESMERE_STEP and not self.recoveryReason
         if card.setupBaseHeight then card:SetHeight(card.setupBaseHeight) end
         local labels={L.SETUP_STAGE_DETECT,L.SETUP_STAGE_PLACE,L.SETUP_STAGE_SEAM,L.SETUP_STAGE_SCALE}
         if self.totalSteps>=5 then labels[5]=L.SETUP_STAGE_HUD end
@@ -1336,12 +1338,11 @@ function Wizard:CreateFrame()
                 bottomControl:SetPoint("TOPLEFT",card3,"TOPLEFT",14,-top)
                 card3:SetHeight(top+bottomControl:GetHeight()+14)
             end
-        elseif self.step == ELLESMERE_STEP then
+        elseif compactReview then
             local top = Controls.GetCardContentTop(card6, 32)
             transferHelp:ClearAllPoints()
             transferHelp:SetPoint("TOPLEFT", card6, "TOPLEFT", 14, -top)
-            transferHelp:SetPoint("TOPRIGHT", card6, "TOPRIGHT", -14, -top)
-            top = top + Controls.FitParagraphText(transferHelp, transferHelp:GetText(), 600) + 12
+            top = top + Controls.FitCompactParagraph(transferHelp, transferHelp:GetText(), 600) + 12
             previewBtn:ClearAllPoints()
             previewBtn:SetPoint("TOPLEFT", card6, "TOPLEFT", 14, -top)
             local height = math.max(28,
@@ -1389,11 +1390,12 @@ function Wizard:CreateFrame()
         progress:SetWidth(progressWidth)
         local restartHeight = Controls.MeasureWrappedText(restartBtn:GetFontString(), restartBtn:GetText(), 170) + 8
         restartBtn:SetHeight(math.max(24, restartHeight))
+        local fitText = compactReview and Controls.FitCompactParagraph or Controls.FitParagraphText
         local layout = Controls.GetWizardLayout(
-            Controls.FitParagraphText(welcomeText, welcomeText:GetText(), 632),
-            math.max(Controls.FitParagraphText(progress, progress:GetText(), progressWidth),
+            fitText(welcomeText, welcomeText:GetText(), 632),
+            math.max(fitText(progress, progress:GetText(), progressWidth),
                 restartBtn:IsShown() and restartBtn:GetHeight() or 0)+self.progressRail:GetHeight()+12,
-            card:GetHeight(), validationHeight, footerHeight)
+            card:GetHeight(), validationHeight, footerHeight, compactReview and 0 or nil)
         self:SetHeight(layout.height)
         if progress.ClearAllPoints then progress:ClearAllPoints() end
         progress:SetPoint("TOPLEFT", self, "TOPLEFT", restartBtn:IsShown() and 216 or 18, -layout.progressTop)

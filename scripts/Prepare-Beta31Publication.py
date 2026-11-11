@@ -19,6 +19,10 @@ REVIEWED_MODULES = {
     'Core/CanvasPanelLifecycle.lua': 'eff59e78693f6a3b2ddae9c43e58e07c379a3183b749ee7714222c2ef99225fb',
     'Core/MainhandGamepad.lua': 'a59dd0eb2002c5707b59c5be0378229c29076a2394d099bd016f26b2c2d72eff',
     'Core/PopupBounds.lua': '1e89e82161c5fd8bf475d0f0c56c998c7b2627d5a6e9700786c2f8cc4a5b1843',
+    'Core/Init.lua': '83d5f35608c0801b58646fd1ebe7eb6a904218be17178d3bec015ec8cbee9719',
+    'UI/Controls.lua': '3daf302745d34f97c0dba42e8be57d314437968f58ee5e184f6f2639398e89f4',
+    'UI/SetupVisuals.lua': 'd91e8a6cbda38f89dc5cd849fe79db258bf9e7c1393e58c7ccc649bc9382fc0c',
+    'UI/Wizard.lua': '15a6282e701a719eeb280c1179fe5774d9ccf5ca39f7d619357df37abcaf0be3',
 }
 
 

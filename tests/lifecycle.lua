@@ -96,6 +96,7 @@ local function makePromptFrame(name)
     function frame:CreateFontString()
         local text = { points = {} }
         function text:SetPoint(...) self.points[#self.points + 1] = { ... } end
+        function text:SetWidth(value) self.width = value end
         function text:SetHeight(value) self.height = value end
         function text:SetJustifyH(value) self.justifyH = value end
         function text:SetJustifyV(value) self.justifyV = value end
@@ -176,13 +177,8 @@ addon.Viewport = { GetMetrics = function() return {
     isSpanned = true, gameWidth = 1950, gameLeft = 1097, gameRight = 3047,
     gameBottom = 4, gameTop = 1101,
 } end }
-addon.UIControls = {
-    FitDialog = function() return 0.8 end,
-    MeasureWrappedText = function(text)
-        assert(text.height == 0, "popup text must clear its previous height before measuring")
-        return 150
-    end,
-}
+assert(loadfile("UI/Controls.lua"))("Offhand", addon)
+addon.UIControls.FitDialog = function() return 0.8 end
 StaticPopupDialogs.OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT = {
     text = 'Confirm', button1 = 'Finish', button2 = 'Back',
     OnAccept = function(_, callback) callback() end,
@@ -190,7 +186,9 @@ StaticPopupDialogs.OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT = {
 local confirmed = 0
 local prompt = addon:ShowPopup('OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT', nil, nil,
     function() confirmed = confirmed + 1 end)
-assert(prompt.strata == 'TOOLTIP' and staticShows == 0 and prompt.height >= 226)
+assert(prompt.strata == 'TOOLTIP' and staticShows == 0 and prompt.width == 440
+        and prompt.height == prompt.text.height + 70 and prompt.height < 120,
+    "short confirmations should size to their text and action row")
 assert(prompt.points[1][2] == UIParent and prompt.points[1][4] == 2072 / 0.8,
     'setup confirmation must use Mainhand geometry, not a stale anchor')
 prompt.accept.scripts.OnClick()
@@ -312,10 +310,19 @@ assert(addon.CharacterSetup:Show("CHARACTER_SETUP_WAITING_FOR_SPAN"))
 prompt.cancel.scripts.OnClick()
 assert(not prompt.shown and OffhandCharDB.hudSpanNoticeDismissed and not OffhandCharDB.characterSetup,
     "the persistent dismissal button must save only the notice preference")
+local characterMessage = rawget(addon.L, "CHARACTER_SETUP_TEXT")
+addon.L.CHARACTER_SETUP_TEXT = "Set up this character's HUD\n\nChoose how to set up your HUD.\n\n%s"
 assert(addon.CharacterSetup:Show("CHARACTER_SETUP_READY"))
 assert(prompt.popupKey == "OFFHAND_CHARACTER_SETUP" and prompt.strata == "TOOLTIP"
         and prompt.alternate.shown and prompt.alternate.text == addon.L.CHARACTER_SETUP_CUSTOMIZE,
     "the three-choice character check must use the owned Mainhand popup in keyboard UI")
+assert(prompt.width == 520 and prompt.height > 120 and not prompt.EditBox.shown
+        and prompt.accept.points[1][4] + prompt.accept.width / 2
+            < prompt.alternate.points[1][4] - prompt.alternate.width / 2
+        and prompt.alternate.points[1][4] + prompt.alternate.width / 2
+            < prompt.cancel.points[1][4] - prompt.cancel.width / 2,
+    "a reused character card must expand for its paragraphs and keep three distinct actions")
+addon.L.CHARACTER_SETUP_TEXT = characterMessage
 prompt.alternate.scripts.OnClick()
 assert(resumed == 2 and OffhandCharDB.characterSetup.choice == "customize"
         and not OffhandCharDB.characterSetup.complete,

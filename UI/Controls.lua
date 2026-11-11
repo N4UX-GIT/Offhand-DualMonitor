@@ -780,6 +780,13 @@ function Controls.StackCards(parent, cards, spacing)
     return height
 end
 
+function Controls.MeasureSingleLine(fontString, text)
+    local measure = fontString and (fontString.GetUnboundedStringWidth or fontString.GetStringWidth)
+    local width = measure and measure(fontString)
+    if type(width) == "number" and width > 0 then return math.ceil(width) end
+    return #tostring(text or "") * 7
+end
+
 function Controls.MeasureWrappedText(fontString, text, width, lineHeight)
     if fontString and fontString.GetStringHeight then
         local ok, height = pcall(fontString.GetStringHeight, fontString)
@@ -828,6 +835,19 @@ function Controls.FitParagraphText(fontString, text, width)
     return height
 end
 
+function Controls.FitCompactParagraph(fontString, text, width)
+    fontString:SetWidth(width)
+    fontString:SetHeight(0)
+    local height = fontString.GetStringHeight and fontString:GetStringHeight()
+    if not (type(height) == "number" and height > 0 and fontString.IsTruncated
+        and not fontString:IsTruncated()) then
+        height = Controls.MeasurePopupText(fontString, text, width)
+    end
+    height = math.ceil(height) + 2
+    fontString:SetHeight(height)
+    return height
+end
+
 function Controls.GetCardContentTop(card, minimum)
     local width = math.max(1, card:GetWidth() - 24)
     card.title:SetWidth(width)
@@ -853,7 +873,7 @@ function Controls.GetGuideLayout(titleHeight, bodyHeight, statusHeight, actionHe
     }
 end
 
-function Controls.GetWizardLayout(introHeight, progressHeight, cardHeight, validationHeight, footerHeight)
+function Controls.GetWizardLayout(introHeight, progressHeight, cardHeight, validationHeight, footerHeight, minimumHeight)
     local progressTop = 54 + math.max(15, introHeight or 0) + 12
     local cardTop = progressTop + math.max(15, progressHeight or 0) + 12
     footerHeight = math.max(28, footerHeight or 0)
@@ -863,7 +883,7 @@ function Controls.GetWizardLayout(introHeight, progressHeight, cardHeight, valid
         progressTop = progressTop, cardTop = cardTop,
         footerHeight = footerHeight, validationHeight = validationHeight,
         validationBottom = validationBottom,
-        height = math.max(454, cardTop + cardHeight + 12 + validationHeight + validationBottom),
+        height = math.max(minimumHeight or 454, cardTop + cardHeight + 12 + validationHeight + validationBottom),
     }
 end
 

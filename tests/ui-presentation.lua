@@ -205,6 +205,17 @@ assert(ui.MeasurePopupText(nil, "|cffffd100Resume|r", 464) == ui.MeasurePopupTex
     "highlight markup must not inflate popup layout")
 assert(ui.MeasurePopupText(clippedPopup, popupCopy, 200) > ui.MeasurePopupText(clippedPopup, popupCopy, 464),
     "narrow popup text must reserve more wrapped lines")
+local compactText = Region()
+compactText.GetStringHeight = function(self)
+    assert(self.height == 0 and self.width == 392, "set the new width and clear the previous height before measuring")
+    return 26
+end
+compactText.IsTruncated = function() return false end
+assert(ui.FitCompactParagraph(compactText, popupCopy, 392) == 28,
+    "complete native metrics must take precedence over the conservative estimate")
+compactText.IsTruncated = function() return true end
+assert(ui.FitCompactParagraph(compactText, popupCopy, 392) > 180,
+    "a clipped measurement must fall back to the full paragraph estimate")
 for _, heights in ipairs({ { 18, 190, 42, 26 }, { 45, 450, 90, 50 }, { 18, 40, 42, 0 } }) do
     local guide = ui.GetGuideLayout(unpack(heights))
     local statusTop = guide.height - guide.statusBottom - guide.statusHeight
@@ -219,6 +230,8 @@ for _, heights in ipairs({ { 18, 190, 42, 26 }, { 45, 450, 90, 50 }, { 18, 40, 4
         assert(bodyBottom + 16 <= statusTop, "pages without actions must still clear the status area")
     end
 end
+assert(ui.GetWizardLayout(14, 48, 154, 0, 28, 0).height < 454,
+    "the EllesmereUI review may fit below the calibration wizard's minimum height")
 for _, heights in ipairs({ { 30, 15, 208, 0, 28 }, { 150, 30, 600, 120, 50 } }) do
     local wizard = ui.GetWizardLayout(unpack(heights))
     assert(wizard.progressTop >= 54 + heights[1] + 12

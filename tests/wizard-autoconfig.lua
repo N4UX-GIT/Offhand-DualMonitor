@@ -145,6 +145,9 @@ function CreateFrame(kind, name, parent, template)
             SetHeight = function(s, height) s.height = height end,
             GetHeight = function(s) return s.height or 0 end,
             SetWordWrap = function(s, enabled) s.wordWrap = enabled end,
+            SetNonSpaceWrap = function(s, enabled) s.nonSpaceWrap = enabled end,
+            SetMaxLines = function(s, count) s.maxLines = count end,
+            SetTextScale = function(s, scale) s.textScale = scale end,
             SetTextColor = function() end,
             GetText = function(s) return s.text end,
             SetPoint = function(s, pt, rel, relPt, x, y) s.points[pt] = { rel = rel, relPt = relPt, x = x, y = y } end,
@@ -2648,18 +2651,27 @@ do
     end
     assert(previewButton and not wizardFrame.pages[5]:IsShown())
     local transferTab = wizardFrame.progressRail.cells[6]
-    assert(transferTab.text:GetText():find(addon.L.SETUP_STAGE_ELLESMERE, 1, true)
-        and not transferTab.text:GetText():find(addon.L.ELLESMERE_HUD_VISUAL, 1, true),
+    assert(transferTab.text:GetText() == addon.L.SETUP_STAGE_ELLESMERE,
         "the progress tab must use the short product label")
-    local oldMeasure = transferTab.text.GetStringHeight
-    transferTab.text.GetStringHeight = function(self)
-        assert(self:GetHeight() == 0, "tab text must be unconstrained before measuring")
-        return 48
+    local rail = wizardFrame.progressRail
+    local placement = rail.cells[2]
+    placement.text.GetUnboundedStringWidth = function() return 142 end
+    wizardFrame:LayoutStep()
+    assert(placement.text.width >= 142 and placement.text.textScale == 1
+        and not placement.text.wordWrap and not placement.text.nonSpaceWrap and placement.text.maxLines == 1,
+        "a longer stage must get a wider tab at the normal text size")
+    for index = 1, 6 do
+        local cell = rail.cells[index]
+        cell.text.GetUnboundedStringWidth = function() return 115 end
     end
     wizardFrame:LayoutStep()
-    assert(transferTab:GetHeight() >= 60 and transferTab.text:GetHeight() == 48,
-        "the progress rail must reserve the full wrapped tab height")
-    transferTab.text.GetStringHeight = oldMeasure
+    assert(rail:GetHeight() == 30 and transferTab.text.textScale < 1
+        and transferTab.text.width >= 115 * transferTab.text.textScale
+        and math.abs(transferTab.points.TOPLEFT.x + transferTab:GetWidth() - rail:GetWidth()) < 0.01,
+        "long translated labels must fit on one line within the full rail")
+    for index = 1, 6 do rail.cells[index].text.GetUnboundedStringWidth = nil end
+    wizardFrame:LayoutStep()
+    assert(transferTab.text.textScale == 1, "the next layout must restore the base tab text scale")
     previewButton.scripts.OnClick()
     assert(reopen and not wizardFrame:IsShown())
     reopen()
