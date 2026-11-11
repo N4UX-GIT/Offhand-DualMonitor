@@ -197,6 +197,24 @@ local function SerializedMenuOrigin(context, point, uiScale)
         x + anchor.offsetX - dx + width, y + anchor.offsetY - dy + height)
 end
 
+local function SerializedMenuOrigin(context, point, uiScale)
+    local entry = FindSystem(context.transferLayout or context.generated, {system = "MicroMenu"})
+    local anchor = entry and entry.anchorInfo
+    if not anchor or entry.anchorInfo2 or (anchor.relativeTo and anchor.relativeTo ~= "UIParent")
+        or not points[anchor.point] or not points[anchor.relativePoint]
+        or not PublicNumber(anchor.offsetX) or not PublicNumber(anchor.offsetY) then return end
+    local frame = _G.MicroMenuContainer
+    local scale = Scale(frame)
+    if not scale or not frame.GetWidth or not frame.GetHeight then return end
+    local width, height = frame:GetWidth(), frame:GetHeight()
+    if not PublicNumber(width) or not PublicNumber(height) or width <= 0 or height <= 0 then return end
+    width, height = width * scale / uiScale, height * scale / uiScale
+    local x, y = PointOrigin(anchor.relativePoint, 0, 0, context.rect.screenWidth, context.rect.screenHeight)
+    local dx, dy = PointOrigin(anchor.point, 0, 0, width, height)
+    return PointOrigin(point, x + anchor.offsetX - dx, y + anchor.offsetY - dy,
+        x + anchor.offsetX - dx + width, y + anchor.offsetY - dy + height)
+end
+
 local function Position(context, map, target)
     local raw = FindSystem(context.source, map)
     local generated = FindSystem(context.generated, map)
@@ -291,6 +309,104 @@ local function ElementName(eui, key)
     return element and element.label or key
 end
 
+local function GamepadMinimapObstacles(eui, uiScale)
+    local obstacles = {}
+    for _, map in ipairs(Mappings(eui)) do
+        if map.folder == actionBars and not ElementHidden(eui, map.key) then
+            local bounds = FrameBounds(ElementFrame(eui, map.key), uiScale)
+            if bounds then
+                bounds.key = map.key
+                obstacles[#obstacles + 1] = bounds
+            end
+        end
+    end
+    for _, name in ipairs({"BuffFrame", "DebuffFrame"}) do
+        local frame = _G[name]
+        if frame and frame.IsVisible and not (frame.IsForbidden and frame:IsForbidden()) and frame:IsVisible() then
+            local bounds = FrameBounds(frame, uiScale)
+            if bounds then obstacles[#obstacles + 1] = bounds end
+        end
+    end
+    return obstacles
+end
+
+local frameClearance = 8
+
+local function Overlaps(left, bottom, group, obstacle)
+    return left < obstacle.left + obstacle.width + frameClearance and left > obstacle.left - group.width - frameClearance
+        and bottom < obstacle.bottom + obstacle.height + frameClearance
+        and bottom > obstacle.bottom - group.height - frameClearance
+end
+
+local function ClearsObstacles(left, bottom, group, obstacles, members)
+    for _, obstacle in ipairs(obstacles) do
+        if not members[obstacle.key] and Overlaps(left, bottom, group, obstacle) then
+            return false
+        end
+    end
+    return true
+end
+
+local function ClearPosition(left, bottom, group, rect, obstacles, members)
+    if ClearsObstacles(left, bottom, group, obstacles, members) then return left, bottom end
+    local xs, ys = {left}, {bottom}
+    -- Any nearest clear position keeps a preferred axis or touches a padded
+    -- obstacle edge. Check combinations to fit between several frames.
+    for _, obstacle in ipairs(obstacles) do
+        if not members[obstacle.key] then
+            xs[#xs + 1] = obstacle.left - group.width - frameClearance
+            xs[#xs + 1] = obstacle.left + obstacle.width + frameClearance
+            ys[#ys + 1] = obstacle.bottom - group.height - frameClearance
+            ys[#ys + 1] = obstacle.bottom + obstacle.height + frameClearance
+        end
+    end
+    local bestX, bestY, bestDistance
+    for _, x in ipairs(xs) do
+        if x >= rect.left and x <= rect.right - group.width then
+            for _, y in ipairs(ys) do
+                local distance = (x - left) ^ 2 + (y - bottom) ^ 2
+                if y >= rect.bottom and y <= rect.top - group.height and (not bestDistance or distance < bestDistance)
+                    and ClearsObstacles(x, y, group, obstacles, members) then
+                    bestX, bestY, bestDistance = x, y, distance
+                end
+            end
+        end
+    end
+    return bestX or left, bestY or bottom
+end
+
+local function PlaceGroup(row, bounds, group, rect, ratio, obstacles, members)
+    if group.width > rect.width or group.height > rect.height then
+        row.position, row.proposed = nil, nil
+        return
+    end
+    local dx, dy = row.proposed.left - bounds.left, row.proposed.bottom - bounds.bottom
+    local left = math.max(rect.left, math.min(group.left + dx, rect.right - group.width))
+    local bottom = math.max(rect.bottom, math.min(group.bottom + dy, rect.top - group.height))
+    if obstacles then left, bottom = ClearPosition(left, bottom, group, rect, obstacles, members) end
+    dx, dy = left - group.left, bottom - group.bottom
+    row.position.x = row.position.x + (bounds.left + dx - row.proposed.left) * ratio
+    row.position.y = row.position.y + (bounds.bottom + dy - row.proposed.bottom) * ratio
+    row.proposed.left, row.proposed.bottom = bounds.left + dx, bounds.bottom + dy
+    row.groupProposed = {left = left, bottom = bottom, width = group.width, height = group.height}
+end
+
+local function FitDefaultFocus(row, targetRow, rect)
+    local focus = row.groupProposed
+    local target = targetRow and (targetRow.groupProposed or targetRow.groupCurrent or targetRow.current)
+    if not focus or not target or not Overlaps(focus.left, focus.bottom, focus, target) then return end
+    -- Keep the stock horizontal relationship if the wider replacement fits.
+    local left, bottom = target.left + target.width + frameClearance, focus.bottom
+    if left + focus.width > rect.right then
+        left, bottom = focus.left, target.bottom + target.height + frameClearance
+    end
+    if left < rect.left or left + focus.width > rect.right or bottom + focus.height > rect.top then return end
+    local dx, dy = left - focus.left, bottom - focus.bottom
+    row.position.x, row.position.y = row.position.x + dx, row.position.y + dy
+    row.proposed.left, row.proposed.bottom = row.proposed.left + dx, row.proposed.bottom + dy
+    focus.left, focus.bottom = left, bottom
+end
+
 local function GroupBounds(eui, key, bounds, uiScale)
     local anchors = EllesmereUIDB and EllesmereUIDB.unlockAnchors
     if eui.IsUnlockAnchored(key) then
@@ -354,23 +470,9 @@ local function GroupBounds(eui, key, bounds, uiScale)
             i = i + 1
         end
     end
-    return group, #keys > 1
+    return group, #keys > 1, nil, nil, members
 end
 
-local function PlaceGroup(row, bounds, group, rect, ratio)
-    if group.width > rect.width or group.height > rect.height then
-        row.position, row.proposed = nil, nil
-        return
-    end
-    local dx, dy = row.proposed.left - bounds.left, row.proposed.bottom - bounds.bottom
-    local left = math.max(rect.left, math.min(group.left + dx, rect.right - group.width))
-    local bottom = math.max(rect.bottom, math.min(group.bottom + dy, rect.top - group.height))
-    dx, dy = left - group.left, bottom - group.bottom
-    row.position.x = row.position.x + (bounds.left + dx - row.proposed.left) * ratio
-    row.position.y = row.position.y + (bounds.bottom + dy - row.proposed.bottom) * ratio
-    row.proposed.left, row.proposed.bottom = bounds.left + dx, bounds.bottom + dy
-    row.groupProposed = {left = left, bottom = bottom, width = group.width, height = group.height}
-end
 
 local function GetWorkspaceRect()
     local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
@@ -421,7 +523,8 @@ function Transfer:Preview(direction)
     if (direction == "ellesmere" or direction == "blizzard") and not context.generated then
         context.block = "ELLESMERE_HUD_NEED_NATIVE"
     end
-    local rows = {}
+    local minimapObstacles = context.controller and direction ~= "blizzard" and uiScale and GamepadMinimapObstacles(eui, uiScale)
+    local rows, targetRow = {}
     for _, map in ipairs(Mappings(eui)) do
         local destination = rect
         if map.fitFallback and rect.width > 32 and rect.height > 32 then
@@ -433,11 +536,12 @@ function Transfer:Preview(direction)
         if not map.optional or (frame and not ElementHidden(eui, map.key)) then
             local bounds = uiScale and FrameBounds(frame, uiScale)
             row.current = bounds
-            local group
+            local group, members
             if direction ~= "blizzard" then
-                group, row.linkedGroup, row.reason, row.reasonArgs = GroupBounds(eui, map.key, bounds, uiScale)
+                group, row.linkedGroup, row.reason, row.reasonArgs, members = GroupBounds(eui, map.key, bounds, uiScale)
                 if row.linkedGroup then row.groupCurrent = group end
             end
+            local obstacles = map.folder == minimap and minimapObstacles
             if context.controller and map.folder == actionBars then
                 row.reason = "ELLESMERE_HUD_NATIVE_PAD"
             elseif not frame then
@@ -449,7 +553,8 @@ function Transfer:Preview(direction)
                 and (group.width > destination.width or group.height > destination.height) then
                 row.reason = "ELLESMERE_HUD_GROUP_TOO_LARGE"
             elseif direction == "fit" and bounds then
-                if Fits(group, rect) then
+                if Fits(group, rect) and (not obstacles
+                    or ClearsObstacles(group.left, group.bottom, group, obstacles, members)) then
                     row.reason = "ELLESMERE_HUD_KEEP"
                 elseif group.width <= destination.width and group.height <= destination.height then
                     local left = math.max(destination.left, math.min(bounds.left, destination.right - bounds.width))
@@ -457,7 +562,7 @@ function Transfer:Preview(direction)
                     row.proposed = {left = left, bottom = bottom, width = bounds.width, height = bounds.height}
                     local ratio = ProfileOffsetScale(map, Scale(frame), uiScale)
                     row.position = {point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = left * ratio, y = bottom * ratio}
-                    PlaceGroup(row, bounds, group, destination, ratio)
+                    PlaceGroup(row, bounds, group, destination, ratio, obstacles, members)
                 end
             elseif direction == "blizzard" and bounds then
                 local entry = FindSystem(context.generated, map)
@@ -476,7 +581,12 @@ function Transfer:Preview(direction)
                     local width, height = bounds and bounds.width or 0, bounds and bounds.height or 0
                     local dx, dy = PointOrigin(row.position.point, 0, 0, width, height)
                     row.proposed = {left = x - dx, bottom = y - dy, width = width, height = height}
-                    PlaceGroup(row, bounds, group, destination, ProfileOffsetScale(map, Scale(frame), uiScale))
+                    PlaceGroup(row, bounds, group, destination, ProfileOffsetScale(map, Scale(frame), uiScale),
+                        obstacles, members)
+                    if context.controller and map.key == "focus" and context.transferDefaults
+                        and context.transferDefaults[FindSystem(context.transferLayout, map)] then
+                        FitDefaultFocus(row, targetRow, rect)
+                    end
                 elseif map.fitFallback and bounds and Fits(group, rect) then
                     row.reason = "ELLESMERE_HUD_KEEP"
                 elseif map.fitFallback and bounds and group.width <= destination.width and group.height <= destination.height then
@@ -488,10 +598,11 @@ function Transfer:Preview(direction)
                     local ratio = ProfileOffsetScale(map, Scale(frame), uiScale)
                     row.proposed = {left = left, bottom = bottom, width = bounds.width, height = bounds.height}
                     row.position = {point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = left * ratio, y = bottom * ratio}
-                    PlaceGroup(row, bounds, group, destination, ratio)
+                    PlaceGroup(row, bounds, group, destination, ratio, obstacles, members)
                 end
             end
             if not (row.position or row.anchor or row.reason) then row.reason = "ELLESMERE_HUD_NO_ANCHOR" end
+            if map.key == "target" then targetRow = row end
             rows[#rows + 1] = row
         end
     end

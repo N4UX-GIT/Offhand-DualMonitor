@@ -294,8 +294,8 @@ assert(layoutAdded == 4 and activated == nil and #saved.layouts == 1 and saveCou
     "generated custom layout did not use Blizzard's one-save layout-added transaction")
 local generated = saved.layouts[1]
 assert(generated.systems[1].anchorInfo.offsetX == 720
-        and generated.systems[1].anchorInfo.offsetY == -656,
-    "the default Damage Meter was not translated and inset below Mainhand's top region")
+        and generated.systems[1].anchorInfo.offsetY == -560,
+    "the default Damage Meter must keep its preset offset from Mainhand's top region")
 assert(generated.systems[2].anchorInfo.point == "BOTTOM"
         and generated.systems[2].anchorInfo.offsetX == 820
         and generated.systems[2].anchorInfo.offsetY == 43,
@@ -334,12 +334,12 @@ assert(generated.systems[12].anchorInfo.offsetX == 0
         and generated.systems[12].isInDefaultPosition == true,
     "the Forever MultiCast/Class bar was moved away from its safe source position")
 assert(generated.systems[13].anchorInfo.offsetX == 0
-        and generated.systems[13].anchorInfo.offsetY == -1184,
-    "the default Minimap and its system-relative Buff row were not inset from Mainhand's top edge")
+        and generated.systems[13].anchorInfo.offsetY == -1120,
+    "the default Minimap must keep its preset offset from Mainhand's top edge")
 assert(generated.systems[14].anchorInfo.relativeTo == "MinimapCluster"
         and generated.systems[14].anchorInfo.offsetX == -8
-        and generated.systems[14].anchorInfo.offsetY == -96,
-    "the default keyboard Buff Frame was not inset further without breaking its native relationship")
+        and generated.systems[14].anchorInfo.offsetY == 0,
+    "the default keyboard Buff Frame must retain its native relationship")
 assert(preset.systems[1].anchorInfo.offsetX == 0 and preset.systems[1].anchorInfo.offsetY == 0,
     "the source preset was mutated")
 assert(OffhandCharDB.mainhandLayout.sourcePreset
@@ -398,7 +398,7 @@ assert(saveCount == 3,
     "layout updates must save once and must not resubmit the payload after activation")
 generated = saved.layouts[2]
 assert(generated.systems[1].anchorInfo.offsetX == -720
-        and generated.systems[1].anchorInfo.offsetY == -656,
+        and generated.systems[1].anchorInfo.offsetY == -560,
     "layout update drifted instead of rebuilding from its source")
 
 -- Forever may expose the native post-save layout-added transaction without a
@@ -820,6 +820,12 @@ assert(addon.Mainhand:PromptReload(true)
     "Forever keyboard HUD reload must use the visible-parent callback path")
 assert(StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.text:find(addon.L.SETUP_REVIEW_HUD, 1, true),
     "the calibration reload prompt must show the final HUD review")
+addon.isForever = false
+assert(addon.Mainhand:PromptReload()
+        and type(StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.OnAccept) == "function"
+        and StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.offhandAcceptBeforeHide == true
+        and reloadCalls == 0,
+    "Forever keyboard HUD reload must use the visible-parent callback path")
 addon.isForever = false
 assert(addon.Mainhand:PromptReload()
         and type(StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.OnAccept) == "function",
@@ -1548,6 +1554,47 @@ assert(saved.layouts[1].systems[2].anchorInfo.relativeTo == "UIParent"
 assert(nativeGamepadSystems[2].anchorInfo.relativeTo == "StatusTrackingBarManager"
         and nativeGamepadSystems[5].anchorInfo.offsetX == 0,
     "native Gamepad source preset must remain unchanged")
+
+-- The actual Gamepad preset lacks the keyboard MainBar entry, so minimap
+-- and unit-frame placement must run without the keyboard refinement path.
+local oldUnits, oldUnitSystem = Enum.EditModeUnitFrameSystemIndices, Enum.EditModeSystem.UnitFrame
+Enum.EditModeSystem.UnitFrame = 80
+Enum.EditModeUnitFrameSystemIndices = {Player = 0, Target = 1, Focus = 2}
+local firstUnit = #nativeGamepadSystems + 1
+for index, anchor in ipairs({
+    {point = "BOTTOMRIGHT", offsetX = -185, offsetY = 295},
+    {point = "BOTTOMLEFT", offsetX = 185, offsetY = 295},
+    {point = "BOTTOMLEFT", offsetX = 386, offsetY = 316},
+}) do
+    anchor.relativeTo, anchor.relativePoint = "UIParent", "BOTTOM"
+    nativeGamepadSystems[firstUnit + index - 1] = {
+        system = Enum.EditModeSystem.UnitFrame, systemIndex = index - 1, isInDefaultPosition = true,
+        anchorInfo = anchor,
+    }
+end
+local mapIndex
+for index, entry in ipairs(nativeGamepadSystems) do
+    if entry.system == Enum.EditModeSystem.Minimap then mapIndex = index; break end
+end
+assert(mapIndex, "the Gamepad fixture needs a default minimap system")
+nativeGamepadSystems[mapIndex].anchorInfo.offsetX, nativeGamepadSystems[mapIndex].anchorInfo.offsetY = 0, 0
+assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+local gamepadGenerated = saved.layouts[1].systems
+local gamepadRect = addon.Mainhand.rect
+assert(gamepadGenerated[mapIndex].anchorInfo.offsetX == gamepadRect.right - UIParent:GetWidth()
+    and gamepadGenerated[mapIndex].anchorInfo.offsetY == gamepadRect.top - UIParent:GetHeight(),
+    "the native Gamepad minimap must use the top-right of Mainhand")
+local player, target, focus = gamepadGenerated[firstUnit].anchorInfo,
+    gamepadGenerated[firstUnit + 1].anchorInfo, gamepadGenerated[firstUnit + 2].anchorInfo
+local centerShift = (gamepadRect.left + gamepadRect.right - UIParent:GetWidth()) / 2
+assert(player.point == "BOTTOMRIGHT" and target.point == "BOTTOMLEFT" and focus.point == "BOTTOMLEFT"
+    and player.offsetX == centerShift - 185 and target.offsetX == centerShift + 185
+    and focus.offsetX == centerShift + 386 and player.offsetY == gamepadRect.bottom + 295
+    and target.offsetY == player.offsetY and focus.offsetY == gamepadRect.bottom + 316,
+    "the native Gamepad unit frames must retain the preset's spacing and focus beside target")
+assert(nativeGamepadSystems[firstUnit].anchorInfo.offsetY == 295,
+    "generating a Gamepad layout must not write the built-in unit-frame anchors")
+Enum.EditModeUnitFrameSystemIndices, Enum.EditModeSystem.UnitFrame = oldUnits, oldUnitSystem
 EditModePresetLayoutManager.presetLayoutInfo[1].systems = syntheticGamepadSystems
 
 -- A customized Forever Party entry can be relative to another Edit Mode
@@ -2080,6 +2127,28 @@ assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
 assert(#saved.layouts == 1 and saved.layouts[1].systems[2].anchorInfo.offsetX == firstRowX
         and saved.layouts[1].systems[2].anchorInfo.offsetY == firstRowY,
     "rebuilds must use serialized relationships and must not drift with stale live anchors")
+secondarySource.systems[2].anchorInfo.bottomBarOffsetX = 22
+secondarySource.systems[3].anchorInfo.bottomBarOffsetX = 606
+secondarySource.systems[3].anchorInfo.bottomBarExcludeFromStackIncrement = true
+OffhandCharDB, OffhandDB = {}, {}
+layoutData = {activeLayout=1,layouts={}}
+assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+local stockRow2, stockRow3 = saved.layouts[1].systems[2].anchorInfo, saved.layouts[1].systems[3].anchorInfo
+assert(stockRow2.offsetY == stockRow3.offsetY
+        and math.abs((stockRow3.offsetX - 454*1.1/2) - (stockRow2.offsetX - 454*0.8/2) - (606 - 22)) < 0.01,
+    "the default secondary bars must retain Blizzard's side-by-side offsets when they fit")
+local wideMetrics = metrics
+metrics = {gameLeft=0,gameRight=900,gameBottom=0,gameTop=1440,isSpanned=true}
+addon.Mainhand:Update("narrow-secondary-bars")
+OffhandCharDB, OffhandDB = {}, {}
+layoutData = {activeLayout=1,layouts={}}
+assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+local narrowRow2, narrowRow3 = saved.layouts[1].systems[2].anchorInfo, saved.layouts[1].systems[3].anchorInfo
+assert(narrowRow3.offsetY > narrowRow2.offsetY + 35*0.8
+        and narrowRow3.offsetX + 454*1.1/2 <= metrics.gameRight,
+    "a narrow Mainhand must stack the secondary bar without clipping it")
+metrics = wideMetrics
+addon.Mainhand:Update("restore-secondary-bar-fixture")
 secondarySource.systems[2].isInDefaultPosition = false
 secondarySource.systems[2].anchorInfo = {point="LEFT",relativeTo="OtherSystem",
     relativePoint="RIGHT",offsetX=77,offsetY=88}
@@ -2366,6 +2435,7 @@ MainActionBar:SetPoint("BOTTOMRIGHT",UIParent,"BOTTOM",-4.5,-4)
 MicroMenuContainer=frame("MicroMenuContainer");MicroMenuContainer:SetSize(200,40)
 MultiBarRight=frame("MultiBarRight");MultiBarRight:SetSize(40,480)
 MultiBarLeft=frame("MultiBarLeft");MultiBarLeft:SetSize(40,480)
+RIGHT_ACTION_BAR_DEFAULT_OFFSET_X, RIGHT_ACTION_BAR_DEFAULT_OFFSET_Y, RIGHT_ACTION_BAR_DEFAULT_PADDING_X = -5, -77, 0
 C_EditMode.SaveLayouts=function(data) layoutData=copyTable(data) end
 C_EditMode.OnLayoutAdded=function(id) layoutData.activeLayout=id end
 C_EditMode.SetActiveLayout=function(id) layoutData.activeLayout=id end
@@ -2421,7 +2491,7 @@ for _,eui in ipairs({false,true}) do
   if eui then
    local rows=addon.EllesmereLayout:Preview("ellesmere")
    local a,b=rows[6].proposed,rows[7].proposed
-   assert(a and b and b.left+b.width<=a.left-7.99,
+   assert(a and b and b.left+b.width<=a.left-4.99,
     case.name..": replacement right bars must have separate columns at their actual scales")
    for _,bounds in ipairs({a,b}) do
     assert(bounds.left>=case.l and bounds.left+bounds.width<=case.r
@@ -2437,7 +2507,8 @@ for _,eui in ipairs({false,true}) do
   if not eui then
    assert(not overlap,case.name..": native right bars still overlap")
    local width=40*MultiBarRight.scale
-   assert(b.offsetX<=a.offsetX-width-7.99,case.name..": native right columns ignore effective width")
+   assert(math.abs(a.offsetX - (case.r - 5)) < 0.01 and math.abs(a.offsetY - ((case.b + case.t)/2 - 77)) < 0.01
+    and b.offsetX<=a.offsetX-width-4.99,case.name..": native right columns must keep their stock spacing")
   else
    assert(generated.systems[3].isInDefaultPosition and generated.systems[4].isInDefaultPosition,
     "generation must preserve external native ownership while the transfer uses a projected copy")
@@ -2447,6 +2518,7 @@ for _,eui in ipairs({false,true}) do
  end
  end
 end
+RIGHT_ACTION_BAR_DEFAULT_OFFSET_X, RIGHT_ACTION_BAR_DEFAULT_OFFSET_Y, RIGHT_ACTION_BAR_DEFAULT_PADDING_X = nil, nil, nil
 print("PASS: native generation and EllesmereUI projection across eight topologies and three bar scales")
 end
 

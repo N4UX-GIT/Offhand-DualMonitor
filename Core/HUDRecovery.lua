@@ -357,6 +357,16 @@ function Recovery.Install(HUD)
             and metrics.topologyStatus == "MISMATCH" or false
     end
 
+    function HUD:IsForeverLayoutRecoveryHandlingSpan(metrics)
+        if not UsesForeverEditMode() then return false end
+        if self.foreverRecoveryPromptShown then return true end
+        if not IsForeverSingleScreenRecovery(metrics) then return false end
+        -- The recovery prompt includes the span instructions. Keep the
+        -- separate notice out while waiting and after the player has chosen.
+        return self.foreverMismatchConfirmationPending or self.foreverMismatchDeclined
+            or (type(OffhandCharDB) == "table" and type(OffhandCharDB.foreverEditModeRecovery) == "table")
+    end
+
     local function ScheduleForeverRecoveryRetry(self, delay)
         if not C_Timer or not C_Timer.After or self.foreverRecoveryRetryPending then return end
         self.foreverRecoveryRetryPending = true
@@ -370,18 +380,31 @@ function Recovery.Install(HUD)
     local function ScheduleForeverMismatchConfirmation(self)
         if not C_Timer or not C_Timer.After or self.foreverMismatchConfirmationPending then return end
         self.foreverMismatchConfirmationPending = true
-        C_Timer.After(FOREVER_MISMATCH_GRACE_SECONDS, function()
+        local function ConfirmMismatch()
             self.foreverMismatchConfirmationPending = nil
             local current = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
             if IsForeverSingleScreenRecovery(current) then
                 self.foreverMismatchConfirmed = true
                 self:UpdateForeverRecoveryLayout(current)
+                -- The player may have changed Edit Mode layouts during the
+                -- grace period. Release display guidance if recovery no longer applies.
+                if not self:IsForeverLayoutRecoveryHandlingSpan(current)
+                    and not InCombatLockdown() and Offhand.RefreshCompanionNoticeState then
+                    Offhand:RefreshCompanionNoticeState(current)
+                end
             else
                 self.foreverMismatchConfirmed = nil
                 self.foreverMismatchDeclined = nil
                 if Offhand.HideForeverLayoutRecoveryPrompt then
                     Offhand:HideForeverLayoutRecoveryPrompt("fallback")
                 end
+            end
+        end
+        C_Timer.After(FOREVER_MISMATCH_GRACE_SECONDS, function()
+            if InCombatLockdown() and Offhand.RunOrQueueCombat then
+                Offhand:RunOrQueueCombat(ConfirmMismatch)
+            else
+                ConfirmMismatch()
             end
         end)
     end
@@ -446,8 +469,9 @@ function Recovery.Install(HUD)
             if activeID == tonumber(recovery.restoreLayoutID)
                 and self.foreverRecoveryPromptShown ~= "fallback" then
                 self.foreverRecoveryPromptShown = "fallback"
-                if Offhand.ShowForeverLayoutRecoveryPrompt then
-                    Offhand:ShowForeverLayoutRecoveryPrompt("fallback", recovery.restoreLayoutName, fallbackName)
+                if Offhand.ShowForeverLayoutRecoveryPrompt
+                    and Offhand:ShowForeverLayoutRecoveryPrompt("fallback", recovery.restoreLayoutName, fallbackName, metrics) == false then
+                    self.foreverRecoveryPromptShown = nil
                 end
             end
             return
@@ -492,8 +516,9 @@ function Recovery.Install(HUD)
             end
             if self.foreverRecoveryPromptShown ~= "restore" then
                 self.foreverRecoveryPromptShown = "restore"
-                if Offhand.ShowForeverLayoutRecoveryPrompt then
-                    Offhand:ShowForeverLayoutRecoveryPrompt("restore", recovery.restoreLayoutName, fallbackName)
+                if Offhand.ShowForeverLayoutRecoveryPrompt
+                    and Offhand:ShowForeverLayoutRecoveryPrompt("restore", recovery.restoreLayoutName, fallbackName) == false then
+                    self.foreverRecoveryPromptShown = nil
                 end
             end
         end

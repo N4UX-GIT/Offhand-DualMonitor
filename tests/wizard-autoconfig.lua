@@ -104,7 +104,7 @@ function CreateFrame(kind, name, parent, template)
     function f:IsShown() return self.shown end
     function f:SetText(t) self.text = t end
     function f:GetFontString()
-        if not f._fontString then f._fontString = { SetWidth = function(s, width) s.width = width end, SetWordWrap = function(s, enabled) s.wordWrap = enabled end, SetTextColor = function() end } end
+        if not f._fontString then f._fontString = { SetPoint = function() end, SetWidth = function(s, width) s.width = width end, SetWordWrap = function(s, enabled) s.wordWrap = enabled end, SetTextColor = function() end } end
         return f._fontString
     end
     function f:GetText() return self.text end
@@ -124,12 +124,15 @@ function CreateFrame(kind, name, parent, template)
         if self.scripts["OnValueChanged"] then self.scripts["OnValueChanged"](self, v) end
     end
     function f:GetValue() return self.val end
+    function f:SetScale(value) self.scale=value end
+    function f:SetAlpha(value) self.alpha=value end
+    function f:GetScale() return self.scale or 1 end
     function f:SetBackdrop() end
     function f:SetBackdropColor() end
     function f:SetBackdropBorderColor() end
     function f:SetThumbTexture() end
     function f:CreateTexture()
-        local t = { SetAllPoints = function() end, SetColorTexture = function() end, SetTexture = function() end, SetVertexColor = function() end, SetSize = function() end, SetPoint = function() end }
+        local t = { Hide=function()end, Show=function()end, ClearAllPoints=function()end, SetAllPoints = function() end, SetColorTexture = function() end, SetTexture = function() end, SetVertexColor = function() end, SetSize = function() end, SetPoint = function() end }
         return t
     end
     function f:CreateFontString(layer, sublayer, template)
@@ -284,6 +287,8 @@ assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 assert(loadfile("Locales/enUS.lua"))("Offhand", addon)
 assert(loadfile("UI/Themes.lua"))("Offhand", addon)
 assert(loadfile("UI/Controls.lua"))("Offhand", addon)
+assert(loadfile("Core/WorkspaceScale.lua"))("Offhand", addon)
+assert(loadfile("UI/WorkspaceScaleControls.lua"))("Offhand", addon)
 assert(loadfile("Core/TopologyDetection.lua"))("Offhand", addon)
 assert(loadfile("UI/OptionsActions.lua"))("Offhand", addon)
 assert(loadfile("Core/MapScale.lua"))("Offhand", addon)
@@ -403,6 +408,140 @@ assert(independentKind == "INDEPENDENT"
     "configured upgrades without a remembered canvas must offer explicit recovery")
 addon.ManualCanvas.GetDiagnostics = originalManualDiagnostics
 StaticPopup_Show = originalCompanionStaticPopupShow
+
+do
+    local oldAccount, oldCharacter, oldEditMode = OffhandDB, OffhandCharDB, C_EditMode
+    local oldForever, oldGetMetrics, oldAfter = addon.isForever, addon.Viewport.GetMetrics, C_Timer.After
+    local oldHide, oldCombat = StaticPopup_Hide, InCombatLockdown
+    local oldMainhand, oldEnum = addon.Mainhand, Enum
+    local handoff = "OFFHAND_COMPANION_HANDOFF_NOTICE"
+    local fallback = "OFFHAND_FOREVER_SINGLE_SCREEN_LAYOUT"
+    local restore = "OFFHAND_FOREVER_RESTORE_LAYOUT"
+    local missing = { topologyStatus = "MISMATCH", manualCanvasState = "EXACT_REQUIRED", isSpanned = false }
+    local spanned = { topologyStatus = "READY", companionTopology = true, isSpanned = true }
+    local metrics = missing
+    local layout = { activeLayout = 4, layouts = {{ layoutName = "Saved Offhand" }} }
+    local visible, shown, timers = {}, {}, {}
+    OffhandDB = { onboarding = { setupComplete = true, setupMethod = "COMPANION" } }
+    OffhandCharDB = { foreverEditModeLayoutID = 4, foreverEditModeLayoutName = "Saved Offhand" }
+    addon.isForever = true
+    addon.Viewport.GetMetrics = function() return metrics end
+    C_EditMode = {
+        GetLayouts = function() return layout end,
+        SetActiveLayout = function(id) layout.activeLayout = id end,
+    }
+    C_Timer.After = function(_, fn) timers[#timers + 1] = fn end
+    StaticPopup_Show = function(key, layoutName)
+        visible[key] = true
+        shown[#shown + 1] = key
+        if key == fallback then assert(layoutName == "Saved Offhand") end
+    end
+    StaticPopup_Hide = function(key) visible[key] = nil end
+    local function Refresh()
+        addon.HUD:UpdateForeverRecoveryLayout(metrics)
+        addon:RefreshCompanionNoticeState(metrics)
+    end
+    local function RunTimer()
+        assert(#timers == 1)
+        table.remove(timers, 1)()
+    end
+
+    Refresh()
+    assert(#shown == 0, "the Companion notice must wait while Forever checks for a returning span")
+    metrics = spanned
+    Refresh()
+    RunTimer()
+    assert(#shown == 0, "a span that returns during the grace period needs no popup")
+
+    metrics = missing
+    Refresh()
+    InCombatLockdown = function() return true end
+    RunTimer()
+    assert(#shown == 0, "recovery must wait if the grace period ends during combat")
+    InCombatLockdown = oldCombat
+    for _, frame in ipairs(frames) do
+        if frame.name == "OffhandEventFrame" then frame.scripts.OnEvent(frame, "PLAYER_REGEN_ENABLED") end
+    end
+    assert(#shown == 1 and shown[1] == fallback and layout.activeLayout == 4,
+        "unspanned login must show one prompt and wait for a click before selecting Modern")
+    local copy = StaticPopupDialogs[fallback].text
+    assert(copy:find("Span WoW Now", 1, true) and copy:find("/reload", 1, true),
+        "the combined prompt must explain how to reapply the Companion span")
+    StaticPopup_Hide(fallback)
+    StaticPopupDialogs[fallback].OnAccept()
+    RunTimer()
+    Refresh()
+    assert(#shown == 1 and layout.activeLayout == 1,
+        "choosing Modern must keep the single-screen session free of another span prompt")
+    metrics = spanned
+    Refresh()
+    assert(#shown == 2 and shown[2] == restore, "the returning span must offer the saved layout")
+    StaticPopup_Hide(restore)
+    StaticPopupDialogs[restore].OnAccept()
+    assert(layout.activeLayout == 4)
+
+    metrics = missing
+    Refresh()
+    addon:ShowCompanionNotice("HANDOFF", metrics)
+    assert(visible[handoff])
+    RunTimer()
+    assert(visible[fallback] and not visible[handoff], "late recovery must replace an open Companion notice")
+    StaticPopup_Hide(fallback)
+    StaticPopupDialogs[fallback].OnCancel()
+    local afterDecline = #shown
+    Refresh()
+    assert(#shown == afterDecline and layout.activeLayout == 4,
+        "keeping the current layout must dismiss the span prompts for this episode")
+
+    metrics = spanned
+    Refresh()
+    metrics = missing
+    Refresh()
+    layout.activeLayout = 2
+    RunTimer()
+    assert(visible[handoff] and not visible[fallback],
+        "ordinary Companion guidance must remain available when there is no saved HUD to recover")
+    addon:HideCompanionNotices()
+    metrics = spanned
+    Refresh()
+
+    addon.Mainhand = {IsNativeGamepadInterface = function() return true end}
+    Enum = {EditModePresetLayouts = {Gamepad = 2}, InputDeviceInterfaceType = {Gamepad = 1}}
+    layout.layouts[1].interfaceStyle = 1
+    layout.activeLayout = 4
+    metrics = missing
+    Refresh()
+    RunTimer()
+    assert(visible[fallback] and StaticPopupDialogs[fallback].offhandAcceptBeforeHide,
+        "native Gamepad recovery must preserve the click context until it selects the preset")
+    StaticPopup_Hide(fallback)
+    StaticPopupDialogs[fallback].OnAccept()
+    RunTimer()
+    assert(layout.activeLayout == 3, "native Gamepad recovery must select the matching preset")
+    metrics = spanned
+    Refresh()
+    assert(visible[restore] and StaticPopupDialogs[restore].offhandAcceptBeforeHide)
+    StaticPopup_Hide(restore)
+    StaticPopupDialogs[restore].OnAccept()
+    assert(layout.activeLayout == 4, "the saved Gamepad HUD must be restored by the same hardware click path")
+    addon.Mainhand, Enum = oldMainhand, oldEnum
+    layout.layouts[1].interfaceStyle = nil
+
+    OffhandDB.preferredGeometrySource = "MANUAL"
+    layout.activeLayout = 4
+    metrics = { topologyStatus = "ABSENT", manualCanvasState = "MISMATCH", isSpanned = false }
+    Refresh()
+    RunTimer()
+    assert(visible[fallback] and not StaticPopupDialogs[fallback].text:find("Span WoW Now", 1, true),
+        "manual window recovery must omit Companion steps even after switching from Companion")
+    StaticPopup_Hide(fallback)
+    StaticPopupDialogs[fallback].OnCancel()
+    metrics = spanned
+    Refresh()
+    OffhandDB, OffhandCharDB, C_EditMode = oldAccount, oldCharacter, oldEditMode
+    addon.isForever, addon.Viewport.GetMetrics, C_Timer.After = oldForever, oldGetMetrics, oldAfter
+    StaticPopup_Show, StaticPopup_Hide = originalCompanionStaticPopupShow, oldHide
+end
 
 -- Either welcome action must acknowledge the first-run guide without claiming
 -- that calibration was completed. This prevents the popup recurring on login.
@@ -674,6 +813,7 @@ end
 addon.Wizard:Open()
 
 local wizardFrame = _G["OffhandSetupWizardFrame"]
+assert(wizardFrame.regionScaleControl,"Calibration omitted the shared region sizing control")
 assert(wizardFrame ~= nil, "OffhandSetupWizardFrame must be created")
 for _, text in ipairs({wizardFrame.welcomeText,wizardFrame.topoText,wizardFrame.recomText,wizardFrame.statusText,wizardFrame.progressText}) do
     assert(text.wordWrap == true, "Wizard guidance must wrap instead of truncating native text")
@@ -1909,6 +2049,10 @@ GetCVar = originalGuideCvar
 -- ============================================================================
 -- 5. Test Options Dialog 1-Click and Wizard Integration Buttons
 -- ============================================================================
+assert(loadfile("Core/WorkspaceProfiles.lua"))("Offhand", addon)
+assert(loadfile("Core/WorkspaceRouting.lua"))("Offhand", addon)
+assert(loadfile("UI/WorkspaceOptions.lua"))("Offhand", addon)
+assert(loadfile("Core/ProcDocCompatibility.lua"))("Offhand", addon)
 local optPanel = addon.Options:CreateFloatingPanel()
 optPanel.identifyDisplaysButton.scripts.OnClick()
 assert(identifyCalls == 2, "settings must expose the same identification action")
@@ -1957,7 +2101,7 @@ assert(optPanel.enableCheck:GetChecked() == true,
     "Restored Options panel must not retain a stale unchecked master state")
 optPanel:Hide()
 -- Check the real generated card rectangles, not hardcoded expected offsets.
-for tabIndex = 1, 5 do
+for tabIndex = 1, 6 do
     local tab = optPanel["tab" .. tabIndex]
     local previousBottom = 0
     local cards = {}
@@ -1974,8 +2118,8 @@ for tabIndex = 1, 5 do
     assert(#cards > 0, "Each tab must contain cards")
 end
 assert(optPanel.autoWizardBtn ~= nil, "Options dashboard must have autoWizardBtn in top banner")
-assert(#optPanel.tabButtons == 5 and optPanel.tabButtons[1].selected,
-    "settings must expose all five pages with a persistent selected navigation state")
+assert(#optPanel.tabButtons == 6 and optPanel.tabButtons[1].selected,
+    "settings must expose all six pages with a persistent selected navigation state")
 
 optPanel.scrollFrame:SetHeight(400) -- anchored viewport height in the real client
 optPanel.scrollFrame.scripts.OnMouseWheel(optPanel.scrollFrame, -10)
@@ -2008,35 +2152,106 @@ do
         table.sort(cards, function(a,b) return select(5,a:GetPoint(1)) > select(5,b:GetPoint(1)) end)
         return cards
     end
-    local display, workspace, appearance = Sections(optPanel.tab1), Sections(optPanel.tab2), Sections(optPanel.tab3)
+    local display, monitor, appearance = Sections(optPanel.tab1), Sections(optPanel.tab2), Sections(optPanel.tab3)
     assert(display[1].sectionLabel == addon.L.CARD_LAYOUT_PRESETS
         and display[2].sectionLabel == addon.L.CARD_VIEWPORT_AR
         and display[3].sectionLabel == addon.L.CARD_SCALE_ALIGNMENT,
         "display geometry and UI size must precede secondary and advanced settings")
-    assert(workspace[1].sectionLabel == addon.L.MAP_SETTINGS
-        and workspace[2].sectionLabel == addon.L.CARD_PERSISTENCE
-        and workspace[3].sectionLabel == addon.L[addon.isForever
+    assert(monitor[1].sectionLabel == addon.L.MAP_SETTINGS
+        and monitor[2].sectionLabel == addon.L.CARD_PERSISTENCE
+        and monitor[3].sectionLabel == addon.L[addon.isForever
             and "CARD_CHARACTER_WINDOW" or "CARD_WORKSPACE_WINDOW_CONTROL"],
         "map and everyday window controls must lead the Offhand page")
     if addon.isForever then
-        assert(workspace[3]:GetHeight() == 100, "Forever must use a compact Character scale card")
-        for _, child in ipairs(workspace[3].children) do
+        assert(monitor[3]:GetHeight() == 100, "Forever must use a compact Character scale card")
+        for _, child in ipairs(monitor[3].children) do
             assert(not child.Text or child.Text:GetText() ~= addon.L.LOCK_WORKSPACE_WINDOWS,
                 "unsupported lock controls must not be created in Forever settings")
         end
     end
-    local recoveryIndex, routingIndex
-    for i,card in ipairs(workspace) do
-        if card.sectionLabel == addon.L.CARD_RECOVERY then recoveryIndex=i end
-        if card.sectionLabel == addon.L.WORKSPACE_ROUTING_TITLE then routingIndex=i end
+    assert(monitor[4].sectionLabel == addon.L.CARD_RECOVERY
+        and monitor[5].sectionLabel == addon.L.CARD_POPUPS_ALERTS,
+        "recovery and pop-up controls must have their own Offhand Monitor shortcuts")
+    local function ContainsCheckbox(card, label)
+        for _, child in ipairs(card.children) do
+            if child.Text and child.Text:GetText() == label then return child end
+        end
+        return false
     end
-    assert(not routingIndex or recoveryIndex < routingIndex,
-        "optional automatic routing must follow map, window and recovery tools")
-    assert(appearance[1].sectionLabel == addon.L.CARD_THEMES,
-        "overall appearance must precede individual workspace overrides")
+    local procDoc = ContainsCheckbox(monitor[5], addon.L.PROCDOC_MAINHAND)
+    local compactAlertsHeight = monitor[5]:GetHeight()
+    assert(ContainsCheckbox(monitor[5], addon.L.REDIRECT_POPUPS) and procDoc and not procDoc:IsShown(),
+        "the ProcDoc control must be hidden when its addon is absent")
+    do
+        local loaded, state = false, 2
+        local oldUnitGUID = UnitGUID
+        UnitGUID = function() return "Player-SettingsFixture" end
+        C_AddOns.IsAddOnLoaded = function(name)
+            return name == "ProcDoc" and loaded, name == "ProcDoc" and loaded
+        end
+        C_AddOns.GetAddOnEnableState = function(name, character)
+            assert(name == "ProcDoc" and character == "Player-SettingsFixture",
+                "visibility must use the current character's addon enable state")
+            return state
+        end
+        optPanel.scripts.OnEvent(optPanel, "ADDON_LOADED", "ProcDoc")
+        assert(not procDoc:IsShown(), "an enabled but unloaded addon must leave its option hidden")
+        loaded = true
+        optPanel.scripts.OnEvent(optPanel, "ADDON_LOADED", "ProcDoc")
+        assert(procDoc:IsShown() and monitor[5]:GetHeight() > compactAlertsHeight,
+            "a loaded and enabled ProcDoc must expand Pop-ups & alerts")
+        state = 0
+        optPanel.scripts.OnEvent(optPanel, "ADDON_LOADED", "ProcDoc")
+        assert(not procDoc:IsShown() and monitor[5]:GetHeight() == compactAlertsHeight,
+            "disabling ProcDoc must hide the control and remove its space even if still loaded")
+        C_AddOns.IsAddOnLoaded, C_AddOns.GetAddOnEnableState, UnitGUID = nil, nil, oldUnitGUID
+    end
+    if addon.isForever then
+        assert(monitor[6].sectionLabel == addon.L.CARD_CONTROLLER_CONTROLS
+            and ContainsCheckbox(monitor[6], addon.L.SHOW_GAMEPAD_DRAG_HANDLES),
+            "Forever's controller controls must have their own Offhand Monitor shortcut")
+    else
+        assert(#monitor == 5, "controller and advanced compatibility cards must follow client support")
+    end
+    assert(#appearance == 5 and appearance[1].sectionLabel == addon.L.CARD_THEMES
+        and appearance[4].sectionLabel == addon.L.CARD_USER_MEDIA
+        and appearance[5].sectionLabel == addon.L.WORKSPACE_THEMES_TITLE,
+        "Appearance must lead with global controls and end with workspace overrides")
+    local profiles = Sections(optPanel.tab4)
+    assert(#profiles == 2 and profiles[1].sectionLabel == addon.L.PROFILES_LIST_TITLE
+        and profiles[2].sectionLabel == addon.L.WORKSPACE_PROFILES_TITLE,
+        "Profiles must lead with general addon profiles and offer optional panel presets")
+    local helpCards, workspaces = Sections(optPanel.tab5), Sections(optPanel.tab6)
+    assert(#workspaces == 2 and workspaces[1].sectionLabel == addon.L.WORKSPACE_ROUTING_TITLE
+        and workspaces[2].sectionLabel == addon.L.REGION_SCALE_TITLE,
+        "Panel layout must contain panel opening rules and in-game window scale")
+    for tabIndex, cards in ipairs({display, monitor, appearance, profiles, helpCards, workspaces}) do
+        optPanel.tabButtons[tabIndex].scripts.OnClick()
+        for index, card in ipairs(cards) do
+            assert(optPanel.sectionButtons[index]:GetText() == card.sectionLabel,
+                "section shortcuts must follow the displayed order on tab " .. tabIndex)
+        end
+    end
     assert(optPanel.tabButtons[2]:GetText() == "Offhand Monitor"
-        and optPanel.tabButtons[5]:GetText() == "Help & Setup")
-    local help = Sections(optPanel.tab5)[1]
+        and optPanel.tabButtons[5]:GetText() == "Help & Setup"
+        and optPanel.tabButtons[6]:GetText() == "Panel layout"
+        and optPanel.tabButtons[6].points.TOPLEFT.y > optPanel.tabButtons[5].points.TOPLEFT.y)
+    optPanel.tabButtons[3].scripts.OnClick()
+    local themesCard = appearance[5]
+    local compactHeight = themesCard:GetHeight()
+    themesCard:SetHeight(compactHeight + 200)
+    themesCard.onSizingChanged()
+    assert(optPanel.scrollChild:GetHeight() == optPanel.tab3:GetHeight(),
+        "the open Appearance page must expose its new scroll range immediately")
+    optPanel.sectionButtons[5].scripts.OnClick()
+    local expandedOffset = optPanel.scrollFrame:GetVerticalScroll()
+    themesCard:SetHeight(compactHeight)
+    themesCard.onSizingChanged()
+    assert(optPanel.scrollChild:GetHeight() == optPanel.tab3:GetHeight()
+        and optPanel.scrollFrame:GetVerticalScroll() < expandedOffset,
+        "a compact workspace card must clamp scroll to the shorter page")
+    local help = helpCards[1]
+    assert(help.sectionLabel == addon.L.HELP_OVERVIEW_TITLE, "the setup overview must lead Help & Setup")
     local recoveryLink
     for _,child in ipairs(help.children) do
         if child.GetText and child:GetText() == addon.L.BTN_OPEN_RECOVERY then recoveryLink=child end
@@ -2625,11 +2840,12 @@ do
     OffhandCharDB = {}
     local generated, reopen, reloads
     local characterOwned = false
-    local ellesmereReview, importReload, importPrompts
+    local ellesmereReview, importReload, importPrompts, previewGamepad
     addon.EllesmereLayout = {
         IsAvailable = function() return true end,
         ShowPreview = function(_, direction, callback)
-            assert(direction == (ellesmereReview and "ellesmere" or "fit") and not wizardFrame:IsShown(),
+            assert(direction == ((previewGamepad or ellesmereReview) and "ellesmere" or "fit")
+                and not wizardFrame:IsShown(),
                 "the wizard must be hidden before the visual preview opens")
             reopen = callback
             return true
@@ -2642,7 +2858,8 @@ do
         end,
     }
     addon.Mainhand.GetEllesmereLayoutSource = function()
-        return {generated = generated, generatedActive = true, characterOwned = characterOwned}
+        return {generated = generated, generatedActive = true, characterOwned = characterOwned,
+            controller = previewGamepad}
     end
     addon.Mainhand.PromptReload = function()
         assert(not wizardFrame:IsShown() and OffhandCharDB.wizardRecoveryStep == 6)
@@ -2702,6 +2919,11 @@ do
     assert(reopen and not wizardFrame:IsShown())
     reopen()
     assert(wizardFrame:IsShown() and wizardFrame.step == 6, "closing the preview returns to the same wizard step")
+    previewGamepad = true
+    previewButton.scripts.OnClick()
+    assert(addon.Wizard:IsOpen(), "the Gamepad preview must keep automatic setup from covering the wizard")
+    reopen()
+    previewGamepad = nil
     wizardFrame.backBtn.scripts.OnClick()
     assert(wizardFrame.step == 5 and wizardFrame.finishBtn:GetText() == addon.L.BTN_NEXT)
     wizardFrame.finishBtn.scripts.OnClick()
@@ -2756,4 +2978,107 @@ do
     assert(wizardFrame.finishBtn:GetText() == addon.L.BTN_NEXT,
         "reopening the wizard before manual selection must still offer layout selection first")
     print("PASS: EllesmereUI wizard preview, native reload handoff, reuse and optional completion")
+end
+
+-- A resize event disables placement while Core's debounce is active. Recenter
+-- timers are not readiness notifications: the final layout pass must refresh
+-- the visible guide, including when combat delays settlement past both timers.
+do
+    local coreFrame
+    for _, frame in ipairs(frames) do if frame.name == "OffhandEventFrame" then coreFrame = frame end end
+    assert(coreFrame and coreFrame.scripts.OnEvent)
+    local oldTimer, oldAfter, oldCombat = C_Timer.NewTimer, C_Timer.After, InCombatLockdown
+    local oldGetCVar, oldCCVar = GetCVar, C_CVar
+    local oldMetrics, oldApply = addon.Viewport.GetMetrics, addon.ApplyFullLayout
+    local oldCanvas, oldRawMouse, oldNotice = addon.Canvas, addon.RawMouse, addon.RefreshCompanionNoticeState
+    GetCVar = function(name) if name == "gxWindow" then return "1" elseif name == "gxMaximize" then return "0" end end
+    C_CVar = nil
+    -- Reported resolutions are known; physical offsets/side are not. Exercise
+    -- both representative top-aligned portrait placements without claiming the
+    -- screenshot establishes either actual Windows arrangement.
+    local geometry = {
+        companionTopology = true, topologyStatus = "READY", companionVersionStatus = "MATCH", isSpanned = true,
+        physicalWidth = 3640, physicalHeight = 1920, screenWidth = 3640, screenHeight = 1920,
+        gameWidth = 2560, gameHeight = 1600, gameLeft = 1080, gameRight = 3640, gameBottom = 320, gameTop = 1920,
+        workspaceLeft = 0, workspaceRight = 1080, workspaceBottom = 0, workspaceTop = 1920,
+    }
+    addon.Viewport.GetMetrics = function() return geometry end
+    addon.ApplyFullLayout = function() end
+    addon.Canvas, addon.RawMouse = nil, nil
+    addon.RefreshCompanionNoticeState = function() return true end
+    local locked, pending, settle
+    InCombatLockdown = function() return locked end
+    C_Timer.NewTimer = function(_, callback) settle = callback; return {Cancel = function() end} end
+    C_Timer.After = function(_, callback) pending[#pending + 1] = callback end
+    addon:SetOnboardingSetupMethod("COMPANION")
+    for _, portraitLeft in ipairs({true, false}) do
+      geometry.gameLeft, geometry.gameRight = portraitLeft and 1080 or 0, portraitLeft and 3640 or 2560
+      geometry.workspaceLeft, geometry.workspaceRight = portraitLeft and 0 or 2560, portraitLeft and 1080 or 3640
+      for _, deferred in ipairs({false, true}) do
+        pending, locked = {}, false
+        addon.SetupPlacement:Reset()
+        onboardingFrame:SetPage(4)
+        onboardingFrame:Show()
+        if deferred then
+            onboardingFrame.scripts.OnEvent(onboardingFrame, "DISPLAY_SIZE_CHANGED")
+            coreFrame.scripts.OnEvent(coreFrame, "DISPLAY_SIZE_CHANGED")
+        else
+            coreFrame.scripts.OnEvent(coreFrame, "DISPLAY_SIZE_CHANGED")
+            onboardingFrame.scripts.OnEvent(onboardingFrame, "DISPLAY_SIZE_CHANGED")
+        end
+        if deferred then
+            -- A second scale notification brings the UI into the active
+            -- transition even if it received the original size event first.
+            onboardingFrame.scripts.OnEvent(onboardingFrame, "UI_SCALE_CHANGED")
+        end
+        assert(not onboardingFrame.actionButton.enabled and onboardingFrame.statusText:GetText():find(
+            addon.L.ONBOARD_STATUS_GEOMETRY_SETTLING, 1, true), "fixture must reproduce the disabled settling guide")
+        if deferred then
+            locked = true
+            settle()
+            for _, callback in ipairs(pending) do callback() end
+            locked = false
+            -- Guide can receive REGEN before Core drains its queued layout.
+            onboardingFrame.scripts.OnEvent(onboardingFrame, "PLAYER_REGEN_ENABLED")
+            coreFrame.scripts.OnEvent(coreFrame, "PLAYER_REGEN_ENABLED")
+        else
+            settle()
+            for _, callback in ipairs(pending) do callback() end
+        end
+        assert(not addon._displayGeometryTransitionActive, "fixture core transition must finish")
+        assert(onboardingFrame.actionButton.enabled,
+            "settled standard dual-monitor placement must re-enable Window is positioned without another event or reopening the guide")
+        assert(onboardingFrame.page == 4 and addon.SetupPlacement:GetStage() == "SPAN"
+            and not onboardingFrame.nextButton.enabled, "settlement must not acknowledge placement or bypass reload/confirmation")
+        assert(not onboardingFrame.statusText:GetText():find(addon.L.ONBOARD_STATUS_GEOMETRY_SETTLING, 1, true),
+            "completed settlement must remove the stale waiting message")
+      end
+    end
+    -- A Restore/Span cycle must also refresh the guide while retaining the
+    -- valid-geometry check on final confirmation.
+    pending = {}
+    geometry.isSpanned, geometry.topologyStatus, geometry.companionTopology = false, "MISMATCH", false
+    coreFrame.scripts.OnEvent(coreFrame, "DISPLAY_SIZE_CHANGED")
+    onboardingFrame.scripts.OnEvent(onboardingFrame, "DISPLAY_SIZE_CHANGED")
+    settle()
+    assert(not onboardingFrame.nextButton.enabled and onboardingFrame.statusText:GetText():find(
+        addon.L.ONBOARD_STATUS_TOPOLOGY_MISMATCH, 1, true), "Restore must not permit placement confirmation")
+    geometry.isSpanned, geometry.topologyStatus, geometry.companionTopology = true, "READY", true
+    coreFrame.scripts.OnEvent(coreFrame, "DISPLAY_SIZE_CHANGED")
+    onboardingFrame.scripts.OnEvent(onboardingFrame, "DISPLAY_SIZE_CHANGED")
+    settle()
+    assert(onboardingFrame.actionButton.enabled and not onboardingFrame.nextButton.enabled,
+        "respan must restore the action while still requiring the reload checkpoint")
+    pending = {}
+    coreFrame.scripts.OnEvent(coreFrame, "DISPLAY_SIZE_CHANGED")
+    onboardingFrame:Hide()
+    local hiddenStatus = onboardingFrame.statusText:GetText()
+    settle()
+    assert(not onboardingFrame:IsShown() and onboardingFrame.statusText:GetText() == hiddenStatus,
+        "geometry settlement must not reopen or update a hidden guide")
+    C_Timer.NewTimer, C_Timer.After, InCombatLockdown = oldTimer, oldAfter, oldCombat
+    GetCVar, C_CVar = oldGetCVar, oldCCVar
+    addon.Viewport.GetMetrics, addon.ApplyFullLayout = oldMetrics, oldApply
+    addon.Canvas, addon.RawMouse, addon.RefreshCompanionNoticeState = oldCanvas, oldRawMouse, oldNotice
+    print("PASS: standard 2560x1600/1080x1920 guide refreshes after settlement, combat deferral and Restore/Span")
 end

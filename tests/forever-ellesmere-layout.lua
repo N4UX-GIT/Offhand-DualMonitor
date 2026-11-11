@@ -329,12 +329,62 @@ assert(selection.generated == context.generated and selection.generatedActive an
 activeID = 1
 assert(addon.Mainhand:GetEllesmereLayoutSource().source == context.source)
 
-local gamepadPreset = {layoutName = "Gamepad", systems = {rawMinimap}}
+local gamepadPreset = {layoutName = "Gamepad", systems = {system(1, nil, "TOPRIGHT", 0, 0)}}
 EditModePresetLayoutManager.GetCopyOfPresetLayouts = function() return {context.source, gamepadPreset} end
 nativeGamepad, activeID = true, 4
 selection = addon.Mainhand:GetEllesmereLayoutSource()
 assert(selection.source == gamepadPreset and not selection.generated,
     "Gamepad preview must use its own preset while a standard layout is still active")
+
+-- Forever can serialize different settings for a replacement-owned row even
+-- when the native position is still the default. That row still needs projection.
+Enum.EditModeSystem.GamepadMainActionBar = 30
+gamepadPreset.systems[2] = system(30, nil, "BOTTOM", 0, 110)
+gamepadPreset.systems[3] = system(2, 1, "BOTTOMRIGHT", -185, 295)
+gamepadPreset.systems[4] = system(2, 2, "BOTTOMLEFT", 185, 295)
+gamepadPreset.systems[5] = system(2, 3, "BOTTOMLEFT", 386, 316)
+for index = 3, 5 do gamepadPreset.systems[index].anchorInfo.relativePoint = "BOTTOM" end
+local padMap = system(1, nil, "TOPRIGHT", 0, 0)
+padMap.isInDefaultPosition = true
+padMap.settings = {{setting = 1, value = 2}}
+local padLayout = {layoutName = "Offhand - Gamepad", systems = {
+    padMap, gamepadPreset.systems[2], gamepadPreset.systems[3], gamepadPreset.systems[4], gamepadPreset.systems[5],
+}}
+local oldGetLayouts, oldMainhandLayout = C_EditMode.GetLayouts, OffhandCharDB.mainhandLayout
+C_EditMode.GetLayouts = function() return {activeLayout = 4, layouts = {padLayout}} end
+OffhandCharDB.mainhandLayout = {sourceName = "Gamepad", generatedName = padLayout.layoutName,
+    geometrySignature = "current", controllerLayout = true}
+selection = addon.Mainhand:GetEllesmereLayoutSource()
+local projected = selection.transferLayout.systems
+assert(projected[1].anchorInfo.relativePoint == "TOPRIGHT"
+    and projected[1].anchorInfo.offsetX == 0 and projected[1].anchorInfo.offsetY == -1120,
+    "the Gamepad minimap must have an import anchor inside the short Mainhand below the void")
+assert(projected[3].anchorInfo.offsetX == 720 - 185 and projected[3].anchorInfo.offsetY == 295
+    and projected[4].anchorInfo.offsetX == 720 + 185 and projected[4].anchorInfo.offsetY == 295
+    and projected[5].anchorInfo.offsetX == 720 + 386 and projected[5].anchorInfo.offsetY == 316,
+    "the Gamepad import must preserve the preset's relative unit-frame placement")
+assert(padMap.anchorInfo.offsetY == 0 and rawMinimap.anchorInfo.offsetY == -24,
+    "Gamepad preview must leave both source layouts intact")
+registry.target = placedElement(2000, 300, 260, 90)
+local widerUnits = transfer:Preview("ellesmere")
+assert(widerUnits[4].proposed.left == 2905 and widerUnits[5].proposed.left == 3173
+    and widerUnits[5].proposed.bottom == 316,
+    "a wider replacement target must leave focus beside it when Mainhand has room")
+context.rect.right, context.rect.width = 2640, 1200
+local narrowUnits = transfer:Preview("ellesmere")
+assert(narrowUnits[5].proposed.left == 2426 and narrowUnits[5].proposed.bottom == 393,
+    "a narrow Mainhand must stack the default focus when it cannot fit to the right")
+context.rect.right, context.rect.width = 4000, 2560
+local stockFocus = padLayout.systems[5]
+padLayout.systems[5] = system(2, 3, "BOTTOMLEFT", 3000, 318)
+padLayout.systems[5].isInDefaultPosition = false
+assert(transfer:Preview("ellesmere")[5].proposed.left == 3000,
+    "fitting the stock focus must not reposition an explicit saved focus anchor")
+padLayout.systems[5], registry.target = stockFocus, nil
+padMap.isInDefaultPosition = false
+assert(addon.Mainhand:GetEllesmereLayoutSource().transferLayout.systems[1].anchorInfo.offsetY == 0,
+    "an explicit minimap position must stay available for review")
+C_EditMode.GetLayouts, OffhandCharDB.mainhandLayout = oldGetLayouts, oldMainhandLayout
 nativeGamepad = false
 
 local savedLayouts = {activeLayout = 4, layouts = {context.generated}}

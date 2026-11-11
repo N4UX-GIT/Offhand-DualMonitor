@@ -521,6 +521,19 @@ do
     addon.Viewport=oldViewport
 end
 
+do
+    local oldViewport=addon.Viewport
+    local rootWrites=0
+    addon.Viewport={GetMetrics=function()return{isSpanned=true}end,
+        ApplyGlobalScale=function()rootWrites=rootWrites+1 end}
+    local before=calls
+    addon:ApplyFullLayout(true)
+    assert(calls==before+1 and rootWrites==0,'external scale refresh must run geometry without replacing root scale')
+    addon:ApplyFullLayout()
+    assert(rootWrites==1,'ordinary layout lost its scale ownership')
+    addon.Viewport=oldViewport
+end
+
 -- Verify ADDON_LOADED initializes Canvas and SeamRedirect without recursion / stack overflow
 UIParent = {
     GetEffectiveScale = function() return 1 end,
@@ -596,6 +609,12 @@ C_Timer.NewTimer = function(delay, fn)
     return timer
 end
 local displayApplies, displayRestores = 0, 0
+local displayGuideRefreshes, previousDisplayGuide = 0, addon.Onboarding
+addon.Onboarding = {RefreshDisplayState = function()
+    assert(addon._displayGeometryTransitionActive == false,
+        "guide readiness must refresh after the transition flag is cleared")
+    displayGuideRefreshes = displayGuideRefreshes + 1
+end}
 addon.ApplyFullLayout = function() displayApplies = displayApplies + 1 end
 addon.Canvas.RestorePersistentFrames = function() displayRestores = displayRestores + 1 end
 initOnEvent(nil, "DISPLAY_SIZE_CHANGED")
@@ -606,11 +625,13 @@ assert(superseded.cancelled == true, "display debounce did not cancel the supers
 assert(addon._displayGeometryTransitionActive == true, "display transition did not suspend persistence capture")
 superseded.fn()
 assert(displayApplies == 0, "superseded display geometry pass applied a layout")
+assert(displayGuideRefreshes == 0, "superseded display generation refreshed the guide")
 finalTimer.fn()
 assert(displayApplies == 1 and displayRestores == 1,
     "settled display geometry did not apply and restore exactly once")
 assert(addon._displayGeometryTransitionActive == false,
     "display transition remained active after settled layout restore")
+assert(displayGuideRefreshes == 1, "settled display geometry must refresh the guide exactly once")
 
 -- A graphics reset can settle while combat still blocks layout writes. A later
 -- reset must invalidate work already queued by the older debounce callback.
@@ -627,11 +648,14 @@ queuedDisplayWork[1]()
 assert(displayApplies == appliesBeforeQueue and displayRestores == restoresBeforeQueue
         and addon._displayGeometryTransitionActive,
     "a superseded combat-queued resize must not restore layout or end the newer transition")
+assert(displayGuideRefreshes == 1, "stale queued geometry must not refresh guide readiness")
 queuedDisplayWork[2]()
 assert(displayApplies == appliesBeforeQueue + 1 and displayRestores == restoresBeforeQueue + 1
         and not addon._displayGeometryTransitionActive,
     "only the latest combat-queued display reset may restore the settled layout")
+assert(displayGuideRefreshes == 2, "only the latest queued transition may refresh guide readiness")
 addon.RunOrQueueCombat = originalRunOrQueueCombat
+addon.Onboarding = previousDisplayGuide
 
 -- In-engine cinematics can restore WorldFrame across the entire spanned
 -- window. Start/stop transitions must reassert only the viewport after

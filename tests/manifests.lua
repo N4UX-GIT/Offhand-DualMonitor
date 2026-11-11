@@ -169,7 +169,8 @@ assert(addonEscapeIndex and addonEscapeIndex + 1 == kerzoQuestLogIndex,
 local workspaceOptionsIndex
 for i,file in ipairs(main) do if file=="UI/WorkspaceOptions.lua" then workspaceOptionsIndex=i end end
 assert(controlsIndex and optionsActionsIndex and workspaceOptionsIndex and optionsIndex
-        and controlsIndex + 1 == optionsActionsIndex
+        and main[controlsIndex+1]=="UI/WorkspaceScaleControls.lua"
+        and controlsIndex + 2 == optionsActionsIndex
         and optionsActionsIndex + 1 == workspaceOptionsIndex
         and workspaceOptionsIndex + 1 == optionsIndex,
     "shared controls and settings actions must load immediately before Options")

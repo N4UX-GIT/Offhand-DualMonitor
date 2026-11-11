@@ -848,8 +848,35 @@ function Controls.FitCompactParagraph(fontString, text, width)
     return height
 end
 
+function Controls.CreateHelpButton(parent, title, ...)
+    local button = Controls.CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    button:SetSize(26, 24)
+    button:SetText("?")
+    local paragraphs = {...}
+    local popup
+    button:SetScript("OnClick", function()
+        local body = {}
+        for _, paragraph in ipairs(paragraphs) do
+            local text = type(paragraph) == "function" and paragraph() or paragraph
+            if type(text) == "string" and text ~= "" then body[#body + 1] = text end
+        end
+        StaticPopupDialogs.OFFHAND_SETTINGS_HELP = {
+            text = "|cffffd100%s|r\n\n%s",
+            button1 = Offhand.L.BTN_CLOSE,
+            timeout = 0, whileDead = true, hideOnEscape = true,
+        }
+        popup = Offhand:ShowPopup("OFFHAND_SETTINGS_HELP", title, table.concat(body, "\n\n"), button)
+    end)
+    button:SetScript("OnHide", function()
+        if popup and popup.popupKey == "OFFHAND_SETTINGS_HELP" and popup.data == button then popup:Hide() end
+        popup = nil
+    end)
+    if Offhand.SetTooltip then Offhand:SetTooltip(button, title) end
+    return button
+end
+
 function Controls.GetCardContentTop(card, minimum)
-    local width = math.max(1, card:GetWidth() - 24)
+    local width = math.max(1, card:GetWidth() - (card.helpButton and 52 or 24))
     card.title:SetWidth(width)
     if card.title.SetWordWrap then card.title:SetWordWrap(true) end
     return math.max(minimum or 32,

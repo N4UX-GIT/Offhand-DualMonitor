@@ -29,6 +29,7 @@ Core\UserMedia.lua
 Core\ManualCanvas.lua
 Core\WorkspaceScale.lua
 Core\WorkspaceRegions.lua
+Core\WorkspaceScale.lua
 Core\WorkspaceProfiles.lua
 Core\WorkspaceRouting.lua
 Core\Viewport.lua
@@ -97,6 +98,7 @@ Locales\zhTW.lua
 UI\Themes.lua
 UI\WorkspaceScaleControls.lua
 UI\Controls.lua
+UI\WorkspaceScaleControls.lua
 UI\OptionsActions.lua
 UI\WorkspaceOptions.lua
 UI\Options.lua

@@ -511,9 +511,10 @@ local function RefineForeverSecondaryBars(layout, rect, sourceDefaults, mainAnch
     local mw, mh = FrameSize(mainFrame, 570, 40)
     local ms = ParentScale(mainFrame)
     local mx, my = PointFractions(mainAnchor.point)
-    local center = ax + (0.5 - mx) * mw * ms
+    local mainLeft = ax - mx * mw * ms
+    local center = mainLeft + mw * ms / 2
     local bottom = ay + (1 - my) * mh * ms + statusHeight + 8
-    local refined = 0
+    local refined, firstRowRight, firstRowBottom = 0
     for _, spec in ipairs({
         {systemIndex=indices.Bar2, frame=_G.MultiBarBottomLeft},
         {systemIndex=indices.Bar3, frame=_G.MultiBarBottomRight},
@@ -524,18 +525,33 @@ local function RefineForeverSecondaryBars(layout, rect, sourceDefaults, mainAnch
                 local width, height = FrameSize(spec.frame, 454, 35)
                 local scale = ParentScale(spec.frame)
                 width, height = width * scale, height * scale
-                if width <= rect.width - 24 and bottom + height <= rect.top - 12 then
+                if width <= rect.width - 24 then
                     local x = math.max(rect.left + width/2 + 12,
                         math.min(rect.right - width/2 - 12, center))
-                    -- ApplySystemAnchor divides serialized offsets by the bar's
-                    -- local scale. Store offsets in UIParent units once, rather
-                    -- than using the target bar's live anchor or dividing again.
-                    entry.anchorInfo = {point="BOTTOM", relativeTo="UIParent", relativePoint="BOTTOMLEFT",
-                        offsetX=x, offsetY=bottom}
-                    entry.anchorInfo2 = nil
-                    entry.isInDefaultPosition = false
-                    bottom = bottom + height + 8
-                    refined = refined + 1
+                    local y = bottom
+                    local anchor = entry.anchorInfo
+                    local stockOffset = anchor and anchor.bottomBarOffsetX
+                    if type(stockOffset) == "number" then
+                        local left = mainLeft + stockOffset
+                        if left >= rect.left + 12 and left + width <= rect.right - 12 then
+                            x = left + width / 2
+                            -- Forever places Bar 3 alongside Bar 2 when the
+                            -- preset excludes it from the bottom stack height.
+                            if anchor.bottomBarExcludeFromStackIncrement and firstRowRight
+                                and left >= firstRowRight + 4 then y = firstRowBottom end
+                        end
+                    end
+                    if y + height <= rect.top - 12 then
+                        -- ApplySystemAnchor divides serialized offsets by the bar's
+                        -- local scale. Store offsets in UIParent units once.
+                        entry.anchorInfo = {point="BOTTOM", relativeTo="UIParent", relativePoint="BOTTOMLEFT",
+                            offsetX=x, offsetY=y}
+                        entry.anchorInfo2 = nil
+                        entry.isInDefaultPosition = false
+                        firstRowRight, firstRowBottom = x + width / 2, y
+                        bottom = math.max(bottom, y + height + 8)
+                        refined = refined + 1
+                    end
                 end
                 break
             end
@@ -548,7 +564,10 @@ local function RefineForeverRightBars(layout, rect, sourceDefaults, targetSizes)
     local indices = Enum and Enum.EditModeActionBarSystemIndices
     local system = Enum and Enum.EditModeSystem and Enum.EditModeSystem.ActionBar
     if not Offhand.isForever or not indices or system == nil then return 0 end
-    local right, refined = rect.right - 12, 0
+    local stockX, stockY = _G.RIGHT_ACTION_BAR_DEFAULT_OFFSET_X, _G.RIGHT_ACTION_BAR_DEFAULT_OFFSET_Y
+    local padding = tonumber(_G.RIGHT_ACTION_BAR_DEFAULT_PADDING_X) or 0
+    local right, refined = rect.right + (tonumber(stockX) or -12), 0
+    local gap = type(stockX) == "number" and math.max(0, 5 - padding) or 8
     local screen = {left = 0, bottom = 0, right = UIParent:GetWidth(), top = UIParent:GetHeight()}
     for _, spec in ipairs({
         {index = indices.RightBar1, frame = _G.MultiBarRight},
@@ -565,11 +584,12 @@ local function RefineForeverRightBars(layout, rect, sourceDefaults, targetSizes)
                 if right - width >= rect.left + 12 and height <= rect.height - 24 then
                     local _, y = PointBase(entry.anchorInfo.relativePoint or entry.anchorInfo.point, screen)
                     y = y + (tonumber(entry.anchorInfo.offsetY) or 0)
+                    if type(stockY) == "number" then y = (rect.bottom + rect.top) / 2 + stockY end
                     y = math.max(rect.bottom + height / 2 + 12, math.min(y, rect.top - height / 2 - 12))
                     entry.anchorInfo = {point = "RIGHT", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT",
                         offsetX = right, offsetY = y}
                     entry.anchorInfo2, entry.isInDefaultPosition = nil, false
-                    right, refined = right - width - 8, refined + 1
+                    right, refined = right - width - gap, refined + 1
                 end
                 break
             end
@@ -582,8 +602,8 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerL
     -- The native Gamepad preset has GamepadMainActionBar instead of keyboard
     -- ActionBar MainBar. Its manager-relative status bars must be handled
     -- before any keyboard-action-bar prerequisites or early returns.
-    local refined = controllerLayout and RefineGamepadStatusBars(layout, rect, sourceDefaults) or 0
-    if not controllerLayout then refined = refined + RefineForeverRightBars(layout, rect, sourceDefaults) end
+    if controllerLayout then return RefineGamepadStatusBars(layout, rect, sourceDefaults) end
+    local refined = RefineForeverRightBars(layout, rect, sourceDefaults)
     local systems = Enum and Enum.EditModeSystem
     local indices = Enum and Enum.EditModeActionBarSystemIndices
     if type(systems) ~= "table" or type(indices) ~= "table" then return refined end
@@ -675,19 +695,17 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerL
     local encounterFrame = _G.EncounterBar or _G.UIWidgetPowerBarContainerFrame
     local stanceBottom = mainTop + statusHeight + 8
     local secondaryLift = 0
-    if not controllerLayout then
-        local secondaryRefined, nextRow = RefineForeverSecondaryBars(
-            layout, rect, sourceDefaults, mainAnchor, mainFrame, statusHeight)
-        refined = refined + secondaryRefined
-        if nextRow then
-            secondaryLift = math.max(0, nextRow - stanceBottom)
-            stanceBottom = stanceBottom + secondaryLift
-        end
+    local secondaryRefined, nextRow = RefineForeverSecondaryBars(
+        layout, rect, sourceDefaults, mainAnchor, mainFrame, statusHeight)
+    refined = refined + secondaryRefined
+    if nextRow then
+        secondaryLift = math.max(0, nextRow - stanceBottom)
+        stanceBottom = stanceBottom + secondaryLift
     end
 
     for index, entry in ipairs(layout.systems or {}) do
         if sourceDefaults[index] then
-            if not controllerLayout and statusSystem ~= nil and entry.system == statusSystem then
+            if statusSystem ~= nil and entry.system == statusSystem then
                 -- Classic default bars move together with the native artwork
                 -- root. Preserve the source XP-to-manager relationship instead
                 -- of deriving a child offset from the action-bar/manager sizes.
@@ -747,25 +765,21 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerL
                     locBottom + locHeight + 8) then
                     refined = refined + 1
                 end
-            elseif not controllerLayout
+            elseif not Offhand.isForever
                 and ((buffSystem ~= nil and entry.system == buffSystem)
                     or (damageMeterSystem ~= nil and entry.system == damageMeterSystem))
                 and type(entry.anchorInfo) == "table"
                 and type(entry.anchorInfo.offsetY) == "number" then
-                -- Keyboard presets otherwise leave these two tall top-edge
-                -- systems pressed against Mainhand's upper boundary. Keep the
-                -- native relationship (BuffFrame is commonly Minimap-relative)
-                -- and add only a vertical inset. Gamepad has its own compact
-                -- arrangement and must retain the native preset spacing.
+                -- Retain the existing inset on other clients. Forever's
+                -- translated preset keeps these systems at its stock edges.
                 entry.anchorInfo.offsetY = entry.anchorInfo.offsetY - 96
                 entry.isInDefaultPosition = false
                 refined = refined + 1
-            elseif minimapSystem ~= nil and entry.system == minimapSystem
+            elseif not Offhand.isForever and minimapSystem ~= nil and entry.system == minimapSystem
                 and type(entry.anchorInfo) == "table"
                 and entry.anchorInfo.relativeTo == "UIParent"
                 and type(entry.anchorInfo.offsetY) == "number" then
-                -- The Forever Gamepad preset pins the Minimap flush to the top
-                -- of Mainhand after translation. BuffFrame is system-relative
+                -- BuffFrame is often system-relative
                 -- to MinimapCluster, so one inset lowers both without breaking
                 -- their native relationship or rewriting a customized source.
                 entry.anchorInfo.offsetY = entry.anchorInfo.offsetY - 64
@@ -1796,18 +1810,20 @@ local function EllesmereTransferLayout(source, generated, rect, controller, targ
     RefineStandardHUDLayout(projected, rect, defaults, controller)
     local nativeProjection = DeepCopy(projected)
     if not controller then RefineForeverRightBars(projected, rect, defaults, targetSizes) end
-    local result = DeepCopy(generated)
+    local result, defaultRows = DeepCopy(generated), {}
     for rowIndex, entry in ipairs(result.systems or {}) do
         for index, original in ipairs(source.systems or {}) do
             if original.system == entry.system and original.systemIndex == entry.systemIndex
                 and defaults[index]
-                and (SameLayoutData(entry, original) or SameLayoutData(entry, nativeProjection.systems[index])) then
+                and ((controller and entry.isInDefaultPosition == true)
+                    or SameLayoutData(entry, original) or SameLayoutData(entry, nativeProjection.systems[index])) then
                 result.systems[rowIndex] = DeepCopy(projected.systems[index])
+                defaultRows[result.systems[rowIndex]] = true
                 break
             end
         end
     end
-    return result
+    return result, defaultRows
 end
 
 -- Read-only source selection for the EllesmereUI transfer. A generated row
@@ -1862,7 +1878,7 @@ function Mainhand:GetEllesmereLayoutSource(geometryOnly, targetSizes)
     if not (source or generated) then return nil end
     local context = {source = source, generated = generated, generatedActive = generated ~= nil and generated == active,
         rect = rect, controller = controller, ellesmereReview = ellesmereReview}
-    context.transferLayout = EllesmereTransferLayout(source, generated, rect, controller, targetSizes)
+    context.transferLayout, context.transferDefaults = EllesmereTransferLayout(source, generated, rect, controller, targetSizes)
     if generated and characterType then context.characterOwned = generated.layoutType == characterType end
     return context
 end

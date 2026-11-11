@@ -919,6 +919,16 @@ function Onboarding:CreateFrame()
     return f
 end
 
+-- Called by the completed core geometry transition, not a guessed timer. A
+-- recenter alone does not update disabled actions or their waiting message.
+function Onboarding:RefreshDisplayState()
+    local f = guideFrame
+    if not f or not f:IsShown() then return end
+    if f.page == 3 then f:RefreshModeState(true)
+    elseif f.page == 4 then f:RefreshPlacementState() end
+    f:CenterInMainhand()
+end
+
 function Onboarding:Open()
     if Offhand.SetAutomaticSetupSuppressed then Offhand:SetAutomaticSetupSuppressed(false) end
     if Offhand.Wizard and Offhand.Wizard.ResumeAfterReload

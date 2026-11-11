@@ -851,3 +851,21 @@ worldTextAvailable = true
 addon.Viewport.GetMetrics = nativeGetMetrics
 print("PASS: inherited global baseline, addon relative scales, no repeated writes, recursion/combat guards, restore")
 
+-- Support output must not replace the saved validation snapshot. Existing
+-- callers that intentionally record a geometry check retain that behavior.
+local originalWorld = WorldFrame
+WorldFrame = {GetRect=function()return 0,0,100,200 end,GetEffectiveScale=function()return 1 end}
+addon.Viewport.GetMetrics = function()return {physicalHeight=768,gamePixelLeft=0,
+    gamePixelBottom=0,gamePixelWidth=100,gamePixelHeight=200}end
+local previousCheck = {marker='existing validation'}
+addon.db.lastGeometryCheck = previousCheck
+local readOnly = addon.Viewport:CaptureDiagnostics(false)
+assert(readOnly.viewportMatches and addon.db.lastGeometryCheck == previousCheck,
+    'read-only diagnostics overwrote the saved validation snapshot')
+local recorded = addon.Viewport:CaptureDiagnostics()
+assert(recorded.viewportMatches and addon.db.lastGeometryCheck == recorded,
+    'intentional geometry recording lost its existing default')
+WorldFrame = originalWorld
+addon.Viewport.GetMetrics = nativeGetMetrics
+print('PASS: read-only support geometry and retained explicit validation recording')
+
