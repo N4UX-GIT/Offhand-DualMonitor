@@ -2,6 +2,182 @@
 
 Stable IDs for reports that require follow-up across test sessions.
 
+## GitHub issue review, 11 November 2026
+
+Reviewed all 13 open issues and their comments against GitHub `main` at
+`44e9746`, addon release `v2.1.5-beta.30` and Companion `v2.1.5`.
+The new addon correction is on `addon/shared/github-issue-fixes`.
+
+| Issue | Finding |
+| --- | --- |
+| [#84](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/84) | Confirmed defect on Forever. Offhand changed Blizzard's shared map movement fader from Canvas, panel lifecycle and the gamepad observer. The candidate leaves native fade ownership with Blizzard in both input modes, including before switching to Gamepad UI. Mocked regressions fail on the baseline and pass with the correction. The Windows 70888 physical-controller retest passed five map cycles, Game Menu and Spellbook, with no new BugGrabber records. The reporter's macOS setup and an input-style switch still need verification. |
+| [#82](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/82) | Native Forever behavior. Character panel show forces player and pet resource text, and hide releases the locks. Keeping the panel open on Offhand makes the behavior more visible. [Blizzard CharacterFrame for 70862](https://github.com/Gethe/wow-ui-source/blob/9dc84f0d3bbae1768ac3405b3716000bd93eda06/Interface/AddOns/Blizzard_UIPanels_Game/Camelot/CharacterFrame.lua#L710-L781) |
+| [#81](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/81) | Confirmed and addressed in the Beta 29 changes shipped in Beta 30. With a selected target, the tracked native workspace backpack yields to the first Escape and the next Escape can clear the target. Without a target, the bag stays open under the existing retention policy. The published correction follows the tested native close priority. The requested target-first behavior with the bag kept open remains unverified. [Beta 29 release notes](RELEASE-CHANGELOG-BETA29.md) |
+| [#80](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/80) | Installation cause unverified. The Beta 30 GitHub addon ZIP matched its published SHA-256 and contained all six manifests under `Offhand/`. The report supplies no client/build, CurseForge file version, installed folder path or AddOns-list state. |
+| [#79](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/79) | Confirmed Beta 20 identity collision. Companion 2.1.5 resolves each output to its active Windows target, rejects ambiguous matches and migrates only unambiguous legacy selections. Existing regressions cover the inactive-child case and migration. The reporter's connected-projector configuration still needs confirmation. |
+| [#62](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/62) | The screenshot shows letterboxing with Offhand 2.1.2. The client/build, display arrangement and actual versus configured viewport are unknown. Current `/offhand diag full` would establish the geometry. NDUI placement is a separate compatibility request and needs the specific frames and NDUI version. |
+| [#31](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/31) | Beta 20 identity failure with insufficient hardware evidence to attribute it to #79. Companion 2.1.5 has an updated lookup and per-output details in **Copy Display Diagnostics**. A current capture would distinguish an ambiguous or absent Windows target from a legacy selection problem. |
+| [#22](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/22) | Offhand already positions the visual gamepad reticle. Angleur's measured cursor takeover is a different operation. In Forever 70862, the cursor setter is limited to one call per gamepad hardware event from addon code. Angleur 2.9.79 removed the Forever bobber scanner and changed its soft-interact flow. Current Angleur reproduction is needed before choosing an integration point. [Blizzard input declaration](https://github.com/Gethe/wow-ui-source/blob/9dc84f0d3bbae1768ac3405b3716000bd93eda06/Interface/AddOns/Blizzard_APIDocumentationGenerated/InputDocumentation.lua#L271-L283), [Angleur release notes](https://www.curseforge.com/wow/addons/angleur/files/9452551) |
+| [#17](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/17) | Confirmed historical seam placement. Mainhand loot-roll anchoring shipped in Beta 21. Beta 30 also corrects remaining rolls shifting to the seam when an earlier roll ends. Published evidence covers controlled native reflow on Forever 70862. Real simultaneous rolls and combat remain open. [Beta 30 release](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.5-beta.30) |
+| [#16](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/16) | The reported `3440x1440` Mainhand and `1440x2560` portrait-left Offhand pair passed a current Lua viewport probe at bottom, center and top alignment. This establishes simulated placement with exact topology. The original vertical alignment, DPI, client/build and failing redraw sequence are unknown. |
+| [#15](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/15) | Confirmed Wine Mono path-lookup exception and historical retry problem. Companion 2.1.5 includes limited-access process-path fallback, detailed errors, verified-plan gating, a pause after a failed automatic window operation and selection preservation. Windows regression checks pass. GNOME Wayland and the reporter's Wine/Proton span and restore sequence remain unverified. |
+| [#9](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/9) | Maintainer reported the periodic spike corrected in Beta 20. Current bag capture checks known roots, and discovery tests cover avoidance of global scans without Baganator. Reporter profiling on the current version is unavailable. |
+| [#7](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/7) | Rendering cause unverified. Both linked video URLs returned HTTP 404 during review. A comparison on the same client, scene and graphics settings, with window span varied separately from addon activation, would distinguish renderer and layout effects. |
+
+### GitHub #84 test package
+
+Local addon-only candidate `dist/issue84/Offhand-v2.1.5-beta.30-issue84.test1.zip`
+uses the published Beta 30 ZIP as its baseline. SHA-256
+`3c5c40a953b1b84363fba98bac21ccb4bf7d5249b928584dffcd01deba06e7f0`.
+All 93 archive entries were verified against the baseline or the corrected
+source. Only `Core/CanvasMapPresentation.lua`, `Core/CanvasPanelLifecycle.lua`
+and `Core/MainhandGamepad.lua` differ from Beta 30. All six extracted manifests
+and their Lua 5.1 syntax checks pass. The candidate retains Beta 30 metadata.
+
+For the native retest, record the OS and the running Forever build. Back up the
+installed Offhand folder and account and character settings. Start with the
+stock map, native Gamepad UI, a connected controller, a confirmed span and
+a saved Offhand map position. Preserve any local Companion-generated topology
+and recovery files during installation.
+
+1. Enter the world in a fresh session. Use the physical controller to open and
+   close the World Map five times, then open and close the Game Menu and
+   Spellbook with the controller. Check that the map returns to its saved
+   workspace and buttons still work without reloading.
+2. Repeat after opening the map in standard UI and switching to native Gamepad
+   UI. Record whether the client reloaded during the switch.
+3. Compare new blocked-action events or BugGrabber entries with the pre-test
+   baseline. Look for `SetPreferredGamepadInteractTarget` and map or binding
+   errors. Keep Forever's `taintLog` disabled because it has interfered with
+   secure post-hooks on this client. Restore the previous test setup after
+   collecting evidence.
+
+The installed beta client at the initial preflight was 1.60.1.70532. The
+active Forever installation identified for local testing is Windows
+1.60.1.70888. The original report is macOS 1.60.1.70862. The exported movement
+fader, World Map and target-script declaration are byte-identical across 70862
+and 70888. The platform and real input paths still need separate validation.
+
+Local deployment on 11 November 2026 verified 106 post-close backup files,
+including settings and historical BugGrabber data. The three archived Lua
+files were installed over the local Beta 30 runtime, which also has
+local HUD fixes. The exact three-file overlay preserves those changes and
+Companion-generated state. Battle.net launched Forever 70888 and the client
+reached character selection in native Gamepad UI. The owner then ran the test
+with spanning active. The map returned to its saved Offhand position on all
+five physical controller open/close cycles. Game Menu and Spellbook remained
+usable, and no blocked-action warning appeared. After normal client exit,
+the BugGrabber error payload and counters matched the baseline and the
+historical taint log was byte-identical. This pass covers Windows 70888 with
+native Gamepad UI already active. macOS 70862, an input-style switch and
+combat remain unverified. The three #84 files remain installed.
+The backup and saved screenshots are under
+`C:/Games/World of Warcraft/_offhand_deploy_backups/github-issue84-20261111-145836-772184`.
+
+### Forever Gamepad Spellbook tooltip on first open
+
+The same Windows 70888 session showed Attack selected in the Spellbook on
+Mainhand while its tooltip was clamped to the edge of Offhand. The owner's
+second screenshot shows the same tooltip beside the Attack entry after
+interacting with the Spellbook.
+
+On 70888, [native cursor reset](https://github.com/Gethe/wow-ui-source/blob/4cd0ab752a77164f654ccbca9d0c1fe8dafceebe/Interface/AddOns/Blizzard_PlayerSpells/SpellBook/Blizzard_SpellBookFrame.lua#L676-L689)
+selects the first spell. [Native tooltip display](https://github.com/Gethe/wow-ui-source/blob/4cd0ab752a77164f654ccbca9d0c1fe8dafceebe/Interface/AddOns/Blizzard_PlayerSpells/SpellBook/Blizzard_SpellBookItem.lua#L475-L506)
+assigns that button as owner and [anchors the tooltip directly to it](https://github.com/Gethe/wow-ui-source/blob/4cd0ab752a77164f654ccbca9d0c1fe8dafceebe/Interface/AddOns/Blizzard_PlayerSpells/SpellBook/Blizzard_SpellBookItem.lua#L771-L793).
+Offhand computes region insets from the owner's location on the native show
+path. Its Gamepad observer can move the panel afterward without a tooltip
+show or size event. The simulated case reproduces stale workspace insets
+and passes after refreshing Offhand's owned clamp on a successful root move.
+That simulation assumes the tooltip is already visible and directly anchored
+to a Spellbook descendant at the time of the move. All 125 Lua suites and six
+manifests passed. The native test below shows the candidate misses the reported
+path.
+
+The Windows 70888 controller candidate replaces two verified Lua files over
+the tested #84 overlay. A 106-file pre-test backup and candidate hashes are
+recorded under
+`C:/Games/World of Warcraft/_offhand_deploy_backups/gamepad-spellbook-tooltip-20261111-160750-366730`.
+Battle.net relaunched Forever for the physical first-open retest.
+
+**Native retest failed.** On Windows Forever 1.60.1.70888, the owner opened
+Spellbook using a physical controller and kept the mouse still. Attack was
+selected and the tooltip appeared on Offhand immediately. Both installed
+candidate files matched their recorded hashes. After normal client exit,
+BugGrabber messages, stacks and occurrence counters matched the pre-test
+baseline. The historical taint log was byte-identical. The failure is a
+placement result with no fresh recorded Lua or blocked-action error. The
+next diagnostic capture needs tooltip owner, relative anchor, clamp insets
+and panel/owner bounds immediately around native focus and the first
+Offhand placement update. The candidate remains installed locally.
+
+A temporary diagnostic session on Windows 70888 records the selected
+tooltip owner and ancestry, anchor target, panel and tooltip bounds,
+and clamp insets at the existing tooltip callbacks and Spellbook root move.
+The read-only observer samples only the first 12 seconds of Spellbook
+presentation and caps the trace at 160 entries. The two instrumented files
+and private probe passed Lua 5.1 syntax checks. A simulated first-open sample
+verified the capture and timeout. Battle.net relaunched Forever to character
+selection. The backup and trace manifest are under
+`C:/Games/World of Warcraft/_offhand_deploy_backups/gamepad-spellbook-trace-20261111-161743-926584`.
+
+The physical diagnostic retest showed the initial Offhand placement and
+subsequent recovery. The 41-entry trace has zero read errors. Native
+Spellbook focus anchored GameTooltip's bottom right directly to Attack's top
+left. Moving the panel took the button from x=101.00 to x=1802.88. The
+tooltip retained its native owner and point, but its right edge remained
+x=1085.14, inside Offhand, even after applying Mainhand insets and at the
+77 ms sample. The trace next shows a tooltip rebuild for a different entry
+at 3.062 seconds, with Mainhand bounds. It does not capture the exact moment
+the unchanged Attack tooltip visibly recovered. BugGrabber and historical
+taint logs matched their pre-test evidence. After a normal exit, the probe
+and its enable entry were removed and both pre-trace files restored by hash.
+
+The revised candidate reapplies the live button-relative point after the
+owned clamp changes to invalidate the stale rectangle. The regression now
+models the retained rectangle and checks reflow, original point and offsets,
+and no repeat writes on stable placement. This candidate is in source and
+still needs a physical controller retest. The original #84 fix remains in
+the local installation.
+
+The revised runtime was installed on Windows Forever 70888 with only
+`Core/PopupBounds.lua` changing. The 106-file backup and deployed hash are
+under
+`C:/Games/World of Warcraft/_offhand_deploy_backups/gamepad-spellbook-tooltip-reflow-20261111-162632-900350`.
+The retest used the normal runtime with the temporary trace removed.
+The owner confirmed the first controller-opened Attack tooltip now appears
+beside Attack on Mainhand. Two screenshots preserve a remaining difference:
+the first tooltip is above-left of the icon and the interacted tooltip is
+above-right. This passes the cross-monitor placement case on Windows 70888.
+
+[Blizzard's Gamepad anchor logic](https://github.com/Gethe/wow-ui-source/blob/4cd0ab752a77164f654ccbca9d0c1fe8dafceebe/Interface/AddOns/Blizzard_PlayerSpells/SpellBook/Blizzard_SpellBookItem.lua#L771-L793)
+chooses the above-left anchor for short first-column tooltips. The new
+source revision mirrors that opening anchor after the Spellbook move if
+the full tooltip fits above-right inside the applied display clamp. An
+entry near the right edge keeps the native left anchor. The behavior is
+scoped to the repositioned tooltip and retains its current owner. The
+mocked regression covers both directions and stable-placement write counts.
+The reflow candidate's left/right comparison screenshots are in its
+`posttest` directory.
+The two Frame Stack captures select `GameTooltip.NineSlice` and show its
+corners attached to `GameTooltip` in both positions. Those points are the
+tooltip backdrop's anchors. The earlier diagnostic trace captured the
+root tooltip's direct Attack-button anchor.
+
+After normal exit, the reflow-only retest's BugGrabber records and taint
+log matched the baseline. The above-right candidate was then installed
+as a one-file overlay. Its 106-file pre-test backup and deployed hash are
+under
+`C:/Games/World of Warcraft/_offhand_deploy_backups/gamepad-spellbook-tooltip-right-20261111-163805-742118`.
+Battle.net launched Forever 70888 for the first-open controller retest.
+**Native retest passed.** The owner confirmed that first controller open
+placed Attack's tooltip above-right on Mainhand. The screenshot
+`posttest/spellbook-first-open-mainhand-right.png` shows the expected position.
+The installed candidate matched its recorded SHA-256, and the temporary
+diagnostic was absent. After normal exit, the five historical BugGrabber
+records and occurrence counters were unchanged and the taint log was
+byte-identical. The verified candidate remains installed. The near-edge
+fallback is covered by the Lua regression.
+
 ## Beta 27 first-install Next route leaves layout disabled
 
 Forever 70862 report: accepted Companion span, Enabled=0 and Setup=0. The user
@@ -2272,7 +2448,9 @@ See [controller combat candidate](BAG-CONTROLLER-COMBAT-20261108.md).
   and blackout after OpenMap v0.7.5-beta finishes its fullscreen sizing, and
   leaves OpenMap's windowed layout to OpenMap. The three affected Lua modules
   were installed locally. The owner confirmed the standard UI fullscreen fit.
-  The movement fade retest has no separate confirmation.
+  The movement fade retest has no separate confirmation. The later
+  [GitHub #84](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/84) candidate
+  returns Forever movement fade to Blizzard in both input modes.
 - Native Gamepad follow-up on Forever 1.60.1.70790. Installed OpenMap
   v0.7.5-beta deliberately yields the map to Blizzard when its `padMap`
   setting is false. The setting is false by default and in the local profile.
