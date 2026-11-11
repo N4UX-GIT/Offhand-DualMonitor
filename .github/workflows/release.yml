@@ -323,7 +323,7 @@ jobs:
     - name: Configure Lua compiler
       uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
     - name: Install Lua 5.1
-      uses: leafo/gh-actions-lua@6919171ccf181b826f44b9bca76307b577217377 # v13.0.0
+      uses: leafo/gh-actions-lua@32909a2dea0a48c433aec79e7fcd31b4cd55800f # v13.1.0
       with:
         luaVersion: "5.1.5"
     - name: Validate frozen source, artifact boundaries and release safeguards
@@ -395,7 +395,7 @@ jobs:
     - name: Configure Lua compiler
       uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
     - name: Install Lua 5.1
-      uses: leafo/gh-actions-lua@6919171ccf181b826f44b9bca76307b577217377 # v13.0.0
+      uses: leafo/gh-actions-lua@32909a2dea0a48c433aec79e7fcd31b4cd55800f # v13.1.0
       with:
         luaVersion: "5.1.5"
     - name: Validate frozen source, artifact boundaries and release safeguards
@@ -470,7 +470,7 @@ jobs:
     - name: Configure Lua compiler
       uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
     - name: Install Lua 5.1
-      uses: leafo/gh-actions-lua@6919171ccf181b826f44b9bca76307b577217377 # v13.0.0
+      uses: leafo/gh-actions-lua@32909a2dea0a48c433aec79e7fcd31b4cd55800f # v13.1.0
       with:
         luaVersion: "5.1.5"
     - name: Preserve published releases
