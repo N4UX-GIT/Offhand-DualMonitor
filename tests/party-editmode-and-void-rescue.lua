@@ -812,6 +812,54 @@ GroupLootContainer.rollFrames[1] = GroupLootFrame1
 -- A saved first-roll anchor at an edge must accommodate the complete stack.
 GroupLootContainer.rollFrames[3] = GroupLootFrame3
 GroupLootContainer.maxIndex = 3
+-- Unequal row scales must not reverse the stack or let a smaller later row
+-- overlap an earlier row. Measure in UIParent units, not row-local units.
+do
+    GroupLootFrame2.scale, GroupLootFrame3.scale = 1.5, .5
+    addon.db.groupLootPosition = {x=.5, y=.5}
+    for _, direction in ipairs({"UP", "DOWN"}) do
+        assert(addon.HUD:SetGroupLootStackDirection(direction))
+        GroupLootContainer_Update(GroupLootContainer)
+        local first, second, third = GroupLootFrame1, GroupLootFrame2, GroupLootFrame3
+        local function Top(row) return row:GetTop() * row:GetEffectiveScale() end
+        local function Bottom(row) return row:GetBottom() * row:GetEffectiveScale() end
+        if direction == "UP" then
+            assert(Top(first) <= Bottom(second) and Top(second) <= Bottom(third),
+                "mixed-scale loot rows overlapped or reversed the upward stack")
+        else
+            assert(Bottom(first) >= Top(second) and Bottom(second) >= Top(third),
+                "mixed-scale loot rows overlapped or reversed the downward stack")
+        end
+    end
+    GroupLootFrame2.scale, GroupLootFrame3.scale = 1, 1
+    assert(addon.HUD:SetGroupLootStackDirection("UP"))
+end
+do
+    local secret = {}
+    local oldRect, oldVisible, oldActive, oldSecret = GroupLootFrame2.GetRect, GroupLootFrame2.IsVisible,
+        GetActiveLootRollIDs, issecretvalue
+    GroupLootFrame2.GetRect = function() return 20, 50, 200, 60 end
+    GroupLootFrame2.IsVisible = function() return true end
+    GetActiveLootRollIDs = function() return {101, 102, 103} end
+    issecretvalue = function(value) return value == secret end
+    local oldShown = GroupLootFrame2:IsShown()
+    GroupLootFrame2:Show()
+    local writes = GroupLootFrame2.setPointCalls
+    local snapshot = addon.HUD:GetGroupLootDiagnostics(metrics)
+    assert(snapshot.activeRolls == 3 and snapshot.slots[1] == "1=hidden"
+        and snapshot.slots[2]:find("2=visible,rectUI=20.0/50.0/200.0/60.0 outside-mainhand",1,true),
+        "loot snapshot failed to distinguish a hidden row from a row outside Mainhand")
+    GroupLootFrame2.GetRect = function() return secret, 50, 200, 60 end
+    GetActiveLootRollIDs = function() return secret end
+    combatLocked = true
+    snapshot = addon.HUD:GetGroupLootDiagnostics(metrics)
+    assert(snapshot.activeRolls == "unavailable" and snapshot.slots[2] == "2=visible,rectUI=unavailable"
+        and GroupLootFrame2.setPointCalls == writes, "loot diagnostics accessed restricted data or moved a row")
+    combatLocked = false
+    if not oldShown then GroupLootFrame2:Hide() end
+    GroupLootFrame2.GetRect, GroupLootFrame2.IsVisible = oldRect, oldVisible
+    GetActiveLootRollIDs, issecretvalue = oldActive, oldSecret
+end
 addon.db.groupLootPosition = {x = 1, y = 1}
 GroupLootContainer_Update(GroupLootContainer)
 assertMainhandAnchor(GroupLootFrame1, "CENTER", 3778, 1189,

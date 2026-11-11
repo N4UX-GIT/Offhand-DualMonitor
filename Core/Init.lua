@@ -1892,7 +1892,7 @@ SlashCmdList["OFFHAND"] = function(msg)
                     bubbles.visualManaged or 0)
             end
             if Offhand.HUD and Offhand.HUD.GetGroupLootDiagnostics then
-                local loot = Offhand.HUD:GetGroupLootDiagnostics()
+                local loot = Offhand.HUD:GetGroupLootDiagnostics(m)
                 Offhand:Print("Group loot diagnostics: Loaded=%s | Preload=%s | SecureAnchor=%s | RowMover=%s/%s | Rows=%d | Position=%s | Stack=%s | Preview=%s | Conflict=%s | Triggers=%d | Combat=%s.",
                     loot.loaded and "yes" or "no",
                     loot.preloadAttempted and "yes" or "no",
@@ -1906,6 +1906,11 @@ SlashCmdList["OFFHAND"] = function(msg)
                     tostring(loot.conflict or "none"),
                     loot.triggerCount or 0,
                     loot.inCombat and "yes" or "no")
+                if loot.activeRolls ~= nil then
+                    Offhand:Print("Group loot visibility: ActiveRolls=%s | Container=%s | KeyboardRows=%s.",
+                        tostring(loot.activeRolls), loot.containerVisibility,
+                        #loot.slots > 0 and table.concat(loot.slots, " | ") or "none")
+                end
             end
             if Offhand.HUD and Offhand.HUD.GetPetBattleDiagnostics then
                 local petBattle = Offhand.HUD:GetPetBattleDiagnostics()

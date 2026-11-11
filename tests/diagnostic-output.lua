@@ -41,7 +41,11 @@ addon.Viewport = {
 addon.HUD = {
     GetInteractionVisibilityDiagnostics = probe("interaction", { "ProfessionsFrame=hidden" }),
     GetForeverEditModeLayoutStatus = function() return {} end,
-    GetGroupLootDiagnostics = probe("loot", {}),
+    GetGroupLootDiagnostics = function(_, capturedMetrics)
+        assert(capturedMetrics == metrics, "loot diagnostics must use the captured display bounds")
+        probes.loot = (probes.loot or 0) + 1
+        return {activeRolls=2, containerVisibility="visible", slots={"2=hidden", "3=visible,rectUI=10/20/30/40 mainhand"}}
+    end,
     GetPetBattleDiagnostics = probe("pets", {}),
     GetForeverGroupFrameDiagnostics = probe("groups", "bounds"),
     GetForeverProtectedHUDDiagnostics = probe("protected", "bounds"),
@@ -102,6 +106,8 @@ for _, name in ipairs({"tooltip", "interaction", "text", "loot", "pets", "groups
 end
 assert(full:find("Native bag diagnostics: roots=ContainerFrameCombinedBags=shown", 1, true),
     "full support reports must expose native bag state after a missing-backpack report")
+assert(full:find("Group loot visibility: ActiveRolls=2 | Container=visible | KeyboardRows=2=hidden | 3=visible",1,true),
+    "full support reports must distinguish active rolls and actual keyboard row visibility")
 assert(full:find("Interaction visibility: ProfessionsFrame=hidden", 1, true),
     "full support reports must include the requested missing-frame evidence")
 assert(not compact:find("Guide frame diagnostics:", 1, true)
