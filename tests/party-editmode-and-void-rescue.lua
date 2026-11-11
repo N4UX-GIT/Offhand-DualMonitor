@@ -1184,6 +1184,25 @@ assert(partyRecoveryPromptHidden == 1
 -- The same bounded, read-only recovery must cover other persistent protected
 -- Edit Mode systems. PetFrame represents the conditional unit-frame family;
 -- transient popups and nameplates intentionally use separate lifecycles.
+PlayerFrame = makeMockFrame("PlayerFrame", 180, 80)
+PlayerFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 500, 1500)
+EditModeManagerFrame:Show()
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+assert(addon.HUD.foreverPartyFrameOutsideDisplays == "PlayerFrame",
+    "record the off-screen PlayerFrame preview before leaving Edit Mode")
+EditModeManagerFrame:Hide()
+EditModeManagerFrame.editModeActive = true
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+assert(partyRecoveryPromptCount == 1 and addon.HUD.foreverPartyFrameOutsideDisplays == "PlayerFrame",
+    "temporarily hiding Edit Mode must not prompt for repair while the native editor is still active")
+EditModeManagerFrame.editModeActive = false
+PlayerFrame:ClearAllPoints()
+PlayerFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 2500, 300)
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+assert(partyRecoveryPromptCount == 1 and addon.HUD.foreverPartyFrameOutsideDisplays == nil,
+    "a reachable live PlayerFrame after Edit Mode must clear the stale preview candidate")
+PlayerFrame = nil
+
 PetFrame = makeMockFrame("PetFrame", 180, 80)
 PetFrame.IsProtected = function() return true end
 PetFrame:ClearAllPoints()
@@ -1213,7 +1232,7 @@ PetFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 500, 300)
 EditModeManagerFrame:Show()
 addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
 EditModeManagerFrame:Hide()
-assert(partyRecoveryPromptHidden == 2
+assert(partyRecoveryPromptHidden == 3
         and addon.HUD.foreverPartyFrameOutsideDisplays == nil,
     "recovering a non-party protected HUD frame must clear the guidance state")
 

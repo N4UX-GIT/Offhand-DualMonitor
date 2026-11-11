@@ -1946,7 +1946,10 @@ for index, entry in ipairs(generatedBefore.systems) do
         end
     end
 end
-assert(addon.Mainhand:CreateOrUpdateEditModeLayout({repairFrameName='ExtraActionBarFrame'}))
+local repeatWrites = saveCount
+local repeatSuccess, repeatReason = addon.Mainhand:CreateOrUpdateEditModeLayout({repairFrameName='ExtraActionBarFrame'})
+assert(not repeatSuccess and repeatReason == 'repair-system' and saveCount == repeatWrites,
+    'an unchanged Extra Abilities repair must not request another reload')
 assert(saved.layouts[1].systems[1].anchorInfo.offsetX == 4321, 'repeated repair drifted another system')
 local selectiveRequest = {system=Enum.EditModeSystem.ExtraAbilities,
     anchorInfo={point='BOTTOM',relativeTo='UIParent',relativePoint='BOTTOMLEFT',offsetX=2000,offsetY=150}}
@@ -2410,6 +2413,13 @@ for _, forever in ipairs({false, true}) do
             'repair overwrote the source personal layout')
         -- The next call sees the saved native row, as it would after reload.
         layoutData = copyTable(layoutData)
+        local writes = saveCount
+        success, why = addon.Mainhand:CreateOrUpdateEditModeLayout({repairFrameName=name})
+        assert(not success and why == 'repair-system' and saveCount == writes,
+            'an unchanged EncounterBar repair must not save or report that a reload is needed')
+        if name == 'EncounterBar' then
+            layoutData.layouts[index].systems[2] = copyTable(original.systems[2])
+        end
     end
     local active = layoutData.layouts[layoutData.activeLayout-3]
     table.remove(active.systems, 2)
@@ -2685,6 +2695,15 @@ do
     assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
     assert(layoutData.layouts[id - 3].systems[1].anchorInfo.offsetX == 1000,
         "rebuilding the active current generated layout discarded an in-Mainhand edit")
+    local writesBeforeRepair = writes
+    local repaired, repairReason = addon.Mainhand:CreateOrUpdateEditModeLayout({repairFrameName = "MinimapCluster"})
+    assert(not repaired and repairReason == "repair-system" and writes == writesBeforeRepair,
+        "an unchanged active HUD repair must not rewrite the layout or request another reload")
+    layoutData.layouts[id - 3].systems[1].anchorInfo.offsetX = 2450
+    assert(addon.Mainhand:CreateOrUpdateEditModeLayout({repairFrameName = "MinimapCluster"}))
+    assert(writes == writesBeforeRepair + 1 and layoutData.layouts[id - 3].systems[1].anchorInfo.offsetX <= 1755,
+        "a changed repair must still save the active HUD")
+    layoutData.layouts[id - 3].systems[1].anchorInfo.offsetX = 1000
     layoutData.activeLayout = 1
     OffhandCharDB.mainhandLayoutBackups = "invalid-old-data"
     assert(addon.Mainhand:CreateOrUpdateEditModeLayout())

@@ -572,9 +572,9 @@ function Recovery.Install(HUD)
         if kind == "fallback" then self.foreverMismatchDeclined = true end
     end
 
-    local function FrameFitsPhysicalDisplay(frame, metrics)
+    local function FrameFitsPhysicalDisplay(frame, metrics, requireBounds)
         if not frame or not metrics or not frame.GetLeft or not frame.GetBottom
-            or not frame.GetWidth or not frame.GetHeight then return true end
+            or not frame.GetWidth or not frame.GetHeight then return not requireBounds end
         local ok, left, bottom, width, height = pcall(function()
             local parentScale = (UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
             local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or parentScale
@@ -582,7 +582,8 @@ function Recovery.Install(HUD)
             return frame:GetLeft() * factor, frame:GetBottom() * factor,
                 frame:GetWidth() * factor, frame:GetHeight() * factor
         end)
-        if not ok or not left or not bottom or not width or not height then return true end
+        if not ok or not left or not bottom or not width or not height then return not requireBounds end
+        if requireBounds and (width <= 0 or height <= 0) then return false end
         local right, top = left + width, bottom + height
         local function Fits(l, b, r, t)
             return l and b and r and t and left >= l - 1 and bottom >= b - 1
@@ -1134,6 +1135,7 @@ function Recovery.Install(HUD)
 
         local manager = _G.EditModeManagerFrame
         local editModeOpen = manager and manager.IsShown and manager:IsShown() or false
+        if not editModeOpen and manager and manager.editModeActive then return end
         local outsideName
         if editModeOpen then
             -- Blizzard retains several dormant ownership roots with stale bounds.
@@ -1162,6 +1164,12 @@ function Recovery.Install(HUD)
             if self.foreverProtectedHUDDetectedInEditMode
                 and self.foreverPartyFrameOutsideDisplays then
                 outsideName = self.foreverPartyFrameOutsideDisplays
+                -- Exiting Edit Mode can revert an unsaved preview position.
+                -- Keep hidden previews eligible, but clear a visibly reachable root.
+                local frame = _G[outsideName]
+                if FrameIsActuallyVisible(frame) and FrameFitsPhysicalDisplay(frame, metrics, true) then
+                    outsideName = nil
+                end
             end
         end
 
