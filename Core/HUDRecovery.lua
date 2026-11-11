@@ -24,6 +24,18 @@ function Recovery.GetMinimapVisibilityDiagnostics()
         if type(value) == "string" then return value:sub(1, 80) end
         return "unknown"
     end
+    local function Rect(frame)
+        local ok, left, bottom, width, height = pcall(function()
+            if frame.IsForbidden and frame:IsForbidden() then return end
+            if frame.GetRect then return frame:GetRect() end
+        end)
+        if not ok then return "unknown" end
+        local bounds = { Value(left), Value(bottom), Value(width), Value(height) }
+        for _, value in ipairs(bounds) do
+            if value == "unknown" then return "unknown" end
+        end
+        return table.concat(bounds, "/")
+    end
     local db = Offhand.db or {}
     local compatibility = Offhand.HUDCompatibility
     local function Loaded(name)
@@ -44,7 +56,8 @@ function Recovery.GetMinimapVisibilityDiagnostics()
         "MinimapOwner=SexyMap:%s,EllesmereCore:%s,EllesmereMinimap:%s,EllesmereOptions:%s,EllesmereMover:%s,EllesmereProfileEnabled:%s",
         Loaded("SexyMap"), Loaded("EllesmereUI"), Loaded("EllesmereUIMinimap"), Loaded("EllesmereUIOptions"),
         registered and "registered" or "missing", ok and Value(enabled) or "unknown") }
-    for _, name in ipairs({ "MinimapCluster", "Minimap", "LibDBIcon10_ForeverDungeonJournal", "LFGMinimapFrame" }) do
+    for _, name in ipairs({ "MinimapCluster", "Minimap", "LibDBIcon10_ForeverDungeonJournal",
+        "LFGMinimapFrame", "QueueStatusButton" }) do
         local frame = _G[name]
         if not frame then
             reports[#reports + 1] = name .. ".state=absent"
@@ -58,13 +71,13 @@ function Recovery.GetMinimapVisibilityDiagnostics()
                 end
             end
             reports[#reports + 1] = string.format(
-                "%s.state=shown:%s,visible:%s,alpha:%s,effectiveAlpha:%s,parent:%s,parentShown:%s,parentVisible:%s,userPlaced:%s,scale:%s,savedWorkspace:%s,savedMainhand:%s,escapeRegistered:%s",
+                "%s.state=shown:%s,visible:%s,alpha:%s,effectiveAlpha:%s,parent:%s,parentShown:%s,parentVisible:%s,userPlaced:%s,scale:%s,savedWorkspace:%s,savedMainhand:%s,escapeRegistered:%s,rectLocal:%s",
                 name, Value(Read(frame, "IsShown")), Value(Read(frame, "IsVisible")),
                 Value(Read(frame, "GetAlpha")), Value(Read(frame, "GetEffectiveAlpha")),
                 Value(Read(parent, "GetName")), Value(Read(parent, "IsShown")), Value(Read(parent, "IsVisible")),
                 Value(Read(frame, "IsUserPlaced")), Value(Read(frame, "GetEffectiveScale")),
                 db.savedWorkspacePositions and db.savedWorkspacePositions[name] and "yes" or "no",
-                db.savedMainPositions and db.savedMainPositions[name] and "yes" or "no", special)
+                db.savedMainPositions and db.savedMainPositions[name] and "yes" or "no", special, Rect(frame))
         end
     end
     return reports

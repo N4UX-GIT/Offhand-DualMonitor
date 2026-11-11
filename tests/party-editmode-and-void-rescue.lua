@@ -2288,6 +2288,17 @@ addon.HUD:HookFrames(); flushTimers()
 addon.Canvas.MakePanelDraggable(map)
 assert(map.setPointCalls == writes and not map.scripts.OnShow and not map.scripts.OnDragStart,
     "popup rescue and Canvas movement must preserve the detached visible minimap")
+local previousQueueButton = QueueStatusButton
+QueueStatusButton = makeMockFrame("QueueStatusButton", 45, 45)
+QueueStatusButton:SetPoint("TOPLEFT", map, "TOPLEFT", metrics.gameRight - 90, 0)
+table.insert(UIParent.children, QueueStatusButton)
+local queueWrites = QueueStatusButton.setPointCalls
+assert(QueueStatusButton:GetTop() > metrics.gameTop + 2, "queue button fixture must trigger the generic void scan")
+flushTimers()
+assert(QueueStatusButton.setPointCalls == queueWrites and select(2, QueueStatusButton:GetPoint()) == map,
+    "generic popup rescue must preserve Blizzard's Queue Status button anchor")
+QueueStatusButton:Hide()
+QueueStatusButton = previousQueueButton
 local crop = makeMockFrame("AnonymousMinimapCropTest", 200, 160)
 _G.AnonymousMinimapCropTest = nil
 crop.name = nil

@@ -31,6 +31,20 @@ assert(report:find("shown:yes,visible:no", 1, true))
 assert(report:find("parent:GameMenuFrame,parentShown:no,parentVisible:no", 1, true))
 assert(report:find("savedWorkspace:yes,savedMainhand:no,escapeRegistered:yes", 1, true))
 assert(report:find("Minimap.state", 1, true), "the visible map must be inspected separately from its container")
+local queueWidth = 45
+QueueStatusButton = {
+    IsShown = function() return true end, IsVisible = function() return true end,
+    GetParent = function() return Minimap end,
+    GetRect = function() reads = reads + 1; return 1350, 1200, queueWidth, 45 end,
+    Hide = noWrite, Show = noWrite, SetPoint = noWrite,
+}
+local queueReport = snapshot():match("QueueStatusButton%.state=[^\n]+")
+assert(queueReport and queueReport:find("shown:yes,visible:yes", 1, true)
+    and queueReport:find("rectLocal:1350.000/1200.000/45.000/45.000", 1, true),
+    "the queue button must report visibility and geometry independently of the minimap")
+queueWidth = secret
+assert(snapshot():match("QueueStatusButton%.state=[^\n]+"):find("rectLocal:unknown", 1, true),
+    "secret queue geometry must remain unreadable in diagnostics")
 EllesmereUI = {Lite={GetAddon=function(name,silent)
     assert(name=="EllesmereUIMinimap" and silent)
     return {db={profile={minimap={enabled=true}}}}
