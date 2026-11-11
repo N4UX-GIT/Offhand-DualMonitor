@@ -10,6 +10,7 @@ Offhand.modules.ChatBubbles = Bubbles
 
 local tracked = setmetatable({}, { __mode = "k" })
 local instanceFontState
+local foreverFontRecoveryComplete = false
 
 local replacementByOuter = setmetatable({}, { __mode = "k" })
 local pendingRestore = setmetatable({}, { __mode = "k" })
@@ -44,6 +45,54 @@ local MIN_BUBBLE_HEIGHT = 34
 local HORIZONTAL_PADDING = 16
 local VERTICAL_PADDING = 10
 local EPSILON = 0.00001
+
+-- Use the engine's clamp rectangle rather than fighting world-space anchors.
+-- Forbidden/protected native bubbles remain entirely under client ownership.
+local clampStates = setmetatable({}, { __mode = "k" })
+local function SameClamp(a, b)
+    if not a or not b then return false end
+    for i = 1, 4 do if math.abs(a[i] - b[i]) > 0.01 then return false end end
+    return true
+end
+local function RestoreClamp(frame)
+    local state = clampStates[frame]
+    if not state or (InCombatLockdown and InCombatLockdown()) then return end
+    if (frame.IsForbidden and frame:IsForbidden()) or (frame.IsProtected and frame:IsProtected()) then return end
+    clampStates[frame] = nil
+    if SameClamp({frame:GetClampRectInsets()}, state.applied) then
+        frame:SetClampRectInsets(unpack(state.original))
+        if state.enabled and frame:IsClampedToScreen() then frame:SetClampedToScreen(false) end
+    end
+end
+local function ConstrainBubble(frame)
+    if not frame or not frame.GetClampRectInsets or not frame.SetClampRectInsets
+        or not frame.IsClampedToScreen or not frame.SetClampedToScreen then return end
+    if (InCombatLockdown and InCombatLockdown())
+        or (frame.IsForbidden and frame:IsForbidden()) or (frame.IsProtected and frame:IsProtected()) then return end
+    local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+    if not Offhand.db or not Offhand.db.enabled or not metrics or not metrics.isSpanned
+        or Offhand.db.speechBubbleCompensation == false then RestoreClamp(frame); return end
+    for _, key in ipairs({"gameLeft", "gameRight", "gameBottom", "gameTop"}) do
+        if type(metrics[key]) ~= "number" then RestoreClamp(frame); return end
+    end
+    local uiScale, scale = UIParent:GetEffectiveScale(), frame:GetEffectiveScale()
+    if not scale or scale <= 0 or not uiScale or uiScale <= 0 then return end
+    local current, state = {frame:GetClampRectInsets()}, clampStates[frame]
+    if state and not SameClamp(current, state.applied) then
+        clampStates[frame] = nil -- Another owner has supplied a newer policy.
+        return
+    end
+    state = state or {original=current, enabled=not frame:IsClampedToScreen()}
+    local factor = uiScale / scale
+    local desired = {math.min(state.original[1], -metrics.gameLeft * factor),
+        math.max(state.original[2], (UIParent:GetWidth() - metrics.gameRight) * factor),
+        math.max(state.original[3], (UIParent:GetHeight() - metrics.gameTop) * factor),
+        math.min(state.original[4], -metrics.gameBottom * factor)}
+    if not SameClamp(current, desired) then frame:SetClampRectInsets(unpack(desired)) end
+    if not frame:IsClampedToScreen() then frame:SetClampedToScreen(true) end
+    state.applied = desired
+    clampStates[frame] = state
+end
 
 local function Positive(value)
     return type(value) == "number" and value > 0 and value < math.huge
@@ -114,12 +163,18 @@ local function UsesForeverNativeWorldTextScale()
     return ok and name == "WorldTextScale_v2"
 end
 
-local function RestoreForeverNativeBubbleFont()
+local function RestoreForeverNativeBubbleFont(externalOwner)
     RestoreInstanceFont()
+    if foreverFontRecoveryComplete then return end
     if not ChatBubbleFont or not ChatBubbleFont.GetFont
         or not ChatBubbleFont.SetFont then return end
     local ok, file, height, flags = pcall(ChatBubbleFont.GetFont, ChatBubbleFont)
     if not ok or not file or not Positive(height) then return end
+    -- This is startup recovery for old undersized Offhand experiments, not a
+    -- recurring font policy. Other owners may intentionally choose any size.
+    -- Consume the startup check even while explicitly yielding to Ellesmere.
+    foreverFontRecoveryComplete = true
+    if externalOwner or height >= 10 then return end
     local savedHeight = Offhand.db
         and tonumber(Offhand.db.originalChatBubbleFontHeight) or nil
     local nativeHeight = Positive(savedHeight) and savedHeight >= 10
@@ -387,6 +442,7 @@ end
 local function ReleaseOuter(outer)
     local frame = replacementByOuter[outer]
     if not frame then return end
+    RestoreClamp(frame)
     replacementByOuter[outer] = nil
     replacementCount = math.max(0, replacementCount - 1)
 
@@ -438,6 +494,7 @@ local function ClaimOrRefresh(outer, child, nativeFont, text)
         if frame.lastText ~= text or math.abs((frame.lastFineTune or 0) - fineTune) > EPSILON then
             LayoutReplacement(frame, text, nativeFont)
         end
+        ConstrainBubble(frame)
         return true
     end
 
@@ -463,6 +520,7 @@ local function ClaimOrRefresh(outer, child, nativeFont, text)
         return false
     end
     frame:SetAlpha(1)
+    ConstrainBubble(frame)
     HookOuter(outer)
     return true
 end
@@ -541,11 +599,14 @@ end
 
 function Bubbles:ApplyLayout()
     if not Offhand.db then return end
+    for frame in pairs(clampStates) do
+        if not Offhand.db.enabled or (frame.IsShown and not frame:IsShown()) then RestoreClamp(frame) end
+    end
     if UsesForeverNativeWorldTextScale() then
         -- Clean up every mutation made by earlier Beta 21 experiments before
         -- entering the replacement path. These are one-time ownership handbacks.
         RestoreTrackedBubbles()
-        RestoreForeverNativeBubbleFont()
+        RestoreForeverNativeBubbleFont(EllesmereOwnsChatBubbles())
         local replace, mode = ReplacementDecision()
         replacementMode = mode
         if replace then UpdateReplacements() else ReleaseAllReplacements() end
@@ -553,6 +614,12 @@ function Bubbles:ApplyLayout()
     end
 
     ReleaseAllReplacements()
+    if EllesmereOwnsChatBubbles() then
+        RestoreTrackedBubbles()
+        RestoreInstanceFont()
+        for frame in pairs(clampStates) do RestoreClamp(frame) end
+        return
+    end
     if not Offhand.db.enabled then
         RestoreTrackedBubbles()
         RestoreInstanceFont()
@@ -561,6 +628,7 @@ function Bubbles:ApplyLayout()
     local target = UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()
     if not Positive(target) then return end
     if IsRetailSpannedInstance() then
+        for frame in pairs(clampStates) do RestoreClamp(frame) end
         RestoreTrackedBubbles()
         ApplyInstanceFont(target)
         return
@@ -583,6 +651,7 @@ function Bubbles:ApplyLayout()
             if math.abs(current - desired) > EPSILON then bubble:SetScale(desired) end
             state.applied = desired
             tracked[bubble] = state
+            ConstrainBubble(bubble)
         end)
     end
 end

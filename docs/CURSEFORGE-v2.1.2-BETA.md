@@ -38,8 +38,11 @@ reporting a problem. The highest-value checks are:
 5. Disconnect and reconnect the saved workspace display and confirm WoW safely
    returns to the surviving Mainhand.
 
-Companion v2.1.2 is required for the current WoW Forever beta and strongly
-recommended for every other client. Keep a backup of the existing
+Companion v2.1.2 provides exact mixed-display topology and a compatibility
+bridge for Forever builds affected by the historical SavedVariables loading
+defect. Manual spanning remains supported, and the Companion may be exited
+after a successful span when background monitoring and recovery are not wanted.
+Keep a backup of the existing
 `WTF/Account/.../SavedVariables/Offhand.lua` files before beta testing.
 
 This beta does not claim support for more than two selected displays or

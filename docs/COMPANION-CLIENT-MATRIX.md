@@ -1,5 +1,157 @@
 # Companion client coverage and release gate
 
+## 3 November: fullscreen taskbar prototype 6
+
+Exact Prototype 6 (`2.1.3-beta.1`, file/manifest `2.1.3.2`, source `4a27ed0`)
+passed a Retail `12.1.5.70688` native-window check at character selection using
+the user's partial portrait workspace. Both taskbar sample positions hit WoW
+after Span and Companion exit; both hit Shell taskbars after restarted-Companion
+Restore. Bounds/style/clipping matched the plan. No world entry occurred.
+All 18 backups were restored; both test apps closed; error records unchanged.
+This does not transfer Prototype 5's in-world/client evidence to the new binary.
+See [taskbar QA](CUSTOM-WORKSPACE-REGIONS-TASKBAR.md) for exact scope and hashes.
+
+## 2 November: save-validation prototype 5
+
+The exact unpublished prototype 5 package passed targeted Retail `12.1.5.70688`
+testing with unchanged installed addon `2.1.2-beta.24`: two-monitor custom apply
+and reload persistence, single-monitor replacement Save through the new display
+validation guard, manual apply without an intervening Restore, a matching fresh
+single-monitor viewport diagnostic after reload, and exact original native
+Restore. Both test apps exited normally; nine original files were restored and
+hash-verified. BugGrabber recorded no new errors. Physical hotplug, mixed DPI,
+Fresh HUD creation, protected actions and other exact-artifact clients remained
+pending at that point; the bounded HUD follow-up below adds regeneration evidence.
+See [the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md).
+
+A later same-artifact Retail run passed prepared legacy-row HUD regeneration
+(47 systems), reload persistence, Character/bags/spellbook placement, default-map
+AUTO fit with OpenMap temporarily disabled, automatic Modern HUD selection after
+Restore, and a fresh full-client viewport match. Fresh row creation was refused
+at the existing five-layout cap. The external OpenMap layout remained oversized
+when its owner was enabled. All five original Edit Mode rows were restored and
+resampled after reload; 18 original files were restored and hash-verified, and
+all 13 historical BugGrabber records were unchanged. Actual setup-button input,
+custom-area panel dragging, protected actions and warning-free ordinary-window
+reconciliation remain open. The installed addon differs from the worktree;
+see [Retail HUD QA](CUSTOM-WORKSPACE-REGIONS-RETAIL-HUD-QA.md) for exact provenance.
+
+The subsequent [Retail lifecycle QA](CUSTOM-WORKSPACE-REGIONS-RETAIL-LIFECYCLE-QA.md)
+adds exact Prototype 5 Companion/client cold restart, manual apply and Character
+reopen persistence. Right-edge/left-game geometry and apply/normal Restore from
+maximized/minimized ordinary windows passed. The actual setup button safely
+refused creation at the cap and all five rows plus active preset remained equal.
+Two Character title drags did not move the panel; dragging remains unresolved.
+No new captured errors were found, all 18 originals were restored and both apps
+closed. Already-applied-span show-state changes, failure injection and combat
+remain unverified. Manual Restore intentionally requests normal placement.
+
+An exact prototype 5 Anniversary `2.5.6.70577` attempt passed native two-monitor
+custom apply and exact native Restore. Another player attacked the selected
+character after world entry, so the run ended before diagnostics/reload. It is a
+partial result with no combat-safety claim. Both apps closed normally; fourteen
+original files were restored and hash-verified. Error stores were unchanged but
+disabled. That attempt's safe-character staging gap was resolved by a subsequent
+user-authorized level-1 run.
+
+The same exact prototype 5 then passed Anniversary apply, a matching initial
+diagnostic, reload with retained native clipping and Character panel placement,
+a separately captured fresh post-reload viewport diagnostic, and exact native
+Restore on Stackonme, level-1 Paladin in Coldridge Valley. BugGrabber/BugSack were
+temporarily enabled for this character; the store changed only by its session
+counter and contained no new errors. Both apps exited normally; 18 original files
+and two original profile absences were restored, including addon selection.
+Broader release limitations above remain open.
+
+## 2 November: layout chooser prototype 4 revision 2
+
+The exact unpublished revision 2 package passed a targeted Retail `12.1.5.70688`
+workflow: saved-mode keyboard selection, revised secondary-offset Save, manual
+Span to `(-930,-200) 3490x1640`, matching schema 1 viewport diagnostic, native
+clipping and Character panel persistence through reload, and exact native Restore.
+Both test apps closed normally; nine original files were restored and
+hash-verified. BugGrabber recorded no new errors. A pre-Span network disconnect
+was excluded per user instruction; a normal launcher retry completed the run.
+Broader exact-artifact acceptance remains pending. See
+[the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md).
+
+## 2 November: two-monitor partial workspace prototype 3
+
+The exact unpublished prototype 3 package passed targeted Retail `12.1.5.70688`
+testing with installed addon `2.1.2-beta.24`: a full 2560x1440 game monitor and a
+freely positioned 782x1290 workspace on an offset portrait monitor. Evidence
+covers native apply and complex clipping, schema 1 `READY`/`MATCH`, matching
+WorldFrame before and after UI reload, Character panel placement, exact native
+Restore, and no fresh BugGrabber records. Both test apps closed normally; nine
+original files were restored and hash-verified. A subsequent Retail cold restart
+passed saved-plan loading, manual-only apply, actual native clipping point checks,
+Character panel restoration, viewport matching and exact Restore, with the same
+cleanup and no fresh BugGrabber records.
+
+A targeted Anniversary `2.5.6.70577` run with unchanged installed
+`2.1.2-beta.24-tbc-test.11` passed apply, a matching pre-reload viewport diagnostic,
+Character panel reload persistence, retained native clipping and exact native
+Restore. Fourteen originals were restored and hash-verified. Its error stores
+were unchanged but BugGrabber/BugSack were disabled, so no fresh runtime error
+audit is claimed. Mixed-DPI, live hotplug, HUD generation, protected actions and
+other clients remain outside this new mode's live acceptance.
+See [the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md).
+
+## 2 November: custom workspace prototype
+
+The separate custom-region prototype 1 passed its initial Retail workflow and a
+targeted Anniversary `2.5.6.70577` run with the unchanged installed
+`2.1.2-beta.24-tbc-test.11` addon. Anniversary evidence covers custom native apply,
+direct schema 1 viewport matching, Character-panel drag and reload persistence,
+and exact native Restore. Fourteen original files were restored and hash-checked.
+No native HUD regeneration, protected actions or fresh error-store audit was
+performed. See [the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md) for
+the exact artifact, geometry, cleanup and remaining limits. This does not promote
+the ordinary release candidate or accept all supported clients.
+
+## 2 November: revision 4 Retail follow-up
+
+The changed restore path passed connected normal restore and two consecutive
+VSync recoveries on Retail `12.1.5.70688`. A server disconnect was logged about
+84 seconds before final Restore, ruling out that call as its trigger. The user
+reports poor Starlink connectivity and asked to ignore these disconnects, so
+they are excluded from acceptance blockers. The cause was not independently
+proven. See [the revision 4 record](COMPANION-RC4-RETAIL-LIVE-20261102.md).
+Broader release acceptance remains partial; original settings were restored.
+
+A later revision 4 character-selection run passed successful Restore from native
+minimized and maximized ordinary windows, retaining remembered original bounds,
+client dimensions and style. Native readbacks and cleanup are recorded in the
+same live record. This accepts that specific successful native path; in-world
+show-state behavior, clipped-span minimization and actual failure rollback remain
+open.
+
+## 2 November: combined revision 3 Retail result
+
+The same rc3 executable passed manual span, two consecutive VSync reset recoveries
+and Restore priority on Retail `12.1.5.70688`. Original settings were restored and
+both test processes closed. See [the Retail live record](COMPANION-RC3-RETAIL-LIVE-20261102.md)
+for hashes, timing, evidence limits and remaining cases. This is targeted native
+window acceptance, not full addon layout, persistence or taint acceptance.
+
+A follow-up spanned `/reload` completed and saved a matching viewport diagnostic.
+The existing FancyZones manual-canvas profile supplied geometry in that run.
+A later temporary selection of Companion through Window Setup confirmed direct
+schema 1 consumption and a matching viewport after cold relaunch. Direct-mode
+reload was interrupted by an unexplained disconnect; full layout and lifecycle
+acceptance remain open. The original profile was restored exactly.
+
+## 1 November: combined revision 3 Anniversary result
+
+The exact `2.1.3-beta.1` rc3 executable passed targeted native recovery and control
+testing on Anniversary `2.5.6.70577`: initial manual span, two consecutive VSync
+recoveries, Restore priority, Pause/Resume cancellation, manual re-arm and delayed
+auto-span on a fresh process. Companion restart adoption was observed separately.
+See [the live record](COMPANION-RC3-ANNIVERSARY-LIVE-20261101.md) for exact hashes,
+installed addon version, event times, cleanup and untested gates. This does not
+promote the artifact or imply cross-client, addon persistence or taint acceptance.
+The table and older results below remain historical evidence for their named builds.
+
 Updated 25 October 2026. Forever is the priority for the user's planned
 4 November release. This date is a project milestone supplied by the user.
 
@@ -64,3 +216,13 @@ not establish Wine support; preserve Wine behavior and test its matching prefix
 separately if included in the release.
 
 The original tester's hang and excessive addon errors remain a separate defect.
+
+### 2026-10-25: Companion work consolidated in planning; Forever testing deferred
+
+User requests Forever live testing wait until the November 4 release and treats
+this recovery work plus the experimental work in Investigate v21 Forever Beta
+issue as one ongoing Companion build. Shared record: docs/COMPANION-ONGOING-BUILD.md
+in D:/Tools/Code/Offhand. Separate worktrees and accepted artifacts are preserved;
+no source merge or publication implied. Reconcile the graininess resize mitigation
+with the recovery candidate's deliberate omission of that handshake before making
+one final candidate. Other work may proceed meanwhile. No automation scheduled.

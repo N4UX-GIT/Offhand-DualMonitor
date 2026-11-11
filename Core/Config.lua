@@ -7,8 +7,8 @@ local _, Offhand = ...
 _G.Offhand = Offhand
 
 local defaultSettings = {
-    -- First launch is intentionally inert. The wizard enables Offhand only
-    -- after the user has reviewed the Companion's detected display topology.
+    -- Keep the viewport inert until the user confirms placement and applies
+    -- calibration. First-launch guidance is independent of this switch.
     enabled = false,
     layoutPreset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT", -- "PORTRAIT_LEFT_LANDSCAPE_RIGHT", "LANDSCAPE_DUAL", "CUSTOM"
     primaryPosition = "RIGHT",      -- "LEFT" or "RIGHT" (In Portrait Left, Primary 3D Game is on the RIGHT!)
@@ -24,28 +24,39 @@ local defaultSettings = {
     canvasColor = "CHARCOAL",       -- "CHARCOAL", "WARM_NIGHT", "PURE_BLACK", "DEEP_BLUE", "CUSTOM"
     customCanvasColor = { r = 0.12, g = 0.22, b = 0.35 }, -- User-selected custom workspace background
     canvasAlpha = 0.95,             -- Alpha of the secondary monitor background
+    userMediaEnabled = false,       -- Optional Offhand_UserMedia background, explicitly enabled by the player
+    userMediaFitMode = "PACKAGE",  -- "PACKAGE", "FILL", "FIT", or "STRETCH"
     workspaceMapScale = "AUTO",     -- "AUTO" (fits deck width) or number (0.50 to 1.50)
     mainMapScale = 1.0,             -- Map scale when placed on the main gaming monitor
     showMinimapIcon = true,
     rawMouseInput = true,           -- Prevent hidden cursor exhaustion during camera look across shaped spans
     debugMode = false,
     forceDualOnSingle = false,      -- For testing
+    autoRecoverEditModeControls = true, -- Rescue only unreachable, unprotected Edit Mode controls
     hudScale = 0.70,                -- Global UI size multiplier relative to the game viewport (default 70%)
     worldTextCompensation = true,   -- Correct engine-owned combat/XP text on mixed-height spans
     worldTextScale = 1.00,          -- Fine tuning applied after the automatic topology correction
     speechBubbleCompensation = true, -- Replace enlarged bubbles only on affected mixed-height spans
     speechBubbleScale = 1.00,       -- Fine tuning for Offhand's replacement bubble
     groupLootPosition = {},         -- Optional normalized Mainhand position for the first group-loot roll
+    groupLootStackDirection = "UP", -- Preserve Blizzard's upward stack unless the user selects downward
+    antiShimmer = false,            -- Stabilize ground textures by disabling FSR edge sharpening and using bicubic resampling
     chatPosition = "GAME",          -- "GAME" (bottom-left of 3D curved monitor) or "DECK" (bottom bay of vertical monitor)
     dockChat = true,                -- Enable managed chat positioning
 
     -- Feature toggles
     seamRedirect = true,            -- Redirect popups and errors away from center bezel
+    centerProcDocOnMainhand = false, -- Optional reversible ProcDoc center adapter
     preventMapCloseOnMove = true,   -- Keep WorldMap open while running/walking
     independentWorkspacePanels = true, -- Panels placed on the secondary workspace stay open independently
     persistentWorkspacePanels = true,  -- Keep workspace panels and maps open when pressing Escape
     hideWorkspaceCloseButtons = false, -- Hide supported X buttons only while their windows are on the workspace
     hideWorkspaceMapMaximizeButton = false, -- Hide the windowed World Map enlarge button on the workspace
+    showGamepadPanelDragHandles = true, -- Show addon-owned mouse movers for supported Forever Gamepad panels
+    lockWorkspaceWindows = false, -- Keep selected supported workspace windows open until this is disabled
+    lockedWorkspaceWindowTypes = { map = true, bags = true, character = true },
+    workspaceRegionScales = {version=1,layouts={}}, -- Explicit choices only; upgrades stay at native size
+    characterWorkspaceScale = 1.00, -- Multiplier relative to Blizzard's native CharacterFrame scale
     savedWorkspacePositions = {},   -- Persisted coordinates for frames placed on the secondary workspace
     savedMainPositions = {},        -- Persisted coordinates for movable frames on the main screen
     workspacePanelLoadAddons = {},  -- Learned Blizzard load-on-demand owner for persistent panels
@@ -65,6 +76,7 @@ local function CopyDefaults(src, dst)
 end
 
 local FOREVER_EDIT_MODE_MIGRATION_VERSION = 1
+local FOREVER_PROFESSIONS_MOVEMENT_MIGRATION_VERSION = 1
 
 local function StageForeverEditModeMigration()
     if not Offhand.isForever or type(OffhandCharDB) ~= "table"
@@ -103,17 +115,15 @@ local function EnsureCompatibilitySettings()
     return OffhandDB.compatibility
 end
 
--- This consent is deliberately account-wide rather than profile-scoped. It is
--- a client-safety override, not part of a monitor layout, and therefore must
--- not be enabled accidentally by copying or switching profiles.
+-- This compatibility policy is deliberately account-wide rather than
+-- profile-scoped. It is a client-safety override, not part of a monitor layout,
+-- and therefore must not change accidentally when profiles are copied.
 function Offhand:IsExperimentalForeverProfessionsMovementEnabled()
     if not self.isForever or type(OffhandDB) ~= "table"
         or type(OffhandDB.compatibility) ~= "table" then return false end
     local compatibility = OffhandDB.compatibility
     local buildKey = CurrentClientBuildKey()
-    return buildKey ~= nil
-        and compatibility.foreverProfessionsMovement == true
-        and compatibility.foreverProfessionsMovementBuild == buildKey
+    return buildKey ~= nil and compatibility.foreverProfessionsMovement == true
 end
 
 function Offhand:SetExperimentalForeverProfessionsMovement(enabled)
@@ -324,6 +334,31 @@ local function SnapshotAccountState(accountDB)
     return copy
 end
 
+-- Forever's custom CVars are account-global, while OffhandCharDB is scoped to
+-- one character. Tag complete snapshots with a stable character identity so a
+-- newer /reload fallback written by one character cannot replace another
+-- character's Edit Mode preferences. The account portion is still safe to
+-- recover across characters.
+local function CurrentCharacterSnapshotKey()
+    local name, realm
+    if UnitFullName then
+        local ok, fullName, fullRealm = pcall(UnitFullName, "player")
+        if ok then name, realm = fullName, fullRealm end
+    end
+    if (type(name) ~= "string" or name == "") and UnitName then
+        local ok, unitName = pcall(UnitName, "player")
+        if ok then name = unitName end
+    end
+    if (type(realm) ~= "string" or realm == "") and GetNormalizedRealmName then
+        local ok, normalizedRealm = pcall(GetNormalizedRealmName)
+        if ok then realm = normalizedRealm end
+    end
+    if type(name) ~= "string" or name == "" then return nil end
+    name = string.lower(name)
+    realm = type(realm) == "string" and string.lower(realm) or ""
+    return realm ~= "" and (name .. "@" .. realm) or name
+end
+
 local function EncodeLengthValue(tag, value)
     value = tostring(value)
     return tag .. tostring(#value) .. ":" .. value
@@ -422,6 +457,7 @@ function ForeverPersistence:SaveProfileSnapshot(incrementRevision)
         revision = revision,
         account = account,
         character = character,
+        characterKey = CurrentCharacterSnapshotKey(),
     })
     if not encoded or #encoded > FOREVER_PROFILE_MAX_BYTES then return false end
 
@@ -472,8 +508,19 @@ function ForeverPersistence:RestoreProfileSnapshot(accountDB, characterDB)
     if standardRevision >= revision then return "standard" end
     for key in pairs(accountDB) do accountDB[key] = nil end
     for key, value in pairs(snapshot.account) do accountDB[key] = value end
-    for key in pairs(characterDB) do characterDB[key] = nil end
-    for key, value in pairs(snapshot.character) do characterDB[key] = value end
+    local snapshotCharacterKey = type(snapshot.characterKey) == "string"
+        and snapshot.characterKey or nil
+    local currentCharacterKey = CurrentCharacterSnapshotKey()
+    -- Tests and very early loading environments can lack a resolvable player;
+    -- retain legacy same-session recovery only when neither side has identity.
+    -- A legacy untagged snapshot must never overwrite an identified character.
+    local restoreCharacter = snapshotCharacterKey ~= nil and currentCharacterKey ~= nil
+        and snapshotCharacterKey == currentCharacterKey
+        or snapshotCharacterKey == nil and currentCharacterKey == nil
+    if restoreCharacter then
+        for key in pairs(characterDB) do characterDB[key] = nil end
+        for key, value in pairs(snapshot.character) do characterDB[key] = value end
+    end
     return "fallback"
 end
 
@@ -524,6 +571,12 @@ function ForeverPersistence:SaveWorkspacePosition(name, position, width, height)
     local value = table.concat({ "W4", tostring(x), tostring(y), tostring(tonumber(width) or 0),
         tostring(tonumber(height) or 0), tostring(canvasWidth), tostring(canvasHeight),
         tostring(canvasLeft), tostring(canvasBottom) }, "|")
+    if type(position.regionId)=="string" then
+        if #position.regionId<1 or #position.regionId>32 or not position.regionId:match("^[%w_-]+$") then return false end
+        value="W5"..value:sub(3).."|"..position.regionId
+        -- A bounded persistence format; this is not an assumed client CVar limit.
+        if #value>240 then return false end
+    end
     WritePersistentCVar(PositionCVar(name), value)
 end
 
@@ -540,8 +593,13 @@ function ForeverPersistence:RestorePositions()
     for _, name in ipairs(names) do
         RegisterPersistentCVar(PositionCVar(name))
         local value = ReadPersistentCVar(PositionCVar(name))
-        local kind, x, y, width, height, canvasWidth, canvasHeight, canvasLeft, canvasBottom = tostring(value or ""):match(
+        local kind, x, y, width, height, canvasWidth, canvasHeight, canvasLeft, canvasBottom,regionId = tostring(value or ""):match(
+            "^(W5)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%w_-]+)$")
+        if regionId and #regionId>32 then kind=nil end
+        if not kind then
+            kind, x, y, width, height, canvasWidth, canvasHeight, canvasLeft, canvasBottom = tostring(value or ""):match(
             "^(W4)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)$")
+        end
         if not kind then
             kind, x, y, width, height, canvasHeight, canvasBottom = tostring(value or ""):match(
             "^(W3)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)$")
@@ -564,8 +622,9 @@ function ForeverPersistence:RestorePositions()
             -- fallback. A durable Mainhand record is an explicit, mutually
             -- exclusive owner and must not be combined with a stale W* value.
             Offhand.db.savedWorkspacePositions[name] = nil
-        elseif (kind == "W" or kind == "W2" or kind == "W3" or kind == "W4") and x and y then
+        elseif (kind == "W" or kind == "W2" or kind == "W3" or kind == "W4" or kind=="W5") and x and y then
             Offhand.db.savedWorkspacePositions[name] = {
+                regionId=kind=="W5" and regionId or nil,
                 x = x,
                 y = y,
                 width = width and width > 0 and width or nil,
@@ -618,7 +677,8 @@ function ForeverPersistence:SaveOnboarding(onboarding)
     if not self:IsAvailable() or type(onboarding) ~= "table" then return end
     local function Flag(value) return value and "1" or "0" end
     local method = onboarding.setupMethod == "COMPANION" and "C"
-        or (onboarding.setupMethod == "MANUAL" and "M" or "0")
+        or (onboarding.setupMethod == "FANCYZONES" and "F"
+        or (onboarding.setupMethod == "MANUAL" and "M" or "0"))
     WritePersistentCVar(FOREVER_ONBOARDING_CVAR, table.concat({
         "V3", Flag(onboarding.welcomeDismissed), Flag(onboarding.setupComplete),
         Flag(onboarding.suppressCompanionWarning),
@@ -631,18 +691,23 @@ function ForeverPersistence:SaveDisplayFlags(db)
     if not self:IsAvailable() or type(db) ~= "table" then return end
     local function Flag(value) return value and "1" or "0" end
     WritePersistentCVar(FOREVER_DISPLAY_FLAGS_CVAR, table.concat({
-        "V1", Flag(db.enabled), Flag(db.rawMouseInput ~= false),
+        "V2", Flag(db.enabled), Flag(db.rawMouseInput ~= false),
+        Flag(db.automaticSetupSuppressed == true),
     }, "|"))
 end
 
 function ForeverPersistence:RestoreDisplayFlags(db)
     if not self:IsAvailable() or type(db) ~= "table" then return false end
     RegisterPersistentCVar(FOREVER_DISPLAY_FLAGS_CVAR)
-    local enabled, rawMouse = tostring(ReadPersistentCVar(FOREVER_DISPLAY_FLAGS_CVAR) or ""):match(
-        "^V1|([01])|([01])$")
+    local value = tostring(ReadPersistentCVar(FOREVER_DISPLAY_FLAGS_CVAR) or "")
+    local enabled, rawMouse, suppressed = value:match("^V2|([01])|([01])|([01])$")
+    if not enabled then enabled, rawMouse = value:match("^V1|([01])|([01])$") end
     if not enabled then return false end
     db.enabled = enabled == "1"
     db.rawMouseInput = rawMouse == "1"
+    -- Older records carry no setup intent. Preserve any durable opt-out rather
+    -- than inferring it from the inactive first-launch viewport default.
+    if suppressed then db.automaticSetupSuppressed = suppressed == "1" end
     return true
 end
 
@@ -651,7 +716,7 @@ function ForeverPersistence:RestoreOnboarding(onboarding)
     RegisterPersistentCVar(FOREVER_ONBOARDING_CVAR)
     local value = tostring(ReadPersistentCVar(FOREVER_ONBOARDING_CVAR) or "")
     local welcome, setup, suppress, resume, method = value:match(
-        "^V3|([01])|([01])|([01])|([0-6])|([CM0])$")
+        "^V3|([01])|([01])|([01])|([0-6])|([CFM0])$")
     if not welcome then
         welcome, setup, suppress, resume = value:match(
             "^V2|([01])|([01])|([01])|([0-6])$")
@@ -666,7 +731,8 @@ function ForeverPersistence:RestoreOnboarding(onboarding)
     local resumeStep = tonumber(resume)
     onboarding.resumeStep = resumeStep and resumeStep > 0 and resumeStep or nil
     onboarding.setupMethod = method == "C" and "COMPANION"
-        or (method == "M" and "MANUAL" or onboarding.setupMethod)
+        or (method == "F" and "FANCYZONES"
+        or (method == "M" and "MANUAL" or onboarding.setupMethod))
     return true
 end
 
@@ -706,8 +772,17 @@ function ForeverPersistence:SeedSessionFallback()
 end
 
 function Offhand:SetEnabled(enabled)
+    if enabled~=true and Offhand.WorkspaceScale then Offhand.WorkspaceScale:RestoreAll() end
     if not Offhand.db then return end
     Offhand.db.enabled = enabled == true
+    -- Only an explicit disable is an opt-out, not the fresh profile default.
+    Offhand.db.automaticSetupSuppressed = enabled ~= true
+    ForeverPersistence:SaveDisplayFlags(Offhand.db)
+end
+
+function Offhand:SetAutomaticSetupSuppressed(suppressed)
+    if not Offhand.db then return end
+    Offhand.db.automaticSetupSuppressed = suppressed == true
     ForeverPersistence:SaveDisplayFlags(Offhand.db)
 end
 
@@ -721,6 +796,52 @@ function Offhand:SetRawMouseInput(enabled)
         RawMouse:Refresh(metrics)
     elseif not enabled and RawMouse and RawMouse.Restore then
         RawMouse:Restore()
+    end
+end
+
+function Offhand:IsAntiShimmerEnabled()
+    return Offhand.db and Offhand.db.antiShimmer == true or false
+end
+
+function Offhand:SetAntiShimmer(enabled)
+    if not Offhand.db then return end
+    enabled = enabled == true
+    local get = GetCVar or (C_CVar and C_CVar.GetCVar)
+    local set = SetCVar or (C_CVar and C_CVar.SetCVar)
+    if enabled then
+        if not Offhand.db.originalAntiShimmerSettings then
+            local alwaysSharpen = get and get("ResampleAlwaysSharpen") or "1"
+            local sharpness = get and get("ResampleSharpness") or "0.2"
+            local quality = get and get("ResampleQuality") or "3"
+            Offhand.db.originalAntiShimmerSettings = {
+                alwaysSharpen = tostring(alwaysSharpen),
+                sharpness = tostring(sharpness),
+                quality = tostring(quality),
+            }
+        end
+        if set then
+            pcall(set, "ResampleAlwaysSharpen", "0")
+            pcall(set, "ResampleSharpness", "0")
+            pcall(set, "ResampleQuality", "2")
+        end
+        Offhand.db.antiShimmer = true
+    else
+        if Offhand.db.originalAntiShimmerSettings then
+            local s = Offhand.db.originalAntiShimmerSettings
+            if set then
+                if s.alwaysSharpen then pcall(set, "ResampleAlwaysSharpen", tostring(s.alwaysSharpen)) end
+                if s.sharpness then pcall(set, "ResampleSharpness", tostring(s.sharpness)) end
+                if s.quality then pcall(set, "ResampleQuality", tostring(s.quality)) end
+            end
+            Offhand.db.originalAntiShimmerSettings = nil
+        else
+            if set then
+                pcall(set, "ResampleAlwaysSharpen", "1")
+                pcall(set, "ResampleSharpness", "0.2")
+                pcall(set, "ResampleQuality", "3")
+            end
+        end
+        Offhand.db.antiShimmer = false
     end
 end
 
@@ -771,12 +892,35 @@ end
 
 function Offhand:GetOnboardingSetupMethod()
     local method = EnsureOnboarding().setupMethod
-    if method == "COMPANION" or method == "MANUAL" then return method end
+    if method == "COMPANION" or method == "FANCYZONES" or method == "MANUAL" then
+        return method
+    end
     return nil
 end
 
+-- Character SavedVariables plus Forever's established CVar fallback. This
+-- checkpoint contains only workflow/mode/canvas dimensions, never frame data.
+function Offhand:GetPlacementCheckpoint()
+    local value
+    if type(OffhandCharDB) == "table" then value = OffhandCharDB.placementCheckpoint end
+    if value ~= nil then return value end
+    if ForeverPersistence:IsAvailable() then
+        RegisterPersistentCVar("offhandPlacementCheckpoint")
+        return ReadPersistentCVar("offhandPlacementCheckpoint")
+    end
+end
+
+function Offhand:SetPlacementCheckpoint(value)
+    value = type(value) == "string" and value or ""
+    if type(OffhandCharDB) ~= "table" then OffhandCharDB = {} end
+    OffhandCharDB.placementCheckpoint = value
+    if ForeverPersistence:IsAvailable() then WritePersistentCVar("offhandPlacementCheckpoint", value) end
+end
+
 function Offhand:SetOnboardingSetupMethod(method)
-    if method ~= "COMPANION" and method ~= "MANUAL" then return false end
+    if method ~= "COMPANION" and method ~= "FANCYZONES" and method ~= "MANUAL" then
+        return false
+    end
     EnsureOnboarding().setupMethod = method
     SaveOnboarding()
     return true
@@ -808,12 +952,58 @@ function Offhand:SetCompanionWarningSuppressed(suppressed)
     SaveOnboarding()
 end
 
+function Offhand:EnsureCharacterIdentity()
+    if type(OffhandCharDB) ~= "table" or not UnitGUID then return false end
+    local guid = UnitGUID("player")
+    if type(guid) ~= "string" or guid == "" then return false end
+    local previous = OffhandCharDB.characterGUID
+    local record = OffhandCharDB.mainhandLayout
+    local player = UnitName and UnitName("player")
+    local stale = (previous and previous ~= guid)
+        or (type(record) == "table" and record.ownerGUID and record.ownerGUID ~= guid)
+        or (type(record) == "table" and record.ownerName and player and record.ownerName ~= player)
+    if stale then
+        -- Retain the old HUD provenance for recovery. Account profiles, physical
+        -- calibration and native Edit Mode layouts are not character identity.
+        OffhandCharDB.previousHUDIdentity = {
+            characterGUID = previous, mainhandLayout = record,
+            editModeLayoutName = OffhandCharDB.editModeLayoutName,
+        }
+        for _, key in ipairs({"mainhandLayout", "mainhandLayoutsByMode", "editModeLayoutName", "mainhandWindowedLayout",
+            "mainhandWindowedManualLayout", "foreverEditModeLayoutName", "foreverEditModeLayoutID",
+            "foreverEditModeLegacyRecovery", "foreverEditModeRecovery", "mainhandLayoutDeferred",
+            "hudSetupReminderDeclined", "hudSpanNoticeDismissed", "characterSetup",
+            "kerzoQuestLogOpen"}) do OffhandCharDB[key] = nil end
+    end
+    OffhandCharDB.characterGUID = guid
+    if not self.isLegacyWrath and (stale or (not previous and not OffhandCharDB.mainhandLayout)) then
+        OffhandCharDB.hudSetupReminder = true
+        OffhandCharDB.hudSetupReminderDeclined = nil
+    end
+    local mainhand = self.Mainhand
+    if mainhand and mainhand.IsCharacterEditModeLayoutAllowed
+        and not mainhand:IsCharacterEditModeLayoutAllowed(OffhandCharDB.editModeLayoutName) then
+        local current = OffhandCharDB.mainhandLayout
+        OffhandCharDB.editModeLayoutName = type(current) == "table"
+            and mainhand:IsCharacterEditModeLayoutAllowed(current.generatedName) and current.generatedName or nil
+        if not OffhandCharDB.editModeLayoutName then OffhandCharDB.hudSetupReminder = true end
+    end
+    return stale and true or false
+end
+
 function Offhand:InitializeConfig()
     -- ForeverState.lua is loaded immediately before this module. A new bridge
     -- version is authoritative once after a cold launch; an already-consumed
     -- version must yield to the fresher SavedVariables captured by Init.lua.
+    local bridgeVersion = type(_G.OffhandForeverStateBridgeVersion) == "string"
+        and _G.OffhandForeverStateBridgeVersion or ""
     local useForeverBridge = ForeverPersistence:BeginRecoverySnapshot()
     local diskState = Offhand.foreverDiskSavedVariables
+    local initialAccount = type(diskState) == "table" and type(diskState.account) == "table"
+        and diskState.account or OffhandDB
+    local diskHadState = type(initialAccount) == "table" and next(initialAccount) ~= nil
+    local diskRevision = type(initialAccount) == "table"
+        and tonumber(initialAccount.foreverPersistenceRevision) or nil
     if Offhand.isForever and not useForeverBridge and type(diskState) == "table" then
         if type(diskState.account) == "table" then OffhandDB = diskState.account end
         if type(diskState.character) == "table" then OffhandCharDB = diskState.character end
@@ -836,13 +1026,23 @@ function Offhand:InitializeConfig()
 
     local compatibility = EnsureCompatibilitySettings()
     local currentBuildKey = CurrentClientBuildKey()
-    if compatibility.foreverProfessionsMovement == true
-        and compatibility.foreverProfessionsMovementBuild ~= currentBuildKey then
-        -- Forever is a beta client. Requiring consent again after every client
-        -- build change prevents an old opt-in from silently carrying into a UI
-        -- implementation whose Professions crash behavior may have changed.
-        compatibility.foreverProfessionsMovement = false
-        compatibility.foreverProfessionsMovementBuild = nil
+    if Offhand.isForever then
+        -- Professions movement has been stable across the current Forever beta
+        -- cycle. The former Advanced Compatibility card is no longer visible,
+        -- so migrate every existing installation once instead of leaving an
+        -- old explicit false value with no in-game way to enable the adapter.
+        -- Later API-level opt-outs remain sticky because the migration marker
+        -- is written before normal configuration continues.
+        local professionsMigration = tonumber(
+            compatibility.foreverProfessionsMovementMigrationVersion) or 0
+        if professionsMigration < FOREVER_PROFESSIONS_MOVEMENT_MIGRATION_VERSION then
+            compatibility.foreverProfessionsMovement = true
+            compatibility.foreverProfessionsMovementMigrationVersion =
+                FOREVER_PROFESSIONS_MOVEMENT_MIGRATION_VERSION
+        end
+        if compatibility.foreverProfessionsMovement == true then
+            compatibility.foreverProfessionsMovementBuild = currentBuildKey
+        end
     end
 
     local profileSnapshotState = "none"
@@ -855,6 +1055,25 @@ function Offhand:InitializeConfig()
         profileSnapshotState = ForeverPersistence:RestoreProfileSnapshot(OffhandDB, OffhandCharDB)
     end
 
+    if Offhand.isForever then
+        local source = "defaults-or-legacy"
+        if profileSnapshotState == "fallback" then
+            source = "session-fallback"
+        elseif useForeverBridge then
+            source = "companion-bridge"
+        elseif profileSnapshotState == "standard" or diskHadState then
+            source = "savedvariables"
+        end
+        Offhand.foreverPersistenceDiagnostics = {
+            source = source,
+            bridge = useForeverBridge and "used"
+                or (bridgeVersion ~= "" and "present-consumed" or "absent"),
+            sessionFallback = profileSnapshotState,
+            diskRevision = diskRevision,
+            activeRevision = tonumber(OffhandDB.foreverPersistenceRevision),
+        }
+    end
+
         -- Scrub any rogue hijacked Focused frames so native placement takes back control
     for profileName, profileData in pairs(OffhandDB.profiles) do
         if type(profileData.savedWorkspacePositions) == "table" then
@@ -865,6 +1084,7 @@ function Offhand:InitializeConfig()
         end
     end
 
+    self:EnsureCharacterIdentity()
     local current = OffhandCharDB.activeProfile or "Default"
     if not OffhandDB.profiles[current] then
         OffhandDB.profiles[current] = {}

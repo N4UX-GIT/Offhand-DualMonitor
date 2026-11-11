@@ -1,0 +1,52 @@
+{
+  "version": "2.1.5",
+  "fileVersion": "2.1.5.1",
+  "companionSourceRevision": "7bc07a60113c7c990067d5fd86215ace310399cc",
+  "binarySha256": "95811DBB7020A20E2541AE123E69FE80721C83A0FD52D0EE5557DD6D54DCCC2A",
+  "archiveName": "Offhand-Companion-v2.1.5.zip",
+  "archiveSha256": "9A8AD31226C659BE9DD30F626033118EDE597993CAF41DC138D329642A361C8F",
+  "storePackageVersion": "2.1.500.0",
+  "storeMsixSha256": "9AD0A4F561C27A750885E8030B5E72DFC4FBD80DF8CD507FEB26FB1D335B71CA",
+  "storeSubmissionId": "1152921505702348834",
+  "inputs": [
+    {
+      "path": "Companion/Source/Program.cs",
+      "sha256": "79C04E42517531D492A509B18F693D81779E30753DCA919FB3E67A6C613525C3",
+      "normalization": "CRLF-to-LF"
+    },
+    {
+      "path": "Companion/Source/LayoutDocument.cs",
+      "sha256": "0B315C32600D669C3E3E07B4903F8026FC3EA7669F7D8D6262DCB46B18DCE8C2",
+      "normalization": "CRLF-to-LF"
+    },
+    {
+      "path": "Companion/Source/WorkspaceLayoutService.cs",
+      "sha256": "2A526591903282731D697632B8A6C8A29EAFBB4C3D76DC744FDA9325BA54D69D",
+      "normalization": "CRLF-to-LF"
+    },
+    {
+      "path": "Companion/Source/FlexibleWorkspaceEditor.cs",
+      "sha256": "0C7A8F04DBC1DF08836CE7F5EFBB930DD4CB5490658EB06EFA22DCB7D52CED68",
+      "normalization": "CRLF-to-LF"
+    },
+    {
+      "path": "Companion/Source/app.manifest",
+      "sha256": "D4F52F3EE3FE8C392234F101903D3C08C91E193955B15803E6C7A741B91AED7D",
+      "normalization": "CRLF-to-LF"
+    },
+    {
+      "path": "Media/offhand-logo.ico",
+      "sha256": "D017F715039B0C95E38E780D2E045F781DBDCA40B8BAE46C50147853F0AFA95B",
+      "normalization": "none"
+    },
+    {
+      "path": "Media/offhand-logo-small.png",
+      "sha256": "518524E851A265A8B0FA3F6C7102FFCD6DCE519BCAA2399B3AF557635DB2A754",
+      "normalization": "none"
+    }
+  ],
+  "signing": "unsigned_portable_store_processes_msix",
+  "wack": "overall_PASS_13_required_passed_one_optional_finding_reviewed",
+  "publication": "public_submission_in_certification_github_preparation",
+  "acceptance": "Publisher chose public submission without awaiting flight; full Store delivery/Available/offline acceptance remains unverified"
+}

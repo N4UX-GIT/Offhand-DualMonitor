@@ -34,9 +34,32 @@ C_Timer = {
 
 assert(loadfile("Core/BagPersistence.lua"))("Offhand", addon)
 onEvent(nil, "PLAYER_LOGIN")
-for _ = 1, 30 do tick() end
+addon.BagPersistence.paused = false -- simulate the settled, resumed gameplay session
+local oldSnapshot = addon.db.baganatorWorkspacePanels
+local replacements = 0
+collectgarbage('collect')
+collectgarbage('stop')
+local memoryStart, timeStart = collectgarbage('count'), os.clock()
+for _ = 1, 4500 do
+    tick()
+    if addon.db.baganatorWorkspacePanels ~= oldSnapshot then
+        replacements = replacements + 1
+        oldSnapshot = addon.db.baganatorWorkspacePanels
+    end
+end
+local allocated = collectgarbage('count') - memoryStart
+collectgarbage('restart')
+print(string.format('Synthetic 4500 idle bag polls: %.3f ms, %.1f KiB allocated, %d snapshot replacements',
+    (os.clock()-timeStart)*1000,allocated,replacements))
+assert(replacements == 0, 'idle bag polling must retain an already-empty snapshot')
 assert(globalScans == 0,
     "BagPersistence must not scan globals at login or on ticks without Baganator")
+addon.db.baganatorWorkspacePanels = {oldBag={x=1,y=2}}
+tick()
+assert(next(addon.db.baganatorWorkspacePanels)==nil,'closing the last bag must clear old open intent')
+oldSnapshot=addon.db.baganatorWorkspacePanels
+tick()
+assert(addon.db.baganatorWorkspacePanels==oldSnapshot,'already-cleared intent should remain stable')
 
 local eui = { scripts = {} }
 function eui:GetName() return "EUI_MainBagFrame" end

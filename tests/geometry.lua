@@ -62,18 +62,33 @@ CharacterBag0Slot=frame(BagsBar)
 CharacterBag1Slot=frame(BagsBar)
 CharacterBag2Slot=frame(BagsBar)
 CharacterBag3Slot=frame(BagsBar)
+OffhandDB={}
+assert(loadfile("Core/ManualCanvas.lua"))("Offhand",addon)
 assert(loadfile("Core/Viewport.lua"))("Offhand",addon)
+assert(loadfile("Core/HUDCompatibility.lua"))("Offhand",addon)
+assert(loadfile("Core/HUDTransientPolicy.lua"))("Offhand",addon)
+assert(loadfile("Core/HUDRecovery.lua"))("Offhand",addon)
+assert(loadfile("Core/HUDTransientFrames.lua"))("Offhand",addon)
 assert(loadfile("Core/SeamRedirect.lua"))("Offhand",addon)
+local initialPreview=addon.Viewport:GetManualPreviewMetrics()
+assert(addon.ManualCanvas:RememberFromMetrics(initialPreview,"Geometry test","MANUAL"))
 local function worldPixels()
     local bl,tr=WorldFrame.points.BOTTOMLEFT,WorldFrame.points.TOPRIGHT
     local factor=WorldFrame:GetEffectiveScale()*ph/768
     return bl[3]*factor,bl[4]*factor,(tr[3]-bl[3])*factor,(tr[4]-bl[4])*factor
+end
+function WorldFrame:GetRect()
+    local bl,tr=self.points.BOTTOMLEFT,self.points.TOPRIGHT
+    return bl[3],bl[4],tr[3]-bl[3],tr[4]-bl[4]
 end
 for _,scale in ipairs({0.56,0.8,1,1.2}) do
     uiScale=scale
     addon.Viewport:Apply()
     local x,y,w,h=worldPixels()
     near(x,1440); near(y,6); near(w,2560); near(h,1440)
+    local snapshot=addon.Viewport:CaptureDiagnostics(false)
+    assert(snapshot.viewportMatches and not addon.db.lastGeometryCheck)
+    near(snapshot.frames.WorldFrame.x,x); near(snapshot.frames.WorldFrame.y,y)
     addon.SeamRedirect:AlignHUDFrames()
     local p=MainMenuBar.points.BOTTOM
     local factor=MainMenuBar:GetEffectiveScale()*ph/768
@@ -82,6 +97,15 @@ for _,scale in ipairs({0.56,0.8,1,1.2}) do
     -- Native child scales inherit UIParent without per-frame overrides.
     near(MainMenuBar:GetEffectiveScale(),uiScale)
 end
+local snapshot=addon.Viewport:CaptureDiagnostics()
+assert(addon.db.lastGeometryCheck==snapshot and snapshot.viewportMatches)
+local savedRect=WorldFrame.GetRect
+local secret={}
+WorldFrame.GetRect=function() return 0,secret,1,1 end
+issecretvalue=function(value) return value==secret end
+local restricted=addon.Viewport:CaptureDiagnostics(false)
+assert(not restricted.viewportMatches and not restricted.frames.WorldFrame and addon.db.lastGeometryCheck==snapshot)
+WorldFrame.GetRect,issecretvalue=savedRect,nil
 addon.db.primaryPosition="LEFT"
 addon.Viewport:Apply()
 local x,y,w,h=worldPixels()
@@ -106,7 +130,22 @@ print("PASS: physical seam, cross-scale anchors, HUD fit, nested scale, left pri
 
 -- Companion topology is authoritative and preserves mixed monitor heights and
 -- offsets without guessing from the combined aspect ratio.
+pw,ph=5280,2560
+OffhandDB.preferredGeometrySource="AUTO"
+OffhandCompanionTopology={schema=1,companionVersion="2.1.2-beta.18",physicalWidth=pw,physicalHeight=ph,mode="DUAL_DISPLAY",
+    workspace={x=0,y=0,width=1440,height=2560},game={x=1440,y=400,width=3840,height=2160}}
+local reported=addon.Viewport:GetMetrics()
+assert(reported.topologyStatus=="READY" and reported.gamePixelBottom==400
+    and reported.gamePixelWidth==3840 and reported.workspacePixelHeight==2560,
+    "portrait/4K diagnostic uses bottom-origin offsets, not Windows display Y")
+addon.Viewport:Apply()
+x,y,w,h=worldPixels()
+near(x,1440);near(y,400);near(w,3840);near(h,2160)
+
 pw,ph=5360,1440
+-- Model the explicit Companion selection, which hands geometry ownership back
+-- from a previously remembered manual canvas to the generated exact bridge.
+OffhandDB.preferredGeometrySource="AUTO"
 OffhandCompanionTopology={schema=1,companionVersion="2.1.2-beta.18",physicalWidth=5360,physicalHeight=1440,mode="DUAL_DISPLAY",
     workspace={x=0,y=360,width=1920,height=1080},game={x=1920,y=0,width=3440,height=1440}}
 local tm=addon.Viewport:GetMetrics()
@@ -191,6 +230,16 @@ cvars.DynamicRenderScale="0"
 cvars.ResampleAlwaysSharpen="0"
 cvars.ResampleSharpness="0.2"
 local performance=addon.Viewport:GetPerformanceDiagnostics(addon.Viewport:GetMetrics())
+local originalNamePlateAPI, originalFramerate = C_NamePlate, GetFramerate
+C_NamePlate = {GetNamePlates = function() error("support text diagnostics enumerated nameplates") end}
+GetFramerate = function() error("support text diagnostics sampled renderer performance") end
+local textDiagnostics = addon.Viewport:GetWorldTextDiagnostics(addon.Viewport:GetMetrics())
+for _, field in ipairs({"worldTextScale", "originalWorldTextScale", "worldTextScaleCVar",
+    "worldTextMethod", "worldTextCompensationEnabled", "worldTextFineTune",
+    "worldTextHeightRatio", "worldTextCompensationRatio"}) do
+    assert(textDiagnostics[field] == performance[field], "world-text support evidence drifted: " .. field)
+end
+C_NamePlate, GetFramerate = originalNamePlateAPI, originalFramerate
 near(performance.fps,73.5)
 near(performance.spanPixels,4480*1440)
 near(performance.mainhandPixels,2560*1440)
@@ -214,12 +263,41 @@ OffhandCompanionTopology={schema=1,physicalWidth=4000,physicalHeight=2560,mode="
 addon.isForever=true
 UIParent.GetWidth=function() return (4000/2560)*768/uiScale end
 tm=addon.Viewport:GetMetrics()
+assert(tm.isSpanned and tm.companionTopology and tm.topologyStatus=="READY",
+    "Forever must accept a matching canvas with a stale Mainhand-sized physical report")
+
+-- Beta 21 report: Forever 1.60.1 build 70450 reports 2560x1440 while
+-- the spanned canvas is 2287x1141 and the Companion bounds are 3640x1816.
+OffhandCompanionTopology={schema=1,physicalWidth=3640,physicalHeight=1816,mode="DUAL_DISPLAY",
+    workspace={x=0,y=0,width=1080,height=1816},game={x=1080,y=0,width=2560,height=1440}}
+UIParent.GetWidth=function() return 2287 end
+UIParent.GetHeight=function() return 1141 end
+tm=addon.Viewport:GetMetrics()
+assert(tm.isSpanned and tm.companionTopology and tm.topologyStatus=="READY"
+        and tm.physicalWidth==3640 and tm.physicalHeight==1816
+        and tm.gamePixelWidth==2560 and tm.gamePixelHeight==1440
+        and tm.workspacePixelWidth==1080,
+    "reported Forever canvas must accept the Companion span without guessing monitor geometry")
+topologyDiagnostics=addon.Viewport:GetTopologyDiagnostics()
+assert(topologyDiagnostics.accepted and topologyDiagnostics.status=="READY"
+        and topologyDiagnostics.liveWidth==2560 and topologyDiagnostics.liveHeight==1440
+        and topologyDiagnostics.canvasWidth==2287 and topologyDiagnostics.canvasHeight==1141,
+    "accepted topology diagnostics must preserve the raw stale physical report")
+
+-- Matching aspect alone cannot authorize unrelated physical dimensions.
+pw,ph=1920,1080
+tm=addon.Viewport:GetMetrics()
 assert(not tm.isSpanned and tm.topologyStatus=="MISMATCH",
-    "Forever must retain strict exact-size topology validation")
+    "Forever must reject physical reports that match neither selected display")
+pw,ph=2560,1440
+UIParent.GetWidth=function() return (2560/1440)*1141 end
+tm=addon.Viewport:GetMetrics()
+assert(not tm.isSpanned and tm.topologyStatus=="MISMATCH",
+    "Forever must reject stale topology after restoring a single-monitor canvas")
 topologyDiagnostics=addon.Viewport:GetTopologyDiagnostics()
 assert(topologyDiagnostics.status=="MISMATCH" and topologyDiagnostics.loaded
-    and not topologyDiagnostics.accepted and topologyDiagnostics.expectedWidth==4000
-    and topologyDiagnostics.expectedHeight==2560 and topologyDiagnostics.liveWidth==2560
+    and not topologyDiagnostics.accepted and topologyDiagnostics.expectedWidth==3640
+    and topologyDiagnostics.expectedHeight==1816 and topologyDiagnostics.liveWidth==2560
     and topologyDiagnostics.liveHeight==1440,
     "mismatch diagnostics must preserve both expected topology and live dimensions")
 addon.isForever=false
@@ -227,6 +305,9 @@ UIParent.GetWidth, UIParent.GetHeight = originalGetWidth, originalGetHeight
 OffhandCompanionTopology=nil
 addon.isForever=true
 addon.db.aspectRatioMode="16_9"
+OffhandDB.manualCanvases={}
+local foreverPreview=addon.Viewport:GetManualPreviewMetrics()
+assert(addon.ManualCanvas:RememberFromMetrics(foreverPreview,"Forever manual","MANUAL"))
 tm=addon.Viewport:GetMetrics()
 assert(tm.isSpanned and tm.topologyStatus=="ABSENT"
         and tm.gamePixelLeft==922 and tm.gamePixelBottom==6
@@ -239,6 +320,17 @@ assert(topologyDiagnostics.status=="ABSENT" and not topologyDiagnostics.loaded
     and not topologyDiagnostics.accepted,
     "absent topology diagnostics must remain distinct from a mismatch")
 
+-- An absent generated topology is not proof of a manual span. The ordinary
+-- one-monitor Forever window observed during live testing must fail safely
+-- until the player explicitly remembers a matching independent canvas.
+OffhandDB.manualCanvases={}
+pw,ph=2114,1353
+tm=addon.Viewport:GetMetrics()
+assert(not tm.isSpanned and tm.topologyStatus=="ABSENT"
+        and tm.manualCanvasState=="MISMATCH"
+        and tm.gamePixelWidth==2114 and tm.workspacePixelWidth==0,
+    "an unremembered one-monitor window must use safe single-screen geometry")
+
 -- Match the reported equal-landscape manual span. Without a generated
 -- CompanionTopology.lua, a 50/50 preset must still confine WorldFrame to the
 -- left monitor instead of treating the full window as the game rectangle.
@@ -248,6 +340,9 @@ addon.db.primaryPosition="LEFT"
 addon.db.deckWidthRatio=0.50
 addon.db.aspectRatioMode="16_9"
 addon.db.gameBottomPixels=0
+OffhandDB.manualCanvases={}
+local landscapePreview=addon.Viewport:GetManualPreviewMetrics()
+assert(addon.ManualCanvas:RememberFromMetrics(landscapePreview,"Landscape manual","MANUAL"))
 tm=addon.Viewport:GetMetrics()
 assert(tm.isSpanned and tm.topologyStatus=="ABSENT"
         and tm.gamePixelLeft==0 and tm.gamePixelWidth==1917
@@ -358,6 +453,9 @@ print('PASS: immediate action/form anchors, native scale retained, combat deferr
 
 -- The viewport controls one global baseline; arbitrary addon children inherit it.
 addon.db.enabled=true;addon.db.deckWidthRatio=0.36;addon.db.aspectRatioMode="16_9"
+OffhandDB.manualCanvases={}
+local scalePreview=addon.Viewport:GetManualPreviewMetrics()
+assert(addon.ManualCanvas:RememberFromMetrics(scalePreview,"Scale test","MANUAL"))
 local writes=0
 local worldWrites=0
 function UIParent:GetScale() return uiScale end
@@ -429,9 +527,8 @@ GetCVar=function(name)
     end
     if name=="nameplateSize" then return tostring(nameplateSize) end
     if name=="UnitNameFriendlyPlayerName" then return tostring(friendlyPlayerNames) end
-    -- Retail 12.1 can render friendly player plates while this legacy CVar is
-    -- unavailable. UnitNameFriendlyPlayerName remains the authoritative name
-    -- visibility switch and must not be gated on this missing value.
+    -- Scaling must preserve player visibility choices even when the legacy
+    -- friendly-plate CVar is unavailable.
     if name=="nameplateShowFriends" then return nil end
     if name=="NamePlateHorizontalScale" then return nil end
     if name=="NamePlateVerticalScale" then return nil end
@@ -455,16 +552,36 @@ local unknownAddon=frame(UIParent);unknownAddon.scale=1.2
 local getSpannedMetrics=addon.Viewport.GetMetrics
 addon.Viewport.GetMetrics=function() return {isSpanned=false} end
 addon.Viewport:ApplyGlobalScale()
-near(friendlyPlayerNames,1)
-near(addon.db.originalFriendlyPlayerName,0)
-assert(friendlyPlayerNameWrites[1]=="1",
-    "friendly player names were not kept visible while Offhand was enabled but unspanned")
+near(friendlyPlayerNames,0)
+assert(addon.db.originalFriendlyPlayerName==nil and #friendlyPlayerNameWrites==0,
+    "unspanned Offhand changed the player's friendly name visibility")
 addon.Viewport.GetMetrics=getSpannedMetrics
 addon.Viewport:ApplyGlobalScale()
+near(friendlyPlayerNames,0)
+assert(#friendlyPlayerNameWrites==0,"spanned scaling forced friendly player names on")
+friendlyPlayerNames=1
+addon.Viewport:ApplyGlobalScale()
 near(friendlyPlayerNames,1)
-assert(friendlyPlayerNameWrites[1]=="1",
-    "friendly player-name visibility was not written when the legacy plate CVar was unavailable")
-near(addon.db.originalFriendlyPlayerName,0)
+friendlyPlayerNames=0
+addon.Viewport:ApplyGlobalScale()
+near(friendlyPlayerNames,0)
+assert(#friendlyPlayerNameWrites==0,"scaling overrode a changed player visibility choice")
+-- Migrate the old forced-on setting once, then relinquish ownership. A player
+-- who already turned names off must never be re-enabled by a stale backup.
+addon.db.originalFriendlyPlayerName=0
+friendlyPlayerNames=1
+addon.Viewport:ApplyGlobalScale()
+near(friendlyPlayerNames,0)
+assert(addon.db.originalFriendlyPlayerName==nil and #friendlyPlayerNameWrites==1
+    and friendlyPlayerNameWrites[1]=="0","legacy forced visibility was not restored once")
+addon.db.originalFriendlyPlayerName=1
+addon.Viewport:ApplyGlobalScale()
+near(friendlyPlayerNames,0)
+assert(addon.db.originalFriendlyPlayerName==nil and #friendlyPlayerNameWrites==1,
+    "legacy cleanup overwrote the player's newer off preference")
+friendlyPlayerNames=1
+addon.Viewport:ApplyGlobalScale()
+near(friendlyPlayerNames,1)
 local expectedHUDScale=1440/2560*0.7
 near(uiScale,expectedHUDScale)
 near(WorldFrame:GetEffectiveScale(),nativeWorldScale)
@@ -529,11 +646,11 @@ near(uiScale,original)
 near(WorldFrame:GetScale(),nativeWorldScale)
 near(worldTextScale,1)
 near(nameplateSize,3)
-near(friendlyPlayerNames,0)
-assert(friendlyPlayerNameWrites[#friendlyPlayerNameWrites]=="0",
-    "friendly player-name preference was not restored as a Retail boolean CVar")
+near(friendlyPlayerNames,1)
+assert(#friendlyPlayerNameWrites==1,
+    "disabling Offhand overwrote the player's current visibility preference")
 assert(addon.db.originalFriendlyPlayerName==nil,
-    "friendly player-name preference was not restored when Offhand was disabled")
+    "legacy friendly player-name ownership was retained after migration")
 near(nameplateWidth,300)
 near(nameplateHeight,75)
 near(nameplateFrame:GetScale(),0.325)
@@ -554,9 +671,8 @@ assert(worldWrites==1,
     "native WorldFrame scale was unexpectedly changed before restore")
 
 -- World text follows the calculated Mainhand visual baseline only where the
--- physical canvas is taller than Mainhand. Equal-height spans are live-proven
--- native, and must remain unchanged. Preserve a custom player WorldTextScale
--- as a multiplier across every geometry and restoration.
+-- physical canvas is taller than Mainhand. Equal-height spans need no automatic
+-- correction, but the user fine-tune remains a multiplier in every topology.
 local universalMetrics = {
     {name="equal-height side-by-side report", physicalWidth=4480, physicalHeight=1440,
         gamePixelWidth=2560, gamePixelHeight=1440},
@@ -582,7 +698,7 @@ for _, sample in ipairs(universalMetrics) do
         sample.gamePixelWidth * 768 / (1100 * sample.physicalHeight))
         * addon.db.hudScale)
     local expectedWorld = math.abs(sample.gamePixelHeight / sample.physicalHeight - 1) <= 0.01
-        and 1 or calculated
+        and addon.db.worldTextScale or calculated * addon.db.worldTextScale
     sample.isSpanned = true
     addon.db.enabled = true
     addon.db.originalWorldTextScale = nil
@@ -598,6 +714,24 @@ for _, sample in ipairs(universalMetrics) do
     addon.Viewport:ApplyGlobalScale()
     near(worldTextScale, 1.25)
 end
+addon.Viewport.GetMetrics = nativeGetMetrics
+
+-- Regression: the reporter's equal-height 5120x1440 span previously returned
+-- early with ratio 1, so moving the visible slider to 50% changed no CVar.
+local equalHeightMetrics = universalMetrics[5]
+addon.db.enabled = true
+addon.db.originalWorldTextScale = nil
+addon.Viewport.originalScale = nil
+worldTextScale = 1
+addon.db.worldTextScale = 0.5
+addon.Viewport.GetMetrics = function() return equalHeightMetrics end
+addon.Viewport:ApplyGlobalScale()
+near(worldTextScale, 0.5)
+near(addon.Viewport:GetPerformanceDiagnostics(equalHeightMetrics).worldTextCompensationRatio, 0.5)
+addon.db.enabled = false
+addon.Viewport:ApplyGlobalScale()
+near(worldTextScale, 1)
+addon.db.worldTextScale = 1
 addon.Viewport.GetMetrics = nativeGetMetrics
 
 -- User controls are independent from the global HUD scale: the toggle restores
@@ -716,4 +850,22 @@ addon.Viewport:ApplyGlobalScale()
 worldTextAvailable = true
 addon.Viewport.GetMetrics = nativeGetMetrics
 print("PASS: inherited global baseline, addon relative scales, no repeated writes, recursion/combat guards, restore")
+
+-- Support output must not replace the saved validation snapshot. Existing
+-- callers that intentionally record a geometry check retain that behavior.
+local originalWorld = WorldFrame
+WorldFrame = {GetRect=function()return 0,0,100,200 end,GetEffectiveScale=function()return 1 end}
+addon.Viewport.GetMetrics = function()return {physicalHeight=768,gamePixelLeft=0,
+    gamePixelBottom=0,gamePixelWidth=100,gamePixelHeight=200}end
+local previousCheck = {marker='existing validation'}
+addon.db.lastGeometryCheck = previousCheck
+local readOnly = addon.Viewport:CaptureDiagnostics(false)
+assert(readOnly.viewportMatches and addon.db.lastGeometryCheck == previousCheck,
+    'read-only diagnostics overwrote the saved validation snapshot')
+local recorded = addon.Viewport:CaptureDiagnostics()
+assert(recorded.viewportMatches and addon.db.lastGeometryCheck == recorded,
+    'intentional geometry recording lost its existing default')
+WorldFrame = originalWorld
+addon.Viewport.GetMetrics = nativeGetMetrics
+print('PASS: read-only support geometry and retained explicit validation recording')
 

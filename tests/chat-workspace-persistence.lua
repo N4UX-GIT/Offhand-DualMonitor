@@ -245,7 +245,24 @@ addon.db.savedMainPositions.ChatFrame2 = {
 
 -- Load Offhand modules
 assert(loadfile("UI/Themes.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasFrameState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelRegistry.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPersistence.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasBackpackState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverMap.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasChat.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasProfessions.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelMotion.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasMapPresentation.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelLifecycle.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDTransientPolicy.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDRecovery.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDTransientFrames.lua"))("Offhand", addon)
 assert(loadfile("Core/SeamRedirect.lua"))("Offhand", addon)
 
 -- 1. Initialize dragging
@@ -525,6 +542,72 @@ assert(addon.db.savedWorkspacePositions["ChatFrame1"] ~= nil, "savedWorkspacePos
 assert(ChatFrame1:GetWidth() == 800 and ChatFrame1:GetHeight() == 257,
     "Reload restoration must reapply the last explicitly saved chat dimensions")
 
+-- A stale generic workspace record for Forever's docked Combat Log must never
+-- override the native dock-relative geometry or synthesize visibility. This is
+-- the exact Beta 21 failure reported after Span Now and again after /reload.
+ChatFrame2:SetSize(752, 537)
+ChatFrame2:ClearAllPoints()
+ChatFrame2:SetPoint("TOPLEFT", ChatFrame1, "TOPLEFT", 0, -25)
+ChatFrame2:Hide()
+ChatFrame2Tab.GetParent = function() return GeneralDockManager end
+table.insert(GeneralDockManager.DOCKED_CHAT_FRAMES, ChatFrame2)
+chatWindowPresentation[2].docked = true
+addon.db.savedWorkspacePositions.ChatFrame2 = {
+    point = "TOPLEFT", x = 1999, y = 645, width = 430, height = 120,
+}
+addon.db.openWorkspacePanels.ChatFrame2 = true
+local combatWritesBeforeGenericRestore = CountChatStateWrites(2)
+addon.Canvas:RestorePersistentFrames()
+local combatPoint, combatRelative, combatRelativePoint, combatX, combatY =
+    ChatFrame2:GetPoint(1)
+assert(not ChatFrame2:IsShown()
+        and ChatFrame2:GetWidth() == 752 and ChatFrame2:GetHeight() == 537
+        and combatPoint == "TOPLEFT" and combatRelative == ChatFrame1
+        and combatRelativePoint == "TOPLEFT" and combatX == 0 and combatY == -25
+        and addon.db.savedWorkspacePositions.ChatFrame2 ~= nil
+        and CountChatStateWrites(2) == combatWritesBeforeGenericRestore,
+    "Generic reload restoration must leave Forever's docked Combat Log entirely to Blizzard")
+
+-- The same boundary applies to custom secondary chat frames even while dock
+-- membership is transiently absent. Their settlement-gated tracked-chat path
+-- remains responsible for proving detachment before replaying a saved position.
+table.remove(GeneralDockManager.DOCKED_CHAT_FRAMES)
+ChatFrame3:SetSize(640, 300)
+ChatFrame3:ClearAllPoints()
+ChatFrame3:SetPoint("TOPLEFT", ChatFrame1, "TOPLEFT", 20, -40)
+ChatFrame3:Hide()
+ChatFrame3Tab.GetParent = function() return ChatFrame3 end
+addon.db.savedWorkspacePositions.ChatFrame3 = {
+    point = "TOPLEFT", x = 180, y = 900, width = 430, height = 210,
+}
+addon.db.openWorkspacePanels.ChatFrame3 = true
+addon.Canvas:RestorePersistentFrames()
+addon.Canvas:RestoreWorkspacePosition(ChatFrame3)
+local customPoint, customRelative, customRelativePoint, customX, customY =
+    ChatFrame3:GetPoint(1)
+assert(not ChatFrame3:IsShown()
+        and ChatFrame3:GetWidth() == 640 and ChatFrame3:GetHeight() == 300
+        and customPoint == "TOPLEFT" and customRelative == ChatFrame1
+        and customRelativePoint == "TOPLEFT" and customX == 20 and customY == -40,
+    "Generic restoration must not treat transient Forever dock absence as detached ownership")
+
+-- The guard is Forever-specific. Other clients retain generic secondary-chat
+-- restoration behavior.
+addon.isForever = false
+addon.Canvas:RestoreWorkspacePosition(ChatFrame3)
+assert(ChatFrame3:GetWidth() == 430 and ChatFrame3:GetHeight() == 210
+        and select(4, ChatFrame3:GetPoint(1)) == 180,
+    "Non-Forever secondary chat restoration must remain unchanged")
+addon.isForever = true
+addon.db.savedWorkspacePositions.ChatFrame2 = nil
+addon.db.savedWorkspacePositions.ChatFrame3 = nil
+addon.db.openWorkspacePanels.ChatFrame2 = nil
+addon.db.openWorkspacePanels.ChatFrame3 = nil
+table.remove(GeneralDockManager.DOCKED_CHAT_FRAMES)
+ChatFrame2Tab.GetParent = function() return ChatFrame2 end
+chatWindowPresentation[2].docked = false
+addon.db.savedMainPositions.ChatFrame2 = originalCombatPosition
+
 -- Simulate Forever's late native chat rebuild after the first Offhand pass.
 -- Its save callback must reassert the committed Mainhand placement rather than
 -- accepting the full-span centered anchor as a new user choice.
@@ -772,6 +855,15 @@ EditModeManagerFrame.scripts.OnHide(EditModeManagerFrame)
 assert(addon.Canvas:IsRetailEditModeChatSettlementActive(ChatFrame1),
     "Retail chat settlement must suspend stale anchor repair after Edit Mode closes")
 
+-- Canvas restoration and native chat OnShow can run in the same closing turn,
+-- independently of HUD anchor repair. All must yield to the final Edit Mode drop.
+addon.Canvas.RestoreWorkspacePosition(ChatFrame1)
+if ChatFrame1.scripts.OnShow then ChatFrame1.scripts.OnShow(ChatFrame1) end
+assert(select(1, ChatFrame1:GetPoint(1)) == "BOTTOMLEFT"
+        and select(4, ChatFrame1:GetPoint(1)) == 320
+        and select(5, ChatFrame1:GetPoint(1)) == 420,
+    "Canvas and chat OnShow must not replay stale positions during Edit Mode settlement")
+
 FlushEditExitTurn()
 assert(select(1, ChatFrame1:GetPoint(1)) == "BOTTOMLEFT"
         and select(4, ChatFrame1:GetPoint(1)) == 320
@@ -792,5 +884,92 @@ assert(select(1, ChatFrame1:GetPoint(1)) == "TOPLEFT"
         and select(4, ChatFrame1:GetPoint(1)) == 320,
     "The settled Retail workspace placement must remain visible after capture")
 
+-- Retail's generic reload/zone restore must also respect native dock ownership.
+-- A stale detached record used to show the inactive Combat Log over General.
+addon.db.savedWorkspacePositions.ChatFrame2 = {x=100,y=600,width=430,height=120}
+addon.db.savedMainPositions.ChatFrame2 = nil
+addon.db.openWorkspacePanels.ChatFrame2 = true
+GeneralDockManager.DOCKED_CHAT_FRAMES = {ChatFrame1, ChatFrame2}
+ChatFrame2Tab.GetParent = function() return GeneralDockManager end
+ChatFrame2:SetSize(752,537)
+ChatFrame2:ClearAllPoints()
+ChatFrame2:SetPoint("TOPLEFT",ChatFrame1,"TOPLEFT",0,-25)
+ChatFrame2:Hide()
+addon.Canvas:RestorePersistentFrames()
+addon.Canvas:RestoreWorkspacePosition(ChatFrame2)
+local dockPoint, dockRelative, dockRelativePoint, dockX, dockY = ChatFrame2:GetPoint(1)
+assert(not ChatFrame2:IsShown() and ChatFrame2:GetWidth() == 752 and ChatFrame2:GetHeight() == 537
+        and dockPoint == "TOPLEFT" and dockRelative == ChatFrame1
+        and dockRelativePoint == "TOPLEFT" and dockX == 0 and dockY == -25,
+    "Retail generic restore must preserve inactive docked chat visibility, dimensions and anchors")
+ChatFrame2:Show()
+addon.Canvas:RestorePersistentFrames()
+assert(ChatFrame2:IsShown() and ChatFrame2:GetWidth() == 752
+        and select(2, ChatFrame2:GetPoint(1)) == ChatFrame1,
+    "Retail generic restore must also leave the selected docked tab under native ownership")
+GeneralDockManager.DOCKED_CHAT_FRAMES = {ChatFrame1}
+ChatFrame2Tab.GetParent = function() return ChatFrame2 end
+addon.Canvas:RestoreWorkspacePosition(ChatFrame2)
+assert(ChatFrame2:GetWidth() == 430 and ChatFrame2:GetHeight() == 120
+        and select(2, ChatFrame2:GetPoint(1)) == UIParent,
+    "Retail detached chat must retain its explicit workspace restoration")
+
 print("PASS: ChatFrame1 workspace persistence and Retail Edit Mode ownership verified!")
+
+-- Automatic chat docking may be disabled while the player still explicitly
+-- places chat on Offhand. Late native anchors must not erase that placement.
+addon.db.dockChat = false
+addon.db.savedWorkspacePositions.ChatFrame1 = {x=120,y=610,width=640,height=257}
+ChatFrame1:ClearAllPoints()
+ChatFrame1:SetPoint("BOTTOMLEFT",UIParent,"BOTTOMLEFT",0,0)
+addon.HUD:RepairChatAnchor(ChatFrame1)
+assert(select(1,ChatFrame1:GetPoint(1)) == "TOPLEFT"
+        and select(4,ChatFrame1:GetPoint(1)) == 120
+        and select(5,ChatFrame1:GetPoint(1)) == 610,
+    "explicit workspace placement must survive a native reset with automatic chat docking disabled")
+assert(addon.db.savedWorkspacePositions.ChatFrame1.x == 120,
+    "native reset recovery must not replace the player's saved workspace drop")
+
+-- A detached restore can have a next-frame replay pending when Blizzard docks
+-- the tab. That replay must not resize/reanchor the newly selected docked tab.
+local chatTimers = {}
+local originalAfter = C_Timer.After
+C_Timer.After = function(_, callback) chatTimers[#chatTimers+1] = callback end
+GeneralDockManager.DOCKED_CHAT_FRAMES = {ChatFrame1}
+ChatFrame2Tab.GetParent = function() return ChatFrame2 end
+ChatFrame2:Show()
+ChatFrame2.scripts.OnShow(ChatFrame2)
+assert(#chatTimers > 0, "fixture must queue a detached-chat position replay")
+GeneralDockManager.DOCKED_CHAT_FRAMES = {ChatFrame1,ChatFrame2}
+ChatFrame2Tab.GetParent = function() return GeneralDockManager end
+ChatFrame2:SetSize(752,537)
+ChatFrame2:ClearAllPoints()
+ChatFrame2:SetPoint("TOPLEFT",ChatFrame1,"TOPLEFT",0,-25)
+for _, callback in ipairs(chatTimers) do callback() end
+C_Timer.After = originalAfter
+assert(ChatFrame2:GetWidth() == 752 and select(2,ChatFrame2:GetPoint(1)) == ChatFrame1,
+    "pending detached-chat replay must yield to a newly docked tab")
+
+local previousLoadState = C_AddOns
+C_AddOns = {IsAddOnLoaded=function(name) return name == "EllesmereUIChat" end}
+ChatFrame2:Hide()
+addon.db.savedWorkspacePositions.ChatFrame2 = {x=100,y=600,width=430,height=120}
+addon.db.openWorkspacePanels.ChatFrame2 = true
+addon.Canvas:RestorePersistentFrames()
+addon.HUD:AlignChatFrame(metrics)
+assert(not ChatFrame2:IsShown() and ChatFrame2:GetWidth() == 752,
+    "Ellesmere chat ownership must prevent generic stale-record resurrection")
+C_AddOns = previousLoadState
+GeneralDockManager.selected = ChatFrame2
+ChatFrame1:Hide()
+addon.db.openWorkspacePanels.ChatFrame1 = true
+addon.Canvas:RestorePersistentFrames()
+assert(not ChatFrame1:IsShown(),
+    "saved primary chat must not be shown over a currently selected Combat Log")
+GeneralDockManager.selected = ChatFrame1
+addon.db.savedWorkspacePositions.ChatFrame1 = {x=120,y=610,width=640,height=257}
+addon.db.openWorkspacePanels.ChatFrame1 = true
+addon.Canvas:RestorePersistentFrames()
+assert(ChatFrame1:IsShown(), "native selection of General must still allow primary-chat visibility recovery")
+print("PASS: late native chat reset, queued redocking and Ellesmere ownership")
 

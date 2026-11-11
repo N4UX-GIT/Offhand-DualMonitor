@@ -1,0 +1,983 @@
+{
+  "recordedUtc": "2026-11-10T08:12:42.0680108Z",
+  "status": "prepared_unsubmitted",
+  "candidate": {
+    "version": "2.1.6",
+    "fileVersion": "2.1.6.1",
+    "packageVersion": "2.1.600.0",
+    "sourceRevision": "a43e4fea4e7ddd4f8da8470c2275732c75ac458d",
+    "sourceInputs": {
+      "Program.cs": "DD6D6DC4D0DDD8011FC1E27AA5F41460E795423C2C665101118EE5F822868650",
+      "LayoutDocument.cs": "B998543CDF3D1B8C8FA3EC0DB60864B56AC7011FB9C1C832B84528E6798540B3",
+      "WorkspaceLayoutService.cs": "2039BEC4CA7BE95FE4EAFAC2C2BA502DF31262B8A0BDF51F82084D66DB4E057A",
+      "FlexibleWorkspaceEditor.cs": "DDEB200F6533E1F211289132B4E4F27D18F3B48E7A73E98A2F1502B51C9AB17C",
+      "app.manifest": "35C538EF4D34B1235E2A232181EA6AA1688E7299494571E0F470AC2BD5633E9C"
+    },
+    "trackedChanges": false,
+    "binarySha256": "166C6BD750282C4EFDDE12BBE4A64DAFB1E88B2A29C826A86365FEFF741D4879",
+    "archiveSha256": "09F5E72FF8744C1BFDF3D7AE07FE0CD79091E7C26DB17DE072441B77221F8CB4",
+    "publication": "unpublished",
+    "addonProtocol": 1,
+    "compatibleAddon": "2.1.5 Pre-Release Beta 28",
+    "uiPreview": false,
+    "firstRunTutorial": true
+  },
+  "msix": {
+    "path": "dist/companion-2.1.6-candidate-1/store/Offhand-Companion_2_1_600_0_x64.msix",
+    "sha256": "87866739AFBA3BD6C9C73FA39F37C4E11CCE80D25A58A3E45C6B21F4234F2691",
+    "exactExeParity": true,
+    "structure": "PASS",
+    "installedBaseline": "2.1.500.0",
+    "versionOrdering": "PASS",
+    "accountSideOrderingQueried": false,
+    "accountSideCheckAttempt": "Existing overview rendered Submission 6 and Start update; Current packages navigation required sign-in because session expired. No authentication, draft, upload or submission performed."
+  },
+  "regressionSuites": [
+    {
+      "suite": "companion-store-updates.ps1",
+      "result": "PASS"
+    },
+    {
+      "suite": "companion-store-persistence.ps1",
+      "result": "PASS"
+    },
+    {
+      "suite": "companion-display-selection.ps1",
+      "result": "PASS"
+    },
+    {
+      "suite": "companion-partial-topology.ps1",
+      "result": "PASS"
+    },
+    {
+      "suite": "companion-workspace-ux.ps1",
+      "result": "PASS"
+    },
+    {
+      "suite": "companion-workspace-profiles.ps1",
+      "result": "PASS"
+    },
+    {
+      "suite": "companion-layout-document.ps1",
+      "result": "PASS"
+    },
+    {
+      "suite": "companion-flexible-layouts.ps1",
+      "result": "PASS"
+    },
+    {
+      "suite": "companion-third-monitor.ps1",
+      "result": "PASS"
+    },
+    {
+      "suite": "companion-taskbar-presentation.ps1",
+      "result": "PASS"
+    },
+    {
+      "suite": "companion-span-rollback.ps1",
+      "result": "PASS"
+    },
+    {
+      "suite": "companion-remote-desktop.ps1",
+      "result": "PASS"
+    },
+    {
+      "suite": "companion-interaction-boundary.ps1",
+      "result": "PASS"
+    },
+    {
+      "suite": "preferences",
+      "result": "PASS"
+    },
+    {
+      "suite": "regions",
+      "result": "PASS"
+    },
+    {
+      "suite": "color",
+      "result": "PASS",
+      "fixtureCorrection": "Select Advanced before measuring diagnostics; production logic unchanged"
+    },
+    {
+      "suite": "color-diagnostics",
+      "result": "PASS",
+      "fixtureCorrection": "Select Advanced before measuring diagnostics; production logic unchanged"
+    },
+    {
+      "suite": "recovery-production",
+      "result": "PASS"
+    },
+    {
+      "suite": "recovery-classic",
+      "result": "PASS"
+    },
+    {
+      "suite": "recovery-retail",
+      "result": "PASS"
+    },
+    {
+      "suite": "recovery-forever",
+      "result": "PASS"
+    }
+  ],
+  "lua": {
+    "suites": 114,
+    "failed": 0,
+    "kind": "standalone fixtures, not game runtime"
+  },
+  "wack": {
+    "overall": "PASS",
+    "partialRun": false,
+    "version": "10.0.19041.685",
+    "noInstallAppx": true,
+    "requiredPassed": 13,
+    "requiredFailed": 0,
+    "optionalPassed": 10,
+    "optionalFailed": 1,
+    "tests": [
+      {
+        "name": "Install signed driver and executable files",
+        "optional": true,
+        "result": "PASS"
+      },
+      {
+        "name": "User account control run level",
+        "optional": true,
+        "result": "PASS"
+      },
+      {
+        "name": "Application count",
+        "optional": true,
+        "result": "PASS"
+      },
+      {
+        "name": "App manifest",
+        "optional": false,
+        "result": "PASS"
+      },
+      {
+        "name": "File association verbs",
+        "optional": true,
+        "result": "PASS"
+      },
+      {
+        "name": "Registry checks",
+        "optional": true,
+        "result": "PASS"
+      },
+      {
+        "name": "Enterprise Features",
+        "optional": false,
+        "result": "PASS"
+      },
+      {
+        "name": "Resource Packages",
+        "optional": false,
+        "result": "PASS"
+      },
+      {
+        "name": "Banned file analyzer",
+        "optional": false,
+        "result": "PASS"
+      },
+      {
+        "name": "Private code signing",
+        "optional": false,
+        "result": "PASS"
+      },
+      {
+        "name": "App resources",
+        "optional": true,
+        "result": "PASS"
+      },
+      {
+        "name": "Branding",
+        "optional": false,
+        "result": "PASS"
+      },
+      {
+        "name": "Debug configuration",
+        "optional": true,
+        "result": "PASS"
+      },
+      {
+        "name": "Special use capabilities",
+        "optional": false,
+        "result": "PASS"
+      },
+      {
+        "name": "ExclusiveTo attribute",
+        "optional": false,
+        "result": "PASS"
+      },
+      {
+        "name": "Type location",
+        "optional": false,
+        "result": "PASS"
+      },
+      {
+        "name": "Type name case-sensitivity",
+        "optional": false,
+        "result": "PASS"
+      },
+      {
+        "name": "Type name correctness",
+        "optional": false,
+        "result": "PASS"
+      },
+      {
+        "name": "General metadata correctness",
+        "optional": true,
+        "result": "PASS"
+      },
+      {
+        "name": "Properties",
+        "optional": false,
+        "result": "PASS"
+      },
+      {
+        "name": "Archive files usage",
+        "optional": true,
+        "result": "PASS"
+      },
+      {
+        "name": "Blocked executables",
+        "optional": true,
+        "result": "FAIL"
+      },
+      {
+        "name": "Platform appropriate files",
+        "optional": true,
+        "result": "PASS"
+      },
+      {
+        "name": "DPIAwarenessValidation",
+        "optional": false,
+        "result": "PASS"
+      }
+    ],
+    "reportSha256": "DBC6E6931E9D14EFD772F5F5C083A595A26045FA6AA75C51E86B211FC9EA04D6",
+    "optionalFindingReview": "User-triggered Process.Start links/settings; sole case-insensitive ASCII csi marker at offset 490318 inside unchanged 9408-byte PNG, SHA256 5A07E4979187D0DEEC6F098EB8EBE1A0E47ABFA622C753F6CAE3882BEB3DEAC8, identical to published 2.1.5 and source icon."
+  },
+  "realPackageIdentity": {
+    "method": "Separate host loading exact payload with isolated config, not Store-delivered candidate activation",
+    "first": {
+      "phase": "first",
+      "packageFamily": "N4UX.OffhandCompanion_bwe0ea6astzt8",
+      "exactExeSha256": "166C6BD750282C4EFDDE12BBE4A64DAFB1E88B2A29C826A86365FEFF741D4879",
+      "version": "2.1.6.0",
+      "privatePackage": false,
+      "originalKeys": 15,
+      "monitoringDisabled": true,
+      "automaticTutorial": true,
+      "replayVerified": false,
+      "result": "PASS",
+      "checks": 40,
+      "settingsPreserved": true,
+      "lockedSavePreserved": true,
+      "retryPassed": true,
+      "tutorialSeen": true,
+      "finishedUtc": "2026-11-10T08:06:55.0845634Z"
+    },
+    "relaunch": {
+      "phase": "relaunch",
+      "packageFamily": "N4UX.OffhandCompanion_bwe0ea6astzt8",
+      "exactExeSha256": "166C6BD750282C4EFDDE12BBE4A64DAFB1E88B2A29C826A86365FEFF741D4879",
+      "version": "2.1.6.0",
+      "privatePackage": false,
+      "originalKeys": 16,
+      "monitoringDisabled": true,
+      "automaticTutorial": false,
+      "replayVerified": true,
+      "result": "PASS",
+      "checks": 41,
+      "settingsPreserved": true,
+      "lockedSavePreserved": true,
+      "retryPassed": true,
+      "tutorialSeen": true,
+      "finishedUtc": "2026-11-10T08:07:27.1128383Z"
+    },
+    "additionalPersistenceChecks": 47
+  },
+  "privateUpgrade": {
+    "phase": "completed",
+    "startedUtc": "2026-11-10T08:07:35.6274415Z",
+    "originalPackage": "N4UX.OffhandCompanion_2.1.500.0_x64__bwe0ea6astzt8",
+    "productionPackageInstalled": false,
+    "certificateImport": false,
+    "developerModeChange": false,
+    "privateFamily": "N4UX.OffhandCompanion.UpgradeValidation216_7xh2g448n3td0",
+    "baseline": {
+      "phase": "baseline",
+      "packageFamily": "N4UX.OffhandCompanion.UpgradeValidation216_7xh2g448n3td0",
+      "exactExeSha256": "95811DBB7020A20E2541AE123E69FE80721C83A0FD52D0EE5557DD6D54DCCC2A",
+      "version": "2.1.5.0",
+      "privatePackage": true,
+      "originalKeys": 15,
+      "monitoringDisabled": true,
+      "result": "PASS",
+      "checks": 40,
+      "settingsPreserved": true,
+      "lockedSavePreserved": true,
+      "retryPassed": true,
+      "tutorialSeen": false,
+      "finishedUtc": "2026-11-10T08:07:37.949214Z"
+    },
+    "upgradeRetainedPreferences": true,
+    "upgrade-first": {
+      "phase": "upgrade-first",
+      "packageFamily": "N4UX.OffhandCompanion.UpgradeValidation216_7xh2g448n3td0",
+      "exactExeSha256": "166C6BD750282C4EFDDE12BBE4A64DAFB1E88B2A29C826A86365FEFF741D4879",
+      "version": "2.1.6.0",
+      "privatePackage": true,
+      "originalKeys": 15,
+      "monitoringDisabled": true,
+      "automaticTutorial": true,
+      "replayVerified": false,
+      "result": "PASS",
+      "checks": 40,
+      "settingsPreserved": true,
+      "lockedSavePreserved": true,
+      "retryPassed": true,
+      "tutorialSeen": true,
+      "finishedUtc": "2026-11-10T08:07:43.0034668Z"
+    },
+    "upgrade-relaunch": {
+      "phase": "upgrade-relaunch",
+      "packageFamily": "N4UX.OffhandCompanion.UpgradeValidation216_7xh2g448n3td0",
+      "exactExeSha256": "166C6BD750282C4EFDDE12BBE4A64DAFB1E88B2A29C826A86365FEFF741D4879",
+      "version": "2.1.6.0",
+      "privatePackage": true,
+      "originalKeys": 16,
+      "monitoringDisabled": true,
+      "automaticTutorial": false,
+      "replayVerified": true,
+      "result": "PASS",
+      "checks": 42,
+      "settingsPreserved": true,
+      "lockedSavePreserved": true,
+      "retryPassed": true,
+      "tutorialSeen": true,
+      "finishedUtc": "2026-11-10T08:07:47.0723651Z"
+    },
+    "wackExitCode": 0,
+    "wackReportExists": true,
+    "privatePackageRemoved": true,
+    "originalAppAndPreferencesUnchanged": true,
+    "finishedUtc": "2026-11-10T08:08:25.3195762Z"
+  },
+  "defender": {
+    "result": "No threats",
+    "exitCode": 0,
+    "engine": "1.1.26100.4",
+    "signatures": "1.463.220.0",
+    "realTimeEnabled": true,
+    "scanLogSha256": "8552F39FDF6C732C10384D84CF98B00CD442EF47F8704E102D4A30C8B22BB9F9",
+    "scope": "Exact local EXE, ZIP and production MSIX directory; no analyst or reputation verdict"
+  },
+  "rawLogHashes": [
+    {
+      "path": "dist/216-color-diagnostics.log",
+      "sha256": "E024F3258D977AF77ED2953D9A777FE443172805C97D5B804F79E8A07069756A"
+    },
+    {
+      "path": "dist/216-color.log",
+      "sha256": "AF67ECED54FF27E17C39EFF603BD1B1F2AEAE445F819A8A26886E83A53DD0CDC"
+    },
+    {
+      "path": "dist/216-companion-display-selection.log",
+      "sha256": "122D1F3F798253A1464507744806523669157AA5689F1E8AA81AD0782CF05A15"
+    },
+    {
+      "path": "dist/216-companion-flexible-layouts.log",
+      "sha256": "CD22D041E5A28A8C191E73801F7E91778457C794FAA6F46D4100FBA0820B43F9"
+    },
+    {
+      "path": "dist/216-companion-interaction-boundary.log",
+      "sha256": "DEBF33369A1EA455A061A68BBA0E0F35645EED5C6FAF9CD37A86030E10ADAC5F"
+    },
+    {
+      "path": "dist/216-companion-layout-document.log",
+      "sha256": "42344AF2A82233B96C663AA326E4AEAF42CFACC443131E2835D0F5E39E469AB4"
+    },
+    {
+      "path": "dist/216-companion-partial-topology.log",
+      "sha256": "DF8B65811D6A150F6E5F551A792DCAA6BBBD26CD46736FA1022351B84D023D99"
+    },
+    {
+      "path": "dist/216-companion-remote-desktop.log",
+      "sha256": "23DF05AE88A1E26C4A007F119D325F34D36FCC3E1AA312A7C6A6720B57BF2F66"
+    },
+    {
+      "path": "dist/216-companion-span-rollback.log",
+      "sha256": "E6D9D70BDEB5E44764EE79A10372D8BE9AD6293F26300B5C8631283DFE18BFC3"
+    },
+    {
+      "path": "dist/216-companion-store-persistence.log",
+      "sha256": "0A7D4933EAE0F4B98B5FC39347FE7F136811050A361CB8D020928DE1B11D6405"
+    },
+    {
+      "path": "dist/216-companion-store-updates.log",
+      "sha256": "6212F081396F56BF164D53F6F8F3151F6BE550CC412548DF666606178C9E5C80"
+    },
+    {
+      "path": "dist/216-companion-taskbar-presentation.log",
+      "sha256": "F83175028B8E42FB8481A919118F5D183FFE291C2D26F05E60C11FF7561EBEF7"
+    },
+    {
+      "path": "dist/216-companion-third-monitor.log",
+      "sha256": "E273DAC917313E5D34CE9B0FF7C1868B11D339EC55389E017615CE219AF23070"
+    },
+    {
+      "path": "dist/216-companion-workspace-profiles.log",
+      "sha256": "57679E5ECF45BE1E9F5F1CC6915653B36BACFF25B76EBDD36A37E73D32C33C38"
+    },
+    {
+      "path": "dist/216-companion-workspace-ux.log",
+      "sha256": "5700D437103E8F0F290E6C6BC8D4F110089CE9DDCFAD52663CCE23516AAEA197"
+    },
+    {
+      "path": "dist/216-defender.log",
+      "sha256": "8552F39FDF6C732C10384D84CF98B00CD442EF47F8704E102D4A30C8B22BB9F9"
+    },
+    {
+      "path": "dist/216-historical213.log",
+      "sha256": "F7C57F1CC13A0220F358085BBBA00CF5BBA7461B122CDDA697EA5C81746D9247"
+    },
+    {
+      "path": "dist/216-historical215.log",
+      "sha256": "58D63F744D90DE687E1AA001A910CAA3760C918108D1BF87004E03BF2FAC2755"
+    },
+    {
+      "path": "dist/216-lua-bag-combat.log",
+      "sha256": "A0A9C16B354A58874659AAED3B089A6A179202117F201802FE79DF5D2819180C"
+    },
+    {
+      "path": "dist/216-lua-bag-discovery-performance.log",
+      "sha256": "6DC99691A9B541B709EC360F014EF8527AF291748345796E4C89FD62326DAC6D"
+    },
+    {
+      "path": "dist/216-lua-baganator-persistence.log",
+      "sha256": "EF4ECE85DC648D5C079EE90A176A681448D883E3A63739DE12D626D715304995"
+    },
+    {
+      "path": "dist/216-lua-bottom-control.log",
+      "sha256": "9F820FCC4050D49AF1B9719E41564A79AABEA6ADAD1E49A426F1546E7FE446EE"
+    },
+    {
+      "path": "dist/216-lua-canvas-backpack-state.log",
+      "sha256": "85ABF556363955E36CAF1EB8502A4931CFE4124915096C7885857FF2DAB59C25"
+    },
+    {
+      "path": "dist/216-lua-canvas-compatibility.log",
+      "sha256": "79F80D0B29DDB53D01310BF27279EC7E255A2579EE0D4BE6CB11680FEA48AA4B"
+    },
+    {
+      "path": "dist/216-lua-canvas-frame-state.log",
+      "sha256": "3BCBE40C9023B4A0CC868A2C8F595C09C8542C8022CA6C6C591E18B4D7CD5172"
+    },
+    {
+      "path": "dist/216-lua-canvas-panel-registry.log",
+      "sha256": "E9E1A23B979600531419EE0AD8486A39FF9356A3E8AD894EDEC84CCE097C7671"
+    },
+    {
+      "path": "dist/216-lua-canvas-persistence.log",
+      "sha256": "94FD31FA0E12EA3CC1406659263A170C675309632F5AC181C02B1F33225FD4D9"
+    },
+    {
+      "path": "dist/216-lua-cards-and-minimap.log",
+      "sha256": "7E75FDF4CE6098A3265CCA963F770D077C70CF38C37DC626A5817C2ED287B161"
+    },
+    {
+      "path": "dist/216-lua-character-layout-reuse.log",
+      "sha256": "70F2238C8F453227FADDB4251822C5F546239F947E41CDB74D8EBC72831BBF65"
+    },
+    {
+      "path": "dist/216-lua-character-setup.log",
+      "sha256": "828293E4521A646B58700C8689EB52E50C1A19CE1C6A8927ECBBD8A39BD4DAD4"
+    },
+    {
+      "path": "dist/216-lua-chat-bubble-scale.log",
+      "sha256": "0D9580B96FB407F8FA90CC454A934E36E9295D8BEDE2F7EBF11BA9890CA039A9"
+    },
+    {
+      "path": "dist/216-lua-chat-workspace-persistence.log",
+      "sha256": "60FA025457AA1C725F4068B528B4AD44CA3F9616A9ED749A107F650B48381936"
+    },
+    {
+      "path": "dist/216-lua-cinematic-presentation.log",
+      "sha256": "32879EA6FEB39D521412F7B32D07D434AD6676F84716938B298A28146FAA72B3"
+    },
+    {
+      "path": "dist/216-lua-classic-native-root.log",
+      "sha256": "9BBFED5396275E19B11E7EFAE3903B73B9EAB77DFC822D184D7547F031F98AC4"
+    },
+    {
+      "path": "dist/216-lua-classic-quest-tracker.log",
+      "sha256": "4FDD782A7F19F7616CF4D6C24CB54C164D495A7A8A87860E06E434F92074DE92"
+    },
+    {
+      "path": "dist/216-lua-classic-tooltip-clamp.log",
+      "sha256": "29F747CF8FF68D4583D0EED65F226E2ABC4564E6E078AADAED596A293ED194B2"
+    },
+    {
+      "path": "dist/216-lua-classic-tooltip-native-scale.log",
+      "sha256": "6698844095849B7CFF6595C273FC9894C9C36313D2470369D2790FAD54D7364A"
+    },
+    {
+      "path": "dist/216-lua-companion-topology.log",
+      "sha256": "A06AD1E64939373EC6162DA6B0F5C27F62002516A4E641251F0211469DC60CF6"
+    },
+    {
+      "path": "dist/216-lua-diagnostic-output.log",
+      "sha256": "B501235265A222333866B38CA42D4E9CEB8CDD352E78F6BE0311F8F75B9498C8"
+    },
+    {
+      "path": "dist/216-lua-dialogue-ui-compat.log",
+      "sha256": "ED2275AA58DF155118453ACCBFF93F0F3639FFC009D0C15C7748D763636DA1CF"
+    },
+    {
+      "path": "dist/216-lua-disabled-client-isolation.log",
+      "sha256": "2D9D0CE86D6E7BD846D576394C7941C957CFA03AA66BAE33D5F27FA25E7877E2"
+    },
+    {
+      "path": "dist/216-lua-display-identify.log",
+      "sha256": "CF681D3613892D60EF929F1FD55A1065BA10DE5A96E5806727E138C94555FD99"
+    },
+    {
+      "path": "dist/216-lua-display-probe.log",
+      "sha256": "D6CB6F431F1AD0EC22C26E143AA55970AB21D724777BB7A1F79BD06AE61F07A6"
+    },
+    {
+      "path": "dist/216-lua-encounter-recovery.log",
+      "sha256": "C44CF02A1E08209E419652F582C8F0F3C736AEA7B434ED5B6BFCBF1643525EBC"
+    },
+    {
+      "path": "dist/216-lua-escape-and-bags.log",
+      "sha256": "7ACBE5780E0975023F13E742C85A284CA50012A6E7AF404F6BA6972340393E3B"
+    },
+    {
+      "path": "dist/216-lua-expanded-bags-and-ui-overlaps.log",
+      "sha256": "A98A12728D4A93461A69490F9509F44B3B9829D444DFB9B73AE07609BFAA08B6"
+    },
+    {
+      "path": "dist/216-lua-first-launch-onboarding.log",
+      "sha256": "7387BCEA7C2025D6A0D1E0D8BE27C7069C41AF674A96A1D3E93159344B4E8310"
+    },
+    {
+      "path": "dist/216-lua-flexible-workspace-topology.log",
+      "sha256": "2DE5DE6F2BD480B185208230858E35EE6408CC1149AB289B7FBE98A8671FA2F2"
+    },
+    {
+      "path": "dist/216-lua-flexible-worldmap-fit.log",
+      "sha256": "305988C51AB0E9121FC59FB3CE5F50A5160176700DB8367BA2F19FF01A86CD37"
+    },
+    {
+      "path": "dist/216-lua-forever-addon-settings-escape.log",
+      "sha256": "229B0A06473E1D94198084D6EA32BD1F4419A7A356489E9362C137A5146D3083"
+    },
+    {
+      "path": "dist/216-lua-forever-addon-window-timing.log",
+      "sha256": "2B5B33F514DF86D7751305B1B44B337D232CB3CE295A6B64FBE358A7F8DF9BFC"
+    },
+    {
+      "path": "dist/216-lua-forever-bubble-font-ownership.log",
+      "sha256": "FFD146E7EA896EFBB7F32D513BABF09B05D678AB05B8FD668C13FDC91AEB0017"
+    },
+    {
+      "path": "dist/216-lua-forever-cvar-persistence.log",
+      "sha256": "750AD6F8CC23F486ACD7D01921A2D89FCF7DB5CEB192062EE67C56CAD6EBA63E"
+    },
+    {
+      "path": "dist/216-lua-forever-ellesmere-layout.log",
+      "sha256": "165F45E8AB30577F27ADF4AC02F7929E1EB747AFCAECF41CD9865403AF8725B8"
+    },
+    {
+      "path": "dist/216-lua-forever-gamepad-loot.log",
+      "sha256": "E5D171A3B1E681F228F195C111A08335C9E794CF34C99805B6BE8ECD79B3DB3C"
+    },
+    {
+      "path": "dist/216-lua-forever-gamepad-menu-secrets.log",
+      "sha256": "BE937D7BB50C65EFF314D50F98924CAFFF09C03A92909B2B671E87C3AE9420D3"
+    },
+    {
+      "path": "dist/216-lua-forever-map-content-boundary.log",
+      "sha256": "6A27826B6E4D5A5A82051D3535F372AC9BCB471E0DE568BB357B14F62980CD0C"
+    },
+    {
+      "path": "dist/216-lua-forever-map-escape.log",
+      "sha256": "5C15AE533BD4E32915F6BB7A5B1594121EFD32585F35B1DD50831C883D72EB27"
+    },
+    {
+      "path": "dist/216-lua-forever-native-bag-proxy.log",
+      "sha256": "9AD4C4C46CBA1656CC9523AEFEAA9D541061F80DE298D802614E65DE21E62F29"
+    },
+    {
+      "path": "dist/216-lua-forever-native-dialogs.log",
+      "sha256": "35BC01D84271DF6127EB9483A93AE674C4865285E9F2F3C7FE6B5B66C8B85A41"
+    },
+    {
+      "path": "dist/216-lua-forever-plus-warnings.log",
+      "sha256": "EE651E7A8558CF0CE1F10E961EC3112398E9D9EF7B4D5FBA5A7E2A632E6C282B"
+    },
+    {
+      "path": "dist/216-lua-forever-settings-placement.log",
+      "sha256": "EEDA5A7830DE32339C8771F1F720529BF6D4E2872CE8552144295F3D380F1C04"
+    },
+    {
+      "path": "dist/216-lua-forever-taint-boundaries.log",
+      "sha256": "58F82FFD9DB055F4DF406F685BA4062696868F55F5ACD39B2E4735868697C631"
+    },
+    {
+      "path": "dist/216-lua-gamepad-focus-picker.log",
+      "sha256": "24E9522CB119DAF3138564E74AED49B07ED4702F226CA2F41311C8B9E37EC5EC"
+    },
+    {
+      "path": "dist/216-lua-gamepad-workspace-back.log",
+      "sha256": "335CD0DE20C323A7442D45A7C14ACC417BBDC7E7123DDBAC0D3C0E3EE771FE72"
+    },
+    {
+      "path": "dist/216-lua-geometry.log",
+      "sha256": "A3DD27ADAE78FD4591917F5803EB0ED0117585B41ACCCB14645164F1CF191B2B"
+    },
+    {
+      "path": "dist/216-lua-guide-addon-diagnostics.log",
+      "sha256": "3BE324E47B8382D8454F9DD92E5DF264073D3186E3935572CFB9082CC71C1F9B"
+    },
+    {
+      "path": "dist/216-lua-hud-compatibility.log",
+      "sha256": "9C46D82193CE3ED0A9BE1A6793243ED1F9EFC580EDCB4F719859B5832C411F7A"
+    },
+    {
+      "path": "dist/216-lua-hud-transient-policy.log",
+      "sha256": "A5B5ABDA256C06A6ECD0A2BA7DB4D2D8F7F670E25A81BB766C42013469B486D3"
+    },
+    {
+      "path": "dist/216-lua-interaction-visibility.log",
+      "sha256": "64642CDF0D64CDA26D8747F4E9384CF91658ED5E7B95AE5D5935758CED32E10C"
+    },
+    {
+      "path": "dist/216-lua-kerzo-quest-log-reload.log",
+      "sha256": "C0897CE8478AC49E33F4FEEC79FE0F8FA48A9B95E5556FE66585D8EEC83808E5"
+    },
+    {
+      "path": "dist/216-lua-kerzo-quest-log.log",
+      "sha256": "8BC5472D5C77FF0E002275F06C9F364A0281023DBC31516870B18F9A04FECA4F"
+    },
+    {
+      "path": "dist/216-lua-legacy-close-policy.log",
+      "sha256": "18E345C93F31DE561A20126C13667575CD2E022DBE1360E9A272CBD84CA8ACB2"
+    },
+    {
+      "path": "dist/216-lua-legacy-wrath-compat.log",
+      "sha256": "702B7235B196F08F4D6B8CFE2D83E396D707FA004473D95D3272F324F70E8351"
+    },
+    {
+      "path": "dist/216-lua-lifecycle.log",
+      "sha256": "67AA25DAEA3DA618B3CFBF0B289049A1D5BDE46B92F58A0F3021613BD8DA2F03"
+    },
+    {
+      "path": "dist/216-lua-locales.log",
+      "sha256": "E063ADF5593EF71103C60D1DD836F51F79A5ADFDDA82C246D8F1679D266572EB"
+    },
+    {
+      "path": "dist/216-lua-mainhand-compatibility.log",
+      "sha256": "AAB88F2751F376AE6FF62A83BDEA25CA26B31FD7DBFC43127F20E760E8DDCA24"
+    },
+    {
+      "path": "dist/216-lua-mainhand-placement.log",
+      "sha256": "7AB5BB69C17A6A81F088BC7E5530F23BB77B1EC4BAD241B651BDCAC9836E8DB9"
+    },
+    {
+      "path": "dist/216-lua-manifests.log",
+      "sha256": "5369DC9DB0AA9C88EE7430D72392AA8A28A18A43BA301D844DF9FDB98BD00418"
+    },
+    {
+      "path": "dist/216-lua-manual-calibration-stress.log",
+      "sha256": "9E644B7138868E147421010D01D2F504F4BC5217EC6775EB2B66BCA84C209A5B"
+    },
+    {
+      "path": "dist/216-lua-manual-canvas.log",
+      "sha256": "EE7E98ED874F6293B8E448DF6AB559ECA3427BE894A83974E4D462793AC51788"
+    },
+    {
+      "path": "dist/216-lua-map-scale-settings.log",
+      "sha256": "2357D8F0615C07778815B863B1F23D988B91EF0EC47A3D33BFE3E2E75CFFA309"
+    },
+    {
+      "path": "dist/216-lua-menu-placement.log",
+      "sha256": "994ABA2CA7B600AB5E2F9012752E66F4B87BEA3EAA78AF40FD29ED00C26F81CD"
+    },
+    {
+      "path": "dist/216-lua-minimap-drag-and-bag-anchors.log",
+      "sha256": "5E8EA9C7F8EF0CFCCB3B60C343D991FB9BD16C05C5EDBA204B2AD6D2025D58F1"
+    },
+    {
+      "path": "dist/216-lua-minimap-setup-entry.log",
+      "sha256": "08D026B1E76C0B3F281B132E0AF0BE3478955C37DF88D945DFCC82A2D483E3E4"
+    },
+    {
+      "path": "dist/216-lua-narrow-workspace-fit.log",
+      "sha256": "C77F8925FFF9010597B36FB2EC825B3A1D6E0E48C6D1B901BB6293EA2B7C457B"
+    },
+    {
+      "path": "dist/216-lua-notification-capture.log",
+      "sha256": "958C6089F01D315A90F74403A724E7DC0A3DF9A25C594D7F12F8A8AF9FC6B74E"
+    },
+    {
+      "path": "dist/216-lua-openmap-recovery.log",
+      "sha256": "149D16C86C338689932B1F3064021C50E1943EF342F4CD64A61510B2D6A25472"
+    },
+    {
+      "path": "dist/216-lua-panel-motion.log",
+      "sha256": "C0CA86DBFA5F985C45908CAB96383C53382698D16326B5846DD880FCF5AC9BA6"
+    },
+    {
+      "path": "dist/216-lua-party-editmode-and-void-rescue.log",
+      "sha256": "12C82A092CC615007F9FED65337DF95F9F4518459277342702906D52785855A6"
+    },
+    {
+      "path": "dist/216-lua-performance-probe.log",
+      "sha256": "FFAB99686032490B2657886EA2BD032987B44234057F08D1C846C3CAEDD9A1CF"
+    },
+    {
+      "path": "dist/216-lua-popup-bounds.log",
+      "sha256": "A027BC7EBFE42F2C1BA5ABD8EA4E63AC3980722C39F4DDEA68529E969683511E"
+    },
+    {
+      "path": "dist/216-lua-premade-group-dialogs.log",
+      "sha256": "CDEE5A2FD5F1BE9E61F71E837A8CF2CB40B1AA20408B9FBE0BB828ADC0E39B66"
+    },
+    {
+      "path": "dist/216-lua-recovery.log",
+      "sha256": "DEA8DD7149492A2B8F531257DF4596002A53EC07B9367AF25308E27AA29E62E5"
+    },
+    {
+      "path": "dist/216-lua-results.json",
+      "sha256": "95B9A607AB58D89B96D9BB14198A42347F6E2F1A833457DE60892CD1809AB3D9"
+    },
+    {
+      "path": "dist/216-lua-retail-bag-mode-conversion.log",
+      "sha256": "DF0FC6042BA921081DB92BAE12C291B52C9D09054B95296234D1E5999B2311B7"
+    },
+    {
+      "path": "dist/216-lua-retail-cinematic-dialog.log",
+      "sha256": "8078880DD7EB35FE4A49A96E59A56D92DB2201861E401EFD7D422798D884DBFB"
+    },
+    {
+      "path": "dist/216-lua-retail-fullscreen.log",
+      "sha256": "7A5657B117ACC1787CA08C097191BAB319049FA2316B919AFC826B218B0A607B"
+    },
+    {
+      "path": "dist/216-lua-retail-notifications.log",
+      "sha256": "CE1FC0BFC80967897D350DC5D348EADDB4DB2311BD8FAE96FEC0A6854F9C587F"
+    },
+    {
+      "path": "dist/216-lua-retail-override-placement.log",
+      "sha256": "EA2240F416EA799DE7DF32B77C0DA8C12A7D43D35EF589C75AFF27B4DFB535BA"
+    },
+    {
+      "path": "dist/216-lua-retail-transient-ownership.log",
+      "sha256": "9E08DB84D8FB0126BE250E33A8A1F57417A658F94F6C395B1F8C773311E5372F"
+    },
+    {
+      "path": "dist/216-lua-retail-workspace-escape.log",
+      "sha256": "3E1D876BC790D87EEE8D6A9FC3E15CE3141BF3D60CBD20D77DAC57484961B1F9"
+    },
+    {
+      "path": "dist/216-lua-retail-worldmap-lifecycle.log",
+      "sha256": "2B9AEAE94122DDC573B50635221768D84E9CDF4A48BC73F4D1A0F968E824FB07"
+    },
+    {
+      "path": "dist/216-lua-settings-tooltip-scale.log",
+      "sha256": "CEA27D4A9C193528CB885184D0BFBA0C6C114B3AADD43E3E5B467E6F9B4272A7"
+    },
+    {
+      "path": "dist/216-lua-setup-action-style.log",
+      "sha256": "79B99261C548821DCFA4573D5FDC2302295378BFF9F5B6BCFA36C63713730168"
+    },
+    {
+      "path": "dist/216-lua-setup-visuals.log",
+      "sha256": "83703C9A766F0CC2668983FD3DACB778FA717C3F3A5916F94892224F1D7C439C"
+    },
+    {
+      "path": "dist/216-lua-shared-layout-identity.log",
+      "sha256": "F40DDBAC744A878B20AB7326640D9779DA24E8A221C236D479A7FB16817D910A"
+    },
+    {
+      "path": "dist/216-lua-slider-stepping-and-editbox.log",
+      "sha256": "CDBA60FC66820819E697FA4F7EF0451C2E12981399E4143D83E923821ACF4AD8"
+    },
+    {
+      "path": "dist/216-lua-tbc-bag-close-layout.log",
+      "sha256": "3B1AE6EDDE3B7389FFF8CED42DC067EC3909B7CA064A0B00A2EF480E4E7941A2"
+    },
+    {
+      "path": "dist/216-lua-tbc-bag-id-persistence.log",
+      "sha256": "482DA6A5A77FB638DE1487390006D11BB05F7DD0DF2895DD90366523D0691832"
+    },
+    {
+      "path": "dist/216-lua-tbc-bag-show-layout.log",
+      "sha256": "B80A7D3E22D9A98223D3341E319533C7941A9AE7F3E10CE08AFAD0C615EEA363"
+    },
+    {
+      "path": "dist/216-lua-tbc-closed-panel-intent.log",
+      "sha256": "1FC937B4D3EA317DC4AD712A81E8C2C45C2FFF69A74D8F6B17CA50F7A5B45294"
+    },
+    {
+      "path": "dist/216-lua-tbc-macro-reload.log",
+      "sha256": "AB5710BD36D8EAB2E345A745343FE319ED7FCDB73E234AB53E500C9D95C220F9"
+    },
+    {
+      "path": "dist/216-lua-tbc-map-cursor.log",
+      "sha256": "88513B828A51B6148E36317BBA87F4ED01163B1E657E6672107896668F5DCC56"
+    },
+    {
+      "path": "dist/216-lua-tbc-npc-and-escape.log",
+      "sha256": "259D25C4505213DA90CC3C21C521AAFFDDEA6774DE6C21C57FA4C577EA7BB375"
+    },
+    {
+      "path": "dist/216-lua-tbc-spellbook-lifecycle.log",
+      "sha256": "AEC653E3262DEF71E488CA8357F328A65038FB70094B6B180F965AD0408B2CE0"
+    },
+    {
+      "path": "dist/216-lua-tbc-workspace-panel-slots.log",
+      "sha256": "F42F6A7F10C337F706AA022798D307F5DEC12584E86225CA5C1DD07D81BC9235"
+    },
+    {
+      "path": "dist/216-lua-tbc-worldmap-lifecycle.log",
+      "sha256": "CBFDD20F52BC96876BEAB44A19CFEE9C64F9B77CDD79278E802FCC14541DCC18"
+    },
+    {
+      "path": "dist/216-lua-themes-and-canvas.log",
+      "sha256": "7525E0219D9949BC07C8BB969414E44230688F54D70E1547E253FF40FA34942A"
+    },
+    {
+      "path": "dist/216-lua-tooltip-presentation.log",
+      "sha256": "D0F27AE00CC4AF42AAA98AF1941ED73D0E0261C0D7AC7CB34C4EED04667A28E9"
+    },
+    {
+      "path": "dist/216-lua-ui-controls-layout.log",
+      "sha256": "A09642CCFBD2903E0723595395E8644455C66426610E7DE81111972EB34EBEAE"
+    },
+    {
+      "path": "dist/216-lua-ui-presentation.log",
+      "sha256": "BACF3D407D9D782F9FFB9A436C265D6C2865AF5B1BE7BDD3318C343E2D55B83D"
+    },
+    {
+      "path": "dist/216-lua-user-media.log",
+      "sha256": "35E0A2A20ABE5F2310F70C6600D008C5C020C0108D281A6BE544B3D1CD513DC0"
+    },
+    {
+      "path": "dist/216-lua-window-mode-layout.log",
+      "sha256": "F23AF26378AE0B0B03DB86E924CF826AB5FF6B4514582BC7D71BDF8221C44624"
+    },
+    {
+      "path": "dist/216-lua-wizard-autoconfig.log",
+      "sha256": "9A8D62279AF6C70C3BD1A7FCCC3D1B79629403089EC0C82419840D3241F0CDB4"
+    },
+    {
+      "path": "dist/216-lua-workspace-behavior.log",
+      "sha256": "965A7F8FF52D25831236CE2BCF84D5CD58437F0A2C0C730573BE49E4E539953B"
+    },
+    {
+      "path": "dist/216-lua-workspace-close-buttons.log",
+      "sha256": "735267149986367C95708FBD0024BAF9A27B724CBE04202647DEA88C6C549843"
+    },
+    {
+      "path": "dist/216-lua-workspace-media-options.log",
+      "sha256": "CF4257910F5944D492FB5E78E25F903F94435776446A0065D0A072955FCC743A"
+    },
+    {
+      "path": "dist/216-lua-workspace-profiles.log",
+      "sha256": "A9E5F3EB3619F76737A2F3CF63CC9BF39FDC210400ACC167069FD6E31ABB67E2"
+    },
+    {
+      "path": "dist/216-lua-workspace-region-lifecycle.log",
+      "sha256": "0AA8D791FFF7E80C844D1136B056368DE9C99CA59EDBA0D2DD07218BFF7D62E4"
+    },
+    {
+      "path": "dist/216-lua-workspace-region-themes.log",
+      "sha256": "5BDD576DED2ABCFFCEFD1FE56DFC780C0F4DE17B38CCBC2AE67A636CAFEE82DF"
+    },
+    {
+      "path": "dist/216-lua-workspace-regions.log",
+      "sha256": "9E91D708D5BE177C0A036B0092856A9EBE258D7B2F8878591109E8F364FCEFF8"
+    },
+    {
+      "path": "dist/216-lua-workspace-routing.log",
+      "sha256": "F01A7E0DE01BA55A686623C075EAF50180839D1288FEF94718A790C5685F51DA"
+    },
+    {
+      "path": "dist/216-package.log",
+      "sha256": "C42CDB7F0CB01731A0F73692BE744E3009F6576ACC6F3428F42B6440D6F37528"
+    },
+    {
+      "path": "dist/216-packaged-persistence.log",
+      "sha256": "042F061824EBED9FB9F5BE3FA53D8EF8DE0F4759AE4090AC25147509D75FFD5C"
+    },
+    {
+      "path": "dist/216-preferences.log",
+      "sha256": "AFDC70330FD7F362DB1C098B6BED60086719B2F452369788BCBA86C73AB1AE4D"
+    },
+    {
+      "path": "dist/216-private-baseline-build.log",
+      "sha256": "4D5FAF2D2C00510CC407B21B86977F5A89E669D131C6DD6EA32F6F17DE3DB069"
+    },
+    {
+      "path": "dist/216-private-candidate-build.log",
+      "sha256": "936BB3580BD325B69F04E2431351DEDAE4E0A275ED524AE43B31B9D8082A123E"
+    },
+    {
+      "path": "dist/216-recovery-classic.log",
+      "sha256": "1E062AA369387CCB34ECD046A51B0F48CC7B28B4D6332F34A7DAF8E87D209EED"
+    },
+    {
+      "path": "dist/216-recovery-forever.log",
+      "sha256": "1E062AA369387CCB34ECD046A51B0F48CC7B28B4D6332F34A7DAF8E87D209EED"
+    },
+    {
+      "path": "dist/216-recovery-production.log",
+      "sha256": "1E062AA369387CCB34ECD046A51B0F48CC7B28B4D6332F34A7DAF8E87D209EED"
+    },
+    {
+      "path": "dist/216-recovery-retail.log",
+      "sha256": "1E062AA369387CCB34ECD046A51B0F48CC7B28B4D6332F34A7DAF8E87D209EED"
+    },
+    {
+      "path": "dist/216-regions.log",
+      "sha256": "8D929E69B7561F1308BA2CBF02E43ED4AEF1D837694D03F31899DC719CD5D860"
+    },
+    {
+      "path": "dist/216-regression-a.json",
+      "sha256": "56D76CEFC0AEFF2666EAF86241A86A9A1F57662764BAC8C02FBBB176436F61A6"
+    },
+    {
+      "path": "dist/216-regression-b.json",
+      "sha256": "E241E1C33DB30F347394E608B50E61B5C669DDEBB3B9034CF0A908696AFED403"
+    },
+    {
+      "path": "dist/216-regression-c.json",
+      "sha256": "03BE3E85C49D7A8BE44FF0B01A9461BF9D480898353889130CC16B7F0526D48D"
+    },
+    {
+      "path": "dist/216-release-metadata.log",
+      "sha256": "61CC2709407A87E7A179AF094AFBA1ED5DE76052973DE44EC96CAC5FD8A3EDF7"
+    }
+  ],
+  "publishedArtifactsPreserved": true,
+  "publication": {
+    "storeUpload": false,
+    "storeSubmission": false,
+    "github": false,
+    "addon": false,
+    "website": false
+  },
+  "remaining": [
+    "Partner Center manual reauthentication and published/in-flight version/identity preflight before upload",
+    "Store certification, signing and delivered upgrade",
+    "Physical mixed-DPI/hotplug/three-monitor acceptance not rerun",
+    "Windows 10/Wine runtime not observed",
+    "Real Store update-available response not observed"
+  ]
+}

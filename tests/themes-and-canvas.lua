@@ -54,14 +54,24 @@ local function makeMockFrame(name, w, h)
     function f:SetSize(width, height) self.w = width; self.h = height end
     function f:GetWidth() return self.w end
     function f:GetHeight() return self.h end
+    function f:SetScale(value)self.scale=value end
+    function f:GetScale()return self.scale or 1 end
+    function f:SetAlpha(value)self.alpha=value end
+    function f:GetValue()return self.val end
+    function f:GetFontString()if not self.label then self.label=self:CreateFontString()end;self.label:SetText(self:GetText());return self.label end
     function f:SetHeight(height) self.h = height end
     function f:SetWidth(width) self.w = width end
     function f:SetScrollChild(c) self.scrollChild = c end
     function f:SetVerticalScroll(v) self.verticalScroll = v end
+    function f:GetVerticalScroll() return self.verticalScroll or 0 end
     function f:SetPoint(pt, relTo, relPt, x, y)
         table.insert(self.points, { point = pt, relTo = relTo, relPt = relPt, x = x, y = y })
     end
     function f:ClearAllPoints() self.points = {} end
+    function f:GetPoint(index)
+        local p = self.points[index or 1]
+        if p then return p.point, p.relTo, p.relPt, p.x, p.y end
+    end
     function f:Show() self.shown = true end
     function f:Hide() self.shown = false end
     function f:IsShown() return self.shown end
@@ -93,21 +103,28 @@ local function makeMockFrame(name, w, h)
     function f:SetThumbTexture(t) self.thumb = t end
     function f:SetChecked(c) self.checked = c end
     function f:GetChecked() return self.checked end
+    function f:RegisterEvent() end
     function f:SetEnabled(e) self.enabled = e end
     function f:CreateFontString()
         return {
             SetPoint = function() end,
+            Show = function(self) self.shown = true end,
+            Hide = function(self) self.shown = false end,
+            ClearAllPoints=function()end,
             SetText = function(self, t) self.text = t end,
             SetWidth = function() end,
+            SetHeight = function(self, height) self.height = height end,
             SetWordWrap = function() end,
             GetText = function(self) return self.text end,
             SetTextColor = function() end,
+            SetAlpha = function() end,
             SetJustifyH = function() end,
             SetWidth = function(self, width) self.width = width end,
         }
     end
     function f:CreateTexture()
         return {
+            Hide=function()end,Show=function()end,ClearAllPoints=function()end,
             SetAllPoints = function() end,
             SetColorTexture = function() end,
             SetTexture = function(self, t) self.texture = t end,
@@ -133,6 +150,19 @@ Mixin = function(t, m) end
 local themesChunk = assert(loadfile("UI/Themes.lua"))
 themesChunk("Offhand", addon)
 
+local controlsChunk = assert(loadfile("UI/Controls.lua"))
+controlsChunk("Offhand", addon)
+
+assert(loadfile("Core/TopologyDetection.lua"))("Offhand", addon)
+assert(loadfile("UI/OptionsActions.lua"))("Offhand", addon)
+assert(loadfile("Locales/enUS.lua"))("Offhand",addon)
+assert(loadfile("Core/WorkspaceProfiles.lua"))("Offhand",addon)
+assert(loadfile("Core/WorkspaceRouting.lua"))("Offhand",addon)
+assert(loadfile("Core/WorkspaceScale.lua"))("Offhand",addon)
+assert(loadfile("UI/WorkspaceScaleControls.lua"))("Offhand",addon)
+assert(loadfile("UI/WorkspaceOptions.lua"))("Offhand",addon)
+
+assert(loadfile("Core/MapScale.lua"))("Offhand", addon)
 local optionsChunk = assert(loadfile("UI/Options.lua"))
 optionsChunk("Offhand", addon)
 
@@ -202,7 +232,55 @@ assert(pt.x == 14 and pt.y == -14, "BayHeader TOPLEFT must be indented (14, -14)
 -- 3. Test Options Panel and Themed Slider Thumbs
 local configFrame = addon.Options:CreateFloatingPanel()
 assert(configFrame ~= nil, "Options floating panel must be created")
+assert(addon.WorkspaceOptions.controls.sizing,"Workspace settings omitted region sizing")
 assert(configFrame:GetHeight() == 732, "Options floating panel height must be 732px")
+local workspace = addon.WorkspaceOptions.controls
+local bottom = 0
+for _, card in ipairs({workspace.routing, workspace.sizing}) do
+    assert(card.settingsTab == configFrame.tab6, "Panel controls must share the Panel layout page")
+    local _, _, _, _, y = card:GetPoint()
+    assert(y and -y >= bottom, "Workspace cards overlap at " .. tostring(card.sectionLabel))
+    bottom = -y + card:GetHeight()
+end
+assert(configFrame.tab6:GetHeight() >= bottom, "Page scroll height omits a workspace card")
+assert(workspace.themes.settingsTab == configFrame.tab3 and workspace.profiles.settingsTab == configFrame.tab4,
+    "Workspace appearance and panel presets must be grouped with their respective settings")
+local showPopup = addon.ShowPopup
+addon.ShowPopup = function(_, key, title, body)
+    assert(key == "OFFHAND_SETTINGS_HELP" and title == addon.L.REGION_SCALE_TITLE and body == addon.L.REGION_SCALE_DETAILS)
+end
+workspace.sizing.helpButton.scripts.OnClick()
+addon.ShowPopup = showPopup
+for _, card in ipairs(configFrame.cards) do
+    assert(not card.sectionLabel:match("^%d+%."), "Settings navigation should use unnumbered section names")
+    assert(card.settingsTab == configFrame.tab5 or card.helpButton, "Settings card is missing contextual help")
+end
+local settingsScroll = configFrame.scrollFrame
+settingsScroll:SetHeight(480)
+configFrame.tabButtons[4].scripts.OnClick()
+configFrame.sectionButtons[2].scripts.OnClick()
+local collapsedOffset = settingsScroll:GetVerticalScroll()
+for _, frame in ipairs(frames) do
+    if frame.parent == workspace.profiles and frame:GetText() == addon.L.ADVANCED_SHOW then
+        frame.scripts.OnClick()
+        break
+    end
+end
+local _, _, _, _, presetTop = workspace.profiles:GetPoint()
+assert(settingsScroll:GetVerticalScroll() > collapsedOffset
+    and -presetTop + workspace.profiles:GetHeight() <= settingsScroll:GetVerticalScroll() + settingsScroll:GetHeight(),
+    "Opening Advanced must bring the preset controls into view")
+
+local supportedLocks = 0
+local lockText = addon.L and addon.L.LOCK_WORKSPACE_WINDOWS or "LOCK_WORKSPACE_WINDOWS"
+for _, frame in ipairs(frames) do
+    if frame.Text and frame.Text.text == lockText then
+        supportedLocks = supportedLocks + 1
+        assert(frame.parent:GetHeight() == 274,
+            "supported-client lock controls must keep their full settings section")
+    end
+end
+assert(supportedLocks == 1, "supported clients must retain the existing lock-open control")
 
 -- Change trim color to CYAN_GLOW and check slider thumb tint
 addon.db.trimColor = "CYAN_GLOW"

@@ -17,18 +17,92 @@ The Recovery card contains three related actions:
 - **Create Mainhand HUD Layout** clones the recorded source or active Blizzard
   Edit Mode layout, translates its UIParent-relative anchors from the complete
   WoW canvas to the Mainhand rectangle, saves a character-associated generated
-  layout, activates it, and offers to reload. Source entries still using
-  Blizzard's default positions receive a compact standard stack: the XP/status
-  bar aligns with Action Button 1 and the backpack edge; stance, pet, possess,
-  and vehicle-exit controls align over its left edge; extra abilities sit above
-  the action/XP stack; and Encounter sits above Loss of Control. Explicitly
-  customized source entries remain unchanged. Forever leaves the ambiguous
+  layout, activates it, and offers to reload. On Forever, Modern and Gamepad
+  keep their preset minimap, aura, damage meter, and unit-frame offsets relative
+  to Mainhand. Gamepad keeps Blizzard's radial bar and its unit-frame spacing.
+  The keyboard layout keeps Blizzard's right-bar spacing and puts its secondary
+  bars side by side when Mainhand has room. Status bars and other bottom controls
+  use the projected action-bar area. In the generated
+  copy, supported native groups outside Mainhand are fitted using their serialized
+  anchors and registered dimensions. Custom positions already inside Mainhand
+  remain unchanged. Snapped children follow their root. Standalone stretched
+  systems can fit through both anchors; oversized, unknown or externally managed
+  groups retain their source placement for manual review. Forever leaves the ambiguous
   MultiCast/ClassBar entry at its source position to avoid the client's empty
   spell-tooltip error.
 
 Layout writes require a player click, no combat, and a closed Edit Mode window.
-Regeneration always starts from the recorded source layout. It never applies a
-second translation to the generated layout.
+An explicit Create after selecting Modern or another user layout uses that
+selected source. Creating again while the current generated layout is active
+retains its in-Mainhand edits and does not apply a second default translation.
+Before an existing generated payload is replaced, its prior data and provenance
+are retained in `OffhandCharDB.mainhandLayoutBackups` without using another native
+layout slot. Original user layouts and presets remain unchanged. Restore saved
+layout selects existing data; it does not regenerate or reset the HUD.
+
+Forever saves the generated HUD under the character's Edit Mode layouts.
+Standard and Gamepad each have their own slot. Rebuilding for a different
+span or a change in HUD ownership updates that slot. Existing account-wide
+Offhand layouts remain available through the native layout menu.
+
+### EllesmereUI on Forever
+
+With Offhand spanned and EllesmereUI loaded, finish native HUD setup in Step 5.
+If a matching layout is active, select **Next**. If you create or select a
+layout, follow the reload prompt and the wizard resumes at Step 6. If you
+enable EllesmereUI after creating a character HUD and that layout is still
+active on the same span and input mode, **Review EllesmereUI HUD** opens Step 6
+directly and starts the preview on **Copy Offhand to EllesmereUI**.
+The same preview is available under **Offhand Monitor & Map → Recovery &
+Preview** and through `/offhand ellesmere preview`. **Help & recovery**
+explains the three transfer choices.
+The preview shows the current and proposed placements on both displays for
+Action Bars 1–8, minimap, player, target, and focus when their registered
+elements are available. Choose the moves to include.
+
+- **Fit HUD to Mainhand** proposes moving supported gameplay frames onto
+  Mainhand, including ones currently in the workspace. Fit is available
+  before the native HUD is created.
+- **Copy Offhand to EllesmereUI** uses native Offhand positions for the
+  selected elements. Use the Mainhand HUD layout for this span and input mode.
+  If you need to create or select one, follow the native reload prompt first.
+  `/offhand ellesmere import` opens this view directly.
+- **Copy to a Blizzard fallback** requires a current generated native layout
+  for this span and input mode. It copies the selected positions as native
+  anchors into an inactive layout. `/offhand ellesmere fallback` opens this
+  view directly. Select the copy in Blizzard Edit Mode when using the native HUD.
+
+Native Gamepad keeps Blizzard's radial bar. Its EllesmereUI minimap placement
+accounts for visible keyboard bars and native aura frames. A wider replacement
+focus frame stays beside target when it fits and can move above target on a
+narrower Mainhand. Frames with attached children
+move as a group, preserving their EllesmereUI links. A frame anchored to
+another parent requires moving its parent. Groups without usable bounds
+and profiles using overrides are excluded. Fit and Copy
+open an EllesmereUI import review for a new profile. The module list contains
+only modules with selected positions. Confirm **Import Selected Addons**.
+When the wizard returns, choose **Finish & Reload** to see the reload prompt.
+If you opened the preview from settings, the prompt appears when EllesmereUI
+closes. In Forever Gamepad mode the prompt instructs you to type `/reload`.
+If a specialization assignment keeps your old profile
+active, check **Active Profile** and the assignment. Use EllesmereUI Unlock
+Mode for other elements.
+
+EllesmereUI 9.7.8 can capture Blizzard frame positions during its initial
+setup. The profile named **Default** can therefore contain saved positions
+that carry over to a single monitor. To repair a single-monitor layout, make
+a copy in **Profiles & Presets → Create New (Copy)** and place the affected
+frames with EllesmereUI Unlock Mode. The visual transfer requires an active
+Offhand span and offers Mainhand placement for its supported gameplay frames.
+
+See [Forever HUD mapping](FOREVER-ELLESMERE-HUD-MAPPING.md) for the current
+ownership rules, candidate mappings in both directions, and the proposed
+setup flow when an EllesmereUI profile already exists.
+
+For publication, use this workflow as the source for a website guide with a
+preview screenshot and both setup orders. Summarize supported transfers and
+link to that guide from CurseForge once Standard and Gamepad placement,
+Escape, and reload persistence have been verified.
 
 ## Addon integration API
 

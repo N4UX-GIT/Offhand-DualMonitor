@@ -1,0 +1,43 @@
+[
+  {
+    "topic": "layout-chooser",
+    "source": "codex-clipboard-a14ee4f9-2877-4654-8519-9a9cb17fb448.png",
+    "asset": "offhand-companion-layout-chooser-20261108.png",
+    "width": 622,
+    "height": 534,
+    "sha256": "40fd033fce3e2c85f07c07e10b1ada3d713f26796fdb60197ddb0e27069fb5ae"
+  },
+  {
+    "topic": "one-monitor",
+    "source": "codex-clipboard-50621fe0-eb33-4b2f-b2d4-f83aad9ab332.png",
+    "asset": "offhand-companion-one-monitor-20261108.png",
+    "width": 642,
+    "height": 770,
+    "sha256": "acef889696ed21f0434e0b12d3c0ed47a36caf09ea3f1fde23e413f226b3f769"
+  },
+  {
+    "topic": "flexible-layout",
+    "source": "codex-clipboard-2744b1a1-df98-4d0a-ae85-d98bfd2bc517.png",
+    "asset": "offhand-companion-flexible-layout-20261108.png",
+    "width": 742,
+    "height": 775,
+    "sha256": "05eb214a14cc9340f62ffb41853b1eb3e2cc2feeabf592f2235f43f0ea97e127"
+  },
+  {
+    "topic": "display-troubleshooting",
+    "source": "codex-clipboard-365e1b29-92d9-4681-8cf5-86bb022c9dab.png",
+    "asset": "offhand-companion-display-troubleshooting-20261108.png",
+    "width": 726,
+    "height": 703,
+    "sha256": "9c9df3a6bfd2875150bf4867bda2bf5edc3e61c96de366fff34a968c6b1634e8"
+  },
+  {
+    "topic": "dashboard",
+    "source": "codex-clipboard-ab394a0b-e973-4603-b222-5bedc20986dc.png",
+    "asset": "offhand-companion-dashboard-20261108.png",
+    "width": 550,
+    "height": 1053,
+    "sha256": "5d6c4fd43bb112f1b6853907ed1729eb1aba5ec7e1bd419cef9638c447c28b8b",
+    "publicationAuthorization": "Owner explicitly approved including the supplied dashboard details."
+  }
+]

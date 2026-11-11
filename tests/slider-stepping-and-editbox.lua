@@ -34,6 +34,10 @@ local function makeMockFrame(name, w, h)
         table.insert(self.points, { point = pt, relTo = relTo, relPt = relPt, x = x, y = y })
     end
     function f:ClearAllPoints() self.points = {} end
+    function f:GetPoint(index)
+        local p = self.points[index or 1]
+        if p then return p.point, p.relTo, p.relPt, p.x, p.y end
+    end
     function f:Show() self.shown = true end
     function f:Hide() self.shown = false end
     function f:IsShown() return self.shown end
@@ -83,9 +87,11 @@ local function makeMockFrame(name, w, h)
         return {
             points = {},
             text = "",
+            ClearAllPoints = function(s) s.points = {} end,
             SetPoint = function(s, pt, rel, relPt, x, y) table.insert(s.points, { point = pt, rel = rel, relPt = relPt, x = x, y = y }) end,
             SetText = function(self, t) self.text = t end,
             SetWidth = function() end,
+            SetHeight = function(self, height) self.height = height end,
             SetWordWrap = function() end,
             GetText = function(self) return self.text or "" end,
             SetTextColor = function() end,
@@ -154,13 +160,36 @@ GetCursorPosition = function() return cursorX, 0 end
 -- Load Offhand modules
 local addon = { modules = {} }
 assert(loadfile("Core/Init.lua"))("Offhand", addon)
+assert(loadfile("Core/ClientRuntime.lua"))("Offhand", addon)
 assert(loadfile("Core/Config.lua"))("Offhand", addon)
 assert(loadfile("Core/Viewport.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDTransientPolicy.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDRecovery.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDTransientFrames.lua"))("Offhand", addon)
 assert(loadfile("Core/SeamRedirect.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasFrameState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelRegistry.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPersistence.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasBackpackState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverMap.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasChat.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasProfessions.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelMotion.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasMapPresentation.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelLifecycle.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 assert(loadfile("Locales/enUS.lua"))("Offhand", addon)
 assert(loadfile("UI/Themes.lua"))("Offhand", addon)
+assert(loadfile("UI/Controls.lua"))("Offhand", addon)
+assert(loadfile("Core/TopologyDetection.lua"))("Offhand", addon)
+assert(loadfile("UI/OptionsActions.lua"))("Offhand", addon)
+assert(loadfile("Core/MapScale.lua"))("Offhand", addon)
 assert(loadfile("UI/Options.lua"))("Offhand", addon)
+assert(loadfile("UI/SetupVisuals.lua"))("Offhand", addon)
 assert(loadfile("UI/Wizard.lua"))("Offhand", addon)
 
 local layoutAppliedCount = 0
@@ -207,6 +236,14 @@ assert(math.abs(addon:ParseSliderInput("36%", 0.15, 0.80, 0.005, "%.1f%%") - 0.3
 assert(math.abs(addon:ParseSliderInput("36", 0.15, 0.80, 0.005, "%.1f%%") - 0.36) < 0.0001, "36 must parse to 0.36")
 assert(math.abs(addon:ParseSliderInput("0.36", 0.15, 0.80, 0.005, "%.1f%%") - 0.36) < 0.0001, "0.36 must parse to 0.36")
 assert(math.abs(addon:ParseSliderInput("50.5%", 0.15, 0.80, 0.005, "%.1f%%") - 0.505) < 0.0001, "50.5% must parse to 0.505")
+assert(math.abs(addon:ParseSliderInput("50,5%", 0.15, 0.80, 0.005, "%.1f%%") - 0.505) < 0.0001, "decimal-comma percent must not concatenate digits")
+assert(math.abs(addon:ParseSliderInput(" 0,505 ", 0.15, 0.80, 0.005, "%.1f%%") - 0.505) < 0.0001, "decimal-comma ratio must retain its scale")
+assert(math.abs(addon:ParseSliderInput("1,5", 0.50, 2.50, 0.05, "%.0f%%") - 1.50) < 0.0001, "decimal-comma scale must match a dot decimal")
+assert(math.abs(addon:ParseSliderInput("20,5 px", 0, 100, 0.5, "%.1f px") - 20.5) < 0.0001, "decimal-comma non-percent input must preserve units and stepping")
+for _, ambiguous in ipairs({ "1,234.5", "1.234,5", "50,,5%", "50..5%" }) do
+    assert(addon:ParseSliderInput(ambiguous, 0, 100, 0.5, "%.1f") == nil,
+        "ambiguous decimal separators must not mutate a setting: " .. ambiguous)
+end
 
 -- Map Scale parsing (min 0.50, max 2.50, step 0.05, format "%.0f%%")
 assert(math.abs(addon:ParseSliderInput("150%", 0.50, 2.50, 0.05, "%.0f%%") - 1.50) < 0.0001, "150% must parse to 1.50")
@@ -250,6 +287,38 @@ assert(hudSlider.btnMinus ~= nil, "hudSlider must have btnMinus")
 assert(hudSlider.btnPlus ~= nil, "hudSlider must have btnPlus")
 assert(hudSlider.editBox ~= nil, "hudSlider must have editBox")
 
+-- Profile changes must refresh the thumb as well as the displayed number.
+do
+    local value, writes = 0.70, 0
+    local control = addon.UIControls.CreateNativeSlider({}, "Refresh", 0.25, 1.25, 0.01,
+        function() return value end, function(v) value = v; writes = writes + 1 end, "%.0f%%")
+    value = 0.90
+    layoutAppliedCount = 0
+    control._isCustomDrag, control._pendingApply = true, true
+    control:SetScript("OnUpdate", function() error("stale profile drag resumed") end)
+    control:UpdateText()
+    assert(control:GetValue() == 0.90 and control.editBox:GetText() == "90%"
+            and writes == 0 and layoutAppliedCount == 0,
+        "source refresh must align rail and field without setters or layout")
+    assert(not control._isCustomDrag and not control._pendingApply and not control.scripts.OnUpdate,
+        "changed source must cancel old drag state before synchronizing the thumb")
+    control.btnPlus.scripts.OnClick()
+    assert(math.abs(value - 0.91) < 0.0001, "first step after refresh must use the new profile value")
+    addon.UIControls.SetSliderEnabled(control, false)
+    value, writes, layoutAppliedCount = 0.55, 0, 0
+    control:UpdateText()
+    assert(control:GetValue() == 0.55 and control.editBox:GetText() == "55%"
+            and writes == 0 and layoutAppliedCount == 0,
+        "read-only refresh must also synchronize disabled controls")
+end
+addon.db.hudScale, addon.db.gameBottomPixels = 0.90, 12
+addon.Options:RefreshPanel()
+assert(hudSlider:GetValue() == 0.90 and hudSlider.editBox:GetText() == "90%",
+    "Settings refresh must synchronize a changed profile's slider")
+assert(configFrame.bottomControl.editBox:GetText() == "12",
+    "Settings refresh must synchronize the bottom-offset field without a hide/show")
+addon.db.gameBottomPixels = 0
+
 hudSlider:SetValue(0.70)
 assert(math.abs(addon.db.hudScale - 0.70) < 0.001, "Initial hudScale must be 0.70")
 assert(hudSlider.editBox:GetText():find("70%%"), "editBox must show 70%")
@@ -277,6 +346,15 @@ hudSlider.editBox:SetText("65")
 hudSlider.editBox.scripts["OnEnterPressed"](hudSlider.editBox)
 assert(math.abs(addon.db.hudScale - 0.65) < 0.001, "Typing 65 into EditBox must set hudScale to 0.65")
 assert(hudSlider.editBox:GetText():find("65%%"), "editBox must format to 65%")
+
+hudSlider.editBox:SetText("0,65")
+hudSlider.editBox.scripts.OnEnterPressed(hudSlider.editBox)
+assert(math.abs(addon.db.hudScale - 0.65) < 0.001 and hudSlider.editBox:GetText() == "65%",
+    "Settings must commit comma decimals through the normal field path")
+hudSlider.editBox:SetText("0,6.5")
+hudSlider.editBox.scripts.OnEditFocusLost(hudSlider.editBox)
+assert(math.abs(addon.db.hudScale - 0.65) < 0.001 and hudSlider.editBox:GetText() == "65%",
+    "ambiguous entry must restore the displayed value without changing Settings")
 
 hudSlider.editBox:SetText("0.75")
 hudSlider.editBox.scripts["OnEnterPressed"](hudSlider.editBox)
@@ -309,9 +387,62 @@ hudSlider.scripts["OnValueChanged"](hudSlider, 0.77)
 hudSlider.scripts["OnValueChanged"](hudSlider, 0.78)
 assert(layoutAppliedCount == 0, "ApplyFullLayout must NOT run during drag (OnValueChanged is skipped)")
 
+-- The native Slider can move its thumb after the last custom OnUpdate. Mouse
+-- release must commit that displayed value instead of leaving the setting at
+-- the previous drag sample until a step button is clicked.
+hudSlider.val = 0.90
 hudSlider.scripts["OnMouseUp"](hudSlider, "LeftButton")
 assert(hudSlider._isCustomDrag == false or hudSlider._isCustomDrag == nil, "Mouse up must end _isCustomDrag state")
+assert(math.abs(addon.db.hudScale - 0.90) < 0.001,
+    "Mouse up must commit the slider thumb's final displayed value")
 assert(layoutAppliedCount == 1, "Mouse up must apply layout exactly once")
+
+-- Closing the window or changing pages during a drag must not leave an OnUpdate
+-- controller that resumes from a stale cursor origin when the slider reappears.
+cursorX = 100
+hudSlider.scripts.OnMouseDown(hudSlider, "LeftButton")
+cursorX = 130
+hudSlider.scripts.OnUpdate(hudSlider)
+local lastSample = addon.db.hudScale
+layoutAppliedCount = 0
+hudSlider.scripts.OnHide(hudSlider)
+assert(not hudSlider._isCustomDrag and not hudSlider.scripts.OnUpdate
+        and hudSlider._dragStartX == nil and hudSlider._dragStartVal == nil,
+    "hidden settings sliders must discard their drag controller")
+assert(addon.db.hudScale == lastSample and layoutAppliedCount == 1,
+    "interrupted drag must apply the last sampled setting exactly once")
+hudSlider.scripts.OnHide(hudSlider)
+hudSlider.scripts.OnMouseUp(hudSlider, "LeftButton")
+assert(layoutAppliedCount == 1, "repeated hide or a stale mouse-up must not apply again")
+
+-- A locked rail must also lock its separate children and reject late input.
+do
+    local stored = addon.db.hudScale
+    hudSlider.scripts.OnMouseDown(hudSlider, "LeftButton")
+    layoutAppliedCount = 0
+    addon.UIControls.SetSliderEnabled(hudSlider, false)
+    assert(not hudSlider.enabled and not hudSlider.btnMinus.enabled
+            and not hudSlider.btnPlus.enabled and not hudSlider.editBox.enabled,
+        "disabling a slider must disable its rail, field and both steppers")
+    assert(not hudSlider._isCustomDrag and not hudSlider.scripts.OnUpdate,
+        "locking a slider must cancel any active drag")
+    hudSlider.btnPlus.scripts.OnClick()
+    hudSlider.btnMinus.scripts.OnClick()
+    hudSlider.editBox:SetText("45%")
+    hudSlider.editBox.scripts.OnEnterPressed(hudSlider.editBox)
+    hudSlider.editBox.scripts.OnEditFocusLost(hudSlider.editBox)
+    hudSlider.scripts.OnMouseDown(hudSlider, "LeftButton")
+    hudSlider.scripts.OnMouseUp(hudSlider, "LeftButton")
+    hudSlider:SetValueDirect(0.45)
+    assert(addon.db.hudScale == stored and layoutAppliedCount == 0
+            and hudSlider.editBox:GetText() == string.format("%.0f%%", stored * 100),
+        "late clicks and field commits must not bypass a locked slider")
+    addon.UIControls.SetSliderEnabled(hudSlider, true)
+    assert(hudSlider.enabled and hudSlider.btnPlus.enabled and hudSlider.editBox.enabled)
+    hudSlider.btnPlus.scripts.OnClick()
+    assert(addon.db.hudScale > stored and layoutAppliedCount == 1,
+        "unlocking must restore normal step-button interaction")
+end
 
 -- ============================================================================
 -- 3. Test Wizard Sliders (Seam & Scale EditBoxes and Stepping)
@@ -331,6 +462,30 @@ wiz.seamEditBox.scripts["OnEnterPressed"](wiz.seamEditBox)
 assert(math.abs(addon.db.deckWidthRatio - 0.45) < 0.001, "Wizard seamEditBox must set deckWidthRatio to 0.45")
 assert(wiz.seamValText:GetText():find("45%.0%%"), "seamValText must reflect 45.0%")
 
+wiz.seamEditBox:SetText("50,5%")
+wiz.seamEditBox.scripts.OnEnterPressed(wiz.seamEditBox)
+assert(math.abs(addon.db.deckWidthRatio - 0.505) < 0.001 and wiz.seamEditBox:GetText() == "50.5%",
+    "Calibration must commit decimal-comma seam entry without clamping to the maximum")
+wiz.seamEditBox:SetText("50,1%")
+wiz.seamEditBox.scripts.OnEnterPressed(wiz.seamEditBox)
+assert(math.abs(addon.db.deckWidthRatio - 0.501) < 0.00001,
+    "seam calibration must accept 0.1 percentage-point precision")
+wiz.seamSlider.btnPlus.scripts.OnClick()
+assert(math.abs(addon.db.deckWidthRatio - 0.502) < 0.00001,
+    "seam step buttons must match typed precision")
+for _, value in ipairs({"10%", "90%"}) do
+    wiz.seamEditBox:SetText(value)
+    wiz.seamEditBox.scripts.OnEnterPressed(wiz.seamEditBox)
+    assert(math.abs(addon.db.deckWidthRatio - tonumber(value:sub(1,-2))/100) < 0.00001,
+        "seam calibration must cover the full 10%-90% range")
+end
+wiz.seamEditBox:SetText("50,5%")
+wiz.seamEditBox.scripts.OnEnterPressed(wiz.seamEditBox)
+wiz.seamEditBox:SetText("50,5.0%")
+wiz.seamEditBox.scripts.OnEditFocusLost(wiz.seamEditBox)
+assert(math.abs(addon.db.deckWidthRatio - 0.505) < 0.001 and wiz.seamEditBox:GetText() == "50.5%",
+    "Calibration must restore invalid mixed-separator entry without changing the seam")
+
 wiz.scaleEditBox:SetText("70%")
 wiz.scaleEditBox.scripts["OnEnterPressed"](wiz.scaleEditBox)
 assert(math.abs(addon.db.hudScale - 0.70) < 0.001, "Wizard scaleEditBox must set hudScale to 0.70")
@@ -344,9 +499,261 @@ wiz.scaleSlider.scripts["OnValueChanged"](wiz.scaleSlider, 0.72)
 wiz.scaleSlider.scripts["OnValueChanged"](wiz.scaleSlider, 0.73)
 assert(layoutAppliedCount == 0, "Wizard slider drag must not apply layout until mouse up")
 
+wiz.scaleSlider.val = 0.91
 wiz.scaleSlider.scripts["OnMouseUp"](wiz.scaleSlider, "LeftButton")
 assert(wiz.scaleSlider._isCustomDrag == false or wiz.scaleSlider._isCustomDrag == nil, "Wizard scaleSlider mouse up must clear _isCustomDrag")
 assert(layoutAppliedCount == 1, "Wizard scaleSlider mouse up must apply layout")
+assert(math.abs(addon.db.hudScale - 0.91) < 0.001 and wiz.scaleEditBox:GetText() == "91%",
+    "Wizard release must commit and display the final native thumb value")
+wiz.scaleSlider.scripts.OnMouseDown(wiz.scaleSlider, "LeftButton")
+layoutAppliedCount = 0
+wiz.scaleSlider.scripts.OnHide(wiz.scaleSlider)
+assert(not wiz.scaleSlider._isCustomDrag and not wiz.scaleSlider.scripts.OnUpdate
+        and layoutAppliedCount == 1,
+    "hiding a Wizard scale step must cancel its drag and apply once")
+wiz.scaleSlider.scripts.OnMouseUp(wiz.scaleSlider, "LeftButton")
+assert(layoutAppliedCount == 1)
 
-print("PASS: Universal slider manual stepping ([-]/[+]), normalized text entry, gentler drag curve, smart parser, and drag debounce verified!")
+do
+    local stored = addon.db.deckWidthRatio
+    addon.UIControls.SetSliderEnabled(wiz.seamSlider, false)
+    layoutAppliedCount = 0
+    wiz.seamSlider.btnPlus.scripts.OnClick()
+    wiz.seamSlider.btnMinus.scripts.OnClick()
+    wiz.seamEditBox:SetText("60%")
+    wiz.seamEditBox.scripts.OnEnterPressed(wiz.seamEditBox)
+    wiz.seamEditBox.scripts.OnEditFocusLost(wiz.seamEditBox)
+    wiz.seamSlider.scripts.OnValueChanged(wiz.seamSlider, 0.60, true)
+    wiz.seamSlider.scripts.OnMouseDown(wiz.seamSlider, "LeftButton")
+    assert(addon.db.deckWidthRatio == stored and layoutAppliedCount == 0
+            and not wiz.seamSlider.isDragging and not wiz.seamSlider.scripts.OnUpdate,
+        "Wizard seam fields and steppers must not bypass Companion geometry ownership")
+    addon.UIControls.SetSliderEnabled(wiz.seamSlider, true)
+end
+wiz.seamSlider.scripts.OnMouseDown(wiz.seamSlider, "LeftButton")
+wiz.seamSlider.scripts.OnValueChanged(wiz.seamSlider, 0.45, true)
+assert(wiz.seamSlider._pendingApply and wiz.seamSlider.scripts.OnUpdate)
+layoutAppliedCount = 0
+wiz.seamSlider.scripts.OnHide(wiz.seamSlider)
+assert(not wiz.seamSlider.isDragging and not wiz.seamSlider._pendingApply
+        and not wiz.seamSlider.scripts.OnUpdate and layoutAppliedCount == 1,
+    "hiding a Wizard seam step must cancel its deferred apply controller")
+wiz.seamSlider.scripts.OnHide(wiz.seamSlider)
+assert(layoutAppliedCount == 1)
+
+-- The actual Options bezel slider opts into one shared geometry countdown.
+-- All other slider timing assertions above must remain unchanged.
+do
+    local bezel
+    for _,s in ipairs(sliders) do
+        if s.title:GetText()==addon.L.SLIDER_BEZEL_GAP then bezel=s end
+    end
+    assert(bezel and bezel.coalesceGeometryLayout,'Options bezel did not opt into coalescing')
+    local function tick(elapsed)
+        for _,f in ipairs(frames) do
+            if f.scripts.OnUpdate then f.scripts.OnUpdate(f,elapsed) end
+        end
+    end
+    local plus,minus
+    for _,f in ipairs(frames) do
+        if f.parent==configFrame.bottomControl then
+            if f.text=='+1 px' then plus=f end
+            if f.text=='-1 px' then minus=f end
+        end
+    end
+    assert(plus and minus,'actual bottom controls missing')
+    bezel:SetValueDirect(20); tick(0.3)
+    layoutAppliedCount=0
+    plus.scripts.OnClick()
+    local finalBottom=addon.db.gameBottomPixels
+    local frameCount=#frames
+    for _=1,1000 do
+        bezel.btnPlus.scripts.OnClick()
+        bezel.btnMinus.scripts.OnClick()
+    end
+    assert(#frames==frameCount,'rapid adjustments allocated extra scheduler frames')
+    assert(addon.db.bezelGap==20 and bezel.editBox:GetText()=='20 px'
+        and addon.db.gameBottomPixels==finalBottom and layoutAppliedCount==0,
+        'burst must retain immediate display/state without synchronous layout')
+    tick(0.24)
+    assert(layoutAppliedCount==0,'geometry applied before the quiet period')
+    bezel.btnPlus.scripts.OnClick()
+    tick(0.24)
+    assert(layoutAppliedCount==0,'new edit did not restart quiet period')
+    tick(0.02)
+    assert(layoutAppliedCount==1 and addon.db.bezelGap==22,
+        'mixed geometry burst must apply final state once')
+    tick(1)
+    assert(layoutAppliedCount==1,'settled scheduler kept polling/applying')
+
+    -- Repeated upper-limit clicks and focus-loss commits of the same value
+    -- must not request another expensive layout.
+    bezel:SetValueDirect(100); tick(0.3); layoutAppliedCount=0
+    for _=1,20 do bezel.btnPlus.scripts.OnClick() end
+    bezel.editBox.scripts.OnEditFocusLost(bezel.editBox)
+    tick(1)
+    assert(layoutAppliedCount==0,'unchanged/clamped bezel value requested layout')
+    bezel.editBox:SetText('26 px')
+    bezel.editBox.scripts.OnEnterPressed(bezel.editBox)
+    bezel.editBox.scripts.OnEditFocusLost(bezel.editBox)
+    bezel.scripts.OnHide(bezel)
+    assert(addon.db.bezelGap==26 and layoutAppliedCount==0)
+    tick(0.3)
+    assert(layoutAppliedCount==1,'typed commit must survive panel hide and apply once')
+
+    -- A step followed by a drag must not fire its old pending layout during
+    -- the drag. Release, hide and disabling each preserve its final value.
+    layoutAppliedCount=0
+    bezel.btnPlus.scripts.OnClick()
+    cursorX=0
+    bezel.scripts.OnMouseDown(bezel,'LeftButton')
+    cursorX=60; tick(1)
+    assert(layoutAppliedCount==0,'pending step applied in the middle of bezel drag')
+    local dragged=addon.db.bezelGap
+    bezel.scripts.OnMouseUp(bezel,'LeftButton')
+    bezel.scripts.OnHide(bezel)
+    tick(0.3)
+    assert(layoutAppliedCount==1 and addon.db.bezelGap==dragged,
+        'release/hide lost the final bezel drag value or applied twice')
+    layoutAppliedCount=0
+    bezel.scripts.OnMouseDown(bezel,'LeftButton')
+    cursorX=120; tick(0.1)
+    addon.UIControls.SetSliderEnabled(bezel,false)
+    tick(0.3)
+    assert(layoutAppliedCount==1 and not bezel._isCustomDrag,
+        'disabled drag lost its pending geometry')
+    addon.UIControls.SetSliderEnabled(bezel,true)
+
+    -- Dispatcher sees latest current state, not a snapshot owned by an old
+    -- profile. Topology/profile changes need not cancel the settings countdown.
+    layoutAppliedCount=0
+    bezel.btnPlus.scripts.OnClick()
+    local previousDB=addon.db
+    addon.db={bezelGap=72,gameBottomPixels=3}
+    local appliedDB
+    local oldApply=addon.ApplyFullLayout
+    addon.ApplyFullLayout=function(self) appliedDB=self.db; oldApply(self) end
+    tick(0.3)
+    assert(layoutAppliedCount==1 and appliedDB==addon.db and addon.db.bezelGap==72,
+        'queued geometry replayed the old profile')
+    addon.ApplyFullLayout=oldApply
+    addon.db=previousDB
+end
+do
+    -- Exercise the actual map card callbacks: AUTO must remain a mode and
+    -- owner-specific scaling must not dispatch a full layout of other windows.
+    local mapSlider, auto, preset
+    for _, f in ipairs(frames) do
+        if f.type=="Slider" and f.title and f.title:GetText()==addon.L["MAP_SCALE"] then mapSlider=f end
+        if f.text==addon.L["BTN_MAP_AUTOFIT"] then auto=auto or f end
+    end
+    for _, f in ipairs(frames) do
+        if f.text=="100%" and f.parent==auto.parent then preset=f end
+    end
+    assert(mapSlider and auto and preset)
+    local previousMap, previousMetrics = WorldMapFrame, addon.Viewport.GetMetrics
+    local previousConfigure, previousRestore = addon.Canvas.ConfigureWorldMap, addon.Canvas.RestoreWorkspacePosition
+    local previousSide = addon.Canvas.IsFrameOnWorkspace
+    local map = {scale=1}
+    function map:GetScale() return self.scale end
+    function map:GetEffectiveScale() return self.scale end
+    function map:GetWidth() return 1000 end
+    function map:GetHeight() return 800 end
+    WorldMapFrame=map
+    addon.Viewport.GetMetrics=function() return {isSpanned=true,workspaceWidth=1024,workspaceHeight=824} end
+    addon.Canvas.IsFrameOnWorkspace=function() return true end
+    addon.Canvas.ConfigureWorldMap=function() map.scale=tonumber(addon.db.workspaceMapScale) or 1 end
+    addon.Canvas.RestoreWorkspacePosition=function() end
+    addon.db.savedMainPositions, addon.db.savedWorkspacePositions = {}, {}
+    layoutAppliedCount=0
+    addon.UIControls.SetSliderEnabled(mapSlider,true)
+    auto.scripts.OnClick()
+    assert(addon.db.workspaceMapScale=="AUTO" and mapSlider:GetValue()==1,
+        "Auto Fit display synchronization invoked the numeric setter")
+    preset.scripts.OnClick()
+    assert(addon.db.workspaceMapScale==1, "same-value preset failed to leave AUTO mode")
+    mapSlider:SetValue(1.25)
+    assert(addon.db.workspaceMapScale==1.25 and map.scale==1.25)
+    assert(layoutAppliedCount==0, "map settings dispatched an unrelated full layout")
+    -- Load-after-panel creation: the SAME slider adopts OpenMap's limits,
+    -- saved value and actions. A read-only owner refresh must not change prefs.
+    local oldOwner = addon.CanvasCompatibility.GetWorldMapExternalOwner
+    local oldForever, oldPresentation = addon.isForever, addon.CanvasMapPresentation
+    local oldGamepad = addon.IsGamepadUIEnabled
+    local oldNamespace, oldAPI, oldDB = OpenMap, OpenMapAPI, OpenMapDB
+    local oldAddOns, oldUnitGUID = C_AddOns, UnitGUID
+    local openMapEnableState = 2
+    UnitGUID = function() return "Player-SettingsFixture" end
+    C_AddOns = {
+        IsAddOnLoaded = function(name) return name == "OpenMap", name == "OpenMap" end,
+        GetAddOnEnableState = function() return openMapEnableState end,
+    }
+    local ownerDB, writes = {enabled=true,windowScale=1.4}, 0
+    local module = {db=ownerDB}
+    function module:WindowOptions(options, get, set, off)
+        options.windowScale={min=.5,max=1.6,step=.05,disabled=off,
+            set=function(info,v) set(info,v); map.scale=v; writes=writes+1 end}
+    end
+    OpenMap={version="v0.7.5-beta",GetModule=function() return module end}
+    OpenMapAPI={major=1,version=4,IsStitched=function() return true end}
+    OpenMapDB={worldmap=ownerDB}
+    addon.isForever, addon.CanvasMapPresentation = true, nil
+    addon.IsGamepadUIEnabled=function() return false end
+    addon.CanvasCompatibility.GetWorldMapExternalOwner=function() return "OpenMap" end
+    local clearFocus=mapSlider.editBox.ClearFocus
+    mapSlider.editBox.ClearFocus=function(self)
+        local hadFocus=self.hasFocus
+        self.hasFocus=false
+        if hadFocus then self.scripts.OnEditFocusLost(self) end
+    end
+    mapSlider.editBox:SetText("240%")
+    mapSlider.editBox.hasFocus=true
+    mapSlider.parent.scripts.OnEvent(mapSlider.parent,"ADDON_LOADED","OpenMap")
+    assert(mapSlider.maxVal==1.6 and mapSlider:GetValue()==1.4 and writes==0)
+    assert(mapSlider.title:GetText():find("OpenMap",1,true) and mapSlider.uiEnabled)
+    assert(addon.db.workspaceMapScale==1.25, "owner refresh overwrote native preference")
+    local p200
+    for _, f in ipairs(frames) do
+        if f.parent==mapSlider.parent and f.text=="200%" then p200=f end
+    end
+    assert(p200 and p200.enabled==false)
+    mapSlider.btnPlus.scripts.OnClick()
+    assert(ownerDB.windowScale==1.45 and map.scale==1.45)
+    mapSlider.editBox:SetText("190%")
+    mapSlider.editBox.scripts.OnEnterPressed(mapSlider.editBox)
+    assert(ownerDB.windowScale==1.6 and mapSlider:GetValue()==1.6,
+        "typed input used the old native range")
+    cursorX=0
+    mapSlider.scripts.OnMouseDown(mapSlider,"LeftButton")
+    cursorX=-300
+    mapSlider.scripts.OnUpdate(mapSlider,.016)
+    assert(ownerDB.windowScale==1.05, "drag used the previous native range")
+    mapSlider.scripts.OnMouseUp(mapSlider,"LeftButton")
+    local savedWrites=writes
+    ownerDB.windowScale=.9
+    mapSlider.parent.scripts.OnShow()
+    assert(mapSlider:GetValue()==.9 and writes==savedWrites,
+        "OpenMap settings refresh wrote instead of reading its saved scale")
+    openMapEnableState = 0
+    mapSlider.parent.scripts.OnShow()
+    assert(not mapSlider.title:GetText():find("OpenMap", 1, true),
+        "a disabled OpenMap must lose its addon-specific settings label")
+    mapSlider.scripts.OnMouseDown(mapSlider,"LeftButton")
+    addon.CanvasCompatibility.GetWorldMapExternalOwner=oldOwner
+    C_AddOns, UnitGUID = oldAddOns, oldUnitGUID
+    addon.isForever, addon.CanvasMapPresentation = oldForever, oldPresentation
+    addon.IsGamepadUIEnabled=oldGamepad
+    mapSlider.parent.scripts.OnShow()
+    assert(mapSlider.maxVal==2.5 and mapSlider:GetValue()==1.25 and p200.enabled,
+        "slider failed to return to native settings after ownership changed")
+    assert(not mapSlider._isCustomDrag, "owner change retained a stale drag")
+    mapSlider.scripts.OnMouseUp(mapSlider,"LeftButton")
+    assert(writes==savedWrites and layoutAppliedCount==0 and addon.db.workspaceMapScale==1.25)
+    mapSlider.editBox.ClearFocus=clearFocus
+    OpenMap, OpenMapAPI, OpenMapDB = oldNamespace, oldAPI, oldDB
+    WorldMapFrame, addon.Viewport.GetMetrics = previousMap, previousMetrics
+    addon.Canvas.ConfigureWorldMap, addon.Canvas.RestoreWorkspacePosition = previousConfigure, previousRestore
+    addon.Canvas.IsFrameOnWorkspace=previousSide
+end
+print("PASS: sliders, text entry, drag behavior and bounded geometry coalescing verified")
 

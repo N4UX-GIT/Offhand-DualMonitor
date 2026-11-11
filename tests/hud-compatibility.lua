@@ -1,0 +1,199 @@
+local addon = {
+    isRetail = false,
+    isForever = false,
+    tocVersion = 30300,
+}
+
+local loaded = {}
+C_AddOns = {
+    IsAddOnLoaded = function(name)
+        return loaded[name] == true
+    end,
+}
+
+assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
+local compatibility = assert(addon.HUDCompatibility)
+do
+    addon.isForever = true
+    for _, name in ipairs({"BuffFrame", "DebuffFrame", "ExternalDefensivesFrame"}) do
+        local aura = { GetName = function() return name end }
+        assert(compatibility.IsForeverEditModeFrame(aura, name),
+            "native aura roots must retain Edit Mode ownership before managed flags initialize")
+    end
+    addon.isForever = false
+end
+
+MainMenuBar = {}
+ContainerFrame1 = {}
+MinimapCluster = {
+    IsUserPlaced = function() return false end,
+}
+assert(not compatibility.HasCustomActionBarAddon(),
+    "stock action bars must remain available")
+assert(not compatibility.HasCustomBagAddon(),
+    "stock bags must remain available")
+ContainerFrame1, ContainerFrameCombinedBags = nil, {}
+assert(not compatibility.HasCustomBagAddon(),
+    "a native combined backpack must not be mistaken for a replacement when ContainerFrame1 is absent")
+Bagnon = {}
+assert(compatibility.HasCustomBagAddon(),
+    "a replacement must retain ownership even when the native combined root exists")
+Bagnon, ContainerFrameCombinedBags = nil, nil
+assert(compatibility.HasCustomBagAddon(),
+    "missing both native roots must retain the conservative ownership fallback")
+ContainerFrame1 = {}
+assert(not compatibility.HasCustomMinimapAddon(),
+    "the stock Minimap must remain available")
+
+Bartender4 = {}
+Bagnon = {}
+SexyMap = {}
+assert(compatibility.HasCustomActionBarAddon(),
+    "Bartender ownership was not detected")
+assert(compatibility.HasCustomBagAddon(),
+    "Bagnon ownership was not detected")
+assert(compatibility.HasCustomMinimapAddon(),
+    "SexyMap ownership was not detected")
+Bartender4, Bagnon, SexyMap = nil, nil, nil
+loaded.EllesmereUIActionBars, loaded.EllesmereUIMinimap, loaded.EllesmereUIChat = true, true, true
+assert(compatibility.HasCustomActionBarAddon() and compatibility.HasCustomMinimapAddon()
+        and compatibility.HasCustomChatAddon(), "Ellesmere modules must own their actual frame families")
+loaded.EllesmereUIActionBars, loaded.EllesmereUIMinimap, loaded.EllesmereUIChat = nil, nil, nil
+loaded.EllesmereUIBags = true
+assert(compatibility.HasCustomBagAddon(),
+    "Ellesmere bags must own native bag layout even when ContainerFrame1 still exists")
+addon.isForever = true
+addon.Mainhand = {IsNativeGamepadInterface = function() return true end}
+assert(not compatibility.HasCustomBagAddon(),
+    "Forever native Gamepad layout must respect EllesmereUI's bag stand-down")
+Baganator = {}
+assert(compatibility.HasCustomBagAddon(), "the Ellesmere stand-down must preserve another bag provider")
+Baganator, addon.Mainhand, addon.isForever = nil, nil, false
+loaded.EllesmereUIBags = nil
+local previousEnum = Enum
+Enum = { EditModeSystem = {ActionBar=1, StatusTrackingBar=2} }
+loaded.EllesmereUIDataBars = true
+assert(not compatibility.IsExternallyOwnedEditModeSystem({system=2})
+        and not compatibility.IsExternallyOwnedEditModeSystem({system=1}),
+    "standalone Ellesmere DataBars must not claim native XP/Rep or action bars")
+loaded.EllesmereUIDataBars = nil
+loaded.EllesmereUIActionBars = true
+local blizzardDataBars = false
+EllesmereUI = {Lite={GetAddon=function(name, silent)
+    assert(name == "EllesmereUIActionBars" and silent)
+    return {db={profile={useBlizzardDataBars=blizzardDataBars}}}
+end}}
+assert(compatibility.IsExternallyOwnedEditModeSystem({system=2}),
+    "Ellesmere custom XP/Rep bars must retain ownership")
+blizzardDataBars = true
+assert(not compatibility.IsExternallyOwnedEditModeSystem({system=2})
+    and compatibility.IsExternallyOwnedEditModeSystem({system=1}),
+    "Blizzard XP/Rep override must yield status systems without yielding action bars")
+EllesmereUI.Lite.GetAddon = function() error("unavailable") end
+assert(compatibility.IsExternallyOwnedEditModeSystem({system=2}),
+    "unknown Ellesmere profile state must conservatively preserve external ownership")
+EllesmereUI, loaded.EllesmereUIActionBars = nil, nil
+Enum = previousEnum
+
+loaded.EllesmereUIRaidFrames = true
+loaded.Chattynator = true
+assert(compatibility.HasEllesmerePartyFrames(),
+    "EllesmereUI party-frame ownership was not detected")
+assert(compatibility.HasChattynator(),
+    "Chattynator ownership was not detected")
+
+local managed = { isManagedFrame = true }
+assert(compatibility.IsBlizzardEditModeOwnedFrame(managed),
+    "native managed-frame ownership was not detected")
+assert(compatibility.IsBlizzardEditModeOwnedFrame(nil, "DamageMeterFrame"),
+    "native Damage Meter ownership was not detected")
+
+addon.isForever = true
+addon.HasBlizzardEditMode = function() return true end
+local chat = {
+    OnEditModeEnter = function() end,
+    OnEditModeExit = function() end,
+}
+ChatFrame1 = chat
+assert(compatibility.UsesForeverEditMode(),
+    "Forever Edit Mode detection changed during extraction")
+assert(compatibility.IsForeverEditModeFrame(chat, "ChatFrame1"),
+    "Forever's native primary chat ownership was not detected")
+
+addon.isForever = false
+chat.isStaticDocked = true
+assert(compatibility.RetailEditModeOwnsPrimaryChat(chat),
+    "Retail primary chat ownership was not detected")
+
+addon.Mainhand = {
+    IsNativeGamepadInterface = function() return true end,
+    IsControllerLayout = function() return true end,
+}
+assert(compatibility.UsesNativeGamepadInterface()
+        and compatibility.UsesControllerInterface(),
+    "Mainhand controller capability delegation changed during extraction")
+
+-- Position ownership can appear after initialization (RestedXP V2 is an
+-- anonymous AceGUI frame). Never cache a missing vendor widget as unowned.
+do
+    local root = {IsUserPlaced=function() return false end}
+    assert(not compatibility.ShouldPreservePopupPosition(root),
+        "ordinary anonymous popups must remain eligible for automatic recovery")
+    RXPV2GuideWindow = {frame=root}
+    assert(compatibility.ShouldPreservePopupPosition(root),
+        "late RestedXP V2 construction must establish position ownership")
+    RXPV2GuideWindow = {frame={}}
+    assert(not compatibility.ShouldPreservePopupPosition(root),
+        "a recycled or replaced guide must not claim an unrelated root")
+    RXPV2GuideWindow = nil
+    root.IsUserPlaced = function() error('unreadable placement') end
+    assert(compatibility.ShouldPreservePopupPosition(root),
+        "unreadable user placement must prevent automatic writes")
+    local secret = {}
+    local previousSecretCheck = issecretvalue
+    issecretvalue = function(value) return value == secret end
+    root.IsUserPlaced = function() return secret end
+    assert(compatibility.ShouldPreservePopupPosition(root),
+        "secret placement results must prevent automatic writes")
+    root.IsUserPlaced = function() return false end
+    root.GetName = function() return secret end
+    assert(compatibility.ShouldPreservePopupPosition(root),
+        "secret frame names must prevent automatic writes")
+    issecretvalue = previousSecretCheck
+end
+
+do
+    local previousMap, previousEUI = Minimap, EllesmereUIMinimap
+    local parent = {GetParent=function() return UIParent end}
+    Minimap = {GetParent=function() return parent end}
+    EllesmereUIMinimap = {}
+    assert(compatibility.IsExternallyOwnedHUDFrame(Minimap, "Minimap"))
+    assert(compatibility.IsExternallyOwnedHUDFrame(parent), "anonymous minimap parent must retain ownership")
+    assert(not compatibility.IsExternallyOwnedHUDFrame(UIParent, "UIParent"), "minimap ownership must stop before UIParent")
+    parent.GetParent = function() return parent end
+    assert(not compatibility.IsExternallyOwnedHUDFrame({}, "Unrelated"), "cyclic parent chains must remain bounded")
+    Minimap, EllesmereUIMinimap = previousMap, previousEUI
+end
+print("PASS: HUD compatibility ownership and client capability policy")
+
+do
+    local root = {IsUserPlaced=function() return false end}
+    for _, name in ipairs({'Questie_BaseFrame','ChatAlertFrame','TextToSpeechButtonFrame','QuickJoinToastButton'}) do
+        assert(compatibility.ShouldPreservePopupPosition(root, name),
+            'popup recovery must preserve the provider-owned root: '..name)
+    end
+    assert(not compatibility.ShouldPreservePopupPosition(root, 'QuestieOptions'),
+        'Questie configuration windows must retain ordinary popup recovery')
+    assert(not compatibility.ShouldPreservePopupPosition(root, 'OtherQuickJoinToastButton'),
+        'linked-chat ownership must match an exact native root name')
+end
+
+do
+    local root = {IsUserPlaced=function() return false end}
+    assert(compatibility.ShouldPreservePopupPosition(root, 'DetailsBaseFrame1'))
+    assert(compatibility.ShouldPreservePopupPosition(root, 'DetailsBaseFrame12'))
+    assert(not compatibility.ShouldPreservePopupPosition(root, 'DetailsBaseFrameSettings'),
+        'Details configuration dialogs must retain ordinary popup recovery')
+    assert(not compatibility.ShouldPreservePopupPosition(root, 'OtherDetailsBaseFrame1'),
+        'Details ownership must match the complete instance-root name')
+end

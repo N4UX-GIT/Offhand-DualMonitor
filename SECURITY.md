@@ -1,5 +1,11 @@
 # Offhand Security and Companion Verification
 
+The approved layout roadmap follows the
+[Companion interaction and release boundaries](docs/COMPANION-INTERACTION-AND-RELEASE-BOUNDARIES.md).
+That record distinguishes WoW policy uncertainty, the bounded native-source
+audit, signature/reputation status and the exact-hash local Defender scan of
+Workspace Test 2. It makes no claim of Blizzard approval or Warden clearance.
+
 ## Download only from official sources
 
 Obtain the Offhand Companion from the project's official GitHub Releases page:
@@ -73,6 +79,52 @@ These determinations apply to the submitted file hashes. They do not transfer
 automatically to a rebuilt executable or newly generated archive, and they do
 not replace checksum verification or independent review of the source.
 
+## Background Studio media-package security
+
+The unofficial Workspace Test 2 offline Studio additionally supports a bounded
+schema 3 library. Its optional second image is
+`Textures/Background2.tga`; the package remains declarative and contains no Lua
+or native executable. One or two images share the existing aggregate texture
+budget. The Test 2 importer validates image IDs, dimensions, presentation
+settings and exact manifest/file parity before regeneration. This does not
+imply that the deployed public website has been updated with library support.
+
+The official [Background Studio](https://offhand-wow.onrender.com/background-studio.html)
+processes PNG, JPEG, and WebP files in browser memory. The selected image is
+not submitted to Offhand. The Studio page applies a restrictive Content
+Security Policy which blocks script-initiated network connections, form
+submissions, plugins, frames, workers, and media loads outside the narrow set
+needed by the page.
+
+Current schema 2 media ZIPs contain exactly four files:
+
+- `Offhand_UserMedia.toc`, containing declarative presentation metadata.
+- `BackgroundRecipe.json`, used only when reopening the package in the Studio.
+- `README.txt`.
+- `Textures/Background.tga`.
+
+They contain no Lua, EXE, DLL, installer, macro, service, update client, or
+network code. Offhand reads the TOC metadata without loading the media addon as
+executable code and rejects unsupported schemas, malformed dimensions,
+non-power-of-two textures, invalid fit values, and out-of-range presentation
+values.
+
+The Studio's **Update package** path reads ZIP data in memory and does not
+extract or execute it. It accepts only the current four-file layout or the
+older five-file Studio layout, enforces compressed, uncompressed, per-entry,
+and entry-count limits, and rejects unsafe paths, duplicate or unexpected
+files, encryption, compression, links, comments, extra fields, hidden local
+records, inconsistent headers, and CRC failures. An older schema 1
+`Background.lua` can be read only for conversion and is discarded when the
+replacement schema 2 package is generated.
+
+Do not install a media ZIP received from another person directly. Any archive
+can be modified after generation, including its TOC. Open it through the
+official Studio, review the preview, and generate a clean code-free replacement
+before installing it. Antivirus software may still scan or flag any archive;
+do not bypass a security warning merely because a filename resembles an
+Offhand package.
+
 ## Beta 19 review scope
 
 On 2026-10-07, the maintainer confirmed Microsoft Security Intelligence also
@@ -131,6 +183,20 @@ The application requests ordinary `asInvoker` privileges and does not request
 administrator access. It does not install a service, configure startup
 persistence, inspect process security tokens, inject code, read browser data,
 collect telemetry, inspect chat or gameplay, or handle account credentials.
+
+### Store availability checks in the 2.1.5 source
+
+The Store build uses the Windows Store service to query update availability,
+30 seconds after startup and at most once daily. It stores only the current
+build, attempt time and result in a package-local cache, separately from layout
+preferences. Errors, unavailable APIs and timeouts do not block window actions
+or produce a popup. A passive Update available button opens the official Store
+page when clicked. The Companion invokes no package download/install API and
+does not restart itself. Portable and preview builds skip automatic Store checks.
+The optional binding uses only OS WinRT metadata, the framework async adapter,
+and the documented IInitializeWithWindow interface for the Companion's HWND.
+It does not download or generate code. This is unpublished source behavior;
+Store-associated acceptance and exact-build release scans remain separate gates.
 
 ## Why antivirus false positives can occur
 

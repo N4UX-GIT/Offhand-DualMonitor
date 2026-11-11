@@ -126,12 +126,14 @@ local function makeMockFrame(name, w, h)
     function f:SetMaxLetters() end
     function f:ClearFocus() end
     function f:GetText() return "0" end
+    function f:RegisterEvent() end
     function f:SetEnabled() end
     function f:CreateFontString()
         return {
             SetPoint = function(self, ...) self.pointArgs = {...} end,
             SetText = function(self, t) self.text = t end,
             SetWidth = function() end,
+            SetHeight = function(self, height) self.height = height end,
             SetWordWrap = function() end,
             SetTextColor = function() end,
             SetJustifyH = function() end,
@@ -172,9 +174,30 @@ addon.Viewport = { GetMetrics = function() return metrics end }
 addon.Print = function() end
 addon.ApplyFullLayout = function() end
 
+assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasFrameState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelRegistry.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPersistence.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasBackpackState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverMap.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasChat.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasProfessions.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelMotion.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasMapPresentation.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelLifecycle.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDTransientPolicy.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDRecovery.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDTransientFrames.lua"))("Offhand", addon)
 assert(loadfile("Core/SeamRedirect.lua"))("Offhand", addon)
 assert(loadfile("UI/Themes.lua"))("Offhand", addon)
+assert(loadfile("UI/Controls.lua"))("Offhand", addon)
+assert(loadfile("Core/TopologyDetection.lua"))("Offhand", addon)
+assert(loadfile("UI/OptionsActions.lua"))("Offhand", addon)
+assert(loadfile("Core/MapScale.lua"))("Offhand", addon)
 assert(loadfile("UI/Options.lua"))("Offhand", addon)
 addon.SeamRedirect:HookFrames()
 

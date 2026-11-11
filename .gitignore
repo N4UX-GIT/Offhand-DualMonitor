@@ -22,6 +22,8 @@ ehthumbs_vista.db
 
 # Build & distribution output
 dist/
+__pycache__/
+*.py[cod]
 /Companion/backups/
 /.zip
 

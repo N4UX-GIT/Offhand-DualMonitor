@@ -28,16 +28,46 @@ namespace Offhand.Companion {
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static).GetValue(null);
             string publicConfig = (string)typeof(CompanionForm).GetField("publicConfigPath",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static).GetValue(null);
-            Check(config != publicConfig && config.EndsWith("TestConfig.ini"),
-                "graphics candidate settings must stay isolated from public and graininess preferences");
+            Check(CompanionForm.GraphicsRecoveryTestBuild
+                ? config != publicConfig && config.EndsWith("TestConfig.ini") : config == publicConfig,
+                "only recovery experiments use isolated test settings");
 #if FOREVER_GRAPHICS_RECOVERY_TEST
             Check(CompanionForm.ForeverGraphicsRecoveryEnabled && !CompanionForm.RetailGraphicsRecoveryEnabled
                 && CompanionForm.FullVersion.Contains("FOREVER GRAPHICS TEST 5"),"Forever candidate must be distinct");
 #elif RETAIL_GRAPHICS_RECOVERY_TEST
             Check(CompanionForm.RetailGraphicsRecoveryEnabled && CompanionForm.FullVersion.Contains("RETAIL GRAPHICS TEST 4"),"Retail candidate must be distinct");
-#else
+#elif CLASSIC_GRAPHICS_RECOVERY_TEST
             Check(!CompanionForm.RetailGraphicsRecoveryEnabled && CompanionForm.FullVersion.Contains("CLASSIC GRAPHICS TEST 3"),"Classic candidate must be distinct");
+#else
+            Check(!CompanionForm.GraphicsRecoveryTestBuild && !CompanionForm.FullVersion.Contains("TEST"),
+                "ordinary runtime must not inherit test identity");
+            Check(CompanionForm.IsRecoveryClient(@"C:\Games\_anniversary_"), "production Anniversary eligibility");
+            Check(CompanionForm.IsRecoveryClient(@"C:\Games\_RETAIL_\"), "production Retail eligibility");
+            foreach (string path in new string[] { @"C:\Games\_classic_era_", @"C:\Games\_forever_", @"C:\Games\_classic_", @"C:\Games\_ptr_", @"C:\Games\_beta_", @"C:\Games\Wrath", null })
+                Check(!CompanionForm.IsRecoveryClient(path), "unaccepted clients do not arm production recovery");
 #endif
+            string eligible =
+#if FOREVER_GRAPHICS_RECOVERY_TEST
+                @"C:\Games\_forever_";
+#elif CLASSIC_GRAPHICS_RECOVERY_TEST
+                @"C:\Games\_anniversary_";
+#else
+                @"C:\Games\_retail_";
+#endif
+            Check(CompanionForm.CanArmRecovery(eligible, true, false, Handle, new Size(2114,1353), Span.Size),
+                "a Companion-applied manual or auto span may arm after stable verification");
+            Check(!CompanionForm.CanArmRecovery(eligible, false, false, Handle, new Size(2114,1353), Span.Size),
+                "manual span during pause cannot arm recovery");
+            Check(!CompanionForm.CanArmRecovery(eligible, true, true, Handle, new Size(2114,1353), Span.Size),
+                "recovery operation cannot replace its rate-limit history");
+            Check(!CompanionForm.CanArmRecovery(eligible, true, false, Handle, Span.Size, Span.Size),
+                "adopted existing spans without original size cannot arm");
+            Check(!CompanionForm.CanArmRecovery(eligible, true, false, IntPtr.Zero, new Size(2114,1353), Span.Size),
+                "missing HWND cannot arm");
+            Check(!CompanionForm.CanArmRecovery(eligible, true, false, Handle, Size.Empty, Span.Size),
+                "unknown original size cannot arm");
+            Check(!CompanionForm.CanArmRecovery(eligible, true, false, Handle, new Size(2114,1353), Size.Empty),
+                "invalid target size cannot arm");
             Check(ClassicGraphicsRecovery.IsSupportedClient(@"D:\Games\_retail_",true),"Retail test scope");
             Check(!ClassicGraphicsRecovery.IsSupportedClient(@"C:\Games\_anniversary_",true),"Retail candidate excludes Classic");
             Check(!ClassicGraphicsRecovery.IsSupportedClient(@"D:\Games\_retail_",false),"Classic candidate excludes Retail");
@@ -48,8 +78,8 @@ namespace Offhand.Companion {
             Check(!ClassicGraphicsRecovery.IsSupportedClient(@"C:\Games\_forever_",ClassicGraphicsRecovery.ClientScope.Retail),"Retail scope excludes Forever");
             Check(!ClassicGraphicsRecovery.IsSupportedClient(@"C:\Games\_forever_",ClassicGraphicsRecovery.ClientScope.Classic),"Classic scope excludes Forever");
             Check(!ClassicGraphicsRecovery.IsSupportedClient(@"C:\Games\_retail_",(ClassicGraphicsRecovery.ClientScope)99),"unknown scope cannot opt in");
-            Check(!RenderResizeHandshake.Allowed(true) && RenderResizeHandshake.Allowed(false),
-                "Classic candidate must exclude the inherited experimental nudge without changing normal builds");
+            Check(!RenderResizeHandshake.Allowed(true) && !RenderResizeHandshake.Allowed(false),
+                "Recovery and ordinary builds must exclude the experimental resize nudge");
             Check(ClassicGraphicsRecovery.IsClassicClient(@"C:\Games\_anniversary_"),"Anniversary scope");
             Check(ClassicGraphicsRecovery.IsClassicClient(@"C:\Games\_classic_era_\"),"Era scope");
             foreach (var path in new string[] {@"C:\Games\_retail_",@"C:\Games\_forever_",@"C:\Games\_classic_beta_",null})

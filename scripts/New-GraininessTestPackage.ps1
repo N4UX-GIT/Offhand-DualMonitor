@@ -20,12 +20,12 @@ $testSource = Join-Path $root 'Companion\Source\SpanPresentationTest.cs'
     "/win32icon:$(Join-Path $root 'Media\offhand-logo.ico')" `
     "/win32manifest:$(Join-Path $root 'Companion\Source\app.manifest')" `
     "/resource:$(Join-Path $root 'Media\offhand-logo-small.png'),Offhand.Companion.Resources.offhand-logo.png" `
-    /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll $source $testSource
+    /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll $source (Join-Path (Split-Path -Parent $source) LayoutDocument.cs) (Join-Path (Split-Path -Parent $source) WorkspaceLayoutService.cs) $testSource (Join-Path (Split-Path -Parent $source) FlexibleWorkspaceEditor.cs)
 if ($LASTEXITCODE -ne 0) { throw 'Candidate compilation failed' }
 $testExe = Join-Path $staging 'GraininessChecks.exe'
 & $compiler /nologo /target:exe /define:GRAININESS_TEST /main:Offhand.Companion.GraininessTest "/out:$testExe" `
     /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll `
-    $source $testSource (Join-Path $root 'Tests\CompanionGraininess.cs')
+    $source (Join-Path (Split-Path -Parent $source) LayoutDocument.cs) (Join-Path (Split-Path -Parent $source) WorkspaceLayoutService.cs) $testSource (Join-Path $root 'Tests\CompanionGraininess.cs') (Join-Path (Split-Path -Parent $source) FlexibleWorkspaceEditor.cs)
 if ($LASTEXITCODE -ne 0) { throw 'Candidate test compilation failed' }
 & $testExe
 if ($LASTEXITCODE -ne 0) { throw 'Candidate checks failed' }

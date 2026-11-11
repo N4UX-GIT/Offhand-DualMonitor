@@ -1,0 +1,39 @@
+{
+  "recordedUtc": "2026-11-10T09:13:11.1331133Z",
+  "reportedBehavior": "Store page offered an update while Companion 2.1.5 showed its ordinary Store Updates action",
+  "installedPackage": "N4UX.OffhandCompanion_2.1.500.0_x64__bwe0ea6astzt8",
+  "exactExeSha256": "95811DBB7020A20E2541AE123E69FE80721C83A0FD52D0EE5557DD6D54DCCC2A",
+  "realCache": {
+    "attemptUtc": "2026-11-09T16:50:31.0066867Z",
+    "build": "2.1.5.1",
+    "state": "NoUpdate",
+    "nextDueUtc": "2026-11-10T16:50:31.0066867Z",
+    "intervalHours": 24
+  },
+  "freshQuery": {
+    "mode": "online",
+    "startedUtc": "2026-11-10T09:11:17.387803Z",
+    "packageFamily": "N4UX.OffhandCompanion_bwe0ea6astzt8",
+    "packageFullName": "N4UX.OffhandCompanion_2.1.500.0_x64__bwe0ea6astzt8",
+    "storeRouting": true,
+    "queryCount": 1,
+    "queryResult": "Available",
+    "failure": null,
+    "queryMilliseconds": 2839,
+    "buttonText": "Update available…",
+    "buttonDescription": "A Companion update is available. Open Microsoft Store to check and install updates when convenient. The Companion never installs an update itself.",
+    "cache": "AttemptUtc=2026-11-10T09:11:48.2610867Z\r\nBuild=2.1.5.1\r\nState=Available\r\n",
+    "finishedUtc": "2026-11-10T09:12:09.1400175Z"
+  },
+  "method": "Existing read-only diagnostic host loads the exact published EXE under installed Store identity; isolated settings/cache, monitoring and user actions disabled. Not normal app activation.",
+  "interpretation": "The real app daily cache suppresses a fresh request until due. With a fresh isolated cache the released production query returns Available and updates the button. No detection/interop failure reproduced.",
+  "realSettingsAndCacheUnchanged": true,
+  "packageInstalled": false,
+  "productionCacheReset": false,
+  "sourceChanged": false,
+  "candidate216Changed": false,
+  "gameInput": false,
+  "recommendation": "Consider a shorter quiet check interval, such as six hours, and exposing last/next check time. Requires a future source/package and documentation change; daily cadence also remains in 2.1.6.",
+  "microsoftReference": "https://learn.microsoft.com/en-us/uwp/api/windows.services.store.storecontext.getappandoptionalstorepackageupdatesasync?view=winrt-26100",
+  "serviceLimits": "One check per 30 minutes and ten per 24 hours; service publication delay and cached responses are separate from our own daily throttle."
+}

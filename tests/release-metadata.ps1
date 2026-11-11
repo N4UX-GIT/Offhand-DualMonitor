@@ -114,7 +114,64 @@ try {
         throw 'Release metadata must preserve UTF-8 changelog text and keep generated test-focus text encoding-safe.'
     }
 
-    Write-Output 'PASS: standardized beta, release-candidate, stable, and invalid release metadata'
+    $beta23Notes = Join-Path $temp 'beta23.md'
+    & $script -Tag 'v2.1.2-beta.23' -ChangelogPath $projectChangelog -OutputPath $beta23Notes | Out-Null
+    $beta23Body = Get-Content -LiteralPath $beta23Notes -Raw -Encoding utf8
+    foreach ($required in @('Restore Window', 'Span WoW Now', 'Experimental native VSync/graphics-reset recovery and graininess handling are not included.', 'byte-identical 2.1.2-beta.20', 'Reorganized addon services')) {
+        if (-not $beta23Body.Contains($required)) { throw "Beta 23 release scope missing: $required" }
+    }
+    if ($beta23Body.Contains([char]0x2014)) { throw 'Beta 23 presented release notes must not contain em dashes.' }
+
+    $beta24Notes = Join-Path $temp 'beta24.md'
+    & $script -Tag 'v2.1.2-beta.24' -ChangelogPath $projectChangelog -OutputPath $beta24Notes | Out-Null
+    $beta24Body = Get-Content -LiteralPath $beta24Notes -Raw -Encoding utf8
+    foreach ($required in @('Panels closed before reload now stay closed.', 'World Map native panel registration', 'Separate local OpenMap grain/hover patches are not included.', 'two characters', 'not a spanned loading-art fix', 'byte-identical 2.1.2-beta.20')) {
+        if (-not $beta24Body.Contains($required)) { throw "Beta 24 release scope missing: $required" }
+    }
+    if ($beta24Body.Contains([char]0x2014)) { throw 'Beta 24 presented release notes must not contain em dashes.' }
+
+    $beta25Notes = Join-Path $temp 'beta25.md'
+    & $script -Tag 'v2.1.2-beta.25' -ChangelogPath $projectChangelog -OutputPath $beta25Notes | Out-Null
+    $beta25Body = Get-Content -LiteralPath $beta25Notes -Raw -Encoding utf8
+    foreach ($required in @('full', 'Repair HUD', 'Reload UI', 'Expanded candidates still require live acceptance.', 'byte-identical 2.1.2-beta.20', 'memory-crash report remains unresolved')) {
+        if (-not $beta25Body.Contains($required)) { throw "Beta 25 release scope missing: $required" }
+    }
+    if ($beta25Body.Contains([char]0x2014)) { throw 'Beta 25 release notes must not contain em dashes.' }
+
+    $beta26Notes = Join-Path $temp 'beta26.md'
+    & $script -Tag 'v2.1.2-beta.26' -ChangelogPath $projectChangelog -OutputPath $beta26Notes | Out-Null
+    $beta26Body = Get-Content -LiteralPath $beta26Notes -Raw -Encoding utf8
+    foreach ($required in @('Anniversary panels and bags', 'pet-battle controls', 'assumption-based acceptance', 'memory-crash report remains unresolved', 'byte-identical 2.1.2-beta.20')) {
+        if (-not $beta26Body.Contains($required)) { throw "Beta 26 release scope missing: $required" }
+    }
+    if ($beta26Body.Contains([char]0x2014)) { throw 'Beta 26 release notes must not contain em dashes.' }
+
+    $matchedNotes = Join-Path $temp 'matched-213.md'
+    $matched = & $script -Tag 'v2.1.3-beta.27' -CompanionReleaseTag 'v2.1.3' -ChangelogPath $projectChangelog -OutputPath $matchedNotes
+    if (-not $matched.Prerelease -or $matched.ReleaseName -ne 'Offhand v2.1.3 Pre-Release Beta 27') {
+        throw 'The add-on must retain its continuing Pre-Release Beta identity independently of Companion.'
+    }
+    $matchedBody = Get-Content -LiteralPath $matchedNotes -Raw -Encoding utf8
+    foreach ($required in @('<!-- offhand-companion-version: 2.1.3 -->', 'Offhand-Companion-v2.1.3.zip',
+        'Offhand-v2.1.3-beta.27.zip', 'Flexible Layout', 'BetterBags/RestedXP', 'manual /reload',
+        'has not received a Defender review determination', 'source repository for a Lutris')) {
+        if (-not $matchedBody.Contains($required)) { throw "Matched 2.1.3 release scope missing: $required" }
+    }
+    if ($matchedBody.Contains([char]0x2014) -or $matchedBody.Contains('byte-identical 2.1.2-beta.20')) {
+        throw 'Matched 2.1.3 notes must describe the prepared Companion without historical binary claims.'
+    }
+    $beta28Notes = Join-Path $temp 'beta28.md'
+    $beta28 = & $script -Tag 'v2.1.5-beta.28' -CompanionReleaseTag 'v2.1.5' -ChangelogPath $projectChangelog -OutputPath $beta28Notes
+    if (!$beta28.Prerelease -or $beta28.ReleaseName -ne 'Offhand v2.1.5 Pre-Release Beta 28') {
+        throw 'Beta 28 must remain a named prerelease, separate from clean Companion 2.1.5.'
+    }
+    $beta28Body = Get-Content -LiteralPath $beta28Notes -Raw -Encoding utf8
+    foreach ($required in @('<!-- offhand-companion-version: 2.1.5 -->', 'Offhand-Companion-v2.1.5.zip',
+        'Window is positioned', 'quiet', 'OpenMap', 'manual', 'beta.28')) {
+        if (!$beta28Body.Contains($required)) { throw "Beta 28 publication scope missing: $required" }
+    }
+    if ($beta28Body.Contains([char]0x2014)) { throw 'Beta 28 release notes must not contain em dashes.' }
+    Write-Output 'PASS: historical metadata and matching 2.1.3 publication scope'
 } finally {
     if (Test-Path -LiteralPath $temp) {
         Remove-Item -LiteralPath $temp -Recurse -Force

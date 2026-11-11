@@ -1,0 +1,133 @@
+{
+  "overall": "PASS",
+  "partialRun": "FALSE",
+  "packageVersion": "2.1.400.0",
+  "requiredPassed": 13,
+  "requiredFailed": 0,
+  "optionalPassed": 10,
+  "optionalFailed": 1,
+  "reviewedOptional": "Existing Process.Start URI launches and CsI bytes in unchanged embedded icon PNG (9408 bytes), image SHA256 5A07E4979187D0DEEC6F098EB8EBE1A0E47ABFA622C753F6CAE3882BEB3DEAC8",
+  "noCandidateInstallation": true,
+  "tests": [
+    {
+      "name": "Install signed driver and executable files",
+      "optional": true,
+      "result": "PASS"
+    },
+    {
+      "name": "User account control run level",
+      "optional": true,
+      "result": "PASS"
+    },
+    {
+      "name": "Application count",
+      "optional": true,
+      "result": "PASS"
+    },
+    {
+      "name": "App manifest",
+      "optional": false,
+      "result": "PASS"
+    },
+    {
+      "name": "File association verbs",
+      "optional": true,
+      "result": "PASS"
+    },
+    {
+      "name": "Registry checks",
+      "optional": true,
+      "result": "PASS"
+    },
+    {
+      "name": "Enterprise Features",
+      "optional": false,
+      "result": "PASS"
+    },
+    {
+      "name": "Resource Packages",
+      "optional": false,
+      "result": "PASS"
+    },
+    {
+      "name": "Banned file analyzer",
+      "optional": false,
+      "result": "PASS"
+    },
+    {
+      "name": "Private code signing",
+      "optional": false,
+      "result": "PASS"
+    },
+    {
+      "name": "App resources",
+      "optional": true,
+      "result": "PASS"
+    },
+    {
+      "name": "Branding",
+      "optional": false,
+      "result": "PASS"
+    },
+    {
+      "name": "Debug configuration",
+      "optional": true,
+      "result": "PASS"
+    },
+    {
+      "name": "Special use capabilities",
+      "optional": false,
+      "result": "PASS"
+    },
+    {
+      "name": "ExclusiveTo attribute",
+      "optional": false,
+      "result": "PASS"
+    },
+    {
+      "name": "Type location",
+      "optional": false,
+      "result": "PASS"
+    },
+    {
+      "name": "Type name case-sensitivity",
+      "optional": false,
+      "result": "PASS"
+    },
+    {
+      "name": "Type name correctness",
+      "optional": false,
+      "result": "PASS"
+    },
+    {
+      "name": "General metadata correctness",
+      "optional": true,
+      "result": "PASS"
+    },
+    {
+      "name": "Properties",
+      "optional": false,
+      "result": "PASS"
+    },
+    {
+      "name": "Archive files usage",
+      "optional": true,
+      "result": "PASS"
+    },
+    {
+      "name": "Blocked executables",
+      "optional": true,
+      "result": "FAIL"
+    },
+    {
+      "name": "Platform appropriate files",
+      "optional": true,
+      "result": "PASS"
+    },
+    {
+      "name": "DPIAwarenessValidation",
+      "optional": false,
+      "result": "PASS"
+    }
+  ]
+}

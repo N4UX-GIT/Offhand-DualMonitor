@@ -20,9 +20,24 @@ local function Near(value, expected)
     return math.abs((tonumber(value) or -1) - expected) <= 2
 end
 
+local function CanvasAspect(width, height)
+    width, height = tonumber(width), tonumber(height)
+    if not width or not height or width <= 0 or height <= 0
+        or width ~= width or height ~= height
+        or width == math.huge or height == math.huge then return nil end
+    return width / height
+end
+
 function Viewport:GetCompanionTopology(pw, ph, sw, sh)
     local topology = _G.OffhandCompanionTopology
-    if type(topology) ~= "table" or tonumber(topology.schema) ~= 1 then return nil, "ABSENT" end
+    if type(topology) ~= "table" then return nil, "ABSENT" end
+    if tonumber(topology.schema) == 3 then
+        topology = Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:ValidateFlexibleTopology(topology)
+        if not topology then return nil, "MISMATCH" end
+    elseif tonumber(topology.schema) == 2 then
+        topology = Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:ValidateTopology(topology)
+        if not topology then return nil, "MISMATCH" end
+    elseif tonumber(topology.schema) ~= 1 then return nil, "ABSENT" end
     local topologyWidth = tonumber(topology.physicalWidth)
     local topologyHeight = tonumber(topology.physicalHeight)
     if not topologyWidth or not topologyHeight or topologyWidth <= 0 or topologyHeight <= 0
@@ -31,22 +46,41 @@ function Viewport:GetCompanionTopology(pw, ph, sw, sh)
         return nil, "MISMATCH"
     end
 
+    -- Either native API can lag an external resize. Even an exact physical
+    -- report must agree with the current UI canvas before applying the span.
+    local canvasAspect = CanvasAspect(sw, sh)
+    local topologyAspect = topologyWidth / topologyHeight
+    if not canvasAspect or math.abs(canvasAspect - topologyAspect) > 0.01 then
+        return nil, "MISMATCH"
+    end
     if Near(topologyWidth, pw) and Near(topologyHeight, ph) then
         return topology, "READY"
     end
 
-    -- Classic Era and Anniversary clients can keep reporting the native size
+    -- Classic Era, Anniversary and Forever clients can keep reporting the native size
     -- of one monitor after an external borderless window resize. Their UIParent
     -- aspect ratio still reflects the complete spanned canvas. Accept the
     -- Companion rectangle only when both signals agree; after Restore Window,
     -- the canvas aspect returns to the single-monitor ratio and this safely
-    -- becomes MISMATCH again. Forever retains the stricter exact-size guard.
+    -- becomes MISMATCH again.
     local reportedDisplay = (Near(topology.game.width, pw) and Near(topology.game.height, ph))
         or (Near(topology.workspace.width, pw) and Near(topology.workspace.height, ph))
-    local canvasAspect = tonumber(sw) and tonumber(sh) and sh > 0 and (sw / sh) or nil
-    local topologyAspect = topologyWidth / topologyHeight
-    if not Offhand.isForever and reportedDisplay and canvasAspect
-        and math.abs(canvasAspect - topologyAspect) <= 0.01 then
+    if topology.schema == 2 or topology.schema == 3 then
+        for _,r in ipairs(topology.workspaces) do
+            reportedDisplay=reportedDisplay or (Near(r.width,pw) and Near(r.height,ph))
+        end
+    end
+    if topology.schema == 3 then
+        for _,display in ipairs(topology.displays) do
+            reportedDisplay=reportedDisplay or (Near(display.width,pw) and Near(display.height,ph))
+        end
+    end
+    -- Some offset arrangements share one display's aspect. In that case the
+    -- canvas cannot distinguish a span from a restored window; require the
+    -- exact physical bounds instead of accepting ambiguous stale dimensions.
+    local reportedAspect = CanvasAspect(pw, ph)
+    if reportedDisplay and reportedAspect
+        and math.abs(reportedAspect - topologyAspect) > 0.01 then
         return topology, "READY"
     end
     return nil, "MISMATCH"
@@ -110,21 +144,20 @@ local function WriteBooleanCVar(name, value)
     return pcall(setter, name, tonumber(value) and tonumber(value) >= 0.5 and "1" or "0")
 end
 
-local function ManageFriendlyPlayerNames(db)
+local function RestoreLegacyFriendlyPlayerNames(db)
+    if not db or db.originalFriendlyPlayerName == nil then return end
     local friendlyNames = ReadNonNegativeCVar("UnitNameFriendlyPlayerName")
-    local shouldManage = db and db.enabled and Offhand.isRetail and not Offhand.isForever
-        and friendlyNames ~= nil
-    if shouldManage then
-        if db.originalFriendlyPlayerName == nil then
-            db.originalFriendlyPlayerName = friendlyNames
-        end
-        if friendlyNames < 0.5 then
-            WriteBooleanCVar("UnitNameFriendlyPlayerName", 1)
-        end
-    elseif db and db.originalFriendlyPlayerName ~= nil then
-        WriteBooleanCVar("UnitNameFriendlyPlayerName", db.originalFriendlyPlayerName)
+    local original = tonumber(db.originalFriendlyPlayerName)
+    if original ~= 0 and original ~= 1 then
         db.originalFriendlyPlayerName = nil
+        return
     end
+    if friendlyNames == nil then return end
+    -- Older releases forced this preference on. Restore only that forced value;
+    -- an already-off value belongs to the player. Retry a failed restore later.
+    if friendlyNames == 1 and original == 0
+        and not WriteBooleanCVar("UnitNameFriendlyPlayerName", original) then return end
+    db.originalFriendlyPlayerName = nil
 end
 
 local function ValidPositive(value)
@@ -192,7 +225,12 @@ end
 
 function Viewport:IsSingleScreenRecovery(metrics)
     return metrics and not metrics.isSpanned
-        and self:IsRecoveryTopologyStatus(metrics.topologyStatus) or false
+        and (self:IsRecoveryTopologyStatus(metrics.topologyStatus)
+            or metrics.manualCanvasState == "MISMATCH"
+            or metrics.manualCanvasState == "AMBIGUOUS"
+            or metrics.manualCanvasState == "UNVERIFIED"
+            or metrics.manualCanvasState == "UNREMEMBERED"
+            or metrics.manualCanvasState == "EXACT_REQUIRED") or false
 end
 
 local function NamePlateScaleFrame(namePlate)
@@ -262,11 +300,13 @@ local function WorldTextCompensationRatio(metrics)
     local heightRatio = gameHeight / physicalHeight
     local db = Offhand.db
     if not db or db.worldTextCompensation == false then return 1 end
-    -- Equal-height spans are the known unaffected Forever topology. Leave the
-    -- native CVar exactly alone there, regardless of the optional HUD scale.
-    if math.abs(heightRatio - 1) <= 0.01 then return 1 end
-    return math.max(0.05, DesiredHUDScale(metrics)
-        * Number(db.worldTextScale, 1, 0.50, 1.50))
+    local fineTune = Number(db.worldTextScale, 1, 0.50, 1.50)
+    -- Equal-height spans need no automatic topology correction, but the
+    -- explicit fine-tuning control must still remain effective. Returning a
+    -- hard-coded 1 here made every slider value a no-op on the most common
+    -- side-by-side layout.
+    if math.abs(heightRatio - 1) <= 0.01 then return fineTune end
+    return math.max(0.05, DesiredHUDScale(metrics) * fineTune)
 end
 
 function Viewport:RestoreNamePlateVisualScale()
@@ -400,23 +440,46 @@ function Viewport:SetPoint(frame, point, relativePoint, x, y)
     frame:SetPoint(point, UIParent, relativePoint, x * factor, y * factor)
 end
 
-function Viewport:GetMetrics()
+local function SafeSingleScreenMetrics(sw, sh, pw, ph, preset, topologyStatus, manualState)
+    return {
+        screenWidth = sw, screenHeight = sh, physicalWidth = pw, physicalHeight = ph,
+        deckWidth = 0, workspaceWidth = 0, workspaceHeight = 0,
+        workspaceLeft = 0, workspaceBottom = 0, workspaceRight = 0, workspaceTop = 0,
+        workspacePixelLeft = 0, workspacePixelBottom = 0,
+        workspacePixelWidth = 0, workspacePixelHeight = 0,
+        gameWidth = sw, gameHeight = sh, gameLeft = 0, gameBottom = 0,
+        gameRight = sw, gameTop = sh, gamePixelLeft = 0, gamePixelBottom = 0,
+        gamePixelWidth = pw, gamePixelHeight = ph, hudScale = 1, bezel = 0,
+        preset = preset, actualAR = pw / ph, arMode = "NATIVE", isSpanned = false,
+        companionTopology = false, topologyStatus = topologyStatus,
+        manualCanvasState = manualState,
+    }
+end
+
+function Viewport:GetMetrics(allowUnconfirmedManual)
     local sw, sh = UIParent:GetWidth(), UIParent:GetHeight()
     local pw, ph = GetPhysicalScreenSize()
     if not pw or pw <= 0 or not ph or ph <= 0 then pw, ph = sw, sh end
     local db = Offhand.db
     local preset = db.layoutPreset or "PORTRAIT_LEFT_LANDSCAPE_RIGHT"
     local topology, topologyStatus = self:GetCompanionTopology(pw, ph, sw, sh)
+    local manual = Offhand.ManualCanvas
+    local geometryPreference = manual and manual:GetGeometryPreference() or "AUTO"
+    if geometryPreference == "MANUAL" then topology = nil end
     if topology then
         local companionVersionStatus, companionVersion, expectedCompanionVersion = CompanionVersionStatus(topology)
         pw, ph = tonumber(topology.physicalWidth), tonumber(topology.physicalHeight)
         local ux, uy = sw / pw, sh / ph
         local game, workspace = topology.game, topology.workspace
-        local width, height = tonumber(game.width), tonumber(game.height)
-        local left, bottom = tonumber(game.x), tonumber(game.y)
-        local workspaceLeft, workspaceBottom = tonumber(workspace.x), tonumber(workspace.y)
-        local workspaceWidth, workspaceHeight = tonumber(workspace.width), tonumber(workspace.height)
-        return {
+        local width = math.floor(tonumber(game.width) + 0.5)
+        local height = math.floor(tonumber(game.height) + 0.5)
+        local left = math.floor(tonumber(game.x) + 0.5)
+        local bottom = math.floor(tonumber(game.y) + 0.5)
+        local workspaceLeft = math.floor(tonumber(workspace.x) + 0.5)
+        local workspaceBottom = math.floor(tonumber(workspace.y) + 0.5)
+        local workspaceWidth = math.floor(tonumber(workspace.width) + 0.5)
+        local workspaceHeight = math.floor(tonumber(workspace.height) + 0.5)
+        local metrics = {
             screenWidth = sw, screenHeight = sh, physicalWidth = pw, physicalHeight = ph,
             deckWidth = workspaceWidth * ux,
             workspaceWidth = workspaceWidth * ux, workspaceHeight = workspaceHeight * uy,
@@ -425,9 +488,9 @@ function Viewport:GetMetrics()
             workspaceTop = (workspaceBottom + workspaceHeight) * uy,
             workspacePixelLeft = workspaceLeft, workspacePixelBottom = workspaceBottom,
             workspacePixelWidth = workspaceWidth, workspacePixelHeight = workspaceHeight,
-            gameWidth = width * ux, gameHeight = height * uy,
-            gameLeft = left * ux, gameBottom = bottom * uy,
-            gameRight = (left + width) * ux, gameTop = (bottom + height) * uy,
+            gameWidth = width * uy, gameHeight = height * uy,
+            gameLeft = left * uy, gameBottom = bottom * uy,
+            gameRight = (left + width) * uy, gameTop = (bottom + height) * uy,
             gamePixelLeft = left, gamePixelBottom = bottom,
             gamePixelWidth = width, gamePixelHeight = height,
             hudScale = 1, bezel = 0, preset = preset,
@@ -437,24 +500,37 @@ function Viewport:GetMetrics()
             companionVersion = companionVersion,
             expectedCompanionVersion = expectedCompanionVersion,
         }
-    elseif self:IsRecoveryTopologyStatus(topologyStatus) then
-        return {
-            screenWidth = sw, screenHeight = sh, physicalWidth = pw, physicalHeight = ph,
-            deckWidth = 0, workspaceWidth = 0, workspaceHeight = 0,
-            workspaceLeft = 0, workspaceBottom = 0, workspaceRight = 0, workspaceTop = 0,
-            gameWidth = sw, gameHeight = sh, gameLeft = 0, gameBottom = 0,
-            gameRight = sw, gameTop = sh, gamePixelLeft = 0, gamePixelBottom = 0,
-            gamePixelWidth = pw, gamePixelHeight = ph, hudScale = 1, bezel = 0,
-            preset = preset, actualAR = pw / ph, arMode = "NATIVE", isSpanned = false,
-            companionTopology = false, topologyStatus = topologyStatus,
-        }
+        if Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ApplyMetrics(metrics,topology) end
+        if Offhand.WorkspaceScale then metrics=Offhand.WorkspaceScale:ApplyTopologyMetrics(metrics,topology) end
+        return metrics
+    end
+
+    -- A rejected multi-region bridge must never activate a coincidentally
+    -- matching legacy manual canvas. Explicit MANUAL retains its own contract.
+    if geometryPreference ~= "MANUAL" and type(_G.OffhandCompanionTopology)=="table"
+        and (tonumber(_G.OffhandCompanionTopology.schema) or 0)>=2 then
+        return SafeSingleScreenMetrics(sw,sh,pw,ph,preset,topologyStatus,"EXACT_REQUIRED")
+    end
+
+    local manualMatch, acceptedManual
+    if manual and geometryPreference ~= "EXACT" then
+        manualMatch = manual:Match(pw, ph, sw / math.max(sh, 1), db)
+        manual.lastMatch = manualMatch
+        if manualMatch.state == "MATCH" or manualMatch.state == "CLOSE" then
+            acceptedManual = manualMatch
+        end
+    end
+    if not acceptedManual and not allowUnconfirmedManual then
+        local state = manualMatch and manualMatch.state
+            or (geometryPreference == "EXACT" and "EXACT_REQUIRED" or "UNREMEMBERED")
+        return SafeSingleScreenMetrics(sw, sh, pw, ph, preset, topologyStatus, state)
     end
 
     local ux, uy = sw / pw, sh / ph
     
     local isVertical = (db.primaryPosition == "TOP" or db.primaryPosition == "BOTTOM")
     
-    local ratio = Number(db.deckWidthRatio, preset == "LANDSCAPE_DUAL" and 0.5 or 0.36, 0.15, 0.80)
+    local ratio = Number(db.deckWidthRatio, preset == "LANDSCAPE_DUAL" and 0.5 or 0.36, 0.10, 0.90)
     local deck = isVertical and math.floor(ph * ratio + 0.5) or math.floor(pw * ratio + 0.5)
     local bezel = isVertical and math.floor(Number(db.bezelGap, 0, 0, ph - deck - 1) + 0.5) or math.floor(Number(db.bezelGap, 0, 0, pw - deck - 1) + 0.5)
     
@@ -497,46 +573,60 @@ function Viewport:GetMetrics()
     local hudScale = 1
     return {
         screenWidth = sw, screenHeight = sh, physicalWidth = pw, physicalHeight = ph,
-        deckWidth = isVertical and (deck * uy) or (deck * ux), gameWidth = width * ux, gameHeight = gameHeight,
+        deckWidth = isVertical and (deck * uy) or (deck * ux), gameWidth = width * uy, gameHeight = gameHeight,
         workspaceWidth = workspaceWidth * ux, workspaceHeight = workspaceHeight * uy,
         workspaceLeft = workspaceLeft * ux, workspaceBottom = workspaceBottom * uy,
         workspaceRight = (workspaceLeft + workspaceWidth) * ux,
         workspaceTop = (workspaceBottom + workspaceHeight) * uy,
         workspacePixelLeft = workspaceLeft, workspacePixelBottom = workspaceBottom,
         workspacePixelWidth = workspaceWidth, workspacePixelHeight = workspaceHeight,
-        gameLeft = left * ux, gameBottom = bottom * uy,
-        gameRight = (left + width) * ux, gameTop = (bottom + height) * uy,
+        gameLeft = left * uy, gameBottom = bottom * uy,
+        gameRight = (left + width) * uy, gameTop = (bottom + height) * uy,
         gamePixelLeft = left, gamePixelBottom = bottom,
         gamePixelWidth = width, gamePixelHeight = height,
         hudScale = hudScale, bezel = isVertical and (bezel * uy) or (bezel * ux), preset = preset,
         actualAR = width / height, arMode = db.aspectRatioMode or "16_9", isSpanned = true,
         companionTopology = false, topologyStatus = topologyStatus,
+        manualCanvas = acceptedManual ~= nil,
+        manualCanvasState = acceptedManual and acceptedManual.state or "UNCONFIRMED",
+        manualCanvasID = acceptedManual and acceptedManual.id or nil,
+        manualCanvasName = acceptedManual and acceptedManual.record.name or nil,
+        manualCanvasSource = acceptedManual and acceptedManual.record.source or nil,
     }
+end
+
+
+function Viewport:GetManualPreviewMetrics()
+    return self:GetMetrics(true)
 end
 
 -- This is the sole scale owner. Never call it from HUD/frame-position hooks.
 function Viewport:ApplyGlobalScale()
-    if InCombatLockdown() or self.scaling then return end
+    if InCombatLockdown() or self.scaling or self.loggingOut then return end
     local db=Offhand.db
     if not db then return end
     local metrics = db.enabled and self:GetMetrics() or nil
-    -- Friendly Retail plates can remain visible while their name CVar is off,
-    -- producing a blank bar until the unit is selected. This is a visibility
-    -- invariant, not span compensation: keep names enabled for the whole time
-    -- Offhand is enabled, including a restored/unspanned window, and restore the
-    -- player's exact preference only when Offhand itself is disabled or unloaded.
-    ManageFriendlyPlayerNames(db)
+    -- Scaling does not own name/nameplate visibility. Clean up the old forced-on
+    -- preference once, then leave subsequent choices entirely to the player.
+    RestoreLegacyFriendlyPlayerNames(db)
     if not db.enabled or (metrics and not metrics.isSpanned) then
         if self.originalScale or self.originalWorldScale or db.originalUiScale
             or db.originalWorldTextScale or db.originalNameplateSize then
             self.scaling=true
+            local restoredRoot = false
             pcall(function() 
+                local previousRoot = UIParent:GetScale()
+                local ownsRoot = self.appliedScale
+                    and math.abs(UIParent:GetScale() - self.appliedScale) < 0.00001
                 if db.originalUiScale then
                     if SetCVar then SetCVar("uiScale", db.originalUiScale) end
-                    UIParent:SetScale(tonumber(db.originalUiScale) or 1)
-                elseif self.originalScale then
+                    if ownsRoot or not self.appliedScale then
+                        UIParent:SetScale(tonumber(db.originalUiScale) or 1)
+                    end
+                elseif self.originalScale and ownsRoot then
                     UIParent:SetScale(self.originalScale)
                 end
+                restoredRoot = math.abs(UIParent:GetScale() - previousRoot) > 0.00001
                 
                 if db.originalUseUiScale then
                     if SetCVar then SetCVar("useUiScale", db.originalUseUiScale) end
@@ -553,7 +643,15 @@ function Viewport:ApplyGlobalScale()
                     WorldFrame:SetScale(self.originalWorldScale)
                 end
             end)
+            -- SetScale does not notify Forever's native panel manager. An open
+            -- NPC panel can retain spanned coordinates outside the restored
+            -- canvas. Reflow existing native slots without ending or reopening
+            -- their interactions, only after releasing a root we changed.
+            if restoredRoot and Offhand.isForever and type(UpdateUIPanelPositions) == "function" then
+                pcall(UpdateUIPanelPositions)
+            end
             self.originalScale = nil
+            self.appliedScale = nil
             self.originalWorldScale = nil
             db.originalUiScale = nil
             db.originalUseUiScale = nil
@@ -598,6 +696,12 @@ function Viewport:ApplyGlobalScale()
     -- its engine-rendered damage/XP text ignores WorldFrame scale, so mutating
     -- the root there adds risk without correcting the reported text.
     local uiNeedsWrite = math.abs(UIParent:GetScale()-desired) >= 0.00001
+    if uiNeedsWrite and self.appliedScale
+        and math.abs(UIParent:GetScale() - self.appliedScale) >= 0.00001 then
+        -- An explicit layout can reclaim the root after another owner's change.
+        -- Release back to that newer baseline, rather than the login-time value.
+        self.originalScale = UIParent:GetScale()
+    end
     -- Damage numbers and other engine-owned world text are rendered against
     -- the complete spanned window rather than the bounded WorldFrame. Live
     -- comparison shows equal-height spans already render at the native size;
@@ -616,7 +720,10 @@ function Viewport:ApplyGlobalScale()
     local ok,err=pcall(function() 
         -- Keep the native CVar separate: client clamping can otherwise cause
         -- every display notification to write it again.
-        if uiNeedsWrite then UIParent:SetScale(desired) end
+        if uiNeedsWrite then
+            UIParent:SetScale(desired)
+            self.appliedScale = desired
+        end
         if worldTextNeedsWrite then
             WriteNumericCVar(worldTextScaleCVar, desiredWorldTextScale)
         end
@@ -627,6 +734,25 @@ function Viewport:ApplyGlobalScale()
     -- reached their new values; normalizing before this point uses stale
     -- enemy/friendly scales on the first application.
     self:ApplyNamePlateVisualScale(m)
+end
+
+function Viewport:PrepareForLogout()
+    -- CVar restoration and native teardown can emit layout notifications.
+    -- Do not let those callbacks reapply the spanned scale during shutdown.
+    self.loggingOut = true
+    if InCombatLockdown() or not self.originalScale or not self.appliedScale then return end
+    -- Restore only the runtime root scale we still own. Modern layout never
+    -- changes uiScale/useUiScale, so restoring those legacy CVars alone cannot
+    -- release this temporary scale. A changed root belongs to another owner.
+    local ok, current = pcall(UIParent.GetScale, UIParent)
+    if not ok or math.abs(current - self.appliedScale) >= 0.00001 then return end
+    self.scaling = true
+    local restored = pcall(UIParent.SetScale, UIParent, self.originalScale)
+    self.scaling = false
+    if restored then
+        self.originalScale = nil
+        self.appliedScale = nil
+    end
 end
 
 function Viewport:IsDualActive()
@@ -675,6 +801,24 @@ local function DiagnosticCVarFallback(primary, fallback)
         value = DiagnosticCVar(fallback)
     end
     return value
+end
+
+-- The support command only needs world-text compensation. Do not collect the
+-- renderer CVars and enumerate nameplates from GetPerformanceDiagnostics for it.
+function Viewport:GetWorldTextDiagnostics(metrics)
+    local m = metrics or self:GetMetrics()
+    local scale, cvar = ReadWorldTextScale()
+    return {
+        worldTextScale = scale and tostring(scale) or "unavailable",
+        originalWorldTextScale = Offhand.db and Offhand.db.originalWorldTextScale or nil,
+        worldTextScaleCVar = cvar or "unavailable",
+        worldTextMethod = scale and "CVAR" or "UNMANAGED",
+        worldTextCompensationEnabled = Offhand.db and Offhand.db.worldTextCompensation ~= false or false,
+        worldTextFineTune = Number(Offhand.db and Offhand.db.worldTextScale, 1, 0.50, 1.50),
+        worldTextHeightRatio = math.max(0, tonumber(m.gamePixelHeight) or 0)
+            / math.max(1, tonumber(m.physicalHeight) or 1),
+        worldTextCompensationRatio = WorldTextCompensationRatio(m),
+    }
 end
 
 -- Read-only renderer evidence for performance reports. The physical dimensions
@@ -777,28 +921,31 @@ function Viewport:GetPerformanceDiagnostics(metrics)
     }
 end
 
-function Viewport:CaptureDiagnostics()
+function Viewport:CaptureDiagnostics(remember)
     local m = self:GetMetrics()
     local snapshot = { metrics = m, frames = {} }
-    -- Only WorldFrame participates in the PASS/MISMATCH result. Historical
-    -- HUD rectangles were saved here but never displayed or consumed.
-    for _, name in ipairs({"WorldFrame"}) do
-        local frame = _G[name]
-        if frame then
-            local x, y, w, h = frame:GetRect()
-            if x and y and w and h then
-                local factor = frame:GetEffectiveScale() * m.physicalHeight / 768
-                snapshot.frames[name] = {x=x*factor, y=y*factor,
-                    width=w*factor, height=h*factor, scale=frame:GetEffectiveScale()}
-            end
+    local ok, world = pcall(function()
+        local frame = _G.WorldFrame
+        if not frame or FrameIsForbidden(frame) then return end
+        local x, y, w, h = frame:GetRect()
+        local scale = frame:GetEffectiveScale()
+        local values = {x, y, w, h, scale}
+        for i = 1, 5 do
+            local value = values[i]
+            if (issecretvalue and issecretvalue(value)) or type(value) ~= "number"
+                or not (value > -math.huge and value < math.huge) then return end
         end
-    end
-    local world = snapshot.frames.WorldFrame
+        if scale <= 0 then return end
+        local factor = scale * m.physicalHeight / 768
+        return {x=x*factor, y=y*factor, width=w*factor, height=h*factor, scale=scale}
+    end)
+    if not ok then world = nil end
+    snapshot.frames.WorldFrame = world
     snapshot.viewportMatches = world and math.abs(world.x - m.gamePixelLeft) < 1
         and math.abs(world.y - m.gamePixelBottom) < 1
         and math.abs(world.width - m.gamePixelWidth) < 1
         and math.abs(world.height - m.gamePixelHeight) < 1 or false
-    Offhand.db.lastGeometryCheck = snapshot
+    if remember ~= false and Offhand.db then Offhand.db.lastGeometryCheck = snapshot end
     return snapshot
 end
 
@@ -813,6 +960,12 @@ function Viewport:Apply()
     WorldFrame:ClearAllPoints()
     self:SetPoint(WorldFrame, "BOTTOMLEFT", "BOTTOMLEFT", m.gameLeft, m.gameBottom)
     self:SetPoint(WorldFrame, "TOPRIGHT", "BOTTOMLEFT", m.gameRight, m.gameTop)
+    if Offhand.CinematicPresentation then Offhand.CinematicPresentation:Apply(m) end
+    if Offhand.HUD and Offhand.HUD.PositionRetailOverrideBar then Offhand.HUD:PositionRetailOverrideBar(m) end
+    if Offhand.HUD and Offhand.HUD.PositionRetailNotifications then
+        Offhand.HUD:PositionRetailNotifications(m)
+        Offhand.HUD:PositionPremadeGroupDialogs(m)
+    end
     Offhand:Debug("Viewport: %dx%d pixels at (%d, %d).", m.gamePixelWidth,
         m.gamePixelHeight, m.gamePixelLeft, m.gamePixelBottom)
 end
@@ -824,6 +977,12 @@ function Viewport:Reset()
     end
     WorldFrame:ClearAllPoints()
     WorldFrame:SetAllPoints(UIParent)
+    if Offhand.CinematicPresentation then Offhand.CinematicPresentation:Apply() end
+    if Offhand.HUD and Offhand.HUD.PositionRetailOverrideBar then Offhand.HUD:PositionRetailOverrideBar() end
+    if Offhand.HUD and Offhand.HUD.PositionRetailNotifications then
+        Offhand.HUD:PositionRetailNotifications()
+        Offhand.HUD:PositionPremadeGroupDialogs()
+    end
 end
 
 function Offhand:InitializeViewport()
@@ -840,17 +999,6 @@ function Offhand:InitializeViewport()
                 return
             end
             local cvar = type(value) == "string" and string.lower(value) or ""
-            if event == "CVAR_UPDATE" and (cvar == "unitnamefriendlyplayername"
-                or cvar == "nameplateshowfriends") then
-                if not Viewport.friendlyNameVisibilityScheduled then
-                    Viewport.friendlyNameVisibilityScheduled = true
-                    local function reapply()
-                        Viewport.friendlyNameVisibilityScheduled = nil
-                        Viewport:ApplyGlobalScale()
-                    end
-                    if C_Timer and C_Timer.After then C_Timer.After(0, reapply) else reapply() end
-                end
-            end
             if event ~= "CVAR_UPDATE" or string.find(cvar, "nameplate", 1, true) then
                 Viewport:ScheduleNamePlateVisualScale()
             end

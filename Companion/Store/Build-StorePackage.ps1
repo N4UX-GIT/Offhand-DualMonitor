@@ -10,7 +10,7 @@
 #>
 param(
     [ValidatePattern('^\d+\.\d+\.\d+\.0$')]
-    [string]$PackageVersion = '2.1.20.0',
+    [string]$PackageVersion = '2.1.700.0',
 
     [string]$IdentityName = 'N4UX.OffhandCompanion',
     [string]$Publisher = 'CN=E7BD7796-76DA-40C2-B114-9DD85609CD7F',
@@ -191,6 +191,12 @@ try {
     Write-Output $outputPath
 } finally {
     if (Test-Path -LiteralPath $stagingDir) {
+        $resolvedStaging = [IO.Path]::GetFullPath($stagingDir)
+        $expectedTempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+        if (-not $resolvedStaging.StartsWith($expectedTempRoot, [StringComparison]::OrdinalIgnoreCase) -or
+            [IO.Path]::GetFileName($resolvedStaging) -notmatch '^Offhand-MSIX-[a-f0-9]{32}$') {
+            throw 'Refusing to remove an unexpected Store staging path.'
+        }
         Remove-Item -LiteralPath $stagingDir -Recurse -Force
     }
 }

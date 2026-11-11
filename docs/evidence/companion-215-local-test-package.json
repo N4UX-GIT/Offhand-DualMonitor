@@ -1,0 +1,21 @@
+{
+  "package": "Offhand-Companion-2.1.5-Local-Test-1.zip",
+  "archiveSha256": "67291DEE6FC3AECC7508BB604CBF4C3C238BE3DF4C94AF241F2243138656DC48",
+  "entries": [
+    "checksums-sha256.txt",
+    "LICENSE",
+    "Offhand.exe",
+    "README.txt",
+    "Test Store Update UI.exe",
+    "test-package.json"
+  ],
+  "productionExeSha256": "95811DBB7020A20E2541AE123E69FE80721C83A0FD52D0EE5557DD6D54DCCC2A",
+  "simulatorSha256": "AE1F323A8B6FF4D794F2C30CB5C53BA57B19855D6A9D124BAAA87BA6D59E612B",
+  "simulatorSourceSha256": "6EE2A382149A6A48CA884F7C8C50674578A5E9560C1C2F5C497C48C509939462",
+  "kind": "local-only, unpublished",
+  "simulation": "Available response observed through production timer/controller; disabled game controls; Exit Companion closed test process",
+  "storeAvailabilityRequestMade": false,
+  "localDefender": "Scan exited 0, no threats",
+  "submitted214ExeSha256": "2D1FB0DE3A2BF6340D8EB4BF28D751C602C8DF66BD1947D0B43FB0A8DA709D5D",
+  "submitted214MsixSha256": "EDE193AA3AF4ADC90264A950CB8B8BB282D24A1BD4E0C4F6A9CA452BE5AB14EA"
+}

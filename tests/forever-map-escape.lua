@@ -130,18 +130,18 @@ WorldMapFrameCloseButton = WorldMapFrame.CloseButton
 
 local createdHandles = {}
 CreateFrame = function(_, _, parent)
-    local handle = { parent = parent, scripts = {} }
+    local handle = { parent = parent, scripts = {}, layoutWrites = 0 }
     function handle:SetFrameStrata(value) self.strata = value end
     function handle:SetFrameLevel(value) self.level = value end
-    function handle:EnableMouse(value) self.mouseEnabled = value end
+    function handle:EnableMouse(value) self.mouseEnabled = value; self.layoutWrites = self.layoutWrites + 1 end
     function handle:RegisterForDrag(value) self.dragButton = value end
     function handle:SetScript(event, callback) self.scripts[event] = callback end
-    function handle:SetSize(width, height) self.width, self.height = width, height end
-    function handle:ClearAllPoints() self.point = nil end
-    function handle:SetPoint(...) self.point = { ... } end
+    function handle:SetSize(width, height) self.width, self.height = width, height; self.layoutWrites = self.layoutWrites + 1 end
+    function handle:ClearAllPoints() self.point = nil; self.layoutWrites = self.layoutWrites + 1 end
+    function handle:SetPoint(...) self.point = { ... }; self.layoutWrites = self.layoutWrites + 1 end
     function handle:SetText(value) self.text = value end
-    function handle:Show() self.shown = true end
-    function handle:Hide() self.shown = false end
+    function handle:Show() self.shown = true; self.layoutWrites = self.layoutWrites + 1 end
+    function handle:Hide() self.shown = false; self.layoutWrites = self.layoutWrites + 1 end
     table.insert(createdHandles, handle)
     return handle
 end
@@ -161,6 +161,27 @@ PlayerMovementFrameFader = {
     end,
 }
 
+assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasFrameState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelRegistry.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPersistence.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasBackpackState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverMap.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasChat.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasProfessions.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelMotion.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasMapPresentation.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelLifecycle.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
+-- Capture the real dispatcher used by the ShowUIPanel, HideUIPanel and
+-- UpdateUIPanelPositions post-hooks, without copying its implementation.
+local mapTransactions
+local installForeverMap = addon.CanvasForeverMap.Install
+addon.CanvasForeverMap.Install = function(...)
+    mapTransactions = installForeverMap(...)
+    return mapTransactions
+end
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 addon.Canvas:ConfigureWorldMap()
 addon.Canvas.MakePanelDraggable(WorldMapFrame)
@@ -186,6 +207,26 @@ assert(WorldMapFrame._OffhandMovable == nil and WorldMapFrame._OffhandHandle == 
         and WorldMapFrame._OffhandDragging == nil,
     "Forever World Map bookkeeping must not be written onto the Blizzard frame")
 
+local function AssertStableMapControls(state)
+    local handle, button = createdHandles[1], createdHandles[2]
+    local writes = handle.layoutWrites + button.layoutWrites
+    for _ = 1, 60 do handle.scripts.OnUpdate(nil, .1) end
+    assert(handle.layoutWrites + button.layoutWrites == writes,
+        state .. " map repeated unchanged drag-handle or button writes")
+end
+AssertStableMapControls("stationary windowed")
+do
+    local left = WorldMapFrame.left
+    local handle = createdHandles[1]
+    local x = handle.point[4]
+    WorldMapFrame.left = left + 20
+    handle.scripts.OnUpdate(nil, .1)
+    assert(math.abs(handle.point[4] - x - 20 * WorldMapFrame.scale) < .00001 and handle.mouseEnabled,
+        "the active handle must follow changed map geometry")
+    WorldMapFrame.left = left
+    handle.scripts.OnUpdate(nil, .1)
+end
+
 -- A maximized Forever map is Blizzard-owned. Configure and the external
 -- controls' OnUpdate may read that state, but must not apply the saved windowed
 -- scale or position. The explicit hardware click minimizes and then restores
@@ -201,6 +242,7 @@ assert(WorldMapFrame.scale == 0.37 and WorldMapFrame.left == 900
 createdHandles[1].scripts.OnUpdate(nil, 1)
 assert(createdHandles[2].shown == true,
     "The Return to Windowed Map control must be visible while Full Map is active")
+AssertStableMapControls("stationary full")
 assert(WorldMapFrame.scale == 0.37 and WorldMapFrame.left == 900
         and WorldMapFrame.bottom == 300,
     "The independent control update must never mutate the protected World Map")
@@ -251,15 +293,174 @@ assert((WorldMapFrame.ignoreParentScaleWrites or 0) == 0,
 addon.Canvas:UpdateMapMovementBehavior()
 assert(next(WorldMapFrame.registeredEvents) == nil,
     "Forever must preserve the World Map's native event registration")
-assert(PlayerMovementFrameFader.removed > 0 and PlayerMovementFrameFader.added == 0,
-    "A Forever workspace map must be removed from Blizzard's movement-dimming fader")
+assert(PlayerMovementFrameFader.removed == 0 and PlayerMovementFrameFader.added == 0,
+    "Forever keyboard UI must leave the native movement fader untouched before a switch to Gamepad UI")
 pressEscapeCloseSpecialFrames()
 assert(WorldMapFrame:IsShown(),
     "Escape must not close a Forever map with a saved workspace position")
 
+-- Native Gamepad UI announces addon-originated panel lifecycle changes to its
+-- protected FrameControlsManager. Only the dedicated Gamepad adapter may
+-- position the map; Canvas must not configure, drag, refocus or reopen it.
+WorldMapFrame:Hide()
+addon.db.openWorkspacePanels.WorldMapFrame = true
+local gamepadUI = true
+addon.IsGamepadUIEnabled = function() return gamepadUI end
+local gamepadMapToggles = 0
+local previousToggleWorldMap = ToggleWorldMap
+ToggleWorldMap = function()
+    gamepadMapToggles = gamepadMapToggles + 1
+    WorldMapFrame:Show()
+end
+addon.Canvas:RestorePersistentFrames()
+assert(gamepadMapToggles == 0 and not WorldMapFrame:IsShown()
+        and addon.db.openWorkspacePanels.WorldMapFrame == true,
+    "Gamepad UI reload restoration must not open panels from addon code")
+
+local gamepadHides = 0
+local previousHideUIPanel = HideUIPanel
+HideUIPanel = function(frame, ...)
+    gamepadHides = gamepadHides + 1
+    return previousHideUIPanel(frame, ...)
+end
+table.insert(UISpecialFrames, "WorldMapFrame")
+local specialBefore = table.concat(UISpecialFrames, ",")
+WorldMapFrame:Show()
+activePanels.left = WorldMapFrame
+addon.Canvas:RestoreWorkspacePosition(WorldMapFrame)
+assert(gamepadHides == 0 and GetUIPanel("left") == WorldMapFrame
+        and WorldMapFrame:IsShown(),
+    "Gamepad UI must not evict a player-opened panel from its UIPanel slot")
+assert(table.concat(UISpecialFrames, ",") == specialBefore,
+    "Gamepad UI must not mutate UISpecialFrames")
+
+-- A keyboard-mode settlement can already be queued when Gamepad is enabled.
+-- Exercise callbacks before the observer notices the switch, then its own grip
+-- and direct entry points. Count attempts even if an outer pcall swallows errors.
+local savedAfter = C_Timer.After
+local queuedMapWork = {}
+C_Timer.After = function(_, callback) queuedMapWork[#queuedMapWork + 1] = callback end
+gamepadUI = false
+WorldMapFrame:Hide()
+createdHandles[1].scripts.OnUpdate(nil, 1)
+WorldMapFrame:Show()
+createdHandles[1].scripts.OnUpdate(nil, 1)
+assert(#queuedMapWork > 0, "test must schedule real keyboard map settlement")
+gamepadUI = true
+local mapMutations, oldMethods = 0, {}
+for _, name in ipairs({ "SetScale", "ClearAllPoints", "SetPoint", "SetMovable",
+    "SetClampedToScreen", "StartMoving", "StopMovingOrSizing", "SetMapID",
+    "ResetZoom", "HandleUserActionMinimizeSelf" }) do
+    oldMethods[name] = WorldMapFrame[name]
+    WorldMapFrame[name] = function() mapMutations = mapMutations + 1 end
+end
+local removedBefore, addedBefore = PlayerMovementFrameFader.removed, PlayerMovementFrameFader.added
+while #queuedMapWork > 0 do table.remove(queuedMapWork, 1)() end
+addon.Canvas:ConfigureWorldMap()
+addon.Canvas:RestoreWorkspacePosition(WorldMapFrame)
+addon.Canvas:RefocusPersistentWorldMap()
+createdHandles[1].scripts.OnUpdate(nil, 1)
+createdHandles[1].scripts.OnDragStart()
+createdHandles[1].scripts.OnDragStop()
+AssertStableMapControls("Gamepad-owned")
+WorldMapFrame.maximized = true
+createdHandles[2].scripts.OnClick()
+WorldMapFrame.maximized = false
+assert(mapMutations == 0 and PlayerMovementFrameFader.removed == removedBefore
+        and PlayerMovementFrameFader.added == addedBefore,
+    "Gamepad UI must receive no Canvas map geometry, drag, content or fader writes")
+assert(createdHandles[1].shown and not createdHandles[1].mouseEnabled
+        and not createdHandles[2].shown,
+    "keyboard map observer must remain alive with inactive controls in Gamepad mode")
+
+-- Discord 2026-11-06: a 5120x1440 Mainhand below a 2560x1440 workspace.
+-- The reporter's upper-display x offset and DPI are unknown. Exercise several
+-- plausible offsets/scales, not an asserted measurement of their desktop.
+-- These are simulated native panel transactions, not native focus/taint proof.
+do
+    local previousMetrics = metrics
+    local oldWidth, oldHeight = WorldMapFrame.width, WorldMapFrame.height
+    local oldScale, oldLeft, oldBottom = WorldMapFrame.scale, WorldMapFrame.left, WorldMapFrame.bottom
+    local previousParentScale = UIParent.GetEffectiveScale
+    local previousSlot, hidesBefore = activePanels.left, gamepadHides
+    activePanels.left = WorldMapFrame
+    local previousSpecial = table.concat(UISpecialFrames, ",")
+    local previousRegistration = UIPanelWindows.WorldMapFrame
+    local spellbook = { GetName = function() return "PlayerSpellsFrame" end }
+    local cases = 0
+    for _, upperLeft in ipairs({ 0, 1280, 2560 }) do
+        for _, parentScale in ipairs({ 0.7, 1, 1.25 }) do
+            metrics = {
+                isSpanned = true, screenWidth = 5120, screenHeight = 2880,
+                gameLeft = 0, gameBottom = 0, gameRight = 5120, gameTop = 1440,
+                gameWidth = 5120, gameHeight = 1440,
+                workspaceLeft = upperLeft, workspaceBottom = 1440,
+                workspaceRight = upperLeft + 2560, workspaceTop = 2880,
+                workspaceWidth = 2560, workspaceHeight = 1440,
+            }
+            UIParent.GetEffectiveScale = function() return parentScale end
+            WorldMapFrame.left, WorldMapFrame.bottom = upperLeft + 40, 1500
+            WorldMapFrame.scale = 0.73
+            -- Quest-only and combined map widths can differ. Offhand must not
+            -- turn that native size change into a new auto-fit scale in Gamepad.
+            for _, size in ipairs({ {333, 534}, {702, 534}, {610, 438} }) do
+                WorldMapFrame.width, WorldMapFrame.height = unpack(size)
+                for _ = 1, 3 do
+                    mapTransactions.RepairUIPanelTransaction(spellbook, true)
+                    mapTransactions.RepairUIPanelTransaction(nil, true)
+                    addon.Canvas:ConfigureWorldMap()
+                    createdHandles[1].scripts.OnUpdate(nil, 1)
+                    addon.Canvas:RestoreWorkspacePosition(WorldMapFrame)
+                    while #queuedMapWork > 0 do table.remove(queuedMapWork, 1)() end
+                end
+                assert(mapMutations == 0 and WorldMapFrame.scale == 0.73
+                    and WorldMapFrame.width == size[1] and WorldMapFrame.height == size[2],
+                    "stacked Gamepad map/spellbook transactions must leave native map geometry unchanged")
+                assert(gamepadHides == hidesBefore and GetUIPanel("left") == WorldMapFrame
+                    and WorldMapFrame:IsShown()
+                    and UIPanelWindows.WorldMapFrame == previousRegistration
+                    and table.concat(UISpecialFrames, ",") == previousSpecial
+                    and PlayerMovementFrameFader.removed == removedBefore
+                    and PlayerMovementFrameFader.added == addedBefore,
+                    "stacked Gamepad transactions must preserve native close, slot and fader ownership")
+                cases = cases + 1
+            end
+        end
+    end
+    assert(cases == 27)
+    metrics = previousMetrics
+    activePanels.left = previousSlot
+    UIParent.GetEffectiveScale = previousParentScale
+    WorldMapFrame.width, WorldMapFrame.height = oldWidth, oldHeight
+    WorldMapFrame.scale, WorldMapFrame.left, WorldMapFrame.bottom = oldScale, oldLeft, oldBottom
+end
+for _, name in ipairs({ "SetScale", "ClearAllPoints", "SetPoint", "SetMovable",
+    "SetClampedToScreen", "StartMoving", "StopMovingOrSizing", "SetMapID",
+    "ResetZoom", "HandleUserActionMinimizeSelf" }) do
+    WorldMapFrame[name] = oldMethods[name]
+end
+C_Timer.After = savedAfter
+gamepadUI = false
+createdHandles[1].scripts.OnUpdate(nil, 1)
+assert(createdHandles[1].mouseEnabled,
+    "keyboard map grip must resume after Gamepad mode without a reload")
+gamepadUI = true
+HideUIPanel = previousHideUIPanel
+activePanels.left = nil
+for i = #UISpecialFrames, 1, -1 do
+    if UISpecialFrames[i] == "WorldMapFrame" then table.remove(UISpecialFrames, i) end
+end
+WorldMapFrame:Hide()
+ToggleWorldMap = previousToggleWorldMap
+gamepadUI = false
+
 -- Reload restoration must reopen the saved workspace map without replacing
 -- Blizzard's protected scripts.
 WorldMapFrame:Hide()
+createdHandles[1].scripts.OnUpdate(nil, 1)
+assert(not createdHandles[1].mouseEnabled and createdHandles[1].point[4] == -100,
+    "closing the map must park its handle outside the window")
+AssertStableMapControls("closed")
 addon.db.openWorkspacePanels.WorldMapFrame = true
 addon.Canvas:RestorePersistentFrames()
 assert(WorldMapFrame:IsShown(),
@@ -360,9 +561,12 @@ CharacterFrame:Show()
 WorldMapFrame.left, WorldMapFrame.bottom = 200, 400
 CharacterFrame.left, CharacterFrame.bottom = 300, 330
 addon.Canvas:RepairShownWorkspacePanels()
-assert(WorldMapFrame:GetLeft() >= metrics.gameLeft
+assert(WorldMapFrame:GetLeft() == 200
         and CharacterFrame:GetLeft() >= metrics.gameLeft,
-    "Mainhand UIPanel peers must survive Blizzard's opening-order reflow")
+    "generic peer repair must restore ordinary Mainhand panels without writing the dedicated World Map anchor")
+assert(addon.Canvas:GetPanelController("WorldMapFrame") == "forever-world-map"
+        and addon.Canvas:GetPanelController("CharacterFrame") == "generic",
+    "Forever World Map and ordinary UIPanels must use separate position controllers")
 addon.db.savedMainPositions.WorldMapFrame = nil
 addon.db.savedMainPositions.CharacterFrame = nil
 addon.db.savedWorkspacePositions.WorldMapFrame = savedWorkspaceMap
@@ -387,6 +591,11 @@ OpenAllBags = function()
     nativeBagOpens = nativeBagOpens + 1
     ContainerFrameCombinedBags:Show()
 end
+gamepadUI = true
+addon.Canvas:RestorePersistentFrames()
+assert(nativeBagOpens == 0 and addon.db.openWorkspacePanels.ContainerFrameCombinedBags == true,
+    "Gamepad UI reload restoration must not open bags from addon code")
+gamepadUI = false
 addon.Canvas:RestorePersistentFrames()
 assert(nativeBagOpens > 0 and ContainerFrameCombinedBags:IsShown()
         and addon.db.savedWorkspacePositions.ContainerFrameCombinedBags ~= nil
@@ -403,6 +612,18 @@ addon.Canvas:RestorePersistentFrames()
 assert(nativeBagOpens == nativeBagOpensBeforeStaleAddon
         and not ContainerFrameCombinedBags:IsShown(),
     "stale bag-addon open state must not resurrect a Forever workspace backpack")
+
+addon.db.nativeBackpackWorkspaceOpen = true
+addon.HasCustomBagAddon = function() return true end
+local replacementToggles = 0
+local nativeToggleBeforeReplacement = ToggleAllBags
+ToggleAllBags = function() replacementToggles = replacementToggles + 1 end
+addon.Canvas:RestorePersistentFrames()
+assert(replacementToggles == 0 and nativeBagOpens == nativeBagOpensBeforeStaleAddon,
+    "an old native open snapshot must not invoke a replacement provider's shared toggle")
+ToggleAllBags = nativeToggleBeforeReplacement
+addon.HasCustomBagAddon = function() return false end
+addon.db.nativeBackpackWorkspaceOpen = nil
 
 -- Child-frame names left by an unrelated or disabled bag addon are not native
 -- backpack ownership. They must never cause Offhand to open Blizzard's bag on
@@ -684,6 +905,65 @@ assert(addon.db.savedWorkspacePositions.WorldMapFrame == moveAnyWorkspacePositio
     "yielding to MoveAny must preserve the user's dormant Offhand map position")
 
 MoveAny = nil
+local originalAddOns = C_AddOns
+for _, externalOwner in ipairs({"OpenMap", "Leatrix_Maps"}) do
+C_AddOns = { IsAddOnLoaded = function(name) return name == externalOwner end }
+createdHandles[1]:Show()
+WorldMapFrame:Hide()
+-- A hidden frame never receives OnUpdate in the client. Do not manually call a
+-- hidden observer, which previously concealed this closed-at-start failure.
+if createdHandles[1].shown then createdHandles[1].scripts.OnUpdate(nil, 1) end
+WorldMapFrame.left, WorldMapFrame.bottom, WorldMapFrame.scale = 200, 1300, 0.83
+table.insert(UISpecialFrames, "WorldMapFrame")
+activePanels.left = WorldMapFrame
+WorldMapFrame:Show()
+if createdHandles[1].shown then createdHandles[1].scripts.OnUpdate(nil, 1) end
+flushTimers()
+assert(createdHandles[1].shown == true and createdHandles[1].mouseEnabled == false
+        and createdHandles[1].width == 1 and createdHandles[1].point[4] == -100,
+    externalOwner .. " must keep an invisible noninteractive observer alive while retaining native dragging")
+assert(not isSpecial("WorldMapFrame") and GetUIPanel("left") ~= WorldMapFrame,
+    externalOwner .. " opening after a hidden map must detach both Escape close paths")
+assert(addon.db.openWorkspacePanels.WorldMapFrame,
+    "Forever's external observer must retain external-map workspace open intent")
+pressEscapeCloseSpecialFrames()
+assert(WorldMapFrame:IsShown(), externalOwner .. " workspace map must survive Escape")
+WorldMapFrame.left = 2000
+createdHandles[1].scripts.OnUpdate(nil, 1)
+assert(isSpecial("WorldMapFrame"), externalOwner .. " dragging to Mainhand must restore native Escape closure")
+WorldMapFrame.left = 200
+createdHandles[1].scripts.OnUpdate(nil, 1)
+assert(not isSpecial("WorldMapFrame"), externalOwner .. " dragging back without closing must restore persistence")
+addon.db.persistentWorkspacePanels = false
+createdHandles[1].scripts.OnUpdate(nil, 1)
+assert(isSpecial("WorldMapFrame"), "turning external-map persistence off must restore Escape closure")
+addon.db.persistentWorkspacePanels = true
+createdHandles[1].scripts.OnUpdate(nil, 1)
+assert(not isSpecial("WorldMapFrame"), "turning external-map persistence on must not require reopening the map")
+local stableFaderWrites = PlayerMovementFrameFader.removed
+createdHandles[1].scripts.OnUpdate(nil, 1)
+assert(PlayerMovementFrameFader.removed == stableFaderWrites,
+    "unchanged external-map observations must not repeatedly rewrite persistence state")
+local originalCombatCheck = InCombatLockdown
+InCombatLockdown = function() return true end
+WorldMapFrame.left = 2000
+createdHandles[1].scripts.OnUpdate(nil, 1)
+assert(not isSpecial("WorldMapFrame"), "external drag persistence changes must defer during combat")
+InCombatLockdown = originalCombatCheck
+createdHandles[1].scripts.OnUpdate(nil, 1)
+assert(isSpecial("WorldMapFrame"), "external drag persistence must settle after combat without another show edge")
+WorldMapFrame.left = 200
+createdHandles[1].scripts.OnUpdate(nil, 1)
+WorldMapFrame:Hide()
+addon.Canvas:RestorePersistentFrames()
+flushTimers()
+assert(WorldMapFrame:IsShown() and WorldMapFrame.left == 200
+    and WorldMapFrame.bottom == 1300 and WorldMapFrame.scale == 0.83,
+    "Forever reload must reopen external maps without applying dormant Offhand geometry")
+assert(WorldMapFrame.hookScriptWrites == 0 and WorldMapFrame.setScriptWrites == 0,
+    "external map observation must not add or replace protected map scripts")
+end
+C_AddOns = originalAddOns
 addon.db.openWorkspacePanels.WorldMapFrame = moveAnyOpenState
 assert(not addon.Canvas:ShouldYieldWorldMap(WorldMapFrame),
     "Offhand must resume Forever map ownership when MoveAny is absent")
@@ -694,10 +974,45 @@ addon.db.savedMainPositions.WorldMapFrame = { x = 1600, y = 1000 }
 addon.Canvas:ConfigureWorldMap()
 assert(isSpecial("WorldMapFrame"),
     "A map on Mainhand must return to Blizzard's Escape-close registry")
-assert(PlayerMovementFrameFader.added > 0,
-    "A Mainhand map must return to Blizzard's native movement fader")
+assert(PlayerMovementFrameFader.removed == 0 and PlayerMovementFrameFader.added == 0,
+    "Forever map placement and persistence must leave the native movement fader untouched")
 pressEscapeCloseSpecialFrames()
 assert(not WorldMapFrame:IsShown(),
     "Escape must retain native close behavior for a Mainhand map")
 
-print("PASS: Forever map persists through reload/Escape without script replacement")
+do
+    -- A keyboard map can grow once when dropped onto a larger workspace. AUTO
+    -- must settle, while a numeric preference must retain the chosen size.
+    addon.db.savedMainPositions.WorldMapFrame = nil
+    addon.db.savedWorkspacePositions.WorldMapFrame = {x=20,y=1200}
+    addon.db.workspaceMapScale = "AUTO"
+    addon.Canvas:ConfigureWorldMap()
+    local fitted = WorldMapFrame:GetScale()
+    for _ = 1, 5 do
+        addon.Canvas:ConfigureWorldMap()
+        assert(WorldMapFrame:GetScale() == fitted, "workspace auto-fit grew repeatedly")
+    end
+    addon.db.workspaceMapScale = .83
+    addon.Canvas:ConfigureWorldMap()
+    assert(WorldMapFrame:GetScale() == .83, "explicit keyboard map scale was replaced by auto-fit")
+end
+do
+    assert(loadfile("Core/MapScale.lua"))("Offhand", addon)
+    local settings = addon.MapScale
+    assert(settings:Set(.70) and WorldMapFrame:GetScale() == .70,
+        "settings did not resize the native workspace map")
+    assert(addon.db.workspaceMapScale == .70)
+    assert(settings:Set("AUTO") and addon.db.workspaceMapScale == "AUTO",
+        "Auto Fit was overwritten by numeric display synchronization")
+    addon.db.savedWorkspacePositions.WorldMapFrame = nil
+    addon.db.savedMainPositions.WorldMapFrame = {x=1800,y=1000}
+    assert(settings:Set(.85) and WorldMapFrame:GetScale() == .85,
+        "Mainhand settings wrote the workspace preference instead")
+    assert(addon.db.mainMapScale == .85 and addon.db.workspaceMapScale == "AUTO")
+    assert(settings:Set("AUTO") and addon.db.mainMapScale == "AUTO")
+    local fitted = WorldMapFrame:GetScale()
+    assert(fitted > 1)
+    addon.Canvas:ConfigureWorldMap()
+    assert(WorldMapFrame:GetScale() == fitted, "Mainhand AUTO failed to settle")
+end
+print("PASS: Forever map persists through reload/Escape without script replacement; AUTO settles and explicit scale is retained")

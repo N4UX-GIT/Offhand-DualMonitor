@@ -151,7 +151,24 @@ _G.ContainerFrame1 = ContainerFrame1
 
 -- Load Offhand modules
 assert(loadfile("UI/Themes.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasFrameState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelRegistry.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPersistence.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasBackpackState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverMap.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasChat.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasProfessions.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelMotion.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasMapPresentation.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelLifecycle.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDTransientPolicy.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDRecovery.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDTransientFrames.lua"))("Offhand", addon)
 assert(loadfile("Core/SeamRedirect.lua"))("Offhand", addon)
 
 -- 1. Test Canvas draggability setup and HUD hooks
@@ -239,4 +256,35 @@ addon.Canvas.MakePanelDraggable(customMinimap)
 assert(customMinimap._OffhandMovable == nil, "MakePanelDraggable must yield and NOT manage MinimapCluster when SexyMap is present")
 
 print("PASS: MinimapCluster & Bag workspace persistence, header border & close button, 3rd-party addon yielding without conflict")
+
+assert(loadfile('Core/WorkspaceRegions.lua'))('Offhand',addon)
+local originalCreate=CreateFrame
+CreateFrame=function(...)
+ local f=originalCreate(...);f.SetFrameStrata=function()end;f.SetFrameLevel=function()end;return f
+end
+addon.Canvas.EnableFreeDragging=function()end
+addon.Canvas.UpdateMapMovementBehavior=function()end
+local themed={}
+addon.Themes={ApplyCanvasTheme=function(_,f)assert(addon.WorkspaceRegions:IsCanvas(f));themed[f]=true end}
+metrics={isSpanned=true,gameLeft=1440,gameRight=4000,gameBottom=0,gameTop=1440,
+ workspaceLeft=0,workspaceRight=1440,workspaceBottom=0,workspaceTop=1440,
+ workspaceWidth=1440,workspaceHeight=1440,primaryWorkspaceRegion='left',
+ workspaceRegions={
+ {id='left',x=0,y=0,width=1440,height=1440,pixelX=0,pixelY=0,pixelWidth=1440,pixelHeight=1440},
+ {id='right',x=4000,y=360,width=1920,height=1080,pixelX=4000,pixelY=360,pixelWidth=1920,pixelHeight=1080}}}
+addon.Canvas:UpdateLayout()
+local primary,other=addon.canvases.left,addon.canvases.right
+assert(primary==addon.canvas and other~=primary and primary:IsShown() and other:IsShown())
+assert(primary.points[1][4]==0 and primary.points[2][4]==1440)
+assert(other.points[1][4]==4000 and other.points[2][4]==5920 and other.points[1][5]==360)
+assert(themed[primary] and themed[other],'A workspace did not receive the shared theme')
+metrics=addon.WorkspaceRegions:ForRegion(metrics,'right');metrics.primaryWorkspaceRegion='right'
+addon.Canvas:UpdateLayout()
+assert(addon.canvases.right==primary and not other:IsShown() and addon.canvases.left:IsShown(),'Primary change left a ghost canvas')
+assert(primary.points[1][4]==4000 and addon.canvases.left.points[2][4]==1440)
+local left=addon.canvases.left
+metrics.isSpanned=false
+addon.Canvas:UpdateLayout()
+assert(not primary:IsShown() and not left:IsShown() and not other:IsShown(),'Single-screen fallback left a workspace visible')
+print('PASS: independent canvases preserve holes, share themes, change primary and hide on fallback')
 

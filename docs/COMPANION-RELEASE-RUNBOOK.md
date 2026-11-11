@@ -1,11 +1,36 @@
 # Offhand Companion release runbook
 
+Next Companion update: **2.1.6**, EXE **2.1.6.1**, Store MSIX
+**2.1.600.0**. Public Submission 7 (`1152921505702364011`) was accepted into
+certification on 2026-11-10, with automatic publication after approval. It remains
+unpublished and uses the existing compatible Beta 28
+addon. Follow [the current preparation record](COMPANION-2.1.6-STORE-PREPARATION-20261110.md)
+and `scripts/New-Companion216Candidate.ps1`; do not use historical candidate
+scripts for this version. Existing release-tag/artifact publication lanes remain
+unchanged until the owner requests publication.
+
+Current coordinated publication: **add-on 2.1.5 Pre-Release Beta 28** and
+**Companion 2.1.5**, file build **2.1.5.1**, Store package **2.1.500.0**.
+Use [the current preparation record](PUBLICATION-2.1.5-PREPARATION-20261109.md)
+and `scripts/Prepare-215Publication.ps1`. Frozen exact native assets are under
+`Companion/Prepared/2.1.5/`. Public Store Submission 6 was confirmed live in
+Partner Center on 2026-11-10. Historical 2.1.3/Beta 20 workflows below
+remain frozen reference lanes; do not use them for new tags.
+
 This document is the operational source of truth for preparing, publishing,
 validating, and communicating Offhand Companion releases through GitHub and the
 Microsoft Store. It covers public betas and stable releases. The CurseForge
 artifact remains the in-game addon only.
 
 ## Release objectives
+
+For the pending matched 2.1.3 release, use
+[the dedicated publication preparation](PUBLICATION-2.1.3-PREPARATION-20261108.md)
+and `scripts/Prepare-213Publication.ps1`. Its exact Store-matching native inputs
+are under `Companion/Prepared/2.1.3/`; it does not use the historical canonical
+Beta 20 assets. The workflow stages separate drafts for Companion v2.1.3 and add-on
+v2.1.3-beta.27 (Pre-Release Beta 27). The add-on remains a prerelease.
+The general historical lane and previously published hashes below stay intact.
 
 Every release must satisfy all of the following:
 
@@ -361,19 +386,23 @@ Replace the example version in every command with the recorded release version.
 Skip this section for addon-only releases. Package the exact reviewed Companion
 artifact when the application itself is intentionally updated.
 
-Use the Store-assigned identity already encoded in the builder. Example:
+Use the Store-assigned identity already encoded in the builder. The current
+prepared 2.1.3 update is described in
+[the Store update guide](COMPANION-2.1.3-STORE-PREPARATION.md). Example:
 
 ```powershell
+$candidate = Get-Content .\dist\companion-2.1.3-native\candidate.json -Raw | ConvertFrom-Json
 .\Companion\Store\Build-StorePackage.ps1 `
-  -PackageVersion 2.1.20.0 `
-  -CompanionPath .\Companion\Offhand.exe `
-  -ExpectedCompanionSha256 81EECE9430885CEAC178A44A42429854524279072305F9F94EE62E7CCD620CCB
+  -PackageVersion 2.1.300.0 `
+  -CompanionPath .\dist\companion-2.1.3-native\Offhand.exe `
+  -ExpectedCompanionSha256 $candidate.binarySha256
 ```
 
-The Store `2.1.19.0` submission embeds the earlier reviewed `658B633...`
-executable. Let that certification complete. Use `2.1.20.0` or another unused
-higher version for the topology-repair executable; never replace the package in
-an active certification submission.
+The earlier Store `2.1.19.0` submission and Beta 20 `2.1.20.0` preparation are
+historical. The local installed package was observed as `2.1.20.0` on
+2026-11-07. The new `2.1.300.0` retains its identity and sorts higher. Confirm
+Partner Center's current published/in-flight versions before upload; never
+replace an active certification submission without reviewing its state.
 
 - [ ] Use a Store version higher than the currently published x64 package.
 - [ ] Confirm the package name is `N4UX.OffhandCompanion`.

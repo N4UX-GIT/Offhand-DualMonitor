@@ -29,6 +29,22 @@ namespace Offhand.Companion
         {
             using (var form = new CompanionForm())
             {
+#if !HDR_DPI_DIAGNOSTICS_TEST
+                // The fixture must not inherit the user's saved custom mode.
+                // Change the fixture process's in-memory dictionary; never save it.
+                var pending=(Dictionary<string,string>)typeof(CompanionForm).GetField("appSettings",
+                    System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic).GetValue(null);
+                pending["PartialSpanEnabled"]="False";pending["SecondaryAreaEnabled"]="False";pending["WorkspaceRegionsEnabled"]="False";pending[WorkspaceLayoutSettings.EnabledKey]="False";
+                typeof(CompanionForm).GetMethod("UpdatePartialControls",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).Invoke(form,null);
+                Check(CompanionForm.GraphicsRecoveryEnabled && !CompanionForm.GraphicsRecoveryTestBuild,
+                    "ordinary dashboard includes production recovery");
+                var autoSpan = (CheckBox)typeof(CompanionForm).GetField("chkAutoSpan",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(form);
+                var trayAuto = (ToolStripMenuItem)typeof(CompanionForm).GetField("itemAuto",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(form);
+                Check(autoSpan.Enabled && trayAuto.Enabled, "production recovery preserves optional startup auto-span controls");
+                Check(!form.Text.Contains("TEST"), "ordinary dashboard must not acquire experiment title");
+#endif
 #if HDR_DPI_DIAGNOSTICS_TEST
                 Check(form.Text.Contains("HDR / DPI DIAGNOSTICS TEST 3"), "Test candidate title is distinct");
                 Check(!CompanionForm.GraphicsRecoveryEnabled, "Diagnostics candidate must not enable recovery experiments");
@@ -41,11 +57,12 @@ namespace Offhand.Companion
                     "Diagnostics settings stay beside candidate, not in public config");
 #endif
                 var card = Descendants(form).OfType<Panel>().Single(panel =>
-                    panel.Controls.OfType<Label>().Any(label => label.Text == "  DISPLAY DIAGNOSTICS"));
+                    panel.Controls.OfType<Label>().Any(label => label.Text == "DISPLAY DIAGNOSTICS"));
+                form.SelectDashboardPage(true);
                 form.SetDashboardSectionExpanded(card, true, false);
                 var labels = card.Controls.OfType<Label>().Where(label => label.Top > 24).OrderBy(label => label.Top).ToArray();
                 Check(labels.Length == 3, "Diagnostics card needs separate modes, HDR and scale labels");
-                labels[0].Text = "Mainhand (Display 12): Color mode unavailable, Scale unavailable\r\nOffhand (Display 13): SDR, HDR available, 150% scale (same display)";
+                labels[0].Text = "Mainhand (Display 12): Color mode unavailable, Scale unavailable\r\nWorkspace 1 (Display 13): SDR, HDR available, 150% scale\r\nWorkspace 2 (Display 14): HDR on, 200% scale";
                 labels[1].Text = "Mixed HDR/SDR displays: WoW may appear too bright or washed out. See Display Troubleshooting.";
                 labels[2].Text = "Different Windows scales detected. This is supported; see troubleshooting if WoW looks blurry.";
                 labels[1].ForeColor = Color.Goldenrod;

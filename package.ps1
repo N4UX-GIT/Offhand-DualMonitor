@@ -4,7 +4,7 @@
     intentional Companion update is explicitly requested.
 #>
 param(
-    [string]$Version = "2.1.2-beta.21",
+    [string]$Version = "2.1.5-beta.28",
     [switch]$AddonOnly,
     [switch]$CompanionChanged,
     [switch]$UseExistingCompanion,
@@ -161,6 +161,7 @@ Copy-Item (Join-Path $rootDir "Offhand_Vanilla.toc") -Destination $addonStaging
 Copy-Item (Join-Path $rootDir "Offhand_Classic.toc") -Destination $addonStaging
 Copy-Item (Join-Path $rootDir "Offhand_Forever.toc") -Destination $addonStaging
 Copy-Item (Join-Path $rootDir "Offhand_Wrath335a.toc") -Destination $addonStaging
+Copy-Item (Join-Path $rootDir "Bindings.xml") -Destination $addonStaging
 Copy-Item (Join-Path $rootDir "LICENSE") -Destination $addonStaging
 Copy-Item (Join-Path $rootDir "README.md") -Destination $addonStaging
 Copy-Item (Join-Path $rootDir "CHANGELOG.md") -Destination $addonStaging

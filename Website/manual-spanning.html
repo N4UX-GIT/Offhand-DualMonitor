@@ -3,16 +3,217 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Offhand | Manual setup without the Companion</title>
-    <meta name="description" content="Use the Offhand World of Warcraft addon across two monitors without downloading a Windows executable.">
-    <meta http-equiv="refresh" content="0; url=companion.html#manual-setup">
-    <link rel="canonical" href="https://offhand-wow.onrender.com/companion.html#manual-setup">
+    <title>Offhand Alternative Setup | FancyZones and manual placement</title>
+    <meta name="description" content="Position World of Warcraft for Offhand with Microsoft PowerToys FancyZones or ordinary manual resizing, then remember and validate the canvas in-game.">
     <link rel="icon" type="image/png" href="assets/offhand-icon.png">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20261109-beta-preview">
 </head>
 <body class="companion-page">
-    <main class="content-deck" style="margin-top:48px">
-        <section class="content-section"><div class="deck-intro-banner"><h1 style="color:var(--rio-gold)">Manual Setup has moved</h1><p class="deck-intro-text">Continue to the consolidated <a href="companion.html#manual-setup">Companion Manual Setup</a>.</p></div></section>
+    <header class="navbar">
+        <div class="nav-container">
+            <a class="brand" href="index.html" aria-label="Offhand home">
+                <img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="brand-medallion">
+                <div class="brand-text"><span class="brand-title">OFFHAND <span class="brand-beta">Beta</span></span><span class="brand-subtitle">Dual-Wield Your Monitors</span></div>
+            </a>
+            <nav class="nav-primary" aria-label="Primary navigation"><a href="index.html#setup">Start setup</a><a href="in-game-setup.html">Finish in WoW</a><a href="background-studio.html">Studio</a><a href="manual-spanning.html" aria-current="page">Other methods</a></nav>
+            <div class="nav-controls">
+                <details class="site-menu">
+                    <summary>Menu <span aria-hidden="true">▾</span></summary>
+                    <nav class="site-menu-panel" aria-label="Complete site navigation">
+                        <div class="site-menu-group">
+                            <span class="site-menu-label">Pages</span>
+                            <a href="index.html">Home</a>
+                            <a href="demonstration.html">Demonstration</a>
+                            <a href="index.html#setup">Start setup</a>
+                            <a href="in-game-setup.html">Finish in WoW</a>
+                            <a href="background-studio.html">Background Studio</a>
+                            <a href="manual-spanning.html" aria-current="page">Other methods</a>
+                        </div>
+                        <div class="site-menu-group site-menu-sections">
+                            <span class="site-menu-label">On this page</span>
+                            <a href="#choose-method">Choose method</a>
+                            <a href="#fancyzones">FancyZones</a>
+                            <a href="#manual">Manual placement</a>
+                            <a href="#remember">Confirm placement</a>
+                            <a href="#relaunch">Relaunch check</a>
+                        </div>
+                        <div class="site-menu-external">
+                            <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
+                            <a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge <span aria-hidden="true">↗</span></a>
+                        <a href="https://discord.gg/J2P3SM6pAY" target="_blank" rel="noopener noreferrer">Discord ↗</a></div>
+                    </nav>
+                </details>
+                <a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener" class="btn btn-wow-red btn-sm nav-download"><svg class="curseforge-mark" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M18.326 9.2145S23.2261 8.4418 24 6.1882h-7.5066V4.4H0l2.0318 2.3576V9.173s5.1267-.2665 7.1098 1.2372c2.7146 2.516-3.053 5.917-3.053 5.917L5.0995 19.6c1.5465-1.4726 4.494-3.3775 9.8983-3.2857-2.0565.65-4.1245 1.6651-5.7344 3.2857h10.9248l-1.0288-3.2726s-7.918-4.6688-.8336-7.1127z"/></svg>CurseForge</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="content-deck setup-guide-deck">
+
+        <section class="content-section">
+            <div class="deck-intro-banner">
+                <h1 class="guide-title">FancyZones and manual placement</h1>
+                <p class="deck-intro-text">Choose one alternative: FancyZones or manual placement. Follow only your selected section, then confirm the placement in WoW. Neither method requires Companion.</p>
+                <p class="deck-intro-text">Before spanning, save a copy of your Blizzard Edit Mode layout and back up your UI addon profiles. The changed UI canvas can require repositioning custom interfaces.</p>
+                <p class="deck-intro-text">Offhand validates the resulting game canvas. It does not connect to PowerToys or inspect another application.</p>
+                <p class="deck-intro-text"><a href="companion.html">Want the recommended Companion method instead?</a></p>
+            </div>
+            <nav class="page-jump-nav" aria-label="Window setup guide sections"><span>On this page</span><a href="#choose-method">Choose method</a><a href="#fancyzones">FancyZones</a><a href="#manual">Manual placement</a><a href="#remember">Confirm placement</a><a href="#relaunch">Relaunch check</a></nav>
+        </section>
+
+        <section class="content-section" id="choose-method" aria-labelledby="choose-method-title">
+            <div class="section-header">
+                <h2 class="section-title" id="choose-method-title">Choose one alternative method</h2>
+                <p class="section-subtitle">These are alternatives to Companion and to each other. Choose the method you intend to use; you do not need to complete both.</p>
+            </div>
+            <div class="setup-split setup-method-grid">
+                <article class="wow-card method-card"><h3 class="wow-card-title">FancyZones</h3><p class="wow-card-desc">Use Microsoft PowerToys to save a reusable zone for WoW.</p><a href="#fancyzones" data-setup-method="fancyzones" class="btn btn-wow-stone">Use FancyZones</a></article>
+                <article class="wow-card method-card"><h3 class="wow-card-title">Manual placement</h3><p class="wow-card-desc">Resize WoW yourself. No additional window tool is needed.</p><a href="#manual" data-setup-method="manual" class="btn btn-wow-stone">Set up manually</a></article>
+            </div>
+            <p id="selected-method-status" class="setup-choice-note" role="status" aria-live="polite">Choose one method above, then continue to its instructions.</p>
+        </section>
+
+
+        <section class="content-section" id="fancyzones">
+            <div class="section-header">
+                <h2 class="section-title guide-section-title">Configure FancyZones</h2>
+                <p class="section-subtitle">FancyZones method only. Follow this section, then continue to confirmation below. Skip manual placement. Companion is not needed.</p>
+            </div>
+            <div class="guide-callout"><strong>Before creating the zone:</strong> check that Windows Display Settings matches the physical screen arrangement and that the selected monitors use the same Windows display scaling percentage. If the scaling percentages differ, <a href="#choose-method">choose a different placement method</a> before continuing.</div>
+            <div class="steps-container compact-steps">
+                <article class="quest-step-card">
+                    <div class="step-seal">1</div>
+                    <h3>Install and open PowerToys</h3>
+                    <p>Install PowerToys from Microsoft Store or another official Microsoft source, then open <strong>PowerToys Settings</strong> from the Start menu or its system-tray icon. FancyZones is included with PowerToys; no separate installation is needed.</p>
+                    <p><a href="https://learn.microsoft.com/en-us/windows/powertoys/install" target="_blank" rel="noopener">Official PowerToys installation guide</a></p>
+                </article>
+                <article class="quest-step-card">
+                    <div class="step-seal">2</div>
+                    <h3>Enable and configure FancyZones</h3>
+                    <p>In PowerToys Settings, select <strong>FancyZones</strong> and turn on <strong>Enable FancyZones</strong>. Enable <strong>Allow zones to span across monitors</strong>, <strong>Show zones on all monitors while dragging</strong> and <strong>Hold Shift key to activate zones while dragging</strong>. Set <strong>Space around zones</strong> to zero, then select <strong>Open layout editor</strong> (called <strong>Launch layout editor</strong> in some versions).</p>
+                    <p>Keep PowerToys running while using the zone.</p>
+                </article>
+                <article class="quest-step-card">
+                    <div class="step-seal">3</div>
+                    <h3>Build one combined Canvas zone</h3>
+                    <p>In the layout editor, select <strong>Create new layout</strong>, choose <strong>Canvas</strong>, and name it something like <strong>Offhand</strong>. Keep one zone and resize it over the complete area that WoW should occupy, then save and apply the layout.</p>
+                    <p>To reopen the editor later, use its button in PowerToys Settings or the default shortcut <kbd>Win</kbd> + <kbd>Shift</kbd> + <kbd>`</kbd>.</p>
+                </article>
+                <article class="quest-step-card">
+                    <div class="step-seal">4</div>
+                    <h3>Snap Windowed WoW into place</h3>
+                    <p>In WoW, choose standard <strong>Windowed</strong> mode. Hold <kbd>Shift</kbd> while dragging the title bar, then drop WoW into the combined zone.</p>
+                </article>
+            </div>
+            <p class="setup-next"><a href="#remember" class="btn btn-wow-red">Window placed? Confirm in WoW</a> <a href="#choose-method">Change method</a></p>
+<details class="faq-card settings-screenshot-details"><summary class="faq-summary"><h3>See the FancyZones guide screens</h3><span>Installation and placement in Offhand</span><svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></summary><div class="faq-body settings-screenshot-gallery"><figure><div class="image-frame"><img src="assets/offhand-guide-powertoys-installed-20261109.png" alt="PowerToys installation confirmation." width="769" height="501" loading="lazy" decoding="async"></div><figcaption><strong>PowerToys installation confirmation.</strong> Choose Already installed if PowerToys is available. This is your confirmation, not an automatic software check.</figcaption></figure><figure><div class="image-frame"><img src="assets/offhand-guide-powertoys-download-20261109.png" alt="Get PowerToys." width="601" height="254" loading="lazy" decoding="async"></div><figcaption><strong>Get PowerToys.</strong> Copy the official download address, install PowerToys, then return to the guide. FancyZones is included.</figcaption></figure><figure><div class="image-frame"><img src="assets/offhand-guide-fancyzones-placement-20261109.png" alt="Place WoW with FancyZones." width="768" height="626" loading="lazy" decoding="async"></div><figcaption><strong>Place WoW with FancyZones.</strong> Create the combined Canvas zone in PowerToys, snap Windowed WoW into it, then follow the placement checks in Offhand.</figcaption></figure></div></details>
+            <details class="faq-card workspace-detail"><summary>Optional FancyZones settings and canvas-size reference</summary><div class="faq-body fancyzones-recommendations" aria-labelledby="fancyzones-settings-title">
+                <div class="section-header fancyzones-settings-header">
+                    <h3 class="section-title" id="fancyzones-settings-title">Recommended FancyZones settings</h3>
+                    <p class="section-subtitle">These settings make the combined Offhand zone predictable without changing unrelated Windows behavior. Labels may move between PowerToys releases, but the functions remain the same.</p>
+                </div>
+                <div class="fancyzones-settings-grid">
+                    <article class="faq-card guide-panel fancyzones-settings-card">
+                        <h4>Required for the span</h4>
+                        <ul class="settings-checklist">
+                            <li><span class="setting-state setting-on">ON</span><span><strong>Allow zones to span across monitors</strong><small>Creates one coordinate space for the combined Canvas zone.</small></span></li>
+                            <li><span class="setting-state setting-on">ON</span><span><strong>Show zones on all monitors while dragging</strong><small>Makes the complete combined target visible when placing WoW.</small></span></li>
+                            <li><span class="setting-state setting-zero">0 px</span><span><strong>Space around zones</strong><small>Disable the gap or set it to zero so the WoW canvas reaches the intended zone edges.</small></span></li>
+                            <li><span class="setting-state setting-match">MATCH</span><span><strong>Windows display scaling</strong><small>PowerToys requires the monitors in a spanning zone to use the same DPI scaling percentage.</small></span></li>
+                        </ul>
+                    </article>
+                    <article class="faq-card guide-panel fancyzones-settings-card">
+                        <h4>Recommended</h4>
+                        <ul class="settings-checklist">
+                            <li><span class="setting-state setting-on">ON</span><span><strong>Hold Shift key to activate zones while dragging</strong><small>Prevents accidental snapping and matches the placement steps above.</small></span></li>
+                            <li><span class="setting-state setting-on">ON</span><span><strong>Move newly created windows to their last known zone</strong><small>Lets FancyZones return a newly opened WoW window to its saved Canvas zone.</small></span></li>
+                            <li><span class="setting-state setting-on">ON</span><span><strong>Restore the original size of windows when unsnapping</strong><small>Makes it easier to return WoW to an ordinary movable window.</small></span></li>
+                            <li><span class="setting-state setting-choice">YOUR CHOICE</span><span><strong>Launch editor on the display</strong><small>Where the mouse pointer is is convenient for multi-monitor editing, but does not affect the saved zone.</small></span></li>
+                        </ul>
+                    </article>
+                    <article class="faq-card guide-panel fancyzones-settings-card">
+                        <h4>Leave off for this workflow</h4>
+                        <ul class="settings-checklist">
+                            <li><span class="setting-state setting-off">OFF</span><span><strong>Keep windows in their zones when screen resolution or work area changes</strong><small>Avoids forcing the old span onto a changed or disconnected display layout.</small></span></li>
+                            <li><span class="setting-state setting-off">OFF</span><span><strong>During zone layout changes, windows assigned to a zone will match new size/positions</strong><small>Lets you review the changed zone before moving WoW into it again.</small></span></li>
+                            <li><span class="setting-state setting-off">OFF</span><span><strong>Move newly created windows to the current active monitor</strong><small>The last-known-zone option already provides the desired launch behavior.</small></span></li>
+                            <li><span class="setting-state setting-off">OFF</span><span><strong>Allow child window snapping</strong><small>Prevents dialogs and secondary windows from being expanded into the WoW zone.</small></span></li>
+                        </ul>
+                    </article>
+                </div>
+                <div class="guide-callout fancyzones-canvas-callout">
+                    Settings such as window transparency, rounded corners, zone overlap behavior, window switching, and monitor rotation do not affect a single Offhand Canvas zone and can remain at your personal defaults. See Microsoft’s <a href="https://learn.microsoft.com/en-us/windows/powertoys/fancyzones" target="_blank" rel="noopener">FancyZones reference</a> for the current interface.
+                </div>
+                <div class="guide-callout">
+                    <strong>The reported canvas can be smaller than the displays.</strong> FancyZones lays out zones in the Windows work area, which normally excludes the taskbar, then sizes the complete desktop window including its borders. WoW reports the render area inside that frame. A <code>4000×2560</code> physical display union can therefore legitimately appear in Offhand as approximately <code>3998×2480</code>. Keep WoW in standard <strong>Windowed</strong> mode, remove any FancyZones space around the zone, visually confirm the seam, then follow the <a href="#remember">confirmation step</a>. Offhand stores the detected render canvas and does not require it to equal the monitors’ combined outer rectangle.
+                </div>
+            </div></details>
+        </section>
+
+        <section class="content-section" id="manual">
+            <div class="section-header">
+                <h2 class="section-title guide-section-title">Place the window manually</h2><p class="section-subtitle">Manual method only. Resize WoW yourself, then continue to confirmation below. Skip FancyZones and Companion.</p>
+            </div>
+            <div class="companion-step-grid manual-step-grid">
+                <article class="quest-step-card"><div class="step-seal">1</div><h3>Match the physical layout</h3><p>In Windows Display Settings, arrange the display rectangles so their shared edges match the screens on your desk. A false vertical offset creates invisible canvas space.</p></article>
+                <article class="quest-step-card"><div class="step-seal">2</div><h3>Use standard Windowed mode</h3><p>Choose <strong>Options → Graphics → Display Mode → Windowed</strong>. Do not use Windowed (Fullscreen), which is restricted to one display.</p></article>
+                <article class="quest-step-card"><div class="step-seal">3</div><h3>Restore a movable window</h3><p>Unmaximize WoW so its title bar and borders are visible. Move it onto the Mainhand display before expanding it across the intended area.</p></article>
+                <article class="quest-step-card"><div class="step-seal">4</div><h3>Position every outer edge</h3><p>Drag the title bar across the intended displays or ultrawide region. Resize the left, right, top, and bottom borders until the visible canvas is correct.</p></article>
+                <article class="quest-step-card"><div class="step-seal">5</div><h3>Check the physical result</h3><p>Confirm the game area is fully visible on Mainhand and the workspace lands on the Offhand display. Account for any black or unreachable area created by unequal display alignment.</p></article>
+            </div>
+            <p class="setup-next"><a href="#remember" class="btn btn-wow-red">Window placed? Confirm in WoW</a> <a href="#choose-method">Change method</a></p>
+            <details class="faq-card workspace-detail"><summary>What manual placement remembers</summary><div class="faq-body setup-split manual-limitations">
+                <article class="faq-card guide-panel"><h3>What manual setup remembers</h3><p>Offhand stores the confirmed WoW render-canvas dimensions. On later launches, reproduce that size before Offhand reapplies the saved split and panel layout.</p></article>
+                <article class="faq-card guide-panel"><h3>What addon Lua cannot see</h3><p>WoW does not expose the native window position or physical monitor rectangles to the addon. The title bar remains, placement may need to be repeated after launch, and active disconnect recovery requires Companion.</p></article>
+            </div></details>
+<details class="faq-card settings-screenshot-details"><summary class="faq-summary"><h3>See the manual placement screen</h3><span>Resize first, then confirm</span><svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></summary><div class="faq-body settings-screenshot-gallery settings-screenshot-gallery-single"><figure><div class="image-frame"><img src="assets/offhand-guide-manual-placement-20261109.png" alt="Place WoW manually." width="768" height="646" loading="lazy" decoding="async"></div><figcaption><strong>Place WoW manually.</strong> Drag and resize the native window yourself, visually check the complete area, then follow the placement checks below.</figcaption></figure></div></details>
+        </section>
+
+        <section class="content-section" id="remember">
+            <div class="section-header">
+                <h2 class="section-title guide-section-title">Confirm your chosen method in WoW</h2>
+            </div>
+            <div>
+                <article class="faq-card guide-panel">
+                    <h3>Confirm the placement you just checked</h3>
+                    <ol class="faq-steps-list">
+                        <li>Return to <code>/offhand guide</code> (or open it if needed) and keep <strong>the same method you used above</strong>: Use FancyZones or Configure Manually. Continue to the window-placement step.</li>
+                        <li>Confirm that WoW is visibly covering the intended displays or ultrawide region.</li>
+                        <li>Click <strong>Window is positioned</strong>, then <strong>Reload UI</strong>. When the guide returns, click <strong>Confirm placement</strong>, then choose <strong>Remember Window</strong> in the confirmation dialog. Offhand stores the confirmed canvas dimensions account-wide. In settings, the equivalent action is <strong>Remember Current Window</strong>.</li>
+                    </ol>
+                </article>
+            </div>
+            <div class="guide-callout warning-callout">
+                <strong>Visual confirmation still matters.</strong> WoW exposes its render-canvas size to the addon, but not the native window position or the physical monitor rectangles beneath it. A same-sized window moved away from the intended seam cannot be detected reliably by addon Lua.
+            </div>
+            <div class="hero-actions setup-guide-actions"><a href="in-game-setup.html#finish-calibration" class="btn btn-wow-red btn-lg">Continue to calibration</a></div>
+<details class="faq-card settings-screenshot-details"><summary class="faq-summary"><h3>See the window confirmation</h3><span>After positioning and reloading</span><svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></summary><div class="faq-body settings-screenshot-gallery"><figure><div class="image-frame"><img src="assets/offhand-guide-remember-window-20261101.png" alt="Confirm this Offhand window." width="417" height="258" loading="lazy" decoding="async"></div><figcaption><strong>Confirm this Offhand window.</strong> Only choose Remember Window after checking the actual placement across your displays. Back returns without confirming.</figcaption></figure></div></details>
+        </section>
+
+        <section class="content-section" id="relaunch">
+            <div class="section-header"><h2 class="section-title">After calibration: check your next launch</h2></div>
+            <div class="faq-card guide-panel">
+                <p>After completing <a href="in-game-setup.html#finish-calibration">calibration and HUD setup</a>, exit WoW normally and fully relaunch it. Reapply the FancyZones zone or manual window size, then confirm that the workspace panels and Mainhand HUD return. If the result is wrong, follow the <a href="in-game-setup.html#recovery">symptom-based recovery guide</a>.</p>
+                <p>If the window does not match, no saved panel positions are deleted. Restore the intended window, open <code>/offhand</code>, and use <strong>Remember Current Window</strong> again only after you have visually confirmed the placement.</p>
+            </div>
+        </section>
+        <section class="content-section compact-policy-section" aria-labelledby="policy-title">
+            <div class="policy-disclaimer">
+                <h2 id="policy-title">Blizzard policy and anti-cheat disclaimer</h2>
+                <p>For this workflow, Microsoft PowerToys FancyZones and Offhand Companion perform a comparable desktop-window-management role. They resize or reposition an ordinary Windowed WoW window and are designed not to automate gameplay, send game input, inspect game memory, inject code, or modify game files.</p>
+                <p>This is not a guarantee of approval or account safety. Microsoft authorship, Microsoft Store availability, open-source code, and security scans do not constitute Blizzard authorization. Blizzard alone interprets and enforces its agreements, and its published EULA states that the platform may monitor for unauthorized third-party programs. Use any desktop utility at your own discretion and stop using it if Blizzard guidance changes.</p>
+                <p><a href="https://www.blizzard.com/en-us/legal/bfbbb648-bcc6-4b78-a5c7-e2fe20c135df/blizzard-end-user-license-agreement" target="_blank" rel="noopener">Read Blizzard's current EULA</a> · <a href="https://www.blizzard.com/legal/cd5930c0-2784-420c-a23d-1e0d6ff8599b/anti-cheating-vereinbarung" target="_blank" rel="noopener">Read Blizzard's anti-cheating agreement</a></p>
+            </div>
+        </section>
     </main>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-brand"><img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="footer-logo"><div class="footer-info"><span class="footer-title">OFFHAND</span><span class="footer-subtitle">Dual-Wield Your Monitors</span></div></div>
+        <nav class="footer-nav" aria-label="Footer navigation"><div class="footer-nav-row"><a href="index.html">Home</a><a href="index.html#setup">Start setup</a><a href="in-game-setup.html">Finish in WoW</a><a href="background-studio.html">Background Studio</a><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub</a></div><div class="footer-nav-row"><a href="index.html#faq">FAQ</a><a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge</a><a href="manual-spanning.html" aria-current="page">Other methods</a><span class="footer-community-actions"><a class="footer-discord" href="https://discord.gg/J2P3SM6pAY" target="_blank" rel="noopener noreferrer" aria-label="Join the Offhand Discord" title="Join the Offhand Discord"><img src="assets/discord-symbol.svg" alt="" aria-hidden="true">Join Discord</a><a class="footer-support" href="https://ko-fi.com/n4uxaddons" target="_blank" rel="noopener noreferrer" aria-label="Support N4UX on Ko-fi"><img src="assets/ko-fi-symbol.png" alt="" aria-hidden="true">Support N4UX</a></span></div></nav>
+        </div>
+        <div class="footer-legal"><p>Use FancyZones, manual placement, or the optional Companion to position World of Warcraft for Offhand.</p></div>
+    </footer>
+    <script src="manual-setup.js" defer></script>
 </body>
 </html>

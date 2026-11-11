@@ -1,8 +1,629 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+## [2.1.5-beta.32] - Unreleased
 
-## [Unreleased]
+- Set separate sizes for supported panels in each Offhand workspace from
+  Workspace settings or calibration. Existing layouts keep their current sizes
+  until you apply a change.
+- Preview sizes before applying them. With Companion 2.1.7, you can also
+  estimate a size from the Windows scaling of the game and workspace displays.
+  Manual sizing is available with older compatible Companion versions.
+- Reorganize settings so panel routing and sizing are together. Add help beside
+  the settings it explains, and make setup and recovery prompts easier to follow.
+- Fit the World Map before panel reflow and recover unreachable map drag handles
+  on Forever. Preserve native NPC interactions during single-screen recovery.
+- Keep comparison tooltips together, improve mixed-scale loot roll placement,
+  and prevent saved input controls from reopening as workspace panels.
+- Improve Mainhand HUD fitting and EllesmereUI previews while preserving saved
+  source layouts. Keep Forever Gamepad recovery available and repair a Retail
+  action-bar placement case involving the default status bars.
+- Keep support reports concise by default. Use `/offhand diag panels`,
+  `/offhand diag tooltip`, or `/offhand diag debug` for targeted troubleshooting.
+
+## [2.1.5-beta.31] - 2026-11-11
+
+- Forever Gamepad UI keeps controller actions usable after closing the World Map.
+  The map returns to its saved Offhand position. [Issue #84](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/84)
+- The selected Spellbook entry shows its tooltip beside the icon on Mainhand
+  when first opened with a controller.
+- Keep wizard tabs on one line and size setup and HUD reload dialogs to fit their contents.
+
+Verified with a physical controller on Windows Forever 1.60.1.70888. The
+macOS reporter's confirmation for #84 is pending. Companion 2.1.5 remains
+compatible with this addon update.
+
+## [2.1.5-beta.30] - 2026-11-11
+
+- Fixed a case where remaining loot-roll windows could move to the screen seam
+  after an earlier roll finished. Offhand now keeps their Mainhand placement
+  when Blizzard rearranges the loot container.
+- Expanded the EllesmereUI HUD preview to cover supported cooldown, utility,
+  cast, stance, pet and current-spec tracking bars. Linked groups move together
+  through the normal profile review, and previews show additional rows in pages.
+- Explain which EllesmereUI module or dependency must be installed, enabled or
+  reloaded. Preview messages now identify linked parents, missing bounds,
+  oversized groups and real profile overrides. Empty override stores no longer
+  prevent a layout transfer.
+- Preserve Questie tracker and linked Social/Quick Join button anchors during
+  automatic popup recovery.
+- Respect Retail's friendly-player name-text preference instead of forcing it
+  on. Safely clean up the saved override from older Offhand versions.
+
+Verified with private test panels using Blizzard's native loot-container
+functions in Forever 1.60.1.70862 with spanning applied. Real simultaneous loot
+choices and combat behavior still need player verification. Please report any
+remaining disappearance with `/offhand diag full`, your client/build and other
+UI addons.
+
+Includes the previously released Beta 29 fixes. Existing settings and layouts
+are preserved. No Companion update is required. The owner requested inclusion
+of the previously deferred addon changes. Native Retail preference acceptance,
+active Questie-objective dragging and populated/spec-changing tracking-bar
+imports still need verification. Daylight testing remains deferred and its
+existing Beta 29 implementation is unchanged.
+
+## [2.1.5-beta.29] - 2026-11-10
+
+This is an addon-only beta update. No Companion update is required for these
+fixes. Existing settings and layouts are retained.
+
+- Preserve EllesmereUI and SexyMap minimap placement during automatic window
+  recovery, including detached minimaps and their crop frames.
+- Keep EllesmereUI scaling consistent with the spanned layout and preserve
+  scale choices made by another UI addon when Offhand releases control.
+- Keep open native Forever NPC panels reachable after disabling Offhand or
+  restoring the game window.
+- Fix Forever backpack restoration after Chat Settings closes, native close
+  button handling, and Escape priority when a target is selected.
+- Preserve Details, BetterBags Next and RestedXP window placement during
+  automatic recovery.
+- Fix setup reload-button handling and guidance when the window is not yet
+  spanned. Preserve progress through a manual reload.
+- Compact remaining loot-roll windows after earlier rolls finish, and keep the
+  stack within Mainhand. Fit oversized native item tooltips to their display
+  and restore their scale when the content changes or the tooltip closes.
+- Add optional Mainhand centering for ProcDoc alerts while retaining its own
+  offsets. Preserve its anchor when centering is disabled.
+- Keep DaylightUI's world map at its saved Offhand placement while owned by
+  Offhand, and restore DaylightUI placement and controls when released.
+- Improve minimap compatibility diagnostics and release Offhand's temporary
+  owned UI scale during normal logout outside combat.
+
+Validation includes automated regressions and controlled spanned Forever
+1.60.1.70862 checks. Real simultaneous loot rolls and their combat lifecycle
+could not be tested locally. Their corrections are included for beta feedback;
+please report any remaining disappearance, unusable roll choices or tooltip
+overflow with `/offhand diag full`, the client build and other UI addons.
+
+Old-profile minimap hiding, exact reporter HUD-save failures and physical
+portrait/4K placement reports remain under investigation. This update does not
+add SexyMap synchronization with Blizzard's Edit Mode selection box or change
+Companion display-identity handling. The separate Retail friendly-name
+preference correction is deferred pending native Retail verification.
+
+## [2.1.5-beta.28] - 2026-11-09
+
+### Guided setup and settings
+- Split placement into explicit Window is positioned, Reload UI and Confirm
+  placement actions, with a final review. Add visual task cards, progress and a
+  highlighted next action to the guide and calibration wizard.
+- Keep placement and HUD confirmation dialogs inside Mainhand before showing
+  them, avoiding the shared popup stack's seam-to-top jump.
+- Improve settings header spacing, readable versions, Website/Discord links,
+  typed slider values and consistent action styling. Show a compact Character
+  scaling section when stronger workspace window locking is unsupported.
+- Correct the first-install calibration path that follows Next without choosing
+  Auto-Configure. Explicit continuation now enables the validated layout while
+  preserving calibration values. Source and packaged regressions pass. Native
+  Forever 70862 Next activation, HUD creation and two reloads pass on the private
+  span-setup-test1 single-display split. A second clean-account/default-Companion
+  run also passes first HUD creation, reload and cold WoW/Companion restart.
+  An independent repeat passes with zero Lua errors and cold in-world re-span
+  plus reload retaining the same HUD.
+  Exact reporter topology remains unverified.
+
+### Map, panels and compatibility
+- Apply native map scale to the map's actual Mainhand/workspace side. Preserve
+  Auto Fit and explicit same-value presets without triggering unrelated layouts.
+- For the reviewed OpenMap v0.7.5-beta on Forever, route explicit scale actions
+  through its own guarded settings and offer title recovery while preserving
+  owner size/scale. Unsupported owners, combat and restricted UI retain guards.
+  No third-party source patch is included in the add-on package.
+- Improve guarded Forever map Escape behavior, gamepad Back deferral, transient
+  menu placement and HUD/EncounterBar ownership. Preserve custom-workspace,
+  panel-routing, themes and background-library behavior from Beta 27.
+- Add translated setup/settings strings and retain locale fallback policy.
+
+### Matching Companion 2.1.5
+- Update all six add-on manifests and portable links to Companion 2.1.5 while
+  retaining protocol 1 and minimum version 2.1.2-beta.19. No forced companion
+  upgrade is introduced for previously compatible standard layouts.
+- Include the redesigned 2.1.4 dashboard: prominent Span/Restore, collapsed
+  status with a concise indicator, stable Show/Hide sizing and dark scrollbars.
+- Add quiet, daily Store update availability checks and a static update action.
+  The Store handles installation. Portable GitHub checks remain manual.
+- Retain the Store settings-save hotfix and existing monitor-identity, custom
+  layout, scaling, taskbar and window-recovery safeguards. Type /reload in WoW
+  after spanning or changing Mainhand/layout.
+
+### Validation and release status
+- Merged add-on: 114 Lua 5.1 regression suites pass before final package checks.
+  New exact-package and release validation is recorded in
+  docs/PUBLICATION-2.1.5-PREPARATION-20261109.md.
+- Companion uses the unchanged 2.1.5.1 executable submitted as Store package
+  2.1.500.0. WACK passed all 13 required checks; one existing optional finding
+  is reviewed. The local Defender scan found no threats, without a Microsoft
+  file-review verdict or future detection guarantee.
+- Store Submission 6 is in certification with automatic publication enabled.
+  The publisher chose to proceed without awaiting private-flight acceptance.
+  Full Store-delivered upgrade, real Available and real signed-out/offline
+  observations remain unverified. Exact combined-package live WoW, full
+  physical mixed-DPI/hotplug/three-monitor, Wine and complete all-client
+  combat/protected-action acceptance remain open, separately from prior scoped QA.
+
+## [2.1.3-beta.27] - 2026-11-08
+
+### Matching Companion and add-on
+- Continue the add-on sequence as 2.1.3 Pre-Release Beta 27 in all six manifests.
+  Companion retains clean version 2.1.3. Its EXE version
+  is 2.1.3.9; Store package 2.1.300.0 is submitted for certification with manual
+  publication held. Store installs Companion only; the matching add-on is separate.
+- Reuse the exact frozen portable EXE/ZIP matching the submitted Store executable.
+  No runtime rebuild accompanies add-on reconciliation or publication packaging.
+
+### Custom workspaces and backgrounds
+- Standard spanning, game/workspace areas on one monitor, partial secondary-monitor
+  areas, multiple workspaces and Flexible Layout, with visual area selection,
+  previews, saved display plans and an option to return to standard layout.
+- Named in-game workspace profiles, supported-panel routing, manual-position
+  priority, separate region themes and installed background-library images.
+- Retain Background Studio export/library support, per-region image/fit choices
+  and theme fallback for missing images. General add-on profiles, workspace
+  profiles and Blizzard HUD layouts remain separate.
+
+### Companion reliability and guidance
+- Map saved monitor identities to active Windows display targets rather than
+  assuming the first monitor child belongs to an output. Handle stale, disabled,
+  virtual and ambiguous display assignments with explicit review and safe refusal.
+- Improve scaling/layout, HDR/SDR diagnostics, taskbar presentation, Restore and
+  failure rollback. Bounded graphics-reset recovery applies to Retail/Anniversary.
+- Refresh dashboard, Help and workspace editors, window icons and community links.
+  Make Span WoW Now followed by manual /reload explicit after layout/Mainhand changes.
+
+### Add-on fixes and compatibility
+- Improve first-launch guidance, per-character setup and shared/character HUD
+  reuse, explicit repair and recovery. Retain Ellesmere ownership and preview/import
+  safeguards; imported or generated native layouts still require the user's reload.
+- Preserve native bag state, separate/combined ownership and permitted saved-root
+  placement through keyboard/controller combat reopening on Forever. Cold,
+  restricted, secret and replacement-owned roots retain their guarded deferral.
+- Preserve BetterBags/RestedXP and user-owned popup placement during automatic
+  rescue. Improve native confirmation stacking, EncounterBar repair and external
+  HUD ownership. Leave native map pin/content rebuilding to Blizzard on Forever.
+- Improve supported add-on settings/Kerzo Escape and reversible close-button
+  policies, Kerzo reload restoration, ForeverPlus warnings, bubble-font ownership
+  and Ellesmere toolbar refitting after settled display changes.
+- Retain Retail secret-value guards, workspace-aware tooltip/comparison bounds,
+  native map/bag lifecycle and earlier Beta 26 onboarding/persistence fixes.
+- Complete existing EFIGS translations and the 44 custom-workspace keys across
+  deDE, frFR, itIT, esES and esMX. Other locale dictionaries retain existing fallback
+  policy. Native-language layout acceptance remains distinct from dictionary tests.
+
+### Verification and remaining acceptance
+- Combined add-on: 109 Lua regression suites and six TOCs/Lua 5.1 syntax passed.
+  Broader Companion, publication and website verification is recorded in
+  docs/PUBLICATION-2.1.3-PREPARATION-20261108.md.
+- Local WACK overall PASS, all 13 required tests passed; one optional finding is
+  reviewed and retained. Local Defender scans were clean. The portable sample
+  has no Defender file-review determination; local scans are not Microsoft approval.
+- Native evidence remains scoped to its documented clients, builds and scenarios.
+  Physical mixed-DPI/hotplug/three-monitor, Wine, combined exact-package live WoW
+  and complete combat/protected-action acceptance remain separate open coverage.
+
+Earlier candidate notes: docs/2.1.3-DEVELOPMENT-CHANGELOG.md.
+
+## [2.1.2-beta.26] - 2026-11-01
+
+### Anniversary panels and bags
+- Improved native panel coexistence, Spellbook lifecycle and remembered standalone
+  open/closed intent. Context-bound NPC interactions retain native closure.
+- Restricted standalone Macro loading to its known native owner and rechecked
+  current persistence, combat and window state before restoring it.
+- Improved default bag identity, open/closed restoration and native bag layout
+  during opening and closing. Replacement bag addons retain ownership.
+- Retained the Anniversary map registration and cursor-scale corrections and
+  earlier geometry-adjustment coalescing work from the Beta 25 candidate.
+
+### Retail UI
+- Corrected the generic popup-rescue interaction that made pet-battle controls
+  disappear on mixed-height layouts, preserving native pet-battle visibility.
+- Improved transient ownership across topology changes, feature disable and
+  external mover takeover. Still-owned native anchors restore; custom owners yield.
+- Improved Trading Post anchor/scale restoration independently and made generic
+  popup callbacks read current geometry and honor the redirect option.
+- Improved scenario/challenge toast placement after native layout transactions,
+  including coalesced combat-deferred handling and expiration checks.
+
+### Guidance and retained changes
+- Includes the earlier Beta 25 setup recovery, handbook alignment and current
+  confirmation button names. Non-English revised guidance uses labelled English
+  fallback pending translation. Screenshot and capture guidance remains separate
+  from runtime acceptance.
+- This is an addon release candidate. Companion remains 2.1.2-beta.20; experimental
+  HDR/dashboard, native graphics-reset and loading-art work is not shipped.
+
+### Evidence and remaining checks
+- The reported Retail pet-battle failure has user-confirmed acceptance.
+- Anniversary test.11 default/replacement bag cases and reported Baganator/Bagnon
+  open-before-reload, closed-before-reload and Escape behavior have user acceptance.
+  Exact replacement versions were not recorded; this is not a full matrix pass.
+- Six Retail ownership audit findings were accepted by assumption at the user's
+  request, not by a newly recorded live session. Native timing, protected actions,
+  combat/taint, cold login and broader topology/compatibility checks remain pending.
+- All 82 Lua regression suites pass on the integrated candidate. Static and
+  simulated checks do not establish native client or anti-taint correctness.
+- The separate Anniversary memory-crash report remains unresolved. Geometry
+  coalescing is a mitigation candidate. Forever release-client and direct Linux/
+  Wine verification remain pending.
+
+## [2.1.2-beta.25] - 2026-11-01
+
+### Additional fixes in the updated package
+- Preserved TBC Anniversary World Map native panel registration for map opening
+  and lifecycle. Added a native cursor-scale adapter for inward map navigation,
+  isolated from Retail, Forever and custom map owners. Opening has a partial
+  reporter pass; cursor navigation and broader lifecycle acceptance remain pending.
+- Coalesced rapid bezel-gap and game-bottom adjustments into one final layout
+  after a short pause, retaining immediate value updates and current-state combat
+  deferral. This is a candidate mitigation for adjustment stalls, not a confirmed
+  graphics-device recovery or memory-crash fix.
+- Added opt-in Retail notification capture for support: /offhand notifycapture
+  start, stop and show. Collection is bounded to one hour and 64 recent changes;
+  captures remain session-only and normal diagnostics stay compact.
+
+### Setup and recovery
+- Aligned the in-game handbook and expanded placement help with Companion-first
+  setup, current confirmation buttons and missing-only recovery. Revised locale
+  overrides use English fallback until translated; new help-card captures follow
+  live wrapping/scrolling review.
+- Calibration now pauses with actionable instructions when Companion geometry is
+  missing or does not match the window. Apply Span WoW Now in the game world,
+  then Reload UI to resume the same step. Maximizing one monitor is not spanning.
+- A full Blizzard Edit Mode layout list now opens guided recovery: export or
+  delete an unused layout yourself, close Edit Mode, then retry HUD creation.
+  Offhand never deletes a layout automatically.
+- Repair HUD uses the same capacity recovery and retires obsolete repair prompts
+  after successful layout creation, leaving the reload prompt as the next action.
+- Kept the wizard centered through span/restore and reflowed guidance paragraphs
+  to prevent truncation or overflow. Added clearer failure-specific HUD guidance.
+- Shortened the settings tagline to "Dual-wield your monitors." and clarified
+  the addon-list description.
+- Guarded Retail tooltip bounds against secret, missing and nonfinite coordinates
+  before arithmetic, including Encounter Warnings tooltips in Edit Mode.
+
+### Retail compatibility candidates
+- Added Mainhand presentation for cinematic/movie playback and the native skip
+  confirmation, preserving Blizzard input, playback and visibility ownership.
+- Expanded native group-confirmation stack handling and added Mainhand placement
+  for keystone insertion, completion banners and event toasts. Native links,
+  offsets, handlers and external ownership are preserved.
+- Added a native-anchor adapter for Retail override/vehicle presentation.
+- Hardened shared HUD layout identity: character-named layouts cannot be adopted
+  by another character; explicit setup can preserve a tuned legacy layout;
+  GUID tracking distinguishes future same-name character recreations.
+
+### Evidence and remaining checks
+- Setup/full-slot Repair HUD recovery was accepted on Anniversary and Retail.
+  Shared selection and tuned placement were accepted on the reported Retail setup.
+- All 73 Lua 5.1 suites pass on the integrated source. These are simulated tests,
+  not proof of combat/taint safety or native action correctness.
+- Expanded Retail notification, cinematic and vehicle candidates still require
+  targeted live acceptance, including real native actions and current taint logs.
+  Translation expansion, narrow Mainhand layouts and other clients need retesting.
+- The Anniversary manual-span memory-crash report remains unresolved; this build
+  does not claim an out-of-memory fix. Forever release-client testing is pending.
+- Companion remains 2.1.2-beta.20. Experimental HDR/dashboard, native graphics-reset
+  recovery and loading-art changes are not included in the release executable.
+
+## [2.1.2-beta.24] - 2026-10-30
+
+### Fixed and improved
+- Improved workspace chat position restoration and docked-tab visibility handling,
+  including ownership detection for Ellesmere UI. Real incoming multi-tab traffic
+  and the reported top-left position through zoning still need user verification.
+- Restored Retail Spellbook availability, retained the selected Spellbook/Talents
+  tab across reloads, and fitted wider Talents content inside the workspace.
+  Panels closed before reload now stay closed.
+- Preserved Retail World Map native panel registration and lifecycle when moved
+  to Offhand, fixing the invisible map observed with OpenMap installed. This
+  Offhand compatibility fix is included in Beta 24 and does not require changes
+  to OpenMap.
+- Added compatible shared Mainhand HUD layout reuse across characters while
+  preserving character-specific rollback sources and external-addon anchors.
+- Improved Mainhand bounds for world tooltips and supported speech bubbles.
+- Improved Ellesmere bags, chat and status-bar ownership handling.
+- Made Recover Missing UI clearer, with readable paragraphs, smaller body text,
+  an opaque background and confirmation sizing that fits Mainhand.
+- Added 0.1 percentage-point manual seam adjustments and decimal input.
+- Updated setup guidance to recommend Companion first, explain UI repositioning,
+  and recommend backing up Blizzard layouts and addon profiles before setup.
+
+### Verified on Retail
+- Tested packaged Offhand Beta 24 with an unmodified CurseForge installation of
+  OpenMap v0.7.1-beta on Retail 12.1.5. After restarting, the map remained visible
+  through repeated opening/closing, zooming and zone hovering, with no fresh
+  errors reported. No local OpenMap patches were used for this retest.
+
+### Known limitations and test focus
+- Native loading artwork still uses the entire spanned WoW window and can crop
+  across unequal or offset displays. Use Companion's Restore Window before
+  loading, then Span WoW Now after returning to the world, as a manual workaround.
+- Real incoming chat across tabs, exact top-left chat persistence through zoning,
+  two-character shared-layout reuse/rollback and the reported mixed-landscape
+  border need further live verification. Combat/taint and physical stacked-display
+  tooltip/bubble checks remain outstanding. Other clients need targeted retesting.
+- This is an addon-only beta. Companion remains 2.1.2-beta.20; no native loading
+  resize, graphics-reset recovery or Companion binary changes are included.
+
+## [2.1.2-beta.23] - 2026-10-26
+
+### Improved
+- Reorganized addon services for clearer ownership of workspace panels,
+  persistence, client compatibility, HUD recovery and Edit Mode integration.
+- Refreshed settings with five-page navigation, section shortcuts, remembered
+  page scrolling, consistent control styling and better dialog fitting.
+- Improved slider dragging, typed values, decimal-comma entry, step buttons and
+  synchronization when switching profiles. Companion-owned geometry controls
+  consistently reflect their locked state.
+- Reworked first-time setup with method-specific instructions, detected Windowed
+  state, resumable calibration and Mainhand/Offhand region labels.
+- Improved translated-text spacing, theme/help presentation and calibration
+  validation messages without changing existing saved profiles.
+
+### Fixed
+- Restoring an ordinary window now selects the recorded source HUD layout;
+  spanning again restores the character's Mainhand layout. Manual layout choices
+  remain respected, and preset selection uses the correct layout-list index.
+- Corrected Anniversary native action-bar placement while preserving Blizzard's
+  artwork, controls and relative anchors.
+- Corrected default Retail XP/reputation bar placement above the main action bar.
+- Kept setup dialogs and confirmations reachable and correctly layered.
+- Recentered already-open menus and Graphics Options after restoring the window.
+- Corrected the legacy close-all-windows bag-provider decision scope.
+- Removed the verified recurring Retail controller-detection CPU spike when the
+  client lacks the Gamepad enum, avoiding unnecessary copies of preset trees.
+- Reduced empty bag-snapshot allocations and unchanged addon-owned drag-handle
+  layout writes; controller detection uses a guarded scalar fast path where
+  supported. These additional changes have automated coverage, not an FPS claim.
+
+### Companion and compatibility
+- This is an addon-only update. Complete/portable downloads retain the unchanged
+  Companion `2.1.2-beta.20`, with the existing protocol and minimum version.
+- Experimental Companion VSync/graphics-reset recovery and graininess changes
+  are not included. They remain separate integration work awaiting final-artifact
+  testing. Beta 23 does not claim to fix the native graphics-reset issue.
+- Existing client interface declarations are retained. Linux/Wine and original
+  Wrath 3.3.5a support retain their existing experimental limitations.
+
+## [2.1.2-beta.22] - 2026-10-22
+
+### Compatibility
+- Added Retail 12.1.7 interface `120107` to the generic and Mainline manifests,
+  retaining Retail 12.1.5 and all previously declared client targets. This is
+  package metadata compatibility; live 12.1.7 runtime testing remains pending.
+
+### Added
+- `/offhand diag full` provides detailed feature probes on request. The default
+  report keeps versions, display geometry, persistence, Edit Mode and map
+  ownership, with recovery details when relevant. Historical HUD bounds,
+  controller counters and animation probes are no longer collected by default.
+- Offhand can now load the optional, user-owned `Offhand_UserMedia` addon
+  generated by the website's Background Studio. The Themes tab provides an
+  explicit enable toggle plus Studio, Fill, Fit, and Stretch choices. Package
+  metadata is validated before use, power-of-two texture padding is excluded,
+  and the normal canvas theme remains the safe fallback.
+- Background Studio media schema 2 stores presentation values as declarative
+  TOC metadata and no longer generates or loads `Background.lua`. Its local ZIP
+  importer accepts the older schema only for conversion, enforces an exact file
+  layout and bounded stored entries, and omits executable Lua from the newly
+  generated replacement.
+- Forever now exposes a visible **Toggle gameplay and window focus** key
+  binding. Players can assign a controller button or chord to
+  Forever's native hidden `TOGGLEUIFOCUS` action, releasing a window after any
+  interaction without reaching for the mouse. Offhand does not replace or
+  modify Blizzard's focus stack.
+- Forever profiles now include a **Show 'Drag to move' handles** option under
+  Offhand Monitor. It is enabled by default and can immediately hide or restore
+  the addon-owned mouse mover bars without changing saved panel positions,
+  centering, or native Gamepad navigation.
+- Group-loot positioning now offers an optional downward stack direction for
+  players who place the first-roll anchor near the top of Mainhand. Blizzard's
+  upward direction remains the default for all existing and new profiles.
+
+### Fixed
+- Forever now accepts a Companion span when the physical-size API still
+  reports one selected monitor and the live UI canvas independently matches
+  the full span. Restored and ambiguous canvases retain mismatch protection.
+  Setup detection uses the accepted full-span dimensions for workspace sizes.
+- World-map geometry now yields to OpenMap's own saved position and scale,
+  while Offhand retains workspace reopening. This prevents Offhand's mover
+  and restore paths from competing with OpenMap's window management.
+- Remembered FancyZones and manual canvases now remain the selected geometry
+  source, so an older generated Companion topology cannot reject the smaller
+  render area of an otherwise valid bordered Windowed client.
+- The auto-configuration wizard now keeps the player on Step 4 when stale
+  Companion topology or a Companion version mismatch blocks completion. The
+  actionable recovery message appears beneath the calibration controls instead
+  of unexpectedly returning the wizard to Step 1.
+- A visible Forever Professions panel no longer loses its `Drag to move` grip
+  when its first attachment attempt occurs while native Gamepad or another
+  protected interface state owns the panel tree. Offhand now retries only
+  visible, still-unattached Professions roots after the keyboard interface is
+  safe, without reopening or repositioning panels that already have a grip.
+- Opening another Blizzard panel no longer leaves an already-visible Offhand
+  World Map at the shared top-left UIPanel anchor. The common panel transaction
+  repair now starts the map's addon-owned, generation-scoped settlement after
+  both opening and closing panels. Its bounded chained passes outlast nested
+  native layout timers, restore only displaced geometry, and do not install
+  handlers on the protected map tree. Replacement-bag visibility is not
+  sampled during the temporary panel transaction.
+- Forever now persists the current `ProfessionsFrame` root as well as the older
+  `ProfessionsBookFrame` name. The hidden load-on-demand frame is prepared
+  before its first visible layout pass, and position settlement no longer
+  repeatedly hides and reopens the native panel. This removes the first-open
+  anchor flash and repeated open/close audio while retaining Offhand placement
+  across `/reload`.
+- Social and Guild & Communities placement is now repaired after Blizzard's
+  completed `UpdateUIPanelPositions` transaction, including unrelated panels
+  which reuse the shared left slot. A root-anchor observer supplies a bounded
+  next-frame fallback for later native layout continuations. Saved Mainhand and
+  Offhand positions are restored, while an unsaved Social frame accidentally
+  displaced into Offhand returns to its remembered Mainhand position. Forever's
+  live `SocialUIFrame` root and older Friends aliases receive the same narrow
+  out-of-combat, root-anchor-only exception as the Gamepad adapter. The first
+  stable Mainhand coordinate is retained for the session, unchanged panels
+  receive no anchor rewrite, and an unexpected native `SetPoint` is corrected
+  synchronously before the next render.
+- Opening Options no longer reopens Bagnon behind the still-visible Settings
+  panel. Offhand retains the saved Offhand bag snapshot and restores it once
+  after Settings closes, avoiding the transient bag flash and opening cue.
+- Moving the Auction House or another NPC-bound panel to Offhand no longer
+  detaches it with a native hide and direct-show cycle. These panels retain
+  Blizzard's active interaction transaction, preserve native Escape and close
+  behavior, and restore their saved monitor position on the next native open.
+- Forever Gamepad movers now yield completely to Bagnon, Baganator, and other
+  replacement-bag owners, so native bag roots no longer receive an Offhand
+  `Drag to move` handle beneath the replacement UI. Social discovery also
+  accepts Forever's alternate Friends roots while retaining the same protected
+  root-only movement boundary.
+- The controller-focus setup action now opens **Gamepad (Alpha)** instead of
+  keyboard Keybindings, where players can enter Controller Configuration and
+  assign Offhand's focus action. Forever's alternate `HEADER_OFFHAND` lookup is
+  initialized alongside the standard binding header, removing the placeholder
+  heading from the binding list.
+- Gamepad help now states that Back and Escape retain Blizzard's native window
+  dismissal behavior. Offhand delegates to Blizzard's native UI-focus action
+  for controller-only unfocus and does not reopen protected windows from an
+  Escape transaction.
+- Forever now pauses all protected Gamepad destination and radial-menu anchor
+  work for one second whenever the native interface style changes. The adapter
+  then observes at a bounded rate instead of every rendered frame, and visible
+  protected panels are left to Blizzard until they hide. This narrows the
+  client-crash risk reported while toggling Gamepad mode.
+- Existing Forever installations with the former Professions compatibility
+  switch saved as disabled now migrate once to the enabled default. The hidden
+  compatibility card no longer leaves Professions movement inaccessible, while
+  the internal emergency-disable API remains available.
+- Opening Social or Guild & Communities reapplies both panels' saved Mainhand
+  or Offhand anchors in the same UI turn. The common panel-open repair above
+  also covers displacement caused by other Blizzard windows.
+- Forever's Gamepad destination anchors and `Drag to move` handles now activate
+  only while the native Gamepad UI setting is enabled. A remembered Gamepad HUD
+  layout no longer leaks the adapter into keyboard mode, so native panel
+  placement and Escape behavior remain untouched and panels no longer jump
+  from their keyboard anchor to a delayed saved Gamepad position. The Offhand
+  binding category is also declared only once, removing the duplicate-header
+  Lua warning at login.
+- Forever's complete `/reload` fallback now tags per-character state with the
+  character that wrote it. Account settings can still recover across
+  characters, but Edit Mode preferences and Mainhand layout provenance cannot
+  leak between them. Mainhand HUD creation also rejects a foreign character's
+  generated target while retaining its safe Modern or Classic source preset,
+  so normal and Gamepad layouts remain distinct for the selected character.
+- Forever's **Repair HUD** now targets an unreachable Party or Raid Edit Mode
+  entry instead of treating movement of unrelated HUD systems as a successful
+  repair. System-relative group anchors are rebased through Blizzard's saved
+  layout data into Mainhand, customized reachable layouts remain unchanged
+  during ordinary generation, and a missing group entry now fails explicitly
+  rather than starting a reload-and-prompt loop. `/offhand diag` now includes
+  group-frame bounds and protected-HUD recovery state for follow-up reports.
+- Bagnon's one-bag inventory now participates in Offhand workspace persistence.
+  Escape preserves an open Offhand bag while still opening or closing the Game
+  Menu, `/reload` restores the bag through Bagnon's public frame manager, and
+  Bagnon's own close button or bag key continues to close it explicitly. A live
+  Forever Gamepad test exposed that observing the root with `OnShow`/`OnHide`
+  hooks entered Blizzard's protected focus ancestry. Bagnon discovery and
+  Escape pairing now run only from Offhand-owned observers and secure global
+  transaction hooks; Gamepad mode performs no Bagnon root inspection, reopen,
+  reanchor or chrome update.
+- Opening or closing Professions no longer converts its temporary Bagnon
+  cleanup into an explicit bag close outside native Gamepad focus. Options
+  defers restoration until Settings closes. Both paths use Bagnon's public
+  frame manager and install no scripts on its root. Professions retains
+  Blizzard's native panel lifecycle instead of using a hide/show slot eviction.
+- Leatrix Maps is now the sole owner of World Map scale and anchors whenever it
+  is loaded. Offhand retains only its independent workspace visibility contract,
+  so Escape, simultaneous panels and reload restoration remain supported without
+  competing with Leatrix during Professions or map layout changes.
+- World-text fine tuning now applies on equal-height spans. The previous native
+  topology shortcut also bypassed the user multiplier, causing the 50% setting
+  to leave `WorldTextScale_v2` at 100%.
+- Workspace window locking now waits for the normal login or `/reload`
+  restoration to finish before active close recovery begins. Active recovery
+  uses one bounded, short settlement path for maps, bags and Character instead
+  of repeatedly accumulating full startup restoration callbacks.
+- Slider drags now commit the thumb's final displayed value on mouse release,
+  so Character workspace scaling updates immediately without requiring a
+  subsequent step-button click.
+- Retail 12.1.5 now uses the correct `120105` interface number in the generic
+  and Mainline manifests, preventing the client from marking Offhand out of
+  date. The invalid `121500` and redundant `121000` values were removed.
+- Forever's native gamepad interface no longer receives Offhand-owned child
+  drag controls during login or `/reload`. Offhand now detects the live input
+  interface style, leaves SmartNavigation-managed Blizzard window structures
+  untouched, suspends its broad popup re-anchoring scan, does not automatically
+  reopen panels or bags, and avoids panel-slot and Escape-registry mutations
+  while native gamepad navigation is active. Player-opened windows still return
+  to their saved Offhand positions. ConsolePort continues to retain ownership
+  of its protected layouts. The panel lifecycle diagnosis and initial fix were
+  contributed by Frosted (`bitwize01`) in
+  [PR #18](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/18).
+- Offhand dialogs use addon-owned cards while native Gamepad UI is active, so
+  setup links, confirmation prompts, recovery choices and reload notices no
+  longer activate Blizzard's protected `StaticPopupGamepad` focus stack.
+  Keyboard and mouse mode continues to use Blizzard's standard popups. The
+  addon-owned cards are centered within Mainhand.
+- Forever no longer rewrites or refreshes the native `Gamepad (Preset)`. Live
+  testing showed that runtime preset-manager mutation taints Blizzard Edit
+  Mode and later secret-value reads in `CompactUnitFrame`. On current Forever
+  builds, the player-clicked Mainhand HUD action instead copies the native
+  Gamepad preset into an Offhand-owned custom layout, translates that copy,
+  saves and selects it through the public Edit Mode APIs, then asks the player
+  to `/reload` so the Edit Mode transaction cannot taint later gameplay.
+  ConsolePort layouts remain externally owned.
+- Forever's native Gamepad radial Main Menu opened by Start is centered within
+  Mainhand even though it is not exposed through Edit Mode. Offhand identifies
+  the localized visual container without attaching code to the Blizzard frame
+  tree, adjusts only an unprotected root anchor outside combat, and restores
+  Blizzard's original anchor when native Gamepad mode or spanning is inactive.
+- Forever now centers eligible fixed Character, Map and Quest Log, Chat
+  Channels, native bag, Options, AddOns, and Customer Support destinations opened from the
+  Gamepad radial menu. A bounded addon-owned observer changes only a shown,
+  unprotected root anchor, installs nothing in the native frame tree, performs
+  no combat writes, and restores the original anchor only while it still owns
+  the applied position. Every simultaneously visible supported root receives
+  its own Offhand-owned drag bar without becoming a child of the Blizzard panel
+  or changing its scripts, movability, focus, or input metadata. The observer
+  now settles newly shown roots before the next render to avoid a visible jump
+  from the native anchor. Completed offsets are saved per character.
+- The native Gamepad HUD path never mutates preset tables or invokes an Edit
+  Mode manager refresh. It uses only `SaveLayouts` and Blizzard's public
+  custom-layout activation APIs from the explicit player action, preserving
+  the built-in preset while allowing the Mainhand HUD to be applied.
+- Forever now automatically recovers the named Edit Mode save, rename, import,
+  delete, and unsaved-changes dialogs when native Gamepad mode anchors an
+  unprotected dialog root in the mixed-height void. Recovery remains outside
+  combat and does not touch dialog buttons or Gamepad focus handlers.
+- Pet battles now place their complete native interface inside Mainhand instead
+  of splitting the top and bottom panels across the monitor seam. Offhand
+  prepares Blizzard's full-screen pet-battle root before combat lockdown,
+  preserves its internal layout and visibility lifecycle, and yields when a
+  user or another addon has supplied a custom anchor.
+- Retail reload restoration no longer re-enters the character sheet's
+  hide/show lifecycle while its PaperDoll view is expanding. The frame is
+  detached from Blizzard's panel slot before opening and receives Blizzard's
+  own final display refresh, keeping the properties pane inside the character
+  window on the first login or `/reload` presentation.
 
 ## [2.1.2-beta.21] - 2026-10-13
 
@@ -144,8 +765,13 @@ All notable changes to this project will be documented in this file.
   General. Hidden or ambiguously detached Combat Logs remain
   untouched; only an already-visible, explicitly detached Combat Log may have
   its saved position restored. Custom detached chat windows retain the existing
-  settlement and presentation recovery. Offhand also leaves Forever's primary
-  chat button side entirely to Blizzard Edit Mode.
+  settlement and presentation recovery. Generic persistent-panel restoration
+  now excludes every Forever secondary Blizzard chat frame, preventing a stale
+  `ChatFrame2` record from resizing, reanchoring, or showing the docked Combat
+  Log before Blizzard finishes rebuilding its dock. Only the existing tracked
+  chat path may restore a secondary frame after settled evidence proves it is
+  detached. Offhand also leaves Forever's primary chat button side entirely to
+  Blizzard Edit Mode.
 - First-time onboarding now supports manual dual-display and intentional
   single-ultrawide layouts at Step 4 without requiring Companion topology.
   Because WoW cannot report physical monitor boundaries, manual users receive

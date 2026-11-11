@@ -1,0 +1,39 @@
+{
+  "version": "2.1.3",
+  "fileVersion": "2.1.3.10",
+  "storePackageVersion": "2.1.301.0",
+  "companionSourceRevision": "a9a5d15e20a5506ab51382eb86c92fda26ad6c90",
+  "binarySha256": "47FF105C62B32D5A77B369DDFB1FCC2E6D14E6926CCFDEE53AC3A1C6907FA30C",
+  "storePackageSha256": "BE5F13B064CF1B208BDF3BD31A21360A216C3AACBCF8A17344FDADDACD99DA8C",
+  "state": "preflight_passed_not_submitted",
+  "sourceReceipt": "dist/store-settings-hotfix/acceptance.json",
+  "wack": {
+    "requiredFailed": 0,
+    "optionalFinding": "Process.Start for existing user-initiated URIs; CsI bytes in unchanged icon PNG, reviewed and retained.",
+    "optionalFailed": 1,
+    "requiredPassed": 13,
+    "partialRun": "FALSE",
+    "optionalPassed": 10,
+    "overall": "PASS"
+  },
+  "packagedUpgrade": {
+    "result": "PASS",
+    "scope": "Exact EXE payloads in repacked isolated identities; not production-PFN upgrade or affected-machine reproduction.",
+    "identity": "isolated unsigned OID validation identity",
+    "installedBaseline": "2.1.300.0",
+    "legacyImport": true,
+    "originalPreferencesUnchanged": true,
+    "unicodeUnknownKeysPreserved": true,
+    "productionExeBytesIdentical": true,
+    "realStoreInstallationUnchanged": true,
+    "retryPassed": true,
+    "lockFailurePreserved": true,
+    "testPackageRemoved": true,
+    "gameInteraction": "none",
+    "relaunch": true,
+    "installedHotfix": "2.1.301.0"
+  },
+  "affectedFailureReproduced": false,
+  "portablePublicReleaseChanged": false,
+  "addonChanged": false
+}

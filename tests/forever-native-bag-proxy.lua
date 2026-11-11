@@ -171,6 +171,8 @@ end
 ToggleBackpack = function()
     if bag:IsShown() then bag:Hide() else bag:Show() end
 end
+local targetSelected = false
+UnitExists = function(unit) assert(unit == "target"); return targetSelected end
 local nativeToggleGameMenuCalls = 0
 ToggleGameMenu = function()
     nativeToggleGameMenuCalls = nativeToggleGameMenuCalls + 1
@@ -178,6 +180,7 @@ ToggleGameMenu = function()
         CloseAllBags()
         return
     end
+    if targetSelected then targetSelected = false; return end
     if GameMenuFrame:IsShown() then
         GameMenuFrame:Hide()
     else
@@ -185,13 +188,129 @@ ToggleGameMenu = function()
     end
 end
 
+assert(loadfile("Core/MainhandGeometry.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasFrameState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelRegistry.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPersistence.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasBackpackState.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasForeverMap.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasChat.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasProfessions.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelMotion.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasMapPresentation.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelLifecycle.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
+assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
 assert(addon.Canvas:EnableForeverNativeBagProxy(),
     "Forever bag proxy controller was not created")
 
 local controller = _G.OffhandForeverNativeBagController
 assert(controller and controller.parent == UIParent,
     "Forever bag controller must be owned by UIParent")
+
+-- First span has no bag placement history. Blizzard's native bottom-right
+-- anchor follows the entire canvas, which need not be a visible display.
+local initialDB, initialMetrics = addon.db, metrics
+addon.db = { enabled = true }
+metrics = {
+    isSpanned = true, screenWidth = 6000, screenHeight = 2032,
+    gameLeft = 0, gameRight = 3440, gameBottom = 592, gameTop = 2032,
+    workspaceLeft = 3440, workspaceRight = 6000,
+    workspaceBottom = 0, workspaceTop = 1440,
+    workspaceWidth = 2560, workspaceHeight = 1440,
+}
+ContainerFrameCombinedBags = nil
+controller.scripts.OnUpdate(controller, 0.001)
+ContainerFrameCombinedBags = bag
+bag:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 9000, 9000)
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:GetLeft() >= metrics.workspaceLeft + 12
+        and bag:GetLeft() + bag:GetWidth() <= metrics.workspaceRight - 12
+        and bag:GetTop() <= metrics.workspaceTop - 12
+        and bag:GetBottom() >= metrics.workspaceBottom + 12,
+    "first-span combined bags must open visibly without saved positions or window Restore")
+assert(not addon.db.nativeBackpackWorkspacePosition,
+    "a default opening must not invent a player-saved bag position")
+
+-- Reopening after Blizzard reanchors must use the same visible default.
+bag:Hide()
+controller.scripts.OnUpdate(controller, 0.001)
+bag:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 9000, 9000)
+bag:Show()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:GetLeft() + bag:GetWidth() <= metrics.workspaceRight - 12,
+    "unsaved native bag reopen must not require manually moving the bag first")
+
+-- A bottom-right canvas void also exists with Mainhand on the right and the
+-- workspace higher on the left. Use the workspace rectangle, not UIParent.
+metrics.gameLeft, metrics.gameRight = 2560, 6000
+metrics.gameBottom, metrics.gameTop = 592, 2032
+metrics.workspaceLeft, metrics.workspaceRight = 0, 2560
+metrics.workspaceBottom, metrics.workspaceTop = 592, 2032
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:GetLeft() >= 12 and bag:GetLeft() + bag:GetWidth() <= 2548
+        and bag:GetBottom() >= 604,
+    "first-span bags must fit a vertically offset left workspace too")
+
+local initialHeight = bag.height
+bag.height = 1800
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:GetTop() <= metrics.workspaceTop - 12,
+    "an oversized combined bag must retain a reachable title on the visible display")
+bag.height = initialHeight
+
+-- Effective scales differ on a real span. Root anchor arguments are local to
+-- the bag, while the display rectangles are in UIParent units.
+local initialBagScale, initialParentScale = bag.GetEffectiveScale, UIParent.GetEffectiveScale
+bag.GetEffectiveScale = function() return 0.75 end
+UIParent.GetEffectiveScale = function() return 0.496 end
+controller.scripts.OnUpdate(controller, 0.001)
+local firstSpanFactor = 0.75 / 0.496
+assert(bag:GetLeft() * firstSpanFactor >= metrics.workspaceLeft + 12 - 0.01
+        and (bag:GetLeft() + bag:GetWidth()) * firstSpanFactor <= metrics.workspaceRight - 12 + 0.01
+        and bag:GetTop() * firstSpanFactor <= metrics.workspaceTop - 12 + 0.01
+        and bag:GetBottom() * firstSpanFactor >= metrics.workspaceBottom + 12 - 0.01,
+    "first-span default bag placement must convert effective scales exactly once")
+bag.GetEffectiveScale, UIParent.GetEffectiveScale = initialBagScale, initialParentScale
+
+-- The same default works for the individual backpack presentation.
+ContainerFrameCombinedBags, ContainerFrame1 = nil, makeFrame("ContainerFrame1", 178, 300)
+ContainerFrame1:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 9000, 9000)
+ContainerFrame1:Show()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(ContainerFrame1:GetLeft() >= metrics.workspaceLeft + 12
+        and ContainerFrame1:GetLeft() + ContainerFrame1:GetWidth() <= metrics.workspaceRight - 12
+        and ContainerFrame1:GetBottom() >= metrics.workspaceBottom + 12,
+    "individual Blizzard backpack must also open visibly on its first span")
+ContainerFrame1:Hide()
+controller.scripts.OnUpdate(controller, 0.001)
+ContainerFrame1, ContainerFrameCombinedBags = nil, bag
+
+local function AssertDefaultYield(label)
+    bag:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 9000, 9000)
+    controller.scripts.OnUpdate(controller, 0.001)
+    assert(bag:GetLeft() == 9000 and bag:GetTop() == 9000,
+        "first-span placement must yield during " .. label)
+end
+addon.db.enabled = false
+AssertDefaultYield("disabled addon")
+addon.db.enabled = true
+metrics.isSpanned = false
+AssertDefaultYield("single-screen layout")
+metrics.isSpanned = true
+InCombatLockdown = function() return true end
+AssertDefaultYield("combat")
+InCombatLockdown = function() return false end
+Bagnon = {}
+AssertDefaultYield("replacement bag ownership")
+Bagnon = nil
+addon.Mainhand = {IsNativeGamepadInterface = function() return true end}
+AssertDefaultYield("native Gamepad ownership")
+addon.Mainhand = nil
+addon.db, metrics = initialDB, initialMetrics
 controller.scripts.OnUpdate(controller, 0.11)
 
 assert(bag.nativeHookCalls == 0 and bag.nativeScriptCalls == 0
@@ -283,7 +402,10 @@ bag:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 120, 900)
 
 local handle
 for _, frame in ipairs(created) do
-    if frame ~= controller and frame.parent == UIParent then handle = frame end
+    if frame ~= controller and frame.parent == UIParent and frame.scripts.OnDragStart then
+        handle = frame
+        break
+    end
 end
 assert(handle and handle.scripts.OnDragStart and handle.scripts.OnDragStop,
     "Forever bag proxy must expose a UIParent-owned drag grip")
@@ -353,6 +475,66 @@ assert(not GameMenuFrame:IsShown() and bag:IsShown(),
 assert(nativeToggleGameMenuCalls == 2,
     "bag observation must not add Game Menu toggles")
 
+-- A selected target must remain reachable through Blizzard's Escape order.
+local targetEscapePosition = addon.db.nativeBackpackWorkspacePosition
+local targetEscapeOpens = nativeOpenCalls
+targetSelected = true
+ToggleGameMenu()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(not bag:IsShown() and not GameMenuFrame:IsShown()
+        and addon.db.nativeBackpackWorkspaceOpen == nil,
+    "targeted Escape must respect the native bag close instead of cycling the menu")
+assert(nativeOpenCalls == targetEscapeOpens and targetSelected,
+    "targeted Escape must not reopen bags or clear the target from addon code")
+assert(addon.db.nativeBackpackWorkspacePosition == targetEscapePosition,
+    "native Escape dismissal must preserve saved bag placement")
+ToggleGameMenu()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(not targetSelected and not GameMenuFrame:IsShown() and not bag:IsShown(),
+    "the next native Escape must be able to clear the selected target")
+OpenAllBags()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown(), "player-driven reopening must retain saved workspace placement")
+
+-- Missing or unreadable target state must yield rather than invent focus.
+local unitExistsBefore = UnitExists
+for _,query in ipairs({false, function() error("restricted target query") end}) do
+    UnitExists = query or nil
+    ToggleGameMenu()
+    controller.scripts.OnUpdate(controller, 0.001)
+    assert(not bag:IsShown() and not GameMenuFrame:IsShown(),
+        "unknown target state must leave native Escape dismissal intact")
+    UnitExists = unitExistsBefore
+    OpenAllBags()
+    controller.scripts.OnUpdate(controller, 0.001)
+end
+
+-- Native Gamepad UI owns both bag visibility and Game Menu focus. Its Escape
+-- result must stand, while the saved position and workspace-open intent remain
+-- available for a later player-driven open.
+local gamepadUI = true
+addon.IsGamepadUIEnabled = function() return gamepadUI end
+local opensBeforeGamepadEscape = nativeOpenCalls
+ToggleGameMenu()
+controller.scripts.OnUpdate(controller, 0.001)
+controller.scripts.OnUpdate(controller, 0.001)
+assert(nativeOpenCalls == opensBeforeGamepadEscape and not bag:IsShown()
+        and not GameMenuFrame:IsShown(),
+    "Gamepad UI Escape must not reopen bags or toggle the Game Menu from addon code")
+local trackedBefore = addon.db.nativeBackpackWorkspaceOpen
+addon.db.nativeBackpackWorkspaceOpen = true
+assert(addon.Canvas:RestoreTrackedWorkspaceBag() == false
+        and nativeOpenCalls == opensBeforeGamepadEscape and not bag:IsShown()
+        and addon.db.nativeBackpackWorkspaceOpen == true,
+    "Gamepad UI must not restore a tracked bag from addon code or forget it")
+addon.db.nativeBackpackWorkspaceOpen = trackedBefore
+gamepadUI = false
+OpenAllBags()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown() and math.abs(bag:GetLeft() - 240) < 0.01,
+    "a player-opened bag must return to its saved workspace position")
+nativeOpenCalls = opensBeforeGamepadEscape
+
 -- Some Forever builds complete the second Escape natively: both the menu and
 -- bag are hidden before the observer runs. That dismissal must restore the bag
 -- without starting the three-second system-panel navigation grace period.
@@ -384,10 +566,46 @@ assert(not bag:IsShown(),
 bag:Show()
 controller.scripts.OnUpdate(controller, 0.001)
 
+-- Native Chat Settings closes the workspace backpack during ShowUIPanel.
+-- Preserve open intent through that navigation without borrowing its frame
+-- scripts, and retain a later explicit B close while the dialog remains open.
+ChatConfigFrame = makeFrame("ChatConfigFrame", 745, 605)
+ChatConfigFrame:Show()
+local chatConfigHooks = ChatConfigFrame.nativeHookCalls
+bag:Hide()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown() and addon.db.nativeBackpackWorkspaceOpen == true,
+    "Chat Settings must restore the tracked workspace backpack")
+assert(ChatConfigFrame.nativeHookCalls == chatConfigHooks,
+    "bag preservation must not install Chat Settings scripts")
+ToggleAllBags()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(not bag:IsShown() and addon.db.nativeBackpackWorkspaceOpen == nil,
+    "explicit B close must win while Chat Settings remains open")
+ChatConfigFrame:Hide()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(not bag:IsShown(), "closing Chat Settings must not undo an explicit B close")
+bag:Show()
+controller.scripts.OnUpdate(controller, 0.001)
+
 -- System panels may temporarily hide the bag, but the tracked workspace-open
 -- intent must survive and recovery must use Blizzard's bag APIs.
 SettingsPanel = makeFrame("SettingsPanel", 900, 700)
+SettingsPanel:SetPoint("CENTER", UIParent, "CENTER", 0, 500)
 SettingsPanel:Show()
+local settingsNativeHooks = SettingsPanel.nativeHookCalls
+addon.Mainhand = { IsNativeGamepadInterface = function() return true end }
+Settings:OpenToCategory()
+addon.Mainhand = nil
+local settingsPoint = SettingsPanel.points[1]
+assert(settingsPoint and settingsPoint[1] == "CENTER" and settingsPoint[2] == UIParent
+        and settingsPoint[3] == "CENTER"
+        and math.abs(settingsPoint[4] - 720) < 0.01
+        and math.abs(settingsPoint[5] + 560) < 0.01,
+    "native gamepad Settings must be centered on Mainhand through the external opening observer")
+assert(SettingsPanel.nativeHookCalls == settingsNativeHooks
+        and SettingsPanel._OffhandMainhandHooked == nil,
+    "native gamepad Settings recovery must not hook or annotate the Blizzard frame")
 nativeOpenerDeclinesHiddenLogicalState = true
 bag:Hide()
 controller.scripts.OnUpdate(controller, 0.001)
@@ -411,6 +629,20 @@ bag:Hide()
 controller.scripts.OnUpdate(controller, 0.001)
 assert(bag:IsShown(),
     "Edit Mode transition must restore the tracked workspace bag through Blizzard's API")
+
+ProfessionsBookFrame = makeFrame("ProfessionsBookFrame", 700, 800)
+UIPanelWindows.ProfessionsBookFrame = { area = "left", pushable = 0 }
+ProfessionsBookFrame:Show()
+controller.scripts.OnUpdate(controller, 0.001)
+bag:Hide()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown() and addon.db.nativeBackpackWorkspaceOpen == true,
+    "opening Professions must preserve and restore the tracked workspace bag")
+ProfessionsBookFrame:Hide()
+bag:Hide()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown() and addon.db.nativeBackpackWorkspaceOpen == true,
+    "closing Professions must preserve and restore the tracked workspace bag")
 
 nativeOpenerDeclinesHiddenLogicalState = false
 ToggleAllBags = function()
@@ -462,6 +694,24 @@ mouseFoci = {}
 assert(not bag:IsShown(),
     "native close-button click must close without workspace restoration")
 
+-- Native X hides the root before the close post-hook, clearing GetMouseFoci.
+-- The still-valid button hit rectangle identifies that same explicit close.
+bag:Show()
+controller.scripts.OnUpdate(controller, 0.001)
+bag.CloseButton.IsForbidden = function() return false end
+bag.CloseButton.IsMouseOver = function() return true end
+CloseAllBags()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(not bag:IsShown() and addon.db.nativeBackpackWorkspaceOpen == nil,
+    "native X must stay closed when hiding the root clears mouse focus")
+bag.CloseButton.IsMouseOver = function() error("restricted hit test") end
+bag:Show()
+controller.scripts.OnUpdate(controller, 0.001)
+CloseAllBags()
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:IsShown(), "an unavailable hit test must retain navigation recovery")
+bag.CloseButton.IsMouseOver = nil
+
 -- A normal bag opening starts at Blizzard's bottom-right anchor. The observer
 -- runs every rendered frame so the saved root is corrected before that native
 -- position can be painted.
@@ -475,4 +725,250 @@ assert(rawget(bag, "_OffhandDragging") == nil
         and rawget(bag, "_OffhandHandle") == nil,
     "proxy adapter must not store Offhand bookkeeping on the native bag")
 
+-- Settled proxy geometry must not generate layout writes on every render frame.
+local proxyWrites=0
+local originalClear,originalPoint,originalSize=handle.ClearAllPoints,handle.SetPoint,handle.SetSize
+handle.ClearAllPoints=function(...) proxyWrites=proxyWrites+1;return originalClear(...) end
+handle.SetPoint=function(...) proxyWrites=proxyWrites+1;return originalPoint(...) end
+handle.SetSize=function(...) proxyWrites=proxyWrites+1;return originalSize(...) end
+for _=1,600 do controller.scripts.OnUpdate(controller,1/60) end
+assert(proxyWrites==0,'settled native-bag proxy must not rewrite layout every frame')
+
+handle.scripts.OnDragStart(handle)
+bag:SetPoint('TOPLEFT',UIParent,'BOTTOMLEFT',300,850)
+controller.scripts.OnUpdate(controller,0.001)
+assert(proxyWrites==2 and math.abs(handle:GetLeft()-344)<0.001,
+    'dragging must move the proxy immediately without rewriting unchanged size')
+handle.scripts.OnDragStop(handle)
+controller.scripts.OnUpdate(controller,0.001)
+proxyWrites=0
+bag.width=bag.width+40
+controller.scripts.OnUpdate(controller,0.001)
+assert(proxyWrites==1 and math.abs(handle:GetWidth()-(bag:GetWidth()-96))<0.001,
+    'bag resize must immediately update only the changed proxy size')
+
+local originalBagScale,originalParentScale=bag.GetEffectiveScale,UIParent.GetEffectiveScale
+bag.GetEffectiveScale=function() return 1.25 end
+UIParent.GetEffectiveScale=function() return 0.8 end
+proxyWrites=0
+controller.scripts.OnUpdate(controller,0.001)
+assert(proxyWrites>0 and math.abs(handle:GetHeight()-24*1.25/0.8)<0.001,
+    'effective-scale changes must update the proxy in the first observer frame')
+bag.GetEffectiveScale,UIParent.GetEffectiveScale=originalBagScale,originalParentScale
+controller.scripts.OnUpdate(controller,0.001)
+
+-- Inspect actual addon-owned geometry rather than trusting cached last inputs.
+handle:SetPoint('TOPLEFT',UIParent,'BOTTOMLEFT',1,1)
+proxyWrites=0
+controller.scripts.OnUpdate(controller,0.001)
+assert(proxyWrites==2,'displaced proxy must be repaired without rewriting its size')
+handle:SetSize(1,1)
+proxyWrites=0
+controller.scripts.OnUpdate(controller,0.001)
+assert(proxyWrites==1,'changed proxy dimensions must be repaired without reanchoring')
+proxyWrites=0
+controller.scripts.OnUpdate(controller,0.001)
+assert(proxyWrites==0,'a repaired proxy must return immediately to zero layout writes')
+handle:Hide();bag:Hide()
+controller.scripts.OnUpdate(controller,0.001)
+bag:Show()
+controller.scripts.OnUpdate(controller,0.001)
+assert(handle:IsShown(),'reopening a bag must show its grip even when geometry is unchanged')
+handle.ClearAllPoints,handle.SetPoint,handle.SetSize=originalClear,originalPoint,originalSize
+
+-- Exercise the production compatibility gate with combined mode's missing
+-- individual root. A false replacement owner used to disable this controller.
+assert(ContainerFrame1 == nil and ContainerFrameCombinedBags == bag)
+assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
+bag:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 9000, 9000)
+controller.scripts.OnUpdate(controller, 0.001)
+assert(bag:GetLeft() < metrics.workspaceRight and handle:IsShown(),
+    "combined-only native bags must still restore through the production ownership gate")
+
+-- Player combat and lockdown can disagree across the transition. Neither
+-- native repositioning nor addon-driven bag opening may use that interval.
+unitCombat=true
+bag:SetPoint('TOPLEFT',UIParent,'BOTTOMLEFT',9000,9000)
+controller.scripts.OnUpdate(controller,.001)
+assert(bag:GetLeft()==9000,'native bag placement must yield while player combat remains active')
+local openBeforeCombat=nativeOpenCalls
+bag:Hide()
+assert(not addon.Canvas:RestoreTrackedWorkspaceBag(), 'combat restore must refuse native opening')
+assert(nativeOpenCalls==openBeforeCombat and addon.Canvas:GetNativeBackpackWorkspacePosition(),
+    'combat recovery must preserve intent without opening or toggling native bags')
+unitCombat=false
+bag:Show()
+controller.scripts.OnUpdate(controller,.001)
+assert(bag:GetLeft()<metrics.workspaceRight,'settled combat exit must restore the existing saved position')
+local originalOpen, originalToggle = OpenAllBags, ToggleAllBags
+local fallbackCalls=0
+bag:Hide()
+OpenAllBags=function() unitCombat=true end
+ToggleAllBags=function() fallbackCalls=fallbackCalls+1 end
+assert(not addon.Canvas:RestoreTrackedWorkspaceBag(), 'a native callback entering combat must stop recovery')
+assert(fallbackCalls==0 and addon.Canvas:GetNativeBackpackWorkspacePosition()
+    and not addon.Canvas._restoringWorkspaceBagFromEscape,
+    'combat entered during native opening must stop fallback toggles and retain intent')
+unitCombat=false
+OpenAllBags,ToggleAllBags=originalOpen,originalToggle
+assert(addon.Canvas:RestoreTrackedWorkspaceBag(),'the same pending intent must recover after combat settles')
+
+-- A previously initialized, unrestricted root can be repaired after native
+-- combat reopening without opening bags or touching their content/controls.
+bag.IsForbidden=function() return false end
+bag.IsProtected=function() return false end
+bag.CanChangeProtectedState=function() return true end
+bag.IsAnchoringRestricted=function() return false end
+bag.IsAnchoringSecret=function() return false end
+bag.GetParent=function() return UIParent end
+local savedBeforeCombat=addon.Canvas:GetNativeBackpackWorkspacePosition()
+local snapshotsBeforeCombat=profileSnapshotWrites
+local opensBeforeRootRepair=nativeOpenCalls
+unitCombat=true
+bag:SetPoint('TOPLEFT',UIParent,'BOTTOMLEFT',9000,9000)
+controller.scripts.OnUpdate(controller,.001)
+assert(bag:GetLeft()<metrics.workspaceRight,
+    'an explicitly writable initialized bag root must return to its saved workspace position during combat')
+assert(not handle:IsShown(),'combat repair must not expose a drag grip')
+-- Separate native bags use Blizzard's ContainerFrameContainer parent, whereas
+-- the combined root is directly under UIParent. Preserve both native trees.
+ContainerFrameContainer = {
+ GetParent=function() return UIParent end,
+ IsForbidden=bag.IsForbidden, IsProtected=bag.IsProtected,
+ CanChangeProtectedState=bag.CanChangeProtectedState,
+ IsAnchoringRestricted=bag.IsAnchoringRestricted, IsAnchoringSecret=bag.IsAnchoringSecret,
+}
+bag.GetParent=function() return ContainerFrameContainer end
+bag:Hide()
+controller.scripts.OnUpdate(controller,.001)
+bag:Show()
+bag:SetPoint('TOPLEFT',ContainerFrameContainer,'BOTTOMLEFT',9000,9000)
+controller.scripts.OnUpdate(controller,.001)
+assert(bag:GetLeft()<metrics.workspaceRight,
+    'a reopened separate native bag must repair while retaining its Blizzard container parent')
+local nativeContainer=ContainerFrameContainer
+ContainerFrameContainer={}
+bag.GetParent=function() return nativeContainer end
+bag:SetPoint('TOPLEFT',UIParent,'BOTTOMLEFT',9000,9000)
+controller.scripts.OnUpdate(controller,.001)
+assert(bag:GetLeft()==9000,'an unknown container parent must yield')
+ContainerFrameContainer=nativeContainer
+nativeContainer.GetParent=function() return {} end
+controller.scripts.OnUpdate(controller,.001)
+assert(bag:GetLeft()==9000,'a reparented native container must yield')
+nativeContainer.GetParent=function() return UIParent end
+nativeContainer.IsProtected=function() return true end
+controller.scripts.OnUpdate(controller,.001)
+assert(bag:GetLeft()==9000,'a protected native container must yield')
+nativeContainer.IsProtected=bag.IsProtected
+bag.GetParent=function() return UIParent end
+assert(addon.Canvas:GetNativeBackpackWorkspacePosition()==savedBeforeCombat
+    and profileSnapshotWrites==snapshotsBeforeCombat and nativeOpenCalls==opensBeforeRootRepair,
+    'combat root repair must not persist state or invoke native openers')
+local previousWorkspace,previousMain,previousCanonical=addon.db.savedWorkspacePositions,addon.db.savedMainPositions,addon.db.nativeBackpackWorkspacePosition
+addon.db.savedWorkspacePositions={};addon.db.nativeBackpackWorkspacePosition=nil
+addon.db.savedMainPositions={ContainerFrameCombinedBags={x=metrics.gameLeft+80,y=800}}
+InCombatLockdown=function() return true end
+bag:SetPoint('TOPLEFT',UIParent,'BOTTOMLEFT',9000,9000)
+controller.scripts.OnUpdate(controller,.001)
+assert(bag:GetLeft()==metrics.gameLeft+80,'combat repair must also honor saved Mainhand placement during lockdown')
+addon.db.savedWorkspacePositions,addon.db.savedMainPositions,addon.db.nativeBackpackWorkspacePosition=previousWorkspace,previousMain,previousCanonical
+InCombatLockdown=function() return false end
+for _,method in ipairs({'IsForbidden','IsProtected','CanChangeProtectedState','IsAnchoringRestricted','IsAnchoringSecret'}) do
+ local original=bag[method]
+ bag[method]=function() return method~='CanChangeProtectedState' end
+ bag:SetPoint('TOPLEFT',UIParent,'BOTTOMLEFT',9000,9000)
+ controller.scripts.OnUpdate(controller,.001)
+ assert(bag:GetLeft()==9000,'restricted root must defer: '..method)
+ bag[method]=nil
+ controller.scripts.OnUpdate(controller,.001)
+ assert(bag:GetLeft()==9000,'missing capability must defer: '..method)
+ bag[method]=original
+end
+local secretFlag={}
+issecretvalue=function(value) return value==secretFlag end
+bag.CanChangeProtectedState=function() return secretFlag end
+controller.scripts.OnUpdate(controller,.001)
+assert(bag:GetLeft()==9000,'secret security state must defer without truth-testing it')
+bag.CanChangeProtectedState=function() return true end
+issecretvalue=nil
+local originalPoint=bag.SetPoint
+local failedWrites=0
+bag.SetPoint=function() failedWrites=failedWrites+1;error('simulated rejected root anchor') end
+controller.scripts.OnUpdate(controller,.001)
+controller.scripts.OnUpdate(controller,.001)
+assert(failedWrites==1,'a rejected combat anchor must suspend repair until combat ends')
+bag.SetPoint=originalPoint
+unitCombat=false
+controller.scripts.OnUpdate(controller,.001)
+assert(bag:GetLeft()<metrics.workspaceRight,'ordinary recovery must resume when combat settles')
+unitCombat=true
+bag:SetPoint('TOPLEFT',UIParent,'BOTTOMLEFT',9000,9000)
+local silentWrites=0
+bag.SetPoint=function() silentWrites=silentWrites+1 end
+controller.scripts.OnUpdate(controller,.001)
+controller.scripts.OnUpdate(controller,.001)
+assert(silentWrites==1,'silent native rejection must also suspend combat repair')
+bag.SetPoint=originalPoint
+unitCombat=false
+controller.scripts.OnUpdate(controller,.001)
+
+bag.IsVisible = function() return false end
+bag.GetEffectiveAlpha = function() return 0 end
+bag.GetParent = function() return UIParent end
+UIParent.GetName = function() return "UIParent" end
+local diagnosticLeft, diagnosticTop = bag:GetLeft(), bag:GetTop()
+local bagReport = addon.Canvas:GetForeverNativeBagDiagnostics()
+assert(bagReport:find("custom=0 proxy=1", 1, true)
+        and bagReport:find("ContainerFrame1=absent", 1, true)
+        and bagReport:find("shown=true,visible=false,alpha=0,parent=UIParent", 1, true)
+        and bagReport:find("rect=", 1, true) and bagReport:find("saved=workspace", 1, true),
+    "bag diagnostics must distinguish a shown root from an invisible or transparent bag")
+assert(bag:GetLeft() == diagnosticLeft and bag:GetTop() == diagnosticTop,
+    "bag diagnostics must not repair or toggle the reported frame")
+bag.GetBottom = function() error("unavailable geometry") end
+assert(addon.Canvas:GetForeverNativeBagDiagnostics():find("ContainerFrameCombinedBags={unresolved}", 1, true),
+    "unreadable native bag geometry must not abort the support report")
 print("PASS: Forever native bags use an isolated sibling proxy and persist movement")
+print('PASS: proxy no-op layout, immediate drag/resize/scale updates and disturbed geometry repair')
+
+-- Region sizing must use the native controller, without installing a watcher
+-- on the bag tree, and must not repeat size writes on an oversized fallback.
+assert(loadfile('Core/WorkspaceRegions.lua'))('Offhand',addon)
+assert(loadfile('Core/WorkspaceScale.lua'))('Offhand',addon)
+addon.IsGamepadUIEnabled=function()return false end
+map:Hide()
+unitCombat=false;bag:Show();bag.width,bag.height=420,620
+bag.GetEffectiveScale=function(self)return self:GetScale()end
+metrics.workspaceScaleLayout='native-bags';metrics.primaryWorkspaceRegion='a'
+metrics.workspaceRegions={{id='a',x=0,y=0,width=720,height=1440},{id='b',x=720,y=0,width=720,height=1440}}
+addon.db={enabled=true,savedWorkspacePositions={ContainerFrameCombinedBags={x=120,y=900,regionId='a'}},savedMainPositions={}}
+local sizing=addon.WorkspaceScale
+local hooks,scripts=bag.nativeHookCalls,bag.nativeScriptCalls
+assert(sizing:SetSetting(metrics,'a',.5));assert(bag:GetScale()==.5,'Dedicated native controller did not resize bags')
+assert(not sizing.watched[bag] and bag.nativeHookCalls==hooks and bag.nativeScriptCalls==scripts,
+    'Region sizing installed code on the native bag ancestry')
+assert(sizing:SetSetting(metrics,'b',1.25))
+addon.db.savedWorkspacePositions.ContainerFrameCombinedBags={x=820,y=1100,regionId='b'}
+sizing:Refresh();assert(bag:GetScale()==1.25,'Native bag region transfer used the primary scale')
+bag:SetScale(1);addon.Canvas:RefreshForeverNativeBagPlacement(bag)
+assert(bag:GetScale()==1.25,'Native bag reset lost its region size')
+unitCombat=true;bag:SetScale(1);controller.scripts.OnUpdate(controller,.001)
+assert(bag:GetScale()==1,'Native combat anchor repair changed scale')
+unitCombat=false;addon.Canvas:RefreshForeverNativeBagPlacement(bag)
+assert(bag:GetScale()==1.25)
+bag.width=1200;assert(sizing:SetSetting(metrics,'b',.5))
+assert(bag:GetScale()==.5,'Native shrink-to-fit failed')
+assert(sizing:SetSetting(metrics,'b',1.5))
+assert(bag:GetScale()==1 and bag:GetLeft()>=metrics.gameLeft,'Oversized native bag did not use Mainhand fallback')
+local nativeScale=bag.SetScale;local sizeWrites=0
+bag.SetScale=function(self,v)sizeWrites=sizeWrites+1;nativeScale(self,v)end
+addon.Canvas:RefreshForeverNativeBagPlacement(bag);addon.Canvas:RefreshForeverNativeBagPlacement(bag)
+assert(sizeWrites==0,'Native fit fallback repeatedly scaled and unscaled the bag')
+assert(addon.db.savedWorkspacePositions.ContainerFrameCombinedBags.regionId=='b','Native fallback overwrote workspace intent')
+addon.db.savedWorkspacePositions={};addon.db.nativeBackpackWorkspacePosition=nil
+assert(sizing:SetSetting(metrics,'a',1.5))
+addon.Canvas:RefreshForeverNativeBagPlacement(bag);sizeWrites=0
+addon.Canvas:RefreshForeverNativeBagPlacement(bag);addon.Canvas:RefreshForeverNativeBagPlacement(bag)
+assert(sizeWrites==0,'A default bag without saved intent repeated fallback scale writes')
+print('PASS: region sizing uses native bag placement, keeps reset/combat isolation and avoids fallback scale churn')
