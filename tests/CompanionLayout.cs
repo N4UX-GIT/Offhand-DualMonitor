@@ -501,10 +501,28 @@ namespace Offhand.Companion
             const System.Reflection.BindingFlags flags=System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Static;
             var settings=(Dictionary<string,string>)typeof(CompanionForm).GetField("appSettings",flags).GetValue(null);
             var before=new Dictionary<string,string>(settings);
-            var bounds=form.Bounds;
+
+            // WinForms ignores AutoScrollPosition until the control has been created.
+            // DrawToBitmap can create a handle for a hidden control without doing that.
+            settings["CompanionTutorialSeen"] = "True";
+            CompanionForm.RememberCompanionVersion(settings);
+            form.Opacity = 0;
+            form.ShowInTaskbar = false;
+            form.Show();
+            settings.Clear();
+            foreach (var pair in before) settings[pair.Key] = pair.Value;
+
+            // Force scrolling even on hosts with a tall desktop.
+            form.ClientSize = new Size(form.ClientSize.Width, (int)Math.Ceiling(420 * factor));
             form.SelectDashboardPage(false);
+            LayoutAll(form);
+            var bounds=form.Bounds;
             var viewport=form.Controls.OfType<Panel>().Single(panel=>panel.AutoScroll);
+            viewport.AutoScrollPosition = new Point(0, 32);
             var savedScroll=viewport.AutoScrollPosition;
+            if (savedScroll.Y >= 0) throw new Exception("The tutorial fixture must start with a scrolled dashboard.");
+            var activity = One<Panel>(viewport, panel =>
+                panel.Controls.OfType<Label>().Any(label => label.Text == "ACTIVITY LOG"));
             var content=new System.Text.StringBuilder();
             form.StartDashboardTutorial();
             for(int step=0;step<16;step++) {
@@ -515,7 +533,18 @@ namespace Offhand.Companion
                 if(snapshot.GetPixel(0,0).ToArgb()!=form.BackColor.ToArgb())
                     throw new Exception("Tutorial snapshot included non-client window borders/title bar.");
                 if(highlight.IsEmpty||!overlay.ClientRectangle.Contains(highlight))
-                    throw new Exception("Tutorial target was not brought into view at step "+step);
+                    throw new Exception("Tutorial target was not brought into view at step " + step + " at " + factor
+                        + "x. Highlight=" + highlight + ", viewport=" + viewport.ClientSize
+                        + ", scroll=" + viewport.AutoScrollPosition);
+                if (step == 12)
+                {
+                    var visibleArea = new Rectangle(viewport.Location, viewport.ClientSize);
+                    if (viewport.AutoScrollPosition.Y >= 0 || highlight != BoundsInside(activity, form)
+                        || !visibleArea.Contains(highlight))
+                        throw new Exception("The Activity Log tutorial step must scroll its full highlight into view at "
+                            + factor + "x. Highlight=" + highlight + ", viewport=" + visibleArea
+                            + ", scroll=" + viewport.AutoScrollPosition);
+                }
                 if(!overlay.ClientRectangle.Contains(card.Bounds) || form.Bounds!=bounds || viewport.Enabled)
                     throw new Exception("Tutorial must fit and block underlying controls at "+factor+"x, step "+step+": "+card.Bounds+" / "+overlay.ClientRectangle);
                 foreach(Control item in card.Controls) {
@@ -559,6 +588,7 @@ namespace Offhand.Companion
             for(int step=0;step<16;step++)form.MoveDashboardTutorial(1);
             if(Descendants(form).OfType<Panel>().Any(panel=>panel.AccessibleName=="Companion tutorial"))
                 throw new Exception("Finish did not close the tutorial.");
+            form.Hide();
             settings.Clear();foreach(var pair in before)settings[pair.Key]=pair.Value;
         }
 
