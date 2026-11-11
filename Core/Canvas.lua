@@ -1991,9 +1991,9 @@ function Canvas:EnableFreeDragging()
     if Offhand.isForever then
         self:EnableForeverNativeBagProxy()
     end
-    if Offhand.isForever and IsExternallyPositionedWorldMap(_G.WorldMapFrame) then
-        -- The addon-owned handle stays hidden while the external addon owns geometry;
-        -- its read-only observer still preserves Escape and reload open state.
+    if Offhand.isForever and Compatibility.SupportsExternalWorldMapEscapeProtection(_G.WorldMapFrame) then
+        -- Park the handle while the external addon positions the map so its
+        -- observer can still apply workspace Escape protection.
         AttachForeverWorldMapDragHandle(_G.WorldMapFrame)
     end
 
