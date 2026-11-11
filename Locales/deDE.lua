@@ -79,6 +79,7 @@ L["CHARACTER_SETUP_HIDE_SPAN_NOTICE"] = "Nicht mehr anzeigen"
 L["CHARACTER_SETUP_RETRY"] = "Verlasse den Kampf und schließe Blizzards Bearbeitungsmodus. Versuche es dann erneut."
 L["CHARACTER_SETUP_REUSED"] = "Vorhandenes HUD-Layout für diesen Charakter ausgewählt. Die Bildschirmkalibrierung bleibt erhalten."
 L["SETUP_FIRST_PANEL"] = "Öffne nach der Kalibrierung und einem eventuell angeforderten Neuladen die Weltkarte und ziehe ihre Titelleiste auf Offhand. Die leere Arbeitsfläche ist für deine Fenster bereit."
+L["SETUP_REVIEW_HUD"] = "Prüfe nach der Einrichtung und einem eventuell nötigen Neuladen, ob Aktionsleisten, Einheitenfenster und Minikarte auf Mainhand liegen. Verschiebe Elemente an der Bildschirmkante im Blizzard-Bearbeitungsmodus oder im Editor deines HUD-Addons und speichere."
 -- Display identification (English fallback until translated).
 L["IDENTIFY_DISPLAYS"] = "Mainhand / Offhand anzeigen"
 L["ONBOARD_INTRO_BRIEF"] = "Spiele auf Mainhand und nutze unterstützte Fenster auf Offhand.\n\nSichere zuerst dein Blizzard-Layout und deine UI-Addon-Profile. Die erweiterte Fensterfläche kann Anpassungen eigener Oberflächen erfordern.\n\nWähle eine Platzierungsmethode und kalibriere danach. Schließen pausiert die Einrichtung."

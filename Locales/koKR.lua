@@ -79,6 +79,7 @@ L["CHARACTER_SETUP_HIDE_SPAN_NOTICE"] = "다시 표시하지 않기"
 L["CHARACTER_SETUP_RETRY"] = "Leave combat and close Blizzard Edit Mode, then try again."
 L["CHARACTER_SETUP_REUSED"] = "Existing HUD layout selected for this character. Your monitor calibration is unchanged."
 L["SETUP_FIRST_PANEL"] = "After calibration and any requested reload, open the World Map and drag its title bar onto Offhand. The empty workspace is ready for your panels."
+L["SETUP_REVIEW_HUD"] = "설정을 마치고 필요한 경우 UI를 재시작한 뒤, 행동 단축바와 유닛 프레임, 미니맵이 Mainhand에 있는지 확인하세요. 화면 경계에 남은 요소는 블리자드 편집 모드 또는 HUD 애드온 편집기에서 옮긴 뒤 저장하세요."
 -- Display identification (English fallback until translated).
 L["IDENTIFY_DISPLAYS"] = "Show Mainhand / Offhand"
 L["ONBOARD_INTRO_BRIEF"] = "Keep the game on Mainhand and supported panels on Offhand.\n\nBefore setup, save a copy of your Blizzard Edit Mode layout and back up your UI addon profiles. Spanning changes the canvas, so custom interfaces may need repositioning.\n\nChoose a placement method, then calibrate. Closing this guide pauses setup."

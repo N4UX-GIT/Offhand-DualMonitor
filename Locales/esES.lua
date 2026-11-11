@@ -79,6 +79,7 @@ L["CHARACTER_SETUP_HIDE_SPAN_NOTICE"] = "No volver a mostrar"
 L["CHARACTER_SETUP_RETRY"] = "Sal del combate y cierra el modo de edición de Blizzard; después, vuelve a intentarlo."
 L["CHARACTER_SETUP_REUSED"] = "Diseño HUD existente seleccionado para este personaje. La calibración de los monitores no cambia."
 L["SETUP_FIRST_PANEL"] = "Tras calibrar y recargar si se solicita, abre el mapa del mundo y arrastra su barra de título a Offhand. El espacio vacío está listo para tus paneles."
+L["SETUP_REVIEW_HUD"] = "Tras la configuración y cualquier recarga solicitada, comprueba que las barras de acción, los marcos de unidad y el minimapa estén en Mainhand. Mueve los elementos que queden junto a la separación en el modo de edición de Blizzard o en el editor de tu addon de HUD y guarda."
 -- Display identification (English fallback until translated).
 L["IDENTIFY_DISPLAYS"] = "Mostrar Mainhand / Offhand"
 L["ONBOARD_INTRO_BRIEF"] = "Mantén el juego en Mainhand y los paneles compatibles en Offhand.\n\nAntes guarda una copia del diseño Blizzard y de los perfiles de addons UI. Extender cambia el área y puede exigir recolocar interfaces personalizadas.\n\nElige colocación y luego calibra. Cerrar pausa la configuración."

@@ -1893,7 +1893,7 @@ function Mainhand:SetEditModeLayoutDeferred(deferred)
     return true
 end
 
-function Mainhand:PromptReload()
+function Mainhand:PromptReload(reviewHUD)
     if not StaticPopupDialogs or not Offhand.ShowPopup then return false end
     local dialog = StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD or {
         timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
@@ -1918,13 +1918,14 @@ function Mainhand:PromptReload()
         dialog.button2 = LATER or "Later"
         dialog.OnAccept = function()
             if NativeGamepadInterface() or (InCombatLockdown and InCombatLockdown()) then
-                Mainhand:PromptReload()
+                Mainhand:PromptReload(reviewHUD)
                 return
             end
             local reload = Offhand:GetReloadUIFunction()
-            if reload then reload() else Mainhand:PromptReload() end
+            if reload then reload() else Mainhand:PromptReload(reviewHUD) end
         end
     end
+    if reviewHUD then dialog.text = dialog.text .. "\n\n" .. Offhand.L["SETUP_REVIEW_HUD"] end
     Offhand:ShowPopup("OFFHAND_MAINHAND_LAYOUT_RELOAD")
     return true
 end

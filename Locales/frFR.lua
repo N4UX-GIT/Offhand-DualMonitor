@@ -78,6 +78,7 @@ L["CHARACTER_SETUP_HIDE_SPAN_NOTICE"] = "Ne plus afficher"
 L["CHARACTER_SETUP_RETRY"] = "Quittez le combat et fermez le mode Édition de Blizzard, puis réessayez."
 L["CHARACTER_SETUP_REUSED"] = "Disposition existante sélectionnée pour ce personnage. Le calibrage des écrans est conservé."
 L["SETUP_FIRST_PANEL"] = "Après le calibrage et tout rechargement demandé, ouvrez la carte du monde et faites glisser sa barre de titre sur Offhand. Cet espace vide est prêt à accueillir vos fenêtres."
+L["SETUP_REVIEW_HUD"] = "Après la configuration et le rechargement éventuel, vérifiez que les barres d’action, les cadres d’unité et la minicarte sont sur Mainhand. Déplacez les éléments encore près de la séparation dans le mode Édition de Blizzard ou dans l’éditeur de votre addon HUD, puis enregistrez."
 -- Display identification (English fallback until translated).
 L["IDENTIFY_DISPLAYS"] = "Afficher Mainhand / Offhand"
 L["ONBOARD_INTRO_BRIEF"] = "Gardez le jeu sur Mainhand et les fenêtres prises en charge sur Offhand.\n\nAvant de commencer, exportez votre disposition Blizzard et sauvegardez vos profils d’interface. L’extension de la fenêtre peut nécessiter de repositionner votre interface.\n\nChoisissez une méthode, puis procédez à l’étalonnage. Fermer ce guide met la configuration en pause."

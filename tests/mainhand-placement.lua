@@ -820,15 +820,19 @@ assert(addon.Mainhand:PromptReload()
         and StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.button2 == nil,
     "native Gamepad reload prompt retained a protected ReloadUI callback")
 currentInterfaceStyle = 1
-assert(addon.Mainhand:PromptReload()
+assert(addon.Mainhand:PromptReload(true)
         and type(StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.OnAccept) == "function"
         and StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.offhandAcceptBeforeHide == true
         and reloadCalls == 0,
     "Forever keyboard HUD reload must use the visible-parent callback path")
+assert(StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.text:find(addon.L.SETUP_REVIEW_HUD, 1, true),
+    "the calibration reload prompt must show the final HUD review")
 addon.isForever = false
 assert(addon.Mainhand:PromptReload()
         and type(StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.OnAccept) == "function",
     "keyboard reload prompt did not retain its normal reload action")
+assert(not StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.text:find(addon.L.SETUP_REVIEW_HUD, 1, true),
+    "standalone reload reused an earlier calibration's guidance")
 StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.OnAccept()
 assert(reloadCalls == 1, "keyboard reload prompt did not call ReloadUI")
 do

@@ -32,3 +32,17 @@ The reporter describes a visible World Map and Quest Log with the drag surface a
 Recover Missing UI and `/offhand gather` now use the existing Forever handle geometry for the map. Oversized maps retain their scale and place the handle inside Mainhand. The missing-only action checks the resulting position before retiring the previous saved placement. Controller ownership, a current drag, maximized maps, external ownership and combat still prevent the map move. The OpenMap-specific recovery remains available through its existing command.
 
 The shared knowledge search index was stale. The scoped change uses Offhand's existing independent drag surface and the Forever 70888 root definition. Native verification still needs an affected layout and the reporter's active map owner. [Forever map definition](https://github.com/Gethe/wow-ui-source/blob/4cd0ab752a77164f654ccbca9d0c1fe8dafceebe/Interface/AddOns/Blizzard_WorldMap/Blizzard_WorldMap.xml#L65-L124)
+
+## Combat and viewport evidence
+
+The combat report describes Character, Professions and Skills moving partly beyond the left edge of the second display and returning after combat. The reporter uses a window mover. The client/build, mover name and first position writer remain unknown. Ordinary Offhand panel restores already defer during lockdown. There is insufficient evidence to change combat placement policy. [Combat report](https://discord.com/channels/1491522138371391691/1569436487232135190)
+
+`/offhand diag full` now reports visible Character, Skills, spellbook and professions roots with parent, effective scale, UIParent-space rectangle, first anchor and saved placement side. It reads only public values from known panels. Capture the same open panel before combat, during clipping and after combat, then repeat with the mover disabled. This can show whether the anchor, ancestor or effective scale changed. Identifying the writer may still require a controlled reproduction.
+
+Full reports also print actual and planned WorldFrame rectangles in bottom-origin physical pixels. The compact report includes these bounds when its viewport check fails. The diagnostic command leaves saved settings alone. Frame geometry and the observed 3D camera position remain separate evidence. The shared Forever search index was stale, so the combat accessor check used the upstream 70888 declaration and the existing Offhand panel source. [Blizzard anchor accessor declaration](https://github.com/Gethe/wow-ui-source/blob/4cd0ab752a77164f654ccbca9d0c1fe8dafceebe/Interface/AddOns/Blizzard_APIDocumentationGenerated/SimpleScriptRegionResizingAPIDocumentation.lua#L49-L81)
+
+## Calibration completion guidance
+
+A newer support report shows an applied span with action bars on both sides. The player confirmed moving their HUD resolved it. The calibration completion message and its final HUD reload prompt now tell players to check their action bars, unit frames and minimap on Mainhand, then save any remaining adjustments in Blizzard Edit Mode or their HUD addon's editor. The message is translated in all supported locales. [Screenshots and player follow-up](https://discord.com/channels/1491522138371391691/1551335554787057694/1569943646185193523)
+
+All 127 Lua suites and six manifest checks pass. The diagnostic reads and completion guidance still need native UI confirmation.

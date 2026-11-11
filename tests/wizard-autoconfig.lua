@@ -410,7 +410,7 @@ assert(not addon:IsSetupComplete(), "Opening window setup must not complete cali
 OffhandDB.onboarding = {}
 addon.isForever = true
 local createMainhandLayoutCount = 0
-local reloadPromptCount = 0
+local reloadPromptCount, reviewHUD = 0, nil
 local createMainhandLayoutResult = { true, "Offhand - Mainhand - Test", 52 }
 local mainhandLayoutDeferred = false
 addon.Mainhand = {
@@ -421,8 +421,9 @@ addon.Mainhand = {
         mainhandLayoutDeferred = deferred == true
         return true
     end,
-    PromptReload = function()
+    PromptReload = function(_, review)
         reloadPromptCount = reloadPromptCount + 1
+        reviewHUD = review
         return true
     end,
 }
@@ -901,9 +902,15 @@ wizardFrame:SetStep(4)
 wizardFrame.finishBtn.scripts.OnClick()
 assert(wizardFrame.step == 5 and not addon:IsSetupComplete(),
     "Forever setup must require the Mainhand HUD layout action after calibration")
+local printedSetupReview, previousPrint = false, addon.Print
+addon.Print = function(_, message)
+    if message == addon.L.SETUP_REVIEW_HUD then printedSetupReview = true end
+end
 wizardFrame.finishBtn.scripts.OnClick()
+addon.Print = previousPrint
 assert(addon:IsSetupComplete() and createMainhandLayoutCount == 1 and reloadPromptCount == 1,
     "creating the Mainhand HUD layout must finish setup and offer the required reload")
+assert(reviewHUD == true and printedSetupReview, "final calibration must surface the Mainhand HUD review")
 OffhandDB.onboarding.setupComplete = false
 addon.Viewport.GetMetrics = function()
     return {
