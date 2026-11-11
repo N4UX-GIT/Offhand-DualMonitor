@@ -1,10 +1,85 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+## [2.1.5-beta.31] - 2026-11-11
 
-## [Unreleased]
+- Forever Gamepad UI keeps controller actions usable after closing the World Map.
+  The map returns to its saved Offhand position. [Issue #84](https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/84)
+- The selected Spellbook entry shows its tooltip beside the icon on Mainhand
+  when first opened with a controller.
+- Keep wizard tabs on one line and size setup and HUD reload dialogs to fit their contents.
 
-No additional changes queued beyond 2.1.5 Pre-Release Beta 28 and Companion 2.1.5.
+Verified with a physical controller on Windows Forever 1.60.1.70888. The
+macOS reporter's confirmation for #84 is pending. Companion 2.1.5 remains
+compatible with this addon update.
+
+## [2.1.5-beta.30] - 2026-11-11
+
+- Fixed a case where remaining loot-roll windows could move to the screen seam
+  after an earlier roll finished. Offhand now keeps their Mainhand placement
+  when Blizzard rearranges the loot container.
+- Expanded the EllesmereUI HUD preview to cover supported cooldown, utility,
+  cast, stance, pet and current-spec tracking bars. Linked groups move together
+  through the normal profile review, and previews show additional rows in pages.
+- Explain which EllesmereUI module or dependency must be installed, enabled or
+  reloaded. Preview messages now identify linked parents, missing bounds,
+  oversized groups and real profile overrides. Empty override stores no longer
+  prevent a layout transfer.
+- Preserve Questie tracker and linked Social/Quick Join button anchors during
+  automatic popup recovery.
+- Respect Retail's friendly-player name-text preference instead of forcing it
+  on. Safely clean up the saved override from older Offhand versions.
+
+Verified with private test panels using Blizzard's native loot-container
+functions in Forever 1.60.1.70862 with spanning applied. Real simultaneous loot
+choices and combat behavior still need player verification. Please report any
+remaining disappearance with `/offhand diag full`, your client/build and other
+UI addons.
+
+Includes the previously released Beta 29 fixes. Existing settings and layouts
+are preserved. No Companion update is required. The owner requested inclusion
+of the previously deferred addon changes. Native Retail preference acceptance,
+active Questie-objective dragging and populated/spec-changing tracking-bar
+imports still need verification. Daylight testing remains deferred and its
+existing Beta 29 implementation is unchanged.
+
+## [2.1.5-beta.29] - 2026-11-10
+
+This is an addon-only beta update. No Companion update is required for these
+fixes. Existing settings and layouts are retained.
+
+- Preserve EllesmereUI and SexyMap minimap placement during automatic window
+  recovery, including detached minimaps and their crop frames.
+- Keep EllesmereUI scaling consistent with the spanned layout and preserve
+  scale choices made by another UI addon when Offhand releases control.
+- Keep open native Forever NPC panels reachable after disabling Offhand or
+  restoring the game window.
+- Fix Forever backpack restoration after Chat Settings closes, native close
+  button handling, and Escape priority when a target is selected.
+- Preserve Details, BetterBags Next and RestedXP window placement during
+  automatic recovery.
+- Fix setup reload-button handling and guidance when the window is not yet
+  spanned. Preserve progress through a manual reload.
+- Compact remaining loot-roll windows after earlier rolls finish, and keep the
+  stack within Mainhand. Fit oversized native item tooltips to their display
+  and restore their scale when the content changes or the tooltip closes.
+- Add optional Mainhand centering for ProcDoc alerts while retaining its own
+  offsets. Preserve its anchor when centering is disabled.
+- Keep DaylightUI's world map at its saved Offhand placement while owned by
+  Offhand, and restore DaylightUI placement and controls when released.
+- Improve minimap compatibility diagnostics and release Offhand's temporary
+  owned UI scale during normal logout outside combat.
+
+Validation includes automated regressions and controlled spanned Forever
+1.60.1.70862 checks. Real simultaneous loot rolls and their combat lifecycle
+could not be tested locally. Their corrections are included for beta feedback;
+please report any remaining disappearance, unusable roll choices or tooltip
+overflow with `/offhand diag full`, the client build and other UI addons.
+
+Old-profile minimap hiding, exact reporter HUD-save failures and physical
+portrait/4K placement reports remain under investigation. This update does not
+add SexyMap synchronization with Blizzard's Edit Mode selection box or change
+Companion display-identity handling. The separate Retail friendly-name
+preference correction is deferred pending native Retail verification.
 
 ## [2.1.5-beta.28] - 2026-11-09
 

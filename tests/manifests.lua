@@ -16,12 +16,12 @@ for _, toc in ipairs(tocs) do
     assert(text:match("## LoadSavedVariablesFirst:%s*1"), "Missing early SavedVariables load: " .. toc)
     assert(text:match("## X%-Offhand%-Manifest:%s*%S+"), "Missing manifest diagnostic marker: " .. toc)
     assert(text:match("## Version:%s*2%.1%.5"), "Matching 2.1.5 addon version missing: " .. toc)
-    assert(text:match("## X%-Offhand%-Release:[ \t]*beta%.28[ \t]*\r?\n"), "Pre-Release Beta 28 addon marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Release:[ \t]*beta%.31[ \t]*\r?\n"), "Pre-Release Beta 31 addon marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Version:%s*2%.1%.5"), "Matching Companion version marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Release:[ \t]*\r?\n"), "Stable Companion release marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Protocol:%s*1"), "Companion protocol marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Min%-Version:%s*2%.1%.2%-beta%.19"), "Companion minimum version marker missing: " .. toc)
-    assert(text:match("## X%-Offhand%-Addon%-Release:[ \t]*beta%.28[ \t]*\r?\n"), "Pre-Release Beta 28 addon marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Addon%-Release:[ \t]*beta%.31[ \t]*\r?\n"), "Pre-Release Beta 31 addon marker missing: " .. toc)
 end
 local genericText = assert(io.open("Offhand.toc", "rb")):read("*a")
 local mainlineText = assert(io.open("Offhand_Mainline.toc", "rb")):read("*a")
@@ -44,6 +44,10 @@ assert(classicText:match("## Interface:%s*30300"),
 assert(wrathText:match("## Interface:%s*30300%s*\r?\n"),
     "dedicated Wrath test manifest must target only interface 30300")
 local main = entries(tocs[1])
+local procDocIndex
+for index, file in ipairs(main) do
+    if file == "Core/ProcDocCompatibility.lua" then procDocIndex = index end
+end
 local initIndex
 local viewportIndex
 local topologyDetectionIndex
@@ -71,6 +75,7 @@ local canvasChatIndex
 local canvasProfessionsIndex
 local canvasPanelMotionIndex
 local canvasMapPresentationIndex
+local daylightMapCompatibilityIndex
 local canvasPanelLifecycleIndex
 local canvasPanelPlacementIndex
 local canvasIndex
@@ -105,6 +110,7 @@ for index, file in ipairs(main) do
     if file == "Core/CanvasProfessions.lua" then canvasProfessionsIndex = index end
     if file == "Core/CanvasPanelMotion.lua" then canvasPanelMotionIndex = index end
     if file == "Core/CanvasMapPresentation.lua" then canvasMapPresentationIndex = index end
+    if file == "Core/DaylightMapCompatibility.lua" then daylightMapCompatibilityIndex = index end
     if file == "Core/CanvasPanelLifecycle.lua" then canvasPanelLifecycleIndex = index end
     if file == "Core/CanvasPanelPlacement.lua" then canvasPanelPlacementIndex = index end
     if file == "Core/Canvas.lua" then canvasIndex = index end
@@ -146,12 +152,15 @@ assert(compatibilityIndex and frameStateIndex and panelRegistryIndex and canvasP
         and canvasChatIndex + 1 == canvasProfessionsIndex
         and canvasProfessionsIndex + 1 == canvasPanelMotionIndex
         and canvasPanelMotionIndex + 1 == canvasMapPresentationIndex
-        and canvasMapPresentationIndex + 1 == canvasPanelLifecycleIndex
+        and canvasMapPresentationIndex + 1 == daylightMapCompatibilityIndex
+        and daylightMapCompatibilityIndex + 1 == canvasPanelLifecycleIndex
         and canvasPanelLifecycleIndex + 1 == canvasPanelPlacementIndex
         and canvasPanelPlacementIndex + 1 == canvasIndex,
     "Canvas support services must load together immediately before Canvas")
 assert(kerzoQuestLogIndex and kerzoQuestLogIndex + 1 == compatibilityIndex,
     "Kerzo Escape adapter must load before Canvas initializes its persistence policy")
+assert(procDocIndex and procDocIndex > viewportIndex and procDocIndex < canvasIndex,
+    "ProcDoc adapter must load after viewport services and before Canvas refresh")
 assert(addonEscapeIndex and addonEscapeIndex + 1 == kerzoQuestLogIndex,
     "addon settings Escape adapters must load before Canvas persistence initialization")
 local workspaceOptionsIndex

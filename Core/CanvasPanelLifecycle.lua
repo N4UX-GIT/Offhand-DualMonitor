@@ -575,18 +575,14 @@ function Lifecycle.InstallModality(Canvas, services)
               return
           end
 
-          -- Removing the workspace map from Blizzard's movement fader prevents the
-          -- intended always-open map from becoming subdued while the player runs.
-          -- This public fader registration is independent of the protected map
-          -- scripts and UIPanel metadata that must remain untouched on Forever.
+          -- Forever's panel registry, layout attributes and shared movement fader
+          -- feed protected map and Gamepad UI execution paths.
+          if Offhand.isForever then return end
+
           if frame == WorldMapFrame and PlayerMovementFrameFader
               and PlayerMovementFrameFader.RemoveFrame then
               pcall(function() PlayerMovementFrameFader.RemoveFrame(WorldMapFrame) end)
           end
-
-          -- Do not mutate Forever's Blizzard-owned panel registry or panel-layout
-          -- attributes. Those feed protected UI execution paths.
-          if Offhand.isForever then return end
 
           if UIPanelWindows and UIPanelWindows[name] then
               if name == "CharacterFrame" or name == "WorldMapFrame" then
@@ -624,7 +620,7 @@ function Lifecycle.InstallModality(Canvas, services)
           Lifecycle.UpdateTBCWorkspacePanelSlots(frame)
           local name = frame:GetName()
           if not name then return end
-          if IsContextBoundPanel(name) then return end
+          if IsContextBoundPanel(name) or Offhand.isForever then return end
 
           if frame == WorldMapFrame and PlayerMovementFrameFader and PlayerMovementFrameFader.AddDeferredFrame then
               pcall(function()
@@ -633,8 +629,6 @@ function Lifecycle.InstallModality(Canvas, services)
                       function() return not WorldMapFrame:IsMaximized() end)
               end)
           end
-
-          if Offhand.isForever then return end
 
           UnregisterSpecialFrame(name)
           if originalAreas[name] then

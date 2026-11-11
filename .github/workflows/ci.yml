@@ -51,7 +51,10 @@ jobs:
         run: |
           ./tests/publication-213.ps1 -HistoricalArtifactsOnly
           ./tests/publication-215.ps1 -HistoricalArtifactsOnly
+          python tests/publication-beta29.py
+          if ($LASTEXITCODE -ne 0) { throw 'Beta 29 publication checks failed' }
           ./tests/release-metadata.ps1
+          ./tests/release-metadata-beta29.ps1
 
       - name: Test monitor identity ambiguity and workspace migration
         shell: powershell

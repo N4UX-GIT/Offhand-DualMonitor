@@ -590,17 +590,17 @@ local function GetGamepadSafePopup()
 
     local text = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     if frame.SetBackdropColor then frame:SetBackdropColor(0.035, 0.035, 0.045, 1) end
-    text:SetPoint("TOPLEFT", frame, "TOPLEFT", 28, -26)
-    text:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -28, -26)
+    text:SetPoint("TOP", frame, "TOP", 0, -18)
     text:SetHeight(112)
     text:SetJustifyH("CENTER")
     text:SetJustifyV("TOP")
     if text.SetWordWrap then text:SetWordWrap(true) end
+    if text.SetNonSpaceWrap then text:SetNonSpaceWrap(true) end
     frame.text = text
 
     local editBox = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
-    editBox:SetSize(430, 24)
-    editBox:SetPoint("BOTTOM", frame, "BOTTOM", 0, 58)
+    editBox:SetHeight(24)
+    editBox:SetPoint("BOTTOM", frame, "BOTTOM", 0, 48)
     if editBox.SetAutoFocus then editBox:SetAutoFocus(false) end
     editBox:SetScript("OnEscapePressed", function(self)
         if self.ClearFocus then self:ClearFocus() end
@@ -608,21 +608,27 @@ local function GetGamepadSafePopup()
     frame.EditBox = editBox
 
     local accept = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    accept:SetSize(210, 24)
-    accept:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 42, 22)
     frame.accept = accept
 
     local cancel = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    cancel:SetSize(210, 24)
-    cancel:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -42, 22)
     frame.cancel = cancel
     local alternate = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    alternate:SetSize(145, 24)
-    alternate:SetPoint("BOTTOM", frame, "BOTTOM", 0, 22)
     frame.alternate = alternate
 
     local function Finish(handler)
         local definition, data = frame.definition, frame.data
+        if handler == "OnAccept" and definition and definition.offhandAcceptBeforeHide
+            and type(definition.OnAccept) == "function" then
+            -- Forever revokes reload's hardware-click permission when its
+            -- clicked parent is hidden first. Keep this ordering opt-in so
+            -- ordinary confirmation callbacks retain their existing lifecycle.
+            local generation = frame.popupGeneration
+            definition.OnAccept(frame, data, "clicked")
+            -- A callback may replace/reopen this same pooled card, including
+            -- the same definition after an input-style or combat change.
+            if frame.popupGeneration == generation and frame.definition == definition then frame:Hide() end
+            return
+        end
         frame:Hide()
         if definition and type(definition[handler]) == "function" then
             definition[handler](frame, data, "clicked")
@@ -646,6 +652,7 @@ end
 function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     local recoveryPopup = popupKey == "OFFHAND_CONFIRM_RECOVERY"
     local setupPopup = popupKey == "OFFHAND_DOWNLOAD_LINK" or popupKey == "OFFHAND_POWERTOYS_LINK"
+        or popupKey == "OFFHAND_SETUP_MANUAL_RELOAD"
         or popupKey == "OFFHAND_WEBSITE_LINK" or popupKey == "OFFHAND_DISCORD_LINK"
         or popupKey == "OFFHAND_CONFIRM_WINDOWED_MODE"
         or popupKey == "OFFHAND_CONFIRM_PLACEMENT"
@@ -666,27 +673,33 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     if not definition then return nil end
     local frame = GetGamepadSafePopup()
     if frame.popupKey then frame:Hide() end
+    frame.popupGeneration = (frame.popupGeneration or 0) + 1
     frame.popupKey, frame.definition, frame.data = popupKey, definition, data
     frame.text:SetJustifyH(recoveryPopup and "LEFT" or "CENTER")
     if frame.text.SetFontObject then
         frame.text:SetFontObject(GameFontHighlight)
     end
-    frame.text:SetText(FormatPopupText(definition.text, textArg1, textArg2))
-    -- Remove the previous card's height before measuring, avoiding truncated
-    -- GetStringHeight results when a longer message reuses this FontString.
-    -- Only our owned card changes strata. Native popup frames are untouched.
+    local message = FormatPopupText(definition.text, textArg1, textArg2)
+    frame.text:SetText(message)
     frame:SetFrameStrata((setupPopup or recoveryPopup) and "TOOLTIP" or "FULLSCREEN_DIALOG")
-    if self.UIControls and self.UIControls.MeasureWrappedText then
-        frame.text:SetHeight(0)
-        local measure = self.UIControls.MeasurePopupText or self.UIControls.MeasureWrappedText
-        local height = measure(frame.text, frame.text:GetText(), 464) + 8
-        frame.text:SetHeight(height)
-        frame:SetHeight(math.max(210, height + (definition.hasEditBox and 118 or 76)))
-    end
 
     local editValue = definition.gamepadEditBoxText
     if type(editValue) == "function" then editValue = editValue() end
+    local width = (editValue ~= nil or definition.button3 or message:find("\n", 1, true)) and 520 or 440
+    local textWidth = width - 48
+    local controls = self.UIControls
+    local textHeight
+    if controls and controls.FitCompactParagraph then
+        textHeight = controls.FitCompactParagraph(frame.text, message, textWidth)
+    else
+        textHeight = 112
+        frame.text:SetWidth(textWidth)
+        frame.text:SetHeight(textHeight)
+    end
+    frame:SetSize(width, textHeight + (editValue ~= nil and 104 or 70))
+
     if editValue ~= nil then
+        frame.EditBox:SetWidth(width - 90)
         frame.EditBox:SetText(tostring(editValue))
         if frame.EditBox.SetCursorPosition then frame.EditBox:SetCursorPosition(0) end
         if frame.EditBox.ClearFocus then frame.EditBox:ClearFocus() end
@@ -695,23 +708,38 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
         frame.EditBox:Hide()
     end
 
-    frame.accept:SetText(definition.button1 or OKAY or "OK")
-    frame.accept:SetWidth(definition.button3 and 145 or 210)
-    frame.cancel:SetWidth(definition.button3 and 145 or 210)
+    local buttons = {{frame.accept, definition.button1 or OKAY or "OK"}}
     frame.alternate:Hide()
+    frame.cancel:Hide()
     if definition.button3 then
-        frame.alternate:SetText(definition.button3)
-        frame.alternate:Show()
+        buttons[#buttons + 1] = {frame.alternate, definition.button3}
     end
     if definition.button2 then
-        frame.accept:ClearAllPoints()
-        frame.accept:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 42, 22)
-        frame.cancel:SetText(definition.button2)
-        frame.cancel:Show()
-    else
-        frame.accept:ClearAllPoints()
-        frame.accept:SetPoint("BOTTOM", frame, "BOTTOM", 0, 22)
-        frame.cancel:Hide()
+        buttons[#buttons + 1] = {frame.cancel, definition.button2}
+    end
+    local count, gap, total = #buttons, 10, 0
+    for _, item in ipairs(buttons) do
+        local button, label = item[1], item[2]
+        button:SetText(label)
+        local fontString = button.GetFontString and button:GetFontString()
+        if fontString and fontString.SetTextScale then fontString:SetTextScale(1) end
+        local labelWidth = controls and controls.MeasureSingleLine and controls.MeasureSingleLine(fontString, label)
+            or #label * 7
+        item.width = math.max(count == 1 and 180 or count == 2 and 132 or 112, labelWidth + 20)
+        total = total + item.width
+    end
+    local scale = math.min(1, (textWidth - (count - 1) * gap) / total)
+    local left = -(total * scale + (count - 1) * gap) / 2
+    for _, item in ipairs(buttons) do
+        local button = item[1]
+        local buttonWidth = item.width * scale
+        button:SetSize(buttonWidth, 24)
+        button:ClearAllPoints()
+        button:SetPoint("BOTTOM", frame, "BOTTOM", left + buttonWidth / 2, 14)
+        local fontString = button.GetFontString and button:GetFontString()
+        if fontString and fontString.SetTextScale then fontString:SetTextScale(scale) end
+        button:Show()
+        left = left + buttonWidth + gap
     end
     PositionGamepadSafeFrame(frame)
     frame:Show()
@@ -720,6 +748,14 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
         if frame.EditBox.SetFocus then frame.EditBox:SetFocus() end
     end
     return frame
+end
+
+function Offhand:ShowManualReloadPrompt()
+    StaticPopupDialogs.OFFHAND_SETUP_MANUAL_RELOAD = {
+        text = self.L["SETUP_MANUAL_RELOAD"], button1 = self.L["BTN_CLOSE"],
+        timeout = 0, whileDead = true, hideOnEscape = true,
+    }
+    return self:ShowPopup("OFFHAND_SETUP_MANUAL_RELOAD")
 end
 
 function Offhand:HidePopup(popupKey)
@@ -1605,14 +1641,14 @@ end)
 local isApplyingLayout = false
 local layoutPending = false
 
-function Offhand:ApplyFullLayout()
+function Offhand:ApplyFullLayout(preserveGlobalScale)
     if not Offhand.db then return end
     if InCombatLockdown() then
         if not layoutPending then
             layoutPending = true
             self:RunOrQueueCombat(function()
                 layoutPending = false
-                Offhand:ApplyFullLayout()
+                Offhand:ApplyFullLayout(preserveGlobalScale)
             end)
         end
         return
@@ -1624,7 +1660,10 @@ function Offhand:ApplyFullLayout()
         if Offhand.WorkspaceProfiles and Offhand.Viewport then
             Offhand.WorkspaceProfiles:SyncCompanion(Offhand.Viewport:GetMetrics())
         end
-        if Offhand.Viewport and Offhand.Viewport.ApplyGlobalScale then Offhand.Viewport:ApplyGlobalScale() end
+        if preserveGlobalScale ~= true and Offhand.Viewport and Offhand.Viewport.ApplyGlobalScale then
+            Offhand.Viewport:ApplyGlobalScale()
+        end
+        if Offhand.EllesmereScaleCompatibility then Offhand.EllesmereScaleCompatibility:Refresh() end
         if Offhand.UpdateViewport then
             Offhand:UpdateViewport()
         end
@@ -2023,6 +2062,9 @@ SlashCmdList["Offhand"] = SlashCmdList["OFFHAND"]
 local logoutFix = CreateFrame('Frame')
 logoutFix:RegisterEvent('PLAYER_LOGOUT')
 logoutFix:SetScript('OnEvent', function()
+    if Offhand.Viewport and Offhand.Viewport.PrepareForLogout then
+        Offhand.Viewport:PrepareForLogout()
+    end
     if Offhand.RawMouse and Offhand.RawMouse.Restore then
         Offhand.RawMouse:Restore()
     end
@@ -2050,9 +2092,6 @@ logoutFix:SetScript('OnEvent', function()
         end
         if db.originalNameplateSize and SetCVar then
             SetCVar("nameplateSize", db.originalNameplateSize)
-        end
-        if db.originalFriendlyPlayerName ~= nil and SetCVar then
-            SetCVar("UnitNameFriendlyPlayerName", db.originalFriendlyPlayerName)
         end
     end
 
@@ -2172,6 +2211,11 @@ frame:SetScript("OnEvent", function()
     local function EnforceTooltipScale(self)
         if not Offhand.isRetail and not Offhand.isForever then return end
         if (InCombatLockdown and InCombatLockdown()) or not UIParent or not HasActiveSpannedLayout() then return end
+        -- The native size callback can run inside the fit's SetScale call,
+        -- before its final ownership record exists. Preserve that transaction
+        -- as well as the completed fit and any scale owner it yielded to.
+        if Offhand.PopupBounds and Offhand.PopupBounds.PreservesTooltipFitScale
+            and Offhand.PopupBounds:PreservesTooltipFitScale(self) then return end
         if self.SetIgnoreParentScale and self.IsIgnoringParentScale and self:IsIgnoringParentScale() then
             self:SetIgnoreParentScale(false)
         end

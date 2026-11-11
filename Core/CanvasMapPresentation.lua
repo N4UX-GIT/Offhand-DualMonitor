@@ -15,6 +15,21 @@ function Map.IsNativeGamepadOwned(Canvas)
         and not Canvas.CanManagePanelsFromAddon() or false
 end
 
+-- Forever can switch to native Gamepad UI in the same session. Leave the
+-- shared fader under Blizzard ownership even while keyboard UI is active.
+local function RemoveMovementFade(map)
+    if not Offhand.isForever and PlayerMovementFrameFader and PlayerMovementFrameFader.RemoveFrame then
+        pcall(PlayerMovementFrameFader.RemoveFrame, map)
+    end
+end
+
+local function RestoreMovementFade(map)
+    if not Offhand.isForever and PlayerMovementFrameFader and PlayerMovementFrameFader.AddDeferredFrame then
+        pcall(PlayerMovementFrameFader.AddDeferredFrame, map, .5, 1.0, .5,
+            function() return not map:IsMaximized() end)
+    end
+end
+
 -- TBC's native scroll controller returns physical cursor pixels, then compares
 -- them with canvas-local bounds. Offhand's window scaling requires conversion
 -- at that boundary. Keep this isolated from Retail/Forever and custom handlers.
@@ -147,9 +162,7 @@ function Map.InstallBehavior(Canvas, services)
         end
         self:SetWorkspacePanelOpen(map, true)
         if Offhand.db and Offhand.db.persistentWorkspacePanels ~= false then
-            if PlayerMovementFrameFader and PlayerMovementFrameFader.RemoveFrame then
-                pcall(function() PlayerMovementFrameFader.RemoveFrame(map) end)
-            end
+            RemoveMovementFade(map)
             -- Keep Offhand's Escape and simultaneous-panel behavior, but let
             -- the external addon's OnShow/layout hooks remain the geometry writer.
             UnregisterSpecialFrame("WorldMapFrame")
@@ -289,6 +302,7 @@ function Map.InstallConfiguration(Canvas, services)
     end
 
     function Canvas:ConfigureWorldMap()
+        if Offhand.DaylightMapCompatibility then Offhand.DaylightMapCompatibility:Refresh() end
         -- Canvas scale/fader/settlement belongs to keyboard workspace mode.
         -- The Gamepad adapter is the sole root-position writer in native UI.
         if Map.IsNativeGamepadOwned(self) then return end
@@ -396,9 +410,7 @@ function Map.InstallConfiguration(Canvas, services)
         local pos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["WorldMapFrame"]
         local isWorkspaceMap = pos or (not (Offhand.db.savedMainPositions and Offhand.db.savedMainPositions.WorldMapFrame) and IsFrameOnWorkspace(map))
         if isWorkspaceMap then
-            if PlayerMovementFrameFader and PlayerMovementFrameFader.RemoveFrame then
-                pcall(function() PlayerMovementFrameFader.RemoveFrame(map) end)
-            end
+            RemoveMovementFade(map)
             local userScale = Offhand.db.workspaceMapScale
             local fitScale
             if userScale and userScale ~= "AUTO" and tonumber(userScale) and tonumber(userScale) > 0 then
@@ -415,13 +427,7 @@ function Map.InstallConfiguration(Canvas, services)
                 EvictWorkspacePanelSlot(map)
             end
         else
-            if PlayerMovementFrameFader and PlayerMovementFrameFader.AddDeferredFrame then
-                pcall(function()
-                    PlayerMovementFrameFader.AddDeferredFrame(
-                        map, .5, 1.0, 0.5,
-                        function() return not map:IsMaximized() end)
-                end)
-            end
+            RestoreMovementFade(map)
             local userMainScale = Offhand.db.mainMapScale
             if userMainScale and tonumber(userMainScale) and tonumber(userMainScale) > 0 then
                 map:SetScale(tonumber(userMainScale))
@@ -492,9 +498,8 @@ function Map.InstallBootstrap(Canvas, services)
 
         local workspacePosition = Offhand.db.savedWorkspacePositions
             and Offhand.db.savedWorkspacePositions.WorldMapFrame
-        if workspacePosition and Offhand.db.persistentWorkspacePanels ~= false
-            and PlayerMovementFrameFader and PlayerMovementFrameFader.RemoveFrame then
-            pcall(function() PlayerMovementFrameFader.RemoveFrame(frame) end)
+        if workspacePosition and Offhand.db.persistentWorkspacePanels ~= false then
+            RemoveMovementFade(frame)
         end
 
         local inspected, left, top = pcall(function()

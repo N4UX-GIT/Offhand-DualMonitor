@@ -114,6 +114,18 @@ print("PASS: physical seam, cross-scale anchors, HUD fit, nested scale, left pri
 
 -- Companion topology is authoritative and preserves mixed monitor heights and
 -- offsets without guessing from the combined aspect ratio.
+pw,ph=5280,2560
+OffhandDB.preferredGeometrySource="AUTO"
+OffhandCompanionTopology={schema=1,companionVersion="2.1.2-beta.18",physicalWidth=pw,physicalHeight=ph,mode="DUAL_DISPLAY",
+    workspace={x=0,y=0,width=1440,height=2560},game={x=1440,y=400,width=3840,height=2160}}
+local reported=addon.Viewport:GetMetrics()
+assert(reported.topologyStatus=="READY" and reported.gamePixelBottom==400
+    and reported.gamePixelWidth==3840 and reported.workspacePixelHeight==2560,
+    "portrait/4K diagnostic uses bottom-origin offsets, not Windows display Y")
+addon.Viewport:Apply()
+x,y,w,h=worldPixels()
+near(x,1440);near(y,400);near(w,3840);near(h,2160)
+
 pw,ph=5360,1440
 -- Model the explicit Companion selection, which hands geometry ownership back
 -- from a previously remembered manual canvas to the generated exact bridge.
@@ -499,9 +511,8 @@ GetCVar=function(name)
     end
     if name=="nameplateSize" then return tostring(nameplateSize) end
     if name=="UnitNameFriendlyPlayerName" then return tostring(friendlyPlayerNames) end
-    -- Retail 12.1 can render friendly player plates while this legacy CVar is
-    -- unavailable. UnitNameFriendlyPlayerName remains the authoritative name
-    -- visibility switch and must not be gated on this missing value.
+    -- Scaling must preserve player visibility choices even when the legacy
+    -- friendly-plate CVar is unavailable.
     if name=="nameplateShowFriends" then return nil end
     if name=="NamePlateHorizontalScale" then return nil end
     if name=="NamePlateVerticalScale" then return nil end
@@ -525,16 +536,36 @@ local unknownAddon=frame(UIParent);unknownAddon.scale=1.2
 local getSpannedMetrics=addon.Viewport.GetMetrics
 addon.Viewport.GetMetrics=function() return {isSpanned=false} end
 addon.Viewport:ApplyGlobalScale()
-near(friendlyPlayerNames,1)
-near(addon.db.originalFriendlyPlayerName,0)
-assert(friendlyPlayerNameWrites[1]=="1",
-    "friendly player names were not kept visible while Offhand was enabled but unspanned")
+near(friendlyPlayerNames,0)
+assert(addon.db.originalFriendlyPlayerName==nil and #friendlyPlayerNameWrites==0,
+    "unspanned Offhand changed the player's friendly name visibility")
 addon.Viewport.GetMetrics=getSpannedMetrics
 addon.Viewport:ApplyGlobalScale()
+near(friendlyPlayerNames,0)
+assert(#friendlyPlayerNameWrites==0,"spanned scaling forced friendly player names on")
+friendlyPlayerNames=1
+addon.Viewport:ApplyGlobalScale()
 near(friendlyPlayerNames,1)
-assert(friendlyPlayerNameWrites[1]=="1",
-    "friendly player-name visibility was not written when the legacy plate CVar was unavailable")
-near(addon.db.originalFriendlyPlayerName,0)
+friendlyPlayerNames=0
+addon.Viewport:ApplyGlobalScale()
+near(friendlyPlayerNames,0)
+assert(#friendlyPlayerNameWrites==0,"scaling overrode a changed player visibility choice")
+-- Migrate the old forced-on setting once, then relinquish ownership. A player
+-- who already turned names off must never be re-enabled by a stale backup.
+addon.db.originalFriendlyPlayerName=0
+friendlyPlayerNames=1
+addon.Viewport:ApplyGlobalScale()
+near(friendlyPlayerNames,0)
+assert(addon.db.originalFriendlyPlayerName==nil and #friendlyPlayerNameWrites==1
+    and friendlyPlayerNameWrites[1]=="0","legacy forced visibility was not restored once")
+addon.db.originalFriendlyPlayerName=1
+addon.Viewport:ApplyGlobalScale()
+near(friendlyPlayerNames,0)
+assert(addon.db.originalFriendlyPlayerName==nil and #friendlyPlayerNameWrites==1,
+    "legacy cleanup overwrote the player's newer off preference")
+friendlyPlayerNames=1
+addon.Viewport:ApplyGlobalScale()
+near(friendlyPlayerNames,1)
 local expectedHUDScale=1440/2560*0.7
 near(uiScale,expectedHUDScale)
 near(WorldFrame:GetEffectiveScale(),nativeWorldScale)
@@ -599,11 +630,11 @@ near(uiScale,original)
 near(WorldFrame:GetScale(),nativeWorldScale)
 near(worldTextScale,1)
 near(nameplateSize,3)
-near(friendlyPlayerNames,0)
-assert(friendlyPlayerNameWrites[#friendlyPlayerNameWrites]=="0",
-    "friendly player-name preference was not restored as a Retail boolean CVar")
+near(friendlyPlayerNames,1)
+assert(#friendlyPlayerNameWrites==1,
+    "disabling Offhand overwrote the player's current visibility preference")
 assert(addon.db.originalFriendlyPlayerName==nil,
-    "friendly player-name preference was not restored when Offhand was disabled")
+    "legacy friendly player-name ownership was retained after migration")
 near(nameplateWidth,300)
 near(nameplateHeight,75)
 near(nameplateFrame:GetScale(),0.325)

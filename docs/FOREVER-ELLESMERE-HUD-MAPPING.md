@@ -1,5 +1,9 @@
 # Forever HUD mapping between Offhand and EllesmereUI
 
+For the 1.60.1.70862 / EllesmereUI 9.8.4 refinement candidate and its live
+validation, see [the 10 November follow-up](FOREVER-ELLESMERE-HUD-REFINEMENT-20261110.md).
+The initial inventory below records the earlier implementation and proposals.
+
 Scope is Forever 1.60.1.70790 and EllesmereUI 9.7.8. The current behavior and
 candidate mappings below come from source review. The standard import has
 been verified in the local client. The visual preview and reverse copy cover

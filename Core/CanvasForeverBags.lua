@@ -21,6 +21,14 @@ local function IsPlainValue(value)
     return ok and secret == false
 end
 
+local function CanPreserveBagThroughEscape()
+    -- Keeping an open bag in Escape's native close stack can prevent the next
+    -- hardware Escape from reaching target dismissal. Unknown state yields too.
+    if type(UnitExists) ~= "function" then return false end
+    local ok, exists = pcall(UnitExists, "target")
+    return ok and IsPlainValue(exists) and not exists
+end
+
 local function HasFlag(frame, method, expected)
     if type(frame[method]) ~= "function" then return false end
     local ok, value = pcall(frame[method], frame)
@@ -365,14 +373,20 @@ function Adapter.Install(Canvas, services)
             local ok, result = pcall(GetMouseFocus)
             if ok and result then focusList = { result } end
         end
-        if not focusList then return false end
         for _, frameName in ipairs(backpackRootNames) do
             local bag = _G[frameName]
             local closeButton = bag and (bag.CloseButton or _G[frameName .. "CloseButton"])
             if closeButton then
-                for _, focus in ipairs(focusList) do
+                for _, focus in ipairs(focusList or {}) do
                     if focus == closeButton then return true end
                 end
+                -- The native X callback hides its parent before CloseAllBags'
+                -- post-hook runs, so GetMouseFoci can already be empty. Query
+                -- the button's hit rectangle without borrowing its scripts or
+                -- storing a stale focus sample. Secret/restricted queries yield.
+                if not IsCombatRestricted()
+                    and HasFlag(closeButton, "IsForbidden", false)
+                    and HasFlag(closeButton, "IsMouseOver", true) then return true end
             end
         end
         return false
@@ -475,6 +489,7 @@ function Adapter.Install(Canvas, services)
     -- Polling visibility from the addon-owned controller avoids attaching scripts
     -- or state to Forever's protected Edit Mode and system-panel trees.
     local foreverNativeBagPreservingPanelNames = {
+        "ChatConfigFrame",
         "SettingsPanel",
         "InterfaceOptionsFrame",
         "VideoOptionsFrame",
@@ -729,6 +744,16 @@ function Adapter.Install(Canvas, services)
                     local trackedWorkspaceBag = enabled
                         and GetNativeBackpackWorkspacePosition()
                         and IsNativeBackpackTrackedOpen()
+
+                    if not shown and state.wasShown and gameMenuToggleObserved
+                        and not optionsOpeningObserved and not leavingGameMenuForPanel
+                        and not CanPreserveBagThroughEscape() then
+                        state.pendingOpenRestore = nil
+                        state.pendingOpenAttempts = nil
+                        state.pendingGameMenuToggle = nil
+                        ClearNativeBackpackOpenState()
+                        trackedWorkspaceBag = false
+                    end
 
                     if not shown and state.wasShown and explicitCloseObserved
                         and not optionsOpeningObserved and not gameMenuToggleObserved

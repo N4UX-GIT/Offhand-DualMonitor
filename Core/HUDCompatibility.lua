@@ -121,6 +121,23 @@ end
 function Compatibility.IsExternallyOwnedHUDFrame(frame, name)
     if Offhand.ForeverPlusWarnings and Offhand.ForeverPlusWarnings:IsOwnedFrame(frame) then return true end
     name = name or (frame and frame.GetName and frame:GetName())
+    -- Replacement minimaps detach the visible canvas from MinimapCluster.
+    -- Treat that canvas as HUD even when it overhangs Mainhand or sits at the
+    -- seam. Cropped Ellesmere maps can also use an anonymous UIParent root.
+    if name == "Minimap" or (frame and frame == _G.Minimap) then return true end
+    if frame and frame ~= UIParent and Compatibility.HasCustomMinimapAddon() then
+        local ok, owned = pcall(function()
+            local current = _G.Minimap
+            for _ = 1, 4 do
+                if not current or current == UIParent or current == WorldFrame then return false end
+                if current == frame then return true end
+                if current.IsForbidden and current:IsForbidden() then return false end
+                current = current.GetParent and current:GetParent()
+            end
+            return false
+        end)
+        if ok and owned then return true end
+    end
     -- These public roots are positioned by Ellesmere's player aura-bar module
     -- and its unlock anchors. The generic popup pass must not compete with it.
     return name == "EllesmereUIPlayerAuraBars_Buffs"
@@ -130,7 +147,27 @@ end
 local positionedAddonPopupRoots = {
     BetterBagsBagBackpack = true, BetterBagsBagBank = true,
     BetterBagsBagBackpackAnchor = true, BetterBagsBagBankAnchor = true,
+    -- Next persists its own panel placement and deliberately clears the native
+    -- user-placed flag after dragging. It has no Classic anchor roots.
+    BetterBagsNextBackpack = true, BetterBagsNextBank = true,
+    BetterBagsNextVendor = true, BetterBagsNextGuildBank = true,
     RXPFrame = true, RXPItemFrame = true,
+    -- This one-unit presentation anchor belongs to ProcDoc, including while
+    -- Offhand's optional Mainhand centering is off. Popup recovery must not
+    -- supply an offset that the centering adapter would then apply again.
+    ProcDocAlertFrame = true,
+    -- Questie owns TrackerLocation and its Ctrl-drag/lock behavior. Its reset
+    -- anchor deliberately uses screen center and need not be IsUserPlaced.
+    Questie_BaseFrame = true,
+}
+
+local linkedChatPopupRoots = {
+    -- Social and Quick Join are two states of the same native button. The
+    -- alert and text-to-speech controls follow the chat button strip. The
+    -- button's immediate anchor varies by client; preserve the linked roots.
+    ChatAlertFrame = true,
+    TextToSpeechButtonFrame = true,
+    QuickJoinToastButton = true,
 }
 
 local function IsOrdinaryPopupValue(value)
@@ -151,6 +188,10 @@ function Compatibility.ShouldPreservePopupPosition(frame, name)
     end
     if not IsOrdinaryPopupValue(name) then return true end
     if type(name) == "string" and positionedAddonPopupRoots[name] then return true end
+    if type(name) == "string" and linkedChatPopupRoots[name] then return true end
+    -- Details owns each numbered meter through its instance/LibWindow store.
+    -- Its drag completion clears IsUserPlaced; configuration dialogs are separate.
+    if type(name) == "string" and name:match("^DetailsBaseFrame%d+$") then return true end
     -- RestedXP V2 exposes an AceGUI widget; its actual UIParent child is
     -- anonymous. Consult the public widget on each pass for load-order changes.
     local guide = _G.RXPV2GuideWindow

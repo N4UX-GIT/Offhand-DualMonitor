@@ -1,0 +1,7 @@
+## Interface: 120107, 120105, 16001
+## Title: Offhand Issue Probe (private QA)
+## Notes: Opt-in panel-writer and native HUD-save capture. No placement or settings changes.
+## Version: 0.1.0
+## OptionalDeps: Offhand
+## SavedVariables: OffhandIssueProbeDB
+Probe.lua

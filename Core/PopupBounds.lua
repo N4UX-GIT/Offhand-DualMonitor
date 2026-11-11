@@ -86,6 +86,59 @@ local comparisonTooltipNames = {
 
 local classicClampState = setmetatable({}, { __mode = "k" })
 local classicClampUpdating
+local tooltipFitState = setmetatable({}, { __mode = "k" })
+local tooltipFitYielded = setmetatable({}, { __mode = "k" })
+local tooltipFitUpdating
+function PopupBounds:PreservesTooltipFitScale(frame)
+    if tooltipFitUpdating == frame or tooltipFitYielded[frame] then return true end
+    local state = tooltipFitState[frame]
+    local current = state and frame.GetScale and frame:GetScale()
+    return state and PublicNumber(current)
+        and math.abs(current - state.applied) <= 0.00001 or false
+end
+local function RestoreTooltipFit(frame)
+    local state = tooltipFitState[frame]
+    if not state or tooltipFitUpdating
+        or (InCombatLockdown and InCombatLockdown()) then return false end
+    if (frame.IsForbidden and frame:IsForbidden())
+        or (frame.IsProtected and frame:IsProtected()) then return false end
+    local current = frame.GetScale and frame:GetScale()
+    if not PublicNumber(current) or math.abs(current - state.applied) > 0.00001 then
+        tooltipFitState[frame] = nil
+        return false
+    end
+    tooltipFitUpdating = frame
+    local ok = pcall(frame.SetScale, frame, state.original)
+    tooltipFitUpdating = nil
+    if ok then tooltipFitState[frame] = nil end
+    return ok
+end
+
+local function FitNativeTooltip(frame, width, height, availableWidth, availableHeight)
+    if not Offhand.isRetail and not Offhand.isForever then return false end
+    local known = frame == _G.GameTooltip or frame == _G.ItemRefTooltip
+    for _, name in ipairs(comparisonTooltipNames) do known = known or frame == _G[name] end
+    if not known or tooltipFitYielded[frame] or not frame.GetScale or not frame.SetScale then return false end
+    local current = frame:GetScale()
+    if not PublicNumber(current) or current <= 0 then return false end
+    local state = tooltipFitState[frame]
+    if state and math.abs(current - state.applied) > 0.00001 then
+        tooltipFitState[frame], tooltipFitYielded[frame] = nil, true
+        return false
+    end
+    local original = state and state.original or current
+    local baselineWidth, baselineHeight = width * original / current, height * original / current
+    local desired = original * math.min(1, availableWidth / baselineWidth, availableHeight / baselineHeight)
+    if desired <= 0 or math.abs(current - desired) < 0.00001 then return true end
+    tooltipFitUpdating = frame
+    local ok = pcall(frame.SetScale, frame, desired)
+    tooltipFitUpdating = nil
+    if not ok then return false end
+    if math.abs(desired - original) < 0.00001 then tooltipFitState[frame] = nil
+    else tooltipFitState[frame] = {original = original, applied = desired} end
+    return true
+end
+
 local function SameInsets(a, b)
     if not a or not b then return false end
     for i = 1, 4 do if math.abs(a[i] - b[i]) > 0.01 then return false end end
@@ -93,13 +146,15 @@ local function SameInsets(a, b)
 end
 function PopupBounds:RestoreClassicTooltipClamp(frame)
     local state = classicClampState[frame]
-    if not state then return false end
+    if not state and not tooltipFitState[frame] then return false end
     if InCombatLockdown and InCombatLockdown() then
-        if Offhand.RunOrQueueCombat and not state.restoreQueued then
-            state.restoreQueued = true
+        local pending = state or tooltipFitState[frame]
+        if Offhand.RunOrQueueCombat and not pending.restoreQueued then
+            pending.restoreQueued = true
             Offhand:RunOrQueueCombat(function()
-                state.restoreQueued = nil
-                if classicClampState[frame] ~= state then return end
+                pending.restoreQueued = nil
+                if state and classicClampState[frame] ~= state then return end
+                if not state and tooltipFitState[frame] ~= pending then return end
                 if frame.IsShown and frame:IsShown() then PopupBounds:UpdateClassicTooltipClamp(frame)
                 else PopupBounds:RestoreClassicTooltipClamp(frame) end
             end)
@@ -108,6 +163,8 @@ function PopupBounds:RestoreClassicTooltipClamp(frame)
     end
     if (frame.IsForbidden and frame:IsForbidden())
         or (frame.IsProtected and frame:IsProtected()) then return false end
+    local fitRestored = RestoreTooltipFit(frame)
+    if not state then return fitRestored end
     classicClampState[frame] = nil
     if SameInsets({ frame:GetClampRectInsets() }, state.applied) then
         frame:SetClampRectInsets(unpack(state.original))
@@ -116,7 +173,7 @@ function PopupBounds:RestoreClassicTooltipClamp(frame)
     return true
 end
 function PopupBounds:UpdateClassicTooltipClamp(frame, preparing)
-    if classicClampUpdating
+    if classicClampUpdating or tooltipFitUpdating
         or (InCombatLockdown and InCombatLockdown()) or not frame
         or not frame.GetClampRectInsets or not frame.SetClampRectInsets
         or not frame.IsClampedToScreen or not frame.SetClampedToScreen then return false end
@@ -127,16 +184,18 @@ function PopupBounds:UpdateClassicTooltipClamp(frame, preparing)
     if metrics and Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,owner or frame) end
     local worldOwner = owner and (owner == UIParent or owner == _G.WorldFrame)
     local external = _G.TipTac or _G.TinyTooltip or _G.TinyTooltipReforged
+    local mainhandOwner = worldOwner or (metrics and (Offhand.isRetail or Offhand.isForever)
+        and FrameCenterInside(owner, metrics.gameLeft, metrics.gameBottom, metrics.gameRight, metrics.gameTop))
+    local workspaceOwner = metrics and FrameCenterInside(owner, metrics.workspaceLeft, metrics.workspaceBottom,
+        metrics.workspaceRight, metrics.workspaceTop)
     if not metrics or not owner or frame.IsEmbedded or external
-        or (not worldOwner and (Offhand.isRetail or Offhand.isForever
-            or not FrameCenterInside(owner, metrics.workspaceLeft, metrics.workspaceBottom,
-                metrics.workspaceRight, metrics.workspaceTop))) then
+        or (not mainhandOwner and not workspaceOwner) then
         return self:RestoreClassicTooltipClamp(frame)
     end
-    local left = worldOwner and metrics.gameLeft or metrics.workspaceLeft
-    local right = worldOwner and metrics.gameRight or metrics.workspaceRight
-    local bottom = worldOwner and metrics.gameBottom or metrics.workspaceBottom
-    local top = worldOwner and metrics.gameTop or metrics.workspaceTop
+    local left = mainhandOwner and metrics.gameLeft or metrics.workspaceLeft
+    local right = mainhandOwner and metrics.gameRight or metrics.workspaceRight
+    local bottom = mainhandOwner and metrics.gameBottom or metrics.workspaceBottom
+    local top = mainhandOwner and metrics.gameTop or metrics.workspaceTop
     if type(left) ~= "number" or type(right) ~= "number"
         or type(bottom) ~= "number" or type(top) ~= "number" then return false end
     -- SetOwner runs before native item sizing/show. Prepare the policy there,
@@ -150,9 +209,12 @@ function PopupBounds:UpdateClassicTooltipClamp(frame, preparing)
     if not preparing and (not frame.IsShown or frame:IsShown()) then
         local left, right, top, bottom = FrameBounds(frame)
         if not left or right <= left or top <= bottom then return false end
-        if right - left > maxX - minX or top - bottom > maxY - minY then
+        local fitted = FitNativeTooltip(frame, right - left, top - bottom, maxX - minX, maxY - minY)
+        if not fitted and (right - left > maxX - minX or top - bottom > maxY - minY) then
             return self:RestoreClassicTooltipClamp(frame)
         end
+        frameScale = frame:GetEffectiveScale()
+        if not PublicNumber(frameScale) or frameScale <= 0 then return false end
     end
     local current = { frame:GetClampRectInsets() }
     local state = classicClampState[frame]
@@ -179,6 +241,56 @@ function PopupBounds:UpdateClassicTooltipClamp(frame, preparing)
     state.applied = desired
     classicClampState[frame] = state
     return true
+end
+
+local function SpellTooltipFitsAboveRight(tooltip, owner, insets, x, y)
+    local left, right, top, bottom, uiScale, frameScale = FrameBounds(tooltip)
+    local _, ownerRight, ownerTop = FrameBounds(owner)
+    if not left or not ownerRight then return false end
+    local scale = frameScale / uiScale
+    local tooltipLeft, tooltipBottom = ownerRight + x * scale, ownerTop + y * scale
+    return tooltipLeft >= -insets[1] * scale
+        and tooltipLeft + (right - left) <= UIParent:GetWidth() - insets[2] * scale
+        and tooltipBottom >= -insets[4] * scale
+        and tooltipBottom + (top - bottom) <= UIParent:GetHeight() - insets[3] * scale
+end
+
+function PopupBounds:RefreshMovedSpellBookTooltip(panel)
+    local tooltip = _G.GameTooltip
+    local clamp = tooltip and classicClampState[tooltip]
+    if not clamp then return end
+
+    pcall(function()
+        local book = panel.SpellBookFrame
+        if not book or not tooltip:IsShown() or tooltip:GetNumPoints() ~= 1 then return end
+        local owner = tooltip:GetOwner()
+        local _, relative = tooltip:GetPoint(1)
+        if not owner or relative ~= owner then return end
+        local ancestor = owner
+        for _ = 1, 12 do
+            if ancestor == book then break end
+            ancestor = ancestor.GetParent and ancestor:GetParent()
+            if not ancestor or ancestor == panel then return end
+        end
+        if ancestor ~= book then return end
+
+        local previousInsets = clamp.applied
+        if not self:UpdateClassicTooltipClamp(tooltip) then return end
+        local updatedClamp = classicClampState[tooltip]
+        if not updatedClamp or SameInsets(previousInsets, updatedClamp.applied)
+            or tooltip:GetOwner() ~= owner or tooltip:GetNumPoints() ~= 1 then return end
+
+        -- Reapply the point to invalidate the rectangle from the old clamp.
+        -- Match the interacted tooltip's right side when it fits after the move.
+        local point, target, relativePoint, x, y = tooltip:GetPoint(1)
+        if target ~= owner or not point or not relativePoint
+            or not PublicNumber(x) or not PublicNumber(y) then return end
+        if point == "BOTTOMRIGHT" and relativePoint == "TOPLEFT"
+            and SpellTooltipFitsAboveRight(tooltip, owner, updatedClamp.applied, -x, y) then
+            point, relativePoint, x = "BOTTOMLEFT", "TOPRIGHT", -x
+        end
+        self:SetTooltipPoint(tooltip, point, owner, relativePoint, x, y)
+    end)
 end
 
 local tooltipCapture
@@ -492,6 +604,7 @@ function PopupBounds:ObserveTooltip(tooltip)
                 settingsTooltipYielded[self]=nil
             end
             PopupBounds:RestoreClassicTooltipClamp(self)
+            tooltipFitYielded[self] = nil
             PopupBounds:ClearManagedTooltip(self)
         end)
         if tooltip == _G.GameTooltip or tooltip == _G.ItemRefTooltip

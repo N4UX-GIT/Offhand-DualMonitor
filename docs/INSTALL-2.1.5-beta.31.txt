@@ -1,0 +1,18 @@
+OFFHAND ADDON 2.1.5 BETA 31 AND COMPANION 2.1.5
+
+Close WoW and back up your current Offhand addon and SavedVariables. Copy the
+included Offhand folder into Interface/AddOns. The TOC files belong directly
+in Interface/AddOns/Offhand. Keep your existing settings and layouts.
+
+You can keep using Companion 2.1.5. For a new Windows install, get Companion
+from https://apps.microsoft.com/detail/9PL4PW84Q90W and install the addon
+separately. To use the included portable Companion, extract it to a writable
+folder and exit any other Companion installation before starting Offhand.exe.
+
+Use checksums-sha256.txt to verify your downloads. Use Restore Window to return
+to a normal window. To roll back the addon, close WoW and restore the backed-up
+addon and settings.
+
+For Forever controller feedback, include your client build, display layout,
+UI addons and /offhand diag full. Track the macOS retest for the World Map at
+https://github.com/N4UX-GIT/Offhand-DualMonitor/issues/84.

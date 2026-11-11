@@ -3,8 +3,8 @@
 ## Notes: Keep gameplay on one screen and move maps, bags, chat, and other supported UI panels to another. Experimental original Wrath 3.3.5a compatibility test build.
 ## Author: N4UX (Noggaholic)
 ## Version: 2.1.5
-## X-Offhand-Release: beta.28
-## X-Offhand-Addon-Release: beta.28
+## X-Offhand-Release: beta.31
+## X-Offhand-Addon-Release: beta.31
 ## X-Offhand-Companion-Version: 2.1.5
 ## X-Offhand-Companion-Release:
 ## X-Offhand-Companion-Protocol: 1
@@ -31,6 +31,7 @@ Core\WorkspaceProfiles.lua
 Core\WorkspaceRouting.lua
 Core\Viewport.lua
 Core\TopologyDetection.lua
+Core\EllesmereScaleCompatibility.lua
 Core\PopupBounds.lua
 Core\MainhandGeometry.lua
 Core\MainhandCompatibility.lua
@@ -44,6 +45,7 @@ Core\CinematicPresentation.lua
 Core\DialogueUICompat.lua
 Core\ChatBubbles.lua
 Core\MenuPlacement.lua
+Core\ProcDocCompatibility.lua
 Core\ForeverPlusWarnings.lua
 Core\HUDCompatibility.lua
 Core\HUDTransientPolicy.lua
@@ -64,6 +66,7 @@ Core\CanvasChat.lua
 Core\CanvasProfessions.lua
 Core\CanvasPanelMotion.lua
 Core\CanvasMapPresentation.lua
+Core\DaylightMapCompatibility.lua
 Core\CanvasPanelLifecycle.lua
 Core\CanvasPanelPlacement.lua
 Core\Canvas.lua
