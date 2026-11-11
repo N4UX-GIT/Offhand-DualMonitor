@@ -678,36 +678,29 @@ assert(map.points[1][1] == "CENTER" and map.points[1][4] == 635 and map.points[1
         and map.BlackoutFrame.points[1][1] == "TOPLEFT" and map.BlackoutFrame.points[1][2] == UIParent,
     "minimizing must restore the saved window position and release the fullscreen blackout")
 
-local workspaceMap, fadeRemovals, nativeFade = true, 0, nil
+local workspaceMap, faderCalls = true, 0
 local savedCanvas = addon.Canvas
 addon.Canvas = { IsFrameOnWorkspace = function(candidate) return candidate == map and workspaceMap end }
-local externalMapOwner = "OpenMap"
+local externalMapOwner
 addon.CanvasCompatibility = { GetWorldMapExternalOwner = function() return externalMapOwner end }
-OpenMapAPI = {}
 PlayerMovementFrameFader = {
-    RemoveFrame = function(candidate)
-        assert(candidate == map)
-        fadeRemovals = fadeRemovals + 1
-    end,
-    AddDeferredFrame = function(candidate, minAlpha, maxAlpha, duration, predicate)
-        assert(candidate == map and minAlpha == 0.5 and maxAlpha == 1 and duration == 0.5)
-        nativeFade = predicate
-    end,
+    RemoveFrame = function() faderCalls = faderCalls + 1 end,
+    AddDeferredFrame = function() faderCalls = faderCalls + 1 end,
 }
 addon.Mainhand:CenterForeverGamepadDestinationPanels()
 addon.Mainhand:CenterForeverGamepadDestinationPanels()
-assert(fadeRemovals == 1 and not nativeFade,
-    "a loaded OpenMap that yields to Gamepad must leave workspace movement fading to Offhand")
+assert(faderCalls == 0,
+    "the Gamepad observer must leave the native movement fader untouched for a workspace map")
+externalMapOwner = "OpenMap"
+OpenMapAPI = {}
+map.shown = false
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+map.shown = true
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
 workspaceMap = false
 addon.Mainhand:CenterForeverGamepadDestinationPanels()
-local mouseOverMap = false
-function map:IsMouseOver() return mouseOverMap end
-local previousGetCVarBool = GetCVarBool
-GetCVarBool = function(name) return name == "mapFade" end
-assert(nativeFade and nativeFade(), "Mainhand must restore the native movement fade predicate")
-mouseOverMap = true
-assert(not nativeFade(), "native fade must still yield while hovering the map")
-GetCVarBool = previousGetCVarBool
+assert(faderCalls == 0,
+    "closing, reopening or moving the Gamepad map must leave the native movement fader untouched")
 PlayerMovementFrameFader = nil
 addon.Canvas = savedCanvas
 
@@ -1195,6 +1188,54 @@ assert(CharacterFrame.points[1][4] == 820 and CharacterFrame.points[1][5] == -61
 assert(OffhandCharDB.foreverGamepadPanelOffsets.CharacterFrame.x == 100
         and OffhandCharDB.foreverGamepadPanelOffsets.CharacterFrame.y == -50,
     "the Gamepad panel offset was not saved per character")
+-- Native focus can show the first spell tooltip while the panel is still
+-- at Blizzard's workspace anchor. The item follows the panel's next anchor.
+addon.modules = addon.modules or {}
+assert(loadfile("Core/PopupBounds.lua"))("Offhand", addon)
+addon.db.seamRedirect = true
+metrics.workspaceLeft, metrics.workspaceRight = 0, 1440
+metrics.workspaceBottom, metrics.workspaceTop = 0, 2560
+PlayerSpellsFrame.SpellBookFrame = SpellBookFrame
+SpellBookFrame.parent = PlayerSpellsFrame
+local spellEntry = frame()
+spellEntry.parent = SpellBookFrame
+spellEntry.top, spellEntry.bottom = 650, 610
+local mainhandSpellLeft = 1700
+function spellEntry:GetLeft()
+    return PlayerSpellsFrame.points[1][1] == "CENTER" and mainhandSpellLeft or 320
+end
+function spellEntry:GetRight() return self:GetLeft() + 40 end
+local spellTooltip = frame("GameTooltip")
+local spellInsets, spellClampWrites = {0, 0, 0, 0}, 0
+spellTooltip.left, spellTooltip.right = 250, 320
+spellTooltip.top, spellTooltip.bottom = 700, 650
+function spellTooltip:GetOwner() return spellEntry end
+function spellTooltip:GetClampRectInsets() return unpack(spellInsets) end
+function spellTooltip:SetClampRectInsets(...)
+    spellInsets = {...}
+    spellClampWrites = spellClampWrites + 1
+end
+-- Match the live 70888 trace: changing clamp insets alone leaves the
+-- tooltip's rendered rectangle at the old clamp until its point is reapplied.
+local spellAnchorWrites, setSpellTooltipPoint = 0, spellTooltip.SetPoint
+function spellTooltip:SetPoint(point, relative, relativePoint, x, y)
+    spellAnchorWrites = spellAnchorWrites + 1
+    setSpellTooltipPoint(self, point, relative, relativePoint, x, y)
+    if spellInsets[1] == -1452 then
+        if point == "BOTTOMLEFT" then
+            self.left = relative:GetRight() + x
+            self.right = self.left + 70
+        else
+            self.right = relative:GetLeft() + x
+            self.left = self.right - 70
+        end
+    end
+end
+spellTooltip:SetPoint("BOTTOMRIGHT", spellEntry, "TOPLEFT", 0, 0)
+GameTooltip = spellTooltip
+assert(addon.PopupBounds:UpdateClassicTooltipClamp(spellTooltip))
+assert(spellInsets[1] == -12 and spellInsets[2] == 2572,
+    "the fixture must initially clamp to the workspace")
 PlayerSpellsFrame.shown = true
 ProfessionsBookFrame.shown = true
 ProfessionsFrame.shown = true
@@ -1219,6 +1260,36 @@ assert(centeredPanels == 12 and PlayerSpellsFrame.points[1][1] == "CENTER"
         and QuestFrame.points[1][4] == 720
         and QuestFrame.points[1][5] == -560,
     "the narrow protected Gamepad placement exception was not applied safely")
+assert(spellInsets[1] == -1452 and spellInsets[2] == 12 and spellClampWrites == 2,
+    "the Spellbook tooltip must adopt Mainhand's clamp after the move")
+local spellPoint, spellRelative, spellRelativePoint, spellX, spellY = spellTooltip:GetPoint(1)
+assert(spellTooltip:GetLeft() == spellEntry:GetRight() and spellAnchorWrites == 2
+        and spellPoint == "BOTTOMLEFT" and spellRelative == spellEntry
+        and spellRelativePoint == "TOPRIGHT" and spellX == 0 and spellY == 0,
+    "the first spell tooltip must reflow to the right of its owner when it fits")
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+assert(spellClampWrites == 2 and spellAnchorWrites == 2,
+    "an already positioned spellbook must not rewrite tooltip bounds or its anchor")
+
+-- Reopen at the native workspace anchor with a saved panel near Mainhand's
+-- right edge. Keep the valid native left anchor if the tooltip would overflow.
+addon.PopupBounds:RestoreClassicTooltipClamp(spellTooltip)
+mainhandSpellLeft = 3940
+PlayerSpellsFrame:ClearAllPoints()
+PlayerSpellsFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 20, -120)
+spellTooltip.left, spellTooltip.right = 250, 320
+spellTooltip:ClearAllPoints()
+spellTooltip:SetPoint("BOTTOMRIGHT", spellEntry, "TOPLEFT", 0, 0)
+assert(addon.PopupBounds:UpdateClassicTooltipClamp(spellTooltip))
+addon.Mainhand:CenterForeverGamepadDestinationPanels()
+spellPoint, spellRelative, spellRelativePoint = spellTooltip:GetPoint(1)
+assert(spellTooltip:GetRight() == spellEntry:GetLeft() and spellAnchorWrites == 4
+        and spellPoint == "BOTTOMRIGHT" and spellRelative == spellEntry and spellRelativePoint == "TOPLEFT",
+    "an opening spell tooltip must keep the native left anchor when it cannot fit on the right")
+addon.PopupBounds:RestoreClassicTooltipClamp(spellTooltip)
+GameTooltip = nil
+addon.db.seamRedirect = nil
+
 local spellsMover = _G.OffhandForeverGamepadPanelMover_PlayerSpellsFrame
 local professionsMover = _G.OffhandForeverGamepadPanelMover_ProfessionsBookFrame
 local professionsFrameMover = _G.OffhandForeverGamepadPanelMover_ProfessionsFrame
