@@ -21,12 +21,14 @@ end
 
 function Visuals:CreateProgress(parent, width)
     local rail = Surface(parent)
-    rail:SetSize(width, 32)
+    rail:SetSize(width, 30)
     rail.cells = {}
     for i = 1, 6 do
         local cell = Surface(rail)
-        cell.text = Text(cell, width / 6 - 14)
-        if cell.text.SetFontObject then cell.text:SetFontObject("GameFontHighlight") end
+        cell.text = Text(cell, 0)
+        cell.text:SetWordWrap(false)
+        if cell.text.SetNonSpaceWrap then cell.text:SetNonSpaceWrap(false) end
+        if cell.text.SetMaxLines then cell.text:SetMaxLines(1) end
         if cell.text.SetShadowOffset then cell.text:SetShadowOffset(0,0) end
         if cell.text.SetShadowColor then cell.text:SetShadowColor(0,0,0,0) end
         cell.text:SetPoint("CENTER", cell, "CENTER", 0, 0)
@@ -34,21 +36,30 @@ function Visuals:CreateProgress(parent, width)
         rail.cells[i] = cell
     end
     function rail:Update(current, labels)
-        local count, height = #labels, 30
-        local cellWidth = (self:GetWidth() - (count - 1) * 5) / count
+        local count, gap, padding = #labels, 5, 12
+        local available = self:GetWidth() - (count - 1) * gap - count * padding
+        local widths, total = {}, 0
+        for i, label in ipairs(labels) do
+            local text = self.cells[i].text
+            if text.SetTextScale then text:SetTextScale(1) end
+            text:SetWidth(0)
+            text:SetText(label)
+            widths[i] = Controls.MeasureSingleLine(text, label)
+            total = total + widths[i]
+        end
+        local scale = math.min(1, available / math.max(1, total))
+        local extra = (available - total * scale) / count
+        local left = 0
         for i, cell in ipairs(self.cells) do
             if i <= count then
                 cell.state = i < current and "complete" or i == current and "current" or "locked"
-                local label = (i < current and "+ " or "") .. i .. "  " .. labels[i]
-                cell.text:SetText(label)
-                cell.text:SetWidth(cellWidth - 12)
-                cell.text:SetHeight(0)
-                local textHeight = Controls.MeasureWrappedText(cell.text, label, cellWidth - 12)
-                cell.text:SetHeight(textHeight)
-                height = math.max(height, textHeight + 12)
+                local textWidth = widths[i] * scale + extra
+                if cell.text.SetTextScale then cell.text:SetTextScale(scale) end
+                cell.text:SetWidth(textWidth)
                 cell:ClearAllPoints()
-                cell:SetPoint("TOPLEFT", self, "TOPLEFT", (i - 1) * (cellWidth + 5), 0)
-                cell:SetWidth(cellWidth)
+                cell:SetPoint("TOPLEFT", self, "TOPLEFT", left, 0)
+                cell:SetSize(textWidth + padding, 30)
+                left = left + textWidth + padding + gap
                 cell:Show()
                 if i == current then
                     cell:SetBackdropColor(.12, .115, .09, 1)
@@ -65,8 +76,6 @@ function Visuals:CreateProgress(parent, width)
                 end
             else cell:Hide() end
         end
-        for i = 1, count do self.cells[i]:SetHeight(height) end
-        self:SetHeight(height)
     end
     return rail
 end

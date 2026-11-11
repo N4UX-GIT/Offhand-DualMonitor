@@ -272,8 +272,8 @@ assert((WorldMapFrame.ignoreParentScaleWrites or 0) == 0,
 addon.Canvas:UpdateMapMovementBehavior()
 assert(next(WorldMapFrame.registeredEvents) == nil,
     "Forever must preserve the World Map's native event registration")
-assert(PlayerMovementFrameFader.removed > 0 and PlayerMovementFrameFader.added == 0,
-    "A Forever workspace map must be removed from Blizzard's movement-dimming fader")
+assert(PlayerMovementFrameFader.removed == 0 and PlayerMovementFrameFader.added == 0,
+    "Forever keyboard UI must leave the native movement fader untouched before a switch to Gamepad UI")
 pressEscapeCloseSpecialFrames()
 assert(WorldMapFrame:IsShown(),
     "Escape must not close a Forever map with a saved workspace position")
@@ -948,8 +948,8 @@ addon.db.savedMainPositions.WorldMapFrame = { x = 1600, y = 1000 }
 addon.Canvas:ConfigureWorldMap()
 assert(isSpecial("WorldMapFrame"),
     "A map on Mainhand must return to Blizzard's Escape-close registry")
-assert(PlayerMovementFrameFader.added > 0,
-    "A Mainhand map must return to Blizzard's native movement fader")
+assert(PlayerMovementFrameFader.removed == 0 and PlayerMovementFrameFader.added == 0,
+    "Forever map placement and persistence must leave the native movement fader untouched")
 pressEscapeCloseSpecialFrames()
 assert(not WorldMapFrame:IsShown(),
     "Escape must retain native close behavior for a Mainhand map")
