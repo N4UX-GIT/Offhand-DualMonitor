@@ -64,6 +64,10 @@ jobs:
         shell: powershell
         run: ./tests/companion-partial-topology.ps1
 
+      - name: Test panel scaling metadata across Companion and addon
+        shell: powershell
+        run: ./tests/companion-region-scale.ps1
+
       - name: Test multiple regions and named workspace plans
         shell: powershell
         run: |

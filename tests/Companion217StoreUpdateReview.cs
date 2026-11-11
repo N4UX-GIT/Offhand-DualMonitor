@@ -38,7 +38,7 @@ namespace Offhand.Testing
             using (var sha = SHA256.Create())
             using (var stream = File.OpenRead(path))
                 if (BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "") != ExpectedHash)
-                    throw new InvalidDataException("This simulator requires the exact included 2.1.7.3 candidate. Extract the complete ZIP again.");
+                    throw new InvalidDataException("This simulator requires the exact included 2.1.7.4 candidate. Extract the complete ZIP again.");
             return Assembly.LoadFrom(path);
         }
 
@@ -142,7 +142,7 @@ namespace Offhand.Testing
                             bool noticeOpen=false;
                             foreach(Form open in Application.OpenForms)if(open.Text.EndsWith("- What's new"))noticeOpen=true;
                             File.WriteAllLines(Path.Combine(dataPath, "review-result.txt"), new[] {
-                                "Scenario=" + scenario, "Runtime=2.1.7.3",
+                                "Scenario=" + scenario, "Runtime=2.1.7.4",
                                 "Button=" + button.Text,
                                 "Details=" + info.Text.Replace("\r\n", " | "),
                                 "Tooltip=" + button.AccessibleDescription.Replace("\r\n", " | "),

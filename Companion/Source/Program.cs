@@ -60,7 +60,7 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyVersion("2.1.7.0")]
 #endif
 #if UI_PREVIEW
-[assembly: AssemblyFileVersion("2.1.7.8004")]
+[assembly: AssemblyFileVersion("2.1.7.8005")]
 [assembly: AssemblyInformationalVersion("2.1.7")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
@@ -77,7 +77,7 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.7.3")]
+[assembly: AssemblyFileVersion("2.1.7.4")]
 [assembly: AssemblyInformationalVersion("2.1.7")]
 #endif
 
@@ -480,7 +480,7 @@ namespace Offhand.Companion
     // swap chain or whether Auto HDR / a driver filter is active for the game.
     internal static class DisplayIdentity
     {
-        internal sealed class ActivePath { internal string Device, Identity; }
+        internal sealed class ActivePath { internal string Device, Identity, Detail; }
         internal sealed class Child { internal string Identity, LegacyIdentity; }
         internal sealed class State { internal string Identity, LegacyIdentity, Detail; }
 
@@ -519,8 +519,10 @@ namespace Offhand.Companion
                 if (match != null) { state.Detail = "Multiple active targets share this display source"; return state; }
                 match = path;
             }
-            if (match == null || string.IsNullOrWhiteSpace(match.Identity))
+            if (match == null)
             { state.Detail = "Windows did not identify an active monitor target for this display"; return state; }
+            if (string.IsNullOrWhiteSpace(match.Identity))
+            { state.Detail = match.Detail ?? "Windows did not identify an active monitor target for this display"; return state; }
             state.Identity = match.Identity.Trim();
             int aliases = 0;
             foreach (var child in children)
@@ -554,13 +556,17 @@ namespace Offhand.Companion
                     {
                         var source = new DisplayColor.SourceName { Header = new DisplayColor.Header { Type = 1,
                             Size = (uint)Marshal.SizeOf(typeof(DisplayColor.SourceName)), Adapter = paths[i].Source.Adapter, Id = paths[i].Source.Id } };
-                        if (DisplayColor.GetSourceName(ref source) != 0 || string.IsNullOrWhiteSpace(source.Name))
-                        { failure = "Windows could not identify an active display source"; return null; }
+                        int sourceResult = DisplayColor.GetSourceName(ref source);
+                        if (sourceResult != 0 || string.IsNullOrWhiteSpace(source.Name))
+                        { failure = "Windows could not identify an active display source (result " + sourceResult + ")"; return null; }
                         var target = new TargetName { Header = new DisplayColor.Header { Type = 2,
                             Size = (uint)Marshal.SizeOf(typeof(TargetName)), Adapter = paths[i].Target.Adapter, Id = paths[i].Target.Id } };
                         int named = GetTargetName(ref target);
                         values.Add(new ActivePath { Device = source.Name,
-                            Identity = named == 0 && paths[i].Target.Available != 0 ? target.Path : null });
+                            Identity = named == 0 && paths[i].Target.Available != 0 ? target.Path : null,
+                            Detail = named != 0 ? "Active monitor target name query failed: " + named
+                                : paths[i].Target.Available == 0 ? "Active monitor target is unavailable"
+                                : "Windows returned an empty active monitor device path" });
                     }
                     return values;
                 }
@@ -597,6 +603,48 @@ namespace Offhand.Companion
             foreach (string device in devices)
                 result[device] = Resolve(device, paths, ReadChildren(device), failure);
             return result;
+        }
+    }
+
+    // Explanations only. Span authorization stays in MonitorSelection and the
+    // existing confirmation/session guards; this never repairs or saves a plan.
+    internal static class DisplaySelectionFeedback
+    {
+        internal sealed class State
+        {
+            internal string Code, Message;
+        }
+
+        internal static string Label(MonitorSelection.Display display, int index)
+        {
+            return string.Format("Display {0} ({1}x{2})", index + 1, display.Bounds.Width, display.Bounds.Height);
+        }
+
+        internal static State Inspect(IList<MonitorSelection.Display> displays, IList<int> selected, int mainhand)
+        {
+            if (displays == null || selected == null)
+                return new State { Code = "SELECTION_UNAVAILABLE", Message = "Display selection is unavailable. Review the checked displays and Mainhand, then try again." };
+            if (selected.Count == 0)
+                return new State { Code = "NO_CHECKED_DISPLAYS", Message = "No displays are checked. Check the displays you want to use, then choose Mainhand (game)." };
+            if (mainhand < 0 || mainhand >= displays.Count)
+                return new State { Code = "MAINHAND_NOT_SELECTED", Message = "No Mainhand display is selected. Choose Mainhand (game) from the checked displays." };
+            if (!selected.Contains(mainhand))
+                return new State { Code = "MAINHAND_NOT_CHECKED", Message = "The Mainhand display is not checked. Check it in the display list, or choose a checked display as Mainhand (game)." };
+            var missing = new List<string>();
+            foreach (int index in selected)
+            {
+                if (index < 0 || index >= displays.Count || displays[index] == null)
+                    return new State { Code = "SELECTION_UNAVAILABLE", Message = "The display selection changed. Review the checked displays and Mainhand, then try again." };
+                if (string.IsNullOrWhiteSpace(displays[index].StableId)) missing.Add(Label(displays[index], index));
+            }
+            if (missing.Count > 0)
+                return new State { Code = "MISSING_MONITOR_IDENTITY", Message = "Companion could not read a monitor identity for: "
+                    + string.Join(", ", missing.ToArray()) + ". Click Copy Display Diagnostics and send the text with your report." };
+            foreach (int index in selected)
+                if (MonitorSelection.FindDisplay(displays, displays[index].StableId, null) != index)
+                    return new State { Code = "AMBIGUOUS_MONITOR_IDENTITY", Message = "Companion could not distinguish the monitor identity for "
+                        + Label(displays[index], index) + ". Click Copy Display Diagnostics and send the text with your report." };
+            return new State { Code = "IDENTITY_BINDINGS_PRESENT", Message = "Selected displays have monitor identities. The saved plan and remaining span checks still require validation." };
         }
     }
 
@@ -2033,7 +2081,7 @@ namespace Offhand.Companion
             AutoScaleMode=AutoScaleMode.Dpi;Font=new Font("Segoe UI",10);StartPosition=FormStartPosition.CenterParent;MinimizeBox=false;MaximizeBox=false;
             var layout=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(16),ColumnCount=1,AutoScroll=true};
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
-            layout.Controls.Add(new Label{Text="Save monitor areas as named plans. Loading selects a plan without resizing WoW. Click Span WoW Now to apply, then reload the addon to switch its matching panel layout.",AutoSize=true,MaximumSize=new Size(540,0),Margin=new Padding(0,0,0,12)});
+            layout.Controls.Add(new Label{Text="Save your monitor areas as named display plans. To switch plans, choose Load selected, Save changes, and Span WoW Now. Then type /reload in WoW to load the matching panel preset.",AutoSize=true,MaximumSize=new Size(540,0),Margin=new Padding(0,0,0,12)});
             selection.AccessibleName="Saved workspace profiles";name.AccessibleName="Profile name";
             layout.Controls.Add(new Label{Text="Saved profiles",AutoSize=true});layout.Controls.Add(selection);layout.Controls.Add(new Label{Text="Profile name",AutoSize=true,Margin=new Padding(0,12,0,4)});layout.Controls.Add(name);
             var actions=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,WrapContents=true,Margin=new Padding(0,12,0,0)};
@@ -2049,7 +2097,7 @@ namespace Offhand.Companion
             Controls.Add(layout);Controls.Add(footer);AcceptButton=done;CancelButton=cancel;
             selection.SelectedIndexChanged+=(s,e)=>{var item=selection.SelectedItem as WorkspacePlanProfiles.Record;if(item!=null)name.Text=item.Name;UpdateActions();};
             name.TextChanged+=(s,e)=>UpdateActions();RefreshProfiles();CompanionUi.Apply(this);
-            feedback.Text=selection.Items.Count==0?"No saved profiles yet. Configure Multiple workspaces, enter a name, then Save as new.":"Choose a profile to load or manage. Changes stay pending until Save changes.";
+            feedback.Text=selection.Items.Count==0?"No saved plans yet. Set up a custom layout, enter a name, then choose Save as new.":"Choose a saved plan to load or manage. Changes stay pending until Save changes.";
         }
         private void UpdateActions()
         {
@@ -3009,37 +3057,96 @@ namespace Offhand.Companion
             result.Append("  },\r\n  ");return result.ToString();
         }
 
-        internal static bool IsCurrent(string wowDir, MonitorSelection.Plan plan,
-            IList<MonitorSelection.Display> displays)
+        // Optional metadata for every workspace, including several regions on
+        // one display. Test fixtures inject the reader; production uses Win32.
+        internal static string PanelScaleFields(MonitorSelection.Plan plan, IList<MonitorSelection.Display> displays)
         {
-            if (string.IsNullOrEmpty(wowDir) || plan == null || displays == null) return false;
-            string target = Path.Combine(wowDir, "Interface", "AddOns", "Offhand", "Core", "CompanionTopology.lua");
-            string text;
-            try { text = File.ReadAllText(target); }
-            catch (IOException) { return false; }
-            catch (UnauthorizedAccessException) { return false; }
+            return PanelScaleFields(plan, displays, DisplayScaling.Read);
+        }
 
+        internal static string PanelScaleFields(MonitorSelection.Plan plan, IList<MonitorSelection.Display> displays,
+            Func<MonitorSelection.Display, DisplayScaling.State> read)
+        {
+            if (plan == null || displays == null || read == null) return "";
+            var cache = new Dictionary<int, string>();
+            Func<int, string> record = index => {
+                if (cache.ContainsKey(index)) return cache[index];
+                var display = displays[index];
+                var state = read(display);
+                string value = "{ device = " + LuaString(display.DeviceName)
+                    + ", identity = " + LuaString(string.IsNullOrEmpty(display.StableId) ? display.DeviceName : display.StableId);
+                if (state != null && state.Percent.HasValue && state.Percent.Value >= 25 && state.Percent.Value <= 1000)
+                    value += ", percent = " + state.Percent.Value;
+                value += " }"; cache[index] = value; return value;
+            };
+            var result = new StringBuilder("panelScaleMetadata = { version = 1, game = "
+                + record(plan.MainhandIndex) + ", workspaces = { ");
+            if (plan.MultiRegion) {
+                foreach (var region in plan.Workspaces)
+                    result.Append("[" + LuaString(region.Id) + "] = " + record(region.DisplayIndex) + ", ");
+            } else {
+                result.Append("[\"workspace\"] = " + record(plan.SplitSingle ? plan.MainhandIndex : plan.WorkspaceIndex) + ", ");
+            }
+            result.Append("} }"); return result.ToString();
+        }
+
+        private static string LayoutFields(MonitorSelection.Plan plan, IList<MonitorSelection.Display> displays)
+        {
             var selected = new StringBuilder();
             for (int i = 0; i < plan.Indices.Length; i++)
             {
                 if (i > 0) selected.Append(", ");
                 selected.Append(LuaString(displays[plan.Indices[i]].DeviceName));
             }
-            string[] expected = {
-                "companionVersion = " + LuaString(CurrentVersion()),
-                "schema = "+plan.TopologySchema,
+            return string.Join(",\r\n  ", new[] {
                 "mode = " + LuaString(plan.MultiRegion ? "CUSTOM_REGIONS" : plan.SplitSingle ? "SPLIT_ULTRAWIDE" : "DUAL_DISPLAY"),
                 "physicalWidth = " + plan.Bounds.Width + ", physicalHeight = " + plan.Bounds.Height,
                 "mainhandDevice = " + LuaString(displays[plan.MainhandIndex].DeviceName),
                 "selectedDevices = { " + selected + " }",
                 "game = " + RectLua(plan.MainhandBounds, plan.Bounds),
                 WorkspaceFields(plan,displays),
-                DisplayFields(plan,displays),
-                ProfileFields(plan),
-            };
-            foreach (string fragment in expected)
-                if (text.IndexOf(fragment, StringComparison.Ordinal) < 0) return false;
-            return true;
+                DisplayFields(plan,displays) + ProfileFields(plan),
+            });
+        }
+
+        internal static string LayoutKey(MonitorSelection.Plan plan, IList<MonitorSelection.Display> displays)
+        {
+            var fields = new List<string> { plan.TopologySchema.ToString(), LayoutFields(plan, displays), plan.Bounds.Location.ToString() };
+            foreach (int index in plan.Indices) fields.Add(displays[index].StableId);
+            return string.Join("\n", fields);
+        }
+
+        internal enum BridgeMatch { DifferentLayout, NeedsRefresh, Current }
+
+        internal static bool CanConfirmLayout(string appliedKey, string selectedKey, BridgeMatch bridge)
+        {
+            if (appliedKey == null) return bridge != BridgeMatch.DifferentLayout;
+            return string.Equals(appliedKey, selectedKey, StringComparison.Ordinal);
+        }
+
+        internal static bool IsCurrent(string wowDir, MonitorSelection.Plan plan, IList<MonitorSelection.Display> displays)
+        {
+            return Inspect(wowDir, plan, displays) == BridgeMatch.Current;
+        }
+
+        internal static BridgeMatch Inspect(string wowDir, MonitorSelection.Plan plan,
+            IList<MonitorSelection.Display> displays)
+        {
+            if (string.IsNullOrEmpty(wowDir) || plan == null || displays == null) return BridgeMatch.DifferentLayout;
+            string target = Path.Combine(wowDir, "Interface", "AddOns", "Offhand", "Core", "CompanionTopology.lua");
+            string content;
+            try { content = File.ReadAllText(target); }
+            catch (IOException) { return BridgeMatch.DifferentLayout; }
+            catch (UnauthorizedAccessException) { return BridgeMatch.DifferentLayout; }
+            if (!content.StartsWith("-- Generated by Offhand Companion.", StringComparison.Ordinal))
+                return BridgeMatch.DifferentLayout;
+            if (!content.Contains("\r\n  schema = " + plan.TopologySchema + ",")
+                || !content.Contains("\r\n  " + LayoutFields(plan, displays) + ",\r\n"))
+                return BridgeMatch.DifferentLayout;
+
+            return content.Contains("companionVersion = " + LuaString(CurrentVersion()))
+                && content.Contains("\r\n  " + PanelScaleFields(plan, displays) + ",\r\n")
+                ? BridgeMatch.Current : BridgeMatch.NeedsRefresh;
         }
 
         internal static bool TryWrite(string wowDir, MonitorSelection.Plan plan,
@@ -3065,24 +3172,13 @@ namespace Offhand.Companion
             if (!Directory.Exists(core)) return false;
             string target = Path.Combine(core, "CompanionTopology.lua");
             string temporary = target + ".tmp";
-            var selected = new StringBuilder();
-            for (int i = 0; i < plan.Indices.Length; i++)
-            {
-                if (i > 0) selected.Append(", ");
-                selected.Append(LuaString(displays[plan.Indices[i]].DeviceName));
-            }
             string text =
                 "-- Generated by Offhand Companion. Do not edit while the Companion is running.\r\n" +
                 "OffhandCompanionTopology = {\r\n" +
                 "  schema = "+plan.TopologySchema+", generatedAt = " + LuaString(DateTime.UtcNow.ToString("o")) + ",\r\n" +
                 "  companionVersion = " + LuaString(CurrentVersion()) + ",\r\n" +
-                "  mode = " + LuaString(plan.MultiRegion ? "CUSTOM_REGIONS" : plan.SplitSingle ? "SPLIT_ULTRAWIDE" : "DUAL_DISPLAY") + ",\r\n" +
-                "  physicalWidth = " + plan.Bounds.Width + ", physicalHeight = " + plan.Bounds.Height + ",\r\n" +
-                "  mainhandDevice = " + LuaString(displays[plan.MainhandIndex].DeviceName) + ",\r\n" +
-                "  selectedDevices = { " + selected + " },\r\n" +
-                "  game = " + RectLua(plan.MainhandBounds, plan.Bounds) + ",\r\n" +
-                "  " + WorkspaceFields(plan,displays) + ",\r\n" +
-                "  " + DisplayFields(plan,displays) + ProfileFields(plan) + ",\r\n" +
+                "  " + LayoutFields(plan, displays) + ",\r\n" +
+                "  " + PanelScaleFields(plan,displays) + ",\r\n" +
                 "}\r\n";
             try
             {
@@ -4139,7 +4235,7 @@ namespace Offhand.Companion
         internal const string BaseVersion = "2.1.7";
 #endif
 #if UI_PREVIEW
-        internal const string ReleaseLabel = "UI Preview 4";
+        internal const string ReleaseLabel = "UI Preview 5";
         internal static readonly bool GraphicsRecoveryEnabled = false;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
@@ -4785,7 +4881,13 @@ namespace Offhand.Companion
             var proposed=new Dictionary<string,string>(appSettings);
             if(!IsCustomSelection()) {
                 if(!proposed.ContainsKey("MonitorIdentities")||!proposed.ContainsKey("MainhandIdentity"))
-                    throw new InvalidOperationException("Windows did not provide an identity for every selected display. Review the checked displays and Mainhand.");
+                {
+                    var feedback = ReadDisplaySelectionFeedback();
+                    string message = feedback.Code == "IDENTITY_BINDINGS_PRESENT"
+                        ? "The display selection has not been fully saved. Review the checked displays and Mainhand, then try again. If this continues, click Copy Display Diagnostics."
+                        : feedback.Message;
+                    throw new InvalidOperationException(message + " No span was applied.");
+                }
                 proposed["DisplayIdentityVersion"]="1";
             }
             proposed=MonitorSelection.UpgradeIdentitySettings(proposed,uiDisplays);
@@ -4905,6 +5007,12 @@ namespace Offhand.Companion
 #endif
         private readonly HashSet<int> restoredPids = new HashSet<int>();
         private readonly HashSet<int> failedAutoSpanPids = new HashSet<int>();
+        private sealed class AppliedTopology
+        {
+            internal IntPtr Handle;
+            internal string LayoutKey;
+        }
+        private readonly Dictionary<int, AppliedTopology> appliedTopologies = new Dictionary<int, AppliedTopology>();
         private sealed class WindowSnapshot
         {
             internal IntPtr Handle;
@@ -4946,6 +5054,7 @@ namespace Offhand.Companion
             // A local plan or a replacement connection must not re-use this
             // window as an automatic span target until the player reviews it.
             spannedPids.Remove(previous.ProcessId);
+            appliedTopologies.Remove(previous.ProcessId);
             restoredPids.Add(previous.ProcessId);
             classicRecovery.Remove(previous.ProcessId);
             try { previous.Topology.Restore(); }
@@ -5640,7 +5749,7 @@ namespace Offhand.Companion
             delayRow.Controls.Add(numDelaySpan);
             autoOptions.Controls.Add(delayRow);
 
-            uiToolTips.SetToolTip(btnWorkspaceProfiles,"Save and manage named Multiple workspaces plans. Loading selects settings; Span WoW Now applies them.");
+            uiToolTips.SetToolTip(btnWorkspaceProfiles,"Save and manage named display plans. After loading a plan, click Span WoW Now and type /reload in WoW.");
             uiToolTips.SetToolTip(btnPartialSpan, "Edit a custom workspace or return to a standard display layout.");
 
             uiToolTips.SetToolTip(chkAutoSpan,
@@ -6976,9 +7085,74 @@ namespace Offhand.Companion
         {
             var displays = ReadDisplays();
             MonitorSelection.Plan plan = null;
+            string planFailure = null;
             try { plan = GetMonitorPlan(displays); }
-            catch (Exception) { /* Invalid or incomplete selection is shown above. */ }
-            RefreshColorStatus(displays, plan);
+            catch (Exception ex) { planFailure = ex.Message; }
+            RefreshColorStatus(displays, plan, planFailure);
+        }
+
+        private List<int> CheckedDisplayIndices()
+        {
+            var selected = new List<int>();
+            if (clbMonitors != null)
+                foreach (int index in clbMonitors.CheckedIndices) selected.Add(index);
+            return selected;
+        }
+
+        private DisplaySelectionFeedback.State ReadDisplaySelectionFeedback()
+        {
+            var choice = cmbMainhand == null ? null : cmbMainhand.SelectedItem as DisplayChoice;
+            return DisplaySelectionFeedback.Inspect(uiDisplays, CheckedDisplayIndices(), choice == null ? -1 : choice.Index);
+        }
+
+        private string DisplaySelectionDiagnosticText(List<MonitorSelection.Display> displays, string planFailure)
+        {
+            var text = new StringBuilder();
+            bool custom = IsCustomSelection();
+            text.AppendLine("Layout mode: " + (custom ? "custom workspace" : "standard display selection"));
+            text.AppendLine("Session state: " + remoteState);
+            text.AppendLine("Selection snapshot matches current displays: " + MonitorSelection.SameDisplays(uiDisplays, displays));
+            text.AppendLine("Selection controls refreshing: " + refreshingDisplayControls);
+            var selected = CheckedDisplayIndices();
+            // Standard controls are inactive for custom plans. Keep that fact
+            // explicit rather than blaming a custom plan's unchecked dashboard.
+            bool standardControlsActive = !custom && remoteState == RemoteDesktop.State.Local;
+            text.AppendLine("Standard selection controls: " + (standardControlsActive ? "active" : "inactive"));
+            if (standardControlsActive)
+            {
+                var feedback = ReadDisplaySelectionFeedback();
+                text.AppendLine("Selection status: " + feedback.Code);
+                text.AppendLine("Selection detail: " + feedback.Message);
+            }
+            text.AppendLine("Checked display count: " + selected.Count);
+            foreach (int index in selected)
+                text.AppendLine("Checked display: " + (uiDisplays != null && index >= 0 && index < uiDisplays.Count
+                    ? DisplaySelectionFeedback.Label(uiDisplays[index], index) + "; device=" + uiDisplays[index].DeviceName
+                    : "unavailable (index " + index + ")"));
+            var choice = cmbMainhand == null ? null : cmbMainhand.SelectedItem as DisplayChoice;
+            text.AppendLine("Mainhand control: " + (choice == null ? "not selected"
+                : "Display " + (choice.Index + 1) + "; device=" + choice.DeviceName
+                    + "; checked=" + selected.Contains(choice.Index)
+                    + "; identity=" + (string.IsNullOrWhiteSpace(choice.StableId) ? "<missing>" : choice.StableId)));
+            text.AppendLine("Single-display split control: " + (chkSingleSplit != null && chkSingleSplit.Checked));
+            string version;
+            text.AppendLine("Saved identity version: " + (appSettings.TryGetValue("DisplayIdentityVersion", out version) ? version : "<missing>"));
+            text.AppendLine("Saved identity bindings: MonitorIdentities=" + appSettings.ContainsKey("MonitorIdentities")
+                + "; MainhandIdentity=" + appSettings.ContainsKey("MainhandIdentity"));
+            string identities, mainhandIdentity;
+            text.AppendLine("Saved monitor identities: " + (appSettings.TryGetValue("MonitorIdentities", out identities) ? identities : "<missing>"));
+            text.AppendLine("Saved Mainhand identity: " + (appSettings.TryGetValue("MainhandIdentity", out mainhandIdentity) ? mainhandIdentity : "<missing>"));
+            text.AppendLine("Saved identity bindings valid: " + MonitorSelection.HasSavedIdentitySettings(appSettings));
+            text.AppendLine("Saved display selection confirmed: " + HasStableIdentitySettings());
+            text.AppendLine("Saved plan validation: " + (planFailure ?? "passed"));
+            foreach (var display in displays)
+            {
+                text.AppendLine(DisplaySelectionFeedback.Label(display, display.Index) + "; device=" + display.DeviceName
+                    + "; bounds=" + display.Bounds + "; primary=" + display.Primary
+                    + "; identity=" + (string.IsNullOrWhiteSpace(display.StableId) ? "<missing>" : display.StableId));
+                text.AppendLine("Identity lookup: " + (display.IdentityDetail ?? "<unavailable>"));
+            }
+            return text.ToString();
         }
 
         private void CopyColorDiagnostics()
@@ -6999,19 +7173,17 @@ namespace Offhand.Companion
             catch (System.Threading.ThreadStateException) { MessageBox.Show(this, "Clipboard access is unavailable in this session.", "Display Diagnostics"); }
         }
 
-        private void RefreshColorStatus(List<MonitorSelection.Display> displays, MonitorSelection.Plan plan)
+        private void RefreshColorStatus(List<MonitorSelection.Display> displays, MonitorSelection.Plan plan, string planFailure = null)
         {
             if (lblColorModes == null) return;
             if (plan == null)
             {
-                lblColorModes.Text = "Color and scaling details appear after a display layout is confirmed.";
+                lblColorModes.Text = "Display layout is not confirmed. Copy Display Diagnostics includes selection and monitor identity details.";
                 lblColorWarning.Text = "";
                 lblColorWarning.ForeColor = cMuted;
                 lblScaleInfo.Text = "";
-                colorDiagnostics = lblColorModes.Text;
-                foreach (var display in displays)
-                    colorDiagnostics += string.Format("\r\nDisplay {0}: {1}; identity={2}; {3}",
-                        display.Index + 1, display.DeviceName, display.StableId, display.IdentityDetail);
+                colorDiagnostics = lblColorModes.Text + "\r\n" + DisplaySelectionDiagnosticText(displays,
+                    planFailure ?? "No confirmed display plan is available.");
                 lastColorDiagnostic = null;
                 return;
             }
@@ -7054,6 +7226,7 @@ namespace Offhand.Companion
                 lblColorWarning.ForeColor=mixed?cYellow:cMuted;lblScaleInfo.Text=DisplayScaling.Summary(scales);
             }
             var detail = new StringBuilder();
+            detail.Append(DisplaySelectionDiagnosticText(displays, planFailure));
             detail.AppendLine(lblColorModes.Text);
             detail.AppendLine(lblColorWarning.Text);
             detail.AppendLine(lblScaleInfo.Text);
@@ -7075,9 +7248,10 @@ namespace Offhand.Companion
             }
         }
 
-        private static string DescribeDashboardLayout(MonitorSelection.Plan plan, bool windowMatches)
+        private static string DescribeDashboardLayout(MonitorSelection.Plan plan, bool applied, bool wowRunning = true)
         {
-            string state = windowMatches ? "WoW window bounds match the saved layout" : "Saved display layout";
+            string state = applied ? "Layout sent to WoW" : wowRunning
+                ? "Layout selected. Click Span WoW Now to apply." : "Selected display layout";
             string game = string.Format("Game {0} × {1}", plan.MainhandBounds.Width, plan.MainhandBounds.Height);
             string workspace = plan.MultiRegion
                 ? string.Format("{0} workspace{1} on {2} display{3}", plan.Workspaces.Length,
@@ -7232,10 +7406,11 @@ namespace Offhand.Companion
                     lastAddonDiagnostic = addonDiagnostic;
                     AddLog("Addon verification: " + status.Reason);
                 }
-                bool windowMatchesCurrentPlan = false;
+                bool windowBoundsMatch = false;
+                IntPtr observedHandle = IntPtr.Zero;
                 if (currentDisplayPlan != null)
                 {
-                    IntPtr observedHandle = GetWoWWindowHandle(proc);
+                    observedHandle = GetWoWWindowHandle(proc);
                     NativeMethods.RECT observedRect;
                     if (observedHandle != IntPtr.Zero && NativeMethods.GetWindowRect(observedHandle, out observedRect)
                         && observedRect.Left == currentDisplayPlan.Bounds.Left
@@ -7243,7 +7418,7 @@ namespace Offhand.Companion
                         && observedRect.Width == currentDisplayPlan.Bounds.Width
                         && observedRect.Height == currentDisplayPlan.Bounds.Height)
                     {
-                        windowMatchesCurrentPlan = true;
+                        windowBoundsMatch = true;
                         if (!spannedPids.Contains(proc.Id) && !restoredPids.Contains(proc.Id))
                         {
                             spannedPids.Add(proc.Id);
@@ -7251,32 +7426,44 @@ namespace Offhand.Companion
                         }
                     }
                 }
-                if (currentDisplayPlan != null)
-                    lblDisplayInfo.Text = DescribeDashboardLayout(currentDisplayPlan, windowMatchesCurrentPlan);
-
                 // Addon managers and local deployments replace the generated
-                // bridge with the packaged placeholder. If the live WoW window
-                // still exactly matches the selected span, repair that file
-                // without moving the window. The next /reload can then consume
-                // the same trusted display plan again.
-                if (status.Installed && windowMatchesCurrentPlan
-                    && spannedPids.Contains(proc.Id) && !restoredPids.Contains(proc.Id)
-                    && !CompanionTopologyBridge.IsCurrent(status.WowDir, currentDisplayPlan, currentDisplays))
+                // bridge with the packaged placeholder. Repair only the layout
+                // already applied to this window. Two plans can share bounds.
+                bool selectedLayoutApplied = false;
+                if (status.Installed && windowBoundsMatch && !restoredPids.Contains(proc.Id))
                 {
-                    string topologyMessage;
-                    if (CompanionTopologyBridge.TryWrite(status.WowDir, currentDisplayPlan,
-                        currentDisplays, out topologyMessage))
+                    string layoutKey = CompanionTopologyBridge.LayoutKey(currentDisplayPlan, currentDisplays);
+                    var bridge = CompanionTopologyBridge.Inspect(status.WowDir, currentDisplayPlan, currentDisplays);
+                    AppliedTopology applied;
+                    bool knownWindow = appliedTopologies.TryGetValue(proc.Id, out applied) && applied.Handle == observedHandle;
+
+                    if (CompanionTopologyBridge.CanConfirmLayout(knownWindow ? applied.LayoutKey : null, layoutKey, bridge))
                     {
-                        lastTopologyRepairFailure = null;
-                        AddLog("Repaired the addon-updated display topology. Use /reload once in WoW.");
-                    }
-                    else if (!string.Equals(lastTopologyRepairFailure, topologyMessage,
-                        StringComparison.Ordinal))
-                    {
-                        lastTopologyRepairFailure = topologyMessage;
-                        AddLog(topologyMessage);
+                        // On Companion restart, the existing generated bridge can
+                        // attest to the exact layout. A placeholder cannot.
+                        if (!knownWindow)
+                            appliedTopologies[proc.Id] = new AppliedTopology { Handle = observedHandle, LayoutKey = layoutKey };
+                        selectedLayoutApplied = bridge == CompanionTopologyBridge.BridgeMatch.Current;
+                        if (!selectedLayoutApplied)
+                        {
+                            string topologyMessage;
+                            selectedLayoutApplied = CompanionTopologyBridge.TryWrite(status.WowDir, currentDisplayPlan,
+                                currentDisplays, out topologyMessage);
+                            if (selectedLayoutApplied)
+                            {
+                                lastTopologyRepairFailure = null;
+                                AddLog("Repaired the applied display layout. Use /reload once in WoW.");
+                            }
+                            else if (!string.Equals(lastTopologyRepairFailure, topologyMessage, StringComparison.Ordinal))
+                            {
+                                lastTopologyRepairFailure = topologyMessage;
+                                AddLog(topologyMessage);
+                            }
+                        }
                     }
                 }
+                if (currentDisplayPlan != null)
+                    lblDisplayInfo.Text = DescribeDashboardLayout(currentDisplayPlan, selectedLayoutApplied);
 
                 if (local) TryRecoverClassicSpan(proc, status, currentDisplayPlan, currentDisplays);
 
@@ -7323,7 +7510,7 @@ namespace Offhand.Companion
             {
                 UpdateClientStatus(null, anyWoWProcess);
                 if (currentDisplayPlan != null)
-                    lblDisplayInfo.Text = DescribeDashboardLayout(currentDisplayPlan, false);
+                    lblDisplayInfo.Text = DescribeDashboardLayout(currentDisplayPlan, false, false);
                 lastAddonDiagnostic = null;
                 // The game window can disappear before the process finishes
                 // flushing SavedVariables. Never read or replace the recovery
@@ -7348,6 +7535,7 @@ namespace Offhand.Companion
                 {
                     if (remoteSpan != null && remoteSpan.ProcessId == pid) InvalidateRemoteSpan();
                     spannedPids.Remove(pid);
+                    appliedTopologies.Remove(pid);
                     restoredPids.Remove(pid);
                     failedAutoSpanPids.Remove(pid);
                     originalWindows.Remove(pid);
@@ -7610,6 +7798,7 @@ namespace Offhand.Companion
                 if (remoteSpan != null && remoteSpan.ProcessId == proc.Id) InvalidateRemoteSpan();
                 
                 spannedPids.Remove(proc.Id);
+                appliedTopologies.Remove(proc.Id);
                 restoredPids.Add(proc.Id);
                 if (layoutNoticeProcessId == proc.Id) SetLayoutNotice(0, "");
                 if (manual && !NativeMethods.SetForegroundWindow(handle))
@@ -7918,6 +8107,9 @@ namespace Offhand.Companion
                 trayIcon.ShowBalloonTip(6000, GraphicsRecoveryTestBuild ? RecoveryScope + " span requested" : "Span applied: type /reload in WoW",
                     GraphicsRecoveryTestBuild ? "Wait for stable-span confirmation in the activity log before the VSync test."
                     : ReloadLayoutInstruction + (remote ? " Keep Companion open for Restore Window." : ""), ToolTipIcon.Info);
+                appliedTopologies[proc.Id] = new AppliedTopology {
+                    Handle = handle, LayoutKey = CompanionTopologyBridge.LayoutKey(plan, displays)
+                };
                 rollback.Commit();
                 if (remote)
                     remoteSpan = new RemoteSpan { ProcessId = proc.Id, Handle = handle, Displays = displays, Topology = rollback.Topology };

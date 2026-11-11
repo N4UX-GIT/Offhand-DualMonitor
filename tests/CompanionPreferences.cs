@@ -325,9 +325,28 @@ namespace Offhand.Companion {
                 Check(topology.Contains("mode = \"DUAL_DISPLAY\"") && topology.Contains("companionVersion = \"2.1.7\"") && topology.Contains("width = 3440") &&
                     topology.Contains("height = 1080") && topology.Contains("y = 0"));
                 Check(CompanionTopologyBridge.IsCurrent(wow, plan, displays));
+                var oppositeSplit = MonitorSelection.CreatePlan(@"MONITOR\MAIN\A", null, null,
+                    @"MONITOR\MAIN\A", null, true, true, displays);
+                Check(splitPlan.Bounds == oppositeSplit.Bounds && splitPlan.MainhandBounds != oppositeSplit.MainhandBounds);
+                Check(CompanionTopologyBridge.TryWrite(wow, splitPlan, displays, out topologyMessage));
+                string splitKey = CompanionTopologyBridge.LayoutKey(splitPlan, displays);
+                string oppositeKey = CompanionTopologyBridge.LayoutKey(oppositeSplit, displays);
+                var oppositeBridge = CompanionTopologyBridge.Inspect(wow, oppositeSplit, displays);
+                Check(oppositeBridge == CompanionTopologyBridge.BridgeMatch.DifferentLayout);
+                Check(!CompanionTopologyBridge.CanConfirmLayout(splitKey, oppositeKey, oppositeBridge));
+                Check(!CompanionTopologyBridge.CanConfirmLayout(null, oppositeKey, oppositeBridge));
+
+                string topologyPath = Path.Combine(core, "CompanionTopology.lua");
+                File.WriteAllText(topologyPath, System.Text.RegularExpressions.Regex.Replace(
+                    File.ReadAllText(topologyPath), @"(?m)^  panelScaleMetadata = .*\r\n", ""));
+                var oldBridge = CompanionTopologyBridge.Inspect(wow, splitPlan, displays);
+                Check(oldBridge == CompanionTopologyBridge.BridgeMatch.NeedsRefresh);
+                Check(CompanionTopologyBridge.CanConfirmLayout(null, splitKey, oldBridge));
                 File.WriteAllText(Path.Combine(core, "CompanionTopology.lua"),
                     "-- packaged placeholder\r\nOffhandCompanionTopology = nil\r\n");
                 Check(!CompanionTopologyBridge.IsCurrent(wow, plan, displays));
+                Check(CompanionTopologyBridge.CanConfirmLayout(splitKey, splitKey,
+                    CompanionTopologyBridge.Inspect(wow, splitPlan, displays)));
                 Check(CompanionTopologyBridge.TryWrite(wow, plan, displays, out topologyMessage)
                     && CompanionTopologyBridge.IsCurrent(wow, plan, displays));
                 Console.WriteLine("PASS: both Companion instance locks, safe display identities, addon layout diagnosis, missing-monitor guard, topology bridge, atomic settings with failure preservation, restore geometry and atomic Forever state generation");

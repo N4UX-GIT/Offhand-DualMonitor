@@ -1676,6 +1676,7 @@ function Offhand:ApplyFullLayout(preserveGlobalScale)
         if Offhand.UpdateCanvas then
             Offhand:UpdateCanvas()
         end
+        if Offhand.WorkspaceScale then Offhand.WorkspaceScale:Refresh() end
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
         if Offhand.Mainhand and Offhand.Mainhand.UpdateWindowModeLayout then
             Offhand.Mainhand:UpdateWindowModeLayout(metrics)
@@ -1779,6 +1780,16 @@ SlashCmdList["OFFHAND"] = function(msg)
             operating.mainhandWidth, operating.mainhandHeight,
             operating.workspaceLeft, operating.workspaceBottom,
             operating.workspaceWidth, operating.workspaceHeight)
+        if Offhand.WorkspaceScale then
+            local sizing=Offhand.WorkspaceScale:GetDiagnostics(m)
+            for _,region in ipairs(sizing.regions) do
+                Offhand:Print("Workspace sizing: Region=%s | Setting=%s | Resolved=%.0f%% | Source=%s | Windows=%s/%s | Chat=%s.",
+                    region.id,tostring(region.setting),region.multiplier*100,region.source,
+                    tostring(region.workspacePercent or "unknown"),tostring(region.gamePercent or "unknown"),tostring(region.chat))
+            end
+            Offhand:Print("Workspace sizing ownership: Scaled=%d | Released=%d | LastRejected=%s.",
+                sizing.scaled,sizing.released,tostring(sizing.lastFailure or "none"))
+        end
         local physW, physH = m.physicalWidth or 0, m.physicalHeight or 0
         local screenW = GetScreenWidth()
         local screenH = GetScreenHeight()

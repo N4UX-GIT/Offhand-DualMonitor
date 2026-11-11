@@ -32,9 +32,9 @@ $compiler=Join-Path $env:WINDIR 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
 & $compiler /nologo /target:winexe /optimize+ /platform:anycpu "/out:$binary" "/win32icon:$root/Media/offhand-logo.ico" "/win32manifest:$source/app.manifest" "/resource:$root/Media/offhand-logo-small.png,Offhand.Companion.Resources.offhand-logo.png" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll @files
 if($LASTEXITCODE-ne 0){throw 'Companion candidate compilation failed.'}
 $identity=[Diagnostics.FileVersionInfo]::GetVersionInfo($binary)
-if($identity.FileVersion-ne '2.1.7.3' -or $identity.ProductVersion-ne '2.1.7'){throw 'Unexpected production candidate identity.'}
+if($identity.FileVersion-ne '2.1.7.4' -or $identity.ProductVersion-ne '2.1.7'){throw 'Unexpected production candidate identity.'}
 $readme=@'
-Offhand Companion {{VERSION}}, unpublished release candidate (build 2.1.7.3).
+Offhand Companion {{VERSION}}, unpublished release candidate (build 2.1.7.4).
 SHA-256: {{EXE_SHA256}}
 
 This production candidate uses ordinary portable preferences and supports manual
@@ -58,10 +58,10 @@ displays and Mainhand, then click Span WoW Now and type /reload in WoW. On first
 setup, use /offhand guide and complete placement review, calibration and any
 Mainhand HUD layout/reload prompts. Restore returns WoW to a normal window.
 
-The published 2.1.5 Pre-Release Beta 28 addon remains compatible through protocol
-1. No new addon is required for this Companion interface update. Store builds
-keep package-local settings and quiet Store update detection; portable update
-checks remain manual. Store delivery, certification and rollout are separate.
+The published addon remains compatible through protocol 1. The matching
+Pre-Release Beta 32 addon exposes per-workspace panel sizing. Store builds keep
+package-local settings and quiet Store update detection; portable update checks
+remain manual. Store delivery, certification and rollout are separate.
 
 This candidate is not published. Do not replace the official GitHub/Store release
 with it. See the preparation report for exact checks and remaining limitations.
@@ -75,7 +75,7 @@ $record=[ordered]@{version='2.1.7';fileVersion=$identity.FileVersion;packageVers
     sourceRevision=(& git -C $root rev-parse HEAD).Trim();sourceInputs=$inputs;
     trackedChanges=[bool]@(& git -C $root status --porcelain --untracked-files=no).Count;
     binarySha256=(Get-FileHash -LiteralPath $binary).Hash;archiveSha256=(Get-FileHash -LiteralPath $archive).Hash;
-    publication='unpublished';addonProtocol=1;compatibleAddon='2.1.5 Pre-Release Beta 28';
+    publication='unpublished';addonProtocol=1;matchingAddon='2.1.5 Pre-Release Beta 32';
     uiPreview=$false;firstRunTutorial=$true}
 $record|ConvertTo-Json -Depth 5|Set-Content -LiteralPath (Join-Path $output 'candidate.json') -Encoding UTF8
 @("$($record.binarySha256)  Offhand.exe","$($record.archiveSha256)  $([IO.Path]::GetFileName($archive))")|

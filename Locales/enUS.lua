@@ -1115,3 +1115,20 @@ L["ONBOARD_RELOAD_COMPLETE_PLACE"] = "The reload is complete. Place WoW with Com
 
 L["PROCDOC_MAINHAND"] = "Center ProcDoc alerts on Mainhand"
 L["PROCDOC_MAINHAND_DESC"] = "Use Mainhand as the center for ProcDoc alerts while spanned. Keep ProcDoc offsets and restore its placement when this is turned off."
+
+-- Per-region panel sizing
+L["REGION_SCALE_TITLE"] = "In-game window scale"
+L["REGION_SCALE_HELP"] = "Adjust the size of supported WoW windows in each workspace. Open Advanced options to preview a change."
+L["REGION_SCALE_DETAILS"] = "Choose a workspace, then use the slider or Estimate from Windows. The sample shows the preview. Click Apply size to save it or Discard preview to return to the saved size. To restore normal size, choose Preview 100%, then Apply size.\n\nThe Windows estimate uses your display scaling and previews 100% when those data are unavailable. Character and spell windows have their own size controls. Include Blizzard chat is experimental."
+L["REGION_SCALE_SAVED"] = "Current size %.0f%%."
+L["REGION_SCALE_SCOPE"] = "For supported workspace windows. Character and spell windows keep their own controls. Protected HUD elements are unchanged. Chat is optional."
+L["REGION_SCALE_AUTO"] = "Estimate from Windows"
+L["REGION_SCALE_RESET"] = "Preview 100%"
+L["REGION_SCALE_CHAT"] = "Include Blizzard chat (experimental)"
+L["REGION_SCALE_SAMPLE"] = "Panel size preview"
+L["REGION_SCALE_APPLY"] = "Apply size"
+L["REGION_SCALE_CANCEL"] = "Discard preview"
+L["REGION_SCALE_UNAVAILABLE"] = "Span the displays to adjust workspace panel sizes."
+L["REGION_SCALE_DETECTED"] = "Auto preview: %.0f%% (workspace %.0f%% / Mainhand %.0f%%). Windows estimate, limited to 40-150%%."
+L["REGION_SCALE_MANUAL"] = "Preview: %.0f%%. Apply to save the scale."
+L["REGION_SCALE_AUTO_UNAVAILABLE"] = "Windows scaling is unavailable. Auto previews 100%; manual adjustment is available."

@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.1.5-beta.32] - Unreleased
+
+- Set separate sizes for supported panels in each Offhand workspace from
+  Workspace settings or calibration. Existing layouts keep their current sizes
+  until you apply a change.
+- Preview sizes before applying them. With Companion 2.1.7, you can also
+  estimate a size from the Windows scaling of the game and workspace displays.
+  Manual sizing is available with older compatible Companion versions.
+
 ## [2.1.5-beta.31] - 2026-11-11
 
 - Forever Gamepad UI keeps controller actions usable after closing the World Map.

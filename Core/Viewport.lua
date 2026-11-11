@@ -500,7 +500,9 @@ function Viewport:GetMetrics(allowUnconfirmedManual)
             companionVersion = companionVersion,
             expectedCompanionVersion = expectedCompanionVersion,
         }
-        return Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:ApplyMetrics(metrics,topology) or metrics
+        if Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ApplyMetrics(metrics,topology) end
+        if Offhand.WorkspaceScale then metrics=Offhand.WorkspaceScale:ApplyTopologyMetrics(metrics,topology) end
+        return metrics
     end
 
     -- A rejected multi-region bridge must never activate a coincidentally

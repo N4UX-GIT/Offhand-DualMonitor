@@ -63,7 +63,39 @@ namespace Offhand.Companion {
    Check(CompanionTopologyBridge.TryWrite(wow,plan,displays,out message,out bytes),"Named bridge write failed");
    string bridge=Encoding.UTF8.GetString(bytes);Check(bridge.Contains("workspaceProfileID = \""+id+"\"")&&bridge.Contains("workspaceProfileName = \"Desk renamed\""),"Bridge lost profile fields");
    Check(CompanionTopologyBridge.IsCurrent(wow,plan,displays),"Named bridge cannot be revalidated");
-   File.WriteAllText(Path.Combine(wow,"Interface","AddOns","Offhand","Core","CompanionTopology.lua"),bridge.Replace("Desk renamed","stale name"));
+   string bridgePath=Path.Combine(wow,"Interface","AddOns","Offhand","Core","CompanionTopology.lua");
+   var pendingSettings=new Dictionary<string,string>(renamed);
+   pendingSettings["WorkspaceProfileID"]=second["WorkspaceProfileID"];
+   pendingSettings["WorkspaceProfileName"]=second["WorkspaceProfileName"];
+   pendingSettings["WorkspacePrimary"]="b";
+   var pending=MonitorSelection.CreatePlan(pendingSettings,displays);
+   string appliedKey=CompanionTopologyBridge.LayoutKey(plan,displays);
+   string pendingKey=CompanionTopologyBridge.LayoutKey(pending,displays);
+   var pendingBridge=CompanionTopologyBridge.Inspect(wow,pending,displays);
+   Check(plan.Bounds==pending.Bounds && appliedKey!=pendingKey,"Same outer window must distinguish saved layouts");
+   Check(pendingBridge==CompanionTopologyBridge.BridgeMatch.DifferentLayout,"Applied bridge matched a pending layout");
+   Check(!CompanionTopologyBridge.CanConfirmLayout(appliedKey,pendingKey,pendingBridge),"Polling can apply a pending layout");
+   Check(!CompanionTopologyBridge.CanConfirmLayout(null,pendingKey,pendingBridge),"Restart can apply a pending layout");
+   var alternate=MonitorSelection.CreatePlan(renamed,displays);
+   alternate.PrimaryWorkspaceId=pending.PrimaryWorkspaceId;
+   alternate.WorkspaceBounds=pending.WorkspaceBounds;
+   Check(CompanionTopologyBridge.LayoutKey(alternate,displays)!=appliedKey
+    && CompanionTopologyBridge.Inspect(wow,alternate,displays)==CompanionTopologyBridge.BridgeMatch.DifferentLayout,
+    "The same saved plan identity must distinguish changed internal geometry");
+   alternate=MonitorSelection.CreatePlan(renamed,displays);
+   alternate.WorkspaceProfileID=pending.WorkspaceProfileID;
+   Check(CompanionTopologyBridge.LayoutKey(alternate,displays)!=appliedKey
+    && CompanionTopologyBridge.Inspect(wow,alternate,displays)==CompanionTopologyBridge.BridgeMatch.DifferentLayout,
+    "Identical geometry must distinguish different linked presets");
+   File.WriteAllText(bridgePath,bridge.Replace("companionVersion = ","previousVersion = "));
+   var outdated=CompanionTopologyBridge.Inspect(wow,plan,displays);
+   Check(outdated==CompanionTopologyBridge.BridgeMatch.NeedsRefresh
+    && CompanionTopologyBridge.CanConfirmLayout(null,appliedKey,outdated),"Restart cannot refresh an attested layout");
+   File.WriteAllText(bridgePath,"OffhandCompanionTopology = nil");
+   var placeholder=CompanionTopologyBridge.Inspect(wow,plan,displays);
+   Check(CompanionTopologyBridge.CanConfirmLayout(appliedKey,appliedKey,placeholder)
+    && !CompanionTopologyBridge.CanConfirmLayout(null,appliedKey,placeholder),"A placeholder can only be repaired for a known window and plan");
+   File.WriteAllText(bridgePath,bridge.Replace("Desk renamed","stale name"));
    Check(!CompanionTopologyBridge.IsCurrent(wow,plan,displays),"Rename did not invalidate stale bridge metadata");
    Application.EnableVisualStyles();
    using(var dialog=new WorkspaceProfilesDialog(renamed,Displays)){

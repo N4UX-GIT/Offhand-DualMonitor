@@ -27,7 +27,7 @@ $options = @('/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', '/de
 & $compiler @options @files
 if ($LASTEXITCODE -ne 0) { throw 'Dashboard preview compilation failed.' }
 $identity = [Diagnostics.FileVersionInfo]::GetVersionInfo($binary)
-if ($identity.FileVersion -ne '2.1.7.8004' -or $identity.ProductVersion -ne '2.1.7') {
+if ($identity.FileVersion -ne '2.1.7.8005' -or $identity.ProductVersion -ne '2.1.7') {
     throw 'Unexpected dashboard preview identity.'
 }
 $binaryHash = (Get-FileHash -LiteralPath $binary).Hash
@@ -35,7 +35,7 @@ $binaryHash = (Get-FileHash -LiteralPath $binary).Hash
     'DashboardCollapsed.DisplayDiagnostics=True', 'DashboardCollapsed.ActivityLog=True') |
     Set-Content -LiteralPath (Join-Path $output 'DashboardPreviewConfig.ini') -Encoding UTF8
 @'
-Offhand Companion 2.1.7 UI Preview 4, local build 2.1.7.8004. Unpublished.
+Offhand Companion 2.1.7 UI Preview 5, local build 2.1.7.8005. Unpublished.
 Executable SHA-256 {{EXE_SHA256}}
 
 Extract the archive to a writable folder. Use Exit Companion in the running

@@ -96,6 +96,20 @@ function UI.Build(tabs,card,options)
     end
     Text(routing,L.WORKSPACE_ROUTING_SCOPE,12,-315,628)
 
+    local sizing
+    if Offhand.WorkspaceScaleControls then
+        sizing=card(tabs.workspace,L.REGION_SCALE_TITLE,140)
+        local control=Offhand.WorkspaceScaleControls:BuildAdvanced(sizing,628,true)
+        control:SetPoint("TOPLEFT",sizing,"TOPLEFT",12,-34)
+        sizing:SetHeight(control:GetHeight()+46)
+        control.onResize=function(height,reveal)
+            sizing:SetHeight(height+46)
+            if sizing.onSizingChanged then sizing.onSizingChanged(reveal) end
+        end
+        refreshers[#refreshers+1]=function()control:Refresh()end
+        control:Refresh()
+    end
+
     local themeCard=card(tabs.themes,L.WORKSPACE_THEMES_TITLE,342)
     local themeHelp=Text(themeCard,L.WORKSPACE_THEMES_HELP,12,-34,628)
     local themeChoices={{id="INHERIT",label=L.WORKSPACE_THEME_INHERIT},
@@ -167,7 +181,7 @@ function UI.Build(tabs,card,options)
     UI.refreshers=refreshers
     -- Resolve profile selection before its choice label is first rendered.
     local _,current=Offhand.WorkspaceProfiles:List();selected=current
-    UI.controls={profiles=profiles,picker=picker,name=input,routing=routing,themes=themeCard,regions=regionRows}
+    UI.controls={profiles=profiles,picker=picker,name=input,routing=routing,sizing=sizing,themes=themeCard,regions=regionRows}
     UI:Refresh()
     return UI.controls
 end

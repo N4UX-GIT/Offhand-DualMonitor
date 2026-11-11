@@ -1153,6 +1153,22 @@ EvictWorkspacePanelSlot, DemodalizePanel, RemodalizePanel = Offhand.CanvasPanelL
     UnregisterSpecialFrame = UnregisterSpecialFrame,
 })
 
+function Canvas:CanScaleWorkspacePanel(frame)
+    if not frame or InCombatLockdown() or not CanManagePanelsFromAddon() then return false end
+    local name=frame.GetName and frame:GetName()
+    if IsUnsafeForPanelMutation(frame,name) or IsRetailChatEditModeActive(frame) then return false end
+    if HasCustomChatAddon() and (name and name:match("^ChatFrame") or frame==_G.GeneralDockManager or frame==_G.GENERAL_CHAT_DOCK) then return false end
+    return true
+end
+
+function Canvas:RestoreRegionScaledPanel(frame)
+    local name=frame and frame.GetName and frame:GetName()
+    if Offhand.isForever and IsBackpackRoot(name) and self.RefreshForeverNativeBagPlacement then
+        return self:RefreshForeverNativeBagPlacement(frame)
+    end
+    return self:RestoreWorkspacePosition(frame)
+end
+
 OnPanelDragStop = Persistence.InstallDrag(Canvas, {
     ShouldYieldFrameToClassicUIForever = function(...) return ShouldYieldFrameToClassicUIForever(...) end,
     ShouldYieldWorldMapToMoveAny = function(...) return ShouldYieldWorldMapToMoveAny(...) end,

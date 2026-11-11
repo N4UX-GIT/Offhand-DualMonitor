@@ -42,6 +42,7 @@ namespace Offhand.Companion
         internal static void Main()
         {
             ActivePathCases();
+            FeedbackCases();
             var pair = Pair();
             var plan = Plan(pair, "INTERFACE-A|INTERFACE-B", "INTERFACE-B", false);
             Check(plan.Indices.Length == 2 && plan.MainhandIndex == 1, "Distinct pair/Mainhand");
@@ -111,7 +112,140 @@ namespace Offhand.Companion
             settings.Remove("DisplayIdentityVersion");
             Check(!MonitorSelection.HasStableIdentitySettings(settings), "Partial save cannot auto-span");
             WorkspaceCases();
-            Console.WriteLine("PASS: " + checks + " display identity, migration, workspace/profile, ambiguity and reconnect checks");
+            Console.WriteLine("PASS: " + checks + " display identity, selection feedback, migration, workspace/profile, ambiguity and reconnect checks");
+        }
+
+        private static void FeedbackCases()
+        {
+            var pair = Pair();
+            var selected = new List<int> { 0, 1 };
+            Check(DisplaySelectionFeedback.Inspect(pair, selected, 0).Code == "IDENTITY_BINDINGS_PRESENT", "Complete feedback is not span authorization");
+            Check(DisplaySelectionFeedback.Inspect(pair, new List<int>(), 0).Code == "NO_CHECKED_DISPLAYS", "Unchecked selection is not a Windows failure");
+            Check(DisplaySelectionFeedback.Inspect(pair, selected, -1).Code == "MAINHAND_NOT_SELECTED", "Empty Mainhand is a selection error");
+            Check(DisplaySelectionFeedback.Inspect(pair, new List<int> { 1 }, 0).Code == "MAINHAND_NOT_CHECKED", "Unchecked Mainhand is explicit");
+            Check(DisplaySelectionFeedback.Inspect(pair, new List<int> { 0, 9 }, 0).Code == "SELECTION_UNAVAILABLE", "Stale control index is explained");
+            Check(DisplaySelectionFeedback.Inspect(null, selected, 0).Code == "SELECTION_UNAVAILABLE", "Unavailable controls do not blame a driver");
+            pair[1].StableId = " "; pair[1].IdentityDetail = "Active monitor target name query failed: 5";
+            var missing = DisplaySelectionFeedback.Inspect(pair, selected, 0);
+            Check(missing.Code == "MISSING_MONITOR_IDENTITY" && missing.Message.Contains("Display 2 (1440x2560)")
+                && missing.Message.Contains("Copy Display Diagnostics"), "Missing identity identifies the affected screen and evidence action");
+            Check(pair[1].StableId == " " && selected.Count == 2, "Feedback cannot repair identities or edit selection");
+            pair[0].StableId = null;
+            Check(DisplaySelectionFeedback.Inspect(pair, selected, 0).Message.Contains("Display 1 (2560x1440)"), "Missing Mainhand identity is not an empty dropdown");
+            pair = Pair(); pair[1].StableId = "interface-a";
+            Check(DisplaySelectionFeedback.Inspect(pair, selected, 0).Code == "AMBIGUOUS_MONITOR_IDENTITY", "Ambiguous identities remain distinct from missing IDs");
+            pair = Pair(); pair.Add(new MonitorSelection.Display { Index = 2, DeviceName = "DISPLAY3", StableId = "interface-a" });
+            Check(DisplaySelectionFeedback.Inspect(pair, selected, 0).Code == "AMBIGUOUS_MONITOR_IDENTITY", "Unchecked collision remains ambiguous");
+            var failedPath = new List<DisplayIdentity.ActivePath> { new DisplayIdentity.ActivePath {
+                Device = "DISPLAY1", Detail = "Active monitor target name query failed: 5" } };
+            var failed = DisplayIdentity.Resolve("DISPLAY1", failedPath, new List<DisplayIdentity.Child> {
+                new DisplayIdentity.Child { Identity = "STALE" } }, null);
+            Check(failed.Identity == null && failed.Detail == failedPath[0].Detail, "Raw target failure retained without falling back to a stale child");
+
+            // Exercise actual UI capture/confirmation without constructing a
+            // running Companion, showing a modal, or touching public settings.
+            if (RemoteDesktop.Read() != RemoteDesktop.State.Local)
+                throw new Exception("Selection feedback fixture requires a local Windows session");
+            GuardFeedbackCase("INTERFACE-A", "INTERFACE-B", true, true, "IDENTITY_BINDINGS_PRESENT", null);
+            GuardFeedbackCase("INTERFACE-A", null, true, true, "MISSING_MONITOR_IDENTITY", "Display 2");
+            GuardFeedbackCase(null, "INTERFACE-B", true, true, "MISSING_MONITOR_IDENTITY", "Display 1");
+            GuardFeedbackCase("INTERFACE-A", "INTERFACE-B", false, true, "MAINHAND_NOT_SELECTED", "No Mainhand display");
+            GuardFeedbackCase("INTERFACE-A", "INTERFACE-B", true, false, "NO_CHECKED_DISPLAYS", "No displays are checked");
+        }
+
+        private static void GuardFeedbackCase(string gameIdentity, string workspaceIdentity, bool mainhandSelected,
+            bool checkedDisplays, string code, string expectedError)
+        {
+            const System.Reflection.BindingFlags fields = System.Reflection.BindingFlags.Instance
+                | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic;
+            var settingsField = typeof(CompanionForm).GetField("appSettings", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+            var pathField = typeof(CompanionForm).GetField("configPath", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+            object originalSettings = settingsField.GetValue(null), originalPath = pathField.GetValue(null);
+            string sentinel = System.IO.Path.GetTempFileName();
+            System.IO.File.WriteAllText(sentinel, "selection feedback sentinel");
+            try
+            {
+                var settings = new Dictionary<string, string>();
+                settingsField.SetValue(null, settings); pathField.SetValue(null, sentinel);
+                var form = (CompanionForm)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(CompanionForm));
+                typeof(CompanionForm).GetField("remoteState", fields).SetValue(form, RemoteDesktop.State.Local);
+                typeof(CompanionForm).GetField("classicRecovery", fields).SetValue(form, new Dictionary<int, ClassicGraphicsRecovery>());
+                var pair = Pair(); pair[0].StableId = gameIdentity; pair[1].StableId = workspaceIdentity;
+                pair[1].IdentityDetail = "Active monitor target name query failed: 5";
+                typeof(CompanionForm).GetField("uiDisplays", fields).SetValue(form, pair);
+                using (var list = new System.Windows.Forms.CheckedListBox())
+                using (var combo = new System.Windows.Forms.ComboBox())
+                {
+                    list.Items.Add("Display 1", checkedDisplays); list.Items.Add("Display 2", checkedDisplays);
+                    var choiceType = typeof(CompanionForm).GetNestedType("DisplayChoice", System.Reflection.BindingFlags.NonPublic);
+                    object choice = Activator.CreateInstance(choiceType, true);
+                    choiceType.GetField("Index", fields).SetValue(choice, 0);
+                    choiceType.GetField("DeviceName", fields).SetValue(choice, "DISPLAY1");
+                    choiceType.GetField("StableId", fields).SetValue(choice, gameIdentity);
+                    choiceType.GetField("Label", fields).SetValue(choice, "Display 1");
+                    combo.Items.Add(choice); if (mainhandSelected) combo.SelectedIndex = 0;
+                    typeof(CompanionForm).GetField("clbMonitors", fields).SetValue(form, list);
+                    typeof(CompanionForm).GetField("cmbMainhand", fields).SetValue(form, combo);
+                    typeof(CompanionForm).GetMethod("SaveDisplaySettingsFromControls", fields).Invoke(form, new object[] { false });
+                    var before = new Dictionary<string, string>(settings);
+                    var confirm = typeof(CompanionForm).GetMethod("ConfirmStableDisplayIdentity", fields);
+                    if (expectedError != null)
+                    {
+                        try { confirm.Invoke(form, new object[] { false }); throw new Exception("Automatic span bypassed confirmation"); }
+                        catch (System.Reflection.TargetInvocationException ex)
+                        {
+                            Check(ex.InnerException is InvalidOperationException && ex.InnerException.Message.Contains("before automatic spanning"), "Automatic confirmation guard remains authoritative");
+                        }
+                    }
+                    try
+                    {
+                        object result = confirm.Invoke(form, new object[] { true });
+                        Check(expectedError == null && !(bool)result, "Valid identities must retain existing confirmation behavior");
+                    }
+                    catch (System.Reflection.TargetInvocationException ex)
+                    {
+                        Check(expectedError != null && ex.InnerException is InvalidOperationException
+                            && ex.InnerException.Message.Contains(expectedError) && ex.InnerException.Message.Contains("No span was applied."),
+                            "Wrong selection refusal: " + ex.InnerException.Message);
+                    }
+                    Same(before, settings, "Feedback must preserve pending settings");
+                    Check(System.IO.File.ReadAllText(sentinel) == "selection feedback sentinel", "Feedback must not write preferences");
+                    var report = typeof(CompanionForm).GetMethod("DisplaySelectionDiagnosticText", fields);
+                    string text = (string)report.Invoke(form, new object[] { pair, "fixture plan rejection" });
+                    Check(text.Contains("Selection status: " + code) && text.Contains("Saved plan validation: fixture plan rejection"), "Copy diagnostics preserves selection classification and planner refusal");
+                    Check(text.Contains("Checked display count: " + (checkedDisplays ? 2 : 0))
+                        && text.Contains("bounds=") && text.Contains(pair[1].IdentityDetail), "Diagnostics expose selection, topology and lookup reason");
+                    if (workspaceIdentity == null) Check(text.Contains("identity=<missing>"), "Missing identities are explicitly marked");
+                    using (var modes = new System.Windows.Forms.Label())
+                    using (var warning = new System.Windows.Forms.Label())
+                    using (var scale = new System.Windows.Forms.Label())
+                    {
+                        typeof(CompanionForm).GetField("lblColorModes", fields).SetValue(form, modes);
+                        typeof(CompanionForm).GetField("lblColorWarning", fields).SetValue(form, warning);
+                        typeof(CompanionForm).GetField("lblScaleInfo", fields).SetValue(form, scale);
+                        typeof(CompanionForm).GetMethod("RefreshColorStatus", fields).Invoke(form, new object[] { pair, null, "fixture plan rejection" });
+                        string copied = (string)typeof(CompanionForm).GetField("colorDiagnostics", fields).GetValue(form);
+                        Check(copied.Contains("Selection status: " + code) && copied.Contains("fixture plan rejection")
+                            && modes.Text.Contains("Copy Display Diagnostics"), "Unconfirmed layout still exposes actionable copy diagnostics");
+                    }
+                    if (!checkedDisplays)
+                    {
+                        settings["PartialSpanEnabled"] = "True";
+                        text = (string)report.Invoke(form, new object[] { pair, "custom fixture rejection" });
+                        Check(text.Contains("Standard selection controls: inactive") && !text.Contains("Selection status: NO_CHECKED_DISPLAYS"), "Custom plans must not be blamed on inactive standard controls");
+                        settings.Remove("PartialSpanEnabled");
+                        typeof(CompanionForm).GetField("remoteState", fields).SetValue(form, RemoteDesktop.State.Active);
+                        text = (string)report.Invoke(form, new object[] { pair, "remote fixture rejection" });
+                        Check(text.Contains("Session state: Active") && !text.Contains("Selection status: NO_CHECKED_DISPLAYS"), "Remote diagnostics must not blame inactive standard controls");
+                    }
+                    Check(System.IO.File.ReadAllText(sentinel) == "selection feedback sentinel", "Copy diagnostics must not write preferences");
+                }
+            }
+            finally
+            {
+                settingsField.SetValue(null, originalSettings); pathField.SetValue(null, originalPath);
+                System.IO.File.Delete(sentinel);
+            }
         }
 
         private static void ActivePathCases()

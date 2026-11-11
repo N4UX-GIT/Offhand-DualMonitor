@@ -409,10 +409,12 @@ function Map.InstallConfiguration(Canvas, services)
         -- If map is on the workspace, apply preferred or auto-fit scale
         local pos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["WorldMapFrame"]
         local isWorkspaceMap = pos or (not (Offhand.db.savedMainPositions and Offhand.db.savedMainPositions.WorldMapFrame) and IsFrameOnWorkspace(map))
+        local nativeWorkspaceScale
         if isWorkspaceMap then
             RemoveMovementFade(map)
             local userScale = Offhand.db.workspaceMapScale
             local fitScale
+            local unscaledFit
             if userScale and userScale ~= "AUTO" and tonumber(userScale) and tonumber(userScale) > 0 then
                 fitScale = tonumber(userScale)
             else
@@ -420,8 +422,18 @@ function Map.InstallConfiguration(Canvas, services)
                 if baseWidth <= 0 then baseWidth = 610 end
                 local availableWidth = m.workspaceWidth - 24
                 fitScale = math.max(0.50, math.min(3.00, availableWidth / baseWidth))
+                unscaledFit=fitScale
+                if Offhand.WorkspaceScale then
+                    local multiplier=Offhand.WorkspaceScale:GetMultiplier(m)
+                    if math.abs(multiplier-1)>0.001 then
+                        local height=map:GetHeight() or 0
+                        fitScale=math.min(fitScale*multiplier,availableWidth/baseWidth)
+                        if height>0 then fitScale=math.min(fitScale,(m.workspaceHeight-24)/height) end
+                    end
+                end
             end
             map:SetScale(fitScale)
+            nativeWorkspaceScale=unscaledFit
             if Offhand.db.persistentWorkspacePanels ~= false then
                 UnregisterSpecialFrame("WorldMapFrame")
                 EvictWorkspacePanelSlot(map)
@@ -450,6 +462,13 @@ function Map.InstallConfiguration(Canvas, services)
             local inherited = map:GetEffectiveScale() / map:GetScale() / UIParent:GetEffectiveScale()
             local scale = math.min(map:GetScale(), availableWidth/width/inherited, availableHeight/height/inherited)
             if scale > 0 and scale < math.huge then map:SetScale(scale) end
+            if nativeWorkspaceScale then
+                nativeWorkspaceScale=math.min(nativeWorkspaceScale,availableWidth/width/inherited,availableHeight/height/inherited)
+            end
+        end
+        if Offhand.WorkspaceScale then
+            local applied=map:GetScale()
+            Offhand.WorkspaceScale:RememberMap(map,nativeWorkspaceScale or applied,applied)
         end
 
         if not Offhand.isForever and not map._OffhandPersistenceHooked and map.HookScript then
