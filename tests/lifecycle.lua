@@ -188,10 +188,24 @@ do
     assert(choice == "fallback" and not safePrompt.shown)
 
     addon:ShowForeverLayoutRecoveryPrompt("restore", "Offhand Gamepad", "Gamepad")
+    local characterSetup = addon.CharacterSetup
+    local setupChecks = 0
+    addon.CharacterSetup = { Refresh = function()
+        setupChecks = setupChecks + 1
+        addon:ShowPopup("OFFHAND_HUD_SETUP_REMINDER")
+        return true
+    end }
+    addon:RefreshMainhandLayoutAttention()
+    assert(setupChecks == 0 and safePrompt.popupKey == "OFFHAND_FOREVER_RESTORE_LAYOUT",
+        "automatic HUD setup must not replace the visible Gamepad recovery card")
     assert(safePrompt.shown and safePrompt.cancel.text == addon.L["FOREVER_KEEP_CURRENT_LAYOUT"],
         "the Gamepad restore prompt must offer to keep the current preset")
     safePrompt.accept.scripts.OnClick()
     assert(choice == "restore" and not safePrompt.shown)
+    addon:RefreshMainhandLayoutAttention()
+    assert(setupChecks == 1, "setup may resume after the Gamepad recovery card closes")
+    addon:HidePopup("OFFHAND_HUD_SETUP_REMINDER")
+    addon.CharacterSetup = characterSetup
     addon.HUD.ApplyForeverRecoveryChoice = nil
     addon.L["FOREVER_GAMEPAD_SINGLE_SCREEN_LAYOUT_TEXT"] = previousText
     LAYOUT_STYLE_GAMEPAD = previousName
