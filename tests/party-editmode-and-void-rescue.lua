@@ -2937,6 +2937,75 @@ for i = 1, 40 do
 end
 print("PASS: stale snapshots do not delay valid persistent panels")
 
+-- Historical profiles can contain child/control names, not just panel roots.
+-- In particular, the former ^ChatFrame test reopened ChatFrame1EditBox.
+do
+local inputRestoreNames = { "ChatFrame1EditBox", "StaleKeyboardCapture", "StaleUnknownChild", "GameMenuFrame" }
+local oldMenu = GameMenuFrame
+local oldChatEditBox = ChatFrame1EditBox
+for _, name in ipairs(inputRestoreNames) do
+    local frame = makeMockFrame(name, 300, 100)
+    frame:Hide()
+    frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", -5000, 9000)
+    if name == "ChatFrame1EditBox" then
+        frame.IsObjectType = function(_, kind) return kind == "EditBox" end
+    elseif name == "StaleKeyboardCapture" then
+        frame.IsKeyboardEnabled = function() return true end
+        UIPanelWindows[name] = {}
+    end
+    addon.db.savedWorkspacePositions[name] = { x = -5000, y = 9000 }
+    addon.db.openWorkspacePanels[name] = true
+end
+addon.Canvas:RestorePersistentFrames()
+flushTimers()
+flushTimers()
+for _, name in ipairs(inputRestoreNames) do
+    assert(not _G[name]:IsShown(), "login must not reopen saved input/system/child frame: " .. name)
+    assert(not addon.Canvas:QueuePersistentPanelRestore(_G[name], name),
+        "late registration must reject the same unsafe saved frame: " .. name)
+    assert(addon.db.savedWorkspacePositions[name], "rejected restore must preserve saved coordinates")
+    if name == "ChatFrame1EditBox" then
+        local frame = _G[name]
+        local writes = frame.setPointCalls
+        frame:Show() -- A player's/native owner's open remains untouched.
+        addon.Canvas.RestoreWorkspacePosition(frame)
+        assert(frame:IsShown() and frame.setPointCalls == writes,
+            "saved child coordinates must not relocate or hide a manually shown chat input")
+    end
+    addon.db.savedWorkspacePositions[name] = nil
+    addon.db.openWorkspacePanels[name] = nil
+    UIPanelWindows[name] = nil
+    _G[name] = nil
+end
+GameMenuFrame, ChatFrame1EditBox = oldMenu, oldChatEditBox
+
+-- Eligibility must be checked again when a delayed restore actually runs.
+local delayedInput = makeMockFrame("DelayedInputRestorePanel", 500, 400)
+delayedInput:Hide()
+UIPanelWindows.DelayedInputRestorePanel = {}
+addon.db.savedWorkspacePositions.DelayedInputRestorePanel = { x = 100, y = 800 }
+addon.db.openWorkspacePanels.DelayedInputRestorePanel = true
+assert(addon.Canvas:QueuePersistentPanelRestore(delayedInput, delayedInput:GetName()))
+delayedInput.IsKeyboardEnabled = function() return true end
+flushTimers()
+assert(not delayedInput:IsShown(), "a panel that starts capturing keys during the delay must not reopen")
+delayedInput.IsKeyboardEnabled = function() return false end
+assert(addon.Canvas:QueuePersistentPanelRestore(delayedInput, delayedInput:GetName()))
+local oldInputReserved = addon.IsBlizzardInputReserved
+local oldPendingInput = addon.Canvas.persistentRestorePendingForInput
+addon.IsBlizzardInputReserved = function() return true end
+flushTimers()
+assert(not delayedInput:IsShown(), "delayed restoration must yield when Blizzard reserves input")
+assert(addon.Canvas.persistentRestorePendingForInput,
+    "input reservation must leave the normal native input-release retry pending")
+addon.IsBlizzardInputReserved = oldInputReserved
+addon.Canvas.persistentRestorePendingForInput = oldPendingInput
+addon.db.savedWorkspacePositions.DelayedInputRestorePanel = nil
+addon.db.openWorkspacePanels.DelayedInputRestorePanel = nil
+UIPanelWindows.DelayedInputRestorePanel = nil
+print("PASS: login and delayed restoration reject input capture and stale child records")
+end
+
 -- Spellbook, Macros, Collections, and similar panels do not exist at the first
 -- reload restoration pass. Offhand must load only the Blizzard addon belonging
 -- to an explicitly saved/open workspace panel, then use the normal delayed
