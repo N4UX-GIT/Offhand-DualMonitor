@@ -34,14 +34,43 @@ local canvas = {}
 addon.Canvas = canvas
 assert(loadfile('Core/CanvasPanelPlacement.lua'))('Offhand',addon)
 local function no() return false end
+local nativeGamepad, externalMap = false, false
+canvas.CanManagePanelsFromAddon = function() return not nativeGamepad end
 addon.CanvasPanelPlacement.InstallMainhand(canvas,{
-    ShouldYieldFrameToClassicUIForever=no,ShouldYieldWorldMapToMoveAny=no,IsForeverProfessionsPanel=no,
-    IsForeverEditModeFrame=function(f) return f.hud end,IsWorldMapMaximized=no,WithWorkspace=function(m) return m end,
+    ShouldYieldFrameToClassicUIForever=no,ShouldYieldWorldMapToMoveAny=function(name) return externalMap and name=='WorldMapFrame' end,
+    IsForeverProfessionsPanel=no,IsForeverEditModeFrame=function(f) return f.hud end,
+    IsWorldMapMaximized=function(f) return f==WorldMapFrame and f.maximized end,WithWorkspace=function(m) return m end,
     IsForeverSocialPositionRoot=no,IsUnsafeForPanelMutation=function(f) return f.protected end,RegisterSpecialFrame=function() end,
     SaveOpenWorkspacePanels=function() end,SaveForeverPanelOwnership=function() end,
     IsBackpackRoot=no,ClearOtherBackpackRootState=function() end,IsFrameOnWorkspace=function(f) return f.x and f.x<1000 end,
     GetNonMovablePanels=function() return {} end,
 })
+do
+    local secret = {}
+    CharacterFrame=frame('CharacterFrame',-80,120,400,500)
+    CharacterFrame.GetParent=function() return UIParent end
+    CharacterFrame.GetRect=function(self) return self.x,self.y,self.w,self.h end
+    CharacterFrame.GetEffectiveScale=function() return .75 end
+    CharacterFrame.GetPoint=function() return 'TOPLEFT',UIParent,'BOTTOMLEFT',-80,620 end
+    CharacterFrame.SetPoint=function() error('diagnostic moved a panel') end
+    addon.db.savedWorkspacePositions.CharacterFrame={x=120,y=620}
+    ProfessionsFrame=frame('ProfessionsFrame',0,120)
+    ProfessionsFrame.GetParent=CharacterFrame.GetParent
+    ProfessionsFrame.GetRect=function() return secret,120,100,100 end
+    ProfessionsFrame.GetPoint=function() return secret,UIParent,'BOTTOMLEFT',0,220 end
+    SkillFrame={IsForbidden=function() return true end,IsShown=function() error('diagnostic inspected a forbidden panel') end}
+    issecretvalue=function(value) return value==secret end
+    combat=true
+    local report=table.concat(canvas:GetPanelPlacementDiagnostics(),'\n')
+    assert(report:find('CharacterFrame | parent=UIParent | rectUI=-120.0/180.0/600.0/750.0',1,true)
+        and report:find('anchor=TOPLEFT/UIParent/BOTTOMLEFT/-80.0/620.0 | effScale=0.750 | saved=workspace',1,true))
+    assert(report:find('ProfessionsFrame | parent=UIParent | rectUI=unavailable | anchor=unavailable',1,true)
+        and report:find('SkillFrame | forbidden',1,true),'diagnostics must withhold restricted geometry in combat')
+    assert(addon.db.savedWorkspacePositions.CharacterFrame.x==120)
+    combat,issecretvalue=false,nil
+    CharacterFrame,ProfessionsFrame,SkillFrame=nil,nil,nil
+    addon.db.savedWorkspacePositions.CharacterFrame=nil
+end
 VisiblePanel=frame('VisiblePanel',100,100)
 MissingPanel=frame('MissingPanel',1100,900)
 BookPanel=frame('BookPanel',100,100,100,100,false)
@@ -88,6 +117,68 @@ local reasons=table.concat(canvas.lastGatherReport,',')
 assert(reasons:find('UnsupportedProtected=protected-unregistered',1,true)
     and reasons:find('NativeHUD=native-HUD-or-EditMode',1,true),'gather must report the actual exclusion reasons')
 UIParent.GetChildren=nil
+
+-- The map body overlaps Mainhand, but its entire drag handle is above it.
+assert(loadfile('Core/CanvasForeverMap.lua'))('Offhand',addon)
+assert(loadfile('Core/CanvasFrameState.lua'))('Offhand',addon)
+addon.isForever=true
+addon.CanvasCompatibility={IsForeverEllesmereBag=no}
+local map=frame('WorldMapFrame',1150,200,600,900)
+WorldMapFrame=map
+UIPanelWindows.WorldMapFrame={}
+local scaleWrites=0
+function map:SetScale() scaleWrites=scaleWrites+1 end
+function map:IsMaximized() return self.maximized end
+local mapMoves, moveMap=0,map.SetPoint
+function map:SetPoint(...)
+    mapMoves=mapMoves+1
+    moveMap(self,...)
+end
+-- The full addon supplies this same title-reachability policy from Init.lua.
+function addon:IsWindowReachable(left,top,width,m)
+    return top>=m.gameBottom+16 and top<=m.gameTop+2
+        and math.min(left+width,m.gameRight)-math.max(left,m.gameLeft)>=math.min(48,width)
+end
+assert(inspect(map,metrics)=='missing','the visible map body masked an unreachable drag handle')
+addon.db.savedWorkspacePositions.WorldMapFrame={x=1150,y=1100}
+nativeGamepad=true
+canvas:GatherSafeUIToMainhand(true,map)
+assert(mapMoves==0,'map recovery moved the registered native Gamepad map')
+nativeGamepad=false
+externalMap=true
+canvas:GatherSafeUIToMainhand(true,map)
+assert(mapMoves==0,'map recovery moved an externally owned map')
+externalMap=false
+addon.CanvasFrameState.SetDragging(map,true)
+canvas:GatherSafeUIToMainhand(true,map)
+assert(mapMoves==0,'map recovery interrupted a drag')
+addon.CanvasFrameState.SetDragging(map,false)
+map.maximized=true
+canvas:GatherSafeUIToMainhand(true,map)
+assert(mapMoves==0,'map recovery moved the maximized map')
+map.maximized=false
+local savedWorkspace=addon.db.savedWorkspacePositions.WorldMapFrame
+local setPoint=map.SetPoint
+map.SetPoint=function() end -- Model a competing writer leaving the title out of reach.
+local gatheredMap,_,reportedMove,reportedSkip=canvas:GatherSafeUIToMainhand(true,map)
+assert(gatheredMap and reportedMove==0 and reportedSkip==1 and addon.db.savedWorkspacePositions.WorldMapFrame==savedWorkspace,
+    'map recovery retired the saved placement without verifying the title')
+map.SetPoint=setPoint
+ok,_,moved=canvas:GatherSafeUIToMainhand(true,map)
+assert(ok and moved==1 and mapMoves==1 and map:GetTop()==788,'oversized map recovery did not place the handle inside Mainhand')
+assert(inspect(map,metrics)=='visible' and not addon.db.savedWorkspacePositions.WorldMapFrame
+    and addon.db.savedMainPositions.WorldMapFrame.y==788,'map recovery did not retain reachable Mainhand ownership')
+canvas:GatherSafeUIToMainhand(true,map)
+assert(mapMoves==1,'missing-only recovery moved a map with a reachable handle')
+map.shown=false
+addon.db.savedWorkspacePositions.WorldMapFrame={x=1150,y=1100}
+addon.db.openWorkspacePanels.WorldMapFrame=true
+canvas:GatherSafeUIToMainhand(true,map)
+assert(not map.shown and mapMoves==1,'gather reopened a closed map')
+assert(scaleWrites==0,'missing-only map recovery changed scale')
+WorldMapFrame=nil
+UIPanelWindows.WorldMapFrame=nil
+addon.isForever=false
 
 -- Hidden Extra Abilities is actionable only while the native action exists;
 -- visible or dormant HUD systems never become layout-repair requests.

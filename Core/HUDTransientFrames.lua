@@ -393,16 +393,46 @@ function Transient.Install(HUD, services)
     local groupLootMoverRequested = false
     local groupLootMoverDragging = false
 
-    -- Keep /offhand diag focused on the current group-loot QA surface without
-    -- reading protected frame geometry in combat. These flags describe only the
-    -- addon-owned secure setup; the tester's screenshot confirms final placement.
-    function HUD:GetGroupLootDiagnostics()
+    local function LootVisibility(frame)
+        local ok, visibility = pcall(function()
+            if frame.IsForbidden and frame:IsForbidden() then return "forbidden" end
+            local shown = frame:IsShown()
+            if (issecretvalue and issecretvalue(shown)) or type(shown) ~= "boolean" then return "unavailable" end
+            if not shown then return "hidden" end
+            if not frame.IsVisible then return "shown" end
+            local visible = frame:IsVisible()
+            if (issecretvalue and issecretvalue(visible)) or type(visible) ~= "boolean" then return "unavailable" end
+            return visible and "visible" or "parent-hidden"
+        end)
+        return ok and visibility or "unavailable"
+    end
+
+    local function LootRowBounds(row, metrics)
+        local ok, rect = pcall(function()
+            local x, y, width, height = row:GetRect()
+            local scale, parentScale = row:GetEffectiveScale(), UIParent:GetEffectiveScale()
+            if not OrdinaryNumber(x) or not OrdinaryNumber(y) or not OrdinaryNumber(width)
+                or not OrdinaryNumber(height) or not OrdinaryNumber(scale) or not OrdinaryNumber(parentScale)
+                or scale <= 0 or parentScale <= 0 or width <= 0 or height <= 0 then return end
+            local factor = scale / parentScale
+            x, y, width, height = x * factor, y * factor, width * factor, height * factor
+            local contained = x >= metrics.gameLeft and y >= metrics.gameBottom
+                and x + width <= metrics.gameRight and y + height <= metrics.gameTop
+            return string.format("%.1f/%.1f/%.1f/%.1f %s", x, y, width, height,
+                contained and "mainhand" or "outside-mainhand")
+        end)
+        return ok and rect or "unavailable"
+    end
+
+    -- Counts and frame geometry help distinguish a pending roll with no native
+    -- row, a hidden row and a row clipped by display geometry. Read no roll IDs.
+    function HUD:GetGroupLootDiagnostics(metrics)
         local container = _G.GroupLootContainer
         local triggerCount = 0
         for index = 1, 4 do
             if _G["GroupLootFrame" .. index] then triggerCount = triggerCount + 1 end
         end
-        return {
+        local report = {
             loaded = container ~= nil,
             preloadAttempted = groupLootPreloadAttempted,
             anchorPrepared = container and secureTransientOwned[container] == true or false,
@@ -421,6 +451,32 @@ function Transient.Install(HUD, services)
             triggerCount = triggerCount,
             inCombat = InCombatLockdown and InCombatLockdown() or false,
         }
+        if metrics then
+            local ok, active = pcall(function()
+                local ids = GetActiveLootRollIDs and GetActiveLootRollIDs()
+                if issecretvalue and issecretvalue(ids) then return end
+                if type(ids) == "table" and OrdinaryNumber(#ids) then return #ids end
+            end)
+            report.activeRolls = ok and active or "unavailable"
+            report.containerVisibility = container and LootVisibility(container) or "absent"
+            report.slots = {}
+            local read, rows = pcall(function()
+                if container and report.containerVisibility ~= "forbidden" then return container.rollFrames end
+            end)
+            if read and not (issecretvalue and issecretvalue(rows)) and type(rows) == "table" then
+                for index = 1, 4 do
+                    local row = rows[index]
+                    if issecretvalue and issecretvalue(row) then
+                        report.slots[#report.slots + 1] = index .. "=unavailable"
+                    elseif row then
+                        local state = LootVisibility(row)
+                        local bounds = (state == "visible" or state == "shown") and LootRowBounds(row, metrics)
+                        report.slots[#report.slots + 1] = index .. "=" .. state .. (bounds and (",rectUI=" .. bounds) or "")
+                    end
+                end
+            end
+        end
+        return report
     end
 
     function HUD:GetPetBattleDiagnostics()
@@ -870,7 +926,7 @@ function Transient.Install(HUD, services)
         local maxIndex = tonumber(container.maxIndex) or 0
         local reservedSize = tonumber(container.reservedSize) or 100
         local centerX, centerY = GetGroupLootCenter(metrics, container)
-        local stackStep = GetGroupLootStackDirection() == "DOWN" and -reservedSize or reservedSize
+        local direction = GetGroupLootStackDirection() == "DOWN" and -1 or 1
 
         -- Validate the complete native set before moving anything. This makes an
         -- addon-owned mover (a row relative to its own anchor) an explicit conflict
@@ -878,7 +934,8 @@ function Transient.Install(HUD, services)
         local margin = 12 * (metrics.hudScale or 1)
         local minX, maxX = metrics.gameLeft + margin, metrics.gameRight - margin
         local minY, maxY = metrics.gameBottom + margin, metrics.gameTop - margin
-        local slot = 0
+        local placements = {}
+        local offset, previousHalfSlot = 0, nil
         for index = 1, maxIndex do
             local row = rows[index]
             if row then
@@ -897,15 +954,20 @@ function Transient.Install(HUD, services)
                 if not OrdinaryNumber(rowScale) or not OrdinaryNumber(parentScale)
                     or not OrdinaryNumber(width) or not OrdinaryNumber(height)
                     or rowScale <= 0 or parentScale <= 0 then return false end
-                local toUI = rowScale / math.max(parentScale, 0.0001)
+                local toUI = rowScale / parentScale
                 local halfWidth = width * toUI / 2
                 local halfHeight = height * toUI / 2
-                local offset = stackStep * slot * toUI
+                -- Reserve space between adjacent centers in the same units.
+                -- Multiplying a slot index by each row's scale can put a
+                -- later, smaller row on top of an earlier one.
+                local halfSlot = math.max(halfHeight, reservedSize * toUI / 2)
+                if previousHalfSlot then offset = offset + direction * (previousHalfSlot + halfSlot) end
+                previousHalfSlot = halfSlot
                 minX = math.max(minX, metrics.gameLeft + margin + halfWidth)
                 maxX = math.min(maxX, metrics.gameRight - margin - halfWidth)
                 minY = math.max(minY, metrics.gameBottom + margin + halfHeight - offset)
                 maxY = math.min(maxY, metrics.gameTop - margin - halfHeight - offset)
-                slot = slot + 1
+                placements[#placements + 1] = {row = row, offset = offset, fromUI = parentScale / rowScale}
             end
         end
 
@@ -915,14 +977,11 @@ function Transient.Install(HUD, services)
         if minY <= maxY then centerY = math.max(minY, math.min(maxY, centerY)) end
 
         local moved = 0
-        for index = 1, maxIndex do
-            local row = rows[index]
-            if row and row.ClearAllPoints and row.SetPoint then
-                local rowScale = row.GetEffectiveScale and row:GetEffectiveScale() or 1
-                local parentScale = UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
-                local factor = parentScale / math.max(tonumber(rowScale) or 1, 0.0001)
+        for _, placement in ipairs(placements) do
+            local row, factor = placement.row, placement.fromUI
+            if row.ClearAllPoints and row.SetPoint then
                 local desired = {"CENTER", UIParent, "BOTTOMLEFT",
-                    centerX * factor, centerY * factor + stackStep * moved}
+                    centerX * factor, (centerY + placement.offset) * factor}
                 if not SameSecurePoints(row, {desired}) then
                     row:ClearAllPoints()
                     row:SetPoint(unpack(desired))

@@ -1,3 +1,19 @@
+# Discord visual evidence audit, 2026-11-10
+
+- Reviewed all 88 forum image attachment IDs and sampled all seven videos in
+  the accessible snapshot, including archived reports. Also checked the HUD
+  after-reload pair and BetterBags/RestedXP original follow-up. All files have
+  verified receipt hashes. Counts include copied IDs; 98 total files represent
+  93 distinct byte hashes. One-fps video samples cannot exclude single-frame
+  flashes; the aura report retains its separate 274-frame investigation.
+- Corrected the stacked controller report's missing build from its diagnostic
+  image: Forever 70790, matching Companion beta20, READY topology. Later keyboard/
+  mouse map growth is a different reporter/configuration. Original HUD captions
+  contradict the bot summary; native serialized Save comparison remains open.
+- No runtime changes, new native session, test rerun, publication or Discord
+  mutation in this visual-only pass. Existing candidate and native results are
+  unchanged. [Coverage, observations and limits](../docs/DISCORD-VISUAL-REVIEW-20261110.md).
+
 # Beta 27 first-install Next activation candidate, 2026-11-08
 
 - Owner-requested independent repeat also PASS: reset account/cache/Companion
@@ -3169,3 +3185,527 @@ disabled lock controls or testing-status copy. Supported-client lock UI, all
 preferences and independent Escape/reload persistence are preserved. 104 root and
 111 packaged Lua suites pass; six manifests validate under Lua 5.1. Test 11 is
 installed; native visual review awaits /reload. See docs/SETTINGS-USABILITY-20261109.md.
+
+
+### Forever manual reload candidate, Beta 28, 2026-11-09
+
+WhoAmI reporter screenshots show ADDON_ACTION_BLOCKED for reload() from the owned
+HUD completion popup. The previous API fallback did not establish permission.
+The Forever policy now offers manual chat /reload across input styles, preserving
+the created layout and guide/wizard handoff tickets. Confirmation remains locked
+until a modeled new UI session. Other-client reload routes remain covered.
+114 source and 114 packaged-runtime suites pass; six manifests validate under
+Lua 5.1. Private beta28-manual-reload-test1 is packaged and installed locally;
+Reporter confirmed Forever / Beta 28; native handoff acceptance remains pending.
+Details/hash: docs/FOREVER-MANUAL-RELOAD-20261109.md.
+
+
+### OH-UI-025 follow-up: native reload click verified, 2026-11-09
+
+Supersedes the blanket manual-only fallback above. Forever 1.60.1.70862 keyboard/
+mouse reproduces the blocked call when the owned popup hides first; callback-first
+and the actual production HUD completion prompt both perform real UI reloads.
+Reload dialogs opt into callback-before-hide, with generation protection for
+replacement cards. Other callbacks retain their lifecycle. Controller UI remains
+manual; combat activation and other builds are unverified. 114 source suites pass.
+Private helper removed and final clean reload completed; client closed normally.
+Current BugGrabber contains only the one intentional comparison failure from this
+run, with no later error. Taint log is stale. See docs/RELOAD-BUTTON-RESEARCH-20261109.md.
+
+
+### OH-UI-025 follow-up: reload without span guidance, 2026-11-09
+
+User confirmed no span had been applied. Confirmation correctly stayed locked,
+but the guide incorrectly presented another reload while its illustration showed
+reload complete. The guide now returns to explicit placement instructions with a
+completed-reload message, preserving checkpoint guards. The title, illustration
+and recommended action share one phase. All 114 source suites pass, including
+11-locale recovery bounds. Native Forever 70862 + Companion 2.1.5 single-display
+split passes unspanned recovery, actual Span WoW Now, acknowledgement, reload,
+modal confirmation and advancement to Calibrate. No current-session guide error
+was captured; preexisting minimap errors and stale taint log are separate.
+See docs/GUIDE-PLACEMENT-RECOVERY-20261109.md. No public publication.
+
+### Beta 28 EllesmereUI transfer follow-up, 2026-11-09
+
+The screenshot and saved-link investigation found that Fit preserved workspace
+gameplay positions, the transfer rejected parent frames with cast-bar children,
+and only Action Bar 1 was mapped. The update uses a short measured Step 6 tab,
+offers Mainhand placement in Fit, preserves and previews linked groups, and maps
+enabled numbered bars through native enum identities. The old restore popup is
+dismissed when native HUD creation activates its layout. All 114 root Lua
+suites and six manifest checks passed. Live Standard, Gamepad, linked cast bars,
+numbered bars, Escape and reload placement remain to be verified.
+See docs/FOREVER-ELLESMERE-BETA28-20261109.md.
+
+## 2026-11-09: DaylightUI workspace map geometry cooperation (OH-UI-027)
+
+Installed DaylightUI_Skins 1.6.5.2 MapMove.lua matches the inspected author package
+SHA256 480458a992f8bd6e105282cee3bd1055cacd52324a05a9bd454a7dc5c2413be4.
+Core/DaylightMapCompatibility.lua supplies only the mover with a transient config
+view, retaining Offhand scale/position and untouched vendor SavedVariables.
+Tests/daylight-map-compatibility.lua first reproduces the competing placement,
+then verifies retained callbacks perform no transient root geometry writes,
+continued skinning, control restoration, unchanged DB/value identities, profile
+replacement, explicit Reset, disable, unspan, saved Mainhand/workspace removal,
+maximized behavior, native Gamepad, external owners, combat deferral, intervening
+control/function writers and missing/late vendor readiness. It runs standalone
+and with an explicit installed MapMove.lua argument in a mocked Lua interpreter.
+No vendor code is distributed in tests or addon runtime.
+
+All 115 Lua suites pass. Six manifests pass paths/XML and Lua 5.1 syntax checks.
+Receipts: dist/daylight-map-20261109/source-tests.json and verification.json.
+No native test, deployment or package was performed. Original two-monitor
+panel-close timing, drag/skin, reload/cold-login, Restore/disable, profile,
+Gamepad/combat and fresh taint/error acceptance remain pending. Full rationale:
+docs/UI-FLASHING-REPORTS-20261109.md, implementation follow-up.
+
+### Create Mainhand HUD Layout geometry audit, 2026-11-09
+
+The equal split exposed general generator defects. Native right-bar placeholder
+anchors became overlapping explicit anchors in all seven keyboard arrangements
+tested. Custom UIParent entries shifted, and second anchors were omitted from
+translation. The generator now preserves explicit custom entries, translates both
+default anchors, and gives the two Forever right bars separate columns. The
+EllesmereUI plan shares these transforms and refinements, adapts those columns
+to target sizes, and prefers serialized Micro Menu geometry over live edges.
+
+All 42 topology/scale/ownership combinations pass. The 115 root suites, six
+manifest checks and installed mainhand/transfer/wizard probes pass. Two runtime
+modules were backed up and installed. The saved native layout needs an explicit
+Create Mainhand HUD Layout refresh before repeating import. Live verification
+remains pending, including the native HUD footprint on the narrow Mainhand.
+See docs/FOREVER-HUD-GENERATOR-AUDIT-20261109.md.
+
+### Deferred live-test follow-up: DaylightUI map compatibility (OH-UI-027)
+
+User explicitly deferred native testing on 2026-11-09 while moving to the next
+report. Keep this follow-up open: test DaylightUI 1.6.5.2 with a saved Offhand
+workspace map, close loot/flight/PvP and ordinary panels repeatedly, and verify
+no flash or scale jump. Check Offhand dragging and vendor skinning, maximize /
+minimize, reload, Restore / disable, vendor profile changes and original vendor
+control/settings restoration. Complete Gamepad, combat and fresh taint/error
+checks separately. Source candidate is not installed; 115 source suites and
+six-manifest syntax/path checks pass. Do not mark native acceptance complete.
+
+
+## 2026-11-09: Profile-dependent minimap visibility (OH-UI-028)
+
+Reporter resolved the old-profile Game Menu/Talents minimap toggle by creating
+new profiles for both Offhand and SexyMap. It also occurred with stock minimap
+and SexyMap disabled. Cause remains unconfirmed; old screenshots omit the
+minimap roots and matching viewport metrics do not establish visibility.
+HUDRecovery full diagnostics now add read-only shown/visible, own/effective
+alpha, parent, placement, scale, saved-position presence and Escape membership
+for both MinimapCluster and the separately owned visible Minimap. No hooks or
+visibility/geometry/profile writes. Test covers parent-hidden versus hidden,
+secret/forbidden state, missing roots, saved positions and combat deferral.
+All 116 Lua suites and six manifests pass Lua 5.1/path/XML validation. No live
+reproduction or installation. Detailed provenance and controlled recurrence
+checks: docs/MINIMAP-PROFILE-VISIBILITY-20261109.md. Keep working profiles;
+retain failing profile exports before any future reset. DaylightUI live testing
+remains a separate deferred follow-up.
+
+### Forever XP stack follow-up, 2026-11-09
+
+The reported hidden XP bar now has a regression that fails the previous installed generator. The correction uses serialized main-bar geometry and separate XP/Rep containers, reserves scaled status heights before secondary rows, and covers native status bars alongside EllesmereUI action bars. All 116 root suites, six manifests and installed generator/transfer/wizard probes pass. Live acceptance remains pending. See docs/FOREVER-HUD-GENERATOR-AUDIT-20261109.md.
+
+
+## 2026-11-09: Detached minimap popup-recovery ownership (OH-UI-029)
+
+Production scanner regression fails the previous source when a detached Minimap
+slightly overhangs Mainhand at the seam. It passes after preserving the actual
+canvas and bounded custom-parent ancestry, including an anonymous EUI crop root.
+Canvas must add no competing drag/show handlers. Cyclic ancestry is bounded and
+UIParent is never claimed. Legacy native minimap dragging still passes. Added
+external-system filtering to missing-only recovery and late OnShow ownership
+revalidation. Diagnostics distinguish EUI module/mover readiness and verified
+journal/queue button roots. All 116 Lua suites plus six manifests pass path/XML
+and Lua 5.1 checks; final OnShow guard passes its affected scanner suite too.
+No native launch/install/release, vendor edit or automatic Edit Mode/SexyMap
+synchronization. Reporter-specific jumps, the older visibility failure and the
+unidentified dungeon-browser icon need separate native evidence. Service is
+currently unavailable for the user's module check. Full evidence and retest:
+docs/MINIMAP-OWNERSHIP-20261109.md. DaylightUI remains deferred separately.
+
+
+Final shared-checkout verification: 117 Lua suites and six-manifest Lua 5.1
+validation pass. The additional suite arrived in concurrent Ellesmere work.
+Options presence uses the installed folder name EllesmereUIOptions; its targeted
+diagnostic regression also passes after that metadata correction.
+
+
+## 2026-11-09: Read-only Discord collection and Retail name preferences
+
+Collector retrieves support/forum active and archived history with GET only:
+40 threads, 19 archived, 2,255 messages and nine linked originals; zero reported
+coverage gaps. Four offline Node tests cover read-only routes, pagination,
+deduplication, permission gaps, stalled cursors and source-message scope checks.
+No Discord mutation or gateway startup.
+
+Retail 12.1.5.70783 / Offhand beta26 report exposed a repeated forced-on friendly
+name CVar. Geometry regression fails the old implementation and passes when
+visibility ownership is removed. A second production fixture covers migration
+retry, malformed backup, preservation of player choices and logout. All 118 Lua
+suites and six manifests pass Lua 5.1 syntax/path/XML checks. Nameplate scaling
+coverage remains intact. Native settings acceptance, combat, restore/span,
+reload and disable need Retail testing; no install or release was performed.
+
+All reports and original-context corrections, with individual remaining gates,
+are in docs/DISCORD-REPORT-REVIEW-20261109.md. Preserve failing profiles and exact
+client identities. In particular, actual multi-roll lifecycle, competing-mover
+combat shifts, HUD serialized layout persistence, measured GPU comparison and
+the contradictory Forever/3.3.5 viewport report are not declared fixed. ProcDoc's
+new upstream center controls need reporter-version confirmation. Daylight live
+QA remains explicitly deferred.
+
+
+## 2026-11-10: Loot stack, tooltip bounds and optional ProcDoc center
+
+All 120 source Lua suites pass; six manifests validate 81 runtime files with
+Lua 5.1 syntax checks. Sparse first-roll removal rejects the prior positioning
+(592 vs expected 442 local Y); remaining entries now compact using the actual
+row scale. Full-stack UP/DOWN edge fitting preserves saved coordinates, native
+visibility and idle anchor write counts. The modern tooltip fixture rejects
+prior Mainhand behavior and checks reversible oversized native card fitting,
+content changes, other owners and combat. Classic native-scale and comparison
+coverage stays intact.
+
+ProcDoc production fixture covers default off, opt-in, vendor offsets/updates,
+scale conversion, duplicate refreshes/hooks, disable/unspan, restoration failure
+retry, external/forbidden/protected roots, malformed settings and combat release.
+Settings control is translated in eleven locales. These are simulated/static
+results, not native appearance, actions, persistence or taint acceptance.
+No client was launched or candidate deployed. Required native matrix and
+remaining report evidence: docs/DISCORD-FIXES-20261110.md. Daylight stays deferred.
+
+## 2026-11-10: Approved private candidate smoke QA
+
+Frozen candidate passed 121 Lua suites, six manifests, Lua 5.1 compilation and
+all 103 ZIP entry hashes. The opt-in observer fixture covers bounded capture,
+secret/combat guards, native return values, explicit activation, caller stacks,
+hook reuse and stop behavior. An installer fixture preserved generated bridges.
+
+With explicit user approval, installed the verified candidate into the stopped
+Forever client with an addon-folder backup. Forever 1.60.1.70862 load/options and
+normal reload showed no visible error. ProcDoc checkbox displayed off by default.
+Character opening/closure retained minimap visibility. Before/after native layout
+anchors (two layouts, 118 systems, active 5) and five key HUD geometries match.
+No native Save or regeneration. Current 2405x1353 area mismatches saved topology,
+so spanning remained paused. No combat, real rolls, oversized item, vendor
+ProcDoc, GPU or affected-profile acceptance. Daylight remains deferred.
+
+Client closed normally; Battle.net/Companion left open. Both helper TOCs renamed
+.toc.disabled afterward. Companion refreshed its recovery bridge after exit;
+topology remained identical. No publication or Discord mutation. Full evidence:
+docs/DISCORD-NATIVE-QA-20261110.md.
+
+## 2026-11-10: Actual spanned minimap follow-up
+
+Companion applied the existing single-display split, game right 1280x1440,
+workspace left 1280x1440, total 2560x1440. Forever 70862 snapshots report READY /
+spanned and the saved viewport diagnostic matches. Native map stayed visible
+after Game Menu, Character and Spellbook closure. Isolated SexyMap and EUI
+Minimap retained seam positions through menu/Character closure and reload.
+SexyMap owner drag worked; EUI center/save worked and its Minimap mover appeared
+after enabling the separate module. Native/EUI automated drag did not move the
+selection boxes, so physical drag and native Save remain unverified.
+
+All three reload comparisons retain the same serialized native anchors.
+SexyMap map geometry matches exactly; EUI differs by about 0.533 physical pixel.
+Native Edit Mode observer hit its event cap; do not attribute uncaptured writes.
+Vendor-pass BugGrabber error fields are unchanged from baseline. No combat,
+taint, old-profile, multi-monitor or missing-icon acceptance. Profiles and addon
+flags restored after normal close; private helpers disabled. Details and limits:
+docs/DISCORD-SPANNED-QA-20261110.md. Daylight remains deferred.
+
+Later spanned QA: native minimap Right + Save + reload retained exact saved
+anchors; Left + Save restored visible placement. Tooltip stress QA exposed Init
+resetting the PopupBounds fit. Integrated login/size callback regression now
+fails on the old runtime and passes with ownership coordination. All 121 frozen
+suites and six-manifest Lua 5.1 validation pass. Synthetic 140-line native card
+fits with final line visible; short content/hide restore scale 1. Real item/roll,
+combat and affected-profile acceptance remain pending. Full provenance, scopes,
+normal-close cleanup and unchanged error records:
+docs/DISCORD-FOLLOWUP-QA-20261110.md.
+
+Continued Forever 70862 QA with READY spanning applied before both sessions:
+keyboard map configuration remained workspace-bounded; Chat/Buffs/Action Bar 3
+native Save/reload retained serialized anchors; cached Worn Mace and synthetic
+140-line/short/hide tooltip cases passed. Native Cooldown Settings first-open
+and reopen preserved workspace placement; explicit seam placement plus recovery
+returned the root to Mainhand. Direct and Escape Game Menu opens stayed on
+Mainhand. This does not accept natural failing first-show timing, actual rolls,
+tall real set items, short/stacked topology, combat, controller input or affected
+profiles. No additional runtime fix. Four historical error records unchanged.
+Client closed; ten scoped original files and observer source restored by hash;
+both private helper TOCs disabled. Product receipt matches 96 non-bridge files.
+Daylight remains deferred. Evidence: docs/DISCORD-REMAINING-QA-20261110.md.
+
+## 2026-11-10: Stock chat and tracked backpack continuation
+
+Spanned Forever 70862 stock-chat tab/Settings/Edit Mode/reload checks do not
+reproduce the archived inactive Combat Log overlay. Default workspace bag
+placement without a saved record is not persistence evidence. An explicit
+production-helper saved-position fixture confirms the pre-fix Chat Settings
+sequence loses tracked-open state. The preserving-panel correction retains
+intent and restores identical workspace geometry after Okay. B closure,
+including while Settings hides the bag, remains respected.
+
+Native X separately closes then reopens the backpack: the bounded trace shows
+empty GetMouseFoci at CloseAllBags after the native close callback. Guarded
+out-of-combat IsMouseOver identifies the close without native frame fields or
+scripts. Final native X and closed-state /reload pass. Both regression cases
+fail before their respective corrections. All 121 frozen Lua suites, six
+manifest Lua 5.1 checks and 103 ZIP-entry hashes pass. Final package hash and
+native sequence: docs/FOREVER-CHAT-BACKPACK-QA-20261110.md.
+
+Four historical BugGrabber error records unchanged; target client closed;
+twelve scoped original files restored by hash; helper TOCs disabled. Saved
+fixture, local stock profile and out-of-combat combined bag do not accept
+physical drag, old profiles, separate/replacement bags, Retail or combat/taint.
+Daylight remains deferred. Discord and public packages unchanged.
+
+## 2026-11-10: BetterBags Next and RestedXP V2 continuation
+
+Installed BetterBags v0.9.2 Next deliberately clears IsUserPlaced after dragging;
+its four named panel roots were absent from the automatic-popup owner list.
+Added only the verified roots. The production integration fixture with unplaced
+CENTER anchors fails before correction on NextBackpack and passes afterward,
+including immediate/deferred ShowUIPanel and repeated popup/void recovery.
+This is simulated attribution, not natural reproduction of the reporter trigger.
+All 121 frozen Lua suites, six-manifest Lua 5.1 checks and 103 ZIP hashes pass.
+
+Spanned Forever 1.60.1.70862, Companion 2.1.5, single-display 2560x1440 split:
+32 snapshots stay spanning/READY. Next small workspace map transitions and saved
+reload/reopen placement pass; Next full retains settled geometry/scale through
+map transitions after reload; RestedXP v4.11.35 V2 welcome window retains saved
+workspace geometry through map transitions/reload. Mainhand Next small/V2 map
+checks pass. Source-backed vendor placement fixtures, not physical drag. No
+guide loaded/advanced, item/NPC actions, bank/auction gameplay or combat.
+
+Four historical error records unchanged. Client closed normally; 13 existing
+scoped files restored by hash, six new files retained privately and original
+absence restored, helpers disabled. All 96 installed non-bridge files match
+the frozen candidate; generated bridges preserved. Exact reporter versions/
+profile/trigger, bank/vendor/guildbank roots, populated guides and combat remain
+unverified. Daylight remains deferred. Full provenance and limits:
+docs/BETTERBAGS-NEXT-RXP-V2-QA-20261110.md.
+
+## 2026-11-10: Read-only refresh, Details ownership and merchant continuation
+
+Collector refreshed 42 threads (19 archived), 2,286 history messages and ten
+linked originals, with zero reported gaps. Two new threads and all four new
+images reviewed. New health/mana plus Escape issue OH-UI-035 and NPC quest
+restore issue OH-UI-036 remain scoped to their evidence. Details recurrence
+OH-UI-037 has a narrow numbered-meter popup ownership correction.
+
+Installed Details source confirms drag-end IsUserPlaced clearing. Integration
+regression fails before correction and passes afterward, including negative
+configuration/prefix cases. All 121 frozen suites, six manifest Lua 5.1 checks
+and 103 private ZIP hashes pass. Spanned Forever 1.60.1.70862 native controlled
+actual-meter case relocates before correction and retains CENTER 0,0 after.
+Physical Details title drag survives normal reload and merchant transitions.
+
+User positioned the character next to a merchant. Actual merchant open/close
+and B reopening retain BetterBags v0.9.2 Next small workspace geometry/scale,
+and RestedXP v4.11.35 V1/V2 welcome geometry. All 18 vendor captures report
+spanning/READY. No guide loaded/advanced or item actions. Health/mana CVar-pair
+positive/negative controls work locally; reporter profile not reproduced.
+
+Private observer shutdown reads exposed one Details teardown error, six
+occurrences. Removing those reads initially introduced a helper-only syntax
+error, corrected and syntax-checked before reload. Final reload/normal exit
+retains all seven error records unchanged; the four historical records remain
+unchanged throughout. Earlier instrumented runs are not clean-error acceptance.
+
+Client closed; thirteen originals restored by hash, 22 original absences
+restored, ten new files retained privately, helpers disabled. All 96 installed
+non-bridge product files match candidate; generated bridges preserved. Exact
+profiles, populated guides, bank/guildbank, NPC quest release, profession bags,
+real rolls/long items and combat/controller acceptance remain open. Daylight
+stays deferred. Full evidence: docs/DISCORD-REFRESH-QA-20261110.md.
+
+## 2026-11-10: Spanned native bag Escape priority
+
+Isolated OH-UI-035's target-dismissal symptom with the user-positioned vendor.
+With Offhand disabled but Companion spanning applied, first Escape closes the
+merchant/bag and second clears the target. Pre-fix tracked workspace restoration
+instead retains the target while cycling the menu. CanvasForeverBags now yields
+to native Escape closure when a target exists or its state cannot be read,
+clearing open intent while retaining saved placement. No direct target action,
+binding replacement or new native hook.
+
+Failing-before regression passes after correction. All 121 frozen suites, six
+manifest Lua 5.1 checks and 103 ZIP-entry hashes pass. On Forever 1.60.1.70862,
+corrected physical Escapes match the native control; closed-state reload, B
+reopening, no-target menu toggles and saved geometry pass. All 24 active-addon
+samples report spanning/READY. Four historical BugGrabber records unchanged.
+
+Client closed normally. Thirteen originals restored by hash and 22 original
+absences verified; no new scoped files. Private observers disabled; all 96
+installed non-bridge files match the verified private candidate. No purchases,
+item actions, movement, Discord changes, commit or release. Separate/profession
+bags, exact reporter profile and combat/controller remain open. Daylight stays
+deferred. Full evidence: docs/FOREVER-BAG-ESCAPE-QA-20261110.md.
+
+Subsequent GET-only refresh at 14:50 UTC retains 42 threads/19 archived, with
+2,292 history messages, ten originals and zero gaps. Six new support messages,
+no new threads; all three new images visually reviewed. New larger-text and
+portrait/4K HUD reports tracked as OH-UI-038/039. Cropped diagnostic geometry
+is internally consistent within rounding; no affected-profile reproduction
+or speculative runtime fix claimed. The bot's causal advice is unverified.
+Four collector tests pass. Review: docs/DISCORD-ESCAPE-REFRESH-20261110.md.
+
+## 2026-11-10: Ellesmere scale and portrait/4K follow-up
+
+Spanned Forever 70862 / EllesmereUI 9.8.4 reproduces a pixel grid based on the
+saved EUI scale instead of Offhand's actual root, stale workspace-mask geometry
+after the EUI public scale setter, and losing a later scale choice on disable.
+New vendor-method adapter synchronizes the grid and coalesces geometry refresh
+without replacing the selected root. Viewport release yields external choices
+and explicit reclaim remembers their newer baseline. No native ancestry hook,
+font preference write or vendor-source modification.
+
+Ownership regression fails before and passes after. All 122 frozen suites,
+six manifest Lua 5.1 checks (81 Lua/one XML) and 104 archive hashes pass. Corrected
+native scale/grid, distinct .9 -> .8 release comparison, re-enable and /reload
+pass. All 38 samples are spanned/READY; selected font sizes/UI-text CVars and
+four historical BugGrabber records unchanged. Exact report triggers, skins,
+enlarged custom HUD and combat remain open.
+
+Portrait/4K diagnostic's 400 value is bottom-origin, confirmed through
+GetOperatingDiagnostics. Corrected the earlier top-origin interpretation.
+Exact viewport rectangle replay and 48 native/EUI generator combinations across
+eight arrangements pass. No physical portrait/4K reproduction or topology fix
+claimed. Daylight stays deferred.
+
+Client closed; helpers disabled; all 97 installed non-bridge files match private
+candidate. Seventeen pre-run originals, recovered EUI profile/valid backup and
+34 later vendor checkpoints total 53 restored files; 126 absences verified and
+four new files preserved privately. EUI core backup naming mistake was corrected
+using the engine's pre-run .lua backup before another save. Its original older
+.bak generation was not captured; no claim that all checkpoints predate QA.
+Full evidence: docs/ELLESMERE-SCALE-PORTRAIT-4K-QA-20261110.md.
+
+## 2026-11-10: Blizzard Skins startup/font follow-up
+
+Forever 1.60.1.70862, explicit Companion spanning, EUI 9.8.4 core and Blizzard
+Skins actually loaded. Skinned Character cold entry, normal Offhand layout
+refresh and normal /reload/reopen preserve selected font point sizes/faces,
+UI/text CVars and correct pixel grid across 13 spanned/READY samples. Details
+also loads despite the initial flag; do not claim pure isolation. No new
+runtime defect or fix. No actual NPC quest or alternate typeface acceptance.
+Four historical errors unchanged. Normal exit, 53 fresh pre-run scoped files
+restored by hash, 126 absences restored, helpers disabled. Product unchanged.
+GET-only 15:36 UTC scan retains 42 threads/19 archived and 2,292 messages; all
+differences are attachment URL query strings, no report/image content delta.
+Portrait/4K hardware and exact profiles remain open; Daylight stays deferred.
+Evidence: docs/ELLESMERE-SCALE-PORTRAIT-4K-QA-20261110.md.
+
+## 2026-11-10: Forever NPC panel scale release
+
+Natural merchant opening with explicit spanning reproduces an offscreen window
+on Offhand disable: root .4344242513 -> .6399999857 while panel coordinates stay
+(2189.1428,1105.9286). Native UpdateUIPanelPositions restores the still-open
+registered left-slot panel to (16,1084). Viewport now requests that native reflow
+only after actually restoring its owned root on Forever disable/span loss.
+External ownership, combat deferral, other clients and repeated inactive passes
+are covered by the failing-before production regression. All 123 frozen suites,
+six manifests and 104 archive entry hashes pass.
+
+Corrected private candidate 8cb11cac0150cf09021b38db23916aa4f52b1127be0951ddd19c010207368d94
+passes two native disable cycles, open-session re-enable and normal X closure.
+Fifteen spanned/READY samples plus one intentional restored-window/MISMATCH
+sample. Four historical error records unchanged. Actual quest window, physical
+dragging and combat/taint acceptance remain open. Initial separate QA10 helper
+error is documented in the linked evidence, then corrected before QA11 runs.
+Normal exit confirmed; 53 originals and 126 absences restored; helpers disabled;
+all 97 installed product files match the private candidate. GET-only Discord
+15:44 UTC refresh adds no report/image content. Daylight remains deferred.
+Evidence: docs/NPC-PANEL-RELEASE-QA-20261110.md.
+
+## 2026-11-10: remaining panel drag investigation
+
+Unchanged validated private candidate, Forever 70862 with explicit spanning.
+All 23 snapshots are spanned/READY. Three merchant title gestures and a stock
+backpack title gesture do not move those panels; an addon-owned drag control
+does move. Bounded merchant-only trace captures native StartMoving/StopMoving
+17 ms apart, coordinates unchanged at the first native stop, without an
+intervening anchor write. No attributed production defect or speculative fix.
+Merchant reopening/reload remain reachable. Native physical drag acceptance and
+exact quest interaction remain open. Four historical errors unchanged; normal
+exit confirmed; 54 originals/126 absences restored; private helper source
+restored and both TOCs disabled. Installed 97-file private candidate unchanged.
+GET-only 16:16 UTC Discord refresh has no report/image content delta. Daylight
+stays deferred. Evidence: docs/PANEL-DRAG-FOLLOWUP-QA-20261110.md.
+
+## 2026-11-10: installed ProcDoc spanned ownership and restoration
+
+ProcDoc 4.14.0 on Forever 70862 with explicit Companion 2.1.6 spanning reproduces
+two defects: generic popup recovery pre-translates its one-unit anchor, and
+native GetPoint rounding exceeds the adapter's ownership tolerance. A named
+popup exclusion and 0.001-unit comparison correct both failing-before cases.
+123 frozen Lua suites, six manifest Lua 5.1 checks and 104 archive hashes pass.
+Native cold entry, option off/on, vendor offsets, actual vendor preview,
+disable/re-enable and reload pass. Restore Window releases after 0.752 seconds
+of layout settlement; two pre-refresh observations are retained explicitly.
+34 native samples, four historical errors unchanged, 97 product files matching.
+Normal exit confirmed; 53 existing scoped files and 130 absences restored;
+helper TOCs disabled. No combat/real proc or physical multi-monitor acceptance.
+Evidence: docs/PROCDOC-SPANNED-QA-20261110.md. User now permits reviewing Daylight
+testing as needed; its prior deferral is historical, not a current restriction.
+
+## 2026-11-10: Daylight native map ownership and unspan recovery
+
+Installed DaylightUI 1.6.6, Forever 70862, explicit Companion 2.1.6 span. The
+existing adapter preserves the workspace map through actual Character closure.
+Native Restore Window/reopen exposes a separate generic recovery overwrite of
+the restored vendor anchor. A narrow verified-vendor recovery exception fixes
+that reproduced path. Production integration fails before, passes after; all
+123 frozen suites, six manifest Lua 5.1 checks and 104 ZIP hashes pass.
+Corrected native checks: 32 snapshots, 21 active placement samples, 11 visible
+vendor placement samples, three same-call HideUIPanel observations, reload,
+disable/re-enable and unspan/reopen. Vendor offsets/scale and controls restore.
+Actual corrected loaded flags exclude the major competing map/UI owners; the
+baseline also loaded Details/ProcDoc. No original loot/flight/PvP or combat claim.
+Four historical errors unchanged. Confirmed normal exit, 55 existing files and
+132 absences restored by hash/absence, helpers disabled, 97 product files match.
+Evidence: docs/DAYLIGHT-MAP-NATIVE-QA-20261110.md. No public release or Discord write.
+
+Final cleanup verified the generated Forever bridge as well: Companion had
+captured QA state once on client exit, before local backups were restored.
+Refreshed that data-only bridge using the inspected producer format and the
+hash-verified restored account/character inputs; both decoded tables now match
+the restored local files. Generated topology/calibration retained. Include the
+bridge in future backup/cleanup scopes to prevent replay of temporary QA state.
+17:25 UTC GET-only refresh: 42 threads/19 archived, 2293 messages/10 referenced
+originals, no gaps. One new report OH-UI-040, Companion 2.1.5 identity confirmation;
+screenshot reviewed, local matching failure not reproduced. No Discord changes.
+
+### CurseForge Beta 29 final hotfix pass, 2026-11-10
+
+Frozen addon-only release subject derives from accepted QA14. Retail friendly-
+name preference migration is deferred, restoring the published preference
+contract only; its independent test is outside the active subject. All 122
+applicable suites and six manifests (82 runtime files, Lua 5.1 syntax checked)
+pass. Two independent preparations produce identical 93-file ZIP SHA-256
+004be4e1fe35dba3bc55f6579ba7d6aa5f5676328fe9c495305f18bbdba9694e.
+
+Forever 1.60.1.70862, Companion 2.1.6, explicit equal single-display split with
+Mainhand right: 34 snapshots across five login/reload sessions, five logout
+events and two complete process launches. Options, disable/re-enable, reload,
+Restore Window, respan and exit/relaunch pass. Active root .4344242513 releases
+to .6399999857 with ownership cleared; final saved position tables stay equal.
+Actual EUI core/Details/ProcDoc coexistence is recorded, EUI Minimap is absent.
+Initial error capture was absent despite requested flags; the in-client-loaded
+and private-bootstrap instrumented repeat establishes fresh capture. Four
+historical records retain message/stack/time/counter. Actual combat and taint
+acceptance are not established. Real loot rolls explicitly remain accepted
+beta feedback work at the owner's direction.
+
+Restored 149 existing paths by hash plus 132 original absences, including config,
+installed files, flags and both generated bridges. Helpers disabled and client
+closed. Addon ZIP excludes QA helpers, personal state and native executables.
+No Companion artifact change, publication, Discord action or Git tag.
+[Frozen subject, notes and artifact receipt](../docs/CURSEFORGE-BETA29-PREPARATION-20261110.md).

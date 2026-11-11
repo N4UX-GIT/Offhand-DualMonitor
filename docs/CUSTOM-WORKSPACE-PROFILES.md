@@ -12,31 +12,33 @@ observations below retain their original binary scope.
 
 ## Using the features
 
-In Companion, configure **Multiple workspaces**, then open **Workspace
-profiles...**. Save the current monitor areas under a name, update a saved plan,
-load it, rename it or delete it. Loading selects settings only. Click **Span WoW
-Now** to apply, then `/reload` so the addon can read the selected plan identity.
-Plans require the configured monitors and their saved resolutions. A missing,
-ambiguous or resized display refuses loading; it does not silently substitute
-another display. Loading keeps automatic span disabled.
+In Companion, configure a custom layout and open **Advanced → Workspace
+profiles** to save the monitor areas under a name. To switch, choose a saved plan
+and click **Load selected** and **Save changes**. Then click **Span WoW Now** and
+type `/reload` in WoW. Companion requires the saved monitors and resolutions.
+If it cannot identify a saved display, reconnect it or choose a plan that
+fits the connected displays. Loading a plan keeps automatic span disabled.
+You can return to the previous plan with the same load, span, and reload steps.
 
-In the addon's **Profiles** tab, the new workspace section saves panel positions,
-routing and region appearance separately from the existing general addon
-profiles. Save as new copies the current layout and selects it. Switching layouts
-automatically retains the outgoing layout. Save current records the active
-layout explicitly. Rename changes its label; delete is limited to inactive,
-non-default layouts and requires confirmation. These layouts belong to the
-current general addon profile, rather than a new cross-character HUD profile.
-They do not switch display geometry, calibration or Blizzard Edit Mode layouts.
+In the addon's **Profiles** tab, **Panel presets** shows the active preset.
+The first use of a named Companion plan copies your current panel positions,
+opening rules, scale, and workspace appearance. Later switches restore each
+plan's preset and save your changes to the preset you left. For manual controls,
+click **Show advanced options**. **Save as new** copies and selects a preset.
+**Save current** updates the active preset. **Load** selects the chosen preset.
+**Rename** changes its label. **Delete** requires confirmation and is available
+for inactive user presets. A manually loaded preset stays active when you reload
+the same display plan. These presets belong to the active addon profile. Use
+Companion for display geometry and the character's HUD setup for Edit Mode.
 
-In **Workspace**, choose a destination for Map, Character, Spells, Collections,
+In **Panel layout**, choose where Map, Character, Spells, Collections,
 Achievements or Journal. Existing behavior is the default. Routes are opt-in and
 apply through the existing guarded panel restore/show path. A manual placement
 always takes precedence. **Use routing again** confirms before clearing that
 panel group's manual Mainhand and workspace positions. Bags, chat, professions,
 interaction windows and third-party panels keep their established behavior.
 
-In **Themes**, each active custom region can inherit the global appearance or
+In **Appearance → Themes for each workspace**, each active custom region can inherit the global appearance or
 select Classic, Blizzard Slate, Obsidian, Pitch Black or Gnomish Tinker. Overrides
 style the Offhand canvas and trim; they do not reskin native Blizzard panels.
 Inactive regions cannot be edited. Current custom topology supports one full
@@ -57,6 +59,35 @@ height from Companion. Preview each different shape separately. Those dimensions
 are preview settings; Companion still controls the actual game and region areas.
 The website and generated package instructions now explain this workflow. Images
 remain local and packages remain schema 2 with no executable addon code.
+
+## Forever switch test, 11 November 2026
+
+Forever 1.60.1.70888, Offhand 2.1.5 beta.28 and the local Companion 2.1.6
+candidate switched between two temporary saved layouts. The centered game
+area restored its 100% World Map scale. The wider game area with stacked
+workspaces restored its 150% scale. Both directions used **Load selected**,
+**Save changes**, **Span WoW Now**, and a UI reload. The active addon preset
+and map scale were checked through the UI and SavedVariables. The original
+layout, active preset and saved settings were restored. The restored files
+matched their pre-test hashes.
+
+The same run reproduced a Companion timing defect. After **Load selected** and
+**Save changes**, the watcher published the new plan before **Span WoW Now**
+because both layouts used the same outer window bounds. The source fix requires
+an exact applied-layout match before repairing an addon update's placeholder.
+When Companion has no evidence that the selected layout was applied, it prompts
+for **Span WoW Now**. Automated coverage exercises equal bounds with different
+layout geometry or preset IDs, restart, and placeholder repair.
+
+The updated Companion 2.1.6 candidate and Offhand settings passed a follow-up
+on the same Forever build. **Save plan**, **Save as new**, and **Save changes**
+left the applied layout file byte-identical and the original preset active
+through a UI reload. **Span WoW Now** sent the stacked layout to WoW. The
+original preset stayed active until the next reload, when the matching stacked
+preset appeared. **Show advanced options** started collapsed and scrolled its
+guidance and controls into view when opened. Collapsing hid the manual controls
+and kept the active preset visible. The original layout and settings were
+restored and hash checked. The updated files remain deployed locally.
 
 ## Persistence and recovery contracts
 

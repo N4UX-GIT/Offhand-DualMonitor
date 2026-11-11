@@ -75,6 +75,7 @@ function Recovery.Install(HUD)
     local HasEllesmerePartyFrames = Compatibility.HasEllesmerePartyFrames
     local HasBlizzardEditMode = Compatibility.HasBlizzardEditMode
     local UsesControllerInterface = Compatibility.UsesControllerInterface
+    local UsesNativeGamepadInterface = Compatibility.UsesNativeGamepadInterface
     local UsesForeverEditMode = Compatibility.UsesForeverEditMode
 
     local function GetEditModeLayouts()
@@ -96,6 +97,21 @@ function Recovery.Install(HUD)
     local FOREVER_CUSTOM_LAYOUT_OFFSET = 3
     local FOREVER_MODERN_LAYOUT_ID = 1
     local FOREVER_MISMATCH_GRACE_SECONDS = 8
+
+    local function GetForeverRecoveryFallback()
+        if not UsesNativeGamepadInterface() then return FOREVER_MODERN_LAYOUT_ID, "Modern" end
+        local presets = Enum and Enum.EditModePresetLayouts
+        local gamepad = presets and presets.Gamepad
+        if type(gamepad) == "number" then return gamepad + 1, "Gamepad" end
+    end
+
+    local function MatchesForeverRecoveryStyle(layout, fallbackName)
+        local styles = Enum and Enum.InputDeviceInterfaceType
+        local gamepad = styles and styles.Gamepad
+        if not layout then return false end
+        local isGamepad = gamepad ~= nil and layout.interfaceStyle == gamepad
+        return isGamepad == (fallbackName == "Gamepad")
+    end
 
     local function GetForeverLayoutByID(data, layoutID)
         if type(data) ~= "table" or type(data.layouts) ~= "table" then return nil end
@@ -341,6 +357,16 @@ function Recovery.Install(HUD)
             and metrics.topologyStatus == "MISMATCH" or false
     end
 
+    function HUD:IsForeverLayoutRecoveryHandlingSpan(metrics)
+        if not UsesForeverEditMode() then return false end
+        if self.foreverRecoveryPromptShown then return true end
+        if not IsForeverSingleScreenRecovery(metrics) then return false end
+        -- The recovery prompt includes the span instructions. Keep the
+        -- separate notice out while waiting and after the player has chosen.
+        return self.foreverMismatchConfirmationPending or self.foreverMismatchDeclined
+            or (type(OffhandCharDB) == "table" and type(OffhandCharDB.foreverEditModeRecovery) == "table")
+    end
+
     local function ScheduleForeverRecoveryRetry(self, delay)
         if not C_Timer or not C_Timer.After or self.foreverRecoveryRetryPending then return end
         self.foreverRecoveryRetryPending = true
@@ -354,18 +380,31 @@ function Recovery.Install(HUD)
     local function ScheduleForeverMismatchConfirmation(self)
         if not C_Timer or not C_Timer.After or self.foreverMismatchConfirmationPending then return end
         self.foreverMismatchConfirmationPending = true
-        C_Timer.After(FOREVER_MISMATCH_GRACE_SECONDS, function()
+        local function ConfirmMismatch()
             self.foreverMismatchConfirmationPending = nil
             local current = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
             if IsForeverSingleScreenRecovery(current) then
                 self.foreverMismatchConfirmed = true
                 self:UpdateForeverRecoveryLayout(current)
+                -- The player may have changed Edit Mode layouts during the
+                -- grace period. Release display guidance if recovery no longer applies.
+                if not self:IsForeverLayoutRecoveryHandlingSpan(current)
+                    and not InCombatLockdown() and Offhand.RefreshCompanionNoticeState then
+                    Offhand:RefreshCompanionNoticeState(current)
+                end
             else
                 self.foreverMismatchConfirmed = nil
                 self.foreverMismatchDeclined = nil
                 if Offhand.HideForeverLayoutRecoveryPrompt then
                     Offhand:HideForeverLayoutRecoveryPrompt("fallback")
                 end
+            end
+        end
+        C_Timer.After(FOREVER_MISMATCH_GRACE_SECONDS, function()
+            if InCombatLockdown() and Offhand.RunOrQueueCombat then
+                Offhand:RunOrQueueCombat(ConfirmMismatch)
+            else
+                ConfirmMismatch()
             end
         end)
     end
@@ -386,6 +425,8 @@ function Recovery.Install(HUD)
             return
         end
 
+        local fallbackID, fallbackName = GetForeverRecoveryFallback()
+        if not fallbackID then return end
         local activeID = tonumber(data.activeLayout)
         local active = GetForeverLayoutByID(data, activeID)
         local activeName = active and active.layoutName
@@ -393,11 +434,24 @@ function Recovery.Install(HUD)
         local preferredName = preferredLayout and preferredLayout.layoutName
             or (type(OffhandCharDB) == "table" and OffhandCharDB.foreverEditModeLayoutName or nil)
         local recovery = type(OffhandCharDB) == "table" and OffhandCharDB.foreverEditModeRecovery or nil
+        if type(recovery) == "table" and tonumber(recovery.fallbackLayoutID) ~= fallbackID then
+            OffhandCharDB.foreverEditModeRecovery = nil
+            self.foreverMismatchConfirmed = nil
+            self.foreverMismatchDeclined = nil
+            self.foreverRecoveryPromptShown = nil
+            if Offhand.HideForeverLayoutRecoveryPrompt then
+                Offhand:HideForeverLayoutRecoveryPrompt("fallback")
+                Offhand:HideForeverLayoutRecoveryPrompt("restore")
+            end
+            PersistForeverEditModeState()
+            return
+        end
 
         if IsForeverSingleScreenRecovery(metrics) then
             if not recovery then
                 if not preferredID or activeID ~= preferredID
-                    or not EditModeLayoutNamesMatch(activeName, preferredName) then return end
+                    or not EditModeLayoutNamesMatch(activeName, preferredName)
+                    or not MatchesForeverRecoveryStyle(active, fallbackName) then return end
                 if self.foreverMismatchDeclined then return end
                 if not self.foreverMismatchConfirmed then
                     ScheduleForeverMismatchConfirmation(self)
@@ -406,8 +460,8 @@ function Recovery.Install(HUD)
                 recovery = {
                     restoreLayoutID = activeID,
                     restoreLayoutName = activeName,
-                    fallbackLayoutID = FOREVER_MODERN_LAYOUT_ID,
-                    fallbackLayoutName = "Modern",
+                    fallbackLayoutID = fallbackID,
+                    fallbackLayoutName = fallbackName,
                 }
                 OffhandCharDB.foreverEditModeRecovery = recovery
                 PersistForeverEditModeState()
@@ -415,8 +469,9 @@ function Recovery.Install(HUD)
             if activeID == tonumber(recovery.restoreLayoutID)
                 and self.foreverRecoveryPromptShown ~= "fallback" then
                 self.foreverRecoveryPromptShown = "fallback"
-                if Offhand.ShowForeverLayoutRecoveryPrompt then
-                    Offhand:ShowForeverLayoutRecoveryPrompt("fallback", recovery.restoreLayoutName)
+                if Offhand.ShowForeverLayoutRecoveryPrompt
+                    and Offhand:ShowForeverLayoutRecoveryPrompt("fallback", recovery.restoreLayoutName, fallbackName, metrics) == false then
+                    self.foreverRecoveryPromptShown = nil
                 end
             end
             return
@@ -447,7 +502,7 @@ function Recovery.Install(HUD)
                 end
                 return
             end
-            if not fallbackMatches or not restoreID then
+            if not fallbackMatches or not restoreID or not MatchesForeverRecoveryStyle(restoreLayout, fallbackName) then
                 -- A different active layout means the player made an explicit
                 -- choice during recovery. Do not replace it.
                 OffhandCharDB.foreverEditModeRecovery = nil
@@ -461,8 +516,9 @@ function Recovery.Install(HUD)
             end
             if self.foreverRecoveryPromptShown ~= "restore" then
                 self.foreverRecoveryPromptShown = "restore"
-                if Offhand.ShowForeverLayoutRecoveryPrompt then
-                    Offhand:ShowForeverLayoutRecoveryPrompt("restore", recovery.restoreLayoutName)
+                if Offhand.ShowForeverLayoutRecoveryPrompt
+                    and Offhand:ShowForeverLayoutRecoveryPrompt("restore", recovery.restoreLayoutName, fallbackName) == false then
+                    self.foreverRecoveryPromptShown = nil
                 end
             end
         end
@@ -475,17 +531,20 @@ function Recovery.Install(HUD)
         if InCombatLockdown() or type(OffhandCharDB) ~= "table" then return end
         local recovery = OffhandCharDB.foreverEditModeRecovery
         if type(recovery) ~= "table" then return end
+        local fallbackID, fallbackName = GetForeverRecoveryFallback()
+        if not fallbackID or tonumber(recovery.fallbackLayoutID) ~= fallbackID then return end
+        local data = GetEditModeLayouts()
+        if not data then return end
+        local restoreID, layout = ResolveForeverLayoutID(data, recovery.restoreLayoutID, recovery.restoreLayoutName)
+        if not restoreID or not MatchesForeverRecoveryStyle(layout, fallbackName) then return end
+        local activeID = tonumber(data.activeLayout)
         local targetID
-        if choice == "restore" then
-            local data = GetEditModeLayouts()
-            local layout
-            targetID, layout = ResolveForeverLayoutID(data, recovery.restoreLayoutID, recovery.restoreLayoutName)
-            if targetID and layout then
-                recovery.restoreLayoutID = targetID
-                recovery.restoreLayoutName = layout.layoutName
-            end
-        else
-            targetID = tonumber(recovery.fallbackLayoutID)
+        if choice == "restore" and activeID == fallbackID then
+            targetID = restoreID
+            recovery.restoreLayoutID = restoreID
+            recovery.restoreLayoutName = layout.layoutName
+        elseif choice == "fallback" and activeID == restoreID then
+            targetID = fallbackID
         end
         if not targetID then return end
         SelectEditModeLayout(targetID)

@@ -1,3 +1,7 @@
+> Reload follow-up: the API fallback below was not sufficient for Forever.
+> Reporter protected-action evidence and the Beta 28 manual handoff correction
+> are recorded in docs/FOREVER-MANUAL-RELOAD-20261109.md.
+
 # Settings and HUD reload usability, 2026-11-09
 
 Private Guide & Wizard Test 11 is packaged and installed, not published.
@@ -136,3 +140,16 @@ SHA256: cc9f2cbed01cffe8c97e1be1d5af019bb5c07adcdb2e64b188d91cd149946be6
 Native status: installed, requires /reload and visual review. The user screenshots
 are Test 10 evidence. No desktop interaction or new native lock, combat/controller,
 HUD creation or taint test was performed for Test 11.
+
+
+### OH-UI-025 follow-up: native reload click verified, 2026-11-09
+
+Supersedes the blanket manual-only fallback above. Forever 1.60.1.70862 keyboard/
+mouse reproduces the blocked call when the owned popup hides first; callback-first
+and the actual production HUD completion prompt both perform real UI reloads.
+Reload dialogs opt into callback-before-hide, with generation protection for
+replacement cards. Other callbacks retain their lifecycle. Controller UI remains
+manual; combat activation and other builds are unverified. 114 source suites pass.
+Private helper removed and final clean reload completed; client closed normally.
+Current BugGrabber contains only the one intentional comparison failure from this
+run, with no later error. Taint log is stale. See docs/RELOAD-BUTTON-RESEARCH-20261109.md.

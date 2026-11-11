@@ -26,6 +26,26 @@ local CreateNativeRadioButton = Controls.CreateNativeRadioButton
 -- client regression without presenting the experimental card to players.
 local SHOW_FOREVER_PROFESSIONS_COMPATIBILITY_UI = false
 
+local function IsIntegrationActive(name)
+    local isLoaded = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
+    if not isLoaded then return false end
+    local ok, loadedOrLoading, loaded = pcall(isLoaded, name)
+    if not ok or not loadedOrLoading or loaded == false then return false end
+
+    if C_AddOns and C_AddOns.GetAddOnEnableState then
+        local character = UnitGUID and UnitGUID("player")
+        if not character then return false end
+        local read, state = pcall(C_AddOns.GetAddOnEnableState, name, character)
+        return read and type(state) == "number" and state > 0
+    elseif GetAddOnEnableState then
+        local character = UnitName and UnitName("player")
+        if not character then return false end
+        local read, state = pcall(GetAddOnEnableState, character, name)
+        return read and type(state) == "number" and state > 0
+    end
+    return true
+end
+
 local function BackdropTemplate()
     return not Offhand.isLegacyWrath and "BackdropTemplate" or nil
 end
@@ -486,9 +506,18 @@ function Options:CreateFloatingPanel()
     tab5:SetHeight(1)
     configFrame.tab5 = tab5
 
+    local workspaceTab
+    if Offhand.WorkspaceOptions then
+        workspaceTab = CreateFrame("Frame", nil, optionsScrollChild)
+        workspaceTab:SetPoint("TOPLEFT", 0, 0)
+        workspaceTab:SetPoint("TOPRIGHT", 0, 0)
+        workspaceTab:SetHeight(1)
+        configFrame.tab6 = workspaceTab
+    end
+
     local registeredCards = {}
 
-    local function CreateCard(parent, titleText, height)
+    local function CreateCard(parent, titleText, height, ...)
         local card = CreateFrame("Frame", nil, parent, BackdropTemplate())
         card:SetSize(662, height)
         card:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
@@ -501,6 +530,12 @@ function Options:CreateFloatingPanel()
         card.title = title
         card.settingsTab = parent
         card.sectionLabel = titleText
+        if select("#", ...) > 0 then
+            title:SetWidth(610)
+            title:SetJustifyH("LEFT")
+            card.helpButton = Controls.CreateHelpButton(card, titleText, ...)
+            card.helpButton:SetPoint("TOPRIGHT", card, "TOPRIGHT", -12, -4)
+        end
 
         tinsert(registeredCards, card)
         return card
@@ -547,44 +582,64 @@ function Options:CreateFloatingPanel()
         { id = 4, frame = tab4, label = L["TAB_PROFILES"] },
         { id = 5, frame = tab5, label = L["TAB_HELP"] }
     }
+    if workspaceTab then
+        table.insert(tabConfig, 5, { id = 6, frame = workspaceTab, label = L["TAB_PANEL_LAYOUT"] })
+    end
     
     local tabButtons = {}
     local sectionButtons = {}
     local sectionTitle = configFrame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-    sectionTitle:SetPoint("TOPLEFT", configFrame, "TOPLEFT", 24, -360)
+    local sectionTop = 100 + #tabConfig * 44
+    sectionTitle:SetPoint("TOPLEFT", configFrame, "TOPLEFT", 24, -sectionTop)
     sectionTitle:SetText(L["UI_SECTIONS"])
     configFrame.cards = registeredCards
     configFrame.tabButtons = tabButtons
     configFrame.sectionButtons = sectionButtons
     local tabScrollOffsets = {}
-    local displayedTab
+    local activePage
+
+    local function RestackTab(tab, cards)
+        local height = Options:StackCards(tab, cards)
+        if tab == activePage then
+            optionsScrollChild:SetHeight(height)
+            Controls.SetScrollOffset(optionsScrollFrame, optionsScrollFrame:GetVerticalScroll())
+        end
+    end
+
+    local function ScrollToCard(card)
+        local _, _, _, _, y = card:GetPoint(1)
+        Controls.SetScrollOffset(optionsScrollFrame, -(y or 0))
+    end
 
     local function SwitchTab(tabIndex)
-        if displayedTab and optionsScrollFrame.GetVerticalScroll then
-            tabScrollOffsets[displayedTab] = optionsScrollFrame:GetVerticalScroll()
+        if activePage and optionsScrollFrame.GetVerticalScroll then
+            tabScrollOffsets[currentTab] = optionsScrollFrame:GetVerticalScroll()
         end
         currentTab = tabIndex
+        if configFrame.saveStatus then
+            configFrame.saveStatus:SetText(tabIndex == 6 and "" or L["SETTINGS_SAVED_LIVE"])
+        end
 
-        for i, t in ipairs(tabConfig) do
+        for _, t in ipairs(tabConfig) do
             local isActive = (tabIndex == t.id)
             SetShown(t.frame, isActive)
             
-            local btn = tabButtons[i]
+            local btn = tabButtons[t.id]
             if btn then
                 Controls.SetChoiceSelected(btn, isActive)
             end
             
             if isActive then
+                activePage = t.frame
                 optionsScrollChild:SetHeight(t.frame:GetHeight())
             end
         end
 
-        displayedTab = tabIndex
         Controls.SetScrollOffset(optionsScrollFrame, tabScrollOffsets[tabIndex] or 0)
 
         local pageCards = {}
         for _, card in ipairs(registeredCards) do
-            if card.settingsTab == tabConfig[tabIndex].frame then
+            if card.settingsTab == activePage then
                 pageCards[#pageCards + 1] = card
             end
         end
@@ -599,13 +654,10 @@ function Options:CreateFloatingPanel()
                 sectionButtons[index] = button
             end
             button:ClearAllPoints()
-            button:SetPoint("TOPLEFT", configFrame, "TOPLEFT", 20, -380 - (index - 1) * 32)
+            button:SetPoint("TOPLEFT", configFrame, "TOPLEFT", 20, -sectionTop - 20 - (index - 1) * 32)
             button:SetText(card.sectionLabel)
             local target = card
-            button:SetScript("OnClick", function()
-                local _, _, _, _, y = target:GetPoint(1)
-                Controls.SetScrollOffset(optionsScrollFrame, -(y or 0))
-            end)
+            button:SetScript("OnClick", function() ScrollToCard(target) end)
             if Offhand.SetTooltip then Offhand:SetTooltip(button, card.sectionLabel) end
             button:Show()
         end
@@ -622,21 +674,18 @@ function Options:CreateFloatingPanel()
     -- Dynamically generate the tab buttons
     for i, t in ipairs(tabConfig) do
         local btn = CreateFrame("Button", nil, configFrame, "UIPanelButtonTemplate")
-        btn:SetSize(166, 44)
-        btn:SetPoint("TOPLEFT", configFrame, "TOPLEFT", 20, -94 - (i - 1) * 52)
+        btn:SetSize(166, 38)
+        btn:SetPoint("TOPLEFT", configFrame, "TOPLEFT", 20, -94 - (i - 1) * 44)
         btn:SetText(t.label)
         btn:SetScript("OnClick", function() SwitchTab(t.id) end)
-        table.insert(tabButtons, btn)
+        tabButtons[t.id] = btn
     end
 
     -- ========================================================================
     -- TAB 1: DISPLAY & VIEWPORT CALIBRATION
     -- ========================================================================
-    local workspaceCards
-    if Offhand.WorkspaceOptions then
-        workspaceCards=Offhand.WorkspaceOptions.Build({workspace=tab2,themes=tab3,profiles=tab4},CreateCard,Options)
-    end
-    local card1_1 = CreateCard(tab1, L["CARD_LAYOUT_PRESETS"], 216)
+    local card1_1 = CreateCard(tab1, L["CARD_LAYOUT_PRESETS"], 216,
+        L["CARD_LAYOUT_PRESETS_DESC"], L["SETTINGS_HELP_LAYOUT_SOURCE"])
 
     local enableCheck = CreateNativeCheckbox(card1_1, L["ENABLE_OFFHAND"],
         function() return Offhand.db and Offhand.db.enabled end,
@@ -761,7 +810,8 @@ function Options:CreateFloatingPanel()
 
 
 
-    local manualCanvasCard = CreateCard(tab1, L["CARD_MANUAL_CANVAS"], 96)
+    local manualCanvasCard = CreateCard(tab1, L["CARD_MANUAL_CANVAS"], 96,
+        L["BTN_REMEMBER_CURRENT_WINDOW_TIP_DESC"])
     local manualCanvasStatus = manualCanvasCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     manualCanvasStatus:SetPoint("TOPLEFT", 14, -30)
     manualCanvasStatus:SetPoint("RIGHT", manualCanvasCard, "RIGHT", -226, 0)
@@ -799,7 +849,8 @@ function Options:CreateFloatingPanel()
     configFrame.rememberCanvasBtn = rememberCanvasBtn
 
 
-    local card1_2 = CreateCard(tab1, L["CARD_VIEWPORT_AR"], 120)
+    local card1_2 = CreateCard(tab1, L["CARD_VIEWPORT_AR"], 120,
+        L["AR_FILL_TIP_DESC"], L["SLIDER_SEAM_WIDTH_TIP_DESC"])
 
     local r169 = CreateNativeRadioButton(card1_2, L["AR_16_9"],
         function() return (Offhand.db and Offhand.db.aspectRatioMode == "16_9") end,
@@ -856,7 +907,8 @@ function Options:CreateFloatingPanel()
     p55Btn:SetScript("OnClick", function() seamSlider:SetValue(0.55) end)
     if Offhand.SetTooltip then Offhand:SetTooltip(p55Btn, L["WIZARD_PRESET_SEAM_55_TIP_TITLE"], L["WIZARD_PRESET_SEAM_55_TIP_DESC"]) end
 
-    local motionCard = CreateCard(tab1, L["CARD_MOTION_CLARITY"], 88)
+    local motionCard = CreateCard(tab1, L["CARD_MOTION_CLARITY"], 88,
+        L["MOTION_CLARITY_DESC"])
 
     local motionDesc = motionCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     motionDesc:SetPoint("TOPLEFT", 14, -30)
@@ -879,7 +931,8 @@ function Options:CreateFloatingPanel()
     motionCheck:SetPoint("TOPLEFT", 12, -54)
     motionCheck.Text:SetWidth(500)
 
-    local card1_3 = CreateCard(tab1, L["CARD_SCALE_ALIGNMENT"], 156)
+    local card1_3 = CreateCard(tab1, L["CARD_SCALE_ALIGNMENT"], 156,
+        L["GLOBAL_SCALE_HELP"], L["WIZARD_UI_SCALE_INSTRUCTION"])
 
     local bottomControl = Options:CreateBottomControl(card1_3)
     configFrame.bottomControl = bottomControl
@@ -937,7 +990,8 @@ function Options:CreateFloatingPanel()
     hudNote:SetJustifyH("LEFT")
     hudNote:SetText(L["GLOBAL_SCALE_HELP"])
 
-    local card1_4 = CreateCard(tab1, L["CARD_WORLD_TEXT"], 150)
+    local card1_4 = CreateCard(tab1, L["CARD_WORLD_TEXT"], 150,
+        L["WORLD_TEXT_COMPENSATION_TIP_DESC"], L["SPEECH_BUBBLE_COMPENSATION_TIP_DESC"])
 
     local worldTextCheck = CreateNativeCheckbox(card1_4, L["WORLD_TEXT_COMPENSATION"],
         function() return Offhand.db and Offhand.db.worldTextCompensation ~= false end,
@@ -969,7 +1023,8 @@ function Options:CreateFloatingPanel()
     speechBubbleSlider:SetWidth(200)
     speechBubbleSlider:LayoutCompact()
 
-    local groupLootCard = CreateCard(tab1, L["CARD_GROUP_LOOT"], 126)
+    local groupLootCard = CreateCard(tab1, L["CARD_GROUP_LOOT"], 126,
+        L["GROUP_LOOT_MOVE_DESC"], L["GROUP_LOOT_RESET_TIP_DESC"])
 
     local groupLootDescription = groupLootCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     groupLootDescription:SetPoint("TOPLEFT", 14, -32)
@@ -1022,7 +1077,7 @@ function Options:CreateFloatingPanel()
     groupLootDirectionCheck:SetPoint("TOPLEFT", 12, -82)
     groupLootDirectionCheck.Text:SetWidth(500)
 
-    local card1_5 = CreateCard(tab1, L["OBS_SETUP"], 110)
+    local card1_5 = CreateCard(tab1, L["OBS_SETUP"], 110, L["OBS_HELP"])
     
     local obsDesc = card1_5:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     obsDesc:SetPoint("TOPLEFT", 16, -26)
@@ -1064,7 +1119,16 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 2: WORKSPACE & WORLD MAP
     -- ========================================================================
-    local card2_1 = CreateCard(tab2, L["MAP_SETTINGS"], Offhand.isForever and 192 or 150)
+    local offhandCards
+    local function ResizeMonitorCard(card, height)
+        if card.contentHeight == height then return end
+        card.contentHeight = height
+        card:SetHeight(height)
+        if offhandCards then RestackTab(tab2, offhandCards) end
+    end
+
+    local card2_1 = CreateCard(tab2, L["MAP_SETTINGS"], Offhand.isForever and 192 or 150,
+        L["MAP_SCALE_TARGET_HELP"], Offhand.isForever and L["MAP_SCALE_HELP_FOREVER"] or L["MAP_SCALE_HELP"])
 
     local mapScaleSlider = CreateNativeSlider(card2_1, L["MAP_SCALE"], 0.50,
         Offhand.MapScale:GetState().max, 0.05,
@@ -1122,8 +1186,10 @@ function Options:CreateFloatingPanel()
     mapTip:SetWordWrap(true)
     local function RefreshMapScaleControls()
         local state = Offhand.MapScale:GetState()
+        local openMapActive = IsIntegrationActive("OpenMap")
+        local openMapOwner = openMapActive and state.owner == "OpenMap"
         mapScaleSlider:SetRange(state.min, state.max)
-        mapScaleSlider.title:SetText(L["MAP_SCALE"] .. (state.owner == "OpenMap" and " (OpenMap)" or ""))
+        mapScaleSlider.title:SetText(L["MAP_SCALE"] .. (openMapOwner and " (OpenMap)" or ""))
         Controls.SetSliderEnabled(mapScaleSlider, state.available)
         autoFitBtn:SetEnabled(state.available)
         p100Btn:SetEnabled(state.available and state.max >= 1)
@@ -1131,8 +1197,9 @@ function Options:CreateFloatingPanel()
         p200Btn:SetEnabled(state.available and state.max >= 2)
         p250Btn:SetEnabled(state.available and state.max >= 2.5)
         mapTip:SetText(L[not state.available and "MAP_SCALE_UNAVAILABLE"
-            or (state.owner == "OpenMap" and "MAP_SCALE_OPENMAP_HELP" or "MAP_SCALE_TARGET_HELP")])
+            or (openMapOwner and "MAP_SCALE_OPENMAP_HELP" or "MAP_SCALE_TARGET_HELP")])
         mapScaleSlider:UpdateText()
+        if card2_1.RefreshIntegration then card2_1.RefreshIntegration(openMapOwner) end
     end
     card2_1:SetScript("OnShow", RefreshMapScaleControls)
     card2_1:RegisterEvent("PLAYER_REGEN_DISABLED")
@@ -1157,41 +1224,48 @@ function Options:CreateFloatingPanel()
     mapDesc:SetJustifyH("LEFT")
     mapDesc:SetWidth(530)
     mapDesc:SetWordWrap(true)
-    local hasLMap = C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("Leatrix_Maps") or (IsAddOnLoaded and IsAddOnLoaded("Leatrix_Maps"))
-    if hasLMap then
-        mapDesc:SetText(L["COMPAT_LEATRIX"])
-    else
-        mapDesc:SetText(L["MAP_KEEP_OPEN_DESC"])
-    end
-
-
-    if Offhand.isForever then
-        local descriptionHeight = Controls.MeasureWrappedText(mapDesc, mapDesc:GetText(), 530)
-        mapDesc:SetHeight(descriptionHeight)
-        local recoverMap = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
-        recoverMap:SetPoint("TOPLEFT", 12, -(146 + descriptionHeight))
-        recoverMap:SetPoint("TOPRIGHT", -12, -(146 + descriptionHeight))
-        recoverMap:SetHeight(24)
-        recoverMap:SetText(L["OPENMAP_RECOVERY_BUTTON"])
-        recoverMap:SetScript("OnClick", function()
-            if Offhand.OpenMapRecovery then Offhand.OpenMapRecovery:RunAndReport() end
-        end)
-        if Offhand.SetTooltip then
-            Offhand:SetTooltip(recoverMap, L["OPENMAP_RECOVERY_BUTTON"], L["OPENMAP_RECOVERY_TIP"])
+    do
+        local recoverMap
+        if Offhand.isForever and Offhand.OpenMapRecovery then
+            recoverMap = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
+            recoverMap:SetHeight(24)
+            recoverMap:SetText(L["OPENMAP_RECOVERY_BUTTON"])
+            recoverMap:SetScript("OnClick", function()
+                if IsIntegrationActive("OpenMap") then Offhand.OpenMapRecovery:RunAndReport() end
+            end)
+            if Offhand.SetTooltip then
+                Offhand:SetTooltip(recoverMap, L["OPENMAP_RECOVERY_BUTTON"], L["OPENMAP_RECOVERY_TIP"])
+            end
         end
-        card2_1:SetHeight(182 + descriptionHeight)
+        function card2_1.RefreshIntegration(openMapOwner)
+            local description = L[IsIntegrationActive("Leatrix_Maps") and "COMPAT_LEATRIX" or "MAP_KEEP_OPEN_DESC"]
+            mapDesc:SetText(description)
+            local top = 146 + Controls.FitCompactParagraph(mapDesc, description, 530)
+            if recoverMap then
+                SetShown(recoverMap, openMapOwner)
+                recoverMap:SetPoint("TOPLEFT", 12, -top)
+                recoverMap:SetPoint("TOPRIGHT", -12, -top)
+            end
+            ResizeMonitorCard(card2_1, top + (recoverMap and openMapOwner and 36 or 0))
+        end
+        card2_1.RefreshIntegration(IsIntegrationActive("OpenMap") and Offhand.MapScale:GetState().owner == "OpenMap")
     end
 
-    local card2_2 = CreateCard(tab2, L["CARD_PERSISTENCE"],
-        Offhand.isForever and 598 or 414)
+    local card2_2 = CreateCard(tab2, L["CARD_PERSISTENCE"], 374,
+        L["CHECK_ALLOW_DRAG_TIP_DESC"], Offhand.isForever and L["CHECK_ESC_PERSIST_TIP_DESC_FOREVER"] or L["CHECK_ESC_PERSIST_TIP_DESC"])
+    local alertsCard = CreateCard(tab2, L["CARD_POPUPS_ALERTS"], 92, L["SETTINGS_HELP_POPUPS"], function()
+        if Offhand.ProcDocCompatibility and IsIntegrationActive("ProcDoc") then return L["PROCDOC_MAINHAND_DESC"] end
+    end)
+    alertsCard.title:SetJustifyH("LEFT")
+    local controllerCard
     local supportsMainhandLayout = type(Offhand.HasBlizzardEditMode) == "function"
         and Offhand:HasBlizzardEditMode()
     -- Forever has two layout-status rows plus wrapped Edit Mode guidance.
     -- Keep the preview checkbox below that text instead of sharing its line.
     local recoveryHeight = Offhand.isForever and 374 or (supportsMainhandLayout and 302 or 152)
     local transfer = Offhand.EllesmereLayout
-    local showEllesmerePreview = transfer and transfer.ShowPreview and transfer:IsAvailable()
-    local recoveryCard = CreateCard(tab2, L["CARD_RECOVERY"], recoveryHeight)
+    local recoveryCard = CreateCard(tab2, L["CARD_RECOVERY"], recoveryHeight,
+        L["RECOVERY_MISSING_LABEL"], L["GATHER_MAINHAND_UI_DESC"])
     local advancedCard
     local advancedCheck
     local foreverLayoutStatus
@@ -1199,7 +1273,6 @@ function Options:CreateFloatingPanel()
     local createLayout
     local gamepadDragHandlesCheck
     local gamepadFocusBindingStatus
-    local offhandCards
 
     local function CreateRecoveryCaption(text, leftColumn, top)
         local caption = recoveryCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
@@ -1217,7 +1290,7 @@ function Options:CreateFloatingPanel()
     end
 
     if Offhand.isForever and SHOW_FOREVER_PROFESSIONS_COMPATIBILITY_UI then
-        advancedCard = CreateCard(tab2, L["CARD_ADVANCED_COMPAT"], 52)
+        advancedCard = CreateCard(tab2, L["CARD_ADVANCED_COMPAT"], 52, L["FOREVER_PROF_MOVE_DESC"])
         local expanded = false
         local advancedControls = {}
 
@@ -1280,7 +1353,7 @@ function Options:CreateFloatingPanel()
             advancedCard:SetHeight(expanded and 176 or 52)
             disclosure:SetText(expanded and L["ADVANCED_HIDE"] or L["ADVANCED_SHOW"])
             for _, control in ipairs(advancedControls) do SetShown(control, expanded) end
-            if offhandCards then Options:StackCards(tab2, offhandCards) end
+            if offhandCards then RestackTab(tab2, offhandCards) end
         end
         disclosure:SetScript("OnClick", function() SetAdvancedExpanded(not expanded) end)
         SetAdvancedExpanded(false)
@@ -1463,12 +1536,11 @@ function Options:CreateFloatingPanel()
     )
     reloadCheck:SetPoint("TOPLEFT", 10, -164)
 
-    local seamCheck = CreateNativeCheckbox(card2_2, L["REDIRECT_POPUPS"],
+    local seamCheck = CreateNativeCheckbox(alertsCard, L["REDIRECT_POPUPS"],
         function() return Offhand.db and Offhand.db.seamRedirect end,
         function(val) Offhand.db.seamRedirect = val end,
         L["CHECK_SEAM_REDIRECT_TIP_TITLE"], L["CHECK_SEAM_REDIRECT_TIP_DESC"]
     )
-    seamCheck:SetPoint("TOPLEFT", 10, -190)
 
     local hideCloseCheck = CreateNativeCheckbox(card2_2, L["HIDE_WORKSPACE_CLOSE_BUTTONS"],
         function() return Offhand.db and Offhand.db.hideWorkspaceCloseButtons == true end,
@@ -1481,10 +1553,10 @@ function Options:CreateFloatingPanel()
         end,
         L["HIDE_WORKSPACE_CLOSE_BUTTONS"], L["HIDE_WORKSPACE_CLOSE_BUTTONS_DESC"]
     )
-    hideCloseCheck:SetPoint("TOPLEFT", 10, -216)
+    hideCloseCheck:SetPoint("TOPLEFT", 10, -190)
 
     local hideCloseDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    hideCloseDesc:SetPoint("TOPLEFT", 32, -238)
+    hideCloseDesc:SetPoint("TOPLEFT", 32, -212)
     hideCloseDesc:SetWidth(530)
     hideCloseDesc:SetJustifyH("LEFT")
     hideCloseDesc:SetWordWrap(true)
@@ -1501,17 +1573,21 @@ function Options:CreateFloatingPanel()
         end,
         L["HIDE_WORKSPACE_MAP_MAXIMIZE"], L["HIDE_WORKSPACE_MAP_MAXIMIZE_DESC"]
     )
-    hideMapMaximizeCheck:SetPoint("TOPLEFT", 10, -282)
+    hideMapMaximizeCheck:SetPoint("TOPLEFT", 10, -256)
 
     local hideMapMaximizeDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    hideMapMaximizeDesc:SetPoint("TOPLEFT", 32, -304)
+    hideMapMaximizeDesc:SetPoint("TOPLEFT", 32, -278)
     hideMapMaximizeDesc:SetWidth(530)
     hideMapMaximizeDesc:SetJustifyH("LEFT")
     hideMapMaximizeDesc:SetWordWrap(true)
     hideMapMaximizeDesc:SetText(L["HIDE_WORKSPACE_MAP_MAXIMIZE_DESC"])
 
     if Offhand.isForever then
-        gamepadDragHandlesCheck = CreateNativeCheckbox(card2_2,
+        controllerCard = CreateCard(tab2, L["CARD_CONTROLLER_CONTROLS"], 1,
+            L["SHOW_GAMEPAD_DRAG_HANDLES_DESC"], L["GAMEPAD_FOCUS_CONTROL_DESC"])
+        controllerCard.title:SetJustifyH("LEFT")
+        local contentTop = Controls.GetCardContentTop(controllerCard)
+        gamepadDragHandlesCheck = CreateNativeCheckbox(controllerCard,
             L["SHOW_GAMEPAD_DRAG_HANDLES"],
             function()
                 if Offhand.Mainhand and Offhand.Mainhand.AreForeverGamepadDragHandlesShown then
@@ -1528,46 +1604,61 @@ function Options:CreateFloatingPanel()
             end,
             L["SHOW_GAMEPAD_DRAG_HANDLES"], L["SHOW_GAMEPAD_DRAG_HANDLES_DESC"]
         )
-        gamepadDragHandlesCheck:SetPoint("TOPLEFT", 10, -330)
+        gamepadDragHandlesCheck:SetPoint("TOPLEFT", 10, -contentTop)
 
-        local gamepadDragHandlesDesc = card2_2:CreateFontString(nil,
+        local gamepadDragHandlesDesc = controllerCard:CreateFontString(nil,
             "ARTWORK", "GameFontHighlightSmall")
-        gamepadDragHandlesDesc:SetPoint("TOPLEFT", 32, -352)
-        gamepadDragHandlesDesc:SetWidth(530)
+        local descriptionTop = contentTop + math.max(22, Controls.MeasureWrappedText(
+            gamepadDragHandlesCheck.Text, L["SHOW_GAMEPAD_DRAG_HANDLES"], 600) + 4)
+        gamepadDragHandlesDesc:SetPoint("TOPLEFT", 32, -descriptionTop)
+        gamepadDragHandlesDesc:SetWidth(606)
         gamepadDragHandlesDesc:SetJustifyH("LEFT")
         gamepadDragHandlesDesc:SetWordWrap(true)
         gamepadDragHandlesDesc:SetText(L["SHOW_GAMEPAD_DRAG_HANDLES_DESC"])
 
-        local gamepadFocusTitle = card2_2:CreateFontString(nil,
+        local focusTop = descriptionTop + Controls.FitCompactParagraph(
+            gamepadDragHandlesDesc, L["SHOW_GAMEPAD_DRAG_HANDLES_DESC"], 606) + 14
+        local gamepadFocusTitle = controllerCard:CreateFontString(nil,
             "ARTWORK", "GameFontNormal")
-        gamepadFocusTitle:SetPoint("TOPLEFT", card2_2, "TOPLEFT", 14, -396)
+        gamepadFocusTitle:SetPoint("TOPLEFT", controllerCard, "TOPLEFT", 14, -focusTop - 5)
+        gamepadFocusTitle:SetWidth(388)
+        gamepadFocusTitle:SetJustifyH("LEFT")
+        gamepadFocusTitle:SetWordWrap(true)
         gamepadFocusTitle:SetText(L["GAMEPAD_FOCUS_CONTROL_TITLE"])
 
-        local gamepadFocusButton = CreateFrame("Button", nil, card2_2,
+        local gamepadFocusButton = CreateFrame("Button", nil, controllerCard,
             "UIPanelButtonTemplate")
-        gamepadFocusButton:SetSize(210, 24)
-        gamepadFocusButton:SetPoint("TOPRIGHT", card2_2, "TOPRIGHT", -14, -386)
         gamepadFocusButton:SetText(L["GAMEPAD_FOCUS_CONTROL_BUTTON"])
+        local buttonHeight = math.max(26, Controls.MeasureWrappedText(
+            gamepadFocusButton:GetFontString(), L["GAMEPAD_FOCUS_CONTROL_BUTTON"], 194) + 8)
+        gamepadFocusButton:SetSize(210, buttonHeight)
+        gamepadFocusButton:SetPoint("TOPRIGHT", controllerCard, "TOPRIGHT", -14, -focusTop)
         gamepadFocusButton:SetScript("OnClick", function()
             local ok = Options:OpenGamepadFocusKeybindings()
             if not ok then Offhand:Print(L["GAMEPAD_FOCUS_CONTROL_UNAVAILABLE"]) end
         end)
 
-        local gamepadFocusDesc = card2_2:CreateFontString(nil,
+        local gamepadFocusDesc = controllerCard:CreateFontString(nil,
             "ARTWORK", "GameFontHighlightSmall")
-        gamepadFocusDesc:SetPoint("TOPLEFT", card2_2, "TOPLEFT", 32, -426)
-        gamepadFocusDesc:SetWidth(530)
+        local focusDescriptionTop = focusTop + math.max(buttonHeight,
+            Controls.MeasureWrappedText(gamepadFocusTitle, L["GAMEPAD_FOCUS_CONTROL_TITLE"], 388) + 5) + 6
+        gamepadFocusDesc:SetPoint("TOPLEFT", controllerCard, "TOPLEFT", 14, -focusDescriptionTop)
+        gamepadFocusDesc:SetWidth(634)
         gamepadFocusDesc:SetJustifyH("LEFT")
         gamepadFocusDesc:SetWordWrap(true)
         gamepadFocusDesc:SetText(L["GAMEPAD_FOCUS_CONTROL_DESC"])
 
-        gamepadFocusBindingStatus = card2_2:CreateFontString(nil,
+        local statusTop = focusDescriptionTop + Controls.FitCompactParagraph(
+            gamepadFocusDesc, L["GAMEPAD_FOCUS_CONTROL_DESC"], 634) + 8
+        gamepadFocusBindingStatus = controllerCard:CreateFontString(nil,
             "ARTWORK", "GameFontHighlightSmall")
-        gamepadFocusBindingStatus:SetPoint("TOPLEFT", card2_2, "TOPLEFT", 32, -478)
-        gamepadFocusBindingStatus:SetWidth(530)
+        gamepadFocusBindingStatus:SetPoint("TOPLEFT", controllerCard, "TOPLEFT", 14, -statusTop)
+        gamepadFocusBindingStatus:SetWidth(634)
         gamepadFocusBindingStatus:SetJustifyH("LEFT")
+        gamepadFocusBindingStatus:SetWordWrap(true)
         gamepadFocusBindingStatus:SetText(GamepadFocusBindingStatusText())
         Options.gamepadFocusBindingStatus = gamepadFocusBindingStatus
+        controllerCard:SetHeight(statusTop + 44)
     end
 
     local forceCheck = CreateNativeCheckbox(recoveryCard, L["PREVIEW_DUAL"],
@@ -1586,40 +1677,66 @@ function Options:CreateFloatingPanel()
         autoEditModeControls:SetPoint("TOPLEFT", forceCheck, "BOTTOMLEFT", 0, -6)
     end
 
-    if showEllesmerePreview then
+    if transfer and transfer.ShowPreview then
         local caption = recoveryCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
         caption:SetPoint("BOTTOMLEFT", recoveryCard, "BOTTOMLEFT", 12, 14)
         caption:SetPoint("RIGHT", recoveryCard, "RIGHT", -12, 0)
         caption:SetJustifyH("LEFT")
         caption:SetWordWrap(true)
         caption:SetText(L["ELLESMERE_HUD_PREVIEW_DESC"])
-        recoveryCard:SetHeight(recoveryHeight + 48 + Controls.MeasureWrappedText(caption, caption:GetText(), 638))
         local preview = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
         preview:SetSize(220, 26)
         preview:SetPoint("BOTTOMLEFT", caption, "TOPLEFT", 0, 6)
         preview:SetText(L["ELLESMERE_HUD_VISUAL"])
-        preview:SetScript("OnClick", function() transfer:ShowPreview() end)
+        preview:SetScript("OnClick", function()
+            if IsIntegrationActive("EllesmereUI") then transfer:ShowPreview() end
+        end)
+        function recoveryCard.RefreshIntegration(show)
+            SetShown(caption, show)
+            SetShown(preview, show)
+            local height = show and 48 + Controls.MeasureWrappedText(caption, caption:GetText(), 638) or 0
+            ResizeMonitorCard(recoveryCard, recoveryHeight + height)
+        end
     end
 
-    local procDocCheck = CreateNativeCheckbox(card2_2, L["PROCDOC_MAINHAND"],
+    local procDocCheck = CreateNativeCheckbox(alertsCard, L["PROCDOC_MAINHAND"],
         function() return Offhand.db and Offhand.db.centerProcDocOnMainhand == true end,
         function(value)
             Offhand.db.centerProcDocOnMainhand = value == true
             if Offhand.ProcDocCompatibility then Offhand.ProcDocCompatibility:Refresh() end
         end, L["PROCDOC_MAINHAND"], L["PROCDOC_MAINHAND_DESC"])
-    procDocCheck:SetPoint("TOPLEFT", 10, Offhand.isForever and -520 or -336)
-    card2_2.procDocCheck = procDocCheck
+    local alertsTop = Controls.GetCardContentTop(alertsCard)
+    seamCheck:SetPoint("TOPLEFT", 10, -alertsTop)
+    local procDocTop = alertsTop + math.max(30,
+        Controls.MeasureWrappedText(seamCheck.Text, L["REDIRECT_POPUPS"], 600) + 12)
+    procDocCheck:SetPoint("TOPLEFT", 10, -procDocTop)
     local compatDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    compatDesc:SetPoint("TOPLEFT", 32, Offhand.isForever and -568 or -384)
+    compatDesc:SetPoint("TOPLEFT", 32, -330)
     compatDesc:SetWidth(530)
     compatDesc:SetJustifyH("LEFT")
     compatDesc:SetWordWrap(true)
-    card2_2.compatDesc = compatDesc
+    local function RefreshWindowCompatibility()
+        local hasProcDoc = Offhand.ProcDocCompatibility ~= nil and IsIntegrationActive("ProcDoc")
+        SetShown(procDocCheck, hasProcDoc)
+        ResizeMonitorCard(alertsCard, procDocTop + (hasProcDoc and math.max(32,
+            Controls.MeasureWrappedText(procDocCheck.Text, L["PROCDOC_MAINHAND"], 600) + 14) or 0))
+        procDocCheck:SetChecked(Offhand.db and Offhand.db.centerProcDocOnMainhand == true or false)
+        local hasEllesmere = transfer and transfer.ShowPreview and IsIntegrationActive("EllesmereUI")
+            and transfer:IsAvailable() and true or false
+        if recoveryCard.RefreshIntegration then recoveryCard.RefreshIntegration(hasEllesmere) end
+        if tab5.RefreshEllesmereHelp then tab5.RefreshEllesmereHelp(hasEllesmere) end
+        local bagAddon = Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()
+        local minimapAddon = Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon()
+        local key = bagAddon and (minimapAddon and "COMPAT_BOTH" or "COMPAT_BAGS")
+            or (minimapAddon and "COMPAT_MINIMAP" or "COMPAT_AUTO")
+        compatDesc:SetText(L[key])
+    end
 
     local lockSupported = SupportsWindowLock()
     local windowControlCard = CreateCard(tab2,
         L[lockSupported and "CARD_WORKSPACE_WINDOW_CONTROL" or "CARD_CHARACTER_WINDOW"],
-        lockSupported and 274 or 100)
+        lockSupported and 274 or 100, L["CHARACTER_WORKSPACE_SCALE_TIP_DESC"],
+        lockSupported and L["LOCK_WORKSPACE_WINDOWS_TIP_DESC"] or "")
 
     local characterScaleSlider = CreateNativeSlider(windowControlCard, L["CHARACTER_WORKSPACE_SCALE"],
         0.75, 1.50, 0.05,
@@ -1685,7 +1802,7 @@ function Options:CreateFloatingPanel()
         lockCharacterCheck = CreateLockTypeCheck(L["LOCK_WORKSPACE_CHARACTER"], "character", -232)
     end
 
-    local card2_3 = CreateCard(tab1, L["CARD_BEZEL"], 116)
+    local card2_3 = CreateCard(tab1, L["CARD_BEZEL"], 116, L["SLIDER_BEZEL_GAP_TIP_DESC"])
 
     local bezelSlider = CreateNativeSlider(card2_3, L["SLIDER_BEZEL_GAP"], 0, 100, 2,
         function() return (Offhand.db and Offhand.db.bezelGap) or 0 end,
@@ -1708,7 +1825,7 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     -- TAB 3: THEMES & COLOR CUSTOMIZATION
     -- ========================================================================
-    local card3_1 = CreateCard(tab3, L["CARD_THEMES"], 200)
+    local card3_1 = CreateCard(tab3, L["CARD_THEMES"], 200, L["SETTINGS_HELP_THEMES"])
 
     local rClassic = CreateNativeRadioButton(card3_1, L["THEME_CLASSIC"],
         function() return (Offhand.db and Offhand.db.theme == "CLASSIC") end,
@@ -1813,7 +1930,7 @@ function Options:CreateFloatingPanel()
     }, 2)
 
 
-    local card3_2 = CreateCard(tab3, L["CARD_TRIM_COLOR"], 94)
+    local card3_2 = CreateCard(tab3, L["CARD_TRIM_COLOR"], 94, L["BTN_TRIM_CUSTOM_TIP_DESC"])
 
     local trimButtons = {
         { "GOLD", "Gold", 1.00, 0.82, 0.00 },
@@ -1898,7 +2015,8 @@ function Options:CreateFloatingPanel()
     Options:UpdateTrimHighlights()
 
 
-    local card3_3 = CreateCard(tab3, L["CARD_CANVAS_BACKGROUND"], 210)
+    local card3_3 = CreateCard(tab3, L["CARD_CANVAS_BACKGROUND"], 210,
+        L["BTN_CANVAS_CUSTOM_TIP_DESC"], L["SLIDER_CANVAS_OPACITY_TIP_DESC"])
 
     local canvasButtons = {
         { "CLASSIC_STONE", "Classic Stone" },
@@ -2039,7 +2157,8 @@ function Options:CreateFloatingPanel()
     themeNote:SetPoint("TOPLEFT", 12, -188)
     themeNote:SetText(L["BTN_CANVAS_PREVIEW_TIP_DESC"])
 
-    local card3_4 = CreateCard(tab3, L["CARD_USER_MEDIA"], 176)
+    local card3_4 = CreateCard(tab3, L["CARD_USER_MEDIA"], 176,
+        L["USER_MEDIA_ENABLE_TIP_DESC"], L["USER_MEDIA_RESTART_NOTE"])
 
     local userMediaStatus = card3_4:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     userMediaStatus:SetPoint("TOPLEFT", 14, -30)
@@ -2145,7 +2264,7 @@ function Options:CreateFloatingPanel()
     -- ========================================================================
     local card4_1
     do -- Keep profile-only locals below Lua 5.1's per-function local limit.
-        card4_1 = CreateCard(tab4, L["PROFILES_LIST_TITLE"], 390)
+        card4_1 = CreateCard(tab4, L["PROFILES_LIST_TITLE"], 390, L["SETTINGS_HELP_PROFILES"])
     
         local activeProfileLabel = card4_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightLarge")
         activeProfileLabel:SetPoint("TOPLEFT", 16, -24)
@@ -2384,12 +2503,9 @@ function Options:CreateFloatingPanel()
 
     local helpCards = { helpOverview }
     local helpTopics = { "SETUP", "COMPANION", "EDIT_MODE", "PANELS", "COLD_LAUNCH", "RECOVERY", "WELCOME" }
-    for index, topic in ipairs(helpTopics) do
-        local title = string.format("%d. %s", index, L["HELP_" .. topic .. "_TITLE"])
+    for _, topic in ipairs(helpTopics) do
+        local title = L["HELP_" .. topic .. "_TITLE"]
         local text = L["HELP_" .. topic .. "_BODY"]
-        if topic == "EDIT_MODE" and Offhand.isForever then
-            text = text .. "\n\n" .. L["ELLESMERE_HUD_HELP_BODY"]
-        end
         local card = CreateCard(tab5, title, 1)
         local contentTop = Controls.GetCardContentTop(card, 34)
         local body = card:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
@@ -2400,37 +2516,59 @@ function Options:CreateFloatingPanel()
         body:SetText(text)
         FitHelpCard(card, body, text, contentTop + 16, 88)
         helpCards[#helpCards + 1] = card
+        if topic == "EDIT_MODE" and Offhand.isForever then
+            function tab5.RefreshEllesmereHelp(show)
+                local description = show and text .. "\n\n" .. L["ELLESMERE_HUD_HELP_BODY"] or text
+                if description == body:GetText() then return end
+                body:SetText(description)
+                FitHelpCard(card, body, description, contentTop + 16, 88)
+                RestackTab(tab5, helpCards)
+            end
+        end
     end
 
     Options:StackCards(tab1, {card1_1, card1_2, card1_3, motionCard,
         card1_4, groupLootCard, manualCanvasCard, card2_3, card1_5})
-    offhandCards = {card2_1, card2_2, windowControlCard}
+    offhandCards = {card2_1, card2_2, windowControlCard, recoveryCard, alertsCard}
+    if controllerCard then offhandCards[#offhandCards + 1] = controllerCard end
     if advancedCard then offhandCards[#offhandCards + 1] = advancedCard end
-    offhandCards[#offhandCards + 1] = recoveryCard
-    if workspaceCards then
-        tinsert(offhandCards, 1, workspaceCards.routing)
-        if workspaceCards.sizing then
-            local sizing = workspaceCards.sizing
-            tinsert(offhandCards, 2, sizing)
-            sizing.onSizingChanged = function(expanded)
-                Options:StackCards(tab2, offhandCards)
-                if expanded and tab2:IsShown() then
-                    local _, _, _, _, y = sizing:GetPoint(1)
-                    Controls.SetScrollOffset(optionsScrollFrame, -(y or 0))
+    Options:StackCards(tab2, offhandCards)
+    Options:StackCards(tab5, helpCards)
+    RefreshWindowCompatibility()
+    configFrame:RegisterEvent("ADDON_LOADED")
+    configFrame:SetScript("OnEvent", function(_, _, addonName)
+        if addonName == "ProcDoc" or addonName == "EllesmereUI" then RefreshWindowCompatibility() end
+    end)
+    do
+        local appearanceCards = {card3_1, card3_2, card3_3, card3_4}
+        local profileCards = {card4_1}
+        if workspaceTab then
+            local workspace = Offhand.WorkspaceOptions.Build({
+                panels = workspaceTab, appearance = tab3, profiles = tab4,
+            }, CreateCard, Options)
+            local panelCards = {workspace.routing, workspace.sizing}
+            local function RestackPanels()
+                RestackTab(workspaceTab, panelCards)
+            end
+            workspace.routing.onSizingChanged = RestackPanels
+            if workspace.sizing then
+                workspace.sizing.onSizingChanged = function(expanded)
+                    RestackPanels()
+                    if expanded and workspaceTab == activePage then ScrollToCard(workspace.sizing) end
                 end
             end
+            appearanceCards[#appearanceCards + 1] = workspace.themes
+            workspace.themes.onSizingChanged = function() RestackTab(tab3, appearanceCards) end
+            profileCards[#profileCards + 1] = workspace.profiles
+            workspace.profiles.onSizingChanged = function(expanded)
+                RestackTab(tab4, profileCards)
+                if expanded and tab4 == activePage then ScrollToCard(workspace.profiles) end
+            end
+            RestackPanels()
         end
+        Options:StackCards(tab3, appearanceCards)
+        Options:StackCards(tab4, profileCards)
     end
-    Options:StackCards(tab2, offhandCards)
-    local themeCards={card3_1,card3_2,card3_3,card3_4}
-    local profileCards={card4_1}
-    if workspaceCards then
-        tinsert(themeCards,1,workspaceCards.themes)
-        tinsert(profileCards,1,workspaceCards.profiles)
-    end
-    Options:StackCards(tab3,themeCards)
-    Options:StackCards(tab4,profileCards)
-    Options:StackCards(tab5, helpCards)
 
     -- ========================================================================
     -- BOTTOM ACTION BAR (Shared across tabs)
@@ -2453,6 +2591,7 @@ function Options:CreateFloatingPanel()
     saveStatus:SetWidth(540)
     saveStatus:SetJustifyH("CENTER")
     saveStatus:SetText(L["SETTINGS_SAVED_LIVE"])
+    configFrame.saveStatus = saveStatus
 
     local closePanelBtn = CreateFrame("Button", nil, configFrame, "UIPanelButtonTemplate")
     closePanelBtn:SetSize(150, 28)
@@ -2463,6 +2602,21 @@ function Options:CreateFloatingPanel()
     end)
     if Offhand.SetTooltip then
         Offhand:SetTooltip(closePanelBtn, L["BTN_CLOSE"], L["SETTINGS_AUTOSAVE"])
+    end
+
+    local function RefreshTopologyBanner(bannerText)
+        compAppBtn:Show()
+        banner:ClearAllPoints()
+        banner:SetPoint("TOPLEFT", 218, -94)
+        banner:SetPoint("TOPRIGHT", -24, -94)
+        banner:SetText(bannerText)
+        local bannerHeight = math.max(24, banner.GetStringHeight and banner:GetStringHeight() or 24)
+        local actionTop = 94 + bannerHeight + 8
+        autoWizardBtn:ClearAllPoints()
+        autoWizardBtn:SetPoint("TOPRIGHT", configFrame, "TOPRIGHT", -24, -actionTop)
+        optionsScrollFrame:ClearAllPoints()
+        optionsScrollFrame:SetPoint("TOPLEFT", 218, -(actionTop + 38))
+        optionsScrollFrame:SetPoint("BOTTOMRIGHT", -42, 52)
     end
 
     function Options:RefreshPanel()
@@ -2488,18 +2642,7 @@ function Options:CreateFloatingPanel()
             bannerText = string.format(L["TAB_DISPLAY"] .. ": %s (%dx%d)",
                 info.description, info.physWidth, info.physHeight)
         end
-        compAppBtn:Show()
-        banner:ClearAllPoints()
-        banner:SetPoint("TOPLEFT", 218, -94)
-        banner:SetPoint("TOPRIGHT", -24, -94)
-        banner:SetText(bannerText)
-        local bannerHeight = math.max(24, banner.GetStringHeight and banner:GetStringHeight() or 24)
-        local actionTop = 94 + bannerHeight + 8
-        autoWizardBtn:ClearAllPoints()
-        autoWizardBtn:SetPoint("TOPRIGHT", configFrame, "TOPRIGHT", -24, -actionTop)
-        optionsScrollFrame:ClearAllPoints()
-        optionsScrollFrame:SetPoint("TOPLEFT", 218, -(actionTop + 38))
-        optionsScrollFrame:SetPoint("BOTTOMRIGHT", -42, 52)
+        RefreshTopologyBanner(bannerText)
 
         local manualMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
             and Offhand.Viewport:GetMetrics() or nil
@@ -2558,7 +2701,6 @@ function Options:CreateFloatingPanel()
         rFill:SetChecked(Offhand.db and Offhand.db.aspectRatioMode == "FILL")
 
         seamCheck:SetChecked((Offhand.db and Offhand.db.seamRedirect) or false)
-        card2_2.procDocCheck:SetChecked(Offhand.db and Offhand.db.centerProcDocOnMainhand == true or false)
         hideCloseCheck:SetChecked((Offhand.db and Offhand.db.hideWorkspaceCloseButtons == true) or false)
         hideMapMaximizeCheck:SetChecked((Offhand.db and Offhand.db.hideWorkspaceMapMaximizeButton == true) or false)
         if gamepadDragHandlesCheck then
@@ -2661,19 +2803,7 @@ function Options:CreateFloatingPanel()
 
         if Offhand.WorkspaceOptions then Offhand.WorkspaceOptions:Refresh() end
 
-        local bagAddon = Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()
-        local mmAddon = Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon()
-        if card2_2.compatDesc then
-            if bagAddon and mmAddon then
-                card2_2.compatDesc:SetText(L["COMPAT_BOTH"])
-            elseif bagAddon then
-                card2_2.compatDesc:SetText(L["COMPAT_BAGS"])
-            elseif mmAddon then
-                card2_2.compatDesc:SetText(L["COMPAT_MINIMAP"])
-            else
-                card2_2.compatDesc:SetText(L["COMPAT_AUTO"])
-            end
-        end
+        RefreshWindowCompatibility()
         if Options.UpdateOBSCard then
             Options:UpdateOBSCard()
         end
