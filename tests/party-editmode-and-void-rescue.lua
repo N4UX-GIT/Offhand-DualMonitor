@@ -1704,6 +1704,59 @@ assert(selectedLayout == nil and layoutData.activeLayout == 2,
 assert(OffhandCharDB.foreverEditModeRecovery == nil,
     "Forever must clear stale recovery state after manual layout selection")
 
+do
+    local originalStyles, originalPresets = Enum.InputDeviceInterfaceType, Enum.EditModePresetLayouts
+    Enum.InputDeviceInterfaceType = { Keyboard = 0, Gamepad = 1 }
+    Enum.EditModePresetLayouts = { Modern = 0, Classic = 1, Gamepad = 2 }
+    local gamepadLayout = layoutData.layouts[3]
+    gamepadLayout.interfaceStyle = Enum.InputDeviceInterfaceType.Gamepad
+    layoutData.activeLayout = 6
+    selectedLayout = nil
+    recoveryPrompt = nil
+    nativeGamepad = true
+    metrics.topologyStatus = "MISMATCH"
+    metrics.isSpanned = false
+    addon.HUD:UpdateForeverRecoveryLayout(metrics)
+    flushTimers()
+    local pending = OffhandCharDB.foreverEditModeRecovery
+    assert(recoveryPrompt == "fallback" and pending and pending.fallbackLayoutID == 3
+        and pending.fallbackLayoutName == "Gamepad" and selectedLayout == nil,
+        "missing-display recovery must offer Gamepad and wait for the player")
+    addon.HUD:ApplyForeverRecoveryChoice("fallback")
+    assert(selectedLayout == 3 and layoutData.activeLayout == 3,
+        "the recovery click must select the Gamepad preset")
+
+    recoveryPrompt = nil
+    metrics.topologyStatus = "READY"
+    metrics.isSpanned = true
+    addon.HUD:UpdateForeverRecoveryLayout(metrics)
+    assert(recoveryPrompt == "restore", "Gamepad fallback must retain the named custom layout")
+    nativeGamepad = false
+    selectedLayout = nil
+    addon.HUD:ApplyForeverRecoveryChoice("restore")
+    assert(selectedLayout == nil, "a stale prompt must not select a layout after changing input style")
+    addon.HUD:UpdateForeverRecoveryLayout(metrics)
+    assert(not OffhandCharDB.foreverEditModeRecovery,
+        "changing input style must clear the stale recovery transaction")
+
+    nativeGamepad = true
+    layoutData.activeLayout = 6
+    metrics.topologyStatus = "MISMATCH"
+    metrics.isSpanned = false
+    addon.HUD:UpdateForeverRecoveryLayout(metrics)
+    flushTimers()
+    addon.HUD:ApplyForeverRecoveryChoice("fallback")
+    metrics.topologyStatus = "READY"
+    metrics.isSpanned = true
+    addon.HUD:UpdateForeverRecoveryLayout(metrics)
+    addon.HUD:ApplyForeverRecoveryChoice("restore")
+    assert(selectedLayout == 6 and not OffhandCharDB.foreverEditModeRecovery,
+        "the restore click must return to the matching custom Gamepad layout")
+    nativeGamepad = false
+    gamepadLayout.interfaceStyle = nil
+    Enum.InputDeviceInterfaceType, Enum.EditModePresetLayouts = originalStyles, originalPresets
+end
+
 -- The explicit player button can designate any active custom layout without
 -- changing it. Built-in Modern/Classic layouts are rejected.
 layoutData.layouts[3].layoutName = "Druid Forever"

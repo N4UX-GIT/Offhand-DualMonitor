@@ -312,6 +312,7 @@ L["RAW_MOUSE_INPUT"] = "Utiliser l’entrée souris brute pendant l’affichage 
 L["RAW_MOUSE_INPUT_TIP_TITLE"] = "Mouvement de caméra fiable"
 L["RAW_MOUSE_INPUT_TIP_DESC"] = "Empêche le curseur masqué d’atteindre le bord d’une fenêtre de hauteurs mixtes et de bloquer la caméra verticalement. Offhand restaure votre réglage précédent hors affichage étendu."
 L["FOREVER_SINGLE_SCREEN_LAYOUT_TEXT"] = "Votre écran Offhand enregistré est indisponible. Forever nécessite votre confirmation pour déplacer les éléments d’interface protégés vers une disposition sur un seul écran.\n\nChoisissez Utiliser Moderne. Offhand proposera de restaurer « %s » au retour de l’écran."
+L["FOREVER_GAMEPAD_SINGLE_SCREEN_LAYOUT_TEXT"] = "Votre écran Offhand enregistré est indisponible. Utilisez la disposition prédéfinie pour manette sur cet écran. Offhand vous proposera de restaurer « %s » au retour de l’écran enregistré."
 L["FOREVER_USE_MODERN"] = "Utiliser Moderne"
 L["FOREVER_KEEP_OFFHAND"] = "Garder Offhand"
 L["FOREVER_KEEP_CURRENT_LAYOUT"] = "Garder la disposition actuelle"

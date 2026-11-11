@@ -1661,6 +1661,59 @@ assert(saved.layouts[1].systems[2].anchorInfo.relativeTo=='StatusTrackingBarMana
 print('PASS: Retail status centering, separate containers, scaled points, secondary stacking and stale-edge isolation')
 
 do
+    local originalMetrics = metrics
+    local originalCharacter = OffhandCharDB
+    local originalPresets, originalLayoutData = presetLayouts, layoutData
+    local originalPrimary = MainStatusTrackingBarContainer
+    MainStatusTrackingBarContainer = frame('MainStatusTrackingBarContainer')
+    MainStatusTrackingBarContainer:SetSize(571,17)
+    MainStatusTrackingBarContainer.scale = 0.8
+    MainStatusTrackingBarContainer:SetPoint('BOTTOM', UIParent, 'BOTTOM', 0, 0)
+    MainStatusTrackingBarContainer.SetPoint = function() error('Retail repair must not move live status bars') end
+
+    metrics = {gameLeft=0, gameRight=1920, gameBottom=515, gameTop=1595, isSpanned=true}
+    addon.Mainhand:Update('retail-status-chain-test')
+    local source = copyTable(retailSource)
+    source.layoutName = 'Custom Retail status chain'
+    local main = source.systems[1]
+    main.isInDefaultPosition = false
+    source.systems[5].isInDefaultPosition = false
+    main.anchorInfo = {point='BOTTOMLEFT', relativeTo='MainStatusTrackingBarContainer',
+        relativePoint='TOPLEFT', offsetX=0, offsetY=4}
+    layoutData = {activeLayout=3, layouts={source}}
+    OffhandCharDB = {}
+    local repaired, reason = addon.Mainhand:CreateOrUpdateEditModeLayout({repairFrameName='MainActionBar'})
+    assert(repaired, reason)
+    local repairedRows = saved.layouts[2].systems
+    assert(repairedRows[1].anchorInfo.relativeTo == 'MainStatusTrackingBarContainer'
+        and repairedRows[1].anchorInfo.offsetY == 4, 'preserve the custom Action Bar 1 attachment')
+    assert(repairedRows[2].anchorInfo.relativeTo == 'UIParent'
+        and repairedRows[2].isInDefaultPosition == false, 'repair the default XP root of the chain')
+    near(repairedRows[2].anchorInfo.offsetX * 0.8, 960)
+    near(repairedRows[2].anchorInfo.offsetY * 0.8, 523)
+    near(repairedRows[3].anchorInfo.offsetX * 1.1 + 500 * 1.1 / 2, 960)
+    near(repairedRows[3].anchorInfo.offsetY * 1.1 - 19 * 1.1, 523 + 17 * 0.8 + 4)
+    assert(repairedRows[4].anchorInfo.relativeTo == 'OtherSystem',
+        'leave customized status anchors intact')
+    assert(saved.layouts[1].systems[2].anchorInfo.relativeTo == 'StatusTrackingBarManager',
+        'leave the original account layout intact')
+
+    main.anchorInfo.relativeTo = 'OtherSystem'
+    source.systems[5].isInDefaultPosition = true
+    layoutData = {activeLayout=3, layouts={source}}
+    OffhandCharDB = {}
+    assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+    assert(saved.layouts[2].systems[2].anchorInfo.relativeTo == 'StatusTrackingBarManager',
+        'an unrelated custom main bar must keep the status layout intact')
+
+    metrics, OffhandCharDB = originalMetrics, originalCharacter
+    presetLayouts, layoutData = originalPresets, originalLayoutData
+    MainStatusTrackingBarContainer = originalPrimary
+    addon.Mainhand:Update('restore-retail-status-test')
+    print('PASS: Retail repair moves a default status chain without modifying the custom action bar')
+end
+
+do
 -- Retail can expose preset layouts without the input-style Gamepad enum.
 -- The existing result is false; no full layout copies are needed to decide it.
 currentInterfaceStyle=1

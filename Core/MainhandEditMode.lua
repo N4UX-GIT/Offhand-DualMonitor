@@ -354,7 +354,7 @@ local function RefineEncounterRecovery(layout, rect, repairFrameName)
 end
 
 local function PlaceRetailStatus(entry, mainAnchor, mainFrame, rect)
-    if not mainFrame or mainAnchor.relativeTo ~= "UIParent" then return false end
+    if mainAnchor and (not mainFrame or mainAnchor.relativeTo ~= "UIParent") then return false end
     local indices = Enum and Enum.EditModeStatusTrackingBarSystemIndices
     local secondaryIndex = indices and indices.StatusTrackingBar2
     local secondary = secondaryIndex ~= nil and entry.systemIndex == secondaryIndex
@@ -363,19 +363,23 @@ local function PlaceRetailStatus(entry, mainAnchor, mainFrame, rect)
     local target = secondary and _G.SecondaryStatusTrackingBarContainer or _G.MainStatusTrackingBarContainer
     if secondary and (not _G.SecondaryStatusTrackingBarContainer or not _G.MainStatusTrackingBarContainer) then return false end
     if not target then return false end
-    local mw, mh = FrameSize(mainFrame, 570, 40)
-    local ms, ts = ParentScale(mainFrame), ParentScale(target)
+    local ts = ParentScale(target)
     local width, height = FrameSize(target, 571, 17)
     local _, primaryHeight = FrameSize(_G.MainStatusTrackingBarContainer, 571, 17)
     local primaryScale = ParentScale(_G.MainStatusTrackingBarContainer)
-    local mx, my = PointFractions(mainAnchor.point)
-    local screen = {left=0, bottom=0, right=UIParent:GetWidth(), top=UIParent:GetHeight()}
-    local bx, by = PointBase(mainAnchor.relativePoint or mainAnchor.point, screen)
-    local ax = bx + (tonumber(mainAnchor.offsetX) or 0) * ms
-    local ay = by + (tonumber(mainAnchor.offsetY) or 0) * ms
-    local center = ax + (0.5 - mx) * mw * ms
-    local bottom = ay + (1 - my) * mh * ms + 3
-        + (secondary and (primaryHeight * primaryScale + 4) or 0)
+    local center, bottom = (rect.left + rect.right) / 2, rect.bottom + 8
+    if mainAnchor then
+        local mw, mh = FrameSize(mainFrame, 570, 40)
+        local ms = ParentScale(mainFrame)
+        local mx, my = PointFractions(mainAnchor.point)
+        local screen = {left=0, bottom=0, right=UIParent:GetWidth(), top=UIParent:GetHeight()}
+        local bx, by = PointBase(mainAnchor.relativePoint or mainAnchor.point, screen)
+        local ax = bx + (tonumber(mainAnchor.offsetX) or 0) * ms
+        local ay = by + (tonumber(mainAnchor.offsetY) or 0) * ms
+        center = ax + (0.5 - mx) * mw * ms
+        bottom = ay + (1 - my) * mh * ms + 3
+    end
+    if secondary then bottom = bottom + primaryHeight * primaryScale + 4 end
     local half = width * ts / 2
     -- Never shrink native frames to fit. Unsupported/oversized source sizes
     -- retain their existing serialized anchor for explicit user adjustment.
@@ -388,6 +392,45 @@ local function PlaceRetailStatus(entry, mainAnchor, mainFrame, rect)
         offsetY=(bottom + py * height * ts) / ts}
     entry.isInDefaultPosition = false
     return true
+end
+
+-- A custom Action Bar 1 can follow a default status container into the void
+-- below Mainhand. Move the serialized status roots and preserve the link.
+local function RebaseRetailStatusChain(layout, rect, sourceDefaults)
+    local systems = Enum and Enum.EditModeSystem
+    local actions = Enum and Enum.EditModeActionBarSystemIndices
+    local statuses = Enum and Enum.EditModeStatusTrackingBarSystemIndices
+    if not systems or not actions or not statuses or not systems.ActionBar
+        or not systems.StatusTrackingBar or not actions.MainBar then return 0 end
+
+    local rootIndex
+    local defaultStatus = {}
+    for index, entry in ipairs(layout.systems or {}) do
+        local anchor = entry.anchorInfo
+        if type(anchor) == "table" then
+            if entry.system == systems.ActionBar and entry.systemIndex == actions.MainBar
+                and entry.isInDefaultPosition == false and not ExternallyOwnedSystem(entry) then
+                if anchor.relativeTo == "MainStatusTrackingBarContainer" then
+                    rootIndex = statuses.StatusTrackingBar1
+                elseif anchor.relativeTo == "SecondaryStatusTrackingBarContainer" then
+                    rootIndex = statuses.StatusTrackingBar2
+                end
+            elseif sourceDefaults[index] and entry.system == systems.StatusTrackingBar
+                and anchor.relativeTo == "StatusTrackingBarManager" and entry.anchorInfo2 == nil
+                and (entry.systemIndex == statuses.StatusTrackingBar1
+                    or entry.systemIndex == statuses.StatusTrackingBar2)
+                and entry.systemIndex ~= nil then
+                defaultStatus[entry.systemIndex] = entry
+            end
+        end
+    end
+
+    local root = rootIndex and defaultStatus[rootIndex]
+    if not root or not PlaceRetailStatus(root, nil, nil, rect) then return 0 end
+    local companionIndex = rootIndex == statuses.StatusTrackingBar1
+        and statuses.StatusTrackingBar2 or statuses.StatusTrackingBar1
+    local companion = defaultStatus[companionIndex]
+    return companion and companion ~= root and PlaceRetailStatus(companion, nil, nil, rect) and 2 or 1
 end
 
 local function MainAnchorOrigin(layout, mainAnchor)
@@ -1331,6 +1374,9 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
                 and entry.system == foreverActionSystem and entry.systemIndex == foreverClassBar)
         end)
         RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerLayout)
+        if Offhand.isRetail and not controllerLayout then
+            moved = moved + RebaseRetailStatusChain(layout, rect, sourceDefaults)
+        end
     end
     local groupMoved, groupRepaired = 0, 0
     if not legacyLayout and not targeted and not selective then
