@@ -941,6 +941,13 @@ function Offhand:HideCompanionNotices(exceptKind)
 end
 
 function Offhand:RefreshMainhandLayoutAttention()
+    -- Gamepad recovery and automatic setup share one popup card. Let the
+    -- player finish the layout recovery choice before offering setup.
+    local popup = self._gamepadSafePopup
+    if popup and (popup.popupKey == "OFFHAND_FOREVER_SINGLE_SCREEN_LAYOUT"
+        or popup.popupKey == "OFFHAND_FOREVER_RESTORE_LAYOUT") then
+        return true
+    end
     if self.CharacterSetup and self.CharacterSetup:Refresh() then return true end
     if InCombatLockdown and InCombatLockdown() then return false end
     local pendingHUD = type(OffhandCharDB) == "table"
