@@ -1976,6 +1976,29 @@ assert(not success and name == "maximum" and writes == writesAfterFailure
         and layoutData.layouts[1].systems[1].anchorInfo.offsetX == protectedOffset,
     "an unknown row named Offhand must not be overwritten or adopted on name alone")
 print("PASS: shared HUD ownership, source provenance, geometry variants, capacity and activation retries")
+
+-- Retail can keep reporting the old numeric active ID after inserting an
+-- account layout before the active character layout.
+local characterType = Enum.EditModeLayoutType.Character
+Enum.EditModeLayoutType.Character = 2
+local characterLayout = copyTable(presetLayouts[1])
+characterLayout.layoutName, characterLayout.layoutType = "Personal HUD", 2
+layoutData = {activeLayout=3, layouts={characterLayout}}
+OffhandCharDB, OffhandDB = {}, {}
+local appliedLayout = characterLayout.layoutName
+C_EditMode.SaveLayouts = function(data)
+    assert(data.activeLayout == 4 and data.layouts[2].layoutName == characterLayout.layoutName,
+        "the save must preserve the active character layout's shifted index")
+    layoutData = {activeLayout=3, layouts=data.layouts}
+end
+C_EditMode.OnLayoutAdded = function(id, activate)
+    if activate then appliedLayout = layoutData.layouts[id - #presetLayouts].layoutName end
+end
+success, name = addon.Mainhand:CreateOrUpdateEditModeLayout()
+assert(success and name == "Offhand" and appliedLayout == name,
+    "a reused active index must not skip native registration and activation of the new layout")
+Enum.EditModeLayoutType.Character = characterType
+print("PASS: Retail registers a new account HUD at the active character layout's former index")
 end
 
 
