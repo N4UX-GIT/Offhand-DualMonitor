@@ -45,6 +45,32 @@ addon.CanvasPanelPlacement.InstallMainhand(canvas,{
     IsBackpackRoot=no,ClearOtherBackpackRootState=function() end,IsFrameOnWorkspace=function(f) return f.x and f.x<1000 end,
     GetNonMovablePanels=function() return {} end,
 })
+do
+    local secret = {}
+    CharacterFrame=frame('CharacterFrame',-80,120,400,500)
+    CharacterFrame.GetParent=function() return UIParent end
+    CharacterFrame.GetRect=function(self) return self.x,self.y,self.w,self.h end
+    CharacterFrame.GetEffectiveScale=function() return .75 end
+    CharacterFrame.GetPoint=function() return 'TOPLEFT',UIParent,'BOTTOMLEFT',-80,620 end
+    CharacterFrame.SetPoint=function() error('diagnostic moved a panel') end
+    addon.db.savedWorkspacePositions.CharacterFrame={x=120,y=620}
+    ProfessionsFrame=frame('ProfessionsFrame',0,120)
+    ProfessionsFrame.GetParent=CharacterFrame.GetParent
+    ProfessionsFrame.GetRect=function() return secret,120,100,100 end
+    ProfessionsFrame.GetPoint=function() return secret,UIParent,'BOTTOMLEFT',0,220 end
+    SkillFrame={IsForbidden=function() return true end,IsShown=function() error('diagnostic inspected a forbidden panel') end}
+    issecretvalue=function(value) return value==secret end
+    combat=true
+    local report=table.concat(canvas:GetPanelPlacementDiagnostics(),'\n')
+    assert(report:find('CharacterFrame | parent=UIParent | rectUI=-120.0/180.0/600.0/750.0',1,true)
+        and report:find('anchor=TOPLEFT/UIParent/BOTTOMLEFT/-80.0/620.0 | effScale=0.750 | saved=workspace',1,true))
+    assert(report:find('ProfessionsFrame | parent=UIParent | rectUI=unavailable | anchor=unavailable',1,true)
+        and report:find('SkillFrame | forbidden',1,true),'diagnostics must withhold restricted geometry in combat')
+    assert(addon.db.savedWorkspacePositions.CharacterFrame.x==120)
+    combat,issecretvalue=false,nil
+    CharacterFrame,ProfessionsFrame,SkillFrame=nil,nil,nil
+    addon.db.savedWorkspacePositions.CharacterFrame=nil
+end
 VisiblePanel=frame('VisiblePanel',100,100)
 MissingPanel=frame('MissingPanel',1100,900)
 BookPanel=frame('BookPanel',100,100,100,100,false)

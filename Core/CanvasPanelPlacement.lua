@@ -3,6 +3,51 @@ local _, Offhand = ...
 local Placement = {}
 Offhand.CanvasPanelPlacement = Placement
 
+local diagnosticPanelNames = {
+    "CharacterFrame", "SkillFrame", "PlayerSpellsFrame", "SpellBookFrame",
+    "ProfessionsFrame", "ProfessionsBookFrame", "TradeSkillFrame", "CraftFrame",
+}
+
+local function IsPublic(value)
+    return type(issecretvalue) ~= "function" or not issecretvalue(value)
+end
+
+local function IsPublicNumber(value)
+    return IsPublic(value) and type(value) == "number" and value > -math.huge and value < math.huge
+end
+
+local function DiagnosticFrameName(frame)
+    if not IsPublic(frame) then return "unavailable" end
+    if not frame then return "none" end
+    if frame == UIParent then return "UIParent" end
+    if frame.IsForbidden and frame:IsForbidden() then return "forbidden" end
+    local name = frame.GetName and frame:GetName()
+    return IsPublic(name) and type(name) == "string" and name or "unnamed"
+end
+
+local function DescribePanelPlacement(frame, parentScale)
+    if frame.IsForbidden and frame:IsForbidden() then return "forbidden" end
+    if not frame:IsShown() or (frame.IsVisible and not frame:IsVisible()) then return end
+    local parent = DiagnosticFrameName(frame:GetParent())
+    local rect, anchor = "unavailable", "unavailable"
+    local scale = frame:GetEffectiveScale()
+    local x, y, width, height = frame:GetRect()
+    if IsPublicNumber(scale) and scale > 0 and IsPublicNumber(parentScale) and parentScale > 0
+        and IsPublicNumber(x) and IsPublicNumber(y) and IsPublicNumber(width) and IsPublicNumber(height) then
+        local factor = scale / parentScale
+        rect = string.format("%.1f/%.1f/%.1f/%.1f", x * factor, y * factor, width * factor, height * factor)
+    end
+    if frame.GetPoint then
+        local ok, point, relative, relativePoint, offsetX, offsetY = pcall(frame.GetPoint, frame, 1)
+        if ok and IsPublic(point) and type(point) == "string" and IsPublic(relativePoint)
+            and type(relativePoint) == "string" and IsPublicNumber(offsetX) and IsPublicNumber(offsetY) then
+            anchor = string.format("%s/%s/%s/%.1f/%.1f", point, DiagnosticFrameName(relative), relativePoint, offsetX, offsetY)
+        end
+    end
+    return string.format("parent=%s | rectUI=%s | anchor=%s | effScale=%s", parent, rect, anchor,
+        IsPublicNumber(scale) and string.format("%.3f", scale) or "unavailable")
+end
+
 function Placement.InstallSingleScreen(Canvas, services)
     local IsForeverProfessionsPanel = services.IsForeverProfessionsPanel
     local IsForeverEditModeFrame = services.IsForeverEditModeFrame
@@ -85,6 +130,29 @@ function Placement.InstallMainhand(Canvas, services)
     local IsBackpackRoot = services.IsBackpackRoot
     local ClearOtherBackpackRootState = services.ClearOtherBackpackRootState
     local IsFrameOnWorkspace = services.IsFrameOnWorkspace
+
+    -- Support snapshots read only these known roots. Protected anchors may
+    -- become secret in combat, even when the frame is still shown.
+    function Canvas:GetPanelPlacementDiagnostics()
+        local reports = {}
+        local readScale, parentScale = pcall(UIParent.GetEffectiveScale, UIParent)
+        if not readScale then parentScale = nil end
+        local db = Offhand.db or {}
+        for _, name in ipairs(diagnosticPanelNames) do
+            local frame = _G[name]
+            if frame then
+                local ok, detail = pcall(DescribePanelPlacement, frame, parentScale)
+                if not ok then detail = "unavailable" end
+                if detail then
+                    local saved = db.savedWorkspacePositions and db.savedWorkspacePositions[name] and "workspace"
+                        or db.savedMainPositions and db.savedMainPositions[name] and "mainhand" or "none"
+                    reports[#reports + 1] = name .. " | " .. detail .. " | saved=" .. saved
+                end
+            end
+        end
+        return reports
+    end
+
     -- Blizzard UIPanels anchor against the full UIParent. In an Offhand topology
     -- that native origin may be the workspace, so an unsaved Spellbook,
     -- Professions or Collections panel can open on the wrong monitor. Mainhand

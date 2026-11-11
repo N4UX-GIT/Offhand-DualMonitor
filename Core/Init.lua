@@ -1745,7 +1745,7 @@ SlashCmdList["OFFHAND"] = function(msg)
         end
     elseif cmd == "diag" or cmd == "metrics" or cmd == "info" then
         local fullDiagnostics = strtrim(arg or "") == "full"
-        local snapshot = Offhand.Viewport:CaptureDiagnostics()
+        local snapshot = Offhand.Viewport:CaptureDiagnostics(false)
         local vpStatus = snapshot.viewportMatches and L["MSG_DIAG_PASS"] or L["MSG_DIAG_MISMATCH"]
         Offhand:Print(L["MSG_DIAG_VIEWPORT"], vpStatus)
         local m = snapshot.metrics or (Offhand.Viewport and Offhand.Viewport:GetMetrics()) or {}
@@ -1768,6 +1768,13 @@ SlashCmdList["OFFHAND"] = function(msg)
             operating.mainhandWidth, operating.mainhandHeight,
             operating.workspaceLeft, operating.workspaceBottom,
             operating.workspaceWidth, operating.workspaceHeight)
+        if fullDiagnostics or not snapshot.viewportMatches then
+            local world = snapshot.frames and snapshot.frames.WorldFrame
+            local actual = world and string.format("(%.1f,%.1f %.1fx%.1f)",
+                world.x, world.y, world.width, world.height) or "unavailable"
+            Offhand:Print("WorldFrame bounds (physical pixels): actual=%s | planned=(%d,%d %dx%d).", actual,
+                operating.mainhandLeft, operating.mainhandBottom, operating.mainhandWidth, operating.mainhandHeight)
+        end
         local physW, physH = m.physicalWidth or 0, m.physicalHeight or 0
         local screenW = GetScreenWidth()
         local screenH = GetScreenHeight()
@@ -1931,6 +1938,11 @@ SlashCmdList["OFFHAND"] = function(msg)
         if fullDiagnostics and Offhand.Canvas and Offhand.Canvas.GetPanelControllerDiagnostics then
             Offhand:Print("Panel controller diagnostics: %s.",
                 Offhand.Canvas:GetPanelControllerDiagnostics())
+        end
+        if fullDiagnostics and Offhand.Canvas and Offhand.Canvas.GetPanelPlacementDiagnostics then
+            for _, report in ipairs(Offhand.Canvas:GetPanelPlacementDiagnostics()) do
+                Offhand:Print("Panel placement: %s.", report)
+            end
         end
         if fullDiagnostics and Offhand.Canvas and Offhand.Canvas.GetForeverNativeBagDiagnostics then
             local bags = Offhand.Canvas:GetForeverNativeBagDiagnostics()

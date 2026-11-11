@@ -919,28 +919,31 @@ function Viewport:GetPerformanceDiagnostics(metrics)
     }
 end
 
-function Viewport:CaptureDiagnostics()
+function Viewport:CaptureDiagnostics(remember)
     local m = self:GetMetrics()
     local snapshot = { metrics = m, frames = {} }
-    -- Only WorldFrame participates in the PASS/MISMATCH result. Historical
-    -- HUD rectangles were saved here but never displayed or consumed.
-    for _, name in ipairs({"WorldFrame"}) do
-        local frame = _G[name]
-        if frame then
-            local x, y, w, h = frame:GetRect()
-            if x and y and w and h then
-                local factor = frame:GetEffectiveScale() * m.physicalHeight / 768
-                snapshot.frames[name] = {x=x*factor, y=y*factor,
-                    width=w*factor, height=h*factor, scale=frame:GetEffectiveScale()}
-            end
+    local ok, world = pcall(function()
+        local frame = _G.WorldFrame
+        if not frame or FrameIsForbidden(frame) then return end
+        local x, y, w, h = frame:GetRect()
+        local scale = frame:GetEffectiveScale()
+        local values = {x, y, w, h, scale}
+        for i = 1, 5 do
+            local value = values[i]
+            if (issecretvalue and issecretvalue(value)) or type(value) ~= "number"
+                or not (value > -math.huge and value < math.huge) then return end
         end
-    end
-    local world = snapshot.frames.WorldFrame
+        if scale <= 0 then return end
+        local factor = scale * m.physicalHeight / 768
+        return {x=x*factor, y=y*factor, width=w*factor, height=h*factor, scale=scale}
+    end)
+    if not ok then world = nil end
+    snapshot.frames.WorldFrame = world
     snapshot.viewportMatches = world and math.abs(world.x - m.gamePixelLeft) < 1
         and math.abs(world.y - m.gamePixelBottom) < 1
         and math.abs(world.width - m.gamePixelWidth) < 1
         and math.abs(world.height - m.gamePixelHeight) < 1 or false
-    Offhand.db.lastGeometryCheck = snapshot
+    if remember ~= false and Offhand.db then Offhand.db.lastGeometryCheck = snapshot end
     return snapshot
 end
 
