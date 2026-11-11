@@ -24,8 +24,13 @@ local metrics = {
 }
 local topology = { status = "READY", liveWidth = 3840, liveHeight = 1080,
     canvasWidth = 3900, canvasHeight = 1097 }
+local viewportMatches = true
 addon.Viewport = {
-    CaptureDiagnostics = function() return {viewportMatches = true, metrics = metrics} end,
+    CaptureDiagnostics = function(_, remember)
+        assert(remember == false, "support diagnostics must not persist a geometry snapshot")
+        return {viewportMatches = viewportMatches, metrics = metrics,
+            frames = {WorldFrame = {x=0,y=2,width=1920,height=1080}}}
+    end,
     GetMetrics = function() error("do not recapture the same geometry") end,
     GetTopologyDiagnostics = function() return topology end,
     GetWorldTextDiagnostics = probe("text", {worldTextScale = "1", worldTextScaleCVar = "WorldTextScale_v2",
@@ -36,7 +41,11 @@ addon.Viewport = {
 addon.HUD = {
     GetInteractionVisibilityDiagnostics = probe("interaction", { "ProfessionsFrame=hidden" }),
     GetForeverEditModeLayoutStatus = function() return {} end,
-    GetGroupLootDiagnostics = probe("loot", {}),
+    GetGroupLootDiagnostics = function(_, capturedMetrics)
+        assert(capturedMetrics == metrics, "loot diagnostics must use the captured display bounds")
+        probes.loot = (probes.loot or 0) + 1
+        return {activeRolls=2, containerVisibility="visible", slots={"2=hidden", "3=visible,rectUI=10/20/30/40 mainhand"}}
+    end,
     GetPetBattleDiagnostics = probe("pets", {}),
     GetForeverGroupFrameDiagnostics = probe("groups", "bounds"),
     GetForeverProtectedHUDDiagnostics = probe("protected", "bounds"),
@@ -52,6 +61,7 @@ addon.Canvas = {
     -- The old caller discarded reports without the substring 'loaded'.
     GetCompatibilityDiagnostics = function() return "WorldMapOwner=OpenMap" end,
     GetPanelControllerDiagnostics = probe("panels", "idle"),
+    GetPanelPlacementDiagnostics = probe("placement", {"CharacterFrame | parent=UIParent | rectUI=10/20/30/40"}),
     GetForeverNativeBagDiagnostics = probe("bags", "roots=ContainerFrameCombinedBags=shown"),
 }
 addon.DialogueUICompat = { GetDiagnostics = probe("dialogue", "animation") }
@@ -79,6 +89,15 @@ local full = run("diag full")
 assert(not compact:find("Setup state:", 1, true)
         and full:find("Setup state: Account=complete | Guide=paused | Resume=4 | Character=later | Decision=saved", 1, true),
     "full diagnostics must expose setup intent and character decision without bloating compact reports")
+assert(not compact:find("WorldFrame bounds", 1, true)
+    and full:find("actual=(0.0,2.0 1920.0x1080.0) | planned=(0,0 1920x1080)", 1, true),
+    "full report must expose measured and planned WorldFrame bounds")
+assert(not compact:find("Panel placement", 1, true)
+    and full:find("Panel placement: CharacterFrame | parent=UIParent", 1, true),
+    "the affected panel snapshot must be opt-in")
+viewportMatches = false
+assert(run("diag"):find("WorldFrame bounds", 1, true), "compact mismatch should report actual bounds")
+viewportMatches = true
 assert(not compact:find("Cinematic skip-dialog diagnostics:", 1, true)
     and full:find("Cinematic skip-dialog diagnostics: not-attached", 1, true),
     "active cutscene investigation state belongs only in requested full diagnostics")
@@ -87,6 +106,8 @@ for _, name in ipairs({"tooltip", "interaction", "text", "loot", "pets", "groups
 end
 assert(full:find("Native bag diagnostics: roots=ContainerFrameCombinedBags=shown", 1, true),
     "full support reports must expose native bag state after a missing-backpack report")
+assert(full:find("Group loot visibility: ActiveRolls=2 | Container=visible | KeyboardRows=2=hidden | 3=visible",1,true),
+    "full support reports must distinguish active rolls and actual keyboard row visibility")
 assert(full:find("Interaction visibility: ProfessionsFrame=hidden", 1, true),
     "full support reports must include the requested missing-frame evidence")
 assert(not compact:find("Guide frame diagnostics:", 1, true)

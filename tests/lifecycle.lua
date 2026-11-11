@@ -491,14 +491,22 @@ addon.UpdateCanvas = function() addon:ApplyFullLayout() end
 addon:ApplyFullLayout()
 assert(calls == 3, "layout guard did not recover or prevent recursion")
 
-local menuRefreshes = 0
-local previousViewport, previousMenus = addon.Viewport, addon.MenuPlacement
+local menuRefreshes, tooltipRefreshes = 0, 0
+local previousViewport, previousMenus, previousPopupBounds = addon.Viewport, addon.MenuPlacement, addon.PopupBounds
 addon.Viewport = {GetMetrics=function() return {isSpanned=false} end}
 addon.MenuPlacement = {Refresh=function() menuRefreshes=menuRefreshes+1 end}
+addon.PopupBounds = {ApplyLayout=function() tooltipRefreshes=tooltipRefreshes+1 end}
+local previousPopupModule = addon.modules.PopupBounds
+addon.modules.PopupBounds = addon.PopupBounds
 addon.UpdateCanvas = function() end
 addon:ApplyFullLayout()
 assert(menuRefreshes==1,"single-window fallback must refresh owned open menus, not only spanned HUD")
-addon.Viewport,addon.MenuPlacement=previousViewport,previousMenus
+assert(tooltipRefreshes==1,"single-window fallback must release tooltip comparison bounds")
+addon.Viewport.GetMetrics = function() return {isSpanned=true} end
+addon:ApplyFullLayout()
+assert(tooltipRefreshes==2,"spanned layout must refresh tooltip comparison bounds once")
+addon.Viewport,addon.MenuPlacement,addon.PopupBounds=previousViewport,previousMenus,previousPopupBounds
+addon.modules.PopupBounds=previousPopupModule
 
 do
     local oldViewport=addon.Viewport

@@ -303,6 +303,9 @@ local function GroupBounds(eui, key, bounds, uiScale)
             if type(anchors[cursor].target) ~= "string" then return nil, nil, "ELLESMERE_HUD_ANCHOR_GRAPH" end
             seen[cursor], cursor, count = true, anchors[cursor].target, count + 1
         end
+        if target and type(eui.IsScreenEdgeKey) == "function" and eui.IsScreenEdgeKey(target) then
+            return nil, nil, "ELLESMERE_HUD_SCREEN_EDGE", {ElementName(eui, target)}
+        end
         return nil, nil, target and "ELLESMERE_HUD_FOLLOWS" or "ELLESMERE_HUD_ANCHORED",
             target and {ElementName(eui, target)} or nil
     end

@@ -97,7 +97,7 @@ local function PromptNativeHUD(activation, name, resumeWizard)
     if activation == "select" and Offhand.Mainhand.PromptManualLayoutSelection then
         Offhand.Mainhand:PromptManualLayoutSelection(name, resumeWizard)
     elseif Offhand.Mainhand.PromptReload then
-        Offhand.Mainhand:PromptReload()
+        Offhand.Mainhand:PromptReload(not resumeWizard)
     end
 end
 
@@ -1037,6 +1037,7 @@ function Wizard:CreateFrame()
                 Offhand:Print(L["WIZARD_SKIP_HUD_NEXT"])
             else
                 Offhand:Print(L["CONFIG_SAVED"])
+                if f.totalSteps > 4 then Offhand:Print(L["SETUP_REVIEW_HUD"]) end
                 Offhand:Print(L["READINESS_COLD_START"])
             end
             Offhand:Print(L["SETUP_FIRST_PANEL"])

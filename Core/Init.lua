@@ -1726,6 +1726,9 @@ function Offhand:ApplyFullLayout(preserveGlobalScale)
                     module:ApplyLayout()
                 end
             end
+        elseif Offhand.PopupBounds and Offhand.PopupBounds.ApplyLayout then
+            -- Release tooltip clamp insets when the canvas returns to one screen.
+            Offhand.PopupBounds:ApplyLayout()
         end
     end)
 
@@ -1775,7 +1778,7 @@ SlashCmdList["OFFHAND"] = function(msg)
         end
     elseif cmd == "diag" or cmd == "metrics" or cmd == "info" then
         local fullDiagnostics = strtrim(arg or "") == "full"
-        local snapshot = Offhand.Viewport:CaptureDiagnostics()
+        local snapshot = Offhand.Viewport:CaptureDiagnostics(false)
         local vpStatus = snapshot.viewportMatches and L["MSG_DIAG_PASS"] or L["MSG_DIAG_MISMATCH"]
         Offhand:Print(L["MSG_DIAG_VIEWPORT"], vpStatus)
         local m = snapshot.metrics or (Offhand.Viewport and Offhand.Viewport:GetMetrics()) or {}
@@ -1807,6 +1810,13 @@ SlashCmdList["OFFHAND"] = function(msg)
             end
             Offhand:Print("Workspace sizing ownership: Scaled=%d | Released=%d | LastRejected=%s.",
                 sizing.scaled,sizing.released,tostring(sizing.lastFailure or "none"))
+        end
+        if fullDiagnostics or not snapshot.viewportMatches then
+            local world = snapshot.frames and snapshot.frames.WorldFrame
+            local actual = world and string.format("(%.1f,%.1f %.1fx%.1f)",
+                world.x, world.y, world.width, world.height) or "unavailable"
+            Offhand:Print("WorldFrame bounds (physical pixels): actual=%s | planned=(%d,%d %dx%d).", actual,
+                operating.mainhandLeft, operating.mainhandBottom, operating.mainhandWidth, operating.mainhandHeight)
         end
         local physW, physH = m.physicalWidth or 0, m.physicalHeight or 0
         local screenW = GetScreenWidth()
@@ -1925,7 +1935,7 @@ SlashCmdList["OFFHAND"] = function(msg)
                     bubbles.visualManaged or 0)
             end
             if Offhand.HUD and Offhand.HUD.GetGroupLootDiagnostics then
-                local loot = Offhand.HUD:GetGroupLootDiagnostics()
+                local loot = Offhand.HUD:GetGroupLootDiagnostics(m)
                 Offhand:Print("Group loot diagnostics: Loaded=%s | Preload=%s | SecureAnchor=%s | RowMover=%s/%s | Rows=%d | Position=%s | Stack=%s | Preview=%s | Conflict=%s | Triggers=%d | Combat=%s.",
                     loot.loaded and "yes" or "no",
                     loot.preloadAttempted and "yes" or "no",
@@ -1939,6 +1949,11 @@ SlashCmdList["OFFHAND"] = function(msg)
                     tostring(loot.conflict or "none"),
                     loot.triggerCount or 0,
                     loot.inCombat and "yes" or "no")
+                if loot.activeRolls ~= nil then
+                    Offhand:Print("Group loot visibility: ActiveRolls=%s | Container=%s | KeyboardRows=%s.",
+                        tostring(loot.activeRolls), loot.containerVisibility,
+                        #loot.slots > 0 and table.concat(loot.slots, " | ") or "none")
+                end
             end
             if Offhand.HUD and Offhand.HUD.GetPetBattleDiagnostics then
                 local petBattle = Offhand.HUD:GetPetBattleDiagnostics()
@@ -1971,6 +1986,11 @@ SlashCmdList["OFFHAND"] = function(msg)
         if fullDiagnostics and Offhand.Canvas and Offhand.Canvas.GetPanelControllerDiagnostics then
             Offhand:Print("Panel controller diagnostics: %s.",
                 Offhand.Canvas:GetPanelControllerDiagnostics())
+        end
+        if fullDiagnostics and Offhand.Canvas and Offhand.Canvas.GetPanelPlacementDiagnostics then
+            for _, report in ipairs(Offhand.Canvas:GetPanelPlacementDiagnostics()) do
+                Offhand:Print("Panel placement: %s.", report)
+            end
         end
         if fullDiagnostics and Offhand.Canvas and Offhand.Canvas.GetForeverNativeBagDiagnostics then
             local bags = Offhand.Canvas:GetForeverNativeBagDiagnostics()
@@ -2160,6 +2180,7 @@ function Offhand:IsWindowReachable(left, top, width, m)
     for _,r in ipairs(m.workspaceRegions or {}) do
         if InArea(r.x,r.y,r.x+r.width,r.y+r.height) then return true end
     end
+    if m.workspaceRegions and #m.workspaceRegions > 0 then return false end
     if m.workspaceLeft ~= nil then
         return InArea(m.workspaceLeft, m.workspaceBottom, m.workspaceRight, m.workspaceTop)
     end
@@ -2185,11 +2206,19 @@ function Offhand:GatherOffScreenUI()
         end
     end
     local moved = 0
+    local map = self.isForever and _G.WorldMapFrame
+    if map and m.isSpanned and self.Canvas and self.Canvas.GatherSafeUIToMainhand then
+        candidates[map] = nil
+        local called, ok, _, recovered = pcall(self.Canvas.GatherSafeUIToMainhand, self.Canvas, true, map)
+        if called and ok then moved = recovered end
+    end
     for frame in pairs(candidates) do
         local ok, recovered = pcall(function()
             if frame == WorldFrame or frame == self.canvas then return false end
             if frame.IsForbidden and frame:IsForbidden() then return false end
             if not frame:IsShown() or frame:IsProtected() then return false end
+            if frame == map and self.CanvasCompatibility and self.CanvasCompatibility.ShouldYieldWorldMap
+                and self.CanvasCompatibility.ShouldYieldWorldMap(frame) then return false end
             if frame.IsObjectType and frame:IsObjectType("GameTooltip") then return false end
             local scale = frame:GetEffectiveScale()
             if not scale or scale <= 0 then return false end

@@ -218,6 +218,24 @@ assert(not linkedRows[5].position and linkedRows[5].followKey == "player"
         == linkedRows[3].proposed.left - linkedRows[3].current.left,
     "a mapped child must be drawn at the selected parent's destination without a separate position write")
 links.focus, linked.focus, registry.focus = nil, nil, focus
+do
+    registry.PetBar = placedElement(650, 10, 170, 24)
+    registry.SCREEN_BOTTOM = {label = "Bottom Screen Edge"}
+    linked.PetBar = true
+    links.PetBar = {target = "SCREEN_BOTTOM", side = "TOP"}
+    EllesmereUI.IsScreenEdgeKey = function(key) return key == "SCREEN_BOTTOM" end
+    for _, direction in ipairs({"fit", "ellesmere"}) do
+        local found
+        for _, row in ipairs(transfer:Preview(direction)) do
+            if row.map.key == "PetBar" then found = row; break end
+        end
+        assert(found and not found.position and found.reason == "ELLESMERE_HUD_SCREEN_EDGE"
+            and found.reasonArgs[1] == "Bottom Screen Edge",
+            "a fixed screen edge must explain that its anchor needs adjustment in Unlock Mode")
+    end
+    assert(links.PetBar.target == "SCREEN_BOTTOM", "preview must preserve the vendor link")
+    registry.PetBar, registry.SCREEN_BOTTOM, linked.PetBar, links.PetBar, EllesmereUI.IsScreenEdgeKey = nil, nil, nil, nil, nil
+end
 registry.playerCastbar = placedElement(0, 480, 3000, 14)
 assert(not transfer:Preview("fit")[3].position, "an oversized linked group must remain excluded")
 registry.playerCastbar = {getFrame = function() end, isHidden = function() return true end}
@@ -411,6 +429,13 @@ do
         Show = function() end, Hide = function() end}
     preview.rowHelp[1]:OnEnter()
     assert(tooltip:find("EllesmereUI Unlock Mode", 1, true), "row tooltips must explain how to resolve the blocker")
+    preview.rowHelp[1]:OnLeave()
+    importRows[1].reason, importRows[1].reasonArgs = "ELLESMERE_HUD_SCREEN_EDGE", {"Bottom Screen Edge"}
+    transfer:ShowPreview("ellesmere")
+    assert(preview.legend[1].text:find("Anchored to Bottom Screen Edge", 1, true) and not review.enabled,
+        "show that the target is a fixed edge")
+    preview.rowHelp[1]:OnEnter()
+    assert(tooltip:find("remove the anchor", 1, true), "edge-linked rows must show how to make transfer available")
     preview.rowHelp[1]:OnLeave()
     GameTooltip, importRows = nil, savedRows
     context.unavailable = savedUnavailable

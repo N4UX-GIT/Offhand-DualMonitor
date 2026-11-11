@@ -813,15 +813,19 @@ assert(addon.Mainhand:PromptReload()
         and StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.button2 == nil,
     "native Gamepad reload prompt retained a protected ReloadUI callback")
 currentInterfaceStyle = 1
-assert(addon.Mainhand:PromptReload()
+assert(addon.Mainhand:PromptReload(true)
         and type(StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.OnAccept) == "function"
         and StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.offhandAcceptBeforeHide == true
         and reloadCalls == 0,
     "Forever keyboard HUD reload must use the visible-parent callback path")
+assert(StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.text:find(addon.L.SETUP_REVIEW_HUD, 1, true),
+    "the calibration reload prompt must show the final HUD review")
 addon.isForever = false
 assert(addon.Mainhand:PromptReload()
         and type(StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.OnAccept) == "function",
     "keyboard reload prompt did not retain its normal reload action")
+assert(not StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.text:find(addon.L.SETUP_REVIEW_HUD, 1, true),
+    "standalone reload reused an earlier calibration's guidance")
 StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_RELOAD.OnAccept()
 assert(reloadCalls == 1, "keyboard reload prompt did not call ReloadUI")
 do
@@ -2529,4 +2533,89 @@ for _,eui in ipairs({false,true}) do
  end
 end
 print("PASS: Forever XP/Rep containers, saved self points, scale, secondary clearance, custom positions and EUI ownership")
+end
+
+-- Production create/rebuild transaction: fit a copy, retain generated edits,
+-- honour a deliberate new source, and preserve the replaced generated payload.
+do
+    addon.isForever, addon.isRetail = true, false
+    addon.db.enabled = true
+    addon.IsGamepadUIEnabled = function() return false end
+    InputUtil = {IsGamepadUIEnabled = function() return false end}
+    C_InputInterfaceStyle, ConsolePort, EllesmereUI = nil, nil, nil
+    UnitName, UnitGUID = function() return "FitTester" end, function() return "Player-FitTester" end
+    Enum.EditModeLayoutType = {Preset = 1, Account = 2, Character = 3}
+    Enum.EditModeSystem.Minimap = 501
+    UIParent.GetWidth, UIParent.GetHeight = function() return 2496 end, function() return 1322 end
+    UIParent.GetEffectiveScale = function() return 1 end
+    metrics = {isSpanned = true, gameLeft = 0, gameRight = 1755, gameBottom = 0, gameTop = 1097}
+    addon.Mainhand:Update("native-fit-fixture")
+    addon.HUDCompatibility = {IsExternallyOwnedEditModeSystem = function() return false end}
+    local map = frame("NativeMap")
+    map.w, map.h = 100, 100
+    local function Row(default, relative, x, y)
+        return {system = 501, isInDefaultPosition = default, settings = {{setting = 1, value = 123}},
+            anchorInfo = {point = "TOPRIGHT", relativeTo = "UIParent", relativePoint = relative, offsetX = x, offsetY = y}}
+    end
+    local modern = {layoutName = "Modern", layoutIndex = 0, layoutType = 1, systems = {Row(true, "TOPRIGHT", -20, -30)}}
+    local playerSource = {layoutName = "My Custom HUD", layoutType = 2, systems = {Row(false, "BOTTOMLEFT", 2450, 1290)}}
+    local playerBefore, modernBefore = copyTable(playerSource), copyTable(modern)
+    EditModePresetLayoutManager = {GetCopyOfPresetLayouts = function()
+        return {copyTable(modern), {layoutName = "Classic", layoutIndex = 1, layoutType = 1, systems = {}},
+            {layoutName = "Gamepad", layoutIndex = 2, layoutType = 1, systems = {}}}
+    end}
+    EditModeManagerFrame = {GetRegisteredSystemFrame = function(_, system) if system == 501 then return map end end}
+    layoutData = {activeLayout = 4, layouts = {copyTable(playerSource)}}
+    OffhandDB, OffhandCharDB = {}, {}
+    local writes, rejectSave = 0, false
+    C_EditMode = {
+        GetLayouts = function() return copyTable(layoutData) end,
+        SaveLayouts = function(data)
+            writes = writes + 1
+            if rejectSave then return false end
+            layoutData = copyTable(data); return true
+        end,
+        OnLayoutAdded = function(id) layoutData.activeLayout = id; return true end,
+        SetActiveLayout = function(id) layoutData.activeLayout = id; return true end,
+    }
+    assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+    local id = layoutData.activeLayout
+    local target = layoutData.layouts[id - 3]
+    assert(target.systems[1].anchorInfo.offsetX <= 1755 and target.systems[1].anchorInfo.offsetY <= 1097,
+        "actual create transaction retained the source's off-Mainhand absolute coordinates")
+    assert(target.systems[1].settings[1].value == 123 and layoutData.layouts[1].layoutName == playerSource.layoutName
+        and layoutData.layouts[1].systems[1].anchorInfo.offsetX == 2450,
+        "create transaction overwrote the player's source or HUD settings")
+    target.systems[1].anchorInfo.offsetX, target.systems[1].anchorInfo.offsetY = 1000, 800
+    assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+    assert(layoutData.layouts[id - 3].systems[1].anchorInfo.offsetX == 1000,
+        "rebuilding the active current generated layout discarded an in-Mainhand edit")
+    layoutData.activeLayout = 1
+    OffhandCharDB.mainhandLayoutBackups = "invalid-old-data"
+    assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+    assert(OffhandCharDB.mainhandLayout.sourceName == "Modern" and OffhandCharDB.mainhandLayout.sourcePreset
+        and layoutData.layouts[id - 3].systems[1].anchorInfo.offsetX == -761,
+        "explicit Create from Modern reused the prior custom source")
+    local backup = OffhandCharDB.mainhandLayoutBackups[OffhandCharDB.mainhandLayout.generatedName]
+    assert(backup and backup.layout.systems[1].anchorInfo.offsetX == 1000 and #layoutData.layouts == 2,
+        "rebase must retain the old generated payload without consuming another native slot")
+    assert(playerSource.systems[1].anchorInfo.offsetX == playerBefore.systems[1].anchorInfo.offsetX
+        and modern.systems[1].anchorInfo.offsetX == modernBefore.systems[1].anchorInfo.offsetX,
+        "source preset or custom source was mutated")
+    local previousRecord = copyTable(OffhandCharDB.mainhandLayout)
+    local beforeAnchor = layoutData.layouts[id - 3].systems[1].anchorInfo.offsetX
+    OffhandCharDB.mainhandLayoutBackups = nil
+    layoutData.activeLayout, rejectSave = 4, true
+    local succeeded, reason = addon.Mainhand:CreateOrUpdateEditModeLayout()
+    assert(not succeeded and reason == "save" and layoutData.layouts[id - 3].systems[1].anchorInfo.offsetX == beforeAnchor
+        and OffhandCharDB.mainhandLayout.sourceName == previousRecord.sourceName,
+        "failed native save changed the active payload or provenance")
+    assert(OffhandCharDB.mainhandLayoutBackups[previousRecord.generatedName].layout.systems[1].anchorInfo.offsetX == beforeAnchor,
+        "an erroring native save must still retain the pre-write generated payload")
+    addon._displayGeometryTransitionActive = true
+    local beforeWrites = writes
+    succeeded, reason = addon.Mainhand:CreateOrUpdateEditModeLayout()
+    assert(not succeeded and reason == "span" and writes == beforeWrites, "unsettled geometry must block layout saving")
+    addon._displayGeometryTransitionActive = nil
+    print("PASS: native HUD fitting transaction preserves source/generated edits, supports explicit Modern rebase, snapshots and failed-save guards")
 end
