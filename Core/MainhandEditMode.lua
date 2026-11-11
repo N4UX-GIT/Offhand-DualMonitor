@@ -1486,7 +1486,10 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
         local current = EditModeData()
         return current and tonumber(current.activeLayout) == targetID or false
     end
-    local active = IsTargetActive()
+    -- An account row inserted at the active character layout's former index
+    -- can appear active in GetLayouts before Blizzard has applied its systems.
+    local insertedAtPreviousActiveIndex = not generated and tonumber(data.activeLayout) == targetID
+    local active = not insertedAtPreviousActiveIndex and IsTargetActive()
     -- Match Blizzard's native MakeNewLayout transaction: save the custom
     -- payload once, then register and activate a newly added layout. Calling
     -- SetActiveLayout first and submitting SaveLayouts a second time can make
