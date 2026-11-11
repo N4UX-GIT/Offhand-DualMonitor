@@ -1332,6 +1332,7 @@ The detailed issue section below remains authoritative.
 | Work item | Client scope | Source state | Automated or static evidence | Live evidence | Next gate |
 | --- | --- | --- | --- | --- | --- |
 | [PR #18](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/18) | Forever Gamepad UI | Conflicting draft against `addon/develop` | Contributor tests reported | Contributor live report requires local reconciliation | Compare safe panel handling with PR #21 |
+| [PR #45](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/45) | Retail 12.1.5.70575 | Adapted on `addon/shared/community-pr-review` for the next addon release | Mixed-height custom status-chain regression passes | Contributor verified the original patch on a landscape and portrait span | Retest Repair HUD, hidden XP at max level, cold launch and combat on the adapted implementation |
 | [PR #21](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/21) | Shared, Retail, Forever, and legacy manifests | Draft checkpoint against `addon/develop` | 31 suites and manifest validation passed | Pending | Review, split if useful, and complete live QA |
 | OH-PERF-001 | Forever with bag addons | Implemented on `main` | Automated passed | Pending | Live profiler comparison |
 | OH-FOR-001 | Forever | Investigation on `main` | No attributable stack | Inconclusive | Reproducible Offhand taint trace |
