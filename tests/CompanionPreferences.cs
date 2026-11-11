@@ -3,12 +3,50 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 namespace Offhand.Companion {
     internal static class PreferencesTest {
         private static int checkNumber;
         private static void Check(bool value, [System.Runtime.CompilerServices.CallerLineNumber] int line = 0)
         { checkNumber++; if (!value) throw new Exception("Preference regression at check " + checkNumber + ", line " + line); }
+
+        private static void CheckCompanionInstanceGuard()
+        {
+            string release = @"Local\OffhandCompanionTest-" + Guid.NewGuid().ToString("N");
+            string preview = release + "-Preview";
+            foreach (string priorName in new[] { release, preview })
+            {
+                // Legacy builds keep the initially owned mutex open for the process lifetime.
+                using (var prior = new Mutex(true, priorName))
+                {
+                    try
+                    {
+                        bool ran = Task.Factory.StartNew(() => CompanionForm.TryRunAsOnlyInstance(
+                            release, preview, () => { throw new Exception("A second Companion started."); }),
+                            TaskCreationOptions.LongRunning).GetAwaiter().GetResult();
+                        Check(!ran);
+                    }
+                    finally { prior.ReleaseMutex(); }
+
+                    Check(CompanionForm.TryRunAsOnlyInstance(release, preview, () =>
+                    {
+                        foreach (string name in new[] { release, preview })
+                        {
+                            bool created;
+                            using (var legacy = new Mutex(true, name, out created))
+                            {
+                                if (created) legacy.ReleaseMutex();
+                                Check(!created);
+                            }
+                        }
+                    }));
+                }
+            }
+        }
+
         public static void Main() {
+            CheckCompanionInstanceGuard();
             Check(CompanionForm.FullVersion == "2.1.7");
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();
             Check(assembly.GetName().Version == new Version(2,1,7,0));
@@ -292,7 +330,7 @@ namespace Offhand.Companion {
                 Check(!CompanionTopologyBridge.IsCurrent(wow, plan, displays));
                 Check(CompanionTopologyBridge.TryWrite(wow, plan, displays, out topologyMessage)
                     && CompanionTopologyBridge.IsCurrent(wow, plan, displays));
-                Console.WriteLine("PASS: safe display identities, addon layout diagnosis, missing-monitor guard, topology bridge, atomic settings with failure preservation, restore geometry and atomic Forever state generation");
+                Console.WriteLine("PASS: both Companion instance locks, safe display identities, addon layout diagnosis, missing-monitor guard, topology bridge, atomic settings with failure preservation, restore geometry and atomic Forever state generation");
             } finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }
     }

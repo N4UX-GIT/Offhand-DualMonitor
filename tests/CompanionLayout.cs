@@ -160,6 +160,7 @@ namespace Offhand.Companion
                     span.Height < 44 * factor - 1 || Descendants(form).OfType<Button>().Any(button => button.Text == "Pause Monitor"))
                     throw new Exception("Primary actions must be prominent and precede System Status.");
                 CheckActionGuidance(form);
+                CheckLayoutReminder(form, span);
                 form.UpdateClientStatus(null, false);
                 if (!summary.Text.Contains("WoW not running")) throw new Exception("Collapsed status lost stopped-client text.");
                 form.FitDashboardToWorkingArea(Screen.PrimaryScreen.WorkingArea);
@@ -398,6 +399,44 @@ namespace Offhand.Companion
                 throw new Exception("Persistent captions/guidance must be replaced by the replayable tutorial.");
         }
 
+        private static void CheckLayoutReminder(CompanionForm form, Button span)
+        {
+            var notice = One<Panel>(form, panel => panel.AccessibleName == "Layout reminder");
+            var stack = (TableLayoutPanel)notice.Parent;
+            int row = stack.GetRow(notice);
+            var windowBounds = form.Bounds;
+            int defaultWidth = stack.Width;
+            if (stack.GetRowHeights()[row] != 0)
+                throw new Exception("The layout reminder must take no space before a layout action.");
+
+            string[] messages = {
+                "Standard layout saved. WoW still has its previous layout. " + CompanionForm.StandardLayoutNextStep(1),
+                "Standard layout saved. WoW still has its previous layout. " + CompanionForm.StandardLayoutNextStep(2),
+                CompanionForm.ReloadLayoutInstruction
+            };
+            for (int i = 0; i < messages.Length; i++)
+            {
+                form.SetLayoutNotice(123, messages[i]);
+                form.SelectDashboardPage(i % 2 == 0);
+                LayoutAll(form);
+                var message = One<Label>(notice, label => true);
+                var dismiss = One<Button>(notice, button => button.AccessibleName == "Dismiss layout reminder");
+                int textHeight = TextRenderer.MeasureText(message.Text, message.Font,
+                    new Size(message.Width, int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix).Height;
+                if (message.Text != messages[i] || !message.Text.Contains("/reload") ||
+                    message.Height < textHeight || message.Right >= dismiss.Left ||
+                    !notice.ClientRectangle.Contains(message.Bounds) || !notice.ClientRectangle.Contains(dismiss.Bounds) ||
+                    stack.GetRowHeights()[row] == 0 || notice.Top < span.Parent.Bottom ||
+                    form.Bounds != windowBounds || stack.Width != defaultWidth)
+                    throw new Exception("Layout reminder is clipped, hidden or changes the window geometry.");
+            }
+            form.SetLayoutNotice(0, "");
+            form.SelectDashboardPage(false);
+            LayoutAll(form);
+            if (stack.GetRowHeights()[row] != 0 || form.Bounds != windowBounds)
+                throw new Exception("Clearing the layout reminder left a gap or resized the window.");
+        }
+
         private static void CheckNavigation(CompanionForm form, Panel config, Panel advanced, float factor)
         {
             const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
@@ -587,7 +626,7 @@ namespace Offhand.Companion
                         textSize.Width + workspaceLayout.Padding.Horizontal + 8 > workspaceLayout.Width ||
                         textSize.Height + workspaceLayout.Padding.Vertical > workspaceLayout.Height ||
                         config.Height != standardHeight || standard.Enabled != custom
-                        || One<Button>(form, button => button.AccessibleName == "Advanced tab").Text.Contains("Custom layout active") != custom || form.Bounds != savedBounds)
+                        || One<Button>(form, button => button.AccessibleName == "Advanced tab").Text.Contains("Custom layout saved") != custom || form.Bounds != savedBounds)
                         throw new Exception("The custom state/reset action is wrong or clipped at " + factor + "x.");
                     form.SelectDashboardPage(false);
                     LayoutAll(form);
