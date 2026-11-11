@@ -955,6 +955,13 @@ function Offhand:HideCompanionNotices(exceptKind)
 end
 
 function Offhand:RefreshMainhandLayoutAttention()
+    -- Gamepad recovery and automatic setup share one popup card. Let the
+    -- player finish the layout recovery choice before offering setup.
+    local popup = self._gamepadSafePopup
+    if popup and (popup.popupKey == "OFFHAND_FOREVER_SINGLE_SCREEN_LAYOUT"
+        or popup.popupKey == "OFFHAND_FOREVER_RESTORE_LAYOUT") then
+        return true
+    end
     if self.CharacterSetup and self.CharacterSetup:Refresh() then return true end
     if InCombatLockdown and InCombatLockdown() then return false end
     local pendingHUD = type(OffhandCharDB) == "table"
@@ -1088,13 +1095,24 @@ function Offhand:RefreshCompanionNoticeState(metrics)
     return kind
 end
 
-function Offhand:ShowForeverLayoutRecoveryPrompt(kind, layoutName)
+function Offhand:ShowForeverLayoutRecoveryPrompt(kind, layoutName, fallbackName)
     if Offhand:IsBlizzardInputReserved() then
         Offhand:DeferAutomaticUIForCinematic()
         return
     end
     local key = kind == "restore" and "OFFHAND_FOREVER_RESTORE_LAYOUT"
         or "OFFHAND_FOREVER_SINGLE_SCREEN_LAYOUT"
+    local definition = StaticPopupDialogs[key]
+    local gamepad = fallbackName == "Gamepad"
+    definition.offhandAcceptBeforeHide = gamepad or nil
+    if kind == "restore" then
+        definition.button2 = Offhand.L[gamepad and "FOREVER_KEEP_CURRENT_LAYOUT" or "FOREVER_KEEP_MODERN"]
+    else
+        definition.text = Offhand.L[gamepad and "FOREVER_GAMEPAD_SINGLE_SCREEN_LAYOUT_TEXT"
+            or "FOREVER_SINGLE_SCREEN_LAYOUT_TEXT"]
+        definition.button1 = gamepad and (_G.LAYOUT_STYLE_GAMEPAD or fallbackName)
+            or Offhand.L["FOREVER_USE_MODERN"]
+    end
     Offhand:ShowPopup(key, layoutName or "Offhand")
 end
 

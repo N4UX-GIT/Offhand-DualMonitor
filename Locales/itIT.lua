@@ -313,6 +313,7 @@ L["RAW_MOUSE_INPUT"] = "Usa input grezzo del mouse durante l’estensione Offhan
 L["RAW_MOUSE_INPUT_TIP_TITLE"] = "Movimento affidabile della telecamera"
 L["RAW_MOUSE_INPUT_TIP_DESC"] = "Impedisce al cursore nascosto di raggiungere il bordo di una finestra ad altezze miste e bloccare il movimento verticale. Offhand ripristina l’impostazione precedente fuori dalla disposizione estesa."
 L["FOREVER_SINGLE_SCREEN_LAYOUT_TEXT"] = "Il monitor Offhand salvato non è disponibile. Forever richiede la tua conferma per spostare gli elementi protetti dell’interfaccia in una disposizione a schermo singolo.\n\nScegli Usa Modern. Offhand proporrà di ripristinare '%s' quando il monitor tornerà disponibile."
+L["FOREVER_GAMEPAD_SINGLE_SCREEN_LAYOUT_TEXT"] = "Il monitor Offhand salvato non è disponibile. Usa la disposizione preimpostata per il gamepad su questo monitor. Offhand proporrà di ripristinare '%s' quando il monitor salvato tornerà disponibile."
 L["FOREVER_USE_MODERN"] = "Usa Moderna"
 L["FOREVER_KEEP_OFFHAND"] = "Mantieni Offhand"
 L["FOREVER_KEEP_CURRENT_LAYOUT"] = "Mantieni disposizione attuale"

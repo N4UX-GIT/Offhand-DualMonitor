@@ -170,6 +170,48 @@ assert(safeCancelled == 1 and safeHidden == 2 and staticHides == 0,
     "cancelling a Gamepad-safe dialog must remain outside Blizzard's focus stack")
 StaticPopupDialogs.OFFHAND_GAMEPAD_SAFE_TEST = nil
 
+do
+    local previousText = addon.L["FOREVER_GAMEPAD_SINGLE_SCREEN_LAYOUT_TEXT"]
+    local previousName = LAYOUT_STYLE_GAMEPAD
+    addon.L["FOREVER_GAMEPAD_SINGLE_SCREEN_LAYOUT_TEXT"] = "Use the Gamepad preset. Restore '%s' later."
+    LAYOUT_STYLE_GAMEPAD = "Gamepad preset"
+    local choice
+    addon.HUD.ApplyForeverRecoveryChoice = function(_, value)
+        assert(safePrompt.shown, "the recovery action must run before the clicked card closes")
+        choice = value
+    end
+
+    addon:ShowForeverLayoutRecoveryPrompt("fallback", "Offhand Gamepad", "Gamepad")
+    assert(safePrompt.shown and staticShows == 0
+        and safePrompt.text.text == "Use the Gamepad preset. Restore 'Offhand Gamepad' later."
+        and safePrompt.accept.text == "Gamepad preset", "Gamepad recovery must name its own preset")
+    safePrompt.accept.scripts.OnClick()
+    assert(choice == "fallback" and not safePrompt.shown)
+
+    addon:ShowForeverLayoutRecoveryPrompt("restore", "Offhand Gamepad", "Gamepad")
+    local characterSetup = addon.CharacterSetup
+    local setupChecks = 0
+    addon.CharacterSetup = { Refresh = function()
+        setupChecks = setupChecks + 1
+        addon:ShowPopup("OFFHAND_HUD_SETUP_REMINDER")
+        return true
+    end }
+    addon:RefreshMainhandLayoutAttention()
+    assert(setupChecks == 0 and safePrompt.popupKey == "OFFHAND_FOREVER_RESTORE_LAYOUT",
+        "automatic HUD setup must not replace the visible Gamepad recovery card")
+    assert(safePrompt.shown and safePrompt.cancel.text == addon.L["FOREVER_KEEP_CURRENT_LAYOUT"],
+        "the Gamepad restore prompt must offer to keep the current preset")
+    safePrompt.accept.scripts.OnClick()
+    assert(choice == "restore" and not safePrompt.shown)
+    addon:RefreshMainhandLayoutAttention()
+    assert(setupChecks == 1, "setup may resume after the Gamepad recovery card closes")
+    addon:HidePopup("OFFHAND_HUD_SETUP_REMINDER")
+    addon.CharacterSetup = characterSetup
+    addon.HUD.ApplyForeverRecoveryChoice = nil
+    addon.L["FOREVER_GAMEPAD_SINGLE_SCREEN_LAYOUT_TEXT"] = previousText
+    LAYOUT_STYLE_GAMEPAD = previousName
+end
+
 -- Keyboard setup confirmations must sit above the fullscreen wizard, inside
 -- Mainhand, without changing any native popup's strata or point handlers.
 InputUtil.IsGamepadUIEnabled = function() return false end

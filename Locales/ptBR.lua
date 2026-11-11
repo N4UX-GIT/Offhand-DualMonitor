@@ -313,6 +313,7 @@ L["RAW_MOUSE_INPUT"] = "Usar entrada bruta do mouse durante a expansão do Offha
 L["RAW_MOUSE_INPUT_TIP_TITLE"] = "Movimento confiável da câmera"
 L["RAW_MOUSE_INPUT_TIP_DESC"] = "Impede que o cursor oculto alcance a borda de uma janela com alturas diferentes e bloqueie o movimento vertical da câmera. O Offhand restaura sua configuração anterior fora do layout expandido."
 L["FOREVER_SINGLE_SCREEN_LAYOUT_TEXT"] = "O monitor Offhand salvo não está disponível. O Forever precisa da sua confirmação para mover elementos protegidos da interface para um layout de tela única.\n\nEscolha Usar Modern. O Offhand oferecerá restaurar '%s' quando o monitor retornar."
+L["FOREVER_GAMEPAD_SINGLE_SCREEN_LAYOUT_TEXT"] = "O monitor Offhand salvo não está disponível. Use a predefinição de controle neste monitor. O Offhand oferecerá a opção de restaurar '%s' quando o monitor salvo voltar a ficar disponível."
 L["FOREVER_USE_MODERN"] = "Usar Moderno"
 L["FOREVER_KEEP_OFFHAND"] = "Manter Offhand"
 L["FOREVER_KEEP_CURRENT_LAYOUT"] = "Manter layout atual"
