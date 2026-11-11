@@ -64,3 +64,9 @@ The existing report describes the NPC quest window failing to appear after movin
 The keyboard follow-up describes the World Map expanding after it is dragged to an upper workspace. An offline test with a wide, short upper workspace reproduced two writes from the current keyboard configuration path. AUTO first applied scale 2.476 from the available width, then applied approximately 0.6105 after accounting for height and inherited scale. Reconfiguring an already fitted map repeated both writes. The candidate computes the fitted scale first and writes it only when it differs. It retains explicit smaller scales and the existing native Gamepad, combat, maximized and external-owner boundaries. [Keyboard report](https://discord.com/channels/1491522138371391691/1567984437009055764/1569068900920856770)
 
 The regression failed before the correction and passed afterward. All 127 Lua suites and six manifest checks passed. The local Forever 70862 client was at a disconnected screen. Live rendering on the reported stacked displays and physical controller Back remain open.
+
+## Redundant map layout during idle time
+
+The Forever map observer previously cleared and rebuilt the addon-owned drag handle's anchors every tenth of a second, even when the map was stationary or closed. A full map also reapplied the recovery button's anchors and visibility. The candidate leaves both controls alone on steady ticks. The fixture covers windowed, closed, full and Gamepad-owned map states, plus moving and reopening the map. The observer still notices visibility changes and the handle follows updated geometry. [GPU report](https://discord.com/channels/1491522138371391691/1569436959632392235)
+
+This reproduces repeated UI layout writes in Lua. The local Forever client was disconnected, so GPU utilization, frame time and native control behavior remain unmeasured. A matched spanned and unspanned capture still needs the same scene, graphics settings and FPS cap.

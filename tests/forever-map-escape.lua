@@ -130,18 +130,18 @@ WorldMapFrameCloseButton = WorldMapFrame.CloseButton
 
 local createdHandles = {}
 CreateFrame = function(_, _, parent)
-    local handle = { parent = parent, scripts = {} }
+    local handle = { parent = parent, scripts = {}, layoutWrites = 0 }
     function handle:SetFrameStrata(value) self.strata = value end
     function handle:SetFrameLevel(value) self.level = value end
-    function handle:EnableMouse(value) self.mouseEnabled = value end
+    function handle:EnableMouse(value) self.mouseEnabled = value; self.layoutWrites = self.layoutWrites + 1 end
     function handle:RegisterForDrag(value) self.dragButton = value end
     function handle:SetScript(event, callback) self.scripts[event] = callback end
-    function handle:SetSize(width, height) self.width, self.height = width, height end
-    function handle:ClearAllPoints() self.point = nil end
-    function handle:SetPoint(...) self.point = { ... } end
+    function handle:SetSize(width, height) self.width, self.height = width, height; self.layoutWrites = self.layoutWrites + 1 end
+    function handle:ClearAllPoints() self.point = nil; self.layoutWrites = self.layoutWrites + 1 end
+    function handle:SetPoint(...) self.point = { ... }; self.layoutWrites = self.layoutWrites + 1 end
     function handle:SetText(value) self.text = value end
-    function handle:Show() self.shown = true end
-    function handle:Hide() self.shown = false end
+    function handle:Show() self.shown = true; self.layoutWrites = self.layoutWrites + 1 end
+    function handle:Hide() self.shown = false; self.layoutWrites = self.layoutWrites + 1 end
     table.insert(createdHandles, handle)
     return handle
 end
@@ -207,6 +207,26 @@ assert(WorldMapFrame._OffhandMovable == nil and WorldMapFrame._OffhandHandle == 
         and WorldMapFrame._OffhandDragging == nil,
     "Forever World Map bookkeeping must not be written onto the Blizzard frame")
 
+local function AssertStableMapControls(state)
+    local handle, button = createdHandles[1], createdHandles[2]
+    local writes = handle.layoutWrites + button.layoutWrites
+    for _ = 1, 60 do handle.scripts.OnUpdate(nil, .1) end
+    assert(handle.layoutWrites + button.layoutWrites == writes,
+        state .. " map repeated unchanged drag-handle or button writes")
+end
+AssertStableMapControls("stationary windowed")
+do
+    local left = WorldMapFrame.left
+    local handle = createdHandles[1]
+    local x = handle.point[4]
+    WorldMapFrame.left = left + 20
+    handle.scripts.OnUpdate(nil, .1)
+    assert(math.abs(handle.point[4] - x - 20 * WorldMapFrame.scale) < .00001 and handle.mouseEnabled,
+        "the active handle must follow changed map geometry")
+    WorldMapFrame.left = left
+    handle.scripts.OnUpdate(nil, .1)
+end
+
 -- A maximized Forever map is Blizzard-owned. Configure and the external
 -- controls' OnUpdate may read that state, but must not apply the saved windowed
 -- scale or position. The explicit hardware click minimizes and then restores
@@ -222,6 +242,7 @@ assert(WorldMapFrame.scale == 0.37 and WorldMapFrame.left == 900
 createdHandles[1].scripts.OnUpdate(nil, 1)
 assert(createdHandles[2].shown == true,
     "The Return to Windowed Map control must be visible while Full Map is active")
+AssertStableMapControls("stationary full")
 assert(WorldMapFrame.scale == 0.37 and WorldMapFrame.left == 900
         and WorldMapFrame.bottom == 300,
     "The independent control update must never mutate the protected World Map")
@@ -341,6 +362,7 @@ addon.Canvas:RefocusPersistentWorldMap()
 createdHandles[1].scripts.OnUpdate(nil, 1)
 createdHandles[1].scripts.OnDragStart()
 createdHandles[1].scripts.OnDragStop()
+AssertStableMapControls("Gamepad-owned")
 WorldMapFrame.maximized = true
 createdHandles[2].scripts.OnClick()
 WorldMapFrame.maximized = false
@@ -435,6 +457,10 @@ gamepadUI = false
 -- Reload restoration must reopen the saved workspace map without replacing
 -- Blizzard's protected scripts.
 WorldMapFrame:Hide()
+createdHandles[1].scripts.OnUpdate(nil, 1)
+assert(not createdHandles[1].mouseEnabled and createdHandles[1].point[4] == -100,
+    "closing the map must park its handle outside the window")
+AssertStableMapControls("closed")
 addon.db.openWorkspacePanels.WorldMapFrame = true
 addon.Canvas:RestorePersistentFrames()
 assert(WorldMapFrame:IsShown(),

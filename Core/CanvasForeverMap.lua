@@ -256,6 +256,40 @@ function Adapter.Install(Canvas, services)
         end
 
         local elapsedSinceUpdate = 1
+        local handlePoint, handleX, handleY, handleWidth, handleHeight
+        local handleMouseEnabled = false
+        local returnVisible, returnX, returnY = false
+
+        -- Keep observing while parked so the next map show is still detected.
+        -- The handle is ours, so unchanged geometry needs no frame writes.
+        local function PlaceDragHandle(left, top, width, height)
+            local enabled = left ~= nil
+            local point = enabled and "TOPLEFT" or "BOTTOMLEFT"
+            if not enabled then left, top, width, height = -100, -100, 1, 1 end
+            if point ~= handlePoint or left ~= handleX or top ~= handleY then
+                if handle.ClearAllPoints and handle.SetPoint then
+                    handle:ClearAllPoints()
+                    handle:SetPoint(point, UIParent, "BOTTOMLEFT", left, top)
+                end
+                handlePoint, handleX, handleY = point, left, top
+            end
+            if width ~= handleWidth or height ~= handleHeight then
+                if handle.SetSize then handle:SetSize(width, height) end
+                handleWidth, handleHeight = width, height
+            end
+            if enabled ~= handleMouseEnabled then
+                if handle.EnableMouse then handle:EnableMouse(enabled) end
+                handleMouseEnabled = enabled
+            end
+        end
+
+        local function SetReturnVisible(visible)
+            if not returnButton or returnVisible == visible then return end
+            if visible and returnButton.Show then returnButton:Show() end
+            if not visible and returnButton.Hide then returnButton:Hide() end
+            returnVisible = visible
+        end
+
         local function UpdateHandle(_, elapsed)
             local mapShown = Offhand.db and Offhand.db.enabled
                 and map.IsShown and map:IsShown()
@@ -267,33 +301,20 @@ function Adapter.Install(Canvas, services)
 
             if NativeGamepadOwnsMap() then
                 SetPanelDragging(map, false)
-                if handle.EnableMouse then handle:EnableMouse(false) end
                 -- Keep the invisible observer running so keyboard mode can
                 -- resume without a reload. Its hit area remains off screen.
-                if handle.SetSize then handle:SetSize(1, 1) end
-                if handle.ClearAllPoints and handle.SetPoint then
-                    handle:ClearAllPoints()
-                    handle:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", -100, -100)
-                end
-                if returnButton and returnButton.Hide then returnButton:Hide() end
+                PlaceDragHandle()
+                SetReturnVisible(false)
                 return
             end
             if ShouldYieldWorldMapToMoveAny(map) then
                 SetPanelDragging(map, false)
-                if handle.EnableMouse then handle:EnableMouse(false) end
                 if IsExternallyPositionedWorldMap(map) then
                     -- Leatrix/OpenMap own geometry and dragging, but this
                     -- independent observer still tracks later show edges for
                     -- workspace open intent and Escape persistence. Hiding it
                     -- while the map is closed prevents those edges being seen.
-                    if not state.externalObserverParked then
-                        if handle.SetSize then handle:SetSize(1, 1) end
-                        if handle.ClearAllPoints and handle.SetPoint then
-                            handle:ClearAllPoints()
-                            handle:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", -100, -100)
-                        end
-                        state.externalObserverParked = true
-                    end
+                    PlaceDragHandle()
                     if not mapShown or maximized then
                         state.externalWorkspace, state.externalPersistence = nil, nil
                     elseif not InCombatLockdown() and Canvas.IsFrameOnWorkspace then
@@ -308,12 +329,13 @@ function Adapter.Install(Canvas, services)
                         end
                     end
                 elseif handle.Hide then
+                    if handle.EnableMouse then handle:EnableMouse(false) end
+                    handleMouseEnabled = false
                     handle:Hide()
                 end
-                if returnButton and returnButton.Hide then returnButton:Hide() end
+                SetReturnVisible(false)
                 return
             end
-            state.externalObserverParked = nil
             state.externalWorkspace, state.externalPersistence = nil, nil
 
             if returnButton then
@@ -322,40 +344,27 @@ function Adapter.Install(Canvas, services)
                     if metrics and metrics.isSpanned and returnButton.ClearAllPoints and returnButton.SetPoint then
                         local centerX = (metrics.gameLeft + metrics.gameRight) / 2
                         local topY = metrics.gameTop - 20
-                        returnButton:ClearAllPoints()
-                        returnButton:SetPoint("TOP", UIParent, "BOTTOMLEFT", centerX, topY)
+                        if centerX ~= returnX or topY ~= returnY then
+                            returnButton:ClearAllPoints()
+                            returnButton:SetPoint("TOP", UIParent, "BOTTOMLEFT", centerX, topY)
+                            returnX, returnY = centerX, topY
+                        end
                     end
-                    if returnButton.Show then returnButton:Show() end
-                elseif returnButton.Hide then
-                    returnButton:Hide()
+                    SetReturnVisible(true)
+                else
+                    SetReturnVisible(false)
                 end
             end
 
-            local usable = mapShown and not maximized
-                and map.GetLeft and map:GetLeft()
-                and map.GetTop and map:GetTop()
-            if not usable then
-                if handle.EnableMouse then handle:EnableMouse(false) end
-                if handle.SetSize then handle:SetSize(1, 1) end
-                if handle.ClearAllPoints and handle.SetPoint then
-                    handle:ClearAllPoints()
-                    handle:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", -100, -100)
-                end
+            if not mapShown or maximized or not map.GetLeft or not map.GetTop then
+                PlaceDragHandle()
                 return
             end
 
             local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
             local mapScale = (map.GetEffectiveScale and map:GetEffectiveScale()) or parentScale
             local factor = parentScale > 0 and mapScale / parentScale or 1
-            local left, top, width, height = Adapter.GetDragHandleBounds(map, factor)
-            if not left then return end
-
-            if handle.ClearAllPoints and handle.SetPoint then
-                handle:ClearAllPoints()
-                handle:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
-            end
-            if handle.SetSize then handle:SetSize(width, height) end
-            if handle.EnableMouse then handle:EnableMouse(true) end
+            PlaceDragHandle(Adapter.GetDragHandleBounds(map, factor))
         end
 
         if handle.SetScript then
