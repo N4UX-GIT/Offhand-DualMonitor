@@ -6,7 +6,7 @@ Stable IDs for reports that require follow-up across test sessions.
 
 Reviewed all 13 open issues and their comments against GitHub `main` at
 `44e9746`, addon release `v2.1.5-beta.30` and Companion `v2.1.5`.
-The new addon correction is on `addon/shared/github-issue-fixes`.
+The World Map and Spellbook corrections merged to `addon/develop` in [PR #115](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/115) and are included in the Beta 31 release source.
 
 | Issue | Finding |
 | --- | --- |

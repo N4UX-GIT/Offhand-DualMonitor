@@ -4,8 +4,8 @@
 ## Notes: Keep gameplay on one screen and move maps, bags, chat, and other supported UI panels to another.
 ## Author: N4UX (Noggaholic)
 ## Version: 2.1.5
-## X-Offhand-Release: beta.30
-## X-Offhand-Addon-Release: beta.30
+## X-Offhand-Release: beta.31
+## X-Offhand-Addon-Release: beta.31
 ## X-Offhand-Companion-Version: 2.1.5
 ## X-Offhand-Companion-Release:
 ## X-Offhand-Companion-Protocol: 1
