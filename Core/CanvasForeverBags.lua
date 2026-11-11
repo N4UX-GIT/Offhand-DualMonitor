@@ -122,7 +122,10 @@ function Adapter.Install(Canvas, services)
 
         local sizing=Offhand.WorkspaceScale
         local previousFit=scaleFitFallbacks[frame]
-        local sameFit=previousFit and sizing and previousFit.generation==sizing.generation
+        -- At native size, recompute fit when the bag changes dimensions. The
+        -- scaled fallback cache is only needed to avoid scale writes each poll.
+        local sameFit=previousFit and sizing and sizing:GetSetting(metrics)~=1
+            and previousFit.generation==sizing.generation
             and previousFit.layout==sizing:Keys(metrics) and previousFit.region==metrics.workspaceRegionID
         local preservedFit=sameFit and Offhand.CanvasPersistence
             and Offhand.CanvasPersistence.PreservedFitFallback(frame,metrics,position)
@@ -155,10 +158,10 @@ function Adapter.Install(Canvas, services)
             }
             onWorkspace = true
         end
-        -- Keep legacy placement at 100%. Explicit region sizing uses the same
-        -- fit rule as other panels and retains saved intent on a Mainhand fallback.
+        -- Use the same custom-region fit rule as other panels, even at native
+        -- size. Keep saved workspace intent while the bag is on Mainhand.
         local fitFallback=preservedFit and true or false
-        if onWorkspace and sizing and sizing:GetSetting(metrics)~=1 and Offhand.CanvasPersistence
+        if onWorkspace and sizing and Offhand.CanvasPersistence
             and not Offhand.CanvasPersistence.FitsWorkspace(metrics,frameWidth,frameHeight) then
             if not allowScale then return nil end
             if not sizing:Apply(frame,false,metrics) then return nil end
@@ -302,7 +305,7 @@ function Adapter.Install(Canvas, services)
             if not sizing:Apply(frame,onWorkspace,metrics) then return false end
             local effective=frame:GetEffectiveScale()/parentScale
             width=frame:GetWidth()*effective;height=frame:GetHeight()*effective
-            if onWorkspace and sizing:GetSetting(metrics)~=1 and Offhand.CanvasPersistence
+            if onWorkspace and Offhand.CanvasPersistence
                 and not Offhand.CanvasPersistence.FitsWorkspace(metrics,width,height) then
                 return RestoreForeverNativeBagRoot(frame)
             end
