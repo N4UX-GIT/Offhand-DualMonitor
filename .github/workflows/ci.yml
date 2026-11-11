@@ -51,6 +51,9 @@ jobs:
         run: |
           ./tests/publication-213.ps1 -HistoricalArtifactsOnly
           ./tests/publication-215.ps1 -HistoricalArtifactsOnly
+          # The Beta 29 fixture verifies the frozen 2.1.5 inputs against their receipt.
+          git fetch --no-tags --depth=1 origin 7bc07a60113c7c990067d5fd86215ace310399cc
+          if ($LASTEXITCODE -ne 0) { throw 'Frozen Companion 2.1.5 source is unavailable' }
           python tests/publication-beta29.py
           if ($LASTEXITCODE -ne 0) { throw 'Beta 29 publication checks failed' }
           ./tests/release-metadata.ps1
