@@ -19,10 +19,11 @@ local function Case(client, uiScale, localScale, workspace, direction, count, ra
     addon[client] = true
     assert(loadfile(source))("Offhand", addon)
     local owner = UIParent
+    local ownerLeft = metrics.workspaceLeft + (scenario and scenario.ownerInset or 100)
     if workspace then owner = {GetEffectiveScale = function() return uiScale end, IsObjectType = function() return false end,
         ClearAllPoints = function() error("item owner anchors changed") end, SetPoint = function() error("item owner anchors changed") end,
-        GetLeft = function() return metrics.workspaceLeft + 100 end,
-        GetRight = function() return metrics.workspaceLeft + 120 end,
+        GetLeft = function() return ownerLeft end,
+        GetRight = function() return ownerLeft + 20 end,
         GetBottom = function() return 300 end, GetTop = function() return 330 end} end
     local width = scenario and scenario.cardWidth or (workspace and 100 or 150)
     local rootX = scenario and scenario.rootLeft or workspace and (direction == "left" and 730 or 800)
@@ -176,6 +177,18 @@ for _, direction in ipairs({"left", "right"}) do
     portrait.cardWidth = 357
     portrait.rootLeft = direction == "left" and 2214 or 1929
     Case("isForever", .366, 1, true, direction, 2, false, portrait)
+end
+
+-- A bag at the physical left edge of a left-hand workspace. A native left
+-- comparison needs room at x=0 even though the complete group fits the display.
+local leftEdge = {
+    canvasWidth = 2560, canvasHeight = 1440, rootLeft = 16, cardWidth = 265, ownerInset = 4,
+    metrics = {isSpanned = true, hudScale = 1, gameLeft = 1280, gameRight = 2560,
+        gameBottom = 0, gameTop = 1440, workspaceLeft = 0, workspaceRight = 1280,
+        workspaceBottom = 0, workspaceTop = 1440},
+}
+for _, direction in ipairs({"left", "right"}) do
+    Case("isForever", .4344, 1, true, direction, 2, false, leftEdge)
 end
 
 for _, client in ipairs({"isRetail", "isForever"}) do

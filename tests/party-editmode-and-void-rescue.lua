@@ -2178,6 +2178,24 @@ UIPanelWindows.ReportPanelTrigger=nil
 print('PASS: automatic popup rescue preserves BetterBags, RestedXP V1/V2 and user-owned placement')
 end
 
+-- ForeverXPbar owns its saved position, including centered and void anchors.
+do
+    local bar = makeMockFrame('ForeverXPBarMainFrame', 380, 26)
+    bar:SetPoint('CENTER', UIParent, 'CENTER', 0, 0)
+    table.insert(UIParent.children, bar)
+    local writes = bar.setPointCalls
+    addon.HUD:HookFrames()
+    flushTimers()
+    assert(bar.setPointCalls == writes and not bar.scripts.OnShow,
+        'popup recovery overwrote ForeverXPbar\'s own login anchor')
+    bar:ClearAllPoints()
+    bar:SetPoint('TOPLEFT', UIParent, 'BOTTOMLEFT', 2000, metrics.gameTop + 150)
+    writes = bar.setPointCalls
+    flushTimers()
+    assert(bar.setPointCalls == writes, 'popup recovery overwrote a later vendor position')
+    bar:Hide()
+end
+
 -- Detached vendor minimaps are HUD, not rogue popups. Exercise the production
 -- scanner with a partially overhanging minimap and an anonymous crop parent.
 do

@@ -1091,6 +1091,8 @@ L["PROCDOC_MAINHAND_DESC"] = "Использовать Mainhand как цент�
 
 -- EllesmereUI transfer blocker guidance.
 L["ELLESMERE_HUD_FOLLOWS"] = "Follows %s; move the parent."
+L["ELLESMERE_HUD_SCREEN_EDGE"] = "Привязано к %s. Измените в режиме разблокировки."
+L["ELLESMERE_HUD_SCREEN_EDGE_HELP"] = "Край экрана неподвижен. Переместите элемент в режиме разблокировки EllesmereUI и сохраните изменения. Для переноса удалите привязку в этом режиме и снова откройте предпросмотр."
 L["ELLESMERE_HUD_ANCHORED"] = "Linked to another element."
 L["ELLESMERE_HUD_MOVES_WITH"] = "Moves with %s."
 L["ELLESMERE_HUD_BOUNDS"] = "Position or size is not ready."

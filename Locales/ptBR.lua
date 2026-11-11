@@ -1091,6 +1091,8 @@ L["PROCDOC_MAINHAND_DESC"] = "Usa Mainhand como centro dos alertas do ProcDoc na
 
 -- EllesmereUI transfer blocker guidance.
 L["ELLESMERE_HUD_FOLLOWS"] = "Follows %s; move the parent."
+L["ELLESMERE_HUD_SCREEN_EDGE"] = "Ancorado em %s. Ajuste no modo de desbloqueio."
+L["ELLESMERE_HUD_SCREEN_EDGE_HELP"] = "A borda é fixa. Mova o elemento no modo de desbloqueio do EllesmereUI e salve. Para transferi-lo aqui, remova a âncora nesse modo e reabra a prévia."
 L["ELLESMERE_HUD_ANCHORED"] = "Linked to another element."
 L["ELLESMERE_HUD_MOVES_WITH"] = "Moves with %s."
 L["ELLESMERE_HUD_BOUNDS"] = "Position or size is not ready."

@@ -1091,6 +1091,8 @@ L["PROCDOC_MAINHAND_DESC"] = "跨螢幕時以 Mainhand 為 ProcDoc 提醒的中�
 
 -- EllesmereUI transfer blocker guidance.
 L["ELLESMERE_HUD_FOLLOWS"] = "Follows %s; move the parent."
+L["ELLESMERE_HUD_SCREEN_EDGE"] = "已錨定至%s。請在解鎖模式中調整。"
+L["ELLESMERE_HUD_SCREEN_EDGE_HELP"] = "此畫面邊緣固定不動。請在 EllesmereUI 解鎖模式中移動此元素並儲存。若要在此轉移，請先在解鎖模式中移除錨點，再重新開啟預覽。"
 L["ELLESMERE_HUD_ANCHORED"] = "Linked to another element."
 L["ELLESMERE_HUD_MOVES_WITH"] = "Moves with %s."
 L["ELLESMERE_HUD_BOUNDS"] = "Position or size is not ready."

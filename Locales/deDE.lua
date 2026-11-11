@@ -1090,6 +1090,8 @@ L["PROCDOC_MAINHAND_DESC"] = "Mainhand beim Aufspannen als Mittelpunkt für Proc
 
 -- EllesmereUI transfer blocker guidance.
 L["ELLESMERE_HUD_FOLLOWS"] = "Folgt %s; übergeordnetes Element bewegen."
+L["ELLESMERE_HUD_SCREEN_EDGE"] = "An %s verankert. Im Entsperrmodus anpassen."
+L["ELLESMERE_HUD_SCREEN_EDGE_HELP"] = "Diese Kante ist fest. Verschiebe das Element im EllesmereUI-Entsperrmodus und wähle Speichern und beenden. Für die Übertragung entferne dort den Anker und öffne diese Vorschau erneut."
 L["ELLESMERE_HUD_ANCHORED"] = "Mit einem anderen Element verknüpft."
 L["ELLESMERE_HUD_MOVES_WITH"] = "Wird mit %s verschoben."
 L["ELLESMERE_HUD_BOUNDS"] = "Position oder Größe ist noch nicht verfügbar."

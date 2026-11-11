@@ -350,6 +350,8 @@ L["ELLESMERE_HUD_MODULE_GUIDANCE"] = "Enable the required EllesmereUI modules in
 
 L["ELLESMERE_HUD_LINKED"] = "Anchored to another element or group bounds unavailable."
 L["ELLESMERE_HUD_FOLLOWS"] = "Follows %s; move the parent."
+L["ELLESMERE_HUD_SCREEN_EDGE"] = "Anchored to %s. Adjust in Unlock Mode."
+L["ELLESMERE_HUD_SCREEN_EDGE_HELP"] = "This edge is fixed. Move the element in EllesmereUI Unlock Mode and choose Save & Exit. To transfer it here, remove the anchor in Unlock Mode and reopen this preview."
 L["ELLESMERE_HUD_ANCHORED"] = "Linked to another element."
 L["ELLESMERE_HUD_MOVES_WITH"] = "Moves with %s."
 L["ELLESMERE_HUD_BOUNDS"] = "Position or size is not ready."

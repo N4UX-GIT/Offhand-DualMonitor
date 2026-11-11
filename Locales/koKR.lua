@@ -1091,6 +1091,8 @@ L["PROCDOC_MAINHAND_DESC"] = "확장 시 Mainhand를 ProcDoc 알림의 중심으
 
 -- EllesmereUI transfer blocker guidance.
 L["ELLESMERE_HUD_FOLLOWS"] = "Follows %s; move the parent."
+L["ELLESMERE_HUD_SCREEN_EDGE"] = "%s에 고정됨. 잠금 해제 모드에서 조정하세요."
+L["ELLESMERE_HUD_SCREEN_EDGE_HELP"] = "이 화면 가장자리는 고정되어 있습니다. EllesmereUI 잠금 해제 모드에서 요소를 옮기고 저장하세요. 여기서 이전하려면 그 모드에서 앵커를 제거한 뒤 미리 보기를 다시 여세요."
 L["ELLESMERE_HUD_ANCHORED"] = "Linked to another element."
 L["ELLESMERE_HUD_MOVES_WITH"] = "Moves with %s."
 L["ELLESMERE_HUD_BOUNDS"] = "Position or size is not ready."

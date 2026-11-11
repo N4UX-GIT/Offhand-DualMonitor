@@ -1090,6 +1090,8 @@ L["PROCDOC_MAINHAND_DESC"] = "Utiliser Mainhand comme centre des alertes ProcDoc
 
 -- EllesmereUI transfer blocker guidance.
 L["ELLESMERE_HUD_FOLLOWS"] = "Suit %s ; déplacez le parent."
+L["ELLESMERE_HUD_SCREEN_EDGE"] = "Ancré à %s. Ajustez-le en mode déverrouillé."
+L["ELLESMERE_HUD_SCREEN_EDGE_HELP"] = "Ce bord est fixe. Déplacez l’élément en mode déverrouillé d’EllesmereUI, puis enregistrez. Pour le transférer ici, supprimez l’ancrage dans ce mode et rouvrez cet aperçu."
 L["ELLESMERE_HUD_ANCHORED"] = "Lié à un autre élément."
 L["ELLESMERE_HUD_MOVES_WITH"] = "Se déplace avec %s."
 L["ELLESMERE_HUD_BOUNDS"] = "Position ou taille pas encore disponible."
