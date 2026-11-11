@@ -1,0 +1,37 @@
+OFFHAND ADDON 2.1.5 BETA 30 + UNCHANGED COMPANION 2.1.5
+
+INSTALL OR UPDATE
+1. Close WoW before replacing addon files. Keep a backup of your current addon
+   and SavedVariables. Existing profiles and layouts are retained.
+2. Copy the included Offhand folder into your client's Interface/AddOns folder.
+   The TOC files belong directly in Interface/AddOns/Offhand. Do not nest another
+   Offhand folder, delete WTF or reset your existing UI profiles.
+3. If Companion is already working, keep using it. These addon fixes do not
+   require a Companion update. The included portable executable is the exact
+   previously released Companion 2.1.5, not a new native build.
+4. For a new Windows installation, Microsoft Store is the recommended Companion:
+   https://apps.microsoft.com/detail/9PL4PW84Q90W
+   The Store installs Companion only; install the addon separately.
+5. To use the included portable Companion, extract it to a writable folder and
+   exit any other Companion installation before starting Offhand.exe.
+6. Start WoW in Windowed mode. Review displays and Mainhand in Companion, then
+   use Span WoW Now. Use /reload after applying the span.
+7. For first-time setup, type /offhand guide. Existing users retain their saved
+   positions and can open settings with /offhand.
+
+BETA FEEDBACK
+The native loot-container placement correction passed private-panel testing
+with spanning in Forever 1.60.1.70862. Real simultaneous loot choices and combat
+behavior still need player verification. Please report remaining issues with
+/offhand diag full, your client/build, display arrangement and other UI addons.
+This build also includes EllesmereUI transfer/guidance, Questie/Social anchor
+and Retail friendly-name preference corrections. Native Retail, active Questie
+objective dragging, populated tracking-bar imports and combat remain feedback
+targets. Daylight code is unchanged; further testing remains deferred.
+
+VERIFICATION AND RECOVERY
+Verify downloads with checksums-sha256.txt. The portable executable is unsigned;
+download only from the official project. This locally prepared draft does not
+claim GitHub Actions build-provenance attestations.
+Use Restore Window to return to a normal window. To roll back the addon, close
+WoW and restore your backed-up addon/settings. Do not delete user data.

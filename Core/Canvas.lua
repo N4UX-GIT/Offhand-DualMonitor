@@ -75,6 +75,7 @@ end
 Canvas.CanManagePanelsFromAddon = CanManagePanelsFromAddon
 
 local rootCanvas
+local regionCanvases = {}
 
 
 local function IsWorldMapMaximized(frame)
@@ -127,6 +128,8 @@ function Canvas:CreateFrames()
 end
 
 function Canvas:UpdateLayout()
+    if Offhand.ProcDocCompatibility then Offhand.ProcDocCompatibility:Refresh() end
+    if Offhand.DaylightMapCompatibility then Offhand.DaylightMapCompatibility:Refresh() end
     if not rootCanvas then self:CreateFrames() end
 
     local metrics = WithWorkspace(Offhand.Viewport:GetMetrics())
@@ -134,6 +137,7 @@ function Canvas:UpdateLayout()
     if not metrics.isSpanned or not Offhand.db.enabled then
         Persistence.FitPlayerSpellsToWorkspace(_G.PlayerSpellsFrame, metrics, false)
         rootCanvas:Hide()
+        for _,canvas in pairs(regionCanvases) do canvas:Hide() end
         return
     end
 
@@ -143,8 +147,32 @@ function Canvas:UpdateLayout()
     rootCanvas:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", metrics.workspaceRight, metrics.workspaceTop)
 
     -- Apply clean, dark backdrop theme to the workspace
+    Offhand.canvases = nil
     if Offhand.Themes and Offhand.Themes.ApplyCanvasTheme then
-        Offhand.Themes:ApplyCanvasTheme(rootCanvas)
+        Offhand.Themes:ApplyCanvasTheme(rootCanvas,metrics.primaryWorkspaceRegion)
+    end
+    for _,canvas in pairs(regionCanvases) do canvas:Hide() end
+    Offhand.canvases = nil
+    if metrics.workspaceRegions then
+        Offhand.canvases = {[metrics.primaryWorkspaceRegion]=rootCanvas}
+        for _,r in ipairs(metrics.workspaceRegions) do
+            if r.id ~= metrics.primaryWorkspaceRegion then
+                local canvas=regionCanvases[r.id]
+                if not canvas then
+                    canvas=CreateFrame("Frame",nil,UIParent,not Offhand.isLegacyWrath and "BackdropTemplate" or nil)
+                    canvas:SetFrameStrata("BACKGROUND");canvas:SetFrameLevel(1)
+                    canvas.bgTexture=canvas:CreateTexture(nil,"BACKGROUND",nil,-8)
+                    canvas.bgTexture:SetAllPoints(canvas)
+                    regionCanvases[r.id]=canvas
+                end
+                canvas:ClearAllPoints()
+                canvas:SetPoint("BOTTOMLEFT",UIParent,"BOTTOMLEFT",r.x,r.y)
+                canvas:SetPoint("TOPRIGHT",UIParent,"BOTTOMLEFT",r.x+r.width,r.y+r.height)
+                Offhand.canvases[r.id]=canvas
+                if Offhand.Themes and Offhand.Themes.ApplyCanvasTheme then Offhand.Themes:ApplyCanvasTheme(canvas,r.id) end
+                canvas:Show()
+            end
+        end
     end
 
     -- Enable free dragging for standard Blizzard frames so the player can move them anywhere on the workspace
@@ -189,14 +217,21 @@ function Canvas:ShouldYieldWorldMap(frameOrName)
 end
 
 function Canvas:GetCompatibilityDiagnostics(compact)
-    return Compatibility.GetDiagnostics(
+    local report = Compatibility.GetDiagnostics(
         compact,
         self._lastLeatrixCoordinateFontRefreshCount
     )
+    local daylight = Offhand.DaylightMapCompatibility and Offhand.DaylightMapCompatibility:GetDiagnostics()
+    if daylight then report = report .. " | " .. daylight end
+    local procDoc = Offhand.ProcDocCompatibility
+    if procDoc then report = report .. " | ProcDocCenter=" .. (procDoc.status or "inactive") end
+    return report
 end
 
 local function IsUnsafeForDirectMutation(frame)
     if not frame then return true end
+    local hudCompatibility = Offhand.HUDCompatibility
+    if hudCompatibility and hudCompatibility.IsExternallyOwnedHUDFrame(frame) then return true end
     if ShouldYieldFrameToClassicUIForever(frame) then return true end
     if IsBlizzardEditModeOwnedFrame(frame) then return true end
     if ShouldYieldForeverProfessionsPanel(frame) then return true end
@@ -301,6 +336,13 @@ end
 -- here and remain covered by the stricter guard above.
 local function IsUnsafeForPanelMutation(frame, name)
     if not frame then return true end
+    local hudCompatibility = Offhand.HUDCompatibility
+    if hudCompatibility and hudCompatibility.IsExternallyOwnedHUDFrame(frame, name) then return true end
+    if Offhand.isForever and Compatibility.IsForeverEllesmereBag(name or (frame.GetName and frame:GetName())) then
+        return true
+    end
+    if Offhand.isForever and frame == _G.WorldMapFrame
+        and not CanManagePanelsFromAddon() then return true end
     if ShouldYieldFrameToClassicUIForever(frame, name) then return true end
     if ShouldYieldWorldMapToMoveAny(name or frame) then return true end
     if IsBlizzardEditModeOwnedFrame(frame, name) then return true end
@@ -679,6 +721,8 @@ assert(Offhand.CanvasMapPresentation, "Offhand map presentation must load before
     })
 
 function Canvas:UpdatePersistenceBehavior()
+    if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:Refresh() end
+    if Offhand.CanvasAddonEscape then Offhand.CanvasAddonEscape:Refresh() end
     if Offhand.CanvasPanelLifecycle and Offhand.CanvasPanelLifecycle.UpdateTBCWorkspacePanelSlots then
         Offhand.CanvasPanelLifecycle.UpdateTBCWorkspacePanelSlots()
     end
@@ -975,7 +1019,9 @@ function Canvas:RestorePersistentFrames(mode)
     -- Historical Baganator/EUI child snapshots must not resurrect the native
     -- backpack on Forever. Only the explicit mode-independent native marker is
     -- authoritative there.
-    if Offhand.isForever then hasBag = IsNativeBackpackTrackedOpen() end
+    if Offhand.isForever then
+        hasBag = IsNativeBackpackTrackedOpen() and not (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon())
+    end
     if BackpackState.UsesTBCBagIDs and BackpackState.UsesTBCBagIDs() then
         -- Frame names are pooled on Anniversary. Never let legacy per-frame
         -- markers (including absent/false records) trigger OpenAllBags.
@@ -989,6 +1035,7 @@ function Canvas:RestorePersistentFrames(mode)
             if activeLockRestore then Canvas.activeLockBagRestoreQueued = nil end
             -- The player can change interface style during the delay.
             if not CanManagePanelsFromAddon() then return end
+            if Offhand.isForever and Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon() then return end
             -- Combined Backpack mode may never create ContainerFrame1 during
             -- startup, which makes the general compatibility heuristic report
             -- a false custom-bag positive. An explicit saved native root wins.
@@ -1073,6 +1120,11 @@ IsFrameOnWorkspace = function(frame)
     local y = frame.GetBottom and frame:GetBottom()
     local m = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
     if not m then return false end
+    if m.workspaceRegions and Offhand.WorkspaceRegions then
+        local rx,ry,rw,rh=Offhand.WorkspaceRegions:FrameRect(frame)
+        local destination=rx and Offhand.WorkspaceRegions:Destination(m,rx,ry,rw,rh)
+        return destination ~= nil and destination ~= "MAINHAND"
+    end
     if not x then
         local numPoints = frame.GetNumPoints and frame:GetNumPoints() or 0
         for i = 1, numPoints do
@@ -1163,6 +1215,7 @@ function Canvas:CaptureForeverFramePosition(frame)
     Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
     if onWorkspace and x and y then
         local metrics = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
+        if Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,frame) end
         local position = {
             x = x, y = y, width = width, height = height,
             canvasWidth = metrics and metrics.workspaceWidth or nil,
@@ -1170,6 +1223,7 @@ function Canvas:CaptureForeverFramePosition(frame)
             canvasLeft = metrics and metrics.workspaceLeft or nil,
             canvasBottom = metrics and metrics.workspaceBottom or nil,
         }
+        if Offhand.WorkspaceRegions and metrics then Offhand.WorkspaceRegions:SavePosition(position,metrics) end
         Offhand.db.savedWorkspacePositions[name] = position
         if IsBackpackRoot(name) then
             Offhand.db.nativeBackpackWorkspacePosition = position
@@ -1345,6 +1399,8 @@ nonMovableSystemPanels = {
     InterfaceOptionsFrame = true,
     VideoOptionsFrame = true,
     AudioOptionsFrame = true,
+    GuildInviteFrame = true,
+    ChatConfigFrame = true,
     -- Transient/interactive Blizzard UI is positioned by SeamRedirect (where
     -- safe) or left to secure/Edit Mode ownership. It must never acquire the
     -- generic panel drag, persistence, independent-open, or Escape behavior.
@@ -1425,7 +1481,8 @@ local function RestoreSavedPositionAfterShow(frame)
     local name = frameName
     local workspacePosition = name and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
     local mainPosition = name and Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name]
-    if not workspacePosition and not mainPosition then
+    local routed=Offhand.WorkspaceRouting and Offhand.WorkspaceRouting:HasRule(name,metrics)
+    if not workspacePosition and not mainPosition and not routed then
         local isNativePanel = name and UIPanelWindows and UIPanelWindows[name]
             and not nonMovableSystemPanels[name]
         if isNativePanel then
@@ -1651,7 +1708,7 @@ end
 -- A workspace backpack marked open is independent workspace content, so reopen
 -- only that tracked bag after Settings finishes its transition.
 function Canvas:RestoreTrackedWorkspaceBag()
-    if not Offhand.isForever or (InCombatLockdown and InCombatLockdown())
+    if not Offhand.isForever or foreverBags.IsCombatRestricted()
         or not Offhand.db or not Offhand.db.enabled
         or Offhand.db.persistentWorkspacePanels == false
         or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved())
@@ -1671,6 +1728,12 @@ function Canvas:RestoreTrackedWorkspaceBag()
         -- leave ContainerFrame_OnHide indexing a nil item button later.
         if not bag then bag = GetPreferredNativeBackpackRoot() end
     end
+    -- A native opener can dispatch callbacks that change combat state. Leave
+    -- both placement and tracked intent untouched until the next safe retry.
+    if foreverBags.IsCombatRestricted() then
+        Canvas._restoringWorkspaceBagFromEscape = false
+        return false
+    end
     local name = bag and bag.GetName and bag:GetName()
     local restored = bag and bag.IsShown and bag:IsShown()
     if restored then
@@ -1686,7 +1749,9 @@ function Canvas:RestoreTrackedWorkspaceBag()
         -- fail-closed behavior so an unavailable shell is never exposed.
         local preservingPanel = Canvas._systemPanelOpeningToken ~= nil
             or IsForeverNativeBagPreservingPanelShown()
-        if not preservingPanel then ClearNativeBackpackOpenState() end
+        if not preservingPanel and not foreverBags.IsCombatRestricted() then
+            ClearNativeBackpackOpenState()
+        end
     end
     Canvas._restoringWorkspaceBagFromEscape = false
     return restored and true or false
@@ -1894,7 +1959,9 @@ function Canvas:EnableFreeDragging()
     local hasCustomBags = Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()
     local hasCustomMinimap = Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon()
 
-    if Offhand.isForever and not hasCustomBags then
+    -- Install the external observer even before Blizzard creates its bag roots.
+    -- Its live ownership gate yields to replacements and accepts late roots.
+    if Offhand.isForever then
         self:EnableForeverNativeBagProxy()
     end
     if Offhand.isForever and IsExternallyPositionedWorldMap(_G.WorldMapFrame) then
@@ -2576,7 +2643,10 @@ function Offhand:InitializeCanvas()
 
     if Offhand.isForever and C_Timer and C_Timer.NewTicker and not Canvas.foreverPositionTicker then
         Canvas.foreverPositionTicker = C_Timer.NewTicker(0.5, function()
+            if Offhand.DaylightMapCompatibility then Offhand.DaylightMapCompatibility:Refresh() end
             if Offhand._displayGeometryTransitionActive then return end
+            if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:Refresh() end
+            if Offhand.CanvasAddonEscape then Offhand.CanvasAddonEscape:Refresh() end
             Canvas:RetryMissingExperimentalForeverProfessionsMovement()
             Canvas:MonitorDetachedChatSettingsPresentation()
             local editModeShown = EditModeManagerFrame and EditModeManagerFrame.IsShown

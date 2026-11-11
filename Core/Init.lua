@@ -51,6 +51,8 @@ Offhand.companionDownloadUrl = Offhand.companionStoreUrl
 -- The addon only links to Microsoft's documentation. It does not inspect or
 -- depend on PowerToys; FancyZones is one optional way to place the WoW window.
 Offhand.powerToysDownloadUrl = "https://aka.ms/getPowerToys"
+Offhand.websiteUrl = "https://offhand-wow.onrender.com/"
+Offhand.discordUrl = "https://discord.gg/J2P3SM6pAY"
 Offhand.modules = {}
 Offhand.callbacks = {}
 
@@ -564,6 +566,10 @@ end
 -- focus and binding stack. An addon-triggered popup can therefore taint
 -- FrameControlsManager before it reaches a protected gamepad action. Route all
 -- Offhand dialogs through one addon-owned card while that interface is active.
+-- Setup confirmations also use this card in keyboard/mouse UI: Blizzard's
+-- shared popup stack starts at the whole-canvas seam and then restores its TOP
+-- anchor. Position our own card inside Mainhand before Show instead of moving
+-- a native pooled dialog after its popup transaction.
 local function GetGamepadSafePopup()
     if Offhand._gamepadSafePopup then return Offhand._gamepadSafePopup end
 
@@ -617,6 +623,18 @@ local function GetGamepadSafePopup()
 
     local function Finish(handler)
         local definition, data = frame.definition, frame.data
+        if handler == "OnAccept" and definition and definition.offhandAcceptBeforeHide
+            and type(definition.OnAccept) == "function" then
+            -- Forever revokes reload's hardware-click permission when its
+            -- clicked parent is hidden first. Keep this ordering opt-in so
+            -- ordinary confirmation callbacks retain their existing lifecycle.
+            local generation = frame.popupGeneration
+            definition.OnAccept(frame, data, "clicked")
+            -- A callback may replace/reopen this same pooled card, including
+            -- the same definition after an input-style or combat change.
+            if frame.popupGeneration == generation and frame.definition == definition then frame:Hide() end
+            return
+        end
         frame:Hide()
         if definition and type(definition[handler]) == "function" then
             definition[handler](frame, data, "clicked")
@@ -640,8 +658,18 @@ end
 function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     local recoveryPopup = popupKey == "OFFHAND_CONFIRM_RECOVERY"
     local setupPopup = popupKey == "OFFHAND_DOWNLOAD_LINK" or popupKey == "OFFHAND_POWERTOYS_LINK"
+        or popupKey == "OFFHAND_SETUP_MANUAL_RELOAD"
+        or popupKey == "OFFHAND_WEBSITE_LINK" or popupKey == "OFFHAND_DISCORD_LINK"
+        or popupKey == "OFFHAND_CONFIRM_WINDOWED_MODE"
+        or popupKey == "OFFHAND_CONFIRM_PLACEMENT"
+        or popupKey == "OFFHAND_CONFIRM_MANUAL_LAYOUT"
+        or popupKey == "OFFHAND_CONFIRM_MANUAL_LAYOUT_FOREVER"
         or popupKey == "OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT"
+        or popupKey == "OFFHAND_MAINHAND_LAYOUT_RELOAD"
+        or popupKey == "OFFHAND_MAINHAND_LAYOUT_SELECT"
         or popupKey == "OFFHAND_HUD_SETUP_REMINDER"
+        or popupKey == "OFFHAND_CHARACTER_SETUP"
+        or popupKey == "OFFHAND_ELLESMERE_HUD_RELOAD"
     if not self:IsGamepadUIEnabled() and not setupPopup and not recoveryPopup then
         if StaticPopup_Show then return StaticPopup_Show(popupKey, textArg1, textArg2, data) end
         return nil
@@ -651,6 +679,7 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     if not definition then return nil end
     local frame = GetGamepadSafePopup()
     if frame.popupKey then frame:Hide() end
+    frame.popupGeneration = (frame.popupGeneration or 0) + 1
     frame.popupKey, frame.definition, frame.data = popupKey, definition, data
     frame.text:SetJustifyH(recoveryPopup and "LEFT" or "CENTER")
     if frame.text.SetFontObject then
@@ -705,6 +734,14 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
         if frame.EditBox.SetFocus then frame.EditBox:SetFocus() end
     end
     return frame
+end
+
+function Offhand:ShowManualReloadPrompt()
+    StaticPopupDialogs.OFFHAND_SETUP_MANUAL_RELOAD = {
+        text = self.L["SETUP_MANUAL_RELOAD"], button1 = self.L["BTN_CLOSE"],
+        timeout = 0, whileDead = true, hideOnEscape = true,
+    }
+    return self:ShowPopup("OFFHAND_SETUP_MANUAL_RELOAD")
 end
 
 function Offhand:HidePopup(popupKey)
@@ -904,6 +941,7 @@ function Offhand:HideCompanionNotices(exceptKind)
 end
 
 function Offhand:RefreshMainhandLayoutAttention()
+    if self.CharacterSetup and self.CharacterSetup:Refresh() then return true end
     if InCombatLockdown and InCombatLockdown() then return false end
     local pendingHUD = type(OffhandCharDB) == "table"
         and (OffhandCharDB.hudSetupReminder or OffhandCharDB.mainhandLayoutDeferred)
@@ -1249,13 +1287,15 @@ local function EvaluateEntryNotices(attempt)
         or Offhand.db.firstRunComplete
     local onboardingResumeStep = Offhand.GetOnboardingResumeStep
         and Offhand:GetOnboardingResumeStep() or nil
-    if Offhand.db.enabled and (onboardingResumeStep or not welcomeDismissed or not setupComplete) then
+    if Offhand.db.automaticSetupSuppressed ~= true
+        and (onboardingResumeStep or not welcomeDismissed or not setupComplete) then
         Offhand:HideCompanionNotices()
         Offhand:HideResolvedSpanPrompts(viewportMetrics)
         -- Installation onboarding is deliberately independent from display
         -- calibration. A saved reload handoff takes priority over an older
         -- welcome acknowledgement. Acknowledging the welcome never substitutes
-        -- for completing calibration; deliberately disabled profiles stay quiet.
+        -- for completing calibration. The disabled default must not hide this
+        -- guide; explicit disable records its own suppression flag.
         if Offhand.Onboarding and Offhand.Onboarding.Open then
             Offhand.Onboarding:Open()
         elseif not isSpanned then
@@ -1367,6 +1407,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         -- empty one after Blizzard has already hidden its panels.
         if Offhand._openPanelsCapturedForTransition then return end
         Offhand._openPanelsCapturedForTransition = true
+        if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:PauseForTransition() end
         if Offhand.Canvas and Offhand.Canvas.FinalizeForeverNativeBagStateForTransition then
             Offhand.Canvas:FinalizeForeverNativeBagStateForTransition()
         end
@@ -1434,6 +1475,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         end
     elseif event == "PLAYER_ENTERING_WORLD" then
         Offhand._openPanelsCapturedForTransition = false
+        if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:BeginSession() end
         local shouldEvaluateNotices = not Offhand._hasEnteredWorld
         Offhand._hasEnteredWorld = true
         -- Refresh viewport and layout after zone transition or loading screen
@@ -1464,6 +1506,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         Offhand._playerControlLost = true
         Offhand:DeferAutomaticUIForCinematic()
         Offhand:HideCompanionNotices()
+        if Offhand.CharacterSetup then Offhand.CharacterSetup:Hide() end
         if Offhand.Onboarding and Offhand.Onboarding.Close then Offhand.Onboarding:Close() end
         if Offhand.Wizard and Offhand.Wizard.Close then Offhand.Wizard:Close() end
 
@@ -1487,10 +1530,12 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             local welcomePending = not (Offhand.IsWelcomeDismissed and Offhand:IsWelcomeDismissed())
                 or (Offhand.GetOnboardingResumeStep and Offhand:GetOnboardingResumeStep() ~= nil)
             if welcomePending or (Offhand._companionNoticesShown and next(Offhand._companionNoticesShown))
-                or (Offhand.HUD and Offhand.HUD.foreverRecoveryPromptShown) then
+                or (Offhand.HUD and Offhand.HUD.foreverRecoveryPromptShown)
+                or (Offhand.CharacterSetup and Offhand.CharacterSetup.shown) then
                 Offhand:DeferAutomaticUIForCinematic()
             end
             Offhand:HideCompanionNotices()
+            if Offhand.CharacterSetup then Offhand.CharacterSetup:Hide() end
             Offhand:HideForeverEditModeControlsPrompt()
             Offhand:HidePopup("OFFHAND_WELCOME_SPAN_WARNING")
             Offhand:HidePopup("OFFHAND_FOREVER_SINGLE_SCREEN_LAYOUT")
@@ -1535,6 +1580,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
 
     elseif event == "PLAYER_REGEN_ENABLED" then
         ProcessCombatQueue()
+        if Offhand.CharacterSetup and Offhand.CharacterSetup.pendingCombat then
+            Offhand:RefreshMainhandLayoutAttention()
+        end
 
     elseif event == "UI_SCALE_CHANGED" or event == "DISPLAY_SIZE_CHANGED" then
         -- A Companion span can dispatch several size/scale notifications while
@@ -1567,7 +1615,8 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 end
                 if generation == Offhand._displayGeometryGeneration then
                     Offhand._displayGeometryTransitionActive = false
-                    Offhand:RefreshCompanionNoticeState(displayMetrics)
+                    local companionNotice = Offhand:RefreshCompanionNoticeState(displayMetrics)
+                    if not companionNotice and Offhand.CharacterSetup then Offhand.CharacterSetup:Refresh() end
                 end
             end)
         end)
@@ -1578,14 +1627,14 @@ end)
 local isApplyingLayout = false
 local layoutPending = false
 
-function Offhand:ApplyFullLayout()
+function Offhand:ApplyFullLayout(preserveGlobalScale)
     if not Offhand.db then return end
     if InCombatLockdown() then
         if not layoutPending then
             layoutPending = true
             self:RunOrQueueCombat(function()
                 layoutPending = false
-                Offhand:ApplyFullLayout()
+                Offhand:ApplyFullLayout(preserveGlobalScale)
             end)
         end
         return
@@ -1594,7 +1643,13 @@ function Offhand:ApplyFullLayout()
     isApplyingLayout = true
 
     local success, err = pcall(function()
-        if Offhand.Viewport and Offhand.Viewport.ApplyGlobalScale then Offhand.Viewport:ApplyGlobalScale() end
+        if Offhand.WorkspaceProfiles and Offhand.Viewport then
+            Offhand.WorkspaceProfiles:SyncCompanion(Offhand.Viewport:GetMetrics())
+        end
+        if preserveGlobalScale ~= true and Offhand.Viewport and Offhand.Viewport.ApplyGlobalScale then
+            Offhand.Viewport:ApplyGlobalScale()
+        end
+        if Offhand.EllesmereScaleCompatibility then Offhand.EllesmereScaleCompatibility:Refresh() end
         if Offhand.UpdateViewport then
             Offhand:UpdateViewport()
         end
@@ -1641,6 +1696,9 @@ function Offhand:ApplyFullLayout()
         end
     end)
 
+    if success and Offhand.WorkspaceProfiles then
+        success,err=pcall(Offhand.WorkspaceProfiles.Refresh,Offhand.WorkspaceProfiles)
+    end
     isApplyingLayout = false
     if not success then
         Offhand:Print(L["MSG_LAYOUT_ERROR"], tostring(err))
@@ -1658,7 +1716,11 @@ SlashCmdList["OFFHAND"] = function(msg)
     msg = strtrim(msg or ""):lower()
     local cmd, arg = strsplit(" ", msg, 2)
 
-    if cmd == "notifycapture" then
+    if cmd == "recovermap" and Offhand.OpenMapRecovery then
+        Offhand.OpenMapRecovery:RunAndReport()
+    elseif cmd == "ellesmere" and Offhand.EllesmereLayout then
+        Offhand.EllesmereLayout:Run(strtrim(arg or ""))
+    elseif cmd == "notifycapture" then
         local hud = Offhand.HUD
         if not hud or not hud.ArmNotificationCapture then return end
         local action = strtrim(arg or "")
@@ -1764,6 +1826,20 @@ SlashCmdList["OFFHAND"] = function(msg)
         -- Keep historical feature probes available on demand. Default reports
         -- must not enumerate native HUD trees or collect animation/debug state.
         if fullDiagnostics then
+            local characterSetup = type(OffhandCharDB) == "table" and OffhandCharDB.characterSetup
+            local choice = type(characterSetup) == "table" and characterSetup.choice or "unseen"
+            if choice ~= "existing" and choice ~= "customize" and choice ~= "later" then choice = "unseen" end
+            local resume = Offhand.GetOnboardingResumeStep and Offhand:GetOnboardingResumeStep() or nil
+            Offhand:Print("Setup state: Account=%s | Guide=%s | Resume=%s | Character=%s | Decision=%s.",
+                operating.setupComplete and "complete" or "pending",
+                Offhand.db and Offhand.db.automaticSetupSuppressed == true and "paused" or "available",
+                tostring(resume or "none"), choice,
+                type(characterSetup) == "table" and characterSetup.complete == true and "saved" or "pending")
+            if Offhand.CanvasCompatibility and Offhand.CanvasCompatibility.GetGuideAddonDiagnostics then
+                for _, report in ipairs(Offhand.CanvasCompatibility.GetGuideAddonDiagnostics() or {}) do
+                    Offhand:Print("Guide frame diagnostics: %s.", report)
+                end
+            end
             if Offhand.HUD and Offhand.HUD.GetNotificationCaptureReports then
                 for _, report in ipairs(Offhand.HUD:GetNotificationCaptureReports() or {}) do
                     Offhand:Print("Notification capture: %s.", report)
@@ -1852,6 +1928,10 @@ SlashCmdList["OFFHAND"] = function(msg)
         if fullDiagnostics and Offhand.Canvas and Offhand.Canvas.GetPanelControllerDiagnostics then
             Offhand:Print("Panel controller diagnostics: %s.",
                 Offhand.Canvas:GetPanelControllerDiagnostics())
+        end
+        if fullDiagnostics and Offhand.Canvas and Offhand.Canvas.GetForeverNativeBagDiagnostics then
+            local bags = Offhand.Canvas:GetForeverNativeBagDiagnostics()
+            if bags then Offhand:Print("Native bag diagnostics: %s.", bags) end
         end
         if fullDiagnostics and Offhand.DialogueUICompat and Offhand.DialogueUICompat.GetDiagnostics then
             Offhand:Print("Dialogue UI diagnostics: %s.",
@@ -1968,6 +2048,9 @@ SlashCmdList["Offhand"] = SlashCmdList["OFFHAND"]
 local logoutFix = CreateFrame('Frame')
 logoutFix:RegisterEvent('PLAYER_LOGOUT')
 logoutFix:SetScript('OnEvent', function()
+    if Offhand.Viewport and Offhand.Viewport.PrepareForLogout then
+        Offhand.Viewport:PrepareForLogout()
+    end
     if Offhand.RawMouse and Offhand.RawMouse.Restore then
         Offhand.RawMouse:Restore()
     end
@@ -1995,9 +2078,6 @@ logoutFix:SetScript('OnEvent', function()
         end
         if db.originalNameplateSize and SetCVar then
             SetCVar("nameplateSize", db.originalNameplateSize)
-        end
-        if db.originalFriendlyPlayerName ~= nil and SetCVar then
-            SetCVar("UnitNameFriendlyPlayerName", db.originalFriendlyPlayerName)
         end
     end
 
@@ -2034,6 +2114,9 @@ function Offhand:IsWindowReachable(left, top, width, m)
     end
     if not m.isSpanned then return InArea(0, 0, m.screenWidth, m.screenHeight) end
     if InArea(m.gameLeft, m.gameBottom, m.gameRight, m.gameTop) then return true end
+    for _,r in ipairs(m.workspaceRegions or {}) do
+        if InArea(r.x,r.y,r.x+r.width,r.y+r.height) then return true end
+    end
     if m.workspaceLeft ~= nil then
         return InArea(m.workspaceLeft, m.workspaceBottom, m.workspaceRight, m.workspaceTop)
     end
@@ -2114,6 +2197,11 @@ frame:SetScript("OnEvent", function()
     local function EnforceTooltipScale(self)
         if not Offhand.isRetail and not Offhand.isForever then return end
         if (InCombatLockdown and InCombatLockdown()) or not UIParent or not HasActiveSpannedLayout() then return end
+        -- The native size callback can run inside the fit's SetScale call,
+        -- before its final ownership record exists. Preserve that transaction
+        -- as well as the completed fit and any scale owner it yielded to.
+        if Offhand.PopupBounds and Offhand.PopupBounds.PreservesTooltipFitScale
+            and Offhand.PopupBounds:PreservesTooltipFitScale(self) then return end
         if self.SetIgnoreParentScale and self.IsIgnoringParentScale and self:IsIgnoringParentScale() then
             self:SetIgnoreParentScale(false)
         end

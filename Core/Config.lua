@@ -7,8 +7,8 @@ local _, Offhand = ...
 _G.Offhand = Offhand
 
 local defaultSettings = {
-    -- First launch is intentionally inert. The wizard enables Offhand only
-    -- after the user has reviewed the Companion's detected display topology.
+    -- Keep the viewport inert until the user confirms placement and applies
+    -- calibration. First-launch guidance is independent of this switch.
     enabled = false,
     layoutPreset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT", -- "PORTRAIT_LEFT_LANDSCAPE_RIGHT", "LANDSCAPE_DUAL", "CUSTOM"
     primaryPosition = "RIGHT",      -- "LEFT" or "RIGHT" (In Portrait Left, Primary 3D Game is on the RIGHT!)
@@ -46,6 +46,7 @@ local defaultSettings = {
 
     -- Feature toggles
     seamRedirect = true,            -- Redirect popups and errors away from center bezel
+    centerProcDocOnMainhand = false, -- Optional reversible ProcDoc center adapter
     preventMapCloseOnMove = true,   -- Keep WorldMap open while running/walking
     independentWorkspacePanels = true, -- Panels placed on the secondary workspace stay open independently
     persistentWorkspacePanels = true,  -- Keep workspace panels and maps open when pressing Escape
@@ -569,6 +570,12 @@ function ForeverPersistence:SaveWorkspacePosition(name, position, width, height)
     local value = table.concat({ "W4", tostring(x), tostring(y), tostring(tonumber(width) or 0),
         tostring(tonumber(height) or 0), tostring(canvasWidth), tostring(canvasHeight),
         tostring(canvasLeft), tostring(canvasBottom) }, "|")
+    if type(position.regionId)=="string" then
+        if #position.regionId<1 or #position.regionId>32 or not position.regionId:match("^[%w_-]+$") then return false end
+        value="W5"..value:sub(3).."|"..position.regionId
+        -- A bounded persistence format; this is not an assumed client CVar limit.
+        if #value>240 then return false end
+    end
     WritePersistentCVar(PositionCVar(name), value)
 end
 
@@ -585,8 +592,13 @@ function ForeverPersistence:RestorePositions()
     for _, name in ipairs(names) do
         RegisterPersistentCVar(PositionCVar(name))
         local value = ReadPersistentCVar(PositionCVar(name))
-        local kind, x, y, width, height, canvasWidth, canvasHeight, canvasLeft, canvasBottom = tostring(value or ""):match(
+        local kind, x, y, width, height, canvasWidth, canvasHeight, canvasLeft, canvasBottom,regionId = tostring(value or ""):match(
+            "^(W5)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%w_-]+)$")
+        if regionId and #regionId>32 then kind=nil end
+        if not kind then
+            kind, x, y, width, height, canvasWidth, canvasHeight, canvasLeft, canvasBottom = tostring(value or ""):match(
             "^(W4)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)$")
+        end
         if not kind then
             kind, x, y, width, height, canvasHeight, canvasBottom = tostring(value or ""):match(
             "^(W3)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)|([%+%-%.%d]+)$")
@@ -609,8 +621,9 @@ function ForeverPersistence:RestorePositions()
             -- fallback. A durable Mainhand record is an explicit, mutually
             -- exclusive owner and must not be combined with a stale W* value.
             Offhand.db.savedWorkspacePositions[name] = nil
-        elseif (kind == "W" or kind == "W2" or kind == "W3" or kind == "W4") and x and y then
+        elseif (kind == "W" or kind == "W2" or kind == "W3" or kind == "W4" or kind=="W5") and x and y then
             Offhand.db.savedWorkspacePositions[name] = {
+                regionId=kind=="W5" and regionId or nil,
                 x = x,
                 y = y,
                 width = width and width > 0 and width or nil,
@@ -677,18 +690,23 @@ function ForeverPersistence:SaveDisplayFlags(db)
     if not self:IsAvailable() or type(db) ~= "table" then return end
     local function Flag(value) return value and "1" or "0" end
     WritePersistentCVar(FOREVER_DISPLAY_FLAGS_CVAR, table.concat({
-        "V1", Flag(db.enabled), Flag(db.rawMouseInput ~= false),
+        "V2", Flag(db.enabled), Flag(db.rawMouseInput ~= false),
+        Flag(db.automaticSetupSuppressed == true),
     }, "|"))
 end
 
 function ForeverPersistence:RestoreDisplayFlags(db)
     if not self:IsAvailable() or type(db) ~= "table" then return false end
     RegisterPersistentCVar(FOREVER_DISPLAY_FLAGS_CVAR)
-    local enabled, rawMouse = tostring(ReadPersistentCVar(FOREVER_DISPLAY_FLAGS_CVAR) or ""):match(
-        "^V1|([01])|([01])$")
+    local value = tostring(ReadPersistentCVar(FOREVER_DISPLAY_FLAGS_CVAR) or "")
+    local enabled, rawMouse, suppressed = value:match("^V2|([01])|([01])|([01])$")
+    if not enabled then enabled, rawMouse = value:match("^V1|([01])|([01])$") end
     if not enabled then return false end
     db.enabled = enabled == "1"
     db.rawMouseInput = rawMouse == "1"
+    -- Older records carry no setup intent. Preserve any durable opt-out rather
+    -- than inferring it from the inactive first-launch viewport default.
+    if suppressed then db.automaticSetupSuppressed = suppressed == "1" end
     return true
 end
 
@@ -755,6 +773,14 @@ end
 function Offhand:SetEnabled(enabled)
     if not Offhand.db then return end
     Offhand.db.enabled = enabled == true
+    -- Only an explicit disable is an opt-out, not the fresh profile default.
+    Offhand.db.automaticSetupSuppressed = enabled ~= true
+    ForeverPersistence:SaveDisplayFlags(Offhand.db)
+end
+
+function Offhand:SetAutomaticSetupSuppressed(suppressed)
+    if not Offhand.db then return end
+    Offhand.db.automaticSetupSuppressed = suppressed == true
     ForeverPersistence:SaveDisplayFlags(Offhand.db)
 end
 
@@ -870,6 +896,25 @@ function Offhand:GetOnboardingSetupMethod()
     return nil
 end
 
+-- Character SavedVariables plus Forever's established CVar fallback. This
+-- checkpoint contains only workflow/mode/canvas dimensions, never frame data.
+function Offhand:GetPlacementCheckpoint()
+    local value
+    if type(OffhandCharDB) == "table" then value = OffhandCharDB.placementCheckpoint end
+    if value ~= nil then return value end
+    if ForeverPersistence:IsAvailable() then
+        RegisterPersistentCVar("offhandPlacementCheckpoint")
+        return ReadPersistentCVar("offhandPlacementCheckpoint")
+    end
+end
+
+function Offhand:SetPlacementCheckpoint(value)
+    value = type(value) == "string" and value or ""
+    if type(OffhandCharDB) ~= "table" then OffhandCharDB = {} end
+    OffhandCharDB.placementCheckpoint = value
+    if ForeverPersistence:IsAvailable() then WritePersistentCVar("offhandPlacementCheckpoint", value) end
+end
+
 function Offhand:SetOnboardingSetupMethod(method)
     if method ~= "COMPANION" and method ~= "FANCYZONES" and method ~= "MANUAL" then
         return false
@@ -922,10 +967,11 @@ function Offhand:EnsureCharacterIdentity()
             characterGUID = previous, mainhandLayout = record,
             editModeLayoutName = OffhandCharDB.editModeLayoutName,
         }
-        for _, key in ipairs({"mainhandLayout", "editModeLayoutName", "mainhandWindowedLayout",
+        for _, key in ipairs({"mainhandLayout", "mainhandLayoutsByMode", "editModeLayoutName", "mainhandWindowedLayout",
             "mainhandWindowedManualLayout", "foreverEditModeLayoutName", "foreverEditModeLayoutID",
             "foreverEditModeLegacyRecovery", "foreverEditModeRecovery", "mainhandLayoutDeferred",
-            "hudSetupReminderDeclined"}) do OffhandCharDB[key] = nil end
+            "hudSetupReminderDeclined", "hudSpanNoticeDismissed", "characterSetup",
+            "kerzoQuestLogOpen"}) do OffhandCharDB[key] = nil end
     end
     OffhandCharDB.characterGUID = guid
     if not self.isLegacyWrath and (stale or (not previous and not OffhandCharDB.mainhandLayout)) then

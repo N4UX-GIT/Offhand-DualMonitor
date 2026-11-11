@@ -1,11 +1,27 @@
 # Offhand Companion release runbook
 
+Current coordinated publication: **add-on 2.1.5 Pre-Release Beta 28** and
+**Companion 2.1.5**, file build **2.1.5.1**, Store package **2.1.500.0**.
+Use [the current preparation record](PUBLICATION-2.1.5-PREPARATION-20261109.md)
+and `scripts/Prepare-215Publication.ps1`. Frozen exact native assets are under
+`Companion/Prepared/2.1.5/`. Public Store Submission 6 is in certification with
+automatic publication after approval. Historical 2.1.3/Beta 20 workflows below
+remain frozen reference lanes; do not use them for new tags.
+
 This document is the operational source of truth for preparing, publishing,
 validating, and communicating Offhand Companion releases through GitHub and the
 Microsoft Store. It covers public betas and stable releases. The CurseForge
 artifact remains the in-game addon only.
 
 ## Release objectives
+
+For the pending matched 2.1.3 release, use
+[the dedicated publication preparation](PUBLICATION-2.1.3-PREPARATION-20261108.md)
+and `scripts/Prepare-213Publication.ps1`. Its exact Store-matching native inputs
+are under `Companion/Prepared/2.1.3/`; it does not use the historical canonical
+Beta 20 assets. The workflow stages separate drafts for Companion v2.1.3 and add-on
+v2.1.3-beta.27 (Pre-Release Beta 27). The add-on remains a prerelease.
+The general historical lane and previously published hashes below stay intact.
 
 Every release must satisfy all of the following:
 
@@ -73,7 +89,7 @@ runtimes even when every entry is byte-identical.
 
 Beginning with the next release, every newly attached portable Companion
 archive must follow `Offhand-Companion-v<VERSION>.zip`, where `<VERSION>` is the
-Companion version—not necessarily the addon version. Keep `Offhand.exe` stable
+Companion version, which is not necessarily the addon version. Keep `Offhand.exe` stable
 inside the archive and as the standalone asset so existing shortcuts and
 instructions remain valid.
 
@@ -164,6 +180,43 @@ Never reduce the Store package version to match the public patch number. For
 example, after publishing `2.1.13.0`, do not submit `2.1.2.0`; existing users
 would not receive it as an upgrade. Record the last submitted Store version in
 the release record at the end of this document.
+
+## Branch and promotion model
+
+Use `companion/develop` as the long-lived integration branch for Companion
+development. It contains the complete repository, but changes merged into it
+should be limited to Companion source, Companion-specific tests and workflows,
+and directly related documentation unless a cross-component contract must
+change.
+
+- Create individual work on short-lived branches named
+  `companion/<issue>-<description>` from `companion/develop`.
+- Open Companion feature pull requests against `companion/develop`, not
+  `main`. Keep incomplete or unverified work in its individual pull request.
+- Require the repository CI and Companion CodeQL checks before merging into
+  `companion/develop`.
+- Regularly merge `main` into `companion/develop` so addon contracts, tests,
+  and packaging behavior do not drift. Do not merge `companion/develop` into
+  `main` as routine synchronization.
+- Do not commit a newly rebuilt `Companion/Offhand.exe` during ordinary feature
+  integration. CI artifacts may be used for testing, but the checked-in
+  executable remains the exact frozen public build until a release candidate
+  is explicitly accepted.
+- When a candidate is ready, optionally create
+  `companion/rc/<version>` to freeze the source, version metadata, test record,
+  and exact executable under review.
+- Promote Companion work to `main` through one explicit release pull request.
+  That pull request must identify the accepted candidate commit, live-test
+  evidence, executable hash, version and protocol changes, documentation
+  updates, and rollback artifact.
+- Update the frozen tag and SHA-256 in release automation only after the new
+  executable has passed the required validation and the release owner has
+  approved promotion.
+
+Branch separation does not replace artifact verification. A Companion build is
+not a release candidate merely because it is present on `companion/develop`.
+The packaged executable, source commit, version metadata, and recorded hash
+must still correspond exactly.
 
 ## Release lanes and cadence
 
@@ -324,19 +377,23 @@ Replace the example version in every command with the recorded release version.
 Skip this section for addon-only releases. Package the exact reviewed Companion
 artifact when the application itself is intentionally updated.
 
-Use the Store-assigned identity already encoded in the builder. Example:
+Use the Store-assigned identity already encoded in the builder. The current
+prepared 2.1.3 update is described in
+[the Store update guide](COMPANION-2.1.3-STORE-PREPARATION.md). Example:
 
 ```powershell
+$candidate = Get-Content .\dist\companion-2.1.3-native\candidate.json -Raw | ConvertFrom-Json
 .\Companion\Store\Build-StorePackage.ps1 `
-  -PackageVersion 2.1.20.0 `
-  -CompanionPath .\Companion\Offhand.exe `
-  -ExpectedCompanionSha256 81EECE9430885CEAC178A44A42429854524279072305F9F94EE62E7CCD620CCB
+  -PackageVersion 2.1.300.0 `
+  -CompanionPath .\dist\companion-2.1.3-native\Offhand.exe `
+  -ExpectedCompanionSha256 $candidate.binarySha256
 ```
 
-The Store `2.1.19.0` submission embeds the earlier reviewed `658B633...`
-executable. Let that certification complete. Use `2.1.20.0` or another unused
-higher version for the topology-repair executable; never replace the package in
-an active certification submission.
+The earlier Store `2.1.19.0` submission and Beta 20 `2.1.20.0` preparation are
+historical. The local installed package was observed as `2.1.20.0` on
+2026-11-07. The new `2.1.300.0` retains its identity and sorts higher. Confirm
+Partner Center's current published/in-flight versions before upload; never
+replace an active certification submission without reviewing its state.
 
 - [ ] Use a Store version higher than the currently published x64 package.
 - [ ] Confirm the package name is `N4UX.OffhandCompanion`.

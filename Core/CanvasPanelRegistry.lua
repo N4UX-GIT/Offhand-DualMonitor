@@ -102,13 +102,13 @@ function PanelRegistry.RequiresNativePanelRegistration(name)
     -- also makes the protected-root placement guard reject subsequent restores.
     if (name == "WorldMapFrame" or name == "SpellBookFrame") and not Offhand.isForever
         and tocVersion >= 20500 and tocVersion < 20600 then return true end
-    -- Retail MapCanvas providers, standalone books and Group Finder need native
+    -- Retail MapCanvas providers, standalone books, Collections and Group Finder need native
     -- panel transactions even though they can reopen after reload. Preserve lifecycle
     -- independently from the interaction-bound visibility policy.
     return PanelRegistry.IsContextBoundPanel(name)
         or (Offhand.isRetail and not Offhand.isForever
             and (name == "WorldMapFrame" or name == "ProfessionsBookFrame" or name == "PlayerSpellsFrame" or name == "PVEFrame"
-                or name == "FriendsFrame"))
+                or name == "FriendsFrame" or name == "CollectionsJournal" or name == "CollectionsJournalFrame"))
 end
 
 function PanelRegistry.GetPositionRoot(frame)

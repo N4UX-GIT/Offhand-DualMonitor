@@ -55,7 +55,9 @@ $channelName = switch ($channel) {
     default { $null }
 }
 
-$releaseName = if ($isPrerelease) {
+$releaseName = if ($Tag -eq 'v2.1.3-beta.27' -or $Tag -eq 'v2.1.5-beta.28' -or $Tag -eq 'v2.1.5-beta.29' -or $Tag -eq 'v2.1.5-beta.30') {
+    "Offhand v$version Pre-Release Beta $sequence"
+} elseif ($isPrerelease) {
     "Offhand v$version $channelName $sequence"
 } else {
     "Offhand v$version"
@@ -103,7 +105,46 @@ $companionDownloads = if ($CompanionChanged) {
 "@
 }
 
-$testFocus = if ($Tag -eq 'v2.1.2-beta.26') {
+$testFocus = if ($Tag -eq 'v2.1.5-beta.30') {
+@'
+The loot-container correction passed a controlled before/after comparison in Forever 1.60.1.70862 with spanning applied. Removing the first of three private test panels moved the remaining panels to the seam with the prior code; this build kept both visible and centered inside Mainhand through native reflow and maintenance. No real items or roll choices were used. Real simultaneous loot rolls, expiration/queue behavior and combat still need player verification.
+
+The release source passes 125 Lua regression suites and six manifest/syntax checks. This build includes the loot-container correction, expanded EllesmereUI layout transfers and dependency/blocker guidance, Questie/Social anchor preservation and the Retail friendly-name preference correction. The owner requested inclusion of these previously deferred addon changes. Companion and the existing DaylightUI implementation are unchanged; further Daylight testing remains deferred.
+
+Earlier spanned Forever checks cover supported EllesmereUI cooldown/cast imports and reload, disabled-module guidance, controlled linked-anchor/override preview cases and Social/Quick Join anchor preservation. These scoped results do not establish exact reporter-profile acceptance. Native Retail preference behavior, active Questie-objective dragging, populated/spec-changing tracking-bar imports and combat remain unverified. Global tracking-bar groups are not transferred. Exact controller paths and physical portrait/4K layouts are not newly verified. Legacy Retail cleanup can restore a saved off preference once before returning control to the player.
+
+Keep your existing profiles. Report regressions with `/offhand diag full`, the client/build, display arrangement and other UI addons. Companion 2.1.5 is unchanged; an already-working Companion does not need to be replaced.
+'@
+} elseif ($Tag -eq 'v2.1.5-beta.29') {
+@'
+Real simultaneous loot rolls and their combat lifecycle could not be verified locally. Those corrections are included for beta feedback. Please check remaining roll windows, usable roll choices, and long item tooltips during normal play.
+
+This build passes 122 Lua regression suites and six manifest/syntax checks. Controlled spanned Forever 1.60.1.70862 checks cover placement, options, reload, disable/re-enable, Restore Window, and exit/relaunch. Actual combat, exact reporter profiles, controller paths and physical portrait/4K layouts are not fully verified. Old-profile minimap hiding and exact HUD-save reports remain under investigation; the separate Retail friendly-name correction is deferred.
+
+Keep your existing profiles. Report regressions with `/offhand diag full`, the client/build, display arrangement and other UI addons. Companion 2.1.5 is unchanged; an already-working Companion does not need to be replaced.
+'@
+} elseif ($Tag -eq 'v2.1.5-beta.28') {
+@'
+1. Back up SavedVariables, Companion preferences and native/replacement HUD layouts. Upgrade without deleting settings. Install the add-on separately from Store Companion.
+2. Use /offhand guide for first setup. Position WoW, acknowledge Window is positioned, reload, then review Confirm placement. Continue calibration using either the recommendation or Next and complete the HUD/reload steps. Verify a normal restart retains your setup.
+3. In Companion, review displays/Mainhand and click Span WoW Now. Type /reload after spanning or changing layout. Save plan stores choices only. Restore Window returns the previous geometry.
+4. Check custom workspaces, Flexible Layout, saved profiles, supported-panel routing, manual-position priority and region themes/backgrounds. Workspace layout > Use standard display layout returns to ordinary spanning.
+5. Check map scaling on Mainhand and Offhand, fixed presets and Auto Fit. Supported OpenMap remains its own owner. Test title recovery only when needed, outside combat; no third-party source patch is included.
+6. Check settings typed values/sliders, dialog alignment and normal native map/bag/menu behavior, including controller/combat where used. Include fresh Lua/taint evidence. Full exact-package native, physical mixed-DPI/hotplug/three-monitor and Wine coverage remain open.
+7. Store Companion can show a static Update available action after a quiet daily query. It opens Microsoft Store for installation; portable updates stay manual. Store 2.1.5 is in certification. Actual Store-delivered 2.1.5 upgrade, real Available and real signed-out/offline behavior remain unverified; publication proceeds at the owner's request without waiting for the private flight.
+'@
+} elseif ($Tag -eq 'v2.1.3-beta.27') {
+@'
+1. Back up Offhand SavedVariables, Companion preferences and native/replacement HUD layouts. Install the 2.1.3 Pre-Release Beta 27 add-on and Companion 2.1.3 without deleting settings. The Store installs Companion only.
+2. Start WoW in ordinary Windowed mode. Review checked displays and Mainhand. Save plan stores choices; Span WoW Now applies them. Type /reload after spanning or changing Mainhand/layout. Use /offhand guide for first setup.
+3. Test standard, single-monitor, partial-secondary, multiple-workspace and Flexible Layout plans that fit your setup. Review the preview, visual area selection, profile reload and missing-display safeguards. Use Workspace layout > Use standard display layout to disable custom areas.
+4. Check supported-panel routing, manual-position priority, independent region themes and installed background-library images. Keep general add-on profiles and Blizzard HUD layouts separate from workspace profiles.
+5. Verify Restore Window, relaunch, existing saved positions, native/replacement bag and map behavior, controller mode where used, and normal actions before/during/after combat. Include fresh Lua and taint evidence; source/simulated passes do not establish full hardware or protected-action coverage.
+6. Report client/build, display identities, arrangement/scaling, affected add-ons, steps and Display Diagnostics. Physical mixed-DPI/hotplug/three-monitor, Wine and full exact-package live acceptance remain separate checks.
+
+Local WACK passed all 13 required tests; one optional blocked-executable finding was reviewed and retained. Local Defender scans were clean. The exact portable sample has not received a Defender review determination; Store certification and SmartScreen reputation are separate. Keep security protections enabled and report exact detections.
+'@
+} elseif ($Tag -eq 'v2.1.2-beta.26') {
 @'
 1. Back up SavedVariables, native Edit Mode layouts and UI addon profiles. Upgrade without deleting settings.
 2. On Anniversary, check World Map, Spellbook, Macro and bags individually and together. Verify open-before-reload restoration and closed-before-reload intent, Escape, native NPC interactions and normal restart behavior.
@@ -184,7 +225,7 @@ $testFocus
 
 ## Linux and Wine status
 
-The Companion is still a Windows WinForms application. Wine support is experimental: run WoW and the Companion as the same user in the same ``WINEPREFIX`` and with the same Wine/Proton runner version. See ``Companion/Linux.md`` in the complete package for a Lutris example and extraction checks. Native Linux, X11, and general Wayland support are not claimed by this release.
+The Companion is still a Windows WinForms application. Wine support is experimental: run WoW and the Companion as the same user in the same ``WINEPREFIX`` and with the same Wine/Proton runner version. See ``Companion/Linux.md`` in the source repository for a Lutris example and extraction checks. Native Linux, X11, and general Wayland support are not claimed by this release.
 
 ## Reporting issues
 

@@ -3,12 +3,13 @@
 ## Title: |cffffbd0aOffhand|r |cffffffff[Multi-Monitor Setup]|r
 ## Notes: Keep gameplay on one screen and move maps, bags, chat, and other supported UI panels to another.
 ## Author: N4UX (Noggaholic)
-## Version: 2.1.2
-## X-Offhand-Release: beta.26
-## X-Offhand-Addon-Release: beta.26
-## X-Offhand-Companion-Version: 2.1.2
-## X-Offhand-Companion-Release: beta.20
+## Version: 2.1.5
+## X-Offhand-Release: beta.30
+## X-Offhand-Addon-Release: beta.30
+## X-Offhand-Companion-Version: 2.1.5
+## X-Offhand-Companion-Release:
 ## X-Offhand-Companion-Protocol: 1
+## X-Offhand-Topology-Schemas: 1,2,3
 ## X-Offhand-Companion-Min-Version: 2.1.2-beta.19
 ## X-Offhand-Manifest: Mainline
 ## X-Website: https://offhand-wow.onrender.com/
@@ -26,25 +27,35 @@ Core\ForeverState.lua
 Core\Config.lua
 Core\UserMedia.lua
 Core\ManualCanvas.lua
+Core\WorkspaceRegions.lua
+Core\WorkspaceProfiles.lua
+Core\WorkspaceRouting.lua
 Core\Viewport.lua
 Core\TopologyDetection.lua
+Core\EllesmereScaleCompatibility.lua
 Core\PopupBounds.lua
 Core\MainhandGeometry.lua
 Core\MainhandCompatibility.lua
 Core\MainhandGamepad.lua
 Core\MainhandEditMode.lua
 Core\Mainhand.lua
+Core\ForeverEllesmereLayout.lua
+Core\CharacterSetup.lua
 Core\RetailFullscreen.lua
 Core\CinematicPresentation.lua
 Core\DialogueUICompat.lua
 Core\ChatBubbles.lua
 Core\MenuPlacement.lua
+Core\ProcDocCompatibility.lua
+Core\ForeverPlusWarnings.lua
 Core\HUDCompatibility.lua
 Core\HUDTransientPolicy.lua
 Core\HUDRecovery.lua
 Core\HUDTransientFrames.lua
 Core\SeamRedirect.lua
 Core\PanelMotion.lua
+Core\CanvasAddonEscape.lua
+Core\CanvasKerzoQuestLog.lua
 Core\CanvasCompatibility.lua
 Core\CanvasFrameState.lua
 Core\CanvasPanelRegistry.lua
@@ -56,6 +67,7 @@ Core\CanvasChat.lua
 Core\CanvasProfessions.lua
 Core\CanvasPanelMotion.lua
 Core\CanvasMapPresentation.lua
+Core\DaylightMapCompatibility.lua
 Core\CanvasPanelLifecycle.lua
 Core\CanvasPanelPlacement.lua
 Core\Canvas.lua
@@ -63,6 +75,9 @@ Core\WorkspaceBehavior.lua
 Core\WorkspaceChrome.lua
 Core\BagPersistence.lua
 Core\Recovery.lua
+Core\OpenMapRecovery.lua
+Core\MapScale.lua
+Core\SetupPlacement.lua
 
 # Locales
 Locales\enUS.lua
@@ -81,8 +96,11 @@ Locales\zhTW.lua
 UI\Themes.lua
 UI\Controls.lua
 UI\OptionsActions.lua
+UI\WorkspaceOptions.lua
 UI\Options.lua
+UI\SetupVisuals.lua
 UI\DisplayIdentify.lua
 UI\Minimap.lua
 UI\Onboarding.lua
 UI\Wizard.lua
+UI\EllesmereLayoutPreview.lua

@@ -97,15 +97,18 @@ local function makeMockFrame(name, w, h)
     function f:SetThumbTexture(t) self.thumb = t end
     function f:SetChecked(c) self.checked = c end
     function f:GetChecked() return self.checked end
+    function f:RegisterEvent() end
     function f:SetEnabled(e) self.enabled = e end
     function f:CreateFontString()
         return {
             SetPoint = function() end,
             SetText = function(self, t) self.text = t end,
             SetWidth = function() end,
+            SetHeight = function(self, height) self.height = height end,
             SetWordWrap = function() end,
             GetText = function(self) return self.text end,
             SetTextColor = function() end,
+            SetAlpha = function() end,
             SetJustifyH = function() end,
             SetWidth = function(self, width) self.width = width end,
         }
@@ -142,6 +145,12 @@ controlsChunk("Offhand", addon)
 
 assert(loadfile("Core/TopologyDetection.lua"))("Offhand", addon)
 assert(loadfile("UI/OptionsActions.lua"))("Offhand", addon)
+assert(loadfile("Locales/enUS.lua"))("Offhand",addon)
+assert(loadfile("Core/WorkspaceProfiles.lua"))("Offhand",addon)
+assert(loadfile("Core/WorkspaceRouting.lua"))("Offhand",addon)
+assert(loadfile("UI/WorkspaceOptions.lua"))("Offhand",addon)
+
+assert(loadfile("Core/MapScale.lua"))("Offhand", addon)
 local optionsChunk = assert(loadfile("UI/Options.lua"))
 optionsChunk("Offhand", addon)
 
@@ -212,6 +221,30 @@ assert(pt.x == 14 and pt.y == -14, "BayHeader TOPLEFT must be indented (14, -14)
 local configFrame = addon.Options:CreateFloatingPanel()
 assert(configFrame ~= nil, "Options floating panel must be created")
 assert(configFrame:GetHeight() == 732, "Options floating panel height must be 732px")
+for _,first in ipairs({addon.WorkspaceOptions.controls.profiles,addon.WorkspaceOptions.controls.routing,addon.WorkspaceOptions.controls.themes})do
+    local stack={}
+    for _,card in ipairs(configFrame.cards)do if card.settingsTab==first.settingsTab then stack[#stack+1]=card end end
+    assert(#stack>=2 and stack[1]==first,'New workspace card was omitted from its page')
+    table.sort(stack,function(a,b)local _,_,_,_,ay=a:GetPoint();local _,_,_,_,by=b:GetPoint();return ay>by end)
+    local bottom=0
+    for _,card in ipairs(stack)do
+        local _,_,_,_,y=card:GetPoint()
+        assert(y and -y>=bottom,'Workspace and existing option cards overlap: '..tostring(card.sectionLabel)..' '..tostring(y)..' previous '..bottom)
+        bottom=-y+card:GetHeight()
+    end
+    assert(first.settingsTab:GetHeight()>=bottom,'Page scroll height omits a workspace card')
+end
+
+local supportedLocks = 0
+local lockText = addon.L and addon.L.LOCK_WORKSPACE_WINDOWS or "LOCK_WORKSPACE_WINDOWS"
+for _, frame in ipairs(frames) do
+    if frame.Text and frame.Text.text == lockText then
+        supportedLocks = supportedLocks + 1
+        assert(frame.parent:GetHeight() == 274,
+            "supported-client lock controls must keep their full settings section")
+    end
+end
+assert(supportedLocks == 1, "supported clients must retain the existing lock-open control")
 
 -- Change trim color to CYAN_GLOW and check slider thumb tint
 addon.db.trimColor = "CYAN_GLOW"

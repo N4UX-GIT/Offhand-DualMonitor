@@ -3,9 +3,68 @@ local _, Offhand = ...
 local Adapter = {}
 Offhand.CanvasForeverBags = Adapter
 
+local function IsCombatRestricted()
+    local geometry = Offhand.MainhandGeometry
+    if geometry and geometry.IsPlayerCombatRestricted then
+        return geometry.IsPlayerCombatRestricted()
+    end
+    return InCombatLockdown and InCombatLockdown() or false
+end
+
 local function Near(a, b)
     return type(a) == "number" and math.abs(a - b) < 0.001
 end
+
+local function IsPlainValue(value)
+    if type(issecretvalue) ~= "function" then return true end
+    local ok, secret = pcall(issecretvalue, value)
+    return ok and secret == false
+end
+
+local function CanPreserveBagThroughEscape()
+    -- Keeping an open bag in Escape's native close stack can prevent the next
+    -- hardware Escape from reaching target dismissal. Unknown state yields too.
+    if type(UnitExists) ~= "function" then return false end
+    local ok, exists = pcall(UnitExists, "target")
+    return ok and IsPlainValue(exists) and not exists
+end
+
+local function HasFlag(frame, method, expected)
+    if type(frame[method]) ~= "function" then return false end
+    local ok, value = pcall(frame[method], frame)
+    return ok and IsPlainValue(value) and value == expected
+end
+
+local combatGeometryMethods = {"GetLeft", "GetTop", "GetWidth", "GetHeight", "GetEffectiveScale"}
+
+local function CanRepairCombatAnchor(frame, state)
+    -- This is permission to attempt one root-only correction, not proof of
+    -- native item-action/taint safety. Unknown or secret security state yields.
+    if not state or not state.nativeInitialized or state.combatPlacementFailed
+        or not HasFlag(frame, "IsForbidden", false)
+        or not HasFlag(frame, "IsProtected", false)
+        or not HasFlag(frame, "CanChangeProtectedState", true)
+        or not HasFlag(frame, "IsAnchoringRestricted", false)
+        or not HasFlag(frame, "IsAnchoringSecret", false) then return false end
+    local ok, parent = pcall(frame.GetParent, frame)
+    if not ok or not IsPlainValue(parent) then return false end
+    if parent == UIParent then return true end
+    -- Separate native bags retain Blizzard's container parent. Do not reparent
+    -- them or mistake this known native ancestry for replacement-addon ownership.
+    if not ContainerFrameContainer or parent ~= ContainerFrameContainer
+        or not HasFlag(parent, "IsForbidden", false)
+        or not HasFlag(parent, "IsProtected", false)
+        or not HasFlag(parent, "CanChangeProtectedState", true)
+        or not HasFlag(parent, "IsAnchoringRestricted", false)
+        or not HasFlag(parent, "IsAnchoringSecret", false) then return false end
+    local parentOK, ancestor = pcall(parent.GetParent, parent)
+    return parentOK and IsPlainValue(ancestor) and ancestor == UIParent
+end
+
+-- The Gamepad adapter has its own position store and observer. Share only the
+-- permission boundary, so it cannot bypass the keyboard path's native checks.
+Adapter.CanRepairCombatAnchor = CanRepairCombatAnchor
+Adapter.IsPlainValue = IsPlainValue
 
 function Adapter.Install(Canvas, services)
     local WithWorkspace = assert(services.WithWorkspace, "Missing Forever bag service: WithWorkspace")
@@ -27,7 +86,8 @@ function Adapter.Install(Canvas, services)
     -- Keep all Offhand state and input handlers outside the ContainerFrame tree so
     -- moving the bag root does not also install addon code on an item-action
     -- ancestor.  The only native writes performed by this adapter are the root
-    -- movement requested by a hardware drag and an out-of-combat anchor restore.
+    -- movement requested by a hardware drag and isolated root placement. Combat
+    -- placement additionally requires explicit native geometry permissions.
     local foreverNativeBagState = setmetatable({}, { __mode = "k" })
     local foreverNativeBagController
 
@@ -57,6 +117,7 @@ function Adapter.Install(Canvas, services)
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
             and WithWorkspace(Offhand.Viewport:GetMetrics())
         if not metrics or not metrics.isSpanned or not frame then return nil end
+        if onWorkspace and Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,frame,position) end
 
         local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
         local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
@@ -67,6 +128,16 @@ function Adapter.Install(Canvas, services)
         if frameWidth <= 0 then frameWidth = 192 end
         if frameHeight <= 0 then frameHeight = 192 end
 
+        -- A fresh span has no drag history. Native anchors use the full canvas,
+        -- including monitor voids, so provide a default inside the workspace
+        -- without persisting it as a player placement or reopening a hidden bag.
+        if not position then
+            position = {
+                x = metrics.workspaceRight - frameWidth - 12,
+                y = metrics.workspaceBottom + frameHeight + 12,
+            }
+            onWorkspace = true
+        end
         local targetX, targetY = position.x, position.y
         local minX, maxX, minY, maxY
         if onWorkspace then
@@ -86,13 +157,13 @@ function Adapter.Install(Canvas, services)
             end
             minX = metrics.workspaceLeft + 12
             maxX = math.max(minX, metrics.workspaceRight - frameWidth - 12)
-            minY = metrics.workspaceBottom + frameHeight + 12
-            maxY = math.max(minY, metrics.workspaceTop - 12)
+            maxY = metrics.workspaceTop - 12
+            minY = math.min(maxY, metrics.workspaceBottom + frameHeight + 12)
         else
             minX = metrics.gameLeft + 12
             maxX = math.max(minX, metrics.gameRight - frameWidth - 12)
-            minY = metrics.gameBottom + frameHeight + 12
-            maxY = math.max(minY, metrics.gameTop - 12)
+            maxY = metrics.gameTop - 12
+            minY = math.min(maxY, metrics.gameBottom + frameHeight + 12)
         end
 
         return math.max(minX, math.min(targetX, maxX)),
@@ -103,12 +174,27 @@ function Adapter.Install(Canvas, services)
     -- demodalize the bag, change UIPanel metadata, call SetUserPlaced, or run any
     -- Blizzard bag function. Keeping the mutation to the root anchor is the key
     -- isolation boundary for protected item-button clicks on Forever.
-    local function RestoreForeverNativeBagRoot(frame)
-        if not Offhand.isForever or (InCombatLockdown and InCombatLockdown())
+    local function RestoreForeverNativeBagRoot(frame, state)
+        if not Offhand.isForever
             or not Offhand.db or not Offhand.db.enabled or not frame
             or not frame.IsShown or not frame:IsShown() then return false end
+        local inCombat = IsCombatRestricted()
+        if inCombat and not CanRepairCombatAnchor(frame, state) then return false end
         local position, onWorkspace = GetForeverNativeBagSavedPosition(frame)
-        if not position then return false end
+        if inCombat then
+            -- Never invent or capture placement during combat. Read geometry
+            -- only when every input is ordinary, finite numeric data.
+            if not position or not IsPlainValue(position.x) or not IsPlainValue(position.y)
+                or type(position.x) ~= "number" or type(position.y) ~= "number"
+                or position.x ~= position.x or position.y ~= position.y
+                or math.abs(position.x) == math.huge or math.abs(position.y) == math.huge then return false end
+            for _, method in ipairs(combatGeometryMethods) do
+                if type(frame[method]) ~= "function" then return false end
+                local ok, value = pcall(frame[method], frame)
+                if not ok or not IsPlainValue(value) or type(value) ~= "number"
+                    or value ~= value or math.abs(value) == math.huge then return false end
+            end
+        end
         local x, y, frameScale, parentScale =
             GetForeverNativeBagTarget(frame, position, onWorkspace)
         if not x then return false end
@@ -124,14 +210,26 @@ function Adapter.Install(Canvas, services)
         end
 
         local pointFactor = parentScale / frameScale
-        return pcall(function()
+        local ok = pcall(function()
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x * pointFactor, y * pointFactor)
+            if inCombat then
+                -- Some native restrictions reject a call without throwing. A
+                -- successful pcall alone must not trigger an every-frame retry.
+                local left, top = frame:GetLeft(), frame:GetTop()
+                if not IsPlainValue(left) or not IsPlainValue(top)
+                    or type(left) ~= "number" or type(top) ~= "number"
+                    or not Near(left, x * pointFactor) or not Near(top, y * pointFactor) then
+                    state.combatPlacementFailed = true
+                end
+            end
         end)
+        if not ok and inCombat and state then state.combatPlacementFailed = true end
+        return ok
     end
 
     local function SaveForeverNativeBagRoot(frame)
-        if not Offhand.isForever or (InCombatLockdown and InCombatLockdown())
+        if not Offhand.isForever or IsCombatRestricted()
             or not Offhand.db or not Offhand.db.enabled or not frame
             or not frame.GetName then return false end
         local name = frame:GetName()
@@ -139,6 +237,7 @@ function Adapter.Install(Canvas, services)
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
             and WithWorkspace(Offhand.Viewport:GetMetrics())
         if not metrics or not metrics.isSpanned then return false end
+        if Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,frame) end
 
         local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
         local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
@@ -155,9 +254,8 @@ function Adapter.Install(Canvas, services)
             local x = math.max(metrics.workspaceLeft + 12,
                 math.min(left, math.max(metrics.workspaceLeft + 12,
                     metrics.workspaceRight - width - 12)))
-            local y = math.max(metrics.workspaceBottom + height + 12,
-                math.min(top, math.max(metrics.workspaceBottom + height + 12,
-                    metrics.workspaceTop - 12)))
+            local y = math.max(math.min(metrics.workspaceBottom + height + 12, metrics.workspaceTop - 12),
+                math.min(top, metrics.workspaceTop - 12))
             local position = {
                 x = x, y = y,
                 canvasWidth = metrics.workspaceWidth,
@@ -165,6 +263,7 @@ function Adapter.Install(Canvas, services)
                 canvasLeft = metrics.workspaceLeft,
                 canvasBottom = metrics.workspaceBottom,
             }
+            if Offhand.WorkspaceRegions then Offhand.WorkspaceRegions:SavePosition(position,metrics) end
             ClearOtherBackpackRootState(name)
             Offhand.db.savedWorkspacePositions[name] = position
             Offhand.db.savedMainPositions[name] = nil
@@ -187,8 +286,8 @@ function Adapter.Install(Canvas, services)
             Offhand.db.nativeBackpackWorkspaceOpen = nil
             local x = math.max(metrics.gameLeft + 12,
                 math.min(left, math.max(metrics.gameLeft + 12, metrics.gameRight - width - 12)))
-            local y = math.max(metrics.gameBottom + height + 12,
-                math.min(top, math.max(metrics.gameBottom + height + 12, metrics.gameTop - 12)))
+            local y = math.max(math.min(metrics.gameBottom + height + 12, metrics.gameTop - 12),
+                math.min(top, metrics.gameTop - 12))
             Offhand.db.savedMainPositions[name] = { x = x, y = y }
         end
         SaveForeverPanelOwnership()
@@ -247,7 +346,7 @@ function Adapter.Install(Canvas, services)
         if handle.RegisterForDrag then handle:RegisterForDrag("LeftButton") end
         if handle.SetScript then
             handle:SetScript("OnDragStart", function()
-                if (InCombatLockdown and InCombatLockdown()) or not Offhand.db
+                if IsCombatRestricted() or not Offhand.db
                     or not Offhand.db.enabled or not frame.IsShown or not frame:IsShown() then return end
                 local started = pcall(function()
                     frame:SetMovable(true)
@@ -274,14 +373,20 @@ function Adapter.Install(Canvas, services)
             local ok, result = pcall(GetMouseFocus)
             if ok and result then focusList = { result } end
         end
-        if not focusList then return false end
         for _, frameName in ipairs(backpackRootNames) do
             local bag = _G[frameName]
             local closeButton = bag and (bag.CloseButton or _G[frameName .. "CloseButton"])
             if closeButton then
-                for _, focus in ipairs(focusList) do
+                for _, focus in ipairs(focusList or {}) do
                     if focus == closeButton then return true end
                 end
+                -- The native X callback hides its parent before CloseAllBags'
+                -- post-hook runs, so GetMouseFoci can already be empty. Query
+                -- the button's hit rectangle without borrowing its scripts or
+                -- storing a stale focus sample. Secret/restricted queries yield.
+                if not IsCombatRestricted()
+                    and HasFlag(closeButton, "IsForbidden", false)
+                    and HasFlag(closeButton, "IsMouseOver", true) then return true end
             end
         end
         return false
@@ -352,9 +457,14 @@ function Adapter.Install(Canvas, services)
     -- the missing root or clears the stale logical state, after which OpenAllBags
     -- can initialize the pooled item buttons normally. Never call frame:Show().
     local function OpenForeverNativeBackpackThroughBlizzard()
+        -- A replacement can own the shared bag functions even when a previous
+        -- native workspace snapshot is still pending after a panel transition.
+        if IsCombatRestricted() or not CanManagePanelsFromAddon()
+            or (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()) then
+            return nil
+        end
         local shownBag = GetShownNativeBackpackRoot()
         if shownBag then return shownBag end
-        if not CanManagePanelsFromAddon() then return nil end
 
         Canvas._foreverNativeBagRestoreInProgress = true
         if OpenAllBags then
@@ -363,10 +473,10 @@ function Adapter.Install(Canvas, services)
             pcall(ToggleAllBags)
         end
         shownBag = GetShownNativeBackpackRoot()
-        if not shownBag and ToggleAllBags then
+        if not shownBag and not IsCombatRestricted() and ToggleAllBags then
             pcall(ToggleAllBags)
             shownBag = GetShownNativeBackpackRoot()
-            if not shownBag and OpenAllBags then
+            if not shownBag and not IsCombatRestricted() and OpenAllBags then
                 pcall(OpenAllBags)
                 shownBag = GetShownNativeBackpackRoot()
             end
@@ -379,6 +489,7 @@ function Adapter.Install(Canvas, services)
     -- Polling visibility from the addon-owned controller avoids attaching scripts
     -- or state to Forever's protected Edit Mode and system-panel trees.
     local foreverNativeBagPreservingPanelNames = {
+        "ChatConfigFrame",
         "SettingsPanel",
         "InterfaceOptionsFrame",
         "VideoOptionsFrame",
@@ -484,8 +595,35 @@ function Adapter.Install(Canvas, services)
         for _, frameName in ipairs(backpackRootNames) do
             local frame = _G[frameName]
             if frame then
-                roots[#roots + 1] = string.format("%s=%s", frameName,
-                    frame.IsShown and frame:IsShown() and "shown" or "hidden")
+                local ok, report = pcall(function()
+                    if frame.IsForbidden and frame:IsForbidden() then return "forbidden" end
+                    local function Read(method)
+                        return type(frame[method]) == "function" and tostring(frame[method](frame)) or "unknown"
+                    end
+                    local parent = frame.GetParent and frame:GetParent()
+                    local frameScale = frame.GetEffectiveScale and frame:GetEffectiveScale()
+                    local parentScale = UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()
+                    local left = frame.GetLeft and frame:GetLeft()
+                    local bottom = frame.GetBottom and frame:GetBottom()
+                    local width = frame.GetWidth and frame:GetWidth()
+                    local height = frame.GetHeight and frame:GetHeight()
+                    local rect = "unresolved"
+                    if left and bottom and width and height and frameScale and parentScale and parentScale > 0 then
+                        local factor = frameScale / parentScale
+                        rect = string.format("%.0f/%.0f/%.0f/%.0f",
+                            left * factor, bottom * factor, width * factor, height * factor)
+                    end
+                    local db = Offhand.db or {}
+                    local owner = db.savedWorkspacePositions and db.savedWorkspacePositions[frameName] and "workspace"
+                        or (db.savedMainPositions and db.savedMainPositions[frameName] and "mainhand" or "none")
+                    return string.format("shown=%s,visible=%s,alpha=%s,parent=%s,scale=%s,rect=%s,saved=%s",
+                        Read("IsShown"), Read("IsVisible"), Read("GetEffectiveAlpha"),
+                        parent and parent.GetName and tostring(parent:GetName()) or "unknown",
+                        tostring(frameScale or "unknown"), rect, owner)
+                end)
+                roots[#roots + 1] = frameName .. "={" .. (ok and report or "unresolved") .. "}"
+            else
+                roots[#roots + 1] = frameName .. "=absent"
             end
         end
         local optionOpen = false
@@ -494,14 +632,16 @@ function Adapter.Install(Canvas, services)
             optionOpen = ok and value and true or false
         end
         local status = string.format(
-            "tracked=%s saved=%s menu=%s option=%s panel=%s combat=%s input=%s roots=%s",
+            "tracked=%s saved=%s menu=%s option=%s panel=%s combat=%s input=%s custom=%s proxy=%s roots=%s",
             IsNativeBackpackTrackedOpen() and "1" or "0",
             GetNativeBackpackWorkspacePosition() and "1" or "0",
             GameMenuFrame and GameMenuFrame.IsShown and GameMenuFrame:IsShown() and "1" or "0",
             optionOpen and "1" or "0",
             IsForeverNativeBagPreservingPanelShown() and "1" or "0",
-            InCombatLockdown and InCombatLockdown() and "1" or "0",
+            IsCombatRestricted() and "1" or "0",
             Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved() and "1" or "0",
+            Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon() and "1" or "0",
+            foreverNativeBagController and "1" or "0",
             #roots > 0 and table.concat(roots, ",") or "none")
         return status
     end
@@ -569,7 +709,7 @@ function Adapter.Install(Canvas, services)
                 Canvas._foreverOptionsOpeningObserved = nil
                 return
             end
-            local inCombat = InCombatLockdown and InCombatLockdown()
+            local inCombat = IsCombatRestricted()
             local gameMenuShown = GameMenuFrame and GameMenuFrame.IsShown
                 and GameMenuFrame:IsShown() or false
             local gameMenuChanged = gameMenuShown ~= lastGameMenuShown
@@ -599,10 +739,21 @@ function Adapter.Install(Canvas, services)
                 local frame = _G[frameName]
                 if frame then
                     local handle, state = EnsureForeverNativeBagHandle(frame)
+                    if not inCombat then state.combatPlacementFailed = nil end
                     local shown = enabled and frame.IsShown and frame:IsShown()
                     local trackedWorkspaceBag = enabled
                         and GetNativeBackpackWorkspacePosition()
                         and IsNativeBackpackTrackedOpen()
+
+                    if not shown and state.wasShown and gameMenuToggleObserved
+                        and not optionsOpeningObserved and not leavingGameMenuForPanel
+                        and not CanPreserveBagThroughEscape() then
+                        state.pendingOpenRestore = nil
+                        state.pendingOpenAttempts = nil
+                        state.pendingGameMenuToggle = nil
+                        ClearNativeBackpackOpenState()
+                        trackedWorkspaceBag = false
+                    end
 
                     if not shown and state.wasShown and explicitCloseObserved
                         and not optionsOpeningObserved and not gameMenuToggleObserved
@@ -674,6 +825,13 @@ function Adapter.Install(Canvas, services)
                         state.wasShown = true
                     else
                         if handle and handle.Hide then handle:Hide() end
+                        if shown and inCombat and not inputReserved
+                            and CanManagePanelsFromAddon() and not state.dragging then
+                            -- Blizzard has finished opening its bag. Correct only
+                            -- an allowed root anchor from our independent poll;
+                            -- no content, visibility, chrome or saved-state writes.
+                            RestoreForeverNativeBagRoot(frame, state)
+                        end
                         local systemPanelTransition = Canvas._systemPanelOpeningToken ~= nil
                             or panelTransitionActive
                         if state.wasShown and not shown and not state.dragging
@@ -698,6 +856,7 @@ function Adapter.Install(Canvas, services)
     end
 
     return {
+        IsCombatRestricted = IsCombatRestricted,
         OpenNativeBackpack = OpenForeverNativeBackpackThroughBlizzard,
         IsPreservingPanelShown = IsForeverNativeBagPreservingPanelShown,
         SystemPanelNames = foreverSystemPanelNames,

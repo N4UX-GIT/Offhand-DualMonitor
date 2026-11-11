@@ -5,7 +5,12 @@
 .demo-intro .guide-title { text-wrap: balance; }
 .demo-instructions { font-size: .85rem; }
 .demo-next { margin: 30px 0 0; }
-.gameplay-example { margin-top: 48px; padding-top: 36px; border-top: 1px solid var(--rio-border-mid); scroll-margin-top: 100px; }
+.gameplay-example { scroll-margin-top: 100px; }
+.demo-continue { margin: 24px 0 0; text-align: center; }
+.demo-continue a { color: var(--gold); }
+.layout-tour-intro { margin: 48px 0 24px; padding-top: 32px; border-top: 1px solid var(--rio-border-mid); text-align: center; scroll-margin-top: 100px; }
+.layout-tour-intro h2 { font-size: clamp(1.35rem, 3vw, 1.9rem); }
+.layout-tour-intro .demo-instructions { max-width: 680px; margin: 12px auto 0; color: var(--muted); line-height: 1.7; }
 .gameplay-intro { max-width: 780px; margin: 0 auto 24px; text-align: center; }
 .gameplay-intro h2 { font-size: clamp(1.35rem, 3vw, 1.9rem); text-wrap: balance; }
 .gameplay-intro > p:last-child { color: var(--muted); line-height: 1.7; }
@@ -17,7 +22,7 @@
 .gameplay-watch:hover { background: #26251f; border-color: var(--gold); }
 .gameplay-video video { display: block; width: 100%; height: auto; border: 1px solid var(--rio-border-mid); border-radius: var(--radius-md); background: #101215; }
 .gameplay-video figcaption { max-width: 800px; margin: 14px auto 0; color: var(--muted); font-size: .78rem; line-height: 1.7; text-align: center; }
-.presentation .gameplay-example { display: none; }
+.presentation .gameplay-example, .presentation .demo-continue, .presentation .layout-tour-intro { display: none; }
 .eyebrow { color: var(--gold); letter-spacing: .16em; font-size: .68rem; font-weight: 700; }
 .demo { overflow: hidden; border: 1px solid var(--rio-border-mid); border-radius: var(--radius-md); background: var(--rio-surface-card); box-shadow: 0 16px 40px #0009; }
 .stage { position: relative; width: 100%; background: #17191c; }

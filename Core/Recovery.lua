@@ -7,6 +7,7 @@ function Recovery.Inspect(frame, metrics)
     local ok, status = pcall(function()
         if not frame then return "absent" end
         if frame == UIParent or frame == WorldFrame or frame == Offhand.canvas then return "unsupported" end
+        for _,canvas in pairs(Offhand.canvases or {}) do if frame==canvas then return "unsupported" end end
         if frame.IsForbidden and frame:IsForbidden() then return "forbidden" end
         if frame.IsObjectType and frame:IsObjectType("GameTooltip") then return "unsupported" end
         if not frame.IsShown or not frame:IsShown() then return "hidden" end
@@ -23,6 +24,9 @@ function Recovery.Inspect(frame, metrics)
         end
         -- Any visible portion counts. This action must leave a partially clipped
         -- window in place too, rather than treating it as a layout-reset request.
+        for _,r in ipairs(metrics.workspaceRegions or {}) do
+            if Overlap(r.x,r.y,r.x+r.width,r.y+r.height) then return "visible" end
+        end
         return (Overlap(metrics.gameLeft, metrics.gameBottom, metrics.gameRight, metrics.gameTop)
             or Overlap(metrics.workspaceLeft, metrics.workspaceBottom, metrics.workspaceRight, metrics.workspaceTop))
             and "visible" or "missing"
@@ -56,6 +60,8 @@ function Recovery:Run()
         and not (_G.MoveAny or _G.MoveAnything) then
         local function Add(name, system, index, needsIndex, x, y, expected)
             if system == nil or (needsIndex and index == nil) then return end
+            if compatibility and compatibility.IsExternallyOwnedEditModeSystem
+                and compatibility.IsExternallyOwnedEditModeSystem({system=system, systemIndex=index}) then return end
             local state = Recovery.Inspect(_G[name], metrics)
             if state ~= "missing" and not (state == "hidden" and expected) then return end
             local sized, width, frameHeight, factor = pcall(function()

@@ -1,5 +1,119 @@
 # Ongoing Companion build
 
+## Display identity integration, 5 November 2026
+
+The CurseForge two-selected-displays failure correction is integrated into the
+main `codex/custom-workspace-regions` source, including partial, schema 2/schema 3
+layouts and named profiles. It uses per-monitor interface IDs, uniqueness-aware
+resolution, reviewed legacy migration, preserved geometry/snapshots and guarded
+manual selection capture. This replaces the isolated Beta 20 correction as the
+implementation intended for the next custom-workspace candidate.
+
+154 targeted assertions per architecture, all 92 Lua suites and the existing
+workspace/profile, recovery, colour/DPI and native rollback fixtures pass.
+Native migration/dock/reconnect and exact-artifact acceptance remain pending.
+Existing public and private executable/package bytes remain unchanged.
+See [the integration record](COMPANION-DISPLAY-IDENTITY-HARDENING-20261105.md).
+Reporter hardware details are supplementary, not a dependency for this work.
+
+## Taskbar presentation, 3 November 2026
+
+The user requested fullscreen taskbar behavior for custom regions. Prototype 6
+adds explicit Shell fullscreen notification after successful span and clears it
+after successful Restore, without changing global taskbar preferences. It is
+`2.1.3-beta.1`, file/application manifest `2.1.3.2`, source `4a27ed0`.
+The exact build passed targeted Retail native-window QA at character selection:
+both sampled taskbar positions were covered by WoW, including after Companion
+exit, and returned after restarted-Companion Restore. Eighteen original files
+were restored, both apps closed, and no new captured errors appeared. In-world
+and other-client acceptance is still separate. See
+[the taskbar record](CUSTOM-WORKSPACE-REGIONS-TASKBAR.md) for hashes and limits.
+The historical Prototype 5 and public Beta 20 artifacts remain unchanged.
+
+## Custom-region continuation, 2 November 2026
+
+The user subsequently authorized an initial working custom-region implementation.
+The active feature branch is `codex/custom-workspace-regions` in
+`C:/Users/NAUX/.codex/worktrees/classic-graphics-recovery/Offhand`, retaining the
+prepared Companion baseline and its fixes. Prototype 5 was the unpublished
+portable artifact, built from `0df1f29ce7240f6e791ace6bd9b652db61037818`.
+
+It supports a contiguous single-monitor split and a full game monitor with one
+movable/resizable rectangular workspace on a second monitor. Visual selectors,
+exclusive-mode Save, current-display save validation, manual Span and native
+Restore are implemented using schema 1. Exact prototype 5 Retail evidence covers
+two-monitor apply/reload, replacement single-monitor Save/apply/reload, matching
+viewport diagnostics and exact original native Restore. Earlier Retail cold-start
+and Anniversary results retain their original prototype hashes.
+
+An exact prototype 5 Anniversary attempt subsequently passed native custom apply
+and exact native Restore, but world QA stopped when another player attacked the
+selected character. Diagnostics/reload were not run. Both apps closed normally
+and fourteen original files were restored and hash-verified. A subsequent run on
+an authorized existing level-1 Paladin passed apply, reload, a fresh matching
+viewport diagnostic, Character panel persistence and exact native Restore.
+Temporarily enabled error capture recorded no new errors. Both apps closed;
+18 originals and two original profile absences were restored. No combat
+acceptance is claimed.
+
+Follow-up automated native coverage passed 60 production-custom-clipping Restore
+cases on normal/minimized/maximized hidden windows per architecture, including
+four injected failure stages and success. The rollback suite now passes 3,057
+assertions each on x64 and x86. Production source and prototype 5 bytes are
+unchanged. These are native fixture results, not additional WoW lifecycle or
+failure-injection acceptance.
+
+An unsigned MSIX structural validation package embeds the exact prototype 5
+portable executable. File boundaries, identity, capabilities, opt-in startup and
+executable parity passed. It was not installed or submitted. See
+[the prototype record](CUSTOM-WORKSPACE-REGIONS-PROTOTYPE.md) for artifact hashes,
+evidence limits and remaining release gates.
+
+Targeted Retail HUD follow-up regenerated 47 systems in a prepared legacy-row
+fixture and retained them after reload. Fresh row creation was refused at the
+account's five-layout cap. Character/bags/spellbook and the Offhand-owned default
+map fit the workspace; OpenMap retained its existing oversized external layout.
+Native Restore automatically returned to Modern and a fresh full-client viewport
+match, with the existing stale-layout notice still visible. All five original
+Edit Mode rows and 18 backed-up files were restored. No fresh captured errors
+were found. The tested installed addon is newer than the worktree addon; see
+[Retail HUD QA](CUSTOM-WORKSPACE-REGIONS-RETAIL-HUD-QA.md) for exact source hashes
+and the deliberately prepared fixture boundary.
+
+The subsequent [Retail lifecycle run](CUSTOM-WORKSPACE-REGIONS-RETAIL-LIFECYCLE-QA.md)
+adds exact Prototype 5 cold restart/manual apply and Character reopen persistence,
+right-edge/left-game geometry, and apply/normal Restore from maximized or minimized
+ordinary windows. The actual HUD setup button safely refused creation at the cap,
+leaving all five layouts and active selection unchanged. No fresh captured errors
+were found; all 18 originals were restored. Two Character title drags did not
+move the panel and remain unresolved. Production source and candidate bytes are
+unchanged.
+
+The initial schema 1 implementation works on the recorded setup. Physical
+hotplug, mixed DPI, broader exact-artifact client coverage, fresh HUD creation,
+protected actions and Store runtime acceptance remain open. Schema 2 and multiple
+independent regions remain deferred. Forever live testing remains deferred until
+November 4. Public Beta 20 is unchanged; no promotion or publication occurred.
+The release-preparation and historical records below retain their original scope.
+
+## Release preparation, 1 November 2026
+
+Continuation: the ordinary combined candidate now identifies as `2.1.3-beta.1`.
+Bounded recovery is integrated for Retail and Anniversary, with manual/auto-span
+arming, unchanged production preferences and immediate cancellation on display
+edits. Experimental configurations remain separate. See
+[production recovery QA](COMPANION-PRODUCTION-RECOVERY-QA.md) for the current
+contract and pending final-artifact live acceptance. Public Beta 20 remains frozen.
+
+The candidate branch `codex/companion-next-candidate` reconciles current Companion
+integration, the released main baseline, and preserved Wine/auto-span fixes.
+See [the preparation record](COMPANION-NEXT-RELEASE-PREPARATION.md) for source
+inventory, local builds, validation and remaining production gates. The resize
+handshake is now exclusive to the graininess experiment. The later custom-region
+continuation above adds schema 1 support; no schema 2 runtime is included.
+The older records below remain historical. Forever live testing is still
+deferred until November 4, and public Beta 20 bytes are unchanged.
+
 ## Source integration, 25 October 2026
 
 The user authorized committing and merging all post-v22 work. Graphics-reset

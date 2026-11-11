@@ -299,11 +299,10 @@ tick()
 Near(ownedChild.alpha, 0)
 assert(not replacement.shown, "Unknown alpha ownership must remain untouched")
 
--- Recover legacy persisted font mutations without changing the new replacement font.
-font.height = 3.25
+-- Startup recovery must not overwrite a later external font owner.
+font.height = 21
 module:ApplyLayout()
-Near(font.height, 13)
-assert(addon.db.originalChatBubbleFontHeight == 13)
+Near(font.height, 21)
 
 addon.db.enabled = false
 bubbles = { outer }

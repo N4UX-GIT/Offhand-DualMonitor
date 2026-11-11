@@ -20,13 +20,16 @@ communication, and rollback workflow, use
    - **Package/Identity/Publisher:** `CN=E7BD7796-76DA-40C2-B114-9DD85609CD7F`
    - **PublisherDisplayName:** `N4UX`
 
-4. Build the package. These assigned values are the script defaults:
+4. Build the prepared 2.1.3 update with the frozen candidate. These assigned
+   identity values remain the script defaults:
 
 ```powershell
+$candidate = Get-Content .\dist\companion-2.1.3-native\candidate.json -Raw | ConvertFrom-Json
 .\Companion\Store\Build-StorePackage.ps1 `
-  -PackageVersion 2.1.20.0 `
-  -CompanionPath .\dist\store-beta20-candidate\Offhand.exe `
-  -ExpectedCompanionSha256 81EECE9430885CEAC178A44A42429854524279072305F9F94EE62E7CCD620CCB
+  -PackageVersion 2.1.300.0 `
+  -CompanionPath .\dist\companion-2.1.3-native\Offhand.exe `
+  -ExpectedCompanionSha256 $candidate.binarySha256 `
+  -OutputDirectory .\dist\companion-2.1.3-store
 ```
 
 Store package versions must contain four numeric components and end in `.0`.
@@ -38,13 +41,18 @@ never replaces the canonical portable executable, produces exact-size Store
 artwork, validates the manifest, and writes the resulting MSIX beneath
 `dist/store`.
 
-The currently published Microsoft Store package is `2.1.19.0`. The command
-above builds the staged `2.1.20.0` update from the exact Beta 20 candidate bytes.
-That update includes the topology bridge repair and distribution-aware update
-button: Store installations open the official Microsoft Store product page,
-while portable installations retain the explicit GitHub release check. Do not
-submit a rebuilt executable in place of the hash recorded above; if source or
-binary bytes change, increment the package version and repeat security review.
+On 2026-11-07 the local installed Store package was observed as `2.1.20.0`,
+with the identity/publisher above. The prepared product is **Offhand 2.1.3**;
+its MSIX version is **2.1.300.0**, which sorts above that installed version.
+`2.1.3.0` would sort below `2.1.20.0` and cannot serve as its update. Keep the
+package identity, publisher and application ID unchanged. Confirm the highest
+published/in-flight Partner Center version before upload; this local observation
+does not inspect the developer account or establish Store certification.
+
+See [the current update guide](../../docs/COMPANION-2.1.3-STORE-PREPARATION.md)
+for matched add-on references and remaining acceptance. The Store package reuses
+the same exact EXE as the prepared portable/Defender samples. A rebuild or signing
+pass creates a new sample; record its hash and repeat the relevant review.
 
 The output is intentionally not signed with a development certificate. The
 Microsoft Store signs accepted submissions with a trusted certificate. Use a
@@ -61,7 +69,12 @@ persistence with the packaged-app mechanism reviewed by the Store.
 Microsoft Store owns update delivery for the packaged installation. The
 Companion does not query GitHub when it detects package identity. Its **Store
 Updates** button and tray action open the product page for Store status and
-manual update checks. Portable builds remain independent and continue using the
+manual update checks. The 2.1.5 source adds a quiet availability-only StoreContext
+query after startup, limited to once daily with package-local cached state.
+The button changes to Update available when the Store reports an update. It
+never invokes package download/install APIs or an automatic app restart. Store
+association/availability acceptance remains pending for this source change.
+Portable builds remain independent and continue using the
 official GitHub Releases API only after the user clicks **Check for Updates**.
 
 ## Release safety

@@ -1,0 +1,253 @@
+{
+  "overall": "PASS",
+  "partialRun": "FALSE",
+  "package": "N4UX.OffhandCompanion",
+  "version": "2.1.301.0",
+  "requiredPassed": 13,
+  "requiredFailed": 0,
+  "optionalPassed": 10,
+  "optionalFailed": 1,
+  "tests": [
+    {
+      "index": "2",
+      "requirement": "Digitally signed file test",
+      "name": "Install signed driver and executable files",
+      "optional": true,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "11",
+      "requirement": "User account control (UAC) test",
+      "name": "User account control run level",
+      "optional": true,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "77",
+      "requirement": "Package compliance test",
+      "name": "Application count",
+      "optional": true,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "31",
+      "requirement": "Package compliance test",
+      "name": "App manifest",
+      "optional": false,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "87",
+      "requirement": "Package compliance test",
+      "name": "File association verbs",
+      "optional": true,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "86",
+      "requirement": "Package compliance test",
+      "name": "Registry checks",
+      "optional": true,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "91",
+      "requirement": "Package compliance test",
+      "name": "Enterprise Features",
+      "optional": false,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "90",
+      "requirement": "Package compliance test",
+      "name": "Resource Packages",
+      "optional": false,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "70",
+      "requirement": "Windows security features test",
+      "name": "Banned file analyzer",
+      "optional": false,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "62",
+      "requirement": "Windows security features test",
+      "name": "Private code signing",
+      "optional": false,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "45",
+      "requirement": "App manifest resources tests",
+      "name": "App resources",
+      "optional": true,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "61",
+      "requirement": "App manifest resources tests",
+      "name": "Branding",
+      "optional": false,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "46",
+      "requirement": "Debug configuration test",
+      "name": "Debug configuration",
+      "optional": true,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "52",
+      "requirement": "App Capabilities test",
+      "name": "Special use capabilities",
+      "optional": false,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "56",
+      "requirement": "Windows Runtime metadata validation",
+      "name": "ExclusiveTo attribute",
+      "optional": false,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "57",
+      "requirement": "Windows Runtime metadata validation",
+      "name": "Type location",
+      "optional": false,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "55",
+      "requirement": "Windows Runtime metadata validation",
+      "name": "Type name case-sensitivity",
+      "optional": false,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "54",
+      "requirement": "Windows Runtime metadata validation",
+      "name": "Type name correctness",
+      "optional": false,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "58",
+      "requirement": "Windows Runtime metadata validation",
+      "name": "General metadata correctness",
+      "optional": true,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "53",
+      "requirement": "Windows Runtime metadata validation",
+      "name": "Properties",
+      "optional": false,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "89",
+      "requirement": "Package sanity test",
+      "name": "Archive files usage",
+      "optional": true,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "88",
+      "requirement": "Package sanity test",
+      "name": "Blocked executables",
+      "optional": true,
+      "result": "FAIL",
+      "messages": [
+        "File Offhand.exe contains a reference to a \"Launch Process\" related API System.Diagnostics.Process.Start",
+        "File Offhand.exe contains a blocked executable reference to \"CsI\"."
+      ]
+    },
+    {
+      "index": "63",
+      "requirement": "Package sanity test",
+      "name": "Platform appropriate files",
+      "optional": true,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    },
+    {
+      "index": "92",
+      "requirement": "High-DPI support",
+      "name": "DPIAwarenessValidation",
+      "optional": false,
+      "result": "PASS",
+      "messages": [
+        null
+      ]
+    }
+  ]
+}

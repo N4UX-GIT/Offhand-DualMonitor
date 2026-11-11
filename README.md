@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
   <img src="https://raw.githubusercontent.com/N4UX-GIT/Offhand-DualMonitor/main/Website/assets/offhand-banner.png" alt="Offhand Logo" width="100%">
   
   # Offhand: Multi-Monitor Setup for World of Warcraft
@@ -11,6 +11,15 @@
   [![Get Offhand Companion from Microsoft Store](https://img.shields.io/badge/Get_it_from-Microsoft_Store-0078D4?style=for-the-badge&logo=microsoft)](https://apps.microsoft.com/detail/9PL4PW84Q90W)
   [![Portable, Linux, and manual options](https://img.shields.io/badge/Companion-Portable_%26_manual_options-181717?style=for-the-badge&logo=github)](https://offhand-wow.onrender.com/companion.html)
 </div>
+
+Current release: **Offhand add-on 2.1.5 Pre-Release Beta 30** with
+**Companion 2.1.5**. The add-on remains a public beta. Companion 2.1.5 is submitted
+to Microsoft Store certification with automatic publication after approval;
+Store availability can lag the portable GitHub release. The Store installs only
+Companion, so install the add-on separately.
+See [release preparation](docs/PUBLICATION-2.1.5-PREPARATION-20261109.md) and
+[installation guidance](docs/INSTALL-2.1.5.txt). Custom workspace/Flexible Layout,
+setup and map fixes are included, with native acceptance limits recorded there.
 
 ---
 
@@ -33,7 +42,7 @@ UI addon profiles. The larger UI canvas can shift custom interfaces, including
 Ellesmere and Naowh setups, so some panels may need repositioning.
 
 1.  **Install the Addon:** Download the addon from [CurseForge](https://www.curseforge.com/wow/addons/offhand) or install it via your preferred addon manager. For a manual ZIP install, the TOC files must be directly inside `Interface/AddOns/Offhand`; `Interface/AddOns/Offhand/Offhand/Offhand_Forever.toc` is one folder too deep.
-2.  **Choose a spanning method:** On Windows, we recommend the [Microsoft Store Companion](https://apps.microsoft.com/detail/9PL4PW84Q90W) for exact monitor geometry and borderless placement, especially with mixed resolutions or stacked displays. The [manual/FancyZones guide](https://offhand-wow.onrender.com/manual-spanning.html) remains available without an Offhand executable. A [v2.1.2 Beta 20 portable ZIP](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.2-beta.20/Offhand-Companion.zip) is also available. After **Span WoW Now** succeeds, you may select **Exit Companion**; the current WoW window remains spanned. Leave it running only when you want automatic spanning, display-disconnect recovery, topology-file repair, or the Forever compatibility bridge. Review [SECURITY.md](SECURITY.md) before choosing an executable path.
+2.  **Choose a spanning method:** On Windows, we recommend the [Microsoft Store Companion](https://apps.microsoft.com/detail/9PL4PW84Q90W) for exact monitor geometry and borderless placement, especially with mixed resolutions or stacked displays. The [manual/FancyZones guide](https://offhand-wow.onrender.com/manual-spanning.html) remains available without an Offhand executable. A [v2.1.5 portable ZIP](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.5/Offhand-Companion-v2.1.5.zip) is also available. After **Span WoW Now** succeeds, you may select **Exit Companion**; the current WoW window remains spanned. Leave it running only when you want automatic spanning, display-disconnect recovery, topology-file repair, or the Forever compatibility bridge. Review [SECURITY.md](SECURITY.md) before choosing an executable path.
 
 Linux users should read [Companion/Linux.md](Companion/Linux.md). The current
 binary remains a Windows application; running it under Wine is an experimental
@@ -144,7 +153,9 @@ Use the [Background Studio](https://offhand-wow.onrender.com/background-studio.h
 
 The **Studio recommendation** uses the fit mode stored in the generated package. Fill, Fit, and Stretch can also be selected in-game without regenerating the image. Crop focus, zoom, opacity, darkening, and matte color remain controlled by the Background Studio package. Replacing its texture requires a full client restart; `/reload` alone does not reload interface texture files reliably. Normal Offhand updates do not modify the separate user-owned media folder.
 
-Current media packages contain only `Offhand_UserMedia.toc`, `BackgroundRecipe.json`, `README.txt`, and `Textures/Background.tga`. They contain no Lua or native executable. Do not install a media ZIP received from another person directly, because any archive can be modified after generation. Open it through the official Studio's **Update package** path and generate a clean replacement. The importer reads archives in memory without extracting or executing them, accepts only the current or legacy Studio file layout, applies strict path and size limits, and discards the legacy `Background.lua` file when producing the current code-free format.
+Single-image media packages contain only `Offhand_UserMedia.toc`, `BackgroundRecipe.json`, `README.txt`, and `Textures/Background.tga`. The updated workspace test build optionally supports a two-image library with `Textures/Background2.tga`. In Studio, use **Add background**, edit each selected image, then export one package. Choose each region's background by name in Themes. Named workspace layouts retain image and fit choices. Both images share the existing texture budget. The test package includes an offline Studio; the public website may still provide the single-image version.
+
+Media packages contain no Lua or native executable. Do not install a media ZIP received from another person directly, because any archive can be modified after generation. Open it through Studio's **Update package** path and generate a clean replacement. The importer reads archives in memory without extracting or executing them, accepts only allowlisted Studio file layouts, applies strict path, size and manifest limits, and discards legacy `Background.lua` when producing a code-free replacement. A missing assigned image falls back to the region theme while retaining the saved assignment.
 
 ---
 
@@ -185,6 +196,13 @@ If you accidentally drag a window off-screen or change your monitor configuratio
 To return to one monitor, simply disable Offhand's dual-monitor mode in-game, and click **Restore Window** in the Companion App to restore the bordered bounds remembered before the first span. If a saved display disconnects, automatic recovery still fills the surviving Mainhand. The display controls refresh automatically when Windows reports a monitor connection change.
 
 On Forever, exit WoW normally before closing Companion. Companion only refreshes the cold-start recovery snapshot after the WoW process has fully stopped.
+
+If text looks too small after removing Offhand, fully exit WoW and relaunch at
+your normal window size with the addon disabled. Check **UI Scale** and, where
+available, **Text Scale** in the game's settings. If only chat message text is
+affected, check the chat tab's **Font Size** menu. See the
+[font recovery and reporting guide](docs/FONTS-AFTER-REMOVAL-20261109.md) for
+details and the information needed to investigate further.
 
 
 

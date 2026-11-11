@@ -46,11 +46,13 @@ addon.Mainhand = { GetEditModeDiagnostics = function(_, compact)
     return compact and "Active=7 | Geometry=current" or "Active=7 | GamepadPanels=details"
 end }
 addon.ManualCanvas = { GetDiagnostics = probe("manual", {}) }
+addon.CanvasCompatibility = {GetGuideAddonDiagnostics = probe("guides", {"Zygor probes: fixture"})}
 addon.modules.ChatBubbles = { GetDiagnostics = probe("bubbles", {}) }
 addon.Canvas = {
     -- The old caller discarded reports without the substring 'loaded'.
     GetCompatibilityDiagnostics = function() return "WorldMapOwner=OpenMap" end,
     GetPanelControllerDiagnostics = probe("panels", "idle"),
+    GetForeverNativeBagDiagnostics = probe("bags", "roots=ContainerFrameCombinedBags=shown"),
 }
 addon.DialogueUICompat = { GetDiagnostics = probe("dialogue", "animation") }
 local media = { status = "MISSING", installed = false, reason = "NOT_INSTALLED" }
@@ -70,15 +72,26 @@ for _, absent in ipairs({"Topology diagnostics:", "Manual canvas", "Group frame"
     "Dialogue UI", "User media", "diskRevision", "GamepadPanels"}) do
     assert(not compact:find(absent, 1, true), "unnecessary default output: " .. absent)
 end
+addon.db.automaticSetupSuppressed = true
+addon.GetOnboardingResumeStep = function() return 4 end
+OffhandCharDB = {characterSetup = {version = 1, choice = "later", complete = true}}
 local full = run("diag full")
+assert(not compact:find("Setup state:", 1, true)
+        and full:find("Setup state: Account=complete | Guide=paused | Resume=4 | Character=later | Decision=saved", 1, true),
+    "full diagnostics must expose setup intent and character decision without bloating compact reports")
 assert(not compact:find("Cinematic skip-dialog diagnostics:", 1, true)
     and full:find("Cinematic skip-dialog diagnostics: not-attached", 1, true),
     "active cutscene investigation state belongs only in requested full diagnostics")
-for _, name in ipairs({"tooltip", "interaction", "text", "loot", "pets", "groups", "protected", "manual", "bubbles", "panels", "dialogue"}) do
+for _, name in ipairs({"tooltip", "interaction", "text", "loot", "pets", "groups", "protected", "manual", "bubbles", "panels", "dialogue", "guides", "bags"}) do
     assert(probes[name] == 1, "full diagnostics lost requested evidence: " .. name)
 end
+assert(full:find("Native bag diagnostics: roots=ContainerFrameCombinedBags=shown", 1, true),
+    "full support reports must expose native bag state after a missing-backpack report")
 assert(full:find("Interaction visibility: ProfessionsFrame=hidden", 1, true),
     "full support reports must include the requested missing-frame evidence")
+assert(not compact:find("Guide frame diagnostics:", 1, true)
+        and full:find("Guide frame diagnostics: Zygor probes: fixture", 1, true),
+    "guide frame inspection must remain opt-in through full diagnostics")
 assert(full:find("diskRevision", 1, true) and full:find("GamepadPanels", 1, true)
     and full:find("User media", 1, true), "full report omitted detailed state")
 topology.status = "MISMATCH"

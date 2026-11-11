@@ -18,10 +18,18 @@ Offhand.Wizard = Wizard
 
 local wizardFrame = nil
 local editModeReturnWatcher
+local pendingHUDReload
+local HUD_STEP, ELLESMERE_STEP = 5, 6
+
+local function EllesmereTransfer()
+    local transfer = Offhand.EllesmereLayout
+    if transfer and transfer.ShowPreview and transfer:IsAvailable() then return transfer end
+end
 
 function Wizard:GetSavedStep()
     local step = type(OffhandCharDB) == "table" and tonumber(OffhandCharDB.wizardProgressStep)
-    if not step or step ~= step or step < 1 or step > 5 then
+    local lastStep = EllesmereTransfer() and ELLESMERE_STEP or HUD_STEP
+    if not step or step ~= step or step < 1 or step > lastStep then
         if type(OffhandCharDB) == "table" then OffhandCharDB.wizardProgressStep = nil end
         return nil
     end
@@ -69,6 +77,30 @@ local function SupportsGeneratedMainhandLayout()
         and type(Offhand.Options.CreateMainhandHUDLayout) == "function"
 end
 
+local function EllesmereNativeLayout()
+    local mainhand = Offhand.Mainhand
+    local context = mainhand and mainhand.GetEllesmereLayoutSource and mainhand:GetEllesmereLayoutSource()
+    if context and context.generated and context.characterOwned ~= false then return context end
+end
+
+local function NeedsLayoutSelection(context)
+    return context and not context.generatedActive
+end
+
+local function SaveReloadStep(step)
+    if type(OffhandCharDB) == "table" then OffhandCharDB.wizardRecoveryStep = step end
+    if Offhand.SetOnboardingResumeStep then Offhand:SetOnboardingResumeStep(6) end
+end
+
+local function PromptNativeHUD(activation, name, resumeWizard)
+    if not Offhand.Mainhand then return end
+    if activation == "select" and Offhand.Mainhand.PromptManualLayoutSelection then
+        Offhand.Mainhand:PromptManualLayoutSelection(name, resumeWizard)
+    elseif Offhand.Mainhand.PromptReload then
+        Offhand.Mainhand:PromptReload()
+    end
+end
+
 local function UsesControllerLayout()
     return Offhand.Mainhand and Offhand.Mainhand.IsControllerLayout
         and Offhand.Mainhand:IsControllerLayout() or false
@@ -79,23 +111,6 @@ local function CanCreateControllerLayout()
         and Offhand.Mainhand:CanCreateControllerLayout() or false
 end
 
-local function ReadinessSummary(hudState)
-    local m = Offhand.Viewport and Offhand.Viewport.GetMetrics
-        and Offhand.Viewport:GetMetrics() or nil
-    local source = m and m.companionTopology and L["READINESS_SOURCE_COMPANION"]
-        or L["READINESS_SOURCE_MANUAL"]
-    local gameW = math.floor((m and (m.gamePixelWidth or m.gameWidth) or 0) + 0.5)
-    local gameH = math.floor((m and (m.gamePixelHeight or m.gameHeight) or 0) + 0.5)
-    local workW = math.floor((m and (m.workspacePixelWidth or m.workspaceWidth) or 0) + 0.5)
-    local workH = math.floor((m and (m.workspacePixelHeight or m.workspaceHeight) or 0) + 0.5)
-    local side = (Offhand.db and Offhand.db.primaryPosition) or "?"
-    local ar = (Offhand.db and Offhand.db.aspectRatioMode) or "?"
-    local seam = ((Offhand.db and Offhand.db.deckWidthRatio) or 0) * 100
-    local recovery = Offhand.isForever and L["READINESS_RECOVERY_FOREVER"]
-        or L["READINESS_RECOVERY_STANDARD"]
-    return string.format(L["READINESS_SUMMARY"], source, gameW, gameH, workW, workH,
-        tostring(side), tostring(ar), seam, hudState, recovery)
-end
 
 function Wizard:DetectTopology()
     if Offhand.Options and Offhand.Options.DetectTopology then
@@ -127,6 +142,7 @@ local function CreateWizardCard(parent, titleText, yOffset, height)
         edgeSize = 12,
         insets = { left = 3, right = 3, top = 3, bottom = 3 },
     })
+    card.uiSetupSurface=true
     Controls.StyleSurface(card, "card")
 
     local title = card:CreateFontString(nil, "ARTWORK", "GameFontNormal")
@@ -164,6 +180,9 @@ function Wizard:CreateFrame()
         f.header = Offhand.Themes:CreateBayHeader(f, L["WIZARD_TITLE"])
     end
 
+    f.uiSetupSurface=true
+    Controls.StyleSurface(f,"window")
+
     local closeBtn = CreateFrame("Button", nil, f.header or f, "UIPanelCloseButton")
     closeBtn:SetSize(28, 28)
     if f.header then
@@ -195,6 +214,7 @@ function Wizard:CreateFrame()
     -- WELCOME / INTRO TEXT
     -- ========================================================================
     local welcomeText = f:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    welcomeText:SetWordWrap(true)
     welcomeText:SetPoint("TOPLEFT", 16, -54)
     welcomeText:SetPoint("TOPRIGHT", -16, -54)
     welcomeText:SetJustifyH("LEFT")
@@ -217,12 +237,14 @@ function Wizard:CreateFrame()
     end
 
     local topoText = card1:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    topoText:SetWordWrap(true)
     topoText:SetPoint("TOPLEFT", textLeft, -28)
     topoText:SetPoint("TOPRIGHT", -14, -28)
     topoText:SetJustifyH("LEFT")
     f.topoText = topoText
 
     local recomText = card1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    recomText:SetWordWrap(true)
     recomText:SetPoint("TOPLEFT", textLeft, -56)
     recomText:SetPoint("TOPRIGHT", -14, -56)
     recomText:SetJustifyH("LEFT")
@@ -231,13 +253,14 @@ function Wizard:CreateFrame()
     local autoBtn = CreateFrame("Button", nil, card1, "UIPanelButtonTemplate")
     autoBtn:SetSize(608, 28)
     autoBtn:SetPoint("TOPLEFT", 14, -84)
-    autoBtn:SetText("|cff00ff00" .. L["WIZARD_BTN_AUTOCONFIG"] .. "|r")
+    autoBtn:SetText(L["WIZARD_BTN_AUTOCONFIG"])
     if Offhand.SetTooltip then
         Offhand:SetTooltip(autoBtn, L["WIZARD_BTN_AUTOCONFIG_TIP_TITLE"], L["WIZARD_BTN_AUTOCONFIG_TIP_DESC"])
     end
     f.autoBtn = autoBtn
 
     local statusText = card1:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    statusText:SetWordWrap(true)
     statusText:SetPoint("TOPLEFT", 14, -118)
     statusText:SetPoint("TOPRIGHT", -14, -118)
     statusText:SetJustifyH("CENTER")
@@ -316,7 +339,7 @@ function Wizard:CreateFrame()
     if Offhand.SetTooltip then Offhand:SetTooltip(btnFill, L["AR_FILL_TIP_TITLE"], L["AR_FILL_TIP_DESC"]) end
     f.aspectButtons = { btn169, btn219, btnFill }
 
-    local exactTopologyHelp = card2:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    local exactTopologyHelp = card2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     exactTopologyHelp:SetPoint("TOPLEFT", card2, "TOPLEFT", 14, -166)
     exactTopologyHelp:SetPoint("TOPRIGHT", card2, "TOPRIGHT", -14, -166)
     exactTopologyHelp:SetJustifyH("CENTER")
@@ -876,6 +899,32 @@ function Wizard:CreateFrame()
     layoutStatus:SetJustifyH("CENTER")
     f.mainhandLayoutStatus = layoutStatus
 
+    local card6 = CreateWizardCard(f, L["ELLESMERE_HUD_VISUAL"], -690, 160)
+    local transferHelp = card6:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    transferHelp:SetJustifyH("LEFT")
+    if transferHelp.SetWordWrap then transferHelp:SetWordWrap(true) end
+    transferHelp:SetText(L["ELLESMERE_HUD_WIZARD_BODY"])
+    local previewBtn = CreateFrame("Button", nil, card6, "UIPanelButtonTemplate")
+    previewBtn:SetText(L["ELLESMERE_HUD_VISUAL"])
+    previewBtn:SetSize(260, 28)
+    previewBtn:SetScript("OnClick", function()
+        local transfer, layout = EllesmereTransfer(), EllesmereNativeLayout()
+        if not transfer or not layout or NeedsLayoutSelection(layout) then
+            f:SetStep(HUD_STEP)
+            return
+        end
+        local function ReturnToWizard(result)
+            if Wizard.previewReturn ~= ReturnToWizard then return end
+            if result then Wizard.ellesmereImportInactive = result == "inactive" end
+            Wizard:Open(ELLESMERE_STEP)
+        end
+        Wizard.previewReturn = ReturnToWizard
+        f:Hide()
+        if not transfer:ShowPreview(layout.ellesmereReview and "ellesmere" or "fit", ReturnToWizard) then
+            ReturnToWizard()
+        end
+    end)
+
     -- ========================================================================
     -- FOOTER ACTIONS
     -- ========================================================================
@@ -937,14 +986,27 @@ function Wizard:CreateFrame()
         return true
     end
 
+    local function ActivateCalibration()
+        -- Next is also an explicit calibration action. New profiles start
+        -- disabled, so the optional recommendation cannot be the only path
+        -- that enables their viewport. Keep manually chosen values intact.
+        if Offhand.db and not Offhand.db.enabled then
+            if Offhand.SetEnabled then Offhand:SetEnabled(true)
+            else Offhand.db.enabled = true end
+            Offhand:ApplyFullLayout()
+        end
+    end
+
     local function CompleteSetup(deferMainhandLayout)
         if not ValidateTopology() then return end
+        ActivateCalibration()
         if type(OffhandCharDB) == "table" then
             OffhandCharDB.wizardRecoveryStep = nil
             OffhandCharDB.wizardProgressStep = nil
             OffhandCharDB.hudSetupReminder = deferMainhandLayout == true or nil
             OffhandCharDB.hudSetupReminderDeclined = nil
         end
+        pendingHUDReload = nil
         if f.totalSteps > 4 and Offhand.Mainhand
             and type(Offhand.Mainhand.SetEditModeLayoutDeferred) == "function" then
             Offhand.Mainhand:SetEditModeLayoutDeferred(deferMainhandLayout == true)
@@ -963,10 +1025,11 @@ function Wizard:CreateFrame()
                 Offhand:Print(L["WIZARD_SKIP_HUD_NEXT"])
             else
                 Offhand:Print(L["CONFIG_SAVED"])
-                Offhand:Print(ReadinessSummary(L["READINESS_HUD_READY"]))
                 Offhand:Print(L["READINESS_COLD_START"])
             end
+            Offhand:Print(L["SETUP_FIRST_PANEL"])
         end
+        return true
     end
 
     skipLayoutBtn:SetScript("OnClick", function()
@@ -985,6 +1048,21 @@ function Wizard:CreateFrame()
             return
         end
         if not ValidateTopology() then return end
+        ActivateCalibration()
+        if f.step == ELLESMERE_STEP then
+            local transfer = EllesmereTransfer()
+            local layout = transfer and EllesmereNativeLayout()
+            if not layout or NeedsLayoutSelection(layout) then
+                f:SetStep(HUD_STEP)
+            elseif Offhand.Mainhand.UseExistingEditModeLayout
+                and not Offhand.Mainhand:UseExistingEditModeLayout(layout.generated.layoutName) then
+                validationStatus:SetText(L["ELLESMERE_HUD_BUSY"])
+                f:LayoutStep()
+            elseif CompleteSetup(false) and transfer.PromptImportReload then
+                transfer:PromptImportReload()
+            end
+            return
+        end
         if f.step < 4 then f:SetStep(f.step + 1); return end
         if f.step == 4 then
             if f.totalSteps > 4 then
@@ -992,6 +1070,31 @@ function Wizard:CreateFrame()
                 return
             end
             CompleteSetup()
+            return
+        end
+
+        local transfer = EllesmereTransfer()
+        local layout = transfer and EllesmereNativeLayout()
+        if transfer and pendingHUDReload then
+            SaveReloadStep(ELLESMERE_STEP)
+            Wizard:Close()
+            PromptNativeHUD(layout and layout.generatedActive and "active" or pendingHUDReload.activation,
+                pendingHUDReload.name, true)
+            return
+        end
+        if layout then
+            if NeedsLayoutSelection(layout) then
+                local name = layout.generated.layoutName
+                local activated = Offhand.Mainhand.UseExistingEditModeLayout
+                    and Offhand.Mainhand:UseExistingEditModeLayout(name)
+                local activation = activated and "active" or "select"
+                pendingHUDReload = {activation = activation, name = name}
+                SaveReloadStep(ELLESMERE_STEP)
+                Wizard:Close()
+                PromptNativeHUD(activation, name, true)
+            else
+                f:SetStep(ELLESMERE_STEP)
+            end
             return
         end
 
@@ -1023,14 +1126,14 @@ function Wizard:CreateFrame()
         if Offhand.Print then
             Offhand:Print(L["MAINHAND_LAYOUT_CREATED"], tostring(value), moved or 0)
         end
-        CompleteSetup(false)
-        if Offhand.Mainhand then
-            if activation == "select" and Offhand.Mainhand.PromptManualLayoutSelection then
-                Offhand.Mainhand:PromptManualLayoutSelection(value)
-            elseif Offhand.Mainhand.PromptReload then
-                Offhand.Mainhand:PromptReload()
-            end
+        if transfer then
+            pendingHUDReload = {activation = activation, name = value}
+            SaveReloadStep(ELLESMERE_STEP)
+            Wizard:Close()
+        else
+            CompleteSetup(false)
         end
+        PromptNativeHUD(activation, value, transfer ~= nil)
     end)
 
 
@@ -1041,6 +1144,7 @@ function Wizard:CreateFrame()
     backBtn:SetScript("OnClick", function() f:SetStep(f.step - 1) end)
     f.backBtn = backBtn
     local progress = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    progress:SetWordWrap(true)
     f.progressText = progress
     progress:SetPoint("TOPLEFT", 18, -116)
 
@@ -1057,13 +1161,14 @@ function Wizard:CreateFrame()
         if text.SetWordWrap then text:SetWordWrap(true) end
     end
 
-    f.totalSteps = SupportsGeneratedMainhandLayout() and 5 or 4
+    f.totalSteps = SupportsGeneratedMainhandLayout() and HUD_STEP or 4
     f.pages = {card1, card2, card3, card4}
     if f.totalSteps == 5 then
         f.pages[5] = card5
     else
         card5:Hide()
     end
+    card6:Hide()
     card3:SetHeight(208)
     local bottomControl = Offhand.Options:CreateBottomControl(card3)
     bottomControl:SetPoint("TOPLEFT", 14, -148)
@@ -1111,7 +1216,8 @@ function Wizard:CreateFrame()
         self.recoveryMethod = method
         self.recoveryAction = method == "COMPANION" and "reload" or "placement"
         local primaryKey = reason == "maximum" and "WIZARD_RECOVERY_OPEN_EDITMODE"
-            or method == "COMPANION" and "ONBOARD_RELOAD_UI"
+            or method == "COMPANION" and (Offhand:GetReloadUIFunction()
+                and "ONBOARD_RELOAD_UI" or "BTN_RELOAD_INSTRUCTIONS")
             or method and "WIZARD_RECOVERY_WINDOW_SETUP" or "WIZARD_RECOVERY_CHOOSE_METHOD"
         recoveryBack:SetText(L[reason == "maximum" and "WIZARD_RECOVERY_RETRY"
             or method == "COMPANION" and "WIZARD_RECOVERY_WINDOW_SETUP" or "WIZARD_RECOVERY_RECHECK"])
@@ -1121,7 +1227,8 @@ function Wizard:CreateFrame()
         recoveryCard.sectionLabel = L[reason == "maximum" and "WIZARD_RECOVERY_MAX_TITLE" or "WIZARD_RECOVERY_SPAN_TITLE"]
         recoveryCard.title:SetText(recoveryCard.sectionLabel)
         recoveryBody:SetText(L[reason == "maximum" and "WIZARD_RECOVERY_MAX_BODY"
-            or method == "COMPANION" and "WIZARD_RECOVERY_COMPANION_BODY"
+            or method == "COMPANION" and (Offhand:GetReloadUIFunction()
+                and "WIZARD_RECOVERY_COMPANION_BODY" or "WIZARD_RECOVERY_COMPANION_MANUAL_BODY")
             or method == "FANCYZONES" and "WIZARD_RECOVERY_FANCYZONES_BODY"
             or method == "MANUAL" and "WIZARD_RECOVERY_MANUAL_BODY" or "WIZARD_RECOVERY_CHOOSE_BODY"])
         validationStatus:SetText("")
@@ -1129,9 +1236,25 @@ function Wizard:CreateFrame()
         self:LayoutStep()
     end
 
+    f.progressRail=Offhand.SetupVisuals:CreateProgress(f,632)
+    f.stepIllustration=Offhand.SetupVisuals:CreateIllustration(f,600)
     function f:LayoutStep()
+        local primary = self.step == 1 and not self.recoveryReason and autoBtn or finishBtn
+        local recommended = not primary.IsEnabled or primary:IsEnabled()
+        recommended=recommended and recommended~=0
+        Controls.SetRecommendedButton(finishBtn, recommended and primary == finishBtn)
+        Controls.SetRecommendedButton(autoBtn, recommended and primary == autoBtn)
+        self.recommendedButton = recommended and primary or nil
+        local caption = string.format(L["STEP_PROGRESS"], self.step, self.totalSteps)
+        if recommended and primary:GetText() ~= L["BTN_NEXT"] then caption = caption .. "\n|cffffd100" .. string.format(L["SETUP_NEXT_ACTION"], primary:GetText()) .. "|r" end
+        progress:SetText(caption)
         local card = self.recoveryReason and recoveryCard or self.pages[self.step or 1]
         if not card then return end
+        if card.setupBaseHeight then card:SetHeight(card.setupBaseHeight) end
+        local labels={L.SETUP_STAGE_DETECT,L.SETUP_STAGE_PLACE,L.SETUP_STAGE_SEAM,L.SETUP_STAGE_SCALE}
+        if self.totalSteps>=5 then labels[5]=L.SETUP_STAGE_HUD end
+        if self.totalSteps>=6 then labels[6]=L.SETUP_STAGE_ELLESMERE end
+        self.progressRail:Update(self.step,labels)
         if self.recoveryReason then
             local top = Controls.GetCardContentTop(card, 36)
             recoveryBody:ClearAllPoints()
@@ -1144,6 +1267,8 @@ function Wizard:CreateFrame()
             local height = Controls.FitParagraphText(recoveryBody, recoveryBody:GetText(), width)
             card:SetHeight(top + height + 12)
         elseif self.step == 1 then
+            card1.sectionLabel=L[self.companionLayout and "WIZARD_COMPANION_LAYOUT_TITLE" or "WIZARD_CARD1_TITLE"]
+            card1.title:SetText(card1.sectionLabel)
             local top = Controls.GetCardContentTop(card1, 28)
             local width = card1:GetWidth() - textLeft - 14
             if topoText.ClearAllPoints then topoText:ClearAllPoints() end
@@ -1153,11 +1278,11 @@ function Wizard:CreateFrame()
                 if card1.logoIcon.ClearAllPoints then card1.logoIcon:ClearAllPoints() end
                 card1.logoIcon:SetPoint("TOPLEFT", card1, "TOPLEFT", 14, -top)
             end
-            top = top + Controls.MeasureWrappedText(topoText, topoText:GetText(), width) + 8
+            top = top + Controls.FitParagraphText(topoText, topoText:GetText(), width) + 8
             if recomText.ClearAllPoints then recomText:ClearAllPoints() end
             recomText:SetPoint("TOPLEFT", card1, "TOPLEFT", textLeft, -top)
             recomText:SetPoint("TOPRIGHT", card1, "TOPRIGHT", -14, -top)
-            top = top + Controls.MeasureWrappedText(recomText, recomText:GetText(), width) + 12
+            top = top + Controls.FitParagraphText(recomText, recomText:GetText(), width) + 12
             local actionHeight = math.max(28,
                 Controls.MeasureWrappedText(autoBtn:GetFontString(), autoBtn:GetText(), 590, 14) + 8)
             autoBtn:ClearAllPoints()
@@ -1167,8 +1292,63 @@ function Wizard:CreateFrame()
             if statusText.ClearAllPoints then statusText:ClearAllPoints() end
             statusText:SetPoint("TOPLEFT", card1, "TOPLEFT", 14, -top)
             statusText:SetPoint("TOPRIGHT", card1, "TOPRIGHT", -14, -top)
-            card1:SetHeight(top + Controls.MeasureWrappedText(statusText, statusText:GetText(), 600) + 14)
-        elseif self.step == 5 then
+            local statusHeight=statusText:GetText() ~= "" and Controls.FitParagraphText(statusText,statusText:GetText(),600) or 0
+            statusText:SetHeight(statusHeight)
+            card1:SetHeight(top+statusHeight+14)
+        elseif self.step == 2 then
+            local manual = not self.companionLayout
+            for _, control in ipairs({orientLabel,btnPl,btnPr,btnDual,btnVt,btnVb,
+                arLabel,btn169,btn219,btnFill}) do SetShown(control, manual) end
+            card2.sectionLabel = L[manual and "WIZARD_CARD2_TITLE" or "WIZARD_COMPANION_LAYOUT_TITLE"]
+            card2.title:SetText(card2.sectionLabel)
+            if not manual then
+                local top = Controls.GetCardContentTop(card2, 32)
+                exactTopologyHelp:ClearAllPoints()
+                exactTopologyHelp:SetPoint("TOPLEFT",card2,"TOPLEFT",14,-top)
+                exactTopologyHelp:SetPoint("TOPRIGHT",card2,"TOPRIGHT",-14,-top)
+                card2:SetHeight(top+Controls.FitParagraphText(exactTopologyHelp,exactTopologyHelp:GetText(),600)+14)
+            else
+                exactTopologyHelp:ClearAllPoints()
+                exactTopologyHelp:SetPoint("TOPLEFT",card2,"TOPLEFT",14,-166)
+                exactTopologyHelp:SetPoint("TOPRIGHT",card2,"TOPRIGHT",-14,-166)
+                card2:SetHeight(206)
+            end
+        elseif self.step == 3 then
+            local manual = not self.companionLayout
+            btnLaser:Show()
+            for _,control in ipairs({seamTitle,seamSlider,seamEditBox,btnMinus,btnPlus,
+                btnSeam36,btnSeam50,btnSeam55}) do SetShown(control,manual) end
+            local top=Controls.GetCardContentTop(card3,32)
+            seamHelp:ClearAllPoints()
+            seamHelp:SetPoint("TOPLEFT",card3,"TOPLEFT",14,-top)
+            seamHelp:SetPoint("TOPRIGHT",card3,"TOPRIGHT",-14,-top)
+            local helpHeight=Controls.FitParagraphText(seamHelp,seamHelp:GetText(),600)
+            btnLaser:ClearAllPoints()
+            bottomControl:ClearAllPoints()
+            if manual then
+                btnLaser:SetPoint("LEFT",btnPlus,"RIGHT",12,0)
+                bottomControl:SetPoint("TOPLEFT",card3,"TOPLEFT",14,-math.max(148,top+helpHeight+98))
+                card3:SetHeight(math.max(208,top+helpHeight+98+bottomControl:GetHeight()+14))
+            else
+                top=top+helpHeight+12
+                btnLaser:SetPoint("TOPLEFT",card3,"TOPLEFT",14,-top)
+                top=top+btnLaser:GetHeight()+16
+                bottomControl:SetPoint("TOPLEFT",card3,"TOPLEFT",14,-top)
+                card3:SetHeight(top+bottomControl:GetHeight()+14)
+            end
+        elseif self.step == ELLESMERE_STEP then
+            local top = Controls.GetCardContentTop(card6, 32)
+            transferHelp:ClearAllPoints()
+            transferHelp:SetPoint("TOPLEFT", card6, "TOPLEFT", 14, -top)
+            transferHelp:SetPoint("TOPRIGHT", card6, "TOPRIGHT", -14, -top)
+            top = top + Controls.FitParagraphText(transferHelp, transferHelp:GetText(), 600) + 12
+            previewBtn:ClearAllPoints()
+            previewBtn:SetPoint("TOPLEFT", card6, "TOPLEFT", 14, -top)
+            local height = math.max(28,
+                Controls.MeasureWrappedText(previewBtn:GetFontString(), previewBtn:GetText(), 250, 14) + 8)
+            previewBtn:SetHeight(height)
+            card6:SetHeight(top + height + 14)
+        elseif self.step == HUD_STEP then
             local top = Controls.GetCardContentTop(card5, 32)
             local helpHeight = Controls.FitParagraphText(layoutHelp, layoutHelp:GetText(), 600)
             if layoutHelp.ClearAllPoints then layoutHelp:ClearAllPoints() end
@@ -1179,8 +1359,23 @@ function Wizard:CreateFrame()
             if layoutStatus.ClearAllPoints then layoutStatus:ClearAllPoints() end
             layoutStatus:SetPoint("TOPLEFT", card5, "TOPLEFT", 14, -top)
             layoutStatus:SetPoint("TOPRIGHT", card5, "TOPRIGHT", -14, -top)
-            card5:SetHeight(top + Controls.MeasureWrappedText(layoutStatus, layoutStatus:GetText(), 600) + 16)
+            top = top + Controls.MeasureWrappedText(layoutStatus, layoutStatus:GetText(), 600)
+            card5:SetHeight(top + 16)
         end
+        card.setupBaseHeight=card:GetHeight()
+        local kinds={"POSITION","POSITION","SEAM","SCALE","HUD"}
+        local kind=not self.recoveryReason and kinds[self.step]
+        if kind then
+            if self.illustrationCard ~= card then
+                self.stepIllustration:SetParent(card)
+                self.illustrationCard = card
+            end
+            self.stepIllustration:Update(kind,Offhand.Viewport and Offhand.Viewport:GetMetrics())
+            self.stepIllustration:ClearAllPoints()
+            self.stepIllustration:SetPoint("TOPLEFT",card,"TOPLEFT",14,-card.setupBaseHeight)
+            self.stepIllustration:Show()
+            card:SetHeight(card.setupBaseHeight+self.stepIllustration:GetHeight()+14)
+        else self.stepIllustration:Hide() end
         local footerHeight = 28
         for _, button in ipairs({ advBtn, skipLayoutBtn, backBtn, finishBtn, recoveryBack }) do
             if button:IsShown() then
@@ -1195,14 +1390,16 @@ function Wizard:CreateFrame()
         local restartHeight = Controls.MeasureWrappedText(restartBtn:GetFontString(), restartBtn:GetText(), 170) + 8
         restartBtn:SetHeight(math.max(24, restartHeight))
         local layout = Controls.GetWizardLayout(
-            Controls.MeasureWrappedText(welcomeText, welcomeText:GetText(), 632),
-            math.max(Controls.MeasureWrappedText(progress, progress:GetText(), progressWidth),
-                restartBtn:IsShown() and restartBtn:GetHeight() or 0),
+            Controls.FitParagraphText(welcomeText, welcomeText:GetText(), 632),
+            math.max(Controls.FitParagraphText(progress, progress:GetText(), progressWidth),
+                restartBtn:IsShown() and restartBtn:GetHeight() or 0)+self.progressRail:GetHeight()+12,
             card:GetHeight(), validationHeight, footerHeight)
         self:SetHeight(layout.height)
         if progress.ClearAllPoints then progress:ClearAllPoints() end
         progress:SetPoint("TOPLEFT", self, "TOPLEFT", restartBtn:IsShown() and 216 or 18, -layout.progressTop)
         progress:SetWidth(progressWidth)
+        self.progressRail:ClearAllPoints()
+        self.progressRail:SetPoint("TOPLEFT",self,"TOPLEFT",18,-layout.cardTop+self.progressRail:GetHeight()+12)
         restartBtn:ClearAllPoints()
         restartBtn:SetPoint("TOPLEFT", self, "TOPLEFT", 18, -layout.progressTop)
         card:ClearAllPoints()
@@ -1217,7 +1414,15 @@ function Wizard:CreateFrame()
         Controls.FitDialog(self, Offhand.Viewport and Offhand.Viewport:GetMetrics())
     end
     function f:SetStep(step)
+        local transfer = self.pages[HUD_STEP] and EllesmereTransfer()
+        self.totalSteps = transfer and ELLESMERE_STEP or self.pages[HUD_STEP] and HUD_STEP or 4
+        self.pages[ELLESMERE_STEP] = transfer and card6 or nil
+        local layout = transfer and step >= HUD_STEP and EllesmereNativeLayout()
+        if step == ELLESMERE_STEP and (pendingHUDReload or not layout or NeedsLayoutSelection(layout)) then
+            step = HUD_STEP
+        end
         self.step = math.max(1, math.min(self.totalSteps, step))
+        card6:Hide()
         if type(OffhandCharDB) == "table" then OffhandCharDB.wizardProgressStep = self.step end
         if Offhand.SetOnboardingResumeStep and Offhand.IsSetupComplete and not Offhand:IsSetupComplete() then
             Offhand:SetOnboardingResumeStep(6)
@@ -1230,26 +1435,39 @@ function Wizard:CreateFrame()
         validationStatus:SetText("")
         if PlacementFailure() then self:ShowRecovery("span"); return end
         for i, card in ipairs(self.pages) do SetShown(card, i == self.step) end
-        local helpKey = self.step == 5 and "STEP_5_HELP"
+        local helpKey = self.step == ELLESMERE_STEP and "ELLESMERE_HUD_WIZARD_INTRO"
+            or self.step == HUD_STEP and "STEP_5_HELP"
             or (self.step == 4 and self.totalSteps == 4 and "STEP_4_HELP_NO_EDITMODE")
             or (self.step == 4 and "STEP_4_HELP_EDITMODE")
             or ("STEP_" .. self.step .. "_HELP")
-        welcomeText:SetText(L[helpKey])
+        welcomeText:SetText(self.companionLayout and self.step == 2
+            and L["WIZARD_COMPANION_SUMMARY"] or L[helpKey])
         backBtn:Show()
         backBtn:SetEnabled(self.step > 1)
         SetShown(restartBtn, self.step > 1)
-        SetShown(advBtn, self.step ~= 5)
+        SetShown(advBtn, self.step < HUD_STEP)
         local controllerLayout = self.step == 5 and UsesControllerLayout()
         local canCreateController = controllerLayout and CanCreateControllerLayout()
+        local pendingSelection = transfer and pendingHUDReload and pendingHUDReload.activation == "select"
+            and not (layout and layout.generatedActive)
+        local importReload = self.step == ELLESMERE_STEP and transfer.HasPendingReload
+            and transfer:HasPendingReload()
+        local state = self.step == HUD_STEP and Offhand.Mainhand and Offhand.Mainhand.GetLayoutStatus
+            and Offhand.Mainhand:GetLayoutStatus()
+        local needsRefresh = state and state.configured and not state.deferred
+            and state.currentGeometry and state.currentOwnership == false and not layout
         SetShown(skipLayoutBtn, self.step == 5 and not controllerLayout)
-        finishBtn:SetText(self.step == 5
-            and (controllerLayout and canCreateController and L["WIZARD_GAMEPAD_FINISH"]
-                or controllerLayout and L["BTN_FINISH"] or L["MAINHAND_LAYOUT_CREATE"])
-            or (self.step == self.totalSteps and L["BTN_FINISH"] or L["BTN_NEXT"]))
+        finishBtn:SetText(self.step == HUD_STEP
+            and (pendingSelection and L["BTN_NEXT"]
+                or transfer and pendingHUDReload and L["ONBOARD_RELOAD_UI"]
+                or layout and L["BTN_NEXT"]
+                or controllerLayout and canCreateController and L["WIZARD_GAMEPAD_FINISH"]
+                or controllerLayout and L["BTN_FINISH"]
+                or needsRefresh and L["MAINHAND_LAYOUT_REFRESH"] or L["MAINHAND_LAYOUT_CREATE"])
+            or (importReload and L["ELLESMERE_HUD_FINISH_RELOAD"]
+                or self.step == self.totalSteps and L["BTN_FINISH"] or L["BTN_NEXT"]))
         finishBtn:SetSize(self.step == 5 and 230 or 170, 28)
-        if self.step == 5 then
-            local state = Offhand.Mainhand and Offhand.Mainhand.GetLayoutStatus
-                and Offhand.Mainhand:GetLayoutStatus() or nil
+        if self.step == HUD_STEP then
             local name = state and state.deferred and L["MAINHAND_LAYOUT_DEFERRED"]
                 or (state and state.configured and state.generatedName
                     or L["MAINHAND_LAYOUT_UNSET"])
@@ -1260,13 +1478,28 @@ function Wizard:CreateFrame()
             layoutStatus:SetText(controllerLayout and (canCreateController
                     and L["MAINHAND_LAYOUT_GAMEPAD_STATUS"] or L["MAINHAND_LAYOUT_GAMEPAD_FAILED"])
                 or string.format(L["MAINHAND_LAYOUT_STATUS"], tostring(name)))
-            layoutHelp:SetText((controllerLayout and (canCreateController
-                    and L["WIZARD_GAMEPAD_LAYOUT_BODY"] or L["MAINHAND_LAYOUT_GAMEPAD_FAILED"])
-                or L["WIZARD_STEP_5_BODY"]) .. "\n\n" ..
-                ReadinessSummary(controllerLayout and (canCreateController
-                        and L["MAINHAND_LAYOUT_GAMEPAD_STATUS"] or L["MAINHAND_LAYOUT_GAMEPAD_FAILED"])
-                    or state and state.configured and not state.deferred
-                    and L["READINESS_HUD_READY"] or L["READINESS_HUD_PENDING"]))
+            local nextStep = transfer and ("\n\n" .. L["ELLESMERE_HUD_SETUP_DESC"]) or ""
+            local instructions = controllerLayout and (canCreateController
+                and L["WIZARD_GAMEPAD_LAYOUT_BODY"] or L["MAINHAND_LAYOUT_GAMEPAD_FAILED"])
+                or L["WIZARD_HUD_SHORT_BODY"]
+            if transfer and pendingHUDReload then
+                instructions = L[pendingSelection and "ELLESMERE_HUD_WIZARD_SELECT" or "ELLESMERE_HUD_WIZARD_RELOAD"]
+            elseif layout then
+                instructions = L[NeedsLayoutSelection(layout)
+                    and "ELLESMERE_HUD_WIZARD_SELECT" or "ELLESMERE_HUD_WIZARD_EXISTING"]
+            elseif needsRefresh then
+                instructions = L["MAINHAND_LAYOUT_REFRESH_BODY"]
+            end
+            layoutHelp:SetText(instructions .. nextStep)
+        elseif self.step == ELLESMERE_STEP then
+            local body = L["ELLESMERE_HUD_WIZARD_BODY"]
+            if importReload then
+                body = L["ELLESMERE_HUD_IMPORT_READY"]
+            end
+            if Wizard.ellesmereImportInactive then
+                body = body .. "\n\n" .. L["ELLESMERE_HUD_SAVED_INACTIVE"]
+            end
+            transferHelp:SetText(body)
         end
         if self.step == 3 then
             Offhand.Options:ShowSeamGuide(Offhand.db and Offhand.db.deckWidthRatio)
@@ -1292,10 +1525,11 @@ function Wizard:CreateFrame()
         local seam = Offhand.db.deckWidthRatio or 0.36
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
         local manualGeometryEnabled = not (metrics and metrics.companionTopology)
+        self.companionLayout = not manualGeometryEnabled
         exactTopologyHelp:SetText(manualGeometryEnabled and ""
-            or ("|cffffd100" .. L["WIZARD_STEP2_OPTIONS_LOCKED"] .. "|r"))
+            or L["WIZARD_COMPANION_CHANGE"])
         seamHelp:SetText(manualGeometryEnabled and L["WIZARD_SEAM_INSTRUCTION"]
-            or L["WIZARD_STEP3_OPTIONS_LOCKED"])
+            or L["WIZARD_COMPANION_SEAM"])
         for _, control in ipairs({btnPl, btnPr, btnDual, btnVt, btnVb, btn169, btn219,
             btnFill, seamSlider, seamEditBox, btnMinus, btnPlus, btnSeam36, btnSeam50, btnSeam55}) do
             if control == seamSlider then Controls.SetSliderEnabled(control, manualGeometryEnabled)
@@ -1357,6 +1591,9 @@ function Wizard:CreateFrame()
 
         self:UpdateLaserButton()
         self._updatingState = nil
+        if self.step == 2 then
+            welcomeText:SetText(L[manualGeometryEnabled and "STEP_2_HELP" or "WIZARD_COMPANION_SUMMARY"])
+        end
         if self.step then self:LayoutStep() end
     end
 
@@ -1437,11 +1674,11 @@ function Wizard:ReloadPlacement()
         end
         return false
     end
-    if type(ReloadUI) ~= "function" or type(OffhandCharDB) ~= "table" then return false end
-    OffhandCharDB.wizardRecoveryStep = wizardFrame.step
+    local reload = Offhand:GetReloadUIFunction()
+    if type(OffhandCharDB) ~= "table" then return false end
     -- Existing login handoff opens Onboarding even for previously completed users.
-    if Offhand.SetOnboardingResumeStep then Offhand:SetOnboardingResumeStep(6) end
-    ReloadUI()
+    SaveReloadStep(wizardFrame.step)
+    if reload then reload() else Offhand:ShowManualReloadPrompt() end
     return true
 end
 
@@ -1451,7 +1688,8 @@ function Wizard:ResumeAfterReload()
         and Offhand.IsSetupComplete and not Offhand:IsSetupComplete() then
         step = self:GetSavedStep()
     end
-    if not step or step ~= step or step < 1 or step > 5 then
+    if pendingHUDReload and step == ELLESMERE_STEP then return false end
+    if not step or step ~= step or step < 1 or step > ELLESMERE_STEP then
         if type(OffhandCharDB) == "table" then OffhandCharDB.wizardRecoveryStep = nil end
         return false
     end
@@ -1522,6 +1760,8 @@ function Wizard:OpenLayoutManagement()
 end
 
 function Wizard:Open(resumeStep)
+    self.previewReturn = nil
+    if Offhand.SetAutomaticSetupSuppressed then Offhand:SetAutomaticSetupSuppressed(false) end
     local savedStep = not resumeStep and self:GetSavedStep() or nil
     resumeStep = resumeStep or savedStep
     self:CancelEditModeReturn()
@@ -1559,19 +1799,24 @@ function Wizard:Open(resumeStep)
     elseif info.exactTopology and info.companionVersionStatus == "UNKNOWN" then
         -- Beta 13 predates topology-writer metadata. Its exact geometry remains
         -- valid; diagnostics report the unverified writer without blocking setup.
-        f.statusText:SetText(L["EXACT_TOPOLOGY_LOCKED"])
+        f.statusText:SetText("")
     elseif info.exactTopology then
-        f.statusText:SetText(L["EXACT_TOPOLOGY_LOCKED"])
+        f.statusText:SetText("")
     else
         f.statusText:SetText(L["WIZARD_STATUS_READY"])
     end
     if f.autoBtn then
-        f.autoBtn:SetText("|cff00ff00" .. L["WIZARD_BTN_AUTOCONFIG"] .. "|r")
+        f.autoBtn:SetText(L["WIZARD_BTN_AUTOCONFIG"])
     end
     if f.finishBtn and f.finishBtn.UnlockHighlight then
         f.finishBtn:UnlockHighlight()
     end
 
+    if info.exactTopology then
+        f.topoText:SetText(L["WIZARD_COMPANION_SUMMARY"])
+        f.recomText:SetText(L["WIZARD_COMPANION_CHANGE"])
+        f.autoBtn:SetText(L["WIZARD_COMPANION_ACTION"])
+    end
     f:UpdateState()
 
     Controls.RefreshStyles()
@@ -1600,9 +1845,13 @@ function Wizard:ResumeFromSettings()
     if wizardFrame then wizardFrame:SetStep(step) end
 end
 
-function Wizard:OpenHUDSetup()
+function Wizard:OpenHUDSetup(reviewEllesmere)
+    if reviewEllesmere then
+        self:Open(ELLESMERE_STEP)
+        return
+    end
     self:Open()
-    if wizardFrame then wizardFrame:SetStep(wizardFrame.totalSteps) end
+    if wizardFrame then wizardFrame:SetStep(math.min(wizardFrame.totalSteps, HUD_STEP)) end
 end
 
 function Wizard:OpenLayoutCapacityRecovery()
@@ -1611,6 +1860,8 @@ function Wizard:OpenLayoutCapacityRecovery()
 end
 
 function Wizard:Close()
+    self.previewReturn = nil
+    self.ellesmereImportInactive = nil
     self:CancelEditModeReturn()
     if Offhand.Options and Offhand.Options.HideSeamGuide then
         Offhand.Options:HideSeamGuide()

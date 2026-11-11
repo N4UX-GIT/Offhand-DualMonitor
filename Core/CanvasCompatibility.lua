@@ -35,6 +35,8 @@ local foreverEditModeFrameNames = {
     CompactPartyFrame = true,
     CompactRaidFrameContainer = true,
     BuffFrame = true,
+    DebuffFrame = true,
+    ExternalDefensivesFrame = true,
     BuffCluster = true,
     CastingBarFrame = true,
     PlayerCastingBarFrame = true,
@@ -90,6 +92,11 @@ end
 
 function Compatibility.HasClassicUIForever()
     return Compatibility.IsAddonLoaded("ClassicUIForever")
+end
+
+function Compatibility.IsForeverEllesmereBag(name)
+    return Offhand.isForever
+        and (name == "EUI_MainBagFrame" or name == "EUI_ReagentBagFrame" or name == "EUI_BagsWindowFrame")
 end
 
 -- ClassicUI Forever has its own persistent movement for these native frames.
@@ -187,6 +194,69 @@ function Compatibility.GetDiagnostics(compact, coordinateFontRefreshCount)
     end
     return string.format("MoveAny=%s | WorldMapOwner=%s",
         Compatibility.HasMoveAny() and "loaded" or "absent", mapOwner) .. leatrixStatus .. spellbookStatus .. bagStatus
+end
+
+-- Support-only inspection. Never move, show, hook or read guide contents from
+-- third-party frames. A missing named root is not proof that an addon is absent.
+function Compatibility.GetGuideAddonDiagnostics()
+    local loaded = Compatibility.IsAddonLoaded("ZygorGuidesViewer")
+        or Compatibility.IsAddonLoaded("ZygorGuidesViewerClassic")
+    local namespace = type(_G.ZygorGuidesViewer) == "table"
+    local reports, seen, scanned, truncated = {}, {}, 0, false
+    local function Public(value)
+        if type(issecretvalue) == "function" then
+            local ok, secret = pcall(issecretvalue, value)
+            if not ok or secret then return nil end
+        end
+        return value
+    end
+    local function Read(frame, method)
+        local ok, value = pcall(function()
+            local getter = frame and frame[method]
+            if type(getter) == "function" then return getter(frame) end
+        end)
+        if ok then return Public(value) end
+    end
+    local function Value(value)
+        if type(value) == "boolean" then return value and "1" or "0" end
+        if type(value) == "number" and value == value and value > -math.huge and value < math.huge then
+            return string.format("%.2f", value)
+        end
+        return "unavailable"
+    end
+    for _, parent in pairs({UIParent, WorldFrame}) do
+        if parent and type(parent.GetChildren) == "function" then
+            local ok, children = pcall(function() return {parent:GetChildren()} end)
+            if ok then
+                if #children > 256 then truncated = true end
+                for index = 1, math.min(#children, 256) do
+                    local frame = children[index]
+                    scanned = scanned + 1
+                    local name = Read(frame, "GetName")
+                    if type(name) == "string" and name:lower():find("zygor", 1, true) and not seen[frame] then
+                        seen[frame] = true
+                        if #reports < 8 then
+                            local strata = Read(frame, "GetFrameStrata")
+                            reports[#reports + 1] = string.format(
+                                "%s parent=%s shown=%s visible=%s alpha=%s effectiveAlpha=%s strata=%s level=%s scale=%s bounds=%s/%s/%s/%s",
+                                name:sub(1, 96), parent == UIParent and "UIParent" or "WorldFrame",
+                                Value(Read(frame, "IsShown")), Value(Read(frame, "IsVisible")),
+                                Value(Read(frame, "GetAlpha")), Value(Read(frame, "GetEffectiveAlpha")),
+                                type(strata) == "string" and strata:sub(1, 32) or "unavailable",
+                                Value(Read(frame, "GetFrameLevel")),
+                                Value(Read(frame, "GetEffectiveScale")), Value(Read(frame, "GetLeft")),
+                                Value(Read(frame, "GetBottom")), Value(Read(frame, "GetRight")), Value(Read(frame, "GetTop")))
+                        else truncated = true end
+                    end
+                end
+            end
+        end
+    end
+    if not loaded and not namespace and #reports == 0 then return nil end
+    table.insert(reports, 1, string.format("Zygor probes: knownAddonID=%s namespace=%s namedRoots=%d scanned=%d truncated=%s",
+        loaded and "loaded" or "not-observed", namespace and "present" or "not-observed",
+        #reports, scanned, truncated and "yes" or "no"))
+    return reports
 end
 
 function Compatibility.IsForeverProfessionsPanel(frame, suppliedName)

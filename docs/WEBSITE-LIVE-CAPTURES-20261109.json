@@ -1,0 +1,222 @@
+[
+  {
+    "name": "offhand-guide-welcome-20261109.png",
+    "source": "offhand-guide-welcome.png",
+    "crop": {
+      "left": 830,
+      "top": 464,
+      "width": 747,
+      "height": 488
+    },
+    "sha256": "652f75fb904ee9bc9bc771909cd1e754affc15ebf590130d1b584630b3cc218e"
+  },
+  {
+    "name": "offhand-guide-method-20261109.png",
+    "source": "offhand-guide-method.png",
+    "crop": {
+      "left": 830,
+      "top": 418,
+      "width": 747,
+      "height": 580
+    },
+    "sha256": "351df270f4909d3a294b57be6e119079d4cf109888224466af3a74853ec32fb3"
+  },
+  {
+    "name": "offhand-guide-installed-20261109.png",
+    "source": "offhand-guide-installed.png",
+    "crop": {
+      "left": 830,
+      "top": 464,
+      "width": 747,
+      "height": 488
+    },
+    "sha256": "c8ef3cd44beaac0745ba159bfe7ca1720a94b6ba5daf4fb5982584ff14734540"
+  },
+  {
+    "name": "offhand-guide-download-20261109.png",
+    "source": "offhand-guide-download.png",
+    "crop": {
+      "left": 911,
+      "top": 563,
+      "width": 586,
+      "height": 289
+    },
+    "sha256": "44917a1eda44ba6b37bf530bade80b3a0e97c268cf43fa6361221cd63cb3f420"
+  },
+  {
+    "name": "offhand-guide-windowed-20261109.png",
+    "source": "offhand-guide-windowed.png",
+    "crop": {
+      "left": 830,
+      "top": 413,
+      "width": 747,
+      "height": 589
+    },
+    "sha256": "2e1992594eedc3cbb9afa406b67f9da55206ac2d3abb0eec4d5cb60d8462ca39"
+  },
+  {
+    "name": "offhand-companion-dashboard-20261109.png",
+    "source": "offhand-companion-dashboard.png",
+    "crop": {
+      "left": 0,
+      "top": 0,
+      "width": 550,
+      "height": 704
+    },
+    "sha256": "0c4883fbca2f7da8338175fe2841da83b92a25c66e30d29b4a71b6127b4edca6"
+  },
+  {
+    "name": "offhand-wizard-scale-20261109.png",
+    "source": "offhand-wizard-scale.png",
+    "crop": {
+      "left": 1781,
+      "top": 92,
+      "width": 779,
+      "height": 640
+    },
+    "sha256": "573536823fd094142e2febc79f584cc2f0cdf9ef182af6a02e89a4e0b407c4a2"
+  },
+  {
+    "name": "offhand-wizard-seam-20261109.png",
+    "source": "offhand-wizard-seam.png",
+    "crop": {
+      "left": 1781,
+      "top": 67,
+      "width": 779,
+      "height": 690
+    },
+    "sha256": "7001203ab19a1043ec55b93928fc0d655b3bcb63c1858b7e52d59ce84bc21f49"
+  },
+  {
+    "name": "offhand-wizard-orientation-20261109.png",
+    "source": "offhand-wizard-orientation.png",
+    "crop": {
+      "left": 1781,
+      "top": 139,
+      "width": 779,
+      "height": 545
+    },
+    "sha256": "00f126b934ff412d4f8f546c095d2db3941534ed41869f2ae84b2aec1ddd071f"
+  },
+  {
+    "name": "offhand-wizard-detection-20261109.png",
+    "source": "offhand-wizard-detection.png",
+    "crop": {
+      "left": 1530,
+      "top": 372,
+      "width": 780,
+      "height": 697
+    },
+    "sha256": "8c6d1b148ee890cbb45a51d8ce7512b8f9340d6dce0307497a99b178d34c818c"
+  },
+  {
+    "name": "offhand-wizard-hud-20261109.png",
+    "source": "offhand-wizard-hud.png",
+    "crop": {
+      "left": 1781,
+      "top": 369,
+      "width": 779,
+      "height": 703
+    },
+    "sha256": "c0d2c132f77e9644d430a13833b51180b94b212ca09036e79387ab25b6a8ac7d"
+  },
+  {
+    "name": "offhand-guide-powertoys-installed-20261109.png",
+    "source": "offhand-guide-powertoys-installed.png",
+    "crop": {
+      "left": 1535,
+      "top": 470,
+      "width": 769,
+      "height": 501
+    },
+    "sha256": "148cfe6c196313c08acc9f21557a0fe44d7728f2b8a6ba72ccdfb0940d3705f8"
+  },
+  {
+    "name": "offhand-guide-powertoys-download-20261109.png",
+    "source": "offhand-guide-powertoys-download.png",
+    "crop": {
+      "left": 1619,
+      "top": 593,
+      "width": 601,
+      "height": 254
+    },
+    "sha256": "8ed2b405164269f4a6e7e901a727910eb396b3dd611a39d92c8becf80101e9a6"
+  },
+  {
+    "name": "offhand-guide-fancyzones-placement-20261109.png",
+    "source": "offhand-guide-fancyzones-placement.png",
+    "crop": {
+      "left": 896,
+      "top": 407,
+      "width": 768,
+      "height": 626
+    },
+    "sha256": "537fc4e6dc7397997915b8458d32fa73bb1bab4aabd920cacb60e93383aa94da"
+  },
+  {
+    "name": "offhand-guide-manual-placement-20261109.png",
+    "source": "offhand-guide-manual-placement.png",
+    "crop": {
+      "left": 896,
+      "top": 397,
+      "width": 768,
+      "height": 646
+    },
+    "sha256": "0e84ad26cf7b117a5a8131a957ece130bf8085bb11eb141c9659a956082a087b"
+  },
+  {
+    "name": "offhand-guide-placement-20261109.png",
+    "source": "offhand-guide-placement.png",
+    "crop": {
+      "left": 1280,
+      "top": 365,
+      "width": 768,
+      "height": 710
+    },
+    "sha256": "6e96e27015a02f6fd439df0162e6eef21c7c80cb7187cd8e9d58475ae66cd9ab"
+  },
+  {
+    "name": "offhand-guide-placement-reload-20261109.png",
+    "source": "offhand-guide-placement-reload.png",
+    "crop": {
+      "left": 1280,
+      "top": 397,
+      "width": 768,
+      "height": 646
+    },
+    "sha256": "2c9af308758b97103912cfba606ad33542ac2993a4e3b7cba803d05639f79b61"
+  },
+  {
+    "name": "offhand-guide-placement-confirm-20261109.png",
+    "source": "offhand-guide-placement-confirm.png",
+    "crop": {
+      "left": 1535,
+      "top": 397,
+      "width": 769,
+      "height": 646
+    },
+    "sha256": "552ef64adade1944a7e452cf8ab6aae4aa45bfa6cf0fa9f6ada0602a354e7328"
+  },
+  {
+    "name": "offhand-guide-placement-review-20261109.png",
+    "source": "offhand-guide-placement-review.png",
+    "crop": {
+      "left": 1619,
+      "top": 601,
+      "width": 601,
+      "height": 239
+    },
+    "sha256": "40ee526ea81bde8780bac89ed7cf86d7b79809a14c9dece3f443e65b6f987fcc"
+  },
+  {
+    "name": "offhand-guide-calibration-20261109.png",
+    "source": "offhand-guide-calibration.png",
+    "crop": {
+      "left": 1535,
+      "top": 385,
+      "width": 769,
+      "height": 670
+    },
+    "sha256": "f04cb3b0d4eaba52e395c7de90d3fa74ce3c67a6c53b146d88a4bb8fc1f5d5ca"
+  }
+]

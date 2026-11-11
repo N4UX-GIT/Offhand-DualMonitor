@@ -1,8 +1,194 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+## [2.1.5-beta.30] - 2026-11-11
 
-## [Unreleased]
+- Fixed a case where remaining loot-roll windows could move to the screen seam
+  after an earlier roll finished. Offhand now keeps their Mainhand placement
+  when Blizzard rearranges the loot container.
+- Expanded the EllesmereUI HUD preview to cover supported cooldown, utility,
+  cast, stance, pet and current-spec tracking bars. Linked groups move together
+  through the normal profile review, and previews show additional rows in pages.
+- Explain which EllesmereUI module or dependency must be installed, enabled or
+  reloaded. Preview messages now identify linked parents, missing bounds,
+  oversized groups and real profile overrides. Empty override stores no longer
+  prevent a layout transfer.
+- Preserve Questie tracker and linked Social/Quick Join button anchors during
+  automatic popup recovery.
+- Respect Retail's friendly-player name-text preference instead of forcing it
+  on. Safely clean up the saved override from older Offhand versions.
+
+Verified with private test panels using Blizzard's native loot-container
+functions in Forever 1.60.1.70862 with spanning applied. Real simultaneous loot
+choices and combat behavior still need player verification. Please report any
+remaining disappearance with `/offhand diag full`, your client/build and other
+UI addons.
+
+Includes the previously released Beta 29 fixes. Existing settings and layouts
+are preserved. No Companion update is required. The owner requested inclusion
+of the previously deferred addon changes. Native Retail preference acceptance,
+active Questie-objective dragging and populated/spec-changing tracking-bar
+imports still need verification. Daylight testing remains deferred and its
+existing Beta 29 implementation is unchanged.
+
+## [2.1.5-beta.29] - 2026-11-10
+
+This is an addon-only beta update. No Companion update is required for these
+fixes. Existing settings and layouts are retained.
+
+- Preserve EllesmereUI and SexyMap minimap placement during automatic window
+  recovery, including detached minimaps and their crop frames.
+- Keep EllesmereUI scaling consistent with the spanned layout and preserve
+  scale choices made by another UI addon when Offhand releases control.
+- Keep open native Forever NPC panels reachable after disabling Offhand or
+  restoring the game window.
+- Fix Forever backpack restoration after Chat Settings closes, native close
+  button handling, and Escape priority when a target is selected.
+- Preserve Details, BetterBags Next and RestedXP window placement during
+  automatic recovery.
+- Fix setup reload-button handling and guidance when the window is not yet
+  spanned. Preserve progress through a manual reload.
+- Compact remaining loot-roll windows after earlier rolls finish, and keep the
+  stack within Mainhand. Fit oversized native item tooltips to their display
+  and restore their scale when the content changes or the tooltip closes.
+- Add optional Mainhand centering for ProcDoc alerts while retaining its own
+  offsets. Preserve its anchor when centering is disabled.
+- Keep DaylightUI's world map at its saved Offhand placement while owned by
+  Offhand, and restore DaylightUI placement and controls when released.
+- Improve minimap compatibility diagnostics and release Offhand's temporary
+  owned UI scale during normal logout outside combat.
+
+Validation includes automated regressions and controlled spanned Forever
+1.60.1.70862 checks. Real simultaneous loot rolls and their combat lifecycle
+could not be tested locally. Their corrections are included for beta feedback;
+please report any remaining disappearance, unusable roll choices or tooltip
+overflow with `/offhand diag full`, the client build and other UI addons.
+
+Old-profile minimap hiding, exact reporter HUD-save failures and physical
+portrait/4K placement reports remain under investigation. This update does not
+add SexyMap synchronization with Blizzard's Edit Mode selection box or change
+Companion display-identity handling. The separate Retail friendly-name
+preference correction is deferred pending native Retail verification.
+
+## [2.1.5-beta.28] - 2026-11-09
+
+### Guided setup and settings
+- Split placement into explicit Window is positioned, Reload UI and Confirm
+  placement actions, with a final review. Add visual task cards, progress and a
+  highlighted next action to the guide and calibration wizard.
+- Keep placement and HUD confirmation dialogs inside Mainhand before showing
+  them, avoiding the shared popup stack's seam-to-top jump.
+- Improve settings header spacing, readable versions, Website/Discord links,
+  typed slider values and consistent action styling. Show a compact Character
+  scaling section when stronger workspace window locking is unsupported.
+- Correct the first-install calibration path that follows Next without choosing
+  Auto-Configure. Explicit continuation now enables the validated layout while
+  preserving calibration values. Source and packaged regressions pass. Native
+  Forever 70862 Next activation, HUD creation and two reloads pass on the private
+  span-setup-test1 single-display split. A second clean-account/default-Companion
+  run also passes first HUD creation, reload and cold WoW/Companion restart.
+  An independent repeat passes with zero Lua errors and cold in-world re-span
+  plus reload retaining the same HUD.
+  Exact reporter topology remains unverified.
+
+### Map, panels and compatibility
+- Apply native map scale to the map's actual Mainhand/workspace side. Preserve
+  Auto Fit and explicit same-value presets without triggering unrelated layouts.
+- For the reviewed OpenMap v0.7.5-beta on Forever, route explicit scale actions
+  through its own guarded settings and offer title recovery while preserving
+  owner size/scale. Unsupported owners, combat and restricted UI retain guards.
+  No third-party source patch is included in the add-on package.
+- Improve guarded Forever map Escape behavior, gamepad Back deferral, transient
+  menu placement and HUD/EncounterBar ownership. Preserve custom-workspace,
+  panel-routing, themes and background-library behavior from Beta 27.
+- Add translated setup/settings strings and retain locale fallback policy.
+
+### Matching Companion 2.1.5
+- Update all six add-on manifests and portable links to Companion 2.1.5 while
+  retaining protocol 1 and minimum version 2.1.2-beta.19. No forced companion
+  upgrade is introduced for previously compatible standard layouts.
+- Include the redesigned 2.1.4 dashboard: prominent Span/Restore, collapsed
+  status with a concise indicator, stable Show/Hide sizing and dark scrollbars.
+- Add quiet, daily Store update availability checks and a static update action.
+  The Store handles installation. Portable GitHub checks remain manual.
+- Retain the Store settings-save hotfix and existing monitor-identity, custom
+  layout, scaling, taskbar and window-recovery safeguards. Type /reload in WoW
+  after spanning or changing Mainhand/layout.
+
+### Validation and release status
+- Merged add-on: 114 Lua 5.1 regression suites pass before final package checks.
+  New exact-package and release validation is recorded in
+  docs/PUBLICATION-2.1.5-PREPARATION-20261109.md.
+- Companion uses the unchanged 2.1.5.1 executable submitted as Store package
+  2.1.500.0. WACK passed all 13 required checks; one existing optional finding
+  is reviewed. The local Defender scan found no threats, without a Microsoft
+  file-review verdict or future detection guarantee.
+- Store Submission 6 is in certification with automatic publication enabled.
+  The publisher chose to proceed without awaiting private-flight acceptance.
+  Full Store-delivered upgrade, real Available and real signed-out/offline
+  observations remain unverified. Exact combined-package live WoW, full
+  physical mixed-DPI/hotplug/three-monitor, Wine and complete all-client
+  combat/protected-action acceptance remain open, separately from prior scoped QA.
+
+## [2.1.3-beta.27] - 2026-11-08
+
+### Matching Companion and add-on
+- Continue the add-on sequence as 2.1.3 Pre-Release Beta 27 in all six manifests.
+  Companion retains clean version 2.1.3. Its EXE version
+  is 2.1.3.9; Store package 2.1.300.0 is submitted for certification with manual
+  publication held. Store installs Companion only; the matching add-on is separate.
+- Reuse the exact frozen portable EXE/ZIP matching the submitted Store executable.
+  No runtime rebuild accompanies add-on reconciliation or publication packaging.
+
+### Custom workspaces and backgrounds
+- Standard spanning, game/workspace areas on one monitor, partial secondary-monitor
+  areas, multiple workspaces and Flexible Layout, with visual area selection,
+  previews, saved display plans and an option to return to standard layout.
+- Named in-game workspace profiles, supported-panel routing, manual-position
+  priority, separate region themes and installed background-library images.
+- Retain Background Studio export/library support, per-region image/fit choices
+  and theme fallback for missing images. General add-on profiles, workspace
+  profiles and Blizzard HUD layouts remain separate.
+
+### Companion reliability and guidance
+- Map saved monitor identities to active Windows display targets rather than
+  assuming the first monitor child belongs to an output. Handle stale, disabled,
+  virtual and ambiguous display assignments with explicit review and safe refusal.
+- Improve scaling/layout, HDR/SDR diagnostics, taskbar presentation, Restore and
+  failure rollback. Bounded graphics-reset recovery applies to Retail/Anniversary.
+- Refresh dashboard, Help and workspace editors, window icons and community links.
+  Make Span WoW Now followed by manual /reload explicit after layout/Mainhand changes.
+
+### Add-on fixes and compatibility
+- Improve first-launch guidance, per-character setup and shared/character HUD
+  reuse, explicit repair and recovery. Retain Ellesmere ownership and preview/import
+  safeguards; imported or generated native layouts still require the user's reload.
+- Preserve native bag state, separate/combined ownership and permitted saved-root
+  placement through keyboard/controller combat reopening on Forever. Cold,
+  restricted, secret and replacement-owned roots retain their guarded deferral.
+- Preserve BetterBags/RestedXP and user-owned popup placement during automatic
+  rescue. Improve native confirmation stacking, EncounterBar repair and external
+  HUD ownership. Leave native map pin/content rebuilding to Blizzard on Forever.
+- Improve supported add-on settings/Kerzo Escape and reversible close-button
+  policies, Kerzo reload restoration, ForeverPlus warnings, bubble-font ownership
+  and Ellesmere toolbar refitting after settled display changes.
+- Retain Retail secret-value guards, workspace-aware tooltip/comparison bounds,
+  native map/bag lifecycle and earlier Beta 26 onboarding/persistence fixes.
+- Complete existing EFIGS translations and the 44 custom-workspace keys across
+  deDE, frFR, itIT, esES and esMX. Other locale dictionaries retain existing fallback
+  policy. Native-language layout acceptance remains distinct from dictionary tests.
+
+### Verification and remaining acceptance
+- Combined add-on: 109 Lua regression suites and six TOCs/Lua 5.1 syntax passed.
+  Broader Companion, publication and website verification is recorded in
+  docs/PUBLICATION-2.1.3-PREPARATION-20261108.md.
+- Local WACK overall PASS, all 13 required tests passed; one optional finding is
+  reviewed and retained. Local Defender scans were clean. The portable sample
+  has no Defender file-review determination; local scans are not Microsoft approval.
+- Native evidence remains scoped to its documented clients, builds and scenarios.
+  Physical mixed-DPI/hotplug/three-monitor, Wine, combined exact-package live WoW
+  and complete combat/protected-action acceptance remain separate open coverage.
+
+Earlier candidate notes: docs/2.1.3-DEVELOPMENT-CHANGELOG.md.
 
 ## [2.1.2-beta.26] - 2026-11-01
 

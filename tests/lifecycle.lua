@@ -16,6 +16,29 @@ SlashCmdList = {}
 assert(loadfile("Core/Init.lua"))("Offhand", addon)
 assert(loadfile("Core/ClientRuntime.lua"))("Offhand", addon)
 
+do
+    local oldUI, oldReload = C_UI, ReloadUI
+    local legacy, modern = function() end, function() end
+    C_UI, ReloadUI = { Reload = modern }, legacy
+    assert(addon:GetReloadUIFunction() == modern, "prefer the current reload API when both exist")
+    local previousForever = addon.isForever
+    addon.isForever = true
+    assert(addon:GetReloadUIFunction() == modern,
+        "Forever keyboard clicks retain the native reload API")
+    local previousStyle = addon.IsGamepadUIEnabled
+    addon.IsGamepadUIEnabled = function() return true end
+    assert(addon:GetReloadUIFunction() == nil, "unverified Forever controller reload remains manual")
+    addon.IsGamepadUIEnabled = previousStyle
+    addon.isForever = previousForever
+    ReloadUI = nil
+    assert(addon:GetReloadUIFunction() == modern, "reload must work without the legacy global")
+    C_UI, ReloadUI = {}, legacy
+    assert(addon:GetReloadUIFunction() == legacy, "retain original-client reload compatibility")
+    ReloadUI = nil
+    assert(addon:GetReloadUIFunction() == nil, "missing capabilities must not pretend to reload")
+    C_UI, ReloadUI = oldUI, oldReload
+end
+
 -- The live interface-style API is authoritative when available, with
 -- InputUtil retained only for builds/load orders that do not expose it yet.
 Enum = { InputDeviceInterfaceType = { Mkb = 1, Gamepad = 2 } }
@@ -55,6 +78,10 @@ local function makePromptFrame(name)
     function frame:SetText(value) self.text = value end
     function frame:SetScript(event, callback) self.scripts[event] = callback end
     function frame:Show()
+        if self.name == "OffhandGamepadSafePopup" then
+            assert(not self.shown and #self.points == 1 and self.points[1][1] == "CENTER",
+                "owned confirmations must be hidden and positioned before becoming visible")
+        end
         self.shown = true
         if self.scripts.OnShow then self.scripts.OnShow(self) end
     end
@@ -168,6 +195,83 @@ assert(prompt.points[1][2] == UIParent and prompt.points[1][4] == 2072 / 0.8,
     'setup confirmation must use Mainhand geometry, not a stale anchor')
 prompt.accept.scripts.OnClick()
 assert(confirmed == 1 and not prompt.shown, 'owned setup confirmation must preserve callback data')
+-- Guide placement and the HUD completion/reload prompts must never enter the
+-- native stack, even in keyboard UI. Reuse must not inherit the previous card's
+-- anchor or accidentally invoke its callback when a new prompt replaces it.
+local setupKeys = {
+    "OFFHAND_WEBSITE_LINK", "OFFHAND_DISCORD_LINK",
+    "OFFHAND_CONFIRM_WINDOWED_MODE", "OFFHAND_CONFIRM_PLACEMENT",
+    "OFFHAND_CONFIRM_MANUAL_LAYOUT", "OFFHAND_CONFIRM_MANUAL_LAYOUT_FOREVER",
+    "OFFHAND_MAINHAND_LAYOUT_RELOAD", "OFFHAND_MAINHAND_LAYOUT_SELECT",
+}
+for _, key in ipairs(setupKeys) do
+    local previous = StaticPopupDialogs[key]
+    local accepts, cancels = 0, 0
+    StaticPopupDialogs[key] = {
+        text = "Review %s", button1 = "Continue", button2 = "Back",
+        OnAccept = function(_, data) accepts = accepts + data end,
+        OnCancel = function() cancels = cancels + 1 end,
+    }
+    local card = addon:ShowPopup(key, "placement", nil, 2)
+    assert(card == prompt and staticShows == 0 and card.strata == "TOOLTIP"
+            and card.text.text == "Review placement"
+            and card.points[1][2] == UIParent and card.points[1][3] == "BOTTOMLEFT"
+            and card.points[1][4] == 2072 / 0.8 and card.points[1][5] == 552.5 / 0.8,
+        key .. " must open centered inside Mainhand without a native TOP/seam anchor")
+    addon:ShowPopup(key, "placement", nil, 2)
+    assert(accepts == 0 and cancels == 0, "replacing a prompt must not accept or cancel it")
+    card.cancel.scripts.OnClick()
+    assert(cancels == 1 and accepts == 0 and not card.shown)
+    addon:ShowPopup(key, "placement", nil, 2).accept.scripts.OnClick()
+    assert(accepts == 2 and not card.shown, "owned dialogs must retain callback data")
+    addon:ShowPopup(key, "placement", nil, 2)
+    assert(addon:HidePopup(key) and not card.shown and staticHides == 0,
+        "hiding an owned setup prompt must leave the native stack untouched")
+    StaticPopupDialogs[key] = previous
+end
+-- Reload callbacks must run while the clicked parent is visible. Ordinary
+-- callbacks retain hide-first semantics, and reopened cards survive cleanup.
+do
+    local key = "OFFHAND_MAINHAND_LAYOUT_RELOAD"
+    local accepts, hides = 0, 0
+    local definition = {
+        text = "Reload", button1 = "Reload", button2 = "Later",
+        offhandAcceptBeforeHide = true,
+        OnHide = function() hides = hides + 1 end,
+        OnAccept = function(card, data)
+            assert(card.shown and hides == 0 and data == 42,
+                "reload must retain the visible hardware-click target until its callback")
+            accepts = accepts + 1
+        end,
+    }
+    StaticPopupDialogs[key] = definition
+    addon:ShowPopup(key,nil,nil,42).accept.scripts.OnClick()
+    assert(accepts == 1 and hides == 1 and not prompt.shown)
+    definition.OnAccept = function()
+        addon:ShowPopup(key,nil,nil,99)
+    end
+    addon:ShowPopup(key).accept.scripts.OnClick()
+    assert(prompt.shown and prompt.data == 99,
+        "a callback reopening the same definition must keep its replacement card")
+    addon:HidePopup(key)
+    definition.offhandAcceptBeforeHide = nil
+    definition.OnAccept = function(card) assert(not card.shown, "ordinary callbacks remain hide-first") end
+    addon:ShowPopup(key).accept.scripts.OnClick()
+    definition.offhandAcceptBeforeHide = true
+    definition.OnAccept = function() error("cancel must not invoke accept") end
+    addon:ShowPopup(key).cancel.scripts.OnClick()
+    assert(not prompt.shown)
+    StaticPopupDialogs[key] = nil
+end
+addon:ShowManualReloadPrompt()
+assert(prompt.popupKey == "OFFHAND_SETUP_MANUAL_RELOAD" and prompt.strata == "TOOLTIP"
+        and not prompt.definition.OnAccept and not prompt.cancel.shown and staticShows == 0,
+    "manual reload must only show the owned instruction card, with no reload callback")
+prompt.accept.scripts.OnClick()
+assert(not prompt.shown, "closing instructions must not request a native reload")
+addon:ShowPopup("OFFHAND_NATIVE_KEYBOARD_PROBE")
+assert(staticShows == 1, "unrelated keyboard popups must retain their existing native route")
+staticShows = 0
 local reminderCharacter = OffhandCharDB
 local reminderEditMode = addon.HasBlizzardEditMode
 OffhandCharDB = {mainhandLayoutDeferred = true}
@@ -187,6 +291,36 @@ prompt.accept.scripts.OnClick()
 assert(resumed == 1 and OffhandCharDB.mainhandLayoutDeferred,
     "resuming must open HUD setup without claiming the layout is repaired")
 addon.Wizard, addon.HasBlizzardEditMode, addon._hudSetupReminderShown = nil, reminderEditMode, nil
+local priorMainhand, priorCharacterSetup = addon.Mainhand, addon.CharacterSetup
+addon.Mainhand = {GetGeometrySignature = function() return "character-test" end}
+OffhandCharDB = {}
+addon.Wizard = {OpenHUDSetup = function() resumed = resumed + 1 end}
+assert(loadfile("Core/CharacterSetup.lua"))("Offhand", addon)
+assert(addon.CharacterSetup:Show("CHARACTER_SETUP_WAITING_FOR_SPAN"))
+assert(prompt.shown and prompt.strata == "TOOLTIP" and not prompt.alternate.shown
+        and prompt.accept.text == addon.L.POPUP_BTN_GOT_IT
+        and prompt.cancel.shown and prompt.cancel.text == addon.L.CHARACTER_SETUP_HIDE_SPAN_NOTICE,
+    "the span notice must offer both temporary and persistent dismissal")
+addon.CharacterSetup:Hide()
+assert(not OffhandCharDB.hudSpanNoticeDismissed, "hiding the notice must not persist dismissal")
+assert(addon.CharacterSetup:Show("CHARACTER_SETUP_WAITING_FOR_SPAN"))
+prompt.accept.scripts.OnClick()
+assert(not prompt.shown and addon.CharacterSetup.spanNoticeDismissed
+        and not OffhandCharDB.hudSpanNoticeDismissed and not OffhandCharDB.characterSetup,
+    "Got it must only acknowledge the notice for this UI session")
+assert(addon.CharacterSetup:Show("CHARACTER_SETUP_WAITING_FOR_SPAN"))
+prompt.cancel.scripts.OnClick()
+assert(not prompt.shown and OffhandCharDB.hudSpanNoticeDismissed and not OffhandCharDB.characterSetup,
+    "the persistent dismissal button must save only the notice preference")
+assert(addon.CharacterSetup:Show("CHARACTER_SETUP_READY"))
+assert(prompt.popupKey == "OFFHAND_CHARACTER_SETUP" and prompt.strata == "TOOLTIP"
+        and prompt.alternate.shown and prompt.alternate.text == addon.L.CHARACTER_SETUP_CUSTOMIZE,
+    "the three-choice character check must use the owned Mainhand popup in keyboard UI")
+prompt.alternate.scripts.OnClick()
+assert(resumed == 2 and OffhandCharDB.characterSetup.choice == "customize"
+        and not OffhandCharDB.characterSetup.complete,
+    "the owned third button must preserve the character's Customize choice")
+addon.Mainhand, addon.CharacterSetup, addon.Wizard = priorMainhand, priorCharacterSetup, nil
 OffhandCharDB = reminderCharacter
 StaticPopupDialogs.OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT = nil
 addon.Viewport, addon.UIControls = nil, nil
@@ -316,6 +450,19 @@ addon.UpdateCanvas = function() end
 addon:ApplyFullLayout()
 assert(menuRefreshes==1,"single-window fallback must refresh owned open menus, not only spanned HUD")
 addon.Viewport,addon.MenuPlacement=previousViewport,previousMenus
+
+do
+    local oldViewport=addon.Viewport
+    local rootWrites=0
+    addon.Viewport={GetMetrics=function()return{isSpanned=true}end,
+        ApplyGlobalScale=function()rootWrites=rootWrites+1 end}
+    local before=calls
+    addon:ApplyFullLayout(true)
+    assert(calls==before+1 and rootWrites==0,'external scale refresh must run geometry without replacing root scale')
+    addon:ApplyFullLayout()
+    assert(rootWrites==1,'ordinary layout lost its scale ownership')
+    addon.Viewport=oldViewport
+end
 
 -- Verify ADDON_LOADED initializes Canvas and SeamRedirect without recursion / stack overflow
 UIParent = {
@@ -651,6 +798,7 @@ do
     Enter(true)
     assert(opened == 1, "completed users must not be forced through setup again")
     complete, addon.db.enabled = false, false
+    addon.db.automaticSetupSuppressed = true
     addon.GetOnboardingResumeStep = function() return 6 end
     Enter(true)
     assert(opened == 1, "a deliberately disabled profile must not receive incomplete-setup prompts")
