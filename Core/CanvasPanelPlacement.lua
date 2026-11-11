@@ -97,6 +97,9 @@ function Placement.InstallMainhand(Canvas, services)
         local registry = Offhand.CanvasPanelRegistry
         if registry and registry.GetPositionRoot(frame) ~= frame then return false end
         if IsWorldMapMaximized(frame) then return false end
+        local foreverMap = Offhand.isForever and frame == _G.WorldMapFrame
+        if foreverMap and ((self.CanManagePanelsFromAddon and not self.CanManagePanelsFromAddon())
+            or (Offhand.CanvasFrameState and Offhand.CanvasFrameState.IsDragging(frame))) then return false end
         local name = frame.GetName and frame:GetName()
         if Offhand.isForever and Offhand.CanvasCompatibility.IsForeverEllesmereBag(name) then return false end
         if ShouldYieldFrameToClassicUIForever(frame, name) then return false end
@@ -135,7 +138,7 @@ function Placement.InstallMainhand(Canvas, services)
         local maxX = math.max(minX, metrics.gameRight - width - inset)
         local minY = metrics.gameBottom + height + inset
         local maxY = math.max(minY, metrics.gameTop - inset)
-        if metrics.workspaceRegions and height > metrics.gameTop-metrics.gameBottom-2*inset then
+        if (metrics.workspaceRegions or foreverMap) and height > metrics.gameTop-metrics.gameBottom-2*inset then
             -- An oversized fallback cannot be fully contained. Keep its title
             -- reachable instead of placing it above the physical game monitor.
             minY,maxY=metrics.gameTop-inset,metrics.gameTop-inset
@@ -178,7 +181,7 @@ function Placement.InstallMainhand(Canvas, services)
     -- Recovery is an explicit out-of-combat hardware action. Unlike a generic
     -- re-anchor, it must also retire Offhand's workspace ownership or the next
     -- OnShow/restore pass will put the panel back on the secondary display.
-    function Canvas:GatherSafeUIToMainhand(missingOnly)
+    function Canvas:GatherSafeUIToMainhand(missingOnly, onlyFrame)
         local playerInCombat = InCombatLockdown and InCombatLockdown() or false
         if not playerInCombat and UnitAffectingCombat then
             local ok, active = pcall(UnitAffectingCombat, "player")
@@ -201,23 +204,27 @@ function Placement.InstallMainhand(Canvas, services)
                 candidates[frame] = true
             end
         end
-        for name in pairs(Offhand.db.savedWorkspacePositions or {}) do Add(_G[name]) end
-        for name in pairs(UIPanelWindows or {}) do Add(_G[name]) end
-        if UIParent.GetChildren then
-            for _, child in ipairs({UIParent:GetChildren()}) do
-                pcall(function()
-                    if not (child.IsForbidden and child:IsForbidden())
-                        and child.IsMovable and child:IsMovable() then Add(child) end
-                end)
+        if onlyFrame then
+            Add(onlyFrame)
+        else
+            for name in pairs(Offhand.db.savedWorkspacePositions or {}) do Add(_G[name]) end
+            for name in pairs(UIPanelWindows or {}) do Add(_G[name]) end
+            if UIParent.GetChildren then
+                for _, child in ipairs({UIParent:GetChildren()}) do
+                    pcall(function()
+                        if not (child.IsForbidden and child:IsForbidden())
+                            and child.IsMovable and child:IsMovable() then Add(child) end
+                    end)
+                end
             end
+            if Offhand.BagPersistence and type(Offhand.BagPersistence.frames) == "table" then
+                for _, frame in pairs(Offhand.BagPersistence.frames) do Add(frame) end
+            end
+            Add(_G.WorldMapFrame)
+            Add(_G.CharacterFrame)
+            Add(_G.ContainerFrameCombinedBags)
+            Add(_G.ContainerFrame1)
         end
-        if Offhand.BagPersistence and type(Offhand.BagPersistence.frames) == "table" then
-            for _, frame in pairs(Offhand.BagPersistence.frames) do Add(frame) end
-        end
-        Add(_G.WorldMapFrame)
-        Add(_G.CharacterFrame)
-        Add(_G.ContainerFrameCombinedBags)
-        Add(_G.ContainerFrame1)
 
         local moved, skipped = 0, 0
         self.lastGatherReport = {}
@@ -238,7 +245,7 @@ function Placement.InstallMainhand(Canvas, services)
             if missingOnly and inspected and name and Offhand.Recovery then
                 local state = Offhand.Recovery.Inspect(frame, metrics)
                 local registry = Offhand.CanvasPanelRegistry
-                reopen = state == "hidden" and tracked and Offhand.db.openWorkspacePanels[name] == true
+                reopen = not onlyFrame and state == "hidden" and tracked and Offhand.db.openWorkspacePanels[name] == true
                     and registry and registry.IsBasePersistentCandidate(name)
                     and not IsBackpackRoot(name) and UIPanelWindows and UIPanelWindows[name]
                     and type(ShowUIPanel) == "function"
@@ -257,12 +264,16 @@ function Placement.InstallMainhand(Canvas, services)
                 and not IsForeverEditModeFrame(frame, name)
                 and not ShouldYieldFrameToClassicUIForever(frame, name)
                 and not ShouldYieldWorldMapToMoveAny(name) then
-                if frame == _G.WorldMapFrame and frame.SetScale then
+                local foreverMap = Offhand.isForever and frame == _G.WorldMapFrame
+                if frame == _G.WorldMapFrame and frame.SetScale and not foreverMap then
                     pcall(frame.SetScale, frame, 1)
                 end
                 local called, placed = pcall(self.PlacePanelOnMainhand,
                     self, frame, metrics, nil, false, true)
                 placed = called and placed
+                if placed and missingOnly and foreverMap and Offhand.Recovery then
+                    placed = Offhand.Recovery.Inspect(frame, metrics) == "visible"
+                end
                 if placed then
                     self.lastGatherReport[#self.lastGatherReport + 1] = name .. "=moved"
                     moved = moved + 1
@@ -312,7 +323,7 @@ function Placement.InstallMainhand(Canvas, services)
             end
         end
 
-        SaveOpenWorkspacePanels()
+        if not onlyFrame or moved > 0 then SaveOpenWorkspacePanels() end
         if Offhand.BagPersistence and not missingOnly then
             if Offhand.BagPersistence.ForgetOpenSnapshot then
                 Offhand.BagPersistence:ForgetOpenSnapshot()

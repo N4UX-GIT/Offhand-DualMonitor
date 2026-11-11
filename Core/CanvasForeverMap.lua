@@ -3,6 +3,14 @@ local _, Offhand = ...
 local Adapter = {}
 Offhand.CanvasForeverMap = Adapter
 
+function Adapter.GetDragHandleBounds(map, factor)
+    local left, top = map:GetLeft(), map:GetTop()
+    if not left or not top then return end
+    return left * factor + 8, top * factor,
+        math.max(48, ((map.GetWidth and map:GetWidth()) or 610) * factor - 64),
+        math.max(18, 28 * factor)
+end
+
 function Adapter.Install(Canvas, services)
     local Compatibility = Offhand.CanvasCompatibility
     local FrameState = Offhand.CanvasFrameState
@@ -339,14 +347,12 @@ function Adapter.Install(Canvas, services)
             local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
             local mapScale = (map.GetEffectiveScale and map:GetEffectiveScale()) or parentScale
             local factor = parentScale > 0 and mapScale / parentScale or 1
-            local left = map:GetLeft() * factor
-            local top = map:GetTop() * factor
-            local width = math.max(48, ((map.GetWidth and map:GetWidth()) or 610) * factor - 64)
-            local height = math.max(18, 28 * factor)
+            local left, top, width, height = Adapter.GetDragHandleBounds(map, factor)
+            if not left then return end
 
             if handle.ClearAllPoints and handle.SetPoint then
                 handle:ClearAllPoints()
-                handle:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left + 8, top)
+                handle:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
             end
             if handle.SetSize then handle:SetSize(width, height) end
             if handle.EnableMouse then handle:EnableMouse(true) end

@@ -2156,6 +2156,25 @@ addon.db.primaryPosition = "LEFT"
 recoveryMetrics.gameLeft, recoveryMetrics.gameRight = 0, 2560
 assert(addon:IsWindowReachable(2800, 2200, 200, recoveryMetrics), "Right workspace must remain reachable")
 assert(not addon:IsWindowReachable(200, 2200, 200, recoveryMetrics), "Void over left game monitor must be recoverable")
+recoveryMetrics.workspaceLeft, recoveryMetrics.workspaceRight = 2560, 4000
+recoveryMetrics.workspaceBottom, recoveryMetrics.workspaceTop = 0, 2560
+recoveryMetrics.workspaceRegions = {{x=2560,y=0,width=1440,height=900},{x=2560,y=1800,width=1440,height=760}}
+assert(not addon:IsWindowReachable(2800, 1300, 200, recoveryMetrics), "Gap between workspaces must not count as reachable")
+assert(addon:IsWindowReachable(2800, 2200, 200, recoveryMetrics), "Explicit upper workspace must remain reachable")
+local previousForever, previousCanvas, previousMap = addon.isForever, addon.Canvas, WorldMapFrame
+local map = RecoveryFrame(500, 2300, 1)
+addon.isForever, WorldMapFrame = true, map
+UIPanelWindows.WorldMapFrame = {}
+local recoveredMap = 0
+addon.Canvas = {GatherSafeUIToMainhand=function(_, missingOnly, target)
+    assert(missingOnly and target==map, "Legacy gather must use the guarded map-only recovery path")
+    recoveredMap = recoveredMap + 1
+    return true, nil, 1
+end}
+assert(addon:GatherOffScreenUI() >= 1 and recoveredMap==1 and not map.moved,
+    "Legacy gather failed to count map recovery or moved the map twice")
+addon.isForever, addon.Canvas, WorldMapFrame = previousForever, previousCanvas, previousMap
+UIPanelWindows.WorldMapFrame = nil
 addon.Viewport.GetMetrics = getMetrics
 
 -- A profile mutation must be deferred until the confirmation is accepted.

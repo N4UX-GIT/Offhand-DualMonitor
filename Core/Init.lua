@@ -2120,6 +2120,7 @@ function Offhand:IsWindowReachable(left, top, width, m)
     for _,r in ipairs(m.workspaceRegions or {}) do
         if InArea(r.x,r.y,r.x+r.width,r.y+r.height) then return true end
     end
+    if m.workspaceRegions and #m.workspaceRegions > 0 then return false end
     if m.workspaceLeft ~= nil then
         return InArea(m.workspaceLeft, m.workspaceBottom, m.workspaceRight, m.workspaceTop)
     end
@@ -2145,11 +2146,19 @@ function Offhand:GatherOffScreenUI()
         end
     end
     local moved = 0
+    local map = self.isForever and _G.WorldMapFrame
+    if map and m.isSpanned and self.Canvas and self.Canvas.GatherSafeUIToMainhand then
+        candidates[map] = nil
+        local called, ok, _, recovered = pcall(self.Canvas.GatherSafeUIToMainhand, self.Canvas, true, map)
+        if called and ok then moved = recovered end
+    end
     for frame in pairs(candidates) do
         local ok, recovered = pcall(function()
             if frame == WorldFrame or frame == self.canvas then return false end
             if frame.IsForbidden and frame:IsForbidden() then return false end
             if not frame:IsShown() or frame:IsProtected() then return false end
+            if frame == map and self.CanvasCompatibility and self.CanvasCompatibility.ShouldYieldWorldMap
+                and self.CanvasCompatibility.ShouldYieldWorldMap(frame) then return false end
             if frame.IsObjectType and frame:IsObjectType("GameTooltip") then return false end
             local scale = frame:GetEffectiveScale()
             if not scale or scale <= 0 then return false end

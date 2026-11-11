@@ -24,3 +24,11 @@ Branch `codex/discord-beta30-followup` starts at `origin/main` (`44e9746`), with
 The runtime module hashes match the earlier scoped Forever 70862 test with spanning applied. That test observed adjacent native comparison cards and generated HUD placement surviving reload. The current integration adds an unspan cleanup call and models the Forever 70888 ring anchor chain in Lua. The exact reported bag items, replacement-addon combination, physical portrait/4K setup, live rolls and complete taint behavior still need native verification. [Previous native QA](D:/Tools/Code/Offhand/docs/HUD-TOOLTIP-NATIVE-QA-20261110.md) · [Forever 70888 comparison source](https://github.com/Gethe/wow-ui-source/blob/4cd0ab752a77164f654ccbca9d0c1fe8dafceebe/Interface/AddOns/Blizzard_SharedXMLGame/Tooltip/TooltipComparisonManager.lua#L43-L132)
 
 All 127 Lua 5.1 suites pass, including 1,100 comparison assertions, 38 HUD-fitting assertions and the layout lifecycle check. All six manifests pass path, XML and Lua syntax validation.
+
+## Forever map recovery follow-up
+
+The reporter describes a visible World Map and Quest Log with the drag surface above the display. Their map owner and layout remain unknown. In a mixed-height Lua fixture, the native map body intersected Mainhand but the drag handle was entirely above it. The previous missing-only recovery skipped that map.
+
+Recover Missing UI and `/offhand gather` now use the existing Forever handle geometry for the map. Oversized maps retain their scale and place the handle inside Mainhand. The missing-only action checks the resulting position before retiring the previous saved placement. Controller ownership, a current drag, maximized maps, external ownership and combat still prevent the map move. The OpenMap-specific recovery remains available through its existing command.
+
+The shared knowledge search index was stale. The scoped change uses Offhand's existing independent drag surface and the Forever 70888 root definition. Native verification still needs an affected layout and the reporter's active map owner. [Forever map definition](https://github.com/Gethe/wow-ui-source/blob/4cd0ab752a77164f654ccbca9d0c1fe8dafceebe/Interface/AddOns/Blizzard_WorldMap/Blizzard_WorldMap.xml#L65-L124)
