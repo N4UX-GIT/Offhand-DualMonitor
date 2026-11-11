@@ -109,7 +109,8 @@ namespace Offhand.Companion
                 Check(!buttons.Single(b=>b.Text=="Load selected").Enabled,"Empty picker offers Load");
                 Check(!buttons.Single(b=>b.Text=="Rename").Enabled,"Empty picker offers Rename");
                 Check(!buttons.Single(b=>b.Text=="Delete").Enabled,"Empty picker offers Delete");
-                Check(All(profiles).OfType<Label>().Any(l=>l.Text.StartsWith("No saved profiles")),"Empty picker gives no guidance");
+                Check(All(profiles).OfType<Label>().Any(l=>l.AccessibleName=="Profile status"
+                    && l.Text.Contains("Save as new")),"Empty picker gives no guidance");
             }
             settings["WorkspaceRegionsEnabled"]="True";
             var saved=WorkspacePlanProfiles.Save(settings,"Desk",null,displays);
