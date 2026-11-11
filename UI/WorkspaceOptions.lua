@@ -4,7 +4,8 @@ Offhand.WorkspaceOptions=UI
 
 function UI.Build(tabs,card,options)
     local L=Offhand.L
-    local CreateFrame=Offhand.UIControls.CreateFrame
+    local Controls=Offhand.UIControls
+    local CreateFrame=Controls.CreateFrame
     local refreshers={}
     local function Text(parent,value,x,y,width)
         local f=parent:CreateFontString(nil,"ARTWORK","GameFontHighlightSmall")
@@ -44,28 +45,54 @@ function UI.Build(tabs,card,options)
         return m and m.workspaceRegions or {}
     end
 
-    local profiles=card(tabs.profiles,L.WORKSPACE_PROFILES_TITLE,258)
-    Text(profiles,L.WORKSPACE_PROFILES_HELP,12,-34,628)
-    local active=Text(profiles,"",12,-79,628)
+    local profiles=card(tabs.profiles,L.WORKSPACE_PROFILES_TITLE,140,
+        L.WORKSPACE_PROFILES_HELP,L.WORKSPACE_PRESETS_WORKFLOW)
+    local profileHelp=Text(profiles,L.WORKSPACE_PROFILES_HELP,12,-34,628)
+    local activeTop=46+Controls.FitCompactParagraph(profileHelp,L.WORKSPACE_PROFILES_HELP,628)
+    local active=Text(profiles,"",12,-activeTop,628)
+    local profileBody=CreateFrame("Frame",nil,profiles)
+    local collapsedHeight=activeTop+68
+    profileBody:SetPoint("TOPLEFT",profiles,"TOPLEFT",0,-collapsedHeight)
+    local workflow=Text(profileBody,L.WORKSPACE_PRESETS_WORKFLOW,12,0,628)
+    local controlsTop=Controls.FitCompactParagraph(workflow,L.WORKSPACE_PRESETS_WORKFLOW,628)+12
+    local nameHelp=Text(profileBody,L.WORKSPACE_PROFILE_NAME_HELP,18,-controlsTop-119,620)
+    local bodyHeight=controlsTop+133+Controls.FitCompactParagraph(nameHelp,L.WORKSPACE_PROFILE_NAME_HELP,620)
+    profileBody:SetSize(662,bodyHeight)
+    local expanded=false
+    local disclosure
+    local input
+    disclosure=Button(profiles,L.ADVANCED_SHOW,12,-activeTop-28,310,function()
+        expanded=not expanded
+        disclosure:SetText(expanded and L.ADVANCED_HIDE or L.ADVANCED_SHOW)
+        if expanded then
+            profileBody:Show()
+        else
+            input:ClearFocus()
+            profileBody:Hide()
+        end
+        profiles:SetHeight(collapsedHeight+(expanded and bodyHeight or 0))
+        if profiles.onSizingChanged then profiles.onSizingChanged(expanded) end
+    end)
+    profileBody:Hide()
+    profiles:SetHeight(collapsedHeight)
     local selected
-    local picker=Choice(profiles,12,-103,390,function()return Offhand.WorkspaceProfiles:List()end,
+    local picker=Choice(profileBody,12,-controlsTop,390,function()return Offhand.WorkspaceProfiles:List()end,
         function()return selected end,function(id)selected=id;return true end)
-    local input=CreateFrame("EditBox",nil,profiles,"InputBoxTemplate")
-    input:SetPoint("TOPLEFT",profiles,"TOPLEFT",18,-143);input:SetSize(380,26);input:SetAutoFocus(false)
+    input=CreateFrame("EditBox",nil,profileBody,"InputBoxTemplate")
+    input:SetPoint("TOPLEFT",profileBody,"TOPLEFT",18,-controlsTop-40);input:SetSize(380,26);input:SetAutoFocus(false)
     input:SetMaxLetters(96);input:SetScript("OnEscapePressed",function(self)self:ClearFocus()end)
-    local create=Button(profiles,L.WORKSPACE_PROFILE_NEW,12,-185,122,function()
+    local create=Button(profileBody,L.WORKSPACE_PROFILE_NEW,12,-controlsTop-82,122,function()
         local ok,err=Offhand.WorkspaceProfiles:Create(input:GetText())
         if ok then local _,id=Offhand.WorkspaceProfiles:List();selected=id end
         Report(ok,err);input:ClearFocus()
     end)
-    Button(profiles,L.WORKSPACE_PROFILE_SAVE,140,-185,122,function()Report(Offhand.WorkspaceProfiles:Save())end)
-    Button(profiles,L.PROFILES_BTN_LOAD or L.WORKSPACE_PROFILE_LOAD,268,-185,122,function()Report(Offhand.WorkspaceProfiles:Activate(selected))end)
-    local rename=Button(profiles,L.WORKSPACE_PROFILE_RENAME,396,-185,122,function()Report(Offhand.WorkspaceProfiles:Rename(selected,input:GetText()))end)
-    local delete=Button(profiles,L.WORKSPACE_PROFILE_DELETE,524,-185,122,function()
+    local save=Button(profileBody,L.WORKSPACE_PROFILE_SAVE,140,-controlsTop-82,122,function()Report(Offhand.WorkspaceProfiles:Save())end)
+    local load=Button(profileBody,L.PROFILES_BTN_LOAD or L.WORKSPACE_PROFILE_LOAD,268,-controlsTop-82,122,function()Report(Offhand.WorkspaceProfiles:Activate(selected))end)
+    local rename=Button(profileBody,L.WORKSPACE_PROFILE_RENAME,396,-controlsTop-82,122,function()Report(Offhand.WorkspaceProfiles:Rename(selected,input:GetText()))end)
+    local delete=Button(profileBody,L.WORKSPACE_PROFILE_DELETE,524,-controlsTop-82,122,function()
         local id=selected
         options:Confirm(L.WORKSPACE_PROFILE_DELETE_CONFIRM,function()Report(Offhand.WorkspaceProfiles:Delete(id))end)
     end)
-    Text(profiles,L.WORKSPACE_PROFILE_NAME_HELP,18,-222,620)
     table.insert(refreshers,1,function()
         local list,current=Offhand.WorkspaceProfiles:List();local exists=false
         for _,entry in ipairs(list) do if entry.id==selected then exists=true end end
@@ -73,31 +100,142 @@ function UI.Build(tabs,card,options)
         local name=""
         for _,entry in ipairs(list) do if entry.id==current then name=entry.name end end
         active:SetText(string.format(L.WORKSPACE_PROFILE_ACTIVE,name))
-        create:SetEnabled(current~=nil);rename:SetEnabled(selected~=nil)
+        create:SetEnabled(current~=nil);save:SetEnabled(current~=nil)
+        load:SetEnabled(selected~=nil and selected~=current);rename:SetEnabled(selected~=nil)
         delete:SetEnabled(selected~=nil and selected~=current and selected~="default")
     end)
 
-    local routing=card(tabs.workspace,L.WORKSPACE_ROUTING_TITLE,344)
-    Text(routing,L.WORKSPACE_ROUTING_HELP,12,-34,628)
+    local routing=card(tabs.panels,L.WORKSPACE_ROUTING_TITLE,144,
+        L.WORKSPACE_ROUTING_HELP,L.WORKSPACE_ROUTING_SCOPE)
+    local routingHelp=Text(routing,L.WORKSPACE_ROUTING_HELP,12,-34,628)
+    local routeBody=CreateFrame("Frame",nil,routing)
     local function Destinations()
         local values={{id="AUTO",label=L.WORKSPACE_ROUTE_AUTO},{id="MAINHAND",label=L.WORKSPACE_ROUTE_MAINHAND}}
         for index,r in ipairs(Regions()) do values[#values+1]={id=r.id,label=string.format(L.WORKSPACE_REGION_NUMBER,index)} end
         return values
     end
-    for index,group in ipairs(Offhand.WorkspaceRouting:GetGroups()) do
-        local id=group.id;local y=-95-(index-1)*36
-        Text(routing,L[group.label],12,y-5,190)
-        Choice(routing,208,y,274,Destinations,
-            function()local routes=Offhand.db and Offhand.db.workspacePanelRoutes;return type(routes)=="table" and routes[id] or "AUTO" end,
-            function(value)return Offhand.WorkspaceRouting:SetRule(id,value~="AUTO" and value or nil)end)
-        Button(routing,L.WORKSPACE_ROUTE_RESET,492,y,154,function()
-            options:Confirm(L.WORKSPACE_ROUTE_RESET_CONFIRM,function()Report(Offhand.WorkspaceRouting:ResetManual(id))end)
-        end)
+    local groups=Offhand.WorkspaceRouting:GetGroups()
+    local panels,panelLabels={},{}
+    for _,group in ipairs(groups) do
+        local label=L[group.label]
+        panels[#panels+1]={id=group.id,label=label}
+        panelLabels[group.id]=label
     end
-    Text(routing,L.WORKSPACE_ROUTING_SCOPE,12,-315,628)
+    local panel=panels[1] and panels[1].id
+    local function Destination()
+        local routes=Offhand.db and Offhand.db.workspacePanelRoutes
+        return type(routes)=="table" and routes[panel] or "AUTO"
+    end
+    local legacyMenu
+    local function Dropdown(x,width,values,get,set)
+        local button=Button(routeBody,"",x,0,width,function(self)
+            local entries=values()
+            if MenuUtil and MenuUtil.CreateContextMenu then
+                MenuUtil.CreateContextMenu(self,function(_,root)
+                    for _,entry in ipairs(entries) do
+                        root:CreateRadio(entry.label,function(id) return get()==id end,set,entry.id)
+                    end
+                end)
+            elseif UIDropDownMenu_Initialize and UIDropDownMenu_AddButton and ToggleDropDownMenu then
+                legacyMenu=legacyMenu or CreateFrame("Frame","OffhandPanelRoutingMenu",routeBody,"UIDropDownMenuTemplate")
+                UIDropDownMenu_Initialize(legacyMenu,function()
+                    for _,entry in ipairs(entries) do
+                        local id=entry.id
+                        UIDropDownMenu_AddButton({text=entry.label,checked=get()==id,func=function() set(id) end},1)
+                    end
+                end,"MENU")
+                ToggleDropDownMenu(1,nil,legacyMenu,"cursor",0,0)
+            end
+        end)
+        local arrow=button:CreateTexture(nil,"ARTWORK")
+        arrow:SetSize(16,16)
+        arrow:SetPoint("RIGHT",button,"RIGHT",-5,0)
+        arrow:SetTexture("Interface\\ChatFrame\\UI-ChatIcon-ScrollDown-Up")
+        local text=button:GetFontString()
+        if text then text:SetPoint("BOTTOMRIGHT",button,"BOTTOMRIGHT",-23,2) end
+        return button
+    end
+    routeBody:SetScript("OnHide",function()
+        if legacyMenu and CloseDropDownMenus
+            and (UIDROPDOWNMENU_OPEN_MENU==legacyMenu or UIDROPDOWNMENU_OPEN_MENU==legacyMenu:GetName()) then
+            CloseDropDownMenus()
+        end
+    end)
+    local panelTitle=Text(routeBody,L.WORKSPACE_ROUTE_PANEL_TYPE,12,0,196)
+    local destinationTitle=Text(routeBody,L.WORKSPACE_ROUTE_DESTINATION,218,0,260)
+    local panelChoice=Dropdown(12,196,function() return panels end,function() return panel end,function(id)
+        panel=id
+        UI:Refresh()
+    end)
+    local destinationChoice=Dropdown(218,260,Destinations,Destination,function(value)
+        Report(Offhand.WorkspaceRouting:SetRule(panel,value~="AUTO" and value or nil))
+    end)
+    local resetRoute=Button(routeBody,L.WORKSPACE_ROUTE_RESET,488,0,158,function()
+        local id=panel
+        options:Confirm(panelLabels[id].."\n\n"..L.WORKSPACE_ROUTE_RESET_CONFIRM,function()
+            Report(Offhand.WorkspaceRouting:ResetManual(id))
+        end)
+    end)
+    local routingHeight
+    refreshers[#refreshers+1]=function()
+        local metrics=Offhand.Viewport and Offhand.Viewport:GetMetrics()
+        local available=panel and metrics and metrics.isSpanned and #(metrics.workspaceRegions or {})>0
+        local description=L[available and "WORKSPACE_ROUTING_HELP" or "WORKSPACE_CUSTOM_REQUIRED"]
+        routingHelp:SetText(description)
+        local height=34+Controls.FitCompactParagraph(routingHelp,description,628)+14
+        if available then
+            local label=panelLabels[panel]
+            local destination=Destination()
+            local targetLabel
+            for _,entry in ipairs(Destinations()) do
+                if entry.id==destination then targetLabel=entry.label;break end
+            end
+            targetLabel=targetLabel or string.format(L.WORKSPACE_MISSING_REGION,tostring(destination))
+            panelChoice:SetText(label)
+            destinationChoice:SetText(targetLabel)
+            local rowTop=math.max(Controls.FitCompactParagraph(panelTitle,L.WORKSPACE_ROUTE_PANEL_TYPE,196),
+                Controls.FitCompactParagraph(destinationTitle,L.WORKSPACE_ROUTE_DESTINATION,260))+5
+            local rowHeight=26
+            for _,button in ipairs({panelChoice,destinationChoice,resetRoute}) do
+                rowHeight=math.max(rowHeight,Controls.MeasureWrappedText(button:GetFontString(),button:GetText(),button:GetWidth()-28,14)+8)
+            end
+            panelChoice:SetPoint("TOPLEFT",routeBody,"TOPLEFT",12,-rowTop)
+            destinationChoice:SetPoint("TOPLEFT",routeBody,"TOPLEFT",218,-rowTop)
+            resetRoute:SetPoint("TOPLEFT",routeBody,"TOPLEFT",488,-rowTop)
+            panelChoice:SetHeight(rowHeight);destinationChoice:SetHeight(rowHeight);resetRoute:SetHeight(rowHeight)
+            local bodyHeight=rowTop+rowHeight
+            routeBody:SetPoint("TOPLEFT",routing,"TOPLEFT",0,-height)
+            routeBody:SetSize(662,bodyHeight)
+            routeBody:Show()
+            height=height+bodyHeight+14
+        else
+            routeBody:Hide()
+        end
+        if height~=routingHeight then
+            routingHeight=height
+            routing:SetHeight(height)
+            if routing.onSizingChanged then routing.onSizingChanged() end
+        end
+    end
 
-    local themeCard=card(tabs.themes,L.WORKSPACE_THEMES_TITLE,342)
+    local sizing
+    if Offhand.WorkspaceScaleControls then
+        sizing=card(tabs.panels,L.REGION_SCALE_TITLE,140,L.REGION_SCALE_DETAILS)
+        local control=Offhand.WorkspaceScaleControls:BuildAdvanced(sizing,628,true)
+        control:SetPoint("TOPLEFT",sizing,"TOPLEFT",12,-34)
+        sizing:SetHeight(control:GetHeight()+46)
+        control.onResize=function(height,reveal)
+            sizing:SetHeight(height+46)
+            if sizing.onSizingChanged then sizing.onSizingChanged(reveal) end
+        end
+        refreshers[#refreshers+1]=function()control:Refresh()end
+        control:Refresh()
+    end
+
+    local themeCard=card(tabs.appearance,L.WORKSPACE_THEMES_TITLE,342,
+        L.WORKSPACE_THEMES_HELP,L.WORKSPACE_MEDIA_HELP)
     local themeHelp=Text(themeCard,L.WORKSPACE_THEMES_HELP,12,-34,628)
+    local themeFooter=Text(themeCard,L.WORKSPACE_MEDIA_HELP,12,-286,628)
     local themeChoices={{id="INHERIT",label=L.WORKSPACE_THEME_INHERIT},
         {id="CLASSIC",label=L.THEME_CLASSIC},{id="BLIZZARD_SLATE",label=L.THEME_SLATE},
         {id="OBSIDIAN",label=L.THEME_OBSIDIAN},{id="PITCH_BLACK",label=L.THEME_PITCH_BLACK},
@@ -155,19 +293,57 @@ function UI.Build(tabs,card,options)
             end)
         regionRows[i]={label=label,button=button,media=media,fit=fit}
     end
+    local themeHeight
     refreshers[#refreshers+1]=function()
-        local regions=Regions();themeHelp:SetText(#regions>0 and L.WORKSPACE_THEMES_HELP or L.WORKSPACE_CUSTOM_REQUIRED)
-        for i,row in ipairs(regionRows) do
-            row.label:SetText(string.format(L.WORKSPACE_REGION_NUMBER,i))
-            row.label:SetAlpha(regions[i] and 1 or 0.45);row.button:SetEnabled(regions[i]~=nil)
-            row.media:SetEnabled(regions[i]~=nil);row.fit:SetEnabled(regions[i]~=nil)
+        local regions = Regions()
+        local count = math.min(#regions, #regionRows)
+        local help = count > 0 and L.WORKSPACE_THEMES_HELP or L.WORKSPACE_CUSTOM_REQUIRED
+        themeHelp:SetText(help)
+        local helpBottom = 34 + Controls.FitCompactParagraph(themeHelp, help, 628)
+        local firstRowTop = math.max(90, helpBottom + 10)
+        for i, row in ipairs(regionRows) do
+            local visible = i <= count
+            row.button:SetEnabled(visible)
+            row.media:SetEnabled(visible)
+            row.fit:SetEnabled(visible)
+            if visible then
+                local y = -(firstRowTop + (i - 1) * 104)
+                row.label:SetText(string.format(L.WORKSPACE_REGION_NUMBER, i))
+                row.label:SetPoint("TOPLEFT", themeCard, "TOPLEFT", 12, y - 5)
+                row.button:SetPoint("TOPLEFT", themeCard, "TOPLEFT", 208, y)
+                row.media:SetPoint("TOPLEFT", themeCard, "TOPLEFT", 12, y - 34)
+                row.fit:SetPoint("TOPLEFT", themeCard, "TOPLEFT", 332, y - 34)
+                row.label:Show()
+                row.button:Show()
+                row.media:Show()
+                row.fit:Show()
+            else
+                row.label:Hide()
+                row.button:Hide()
+                row.media:Hide()
+                row.fit:Hide()
+            end
+        end
+        local bottom = helpBottom
+        if count > 0 then
+            local footerTop = firstRowTop + count * 104 - 12
+            themeFooter:SetPoint("TOPLEFT", themeCard, "TOPLEFT", 12, -footerTop)
+            themeFooter:Show()
+            bottom = footerTop + Controls.FitCompactParagraph(themeFooter, L.WORKSPACE_MEDIA_HELP, 628)
+        else
+            themeFooter:Hide()
+        end
+        local height = bottom + 14
+        if height ~= themeHeight then
+            themeHeight = height
+            themeCard:SetHeight(height)
+            if themeCard.onSizingChanged then themeCard.onSizingChanged() end
         end
     end
-    Text(themeCard,L.WORKSPACE_MEDIA_HELP,12,-286,628)
     UI.refreshers=refreshers
     -- Resolve profile selection before its choice label is first rendered.
     local _,current=Offhand.WorkspaceProfiles:List();selected=current
-    UI.controls={profiles=profiles,picker=picker,name=input,routing=routing,themes=themeCard,regions=regionRows}
+    UI.controls={sizing=sizing,profiles=profiles,picker=picker,name=input,routing=routing,themes=themeCard,regions=regionRows}
     UI:Refresh()
     return UI.controls
 end

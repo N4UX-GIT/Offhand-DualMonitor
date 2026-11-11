@@ -780,6 +780,13 @@ function Controls.StackCards(parent, cards, spacing)
     return height
 end
 
+function Controls.MeasureSingleLine(fontString, text)
+    local measure = fontString and (fontString.GetUnboundedStringWidth or fontString.GetStringWidth)
+    local width = measure and measure(fontString)
+    if type(width) == "number" and width > 0 then return math.ceil(width) end
+    return #tostring(text or "") * 7
+end
+
 function Controls.MeasureWrappedText(fontString, text, width, lineHeight)
     if fontString and fontString.GetStringHeight then
         local ok, height = pcall(fontString.GetStringHeight, fontString)
@@ -828,8 +835,48 @@ function Controls.FitParagraphText(fontString, text, width)
     return height
 end
 
+function Controls.FitCompactParagraph(fontString, text, width)
+    fontString:SetWidth(width)
+    fontString:SetHeight(0)
+    local height = fontString.GetStringHeight and fontString:GetStringHeight()
+    if not (type(height) == "number" and height > 0 and fontString.IsTruncated
+        and not fontString:IsTruncated()) then
+        height = Controls.MeasurePopupText(fontString, text, width)
+    end
+    height = math.ceil(height) + 2
+    fontString:SetHeight(height)
+    return height
+end
+
+function Controls.CreateHelpButton(parent, title, ...)
+    local button = Controls.CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    button:SetSize(26, 24)
+    button:SetText("?")
+    local paragraphs = {...}
+    local popup
+    button:SetScript("OnClick", function()
+        local body = {}
+        for _, paragraph in ipairs(paragraphs) do
+            local text = type(paragraph) == "function" and paragraph() or paragraph
+            if type(text) == "string" and text ~= "" then body[#body + 1] = text end
+        end
+        StaticPopupDialogs.OFFHAND_SETTINGS_HELP = {
+            text = "|cffffd100%s|r\n\n%s",
+            button1 = Offhand.L.BTN_CLOSE,
+            timeout = 0, whileDead = true, hideOnEscape = true,
+        }
+        popup = Offhand:ShowPopup("OFFHAND_SETTINGS_HELP", title, table.concat(body, "\n\n"), button)
+    end)
+    button:SetScript("OnHide", function()
+        if popup and popup.popupKey == "OFFHAND_SETTINGS_HELP" and popup.data == button then popup:Hide() end
+        popup = nil
+    end)
+    if Offhand.SetTooltip then Offhand:SetTooltip(button, title) end
+    return button
+end
+
 function Controls.GetCardContentTop(card, minimum)
-    local width = math.max(1, card:GetWidth() - 24)
+    local width = math.max(1, card:GetWidth() - (card.helpButton and 52 or 24))
     card.title:SetWidth(width)
     if card.title.SetWordWrap then card.title:SetWordWrap(true) end
     return math.max(minimum or 32,
@@ -853,7 +900,7 @@ function Controls.GetGuideLayout(titleHeight, bodyHeight, statusHeight, actionHe
     }
 end
 
-function Controls.GetWizardLayout(introHeight, progressHeight, cardHeight, validationHeight, footerHeight)
+function Controls.GetWizardLayout(introHeight, progressHeight, cardHeight, validationHeight, footerHeight, minimumHeight)
     local progressTop = 54 + math.max(15, introHeight or 0) + 12
     local cardTop = progressTop + math.max(15, progressHeight or 0) + 12
     footerHeight = math.max(28, footerHeight or 0)
@@ -863,7 +910,7 @@ function Controls.GetWizardLayout(introHeight, progressHeight, cardHeight, valid
         progressTop = progressTop, cardTop = cardTop,
         footerHeight = footerHeight, validationHeight = validationHeight,
         validationBottom = validationBottom,
-        height = math.max(454, cardTop + cardHeight + 12 + validationHeight + validationBottom),
+        height = math.max(minimumHeight or 454, cardTop + cardHeight + 12 + validationHeight + validationBottom),
     }
 end
 

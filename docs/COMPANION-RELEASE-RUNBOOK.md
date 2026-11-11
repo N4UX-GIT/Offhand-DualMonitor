@@ -1,11 +1,20 @@
 # Offhand Companion release runbook
 
+Next Companion update: **2.1.6**, EXE **2.1.6.1**, Store MSIX
+**2.1.600.0**. Public Submission 7 (`1152921505702364011`) was accepted into
+certification on 2026-11-10, with automatic publication after approval. It remains
+unpublished and uses the existing compatible Beta 28
+addon. Follow [the current preparation record](COMPANION-2.1.6-STORE-PREPARATION-20261110.md)
+and `scripts/New-Companion216Candidate.ps1`; do not use historical candidate
+scripts for this version. Existing release-tag/artifact publication lanes remain
+unchanged until the owner requests publication.
+
 Current coordinated publication: **add-on 2.1.5 Pre-Release Beta 28** and
 **Companion 2.1.5**, file build **2.1.5.1**, Store package **2.1.500.0**.
 Use [the current preparation record](PUBLICATION-2.1.5-PREPARATION-20261109.md)
 and `scripts/Prepare-215Publication.ps1`. Frozen exact native assets are under
-`Companion/Prepared/2.1.5/`. Public Store Submission 6 is in certification with
-automatic publication after approval. Historical 2.1.3/Beta 20 workflows below
+`Companion/Prepared/2.1.5/`. Public Store Submission 6 was confirmed live in
+Partner Center on 2026-11-10. Historical 2.1.3/Beta 20 workflows below
 remain frozen reference lanes; do not use them for new tags.
 
 This document is the operational source of truth for preparing, publishing,

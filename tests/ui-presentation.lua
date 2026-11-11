@@ -205,6 +205,17 @@ assert(ui.MeasurePopupText(nil, "|cffffd100Resume|r", 464) == ui.MeasurePopupTex
     "highlight markup must not inflate popup layout")
 assert(ui.MeasurePopupText(clippedPopup, popupCopy, 200) > ui.MeasurePopupText(clippedPopup, popupCopy, 464),
     "narrow popup text must reserve more wrapped lines")
+local compactText = Region()
+compactText.GetStringHeight = function(self)
+    assert(self.height == 0 and self.width == 392, "set the new width and clear the previous height before measuring")
+    return 26
+end
+compactText.IsTruncated = function() return false end
+assert(ui.FitCompactParagraph(compactText, popupCopy, 392) == 28,
+    "complete native metrics must take precedence over the conservative estimate")
+compactText.IsTruncated = function() return true end
+assert(ui.FitCompactParagraph(compactText, popupCopy, 392) > 180,
+    "a clipped measurement must fall back to the full paragraph estimate")
 for _, heights in ipairs({ { 18, 190, 42, 26 }, { 45, 450, 90, 50 }, { 18, 40, 42, 0 } }) do
     local guide = ui.GetGuideLayout(unpack(heights))
     local statusTop = guide.height - guide.statusBottom - guide.statusHeight
@@ -219,6 +230,8 @@ for _, heights in ipairs({ { 18, 190, 42, 26 }, { 45, 450, 90, 50 }, { 18, 40, 4
         assert(bodyBottom + 16 <= statusTop, "pages without actions must still clear the status area")
     end
 end
+assert(ui.GetWizardLayout(14, 48, 154, 0, 28, 0).height < 454,
+    "the EllesmereUI review may fit below the calibration wizard's minimum height")
 for _, heights in ipairs({ { 30, 15, 208, 0, 28 }, { 150, 30, 600, 120, 50 } }) do
     local wizard = ui.GetWizardLayout(unpack(heights))
     assert(wizard.progressTop >= 54 + heights[1] + 12
@@ -376,7 +389,7 @@ print("PASS: addon-owned UI styling, interaction states, wheel limits, scrollbar
     local region=Region
     local originalFont=UIParent.CreateFontString
     local function font()local f=region();f.SetAlpha=function(self,a)self.alpha=a end;return f end
-    local tabs={profiles=Frame('Frame'),workspace=Frame('Frame'),themes=Frame('Frame')}
+    local tabs={panels=Frame('Frame'),appearance=Frame('Frame'),profiles=Frame('Frame')}
     local cards={}
     local function card(parent,title,height)
         local frame=Frame('Frame',nil,parent);frame.CreateFontString=font
@@ -390,24 +403,59 @@ print("PASS: addon-owned UI styling, interaction states, wheel limits, scrollbar
     assert(loadfile('Core/WorkspaceProfiles.lua'))('Offhand',addon)
     assert(loadfile('Core/WorkspaceRouting.lua'))('Offhand',addon)
     assert(loadfile('UI/WorkspaceOptions.lua'))('Offhand',addon)
-    local confirm
-    addon.WorkspaceOptions.Build(tabs,card,{Confirm=function(_,_,fn)confirm=fn end})
+    local confirm,confirmation
+    addon.WorkspaceOptions.Build(tabs,card,{Confirm=function(_,text,fn)confirmation,confirm=text,fn end})
     local ui=addon.WorkspaceOptions
     assert(#cards==3 and ui.controls.picker:GetText():find('Default',1,true),'Workspace cards failed initial refresh')
     local function click(text,parent)
         for _,f in ipairs(controls)do
-            if f:GetText()==text and (not parent or f.parent==parent)then f:Fire('OnClick');return f end
+            if f:GetText()==text and (not parent or f.parent==parent or f.parent.parent==parent)then
+                f:Fire('OnClick');return f
+            end
         end
         error('Missing action '..text)
     end
+    local body=ui.controls.picker.parent
+    local collapsed=ui.controls.profiles:GetHeight()
+    assert(not body:IsShown(),'Manual preset controls must start collapsed')
+    click(addon.L.ADVANCED_SHOW,ui.controls.profiles)
+    assert(body:IsShown() and ui.controls.profiles:GetHeight()>collapsed,'Advanced preset controls must expand the card')
     ui.controls.name:SetText('Raid');click(addon.L.WORKSPACE_PROFILE_NEW)
     assert(select(2,addon.WorkspaceProfiles:List())~='default' and ui.controls.picker:GetText():find('Raid',1,true),'Save as new did not select the new profile')
     ui.controls.picker:Fire('OnClick');click(addon.L.PROFILES_BTN_LOAD)
     assert(select(2,addon.WorkspaceProfiles:List())=='default','Profile picker load failed')
-    click(addon.L.WORKSPACE_ROUTE_AUTO..'  >',ui.controls.routing)
-    assert(addon.db.workspacePanelRoutes.map=='MAINHAND','Route choice failed')
+    click(addon.L.ADVANCED_HIDE,ui.controls.profiles)
+    assert(not body:IsShown() and ui.controls.profiles:GetHeight()==collapsed,'Manual preset controls must collapse cleanly')
+    local originalMenu=MenuUtil
+    local items
+    MenuUtil={CreateContextMenu=function(owner,generate)
+        items={}
+        generate(owner,{CreateRadio=function(_,label,checked,set,id)
+            items[#items+1]={label=label,checked=function()return checked(id)end,select=function()set(id)end}
+        end})
+    end}
+    local panelButton=click(addon.L.WORKSPACE_ROUTE_MAP,ui.controls.routing)
+    assert(#items==6 and items[1].checked() and not items[2].checked(),'Panel dropdown must list all six types')
+    items[2].select()
+    assert(panelButton:GetText():find(addon.L.WORKSPACE_ROUTE_CHARACTER,1,true) and not addon.db.workspacePanelRoutes,
+        'Picking a panel must leave its routing rules untouched')
+    local routeButton=click(addon.L.WORKSPACE_ROUTE_AUTO,ui.controls.routing)
+    assert(#items==4 and items[1].checked(),'Destination dropdown must list the current workspaces')
+    items[2].select()
+    local expandedRoutingHeight=ui.controls.routing:GetHeight()
+    assert(addon.db.workspacePanelRoutes.character=='MAINHAND' and not addon.db.workspacePanelRoutes.map,
+        'Destination must update the selected panel only')
+    addon.db.savedMainPositions.CharacterFrame={x=10,y=20}
+    addon.db.savedMainPositions.WorldMapFrame={x=30,y=40}
     click(addon.L.WORKSPACE_ROUTE_RESET,ui.controls.routing)
-    assert(confirm,'Reset did not require its explicit confirmation');confirm()
+    assert(confirm and confirmation:find(addon.L.WORKSPACE_ROUTE_CHARACTER,1,true),
+        'Reset confirmation must identify the selected panel')
+    panelButton:Fire('OnClick');items[1].select()
+    assert(routeButton:GetText():find(addon.L.WORKSPACE_ROUTE_AUTO,1,true),'Panel selection did not refresh its own destination')
+    confirm()
+    assert(not addon.db.savedMainPositions.CharacterFrame and addon.db.savedMainPositions.WorldMapFrame,
+        'Reset must apply to the confirmed panel even if the selection changes')
+    MenuUtil=originalMenu
     ui.controls.regions[1].button:Fire('OnClick')
     assert(addon.db.workspaceRegionThemes.a.theme=='CLASSIC' and not addon.db.workspaceRegionThemes.b,'Region theme choice leaked')
     ui.controls.regions[1].media:Fire('OnClick')
@@ -417,7 +465,11 @@ print("PASS: addon-owned UI styling, interaction states, wheel limits, scrollbar
         and addon.db.workspaceRegionThemes.b.userMediaMode=='IMAGE'
         and addon.db.workspaceRegionThemes.b.userMediaFitMode=='PACKAGE','Region background controls failed')
     m.workspaceRegions={};ui:Refresh()
-    assert(not ui.controls.regions[1].button:IsEnabled() and not ui.controls.regions[2].button:IsEnabled(),'Unavailable regions remained editable')
+    assert(not routeButton.parent:IsShown() and ui.controls.routing:GetHeight()<expandedRoutingHeight,
+        'Panel opening rules must collapse to guidance outside a custom layout')
+    assert(not ui.controls.regions[1].button:IsEnabled() and not ui.controls.regions[2].button:IsEnabled()
+        and not ui.controls.regions[1].button:IsShown() and not ui.controls.regions[2].button:IsShown(),
+        'Unavailable regions must collapse to the setup instructions')
     assert(not ui.controls.regions[1].media:IsEnabled() and not ui.controls.regions[2].fit:IsEnabled(),'Unavailable region image controls remained editable')
     addon.db.workspaceProfiles.version=99;ui:Refresh();ui.controls.picker:Fire('OnClick')
     assert(addon.db.workspaceProfiles.version==99,'Malformed/future picker overwrote data')

@@ -77,11 +77,18 @@ local function worldPixels()
     local factor=WorldFrame:GetEffectiveScale()*ph/768
     return bl[3]*factor,bl[4]*factor,(tr[3]-bl[3])*factor,(tr[4]-bl[4])*factor
 end
+function WorldFrame:GetRect()
+    local bl,tr=self.points.BOTTOMLEFT,self.points.TOPRIGHT
+    return bl[3],bl[4],tr[3]-bl[3],tr[4]-bl[4]
+end
 for _,scale in ipairs({0.56,0.8,1,1.2}) do
     uiScale=scale
     addon.Viewport:Apply()
     local x,y,w,h=worldPixels()
     near(x,1440); near(y,6); near(w,2560); near(h,1440)
+    local snapshot=addon.Viewport:CaptureDiagnostics(false)
+    assert(snapshot.viewportMatches and not addon.db.lastGeometryCheck)
+    near(snapshot.frames.WorldFrame.x,x); near(snapshot.frames.WorldFrame.y,y)
     addon.SeamRedirect:AlignHUDFrames()
     local p=MainMenuBar.points.BOTTOM
     local factor=MainMenuBar:GetEffectiveScale()*ph/768
@@ -90,6 +97,15 @@ for _,scale in ipairs({0.56,0.8,1,1.2}) do
     -- Native child scales inherit UIParent without per-frame overrides.
     near(MainMenuBar:GetEffectiveScale(),uiScale)
 end
+local snapshot=addon.Viewport:CaptureDiagnostics()
+assert(addon.db.lastGeometryCheck==snapshot and snapshot.viewportMatches)
+local savedRect=WorldFrame.GetRect
+local secret={}
+WorldFrame.GetRect=function() return 0,secret,1,1 end
+issecretvalue=function(value) return value==secret end
+local restricted=addon.Viewport:CaptureDiagnostics(false)
+assert(not restricted.viewportMatches and not restricted.frames.WorldFrame and addon.db.lastGeometryCheck==snapshot)
+WorldFrame.GetRect,issecretvalue=savedRect,nil
 addon.db.primaryPosition="LEFT"
 addon.Viewport:Apply()
 local x,y,w,h=worldPixels()
@@ -834,4 +850,22 @@ addon.Viewport:ApplyGlobalScale()
 worldTextAvailable = true
 addon.Viewport.GetMetrics = nativeGetMetrics
 print("PASS: inherited global baseline, addon relative scales, no repeated writes, recursion/combat guards, restore")
+
+-- Support output must not replace the saved validation snapshot. Existing
+-- callers that intentionally record a geometry check retain that behavior.
+local originalWorld = WorldFrame
+WorldFrame = {GetRect=function()return 0,0,100,200 end,GetEffectiveScale=function()return 1 end}
+addon.Viewport.GetMetrics = function()return {physicalHeight=768,gamePixelLeft=0,
+    gamePixelBottom=0,gamePixelWidth=100,gamePixelHeight=200}end
+local previousCheck = {marker='existing validation'}
+addon.db.lastGeometryCheck = previousCheck
+local readOnly = addon.Viewport:CaptureDiagnostics(false)
+assert(readOnly.viewportMatches and addon.db.lastGeometryCheck == previousCheck,
+    'read-only diagnostics overwrote the saved validation snapshot')
+local recorded = addon.Viewport:CaptureDiagnostics()
+assert(recorded.viewportMatches and addon.db.lastGeometryCheck == recorded,
+    'intentional geometry recording lost its existing default')
+WorldFrame = originalWorld
+addon.Viewport.GetMetrics = nativeGetMetrics
+print('PASS: read-only support geometry and retained explicit validation recording')
 

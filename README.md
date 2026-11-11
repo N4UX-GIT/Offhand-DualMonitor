@@ -12,14 +12,11 @@
   [![Portable, Linux, and manual options](https://img.shields.io/badge/Companion-Portable_%26_manual_options-181717?style=for-the-badge&logo=github)](https://offhand-wow.onrender.com/companion.html)
 </div>
 
-Current release: **Offhand add-on 2.1.5 Pre-Release Beta 30** with
-**Companion 2.1.5**. The add-on remains a public beta. Companion 2.1.5 is submitted
-to Microsoft Store certification with automatic publication after approval;
-Store availability can lag the portable GitHub release. The Store installs only
-Companion, so install the add-on separately.
-See [release preparation](docs/PUBLICATION-2.1.5-PREPARATION-20261109.md) and
-[installation guidance](docs/INSTALL-2.1.5.txt). Custom workspace/Flexible Layout,
-setup and map fixes are included, with native acceptance limits recorded there.
+This source is **Offhand add-on 2.1.5 Pre-Release Beta 32**. Install the
+add-on separately from the [Windows Companion](https://apps.microsoft.com/detail/9PL4PW84Q90W).
+Companion 2.1.7 adds Windows scaling estimates for per-workspace panel sizing.
+Manual sizing works with older compatible Companion versions. See the
+[changelog](CHANGELOG.md) for the add-on changes.
 
 ---
 
@@ -163,10 +160,15 @@ Media packages contain no Lua or native executable. Do not install a media ZIP r
 
 Type /offhand (or /oh) to open the main configuration dashboard.
 
-*   **Display:** Swap which monitor is your Mainhand/Offhand, adjust aspect ratio, tweak the seam boundary, and configure global UI scale.
-*   **Offhand Monitor:** Customize the map size, toggle independent panel persistence, and set up automatic routing for bags and UI frames.
-*   **Themes:** Choose from various Warcraft-style presets and custom colors for your Offhand Monitor background and border accents. An installed Background Studio package can be enabled here and displayed with its recommended fit or a Fill, Fit, or Stretch override.
-*   **Profiles:** Create, load, and copy settings profiles across your characters.
+*   Use **Display & HUD** to choose your Mainhand monitor, adjust aspect ratio and seam alignment, and set the global UI scale.
+*   Use **Offhand Monitor** for map size, window behavior, recovery, and pop-up placement. Forever also has a **Controller controls** section.
+*   Use **Appearance** to set your overall theme, border accents, and background. With a custom display plan active, you can also set a theme and background for each workspace. Background Studio packages support their recommended fit or a Fill, Fit, or Stretch override.
+*   Use **Profiles** for general addon settings across characters. The **Panel presets** card shows which set of in-game positions, opening rules, scale, and workspace appearance is active. Open **Show advanced options** to manage presets manually. A single display layout works with your current panel settings.
+*   To switch saved display plans, open **Advanced → Workspace profiles** in Companion. Select the plan, click **Load selected**, then **Save changes**. Click **Span WoW Now** and type `/reload` in WoW. The first use of a plan copies your current panel settings. Later switches restore each plan's own settings and keep changes to the preset you left. A preset you load manually stays active until you switch to another saved display plan. To go back, load the previous display plan, span, and reload.
+*   In **Panel layout → Where panels open**, choose a **Panel type** and its destination under **Opens on**. Manually moving a window takes priority. **Use routing again** clears the selected panel type's manual positions after confirmation.
+*   In **In-game window scale**, choose **Show advanced options** to preview a manual scale or a Windows-based estimate. Choose **Apply size** to save the preview. **Discard preview** or closing Advanced returns to the saved value. To restore normal size, choose **Preview 100%** and then **Apply size**. The same controls are available under Advanced during calibration.
+*   Click **?** in a settings heading for help with that section. Help for in-game window scale is available before you open Advanced options.
+*   Use **Help & Setup** to open the setup guide, launch the wizard, or jump to recovery.
 
 ### Forever Beta: Action Bars and Combat Frames
 
@@ -184,7 +186,12 @@ Offhand leaves the Edit Mode manager and protected HUD frames entirely under Bli
 | /offhand wizard | Launches the interactive setup wizard. |
 | /offhand gather | Rescues any off-screen windows and pulls them back to your Mainhand Monitor. |
 | /offhand diag | Prints a support snapshot for versions, display geometry, persistence, Edit Mode, and map ownership. |
-| /offhand diag full | Adds detailed feature probes, HUD bounds, panel controllers, and compatibility debugging when requested. |
+| /offhand diag full | Prints the support report: topology, setup progress, persistence revisions, HUD fitting, and relevant chat anchors/snapping. Does not start a capture. |
+| /offhand diag chat | Adds all native chat windows, including hidden extras, with anchors and snapping state. |
+| /offhand diag tooltip | Adds tooltip and backdrop geometry without starting a capture. |
+| /offhand diag tooltip capture | Starts a 30-second hover capture outside combat. Hover the affected item after running it. |
+| /offhand diag panels | Adds interaction-frame visibility, panel controllers, native bag state where supported, and detailed compatibility ownership. |
+| /offhand diag debug | Includes the raw feature probes and retained notification evidence for a deeper investigation. Does not start a capture or enable debug mode. |
 
 ---
 

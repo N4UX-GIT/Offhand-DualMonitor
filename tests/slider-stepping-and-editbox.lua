@@ -681,6 +681,13 @@ do
     local oldForever, oldPresentation = addon.isForever, addon.CanvasMapPresentation
     local oldGamepad = addon.IsGamepadUIEnabled
     local oldNamespace, oldAPI, oldDB = OpenMap, OpenMapAPI, OpenMapDB
+    local oldAddOns, oldUnitGUID = C_AddOns, UnitGUID
+    local openMapEnableState = 2
+    UnitGUID = function() return "Player-SettingsFixture" end
+    C_AddOns = {
+        IsAddOnLoaded = function(name) return name == "OpenMap", name == "OpenMap" end,
+        GetAddOnEnableState = function() return openMapEnableState end,
+    }
     local ownerDB, writes = {enabled=true,windowScale=1.4}, 0
     local module = {db=ownerDB}
     function module:WindowOptions(options, get, set, off)
@@ -727,8 +734,13 @@ do
     mapSlider.parent.scripts.OnShow()
     assert(mapSlider:GetValue()==.9 and writes==savedWrites,
         "OpenMap settings refresh wrote instead of reading its saved scale")
+    openMapEnableState = 0
+    mapSlider.parent.scripts.OnShow()
+    assert(not mapSlider.title:GetText():find("OpenMap", 1, true),
+        "a disabled OpenMap must lose its addon-specific settings label")
     mapSlider.scripts.OnMouseDown(mapSlider,"LeftButton")
     addon.CanvasCompatibility.GetWorldMapExternalOwner=oldOwner
+    C_AddOns, UnitGUID = oldAddOns, oldUnitGUID
     addon.isForever, addon.CanvasMapPresentation = oldForever, oldPresentation
     addon.IsGamepadUIEnabled=oldGamepad
     mapSlider.parent.scripts.OnShow()

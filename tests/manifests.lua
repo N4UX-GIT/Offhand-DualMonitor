@@ -16,12 +16,15 @@ for _, toc in ipairs(tocs) do
     assert(text:match("## LoadSavedVariablesFirst:%s*1"), "Missing early SavedVariables load: " .. toc)
     assert(text:match("## X%-Offhand%-Manifest:%s*%S+"), "Missing manifest diagnostic marker: " .. toc)
     assert(text:match("## Version:%s*2%.1%.5"), "Matching 2.1.5 addon version missing: " .. toc)
-    assert(text:match("## X%-Offhand%-Release:[ \t]*beta%.30[ \t]*\r?\n"), "Pre-Release Beta 30 addon marker missing: " .. toc)
-    assert(text:match("## X%-Offhand%-Companion%-Version:%s*2%.1%.5"), "Matching Companion version marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Release:[ \t]*beta%.32[ \t]*\r?\n"), "Pre-Release Beta 32 addon marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Companion%-Version:%s*2%.1%.7"), "Matching Companion version marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Release:[ \t]*\r?\n"), "Stable Companion release marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Protocol:%s*1"), "Companion protocol marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Min%-Version:%s*2%.1%.2%-beta%.19"), "Companion minimum version marker missing: " .. toc)
-    assert(text:match("## X%-Offhand%-Addon%-Release:[ \t]*beta%.30[ \t]*\r?\n"), "Pre-Release Beta 30 addon marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Addon%-Release:[ \t]*beta%.32[ \t]*\r?\n"), "Pre-Release Beta 32 addon marker missing: " .. toc)
+    local scale = assert(text:find("Core\\WorkspaceScale.lua", 1, true), toc)
+    local controls = assert(text:find("UI\\WorkspaceScaleControls.lua", 1, true), toc)
+    assert(scale < controls and controls < assert(text:find("UI\\Wizard.lua", 1, true), toc), toc)
 end
 local genericText = assert(io.open("Offhand.toc", "rb")):read("*a")
 local mainlineText = assert(io.open("Offhand_Mainline.toc", "rb")):read("*a")
@@ -166,7 +169,8 @@ assert(addonEscapeIndex and addonEscapeIndex + 1 == kerzoQuestLogIndex,
 local workspaceOptionsIndex
 for i,file in ipairs(main) do if file=="UI/WorkspaceOptions.lua" then workspaceOptionsIndex=i end end
 assert(controlsIndex and optionsActionsIndex and workspaceOptionsIndex and optionsIndex
-        and controlsIndex + 1 == optionsActionsIndex
+        and main[controlsIndex+1]=="UI/WorkspaceScaleControls.lua"
+        and controlsIndex + 2 == optionsActionsIndex
         and optionsActionsIndex + 1 == workspaceOptionsIndex
         and workspaceOptionsIndex + 1 == optionsIndex,
     "shared controls and settings actions must load immediately before Options")

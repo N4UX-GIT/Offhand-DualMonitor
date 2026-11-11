@@ -931,3 +931,44 @@ assert(addon.Canvas:GetForeverNativeBagDiagnostics():find("ContainerFrameCombine
     "unreadable native bag geometry must not abort the support report")
 print("PASS: Forever native bags use an isolated sibling proxy and persist movement")
 print('PASS: proxy no-op layout, immediate drag/resize/scale updates and disturbed geometry repair')
+
+-- Region sizing must use the native controller, without installing a watcher
+-- on the bag tree, and must not repeat size writes on an oversized fallback.
+assert(loadfile('Core/WorkspaceRegions.lua'))('Offhand',addon)
+assert(loadfile('Core/WorkspaceScale.lua'))('Offhand',addon)
+addon.IsGamepadUIEnabled=function()return false end
+map:Hide()
+unitCombat=false;bag:Show();bag.width,bag.height=420,620
+bag.GetEffectiveScale=function(self)return self:GetScale()end
+metrics.workspaceScaleLayout='native-bags';metrics.primaryWorkspaceRegion='a'
+metrics.workspaceRegions={{id='a',x=0,y=0,width=720,height=1440},{id='b',x=720,y=0,width=720,height=1440}}
+addon.db={enabled=true,savedWorkspacePositions={ContainerFrameCombinedBags={x=120,y=900,regionId='a'}},savedMainPositions={}}
+local sizing=addon.WorkspaceScale
+local hooks,scripts=bag.nativeHookCalls,bag.nativeScriptCalls
+assert(sizing:SetSetting(metrics,'a',.5));assert(bag:GetScale()==.5,'Dedicated native controller did not resize bags')
+assert(not sizing.watched[bag] and bag.nativeHookCalls==hooks and bag.nativeScriptCalls==scripts,
+    'Region sizing installed code on the native bag ancestry')
+assert(sizing:SetSetting(metrics,'b',1.25))
+addon.db.savedWorkspacePositions.ContainerFrameCombinedBags={x=820,y=1100,regionId='b'}
+sizing:Refresh();assert(bag:GetScale()==1.25,'Native bag region transfer used the primary scale')
+bag:SetScale(1);addon.Canvas:RefreshForeverNativeBagPlacement(bag)
+assert(bag:GetScale()==1.25,'Native bag reset lost its region size')
+unitCombat=true;bag:SetScale(1);controller.scripts.OnUpdate(controller,.001)
+assert(bag:GetScale()==1,'Native combat anchor repair changed scale')
+unitCombat=false;addon.Canvas:RefreshForeverNativeBagPlacement(bag)
+assert(bag:GetScale()==1.25)
+bag.width=1200;assert(sizing:SetSetting(metrics,'b',.5))
+assert(bag:GetScale()==.5,'Native shrink-to-fit failed')
+assert(sizing:SetSetting(metrics,'b',1.5))
+assert(bag:GetScale()==1 and bag:GetLeft()>=metrics.gameLeft,'Oversized native bag did not use Mainhand fallback')
+local nativeScale=bag.SetScale;local sizeWrites=0
+bag.SetScale=function(self,v)sizeWrites=sizeWrites+1;nativeScale(self,v)end
+addon.Canvas:RefreshForeverNativeBagPlacement(bag);addon.Canvas:RefreshForeverNativeBagPlacement(bag)
+assert(sizeWrites==0,'Native fit fallback repeatedly scaled and unscaled the bag')
+assert(addon.db.savedWorkspacePositions.ContainerFrameCombinedBags.regionId=='b','Native fallback overwrote workspace intent')
+addon.db.savedWorkspacePositions={};addon.db.nativeBackpackWorkspacePosition=nil
+assert(sizing:SetSetting(metrics,'a',1.5))
+addon.Canvas:RefreshForeverNativeBagPlacement(bag);sizeWrites=0
+addon.Canvas:RefreshForeverNativeBagPlacement(bag);addon.Canvas:RefreshForeverNativeBagPlacement(bag)
+assert(sizeWrites==0,'A default bag without saved intent repeated fallback scale writes')
+print('PASS: region sizing uses native bag placement, keeps reset/combat isolation and avoids fallback scale churn')

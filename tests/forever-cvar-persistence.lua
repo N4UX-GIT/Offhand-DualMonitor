@@ -316,6 +316,8 @@ local completeProfile = NewAddon(true, {
             enabled = true,
             rawMouseInput = true,
             deckWidthRatio = 0.4125,
+            workspaceRegionScales = {version=1,layouts={desktop={
+                a={size="AUTO",chat=false},b={size=0.75,chat=true}}}},
             theme = "OBSIDIAN",
             customTrimColor = { r = 0.2, g = 0.4, b = 0.6 },
             savedMainPositions = { ChatFrame1 = { x = 1777.5, y = 812.25 } },
@@ -356,6 +358,10 @@ assert(brokenStandardLoad.db.savedMainPositions.ChatFrame1.x == 1777.5
         and brokenStandardLoad.db.foreverEditModeRecovery == nil
         and OffhandCharDB.foreverEditModeLegacyRecovery.restoreLayoutID == 6,
     "Forever migration must preserve main positions while staging legacy Edit Mode recovery per character")
+assert(brokenStandardLoad.db.workspaceRegionScales.layouts.desktop.a.size=="AUTO"
+    and brokenStandardLoad.db.workspaceRegionScales.layouts.desktop.b.size==0.75
+    and brokenStandardLoad.db.workspaceRegionScales.layouts.desktop.b.chat==true,
+    "Complete Forever profile recovery lost explicit per-region panel sizing")
 
 -- The complete session fallback lives in account-global CVars. Its account
 -- settings may recover on another character, but its per-character layout and

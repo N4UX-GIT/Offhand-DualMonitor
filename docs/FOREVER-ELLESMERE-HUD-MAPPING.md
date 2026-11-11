@@ -8,7 +8,10 @@ Scope is Forever 1.60.1.70790 and EllesmereUI 9.7.8. The current behavior and
 candidate mappings below come from source review. The standard import has
 been verified in the local client. The visual preview and reverse copy cover
 the five entries marked as supported in the initial scope. The rest of this
-document describes proposed extensions.
+document describes proposed extensions. The Beta 28 follow-up source review
+uses installed EllesmereUI 9.8.2 and Forever 1.60.1.70862. It adds numbered
+bars and allows a mapped parent to move with its attached frames. These
+follow-up changes have simulation coverage and await native verification.
 
 ## What Create Mainhand HUD Layout does today
 
@@ -35,7 +38,7 @@ behavior stay with the provider that owns them.
 | Blizzard Edit Mode system | EllesmereUI counterpart and handling |
 | --- | --- |
 | `ActionBar.MainBar` | Action Bars `barPositions.MainBar`. The standard Offhand → EllesmereUI path exists. Reverse candidate. It can depend on `MicroMenuContainer` on the native side. |
-| `ActionBar.Bar2`, `Bar3`, `RightBar1`, `RightBar2`, `ExtraBar1`, `ExtraBar2`, `ExtraBar3` | Action Bars `barPositions.Bar2` through `Bar8`, respectively. Bidirectional candidates. Map by native bar identity. |
+| `ActionBar.Bar2`, `Bar3`, `RightBar1`, `RightBar2`, `ExtraBar1`, `ExtraBar2`, `ExtraBar3` | Action Bars `barPositions.Bar2` through `Bar8`, respectively. Supported when enabled and the native anchor can be resolved. Fit can place registered bars without a native source. |
 | `ActionBar.StanceBar`, `PetActionBar` | Action Bars `barPositions.StanceBar` and `barPositions.PetBar`. Bidirectional candidates. Verify class and pet visibility and anchoring. |
 | `ActionBar.PossessActionBar` and legacy class/totem action-bar variants | Keep the native rows. The current generator preserves the ambiguous legacy Forever ClassBar row. Check `TotemActionBar` separately from the legacy row. |
 | `GamepadMainActionBar` | Native radial controls. Keep the Gamepad preset and its position logic. The EllesmereUI numbered bars are a separate visibility choice. |
