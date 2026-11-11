@@ -1919,6 +1919,33 @@ addon.db.savedWorkspacePositions.RecoveryWorkspacePanel = { x = 100, y = 900 }
 addon.db.savedWorkspacePositions.ChatFrame9 = { x = 100, y = 400 }
 addon.db.savedWorkspacePositions.CharacterFrame = { x = 100, y = 800 }
 addon.db.savedWorkspacePositions.ContainerFrameCombinedBags = { x = 100, y = 300 }
+do
+    local metrics = { topologyStatus = "MISMATCH", isSpanned = false }
+    for _, name in ipairs({ "QuestFrame", "GossipFrame" }) do
+        local previousFrame, previousPosition = _G[name], addon.db.savedWorkspacePositions[name]
+        local frame = makeMockFrame(name, 450, 600)
+        local position = { x = 100, y = 800 }
+        addon.db.savedWorkspacePositions[name] = position
+        frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -104)
+        local nativePoint = frame.points[1]
+        local ended = 0
+        frame:HookScript("OnHide", function() ended = ended + 1 end)
+
+        addon.Canvas:PrepareSingleScreenRecovery(metrics)
+        addon.Canvas:PrepareSingleScreenRecovery(metrics)
+        assert(frame:IsShown() and ended == 0,
+            "single-screen recovery ended the native " .. name .. " interaction")
+        assert(not addon.Canvas:PlaceForSingleScreenRecovery(frame, metrics)
+                and #frame.points == 1 and frame.points[1] == nativePoint,
+            "single-screen recovery replaced " .. name .. "'s native anchor")
+        assert(addon.db.savedWorkspacePositions[name] == position,
+            "single-screen recovery deleted " .. name .. "'s saved workspace position")
+        frame:Hide()
+        addon.Canvas:PrepareSingleScreenRecovery(metrics)
+        assert(not frame:IsShown() and ended == 1, "single-screen recovery reopened a closed interaction")
+        _G[name], addon.db.savedWorkspacePositions[name] = previousFrame, previousPosition
+    end
+end
 addon.Canvas:PrepareSingleScreenRecovery({ topologyStatus = "MISMATCH", isSpanned = false })
 assert(not recoveryPanel:IsShown(),
     "single-screen recovery must temporarily close visible workspace panels")

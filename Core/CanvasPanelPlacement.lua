@@ -52,6 +52,7 @@ function Placement.InstallSingleScreen(Canvas, services)
     local IsForeverProfessionsPanel = services.IsForeverProfessionsPanel
     local IsForeverEditModeFrame = services.IsForeverEditModeFrame
     local IsUnsafeForPanelMutation = services.IsUnsafeForPanelMutation
+    local IsContextBoundPanel = services.IsContextBoundPanel
     -- A missing saved display leaves no workspace rectangle. Close only panels
     -- that were visible on that workspace so they do not get clamped into a pile
     -- on Mainhand. Their saved geometry and open-state snapshot are intentionally
@@ -69,7 +70,9 @@ function Placement.InstallSingleScreen(Canvas, services)
         if not IsSingleScreenRecovery(metrics) or not Offhand.db
             or not Offhand.db.savedWorkspacePositions then return end
         for name in pairs(Offhand.db.savedWorkspacePositions) do
-            if not tostring(name):match("^ChatFrame%d+$")
+            -- NPC and other interaction panels can end the session on Hide.
+            -- Their native panel manager owns visibility and placement here.
+            if not IsContextBoundPanel(name) and not tostring(name):match("^ChatFrame%d+$")
                 and not (Offhand.isForever and Offhand.CanvasCompatibility.IsForeverEllesmereBag(name))
                 and not IsForeverEditModeFrame(_G[name], name)
                 and not IsForeverProfessionsPanel(_G[name], name) then
@@ -86,7 +89,7 @@ function Placement.InstallSingleScreen(Canvas, services)
         metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics())
         if not IsSingleScreenRecovery(metrics) then return false end
         local name = frame.GetName and frame:GetName()
-        if not name or not Offhand.db.savedWorkspacePositions[name]
+        if not name or not Offhand.db.savedWorkspacePositions[name] or IsContextBoundPanel(name)
             or IsForeverEditModeFrame(frame, name) or IsUnsafeForPanelMutation(frame, name) then return false end
         local daylight = Offhand.DaylightMapCompatibility
         if name == "WorldMapFrame" and daylight and daylight.ShouldPreserveSingleScreenPosition

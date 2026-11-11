@@ -1181,6 +1181,7 @@ OnPanelDragStop = Persistence.InstallDrag(Canvas, {
 })
 
 Offhand.CanvasPanelPlacement.InstallSingleScreen(Canvas, {
+    IsContextBoundPanel = IsContextBoundPanel,
     IsForeverProfessionsPanel = function(...) return IsForeverProfessionsPanel(...) end,
     IsForeverEditModeFrame = function(...) return IsForeverEditModeFrame(...) end,
     IsUnsafeForPanelMutation = function(...) return IsUnsafeForPanelMutation(...) end,
