@@ -3,17 +3,55 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 namespace Offhand.Companion {
     internal static class PreferencesTest {
         private static int checkNumber;
         private static void Check(bool value, [System.Runtime.CompilerServices.CallerLineNumber] int line = 0)
         { checkNumber++; if (!value) throw new Exception("Preference regression at check " + checkNumber + ", line " + line); }
+
+        private static void CheckCompanionInstanceGuard()
+        {
+            string release = @"Local\OffhandCompanionTest-" + Guid.NewGuid().ToString("N");
+            string preview = release + "-Preview";
+            foreach (string priorName in new[] { release, preview })
+            {
+                // Legacy builds keep the initially owned mutex open for the process lifetime.
+                using (var prior = new Mutex(true, priorName))
+                {
+                    try
+                    {
+                        bool ran = Task.Factory.StartNew(() => CompanionForm.TryRunAsOnlyInstance(
+                            release, preview, () => { throw new Exception("A second Companion started."); }),
+                            TaskCreationOptions.LongRunning).GetAwaiter().GetResult();
+                        Check(!ran);
+                    }
+                    finally { prior.ReleaseMutex(); }
+
+                    Check(CompanionForm.TryRunAsOnlyInstance(release, preview, () =>
+                    {
+                        foreach (string name in new[] { release, preview })
+                        {
+                            bool created;
+                            using (var legacy = new Mutex(true, name, out created))
+                            {
+                                if (created) legacy.ReleaseMutex();
+                                Check(!created);
+                            }
+                        }
+                    }));
+                }
+            }
+        }
+
         public static void Main() {
-            Check(CompanionForm.FullVersion == "2.1.5");
+            CheckCompanionInstanceGuard();
+            Check(CompanionForm.FullVersion == "2.1.7");
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-            Check(assembly.GetName().Version == new Version(2,1,5,0));
+            Check(assembly.GetName().Version == new Version(2,1,7,0));
             Check(((System.Reflection.AssemblyInformationalVersionAttribute)Attribute.GetCustomAttribute(
-                assembly, typeof(System.Reflection.AssemblyInformationalVersionAttribute))).InformationalVersion == "2.1.5");
+                assembly, typeof(System.Reflection.AssemblyInformationalVersionAttribute))).InformationalVersion == "2.1.7");
             Check(CompanionDistribution.UpdateButtonText(true) == "Store Updates");
             Check(CompanionDistribution.UpdateButtonText(false) == "Check for Updates");
             Check(CompanionDistribution.UpdateMenuText(true).Contains("Microsoft Store"));
@@ -199,11 +237,11 @@ namespace Offhand.Companion {
                 string character = Path.Combine(wow, "WTF", "Account", "123", "Realm", "Character", "SavedVariables", "Offhand.lua");
                 Directory.CreateDirectory(core);
                 File.WriteAllText(Path.Combine(Path.GetDirectoryName(core), "Offhand_Forever.toc"),
-                    "## Interface: 16000\n## X-Offhand-Release: beta.19\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.2-beta.19\n");
+                    "## Interface: 16000\n## Version: 2.1.5\n## X-Offhand-Release: beta.19\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.2-beta.19\n");
                 AddonInstallCheck install = AddonInstallation.Inspect(wow);
                 Check(install.Installed && install.AddonDir == Path.GetDirectoryName(core));
                 Check(install.ExpectedAddonDir == Path.Combine(wow, "Interface", "AddOns", "Offhand"));
-                Check(install.ReleaseTag == "beta.19" && install.CompanionProtocol == 1
+                Check(install.Version == "2.1.5" && install.ReleaseTag == "beta.19" && install.CompanionProtocol == 1
                     && install.MinimumCompanionVersion == "2.1.2-beta.19" && install.Reason.Contains(install.AddonDir));
 
                 string futureWow = Path.Combine(root, "future-client");
@@ -213,7 +251,7 @@ namespace Offhand.Companion {
                     "## Interface: 16000\n## X-Offhand-Release: beta.20\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.2-beta.19\n");
                 Check(AddonInstallation.Inspect(futureWow).Installed);
                 File.WriteAllText(Path.Combine(futureAddon, "Offhand_Forever.toc"),
-                    "## Interface: 16000\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.6-beta.1\n");
+                    "## Interface: 16000\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.8-beta.1\n");
                 Check(!AddonInstallation.Inspect(futureWow).Installed);
 
                 string legacyWow = Path.Combine(root, "legacy-compatible");
@@ -284,15 +322,34 @@ namespace Offhand.Companion {
                 Check(CompanionTopologyBridge.TryWrite(wow, plan, displays, out topologyMessage, out writtenTopology));
                 Check(SpanRollback.SameBytes(writtenTopology, File.ReadAllBytes(Path.Combine(core, "CompanionTopology.lua"))));
                 string topology = File.ReadAllText(Path.Combine(core, "CompanionTopology.lua"));
-                Check(topology.Contains("mode = \"DUAL_DISPLAY\"") && topology.Contains("companionVersion = \"2.1.5\"") && topology.Contains("width = 3440") &&
+                Check(topology.Contains("mode = \"DUAL_DISPLAY\"") && topology.Contains("companionVersion = \"2.1.7\"") && topology.Contains("width = 3440") &&
                     topology.Contains("height = 1080") && topology.Contains("y = 0"));
                 Check(CompanionTopologyBridge.IsCurrent(wow, plan, displays));
+                var oppositeSplit = MonitorSelection.CreatePlan(@"MONITOR\MAIN\A", null, null,
+                    @"MONITOR\MAIN\A", null, true, true, displays);
+                Check(splitPlan.Bounds == oppositeSplit.Bounds && splitPlan.MainhandBounds != oppositeSplit.MainhandBounds);
+                Check(CompanionTopologyBridge.TryWrite(wow, splitPlan, displays, out topologyMessage));
+                string splitKey = CompanionTopologyBridge.LayoutKey(splitPlan, displays);
+                string oppositeKey = CompanionTopologyBridge.LayoutKey(oppositeSplit, displays);
+                var oppositeBridge = CompanionTopologyBridge.Inspect(wow, oppositeSplit, displays);
+                Check(oppositeBridge == CompanionTopologyBridge.BridgeMatch.DifferentLayout);
+                Check(!CompanionTopologyBridge.CanConfirmLayout(splitKey, oppositeKey, oppositeBridge));
+                Check(!CompanionTopologyBridge.CanConfirmLayout(null, oppositeKey, oppositeBridge));
+
+                string topologyPath = Path.Combine(core, "CompanionTopology.lua");
+                File.WriteAllText(topologyPath, System.Text.RegularExpressions.Regex.Replace(
+                    File.ReadAllText(topologyPath), @"(?m)^  panelScaleMetadata = .*\r\n", ""));
+                var oldBridge = CompanionTopologyBridge.Inspect(wow, splitPlan, displays);
+                Check(oldBridge == CompanionTopologyBridge.BridgeMatch.NeedsRefresh);
+                Check(CompanionTopologyBridge.CanConfirmLayout(null, splitKey, oldBridge));
                 File.WriteAllText(Path.Combine(core, "CompanionTopology.lua"),
                     "-- packaged placeholder\r\nOffhandCompanionTopology = nil\r\n");
                 Check(!CompanionTopologyBridge.IsCurrent(wow, plan, displays));
+                Check(CompanionTopologyBridge.CanConfirmLayout(splitKey, splitKey,
+                    CompanionTopologyBridge.Inspect(wow, splitPlan, displays)));
                 Check(CompanionTopologyBridge.TryWrite(wow, plan, displays, out topologyMessage)
                     && CompanionTopologyBridge.IsCurrent(wow, plan, displays));
-                Console.WriteLine("PASS: safe display identities, addon layout diagnosis, missing-monitor guard, topology bridge, atomic settings with failure preservation, restore geometry and atomic Forever state generation");
+                Console.WriteLine("PASS: both Companion instance locks, safe display identities, addon layout diagnosis, missing-monitor guard, topology bridge, atomic settings with failure preservation, restore geometry and atomic Forever state generation");
             } finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }
     }

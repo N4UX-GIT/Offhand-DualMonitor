@@ -1,0 +1,53 @@
+{
+  "recordedUtc": "2026-11-10T08:25:21.9297331Z",
+  "productId": "9PL4PW84Q90W",
+  "productName": "Offhand Companion",
+  "submissionNumber": 7,
+  "submissionId": "1152921505702364011",
+  "version": "2.1.6",
+  "fileVersion": "2.1.6.1",
+  "packageVersion": "2.1.600.0",
+  "sourceCommit": "a43e4fea4e7ddd4f8da8470c2275732c75ac458d",
+  "msixSha256": "87866739AFBA3BD6C9C73FA39F37C4E11CCE80D25A58A3E45C6B21F4234F2691",
+  "exeSha256": "166C6BD750282C4EFDDE12BBE4A64DAFB1E88B2A29C826A86365FEFF741D4879",
+  "status": "In certification; submission complete, pre-processing in progress",
+  "publication": "Automatic after certification",
+  "publicAvailabilityConfirmed": false,
+  "accountPreflight": {
+    "publishedSubmission": 6,
+    "publishedVersion": "2.1.500.0",
+    "privateFlight": "Companion 2.1.5 internal QA",
+    "privateFlightVersion": "2.1.500.0",
+    "identityName": "N4UX.OffhandCompanion",
+    "publisher": "CN=E7BD7796-76DA-40C2-B114-9DD85609CD7F",
+    "publisherDisplayName": "N4UX",
+    "family": "N4UX.OffhandCompanion_bwe0ea6astzt8",
+    "identityMatches": true,
+    "versionOrdering": "PASS",
+    "existingPublicDraftOrInFlightUpdateReplaced": false
+  },
+  "packageValidated": true,
+  "inheritedPackage": "Automatically superseded in the new submission by the higher version supporting the same customers",
+  "listingUpdated": true,
+  "listingChanges": [
+    "Prepared 2.1.6 release notes",
+    "Setup/Advanced and replayable tutorial in the existing English description",
+    "Current separately installed addon wording"
+  ],
+  "certificationNotesSavedAndReloadVerified": true,
+  "pricingAvailabilityPropertiesAgeRatingsUnchanged": true,
+  "capabilitiesUnchanged": true,
+  "runFullTrustJustificationRetained": true,
+  "gradualRollout": false,
+  "mandatoryUpdate": false,
+  "proof": "dist/companion-216-public-submission/store-submission.jpg",
+  "proofSha256": "DC7E854A132C61D1EC36EF367E9406BEEA0EF650BE7224431F85C19B1461CDD6",
+  "overviewUrl": "https://partner.microsoft.com/en-us/dashboard/products/9PL4PW84Q90W/overview",
+  "githubAddonWebsitePublished": false,
+  "compatibleAddon": "2.1.5 Pre-Release Beta 28",
+  "limitations": [
+    "Store certification approval and signing pending",
+    "Store-delivered 2.1.6 upgrade and public availability not observed",
+    "Prior preflight evidence boundaries remain documented"
+  ]
+}

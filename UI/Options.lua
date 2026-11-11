@@ -530,6 +530,7 @@ function Options:CreateFloatingPanel()
             end
         end
         Controls.RefreshStyles()
+        if Offhand.WorkspaceScaleControls then Offhand.WorkspaceScaleControls:RefreshThemes() end
 
         if Options.UpdateTrimHighlights then
             Options:UpdateTrimHighlights()
@@ -2406,7 +2407,20 @@ function Options:CreateFloatingPanel()
     offhandCards = {card2_1, card2_2, windowControlCard}
     if advancedCard then offhandCards[#offhandCards + 1] = advancedCard end
     offhandCards[#offhandCards + 1] = recoveryCard
-    if workspaceCards then tinsert(offhandCards,1,workspaceCards.routing) end
+    if workspaceCards then
+        tinsert(offhandCards, 1, workspaceCards.routing)
+        if workspaceCards.sizing then
+            local sizing = workspaceCards.sizing
+            tinsert(offhandCards, 2, sizing)
+            sizing.onSizingChanged = function(expanded)
+                Options:StackCards(tab2, offhandCards)
+                if expanded and tab2:IsShown() then
+                    local _, _, _, _, y = sizing:GetPoint(1)
+                    Controls.SetScrollOffset(optionsScrollFrame, -(y or 0))
+                end
+            end
+        end
+    end
     Options:StackCards(tab2, offhandCards)
     local themeCards={card3_1,card3_2,card3_3,card3_4}
     local profileCards={card4_1}

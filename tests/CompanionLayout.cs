@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -48,6 +48,8 @@ namespace Offhand.Companion
             foreach (Control child in parent.Controls)
             {
                 if (child.Width <= 0 || child.Height <= 0) continue;
+                var table = parent as TableLayoutPanel;
+                if (table != null && table.GetRowHeights()[table.GetRow(child)] == 0) continue;
                 var toggle = parent.Controls.OfType<Button>().FirstOrDefault(button => button.Text == "Show" || button.Text == "Hide");
                 if (toggle != null && ((toggle.Text == "Show" && child != toggle && child != parent.Controls[0]
                         && child.AccessibleName != "System status summary") ||
@@ -75,7 +77,17 @@ namespace Offhand.Companion
 
                 Panel config = Descendants(form).OfType<Panel>().Single(panel =>
                     panel.Controls.OfType<Label>().Any(label => label.Text == "CONFIGURATION"));
-                var delay = One<NumericUpDown>(config, control => true);
+                Panel advanced = Descendants(form).OfType<Panel>().Single(panel =>
+                    panel.Controls.OfType<Label>().Any(label => label.Text == "WORKSPACE AND STARTUP"));
+                if (!One<Button>(form, button => button.AccessibleName == "Setup tab").AccessibleDescription.StartsWith("Selected."))
+                    throw new Exception("Setup must open first.");
+                var delay = One<NumericUpDown>(advanced, control => true);
+                var auto = One<CheckBox>(advanced, control => control.Text == "Auto-span WoW on launch");
+                if (auto.Checked || Descendants(config).OfType<NumericUpDown>().Any()
+                    || Descendants(config).OfType<Button>().Any(button => button.Text.StartsWith("Workspace")))
+                    throw new Exception("Basic configuration exposes advanced controls or auto-span starts enabled.");
+                form.SelectDashboardPage(true);
+                LayoutAll(form);
                 var displays = One<CheckedListBox>(config, control => true);
                 var combos = Descendants(config).OfType<ComboBox>().ToArray();
                 if (combos.Length != 2) throw new Exception("Expected Mainhand and game-side selectors.");
@@ -90,17 +102,18 @@ namespace Offhand.Companion
                     LayoutAll(form);
                 }
 
-                Button custom = One<Button>(config, control => control.Text.StartsWith("Workspace layout ("));
-                Button profiles = One<Button>(config, control => control.Text == "Workspace profiles...");
+                Button custom = One<Button>(advanced, control => control.Text.StartsWith("Workspace layout ("));
+                Button profiles = One<Button>(advanced, control => control.Text == "Workspace profiles...");
                 foreach (Control control in new Control[] { delay, displays, mainhand, gameSide, identify, custom, profiles })
                 {
-                    Rectangle bounds = BoundsInside(control, config);
-                    if (bounds.Left < 0 || bounds.Top < 24 || bounds.Right > config.ClientSize.Width
-                        || bounds.Bottom > config.ClientSize.Height)
+                    Panel owner = advanced.Contains(control) ? advanced : config;
+                    Rectangle bounds = BoundsInside(control, owner);
+                    if (bounds.Left < 0 || bounds.Top < 24 || bounds.Right > owner.ClientSize.Width
+                        || bounds.Bottom > owner.ClientSize.Height)
                         throw new Exception(control.GetType().Name + " escaped the configuration card at " + factor + "x: " + bounds);
                     if (bounds.Width <= 0 || bounds.Height <= 0)
                         throw new Exception(control.GetType().Name + " collapsed at " + factor + "x.");
-                    for (Control parent = control.Parent; parent != config; parent = parent.Parent)
+                    for (Control parent = control.Parent; parent != owner; parent = parent.Parent)
                     {
                         Rectangle inside = BoundsInside(control, parent);
                         if (!parent.ClientRectangle.Contains(inside))
@@ -112,17 +125,17 @@ namespace Offhand.Companion
                 Rectangle displayBounds = BoundsInside(displays, config);
                 Rectangle mainhandBounds = BoundsInside(mainhand, config);
                 Rectangle identifyBounds = BoundsInside(identify, config);
-                if (displayBounds.Bottom >= mainhandBounds.Top)
-                    throw new Exception("Display checklist overlaps Mainhand at " + factor + "x.");
-                if (identifyBounds.Right >= displayBounds.Left)
-                    throw new Exception("Identify Displays overlaps the display selectors at " + factor + "x.");
-
-                if (profiles.Top != custom.Top || profiles.Height != custom.Height ||
-                    BoundsInside(profiles, config).Right != identifyBounds.Right ||
-                    BoundsInside(custom, config).Left != displayBounds.Left)
-                    throw new Exception("Workspace actions are misaligned at " + factor + "x.");
-                if (BoundsInside(gameSide, config).Top != mainhandBounds.Top)
-                    throw new Exception("Game Side and Mainhand selectors are misaligned at " + factor + "x.");
+                if (displayBounds.Right >= mainhandBounds.Left || identifyBounds.Top < displayBounds.Bottom)
+                    throw new Exception("Display list, Identify and Mainhand overlap at " + factor + "x.");
+                var customBounds = BoundsInside(custom, advanced);
+                var profileBounds = BoundsInside(profiles, advanced);
+                if (customBounds.Top != profileBounds.Top || customBounds.Height != profileBounds.Height
+                    || customBounds.Right >= profileBounds.Left)
+                    throw new Exception("Advanced layout/profile buttons are misaligned at " + factor + "x.");
+                if (BoundsInside(gameSide, config).Top < mainhandBounds.Bottom)
+                    throw new Exception("Game side overlaps Mainhand at " + factor + "x.");
+                form.SelectDashboardPage(false);
+                LayoutAll(form);
                 foreach (Control field in new Control[] { delay, gameSide, mainhand })
                     if (!field.Parent.ClientRectangle.Contains(field.Bounds))
                         throw new Exception(field.AccessibleName + " is clipped by its own row at " + factor + "x.");
@@ -142,11 +155,12 @@ namespace Offhand.Companion
                 }
                 var span = One<Button>(form, button => button.Text == "Span WoW Now");
                 var restore = One<Button>(form, button => button.Text == "Restore Window");
-                if (span.Parent != restore.Parent || span.Width <= restore.Width ||
+                if (span.Parent != restore.Parent || Math.Abs(span.Width-restore.Width)>1 ||
                     BoundsInside(span, form).Top >= BoundsInside(status, form).Top ||
                     span.Height < 44 * factor - 1 || Descendants(form).OfType<Button>().Any(button => button.Text == "Pause Monitor"))
                     throw new Exception("Primary actions must be prominent and precede System Status.");
                 CheckActionGuidance(form);
+                CheckLayoutReminder(form, span);
                 form.UpdateClientStatus(null, false);
                 if (!summary.Text.Contains("WoW not running")) throw new Exception("Collapsed status lost stopped-client text.");
                 form.FitDashboardToWorkingArea(Screen.PrimaryScreen.WorkingArea);
@@ -197,7 +211,11 @@ namespace Offhand.Companion
                 form.LocationChanged += onOuterChange;
                 stackBeforeToggles.SizeChanged += onContentChange;
                 logControl.HandleCreated += onLogHandle;
-                foreach (Panel section in new[] { status, config,
+                for (int change = 0; change < 6; change++) {
+                    form.SelectDashboardPage(change % 2 == 0);
+                    LayoutAll(form);
+                }
+                foreach (Panel section in new[] { status,
                     Descendants(form).OfType<Panel>().Single(panel => panel.Controls.OfType<Label>().Any(label => label.Text == "DISPLAY DIAGNOSTICS")),
                     Descendants(form).OfType<Panel>().Single(panel => panel.Controls.OfType<Label>().Any(label => label.Text == "ACTIVITY LOG")) })
                 {
@@ -226,10 +244,10 @@ namespace Offhand.Companion
                 string review = CompanionForm.DisplaySelectionPrompt(legacy, true, true);
                 if (!review.StartsWith("Confirm your saved displays\r\n") || !review.Contains("With WoW open") ||
                     !review.Contains("click Span WoW Now") || !review.Contains("when you click OK") ||
-                    !review.Contains("\r\nTo change the layout, open Workspace layout.") ||
+                    !review.Contains("\r\nTo change the layout, open Advanced > Workspace layout.") ||
                     CompanionForm.DisplaySelectionPrompt(legacy, false, true).Contains("Workspace layout"))
                     throw new Exception("Saved display review must explain when to open the confirmation and how to accept it.");
-                layoutStatus.Text = review;
+                layoutStatus.Text = review + string.Concat(Enumerable.Repeat("\r\nCheck your selected displays before applying the saved layout.", 12));
                 form.UpdateClientStatus(null, false);
                 Panel scrollPanel = form.Controls.OfType<Panel>().Single(panel => panel.AutoScroll);
                 var cards = scrollPanel.Controls.OfType<TableLayoutPanel>().Single();
@@ -322,7 +340,8 @@ namespace Offhand.Companion
                         }
                     }
                 }
-                foreach (Panel section in new[] { config, Descendants(form).OfType<Panel>().Single(panel =>
+                form.SelectDashboardPage(true);
+                foreach (Panel section in new[] { Descendants(form).OfType<Panel>().Single(panel =>
                     panel.Controls.OfType<Label>().Any(label => label.Text == "DISPLAY DIAGNOSTICS")) })
                 {
                     form.SetDashboardSectionExpanded(section, true, false);
@@ -341,32 +360,242 @@ namespace Offhand.Companion
                     Panel viewport = form.Controls.OfType<Panel>().Single(panel => panel.AutoScroll);
                     var stack = viewport.Controls.OfType<TableLayoutPanel>().Single();
                     foreach (Control section in stack.Controls)
-                        if (Math.Abs(section.Width - stack.ClientSize.Width) > 2)
+                        if (stack.GetRowHeights()[stack.GetRow(section)] > 0 && Math.Abs(section.Width - stack.ClientSize.Width) > 2)
                             throw new Exception("Section does not use the available dashboard width");
                     if (viewport.HorizontalScroll.Visible || form.HorizontalScroll.Visible)
                         throw new Exception("Resizing introduced a horizontal scrollbar");
                 }
-                CheckWorkspaceLayoutCaption(form, config, custom, factor);
+                CheckWorkspaceLayoutCaption(form, config, advanced, custom, factor);
+                CheckNavigation(form, config, advanced, factor);
+                CheckHeaderBranding(form, factor);
+                CheckTutorial(form, factor);
             }
         }
 
         private static void CheckActionGuidance(CompanionForm form)
         {
-            foreach (var pair in new[] { new[] { "Span WoW Now", "Span guidance" }, new[] { "Restore Window", "Restore guidance" } })
-            {
-                var button = One<Button>(form, item => item.Text == pair[0]);
-                var hint = One<Label>(form, item => item.AccessibleName == pair[1]);
-                Rectangle buttonBounds = BoundsInside(button, hint.Parent);
-                if (Math.Abs(buttonBounds.Left - hint.Left) > 1 || Math.Abs(buttonBounds.Width - hint.Width) > 1 || hint.Top <= buttonBounds.Bottom)
-                    throw new Exception("Action guidance must align below its own button: " + pair[0]);
-                Size measured = TextRenderer.MeasureText(hint.Text, hint.Font, new Size(hint.Width, int.MaxValue),
-                    TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
-                if (measured.Height > hint.Height || hint.Right > hint.Parent.ClientSize.Width)
-                    throw new Exception("Action guidance is clipped: " + pair[0]);
-            }
+            var span=One<Button>(form,button=>button.Text=="Span WoW Now");
+            var restore=One<Button>(form,button=>button.Text=="Restore Window");
+            if(span.Parent!=restore.Parent || Math.Abs(span.Width-restore.Width)>1 || span.Height!=restore.Height)
+                throw new Exception("Primary actions must share an equal-width aligned row.");
+            var setup=One<Button>(form,button=>button.AccessibleName=="Setup tab");
+            var advanced=One<Button>(form,button=>button.AccessibleName=="Advanced tab");
+            Rectangle left=BoundsInside(setup,form),right=BoundsInside(advanced,form);
+            Rectangle spanBounds=BoundsInside(span,form),restoreBounds=BoundsInside(restore,form);
+            if(Math.Abs(left.Width-right.Width)>1 || left.Left!=spanBounds.Left || right.Right!=restoreBounds.Right ||
+                Math.Abs(left.Right-spanBounds.Right)>1 || Math.Abs(right.Left-restoreBounds.Left)>1 ||
+                Math.Abs((setup.Left+advanced.Right)-setup.Parent.ClientSize.Width)>1 ||
+                setup.Font.Size!=advanced.Font.Size || setup.Font.Style!=advanced.Font.Style)
+                throw new Exception("Tabs/actions must share a centered, symmetric two-column grid and matching tab weight.");
+            if(!span.Font.Bold || restore.Font.Bold || span.FlatAppearance.BorderColor==restore.FlatAppearance.BorderColor)
+                throw new Exception("Span must retain primary styling within the balanced action row.");
+            if(Math.Abs(setup.Height-span.Height*32f/44f)>2 || setup.Height!=advanced.Height)
+                throw new Exception("Navigation must retain its smaller 32px height relative to 44px actions after scaling.");
+            foreach(var tab in new[]{setup,advanced})
+                if(TextRenderer.MeasureText(tab.Text,tab.Font).Height+4>tab.Height)
+                    throw new Exception("Reduced tab height clips its unchanged text.");
+            if(Descendants(form).OfType<Label>().Any(label=>label.AccessibleName=="Span guidance" || label.AccessibleName=="Restore guidance") ||
+                Descendants(form).OfType<Panel>().Any(panel=>panel.AccessibleName=="Apply your layout guide"))
+                throw new Exception("Persistent captions/guidance must be replaced by the replayable tutorial.");
         }
 
-        private static void CheckWorkspaceLayoutCaption(CompanionForm form, Panel config, Button workspaceLayout, float factor)
+        private static void CheckLayoutReminder(CompanionForm form, Button span)
+        {
+            var notice = One<Panel>(form, panel => panel.AccessibleName == "Layout reminder");
+            var stack = (TableLayoutPanel)notice.Parent;
+            int row = stack.GetRow(notice);
+            var windowBounds = form.Bounds;
+            int defaultWidth = stack.Width;
+            if (stack.GetRowHeights()[row] != 0)
+                throw new Exception("The layout reminder must take no space before a layout action.");
+
+            string[] messages = {
+                "Standard layout saved. WoW still has its previous layout. " + CompanionForm.StandardLayoutNextStep(1),
+                "Standard layout saved. WoW still has its previous layout. " + CompanionForm.StandardLayoutNextStep(2),
+                CompanionForm.ReloadLayoutInstruction
+            };
+            for (int i = 0; i < messages.Length; i++)
+            {
+                form.SetLayoutNotice(123, messages[i]);
+                form.SelectDashboardPage(i % 2 == 0);
+                LayoutAll(form);
+                var message = One<Label>(notice, label => true);
+                var dismiss = One<Button>(notice, button => button.AccessibleName == "Dismiss layout reminder");
+                int textHeight = TextRenderer.MeasureText(message.Text, message.Font,
+                    new Size(message.Width, int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix).Height;
+                if (message.Text != messages[i] || !message.Text.Contains("/reload") ||
+                    message.Height < textHeight || message.Right >= dismiss.Left ||
+                    !notice.ClientRectangle.Contains(message.Bounds) || !notice.ClientRectangle.Contains(dismiss.Bounds) ||
+                    stack.GetRowHeights()[row] == 0 || notice.Top < span.Parent.Bottom ||
+                    form.Bounds != windowBounds || stack.Width != defaultWidth)
+                    throw new Exception("Layout reminder is clipped, hidden or changes the window geometry.");
+            }
+            form.SetLayoutNotice(0, "");
+            form.SelectDashboardPage(false);
+            LayoutAll(form);
+            if (stack.GetRowHeights()[row] != 0 || form.Bounds != windowBounds)
+                throw new Exception("Clearing the layout reminder left a gap or resized the window.");
+        }
+
+        private static void CheckNavigation(CompanionForm form, Panel config, Panel advanced, float factor)
+        {
+            const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
+            var field = typeof(CompanionForm).GetField("appSettings", flags);
+            var settings = (Dictionary<string,string>)field.GetValue(null);
+            var before = new Dictionary<string,string>(settings);
+            var viewport = form.Controls.OfType<Panel>().Single(panel => panel.AutoScroll);
+            var stack = viewport.Controls.OfType<TableLayoutPanel>().Single();
+            var setup = One<Button>(form, button => button.AccessibleName == "Setup tab");
+            var advancedTab = One<Button>(form, button => button.AccessibleName == "Advanced tab");
+            if (setup.FlatAppearance.BorderSize != 1 || advancedTab.FlatAppearance.BorderSize != 1 ||
+                setup.FlatAppearance.BorderColor != Color.FromArgb(43,43,49) ||
+                advancedTab.FlatAppearance.BorderColor != setup.FlatAppearance.BorderColor || setup.BackColor != advancedTab.BackColor)
+                throw new Exception("Navigation must remain visually separate from primary action buttons.");
+            Rectangle outer = form.Bounds;
+            int width = stack.Width;
+            foreach (bool selectAdvanced in new[] { false, true, false, true, false }) {
+                form.SelectDashboardPage(selectAdvanced);
+                LayoutAll(form);
+                int[] rows = stack.GetRowHeights();
+                if ((rows[stack.GetRow(config)] > 0) == selectAdvanced ||
+                    (rows[stack.GetRow(advanced)] > 0) != selectAdvanced)
+                    throw new Exception("Navigation did not isolate Setup and Advanced content.");
+                if (form.Bounds != outer || stack.Width != width ||
+                    setup.AccessibleDescription.StartsWith("Selected.") == selectAdvanced ||
+                    advancedTab.AccessibleDescription.StartsWith("Selected.") != selectAdvanced)
+                    throw new Exception("Tab selection changed outer bounds/content width or lost selected state.");
+                foreach (string title in new[] { "DISPLAY DIAGNOSTICS", "ACTIVITY LOG" }) {
+                    var card = Descendants(form).OfType<Panel>().Single(panel => panel.Controls.OfType<Label>().Any(label => label.Text == title));
+                    if ((rows[stack.GetRow(card)] > 0) != selectAdvanced)
+                        throw new Exception("Troubleshooting content escaped the Advanced page.");
+                }
+                CheckActionGuidance(form);
+                foreach (Button tab in new[] { setup, advancedTab })
+                    if (TextRenderer.MeasureText(tab.Text, tab.Font).Width + 8 > tab.Width)
+                        throw new Exception("Navigation text is clipped at " + factor + "x.");
+            }
+            var previewKey = typeof(Control).GetMethod("OnPreviewKeyDown", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            var keyDown = typeof(Control).GetMethod("OnKeyDown", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            foreach (Keys key in new[] { Keys.Right, Keys.Left, Keys.End, Keys.Home }) {
+                var keyPreview = new PreviewKeyDownEventArgs(key);
+                previewKey.Invoke(setup, new object[] { keyPreview });
+                if (!keyPreview.IsInputKey) throw new Exception("Tab navigation key was treated as focus traversal: " + key);
+                var input = new KeyEventArgs(key);
+                keyDown.Invoke(setup, new object[] { input });
+                bool shouldSelectAdvanced = key == Keys.Right || key == Keys.End;
+                if (!input.Handled || !input.SuppressKeyPress ||
+                    advancedTab.AccessibleDescription.StartsWith("Selected.") != shouldSelectAdvanced)
+                    throw new Exception("Navigation keyboard handler lost its page selection: " + key);
+            }
+            if (settings.Count != before.Count || before.Any(pair => !settings.ContainsKey(pair.Key) || settings[pair.Key] != pair.Value))
+                throw new Exception("Tab navigation changed existing saved preferences.");
+
+        }
+
+        private static void CheckTutorial(CompanionForm form, float factor)
+        {
+            if (!CompanionForm.TutorialNeeded(new Dictionary<string,string>()) ||
+                CompanionForm.TutorialNeeded(new Dictionary<string,string>{{"CompanionTutorialSeen","True"}}) ||
+                !CompanionForm.TutorialNeeded(new Dictionary<string,string>{{"CompanionTutorialSeen","invalid"}}))
+                throw new Exception("First-run tutorial policy lost its dismissal boundary.");
+            const System.Reflection.BindingFlags flags=System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Static;
+            var settings=(Dictionary<string,string>)typeof(CompanionForm).GetField("appSettings",flags).GetValue(null);
+            var before=new Dictionary<string,string>(settings);
+            var bounds=form.Bounds;
+            form.SelectDashboardPage(false);
+            var viewport=form.Controls.OfType<Panel>().Single(panel=>panel.AutoScroll);
+            var savedScroll=viewport.AutoScrollPosition;
+            var content=new System.Text.StringBuilder();
+            form.StartDashboardTutorial();
+            for(int step=0;step<16;step++) {
+                var overlay=One<Panel>(form,panel=>panel.AccessibleName=="Companion tutorial");
+                var card=One<Panel>(overlay,panel=>panel.AccessibleName=="Tutorial explanation");
+                var highlight=(Rectangle)overlay.GetType().GetField("Highlight",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).GetValue(overlay);
+                var snapshot=(Bitmap)overlay.GetType().GetField("Snapshot",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).GetValue(overlay);
+                if(snapshot.GetPixel(0,0).ToArgb()!=form.BackColor.ToArgb())
+                    throw new Exception("Tutorial snapshot included non-client window borders/title bar.");
+                if(highlight.IsEmpty||!overlay.ClientRectangle.Contains(highlight))
+                    throw new Exception("Tutorial target was not brought into view at step "+step);
+                if(!overlay.ClientRectangle.Contains(card.Bounds) || form.Bounds!=bounds || viewport.Enabled)
+                    throw new Exception("Tutorial must fit and block underlying controls at "+factor+"x, step "+step+": "+card.Bounds+" / "+overlay.ClientRectangle);
+                foreach(Control item in card.Controls) {
+                    if(!card.ClientRectangle.Contains(item.Bounds)) throw new Exception("Tutorial child escaped its card.");
+                    var label=item as Label;
+                    if(label!=null) {
+                        content.Append(label.Text).Append(' ');
+                        var text=TextRenderer.MeasureText(label.Text,label.Font,new Size(label.Width,int.MaxValue),TextFormatFlags.WordBreak|TextFormatFlags.NoPrefix);
+                        if(text.Height>label.Height) throw new Exception("Tutorial explanation is clipped.");
+                    }
+                }
+                if(settings.Count!=before.Count || before.Any(pair=>!settings.ContainsKey(pair.Key)||settings[pair.Key]!=pair.Value))
+                    throw new Exception("Tutorial navigation changed saved settings.");
+                var back=One<Button>(card,button=>button.Text=="Back");
+                var next=One<Button>(card,button=>button.Text==(step==15?"Finish":"Next"));
+                if(next.AccessibleName!=next.Text) throw new Exception("Tutorial final action must expose its visible Finish label.");
+                var skip=One<Button>(card,button=>button.Text=="Skip tour");
+                if(back.Enabled!=(step>0)||skip.Right>=back.Left||back.Right>=next.Left)
+                    throw new Exception("Tutorial navigation buttons overlap or lose Back state.");
+                if(step<15) form.MoveDashboardTutorial(1);
+            }
+            foreach(string text in new[]{"Span WoW Now","/reload","Windowed (Fullscreen)","Use standard display layout",
+                "Workspace profiles","Auto-span","Activity Log","/offhand guide","Confirm placement","Start Calibration","Create Mainhand HUD Layout"})
+                if(!content.ToString().Contains(text)) throw new Exception("Tutorial omitted a required action: "+text);
+            form.MoveDashboardTutorial(-1);
+            form.EndDashboardTutorial(false);
+            if(!viewport.Enabled||viewport.AutoScrollPosition!=savedScroll||form.Bounds!=bounds||
+                settings.Count!=before.Count||before.Any(pair=>!settings.ContainsKey(pair.Key)||settings[pair.Key]!=pair.Value))
+                throw new Exception("Tutorial cancel failed to restore the prior dashboard state.");
+            form.StartDashboardTutorial();
+            form.EndDashboardTutorial(true);
+            if(CompanionForm.TutorialNeeded(settings)) throw new Exception("Skipping/finishing must suppress the next automatic tour.");
+            form.SelectDashboardPage(true);
+            form.StartDashboardTutorial();
+            if(!Descendants(form).OfType<Panel>().Any(panel=>panel.AccessibleName=="Companion tutorial"))
+                throw new Exception("Seen tutorial must remain replayable.");
+            form.EndDashboardTutorial(false);
+            if(!One<Button>(form,button=>button.AccessibleName=="Advanced tab").AccessibleDescription.StartsWith("Selected."))
+                throw new Exception("Replayed tutorial failed to restore the previous Advanced page.");
+            form.StartDashboardTutorial();
+            for(int step=0;step<16;step++)form.MoveDashboardTutorial(1);
+            if(Descendants(form).OfType<Panel>().Any(panel=>panel.AccessibleName=="Companion tutorial"))
+                throw new Exception("Finish did not close the tutorial.");
+            settings.Clear();foreach(var pair in before)settings[pair.Key]=pair.Value;
+        }
+
+        private static void CheckHeaderBranding(CompanionForm form, float factor)
+        {
+            var version = One<Label>(form, label => label.AccessibleName == "Companion and detected addon versions");
+            var tagline = One<Label>(form, label => label.AccessibleName == "Brand tagline");
+            var title = One<Label>(tagline.Parent, label => label.Text == "OFFHAND");
+            var subtitle = One<Label>(tagline.Parent, label => label.Text == "Multi-Monitor Companion for World of Warcraft");
+            var website = One<Button>(tagline.Parent, button => button.Text == "Website");
+            Rectangle stable = form.Bounds;
+            foreach (AddonStatus status in new[] {
+                new AddonStatus { Installed = true, Version = "2.1.5", ReleaseTag = "beta.28" },
+                new AddonStatus { Installed = false },
+                new AddonStatus { Installed = true, Version = "2.1.5 Pre-Release Beta 28 compatible development build" },
+                null }) {
+                form.UpdateClientStatus(status, status != null);
+                LayoutAll(form);
+                if (!version.Text.EndsWith("| Crafted by: N4UX") || !version.Text.Contains("| Addon: ") ||
+                    version.Text != CompanionForm.HeaderVersionText(status, status != null))
+                    throw new Exception("Header versions and creator credit did not follow addon detection.");
+                if (title.Bottom > tagline.Top || tagline.Bottom > subtitle.Top || subtitle.Bottom > version.Top ||
+                    version.Bottom >= website.Top || !tagline.Parent.ClientRectangle.Contains(version.Bounds) || form.Bounds != stable)
+                    throw new Exception("Brand header rows overlap or resize the window at " + factor + "x: "
+                        + title.Bounds + "/" + tagline.Bounds + "/" + subtitle.Bounds + "/" + version.Bounds + "/" + website.Bounds
+                        + "; header=" + tagline.Parent.ClientRectangle + "; bounds=" + form.Bounds + "; expected=" + stable);
+                var measured = TextRenderer.MeasureText(version.Text, version.Font, new Size(version.Width, int.MaxValue),
+                    TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
+                if (measured.Height > version.Height) throw new Exception("Detected addon version or credit is clipped.");
+            }
+            if (!version.Text.Contains("waiting for WoW") || version.Text.Contains("Beta 28"))
+                throw new Exception("Stopped client retained stale detected addon metadata.");
+            if (!CompanionForm.HeaderVersionText(new AddonStatus { Installed = true, Version = "2.1.5", ReleaseTag = "beta.28" }, true)
+                .Contains("Addon: 2.1.5 Beta 28")) throw new Exception("Header lost the addon version or beta increment.");
+        }
+
+        private static void CheckWorkspaceLayoutCaption(CompanionForm form, Panel config, Panel advanced, Button workspaceLayout, float factor)
         {
             const System.Reflection.BindingFlags privateMembers = System.Reflection.BindingFlags.NonPublic;
             var settingsField = typeof(CompanionForm).GetField("appSettings", privateMembers | System.Reflection.BindingFlags.Static);
@@ -378,20 +607,35 @@ namespace Offhand.Companion
                 settingsField.SetValue(null, settings);
                 form.ClientSize = new Size((int)(500 * factor), form.ClientSize.Height);
                 LayoutAll(form);
-                var table = (TableLayoutPanel)workspaceLayout.Parent;
+                var standard = One<Button>(advanced, button => button.Text == "Use standard display layout");
+                var savedBounds = form.Bounds;
                 int standardHeight = config.Height;
+                settings["AutoSpan"]="True";
+                settings["WorkspaceProfiles"]= "preserve named plans";
                 foreach (bool custom in new[] { false, true, false })
                 {
                     settings["WorkspaceRegionsEnabled"] = custom.ToString();
                     refresh.Invoke(form, null);
                     LayoutAll(form);
                     string caption = custom ? "Workspace layout (custom)…" : "Workspace layout (standard)…";
+                    var beforeDisclosure=new Dictionary<string,string>(settings);
+                    form.SelectDashboardPage(true);
+                    LayoutAll(form);
                     var textSize = TextRenderer.MeasureText(caption, workspaceLayout.Font);
                     if (workspaceLayout.Text != caption || workspaceLayout.AccessibleName != caption ||
                         textSize.Width + workspaceLayout.Padding.Horizontal + 8 > workspaceLayout.Width ||
                         textSize.Height + workspaceLayout.Padding.Vertical > workspaceLayout.Height ||
-                        table.RowCount != 3 || config.Height != standardHeight)
-                        throw new Exception("The workspace layout caption is wrong or does not fit the compact card at " + factor + "x.");
+                        config.Height != standardHeight || standard.Enabled != custom
+                        || One<Button>(form, button => button.AccessibleName == "Advanced tab").Text.Contains("Custom layout saved") != custom || form.Bounds != savedBounds)
+                        throw new Exception("The custom state/reset action is wrong or clipped at " + factor + "x.");
+                    form.SelectDashboardPage(false);
+                    LayoutAll(form);
+                    if (settings.Count!=beforeDisclosure.Count || beforeDisclosure.Any(pair=>!settings.ContainsKey(pair.Key)||settings[pair.Key]!=pair.Value))
+                        throw new Exception("Opening/closing Advanced options changed the saved layout or auto-span preference.");
+                    var tab = One<Button>(form, button => button.AccessibleName == "Advanced tab");
+                    if (TextRenderer.MeasureText(tab.Text, tab.Font).Width + 8 > tab.Width)
+                        throw new Exception("Shared custom-layout tab indication is clipped at " + factor + "x.");
+
                 }
             }
             finally { settingsField.SetValue(null, original); }
@@ -409,6 +653,10 @@ namespace Offhand.Companion
                     LayoutAll(dialog);
                     var guide = One<RichTextBox>(dialog, control => true);
                     var close = One<Button>(dialog, button => button.Text == "Close");
+                    if (!troubleshooting && !Descendants(dialog).OfType<Button>().Any(button=>button.Text=="Start Companion tutorial"))
+                        throw new Exception("Help must offer tutorial replay.");
+                    if (!troubleshooting && !Descendants(dialog).OfType<Button>().Any(button=>button.Text=="What's new"))
+                        throw new Exception("Help must offer update-note replay.");
                     var heading = One<Label>(dialog, label => true);
                     Rectangle bounds = BoundsInside(guide, dialog);
                     if (!guide.ReadOnly || bounds.Top <= heading.Bottom || bounds.Bottom >= BoundsInside(close, dialog).Top ||
@@ -433,6 +681,25 @@ namespace Offhand.Companion
                     foreach (Control button in Descendants(dialog).OfType<Button>())
                         if (!button.Parent.ClientRectangle.Contains(button.Bounds))
                             throw new Exception("Help footer button is clipped at " + factor + "x.");
+                }
+            }
+            using (var dialog = form.CreateWhatsNewDialog()) {
+                dialog.CreateControl(); dialog.Scale(new SizeF(factor, factor)); dialog.Size=dialog.MinimumSize;
+                LayoutAll(dialog);
+                var guide=One<RichTextBox>(dialog, control=>true);
+                var close=One<Button>(dialog, button=>button.Text=="Got it");
+                var heading=One<Label>(dialog, label=>true);
+                if (!guide.Text.Contains("six hours") || !guide.Text.Contains("If something looks wrong")
+                    || !guide.Text.Contains("/reload") || !guide.Text.Contains("/offhand guide")
+                    || !guide.Text.Contains("placement/calibration") || !guide.Text.Contains("preserved"))
+                    throw new Exception("Update notes must explain changes and conditional setup recovery.");
+                if (BoundsInside(guide,dialog).Top<=heading.Bottom || BoundsInside(guide,dialog).Bottom>=BoundsInside(close,dialog).Top
+                    || dialog.AcceptButton!=close || dialog.CancelButton!=close)
+                    throw new Exception("Update notes must fit between title and pinned dismissal.");
+                foreach (Button button in Descendants(dialog).OfType<Button>()) {
+                    if (!button.Parent.ClientRectangle.Contains(button.Bounds)
+                        || TextRenderer.MeasureText(button.Text,button.Font).Width+8>button.Width)
+                        throw new Exception("Update-note buttons clipped at "+factor+"x.");
                 }
             }
         }

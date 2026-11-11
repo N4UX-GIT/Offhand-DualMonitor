@@ -4,6 +4,7 @@ import importlib.util
 import io
 import json
 import shutil
+import subprocess
 import unittest
 import urllib.error
 import uuid
@@ -36,13 +37,17 @@ class Publication(unittest.TestCase):
         paths += ['Release/Prepared/2.1.5-beta.30/addon.json',
                   'Release/Prepared/2.1.5-beta.30/Offhand-v2.1.5-beta.30.zip']
         paths += ['Release/Prepared/2.1.5-beta.29/Offhand-v2.1.5-beta.29.zip']
-        paths += list(publication.native_inputs(ROOT))
         paths += ['Companion/Prepared/2.1.5/' + n
                   for n in ('Offhand.exe', publication.PORTABLE, 'release.json')]
         for rel in set(paths):
             dest = cls.fixture / rel
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / rel, dest)
+        for rel in publication.native_inputs(ROOT):
+            dest = cls.fixture / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(subprocess.check_output(
+                ['git', 'show', f'{publication.NATIVE_REVISION}:{rel}'], cwd=ROOT))
         # Historical Beta 30 tests use its immutable product bytes.
         with zipfile.ZipFile(ROOT / 'Release/Prepared/2.1.5-beta.30/Offhand-v2.1.5-beta.30.zip') as z:
             for name in files:

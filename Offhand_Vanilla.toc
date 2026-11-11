@@ -3,9 +3,9 @@
 ## Notes: Keep gameplay on one screen and move maps, bags, chat, and other supported UI panels to another.
 ## Author: N4UX (Noggaholic)
 ## Version: 2.1.5
-## X-Offhand-Release: beta.31
-## X-Offhand-Addon-Release: beta.31
-## X-Offhand-Companion-Version: 2.1.5
+## X-Offhand-Release: beta.32
+## X-Offhand-Addon-Release: beta.32
+## X-Offhand-Companion-Version: 2.1.7
 ## X-Offhand-Companion-Release:
 ## X-Offhand-Companion-Protocol: 1
 ## X-Offhand-Topology-Schemas: 1,2,3
@@ -26,6 +26,7 @@ Core\ForeverState.lua
 Core\Config.lua
 Core\UserMedia.lua
 Core\ManualCanvas.lua
+Core\WorkspaceScale.lua
 Core\WorkspaceRegions.lua
 Core\WorkspaceProfiles.lua
 Core\WorkspaceRouting.lua
@@ -93,6 +94,7 @@ Locales\zhTW.lua
 
 # UI & Themes
 UI\Themes.lua
+UI\WorkspaceScaleControls.lua
 UI\Controls.lua
 UI\OptionsActions.lua
 UI\WorkspaceOptions.lua

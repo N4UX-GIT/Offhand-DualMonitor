@@ -70,7 +70,7 @@ try {
     }
 } finally { $portable.Dispose() }
 if ($HistoricalArtifactsOnly) {
-    Write-Output 'PASS: historical Companion receipt/EXE/ZIP; current add-on source is not packaged.'
+    Write-Output 'PASS: historical Companion 2.1.5 receipt/EXE/ZIP; current source is not packaged.'
     return
 }
 $paths = @(& git -C $root ls-files Core UI Locales) + @('Bindings.xml', 'CHANGELOG.md', 'LICENSE', 'README.md',

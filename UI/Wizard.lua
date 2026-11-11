@@ -876,6 +876,17 @@ function Wizard:CreateFrame()
     btnHud100:SetScript("OnClick", function() scaleSlider:SetValueDirect(1.00) end)
     if Offhand.SetTooltip then Offhand:SetTooltip(btnHud100, L["WIZARD_PRESET_SCALE_100_TIP_TITLE"], L["WIZARD_PRESET_SCALE_100_TIP_DESC"]) end
     f.scalePresetButtons = { btnHud56, btnHud65, btnHud70, btnHud100 }
+    local regionScaleControl
+    if Offhand.WorkspaceScaleControls then
+        regionScaleControl=Offhand.WorkspaceScaleControls:BuildAdvanced(card4,600)
+        regionScaleControl:SetPoint("TOPLEFT",card4,"TOPLEFT",14,-140)
+        card4:SetHeight(154+regionScaleControl:GetHeight())
+        f.regionScaleControl=regionScaleControl
+        regionScaleControl.onResize=function(height)
+            card4.setupBaseHeight=154+height
+            if f.LayoutStep and f.step==4 then f:LayoutStep() end
+        end
+    end
 
     -- ========================================================================
     -- CARD 5: GENERATED MAINHAND HUD LAYOUT (FOREVER / RETAIL)
@@ -1338,6 +1349,9 @@ function Wizard:CreateFrame()
                 bottomControl:SetPoint("TOPLEFT",card3,"TOPLEFT",14,-top)
                 card3:SetHeight(top+bottomControl:GetHeight()+14)
             end
+        elseif self.step == 4 and regionScaleControl then
+            regionScaleControl:Refresh()
+            card4:SetHeight(154+regionScaleControl:GetHeight())
         elseif compactReview then
             local top = Controls.GetCardContentTop(card6, 32)
             transferHelp:ClearAllPoints()
