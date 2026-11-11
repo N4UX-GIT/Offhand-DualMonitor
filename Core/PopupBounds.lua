@@ -243,6 +243,56 @@ function PopupBounds:UpdateClassicTooltipClamp(frame, preparing)
     return true
 end
 
+local function SpellTooltipFitsAboveRight(tooltip, owner, insets, x, y)
+    local left, right, top, bottom, uiScale, frameScale = FrameBounds(tooltip)
+    local _, ownerRight, ownerTop = FrameBounds(owner)
+    if not left or not ownerRight then return false end
+    local scale = frameScale / uiScale
+    local tooltipLeft, tooltipBottom = ownerRight + x * scale, ownerTop + y * scale
+    return tooltipLeft >= -insets[1] * scale
+        and tooltipLeft + (right - left) <= UIParent:GetWidth() - insets[2] * scale
+        and tooltipBottom >= -insets[4] * scale
+        and tooltipBottom + (top - bottom) <= UIParent:GetHeight() - insets[3] * scale
+end
+
+function PopupBounds:RefreshMovedSpellBookTooltip(panel)
+    local tooltip = _G.GameTooltip
+    local clamp = tooltip and classicClampState[tooltip]
+    if not clamp then return end
+
+    pcall(function()
+        local book = panel.SpellBookFrame
+        if not book or not tooltip:IsShown() or tooltip:GetNumPoints() ~= 1 then return end
+        local owner = tooltip:GetOwner()
+        local _, relative = tooltip:GetPoint(1)
+        if not owner or relative ~= owner then return end
+        local ancestor = owner
+        for _ = 1, 12 do
+            if ancestor == book then break end
+            ancestor = ancestor.GetParent and ancestor:GetParent()
+            if not ancestor or ancestor == panel then return end
+        end
+        if ancestor ~= book then return end
+
+        local previousInsets = clamp.applied
+        if not self:UpdateClassicTooltipClamp(tooltip) then return end
+        local updatedClamp = classicClampState[tooltip]
+        if not updatedClamp or SameInsets(previousInsets, updatedClamp.applied)
+            or tooltip:GetOwner() ~= owner or tooltip:GetNumPoints() ~= 1 then return end
+
+        -- Reapply the point to invalidate the rectangle from the old clamp.
+        -- Match the interacted tooltip's right side when it fits after the move.
+        local point, target, relativePoint, x, y = tooltip:GetPoint(1)
+        if target ~= owner or not point or not relativePoint
+            or not PublicNumber(x) or not PublicNumber(y) then return end
+        if point == "BOTTOMRIGHT" and relativePoint == "TOPLEFT"
+            and SpellTooltipFitsAboveRight(tooltip, owner, updatedClamp.applied, -x, y) then
+            point, relativePoint, x = "BOTTOMLEFT", "TOPRIGHT", -x
+        end
+        self:SetTooltipPoint(tooltip, point, owner, relativePoint, x, y)
+    end)
+end
+
 local tooltipCapture
 local settingsTooltipScales=setmetatable({}, {__mode='k'})
 local settingsTooltipYielded=setmetatable({}, {__mode='k'})

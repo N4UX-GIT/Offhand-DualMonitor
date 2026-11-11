@@ -18,7 +18,6 @@ local gamepadDestinationPanelStatus = {}
 local gamepadDestinationDragHandles = setmetatable({}, { __mode = "k" })
 local fullscreenMapState
 local openMapWindowedLayout
-local unfadedGamepadMap
 local GAMEPAD_INTERFACE_SETTLE_SECONDS = 1.0
 local GAMEPAD_ACTIVE_PANEL_INTERVAL = 0.05
 local GAMEPAD_INACTIVE_PANEL_INTERVAL = 0.20
@@ -609,6 +608,9 @@ local function CenterDestinationPanel(frame, suppliedName)
             frame:SetPoint("CENTER", UIParent, "CENTER", x, y)
         end)
         if not ok then return false, "move-blocked" end
+        if name == "PlayerSpellsFrame" and Offhand.PopupBounds then
+            Offhand.PopupBounds:RefreshMovedSpellBookTooltip(frame)
+        end
     end
     state.applied = { x = x, y = y }
     if IsNativeBagDestinationName(name) then
@@ -779,26 +781,6 @@ local function UpdateFullscreenMap(map, maximized, active, inCombat, openMapOwns
         return "fullscreen-mainhand"
     end)
     return ok and status or "fullscreen-blocked"
-end
-
-local function UpdateGamepadMapFade(map, keepOpaque, inCombat)
-    if unfadedGamepadMap ~= map or not (map and map.IsShown and map:IsShown()) then
-        -- The native OnHide clears its registration, and OnShow creates a new one.
-        unfadedGamepadMap = nil
-    end
-    if inCombat or not PlayerMovementFrameFader then return end
-    if keepOpaque and not unfadedGamepadMap and PlayerMovementFrameFader.RemoveFrame then
-        if pcall(PlayerMovementFrameFader.RemoveFrame, map) then unfadedGamepadMap = map end
-    elseif not keepOpaque and unfadedGamepadMap and PlayerMovementFrameFader.AddDeferredFrame then
-        -- Standard UI's Canvas already handles a map that stays on the workspace.
-        if not NativeGamepadInterface() and Mainhand:GetRect().isSpanned and IsMapOnWorkspace(map) then
-            unfadedGamepadMap = nil
-        elseif pcall(PlayerMovementFrameFader.AddDeferredFrame, map, .5, 1.0, .5, function()
-            return GetCVarBool("mapFade") and not map:IsMouseOver()
-        end) then
-            unfadedGamepadMap = nil
-        end
-    end
 end
 
 -- Native Gamepad panels do not expose mouse movement and adding a grip to
@@ -1012,7 +994,6 @@ function Mainhand:CenterForeverGamepadDestinationPanels()
                 openMapWindowedLayout = ReadOpenMapWindowedLayout(frame)
             end
         end
-        local centeredMap
         if maximized then
             gamepadDestinationPanelStatus[name] = fullscreenStatus
         elseif mapShown and externalMap then
@@ -1042,7 +1023,6 @@ function Mainhand:CenterForeverGamepadDestinationPanels()
             local shown = frame.IsShown and frame:IsShown() or false
             if shown then
                 local centered, reason = CenterDestinationPanel(frame, name)
-                centeredMap = isWorldMap and centered
                 gamepadDestinationPanelStatus[name] = reason or "unknown"
                 if centered then moved = moved + 1 end
                 if centered and GamepadDestinationDragHandlesEnabled()
@@ -1063,12 +1043,6 @@ function Mainhand:CenterForeverGamepadDestinationPanels()
             else
                 gamepadDestinationPanelStatus[name] = "combat"
             end
-        end
-        if isWorldMap then
-            UpdateGamepadMapFade(frame, centeredMap and IsMapOnWorkspace(frame), inCombat)
-        end
-        if isWorldMap then
-            UpdateGamepadMapFade(frame, centeredMap and IsMapOnWorkspace(frame), inCombat)
         end
     end
     for frame, handle in pairs(gamepadDestinationDragHandles) do
