@@ -8,6 +8,17 @@
 - Preview sizes before applying them. With Companion 2.1.7, you can also
   estimate a size from the Windows scaling of the game and workspace displays.
   Manual sizing is available with older compatible Companion versions.
+- Reorganize settings so panel routing and sizing are together. Add help beside
+  the settings it explains, and make setup and recovery prompts easier to follow.
+- Fit the World Map before panel reflow and recover unreachable map drag handles
+  on Forever. Preserve native NPC interactions during single-screen recovery.
+- Keep comparison tooltips together, improve mixed-scale loot roll placement,
+  and prevent saved input controls from reopening as workspace panels.
+- Improve Mainhand HUD fitting and EllesmereUI previews while preserving saved
+  source layouts. Keep Forever Gamepad recovery available and repair a Retail
+  action-bar placement case involving the default status bars.
+- Keep support reports concise by default. Use `/offhand diag panels`,
+  `/offhand diag tooltip`, or `/offhand diag debug` for targeted troubleshooting.
 
 ## [2.1.5-beta.31] - 2026-11-11
 

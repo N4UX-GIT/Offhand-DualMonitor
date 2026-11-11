@@ -19,7 +19,7 @@ local name='EUI_MainBagFrame'
 local function boot(db,topology,frameName)
     local name=frameName or name
     local env=setmetatable({}, {__index=_G});env._G=env
-    local addon={db=copy(db),Canvas={},CanvasPanelRegistry={GetPositionRoot=function(frame)return frame end}}
+    local addon={db=copy(db),Canvas={}}
     local canvas=addon.Canvas
     env.InCombatLockdown=function()return env.combat==true end
     env.CreateFrame=function()return {RegisterEvent=function()end,SetScript=function()end}end
@@ -28,7 +28,7 @@ local function boot(db,topology,frameName)
     env.GetPhysicalScreenSize=function()return topology.physicalWidth,topology.physicalHeight end
     env.OffhandCompanionTopology=copy(topology)
     local function load(path)local chunk=assert(loadfile(path));setfenv(chunk,env);chunk('Offhand',addon)end
-    load('Core/WorkspaceRegions.lua');load('Core/Viewport.lua');load('Core/CanvasPersistence.lua');load('Core/CanvasPanelPlacement.lua');load('Core/WorkspaceRouting.lua')
+    load('Core/CanvasPanelRegistry.lua');load('Core/WorkspaceRegions.lua');load('Core/Viewport.lua');load('Core/CanvasPersistence.lua');load('Core/CanvasPanelPlacement.lua');load('Core/WorkspaceRouting.lua')
     local frame={x=1000,y=300,w=200,h=100,writes=0,shown=true}
     function frame:GetName()return name end
     function frame:GetLeft()return self.x end
