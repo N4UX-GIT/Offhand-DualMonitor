@@ -534,7 +534,7 @@ function Bags:RestoreAfterEscape(pending)
     return visible ~= nil
 end
 
-local function CanRestoreEllesmereEscape(frame)
+local function CanRestoreEllesmereWorkspaceBag(frame)
     local canvas = Offhand.Canvas
     return frame == _G.EUI_MainBagFrame and CanShowEllesmereBag(frame)
         and type(EllesmereUIDB) == "table" and EllesmereUIDB.bagsVisible == true
@@ -542,24 +542,50 @@ local function CanRestoreEllesmereEscape(frame)
         and not IsPreservingPanelShown()
 end
 
-function Bags:RestoreEllesmereAfterEscape(pending)
+local function RestoreEllesmereWorkspaceBag(pending)
     local frame = pending.frame
-    if self.paused or self.restoring or not TrackEnabled() or not IsSpanned()
+    if Bags.paused or Bags.restoring or not TrackEnabled() or not IsSpanned()
         or InputReserved() or InCombatLockdown() or not CanOpenBagsFromAddon()
-        or not CanRestoreEllesmereEscape(frame) then return end
-    -- This root was already initialized and open before native Escape closed
-    -- it. Use the same root's show lifecycle without toggling another provider.
+        or not CanRestoreEllesmereWorkspaceBag(frame) then return false end
+    -- Restore only the initialized root that was open before the panel transition.
     ShowEllesmereBag(frame)
-    if not frame:IsVisible() then return end
+    if not frame:IsVisible() then return false end
     local reagent = _G.EUI_ReagentBagFrame
     if pending.reagentOpen and CanShowEllesmereBag(reagent)
         and Offhand.Canvas.IsFrameOnWorkspace(reagent) then
         ShowEllesmereBag(reagent)
     end
+    return true
+end
+
+function Bags:RestoreEllesmereAfterEscape(pending)
+    if not RestoreEllesmereWorkspaceBag(pending) then return end
     -- Forever counts hiding EllesmereUI's Escape proxy as a handled press.
     -- Reopening the bag alone would let that proxy claim every subsequent press.
     RestoreGameMenuAfterEscape(pending.menuWasShown)
     self:Capture()
+end
+
+local function InstallEllesmereTalentsObserver()
+    if not Offhand.isForever or Bags.ellesmereTalentsObserved or not EventRegistry
+        or not EventRegistry.RegisterCallback or not C_Timer or not C_Timer.After then return end
+    Bags.ellesmereTalentsObserved = true
+    EventRegistry:RegisterCallback("PlayerSpellsFrame.OpenFrame", function()
+        if Bags.paused or Bags.restoring or not TrackEnabled() or not IsSpanned() then return end
+        local name, position = Bags:GetSavedPosition()
+        local frame = name == "EUI_MainBagFrame" and Bags.frames[name]
+        local panel = _G.PlayerSpellsFrame
+        if not position or not frame or not panel or not panel.talentTabID or not panel.GetTab then return end
+        local generation = Bags.generation
+        local pending = {frame = frame, reagentOpen = position.reagentOpen}
+        -- Let the native panel transaction settle before reading the selected
+        -- tab or restoring EllesmereUI's own bag roots.
+        C_Timer.After(0, function()
+            if generation ~= Bags.generation or panel ~= _G.PlayerSpellsFrame
+                or not panel:IsShown() or panel:GetTab() ~= panel.talentTabID then return end
+            if RestoreEllesmereWorkspaceBag(pending) then Bags:Capture() end
+        end)
+    end, Bags)
 end
 
 function Bags:InstallEscapeHooks()
@@ -571,7 +597,7 @@ function Bags:InstallEscapeHooks()
                 or not TrackEnabled() or not IsSpanned() or InputReserved() or InCombatLockdown() then return end
             local name, position = Bags:GetSavedPosition()
             local frame = IsForeverEllesmereBag(name) and Bags.frames[name]
-            if not position or not CanRestoreEllesmereEscape(frame) then return end
+            if not position or not CanRestoreEllesmereWorkspaceBag(frame) then return end
             local pending = {
                 frame = frame, reagentOpen = position.reagentOpen,
                 menuWasShown = GameMenuFrame and GameMenuFrame.IsShown and GameMenuFrame:IsShown(),
@@ -817,6 +843,7 @@ events:SetScript("OnEvent", function(_, event, addonName)
         C_Timer.After(0, function() Bags:Discover(true) end)
         Bags:PruneInvalidBaganatorRecords()
         Bags:InstallEscapeHooks()
+        InstallEllesmereTalentsObserver()
         if not Bags.ticker then
             Bags.ticker = C_Timer.NewTicker(0.2, function()
                 if not Bags.paused then

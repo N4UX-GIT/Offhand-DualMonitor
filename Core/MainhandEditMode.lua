@@ -1655,6 +1655,13 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
         fitMoved, fitSkipped, fitStatus = FitNativeHUDLayout(layout, rect, sourceDefaults)
         moved = moved + fitMoved
     end
+    -- A reported preview can outlive a layout that already contains the same
+    -- repair. Saving that active layout again cannot justify another reload.
+    if repairFrameName and generated and generated == activeSource
+        and generated.interfaceStyle == layout.interfaceStyle
+        and SameLayoutData(generated.systems, layout.systems) then
+        return false, "repair-system", generatedName, 0
+    end
     if moved == 0 and not characterType then return false, "already", LayoutName(source, "layout"), 0 end
 
     layout.layoutName = generatedName

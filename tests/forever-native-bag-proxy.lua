@@ -945,6 +945,19 @@ metrics.workspaceRegions={{id='a',x=0,y=0,width=720,height=1440},{id='b',x=720,y
 addon.db={enabled=true,savedWorkspacePositions={ContainerFrameCombinedBags={x=120,y=900,regionId='a'}},savedMainPositions={}}
 local sizing=addon.WorkspaceScale
 local hooks,scripts=bag.nativeHookCalls,bag.nativeScriptCalls
+local defaultPosition = addon.db.savedWorkspacePositions.ContainerFrameCombinedBags
+bag:SetScale(1)
+bag.width = 900
+assert(addon.Canvas:RefreshForeverNativeBagPlacement(bag))
+assert(bag:GetScale() == 1 and bag:GetLeft() >= metrics.gameLeft
+    and bag:GetLeft() + bag:GetWidth() <= metrics.gameRight,
+    'a native-size backpack wider than its custom workspace must fit on Mainhand')
+assert(addon.db.savedWorkspacePositions.ContainerFrameCombinedBags == defaultPosition,
+    'a temporary fallback must retain the saved workspace position')
+bag.width = 420
+assert(addon.Canvas:RefreshForeverNativeBagPlacement(bag))
+assert(bag:GetLeft() == 120 and bag:GetLeft() + bag:GetWidth() <= 720,
+    'the native-size backpack must return to its workspace when it fits again')
 assert(sizing:SetSetting(metrics,'a',.5));assert(bag:GetScale()==.5,'Dedicated native controller did not resize bags')
 assert(not sizing.watched[bag] and bag.nativeHookCalls==hooks and bag.nativeScriptCalls==scripts,
     'Region sizing installed code on the native bag ancestry')

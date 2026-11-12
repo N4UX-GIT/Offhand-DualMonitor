@@ -86,7 +86,8 @@ end
 function Compatibility.IsBlizzardEditModeOwnedFrame(frame, name)
     name = name or (frame and frame.GetName and frame:GetName())
     if frame and frame.isManagedFrame == true then return true end
-    return name and (name:match("^EditMode") ~= nil
+    -- Blizzard's Group Finder Edit Mode system owns the Queue Status anchor.
+    return name and (name == "QueueStatusButton" or name:match("^EditMode") ~= nil
         or name:match("^DamageMeter") ~= nil) or false
 end
 

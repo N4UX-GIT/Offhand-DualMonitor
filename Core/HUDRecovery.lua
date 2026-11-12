@@ -24,6 +24,18 @@ function Recovery.GetMinimapVisibilityDiagnostics()
         if type(value) == "string" then return value:sub(1, 80) end
         return "unknown"
     end
+    local function Rect(frame)
+        local ok, left, bottom, width, height = pcall(function()
+            if frame.IsForbidden and frame:IsForbidden() then return end
+            if frame.GetRect then return frame:GetRect() end
+        end)
+        if not ok then return "unknown" end
+        local bounds = { Value(left), Value(bottom), Value(width), Value(height) }
+        for _, value in ipairs(bounds) do
+            if value == "unknown" then return "unknown" end
+        end
+        return table.concat(bounds, "/")
+    end
     local db = Offhand.db or {}
     local compatibility = Offhand.HUDCompatibility
     local function Loaded(name)
@@ -44,7 +56,8 @@ function Recovery.GetMinimapVisibilityDiagnostics()
         "MinimapOwner=SexyMap:%s,EllesmereCore:%s,EllesmereMinimap:%s,EllesmereOptions:%s,EllesmereMover:%s,EllesmereProfileEnabled:%s",
         Loaded("SexyMap"), Loaded("EllesmereUI"), Loaded("EllesmereUIMinimap"), Loaded("EllesmereUIOptions"),
         registered and "registered" or "missing", ok and Value(enabled) or "unknown") }
-    for _, name in ipairs({ "MinimapCluster", "Minimap", "LibDBIcon10_ForeverDungeonJournal", "LFGMinimapFrame" }) do
+    for _, name in ipairs({ "MinimapCluster", "Minimap", "LibDBIcon10_ForeverDungeonJournal",
+        "LFGMinimapFrame", "QueueStatusButton" }) do
         local frame = _G[name]
         if not frame then
             reports[#reports + 1] = name .. ".state=absent"
@@ -58,13 +71,13 @@ function Recovery.GetMinimapVisibilityDiagnostics()
                 end
             end
             reports[#reports + 1] = string.format(
-                "%s.state=shown:%s,visible:%s,alpha:%s,effectiveAlpha:%s,parent:%s,parentShown:%s,parentVisible:%s,userPlaced:%s,scale:%s,savedWorkspace:%s,savedMainhand:%s,escapeRegistered:%s",
+                "%s.state=shown:%s,visible:%s,alpha:%s,effectiveAlpha:%s,parent:%s,parentShown:%s,parentVisible:%s,userPlaced:%s,scale:%s,savedWorkspace:%s,savedMainhand:%s,escapeRegistered:%s,rectLocal:%s",
                 name, Value(Read(frame, "IsShown")), Value(Read(frame, "IsVisible")),
                 Value(Read(frame, "GetAlpha")), Value(Read(frame, "GetEffectiveAlpha")),
                 Value(Read(parent, "GetName")), Value(Read(parent, "IsShown")), Value(Read(parent, "IsVisible")),
                 Value(Read(frame, "IsUserPlaced")), Value(Read(frame, "GetEffectiveScale")),
                 db.savedWorkspacePositions and db.savedWorkspacePositions[name] and "yes" or "no",
-                db.savedMainPositions and db.savedMainPositions[name] and "yes" or "no", special)
+                db.savedMainPositions and db.savedMainPositions[name] and "yes" or "no", special, Rect(frame))
         end
     end
     return reports
@@ -572,9 +585,9 @@ function Recovery.Install(HUD)
         if kind == "fallback" then self.foreverMismatchDeclined = true end
     end
 
-    local function FrameFitsPhysicalDisplay(frame, metrics)
+    local function FrameFitsPhysicalDisplay(frame, metrics, requireBounds)
         if not frame or not metrics or not frame.GetLeft or not frame.GetBottom
-            or not frame.GetWidth or not frame.GetHeight then return true end
+            or not frame.GetWidth or not frame.GetHeight then return not requireBounds end
         local ok, left, bottom, width, height = pcall(function()
             local parentScale = (UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
             local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or parentScale
@@ -582,7 +595,8 @@ function Recovery.Install(HUD)
             return frame:GetLeft() * factor, frame:GetBottom() * factor,
                 frame:GetWidth() * factor, frame:GetHeight() * factor
         end)
-        if not ok or not left or not bottom or not width or not height then return true end
+        if not ok or not left or not bottom or not width or not height then return not requireBounds end
+        if requireBounds and (width <= 0 or height <= 0) then return false end
         local right, top = left + width, bottom + height
         local function Fits(l, b, r, t)
             return l and b and r and t and left >= l - 1 and bottom >= b - 1
@@ -1134,6 +1148,7 @@ function Recovery.Install(HUD)
 
         local manager = _G.EditModeManagerFrame
         local editModeOpen = manager and manager.IsShown and manager:IsShown() or false
+        if not editModeOpen and manager and manager.editModeActive then return end
         local outsideName
         if editModeOpen then
             -- Blizzard retains several dormant ownership roots with stale bounds.
@@ -1162,6 +1177,12 @@ function Recovery.Install(HUD)
             if self.foreverProtectedHUDDetectedInEditMode
                 and self.foreverPartyFrameOutsideDisplays then
                 outsideName = self.foreverPartyFrameOutsideDisplays
+                -- Exiting Edit Mode can revert an unsaved preview position.
+                -- Keep hidden previews eligible, but clear a visibly reachable root.
+                local frame = _G[outsideName]
+                if FrameIsActuallyVisible(frame) and FrameFitsPhysicalDisplay(frame, metrics, true) then
+                    outsideName = nil
+                end
             end
         end
 

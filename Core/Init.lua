@@ -439,6 +439,8 @@ StaticPopupDialogs["OFFHAND_FOREVER_PARTY_FRAME_RECOVERY"] = {
         end
         if ok then
             Offhand:Print(Offhand.L["MAINHAND_LAYOUT_CREATED"], tostring(value), moved or 0)
+        elseif value == "repair-system" then
+            Offhand:Print(Offhand.L["HUD_FAILURE_REPAIR"])
         elseif value == "maximum" then
             Offhand:Print(Offhand.L["MAINHAND_LAYOUT_MAXIMUM"])
             if Offhand.Wizard and Offhand.Wizard.OpenLayoutCapacityRecovery then
