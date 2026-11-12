@@ -15,7 +15,9 @@ Forever setup and native HUD snapshot based on the Beta 32 tag includes the
 tracked changes from the older root checkout. The OpenMap work includes the
 MoveAny persistence commits. The manifest and Titan Panel changes are included
 once through their committed branches. Package the addon with
-`./package.ps1 -AddonOnly -Version 2.1.5-beta.33`.
+`./package.ps1 -AddonOnly -Version 2.1.5-beta.33`. Stage the reviewed addon
+ZIP for release after live QA, following the Beta 32 approach. The tag skips
+the legacy workflow that would attach the Beta 20 Companion bundle.
 
 - **Retail 12.1.5.70783.** Start with an active generated Beta 32 layout on the
   same geometry. Rebuild through Settings, reload, and verify the default
