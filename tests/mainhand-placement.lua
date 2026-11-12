@@ -1804,7 +1804,7 @@ do
     MainStatusTrackingBarContainer:SetPoint('BOTTOM', UIParent, 'BOTTOM', 0, 0)
     MainStatusTrackingBarContainer.SetPoint = function() error('Retail repair must not move live status bars') end
 
-    metrics = {gameLeft=0, gameRight=1920, gameBottom=515, gameTop=1595, isSpanned=true}
+    metrics = {gameLeft=0, gameRight=1920.094, gameBottom=515.047, gameTop=1595, isSpanned=true}
     addon.Mainhand:Update('retail-status-chain-test')
     local source = copyTable(retailSource)
     source.layoutName = 'Custom Retail status chain'
@@ -1828,10 +1828,10 @@ do
         and repairedRows[1].anchorInfo.offsetY == 4, 'preserve the custom Action Bar 1 attachment')
     assert(repairedRows[2].anchorInfo.relativeTo == 'UIParent'
         and repairedRows[2].isInDefaultPosition == false, 'repair the default XP root of the chain')
-    near(repairedRows[2].anchorInfo.offsetX * 0.8, 960)
-    near(repairedRows[2].anchorInfo.offsetY * 0.8, 523)
-    near(repairedRows[3].anchorInfo.offsetX * 1.1 + 500 * 1.1 / 2, 960)
-    near(repairedRows[3].anchorInfo.offsetY * 1.1 - 19 * 1.1, 523 + 17 * 0.8 + 4)
+    near(repairedRows[2].anchorInfo.offsetX * 0.8, metrics.gameRight / 2)
+    near(repairedRows[2].anchorInfo.offsetY * 0.8, metrics.gameBottom + 8)
+    near(repairedRows[3].anchorInfo.offsetX * 1.1 + 500 * 1.1 / 2, metrics.gameRight / 2)
+    near(repairedRows[3].anchorInfo.offsetY * 1.1 - 19 * 1.1, metrics.gameBottom + 8 + 17 * 0.8 + 4)
     assert(repairedRows[4].anchorInfo.relativeTo == 'OtherSystem',
         'leave customized status anchors intact')
     assert(repairedRows[6].anchorInfo.relativeTo == 'MainActionBar'
@@ -1852,8 +1852,8 @@ do
         local activeRows = layoutData.layouts[generatedID - #presetLayouts].systems
         for index = 6, 7 do
             local anchor = copyTable(source.systems[index].anchorInfo)
-            anchor.offsetX = (metrics.gameLeft + metrics.gameRight - UIParent:GetWidth()) / 2
-            anchor.offsetY = anchor.offsetY + metrics.gameBottom
+            anchor.offsetX = tonumber(("%.1f"):format((metrics.gameLeft + metrics.gameRight - UIParent:GetWidth()) / 2))
+            anchor.offsetY = tonumber(("%.1f"):format(anchor.offsetY + metrics.gameBottom))
             activeRows[index].anchorInfo = anchor
         end
         return activeRows, generatedID
@@ -2782,7 +2782,8 @@ existing = layoutData.layouts[existingID-3].systems
 assert(existing[3].anchorInfo.relativeTo=="UIParent" and existing[3].anchorInfo.offsetY==legacyXPBottom+2,
  "overlap alone must not replace a manually moved XP anchor")
 
-existing[3].anchorInfo.offsetY = legacyXPBottom
+existing[3].anchorInfo.offsetX = tonumber(("%.1f"):format(legacyCenter))
+existing[3].anchorInfo.offsetY = tonumber(("%.1f"):format(legacyXPBottom))
 assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
 assert(#layoutData.layouts==1 and layoutData.activeLayout==existingID,
  "repair must reuse the generated slot")

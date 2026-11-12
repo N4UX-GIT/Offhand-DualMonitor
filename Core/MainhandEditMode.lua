@@ -48,9 +48,13 @@ local function MatchesSavedAnchor(actual, expected)
     for key, value in pairs(expected) do
         local saved = actual[key]
         if key == "offsetX" or key == "offsetY" then
-            -- The native layout cache can round serialized coordinates.
-            if not PublicLayoutNumber(saved) or not PublicLayoutNumber(value)
-                or math.abs(saved - value) > 0.01 then return false end
+            if not PublicLayoutNumber(saved) or not PublicLayoutNumber(value) then return false end
+            -- Blizzard persists offsets to one decimal place across a restart.
+            -- Accept the generated value or its serialized representation.
+            if math.abs(saved - value) > 0.01 then
+                local persisted = tonumber(("%.1f"):format(value))
+                if not persisted or math.abs(saved - persisted) > 0.001 then return false end
+            end
         elseif not SameLayoutData(saved, value) then return false end
     end
     for key in pairs(actual) do
