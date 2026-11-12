@@ -128,7 +128,8 @@ namespace Offhand.Companion
             pair[1].StableId = " "; pair[1].IdentityDetail = "Active monitor target name query failed: 5";
             var missing = DisplaySelectionFeedback.Inspect(pair, selected, 0);
             Check(missing.Code == "MISSING_MONITOR_IDENTITY" && missing.Message.Contains("Display 2 (1440x2560)")
-                && missing.Message.Contains("Copy Display Diagnostics"), "Missing identity identifies the affected screen and evidence action");
+                && missing.Message.Contains(pair[1].IdentityDetail)
+                && missing.Message.Contains("Copy Display Diagnostics"), "Missing identity shows the affected screen, lookup result and evidence action");
             Check(pair[1].StableId == " " && selected.Count == 2, "Feedback cannot repair identities or edit selection");
             pair[0].StableId = null;
             Check(DisplaySelectionFeedback.Inspect(pair, selected, 0).Message.Contains("Display 1 (2560x1440)"), "Missing Mainhand identity is not an empty dropdown");
