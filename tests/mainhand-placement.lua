@@ -1787,6 +1787,16 @@ do
     local originalCharacter = OffhandCharDB
     local originalPresets, originalLayoutData = presetLayouts, layoutData
     local originalPrimary = MainStatusTrackingBarContainer
+    local originalBar2, originalBar3 = MultiBarBottomLeft, MultiBarBottomRight
+    local actionIndices = Enum.EditModeActionBarSystemIndices
+    local originalIndex2, originalIndex3 = actionIndices.Bar2, actionIndices.Bar3
+    actionIndices.Bar2, actionIndices.Bar3 = 2, 3
+    MultiBarBottomLeft = frame('MultiBarBottomLeft')
+    MultiBarBottomRight = frame('MultiBarBottomRight')
+    for _, bar in ipairs({MultiBarBottomLeft, MultiBarBottomRight}) do
+        bar:SetSize(562, 40)
+        bar.SetPoint = function() error('Retail repair must use serialized anchors') end
+    end
     MainStatusTrackingBarContainer = frame('MainStatusTrackingBarContainer')
     MainStatusTrackingBarContainer:SetSize(571,17)
     MainStatusTrackingBarContainer.scale = 0.8
@@ -1802,6 +1812,11 @@ do
     source.systems[5].isInDefaultPosition = false
     main.anchorInfo = {point='BOTTOMLEFT', relativeTo='MainStatusTrackingBarContainer',
         relativePoint='TOPLEFT', offsetX=0, offsetY=4}
+    for _, index in ipairs({actionIndices.Bar2, actionIndices.Bar3}) do
+        table.insert(source.systems, {system=Enum.EditModeSystem.ActionBar, systemIndex=index,
+            isInDefaultPosition=true,
+            anchorInfo={point='BOTTOM', relativeTo='UIParent', relativePoint='BOTTOM', offsetX=0, offsetY=32}})
+    end
     layoutData = {activeLayout=3, layouts={source}}
     OffhandCharDB = {}
     local repaired, reason = addon.Mainhand:CreateOrUpdateEditModeLayout({repairFrameName='MainActionBar'})
@@ -1817,8 +1832,21 @@ do
     near(repairedRows[3].anchorInfo.offsetY * 1.1 - 19 * 1.1, 523 + 17 * 0.8 + 4)
     assert(repairedRows[4].anchorInfo.relativeTo == 'OtherSystem',
         'leave customized status anchors intact')
+    assert(repairedRows[6].anchorInfo.relativeTo == 'MainActionBar'
+        and repairedRows[6].anchorInfo.relativePoint == 'TOP' and repairedRows[6].anchorInfo.offsetY == 4
+        and repairedRows[7].anchorInfo.relativeTo == 'MultiBarBottomLeft',
+        'stack the default secondary rows above the recovered Action Bar 1')
     assert(saved.layouts[1].systems[2].anchorInfo.relativeTo == 'StatusTrackingBarManager',
         'leave the original account layout intact')
+
+    source.systems[6].isInDefaultPosition = false
+    source.systems[6].anchorInfo.offsetY = 160
+    layoutData = {activeLayout=3, layouts={source}}
+    OffhandCharDB = {}
+    assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+    assert(saved.layouts[2].systems[6].anchorInfo.offsetY == 160
+        and saved.layouts[2].systems[7].anchorInfo.relativeTo == 'UIParent',
+        'leave custom Action Bar 2 and its existing secondary-row placement alone')
 
     main.anchorInfo.relativeTo = 'OtherSystem'
     source.systems[5].isInDefaultPosition = true
@@ -1831,6 +1859,8 @@ do
     metrics, OffhandCharDB = originalMetrics, originalCharacter
     presetLayouts, layoutData = originalPresets, originalLayoutData
     MainStatusTrackingBarContainer = originalPrimary
+    MultiBarBottomLeft, MultiBarBottomRight = originalBar2, originalBar3
+    actionIndices.Bar2, actionIndices.Bar3 = originalIndex2, originalIndex3
     addon.Mainhand:Update('restore-retail-status-test')
     print('PASS: Retail repair moves a default status chain without modifying the custom action bar')
 end

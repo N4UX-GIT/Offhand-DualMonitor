@@ -391,29 +391,76 @@ local function PlaceRetailStatus(entry, mainAnchor, mainFrame, rect)
         offsetX=(center + (px - 0.5) * width * ts) / ts,
         offsetY=(bottom + py * height * ts) / ts}
     entry.isInDefaultPosition = false
-    return true
+    if mainAnchor then return true end
+    return true, {center = center, bottom = bottom, width = width * ts, height = height * ts}
+end
+
+local function StackRetailStatusChainBars(main, bars, actions, rect, status, transformed)
+    local mainFrame = _G.MainActionBar
+    if not mainFrame or main.anchorInfo2 then return 0 end
+    local anchor = main.anchorInfo
+    local mainWidth, mainHeight = FrameSize(mainFrame, nil, nil)
+    if not mainWidth or not mainHeight then return 0 end
+    local scale = ParentScale(mainFrame)
+    local px, py = PointFractions(anchor.point)
+    local rx, ry = PointFractions(anchor.relativePoint or anchor.point)
+    local x = status.center + (rx - 0.5) * status.width + (tonumber(anchor.offsetX) or 0)
+        + (0.5 - px) * mainWidth * scale
+    local top = status.bottom + ry * status.height + (tonumber(anchor.offsetY) or 0)
+        + (1 - py) * mainHeight * scale
+
+    -- Blizzard stacks default bottom bars independently of a custom main bar.
+    -- Link only default rows so they follow the recovered chain.
+    local moved, relativeTo = 0, "MainActionBar"
+    for _, row in ipairs({
+        {index = actions.Bar2, frame = _G.MultiBarBottomLeft, name = "MultiBarBottomLeft"},
+        {index = actions.Bar3, frame = _G.MultiBarBottomRight, name = "MultiBarBottomRight"},
+    }) do
+        local bar = bars[row.index]
+        if not bar or not row.frame then break end
+        local barWidth, barHeight = FrameSize(row.frame, nil, nil)
+        if not barWidth or not barHeight then break end
+        local barScale = ParentScale(row.frame)
+        local halfWidth = barWidth * barScale / 2
+        local nextTop = top + 4 + barHeight * barScale
+        if top + 4 < rect.bottom or nextTop > rect.top or x - halfWidth < rect.left
+            or x + halfWidth > rect.right then break end
+
+        bar.entry.anchorInfo = {point = "BOTTOM", relativeTo = relativeTo,
+            relativePoint = "TOP", offsetX = 0, offsetY = 4}
+        bar.entry.isInDefaultPosition = false
+        if not transformed[bar.index] then moved = moved + 1 end
+        top, relativeTo = nextTop, row.name
+    end
+    return moved
 end
 
 -- A custom Action Bar 1 can follow a default status container into the void
 -- below Mainhand. Move the serialized status roots and preserve the link.
-local function RebaseRetailStatusChain(layout, rect, sourceDefaults)
+local function RebaseRetailStatusChain(layout, rect, sourceDefaults, transformed)
     local systems = Enum and Enum.EditModeSystem
     local actions = Enum and Enum.EditModeActionBarSystemIndices
     local statuses = Enum and Enum.EditModeStatusTrackingBarSystemIndices
     if not systems or not actions or not statuses or not systems.ActionBar
         or not systems.StatusTrackingBar or not actions.MainBar then return 0 end
 
-    local rootIndex
-    local defaultStatus = {}
+    local main, rootIndex
+    local defaultStatus, defaultBars = {}, {}
     for index, entry in ipairs(layout.systems or {}) do
         local anchor = entry.anchorInfo
         if type(anchor) == "table" then
-            if entry.system == systems.ActionBar and entry.systemIndex == actions.MainBar
-                and entry.isInDefaultPosition == false and not ExternallyOwnedSystem(entry) then
-                if anchor.relativeTo == "MainStatusTrackingBarContainer" then
-                    rootIndex = statuses.StatusTrackingBar1
-                elseif anchor.relativeTo == "SecondaryStatusTrackingBarContainer" then
-                    rootIndex = statuses.StatusTrackingBar2
+            if entry.system == systems.ActionBar then
+                if entry.systemIndex == actions.MainBar and not sourceDefaults[index]
+                    and not ExternallyOwnedSystem(entry) then
+                    main = entry
+                    if anchor.relativeTo == "MainStatusTrackingBarContainer" then
+                        rootIndex = statuses.StatusTrackingBar1
+                    elseif anchor.relativeTo == "SecondaryStatusTrackingBarContainer" then
+                        rootIndex = statuses.StatusTrackingBar2
+                    end
+                elseif sourceDefaults[index] and not entry.anchorInfo2 and entry.systemIndex ~= nil
+                    and (entry.systemIndex == actions.Bar2 or entry.systemIndex == actions.Bar3) then
+                    defaultBars[entry.systemIndex] = {entry = entry, index = index}
                 end
             elseif sourceDefaults[index] and entry.system == systems.StatusTrackingBar
                 and anchor.relativeTo == "StatusTrackingBarManager" and entry.anchorInfo2 == nil
@@ -426,11 +473,14 @@ local function RebaseRetailStatusChain(layout, rect, sourceDefaults)
     end
 
     local root = rootIndex and defaultStatus[rootIndex]
-    if not root or not PlaceRetailStatus(root, nil, nil, rect) then return 0 end
+    if not root then return 0 end
+    local placed, status = PlaceRetailStatus(root, nil, nil, rect)
+    if not placed then return 0 end
     local companionIndex = rootIndex == statuses.StatusTrackingBar1
         and statuses.StatusTrackingBar2 or statuses.StatusTrackingBar1
     local companion = defaultStatus[companionIndex]
-    return companion and companion ~= root and PlaceRetailStatus(companion, nil, nil, rect) and 2 or 1
+    local moved = companion and companion ~= root and PlaceRetailStatus(companion, nil, nil, rect) and 2 or 1
+    return moved + StackRetailStatusChainBars(main, defaultBars, actions, rect, status, transformed)
 end
 
 local function MainAnchorOrigin(layout, mainAnchor)
@@ -1559,7 +1609,7 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
         end)
         RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerLayout)
         if Offhand.isRetail and not controllerLayout then
-            moved = moved + RebaseRetailStatusChain(layout, rect, sourceDefaults)
+            moved = moved + RebaseRetailStatusChain(layout, rect, sourceDefaults, transformed)
         end
     end
     local groupMoved, groupRepaired = 0, 0
