@@ -417,5 +417,57 @@ ToggleGameMenu(); flush()
 assert(not eui.shown and refreshed == 2,
     "native Gamepad Escape and focus must not be overridden by the replacement-bag path")
 
+local callbacks, registrations = {}, 0
+EventRegistry = { RegisterCallback = function(_, event, callback, owner)
+    registrations = registrations + 1
+    callbacks[event] = function() callback(owner) end
+end }
+canManagePanels = true
+onEvent(nil, "PLAYER_LOGIN")
+onEvent(nil, "PLAYER_LOGIN")
+flush()
+local openTalents = callbacks["PlayerSpellsFrame.OpenFrame"]
+assert(openTalents and registrations == 1, "Forever must observe the native Player Spells opening once")
+PlayerSpellsFrame = { shown = true, talentTabID = 2, tab = 2,
+    IsShown = function(self) return self.shown end,
+    GetTab = function(self) return self.tab end }
+local function openWorkspaceBags()
+    EllesmereUIDB.bagsVisible = true
+    eui:Show()
+    reagent:Show()
+    tick()
+end
+openWorkspaceBags()
+eui:Hide()
+reagent:Hide()
+local beforeTalents = refreshed
+local beforeReagent = reagent.refreshed
+openTalents()
+assert(not eui.shown, "bag restoration must run outside Blizzard's panel-open stack")
+flush()
+assert(eui.shown and refreshed == beforeTalents + 1 and reagent.shown
+    and reagent.refreshed == beforeReagent + 1 and not GameMenuFrame.shown and reloadToggles == 1,
+    "Talents must restore the two previously visible Ellesmere workspace roots without a bag or menu toggle")
+
+for _, exclude in ipairs({"spellbook", "closed-panel", "explicit-close", "combat", "gamepad", "mainhand", "no-open-intent", "loading"}) do
+    openWorkspaceBags()
+    eui:Hide()
+    reagent:Hide()
+    if exclude == "spellbook" then PlayerSpellsFrame.tab = 3 end
+    if exclude == "mainhand" then eui.x = 2000 end
+    if exclude == "no-open-intent" then tick() end
+    openTalents()
+    if exclude == "closed-panel" then PlayerSpellsFrame.shown = false end
+    if exclude == "explicit-close" then EllesmereUIDB.bagsVisible = false end
+    if exclude == "combat" then combat = true end
+    if exclude == "gamepad" then canManagePanels = false end
+    if exclude == "loading" then onEvent(nil, "PLAYER_LEAVING_WORLD") end
+    flush()
+    assert(not eui.shown and not reagent.shown and refreshed == beforeTalents + 1,
+        "Talents must leave bags closed for " .. exclude)
+    PlayerSpellsFrame.tab, PlayerSpellsFrame.shown = 2, true
+    combat, canManagePanels, eui.x = false, true, 720
+end
+
 print("PASS: addon bag reload, Escape, explicit close, Baganator, Bagnon and EllesmereUI roots")
 
