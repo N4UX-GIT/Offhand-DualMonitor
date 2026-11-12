@@ -850,8 +850,8 @@ assert(not ContainerFrame1:IsShown(),
 
 -- MoveAny cannot observe Offhand's deliberately script-free Forever map drag
 -- adapter, so the two addons would otherwise both restore WorldMapFrame after
--- M/L. Loading MoveAny must dynamically make every already-installed Offhand
--- map path inert without deleting the user's saved Offhand position.
+-- M/L. MoveAny owns placement while Offhand handles Escape for the visible
+-- workspace map. The saved Offhand position remains dormant.
 local moveAnyWorkspacePosition = addon.db.savedWorkspacePositions.WorldMapFrame
 local moveAnyOpenState = addon.db.openWorkspacePanels.WorldMapFrame
 addon.db.openWorkspacePanels.WorldMapFrame = true
@@ -878,13 +878,14 @@ flushTimers()
 assert(not WorldMapFrame:IsShown(),
     "Offhand reload restoration must not open a World Map owned by MoveAny")
 
-createdHandles[1]:Show()
-createdHandles[1]:EnableMouse(true)
 createdHandles[1].scripts.OnUpdate(nil, 1)
-assert(createdHandles[1].shown == false and createdHandles[1].mouseEnabled == false,
-    "a previously-created Offhand map drag handle must retire after MoveAny loads")
+assert(createdHandles[1].shown and not createdHandles[1].mouseEnabled
+        and createdHandles[1].point[4] == -100,
+    "MoveAny's map must keep its noninteractive observer for the next opening")
 
+table.insert(UISpecialFrames, "WorldMapFrame")
 ToggleWorldMap()
+activePanels.left = WorldMapFrame
 createdHandles[1].scripts.OnUpdate(nil, 1)
 assert(WorldMapFrame:IsShown() and WorldMapFrame.left == 200
         and WorldMapFrame.bottom == 1300,
@@ -893,6 +894,15 @@ flushTimers()
 assert(WorldMapFrame:IsShown() and WorldMapFrame.left == 200
         and WorldMapFrame.bottom == 1300,
     "Offhand's installed M post-hook must stay inert while MoveAny owns the map")
+assert(GetUIPanel("left") ~= WorldMapFrame,
+    "a MoveAny workspace map must free the panel slot used by NPC windows")
+pressEscapeCloseSpecialFrames()
+assert(WorldMapFrame:IsShown(), "a MoveAny workspace map must survive Escape")
+addon.db.persistentWorkspacePanels = false
+createdHandles[1].scripts.OnUpdate(nil, 1)
+assert(isSpecial("WorldMapFrame"), "turning Escape protection off must return the map to native Escape")
+addon.db.persistentWorkspacePanels = true
+createdHandles[1].scripts.OnUpdate(nil, 1)
 WorldMapFrame:Hide()
 createdHandles[1].scripts.OnUpdate(nil, 1)
 ToggleQuestLog()
@@ -903,6 +913,30 @@ assert(WorldMapFrame:IsShown() and WorldMapFrame.left == 760
     "Offhand's installed L post-hook must stay inert while MoveAny owns the map")
 assert(addon.db.savedWorkspacePositions.WorldMapFrame == moveAnyWorkspacePosition,
     "yielding to MoveAny must preserve the user's dormant Offhand map position")
+
+do
+    local previousMap = WorldMapFrame
+    local observerIndex = #createdHandles + 1
+    WorldMapFrame = makeMap()
+    WorldMapFrame:Hide()
+    addon.db.savedWorkspacePositions.WorldMapFrame = nil
+    addon.Canvas:EnableFreeDragging()
+    local observer = assert(createdHandles[observerIndex], "MoveAny already loaded must receive a map observer")
+    assert(observer.shown and not observer.mouseEnabled, "the observer must park while MoveAny positions the map")
+    table.insert(UISpecialFrames, "WorldMapFrame")
+    ToggleWorldMap()
+    activePanels.left = WorldMapFrame
+    observer.scripts.OnUpdate(nil, 1)
+    assert(not isSpecial("WorldMapFrame") and activePanels.left ~= WorldMapFrame,
+        "a vendor-positioned workspace map needs Escape protection without a saved Offhand anchor")
+    ToggleWorldMap()
+    assert(not WorldMapFrame:IsShown(), "the map binding must still close a MoveAny workspace map")
+    assert(not addon.db.savedWorkspacePositions.WorldMapFrame
+        and WorldMapFrame.hookScriptWrites == 0 and WorldMapFrame.setScriptWrites == 0,
+        "the compatibility path must leave placement and native map scripts with their owners")
+    WorldMapFrame = previousMap
+    addon.db.savedWorkspacePositions.WorldMapFrame = moveAnyWorkspacePosition
+end
 
 MoveAny = nil
 local originalAddOns = C_AddOns
@@ -928,6 +962,35 @@ assert(addon.db.openWorkspacePanels.WorldMapFrame,
     "Forever's external observer must retain external-map workspace open intent")
 pressEscapeCloseSpecialFrames()
 assert(WorldMapFrame:IsShown(), externalOwner .. " workspace map must survive Escape")
+if externalOwner == "OpenMap" then
+    -- Native panel layout can register the visible map again after the first
+    -- protection pass. OpenMap retains the same geometry across the reflow.
+    activePanels.left = WorldMapFrame
+    table.insert(UISpecialFrames, "WorldMapFrame")
+    createdHandles[1].scripts.OnUpdate(nil, 1)
+    assert(activePanels.left ~= WorldMapFrame and not isSpecial("WorldMapFrame"),
+        "OpenMap must recover Escape protection after native registration changes at the same position")
+    pressEscapeCloseSpecialFrames()
+    assert(WorldMapFrame:IsShown() and WorldMapFrame.left == 200
+        and WorldMapFrame.bottom == 1300 and WorldMapFrame.scale == 0.83,
+        "restoring Escape protection must preserve OpenMap's visible placement")
+    local originalHide, attempts = HideUIPanel, 0
+    HideUIPanel = function(frame)
+        assert(frame == WorldMapFrame)
+        attempts = attempts + 1
+    end
+    activePanels.left = WorldMapFrame
+    createdHandles[1].scripts.OnUpdate(nil, 1)
+    createdHandles[1].scripts.OnUpdate(nil, 1)
+    assert(attempts == 1 and activePanels.left == WorldMapFrame,
+        "a refused native detach must not trigger another write on every observation")
+    HideUIPanel = originalHide
+    activePanels.left = nil
+    createdHandles[1].scripts.OnUpdate(nil, 1)
+    activePanels.left = WorldMapFrame
+    createdHandles[1].scripts.OnUpdate(nil, 1)
+    assert(activePanels.left ~= WorldMapFrame, "a new close path must permit another detach attempt")
+end
 WorldMapFrame.left = 2000
 createdHandles[1].scripts.OnUpdate(nil, 1)
 assert(isSpecial("WorldMapFrame"), externalOwner .. " dragging to Mainhand must restore native Escape closure")

@@ -153,9 +153,13 @@ function Map.InstallBehavior(Canvas, services)
     local UnregisterSpecialFrame = services.UnregisterSpecialFrame
     local EvictWorkspacePanelSlot = services.EvictWorkspacePanelSlot
     function Canvas:PreserveExternalWorldMapOpenState(map)
-        if not IsExternallyPositionedWorldMap(map) or not map.IsShown or not map:IsShown() then return false end
-        if Offhand.isForever and map.IsMaximized and map:IsMaximized() then return false end
-        if not IsFrameOnWorkspace(map) then
+        if not Compatibility.SupportsExternalWorldMapEscapeProtection(map)
+            or not map.IsShown or not map:IsShown() then return false end
+        if Offhand.isForever and (Map.IsNativeGamepadOwned(self) or InCombatLockdown()
+            or (map.IsMaximized and map:IsMaximized())) then return false end
+        local ok, workspace = pcall(IsFrameOnWorkspace, map)
+        if not ok then return false end
+        if not workspace then
             self:SetWorkspacePanelOpen(map, false)
             RegisterSpecialFrame("WorldMapFrame")
             return false

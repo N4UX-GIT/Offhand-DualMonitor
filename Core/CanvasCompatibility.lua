@@ -121,17 +121,26 @@ function Compatibility.GetWorldMapExternalOwner()
     return nil
 end
 
+local function IsWorldMapFrame(frameOrName)
+    if type(frameOrName) == "string" then return frameOrName == "WorldMapFrame" end
+    return frameOrName ~= nil and frameOrName == _G.WorldMapFrame
+end
+
 function Compatibility.IsExternallyPositionedWorldMap(frameOrName)
     local owner = Compatibility.GetWorldMapExternalOwner()
-    if owner ~= "LeatrixMaps" and owner ~= "OpenMap" then return false end
-    if type(frameOrName) == "string" then return frameOrName == "WorldMapFrame" end
-    return frameOrName == _G.WorldMapFrame
+    return (owner == "LeatrixMaps" or owner == "OpenMap") and IsWorldMapFrame(frameOrName)
+end
+
+function Compatibility.SupportsExternalWorldMapEscapeProtection(frameOrName)
+    local owner = Compatibility.GetWorldMapExternalOwner()
+    -- MoveAny continues to own the map's placement and reopening on Forever.
+    return (owner == "LeatrixMaps" or owner == "OpenMap" or (Offhand.isForever and owner == "MoveAny"))
+        and IsWorldMapFrame(frameOrName)
 end
 
 function Compatibility.ShouldYieldWorldMap(frameOrName)
     if not Compatibility.GetWorldMapExternalOwner() then return false end
-    if type(frameOrName) == "string" then return frameOrName == "WorldMapFrame" end
-    return frameOrName == _G.WorldMapFrame
+    return IsWorldMapFrame(frameOrName)
 end
 
 function Compatibility.GetTBCSpellbookDiagnostics()

@@ -14,7 +14,7 @@ end
 function Adapter.Install(Canvas, services)
     local Compatibility = Offhand.CanvasCompatibility
     local FrameState = Offhand.CanvasFrameState
-    local IsExternallyPositionedWorldMap = Compatibility.IsExternallyPositionedWorldMap
+    local SupportsExternalWorldMapEscapeProtection = Compatibility.SupportsExternalWorldMapEscapeProtection
     local ShouldYieldWorldMapToMoveAny = Compatibility.ShouldYieldWorldMap
     local IsForeverWorldMap = FrameState.IsForeverWorldMap
     local GetForeverWorldMapState = FrameState.GetForeverWorldMapState
@@ -32,6 +32,16 @@ function Adapter.Install(Canvas, services)
     local function NativeGamepadOwnsMap()
         local presentation = Offhand.CanvasMapPresentation
         return presentation and presentation.IsNativeGamepadOwned(Canvas) or false
+    end
+
+    local function ReadNativeClosePaths(map)
+        local inPanelSlot = Offhand.CanvasPanelLifecycle.OccupiesPanelSlot(map)
+        if UISpecialFrames then
+            for _, name in pairs(UISpecialFrames) do
+                if name == "WorldMapFrame" then return inPanelSlot, true end
+            end
+        end
+        return inPanelSlot, false
     end
 
     -- Forever's map-pin sharing path is protected. A drag handler parented to the
@@ -79,14 +89,14 @@ function Adapter.Install(Canvas, services)
 
         if not shown then
             Canvas:SetWorkspacePanelOpen(map, false)
-            if IsExternallyPositionedWorldMap(map) and (not Offhand.db or not Offhand.db.enabled
+            if SupportsExternalWorldMapEscapeProtection(map) and (not Offhand.db or not Offhand.db.enabled
                 or Offhand.db.persistentWorkspacePanels == false) then
                 RegisterSpecialFrame("WorldMapFrame")
             end
             return
         end
 
-        if IsExternallyPositionedWorldMap(map) then
+        if SupportsExternalWorldMapEscapeProtection(map) then
             Canvas:PreserveExternalWorldMapOpenState(map)
             return
         end
@@ -193,7 +203,7 @@ function Adapter.Install(Canvas, services)
 
     local function AttachForeverWorldMapDragHandle(map)
         if not IsForeverWorldMap(map) or not CreateFrame or not UIParent then return false end
-        if ShouldYieldWorldMapToMoveAny(map) and not IsExternallyPositionedWorldMap(map) then return false end
+        if ShouldYieldWorldMapToMoveAny(map) and not SupportsExternalWorldMapEscapeProtection(map) then return false end
         local state = GetForeverWorldMapState(map)
         if state.handle then return true end
 
@@ -309,23 +319,31 @@ function Adapter.Install(Canvas, services)
             end
             if ShouldYieldWorldMapToMoveAny(map) then
                 SetPanelDragging(map, false)
-                if IsExternallyPositionedWorldMap(map) then
-                    -- Leatrix/OpenMap own geometry and dragging, but this
-                    -- independent observer still tracks later show edges for
-                    -- workspace open intent and Escape persistence. Hiding it
-                    -- while the map is closed prevents those edges being seen.
+                if SupportsExternalWorldMapEscapeProtection(map) then
+                    -- Keep the noninteractive observer active to detect later
+                    -- show edges while the external addon positions the map.
                     PlaceDragHandle()
                     if not mapShown or maximized then
                         state.externalWorkspace, state.externalPersistence = nil, nil
+                        state.externalPanelSlot, state.externalSpecialFrame = nil, nil
                     elseif not InCombatLockdown() and Canvas.IsFrameOnWorkspace then
                         local ok, workspace = pcall(Canvas.IsFrameOnWorkspace, map)
                         local persistent = Offhand.db.persistentWorkspacePanels ~= false
-                        -- Leatrix/OpenMap drag their map without a show edge.
-                        -- Re-evaluate ownership only when membership or the
-                        -- persistence option changes, not on every observer tick.
-                        if ok and (state.externalWorkspace ~= workspace or state.externalPersistence ~= persistent) then
-                            Canvas:PreserveExternalWorldMapOpenState(map)
-                            state.externalWorkspace, state.externalPersistence = workspace, persistent
+                        if ok then
+                            local inPanelSlot, specialFrame
+                            if workspace and persistent then inPanelSlot, specialFrame = ReadNativeClosePaths(map) end
+                            -- OpenMap can retain the same geometry while Blizzard
+                            -- puts the map back into a native close path.
+                            if state.externalWorkspace ~= workspace or state.externalPersistence ~= persistent
+                                or (inPanelSlot and not state.externalPanelSlot)
+                                or (specialFrame and not state.externalSpecialFrame) then
+                                Canvas:PreserveExternalWorldMapOpenState(map)
+                                state.externalWorkspace, state.externalPersistence = workspace, persistent
+                                if workspace and persistent then inPanelSlot, specialFrame = ReadNativeClosePaths(map) end
+                            end
+                            -- Record the resulting state so a refused detach is
+                            -- retried only after a new layout or ownership change.
+                            state.externalPanelSlot, state.externalSpecialFrame = inPanelSlot, specialFrame
                         end
                     end
                 elseif handle.Hide then
@@ -337,6 +355,7 @@ function Adapter.Install(Canvas, services)
                 return
             end
             state.externalWorkspace, state.externalPersistence = nil, nil
+            state.externalPanelSlot, state.externalSpecialFrame = nil, nil
 
             if returnButton then
                 if maximized and not InCombatLockdown() then
