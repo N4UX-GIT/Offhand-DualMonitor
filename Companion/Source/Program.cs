@@ -631,15 +631,26 @@ namespace Offhand.Companion
             if (!selected.Contains(mainhand))
                 return new State { Code = "MAINHAND_NOT_CHECKED", Message = "The Mainhand display is not checked. Check it in the display list, or choose a checked display as Mainhand (game)." };
             var missing = new List<string>();
+            var identityDetails = new List<string>();
             foreach (int index in selected)
             {
                 if (index < 0 || index >= displays.Count || displays[index] == null)
                     return new State { Code = "SELECTION_UNAVAILABLE", Message = "The display selection changed. Review the checked displays and Mainhand, then try again." };
-                if (string.IsNullOrWhiteSpace(displays[index].StableId)) missing.Add(Label(displays[index], index));
+                var display = displays[index];
+                if (!string.IsNullOrWhiteSpace(display.StableId)) continue;
+                string label = Label(display, index);
+                missing.Add(label);
+                if (!string.IsNullOrWhiteSpace(display.IdentityDetail))
+                    identityDetails.Add(label + " [" + display.IdentityDetail + "]");
             }
             if (missing.Count > 0)
-                return new State { Code = "MISSING_MONITOR_IDENTITY", Message = "Companion could not read a monitor identity for: "
-                    + string.Join(", ", missing.ToArray()) + ". Click Copy Display Diagnostics and send the text with your report." };
+            {
+                string message = "Companion could not read a monitor identity for " + string.Join(", ", missing.ToArray()) + ".";
+                if (identityDetails.Count > 0)
+                    message += Environment.NewLine + string.Join(Environment.NewLine, identityDetails.ToArray());
+                return new State { Code = "MISSING_MONITOR_IDENTITY", Message = message + Environment.NewLine
+                    + "Open Display Diagnostics, click Copy Display Diagnostics, and include the text in your report." };
+            }
             foreach (int index in selected)
                 if (MonitorSelection.FindDisplay(displays, displays[index].StableId, null) != index)
                     return new State { Code = "AMBIGUOUS_MONITOR_IDENTITY", Message = "Companion could not distinguish the monitor identity for "
@@ -1967,6 +1978,11 @@ namespace Offhand.Companion
             foreach(char c in name)if(char.IsControl(c))throw new InvalidOperationException("Profile names cannot contain control characters.");
             return name;
         }
+
+        internal static bool CanSaveLayout(IDictionary<string, string> settings)
+        {
+            return MonitorSelection.MultiEnabled(settings) || WorkspaceLayoutSettings.Enabled(settings);
+        }
         private static Store ReadLegacy(IDictionary<string,string> settings)
         {
             string raw;if(!settings.TryGetValue(Key,out raw))return new Store();
@@ -2030,7 +2046,7 @@ namespace Offhand.Companion
         internal static Dictionary<string,string> Save(IDictionary<string,string> current,string name,string replaceID,IList<MonitorSelection.Display> displays)
         {
             name=Name(name);var store=Read(current);
-            if(!MonitorSelection.MultiEnabled(current)&&!WorkspaceLayoutSettings.Enabled(current))throw new InvalidOperationException("Configure custom workspaces before saving a workspace profile.");
+            if(!CanSaveLayout(current))throw new InvalidOperationException("Save a Multiple workspaces or Flexible layout plan before creating a workspace profile.");
             var plan=MonitorSelection.CreatePlan(current,displays);
             var item=replaceID==null?null:Find(store,replaceID);
             if(store.Items.Exists(other=>other!=item&&string.Equals(other.Name,name,StringComparison.OrdinalIgnoreCase)))throw new InvalidOperationException("A workspace profile already has that name.");
@@ -2097,13 +2113,26 @@ namespace Offhand.Companion
             Controls.Add(layout);Controls.Add(footer);AcceptButton=done;CancelButton=cancel;
             selection.SelectedIndexChanged+=(s,e)=>{var item=selection.SelectedItem as WorkspacePlanProfiles.Record;if(item!=null)name.Text=item.Name;UpdateActions();};
             name.TextChanged+=(s,e)=>UpdateActions();RefreshProfiles();CompanionUi.Apply(this);
-            feedback.Text=selection.Items.Count==0?"No saved plans yet. Set up a custom layout, enter a name, then choose Save as new.":"Choose a saved plan to load or manage. Changes stay pending until Save changes.";
+            if (!WorkspacePlanProfiles.CanSaveLayout(Settings))
+            {
+                feedback.Text = "Saved layout is " + WorkspaceEditorLayout.CurrentMode(Settings)
+                    + ". To create a profile, open Workspace layout, choose " + WorkspaceEditorLayout.Multiple
+                    + " or " + WorkspaceEditorLayout.Flexible + ", then click Save plan to enable Save as new.";
+            }
+            else if (selection.Items.Count == 0)
+            {
+                feedback.Text = "Enter a name and choose Save as new. Click Save changes to keep the profile.";
+            }
+            else
+            {
+                feedback.Text = "Choose a saved plan to load or manage. Changes stay pending until Save changes.";
+            }
         }
         private void UpdateActions()
         {
             bool selected=selection.SelectedItem is WorkspacePlanProfiles.Record,validName=true;
             try{WorkspacePlanProfiles.Name(name.Text);}catch(InvalidOperationException){validName=false;}
-            bool plan=MonitorSelection.MultiEnabled(Settings)||WorkspaceLayoutSettings.Enabled(Settings);
+            bool plan=WorkspacePlanProfiles.CanSaveLayout(Settings);
             var store=WorkspacePlanProfiles.Read(Settings);bool fresh=!store.Items.Exists(item=>string.Equals(item.Name,name.Text.Trim(),StringComparison.OrdinalIgnoreCase));
             foreach(var pair in actionsByName)pair.Value.Enabled=pair.Key=="Save as new"?plan&&validName&&fresh&&store.Items.Count<20:
                 pair.Key=="Update selected"?selected&&plan:pair.Key=="Rename"?selected&&validName:selected;
