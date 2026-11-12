@@ -38,6 +38,27 @@ local function SameLayoutData(first, second)
     return true
 end
 
+local function PublicLayoutNumber(value)
+    if type(issecretvalue) == "function" and issecretvalue(value) then return false end
+    return type(value) == "number" and value == value and math.abs(value) < math.huge
+end
+
+local function MatchesSavedAnchor(actual, expected)
+    if type(actual) ~= "table" or type(expected) ~= "table" then return false end
+    for key, value in pairs(expected) do
+        local saved = actual[key]
+        if key == "offsetX" or key == "offsetY" then
+            -- The native layout cache can round serialized coordinates.
+            if not PublicLayoutNumber(saved) or not PublicLayoutNumber(value)
+                or math.abs(saved - value) > 0.01 then return false end
+        elseif not SameLayoutData(saved, value) then return false end
+    end
+    for key in pairs(actual) do
+        if expected[key] == nil then return false end
+    end
+    return true
+end
+
 local function EditModeData()
     if not C_EditMode or type(C_EditMode.GetLayouts) ~= "function" then return nil end
     local ok, data = pcall(C_EditMode.GetLayouts)
@@ -426,26 +447,61 @@ local function StackRetailStatusChainBars(main, bars, actions, rect, status, tra
         if top + 4 < rect.bottom or nextTop > rect.top or x - halfWidth < rect.left
             or x + halfWidth > rect.right then break end
 
-        bar.entry.anchorInfo = {point = "BOTTOM", relativeTo = relativeTo,
+        local desired = {point = "BOTTOM", relativeTo = relativeTo,
             relativePoint = "TOP", offsetX = 0, offsetY = 4}
-        bar.entry.isInDefaultPosition = false
-        if not transformed[bar.index] then moved = moved + 1 end
+        if not MatchesSavedAnchor(bar.entry.anchorInfo, desired) or bar.entry.isInDefaultPosition ~= false then
+            if not bar.canMove then break end
+            bar.entry.anchorInfo, bar.entry.isInDefaultPosition = desired, false
+            if not transformed[bar.index] then moved = moved + 1 end
+        end
         top, relativeTo = nextTop, row.name
     end
     return moved
 end
 
+local function RetailStatusBounds(entry, rootIndex, statuses)
+    local anchor = entry and entry.anchorInfo
+    if not anchor or entry.anchorInfo2 or anchor.relativeTo ~= "UIParent"
+        or not PublicLayoutNumber(anchor.offsetX) or not PublicLayoutNumber(anchor.offsetY) then return end
+    local frame = rootIndex == statuses.StatusTrackingBar1 and _G.MainStatusTrackingBarContainer
+        or rootIndex == statuses.StatusTrackingBar2 and _G.SecondaryStatusTrackingBarContainer
+    local width, height = FrameSize(frame, nil, nil)
+    if not width or not height then return end
+    local scale = ParentScale(frame)
+    width, height = width * scale, height * scale
+    local screen = {left = 0, bottom = 0, right = UIParent:GetWidth(), top = UIParent:GetHeight()}
+    local x, y = PointBase(anchor.relativePoint or anchor.point, screen)
+    local px, py = PointFractions(anchor.point)
+    return {center = x + anchor.offsetX * scale + (0.5 - px) * width,
+        bottom = y + anchor.offsetY * scale - py * height, width = width, height = height}
+end
+
 -- A custom Action Bar 1 can follow a default status container into the void
 -- below Mainhand. Move the serialized status roots and preserve the link.
-local function RebaseRetailStatusChain(layout, rect, sourceDefaults, transformed)
+local function RebaseRetailStatusChain(layout, rect, sourceDefaults, transformed, priorSource)
     local systems = Enum and Enum.EditModeSystem
     local actions = Enum and Enum.EditModeActionBarSystemIndices
     local statuses = Enum and Enum.EditModeStatusTrackingBarSystemIndices
     if not systems or not actions or not statuses or not systems.ActionBar
         or not systems.StatusTrackingBar or not actions.MainBar then return 0 end
 
+    local priorRows = {}
+    if priorSource then
+        -- Beta 32 translated default rows into Mainhand before serializing
+        -- them as custom. Compare with that placement to detect player edits.
+        local projected = DeepCopy(priorSource)
+        TransformLayout(projected, rect, ExternallyOwnedSystem)
+        for index, entry in ipairs(priorSource.systems or {}) do
+            if entry.system == systems.ActionBar and entry.systemIndex ~= nil
+                and (entry.systemIndex == actions.Bar2 or entry.systemIndex == actions.Bar3)
+                and entry.isInDefaultPosition ~= false and not entry.anchorInfo2 then
+                priorRows[entry.systemIndex] = projected.systems[index]
+            end
+        end
+    end
+
     local main, rootIndex
-    local defaultStatus, defaultBars = {}, {}
+    local defaultStatus, savedStatus, defaultBars = {}, {}, {}
     for index, entry in ipairs(layout.systems or {}) do
         local anchor = entry.anchorInfo
         if type(anchor) == "table" then
@@ -458,20 +514,32 @@ local function RebaseRetailStatusChain(layout, rect, sourceDefaults, transformed
                     elseif anchor.relativeTo == "SecondaryStatusTrackingBarContainer" then
                         rootIndex = statuses.StatusTrackingBar2
                     end
-                elseif sourceDefaults[index] and not entry.anchorInfo2 and entry.systemIndex ~= nil
-                    and (entry.systemIndex == actions.Bar2 or entry.systemIndex == actions.Bar3) then
-                    defaultBars[entry.systemIndex] = {entry = entry, index = index}
+                elseif not entry.anchorInfo2 and not ExternallyOwnedSystem(entry)
+                    and entry.systemIndex ~= nil and (entry.systemIndex == actions.Bar2 or entry.systemIndex == actions.Bar3) then
+                    local prior = priorRows[entry.systemIndex]
+                    if prior then
+                        local canMove = (entry.isInDefaultPosition == false) == (prior.isInDefaultPosition == false)
+                            and MatchesSavedAnchor(anchor, prior.anchorInfo)
+                        defaultBars[entry.systemIndex] = {entry = entry, index = index, canMove = canMove}
+                    elseif not priorSource and sourceDefaults[index] then
+                        defaultBars[entry.systemIndex] = {entry = entry, index = index, canMove = true}
+                    end
                 end
-            elseif sourceDefaults[index] and entry.system == systems.StatusTrackingBar
-                and anchor.relativeTo == "StatusTrackingBarManager" and entry.anchorInfo2 == nil
-                and (entry.systemIndex == statuses.StatusTrackingBar1
-                    or entry.systemIndex == statuses.StatusTrackingBar2)
-                and entry.systemIndex ~= nil then
-                defaultStatus[entry.systemIndex] = entry
+            elseif entry.system == systems.StatusTrackingBar and not entry.anchorInfo2
+                and not ExternallyOwnedSystem(entry) and entry.systemIndex ~= nil then
+                savedStatus[entry.systemIndex] = entry
+                if sourceDefaults[index] and anchor.relativeTo == "StatusTrackingBarManager" then
+                    defaultStatus[entry.systemIndex] = entry
+                end
             end
         end
     end
 
+    if priorSource then
+        local status = RetailStatusBounds(rootIndex and savedStatus[rootIndex], rootIndex, statuses)
+        if not status then return 0 end
+        return StackRetailStatusChainBars(main, defaultBars, actions, rect, status, transformed)
+    end
     local root = rootIndex and defaultStatus[rootIndex]
     if not root then return 0 end
     local placed, status = PlaceRetailStatus(root, nil, nil, rect)
@@ -860,11 +928,6 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerL
     return refined
 end
 
-local function PublicLayoutNumber(value)
-    if type(issecretvalue) == "function" and issecretvalue(value) then return false end
-    return type(value) == "number" and value == value and math.abs(value) < math.huge
-end
-
 local function RepairGeneratedForeverStatus(layout, source, rect)
     local systems = Enum and Enum.EditModeSystem
     local actions = Enum and Enum.EditModeActionBarSystemIndices
@@ -876,49 +939,60 @@ local function RepairGeneratedForeverStatus(layout, source, rect)
     local mainAnchor
     for _, entry in ipairs(layout.systems or {}) do
         if entry.system == systems.ActionBar and entry.systemIndex == actions.MainBar
-            and not ExternallyOwnedSystem(entry) then mainAnchor = entry.anchorInfo; break end
+            and not entry.anchorInfo2 and not ExternallyOwnedSystem(entry) then mainAnchor = entry.anchorInfo; break end
     end
     if type(mainAnchor) ~= "table" then return 0 end
-    local _, y = MainAnchorOrigin(layout, mainAnchor)
-    if not y then return 0 end
-    local _, height = FrameSize(main, 570, 40)
-    local _, pointY = PointFractions(mainAnchor.point)
-    local xpBottom = y + (1 - pointY) * height * ParentScale(main) + 3
-    local center = (rect.left + rect.right) / 2
+    local x, y = MainAnchorOrigin(layout, mainAnchor)
+    if not x then return 0 end
+    local width, height = FrameSize(main, 570, 40)
+    local scale = ParentScale(main)
+    width, height = width * scale, height * scale
+    local pointX, pointY = PointFractions(mainAnchor.point)
+    local left, bottom = x - pointX * width, y - pointY * height
 
-    local defaultStatus = {}
-    for _, entry in ipairs(source.systems or {}) do
-        if entry.system == systems.StatusTrackingBar and entry.systemIndex ~= nil then
-            defaultStatus[entry.systemIndex] = entry.isInDefaultPosition ~= false
+    -- Reproduce the absolute anchors Beta 32 generated before fitting the
+    -- main bar. A default source alone cannot identify a saved player edit.
+    local projected = DeepCopy(source)
+    TransformLayout(projected, rect, ExternallyOwnedSystem)
+    local sourceDefaults, priorStatus, priorMain = {}, {}, nil
+    for index, entry in ipairs(source.systems or {}) do
+        if entry.system == systems.ActionBar and entry.systemIndex == actions.MainBar and not entry.anchorInfo2 then
+            priorMain = projected.systems[index].anchorInfo
+        elseif entry.system == systems.StatusTrackingBar and entry.systemIndex ~= nil
+            and entry.isInDefaultPosition ~= false and not ExternallyOwnedSystem(entry) then
+            sourceDefaults[index] = true
         end
     end
-    local candidates = {}
+    if type(priorMain) ~= "table" then return 0 end
+    for index, entry in ipairs(projected.systems or {}) do
+        if sourceDefaults[index] and PlaceForeverStatus(entry, projected, rect, sourceDefaults, priorMain, main, false) then
+            priorStatus[entry.systemIndex] = entry.anchorInfo
+        end
+    end
+
+    local candidates, overlap = {}, false
     for index, entry in ipairs(layout.systems or {}) do
+        local target = entry.system == systems.StatusTrackingBar and ForeverStatusFrame(entry)
         local anchor = entry.anchorInfo
-        if entry.system == systems.StatusTrackingBar and defaultStatus[entry.systemIndex]
-            and not ExternallyOwnedSystem(entry) and ForeverStatusFrame(entry)
-            and type(anchor) == "table" and not entry.anchorInfo2 and anchor.point == "BOTTOM"
-            and anchor.relativeTo == "UIParent" and anchor.relativePoint == "BOTTOMLEFT"
-            and PublicLayoutNumber(anchor.offsetX) and math.abs(anchor.offsetX - center) <= 0.1
-            and PublicLayoutNumber(anchor.offsetY) then
+        if target and entry.isInDefaultPosition == false and not entry.anchorInfo2 and not ExternallyOwnedSystem(entry)
+            and MatchesSavedAnchor(anchor, priorStatus[entry.systemIndex]) then
+            local w, h = FrameSize(target, 571, 14)
+            local statusScale = ParentScale(target)
+            local halfWidth = w * statusScale / 2
             candidates[entry.systemIndex] = index
+            overlap = overlap or (anchor.offsetY < bottom + height - 0.01
+                and anchor.offsetY + h * statusScale > bottom + 0.01
+                and anchor.offsetX - halfWidth < left + width - 0.01
+                and anchor.offsetX + halfWidth > left + 0.01)
         end
     end
-
-    -- Earlier generated bars used this centered, absolute anchor. Repair an
-    -- overlapping result on explicit rebuild and preserve other saved edits.
     local xp = candidates[indices.StatusTrackingBar1]
-    if not xp or layout.systems[xp].anchorInfo.offsetY >= xpBottom - 0.1 then return 0 end
+    if not overlap or not xp then return 0 end
     local defaults = {[xp] = true}
     if not PlaceForeverStatus(layout.systems[xp], layout, rect, defaults, mainAnchor, main, true) then return 0 end
     local secondary = candidates[indices.StatusTrackingBar2]
-    local _, xpHeight = FrameSize(_G.MainStatusTrackingBarContainer, 571, 14)
-    if secondary and layout.systems[secondary].anchorInfo.offsetY
-        < xpBottom + xpHeight * ParentScale(_G.MainStatusTrackingBarContainer) + 4 - 0.1
-        and PlaceForeverStatus(layout.systems[secondary], layout, rect, defaults, mainAnchor, main, true) then
-        return 2
-    end
-    return 1
+    return secondary and PlaceForeverStatus(layout.systems[secondary], layout, rect, defaults, mainAnchor, main, true)
+        and 2 or 1
 end
 
 -- Fit only the generated copy. Resolve serialized dependencies instead of using
@@ -1673,8 +1747,12 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
     local moved, transformed = 0, {}
     if legacyLayout then moved = matchingRecord.movedSystems or #(layout.systems or {}) end
     if preserveGenerated then moved = matchingRecord.movedSystems or #(layout.systems or {}) end
-    if preserveGenerated and Offhand.isForever then
-        moved = moved + RepairGeneratedForeverStatus(layout, source, rect)
+    if preserveGenerated and not repairFrameName then
+        if Offhand.isForever then
+            moved = moved + RepairGeneratedForeverStatus(layout, source, rect)
+        elseif Offhand.isRetail then
+            moved = moved + RebaseRetailStatusChain(layout, rect, sourceDefaults, transformed, source)
+        end
     end
     if not legacyLayout and not preserveGenerated and not targeted and not selective then
         moved, transformed = TransformLayout(layout, rect, function(entry)

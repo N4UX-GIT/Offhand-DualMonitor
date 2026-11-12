@@ -1786,6 +1786,7 @@ do
     local originalMetrics = metrics
     local originalCharacter = OffhandCharDB
     local originalPresets, originalLayoutData = presetLayouts, layoutData
+    local originalManager, originalAccount = EditModeManagerFrame, OffhandDB
     local originalPrimary = MainStatusTrackingBarContainer
     local originalBar2, originalBar3 = MultiBarBottomLeft, MultiBarBottomRight
     local actionIndices = Enum.EditModeActionBarSystemIndices
@@ -1807,6 +1808,7 @@ do
     addon.Mainhand:Update('retail-status-chain-test')
     local source = copyTable(retailSource)
     source.layoutName = 'Custom Retail status chain'
+    source.systems[4].systemIndex = 99
     local main = source.systems[1]
     main.isInDefaultPosition = false
     source.systems[5].isInDefaultPosition = false
@@ -1838,6 +1840,66 @@ do
         'stack the default secondary rows above the recovered Action Bar 1')
     assert(saved.layouts[1].systems[2].anchorInfo.relativeTo == 'StatusTrackingBarManager',
         'leave the original account layout intact')
+
+    -- Recreate the exact translated Beta 32 row anchors in the active Offhand
+    -- layout. The upgrade uses the same no-options action as the Settings UI.
+    EditModeManagerFrame = {GetRegisteredSystemFrame = function() end}
+    local function SetBeta32Rows()
+        OffhandDB, OffhandCharDB = {}, {}
+        layoutData = {activeLayout=3, layouts={source}}
+        assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+        local generatedID = layoutData.activeLayout
+        local activeRows = layoutData.layouts[generatedID - #presetLayouts].systems
+        for index = 6, 7 do
+            local anchor = copyTable(source.systems[index].anchorInfo)
+            anchor.offsetX = (metrics.gameLeft + metrics.gameRight - UIParent:GetWidth()) / 2
+            anchor.offsetY = anchor.offsetY + metrics.gameBottom
+            activeRows[index].anchorInfo = anchor
+        end
+        return activeRows, generatedID
+    end
+    local beta32Rows, generatedID = SetBeta32Rows()
+    local statusX, statusY = beta32Rows[2].anchorInfo.offsetX, beta32Rows[2].anchorInfo.offsetY
+    beta32Rows[6].settings = {{setting=1,value=73}}
+    assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+    assert(#layoutData.layouts == 2 and layoutData.activeLayout == generatedID,
+        'upgrade must reuse the active Beta 32 layout')
+    local upgraded = layoutData.layouts[generatedID - #presetLayouts].systems
+    assert(upgraded[6].anchorInfo.relativeTo == 'MainActionBar'
+        and upgraded[7].anchorInfo.relativeTo == 'MultiBarBottomLeft',
+        'ordinary rebuild must clear both default rows in an active Beta 32 layout')
+    assert(upgraded[6].settings[1].value == 73 and upgraded[2].anchorInfo.offsetX == statusX
+        and upgraded[2].anchorInfo.offsetY == statusY,
+        'upgrade must preserve the row settings and existing status anchor')
+    assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+    assert(layoutData.layouts[generatedID - #presetLayouts].systems[7].anchorInfo.relativeTo == 'MultiBarBottomLeft',
+        'repeating the upgrade must retain the installed chain')
+
+    beta32Rows, generatedID = SetBeta32Rows()
+    beta32Rows[7].anchorInfo.offsetY = 717
+    assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+    upgraded = layoutData.layouts[generatedID - #presetLayouts].systems
+    assert(upgraded[6].anchorInfo.relativeTo == 'MainActionBar'
+        and upgraded[7].anchorInfo.relativeTo == 'UIParent' and upgraded[7].anchorInfo.offsetY == 717,
+        'upgrade must leave a manually moved Action Bar 3 in place')
+    beta32Rows, generatedID = SetBeta32Rows()
+    beta32Rows[6].anchorInfo.offsetX = -310
+    assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+    upgraded = layoutData.layouts[generatedID - #presetLayouts].systems
+    assert(upgraded[6].anchorInfo.offsetX == -310 and upgraded[7].anchorInfo.relativeTo == 'UIParent',
+        'upgrade must not attach Action Bar 3 to a manually moved Action Bar 2')
+
+    beta32Rows, generatedID = SetBeta32Rows()
+    MultiBarBottomRight:SetSize(562, metrics.gameTop - metrics.gameBottom)
+    assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+    upgraded = layoutData.layouts[generatedID - #presetLayouts].systems
+    assert(upgraded[6].anchorInfo.relativeTo == 'MainActionBar' and upgraded[7].anchorInfo.relativeTo == 'UIParent',
+        'upgrade must leave a row in place if the new stack cannot fit it')
+    MultiBarBottomRight:SetSize(562, 40)
+    assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+    assert(layoutData.layouts[generatedID - #presetLayouts].systems[7].anchorInfo.relativeTo == 'MultiBarBottomLeft',
+        'a later rebuild can reuse an upgraded Action Bar 2 once Action Bar 3 fits')
+    EditModeManagerFrame, OffhandDB = originalManager, originalAccount
 
     source.systems[6].isInDefaultPosition = false
     source.systems[6].anchorInfo.offsetY = 160
@@ -2696,16 +2758,37 @@ assert(existing[2].anchorInfo.offsetY > metrics.gameBottom - 8
  and existing[3].anchorInfo.relativeTo=="MainActionBar" and existing[3].anchorInfo.offsetY==3,
  "fitting the Micro Menu and main bar must carry the generated XP bar with them")
 source.systems[2].anchorInfo.offsetY = 6
-existing[2].anchorInfo = {point="BOTTOMLEFT",relativeTo="UIParent",relativePoint="BOTTOMLEFT",offsetX=1132.1,offsetY=149.6}
-existing[3].anchorInfo = {point="BOTTOM",relativeTo="UIParent",relativePoint="BOTTOMLEFT",offsetX=2072.4,offsetY=54.6}
+existing[2].anchorInfo = {point="BOTTOMLEFT",relativeTo="UIParent",relativePoint="BOTTOMLEFT",offsetX=2500,offsetY=149.6}
+local legacyCenter = (metrics.gameLeft + metrics.gameRight) / 2
+local legacyXPBottom = metrics.gameBottom + 6 - 4 + 40 * .85 + 3
+existing[3].anchorInfo = {point="BOTTOM",relativeTo="UIParent",relativePoint="BOTTOMLEFT",offsetX=legacyCenter,offsetY=20}
 existing[4].anchorInfo = {point="BOTTOM",relativeTo="UIParent",relativePoint="BOTTOMLEFT",offsetX=2200,offsetY=75.6}
 existing[5].settings = {{setting=1,value=73}}
+assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+existing = layoutData.layouts[existingID-3].systems
+assert(existing[3].anchorInfo.relativeTo=="UIParent" and existing[3].anchorInfo.offsetY==20,
+ "refresh must preserve a centered, disjoint manual XP anchor")
+
+existing[3].anchorInfo.offsetY = legacyXPBottom
+assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+existing = layoutData.layouts[existingID-3].systems
+assert(existing[3].anchorInfo.relativeTo=="UIParent" and existing[3].anchorInfo.offsetY==legacyXPBottom,
+ "an exact Beta 32 anchor that clears the main bar needs no migration")
+
+existing[2].anchorInfo.offsetY = 47
+existing[3].anchorInfo.offsetY = legacyXPBottom + 2
+assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+existing = layoutData.layouts[existingID-3].systems
+assert(existing[3].anchorInfo.relativeTo=="UIParent" and existing[3].anchorInfo.offsetY==legacyXPBottom+2,
+ "overlap alone must not replace a manually moved XP anchor")
+
+existing[3].anchorInfo.offsetY = legacyXPBottom
 assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
 assert(#layoutData.layouts==1 and layoutData.activeLayout==existingID,
  "repair must reuse the generated slot")
 local repaired = layoutData.layouts[existingID-3].systems
 assert(repaired[3].anchorInfo.relativeTo=="MainActionBar" and repaired[3].anchorInfo.relativePoint=="TOP"
- and repaired[3].anchorInfo.offsetY==3, "refresh must correct the legacy overlapping XP anchor")
+ and repaired[3].anchorInfo.offsetY==3, "refresh must correct the exact overlapping Beta 32 XP anchor")
 assert(repaired[4].anchorInfo.relativeTo=="UIParent" and repaired[4].anchorInfo.offsetX==2200
  and repaired[5].settings[1].value==73, "refresh must retain custom status and action bar settings")
 EditModeManagerFrame = nil
