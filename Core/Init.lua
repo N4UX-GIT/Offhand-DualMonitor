@@ -944,6 +944,7 @@ local function ScheduleCinematicSkipDialogRecovery()
 end
 
 function Offhand:DeferAutomaticUIForCinematic()
+    if self.WhatsNew then self.WhatsNew:Interrupt() end
     self._automaticUIPendingAfterCinematic = true
 end
 
@@ -1338,6 +1339,10 @@ local function EvaluateEntryNotices(attempt)
         or Offhand.db.firstRunComplete
     local onboardingResumeStep = Offhand.GetOnboardingResumeStep
         and Offhand:GetOnboardingResumeStep() or nil
+    -- Keep a saved setup reload handoff in front of the release notice.
+    local resumingSetup = onboardingResumeStep and Offhand.db.automaticSetupSuppressed ~= true
+    if not resumingSetup and Offhand.WhatsNew
+        and Offhand.WhatsNew:MaybeShow(viewportMetrics, EvaluateEntryNotices) then return end
     if Offhand.db.automaticSetupSuppressed ~= true
         and (onboardingResumeStep or not welcomeDismissed or not setupComplete) then
         Offhand:HideCompanionNotices()
@@ -1580,7 +1585,8 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             ScheduleCinematicSkipDialogRecovery()
             local welcomePending = not (Offhand.IsWelcomeDismissed and Offhand:IsWelcomeDismissed())
                 or (Offhand.GetOnboardingResumeStep and Offhand:GetOnboardingResumeStep() ~= nil)
-            if welcomePending or (Offhand._companionNoticesShown and next(Offhand._companionNoticesShown))
+            if welcomePending or (Offhand.WhatsNew and Offhand.WhatsNew:IsShown())
+                or (Offhand._companionNoticesShown and next(Offhand._companionNoticesShown))
                 or (Offhand.HUD and Offhand.HUD.foreverRecoveryPromptShown)
                 or (Offhand.CharacterSetup and Offhand.CharacterSetup.shown) then
                 Offhand:DeferAutomaticUIForCinematic()
@@ -2107,6 +2113,8 @@ SlashCmdList["OFFHAND"] = function(msg)
     elseif msg == "debug" then
         Offhand.db.debugMode = not Offhand.db.debugMode
         Offhand:Print(L["MSG_DEBUG_TOGGLED"], Offhand.db.debugMode and L["MSG_DEBUG_ON"] or L["MSG_DEBUG_OFF"])
+    elseif cmd == "whatsnew" and Offhand.WhatsNew then
+        Offhand.WhatsNew:Open()
     elseif cmd == "guide" or cmd == "setup" then
         if Offhand.Onboarding and Offhand.Onboarding.Open then
             Offhand.Onboarding:Open()

@@ -103,5 +103,6 @@ UI\SetupVisuals.lua
 UI\DisplayIdentify.lua
 UI\Minimap.lua
 UI\Onboarding.lua
+UI\WhatsNew.lua
 UI\Wizard.lua
 UI\EllesmereLayoutPreview.lua

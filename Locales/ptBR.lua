@@ -1,6 +1,17 @@
 local _, Offhand = ...
 if GetLocale() ~= "ptBR" then return end
 local L = Offhand.L
+L["WHATS_NEW_TITLE"] = "Novidades do Offhand v%s"
+L["WHATS_NEW_BETA32"] = "• Ajuste o tamanho dos painéis separadamente em cada espaço de trabalho.\n• Veja as alterações antes de aplicar e use estimativas de escala do Windows com o Companion 2.1.7.\n• Melhorias no ajuste do mapa, nas instruções de configuração e na posição das janelas."
+L["WHATS_NEW_FALLBACK"] = "Consulte as notas completas para ver as mudanças desta versão."
+L["WHATS_NEW_COMPANION_PAIRED"] = "O Companion %s acompanha esta versão do addon."
+L["WHATS_NEW_COMPANION_UNCHANGED"] = "Nenhuma nova versão do Companion acompanha esta atualização do addon."
+L["WHATS_NEW_COMPANION_LAST_USED"] = "Último Companion usado para estender a janela do WoW: %s."
+L["WHATS_NEW_COMPANION_STORE"] = "Versão da Microsoft Store no lançamento do addon: %s."
+L["WHATS_NEW_COMPANION_CHECK"] = "Se você usa a edição da Microsoft Store, confira se há uma atualização na loja."
+L["WHATS_NEW_STORE_LINK"] = "Link da Microsoft Store"
+L["WHATS_NEW_NOTES_LINK"] = "Notas da versão"
+L["WHATS_NEW_COPY_HINT"] = "Selecione e copie o endereço e depois abra-o no navegador."
 -- Experimental EllesmereUI transfer strings use English fallback.
 L["ELLESMERE_HUD_HELP"] = "Use /offhand ellesmere preview to open the visual HUD preview."
 L["ELLESMERE_HUD_VISUAL"] = "EllesmereUI HUD Preview"

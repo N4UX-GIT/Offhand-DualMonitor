@@ -13,6 +13,17 @@ local L = Offhand.L or setmetatable({}, {
 })
 
 Offhand.L = L
+L["WHATS_NEW_TITLE"] = "What's new in Offhand v%s"
+L["WHATS_NEW_BETA32"] = "• Set panel sizes separately for each workspace.\n• Preview changes before applying them, and use Windows scaling estimates with Companion 2.1.7.\n• Improved map fitting, setup guidance, and popup placement."
+L["WHATS_NEW_FALLBACK"] = "See the full release notes for changes in this version."
+L["WHATS_NEW_COMPANION_PAIRED"] = "Companion %s accompanies this addon release."
+L["WHATS_NEW_COMPANION_UNCHANGED"] = "No new Companion release accompanies this addon update."
+L["WHATS_NEW_COMPANION_LAST_USED"] = "Companion last used to span WoW: %s."
+L["WHATS_NEW_COMPANION_STORE"] = "Microsoft Store version at release: %s."
+L["WHATS_NEW_COMPANION_CHECK"] = "If you use the Microsoft Store edition, check for an update there."
+L["WHATS_NEW_STORE_LINK"] = "Microsoft Store link"
+L["WHATS_NEW_NOTES_LINK"] = "Release notes"
+L["WHATS_NEW_COPY_HINT"] = "Select and copy the address, then open it in your browser."
 L["CHARACTER_SETUP_TEXT"] = "|cffffd100Set up this character's HUD|r\n\nYour account's monitor setup and current Offhand profile are already available. Reuse a compatible HUD layout, customize this character's HUD, or choose Later to keep playing.\n\n%s\n\nLater pauses this check for this character until the display arrangement or input mode changes. You can resume HUD setup from Recovery & Preview."
 L["CHARACTER_SETUP_USE"] = "Use existing setup"
 L["CHARACTER_SETUP_LATER"] = "Later"

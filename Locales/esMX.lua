@@ -1,6 +1,17 @@
 local _, Offhand = ...
 if GetLocale() ~= "esMX" then return end
 local L = Offhand.L
+L["WHATS_NEW_TITLE"] = "Novedades de Offhand v%s"
+L["WHATS_NEW_BETA32"] = "• Ajusta por separado el tamaño de los paneles en cada espacio de trabajo.\n• Consulta una vista previa antes de aplicar los cambios y usa las estimaciones de escala de Windows con Companion 2.1.7.\n• Mejoras en el ajuste del mapa, las guías de configuración y la posición de las ventanas emergentes."
+L["WHATS_NEW_FALLBACK"] = "Consulta las notas completas para ver los cambios de esta versión."
+L["WHATS_NEW_COMPANION_PAIRED"] = "Esta versión del addon viene acompañada de Companion %s."
+L["WHATS_NEW_COMPANION_UNCHANGED"] = "Esta actualización del addon no viene acompañada de una nueva versión de Companion."
+L["WHATS_NEW_COMPANION_LAST_USED"] = "Companion usado en la última configuración de pantallas: %s."
+L["WHATS_NEW_COMPANION_STORE"] = "Versión de Microsoft Store al publicarse el addon: %s."
+L["WHATS_NEW_COMPANION_CHECK"] = "Si usas la edición de Microsoft Store, consulta allí si hay una actualización."
+L["WHATS_NEW_STORE_LINK"] = "Enlace a Microsoft Store"
+L["WHATS_NEW_NOTES_LINK"] = "Notas de la versión"
+L["WHATS_NEW_COPY_HINT"] = "Selecciona y copia la dirección, y luego ábrela en el navegador."
 -- Experimental EllesmereUI transfer strings use English fallback.
 L["ELLESMERE_HUD_HELP"] = "Usa /offhand ellesmere preview para abrir la vista previa del HUD."
 L["ELLESMERE_HUD_VISUAL"] = "Vista previa del HUD de EllesmereUI"
