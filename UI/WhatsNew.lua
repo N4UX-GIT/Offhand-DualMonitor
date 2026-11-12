@@ -8,6 +8,7 @@ Offhand.WhatsNew = WhatsNew
 -- See docs/ADDON-RELEASE-NOTICES.md before updating either value.
 local storeVersion = "2.1.7"
 local releases = {
+    ["2.1.5-beta.33"] = { highlights = "WHATS_NEW_BETA33" },
     ["2.1.5-beta.32"] = { highlights = "WHATS_NEW_BETA32", companion = "2.1.7" },
 }
 local releasesUrl = "https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v"

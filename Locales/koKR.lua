@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "koKR" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Offhand v%s의 새로운 기능"
+L["WHATS_NEW_BETA33"] = "• 메인핸드 HUD를 다시 만들 때 행동 단축바와 경험치 바의 배치를 개선했습니다.\n• 설정과 배치 가져오기가 끝난 뒤 표시되는 안내를 개선했습니다.\n• Forever에서 세계 지도, 가방, Titan Panel의 호환성을 개선했습니다."
 L["WHATS_NEW_BETA32"] = "• 작업 공간마다 패널 크기를 따로 설정할 수 있습니다.\n• 적용하기 전에 변경 사항을 미리 보고, Companion 2.1.7로 Windows 배율 추정치를 사용할 수 있습니다.\n• 지도 맞춤, 설정 안내, 팝업 위치를 개선했습니다."
 L["WHATS_NEW_FALLBACK"] = "이 버전의 변경 사항은 전체 릴리스 노트를 참고하세요."
 L["WHATS_NEW_COMPANION_PAIRED"] = "이 애드온 버전과 함께 Companion %s이 출시되었습니다."

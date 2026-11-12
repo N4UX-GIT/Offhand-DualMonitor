@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "frFR" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Nouveautés d’Offhand v%s"
+L["WHATS_NEW_BETA33"] = "• Meilleur placement des barres d’action et d’expérience lors de la mise à jour de l’interface Mainhand.\n• Messages plus clairs après la configuration et l’importation d’une disposition.\n• Meilleure compatibilité avec la carte du monde, les sacs et Titan Panel sur Forever."
 L["WHATS_NEW_BETA32"] = "• Réglez la taille des fenêtres séparément pour chaque espace de travail.\n• Prévisualisez les changements avant de les appliquer et utilisez les estimations de mise à l’échelle de Windows avec Companion 2.1.7.\n• Ajustement de la carte, aide à la configuration et positionnement des fenêtres améliorés."
 L["WHATS_NEW_FALLBACK"] = "Consultez les notes de version complètes pour découvrir les changements."
 L["WHATS_NEW_COMPANION_PAIRED"] = "Companion %s accompagne cette version de l’addon."

@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "zhTW" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Offhand v%s 更新內容"
+L["WHATS_NEW_BETA33"] = "• 重建主畫面介面時改進快捷列與經驗條的位置。\n• 設定完成和匯入版面配置後的提示更清楚。\n• 改善 Forever 中世界地圖、背包與 Titan Panel 的相容性。"
 L["WHATS_NEW_BETA32"] = "• 可分別調整每個工作區的面板大小。\n• 套用前可預覽變更，使用 Companion 2.1.7 還可依 Windows 縮放比例估算大小。\n• 改善地圖配置、設定指引和彈出視窗位置。"
 L["WHATS_NEW_FALLBACK"] = "請查看完整版本說明，了解此版本的變更。"
 L["WHATS_NEW_COMPANION_PAIRED"] = "此插件版本同時發行了 Companion %s。"

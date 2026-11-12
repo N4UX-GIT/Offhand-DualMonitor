@@ -6,6 +6,31 @@ Stable IDs for reports that require follow-up across test sessions.
 
 Baselines are the published addon tag [v2.1.5-beta.32](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.5-beta.32) at `9c6a58d`, the Companion 2.1.7.4 candidate from `8603412` (Store MSIX `2.1.700.0`, Submission 8), and the Retail HUD follow-up [#119](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/119) on addon integration. Record the actual installed build in every result. Prior Forever native runs used overlays and earlier Companion builds, and cover the recorded actions on those subjects.
 
+### Beta 33 QA candidate
+
+`codex/beta33-qa` combines the current addon, Companion, and website integration
+lines with the pending source for Forever map and Escape behavior, HUD and bag
+recovery, What's New, Titan Panel, and Companion profiles and diagnostics. The
+Forever setup and native HUD snapshot based on the Beta 32 tag includes the
+tracked changes from the older root checkout. The OpenMap work includes the
+MoveAny persistence commits. The manifest and Titan Panel changes are included
+once through their committed branches. Package the addon with
+`./package.ps1 -AddonOnly -Version 2.1.5-beta.33`.
+
+- **Retail 12.1.5.70783.** Start with an active generated Beta 32 layout on the
+  same geometry. Rebuild through Settings, reload, and verify the default
+  secondary rows clear Action Bar 1 with XP visible and hidden. Check a manually
+  moved row, a second character, a cold launch, and a protected cast.
+- **Forever 1.60.1.70888.** Rebuild once with the overlapping Beta 32 XP
+  placement and again with a centered manual XP anchor. Check both after
+  reload. Then test the setup prompt, stock map Escape, OpenMap, MoveAny, Titan
+  Panel, a narrow backpack, the queue button, and EllesmereUI bags with Talents.
+  Check What's New on an unseen account, including narrow Mainhand and Gamepad.
+- **Companion.** The combined branch contains updated source. For the mixed-DPI
+  HDR/SDR three-monitor failure, capture the failed Custom span with a Companion
+  candidate built from this source. Check that the report survives a successful
+  Standard retry and records the requested, observed, and restored bounds.
+
 ### P0 · Release and integration
 
 | Work | Action and completion evidence |

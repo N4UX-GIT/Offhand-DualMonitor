@@ -6,7 +6,25 @@
   shows the Companion release status and offers a copyable Microsoft Store link.
   Reopen it anytime with `/offhand whatsnew`.
 
-## [2.1.5-beta.32] - Unreleased
+## [2.1.5-beta.33] - Unreleased
+
+- Rebuilding a Retail Mainhand HUD updates eligible action bars in a saved Beta
+  32 layout, so the default rows clear Action Bar 1 and its status bars.
+- On Forever, native XP, reputation, and secondary action bars can follow the
+  main action bar. Rebuilding repairs an overlapping Beta 32 XP anchor when it
+  matches the old generated placement and preserves custom status-bar positions.
+- Clarify setup completion and the reload after importing an EllesmereUI layout.
+  Show release highlights at login and reopen them with `/offhand whatsnew`.
+- Preserve Forever map placement with MoveAny and restore Escape handling after
+  OpenMap registers the map again. Explain Blizzard's movement fade setting.
+- Improve narrow backpack fitting, preserve Titan Panel's bar anchors and the
+  native queue status button, and keep eligible EllesmereUI bags open with Talents.
+- Load each workspace scaling module once per client manifest.
+
+This QA build contains the addon. Companion profile feedback and span diagnostics
+are included in the source branch and await a separate Companion build.
+
+## [2.1.5-beta.32] - 2026-11-11
 
 - Set separate sizes for supported panels in each Offhand workspace from
   Workspace settings or calibration. Existing layouts keep their current sizes

@@ -14,6 +14,7 @@ local L = Offhand.L or setmetatable({}, {
 
 Offhand.L = L
 L["WHATS_NEW_TITLE"] = "What's new in Offhand v%s"
+L["WHATS_NEW_BETA33"] = "• Improved action and XP bar placement when rebuilding the Mainhand HUD.\n• Clearer prompts after setup and layout import.\n• Better World Map, bag, and Titan Panel compatibility on Forever."
 L["WHATS_NEW_BETA32"] = "• Set panel sizes separately for each workspace.\n• Preview changes before applying them, and use Windows scaling estimates with Companion 2.1.7.\n• Improved map fitting, setup guidance, and popup placement."
 L["WHATS_NEW_FALLBACK"] = "See the full release notes for changes in this version."
 L["WHATS_NEW_COMPANION_PAIRED"] = "Companion %s accompanies this addon release."
