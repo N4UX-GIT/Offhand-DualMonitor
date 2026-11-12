@@ -1,9 +1,12 @@
 local function entries(path)
-    local result={}
+    local result, seen = {}, {}
     for line in io.lines(path) do
         local file=line:match("^%s*(.-%.lua)%s*$")
         if file and not file:match("^#") then
             file=file:gsub("\\", "/")
+            local key = file:lower()
+            assert(not seen[key], "Duplicate TOC file in " .. path .. ": " .. file)
+            seen[key] = true
             assert(loadfile(file), "Invalid or missing TOC file: "..file)
             result[#result+1]=file
         end
