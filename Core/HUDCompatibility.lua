@@ -193,6 +193,13 @@ function Compatibility.ShouldPreservePopupPosition(frame, name)
     if not IsOrdinaryPopupValue(name) then return true end
     if type(name) == "string" and positionedAddonPopupRoots[name] then return true end
     if type(name) == "string" and linkedChatPopupRoots[name] then return true end
+    -- Titan's full-width bars derive their size from two anchors. Popup
+    -- recovery collapses that rectangle if it replaces them with one point.
+    local titanBars = _G.TitanBarData
+    if type(titanBars) == "table" and type(name) == "string" and _G[name] == frame then
+        local bar = titanBars[name]
+        if type(bar) == "table" and bar.frame_name == name then return true end
+    end
     -- Details owns each numbered meter through its instance/LibWindow store.
     -- Its drag completion clears IsUserPlaced; configuration dialogs are separate.
     if type(name) == "string" and name:match("^DetailsBaseFrame%d+$") then return true end

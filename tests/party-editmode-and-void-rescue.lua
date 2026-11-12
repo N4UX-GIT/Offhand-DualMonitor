@@ -2219,6 +2219,17 @@ table.insert(UIParent.children,v2);RXPV2GuideWindow={frame=v2};owned[#owned+1]=v
 local placed=makeMockFrame('UserPlacedAddonWidget',300,180)
 placed:SetUserPlaced(true);placed:SetPoint('TOPLEFT',UIParent,'TOPLEFT',2000,-50)
 table.insert(UIParent.children,placed);owned[#owned+1]=placed
+local originalTitanBarData, originalTitanBar = TitanBarData, Titan_Bar__Display_Bar
+local titanBar = makeMockFrame('Titan_Bar__Display_Bar', 4000, 24)
+Titan_Bar__Display_Bar = titanBar
+TitanBarData = { Titan_Bar__Display_Bar = { frame_name = 'Titan_Bar__Display_Bar' } }
+-- The mock resolves its rectangle from the last point. Titan's live frame
+-- derives its width and height from both points.
+titanBar:SetPoint('BOTTOMRIGHT', UIParent, 'TOPRIGHT', 0, -24)
+titanBar:SetPoint('TOPLEFT', UIParent, 'TOPLEFT', 0, 0)
+assert(titanBar:GetTop() > metrics.gameTop + 2, 'Titan bar must cross the Mainhand top edge')
+table.insert(UIParent.children, titanBar)
+owned[#owned+1] = titanBar
 local counts={};for _,f in ipairs(owned) do counts[f]=f.setPointCalls end
 addon.HUD:HookFrames()
 for _,f in ipairs(owned) do ShowUIPanel(f) end
@@ -2251,6 +2262,7 @@ for _,f in ipairs(owned) do
     if name then UIPanelWindows[name]=originalPanels[name] end
 end
 UISpecialFrames,RXPV2GuideWindow=originalSpecialFrames,originalV2
+TitanBarData, Titan_Bar__Display_Bar = originalTitanBarData, originalTitanBar
 UIPanelWindows.ReportPanelTrigger=nil
 print('PASS: automatic popup rescue preserves BetterBags, RestedXP V1/V2 and user-owned placement')
 end
