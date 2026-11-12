@@ -1,11 +1,5 @@
 # Changelog
 
-## [Unreleased]
-
-- Show what changed on the first login after an Offhand update. The dialog also
-  shows the Companion release status and offers a copyable Microsoft Store link.
-  Reopen it anytime with `/offhand whatsnew`.
-
 ## [2.1.5-beta.33] - Unreleased
 
 - Rebuilding a Retail Mainhand HUD updates eligible action bars in a saved Beta
@@ -14,7 +8,9 @@
   main action bar. Rebuilding repairs an overlapping Beta 32 XP anchor when it
   matches the old generated placement and preserves custom status-bar positions.
 - Clarify setup completion and the reload after importing an EllesmereUI layout.
-  Show release highlights at login and reopen them with `/offhand whatsnew`.
+- See release highlights on the first login after an update. The notice also
+  shows Companion release information and a copyable Microsoft Store link.
+  Reopen it with `/offhand whatsnew`.
 - Preserve Forever map placement with MoveAny and restore Escape handling after
   OpenMap registers the map again. Explain Blizzard's movement fade setting.
 - Improve narrow backpack fitting, preserve Titan Panel's bar anchors and the
