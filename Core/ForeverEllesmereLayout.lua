@@ -643,7 +643,7 @@ end
 function Transfer:OpenImport(rows, onComplete)
     local eui = _G.EllesmereUI
     if not (eui.SnapshotAllAddons and eui.EncodePayload and eui.ImportProfileInteractive
-        and eui.GetActiveProfileData and eui.GetProfileKeys) then return false end
+        and eui.GetActiveProfileData) then return false end
     local snapshot = eui.SnapshotAllAddons()
     if not snapshot or not snapshot.addons then return false end
     if HasOverrides(snapshot) then
@@ -696,22 +696,15 @@ function Transfer:OpenImport(rows, onComplete)
     local encoded = eui.EncodePayload(payload)
     if not encoded then return false end
 
-    local name = "Offhand HUD"
-    local existing = {}
-    for key in pairs(eui.GetProfileKeys()) do existing[key:lower()] = true end
-    local suffix = 1
-    while existing[name:lower()] do
-        suffix = suffix + 1
-        name = "Offhand HUD (" .. suffix .. ")"
-    end
     local activeBefore = eui.GetActiveProfileName and eui.GetActiveProfileName()
+    -- A name supplied by a partner addon can authorize replacing that profile
+    -- in EllesmereUI. User-entered names go through its duplicate-name check.
     return eui.ImportProfileInteractive({
-        importString = encoded, profileName = name, source = "Offhand",
+        importString = encoded, source = "Offhand",
         callback = function(accepted)
             local result
             if accepted then
-                -- The review allows renaming the new profile. Compare against
-                -- the outgoing profile rather than the suggested import name.
+                -- Spec assignments can leave the new profile inactive.
                 local activeAfter = eui.GetActiveProfileName and eui.GetActiveProfileName()
                 if activeBefore and activeAfter and activeAfter ~= activeBefore then
                     self.reloadProfile = activeAfter

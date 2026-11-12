@@ -47,10 +47,17 @@ Offhand layouts remain available through the native layout menu.
 
 ### EllesmereUI on Forever
 
+Before spanning, type `/eui` and open **Profiles & Presets**. Under
+**Export Profile**, select the modules you want to preserve and include
+**Unlock Mode Layout**. Save the export string outside WoW. To make manual
+changes in a separate profile, choose **Create New (Copy)** and follow
+EllesmereUI's reload prompt. Switch back through **Active Profile**.
+
 With Offhand spanned and EllesmereUI loaded, finish native HUD setup in Step 5.
 If a matching layout is active, select **Next**. If you create or select a
-layout, follow the reload prompt and the wizard resumes at Step 6. If you
-enable EllesmereUI after creating a character HUD and that layout is still
+layout, follow the reload prompt and the wizard resumes at Step 6. Choose the
+highlighted **EllesmereUI HUD Preview** or **Finish with current profile**.
+If you enable EllesmereUI after creating a character HUD and that layout is still
 active on the same span and input mode, **Review EllesmereUI HUD** opens Step 6
 directly and starts the preview on **Copy Offhand to EllesmereUI**.
 The same preview is available under **Offhand Monitor & Map → Recovery &
@@ -79,8 +86,9 @@ narrower Mainhand. Frames with attached children
 move as a group, preserving their EllesmereUI links. A frame anchored to
 another parent requires moving its parent. Groups without usable bounds
 and profiles using overrides are excluded. Fit and Copy
-open an EllesmereUI import review for a new profile. The module list contains
-only modules with selected positions. Confirm **Import Selected Addons**.
+open an EllesmereUI import review for a new profile. Enter an unused name
+such as **Offhand HUD**. The module list contains only modules with selected
+positions. Confirm **Import Selected Addons**.
 When the wizard returns, choose **Finish & Reload** to see the reload prompt.
 If you opened the preview from settings, the prompt appears when EllesmereUI
 closes. In Forever Gamepad mode the prompt instructs you to type `/reload`.

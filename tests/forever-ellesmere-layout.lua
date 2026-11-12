@@ -63,7 +63,6 @@ EllesmereUI = {
     EncodePayload = function(value) payload = value; return "encoded" end,
     GetActiveProfileData = function() return {windowSkinLook = "classic"} end,
     GetActiveProfileName = function() return activeProfile end,
-    GetProfileKeys = function() return {["offhand hud"] = true} end,
     ImportProfileInteractive = function(options) importOptions = options; return true end,
 }
 
@@ -123,7 +122,8 @@ local function Completed(result)
     completions = completions + 1
 end
 assert(transfer:OpenImport(rows, Completed))
-assert(importOptions.profileName == "Offhand HUD (2)" and importOptions.importString == "encoded")
+assert(importOptions.profileName == nil and importOptions.importString == "encoded",
+    "a suggested name can bypass the vendor's duplicate-name check")
 assert(payload.data.addons.EllesmereUIActionBars.barPositions.MainBar.x == 720
     and payload.data.addons.EllesmereUIActionBars.barPositions.Bar2.x == 42
     and payload.data.addons.EllesmereUIActionBars.style == "classic",
@@ -458,6 +458,8 @@ assert(loadfile("UI/EllesmereLayoutPreview.lua"))("Offhand", addon)
 importOptions, overrides = nil, nil
 transfer:ShowPreview("ellesmere")
 assert(not preview.selected, "the preview's row selection must not accent the dialog border")
+assert(review.enabled and preview.status.text:find(addon.L.ELLESMERE_HUD_NEW_PROFILE_NAME, 1, true),
+    "an available import must explain how to name the new profile")
 
 context.block = "ELLESMERE_HUD_OVERRIDES"
 transfer:ShowPreview("ellesmere")
