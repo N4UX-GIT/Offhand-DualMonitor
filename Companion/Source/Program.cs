@@ -2633,6 +2633,31 @@ namespace Offhand.Companion
                 return detail + " Windows blocked cross-process window control. Close both programs and launch WoW and Offhand Companion at the same privilege level; avoid Run as administrator unless both must use it.";
             return detail + " Confirm WoW is using standard Windowed mode, then restart WoW and the Companion and retry.";
         }
+
+        internal static string SpanReadback(Rectangle expected, Rectangle? actual, int readError,
+            ClassicGraphicsRecovery.Observation observation)
+        {
+            string outer = actual.HasValue ? actual.Value.ToString() : "unavailable";
+            if (!actual.HasValue && readError != 0) outer += " (Windows error " + readError + ")";
+            string details = observation == null ? ""
+                : "; client=" + observation.Client + "; region=" + observation.Region
+                    + "; style=" + observation.Style.ToString("X8");
+            return "span readback: outer=" + outer + details + "; expected=" + expected + ".";
+        }
+
+        internal static string FailedSpan(DateTime capturedUtc, MonitorSelection.Plan plan, string readback,
+            string rollbackFailure)
+        {
+            var text = new StringBuilder();
+            text.AppendLine("Most recent span bounds failure in this Companion session (" + capturedUtc.ToString("u") + ")");
+            text.AppendLine("Attempted layout: " + (plan.IsCustom ? "custom workspace" : "standard display selection"));
+            text.AppendLine("Requested Mainhand: " + plan.MainhandBounds);
+            Rectangle[] visible = MonitorSelection.VisibleRectangles(plan);
+            for (int i = 1; i < visible.Length; i++) text.AppendLine("Requested workspace " + i + ": " + visible[i]);
+            text.AppendLine(readback);
+            text.Append("Span rollback: " + (rollbackFailure ?? "completed."));
+            return text.ToString();
+        }
     }
 
     // Pure decision logic for the captured graphics-reset signature.
@@ -4022,7 +4047,7 @@ namespace Offhand.Companion
         [DllImport("gdi32.dll")]
         public static extern bool DeleteObject(IntPtr hObject);
 
-        [DllImport("user32.dll")]
+        [DllImport("user32.dll", SetLastError = true)]
         public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
         [DllImport("user32.dll")]
@@ -4443,6 +4468,7 @@ namespace Offhand.Companion
         private Panel dashboardHeader;
         private bool layingOutDashboard;
         private string colorDiagnostics = "Select a valid display plan to inspect color modes.";
+        private string lastSpanBoundsFailure;
         private string lastColorDiagnostic;
         private Label lblAddonReason;
         private string lastAddonDiagnostic;
@@ -7195,7 +7221,9 @@ namespace Offhand.Companion
                     + "\r\nWindows: " + Environment.OSVersion.Version
                     + "\r\nSettings storage: " + (isStorePackage ? "Microsoft Store package data" : "local user profile")
                     + "\r\nCaptured UTC: " + DateTime.UtcNow.ToString("u")
-                    + "\r\n" + colorDiagnostics + "\r\nWindows display state only; game HDR conversion, WoW UI/render scale and image brightness are not measured.");
+                    + "\r\n" + colorDiagnostics
+                    + "\r\nWindows display state only; game HDR conversion, WoW UI/render scale and image brightness are not measured."
+                    + (lastSpanBoundsFailure == null ? "" : "\r\n\r\n" + lastSpanBoundsFailure));
                 AddLog("Display diagnostics copied to clipboard.");
             }
             catch (ExternalException) { MessageBox.Show(this, "The clipboard is busy. Try copying the diagnostics again.", "Display Diagnostics"); }
@@ -7712,8 +7740,14 @@ namespace Offhand.Companion
 
         private static ClassicGraphicsRecovery.Observation ReadRecoveryObservation(IntPtr handle)
         {
-            NativeMethods.RECT bounds, client, box;
-            if (!NativeMethods.GetWindowRect(handle, out bounds) || !NativeMethods.GetClientRect(handle, out client)) return null;
+            NativeMethods.RECT bounds;
+            return NativeMethods.GetWindowRect(handle, out bounds) ? ReadRecoveryObservation(handle, bounds) : null;
+        }
+
+        private static ClassicGraphicsRecovery.Observation ReadRecoveryObservation(IntPtr handle, NativeMethods.RECT bounds)
+        {
+            NativeMethods.RECT client, box;
+            if (!NativeMethods.GetClientRect(handle, out client)) return null;
             var result = new ClassicGraphicsRecovery.Observation {
                 Handle = handle, Bounds = new Rectangle(bounds.Left, bounds.Top, bounds.Width, bounds.Height),
                 Client = new Size(client.Width, client.Height), Style = NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE),
@@ -7896,6 +7930,9 @@ namespace Offhand.Companion
         {
             Process proc = null;
             SpanRollback rollback = null;
+            MonitorSelection.Plan plan = null;
+            string failedBoundsReadback = null;
+            DateTime failedBoundsAt = default(DateTime);
             try
             {
                 RemoteDesktop.State session = RemoteDesktop.Read();
@@ -7907,7 +7944,6 @@ namespace Offhand.Companion
                 if (proc == null) throw new Exception("Launch exactly one WoW client first.");
                 int confirmedGeneration = remoteGeneration;
                 List<MonitorSelection.Display> displays = ReadDisplays();
-                MonitorSelection.Plan plan;
                 if (remote)
                 {
                     plan = ConfirmRemotePlan(displays);
@@ -8050,22 +8086,28 @@ namespace Offhand.Companion
                         AddLog("Render resize handshake applied; exact display bounds restored.");
                     }
 
-                    NativeMethods.RECT actual;
                     if (GraphicsRecoveryEnabled)
                     {
-                        var observedSpan = ReadRecoveryObservation(handle);
-                        if (observedSpan != null)
-                            AddLog(RecoveryScope + " span readback: outer=" + observedSpan.Bounds + "; client="
-                                + observedSpan.Client + "; region=" + observedSpan.Region + "; style="
-                                + observedSpan.Style.ToString("X8") + "; expected=" + bounds + ".");
+                        var observation = ReadRecoveryObservation(handle);
+                        if (observation != null)
+                            AddLog(RecoveryScope + " " + WindowInteropDiagnostics.SpanReadback(bounds, observation.Bounds, 0, observation));
                     }
-                    if (!NativeMethods.GetWindowRect(handle, out actual) ||
-                        actual.Left != bounds.X || actual.Top != bounds.Y ||
-                        actual.Width != bounds.Width || actual.Height != bounds.Height)
+
+                    NativeMethods.RECT actual;
+                    NativeMethods.SetLastError(0);
+                    bool boundsRead = NativeMethods.GetWindowRect(handle, out actual);
+                    int readError = boundsRead ? 0 : Marshal.GetLastWin32Error();
+                    Rectangle? observedBounds = boundsRead
+                        ? new Rectangle(actual.Left, actual.Top, actual.Width, actual.Height) : (Rectangle?)null;
+                    if (observedBounds != bounds)
                     {
-                        throw new Exception(GraphicsRecoveryEnabled
-                            ? "WoW changed its window bounds during spanning. Use Restore Window and retain the diagnostic capture; recovery was not armed."
-                            : "WoW did not accept the requested bounds. Select Windowed mode and retry.");
+                        var observation = boundsRead ? ReadRecoveryObservation(handle, actual) : null;
+                        failedBoundsReadback = WindowInteropDiagnostics.SpanReadback(bounds, observedBounds, readError, observation);
+                        failedBoundsAt = DateTime.UtcNow;
+                        AddLog("Failed " + failedBoundsReadback);
+                        string reason = boundsRead ? "WoW did not retain the requested window bounds."
+                            : "Companion could not read WoW's window bounds after spanning.";
+                        throw new Exception(reason + " Use Copy Display Diagnostics to capture the failure. Select Windowed mode before trying again.");
                     }
                     if (graphicsRecovery)
                     {
@@ -8149,11 +8191,10 @@ namespace Offhand.Companion
             }
             catch (Exception ex)
             {
-                if (rollback != null)
-                {
-                    string rollbackFailure = rollback.Rollback();
-                    if (rollbackFailure != null) AddLog(rollbackFailure);
-                }
+                string rollbackFailure = rollback == null ? null : rollback.Rollback();
+                if (rollbackFailure != null) AddLog(rollbackFailure);
+                if (failedBoundsReadback != null)
+                    lastSpanBoundsFailure = WindowInteropDiagnostics.FailedSpan(failedBoundsAt, plan, failedBoundsReadback, rollbackFailure);
                 AddLog(ex.Message);
                 if (manual)
                 {

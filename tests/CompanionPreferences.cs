@@ -100,6 +100,35 @@ namespace Offhand.Companion {
                 .Contains("same privilege level"));
             Check(WindowInteropDiagnostics.StyleFailure("Could not remove WoW window borders", 87)
                 .Contains("Windows error 87"));
+            var expectedSpan = new Rectangle(-1660, -371, 4220, 2240);
+            var actualSpan = new Rectangle(-1660, -371, 4204, 2240);
+            var spanObservation = new ClassicGraphicsRecovery.Observation {
+                Bounds = actualSpan, Client = actualSpan.Size, Region = new Rectangle(Point.Empty, expectedSpan.Size),
+                Style = 0x140B0000
+            };
+            string readback = WindowInteropDiagnostics.SpanReadback(expectedSpan, actualSpan, 0, spanObservation);
+            Check(readback.Contains("outer=" + actualSpan) && readback.Contains("expected=" + expectedSpan)
+                && readback.Contains("client=" + spanObservation.Client)
+                && readback.Contains("region=" + spanObservation.Region) && readback.Contains("style=140B0000"));
+            string unreadable = WindowInteropDiagnostics.SpanReadback(expectedSpan, null, 1400, null);
+            Check(unreadable.Contains("outer=unavailable (Windows error 1400)")
+                && unreadable.Contains("expected=" + expectedSpan));
+            var failedPlan = new MonitorSelection.Plan {
+                FlexibleLayout = true, Bounds = expectedSpan, MainhandBounds = new Rectangle(0, 0, 2560, 1440),
+                Workspaces = new [] {
+                    new MonitorSelection.WorkspaceRegion { Bounds = new Rectangle(-1660, -371, 1600, 1640) },
+                    new MonitorSelection.WorkspaceRegion { Bounds = new Rectangle(-1660, 1269, 1600, 600) }
+                }
+            };
+            var capturedUtc = new DateTime(2026, 11, 12, 17, 3, 18, DateTimeKind.Utc);
+            string failedSpan = WindowInteropDiagnostics.FailedSpan(capturedUtc, failedPlan, readback, null);
+            Check(failedSpan.Contains(capturedUtc.ToString("u")) && failedSpan.Contains("Attempted layout: custom workspace")
+                && failedSpan.Contains("Requested Mainhand: " + failedPlan.MainhandBounds)
+                && failedSpan.Contains("Requested workspace 1: " + failedPlan.Workspaces[0].Bounds)
+                && failedSpan.Contains("Requested workspace 2: " + failedPlan.Workspaces[1].Bounds)
+                && failedSpan.Contains(readback) && failedSpan.Contains("Span rollback: completed."));
+            Check(WindowInteropDiagnostics.FailedSpan(capturedUtc, failedPlan, unreadable, "Span rollback incomplete: window bounds.")
+                .Contains("Span rollback incomplete: window bounds."));
             var renderTarget = new Rectangle(-440, -1080, 3440, 2520);
             Check(!RenderResizeHandshake.Allowed(false));
             Check(!RenderResizeHandshake.Allowed(true));
