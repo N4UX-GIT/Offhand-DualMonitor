@@ -26,7 +26,6 @@ Core\ForeverState.lua
 Core\Config.lua
 Core\UserMedia.lua
 Core\ManualCanvas.lua
-Core\WorkspaceScale.lua
 Core\WorkspaceRegions.lua
 Core\WorkspaceScale.lua
 Core\WorkspaceProfiles.lua
@@ -95,7 +94,6 @@ Locales\zhTW.lua
 
 # UI & Themes
 UI\Themes.lua
-UI\WorkspaceScaleControls.lua
 UI\Controls.lua
 UI\WorkspaceScaleControls.lua
 UI\OptionsActions.lua
