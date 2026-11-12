@@ -1207,24 +1207,28 @@ function Options:CreateFloatingPanel()
     card2_1:RegisterEvent("ADDON_LOADED")
     card2_1:SetScript("OnEvent", function() if card2_1:IsShown() then RefreshMapScaleControls() end end)
 
-    local mapMoveCheck = CreateNativeCheckbox(card2_1, L["MAP_KEEP_OPEN"],
-        function() return Offhand.db and Offhand.db.preventMapCloseOnMove end,
-        function(val)
-            Offhand.db.preventMapCloseOnMove = val
-            if Offhand.Canvas and Offhand.Canvas.UpdateMapMovementBehavior then
-                Offhand.Canvas:UpdateMapMovementBehavior()
-            end
-        end,
-        "Persistent Map Movement", "Prevents the World Map from closing automatically when your character moves."
-    )
-    mapMoveCheck:SetPoint("TOPLEFT", 10, -112)
+    local mapMoveCheck
+    if not Offhand.isForever then
+        mapMoveCheck = CreateNativeCheckbox(card2_1, L["MAP_KEEP_OPEN"],
+            function() return Offhand.db and Offhand.db.preventMapCloseOnMove end,
+            function(val)
+                Offhand.db.preventMapCloseOnMove = val
+                if Offhand.Canvas and Offhand.Canvas.UpdateMapMovementBehavior then
+                    Offhand.Canvas:UpdateMapMovementBehavior()
+                end
+            end,
+            "Persistent Map Movement", "Prevents the World Map from closing automatically when your character moves."
+        )
+        mapMoveCheck:SetPoint("TOPLEFT", 10, -112)
+    end
 
-    local mapDesc = card2_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    mapDesc:SetPoint("TOPLEFT", 32, -134)
-    mapDesc:SetJustifyH("LEFT")
-    mapDesc:SetWidth(530)
-    mapDesc:SetWordWrap(true)
     do
+        local mapDesc = card2_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        local descriptionTop = mapMoveCheck and 134 or 112
+        mapDesc:SetPoint("TOPLEFT", mapMoveCheck and 32 or 12, -descriptionTop)
+        mapDesc:SetJustifyH("LEFT")
+        mapDesc:SetWidth(530)
+        mapDesc:SetWordWrap(true)
         local recoverMap
         if Offhand.isForever and Offhand.OpenMapRecovery then
             recoverMap = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
@@ -1238,9 +1242,10 @@ function Options:CreateFloatingPanel()
             end
         end
         function card2_1.RefreshIntegration(openMapOwner)
-            local description = L[IsIntegrationActive("Leatrix_Maps") and "COMPAT_LEATRIX" or "MAP_KEEP_OPEN_DESC"]
+            local description = L[IsIntegrationActive("Leatrix_Maps") and "COMPAT_LEATRIX"
+                or (Offhand.isForever and "MAP_MOVEMENT_FOREVER" or "MAP_KEEP_OPEN_DESC")]
             mapDesc:SetText(description)
-            local top = 146 + Controls.FitCompactParagraph(mapDesc, description, 530)
+            local top = descriptionTop + 12 + Controls.FitCompactParagraph(mapDesc, description, 530)
             if recoverMap then
                 SetShown(recoverMap, openMapOwner)
                 recoverMap:SetPoint("TOPLEFT", 12, -top)
@@ -2713,7 +2718,7 @@ function Options:CreateFloatingPanel()
         if gamepadFocusBindingStatus then
             gamepadFocusBindingStatus:SetText(GamepadFocusBindingStatusText())
         end
-        mapMoveCheck:SetChecked((Offhand.db and Offhand.db.preventMapCloseOnMove) or false)
+        if mapMoveCheck then mapMoveCheck:SetChecked((Offhand.db and Offhand.db.preventMapCloseOnMove) or false) end
         panelCheck:SetChecked((Offhand.db and Offhand.db.independentWorkspacePanels) or false)
         escapeCheck:SetChecked((Offhand.db and Offhand.db.persistentWorkspacePanels ~= false) or false)
         reloadCheck:SetChecked((Offhand.db and Offhand.db.restoreWorkspaceOnReload ~= false) or false)

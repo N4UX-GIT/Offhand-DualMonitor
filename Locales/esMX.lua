@@ -798,6 +798,7 @@ L["COMPAT_BAGS"] = "Tu addon de bolsas controla sus ventanas."
 L["COMPAT_MINIMAP"] = "Tu addon de minimapa controla su ventana."
 L["COMPAT_AUTO"] = "Los addons compatibles de bolsas y minimapa se detectan automáticamente."
 L["MAP_KEEP_OPEN_DESC"] = "El mapa permanece visible mientras te mueves."
+L["MAP_MOVEMENT_FOREVER"] = "Para desactivar la transparencia del mapa del mundo de Blizzard al moverte, escribe /console mapFade 0. Para reactivarla, escribe /console mapFade 1."
 L["PANELS_INDEPENDENT_DESC"] = "Permite abrir simultáneamente bolsas, personaje, libro de hechizos y mapa."
 
 -- Minimap & Menu

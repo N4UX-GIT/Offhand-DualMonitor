@@ -799,6 +799,7 @@ L["COMPAT_BAGS"] = "Votre addon de sacs contrôle ses fenêtres."
 L["COMPAT_MINIMAP"] = "Votre addon de minicarte contrôle sa fenêtre."
 L["COMPAT_AUTO"] = "Les addons compatibles de sacs et de minicarte sont détectés automatiquement."
 L["MAP_KEEP_OPEN_DESC"] = "La carte reste visible pendant vos déplacements."
+L["MAP_MOVEMENT_FOREVER"] = "Pour désactiver la transparence de la carte du monde de Blizzard pendant vos déplacements, saisissez /console mapFade 0. Pour la réactiver, saisissez /console mapFade 1."
 L["PANELS_INDEPENDENT_DESC"] = "Permet d'ouvrir simultanément les sacs, le personnage, le grimoire et la carte."
 
 -- Minimap & Menu

@@ -798,6 +798,7 @@ L["COMPAT_BAGS"] = "Das Taschen-Addon steuert seine Fenster."
 L["COMPAT_MINIMAP"] = "Das Minikarten-Addon steuert sein Fenster."
 L["COMPAT_AUTO"] = "Kompatible Taschen- und Minikarten-Addons werden automatisch erkannt."
 L["MAP_KEEP_OPEN_DESC"] = "Die Karte bleibt beim Bewegen sichtbar."
+L["MAP_MOVEMENT_FOREVER"] = "Für die Blizzard-Weltkarte deaktiviert /console mapFade 0 die Transparenz beim Bewegen. Mit /console mapFade 1 aktivierst du sie wieder."
 L["PANELS_INDEPENDENT_DESC"] = "Erlaubt das gleichzeitige Öffnen von Taschen, Charakterfenster, Zauberbuch und Karte."
 
 -- Minimap & Menu

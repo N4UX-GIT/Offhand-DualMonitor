@@ -820,6 +820,47 @@ assert(mapOnWorkspace or mapOnMainhand,
     "the external Forever map toggle must rescue an unsaved map from mixed-height dead space")
 assert(WorldMapFrame.setScriptWrites == 0 and WorldMapFrame.hookScriptWrites == 0,
     "unsaved map rescue must preserve the native Forever MapCanvas script boundary")
+
+-- On equal-height landscape displays, Blizzard's default anchor can already
+-- land entirely on Offhand. Escape protection should work before any drag.
+metrics.screenWidth, metrics.screenHeight = 5120, 1440
+metrics.gameLeft, metrics.gameBottom, metrics.gameRight, metrics.gameTop = 2560, 0, 5120, 1440
+metrics.gameWidth, metrics.gameHeight = 2560, 1440
+metrics.workspaceLeft, metrics.workspaceBottom, metrics.workspaceRight, metrics.workspaceTop = 0, 0, 2560, 1440
+metrics.workspaceWidth, metrics.workspaceHeight = 2560, 1440
+WorldMapFrame:Hide()
+createdHandles[1].scripts.OnUpdate(nil, 1)
+WorldMapFrame.left, WorldMapFrame.bottom = 40, 400
+WorldMapFrame:Show()
+activePanels.left = WorldMapFrame
+table.insert(UISpecialFrames, "WorldMapFrame")
+createdHandles[1].scripts.OnUpdate(nil, 1)
+flushTimers()
+assert(WorldMapFrame:IsShown() and activePanels.left == nil
+        and not table.concat(UISpecialFrames, ","):find("WorldMapFrame", 1, true),
+    "a windowed map already on Offhand must survive Escape before its first drag")
+assert(addon.db.savedWorkspacePositions.WorldMapFrame == nil,
+    "protecting the visible map must not create a saved placement")
+
+addon.db.persistentWorkspacePanels = false
+createdHandles[1].scripts.OnUpdate(nil, 1)
+flushTimers()
+assert(isSpecial("WorldMapFrame"),
+    "turning off Escape protection must restore the close path for the detached map")
+addon.db.persistentWorkspacePanels = true
+createdHandles[1].scripts.OnUpdate(nil, 1)
+flushTimers()
+pressEscapeCloseSpecialFrames()
+assert(WorldMapFrame:IsShown() and not isSpecial("WorldMapFrame"),
+    "turning Escape protection back on must protect the same open map")
+addon.db.persistentWorkspacePanels = false
+createdHandles[1].scripts.OnUpdate(nil, 1)
+flushTimers()
+pressEscapeCloseSpecialFrames()
+assert(not WorldMapFrame:IsShown(),
+    "the windowed map must close on Escape after protection is turned off")
+addon.db.persistentWorkspacePanels = true
+
 for key in pairs(metrics) do metrics[key] = nil end
 for key, value in pairs(originalMetrics) do metrics[key] = value end
 addon.db.savedWorkspacePositions.WorldMapFrame = savedWorkspaceMap

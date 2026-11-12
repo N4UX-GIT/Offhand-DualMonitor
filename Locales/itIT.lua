@@ -800,6 +800,7 @@ L["COMPAT_BAGS"] = "Il tuo addon delle borse controlla le proprie finestre."
 L["COMPAT_MINIMAP"] = "Il tuo addon della minimappa controlla la propria finestra."
 L["COMPAT_AUTO"] = "Gli addon compatibili di borse e minimappa vengono rilevati automaticamente."
 L["MAP_KEEP_OPEN_DESC"] = "La mappa resta visibile quando ti muovi."
+L["MAP_MOVEMENT_FOREVER"] = "Per disattivare la trasparenza della mappa del mondo di Blizzard mentre ti muovi, digita /console mapFade 0. Per riattivarla, digita /console mapFade 1."
 L["PANELS_INDEPENDENT_DESC"] = "Consente di aprire insieme borse, personaggio, grimorio e mappa."
 
 -- Minimap & Menu

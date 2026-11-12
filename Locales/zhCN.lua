@@ -800,6 +800,7 @@ L["COMPAT_BAGS"] = "背包插件自行管理背包窗口。"
 L["COMPAT_MINIMAP"] = "小地图插件自行管理小地图。"
 L["COMPAT_AUTO"] = "自动检测兼容的背包及小地图插件。"
 L["MAP_KEEP_OPEN_DESC"] = "移动时地图保持可见。"
+L["MAP_MOVEMENT_FOREVER"] = "要关闭移动时暴雪世界地图的淡出效果，请输入 /console mapFade 0。要重新启用，请输入 /console mapFade 1。"
 L["PANELS_INDEPENDENT_DESC"] = "Allows opening bags, character pane, spellbook & map simultaneously."
 
 -- Minimap & Menu

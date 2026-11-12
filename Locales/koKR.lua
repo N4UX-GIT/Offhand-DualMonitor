@@ -800,6 +800,7 @@ L["COMPAT_BAGS"] = "가방 애드온이 가방 창을 제어합니다."
 L["COMPAT_MINIMAP"] = "미니맵 애드온이 미니맵을 제어합니다."
 L["COMPAT_AUTO"] = "호환되는 가방 및 미니맵 애드온을 자동 감지합니다."
 L["MAP_KEEP_OPEN_DESC"] = "이동 중에도 지도가 표시됩니다."
+L["MAP_MOVEMENT_FOREVER"] = "이동 중 블리자드 세계 지도가 흐려지지 않게 하려면 /console mapFade 0을 입력하세요. 다시 흐려지게 하려면 /console mapFade 1을 입력하세요."
 L["PANELS_INDEPENDENT_DESC"] = "Allows opening bags, character pane, spellbook & map simultaneously."
 
 -- Minimap & Menu

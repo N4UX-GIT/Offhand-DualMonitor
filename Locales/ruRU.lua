@@ -800,6 +800,7 @@ L["COMPAT_BAGS"] = "Окнами сумок управляет ваш аддон
 L["COMPAT_MINIMAP"] = "Мини-картой управляет ваш аддон."
 L["COMPAT_AUTO"] = "Совместимые аддоны сумок и мини-карты определяются автоматически."
 L["MAP_KEEP_OPEN_DESC"] = "Карта остаётся видимой во время движения."
+L["MAP_MOVEMENT_FOREVER"] = "Чтобы отключить прозрачность карты мира Blizzard при движении, введите /console mapFade 0. Чтобы снова включить её, введите /console mapFade 1."
 L["PANELS_INDEPENDENT_DESC"] = "Allows opening bags, character pane, spellbook & map simultaneously."
 
 -- Minimap & Menu

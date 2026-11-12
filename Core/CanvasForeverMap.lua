@@ -72,6 +72,9 @@ function Adapter.Install(Canvas, services)
             state.observedMaximized = nil
             if shown then state.observedShown = nil end
         end
+        local persistent = Offhand.db and Offhand.db.persistentWorkspacePanels ~= false
+        local persistenceChanged = shown and state.observedPersistence ~= persistent
+        state.observedPersistence = shown and persistent
         if forcePanelTransaction then
             if not shown then return end
             state.observedShown = true
@@ -81,7 +84,7 @@ function Adapter.Install(Canvas, services)
             -- persisted it as open. Do not reinterpret that construction state as
             -- an explicit close before RestorePersistentFrames gets its turn.
             if not shown then return end
-        elseif state.observedShown == shown then
+        elseif state.observedShown == shown and not persistenceChanged then
             return
         else
             state.observedShown = shown
@@ -133,11 +136,19 @@ function Adapter.Install(Canvas, services)
                 Canvas:RescuePanelFromVoid(map)
             end
             Canvas:RepairShownWorkspacePanels(map)
-            if workspacePosition and Offhand.db.persistentWorkspacePanels ~= false then
+            local onWorkspace = workspacePosition or (not mainPosition and Canvas.IsFrameOnWorkspace
+                and Canvas.IsFrameOnWorkspace(map))
+            if onWorkspace and Offhand.db.persistentWorkspacePanels ~= false then
+                -- The native window can already open on Offhand before the
+                -- user saves a placement. Protect that view without saving it.
                 -- ShowUIPanel can reclaim the center slot after the first geometry
                 -- restore. Reassert Escape ownership on every delayed settlement.
                 UnregisterSpecialFrame("WorldMapFrame")
                 EvictWorkspacePanelSlot(map)
+            elseif onWorkspace then
+                -- A detached map has no UIPanel slot for Blizzard to close.
+                local inPanelSlot, specialFrame = ReadNativeClosePaths(map)
+                if not inPanelSlot and not specialFrame then RegisterSpecialFrame("WorldMapFrame") end
             end
         end
 
