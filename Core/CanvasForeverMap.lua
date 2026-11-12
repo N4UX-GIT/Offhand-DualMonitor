@@ -34,6 +34,16 @@ function Adapter.Install(Canvas, services)
         return presentation and presentation.IsNativeGamepadOwned(Canvas) or false
     end
 
+    local function ReadNativeClosePaths(map)
+        local inPanelSlot = Offhand.CanvasPanelLifecycle.OccupiesPanelSlot(map)
+        if UISpecialFrames then
+            for _, name in pairs(UISpecialFrames) do
+                if name == "WorldMapFrame" then return inPanelSlot, true end
+            end
+        end
+        return inPanelSlot, false
+    end
+
     -- Forever's map-pin sharing path is protected. A drag handler parented to the
     -- World Map, or attached to its native title/close controls, taints the same
     -- widget tree used by Blizzard's Shift-click link insertion. Provide the map's
@@ -315,15 +325,25 @@ function Adapter.Install(Canvas, services)
                     PlaceDragHandle()
                     if not mapShown or maximized then
                         state.externalWorkspace, state.externalPersistence = nil, nil
+                        state.externalPanelSlot, state.externalSpecialFrame = nil, nil
                     elseif not InCombatLockdown() and Canvas.IsFrameOnWorkspace then
                         local ok, workspace = pcall(Canvas.IsFrameOnWorkspace, map)
                         local persistent = Offhand.db.persistentWorkspacePanels ~= false
-                        -- External drag can move the map without a show edge.
-                        -- Re-evaluate ownership only when membership or the
-                        -- persistence option changes, not on every observer tick.
-                        if ok and (state.externalWorkspace ~= workspace or state.externalPersistence ~= persistent) then
-                            Canvas:PreserveExternalWorldMapOpenState(map)
-                            state.externalWorkspace, state.externalPersistence = workspace, persistent
+                        if ok then
+                            local inPanelSlot, specialFrame
+                            if workspace and persistent then inPanelSlot, specialFrame = ReadNativeClosePaths(map) end
+                            -- OpenMap can retain the same geometry while Blizzard
+                            -- puts the map back into a native close path.
+                            if state.externalWorkspace ~= workspace or state.externalPersistence ~= persistent
+                                or (inPanelSlot and not state.externalPanelSlot)
+                                or (specialFrame and not state.externalSpecialFrame) then
+                                Canvas:PreserveExternalWorldMapOpenState(map)
+                                state.externalWorkspace, state.externalPersistence = workspace, persistent
+                                if workspace and persistent then inPanelSlot, specialFrame = ReadNativeClosePaths(map) end
+                            end
+                            -- Record the resulting state so a refused detach is
+                            -- retried only after a new layout or ownership change.
+                            state.externalPanelSlot, state.externalSpecialFrame = inPanelSlot, specialFrame
                         end
                     end
                 elseif handle.Hide then
@@ -335,6 +355,7 @@ function Adapter.Install(Canvas, services)
                 return
             end
             state.externalWorkspace, state.externalPersistence = nil, nil
+            state.externalPanelSlot, state.externalSpecialFrame = nil, nil
 
             if returnButton then
                 if maximized and not InCombatLockdown() then

@@ -962,6 +962,35 @@ assert(addon.db.openWorkspacePanels.WorldMapFrame,
     "Forever's external observer must retain external-map workspace open intent")
 pressEscapeCloseSpecialFrames()
 assert(WorldMapFrame:IsShown(), externalOwner .. " workspace map must survive Escape")
+if externalOwner == "OpenMap" then
+    -- Native panel layout can register the visible map again after the first
+    -- protection pass. OpenMap retains the same geometry across the reflow.
+    activePanels.left = WorldMapFrame
+    table.insert(UISpecialFrames, "WorldMapFrame")
+    createdHandles[1].scripts.OnUpdate(nil, 1)
+    assert(activePanels.left ~= WorldMapFrame and not isSpecial("WorldMapFrame"),
+        "OpenMap must recover Escape protection after native registration changes at the same position")
+    pressEscapeCloseSpecialFrames()
+    assert(WorldMapFrame:IsShown() and WorldMapFrame.left == 200
+        and WorldMapFrame.bottom == 1300 and WorldMapFrame.scale == 0.83,
+        "restoring Escape protection must preserve OpenMap's visible placement")
+    local originalHide, attempts = HideUIPanel, 0
+    HideUIPanel = function(frame)
+        assert(frame == WorldMapFrame)
+        attempts = attempts + 1
+    end
+    activePanels.left = WorldMapFrame
+    createdHandles[1].scripts.OnUpdate(nil, 1)
+    createdHandles[1].scripts.OnUpdate(nil, 1)
+    assert(attempts == 1 and activePanels.left == WorldMapFrame,
+        "a refused native detach must not trigger another write on every observation")
+    HideUIPanel = originalHide
+    activePanels.left = nil
+    createdHandles[1].scripts.OnUpdate(nil, 1)
+    activePanels.left = WorldMapFrame
+    createdHandles[1].scripts.OnUpdate(nil, 1)
+    assert(activePanels.left ~= WorldMapFrame, "a new close path must permit another detach attempt")
+end
 WorldMapFrame.left = 2000
 createdHandles[1].scripts.OnUpdate(nil, 1)
 assert(isSpecial("WorldMapFrame"), externalOwner .. " dragging to Mainhand must restore native Escape closure")
