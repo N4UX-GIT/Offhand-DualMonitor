@@ -719,9 +719,14 @@ function Transfer:OpenImport(rows, onComplete)
                 else
                     result = "inactive"
                 end
-                Offhand:Print(Offhand.L[result == "reload" and "ELLESMERE_HUD_RELOAD" or "ELLESMERE_HUD_SAVED_INACTIVE"])
+                if result == "inactive" then Offhand:Print(Offhand.L["ELLESMERE_HUD_SAVED_INACTIVE"]) end
             end
-            if onComplete then onComplete(result) end
+            if onComplete then
+                onComplete(result)
+            elseif result == "reload" then
+                if self.PromptImportReload then self:PromptImportReload()
+                else Offhand:Print(Offhand.L["ELLESMERE_HUD_RELOAD"]) end
+            end
         end,
     })
 end

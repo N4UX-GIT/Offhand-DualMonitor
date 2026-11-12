@@ -2646,14 +2646,18 @@ for _,eui in ipairs({false,true}) do
   assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
   local rows=layoutData.layouts[layoutData.activeLayout-3].systems
   local xp,rep=rows[3].anchorInfo,rows[4].anchorInfo
-  assert(xp.relativeTo=="UIParent" and xp.relativePoint=="BOTTOMLEFT" and xp.point=="BOTTOM")
-  Near(xp.offsetX,(area.l+area.r)/2)
-  Near(xp.offsetY,area.b+6-4+40*.85+3)
+  assert(xp.point=="BOTTOM")
   Near(rep.offsetY,xp.offsetY+14*.8+4)
   if not eui then
-   assert(rows[5].anchorInfo.offsetY>=rep.offsetY+16*1.1+8,
+   assert(xp.relativeTo=="MainActionBar" and xp.relativePoint=="TOP" and xp.offsetX==0)
+   Near(xp.offsetY,3)
+   assert(rep.relativeTo=="MainActionBar" and rep.relativePoint=="TOP"
+    and rows[5].anchorInfo.relativeTo=="MainActionBar" and rows[5].anchorInfo.offsetY>=rep.offsetY+16*1.1+8,
     "the secondary action row must clear both native status bars")
   else
+   assert(xp.relativeTo=="UIParent" and xp.relativePoint=="BOTTOMLEFT")
+   Near(xp.offsetX,(area.l+area.r)/2)
+   Near(xp.offsetY,area.b+6-4+40*.85+3)
    assert(rows[1].isInDefaultPosition and rows[5].isInDefaultPosition,
     "native status placement must yield movement of replacement-owned action bars")
   end
@@ -2667,6 +2671,44 @@ for _,eui in ipairs({false,true}) do
   source.systems[4].anchorInfo={point="BOTTOM",relativeTo="StatusTrackingBarManager",relativePoint="BOTTOM",offsetX=0,offsetY=0}
  end
 end
+-- The old generator saved a centered XP anchor before the menu/main-bar
+-- group was fitted. Model the reported saved layout and refresh its same slot.
+C_AddOns, EllesmereUI = nil, nil
+local registered = {
+ [action] = {[1] = MainActionBar, [2] = MultiBarBottomLeft, [3] = MultiBarBottomRight},
+ [status] = {[1] = MainStatusTrackingBarContainer, [2] = SecondaryStatusTrackingBarContainer},
+ [menu] = {[0] = MicroMenuContainer},
+}
+EditModeManagerFrame = {GetRegisteredSystemFrame = function(_, system, index)
+ return registered[system] and registered[system][index or 0]
+end}
+UIParent.GetWidth = function() return 3047.6 end
+UIParent.GetHeight = function() return 1950.5 end
+metrics = {gameLeft=1097.1,gameRight=3047.6,gameBottom=4.6,gameTop=1101.7,isSpanned=true}
+addon.Mainhand:Update("forever-xp-existing")
+OffhandDB,OffhandCharDB={},{}
+layoutData={activeLayout=1,layouts={}}
+source.systems[2].anchorInfo.offsetY = -8
+assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+local existingID = layoutData.activeLayout
+local existing = layoutData.layouts[existingID-3].systems
+assert(existing[2].anchorInfo.offsetY > metrics.gameBottom - 8
+ and existing[3].anchorInfo.relativeTo=="MainActionBar" and existing[3].anchorInfo.offsetY==3,
+ "fitting the Micro Menu and main bar must carry the generated XP bar with them")
+source.systems[2].anchorInfo.offsetY = 6
+existing[2].anchorInfo = {point="BOTTOMLEFT",relativeTo="UIParent",relativePoint="BOTTOMLEFT",offsetX=1132.1,offsetY=149.6}
+existing[3].anchorInfo = {point="BOTTOM",relativeTo="UIParent",relativePoint="BOTTOMLEFT",offsetX=2072.4,offsetY=54.6}
+existing[4].anchorInfo = {point="BOTTOM",relativeTo="UIParent",relativePoint="BOTTOMLEFT",offsetX=2200,offsetY=75.6}
+existing[5].settings = {{setting=1,value=73}}
+assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+assert(#layoutData.layouts==1 and layoutData.activeLayout==existingID,
+ "repair must reuse the generated slot")
+local repaired = layoutData.layouts[existingID-3].systems
+assert(repaired[3].anchorInfo.relativeTo=="MainActionBar" and repaired[3].anchorInfo.relativePoint=="TOP"
+ and repaired[3].anchorInfo.offsetY==3, "refresh must correct the legacy overlapping XP anchor")
+assert(repaired[4].anchorInfo.relativeTo=="UIParent" and repaired[4].anchorInfo.offsetX==2200
+ and repaired[5].settings[1].value==73, "refresh must retain custom status and action bar settings")
+EditModeManagerFrame = nil
 print("PASS: Forever XP/Rep containers, saved self points, scale, secondary clearance, custom positions and EUI ownership")
 end
 

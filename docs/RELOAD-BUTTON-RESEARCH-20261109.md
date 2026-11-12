@@ -1,5 +1,21 @@
 # One-click reload alternatives, 2026-11-09
 
+## Reload prompt audit, 2026-11-12
+
+- Calibration and HUD repair already use `Mainhand:PromptReload`. Companion
+  placement in Window Setup and Wizard recovery already offer **Reload UI**
+  where the client permits it. The workspace-ready guidance follows any required
+  calibration reload.
+- A successful active EllesmereUI import now relies on its existing reload
+  dialog after the profile window closes or the user finishes calibration. The
+  dialog rechecks combat, controller mode and the reload API when clicked. If a
+  button is unavailable, the dialog gives the `/reload` command. Saving an
+  inactive profile does not require a reload.
+- Manual Edit Mode selection and Companion layout changes still explain the
+  prerequisite action before reloading. After using **Span WoW Now**, users can
+  use **Reload UI** in Window Setup where supported. Diagnostic capture messages
+  use `/reload` as a timing reference.
+
 ## Native reload-button follow-up, 2026-11-09
 
 Supersedes the earlier all-Forever manual-only policy. On Forever 1.60.1 build

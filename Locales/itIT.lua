@@ -91,6 +91,11 @@ L["CHARACTER_SETUP_RETRY"] = "Esci dal combattimento e chiudi la modalità modif
 L["CHARACTER_SETUP_REUSED"] = "Layout HUD esistente selezionato per questo personaggio. La calibrazione dei monitor resta invariata."
 L["SETUP_FIRST_PANEL"] = "Dopo la calibrazione e le ricariche richieste, apri la mappa del mondo e trascina il titolo su Offhand. L'area di lavoro vuota è pronta per i pannelli."
 L["SETUP_REVIEW_HUD"] = "Dopo la configurazione e l’eventuale ricaricamento, verifica che barre delle azioni, riquadri delle unità e minimappa siano su Mainhand. Sposta gli elementi ancora vicini alla separazione nella modalità modifica di Blizzard o nell’editor del tuo addon HUD, poi salva."
+L["WORKSPACE_READY_TITLE"] = "Spazio di lavoro Offhand pronto"
+L["WORKSPACE_READY_HINT"] = "Trascina qui le finestre"
+L["WORKSPACE_READY_BODY"] = "Lo spazio di lavoro è inizialmente vuoto per consentirti di organizzarlo. Apri la mappa del mondo e trascina la barra del titolo nello spazio Offhand. Sposta le altre finestre supportate allo stesso modo."
+L["WORKSPACE_READY_EDIT_MODE"] = "Per gli elementi dell’interfaccia Blizzard, apri la modalità modifica dal menu di gioco. Trascina gli elementi che vuoi spostare e salva la disposizione."
+L["WORKSPACE_READY_ADDON"] = "Se un addon gestisce un elemento, usa il suo sblocco o la sua modalità di disposizione per spostarlo. Bloccalo di nuovo al termine."
 -- Display identification (English fallback until translated).
 L["IDENTIFY_DISPLAYS"] = "Mostra Mainhand / Offhand"
 L["ONBOARD_INTRO_BRIEF"] = "Gioca su Mainhand e usa i pannelli supportati su Offhand.\n\nPrima salva una copia del layout Blizzard e dei profili degli addon UI. L'estensione cambia l'area e può richiedere di riposizionare interfacce personalizzate.\n\nScegli il posizionamento, poi calibra. Chiudere sospende la configurazione."

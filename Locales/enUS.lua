@@ -40,6 +40,11 @@ L["CHARACTER_SETUP_RETRY"] = "Leave combat and close Blizzard Edit Mode, then tr
 L["CHARACTER_SETUP_REUSED"] = "Existing HUD layout selected for this character. Your monitor calibration is unchanged."
 L["SETUP_FIRST_PANEL"] = "After calibration and any requested reload, open the World Map and drag its title bar onto Offhand. The empty workspace is ready for your panels."
 L["SETUP_REVIEW_HUD"] = "After setup and any requested reload, check that your action bars, unit frames and minimap are on Mainhand. Move anything still near the seam in Blizzard Edit Mode or your HUD addon's editor, then save."
+L["WORKSPACE_READY_TITLE"] = "Offhand workspace ready"
+L["WORKSPACE_READY_HINT"] = "Drag your windows here"
+L["WORKSPACE_READY_BODY"] = "The workspace starts empty so you can arrange it yourself. Open the World Map and drag its title bar into the Offhand workspace. Move other supported windows the same way."
+L["WORKSPACE_READY_EDIT_MODE"] = "For Blizzard HUD elements, open Edit Mode from the game menu. Drag the elements you want to move, then save your layout."
+L["WORKSPACE_READY_ADDON"] = "If an addon manages a frame, use that addon's unlock or layout mode to move it, then lock it again."
 -- Display identification (English fallback until translated).
 L["IDENTIFY_DISPLAYS"] = "Show Mainhand / Offhand"
 L["ONBOARD_INTRO_BRIEF"] = "Keep the game on Mainhand and supported panels on Offhand.\n\nBefore setup, save a copy of your Blizzard Edit Mode layout and back up your UI addon profiles. Spanning changes the canvas, so custom interfaces may need repositioning.\n\nChoose a placement method, then calibrate. Closing this guide pauses setup."

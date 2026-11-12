@@ -91,6 +91,11 @@ L["CHARACTER_SETUP_RETRY"] = "Verlasse den Kampf und schließe Blizzards Bearbei
 L["CHARACTER_SETUP_REUSED"] = "Vorhandenes HUD-Layout für diesen Charakter ausgewählt. Die Bildschirmkalibrierung bleibt erhalten."
 L["SETUP_FIRST_PANEL"] = "Öffne nach der Kalibrierung und einem eventuell angeforderten Neuladen die Weltkarte und ziehe ihre Titelleiste auf Offhand. Die leere Arbeitsfläche ist für deine Fenster bereit."
 L["SETUP_REVIEW_HUD"] = "Prüfe nach der Einrichtung und einem eventuell nötigen Neuladen, ob Aktionsleisten, Einheitenfenster und Minikarte auf Mainhand liegen. Verschiebe Elemente an der Bildschirmkante im Blizzard-Bearbeitungsmodus oder im Editor deines HUD-Addons und speichere."
+L["WORKSPACE_READY_TITLE"] = "Offhand-Arbeitsbereich bereit"
+L["WORKSPACE_READY_HINT"] = "Ziehe deine Fenster hierher"
+L["WORKSPACE_READY_BODY"] = "Der Arbeitsbereich ist anfangs leer, damit du ihn selbst einrichten kannst. Öffne die Weltkarte und ziehe ihre Titelleiste in den Offhand-Arbeitsbereich. Andere unterstützte Fenster lassen sich genauso verschieben."
+L["WORKSPACE_READY_EDIT_MODE"] = "Öffne für Blizzard-HUD-Elemente den Bearbeitungsmodus im Spielmenü. Ziehe die gewünschten Elemente an ihren Platz und speichere das Layout."
+L["WORKSPACE_READY_ADDON"] = "Wenn ein Addon ein Fenster verwaltet, entsperre es dort oder nutze den Layoutmodus des Addons. Sperre es anschließend wieder."
 -- Display identification (English fallback until translated).
 L["IDENTIFY_DISPLAYS"] = "Mainhand / Offhand anzeigen"
 L["ONBOARD_INTRO_BRIEF"] = "Spiele auf Mainhand und nutze unterstützte Fenster auf Offhand.\n\nSichere zuerst dein Blizzard-Layout und deine UI-Addon-Profile. Die erweiterte Fensterfläche kann Anpassungen eigener Oberflächen erfordern.\n\nWähle eine Platzierungsmethode und kalibriere danach. Schließen pausiert die Einrichtung."

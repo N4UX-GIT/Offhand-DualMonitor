@@ -91,6 +91,11 @@ L["CHARACTER_SETUP_RETRY"] = "Leave combat and close Blizzard Edit Mode, then tr
 L["CHARACTER_SETUP_REUSED"] = "Existing HUD layout selected for this character. Your monitor calibration is unchanged."
 L["SETUP_FIRST_PANEL"] = "After calibration and any requested reload, open the World Map and drag its title bar onto Offhand. The empty workspace is ready for your panels."
 L["SETUP_REVIEW_HUD"] = "Após a configuração e a recarga solicitada, confira se as barras de ação, os quadros de unidade e o minimapa estão no Mainhand. Mova os elementos que ainda estiverem perto da divisão no Modo de Edição da Blizzard ou no editor do seu addon de HUD e salve."
+L["WORKSPACE_READY_TITLE"] = "Área de trabalho do Offhand pronta"
+L["WORKSPACE_READY_HINT"] = "Arraste suas janelas para cá"
+L["WORKSPACE_READY_BODY"] = "A área de trabalho começa vazia para você organizá-la. Abra o mapa-múndi e arraste a barra de título para a área do Offhand. Mova outras janelas compatíveis da mesma forma."
+L["WORKSPACE_READY_EDIT_MODE"] = "Para elementos da interface da Blizzard, abra o Modo de Edição no menu do jogo. Arraste os elementos e salve o layout."
+L["WORKSPACE_READY_ADDON"] = "Se um addon gerencia um elemento, desbloqueie-o no addon ou use o modo de layout para movê-lo. Bloqueie-o novamente ao terminar."
 -- Display identification (English fallback until translated).
 L["IDENTIFY_DISPLAYS"] = "Show Mainhand / Offhand"
 L["ONBOARD_INTRO_BRIEF"] = "Keep the game on Mainhand and supported panels on Offhand.\n\nBefore setup, save a copy of your Blizzard Edit Mode layout and back up your UI addon profiles. Spanning changes the canvas, so custom interfaces may need repositioning.\n\nChoose a placement method, then calibrate. Closing this guide pauses setup."

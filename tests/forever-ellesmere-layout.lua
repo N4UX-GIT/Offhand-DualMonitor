@@ -139,9 +139,9 @@ assert(messages[1] == "saved inactive" and completions == 1 and importResult == 
 assert(transfer:OpenImport(rows, Completed))
 activeProfile = "Renamed import"
 importOptions.callback(true)
-assert(messages[2] == "reload" and completions == 2 and importResult == "reload"
+assert(#messages == 1 and completions == 2 and importResult == "reload"
     and transfer:HasPendingReload(),
-    "a newly activated profile can reload even when the player renamed it")
+    "a newly activated profile must let the caller present reload without a duplicate chat instruction")
 activeProfile = "Different profile"
 assert(not transfer:HasPendingReload(), "an inactive import cannot request a reload")
 overrides = {{spec = 1}}
@@ -605,6 +605,11 @@ addon.isForever = true
 transfer:PromptImportReload()
 assert(popup.OnAccept and popup.offhandAcceptBeforeHide and reloads == 2,
     "Forever keyboard import must retain callback-first reload")
+combat = true
+popup.OnAccept()
+assert(popup.text == addon.L.ELLESMERE_HUD_IMPORT_RELOAD_MANUAL and not popup.OnAccept and reloads == 2,
+    "combat starting before the click must replace the dialog with manual instructions")
+combat = false
 gamepad = true
 transfer:PromptImportReload()
 assert(popup.text == addon.L.ELLESMERE_HUD_IMPORT_RELOAD_MANUAL and not popup.OnAccept and reloads == 2,

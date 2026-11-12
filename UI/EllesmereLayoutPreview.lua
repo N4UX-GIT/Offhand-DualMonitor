@@ -212,13 +212,12 @@ function Transfer:PromptImportReload()
         button2 = not manual and L["CHARACTER_SETUP_LATER"] or nil,
         OnAccept = not manual and function()
             if not self:HasPendingReload() then return end
-            if InCombatLockdown and InCombatLockdown() then
-                Offhand:Print(L["ELLESMERE_HUD_RELOAD"])
+            local reload = Offhand:GetReloadUIFunction()
+            if reload and not (InCombatLockdown and InCombatLockdown())
+                and not (mainhand and mainhand.IsNativeGamepadInterface and mainhand:IsNativeGamepadInterface()) then
+                reload()
             else
-                local reload = Offhand:GetReloadUIFunction()
-                if reload and not (mainhand and mainhand.IsNativeGamepadInterface
-                    and mainhand:IsNativeGamepadInterface()) then reload()
-                else self:PromptImportReload() end
+                self:PromptImportReload()
             end
         end or nil,
         timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,

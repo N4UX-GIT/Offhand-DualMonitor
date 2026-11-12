@@ -522,21 +522,23 @@ local function ForeverStatusFrame(entry)
     end
 end
 
-local function PlaceForeverStatus(entry, layout, rect, sourceDefaults, mainAnchor, mainFrame)
+local function PlaceForeverStatus(entry, layout, rect, sourceDefaults, mainAnchor, mainFrame, attachToMain)
     local target = ForeverStatusFrame(entry)
     if not target then return false end
     local ax, ay = MainAnchorOrigin(layout, mainAnchor)
     if not ax then return false end
-    local _, mainHeight = FrameSize(mainFrame, 570, 40)
-    local _, my = PointFractions(mainAnchor.point)
-    local bottom = ay + (1 - my) * mainHeight * ParentScale(mainFrame) + 3
+    local mainWidth, mainHeight = FrameSize(mainFrame, 570, 40)
+    local mx, my = PointFractions(mainAnchor.point)
+    local mainScale = ParentScale(mainFrame)
+    local mainTop = ay + (1 - my) * mainHeight * mainScale
+    local gap = 3
     local indices = Enum.EditModeStatusTrackingBarSystemIndices
     if entry.systemIndex == indices.StatusTrackingBar2 then
         for index, primary in ipairs(layout.systems or {}) do
             if sourceDefaults[index] and primary.system == entry.system
                 and primary.systemIndex == indices.StatusTrackingBar1 then
                 local _, height = FrameSize(_G.MainStatusTrackingBarContainer, 571, 14)
-                bottom = bottom + height * ParentScale(_G.MainStatusTrackingBarContainer) + 4
+                gap = gap + height * ParentScale(_G.MainStatusTrackingBarContainer) + 4
                 break
             end
         end
@@ -544,14 +546,24 @@ local function PlaceForeverStatus(entry, layout, rect, sourceDefaults, mainAncho
     local width, height = FrameSize(target, 571, 14)
     local scale = ParentScale(target)
     width, height = width * scale, height * scale
+    local bottom = mainTop + gap
     if width > rect.width - 16 or bottom < rect.bottom or bottom + height > rect.top then return false end
-    entry.anchorInfo = {point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT",
-        offsetX = (rect.left + rect.right) / 2, offsetY = bottom}
+    if attachToMain then
+        -- The fitter can move MicroMenuContainer and the native main bar with it.
+        -- Keep the vertical spacing in Blizzard's saved anchor chain.
+        local center = ax + (0.5 - mx) * mainWidth * mainScale
+        local x = math.max(rect.left + width / 2 + 8, math.min(rect.right - width / 2 - 8, center))
+        entry.anchorInfo = {point = "BOTTOM", relativeTo = "MainActionBar", relativePoint = "TOP",
+            offsetX = x - center, offsetY = gap}
+    else
+        entry.anchorInfo = {point = "BOTTOM", relativeTo = "UIParent", relativePoint = "BOTTOMLEFT",
+            offsetX = (rect.left + rect.right) / 2, offsetY = bottom}
+    end
     entry.anchorInfo2, entry.isInDefaultPosition = nil, false
     return true
 end
 
-local function RefineForeverSecondaryBars(layout, rect, sourceDefaults, mainAnchor, mainFrame, statusHeight)
+local function RefineForeverSecondaryBars(layout, rect, sourceDefaults, mainAnchor, mainFrame, statusHeight, attachToMain)
     local indices = Enum and Enum.EditModeActionBarSystemIndices
     local actionSystem = Enum and Enum.EditModeSystem and Enum.EditModeSystem.ActionBar
     if not Offhand.isForever or not indices or not actionSystem then return 0 end
@@ -563,7 +575,8 @@ local function RefineForeverSecondaryBars(layout, rect, sourceDefaults, mainAnch
     local mx, my = PointFractions(mainAnchor.point)
     local mainLeft = ax - mx * mw * ms
     local center = mainLeft + mw * ms / 2
-    local bottom = ay + (1 - my) * mh * ms + statusHeight + 8
+    local mainTop = ay + (1 - my) * mh * ms
+    local bottom = mainTop + statusHeight + 8
     local refined, firstRowRight, firstRowBottom = 0
     for _, spec in ipairs({
         {systemIndex=indices.Bar2, frame=_G.MultiBarBottomLeft},
@@ -594,8 +607,13 @@ local function RefineForeverSecondaryBars(layout, rect, sourceDefaults, mainAnch
                     if y + height <= rect.top - 12 then
                         -- ApplySystemAnchor divides serialized offsets by the bar's
                         -- local scale. Store offsets in UIParent units once.
-                        entry.anchorInfo = {point="BOTTOM", relativeTo="UIParent", relativePoint="BOTTOMLEFT",
-                            offsetX=x, offsetY=y}
+                        if attachToMain then
+                            entry.anchorInfo = {point="BOTTOM", relativeTo="MainActionBar", relativePoint="TOP",
+                                offsetX=x - center, offsetY=y - mainTop}
+                        else
+                            entry.anchorInfo = {point="BOTTOM", relativeTo="UIParent", relativePoint="BOTTOMLEFT",
+                                offsetX=x, offsetY=y}
+                        end
                         entry.anchorInfo2 = nil
                         entry.isInDefaultPosition = false
                         firstRowRight, firstRowBottom = x + width / 2, y
@@ -688,11 +706,12 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerL
             end
         end
     end
-    local mainAnchor, lossOfControlAnchor
+    local mainAnchor, lossOfControlAnchor, attachToMain
     for index, entry in ipairs(layout.systems or {}) do
         if (sourceDefaults[index] or nativeForeverStatus) and entry.system == actionSystem
             and entry.systemIndex == mainIndex and type(entry.anchorInfo) == "table" then
             mainAnchor = entry.anchorInfo
+            attachToMain = nativeForeverStatus and _G.MainActionBar and not ExternallyOwnedSystem(entry)
         elseif sourceDefaults[index] and lossOfControlSystem ~= nil
             and entry.system == lossOfControlSystem and type(entry.anchorInfo) == "table" then
             lossOfControlAnchor = entry.anchorInfo
@@ -746,7 +765,7 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerL
     local stanceBottom = mainTop + statusHeight + 8
     local secondaryLift = 0
     local secondaryRefined, nextRow = RefineForeverSecondaryBars(
-        layout, rect, sourceDefaults, mainAnchor, mainFrame, statusHeight)
+        layout, rect, sourceDefaults, mainAnchor, mainFrame, statusHeight, attachToMain)
     refined = refined + secondaryRefined
     if nextRow then
         secondaryLift = math.max(0, nextRow - stanceBottom)
@@ -766,7 +785,7 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerL
                 if Offhand.isRetail then
                     if PlaceRetailStatus(entry, mainAnchor, mainFrame, rect) then refined = refined + 1 end
                 elseif foreverContainers then
-                    if PlaceForeverStatus(entry, layout, rect, sourceDefaults, mainAnchor, mainFrame) then
+                    if PlaceForeverStatus(entry, layout, rect, sourceDefaults, mainAnchor, mainFrame, attachToMain) then
                         refined = refined + 1
                     end
                 elseif not nativeClassic and PlaceFromMainAnchor(entry, mainAnchor, statusFrame,
@@ -844,6 +863,62 @@ end
 local function PublicLayoutNumber(value)
     if type(issecretvalue) == "function" and issecretvalue(value) then return false end
     return type(value) == "number" and value == value and math.abs(value) < math.huge
+end
+
+local function RepairGeneratedForeverStatus(layout, source, rect)
+    local systems = Enum and Enum.EditModeSystem
+    local actions = Enum and Enum.EditModeActionBarSystemIndices
+    local indices = Enum and Enum.EditModeStatusTrackingBarSystemIndices
+    local main = _G.MainActionBar
+    if not main or not systems or not systems.StatusTrackingBar or not actions or actions.MainBar == nil
+        or not indices or indices.StatusTrackingBar1 == nil then return 0 end
+
+    local mainAnchor
+    for _, entry in ipairs(layout.systems or {}) do
+        if entry.system == systems.ActionBar and entry.systemIndex == actions.MainBar
+            and not ExternallyOwnedSystem(entry) then mainAnchor = entry.anchorInfo; break end
+    end
+    if type(mainAnchor) ~= "table" then return 0 end
+    local _, y = MainAnchorOrigin(layout, mainAnchor)
+    if not y then return 0 end
+    local _, height = FrameSize(main, 570, 40)
+    local _, pointY = PointFractions(mainAnchor.point)
+    local xpBottom = y + (1 - pointY) * height * ParentScale(main) + 3
+    local center = (rect.left + rect.right) / 2
+
+    local defaultStatus = {}
+    for _, entry in ipairs(source.systems or {}) do
+        if entry.system == systems.StatusTrackingBar and entry.systemIndex ~= nil then
+            defaultStatus[entry.systemIndex] = entry.isInDefaultPosition ~= false
+        end
+    end
+    local candidates = {}
+    for index, entry in ipairs(layout.systems or {}) do
+        local anchor = entry.anchorInfo
+        if entry.system == systems.StatusTrackingBar and defaultStatus[entry.systemIndex]
+            and not ExternallyOwnedSystem(entry) and ForeverStatusFrame(entry)
+            and type(anchor) == "table" and not entry.anchorInfo2 and anchor.point == "BOTTOM"
+            and anchor.relativeTo == "UIParent" and anchor.relativePoint == "BOTTOMLEFT"
+            and PublicLayoutNumber(anchor.offsetX) and math.abs(anchor.offsetX - center) <= 0.1
+            and PublicLayoutNumber(anchor.offsetY) then
+            candidates[entry.systemIndex] = index
+        end
+    end
+
+    -- Earlier generated bars used this centered, absolute anchor. Repair an
+    -- overlapping result on explicit rebuild and preserve other saved edits.
+    local xp = candidates[indices.StatusTrackingBar1]
+    if not xp or layout.systems[xp].anchorInfo.offsetY >= xpBottom - 0.1 then return 0 end
+    local defaults = {[xp] = true}
+    if not PlaceForeverStatus(layout.systems[xp], layout, rect, defaults, mainAnchor, main, true) then return 0 end
+    local secondary = candidates[indices.StatusTrackingBar2]
+    local _, xpHeight = FrameSize(_G.MainStatusTrackingBarContainer, 571, 14)
+    if secondary and layout.systems[secondary].anchorInfo.offsetY
+        < xpBottom + xpHeight * ParentScale(_G.MainStatusTrackingBarContainer) + 4 - 0.1
+        and PlaceForeverStatus(layout.systems[secondary], layout, rect, defaults, mainAnchor, main, true) then
+        return 2
+    end
+    return 1
 end
 
 -- Fit only the generated copy. Resolve serialized dependencies instead of using
@@ -1598,6 +1673,9 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
     local moved, transformed = 0, {}
     if legacyLayout then moved = matchingRecord.movedSystems or #(layout.systems or {}) end
     if preserveGenerated then moved = matchingRecord.movedSystems or #(layout.systems or {}) end
+    if preserveGenerated and Offhand.isForever then
+        moved = moved + RepairGeneratedForeverStatus(layout, source, rect)
+    end
     if not legacyLayout and not preserveGenerated and not targeted and not selective then
         moved, transformed = TransformLayout(layout, rect, function(entry)
             -- Forever's empty MultiCast/Totem Edit Mode preview can call

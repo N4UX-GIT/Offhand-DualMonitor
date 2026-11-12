@@ -19,6 +19,7 @@ Offhand.Wizard = Wizard
 local wizardFrame = nil
 local editModeReturnWatcher
 local pendingHUDReload
+local waitingForWorkspaceReload
 local HUD_STEP, ELLESMERE_STEP = 5, 6
 
 local function EllesmereTransfer()
@@ -44,6 +45,35 @@ local function PlacementFailure()
     if method == "COMPANION" and not m.companionTopology then return "span" end
     -- A deliberately confirmed manual canvas can supersede an old bridge.
     if m.topologyStatus == "MISMATCH" and not m.manualCanvas then return "span" end
+end
+
+function Wizard:ShowPendingWorkspaceReady()
+    if waitingForWorkspaceReload or type(OffhandCharDB) ~= "table"
+        or not OffhandCharDB.wizardWorkspaceReadyPending or not (Offhand.db and Offhand.db.enabled)
+        or (InCombatLockdown and InCombatLockdown())
+        or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved())
+        or (Offhand._gamepadSafePopup and Offhand._gamepadSafePopup.popupKey)
+        or self:IsOpen() or PlacementFailure() then return false end
+
+    local body = L.WORKSPACE_READY_BODY
+    if Offhand.HasBlizzardEditMode and Offhand:HasBlizzardEditMode() then
+        body = body .. "\n\n" .. L.WORKSPACE_READY_EDIT_MODE
+    end
+    body = body .. "\n\n" .. L.WORKSPACE_READY_ADDON
+    if OffhandCharDB.hudSetupReminder then
+        body = body .. "\n\n" .. L.WIZARD_SKIP_HUD_COMPLETE
+    end
+    StaticPopupDialogs.OFFHAND_WORKSPACE_READY = {
+        text = "|cffffd100%s|r\n\n%s",
+        button1 = L.POPUP_BTN_GOT_IT,
+        timeout = 0, whileDead = true, hideOnEscape = true,
+    }
+    if not Offhand:ShowPopup("OFFHAND_WORKSPACE_READY", L.WORKSPACE_READY_TITLE, body) then return false end
+    OffhandCharDB.wizardWorkspaceReadyPending = nil
+    if Offhand.SetupVisuals then
+        Offhand.SetupVisuals:ShowWorkspaceReady(Offhand.Viewport:GetMetrics())
+    end
+    return true
 end
 
 StaticPopupDialogs["OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT"] = {
@@ -1016,16 +1046,18 @@ function Wizard:CreateFrame()
         end
     end
 
-    local function CompleteSetup(deferMainhandLayout)
+    local function CompleteSetup(deferMainhandLayout, needsReload)
         if not ValidateTopology() then return end
         ActivateCalibration()
         if type(OffhandCharDB) == "table" then
             OffhandCharDB.wizardRecoveryStep = nil
             OffhandCharDB.wizardProgressStep = nil
+            OffhandCharDB.wizardWorkspaceReadyPending = true
             OffhandCharDB.hudSetupReminder = deferMainhandLayout == true or nil
             OffhandCharDB.hudSetupReminderDeclined = nil
         end
         pendingHUDReload = nil
+        waitingForWorkspaceReload = needsReload and true or nil
         if f.totalSteps > 4 and Offhand.Mainhand
             and type(Offhand.Mainhand.SetEditModeLayoutDeferred) == "function" then
             Offhand.Mainhand:SetEditModeLayoutDeferred(deferMainhandLayout == true)
@@ -1047,8 +1079,8 @@ function Wizard:CreateFrame()
                 if f.totalSteps > 4 then Offhand:Print(L["SETUP_REVIEW_HUD"]) end
                 Offhand:Print(L["READINESS_COLD_START"])
             end
-            Offhand:Print(L["SETUP_FIRST_PANEL"])
         end
+        Wizard:ShowPendingWorkspaceReady()
         return true
     end
 
@@ -1078,8 +1110,11 @@ function Wizard:CreateFrame()
                 and not Offhand.Mainhand:UseExistingEditModeLayout(layout.generated.layoutName) then
                 validationStatus:SetText(L["ELLESMERE_HUD_BUSY"])
                 f:LayoutStep()
-            elseif CompleteSetup(false) and transfer.PromptImportReload then
-                transfer:PromptImportReload()
+            else
+                local needsReload = transfer.HasPendingReload and transfer:HasPendingReload()
+                if CompleteSetup(false, needsReload) and needsReload and transfer.PromptImportReload then
+                    transfer:PromptImportReload()
+                end
             end
             return
         end
@@ -1151,7 +1186,7 @@ function Wizard:CreateFrame()
             SaveReloadStep(ELLESMERE_STEP)
             Wizard:Close()
         else
-            CompleteSetup(false)
+            CompleteSetup(false, true)
         end
         PromptNativeHUD(activation, value, transfer ~= nil)
     end

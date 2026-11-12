@@ -655,6 +655,7 @@ end
 function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     local recoveryPopup = popupKey == "OFFHAND_CONFIRM_RECOVERY"
     local helpPopup = popupKey == "OFFHAND_SETTINGS_HELP"
+    local readyPopup = popupKey == "OFFHAND_WORKSPACE_READY"
     local setupPopup = popupKey == "OFFHAND_DOWNLOAD_LINK" or popupKey == "OFFHAND_POWERTOYS_LINK"
         or popupKey == "OFFHAND_SETUP_MANUAL_RELOAD"
         or popupKey == "OFFHAND_WEBSITE_LINK" or popupKey == "OFFHAND_DISCORD_LINK"
@@ -667,7 +668,7 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
         or popupKey == "OFFHAND_MAINHAND_LAYOUT_SELECT"
         or popupKey == "OFFHAND_HUD_SETUP_REMINDER"
         or popupKey == "OFFHAND_CHARACTER_SETUP"
-        or popupKey == "OFFHAND_ELLESMERE_HUD_RELOAD"
+        or popupKey == "OFFHAND_ELLESMERE_HUD_RELOAD" or readyPopup
     if not self:IsGamepadUIEnabled() and not setupPopup and not recoveryPopup and not helpPopup then
         if StaticPopup_Show then return StaticPopup_Show(popupKey, textArg1, textArg2, data) end
         return nil
@@ -679,7 +680,7 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     if frame.popupKey then frame:Hide() end
     frame.popupGeneration = (frame.popupGeneration or 0) + 1
     frame.popupKey, frame.definition, frame.data = popupKey, definition, data
-    frame.text:SetJustifyH((recoveryPopup or helpPopup) and "LEFT" or "CENTER")
+    frame.text:SetJustifyH((recoveryPopup or helpPopup or readyPopup) and "LEFT" or "CENTER")
     if frame.text.SetFontObject then
         frame.text:SetFontObject(GameFontHighlight)
     end
@@ -1363,7 +1364,10 @@ local function EvaluateEntryNotices(attempt)
         end
     elseif Offhand.db.enabled and setupComplete then
         local companionNotice = Offhand:RefreshCompanionNoticeState(viewportMetrics)
-        if not companionNotice then Offhand:RefreshMainhandLayoutAttention() end
+        if not companionNotice and not (Offhand.Wizard and Offhand.Wizard.ShowPendingWorkspaceReady
+            and Offhand.Wizard:ShowPendingWorkspaceReady()) then
+            Offhand:RefreshMainhandLayoutAttention()
+        end
     end
 end
 
@@ -1626,6 +1630,8 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
 
     elseif event == "PLAYER_REGEN_ENABLED" then
         ProcessCombatQueue()
+        if Offhand.Wizard and Offhand.Wizard.ShowPendingWorkspaceReady
+            and Offhand.Wizard:ShowPendingWorkspaceReady() then return end
         if Offhand.CharacterSetup and Offhand.CharacterSetup.pendingCombat then
             Offhand:RefreshMainhandLayoutAttention()
         end

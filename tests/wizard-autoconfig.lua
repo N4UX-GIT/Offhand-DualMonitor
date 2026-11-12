@@ -67,6 +67,7 @@ function CreateFrame(kind, name, parent, template)
             return self.firstPoint.point, self.firstPoint.rel, self.firstPoint.relPoint, self.firstPoint.x, self.firstPoint.y
         end
     end
+    function f:SetAllPoints(relativeTo) self.allPoints = relativeTo end
     function f:ClearAllPoints() self.points = {} end
     function f:SetAutoFocus() end
     function f:SetNumeric() end
@@ -1037,6 +1038,8 @@ assert(wizardFrame.step == 1, "Back must return to the previous step")
 
 local wizardMetrics = addon.Viewport.GetMetrics
 addon.isForever = true
+local previousWizardCharDB = OffhandCharDB
+OffhandCharDB = {}
 addon.Viewport.GetMetrics = function()
     return { companionTopology=false, topologyStatus="ABSENT", isSpanned=true }
 end
@@ -1054,6 +1057,19 @@ addon.Print = previousPrint
 assert(addon:IsSetupComplete() and createMainhandLayoutCount == 1 and reloadPromptCount == 1,
     "creating the Mainhand HUD layout must finish setup and offer the required reload")
 assert(reviewHUD == true and printedSetupReview, "final calibration must surface the Mainhand HUD review")
+assert(OffhandCharDB.wizardWorkspaceReadyPending and not addon.Wizard:ShowPendingWorkspaceReady(),
+    "the ready guidance must wait for the required HUD reload")
+do
+    local currentWizard = addon.Wizard
+    assert(loadfile("UI/Wizard.lua"))("Offhand", addon)
+    assert(addon.Wizard:ShowPendingWorkspaceReady() and addon._gamepadSafePopup.popupKey == "OFFHAND_WORKSPACE_READY",
+        "a new UI session must offer the pending workspace guidance")
+    addon:HidePopup("OFFHAND_WORKSPACE_READY")
+    assert(not OffhandCharDB.wizardWorkspaceReadyPending and not addon.Wizard:ShowPendingWorkspaceReady(),
+        "a new UI session must consume the guidance after displaying it")
+    addon.Wizard = currentWizard
+end
+OffhandCharDB = previousWizardCharDB
 OffhandDB.onboarding.setupComplete = false
 addon.Viewport.GetMetrics = function()
     return {
@@ -1148,14 +1164,21 @@ assert(skipPopup and skipPopup.key == "OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT"
     "skipping HUD generation must require confirmation before changing setup state")
 local skipPrint, skipMessages = addon.Print, {}
 addon.Print = function(_, message) skipMessages[#skipMessages + 1] = message end
-StaticPopupDialogs[skipPopup.key].OnAccept(nil, skipPopup.callback)
+addon._gamepadSafePopup.accept.scripts.OnClick()
 addon.Print = skipPrint
-assert(#skipMessages == 3 and skipMessages[1] == addon.L.WIZARD_SKIP_HUD_COMPLETE
-        and skipMessages[2] == addon.L.WIZARD_SKIP_HUD_NEXT
-        and skipMessages[3] == addon.L.SETUP_FIRST_PANEL,
-    "HUD skip must report pending work and next actions without completed-HUD or restart-success messaging")
+assert(#skipMessages == 2 and skipMessages[1] == addon.L.WIZARD_SKIP_HUD_COMPLETE
+        and skipMessages[2] == addon.L.WIZARD_SKIP_HUD_NEXT,
+    "HUD skip must report pending work without completed-HUD messaging")
 assert(addon:IsSetupComplete() and mainhandLayoutDeferred and OffhandCharDB.hudSetupReminder and not wizardFrame:IsShown(),
     "confirmed HUD deferral must complete setup, persist the choice, and close the wizard")
+assert(addon._gamepadSafePopup.popupKey == "OFFHAND_WORKSPACE_READY"
+        and addon._gamepadSafePopup.text:GetText():find(addon.L.WORKSPACE_READY_BODY, 1, true)
+        and addon._gamepadSafePopup.text:GetText():find(addon.L.WORKSPACE_READY_EDIT_MODE, 1, true)
+        and addon._gamepadSafePopup.text:GetText():find(addon.L.WORKSPACE_READY_ADDON, 1, true)
+        and not OffhandCharDB.wizardWorkspaceReadyPending,
+    "the workspace-ready dialog must explain the empty canvas and all supported placement paths")
+addon:HidePopup("OFFHAND_WORKSPACE_READY")
+assert(not addon.Wizard:ShowPendingWorkspaceReady(), "completion guidance must display once")
 StaticPopup_Show = skipPopupShow
 OffhandCharDB = skipCharacter
 OffhandDB.onboarding.setupComplete = false

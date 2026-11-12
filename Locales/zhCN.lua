@@ -91,6 +91,11 @@ L["CHARACTER_SETUP_RETRY"] = "Leave combat and close Blizzard Edit Mode, then tr
 L["CHARACTER_SETUP_REUSED"] = "Existing HUD layout selected for this character. Your monitor calibration is unchanged."
 L["SETUP_FIRST_PANEL"] = "After calibration and any requested reload, open the World Map and drag its title bar onto Offhand. The empty workspace is ready for your panels."
 L["SETUP_REVIEW_HUD"] = "完成设置并按提示重载后，检查动作条、单位框体和小地图是否位于主屏。在暴雪编辑模式或 HUD 插件的编辑器中移开仍靠近屏幕接缝的元素，然后保存。"
+L["WORKSPACE_READY_TITLE"] = "Offhand 工作区已就绪"
+L["WORKSPACE_READY_HINT"] = "将窗口拖到这里"
+L["WORKSPACE_READY_BODY"] = "工作区初始为空，方便你自行布置。打开世界地图，按住标题栏将它拖入 Offhand 工作区。其他受支持的窗口也可以这样移动。"
+L["WORKSPACE_READY_EDIT_MODE"] = "要移动暴雪界面元素，请从游戏菜单打开编辑模式。拖动所需的元素，然后保存布局。"
+L["WORKSPACE_READY_ADDON"] = "如果某个窗口由插件管理，请在该插件中解锁窗口或使用其布局模式。移动后重新锁定。"
 -- Display identification (English fallback until translated).
 L["IDENTIFY_DISPLAYS"] = "Show Mainhand / Offhand"
 L["ONBOARD_INTRO_BRIEF"] = "Keep the game on Mainhand and supported panels on Offhand.\n\nBefore setup, save a copy of your Blizzard Edit Mode layout and back up your UI addon profiles. Spanning changes the canvas, so custom interfaces may need repositioning.\n\nChoose a placement method, then calibrate. Closing this guide pauses setup."

@@ -90,6 +90,11 @@ L["CHARACTER_SETUP_RETRY"] = "Quittez le combat et fermez le mode Édition de Bl
 L["CHARACTER_SETUP_REUSED"] = "Disposition existante sélectionnée pour ce personnage. Le calibrage des écrans est conservé."
 L["SETUP_FIRST_PANEL"] = "Après le calibrage et tout rechargement demandé, ouvrez la carte du monde et faites glisser sa barre de titre sur Offhand. Cet espace vide est prêt à accueillir vos fenêtres."
 L["SETUP_REVIEW_HUD"] = "Après la configuration et le rechargement éventuel, vérifiez que les barres d’action, les cadres d’unité et la minicarte sont sur Mainhand. Déplacez les éléments encore près de la séparation dans le mode Édition de Blizzard ou dans l’éditeur de votre addon HUD, puis enregistrez."
+L["WORKSPACE_READY_TITLE"] = "Espace de travail Offhand prêt"
+L["WORKSPACE_READY_HINT"] = "Faites glisser vos fenêtres ici"
+L["WORKSPACE_READY_BODY"] = "L’espace de travail démarre vide pour vous laisser l’organiser. Ouvrez la carte du monde et faites glisser sa barre de titre dans l’espace Offhand. Déplacez les autres fenêtres prises en charge de la même façon."
+L["WORKSPACE_READY_EDIT_MODE"] = "Pour les éléments de l’interface Blizzard, ouvrez le mode Édition depuis le menu du jeu. Déplacez les éléments souhaités et enregistrez votre disposition."
+L["WORKSPACE_READY_ADDON"] = "Si un addon gère un élément, utilisez son mode de disposition ou déverrouillez l’élément dans cet addon. Verrouillez-le à nouveau ensuite."
 -- Display identification (English fallback until translated).
 L["IDENTIFY_DISPLAYS"] = "Afficher Mainhand / Offhand"
 L["ONBOARD_INTRO_BRIEF"] = "Gardez le jeu sur Mainhand et les fenêtres prises en charge sur Offhand.\n\nAvant de commencer, exportez votre disposition Blizzard et sauvegardez vos profils d’interface. L’extension de la fenêtre peut nécessiter de repositionner votre interface.\n\nChoisissez une méthode, puis procédez à l’étalonnage. Fermer ce guide met la configuration en pause."
