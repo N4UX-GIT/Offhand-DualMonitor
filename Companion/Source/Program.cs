@@ -57,11 +57,11 @@ using Timer = System.Windows.Forms.Timer;
 #elif RDP_TEST
 [assembly: AssemblyVersion("2.1.3.0")]
 #else
-[assembly: AssemblyVersion("2.1.7.0")]
+[assembly: AssemblyVersion("2.1.8.0")]
 #endif
 #if UI_PREVIEW
-[assembly: AssemblyFileVersion("2.1.7.8005")]
-[assembly: AssemblyInformationalVersion("2.1.7")]
+[assembly: AssemblyFileVersion("2.1.8.8005")]
+[assembly: AssemblyInformationalVersion("2.1.8")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
 [assembly: AssemblyInformationalVersion("2.1.3-beta.6")]
@@ -77,8 +77,8 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.7.4")]
-[assembly: AssemblyInformationalVersion("2.1.7")]
+[assembly: AssemblyFileVersion("2.1.8.1")]
+[assembly: AssemblyInformationalVersion("2.1.8")]
 #endif
 
 namespace Offhand.Companion
@@ -4286,7 +4286,7 @@ namespace Offhand.Companion
 #elif RDP_TEST
         internal const string BaseVersion = "2.1.3";
 #else
-        internal const string BaseVersion = "2.1.7";
+        internal const string BaseVersion = "2.1.8";
 #endif
 #if UI_PREVIEW
         internal const string ReleaseLabel = "UI Preview 5";

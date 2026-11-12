@@ -11,13 +11,11 @@ communication, and rollback workflow, use
 
 ## Publisher setup
 
-The next local test source is **2.1.7**, EXE **2.1.7.1** (future Store package
-**2.1.700.0**). It changes quiet checks to six hours and shows the last check in
-Advanced and the Store button tooltip. Use `scripts/New-Companion217Candidate.ps1`
-and `scripts/New-Companion217LocalTest.ps1` for this test. No 2.1.7 Store submission
-has been prepared or uploaded; the exact 2.1.6 artifacts below remain unchanged.
+The next Store candidate is **2.1.8**, EXE **2.1.8.1**, package **2.1.800.0**.
+See the [2.1.8 submission handoff](STORE-SUBMISSION-2.1.8.md) for the exact
+package, listing copy, certification notes and account checks.
 
-The next prepared update is **2.1.6**, EXE **2.1.6.1**, Store package
+The historical **2.1.6** update has EXE **2.1.6.1** and Store package
 **2.1.600.0**. Use `scripts/New-Companion216Candidate.ps1` and the exact frozen
 candidate path/hash with the package builder. See
 [the 2.1.6 preparation record](../../docs/COMPANION-2.1.6-STORE-PREPARATION-20261110.md).
