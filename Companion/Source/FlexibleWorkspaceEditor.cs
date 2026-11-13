@@ -121,6 +121,8 @@ namespace Offhand.Companion
                     layoutId=savedId;
                     if(current.TryGetValue("WorkspaceProfileName",out savedName))layoutName=WorkspacePlanProfiles.Name(savedName);
                 }
+                if (document.Workspaces.Count > Areas.GetLength(0) - 1)
+                    throw new InvalidOperationException("This editor supports two workspaces on one monitor. Use Restore Window before changing this layout.");
                 LoadDocument(document);
             } else LoadPreset("centered");
             DisplaySelector.SelectedIndexChanged+=(s,e)=>{if(!updating)LoadPreset("centered");};

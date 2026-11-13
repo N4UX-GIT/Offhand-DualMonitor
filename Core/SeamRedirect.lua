@@ -769,6 +769,7 @@ function HUD:HookFrames()
                         if okName then cName = name end
                     end
                     if cName == "OffhandCanvasFrame" or cName == "OffhandSeamGuideLine"
+                        or (Offhand.CenterGuide and child == Offhand.CenterGuide.frame)
                         or (Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:IsCanvas(child)) then return end
                     if Compatibility.IsExternallyOwnedHUDFrame(child, cName) then return end
                     if Compatibility.ShouldPreservePopupPosition(child, cName) then return end

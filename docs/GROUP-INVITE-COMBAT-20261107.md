@@ -76,6 +76,30 @@ PositionMainhandTransientFrames; Core/Init.lua RunOrQueueCombat and
 PLAYER_REGEN_ENABLED; Core/SeamRedirect.lua HookFrames/RedirectExternalPopups;
 Core/HUDTransientPolicy.lua IsNativeDialogRoot.
 
+## Beta 33 contributor follow-up
+
+A follow-up report describes a landscape Mainhand below an unused monitor and a
+full-height portrait Offhand to the right. Group invites, trade requests and
+escort prompts could appear in the unused area during combat. The report did
+not include the exact build or an observed successful in-combat click after
+repositioning. This supports the off-screen anchor explanation.
+
+The proposed patch wrapped the existing anchor writer in `pcall` and checked
+the popup root's protection and offset values. The writer still clears the old
+anchor before setting the new one. An error after the clear can leave the popup
+without an anchor, and a successful move cannot establish that the native
+action remains usable. The candidate retains the combat guard pending real
+Accept/Decline, trade and quest interactions and fresh taint evidence. The
+Forever 1.60.1.70888 generated declarations mark both anchor writes protected
+and GetPoint potentially secret. [Forever anchor declarations](https://github.com/Gethe/wow-ui-source/blob/4cd0ab752a77164f654ccbca9d0c1fe8dafceebe/Interface/AddOns/Blizzard_APIDocumentationGenerated/SimpleScriptRegionResizingAPIDocumentation.lua)
+
+The Cooldown Manager import and layout dialogs have a separate native center
+anchor and can open with Edit Mode closed. The candidate recovers these two
+visible, unprotected dialogs outside combat when their bounds fit no game or
+workspace region. Dedicated recovery owns their placement. Lua fixtures cover
+both dialogs and preserve reachable anchors. Native dialog actions remain open
+for verification. [Forever dialog definitions](https://github.com/Gethe/wow-ui-source/blob/4cd0ab752a77164f654ccbca9d0c1fe8dafceebe/Interface/AddOns/Blizzard_CooldownViewer/CooldownViewerSettingsDialogs.xml)
+
 ## Required native acceptance
 
 Once the actual client/version and symptom are known, use a cooperating tester

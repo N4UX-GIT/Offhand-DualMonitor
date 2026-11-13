@@ -1554,6 +1554,51 @@ EditModeManagerFrame:Hide()
 addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
 EditModeManagerFrame:Show()
 
+-- Cooldown Manager layout dialogs open independently of Edit Mode.
+do
+    EditModeManagerFrame:Hide()
+    addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+    local promptsBefore = editModePromptCount
+    for _, name in ipairs({ "CooldownViewerImportLayoutDialog", "CooldownViewerLayoutDialog" }) do
+        local dialog = makeMockFrame(name, 520, 360)
+        _G[name] = dialog
+        dialog:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1268, 1586)
+        combatLocked = true
+        addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+        assert(dialog.setPointCalls == 1, name .. " must stay untouched in combat")
+        combatLocked = false
+        dialog.IsProtected = function() return true end
+        addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+        assert(dialog.setPointCalls == 1, name .. " must stay untouched when protected")
+        dialog.IsProtected = function() return false end
+        dialog.IsForbidden = function() return true end
+        addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+        assert(dialog.setPointCalls == 1, name .. " must stay untouched when forbidden")
+        dialog.IsForbidden = function() return false end
+        addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+        local x, y = dialog:GetCenter()
+        assert(dialog.setPointCalls == 2 and editModePromptCount == promptsBefore
+            and math.abs(x - (metrics.gameLeft + metrics.gameRight) / 2) < 1
+            and math.abs(y - (metrics.gameBottom + metrics.gameTop) / 2) < 1,
+            name .. " must recover to Mainhand without Edit Mode or a prompt")
+
+        dialog:ClearAllPoints()
+        dialog:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+        local oldChildren, oldSpecial = UIParent.children, UISpecialFrames
+        UIParent.children, UISpecialFrames = { dialog }, { name }
+        dialog.HookScript = function() error(name .. " must not receive generic popup hooks") end
+        local gameTop = metrics.gameTop
+        metrics.gameTop = 1500
+        addon.HUD.popupTicker.callback()
+        metrics.gameTop = gameTop
+        UIParent.children, UISpecialFrames = oldChildren, oldSpecial
+        assert(dialog.setPointCalls == 3 and dialog.points[1][4] == 0 and dialog.points[1][5] == 0,
+            name .. " must keep its reachable stock anchor through the full popup ticker")
+        _G[name] = nil
+    end
+    EditModeManagerFrame:Show()
+end
+
 -- Restoring the window to one monitor is when a stale spanned Edit Mode
 -- control is most likely to be unreachable. Recovery must continue to offer
 -- the same player-click action in the explicit topology-mismatch state.

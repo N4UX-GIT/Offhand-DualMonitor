@@ -783,6 +783,14 @@ function Recovery.Install(HUD)
             (self.foreverEditModeControlsCandidateGeneration or 0) + 1
     end
 
+    local function FrameIsActuallyVisible(frame)
+        if not frame then return false end
+        local method = type(frame.IsVisible) == "function" and frame.IsVisible or frame.IsShown
+        if type(method) ~= "function" then return false end
+        local ok, visible = pcall(method, frame)
+        return ok and not (issecretvalue and issecretvalue(visible)) and visible == true
+    end
+
     local function CenterUnprotectedEditModeControl(frame, metrics)
         if not frame or not frame.IsShown or not frame:IsShown()
             or (frame.IsForbidden and frame:IsForbidden())
@@ -790,13 +798,18 @@ function Recovery.Install(HUD)
             or FrameFitsPhysicalDisplay(frame, metrics) then return false end
         local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
         local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or parentScale
+        if parentScale <= 0 or frameScale <= 0 then return false end
         local factor = parentScale / frameScale
-        local centerX = (metrics.gameLeft + metrics.gameRight) / 2
-        local centerY = (metrics.gameBottom + metrics.gameTop) / 2
+        local x = (metrics.gameLeft + metrics.gameRight - UIParent:GetWidth()) / 2 * factor
+        local y = (metrics.gameBottom + metrics.gameTop - UIParent:GetHeight()) / 2 * factor
+        if frame.GetNumPoints and frame.GetPoint and frame:GetNumPoints() == 1 then
+            local point, relative, relativePoint, offsetX, offsetY = frame:GetPoint(1)
+            if point == "CENTER" and relative == UIParent and relativePoint == "CENTER"
+                and math.abs((offsetX or 0) - x) < 0.001
+                and math.abs((offsetY or 0) - y) < 0.001 then return false end
+        end
         frame:ClearAllPoints()
-        frame:SetPoint("CENTER", UIParent, "CENTER",
-            (centerX - UIParent:GetWidth() / 2) * factor,
-            (centerY - UIParent:GetHeight() / 2) * factor)
+        frame:SetPoint("CENTER", UIParent, "CENTER", x, y)
         return true
     end
 
@@ -820,6 +833,26 @@ function Recovery.Install(HUD)
         return moved
     end
 
+    -- Cooldown Manager uses the Edit Mode dialog templates from its own
+    -- settings. Its stock center anchor can fall in a void on a spanned window.
+    local cooldownViewerDialogNames = {
+        "CooldownViewerImportLayoutDialog",
+        "CooldownViewerLayoutDialog",
+    }
+
+    local function RecoverCooldownViewerDialogs(metrics)
+        if InCombatLockdown() then return end
+        for _, name in ipairs(cooldownViewerDialogNames) do
+            local frame = _G[name]
+            if FrameIsActuallyVisible(frame) then
+                metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics
+                    and Offhand.Viewport:GetMetrics())
+                if not CanRecoverForeverEditModeControls(metrics) then return end
+                pcall(CenterUnprotectedEditModeControl, frame, metrics)
+            end
+        end
+    end
+
     -- Blizzard can anchor its Edit Mode manager outside the physical displays on a
     -- mixed-height span. This occurs on Retail as well as Forever. Detection stays
     -- read-only until a candidate survives native layout settlement. Only known
@@ -827,6 +860,7 @@ function Recovery.Install(HUD)
     -- recovery prompt for players who disable automatic recovery.
     function HUD:UpdateForeverEditModeControlsRecovery(metrics)
         if not HasBlizzardEditMode() or not Offhand.db or not Offhand.db.enabled then return end
+        RecoverCooldownViewerDialogs(metrics)
         local manager = _G.EditModeManagerFrame
         local shown = manager and manager.IsShown and manager:IsShown()
         if not shown then
@@ -990,14 +1024,6 @@ function Recovery.Install(HUD)
         PartyFrame = true, PartyMemberFrame1 = true, CompactPartyFrame = true,
         CompactRaidFrameContainer = true,
     }
-
-    local function FrameIsActuallyVisible(frame)
-        if not frame then return false end
-        local method = type(frame.IsVisible) == "function" and frame.IsVisible or frame.IsShown
-        if type(method) ~= "function" then return false end
-        local ok, visible = pcall(method, frame)
-        return ok and visible == true
-    end
 
     local function ProtectedHUDIsPresented(name, frame)
         -- Layout generation already yields these systems to their replacement

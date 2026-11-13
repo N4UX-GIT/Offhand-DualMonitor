@@ -92,7 +92,10 @@ end
 
 function Policy.IsNativeDialogRoot(frame)
     if not frame then return false end
-    if frame == _G.GuildInviteFrame or frame == _G.ChatConfigFrame then return true end
+    if frame == _G.GuildInviteFrame or frame == _G.ChatConfigFrame
+        or frame == _G.CooldownViewerLayoutDialog or frame == _G.CooldownViewerImportLayoutDialog then
+        return true
+    end
     -- These pooled roots include incoming party invitations. Their native
     -- shared-stack translator, rather than generic void rescue, owns placement.
     if Offhand.isRetail or Offhand.isForever then

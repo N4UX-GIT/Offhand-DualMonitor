@@ -970,7 +970,7 @@ namespace Offhand.Companion
                 throw new InvalidOperationException("Workspace dimensions are incomplete. Review Workspaces.");return value;};
             if(read("WorkspaceRegionVersion")!="2") throw new InvalidOperationException("Unsupported workspace plan. Review Workspaces.");
             int count=number("WorkspaceRegionCount");
-            if(count<1||count>2)throw new InvalidOperationException("Select one or two workspaces.");
+            if(count<1||count>WorkspaceLayoutPlanner.MaximumWorkspaces)throw new InvalidOperationException("Select one to three workspaces.");
             Func<string,int> display=id=> {
                 if(string.IsNullOrWhiteSpace(id))throw new InvalidOperationException("A workspace display identity is missing.");
                 int found=FindDisplay(displays,id,null);
@@ -1015,8 +1015,7 @@ namespace Offhand.Companion
             if(bounds.Width<=0||bounds.Height<=0||bounds.Width>16384||bounds.Height>16384
                 || (long)bounds.Width*bounds.Height>(long)game.Width*game.Height*4)
                 throw new InvalidOperationException("This workspace plan exceeds the prototype surface budget (16384 pixels per axis and four times the game area). Move or reduce the workspace areas.");
-            // Preserve all identities in preferences. Older Companions reject a
-            // three-selected-display plan rather than silently dropping a region.
+            // A saved selection must account for every workspace and Mainhand.
             var selected=new HashSet<int>();
             foreach(string identity in Tokens(read("MonitorIdentities"),'|')) {
                 int index=display(identity);
@@ -1707,7 +1706,7 @@ namespace Offhand.Companion
                         var area=map(Plan.Workspaces[i].Bounds);
                         e.Graphics.DrawRectangle(edge,area.X+.5f,area.Y+.5f,Math.Max(0,area.Width-1),Math.Max(0,area.Height-1));
                         if(area.Width>=font.Height&&area.Height>=font.Height)
-                            e.Graphics.DrawString(i==0?"A":"B",font,brush,area,center);
+                            e.Graphics.DrawString(((char)('A'+i)).ToString(),font,brush,area,center);
                     }
                 }
                 center.Dispose();
@@ -1928,7 +1927,7 @@ namespace Offhand.Companion
             layout.Guide("Select an option below. The editor keeps your changes when you click Save plan.");
             SingleButton = AddOption(layout, WorkspaceEditorLayout.Single, "Split one monitor into side-by-side, full-height game and workspace areas.");
             SecondaryButton = AddOption(layout, WorkspaceEditorLayout.Secondary, "Keep one full monitor for the game and choose a workspace area on a second monitor.");
-            MultipleButton = AddOption(layout, WorkspaceEditorLayout.Multiple, "Keep one full monitor for the game and place up to two workspaces on separate monitors.");
+            MultipleButton = AddOption(layout, WorkspaceEditorLayout.Multiple, "Keep one full monitor for the game and place up to three workspaces on separate monitors.");
             FlexibleButton = AddOption(layout, WorkspaceEditorLayout.Flexible, "Place the game and one or two workspaces anywhere on a single monitor. " + WorkspaceEditorLayout.FlexibleAddon);
             if (current != WorkspaceEditorLayout.Standard)
             {
@@ -1968,7 +1967,7 @@ namespace Offhand.Companion
         public sealed class Store { public int Version=1; public List<Record> Items=new List<Record>(); }
         internal static bool PlanKey(string key)
         {
-            return WorkspaceLayoutSettings.IsSetting(key) || Regex.IsMatch(key,@"^WorkspaceRegion(?:sEnabled|Version|Count|[12](?:Id|Identity|MonitorWidth|MonitorHeight|X|Y|Width|Height))$")
+            return WorkspaceLayoutSettings.IsSetting(key) || WorkspaceLayoutSettings.IsWorkspaceRegionSetting(key)
                 || Array.IndexOf(new[]{"WorkspacePrimary","MainhandIdentity","MainhandDevice","DisplayIdentityVersion","MonitorIdentities","MonitorDevices","Monitors","SingleDisplaySplit","PartialSpanEnabled","SecondaryAreaEnabled"},key)>=0;
         }
         internal static string Name(string name)
@@ -2160,15 +2159,21 @@ namespace Offhand.Companion
         internal readonly ComboBox Primary=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Dock=DockStyle.Fill};
         internal readonly CheckBox UseRegions=new CheckBox{Text="Use this layout",Checked=true,AutoSize=true};
         internal readonly CheckBox Second=new CheckBox{Text="Use Workspace B",Checked=true,AutoSize=true};
-        internal readonly ComboBox[] Monitors=new ComboBox[2];
-        internal readonly NumericUpDown[,] Areas=new NumericUpDown[2,4];
-        internal readonly Button[] SelectAreas=new Button[2];
+        internal readonly CheckBox Third=new CheckBox{Text="Use Workspace C",Checked=false,AutoSize=true};
+        internal const int Slots=WorkspaceLayoutPlanner.MaximumWorkspaces;
+        internal static string WorkspaceName(int index)
+        {
+            return "Workspace " + (char)('A' + index);
+        }
+        internal readonly ComboBox[] Monitors=new ComboBox[Slots];
+        internal readonly NumericUpDown[,] Areas=new NumericUpDown[Slots,4];
+        internal readonly Button[] SelectAreas=new Button[Slots];
         private readonly IList<MonitorSelection.Display> displays;
         private readonly IDictionary<string,string> original;
-        private readonly string[] ids=new string[2];
+        private readonly string[] ids=new string[Slots];
         private bool loading;
         private Label preview;
-        private Label secondHeading;
+        private readonly Label[] slotHeadings=new Label[Slots];
         private readonly Panel pinnedPreview;
         internal readonly Button SavePlan=new Button{Text="Save plan",AutoSize=true};
         internal readonly WorkspacePlanPreview Diagram=new WorkspacePlanPreview();
@@ -2179,37 +2184,40 @@ namespace Offhand.Companion
             var layout = new WorkspaceEditorLayout(this, WorkspaceEditorLayout.Multiple, new Size(670, 768), new Size(520, 440), 39, 61);
             var table = layout.Table;
             layout.Heading("1. Choose the game monitor");
-            layout.Guide("Use one full monitor for the game and a different monitor for each workspace. The default workspace receives panels without a workspace assignment.");
+            layout.Guide("Use one full monitor for the game and a different monitor for each workspace (up to three workspaces, four monitors in total). The default workspace receives panels without a workspace assignment.");
             layout.ExplainReplacement(settings, WorkspaceEditorLayout.Multiple);
             for(int i=0;i<displays.Count;i++)Game.Items.Add(CompanionUi.DisplayName(displays[i],i));
             string main;settings.TryGetValue("MainhandIdentity",out main);
-            Game.SelectedIndex=Find(main,displays.Count > 0 ? 0 : -1);Primary.Items.AddRange(new object[]{"Workspace A","Workspace B"});Primary.SelectedIndex=0;
-            string count;Second.Checked=settings.TryGetValue("WorkspaceRegionCount",out count)?count!="1":displays.Count>=3;
+            Game.SelectedIndex=Find(main,displays.Count > 0 ? 0 : -1);
+            string count;
+            if(settings.TryGetValue("WorkspaceRegionCount",out count)){Second.Checked=count!="1";Third.Checked=count=="3";}
+            else{Second.Checked=displays.Count>=3;Third.Checked=false;}
             layout.Field("Layout", UseRegions);
             layout.Field("Game monitor", Game);
             layout.Field("Second workspace", Second);
+            layout.Field("Third workspace", Third);
+            Third.AccessibleDescription = "Adds Workspace C on a fourth monitor.";
             layout.Field("Default workspace", Primary);
             Primary.AccessibleDescription = "Where supported panels go when they have no assigned workspace.";
             loading = true;
-            for (int i = 0; i < 2; i++)
+            for (int i = 0; i < Slots; i++)
             {
                 int slot = i;
                 string p = "WorkspaceRegion" + (i + 1), id, identity;
-                var areaHeading = layout.Heading(i == 0 ? "2. Set Workspace A" : "3. Set Workspace B");
-                if (i == 1) secondHeading = areaHeading;
-                ids[i]=settings.TryGetValue(p+"Id",out id)?id:(i==0?"workspace-a":"workspace-b");
+                slotHeadings[i] = layout.Heading((i + 2) + ". Set " + WorkspaceName(i));
+                ids[i]=settings.TryGetValue(p+"Id",out id)?id:("workspace-" + (char)('a' + i));
                 settings.TryGetValue(p+"Identity",out identity);
                 Monitors[i]=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Dock=DockStyle.Fill};
                 for(int j=0;j<displays.Count;j++)Monitors[i].Items.Add(CompanionUi.DisplayName(displays[j],j));
                 int fallback = -1;
                 for (int j = 0; j < displays.Count; j++)
-                    if (j != Game.SelectedIndex && (i == 0 || j != Monitors[0].SelectedIndex))
-                    {
-                        fallback = j;
-                        break;
-                    }
+                {
+                    bool used = j == Game.SelectedIndex;
+                    for (int k = 0; k < i; k++) used = used || j == Monitors[k].SelectedIndex;
+                    if (!used) { fallback = j; break; }
+                }
                 Monitors[i].SelectedIndex=Find(identity,fallback);
-                layout.Field(i == 0 ? "Workspace A monitor" : "Workspace B monitor", Monitors[i]);
+                layout.Field(WorkspaceName(i) + " monitor", Monitors[i]);
                 var visual = new Button { Text = WorkspaceEditorLayout.SelectArea, AutoSize = true, Dock = DockStyle.Fill, MaximumSize = new Size(0, 38) };
                 SelectAreas[i] = visual;
                 layout.Field("Pick an area", visual);
@@ -2218,34 +2226,36 @@ namespace Offhand.Companion
                 {
                     Areas[i,n] = new NumericUpDown { Minimum = 0, Maximum = 32768, Dock = DockStyle.Fill };
                     layout.Field(labels[n], Areas[i,n]);
-                    Areas[i,n].AccessibleName = "Workspace " + (i == 0 ? "A " : "B ") + labels[n];
+                    Areas[i,n].AccessibleName = WorkspaceName(i) + " " + labels[n];
                 }
-                visual.AccessibleName="Select Workspace "+(i==0?"A":"B")+" area on monitor";
+                visual.AccessibleName="Select " + WorkspaceName(i) + " area on monitor";
                 visual.Click+=(s,e)=>EditArea(slot);
                 Monitors[i].SelectedIndexChanged+=(s,e)=> {if(!loading){LoadArea(slot);UpdatePreview();}};
                 for(int n=0;n<4;n++)Areas[i,n].ValueChanged+=(s,e)=>{if(!loading)UpdatePreview();};
                 LoadArea(i);
             }
-            string primary;if(settings.TryGetValue("WorkspacePrimary",out primary)&&primary==ids[1])Primary.SelectedIndex=1;
+            UpdateDefaultChoices();
+            string primary;
+            if(settings.TryGetValue("WorkspacePrimary",out primary))
+                for(int i=1;i<Slots;i++)if(primary==ids[i]&&i<ActiveCount())Primary.SelectedIndex=i;
             loading=false;
             Diagram.Displays = displays;
             pinnedPreview = new Panel { Dock = DockStyle.Bottom, Height = 164, Padding = new Padding(20, 6, 20, 0) };
             pinnedPreview.Controls.Add(Diagram);
             preview = new Label();
             Game.SelectedIndexChanged+=(s,e)=>UpdatePreview();Primary.SelectedIndexChanged+=(s,e)=>UpdatePreview();UseRegions.CheckedChanged+=(s,e)=>UpdatePreview();
-            Second.CheckedChanged+=(s,e)=> {
-                string savedCount;
-                if(!Second.Checked&&MonitorSelection.MultiEnabled(original)&&original.TryGetValue("WorkspaceRegionCount",out savedCount)&&savedCount=="2") {
-                    if(MessageBox.Show(this,"Remove Workspace B from the next plan? Its saved frames will fall back to Workspace A when applied. Existing positions are retained for recovery.",Text,MessageBoxButtons.OKCancel,MessageBoxIcon.Question)!=DialogResult.OK){Second.Checked=true;return;}
-                }
-                if(!Second.Checked)Primary.SelectedIndex=0;UpdatePreview();
-            };
+            Second.CheckedChanged += (s, e) => UpdatePreview();
+            Third.CheckedChanged += (s, e) => UpdatePreview();
             SavePlan.Click += (s, e) =>
             {
                 try
                 {
                     var proposed = Proposed();
-                    if (UseRegions.Checked) MonitorSelection.CreatePlan(proposed, displays);
+                    if (UseRegions.Checked)
+                    {
+                        MonitorSelection.CreatePlan(proposed, displays);
+                        if (!ConfirmWorkspaceRemoval()) return;
+                    }
                     Settings = proposed;
                     DialogResult = DialogResult.OK;
                     Close();
@@ -2285,12 +2295,43 @@ namespace Offhand.Companion
                     loading=true;int[] values={selection.Area.X,selection.Area.Y,selection.Area.Width,selection.Area.Height};for(int n=0;n<4;n++)Areas[slot,n].Value=values[n];loading=false;UpdatePreview();}}
             catch(ArgumentException ex){loading=false;MessageBox.Show(this,ex.Message,Text);}
         }
-        internal Dictionary<string,string> Proposed()
+        // Workspaces in use: A always, B when checked, C only together with B.
+        internal int ActiveCount()
         {
-            return Proposed(Second.Checked);
+            return 1 + (Second.Checked ? 1 : 0) + (Second.Checked && Third.Checked ? 1 : 0);
         }
 
-        private Dictionary<string,string> Proposed(bool includeSecond)
+        internal Dictionary<string,string> Proposed()
+        {
+            return Proposed(ActiveCount());
+        }
+
+        private bool ConfirmWorkspaceRemoval()
+        {
+            string value;
+            int savedCount;
+            int count = ActiveCount();
+            if (!MonitorSelection.MultiEnabled(original)
+                || !original.TryGetValue("WorkspaceRegionCount", out value)
+                || !int.TryParse(value, out savedCount) || savedCount <= count) return true;
+
+            string removed = savedCount == 3 && count == 1
+                ? "Workspaces B and C" : WorkspaceName(count);
+            return MessageBox.Show(this, "Remove " + removed + " from the next plan? Their panels will use the default workspace. Saved positions are retained.",
+                Text, MessageBoxButtons.OKCancel, MessageBoxIcon.Question) == DialogResult.OK;
+        }
+
+        private void UpdateDefaultChoices()
+        {
+            int count = ActiveCount();
+            if (Primary.Items.Count == count) return;
+            int selected = Primary.SelectedIndex;
+            Primary.Items.Clear();
+            for (int i = 0; i < count; i++) Primary.Items.Add(WorkspaceName(i));
+            Primary.SelectedIndex = selected >= 0 && selected < count ? selected : 0;
+        }
+
+        private Dictionary<string,string> Proposed(int count)
         {
             if(!UseRegions.Checked) {
                 // Turning the feature off must remain possible after a required
@@ -2309,19 +2350,22 @@ namespace Offhand.Companion
             }
             if (Game.SelectedIndex < 0 || Monitors[0].SelectedIndex < 0)
                 throw new InvalidOperationException("Choose connected monitors for the game and Workspace A.");
-            if (includeSecond)
+            for (int slot = 1; slot < count; slot++)
             {
-                if (displays.Count < 3)
-                    throw new InvalidOperationException("Workspace B needs a third connected monitor. Connect one or turn off Workspace B.");
-                int second = Monitors[1].SelectedIndex;
-                if (second < 0 || second == Game.SelectedIndex || second == Monitors[0].SelectedIndex)
-                    throw new InvalidOperationException("Choose a separate monitor for Workspace B.");
+                string name = WorkspaceName(slot);
+                if (displays.Count < slot + 2)
+                    throw new InvalidOperationException(name + " needs " + (slot == 1 ? "a third" : "a fourth")
+                        + " connected monitor. Connect one or turn off " + name + ".");
+                int chosen = Monitors[slot].SelectedIndex;
+                bool clash = chosen < 0 || chosen == Game.SelectedIndex;
+                for (int k = 0; k < slot; k++) clash = clash || chosen == Monitors[k].SelectedIndex;
+                if (clash) throw new InvalidOperationException("Choose a separate monitor for " + name + ".");
             }
-            var result=new Dictionary<string,string>(original);int count=includeSecond?2:1;
+            var result=new Dictionary<string,string>(original);
             result[WorkspaceLayoutSettings.EnabledKey]="False";result["WorkspaceRegionsEnabled"]=UseRegions.Checked.ToString();result["WorkspaceRegionVersion"]="2";result["WorkspaceRegionCount"]=count.ToString();
             result["PartialSpanEnabled"]="False";result["SecondaryAreaEnabled"]="False";result["SingleDisplaySplit"]="False";result["AutoSpan"]="False";
             result["DisplayIdentityVersion"]="2";result["MainhandIdentity"]=displays[Game.SelectedIndex].StableId;result["MainhandDevice"]=displays[Game.SelectedIndex].DeviceName;
-            result["WorkspacePrimary"]=ids[Primary.SelectedIndex==1&&count==2?1:0];
+            result["WorkspacePrimary"]=ids[Primary.SelectedIndex>0&&Primary.SelectedIndex<count?Primary.SelectedIndex:0];
             var identities=new List<string>{displays[Game.SelectedIndex].StableId};var devices=new List<string>{displays[Game.SelectedIndex].DeviceName};var legacy=new List<string>{Game.SelectedIndex.ToString()};
             for(int i=0;i<count;i++) {
                 var monitor=displays[Monitors[i].SelectedIndex];string p="WorkspaceRegion"+(i+1);result[p+"Id"]=ids[i];result[p+"Identity"]=monitor.StableId;
@@ -2335,25 +2379,32 @@ namespace Offhand.Companion
         {
             if(loading||preview==null)return;
             bool enabled=UseRegions.Checked;
-            Second.Enabled=enabled;Primary.Enabled=enabled&&Second.Checked;
-            secondHeading.Visible=Second.Checked;
+            int count=ActiveCount();
+            Second.Enabled=enabled;Third.Enabled=enabled&&Second.Checked;Primary.Enabled=enabled&&count>1;
             pinnedPreview.Visible = enabled;
             var table = (TableLayoutPanel)Monitors[1].Parent;
             table.SuspendLayout();
             try
             {
-                foreach (Control field in new Control[] { Monitors[1], Areas[1,0], Areas[1,1], Areas[1,2], Areas[1,3], SelectAreas[1] })
+                for (int slot = 1; slot < Slots; slot++)
                 {
-                    field.Visible = Second.Checked;
-                    var label = table.GetControlFromPosition(0, table.GetRow(field));
-                    label.Visible = Second.Checked;
+                    bool shown = slot < count;
+                    slotHeadings[slot].Visible = shown;
+                    foreach (Control field in new Control[] { Monitors[slot], Areas[slot,0], Areas[slot,1], Areas[slot,2], Areas[slot,3], SelectAreas[slot] })
+                    {
+                        field.Visible = shown;
+                        var label = table.GetControlFromPosition(0, table.GetRow(field));
+                        if (label != null) label.Visible = shown;
+                    }
                 }
             }
             finally { table.ResumeLayout(true); }
-            if(!Second.Checked&&Primary.SelectedIndex!=0)Primary.SelectedIndex=0;
-            for(int i=0;i<2;i++) {
-                bool active=enabled&&(i==0||Second.Checked);
-                if(i==1)Monitors[i].Enabled=active;
+            loading = true;
+            try { UpdateDefaultChoices(); }
+            finally { loading = false; }
+            for(int i=0;i<Slots;i++) {
+                bool active=enabled&&i<count;
+                if(i>0)Monitors[i].Enabled=active;
                 for(int n=0;n<4;n++)Areas[i,n].Enabled=active;
                 SelectAreas[i].Enabled=active&&Monitors[i].SelectedIndex>=0;
             }
@@ -2368,7 +2419,8 @@ namespace Offhand.Companion
                 }
                 var plan = MonitorSelection.CreatePlan(settings, displays);
                 double ratio = (double)plan.Bounds.Width * plan.Bounds.Height / ((long)plan.MainhandBounds.Width * plan.MainhandBounds.Height);
-                string summary = plan.Workspaces.Length == 1 ? "One workspace is ready." : "Two workspaces are ready.";
+                string[] ready = { "One workspace is ready.", "Two workspaces are ready.", "Three workspaces are ready." };
+                string summary = ready[Math.Max(0, Math.Min(ready.Length, plan.Workspaces.Length) - 1)];
                 if (ratio >= 2)
                     summary += string.Format(" WoW renders {0:0.0}× the game area. This can affect performance.", ratio);
                 WorkspaceEditorLayout.UpdateStatus(SavePlan, preview, Diagram, plan, summary, true);
@@ -2376,18 +2428,19 @@ namespace Offhand.Companion
             }
             catch (Exception ex)
             {
-                // Keep the valid part of the current draft in view while the
-                // user fixes Workspace B. Never save that partial preview.
-                MonitorSelection.Plan gameAndA = null;
-                if (Second.Checked)
+                // Keep the largest valid part of the current draft in view while
+                // the user fixes a later workspace. Never save that partial preview.
+                MonitorSelection.Plan partial = null; int partialCount = 0;
+                for (int tryCount = count - 1; tryCount >= 1 && partial == null; tryCount--)
                 {
-                    try { gameAndA = MonitorSelection.CreatePlan(Proposed(false), displays); }
+                    try { partial = MonitorSelection.CreatePlan(Proposed(tryCount), displays); partialCount = tryCount; }
                     catch (InvalidOperationException) { }
                 }
+                string shown = partialCount == 2 ? "Preview shows the game, Workspace A and Workspace B." : "Preview shows the game and Workspace A.";
                 string message = WorkspaceEditorLayout.InvalidPlan + ex.Message;
-                if (gameAndA != null) message += "\r\nPreview shows the game and Workspace A.";
-                WorkspaceEditorLayout.UpdateStatus(SavePlan, preview, Diagram, gameAndA, message, false, showEmptyPreview: true);
-                Diagram.AccessibleDescription = gameAndA == null ? message : "Preview shows the game and Workspace A.";
+                if (partial != null) message += "\r\n" + shown;
+                WorkspaceEditorLayout.UpdateStatus(SavePlan, preview, Diagram, partial, message, false, showEmptyPreview: true);
+                Diagram.AccessibleDescription = partial == null ? message : shown;
             }
         }
     }
@@ -2831,7 +2884,7 @@ namespace Offhand.Companion
         internal const string LegacyCompanionVersion = "2.1.2";
         private static readonly string[] ManifestNames = new string[] {
             "Offhand.toc", "Offhand_Mainline.toc", "Offhand_Vanilla.toc",
-            "Offhand_Classic.toc", "Offhand_Forever.toc"
+            "Offhand_Classic.toc", "Offhand_Forever.toc", "Offhand_Wrath335a.toc"
         };
 
         private static string ChildDirectory(string parent, string wanted)
@@ -2866,24 +2919,31 @@ namespace Offhand.Companion
             return false;
         }
 
+        private static string ReadManifestMetadata(string path, string key)
+        {
+            string prefix = "## " + key + ":";
+            try
+            {
+                foreach (string line in File.ReadLines(path))
+                {
+                    if (line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                        return line.Substring(prefix.Length).Trim();
+                }
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            return null;
+        }
+
         private static string ReadMetadata(string addonDir, string key)
         {
             if (string.IsNullOrEmpty(addonDir)) return null;
-            string prefix = "## " + key + ":";
             foreach (string manifest in ManifestNames)
             {
                 string path = Path.Combine(addonDir, manifest);
                 if (!File.Exists(path)) continue;
-                try
-                {
-                    foreach (string line in File.ReadAllLines(path))
-                    {
-                        if (line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                            return line.Substring(prefix.Length).Trim();
-                    }
-                }
-                catch (IOException) { }
-                catch (UnauthorizedAccessException) { }
+                string value = ReadManifestMetadata(path, key);
+                if (value != null) return value;
             }
             return null;
         }
@@ -2908,6 +2968,26 @@ namespace Offhand.Companion
                 int supported;if(int.TryParse(token.Trim(),out supported)&&supported==schema)return true;
             }
             return false;
+        }
+
+        // Addons that predate four-monitor support declare nothing and accept
+        // at most two workspace regions.
+        internal static int SupportedWorkspaceCount(string wowDir)
+        {
+            var install = Inspect(wowDir);
+            if (!install.Installed) return 0;
+            // A partial addon update can leave different client manifests in
+            // the same folder. Use the lowest declared capability.
+            int supported = WorkspaceLayoutPlanner.MaximumWorkspaces;
+            foreach (string manifest in ManifestNames)
+            {
+                string path = Path.Combine(install.AddonDir, manifest);
+                if (!File.Exists(path)) continue;
+                int count;
+                string value = ReadManifestMetadata(path, "X-Offhand-Max-Workspaces");
+                supported = Math.Min(supported, int.TryParse(value, out count) && count > 0 ? count : 2);
+            }
+            return supported;
         }
 
         private static string FindVersionedOffhandFolder(string addOnsDir)
@@ -3187,6 +3267,8 @@ namespace Offhand.Companion
             IList<MonitorSelection.Display> displays)
         {
             if (string.IsNullOrEmpty(wowDir) || plan == null || displays == null) return BridgeMatch.DifferentLayout;
+            if (plan.MultiRegion && plan.Workspaces.Length > 2
+                && plan.Workspaces.Length > AddonInstallation.SupportedWorkspaceCount(wowDir)) return BridgeMatch.DifferentLayout;
             string target = Path.Combine(wowDir, "Interface", "AddOns", "Offhand", "Core", "CompanionTopology.lua");
             string content;
             try { content = File.ReadAllText(target); }
@@ -3220,6 +3302,12 @@ namespace Offhand.Companion
                 message=plan.FlexibleLayout
                     ? "The Offhand addon installed for this WoW client does not support Flexible Layout. " + WorkspaceEditorLayout.FlexibleAddon
                     : "The installed addon does not support this workspace topology schema. Update it before applying this plan.";
+                return false;
+            }
+            if (plan.MultiRegion && plan.Workspaces.Length > 2
+                && plan.Workspaces.Length > AddonInstallation.SupportedWorkspaceCount(wowDir))
+            {
+                message = "The installed addon does not support this many workspaces. Update Offhand before applying the plan.";
                 return false;
             }
             string core = Path.Combine(wowDir, "Interface", "AddOns", "Offhand", "Core");
@@ -4951,7 +5039,7 @@ namespace Offhand.Companion
             if (reviewed.MultiRegion)
             {
                 for (int i = 0; i < reviewed.Workspaces.Length; i++)
-                    screens.Add(DescribeDisplayRole(i == 0 ? "Workspace A" : "Workspace B", reviewed.Workspaces[i].DisplayIndex, uiDisplays));
+                    screens.Add(DescribeDisplayRole(WorkspaceRegionsDialog.WorkspaceName(i), reviewed.Workspaces[i].DisplayIndex, uiDisplays));
             }
             else
             {
@@ -6745,7 +6833,7 @@ namespace Offhand.Companion
             AppendHelpSection(guide, sectionFont, "Choose a display layout",
                 "Two full displays. Check both screens under Span displays and pick Mainhand (game). The other screen becomes your Offhand workspace.",
                 "One super-ultrawide. For an equal split on a 32:9 or 32:10 display, check only that screen, enable Single-display 32:9 split, and choose Game side.",
-                "Advanced > Workspace layout. Choose One monitor for a full-height game and workspace split, Two monitors for a full game screen and a rectangular workspace, or Multiple workspaces for a full game screen plus one or two workspaces on separate displays.",
+                "Advanced > Workspace layout. Choose One monitor for a full-height game and workspace split, Two monitors for a full game screen and a rectangular workspace, or Multiple workspaces for a full game screen plus one to three workspaces on separate displays.",
                 "Flexible layout (prototype). Use presets or enter the game and workspace rectangles to place one or two workspaces on the same physical display. " + WorkspaceEditorLayout.FlexibleAddon);
 
             AppendHelpSection(guide, sectionFont, "Edit and reuse custom workspaces",

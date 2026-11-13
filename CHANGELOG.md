@@ -16,9 +16,13 @@
 - Improve narrow backpack fitting, preserve Titan Panel's bar anchors and the
   native queue status button, and keep eligible EllesmereUI bags open with Talents.
 - Load each workspace scaling module once per client manifest.
+- Use `/offhand centerline` to toggle alignment marks on the Mainhand game view.
+- Recover unreachable Cooldown Manager layout dialogs onto Mainhand outside
+  combat, including when Edit Mode is closed.
+- Custom layouts accept Workspace C on a fourth display with a compatible
+  Companion build. Four-monitor gameplay still needs live verification.
 
-This QA build contains the addon. Companion profile feedback and span diagnostics
-are included in the source branch and await a separate Companion build.
+This QA build contains the addon. Companion changes await a separate build.
 
 ## [2.1.5-beta.32] - 2026-11-11
 

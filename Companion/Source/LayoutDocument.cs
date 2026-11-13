@@ -76,7 +76,9 @@ namespace Offhand.Companion
 
     internal static class WorkspaceLayoutPlanner
     {
-        internal const int MaximumWorkspaces = 2;
+        // One game area plus up to three workspaces: four monitors at most.
+        internal const int MaximumWorkspaces = 3;
+        internal const int MaximumDisplays = MaximumWorkspaces + 1;
         internal const int MaximumAxis = 16384;
         private static readonly Regex Identifier = new Regex(@"\A[A-Za-z0-9_-]{1,32}\z");
 
@@ -120,10 +122,10 @@ namespace Offhand.Companion
                 "Choose a valid layout ID and name.");
             foreach (char ch in document.Name) Require(!char.IsControl(ch) && ch != '|', "The layout name contains unsupported characters.");
             Require(displays != null && displays.Count > 0 && displays.Count <= 64, "Connected displays are unavailable or ambiguous.");
-            Require(document.Displays != null && document.Displays.Count > 0 && document.Displays.Count <= 3,
-                "A layout needs one to three display roles.");
+            Require(document.Displays != null && document.Displays.Count > 0 && document.Displays.Count <= MaximumDisplays,
+                "A layout needs one to four display roles.");
             Require(document.Game != null && document.Workspaces != null && document.Workspaces.Count >= 1
-                && document.Workspaces.Count <= MaximumWorkspaces, "Choose one game area and one or two workspaces.");
+                && document.Workspaces.Count <= MaximumWorkspaces, "Choose one game area and one to three workspaces.");
             Require(document.Game.Id == "game", "The game region must retain its reserved ID.");
             var bindings = new Dictionary<string, WorkspaceLayoutBinding>(StringComparer.Ordinal);
             foreach (var binding in document.Displays)

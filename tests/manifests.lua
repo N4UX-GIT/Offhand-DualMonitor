@@ -25,6 +25,11 @@ for _, toc in ipairs(tocs) do
     assert(text:match("## X%-Offhand%-Companion%-Protocol:%s*1"), "Companion protocol marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Min%-Version:%s*2%.1%.2%-beta%.19"), "Companion minimum version marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Addon%-Release:[ \t]*beta%.33[ \t]*\r?\n"), "Pre-Release Beta 33 addon marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Max%-Workspaces:[ \t]*3[ \t]*\r?\n"),
+        "Three-workspace capability missing: " .. toc)
+    local guide = assert(text:find("Core\\CenterGuide.lua", 1, true), toc)
+    assert(assert(text:find("Core\\Viewport.lua", 1, true), toc) < guide
+        and guide < assert(text:find("Core\\SeamRedirect.lua", 1, true), toc), toc)
     local scale = assert(text:find("Core\\WorkspaceScale.lua", 1, true), toc)
     local controls = assert(text:find("UI\\WorkspaceScaleControls.lua", 1, true), toc)
     assert(scale < controls and controls < assert(text:find("UI\\Wizard.lua", 1, true), toc), toc)

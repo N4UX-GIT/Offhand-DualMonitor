@@ -1782,6 +1782,10 @@ SlashCmdList["OFFHAND"] = function(msg)
         Offhand.OpenMapRecovery:RunAndReport()
     elseif cmd == "ellesmere" and Offhand.EllesmereLayout then
         Offhand.EllesmereLayout:Run(strtrim(arg or ""))
+    elseif cmd == "centerline" or cmd == "centre" or cmd == "center" then
+        if Offhand.CenterGuide and not Offhand.CenterGuide:Toggle() then
+            Offhand:Print(L["MSG_CENTER_GUIDE_REQUIRES_SPAN"])
+        end
     elseif cmd == "notifycapture" then
         local hud = Offhand.HUD
         if not hud or not hud.ArmNotificationCapture then return end
