@@ -719,7 +719,8 @@ namespace Offhand.Companion
                 var guide=One<RichTextBox>(dialog, control=>true);
                 var close=One<Button>(dialog, button=>button.Text=="Got it");
                 var heading=One<Label>(dialog, label=>true);
-                if (!guide.Text.Contains("six hours") || !guide.Text.Contains("If something looks wrong")
+                if (!guide.Text.Contains("Workspace C preview") || !guide.Text.Contains("fourth display")
+                    || !guide.Text.Contains("If something looks wrong")
                     || !guide.Text.Contains("/reload") || !guide.Text.Contains("/offhand guide")
                     || !guide.Text.Contains("placement/calibration") || !guide.Text.Contains("preserved"))
                     throw new Exception("Update notes must explain changes and conditional setup recovery.");

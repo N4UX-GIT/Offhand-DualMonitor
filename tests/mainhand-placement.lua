@@ -2692,6 +2692,12 @@ C_EditMode.OnLayoutAdded=function(id) layoutData.activeLayout=id end
 C_EditMode.SetActiveLayout=function(id) layoutData.activeLayout=id end
 Constants.EditModeConsts.EditModeMaxLayoutsPerType=10
 local function Near(a,b) assert(math.abs(a-b)<.01,tostring(a).." ~= "..tostring(b)) end
+local function ForeverActionCenter(rows, parentWidth)
+ local main, micro = rows[1].anchorInfo, rows[2].anchorInfo
+ local microLeft = (micro.relativePoint=="BOTTOM" and parentWidth/2 or 0) + micro.offsetX
+ if micro.point=="BOTTOM" then microLeft=microLeft-200*1.2/2 end
+ return microLeft+main.offsetX-570*.85/2
+end
 for _,eui in ipairs({false,true}) do
  C_AddOns={IsAddOnLoaded=function(name) return eui and name=="EllesmereUIActionBars" end}
  EllesmereUI=eui and {Lite={GetAddon=function() return {db={profile={useBlizzardDataBars=true}}} end}} or nil
@@ -2711,7 +2717,10 @@ for _,eui in ipairs({false,true}) do
   assert(xp.point=="BOTTOM")
   Near(rep.offsetY,xp.offsetY+14*.8+4)
   if not eui then
-   assert(xp.relativeTo=="MainActionBar" and xp.relativePoint=="TOP" and xp.offsetX==0)
+   assert(xp.relativeTo=="MainActionBar" and xp.relativePoint=="TOP")
+   local center = ForeverActionCenter(rows, area.w)
+   Near(center+xp.offsetX,(area.l+area.r)/2)
+   Near(center+rep.offsetX,(area.l+area.r)/2)
    Near(xp.offsetY,3)
    assert(rep.relativeTo=="MainActionBar" and rep.relativePoint=="TOP"
     and rows[5].anchorInfo.relativeTo=="MainActionBar" and rows[5].anchorInfo.offsetY>=rep.offsetY+16*1.1+8,
@@ -2757,9 +2766,11 @@ local existing = layoutData.layouts[existingID-3].systems
 assert(existing[2].anchorInfo.offsetY > metrics.gameBottom - 8
  and existing[3].anchorInfo.relativeTo=="MainActionBar" and existing[3].anchorInfo.offsetY==3,
  "fitting the Micro Menu and main bar must carry the generated XP bar with them")
+local legacyCenter = (metrics.gameLeft + metrics.gameRight) / 2
+Near(ForeverActionCenter(existing, UIParent:GetWidth())+existing[3].anchorInfo.offsetX,legacyCenter)
+Near(ForeverActionCenter(existing, UIParent:GetWidth())+existing[4].anchorInfo.offsetX,legacyCenter)
 source.systems[2].anchorInfo.offsetY = 6
 existing[2].anchorInfo = {point="BOTTOMLEFT",relativeTo="UIParent",relativePoint="BOTTOMLEFT",offsetX=2500,offsetY=149.6}
-local legacyCenter = (metrics.gameLeft + metrics.gameRight) / 2
 local legacyXPBottom = metrics.gameBottom + 6 - 4 + 40 * .85 + 3
 existing[3].anchorInfo = {point="BOTTOM",relativeTo="UIParent",relativePoint="BOTTOMLEFT",offsetX=legacyCenter,offsetY=20}
 existing[4].anchorInfo = {point="BOTTOM",relativeTo="UIParent",relativePoint="BOTTOMLEFT",offsetX=2200,offsetY=75.6}
@@ -2790,6 +2801,7 @@ assert(#layoutData.layouts==1 and layoutData.activeLayout==existingID,
 local repaired = layoutData.layouts[existingID-3].systems
 assert(repaired[3].anchorInfo.relativeTo=="MainActionBar" and repaired[3].anchorInfo.relativePoint=="TOP"
  and repaired[3].anchorInfo.offsetY==3, "refresh must correct the exact overlapping Beta 32 XP anchor")
+Near(ForeverActionCenter(repaired, UIParent:GetWidth())+repaired[3].anchorInfo.offsetX,legacyCenter)
 assert(repaired[4].anchorInfo.relativeTo=="UIParent" and repaired[4].anchorInfo.offsetX==2200
  and repaired[5].settings[1].value==73, "refresh must retain custom status and action bar settings")
 EditModeManagerFrame = nil

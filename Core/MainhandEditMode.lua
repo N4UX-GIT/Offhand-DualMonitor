@@ -635,6 +635,30 @@ local function PlaceForeverStatus(entry, layout, rect, sourceDefaults, mainAncho
     return true
 end
 
+local function CenterForeverStatus(layout, rect, placements)
+    if not next(placements) then return end
+    local systems, actions = Enum.EditModeSystem, Enum.EditModeActionBarSystemIndices
+    local main = _G.MainActionBar
+    for _, entry in ipairs(layout.systems or {}) do
+        local anchor = entry.anchorInfo
+        if entry.system == systems.ActionBar and entry.systemIndex == actions.MainBar
+            and anchor and anchor.relativeTo == "MicroMenuContainer"
+            and not entry.anchorInfo2 and not ExternallyOwnedSystem(entry) then
+            local x = MainAnchorOrigin(layout, anchor)
+            if not x then return end
+            local width = FrameSize(main, 570, 40)
+            local px = PointFractions(anchor.point)
+            local center = x + (0.5 - px) * width * ParentScale(main)
+            -- Fit can move the menu and action bar as a group. Center only
+            -- the status anchors we generated, retaining their vertical chain.
+            for _, statusAnchor in ipairs(placements) do
+                statusAnchor.offsetX = (rect.left + rect.right) / 2 - center
+            end
+            return
+        end
+    end
+end
+
 local function RefineForeverSecondaryBars(layout, rect, sourceDefaults, mainAnchor, mainFrame, statusHeight, attachToMain)
     local indices = Enum and Enum.EditModeActionBarSystemIndices
     local actionSystem = Enum and Enum.EditModeSystem and Enum.EditModeSystem.ActionBar
@@ -738,7 +762,7 @@ local function RefineForeverRightBars(layout, rect, sourceDefaults, targetSizes)
     return refined
 end
 
-local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerLayout)
+local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerLayout, foreverStatus)
     -- The native Gamepad preset has GamepadMainActionBar instead of keyboard
     -- ActionBar MainBar. Its manager-relative status bars must be handled
     -- before any keyboard-action-bar prerequisites or early returns.
@@ -859,6 +883,7 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerL
                 elseif foreverContainers then
                     if PlaceForeverStatus(entry, layout, rect, sourceDefaults, mainAnchor, mainFrame, attachToMain) then
                         refined = refined + 1
+                        if attachToMain then foreverStatus[#foreverStatus + 1] = entry.anchorInfo end
                     end
                 elseif not nativeClassic and PlaceFromMainAnchor(entry, mainAnchor, statusFrame,
                     mainWidth, 14, hudRight - statusWidth, mainTop + 3) then
@@ -932,7 +957,7 @@ local function RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerL
     return refined
 end
 
-local function RepairGeneratedForeverStatus(layout, source, rect)
+local function RepairGeneratedForeverStatus(layout, source, rect, foreverStatus)
     local systems = Enum and Enum.EditModeSystem
     local actions = Enum and Enum.EditModeActionBarSystemIndices
     local indices = Enum and Enum.EditModeStatusTrackingBarSystemIndices
@@ -994,9 +1019,13 @@ local function RepairGeneratedForeverStatus(layout, source, rect)
     if not overlap or not xp then return 0 end
     local defaults = {[xp] = true}
     if not PlaceForeverStatus(layout.systems[xp], layout, rect, defaults, mainAnchor, main, true) then return 0 end
+    foreverStatus[#foreverStatus + 1] = layout.systems[xp].anchorInfo
     local secondary = candidates[indices.StatusTrackingBar2]
-    return secondary and PlaceForeverStatus(layout.systems[secondary], layout, rect, defaults, mainAnchor, main, true)
-        and 2 or 1
+    if secondary and PlaceForeverStatus(layout.systems[secondary], layout, rect, defaults, mainAnchor, main, true) then
+        foreverStatus[#foreverStatus + 1] = layout.systems[secondary].anchorInfo
+        return 2
+    end
+    return 1
 end
 
 -- Fit only the generated copy. Resolve serialized dependencies instead of using
@@ -1748,12 +1777,12 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
     local actionIndices = Enum and Enum.EditModeActionBarSystemIndices
     local foreverActionSystem = editModeSystems and editModeSystems.ActionBar
     local foreverClassBar = actionIndices and actionIndices.ClassBar
-    local moved, transformed = 0, {}
+    local moved, transformed, foreverStatus = 0, {}, {}
     if legacyLayout then moved = matchingRecord.movedSystems or #(layout.systems or {}) end
     if preserveGenerated then moved = matchingRecord.movedSystems or #(layout.systems or {}) end
     if preserveGenerated and not repairFrameName then
         if Offhand.isForever then
-            moved = moved + RepairGeneratedForeverStatus(layout, source, rect)
+            moved = moved + RepairGeneratedForeverStatus(layout, source, rect, foreverStatus)
         elseif Offhand.isRetail then
             moved = moved + RebaseRetailStatusChain(layout, rect, sourceDefaults, transformed, source)
         end
@@ -1767,7 +1796,7 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
             return ExternallyOwnedSystem(entry) or (Offhand.isForever and foreverActionSystem ~= nil and foreverClassBar ~= nil
                 and entry.system == foreverActionSystem and entry.systemIndex == foreverClassBar)
         end)
-        RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerLayout)
+        RefineStandardHUDLayout(layout, rect, sourceDefaults, controllerLayout, foreverStatus)
         if Offhand.isRetail and not controllerLayout then
             moved = moved + RebaseRetailStatusChain(layout, rect, sourceDefaults, transformed)
         end
@@ -1815,6 +1844,7 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
         fitMoved, fitSkipped, fitStatus = FitNativeHUDLayout(layout, rect, sourceDefaults)
         moved = moved + fitMoved
     end
+    CenterForeverStatus(layout, rect, foreverStatus)
     -- A reported preview can outlive a layout that already contains the same
     -- repair. Saving that active layout again cannot justify another reload.
     if repairFrameName and generated and generated == activeSource
@@ -2027,7 +2057,9 @@ local function EllesmereTransferLayout(source, generated, rect, controller, targ
         return systems and indices and indices.ClassBar ~= nil
             and entry.system == systems.ActionBar and entry.systemIndex == indices.ClassBar
     end)
-    RefineStandardHUDLayout(projected, rect, defaults, controller)
+    local foreverStatus = {}
+    RefineStandardHUDLayout(projected, rect, defaults, controller, foreverStatus)
+    CenterForeverStatus(projected, rect, foreverStatus)
     local nativeProjection = DeepCopy(projected)
     if not controller then RefineForeverRightBars(projected, rect, defaults, targetSizes) end
     local result, defaultRows = DeepCopy(generated), {}

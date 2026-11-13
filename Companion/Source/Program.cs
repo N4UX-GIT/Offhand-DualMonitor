@@ -57,11 +57,11 @@ using Timer = System.Windows.Forms.Timer;
 #elif RDP_TEST
 [assembly: AssemblyVersion("2.1.3.0")]
 #else
-[assembly: AssemblyVersion("2.1.8.0")]
+[assembly: AssemblyVersion("2.1.9.0")]
 #endif
 #if UI_PREVIEW
-[assembly: AssemblyFileVersion("2.1.8.8005")]
-[assembly: AssemblyInformationalVersion("2.1.8")]
+[assembly: AssemblyFileVersion("2.1.9.8005")]
+[assembly: AssemblyInformationalVersion("2.1.9-beta.1")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
 [assembly: AssemblyInformationalVersion("2.1.3-beta.6")]
@@ -77,8 +77,8 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.8.1")]
-[assembly: AssemblyInformationalVersion("2.1.8")]
+[assembly: AssemblyFileVersion("2.1.9.1")]
+[assembly: AssemblyInformationalVersion("2.1.9-beta.1")]
 #endif
 
 namespace Offhand.Companion
@@ -4374,7 +4374,7 @@ namespace Offhand.Companion
 #elif RDP_TEST
         internal const string BaseVersion = "2.1.3";
 #else
-        internal const string BaseVersion = "2.1.8";
+        internal const string BaseVersion = "2.1.9-beta.1";
 #endif
 #if UI_PREVIEW
         internal const string ReleaseLabel = "UI Preview 5";
@@ -6961,9 +6961,9 @@ namespace Offhand.Companion
             {
                 if (whatsNew)
                 {
-                    AppendHelpSection(guide, sectionFont, "Store update checks",
-                        "For Microsoft Store installations, quiet update checks now run every six hours.",
-                        "Advanced and the Store button tooltip show the last check time. Microsoft Store manages downloads and installation. Portable GitHub checks remain manual.");
+                    AppendHelpSection(guide, sectionFont, "Workspace C preview",
+                        "With Offhand addon Beta 34, open the custom workspace editor to add Workspace C on a fourth display.",
+                        "Identify your displays and check the preview before applying. Four physical displays and mixed HDR or DPI configurations still need live testing.");
                     AppendHelpSection(guide, sectionFont, "Your saved setup",
                         "Your display selections, custom areas and profiles are preserved. If everything looks right, continue playing as usual.");
                     AppendHelpSection(guide, sectionFont, "If something looks wrong",

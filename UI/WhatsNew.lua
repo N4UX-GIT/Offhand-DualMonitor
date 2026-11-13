@@ -6,8 +6,9 @@ Offhand.WhatsNew = WhatsNew
 
 -- The paired Companion and the version published in Microsoft Store can differ.
 -- See docs/ADDON-RELEASE-NOTICES.md before updating either value.
-local storeVersion = "2.1.7"
+local storeVersion = "2.1.8"
 local releases = {
+    ["2.1.5-beta.34"] = { highlights = "WHATS_NEW_BETA34", companion = "2.1.9-beta.1" },
     ["2.1.5-beta.33"] = { highlights = "WHATS_NEW_BETA33" },
     ["2.1.5-beta.32"] = { highlights = "WHATS_NEW_BETA32", companion = "2.1.7" },
 }

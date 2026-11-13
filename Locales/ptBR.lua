@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "ptBR" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Novidades do Offhand v%s"
+L["WHATS_NEW_BETA34"] = "• Use /offhand centerline para conferir o alinhamento da tela principal.\n• Configure o EllesmereUI em um perfil separado depois de exportar um backup.\n• Experimente o espaço de trabalho C em um quarto monitor com a versão beta portátil correspondente do Companion."
 L["WHATS_NEW_BETA33"] = "• Melhor posicionamento das barras de ação e de experiência ao atualizar a interface do Mainhand.\n• Avisos mais claros após a configuração e a importação de layouts.\n• Melhor compatibilidade com o mapa-múndi, as bolsas e o Titan Panel no Forever."
 L["WHATS_NEW_BETA32"] = "• Ajuste o tamanho dos painéis separadamente em cada espaço de trabalho.\n• Veja as alterações antes de aplicar e use estimativas de escala do Windows com o Companion 2.1.7.\n• Melhorias no ajuste do mapa, nas instruções de configuração e na posição das janelas."
 L["WHATS_NEW_FALLBACK"] = "Consulte as notas completas para ver as mudanças desta versão."

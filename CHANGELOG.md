@@ -1,6 +1,26 @@
 # Changelog
 
-## [2.1.5-beta.33] - Unreleased
+## [2.1.5-beta.34] - Unreleased
+
+- Use `/offhand centerline` to toggle click-through center and quarter marks
+  on the Mainhand game view. The guide follows changes to the view.
+- Preview Workspace C on a fourth physical display with portable Companion
+  2.1.9-beta.1. Custom layouts can hold up to three workspaces. Existing
+  one- and two-workspace layouts still load, and the Companion checks addon
+  compatibility before applying a three-workspace span.
+- On Forever, center newly generated native XP and reputation bars on Mainhand
+  while keeping their vertical spacing above the action bar. The same centering
+  applies when rebuilding repairs a matching overlapping Beta 32 anchor.
+  Saved manual anchors retain their placement.
+- Recover unreachable Cooldown Manager New Layout and Import Layout dialogs
+  onto Mainhand outside combat, including when Edit Mode is closed.
+- Export an EllesmereUI profile backup before spanning. The import flow asks
+  for a new profile name and keeps the existing profile available. The preview
+  can also finish setup with the current profile.
+- What's New shows Companion 2.1.8 as the current Microsoft Store version and
+  identifies the paired portable beta separately.
+
+## [2.1.5-beta.33] - 2026-11-12
 
 - Rebuilding a Retail Mainhand HUD updates eligible action bars in a saved Beta
   32 layout, so the default rows clear Action Bar 1 and its status bars.
@@ -16,13 +36,6 @@
 - Improve narrow backpack fitting, preserve Titan Panel's bar anchors and the
   native queue status button, and keep eligible EllesmereUI bags open with Talents.
 - Load each workspace scaling module once per client manifest.
-- Use `/offhand centerline` to toggle alignment marks on the Mainhand game view.
-- Recover unreachable Cooldown Manager layout dialogs onto Mainhand outside
-  combat, including when Edit Mode is closed.
-- Custom layouts accept Workspace C on a fourth display with a compatible
-  Companion build. Four-monitor gameplay still needs live verification.
-
-This QA build contains the addon. Companion changes await a separate build.
 
 ## [2.1.5-beta.32] - 2026-11-11
 

@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "zhCN" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Offhand v%s 更新内容"
+L["WHATS_NEW_BETA34"] = "• 使用 /offhand centerline 检查主视图的对齐情况。\n• 导出备份后，在单独的配置文件中设置 EllesmereUI。\n• 使用配套的便携版 Companion 测试版，在第四台显示器上试用工作区 C。"
 L["WHATS_NEW_BETA33"] = "• 重建主屏界面时改进动作条和经验条的位置。\n• 设置完成和导入布局后的提示更清楚。\n• 改善 Forever 中世界地图、背包和 Titan Panel 的兼容性。"
 L["WHATS_NEW_BETA32"] = "• 可分别调整每个工作区的面板大小。\n• 应用前可预览更改，使用 Companion 2.1.7 还可根据 Windows 缩放比例估算大小。\n• 改善了地图适配、设置指引和弹窗位置。"
 L["WHATS_NEW_FALLBACK"] = "请查看完整发行说明，了解此版本的改动。"
