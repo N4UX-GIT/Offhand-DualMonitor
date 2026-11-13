@@ -1343,6 +1343,16 @@ local identifyCalls = 0
 addon.DisplayIdentify = { Show = function() identifyCalls = identifyCalls + 1 end, Hide = function() end }
 onboardingFrame:SetPage(4)
 assert(onboardingFrame.secondaryActionButton:IsShown(), "region labels must be available during placement")
+do
+    local previousEllesmere, wasForever = EllesmereUI, addon.isForever
+    addon.isForever = true
+    EllesmereUI = {ExportProfile = function() error("opening setup must not export a profile") end}
+    onboardingFrame:RefreshPlacementState()
+    assert(onboardingFrame.pageBody:GetText():find(addon.L.ELLESMERE_HUD_BACKUP_BEFORE_SPAN, 1, true),
+        "placement refresh must show backup guidance before spanning")
+    EllesmereUI, addon.isForever = previousEllesmere, wasForever
+    onboardingFrame:RefreshPlacementState()
+end
 onboardingFrame.secondaryActionButton.scripts.OnClick()
 assert(identifyCalls == 1)
 do
@@ -2909,13 +2919,22 @@ do
     assert(wizardFrame:IsShown() and wizardFrame.step == 6 and not OffhandCharDB.wizardRecoveryStep,
         string.format("reload must open Step 6 (step %s, total %s, recovery %s)", tostring(wizardFrame.step),
             tostring(wizardFrame.totalSteps), tostring(wizardFrame.recoveryReason)))
-    local previewButton
+    local previewButton, keepButton
     for _, child in ipairs({wizardFrame.pages[6]:GetChildren()}) do
         if child:GetObjectType() == "Button" and child:GetText() == addon.L.ELLESMERE_HUD_VISUAL then
             previewButton = child
         end
     end
-    assert(previewButton and not wizardFrame.pages[5]:IsShown())
+    for _, child in ipairs({wizardFrame:GetChildren()}) do
+        if child:GetObjectType() == "Button" and child:GetText() == addon.L.ELLESMERE_HUD_FINISH_CURRENT then
+            keepButton = child
+        end
+    end
+    assert(previewButton and not previewButton:IsShown() and keepButton and keepButton:IsShown()
+        and not wizardFrame.pages[5]:IsShown())
+    assert(wizardFrame.recommendedButton == wizardFrame.finishBtn
+        and wizardFrame.finishBtn:GetText() == addon.L.ELLESMERE_HUD_VISUAL,
+        "preview must be the recommended action before profile review")
     local transferTab = wizardFrame.progressRail.cells[6]
     assert(transferTab.text:GetText() == addon.L.SETUP_STAGE_ELLESMERE,
         "the progress tab must use the short product label")
@@ -2938,12 +2957,12 @@ do
     for index = 1, 6 do rail.cells[index].text.GetUnboundedStringWidth = nil end
     wizardFrame:LayoutStep()
     assert(transferTab.text.textScale == 1, "the next layout must restore the base tab text scale")
-    previewButton.scripts.OnClick()
+    wizardFrame.finishBtn.scripts.OnClick()
     assert(reopen and not wizardFrame:IsShown())
     reopen()
     assert(wizardFrame:IsShown() and wizardFrame.step == 6, "closing the preview returns to the same wizard step")
     previewGamepad = true
-    previewButton.scripts.OnClick()
+    wizardFrame.finishBtn.scripts.OnClick()
     assert(addon.Wizard:IsOpen(), "the Gamepad preview must keep automatic setup from covering the wizard")
     reopen()
     previewGamepad = nil
@@ -2953,12 +2972,12 @@ do
     assert(wizardFrame.step == 6 and createMainhandLayoutCount == creates + 1 and reloads == 1,
         "a matching existing layout must advance without being recreated or reloaded")
     addon.Mainhand.GetEllesmereLayoutSource = function() return {generated = generated, generatedActive = false} end
-    wizardFrame.finishBtn.scripts.OnClick()
+    keepButton.scripts.OnClick()
     assert(wizardFrame:IsShown() and wizardFrame.step == 5,
         "Finish Setup must recheck that Blizzard still has the matching layout active")
     addon.Mainhand.GetEllesmereLayoutSource = function() return {generated = generated, generatedActive = true} end
     wizardFrame.finishBtn.scripts.OnClick()
-    wizardFrame.finishBtn.scripts.OnClick()
+    keepButton.scripts.OnClick()
     assert(not wizardFrame:IsShown() and not OffhandCharDB.wizardProgressStep
         and not OffhandCharDB.wizardRecoveryStep, "Finish Setup must be available without an import")
 
@@ -2969,9 +2988,9 @@ do
     addon.Wizard:OpenHUDSetup(true)
     assert(wizardFrame.step == 6 and createMainhandLayoutCount == creates + 1 and reloads == 1,
         "enabling EllesmereUI with an active character layout must open Step 6 directly")
-    previewButton.scripts.OnClick()
+    wizardFrame.finishBtn.scripts.OnClick()
     reopen("inactive")
-    assert(wizardFrame.finishBtn:GetText() == addon.L.BTN_FINISH and not importPrompts,
+    assert(wizardFrame.finishBtn:GetText() == addon.L.BTN_FINISH and not keepButton:IsShown() and not importPrompts,
         "an inactive profile must leave Finish unchanged")
     previewButton.scripts.OnClick()
     importReload = true

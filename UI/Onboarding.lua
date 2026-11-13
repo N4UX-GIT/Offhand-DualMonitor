@@ -605,6 +605,10 @@ function Onboarding:CreateFrame()
         local text = string.format(L[key], "|cffffd100" .. L[buttonKey] .. "|r")
         if retryPlacement then text = L["ONBOARD_RELOAD_COMPLETE_PLACE"] .. "\n\n" .. text end
         if self.helpExpanded and method then text = text .. "\n\n" .. L["ONBOARD_PATH_" .. method .. "_4"] end
+        if needsSpan and Offhand.isForever and EllesmereUI
+            and type(EllesmereUI.ExportProfile) == "function" then
+            text = text .. "\n\n" .. L["ELLESMERE_HUD_BACKUP_BEFORE_SPAN"]
+        end
         self.pageBody:SetText(text)
         self.nextButton:SetEnabled(phase == 3 and ready and not combat)
         SetShown(self.actionButton,phase < 3 and not (phase == 2 and manualReload))

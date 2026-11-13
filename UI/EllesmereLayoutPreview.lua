@@ -197,6 +197,9 @@ local function Render(direction)
     if context and context.block == "ELLESMERE_HUD_OVERRIDES" then
         summary = L["ELLESMERE_HUD_OVERRIDES_HELP"]
     end
+    if direction ~= "blizzard" and context and not context.block and selected > 0 then
+        summary = (summary ~= "" and summary .. "\n" or "") .. L["ELLESMERE_HUD_NEW_PROFILE_NAME"]
+    end
     dialog.status:SetText(summary)
 end
 
