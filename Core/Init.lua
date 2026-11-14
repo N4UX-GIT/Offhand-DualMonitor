@@ -1371,6 +1371,19 @@ local function EvaluateEntryNotices(attempt)
     end
 end
 
+local function BeginLogout()
+    if Offhand._loggingOut then return end
+    -- Stop runtime layout before either logout handler reaches native code.
+    -- Leave temporary root scale to the next UI session. Resetting it here
+    -- can reenter layout while the old UI is being destroyed.
+    Offhand._loggingOut = true
+    Offhand._displayGeometryGeneration = (Offhand._displayGeometryGeneration or 0) + 1
+    local timer = Offhand._displayDebounceTimer
+    Offhand._displayDebounceTimer = nil
+    Offhand._displayGeometryTransitionActive = false
+    if timer and timer.Cancel then timer:Cancel() end
+end
+
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -1465,6 +1478,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         -- PLAYER_LEAVING_WORLD, during /reload. Capture once per transition so
         -- a later teardown event cannot replace the visible snapshot with an
         -- empty one after Blizzard has already hidden its panels.
+        if event == "PLAYER_LOGOUT" then BeginLogout() end
         if Offhand._openPanelsCapturedForTransition then return end
         Offhand._openPanelsCapturedForTransition = true
         if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:PauseForTransition() end
@@ -1540,6 +1554,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         Offhand._hasEnteredWorld = true
         -- Refresh viewport and layout after zone transition or loading screen
         C_Timer.After(0.5, function()
+            if Offhand._loggingOut then return end
             Offhand:ApplyFullLayout()
             local entryMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
             if Offhand.RawMouse and Offhand.RawMouse.Refresh then
@@ -1611,6 +1626,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         ScheduleCinematicViewportRecovery()
         if event == "CINEMATIC_STOP" then
             C_Timer.After(0.5, function()
+                if Offhand._loggingOut then return end
                 local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
                     and Offhand.Viewport:GetMetrics() or nil
                 if Offhand.RawMouse and Offhand.RawMouse.Refresh then
@@ -1629,6 +1645,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         end
 
     elseif event == "PLAYER_REGEN_ENABLED" then
+        if Offhand._loggingOut then return end
         ProcessCombatQueue()
         if Offhand.Wizard and Offhand.Wizard.ShowPendingWorkspaceReady
             and Offhand.Wizard:ShowPendingWorkspaceReady() then return end
@@ -1637,6 +1654,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         end
 
     elseif event == "UI_SCALE_CHANGED" or event == "DISPLAY_SIZE_CHANGED" then
+        if Offhand._loggingOut then return end
         -- A Companion span can dispatch several size/scale notifications while
         -- Blizzard is still rebuilding UIParent and Edit Mode geometry. Treat
         -- the whole burst as one transition and restore saved panels only after
@@ -1655,6 +1673,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 -- Only the newest settled generation may restore geometry.
                 if generation ~= Offhand._displayGeometryGeneration then return end
                 Offhand:ApplyFullLayout()
+                if Offhand._loggingOut then return end
                 local displayMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
                 if Offhand.RawMouse and Offhand.RawMouse.Refresh then
                     Offhand.RawMouse:Refresh(displayMetrics)
@@ -1686,7 +1705,7 @@ local isApplyingLayout = false
 local layoutPending = false
 
 function Offhand:ApplyFullLayout(preserveGlobalScale)
-    if not Offhand.db then return end
+    if Offhand._loggingOut or not Offhand.db then return end
     if InCombatLockdown() then
         if not layoutPending then
             layoutPending = true
@@ -2175,9 +2194,7 @@ SlashCmdList["Offhand"] = SlashCmdList["OFFHAND"]
 local logoutFix = CreateFrame('Frame')
 logoutFix:RegisterEvent('PLAYER_LOGOUT')
 logoutFix:SetScript('OnEvent', function()
-    if Offhand.Viewport and Offhand.Viewport.PrepareForLogout then
-        Offhand.Viewport:PrepareForLogout()
-    end
+    BeginLogout()
     if Offhand.RawMouse and Offhand.RawMouse.Restore then
         Offhand.RawMouse:Restore()
     end

@@ -389,6 +389,7 @@ function Viewport:ApplyNamePlateFrame(namePlate, targetEffectiveScale)
 end
 
 function Viewport:ApplyNamePlateVisualScale(metrics)
+    if Offhand._loggingOut then return end
     if not Offhand.db or not Offhand.db.enabled or not metrics or not metrics.isSpanned then
         self:RestoreNamePlateVisualScale()
         return
@@ -424,10 +425,11 @@ function Viewport:ApplyNamePlateVisualScale(metrics)
 end
 
 function Viewport:ScheduleNamePlateVisualScale()
-    if self.namePlateVisualScheduled then return end
+    if Offhand._loggingOut or self.namePlateVisualScheduled then return end
     self.namePlateVisualScheduled = true
     local function apply()
         Viewport.namePlateVisualScheduled = nil
+        if Offhand._loggingOut then return end
         local metrics = Offhand.db and Offhand.db.enabled and Viewport:GetMetrics() or nil
         Viewport:ApplyNamePlateVisualScale(metrics)
     end
@@ -602,7 +604,7 @@ end
 
 -- This is the sole scale owner. Never call it from HUD/frame-position hooks.
 function Viewport:ApplyGlobalScale()
-    if InCombatLockdown() or self.scaling or self.loggingOut then return end
+    if Offhand._loggingOut or InCombatLockdown() or self.scaling then return end
     local db=Offhand.db
     if not db then return end
     local metrics = db.enabled and self:GetMetrics() or nil
@@ -734,25 +736,6 @@ function Viewport:ApplyGlobalScale()
     -- reached their new values; normalizing before this point uses stale
     -- enemy/friendly scales on the first application.
     self:ApplyNamePlateVisualScale(m)
-end
-
-function Viewport:PrepareForLogout()
-    -- CVar restoration and native teardown can emit layout notifications.
-    -- Do not let those callbacks reapply the spanned scale during shutdown.
-    self.loggingOut = true
-    if InCombatLockdown() or not self.originalScale or not self.appliedScale then return end
-    -- Restore only the runtime root scale we still own. Modern layout never
-    -- changes uiScale/useUiScale, so restoring those legacy CVars alone cannot
-    -- release this temporary scale. A changed root belongs to another owner.
-    local ok, current = pcall(UIParent.GetScale, UIParent)
-    if not ok or math.abs(current - self.appliedScale) >= 0.00001 then return end
-    self.scaling = true
-    local restored = pcall(UIParent.SetScale, UIParent, self.originalScale)
-    self.scaling = false
-    if restored then
-        self.originalScale = nil
-        self.appliedScale = nil
-    end
 end
 
 function Viewport:IsDualActive()
@@ -950,6 +933,7 @@ function Viewport:CaptureDiagnostics(remember)
 end
 
 function Viewport:Apply()
+    if Offhand._loggingOut then return end
     if InCombatLockdown() then
         Offhand:RunOrQueueCombat(function() Viewport:Apply() end)
         return
