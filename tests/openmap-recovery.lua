@@ -1,7 +1,8 @@
 -- One-shot owner-coordinated recovery, including mixed-height physical voids.
 local addon = {isForever=true, db={enabled=true}, L=setmetatable({}, {__index=function(_, key) return key end})}
 local owner, combat, gamepad, held = "OpenMap", false, false, false
-addon.CanvasCompatibility = {GetWorldMapExternalOwner=function() return owner end}
+assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
+addon.CanvasCompatibility.GetWorldMapExternalOwner=function() return owner end
 addon.IsGamepadUIEnabled = function() return gamepad end
 InCombatLockdown = function() return combat end
 IsMouseButtonDown = function() return held end
@@ -94,8 +95,25 @@ metrics={isSpanned=false, gameLeft=0,gameRight=3000,gameBottom=0,gameTop=2200}
 assert(recovery:Run() and db.window[3]==3000)
 metrics={isSpanned=true, gameLeft=0,gameRight=1200,gameBottom=900,gameTop=2200}
 assert(recovery:Run() and db.window[3]==1200)
+OpenMap.version="v0.8.6"
+metrics.workspaceLeft, metrics.workspaceRight = 1200, 3000
+metrics.workspaceBottom, metrics.workspaceTop = 0, 1300
+assert(recovery:Run(true))
+assert(db.window[3]==4200 and db.window[4]==2552 and db.windowSize==oldSize and db.windowScale==oldScale)
+map:SetPoint("CENTER",UIParent,"CENTER",0,0)
+assert(map.point[4]==4200 and map.point[5]==2552,
+    "OpenMap 0.8.6 must retain the saved Offhand anchor when it reapplies its position")
+OpenMap.version="v0.8.7"
+metrics.workspaceBottom = 1000
+local workspaceAnchor, before = db.window, writes
+local fitted, fitReason = recovery:Run(true)
+assert(not fitted and fitReason=="workspace-fit" and db.window==workspaceAnchor and writes==before)
+metrics.workspaceBottom, metrics.isSpanned = 0, false
+assert(not recovery:Run(true) and db.window==workspaceAnchor and writes==before)
+metrics.isSpanned = true
 local printed
 addon.Print=function(_, text) printed=text end
+assert(recovery:RunAndReport(true) and printed=="OPENMAP_WORKSPACE_DONE")
 assert(recovery:RunAndReport() and printed=="OPENMAP_RECOVERY_DONE")
 combat=true; recovery:RunAndReport(); assert(printed=="OPENMAP_RECOVERY_COMBAT")
 print("PASS: OpenMap explicit recovery, ownership, scale/void geometry, guards, rollback and reporting")

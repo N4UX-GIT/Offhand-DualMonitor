@@ -1229,7 +1229,7 @@ function Options:CreateFloatingPanel()
         mapDesc:SetJustifyH("LEFT")
         mapDesc:SetWidth(530)
         mapDesc:SetWordWrap(true)
-        local recoverMap
+        local recoverMap, placeOpenMap
         if Offhand.isForever and Offhand.OpenMapRecovery then
             recoverMap = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
             recoverMap:SetHeight(24)
@@ -1237,21 +1237,45 @@ function Options:CreateFloatingPanel()
             recoverMap:SetScript("OnClick", function()
                 if IsIntegrationActive("OpenMap") then Offhand.OpenMapRecovery:RunAndReport() end
             end)
+            placeOpenMap = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
+            placeOpenMap:SetHeight(24)
+            placeOpenMap:SetText(L["OPENMAP_WORKSPACE_BUTTON"])
+            placeOpenMap:SetScript("OnClick", function()
+                if IsIntegrationActive("OpenMap") then Offhand.OpenMapRecovery:RunAndReport(true) end
+            end)
             if Offhand.SetTooltip then
                 Offhand:SetTooltip(recoverMap, L["OPENMAP_RECOVERY_BUTTON"], L["OPENMAP_RECOVERY_TIP"])
             end
         end
         function card2_1.RefreshIntegration(openMapOwner)
-            local description = L[IsIntegrationActive("Leatrix_Maps") and "COMPAT_LEATRIX"
-                or (Offhand.isForever and "MAP_MOVEMENT_FOREVER" or "MAP_KEEP_OPEN_DESC")]
+            local fadeHelp
+            if Offhand.isForever then
+                local fadeAddon = Offhand.CanvasCompatibility.GetWorldMapFadeAddon()
+                local mapAdapter = Offhand.CanvasForeverMap
+                if mapAdapter and mapAdapter.SupportsAddonMovementFade(fadeAddon, WorldMapFrame) then
+                    fadeHelp = "MAP_MOVEMENT_FOREVER"
+                elseif fadeAddon == "OpenMap" then fadeHelp = "MAP_MOVEMENT_OPENMAP"
+                elseif fadeAddon == "MapUtils" then fadeHelp = "MAP_MOVEMENT_MAPUTILS"
+                elseif fadeAddon == "MapWise" then fadeHelp = "MAP_MOVEMENT_MAPWISE"
+                else fadeHelp = "MAP_MOVEMENT_FOREVER" end
+            end
+            local description = L[fadeHelp
+                or (IsIntegrationActive("Leatrix_Maps") and "COMPAT_LEATRIX")
+                or "MAP_KEEP_OPEN_DESC"]
+            if openMapOwner then
+                description = L["OPENMAP_WORKSPACE_HELP"] .. " " .. description
+            end
             mapDesc:SetText(description)
             local top = descriptionTop + 12 + Controls.FitCompactParagraph(mapDesc, description, 530)
             if recoverMap then
                 SetShown(recoverMap, openMapOwner)
                 recoverMap:SetPoint("TOPLEFT", 12, -top)
                 recoverMap:SetPoint("TOPRIGHT", -12, -top)
+                SetShown(placeOpenMap, openMapOwner)
+                placeOpenMap:SetPoint("TOPLEFT", 12, -top - 30)
+                placeOpenMap:SetPoint("TOPRIGHT", -12, -top - 30)
             end
-            ResizeMonitorCard(card2_1, top + (recoverMap and openMapOwner and 36 or 0))
+            ResizeMonitorCard(card2_1, top + (recoverMap and openMapOwner and 66 or 0))
         end
         card2_1.RefreshIntegration(IsIntegrationActive("OpenMap") and Offhand.MapScale:GetState().owner == "OpenMap")
     end

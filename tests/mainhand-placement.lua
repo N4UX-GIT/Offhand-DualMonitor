@@ -758,6 +758,212 @@ WorldMapFrame = nil
 WorldMapMixin = nil
 OffhandCharDB.foreverGamepadPanelOffsets = nil
 
+do
+    local savedMap, savedCanvas, savedCVars = WorldMapFrame, addon.Canvas, C_CVar
+    local loadedAddons, spanned, workspace = {}, true, true
+    local savedAddOns, getRect = C_AddOns, addon.Mainhand.GetRect
+    addon.Mainhand.GetRect = function(self)
+        local rect = getRect(self)
+        rect.isSpanned = spanned
+        return rect
+    end
+    local map = frame("WorldMapFrame")
+    map.IsMaximized = function(self) return self.maximized == true end
+    map.SetAlpha = function() error("Offhand must not write map opacity") end
+    WorldMapFrame = map
+    addon.Canvas = { IsFrameOnWorkspace = function(candidate) return candidate == map and workspace end }
+    C_AddOns = {
+        IsAddOnLoaded = function(name) return loadedAddons[name] ~= nil end,
+        GetAddOnMetadata = function(name) return loadedAddons[name] end,
+    }
+    PlayerMovementFrameFader = {
+        RemoveFrame = function() error("Offhand must not remove the map from Blizzard's fader") end,
+        AddDeferredFrame = function() error("Offhand must not register the map with Blizzard's fader") end,
+    }
+    assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
+    assert(loadfile("Core/CanvasForeverMap.lua"))("Offhand", addon)
+    local persisted, override, writes, canOverride = true, nil, 0, true
+    C_CVar = {
+        GetCVarBool = function(name)
+            assert(name == "mapFade")
+            if override ~= nil then return override end
+            return persisted
+        end,
+        SetTempCVar = function(name, value)
+            assert(name == "mapFade" and value == "0")
+            if canOverride then override = false end
+        end,
+        RemoveTempCVar = function(name)
+            assert(name == "mapFade")
+            override = nil
+        end,
+        SetCVar = function(name, value)
+            assert(name == "mapFade" and (value == "0" or value == "1"))
+            persisted = value == "1"
+            writes = writes + 1
+            return true
+        end,
+    }
+    local function Update()
+        gamepadObserver:OnUpdate(0.21)
+    end
+    local function CanFade()
+        return C_CVar.GetCVarBool("mapFade") and not map:IsMouseOver()
+    end
+    map.IsMouseOver = function() return false end
+    gamepadObserver:OnUpdate(0.01)
+    gamepadObserver:OnUpdate(1.0)
+    Update()
+    assert(not CanFade() and persisted and writes == 0,
+        "the spanned Offhand map must suppress native movement fade by default")
+    currentInterfaceStyle = 1
+    gamepadObserver:OnUpdate(0.01)
+    gamepadObserver:OnUpdate(1.0)
+    assert(not CanFade(), "switching to keyboard UI must keep the workspace map opaque")
+    workspace = false
+    Update()
+    assert(CanFade(), "Mainhand must use the player's fade preference")
+    workspace = true
+    Update()
+    assert(not CanFade())
+    map.maximized = true
+    Update()
+    assert(CanFade(), "maximizing must restore the player's fade preference")
+    map.maximized, spanned = false, false
+    Update()
+    assert(CanFade(), "an unspanned map must use the player's fade preference")
+    spanned = true
+    Update()
+    assert(not CanFade())
+    addon.db.enabled = false
+    Update()
+    assert(CanFade(), "disabling Offhand must release the override")
+    addon.db.enabled = true
+    Update()
+    assert(not CanFade())
+    map:Hide()
+    gamepadObserver:OnUpdate(0.01)
+    assert(CanFade(), "closing the map must release the override on the first observation")
+    map:Show()
+
+    local openMapDB, refreshes = {moveFade = 0.5}, 0
+    local openMapModule = {enabled = true, db = openMapDB, RefreshExtras = function() refreshes = refreshes + 1 end}
+    OpenMap = {version = "v0.8.7", GetModule = function(_, name) assert(name == "worldmap"); return openMapModule end}
+    OpenMapAPI = {major = 1, version = 4, IsStitched = function() return false end}
+    OpenMapDB = {worldmap = openMapDB}
+    loadedAddons.OpenMap = "v0.8.7"
+    persisted = false -- OpenMap holds Blizzard's CVar itself.
+    Update()
+    assert(openMapDB.moveFade == 0 and not CanFade() and writes == 0)
+    workspace = false
+    Update()
+    assert(openMapDB.moveFade == 0.5 and refreshes == 1,
+        "OpenMap must resume its saved fade even when the same map stays open")
+    workspace = true
+    Update()
+    openMapDB.moveFade = 0.7
+    Update()
+    assert(openMapDB.moveFade == 0)
+    map:Hide()
+    Update()
+    assert(openMapDB.moveFade == 0.7 and refreshes == 1,
+        "preserve the newer OpenMap setting and leave reopening to OpenMap")
+    map:Show()
+    Update()
+    local previousCombat = InCombatLockdown
+    InCombatLockdown = function() return true end
+    workspace = false
+    Update()
+    assert(openMapDB.moveFade == 0.7 and refreshes == 1)
+    InCombatLockdown = previousCombat
+    Update()
+    assert(refreshes == 2, "resume the visible OpenMap fader after combat")
+    workspace = true
+    openMapModule.enabled = false
+    persisted = true
+    Update()
+    assert(not CanFade() and openMapDB.moveFade == 0.7,
+        "OpenMap's controller fallback uses Blizzard's map")
+    loadedAddons.OpenMap = nil
+    OpenMap, OpenMapAPI, OpenMapDB = nil, nil, nil
+
+    MAUTTAB = {}
+    loadedAddons.MapUtils = "1.7.0"
+    Update()
+    assert(MAUTTAB.WORLDMAPFADE == false and not CanFade())
+    workspace = false
+    Update()
+    assert(MAUTTAB.WORLDMAPFADE == nil and CanFade(), "restore the unset MapUtils preference")
+    workspace = true
+    loadedAddons.MapUtils = "99.0.0"
+    Update()
+    assert(MAUTTAB.WORLDMAPFADE == nil, "unknown MapUtils versions must keep their settings")
+    loadedAddons.MapUtils = nil
+    MAUTTAB = nil
+
+    MapWiseAtlasDB = {fadeMapWhileMoving = true}
+    MapWiseAPI = {version = "2.3.98", db = MapWiseAtlasDB, Integration = {native = map}}
+    loadedAddons.MapWise = "2.3.98"
+    Update()
+    assert(MapWiseAtlasDB.fadeMapWhileMoving == false and not CanFade())
+    MapWiseAPI.Integration.native = nil
+    Update()
+    assert(MapWiseAtlasDB.fadeMapWhileMoving == true and not CanFade(),
+        "restore MapWise when it yields the native map")
+    MapWiseAPI.Integration.native = map
+    Update()
+    assert(MapWiseAtlasDB.fadeMapWhileMoving == false)
+    map:Hide()
+    Update()
+    assert(MapWiseAtlasDB.fadeMapWhileMoving == true,
+        "restore the value read by the already-registered MapWise fade predicate")
+    map:Show()
+    loadedAddons.MapWise = nil
+    MapWiseAtlasDB, MapWiseAPI = nil, nil
+    loadedAddons.Leatrix_Maps = true
+    Update()
+    assert(not CanFade() and persisted, "Leatrix uses the same native fade preference")
+    map:Hide()
+    Update()
+    assert(CanFade())
+    map:Show()
+    persisted = false
+    Update()
+    map:Hide()
+    Update()
+    assert(not CanFade() and writes == 0, "must preserve a player preference that already disables fade")
+
+    persisted, canOverride = true, false
+    map:Show()
+    Update()
+    assert(not CanFade() and writes == 1, "use the verified CVar path when the temporary API has no effect")
+    assert(gamepadObserver.events.PLAYER_LOGOUT)
+    addon.CanvasForeverMap.ReleaseMovementFade()
+    assert(CanFade() and writes == 2, "restore fallback writes when leaving the workspace")
+    Update()
+    assert(not CanFade() and writes == 3)
+    persisted = true  -- a newer user or addon write supersedes the fallback
+    map:Hide()
+    Update()
+    assert(CanFade() and writes == 3, "release must respect the newer CVar value")
+    map:Show()
+    Update()
+    assert(not CanFade() and writes == 4)
+    MAUTTAB = {WORLDMAPFADE = true}
+    loadedAddons.MapUtils = "1.7.0"
+    Update()
+    assert(MAUTTAB.WORLDMAPFADE == false)
+    gamepadObserver:OnEvent("PLAYER_LOGOUT")
+    Update()
+    assert(CanFade() and writes == 5 and MAUTTAB.WORLDMAPFADE == true,
+        "logout must restore both preferences and stop reacquiring them")
+    MAUTTAB = nil
+    WorldMapFrame, addon.Canvas, C_CVar, C_AddOns = savedMap, savedCanvas, savedCVars, savedAddOns
+    addon.Mainhand.GetRect = getRect
+    addon.CanvasForeverMap, addon.CanvasCompatibility, PlayerMovementFrameFader = nil, nil, nil
+    currentInterfaceStyle = Enum.InputDeviceInterfaceType.Gamepad
+end
+
 -- Native open can assign the upper-left point even when an existing mover
 -- position is saved. Exercise a root and a load-on-demand alias between polls.
 local openingDestinations = {

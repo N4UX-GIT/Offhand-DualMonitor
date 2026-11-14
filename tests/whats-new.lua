@@ -116,7 +116,8 @@ assert(not dialog.link:IsShown() and not dialog.link.focus, "login must not take
 dialog.storeButton.scripts.OnClick()
 assert(dialog.link.text == addon.companionStoreUrl and dialog.link.focus and dialog.link.highlight)
 dialog.children[3].scripts.OnClick() -- Release notes link.
-assert(dialog.link.text:sub(-#firstRelease) == firstRelease, "full notes must match the loaded release")
+assert(dialog.link.text == "https://www.curseforge.com/wow/addons/offhand/files",
+    "the CurseForge hotfix must link to its publication channel")
 assert(dialog:GetHeight() - 44 > 52 + dialog.body:GetHeight(), "footer overlaps release notes")
 
 cinematic = true

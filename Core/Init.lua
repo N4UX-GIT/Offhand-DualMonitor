@@ -1779,7 +1779,7 @@ SlashCmdList["OFFHAND"] = function(msg)
     local cmd, arg = strsplit(" ", msg, 2)
 
     if cmd == "recovermap" and Offhand.OpenMapRecovery then
-        Offhand.OpenMapRecovery:RunAndReport()
+        Offhand.OpenMapRecovery:RunAndReport(strtrim(arg or "") == "offhand")
     elseif cmd == "ellesmere" and Offhand.EllesmereLayout then
         Offhand.EllesmereLayout:Run(strtrim(arg or ""))
     elseif cmd == "centerline" or cmd == "centre" or cmd == "center" then

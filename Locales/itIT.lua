@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "itIT" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Novità di Offhand v%s"
+L["WHATS_NEW_BETA35"] = "• Su Forever, la mappa del mondo rimane visibile su Offhand quando ti muovi.\n• Sposta OpenMap su Offhand."
 L["WHATS_NEW_BETA34"] = "• Usa /offhand centerline per controllare l’allineamento della visuale principale.\n• Configura EllesmereUI in un profilo separato dopo aver esportato un backup.\n• Prova l’area di lavoro C su un quarto schermo con la beta portatile di Companion abbinata."
 L["WHATS_NEW_BETA33"] = "• Migliorato il posizionamento delle barre delle azioni e dell’esperienza quando aggiorni l’interfaccia Mainhand.\n• Messaggi più chiari dopo la configurazione e l’importazione di un layout.\n• Migliore compatibilità con la mappa del mondo, le sacche e Titan Panel su Forever."
 L["WHATS_NEW_BETA32"] = "• Imposta la dimensione dei pannelli per ogni area di lavoro.\n• Visualizza le modifiche in anteprima e usa le stime di ridimensionamento di Windows con Companion 2.1.7.\n• Migliorati l’adattamento della mappa, la configurazione guidata e il posizionamento delle finestre."
@@ -806,7 +807,10 @@ L["COMPAT_BAGS"] = "Il tuo addon delle borse controlla le proprie finestre."
 L["COMPAT_MINIMAP"] = "Il tuo addon della minimappa controlla la propria finestra."
 L["COMPAT_AUTO"] = "Gli addon compatibili di borse e minimappa vengono rilevati automaticamente."
 L["MAP_KEEP_OPEN_DESC"] = "La mappa resta visibile quando ti muovi."
-L["MAP_MOVEMENT_FOREVER"] = "Per disattivare la trasparenza della mappa del mondo di Blizzard mentre ti muovi, digita /console mapFade 0. Per riattivarla, digita /console mapFade 1."
+L["MAP_MOVEMENT_FOREVER"] = "La mappa del mondo di Blizzard resta completamente visibile quando ti muovi con la mappa su Offhand."
+L["MAP_MOVEMENT_OPENMAP"] = "Nelle opzioni di aspetto di OpenMap, imposta la dissolvenza in movimento allo 0%."
+L["MAP_MOVEMENT_MAPUTILS"] = "In MapUtils, disattiva la trasparenza della mappa del mondo in movimento."
+L["MAP_MOVEMENT_MAPWISE"] = "Nelle impostazioni di visualizzazione di MapWise, disattiva la dissolvenza in movimento."
 L["PANELS_INDEPENDENT_DESC"] = "Consente di aprire insieme borse, personaggio, grimorio e mappa."
 
 -- Minimap & Menu
@@ -1042,10 +1046,14 @@ L["COMPANION_PRIMARY_WORKSPACE"] = " (principale)"
 
 -- Explicit OpenMap title recovery.
 L["OPENMAP_RECOVERY_BUTTON"] = "Recupera il titolo di OpenMap"
-L["OPENMAP_RECOVERY_TIP"] = "Riporta su Mainhand il titolo della mappa OpenMap aperta in modalità finestra e ne salva la posizione. Mantiene dimensioni e scala. Supporta OpenMap v0.7.5-beta su Forever. Esci prima dal combattimento."
+L["OPENMAP_RECOVERY_TIP"] = "Riporta su Mainhand il titolo della mappa OpenMap aperta in modalità finestra e ne salva la posizione. Mantiene dimensioni e scala. Supporta OpenMap v0.7.5-beta / v0.8.6 / v0.8.7 su Forever. Esci prima dal combattimento."
 L["OPENMAP_RECOVERY_DONE"] = "Titolo della mappa recuperato su Mainhand. Trascina la barra del titolo superiore per posizionarla."
 L["OPENMAP_RECOVERY_COMBAT"] = "Esci dal combattimento, poi riprova a recuperare il titolo di OpenMap."
-L["OPENMAP_RECOVERY_UNAVAILABLE"] = "Apri prima OpenMap in modalità finestra e rilascia il mouse. Il recupero supporta OpenMap v0.7.5-beta su Forever con Offhand attivo, interfaccia standard e nessun altro strumento per spostare la mappa."
+L["OPENMAP_RECOVERY_UNAVAILABLE"] = "Apri prima OpenMap in modalità finestra e rilascia il mouse. Il recupero supporta OpenMap v0.7.5-beta / v0.8.6 / v0.8.7 su Forever con Offhand attivo, interfaccia standard e nessun altro strumento per spostare la mappa."
+L["OPENMAP_WORKSPACE_BUTTON"] = "Sposta OpenMap su Offhand"
+L["OPENMAP_WORKSPACE_HELP"] = "OpenMap salva la posizione della mappa in modalità finestra. Per salvarla, usa la barra del titolo o «Sposta OpenMap su Offhand». Regola il limite di FPS nelle opzioni di aspetto di OpenMap."
+L["OPENMAP_WORKSPACE_DONE"] = "Posizione della finestra di OpenMap salvata su Offhand."
+L["OPENMAP_WORKSPACE_FIT"] = "La mappa in modalità finestra è troppo grande per Offhand. Ridimensionala con la maniglia nell’angolo di OpenMap o riduci la scala e riprova."
 
 -- Map scale ownership and availability.
 L["MAP_SCALE_TARGET_HELP"] = "Ridimensiona la mappa sul monitor attuale. L’adattamento automatico la adatta a quel monitor."

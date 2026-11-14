@@ -14,6 +14,7 @@ local L = Offhand.L or setmetatable({}, {
 
 Offhand.L = L
 L["WHATS_NEW_TITLE"] = "What's new in Offhand v%s"
+L["WHATS_NEW_BETA35"] = "• The World Map stays visible on Offhand while you move on Forever.\n• Move OpenMap to Offhand."
 L["WHATS_NEW_BETA34"] = "• Use /offhand centerline to check Mainhand alignment.\n• Set up EllesmereUI in a separate profile after exporting a backup.\n• Try Workspace C on a fourth display with the paired portable Companion beta."
 L["WHATS_NEW_BETA33"] = "• Improved action and XP bar placement when rebuilding the Mainhand HUD.\n• Clearer prompts after setup and layout import.\n• Better World Map, bag, and Titan Panel compatibility on Forever."
 L["WHATS_NEW_BETA32"] = "• Set panel sizes separately for each workspace.\n• Preview changes before applying them, and use Windows scaling estimates with Companion 2.1.7.\n• Improved map fitting, setup guidance, and popup placement."
@@ -952,7 +953,10 @@ L["MAP_SETTINGS"] = "World Map Scaling & Navigation"
 L["MAP_SCALE"] = "Map Scale (% of Native)"
 L["MAP_KEEP_OPEN"] = "Keep World Map open while running / walking"
 L["MAP_KEEP_OPEN_DESC"] = "Keeps the map visible while you move."
-L["MAP_MOVEMENT_FOREVER"] = "For the Blizzard world map, type /console mapFade 0 to turn off fading while moving. Type /console mapFade 1 to turn it back on."
+L["MAP_MOVEMENT_FOREVER"] = "The Blizzard world map stays fully visible while you move with it on Offhand."
+L["MAP_MOVEMENT_OPENMAP"] = "In OpenMap, set Look > Fade while moving to 0%."
+L["MAP_MOVEMENT_MAPUTILS"] = "In MapUtils, turn off Fade the world map while moving."
+L["MAP_MOVEMENT_MAPWISE"] = "In MapWise, turn off Fade while moving in the View settings."
 L["PANELS_INDEPENDENT"] = "Keep panels placed on Offhand Monitor open independently"
 L["RELOAD_PERSIST"] = "Persist open panels across reloads & zone transitions"
 L["REDIRECT_POPUPS"] = "Reroute popups & dialogs away from center bezel"
@@ -1072,10 +1076,14 @@ L["COMPANION_PRIMARY_WORKSPACE"] = " (primary)"
 
 -- Explicit OpenMap title recovery.
 L["OPENMAP_RECOVERY_BUTTON"] = "Recover OpenMap title"
-L["OPENMAP_RECOVERY_TIP"] = "Bring the open, windowed OpenMap title onto Mainhand and remember that position. Keeps size and scale. Supports OpenMap v0.7.5-beta on Forever. Leave combat first."
+L["OPENMAP_RECOVERY_TIP"] = "Bring the open, windowed OpenMap title onto Mainhand and remember that position. Keeps size and scale. Leave combat first."
 L["OPENMAP_RECOVERY_DONE"] = "Map title recovered on Mainhand. Drag its top title bar to place it."
 L["OPENMAP_RECOVERY_COMBAT"] = "Leave combat, then try Recover OpenMap title again."
-L["OPENMAP_RECOVERY_UNAVAILABLE"] = "Open the windowed OpenMap map first and release the mouse. Recovery supports OpenMap v0.7.5-beta on Forever with Offhand enabled, standard UI and no other map mover."
+L["OPENMAP_RECOVERY_UNAVAILABLE"] = "Open the windowed map and release the mouse. This action supports OpenMap v0.7.5-beta, v0.8.6, v0.8.7 on Forever with Offhand enabled, standard UI and no other map mover. For Offhand placement, span WoW first."
+L["OPENMAP_WORKSPACE_BUTTON"] = "Move OpenMap to Offhand"
+L["OPENMAP_WORKSPACE_HELP"] = "OpenMap saves its own windowed position. Use its title bar or Move OpenMap to Offhand to save the position. Set the map frame rate cap in OpenMap’s Look settings."
+L["OPENMAP_WORKSPACE_DONE"] = "OpenMap's windowed position is saved on Offhand."
+L["OPENMAP_WORKSPACE_FIT"] = "The windowed map is too large for Offhand. Resize it with OpenMap's corner grip or lower its scale, then try again."
 
 -- Map scale ownership and availability.
 L["MAP_SCALE_TARGET_HELP"] = "Scales the map on its current monitor. Auto Fit fits that monitor."

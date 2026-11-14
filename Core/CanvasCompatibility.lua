@@ -121,6 +121,36 @@ function Compatibility.GetWorldMapExternalOwner()
     return nil
 end
 
+function Compatibility.GetWorldMapFadeAddon()
+    if Compatibility.IsAddonLoaded("OpenMap") then return "OpenMap" end
+    if Compatibility.IsAddonLoaded("MapUtils") then return "MapUtils" end
+    if Compatibility.IsAddonLoaded("MapWise") then return "MapWise" end
+    if Compatibility.HasLeatrixMaps() then return "Leatrix_Maps" end
+end
+
+function Compatibility.GetOpenMapWorldMapModule()
+    local namespace, api = _G.OpenMap, _G.OpenMapAPI
+    if type(namespace) ~= "table" or type(namespace.GetModule) ~= "function"
+        or type(api) ~= "table" or api.major ~= 1 or api.version ~= 4 then return end
+    local version = namespace.version
+    if version ~= "v0.7.5-beta" and version ~= "v0.8.6" and version ~= "v0.8.7" then return end
+    local module = namespace:GetModule("worldmap")
+    local db = type(module) == "table" and module.db
+    if type(db) ~= "table" or db.enabled == false or type(_G.OpenMapDB) ~= "table"
+        or db ~= _G.OpenMapDB.worldmap then return end
+    return module, db
+end
+
+-- Placement and scaling require the stitched map's geometry contract.
+function Compatibility.GetOpenMapWindowModule()
+    if not Offhand.isForever or Compatibility.GetWorldMapExternalOwner() ~= "OpenMap" then return end
+    local module, db = Compatibility.GetOpenMapWorldMapModule()
+    local api = _G.OpenMapAPI
+    if not module or type(api.IsStitched) ~= "function" or not api.IsStitched() then return end
+    if type(module.MoveAnyOn) == "function" and module.MoveAnyOn() then return end
+    return module, db
+end
+
 local function IsWorldMapFrame(frameOrName)
     if type(frameOrName) == "string" then return frameOrName == "WorldMapFrame" end
     return frameOrName ~= nil and frameOrName == _G.WorldMapFrame
@@ -184,6 +214,22 @@ function Compatibility.GetDiagnostics(compact, coordinateFontRefreshCount)
         " | LeatrixMaps=loaded | CoordinateFontRefresh=%s",
         tostring(coordinateFontRefreshCount or "pending")) or ""
     local spellbookStatus = Compatibility.GetTBCSpellbookDiagnostics()
+    local openMapStatus = ""
+    if Offhand.isForever and mapOwner == "OpenMap" then
+        local ok, status = pcall(function()
+            local namespace, data = _G.OpenMap, _G.OpenMapDB
+            local version = type(namespace) == "table" and namespace.version
+            local db = type(data) == "table" and data.worldmap
+            if type(version) ~= "string" or type(db) ~= "table" then return end
+            local getCVar = C_CVar and C_CVar.GetCVar or _G.GetCVar
+            local cap = tonumber(db.mapFpsCap)
+            local current = type(getCVar) == "function" and tonumber(getCVar("maxFPS"))
+            return string.format(" | OpenMap=%s | MapFPSCap=%s | maxFPS=%s | OpenMapWindow=%s",
+                version, cap or "unavailable", current or "unavailable",
+                type(db.window) == "table" and "saved" or "none")
+        end)
+        if ok and status then openMapStatus = status end
+    end
     local bagStatus = ""
     if Offhand.CanvasPanelRegistry and Offhand.CanvasPanelRegistry.IsTBCPanelRuntime() then
         local snapshot = Offhand.db and Offhand.db.tbcWorkspaceBagSnapshot
@@ -202,7 +248,8 @@ function Compatibility.GetDiagnostics(compact, coordinateFontRefreshCount)
             Compatibility.HasMoveAny() and "loaded" or "absent", mapOwner) .. leatrixStatus .. spellbookStatus .. bagStatus
     end
     return string.format("MoveAny=%s | WorldMapOwner=%s",
-        Compatibility.HasMoveAny() and "loaded" or "absent", mapOwner) .. leatrixStatus .. spellbookStatus .. bagStatus
+        Compatibility.HasMoveAny() and "loaded" or "absent", mapOwner)
+        .. leatrixStatus .. spellbookStatus .. bagStatus .. openMapStatus
 end
 
 -- Support-only inspection. Never move, show, hook or read guide contents from

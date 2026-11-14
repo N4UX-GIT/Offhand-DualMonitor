@@ -1085,6 +1085,25 @@ assert(not WorldMapFrame:IsShown(),
     "Escape must retain native close behavior for a Mainhand map")
 
 do
+    local inCombat, pending, timers = true, {}, {}
+    local previousCombat, previousAfter = InCombatLockdown, C_Timer.After
+    InCombatLockdown = function() return inCombat end
+    addon.RunOrQueueCombat = function(_, fn) pending[#pending + 1] = fn end
+    C_Timer.After = function(_, fn) timers[#timers + 1] = fn end
+    WorldMapFrame:Show()
+    for _ = 1, 12 do
+        mapTransactions.RepairUIPanelTransaction(nil, true)
+        while #timers > 0 do table.remove(timers, 1)() end
+    end
+    assert(#pending == 1, "repeated panel transactions must retain only one combat map retry")
+    inCombat = false
+    pending[1]()
+    assert(WorldMapFrame:IsShown(), "combat settlement must preserve the latest map visibility")
+    WorldMapFrame:Hide()
+    InCombatLockdown, C_Timer.After, addon.RunOrQueueCombat = previousCombat, previousAfter, nil
+end
+
+do
     -- A keyboard map can grow once when dropped onto a larger workspace. AUTO
     -- must settle, while a numeric preference must retain the chosen size.
     addon.db.savedMainPositions.WorldMapFrame = nil

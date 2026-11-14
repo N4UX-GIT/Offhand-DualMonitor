@@ -17,6 +17,8 @@ local addon = {isForever=true, db={enabled=true,workspaceMapScale=1,mainMapScale
     Viewport={GetMetrics=function() return metrics end},
     Canvas={IsFrameOnWorkspace=function() return map.workspace end}}
 local applies = 0
+assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
+addon.CanvasCompatibility.GetWorldMapExternalOwner = function() return owner end
 function addon.Canvas:ConfigureWorldMap()
     applies = applies + 1
     map.scale = addon.db[map.workspace and "workspaceMapScale" or "mainMapScale"]
@@ -71,11 +73,21 @@ stitched=false; Refuses(); stitched=true
 ownerDB.enabled=false; Refuses(); ownerDB.enabled=true
 addon.db.enabled=false; Refuses(); addon.db.enabled=true
 OpenMap.version="v0.7.6-beta"; Refuses(); OpenMap.version="v0.7.5-beta"
+module.MoveAnyOn=function() return true end; Refuses(); module.MoveAnyOn=nil
 OpenMapAPI.version=5; Refuses(); OpenMapAPI.version=4
 OpenMapDB.worldmap={}; Refuses(); OpenMapDB.worldmap=ownerDB
 for _, name in ipairs({"MoveAny","LeatrixMaps","ClassicUIForever"}) do owner=name; Refuses() end
 owner="OpenMap"
 map.workspace=false
+OpenMap.version="v0.8.6"
+assert(scale:Set(1.2) and ownerDB.windowScale==1.2)
+OpenMap.version="v0.8.7"
 assert(scale:Set("AUTO") and ownerDB.windowScale==1.6,
     "Mainhand auto fit did not use the current owner's side and range")
+ownerDB.mapFpsCap = 24
+GetCVar = function(name) assert(name == "maxFPS"); return "24" end
+local diagnostics = addon.CanvasCompatibility.GetDiagnostics(false)
+assert(diagnostics:find("OpenMap=v0.8.7 | MapFPSCap=24 | maxFPS=24 | OpenMapWindow=saved", 1, true))
+assert(not addon.CanvasCompatibility.GetDiagnostics(true):find("MapFPSCap=", 1, true),
+    "map performance settings belong in detailed diagnostics")
 print("PASS: map settings route by active side/owner, fit and enforce version, fullscreen, combat and ownership guards")

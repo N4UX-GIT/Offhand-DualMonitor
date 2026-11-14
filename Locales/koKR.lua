@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "koKR" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Offhand v%s의 새로운 기능"
+L["WHATS_NEW_BETA35"] = "• Forever에서 세계 지도가 Offhand에 있으면 이동 중에도 표시됩니다.\n• OpenMap을 Offhand로 이동."
 L["WHATS_NEW_BETA34"] = "• /offhand centerline으로 주 화면의 정렬을 확인할 수 있습니다.\n• 백업을 내보낸 후 별도 프로필에서 EllesmereUI를 설정하세요.\n• 함께 제공되는 휴대용 Companion 베타로 네 번째 화면에서 작업 공간 C를 사용해 보세요."
 L["WHATS_NEW_BETA33"] = "• 메인핸드 HUD를 다시 만들 때 행동 단축바와 경험치 바의 배치를 개선했습니다.\n• 설정과 배치 가져오기가 끝난 뒤 표시되는 안내를 개선했습니다.\n• Forever에서 세계 지도, 가방, Titan Panel의 호환성을 개선했습니다."
 L["WHATS_NEW_BETA32"] = "• 작업 공간마다 패널 크기를 따로 설정할 수 있습니다.\n• 적용하기 전에 변경 사항을 미리 보고, Companion 2.1.7로 Windows 배율 추정치를 사용할 수 있습니다.\n• 지도 맞춤, 설정 안내, 팝업 위치를 개선했습니다."
@@ -806,7 +807,10 @@ L["COMPAT_BAGS"] = "가방 애드온이 가방 창을 제어합니다."
 L["COMPAT_MINIMAP"] = "미니맵 애드온이 미니맵을 제어합니다."
 L["COMPAT_AUTO"] = "호환되는 가방 및 미니맵 애드온을 자동 감지합니다."
 L["MAP_KEEP_OPEN_DESC"] = "이동 중에도 지도가 표시됩니다."
-L["MAP_MOVEMENT_FOREVER"] = "이동 중 블리자드 세계 지도가 흐려지지 않게 하려면 /console mapFade 0을 입력하세요. 다시 흐려지게 하려면 /console mapFade 1을 입력하세요."
+L["MAP_MOVEMENT_FOREVER"] = "블리자드 세계 지도가 Offhand에 있으면 이동 중에도 선명하게 표시됩니다."
+L["MAP_MOVEMENT_OPENMAP"] = "OpenMap 외형 설정에서 이동 중 흐려짐을 0%로 설정하세요."
+L["MAP_MOVEMENT_MAPUTILS"] = "MapUtils에서 이동 중 세계 지도를 투명하게 표시하는 옵션을 끄세요."
+L["MAP_MOVEMENT_MAPWISE"] = "MapWise 보기 설정에서 이동 중 흐려짐을 끄세요."
 L["PANELS_INDEPENDENT_DESC"] = "Allows opening bags, character pane, spellbook & map simultaneously."
 
 -- Minimap & Menu
@@ -1042,10 +1046,14 @@ L["COMPANION_PRIMARY_WORKSPACE"] = " (기본)"
 
 -- Explicit OpenMap title recovery.
 L["OPENMAP_RECOVERY_BUTTON"] = "OpenMap 제목 표시줄 복구"
-L["OPENMAP_RECOVERY_TIP"] = "열려 있는 창 모드 OpenMap의 제목 표시줄을 Mainhand로 가져와 위치를 저장합니다. 크기와 배율은 유지됩니다. Forever의 OpenMap v0.7.5-beta를 지원합니다. 먼저 전투에서 벗어나세요."
+L["OPENMAP_RECOVERY_TIP"] = "열려 있는 창 모드 OpenMap의 제목 표시줄을 Mainhand로 가져와 위치를 저장합니다. 크기와 배율은 유지됩니다. Forever의 OpenMap v0.7.5-beta / v0.8.6 / v0.8.7를 지원합니다. 먼저 전투에서 벗어나세요."
 L["OPENMAP_RECOVERY_DONE"] = "지도 제목 표시줄을 Mainhand로 복구했습니다. 위쪽 제목 표시줄을 끌어 지도를 배치하세요."
 L["OPENMAP_RECOVERY_COMBAT"] = "전투에서 벗어난 뒤 OpenMap 제목 표시줄 복구를 다시 시도하세요."
-L["OPENMAP_RECOVERY_UNAVAILABLE"] = "먼저 OpenMap을 창 모드로 열고 마우스 버튼을 놓으세요. Forever의 OpenMap v0.7.5-beta에서 Offhand가 활성화되고 기본 인터페이스를 사용하며 다른 지도 이동 도구가 없어야 합니다."
+L["OPENMAP_RECOVERY_UNAVAILABLE"] = "먼저 OpenMap을 창 모드로 열고 마우스 버튼을 놓으세요. Forever의 OpenMap v0.7.5-beta / v0.8.6 / v0.8.7에서 Offhand가 활성화되고 기본 인터페이스를 사용하며 다른 지도 이동 도구가 없어야 합니다."
+L["OPENMAP_WORKSPACE_BUTTON"] = "OpenMap을 Offhand로 이동"
+L["OPENMAP_WORKSPACE_HELP"] = "OpenMap은 창 모드 지도의 위치를 자체적으로 저장합니다. 제목 표시줄이나 ‘OpenMap을 Offhand로 이동’을 사용하여 위치를 저장하세요. 지도 프레임 속도 제한은 OpenMap의 외형 설정에서 조정할 수 있습니다."
+L["OPENMAP_WORKSPACE_DONE"] = "OpenMap 창 위치를 Offhand에 저장했습니다."
+L["OPENMAP_WORKSPACE_FIT"] = "창 모드 지도가 Offhand에 비해 너무 큽니다. OpenMap의 모서리 핸들로 크기를 줄이거나 배율을 낮춘 뒤 다시 시도하세요."
 
 -- Map scale ownership and availability.
 L["MAP_SCALE_TARGET_HELP"] = "현재 모니터에서 지도 크기를 조절합니다. 자동 맞춤은 해당 모니터에 맞춥니다."

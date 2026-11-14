@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "ruRU" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Что нового в Offhand v%s"
+L["WHATS_NEW_BETA35"] = "• В Forever карта мира остаётся видимой на Offhand во время движения.\n• Переместить OpenMap на Offhand."
 L["WHATS_NEW_BETA34"] = "• Проверьте выравнивание основного экрана командой /offhand centerline.\n• Настройте EllesmereUI в отдельном профиле после экспорта резервной копии.\n• Попробуйте рабочую область C на четвёртом экране с портативной бета-версией Companion из комплекта."
 L["WHATS_NEW_BETA33"] = "• Улучшено расположение панелей команд и опыта при обновлении интерфейса Mainhand.\n• Более понятные сообщения после настройки и импорта раскладки.\n• Улучшена совместимость с картой мира, сумками и Titan Panel в Forever."
 L["WHATS_NEW_BETA32"] = "• Настраивайте размер панелей отдельно для каждой рабочей области.\n• Просматривайте изменения перед применением и используйте расчёт масштаба Windows в Companion 2.1.7.\n• Улучшены размеры карты, подсказки по настройке и расположение всплывающих окон."
@@ -806,7 +807,10 @@ L["COMPAT_BAGS"] = "Окнами сумок управляет ваш аддон
 L["COMPAT_MINIMAP"] = "Мини-картой управляет ваш аддон."
 L["COMPAT_AUTO"] = "Совместимые аддоны сумок и мини-карты определяются автоматически."
 L["MAP_KEEP_OPEN_DESC"] = "Карта остаётся видимой во время движения."
-L["MAP_MOVEMENT_FOREVER"] = "Чтобы отключить прозрачность карты мира Blizzard при движении, введите /console mapFade 0. Чтобы снова включить её, введите /console mapFade 1."
+L["MAP_MOVEMENT_FOREVER"] = "Карта мира Blizzard остаётся полностью видимой при движении, пока она находится на Offhand."
+L["MAP_MOVEMENT_OPENMAP"] = "В настройках внешнего вида OpenMap установите затухание при движении на 0 %."
+L["MAP_MOVEMENT_MAPUTILS"] = "В MapUtils отключите прозрачность карты мира при движении."
+L["MAP_MOVEMENT_MAPWISE"] = "В настройках вида MapWise отключите «Прозрачность при движении»."
 L["PANELS_INDEPENDENT_DESC"] = "Allows opening bags, character pane, spellbook & map simultaneously."
 
 -- Minimap & Menu
@@ -1042,10 +1046,14 @@ L["COMPANION_PRIMARY_WORKSPACE"] = " (основная)"
 
 -- Explicit OpenMap title recovery.
 L["OPENMAP_RECOVERY_BUTTON"] = "Вернуть заголовок OpenMap"
-L["OPENMAP_RECOVERY_TIP"] = "Возвращает заголовок открытой оконной карты OpenMap на Mainhand и сохраняет положение. Размер и масштаб сохраняются. Поддерживается OpenMap v0.7.5-beta в Forever. Сначала выйдите из боя."
+L["OPENMAP_RECOVERY_TIP"] = "Возвращает заголовок открытой оконной карты OpenMap на Mainhand и сохраняет положение. Размер и масштаб сохраняются. Поддерживается OpenMap v0.7.5-beta / v0.8.6 / v0.8.7 в Forever. Сначала выйдите из боя."
 L["OPENMAP_RECOVERY_DONE"] = "Заголовок карты возвращён на Mainhand. Перетащите верхнюю строку заголовка, чтобы разместить карту."
 L["OPENMAP_RECOVERY_COMBAT"] = "Выйдите из боя и повторите восстановление заголовка OpenMap."
-L["OPENMAP_RECOVERY_UNAVAILABLE"] = "Сначала откройте OpenMap в оконном режиме и отпустите кнопку мыши. Восстановление поддерживает OpenMap v0.7.5-beta в Forever с включённым Offhand, стандартным интерфейсом и без других средств перемещения карты."
+L["OPENMAP_RECOVERY_UNAVAILABLE"] = "Сначала откройте OpenMap в оконном режиме и отпустите кнопку мыши. Восстановление поддерживает OpenMap v0.7.5-beta / v0.8.6 / v0.8.7 в Forever с включённым Offhand, стандартным интерфейсом и без других средств перемещения карты."
+L["OPENMAP_WORKSPACE_BUTTON"] = "Переместить OpenMap на Offhand"
+L["OPENMAP_WORKSPACE_HELP"] = "OpenMap сохраняет положение карты в оконном режиме. Перетащите карту за заголовок или нажмите «Переместить OpenMap на Offhand». Ограничение частоты кадров карты задаётся в настройках внешнего вида OpenMap."
+L["OPENMAP_WORKSPACE_DONE"] = "Положение окна OpenMap сохранено на Offhand."
+L["OPENMAP_WORKSPACE_FIT"] = "Карта в оконном режиме слишком велика для Offhand. Уменьшите её с помощью углового маркера OpenMap или уменьшите масштаб и повторите попытку."
 
 -- Map scale ownership and availability.
 L["MAP_SCALE_TARGET_HELP"] = "Масштаб карты на текущем мониторе. Автоподбор подгоняет карту под этот монитор."

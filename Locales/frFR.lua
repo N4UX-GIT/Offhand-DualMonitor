@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "frFR" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Nouveautés d’Offhand v%s"
+L["WHATS_NEW_BETA35"] = "• Sur Forever, la carte du monde reste visible sur Offhand lorsque vous vous déplacez.\n• Déplacer OpenMap sur Offhand."
 L["WHATS_NEW_BETA34"] = "• Utilisez /offhand centerline pour vérifier l’alignement de la vue principale.\n• Configurez EllesmereUI dans un profil distinct après avoir exporté une sauvegarde.\n• Essayez l’espace de travail C sur un quatrième écran avec la bêta portable de Companion associée."
 L["WHATS_NEW_BETA33"] = "• Meilleur placement des barres d’action et d’expérience lors de la mise à jour de l’interface Mainhand.\n• Messages plus clairs après la configuration et l’importation d’une disposition.\n• Meilleure compatibilité avec la carte du monde, les sacs et Titan Panel sur Forever."
 L["WHATS_NEW_BETA32"] = "• Réglez la taille des fenêtres séparément pour chaque espace de travail.\n• Prévisualisez les changements avant de les appliquer et utilisez les estimations de mise à l’échelle de Windows avec Companion 2.1.7.\n• Ajustement de la carte, aide à la configuration et positionnement des fenêtres améliorés."
@@ -805,7 +806,10 @@ L["COMPAT_BAGS"] = "Votre addon de sacs contrôle ses fenêtres."
 L["COMPAT_MINIMAP"] = "Votre addon de minicarte contrôle sa fenêtre."
 L["COMPAT_AUTO"] = "Les addons compatibles de sacs et de minicarte sont détectés automatiquement."
 L["MAP_KEEP_OPEN_DESC"] = "La carte reste visible pendant vos déplacements."
-L["MAP_MOVEMENT_FOREVER"] = "Pour désactiver la transparence de la carte du monde de Blizzard pendant vos déplacements, saisissez /console mapFade 0. Pour la réactiver, saisissez /console mapFade 1."
+L["MAP_MOVEMENT_FOREVER"] = "La carte du monde de Blizzard reste entièrement visible lorsque vous vous déplacez avec la carte sur Offhand."
+L["MAP_MOVEMENT_OPENMAP"] = "Dans les réglages d’apparence d’OpenMap, réglez l’atténuation en mouvement sur 0 %."
+L["MAP_MOVEMENT_MAPUTILS"] = "Dans MapUtils, désactivez la transparence de la carte du monde en mouvement."
+L["MAP_MOVEMENT_MAPWISE"] = "Dans les réglages d’affichage de MapWise, désactivez « Transparence en mouvement »."
 L["PANELS_INDEPENDENT_DESC"] = "Permet d'ouvrir simultanément les sacs, le personnage, le grimoire et la carte."
 
 -- Minimap & Menu
@@ -1041,10 +1045,14 @@ L["COMPANION_PRIMARY_WORKSPACE"] = " (principal)"
 
 -- Explicit OpenMap title recovery.
 L["OPENMAP_RECOVERY_BUTTON"] = "Récupérer le titre OpenMap"
-L["OPENMAP_RECOVERY_TIP"] = "Ramène le titre de la carte OpenMap ouverte en mode fenêtre sur Mainhand et mémorise sa position. Conserve taille et échelle. Compatible avec OpenMap v0.7.5-beta sur Forever. Quittez d’abord le combat."
+L["OPENMAP_RECOVERY_TIP"] = "Ramène le titre de la carte OpenMap ouverte en mode fenêtre sur Mainhand et mémorise sa position. Conserve taille et échelle. Compatible avec OpenMap v0.7.5-beta / v0.8.6 / v0.8.7 sur Forever. Quittez d’abord le combat."
 L["OPENMAP_RECOVERY_DONE"] = "Titre de la carte récupéré sur Mainhand. Faites glisser sa barre de titre supérieure pour la placer."
 L["OPENMAP_RECOVERY_COMBAT"] = "Quittez le combat, puis réessayez de récupérer le titre OpenMap."
-L["OPENMAP_RECOVERY_UNAVAILABLE"] = "Ouvrez d’abord OpenMap en mode fenêtre et relâchez la souris. La récupération nécessite OpenMap v0.7.5-beta sur Forever, Offhand activé, l’interface standard et aucun autre outil de déplacement de carte."
+L["OPENMAP_RECOVERY_UNAVAILABLE"] = "Ouvrez d’abord OpenMap en mode fenêtre et relâchez la souris. La récupération nécessite OpenMap v0.7.5-beta / v0.8.6 / v0.8.7 sur Forever, Offhand activé, l’interface standard et aucun autre outil de déplacement de carte."
+L["OPENMAP_WORKSPACE_BUTTON"] = "Déplacer OpenMap sur Offhand"
+L["OPENMAP_WORKSPACE_HELP"] = "OpenMap mémorise la position de la carte en mode fenêtre. Enregistrez-la avec la barre de titre ou « Déplacer OpenMap sur Offhand ». Réglez la limite d’images par seconde dans les réglages d’apparence d’OpenMap."
+L["OPENMAP_WORKSPACE_DONE"] = "La position de la fenêtre OpenMap est enregistrée sur Offhand."
+L["OPENMAP_WORKSPACE_FIT"] = "La carte en mode fenêtre est trop grande pour Offhand. Réduisez-la avec la poignée d’angle d’OpenMap ou baissez son échelle, puis réessayez."
 
 -- Map scale ownership and availability.
 L["MAP_SCALE_TARGET_HELP"] = "Modifie l’échelle de la carte sur son écran actuel. Le réglage auto l’adapte à cet écran."

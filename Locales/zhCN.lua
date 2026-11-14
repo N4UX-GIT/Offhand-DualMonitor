@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "zhCN" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Offhand v%s 更新内容"
+L["WHATS_NEW_BETA35"] = "• 在 Forever 中，世界地图位于 Offhand 时，移动也不会淡出。\n• 将 OpenMap 移到 Offhand."
 L["WHATS_NEW_BETA34"] = "• 使用 /offhand centerline 检查主视图的对齐情况。\n• 导出备份后，在单独的配置文件中设置 EllesmereUI。\n• 使用配套的便携版 Companion 测试版，在第四台显示器上试用工作区 C。"
 L["WHATS_NEW_BETA33"] = "• 重建主屏界面时改进动作条和经验条的位置。\n• 设置完成和导入布局后的提示更清楚。\n• 改善 Forever 中世界地图、背包和 Titan Panel 的兼容性。"
 L["WHATS_NEW_BETA32"] = "• 可分别调整每个工作区的面板大小。\n• 应用前可预览更改，使用 Companion 2.1.7 还可根据 Windows 缩放比例估算大小。\n• 改善了地图适配、设置指引和弹窗位置。"
@@ -806,7 +807,10 @@ L["COMPAT_BAGS"] = "背包插件自行管理背包窗口。"
 L["COMPAT_MINIMAP"] = "小地图插件自行管理小地图。"
 L["COMPAT_AUTO"] = "自动检测兼容的背包及小地图插件。"
 L["MAP_KEEP_OPEN_DESC"] = "移动时地图保持可见。"
-L["MAP_MOVEMENT_FOREVER"] = "要关闭移动时暴雪世界地图的淡出效果，请输入 /console mapFade 0。要重新启用，请输入 /console mapFade 1。"
+L["MAP_MOVEMENT_FOREVER"] = "暴雪世界地图位于 Offhand 时，移动中仍会完全显示。"
+L["MAP_MOVEMENT_OPENMAP"] = "在 OpenMap 的外观设置中，将移动时淡化设为 0%。"
+L["MAP_MOVEMENT_MAPUTILS"] = "在 MapUtils 中关闭移动时世界地图变透明的选项。"
+L["MAP_MOVEMENT_MAPWISE"] = "在 MapWise 的视图设置中关闭移动时淡化。"
 L["PANELS_INDEPENDENT_DESC"] = "Allows opening bags, character pane, spellbook & map simultaneously."
 
 -- Minimap & Menu
@@ -1042,10 +1046,14 @@ L["COMPANION_PRIMARY_WORKSPACE"] = "（主要）"
 
 -- Explicit OpenMap title recovery.
 L["OPENMAP_RECOVERY_BUTTON"] = "找回 OpenMap 标题栏"
-L["OPENMAP_RECOVERY_TIP"] = "将已打开的窗口模式 OpenMap 标题栏移到 Mainhand 并保存位置。保留大小和缩放。支持 Forever 的 OpenMap v0.7.5-beta。请先脱离战斗。"
+L["OPENMAP_RECOVERY_TIP"] = "将已打开的窗口模式 OpenMap 标题栏移到 Mainhand 并保存位置。保留大小和缩放。支持 Forever 的 OpenMap v0.7.5-beta / v0.8.6 / v0.8.7。请先脱离战斗。"
 L["OPENMAP_RECOVERY_DONE"] = "已将地图标题栏移回 Mainhand。拖动顶部标题栏即可重新放置地图。"
 L["OPENMAP_RECOVERY_COMBAT"] = "请脱离战斗后再次尝试找回 OpenMap 标题栏。"
-L["OPENMAP_RECOVERY_UNAVAILABLE"] = "请先以窗口模式打开 OpenMap 并松开鼠标。此功能支持 Forever 的 OpenMap v0.7.5-beta，需启用 Offhand、使用标准界面且没有其他地图移动工具。"
+L["OPENMAP_RECOVERY_UNAVAILABLE"] = "请先以窗口模式打开 OpenMap 并松开鼠标。此功能支持 Forever 的 OpenMap v0.7.5-beta / v0.8.6 / v0.8.7，需启用 Offhand、使用标准界面且没有其他地图移动工具。"
+L["OPENMAP_WORKSPACE_BUTTON"] = "将 OpenMap 移到 Offhand"
+L["OPENMAP_WORKSPACE_HELP"] = "OpenMap 会自行保存窗口模式下的地图位置。拖动标题栏或点击“将 OpenMap 移到 Offhand”可保存位置。地图帧率上限可在 OpenMap 的外观设置中调整。"
+L["OPENMAP_WORKSPACE_DONE"] = "已将 OpenMap 的窗口位置保存在 Offhand。"
+L["OPENMAP_WORKSPACE_FIT"] = "窗口模式下的地图太大，无法放进 Offhand。请拖动 OpenMap 的角落缩小窗口，或降低缩放比例后重试。"
 
 -- Map scale ownership and availability.
 L["MAP_SCALE_TARGET_HELP"] = "调整地图在当前显示器上的缩放。自动适配会使地图适合该显示器。"

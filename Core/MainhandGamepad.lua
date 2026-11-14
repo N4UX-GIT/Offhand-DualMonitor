@@ -1198,8 +1198,13 @@ function Mainhand:EnableForeverGamepadMainMenuAdapter()
         gamepadMainMenuController:RegisterEvent("ADDON_LOADED")
         gamepadMainMenuController:RegisterEvent("LOOT_OPENED")
         gamepadMainMenuController:RegisterEvent("LOOT_CLOSED")
+        gamepadMainMenuController:RegisterEvent("PLAYER_LOGOUT")
         gamepadMainMenuController:SetScript("OnEvent", function(_, event, addonName)
-            if event == "LOOT_OPENED" then
+            if event == "PLAYER_LOGOUT" then
+                local mapAdapter = Offhand.CanvasForeverMap
+                if mapAdapter then mapAdapter.ReleaseMovementFade(true) end
+                return
+            elseif event == "LOOT_OPENED" then
                 lootPending, lootElapsed = true, 0
                 return
             elseif event == "LOOT_CLOSED" then
@@ -1219,6 +1224,8 @@ function Mainhand:EnableForeverGamepadMainMenuAdapter()
     local worldMapMaximized
     local shownDestinations = {}
     gamepadMainMenuController:SetScript("OnUpdate", function(_, elapsed)
+        local worldMap = _G.WorldMapFrame
+        if not (worldMap and worldMap.IsShown and worldMap:IsShown()) then worldMap = nil end
         local currentGamepadMode = NativeGamepadInterface()
         if currentGamepadMode ~= stableGamepadMode then
             lootPending = false
@@ -1240,6 +1247,8 @@ function Mainhand:EnableForeverGamepadMainMenuAdapter()
         interfaceSettleElapsed = interfaceSettleElapsed + (elapsed or 0)
         if interfaceSettleElapsed < GAMEPAD_INTERFACE_SETTLE_SECONDS then
             HideDestinationPanelDragHandles()
+            local mapAdapter = Offhand.CanvasForeverMap
+            if mapAdapter and not worldMap then mapAdapter.ReleaseMovementFade() end
             return
         end
         radialElapsed = radialElapsed + (elapsed or 0)
@@ -1262,16 +1271,19 @@ function Mainhand:EnableForeverGamepadMainMenuAdapter()
                 shownDestinations[name] = visible
             end
         end
-        local worldMap = _G.WorldMapFrame
-        if not (worldMap and worldMap.IsShown and worldMap:IsShown()) then worldMap = nil end
         local maximized = worldMap and worldMap.IsMaximized and worldMap:IsMaximized()
-        local mapChanged = worldMap and (worldMap ~= shownWorldMap or maximized ~= worldMapMaximized)
+        local mapChanged = worldMap ~= shownWorldMap or maximized ~= worldMapMaximized
         shownWorldMap, worldMapMaximized = worldMap, maximized
         local panelInterval = stableGamepadMode and GAMEPAD_ACTIVE_PANEL_INTERVAL
             or GAMEPAD_INACTIVE_PANEL_INTERVAL
         local panelUpdateDue = panelElapsed >= panelInterval
-        if panelUpdateDue or mapChanged or destinationsChanged then
+        if panelUpdateDue or (worldMap and mapChanged) or destinationsChanged then
             Mainhand:CenterForeverGamepadDestinationPanels()
+        end
+        local mapAdapter = Offhand.CanvasForeverMap
+        if mapAdapter and (panelUpdateDue or mapChanged or destinationsChanged) then
+            mapAdapter.UpdateMovementFade(worldMap,
+                worldMap and Offhand.db and Offhand.db.enabled and Mainhand:GetRect().isSpanned)
         end
         if panelUpdateDue then
             panelElapsed = 0

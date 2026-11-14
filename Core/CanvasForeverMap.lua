@@ -3,6 +3,166 @@ local _, Offhand = ...
 local Adapter = {}
 Offhand.CanvasForeverMap = Adapter
 
+local fadeChecked, releaseFade, loggingOut
+local restoreOpenMapRefresh
+
+local function ReadOpenMapFade()
+    if not Offhand.CanvasCompatibility.IsAddonLoaded("OpenMap") then return end
+    local module, db = Offhand.CanvasCompatibility.GetOpenMapWorldMapModule()
+    if module and module.enabled and type(module.RefreshExtras) == "function"
+        and type(db.moveFade) == "number" and db.moveFade >= 0 and db.moveFade <= 0.9 then
+        return db, module
+    end
+end
+
+local function ReadMapUtilsFade()
+    local getMetadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
+    local db = _G.MAUTTAB
+    local compatibility = Offhand.CanvasCompatibility
+    if type(db) ~= "table" or not getMetadata
+        or not compatibility.IsAddonLoaded("MapUtils") then return end
+    local version = getMetadata("MapUtils", "Version")
+    if (version == "1.6.1" or version == "1.7.0")
+        and (db.WORLDMAPFADE == nil or type(db.WORLDMAPFADE) == "boolean") then return db end
+end
+
+local function ReadMapWiseFade(map)
+    local api = _G.MapWiseAPI
+    local compatibility = Offhand.CanvasCompatibility
+    if type(api) ~= "table" or (api.version ~= "2.3.87" and api.version ~= "2.3.98")
+        or not compatibility.IsAddonLoaded("MapWise") then return end
+    local db, integration = api.db, api.Integration
+    if type(db) == "table" and db == _G.MapWiseAtlasDB and type(db.fadeMapWhileMoving) == "boolean"
+        and type(integration) == "table" and integration.native == map then return db end
+end
+
+-- These reviewed implementations read their own fade preference at runtime.
+-- Let their existing update paths apply the change to the map.
+local addonFades = {
+    {name = "OpenMap", read = ReadOpenMapFade, key = "moveFade", opaque = 0},
+    {name = "MapUtils", read = ReadMapUtilsFade, key = "WORLDMAPFADE", opaque = false},
+    {name = "MapWise", read = ReadMapWiseFade, key = "fadeMapWhileMoving", opaque = false},
+}
+
+function Adapter.SupportsAddonMovementFade(name, map)
+    if not map then return false end
+    for _, fade in ipairs(addonFades) do
+        if fade.name == name then
+            local ok, db = pcall(fade.read, map)
+            return ok and db ~= nil
+        end
+    end
+    return false
+end
+
+local function RestoreAddonFade(fade)
+    local db = fade.db
+    if not db then return end
+    if db[fade.key] == fade.opaque then db[fade.key] = fade.previous end
+    fade.db, fade.previous = nil, nil
+end
+
+local function UpdateAddonFades(map)
+    local openMapActive
+    for _, fade in ipairs(addonFades) do
+        local ok, db, module = pcall(fade.read, map)
+        if not ok then db = nil end
+        if fade.db ~= db then RestoreAddonFade(fade) end
+        if db and db[fade.key] ~= fade.opaque then
+            fade.db, fade.previous = db, db[fade.key]
+            db[fade.key] = fade.opaque
+            if module then restoreOpenMapRefresh = module end
+        end
+        if module then openMapActive = true end
+    end
+    return openMapActive
+end
+
+local function RefreshReleasedOpenMapFade(map)
+    local module = restoreOpenMapRefresh
+    if not module then return end
+    if not map then restoreOpenMapRefresh = nil; return end
+    if InCombatLockdown and InCombatLockdown() then return end
+    restoreOpenMapRefresh = nil
+    local ok, db, activeModule = pcall(ReadOpenMapFade)
+    -- Its own refresh may have hidden the fader while the override was active.
+    -- Re-enable it through the vendor for a map that is still open.
+    if ok and db and db.moveFade ~= 0 and activeModule == module then pcall(module.RefreshExtras) end
+end
+
+local function ReadMapFade()
+    local read = C_CVar and C_CVar.GetCVarBool or GetCVarBool
+    if not read then return nil end
+    local ok, value = pcall(read, "mapFade")
+    if ok and type(value) == "boolean" and not (issecretvalue and issecretvalue(value)) then return value end
+end
+
+local function ReleaseNativeFade()
+    fadeChecked = false
+    if releaseFade and releaseFade() then releaseFade = nil end
+end
+
+function Adapter.ReleaseMovementFade(leaving, map)
+    if leaving then loggingOut = true end
+    ReleaseNativeFade()
+    for _, fade in ipairs(addonFades) do RestoreAddonFade(fade) end
+    RefreshReleasedOpenMapFade(not leaving and map)
+end
+
+function Adapter.UpdateMovementFade(map, spanned)
+    if loggingOut then return end
+    local canvas = Offhand.Canvas
+    local eligible = Offhand.isForever and spanned and map and map.IsShown and map:IsShown()
+        and (not map.IsVisible or map:IsVisible())
+        and not (map.IsMaximized and map:IsMaximized())
+        and not (map.IsForbidden and map:IsForbidden())
+        and canvas and canvas.IsFrameOnWorkspace
+    local ok, workspace
+    if eligible then ok, workspace = pcall(canvas.IsFrameOnWorkspace, map) end
+    if not ok or not workspace then
+        Adapter.ReleaseMovementFade(false, map)
+        return
+    end
+    -- OpenMap holds mapFade itself while its world map is active.
+    if UpdateAddonFades(map) then
+        ReleaseNativeFade()
+        return
+    end
+    if releaseFade or fadeChecked then return end
+    local original = ReadMapFade()
+    if original == nil then return end
+    fadeChecked = true
+    if not original then return end
+
+    -- Blizzard's predicate reads mapFade while moving. Override the CVar only
+    -- for the visible workspace map so the protected shared fader stays native.
+    local temporary, remove = C_CVar and C_CVar.SetTempCVar, C_CVar and C_CVar.RemoveTempCVar
+    if temporary and remove then
+        local function RemoveOverride()
+            local ok, result = pcall(remove, "mapFade")
+            return ok and result ~= false
+        end
+        local set = pcall(temporary, "mapFade", "0")
+        if set and ReadMapFade() == false then
+            releaseFade = RemoveOverride
+            return
+        end
+        if set then RemoveOverride() end
+    end
+    local write = C_CVar and C_CVar.SetCVar or SetCVar
+    if not write then return end
+    local written, result = pcall(write, "mapFade", "0")
+    if written and result ~= false and ReadMapFade() == false then
+        releaseFade = function()
+            local current = ReadMapFade()
+            if current == nil then return false end
+            if current then return true end
+            local restored, success = pcall(write, "mapFade", "1")
+            return restored and success ~= false and ReadMapFade() == true
+        end
+    end
+end
+
 function Adapter.GetDragHandleBounds(map, factor)
     local left, top = map:GetLeft(), map:GetTop()
     if not left or not top then return end
@@ -56,6 +216,7 @@ function Adapter.Install(Canvas, services)
             if not state.nativeGamepad then
                 state.nativeGamepad = true
                 state.settlementGeneration = (state.settlementGeneration or 0) + 1
+                state.resumeSettlement = nil
                 state.observedShown = nil
                 state.observedMaximized = nil
             end
@@ -91,6 +252,8 @@ function Adapter.Install(Canvas, services)
         end
 
         if not shown then
+            state.settlementGeneration = (state.settlementGeneration or 0) + 1
+            state.resumeSettlement = nil
             Canvas:SetWorkspacePanelOpen(map, false)
             if SupportsExternalWorldMapEscapeProtection(map) and (not Offhand.db or not Offhand.db.enabled
                 or Offhand.db.persistentWorkspacePanels == false) then
@@ -115,7 +278,16 @@ function Adapter.Install(Canvas, services)
                 or (map.IsMaximized and map:IsMaximized()) then return end
             if InCombatLockdown() then
                 if Offhand.RunOrQueueCombat then
-                    Offhand:RunOrQueueCombat(Settle)
+                    state.resumeSettlement = Settle
+                    if not state.combatSettlementQueued then
+                        state.combatSettlementQueued = true
+                        Offhand:RunOrQueueCombat(function()
+                            state.combatSettlementQueued = nil
+                            local resume = state.resumeSettlement
+                            state.resumeSettlement = nil
+                            if resume then resume() end
+                        end)
+                    end
                 end
                 return
             end

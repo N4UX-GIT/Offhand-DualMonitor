@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.1.5-beta.35] - 2026-11-14
+
+- On WoW Forever, the windowed World Map stays fully visible while you move
+  with it on Offhand. This applies to Blizzard's map and the reviewed versions
+  of OpenMap, MapUtils and MapWise. The map resumes its previous fade behavior
+  when it leaves Offhand.
+- Use **Move OpenMap to Offhand** in Offhand's World Map settings to save the
+  windowed map's position without changing its size or scale. Placement and
+  scaling support OpenMap v0.7.5-beta, v0.8.6 and v0.8.7 on Forever.
+
 ## [2.1.5-beta.34] - Unreleased
 
 - Use `/offhand centerline` to toggle click-through center and quarter marks

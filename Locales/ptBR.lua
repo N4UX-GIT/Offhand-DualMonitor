@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "ptBR" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Novidades do Offhand v%s"
+L["WHATS_NEW_BETA35"] = "• No Forever, o mapa-múndi permanece visível no Offhand enquanto você se move.\n• Mover OpenMap para Offhand."
 L["WHATS_NEW_BETA34"] = "• Use /offhand centerline para conferir o alinhamento da tela principal.\n• Configure o EllesmereUI em um perfil separado depois de exportar um backup.\n• Experimente o espaço de trabalho C em um quarto monitor com a versão beta portátil correspondente do Companion."
 L["WHATS_NEW_BETA33"] = "• Melhor posicionamento das barras de ação e de experiência ao atualizar a interface do Mainhand.\n• Avisos mais claros após a configuração e a importação de layouts.\n• Melhor compatibilidade com o mapa-múndi, as bolsas e o Titan Panel no Forever."
 L["WHATS_NEW_BETA32"] = "• Ajuste o tamanho dos painéis separadamente em cada espaço de trabalho.\n• Veja as alterações antes de aplicar e use estimativas de escala do Windows com o Companion 2.1.7.\n• Melhorias no ajuste do mapa, nas instruções de configuração e na posição das janelas."
@@ -806,7 +807,10 @@ L["COMPAT_BAGS"] = "Seu addon de bolsas controla suas janelas."
 L["COMPAT_MINIMAP"] = "Seu addon de minimapa controla sua janela."
 L["COMPAT_AUTO"] = "Addons compatíveis de bolsas e minimapa são detectados automaticamente."
 L["MAP_KEEP_OPEN_DESC"] = "O mapa permanece visível enquanto você se move."
-L["MAP_MOVEMENT_FOREVER"] = "Para desativar a transparência do mapa-múndi da Blizzard enquanto você se move, digite /console mapFade 0. Para reativá-la, digite /console mapFade 1."
+L["MAP_MOVEMENT_FOREVER"] = "O mapa-múndi da Blizzard permanece totalmente visível ao se mover com o mapa no Offhand."
+L["MAP_MOVEMENT_OPENMAP"] = "Nos ajustes de aparência do OpenMap, defina o esmaecimento ao se mover como 0%."
+L["MAP_MOVEMENT_MAPUTILS"] = "No MapUtils, desative a opção de deixar o mapa-múndi transparente ao se mover."
+L["MAP_MOVEMENT_MAPWISE"] = "Nos ajustes de visualização do MapWise, desative o esmaecimento ao se mover."
 L["PANELS_INDEPENDENT_DESC"] = "Allows opening bags, character pane, spellbook & map simultaneously."
 
 -- Minimap & Menu
@@ -1042,10 +1046,14 @@ L["COMPANION_PRIMARY_WORKSPACE"] = " (principal)"
 
 -- Explicit OpenMap title recovery.
 L["OPENMAP_RECOVERY_BUTTON"] = "Recuperar título do OpenMap"
-L["OPENMAP_RECOVERY_TIP"] = "Traz o título do mapa OpenMap aberto em modo de janela para Mainhand e salva a posição. Mantém tamanho e escala. Compatível com OpenMap v0.7.5-beta no Forever. Saia do combate primeiro."
+L["OPENMAP_RECOVERY_TIP"] = "Traz o título do mapa OpenMap aberto em modo de janela para Mainhand e salva a posição. Mantém tamanho e escala. Compatível com OpenMap v0.7.5-beta / v0.8.6 / v0.8.7 no Forever. Saia do combate primeiro."
 L["OPENMAP_RECOVERY_DONE"] = "Título do mapa recuperado em Mainhand. Arraste a barra de título superior para posicioná-lo."
 L["OPENMAP_RECOVERY_COMBAT"] = "Saia do combate e tente recuperar o título do OpenMap novamente."
-L["OPENMAP_RECOVERY_UNAVAILABLE"] = "Abra primeiro o OpenMap em modo de janela e solte o mouse. A recuperação requer OpenMap v0.7.5-beta no Forever, Offhand ativado, interface padrão e nenhuma outra ferramenta para mover o mapa."
+L["OPENMAP_RECOVERY_UNAVAILABLE"] = "Abra primeiro o OpenMap em modo de janela e solte o mouse. A recuperação requer OpenMap v0.7.5-beta / v0.8.6 / v0.8.7 no Forever, Offhand ativado, interface padrão e nenhuma outra ferramenta para mover o mapa."
+L["OPENMAP_WORKSPACE_BUTTON"] = "Mover OpenMap para Offhand"
+L["OPENMAP_WORKSPACE_HELP"] = "O OpenMap salva a posição do mapa em modo de janela. Use a barra de título ou “Mover OpenMap para Offhand” para salvá-la. Ajuste o limite de FPS nos ajustes de aparência do OpenMap."
+L["OPENMAP_WORKSPACE_DONE"] = "A posição da janela do OpenMap foi salva em Offhand."
+L["OPENMAP_WORKSPACE_FIT"] = "O mapa em modo de janela é grande demais para Offhand. Reduza o tamanho pela alça de canto do OpenMap ou diminua a escala e tente de novo."
 
 -- Map scale ownership and availability.
 L["MAP_SCALE_TARGET_HELP"] = "Ajusta a escala do mapa no monitor atual. O ajuste automático adapta o mapa a esse monitor."
