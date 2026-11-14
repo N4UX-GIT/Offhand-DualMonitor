@@ -163,6 +163,22 @@ local function SameInsets(a, b)
     for i = 1, 4 do if math.abs(a[i] - b[i]) > 0.01 then return false end end
     return true
 end
+
+-- A tooltip's own clamp insets, recorded once before PopupBounds first changes
+-- them. Every clamp is built from this baseline. Never adopt the insets found
+-- on the frame later: a previous Offhand clamp, or the comparison layout's own
+-- inset change, can still be there, and min/max with it would carry an
+-- Offhand-workspace limit into a Mainhand (world) tooltip.
+local nativeClampBaseline = setmetatable({}, { __mode = "k" })
+local function RecordNativeClamp(frame)
+    if nativeClampBaseline[frame] or not frame.GetClampRectInsets then return nativeClampBaseline[frame] end
+    local insets = { frame:GetClampRectInsets() }
+    for i = 1, 4 do
+        if not PublicNumber(insets[i]) then return nil end
+    end
+    nativeClampBaseline[frame] = { insets = insets }
+    return nativeClampBaseline[frame]
+end
 function PopupBounds:RestoreClassicTooltipClamp(frame)
     local state = classicClampState[frame]
     if not state and not tooltipFitState[frame] then return false end
@@ -258,14 +274,17 @@ function PopupBounds:UpdateClassicTooltipClamp(frame, preparing)
         frameScale = frame:GetEffectiveScale()
         if not PublicNumber(frameScale) or frameScale <= 0 then return false end
     end
+    local native = RecordNativeClamp(frame)
     local current = { frame:GetClampRectInsets() }
     local state = classicClampState[frame]
     if state and not SameInsets(current, state.applied) then
-        -- A native refresh or another owner supplied a new baseline.
+        -- Something else changed the insets (the comparison layout does).
+        -- Rebuild from the native baseline below instead of keeping theirs.
         classicClampState[frame] = nil
-        return false
+        state = nil
     end
-    state = state or { original = current, changedClamped = not frame:IsClampedToScreen() }
+    if not native then return false end
+    state = state or { original = { unpack(native.insets) }, changedClamped = not frame:IsClampedToScreen() }
     local factor = uiScale / frameScale
     local desired = {
         math.min(state.original[1], -minX * factor),
@@ -799,6 +818,7 @@ end
 function PopupBounds:ObserveTooltip(tooltip)
     if not tooltip or tooltip._OffhandBoundsObserved then return false end
     tooltip._OffhandBoundsObserved = true
+    RecordNativeClamp(tooltip) -- before any clamp or comparison layout touches it
     if tooltip.HookScript then
         if tooltip == _G.SettingsTooltip then
             tooltip:HookScript('OnShow',function(self)
