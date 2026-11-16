@@ -134,6 +134,12 @@ function Placement.InstallMainhand(Canvas, services)
     local IsBackpackRoot = services.IsBackpackRoot
     local ClearOtherBackpackRootState = services.ClearOtherBackpackRootState
     local IsFrameOnWorkspace = services.IsFrameOnWorkspace
+    local function GetRestedXPGuideFrame()
+        local compatibility = Offhand.HUDCompatibility
+        if compatibility and compatibility.GetRestedXPGuideFrame then
+            return compatibility.GetRestedXPGuideFrame()
+        end
+    end
 
     -- Support snapshots read only these known roots. Protected anchors may
     -- become secret in combat, even when the frame is still shown.
@@ -173,10 +179,11 @@ function Placement.InstallMainhand(Canvas, services)
         if foreverMap and ((self.CanManagePanelsFromAddon and not self.CanManagePanelsFromAddon())
             or (Offhand.CanvasFrameState and Offhand.CanvasFrameState.IsDragging(frame))) then return false end
         local name = frame.GetName and frame:GetName()
+        local recoverRestedXP = recoveryAction and not name and frame == GetRestedXPGuideFrame()
         if Offhand.isForever and Offhand.CanvasCompatibility.IsForeverEllesmereBag(name) then return false end
         if ShouldYieldFrameToClassicUIForever(frame, name) then return false end
         if ShouldYieldWorldMapToMoveAny(name or frame) then return false end
-        if recoveryAction and services.RemodalizePanel
+        if recoveryAction and name and services.RemodalizePanel
             and not (frame.IsForbidden and frame:IsForbidden())
             and not IsForeverEditModeFrame(frame, name) then
             -- A workspace menu may have been detached from UIPanelWindows.
@@ -188,7 +195,7 @@ function Placement.InstallMainhand(Canvas, services)
             IsBackpackRoot(name) or (UIPanelWindows and UIPanelWindows[name])
                 or IsForeverSocialPositionRoot(frame, name)
         )
-        if not name or (nonMovableSystemPanels and nonMovableSystemPanels[name])
+        if not (name or recoverRestedXP) or (nonMovableSystemPanels and nonMovableSystemPanels[name])
             or IsForeverEditModeFrame(frame, name)
             or (IsUnsafeForPanelMutation(frame, name) and not recoverySafePanel) then return false end
 
@@ -242,12 +249,12 @@ function Placement.InstallMainhand(Canvas, services)
         local pointFactor = parentScale / frameScale
 
         local ok = pcall(function()
-            if frame.SetClampedToScreen then frame:SetClampedToScreen(false) end
+            if name and frame.SetClampedToScreen then frame:SetClampedToScreen(false) end
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT",
                 clampedX * pointFactor, clampedY * pointFactor)
         end)
-        if ok and not IsForeverProfessionsPanel(frame, name) then RegisterSpecialFrame(name) end
+        if ok and name and not IsForeverProfessionsPanel(frame, name) then RegisterSpecialFrame(name) end
         return ok
     end
 
@@ -277,6 +284,7 @@ function Placement.InstallMainhand(Canvas, services)
                 candidates[frame] = true
             end
         end
+        local restedXPGuide = missingOnly and GetRestedXPGuideFrame()
         if onlyFrame then
             Add(onlyFrame)
         else
@@ -297,6 +305,7 @@ function Placement.InstallMainhand(Canvas, services)
             Add(_G.CharacterFrame)
             Add(_G.ContainerFrameCombinedBags)
             Add(_G.ContainerFrame1)
+            Add(restedXPGuide)
         end
 
         local moved, skipped = 0, 0
@@ -313,9 +322,10 @@ function Placement.InstallMainhand(Canvas, services)
                 local frameOnWorkspace = frameShown and IsFrameOnWorkspace(frame) or false
                 return frameName, frameShown, frameTracked, frameOnWorkspace
             end)
+            local isRestedXPGuide = frame == restedXPGuide
             local recover = shown and (tracked or onWorkspace)
             local reopen = false
-            if missingOnly and inspected and name and Offhand.Recovery then
+            if missingOnly and inspected and (name or isRestedXPGuide) and Offhand.Recovery then
                 local state = Offhand.Recovery.Inspect(frame, metrics)
                 local registry = Offhand.CanvasPanelRegistry
                 reopen = not onlyFrame and state == "hidden" and tracked and Offhand.db.openWorkspacePanels[name] == true
@@ -332,11 +342,12 @@ function Placement.InstallMainhand(Canvas, services)
                 end
                 recover = state == "missing" or reopen
             end
-            if inspected and recover and name
+            local reportName = name or (isRestedXPGuide and "RXPV2GuideWindow")
+            if inspected and recover and reportName
                 and frame ~= UIParent and frame ~= WorldFrame and frame ~= Offhand.canvas
                 and not IsForeverEditModeFrame(frame, name)
                 and not ShouldYieldFrameToClassicUIForever(frame, name)
-                and not ShouldYieldWorldMapToMoveAny(name) then
+                and not ShouldYieldWorldMapToMoveAny(name or frame) then
                 local foreverMap = Offhand.isForever and frame == _G.WorldMapFrame
                 if frame == _G.WorldMapFrame and frame.SetScale and not foreverMap then
                     pcall(frame.SetScale, frame, 1)
@@ -348,8 +359,12 @@ function Placement.InstallMainhand(Canvas, services)
                     placed = Offhand.Recovery.Inspect(frame, metrics) == "visible"
                 end
                 if placed then
-                    self.lastGatherReport[#self.lastGatherReport + 1] = name .. "=moved"
+                    self.lastGatherReport[#self.lastGatherReport + 1] = reportName .. "=moved"
                     moved = moved + 1
+                end
+                -- RestedXP saves its own anchor on logout/reload. Its widget
+                -- key is not a global frame name for Offhand's position store.
+                if placed and name then
                     Offhand.db.savedWorkspacePositions[name] = nil
                     Offhand.db.openWorkspacePanels[name] = nil
                     if Offhand.db.baganatorWorkspacePanels then
@@ -376,7 +391,7 @@ function Placement.InstallMainhand(Canvas, services)
                         local opened = pcall(ShowUIPanel, frame)
                         if not opened or not (frame.IsShown and frame:IsShown()) then skipped = skipped + 1 end
                     end
-                else
+                elseif not placed then
                     skipped = skipped + 1
                     local reason = "placement-unavailable"
                     pcall(function()
@@ -384,7 +399,7 @@ function Placement.InstallMainhand(Canvas, services)
                             reason = "protected-unregistered"
                         elseif IsWorldMapMaximized(frame) then reason = "native-maximized-map" end
                     end)
-                    self.lastGatherReport[#self.lastGatherReport + 1] = name .. "=" .. reason
+                    self.lastGatherReport[#self.lastGatherReport + 1] = reportName .. "=" .. reason
                 end
             elseif not inspected then
                 skipped = skipped + 1
@@ -392,7 +407,7 @@ function Placement.InstallMainhand(Canvas, services)
             elseif recover then
                 skipped = skipped + 1
                 local reason = IsForeverEditModeFrame(frame, name) and "native-HUD-or-EditMode" or "external-or-geometry-owner"
-                self.lastGatherReport[#self.lastGatherReport + 1] = tostring(name) .. "=" .. reason
+                self.lastGatherReport[#self.lastGatherReport + 1] = tostring(reportName or name) .. "=" .. reason
             end
         end
 

@@ -180,6 +180,12 @@ local function IsOrdinaryPopupValue(value)
     return ok and secret == false
 end
 
+function Compatibility.GetRestedXPGuideFrame()
+    -- V2 exposes an AceGUI widget whose actual UIParent child is anonymous.
+    local guide = _G.RXPV2GuideWindow
+    if type(guide) == "table" then return rawget(guide, "frame") end
+end
+
 -- Only automatic popup redirection yields here. Explicit workspace movement
 -- and each vendor's own position persistence keep their existing policies.
 function Compatibility.ShouldPreservePopupPosition(frame, name)
@@ -203,10 +209,10 @@ function Compatibility.ShouldPreservePopupPosition(frame, name)
     -- Details owns each numbered meter through its instance/LibWindow store.
     -- Its drag completion clears IsUserPlaced; configuration dialogs are separate.
     if type(name) == "string" and name:match("^DetailsBaseFrame%d+$") then return true end
-    -- RestedXP V2 exposes an AceGUI widget; its actual UIParent child is
-    -- anonymous. Consult the public widget on each pass for load-order changes.
-    local guide = _G.RXPV2GuideWindow
-    if type(guide) == "table" and rawget(guide, "frame") == frame then return true end
+    -- Baganator owns the backpack anchor and also clears IsUserPlaced on drag.
+    local bags = Offhand.BagPersistence
+    if bags and bags.IsBaganatorBackpackRoot and bags.IsBaganatorBackpackRoot(frame, name) then return true end
+    if Compatibility.GetRestedXPGuideFrame() == frame then return true end
     if type(frame.IsUserPlaced) == "function" then
         local ok, placed = pcall(frame.IsUserPlaced, frame)
         if not ok or not IsOrdinaryPopupValue(placed) or placed ~= false then return true end

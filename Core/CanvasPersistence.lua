@@ -523,6 +523,23 @@ function Persistence.InstallDrag(Canvas, services)
     return OnPanelDragStop
 end
 
+local function HasReachableNativeBaganatorAnchor(frame, name, metrics)
+    local bags = Offhand.BagPersistence
+    if not bags or not bags.IsBaganatorBackpackRoot
+        or not bags.IsBaganatorBackpackRoot(frame, name) or not frame.GetPoint then return false end
+    local point, relative, relativePoint = frame:GetPoint(1)
+    -- Baganator saves its title drag against a matching UIParent point.
+    -- An Offhand recovery instead uses TOPLEFT relative to BOTTOMLEFT.
+    if not point or point ~= relativePoint or (relative and relative ~= UIParent) then return false end
+    local left, top = frame:GetLeft(), frame:GetTop()
+    if not left or not top then return false end
+    local factor = frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
+    local x = (left + frame:GetWidth() / 2) * factor
+    local y = (top - frame:GetHeight() / 2) * factor
+    return x >= metrics.gameLeft and x <= metrics.gameRight
+        and y >= metrics.gameBottom and y <= metrics.gameTop
+end
+
 function Persistence.InstallRestore(Canvas, services)
     local ShouldYieldFrameToClassicUIForever = services.ShouldYieldFrameToClassicUIForever
     local ShouldYieldWorldMapToMoveAny = services.ShouldYieldWorldMapToMoveAny
@@ -666,6 +683,11 @@ function Persistence.InstallRestore(Canvas, services)
         local mPos = Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name]
         if type(mPos)=="table" and mPos.autoRoute and not m.workspaceRegions then mPos=nil end
         if type(mPos) == "table" and (mPos.autoRoute or mPos.x and mPos.y) then
+            -- A native title drag on Mainhand supersedes an earlier Gather.
+            if HasReachableNativeBaganatorAnchor(frame, name, m) then
+                Offhand.db.savedMainPositions[name] = nil
+                return
+            end
             if frame == WorldMapFrame then Canvas:ConfigureWorldMap() end
             RemodalizePanel(frame)
             Canvas:PlacePanelOnMainhand(frame, m, mPos, false)

@@ -71,14 +71,17 @@ local function IsDirectEscapeRoot(name, frame)
     return IsBaganatorRootName(name) or IsBagnonInventoryRoot(name, frame)
 end
 
-local function IsSupportedRoot(name, frame)
-    if name == "EUI_MainBagFrame" then return true end
-    if IsBagnonInventoryRoot(name, frame) then return true end
-    if not IsBaganatorRootName(name) then return false end
+function Bags.IsBaganatorBackpackRoot(frame, name)
     -- Baganator derives the names of every child region from the backpack
     -- root. A prefix-only match therefore also catches title text, textures,
     -- and buttons. Its actual backpack roots are direct UIParent children.
-    return frame and frame.GetParent and frame:GetParent() == UIParent
+    return IsBaganatorRootName(name) and frame and frame.GetParent
+        and frame:GetParent() == UIParent
+end
+
+local function IsSupportedRoot(name, frame)
+    return name == "EUI_MainBagFrame" or IsBagnonInventoryRoot(name, frame)
+        or Bags.IsBaganatorBackpackRoot(frame, name)
 end
 
 local function IsSpanned()
@@ -206,7 +209,11 @@ function Bags:RegisterRoot(name, frame)
                     Bags:Capture()
                 end)
     end
-    frame:HookScript("OnShow", function() Bags:Capture() end)
+    -- Baganator shows its root before laying out its contents. Sample after
+    -- that callback returns so the pre-layout size cannot revoke placement.
+    frame:HookScript("OnShow", function()
+        C_Timer.After(0, function() Bags:Capture() end)
+    end)
     frame:HookScript("OnHide", Changed)
     return true
 end
@@ -417,22 +424,30 @@ function Bags:Capture()
     if TrackEnabled() then
         for name, frame in pairs(self.frames) do
             if not (frame.IsForbidden and frame:IsForbidden()) and frame:IsVisible() then
+                local x = frame:GetLeft()
+                local y = frame.GetTop and frame:GetTop()
+                if not y and frame.GetBottom and frame.GetHeight then
+                    local bottom = frame:GetBottom()
+                    if bottom then y = bottom + frame:GetHeight() end
+                end
                 local previous=Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
                 local fitFallback=Offhand.CanvasPersistence and Offhand.CanvasPersistence.PreservedFitFallback
                     and Offhand.CanvasPersistence.PreservedFitFallback(frame,currentMetrics,previous)
                 if fitFallback then
                     snapshot=snapshot or {};snapshot[name]=fitFallback
+                elseif IsBaganatorRootName(name) and (not x or not y) then
+                    -- A visible backpack can still lack an actual rectangle
+                    -- while its vendor-owned anchor is being rebuilt.
+                    local saved = Offhand.db.baganatorWorkspacePanels
+                    if type(saved) == "table" and saved[name] then
+                        snapshot = snapshot or {}
+                        snapshot[name] = saved[name]
+                    end
                 elseif Offhand.Canvas.IsFrameOnWorkspace(frame) then
                     local factor = frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
-                    local x = frame:GetLeft()
-                    local y = frame.GetTop and frame:GetTop() or nil
-                    if not y and frame.GetBottom and frame.GetHeight then
-                        y = frame:GetBottom() + frame:GetHeight()
-                    end
                     if x and y then
                         local metrics = currentMetrics
                         if Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,frame) end
-                        local previous=Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
                         local position=Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:PreservedFallbackPosition(frame,metrics,previous)
                         if not position then position = {
                             x = x * factor, y = y * factor,

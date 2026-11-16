@@ -120,6 +120,9 @@ local tracker=addon.BagPersistence
 onEvent(nil,"PLAYER_LOGIN"); onEvent(nil,"PLAYER_ENTERING_WORLD"); flush()
 assert(tracker.frames[name] == bag and tracker.frames[childName] == nil,
     "Baganator child regions must not be mistaken for backpack roots")
+assert(tracker.IsBaganatorBackpackRoot(bag, name)
+    and not tracker.IsBaganatorBackpackRoot(child, childName),
+    "popup ownership must recognize the backpack root without claiming its children")
 assert(globalScans == 1,
     "Baganator discovery must scan globals only once during lifecycle initialization")
 for _ = 1, 15 do tick() end
@@ -153,6 +156,21 @@ assert(addon.db.baganatorWorkspacePanels[name].x==100)
 assert(addon.db.baganatorWorkspacePanels[name].y==300
     and addon.db.baganatorWorkspacePanels[name].coordinateVersion==2,
     "addon bag snapshots must store the top edge used by Canvas restoration")
+
+local positionBeforeRelayout = addon.db.savedWorkspacePositions[name]
+bag.shown=false; bag.x=2000; bag:Show()
+assert(addon.db.savedWorkspacePositions[name] == positionBeforeRelayout,
+    "vendor auto-open must not clear the workspace record before Baganator lays out the bag")
+bag.x=100; flush()
+assert(addon.db.savedWorkspacePositions[name].x == 100,
+    "bag show must capture the settled workspace geometry")
+positionBeforeRelayout=addon.db.savedWorkspacePositions[name]
+local openBeforeRelayout=addon.db.baganatorWorkspacePanels[name]
+bag.x=nil; tick()
+assert(addon.db.savedWorkspacePositions[name] == positionBeforeRelayout
+    and addon.db.baganatorWorkspacePanels[name] == openBeforeRelayout,
+    "temporarily unresolved geometry must preserve Baganator's saved anchor and open intent")
+bag.x=100; tick()
 -- UI teardown hides the bag before leaving; deferred hide must not erase state.
 bag:Hide(); onEvent(nil,"PLAYER_LEAVING_WORLD"); flush(); tick()
 assert(addon.db.baganatorWorkspacePanels[name])
@@ -165,7 +183,8 @@ bag:Hide(); flush(); assert(not next(addon.db.baganatorWorkspacePanels), "manual
 onEvent(nil,"PLAYER_LEAVING_WORLD"); onEvent(nil,"PLAYER_ENTERING_WORLD"); flush()
 assert(not bag.shown and toggles==1)
 bag.x=2000; bag:Show(); tick()
-assert(not next(addon.db.baganatorWorkspacePanels), "game-view bags must not be restored")
+assert(not next(addon.db.baganatorWorkspacePanels) and not addon.db.savedWorkspacePositions[name],
+    "a settled move to Mainhand must clear the old workspace placement and open intent")
 bag.x=100; tick(); bag:Hide(); onEvent(nil,"PLAYER_LEAVING_WORLD"); flush()
 combat=true; onEvent(nil,"PLAYER_ENTERING_WORLD"); flush(); assert(not bag.shown)
 combat=false; onEvent(nil,"PLAYER_REGEN_ENABLED"); flush(); assert(bag.shown)
