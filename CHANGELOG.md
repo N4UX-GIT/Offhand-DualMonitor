@@ -23,6 +23,8 @@
   Mainhand. Respect the workspace Escape setting for Leveldon Options.
 - Let Leveldon's guide and DonMap's arrow keep their own position and Escape
   behavior during normal panel operations.
+- Recover an off-screen Trade window on Forever and retry placement for
+  native dialogs that are still open when combat ends.
 - Center the stock Game Menu with ConsolePort, preserve the native gamepad
   reticle's vertical position, and repair the old centered XP bar anchor when
   rebuilding the Forever HUD.

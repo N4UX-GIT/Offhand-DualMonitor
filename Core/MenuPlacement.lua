@@ -5,7 +5,8 @@ local Menus = {}
 Offhand.MenuPlacement = Menus
 local owned = setmetatable({}, {__mode = "k"})
 local function Number(value)
-    return type(value) == "number" and value == value and math.abs(value) < math.huge
+    return not (issecretvalue and issecretvalue(value))
+        and type(value) == "number" and value == value and math.abs(value) < math.huge
 end
 local function Usable(frame)
     if not frame or not frame.IsShown or not frame:IsShown() or not Offhand.db or not Offhand.db.enabled
@@ -47,12 +48,107 @@ function Menus:Center(frame, metrics)
     return ok and centered == true
 end
 function Menus:Refresh()
+    self:RecoverForeverTrade()
     if not Offhand.db or not Offhand.db.enabled or (InCombatLockdown and InCombatLockdown()) then return end
     for frame, anchor in pairs(owned) do
         local ok, stillOwned = pcall(Matches, frame, anchor)
         if not ok or not stillOwned then owned[frame] = nil
         else self:Center(frame) end
     end
+end
+
+local function FitsDisplay(m, left, top, width, height)
+    local function Contained(l, b, r, t)
+        return Number(l) and Number(b) and Number(r) and Number(t)
+            and left >= l and left + width <= r and top <= t and top - height >= b
+    end
+    if Contained(m.gameLeft, m.gameBottom, m.gameRight, m.gameTop) then return true end
+    if not m.workspaceRegions then
+        return Contained(m.workspaceLeft, m.workspaceBottom, m.workspaceRight, m.workspaceTop)
+    end
+    for _, region in ipairs(m.workspaceRegions) do
+        if Contained(region.x, region.y, region.x + region.width, region.y + region.height) then return true end
+    end
+    return false
+end
+
+local function ReadTradeAnchor(frame)
+    if frame:GetNumPoints() ~= 1 then return end
+    local point, relative, relativePoint, x, y = frame:GetPoint(1)
+    if issecretvalue and (issecretvalue(point) or issecretvalue(relative) or issecretvalue(relativePoint)) then return end
+    if point == "TOPLEFT" and relative == UIParent and Number(x) and Number(y) then
+        return { point, relative, relativePoint, x, y }
+    end
+end
+
+local function SameTradeAnchor(a, b)
+    return a and b and a[3] == b[3] and math.abs(a[4] - b[4]) < 0.01 and math.abs(a[5] - b[5]) < 0.01
+end
+
+local function SetTradeAnchor(frame, original, desired)
+    if SameTradeAnchor(original, desired) then return true end
+    local function Apply(point)
+        frame:ClearAllPoints()
+        frame:SetPoint(unpack(point))
+    end
+    local wrote = pcall(Apply, desired)
+    local read, actual = pcall(ReadTradeAnchor, frame)
+    if wrote and read and SameTradeAnchor(actual, desired) then return true end
+    if not read or not SameTradeAnchor(actual, original) then pcall(Apply, original) end
+    return false
+end
+
+local tradePlacement
+function Menus:RecoverForeverTrade()
+    if not Offhand.isForever or Offhand._loggingOut or (InCombatLockdown and InCombatLockdown())
+        or (Offhand.IsGamepadUIEnabled and Offhand:IsGamepadUIEnabled()) then return false end
+    local canvas = Offhand.Canvas
+    if canvas and canvas.CanManagePanelsFromAddon and not canvas.CanManagePanelsFromAddon() then return false end
+    local frame, db = _G.TradeFrame, Offhand.db
+    if tradePlacement and tradePlacement.frame ~= frame then tradePlacement = nil end
+    if not frame or not db then return false end
+    local ok, recovered = pcall(function()
+        local policy, frameState = Offhand.HUDTransientPolicy, Offhand.CanvasFrameState
+        if not policy.CanPosition(frame) or (frame.IsUserPlaced and frame:IsUserPlaced())
+            or (frameState and frameState.IsDragging(frame)) then return false end
+        local current = ReadTradeAnchor(frame)
+        local state = tradePlacement
+        if state and not SameTradeAnchor(current, state.applied) then
+            tradePlacement, state = nil, nil
+        end
+        if not current then return false end
+        local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+        if not db.enabled or not db.seamRedirect or not m or not m.isSpanned or not frame:IsShown()
+            or (frame.IsVisible and not frame:IsVisible()) then
+            if state and SetTradeAnchor(frame, current, state.native) then tradePlacement = nil end
+            return false
+        end
+        if not state and current[3] ~= "TOPLEFT" then return false end
+        if (db.savedWorkspacePositions and db.savedWorkspacePositions.TradeFrame)
+            or (db.savedMainPositions and db.savedMainPositions.TradeFrame)
+            or (Offhand.WorkspaceRouting and Offhand.WorkspaceRouting:HasRule("TradeFrame", m)) then return false end
+
+        local scale, uiScale = frame:GetEffectiveScale(), UIParent:GetEffectiveScale()
+        local left, top, width, height = frame:GetLeft(), frame:GetTop(), frame:GetWidth(), frame:GetHeight()
+        if not Number(scale) or not Number(uiScale) or not Number(left) or not Number(top)
+            or not Number(width) or not Number(height) or scale <= 0 or uiScale <= 0
+            or width <= 0 or height <= 0 then return false end
+        local factor = scale / uiScale
+        if (not state and FitsDisplay(m, left * factor, top * factor, width * factor, height * factor))
+            or width * factor > m.gameRight - m.gameLeft or height * factor > m.gameTop - m.gameBottom then
+            return false
+        end
+        -- Blizzard uses TOPLEFT offsets for its UIPanel slots. Keep the same
+        -- offsets inside Mainhand and yield when another owner changes the anchor.
+        local native = state and state.native or current
+        local x = math.max(m.gameLeft / factor, math.min(m.gameRight / factor - width, m.gameLeft / factor + native[4]))
+        local y = math.min(m.gameTop / factor, math.max(m.gameBottom / factor + height, m.gameTop / factor + native[5]))
+        local desired = { "TOPLEFT", UIParent, "BOTTOMLEFT", x, y }
+        if not SetTradeAnchor(frame, current, desired) then return false end
+        tradePlacement = { frame = frame, native = native, applied = desired }
+        return true
+    end)
+    return ok and recovered == true
 end
 
 -- Cooldown Settings is an ordinary registered UIPanel, not a cooldown HUD
@@ -72,16 +168,7 @@ function Menus:RecoverForeverCooldownSettings(frame)
         end
         if factor <= 0 or width <= 0 or height <= 0 then return false end
         left, top, width, height = left*factor, top*factor, width*factor, height*factor
-        local function Contained(l, b, r, t)
-            return Number(l) and Number(b) and Number(r) and Number(t)
-                and left >= l and left+width <= r and top <= t and top-height >= b
-        end
-        if Contained(m.gameLeft, m.gameBottom, m.gameRight, m.gameTop) then return false end
-        if m.workspaceRegions then
-            for _, region in ipairs(m.workspaceRegions) do
-                if Contained(region.x, region.y, region.x+region.width, region.y+region.height) then return false end
-            end
-        elseif Contained(m.workspaceLeft, m.workspaceBottom, m.workspaceRight, m.workspaceTop) then return false end
+        if FitsDisplay(m, left, top, width, height) then return false end
         return self:Center(frame, m)
     end)
     return ok and recovered == true

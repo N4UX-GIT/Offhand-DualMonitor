@@ -1518,6 +1518,8 @@ local function RestoreSavedPositionAfterShow(frame)
     local mainPosition = name and Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name]
     local routed=Offhand.WorkspaceRouting and Offhand.WorkspaceRouting:HasRule(name,metrics)
     if not workspacePosition and not mainPosition and not routed then
+        -- Forever's trade panel settles through its native transaction observer.
+        if Offhand.isForever and frame == _G.TradeFrame then return end
         local isNativePanel = name and UIPanelWindows and UIPanelWindows[name]
             and not nonMovableSystemPanels[name]
         if isNativePanel then

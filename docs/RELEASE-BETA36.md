@@ -1,5 +1,3 @@
-<!-- offhand-companion-version: 2.1.8 -->
-
 # Offhand v2.1.5 Pre-Release Beta 36
 
 - Fixed an Offhand shutdown issue that could freeze WoW before the loading bar after `/reload`. In a WoW Forever test with the reported 4480×1440 layout, OpenMap and Leatrix Maps, the loading screen appeared in about four seconds with the fix, compared with about seven seconds on Beta 35.
@@ -20,10 +18,15 @@
   Mainhand. Respect the workspace Escape setting for Leveldon Options.
 - Preserve Leveldon guide and DonMap arrow ownership during Escape and
   vendor panel interactions.
+- Recover an off-screen Trade window on Forever and retry placement for
+  native dialogs that are still open when combat ends.
 - Center the stock Game Menu with ConsolePort, preserve the native gamepad
   reticle's vertical position, and repair the old centered XP bar anchor when
   rebuilding the Forever HUD.
 
-This beta updates the in-game addon. It remains paired with Companion 2.1.8.
+This addon beta pairs with Companion 2.1.8. The Microsoft Store version
+includes build 2.1.8.2, which retries Custom spans and window restores when
+Windows resizes WoW during a change in display scaling.
+[Offhand Companion on Microsoft Store](https://apps.microsoft.com/detail/9PL4PW84Q90W)
 
 The addon ZIP is `Offhand-v2.1.5-beta.36.zip`. It contains the `Offhand` folder for WoW's `Interface/AddOns` directory.

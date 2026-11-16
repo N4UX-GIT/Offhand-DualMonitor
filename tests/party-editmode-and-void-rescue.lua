@@ -3795,6 +3795,33 @@ end)()
     print("PASS: Collections and Character peer reflow, plus six additional Spellbook peers")
 end)()
 
+do
+    local priorFrame, priorPanel = TradeFrame, UIPanelWindows.TradeFrame
+    local main, workspace = addon.db.savedMainPositions, addon.db.savedWorkspacePositions
+    local priorMain, priorWorkspace = main.TradeFrame, workspace.TradeFrame
+    main.TradeFrame, workspace.TradeFrame = nil, nil
+    TradeFrame = makeMockFrame("TradeFrame", 340, 470)
+    UIPanelWindows.TradeFrame = {area = "left"}
+    TradeFrame:Hide()
+    TradeFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -104)
+    addon.Canvas.MakePanelDraggable(TradeFrame)
+    assert(TradeFrame.scripts.OnShow, "the trade drag handler must retain its normal OnShow entry point")
+    TradeFrame:Show()
+    flushTimers()
+    assert(select(3, TradeFrame:GetPoint(1)) == "TOPLEFT",
+        "generic Canvas placement must leave stock TradeFrame positioning to the native transaction observer")
+
+    TradeFrame:Hide()
+    main.TradeFrame = {x = metrics.gameLeft + 30, y = metrics.gameTop - 30}
+    TradeFrame:Show()
+    flushTimers()
+    assert(TradeFrame:GetLeft() == main.TradeFrame.x and TradeFrame:GetTop() == main.TradeFrame.y,
+        "a saved trade position must still use ordinary Canvas restore")
+    TradeFrame:Hide()
+    TradeFrame, UIPanelWindows.TradeFrame = priorFrame, priorPanel
+    main.TradeFrame, workspace.TradeFrame = priorMain, priorWorkspace
+end
+
 -- Professions remains isolated from automatic first-open behavior, while an
 -- explicitly moved Offhand instance gains reload and Escape-slot persistence.
 experimentalProfessionsMovement = true

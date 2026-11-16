@@ -39,7 +39,7 @@ function Transient.Install(HUD, services)
     end
 
     function HUD:PositionPremadeGroupDialogs(m, preparing)
-        if not (Offhand.isRetail or Offhand.isForever)
+        if Offhand._loggingOut or not (Offhand.isRetail or Offhand.isForever)
             or (InCombatLockdown and InCombatLockdown()) then return end
         m = m or (Offhand.Viewport and Offhand.Viewport:GetMetrics())
         local active = Offhand.db and Offhand.db.enabled and Offhand.db.seamRedirect
@@ -103,20 +103,59 @@ function Transient.Install(HUD, services)
         end
     end
 
+    local foreverDialogPlacementPending, foreverDialogCombatPending
+    local foreverPopupPending, foreverTradePending
+    local function SettleForeverDialogs()
+        if Offhand._loggingOut then return end
+        if InCombatLockdown() then
+            if not foreverDialogCombatPending and Offhand.RunOrQueueCombat then
+                foreverDialogCombatPending = true
+                Offhand:RunOrQueueCombat(function()
+                    foreverDialogCombatPending = false
+                    SettleForeverDialogs()
+                end)
+            end
+            return
+        end
+        local popupPending, tradePending = foreverPopupPending, foreverTradePending
+        foreverPopupPending, foreverTradePending = nil, nil
+        if tradePending and Offhand.MenuPlacement then Offhand.MenuPlacement:RecoverForeverTrade() end
+        if popupPending then HUD:PositionPremadeGroupDialogs() end
+    end
+
     local function HookPremadeGroupPlacement()
         if not (Offhand.isRetail or Offhand.isForever) or not hooksecurefunc then return end
         for _, name in ipairs({ "StaticPopup_SetUpPosition", "StaticPopupSpecial_Show",
-            "StaticPopupSpecial_Hide", "StaticPopup_Hide", "ShowUIPanel", "HideUIPanel" }) do
-            if (Offhand.isForever or (name ~= "ShowUIPanel" and name ~= "HideUIPanel"))
+            "StaticPopupSpecial_Hide", "StaticPopup_Hide", "ShowUIPanel", "HideUIPanel", "UpdateUIPanelPositions" }) do
+            local updatesPanels = name == "UpdateUIPanelPositions"
+            local togglesPanel = name == "ShowUIPanel" or name == "HideUIPanel"
+            if (Offhand.isForever or not (updatesPanels or togglesPanel))
                 and type(_G[name]) == "function" and not specialPopupHooks[name] then
                 specialPopupHooks[name] = true
                 hooksecurefunc(name, function(dialog)
                     if Offhand.isForever then
-                        -- Let native popup focus and panel transactions finish.
-                        -- No script or bookkeeping is attached to their roots.
-                        if C_Timer and C_Timer.After then
-                            C_Timer.After(0, function() HUD:PositionPremadeGroupDialogs() end)
+                        if Offhand._loggingOut or not C_Timer or not C_Timer.After then return end
+                        local trade = _G.TradeFrame
+                        if updatesPanels or togglesPanel then
+                            local ok, shown
+                            if trade and trade.IsShown then ok, shown = pcall(trade.IsShown, trade) end
+                            local tradeVisible = ok and not (issecretvalue and issecretvalue(shown)) and shown == true
+                            if tradeVisible or (togglesPanel and trade and dialog == trade) then
+                                foreverTradePending = true
+                            elseif updatesPanels then
+                                return
+                            end
                         end
+                        if not updatesPanels then foreverPopupPending = true end
+                        if foreverDialogPlacementPending or foreverDialogCombatPending then
+                            return
+                        end
+                        -- Native popup focus and UIPanel writes finish before recovery.
+                        foreverDialogPlacementPending = true
+                        C_Timer.After(0, function()
+                            foreverDialogPlacementPending = false
+                            SettleForeverDialogs()
+                        end)
                         return
                     end
                     -- SetUpPosition runs before Show; include that pending root.

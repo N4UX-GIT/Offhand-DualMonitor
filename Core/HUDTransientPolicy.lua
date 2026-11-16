@@ -92,6 +92,7 @@ end
 
 function Policy.IsNativeDialogRoot(frame)
     if not frame then return false end
+    if Offhand.isForever and frame == _G.TradeFrame then return true end
     if frame == _G.GuildInviteFrame or frame == _G.ChatConfigFrame
         or frame == _G.CooldownViewerLayoutDialog or frame == _G.CooldownViewerImportLayoutDialog then
         return true
