@@ -41,26 +41,30 @@ local function frame()
     function value:IsForbidden() return self.forbidden == true end
     function value:IsProtected() return self.protected == true end
     function value:GetParent() return UIParent end
-    function value:IsUserPlaced() return self.userPlaced end
+    function value:IsUserPlaced() return self.userPlaced == true end
+    function value:CanChangeProtectedState() return self.allowCombatPlacement == true end
+    function value:IsAnchoringRestricted() return self.restricted == true end
+    function value:IsAnchoringSecret() return self.secret == true end
     function value:GetNumPoints() return #self.points end
     function value:GetPoint(index)
         if self.failReadback then
             self.failReadback = nil
             error("native point readback failed")
         end
-        return unpack(self.points[index])
+        if self.points[index] then return unpack(self.points[index]) end
     end
     function value:GetEffectiveScale() return self.scale end
     function value:ClearAllPoints()
-        if combat then combatWriteAttempts = combatWriteAttempts + 1 end
+        local allowed = self:CanChangeProtectedState() and not (self:IsProtected() or self:IsAnchoringRestricted())
+        if combat and not allowed then combatWriteAttempts = combatWriteAttempts + 1 end
         if addon._loggingOut then shutdownWriteAttempts = shutdownWriteAttempts + 1 end
-        assert(not combat, "addon must defer combat placement")
+        assert(not combat or allowed, "addon must defer restricted combat placement")
         assert(not addon._loggingOut, "addon must not position frames during shutdown")
         self.points = {}
         self.writes = self.writes + 1
     end
     function value:SetPoint(...)
-        if combat then combatWriteAttempts = combatWriteAttempts + 1 end
+        if combat and not self:CanChangeProtectedState() then combatWriteAttempts = combatWriteAttempts + 1 end
         if addon._loggingOut then shutdownWriteAttempts = shutdownWriteAttempts + 1 end
         if select(3, ...) == "BOTTOMLEFT" then
             if self.rejectPlacement then
@@ -79,7 +83,7 @@ local function frame()
     value.Show, value.Hide = nativeLifecycleWrite, nativeLifecycleWrite
     return value
 end
-GuildInviteFrame, ChatConfigFrame, StaticPopup1 = frame(), frame(), frame()
+GuildInviteFrame, ChatConfigFrame, StaticPopup1, StaticPopup2 = frame(), frame(), frame(), frame()
 StaticPopup_SetUpPosition = function(dialog)
     dialog.points = {{"TOP", UIParent, "TOP", 0, -135}}
     return "native-position"
@@ -88,6 +92,20 @@ StaticPopupSpecial_Show = function(dialog)
     StaticPopup_SetUpPosition(dialog)
     dialog.shown = true
     return "native-show"
+end
+StaticPopup_FindVisible = function(which)
+    for _, popup in ipairs({StaticPopup1, StaticPopup2}) do
+        if popup.which == which and popup.shown then return popup end
+    end
+end
+local stackedInvite
+StaticPopup_Show = function(which)
+    local dialog = stackedInvite and StaticPopup2 or StaticPopup1
+    dialog.which = which
+    StaticPopup_SetUpPosition(dialog)
+    if stackedInvite then dialog.points = {{"TOP", StaticPopup1, "BOTTOM", 0, 0}} end
+    dialog.shown = true
+    return dialog
 end
 StaticPopupSpecial_Hide = function(dialog) dialog.shown = false end
 StaticPopup_Hide = function() StaticPopup1.shown = false end
@@ -201,12 +219,13 @@ assert(ChatConfigFrame.points[1][3] == "TOP")
 
 metrics.isSpanned = true
 ChatConfigFrame.shown = false
+-- Other popups and invites that refuse native permission still settle after combat.
 for _, which in ipairs({"PARTY_INVITE", "QUEST_ACCEPT"}) do
     combat = true
     local popupWrites = StaticPopup1.writes
-    StaticPopup1.which = which
+    StaticPopup1.allowCombatPlacement = which == "QUEST_ACCEPT"
     for _ = 1, 2 do
-        assert(StaticPopupSpecial_Show(StaticPopup1) == "native-show")
+        assert(StaticPopup_Show(which) == StaticPopup1)
         flush()
         assert(StaticPopup1.shown and StaticPopup1.points[1][3] == "TOP"
             and StaticPopup1.writes == popupWrites, which .. " must retain native placement in combat")
@@ -218,6 +237,49 @@ for _, which in ipairs({"PARTY_INVITE", "QUEST_ACCEPT"}) do
     StaticPopup_Hide()
     flush()
 end
+
+combat = true
+StaticPopup1.allowCombatPlacement = true
+assert(StaticPopup_Show("PARTY_INVITE") == StaticPopup1)
+assert(StaticPopup1.shown and StaticPopup1.points[1][3] == "BOTTOMLEFT"
+    and StaticPopup1.points[1][4] == 2925 and StaticPopup1.points[1][5] == 962,
+    "the native invite must be on Mainhand before the next update")
+StaticPopup_SetUpPosition(StaticPopup1)
+assert(StaticPopup1.points[1][3] == "BOTTOMLEFT", "a native stack reflow must not send the live invite offscreen")
+flush()
+leaveCombat()
+StaticPopup_Hide()
+flush()
+assert(StaticPopup1.points[1][3] == "TOP", "hiding the invite must release Offhand's anchor")
+
+combat = true
+StaticPopup1.which, StaticPopup1.shown = "OTHER_POPUP", true
+StaticPopup1.restricted = true
+StaticPopup2.allowCombatPlacement = true
+stackedInvite = true
+StaticPopup_Show("PARTY_INVITE")
+assert(StaticPopup1.points[1][3] == "TOP" and StaticPopup2.points[1][2] == StaticPopup1,
+    "a restricted stock root must retain the native stack")
+StaticPopup1.restricted = nil
+StaticPopup_Show("PARTY_INVITE")
+assert(StaticPopup1.points[1][3] == "BOTTOMLEFT" and StaticPopup2.points[1][2] == StaticPopup1,
+    "placement must move the stock stack root without unlinking the invite")
+flush()
+leaveCombat()
+StaticPopup2.shown, stackedInvite = false, false
+StaticPopup_Hide()
+flush()
+
+combat = true
+StaticPopup1.rejectPlacement = true
+StaticPopup_Show("PARTY_INVITE")
+assert(StaticPopup1.points[1][3] == "TOP", "a failed combat write must restore the native point")
+StaticPopup1.rejectPlacement = nil
+flush()
+leaveCombat()
+StaticPopup_Hide()
+flush()
+StaticPopup1.allowCombatPlacement, StaticPopup2.allowCombatPlacement = nil, nil
 
 -- The portrait workspace on the right leaves a physical void above Mainhand.
 metrics.gameLeft, metrics.gameRight, metrics.gameTop = 0, 1920, 1080
