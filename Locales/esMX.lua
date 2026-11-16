@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "esMX" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Novedades de Offhand v%s"
+L["WHATS_NEW_BETA36"] = "• Se corrigió un problema al cerrar la interfaz de Offhand que podía retrasar la pantalla de carga después de /reload."
 L["WHATS_NEW_BETA35"] = "• En Forever, el mapa del mundo sigue visible en Offhand al moverte.\n• Mover OpenMap a Offhand."
 L["WHATS_NEW_BETA34"] = "• Usa /offhand centerline para revisar la alineación de la vista principal.\n• Configura EllesmereUI en un perfil separado después de exportar una copia de seguridad.\n• Prueba el espacio de trabajo C en una cuarta pantalla con la beta portátil de Companion correspondiente."
 L["WHATS_NEW_BETA33"] = "• Mejor posición de las barras de acción y experiencia al actualizar el HUD de Mainhand.\n• Avisos más claros después de la configuración y la importación de diseños.\n• Mejor compatibilidad con el mapa del mundo, las bolsas y Titan Panel en Forever."

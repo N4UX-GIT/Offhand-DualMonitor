@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.1.5-beta.36] - Unreleased
+
+- Fixed an Offhand shutdown issue that could delay the loading screen after
+  /reload. In a matched WoW Forever test, the loading screen began in about
+  four seconds with the fix, compared with about seven seconds on Beta 35.
+
 ## [2.1.5-beta.35] - 2026-11-14
 
 - On WoW Forever, the windowed World Map stays fully visible while you move
